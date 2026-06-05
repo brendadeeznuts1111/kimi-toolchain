@@ -53,6 +53,10 @@ if [ -f package.json ]; then
     echo "── Lint ─────────────────────────────────────────────────────"
     bun run lint || exit 1
   fi
+  if grep -q '"typecheck"' package.json 2>/dev/null; then
+    echo "── Type check ───────────────────────────────────────────────"
+    bun run typecheck || exit 1
+  fi
 fi
 
 exit 0
@@ -158,7 +162,9 @@ async function installHooks(projectDir: string) {
 
   console.log("");
   log("info", "Hooks active. They will run on next commit/push.");
-  console.log("  pre-commit: blocks .env, format:check + lint, warns on TODO/console.log");
+  console.log(
+    "  pre-commit: blocks .env, format:check + lint + typecheck, warns on TODO/console.log"
+  );
   console.log("  pre-push:   guardian scan, R-Score gate (blocks F/D), check/test gate");
 }
 
@@ -215,13 +221,13 @@ async function doctorHooks(projectDir: string) {
   } else {
     const content = await Bun.file(preCommitPath).text();
     const hasKimi = content.includes("kimi-githooks");
-    const hasQuality = content.includes("format:check");
+    const hasQuality = content.includes("format:check") && content.includes("typecheck");
     checks.push({
       name: "pre-commit",
       status: hasKimi && hasQuality ? "ok" : hasKimi ? "warn" : "warn",
       message: hasKimi
         ? hasQuality
-          ? "Installed with format/lint gates"
+          ? "Installed with format/lint/typecheck gates"
           : "Installed but missing quality gates"
         : "Custom pre-commit (not managed)",
       fixable: !hasKimi || !hasQuality,

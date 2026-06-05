@@ -71,6 +71,44 @@ jobs:
         run: bun run test
 `;
 
+const TSCONFIG = `{
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["bun"]
+  },
+  "include": ["src/**/*", "test/**/*", "scripts/**/*"]
+}
+`;
+
+const BUN_GLOBALS = `/**
+ * Runtime APIs present in Bun 1.3+ that may lag behind bun-types.
+ * Remove entries as @types/bun catches up.
+ */
+/// <reference types="bun" />
+
+declare module "bun" {
+  const cwd: string;
+  const pid: number;
+
+  interface BunFile {
+    textSync(encoding?: string): string;
+  }
+}
+
+interface ReadableStream<R = any> {
+  [Symbol.asyncIterator](): AsyncIterator<R>;
+}
+`;
+
 const DX_CONFIG = `# Project DX + kimi runtime policy
 schemaVersion = 1
 
@@ -81,6 +119,7 @@ packageManager = "bun"
 [quality]
 formatter = "oxfmt"
 linter = "oxlint"
+typecheck = "bun run typecheck"
 
 [kimi]
 preflight = true
@@ -172,10 +211,15 @@ async function ensureQualityTooling(project: string, dryRun: boolean) {
   }
 
   const devDeps = pkg.devDependencies || {};
-  if (!devDeps.oxfmt || !devDeps.oxlint) {
-    log("deps", "installing oxfmt + oxlint...");
+  const missingDeps: string[] = [];
+  if (!devDeps.oxfmt) missingDeps.push("oxfmt");
+  if (!devDeps.oxlint) missingDeps.push("oxlint");
+  if (!devDeps.typescript) missingDeps.push("typescript");
+  if (!devDeps["@types/bun"]) missingDeps.push("@types/bun");
+  if (missingDeps.length > 0) {
+    log("deps", `installing ${missingDeps.join(", ")}...`);
     if (!dryRun) {
-      await $`bun add -d oxfmt oxlint`.cwd(project).quiet();
+      await $`bun add -d ${missingDeps}`.cwd(project).quiet();
     }
   }
 }
@@ -289,6 +333,22 @@ async function main() {
     await writeFile(join(project, "dx.config.toml"), DX_CONFIG, dryRun);
   }
 
+  // tsconfig.json (Bun bundler mode — see bun.com/docs/runtime/typescript)
+  if (!existsSync(join(project, "tsconfig.json"))) {
+    log("tsconfig", "creating tsconfig.json...");
+    await writeFile(join(project, "tsconfig.json"), TSCONFIG, dryRun);
+  }
+
+  // bun-globals.d.ts (type shims for runtime APIs ahead of bun-types)
+  const globalsPath = join(project, "src", "bun-globals.d.ts");
+  if (!existsSync(globalsPath)) {
+    log("types", "creating src/bun-globals.d.ts...");
+    if (!dryRun) {
+      mkdirSync(join(project, "src"), { recursive: true });
+    }
+    await writeFile(globalsPath, BUN_GLOBALS, dryRun);
+  }
+
   // package.json scripts + oxfmt/oxlint devDeps
   await ensureQualityTooling(project, dryRun);
 
@@ -306,9 +366,10 @@ async function main() {
   console.log("  1. Review generated files");
   console.log("  2. Replace @replace-me in CODEOWNERS with actual username");
   console.log("  3. Add copyright holder to LICENSE");
-  console.log("  4. Run 'bun run format:check' and 'bun run lint'");
-  console.log("  5. Run 'kimi-governance score' to check project health");
-  console.log("  6. Run 'kimi-doctor' to verify everything");
+  console.log("  4. Run 'bun run check' (format:check + lint + typecheck + test)");
+  console.log("  5. Run 'kimi-githooks install' to enable pre-commit/pre-push gates");
+  console.log("  6. Run 'kimi-governance score' to check project health");
+  console.log("  7. Run 'kimi-doctor' to verify everything");
   console.log("");
   if (dryRun) {
     console.log("✓ Dry run complete. Remove --dry-run to apply.");

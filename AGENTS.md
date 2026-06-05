@@ -195,13 +195,13 @@ bun run typecheck        # TypeScript validation
 
 ### Quality gates (enforced)
 
-| Layer      | Command / hook                                                   |
-| ---------- | ---------------------------------------------------------------- |
-| Local      | `bun run check` or `bun run unify`                               |
-| pre-commit | `format:check` + `lint` (via `kimi-githooks install`)            |
-| pre-push   | `check` script + guardian + R-Score gate                         |
-| CI         | `.github/workflows/ci.yml` — format:check, lint, typecheck, test |
-| Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`) |
+| Layer      | Command / hook                                                      |
+| ---------- | ------------------------------------------------------------------- |
+| Local      | `bun run check` or `bun run unify`                                  |
+| pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`) |
+| pre-push   | `check` script + guardian + R-Score gate                            |
+| CI         | `.github/workflows/ci.yml` — format:check, lint, typecheck, test    |
+| Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)    |
 
 Install hooks: `kimi-githooks install` or `kimi-githooks fix` to refresh outdated hooks.
 

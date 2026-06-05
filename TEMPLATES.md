@@ -154,7 +154,51 @@ No ADRs yet. Create one: `bun run ~/.kimi-code/tools/kimi-governance.ts adr "<ti
 }
 ```
 
-Install: `bun add -d oxfmt oxlint`
+Install: `bun add -d oxfmt oxlint typescript @types/bun`
+
+## tsconfig.json Template
+
+Bun bundler mode — per [Bun TypeScript docs](https://bun.com/docs/runtime/typescript):
+
+```json
+{
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["bun"]
+  },
+  "include": ["src/**/*", "test/**/*", "scripts/**/*"]
+}
+```
+
+Run type checking separately: `bun run typecheck` (`tsc --noEmit`). Bun runtime does not typecheck.
+
+## src/bun-globals.d.ts Template
+
+Temporary shims for Bun 1.3+ runtime APIs ahead of `bun-types`. Remove entries as `@types/bun` catches up:
+
+```typescript
+/// <reference types="bun" />
+
+declare module "bun" {
+  const cwd: string;
+  const pid: number;
+
+  interface BunFile {
+    textSync(encoding?: string): string;
+  }
+}
+
+interface ReadableStream<R = any> {
+  [Symbol.asyncIterator](): AsyncIterator<R>;
+}
+```
 
 ## .env.example Template
 
@@ -195,6 +239,7 @@ containers = "none"
 [quality]
 formatter = "oxfmt"
 linter = "oxlint"
+typecheck = "bun run typecheck"
 
 [kimi]
 preflight = true
