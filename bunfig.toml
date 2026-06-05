@@ -1,7 +1,18 @@
 [install]
 saveTextLockfile = true
 
-# Fast unit tests: bun test --timeout 100 (see src/lib/test-gates.ts)
-# Full suite: bun test (default 5000ms per test; smoke tests set own limits)
+# Shared test defaults — see src/lib/test-gates.ts and scripts/run-tests.ts
 [test]
-# concurrentTestGlob = ["test/*.unit.test.ts"]
+concurrentTestGlob = ["test/*.unit.test.ts"]
+coverageSkipTestFiles = true
+coveragePathIgnorePatterns = [
+  "scripts/**",
+  "src/bin/**",
+  "src/lib/version.ts",
+  "src/lib/memory-budget.ts",
+]
+coverageReporter = ["text", "lcov"]
+coverageDir = "./coverage"
+# Enforced when --coverage is passed (CI uses test:coverage:ci)
+coverageThreshold = { lines = 0.35, functions = 0.25 }
+smol = false

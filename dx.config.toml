@@ -18,6 +18,7 @@ checkDryRun = "bun run check:dry-run"
 testFast = "bun run test:fast"
 testCoverage = "bun run test:coverage"
 testCoverageFast = "bun run test:coverage:fast"
+testCoverageCi = "bun run test:coverage:ci"
 
 [kimi]
 memoryGate = true

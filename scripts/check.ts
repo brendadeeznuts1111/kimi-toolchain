@@ -65,7 +65,7 @@ function buildSteps(fast: boolean, timeoutMs: number): Step[] {
     { name: "typecheck", cmd: ["bun", "run", "typecheck"] },
     {
       name: fast ? "test:fast" : "test",
-      cmd: ["bun", ...bunTestArgs({ fast, timeoutMs })],
+      cmd: ["bun", ...bunTestArgs({ fast, timeoutMs, bail: true })],
     },
   ];
 }

@@ -55,45 +55,6 @@ describe("kimi-doctor smoke", () => {
     expect(exitCode).toBe(0);
   }, 15_000);
 
-  test("format:check passes", async () => {
-    const proc = Bun.spawn(["bun", "run", "format:check"], {
-      cwd: REPO_ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    expect(await proc.exited).toBe(0);
-  }, 30_000);
-
-  test("lint passes", async () => {
-    const proc = Bun.spawn(["bun", "run", "lint"], {
-      cwd: REPO_ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    expect(await proc.exited).toBe(0);
-  }, 30_000);
-
-  test("lint:terms passes on clean repo", async () => {
-    const proc = Bun.spawn(["bun", "run", "lint:terms"], {
-      cwd: REPO_ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const stdout = await Bun.readableStreamToText(proc.stdout);
-    const stderr = await Bun.readableStreamToText(proc.stderr);
-    expect(await proc.exited).toBe(0);
-    expect(stdout + stderr).toContain("No banned terms");
-  }, 15_000);
-
-  test("typecheck passes", async () => {
-    const proc = Bun.spawn(["bun", "run", "typecheck"], {
-      cwd: REPO_ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    expect(await proc.exited).toBe(0);
-  }, 30_000);
-
   test("kimi-governance score prints grade", async () => {
     if (Bun.env.KIMI_COVERAGE_SCAN) return;
     const { stdout, exitCode } = await runTool(GOVERNANCE, ["score"]);

@@ -61,7 +61,7 @@ Teaches agents to operate the kimi-toolchain CLI effectively.
 2. RUN: kimi-governance score
 3. PARSE doctor output + R-Score breakdown
 4. IF lockfile warning → RUN: kimi-guardian check
-5. IF coverage gap → RUN: bun test --coverage
+5. IF coverage gap → RUN: bun run test:coverage:fast (local) or bun run test:coverage:ci (CI)
 6. IF governance gap → RUN: kimi-governance fix
 7. QUERY: kimi-memory trends (sessions.db warning_trends)
 8. PRESENT: current state + trend + next action
@@ -103,7 +103,8 @@ Teaches agents to operate the kimi-toolchain CLI effectively.
 
 ```
 1. RUN: kimi-githooks doctor
-2. RUN: bun run check (format:check + lint + typecheck + test)
+2. RUN: bun run check (full) or bun run check:fast (unit @ 100ms)
+   Preview gates: bun run check:dry-run (lists format/lint/typecheck/test steps)
 3. RUN: kimi-guardian check
 4. RUN: kimi-governance score (pre-push blocks F/D)
 ```

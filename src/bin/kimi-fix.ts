@@ -45,7 +45,7 @@ on:
     branches: [main, master]
 
 jobs:
-  test:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +53,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.3.14"
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -67,8 +67,8 @@ jobs:
       - name: Type check
         run: bun run typecheck
 
-      - name: Test
-        run: bun run test
+      - name: Test + coverage
+        run: bun run test:coverage:ci
 `;
 
 const TSCONFIG = `{
@@ -111,12 +111,31 @@ interface ReadableStream<R = any> {
 
 const TOOLCHAIN_ROOT = join(import.meta.dir, "..", "..");
 
-async function readLintBannedTermsTemplate(): Promise<string> {
-  const templatePath = join(TOOLCHAIN_ROOT, "scripts", "lint-banned-terms.ts");
+async function readToolchainScript(name: string): Promise<string> {
+  const templatePath = join(TOOLCHAIN_ROOT, "scripts", name);
   if (!existsSync(templatePath)) {
     throw new Error(`Missing toolchain template: ${templatePath}`);
   }
   return Bun.file(templatePath).text();
+}
+
+async function readLintBannedTermsTemplate(): Promise<string> {
+  return readToolchainScript("lint-banned-terms.ts");
+}
+
+async function readScaffoldCheckScript(): Promise<string> {
+  const raw = await readToolchainScript("check.ts");
+  return raw.replace('from "../src/lib/test-gates.ts"', 'from "./test-gates.ts"');
+}
+
+async function readScaffoldRunTestsScript(): Promise<string> {
+  const raw = await readToolchainScript("run-tests.ts");
+  return raw.replace('from "../src/lib/test-gates.ts"', 'from "./test-gates.ts"');
+}
+
+async function readScaffoldTestGatesScript(): Promise<string> {
+  const raw = await Bun.file(join(TOOLCHAIN_ROOT, "src", "lib", "test-gates.ts")).text();
+  return raw;
 }
 
 const DX_CONFIG = `# Project DX + kimi runtime policy
@@ -198,11 +217,16 @@ async function ensureQualityTooling(project: string, dryRun: boolean) {
   };
   const scripts = pkg.scripts || {};
   const additions: Record<string, string> = {
-    test: "bun test",
-    check: "bun run format:check && bun run lint && bun run typecheck && bun test",
+    test: "bun run scripts/run-tests.ts",
+    "test:fast": "bun run scripts/run-tests.ts --fast",
+    "test:coverage": "bun run scripts/run-tests.ts --coverage",
+    "test:coverage:ci": "bun run scripts/run-tests.ts --ci --coverage",
+    check: "bun run scripts/check.ts",
+    "check:fast": "bun run scripts/check.ts --fast --timeout 100",
+    "check:dry-run": "bun run scripts/check.ts --dry-run",
     typecheck: "tsc --noEmit",
     format: "oxfmt --write .",
-    "format:check": "oxfmt --check .",
+    "format:check": "oxfmt --check -c .oxfmtrc.json .",
     lint: "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
     "lint:terms": "bun run scripts/lint-banned-terms.ts",
   };
@@ -323,7 +347,7 @@ async function main() {
     log("bunfig", "creating...");
     await writeFile(
       join(project, "bunfig.toml"),
-      `[install]\n# Trusted dependencies with postinstall scripts\n# Run \`kimi-guardian check\` to auto-populate\ntrustedDependencies = []\n\n[install.cache]\n# Global cache directory (shared across projects)\ndir = "~/.bun/install/cache"\n`,
+      `[install]\n# Trusted dependencies with postinstall scripts\n# Run \`kimi-guardian check\` to auto-populate\ntrustedDependencies = []\n\n[install.cache]\n# Global cache directory (shared across projects)\ndir = "~/.bun/install/cache"\n\n[test]\n# Unit tests run concurrently; smoke tests stay sequential\nconcurrentTestGlob = ["test/*.unit.test.ts"]\ncoverageSkipTestFiles = true\n\ncoverageThreshold = { lines = 0.35, functions = 0.25 }\n`,
       dryRun
     );
   }
@@ -360,12 +384,20 @@ async function main() {
     await writeFile(globalsPath, BUN_GLOBALS, dryRun);
   }
 
-  // Banned-terms lint (docs/markdown — oxlint does not scan these)
-  const lintTermsPath = join(project, "scripts", "lint-banned-terms.ts");
-  if (!existsSync(lintTermsPath)) {
-    log("lint", "creating scripts/lint-banned-terms.ts...");
-    if (!dryRun) mkdirSync(join(project, "scripts"), { recursive: true });
-    await writeFile(lintTermsPath, await readLintBannedTermsTemplate(), dryRun);
+  // Quality gate scripts (check, run-tests, test-gates)
+  const scriptFiles: Array<{ name: string; content: () => Promise<string> }> = [
+    { name: "lint-banned-terms.ts", content: readLintBannedTermsTemplate },
+    { name: "test-gates.ts", content: readScaffoldTestGatesScript },
+    { name: "check.ts", content: readScaffoldCheckScript },
+    { name: "run-tests.ts", content: readScaffoldRunTestsScript },
+  ];
+  for (const { name, content } of scriptFiles) {
+    const scriptPath = join(project, "scripts", name);
+    if (!existsSync(scriptPath)) {
+      log("scripts", `creating scripts/${name}...`);
+      if (!dryRun) mkdirSync(join(project, "scripts"), { recursive: true });
+      await writeFile(scriptPath, await content(), dryRun);
+    }
   }
 
   // package.json scripts + oxfmt/oxlint devDeps
@@ -385,7 +417,7 @@ async function main() {
   console.log("  1. Review generated files");
   console.log("  2. Replace @replace-me in CODEOWNERS with actual username");
   console.log("  3. Add copyright holder to LICENSE");
-  console.log("  4. Run 'bun run check' (format:check + lint + typecheck + test)");
+  console.log("  4. Run 'bun run check' (or 'bun run check:fast' for unit-only gate)");
   console.log("  5. Run 'kimi-githooks install' to enable pre-commit/pre-push gates");
   console.log("  6. Run 'kimi-governance score' to check project health");
   console.log("  7. Run 'kimi-doctor' to verify everything");
