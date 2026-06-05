@@ -43,7 +43,7 @@ function parseCommit(hash: string, subject: string, body: string): Commit | null
   const [, type, scope, _msg] = match;
   const breaking = subject.endsWith("!") || body.includes("BREAKING CHANGE:");
 
-  return { hash, subject, type: type.toLowerCase(), scope, breaking };
+  return { hash, subject, body, type: type.toLowerCase(), scope, breaking };
 }
 
 async function getCommits(sinceTag?: string): Promise<Commit[]> {
@@ -68,9 +68,9 @@ async function getCommits(sinceTag?: string): Promise<Commit[]> {
   return commits;
 }
 
-function getLastTag(): string | undefined {
+async function getLastTag(): Promise<string | undefined> {
   try {
-    const result = $`git describe --tags --abbrev=0`.nothrow().quiet();
+    const result = await $`git describe --tags --abbrev=0`.nothrow().quiet();
     return result.stdout?.toString().trim() || undefined;
   } catch {
     return undefined;
@@ -261,7 +261,7 @@ async function doctor(
   });
 
   // Tag consistency
-  const lastTag = getLastTag();
+  const lastTag = await getLastTag();
   checks.push({
     name: "tags",
     status: lastTag ? "ok" : "warn",
@@ -331,7 +331,7 @@ async function main() {
   console.log("");
 
   if (command === "changelog") {
-    const sinceTag = getLastTag();
+    const sinceTag = await getLastTag();
     console.log(`── Changelog Generation ──────────────────────────────────────`);
     if (sinceTag) console.log(`  Since tag: ${sinceTag}`);
     else console.log(`  No tags found — scanning last 50 commits`);
@@ -376,7 +376,7 @@ async function main() {
     }
   } else if (command === "semver") {
     console.log(`── Semver Analysis ───────────────────────────────────────────`);
-    const sinceTag = getLastTag();
+    const sinceTag = await getLastTag();
     const commits = await getCommits(sinceTag);
     const bump = determineBump(commits);
 

@@ -273,7 +273,7 @@ async function checkCVEs(
 
   for (const dep of deps.slice(0, 10)) {
     try {
-      const resp = await fetchWithTimeout(`https://api.osv.dev/v1/query`, {
+      const resp = (await fetchWithTimeout(`https://api.osv.dev/v1/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -281,9 +281,12 @@ async function checkCVEs(
           version: dep.current,
         }),
         timeoutMs: 10000,
-      });
-      if (!resp.ok) continue;
-      const data = (await resp.json()) as any;
+      })) as unknown as {
+        status: number;
+        json(): Promise<{ vulns?: Array<{ id: string; severity?: Array<{ score?: string }> }> }>;
+      };
+      if (resp.status < 200 || resp.status >= 300) continue;
+      const data = await resp.json();
       for (const vuln of data.vulns || []) {
         cves.push({
           name: dep.name,
@@ -379,7 +382,9 @@ async function addTrustedDeps(projectDir: string, deps: string[]) {
 
 // ── Provenance (P1) ──────────────────────────────────────────────────
 
-async function checkProvenance(projectDir: string): Promise<GuardianReport["provenance"]> {
+async function checkProvenance(
+  projectDir: string
+): Promise<NonNullable<GuardianReport["provenance"]>> {
   const postinstallScripts: Array<{ pkg: string; script: string }> = [];
   const lowBusFactor: string[] = [];
 

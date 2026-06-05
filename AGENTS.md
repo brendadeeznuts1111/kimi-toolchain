@@ -189,8 +189,8 @@ bun run typecheck        # TypeScript validation
 
 - **Formatter:** [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html) — config in `.oxfmtrc.json`
 - **Linter:** [oxlint](https://oxc.rs/docs/guide/usage/linter.html) — config in `.oxlintrc.json`
-- Run `bun run format` before commit; CI uses `bun run format:check` and `bun run lint`
-- Composite gate: `bun run check` (= format:check + lint + test)
+- Run `bun run format` before commit; CI uses `format:check`, `lint`, and `typecheck`
+- Composite gate: `bun run check` (= format:check + lint + typecheck + test)
 - Cursor: `oxc.oxc-vscode` extension as default formatter for TS/JS (format on save)
 
 ### Quality gates (enforced)
@@ -200,7 +200,7 @@ bun run typecheck        # TypeScript validation
 | Local      | `bun run check` or `bun run unify`                               |
 | pre-commit | `format:check` + `lint` (via `kimi-githooks install`)            |
 | pre-push   | `check` script + guardian + R-Score gate                         |
-| CI         | `.github/workflows/ci.yml` — format:check, lint, test            |
+| CI         | `.github/workflows/ci.yml` — format:check, lint, typecheck, test |
 | Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`) |
 
 Install hooks: `kimi-githooks install` or `kimi-githooks fix` to refresh outdated hooks.

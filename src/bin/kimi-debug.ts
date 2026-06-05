@@ -423,7 +423,7 @@ async function main() {
     let errorText = args.slice(1).join(" ") || "";
 
     // Check stdin for piped input
-    if (!errorText && !Bun.stdin.isTTY) {
+    if (!errorText && !process.stdin.isTTY) {
       const chunks: Uint8Array[] = [];
       for await (const chunk of Bun.stdin.stream()) {
         chunks.push(chunk);

@@ -204,10 +204,18 @@ async function runQualityChecks(projectRoot: string): Promise<CheckResult[]> {
     results.push(await runScript(projectRoot, "lint", "lint"));
   }
 
+  if (!scripts.typecheck) {
+    results.push(warn("typecheck", "script not defined"));
+  } else if (!QUICK) {
+    results.push(await runScript(projectRoot, "typecheck", "typecheck"));
+  }
+
   if (scripts.check) {
     results.push(ok("check", "composite script defined"));
   } else {
-    results.push(warn("check", "script not defined — add format:check && lint && test"));
+    results.push(
+      warn("check", "script not defined — add format:check && lint && typecheck && test")
+    );
   }
 
   return results;

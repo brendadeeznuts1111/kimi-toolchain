@@ -48,7 +48,7 @@
     "fix": "bun run src/bin/kimi-fix.ts",
     "governance": "bun run src/bin/kimi-governance.ts",
     "test": "bun test",
-    "check": "bun run format:check && bun run lint && bun test",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun test",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint src test scripts",
@@ -62,7 +62,7 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/bun": "1.3.14",
     "oxfmt": "^0.53.0",
     "oxlint": "^1.68.0",
     "typescript": "^5.8.0"

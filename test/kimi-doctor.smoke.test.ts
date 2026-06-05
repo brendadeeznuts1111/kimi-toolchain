@@ -70,13 +70,23 @@ describe("kimi-doctor smoke", () => {
     expect(await proc.exited).toBe(0);
   }, 30_000);
 
-  test("check script chains format, lint, and test", async () => {
+  test("typecheck passes", async () => {
+    const proc = Bun.spawn(["bun", "run", "typecheck"], {
+      cwd: REPO_ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(await proc.exited).toBe(0);
+  }, 30_000);
+
+  test("check script chains format, lint, typecheck, and test", async () => {
     const pkg = (await Bun.file(join(REPO_ROOT, "package.json")).json()) as {
       scripts?: Record<string, string>;
     };
     const check = pkg.scripts?.check ?? "";
     expect(check).toContain("format:check");
     expect(check).toContain("lint");
+    expect(check).toContain("typecheck");
     expect(check).toContain("bun test");
   });
 });

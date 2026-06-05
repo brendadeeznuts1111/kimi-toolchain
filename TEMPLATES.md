@@ -141,7 +141,7 @@ No ADRs yet. Create one: `bun run ~/.kimi-code/tools/kimi-governance.ts adr "<ti
 {
   "scripts": {
     "test": "bun test",
-    "check": "bun run format:check && bun run lint && bun test",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun test",
     "typecheck": "tsc --noEmit",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
