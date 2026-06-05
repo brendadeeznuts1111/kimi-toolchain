@@ -59,7 +59,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Format check
-        run: bun run format:check
+        run: bun run format:check:ci
 
       - name: Lint
         run: bun run lint
@@ -227,6 +227,7 @@ async function ensureQualityTooling(project: string, dryRun: boolean) {
     typecheck: "tsc --noEmit",
     format: "oxfmt --write .",
     "format:check": "oxfmt --check -c .oxfmtrc.json .",
+    "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
     lint: "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
     "lint:terms": "bun run scripts/lint-banned-terms.ts",
   };

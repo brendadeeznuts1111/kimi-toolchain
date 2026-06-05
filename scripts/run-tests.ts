@@ -14,6 +14,7 @@
  * @see https://bun.com/docs/guides/test/bail
  */
 
+import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { bunTestArgs } from "../src/lib/test-gates.ts";
 
@@ -30,6 +31,10 @@ function parseCli(): { fast: boolean; coverage: boolean; ci: boolean } {
 
 async function main() {
   const { fast, coverage, ci } = parseCli();
+  if (ci) {
+    const reportsDir = join(REPO_ROOT, "reports");
+    if (!existsSync(reportsDir)) mkdirSync(reportsDir, { recursive: true });
+  }
   const cmd = ["bun", ...bunTestArgs({ fast, coverage, ci, bail: true })];
   const proc = Bun.spawn(cmd, {
     cwd: REPO_ROOT,

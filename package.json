@@ -58,6 +58,7 @@
     "check:dry-run": "bun run scripts/check.ts --dry-run",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check -c .oxfmtrc.json .",
+    "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
     "lint": "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
     "lint:terms": "bun run scripts/lint-banned-terms.ts",
     "typecheck": "tsc --noEmit",

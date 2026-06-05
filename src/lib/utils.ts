@@ -97,7 +97,7 @@ export async function streamToText(stream: ReadableStream): Promise<string> {
 export async function fetchWithTimeout(
   url: string,
   options: RequestInit & { timeoutMs?: number } = {}
-): Promise<Response> {
+): Promise<globalThis.Response> {
   const { timeoutMs = 10000, ...fetchOptions } = options;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);

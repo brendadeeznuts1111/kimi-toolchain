@@ -4,8 +4,11 @@
 
 import { existsSync } from "fs";
 import { join } from "path";
-import { DESKTOP_ROOT } from "./desktop-sync.ts";
 import { sha256File } from "./utils.ts";
+
+function desktopRoot(): string {
+  return join(Bun.env.HOME || "/tmp", ".kimi-code");
+}
 
 /** Compute sha256 hashes for all sync-managed source files. */
 export async function computeSyncHashes(repoRoot: string): Promise<Record<string, string>> {
@@ -36,9 +39,10 @@ export async function computeSyncHashes(repoRoot: string): Promise<Record<string
 }
 
 function desktopPathForKey(key: string): string | null {
-  if (key.startsWith("tools/")) return join(DESKTOP_ROOT, "tools", key.slice(6));
-  if (key.startsWith("lib/")) return join(DESKTOP_ROOT, "lib", key.slice(4));
-  if (key.startsWith("scripts/")) return join(DESKTOP_ROOT, "scripts", key.slice(8));
+  const root = desktopRoot();
+  if (key.startsWith("tools/")) return join(root, "tools", key.slice(6));
+  if (key.startsWith("lib/")) return join(root, "lib", key.slice(4));
+  if (key.startsWith("scripts/")) return join(root, "scripts", key.slice(8));
   return null;
 }
 

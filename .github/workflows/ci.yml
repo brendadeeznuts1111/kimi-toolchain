@@ -21,7 +21,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Format check
-        run: bun run format:check
+        run: bun run format:check:ci
 
       - name: Lint
         run: bun run lint
@@ -31,6 +31,22 @@ jobs:
 
       - name: Test + coverage
         run: bun run test:coverage:ci
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report
+          path: reports/junit.xml
+          if-no-files-found: ignore
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          if-no-files-found: ignore
 
       - name: R-Score gate
         run: bun run src/bin/kimi-governance.ts score

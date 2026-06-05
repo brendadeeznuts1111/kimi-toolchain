@@ -115,8 +115,9 @@ bun run check:fast       # format + lint + typecheck + test:fast
 
 # Preview CI gates without running them
 bun run check:dry-run    # accepts --dryrun alias (gate steps only)
-# CI test profile (60s timeout, coverage, lcov, --bail)
+# CI test profile (60s timeout, coverage, lcov, junit, --bail)
 bun run test:coverage:ci
+bun run format:check:ci   # oxfmt --threads=4 for CI runners
 
 # Full quality gate (CI / pre-push)
 bun run check            # scripts/check.ts

@@ -21,13 +21,15 @@ describe("test-gates", () => {
     }
   });
 
-  test("bunTestArgs ci mode uses 60s timeout", () => {
+  test("bunTestArgs ci mode uses 60s timeout and junit reporter", () => {
     expect(bunTestArgs({ coverage: true, ci: true, bail: true })).toEqual([
       "test",
       "--timeout",
       "60000",
       "--bail",
       "--coverage",
+      "--reporter=junit",
+      "--reporter-outfile=reports/junit.xml",
     ]);
   });
 

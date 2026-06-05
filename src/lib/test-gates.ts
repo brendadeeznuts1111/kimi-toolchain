@@ -13,6 +13,7 @@ export const UNIT_TEST_FILES = [
   "test/desktop-sync.unit.test.ts",
   "test/doctor-runs.unit.test.ts",
   "test/test-gates.unit.test.ts",
+  "test/sync-drift.unit.test.ts",
 ] as const;
 
 export const FAST_TEST_TIMEOUT_MS = 100;
@@ -41,6 +42,9 @@ export function bunTestArgs(options: {
     args.push(typeof options.bail === "number" ? `--bail=${options.bail}` : "--bail");
   }
   if (options.coverage) args.push("--coverage");
+  if (options.ci) {
+    args.push("--reporter=junit", "--reporter-outfile=reports/junit.xml");
+  }
   if (options.json) args.push("--json");
   if (options.fast) {
     args.push(...UNIT_TEST_FILES);

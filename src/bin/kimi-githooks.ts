@@ -68,6 +68,10 @@ if [ -f package.json ]; then
     echo "── Type check ───────────────────────────────────────────────"
     bun run typecheck || exit 1
   fi
+  if grep -q '"test:fast"' package.json 2>/dev/null; then
+    echo "── Unit tests (fast) ────────────────────────────────────────"
+    bun run test:fast || exit 1
+  fi
 fi
 
 exit 0

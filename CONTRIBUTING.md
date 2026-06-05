@@ -13,14 +13,16 @@ bun run unify          # sync → ~/.kimi-code/, PATH wrappers
 
 ```bash
 bun run format         # oxfmt --write .
-bun run format:check   # must pass in CI
-bun run lint           # oxlint
-bun run test           # smoke tests
-bun run typecheck      # tsc --noEmit (required)
+bun run check:fast     # format + lint + typecheck + unit tests (~1s)
+bun run check          # full gate including smoke tests (~4s)
 kimi-doctor --quick    # toolchain health
 ```
 
-Config: `.oxfmtrc.json` (formatter), `.oxlintrc.json` (linter). See `AGENTS.md` and `TEMPLATES.md`.
+Preview gates without running: `bun run check:dry-run`
+
+Pre-commit hook runs format, lint, typecheck, and `test:fast`. Full `bun run check` runs on pre-push.
+
+Config: `.oxfmtrc.json` (formatter), `.oxlintrc.json` (linter), `bunfig.toml` (test runner). See `AGENTS.md` and `TEMPLATES.md`.
 
 ## Pull Request Process
 

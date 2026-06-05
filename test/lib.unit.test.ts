@@ -9,6 +9,12 @@ import {
   ensureDir,
   findExecutable,
   resolveProjectRoot,
+  log,
+  printSection,
+  printToolBanner,
+  buildDoctorReport,
+  printDoctorReport,
+  streamToText,
 } from "../src/lib/utils.ts";
 import { TOOLCHAIN_VERSION, TOOLCHAIN_NAME } from "../src/lib/version.ts";
 import { getChromeRssMB, getAppRssGroups, getLoadPerCore } from "../src/lib/memory-budget.ts";
@@ -63,6 +69,40 @@ describe("lib/utils", () => {
     const root = await resolveProjectRoot(REPO_ROOT);
     expect(root).toContain("kimi-toolchain");
     expect(existsSync(join(root, "package.json"))).toBe(true);
+  });
+
+  test("log and print helpers emit formatted output", () => {
+    const lines: string[] = [];
+    const orig = console.log;
+    console.log = (...args: unknown[]) => lines.push(args.join(" "));
+    try {
+      log("info", "ok");
+      log("warn", "caution");
+      printSection("Section");
+      printToolBanner("Banner");
+      const report = buildDoctorReport("tool", [
+        { name: "a", status: "ok", message: "fine", fixable: false },
+        { name: "b", status: "warn", message: "fix me", fixable: true },
+      ]);
+      printDoctorReport(report);
+      expect(lines.some((l) => l.includes("✓ ok"))).toBe(true);
+      expect(lines.some((l) => l.includes("Section"))).toBe(true);
+      expect(lines.some((l) => l.includes("Banner"))).toBe(true);
+      expect(report.warnCount).toBe(1);
+      expect(report.fixableCount).toBe(1);
+    } finally {
+      console.log = orig;
+    }
+  });
+
+  test("streamToText reads stream content", async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("hello"));
+        controller.close();
+      },
+    });
+    expect(await streamToText(stream)).toBe("hello");
   });
 });
 

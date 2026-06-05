@@ -103,11 +103,14 @@ Teaches agents to operate the kimi-toolchain CLI effectively.
 
 ```
 1. RUN: kimi-githooks doctor
-2. RUN: bun run check (full) or bun run check:fast (unit @ 100ms)
-   Preview gates: bun run check:dry-run (lists format/lint/typecheck/test steps)
-3. RUN: kimi-guardian check
-4. RUN: kimi-governance score (pre-push blocks F/D)
+2. LOCAL (fast): bun run check:fast — pre-commit hook runs this path
+3. BEFORE PUSH: bun run check — full smoke suite on pre-push
+   Preview: bun run check:dry-run (gate steps; not bun test --dry-run)
+4. RUN: kimi-guardian check
+5. RUN: kimi-governance score (pre-push blocks F/D)
 ```
+
+Note: `kimi doctor` (Moonshot) ≠ `kimi-doctor` (toolchain). Kimi Code docs do not cover Bun gates — see UNIFIED.md.
 
 ## R-Score Interpretation
 

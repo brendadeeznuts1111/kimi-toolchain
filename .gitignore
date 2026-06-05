@@ -12,6 +12,10 @@ node_modules/
 # Build artifacts
 dist/
 coverage/
+reports/
+.tmp-kimi-test-home/
+.tmp-drift-*/
+.tmp-test-*/
 *.log
 
 # OS
