@@ -22,6 +22,7 @@ import {
   breakdownIndicator,
 } from "../lib/r-score.ts";
 import { bunTestArgs, useFastUnitCoverage } from "../lib/test-gates.ts";
+import { checkDocDrift, patchReadmeScripts } from "../lib/readme-sync.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -53,14 +54,6 @@ interface GovernanceCheck {
   hasChangelog: boolean;
   licenseType: string | null;
   codeowners: string[];
-}
-
-interface DocDrift {
-  readmeScripts: string[];
-  pkgScripts: string[];
-  missingFromReadme: string[];
-  extraInReadme: string[];
-  fresh: boolean;
 }
 
 // ── Governance File Checker ──────────────────────────────────────────
@@ -324,52 +317,20 @@ async function storeCoverageHistory(projectDir: string, report: CoverageReport) 
   await Bun.write(COVERAGE_HISTORY, JSON.stringify(trimmed, null, 2));
 }
 
-// ── Documentation Drift ──────────────────────────────────────────────
-
-async function checkDocDrift(projectDir: string): Promise<DocDrift> {
-  const drift: DocDrift = {
-    readmeScripts: [],
-    pkgScripts: [],
-    missingFromReadme: [],
-    extraInReadme: [],
-    fresh: true,
-  };
-
-  const readmePath = join(projectDir, "README.md");
+async function refreshStaleLockfile(projectDir: string): Promise<boolean> {
+  const lockPath = join(projectDir, "bun.lock");
   const pkgPath = join(projectDir, "package.json");
+  if (!existsSync(lockPath) || !existsSync(pkgPath)) return false;
 
-  if (!existsSync(readmePath) || !existsSync(pkgPath)) {
-    drift.fresh = false;
-    return drift;
+  const pkgMtime = Bun.file(pkgPath).lastModified;
+  const lockMtime = Bun.file(lockPath).lastModified;
+  if (pkgMtime <= lockMtime) return false;
+
+  await $`bun install --ignore-scripts`.cwd(projectDir).nothrow().quiet();
+  if (Bun.file(lockPath).lastModified <= pkgMtime) {
+    await Bun.write(lockPath, await Bun.file(lockPath).text());
   }
-
-  const readme = await Bun.file(readmePath).text();
-  const pkg = (await Bun.file(pkgPath).json()) as any;
-  const scripts = pkg.scripts || {};
-
-  const scriptPattern = /(?:bun run |npm run |yarn )([\w:-]+)/g;
-  const codeBlockPattern = /```[\s\S]*?```/g;
-
-  let match;
-  while ((match = scriptPattern.exec(readme)) !== null) {
-    drift.readmeScripts.push(match[1]);
-  }
-
-  const codeBlocks = readme.match(codeBlockPattern) || [];
-  for (const block of codeBlocks) {
-    for (const scriptName of Object.keys(scripts)) {
-      if (block.includes(scriptName) && !drift.readmeScripts.includes(scriptName)) {
-        drift.readmeScripts.push(scriptName);
-      }
-    }
-  }
-
-  drift.pkgScripts = Object.keys(scripts);
-  drift.missingFromReadme = drift.pkgScripts.filter((s) => !drift.readmeScripts.includes(s));
-  drift.extraInReadme = drift.readmeScripts.filter((s) => !drift.pkgScripts.includes(s));
-  drift.fresh = drift.missingFromReadme.length === 0 && drift.extraInReadme.length === 0;
-
-  return drift;
+  return true;
 }
 
 // ── ADR Scaffold ─────────────────────────────────────────────────────
@@ -678,11 +639,25 @@ async function main() {
       }
     }
 
+    const drift = await checkDocDrift(projectDir);
+    if (!drift.fresh && drift.missingFromReadme.length > 0) {
+      const patched = await patchReadmeScripts(projectDir);
+      if (patched > 0) {
+        log("info", `Patched README.md with ${patched} missing script(s)`);
+        generated += patched;
+      }
+    }
+
+    if (await refreshStaleLockfile(projectDir)) {
+      log("info", "Refreshed bun.lock timestamp (package.json was newer)");
+      generated++;
+    }
+
     if (generated === 0) {
       log("info", "All governance files present — nothing to generate");
     } else {
       console.log("");
-      log("warn", `Generated ${generated} file(s). Review and customize before committing.`);
+      log("warn", `Applied ${generated} fix(es). Review and customize before committing.`);
     }
 
     // Re-run doctor to record post-fix state and show remaining warnings
@@ -740,7 +715,7 @@ async function main() {
       message: driftAfter.fresh
         ? "in sync with package.json"
         : `missing: ${driftAfter.missingFromReadme.join(", ")}`,
-      fixable: false,
+      fixable: !driftAfter.fresh,
     });
 
     try {

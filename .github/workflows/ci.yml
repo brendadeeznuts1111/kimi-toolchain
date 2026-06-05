@@ -32,6 +32,15 @@ jobs:
       - name: Test + coverage
         run: bun run test:coverage:ci
 
+      - name: Publish test report
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Bun Tests
+          path: reports/junit.xml
+          reporter: java-junit
+          fail-on-error: false
+
       - name: Upload JUnit report
         if: always()
         uses: actions/upload-artifact@v4

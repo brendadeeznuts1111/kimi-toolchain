@@ -6,7 +6,9 @@ import { existsSync } from "fs";
 import { dirname, join } from "path";
 import { ensureDir } from "./utils.ts";
 
-export const DESKTOP_ROOT = join(Bun.env.HOME || "/tmp", ".kimi-code");
+export function desktopRoot(): string {
+  return join(Bun.env.HOME || "/tmp", ".kimi-code");
+}
 export const AGENTS_SKILLS_ROOT = join(Bun.env.HOME || "/tmp", ".agents", "skills");
 
 export const ROOT_TEMPLATES = [
@@ -37,13 +39,13 @@ export interface DesktopPaths {
 export function resolveDesktopPaths(repoRoot: string): DesktopPaths {
   return {
     repoRoot,
-    desktopRoot: DESKTOP_ROOT,
+    desktopRoot: desktopRoot(),
     binSrc: join(repoRoot, "src", "bin"),
-    binDst: join(DESKTOP_ROOT, "tools"),
+    binDst: join(desktopRoot(), "tools"),
     libSrc: join(repoRoot, "src", "lib"),
-    libDst: join(DESKTOP_ROOT, "lib"),
+    libDst: join(desktopRoot(), "lib"),
     scriptsSrc: join(repoRoot, "scripts"),
-    scriptsDst: join(DESKTOP_ROOT, "scripts"),
+    scriptsDst: join(desktopRoot(), "scripts"),
     skillSrc: join(repoRoot, "skills", "kimi-toolchain"),
     skillDst: join(AGENTS_SKILLS_ROOT, "kimi-toolchain"),
   };
@@ -51,13 +53,13 @@ export function resolveDesktopPaths(repoRoot: string): DesktopPaths {
 
 export function ensureDesktopLayout(): void {
   for (const dir of [
-    join(DESKTOP_ROOT, "tools"),
-    join(DESKTOP_ROOT, "lib"),
-    join(DESKTOP_ROOT, "scripts"),
-    join(DESKTOP_ROOT, "var"),
-    join(DESKTOP_ROOT, "memory"),
-    join(DESKTOP_ROOT, "guardian"),
-    join(DESKTOP_ROOT, "governor"),
+    join(desktopRoot(), "tools"),
+    join(desktopRoot(), "lib"),
+    join(desktopRoot(), "scripts"),
+    join(desktopRoot(), "var"),
+    join(desktopRoot(), "memory"),
+    join(desktopRoot(), "guardian"),
+    join(desktopRoot(), "governor"),
   ]) {
     ensureDir(dir);
   }
@@ -144,13 +146,13 @@ export async function syncDesktop(
   }
 
   for (const doc of ROOT_TEMPLATES) {
-    await copyIfChanged(join(repoRoot, doc), join(DESKTOP_ROOT, doc), doc, force, result);
+    await copyIfChanged(join(repoRoot, doc), join(desktopRoot(), doc), doc, force, result);
   }
 
   if (!force) {
     for (const file of OPTIONAL_CONFIG_FILES) {
       const srcPath = join(repoRoot, file);
-      const dstPath = join(DESKTOP_ROOT, file);
+      const dstPath = join(desktopRoot(), file);
       if (!existsSync(dstPath) && existsSync(srcPath)) {
         await Bun.write(dstPath, await Bun.file(srcPath).text());
         result.updated.push(file);
@@ -158,7 +160,7 @@ export async function syncDesktop(
     }
   } else {
     for (const file of OPTIONAL_CONFIG_FILES) {
-      await copyIfChanged(join(repoRoot, file), join(DESKTOP_ROOT, file), file, true, result);
+      await copyIfChanged(join(repoRoot, file), join(desktopRoot(), file), file, true, result);
     }
   }
 

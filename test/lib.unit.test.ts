@@ -16,6 +16,7 @@ import {
   printDoctorReport,
   streamToText,
   runTool,
+  fetchWithTimeout,
 } from "../src/lib/utils.ts";
 import { TOOLCHAIN_VERSION, TOOLCHAIN_NAME } from "../src/lib/version.ts";
 import { getChromeRssMB, getAppRssGroups, getLoadPerCore } from "../src/lib/memory-budget.ts";
@@ -93,6 +94,21 @@ describe("lib/utils", () => {
       expect(report.fixableCount).toBe(1);
     } finally {
       console.log = orig;
+    }
+  });
+
+  test("fetchWithTimeout returns response from local server", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch() {
+        return new Response("pong");
+      },
+    });
+    try {
+      const res = await fetchWithTimeout(`http://127.0.0.1:${server.port}`, { timeoutMs: 5000 });
+      expect(res).toBeDefined();
+    } finally {
+      server.stop();
     }
   });
 

@@ -8,8 +8,13 @@ import { join } from "path";
 import { ensureDir } from "./utils.ts";
 import { SESSIONS_SCHEMA_SQL } from "./sessions-schema.ts";
 
-const VAR_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "var");
-const DB_PATH = join(VAR_DIR, "sessions.db");
+function varDir(): string {
+  return join(Bun.env.HOME || "/tmp", ".kimi-code", "var");
+}
+
+function dbPath(): string {
+  return join(varDir(), "sessions.db");
+}
 
 export interface DoctorWarning {
   check: string;
@@ -18,8 +23,8 @@ export interface DoctorWarning {
 }
 
 function openSessionsDb(): Database {
-  ensureDir(VAR_DIR);
-  const db = new Database(DB_PATH, { create: true });
+  ensureDir(varDir());
+  const db = new Database(dbPath(), { create: true });
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec(SESSIONS_SCHEMA_SQL);
   return db;
@@ -85,7 +90,7 @@ export function getPersistentWarnings(tool?: string): Array<{
   last_seen: number;
   age_days: number;
 }> {
-  if (!existsSync(DB_PATH)) return [];
+  if (!existsSync(dbPath())) return [];
 
   const db = openSessionsDb();
   let rows: Array<{

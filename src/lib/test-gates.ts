@@ -11,9 +11,10 @@ export const UNIT_TEST_FILES = [
   "test/r-score.unit.test.ts",
   "test/sync.unit.test.ts",
   "test/desktop-sync.unit.test.ts",
-  "test/doctor-runs.unit.test.ts",
+  "test/doctor-runs.db.test.ts",
   "test/test-gates.unit.test.ts",
   "test/sync-drift.unit.test.ts",
+  "test/readme-sync.unit.test.ts",
 ] as const;
 
 export const FAST_TEST_TIMEOUT_MS = 100;

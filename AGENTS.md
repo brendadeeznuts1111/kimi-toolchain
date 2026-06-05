@@ -328,6 +328,7 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `src/lib/memory-budget.ts`       | System memory / RSS budget checks              |
 | `src/lib/governor-config.ts`     | Loads `~/.kimi-code/governor/defaults.toml`    |
 | `src/lib/test-gates.ts`          | Unit vs smoke test lists, `bunTestArgs()`      |
+| `src/lib/readme-sync.ts`         | README ↔ package.json drift detect + patch     |
 | `scripts/check.ts`               | CI gate runner with dry-run and fast modes     |
 | `test/kimi-doctor.smoke.test.ts` | Smoke tests for all tools                      |
 | `CONTEXT.md`                     | Auto-generated project context                 |

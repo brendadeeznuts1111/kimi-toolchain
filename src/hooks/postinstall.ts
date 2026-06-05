@@ -8,7 +8,7 @@ import { existsSync } from "fs";
 import { join, resolve } from "path";
 import { Database } from "bun:sqlite";
 import {
-  DESKTOP_ROOT,
+  desktopRoot,
   AGENTS_SKILLS_ROOT,
   ensureDesktopLayout,
   syncDesktop,
@@ -18,8 +18,8 @@ import { SESSIONS_SCHEMA_SQL } from "../lib/sessions-schema.ts";
 import { ensureDir } from "../lib/utils.ts";
 
 const REPO_ROOT = resolve(import.meta.dir, "../..");
-const VAR_DIR = join(DESKTOP_ROOT, "var");
-const GOVERNOR_DIR = join(DESKTOP_ROOT, "governor");
+const VAR_DIR = join(desktopRoot(), "var");
+const GOVERNOR_DIR = join(desktopRoot(), "governor");
 
 async function main() {
   console.log("🔧 Setting up kimi-toolchain...");
@@ -57,9 +57,9 @@ async function main() {
   ensureDir(AGENTS_SKILLS_ROOT);
   console.log("   Skill: ~/.agents/skills/kimi-toolchain/");
   console.log("✅ kimi-toolchain ready");
-  console.log(`   Tools: ${join(DESKTOP_ROOT, "tools")}`);
+  console.log(`   Tools: ${join(desktopRoot(), "tools")}`);
   console.log(`   State: ${VAR_DIR}`);
-  console.log(`   Docs:  ${DESKTOP_ROOT}/{AGENTS,UNIFIED,TEMPLATES}.md`);
+  console.log(`   Docs:  ${join(desktopRoot())}/{AGENTS,UNIFIED,TEMPLATES}.md`);
 }
 
 main().catch((err) => {
