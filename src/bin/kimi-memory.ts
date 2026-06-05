@@ -15,6 +15,11 @@ import { randomUUIDv7 } from "bun";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { getProjectName, safeParse, resolveProjectRoot } from "../lib/utils.ts";
+import { SESSIONS_SCHEMA_SQL } from "../lib/sessions-schema.ts";
+import { recordDoctorRun, getPersistentWarnings } from "../lib/doctor-runs.ts";
+import type { DoctorWarning } from "../lib/doctor-runs.ts";
+
+export { recordDoctorRun, getPersistentWarnings };
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -69,72 +74,7 @@ function getDb(): Database {
   const db = new Database(DB_PATH, { create: true });
   db.exec("PRAGMA journal_mode = WAL;");
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS sessions (
-      id TEXT PRIMARY KEY,
-      project TEXT NOT NULL,
-      cwd TEXT NOT NULL,
-      started_at TEXT NOT NULL,
-      ended_at TEXT,
-      last_cmd TEXT DEFAULT '',
-      cmd_history TEXT DEFAULT '[]',
-      env_snapshot TEXT DEFAULT '{}',
-      git_head TEXT DEFAULT '',
-      lockfile_hash TEXT DEFAULT '',
-      context_size INTEGER DEFAULT 0,
-      key_decisions TEXT DEFAULT '[]',
-      status TEXT DEFAULT 'active'
-    );
-    CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project);
-    CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at);
-    CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
-
-    CREATE TABLE IF NOT EXISTS knowledge_nodes (
-      id TEXT PRIMARY KEY,
-      label TEXT NOT NULL,
-      type TEXT NOT NULL,
-      project TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      metadata TEXT
-    );
-    CREATE INDEX IF NOT EXISTS idx_nodes_project ON knowledge_nodes(project);
-    CREATE INDEX IF NOT EXISTS idx_nodes_type ON knowledge_nodes(type);
-    CREATE INDEX IF NOT EXISTS idx_nodes_label ON knowledge_nodes(label);
-
-    CREATE TABLE IF NOT EXISTS knowledge_edges (
-      from_id TEXT NOT NULL,
-      to_id TEXT NOT NULL,
-      relation TEXT NOT NULL,
-      weight REAL DEFAULT 1.0,
-      PRIMARY KEY (from_id, to_id, relation)
-    );
-    CREATE INDEX IF NOT EXISTS idx_edges_from ON knowledge_edges(from_id);
-    CREATE INDEX IF NOT EXISTS idx_edges_to ON knowledge_edges(to_id);
-
-    CREATE TABLE IF NOT EXISTS doctor_runs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      timestamp INTEGER NOT NULL,
-      tool TEXT NOT NULL,
-      warnings_json TEXT NOT NULL,
-      r_score REAL,
-      git_head TEXT,
-      project TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_doctor_runs_project ON doctor_runs(project);
-    CREATE INDEX IF NOT EXISTS idx_doctor_runs_tool ON doctor_runs(tool);
-    CREATE INDEX IF NOT EXISTS idx_doctor_runs_timestamp ON doctor_runs(timestamp);
-
-    CREATE TABLE IF NOT EXISTS warning_trends (
-      check_name TEXT PRIMARY KEY,
-      tool TEXT NOT NULL,
-      first_seen INTEGER NOT NULL,
-      last_seen INTEGER NOT NULL,
-      occurrence_count INTEGER DEFAULT 1,
-      resolved_at INTEGER
-    );
-    CREATE INDEX IF NOT EXISTS idx_warning_trends_tool ON warning_trends(tool);
-    CREATE INDEX IF NOT EXISTS idx_warning_trends_resolved ON warning_trends(resolved_at);
-  `);
+  db.exec(SESSIONS_SCHEMA_SQL);
   return db;
 }
 
@@ -409,110 +349,6 @@ export function pruneOldSessions(days: number): number {
 }
 
 // ── Warning Trending ─────────────────────────────────────────────────
-
-interface DoctorWarning {
-  check: string;
-  message: string;
-  severity: "warn" | "error";
-}
-
-export function recordDoctorRun(
-  project: string,
-  tool: string,
-  warnings: DoctorWarning[],
-  rScore?: number,
-  gitHead?: string
-) {
-  const db = getDb();
-  const now = Date.now();
-
-  // Insert the run
-  db.run(
-    `INSERT INTO doctor_runs (timestamp, tool, warnings_json, r_score, git_head, project)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [now, tool, JSON.stringify(warnings), rScore ?? null, gitHead ?? null, project]
-  );
-
-  // Update warning_trends: increment existing or insert new
-  for (const w of warnings) {
-    const existing = db
-      .query("SELECT occurrence_count FROM warning_trends WHERE check_name = ?")
-      .get(w.check) as any;
-
-    if (existing) {
-      db.run(
-        `UPDATE warning_trends
-         SET last_seen = ?, occurrence_count = occurrence_count + 1, resolved_at = NULL
-         WHERE check_name = ?`,
-        [now, w.check]
-      );
-    } else {
-      db.run(
-        `INSERT INTO warning_trends (check_name, tool, first_seen, last_seen, occurrence_count)
-         VALUES (?, ?, ?, ?, 1)`,
-        [w.check, tool, now, now]
-      );
-    }
-  }
-
-  // Mark resolved: warnings not seen in this run that were previously unresolved
-  if (warnings.length > 0) {
-    const checkNames = warnings.map((w) => w.check);
-    const placeholders = checkNames.map(() => "?").join(",");
-    db.run(
-      `UPDATE warning_trends SET resolved_at = ?
-       WHERE resolved_at IS NULL AND check_name NOT IN (${placeholders})`,
-      [now, ...checkNames]
-    );
-  } else {
-    // No warnings at all — mark all unresolved as resolved
-    db.run("UPDATE warning_trends SET resolved_at = ? WHERE resolved_at IS NULL", [now]);
-  }
-
-  db.close();
-}
-
-export function getPersistentWarnings(tool?: string): Array<{
-  check_name: string;
-  tool: string;
-  occurrence_count: number;
-  first_seen: number;
-  last_seen: number;
-  age_days: number;
-}> {
-  const db = getDb();
-  let rows;
-  if (tool) {
-    rows = db
-      .query(
-        `SELECT check_name, tool, occurrence_count, first_seen, last_seen
-       FROM warning_trends
-       WHERE resolved_at IS NULL AND tool = ?
-       ORDER BY occurrence_count DESC`
-      )
-      .all(tool) as any[];
-  } else {
-    rows = db
-      .query(
-        `SELECT check_name, tool, occurrence_count, first_seen, last_seen
-       FROM warning_trends
-       WHERE resolved_at IS NULL
-       ORDER BY occurrence_count DESC`
-      )
-      .all() as any[];
-  }
-  db.close();
-
-  const now = Date.now();
-  return rows.map((r) => ({
-    check_name: r.check_name,
-    tool: r.tool,
-    occurrence_count: r.occurrence_count,
-    first_seen: r.first_seen,
-    last_seen: r.last_seen,
-    age_days: Math.round((now - r.first_seen) / (24 * 60 * 60 * 1000)),
-  }));
-}
 
 export function getWarningHistory(checkName: string): Array<{
   timestamp: number;

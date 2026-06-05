@@ -4,10 +4,8 @@
 
 import { existsSync } from "fs";
 import { join } from "path";
+import { DESKTOP_ROOT } from "./desktop-sync.ts";
 import { sha256File } from "./utils.ts";
-import type { ToolchainManifest } from "./version.ts";
-
-const DESKTOP_ROOT = join(Bun.env.HOME || "/tmp", ".kimi-code");
 
 /** Compute sha256 hashes for all sync-managed source files. */
 export async function computeSyncHashes(repoRoot: string): Promise<Record<string, string>> {
@@ -78,18 +76,4 @@ export async function detectSyncDrift(repoRoot: string): Promise<SyncDriftReport
     missing,
     synced: drifted.length === 0 && missing.length === 0,
   };
-}
-
-/** True when manifest fileHashes match current repo hashes for tools/lib. */
-export function manifestMatchesRepo(
-  manifest: ToolchainManifest | null,
-  repoHashes: Record<string, string>
-): boolean {
-  if (!manifest?.fileHashes) return false;
-
-  for (const [key, hash] of Object.entries(repoHashes)) {
-    if (!key.startsWith("tools/") && !key.startsWith("lib/")) continue;
-    if (manifest.fileHashes[key] !== hash) return false;
-  }
-  return true;
 }

@@ -9,8 +9,8 @@
  *   bun run scripts/sync-to-desktop.ts --daemon # starts Bun.cron (every 5 min)
  */
 
-import { dirname, join } from "path";
-import { existsSync, mkdirSync } from "fs";
+import { syncDesktop } from "../src/lib/desktop-sync.ts";
+import { computeSyncHashes } from "../src/lib/sync-hashes.ts";
 import {
   TOOLCHAIN_VERSION,
   getDesktopVersion,
@@ -18,139 +18,12 @@ import {
   hasUncommittedChanges,
   writeManifest,
 } from "../src/lib/version.ts";
-import { computeSyncHashes } from "../src/lib/sync-hashes.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
-const DESKTOP_ROOT = join(Bun.env.HOME || "/tmp", ".kimi-code");
-const BIN_SRC = join(REPO_ROOT, "src", "bin");
-const BIN_DST = join(DESKTOP_ROOT, "tools");
-const LIB_SRC_DIR = join(REPO_ROOT, "src", "lib");
-const LIB_DST_DIR = join(DESKTOP_ROOT, "lib");
-const SCRIPTS_SRC = join(REPO_ROOT, "scripts");
-const SCRIPTS_DST = join(DESKTOP_ROOT, "scripts");
-const SKILL_SRC = join(REPO_ROOT, "skills", "kimi-toolchain");
-const SKILL_DST = join(Bun.env.HOME || "/tmp", ".agents", "skills", "kimi-toolchain");
-
-/** Orphaned files that should be removed from the desktop install */
-const ORPHANS = ["kimi-utils.ts"];
-
-interface SyncResult {
-  updated: string[];
-  removed: string[];
-  skipped: number;
-}
-
-async function readTextOrNull(path: string): Promise<string | null> {
-  try {
-    return await Bun.file(path).text();
-  } catch {
-    return null;
-  }
-}
-
-async function sync(): Promise<SyncResult> {
-  const result: SyncResult = { updated: [], removed: [], skipped: 0 };
-
-  // ── Sync bin/*.ts ──────────────────────────────────────────────
-  const glob = new Bun.Glob("*.ts");
-  for await (const file of glob.scan(BIN_SRC)) {
-    const srcPath = join(BIN_SRC, file);
-    const dstPath = join(BIN_DST, file);
-
-    const srcText = await Bun.file(srcPath).text();
-    const dstText = await readTextOrNull(dstPath);
-
-    if (srcText !== dstText) {
-      await Bun.write(dstPath, srcText);
-      result.updated.push(`tools/${file}`);
-    } else {
-      result.skipped++;
-    }
-  }
-
-  // ── Sync lib/*.ts ──────────────────────────────────────────────
-  const libGlob = new Bun.Glob("*.ts");
-  for await (const file of libGlob.scan(LIB_SRC_DIR)) {
-    const srcPath = join(LIB_SRC_DIR, file);
-    const dstPath = join(LIB_DST_DIR, file);
-    const srcText = await Bun.file(srcPath).text();
-    const dstText = await readTextOrNull(dstPath);
-    if (srcText !== dstText) {
-      await Bun.write(dstPath, srcText);
-      result.updated.push(`lib/${file}`);
-    }
-  }
-
-  // ── Sync scripts/*.ts ──────────────────────────────────────────
-  if (existsSync(SCRIPTS_SRC)) {
-    if (!existsSync(SCRIPTS_DST)) mkdirSync(SCRIPTS_DST, { recursive: true });
-    const scriptsGlob = new Bun.Glob("*.ts");
-    for await (const file of scriptsGlob.scan(SCRIPTS_SRC)) {
-      const srcPath = join(SCRIPTS_SRC, file);
-      const dstPath = join(SCRIPTS_DST, file);
-      const srcText = await Bun.file(srcPath).text();
-      const dstText = await readTextOrNull(dstPath);
-      if (srcText !== dstText) {
-        await Bun.write(dstPath, srcText);
-        result.updated.push(`scripts/${file}`);
-      }
-    }
-  }
-
-  // ── Sync root templates ────────────────────────────────────────
-  for (const doc of [
-    "AGENTS.md",
-    "UNIFIED.md",
-    "TEMPLATES.md",
-    "CONTRIBUTING.md",
-    "dx.config.toml",
-  ]) {
-    const srcPath = join(REPO_ROOT, doc);
-    const dstPath = join(DESKTOP_ROOT, doc);
-    const srcText = await readTextOrNull(srcPath);
-    if (srcText === null) continue;
-    const dstText = await readTextOrNull(dstPath);
-    if (srcText !== dstText) {
-      await Bun.write(dstPath, srcText);
-      result.updated.push(doc);
-    }
-  }
-
-  // ── Sync agent skill (SKILL.md + examples/) ───────────────────
-  if (existsSync(SKILL_SRC)) {
-    const skillGlob = new Bun.Glob("**/*");
-    for await (const rel of skillGlob.scan({ cwd: SKILL_SRC, onlyFiles: true })) {
-      const srcPath = join(SKILL_SRC, rel);
-      const dstPath = join(SKILL_DST, rel);
-      const srcText = await readTextOrNull(srcPath);
-      if (srcText === null) continue;
-      const dstText = await readTextOrNull(dstPath);
-      if (srcText !== dstText) {
-        const parent = dirname(dstPath);
-        if (!existsSync(parent)) mkdirSync(parent, { recursive: true });
-        await Bun.write(dstPath, srcText);
-        result.updated.push(`skill/${rel}`);
-      }
-    }
-  }
-
-  // ── Remove orphaned files ──────────────────────────────────────
-  for (const orphan of ORPHANS) {
-    const orphanPath = join(BIN_DST, orphan);
-    const exists = await readTextOrNull(orphanPath);
-    if (exists !== null) {
-      await Bun.$`rm -f ${orphanPath}`;
-      result.removed.push(`tools/${orphan}`);
-    }
-  }
-
-  return result;
-}
 
 async function main() {
   const isDaemon = Bun.argv.includes("--daemon");
 
-  // ── Pre-sync checks ────────────────────────────────────────────
   const [desktopVersion, gitHead, dirty] = await Promise.all([
     getDesktopVersion(),
     getRepoHead(),
@@ -164,7 +37,7 @@ async function main() {
   if (isDaemon) {
     console.log("🔄 Starting desktop sync daemon (every 5 minutes)...");
     Bun.cron("*/5 * * * *", async () => {
-      const result = await sync();
+      const result = await syncDesktop(REPO_ROOT);
       const total = result.updated.length + result.removed.length;
       if (total > 0) {
         const stamp = new Date().toISOString().slice(11, 19);
@@ -173,7 +46,6 @@ async function main() {
         if (result.removed.length) parts.push(`${result.removed.length} removed`);
         console.log(`[${stamp}] Synced: ${parts.join(", ")}`);
 
-        // Rewrite manifest on every sync
         const head = await getRepoHead();
         const fileHashes = await computeSyncHashes(REPO_ROOT);
         await writeManifest({
@@ -191,10 +63,9 @@ async function main() {
   }
 
   console.log("🔄 Syncing repo → ~/.kimi-code/ ...");
-  const result = await sync();
-
-  // ── Write manifest ─────────────────────────────────────────────
+  const result = await syncDesktop(REPO_ROOT);
   const fileHashes = await computeSyncHashes(REPO_ROOT);
+
   await writeManifest({
     toolchainVersion: TOOLCHAIN_VERSION,
     desktopVersion,

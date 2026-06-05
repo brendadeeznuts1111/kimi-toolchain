@@ -22,7 +22,7 @@ import {
 } from "../lib/memory-budget.ts";
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
 import { getOrphanProcesses, runOrphanKill } from "./kimi-orphan-kill.ts";
-import { resolveProjectRoot } from "../lib/utils.ts";
+import { resolveProjectRoot, printSection } from "../lib/utils.ts";
 
 const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
 const FIX = Bun.argv.includes("--fix");
@@ -53,8 +53,7 @@ function error(name: string, message: string): CheckResult {
 
 function section(title: string) {
   if (JSON_OUT) return;
-  console.log("");
-  console.log(`── ${title} ${"─".repeat(Math.max(0, 60 - title.length))}`);
+  printSection(title);
 }
 
 function recordMemoryCheck(r: MemoryCheckResult): CheckResult {

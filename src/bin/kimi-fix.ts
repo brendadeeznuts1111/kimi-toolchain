@@ -109,63 +109,15 @@ interface ReadableStream<R = any> {
 }
 `;
 
-const LINT_BANNED_TERMS = `#!/usr/bin/env bun
-/**
- * Fail if internal-only branding appears in repo sources.
- * Markdown/docs are not covered by oxlint — this script gates them.
- */
+const TOOLCHAIN_ROOT = join(import.meta.dir, "..", "..");
 
-import { existsSync } from "fs";
-import { join, relative } from "path";
-
-const REPO_ROOT = join(import.meta.dir, "..");
-
-const BANNED: Array<{ pattern: RegExp; label: string }> = [
-  { pattern: /Tier[- ]?1380/i, label: "Tier-1380 internal tag (use global Bun-native wording)" },
-];
-
-const SCAN_GLOB = new Bun.Glob("**/*.{md,ts,json,toml}");
-const SKIP_DIRS = new Set(["node_modules", ".git", "coverage", ".bun"]);
-const SKIP_FILES = new Set(["scripts/lint-banned-terms.ts", "src/bin/kimi-fix.ts"]);
-
-async function main() {
-  const violations: string[] = [];
-
-  for await (const rel of SCAN_GLOB.scan({ cwd: REPO_ROOT, onlyFiles: true })) {
-    if (rel.split("/").some((seg) => SKIP_DIRS.has(seg))) continue;
-    if (SKIP_FILES.has(rel) || rel === "bun.lock") continue;
-
-    const path = join(REPO_ROOT, rel);
-    let text: string;
-    try {
-      text = await Bun.file(path).text();
-    } catch {
-      continue;
-    }
-
-    for (const line of text.split("\\n")) {
-      for (const { pattern, label } of BANNED) {
-        if (pattern.test(line)) {
-          violations.push(\`\${relative(REPO_ROOT, path)}: \${label}\\n  \${line.trim().slice(0, 120)}\`);
-        }
-      }
-    }
+async function readLintBannedTermsTemplate(): Promise<string> {
+  const templatePath = join(TOOLCHAIN_ROOT, "scripts", "lint-banned-terms.ts");
+  if (!existsSync(templatePath)) {
+    throw new Error(`Missing toolchain template: ${templatePath}`);
   }
-
-  if (violations.length > 0) {
-    console.error("✗ Banned terms found:\\n");
-    for (const v of violations) console.error(\`  \${v}\\n\`);
-    process.exit(1);
-  }
-
-  console.log("  ✓ No banned terms");
+  return Bun.file(templatePath).text();
 }
-
-main().catch((err) => {
-  console.error("lint-banned-terms failed:", err.message);
-  process.exit(1);
-});
-`;
 
 const DX_CONFIG = `# Project DX + kimi runtime policy
 schemaVersion = 1
@@ -413,7 +365,7 @@ async function main() {
   if (!existsSync(lintTermsPath)) {
     log("lint", "creating scripts/lint-banned-terms.ts...");
     if (!dryRun) mkdirSync(join(project, "scripts"), { recursive: true });
-    await writeFile(lintTermsPath, LINT_BANNED_TERMS, dryRun);
+    await writeFile(lintTermsPath, await readLintBannedTermsTemplate(), dryRun);
   }
 
   // package.json scripts + oxfmt/oxlint devDeps

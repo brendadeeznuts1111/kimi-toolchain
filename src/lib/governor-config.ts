@@ -43,22 +43,28 @@ cacheTTLSeconds = 300
 wallClockMs = 300000
 `;
 
-function parseTomlNumbers(text: string): Partial<GovernorDefaults> {
+function parseGovernorToml(text: string): Partial<GovernorDefaults> {
   const out: Partial<GovernorDefaults> = {};
-  const keys = [
-    "maxMemoryMB",
-    "maxCpuTimeMs",
-    "maxFileSizeMB",
-    "maxOpenFiles",
-    "maxParallelJobs",
-    "diskQuotaMB",
-    "cacheTTLSeconds",
-    "wallClockMs",
-  ] as const;
-
-  for (const key of keys) {
-    const match = text.match(new RegExp(`^${key}\\s*=\\s*(\\d+)`, "m"));
-    if (match) out[key] = parseInt(match[1], 10);
+  try {
+    const parsed = Bun.TOML.parse(text) as Record<string, unknown>;
+    const keys = [
+      "maxMemoryMB",
+      "maxCpuTimeMs",
+      "maxFileSizeMB",
+      "maxOpenFiles",
+      "maxParallelJobs",
+      "diskQuotaMB",
+      "cacheTTLSeconds",
+      "wallClockMs",
+    ] as const;
+    for (const key of keys) {
+      const value = parsed[key];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        out[key] = Math.trunc(value);
+      }
+    }
+  } catch {
+    /* use builtin */
   }
   return out;
 }
@@ -69,7 +75,7 @@ export async function loadGovernorDefaults(): Promise<GovernorDefaults> {
   if (existsSync(CONFIG_PATH)) {
     try {
       const text = await Bun.file(CONFIG_PATH).text();
-      merged = { ...merged, ...parseTomlNumbers(text) };
+      merged = { ...merged, ...parseGovernorToml(text) };
     } catch {
       /* use builtin */
     }

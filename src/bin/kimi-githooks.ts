@@ -11,7 +11,17 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { ensureDir, log, findExecutable, resolveProjectRoot, sha256File } from "../lib/utils.ts";
+import {
+  ensureDir,
+  log,
+  findExecutable,
+  resolveProjectRoot,
+  sha256File,
+  printToolBanner,
+  printSection,
+  buildDoctorReport,
+  printDoctorReport,
+} from "../lib/utils.ts";
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
@@ -356,28 +366,15 @@ async function main() {
   const command = args[0] || "install";
   const projectDir = await resolveProjectRoot(Bun.cwd);
 
-  console.log(`╔══════════════════════════════════════════════════════════════╗`);
-  console.log(`║           Kimi Git Hooks                                     ║`);
-  console.log(`╚══════════════════════════════════════════════════════════════╝`);
+  printToolBanner("Kimi Git Hooks");
 
   if (command === "install") {
     await installHooks(projectDir);
   } else if (command === "doctor") {
-    console.log("── Hook Health Check ─────────────────────────────────────────");
     const checks = await doctorHooks(projectDir);
-    let errors = 0,
-      warns = 0,
-      fixable = 0;
-    for (const c of checks) {
-      const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
-      console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
-      if (c.status === "error") errors++;
-      if (c.status === "warn") warns++;
-      if (c.fixable) fixable++;
-    }
-    console.log(`  ${errors} error(s), ${warns} warning(s), ${fixable} fixable`);
+    printDoctorReport(buildDoctorReport("Hook Health Check", checks));
   } else if (command === "fix") {
-    console.log("── Fixing Hooks ──────────────────────────────────────────────");
+    printSection("Fixing Hooks");
     const checks = await doctorHooks(projectDir);
     const needsInstall = checks.some(
       (c) =>

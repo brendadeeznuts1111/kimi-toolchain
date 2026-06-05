@@ -21,6 +21,21 @@ export function log(level: "info" | "warn" | "error", msg: string) {
   console.log(`${prefix} ${msg}`);
 }
 
+export function printSection(title: string, width = 60): void {
+  console.log("");
+  console.log(`── ${title} ${"─".repeat(Math.max(0, width - title.length))}`);
+}
+
+export function printToolBanner(title: string, innerWidth = 62): void {
+  const pad = Math.max(0, innerWidth - title.length);
+  const left = Math.floor(pad / 2);
+  const right = pad - left;
+  const bar = "═".repeat(innerWidth + 2);
+  console.log(`╔${bar}╗`);
+  console.log(`║ ${" ".repeat(left)}${title}${" ".repeat(right)} ║`);
+  console.log(`╚${bar}╝`);
+}
+
 // ── Hashing ──────────────────────────────────────────────────────────
 
 export async function sha256File(path: string): Promise<string> {
@@ -53,79 +68,8 @@ export function getProjectName(projectDir: string = Bun.cwd): string {
   return projectDir.split("/").pop() || "unknown";
 }
 
-// ── Process Guard (prevents runaway spawning) ─────────────────────────
+// ── Project Root ─────────────────────────────────────────────────────
 
-const GUARD_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "guard");
-const GUARD_PID_FILE = join(GUARD_DIR, "test-runner.pid");
-const MAX_CONCURRENT_TEST_PROCS = 16; // hard ceiling on test-related bun processes
-
-/** Check if another test runner is already active */
-export function isTestRunnerActive(): boolean {
-  try {
-    if (!existsSync(GUARD_PID_FILE)) return false;
-    const pid = parseInt(Bun.file(GUARD_PID_FILE).textSync(), 10);
-    if (isNaN(pid)) return false;
-    // Check if process still exists (signal 0 is no-op check)
-    try {
-      process.kill(pid, 0);
-      return true;
-    } catch {
-      return false;
-    }
-  } catch {
-    return false;
-  }
-}
-
-/** Register this process as the active test runner */
-export function registerTestRunner(): void {
-  ensureDir(GUARD_DIR);
-  Bun.write(GUARD_PID_FILE, String(process.pid));
-}
-
-/** Unregister this process as the active test runner */
-export function unregisterTestRunner(): void {
-  try {
-    if (existsSync(GUARD_PID_FILE)) {
-      const pid = parseInt(Bun.file(GUARD_PID_FILE).textSync(), 10);
-      if (pid === process.pid) {
-        if (Bun.file(GUARD_PID_FILE).delete) {
-          Bun.file(GUARD_PID_FILE).delete();
-        } else {
-          require("fs").unlinkSync(GUARD_PID_FILE);
-        }
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
-/** Count test-related bun processes (bun test, bun run *kimi, kimi --version) */
-export function countTestProcesses(): number {
-  try {
-    const result = require("child_process")?.execSync?.(
-      'ps aux | grep -E "bun test|bun run.*kimi-|kimi --version|/bin/cp.*kimi-test" | grep -v grep | wc -l',
-      { encoding: "utf-8", timeout: 2000 }
-    );
-    return parseInt(result?.trim() || "0", 10);
-  } catch {
-    return 0;
-  }
-}
-
-/** Abort if too many test processes are already running */
-export function guardAgainstRunawaySpawn(): void {
-  const count = countTestProcesses();
-  if (count > MAX_CONCURRENT_TEST_PROCS) {
-    throw new Error(
-      `Process guard triggered: ${count} test processes running (max ${MAX_CONCURRENT_TEST_PROCS}). ` +
-        `Kill existing processes before running tests: killall -9 "bun test"`
-    );
-  }
-}
-
-/** Resolve the actual project root (repo root) even when run from a subdir */
 export async function resolveProjectRoot(fallback: string = Bun.cwd): Promise<string> {
   try {
     const result = await $`git rev-parse --show-toplevel`.quiet().nothrow();
@@ -148,10 +92,6 @@ export async function streamToText(stream: ReadableStream): Promise<string> {
   return Bun.readableStreamToText(stream);
 }
 
-export async function streamToBytes(stream: ReadableStream): Promise<Uint8Array> {
-  return Bun.readableStreamToBytes(stream);
-}
-
 // ── Fetch with Timeout ───────────────────────────────────────────────
 
 export async function fetchWithTimeout(
@@ -160,26 +100,12 @@ export async function fetchWithTimeout(
 ): Promise<Response> {
   const { timeoutMs = 10000, ...fetchOptions } = options;
   const ctrl = new AbortController();
-  const timeout = setTimeout(() => ctrl.abort(), timeoutMs);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const resp = await fetch(url, { ...fetchOptions, signal: ctrl.signal });
-    return resp;
+    return await fetch(url, { ...fetchOptions, signal: ctrl.signal });
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(timer);
   }
-}
-
-// ── Process Output ───────────────────────────────────────────────────
-
-export async function readProcessOutput(proc: {
-  stdout: ReadableStream;
-  stderr: ReadableStream;
-}): Promise<{ stdout: string; stderr: string }> {
-  const [stdout, stderr] = await Promise.all([
-    streamToText(proc.stdout),
-    streamToText(proc.stderr),
-  ]);
-  return { stdout, stderr };
 }
 
 // ── Tool Runner (for cross-tool integration) ─────────────────────────
@@ -202,10 +128,10 @@ export async function runTool(
   });
 
   const timeoutMs = options?.timeoutMs || 60000;
-  const timeout = setTimeout(() => proc.kill("SIGTERM"), timeoutMs);
+  const timer = setTimeout(() => proc.kill("SIGTERM"), timeoutMs);
 
   const exitCode = await proc.exited;
-  clearTimeout(timeout);
+  clearTimeout(timer);
 
   const stdout = await streamToText(proc.stdout);
   const stderr = await streamToText(proc.stderr);
@@ -230,7 +156,7 @@ export interface DoctorReport {
 }
 
 export function printDoctorReport(report: DoctorReport) {
-  console.log(`── ${report.tool} Doctor ─────────────────────────────────────────`);
+  printSection(`${report.tool} Doctor`);
   for (const check of report.checks) {
     const icon = check.status === "ok" ? "✓" : check.status === "warn" ? "⚠" : "✗";
     const fixTag = check.fixable ? " [fixable]" : "";
@@ -241,111 +167,15 @@ export function printDoctorReport(report: DoctorReport) {
   );
 }
 
-// ── Warning Trending (shared between memory and governance) ───────────
-
-export interface DoctorWarning {
-  check: string;
-  message: string;
-  severity: "warn" | "error";
+export function buildDoctorReport(tool: string, checks: DoctorCheck[]): DoctorReport {
+  return {
+    tool,
+    checks,
+    errorCount: checks.filter((c) => c.status === "error").length,
+    warnCount: checks.filter((c) => c.status === "warn").length,
+    fixableCount: checks.filter((c) => c.fixable).length,
+  };
 }
 
-export function recordDoctorRun(
-  project: string,
-  tool: string,
-  warnings: DoctorWarning[],
-  rScore?: number,
-  gitHead?: string
-) {
-  const { Database } = require("bun:sqlite");
-  const VAR_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "var");
-  const DB_PATH = join(VAR_DIR, "sessions.db");
-
-  const db = new Database(DB_PATH, { create: true });
-  db.exec("PRAGMA journal_mode = WAL;");
-  const now = Date.now();
-
-  db.run(
-    `INSERT INTO doctor_runs (timestamp, tool, warnings_json, r_score, git_head, project)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [now, tool, JSON.stringify(warnings), rScore ?? null, gitHead ?? null, project]
-  );
-
-  for (const w of warnings) {
-    const existing = db
-      .query("SELECT occurrence_count FROM warning_trends WHERE check_name = ?")
-      .get(w.check) as any;
-    if (existing) {
-      db.run(
-        `UPDATE warning_trends SET last_seen = ?, occurrence_count = occurrence_count + 1, resolved_at = NULL
-         WHERE check_name = ?`,
-        [now, w.check]
-      );
-    } else {
-      db.run(
-        `INSERT INTO warning_trends (check_name, tool, first_seen, last_seen, occurrence_count)
-         VALUES (?, ?, ?, ?, 1)`,
-        [w.check, tool, now, now]
-      );
-    }
-  }
-
-  if (warnings.length > 0) {
-    const checkNames = warnings.map((w) => w.check);
-    const placeholders = checkNames.map(() => "?").join(",");
-    db.run(
-      `UPDATE warning_trends SET resolved_at = ?
-       WHERE resolved_at IS NULL AND check_name NOT IN (${placeholders})`,
-      [now, ...checkNames]
-    );
-  } else {
-    db.run("UPDATE warning_trends SET resolved_at = ? WHERE resolved_at IS NULL", [now]);
-  }
-
-  db.close();
-}
-
-export function getPersistentWarnings(tool?: string): Array<{
-  check_name: string;
-  tool: string;
-  occurrence_count: number;
-  first_seen: number;
-  last_seen: number;
-  age_days: number;
-}> {
-  const { Database } = require("bun:sqlite");
-  const VAR_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "var");
-  const DB_PATH = join(VAR_DIR, "sessions.db");
-
-  const db = new Database(DB_PATH, { create: true });
-  db.exec("PRAGMA journal_mode = WAL;");
-
-  let rows;
-  if (tool) {
-    rows = db
-      .query(
-        `SELECT check_name, tool, occurrence_count, first_seen, last_seen
-       FROM warning_trends WHERE resolved_at IS NULL AND tool = ?
-       ORDER BY occurrence_count DESC`
-      )
-      .all(tool) as any[];
-  } else {
-    rows = db
-      .query(
-        `SELECT check_name, tool, occurrence_count, first_seen, last_seen
-       FROM warning_trends WHERE resolved_at IS NULL
-       ORDER BY occurrence_count DESC`
-      )
-      .all() as any[];
-  }
-  db.close();
-
-  const now = Date.now();
-  return rows.map((r) => ({
-    check_name: r.check_name,
-    tool: r.tool,
-    occurrence_count: r.occurrence_count,
-    first_seen: r.first_seen,
-    last_seen: r.last_seen,
-    age_days: Math.round((now - r.first_seen) / (24 * 60 * 60 * 1000)),
-  }));
-}
+// Re-export doctor persistence (canonical impl in doctor-runs.ts)
+export { recordDoctorRun, getPersistentWarnings, type DoctorWarning } from "./doctor-runs.ts";
