@@ -324,7 +324,7 @@ async function checkDocDrift(projectDir: string): Promise<DocDrift> {
   const pkg = (await Bun.file(pkgPath).json()) as any;
   const scripts = pkg.scripts || {};
 
-  const scriptPattern = /(?:bun run |npm run |yarn )([\w-]+)/g;
+  const scriptPattern = /(?:bun run |npm run |yarn )([\w:-]+)/g;
   const codeBlockPattern = /```[\s\S]*?```/g;
 
   let match;
