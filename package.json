@@ -1,0 +1,8 @@
+{
+  "name": "kimicode-cli",
+  "version": "0.1.0",
+  "description": "Kimi Code CLI project",
+  "scripts": {
+    "test": "echo 'No tests yet'"
+  }
+}
