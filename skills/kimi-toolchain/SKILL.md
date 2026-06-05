@@ -110,7 +110,7 @@ Teaches agents to operate the kimi-toolchain CLI effectively.
 
 ## R-Score Interpretation
 
-R-Score is **points out of 110** with letter grades (not a 0.0–1.0 float).
+R-Score is **points out of 110** with letter grades derived from decimal % of max (e.g. `C (87.3/110, 79.4%)`). Coverage contributes fractional points.
 
 | % of Max | Grade | Points (approx) | Meaning    | Action                         |
 | -------- | ----- | --------------- | ---------- | ------------------------------ |

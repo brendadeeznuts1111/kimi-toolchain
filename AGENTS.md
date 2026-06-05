@@ -261,7 +261,7 @@ The project uses its own `kimi-governance score` system. The R-Score formula che
 | docsFresh       | 15        |
 | noStaleLockfile | 10        |
 
-Grades: A (≥90%), B (≥80%), C (≥70%), D (≥60%), F (<60%).
+Grades: A (≥90%), B (≥80%), C (≥70%), D (≥60%), F (<60%). CLI shows points, max (110), and decimal % (e.g. `C (87.3/110, 79.4%)`). Coverage points are fractional, not rounded.
 
 **Pre-push hooks block push if R-Score is F or D.**
 

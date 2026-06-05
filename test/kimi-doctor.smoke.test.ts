@@ -98,6 +98,7 @@ describe("kimi-doctor smoke", () => {
     if (Bun.env.KIMI_COVERAGE_SCAN) return;
     const { stdout, exitCode } = await runTool(GOVERNANCE, ["score"]);
     expect(stdout).toContain("Grade:");
+    expect(stdout).toMatch(/\d+\.\d+%/);
     expect(stdout).toContain("Breakdown:");
     expect(exitCode).toBe(0);
   }, 30_000);

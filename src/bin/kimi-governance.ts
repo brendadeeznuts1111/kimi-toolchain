@@ -68,13 +68,31 @@ interface DocDrift {
 
 // ── Utilities ────────────────────────────────────────────────────────
 
+function scorePct(score: number, max: number): number {
+  return max > 0 ? (score / max) * 100 : 0;
+}
+
+function formatPct(score: number, max: number): string {
+  return `${scorePct(score, max).toFixed(1)}%`;
+}
+
+function formatPoints(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
 function grade(score: number, max: number): string {
-  const pct = score / max;
+  const pct = scorePct(score, max) / 100;
   if (pct >= 0.9) return "A";
   if (pct >= 0.8) return "B";
   if (pct >= 0.7) return "C";
   if (pct >= 0.6) return "D";
   return "F";
+}
+
+function breakdownIndicator(value: number, weight: number): string {
+  if (value >= weight - 0.05) return "✓";
+  if (value > 0) return "~";
+  return "✗";
 }
 
 // ── Governance File Checker ──────────────────────────────────────────
@@ -524,7 +542,7 @@ async function computeRScore(projectDir: string): Promise<RScore> {
     hasReadme: gov.hasReadme ? WEIGHTS.hasReadme : 0,
     hasContext: gov.hasContext ? WEIGHTS.hasContext : 0,
     hasChangelog: gov.hasChangelog ? 5 : 0, // bonus points
-    testCoverage: Math.round((coverage.percentage / 100) * WEIGHTS.testCoverage),
+    testCoverage: (coverage.percentage / 100) * WEIGHTS.testCoverage,
     docsFresh: drift.fresh ? WEIGHTS.docsFresh : 0,
     noStaleLockfile: !staleLockfile ? WEIGHTS.noStaleLockfile : 0,
   };
@@ -936,13 +954,15 @@ async function main() {
     console.log("── Computing R-Score ─────────────────────────────────────────");
     const score = await computeRScore(projectDir);
 
-    console.log(`  Grade: ${score.grade} (${score.total}/${score.max})`);
+    console.log(
+      `  Grade: ${score.grade} (${formatPoints(score.total)}/${score.max}, ${formatPct(score.total, score.max)})`
+    );
     console.log("");
     console.log("  Breakdown:");
     for (const [key, value] of Object.entries(score.breakdown)) {
       const weight = WEIGHTS[key as keyof typeof WEIGHTS];
-      const indicator = value === weight ? "✓" : value > 0 ? "~" : "✗";
-      console.log(`    ${indicator} ${key}: ${value}/${weight}`);
+      const indicator = breakdownIndicator(value, weight);
+      console.log(`    ${indicator} ${key}: ${formatPoints(value)}/${weight}`);
     }
 
     if (existsSync(SCORE_HISTORY)) {
@@ -951,9 +971,11 @@ async function main() {
         const prev = history[history.length - 2];
         const delta = score.total - prev.total;
         const arrow = delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
+        const deltaStr = formatPoints(Math.abs(delta));
+        const signedDelta = delta > 0 ? `+${deltaStr}` : delta < 0 ? `-${deltaStr}` : "0";
         console.log("");
         console.log(
-          `  Trend: ${arrow} ${delta > 0 ? "+" : ""}${delta} from last run (${prev.grade} → ${score.grade})`
+          `  Trend: ${arrow} ${signedDelta} from last run (${prev.grade} → ${score.grade})`
         );
       }
     }
