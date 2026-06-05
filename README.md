@@ -1,6 +1,8 @@
 # kimicode-cli
 
-> A Bun-native project
+> AI-native dev tooling powered by Kimi Code CLI
+>
+> `https://github.com/brendadeeznuts1111/kimicode-cli`
 
 ## Quick Start
 

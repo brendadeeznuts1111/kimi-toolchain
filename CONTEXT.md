@@ -1,5 +1,7 @@
 # CONTEXT — kimicode-cli
 
+> `https://github.com/brendadeeznuts1111/kimicode-cli`
+
 ## Domain
 
 Kimi Code CLI infrastructure and toolchain. This workspace contains the custom agent tools, MCP bridge, documentation, and governance scaffolding that power the Kimi Code CLI experience on this machine.
