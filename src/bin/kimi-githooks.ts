@@ -5,7 +5,7 @@
  * P1: pre-push (lockfile verify, guardian scan, R-Score gate)
  *
  * Usage:
- *   bun run ~/.kimi-code/tools/kimi-githooks.ts [install|doctor|fix|pre-commit|pre-push]
+ *   kimi-githooks [install|doctor|fix|pre-commit|pre-push]
  */
 
 import { $ } from "bun";

@@ -4,7 +4,7 @@
  * v2.0: Session auto-save/resume, cross-project linking, impact analysis
  *
  * Usage:
- *   bun run ~/.kimi-code/tools/kimi-memory.ts [store|recall|resume|link|graph|impact|search|prune|stats|autosave|doctor|fix]
+ *   kimi-memory [store|recall|resume|link|graph|impact|search|prune|stats|autosave|doctor|fix]
  *
  * Import:
  *   import { saveSession, resumeSession, addKnowledgeEdge, getImpactGraph } from "./kimi-memory.ts";

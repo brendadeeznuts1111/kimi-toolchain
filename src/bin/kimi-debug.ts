@@ -4,7 +4,7 @@
  * Analyzes recent session activity + git history to suggest root cause
  *
  * Usage:
- *   bun run ~/.kimi-code/tools/kimi-debug.ts [last|diff|trace|analyze|doctor|fix]
+ *   kimi-debug [last|diff|trace|analyze|doctor|fix]
  */
 
 import { $ } from "bun";
@@ -27,7 +27,7 @@ interface SessionEvent {
 
 // ── Config ───────────────────────────────────────────────────────────
 
-const MEMORY_DB = join(Bun.env.HOME || "/tmp", ".kimi-code", "memory", "sessions.sqlite");
+const MEMORY_DB = join(Bun.env.HOME || "/tmp", ".kimi-code", "var", "sessions.db");
 const WIZARD_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "wizard");
 
 // ── Git Analysis ─────────────────────────────────────────────────────

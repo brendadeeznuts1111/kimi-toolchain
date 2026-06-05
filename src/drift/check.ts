@@ -4,7 +4,7 @@
  * Quick check for outdated/unused deps vs lockfile
  *
  * Usage:
- *   bun run ~/.kimi-code/src/drift/check.ts [--quick] [--exit-code]
+ *   bun run src/drift/check.ts [--quick] [--exit-code]  (from repo)
  */
 
 import { $ } from "bun";

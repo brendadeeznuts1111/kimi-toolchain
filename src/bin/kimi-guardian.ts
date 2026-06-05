@@ -6,7 +6,7 @@
  * P1: Transitive provenance
  *
  * Usage:
- *   bun run ~/.kimi-code/tools/kimi-guardian.ts [check|fix|report|sign|verify|doctor]
+ *   kimi-guardian [check|fix|report|sign|verify|doctor]
  */
 
 import { $, TOML } from "bun";

@@ -5,7 +5,7 @@
  * P2: License/CONTRIBUTING/CODEOWNERS checker, documentation drift, ADR scaffold
  *
  * Usage:
- *   bun run ~/.kimi-code/tools/kimi-governance.ts [score|coverage [N]|docs|adr <title>|fix|doctor]
+ *   kimi-governance [score|coverage [N]|docs|adr <title>|fix|doctor]
  */
 
 import { $ } from "bun";

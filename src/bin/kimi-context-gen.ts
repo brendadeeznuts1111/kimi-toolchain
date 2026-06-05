@@ -4,7 +4,7 @@
  * P1: Tech stack inference, config hash tree, freshness scoring
  *
  * Usage:
- *   bun run ~/.kimi-code/tools/kimi-context-gen.ts [scan|freshness|update|doctor|fix]
+ *   kimi-context-gen [scan|freshness|update|doctor|fix]
  */
 
 import { $, semver, TOML } from "bun";

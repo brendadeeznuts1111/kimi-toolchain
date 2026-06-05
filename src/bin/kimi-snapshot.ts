@@ -4,7 +4,7 @@
  * Captures git state, untracked files, env vars for rollback
  *
  * Usage:
- *   bun run ~/.kimi-code/tools/kimi-snapshot.ts [save|restore|list|show|cleanup|doctor|fix]
+ *   kimi-snapshot [save|restore|list|show|cleanup|doctor|fix]
  */
 
 import { $ } from "bun";

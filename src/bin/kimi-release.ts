@@ -3,7 +3,7 @@
  * kimi-release — Conventional commit parser + changelog auto-generator + semver validator
  *
  * Usage:
- *   bun run ~/.kimi-code/tools/kimi-release.ts [changelog|semver|validate|doctor|fix]
+ *   kimi-release [changelog|semver|validate|doctor|fix]
  */
 
 import { $ } from "bun";

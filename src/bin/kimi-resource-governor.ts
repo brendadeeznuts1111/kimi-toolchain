@@ -6,7 +6,7 @@
  * P2: Disk quota, diagnostic cache with TTL
  *
  * Usage:
- *   bun run ~/.kimi-code/tools/kimi-resource-governor.ts [limits|parallel|quota|cache|spawn|doctor|session|cleanup|status]
+ *   kimi-resource-governor [limits|parallel|quota|cache|spawn|doctor|session|cleanup|status]
  *
  * Import:
  *   import { governedSpawn, ParallelGovernor, cachedExec, cachedDoctor, getSessionId } from "./kimi-resource-governor.ts";
