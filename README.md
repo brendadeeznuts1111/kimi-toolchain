@@ -31,7 +31,17 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | Command | Description |
 |---------|-------------|
 | `kimi-doctor` | Full toolchain diagnostics |
-| `kimi-fix` | Auto-repair toolchain gaps |
+| `kimi-fix <path> [--dry-run]` | Auto-repair project scaffolding |
+
+### Project Scripts
+
+| Command | Description |
+|---------|-------------|
+| `bun run doctor` | Run kimi-doctor from repo |
+| `bun run fix` | Run kimi-fix from repo |
+| `bun run governance` | Run kimi-governance from repo |
+| `bun run test` | Run test suite (Bun test runner) |
+| `bun run typecheck` | TypeScript type check (no emit) |
 
 ### Governance
 
