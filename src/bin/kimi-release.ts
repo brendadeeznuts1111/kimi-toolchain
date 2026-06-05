@@ -47,8 +47,10 @@ function parseCommit(hash: string, subject: string, body: string): Commit | null
 }
 
 async function getCommits(sinceTag?: string): Promise<Commit[]> {
-  const range = sinceTag ? `${sinceTag}..HEAD` : "HEAD~50..HEAD";
-  const result = await $`git log ${range} --format=%H%x00%s%x00%b%x00`.nothrow().quiet();
+  const range = sinceTag ? `${sinceTag}..HEAD` : undefined;
+  const result = range
+    ? await $`git log ${range} --format=%H%x00%s%x00%b%x00`.nothrow().quiet()
+    : await $`git log --format=%H%x00%s%x00%b%x00`.nothrow().quiet();
   if (result.exitCode !== 0) return [];
 
   const raw = result.stdout.toString();
