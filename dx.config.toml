@@ -5,6 +5,12 @@ schemaVersion = 1
 containers = "none"
 packageManager = "bun"
 
+[quality]
+formatter = "oxfmt"
+linter = "oxlint"
+formatCheck = "bun run format:check"
+lintCheck = "bun run lint"
+
 [kimi]
 memoryGate = true
 preflight = true

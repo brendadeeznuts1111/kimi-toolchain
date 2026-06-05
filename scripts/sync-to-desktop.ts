@@ -76,7 +76,13 @@ async function sync(): Promise<SyncResult> {
   }
 
   // ── Sync root templates ────────────────────────────────────────
-  for (const doc of ["AGENTS.md", "UNIFIED.md", "TEMPLATES.md", "dx.config.toml"]) {
+  for (const doc of [
+    "AGENTS.md",
+    "UNIFIED.md",
+    "TEMPLATES.md",
+    "CONTRIBUTING.md",
+    "dx.config.toml",
+  ]) {
     const srcPath = join(REPO_ROOT, doc);
     const dstPath = join(DESKTOP_ROOT, doc);
     const srcText = await readTextOrNull(srcPath);

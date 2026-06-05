@@ -79,7 +79,8 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
     if (deps.typescript || deps.tsx) stack.runtime += " + TypeScript";
 
     if (deps.vitest || deps.jest) stack.test = deps.vitest ? "Vitest" : "Jest";
-    if (deps.eslint || deps.biome) stack.lint = deps.eslint ? "ESLint" : "Biome";
+    if (deps.oxfmt) stack.lint = deps.oxlint ? "oxfmt + oxlint" : "oxfmt";
+    else if (deps.eslint || deps.biome) stack.lint = deps.eslint ? "ESLint" : "Biome";
 
     const engineBun = pkg.engines?.bun;
     if (engineBun && stack.runtime?.includes("Bun")) {

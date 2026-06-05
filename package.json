@@ -29,6 +29,9 @@
   "files": [
     "src",
     "skills",
+    ".oxfmtrc.json",
+    ".oxlintrc.json",
+    "dx.config.toml",
     "AGENTS.md",
     "UNIFIED.md",
     "TEMPLATES.md",
@@ -44,6 +47,7 @@
     "doctor": "bun run src/bin/kimi-doctor.ts",
     "fix": "bun run src/bin/kimi-fix.ts",
     "governance": "bun run src/bin/kimi-governance.ts",
+    "test": "bun test",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint src test scripts",

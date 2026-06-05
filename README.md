@@ -39,13 +39,17 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 ### Project Scripts
 
-| Command              | Description                      |
-| -------------------- | -------------------------------- |
-| `bun run doctor`     | Run kimi-doctor from repo        |
-| `bun run fix`        | Run kimi-fix from repo           |
-| `bun run governance` | Run kimi-governance from repo    |
-| `bun run test`       | Run test suite (Bun test runner) |
-| `bun run typecheck`  | TypeScript type check (no emit)  |
+| Command                | Description                      |
+| ---------------------- | -------------------------------- |
+| `bun run doctor`       | Run kimi-doctor from repo        |
+| `bun run fix`          | Run kimi-fix from repo           |
+| `bun run governance`   | Run kimi-governance from repo    |
+| `bun run test`         | Run test suite (Bun test runner) |
+| `bun run typecheck`    | TypeScript type check (no emit)  |
+| `bun run format`       | Format with oxfmt (write)        |
+| `bun run format:check` | Verify formatting (CI gate)      |
+| `bun run lint`         | Lint with oxlint                 |
+| `bun run unify`        | Sync runtime, wrappers, validate |
 
 ### Governance
 

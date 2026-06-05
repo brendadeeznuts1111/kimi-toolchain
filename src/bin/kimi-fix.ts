@@ -11,6 +11,81 @@ import { $ } from "bun";
 
 const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
 
+const OXFMTRC = `{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "semi": true,
+  "singleQuote": false,
+  "trailingComma": "es5",
+  "ignorePatterns": ["bun.lock", "CHANGELOG.md"]
+}
+`;
+
+const OXLINTRC = `{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {},
+  "env": {
+    "builtin": true
+  }
+}
+`;
+
+const CI_WORKFLOW = `name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Format check
+        run: bun run format:check
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Type check
+        run: bun run typecheck
+
+      - name: Test
+        run: bun run test
+`;
+
+const DX_CONFIG = `# Project DX + kimi runtime policy
+schemaVersion = 1
+
+[runtime]
+containers = "none"
+packageManager = "bun"
+
+[quality]
+formatter = "oxfmt"
+linter = "oxlint"
+
+[kimi]
+preflight = true
+`;
+
 function log(step: string, msg: string) {
   console.log(`  → ${step}: ${msg}`);
 }
@@ -64,6 +139,45 @@ async function writeFile(path: string, content: string, dryRun: boolean) {
   await Bun.write(path, content);
 }
 
+async function ensureQualityTooling(project: string, dryRun: boolean) {
+  const pkgPath = join(project, "package.json");
+  if (!existsSync(pkgPath)) return;
+
+  const pkg = (await Bun.file(pkgPath).json()) as {
+    scripts?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+  const scripts = pkg.scripts || {};
+  const additions: Record<string, string> = {
+    test: "bun test",
+    format: "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    lint: "oxlint src test scripts",
+  };
+  let scriptsChanged = false;
+  for (const [key, value] of Object.entries(additions)) {
+    if (!scripts[key]) {
+      scripts[key] = value;
+      scriptsChanged = true;
+    }
+  }
+  if (scriptsChanged) {
+    log("package.json", "adding format/lint/test scripts...");
+    if (!dryRun) {
+      pkg.scripts = scripts;
+      await Bun.write(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+    }
+  }
+
+  const devDeps = pkg.devDependencies || {};
+  if (!devDeps.oxfmt || !devDeps.oxlint) {
+    log("deps", "installing oxfmt + oxlint...");
+    if (!dryRun) {
+      await $`bun add -d oxfmt oxlint`.cwd(project).quiet();
+    }
+  }
+}
+
 async function main() {
   const args = Bun.argv.slice(2);
   const projectPath = args[0];
@@ -78,7 +192,7 @@ async function main() {
     console.log("  - kimi-context-gen update (CONTEXT.md)");
     console.log("  - kimi-guardian fix (lockfile baseline + trusted deps)");
     console.log("  - kimi-githooks install (pre-commit + pre-push)");
-    console.log("  - .env.example, .gitignore, bunfig.toml, CI template");
+    console.log("  - .env.example, .gitignore, bunfig.toml, oxfmt/oxlint, CI template");
     process.exit(projectPath ? 0 : 1);
   }
 
@@ -157,18 +271,32 @@ async function main() {
     );
   }
 
+  // oxfmt / oxlint config
+  if (!existsSync(join(project, ".oxfmtrc.json"))) {
+    log("oxfmt", "creating .oxfmtrc.json...");
+    await writeFile(join(project, ".oxfmtrc.json"), OXFMTRC, dryRun);
+  }
+  if (!existsSync(join(project, ".oxlintrc.json"))) {
+    log("oxlint", "creating .oxlintrc.json...");
+    await writeFile(join(project, ".oxlintrc.json"), OXLINTRC, dryRun);
+  }
+
+  // dx.config.toml (optional project policy)
+  if (!existsSync(join(project, "dx.config.toml"))) {
+    log("dx", "creating dx.config.toml...");
+    await writeFile(join(project, "dx.config.toml"), DX_CONFIG, dryRun);
+  }
+
+  // package.json scripts + oxfmt/oxlint devDeps
+  await ensureQualityTooling(project, dryRun);
+
   // CI/CD template
   if (!existsSync(join(project, ".github", "workflows", "ci.yml"))) {
     log("ci", "creating CI template...");
     if (!dryRun) {
       mkdirSync(join(project, ".github", "workflows"), { recursive: true });
     }
-    await writeFile(
-      join(project, ".github", "workflows", "ci.yml"),
-      // eslint-disable-next-line no-useless-escape -- bash $vars in embedded CI script
-      `name: CI\n\non:\n  push:\n    branches: [main, master]\n  pull_request:\n    branches: [main, master]\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n\n      - name: Setup Bun\n        uses: oven-sh/setup-bun@v2\n        with:\n          bun-version: latest\n\n      - name: Install dependencies\n        run: bun install --frozen-lockfile\n\n      - name: Type check\n        run: bun run typecheck || true\n\n      - name: Lint\n        run: bun run lint || true\n\n      - name: Test\n        run: bun test --timeout 30000\n\n      - name: Coverage gate\n        run: |\n          if command -v kimi-governance &>/dev/null; then\n            kimi-governance coverage 70 || exit 1\n          fi\n        shell: bash\n\n      - name: Supply chain check\n        run: |\n          if command -v kimi-guardian &>/dev/null; then\n            kimi-guardian check || exit 1\n          fi\n        shell: bash\n\n      - name: Governance score\n        run: |\n          if command -v kimi-governance &>/dev/null; then\n            score=\$(kimi-governance score 2>/dev/null | grep "Grade:" | grep -o "[A-F]")\n            if [ "\$score" = "F" ] || [ "\$score" = "D" ]; then\n              echo "R-Score too low: \$score"\n              exit 1\n            fi\n          fi\n        shell: bash\n`,
-      dryRun
-    );
+    await writeFile(join(project, ".github", "workflows", "ci.yml"), CI_WORKFLOW, dryRun);
   }
 
   console.log("");
@@ -176,8 +304,9 @@ async function main() {
   console.log("  1. Review generated files");
   console.log("  2. Replace @replace-me in CODEOWNERS with actual username");
   console.log("  3. Add copyright holder to LICENSE");
-  console.log("  4. Run 'kimi-governance score' to check project health");
-  console.log("  5. Run 'kimi-doctor' to verify everything");
+  console.log("  4. Run 'bun run format:check' and 'bun run lint'");
+  console.log("  5. Run 'kimi-governance score' to check project health");
+  console.log("  6. Run 'kimi-doctor' to verify everything");
   console.log("");
   if (dryRun) {
     console.log("✓ Dry run complete. Remove --dry-run to apply.");

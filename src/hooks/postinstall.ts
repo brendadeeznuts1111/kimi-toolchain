@@ -66,7 +66,7 @@ async function main() {
   }
 
   // Copy templates → ~/.kimi-code/
-  const templates = ["AGENTS.md", "UNIFIED.md", "TEMPLATES.md"];
+  const templates = ["AGENTS.md", "UNIFIED.md", "TEMPLATES.md", "CONTRIBUTING.md"];
   for (const file of templates) {
     const src = join(REPO_ROOT, file);
     const dest = join(KIMI_DIR, file);

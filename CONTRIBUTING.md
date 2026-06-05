@@ -3,17 +3,32 @@
 ## Development Setup
 
 ```bash
+git clone https://github.com/brendadeeznuts1111/kimi-toolchain.git ~/kimi-toolchain
+cd ~/kimi-toolchain
 bun install
-bun test       # add a test script to package.json
-bun run lint   # add a lint script to package.json
+bun run unify          # sync → ~/.kimi-code/, PATH wrappers
 ```
+
+## Before You Commit
+
+```bash
+bun run format         # oxfmt --write .
+bun run format:check   # must pass in CI
+bun run lint           # oxlint
+bun run test           # smoke tests
+bun run typecheck      # tsc --noEmit (when available)
+kimi-doctor --quick    # toolchain health
+```
+
+Config: `.oxfmtrc.json` (formatter), `.oxlintrc.json` (linter). See `AGENTS.md` and `TEMPLATES.md`.
 
 ## Pull Request Process
 
 1. Run `kimi-doctor --fix` before committing
-2. Ensure R-Score ≥ 0.7 (run `kimi-governance score`)
-3. Update CHANGELOG.md for user-facing changes
-4. Request review from CODEOWNERS
+2. Ensure `bun run format:check` and `bun run lint` pass
+3. Ensure R-Score ≥ 0.7 (`kimi-governance score`)
+4. Update CHANGELOG.md for user-facing changes
+5. Request review from CODEOWNERS
 
 ## Commit Convention
 
