@@ -12,7 +12,7 @@ import { $ } from "bun";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { ensureDir, log, getProjectName, runTool } from "../lib/utils.ts";
-import { recordDoctorRun, getPersistentWarnings } from "./kimi-memory.ts";
+import { recordDoctorRun, getPersistentWarnings } from "../lib/utils.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 

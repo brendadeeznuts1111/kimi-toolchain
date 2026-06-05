@@ -154,3 +154,106 @@ export function printDoctorReport(report: DoctorReport) {
   }
   console.log(`  ${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`);
 }
+
+// ── Warning Trending (shared between memory and governance) ───────────
+
+export interface DoctorWarning {
+  check: string;
+  message: string;
+  severity: "warn" | "error";
+}
+
+export function recordDoctorRun(
+  project: string,
+  tool: string,
+  warnings: DoctorWarning[],
+  rScore?: number,
+  gitHead?: string
+) {
+  const { Database } = require("bun:sqlite");
+  const VAR_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "var");
+  const DB_PATH = join(VAR_DIR, "sessions.db");
+
+  const db = new Database(DB_PATH, { create: true });
+  db.exec("PRAGMA journal_mode = WAL;");
+  const now = Date.now();
+
+  db.run(
+    `INSERT INTO doctor_runs (timestamp, tool, warnings_json, r_score, git_head, project)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [now, tool, JSON.stringify(warnings), rScore ?? null, gitHead ?? null, project]
+  );
+
+  for (const w of warnings) {
+    const existing = db.query("SELECT occurrence_count FROM warning_trends WHERE check_name = ?").get(w.check) as any;
+    if (existing) {
+      db.run(
+        `UPDATE warning_trends SET last_seen = ?, occurrence_count = occurrence_count + 1, resolved_at = NULL
+         WHERE check_name = ?`,
+        [now, w.check]
+      );
+    } else {
+      db.run(
+        `INSERT INTO warning_trends (check_name, tool, first_seen, last_seen, occurrence_count)
+         VALUES (?, ?, ?, ?, 1)`,
+        [w.check, tool, now, now]
+      );
+    }
+  }
+
+  if (warnings.length > 0) {
+    const checkNames = warnings.map((w) => w.check);
+    const placeholders = checkNames.map(() => "?").join(",");
+    db.run(
+      `UPDATE warning_trends SET resolved_at = ?
+       WHERE resolved_at IS NULL AND check_name NOT IN (${placeholders})`,
+      [now, ...checkNames]
+    );
+  } else {
+    db.run("UPDATE warning_trends SET resolved_at = ? WHERE resolved_at IS NULL", [now]);
+  }
+
+  db.close();
+}
+
+export function getPersistentWarnings(tool?: string): Array<{
+  check_name: string;
+  tool: string;
+  occurrence_count: number;
+  first_seen: number;
+  last_seen: number;
+  age_days: number;
+}> {
+  const { Database } = require("bun:sqlite");
+  const VAR_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "var");
+  const DB_PATH = join(VAR_DIR, "sessions.db");
+
+  const db = new Database(DB_PATH, { create: true });
+  db.exec("PRAGMA journal_mode = WAL;");
+
+  let rows;
+  if (tool) {
+    rows = db.query(
+      `SELECT check_name, tool, occurrence_count, first_seen, last_seen
+       FROM warning_trends WHERE resolved_at IS NULL AND tool = ?
+       ORDER BY occurrence_count DESC`
+    ).all(tool) as any[];
+  } else {
+    rows = db.query(
+      `SELECT check_name, tool, occurrence_count, first_seen, last_seen
+       FROM warning_trends WHERE resolved_at IS NULL
+       ORDER BY occurrence_count DESC`
+    ).all() as any[];
+  }
+  db.close();
+
+  const now = Date.now();
+  return rows.map((r) => ({
+    check_name: r.check_name,
+    tool: r.tool,
+    occurrence_count: r.occurrence_count,
+    first_seen: r.first_seen,
+    last_seen: r.last_seen,
+    age_days: Math.round((now - r.first_seen) / (24 * 60 * 60 * 1000)),
+  }));
+}
