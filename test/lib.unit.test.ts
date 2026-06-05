@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { existsSync } from "fs";
+import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import {
   safeParse,
@@ -15,6 +15,7 @@ import {
   buildDoctorReport,
   printDoctorReport,
   streamToText,
+  runTool,
 } from "../src/lib/utils.ts";
 import { TOOLCHAIN_VERSION, TOOLCHAIN_NAME } from "../src/lib/version.ts";
 import { getChromeRssMB, getAppRssGroups, getLoadPerCore } from "../src/lib/memory-budget.ts";
@@ -103,6 +104,36 @@ describe("lib/utils", () => {
       },
     });
     expect(await streamToText(stream)).toBe("hello");
+  });
+
+  describe("runTool", () => {
+    let prevHome: string | undefined;
+
+    beforeEach(() => {
+      prevHome = Bun.env.HOME;
+      Bun.env.HOME = Bun.env.KIMI_TEST_HOME || join(REPO_ROOT, ".tmp-kimi-test-home");
+      mkdirSync(Bun.env.HOME, { recursive: true });
+    });
+
+    afterEach(() => {
+      if (prevHome) Bun.env.HOME = prevHome;
+    });
+
+    test("throws when tool file is missing", async () => {
+      await expect(runTool("missing-tool", [])).rejects.toThrow("Tool not found");
+    });
+
+    test("runs tool from ~/.kimi-code/tools", async () => {
+      const toolsDir = join(Bun.env.HOME!, ".kimi-code", "tools");
+      mkdirSync(toolsDir, { recursive: true });
+      writeFileSync(
+        join(toolsDir, "stub-tool.ts"),
+        "#!/usr/bin/env bun\nconsole.log('stub-ok');\n"
+      );
+      const { stdout, exitCode } = await runTool("stub-tool", [], { timeoutMs: 5000 });
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("stub-ok");
+    });
   });
 });
 

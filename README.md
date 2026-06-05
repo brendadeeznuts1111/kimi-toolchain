@@ -55,6 +55,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run typecheck`          | TypeScript type check (no emit)                     |
 | `bun run format`             | Format with oxfmt (write)                           |
 | `bun run format:check`       | Verify formatting (CI gate)                         |
+| `bun run format:check:ci`    | Format check with `--threads=4` (GitHub Actions)    |
 | `bun run lint`               | Lint with oxlint + banned-terms scan                |
 | `bun run lint:terms`         | Scan docs for banned internal branding tags         |
 | `bun run sync`               | Sync repo to `~/.kimi-code/`                        |

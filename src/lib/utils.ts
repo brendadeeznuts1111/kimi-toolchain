@@ -110,14 +110,16 @@ export async function fetchWithTimeout(
 
 // ── Tool Runner (for cross-tool integration) ─────────────────────────
 
-const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
+function toolsDir(): string {
+  return join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
+}
 
 export async function runTool(
   toolName: string,
   args: string[],
   options?: { cwd?: string; timeoutMs?: number }
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const toolPath = join(TOOLS_DIR, `${toolName}.ts`);
+  const toolPath = join(toolsDir(), `${toolName}.ts`);
   if (!existsSync(toolPath)) {
     throw new Error(`Tool not found: ${toolPath}`);
   }
