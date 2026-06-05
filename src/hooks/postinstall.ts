@@ -14,6 +14,7 @@ const VAR_DIR = join(KIMI_DIR, "var");
 const MEMORY_DIR = join(KIMI_DIR, "memory");
 const GUARDIAN_DIR = join(KIMI_DIR, "guardian");
 const GOVERNOR_DIR = join(KIMI_DIR, "governor");
+const AGENTS_SKILLS_DIR = join(homedir(), ".agents", "skills");
 
 const REPO_ROOT = resolve(import.meta.dir, "../..");
 
@@ -140,6 +141,15 @@ async function main() {
       CREATE INDEX IF NOT EXISTS idx_warning_trends_resolved ON warning_trends(resolved_at);
     `);
     db.close();
+  }
+
+  // Copy skill to agent skills directory
+  const skillSrc = join(REPO_ROOT, "skills", "kimi-toolchain");
+  const skillDest = join(AGENTS_SKILLS_DIR, "kimi-toolchain");
+  if (existsSync(skillSrc)) {
+    ensureDir(AGENTS_SKILLS_DIR);
+    await copyFile(join(skillSrc, "SKILL.md"), join(skillDest, "SKILL.md"), true);
+    console.log("   Skill: ~/.agents/skills/kimi-toolchain/");
   }
 
   console.log("✅ kimi-toolchain ready");
