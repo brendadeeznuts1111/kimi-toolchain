@@ -1,2 +1,7 @@
 [install]
 saveTextLockfile = true
+
+# Fast unit tests: bun test --timeout 100 (see src/lib/test-gates.ts)
+# Full suite: bun test (default 5000ms per test; smoke tests set own limits)
+[test]
+# concurrentTestGlob = ["test/*.unit.test.ts"]

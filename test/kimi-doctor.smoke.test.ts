@@ -138,21 +138,41 @@ describe("kimi-doctor smoke", () => {
     expect(stdout).toMatch(/Desktop sync/);
   }, 60_000);
 
-  test("check script chains format, lint, typecheck, and test", async () => {
+  test("check script uses check.ts runner", async () => {
     const pkg = (await Bun.file(join(REPO_ROOT, "package.json")).json()) as {
       scripts?: Record<string, string>;
     };
-    const check = pkg.scripts?.check ?? "";
-    expect(check).toContain("format:check");
-    expect(check).toContain("lint");
-    expect(check).toContain("typecheck");
-    expect(check).toContain("bun test");
+    expect(pkg.scripts?.check).toBe("bun run scripts/check.ts");
+    expect(pkg.scripts?.["check:fast"]).toContain("--fast");
+    expect(pkg.scripts?.["check:fast"]).toContain("--timeout 100");
+    expect(pkg.scripts?.["check:dry-run"]).toContain("--dry-run");
   });
 
-  test("test:coverage script is defined", async () => {
-    const pkg = (await Bun.file(join(REPO_ROOT, "package.json")).json()) as {
-      scripts?: Record<string, string>;
-    };
-    expect(pkg.scripts?.["test:coverage"]).toBe("bun test --coverage");
-  });
+  test("check --dry-run lists gate steps", async () => {
+    const proc = Bun.spawn(["bun", "run", "scripts/check.ts", "--dry-run"], {
+      cwd: REPO_ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const out = await Bun.readableStreamToText(proc.stdout);
+    expect(await proc.exited).toBe(0);
+    expect(out).toContain("format:check");
+    expect(out).toContain("typecheck");
+    expect(out).toContain("bun test");
+  }, 5_000);
+
+  test("test:fast completes under 100ms per-test timeout", async () => {
+    const proc = Bun.spawn(["bun", "run", "test:fast"], {
+      cwd: REPO_ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr, code] = await Promise.all([
+      Bun.readableStreamToText(proc.stdout),
+      Bun.readableStreamToText(proc.stderr),
+      proc.exited,
+    ]);
+    expect(code).toBe(0);
+    expect(stdout + stderr).toMatch(/\d+ pass/);
+  }, 15_000);
 });

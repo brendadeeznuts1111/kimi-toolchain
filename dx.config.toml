@@ -13,7 +13,11 @@ lintCheck = "bun run lint"
 lintTerms = "bun run lint:terms"
 typecheck = "bun run typecheck"
 check = "bun run check"
+checkFast = "bun run check:fast"
+checkDryRun = "bun run check:dry-run"
+testFast = "bun run test:fast"
 testCoverage = "bun run test:coverage"
+testCoverageFast = "bun run test:coverage:fast"
 
 [kimi]
 memoryGate = true

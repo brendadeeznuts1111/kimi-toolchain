@@ -21,6 +21,7 @@ import {
   formatPoints,
   breakdownIndicator,
 } from "../lib/r-score.ts";
+import { bunTestArgs, useFastUnitCoverage } from "../lib/test-gates.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -137,15 +138,26 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
     existsSync(join(projectDir, "tests"));
   if (!hasTests) return report;
 
+  const fastCoverage = useFastUnitCoverage(pkg.name);
+
+  async function spawnCoverage(json: boolean) {
+    const proc = Bun.spawn(["bun", ...bunTestArgs({ coverage: true, json, fast: fastCoverage })], {
+      cwd: projectDir,
+      env: { ...process.env, KIMI_COVERAGE_SCAN: "1" },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const exitCode = await proc.exited;
+    const stdout = await Bun.readableStreamToText(proc.stdout);
+    const stderr = await Bun.readableStreamToText(proc.stderr);
+    return { exitCode, stdout, stderr };
+  }
+
   // Try --json output first (Bun test runner may support this)
   try {
-    const jsonResult = await $`bun test --coverage --json`
-      .cwd(projectDir)
-      .env({ ...process.env, KIMI_COVERAGE_SCAN: "1" })
-      .nothrow()
-      .quiet();
+    const jsonResult = await spawnCoverage(true);
     if (jsonResult.exitCode === 0) {
-      const jsonStr = (jsonResult.stdout.toString() + jsonResult.stderr.toString()).trim();
+      const jsonStr = (jsonResult.stdout + jsonResult.stderr).trim();
       // Bun may output JSON as last line or entire output
       const lastLine = jsonStr.split("\n").pop() || "";
       let data: any;
@@ -183,12 +195,8 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
 
   // Fallback: text parsing
   try {
-    const result = await $`bun test --coverage`
-      .cwd(projectDir)
-      .env({ ...process.env, KIMI_COVERAGE_SCAN: "1" })
-      .nothrow()
-      .quiet();
-    const output = result.stdout.toString() + result.stderr.toString();
+    const result = await spawnCoverage(false);
+    const output = result.stdout + result.stderr;
     const lines = output.split("\n");
 
     let foundTotal = false;

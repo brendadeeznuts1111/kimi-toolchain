@@ -49,6 +49,7 @@ kimi-toolchain/
     └── kimi-toolchain/
       └── SKILL.md          # Agent decision protocol
   scripts/
+    ├── check.ts            # Quality gate runner (--dry-run, --fast, --timeout)
     └── sync-to-desktop.ts  # Repo → ~/.kimi-code/ sync (one-shot or daemon)
 ```
 
@@ -105,8 +106,18 @@ All commands are run from the repo root.
 # Install dependencies
 bun install
 
-# Run the full test suite
+# Run the full test suite (unit + smoke; default 5s per-test timeout)
 bun test
+
+# Fast unit-only gate (~90ms at --timeout 100)
+bun run test:fast
+bun run check:fast       # format + lint + typecheck + test:fast
+
+# Preview CI gates without running them
+bun run check:dry-run    # accepts --dryrun alias
+
+# Full quality gate (CI / pre-push)
+bun run check            # scripts/check.ts
 
 # TypeScript type check (no emit)
 bun run typecheck        # tsc --noEmit
@@ -313,6 +324,8 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `src/lib/version.ts`             | Version resolution logic                       |
 | `src/lib/memory-budget.ts`       | System memory / RSS budget checks              |
 | `src/lib/governor-config.ts`     | Loads `~/.kimi-code/governor/defaults.toml`    |
+| `src/lib/test-gates.ts`          | Unit vs smoke test lists, `bunTestArgs()`      |
+| `scripts/check.ts`               | CI gate runner with dry-run and fast modes     |
 | `test/kimi-doctor.smoke.test.ts` | Smoke tests for all tools                      |
 | `CONTEXT.md`                     | Auto-generated project context                 |
 | `skills/kimi-toolchain/SKILL.md` | Agent decision protocol                        |
