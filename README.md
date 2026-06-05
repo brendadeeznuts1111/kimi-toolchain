@@ -16,6 +16,14 @@ cd kimicode-cli
 bun install -g .
 ```
 
+**Zero-install alternative** — run any command without installing:
+```bash
+bunx github:brendadeeznuts1111/kimicode-cli kimi-doctor
+bunx github:brendadeeznuts1111/kimicode-cli kimi-governance score
+```
+
+> See [Bun documentation](https://bun.sh/docs/cli/bunx) for `bunx` usage.
+
 ## Commands
 
 | Command | Description |
