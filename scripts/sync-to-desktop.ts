@@ -9,7 +9,8 @@
  *   bun run scripts/sync-to-desktop.ts --daemon # starts Bun.cron (every 5 min)
  */
 
-import { join } from "path";
+import { dirname, join } from "path";
+import { existsSync, mkdirSync } from "fs";
 import {
   TOOLCHAIN_VERSION,
   getDesktopVersion,
@@ -24,6 +25,8 @@ const BIN_SRC = join(REPO_ROOT, "src", "bin");
 const BIN_DST = join(DESKTOP_ROOT, "tools");
 const LIB_SRC_DIR = join(REPO_ROOT, "src", "lib");
 const LIB_DST_DIR = join(DESKTOP_ROOT, "lib");
+const SKILL_SRC = join(REPO_ROOT, "skills", "kimi-toolchain");
+const SKILL_DST = join(Bun.env.HOME || "/tmp", ".agents", "skills", "kimi-toolchain");
 
 /** Orphaned files that should be removed from the desktop install */
 const ORPHANS = ["kimi-utils.ts"];
@@ -91,6 +94,24 @@ async function sync(): Promise<SyncResult> {
     if (srcText !== dstText) {
       await Bun.write(dstPath, srcText);
       result.updated.push(doc);
+    }
+  }
+
+  // ── Sync agent skill (SKILL.md + examples/) ───────────────────
+  if (existsSync(SKILL_SRC)) {
+    const skillGlob = new Bun.Glob("**/*");
+    for await (const rel of skillGlob.scan({ cwd: SKILL_SRC, onlyFiles: true })) {
+      const srcPath = join(SKILL_SRC, rel);
+      const dstPath = join(SKILL_DST, rel);
+      const srcText = await readTextOrNull(srcPath);
+      if (srcText === null) continue;
+      const dstText = await readTextOrNull(dstPath);
+      if (srcText !== dstText) {
+        const parent = dirname(dstPath);
+        if (!existsSync(parent)) mkdirSync(parent, { recursive: true });
+        await Bun.write(dstPath, srcText);
+        result.updated.push(`skill/${rel}`);
+      }
     }
   }
 

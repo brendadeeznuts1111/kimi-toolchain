@@ -5,7 +5,7 @@
  */
 
 import { existsSync, mkdirSync } from "fs";
-import { join, resolve } from "path";
+import { dirname, join, resolve } from "path";
 import { homedir } from "os";
 
 const KIMI_DIR = join(homedir(), ".kimi-code");
@@ -28,6 +28,21 @@ async function copyFile(src: string, dest: string, overwrite = false) {
     await Bun.write(dest, await Bun.file(src).text());
   } catch (e: any) {
     console.warn(`  ⚠ Could not copy ${src}: ${e.message}`);
+  }
+}
+
+/** Recursively copy a directory (SKILL.md + examples, etc.) */
+async function copyDir(src: string, dest: string) {
+  const glob = new Bun.Glob("**/*");
+  for await (const rel of glob.scan({ cwd: src, onlyFiles: true })) {
+    const srcPath = join(src, rel);
+    const destPath = join(dest, rel);
+    ensureDir(dirname(destPath));
+    try {
+      await Bun.write(destPath, await Bun.file(srcPath).text());
+    } catch (e: any) {
+      console.warn(`  ⚠ Could not copy ${srcPath}: ${e.message}`);
+    }
   }
 }
 
@@ -159,12 +174,12 @@ async function main() {
     db.close();
   }
 
-  // Copy skill to agent skills directory
+  // Copy skill to agent skills directory (SKILL.md + examples/)
   const skillSrc = join(REPO_ROOT, "skills", "kimi-toolchain");
   const skillDest = join(AGENTS_SKILLS_DIR, "kimi-toolchain");
   if (existsSync(skillSrc)) {
     ensureDir(AGENTS_SKILLS_DIR);
-    await copyFile(join(skillSrc, "SKILL.md"), join(skillDest, "SKILL.md"), true);
+    await copyDir(skillSrc, skillDest);
     console.log("   Skill: ~/.agents/skills/kimi-toolchain/");
   }
 

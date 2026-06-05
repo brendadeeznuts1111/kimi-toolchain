@@ -18,6 +18,15 @@ remember checklists. Every project health question starts with `kimi-doctor`.
 Every dependency change triggers `kimi-guardian`. Every commit should pass
 `kimi-governance score`.
 
+## Scenario Comparison
+
+| Scenario                  | Without Skill                             | With Skill                                                                                           |
+| ------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| "Check my project health" | Generic file listing, maybe suggests `ls` | Run `kimi-doctor`, then `kimi-governance score`; interpret R-Score; suggest `kimi-governance fix`    |
+| "I updated dependencies"  | Generic "test it" advice                  | Run `kimi-guardian check`; block if HASH MISMATCH or unsigned manifest; suggest `sign` + drift check |
+| "What broke?"             | Generic git diff suggestion               | Run `kimi-debug last`, query `kimi-memory trends`, show warning history, suggest wizard steps        |
+| "Scaffold a new project"  | Generic file creation                     | Run `kimi-fix`, validate with `kimi-governance score`, install `kimi-githooks`, suggest next steps   |
+
 ## Decision Trees
 
 ### When user asks about project health
