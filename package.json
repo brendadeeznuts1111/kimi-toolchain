@@ -1,7 +1,7 @@
 {
   "name": "kimi-toolchain",
   "version": "0.1.0",
-  "description": "Tier-1380 developer tooling: governance, diagnostics, security, and scaffolding",
+  "description": "Bun-native developer tooling: governance, diagnostics, security, and scaffolding",
   "homepage": "https://github.com/brendadeeznuts1111/kimi-toolchain#readme",
   "bugs": {
     "url": "https://github.com/brendadeeznuts1111/kimi-toolchain/issues"
@@ -28,6 +28,7 @@
   },
   "files": [
     "src",
+    "scripts",
     "skills",
     ".oxfmtrc.json",
     ".oxlintrc.json",
@@ -51,7 +52,8 @@
     "check": "bun run format:check && bun run lint && bun run typecheck && bun test",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "lint": "oxlint src test scripts",
+    "lint": "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
+    "lint:terms": "bun run scripts/lint-banned-terms.ts",
     "typecheck": "tsc --noEmit",
     "sync": "bun run scripts/sync-to-desktop.ts",
     "sync:daemon": "bun run scripts/sync-to-desktop.ts --daemon",

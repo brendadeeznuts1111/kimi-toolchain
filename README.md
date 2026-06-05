@@ -1,6 +1,6 @@
 # kimi-toolchain
 
-> Tier-1380 developer tooling: governance, diagnostics, security, and scaffolding
+> Bun-native developer tooling: governance, diagnostics, security, and scaffolding
 >
 > `https://github.com/brendadeeznuts1111/kimi-toolchain`
 
@@ -49,7 +49,8 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run typecheck`        | TypeScript type check (no emit)                   |
 | `bun run format`           | Format with oxfmt (write)                         |
 | `bun run format:check`     | Verify formatting (CI gate)                       |
-| `bun run lint`             | Lint with oxlint                                  |
+| `bun run lint`             | Lint with oxlint + banned-terms scan              |
+| `bun run lint:terms`       | Scan docs for banned internal branding tags       |
 | `bun run sync`             | Sync repo to `~/.kimi-code/`                      |
 | `bun run sync:daemon`      | Sync on cron (every 5 min)                        |
 | `bun run unify`            | Sync runtime, wrappers, validate                  |

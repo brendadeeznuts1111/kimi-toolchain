@@ -154,9 +154,13 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
 
   // Try --json output first (Bun test runner may support this)
   try {
-    const jsonResult = await $`bun test --coverage --json`.cwd(projectDir).nothrow().quiet();
+    const jsonResult = await $`bun test --coverage --json`
+      .cwd(projectDir)
+      .env({ ...process.env, KIMI_COVERAGE_SCAN: "1" })
+      .nothrow()
+      .quiet();
     if (jsonResult.exitCode === 0) {
-      const jsonStr = jsonResult.stdout.toString().trim();
+      const jsonStr = (jsonResult.stdout.toString() + jsonResult.stderr.toString()).trim();
       // Bun may output JSON as last line or entire output
       const lastLine = jsonStr.split("\n").pop() || "";
       let data: any;
@@ -194,12 +198,29 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
 
   // Fallback: text parsing
   try {
-    const result = await $`bun test --coverage`.cwd(projectDir).nothrow().quiet();
-    const stdout = result.stdout.toString();
-    const lines = stdout.split("\n");
+    const result = await $`bun test --coverage`
+      .cwd(projectDir)
+      .env({ ...process.env, KIMI_COVERAGE_SCAN: "1" })
+      .nothrow()
+      .quiet();
+    const output = result.stdout.toString() + result.stderr.toString();
+    const lines = output.split("\n");
 
     let foundTotal = false;
     for (const line of lines) {
+      // Bun text reporter: " src/lib/utils.ts | 19.05 | 15.00 | ..."
+      const bunFileMatch = line.match(/^\s*(\S+\.ts)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|/);
+      if (bunFileMatch) {
+        const pct = parseFloat(bunFileMatch[3]);
+        report.files.push({
+          path: bunFileMatch[1].trim(),
+          percentage: pct,
+          covered: Math.round(pct),
+          total: 100,
+        });
+      }
+
+      // Legacy table: "| file.ts | 50.00% | 10/20 |"
       const fileMatch = line.match(/\|\s*([^|]+\.ts)\s*\|\s*([\d.]+)%\s*\|\s*(\d+)\/(\d+)\s*\|/);
       if (fileMatch) {
         report.files.push({
@@ -208,6 +229,15 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
           covered: parseInt(fileMatch[3], 10),
           total: parseInt(fileMatch[4], 10),
         });
+      }
+
+      // Bun summary: "All files | 23.81 | 27.27 |"
+      const bunTotalMatch = line.match(/All files\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|/);
+      if (bunTotalMatch && !foundTotal) {
+        report.percentage = parseFloat(bunTotalMatch[2]);
+        report.total = 100;
+        report.covered = Math.round(report.percentage);
+        foundTotal = true;
       }
 
       const totalMatch = line.match(/All files.*?(\d+(?:\.\d+)?)%.*?(\d+)\/(\d+)/);

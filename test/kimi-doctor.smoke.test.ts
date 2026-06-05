@@ -5,6 +5,9 @@ const REPO_ROOT = import.meta.dir + "/..";
 const DOCTOR = join(REPO_ROOT, "src/bin/kimi-doctor.ts");
 const ORPHAN_KILL = join(REPO_ROOT, "src/bin/kimi-orphan-kill.ts");
 const GOVERNOR = join(REPO_ROOT, "src/bin/kimi-resource-governor.ts");
+const GOVERNANCE = join(REPO_ROOT, "src/bin/kimi-governance.ts");
+const GITHOOKS = join(REPO_ROOT, "src/bin/kimi-githooks.ts");
+const GUARDIAN = join(REPO_ROOT, "src/bin/kimi-guardian.ts");
 
 async function runTool(
   path: string,
@@ -70,6 +73,18 @@ describe("kimi-doctor smoke", () => {
     expect(await proc.exited).toBe(0);
   }, 30_000);
 
+  test("lint:terms passes on clean repo", async () => {
+    const proc = Bun.spawn(["bun", "run", "lint:terms"], {
+      cwd: REPO_ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const stdout = await Bun.readableStreamToText(proc.stdout);
+    const stderr = await Bun.readableStreamToText(proc.stderr);
+    expect(await proc.exited).toBe(0);
+    expect(stdout + stderr).toContain("No banned terms");
+  }, 15_000);
+
   test("typecheck passes", async () => {
     const proc = Bun.spawn(["bun", "run", "typecheck"], {
       cwd: REPO_ROOT,
@@ -77,6 +92,28 @@ describe("kimi-doctor smoke", () => {
       stderr: "pipe",
     });
     expect(await proc.exited).toBe(0);
+  }, 30_000);
+
+  test("kimi-governance score prints grade", async () => {
+    if (Bun.env.KIMI_COVERAGE_SCAN) return;
+    const { stdout, exitCode } = await runTool(GOVERNANCE, ["score"]);
+    expect(stdout).toContain("Grade:");
+    expect(stdout).toContain("Breakdown:");
+    expect(exitCode).toBe(0);
+  }, 30_000);
+
+  test("kimi-githooks doctor reports hook health", async () => {
+    const { stdout, exitCode } = await runTool(GITHOOKS, ["doctor"]);
+    expect(stdout).toContain("Hook Health Check");
+    expect(stdout).toContain("pre-commit");
+    expect(exitCode).toBe(0);
+  }, 15_000);
+
+  test("kimi-guardian check runs supply chain scan", async () => {
+    const { stdout, exitCode } = await runTool(GUARDIAN, ["check"]);
+    expect(stdout).toContain("Guardian");
+    expect(stdout).toContain("Lockfile");
+    expect(exitCode === 0 || exitCode === 1).toBe(true);
   }, 30_000);
 
   test("check script chains format, lint, typecheck, and test", async () => {

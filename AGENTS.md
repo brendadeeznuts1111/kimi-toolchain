@@ -1,6 +1,6 @@
 # kimi-toolchain — Agent Guide
 
-> Tier-1380 developer tooling: governance, diagnostics, security, and scaffolding.
+> Bun-native developer tooling: governance, diagnostics, security, and scaffolding.
 > This file is for AI coding agents. It assumes zero prior knowledge of the project.
 
 ## Project Overview
@@ -189,6 +189,7 @@ bun run typecheck        # TypeScript validation
 
 - **Formatter:** [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html) — config in `.oxfmtrc.json`
 - **Linter:** [oxlint](https://oxc.rs/docs/guide/usage/linter.html) — config in `.oxlintrc.json`
+- **Banned terms:** `scripts/lint-banned-terms.ts` — blocks internal branding tags in docs; runs via `bun run lint`
 - Run `bun run format` before commit; CI uses `format:check`, `lint`, and `typecheck`
 - Composite gate: `bun run check` (= format:check + lint + typecheck + test)
 - Cursor: `oxc.oxc-vscode` extension as default formatter for TS/JS (format on save)

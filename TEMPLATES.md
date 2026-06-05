@@ -145,7 +145,8 @@ No ADRs yet. Create one: `bun run ~/.kimi-code/tools/kimi-governance.ts adr "<ti
     "typecheck": "tsc --noEmit",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "lint": "oxlint src test scripts"
+    "lint": "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
+    "lint:terms": "bun run scripts/lint-banned-terms.ts"
   },
   "devDependencies": {
     "oxfmt": "latest",

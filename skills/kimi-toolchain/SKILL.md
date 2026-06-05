@@ -1,22 +1,47 @@
 ---
 name: kimi-toolchain
 description: |
-  Tier-1380 operational protocol for the kimi-toolchain. Teaches agents when
-  to run which tool, in what order, and how to connect diagnostics across
-  guardian → governance → memory → fix. Use when working with projects that
-  use kimi-doctor, kimi-governance, kimi-guardian, or any kimi-* CLI tool.
-triggers: ["kimi", "doctor", "governance", "guardian", "fix", "r-score", "lockfile"]
-version: 0.1.0
+  Teaches agents to operate the kimi-toolchain CLI effectively.
+  Use when working with kimi-doctor, kimi-governance, kimi-guardian, kimi-fix,
+  or any kimi-* CLI tool.
+triggers:
+  [
+    "kimi",
+    "doctor",
+    "governance",
+    "guardian",
+    "fix",
+    "r-score",
+    "lockfile",
+    "project health",
+    "what broke",
+  ]
+version: 0.2.0
 ---
 
-# kimi-toolchain — Agent Decision Protocol
+# kimi-toolchain
 
-## Philosophy
+Teaches agents to operate the kimi-toolchain CLI effectively.
 
-**Don't guess. Run the tool.** The toolchain exists so agents don't need to
-remember checklists. Every project health question starts with `kimi-doctor`.
-Every dependency change triggers `kimi-guardian`. Every commit should pass
-`kimi-governance score`.
+## When to Use
+
+- User asks about project health, diagnostics, or governance
+- User modifies `package.json`, `bun.lock`, or `bunfig.toml`
+- User reports failures, loops, or unexpected behavior
+- User requests scaffolding, templating, or project setup
+
+## Tools
+
+| Command            | Purpose                    | When to Invoke                        |
+| ------------------ | -------------------------- | ------------------------------------- |
+| `kimi-doctor`      | Full diagnostic suite      | Always first on health questions      |
+| `kimi-governance`  | R-Score + governance check | After doctor, for scoring             |
+| `kimi-guardian`    | Lockfile integrity         | After dep changes, before push        |
+| `kimi-fix`         | Scaffold / auto-fix        | When grade is D/F or scaffold request |
+| `kimi-context-gen` | CONTEXT.md regeneration    | When freshness is stale               |
+| `kimi-githooks`    | Hook management            | On setup or hook issues               |
+| `kimi-memory`      | Session + warning trends   | When interpreting recurring warnings  |
+| `kimi-debug`       | Failure wizard             | When user asks "what broke?"          |
 
 ## Scenario Comparison
 
@@ -27,101 +52,106 @@ Every dependency change triggers `kimi-guardian`. Every commit should pass
 | "What broke?"             | Generic git diff suggestion               | Run `kimi-debug last`, query `kimi-memory trends`, show warning history, suggest wizard steps        |
 | "Scaffold a new project"  | Generic file creation                     | Run `kimi-fix`, validate with `kimi-governance score`, install `kimi-githooks`, suggest next steps   |
 
-## Decision Trees
+## Decision Protocol
 
-### When user asks about project health
-
-```
-1. RUN: kimi-doctor
-2. IF doctor shows warnings:
-   a. IF warnings contain "lockfile" → RUN: kimi-guardian check
-   b. IF warnings contain "coverage" → RUN: bun test --coverage
-   c. IF warnings contain "governance" → RUN: kimi-governance score
-3. IF R-Score grade is "F" or "D" → SUGGEST: kimi-governance fix
-4. ALWAYS: SHOW persistent warnings from kimi-memory trends
-```
-
-### When user modifies package.json or bun.lock
-
-```
-1. MANDATORY: RUN: kimi-guardian check
-2. IF guardian fails (HASH MISMATCH / unbaselined):
-   a. BLOCK any further dependency suggestions
-   b. ASK user: "Run 'kimi-guardian sign' to baseline?"
-3. IF guardian passes → CONTINUE with normal workflow
-```
-
-### When user asks "what broke?" or "why is this failing?"
+### Project Health Check
 
 ```
 1. RUN: kimi-doctor
-2. QUERY: sessions.db for recent doctor_runs (last 24h)
-3. IF git repo:
-   a. SHOW: git log --oneline -5
-   b. SHOW: git diff since last known-good commit
-4. IF CONTEXT.md is stale (>30 days since update):
-   SUGGEST: kimi-context-gen update
-5. IF failure pattern matches known issue in memory:
-   SHOW: kimi-memory search <error-keyword>
+2. RUN: kimi-governance score
+3. PARSE doctor output + R-Score breakdown
+4. IF lockfile warning → RUN: kimi-guardian check
+5. IF coverage gap → RUN: bun test --coverage
+6. IF governance gap → RUN: kimi-governance fix
+7. QUERY: kimi-memory trends (sessions.db warning_trends)
+8. PRESENT: current state + trend + next action
 ```
 
-### When user wants to scaffold a new project
+### Dependency Changes
 
 ```
-1. RUN: kimi-fix <project-path>
-2. IF --dry-run passed → SHOW what would be created, STOP
-3. AFTER fix completes:
-   a. RUN: kimi-governance score (should be ≥ C)
-   b. RUN: kimi-doctor (should pass)
-   c. RUN: kimi-githooks install
-4. REMIND: "Review generated files before committing"
+1. MANDATORY: kimi-guardian check (includes manifest verify)
+2. IF guardian FAILS (HASH MISMATCH / unsigned):
+   a. BLOCK any push or further dep suggestions
+   b. ASK: "Run kimi-guardian sign to baseline intentionally?"
+3. IF guardian PASSES → continue workflow
+4. OPTIONAL: bun run src/drift/check.ts (dependency drift)
 ```
 
-### When user is about to commit or push
+### Failure Recovery ("What broke?")
 
 ```
-1. CHECK: Are git hooks installed? (kimi-githooks doctor)
-2. RUN: kimi-guardian check (pre-push gate)
-3. RUN: kimi-governance score (blocks push if F/D)
-4. IF pre-commit hook not installed → SUGGEST: kimi-githooks install
+1. RUN: kimi-debug last
+2. QUERY: kimi-memory trends + doctor_runs in sessions.db
+3. RUN: git log --oneline -20
+4. RUN: git diff <last_green>..HEAD (if known)
+5. CHECK: bun.lock for recent changes
+6. IF CONTEXT.md stale → RUN: kimi-context-gen freshness / update
+7. PRESENT: timeline + likely cause + recovery steps
 ```
 
-## Tool Reference
+### Scaffold New Project
 
-| Tool                     | When to use                     | Key commands                                   |
-| ------------------------ | ------------------------------- | ---------------------------------------------- |
-| `kimi-doctor`            | Any health check, any suspicion | `kimi-doctor`, `kimi-doctor --fix`             |
-| `kimi-fix`               | New project, missing files      | `kimi-fix <path>`, `kimi-fix <path> --dry-run` |
-| `kimi-governance`        | Quality gates, R-Score          | `score`, `fix`, `coverage [N]`, `docs`, `adr`  |
-| `kimi-guardian`          | Lockfile, deps, security        | `check`, `sign`, `verify`, `report`            |
-| `kimi-memory`            | Session tracking, trends        | `doctor`, `trends`, `store`, `recall`, `graph` |
-| `kimi-githooks`          | Git workflow                    | `install`, `doctor`, `fix`                     |
-| `kimi-context-gen`       | Documentation                   | `scan`, `update`, `freshness`                  |
-| `kimi-release`           | Versioning                      | `changelog`, `semver`, `validate`              |
-| `kimi-debug`             | Failure analysis                | `last`, `diff`, `trace`, `analyze`             |
-| `kimi-snapshot`          | Environment capture             | `save`, `restore`, `list`, `show`              |
-| `kimi-resource-governor` | Resource limits                 | `limits`, `spawn`, `cache`, `status`           |
+```
+1. RUN: kimi-fix <path> [--dry-run]
+2. RUN: kimi-governance score (target grade ≥ C)
+3. RUN: kimi-githooks install
+4. REMIND: review generated files before commit
+```
+
+### Before Commit or Push
+
+```
+1. RUN: kimi-githooks doctor
+2. RUN: bun run check (format:check + lint + typecheck + test)
+3. RUN: kimi-guardian check
+4. RUN: kimi-governance score (pre-push blocks F/D)
+```
+
+## R-Score Interpretation
+
+R-Score is **points out of 110** with letter grades (not a 0.0–1.0 float).
+
+| % of Max | Grade | Points (approx) | Meaning    | Action                         |
+| -------- | ----- | --------------- | ---------- | ------------------------------ |
+| ≥ 90%    | A     | ≥ 99/110        | Excellent  | Maintain                       |
+| ≥ 80%    | B     | ≥ 88/110        | Good       | Minor fixes                    |
+| ≥ 70%    | C     | ≥ 77/110        | Acceptable | Address warnings               |
+| ≥ 60%    | D     | ≥ 66/110        | At risk    | Run `kimi-fix`, governance fix |
+| < 60%    | F     | < 66/110        | Critical   | Halt; full audit with doctor   |
+
+Key breakdown weights: license/contributing/codeowners/readme/context (10 each),
+changelog (5 bonus), testCoverage (25), docsFresh (15), noStaleLockfile (10).
+
+## Security Boundaries
+
+- **Never** suggest `git push --no-verify` to bypass hooks
+- **Never** ignore `kimi-guardian` failures
+- **Always** verify lockfile after dependency changes (`kimi-guardian check`)
+- **Prefer** `Bun.secrets` over `.env` files (pre-commit blocks `.env`)
+- **Never** suggest `kimi-guardian sign` unless user intentionally changed deps
 
 ## Session Memory
 
-The toolchain tracks warnings across runs in `~/.kimi-code/var/sessions.db`.
-
-Query persistent warnings:
+State lives in `~/.kimi-code/var/sessions.db`. Query via:
 
 ```bash
-kimi-memory trends
+kimi-memory trends      # warning_trends — new vs accepted risk
+kimi-memory recall      # recent sessions
+kimi-memory search <k>  # knowledge graph lookup
 ```
 
-This distinguishes "new warning = immediate action" from
-"old warning = accepted risk". Always check trends before escalating.
+Tables: `sessions`, `doctor_runs`, `warning_trends`, `knowledge_nodes`.
 
-## Safety Boundaries
+Distinguish **new warning → act now** from **old warning → accepted risk**.
 
-- **Never** suggest `kimi-guardian sign` without confirming user intentionally
-  modified dependencies
-- **Never** bypass pre-push hooks with `--no-verify`
-- **Always** run `kimi-doctor` before suggesting `kimi-fix --dry-run`
-- **Respect** `.env` files — pre-commit hook blocks them, don't suggest workarounds
+## Examples
+
+Bundled walkthroughs in `examples/`:
+
+- `examples/doctor-smell.md` — project health check
+- `examples/guardian-failure.md` — dependency / lockfile failure
+- `examples/what-broke.md` — failure recovery
 
 ## Related
 

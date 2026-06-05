@@ -109,6 +109,64 @@ interface ReadableStream<R = any> {
 }
 `;
 
+const LINT_BANNED_TERMS = `#!/usr/bin/env bun
+/**
+ * Fail if internal-only branding appears in repo sources.
+ * Markdown/docs are not covered by oxlint — this script gates them.
+ */
+
+import { existsSync } from "fs";
+import { join, relative } from "path";
+
+const REPO_ROOT = join(import.meta.dir, "..");
+
+const BANNED: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /Tier[- ]?1380/i, label: "Tier-1380 internal tag (use global Bun-native wording)" },
+];
+
+const SCAN_GLOB = new Bun.Glob("**/*.{md,ts,json,toml}");
+const SKIP_DIRS = new Set(["node_modules", ".git", "coverage", ".bun"]);
+const SKIP_FILES = new Set(["scripts/lint-banned-terms.ts", "src/bin/kimi-fix.ts"]);
+
+async function main() {
+  const violations: string[] = [];
+
+  for await (const rel of SCAN_GLOB.scan({ cwd: REPO_ROOT, onlyFiles: true })) {
+    if (rel.split("/").some((seg) => SKIP_DIRS.has(seg))) continue;
+    if (SKIP_FILES.has(rel) || rel === "bun.lock") continue;
+
+    const path = join(REPO_ROOT, rel);
+    let text: string;
+    try {
+      text = await Bun.file(path).text();
+    } catch {
+      continue;
+    }
+
+    for (const line of text.split("\\n")) {
+      for (const { pattern, label } of BANNED) {
+        if (pattern.test(line)) {
+          violations.push(\`\${relative(REPO_ROOT, path)}: \${label}\\n  \${line.trim().slice(0, 120)}\`);
+        }
+      }
+    }
+  }
+
+  if (violations.length > 0) {
+    console.error("✗ Banned terms found:\\n");
+    for (const v of violations) console.error(\`  \${v}\\n\`);
+    process.exit(1);
+  }
+
+  console.log("  ✓ No banned terms");
+}
+
+main().catch((err) => {
+  console.error("lint-banned-terms failed:", err.message);
+  process.exit(1);
+});
+`;
+
 const DX_CONFIG = `# Project DX + kimi runtime policy
 schemaVersion = 1
 
@@ -193,7 +251,8 @@ async function ensureQualityTooling(project: string, dryRun: boolean) {
     typecheck: "tsc --noEmit",
     format: "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    lint: "oxlint src test scripts",
+    lint: "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
+    "lint:terms": "bun run scripts/lint-banned-terms.ts",
   };
   let scriptsChanged = false;
   for (const [key, value] of Object.entries(additions)) {
@@ -347,6 +406,14 @@ async function main() {
       mkdirSync(join(project, "src"), { recursive: true });
     }
     await writeFile(globalsPath, BUN_GLOBALS, dryRun);
+  }
+
+  // Banned-terms lint (docs/markdown — oxlint does not scan these)
+  const lintTermsPath = join(project, "scripts", "lint-banned-terms.ts");
+  if (!existsSync(lintTermsPath)) {
+    log("lint", "creating scripts/lint-banned-terms.ts...");
+    if (!dryRun) mkdirSync(join(project, "scripts"), { recursive: true });
+    await writeFile(lintTermsPath, LINT_BANNED_TERMS, dryRun);
   }
 
   // package.json scripts + oxfmt/oxlint devDeps
