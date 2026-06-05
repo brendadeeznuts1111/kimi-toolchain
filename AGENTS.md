@@ -73,12 +73,12 @@ When the package is installed (globally or locally), `postinstall.ts` copies sou
 
 ### Naming & paths (Kimi Code vs kimi-toolchain)
 
-| Layer | Product | Path |
-|-------|---------|------|
-| Agent | **Kimi Code** (`kimi`) — Moonshot Node SEA binary | `~/.kimi-code/bin/kimi` |
-| Toolchain | **kimi-toolchain** (this repo) | `~/kimi-toolchain/` |
-| Runtime extensions | Synced tools/lib/governor | `~/.kimi-code/tools/`, `lib/` |
-| Global platform | **dx** | `~/.config/dx/`, `~/.local/bin/dx` |
+| Layer              | Product                                           | Path                               |
+| ------------------ | ------------------------------------------------- | ---------------------------------- |
+| Agent              | **Kimi Code** (`kimi`) — Moonshot Node SEA binary | `~/.kimi-code/bin/kimi`            |
+| Toolchain          | **kimi-toolchain** (this repo)                    | `~/kimi-toolchain/`                |
+| Runtime extensions | Synced tools/lib/governor                         | `~/.kimi-code/tools/`, `lib/`      |
+| Global platform    | **dx**                                            | `~/.config/dx/`, `~/.local/bin/dx` |
 
 - `kimi doctor` — official Kimi Code config check (not `kimi-doctor`).
 - `kimi-doctor` — this repo's Bun diagnostics aggregator.
@@ -87,15 +87,15 @@ When the package is installed (globally or locally), `postinstall.ts` copies sou
 
 ## Technology Stack
 
-| Layer | Choice |
-|-------|--------|
-| Runtime | Bun >= 1.3.14 |
-| Language | TypeScript (strict, ESNext, bundler resolution) |
-| Test runner | `bun:test` (Bun's built-in test runner) |
-| Database | SQLite via `bun:sqlite` (WAL mode) |
-| Config | `bunfig.toml` (Bun-native TOML) |
-| Package manager | `bun pm` |
-| Shell | Bun's `$` template literal (`import { $ } from "bun"`) |
+| Layer           | Choice                                                 |
+| --------------- | ------------------------------------------------------ |
+| Runtime         | Bun >= 1.3.14                                          |
+| Language        | TypeScript (strict, ESNext, bundler resolution)        |
+| Test runner     | `bun:test` (Bun's built-in test runner)                |
+| Database        | SQLite via `bun:sqlite` (WAL mode)                     |
+| Config          | `bunfig.toml` (Bun-native TOML)                        |
+| Package manager | `bun pm`                                               |
+| Shell           | Bun's `$` template literal (`import { $ } from "bun"`) |
 
 ## Build & Test Commands
 
@@ -110,6 +110,11 @@ bun test
 
 # TypeScript type check (no emit)
 bun run typecheck        # tsc --noEmit
+
+# Format and lint (oxfmt / oxlint)
+bun run format           # oxfmt --write .
+bun run format:check     # oxfmt --check .
+bun run lint             # oxlint src test scripts
 
 # Run individual tools from source
 bun run src/bin/kimi-doctor.ts --quick
@@ -144,6 +149,7 @@ Each tool is a self-contained Bun script with a `#!/usr/bin/env bun` shebang. Th
 - `../lib/version.ts` — `TOOLCHAIN_VERSION`, `getDesktopVersion()`, `getRepoHead()`, etc.
 
 Every tool supports at minimum:
+
 - A `doctor` subcommand — health check returning structured `{ name, status, message, fixable }` checks.
 - A `fix` subcommand — auto-repair where applicable.
 
@@ -179,22 +185,29 @@ bun run typecheck        # TypeScript validation
 
 ## Development Conventions
 
+### Formatting & lint
+
+- **Formatter:** [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html) — config in `.oxfmtrc.json`
+- **Linter:** [oxlint](https://oxc.rs/docs/guide/usage/linter.html) — config in `.oxlintrc.json`
+- Run `bun run format` before commit; CI should use `bun run format:check` and `bun run lint`
+- Cursor: `oxc.oxc-vscode` extension as default formatter for TS/JS (format on save)
+
 ### Bun-Native Coding Standards
 
 The project follows strict Bun-native conventions. **Always prefer Bun APIs over Node equivalents.**
 
-| Task | Use | Avoid |
-|------|-----|-------|
-| Read file | `Bun.file(path).text()` / `.json()` | `fs.readFileSync` |
-| Write file | `Bun.write(path, data)` | `fs.writeFileSync` |
-| Hash | `new Bun.CryptoHasher("sha256")` | `crypto.createHash` |
-| Spawn | `Bun.spawn(cmd, { stdout: "pipe" })` | `child_process.spawn` |
-| Sleep | `await Bun.sleep(ms)` | `new Promise(r => setTimeout(r, ms))` |
-| Glob | `new Bun.Glob(pattern)` | `fs.readdir` + regex |
-| TOML | `Bun.TOML.parse(text)` | `@iarna/toml` |
-| Semver | `Bun.semver.satisfies(v, range)` | `semver` package |
-| Stdout | `Bun.stdout.write(data)` | `process.stdout.write` |
-| Stream → text | `Bun.readableStreamToText(stream)` | `new Response(stream).text()` |
+| Task          | Use                                  | Avoid                                 |
+| ------------- | ------------------------------------ | ------------------------------------- |
+| Read file     | `Bun.file(path).text()` / `.json()`  | `fs.readFileSync`                     |
+| Write file    | `Bun.write(path, data)`              | `fs.writeFileSync`                    |
+| Hash          | `new Bun.CryptoHasher("sha256")`     | `crypto.createHash`                   |
+| Spawn         | `Bun.spawn(cmd, { stdout: "pipe" })` | `child_process.spawn`                 |
+| Sleep         | `await Bun.sleep(ms)`                | `new Promise(r => setTimeout(r, ms))` |
+| Glob          | `new Bun.Glob(pattern)`              | `fs.readdir` + regex                  |
+| TOML          | `Bun.TOML.parse(text)`               | `@iarna/toml`                         |
+| Semver        | `Bun.semver.satisfies(v, range)`     | `semver` package                      |
+| Stdout        | `Bun.stdout.write(data)`             | `process.stdout.write`                |
+| Stream → text | `Bun.readableStreamToText(stream)`   | `new Response(stream).text()`         |
 
 - Use `Uint8Array` instead of `Buffer` for binary data.
 - Use `Bun.file(path).lastModified` for mtime, not `fs.stat()`.
@@ -222,17 +235,17 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 The project uses its own `kimi-governance score` system. The R-Score formula checks:
 
-| Check | Weight |
-|-------|--------|
-| hasLicense | 10 |
-| hasContributing | 10 |
-| hasCodeowners | 10 |
-| hasReadme | 10 |
-| hasContext | 10 |
-| hasChangelog | 5 (bonus) |
-| testCoverage | 25 |
-| docsFresh | 15 |
-| noStaleLockfile | 10 |
+| Check           | Weight    |
+| --------------- | --------- |
+| hasLicense      | 10        |
+| hasContributing | 10        |
+| hasCodeowners   | 10        |
+| hasReadme       | 10        |
+| hasContext      | 10        |
+| hasChangelog    | 5 (bonus) |
+| testCoverage    | 25        |
+| docsFresh       | 15        |
+| noStaleLockfile | 10        |
 
 Grades: A (≥90%), B (≥80%), C (≥70%), D (≥60%), F (<60%).
 
@@ -251,19 +264,20 @@ Grades: A (≥90%), B (≥80%), C (≥70%), D (≥60%), F (<60%).
 
 On memory-constrained hosts, swap thrashing inflates load average and disk I/O before CPU looks busy. Prevent it:
 
-| Rule | Why |
-|------|-----|
-| Do **not** run Chrome + Kimi Desktop + kimi CLI + cursor-agent concurrently | Chrome alone can use ~5 GB |
-| **No Docker** on this machine — use Bun-native dev (`dx.config.toml` `[runtime].containers = "none"`) | Docker VM was ~600MB idle overhead |
-| Run `bun run memory-check` or `kimi-doctor --quick` before long agent sessions | Catches low RAM / high swap early |
-| Run `kimi-doctor --memory-budget` to see per-app RSS | Same breakdown as investigation tooling |
-| Use **kimi CLI OR Kimi Desktop**, not both | Duplicate Electron/Node stacks |
-| Never run `bun run sync:daemon` unless developing toolchain | Background Bun cron every 5 min |
-| Run `kimi-orphan-kill --dry-run` weekly | Cleans stale `bun test` / kimi-tool orphans |
+| Rule                                                                                                  | Why                                         |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Do **not** run Chrome + Kimi Desktop + kimi CLI + cursor-agent concurrently                           | Chrome alone can use ~5 GB                  |
+| **No Docker** on this machine — use Bun-native dev (`dx.config.toml` `[runtime].containers = "none"`) | Docker VM was ~600MB idle overhead          |
+| Run `bun run memory-check` or `kimi-doctor --quick` before long agent sessions                        | Catches low RAM / high swap early           |
+| Run `kimi-doctor --memory-budget` to see per-app RSS                                                  | Same breakdown as investigation tooling     |
+| Use **kimi CLI OR Kimi Desktop**, not both                                                            | Duplicate Electron/Node stacks              |
+| Never run `bun run sync:daemon` unless developing toolchain                                           | Background Bun cron every 5 min             |
+| Run `kimi-orphan-kill --dry-run` weekly                                                               | Cleans stale `bun test` / kimi-tool orphans |
 
 **Governor config:** `~/.kimi-code/governor/defaults.toml` — `maxParallelJobs` caps at 2 when free RAM < 2 GB.
 
 **Monitoring scripts:**
+
 - `scripts/memory-check.sh` — pre-session gate (`bun run memory-check`)
 - `scripts/memory-baseline.sh` — before/after metrics snapshot
 
@@ -276,35 +290,36 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 
 ## Key Files for Agents
 
-| File | Purpose |
-|------|---------|
-| `package.json` | Toolchain metadata, bin mappings, scripts |
-| `tsconfig.json` | Strict TypeScript, ESNext, bundler resolution |
-| `bunfig.toml` | Bun install config (`saveTextLockfile = true`) |
-| `src/lib/utils.ts` | Shared utilities — import from here |
-| `src/lib/version.ts` | Version resolution logic |
-| `src/lib/memory-budget.ts` | System memory / RSS budget checks |
-| `src/lib/governor-config.ts` | Loads `~/.kimi-code/governor/defaults.toml` |
-| `test/kimi-doctor.smoke.test.ts` | Smoke tests for all tools |
-| `CONTEXT.md` | Auto-generated project context |
-| `skills/kimi-toolchain/SKILL.md` | Agent decision protocol |
+| File                             | Purpose                                        |
+| -------------------------------- | ---------------------------------------------- |
+| `package.json`                   | Toolchain metadata, bin mappings, scripts      |
+| `tsconfig.json`                  | Strict TypeScript, ESNext, bundler resolution  |
+| `bunfig.toml`                    | Bun install config (`saveTextLockfile = true`) |
+| `src/lib/utils.ts`               | Shared utilities — import from here            |
+| `src/lib/version.ts`             | Version resolution logic                       |
+| `src/lib/memory-budget.ts`       | System memory / RSS budget checks              |
+| `src/lib/governor-config.ts`     | Loads `~/.kimi-code/governor/defaults.toml`    |
+| `test/kimi-doctor.smoke.test.ts` | Smoke tests for all tools                      |
+| `CONTEXT.md`                     | Auto-generated project context                 |
+| `skills/kimi-toolchain/SKILL.md` | Agent decision protocol                        |
 
 ## Quick Reference: All CLI Tools
 
-| Tool | Key Commands |
-|------|-------------|
-| `kimi-doctor` | `doctor`, `doctor --fix`, `doctor --quick`, `doctor --memory-budget` |
-| `kimi-orphan-kill` | `--dry-run` (cleanup stale test/tool processes) |
-| `kimi-fix` | `fix <path>`, `fix <path> --dry-run` |
-| `kimi-governance` | `score`, `fix`, `coverage [N]`, `docs`, `adr <title>`, `doctor` |
-| `kimi-guardian` | `check`, `sign`, `verify`, `report`, `fix`, `doctor` |
-| `kimi-memory` | `store`, `recall`, `resume`, `autosave`, `graph`, `impact`, `search`, `prune`, `stats`, `trends`, `doctor`, `fix` |
-| `kimi-githooks` | `install`, `doctor`, `fix` |
-| `kimi-context-gen` | `scan`, `update`, `freshness`, `doctor`, `fix [threshold]` |
-| `kimi-release` | `changelog`, `semver`, `validate`, `doctor`, `fix` |
-| `kimi-debug` | `last`, `diff`, `trace`, `analyze`, `doctor`, `fix` |
-| `kimi-snapshot` | `save`, `restore`, `list`, `show`, `cleanup`, `doctor`, `fix` |
-| `kimi-resource-governor` | `limits`, `parallel`, `quota`, `cache`, `spawn`, `session`, `cleanup`, `status`, `doctor`, `fix` |
+| Tool                     | Key Commands                                                                                                      |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `kimi-doctor`            | `doctor`, `doctor --fix`, `doctor --quick`, `doctor --memory-budget`                                              |
+| `kimi-orphan-kill`       | `--dry-run` (cleanup stale test/tool processes)                                                                   |
+| `kimi-fix`               | `fix <path>`, `fix <path> --dry-run`                                                                              |
+| `kimi-governance`        | `score`, `fix`, `coverage [N]`, `docs`, `adr <title>`, `doctor`                                                   |
+| `kimi-guardian`          | `check`, `sign`, `verify`, `report`, `fix`, `doctor`                                                              |
+| `kimi-memory`            | `store`, `recall`, `resume`, `autosave`, `graph`, `impact`, `search`, `prune`, `stats`, `trends`, `doctor`, `fix` |
+| `kimi-githooks`          | `install`, `doctor`, `fix`                                                                                        |
+| `kimi-context-gen`       | `scan`, `update`, `freshness`, `doctor`, `fix [threshold]`                                                        |
+| `kimi-release`           | `changelog`, `semver`, `validate`, `doctor`, `fix`                                                                |
+| `kimi-debug`             | `last`, `diff`, `trace`, `analyze`, `doctor`, `fix`                                                               |
+| `kimi-snapshot`          | `save`, `restore`, `list`, `show`, `cleanup`, `doctor`, `fix`                                                     |
+| `kimi-resource-governor` | `limits`, `parallel`, `quota`, `cache`, `spawn`, `session`, `cleanup`, `status`, `doctor`, `fix`                  |
 
 ---
-*Generated from project source. Update when adding new tools or changing conventions.*
+
+_Generated from project source. Update when adding new tools or changing conventions._

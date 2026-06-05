@@ -16,7 +16,7 @@ import { Database } from "bun:sqlite";
 import { nanoseconds } from "bun";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { ensureDir, log, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 import {
   loadGovernorDefaults,
   getGovernorConfigPath,
@@ -112,7 +112,14 @@ function startSession(project: string): SessionRecord {
   db.run(
     `INSERT INTO resource_sessions (id, project, started_at, memory_peak_mb, cpu_time_ms, disk_used_mb)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [record.id, record.project, record.startedAt, record.memoryPeakMb, record.cpuTimeMs, record.diskUsedMb]
+    [
+      record.id,
+      record.project,
+      record.startedAt,
+      record.memoryPeakMb,
+      record.cpuTimeMs,
+      record.diskUsedMb,
+    ]
   );
   db.close();
   return record;
@@ -120,10 +127,7 @@ function startSession(project: string): SessionRecord {
 
 function endSession(id: string) {
   const db = getDb();
-  db.run(
-    `UPDATE resource_sessions SET ended_at = ? WHERE id = ?`,
-    [Date.now(), id]
-  );
+  db.run(`UPDATE resource_sessions SET ended_at = ? WHERE id = ?`, [Date.now(), id]);
   db.close();
 }
 
@@ -178,10 +182,14 @@ function getCurrentUsage(): ResourceUsage {
 function checkLimits(usage: ResourceUsage, limits: ResourceLimits): string[] {
   const cfg = { ...DEFAULTS, ...limits };
   const violations: string[] = [];
-  if (usage.memoryMB > cfg.maxMemoryMB!) violations.push(`Memory: ${usage.memoryMB}MB > ${cfg.maxMemoryMB}MB limit`);
-  if (usage.cpuTimeMs > cfg.maxCpuTimeMs!) violations.push(`CPU time: ${usage.cpuTimeMs}ms > ${cfg.maxCpuTimeMs}ms limit`);
-  if (usage.fileSizeMB > cfg.maxFileSizeMB!) violations.push(`File size: ${usage.fileSizeMB}MB > ${cfg.maxFileSizeMB}MB limit`);
-  if (usage.openFiles > cfg.maxOpenFiles!) violations.push(`Open files: ${usage.openFiles} > ${cfg.maxOpenFiles} limit`);
+  if (usage.memoryMB > cfg.maxMemoryMB!)
+    violations.push(`Memory: ${usage.memoryMB}MB > ${cfg.maxMemoryMB}MB limit`);
+  if (usage.cpuTimeMs > cfg.maxCpuTimeMs!)
+    violations.push(`CPU time: ${usage.cpuTimeMs}ms > ${cfg.maxCpuTimeMs}ms limit`);
+  if (usage.fileSizeMB > cfg.maxFileSizeMB!)
+    violations.push(`File size: ${usage.fileSizeMB}MB > ${cfg.maxFileSizeMB}MB limit`);
+  if (usage.openFiles > cfg.maxOpenFiles!)
+    violations.push(`Open files: ${usage.openFiles} > ${cfg.maxOpenFiles} limit`);
   return violations;
 }
 
@@ -328,7 +336,11 @@ export async function governedSpawn(
         env: { ...Bun.env, ...options.env },
         stdout: "pipe",
         stderr: "pipe",
-        stdin: options.stdin ? (typeof options.stdin === "string" ? new TextEncoder().encode(options.stdin) : options.stdin) : undefined,
+        stdin: options.stdin
+          ? typeof options.stdin === "string"
+            ? new TextEncoder().encode(options.stdin)
+            : options.stdin
+          : undefined,
       });
 
       const rootPid = proc.pid;
@@ -408,7 +420,6 @@ export async function governedSpawn(
         killed,
         attempts,
       };
-
     } catch (err: any) {
       lastError = err;
       // Only retry on spawn/resource errors, not on non-zero exit codes
@@ -480,7 +491,10 @@ async function getDiskUsage(dir: string): Promise<number> {
   }
 }
 
-export async function checkDiskQuota(projectDir: string, quotaMB = DEFAULTS.diskQuotaMB): Promise<{ used: number; remaining: number; ok: boolean }> {
+export async function checkDiskQuota(
+  projectDir: string,
+  quotaMB = DEFAULTS.diskQuotaMB
+): Promise<{ used: number; remaining: number; ok: boolean }> {
   const used = await getDiskUsage(projectDir);
   const remaining = quotaMB - used;
   return { used, remaining, ok: remaining > 0 };
@@ -496,12 +510,19 @@ function hashCommand(command: string, args: string[], cwd: string): string {
 
 function getCached(key: string): CacheEntry | null {
   const db = getDb();
-  const row = db.query("SELECT * FROM diagnostic_cache WHERE key = ? AND expires_at > ?").get(key, Date.now()) as any;
+  const row = db
+    .query("SELECT * FROM diagnostic_cache WHERE key = ? AND expires_at > ?")
+    .get(key, Date.now()) as any;
   db.close();
   return row ? normalizeCacheEntry(row) : null;
 }
 
-function setCached(key: string, command: string, output: string, ttlSeconds = DEFAULTS.cacheTTLSeconds) {
+function setCached(
+  key: string,
+  command: string,
+  output: string,
+  ttlSeconds = DEFAULTS.cacheTTLSeconds
+) {
   const db = getDb();
   const now = Date.now();
   const expires = now + ttlSeconds * 1000;
@@ -565,33 +586,73 @@ export async function cachedDoctor(
 
 // ── Doctor ───────────────────────────────────────────────────────────
 
-function doctor(): Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }> {
-  const checks: Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }> = [];
+function doctor(): Array<{
+  name: string;
+  status: "ok" | "warn" | "error";
+  message: string;
+  fixable: boolean;
+}> {
+  const checks: Array<{
+    name: string;
+    status: "ok" | "warn" | "error";
+    message: string;
+    fixable: boolean;
+  }> = [];
 
   let db: Database | null = null;
   try {
     db = getDb();
-    checks.push({ name: "db-access", status: "ok", message: "Database accessible", fixable: false });
+    checks.push({
+      name: "db-access",
+      status: "ok",
+      message: "Database accessible",
+      fixable: false,
+    });
   } catch (e: any) {
-    checks.push({ name: "db-access", status: "error", message: `Cannot open DB: ${e.message}`, fixable: false });
+    checks.push({
+      name: "db-access",
+      status: "error",
+      message: `Cannot open DB: ${e.message}`,
+      fixable: false,
+    });
     return checks;
   }
 
   // Cache health
   const cacheCount = (db.query("SELECT COUNT(*) as c FROM diagnostic_cache").get() as any).c;
-  const expiredCount = (db.query("SELECT COUNT(*) as c FROM diagnostic_cache WHERE expires_at < ?").get(Date.now()) as any).c;
-  checks.push({ name: "cache", status: expiredCount > cacheCount * 0.5 ? "warn" : "ok", message: `${cacheCount} entries (${expiredCount} expired)`, fixable: expiredCount > 0 });
+  const expiredCount = (
+    db
+      .query("SELECT COUNT(*) as c FROM diagnostic_cache WHERE expires_at < ?")
+      .get(Date.now()) as any
+  ).c;
+  checks.push({
+    name: "cache",
+    status: expiredCount > cacheCount * 0.5 ? "warn" : "ok",
+    message: `${cacheCount} entries (${expiredCount} expired)`,
+    fixable: expiredCount > 0,
+  });
 
   // Stuck sessions
-  const stuck = db.query("SELECT COUNT(*) as c FROM resource_sessions WHERE ended_at IS NULL AND started_at < ?")
+  const stuck = db
+    .query("SELECT COUNT(*) as c FROM resource_sessions WHERE ended_at IS NULL AND started_at < ?")
     .get(Date.now() - DEFAULTS.wallClockMs * 2) as any;
-  checks.push({ name: "stuck-sessions", status: stuck.c > 0 ? "warn" : "ok", message: `${stuck.c} stuck session(s)`, fixable: stuck.c > 0 });
+  checks.push({
+    name: "stuck-sessions",
+    status: stuck.c > 0 ? "warn" : "ok",
+    message: `${stuck.c} stuck session(s)`,
+    fixable: stuck.c > 0,
+  });
 
   // WAL size
   const walPath = DB_PATH + "-wal";
   if (existsSync(walPath)) {
     const walMB = Bun.file(walPath).size / 1024 / 1024;
-    checks.push({ name: "wal-size", status: walMB > 10 ? "warn" : "ok", message: `${walMB.toFixed(1)}MB WAL`, fixable: walMB > 10 });
+    checks.push({
+      name: "wal-size",
+      status: walMB > 10 ? "warn" : "ok",
+      message: `${walMB.toFixed(1)}MB WAL`,
+      fixable: walMB > 10,
+    });
   } else {
     checks.push({ name: "wal-size", status: "ok", message: "No WAL", fixable: false });
   }
@@ -650,9 +711,7 @@ async function main() {
     } else {
       console.log("  ✓ Within limits");
     }
-  }
-
-  else if (command === "parallel") {
+  } else if (command === "parallel") {
     console.log("── Parallelism Governor ──────────────────────────────────────");
     console.log(`  Hardware concurrency: ${navigator.hardwareConcurrency || "unknown"}`);
     console.log(`  Max parallel jobs:    ${DEFAULTS.maxParallelJobs}`);
@@ -671,18 +730,14 @@ async function main() {
 
     await Promise.all(tasks);
     console.log("  ✓ All tasks completed");
-  }
-
-  else if (command === "quota") {
+  } else if (command === "quota") {
     console.log(`── Disk Quota: ${project} ────────────────────────────────────`);
     const { used, remaining, ok } = await checkDiskQuota(projectDir);
     console.log(`  Used:      ${used}MB`);
     console.log(`  Quota:     ${DEFAULTS.diskQuotaMB}MB`);
     console.log(`  Remaining: ${remaining}MB`);
     console.log(ok ? "  ✓ Within quota" : "  ✗ Quota exceeded");
-  }
-
-  else if (command === "spawn") {
+  } else if (command === "spawn") {
     const cmd = args.slice(1);
     if (cmd.length === 0) {
       console.log("Usage: spawn <command> [args...]");
@@ -699,11 +754,14 @@ async function main() {
     console.log(`  Attempts:  ${result.attempts}`);
     if (result.stdout) {
       console.log("  stdout:");
-      console.log(result.stdout.split("\n").map((l) => `    ${l}`).join("\n"));
+      console.log(
+        result.stdout
+          .split("\n")
+          .map((l) => `    ${l}`)
+          .join("\n")
+      );
     }
-  }
-
-  else if (command === "retry") {
+  } else if (command === "retry") {
     const cmd = args.slice(1);
     if (cmd.length === 0) {
       console.log("Usage: retry <command> [args...]");
@@ -721,14 +779,17 @@ async function main() {
       console.log(`  Memory:    ${result.usage.memoryMB}MB`);
       if (result.stdout) {
         console.log("  stdout:");
-        console.log(result.stdout.split("\n").map((l) => `    ${l}`).join("\n"));
+        console.log(
+          result.stdout
+            .split("\n")
+            .map((l) => `    ${l}`)
+            .join("\n")
+        );
       }
     } catch (err: any) {
       console.log(`  ✗ Failed after retries: ${err.message}`);
     }
-  }
-
-  else if (command === "cache") {
+  } else if (command === "cache") {
     const cmd = args.slice(1);
     if (cmd.length === 0) {
       console.log("Usage: cache <command> [args...]");
@@ -744,13 +805,18 @@ async function main() {
     console.log("── Diagnostic Cache ──────────────────────────────────────────");
     const output = await cachedExec(actualCmd, { force });
     console.log("  Output:");
-    console.log(output.split("\n").map((l) => `    ${l}`).join("\n"));
-  }
-
-  else if (command === "doctor") {
+    console.log(
+      output
+        .split("\n")
+        .map((l) => `    ${l}`)
+        .join("\n")
+    );
+  } else if (command === "doctor") {
     const checks = doctor();
     console.log("── Resource Governor Doctor ──────────────────────────────────");
-    let errors = 0, warns = 0, fixable = 0;
+    let errors = 0,
+      warns = 0,
+      fixable = 0;
     for (const c of checks) {
       const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
       console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
@@ -762,9 +828,7 @@ async function main() {
     if (fixable > 0) {
       console.log("  Run 'kimi-resource-governor fix' to repair");
     }
-  }
-
-  else if (command === "fix") {
+  } else if (command === "fix") {
     console.log("── Fixing Resource Governor ──────────────────────────────────");
     ensureDir(GOVERNOR_DIR);
     const configPath = getGovernorConfigPath();
@@ -777,15 +841,15 @@ async function main() {
     console.log(`  ✓ Cleaned ${result.cacheDeleted} expired cache entries`);
     console.log(`  ✓ Ended ${result.stuckFixed} stuck sessions`);
     console.log(`  ✓ Database vacuumed`);
-  }
-
-  else if (command === "session") {
+  } else if (command === "session") {
     console.log("── Session Management ────────────────────────────────────────");
     const id = getSessionId();
     console.log(`  Session ID: ${id}`);
 
     const db = getDb();
-    const active = db.query("SELECT COUNT(*) as c FROM resource_sessions WHERE ended_at IS NULL").get() as any;
+    const active = db
+      .query("SELECT COUNT(*) as c FROM resource_sessions WHERE ended_at IS NULL")
+      .get() as any;
     const total = db.query("SELECT COUNT(*) as c FROM resource_sessions").get() as any;
     db.close();
 
@@ -794,15 +858,11 @@ async function main() {
 
     startSession(project);
     console.log(`  ✓ Session started for ${project}`);
-  }
-
-  else if (command === "cleanup") {
+  } else if (command === "cleanup") {
     console.log("── Cache Cleanup ─────────────────────────────────────────────");
     const deleted = cleanupCache();
     console.log(`  Removed ${deleted} expired cache entries`);
-  }
-
-  else if (command === "status") {
+  } else if (command === "status") {
     console.log("── Defaults ──────────────────────────────────────────────────");
     console.log(`  Config file:       ${getGovernorConfigPath()}`);
     console.log(`  Max memory:        ${DEFAULTS.maxMemoryMB}MB`);
@@ -827,7 +887,9 @@ async function main() {
     console.log("  cleanup         Remove expired cache entries");
     console.log("");
     console.log("Import in your code:");
-    console.log("  import { governedSpawn, ParallelGovernor, cachedExec, cachedDoctor } from './kimi-resource-governor.ts'");
+    console.log(
+      "  import { governedSpawn, ParallelGovernor, cachedExec, cachedDoctor } from './kimi-resource-governor.ts'"
+    );
     console.log("");
     console.log("New spawn options:");
     console.log("  killTree: false       — disable process tree cleanup");
@@ -836,7 +898,7 @@ async function main() {
 }
 
 // Auto-end session on graceful exit
-async function gracefulShutdown(signal: string) {
+async function gracefulShutdown(_signal: string) {
   if (_sessionId) {
     endSession(_sessionId);
   }

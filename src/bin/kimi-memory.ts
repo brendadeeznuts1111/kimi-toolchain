@@ -14,7 +14,7 @@ import { Database } from "bun:sqlite";
 import { randomUUIDv7 } from "bun";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { log, getProjectName, safeParse, resolveProjectRoot } from "../lib/utils.ts";
+import { getProjectName, safeParse, resolveProjectRoot } from "../lib/utils.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -140,7 +140,9 @@ function getDb(): Database {
 
 // ── Session Store ────────────────────────────────────────────────────
 
-export function saveSession(session: Omit<SessionRecord, "status"> & { status?: SessionRecord["status"] }) {
+export function saveSession(
+  session: Omit<SessionRecord, "status"> & { status?: SessionRecord["status"] }
+) {
   const db = getDb();
   db.run(
     `INSERT OR REPLACE INTO sessions
@@ -169,11 +171,11 @@ export function recallSessions(project?: string, limit = 10): SessionRecord[] {
   const db = getDb();
   let rows;
   if (project) {
-    rows = db.query("SELECT * FROM sessions WHERE project = ? ORDER BY started_at DESC LIMIT ?")
+    rows = db
+      .query("SELECT * FROM sessions WHERE project = ? ORDER BY started_at DESC LIMIT ?")
       .all(project, limit) as any[];
   } else {
-    rows = db.query("SELECT * FROM sessions ORDER BY started_at DESC LIMIT ?")
-      .all(limit) as any[];
+    rows = db.query("SELECT * FROM sessions ORDER BY started_at DESC LIMIT ?").all(limit) as any[];
   }
   db.close();
   return rows.map(parseSessionRow);
@@ -181,9 +183,11 @@ export function recallSessions(project?: string, limit = 10): SessionRecord[] {
 
 export function getActiveSession(project: string): SessionRecord | null {
   const db = getDb();
-  const row = db.query(
-    "SELECT * FROM sessions WHERE project = ? AND status = 'active' ORDER BY started_at DESC LIMIT 1"
-  ).get(project) as any;
+  const row = db
+    .query(
+      "SELECT * FROM sessions WHERE project = ? AND status = 'active' ORDER BY started_at DESC LIMIT 1"
+    )
+    .get(project) as any;
   db.close();
   return row ? parseSessionRow(row) : null;
 }
@@ -208,13 +212,15 @@ function parseSessionRow(r: any): SessionRecord {
 
 // ── Session Resume ───────────────────────────────────────────────────
 
-export async function resumeSession(projectPath: string): Promise<{ session: SessionRecord | null; stale: boolean; changes: string[] }> {
+export async function resumeSession(
+  projectPath: string
+): Promise<{ session: SessionRecord | null; stale: boolean; changes: string[] }> {
   const project = getProjectName(projectPath);
   const db = getDb();
 
-  const row = db.query(
-    "SELECT * FROM sessions WHERE project = ? ORDER BY started_at DESC LIMIT 1"
-  ).get(project) as any;
+  const row = db
+    .query("SELECT * FROM sessions WHERE project = ? ORDER BY started_at DESC LIMIT 1")
+    .get(project) as any;
   db.close();
 
   if (!row) {
@@ -237,9 +243,13 @@ export async function resumeSession(projectPath: string): Promise<{ session: Ses
     const currentHead = result.stdout.toString().trim();
     if (currentHead && currentHead !== session.gitHead) {
       stale = true;
-      changes.push(`Git HEAD changed: ${session.gitHead.slice(0, 8)}... → ${currentHead.slice(0, 8)}...`);
+      changes.push(
+        `Git HEAD changed: ${session.gitHead.slice(0, 8)}... → ${currentHead.slice(0, 8)}...`
+      );
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   try {
     const lockPath = join(projectPath, "bun.lock");
@@ -252,7 +262,9 @@ export async function resumeSession(projectPath: string): Promise<{ session: Ses
         changes.push("Lockfile changed since last session");
       }
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   return { session, stale, changes };
 }
@@ -277,20 +289,40 @@ export function addEdge(edge: KnowledgeEdge) {
   db.close();
 }
 
-export function getGraph(project: string, depth = 1): { nodes: KnowledgeNode[]; edges: KnowledgeEdge[] } {
+export function getGraph(
+  project: string,
+  _depth = 1
+): { nodes: KnowledgeNode[]; edges: KnowledgeEdge[] } {
   const db = getDb();
-  const nodes = db.query("SELECT * FROM knowledge_nodes WHERE project = ?")
-    .all(project) as any[];
+  const nodes = db.query("SELECT * FROM knowledge_nodes WHERE project = ?").all(project) as any[];
   const nodeIds = new Set(nodes.map((n) => n.id));
 
-  const edges = db.query("SELECT * FROM knowledge_edges WHERE from_id IN (" +
-    Array.from(nodeIds).map(() => "?").join(",") + ")")
+  const edges = db
+    .query(
+      "SELECT * FROM knowledge_edges WHERE from_id IN (" +
+        Array.from(nodeIds)
+          .map(() => "?")
+          .join(",") +
+        ")"
+    )
     .all(...Array.from(nodeIds)) as any[];
 
   db.close();
   return {
-    nodes: nodes.map((n) => ({ id: n.id, label: n.label, type: n.type, project: n.project, createdAt: n.created_at, metadata: n.metadata })),
-    edges: edges.map((e) => ({ from: e.from_id, to: e.to_id, relation: e.relation, weight: e.weight })),
+    nodes: nodes.map((n) => ({
+      id: n.id,
+      label: n.label,
+      type: n.type,
+      project: n.project,
+      createdAt: n.created_at,
+      metadata: n.metadata,
+    })),
+    edges: edges.map((e) => ({
+      from: e.from_id,
+      to: e.to_id,
+      relation: e.relation,
+      weight: e.weight,
+    })),
   };
 }
 
@@ -322,7 +354,9 @@ export function getImpactGraph(nodeId: string, depth = 2): ImpactResult {
       affectedProjects.add(node.project);
     }
 
-    const edges = db.query("SELECT * FROM knowledge_edges WHERE from_id = ?").all(current.id) as any[];
+    const edges = db
+      .query("SELECT * FROM knowledge_edges WHERE from_id = ?")
+      .all(current.id) as any[];
     for (const e of edges) {
       if (!visited.has(e.to_id)) {
         queue.push({ id: e.to_id, depth: current.depth + 1 });
@@ -346,14 +380,21 @@ export function searchNodes(query: string, project?: string): KnowledgeNode[] {
   const db = getDb();
   let rows;
   if (project) {
-    rows = db.query("SELECT * FROM knowledge_nodes WHERE project = ? AND label LIKE ?")
+    rows = db
+      .query("SELECT * FROM knowledge_nodes WHERE project = ? AND label LIKE ?")
       .all(project, `%${query}%`) as any[];
   } else {
-    rows = db.query("SELECT * FROM knowledge_nodes WHERE label LIKE ?")
-      .all(`%${query}%`) as any[];
+    rows = db.query("SELECT * FROM knowledge_nodes WHERE label LIKE ?").all(`%${query}%`) as any[];
   }
   db.close();
-  return rows.map((n) => ({ id: n.id, label: n.label, type: n.type, project: n.project, createdAt: n.created_at, metadata: n.metadata }));
+  return rows.map((n) => ({
+    id: n.id,
+    label: n.label,
+    type: n.type,
+    project: n.project,
+    createdAt: n.created_at,
+    metadata: n.metadata,
+  }));
 }
 
 // ── Maintenance ──────────────────────────────────────────────────────
@@ -394,9 +435,9 @@ export function recordDoctorRun(
 
   // Update warning_trends: increment existing or insert new
   for (const w of warnings) {
-    const existing = db.query(
-      "SELECT occurrence_count FROM warning_trends WHERE check_name = ?"
-    ).get(w.check) as any;
+    const existing = db
+      .query("SELECT occurrence_count FROM warning_trends WHERE check_name = ?")
+      .get(w.check) as any;
 
     if (existing) {
       db.run(
@@ -425,10 +466,7 @@ export function recordDoctorRun(
     );
   } else {
     // No warnings at all — mark all unresolved as resolved
-    db.run(
-      "UPDATE warning_trends SET resolved_at = ? WHERE resolved_at IS NULL",
-      [now]
-    );
+    db.run("UPDATE warning_trends SET resolved_at = ? WHERE resolved_at IS NULL", [now]);
   }
 
   db.close();
@@ -445,19 +483,23 @@ export function getPersistentWarnings(tool?: string): Array<{
   const db = getDb();
   let rows;
   if (tool) {
-    rows = db.query(
-      `SELECT check_name, tool, occurrence_count, first_seen, last_seen
+    rows = db
+      .query(
+        `SELECT check_name, tool, occurrence_count, first_seen, last_seen
        FROM warning_trends
        WHERE resolved_at IS NULL AND tool = ?
        ORDER BY occurrence_count DESC`
-    ).all(tool) as any[];
+      )
+      .all(tool) as any[];
   } else {
-    rows = db.query(
-      `SELECT check_name, tool, occurrence_count, first_seen, last_seen
+    rows = db
+      .query(
+        `SELECT check_name, tool, occurrence_count, first_seen, last_seen
        FROM warning_trends
        WHERE resolved_at IS NULL
        ORDER BY occurrence_count DESC`
-    ).all() as any[];
+      )
+      .all() as any[];
   }
   db.close();
 
@@ -478,11 +520,13 @@ export function getWarningHistory(checkName: string): Array<{
   git_head: string | null;
 }> {
   const db = getDb();
-  const rows = db.query(
-    `SELECT timestamp, r_score, git_head FROM doctor_runs
+  const rows = db
+    .query(
+      `SELECT timestamp, r_score, git_head FROM doctor_runs
      WHERE warnings_json LIKE ?
      ORDER BY timestamp DESC`
-  ).all(`%"check":"${checkName}"%`) as any[];
+    )
+    .all(`%"check":"${checkName}"%`) as any[];
   db.close();
   return rows.map((r) => ({
     timestamp: r.timestamp,
@@ -491,21 +535,30 @@ export function getWarningHistory(checkName: string): Array<{
   }));
 }
 
-export function getStats(): { sessions: number; active: number; nodes: number; edges: number; dbSize: string } {
+export function getStats(): {
+  sessions: number;
+  active: number;
+  nodes: number;
+  edges: number;
+  dbSize: string;
+} {
   const db = getDb();
   const sessions = (db.query("SELECT COUNT(*) as c FROM sessions").get() as any).c;
-  const active = (db.query("SELECT COUNT(*) as c FROM sessions WHERE status = 'active'").get() as any).c;
+  const active = (
+    db.query("SELECT COUNT(*) as c FROM sessions WHERE status = 'active'").get() as any
+  ).c;
   const nodes = (db.query("SELECT COUNT(*) as c FROM knowledge_nodes").get() as any).c;
   const edges = (db.query("SELECT COUNT(*) as c FROM knowledge_edges").get() as any).c;
   db.close();
 
   const file = Bun.file(DB_PATH);
   const size = file.size;
-  const sizeStr = size > 1024 * 1024
-    ? `${(size / 1024 / 1024).toFixed(1)}MB`
-    : size > 1024
-      ? `${(size / 1024).toFixed(1)}KB`
-      : `${size}B`;
+  const sizeStr =
+    size > 1024 * 1024
+      ? `${(size / 1024 / 1024).toFixed(1)}MB`
+      : size > 1024
+        ? `${(size / 1024).toFixed(1)}KB`
+        : `${size}B`;
 
   return { sessions, active, nodes, edges, dbSize: sizeStr };
 }
@@ -528,7 +581,9 @@ export function startAutoSave(projectPath: string, intervalMs = 30000) {
     try {
       const result = await $`git rev-parse HEAD`.cwd(projectPath).nothrow().quiet();
       gitHead = result.stdout.toString().trim();
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     try {
       const lockPath = join(projectPath, "bun.lock");
@@ -537,7 +592,9 @@ export function startAutoSave(projectPath: string, intervalMs = 30000) {
         hasher.update(await Bun.file(lockPath).text());
         lockfileHash = hasher.digest("hex");
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     saveSession({
       id,
@@ -567,30 +624,62 @@ export function stopAutoSave() {
 
 // ── Doctor ───────────────────────────────────────────────────────────
 
-function doctor(): Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }> {
-  const checks: Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }> = [];
+function doctor(): Array<{
+  name: string;
+  status: "ok" | "warn" | "error";
+  message: string;
+  fixable: boolean;
+}> {
+  const checks: Array<{
+    name: string;
+    status: "ok" | "warn" | "error";
+    message: string;
+    fixable: boolean;
+  }> = [];
 
   // DB accessibility
   let db: Database | null = null;
   try {
     db = getDb();
-    checks.push({ name: "db-access", status: "ok", message: "Database accessible", fixable: false });
+    checks.push({
+      name: "db-access",
+      status: "ok",
+      message: "Database accessible",
+      fixable: false,
+    });
   } catch (e: any) {
-    checks.push({ name: "db-access", status: "error", message: `Cannot open DB: ${e.message}`, fixable: false });
+    checks.push({
+      name: "db-access",
+      status: "error",
+      message: `Cannot open DB: ${e.message}`,
+      fixable: false,
+    });
     return checks;
   }
 
   // Orphaned edges
   try {
-    const orphanRows = db.query(`
+    const orphanRows = db
+      .query(`
       SELECT e.from_id, e.to_id FROM knowledge_edges e
       LEFT JOIN knowledge_nodes n1 ON e.from_id = n1.id
       LEFT JOIN knowledge_nodes n2 ON e.to_id = n2.id
       WHERE n1.id IS NULL OR n2.id IS NULL
-    `).all() as any[];
-    checks.push({ name: "orphaned-edges", status: orphanRows.length === 0 ? "ok" : "warn", message: `${orphanRows.length} orphaned edge(s)`, fixable: orphanRows.length > 0 });
+    `)
+      .all() as any[];
+    checks.push({
+      name: "orphaned-edges",
+      status: orphanRows.length === 0 ? "ok" : "warn",
+      message: `${orphanRows.length} orphaned edge(s)`,
+      fixable: orphanRows.length > 0,
+    });
   } catch (e: any) {
-    checks.push({ name: "orphaned-edges", status: "warn", message: `Check failed: ${e.message}`, fixable: false });
+    checks.push({
+      name: "orphaned-edges",
+      status: "warn",
+      message: `Check failed: ${e.message}`,
+      fixable: false,
+    });
   }
 
   // WAL size
@@ -598,18 +687,34 @@ function doctor(): Array<{ name: string; status: "ok" | "warn" | "error"; messag
   if (existsSync(walPath)) {
     const walSize = Bun.file(walPath).size;
     const walMB = walSize / 1024 / 1024;
-    checks.push({ name: "wal-size", status: walMB > 10 ? "warn" : "ok", message: `${walMB.toFixed(1)}MB WAL`, fixable: walMB > 10 });
+    checks.push({
+      name: "wal-size",
+      status: walMB > 10 ? "warn" : "ok",
+      message: `${walMB.toFixed(1)}MB WAL`,
+      fixable: walMB > 10,
+    });
   } else {
     checks.push({ name: "wal-size", status: "ok", message: "No WAL file", fixable: false });
   }
 
   // Stuck active sessions
   try {
-    const stuck = db.query("SELECT COUNT(*) as c FROM sessions WHERE status = 'active' AND started_at < ?")
+    const stuck = db
+      .query("SELECT COUNT(*) as c FROM sessions WHERE status = 'active' AND started_at < ?")
       .get(new Date(Date.now() - SESSION_TTL_MS).toISOString()) as any;
-    checks.push({ name: "stuck-sessions", status: stuck.c > 0 ? "warn" : "ok", message: `${stuck.c} stuck session(s)`, fixable: stuck.c > 0 });
+    checks.push({
+      name: "stuck-sessions",
+      status: stuck.c > 0 ? "warn" : "ok",
+      message: `${stuck.c} stuck session(s)`,
+      fixable: stuck.c > 0,
+    });
   } catch (e: any) {
-    checks.push({ name: "stuck-sessions", status: "warn", message: `Check failed: ${e.message}`, fixable: false });
+    checks.push({
+      name: "stuck-sessions",
+      status: "warn",
+      message: `Check failed: ${e.message}`,
+      fixable: false,
+    });
   }
 
   db.close();
@@ -675,19 +780,17 @@ async function main() {
       keyDecisions: decisions,
     });
     console.log(`  ✓ Stored session: ${sessionId}`);
-  }
-
-  else if (command === "recall") {
+  } else if (command === "recall") {
     const limit = parseInt(args[1], 10) || 5;
     const sessions = recallSessions(project, limit);
     console.log(`── Recent sessions for ${project} ────────────────────────────`);
     for (const s of sessions) {
       const statusIcon = s.status === "active" ? "●" : s.status === "stale" ? "◌" : "○";
-      console.log(`  ${statusIcon} ${s.startedAt.slice(0, 19)}  ${s.id.slice(0, 20)}...  decisions: ${s.keyDecisions.length}`);
+      console.log(
+        `  ${statusIcon} ${s.startedAt.slice(0, 19)}  ${s.id.slice(0, 20)}...  decisions: ${s.keyDecisions.length}`
+      );
     }
-  }
-
-  else if (command === "resume") {
+  } else if (command === "resume") {
     console.log(`── Resume Session: ${project} ────────────────────────────────`);
     const { session, stale, changes } = await resumeSession(projectPath);
 
@@ -713,9 +816,7 @@ async function main() {
         console.log(`    • ${d}`);
       }
     }
-  }
-
-  else if (command === "autosave") {
+  } else if (command === "autosave") {
     const action = args[1] || "start";
     if (action === "start") {
       const id = startAutoSave(projectPath);
@@ -724,9 +825,7 @@ async function main() {
       stopAutoSave();
       console.log(`  ✓ Auto-save stopped`);
     }
-  }
-
-  else if (command === "link") {
+  } else if (command === "link") {
     const fromNode = args[1];
     const toNode = args[2];
     const relation = args[3] || "depends_on";
@@ -734,13 +833,23 @@ async function main() {
       console.log("Usage: link <from> <to> [relation]");
       process.exit(1);
     }
-    addNode({ id: fromNode, label: fromNode, type: "dependency", project, createdAt: new Date().toISOString() });
-    addNode({ id: toNode, label: toNode, type: "dependency", project, createdAt: new Date().toISOString() });
+    addNode({
+      id: fromNode,
+      label: fromNode,
+      type: "dependency",
+      project,
+      createdAt: new Date().toISOString(),
+    });
+    addNode({
+      id: toNode,
+      label: toNode,
+      type: "dependency",
+      project,
+      createdAt: new Date().toISOString(),
+    });
     addEdge({ from: fromNode, to: toNode, relation, weight: 1.0 });
     console.log(`  ✓ Linked: ${fromNode} →[${relation}]→ ${toNode}`);
-  }
-
-  else if (command === "graph") {
+  } else if (command === "graph") {
     const { nodes, edges } = getGraph(project);
     console.log(`── Knowledge Graph: ${project} ───────────────────────────────`);
     console.log(`  Nodes: ${nodes.length}`);
@@ -751,9 +860,7 @@ async function main() {
     for (const e of edges.slice(0, 10)) {
       console.log(`    ${e.from} →[${e.relation}]→ ${e.to}`);
     }
-  }
-
-  else if (command === "impact") {
+  } else if (command === "impact") {
     const nodeId = args[1];
     if (!nodeId) {
       console.log("Usage: impact <node-id>");
@@ -768,9 +875,7 @@ async function main() {
     for (const n of impact.affectedNodes.slice(0, 10)) {
       console.log(`    [${n.project}] ${n.label} (${n.type})`);
     }
-  }
-
-  else if (command === "search") {
+  } else if (command === "search") {
     const query = args[1];
     if (!query) {
       console.log("Usage: search <query>");
@@ -781,27 +886,23 @@ async function main() {
     for (const r of results) {
       console.log(`  [${r.type}] ${r.label} (${r.project})`);
     }
-  }
-
-  else if (command === "prune") {
+  } else if (command === "prune") {
     const days = parseInt(args[1], 10) || 30;
     const deleted = pruneOldSessions(days);
     console.log(`  ✓ Pruned ${deleted} sessions older than ${days} days`);
-  }
-
-  else if (command === "stats") {
+  } else if (command === "stats") {
     const stats = getStats();
     console.log("── Memory Stats ──────────────────────────────────────────────");
     console.log(`  Sessions: ${stats.sessions} (${stats.active} active)`);
     console.log(`  Nodes:    ${stats.nodes}`);
     console.log(`  Edges:    ${stats.edges}`);
     console.log(`  DB size:  ${stats.dbSize}`);
-  }
-
-  else if (command === "trends") {
+  } else if (command === "trends") {
     const toolFilter = args[1];
     const persistent = getPersistentWarnings(toolFilter);
-    console.log(`── Warning Trends ${toolFilter ? `(${toolFilter})` : "(all tools)"} ─────────────────────────────────────`);
+    console.log(
+      `── Warning Trends ${toolFilter ? `(${toolFilter})` : "(all tools)"} ─────────────────────────────────────`
+    );
     if (persistent.length === 0) {
       console.log("  ✓ No persistent warnings — all checks clean");
     } else {
@@ -811,12 +912,12 @@ async function main() {
         console.log(`  ⚠ ${p.check_name} [${p.tool}]: ${freq} since ${age}`);
       }
     }
-  }
-
-  else if (command === "doctor") {
+  } else if (command === "doctor") {
     const checks = doctor();
     console.log("── Memory Doctor ─────────────────────────────────────────────");
-    let errors = 0, warns = 0, fixable = 0;
+    let errors = 0,
+      warns = 0,
+      fixable = 0;
     const warnings: DoctorWarning[] = [];
     for (const c of checks) {
       const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
@@ -848,17 +949,13 @@ async function main() {
       console.log("");
       console.log("  Run 'kimi-memory fix' to repair");
     }
-  }
-
-  else if (command === "fix") {
+  } else if (command === "fix") {
     console.log("── Fixing Memory DB ──────────────────────────────────────────");
     const result = fixDb();
     console.log(`  ✓ Pruned ${result.orphansDeleted} orphaned edges`);
     console.log(`  ✓ Reset ${result.stuckReset} stuck sessions`);
     console.log(`  ✓ Database vacuumed`);
-  }
-
-  else {
+  } else {
     console.log("Commands:");
     console.log("  store <id> [decisions]   Save a session snapshot");
     console.log("  recall [limit]           Show recent sessions");

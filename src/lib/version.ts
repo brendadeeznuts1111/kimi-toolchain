@@ -9,11 +9,7 @@ import { join } from "path";
 import { $ } from "bun";
 
 /** Path to the desktop install manifest */
-export const MANIFEST_PATH = join(
-  Bun.env.HOME || "/tmp",
-  ".kimi-code",
-  "toolchain-manifest.json"
-);
+export const MANIFEST_PATH = join(Bun.env.HOME || "/tmp", ".kimi-code", "toolchain-manifest.json");
 
 async function resolveVersion(): Promise<{ version: string; name: string }> {
   // Try repo package.json first (when running from the repo)

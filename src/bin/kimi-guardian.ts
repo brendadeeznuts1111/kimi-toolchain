@@ -13,7 +13,14 @@ import { $, TOML } from "bun";
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { ensureDir, log, sha256File, fetchWithTimeout, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import {
+  ensureDir,
+  log,
+  sha256File,
+  fetchWithTimeout,
+  getProjectName,
+  resolveProjectRoot,
+} from "../lib/utils.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -102,14 +109,24 @@ async function signManifest(projectDir: string, hash: string): Promise<LockfileM
   db.run(
     `INSERT OR REPLACE INTO manifests (project_path, lockfile_hash, signature, signed_by, timestamp, ttl)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [manifest.projectPath, manifest.lockfileHash, manifest.signature, manifest.signedBy, manifest.timestamp, manifest.ttl]
+    [
+      manifest.projectPath,
+      manifest.lockfileHash,
+      manifest.signature,
+      manifest.signedBy,
+      manifest.timestamp,
+      manifest.ttl,
+    ]
   );
   db.close();
 
   return manifest;
 }
 
-async function verifyManifest(projectDir: string, currentHash: string): Promise<{ valid: boolean; reason?: string; manifest?: LockfileManifest }> {
+async function verifyManifest(
+  projectDir: string,
+  currentHash: string
+): Promise<{ valid: boolean; reason?: string; manifest?: LockfileManifest }> {
   const db = getDb();
   const row = db.query("SELECT * FROM manifests WHERE project_path = ?").get(projectDir) as any;
   db.close();
@@ -173,7 +190,9 @@ async function createSigningKey(): Promise<string> {
   const key = new Bun.CryptoHasher("sha256").update(crypto.randomUUID()).digest("hex");
 
   try {
-    await $`security add-generic-password -s ${KEY_NAME} -a kimi-guardian -w ${key}`.nothrow().quiet();
+    await $`security add-generic-password -s ${KEY_NAME} -a kimi-guardian -w ${key}`
+      .nothrow()
+      .quiet();
   } catch {
     await Bun.write(join(GUARDIAN_DIR, ".key"), key);
     await $`chmod 600 ${join(GUARDIAN_DIR, ".key")}`.nothrow().quiet();
@@ -225,7 +244,9 @@ async function storeLockfileHash(projectDir: string) {
 
 // ── Dependency Drift ─────────────────────────────────────────────────
 
-async function checkOutdated(projectDir: string): Promise<GuardianReport["dependencies"]["outdated"]> {
+async function checkOutdated(
+  projectDir: string
+): Promise<GuardianReport["dependencies"]["outdated"]> {
   try {
     const result = await $`bun outdated --json`.cwd(projectDir).nothrow().quiet();
     if (result.exitCode !== 0 || !result.stdout) return [];
@@ -344,7 +365,10 @@ async function addTrustedDeps(projectDir: string, deps: string[]) {
       .filter(Boolean);
     const combined = [...new Set([...existing, ...deps])];
     const newList = combined.map((d) => `"${d}"`).join(", ");
-    content = content.replace(/trustedDependencies\s*=\s*\[[^\]]*\]/, `trustedDependencies = [${newList}]`);
+    content = content.replace(
+      /trustedDependencies\s*=\s*\[[^\]]*\]/,
+      `trustedDependencies = [${newList}]`
+    );
   } else {
     const trustedList = deps.map((d) => `"${d}"`).join(", ");
     content += `\n[install]\ntrustedDependencies = [${trustedList}]\n`;
@@ -355,9 +379,7 @@ async function addTrustedDeps(projectDir: string, deps: string[]) {
 
 // ── Provenance (P1) ──────────────────────────────────────────────────
 
-async function checkProvenance(
-  projectDir: string
-): Promise<GuardianReport["provenance"]> {
+async function checkProvenance(projectDir: string): Promise<GuardianReport["provenance"]> {
   const postinstallScripts: Array<{ pkg: string; script: string }> = [];
   const lowBusFactor: string[] = [];
 
@@ -369,8 +391,7 @@ async function checkProvenance(
     try {
       const pkg = (await Bun.file(file).json()) as any;
       const scripts = pkg.scripts || {};
-      const installScript =
-        scripts.postinstall || scripts.preinstall || scripts.install;
+      const installScript = scripts.postinstall || scripts.preinstall || scripts.install;
       if (installScript) {
         postinstallScripts.push({
           pkg: pkg.name || "unknown",
@@ -387,8 +408,17 @@ async function checkProvenance(
 
 // ── Doctor ───────────────────────────────────────────────────────────
 
-async function doctor(projectDir: string): Promise<Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }>> {
-  const checks: Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }> = [];
+async function doctor(
+  projectDir: string
+): Promise<
+  Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }>
+> {
+  const checks: Array<{
+    name: string;
+    status: "ok" | "warn" | "error";
+    message: string;
+    fixable: boolean;
+  }> = [];
 
   // Manifest DB
   let db: Database | null = null;
@@ -396,24 +426,49 @@ async function doctor(projectDir: string): Promise<Array<{ name: string; status:
     db = getDb();
     checks.push({ name: "manifest-db", status: "ok", message: "Accessible", fixable: false });
   } catch (e: any) {
-    checks.push({ name: "manifest-db", status: "error", message: `Cannot open: ${e.message}`, fixable: false });
+    checks.push({
+      name: "manifest-db",
+      status: "error",
+      message: `Cannot open: ${e.message}`,
+      fixable: false,
+    });
     return checks;
   }
 
   // Signing key
   const key = await getSigningKey();
-  checks.push({ name: "signing-key", status: key ? "ok" : "warn", message: key ? "Available" : "Missing — run 'kimi-guardian sign' to create", fixable: !key });
+  checks.push({
+    name: "signing-key",
+    status: key ? "ok" : "warn",
+    message: key ? "Available" : "Missing — run 'kimi-guardian sign' to create",
+    fixable: !key,
+  });
 
   // Lockfile
   const lockPath = join(projectDir, "bun.lock");
-  checks.push({ name: "lockfile", status: existsSync(lockPath) ? "ok" : "warn", message: existsSync(lockPath) ? "present" : "missing", fixable: false });
+  checks.push({
+    name: "lockfile",
+    status: existsSync(lockPath) ? "ok" : "warn",
+    message: existsSync(lockPath) ? "present" : "missing",
+    fixable: false,
+  });
 
   // Hash baseline
-  checks.push({ name: "hash-baseline", status: existsSync(HASH_FILE) ? "ok" : "warn", message: existsSync(HASH_FILE) ? "Baselined" : "No baseline — run 'kimi-guardian fix'", fixable: !existsSync(HASH_FILE) });
+  checks.push({
+    name: "hash-baseline",
+    status: existsSync(HASH_FILE) ? "ok" : "warn",
+    message: existsSync(HASH_FILE) ? "Baselined" : "No baseline — run 'kimi-guardian fix'",
+    fixable: !existsSync(HASH_FILE),
+  });
 
   // Manifest count
   const manifestCount = (db.query("SELECT COUNT(*) as c FROM manifests").get() as any).c;
-  checks.push({ name: "manifests", status: "ok", message: `${manifestCount} manifest(s) stored`, fixable: false });
+  checks.push({
+    name: "manifests",
+    status: "ok",
+    message: `${manifestCount} manifest(s) stored`,
+    fixable: false,
+  });
 
   db.close();
   return checks;
@@ -473,7 +528,9 @@ async function main() {
   if (command === "doctor") {
     const checks = await doctor(projectDir);
     console.log("── Guardian Doctor ───────────────────────────────────────────");
-    let errors = 0, warns = 0, fixable = 0;
+    let errors = 0,
+      warns = 0,
+      fixable = 0;
     for (const c of checks) {
       const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
       console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
@@ -548,7 +605,8 @@ async function main() {
     log("warn", "No package.json — skipping trusted dependency check");
   } else {
     const pkg = (await Bun.file(pkgPath).json()) as any;
-    const depCount = Object.keys(pkg.dependencies || {}).length + Object.keys(pkg.devDependencies || {}).length;
+    const depCount =
+      Object.keys(pkg.dependencies || {}).length + Object.keys(pkg.devDependencies || {}).length;
     if (depCount === 0) {
       log("info", "No dependencies — nothing to check");
     } else {
@@ -559,9 +617,12 @@ async function main() {
         for (const dep of untrusted) {
           log("error", `${dep}: postinstall script NOT in trustedDependencies`);
         }
-        log("warn", "Add to bunfig.toml: trustedDependencies = [" +
-          untrusted.map((d) => `"${d}"`).join(", ") +
-          "]");
+        log(
+          "warn",
+          "Add to bunfig.toml: trustedDependencies = [" +
+            untrusted.map((d) => `"${d}"`).join(", ") +
+            "]"
+        );
       }
     }
   }
@@ -596,7 +657,9 @@ async function main() {
   }
 
   console.log("");
-  console.log("Commands: check (default) | fix (baseline hash + trusted deps) | sign (v2 manifest) | verify (v2 manifest) | report (full P1) | doctor (health check)");
+  console.log(
+    "Commands: check (default) | fix (baseline hash + trusted deps) | sign (v2 manifest) | verify (v2 manifest) | report (full P1) | doctor (health check)"
+  );
 }
 
 main().catch((err) => {

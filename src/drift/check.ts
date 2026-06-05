@@ -51,7 +51,9 @@ async function main() {
       if (output.includes("extraneous") || output.includes("unmet")) {
         issues.push({ type: "unused", package: "(see bun pm ls output)" });
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   if (issues.length > 0) {

@@ -78,7 +78,7 @@ if [ -f "$GOVERNANCE" ]; then
   if [ "$GRADE" = "F" ] || [ "$GRADE" = "D" ]; then
     echo ""
     echo "✗ PUSH BLOCKED: R-Score is $GRADE. Address governance gaps first."
-    echo "  Run: bun run \"$GOVERNANCE\" fix"
+    echo "  Run: bun run $GOVERNANCE fix"
     exit 1
   fi
 fi
@@ -116,17 +116,17 @@ async function installHooks(projectDir: string) {
   const hooksDir = join(gitDir, "hooks");
   ensureDir(hooksDir);
 
-  // Write pre-commit
-  const preCommitPath = join(hooksDir, "pre-commit");
-  await Bun.write(preCommitPath, PRE_COMMIT_HOOK);
-  await $`chmod +x ${preCommitPath}`;
-  log("info", `Installed pre-commit hook`);
+  const hookContent: Record<string, string> = {
+    "pre-commit": PRE_COMMIT_HOOK,
+    "pre-push": PRE_PUSH_HOOK,
+  };
 
-  // Write pre-push
-  const prePushPath = join(hooksDir, "pre-push");
-  await Bun.write(prePushPath, PRE_PUSH_HOOK);
-  await $`chmod +x ${prePushPath}`;
-  log("info", `Installed pre-push hook`);
+  for (const hook of HOOKS) {
+    const hookPath = join(hooksDir, hook);
+    await Bun.write(hookPath, hookContent[hook]);
+    await $`chmod +x ${hookPath}`;
+    log("info", `Installed ${hook} hook`);
+  }
 
   // Configure git to use this hooks dir
   try {
@@ -145,41 +145,81 @@ async function installHooks(projectDir: string) {
 
 async function doctorHooks(projectDir: string) {
   const hooksDir = join(projectDir, ".git", "hooks");
-  const checks: Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }> = [];
+  const checks: Array<{
+    name: string;
+    status: "ok" | "warn" | "error";
+    message: string;
+    fixable: boolean;
+  }> = [];
 
   // Check git repo
   const gitDir = join(projectDir, ".git");
   if (!existsSync(gitDir)) {
-    checks.push({ name: "git-repo", status: "error", message: "Not a git repository", fixable: false });
+    checks.push({
+      name: "git-repo",
+      status: "error",
+      message: "Not a git repository",
+      fixable: false,
+    });
     return checks;
   }
   checks.push({ name: "git-repo", status: "ok", message: "Git repository found", fixable: false });
 
   // Check hooks dir
   if (!existsSync(hooksDir)) {
-    checks.push({ name: "hooks-dir", status: "error", message: "Hooks directory missing", fixable: true });
+    checks.push({
+      name: "hooks-dir",
+      status: "error",
+      message: "Hooks directory missing",
+      fixable: true,
+    });
   } else {
-    checks.push({ name: "hooks-dir", status: "ok", message: "Hooks directory exists", fixable: false });
+    checks.push({
+      name: "hooks-dir",
+      status: "ok",
+      message: "Hooks directory exists",
+      fixable: false,
+    });
   }
 
   // Check pre-commit
   const preCommitPath = join(hooksDir, "pre-commit");
   if (!existsSync(preCommitPath)) {
-    checks.push({ name: "pre-commit", status: "warn", message: "pre-commit hook not installed", fixable: true });
+    checks.push({
+      name: "pre-commit",
+      status: "warn",
+      message: "pre-commit hook not installed",
+      fixable: true,
+    });
   } else {
     const content = await Bun.file(preCommitPath).text();
     const hasKimi = content.includes("kimi-githooks");
-    checks.push({ name: "pre-commit", status: hasKimi ? "ok" : "warn", message: hasKimi ? "Installed by kimi" : "Custom pre-commit (not managed)", fixable: !hasKimi });
+    checks.push({
+      name: "pre-commit",
+      status: hasKimi ? "ok" : "warn",
+      message: hasKimi ? "Installed by kimi" : "Custom pre-commit (not managed)",
+      fixable: !hasKimi,
+    });
   }
 
   // Check pre-push
   const prePushPath = join(hooksDir, "pre-push");
   if (!existsSync(prePushPath)) {
-    checks.push({ name: "pre-push", status: "warn", message: "pre-push hook not installed", fixable: true });
+    checks.push({
+      name: "pre-push",
+      status: "warn",
+      message: "pre-push hook not installed",
+      fixable: true,
+    });
   } else {
     const content = await Bun.file(prePushPath).text();
     const hasKimi = content.includes("kimi-githooks");
-    checks.push({ name: "pre-push", status: hasKimi ? "ok" : "warn", message: hasKimi ? "Installed by kimi" : "Custom pre-push (not managed)", fixable: !hasKimi });
+    checks.push({
+      name: "pre-push",
+      status: hasKimi ? "ok" : "warn",
+      message: hasKimi ? "Installed by kimi" : "Custom pre-push (not managed)",
+      fixable: !hasKimi,
+    });
   }
 
   // Check core.hooksPath
@@ -187,12 +227,27 @@ async function doctorHooks(projectDir: string) {
     const result = await $`git config core.hooksPath`.cwd(projectDir).nothrow().quiet();
     const hooksPath = result.stdout.toString().trim();
     if (hooksPath && hooksPath !== hooksDir) {
-      checks.push({ name: "hooks-path", status: "warn", message: `core.hooksPath set to ${hooksPath} (may override local hooks)`, fixable: true });
+      checks.push({
+        name: "hooks-path",
+        status: "warn",
+        message: `core.hooksPath set to ${hooksPath} (may override local hooks)`,
+        fixable: true,
+      });
     } else {
-      checks.push({ name: "hooks-path", status: "ok", message: "core.hooksPath correctly configured", fixable: false });
+      checks.push({
+        name: "hooks-path",
+        status: "ok",
+        message: "core.hooksPath correctly configured",
+        fixable: false,
+      });
     }
   } catch {
-    checks.push({ name: "hooks-path", status: "ok", message: "core.hooksPath not set (using default)", fixable: false });
+    checks.push({
+      name: "hooks-path",
+      status: "ok",
+      message: "core.hooksPath not set (using default)",
+      fixable: false,
+    });
   }
 
   return checks;
@@ -214,7 +269,9 @@ async function main() {
   } else if (command === "doctor") {
     console.log("── Hook Health Check ─────────────────────────────────────────");
     const checks = await doctorHooks(projectDir);
-    let errors = 0, warns = 0, fixable = 0;
+    let errors = 0,
+      warns = 0,
+      fixable = 0;
     for (const c of checks) {
       const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
       console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
@@ -226,7 +283,10 @@ async function main() {
   } else if (command === "fix") {
     console.log("── Fixing Hooks ──────────────────────────────────────────────");
     const checks = await doctorHooks(projectDir);
-    const needsInstall = checks.some((c) => c.fixable && (c.name === "pre-commit" || c.name === "pre-push" || c.name === "hooks-dir"));
+    const needsInstall = checks.some(
+      (c) =>
+        c.fixable && (c.name === "pre-commit" || c.name === "pre-push" || c.name === "hooks-dir")
+    );
     if (needsInstall) {
       await installHooks(projectDir);
     } else {

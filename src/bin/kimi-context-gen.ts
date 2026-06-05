@@ -8,9 +8,9 @@
  */
 
 import { $, semver, TOML } from "bun";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync } from "fs";
 import { join } from "path";
-import { ensureDir, log, getProjectName, runTool, resolveProjectRoot } from "../lib/utils.ts";
+import { ensureDir, log, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -57,7 +57,9 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
         if (config.install?.registry) {
           stack.runtime += ` (registry: ${config.install.registry})`;
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   } else if (existsSync(pkgPath)) {
     stack.runtime = "Node.js";
@@ -85,7 +87,9 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
         if (!semver.satisfies(Bun.version, engineBun)) {
           stack.runtime += ` (⚠ engine mismatch: needs ${engineBun})`;
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -93,7 +97,8 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
   const hasDrizzle = existsSync(join(projectDir, "drizzle.config.ts"));
   if (hasPrisma) stack.database = "Prisma + SQLite/PostgreSQL";
   else if (hasDrizzle) stack.database = "Drizzle + SQLite";
-  else if (existsSync(join(projectDir, "migrations"))) stack.database = "D1/SQLite (migrations found)";
+  else if (existsSync(join(projectDir, "migrations")))
+    stack.database = "D1/SQLite (migrations found)";
 
   if (existsSync(wranglerPath)) stack.deploy = "Cloudflare Workers";
   else if (existsSync(dockerPath)) stack.deploy = "Docker";
@@ -182,7 +187,10 @@ async function checkAdrStaleness(projectDir: string): Promise<FreshnessResult["a
 
   let sourceCommits = 0;
   try {
-    const result = await $`git log --oneline --since="30 days ago" -- src/`.cwd(projectDir).nothrow().quiet();
+    const result = await $`git log --oneline --since="30 days ago" -- src/`
+      .cwd(projectDir)
+      .nothrow()
+      .quiet();
     sourceCommits = result.stdout.toString().split("\n").filter(Boolean).length;
   } catch {
     sourceCommits = 0;
@@ -203,15 +211,17 @@ async function checkGitActivity(projectDir: string): Promise<FreshnessResult["gi
   }
 
   try {
-    const ctxResult = await $`git log -1 --format=%ct -- CONTEXT.md`.cwd(projectDir).nothrow().quiet();
+    const ctxResult = await $`git log -1 --format=%ct -- CONTEXT.md`
+      .cwd(projectDir)
+      .nothrow()
+      .quiet();
     lastContextUpdate = parseInt(ctxResult.stdout.toString().trim()) || 0;
   } catch {
     lastContextUpdate = 0;
   }
 
-  const daysBehind = lastSrcCommit > lastContextUpdate
-    ? Math.round((lastSrcCommit - lastContextUpdate) / 86400)
-    : 0;
+  const daysBehind =
+    lastSrcCommit > lastContextUpdate ? Math.round((lastSrcCommit - lastContextUpdate) / 86400) : 0;
 
   return { lastSrcCommit, lastContextUpdate, daysBehind };
 }
@@ -293,7 +303,9 @@ async function generateContext(projectDir: string): Promise<string> {
     const pkg = (await Bun.file(pkgPath).json()) as any;
     const scripts = pkg.scripts || {};
     const relevant = Object.entries(scripts)
-      .filter(([k]) => ["dev", "test", "build", "lint", "typecheck", "start"].some((s) => k.includes(s)))
+      .filter(([k]) =>
+        ["dev", "test", "build", "lint", "typecheck", "start"].some((s) => k.includes(s))
+      )
       .slice(0, 6);
     if (relevant.length > 0) {
       commands = relevant.map(([k, v]) => `bun run ${k}  # ${v}`).join("\n");
@@ -319,7 +331,9 @@ async function generateContext(projectDir: string): Promise<string> {
     }
   }
   govLines.push(`| License | ${licenseType || "missing — add LICENSE"} |`);
-  govLines.push(`| CONTRIBUTING.md | ${existsSync(join(projectDir, "CONTRIBUTING.md")) ? "present" : "missing"} |`);
+  govLines.push(
+    `| CONTRIBUTING.md | ${existsSync(join(projectDir, "CONTRIBUTING.md")) ? "present" : "missing"} |`
+  );
 
   const codeownersPaths = [
     join(projectDir, "CODEOWNERS"),
@@ -342,7 +356,9 @@ async function generateContext(projectDir: string): Promise<string> {
       break;
     }
   }
-  govLines.push(`| CODEOWNERS | ${codeownersPresent ? (codeownersList.join(", ") || "present") : "missing"} |`);
+  govLines.push(
+    `| CODEOWNERS | ${codeownersPresent ? codeownersList.join(", ") || "present" : "missing"} |`
+  );
 
   const adrDir = join(projectDir, "docs", "adr");
   const adrs: string[] = [];
@@ -384,10 +400,14 @@ ${commands || "bun run dev    # Start dev server\nbun test       # Run tests"}
 |-------|--------|
 ${govLines.join("\n")}
 
-${adrs.length > 0 ? `## Decisions (${adrs.length} ADRs)
+${
+  adrs.length > 0
+    ? `## Decisions (${adrs.length} ADRs)
 
 ${adrs.map((a) => `- \`docs/adr/${a}.md\``).join("\n")}
-` : "## Decisions\n\nNo ADRs yet. Create one: \`kimi-governance adr <title>\`\n"}
+`
+    : "## Decisions\n\nNo ADRs yet. Create one: 'kimi-governance adr <title>'\n"
+}
 
 ## Port Policy
 
@@ -410,23 +430,60 @@ ${adrs.map((a) => `- \`docs/adr/${a}.md\``).join("\n")}
 
 // ── Doctor ───────────────────────────────────────────────────────────
 
-async function doctor(projectDir: string): Promise<Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }>> {
-  const checks: Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }> = [];
+async function doctor(
+  projectDir: string
+): Promise<
+  Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }>
+> {
+  const checks: Array<{
+    name: string;
+    status: "ok" | "warn" | "error";
+    message: string;
+    fixable: boolean;
+  }> = [];
 
   const contextPath = join(projectDir, "CONTEXT.md");
-  checks.push({ name: "CONTEXT.md", status: existsSync(contextPath) ? "ok" : "warn", message: existsSync(contextPath) ? "present" : "missing", fixable: !existsSync(contextPath) });
+  checks.push({
+    name: "CONTEXT.md",
+    status: existsSync(contextPath) ? "ok" : "warn",
+    message: existsSync(contextPath) ? "present" : "missing",
+    fixable: !existsSync(contextPath),
+  });
 
   const hashes = await hashConfigs(projectDir);
   const { score, changed, readmeDrift, gitActivity } = await computeFreshness(projectDir, hashes);
-  checks.push({ name: "freshness", status: score >= 4 ? "ok" : score >= 2 ? "warn" : "error", message: `${score}/10 freshness`, fixable: score < 4 });
+  checks.push({
+    name: "freshness",
+    status: score >= 4 ? "ok" : score >= 2 ? "warn" : "error",
+    message: `${score}/10 freshness`,
+    fixable: score < 4,
+  });
 
   if (changed.length > 0) {
-    checks.push({ name: "config-drift", status: "warn", message: `${changed.join(", ")} changed since last update`, fixable: true });
+    checks.push({
+      name: "config-drift",
+      status: "warn",
+      message: `${changed.join(", ")} changed since last update`,
+      fixable: true,
+    });
   }
 
-  checks.push({ name: "readme-drift", status: readmeDrift.fresh ? "ok" : "warn", message: readmeDrift.fresh ? "in sync" : `${readmeDrift.missingFromReadme.length} script(s) missing from README`, fixable: false });
+  checks.push({
+    name: "readme-drift",
+    status: readmeDrift.fresh ? "ok" : "warn",
+    message: readmeDrift.fresh
+      ? "in sync"
+      : `${readmeDrift.missingFromReadme.length} script(s) missing from README`,
+    fixable: false,
+  });
 
-  checks.push({ name: "context-age", status: gitActivity.daysBehind < 7 ? "ok" : "warn", message: gitActivity.daysBehind > 0 ? `${gitActivity.daysBehind} day(s) behind src/` : "up to date", fixable: gitActivity.daysBehind >= 7 });
+  checks.push({
+    name: "context-age",
+    status: gitActivity.daysBehind < 7 ? "ok" : "warn",
+    message:
+      gitActivity.daysBehind > 0 ? `${gitActivity.daysBehind} day(s) behind src/` : "up to date",
+    fixable: gitActivity.daysBehind >= 7,
+  });
 
   // Check for broken ADR links
   const adrDir = join(projectDir, "docs", "adr");
@@ -439,7 +496,12 @@ async function doctor(projectDir: string): Promise<Array<{ name: string; status:
       if (!existsSync(join(adrDir, adrFile))) broken++;
     }
     if (broken > 0) {
-      checks.push({ name: "adr-links", status: "warn", message: `${broken} broken ADR link(s)`, fixable: false });
+      checks.push({
+        name: "adr-links",
+        status: "warn",
+        message: `${broken} broken ADR link(s)`,
+        fixable: false,
+      });
     }
   }
 
@@ -489,9 +551,7 @@ async function main() {
       console.log("");
       console.log(`CONTEXT.md missing. Run 'kimi-context-gen update' to create.`);
     }
-  }
-
-  else if (command === "update") {
+  } else if (command === "update") {
     console.log("── Generating CONTEXT.md ─────────────────────────────────────");
     const content = await generateContext(projectDir);
     const contextPath = join(projectDir, "CONTEXT.md");
@@ -507,9 +567,7 @@ async function main() {
     const hashes = await hashConfigs(projectDir);
     await storeMeta(projectDir, hashes, 10);
     log("info", "Freshness baselined at 10/10");
-  }
-
-  else if (command === "freshness") {
+  } else if (command === "freshness") {
     console.log("── Freshness Check ───────────────────────────────────────────");
     const hashes = await hashConfigs(projectDir);
     const { score, changed } = await computeFreshness(projectDir, hashes);
@@ -524,12 +582,12 @@ async function main() {
     } else {
       log("info", "All configs match — CONTEXT.md is fresh");
     }
-  }
-
-  else if (command === "doctor") {
+  } else if (command === "doctor") {
     console.log("── Context Doctor ────────────────────────────────────────────");
     const checks = await doctor(projectDir);
-    let errors = 0, warns = 0, fixable = 0;
+    let errors = 0,
+      warns = 0,
+      fixable = 0;
     for (const c of checks) {
       const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
       console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
@@ -541,9 +599,7 @@ async function main() {
     if (fixable > 0) {
       console.log("  Run 'kimi-context-gen fix' to regenerate CONTEXT.md");
     }
-  }
-
-  else if (command === "fix") {
+  } else if (command === "fix") {
     console.log("── Fixing CONTEXT.md ─────────────────────────────────────────");
     const hashes = await hashConfigs(projectDir);
     const { score } = await computeFreshness(projectDir, hashes);
@@ -562,9 +618,7 @@ async function main() {
     } else {
       log("info", `Freshness ${score}/10 ≥ threshold ${threshold}/10 — no action needed`);
     }
-  }
-
-  else {
+  } else {
     console.log("Commands:");
     console.log("  scan (default)   Infer tech stack and show freshness");
     console.log("  update           Generate/regenerate CONTEXT.md");

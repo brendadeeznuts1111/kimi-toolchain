@@ -8,9 +8,9 @@
  */
 
 import { $ } from "bun";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync } from "fs";
 import { join } from "path";
-import { ensureDir, log, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -68,8 +68,16 @@ async function captureGitState(projectDir: string): Promise<{
 
 function captureEnvVars(): Record<string, string> {
   const relevant = [
-    "PORT", "DATABASE_URL", "LOG_LEVEL", "NODE_ENV", "BUN_RUNTIME_TRANSPILER_CACHE_PATH",
-    "API_KEY", "API_URL", "WEBHOOK_URL", "REDIS_URL", "SMTP_HOST",
+    "PORT",
+    "DATABASE_URL",
+    "LOG_LEVEL",
+    "NODE_ENV",
+    "BUN_RUNTIME_TRANSPILER_CACHE_PATH",
+    "API_KEY",
+    "API_URL",
+    "WEBHOOK_URL",
+    "REDIS_URL",
+    "SMTP_HOST",
   ];
   const captured: Record<string, string> = {};
   for (const key of relevant) {
@@ -170,8 +178,15 @@ async function listSnapshots(project?: string): Promise<Snapshot[]> {
 
 // ── Doctor ───────────────────────────────────────────────────────────
 
-async function doctor(): Promise<Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }>> {
-  const checks: Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }> = [];
+async function doctor(): Promise<
+  Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }>
+> {
+  const checks: Array<{
+    name: string;
+    status: "ok" | "warn" | "error";
+    message: string;
+    fixable: boolean;
+  }> = [];
 
   ensureDir(SNAPSHOT_DIR);
 
@@ -197,19 +212,49 @@ async function doctor(): Promise<Array<{ name: string; status: "ok" | "warn" | "
     }
   }
 
-  checks.push({ name: "snapshot-dir", status: "ok", message: `${SNAPSHOT_DIR} accessible`, fixable: false });
-  checks.push({ name: "total-snapshots", status: "ok", message: `${total} snapshot(s)`, fixable: false });
-  checks.push({ name: "corrupted", status: corrupted === 0 ? "ok" : "warn", message: `${corrupted} corrupted`, fixable: corrupted > 0 });
-  checks.push({ name: "orphaned", status: orphaned === 0 ? "ok" : "warn", message: `${orphaned} orphaned (project deleted)`, fixable: orphaned > 0 });
+  checks.push({
+    name: "snapshot-dir",
+    status: "ok",
+    message: `${SNAPSHOT_DIR} accessible`,
+    fixable: false,
+  });
+  checks.push({
+    name: "total-snapshots",
+    status: "ok",
+    message: `${total} snapshot(s)`,
+    fixable: false,
+  });
+  checks.push({
+    name: "corrupted",
+    status: corrupted === 0 ? "ok" : "warn",
+    message: `${corrupted} corrupted`,
+    fixable: corrupted > 0,
+  });
+  checks.push({
+    name: "orphaned",
+    status: orphaned === 0 ? "ok" : "warn",
+    message: `${orphaned} orphaned (project deleted)`,
+    fixable: orphaned > 0,
+  });
 
   // Storage usage
   try {
     const result = await $`du -sk ${SNAPSHOT_DIR}`.nothrow().quiet();
     const kb = parseInt(result.stdout.toString().split(/\s+/)[0], 10);
     const mb = Math.round(kb / 1024);
-    checks.push({ name: "storage", status: mb > 100 ? "warn" : "ok", message: `${mb}MB used`, fixable: mb > 100 });
+    checks.push({
+      name: "storage",
+      status: mb > 100 ? "warn" : "ok",
+      message: `${mb}MB used`,
+      fixable: mb > 100,
+    });
   } catch {
-    checks.push({ name: "storage", status: "warn", message: "Could not check storage", fixable: false });
+    checks.push({
+      name: "storage",
+      status: "warn",
+      message: "Could not check storage",
+      fixable: false,
+    });
   }
 
   return checks;
@@ -241,7 +286,9 @@ async function fixSnapshots() {
     if (isCorrupted || isOrphaned) {
       await $`rm ${file}`.nothrow().quiet();
       removed++;
-      console.log(`  ✗ Removed ${file.split("/").pop()} (${isCorrupted ? "corrupted" : "orphaned"})`);
+      console.log(
+        `  ✗ Removed ${file.split("/").pop()} (${isCorrupted ? "corrupted" : "orphaned"})`
+      );
     }
   }
 
@@ -274,30 +321,26 @@ async function main() {
     const id = await saveSnapshot(projectDir, description);
     console.log(`  ✓ Snapshot saved: ${id}`);
     console.log(`  Location: ${snapshotPath(id)}`);
-  }
-
-  else if (command === "restore") {
+  } else if (command === "restore") {
     const id = args[1];
     if (!id) {
       console.log("Usage: restore <snapshot-id>");
       process.exit(1);
     }
     await restoreSnapshot(id, projectDir);
-  }
-
-  else if (command === "list") {
+  } else if (command === "list") {
     const snaps = await listSnapshots(project);
     console.log(`── Snapshots for ${project} ──────────────────────────────────`);
     if (snaps.length === 0) {
       console.log("  No snapshots found");
     } else {
       for (const s of snaps) {
-        console.log(`  ${s.id}  ${s.createdAt.slice(0, 19)}  ${s.branch}@${s.commit.slice(0, 7)}  ${s.description.slice(0, 50)}`);
+        console.log(
+          `  ${s.id}  ${s.createdAt.slice(0, 19)}  ${s.branch}@${s.commit.slice(0, 7)}  ${s.description.slice(0, 50)}`
+        );
       }
     }
-  }
-
-  else if (command === "show") {
+  } else if (command === "show") {
     const id = args[1];
     if (!id) {
       console.log("Usage: show <snapshot-id>");
@@ -324,9 +367,7 @@ async function main() {
         console.log(`    ${k}=${v.slice(0, 40)}${v.length > 40 ? "..." : ""}`);
       }
     }
-  }
-
-  else if (command === "cleanup") {
+  } else if (command === "cleanup") {
     const days = parseInt(args[1], 10) || 30;
     const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
     const snaps = await listSnapshots();
@@ -343,12 +384,12 @@ async function main() {
 
     console.log(`── Cleanup ───────────────────────────────────────────────────`);
     console.log(`  Removed ${removed} snapshots older than ${days} days`);
-  }
-
-  else if (command === "doctor") {
+  } else if (command === "doctor") {
     const checks = await doctor();
     console.log("── Snapshot Doctor ───────────────────────────────────────────");
-    let errors = 0, warns = 0, fixable = 0;
+    let errors = 0,
+      warns = 0,
+      fixable = 0;
     for (const c of checks) {
       const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
       console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
@@ -360,13 +401,9 @@ async function main() {
     if (fixable > 0) {
       console.log("  Run 'kimi-snapshot fix' to repair");
     }
-  }
-
-  else if (command === "fix") {
+  } else if (command === "fix") {
     await fixSnapshots();
-  }
-
-  else {
+  } else {
     console.log("Commands:");
     console.log("  save [description]   Capture current git state + env vars");
     console.log("  restore <id>         Checkout snapshot commit");

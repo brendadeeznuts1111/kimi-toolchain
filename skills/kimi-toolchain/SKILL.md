@@ -79,25 +79,26 @@ Every dependency change triggers `kimi-guardian`. Every commit should pass
 
 ## Tool Reference
 
-| Tool | When to use | Key commands |
-|------|-------------|--------------|
-| `kimi-doctor` | Any health check, any suspicion | `kimi-doctor`, `kimi-doctor --fix` |
-| `kimi-fix` | New project, missing files | `kimi-fix <path>`, `kimi-fix <path> --dry-run` |
-| `kimi-governance` | Quality gates, R-Score | `score`, `fix`, `coverage [N]`, `docs`, `adr` |
-| `kimi-guardian` | Lockfile, deps, security | `check`, `sign`, `verify`, `report` |
-| `kimi-memory` | Session tracking, trends | `doctor`, `trends`, `store`, `recall`, `graph` |
-| `kimi-githooks` | Git workflow | `install`, `doctor`, `fix` |
-| `kimi-context-gen` | Documentation | `scan`, `update`, `freshness` |
-| `kimi-release` | Versioning | `changelog`, `semver`, `validate` |
-| `kimi-debug` | Failure analysis | `last`, `diff`, `trace`, `analyze` |
-| `kimi-snapshot` | Environment capture | `save`, `restore`, `list`, `show` |
-| `kimi-resource-governor` | Resource limits | `limits`, `spawn`, `cache`, `status` |
+| Tool                     | When to use                     | Key commands                                   |
+| ------------------------ | ------------------------------- | ---------------------------------------------- |
+| `kimi-doctor`            | Any health check, any suspicion | `kimi-doctor`, `kimi-doctor --fix`             |
+| `kimi-fix`               | New project, missing files      | `kimi-fix <path>`, `kimi-fix <path> --dry-run` |
+| `kimi-governance`        | Quality gates, R-Score          | `score`, `fix`, `coverage [N]`, `docs`, `adr`  |
+| `kimi-guardian`          | Lockfile, deps, security        | `check`, `sign`, `verify`, `report`            |
+| `kimi-memory`            | Session tracking, trends        | `doctor`, `trends`, `store`, `recall`, `graph` |
+| `kimi-githooks`          | Git workflow                    | `install`, `doctor`, `fix`                     |
+| `kimi-context-gen`       | Documentation                   | `scan`, `update`, `freshness`                  |
+| `kimi-release`           | Versioning                      | `changelog`, `semver`, `validate`              |
+| `kimi-debug`             | Failure analysis                | `last`, `diff`, `trace`, `analyze`             |
+| `kimi-snapshot`          | Environment capture             | `save`, `restore`, `list`, `show`              |
+| `kimi-resource-governor` | Resource limits                 | `limits`, `spawn`, `cache`, `status`           |
 
 ## Session Memory
 
 The toolchain tracks warnings across runs in `~/.kimi-code/var/sessions.db`.
 
 Query persistent warnings:
+
 ```bash
 kimi-memory trends
 ```

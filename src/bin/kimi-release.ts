@@ -40,7 +40,7 @@ function parseCommit(hash: string, subject: string, body: string): Commit | null
   const match = CONVENTIONAL_RE.exec(subject);
   if (!match) return null;
 
-  const [, type, scope, msg] = match;
+  const [, type, scope, _msg] = match;
   const breaking = subject.endsWith("!") || body.includes("BREAKING CHANGE:");
 
   return { hash, subject, type: type.toLowerCase(), scope, breaking };
@@ -119,7 +119,9 @@ function commitsToSection(commits: Commit[], version: string): ChangelogSection 
   };
 
   for (const c of commits) {
-    const entry = c.scope ? `**${c.scope}:** ${c.subject.replace(CONVENTIONAL_RE, "$3")}` : c.subject.replace(CONVENTIONAL_RE, "$3");
+    const entry = c.scope
+      ? `**${c.scope}:** ${c.subject.replace(CONVENTIONAL_RE, "$3")}`
+      : c.subject.replace(CONVENTIONAL_RE, "$3");
     const hashLink = ` ([${c.hash.slice(0, 7)}])`;
 
     if (c.breaking) section.breaking.push(entry + hashLink);
@@ -162,10 +164,11 @@ function formatSection(section: ChangelogSection): string {
   return lines.join("\n");
 }
 
-async function updateChangelog(projectDir: string, section: string, version: string) {
+async function updateChangelog(projectDir: string, section: string, _version: string) {
   const changelogPath = join(projectDir, "CHANGELOG.md");
 
-  let content = "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n";
+  let content =
+    "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n";
   if (existsSync(changelogPath)) {
     content = await Bun.file(changelogPath).text();
   }
@@ -192,7 +195,9 @@ async function updateChangelog(projectDir: string, section: string, version: str
 
 // ── Validation ───────────────────────────────────────────────────────
 
-async function validateCommits(projectDir: string): Promise<{ valid: Commit[]; invalid: string[] }> {
+async function validateCommits(
+  projectDir: string
+): Promise<{ valid: Commit[]; invalid: string[] }> {
   const result = await $`git log --format=%H%x00%s%x00%b%x00`.cwd(projectDir).nothrow().quiet();
   const raw = result.stdout.toString();
   const parts = raw.split("\x00").filter(Boolean);
@@ -214,35 +219,77 @@ async function validateCommits(projectDir: string): Promise<{ valid: Commit[]; i
 
 // ── Doctor ───────────────────────────────────────────────────────────
 
-async function doctor(projectDir: string): Promise<Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }>> {
-  const checks: Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }> = [];
+async function doctor(
+  projectDir: string
+): Promise<
+  Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }>
+> {
+  const checks: Array<{
+    name: string;
+    status: "ok" | "warn" | "error";
+    message: string;
+    fixable: boolean;
+  }> = [];
 
   // Git repo
   const hasGit = existsSync(join(projectDir, ".git"));
-  checks.push({ name: "git-repo", status: hasGit ? "ok" : "error", message: hasGit ? "Git repository" : "Not a git repository", fixable: false });
+  checks.push({
+    name: "git-repo",
+    status: hasGit ? "ok" : "error",
+    message: hasGit ? "Git repository" : "Not a git repository",
+    fixable: false,
+  });
 
   // Conventional commit ratio
   const { valid, invalid } = await validateCommits(projectDir);
   const total = valid.length + invalid.length;
   const ratio = total > 0 ? valid.length / total : 0;
-  checks.push({ name: "conventional-commits", status: ratio >= 0.8 ? "ok" : ratio >= 0.5 ? "warn" : "error", message: `${valid.length}/${total} conventional (${(ratio * 100).toFixed(0)}%)`, fixable: invalid.length > 0 });
+  checks.push({
+    name: "conventional-commits",
+    status: ratio >= 0.8 ? "ok" : ratio >= 0.5 ? "warn" : "error",
+    message: `${valid.length}/${total} conventional (${(ratio * 100).toFixed(0)}%)`,
+    fixable: invalid.length > 0,
+  });
 
   // CHANGELOG.md
   const changelogPath = join(projectDir, "CHANGELOG.md");
-  checks.push({ name: "CHANGELOG.md", status: existsSync(changelogPath) ? "ok" : "warn", message: existsSync(changelogPath) ? "present" : "missing", fixable: !existsSync(changelogPath) });
+  checks.push({
+    name: "CHANGELOG.md",
+    status: existsSync(changelogPath) ? "ok" : "warn",
+    message: existsSync(changelogPath) ? "present" : "missing",
+    fixable: !existsSync(changelogPath),
+  });
 
   // Tag consistency
   const lastTag = getLastTag();
-  checks.push({ name: "tags", status: lastTag ? "ok" : "warn", message: lastTag ? `Last: ${lastTag}` : "No tags found", fixable: false });
+  checks.push({
+    name: "tags",
+    status: lastTag ? "ok" : "warn",
+    message: lastTag ? `Last: ${lastTag}` : "No tags found",
+    fixable: false,
+  });
 
   // R-Score gate
   try {
-    const govResult = await runTool("kimi-governance", ["score"], { cwd: projectDir, timeoutMs: 30000 });
+    const govResult = await runTool("kimi-governance", ["score"], {
+      cwd: projectDir,
+      timeoutMs: 30000,
+    });
     const gradeMatch = govResult.stdout.match(/Grade:\s*([A-F])/);
     const grade = gradeMatch ? gradeMatch[1] : "?";
-    checks.push({ name: "r-score", status: grade === "A" || grade === "B" ? "ok" : grade === "C" ? "warn" : "error", message: `Grade: ${grade}`, fixable: grade === "F" || grade === "D" });
+    checks.push({
+      name: "r-score",
+      status: grade === "A" || grade === "B" ? "ok" : grade === "C" ? "warn" : "error",
+      message: `Grade: ${grade}`,
+      fixable: grade === "F" || grade === "D",
+    });
   } catch {
-    checks.push({ name: "r-score", status: "warn", message: "Could not check R-Score", fixable: false });
+    checks.push({
+      name: "r-score",
+      status: "warn",
+      message: "Could not check R-Score",
+      fixable: false,
+    });
   }
 
   return checks;
@@ -264,7 +311,7 @@ async function fixCommits(projectDir: string) {
   }
   console.log("");
   console.log("  To fix the most recent commit:");
-  console.log("    git commit --amend -m \"feat(scope): description\"");
+  console.log('    git commit --amend -m "feat(scope): description"');
   console.log("  For older commits, use interactive rebase:");
   console.log("    git rebase -i HEAD~20");
 }
@@ -306,7 +353,7 @@ async function main() {
     const pkgPath = join(projectDir, "package.json");
     let currentVersion = "0.0.0";
     if (existsSync(pkgPath)) {
-      const pkg = await Bun.file(pkgPath).json() as any;
+      const pkg = (await Bun.file(pkgPath).json()) as any;
       currentVersion = pkg.version || "0.0.0";
     }
 
@@ -327,9 +374,7 @@ async function main() {
     } else {
       console.log("  [dry-run] No files modified");
     }
-  }
-
-  else if (command === "semver") {
+  } else if (command === "semver") {
     console.log(`── Semver Analysis ───────────────────────────────────────────`);
     const sinceTag = getLastTag();
     const commits = await getCommits(sinceTag);
@@ -340,9 +385,7 @@ async function main() {
     console.log(`  Features: ${commits.filter((c) => c.type === "feat").length}`);
     console.log(`  Fixes:    ${commits.filter((c) => c.type === "fix").length}`);
     console.log(`  Bump:     ${bump}`);
-  }
-
-  else if (command === "validate") {
+  } else if (command === "validate") {
     console.log(`── Commit Validation ─────────────────────────────────────────`);
     const { valid, invalid } = await validateCommits(projectDir);
 
@@ -366,12 +409,12 @@ async function main() {
     for (const [type, count] of types.entries()) {
       console.log(`    ${type}: ${count}`);
     }
-  }
-
-  else if (command === "doctor") {
+  } else if (command === "doctor") {
     console.log("── Release Doctor ────────────────────────────────────────────");
     const checks = await doctor(projectDir);
-    let errors = 0, warns = 0, fixable = 0;
+    let errors = 0,
+      warns = 0,
+      fixable = 0;
     for (const c of checks) {
       const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
       console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
@@ -383,13 +426,9 @@ async function main() {
     if (fixable > 0) {
       console.log("  Run 'kimi-release fix' to repair");
     }
-  }
-
-  else if (command === "fix") {
+  } else if (command === "fix") {
     await fixCommits(projectDir);
-  }
-
-  else {
+  } else {
     console.log("Commands:");
     console.log("  changelog [--dry-run]  Generate CHANGELOG.md section from conventional commits");
     console.log("  semver                 Analyze semver bump needed");

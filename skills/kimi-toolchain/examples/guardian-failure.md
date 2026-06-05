@@ -1,6 +1,7 @@
 # Example: Dependency Change Blocked
 
 ## User
+
 > I updated some deps. Can you help me push?
 
 ## Agent (following skill protocol)
@@ -39,6 +40,7 @@ kimi-guardian check && kimi-doctor
 ```
 
 If you **didn't** change deps, this could indicate:
+
 - A supply chain attack (lockfile tampered)
 - A tool that auto-modified deps without your knowledge
 

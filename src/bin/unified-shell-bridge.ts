@@ -17,13 +17,11 @@ export async function executeCommand(
   command: string,
   context: { workingDir?: string } = {}
 ): Promise<ShellResult> {
-  const result = await $`${{ raw: command }}`
-    .cwd(context.workingDir || process.cwd())
-    .nothrow();
+  const result = await $`${{ raw: command }}`.cwd(context.workingDir || process.cwd()).nothrow();
   return {
     stdout: result.stdout.toString(),
     stderr: result.stderr.toString(),
-    exitCode: result.exitCode
+    exitCode: result.exitCode,
   };
 }
 
@@ -40,11 +38,11 @@ const TOOLS = [
       type: "object" as const,
       properties: {
         command: { type: "string" },
-        workingDir: { type: "string" }
+        workingDir: { type: "string" },
       },
-      required: ["command"]
-    }
-  }
+      required: ["command"],
+    },
+  },
 ];
 
 function send(msg: unknown) {
@@ -56,11 +54,15 @@ async function handleRequest(req: any) {
 
   switch (method) {
     case "initialize": {
-      send({ jsonrpc: "2.0", id, result: {
-        protocolVersion: "2024-11-05",
-        capabilities: { tools: {} },
-        serverInfo: { name: SERVER_NAME, version: SERVER_VERSION }
-      }});
+      send({
+        jsonrpc: "2.0",
+        id,
+        result: {
+          protocolVersion: "2024-11-05",
+          capabilities: { tools: {} },
+          serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
+        },
+      });
       break;
     }
 
@@ -84,18 +86,24 @@ async function handleRequest(req: any) {
 
       const command = args.command;
       if (typeof command !== "string" || !command) {
-        send({ jsonrpc: "2.0", id, error: { code: -32602, message: "Missing or invalid 'command' argument" } });
+        send({
+          jsonrpc: "2.0",
+          id,
+          error: { code: -32602, message: "Missing or invalid 'command' argument" },
+        });
         return;
       }
 
       try {
         const result = await executeCommand(command, { workingDir: args.workingDir });
-        send({ jsonrpc: "2.0", id, result: {
-          content: [
-            { type: "text", text: result.stdout || result.stderr || "(no output)" }
-          ],
-          isError: result.exitCode !== 0
-        }});
+        send({
+          jsonrpc: "2.0",
+          id,
+          result: {
+            content: [{ type: "text", text: result.stdout || result.stderr || "(no output)" }],
+            isError: result.exitCode !== 0,
+          },
+        });
       } catch (err: any) {
         send({ jsonrpc: "2.0", id, error: { code: -32603, message: err.message || String(err) } });
       }

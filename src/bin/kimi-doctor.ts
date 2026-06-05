@@ -209,7 +209,9 @@ async function main() {
       results.push(ok("kimi-code", `installed (${kimiPath})`));
     }
   } else {
-    results.push(error("kimi-code", "not found — curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash"));
+    results.push(
+      error("kimi-code", "not found — curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash")
+    );
   }
 
   section("Version Matrix");
@@ -241,9 +243,21 @@ async function main() {
   section("Global Context");
 
   const home = Bun.env.HOME || "/tmp";
-  results.push(existsSync(join(home, ".kimi-code", "AGENTS.md")) ? ok("AGENTS.md", "present") : error("AGENTS.md", "missing"));
-  results.push(existsSync(join(home, ".kimi-code", "UNIFIED.md")) ? ok("UNIFIED.md", "present") : error("UNIFIED.md", "missing"));
-  results.push(existsSync(join(home, ".kimi-code", "TEMPLATES.md")) ? ok("TEMPLATES.md", "present") : warn("TEMPLATES.md", "missing"));
+  results.push(
+    existsSync(join(home, ".kimi-code", "AGENTS.md"))
+      ? ok("AGENTS.md", "present")
+      : error("AGENTS.md", "missing")
+  );
+  results.push(
+    existsSync(join(home, ".kimi-code", "UNIFIED.md"))
+      ? ok("UNIFIED.md", "present")
+      : error("UNIFIED.md", "missing")
+  );
+  results.push(
+    existsSync(join(home, ".kimi-code", "TEMPLATES.md"))
+      ? ok("TEMPLATES.md", "present")
+      : warn("TEMPLATES.md", "missing")
+  );
 
   section("PATH");
 
@@ -251,11 +265,21 @@ async function main() {
   const kimiIdx = pathEntries.findIndex((p) => p.includes("kimi-code"));
   const bunIdx = pathEntries.findIndex((p) => p.includes(".bun/bin"));
 
-  results.push(kimiIdx === 0 ? ok("kimi-code/bin", "#1 in PATH") : warn("kimi-code/bin", `#${kimiIdx + 1} in PATH`));
-  results.push(bunIdx === 1 ? ok("bun/bin", "#2 in PATH") : warn("bun/bin", `#${bunIdx + 1} in PATH`));
+  results.push(
+    kimiIdx === 0
+      ? ok("kimi-code/bin", "#1 in PATH")
+      : warn("kimi-code/bin", `#${kimiIdx + 1} in PATH`)
+  );
+  results.push(
+    bunIdx === 1 ? ok("bun/bin", "#2 in PATH") : warn("bun/bin", `#${bunIdx + 1} in PATH`)
+  );
 
   section("Legacy");
-  results.push(existsSync(join(home, ".kimi")) ? warn("~/.kimi", "deprecated — run: kimi migrate") : ok("~/.kimi", "gone"));
+  results.push(
+    existsSync(join(home, ".kimi"))
+      ? warn("~/.kimi", "deprecated — run: kimi migrate")
+      : ok("~/.kimi", "gone")
+  );
   results.push(
     existsSync(join(home, ".kimi-code", "bin", "kimi.bak"))
       ? warn("kimi.bak", "stale upgrade backup — safe to delete")
@@ -269,7 +293,9 @@ async function main() {
       if (head.includes(".kimi-code/tools/kimi-doctor.ts")) {
         results.push(ok("kimi-doctor wrapper", "thin exec → ~/.kimi-code/tools/"));
       } else {
-        results.push(warn("kimi-doctor wrapper", "legacy bash script — run: bun run install-wrappers"));
+        results.push(
+          warn("kimi-doctor wrapper", "legacy bash script — run: bun run install-wrappers")
+        );
       }
     } catch {
       results.push(warn("kimi-doctor wrapper", "could not read"));

@@ -1,6 +1,7 @@
 # Example: "What Broke?"
 
 ## User
+
 > Tests were passing yesterday. What broke?
 
 ## Agent (following skill protocol)

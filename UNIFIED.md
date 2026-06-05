@@ -4,13 +4,13 @@
 
 ## Name matrix
 
-| Name | What it is | Canonical path |
-|------|------------|----------------|
-| **Kimi Code** | Moonshot terminal coding agent (Node/TypeScript, single-binary SEA) | `~/.kimi-code/bin/kimi` |
-| **kimi-toolchain** | Bun-native dev-tools package (this repo) | `~/kimi-toolchain/` (clone path) |
-| **~/.kimi-code/** | Shared runtime home for Kimi Code + toolchain extensions | `~/.kimi-code/` |
-| **dx** | Global Bun dev/audit platform (separate codebase) | `~/.local/bin/dx`, `~/.config/dx/` |
-| **kimi** vs **kimi-doctor** | `kimi doctor` = official Kimi Code config check; `kimi-doctor` = toolchain aggregator | Different commands |
+| Name                        | What it is                                                                            | Canonical path                     |
+| --------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------- |
+| **Kimi Code**               | Moonshot terminal coding agent (Node/TypeScript, single-binary SEA)                   | `~/.kimi-code/bin/kimi`            |
+| **kimi-toolchain**          | Bun-native dev-tools package (this repo)                                              | `~/kimi-toolchain/` (clone path)   |
+| **~/.kimi-code/**           | Shared runtime home for Kimi Code + toolchain extensions                              | `~/.kimi-code/`                    |
+| **dx**                      | Global Bun dev/audit platform (separate codebase)                                     | `~/.local/bin/dx`, `~/.config/dx/` |
+| **kimi** vs **kimi-doctor** | `kimi doctor` = official Kimi Code config check; `kimi-doctor` = toolchain aggregator | Different commands                 |
 
 **Do not rename** `~/.kimi-code/` — it is the official Kimi Code data directory.
 
@@ -90,29 +90,29 @@ Optional during active toolchain work: `bun run sync:daemon` (every 5 min).
 
 ## Command routing
 
-| You type | Resolves to | Runs |
-|----------|-------------|------|
-| `kimi` | `~/.kimi-code/bin/kimi` | Kimi Code agent TUI |
-| `kimi doctor` | same binary | Official config validator |
-| `kimi-doctor` | `~/.local/bin/kimi-doctor` → `~/.kimi-code/tools/kimi-doctor.ts` | Toolchain diagnostics |
-| `bun run doctor` | repo `src/bin/kimi-doctor.ts` | Same logic, reads repo package.json |
-| `dx config` | `~/.local/bin/dx` | Machine-wide Bun/DX audit |
+| You type         | Resolves to                                                      | Runs                                |
+| ---------------- | ---------------------------------------------------------------- | ----------------------------------- |
+| `kimi`           | `~/.kimi-code/bin/kimi`                                          | Kimi Code agent TUI                 |
+| `kimi doctor`    | same binary                                                      | Official config validator           |
+| `kimi-doctor`    | `~/.local/bin/kimi-doctor` → `~/.kimi-code/tools/kimi-doctor.ts` | Toolchain diagnostics               |
+| `bun run doctor` | repo `src/bin/kimi-doctor.ts`                                    | Same logic, reads repo package.json |
+| `dx config`      | `~/.local/bin/dx`                                                | Machine-wide Bun/DX audit           |
 
 ## dx vs kimi-toolchain
 
-| Tool | Scope |
-|------|-------|
-| `kimi-doctor`, `kimi-guardian`, `kimi-governance` | Project + `~/.kimi-code/` health |
-| `dx setup`, `dx config`, `dx remediate` | Machine-wide Bun environment |
-| `dx.config.toml` in repo | Project policy (`containers = "none"`, `memoryGate`) |
+| Tool                                              | Scope                                                |
+| ------------------------------------------------- | ---------------------------------------------------- |
+| `kimi-doctor`, `kimi-guardian`, `kimi-governance` | Project + `~/.kimi-code/` health                     |
+| `dx setup`, `dx config`, `dx remediate`           | Machine-wide Bun environment                         |
+| `dx.config.toml` in repo                          | Project policy (`containers = "none"`, `memoryGate`) |
 
 ## Legacy cleanup
 
-| Path | Action |
-|------|--------|
-| `~/.kimi/` | Deprecated — run `kimi migrate`, then remove |
-| `~/.kimi-code/bin/kimi.bak` | Safe to delete after upgrade |
-| `kimicode-cli` folder name | Rename to `kimi-toolchain` to match package/repo |
+| Path                        | Action                                       |
+| --------------------------- | -------------------------------------------- |
+| `~/.kimi/`                  | Deprecated — run `kimi migrate`, then remove |
+| `~/.kimi-code/bin/kimi.bak` | Safe to delete after upgrade                 |
+| `kimicode-cli` folder name  | Done — clone path is `~/kimi-toolchain`      |
 
 ## Unify checklist
 

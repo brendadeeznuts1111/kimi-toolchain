@@ -89,10 +89,16 @@ export function unregisterTestRunner(): void {
     if (existsSync(GUARD_PID_FILE)) {
       const pid = parseInt(Bun.file(GUARD_PID_FILE).textSync(), 10);
       if (pid === process.pid) {
-        Bun.file(GUARD_PID_FILE).delete?.() ?? require("fs").unlinkSync(GUARD_PID_FILE);
+        if (Bun.file(GUARD_PID_FILE).delete) {
+          Bun.file(GUARD_PID_FILE).delete();
+        } else {
+          require("fs").unlinkSync(GUARD_PID_FILE);
+        }
       }
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Count test-related bun processes (bun test, bun run *kimi, kimi --version) */
@@ -114,7 +120,7 @@ export function guardAgainstRunawaySpawn(): void {
   if (count > MAX_CONCURRENT_TEST_PROCS) {
     throw new Error(
       `Process guard triggered: ${count} test processes running (max ${MAX_CONCURRENT_TEST_PROCS}). ` +
-      `Kill existing processes before running tests: killall -9 "bun test"`
+        `Kill existing processes before running tests: killall -9 "bun test"`
     );
   }
 }
@@ -230,7 +236,9 @@ export function printDoctorReport(report: DoctorReport) {
     const fixTag = check.fixable ? " [fixable]" : "";
     console.log(`  ${icon} ${check.name}: ${check.message}${fixTag}`);
   }
-  console.log(`  ${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`);
+  console.log(
+    `  ${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
+  );
 }
 
 // ── Warning Trending (shared between memory and governance) ───────────
@@ -263,7 +271,9 @@ export function recordDoctorRun(
   );
 
   for (const w of warnings) {
-    const existing = db.query("SELECT occurrence_count FROM warning_trends WHERE check_name = ?").get(w.check) as any;
+    const existing = db
+      .query("SELECT occurrence_count FROM warning_trends WHERE check_name = ?")
+      .get(w.check) as any;
     if (existing) {
       db.run(
         `UPDATE warning_trends SET last_seen = ?, occurrence_count = occurrence_count + 1, resolved_at = NULL
@@ -311,17 +321,21 @@ export function getPersistentWarnings(tool?: string): Array<{
 
   let rows;
   if (tool) {
-    rows = db.query(
-      `SELECT check_name, tool, occurrence_count, first_seen, last_seen
+    rows = db
+      .query(
+        `SELECT check_name, tool, occurrence_count, first_seen, last_seen
        FROM warning_trends WHERE resolved_at IS NULL AND tool = ?
        ORDER BY occurrence_count DESC`
-    ).all(tool) as any[];
+      )
+      .all(tool) as any[];
   } else {
-    rows = db.query(
-      `SELECT check_name, tool, occurrence_count, first_seen, last_seen
+    rows = db
+      .query(
+        `SELECT check_name, tool, occurrence_count, first_seen, last_seen
        FROM warning_trends WHERE resolved_at IS NULL
        ORDER BY occurrence_count DESC`
-    ).all() as any[];
+      )
+      .all() as any[];
   }
   db.close();
 

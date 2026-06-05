@@ -10,7 +10,7 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { log, runTool, resolveProjectRoot } from "../lib/utils.ts";
+import { resolveProjectRoot } from "../lib/utils.ts";
 
 interface GitChange {
   file: string;
@@ -42,7 +42,7 @@ async function getRecentChanges(projectDir: string, commits = 5): Promise<GitCha
   for (const line of lines) {
     const match = line.match(/^(.+?)\s+\|\s+(\d+)\s+([+-]+)$/);
     if (match) {
-      const [, file, count, signs] = match;
+      const [, file, _count, signs] = match;
       const insertions = (signs.match(/\+/g) || []).length;
       const deletions = (signs.match(/-/g) || []).length;
       changes.push({ file: file.trim(), status: "M", insertions, deletions });
@@ -77,16 +77,48 @@ async function getLastCommitMessage(projectDir: string): Promise<string> {
 // ── Error Pattern Detection ──────────────────────────────────────────
 
 const ERROR_PATTERNS = [
-  { pattern: /Cannot find module|Module not found|ENOENT/, suggestion: "Missing dependency — run 'bun install'", autoFix: "bun install" },
-  { pattern: /SyntaxError|Unexpected token/, suggestion: "Syntax error in recently changed file — check the diff" },
-  { pattern: /TypeError.*undefined|Cannot read prop/, suggestion: "Null/undefined access — add runtime checks or fix types" },
-  { pattern: /ECONNREFUSED|ENOTFOUND/, suggestion: "Network/service unavailable — check if required service is running" },
-  { pattern: /port.*already in use|EADDRINUSE/, suggestion: "Port conflict — use PORT=0 for auto-assignment or kill existing process" },
-  { pattern: /test.*fail|AssertionError|expect.*received/, suggestion: "Test failure — run 'bun test' to see details" },
-  { pattern: /permission denied|EACCES/, suggestion: "Permission issue — check file ownership or use sudo if appropriate" },
-  { pattern: /out of memory|ENOMEM/, suggestion: "Memory limit hit — check for leaks or increase limit" },
-  { pattern: /timeout|ETIMEDOUT/, suggestion: "Operation timed out — check network or increase timeout" },
-  { pattern: /lockfile|bun\.lock/, suggestion: "Lockfile issue — run 'bun install' or 'kimi-guardian fix'", autoFix: "bun install" },
+  {
+    pattern: /Cannot find module|Module not found|ENOENT/,
+    suggestion: "Missing dependency — run 'bun install'",
+    autoFix: "bun install",
+  },
+  {
+    pattern: /SyntaxError|Unexpected token/,
+    suggestion: "Syntax error in recently changed file — check the diff",
+  },
+  {
+    pattern: /TypeError.*undefined|Cannot read prop/,
+    suggestion: "Null/undefined access — add runtime checks or fix types",
+  },
+  {
+    pattern: /ECONNREFUSED|ENOTFOUND/,
+    suggestion: "Network/service unavailable — check if required service is running",
+  },
+  {
+    pattern: /port.*already in use|EADDRINUSE/,
+    suggestion: "Port conflict — use PORT=0 for auto-assignment or kill existing process",
+  },
+  {
+    pattern: /test.*fail|AssertionError|expect.*received/,
+    suggestion: "Test failure — run 'bun test' to see details",
+  },
+  {
+    pattern: /permission denied|EACCES/,
+    suggestion: "Permission issue — check file ownership or use sudo if appropriate",
+  },
+  {
+    pattern: /out of memory|ENOMEM/,
+    suggestion: "Memory limit hit — check for leaks or increase limit",
+  },
+  {
+    pattern: /timeout|ETIMEDOUT/,
+    suggestion: "Operation timed out — check network or increase timeout",
+  },
+  {
+    pattern: /lockfile|bun\.lock/,
+    suggestion: "Lockfile issue — run 'bun install' or 'kimi-guardian fix'",
+    autoFix: "bun install",
+  },
 ];
 
 function analyzeError(errorText: string): Array<{ suggestion: string; autoFix?: string }> {
@@ -96,7 +128,9 @@ function analyzeError(errorText: string): Array<{ suggestion: string; autoFix?: 
       results.push({ suggestion, autoFix });
     }
   }
-  return results.length > 0 ? results : [{ suggestion: "No known pattern matched — check logs manually" }];
+  return results.length > 0
+    ? results
+    : [{ suggestion: "No known pattern matched — check logs manually" }];
 }
 
 // ── Session History (from memory DB if available) ────────────────────
@@ -107,9 +141,11 @@ async function getRecentSessions(project: string, limit = 5): Promise<SessionEve
   try {
     const { Database } = await import("bun:sqlite");
     const db = new Database(MEMORY_DB);
-    const rows = db.query(
-      "SELECT started_at, key_decisions FROM sessions WHERE project = ? ORDER BY started_at DESC LIMIT ?"
-    ).all(project, limit) as any[];
+    const rows = db
+      .query(
+        "SELECT started_at, key_decisions FROM sessions WHERE project = ? ORDER BY started_at DESC LIMIT ?"
+      )
+      .all(project, limit) as any[];
     db.close();
 
     return rows.map((r) => ({
@@ -144,7 +180,13 @@ async function recordFailure(project: string, errorText: string, suggestions: st
     `);
     db.run(
       "INSERT INTO failures (id, project, timestamp, error_pattern, suggestions) VALUES (?, ?, ?, ?, ?)",
-      [crypto.randomUUID(), project, new Date().toISOString(), errorText.slice(0, 200), JSON.stringify(suggestions)]
+      [
+        crypto.randomUUID(),
+        project,
+        new Date().toISOString(),
+        errorText.slice(0, 200),
+        JSON.stringify(suggestions),
+      ]
     );
     db.close();
   } catch {
@@ -191,23 +233,52 @@ async function traceFile(projectDir: string, filePath: string) {
 // ── Doctor ───────────────────────────────────────────────────────────
 
 async function doctor(projectDir: string) {
-  const checks: Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }> = [];
+  const checks: Array<{
+    name: string;
+    status: "ok" | "warn" | "error";
+    message: string;
+    fixable: boolean;
+  }> = [];
 
   // Git repo check
   const hasGit = existsSync(join(projectDir, ".git"));
-  checks.push({ name: "git-repo", status: hasGit ? "ok" : "warn", message: hasGit ? "Git repository found" : "Not a git repository", fixable: false });
+  checks.push({
+    name: "git-repo",
+    status: hasGit ? "ok" : "warn",
+    message: hasGit ? "Git repository found" : "Not a git repository",
+    fixable: false,
+  });
 
   // Memory DB check
-  checks.push({ name: "memory-db", status: existsSync(MEMORY_DB) ? "ok" : "warn", message: existsSync(MEMORY_DB) ? "Accessible" : "Not found — sessions won't be recorded", fixable: false });
+  checks.push({
+    name: "memory-db",
+    status: existsSync(MEMORY_DB) ? "ok" : "warn",
+    message: existsSync(MEMORY_DB) ? "Accessible" : "Not found — sessions won't be recorded",
+    fixable: false,
+  });
 
   // Error pattern coverage
-  checks.push({ name: "patterns", status: "ok", message: `${ERROR_PATTERNS.length} error patterns loaded`, fixable: false });
+  checks.push({
+    name: "patterns",
+    status: "ok",
+    message: `${ERROR_PATTERNS.length} error patterns loaded`,
+    fixable: false,
+  });
 
   // Guardian integration
   const guardianPath = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools", "kimi-guardian.ts");
-  checks.push({ name: "guardian", status: existsSync(guardianPath) ? "ok" : "warn", message: existsSync(guardianPath) ? "Available" : "Not found — lockfile issues won't be detected", fixable: false });
+  checks.push({
+    name: "guardian",
+    status: existsSync(guardianPath) ? "ok" : "warn",
+    message: existsSync(guardianPath)
+      ? "Available"
+      : "Not found — lockfile issues won't be detected",
+    fixable: false,
+  });
 
-  let errors = 0, warns = 0, fixable = 0;
+  let errors = 0,
+    warns = 0,
+    fixable = 0;
   for (const c of checks) {
     const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
     console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
@@ -242,7 +313,11 @@ async function fixError(projectDir: string, errorText: string) {
   }
 
   // Record for pattern matching
-  await recordFailure(getProjectName(projectDir), errorText, results.map((r) => r.suggestion));
+  await recordFailure(
+    getProjectName(projectDir),
+    errorText,
+    results.map((r) => r.suggestion)
+  );
 }
 
 function getProjectName(projectDir: string): string {
@@ -306,9 +381,7 @@ async function main() {
       console.log(`  If something broke recently, check this file first.`);
       console.log(`  Run: kimi-debug trace ${mostChanged.file}`);
     }
-  }
-
-  else if (command === "diff") {
+  } else if (command === "diff") {
     const commits = parseInt(args[1], 10) || 3;
     console.log(`── Diff Summary (last ${commits} commits) ─────────────────────`);
 
@@ -339,18 +412,14 @@ async function main() {
         console.log(`    ⚠ ${c.file} (+${c.insertions}/-${c.deletions})`);
       }
     }
-  }
-
-  else if (command === "trace") {
+  } else if (command === "trace") {
     const filePath = args[1];
     if (!filePath) {
       console.log("Usage: kimi-debug trace <file-path>");
       process.exit(1);
     }
     await traceFile(projectDir, filePath);
-  }
-
-  else if (command === "analyze") {
+  } else if (command === "analyze") {
     let errorText = args.slice(1).join(" ") || "";
 
     // Check stdin for piped input
@@ -390,14 +459,18 @@ async function main() {
     if (errorFiles.length > 0) {
       console.log("");
       console.log("  Files mentioned in error:");
-      for (const f of [...new Set(errorFiles)]) {
+      for (const f of new Set(errorFiles)) {
         const changed = recent.some((r) => r.file.includes(f));
         console.log(`    ${changed ? "⚠" : "  "} ${f}${changed ? " (recently changed)" : ""}`);
       }
     }
 
     // Record failure for future pattern matching
-    await recordFailure(project, errorText, results.map((r) => r.suggestion));
+    await recordFailure(
+      project,
+      errorText,
+      results.map((r) => r.suggestion)
+    );
     console.log("");
     console.log("  Recorded failure for similarity matching");
 
@@ -406,13 +479,9 @@ async function main() {
       console.log("");
       console.log("  → Lockfile-related error detected. Run: kimi-guardian check");
     }
-  }
-
-  else if (command === "doctor") {
+  } else if (command === "doctor") {
     await doctor(projectDir);
-  }
-
-  else if (command === "fix") {
+  } else if (command === "fix") {
     const errorText = args.slice(1).join(" ") || "";
     if (!errorText) {
       console.log("Usage: kimi-debug fix <error-text>");
@@ -420,9 +489,7 @@ async function main() {
       process.exit(1);
     }
     await fixError(projectDir, errorText);
-  }
-
-  else {
+  } else {
     console.log("Commands:");
     console.log("  last                    Show recent activity + heuristic suggestion");
     console.log("  diff [N]                Summarize last N commits of changes");

@@ -51,10 +51,7 @@ export async function getMemoryPressureFreePct(): Promise<number | null> {
 }
 
 export async function getLoadPerCore(): Promise<{ load: number; cores: number; perCore: number }> {
-  const [uptime, ncpu] = await Promise.all([
-    $`uptime`.quiet(),
-    $`sysctl -n hw.ncpu`.quiet(),
-  ]);
+  const [uptime, ncpu] = await Promise.all([$`uptime`.quiet(), $`sysctl -n hw.ncpu`.quiet()]);
   const loadMatch = uptime.stdout.toString().match(/load averages?:\s*([\d.]+)/);
   const load = parseFloat(loadMatch?.[1] || "0");
   const cores = parseInt(ncpu.stdout.toString().trim() || "1", 10) || 1;
@@ -119,9 +116,7 @@ export function isDockerDesktopRunning(): boolean {
 
 export function isDockerCliInstalled(): boolean {
   try {
-    const out = new TextDecoder().decode(
-      Bun.spawnSync(["which", "docker"]).stdout
-    );
+    const out = new TextDecoder().decode(Bun.spawnSync(["which", "docker"]).stdout);
     return out.trim().length > 0;
   } catch {
     return false;
@@ -156,8 +151,14 @@ export async function runSystemMemoryChecks(): Promise<MemoryCheckResult[]> {
 
   try {
     const freeMB = await getFreeMemoryMB();
-    if (freeMB < 500) results.push({ name: "memory-free", status: "error", message: `~${freeMB}MB free (critical)` });
-    else if (freeMB < 1024) results.push({ name: "memory-free", status: "warn", message: `~${freeMB}MB free (low)` });
+    if (freeMB < 500)
+      results.push({
+        name: "memory-free",
+        status: "error",
+        message: `~${freeMB}MB free (critical)`,
+      });
+    else if (freeMB < 1024)
+      results.push({ name: "memory-free", status: "warn", message: `~${freeMB}MB free (low)` });
     else results.push({ name: "memory-free", status: "ok", message: `~${freeMB}MB free` });
   } catch {
     results.push({ name: "memory-free", status: "warn", message: "could not check" });
@@ -165,8 +166,10 @@ export async function runSystemMemoryChecks(): Promise<MemoryCheckResult[]> {
 
   try {
     const swapMB = await getSwapUsedMB();
-    if (swapMB > 1024) results.push({ name: "swap-used", status: "error", message: `${swapMB}MB swap in use` });
-    else if (swapMB > 500) results.push({ name: "swap-used", status: "warn", message: `${swapMB}MB swap in use` });
+    if (swapMB > 1024)
+      results.push({ name: "swap-used", status: "error", message: `${swapMB}MB swap in use` });
+    else if (swapMB > 500)
+      results.push({ name: "swap-used", status: "warn", message: `${swapMB}MB swap in use` });
     else results.push({ name: "swap-used", status: "ok", message: `${swapMB}MB swap in use` });
   } catch {
     results.push({ name: "swap-used", status: "warn", message: "could not check" });
@@ -177,11 +180,23 @@ export async function runSystemMemoryChecks(): Promise<MemoryCheckResult[]> {
     if (pct === null) {
       results.push({ name: "memory-pressure", status: "warn", message: "could not check" });
     } else if (pct < 30) {
-      results.push({ name: "memory-pressure", status: "error", message: `${pct}% system memory free` });
+      results.push({
+        name: "memory-pressure",
+        status: "error",
+        message: `${pct}% system memory free`,
+      });
     } else if (pct < 50) {
-      results.push({ name: "memory-pressure", status: "warn", message: `${pct}% system memory free` });
+      results.push({
+        name: "memory-pressure",
+        status: "warn",
+        message: `${pct}% system memory free`,
+      });
     } else {
-      results.push({ name: "memory-pressure", status: "ok", message: `${pct}% system memory free` });
+      results.push({
+        name: "memory-pressure",
+        status: "ok",
+        message: `${pct}% system memory free`,
+      });
     }
   } catch {
     results.push({ name: "memory-pressure", status: "warn", message: "could not check" });
@@ -199,31 +214,54 @@ export async function runSystemMemoryChecks(): Promise<MemoryCheckResult[]> {
 
   try {
     const chromeMB = getChromeRssMB();
-    if (chromeMB > 4096) results.push({ name: "chrome-rss", status: "error", message: `${chromeMB}MB RSS` });
-    else if (chromeMB > 2048) results.push({ name: "chrome-rss", status: "warn", message: `${chromeMB}MB RSS` });
-    else if (chromeMB > 0) results.push({ name: "chrome-rss", status: "ok", message: `${chromeMB}MB RSS` });
+    if (chromeMB > 4096)
+      results.push({ name: "chrome-rss", status: "error", message: `${chromeMB}MB RSS` });
+    else if (chromeMB > 2048)
+      results.push({ name: "chrome-rss", status: "warn", message: `${chromeMB}MB RSS` });
+    else if (chromeMB > 0)
+      results.push({ name: "chrome-rss", status: "ok", message: `${chromeMB}MB RSS` });
     else results.push({ name: "chrome-rss", status: "ok", message: "not running" });
   } catch {
     results.push({ name: "chrome-rss", status: "warn", message: "could not check" });
   }
 
   if (isDockerDesktopRunning()) {
-    results.push({ name: "docker-desktop", status: "warn", message: "Docker Desktop is running — quit to save ~600MB RAM" });
+    results.push({
+      name: "docker-desktop",
+      status: "warn",
+      message: "Docker Desktop is running — quit to save ~600MB RAM",
+    });
   } else if (isDockerCliInstalled()) {
-    results.push({ name: "docker-desktop", status: "warn", message: "docker CLI installed but Desktop not running" });
+    results.push({
+      name: "docker-desktop",
+      status: "warn",
+      message: "docker CLI installed but Desktop not running",
+    });
   } else {
-    results.push({ name: "docker-desktop", status: "ok", message: "not installed (Bun-native policy)" });
+    results.push({
+      name: "docker-desktop",
+      status: "ok",
+      message: "not installed (Bun-native policy)",
+    });
   }
 
   if (isSyncDaemonRunning()) {
-    results.push({ name: "sync-daemon", status: "warn", message: "sync-to-desktop daemon is running" });
+    results.push({
+      name: "sync-daemon",
+      status: "warn",
+      message: "sync-to-desktop daemon is running",
+    });
   } else {
     results.push({ name: "sync-daemon", status: "ok", message: "not running" });
   }
 
   const orphans = countOrphanCandidates();
   if (orphans > 0) {
-    results.push({ name: "orphan-processes", status: "warn", message: `${orphans} candidate(s) — run kimi-orphan-kill` });
+    results.push({
+      name: "orphan-processes",
+      status: "warn",
+      message: `${orphans} candidate(s) — run kimi-orphan-kill`,
+    });
   } else {
     results.push({ name: "orphan-processes", status: "ok", message: "none detected" });
   }

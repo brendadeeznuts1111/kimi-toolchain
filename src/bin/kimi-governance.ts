@@ -9,7 +9,7 @@
  */
 
 import { $ } from "bun";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir, log, getProjectName, runTool, resolveProjectRoot } from "../lib/utils.ts";
 import { recordDoctorRun, getPersistentWarnings } from "../lib/utils.ts";
@@ -139,14 +139,17 @@ async function checkGovernance(projectDir: string): Promise<GovernanceCheck> {
 
 // ── Test Coverage Gate ───────────────────────────────────────────────
 
-async function checkCoverage(projectDir: string, threshold = 70): Promise<CoverageReport> {
+async function checkCoverage(projectDir: string, _threshold = 70): Promise<CoverageReport> {
   const report: CoverageReport = { covered: 0, total: 0, percentage: 0, files: [] };
 
   const pkgPath = join(projectDir, "package.json");
   if (!existsSync(pkgPath)) return report;
 
   const pkg = (await Bun.file(pkgPath).json()) as any;
-  const hasTests = pkg.scripts?.test || existsSync(join(projectDir, "test")) || existsSync(join(projectDir, "tests"));
+  const hasTests =
+    pkg.scripts?.test ||
+    existsSync(join(projectDir, "test")) ||
+    existsSync(join(projectDir, "tests"));
   if (!hasTests) return report;
 
   // Try --json output first (Bun test runner may support this)
@@ -451,12 +454,14 @@ async function scaffoldAdr(projectDir: string, title: string): Promise<string> {
   const nextNum = (existing.length > 0 ? Math.max(...existing) : 0) + 1;
   const paddedNum = String(nextNum).padStart(4, "0");
 
-  const slug = title.toLowerCase().replace(/[^\w]+/g, "-").replace(/^-|-$/g, "");
+  const slug = title
+    .toLowerCase()
+    .replace(/[^\w]+/g, "-")
+    .replace(/^-|-$/g, "");
   const filename = `${paddedNum}-${slug}.md`;
   const filepath = join(adrDir, filename);
 
-  const content = ADR_TEMPLATE
-    .replace("{{DATE}}", new Date().toISOString().split("T")[0])
+  const content = ADR_TEMPLATE.replace("{{DATE}}", new Date().toISOString().split("T")[0])
     .replace("{{DECIDERS}}", "@team")
     .replace("{{TITLE}}", title);
 
@@ -540,15 +545,25 @@ async function main() {
     console.log("── Governance Files ──────────────────────────────────────────");
     const gov = await checkGovernance(projectDir);
 
-    log(gov.hasLicense ? "info" : "warn", `License: ${gov.hasLicense ? (gov.licenseType || "present") : "MISSING"}`);
-    log(gov.hasContributing ? "info" : "warn", `CONTRIBUTING.md: ${gov.hasContributing ? "present" : "MISSING"}`);
-    log(gov.hasCodeowners ? "info" : "warn", `CODEOWNERS: ${gov.hasCodeowners ? (gov.codeowners.join(", ") || "present") : "MISSING"}`);
+    log(
+      gov.hasLicense ? "info" : "warn",
+      `License: ${gov.hasLicense ? gov.licenseType || "present" : "MISSING"}`
+    );
+    log(
+      gov.hasContributing ? "info" : "warn",
+      `CONTRIBUTING.md: ${gov.hasContributing ? "present" : "MISSING"}`
+    );
+    log(
+      gov.hasCodeowners ? "info" : "warn",
+      `CODEOWNERS: ${gov.hasCodeowners ? gov.codeowners.join(", ") || "present" : "MISSING"}`
+    );
     log(gov.hasReadme ? "info" : "warn", `README.md: ${gov.hasReadme ? "present" : "MISSING"}`);
     log(gov.hasContext ? "info" : "warn", `CONTEXT.md: ${gov.hasContext ? "present" : "MISSING"}`);
-    log(gov.hasChangelog ? "info" : "warn", `CHANGELOG.md: ${gov.hasChangelog ? "present" : "MISSING"}`);
-  }
-
-  else if (command === "coverage") {
+    log(
+      gov.hasChangelog ? "info" : "warn",
+      `CHANGELOG.md: ${gov.hasChangelog ? "present" : "MISSING"}`
+    );
+  } else if (command === "coverage") {
     const threshold = parseInt(args[1], 10) || 70;
     console.log(`── Test Coverage Gate (threshold: ${threshold}%) ──────────────`);
     const cov = await checkCoverage(projectDir, threshold);
@@ -556,7 +571,10 @@ async function main() {
     if (cov.total === 0) {
       log("warn", "No coverage data found — run tests with --coverage first");
     } else {
-      log(cov.percentage >= threshold ? "info" : "error", `Coverage: ${cov.percentage.toFixed(1)}% (${cov.covered}/${cov.total} statements)`);
+      log(
+        cov.percentage >= threshold ? "info" : "error",
+        `Coverage: ${cov.percentage.toFixed(1)}% (${cov.covered}/${cov.total} statements)`
+      );
 
       if (cov.files.length > 0) {
         console.log("  Files:");
@@ -575,9 +593,7 @@ async function main() {
         process.exit(1);
       }
     }
-  }
-
-  else if (command === "docs") {
+  } else if (command === "docs") {
     console.log("── Documentation Drift ───────────────────────────────────────");
     const drift = await checkDocDrift(projectDir);
 
@@ -586,7 +602,10 @@ async function main() {
     } else if (!existsSync(join(projectDir, "package.json"))) {
       log("warn", "No package.json — skipping script comparison");
     } else {
-      log(drift.fresh ? "info" : "warn", `README scripts: ${drift.fresh ? "in sync" : "DRIFT DETECTED"}`);
+      log(
+        drift.fresh ? "info" : "warn",
+        `README scripts: ${drift.fresh ? "in sync" : "DRIFT DETECTED"}`
+      );
 
       if (drift.missingFromReadme.length > 0) {
         log("warn", `Missing from README: ${drift.missingFromReadme.join(", ")}`);
@@ -595,9 +614,7 @@ async function main() {
         log("warn", `In README but not package.json: ${drift.extraInReadme.join(", ")}`);
       }
     }
-  }
-
-  else if (command === "fix") {
+  } else if (command === "fix") {
     console.log("── Auto-Fixing Governance Gaps ───────────────────────────────");
     const gov = await checkGovernance(projectDir);
     let generated = 0;
@@ -650,24 +667,81 @@ async function main() {
     console.log("");
     console.log("── Re-checking after fix ─────────────────────────────────────");
     const govAfter = await checkGovernance(projectDir);
-    const checksAfter: Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }> = [];
+    const checksAfter: Array<{
+      name: string;
+      status: "ok" | "warn" | "error";
+      message: string;
+      fixable: boolean;
+    }> = [];
 
-    checksAfter.push({ name: "README.md", status: govAfter.hasReadme ? "ok" : "warn", message: govAfter.hasReadme ? "present" : "missing", fixable: !govAfter.hasReadme });
-    checksAfter.push({ name: "CONTRIBUTING.md", status: govAfter.hasContributing ? "ok" : "warn", message: govAfter.hasContributing ? "present" : "missing", fixable: !govAfter.hasContributing });
-    checksAfter.push({ name: "LICENSE", status: govAfter.hasLicense ? "ok" : "warn", message: govAfter.hasLicense ? (govAfter.licenseType || "present") : "missing", fixable: !govAfter.hasLicense });
-    checksAfter.push({ name: "CODEOWNERS", status: govAfter.hasCodeowners ? "ok" : "warn", message: govAfter.hasCodeowners ? "present" : "missing", fixable: !govAfter.hasCodeowners });
-    checksAfter.push({ name: "CONTEXT.md", status: govAfter.hasContext ? "ok" : "warn", message: govAfter.hasContext ? "present" : "missing", fixable: !govAfter.hasContext });
-    checksAfter.push({ name: "CHANGELOG.md", status: govAfter.hasChangelog ? "ok" : "warn", message: govAfter.hasChangelog ? "present" : "missing", fixable: !govAfter.hasChangelog });
+    checksAfter.push({
+      name: "README.md",
+      status: govAfter.hasReadme ? "ok" : "warn",
+      message: govAfter.hasReadme ? "present" : "missing",
+      fixable: !govAfter.hasReadme,
+    });
+    checksAfter.push({
+      name: "CONTRIBUTING.md",
+      status: govAfter.hasContributing ? "ok" : "warn",
+      message: govAfter.hasContributing ? "present" : "missing",
+      fixable: !govAfter.hasContributing,
+    });
+    checksAfter.push({
+      name: "LICENSE",
+      status: govAfter.hasLicense ? "ok" : "warn",
+      message: govAfter.hasLicense ? govAfter.licenseType || "present" : "missing",
+      fixable: !govAfter.hasLicense,
+    });
+    checksAfter.push({
+      name: "CODEOWNERS",
+      status: govAfter.hasCodeowners ? "ok" : "warn",
+      message: govAfter.hasCodeowners ? "present" : "missing",
+      fixable: !govAfter.hasCodeowners,
+    });
+    checksAfter.push({
+      name: "CONTEXT.md",
+      status: govAfter.hasContext ? "ok" : "warn",
+      message: govAfter.hasContext ? "present" : "missing",
+      fixable: !govAfter.hasContext,
+    });
+    checksAfter.push({
+      name: "CHANGELOG.md",
+      status: govAfter.hasChangelog ? "ok" : "warn",
+      message: govAfter.hasChangelog ? "present" : "missing",
+      fixable: !govAfter.hasChangelog,
+    });
 
     const driftAfter = await checkDocDrift(projectDir);
-    checksAfter.push({ name: "README-drift", status: driftAfter.fresh ? "ok" : "warn", message: driftAfter.fresh ? "in sync with package.json" : `missing: ${driftAfter.missingFromReadme.join(", ")}`, fixable: false });
+    checksAfter.push({
+      name: "README-drift",
+      status: driftAfter.fresh ? "ok" : "warn",
+      message: driftAfter.fresh
+        ? "in sync with package.json"
+        : `missing: ${driftAfter.missingFromReadme.join(", ")}`,
+      fixable: false,
+    });
 
     try {
-      const guardianResult = await runTool("kimi-guardian", ["check"], { cwd: projectDir, timeoutMs: 30000 });
-      const hasMismatch = guardianResult.stdout.includes("HASH MISMATCH") || guardianResult.stdout.includes("No stored hash");
-      checksAfter.push({ name: "lockfile", status: hasMismatch ? "warn" : "ok", message: hasMismatch ? "unbaselined or changed" : "baselined", fixable: hasMismatch });
+      const guardianResult = await runTool("kimi-guardian", ["check"], {
+        cwd: projectDir,
+        timeoutMs: 30000,
+      });
+      const hasMismatch =
+        guardianResult.stdout.includes("HASH MISMATCH") ||
+        guardianResult.stdout.includes("No stored hash");
+      checksAfter.push({
+        name: "lockfile",
+        status: hasMismatch ? "warn" : "ok",
+        message: hasMismatch ? "unbaselined or changed" : "baselined",
+        fixable: hasMismatch,
+      });
     } catch {
-      checksAfter.push({ name: "lockfile", status: "warn", message: "guardian check failed", fixable: false });
+      checksAfter.push({
+        name: "lockfile",
+        status: "warn",
+        message: "guardian check failed",
+        fixable: false,
+      });
     }
 
     let warnsAfter = 0;
@@ -685,40 +759,105 @@ async function main() {
     try {
       const result = await $`git rev-parse HEAD`.cwd(projectDir).nothrow().quiet();
       gitHeadAfter = result.stdout.toString().trim();
-    } catch { /* ignore */ }
-    recordDoctorRun(project, "kimi-governance", warningsAfter, undefined, gitHeadAfter || undefined);
+    } catch {
+      /* ignore */
+    }
+    recordDoctorRun(
+      project,
+      "kimi-governance",
+      warningsAfter,
+      undefined,
+      gitHeadAfter || undefined
+    );
 
     if (warnsAfter === 0) {
       console.log("");
       log("info", "All checks clean after fix.");
     }
-  }
-
-  else if (command === "doctor") {
+  } else if (command === "doctor") {
     console.log("── Governance Doctor ─────────────────────────────────────────");
     const gov = await checkGovernance(projectDir);
-    const checks: Array<{ name: string; status: "ok" | "warn" | "error"; message: string; fixable: boolean }> = [];
+    const checks: Array<{
+      name: string;
+      status: "ok" | "warn" | "error";
+      message: string;
+      fixable: boolean;
+    }> = [];
 
-    checks.push({ name: "README.md", status: gov.hasReadme ? "ok" : "warn", message: gov.hasReadme ? "present" : "missing", fixable: !gov.hasReadme });
-    checks.push({ name: "CONTRIBUTING.md", status: gov.hasContributing ? "ok" : "warn", message: gov.hasContributing ? "present" : "missing", fixable: !gov.hasContributing });
-    checks.push({ name: "LICENSE", status: gov.hasLicense ? "ok" : "warn", message: gov.hasLicense ? (gov.licenseType || "present") : "missing", fixable: !gov.hasLicense });
-    checks.push({ name: "CODEOWNERS", status: gov.hasCodeowners ? "ok" : "warn", message: gov.hasCodeowners ? "present" : "missing", fixable: !gov.hasCodeowners });
-    checks.push({ name: "CONTEXT.md", status: gov.hasContext ? "ok" : "warn", message: gov.hasContext ? "present" : "missing", fixable: !gov.hasContext });
-    checks.push({ name: "CHANGELOG.md", status: gov.hasChangelog ? "ok" : "warn", message: gov.hasChangelog ? "present" : "missing", fixable: !gov.hasChangelog });
+    checks.push({
+      name: "README.md",
+      status: gov.hasReadme ? "ok" : "warn",
+      message: gov.hasReadme ? "present" : "missing",
+      fixable: !gov.hasReadme,
+    });
+    checks.push({
+      name: "CONTRIBUTING.md",
+      status: gov.hasContributing ? "ok" : "warn",
+      message: gov.hasContributing ? "present" : "missing",
+      fixable: !gov.hasContributing,
+    });
+    checks.push({
+      name: "LICENSE",
+      status: gov.hasLicense ? "ok" : "warn",
+      message: gov.hasLicense ? gov.licenseType || "present" : "missing",
+      fixable: !gov.hasLicense,
+    });
+    checks.push({
+      name: "CODEOWNERS",
+      status: gov.hasCodeowners ? "ok" : "warn",
+      message: gov.hasCodeowners ? "present" : "missing",
+      fixable: !gov.hasCodeowners,
+    });
+    checks.push({
+      name: "CONTEXT.md",
+      status: gov.hasContext ? "ok" : "warn",
+      message: gov.hasContext ? "present" : "missing",
+      fixable: !gov.hasContext,
+    });
+    checks.push({
+      name: "CHANGELOG.md",
+      status: gov.hasChangelog ? "ok" : "warn",
+      message: gov.hasChangelog ? "present" : "missing",
+      fixable: !gov.hasChangelog,
+    });
 
     const drift = await checkDocDrift(projectDir);
-    checks.push({ name: "README-drift", status: drift.fresh ? "ok" : "warn", message: drift.fresh ? "in sync with package.json" : `missing: ${drift.missingFromReadme.join(", ")}`, fixable: false });
+    checks.push({
+      name: "README-drift",
+      status: drift.fresh ? "ok" : "warn",
+      message: drift.fresh
+        ? "in sync with package.json"
+        : `missing: ${drift.missingFromReadme.join(", ")}`,
+      fixable: false,
+    });
 
     // Lockfile check via guardian
     try {
-      const guardianResult = await runTool("kimi-guardian", ["check"], { cwd: projectDir, timeoutMs: 30000 });
-      const hasMismatch = guardianResult.stdout.includes("HASH MISMATCH") || guardianResult.stdout.includes("No stored hash");
-      checks.push({ name: "lockfile", status: hasMismatch ? "warn" : "ok", message: hasMismatch ? "unbaselined or changed" : "baselined", fixable: hasMismatch });
+      const guardianResult = await runTool("kimi-guardian", ["check"], {
+        cwd: projectDir,
+        timeoutMs: 30000,
+      });
+      const hasMismatch =
+        guardianResult.stdout.includes("HASH MISMATCH") ||
+        guardianResult.stdout.includes("No stored hash");
+      checks.push({
+        name: "lockfile",
+        status: hasMismatch ? "warn" : "ok",
+        message: hasMismatch ? "unbaselined or changed" : "baselined",
+        fixable: hasMismatch,
+      });
     } catch {
-      checks.push({ name: "lockfile", status: "warn", message: "guardian check failed", fixable: false });
+      checks.push({
+        name: "lockfile",
+        status: "warn",
+        message: "guardian check failed",
+        fixable: false,
+      });
     }
 
-    let errors = 0, warns = 0, fixable = 0;
+    let errors = 0,
+      warns = 0,
+      fixable = 0;
     const warnings: Array<{ check: string; message: string; severity: "warn" | "error" }> = [];
     for (const c of checks) {
       const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
@@ -737,7 +876,9 @@ async function main() {
     try {
       const result = await $`git rev-parse HEAD`.cwd(projectDir).nothrow().quiet();
       gitHead = result.stdout.toString().trim();
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     recordDoctorRun(project, "kimi-governance", warnings, undefined, gitHead || undefined);
 
     // Show persistent warnings
@@ -755,17 +896,13 @@ async function main() {
     if (fixable > 0) {
       console.log("  Run 'kimi-governance fix' to auto-generate missing files");
     }
-  }
-
-  else if (command === "adr") {
+  } else if (command === "adr") {
     const title = args.slice(1).join(" ") || "Untitled Decision";
     console.log("── ADR Scaffold ──────────────────────────────────────────────");
     const filepath = await scaffoldAdr(projectDir, title);
     log("info", `Created: ${filepath}`);
     console.log("  Edit the file and update status: proposed → accepted | rejected | deprecated");
-  }
-
-  else if (command === "score") {
+  } else if (command === "score") {
     console.log("── Computing R-Score ─────────────────────────────────────────");
     const score = await computeRScore(projectDir);
 
@@ -785,7 +922,9 @@ async function main() {
         const delta = score.total - prev.total;
         const arrow = delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
         console.log("");
-        console.log(`  Trend: ${arrow} ${delta > 0 ? "+" : ""}${delta} from last run (${prev.grade} → ${score.grade})`);
+        console.log(
+          `  Trend: ${arrow} ${delta > 0 ? "+" : ""}${delta} from last run (${prev.grade} → ${score.grade})`
+        );
       }
     }
 
@@ -793,9 +932,7 @@ async function main() {
       console.log("");
       log("error", "R-Score below C — address governance gaps before release");
     }
-  }
-
-  else {
+  } else {
     console.log("Commands:");
     console.log("  governance     Check LICENSE, CONTRIBUTING, CODEOWNERS, README, CONTEXT");
     console.log("  coverage [N]   Test coverage gate (default threshold 70%)");

@@ -15,9 +15,7 @@ export interface ProcessInfo {
 
 export function getOrphanProcesses(): ProcessInfo[] {
   try {
-    const output = new TextDecoder().decode(
-      Bun.spawnSync(["ps", "aux"]).stdout
-    );
+    const output = new TextDecoder().decode(Bun.spawnSync(["ps", "aux"]).stdout);
 
     const orphans: ProcessInfo[] = [];
     for (const line of output.split("\n")) {
@@ -71,7 +69,9 @@ export async function clearStaleLocks(): Promise<string[]> {
   return cleared;
 }
 
-export async function runOrphanKill(dryRun = false): Promise<{ killed: number; orphans: ProcessInfo[] }> {
+export async function runOrphanKill(
+  dryRun = false
+): Promise<{ killed: number; orphans: ProcessInfo[] }> {
   const orphans = getOrphanProcesses();
   if (orphans.length === 0) {
     await clearStaleLocks();

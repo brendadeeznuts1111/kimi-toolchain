@@ -20,6 +20,7 @@ bun run unify    # sync → ~/.kimi-code/, install PATH wrappers, validate
 See **UNIFIED.md** for how Kimi Code (`kimi`), kimi-toolchain (`kimi-doctor`), and `~/.kimi-code/` relate.
 
 **Zero-install alternative** — run any command without installing:
+
 ```bash
 bunx github:brendadeeznuts1111/kimi-toolchain kimi-doctor
 bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
@@ -31,101 +32,101 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 ### Core
 
-| Command | Description |
-|---------|-------------|
-| `kimi-doctor` | Full toolchain diagnostics |
+| Command                       | Description                     |
+| ----------------------------- | ------------------------------- |
+| `kimi-doctor`                 | Full toolchain diagnostics      |
 | `kimi-fix <path> [--dry-run]` | Auto-repair project scaffolding |
 
 ### Project Scripts
 
-| Command | Description |
-|---------|-------------|
-| `bun run doctor` | Run kimi-doctor from repo |
-| `bun run fix` | Run kimi-fix from repo |
-| `bun run governance` | Run kimi-governance from repo |
-| `bun run test` | Run test suite (Bun test runner) |
-| `bun run typecheck` | TypeScript type check (no emit) |
+| Command              | Description                      |
+| -------------------- | -------------------------------- |
+| `bun run doctor`     | Run kimi-doctor from repo        |
+| `bun run fix`        | Run kimi-fix from repo           |
+| `bun run governance` | Run kimi-governance from repo    |
+| `bun run test`       | Run test suite (Bun test runner) |
+| `bun run typecheck`  | TypeScript type check (no emit)  |
 
 ### Governance
 
-| Command | Description |
-|---------|-------------|
-| `kimi-governance score` | Compute R-Score for current project |
-| `kimi-governance fix` | Auto-generate missing governance files |
-| `kimi-governance coverage [N]` | Test coverage gate (threshold %, default 70) |
-| `kimi-governance docs` | Detect README ↔ package.json script drift |
-| `kimi-governance adr "<title>"` | Scaffold a new ADR in `docs/adr/` |
+| Command                         | Description                                  |
+| ------------------------------- | -------------------------------------------- |
+| `kimi-governance score`         | Compute R-Score for current project          |
+| `kimi-governance fix`           | Auto-generate missing governance files       |
+| `kimi-governance coverage [N]`  | Test coverage gate (threshold %, default 70) |
+| `kimi-governance docs`          | Detect README ↔ package.json script drift    |
+| `kimi-governance adr "<title>"` | Scaffold a new ADR in `docs/adr/`            |
 
 ### Security
 
-| Command | Description |
-|---------|-------------|
-| `kimi-guardian check` | Lockfile integrity & CVE scan |
-| `kimi-guardian sign` | Baseline lockfile hash |
+| Command                | Description                         |
+| ---------------------- | ----------------------------------- |
+| `kimi-guardian check`  | Lockfile integrity & CVE scan       |
+| `kimi-guardian sign`   | Baseline lockfile hash              |
 | `kimi-guardian verify` | Verify lockfile against stored hash |
 
 ### Memory & Sessions
 
-| Command | Description |
-|---------|-------------|
-| `kimi-memory doctor` | Session store health check |
-| `kimi-memory trends` | Persistent warning tracking across runs |
-| `kimi-memory store <id> [decisions...]` | Save a session snapshot |
-| `kimi-memory recall [limit]` | Show recent sessions |
-| `kimi-memory resume` | Check if last session is stale |
-| `kimi-memory autosave [start\|stop]` | Auto-save every 30s |
-| `kimi-memory graph` | Show project knowledge graph |
-| `kimi-memory impact <node-id>` | Cross-project impact analysis |
-| `kimi-memory search <query>` | Search knowledge nodes |
-| `kimi-memory prune [days]` | Remove old sessions (default 30) |
+| Command                                 | Description                             |
+| --------------------------------------- | --------------------------------------- |
+| `kimi-memory doctor`                    | Session store health check              |
+| `kimi-memory trends`                    | Persistent warning tracking across runs |
+| `kimi-memory store <id> [decisions...]` | Save a session snapshot                 |
+| `kimi-memory recall [limit]`            | Show recent sessions                    |
+| `kimi-memory resume`                    | Check if last session is stale          |
+| `kimi-memory autosave [start\|stop]`    | Auto-save every 30s                     |
+| `kimi-memory graph`                     | Show project knowledge graph            |
+| `kimi-memory impact <node-id>`          | Cross-project impact analysis           |
+| `kimi-memory search <query>`            | Search knowledge nodes                  |
+| `kimi-memory prune [days]`              | Remove old sessions (default 30)        |
 
 ### Git Hooks
 
-| Command | Description |
-|---------|-------------|
+| Command                 | Description                         |
+| ----------------------- | ----------------------------------- |
 | `kimi-githooks install` | Install pre-commit + pre-push hooks |
-| `kimi-githooks doctor` | Check hook installation health |
-| `kimi-githooks fix` | Re-install missing/outdated hooks |
+| `kimi-githooks doctor`  | Check hook installation health      |
+| `kimi-githooks fix`     | Re-install missing/outdated hooks   |
 
 ### Context & Release
 
-| Command | Description |
-|---------|-------------|
-| `kimi-context-gen scan` | Scan project and generate CONTEXT.md |
-| `kimi-context-gen update` | Regenerate CONTEXT.md |
-| `kimi-context-gen freshness` | Check if CONTEXT.md is stale |
-| `kimi-release changelog` | Generate changelog from conventional commits |
-| `kimi-release semver` | Compute next semantic version |
-| `kimi-release validate` | Validate commit message format |
+| Command                      | Description                                  |
+| ---------------------------- | -------------------------------------------- |
+| `kimi-context-gen scan`      | Scan project and generate CONTEXT.md         |
+| `kimi-context-gen update`    | Regenerate CONTEXT.md                        |
+| `kimi-context-gen freshness` | Check if CONTEXT.md is stale                 |
+| `kimi-release changelog`     | Generate changelog from conventional commits |
+| `kimi-release semver`        | Compute next semantic version                |
+| `kimi-release validate`      | Validate commit message format               |
 
 ### Resource Governor
 
-| Command | Description |
-|---------|-------------|
-| `kimi-resource-governor limits` | Show current resource limits |
-| `kimi-resource-governor parallel` | Show parallel execution slots |
+| Command                              | Description                      |
+| ------------------------------------ | -------------------------------- |
+| `kimi-resource-governor limits`      | Show current resource limits     |
+| `kimi-resource-governor parallel`    | Show parallel execution slots    |
 | `kimi-resource-governor spawn <cmd>` | Run command with resource limits |
-| `kimi-resource-governor cache` | Show diagnostic cache status |
-| `kimi-resource-governor status` | Overall governor status |
+| `kimi-resource-governor cache`       | Show diagnostic cache status     |
+| `kimi-resource-governor status`      | Overall governor status          |
 
 ### Debug
 
-| Command | Description |
-|---------|-------------|
-| `kimi-debug last` | Show last failure |
-| `kimi-debug diff` | Compare last two failures |
-| `kimi-debug trace` | Trace execution path |
-| `kimi-debug analyze` | Analyze failure pattern |
+| Command              | Description               |
+| -------------------- | ------------------------- |
+| `kimi-debug last`    | Show last failure         |
+| `kimi-debug diff`    | Compare last two failures |
+| `kimi-debug trace`   | Trace execution path      |
+| `kimi-debug analyze` | Analyze failure pattern   |
 
 ### Snapshot
 
-| Command | Description |
-|---------|-------------|
-| `kimi-snapshot save` | Save environment snapshot |
-| `kimi-snapshot restore <id>` | Restore from snapshot |
-| `kimi-snapshot list` | List available snapshots |
-| `kimi-snapshot show <id>` | Show snapshot details |
-| `kimi-snapshot cleanup [days]` | Remove old snapshots |
+| Command                        | Description               |
+| ------------------------------ | ------------------------- |
+| `kimi-snapshot save`           | Save environment snapshot |
+| `kimi-snapshot restore <id>`   | Restore from snapshot     |
+| `kimi-snapshot list`           | List available snapshots  |
+| `kimi-snapshot show <id>`      | Show snapshot details     |
+| `kimi-snapshot cleanup [days]` | Remove old snapshots      |
 
 ## Project Structure
 

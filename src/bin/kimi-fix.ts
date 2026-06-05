@@ -130,7 +130,10 @@ async function main() {
           return match ? `${match[1]}=replace_me` : line;
         })
         .join("\n");
-      await Bun.write(join(project, ".env.example"), example + "\n# Auto-generated from .env — replace placeholder values\n");
+      await Bun.write(
+        join(project, ".env.example"),
+        example + "\n# Auto-generated from .env — replace placeholder values\n"
+      );
     }
   }
 
@@ -162,6 +165,7 @@ async function main() {
     }
     await writeFile(
       join(project, ".github", "workflows", "ci.yml"),
+      // eslint-disable-next-line no-useless-escape -- bash $vars in embedded CI script
       `name: CI\n\non:\n  push:\n    branches: [main, master]\n  pull_request:\n    branches: [main, master]\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n\n      - name: Setup Bun\n        uses: oven-sh/setup-bun@v2\n        with:\n          bun-version: latest\n\n      - name: Install dependencies\n        run: bun install --frozen-lockfile\n\n      - name: Type check\n        run: bun run typecheck || true\n\n      - name: Lint\n        run: bun run lint || true\n\n      - name: Test\n        run: bun test --timeout 30000\n\n      - name: Coverage gate\n        run: |\n          if command -v kimi-governance &>/dev/null; then\n            kimi-governance coverage 70 || exit 1\n          fi\n        shell: bash\n\n      - name: Supply chain check\n        run: |\n          if command -v kimi-guardian &>/dev/null; then\n            kimi-guardian check || exit 1\n          fi\n        shell: bash\n\n      - name: Governance score\n        run: |\n          if command -v kimi-governance &>/dev/null; then\n            score=\$(kimi-governance score 2>/dev/null | grep "Grade:" | grep -o "[A-F]")\n            if [ "\$score" = "F" ] || [ "\$score" = "D" ]; then\n              echo "R-Score too low: \$score"\n              exit 1\n            fi\n          fi\n        shell: bash\n`,
       dryRun
     );

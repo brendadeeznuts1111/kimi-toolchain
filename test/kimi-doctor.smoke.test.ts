@@ -6,7 +6,10 @@ const DOCTOR = join(REPO_ROOT, "src/bin/kimi-doctor.ts");
 const ORPHAN_KILL = join(REPO_ROOT, "src/bin/kimi-orphan-kill.ts");
 const GOVERNOR = join(REPO_ROOT, "src/bin/kimi-resource-governor.ts");
 
-async function runTool(path: string, args: string[] = []): Promise<{ stdout: string; exitCode: number }> {
+async function runTool(
+  path: string,
+  args: string[] = []
+): Promise<{ stdout: string; exitCode: number }> {
   const proc = Bun.spawn(["bun", "run", path, ...args], {
     stdout: "pipe",
     stderr: "pipe",
