@@ -13,23 +13,19 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir, log, getProjectName, runTool, resolveProjectRoot } from "../lib/utils.ts";
 import { recordDoctorRun, getPersistentWarnings } from "../lib/utils.ts";
+import {
+  R_SCORE_WEIGHTS as WEIGHTS,
+  computeBreakdown,
+  computeRScoreFromBreakdown,
+  formatPct,
+  formatPoints,
+  breakdownIndicator,
+} from "../lib/r-score.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
 const GOVERNANCE_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "governance");
 const SCORE_HISTORY = join(GOVERNANCE_DIR, "r-score-history.json");
-
-const WEIGHTS = {
-  hasLicense: 10,
-  hasContributing: 10,
-  hasCodeowners: 10,
-  hasReadme: 10,
-  hasContext: 10,
-  hasChangelog: 5,
-  testCoverage: 25,
-  docsFresh: 15,
-  noStaleLockfile: 10,
-};
 
 interface RScore {
   project: string;
@@ -64,35 +60,6 @@ interface DocDrift {
   missingFromReadme: string[];
   extraInReadme: string[];
   fresh: boolean;
-}
-
-// ── Utilities ────────────────────────────────────────────────────────
-
-function scorePct(score: number, max: number): number {
-  return max > 0 ? (score / max) * 100 : 0;
-}
-
-function formatPct(score: number, max: number): string {
-  return `${scorePct(score, max).toFixed(1)}%`;
-}
-
-function formatPoints(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
-
-function grade(score: number, max: number): string {
-  const pct = scorePct(score, max) / 100;
-  if (pct >= 0.9) return "A";
-  if (pct >= 0.8) return "B";
-  if (pct >= 0.7) return "C";
-  if (pct >= 0.6) return "D";
-  return "F";
-}
-
-function breakdownIndicator(value: number, weight: number): string {
-  if (value >= weight - 0.05) return "✓";
-  if (value > 0) return "~";
-  return "✗";
 }
 
 // ── Governance File Checker ──────────────────────────────────────────
@@ -535,28 +502,27 @@ async function computeRScore(projectDir: string): Promise<RScore> {
     staleLockfile = pkgMtime > lockMtime;
   }
 
-  const breakdown: Record<string, number> = {
-    hasLicense: gov.hasLicense ? WEIGHTS.hasLicense : 0,
-    hasContributing: gov.hasContributing ? WEIGHTS.hasContributing : 0,
-    hasCodeowners: gov.hasCodeowners ? WEIGHTS.hasCodeowners : 0,
-    hasReadme: gov.hasReadme ? WEIGHTS.hasReadme : 0,
-    hasContext: gov.hasContext ? WEIGHTS.hasContext : 0,
-    hasChangelog: gov.hasChangelog ? 5 : 0, // bonus points
-    testCoverage: (coverage.percentage / 100) * WEIGHTS.testCoverage,
-    docsFresh: drift.fresh ? WEIGHTS.docsFresh : 0,
-    noStaleLockfile: !staleLockfile ? WEIGHTS.noStaleLockfile : 0,
-  };
-
-  const total = Object.values(breakdown).reduce((s, v) => s + v, 0);
-  const max = Object.values(WEIGHTS).reduce((s, v) => s + v, 0) + 5; // +5 for changelog bonus
+  const computed = computeRScoreFromBreakdown(
+    computeBreakdown({
+      hasLicense: gov.hasLicense,
+      hasContributing: gov.hasContributing,
+      hasCodeowners: gov.hasCodeowners,
+      hasReadme: gov.hasReadme,
+      hasContext: gov.hasContext,
+      hasChangelog: gov.hasChangelog,
+      coveragePercentage: coverage.percentage,
+      docsFresh: drift.fresh,
+      staleLockfile,
+    })
+  );
 
   const score: RScore = {
     project,
     timestamp: new Date().toISOString(),
-    total,
-    max,
-    breakdown,
-    grade: grade(total, max),
+    total: computed.total,
+    max: computed.max,
+    breakdown: computed.breakdown,
+    grade: computed.grade,
   };
 
   ensureDir(GOVERNANCE_DIR);
@@ -983,6 +949,7 @@ async function main() {
     if (score.grade === "F" || score.grade === "D") {
       console.log("");
       log("error", "R-Score below C — address governance gaps before release");
+      process.exit(1);
     }
   } else {
     console.log("Commands:");

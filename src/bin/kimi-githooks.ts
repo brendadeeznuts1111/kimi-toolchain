@@ -11,7 +11,8 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { ensureDir, log, findExecutable, resolveProjectRoot } from "../lib/utils.ts";
+import { ensureDir, log, findExecutable, resolveProjectRoot, sha256File } from "../lib/utils.ts";
+import { detectSyncDrift } from "../lib/sync-hashes.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -68,8 +69,20 @@ const PRE_PUSH_HOOK = `#!/bin/sh
 
 echo "═══ Kimi Pre-Push Gate ═══"
 
+# Prefer repo src when developing kimi-toolchain
+if [ -f "src/bin/kimi-guardian.ts" ] && [ -f "package.json" ]; then
+  GUARDIAN="src/bin/kimi-guardian.ts"
+else
+  GUARDIAN="${TOOLS_DIR}/kimi-guardian.ts"
+fi
+
+if [ -f "src/bin/kimi-governance.ts" ] && [ -f "package.json" ]; then
+  GOVERNANCE="src/bin/kimi-governance.ts"
+else
+  GOVERNANCE="${TOOLS_DIR}/kimi-governance.ts"
+fi
+
 # 1. Lockfile guardian check
-GUARDIAN="${TOOLS_DIR}/kimi-guardian.ts"
 if [ -f "bun.lock" ] && [ -f "$GUARDIAN" ]; then
   echo "── Lockfile Guardian ────────────────────────────────────────"
   bun run "$GUARDIAN" check 2>/dev/null || true
@@ -83,7 +96,6 @@ if [ -f "$GUARDIAN" ]; then
 fi
 
 # 3. R-Score gate (block push if F or D grade)
-GOVERNANCE="${TOOLS_DIR}/kimi-governance.ts"
 if [ -f "$GOVERNANCE" ]; then
   echo ""
   echo "── R-Score Gate ─────────────────────────────────────────────"
@@ -247,16 +259,63 @@ async function doctorHooks(projectDir: string) {
     const content = await Bun.file(prePushPath).text();
     const hasKimi = content.includes("kimi-githooks");
     const hasQuality = content.includes("Quality Gate");
+    const hasRepoFirst = content.includes("src/bin/kimi-governance.ts");
     checks.push({
       name: "pre-push",
-      status: hasKimi && hasQuality ? "ok" : hasKimi ? "warn" : "warn",
+      status: hasKimi && hasQuality && hasRepoFirst ? "ok" : hasKimi ? "warn" : "warn",
       message: hasKimi
         ? hasQuality
-          ? "Installed with quality gate"
+          ? hasRepoFirst
+            ? "Installed with repo-first tools + quality gate"
+            : "Installed but stale template — run kimi-githooks fix"
           : "Installed but missing quality gate"
         : "Custom pre-push (not managed)",
-      fixable: !hasKimi || !hasQuality,
+      fixable: !hasKimi || !hasQuality || !hasRepoFirst,
     });
+  }
+
+  // Desktop tool drift (kimi-toolchain repo only)
+  try {
+    const pkg = (await Bun.file(join(projectDir, "package.json")).json()) as { name?: string };
+    if (pkg.name === "kimi-toolchain") {
+      const drift = await detectSyncDrift(projectDir);
+      if (drift.synced) {
+        checks.push({
+          name: "desktop-sync",
+          status: "ok",
+          message: "Desktop tools match repo",
+          fixable: false,
+        });
+      } else {
+        const count = drift.drifted.length + drift.missing.length;
+        checks.push({
+          name: "desktop-sync",
+          status: "warn",
+          message: `${count} desktop file(s) drifted — run bun run sync`,
+          fixable: true,
+        });
+      }
+
+      const repoGov = join(projectDir, "src/bin/kimi-governance.ts");
+      const desktopGov = join(TOOLS_DIR, "kimi-governance.ts");
+      if (existsSync(repoGov) && existsSync(desktopGov)) {
+        const [repoHash, desktopHash] = await Promise.all([
+          sha256File(repoGov),
+          sha256File(desktopGov),
+        ]);
+        checks.push({
+          name: "governance-parity",
+          status: repoHash === desktopHash ? "ok" : "warn",
+          message:
+            repoHash === desktopHash
+              ? "kimi-governance.ts matches desktop"
+              : "kimi-governance.ts differs from desktop — run bun run sync",
+          fixable: repoHash !== desktopHash,
+        });
+      }
+    }
+  } catch {
+    /* ignore */
   }
 
   // Check core.hooksPath

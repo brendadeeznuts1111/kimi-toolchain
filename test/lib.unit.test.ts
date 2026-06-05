@@ -4,13 +4,20 @@ import { join } from "path";
 import {
   safeParse,
   sha256String,
+  sha256File,
   getProjectName,
   ensureDir,
   findExecutable,
+  resolveProjectRoot,
 } from "../src/lib/utils.ts";
 import { TOOLCHAIN_VERSION, TOOLCHAIN_NAME } from "../src/lib/version.ts";
 import { getChromeRssMB, getAppRssGroups, getLoadPerCore } from "../src/lib/memory-budget.ts";
-import { DEFAULT_CONFIG_TEMPLATE } from "../src/lib/governor-config.ts";
+import {
+  DEFAULT_CONFIG_TEMPLATE,
+  getGovernorConfigPath,
+  loadGovernorDefaults,
+  BUILTIN_DEFAULTS,
+} from "../src/lib/governor-config.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 
@@ -43,6 +50,19 @@ describe("lib/utils", () => {
 
   test("findExecutable resolves bun on PATH", () => {
     expect(findExecutable("bun")).toBeTruthy();
+  });
+
+  test("sha256File hashes on-disk content", async () => {
+    const path = join(REPO_ROOT, "package.json");
+    const hash = await sha256File(path);
+    expect(hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(hash).toBe(sha256String(await Bun.file(path).text()));
+  });
+
+  test("resolveProjectRoot returns git toplevel in repo", async () => {
+    const root = await resolveProjectRoot(REPO_ROOT);
+    expect(root).toContain("kimi-toolchain");
+    expect(existsSync(join(root, "package.json"))).toBe(true);
   });
 });
 
@@ -82,5 +102,16 @@ describe("lib/governor-config", () => {
   test("DEFAULT_CONFIG_TEMPLATE includes governor keys", () => {
     expect(DEFAULT_CONFIG_TEMPLATE).toContain("maxMemoryMB");
     expect(DEFAULT_CONFIG_TEMPLATE).toContain("maxParallelJobs");
+  });
+
+  test("getGovernorConfigPath points under kimi-code", () => {
+    expect(getGovernorConfigPath()).toContain(".kimi-code/governor");
+  });
+
+  test("loadGovernorDefaults returns numeric limits", async () => {
+    const defaults = await loadGovernorDefaults();
+    expect(defaults.maxMemoryMB).toBeGreaterThan(0);
+    expect(defaults.maxParallelJobs).toBeGreaterThan(0);
+    expect(defaults.wallClockMs).toBe(BUILTIN_DEFAULTS.wallClockMs);
   });
 });

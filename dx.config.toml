@@ -10,7 +10,10 @@ formatter = "oxfmt"
 linter = "oxlint"
 formatCheck = "bun run format:check"
 lintCheck = "bun run lint"
+lintTerms = "bun run lint:terms"
 typecheck = "bun run typecheck"
+check = "bun run check"
+testCoverage = "bun run test:coverage"
 
 [kimi]
 memoryGate = true

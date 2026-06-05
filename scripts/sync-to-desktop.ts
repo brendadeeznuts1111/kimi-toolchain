@@ -18,6 +18,7 @@ import {
   hasUncommittedChanges,
   writeManifest,
 } from "../src/lib/version.ts";
+import { computeSyncHashes } from "../src/lib/sync-hashes.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 const DESKTOP_ROOT = join(Bun.env.HOME || "/tmp", ".kimi-code");
@@ -25,6 +26,8 @@ const BIN_SRC = join(REPO_ROOT, "src", "bin");
 const BIN_DST = join(DESKTOP_ROOT, "tools");
 const LIB_SRC_DIR = join(REPO_ROOT, "src", "lib");
 const LIB_DST_DIR = join(DESKTOP_ROOT, "lib");
+const SCRIPTS_SRC = join(REPO_ROOT, "scripts");
+const SCRIPTS_DST = join(DESKTOP_ROOT, "scripts");
 const SKILL_SRC = join(REPO_ROOT, "skills", "kimi-toolchain");
 const SKILL_DST = join(Bun.env.HOME || "/tmp", ".agents", "skills", "kimi-toolchain");
 
@@ -75,6 +78,22 @@ async function sync(): Promise<SyncResult> {
     if (srcText !== dstText) {
       await Bun.write(dstPath, srcText);
       result.updated.push(`lib/${file}`);
+    }
+  }
+
+  // ── Sync scripts/*.ts ──────────────────────────────────────────
+  if (existsSync(SCRIPTS_SRC)) {
+    if (!existsSync(SCRIPTS_DST)) mkdirSync(SCRIPTS_DST, { recursive: true });
+    const scriptsGlob = new Bun.Glob("*.ts");
+    for await (const file of scriptsGlob.scan(SCRIPTS_SRC)) {
+      const srcPath = join(SCRIPTS_SRC, file);
+      const dstPath = join(SCRIPTS_DST, file);
+      const srcText = await Bun.file(srcPath).text();
+      const dstText = await readTextOrNull(dstPath);
+      if (srcText !== dstText) {
+        await Bun.write(dstPath, srcText);
+        result.updated.push(`scripts/${file}`);
+      }
     }
   }
 
@@ -156,12 +175,14 @@ async function main() {
 
         // Rewrite manifest on every sync
         const head = await getRepoHead();
+        const fileHashes = await computeSyncHashes(REPO_ROOT);
         await writeManifest({
           toolchainVersion: TOOLCHAIN_VERSION,
           desktopVersion,
           gitHead: head,
           lastSyncedAt: new Date().toISOString(),
           files: [...result.updated, ...result.removed],
+          fileHashes,
         });
       }
     });
@@ -173,12 +194,14 @@ async function main() {
   const result = await sync();
 
   // ── Write manifest ─────────────────────────────────────────────
+  const fileHashes = await computeSyncHashes(REPO_ROOT);
   await writeManifest({
     toolchainVersion: TOOLCHAIN_VERSION,
     desktopVersion,
     gitHead,
     lastSyncedAt: new Date().toISOString(),
     files: [...result.updated, ...result.removed],
+    fileHashes,
   });
 
   if (result.updated.length === 0 && result.removed.length === 0) {

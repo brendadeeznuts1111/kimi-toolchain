@@ -45,6 +45,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run fix`              | Run kimi-fix from repo                            |
 | `bun run governance`       | Run kimi-governance from repo                     |
 | `bun run test`             | Run test suite (Bun test runner)                  |
+| `bun run test:coverage`    | Run tests with Bun coverage report                |
 | `bun run check`            | format:check + lint + typecheck + test (CI/hooks) |
 | `bun run typecheck`        | TypeScript type check (no emit)                   |
 | `bun run format`           | Format with oxfmt (write)                         |

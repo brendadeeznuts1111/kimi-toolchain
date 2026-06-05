@@ -31,3 +31,9 @@ jobs:
 
       - name: Test
         run: bun run test
+
+      - name: Coverage
+        run: bun run test:coverage
+
+      - name: R-Score gate
+        run: bun run src/bin/kimi-governance.ts score

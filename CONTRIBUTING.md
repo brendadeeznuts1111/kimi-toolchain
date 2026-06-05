@@ -26,7 +26,7 @@ Config: `.oxfmtrc.json` (formatter), `.oxlintrc.json` (linter). See `AGENTS.md` 
 
 1. Run `kimi-doctor --fix` before committing
 2. Ensure `bun run check` passes (format:check, lint, typecheck, test)
-3. Ensure R-Score ≥ 0.7 (`kimi-governance score`)
+3. Ensure R-Score grade ≥ B (`kimi-governance score`, ≥88/110)
 4. Update CHANGELOG.md for user-facing changes
 5. Request review from CODEOWNERS
 

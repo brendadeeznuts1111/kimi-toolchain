@@ -100,7 +100,7 @@ describe("kimi-doctor smoke", () => {
     expect(stdout).toContain("Grade:");
     expect(stdout).toMatch(/\d+\.\d+%/);
     expect(stdout).toContain("Breakdown:");
-    expect(exitCode).toBe(0);
+    expect(exitCode === 0 || exitCode === 1).toBe(true);
   }, 30_000);
 
   test("kimi-githooks doctor reports hook health", async () => {
@@ -117,6 +117,27 @@ describe("kimi-doctor smoke", () => {
     expect(exitCode === 0 || exitCode === 1).toBe(true);
   }, 30_000);
 
+  test("doctor --json emits structured report", async () => {
+    const { stdout, exitCode } = await runTool(DOCTOR, ["--quick", "--json"]);
+    const report = JSON.parse(stdout.trim()) as {
+      checks: Array<{ name: string; status: string }>;
+      sync?: { synced: boolean };
+      summary: { errors: number; warnings: number };
+    };
+    expect(Array.isArray(report.checks)).toBe(true);
+    expect(report.checks.length).toBeGreaterThan(0);
+    expect(report.summary).toBeDefined();
+    expect(report.sync).toBeDefined();
+    expect(typeof report.sync?.synced).toBe("boolean");
+    expect(exitCode === 0 || exitCode === 1).toBe(true);
+  }, 60_000);
+
+  test("doctor --quick reports runtime sync section", async () => {
+    const { stdout } = await runTool(DOCTOR, ["--quick"]);
+    expect(stdout).toContain("Runtime Sync");
+    expect(stdout).toMatch(/Desktop sync/);
+  }, 60_000);
+
   test("check script chains format, lint, typecheck, and test", async () => {
     const pkg = (await Bun.file(join(REPO_ROOT, "package.json")).json()) as {
       scripts?: Record<string, string>;
@@ -126,5 +147,12 @@ describe("kimi-doctor smoke", () => {
     expect(check).toContain("lint");
     expect(check).toContain("typecheck");
     expect(check).toContain("bun test");
+  });
+
+  test("test:coverage script is defined", async () => {
+    const pkg = (await Bun.file(join(REPO_ROOT, "package.json")).json()) as {
+      scripts?: Record<string, string>;
+    };
+    expect(pkg.scripts?.["test:coverage"]).toBe("bun test --coverage");
   });
 });

@@ -79,13 +79,15 @@ export async function readManifest(): Promise<ToolchainManifest | null> {
   }
 }
 
-/** Desktop install manifest shape */
+/** Desktop install manifest shape (v2 adds optional fileHashes) */
 export interface ToolchainManifest {
   toolchainVersion: string;
   desktopVersion: string | null;
   gitHead: string | null;
   lastSyncedAt: string;
   files: string[];
+  /** sha256 hex per sync path, e.g. "tools/kimi-doctor.ts" */
+  fileHashes?: Record<string, string>;
 }
 
 /** Write the desktop install manifest */

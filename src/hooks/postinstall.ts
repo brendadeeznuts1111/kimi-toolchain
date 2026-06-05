@@ -80,8 +80,24 @@ async function main() {
     await Bun.write(governorDefaults, DEFAULT_CONFIG_TEMPLATE);
   }
 
+  // Copy scripts/*.ts → ~/.kimi-code/scripts/
+  const scriptsSrc = join(REPO_ROOT, "scripts");
+  const scriptsDest = join(KIMI_DIR, "scripts");
+  if (existsSync(scriptsSrc)) {
+    ensureDir(scriptsDest);
+    for await (const entry of new Bun.Glob("*.ts").scan(scriptsSrc)) {
+      await copyFile(join(scriptsSrc, entry), join(scriptsDest, entry), true);
+    }
+  }
+
   // Copy templates → ~/.kimi-code/
-  const templates = ["AGENTS.md", "UNIFIED.md", "TEMPLATES.md", "CONTRIBUTING.md"];
+  const templates = [
+    "AGENTS.md",
+    "UNIFIED.md",
+    "TEMPLATES.md",
+    "CONTRIBUTING.md",
+    "dx.config.toml",
+  ];
   for (const file of templates) {
     const src = join(REPO_ROOT, file);
     const dest = join(KIMI_DIR, file);

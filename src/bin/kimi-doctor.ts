@@ -2,7 +2,7 @@
 /**
  * kimi-doctor — Comprehensive diagnostics
  * Delegates to individual tool doctor commands + runs system checks
- * Usage: kimi-doctor [--fix] [--quick] [--memory-budget]
+ * Usage: kimi-doctor [--fix] [--quick] [--memory-budget] [--json]
  */
 
 import { $ } from "bun";
@@ -20,6 +20,7 @@ import {
   printMemoryBudget,
   type MemoryCheckResult,
 } from "../lib/memory-budget.ts";
+import { detectSyncDrift } from "../lib/sync-hashes.ts";
 import { getOrphanProcesses, runOrphanKill } from "./kimi-orphan-kill.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
 
@@ -27,6 +28,7 @@ const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
 const FIX = Bun.argv.includes("--fix");
 const QUICK = Bun.argv.includes("--quick");
 const MEMORY_BUDGET = Bun.argv.includes("--memory-budget");
+const JSON_OUT = Bun.argv.includes("--json");
 
 interface CheckResult {
   name: string;
@@ -35,28 +37,31 @@ interface CheckResult {
 }
 
 function ok(name: string, message: string): CheckResult {
-  console.log(`  ✓ ${name}: ${message}`);
+  if (!JSON_OUT) console.log(`  ✓ ${name}: ${message}`);
   return { name, status: "ok", message };
 }
 
 function warn(name: string, message: string): CheckResult {
-  console.log(`  ⚠ ${name}: ${message}`);
+  if (!JSON_OUT) console.log(`  ⚠ ${name}: ${message}`);
   return { name, status: "warn", message };
 }
 
 function error(name: string, message: string): CheckResult {
-  console.log(`  ✗ ${name}: ${message}`);
+  if (!JSON_OUT) console.log(`  ✗ ${name}: ${message}`);
   return { name, status: "error", message };
 }
 
 function section(title: string) {
+  if (JSON_OUT) return;
   console.log("");
   console.log(`── ${title} ${"─".repeat(Math.max(0, 60 - title.length))}`);
 }
 
 function recordMemoryCheck(r: MemoryCheckResult): CheckResult {
-  const icon = r.status === "ok" ? "✓" : r.status === "warn" ? "⚠" : "✗";
-  console.log(`  ${icon} ${r.name}: ${r.message}`);
+  if (!JSON_OUT) {
+    const icon = r.status === "ok" ? "✓" : r.status === "warn" ? "⚠" : "✗";
+    console.log(`  ${icon} ${r.name}: ${r.message}`);
+  }
   return { name: r.name, status: r.status, message: r.message };
 }
 
@@ -150,6 +155,69 @@ async function versionMatrix(): Promise<CheckResult[]> {
   return results;
 }
 
+async function isKimiToolchainRepo(projectRoot: string): Promise<boolean> {
+  const pkgPath = join(projectRoot, "package.json");
+  if (!existsSync(pkgPath)) return false;
+  try {
+    const pkg = (await Bun.file(pkgPath).json()) as { name?: string };
+    return pkg.name === "kimi-toolchain";
+  } catch {
+    return false;
+  }
+}
+
+async function checkDesktopSync(projectRoot: string): Promise<{
+  results: CheckResult[];
+  drift?: { synced: boolean; drifted: string[]; missing: string[] };
+}> {
+  if (!(await isKimiToolchainRepo(projectRoot))) {
+    return { results: [] };
+  }
+
+  const drift = await detectSyncDrift(projectRoot);
+  const results: CheckResult[] = [];
+
+  if (drift.synced) {
+    results.push(ok("Desktop sync", "tools/lib/scripts match repo"));
+  } else {
+    const parts = [...drift.drifted, ...drift.missing.map((m) => `${m} (missing)`)];
+    const preview = parts.slice(0, 3).join(", ");
+    const more = parts.length > 3 ? ` (+${parts.length - 3} more)` : "";
+    results.push(
+      error("Desktop sync", `${parts.length} file(s) drifted: ${preview}${more} — run bun run sync`)
+    );
+  }
+
+  return { results, drift };
+}
+
+async function applySyncFix(projectRoot: string): Promise<void> {
+  if (!(await isKimiToolchainRepo(projectRoot))) return;
+
+  const syncScript = join(projectRoot, "scripts", "sync-to-desktop.ts");
+  const wrapperScript = join(projectRoot, "scripts", "install-bin-wrappers.sh");
+
+  if (existsSync(syncScript)) {
+    if (!JSON_OUT) console.log("  → Running bun run sync...");
+    const proc = Bun.spawn(["bun", "run", syncScript], {
+      cwd: projectRoot,
+      stdout: JSON_OUT ? "pipe" : "inherit",
+      stderr: JSON_OUT ? "pipe" : "inherit",
+    });
+    await proc.exited;
+  }
+
+  if (existsSync(wrapperScript)) {
+    if (!JSON_OUT) console.log("  → Installing PATH wrappers...");
+    const proc = Bun.spawn(["bash", wrapperScript], {
+      cwd: projectRoot,
+      stdout: JSON_OUT ? "pipe" : "inherit",
+      stderr: JSON_OUT ? "pipe" : "inherit",
+    });
+    await proc.exited;
+  }
+}
+
 async function runScript(projectRoot: string, script: string, label: string): Promise<CheckResult> {
   try {
     const proc = Bun.spawn(["bun", "run", script], {
@@ -221,8 +289,10 @@ async function runQualityChecks(projectRoot: string): Promise<CheckResult[]> {
   return results;
 }
 
-async function applyFixes(): Promise<void> {
+async function applyFixes(projectRoot: string): Promise<void> {
   section("Auto-fix");
+  await applySyncFix(projectRoot);
+
   const orphans = getOrphanProcesses();
   if (orphans.length > 0) {
     console.log(`  → Killing ${orphans.length} orphan process(es)...`);
@@ -246,11 +316,15 @@ async function main() {
     process.exit(0);
   }
 
-  console.log("╔══════════════════════════════════════════════════════════════╗");
-  console.log("║           Kimi Doctor — Comprehensive Diagnostics            ║");
-  console.log("╚══════════════════════════════════════════════════════════════╝");
+  if (!JSON_OUT) {
+    console.log("╔══════════════════════════════════════════════════════════════╗");
+    console.log("║           Kimi Doctor — Comprehensive Diagnostics            ║");
+    console.log("╚══════════════════════════════════════════════════════════════╝");
+  }
 
   const results: CheckResult[] = [];
+  let syncReport: { synced: boolean; drifted: string[]; missing: string[] } | undefined;
+  const projectRoot = await resolveProjectRoot();
 
   section("System");
 
@@ -289,18 +363,24 @@ async function main() {
   section("Version Matrix");
   results.push(...(await versionMatrix()));
 
+  section("Runtime Sync");
+  const syncCheck = await checkDesktopSync(projectRoot);
+  results.push(...syncCheck.results);
+  syncReport = syncCheck.drift;
+
   section("Code Quality");
-  const projectRoot = await resolveProjectRoot();
   results.push(...(await runQualityChecks(projectRoot)));
-  if (QUICK) {
+  if (QUICK && !JSON_OUT) {
     console.log("  ⚡ Quick mode — config checks only; run without --quick to execute gates.");
   }
 
   section("Toolchain Health");
 
   if (QUICK) {
-    console.log("  ⚡ Quick mode — skipping individual tool doctors.");
-    console.log("     Run without --quick for full toolchain health check.");
+    if (!JSON_OUT) {
+      console.log("  ⚡ Quick mode — skipping individual tool doctors.");
+      console.log("     Run without --quick for full toolchain health check.");
+    }
   } else {
     const tools = [
       "kimi-guardian",
@@ -402,30 +482,46 @@ async function main() {
   }
 
   if (FIX) {
-    await applyFixes();
+    await applyFixes(projectRoot);
   }
-
-  section("Summary");
 
   const errors = results.filter((r) => r.status === "error").length;
   const warnings = results.filter((r) => r.status === "warn").length;
 
-  if (errors > 0) {
-    console.log(`  ✗ ${errors} issue(s) found`);
-  } else if (warnings > 0) {
-    console.log(`  ⚠ ${warnings} warning(s) found`);
+  if (JSON_OUT) {
+    console.log(
+      JSON.stringify(
+        {
+          toolchainVersion: TOOLCHAIN_VERSION,
+          checks: results,
+          sync: syncReport,
+          summary: { errors, warnings, ok: errors === 0 },
+        },
+        null,
+        2
+      )
+    );
   } else {
-    console.log("  ✓ All checks passed");
-  }
+    section("Summary");
 
-  if (FIX) {
-    console.log("  Auto-fix applied where possible.");
-  } else if (QUICK) {
-    console.log("  Quick mode — run without --quick for full check.");
-  } else {
-    console.log("  Run with --fix to apply tool fixes, --quick to skip tool doctors.");
+    if (errors > 0) {
+      console.log(`  ✗ ${errors} issue(s) found`);
+    } else if (warnings > 0) {
+      console.log(`  ⚠ ${warnings} warning(s) found`);
+    } else {
+      console.log("  ✓ All checks passed");
+    }
+
+    if (FIX) {
+      console.log("  Auto-fix applied where possible.");
+    } else if (QUICK) {
+      console.log("  Quick mode — run without --quick for full check.");
+    } else {
+      console.log("  Run with --fix to apply tool fixes, --quick to skip tool doctors.");
+    }
+    console.log("  Run with --memory-budget to print per-app RSS breakdown.");
+    console.log("  Run with --json for structured agent output.");
   }
-  console.log("  Run with --memory-budget to print per-app RSS breakdown.");
 
   if (errors > 0) process.exit(1);
 }

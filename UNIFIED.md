@@ -116,12 +116,23 @@ Optional during active toolchain work: `bun run sync:daemon` (every 5 min).
 
 ## Unify checklist
 
+Required after every clone or toolchain pull:
+
+```bash
+cd ~/kimi-toolchain
+bun run unify                         # sync + wrappers + doctor + check
+```
+
+Or step-by-step:
+
 ```bash
 cd ~/kimi-toolchain
 kimi migrate                          # if ~/.kimi exists
+bun run sync                          # repo → ~/.kimi-code/ (+ scripts/)
 bash scripts/install-bin-wrappers.sh
-bun run sync
 kimi doctor                           # Kimi Code config
-kimi-doctor --quick                   # toolchain + memory
+kimi-doctor --quick                   # toolchain + sync drift + memory
 bun run memory-check                  # pre-session gate
 ```
+
+`kimi-doctor --json` emits structured output for agents. `kimi-doctor --fix` runs `sync` + wrapper install when desktop drift is detected.
