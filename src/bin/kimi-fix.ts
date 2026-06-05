@@ -8,6 +8,7 @@
 import { existsSync, mkdirSync } from "fs";
 import { join, basename } from "path";
 import { $ } from "bun";
+import { projectMcpStub } from "../lib/mcp-config.ts";
 
 const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
 
@@ -371,6 +372,25 @@ async function main() {
   if (!existsSync(join(project, ".oxlintrc.json"))) {
     log("oxlint", "creating .oxlintrc.json...");
     await writeFile(join(project, ".oxlintrc.json"), OXLINTRC, dryRun);
+  }
+
+  // Kimi Code project config (.kimi-code/mcp.json + skills placeholder)
+  const kimiCodeDir = join(project, ".kimi-code");
+  const projectMcp = join(kimiCodeDir, "mcp.json");
+  if (!existsSync(projectMcp)) {
+    log("kimi-code", "creating .kimi-code/mcp.json...");
+    if (!dryRun) mkdirSync(kimiCodeDir, { recursive: true });
+    await writeFile(projectMcp, projectMcpStub(), dryRun);
+  }
+  const kimiSkillsReadme = join(kimiCodeDir, "skills", "README.md");
+  if (!existsSync(kimiSkillsReadme)) {
+    log("kimi-code", "creating .kimi-code/skills/README.md...");
+    if (!dryRun) mkdirSync(join(kimiCodeDir, "skills"), { recursive: true });
+    await writeFile(
+      kimiSkillsReadme,
+      `# Project skills\n\nPlace Kimi Code skills in \`.kimi-code/skills/<name>/SKILL.md\`.\nUser skills: \`~/.kimi-code/skills/\` and \`~/.agents/skills/\`.\nSee UNIFIED.md.\n`,
+      dryRun
+    );
   }
 
   // dx.config.toml (optional project policy)

@@ -6,5 +6,5 @@
   "semi": true,
   "singleQuote": false,
   "trailingComma": "es5",
-  "ignorePatterns": ["bun.lock", "CHANGELOG.md"]
+  "ignorePatterns": ["bun.lock", "CHANGELOG.md", ".tmp-*"]
 }

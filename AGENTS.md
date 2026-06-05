@@ -61,8 +61,10 @@ When the package is installed (globally or locally), `postinstall.ts` copies sou
 ~/.kimi-code/
   tools/              # Copies of src/bin/*.ts
   lib/                # Copies of src/lib/*.ts
-  var/                # Runtime state (sessions.db, etc.)
-  memory/             # Session store directory
+  scripts/            # Copies of scripts/*.ts
+  mcp.json            # User MCP config (postinstall seeds unified-shell)
+  skills/             # Kimi Code skills (incl. kimi-toolchain copy)
+  var/                # Toolchain state (sessions.db — not Kimi sessions/)
   guardian/           # Lockfile manifest DB
   governor/           # Resource governor DB + cache
   AGENTS.md           # Copied from repo root

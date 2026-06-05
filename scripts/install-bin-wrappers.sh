@@ -35,6 +35,21 @@ EOF
   COUNT=$((COUNT + 1))
 done
 
+# Remove stale wrappers from prior package names / removed tools
+REMOVED=0
+for dest in "${BIN_DIR}"/kimi-*; do
+  [[ -e "$dest" ]] || continue
+  name="$(basename "$dest")"
+  if [[ " ${BINS} " != *" ${name} "* ]]; then
+    rm -f "$dest"
+    echo "  ✗ removed stale ${name}"
+    REMOVED=$((REMOVED + 1))
+  fi
+done
+
 echo ""
 echo "Installed ${COUNT} wrapper(s) in ${BIN_DIR}"
+if [[ "${REMOVED}" -gt 0 ]]; then
+  echo "Removed ${REMOVED} stale wrapper(s)"
+fi
 echo "Ensure ~/.local/bin is on PATH."

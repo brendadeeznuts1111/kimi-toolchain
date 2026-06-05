@@ -493,3 +493,67 @@ const gov = new ParallelGovernor(4);
 const tasks = urls.map((url) => gov.run(() => fetch(url).then((r) => r.text())));
 await Promise.all(tasks);
 ```
+
+## Kimi Code MCP — user `~/.kimi-code/mcp.json`
+
+Toolchain seeds this via `bun run sync`. Manual reference:
+
+```json
+{
+  "mcpServers": {
+    "unified-shell": {
+      "command": "/absolute/path/to/bun",
+      "args": ["run", "/Users/you/.kimi-code/tools/unified-shell-bridge.ts"],
+      "env": {
+        "TERMINAL_BINDING_ENABLED": "true",
+        "KIMI_SHELL_MODE": "unified"
+      }
+    }
+  }
+}
+```
+
+Tool exposed to Kimi: `mcp__unified-shell__execute`. See `templates/kimi-config-permissions.toml` for `config.toml` permission rules.
+
+## Kimi Code MCP — project `.kimi-code/mcp.json`
+
+Project entries override user-level servers with the same name:
+
+```json
+{
+  "mcpServers": {}
+}
+```
+
+Scaffolded by `kimi-fix`. Only add stdio servers in trusted repos.
+
+## Zed ACP — `~/.config/zed/settings.json`
+
+```json
+{
+  "agent_servers": {
+    "Kimi Code CLI": {
+      "type": "custom",
+      "command": "/Users/you/.kimi-code/bin/kimi",
+      "args": ["acp"],
+      "env": {}
+    }
+  }
+}
+```
+
+## JetBrains ACP — Configure ACP agents
+
+```json
+{
+  "agent_servers": {
+    "Kimi Code CLI": {
+      "command": "/Users/you/.kimi-code/bin/kimi",
+      "args": ["acp"],
+      "env": {}
+    }
+  }
+}
+```
+
+Run `kimi login` in terminal before first IDE session.

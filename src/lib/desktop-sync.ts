@@ -11,6 +11,10 @@ export function desktopRoot(): string {
 }
 export const AGENTS_SKILLS_ROOT = join(Bun.env.HOME || "/tmp", ".agents", "skills");
 
+export function kimiCodeSkillsRoot(): string {
+  return join(desktopRoot(), "skills");
+}
+
 export const ROOT_TEMPLATES = [
   "AGENTS.md",
   "UNIFIED.md",
@@ -34,6 +38,7 @@ export interface DesktopPaths {
   scriptsDst: string;
   skillSrc: string;
   skillDst: string;
+  kimiSkillDst: string;
 }
 
 export function resolveDesktopPaths(repoRoot: string): DesktopPaths {
@@ -48,6 +53,7 @@ export function resolveDesktopPaths(repoRoot: string): DesktopPaths {
     scriptsDst: join(desktopRoot(), "scripts"),
     skillSrc: join(repoRoot, "skills", "kimi-toolchain"),
     skillDst: join(AGENTS_SKILLS_ROOT, "kimi-toolchain"),
+    kimiSkillDst: join(kimiCodeSkillsRoot(), "kimi-toolchain"),
   };
 }
 
@@ -60,6 +66,7 @@ export function ensureDesktopLayout(): void {
     join(desktopRoot(), "memory"),
     join(desktopRoot(), "guardian"),
     join(desktopRoot(), "governor"),
+    kimiCodeSkillsRoot(),
   ]) {
     ensureDir(dir);
   }
@@ -170,7 +177,14 @@ export async function syncDesktop(
       await copyIfChanged(
         join(paths.skillSrc, rel),
         join(paths.skillDst, rel),
-        `skill/${rel}`,
+        `agents-skill/${rel}`,
+        force,
+        result
+      );
+      await copyIfChanged(
+        join(paths.skillSrc, rel),
+        join(paths.kimiSkillDst, rel),
+        `kimi-skill/${rel}`,
         force,
         result
       );

@@ -15,6 +15,7 @@ import {
 } from "../lib/desktop-sync.ts";
 import { DEFAULT_CONFIG_TEMPLATE } from "../lib/governor-config.ts";
 import { SESSIONS_SCHEMA_SQL } from "../lib/sessions-schema.ts";
+import { provisionUserMcp } from "../lib/mcp-config.ts";
 import { ensureDir } from "../lib/utils.ts";
 
 const REPO_ROOT = resolve(import.meta.dir, "../..");
@@ -32,6 +33,11 @@ async function main() {
   }
 
   await syncDesktop(REPO_ROOT, { force: true });
+
+  const mcp = await provisionUserMcp();
+  console.log(
+    mcp.changed ? "   MCP: unified-shell registered" : "   MCP: unified-shell already configured"
+  );
 
   const dbPath = join(VAR_DIR, "sessions.db");
   if (!existsSync(dbPath)) {
@@ -56,6 +62,7 @@ async function main() {
 
   ensureDir(AGENTS_SKILLS_ROOT);
   console.log("   Skill: ~/.agents/skills/kimi-toolchain/");
+  console.log(`   Skill: ${join(desktopRoot(), "skills/kimi-toolchain/")}`);
   console.log("✅ kimi-toolchain ready");
   console.log(`   Tools: ${join(desktopRoot(), "tools")}`);
   console.log(`   State: ${VAR_DIR}`);

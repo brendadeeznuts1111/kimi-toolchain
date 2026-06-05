@@ -1,29 +1,41 @@
 ---
 name: kimi-toolchain
 description: |
-  Teaches agents to operate the kimi-toolchain CLI effectively.
-  Use when working with kimi-doctor, kimi-governance, kimi-guardian, kimi-fix,
-  or any kimi-* CLI tool.
-triggers:
-  [
-    "kimi",
-    "doctor",
-    "governance",
-    "guardian",
-    "fix",
-    "r-score",
-    "lockfile",
-    "project health",
-    "what broke",
-  ]
-version: 0.2.0
+  Teaches agents to operate kimi-toolchain CLI and align with Kimi Code docs.
+  Use for kimi-doctor, kimi-governance, kimi-guardian, kimi-fix, or project health.
+  For Kimi Code config/MCP/sessions use `kimi` and `kimi doctor` (official).
+whenToUse: |
+  Project health, R-Score, lockfile security, scaffolding, or Bun quality gates.
+  Kimi Code slash commands (/mcp, /goal) and ACP are separate from toolchain CLIs.
 ---
 
 # kimi-toolchain
 
-Teaches agents to operate the kimi-toolchain CLI effectively.
+## Kimi Code vs toolchain
 
-## When to Use
+| Need                                | Use                                                   |
+| ----------------------------------- | ----------------------------------------------------- |
+| Kimi config, OAuth, models          | `kimi doctor` (official)                              |
+| MCP servers, `/mcp-config`          | `kimi` TUI or edit `~/.kimi-code/mcp.json`            |
+| Sessions, goals, subagents          | `kimi` / `kimi --continue` from project cwd           |
+| Zed/JetBrains agent                 | `kimi acp` (absolute path to `~/.kimi-code/bin/kimi`) |
+| R-Score, guardian, hooks, Bun gates | `kimi-doctor`, `kimi-governance`, `bun run check`     |
+
+**`kimi doctor` (Moonshot) ≠ `kimi-doctor` (toolchain).** Run both after toolchain changes.
+
+## Kimi Code slash commands
+
+| Command             | Purpose                            |
+| ------------------- | ---------------------------------- |
+| `/mcp`              | MCP server connection status       |
+| `/mcp-config`       | Add/edit MCP servers interactively |
+| `/goal next <text>` | Queue a multi-turn goal            |
+| `/reload`           | Reload session after config edits  |
+| `/reload-tui`       | Reload TUI preferences only        |
+
+Built-in subagents: `coder`, `explore`, `plan`. Experimental sub-skills: `KIMI_CODE_EXPERIMENTAL_SUB_SKILL=1` (0.11.0+).
+
+## When to Use (toolchain)
 
 - User asks about project health, diagnostics, or governance
 - User modifies `package.json`, `bun.lock`, or `bunfig.toml`
@@ -34,7 +46,8 @@ Teaches agents to operate the kimi-toolchain CLI effectively.
 
 | Command            | Purpose                    | When to Invoke                        |
 | ------------------ | -------------------------- | ------------------------------------- |
-| `kimi-doctor`      | Full diagnostic suite      | Always first on health questions      |
+| `kimi doctor`      | Official Kimi Code config  | MCP/auth/model issues                 |
+| `kimi-doctor`      | Toolchain diagnostic suite | Project + desktop sync + MCP wiring   |
 | `kimi-governance`  | R-Score + governance check | After doctor, for scoring             |
 | `kimi-guardian`    | Lockfile integrity         | After dep changes, before push        |
 | `kimi-fix`         | Scaffold / auto-fix        | When grade is D/F or scaffold request |
@@ -43,28 +56,20 @@ Teaches agents to operate the kimi-toolchain CLI effectively.
 | `kimi-memory`      | Session + warning trends   | When interpreting recurring warnings  |
 | `kimi-debug`       | Failure wizard             | When user asks "what broke?"          |
 
-## Scenario Comparison
-
-| Scenario                  | Without Skill                             | With Skill                                                                                           |
-| ------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| "Check my project health" | Generic file listing, maybe suggests `ls` | Run `kimi-doctor`, then `kimi-governance score`; interpret R-Score; suggest `kimi-governance fix`    |
-| "I updated dependencies"  | Generic "test it" advice                  | Run `kimi-guardian check`; block if HASH MISMATCH or unsigned manifest; suggest `sign` + drift check |
-| "What broke?"             | Generic git diff suggestion               | Run `kimi-debug last`, query `kimi-memory trends`, show warning history, suggest wizard steps        |
-| "Scaffold a new project"  | Generic file creation                     | Run `kimi-fix`, validate with `kimi-governance score`, install `kimi-githooks`, suggest next steps   |
-
 ## Decision Protocol
 
 ### Project Health Check
 
 ```
-1. RUN: kimi-doctor
-2. RUN: kimi-governance score
-3. PARSE doctor output + R-Score breakdown
-4. IF lockfile warning → RUN: kimi-guardian check
-5. IF coverage gap → RUN: bun run test:coverage:fast (local) or bun run test:coverage:ci (CI)
-6. IF governance gap → RUN: kimi-governance fix
-7. QUERY: kimi-memory trends (sessions.db warning_trends)
-8. PRESENT: current state + trend + next action
+1. RUN: kimi doctor          # official Kimi Code config
+2. RUN: kimi-doctor --quick  # toolchain + MCP + path alignment
+3. RUN: kimi-governance score
+4. PARSE doctor output + R-Score breakdown
+5. IF lockfile warning → RUN: kimi-guardian check
+6. IF coverage gap → RUN: bun run test:coverage:fast (local) or bun run test:coverage:ci (CI)
+7. IF governance gap → RUN: kimi-governance fix
+8. QUERY: kimi-memory trends (sessions.db warning_trends)
+9. PRESENT: current state + trend + next action
 ```
 
 ### Dependency Changes
@@ -75,7 +80,6 @@ Teaches agents to operate the kimi-toolchain CLI effectively.
    a. BLOCK any push or further dep suggestions
    b. ASK: "Run kimi-guardian sign to baseline intentionally?"
 3. IF guardian PASSES → continue workflow
-4. OPTIONAL: bun run src/drift/check.ts (dependency drift)
 ```
 
 ### Failure Recovery ("What broke?")
@@ -84,10 +88,8 @@ Teaches agents to operate the kimi-toolchain CLI effectively.
 1. RUN: kimi-debug last
 2. QUERY: kimi-memory trends + doctor_runs in sessions.db
 3. RUN: git log --oneline -20
-4. RUN: git diff <last_green>..HEAD (if known)
-5. CHECK: bun.lock for recent changes
-6. IF CONTEXT.md stale → RUN: kimi-context-gen freshness / update
-7. PRESENT: timeline + likely cause + recovery steps
+4. IF CONTEXT.md stale → RUN: kimi-context-gen freshness / update
+5. PRESENT: timeline + likely cause + recovery steps
 ```
 
 ### Scaffold New Project
@@ -103,62 +105,48 @@ Teaches agents to operate the kimi-toolchain CLI effectively.
 
 ```
 1. RUN: kimi-githooks doctor
-2. LOCAL (fast): bun run check:fast — pre-commit hook runs this path
-3. BEFORE PUSH: bun run check — full smoke suite on pre-push
-   Preview: bun run check:dry-run (gate steps; not bun test --dry-run)
+2. LOCAL (fast): bun run check:fast
+3. BEFORE PUSH: bun run check
 4. RUN: kimi-guardian check
 5. RUN: kimi-governance score (pre-push blocks F/D)
 ```
 
-Note: `kimi doctor` (Moonshot) ≠ `kimi-doctor` (toolchain). Kimi Code docs do not cover Bun gates — see UNIFIED.md.
-
 ## R-Score Interpretation
 
-R-Score is **points out of 110** with letter grades derived from decimal % of max (e.g. `C (87.3/110, 79.4%)`). Coverage contributes fractional points.
+R-Score is **points out of 110** with letter grades derived from decimal % of max.
 
-| % of Max | Grade | Points (approx) | Meaning    | Action                         |
-| -------- | ----- | --------------- | ---------- | ------------------------------ |
-| ≥ 90%    | A     | ≥ 99/110        | Excellent  | Maintain                       |
-| ≥ 80%    | B     | ≥ 88/110        | Good       | Minor fixes                    |
-| ≥ 70%    | C     | ≥ 77/110        | Acceptable | Address warnings               |
-| ≥ 60%    | D     | ≥ 66/110        | At risk    | Run `kimi-fix`, governance fix |
-| < 60%    | F     | < 66/110        | Critical   | Halt; full audit with doctor   |
-
-Key breakdown weights: license/contributing/codeowners/readme/context (10 each),
-changelog (5 bonus), testCoverage (25), docsFresh (15), noStaleLockfile (10).
+| % of Max | Grade | Action                         |
+| -------- | ----- | ------------------------------ |
+| ≥ 90%    | A     | Maintain                       |
+| ≥ 80%    | B     | Minor fixes                    |
+| ≥ 70%    | C     | Address warnings               |
+| ≥ 60%    | D     | Run `kimi-fix`, governance fix |
+| < 60%    | F     | Halt; full audit with doctor   |
 
 ## Security Boundaries
 
 - **Never** suggest `git push --no-verify` to bypass hooks
 - **Never** ignore `kimi-guardian` failures
-- **Always** verify lockfile after dependency changes (`kimi-guardian check`)
-- **Prefer** `Bun.secrets` over `.env` files (pre-commit blocks `.env`)
-- **Never** suggest `kimi-guardian sign` unless user intentionally changed deps
+- **Never** use YOLO (`-y`) with MCP shell tools unless user fully trusts servers
+- **Never** hand-edit `~/.kimi-code/sessions/` or `credentials/`
+- **Prefer** `Bun.secrets` over `.env` files
 
 ## Session Memory
 
-State lives in `~/.kimi-code/var/sessions.db`. Query via:
+Toolchain state: `~/.kimi-code/var/sessions.db` (not Kimi Code `sessions/wd_*`).
 
 ```bash
-kimi-memory trends      # warning_trends — new vs accepted risk
-kimi-memory recall      # recent sessions
-kimi-memory search <k>  # knowledge graph lookup
+kimi-memory trends
+kimi-memory recall
+kimi-memory search <k>
 ```
 
-Tables: `sessions`, `doctor_runs`, `warning_trends`, `knowledge_nodes`.
+## MCP (toolchain)
 
-Distinguish **new warning → act now** from **old warning → accepted risk**.
-
-## Examples
-
-Bundled walkthroughs in `examples/`:
-
-- `examples/doctor-smell.md` — project health check
-- `examples/guardian-failure.md` — dependency / lockfile failure
-- `examples/what-broke.md` — failure recovery
+Unified-shell bridge is auto-registered in `~/.kimi-code/mcp.json` on `bun run sync`. Verify with `kimi-doctor --quick` MCP section or `kimi` → `/mcp`.
 
 ## Related
 
 - Repo: https://github.com/brendadeeznuts1111/kimi-toolchain
-- AGENTS.md: `~/.kimi-code/AGENTS.md`
-- Tools: `~/.kimi-code/tools/`
+- UNIFIED.md: product matrix, MCP, ACP, editor workflows
+- Kimi docs: https://moonshotai.github.io/kimi-code/

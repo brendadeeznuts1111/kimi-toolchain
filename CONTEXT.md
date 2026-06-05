@@ -4,7 +4,7 @@
 
 ## Domain
 
-Kimi Code CLI infrastructure and toolchain. This workspace contains the custom agent tools, MCP bridge, documentation, and governance scaffolding that power the Kimi Code CLI experience on this machine.
+Bun-native extension layer for Kimi Code and project governance. This repo provides diagnostics, MCP bridge provisioning, and scaffolding synced into `~/.kimi-code/` — it does not replace the official Moonshot `kimi` agent (see UNIFIED.md for Kimi Work vs Kimi Code vs kimi-toolchain).
 
 ## Architecture
 
@@ -42,8 +42,10 @@ kimi-toolchain/
 ~/.kimi-code/
   tools/              # Copied from src/bin/ on install
   lib/                # Copied from src/lib/ on install
-  var/                # Runtime state (sessions.db, etc.)
-  memory/             # Session store
+  scripts/            # Copied gate scripts
+  mcp.json            # User MCP (toolchain seeds unified-shell)
+  skills/             # Kimi Code user skills
+  var/                # Toolchain sessions.db (not Kimi sessions/)
   guardian/           # Lockfile manifests
   governor/           # Resource cache
   AGENTS.md           # Copied from repo

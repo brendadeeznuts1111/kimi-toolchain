@@ -25,6 +25,14 @@ async function runTool(
 }
 
 describe("kimi-doctor smoke", () => {
+  test("doctor --quick includes MCP and Kimi Code sections", async () => {
+    const { stdout } = await runTool(DOCTOR, ["--quick"]);
+    expect(stdout).toContain("Kimi Code Config");
+    expect(stdout).toContain("── MCP");
+    expect(stdout).toContain("unified-shell");
+    expect(stdout).toContain("Path Alignment");
+  }, 60_000);
+
   test("doctor --quick includes memory pressure checks", async () => {
     const { stdout, exitCode } = await runTool(DOCTOR, ["--quick"]);
     expect(stdout).toContain("swap-used");

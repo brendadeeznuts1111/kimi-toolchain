@@ -21,6 +21,12 @@ import {
   type MemoryCheckResult,
 } from "../lib/memory-budget.ts";
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
+import {
+  auditPathAlignment,
+  removeOrphanedSnapshots,
+  removeStaleWrappers,
+} from "../lib/path-alignment.ts";
+import { fixMcpConfig, validateMcpConfig } from "../lib/mcp-config.ts";
 import { getOrphanProcesses, runOrphanKill } from "./kimi-orphan-kill.ts";
 import { resolveProjectRoot, printSection } from "../lib/utils.ts";
 
@@ -99,6 +105,54 @@ async function runToolDoctor(tool: string): Promise<CheckResult> {
   }
 }
 
+function parseSemver(version: string): [number, number, number] | null {
+  const m = version.trim().match(/^(\d+)\.(\d+)\.(\d+)/);
+  if (!m) return null;
+  return [Number(m[1]), Number(m[2]), Number(m[3])];
+}
+
+function semverBelow(version: string | null, floor: [number, number, number]): boolean {
+  if (!version) return true;
+  const v = parseSemver(version);
+  if (!v) return false;
+  if (v[0] !== floor[0]) return v[0] < floor[0];
+  if (v[1] !== floor[1]) return v[1] < floor[1];
+  return v[2] < floor[2];
+}
+
+async function runOfficialKimiDoctor(): Promise<CheckResult> {
+  const kimiPath = Bun.which("kimi");
+  if (!kimiPath) {
+    return error("kimi doctor", "kimi not installed");
+  }
+  try {
+    const proc = Bun.spawn(["kimi", "doctor"], { stdout: "pipe", stderr: "pipe" });
+    const exitCode = await proc.exited;
+    const stdout = await Bun.readableStreamToText(proc.stdout);
+    const stderr = await Bun.readableStreamToText(proc.stderr);
+    if (exitCode === 0) {
+      const line = stdout
+        .split("\n")
+        .find((l) => l.trim())
+        ?.trim();
+      return ok("kimi doctor", line || "passed");
+    }
+    const detail =
+      stderr
+        .split("\n")
+        .find((l) => l.trim())
+        ?.trim() ||
+      stdout
+        .split("\n")
+        .find((l) => l.trim())
+        ?.trim() ||
+      `exit ${exitCode}`;
+    return error("kimi doctor", detail.slice(0, 120));
+  } catch (e: any) {
+    return error("kimi doctor", e.message);
+  }
+}
+
 async function versionMatrix(): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
   const [desktopVersion, repoHead, dirty, manifest] = await Promise.all([
@@ -113,6 +167,15 @@ async function versionMatrix(): Promise<CheckResult[]> {
 
   if (desktopVersion) {
     results.push(ok("Desktop (kimi)", desktopLabel));
+    if (semverBelow(desktopVersion, [0, 9, 0])) {
+      results.push(warn("kimi acp", "requires kimi >= 0.9.0"));
+    }
+    if (semverBelow(desktopVersion, [0, 10, 0])) {
+      results.push(warn("kimi doctor cmd", "requires kimi >= 0.10.0"));
+    }
+    if (semverBelow(desktopVersion, [0, 11, 0])) {
+      results.push(warn("sub-skills", "0.11.0+ for experimental sub-skill bundle"));
+    }
   } else {
     results.push(error("Desktop (kimi)", "not found"));
   }
@@ -288,9 +351,37 @@ async function runQualityChecks(projectRoot: string): Promise<CheckResult[]> {
   return results;
 }
 
+async function applyPathAlignmentFixes(projectRoot: string): Promise<void> {
+  const home = Bun.env.HOME || "/tmp";
+  const report = await auditPathAlignment(projectRoot);
+
+  if (report.staleWrappers.length > 0) {
+    const removed = removeStaleWrappers(report.staleWrappers, join(home, ".local", "bin"));
+    console.log(`  ✓ Removed ${removed} stale PATH wrapper(s)`);
+  }
+
+  if (report.orphanedSnapshots > 0) {
+    const removed = await removeOrphanedSnapshots(join(home, ".kimi-code", "snapshots"));
+    console.log(`  ✓ Removed ${removed} orphaned snapshot(s)`);
+  }
+}
+
+async function applyMcpFixes(projectRoot: string): Promise<void> {
+  const home = Bun.env.HOME || "/tmp";
+  const isToolchain = await isKimiToolchainRepo(projectRoot);
+  const { userChanged, projectCreated } = await fixMcpConfig(
+    home,
+    isToolchain ? projectRoot : undefined
+  );
+  if (userChanged) console.log("  ✓ MCP: unified-shell registered in ~/.kimi-code/mcp.json");
+  if (projectCreated) console.log("  ✓ MCP: created .kimi-code/mcp.json stub");
+}
+
 async function applyFixes(projectRoot: string): Promise<void> {
   section("Auto-fix");
   await applySyncFix(projectRoot);
+  await applyMcpFixes(projectRoot);
+  await applyPathAlignmentFixes(projectRoot);
 
   const orphans = getOrphanProcesses();
   if (orphans.length > 0) {
@@ -317,13 +408,14 @@ async function main() {
 
   if (!JSON_OUT) {
     console.log("╔══════════════════════════════════════════════════════════════╗");
-    console.log("║           Kimi Doctor — Comprehensive Diagnostics            ║");
+    console.log("║        kimi-doctor — Toolchain Diagnostics                   ║");
     console.log("╚══════════════════════════════════════════════════════════════╝");
   }
 
   const results: CheckResult[] = [];
   let syncReport: { synced: boolean; drifted: string[]; missing: string[] } | undefined;
   const projectRoot = await resolveProjectRoot();
+  const home = Bun.env.HOME || "/tmp";
 
   section("System");
 
@@ -359,6 +451,12 @@ async function main() {
     );
   }
 
+  section("Kimi Code Config");
+  results.push(await runOfficialKimiDoctor());
+  if (!JSON_OUT) {
+    console.log("  ℹ kimi doctor (official) ≠ kimi-doctor (toolchain)");
+  }
+
   section("Version Matrix");
   results.push(...(await versionMatrix()));
 
@@ -366,6 +464,14 @@ async function main() {
   const syncCheck = await checkDesktopSync(projectRoot);
   results.push(...syncCheck.results);
   syncReport = syncCheck.drift;
+
+  section("MCP");
+  const mcpReport = await validateMcpConfig(home, projectRoot);
+  for (const check of mcpReport.checks) {
+    if (check.status === "ok") results.push(ok(check.name, check.message));
+    else if (check.status === "warn") results.push(warn(check.name, check.message));
+    else results.push(error(check.name, check.message));
+  }
 
   section("Code Quality");
   results.push(...(await runQualityChecks(projectRoot)));
@@ -398,9 +504,16 @@ async function main() {
     }
   }
 
+  section("Path Alignment");
+  const pathReport = await auditPathAlignment(projectRoot);
+  for (const check of pathReport.checks) {
+    if (check.status === "ok") results.push(ok(check.name, check.message));
+    else if (check.status === "warn") results.push(warn(check.name, check.message));
+    else results.push(error(check.name, check.message));
+  }
+
   section("Global Context");
 
-  const home = Bun.env.HOME || "/tmp";
   results.push(
     existsSync(join(home, ".kimi-code", "AGENTS.md"))
       ? ok("AGENTS.md", "present")

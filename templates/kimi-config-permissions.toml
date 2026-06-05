@@ -1,0 +1,16 @@
+# Kimi Code MCP permission examples — append to ~/.kimi-code/config.toml
+# @see https://moonshotai.github.io/kimi-code/en/customization/mcp.html
+#
+# MCP tools are named: mcp__<server>__<tool>
+# Toolchain unified-shell exposes: mcp__unified-shell__execute
+#
+# Uncomment to pre-approve (reduces prompts; use with caution in YOLO mode):
+
+# [[permission.rules]]
+# decision = "allow"
+# pattern = "mcp__unified-shell__execute"
+
+# Deny example:
+# [[permission.rules]]
+# decision = "deny"
+# pattern = "mcp__filesystem__write_file"

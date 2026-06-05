@@ -15,6 +15,8 @@ export const UNIT_TEST_FILES = [
   "test/test-gates.unit.test.ts",
   "test/sync-drift.unit.test.ts",
   "test/readme-sync.unit.test.ts",
+  "test/path-alignment.unit.test.ts",
+  "test/mcp-config.unit.test.ts",
 ] as const;
 
 export const FAST_TEST_TIMEOUT_MS = 100;

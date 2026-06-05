@@ -4,42 +4,52 @@
 
 ## Name matrix
 
-| Name                        | What it is                                                                            | Canonical path                     |
-| --------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------- |
-| **Kimi Code**               | Moonshot terminal coding agent (Node/TypeScript, single-binary SEA)                   | `~/.kimi-code/bin/kimi`            |
-| **kimi-toolchain**          | Bun-native dev-tools package (this repo)                                              | `~/kimi-toolchain/` (clone path)   |
-| **~/.kimi-code/**           | Shared runtime home for Kimi Code + toolchain extensions                              | `~/.kimi-code/`                    |
-| **dx**                      | Global Bun dev/audit platform (separate codebase)                                     | `~/.local/bin/dx`, `~/.config/dx/` |
-| **kimi** vs **kimi-doctor** | `kimi doctor` = official Kimi Code config check; `kimi-doctor` = toolchain aggregator | Different commands                 |
+| Name                               | What it is                                                                      | Canonical path                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| **Kimi Work**                      | Desktop knowledge-work agent (WebBridge, cron, local mounts)                    | `Kimi.app`, `~/Library/Application Support/kimi-desktop/` |
+| **Kimi Code**                      | Moonshot terminal coding agent (Node/TypeScript, single-binary SEA)             | `~/.kimi-code/bin/kimi`                                   |
+| **kimi-toolchain**                 | Bun-native dev-tools package (this repo)                                        | `~/kimi-toolchain/` (clone path)                          |
+| **~/.kimi-code/**                  | Shared runtime home for Kimi Code + toolchain extensions                        | `~/.kimi-code/`                                           |
+| **dx**                             | Global Bun dev/audit platform (separate codebase)                               | `~/.local/bin/dx`, `~/.config/dx/`                        |
+| **kimi doctor** vs **kimi-doctor** | `kimi doctor` = official Kimi Code config; `kimi-doctor` = toolchain aggregator | Different commands                                        |
 
 **Do not rename** `~/.kimi-code/` — it is the official Kimi Code data directory.
 
 ## Directory layout
 
 ```
-~/.kimi-code/                          # Official Kimi Code home (Moonshot)
+~/.kimi-code/                          # Official Kimi Code home (Moonshot) — DO NOT hand-edit
 ├── bin/kimi                           # Kimi Code CLI (Node SEA, v0.11+)
-├── config.toml                        # Agent: models, loop_control, providers
+├── config.toml                        # Agent: models, permissions, providers
 ├── tui.toml                           # UI: theme, notifications, auto_upgrade
 ├── credentials/                       # OAuth (managed:kimi-code)
-├── sessions/                          # Kimi Code session store
-├── mcp.json                           # MCP servers (incl. unified-shell-bridge)
+├── sessions/wd_*/                     # Kimi Code chat sessions (workDir-bound)
+├── session_index.jsonl                # Session index (cwd binding)
+├── mcp.json                           # User-level MCP (toolchain seeds unified-shell)
+├── plugins/                           # Kimi Code plugins
+├── skills/                            # User skills (toolchain syncs kimi-toolchain skill)
+├── logs/                              # Diagnostic logs
 │
 ├── tools/*.ts                         # EXTENSION: synced from kimi-toolchain src/bin/
 ├── lib/*.ts                           # EXTENSION: synced from kimi-toolchain src/lib/
+├── scripts/*.ts                       # EXTENSION: synced gate scripts
+├── var/sessions.db                    # EXTENSION: toolchain memory (not Kimi sessions)
 ├── governor/                          # EXTENSION: resource governor
 ├── guardian/                          # EXTENSION: lockfile security
+├── toolchain-manifest.json            # EXTENSION: sync metadata
 ├── AGENTS.md, UNIFIED.md              # EXTENSION: copied from repo
 
 ~/kimi-toolchain/                      # Source of truth (this repo)
+├── .kimi-code/mcp.json                # Optional project MCP overrides
 ├── src/bin/kimi-*.ts                  # Edit here
-├── src/lib/*.ts
-├── package.json                       # name: "kimi-toolchain"
 └── scripts/sync-to-desktop.ts         # Repo → ~/.kimi-code/
 
 ~/.local/bin/kimi-*                    # Thin wrappers → ~/.kimi-code/tools/*.ts
-~/.config/dx/                          # dx global config + project registry
+~/.agents/skills/kimi-toolchain/       # Cursor/Codex skill copy
+~/.config/dx/                          # dx global config
 ```
+
+**Agents: do not edit** `sessions/`, `credentials/`, or `config.toml` from toolchain code. Use `kimi doctor`, `/mcp-config`, or user-approved edits.
 
 ## Install Kimi Code (official)
 
@@ -137,4 +147,69 @@ kimi-doctor --quick                   # toolchain + sync drift + memory
 bun run memory-check                  # pre-session gate
 ```
 
-`kimi-doctor --json` emits structured output for agents. `kimi-doctor --fix` runs `sync` + wrapper install when desktop drift is detected.
+`kimi-doctor --json` emits structured output for agents. `kimi-doctor --fix` runs `sync`, MCP provisioning, and wrapper install when drift is detected.
+
+## MCP (Model Context Protocol)
+
+Docs: https://moonshotai.github.io/kimi-code/en/customization/mcp.html
+
+| Level   | Path                              | Precedence                 |
+| ------- | --------------------------------- | -------------------------- |
+| User    | `~/.kimi-code/mcp.json`           | Default for all projects   |
+| Project | `.kimi-code/mcp.json` in repo cwd | Overrides same server name |
+
+Toolchain auto-registers **unified-shell** (stdio → `unified-shell-bridge.ts`). Tool name in Kimi: `mcp__unified-shell__execute`.
+
+```bash
+bun run sync                    # refreshes bridge + mcp.json entry
+kimi-doctor --quick             # MCP section validates wiring
+```
+
+In Kimi TUI: `/mcp` (status), `/mcp-config` (interactive edit). Permission rules: `templates/kimi-config-permissions.toml`.
+
+## Editor workflows
+
+### Terminal (Kimi Code TUI)
+
+```bash
+cd ~/kimi-toolchain
+kimi              # new session for this workDir
+kimi --continue   # resume previous session for this directory
+```
+
+### Cursor
+
+- Open folder: `~/kimi-toolchain` (not legacy `kimicode-cli`)
+- **Composer** uses Cursor's agent (separate from Kimi MCP)
+- Integrated terminal `kimi` shares `~/.kimi-code/mcp.json`
+- Toolchain: `kimi-doctor`, `bun run check`
+
+### Zed / JetBrains (ACP)
+
+Kimi Code speaks [Agent Client Protocol](https://moonshotai.github.io/kimi-code/en/reference/kimi-acp.html) via `kimi acp`. Use **absolute path** to `kimi`:
+
+```json
+{
+  "agent_servers": {
+    "Kimi Code CLI": {
+      "type": "custom",
+      "command": "/Users/you/.kimi-code/bin/kimi",
+      "args": ["acp"],
+      "env": {}
+    }
+  }
+}
+```
+
+Run `kimi login` once in terminal before IDE ACP sessions.
+
+## Kimi Code features (0.11.0)
+
+| Feature                 | How                                  |
+| ----------------------- | ------------------------------------ |
+| Official config check   | `kimi doctor`                        |
+| Goal queue              | `/goal next`, `/goal next manage`    |
+| MCP                     | `/mcp`, `/mcp-config`                |
+| Subagents               | built-in `coder`, `explore`, `plan`  |
+| Experimental sub-skills | `KIMI_CODE_EXPERIMENTAL_SUB_SKILL=1` |
+| Reload config           | `/reload`, `/reload-tui`             |

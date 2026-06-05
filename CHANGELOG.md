@@ -2,7 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## Unreleased
 
 ### Added
+
+- MCP auto-provisioning: `src/lib/mcp-config.ts` seeds `unified-shell` in `~/.kimi-code/mcp.json` on sync/postinstall
+- `kimi-doctor` MCP validation section and official `kimi doctor` delegation
+- Dual skill sync to `~/.kimi-code/skills/` and `~/.agents/skills/`
+- Path alignment: session cwd, ACP command hints, Cursor workspace drift warnings
+- `kimi-fix` scaffolds `.kimi-code/mcp.json` and `.kimi-code/skills/`
+- Kimi Code alignment docs in UNIFIED.md, SKILL.md, TEMPLATES.md (MCP, ACP, editors)
+
+## [0.1.0] — initial
+
+### Added
+
 - Initial setup

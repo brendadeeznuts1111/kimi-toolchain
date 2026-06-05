@@ -10,6 +10,7 @@
  */
 
 import { syncDesktop } from "../src/lib/desktop-sync.ts";
+import { provisionUserMcp } from "../src/lib/mcp-config.ts";
 import { computeSyncHashes } from "../src/lib/sync-hashes.ts";
 import {
   TOOLCHAIN_VERSION,
@@ -38,6 +39,8 @@ async function main() {
     console.log("🔄 Starting desktop sync daemon (every 5 minutes)...");
     Bun.cron("*/5 * * * *", async () => {
       const result = await syncDesktop(REPO_ROOT);
+      const mcp = await provisionUserMcp();
+      if (mcp.changed) result.updated.push("mcp.json");
       const total = result.updated.length + result.removed.length;
       if (total > 0) {
         const stamp = new Date().toISOString().slice(11, 19);
@@ -64,6 +67,11 @@ async function main() {
 
   console.log("🔄 Syncing repo → ~/.kimi-code/ ...");
   const result = await syncDesktop(REPO_ROOT);
+  const mcp = await provisionUserMcp();
+  if (mcp.changed) {
+    console.log("   ✓ mcp.json: unified-shell updated");
+    result.updated.push("mcp.json");
+  }
   const fileHashes = await computeSyncHashes(REPO_ROOT);
 
   await writeManifest({
