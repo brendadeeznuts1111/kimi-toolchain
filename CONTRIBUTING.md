@@ -1,4 +1,4 @@
-# Contributing to kimicode-cli
+# Contributing to kimi-toolchain
 
 ## Development Setup
 
@@ -28,5 +28,5 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ## Questions?
 
-- Open an issue: https://github.com/brendadeeznuts1111/kimicode-cli/issues
+- Open an issue: https://github.com/brendadeeznuts1111/kimi-toolchain/issues
 - Contact the maintainers (see CODEOWNERS)

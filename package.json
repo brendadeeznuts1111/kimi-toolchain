@@ -1,7 +1,7 @@
 {
-  "name": "kimicode-cli",
+  "name": "kimi-toolchain",
   "version": "0.1.0",
-  "description": "AI-native dev tooling: governance, diagnostics, security, and scaffolding",
+  "description": "Tier-1380 developer tooling: governance, diagnostics, security, and scaffolding",
   "type": "module",
   "main": "src/lib/utils.ts",
   "bin": {
@@ -19,6 +19,7 @@
   },
   "files": [
     "src",
+    "skills",
     "AGENTS.md",
     "UNIFIED.md",
     "TEMPLATES.md",
@@ -45,12 +46,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/brendadeeznuts1111/kimicode-cli.git"
+    "url": "https://github.com/brendadeeznuts1111/kimi-toolchain.git"
   },
   "bugs": {
-    "url": "https://github.com/brendadeeznuts1111/kimicode-cli/issues"
+    "url": "https://github.com/brendadeeznuts1111/kimi-toolchain/issues"
   },
-  "homepage": "https://github.com/brendadeeznuts1111/kimicode-cli#readme",
+  "homepage": "https://github.com/brendadeeznuts1111/kimi-toolchain#readme",
   "author": "nolarose",
   "license": "MIT"
 }

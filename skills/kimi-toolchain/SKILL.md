@@ -115,6 +115,6 @@ This distinguishes "new warning = immediate action" from
 
 ## Related
 
-- Repo: https://github.com/brendadeeznuts1111/kimicode-cli
+- Repo: https://github.com/brendadeeznuts1111/kimi-toolchain
 - AGENTS.md: `~/.kimi-code/AGENTS.md`
 - Tools: `~/.kimi-code/tools/`

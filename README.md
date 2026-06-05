@@ -1,25 +1,25 @@
-# kimicode-cli
+# kimi-toolchain
 
-> AI-native dev tooling powered by Kimi Code CLI
+> Tier-1380 developer tooling: governance, diagnostics, security, and scaffolding
 >
-> `https://github.com/brendadeeznuts1111/kimicode-cli`
+> `https://github.com/brendadeeznuts1111/kimi-toolchain`
 
 ## Install
 
 ```bash
 # Global install (recommended)
-bun install -g github:brendadeeznuts1111/kimicode-cli
+bun install -g github:brendadeeznuts1111/kimi-toolchain
 
 # Or clone and link
-git clone https://github.com/brendadeeznuts1111/kimicode-cli.git
-cd kimicode-cli
+git clone https://github.com/brendadeeznuts1111/kimi-toolchain.git
+cd kimi-toolchain
 bun install -g .
 ```
 
 **Zero-install alternative** — run any command without installing:
 ```bash
-bunx github:brendadeeznuts1111/kimicode-cli kimi-doctor
-bunx github:brendadeeznuts1111/kimicode-cli kimi-governance score
+bunx github:brendadeeznuts1111/kimi-toolchain kimi-doctor
+bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 ```
 
 > See [Bun documentation](https://bun.sh/docs/cli/bunx) for `bunx` usage.

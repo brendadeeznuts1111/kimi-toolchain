@@ -1,6 +1,6 @@
-# CONTEXT — kimicode-cli
+# CONTEXT — kimi-toolchain
 
-> `https://github.com/brendadeeznuts1111/kimicode-cli`
+> `https://github.com/brendadeeznuts1111/kimi-toolchain`
 
 ## Domain
 
@@ -11,7 +11,7 @@ Kimi Code CLI infrastructure and toolchain. This workspace contains the custom a
 ### Repo Structure (source of truth)
 
 ```
-kimicode-cli/
+kimi-toolchain/
   src/
     bin/              # CLI entry points (git-tracked)
       ├── kimi-doctor.ts
@@ -64,7 +64,7 @@ kimicode-cli/
 
 ```bash
 # Install globally
-bun install -g github:brendadeeznuts1111/kimicode-cli
+bun install -g github:brendadeeznuts1111/kimi-toolchain
 
 # Quality gates
 kimi-doctor              # Full toolchain diagnostics
