@@ -69,7 +69,7 @@ async function main() {
   const projectPath = args[0];
   const dryRun = args.includes("--dry-run");
 
-  if (!projectPath) {
+  if (!projectPath || projectPath === "--help" || projectPath === "-h") {
     console.log("Usage: kimi-fix <project-path> [--dry-run]");
     console.log("");
     console.log("Fixes missing project scaffolding by delegating to tools:");
@@ -79,7 +79,7 @@ async function main() {
     console.log("  - kimi-guardian fix (lockfile baseline + trusted deps)");
     console.log("  - kimi-githooks install (pre-commit + pre-push)");
     console.log("  - .env.example, .gitignore, bunfig.toml, CI template");
-    process.exit(1);
+    process.exit(projectPath ? 0 : 1);
   }
 
   const project = projectPath.replace(/\/$/, "");

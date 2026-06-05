@@ -191,7 +191,7 @@ async function updateChangelog(projectDir: string, section: string, version: str
 // ── Validation ───────────────────────────────────────────────────────
 
 async function validateCommits(projectDir: string): Promise<{ valid: Commit[]; invalid: string[] }> {
-  const result = await $`git log HEAD~20..HEAD --format=%H%x00%s%x00%b%x00`.cwd(projectDir).nothrow().quiet();
+  const result = await $`git log --format=%H%x00%s%x00%b%x00`.cwd(projectDir).nothrow().quiet();
   const raw = result.stdout.toString();
   const parts = raw.split("\x00").filter(Boolean);
 
@@ -223,7 +223,7 @@ async function doctor(projectDir: string): Promise<Array<{ name: string; status:
   const { valid, invalid } = await validateCommits(projectDir);
   const total = valid.length + invalid.length;
   const ratio = total > 0 ? valid.length / total : 0;
-  checks.push({ name: "conventional-commits", status: ratio >= 0.8 ? "ok" : ratio >= 0.5 ? "warn" : "error", message: `${valid}/${total} conventional (${(ratio * 100).toFixed(0)}%)`, fixable: invalid.length > 0 });
+  checks.push({ name: "conventional-commits", status: ratio >= 0.8 ? "ok" : ratio >= 0.5 ? "warn" : "error", message: `${valid.length}/${total} conventional (${(ratio * 100).toFixed(0)}%)`, fixable: invalid.length > 0 });
 
   // CHANGELOG.md
   const changelogPath = join(projectDir, "CHANGELOG.md");
