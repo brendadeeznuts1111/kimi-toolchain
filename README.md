@@ -4,18 +4,44 @@
 >
 > `https://github.com/brendadeeznuts1111/kimicode-cli`
 
-## Quick Start
+## Install
 
 ```bash
-bun install
-bun run <script>
+# Global install (recommended)
+bun install -g github:brendadeeznuts1111/kimicode-cli
+
+# Or clone and link
+git clone https://github.com/brendadeeznuts1111/kimicode-cli.git
+cd kimicode-cli
+bun install -g .
 ```
 
-## Scripts
+## Commands
 
 | Command | Description |
 |---------|-------------|
-| `bun run dev` | Start development server |
+| `kimi-doctor` | Full toolchain diagnostics |
+| `kimi-fix` | Auto-repair toolchain gaps |
+| `kimi-governance score` | Compute R-Score for current project |
+| `kimi-governance fix` | Auto-generate missing governance files |
+| `kimi-guardian check` | Lockfile integrity & CVE scan |
+| `kimi-memory doctor` | Session store health check |
+| `kimi-memory trends` | Persistent warning tracking |
+| `kimi-githooks install` | Install pre-commit + pre-push hooks |
+| `kimi-context-gen update` | Regenerate CONTEXT.md |
+
+## Project Structure
+
+```
+src/
+  bin/          # CLI tools (kimi-doctor, kimi-governance, etc.)
+  lib/          # Shared utilities (utils.ts)
+  hooks/        # postinstall.ts, pre-push
+  guardian/     # Lockfile verifier
+  drift/        # Dependency drift detector
+```
+
+Live runtime at `~/.kimi-code/` (managed by postinstall hook).
 
 ## Governance
 

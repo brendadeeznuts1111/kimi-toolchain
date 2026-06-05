@@ -8,25 +8,47 @@ Kimi Code CLI infrastructure and toolchain. This workspace contains the custom a
 
 ## Architecture
 
-```
-~/.kimi-code/tools/               # Custom Bun-native tools (source of truth)
-  ├── unified-shell-bridge.ts     # MCP stdio server for shell execution
-  ├── kimi-guardian.ts            # Supply chain security (lockfile, CVEs)
-  ├── kimi-governance.ts          # Quality gates & R-Score
-  ├── kimi-githooks.ts            # Git hook installer
-  ├── kimi-context-gen.ts         # CONTEXT.md generator
-  ├── kimi-debug.ts               # Failure recovery wizard
-  ├── kimi-resource-governor.ts   # Resource limits & diagnostic cache
-  ├── kimi-memory.ts              # Session store & knowledge graph
-  ├── kimi-release.ts             # Conventional commits & changelog
-  ├── kimi-snapshot.ts            # Environment snapshots
-  └── kimi-utils.ts               # Shared utilities
+### Repo Structure (source of truth)
 
-~/.kimi-code/                     # Global configuration
-  ├── AGENTS.md                   # Global agent rules & Bun API reference
-  ├── TEMPLATES.md                # Project scaffolding templates
-  ├── UNIFIED.md                  # Product map & quick commands
-  └── mcp.json                    # MCP server configuration
+```
+kimicode-cli/
+  src/
+    bin/              # CLI entry points (git-tracked)
+      ├── kimi-doctor.ts
+      ├── kimi-governance.ts
+      ├── kimi-guardian.ts
+      ├── kimi-memory.ts
+      ├── kimi-githooks.ts
+      ├── kimi-context-gen.ts
+      ├── kimi-debug.ts
+      ├── kimi-resource-governor.ts
+      ├── kimi-release.ts
+      ├── kimi-snapshot.ts
+      └── unified-shell-bridge.ts
+    lib/
+      └── utils.ts    # Shared utilities (was kimi-utils.ts)
+    hooks/
+      ├── postinstall.ts   # Sets up ~/.kimi-code/ on install
+      └── pre-push         # Git hook template
+    guardian/
+      └── verify.ts        # Lockfile integrity
+    drift/
+      └── check.ts         # Dependency drift
+```
+
+### Live Runtime (managed by postinstall)
+
+```
+~/.kimi-code/
+  tools/              # Copied from src/bin/ on install
+  lib/                # Copied from src/lib/ on install
+  var/                # Runtime state (sessions.db, etc.)
+  memory/             # Session store
+  guardian/           # Lockfile manifests
+  governor/           # Resource cache
+  AGENTS.md           # Copied from repo
+  UNIFIED.md          # Copied from repo
+  TEMPLATES.md        # Copied from repo
 ```
 
 ## Tech Stack
@@ -41,14 +63,26 @@ Kimi Code CLI infrastructure and toolchain. This workspace contains the custom a
 ## Commands
 
 ```bash
-# Quality gates
-kimi-guardian check
-kimi-governance score
-kimi-context-gen freshness
+# Install globally
+bun install -g github:brendadeeznuts1111/kimicode-cli
 
-# Development
-kimi-githooks install
+# Quality gates
+kimi-doctor              # Full toolchain diagnostics
+kimi-fix                 # Auto-repair gaps
+kimi-guardian check      # Lockfile + CVE scan
+kimi-governance score    # Compute R-Score
+kimi-governance fix      # Generate missing files
+
+# Session & memory
+kimi-memory doctor       # DB health check
+kimi-memory trends       # Persistent warnings
 kimi-memory autosave start
+
+# Git hooks
+kimi-githooks install    # Install pre-commit + pre-push
+
+# Context
+kimi-context-gen update  # Regenerate CONTEXT.md
 ```
 
 ## Governance
@@ -57,8 +91,10 @@ kimi-memory autosave start
 |-------|--------|
 | License | MIT |
 | CONTRIBUTING.md | present |
-| CODEOWNERS | missing |
+| CODEOWNERS | present |
 | README.md | present |
+| CHANGELOG.md | present |
+| CONTEXT.md | present |
 
 ## Decisions
 
@@ -78,7 +114,8 @@ No ADRs yet. Create one: `kimi-governance adr "<title>"`
 
 - This is a meta-project: it manages the tools that manage other projects.
 - All tools are Bun-native: use `Bun.file`, `Bun.spawn`, `Bun.hash`, etc.
-- Shared utilities in `kimi-utils.ts` — import from there, don't duplicate.
+- Shared utilities in `src/lib/utils.ts` — import from there, don't duplicate.
+- Live runtime at `~/.kimi-code/` is managed by `postinstall.ts` — don't edit manually.
 - Run `kimi-doctor` for full toolchain diagnostics
 
 ---
