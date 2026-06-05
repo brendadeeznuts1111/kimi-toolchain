@@ -1,7 +1,15 @@
 {
   "name": "kimicode-cli",
   "version": "0.1.0",
-  "description": "Kimi Code CLI project",
+  "description": "AI-native dev tooling powered by Kimi Code CLI",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/brendadeeznuts1111/kimicode-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/brendadeeznuts1111/kimicode-cli/issues"
+  },
+  "homepage": "https://github.com/brendadeeznuts1111/kimicode-cli#readme",
   "scripts": {
     "test": "echo 'No tests yet'"
   }

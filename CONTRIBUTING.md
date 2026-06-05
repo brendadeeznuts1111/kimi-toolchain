@@ -28,4 +28,5 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ## Questions?
 
-Open an issue or contact the maintainers.
+- Open an issue: https://github.com/brendadeeznuts1111/kimicode-cli/issues
+- Contact the maintainers (see CODEOWNERS)
