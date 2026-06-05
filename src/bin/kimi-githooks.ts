@@ -43,6 +43,18 @@ if [ "$LOG_COUNT" -gt 0 ]; then
   echo "  Consider using a proper logger or removing debug output."
 fi
 
+# Quality gates (when package.json defines scripts)
+if [ -f package.json ]; then
+  if grep -q '"format:check"' package.json 2>/dev/null; then
+    echo "── Format check ─────────────────────────────────────────────"
+    bun run format:check || exit 1
+  fi
+  if grep -q '"lint"' package.json 2>/dev/null; then
+    echo "── Lint ─────────────────────────────────────────────────────"
+    bun run lint || exit 1
+  fi
+fi
+
 exit 0
 `;
 
@@ -83,13 +95,22 @@ if [ -f "$GOVERNANCE" ]; then
   fi
 fi
 
-# 4. Test gate (if tests exist)
+# 4. Quality gate (format, lint, test)
 if [ -f "package.json" ]; then
-  HAS_TEST=$(grep -c '"test"' package.json || echo "0")
-  if [ "$HAS_TEST" -gt 0 ]; then
-    echo ""
-    echo "── Test Gate ────────────────────────────────────────────────"
-    bun test 2>&1 | tail -5 || true
+  echo ""
+  echo "── Quality Gate ─────────────────────────────────────────────"
+  if grep -q '"check"' package.json 2>/dev/null; then
+    bun run check || exit 1
+  else
+    if grep -q '"format:check"' package.json 2>/dev/null; then
+      bun run format:check || exit 1
+    fi
+    if grep -q '"lint"' package.json 2>/dev/null; then
+      bun run lint || exit 1
+    fi
+    if grep -q '"test"' package.json 2>/dev/null; then
+      bun test || exit 1
+    fi
   fi
 fi
 
@@ -137,8 +158,8 @@ async function installHooks(projectDir: string) {
 
   console.log("");
   log("info", "Hooks active. They will run on next commit/push.");
-  console.log("  pre-commit: blocks .env files, warns on TODO/console.log");
-  console.log("  pre-push:   guardian scan, R-Score gate (blocks F/D grades), test gate");
+  console.log("  pre-commit: blocks .env, format:check + lint, warns on TODO/console.log");
+  console.log("  pre-push:   guardian scan, R-Score gate (blocks F/D), check/test gate");
 }
 
 // ── Doctor ───────────────────────────────────────────────────────────
@@ -194,11 +215,16 @@ async function doctorHooks(projectDir: string) {
   } else {
     const content = await Bun.file(preCommitPath).text();
     const hasKimi = content.includes("kimi-githooks");
+    const hasQuality = content.includes("format:check");
     checks.push({
       name: "pre-commit",
-      status: hasKimi ? "ok" : "warn",
-      message: hasKimi ? "Installed by kimi" : "Custom pre-commit (not managed)",
-      fixable: !hasKimi,
+      status: hasKimi && hasQuality ? "ok" : hasKimi ? "warn" : "warn",
+      message: hasKimi
+        ? hasQuality
+          ? "Installed with format/lint gates"
+          : "Installed but missing quality gates"
+        : "Custom pre-commit (not managed)",
+      fixable: !hasKimi || !hasQuality,
     });
   }
 
@@ -214,11 +240,16 @@ async function doctorHooks(projectDir: string) {
   } else {
     const content = await Bun.file(prePushPath).text();
     const hasKimi = content.includes("kimi-githooks");
+    const hasQuality = content.includes("Quality Gate");
     checks.push({
       name: "pre-push",
-      status: hasKimi ? "ok" : "warn",
-      message: hasKimi ? "Installed by kimi" : "Custom pre-push (not managed)",
-      fixable: !hasKimi,
+      status: hasKimi && hasQuality ? "ok" : hasKimi ? "warn" : "warn",
+      message: hasKimi
+        ? hasQuality
+          ? "Installed with quality gate"
+          : "Installed but missing quality gate"
+        : "Custom pre-push (not managed)",
+      fixable: !hasKimi || !hasQuality,
     });
   }
 

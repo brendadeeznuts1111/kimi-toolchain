@@ -36,10 +36,8 @@ echo "→ kimi-doctor --quick (toolchain)"
 bun run src/bin/kimi-doctor.ts --quick || true
 
 echo ""
-echo "→ quality gates (format:check, lint, test)"
-bun run format:check
-bun run lint
-bun test
+echo "→ quality gates (check)"
+bun run check
 
 echo ""
 echo "✅ Unify complete. See UNIFIED.md for the full map."

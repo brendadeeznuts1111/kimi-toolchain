@@ -51,4 +51,32 @@ describe("kimi-doctor smoke", () => {
     expect(stdout).toContain("Max parallel");
     expect(exitCode).toBe(0);
   }, 15_000);
+
+  test("format:check passes", async () => {
+    const proc = Bun.spawn(["bun", "run", "format:check"], {
+      cwd: REPO_ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(await proc.exited).toBe(0);
+  }, 30_000);
+
+  test("lint passes", async () => {
+    const proc = Bun.spawn(["bun", "run", "lint"], {
+      cwd: REPO_ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(await proc.exited).toBe(0);
+  }, 30_000);
+
+  test("check script chains format, lint, and test", async () => {
+    const pkg = (await Bun.file(join(REPO_ROOT, "package.json")).json()) as {
+      scripts?: Record<string, string>;
+    };
+    const check = pkg.scripts?.check ?? "";
+    expect(check).toContain("format:check");
+    expect(check).toContain("lint");
+    expect(check).toContain("bun test");
+  });
 });

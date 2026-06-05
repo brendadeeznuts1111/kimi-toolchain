@@ -21,6 +21,7 @@ import {
   type MemoryCheckResult,
 } from "../lib/memory-budget.ts";
 import { getOrphanProcesses, runOrphanKill } from "./kimi-orphan-kill.ts";
+import { resolveProjectRoot } from "../lib/utils.ts";
 
 const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
 const FIX = Bun.argv.includes("--fix");
@@ -149,6 +150,69 @@ async function versionMatrix(): Promise<CheckResult[]> {
   return results;
 }
 
+async function runScript(projectRoot: string, script: string, label: string): Promise<CheckResult> {
+  try {
+    const proc = Bun.spawn(["bun", "run", script], {
+      cwd: projectRoot,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const exitCode = await proc.exited;
+    if (exitCode === 0) return ok(label, "passed");
+    const stderr = await Bun.readableStreamToText(proc.stderr);
+    const detail =
+      stderr
+        .split("\n")
+        .find((l) => l.trim())
+        ?.slice(0, 80) || `exit ${exitCode}`;
+    return error(label, detail);
+  } catch (e: any) {
+    return error(label, e.message);
+  }
+}
+
+async function runQualityChecks(projectRoot: string): Promise<CheckResult[]> {
+  const results: CheckResult[] = [];
+  const pkgPath = join(projectRoot, "package.json");
+  if (!existsSync(pkgPath)) {
+    return [warn("quality", "no package.json in project root")];
+  }
+
+  results.push(
+    existsSync(join(projectRoot, ".oxfmtrc.json"))
+      ? ok("oxfmtrc", "present")
+      : warn("oxfmtrc", "missing — run kimi-fix")
+  );
+  results.push(
+    existsSync(join(projectRoot, ".oxlintrc.json"))
+      ? ok("oxlintrc", "present")
+      : warn("oxlintrc", "missing — run kimi-fix")
+  );
+
+  const pkg = (await Bun.file(pkgPath).json()) as { scripts?: Record<string, string> };
+  const scripts = pkg.scripts || {};
+
+  if (!scripts["format:check"]) {
+    results.push(warn("format:check", "script not defined"));
+  } else if (!QUICK) {
+    results.push(await runScript(projectRoot, "format:check", "format:check"));
+  }
+
+  if (!scripts.lint) {
+    results.push(warn("lint", "script not defined"));
+  } else if (!QUICK) {
+    results.push(await runScript(projectRoot, "lint", "lint"));
+  }
+
+  if (scripts.check) {
+    results.push(ok("check", "composite script defined"));
+  } else {
+    results.push(warn("check", "script not defined — add format:check && lint && test"));
+  }
+
+  return results;
+}
+
 async function applyFixes(): Promise<void> {
   section("Auto-fix");
   const orphans = getOrphanProcesses();
@@ -216,6 +280,13 @@ async function main() {
 
   section("Version Matrix");
   results.push(...(await versionMatrix()));
+
+  section("Code Quality");
+  const projectRoot = await resolveProjectRoot();
+  results.push(...(await runQualityChecks(projectRoot)));
+  if (QUICK) {
+    console.log("  ⚡ Quick mode — config checks only; run without --quick to execute gates.");
+  }
 
   section("Toolchain Health");
 

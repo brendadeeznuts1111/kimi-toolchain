@@ -48,6 +48,7 @@
     "fix": "bun run src/bin/kimi-fix.ts",
     "governance": "bun run src/bin/kimi-governance.ts",
     "test": "bun test",
+    "check": "bun run format:check && bun run lint && bun test",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint src test scripts",

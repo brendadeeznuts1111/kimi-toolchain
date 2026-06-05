@@ -150,6 +150,7 @@ async function ensureQualityTooling(project: string, dryRun: boolean) {
   const scripts = pkg.scripts || {};
   const additions: Record<string, string> = {
     test: "bun test",
+    check: "bun run format:check && bun run lint && bun test",
     format: "oxfmt --write .",
     "format:check": "oxfmt --check .",
     lint: "oxlint src test scripts",
