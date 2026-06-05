@@ -112,6 +112,23 @@ describe("lib/utils", () => {
     }
   });
 
+  test("fetchWithTimeout aborts when server is slow", async () => {
+    const server = Bun.serve({
+      port: 0,
+      async fetch() {
+        await Bun.sleep(200);
+        return new Response("late");
+      },
+    });
+    try {
+      await expect(
+        fetchWithTimeout(`http://127.0.0.1:${server.port}`, { timeoutMs: 1 })
+      ).rejects.toThrow();
+    } finally {
+      server.stop();
+    }
+  });
+
   test("streamToText reads stream content", async () => {
     const stream = new ReadableStream({
       start(controller) {

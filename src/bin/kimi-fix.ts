@@ -44,6 +44,11 @@ on:
   pull_request:
     branches: [main, master]
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -138,6 +143,10 @@ async function readScaffoldTestGatesScript(): Promise<string> {
   return raw;
 }
 
+async function readScaffoldReadmeSyncScript(): Promise<string> {
+  return Bun.file(join(TOOLCHAIN_ROOT, "src", "lib", "readme-sync.ts")).text();
+}
+
 const DX_CONFIG = `# Project DX + kimi runtime policy
 schemaVersion = 1
 
@@ -224,6 +233,7 @@ async function ensureQualityTooling(project: string, dryRun: boolean) {
     check: "bun run scripts/check.ts",
     "check:fast": "bun run scripts/check.ts --fast --timeout 100",
     "check:dry-run": "bun run scripts/check.ts --dry-run",
+    "docs:sync": "bun run scripts/readme-sync.ts --fix",
     typecheck: "tsc --noEmit",
     format: "oxfmt --write .",
     "format:check": "oxfmt --check -c .oxfmtrc.json .",
@@ -391,6 +401,7 @@ async function main() {
     { name: "test-gates.ts", content: readScaffoldTestGatesScript },
     { name: "check.ts", content: readScaffoldCheckScript },
     { name: "run-tests.ts", content: readScaffoldRunTestsScript },
+    { name: "readme-sync.ts", content: readScaffoldReadmeSyncScript },
   ];
   for (const { name, content } of scriptFiles) {
     const scriptPath = join(project, "scripts", name);

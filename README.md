@@ -52,6 +52,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run check`              | format:check + lint + typecheck + test (CI/hooks)   |
 | `bun run check:fast`         | Same gates; unit tests at `--timeout 100`           |
 | `bun run check:dry-run`      | List check steps without running them               |
+| `bun run docs:sync`          | Patch README script table from package.json         |
 | `bun run typecheck`          | TypeScript type check (no emit)                     |
 | `bun run format`             | Format with oxfmt (write)                           |
 | `bun run format:check`       | Verify formatting (CI gate)                         |

@@ -49,6 +49,38 @@ describe("desktop-sync", () => {
     expect(existsSync(join(pathsToolchain(REPO_ROOT), "tools", "kimi-doctor.ts"))).toBe(true);
   });
 
+  test("syncDesktop force overwrites stale optional config", async () => {
+    const tmpHome = join(REPO_ROOT, `.tmp-desktop-force-${Date.now()}`);
+    mkdirSync(tmpHome, { recursive: true });
+    Bun.env.HOME = tmpHome;
+    try {
+      await syncDesktop(REPO_ROOT);
+      await Bun.write(join(desktopRoot(), "bunfig.toml"), "# stale copy\n");
+      const result = await syncDesktop(REPO_ROOT, { force: true });
+      expect(result.updated).toContain("bunfig.toml");
+      const text = await Bun.file(join(desktopRoot(), "bunfig.toml")).text();
+      expect(text).not.toBe("# stale copy\n");
+    } finally {
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
+  test("syncDesktop removes orphaned tool files", async () => {
+    const tmpHome = join(REPO_ROOT, `.tmp-desktop-orphan-${Date.now()}`);
+    mkdirSync(tmpHome, { recursive: true });
+    Bun.env.HOME = tmpHome;
+    try {
+      await syncDesktop(REPO_ROOT, { force: true });
+      const orphanPath = join(desktopRoot(), "tools", "kimi-utils.ts");
+      await Bun.write(orphanPath, "// legacy orphan\n");
+      const result = await syncDesktop(REPO_ROOT, { force: true });
+      expect(result.removed).toContain("tools/kimi-utils.ts");
+      expect(existsSync(orphanPath)).toBe(false);
+    } finally {
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
   test("syncDesktop copies optional config when desktop copy missing", async () => {
     const tmpHome = join(REPO_ROOT, `.tmp-desktop-${Date.now()}`);
     mkdirSync(tmpHome, { recursive: true });

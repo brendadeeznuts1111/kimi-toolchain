@@ -56,6 +56,7 @@
     "check": "bun run scripts/check.ts",
     "check:fast": "bun run scripts/check.ts --fast --timeout 100",
     "check:dry-run": "bun run scripts/check.ts --dry-run",
+    "docs:sync": "bun run src/lib/readme-sync.ts --fix",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check -c .oxfmtrc.json .",
     "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",

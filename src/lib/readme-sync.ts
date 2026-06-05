@@ -81,3 +81,43 @@ export async function patchReadmeScripts(projectDir: string): Promise<number> {
   await Bun.write(readmePath, readme);
   return drift.missingFromReadme.length;
 }
+
+/** CLI entry — returns process exit code (0 = success). */
+export async function runReadmeSyncCli(args: string[]): Promise<number> {
+  try {
+    const fix = args.includes("--fix");
+    const projectDir = args.find((a) => !a.startsWith("-")) || process.cwd();
+
+    if (fix) {
+      const patched = await patchReadmeScripts(projectDir);
+      if (patched > 0) {
+        console.log(`Patched README.md with ${patched} script(s)`);
+      } else {
+        console.log("README scripts already in sync");
+      }
+      return 0;
+    }
+
+    const drift = await checkDocDrift(projectDir);
+    if (drift.fresh) {
+      console.log("README scripts: in sync");
+      return 0;
+    }
+    if (drift.missingFromReadme.length > 0) {
+      console.log(`Missing from README: ${drift.missingFromReadme.join(", ")}`);
+    }
+    if (drift.extraInReadme.length > 0) {
+      console.log(`Extra in README: ${drift.extraInReadme.join(", ")}`);
+    }
+    return 1;
+  } catch (err) {
+    console.error("readme-sync failed:", (err as Error).message);
+    return 1;
+  }
+}
+
+if (import.meta.main) {
+  runReadmeSyncCli(Bun.argv.slice(2)).then((code) => {
+    if (code !== 0) process.exit(code);
+  });
+}
