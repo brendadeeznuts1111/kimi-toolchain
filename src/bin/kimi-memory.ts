@@ -14,7 +14,7 @@ import { Database } from "bun:sqlite";
 import { randomUUIDv7 } from "bun";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { log, getProjectName, safeParse } from "../lib/utils.ts";
+import { log, getProjectName, safeParse, resolveProjectRoot } from "../lib/utils.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -651,8 +651,8 @@ function fixDb() {
 async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "stats";
-  const project = getProjectName(Bun.cwd);
-  const projectPath = Bun.cwd;
+  const projectPath = await resolveProjectRoot(Bun.cwd);
+  const project = getProjectName(projectPath);
 
   console.log(`╔══════════════════════════════════════════════════════════════╗`);
   console.log(`║           Kimi Memory — Session Store & Knowledge Graph      ║`);

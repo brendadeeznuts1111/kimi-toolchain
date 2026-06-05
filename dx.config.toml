@@ -1,0 +1,10 @@
+# Project DX + kimi runtime policy (discovered by dx config / kimi-doctor)
+schemaVersion = 1
+
+[runtime]
+containers = "none"
+packageManager = "bun"
+
+[kimi]
+memoryGate = true
+preflight = true

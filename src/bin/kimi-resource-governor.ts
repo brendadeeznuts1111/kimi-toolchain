@@ -16,14 +16,20 @@ import { Database } from "bun:sqlite";
 import { nanoseconds } from "bun";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { ensureDir, log, getProjectName } from "../lib/utils.ts";
+import { ensureDir, log, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import {
+  loadGovernorDefaults,
+  getGovernorConfigPath,
+  DEFAULT_CONFIG_TEMPLATE,
+  type GovernorDefaults,
+} from "../lib/governor-config.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
 const GOVERNOR_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "governor");
 const DB_PATH = join(GOVERNOR_DIR, "resource-cache.sqlite");
 
-const DEFAULTS = {
+let DEFAULTS: GovernorDefaults = {
   maxMemoryMB: 512,
   maxCpuTimeMs: 30000,
   maxFileSizeMB: 100,
@@ -33,6 +39,10 @@ const DEFAULTS = {
   cacheTTLSeconds: 300,
   wallClockMs: 300000,
 };
+
+async function ensureDefaultsLoaded() {
+  DEFAULTS = await loadGovernorDefaults();
+}
 
 interface ResourceLimits {
   maxMemoryMB?: number;
@@ -184,6 +194,10 @@ export interface GovernedSpawnOptions {
   timeoutMs?: number;
   stdin?: Uint8Array | string;
   onResourceWarning?: (violations: string[]) => void;
+  /** Kill entire process tree on timeout/memory limit (default: true) */
+  killTree?: boolean;
+  /** Retry config: max attempts and backoff multiplier in ms */
+  retry?: { maxAttempts: number; backoffMs: number };
 }
 
 export interface GovernedSpawnResult {
@@ -193,7 +207,89 @@ export interface GovernedSpawnResult {
   signal?: string;
   usage: ResourceUsage;
   killed: boolean;
+  /** Number of retry attempts made (0 if no retry config) */
+  attempts: number;
 }
+
+// ── Process Tree Helpers ─────────────────────────────────────────────
+
+/** Get all child PIDs of a given PID using pgrep (macOS/Linux) */
+async function getChildPids(pid: number): Promise<number[]> {
+  try {
+    const result = await Bun.spawn({
+      cmd: ["pgrep", "-P", String(pid)],
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const output = await Bun.readableStreamToText(result.stdout);
+    await result.exited;
+    return output
+      .split("\n")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !isNaN(n) && n !== pid);
+  } catch {
+    return [];
+  }
+}
+
+/** Recursively collect all descendant PIDs (BFS) */
+async function getProcessTreePids(pid: number): Promise<number[]> {
+  const all = new Set<number>();
+  const queue = [pid];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (all.has(current)) continue;
+    all.add(current);
+    const children = await getChildPids(current);
+    for (const child of children) {
+      if (!all.has(child)) queue.push(child);
+    }
+  }
+  all.delete(pid); // Don't include the root — caller handles it
+  return Array.from(all);
+}
+
+/** Kill a process tree: SIGTERM all, wait, then SIGKILL survivors */
+async function killProcessTree(rootPid: number, signal: "SIGTERM" | "SIGKILL") {
+  const descendants = await getProcessTreePids(rootPid);
+  for (const pid of descendants) {
+    try {
+      process.kill(pid, signal === "SIGTERM" ? 15 : 9);
+    } catch {
+      // Already dead or no permission — ignore
+    }
+  }
+}
+
+/** Get actual subprocess memory via ps (macOS/Linux) */
+async function getSubprocessMemory(pid: number): Promise<number> {
+  try {
+    const result = await Bun.spawn({
+      cmd: ["ps", "-o", "rss=", "-p", String(pid)],
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const output = await Bun.readableStreamToText(result.stdout);
+    await result.exited;
+    const kb = parseInt(output.trim(), 10);
+    return isNaN(kb) ? 0 : Math.round(kb / 1024); // MB
+  } catch {
+    return 0;
+  }
+}
+
+/** Get total RSS of a process tree */
+async function getTreeMemory(pid: number): Promise<number> {
+  const descendants = await getProcessTreePids(pid);
+  const allPids = [pid, ...descendants];
+  let totalMB = 0;
+  for (const p of allPids) {
+    totalMB += await getSubprocessMemory(p);
+  }
+  return totalMB;
+}
+
+// ── governedSpawn: Drop-in Bun.spawn replacement ─────────────────────
 
 export async function governedSpawn(
   command: string[],
@@ -201,86 +297,130 @@ export async function governedSpawn(
 ): Promise<GovernedSpawnResult> {
   const limits = { ...DEFAULTS, ...options.limits };
   const timeoutMs = options.timeoutMs ?? limits.wallClockMs;
+  const killTree = options.killTree !== false; // default true
+  const maxAttempts = options.retry?.maxAttempts ?? 1;
+  const backoffMs = options.retry?.backoffMs ?? 1000;
 
-  const current = getCurrentUsage();
-  const preViolations = checkLimits(current, limits);
-  if (preViolations.length > 0) {
-    throw new Error(`Resource limit pre-check failed: ${preViolations.join(", ")}`);
-  }
+  let lastError: Error | undefined;
+  let attempts = 0;
 
-  const startTime = nanoseconds();
-  const startMem = current.memoryMB;
-  const sessionId = getSessionId();
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    attempts = attempt;
 
-  const proc = Bun.spawn(command, {
-    cwd: options.cwd,
-    env: { ...Bun.env, ...options.env },
-    stdout: "pipe",
-    stderr: "pipe",
-    stdin: options.stdin ? (typeof options.stdin === "string" ? new TextEncoder().encode(options.stdin) : options.stdin) : undefined,
-  });
-
-  let killed = false;
-  let killFallbackId: Timer | null = null;
-
-  const timeoutId = setTimeout(() => {
-    killed = true;
-    proc.kill("SIGTERM");
-    killFallbackId = setTimeout(() => {
-      if (!proc.killed) proc.kill("SIGKILL");
-    }, 5000);
-  }, timeoutMs);
-
-  const monitorId = setInterval(() => {
-    const now = getCurrentUsage();
-    const memDelta = Math.max(0, now.memoryMB - startMem);
-    updateSessionPeak(sessionId, memDelta, 0);
-
-    if (limits.maxMemoryMB && memDelta > limits.maxMemoryMB) {
-      killed = true;
-      proc.kill("SIGTERM");
-      killFallbackId = setTimeout(() => {
-        if (!proc.killed) proc.kill("SIGKILL");
-      }, 5000);
-      clearInterval(monitorId);
+    // Retry backoff (skip on first attempt)
+    if (attempt > 1) {
+      const delay = backoffMs * Math.pow(2, attempt - 2);
+      await Bun.sleep(delay);
     }
-  }, 1000);
 
-  const exitCode = await proc.exited;
-  const [stdout, stderr] = await Promise.all([
-    Bun.readableStreamToText(proc.stdout),
-    Bun.readableStreamToText(proc.stderr),
-  ]);
+    try {
+      const current = getCurrentUsage();
+      const preViolations = checkLimits(current, limits);
+      if (preViolations.length > 0) {
+        throw new Error(`Resource limit pre-check failed: ${preViolations.join(", ")}`);
+      }
 
-  clearTimeout(timeoutId);
-  clearInterval(monitorId);
-  if (killFallbackId) clearTimeout(killFallbackId);
+      const startTime = nanoseconds();
+      const sessionId = getSessionId();
 
-  const endTime = nanoseconds();
-  const endMem = getCurrentUsage().memoryMB;
+      const proc = Bun.spawn(command, {
+        cwd: options.cwd,
+        env: { ...Bun.env, ...options.env },
+        stdout: "pipe",
+        stderr: "pipe",
+        stdin: options.stdin ? (typeof options.stdin === "string" ? new TextEncoder().encode(options.stdin) : options.stdin) : undefined,
+      });
 
-  const usage: ResourceUsage = {
-    memoryMB: Math.max(0, endMem - startMem),
-    cpuTimeMs: Math.round((endTime - startTime) / 1_000_000),
-    fileSizeMB: 0,
-    openFiles: 0,
-  };
+      const rootPid = proc.pid;
+      let killed = false;
+      let killReason: "timeout" | "memory" | null = null;
+      let killFallbackId: Timer | null = null;
 
-  updateSessionPeak(sessionId, usage.memoryMB, usage.cpuTimeMs);
+      // Wall-clock timeout
+      const timeoutId = setTimeout(() => {
+        killed = true;
+        killReason = "timeout";
+        proc.kill("SIGTERM");
+        if (killTree) killProcessTree(rootPid, "SIGTERM");
+        killFallbackId = setTimeout(() => {
+          if (!proc.killed) {
+            proc.kill("SIGKILL");
+            if (killTree) killProcessTree(rootPid, "SIGKILL");
+          }
+        }, 5000);
+      }, timeoutMs);
 
-  const violations = checkLimits(usage, limits);
-  if (violations.length > 0 && options.onResourceWarning) {
-    options.onResourceWarning(violations);
+      // Memory monitor: checks actual subprocess tree RSS every second
+      const monitorId = setInterval(async () => {
+        const treeMem = await getTreeMemory(rootPid);
+        updateSessionPeak(sessionId, treeMem, 0);
+
+        if (limits.maxMemoryMB && treeMem > limits.maxMemoryMB) {
+          killed = true;
+          killReason = "memory";
+          clearInterval(monitorId);
+          clearTimeout(timeoutId);
+          proc.kill("SIGTERM");
+          if (killTree) killProcessTree(rootPid, "SIGTERM");
+          killFallbackId = setTimeout(() => {
+            if (!proc.killed) {
+              proc.kill("SIGKILL");
+              if (killTree) killProcessTree(rootPid, "SIGKILL");
+            }
+          }, 5000);
+        }
+      }, 1000);
+
+      const exitCode = await proc.exited;
+      const [stdout, stderr] = await Promise.all([
+        Bun.readableStreamToText(proc.stdout),
+        Bun.readableStreamToText(proc.stderr),
+      ]);
+
+      clearTimeout(timeoutId);
+      clearInterval(monitorId);
+      if (killFallbackId) clearTimeout(killFallbackId);
+
+      const endTime = nanoseconds();
+      const finalTreeMem = await getTreeMemory(rootPid);
+
+      const usage: ResourceUsage = {
+        memoryMB: finalTreeMem,
+        cpuTimeMs: Math.round((endTime - startTime) / 1_000_000),
+        fileSizeMB: 0,
+        openFiles: 0,
+      };
+
+      updateSessionPeak(sessionId, usage.memoryMB, usage.cpuTimeMs);
+
+      const violations = checkLimits(usage, limits);
+      if (violations.length > 0 && options.onResourceWarning) {
+        options.onResourceWarning(violations);
+      }
+
+      // Don't retry on successful execution
+      return {
+        stdout,
+        stderr,
+        exitCode,
+        signal: killed ? (killReason === "timeout" ? "SIGTERM" : "SIGTERM") : undefined,
+        usage,
+        killed,
+        attempts,
+      };
+
+    } catch (err: any) {
+      lastError = err;
+      // Only retry on spawn/resource errors, not on non-zero exit codes
+      // (non-zero exits are handled above in the return path)
+      if (attempt < maxAttempts) {
+        continue;
+      }
+      break;
+    }
   }
 
-  return {
-    stdout,
-    stderr,
-    exitCode,
-    signal: killed ? "SIGTERM" : undefined,
-    usage,
-    killed,
-  };
+  throw lastError || new Error(`governedSpawn failed after ${attempts} attempt(s)`);
 }
 
 // ── Parallelism Governor ─────────────────────────────────────────────
@@ -485,9 +625,10 @@ function fixGovernor() {
 // ── Main CLI ─────────────────────────────────────────────────────────
 
 async function main() {
+  await ensureDefaultsLoaded();
   const args = Bun.argv.slice(2);
   const command = args[0] || "status";
-  const projectDir = Bun.cwd;
+  const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = getProjectName(projectDir);
 
   console.log(`╔══════════════════════════════════════════════════════════════╗`);
@@ -555,9 +696,35 @@ async function main() {
     console.log(`  Killed:    ${result.killed}`);
     console.log(`  Memory:    ${result.usage.memoryMB}MB`);
     console.log(`  CPU:       ${result.usage.cpuTimeMs}ms`);
+    console.log(`  Attempts:  ${result.attempts}`);
     if (result.stdout) {
       console.log("  stdout:");
       console.log(result.stdout.split("\n").map((l) => `    ${l}`).join("\n"));
+    }
+  }
+
+  else if (command === "retry") {
+    const cmd = args.slice(1);
+    if (cmd.length === 0) {
+      console.log("Usage: retry <command> [args...]");
+      console.log("Demonstrates retry with exponential backoff (max 3 attempts)");
+      process.exit(1);
+    }
+    console.log("── governedSpawn with retry ──────────────────────────────────");
+    try {
+      const result = await governedSpawn(cmd, {
+        retry: { maxAttempts: 3, backoffMs: 500 },
+        onResourceWarning: (v) => console.log(`  ⚠ ${v.join(", ")}`),
+      });
+      console.log(`  Exit code: ${result.exitCode}`);
+      console.log(`  Attempts:  ${result.attempts}`);
+      console.log(`  Memory:    ${result.usage.memoryMB}MB`);
+      if (result.stdout) {
+        console.log("  stdout:");
+        console.log(result.stdout.split("\n").map((l) => `    ${l}`).join("\n"));
+      }
+    } catch (err: any) {
+      console.log(`  ✗ Failed after retries: ${err.message}`);
     }
   }
 
@@ -599,6 +766,13 @@ async function main() {
 
   else if (command === "fix") {
     console.log("── Fixing Resource Governor ──────────────────────────────────");
+    ensureDir(GOVERNOR_DIR);
+    const configPath = getGovernorConfigPath();
+    if (!existsSync(configPath)) {
+      await Bun.write(configPath, DEFAULT_CONFIG_TEMPLATE);
+      console.log(`  ✓ Wrote default config: ${configPath}`);
+      await ensureDefaultsLoaded();
+    }
     const result = fixGovernor();
     console.log(`  ✓ Cleaned ${result.cacheDeleted} expired cache entries`);
     console.log(`  ✓ Ended ${result.stuckFixed} stuck sessions`);
@@ -630,6 +804,7 @@ async function main() {
 
   else if (command === "status") {
     console.log("── Defaults ──────────────────────────────────────────────────");
+    console.log(`  Config file:       ${getGovernorConfigPath()}`);
     console.log(`  Max memory:        ${DEFAULTS.maxMemoryMB}MB`);
     console.log(`  Max CPU time:      ${DEFAULTS.maxCpuTimeMs}ms`);
     console.log(`  Max file size:     ${DEFAULTS.maxFileSizeMB}MB`);
@@ -643,7 +818,8 @@ async function main() {
     console.log("  limits          Show current resource usage");
     console.log("  parallel        Test parallelism governor");
     console.log("  quota           Check disk quota");
-    console.log("  spawn <cmd>     Run command with governedSpawn");
+    console.log("  spawn <cmd>     Run command with governedSpawn (tree-kill, ps memory)");
+    console.log("  retry <cmd>     Run command with retry + exponential backoff");
     console.log("  cache <cmd>     Cached command execution");
     console.log("  doctor          Check governor health");
     console.log("  fix             Clean cache, end stuck sessions, vacuum");
@@ -652,6 +828,10 @@ async function main() {
     console.log("");
     console.log("Import in your code:");
     console.log("  import { governedSpawn, ParallelGovernor, cachedExec, cachedDoctor } from './kimi-resource-governor.ts'");
+    console.log("");
+    console.log("New spawn options:");
+    console.log("  killTree: false       — disable process tree cleanup");
+    console.log("  retry: { maxAttempts, backoffMs } — exponential backoff retry");
   }
 }
 

@@ -2,15 +2,30 @@
 /**
  * kimi-doctor — Comprehensive diagnostics
  * Delegates to individual tool doctor commands + runs system checks
- * Usage: kimi-doctor [--fix]
+ * Usage: kimi-doctor [--fix] [--quick] [--memory-budget]
  */
 
 import { $ } from "bun";
 import { existsSync } from "fs";
-import { join } from "path";
+import { basename, join } from "path";
+import {
+  TOOLCHAIN_VERSION,
+  getDesktopVersion,
+  getRepoHead,
+  hasUncommittedChanges,
+  readManifest,
+} from "../lib/version.ts";
+import {
+  runSystemMemoryChecks,
+  printMemoryBudget,
+  type MemoryCheckResult,
+} from "../lib/memory-budget.ts";
+import { getOrphanProcesses, runOrphanKill } from "./kimi-orphan-kill.ts";
 
 const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
 const FIX = Bun.argv.includes("--fix");
+const QUICK = Bun.argv.includes("--quick");
+const MEMORY_BUDGET = Bun.argv.includes("--memory-budget");
 
 interface CheckResult {
   name: string;
@@ -38,6 +53,12 @@ function section(title: string) {
   console.log(`── ${title} ${"─".repeat(Math.max(0, 60 - title.length))}`);
 }
 
+function recordMemoryCheck(r: MemoryCheckResult): CheckResult {
+  const icon = r.status === "ok" ? "✓" : r.status === "warn" ? "⚠" : "✗";
+  console.log(`  ${icon} ${r.name}: ${r.message}`);
+  return { name: r.name, status: r.status, message: r.message };
+}
+
 async function runToolDoctor(tool: string): Promise<CheckResult> {
   const path = join(TOOLS_DIR, `${tool}.ts`);
   if (!existsSync(path)) {
@@ -56,7 +77,6 @@ async function runToolDoctor(tool: string): Promise<CheckResult> {
     const stdout = await Bun.readableStreamToText(proc.stdout);
     const stderr = await Bun.readableStreamToText(proc.stderr);
 
-    // Print output indented
     for (const line of stdout.split("\n")) {
       if (line.trim()) console.log(`    ${line}`);
     }
@@ -74,17 +94,94 @@ async function runToolDoctor(tool: string): Promise<CheckResult> {
   }
 }
 
+async function versionMatrix(): Promise<CheckResult[]> {
+  const results: CheckResult[] = [];
+  const [desktopVersion, repoHead, dirty, manifest] = await Promise.all([
+    getDesktopVersion(),
+    getRepoHead(),
+    hasUncommittedChanges(),
+    readManifest(),
+  ]);
+
+  const desktopLabel = desktopVersion ?? "unknown";
+  const repoLabel = repoHead ?? "unknown";
+
+  if (desktopVersion) {
+    results.push(ok("Desktop (kimi)", desktopLabel));
+  } else {
+    results.push(error("Desktop (kimi)", "not found"));
+  }
+
+  results.push(ok("Toolchain", `${TOOLCHAIN_VERSION} (${repoLabel})`));
+  results.push(ok("MCP Bridge", TOOLCHAIN_VERSION));
+
+  if (manifest) {
+    const synced = manifest.gitHead === repoHead && !dirty;
+    const syncLabel = `${manifest.lastSyncedAt.slice(0, 19).replace("T", " ")} UTC`;
+    if (synced) {
+      results.push(ok("Last sync", syncLabel));
+    } else if (dirty) {
+      results.push(warn("Last sync", `${syncLabel} — repo has uncommitted changes`));
+    } else {
+      results.push(warn("Last sync", `${syncLabel} — repo HEAD (${repoLabel}) differs from sync`));
+    }
+  } else {
+    results.push(warn("Last sync", "never — run `bun run sync`"));
+  }
+
+  if (dirty) {
+    results.push(warn("Working tree", "uncommitted changes present"));
+  }
+
+  const toolsDir = import.meta.dir;
+  const runtimeTools = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
+  if (toolsDir.startsWith(runtimeTools)) {
+    results.push(ok("Runtime", "synced copy in ~/.kimi-code/tools/"));
+  } else {
+    const repoDir = basename(join(toolsDir, "..", ".."));
+    if (repoDir === "kimi-toolchain") {
+      results.push(ok("Repo folder", repoDir));
+    } else {
+      results.push(warn("Repo folder", `${repoDir} — rename to kimi-toolchain for alignment`));
+    }
+  }
+
+  return results;
+}
+
+async function applyFixes(): Promise<void> {
+  section("Auto-fix");
+  const orphans = getOrphanProcesses();
+  if (orphans.length > 0) {
+    console.log(`  → Killing ${orphans.length} orphan process(es)...`);
+    const { killed } = await runOrphanKill(false);
+    console.log(`  ✓ Killed ${killed} orphan process(es)`);
+  } else {
+    console.log("  ✓ No orphan processes to kill");
+  }
+
+  const govPath = join(TOOLS_DIR, "kimi-resource-governor.ts");
+  if (existsSync(govPath)) {
+    console.log("  → Running kimi-resource-governor fix...");
+    const proc = Bun.spawn(["bun", "run", govPath, "fix"], { stdout: "pipe", stderr: "pipe" });
+    await proc.exited;
+  }
+}
+
 async function main() {
+  if (MEMORY_BUDGET) {
+    printMemoryBudget();
+    process.exit(0);
+  }
+
   console.log("╔══════════════════════════════════════════════════════════════╗");
   console.log("║           Kimi Doctor — Comprehensive Diagnostics            ║");
   console.log("╚══════════════════════════════════════════════════════════════╝");
 
   const results: CheckResult[] = [];
 
-  // ── System ──
   section("System");
 
-  // Disk usage
   try {
     const df = await $`df /`.quiet();
     const line = df.stdout.toString().split("\n")[1];
@@ -96,64 +193,51 @@ async function main() {
     results.push(warn("disk", "could not check"));
   }
 
-  // Memory
-  try {
-    const vmstat = await $`vm_stat`.quiet();
-    const freeMatch = vmstat.stdout.toString().match(/Pages free:\s*(\d+)/);
-    const freePages = parseInt(freeMatch?.[1] || "0");
-    const freeMB = Math.round((freePages * 16384) / 1024 / 1024);
-    if (freeMB < 500) results.push(warn("memory", `~${freeMB}MB free (low)`));
-    else results.push(ok("memory", `~${freeMB}MB free`));
-  } catch {
-    results.push(warn("memory", "could not check"));
+  const memoryChecks = await runSystemMemoryChecks();
+  for (const check of memoryChecks) {
+    results.push(recordMemoryCheck(check));
   }
 
-  // Load
-  try {
-    const uptime = await $`uptime`.quiet();
-    const loadMatch = uptime.stdout.toString().match(/load averages?:\s*([\d.]+)/);
-    const load = parseFloat(loadMatch?.[1] || "0");
-    if (load > 10) results.push(warn("load", `${load} (high)`));
-    else results.push(ok("load", `${load}`));
-  } catch {
-    results.push(warn("load", "could not check"));
-  }
-
-  // ── Kimi Products ──
   section("Kimi Products");
 
   const kimiPath = Bun.which("kimi");
   if (kimiPath) {
     try {
       const version = await $`kimi --version`.quiet();
-      results.push(ok("kimi-cli", version.stdout.toString().trim()));
+      results.push(ok("kimi-code", `${version.stdout.toString().trim()} (${kimiPath})`));
     } catch {
-      results.push(ok("kimi-cli", "installed"));
+      results.push(ok("kimi-code", `installed (${kimiPath})`));
     }
   } else {
-    results.push(error("kimi-cli", "not found"));
+    results.push(error("kimi-code", "not found — curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash"));
   }
 
-  // ── Toolchain Health ──
+  section("Version Matrix");
+  results.push(...(await versionMatrix()));
+
   section("Toolchain Health");
 
-  const tools = [
-    "kimi-guardian",
-    "kimi-governance",
-    "kimi-context-gen",
-    "kimi-memory",
-    "kimi-resource-governor",
-    "kimi-debug",
-    "kimi-snapshot",
-    "kimi-release",
-    "kimi-githooks",
-  ];
+  if (QUICK) {
+    console.log("  ⚡ Quick mode — skipping individual tool doctors.");
+    console.log("     Run without --quick for full toolchain health check.");
+  } else {
+    const tools = [
+      "kimi-guardian",
+      "kimi-governance",
+      "kimi-context-gen",
+      "kimi-memory",
+      "kimi-resource-governor",
+      "kimi-debug",
+      "kimi-snapshot",
+      "kimi-release",
+      "kimi-githooks",
+    ];
 
-  for (const tool of tools) {
-    results.push(await runToolDoctor(tool));
+    for (const tool of tools) {
+      results.push(await runToolDoctor(tool));
+    }
   }
 
-  // ── Global Context ──
   section("Global Context");
 
   const home = Bun.env.HOME || "/tmp";
@@ -161,7 +245,6 @@ async function main() {
   results.push(existsSync(join(home, ".kimi-code", "UNIFIED.md")) ? ok("UNIFIED.md", "present") : error("UNIFIED.md", "missing"));
   results.push(existsSync(join(home, ".kimi-code", "TEMPLATES.md")) ? ok("TEMPLATES.md", "present") : warn("TEMPLATES.md", "missing"));
 
-  // ── PATH ──
   section("PATH");
 
   const pathEntries = (Bun.env.PATH || "").split(":");
@@ -171,11 +254,28 @@ async function main() {
   results.push(kimiIdx === 0 ? ok("kimi-code/bin", "#1 in PATH") : warn("kimi-code/bin", `#${kimiIdx + 1} in PATH`));
   results.push(bunIdx === 1 ? ok("bun/bin", "#2 in PATH") : warn("bun/bin", `#${bunIdx + 1} in PATH`));
 
-  // ── Legacy ──
   section("Legacy");
-  results.push(existsSync(join(home, ".kimi")) ? warn("~/.kimi", "deprecated — migrate to ~/.kimi-code/") : ok("~/.kimi", "gone"));
+  results.push(existsSync(join(home, ".kimi")) ? warn("~/.kimi", "deprecated — run: kimi migrate") : ok("~/.kimi", "gone"));
+  results.push(
+    existsSync(join(home, ".kimi-code", "bin", "kimi.bak"))
+      ? warn("kimi.bak", "stale upgrade backup — safe to delete")
+      : ok("kimi.bak", "gone")
+  );
 
-  // ── Node Ecosystem ──
+  const doctorPath = Bun.which("kimi-doctor");
+  if (doctorPath?.includes(".local/bin")) {
+    try {
+      const head = await Bun.file(doctorPath).text();
+      if (head.includes(".kimi-code/tools/kimi-doctor.ts")) {
+        results.push(ok("kimi-doctor wrapper", "thin exec → ~/.kimi-code/tools/"));
+      } else {
+        results.push(warn("kimi-doctor wrapper", "legacy bash script — run: bun run install-wrappers"));
+      }
+    } catch {
+      results.push(warn("kimi-doctor wrapper", "could not read"));
+    }
+  }
+
   section("Node Ecosystem");
 
   const bunPath = Bun.which("bun");
@@ -196,7 +296,10 @@ async function main() {
     }
   }
 
-  // ── Summary ──
+  if (FIX) {
+    await applyFixes();
+  }
+
   section("Summary");
 
   const errors = results.filter((r) => r.status === "error").length;
@@ -212,9 +315,14 @@ async function main() {
 
   if (FIX) {
     console.log("  Auto-fix applied where possible.");
+  } else if (QUICK) {
+    console.log("  Quick mode — run without --quick for full check.");
   } else {
-    console.log("  Run with --fix to apply tool fixes.");
+    console.log("  Run with --fix to apply tool fixes, --quick to skip tool doctors.");
   }
+  console.log("  Run with --memory-budget to print per-app RSS breakdown.");
+
+  if (errors > 0) process.exit(1);
 }
 
 main().catch((err) => {

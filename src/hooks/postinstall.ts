@@ -49,6 +49,22 @@ async function main() {
     await copyFile(src, dest, true);
   }
 
+  // Copy lib → ~/.kimi-code/lib/
+  const libDir = join(REPO_ROOT, "src", "lib");
+  const libDestDir = join(KIMI_DIR, "lib");
+  ensureDir(libDestDir);
+  for await (const entry of new Bun.Glob("*.ts").scan(libDir)) {
+    const src = join(libDir, entry);
+    const dest = join(libDestDir, entry);
+    await copyFile(src, dest, true);
+  }
+
+  const governorDefaults = join(GOVERNOR_DIR, "defaults.toml");
+  if (!existsSync(governorDefaults)) {
+    const { DEFAULT_CONFIG_TEMPLATE } = await import("../lib/governor-config.ts");
+    await Bun.write(governorDefaults, DEFAULT_CONFIG_TEMPLATE);
+  }
+
   // Copy templates → ~/.kimi-code/
   const templates = ["AGENTS.md", "UNIFIED.md", "TEMPLATES.md"];
   for (const file of templates) {
@@ -150,6 +166,19 @@ async function main() {
     ensureDir(AGENTS_SKILLS_DIR);
     await copyFile(join(skillSrc, "SKILL.md"), join(skillDest, "SKILL.md"), true);
     console.log("   Skill: ~/.agents/skills/kimi-toolchain/");
+  }
+
+  // Install thin PATH wrappers (~/.local/bin/kimi-*)
+  const wrapperScript = join(REPO_ROOT, "scripts", "install-bin-wrappers.sh");
+  if (existsSync(wrapperScript)) {
+    const proc = Bun.spawn(["bash", wrapperScript], { stdout: "pipe", stderr: "pipe" });
+    const exitCode = await proc.exited;
+    if (exitCode === 0) {
+      console.log("   Wrappers: ~/.local/bin/kimi-*");
+    } else {
+      const err = await Bun.readableStreamToText(proc.stderr);
+      console.warn(`  ⚠ Wrapper install failed: ${err.trim()}`);
+    }
   }
 
   console.log("✅ kimi-toolchain ready");

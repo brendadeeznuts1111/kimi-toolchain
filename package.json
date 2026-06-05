@@ -15,7 +15,8 @@
     "kimi-resource-governor": "src/bin/kimi-resource-governor.ts",
     "kimi-snapshot": "src/bin/kimi-snapshot.ts",
     "kimi-release": "src/bin/kimi-release.ts",
-    "kimi-debug": "src/bin/kimi-debug.ts"
+    "kimi-debug": "src/bin/kimi-debug.ts",
+    "kimi-orphan-kill": "src/bin/kimi-orphan-kill.ts"
   },
   "files": [
     "src",
@@ -33,8 +34,13 @@
     "doctor": "bun run src/bin/kimi-doctor.ts",
     "fix": "bun run src/bin/kimi-fix.ts",
     "governance": "bun run src/bin/kimi-governance.ts",
-    "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "sync": "bun run scripts/sync-to-desktop.ts",
+    "sync:daemon": "bun run scripts/sync-to-desktop.ts --daemon",
+    "unify": "bash scripts/unify.sh",
+    "install-wrappers": "bash scripts/install-bin-wrappers.sh",
+    "memory-check": "bash scripts/memory-check.sh",
+    "memory-budget": "bun run src/bin/kimi-doctor.ts --memory-budget"
   },
   "dependencies": {},
   "devDependencies": {

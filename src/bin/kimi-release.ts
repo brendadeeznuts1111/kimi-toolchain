@@ -9,7 +9,7 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { log, getProjectName, runTool } from "../lib/utils.ts";
+import { log, getProjectName, runTool, resolveProjectRoot } from "../lib/utils.ts";
 
 interface Commit {
   hash: string;
@@ -274,7 +274,7 @@ async function fixCommits(projectDir: string) {
 async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "changelog";
-  const projectDir = Bun.cwd;
+  const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = getProjectName(projectDir);
 
   console.log(`╔══════════════════════════════════════════════════════════════╗`);

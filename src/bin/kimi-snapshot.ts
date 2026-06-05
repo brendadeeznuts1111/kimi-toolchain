@@ -10,7 +10,7 @@
 import { $ } from "bun";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { ensureDir, log, getProjectName } from "../lib/utils.ts";
+import { ensureDir, log, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -253,7 +253,7 @@ async function fixSnapshots() {
 async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "save";
-  const projectDir = Bun.cwd;
+  const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = getProjectName(projectDir);
 
   console.log(`╔══════════════════════════════════════════════════════════════╗`);

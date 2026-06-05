@@ -13,7 +13,7 @@ import { $, TOML } from "bun";
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { ensureDir, log, sha256File, fetchWithTimeout, getProjectName } from "../lib/utils.ts";
+import { ensureDir, log, sha256File, fetchWithTimeout, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -424,7 +424,7 @@ async function doctor(projectDir: string): Promise<Array<{ name: string; status:
 async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "check";
-  const projectDir = Bun.cwd;
+  const projectDir = await resolveProjectRoot(Bun.cwd);
   const projectName = getProjectName(projectDir);
 
   console.log(`╔══════════════════════════════════════════════════════════════╗`);

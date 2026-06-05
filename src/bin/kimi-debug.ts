@@ -10,7 +10,7 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { log, runTool } from "../lib/utils.ts";
+import { log, runTool, resolveProjectRoot } from "../lib/utils.ts";
 
 interface GitChange {
   file: string;
@@ -254,7 +254,7 @@ function getProjectName(projectDir: string): string {
 async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "last";
-  const projectDir = Bun.cwd;
+  const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = getProjectName(projectDir);
 
   console.log(`╔══════════════════════════════════════════════════════════════╗`);

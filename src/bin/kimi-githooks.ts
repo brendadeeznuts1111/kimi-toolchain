@@ -11,7 +11,7 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { ensureDir, log, findExecutable } from "../lib/utils.ts";
+import { ensureDir, log, findExecutable, resolveProjectRoot } from "../lib/utils.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -203,7 +203,7 @@ async function doctorHooks(projectDir: string) {
 async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "install";
-  const projectDir = Bun.cwd;
+  const projectDir = await resolveProjectRoot(Bun.cwd);
 
   console.log(`╔══════════════════════════════════════════════════════════════╗`);
   console.log(`║           Kimi Git Hooks                                     ║`);

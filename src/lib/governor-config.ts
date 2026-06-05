@@ -1,0 +1,94 @@
+/**
+ * Load resource governor defaults from ~/.kimi-code/governor/defaults.toml
+ */
+
+import { existsSync } from "fs";
+import { join } from "path";
+import { getFreeMemoryMB } from "./memory-budget.ts";
+
+export interface GovernorDefaults {
+  maxMemoryMB: number;
+  maxCpuTimeMs: number;
+  maxFileSizeMB: number;
+  maxOpenFiles: number;
+  maxParallelJobs: number;
+  diskQuotaMB: number;
+  cacheTTLSeconds: number;
+  wallClockMs: number;
+}
+
+const BUILTIN: GovernorDefaults = {
+  maxMemoryMB: 512,
+  maxCpuTimeMs: 30000,
+  maxFileSizeMB: 100,
+  maxOpenFiles: 256,
+  maxParallelJobs: Math.max(2, Math.floor((navigator.hardwareConcurrency || 4) * 0.75)),
+  diskQuotaMB: 1024,
+  cacheTTLSeconds: 300,
+  wallClockMs: 300000,
+};
+
+const CONFIG_PATH = join(Bun.env.HOME || "/tmp", ".kimi-code", "governor", "defaults.toml");
+
+export const DEFAULT_CONFIG_TEMPLATE = `# kimi-resource-governor defaults
+# Reloaded on each governor invocation.
+
+maxMemoryMB = 512
+maxCpuTimeMs = 30000
+maxFileSizeMB = 100
+maxOpenFiles = 256
+maxParallelJobs = 2
+diskQuotaMB = 1024
+cacheTTLSeconds = 300
+wallClockMs = 300000
+`;
+
+function parseTomlNumbers(text: string): Partial<GovernorDefaults> {
+  const out: Partial<GovernorDefaults> = {};
+  const keys = [
+    "maxMemoryMB",
+    "maxCpuTimeMs",
+    "maxFileSizeMB",
+    "maxOpenFiles",
+    "maxParallelJobs",
+    "diskQuotaMB",
+    "cacheTTLSeconds",
+    "wallClockMs",
+  ] as const;
+
+  for (const key of keys) {
+    const match = text.match(new RegExp(`^${key}\\s*=\\s*(\\d+)`, "m"));
+    if (match) out[key] = parseInt(match[1], 10);
+  }
+  return out;
+}
+
+export async function loadGovernorDefaults(): Promise<GovernorDefaults> {
+  let merged: GovernorDefaults = { ...BUILTIN };
+
+  if (existsSync(CONFIG_PATH)) {
+    try {
+      const text = await Bun.file(CONFIG_PATH).text();
+      merged = { ...merged, ...parseTomlNumbers(text) };
+    } catch {
+      /* use builtin */
+    }
+  }
+
+  try {
+    const freeMB = await getFreeMemoryMB();
+    if (freeMB < 2048) {
+      merged.maxParallelJobs = Math.min(merged.maxParallelJobs, 2);
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return merged;
+}
+
+export function getGovernorConfigPath(): string {
+  return CONFIG_PATH;
+}
+
+export { BUILTIN as BUILTIN_DEFAULTS };

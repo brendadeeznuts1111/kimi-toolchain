@@ -6,6 +6,7 @@
 
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
+import { $ } from "bun";
 
 // ── File System ──────────────────────────────────────────────────────
 
@@ -50,6 +51,83 @@ export function safeParse<T>(json: string, fallback: T): T {
 
 export function getProjectName(projectDir: string = Bun.cwd): string {
   return projectDir.split("/").pop() || "unknown";
+}
+
+// ── Process Guard (prevents runaway spawning) ─────────────────────────
+
+const GUARD_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "guard");
+const GUARD_PID_FILE = join(GUARD_DIR, "test-runner.pid");
+const MAX_CONCURRENT_TEST_PROCS = 16; // hard ceiling on test-related bun processes
+
+/** Check if another test runner is already active */
+export function isTestRunnerActive(): boolean {
+  try {
+    if (!existsSync(GUARD_PID_FILE)) return false;
+    const pid = parseInt(Bun.file(GUARD_PID_FILE).textSync(), 10);
+    if (isNaN(pid)) return false;
+    // Check if process still exists (signal 0 is no-op check)
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+}
+
+/** Register this process as the active test runner */
+export function registerTestRunner(): void {
+  ensureDir(GUARD_DIR);
+  Bun.write(GUARD_PID_FILE, String(process.pid));
+}
+
+/** Unregister this process as the active test runner */
+export function unregisterTestRunner(): void {
+  try {
+    if (existsSync(GUARD_PID_FILE)) {
+      const pid = parseInt(Bun.file(GUARD_PID_FILE).textSync(), 10);
+      if (pid === process.pid) {
+        Bun.file(GUARD_PID_FILE).delete?.() ?? require("fs").unlinkSync(GUARD_PID_FILE);
+      }
+    }
+  } catch { /* ignore */ }
+}
+
+/** Count test-related bun processes (bun test, bun run *kimi, kimi --version) */
+export function countTestProcesses(): number {
+  try {
+    const result = require("child_process")?.execSync?.(
+      'ps aux | grep -E "bun test|bun run.*kimi-|kimi --version|/bin/cp.*kimi-test" | grep -v grep | wc -l',
+      { encoding: "utf-8", timeout: 2000 }
+    );
+    return parseInt(result?.trim() || "0", 10);
+  } catch {
+    return 0;
+  }
+}
+
+/** Abort if too many test processes are already running */
+export function guardAgainstRunawaySpawn(): void {
+  const count = countTestProcesses();
+  if (count > MAX_CONCURRENT_TEST_PROCS) {
+    throw new Error(
+      `Process guard triggered: ${count} test processes running (max ${MAX_CONCURRENT_TEST_PROCS}). ` +
+      `Kill existing processes before running tests: killall -9 "bun test"`
+    );
+  }
+}
+
+/** Resolve the actual project root (repo root) even when run from a subdir */
+export async function resolveProjectRoot(fallback: string = Bun.cwd): Promise<string> {
+  try {
+    const result = await $`git rev-parse --show-toplevel`.quiet().nothrow();
+    const root = result.stdout?.toString().trim();
+    return root || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 // ── Executable Resolution ────────────────────────────────────────────

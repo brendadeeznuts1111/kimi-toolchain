@@ -1,10 +1,11 @@
 #!/usr/bin/env bun
 /**
  * Unified Shell Bridge — Bun-native MCP shell execution
- * v2.3.1: Proper MCP stdio server using Bun.stdin stream reader.
+ * Derives version from src/lib/version.ts (package.json).
  */
 
 import { $ } from "bun";
+import { MCP_BRIDGE_VERSION } from "../lib/version.ts";
 
 interface ShellResult {
   stdout: string;
@@ -29,7 +30,7 @@ export async function executeCommand(
 // ─── MCP stdio server ───────────────────────────────────────────────────────
 
 const SERVER_NAME = "unified-shell";
-const SERVER_VERSION = "2.3.1";
+const SERVER_VERSION = MCP_BRIDGE_VERSION;
 
 const TOOLS = [
   {

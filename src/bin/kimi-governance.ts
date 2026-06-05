@@ -11,7 +11,7 @@
 import { $ } from "bun";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { ensureDir, log, getProjectName, runTool } from "../lib/utils.ts";
+import { ensureDir, log, getProjectName, runTool, resolveProjectRoot } from "../lib/utils.ts";
 import { recordDoctorRun, getPersistentWarnings } from "../lib/utils.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
@@ -527,7 +527,7 @@ async function computeRScore(projectDir: string): Promise<RScore> {
 async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "score";
-  const projectDir = Bun.cwd;
+  const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = getProjectName(projectDir);
 
   console.log(`╔══════════════════════════════════════════════════════════════╗`);

@@ -11,10 +11,13 @@
 bun install -g github:brendadeeznuts1111/kimi-toolchain
 
 # Or clone and link
-git clone https://github.com/brendadeeznuts1111/kimi-toolchain.git
-cd kimi-toolchain
+git clone https://github.com/brendadeeznuts1111/kimi-toolchain.git ~/kimi-toolchain
+cd ~/kimi-toolchain
 bun install -g .
+bun run unify    # sync → ~/.kimi-code/, install PATH wrappers, validate
 ```
+
+See **UNIFIED.md** for how Kimi Code (`kimi`), kimi-toolchain (`kimi-doctor`), and `~/.kimi-code/` relate.
 
 **Zero-install alternative** — run any command without installing:
 ```bash
