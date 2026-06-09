@@ -12,6 +12,13 @@ All notable changes to this project will be documented in this file.
 - Path alignment: session cwd, ACP command hints, Cursor workspace drift warnings
 - `kimi-fix` scaffolds `.kimi-code/mcp.json` and `.kimi-code/skills/`
 - Kimi Code alignment docs in UNIFIED.md, SKILL.md, TEMPLATES.md (MCP, ACP, editors)
+- `kimiDocsAligned` soft gate in kimi-governance (doctor + score informational line)
+- `unified-shell-bridge` package.json bin entry and PATH wrapper
+
+### Fixed
+
+- Wrapper coverage check now validates all package.json bin entries (not only kimi-*)
+- Path-alignment unit tests use system tmpdir (no repo `.tmp-*` pollution)
 
 ## [0.1.0] — initial
 

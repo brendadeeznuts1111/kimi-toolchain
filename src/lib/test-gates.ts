@@ -17,6 +17,7 @@ export const UNIT_TEST_FILES = [
   "test/readme-sync.unit.test.ts",
   "test/path-alignment.unit.test.ts",
   "test/mcp-config.unit.test.ts",
+  "test/kimi-docs-aligned.unit.test.ts",
 ] as const;
 
 export const FAST_TEST_TIMEOUT_MS = 100;

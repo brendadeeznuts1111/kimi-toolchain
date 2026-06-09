@@ -47,8 +47,8 @@ export async function listStaleWrappers(repoRoot: string, binDir: string): Promi
 }
 
 export async function listMissingWrappers(repoRoot: string, binDir: string): Promise<string[]> {
-  const installed = new Set(listInstalledWrappers(binDir));
-  return (await getExpectedBinNames(repoRoot)).filter((name) => !installed.has(name));
+  const expected = await getExpectedBinNames(repoRoot);
+  return expected.filter((name) => !existsSync(join(binDir, name)));
 }
 
 function legacyClonePath(home: string): string {

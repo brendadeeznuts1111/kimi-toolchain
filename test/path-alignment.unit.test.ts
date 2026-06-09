@@ -1,5 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
 import { basename, join } from "path";
 import {
   auditPathAlignment,
@@ -17,7 +18,7 @@ describe("path-alignment", () => {
   let tmpBin: string;
 
   beforeEach(() => {
-    tmpHome = join(REPO_ROOT, `.tmp-path-align-${Date.now()}`);
+    tmpHome = join(tmpdir(), `kimi-path-align-${Bun.randomUUIDv7()}`);
     tmpBin = join(tmpHome, ".local", "bin");
     mkdirSync(tmpBin, { recursive: true });
     Bun.env.HOME = tmpHome;

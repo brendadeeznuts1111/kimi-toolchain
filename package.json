@@ -24,7 +24,8 @@
     "kimi-orphan-kill": "src/bin/kimi-orphan-kill.ts",
     "kimi-release": "src/bin/kimi-release.ts",
     "kimi-resource-governor": "src/bin/kimi-resource-governor.ts",
-    "kimi-snapshot": "src/bin/kimi-snapshot.ts"
+    "kimi-snapshot": "src/bin/kimi-snapshot.ts",
+    "unified-shell-bridge": "src/bin/unified-shell-bridge.ts"
   },
   "files": [
     "src",

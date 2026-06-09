@@ -23,6 +23,7 @@ import {
 } from "../lib/r-score.ts";
 import { bunTestArgs, useFastUnitCoverage } from "../lib/test-gates.ts";
 import { checkDocDrift, patchReadmeScripts } from "../lib/readme-sync.ts";
+import { checkKimiDocsAligned } from "../lib/kimi-docs-aligned.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -828,6 +829,21 @@ async function main() {
       fixable: false,
     });
 
+    const kimiDocs = await checkKimiDocsAligned(projectDir);
+    if (kimiDocs.applicable) {
+      checks.push({
+        name: "kimiDocsAligned",
+        status: kimiDocs.aligned ? "ok" : "warn",
+        message: kimiDocs.aligned
+          ? "product matrix + MCP docs in sync"
+          : kimiDocs.checks
+              .filter((c) => c.status === "warn")
+              .map((c) => `${c.name}: ${c.message}`)
+              .join("; "),
+        fixable: false,
+      });
+    }
+
     // Lockfile check via guardian
     try {
       const guardianResult = await runTool("kimi-guardian", ["check"], {
@@ -912,6 +928,15 @@ async function main() {
       const weight = WEIGHTS[key as keyof typeof WEIGHTS];
       const indicator = breakdownIndicator(value, weight);
       console.log(`    ${indicator} ${key}: ${formatPoints(value)}/${weight}`);
+    }
+
+    const kimiDocs = await checkKimiDocsAligned(projectDir);
+    if (kimiDocs.applicable) {
+      console.log("");
+      const icon = kimiDocs.aligned ? "✓" : "⚠";
+      console.log(
+        `  ${icon} kimiDocsAligned (soft): ${kimiDocs.aligned ? "product matrix + MCP docs in sync" : "see kimi-governance doctor"}`
+      );
     }
 
     if (existsSync(SCORE_HISTORY)) {

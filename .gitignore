@@ -1,3 +1,6 @@
+# Project-level Kimi Code config (scaffolded by kimi-fix, not source)
+.kimi-code/
+
 # Live runtime state (not tracked)
 tools/
 var/
@@ -16,6 +19,8 @@ reports/
 .tmp-kimi-test-home/
 .tmp-drift-*/
 .tmp-test-*/
+.tmp-path-align-*/
+.tmp-*/
 *.log
 
 # OS
