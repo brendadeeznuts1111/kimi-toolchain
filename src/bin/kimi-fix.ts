@@ -9,6 +9,8 @@ import { existsSync, mkdirSync } from "fs";
 import { join, basename } from "path";
 import { $ } from "bun";
 import { projectMcpStub } from "../lib/mcp-config.ts";
+import { buildAgentsMd } from "../lib/scaffold-agents.ts";
+import { getProjectName } from "../lib/utils.ts";
 
 const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
 
@@ -285,7 +287,7 @@ async function main() {
     console.log("  - kimi-context-gen update (CONTEXT.md)");
     console.log("  - kimi-guardian fix (lockfile baseline + trusted deps)");
     console.log("  - kimi-githooks install (pre-commit + pre-push)");
-    console.log("  - .env.example, .gitignore, bunfig.toml, oxfmt/oxlint, CI template");
+    console.log("  - AGENTS.md, .env.example, .gitignore, bunfig.toml, oxfmt/oxlint, CI template");
     process.exit(projectPath ? 0 : 1);
   }
 
@@ -372,6 +374,13 @@ async function main() {
   if (!existsSync(join(project, ".oxlintrc.json"))) {
     log("oxlint", "creating .oxlintrc.json...");
     await writeFile(join(project, ".oxlintrc.json"), OXLINTRC, dryRun);
+  }
+
+  // AGENTS.md (project agent guide)
+  const agentsPath = join(project, "AGENTS.md");
+  if (!existsSync(agentsPath)) {
+    log("agents", "creating AGENTS.md...");
+    await writeFile(agentsPath, buildAgentsMd(getProjectName(project)), dryRun);
   }
 
   // Kimi Code project config (.kimi-code/mcp.json + skills placeholder)

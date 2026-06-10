@@ -49,7 +49,15 @@ describe("lib/utils", () => {
     expect(sha256String("kimi-toolchain")).toBe(hash);
   });
 
-  test("getProjectName extracts directory basename", () => {
+  test("getProjectName prefers package.json name over directory", () => {
+    const dir = join(REPO_ROOT, ".tmp-test-project-name");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "my-real-app" }));
+    expect(getProjectName(dir)).toBe("my-real-app");
+    Bun.spawnSync(["rm", "-rf", dir]);
+  });
+
+  test("getProjectName falls back to directory basename", () => {
     expect(getProjectName("/tmp/kimi-toolchain")).toBe("kimi-toolchain");
     expect(getProjectName("/")).toBe("unknown");
   });

@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `kimi-fix` scaffolds `AGENTS.md` from `src/lib/scaffold-agents.ts` (uses `package.json` name)
+- `TEMPLATES.md` aligned with `kimi-fix` (scripts, bunfig, CI, tsconfig)
+
+### Added (prior)
+
 - Mandatory `bun run sync` in pre-push hook for kimi-toolchain (updates `~/.kimi-code/` manifest on every push)
 - `bun run push` script — `git push` then desktop sync (for `--no-verify` recovery)
 
@@ -28,6 +33,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- `getProjectName` prefers `package.json` `name` over directory basename (AGENTS.md, README, etc.)
 - Wrapper coverage check now validates all package.json bin entries (not only kimi-*)
 - Path-alignment unit tests use system tmpdir (no repo `.tmp-*` pollution)
 

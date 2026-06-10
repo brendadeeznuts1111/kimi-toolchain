@@ -144,19 +144,24 @@ No ADRs yet. Create one: `bun run ~/.kimi-code/tools/kimi-governance.ts adr "<ti
   "scripts": {
     "test": "bun run scripts/run-tests.ts",
     "test:fast": "bun run scripts/run-tests.ts --fast",
+    "test:coverage": "bun run scripts/run-tests.ts --coverage",
     "test:coverage:ci": "bun run scripts/run-tests.ts --ci --coverage",
     "check": "bun run scripts/check.ts",
     "check:fast": "bun run scripts/check.ts --fast --timeout 100",
     "check:dry-run": "bun run scripts/check.ts --dry-run",
+    "docs:sync": "bun run scripts/readme-sync.ts --fix",
     "typecheck": "tsc --noEmit",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check -c .oxfmtrc.json .",
+    "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
     "lint": "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
     "lint:terms": "bun run scripts/lint-banned-terms.ts"
   },
   "devDependencies": {
     "oxfmt": "latest",
-    "oxlint": "latest"
+    "oxlint": "latest",
+    "typescript": "latest",
+    "@types/bun": "latest"
   }
 }
 ```
@@ -177,7 +182,9 @@ Bun bundler mode — per [Bun TypeScript docs](https://bun.com/docs/runtime/type
     "allowImportingTsExtensions": true,
     "strict": true,
     "noEmit": true,
+    "esModuleInterop": true,
     "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
     "types": ["bun"]
   },
   "include": ["src/**/*", "test/**/*", "scripts/**/*"]
@@ -225,13 +232,20 @@ API_KEY=replace_me_in_dot_env
 
 ```toml
 [install]
-saveTextLockfile = true
 # Trusted dependencies with postinstall scripts
-# Auto-populated by: bun run ~/.kimi-code/tools/kimi-guardian.ts check
+# Run `kimi-guardian check` to auto-populate
 trustedDependencies = []
 
 [install.cache]
+# Global cache directory (shared across projects)
 dir = "~/.bun/install/cache"
+
+[test]
+# Unit tests run concurrently; smoke tests stay sequential
+concurrentTestGlob = ["test/*.unit.test.ts"]
+coverageSkipTestFiles = true
+
+coverageThreshold = { lines = 0.35, functions = 0.25 }
 ```
 
 ## dx.config.toml Template
@@ -302,6 +316,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## AGENTS.md Minimal Template
 
+Scaffolded automatically by `kimi-fix` via `src/lib/scaffold-agents.ts`. Title uses `package.json` `name` (falls back to directory name). Customize the one-line project description after generation.
+
 ````markdown
 # Agent Guide — {Project Name}
 
@@ -319,7 +335,7 @@ One-line description of what this does.
 
 - **oxfmt** — `.oxfmtrc.json`, `bun run format` / `bun run format:check`
 - **oxlint** — `.oxlintrc.json`, `bun run lint`
-- Run `bun run format` before commit; CI uses `format:check` + `lint`
+- Run `bun run format` before commit; CI uses `format:check:ci` + `lint`
 
 ## Conventions
 
@@ -339,23 +355,26 @@ bun run dev           # Dev server (auto-port)
 bun run test          # Tests (fail-fast)
 bun run typecheck     # tsc --noEmit
 bun run format        # oxfmt --write .
-bun run format:check  # oxfmt --check . (CI)
+bun run format:check  # oxfmt --check . (local)
 bun run lint          # oxlint
-bun run fix           # Auto-fix scaffolding
+kimi-fix .            # Auto-fix scaffolding
 ```
-````
 
 ## Quality Gates
 
 ```bash
-bun run ~/.kimi-code/tools/kimi-guardian.ts check       # Supply chain security
-bun run ~/.kimi-code/tools/kimi-governance.ts score     # R-Score
-bun run ~/.kimi-code/tools/kimi-context-gen.ts scan     # Context freshness
-bun run ~/.kimi-code/tools/kimi-githooks.ts install     # Git hooks
-bun run ~/.kimi-code/tools/kimi-resource-governor.ts limits
-bun run ~/.kimi-code/tools/kimi-memory.ts stats
-bun run ~/.kimi-code/tools/kimi-debug.ts last
+kimi-guardian check
+kimi-governance score
+kimi-context-gen scan
+kimi-githooks install
+kimi-doctor --quick
 ```
+
+## Kimi Code
+
+- User MCP: `~/.kimi-code/mcp.json` (unified-shell from toolchain sync)
+- Project override: `.kimi-code/mcp.json` (empty stub unless you add stdio servers)
+- Skills: `.kimi-code/skills/<name>/SKILL.md`
 
 ## References
 
@@ -365,7 +384,6 @@ bun run ~/.kimi-code/tools/kimi-debug.ts last
 - `~/.kimi-code/AGENTS.md` — global agent rules
 - `~/.kimi-code/UNIFIED.md` — Kimi Code vs kimi-toolchain map
 - `~/.kimi-code/TEMPLATES.md` — scaffold templates (this file)
-
 ````
 
 ## CI Workflow Template (`.github/workflows/ci.yml`)
@@ -379,8 +397,13 @@ on:
   pull_request:
     branches: [main, master]
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
-  test:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -388,13 +411,13 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.3.14"
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
       - name: Format check
-        run: bun run format:check
+        run: bun run format:check:ci
 
       - name: Lint
         run: bun run lint
@@ -402,9 +425,9 @@ jobs:
       - name: Type check
         run: bun run typecheck
 
-      - name: Test
-        run: bun run test
-````
+      - name: Test + coverage
+        run: bun run test:coverage:ci
+```
 
 ## TypeScript Function Template (Bun-Native)
 

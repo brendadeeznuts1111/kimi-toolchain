@@ -4,7 +4,7 @@
  * Bun-native only. Zero dependencies.
  */
 
-import { existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { $ } from "bun";
 
@@ -65,7 +65,19 @@ export function safeParse<T>(json: string, fallback: T): T {
 // ── Project Info ─────────────────────────────────────────────────────
 
 export function getProjectName(projectDir: string = Bun.cwd): string {
-  return projectDir.split("/").pop() || "unknown";
+  const root = projectDir.replace(/\/$/, "");
+  if (!root) return "unknown";
+  const pkgPath = join(root, "package.json");
+  if (existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { name?: string };
+      if (typeof pkg.name === "string" && pkg.name.trim()) return pkg.name.trim();
+    } catch {
+      /* fall through to directory name */
+    }
+  }
+  const base = root.split("/").pop();
+  return base || "unknown";
 }
 
 // ── Project Root ─────────────────────────────────────────────────────
