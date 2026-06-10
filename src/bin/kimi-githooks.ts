@@ -26,7 +26,7 @@ import { detectSyncDrift } from "../lib/sync-hashes.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
-const HOOKS = ["pre-commit", "pre-push"];
+const HOOKS = ["pre-commit", "pre-push"] as const;
 const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
 
 const PRE_COMMIT_HOOK = `#!/bin/sh
@@ -144,6 +144,20 @@ if [ -f "package.json" ]; then
   fi
 fi
 
+# 5. Desktop sync (mandatory for kimi-toolchain — keeps ~/.kimi-code/ on pushed HEAD)
+if [ -f "package.json" ] && grep -q '"name": "kimi-toolchain"' package.json 2>/dev/null; then
+  echo ""
+  echo "── Desktop Sync (mandatory) ─────────────────────────────────"
+  if [ -f "scripts/sync-to-desktop.ts" ]; then
+    bun run scripts/sync-to-desktop.ts || exit 1
+  elif grep -q '"sync"' package.json 2>/dev/null; then
+    bun run sync || exit 1
+  else
+    echo "✗ PUSH BLOCKED: kimi-toolchain sync script missing"
+    exit 1
+  fi
+fi
+
 echo ""
 echo "✓ Pre-push checks passed"
 exit 0
@@ -191,7 +205,9 @@ async function installHooks(projectDir: string) {
   console.log(
     "  pre-commit: blocks .env, format:check + lint + typecheck, warns on TODO/console.log"
   );
-  console.log("  pre-push:   guardian scan, R-Score gate (blocks F/D), check/test gate");
+  console.log(
+    "  pre-push:   guardian scan, R-Score gate (blocks F/D), check/test gate, mandatory bun run sync"
+  );
 }
 
 // ── Doctor ───────────────────────────────────────────────────────────
@@ -274,17 +290,17 @@ async function doctorHooks(projectDir: string) {
     const hasKimi = content.includes("kimi-githooks");
     const hasQuality = content.includes("Quality Gate");
     const hasRepoFirst = content.includes("src/bin/kimi-governance.ts");
+    const hasDesktopSync = content.includes("Desktop Sync (mandatory)");
+    const prePushOk = hasKimi && hasQuality && hasRepoFirst && hasDesktopSync;
     checks.push({
       name: "pre-push",
-      status: hasKimi && hasQuality && hasRepoFirst ? "ok" : hasKimi ? "warn" : "warn",
+      status: prePushOk ? "ok" : hasKimi ? "warn" : "warn",
       message: hasKimi
-        ? hasQuality
-          ? hasRepoFirst
-            ? "Installed with repo-first tools + quality gate"
-            : "Installed but stale template — run kimi-githooks fix"
-          : "Installed but missing quality gate"
+        ? prePushOk
+          ? "Installed with repo-first tools, quality gate, mandatory desktop sync"
+          : "Installed but stale template — run kimi-githooks fix"
         : "Custom pre-push (not managed)",
-      fixable: !hasKimi || !hasQuality || !hasRepoFirst,
+      fixable: !prePushOk,
     });
   }
 

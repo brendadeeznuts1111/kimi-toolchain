@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Mandatory `bun run sync` in pre-push hook for kimi-toolchain (updates `~/.kimi-code/` manifest on every push)
+- `bun run push` script — `git push` then desktop sync (for `--no-verify` recovery)
+
+### Added (prior batch)
+
 - `kimi-config-audit` read-only `config.toml` permission checks in `kimi-doctor` (MCP allow rule + YOLO mode)
 - Deeper project `.kimi-code/mcp.json` validation (stub, unified-shell override)
 - Kimi Code 0.12+ version matrix updates (`sub-skills` stable, 0.14.0 upgrade hint)

@@ -143,8 +143,9 @@ bun run fix              # = bun run src/bin/kimi-fix.ts
 bun run governance       # = bun run src/bin/kimi-governance.ts
 
 # Sync repo → ~/.kimi-code/
-bun run sync             # one-shot
+bun run sync             # one-shot (mandatory on every pre-push in this repo)
 bun run sync:daemon      # Bun.cron every 5 minutes
+bun run push             # git push + sync (use if hooks were skipped)
 ```
 
 ### Global Install (for end users)
@@ -216,7 +217,7 @@ bun run typecheck        # TypeScript validation
 | ---------- | ------------------------------------------------------------------- |
 | Local      | `bun run check` or `bun run unify`                                  |
 | pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`) |
-| pre-push   | `check` script + guardian + R-Score gate                            |
+| pre-push   | `check` + guardian + R-Score gate + mandatory `bun run sync`        |
 | CI         | `.github/workflows/ci.yml` — format:check, lint, typecheck, test    |
 | Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)    |
 

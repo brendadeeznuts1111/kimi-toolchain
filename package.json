@@ -66,6 +66,7 @@
     "typecheck": "tsc --noEmit",
     "sync": "bun run scripts/sync-to-desktop.ts",
     "sync:daemon": "bun run scripts/sync-to-desktop.ts --daemon",
+    "push": "bash scripts/push.sh",
     "unify": "bash scripts/unify.sh",
     "install-wrappers": "bash scripts/install-bin-wrappers.sh",
     "memory-check": "bash scripts/memory-check.sh",
