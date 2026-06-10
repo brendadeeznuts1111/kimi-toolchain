@@ -25,15 +25,17 @@ whenToUse: |
 
 ## Kimi Code slash commands
 
-| Command             | Purpose                            |
-| ------------------- | ---------------------------------- |
-| `/mcp`              | MCP server connection status       |
-| `/mcp-config`       | Add/edit MCP servers interactively |
-| `/goal next <text>` | Queue a multi-turn goal            |
-| `/reload`           | Reload session after config edits  |
-| `/reload-tui`       | Reload TUI preferences only        |
+| Command                 | Purpose                                    |
+| ----------------------- | ------------------------------------------ |
+| `/mcp`                  | MCP server connection status               |
+| `/mcp-config`           | Add/edit MCP servers interactively         |
+| `/goal next <text>`     | Queue a multi-turn goal                    |
+| `/reload`               | Reload session after config edits          |
+| `/reload-tui`           | Reload TUI preferences only                |
+| `/swarm`                | Agent swarms (0.12.0+)                     |
+| `/import-from-cc-codex` | Import Cursor/Codex skills + MCP (0.13.0+) |
 
-Built-in subagents: `coder`, `explore`, `plan`. Experimental sub-skills: `KIMI_CODE_EXPERIMENTAL_SUB_SKILL=1` (0.11.0+).
+Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0** (`/sub-skill.review`, `/sub-skill.consolidate`). Latest: **0.14.0** — run `kimi upgrade`.
 
 ## When to Use (toolchain)
 

@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `kimi-config-audit` read-only `config.toml` permission checks in `kimi-doctor` (MCP allow rule + YOLO mode)
+- Deeper project `.kimi-code/mcp.json` validation (stub, unified-shell override)
+- Kimi Code 0.12+ version matrix updates (`sub-skills` stable, 0.14.0 upgrade hint)
+
+### Added (prior)
+
 - MCP auto-provisioning: `src/lib/mcp-config.ts` seeds `unified-shell` in `~/.kimi-code/mcp.json` on sync/postinstall
 - `kimi-doctor` MCP validation section and official `kimi doctor` delegation
 - Dual skill sync to `~/.kimi-code/skills/` and `~/.agents/skills/`

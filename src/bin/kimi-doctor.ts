@@ -28,6 +28,7 @@ import {
   removeStaleWrappers,
 } from "../lib/path-alignment.ts";
 import { fixMcpConfig, validateMcpConfig } from "../lib/mcp-config.ts";
+import { auditKimiConfig } from "../lib/kimi-config-audit.ts";
 import { getOrphanProcesses, runOrphanKill } from "./kimi-orphan-kill.ts";
 import { resolveProjectRoot, printSection } from "../lib/utils.ts";
 
@@ -175,8 +176,13 @@ async function versionMatrix(): Promise<CheckResult[]> {
     if (semverBelow(desktopVersion, [0, 10, 0])) {
       results.push(warn("kimi doctor cmd", "requires kimi >= 0.10.0"));
     }
-    if (semverBelow(desktopVersion, [0, 11, 0])) {
-      results.push(warn("sub-skills", "0.11.0+ for experimental sub-skill bundle"));
+    if (semverBelow(desktopVersion, [0, 12, 0])) {
+      results.push(warn("sub-skills", "0.12.0+ for stable sub-skill discovery"));
+    } else {
+      results.push(ok("sub-skills", "stable since 0.12.0"));
+    }
+    if (semverBelow(desktopVersion, [0, 14, 0])) {
+      results.push(warn("kimi-code update", "0.14.0+ recommended — run kimi upgrade"));
     }
   } else {
     results.push(error("Desktop (kimi)", "not found"));
@@ -469,7 +475,18 @@ async function main() {
 
   section("MCP");
   const mcpReport = await validateMcpConfig(home, projectRoot);
+  const unifiedShellRegistered = mcpReport.checks.some(
+    (c) => c.name === "unified-shell" && c.status === "ok"
+  );
   for (const check of mcpReport.checks) {
+    if (check.status === "ok") results.push(ok(check.name, check.message));
+    else if (check.status === "warn") results.push(warn(check.name, check.message));
+    else results.push(error(check.name, check.message));
+  }
+
+  section("Kimi Permissions");
+  const configAudit = await auditKimiConfig(home, { unifiedShellRegistered });
+  for (const check of configAudit) {
     if (check.status === "ok") results.push(ok(check.name, check.message));
     else if (check.status === "warn") results.push(warn(check.name, check.message));
     else results.push(error(check.name, check.message));

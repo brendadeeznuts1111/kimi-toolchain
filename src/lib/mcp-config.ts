@@ -204,12 +204,57 @@ export async function validateMcpConfig(
   }
 
   if (projectPath && existsSync(projectPath)) {
-    checks.push({
-      name: "mcp-project",
-      status: "ok",
-      message: `${projectPath} (overrides user-level entries with same name)`,
-      fixable: false,
-    });
+    const projectMcp = await readMcpJson(projectPath);
+    if (!projectMcp) {
+      checks.push({
+        name: "mcp-project",
+        status: "warn",
+        message: `${projectPath} — invalid JSON`,
+        fixable: false,
+      });
+    } else {
+      const serverNames = Object.keys(projectMcp.mcpServers);
+      const summary =
+        serverNames.length === 0
+          ? "empty stub (inherits user-level servers)"
+          : `${serverNames.length} server(s): ${serverNames.join(", ")}`;
+      checks.push({
+        name: "mcp-project",
+        status: "ok",
+        message: `${projectPath} — ${summary}`,
+        fixable: false,
+      });
+
+      const override = projectMcp.mcpServers[UNIFIED_SHELL_SERVER];
+      if (override) {
+        if (override.enabled === false) {
+          checks.push({
+            name: "mcp-project-override",
+            status: "warn",
+            message: "unified-shell disabled at project level",
+            fixable: false,
+          });
+        } else if (!override.command && !override.url) {
+          checks.push({
+            name: "mcp-project-override",
+            status: "error",
+            message: "unified-shell override missing command or url",
+            fixable: false,
+          });
+        } else {
+          const args = override.args?.join(" ") ?? "";
+          const usesBridge = args.includes("unified-shell-bridge");
+          checks.push({
+            name: "mcp-project-override",
+            status: usesBridge || !!override.url ? "ok" : "warn",
+            message: usesBridge
+              ? "unified-shell project override uses toolchain bridge"
+              : "custom unified-shell override (not toolchain bridge)",
+            fixable: false,
+          });
+        }
+      }
+    }
   }
 
   return { checks, userPath, projectPath };

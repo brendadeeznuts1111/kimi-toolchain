@@ -18,6 +18,7 @@ export const UNIT_TEST_FILES = [
   "test/path-alignment.unit.test.ts",
   "test/mcp-config.unit.test.ts",
   "test/kimi-docs-aligned.unit.test.ts",
+  "test/kimi-config-audit.unit.test.ts",
 ] as const;
 
 export const FAST_TEST_TIMEOUT_MS = 100;

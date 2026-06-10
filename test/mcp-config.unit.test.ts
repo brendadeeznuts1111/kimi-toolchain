@@ -1,5 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdirSync, rmSync } from "fs";
+import { tmpdir } from "os";
 import { join } from "path";
 import {
   buildUnifiedShellEntry,
@@ -8,15 +9,15 @@ import {
   readMcpJson,
   UNIFIED_SHELL_SERVER,
   userMcpPath,
+  validateMcpConfig,
   writeMcpJson,
 } from "../src/lib/mcp-config.ts";
 
-const REPO_ROOT = join(import.meta.dir, "..");
 let tmpHome: string;
 
 describe("mcp-config", () => {
   beforeEach(async () => {
-    tmpHome = join(REPO_ROOT, `.tmp-mcp-${Date.now()}`);
+    tmpHome = join(tmpdir(), `kimi-mcp-${Bun.randomUUIDv7()}`);
     mkdirSync(tmpHome, { recursive: true });
     mkdirSync(join(tmpHome, ".kimi-code", "tools"), { recursive: true });
     await Bun.write(
@@ -73,5 +74,26 @@ describe("mcp-config", () => {
     await writeMcpJson(path, data);
     const read = await readMcpJson(path);
     expect(read?.mcpServers.test?.command).toBe("echo");
+  });
+
+  test("validateMcpConfig reports project stub and override issues", async () => {
+    await provisionUserMcp(tmpHome);
+    const projectRoot = join(tmpHome, "proj");
+    const projectMcp = join(projectRoot, ".kimi-code", "mcp.json");
+    mkdirSync(join(projectRoot, ".kimi-code"), { recursive: true });
+    await writeMcpJson(projectMcp, { mcpServers: {} });
+
+    const stubReport = await validateMcpConfig(tmpHome, projectRoot);
+    const projectCheck = stubReport.checks.find((c) => c.name === "mcp-project");
+    expect(projectCheck?.status).toBe("ok");
+    expect(projectCheck?.message).toContain("empty stub");
+
+    await writeMcpJson(projectMcp, {
+      mcpServers: { [UNIFIED_SHELL_SERVER]: { enabled: false } },
+    });
+    const disabledReport = await validateMcpConfig(tmpHome, projectRoot);
+    expect(disabledReport.checks.find((c) => c.name === "mcp-project-override")?.message).toContain(
+      "disabled"
+    );
   });
 });

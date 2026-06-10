@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { join } from "path";
 
 const REPO_ROOT = import.meta.dir + "/..";
+/** Captured before concurrent unit tests may mutate Bun.env.HOME */
+const REAL_HOME = process.env.HOME || "/tmp";
 const DOCTOR = join(REPO_ROOT, "src/bin/kimi-doctor.ts");
 const ORPHAN_KILL = join(REPO_ROOT, "src/bin/kimi-orphan-kill.ts");
 const GOVERNOR = join(REPO_ROOT, "src/bin/kimi-resource-governor.ts");
@@ -16,7 +18,7 @@ async function runTool(
   const proc = Bun.spawn(["bun", "run", path, ...args], {
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...Bun.env, HOME: Bun.env.HOME || "/tmp" },
+    env: { ...Bun.env, HOME: REAL_HOME },
   });
   const exitCode = await proc.exited;
   const stdout = await Bun.readableStreamToText(proc.stdout);
@@ -29,7 +31,9 @@ describe("kimi-doctor smoke", () => {
     const { stdout } = await runTool(DOCTOR, ["--quick"]);
     expect(stdout).toContain("Kimi Code Config");
     expect(stdout).toContain("── MCP");
+    expect(stdout).toContain("── Kimi Permissions");
     expect(stdout).toContain("unified-shell");
+    expect(stdout).toMatch(/mcp-permission|config-toml/);
     expect(stdout).toContain("Path Alignment");
   }, 60_000);
 
