@@ -158,6 +158,7 @@ bun run governance       # = bun run src/bin/kimi-governance.ts
 bun run sync             # one-shot (mandatory on every pre-push in this repo)
 bun run sync:daemon      # Bun.cron every 5 minutes
 bun run push             # git push + sync (use if hooks were skipped)
+bun run verify-workspace # fail if cwd folder is not kimi-toolchain
 ```
 
 ### Global Install (for end users)

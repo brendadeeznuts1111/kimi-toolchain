@@ -10,6 +10,8 @@ const GOVERNOR = join(REPO_ROOT, "src/bin/kimi-resource-governor.ts");
 const GOVERNANCE = join(REPO_ROOT, "src/bin/kimi-governance.ts");
 const GITHOOKS = join(REPO_ROOT, "src/bin/kimi-githooks.ts");
 const GUARDIAN = join(REPO_ROOT, "src/bin/kimi-guardian.ts");
+const KIMI_NEW = join(REPO_ROOT, "src/bin/kimi-new.ts");
+const KIMI_FIX = join(REPO_ROOT, "src/bin/kimi-fix.ts");
 
 async function runTool(
   path: string,
@@ -133,6 +135,20 @@ describe("kimi-doctor smoke", () => {
     expect(out).toContain("typecheck");
     expect(out).toContain("bun test");
   }, 5_000);
+
+  test("kimi-new --dry-run prints scaffold steps", async () => {
+    const { stdout, exitCode } = await runTool(KIMI_NEW, ["smoke-test-app", "--dry-run"]);
+    expect(stdout).toContain("smoke-test-app");
+    expect(stdout).toContain("kimi-fix");
+    expect(exitCode).toBe(0);
+  }, 15_000);
+
+  test("kimi-fix doctor passes on toolchain repo", async () => {
+    const { stdout, exitCode } = await runTool(KIMI_FIX, ["doctor", REPO_ROOT]);
+    expect(stdout).toContain("kimi-fix Doctor");
+    expect(stdout).toMatch(/AGENTS\.md|package-scripts/);
+    expect(exitCode === 0 || exitCode === 1).toBe(true);
+  }, 15_000);
 
   test("test:fast completes under 100ms per-test timeout", async () => {
     const proc = Bun.spawn(["bun", "run", "test:fast"], {

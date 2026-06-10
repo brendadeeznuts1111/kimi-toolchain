@@ -5,6 +5,8 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
+bash scripts/verify-workspace.sh
+
 echo "═══ kimi-toolchain unify ═══"
 echo "Repo: ${REPO_ROOT}"
 echo ""

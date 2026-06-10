@@ -2,7 +2,7 @@
  * Path + naming alignment between repo, ~/.kimi-code/, and PATH wrappers.
  */
 
-import { existsSync, readFileSync, readdirSync, unlinkSync } from "fs";
+import { existsSync, readFileSync, readdirSync, realpathSync, unlinkSync } from "fs";
 import { basename, join, resolve } from "path";
 
 export const CANONICAL_REPO_NAME = "kimi-toolchain";
@@ -122,6 +122,12 @@ export async function auditPathAlignment(projectRoot: string): Promise<PathAlign
 
   const resolvedRoot = resolve(projectRoot);
   const repoName = basename(resolvedRoot);
+  let physicalName = repoName;
+  try {
+    physicalName = basename(realpathSync(resolvedRoot));
+  } catch {
+    /* keep repoName */
+  }
   let pkgName = "unknown";
   try {
     const pkg = (await Bun.file(join(projectRoot, "package.json")).json()) as { name?: string };
@@ -131,21 +137,28 @@ export async function auditPathAlignment(projectRoot: string): Promise<PathAlign
   }
 
   if (pkgName === CANONICAL_REPO_NAME) {
-    checks.push(
-      repoName === CANONICAL_REPO_NAME
-        ? {
-            name: "repo-folder",
-            status: "ok",
-            message: `${CANONICAL_REPO_NAME}/ matches package name`,
-            fixable: false,
-          }
-        : {
-            name: "repo-folder",
-            status: "warn",
-            message: `folder is ${repoName}/ — rename to ${CANONICAL_REPO_NAME}/ for alignment`,
-            fixable: false,
-          }
-    );
+    if (repoName === CANONICAL_REPO_NAME) {
+      checks.push({
+        name: "repo-folder",
+        status: "ok",
+        message: `${CANONICAL_REPO_NAME}/ matches package name`,
+        fixable: false,
+      });
+    } else if (physicalName === CANONICAL_REPO_NAME) {
+      checks.push({
+        name: "repo-folder",
+        status: "warn",
+        message: `opened via ${repoName}/ — use ~/${CANONICAL_REPO_NAME} in Cursor (symlink/legacy path)`,
+        fixable: false,
+      });
+    } else {
+      checks.push({
+        name: "repo-folder",
+        status: "warn",
+        message: `folder is ${repoName}/ — rename to ${CANONICAL_REPO_NAME}/ for alignment`,
+        fixable: false,
+      });
+    }
   }
 
   const legacyPath = legacyClonePath(home);

@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `scripts/verify-workspace.sh` + `bun run verify-workspace` (unify gate; blocks wrong folder name)
+- `kimi-new` / `kimi-fix doctor` smoke tests
+- Path-alignment: detect legacy open path when physical path is `kimi-toolchain`
+
+### Added (prior)
+
 - `AGENTS.md` Workspace section — canonical `~/kimi-toolchain` path for agents
 - `kimi-toolchain.code-workspace` — Cursor workspace file (open instead of legacy `kimicode-cli`)
 
