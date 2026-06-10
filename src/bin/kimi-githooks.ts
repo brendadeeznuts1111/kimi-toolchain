@@ -33,8 +33,9 @@ const PRE_COMMIT_HOOK = `#!/bin/sh
 # Auto-installed by kimi-githooks
 # P0: Block secrets, env blocks, TODOs in commit messages
 
-# Check for .env files being committed
-if git diff --cached --name-only | grep -qE '^\\.env($|\\.)'; then
+# Check for .env files being committed (.env.example is allowed)
+ENV_BLOCKED=$(git diff --cached --name-only | grep -E '^\\.env($|\\.)' | grep -v '^\\.env\\.example$' || true)
+if [ -n "$ENV_BLOCKED" ]; then
   echo "✗ Commit blocked: .env file detected in staged changes"
   echo "  Use Bun.secrets or a vault. Never commit .env files."
   exit 1
@@ -424,7 +425,7 @@ async function main() {
       log("warn", "No staged files");
     } else {
       log("info", `${files.length} staged file(s)`);
-      const envFiles = files.filter((f) => f.match(/^\.env($|\.|\.local$)/));
+      const envFiles = files.filter((f) => /^\.env($|\.)/.test(f) && f !== ".env.example");
       if (envFiles.length > 0) {
         log("error", `.env files in staged changes: ${envFiles.join(", ")}`);
         process.exit(1);
