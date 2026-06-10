@@ -1,0 +1,14 @@
+{
+  "folders": [
+    {
+      "name": "kimi-toolchain",
+      "path": ".",
+    },
+  ],
+  "settings": {
+    "files.exclude": {
+      "coverage": true,
+      "node_modules": true,
+    },
+  },
+}

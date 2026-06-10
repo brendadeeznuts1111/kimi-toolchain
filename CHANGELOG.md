@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `AGENTS.md` Workspace section — canonical `~/kimi-toolchain` path for agents
+- `kimi-toolchain.code-workspace` — Cursor workspace file (open instead of legacy `kimicode-cli`)
+
+### Added (prior)
+
 - `kimi-new` greenfield scaffold CLI (`mkdir` + `bun init` + `kimi-fix`)
 - `kimi-fix doctor` subcommand + scaffold checks in `kimi-doctor`
 - `src/lib/scaffold-templates.ts` single source of truth for kimi-fix templates

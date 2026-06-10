@@ -192,6 +192,8 @@ kimi --continue   # resume previous session for this directory
 ### Cursor
 
 - Open folder: `~/kimi-toolchain` (not legacy `kimicode-cli`)
+- Or open workspace file: `~/kimi-toolchain/kimi-toolchain.code-workspace`
+- If tools fail with `Path does not exist: .../kimicode-cli`, you opened the wrong path — see `AGENTS.md` Workspace section
 - **Composer** uses Cursor's agent (separate from Kimi MCP)
 - Integrated terminal `kimi` shares `~/.kimi-code/mcp.json`
 - Toolchain: `kimi-doctor`, `bun run check`

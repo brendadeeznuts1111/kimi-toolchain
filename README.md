@@ -17,6 +17,8 @@ bun install -g .
 bun run unify    # sync → ~/.kimi-code/, install PATH wrappers, validate
 ```
 
+**Cursor:** open `~/kimi-toolchain` or `kimi-toolchain.code-workspace` — not legacy `~/kimicode-cli`.
+
 See **UNIFIED.md** for how Kimi Code (`kimi`), kimi-toolchain (`kimi-doctor`), and `~/.kimi-code/` relate.
 
 ## New project

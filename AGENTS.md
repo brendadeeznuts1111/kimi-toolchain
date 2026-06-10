@@ -3,6 +3,18 @@
 > Bun-native developer tooling: governance, diagnostics, security, and scaffolding.
 > This file is for AI coding agents. It assumes zero prior knowledge of the project.
 
+## Workspace (read first)
+
+| Rule                     | Value                                                                               |
+| ------------------------ | ----------------------------------------------------------------------------------- |
+| **Canonical clone path** | `~/kimi-toolchain`                                                                  |
+| **Folder name**          | Must be `kimi-toolchain` (matches `package.json` `name`)                            |
+| **Legacy path**          | `~/kimicode-cli` — **do not use** (renamed; breaks tool path resolution)            |
+| **Cursor**               | File → Open Folder → `~/kimi-toolchain` (not `$HOME`, not symlink)                  |
+| **Repo root**            | Use `git rev-parse --show-toplevel` or workspace root — never assume `kimicode-cli` |
+
+If Grep/Glob fail with `Path does not exist: .../kimicode-cli`, the editor opened the wrong folder. Reopen `~/kimi-toolchain`.
+
 ## Project Overview
 
 `kimi-toolchain` is a Bun-native CLI toolkit that provides project health checks, supply-chain security, governance scoring, session memory, git hooks, and scaffolding automation. It is a meta-project: the tools manage other projects.
