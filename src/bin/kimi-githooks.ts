@@ -144,7 +144,18 @@ if [ -f "package.json" ]; then
   fi
 fi
 
-# 5. Desktop sync (mandatory for kimi-toolchain — keeps ~/.kimi-code/ on pushed HEAD)
+# 5. Workspace verify (kimi-toolchain only)
+if [ -f "package.json" ] && grep -q '"name": "kimi-toolchain"' package.json 2>/dev/null; then
+  echo ""
+  echo "── Workspace Verify ─────────────────────────────────────────"
+  if [ -f "scripts/verify-workspace.sh" ]; then
+    bash scripts/verify-workspace.sh || exit 1
+  else
+    bun run src/bin/kimi-doctor.ts workspace verify || exit 1
+  fi
+fi
+
+# 6. Desktop sync (mandatory for kimi-toolchain — keeps ~/.kimi-code/ on pushed HEAD)
 if [ -f "package.json" ] && grep -q '"name": "kimi-toolchain"' package.json 2>/dev/null; then
   echo ""
   echo "── Desktop Sync (mandatory) ─────────────────────────────────"

@@ -217,6 +217,24 @@ Kimi Code speaks [Agent Client Protocol](https://moonshotai.github.io/kimi-code/
 
 Run `kimi login` once in terminal before IDE ACP sessions.
 
+## Agent session health
+
+Cursor binds the workspace root at folder-open time. If the editor still points at `~/kimicode-cli` (removed/renamed), agent Grep/Glob fail even when shell `pwd` is `~/kimi-toolchain`.
+
+```mermaid
+flowchart LR
+  disk["~/kimi-toolchain"] --> shell["verify-workspace passes"]
+  slug["~/.cursor/projects/*kimicode*"] --> agent["Agent tools use wrong root"]
+```
+
+**Recovery:**
+
+1. File → Open Workspace → `~/kimi-toolchain/kimi-toolchain.code-workspace`
+2. `bun run unify` (verify → sync → wrappers → doctor → check)
+3. `kimi-doctor --fix --fix-cursor` if legacy Cursor slug remains, then restart Cursor
+
+**CLI:** `kimi-toolchain workspace verify` (blockers), `kimi-toolchain doctor --ecosystem` (full map), `kimi-toolchain doctor --fix --fix-cursor` (opt-in slug removal). Legacy `kimi-doctor` etc. dispatch through `kimi-toolchain`.
+
 ## Kimi Code features (0.11.0)
 
 | Feature                 | How                                  |

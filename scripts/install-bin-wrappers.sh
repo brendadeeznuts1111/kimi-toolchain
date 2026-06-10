@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Install thin PATH wrappers for kimi-toolchain bin entries.
-# Each wrapper execs: bun run ~/.kimi-code/tools/<tool>.ts "$@"
+# Install kimi-toolchain meta wrapper + legacy dispatch aliases on PATH.
 set -euo pipefail
 
 BIN_DIR="${HOME}/.local/bin"
@@ -9,38 +8,56 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 mkdir -p "$BIN_DIR"
 
-# Read bin keys from package.json
-BINS="$(bun -e "
-  const pkg = await Bun.file('${REPO_ROOT}/package.json').json();
-  console.log(Object.keys(pkg.bin || {}).join(' '));
-")"
+BUN="$(command -v bun || echo bun)"
+META="kimi-toolchain"
+META_SCRIPT="${TOOLS_DIR}/${META}.ts"
 
-if [[ -z "${BINS}" ]]; then
-  echo "No bin entries in package.json"
-  exit 1
+# Primary meta wrapper
+cat > "${BIN_DIR}/${META}" <<EOF
+#!/usr/bin/env bash
+# ${META} — kimi-toolchain meta router (auto-generated)
+exec ${BUN} run "\${HOME}/.kimi-code/tools/${META}.ts" "\$@"
+EOF
+chmod +x "${BIN_DIR}/${META}"
+echo "  ✓ ${BIN_DIR}/${META}"
+
+# unified-shell-bridge — direct MCP stdio (no router)
+if [[ -f "${TOOLS_DIR}/unified-shell-bridge.ts" ]]; then
+  cat > "${BIN_DIR}/unified-shell-bridge" <<EOF
+#!/usr/bin/env bash
+exec ${BUN} run "\${HOME}/.kimi-code/tools/unified-shell-bridge.ts" "\$@"
+EOF
+  chmod +x "${BIN_DIR}/unified-shell-bridge"
+  echo "  ✓ ${BIN_DIR}/unified-shell-bridge"
 fi
 
-BUN="$(command -v bun || echo bun)"
-COUNT=0
+# Legacy kimi-* aliases dispatch through meta bin
+BINS="$(bun -e "
+  const pkg = await Bun.file('${REPO_ROOT}/package.json').json();
+  console.log(Object.keys(pkg.bin || {}).filter(k => k.startsWith('kimi-') && k !== '${META}').join(' '));
+")"
 
+COUNT=1
 for name in ${BINS}; do
+  short="${name#kimi-}"
   dest="${BIN_DIR}/${name}"
   cat > "$dest" <<EOF
 #!/usr/bin/env bash
-# ${name} — kimi-toolchain wrapper (auto-generated)
-exec ${BUN} run "\${HOME}/.kimi-code/tools/${name}.ts" "\$@"
+# ${name} — dispatches to ${META} ${short} (auto-generated)
+exec ${BUN} run "\${HOME}/.kimi-code/tools/${META}.ts" "${short}" "\$@"
 EOF
   chmod +x "$dest"
-  echo "  ✓ ${dest}"
+  echo "  ✓ ${dest} → ${META} ${short}"
   COUNT=$((COUNT + 1))
 done
 
-# Remove stale wrappers from prior package names / removed tools
+# Remove stale wrappers not in expected set
+EXPECTED=" ${META} unified-shell-bridge ${BINS} "
 REMOVED=0
-for dest in "${BIN_DIR}"/kimi-*; do
+for dest in "${BIN_DIR}"/kimi-* "${BIN_DIR}/kimi-toolchain"; do
   [[ -e "$dest" ]] || continue
   name="$(basename "$dest")"
-  if [[ " ${BINS} " != *" ${name} "* ]]; then
+  if [[ "${EXPECTED}" != *" ${name} "* ]]; then
     rm -f "$dest"
     echo "  ✗ removed stale ${name}"
     REMOVED=$((REMOVED + 1))
@@ -48,7 +65,7 @@ for dest in "${BIN_DIR}"/kimi-*; do
 done
 
 echo ""
-echo "Installed ${COUNT} wrapper(s) in ${BIN_DIR}"
+echo "Installed ${COUNT} wrapper(s) in ${BIN_DIR} (${META} + aliases)"
 if [[ "${REMOVED}" -gt 0 ]]; then
   echo "Removed ${REMOVED} stale wrapper(s)"
 fi

@@ -63,8 +63,10 @@ Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0
 ### Project Health Check
 
 ```
+0. RUN: kimi-toolchain workspace verify  (or bun run verify-workspace)
+   IF cursor-workspace blocker → reopen ~/kimi-toolchain; kimi-toolchain doctor --fix --fix-cursor
 1. RUN: kimi doctor          # official Kimi Code config
-2. RUN: kimi-doctor --quick  # toolchain + MCP + path alignment
+2. RUN: kimi-toolchain doctor --ecosystem --quick  # cross-product health
 3. RUN: kimi-governance score
 4. PARSE doctor output + R-Score breakdown
 5. IF lockfile warning → RUN: kimi-guardian check

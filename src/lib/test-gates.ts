@@ -22,6 +22,8 @@ export const UNIT_TEST_FILES = [
   "test/scaffold-agents.unit.test.ts",
   "test/scaffold-templates.unit.test.ts",
   "test/scaffold-aligned.unit.test.ts",
+  "test/workspace-health.test.ts",
+  "test/ecosystem-health.test.ts",
 ] as const;
 
 export const FAST_TEST_TIMEOUT_MS = 100;

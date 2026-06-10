@@ -21,6 +21,7 @@ export const ROOT_TEMPLATES = [
   "TEMPLATES.md",
   "CONTRIBUTING.md",
   "dx.config.toml",
+  "kimi-toolchain.code-workspace",
 ] as const;
 
 export const OPTIONAL_CONFIG_FILES = ["bunfig.toml", ".gitignore"] as const;

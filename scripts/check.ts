@@ -17,6 +17,7 @@ import {
   FAST_TEST_TIMEOUT_MS,
   DEFAULT_TEST_TIMEOUT_MS,
 } from "../src/lib/test-gates.ts";
+import { isKimiToolchainRepo } from "../src/lib/workspace-health.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
@@ -58,16 +59,25 @@ function parseCli(): { dryRun: boolean; fast: boolean; timeoutMs: number } {
   return { dryRun, fast, timeoutMs };
 }
 
-function buildSteps(fast: boolean, timeoutMs: number): Step[] {
-  return [
+async function buildSteps(fast: boolean, timeoutMs: number): Promise<Step[]> {
+  const steps: Step[] = [];
+  // Full check only — check:fast skips env blockers (cursor slug, wrappers) for quick iteration
+  if (!fast && (await isKimiToolchainRepo(REPO_ROOT))) {
+    steps.push({
+      name: "verify-workspace",
+      cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "workspace", "verify"],
+    });
+  }
+  steps.push(
     { name: "format:check", cmd: ["bun", "run", "format:check"] },
     { name: "lint", cmd: ["bun", "run", "lint"] },
     { name: "typecheck", cmd: ["bun", "run", "typecheck"] },
     {
       name: fast ? "test:fast" : "test",
       cmd: ["bun", ...bunTestArgs({ fast, timeoutMs, bail: true })],
-    },
-  ];
+    }
+  );
+  return steps;
 }
 
 async function runStep(step: Step): Promise<number> {
@@ -81,7 +91,7 @@ async function runStep(step: Step): Promise<number> {
 
 async function main() {
   const { dryRun, fast, timeoutMs } = parseCli();
-  const steps = buildSteps(fast, timeoutMs);
+  const steps = await buildSteps(fast, timeoutMs);
 
   if (dryRun) {
     console.log(`check ${fast ? "(fast) " : ""}— dry run`);

@@ -23,14 +23,18 @@ import {
 } from "../lib/memory-budget.ts";
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
 import {
-  auditPathAlignment,
-  removeOrphanedSnapshots,
-  removeStaleWrappers,
-} from "../lib/path-alignment.ts";
+  auditWorkspaceHealth,
+  countWorkspaceBlockers,
+  fixWorkspaceHealth,
+  isKimiToolchainRepo,
+  WORKSPACE_SOFT_NAMES,
+} from "../lib/workspace-health.ts";
+import { auditEcosystemHealth } from "../lib/ecosystem-health.ts";
 import { fixMcpConfig, validateMcpConfig } from "../lib/mcp-config.ts";
 import { auditKimiConfig, mergeConfigTomlPermissions } from "../lib/kimi-config-audit.ts";
 import { getOrphanProcesses, runOrphanKill } from "./kimi-orphan-kill.ts";
 import { resolveProjectRoot, printSection } from "../lib/utils.ts";
+import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 
 const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
 const FIX = Bun.argv.includes("--fix");
@@ -38,6 +42,10 @@ const QUICK = Bun.argv.includes("--quick");
 const SOFT_SYSTEM = Bun.argv.includes("--soft-system");
 const MEMORY_BUDGET = Bun.argv.includes("--memory-budget");
 const JSON_OUT = Bun.argv.includes("--json");
+const WORKSPACE_ONLY = Bun.argv.includes("--workspace");
+const ECOSYSTEM = Bun.argv.includes("--ecosystem");
+const FIX_CURSOR = Bun.argv.includes("--fix-cursor");
+const STRICT_WORKSPACE = Bun.argv.includes("--strict-workspace");
 
 interface CheckResult {
   name: string;
@@ -227,17 +235,6 @@ async function versionMatrix(): Promise<CheckResult[]> {
   return results;
 }
 
-async function isKimiToolchainRepo(projectRoot: string): Promise<boolean> {
-  const pkgPath = join(projectRoot, "package.json");
-  if (!existsSync(pkgPath)) return false;
-  try {
-    const pkg = (await Bun.file(pkgPath).json()) as { name?: string };
-    return pkg.name === "kimi-toolchain";
-  } catch {
-    return false;
-  }
-}
-
 async function checkDesktopSync(projectRoot: string): Promise<{
   results: CheckResult[];
   drift?: { synced: boolean; drifted: string[]; missing: string[] };
@@ -379,18 +376,38 @@ async function runQualityChecks(projectRoot: string): Promise<CheckResult[]> {
   return results;
 }
 
-async function applyPathAlignmentFixes(projectRoot: string): Promise<void> {
+async function applyWorkspaceFixes(projectRoot: string): Promise<void> {
   const home = Bun.env.HOME || "/tmp";
-  const report = await auditPathAlignment(projectRoot);
+  const report = await auditWorkspaceHealth(projectRoot, {
+    strictWorkspace: STRICT_WORKSPACE,
+    home,
+  });
 
-  if (report.staleWrappers.length > 0) {
-    const removed = removeStaleWrappers(report.staleWrappers, join(home, ".local", "bin"));
-    console.log(`  ✓ Removed ${removed} stale PATH wrapper(s)`);
+  const result = await fixWorkspaceHealth(report, {
+    projectRoot,
+    home,
+    removeCursorSlugs: FIX_CURSOR,
+    removeLegacySymlink: FIX_CURSOR,
+    syncDesktop: true,
+    installWrappers: true,
+  });
+
+  if (result.staleWrappersRemoved > 0) {
+    console.log(`  ✓ Removed ${result.staleWrappersRemoved} stale PATH wrapper(s)`);
   }
-
-  if (report.orphanedSnapshots > 0) {
-    const removed = await removeOrphanedSnapshots(join(home, ".kimi-code", "snapshots"));
-    console.log(`  ✓ Removed ${removed} orphaned snapshot(s)`);
+  if (result.snapshotsRemoved > 0) {
+    console.log(`  ✓ Removed ${result.snapshotsRemoved} orphaned snapshot(s)`);
+  }
+  if (result.syncRan) console.log("  ✓ Desktop sync completed");
+  if (result.wrappersInstalled) console.log("  ✓ PATH wrappers installed");
+  if (result.legacySymlinkRemoved) {
+    console.log("  ✓ Removed legacy kimicode-cli symlink");
+  }
+  if (result.cursorSlugsRemoved.length > 0) {
+    for (const slug of result.cursorSlugsRemoved) {
+      console.log(`  ✓ Removed Cursor slug ${slug}`);
+    }
+    console.log("  → Restart Cursor and open ~/kimi-toolchain/kimi-toolchain.code-workspace");
   }
 }
 
@@ -418,7 +435,7 @@ async function applyFixes(projectRoot: string): Promise<void> {
     console.log(`  ✓ Appended permission snippet to ${configMerge.path}`);
   }
 
-  await applyPathAlignmentFixes(projectRoot);
+  await applyWorkspaceFixes(projectRoot);
 
   const orphans = getOrphanProcesses();
   if (orphans.length > 0) {
@@ -437,27 +454,144 @@ async function applyFixes(projectRoot: string): Promise<void> {
   }
 
   if (await isKimiToolchainRepo(projectRoot)) {
-    const pathReport = await auditPathAlignment(projectRoot);
-    const legacyWarn = pathReport.checks.some(
-      (c) => (c.name === "cursor-workspace" || c.name === "legacy-clone") && c.status === "warn"
+    const pathReport = await auditWorkspaceHealth(projectRoot);
+    const legacyIssue = pathReport.checks.some(
+      (c) =>
+        (c.name === "cursor-workspace" || c.name === "legacy-clone") &&
+        (c.status === "warn" || c.status === "error")
     );
-    const cleanupScript = join(projectRoot, "scripts", "cleanup-legacy-workspace.sh");
-    if (legacyWarn && existsSync(cleanupScript)) {
-      console.log("  → Legacy workspace audit (bun run cleanup-legacy):");
-      const proc = Bun.spawn(["bash", cleanupScript], {
-        cwd: projectRoot,
-        stdout: JSON_OUT ? "pipe" : "inherit",
-        stderr: JSON_OUT ? "pipe" : "inherit",
-      });
-      await proc.exited;
+    if (legacyIssue && !FIX_CURSOR) {
+      console.log("  → Legacy workspace audit:");
+      await runWorkspaceCommand("cleanup", [], projectRoot);
     }
   }
+}
+
+async function runWorkspaceMode(projectRoot: string): Promise<number> {
+  const home = Bun.env.HOME || "/tmp";
+  const report = await auditWorkspaceHealth(projectRoot, {
+    strictWorkspace: STRICT_WORKSPACE,
+    home,
+  });
+  const summary = countWorkspaceBlockers(report, { strictWorkspace: STRICT_WORKSPACE });
+
+  if (JSON_OUT) {
+    console.log(
+      JSON.stringify(
+        {
+          checks: report.checks,
+          summary: {
+            blocking: summary.blocking,
+            blockingErrors: summary.blocking,
+            warnings: summary.warnings,
+            errors: summary.errors,
+            ok: summary.blocking === 0,
+            strictWorkspace: STRICT_WORKSPACE,
+          },
+          legacyCursorSlugs: report.legacyCursorSlugs,
+        },
+        null,
+        2
+      )
+    );
+    if (FIX) await applyWorkspaceFixes(projectRoot);
+    return summary.blocking > 0 ? 1 : 0;
+  }
+
+  section("Workspace Health");
+  for (const check of report.checks) {
+    const icon = check.status === "ok" ? "✓" : check.status === "warn" ? "⚠" : "✗";
+    console.log(`  ${icon} ${check.name}: ${check.message}`);
+  }
+
+  section("Summary");
+  if (summary.blocking > 0) {
+    console.log(`  ✗ ${summary.blocking} workspace blocker(s)`);
+  } else if (summary.warnings > 0) {
+    console.log(`  ⚠ ${summary.warnings} warning(s), no blockers`);
+  } else {
+    console.log("  ✓ Workspace healthy");
+  }
+
+  if (FIX) await applyWorkspaceFixes(projectRoot);
+  return summary.blocking > 0 ? 1 : 0;
+}
+
+async function runEcosystemMode(projectRoot: string): Promise<number> {
+  const report = await auditEcosystemHealth(projectRoot, {
+    strictWorkspace: STRICT_WORKSPACE,
+    quick: QUICK,
+  });
+
+  if (JSON_OUT) {
+    console.log(
+      JSON.stringify(
+        {
+          checks: report.checks,
+          fixPlan: report.fixPlan,
+          summary: {
+            blockers: report.blockers,
+            warnings: report.warnings,
+            errors: report.errors,
+            ok: report.blockers === 0,
+            strictWorkspace: STRICT_WORKSPACE,
+            quick: QUICK,
+          },
+        },
+        null,
+        2
+      )
+    );
+    return report.blockers > 0 ? 1 : 0;
+  }
+
+  section("Ecosystem Health");
+  for (const check of report.checks) {
+    const label = `${check.source}/${check.name}`;
+    if (check.status === "ok") console.log(`  ✓ ${label}: ${check.message}`);
+    else if (check.status === "warn") console.log(`  ⚠ ${label}: ${check.message}`);
+    else console.log(`  ✗ ${label}: ${check.message}`);
+  }
+  if (report.fixPlan.length > 0) {
+    console.log("");
+    console.log("  Fix plan:");
+    for (const step of report.fixPlan) console.log(`    → ${step}`);
+  }
+
+  if (FIX) await applyFixes(projectRoot);
+  return report.blockers > 0 ? 1 : 0;
 }
 
 async function main() {
   if (MEMORY_BUDGET) {
     printMemoryBudget();
     process.exit(0);
+  }
+
+  const argv = Bun.argv.slice(2);
+  const projectRoot = await resolveProjectRoot();
+
+  if (argv[0] === "workspace") {
+    const sub = argv[1];
+    if (!sub || sub === "--help" || sub === "-h") {
+      const { printWorkspaceHelp } = await import("../lib/workspace-commands.ts");
+      printWorkspaceHelp();
+      process.exit(sub ? 0 : 1);
+    }
+    process.exit(await runWorkspaceCommand(sub, argv.slice(2), projectRoot));
+  }
+
+  if (WORKSPACE_ONLY) {
+    process.exit(await runWorkspaceMode(projectRoot));
+  }
+
+  if (ECOSYSTEM) {
+    if (!JSON_OUT) {
+      console.log("╔══════════════════════════════════════════════════════════════╗");
+      console.log("║        kimi-doctor — Ecosystem Health                        ║");
+      console.log("╚══════════════════════════════════════════════════════════════╝");
+    }
+    process.exit(await runEcosystemMode(projectRoot));
   }
 
   if (!JSON_OUT) {
@@ -468,7 +602,6 @@ async function main() {
 
   const results: CheckResult[] = [];
   let syncReport: { synced: boolean; drifted: string[]; missing: string[] } | undefined;
-  const projectRoot = await resolveProjectRoot();
   const home = Bun.env.HOME || "/tmp";
 
   section("System");
@@ -571,10 +704,17 @@ async function main() {
   }
 
   section("Path Alignment");
-  const pathReport = await auditPathAlignment(projectRoot);
+  const pathReport = await auditWorkspaceHealth(projectRoot, {
+    strictWorkspace: STRICT_WORKSPACE,
+    home,
+  });
   for (const check of pathReport.checks) {
-    if (check.status === "ok") results.push(ok(check.name, check.message));
-    else if (check.status === "warn") results.push(warn(check.name, check.message));
+    const status =
+      STRICT_WORKSPACE && WORKSPACE_SOFT_NAMES.has(check.name) && check.status === "warn"
+        ? "error"
+        : check.status;
+    if (status === "ok") results.push(ok(check.name, check.message));
+    else if (status === "warn") results.push(warn(check.name, check.message));
     else results.push(error(check.name, check.message));
   }
 
@@ -708,6 +848,9 @@ async function main() {
     }
     console.log("  Run with --memory-budget to print per-app RSS breakdown.");
     console.log("  Run with --json for structured agent output.");
+    console.log("  Run with --workspace for workspace-only checks.");
+    console.log("  Run with --ecosystem for cross-product health.");
+    console.log("  Run with --fix --fix-cursor to remove legacy Cursor slugs.");
   }
 
   if (blocking > 0) process.exit(1);

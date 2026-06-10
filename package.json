@@ -26,6 +26,7 @@
     "kimi-release": "src/bin/kimi-release.ts",
     "kimi-resource-governor": "src/bin/kimi-resource-governor.ts",
     "kimi-snapshot": "src/bin/kimi-snapshot.ts",
+    "kimi-toolchain": "src/bin/kimi-toolchain.ts",
     "unified-shell-bridge": "src/bin/unified-shell-bridge.ts"
   },
   "files": [
@@ -48,6 +49,7 @@
   "main": "src/lib/utils.ts",
   "scripts": {
     "postinstall": "bun run src/hooks/postinstall.ts",
+    "toolchain": "bun run src/bin/kimi-toolchain.ts",
     "doctor": "bun run src/bin/kimi-doctor.ts",
     "fix": "bun run src/bin/kimi-fix.ts",
     "new": "bun run src/bin/kimi-new.ts",

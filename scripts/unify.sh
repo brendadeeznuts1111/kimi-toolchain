@@ -7,6 +7,11 @@ cd "$REPO_ROOT"
 
 bash scripts/verify-workspace.sh
 bash scripts/cleanup-legacy-workspace.sh
+bun run src/bin/kimi-toolchain.ts workspace verify || {
+  echo "✗ Unify blocked: workspace health check failed"
+  echo "  Run: kimi-doctor --fix  (add --fix-cursor after reopening ~/kimi-toolchain)"
+  exit 1
+}
 
 echo "═══ kimi-toolchain unify ═══"
 echo "Repo: ${REPO_ROOT}"

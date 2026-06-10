@@ -9,7 +9,7 @@ import {
   listStaleWrappers,
   removeOrphanedSnapshots,
   removeStaleWrappers,
-} from "../src/lib/path-alignment.ts";
+} from "../src/lib/workspace-health.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 

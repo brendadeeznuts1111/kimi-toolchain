@@ -6,6 +6,22 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `kimi-toolchain` meta-binary — primary PATH entry; `kimi-*` aliases dispatch through it
+- `kimi-doctor workspace verify|audit|fix|cleanup` — consolidated workspace health (replaces `workspace-health-cli.ts`)
+- `src/lib/workspace-commands.ts`, `src/lib/tool-registry.ts`
+
+### Changed
+
+- `install-bin-wrappers.sh` installs meta wrapper + dispatch aliases (not 14 direct exec copies)
+- `verify-workspace` / `cleanup-legacy` delegate to `kimi-doctor workspace`
+- `kimi-governance ecosystem` redirects to `kimi-toolchain doctor --ecosystem`
+
+### Removed
+
+- `src/lib/workspace-health-cli.ts`, `src/lib/path-alignment.ts` (shim)
+
+### Added (prior)
+
 - `scripts/cleanup-legacy-workspace.sh` + `bun run cleanup-legacy` (audit legacy paths; opt-in `--remove-cursor-slugs`)
 - Unify runs cleanup-legacy audit after verify-workspace
 

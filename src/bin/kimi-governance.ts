@@ -25,6 +25,8 @@ import { bunTestArgs, useFastUnitCoverage } from "../lib/test-gates.ts";
 import { checkDocDrift, patchReadmeScripts } from "../lib/readme-sync.ts";
 import { checkKimiDocsAligned } from "../lib/kimi-docs-aligned.ts";
 import { checkScaffoldAligned } from "../lib/scaffold-aligned.ts";
+import { auditEcosystemHealth } from "../lib/ecosystem-health.ts";
+import { isKimiToolchainRepo } from "../lib/workspace-health.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -931,6 +933,10 @@ async function main() {
     const filepath = await scaffoldAdr(projectDir, title);
     log("info", `Created: ${filepath}`);
     console.log("  Edit the file and update status: proposed → accepted | rejected | deprecated");
+  } else if (command === "ecosystem") {
+    console.log("── Ecosystem Health ───────────────────────────────────────────");
+    console.log("  Use: kimi-toolchain doctor --ecosystem [--quick] [--json]");
+    process.exit(1);
   } else if (command === "score") {
     console.log("── Computing R-Score ─────────────────────────────────────────");
     const score = await computeRScore(projectDir);
@@ -963,6 +969,14 @@ async function main() {
       );
     }
 
+    if (await isKimiToolchainRepo(projectDir)) {
+      const ecosystem = await auditEcosystemHealth(projectDir, { quick: true });
+      const icon = ecosystem.blockers === 0 ? "✓" : "⚠";
+      console.log(
+        `  ${icon} ecosystemAligned (soft): ${ecosystem.blockers === 0 ? "workspace + sync ok" : `${ecosystem.blockers} blocker(s) — kimi-toolchain doctor --ecosystem`}`
+      );
+    }
+
     if (existsSync(SCORE_HISTORY)) {
       const history = (await Bun.file(SCORE_HISTORY).json()) as RScore[];
       if (history.length > 1) {
@@ -992,6 +1006,7 @@ async function main() {
     console.log("  doctor         Diagnose governance health with actionable fixes");
     console.log("  adr <title>    Scaffold a new ADR in docs/adr/");
     console.log("  score          Compute full R-Score with trend");
+    console.log("  ecosystem      → use kimi-toolchain doctor --ecosystem");
   }
 
   console.log("");

@@ -137,8 +137,10 @@ describe("kimi-doctor smoke", () => {
   }, 5_000);
 
   test("kimi-new --dry-run prints scaffold steps", async () => {
-    const { stdout, exitCode } = await runTool(KIMI_NEW, ["smoke-test-app", "--dry-run"]);
-    expect(stdout).toContain("smoke-test-app");
+    const name = `scaffold-${Bun.randomUUIDv7()}`;
+    const parent = Bun.env.TMPDIR || "/tmp";
+    const { stdout, exitCode } = await runTool(KIMI_NEW, [name, "--path", parent, "--dry-run"]);
+    expect(stdout).toContain("[dry-run]");
     expect(stdout).toContain("kimi-fix");
     expect(exitCode).toBe(0);
   }, 15_000);
@@ -151,8 +153,38 @@ describe("kimi-doctor smoke", () => {
     });
     const out = await Bun.readableStreamToText(proc.stdout);
     expect(await proc.exited).toBe(0);
-    expect(out).toContain("cleanup-legacy-workspace");
+    expect(out).toContain("workspace");
   }, 5_000);
+
+  test("doctor --workspace --json returns structured output", async () => {
+    const { stdout, exitCode } = await runTool(DOCTOR, ["--workspace", "--json"]);
+    const parsed = JSON.parse(stdout.trim()) as {
+      checks?: unknown[];
+      summary?: { blockingErrors?: number; ok?: boolean };
+    };
+    expect(Array.isArray(parsed.checks)).toBe(true);
+    expect(parsed.summary).toBeDefined();
+    expect(exitCode === 0 || exitCode === 1).toBe(true);
+  }, 30_000);
+
+  test("doctor --ecosystem --quick --json returns fixPlan", async () => {
+    const { stdout, exitCode } = await runTool(DOCTOR, ["--ecosystem", "--quick", "--json"]);
+    const parsed = JSON.parse(stdout.trim()) as {
+      checks?: unknown[];
+      fixPlan?: string[];
+      summary?: { blockers?: number };
+    };
+    expect(Array.isArray(parsed.checks)).toBe(true);
+    expect(Array.isArray(parsed.fixPlan)).toBe(true);
+    expect(exitCode === 0 || exitCode === 1).toBe(true);
+  }, 30_000);
+
+  test("kimi-new doctor reports readiness", async () => {
+    const { stdout, exitCode } = await runTool(KIMI_NEW, ["doctor"]);
+    expect(stdout).toContain("kimi-new doctor");
+    expect(stdout).toMatch(/bun|kimi-fix/);
+    expect(exitCode === 0 || exitCode === 1).toBe(true);
+  }, 15_000);
 
   test("kimi-fix doctor passes on toolchain repo", async () => {
     const { stdout, exitCode } = await runTool(KIMI_FIX, ["doctor", REPO_ROOT]);
