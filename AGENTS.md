@@ -20,7 +20,7 @@ If Grep/Glob fail with `Path does not exist: .../kimicode-cli`, the editor opene
 1. `pwd` ends with `kimi-toolchain`
 2. `kimi-toolchain workspace verify` (or `bun run verify-workspace`)
 3. `kimi-toolchain workspace cleanup` — audit legacy Cursor slugs (no delete by default)
-4. If slug persists: `kimi-toolchain doctor --fix --fix-cursor` then restart Cursor
+4. If slug persists: `kimi-toolchain workspace fix --deep` then **quit Cursor fully** and reopen `kimi-toolchain.code-workspace`
 5. Full cross-product check: `kimi-toolchain doctor --ecosystem --quick --json`
 
 **Primary entry:** `kimi-toolchain <tool> [args]` — legacy `kimi-*` commands dispatch through it. See [UNIFIED.md](UNIFIED.md) for the path map.

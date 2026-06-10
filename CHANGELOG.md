@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `kimi-toolchain workspace fix --deep` — remove legacy Cursor slugs, archive `wd_kimicode-cli_*` sessions, prune `session_index.jsonl`
+- Active legacy Cursor slug detection (`isCursorSlugActive`) for audit/cleanup output
 - `kimi-toolchain` meta-binary — primary PATH entry; `kimi-*` aliases dispatch through it
 - `kimi-doctor workspace verify|audit|fix|cleanup` — consolidated workspace health (replaces `workspace-health-cli.ts`)
 - `src/lib/workspace-commands.ts`, `src/lib/tool-registry.ts`

@@ -11,6 +11,7 @@ import {
   CANONICAL_REPO_NAME,
   LEGACY_REPO_NAMES,
   listLegacyCursorSlugs,
+  listActiveLegacyCursorSlugs,
   removeLegacyCursorSlugs,
   removeLegacySymlink,
   canonicalClonePath,
@@ -23,15 +24,23 @@ export interface WorkspaceCommandFlags {
   listCursor: boolean;
   removeCursor: boolean;
   removeLegacyPath: boolean;
+  deep: boolean;
+  archiveLegacySessions: boolean;
 }
 
 export function parseWorkspaceFlags(argv: string[]): WorkspaceCommandFlags {
+  const deep =
+    argv.includes("--deep") ||
+    argv.includes("--fix-deep") ||
+    argv.includes("--archive-legacy-sessions");
   return {
     json: argv.includes("--json"),
     strict: argv.includes("--strict") || argv.includes("--strict-workspace"),
     listCursor: argv.includes("--list-cursor-slugs"),
-    removeCursor: argv.includes("--remove-cursor-slugs"),
-    removeLegacyPath: argv.includes("--remove-legacy-path"),
+    removeCursor: argv.includes("--remove-cursor-slugs") || deep,
+    removeLegacyPath: argv.includes("--remove-legacy-path") || deep,
+    deep,
+    archiveLegacySessions: argv.includes("--archive-legacy-sessions") || deep,
   };
 }
 
@@ -43,8 +52,10 @@ export function printWorkspaceHelp(): void {
   console.log("  --json                 JSON output (audit)");
   console.log("  --strict               Treat soft warnings as errors");
   console.log("  --list-cursor-slugs    List legacy Cursor project folders");
-  console.log("  --remove-cursor-slugs  Delete legacy Cursor slugs (opt-in)");
-  console.log("  --remove-legacy-path   Remove ~/kimicode-cli symlink if present");
+  console.log("  --remove-cursor-slugs      Delete legacy Cursor slugs (opt-in)");
+  console.log("  --remove-legacy-path       Remove ~/kimicode-cli symlink if present");
+  console.log("  --archive-legacy-sessions  Move wd_kimicode-cli_* to sessions/archive/");
+  console.log("  --deep                     All fixes: cursor slugs + sessions + index prune");
 }
 
 async function runVerify(projectRoot: string, strict: boolean): Promise<number> {
@@ -115,18 +126,16 @@ async function runAudit(projectRoot: string, json: boolean, strict: boolean): Pr
   return 0;
 }
 
-async function runFix(
-  projectRoot: string,
-  removeCursor: boolean,
-  removeLegacyPath: boolean
-): Promise<number> {
+async function runFix(projectRoot: string, flags: WorkspaceCommandFlags): Promise<number> {
   const home = Bun.env.HOME || "/tmp";
   const report = await auditWorkspaceHealth(projectRoot, { home });
   const result = await fixWorkspaceHealth(report, {
     projectRoot,
     home,
-    removeCursorSlugs: removeCursor,
-    removeLegacySymlink: removeLegacyPath,
+    removeCursorSlugs: flags.removeCursor,
+    removeLegacySymlink: flags.removeLegacyPath,
+    archiveLegacySessions: flags.archiveLegacySessions,
+    pruneLegacySessionIndex: flags.deep || flags.archiveLegacySessions,
     syncDesktop: true,
     installWrappers: true,
   });
@@ -148,8 +157,14 @@ async function runFix(
       console.log(`  ✓ Removed Cursor slug ${slug}`);
     }
     console.log(
-      `  → Restart Cursor and open ~/${CANONICAL_REPO_NAME}/kimi-toolchain.code-workspace`
+      `  → Quit Cursor fully, then open ~/${CANONICAL_REPO_NAME}/kimi-toolchain.code-workspace`
     );
+  }
+  if (result.sessionsArchived.length > 0) {
+    console.log(`  ✓ Archived ${result.sessionsArchived.length} legacy Kimi session folder(s)`);
+  }
+  if (result.sessionIndexLinesPruned > 0) {
+    console.log(`  ✓ Pruned ${result.sessionIndexLinesPruned} legacy session_index line(s)`);
   }
 
   const after = await auditWorkspaceHealth(projectRoot, { home });
@@ -203,8 +218,12 @@ async function runCleanup(
         console.log(`      ${join(home, ".cursor", "projects", slug)}`);
       }
     } else {
+      const active = listActiveLegacyCursorSlugs(home);
       console.log(`  ⚠ Legacy Cursor project slug(s): ${slugs.join(", ")}`);
-      console.log("      Run: bun run cleanup-legacy -- --list-cursor-slugs");
+      if (active.length > 0) {
+        console.log(`      ACTIVE (agent session open): ${active.join(", ")}`);
+      }
+      console.log("      Run: kimi-toolchain workspace fix --deep");
     }
     if (removeCursor) {
       const removed = removeLegacyCursorSlugs(home);
@@ -234,7 +253,7 @@ async function runCleanup(
       `     Or: File → Open Workspace → ~/${CANONICAL_REPO_NAME}/kimi-toolchain.code-workspace`
     );
     console.log(`  2. Close any window rooted at ~/${LEGACY_REPO_NAMES[0]}`);
-    console.log("  3. Optional: kimi-toolchain doctor --fix --fix-cursor");
+    console.log("  3. Optional: kimi-toolchain workspace fix --deep");
   }
   return verifyCode;
 }
@@ -258,7 +277,7 @@ export async function runWorkspaceCommand(
     case "audit":
       return runAudit(root, flags.json, flags.strict);
     case "fix":
-      return runFix(root, flags.removeCursor, flags.removeLegacyPath);
+      return runFix(root, flags);
     case "cleanup":
       return runCleanup(root, flags.listCursor, flags.removeCursor, flags.removeLegacyPath);
     default:

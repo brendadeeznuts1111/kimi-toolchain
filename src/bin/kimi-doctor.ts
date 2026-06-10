@@ -45,6 +45,7 @@ const JSON_OUT = Bun.argv.includes("--json");
 const WORKSPACE_ONLY = Bun.argv.includes("--workspace");
 const ECOSYSTEM = Bun.argv.includes("--ecosystem");
 const FIX_CURSOR = Bun.argv.includes("--fix-cursor");
+const FIX_DEEP = Bun.argv.includes("--fix-deep");
 const STRICT_WORKSPACE = Bun.argv.includes("--strict-workspace");
 
 interface CheckResult {
@@ -383,11 +384,14 @@ async function applyWorkspaceFixes(projectRoot: string): Promise<void> {
     home,
   });
 
+  const deep = FIX_DEEP || FIX_CURSOR;
   const result = await fixWorkspaceHealth(report, {
     projectRoot,
     home,
-    removeCursorSlugs: FIX_CURSOR,
-    removeLegacySymlink: FIX_CURSOR,
+    removeCursorSlugs: deep,
+    removeLegacySymlink: deep,
+    archiveLegacySessions: FIX_DEEP,
+    pruneLegacySessionIndex: FIX_DEEP,
     syncDesktop: true,
     installWrappers: true,
   });
@@ -407,7 +411,13 @@ async function applyWorkspaceFixes(projectRoot: string): Promise<void> {
     for (const slug of result.cursorSlugsRemoved) {
       console.log(`  ✓ Removed Cursor slug ${slug}`);
     }
-    console.log("  → Restart Cursor and open ~/kimi-toolchain/kimi-toolchain.code-workspace");
+    console.log("  → Quit Cursor fully, then open ~/kimi-toolchain/kimi-toolchain.code-workspace");
+  }
+  if (result.sessionsArchived.length > 0) {
+    console.log(`  ✓ Archived ${result.sessionsArchived.length} legacy Kimi session folder(s)`);
+  }
+  if (result.sessionIndexLinesPruned > 0) {
+    console.log(`  ✓ Pruned ${result.sessionIndexLinesPruned} legacy session_index line(s)`);
   }
 }
 

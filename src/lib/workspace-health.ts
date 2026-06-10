@@ -5,11 +5,14 @@
 import {
   existsSync,
   lstatSync,
+  mkdirSync,
   readFileSync,
   readdirSync,
   realpathSync,
+  renameSync,
   rmSync,
   unlinkSync,
+  writeFileSync,
 } from "fs";
 import { basename, join, resolve } from "path";
 
@@ -27,7 +30,12 @@ export const WORKSPACE_BLOCKER_NAMES = new Set([
 ]);
 
 /** Warn by default; become errors with --strict-workspace. */
-export const WORKSPACE_SOFT_NAMES = new Set(["kimi-sessions", "session-cwd", "snapshots"]);
+export const WORKSPACE_SOFT_NAMES = new Set([
+  "kimi-sessions",
+  "session-cwd",
+  "session-index",
+  "snapshots",
+]);
 
 export interface WorkspaceCheck {
   name: string;
@@ -57,6 +65,8 @@ export interface FixWorkspaceOptions {
   projectRoot: string;
   removeCursorSlugs?: boolean;
   removeLegacySymlink?: boolean;
+  archiveLegacySessions?: boolean;
+  pruneLegacySessionIndex?: boolean;
   syncDesktop?: boolean;
   installWrappers?: boolean;
 }
@@ -66,6 +76,8 @@ export interface FixWorkspaceResult {
   snapshotsRemoved: number;
   cursorSlugsRemoved: string[];
   legacySymlinkRemoved: boolean;
+  sessionsArchived: string[];
+  sessionIndexLinesPruned: number;
   syncRan: boolean;
   wrappersInstalled: boolean;
 }
@@ -117,6 +129,90 @@ export function listLegacyCursorSlugs(home: string): string[] {
   return readdirSync(cursorProjects).filter((name) =>
     LEGACY_REPO_NAMES.some((legacy) => name.includes(legacy))
   );
+}
+
+const SLUG_ACTIVE_MS = 3_600_000; // 1 hour
+
+/** True when slug dir or agent-transcripts were touched recently (session still open/resuming). */
+export function isCursorSlugActive(home: string, slug: string, maxAgeMs = SLUG_ACTIVE_MS): boolean {
+  const slugPath = join(home, ".cursor", "projects", slug);
+  if (!existsSync(slugPath)) return false;
+  const cutoff = Date.now() - maxAgeMs;
+  try {
+    if (lstatSync(slugPath).mtimeMs >= cutoff) return true;
+  } catch {
+    /* continue */
+  }
+  const transcripts = join(slugPath, "agent-transcripts");
+  if (!existsSync(transcripts)) return false;
+  for (const name of readdirSync(transcripts)) {
+    try {
+      const path = join(transcripts, name);
+      if (lstatSync(path).mtimeMs >= cutoff) return true;
+    } catch {
+      /* skip */
+    }
+  }
+  return false;
+}
+
+export function listActiveLegacyCursorSlugs(home: string): string[] {
+  return listLegacyCursorSlugs(home).filter((slug) => isCursorSlugActive(home, slug));
+}
+
+function sessionPathHasLegacyName(name: string): boolean {
+  return name.startsWith("wd_") && LEGACY_REPO_NAMES.some((legacy) => name.includes(legacy));
+}
+
+/** Archive wd_kimicode-cli_* folders under sessions/archive/. */
+export function archiveLegacyKimiSessions(home: string): string[] {
+  const sessionsDir = join(home, ".kimi-code", "sessions");
+  if (!existsSync(sessionsDir)) return [];
+  const archiveRoot = join(sessionsDir, "archive");
+  const archived: string[] = [];
+  const stamp = new Date().toISOString().slice(0, 10);
+
+  for (const name of readdirSync(sessionsDir)) {
+    if (!sessionPathHasLegacyName(name)) continue;
+    const src = join(sessionsDir, name);
+    try {
+      if (!lstatSync(src).isDirectory()) continue;
+    } catch {
+      continue;
+    }
+    mkdirSync(archiveRoot, { recursive: true });
+    const dest = join(archiveRoot, `${name}-${stamp}`);
+    renameSync(src, dest);
+    archived.push(name);
+  }
+  return archived;
+}
+
+/** Drop session_index.jsonl lines whose cwd/workDir references legacy repo paths. */
+export function pruneLegacySessionIndex(home: string): number {
+  const indexPath = join(home, ".kimi-code", "sessions", "session_index.jsonl");
+  if (!existsSync(indexPath)) return 0;
+  const lines = readFileSync(indexPath, "utf8").split("\n");
+  const kept: string[] = [];
+  let pruned = 0;
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      const entry = JSON.parse(line) as { cwd?: string; workDir?: string };
+      const cwd = entry.cwd || entry.workDir || "";
+      if (LEGACY_REPO_NAMES.some((legacy) => cwd.includes(legacy))) {
+        pruned++;
+        continue;
+      }
+      kept.push(line);
+    } catch {
+      kept.push(line);
+    }
+  }
+
+  writeFileSync(indexPath, kept.length > 0 ? `${kept.join("\n")}\n` : "");
+  return pruned;
 }
 
 function countOrphanedSnapshots(snapshotDir: string): number {
@@ -461,12 +557,38 @@ export async function auditWorkspaceHealth(
   if (legacyCursorSlugs.length > 0) {
     const slug = legacyCursorSlugs[0];
     const isBlocker = isToolchain && canonicalClonePresent;
+    const active = isCursorSlugActive(home, slug);
+    const activeHint = active
+      ? " (ACTIVE — close this agent chat, quit Cursor, reopen kimi-toolchain.code-workspace)"
+      : "";
     checks.push({
       name: "cursor-workspace",
       status: isBlocker ? "error" : "warn",
-      message: `legacy slug ${slug} — reopen ${canonicalPath}; run kimi-toolchain doctor --fix --fix-cursor`,
+      message: `legacy slug ${slug}${activeHint} — run kimi-toolchain workspace fix --deep`,
       fixable: true,
     });
+  }
+
+  const indexPath = join(home, ".kimi-code", "sessions", "session_index.jsonl");
+  if (isToolchain && existsSync(indexPath)) {
+    let legacyIndexLines = 0;
+    for (const line of readFileSync(indexPath, "utf8").split("\n").filter(Boolean)) {
+      try {
+        const entry = JSON.parse(line) as { cwd?: string; workDir?: string };
+        const cwd = entry.cwd || entry.workDir || "";
+        if (LEGACY_REPO_NAMES.some((l) => cwd.includes(l))) legacyIndexLines++;
+      } catch {
+        /* skip */
+      }
+    }
+    if (legacyIndexLines > 0) {
+      checks.push({
+        name: "session-index",
+        status: strict ? "error" : "warn",
+        message: `${legacyIndexLines} session_index line(s) reference legacy cwd — workspace fix --deep`,
+        fixable: true,
+      });
+    }
   }
 
   return {
@@ -607,6 +729,8 @@ export async function fixWorkspaceHealth(
     snapshotsRemoved: 0,
     cursorSlugsRemoved: [],
     legacySymlinkRemoved: false,
+    sessionsArchived: [],
+    sessionIndexLinesPruned: 0,
     syncRan: false,
     wrappersInstalled: false,
   };
@@ -655,6 +779,14 @@ export async function fixWorkspaceHealth(
 
   if (options.removeCursorSlugs && report.legacyCursorSlugs.length > 0) {
     result.cursorSlugsRemoved = removeLegacyCursorSlugs(home);
+  }
+
+  if (options.archiveLegacySessions) {
+    result.sessionsArchived = archiveLegacyKimiSessions(home);
+  }
+
+  if (options.pruneLegacySessionIndex) {
+    result.sessionIndexLinesPruned = pruneLegacySessionIndex(home);
   }
 
   return result;
