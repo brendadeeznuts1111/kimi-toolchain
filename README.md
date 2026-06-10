@@ -42,6 +42,9 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 ## Commands
 
+| `bun run verify-workspace` | (synced from package.json) |
+| `bun run cleanup-legacy` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                           |
