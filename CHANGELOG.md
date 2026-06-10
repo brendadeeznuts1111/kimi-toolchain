@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `scripts/cleanup-legacy-workspace.sh` + `bun run cleanup-legacy` (audit legacy paths; opt-in `--remove-cursor-slugs`)
+- Unify runs cleanup-legacy audit after verify-workspace
+
+### Added (prior)
+
 - `scripts/verify-workspace.sh` + `bun run verify-workspace` (unify gate; blocks wrong folder name)
 - `kimi-new` / `kimi-fix doctor` smoke tests
 - Path-alignment: detect legacy open path when physical path is `kimi-toolchain`

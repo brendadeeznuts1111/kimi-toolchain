@@ -143,6 +143,17 @@ describe("kimi-doctor smoke", () => {
     expect(exitCode).toBe(0);
   }, 15_000);
 
+  test("cleanup-legacy --help exits cleanly", async () => {
+    const proc = Bun.spawn(["bash", "scripts/cleanup-legacy-workspace.sh", "--help"], {
+      cwd: REPO_ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const out = await Bun.readableStreamToText(proc.stdout);
+    expect(await proc.exited).toBe(0);
+    expect(out).toContain("cleanup-legacy-workspace");
+  }, 5_000);
+
   test("kimi-fix doctor passes on toolchain repo", async () => {
     const { stdout, exitCode } = await runTool(KIMI_FIX, ["doctor", REPO_ROOT]);
     expect(stdout).toContain("kimi-fix Doctor");

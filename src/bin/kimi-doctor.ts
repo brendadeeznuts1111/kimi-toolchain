@@ -435,6 +435,23 @@ async function applyFixes(projectRoot: string): Promise<void> {
     const proc = Bun.spawn(["bun", "run", govPath, "fix"], { stdout: "pipe", stderr: "pipe" });
     await proc.exited;
   }
+
+  if (await isKimiToolchainRepo(projectRoot)) {
+    const pathReport = await auditPathAlignment(projectRoot);
+    const legacyWarn = pathReport.checks.some(
+      (c) => (c.name === "cursor-workspace" || c.name === "legacy-clone") && c.status === "warn"
+    );
+    const cleanupScript = join(projectRoot, "scripts", "cleanup-legacy-workspace.sh");
+    if (legacyWarn && existsSync(cleanupScript)) {
+      console.log("  → Legacy workspace audit (bun run cleanup-legacy):");
+      const proc = Bun.spawn(["bash", cleanupScript], {
+        cwd: projectRoot,
+        stdout: JSON_OUT ? "pipe" : "inherit",
+        stderr: JSON_OUT ? "pipe" : "inherit",
+      });
+      await proc.exited;
+    }
+  }
 }
 
 async function main() {

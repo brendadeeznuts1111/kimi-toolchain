@@ -15,6 +15,13 @@
 
 If Grep/Glob fail with `Path does not exist: .../kimicode-cli`, the editor opened the wrong folder. Reopen `~/kimi-toolchain`.
 
+**After reopen checklist:**
+
+1. `pwd` ends with `kimi-toolchain`
+2. `bun run verify-workspace` → clean
+3. `bun run cleanup-legacy` → audit legacy Cursor slugs (no delete by default)
+4. If slug persists: `bun run cleanup-legacy -- --remove-cursor-slugs` then restart Cursor
+
 ## Project Overview
 
 `kimi-toolchain` is a Bun-native CLI toolkit that provides project health checks, supply-chain security, governance scoring, session memory, git hooks, and scaffolding automation. It is a meta-project: the tools manage other projects.
@@ -159,6 +166,7 @@ bun run sync             # one-shot (mandatory on every pre-push in this repo)
 bun run sync:daemon      # Bun.cron every 5 minutes
 bun run push             # git push + sync (use if hooks were skipped)
 bun run verify-workspace # fail if cwd folder is not kimi-toolchain
+bun run cleanup-legacy   # audit legacy kimicode-cli paths + Cursor slugs
 ```
 
 ### Global Install (for end users)

@@ -346,7 +346,7 @@ export async function auditPathAlignment(projectRoot: string): Promise<PathAlign
     checks.push({
       name: "cursor-workspace",
       status: "warn",
-      message: `legacy slug ${cursorSlug} — reopen ${canonicalPath} in Cursor`,
+      message: `legacy slug ${cursorSlug} — reopen ${canonicalPath}; run bun run cleanup-legacy`,
       fixable: false,
     });
   }
