@@ -10,6 +10,29 @@ export interface MemoryCheckResult {
   message: string;
 }
 
+/** System/environment checks that should not block unify when --soft-system is set. */
+export const SOFT_SYSTEM_CHECK_NAMES = new Set([
+  "memory-free",
+  "swap-used",
+  "memory-pressure",
+  "chrome-rss",
+  "load-per-core",
+]);
+
+export function countBlockingErrors(
+  results: Array<{ name: string; status: string }>,
+  softSystem: boolean
+): { blocking: number; system: number; total: number } {
+  let blocking = 0;
+  let system = 0;
+  for (const r of results) {
+    if (r.status !== "error") continue;
+    if (softSystem && SOFT_SYSTEM_CHECK_NAMES.has(r.name)) system++;
+    else blocking++;
+  }
+  return { blocking, system, total: blocking + system };
+}
+
 export interface AppRssGroup {
   label: string;
   mb: number;

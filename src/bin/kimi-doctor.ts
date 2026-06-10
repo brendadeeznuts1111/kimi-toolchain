@@ -2,7 +2,7 @@
 /**
  * kimi-doctor — Comprehensive diagnostics
  * Delegates to individual tool doctor commands + runs system checks
- * Usage: kimi-doctor [--fix] [--quick] [--memory-budget] [--json]
+ * Usage: kimi-doctor [--fix] [--quick] [--soft-system] [--memory-budget] [--json]
  */
 
 import { $ } from "bun";
@@ -18,6 +18,7 @@ import {
 import {
   runSystemMemoryChecks,
   printMemoryBudget,
+  countBlockingErrors,
   type MemoryCheckResult,
 } from "../lib/memory-budget.ts";
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
@@ -33,6 +34,7 @@ import { resolveProjectRoot, printSection } from "../lib/utils.ts";
 const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
 const FIX = Bun.argv.includes("--fix");
 const QUICK = Bun.argv.includes("--quick");
+const SOFT_SYSTEM = Bun.argv.includes("--soft-system");
 const MEMORY_BUDGET = Bun.argv.includes("--memory-budget");
 const JSON_OUT = Bun.argv.includes("--json");
 
@@ -597,7 +599,7 @@ async function main() {
     await applyFixes(projectRoot);
   }
 
-  const errors = results.filter((r) => r.status === "error").length;
+  const { blocking, system, total: errors } = countBlockingErrors(results, SOFT_SYSTEM);
   const warnings = results.filter((r) => r.status === "warn").length;
 
   if (JSON_OUT) {
@@ -607,7 +609,14 @@ async function main() {
           toolchainVersion: TOOLCHAIN_VERSION,
           checks: results,
           sync: syncReport,
-          summary: { errors, warnings, ok: errors === 0 },
+          summary: {
+            errors,
+            blockingErrors: blocking,
+            systemErrors: system,
+            warnings,
+            ok: blocking === 0,
+            softSystem: SOFT_SYSTEM,
+          },
         },
         null,
         2
@@ -616,8 +625,10 @@ async function main() {
   } else {
     section("Summary");
 
-    if (errors > 0) {
-      console.log(`  ✗ ${errors} issue(s) found`);
+    if (blocking > 0) {
+      console.log(`  ✗ ${blocking} blocking issue(s) found`);
+    } else if (errors > 0 && SOFT_SYSTEM) {
+      console.log(`  ⚠ ${system} system issue(s) found (non-blocking with --soft-system)`);
     } else if (warnings > 0) {
       console.log(`  ⚠ ${warnings} warning(s) found`);
     } else {
@@ -635,7 +646,7 @@ async function main() {
     console.log("  Run with --json for structured agent output.");
   }
 
-  if (errors > 0) process.exit(1);
+  if (blocking > 0) process.exit(1);
 }
 
 main().catch((err) => {

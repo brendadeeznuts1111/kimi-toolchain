@@ -32,8 +32,8 @@ echo "→ kimi doctor (Kimi Code)"
 kimi doctor || true
 
 echo ""
-echo "→ kimi-doctor --quick (toolchain)"
-bun run src/bin/kimi-doctor.ts --quick
+echo "→ kimi-doctor --quick --soft-system (toolchain)"
+bun run src/bin/kimi-doctor.ts --quick --soft-system
 
 echo ""
 echo "→ quality gates (check)"

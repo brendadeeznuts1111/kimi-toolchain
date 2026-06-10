@@ -19,7 +19,12 @@ import {
   fetchWithTimeout,
 } from "../src/lib/utils.ts";
 import { TOOLCHAIN_VERSION, TOOLCHAIN_NAME } from "../src/lib/version.ts";
-import { getChromeRssMB, getAppRssGroups, getLoadPerCore } from "../src/lib/memory-budget.ts";
+import {
+  getChromeRssMB,
+  getAppRssGroups,
+  getLoadPerCore,
+  countBlockingErrors,
+} from "../src/lib/memory-budget.ts";
 import {
   DEFAULT_CONFIG_TEMPLATE,
   getGovernorConfigPath,
@@ -199,6 +204,16 @@ describe("lib/memory-budget", () => {
     expect(cores).toBeGreaterThan(0);
     expect(load).toBeGreaterThanOrEqual(0);
     expect(perCore).toBeGreaterThanOrEqual(0);
+  });
+
+  test("countBlockingErrors exempts system checks with --soft-system", () => {
+    const results = [
+      { name: "memory-free", status: "error" },
+      { name: "unified-shell", status: "error" },
+      { name: "disk", status: "warn" },
+    ];
+    expect(countBlockingErrors(results, false)).toEqual({ blocking: 2, system: 0, total: 2 });
+    expect(countBlockingErrors(results, true)).toEqual({ blocking: 1, system: 1, total: 2 });
   });
 });
 
