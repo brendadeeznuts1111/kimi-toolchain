@@ -19,6 +19,16 @@ bun run unify    # sync → ~/.kimi-code/, install PATH wrappers, validate
 
 See **UNIFIED.md** for how Kimi Code (`kimi`), kimi-toolchain (`kimi-doctor`), and `~/.kimi-code/` relate.
 
+## New project
+
+```bash
+kimi-new my-app              # mkdir + bun init + kimi-fix
+cd my-app
+bun run check:fast
+kimi login
+kimi-doctor --quick
+```
+
 **Zero-install alternative** — run any command without installing:
 
 ```bash
@@ -32,10 +42,12 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 ### Core
 
-| Command                       | Description                     |
-| ----------------------------- | ------------------------------- |
-| `kimi-doctor`                 | Full toolchain diagnostics      |
-| `kimi-fix <path> [--dry-run]` | Auto-repair project scaffolding |
+| Command                        | Description                           |
+| ------------------------------ | ------------------------------------- |
+| `kimi-doctor`                  | Full toolchain diagnostics            |
+| `kimi-new <name> [--path dir]` | Create and scaffold a new Bun project |
+| `kimi-fix <path> [--dry-run]`  | Auto-repair project scaffolding       |
+| `kimi-fix doctor [path]`       | Check scaffold completeness           |
 
 ### Project Scripts
 
@@ -43,6 +55,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | ---------------------------- | --------------------------------------------------- |
 | `bun run doctor`             | Run kimi-doctor from repo                           |
 | `bun run fix`                | Run kimi-fix from repo                              |
+| `bun run new`                | Run kimi-new from repo                              |
 | `bun run governance`         | Run kimi-governance from repo                       |
 | `bun run test`               | Full test suite (unit + smoke; default 5s timeout)  |
 | `bun run test:fast`          | Unit tests only at `--timeout 100` (~90ms)          |

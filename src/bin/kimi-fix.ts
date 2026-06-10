@@ -1,121 +1,31 @@
 #!/usr/bin/env bun
 /**
  * kimi-fix — Auto-initialize missing project files
- * Delegates to individual tool fix commands
- * Usage: kimi-fix <project-path> [--dry-run]
+ * Usage:
+ *   kimi-fix <project-path> [--dry-run]
+ *   kimi-fix fix <project-path> [--dry-run]
+ *   kimi-fix doctor [project-path]
  */
 
 import { existsSync, mkdirSync } from "fs";
-import { join, basename } from "path";
+import { join, basename, resolve } from "path";
 import { $ } from "bun";
 import { projectMcpStub } from "../lib/mcp-config.ts";
 import { buildAgentsMd } from "../lib/scaffold-agents.ts";
-import { getProjectName } from "../lib/utils.ts";
-
-const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
-
-const OXFMTRC = `{
-  "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "printWidth": 100,
-  "tabWidth": 2,
-  "useTabs": false,
-  "semi": true,
-  "singleQuote": false,
-  "trailingComma": "es5",
-  "ignorePatterns": ["bun.lock", "CHANGELOG.md"]
-}
-`;
-
-const OXLINTRC = `{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn", "oxc"],
-  "categories": {
-    "correctness": "error"
-  },
-  "rules": {},
-  "env": {
-    "builtin": true
-  }
-}
-`;
-
-const CI_WORKFLOW = `name: CI
-
-on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
-
-permissions:
-  contents: read
-  checks: write
-  pull-requests: write
-
-jobs:
-  quality:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: "1.3.14"
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Format check
-        run: bun run format:check:ci
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Type check
-        run: bun run typecheck
-
-      - name: Test + coverage
-        run: bun run test:coverage:ci
-`;
-
-const TSCONFIG = `{
-  "compilerOptions": {
-    "lib": ["ESNext"],
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "types": ["bun"]
-  },
-  "include": ["src/**/*", "test/**/*", "scripts/**/*"]
-}
-`;
-
-const BUN_GLOBALS = `/**
- * Runtime APIs present in Bun 1.3+ that may lag behind bun-types.
- * Remove entries as @types/bun catches up.
- */
-/// <reference types="bun" />
-
-declare module "bun" {
-  const cwd: string;
-  const pid: number;
-
-  interface BunFile {
-    textSync(encoding?: string): string;
-  }
-}
-
-interface ReadableStream<R = any> {
-  [Symbol.asyncIterator](): AsyncIterator<R>;
-}
-`;
+import { checkScaffold } from "../lib/scaffold-doctor.ts";
+import {
+  OXFMTRC,
+  OXLINTRC,
+  CI_WORKFLOW,
+  TSCONFIG,
+  BUN_GLOBALS,
+  DX_CONFIG,
+  GITIGNORE,
+  ENV_EXAMPLE,
+  BUNFIG,
+  KIMI_SKILLS_README,
+} from "../lib/scaffold-templates.ts";
+import { getProjectName, runTool, printSection } from "../lib/utils.ts";
 
 const TOOLCHAIN_ROOT = join(import.meta.dir, "..", "..");
 
@@ -142,29 +52,12 @@ async function readScaffoldRunTestsScript(): Promise<string> {
 }
 
 async function readScaffoldTestGatesScript(): Promise<string> {
-  const raw = await Bun.file(join(TOOLCHAIN_ROOT, "src", "lib", "test-gates.ts")).text();
-  return raw;
+  return Bun.file(join(TOOLCHAIN_ROOT, "src", "lib", "test-gates.ts")).text();
 }
 
 async function readScaffoldReadmeSyncScript(): Promise<string> {
   return Bun.file(join(TOOLCHAIN_ROOT, "src", "lib", "readme-sync.ts")).text();
 }
-
-const DX_CONFIG = `# Project DX + kimi runtime policy
-schemaVersion = 1
-
-[runtime]
-containers = "none"
-packageManager = "bun"
-
-[quality]
-formatter = "oxfmt"
-linter = "oxlint"
-typecheck = "bun run typecheck"
-
-[kimi]
-preflight = true
-`;
 
 function log(step: string, msg: string) {
   console.log(`  → ${step}: ${msg}`);
@@ -174,40 +67,31 @@ function dry(step: string, msg: string) {
   console.log(`  [dry-run] ${step}: ${msg}`);
 }
 
-async function runTool(tool: string, args: string[], dryRun: boolean) {
-  const path = join(TOOLS_DIR, `${tool}.ts`);
-  if (!existsSync(path)) {
-    console.log(`  ⚠ ${tool}: not found at ${path}`);
-    return;
-  }
-
+async function delegateTool(
+  tool: string,
+  args: string[],
+  project: string,
+  dryRun: boolean
+): Promise<void> {
   if (dryRun) {
-    dry(tool, `bun run ${path} ${args.join(" ")}`);
+    dry(tool, `bun run ~/.kimi-code/tools/${tool}.ts ${args.join(" ")} (cwd=${project})`);
     return;
   }
 
   console.log(`  → ${tool} ${args.join(" ")}`);
   try {
-    const proc = Bun.spawn(["bun", "run", path, ...args], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const exitCode = await proc.exited;
-    const stdout = await Bun.readableStreamToText(proc.stdout);
-    const stderr = await Bun.readableStreamToText(proc.stderr);
-
+    const { stdout, stderr, exitCode } = await runTool(tool, args, { cwd: project });
     for (const line of stdout.split("\n")) {
       if (line.trim()) console.log(`    ${line}`);
     }
     for (const line of stderr.split("\n")) {
       if (line.trim()) console.log(`    ${line}`);
     }
-
     if (exitCode !== 0) {
       console.log(`    ⚠ ${tool} failed (exit ${exitCode}), continuing...`);
     }
   } catch (e: any) {
-    console.log(`    ⚠ ${tool} failed: ${e.message}, continuing...`);
+    console.log(`    ⚠ ${tool}: ${e.message}, continuing...`);
   }
 }
 
@@ -243,6 +127,7 @@ async function ensureQualityTooling(project: string, dryRun: boolean) {
     "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
     lint: "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
     "lint:terms": "bun run scripts/lint-banned-terms.ts",
+    fix: "kimi-fix .",
   };
   let scriptsChanged = false;
   for (const [key, value] of Object.entries(additions)) {
@@ -273,35 +158,38 @@ async function ensureQualityTooling(project: string, dryRun: boolean) {
   }
 }
 
-async function main() {
-  const args = Bun.argv.slice(2);
-  const projectPath = args[0];
-  const dryRun = args.includes("--dry-run");
+async function runDoctor(projectDir: string): Promise<number> {
+  printSection("kimi-fix Doctor");
+  const checks = await checkScaffold(projectDir);
+  let errors = 0;
+  let warns = 0;
 
-  if (!projectPath || projectPath === "--help" || projectPath === "-h") {
-    console.log("Usage: kimi-fix <project-path> [--dry-run]");
-    console.log("");
-    console.log("Fixes missing project scaffolding by delegating to tools:");
-    console.log("  - git init (if not a repo)");
-    console.log("  - kimi-governance fix (README, CONTRIBUTING, LICENSE, CODEOWNERS, CHANGELOG)");
-    console.log("  - kimi-context-gen update (CONTEXT.md)");
-    console.log("  - kimi-guardian fix (lockfile baseline + trusted deps)");
-    console.log("  - kimi-githooks install (pre-commit + pre-push)");
-    console.log("  - AGENTS.md, .env.example, .gitignore, bunfig.toml, oxfmt/oxlint, CI template");
-    process.exit(projectPath ? 0 : 1);
+  for (const check of checks) {
+    const icon = check.status === "ok" ? "✓" : check.status === "warn" ? "⚠" : "✗";
+    const fixTag = check.fixable ? " [fixable]" : "";
+    console.log(`  ${icon} ${check.name}: ${check.message}${fixTag}`);
+    if (check.status === "error") errors++;
+    if (check.status === "warn") warns++;
   }
 
-  const project = projectPath.replace(/\/$/, "");
-  if (!existsSync(project)) {
-    console.log(`✗ Directory does not exist: ${project}`);
-    process.exit(1);
+  console.log("");
+  if (errors > 0) {
+    console.log(`  ✗ ${errors} error(s), ${warns} warning(s)`);
+    return 1;
   }
+  if (warns > 0) {
+    console.log(`  ⚠ ${warns} warning(s) — run kimi-fix to repair`);
+    return 1;
+  }
+  console.log("  ✓ Scaffold complete");
+  return 0;
+}
 
+async function runFix(project: string, dryRun: boolean): Promise<void> {
   console.log(`=== Fixing ${basename(project)} ===`);
   console.log(`  Path: ${project}`);
   console.log("");
 
-  // Git init
   if (!existsSync(join(project, ".git"))) {
     log("git", "initializing repo...");
     if (!dryRun) {
@@ -315,58 +203,45 @@ async function main() {
     log("git", "repo already exists");
   }
 
-  // Governance files
-  await runTool("kimi-governance", ["fix"], dryRun);
+  await delegateTool("kimi-governance", ["fix"], project, dryRun);
+  await delegateTool("kimi-context-gen", ["update"], project, dryRun);
+  await delegateTool("kimi-guardian", ["fix"], project, dryRun);
+  await delegateTool("kimi-githooks", ["install"], project, dryRun);
 
-  // CONTEXT.md
-  await runTool("kimi-context-gen", ["update"], dryRun);
-
-  // Lockfile baseline
-  await runTool("kimi-guardian", ["fix"], dryRun);
-
-  // Git hooks
-  await runTool("kimi-githooks", ["install"], dryRun);
-
-  // .env.example
-  if (existsSync(join(project, ".env")) && !existsSync(join(project, ".env.example"))) {
-    log("env", "creating .env.example from .env...");
-    if (!dryRun) {
-      const envContent = await Bun.file(join(project, ".env")).text();
-      const example = envContent
-        .split("\n")
-        .map((line) => {
-          const match = line.match(/^([A-Z_][A-Z0-9_]*)=.*/);
-          return match ? `${match[1]}=replace_me` : line;
-        })
-        .join("\n");
-      await Bun.write(
-        join(project, ".env.example"),
-        example + "\n# Auto-generated from .env — replace placeholder values\n"
-      );
+  const envExample = join(project, ".env.example");
+  if (!existsSync(envExample)) {
+    if (existsSync(join(project, ".env"))) {
+      log("env", "creating .env.example from .env...");
+      if (!dryRun) {
+        const envContent = await Bun.file(join(project, ".env")).text();
+        const example = envContent
+          .split("\n")
+          .map((line) => {
+            const match = line.match(/^([A-Z_][A-Z0-9_]*)=.*/);
+            return match ? `${match[1]}=replace_me` : line;
+          })
+          .join("\n");
+        await Bun.write(
+          envExample,
+          example + "\n# Auto-generated from .env — replace placeholder values\n"
+        );
+      }
+    } else {
+      log("env", "creating .env.example template...");
+      await writeFile(envExample, ENV_EXAMPLE, dryRun);
     }
   }
 
-  // .gitignore
   if (!existsSync(join(project, ".gitignore"))) {
     log("gitignore", "creating...");
-    await writeFile(
-      join(project, ".gitignore"),
-      `# Dependencies\nnode_modules/\n.pnp.*\n\n# Environment\n.env\n.env.local\n.env.*.local\n\n# Build outputs\ndist/\nbuild/\nout/\n*.tsbuildinfo\n\n# OS\n.DS_Store\nThumbs.db\n\n# Logs\n*.log\nnpm-debug.log*\n\n# Editor\n.vscode/\n.idea/\n*.swp\n*~\n`,
-      dryRun
-    );
+    await writeFile(join(project, ".gitignore"), GITIGNORE, dryRun);
   }
 
-  // bunfig.toml
   if (!existsSync(join(project, "bunfig.toml"))) {
     log("bunfig", "creating...");
-    await writeFile(
-      join(project, "bunfig.toml"),
-      `[install]\n# Trusted dependencies with postinstall scripts\n# Run \`kimi-guardian check\` to auto-populate\ntrustedDependencies = []\n\n[install.cache]\n# Global cache directory (shared across projects)\ndir = "~/.bun/install/cache"\n\n[test]\n# Unit tests run concurrently; smoke tests stay sequential\nconcurrentTestGlob = ["test/*.unit.test.ts"]\ncoverageSkipTestFiles = true\n\ncoverageThreshold = { lines = 0.35, functions = 0.25 }\n`,
-      dryRun
-    );
+    await writeFile(join(project, "bunfig.toml"), BUNFIG, dryRun);
   }
 
-  // oxfmt / oxlint config
   if (!existsSync(join(project, ".oxfmtrc.json"))) {
     log("oxfmt", "creating .oxfmtrc.json...");
     await writeFile(join(project, ".oxfmtrc.json"), OXFMTRC, dryRun);
@@ -376,14 +251,12 @@ async function main() {
     await writeFile(join(project, ".oxlintrc.json"), OXLINTRC, dryRun);
   }
 
-  // AGENTS.md (project agent guide)
   const agentsPath = join(project, "AGENTS.md");
   if (!existsSync(agentsPath)) {
     log("agents", "creating AGENTS.md...");
     await writeFile(agentsPath, buildAgentsMd(getProjectName(project)), dryRun);
   }
 
-  // Kimi Code project config (.kimi-code/mcp.json + skills placeholder)
   const kimiCodeDir = join(project, ".kimi-code");
   const projectMcp = join(kimiCodeDir, "mcp.json");
   if (!existsSync(projectMcp)) {
@@ -395,36 +268,26 @@ async function main() {
   if (!existsSync(kimiSkillsReadme)) {
     log("kimi-code", "creating .kimi-code/skills/README.md...");
     if (!dryRun) mkdirSync(join(kimiCodeDir, "skills"), { recursive: true });
-    await writeFile(
-      kimiSkillsReadme,
-      `# Project skills\n\nPlace Kimi Code skills in \`.kimi-code/skills/<name>/SKILL.md\`.\nUser skills: \`~/.kimi-code/skills/\` and \`~/.agents/skills/\`.\nSee UNIFIED.md.\n`,
-      dryRun
-    );
+    await writeFile(kimiSkillsReadme, KIMI_SKILLS_README, dryRun);
   }
 
-  // dx.config.toml (optional project policy)
   if (!existsSync(join(project, "dx.config.toml"))) {
     log("dx", "creating dx.config.toml...");
     await writeFile(join(project, "dx.config.toml"), DX_CONFIG, dryRun);
   }
 
-  // tsconfig.json (Bun bundler mode — see bun.com/docs/runtime/typescript)
   if (!existsSync(join(project, "tsconfig.json"))) {
     log("tsconfig", "creating tsconfig.json...");
     await writeFile(join(project, "tsconfig.json"), TSCONFIG, dryRun);
   }
 
-  // bun-globals.d.ts (type shims for runtime APIs ahead of bun-types)
   const globalsPath = join(project, "src", "bun-globals.d.ts");
   if (!existsSync(globalsPath)) {
     log("types", "creating src/bun-globals.d.ts...");
-    if (!dryRun) {
-      mkdirSync(join(project, "src"), { recursive: true });
-    }
+    if (!dryRun) mkdirSync(join(project, "src"), { recursive: true });
     await writeFile(globalsPath, BUN_GLOBALS, dryRun);
   }
 
-  // Quality gate scripts (check, run-tests, test-gates)
   const scriptFiles: Array<{ name: string; content: () => Promise<string> }> = [
     { name: "lint-banned-terms.ts", content: readLintBannedTermsTemplate },
     { name: "test-gates.ts", content: readScaffoldTestGatesScript },
@@ -441,33 +304,77 @@ async function main() {
     }
   }
 
-  // package.json scripts + oxfmt/oxlint devDeps
   await ensureQualityTooling(project, dryRun);
 
-  // CI/CD template
   if (!existsSync(join(project, ".github", "workflows", "ci.yml"))) {
     log("ci", "creating CI template...");
-    if (!dryRun) {
-      mkdirSync(join(project, ".github", "workflows"), { recursive: true });
-    }
+    if (!dryRun) mkdirSync(join(project, ".github", "workflows"), { recursive: true });
     await writeFile(join(project, ".github", "workflows", "ci.yml"), CI_WORKFLOW, dryRun);
   }
 
   console.log("");
   console.log("── Next Steps ────────────────────────────────────────────────");
   console.log("  1. Review generated files");
-  console.log("  2. Replace @replace-me in CODEOWNERS with actual username");
+  console.log("  2. Replace @team in CODEOWNERS with actual username");
   console.log("  3. Add copyright holder to LICENSE");
-  console.log("  4. Run 'bun run check' (or 'bun run check:fast' for unit-only gate)");
-  console.log("  5. Run 'kimi-githooks install' to enable pre-commit/pre-push gates");
+  console.log("  4. Customize AGENTS.md one-line project description");
+  console.log("  5. Run 'bun run check' (or 'bun run check:fast' for unit-only gate)");
   console.log("  6. Run 'kimi-governance score' to check project health");
-  console.log("  7. Run 'kimi-doctor' to verify everything");
+  console.log("  7. Run 'kimi-doctor --quick' to verify everything");
   console.log("");
   if (dryRun) {
     console.log("✓ Dry run complete. Remove --dry-run to apply.");
   } else {
     console.log("✓ Fix complete. Review changes before committing.");
   }
+}
+
+function printHelp() {
+  console.log("Usage:");
+  console.log("  kimi-fix <project-path> [--dry-run]");
+  console.log("  kimi-fix fix <project-path> [--dry-run]");
+  console.log("  kimi-fix doctor [project-path]");
+  console.log("");
+  console.log("Fixes missing project scaffolding:");
+  console.log("  - git init, governance files, CONTEXT.md, guardian baseline, git hooks");
+  console.log("  - AGENTS.md, .env.example, .gitignore, bunfig.toml, quality scripts, CI");
+}
+
+async function main() {
+  const args = Bun.argv.slice(2);
+  const dryRun = args.includes("--dry-run");
+  const filtered = args.filter((a) => a !== "--dry-run");
+
+  if (filtered.length === 0 || filtered[0] === "--help" || filtered[0] === "-h") {
+    printHelp();
+    process.exit(filtered.length === 0 ? 1 : 0);
+  }
+
+  const command = filtered[0];
+
+  if (command === "doctor") {
+    const project = resolve(filtered[1] || Bun.cwd);
+    if (!existsSync(project)) {
+      console.log(`✗ Directory does not exist: ${project}`);
+      process.exit(1);
+    }
+    process.exit(await runDoctor(project));
+  }
+
+  const projectPath =
+    command === "fix" ? filtered[1] : command === "doctor" ? filtered[1] : filtered[0];
+  if (!projectPath || projectPath === "fix") {
+    printHelp();
+    process.exit(1);
+  }
+
+  const project = resolve(projectPath.replace(/\/$/, ""));
+  if (!existsSync(project)) {
+    console.log(`✗ Directory does not exist: ${project}`);
+    process.exit(1);
+  }
+
+  await runFix(project, dryRun);
 }
 
 main().catch((err) => {

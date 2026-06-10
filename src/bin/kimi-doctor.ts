@@ -28,7 +28,7 @@ import {
   removeStaleWrappers,
 } from "../lib/path-alignment.ts";
 import { fixMcpConfig, validateMcpConfig } from "../lib/mcp-config.ts";
-import { auditKimiConfig } from "../lib/kimi-config-audit.ts";
+import { auditKimiConfig, mergeConfigTomlPermissions } from "../lib/kimi-config-audit.ts";
 import { getOrphanProcesses, runOrphanKill } from "./kimi-orphan-kill.ts";
 import { resolveProjectRoot, printSection } from "../lib/utils.ts";
 
@@ -73,17 +73,19 @@ function recordMemoryCheck(r: MemoryCheckResult): CheckResult {
   return { name: r.name, status: r.status, message: r.message };
 }
 
-async function runToolDoctor(tool: string): Promise<CheckResult> {
+async function runToolDoctor(tool: string, projectRoot: string): Promise<CheckResult> {
   const path = join(TOOLS_DIR, `${tool}.ts`);
   if (!existsSync(path)) {
     return error(tool, `not found at ${path}`);
   }
 
   const cmd = FIX ? "fix" : "doctor";
-  console.log(`  → Running ${tool} ${cmd}...`);
+  const toolArgs = tool === "kimi-fix" ? (FIX ? [projectRoot] : ["doctor", projectRoot]) : [cmd];
+  console.log(`  → Running ${tool} ${toolArgs.join(" ")}...`);
 
   try {
-    const proc = Bun.spawn(["bun", "run", path, cmd], {
+    const proc = Bun.spawn(["bun", "run", path, ...toolArgs], {
+      cwd: projectRoot,
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -327,6 +329,24 @@ async function runQualityChecks(projectRoot: string): Promise<CheckResult[]> {
       : warn("oxlintrc", "missing — run kimi-fix")
   );
 
+  results.push(
+    existsSync(join(projectRoot, "AGENTS.md"))
+      ? ok("project-AGENTS.md", "present")
+      : warn("project-AGENTS.md", "missing — run kimi-fix")
+  );
+
+  results.push(
+    existsSync(join(projectRoot, ".kimi-code", "mcp.json"))
+      ? ok("project-mcp.json", "present")
+      : warn("project-mcp.json", "missing — run kimi-fix")
+  );
+
+  results.push(
+    existsSync(join(projectRoot, "scripts", "check.ts"))
+      ? ok("scripts/check.ts", "present")
+      : warn("scripts/check.ts", "missing — run kimi-fix")
+  );
+
   const pkg = (await Bun.file(pkgPath).json()) as { scripts?: Record<string, string> };
   const scripts = pkg.scripts || {};
 
@@ -386,9 +406,18 @@ async function applyMcpFixes(projectRoot: string): Promise<void> {
 }
 
 async function applyFixes(projectRoot: string): Promise<void> {
+  const home = Bun.env.HOME || "/tmp";
   section("Auto-fix");
   await applySyncFix(projectRoot);
   await applyMcpFixes(projectRoot);
+
+  const configMerge = await mergeConfigTomlPermissions(home);
+  if (configMerge.created) {
+    console.log(`  ✓ Created ${configMerge.path} with permission snippet`);
+  } else if (configMerge.merged) {
+    console.log(`  ✓ Appended permission snippet to ${configMerge.path}`);
+  }
+
   await applyPathAlignmentFixes(projectRoot);
 
   const orphans = getOrphanProcesses();
@@ -510,6 +539,7 @@ async function main() {
       "kimi-guardian",
       "kimi-governance",
       "kimi-context-gen",
+      "kimi-fix",
       "kimi-memory",
       "kimi-resource-governor",
       "kimi-debug",
@@ -519,7 +549,7 @@ async function main() {
     ];
 
     for (const tool of tools) {
-      results.push(await runToolDoctor(tool));
+      results.push(await runToolDoctor(tool, projectRoot));
     }
   }
 
@@ -535,8 +565,8 @@ async function main() {
 
   results.push(
     existsSync(join(home, ".kimi-code", "AGENTS.md"))
-      ? ok("AGENTS.md", "present")
-      : error("AGENTS.md", "missing")
+      ? ok("global-AGENTS.md", "present")
+      : error("global-AGENTS.md", "missing")
   );
   results.push(
     existsSync(join(home, ".kimi-code", "UNIFIED.md"))

@@ -28,8 +28,18 @@ if [[ -f "${HOME}/.kimi-code/bin/kimi.bak" ]]; then
 fi
 
 echo ""
+echo "→ memory-check"
+bash scripts/memory-check.sh || echo "  ⚠ memory-check reported pressure (non-fatal)"
+
+echo ""
 echo "→ kimi doctor (Kimi Code)"
-kimi doctor || true
+set +e
+kimi doctor
+KIMI_DOCTOR_EXIT=$?
+set -e
+if [[ $KIMI_DOCTOR_EXIT -ne 0 ]]; then
+  echo "  ⚠ kimi doctor exited $KIMI_DOCTOR_EXIT — review Kimi Code config"
+fi
 
 echo ""
 echo "→ kimi-doctor --quick --soft-system (toolchain)"

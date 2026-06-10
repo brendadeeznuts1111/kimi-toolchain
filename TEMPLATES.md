@@ -92,7 +92,11 @@ bun run fix
 | CHANGELOG.md    |        | Keep a Changelog format              |
 | README.md       |        | Quickstart, badges, links            |
 | CONTEXT.md      |        | This file — architecture & decisions |
+| AGENTS.md       |        | Project agent guide (kimi-fix)       |
 | `.oxfmtrc.json` |        | oxfmt formatter config               |
+| `tsconfig.json` |        | Bun bundler mode strict TS           |
+| `bunfig.toml`   |        | Trusted deps + test coverage gates   |
+| `.kimi-code/`   |        | Project MCP stub + skills dir        |
 
 Run `bun run ~/.kimi-code/tools/kimi-governance.ts score` to check project health.
 

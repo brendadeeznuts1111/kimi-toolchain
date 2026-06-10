@@ -97,13 +97,13 @@ Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0
 ### Scaffold New Project
 
 ```
-1. mkdir <project-name> && cd <project-name>
-2. bun init -y                    # sets package.json name (used in AGENTS.md, README)
-3. RUN: kimi-fix . [--dry-run]
-   Creates: AGENTS.md, CONTEXT.md, .kimi-code/, quality scripts, CI
+1. RUN: kimi-new <project-name> [--path <parent-dir>]
+   Or: mkdir <name> && bun init -y && kimi-fix .
+2. cd <project-name>
+3. RUN: kimi-fix doctor .         # verify scaffold completeness
 4. RUN: kimi-governance score (target grade ≥ C)
-5. RUN: kimi-githooks install (also run by kimi-fix)
-6. REMIND: customize AGENTS.md one-liner + CODEOWNERS before commit
+5. RUN: kimi login                # Kimi Code CLI
+6. REMIND: customize AGENTS.md one-liner + CODEOWNERS (@team) before commit
 ```
 
 ### Before Commit or Push

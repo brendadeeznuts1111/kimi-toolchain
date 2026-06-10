@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `kimi-new` greenfield scaffold CLI (`mkdir` + `bun init` + `kimi-fix`)
+- `kimi-fix doctor` subcommand + scaffold checks in `kimi-doctor`
+- `src/lib/scaffold-templates.ts` single source of truth for kimi-fix templates
+- `scaffoldAligned` soft gate in kimi-governance (dx.config.toml preflight projects)
+- `mergeConfigTomlPermissions` idempotent snippet append (`kimi-doctor --fix`)
 - `kimi-fix` scaffolds `AGENTS.md` from `src/lib/scaffold-agents.ts` (uses `package.json` name)
 - `TEMPLATES.md` aligned with `kimi-fix` (scripts, bunfig, CI, tsconfig)
 
@@ -33,6 +38,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- `kimi-fix` delegated tools now run with `cwd: project` (governance/context/guardian/hooks)
 - `getProjectName` prefers `package.json` `name` over directory basename (AGENTS.md, README, etc.)
 - Wrapper coverage check now validates all package.json bin entries (not only kimi-*)
 - Path-alignment unit tests use system tmpdir (no repo `.tmp-*` pollution)

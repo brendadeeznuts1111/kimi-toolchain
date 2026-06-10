@@ -122,7 +122,7 @@ export async function fetchWithTimeout(
 
 // ── Tool Runner (for cross-tool integration) ─────────────────────────
 
-function toolsDir(): string {
+export function toolsDir(): string {
   return join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
 }
 

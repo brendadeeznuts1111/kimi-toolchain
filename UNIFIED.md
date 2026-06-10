@@ -75,6 +75,18 @@ bun install -g .                    # global link + postinstall → ~/.kimi-code
 bash scripts/install-bin-wrappers.sh
 ```
 
+## Greenfield project
+
+```bash
+kimi-new my-app              # or: mkdir my-app && cd my-app && bun init -y && kimi-fix .
+cd my-app
+bun run check:fast
+kimi login
+kimi-doctor --quick
+```
+
+`kimi-fix` uses `package.json` `name` for `AGENTS.md`. Project `.kimi-code/mcp.json` is a stub; user-level `~/.kimi-code/mcp.json` provides `unified-shell` after `bun run sync` or `bun run unify`.
+
 ## Development loop
 
 ```bash

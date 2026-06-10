@@ -24,6 +24,7 @@ import {
 import { bunTestArgs, useFastUnitCoverage } from "../lib/test-gates.ts";
 import { checkDocDrift, patchReadmeScripts } from "../lib/readme-sync.ts";
 import { checkKimiDocsAligned } from "../lib/kimi-docs-aligned.ts";
+import { checkScaffoldAligned } from "../lib/scaffold-aligned.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -844,6 +845,21 @@ async function main() {
       });
     }
 
+    const scaffold = await checkScaffoldAligned(projectDir);
+    if (scaffold.applicable) {
+      checks.push({
+        name: "scaffoldAligned",
+        status: scaffold.aligned ? "ok" : "warn",
+        message: scaffold.aligned
+          ? "AGENTS.md scaffold markers present"
+          : scaffold.checks
+              .filter((c) => c.status === "warn")
+              .map((c) => `${c.name}: ${c.message}`)
+              .join("; "),
+        fixable: false,
+      });
+    }
+
     // Lockfile check via guardian
     try {
       const guardianResult = await runTool("kimi-guardian", ["check"], {
@@ -936,6 +952,14 @@ async function main() {
       const icon = kimiDocs.aligned ? "✓" : "⚠";
       console.log(
         `  ${icon} kimiDocsAligned (soft): ${kimiDocs.aligned ? "product matrix + MCP docs in sync" : "see kimi-governance doctor"}`
+      );
+    }
+
+    const scaffold = await checkScaffoldAligned(projectDir);
+    if (scaffold.applicable) {
+      const icon = scaffold.aligned ? "✓" : "⚠";
+      console.log(
+        `  ${icon} scaffoldAligned (soft): ${scaffold.aligned ? "AGENTS.md markers present" : "see kimi-governance doctor"}`
       );
     }
 
