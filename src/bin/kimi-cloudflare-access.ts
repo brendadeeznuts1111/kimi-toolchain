@@ -707,6 +707,13 @@ const KNOWN_PROJECT_ROOTS = [
 /** Explicit overrides when heuristic discovery fails */
 const APP_TO_PROJECT_OVERRIDE: Record<string, string> = {
   ledger: `${Bun.env.HOME || "/tmp"}/accounting-telegram`,
+  "ledger-bypass-api": `${Bun.env.HOME || "/tmp"}/accounting-telegram`,
+  "ledger-bypass-status": `${Bun.env.HOME || "/tmp"}/accounting-telegram`,
+  "ledger-bypass-health": `${Bun.env.HOME || "/tmp"}/accounting-telegram`,
+  "ledger-bypass-webhook": `${Bun.env.HOME || "/tmp"}/accounting-telegram`,
+  Documentation: `${Bun.env.HOME || "/tmp"}/factorywager-registry`,
+  "Docs Archive": `${Bun.env.HOME || "/tmp"}/factorywager-registry`,
+  "R2 Storage": `${Bun.env.HOME || "/tmp"}/factorywager-registry`,
   "my-stateless-mcp-server": "", // explicitly unmapped — no local project
 };
 
