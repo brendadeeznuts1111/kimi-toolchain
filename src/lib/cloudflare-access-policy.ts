@@ -32,6 +32,8 @@ export interface AppConfig {
 
 export interface AccessPolicyConfig {
   apps: AppConfig[];
+  /** When true, only apps listed in this config are managed. Unlisted live apps are ignored, not deleted. */
+  scoped?: boolean;
 }
 
 // ── Config Loader ────────────────────────────────────────────────────
@@ -128,6 +130,12 @@ function parsePolicyConfig(yaml: string): AccessPolicyConfig {
     popUntil(indent);
 
     const parent = stack[stack.length - 1];
+
+    // scoped: true
+    if (trimmed === "scoped: true") {
+      result.scoped = true;
+      continue;
+    }
 
     // apps:
     if (trimmed === "apps:") {
@@ -340,10 +348,12 @@ export function computeDiff(desired: AccessPolicyConfig, live: LiveState): DiffR
     }
   }
 
-  // Apps to delete (not in desired)
-  for (const liveApp of live.apps) {
-    if (!desiredAppMap.has(liveApp.name)) {
-      results.push({ appName: liveApp.name, action: "delete" });
+  // Apps to delete (not in desired) — only when config is not scoped
+  if (!desired.scoped) {
+    for (const liveApp of live.apps) {
+      if (!desiredAppMap.has(liveApp.name)) {
+        results.push({ appName: liveApp.name, action: "delete" });
+      }
     }
   }
 
