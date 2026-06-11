@@ -96,14 +96,16 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 ### Security
 
-| Command                       | Description                               |
-| ----------------------------- | ----------------------------------------- |
-| `kimi-guardian check`         | Lockfile integrity & CVE scan             |
-| `kimi-guardian sign`          | Baseline lockfile hash                    |
-| `kimi-guardian verify`        | Verify lockfile against stored hash       |
-| `kimi-cloudflare-access`      | Service token expiry sweep                |
-| `kimi-cloudflare-access apps` | Access application policy audit           |
-| `kimi-cloudflare-access fix`  | Rotate expired/expiring Cloudflare tokens |
+| Command                         | Description                                 |
+| ------------------------------- | ------------------------------------------- |
+| `kimi-guardian check`           | Lockfile integrity & CVE scan               |
+| `kimi-guardian sign`            | Baseline lockfile hash                      |
+| `kimi-guardian verify`          | Verify lockfile against stored hash         |
+| `kimi-cloudflare-access login`  | Store Cloudflare credentials in OS keychain |
+| `kimi-cloudflare-access logout` | Remove stored Cloudflare credentials        |
+| `kimi-cloudflare-access`        | Service token expiry sweep                  |
+| `kimi-cloudflare-access apps`   | Access application policy audit             |
+| `kimi-cloudflare-access fix`    | Rotate expired/expiring Cloudflare tokens   |
 
 ### Memory & Sessions
 
@@ -186,6 +188,47 @@ Live runtime at `~/.kimi-code/` (managed by postinstall hook).
 - R-Score: run `kimi-governance score`
 - License: MIT
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
+
+## Cloudflare API Token Setup
+
+The `kimi-cloudflare-access` tool reads credentials from `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` environment variables, or from the OS keychain via `kimi-cloudflare-access login`.
+
+### Required token permissions
+
+Create a dedicated API token at https://dash.cloudflare.com/profile/api-tokens with these permissions:
+
+| Permission             | Commands                      |
+| ---------------------- | ----------------------------- |
+| Account > Access: Read | `tokens`, `apps`, `doctor`    |
+| Account > Access: Edit | `fix` (rotate service tokens) |
+
+### Login / logout
+
+```bash
+# Interactively store credentials in the OS keychain
+kimi-cloudflare-access login
+
+# Remove stored credentials
+kimi-cloudflare-access logout
+```
+
+Credentials are stored with `Bun.secrets` under the service name `kimi-toolchain`. The first run may prompt for keychain access.
+
+### CI / env-var override
+
+For CI or non-TTY environments, set environment variables instead of using `login`:
+
+```bash
+export CLOUDFLARE_ACCOUNT_ID="your-account-id"
+export CLOUDFLARE_API_TOKEN="your-api-token"
+kimi-cloudflare-access doctor
+```
+
+Environment variables take precedence over stored credentials.
+
+### Auth compatibility
+
+Wrangler OAuth tokens and the Kimi Code Cloudflare MCP server authenticate through separate flows. They cannot be used by this CLI. Use a dedicated Cloudflare API token with the permissions above.
 
 ## Safety
 

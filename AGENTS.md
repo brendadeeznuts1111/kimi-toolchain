@@ -372,7 +372,7 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `kimi-guardian`          | `check`, `sign`, `verify`, `report`, `fix`, `doctor`                                                              |
 | `kimi-memory`            | `store`, `recall`, `resume`, `autosave`, `graph`, `impact`, `search`, `prune`, `stats`, `trends`, `doctor`, `fix` |
 | `kimi-githooks`          | `install`, `doctor`, `fix`                                                                                        |
-| `kimi-cloudflare-access` | `tokens`, `apps`, `doctor`, `fix` (token expiry, app policy audit)                                                |
+| `kimi-cloudflare-access` | `login`, `logout`, `tokens`, `apps`, `doctor`, `fix` (token expiry, app policy audit)                             |
 | `kimi-context-gen`       | `scan`, `update`, `freshness`, `doctor`, `fix [threshold]`                                                        |
 | `kimi-release`           | `changelog`, `semver`, `validate`, `doctor`, `fix`                                                                |
 | `kimi-debug`             | `last`, `diff`, `trace`, `analyze`, `doctor`, `fix`                                                               |

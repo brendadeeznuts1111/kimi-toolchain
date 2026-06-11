@@ -4,6 +4,9 @@ import {
   AccessPolicy,
   auditApps,
   checkTokenExpiry,
+  CREDENTIAL_SERVICE,
+  getCredentials,
+  loadCredentialsFromSecrets,
   parseSessionHours,
   ServiceToken,
 } from "../src/bin/kimi-cloudflare-access.ts";
@@ -199,6 +202,73 @@ describe("cloudflare-access logic", () => {
         []
       );
       expect(findings).toHaveLength(0);
+    });
+  });
+
+  describe("credentials", () => {
+    test("getCredentials prefers env vars over Bun.secrets", async () => {
+      const originalAccount = Bun.env.CLOUDFLARE_ACCOUNT_ID;
+      const originalToken = Bun.env.CLOUDFLARE_API_TOKEN;
+      const mockSecrets = {
+        get: async () => "secret-value",
+      };
+
+      const restore = () => {
+        if (originalAccount !== undefined) Bun.env.CLOUDFLARE_ACCOUNT_ID = originalAccount;
+        else delete Bun.env.CLOUDFLARE_ACCOUNT_ID;
+        if (originalToken !== undefined) Bun.env.CLOUDFLARE_API_TOKEN = originalToken;
+        else delete Bun.env.CLOUDFLARE_API_TOKEN;
+      };
+
+      try {
+        Bun.env.CLOUDFLARE_ACCOUNT_ID = "env-account";
+        Bun.env.CLOUDFLARE_API_TOKEN = "env-token";
+        const creds = await getCredentials(mockSecrets);
+        expect(creds.accountId).toBe("env-account");
+        expect(creds.apiToken).toBe("env-token");
+      } finally {
+        restore();
+      }
+    });
+
+    test("loadCredentialsFromSecrets reads from injected secrets", async () => {
+      const mockSecrets = {
+        get: async ({ name }: { name: string }) => {
+          if (name === "cloudflare-account-id") return "secret-account";
+          if (name === "cloudflare-api-token") return "secret-token";
+          return null;
+        },
+      };
+      const fromSecrets = await loadCredentialsFromSecrets(mockSecrets);
+      expect(fromSecrets.accountId).toBe("secret-account");
+      expect(fromSecrets.apiToken).toBe("secret-token");
+    });
+
+    test("getCredentials falls back to secrets and errors when missing", async () => {
+      const originalAccount = Bun.env.CLOUDFLARE_ACCOUNT_ID;
+      const originalToken = Bun.env.CLOUDFLARE_API_TOKEN;
+      const mockSecrets = {
+        get: async () => null,
+      };
+
+      const restore = () => {
+        if (originalAccount !== undefined) Bun.env.CLOUDFLARE_ACCOUNT_ID = originalAccount;
+        else delete Bun.env.CLOUDFLARE_ACCOUNT_ID;
+        if (originalToken !== undefined) Bun.env.CLOUDFLARE_API_TOKEN = originalToken;
+        else delete Bun.env.CLOUDFLARE_API_TOKEN;
+      };
+
+      try {
+        delete Bun.env.CLOUDFLARE_ACCOUNT_ID;
+        delete Bun.env.CLOUDFLARE_API_TOKEN;
+        await expect(getCredentials(mockSecrets)).rejects.toThrow(/login/);
+      } finally {
+        restore();
+      }
+    });
+
+    test("CREDENTIAL_SERVICE is kimi-toolchain", () => {
+      expect(CREDENTIAL_SERVICE).toBe("kimi-toolchain");
     });
   });
 });

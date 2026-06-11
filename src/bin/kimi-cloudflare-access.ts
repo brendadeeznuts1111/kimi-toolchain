@@ -5,11 +5,11 @@
  * P1: Access application policy audit
  *
  * Usage:
- *   kimi-cloudflare-access [tokens|apps|doctor|fix]
+ *   kimi-cloudflare-access [tokens|apps|doctor|fix|login|logout]
  *
- * Env:
- *   CLOUDFLARE_ACCOUNT_ID  required
- *   CLOUDFLARE_API_TOKEN   required — API token with Access:Read (and Access:Edit to rotate)
+ * Auth:
+ *   1. CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN env vars (CI override)
+ *   2. OS keychain via Bun.secrets (set with `kimi-cloudflare-access login`)
  *
  * Note:
  *   Wrangler OAuth tokens and the Kimi Code cloudflare-api MCP server use different
@@ -23,6 +23,10 @@ import { fetchWithTimeout, log, printSection } from "../lib/utils.ts";
 
 const API_BASE = "https://api.cloudflare.com/client/v4";
 const DEFAULT_WARN_DAYS = 30;
+
+export const CREDENTIAL_SERVICE = "kimi-toolchain";
+const ACCOUNT_SECRET = "cloudflare-account-id";
+const TOKEN_SECRET = "cloudflare-api-token";
 
 export interface ServiceToken {
   id: string;
@@ -75,25 +79,110 @@ export interface AppFinding {
   detail: string;
 }
 
-// ── API ──────────────────────────────────────────────────────────────
+// ── Credentials ──────────────────────────────────────────────────────
 
-function getCredentials(): { accountId: string; apiToken: string } {
+export async function loadCredentialsFromSecrets(
+  secrets: {
+    get: (opts: { service: string; name: string }) => Promise<string | null>;
+  } = Bun.secrets
+): Promise<{
+  accountId?: string;
+  apiToken?: string;
+}> {
+  const accountId = await secrets.get({ service: CREDENTIAL_SERVICE, name: ACCOUNT_SECRET });
+  const apiToken = await secrets.get({ service: CREDENTIAL_SERVICE, name: TOKEN_SECRET });
+  return {
+    accountId: typeof accountId === "string" ? accountId : undefined,
+    apiToken: typeof apiToken === "string" ? apiToken : undefined,
+  };
+}
+
+export async function getCredentials(
+  secrets: {
+    get: (opts: { service: string; name: string }) => Promise<string | null>;
+  } = Bun.secrets
+): Promise<{ accountId: string; apiToken: string }> {
   const accountId = Bun.env.CLOUDFLARE_ACCOUNT_ID;
   const apiToken = Bun.env.CLOUDFLARE_API_TOKEN;
 
-  if (!accountId || !apiToken) {
-    console.error("Missing CLOUDFLARE_ACCOUNT_ID and/or CLOUDFLARE_API_TOKEN");
-    console.error(
-      "Create a token with Access:Read (and Access:Edit to rotate) at https://dash.cloudflare.com/profile/api-tokens"
-    );
-    console.error(
+  if (accountId && apiToken) {
+    return { accountId, apiToken };
+  }
+
+  const fromSecrets = await loadCredentialsFromSecrets(secrets);
+  if (fromSecrets.accountId && fromSecrets.apiToken) {
+    return { accountId: fromSecrets.accountId, apiToken: fromSecrets.apiToken };
+  }
+
+  throw new Error(
+    "Missing Cloudflare credentials.\n" +
+      "Run: kimi-cloudflare-access login\n" +
+      "Or set env vars: CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN\n" +
+      "Create a token with Account > Access: Read (and Access: Edit to rotate) at https://dash.cloudflare.com/profile/api-tokens\n" +
       "Note: Wrangler OAuth / Kimi Code MCP auth is separate and cannot be used by this CLI."
-    );
+  );
+}
+
+async function verifyToken(apiToken: string): Promise<{ valid: boolean; message?: string }> {
+  try {
+    const resp = (await fetchWithTimeout(`${API_BASE}/user/tokens/verify`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        "Content-Type": "application/json",
+      },
+      timeoutMs: 15000,
+    })) as unknown as ApiResponse<{ status: string }>;
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      return { valid: false, message: `Cloudflare API ${resp.status}: ${text}` };
+    }
+
+    const data = await resp.json();
+    if (data.success === false) {
+      const msg = data.errors?.map((e) => e.message).join("; ") || "Token verification failed";
+      return { valid: false, message: msg };
+    }
+
+    return { valid: true };
+  } catch (e: any) {
+    return { valid: false, message: e.message };
+  }
+}
+
+async function login(): Promise<void> {
+  const accountId = prompt("Cloudflare Account ID:")?.trim();
+  const apiToken = prompt("Cloudflare API Token:")?.trim();
+
+  if (!accountId || !apiToken) {
+    console.error("Account ID and API token are required.");
     process.exit(1);
   }
 
-  return { accountId, apiToken };
+  Bun.stdout.write("Verifying token...");
+  const verification = await verifyToken(apiToken);
+  if (!verification.valid) {
+    console.log(" failed");
+    console.error(`Token verification failed: ${verification.message}`);
+    process.exit(1);
+  }
+  console.log(" ok");
+
+  await Bun.secrets.set({ service: CREDENTIAL_SERVICE, name: ACCOUNT_SECRET, value: accountId });
+  await Bun.secrets.set({ service: CREDENTIAL_SERVICE, name: TOKEN_SECRET, value: apiToken });
+
+  log("info", "Credentials saved to OS keychain.");
+  console.log("Run `kimi-cloudflare-access logout` to remove them.");
 }
+
+async function logout(): Promise<void> {
+  await Bun.secrets.delete({ service: CREDENTIAL_SERVICE, name: ACCOUNT_SECRET });
+  await Bun.secrets.delete({ service: CREDENTIAL_SERVICE, name: TOKEN_SECRET });
+  log("info", "Cloudflare credentials removed from OS keychain.");
+}
+
+// ── API ──────────────────────────────────────────────────────────────
 
 type ApiResponse<T> = {
   ok: boolean;
@@ -396,25 +485,28 @@ async function doctor(): Promise<
     fixable: boolean;
   }> = [];
 
-  const accountId = Bun.env.CLOUDFLARE_ACCOUNT_ID;
-  const apiToken = Bun.env.CLOUDFLARE_API_TOKEN;
+  let accountId: string;
+  let apiToken: string;
 
-  if (!accountId || !apiToken) {
+  try {
+    const creds = await getCredentials();
+    accountId = creds.accountId;
+    apiToken = creds.apiToken;
+    checks.push({
+      name: "cloudflare-credentials",
+      status: "ok",
+      message: "Cloudflare credentials resolved",
+      fixable: false,
+    });
+  } catch (e: any) {
     checks.push({
       name: "cloudflare-credentials",
       status: "error",
-      message: "CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN required",
+      message: e.message.replace(/\n/g, " "),
       fixable: false,
     });
     return checks;
   }
-
-  checks.push({
-    name: "cloudflare-credentials",
-    status: "ok",
-    message: "CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN present",
-    fixable: false,
-  });
 
   let tokens: ServiceToken[] = [];
   try {
@@ -579,17 +671,45 @@ async function doctor(): Promise<
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main() {
-  const args = Bun.argv.slice(2);
+  const rawArgs = Bun.argv.slice(2);
+  const jsonMode = rawArgs.includes("--json");
+  const args = rawArgs.filter((a) => a !== "--json");
   const command = args[0] || "tokens";
 
-  console.log(`╔══════════════════════════════════════════════════════════════╗`);
-  console.log(`║      Kimi Cloudflare Access — Zero Trust Hygiene             ║`);
-  console.log(`╚══════════════════════════════════════════════════════════════╝`);
-  console.log("");
+  function jsonOut(data: unknown) {
+    console.log(JSON.stringify(data, null, 2));
+  }
+
+  if (!jsonMode) {
+    console.log(`╔══════════════════════════════════════════════════════════════╗`);
+    console.log(`║      Kimi Cloudflare Access — Zero Trust Hygiene             ║`);
+    console.log(`╚══════════════════════════════════════════════════════════════╝`);
+    console.log("");
+  }
+
+  if (command === "login") {
+    await login();
+    return;
+  }
+
+  if (command === "logout") {
+    await logout();
+    return;
+  }
 
   if (command === "doctor") {
-    printSection("Cloudflare Access Doctor");
     const checks = await doctor();
+    if (jsonMode) {
+      const errors = checks.filter((c) => c.status === "error").length;
+      const warnings = checks.filter((c) => c.status === "warn").length;
+      const fixable = checks.filter((c) => c.fixable).length;
+      jsonOut({
+        checks,
+        summary: { errors, warnings, fixable },
+      });
+      process.exit(errors > 0 ? 1 : 0);
+    }
+    printSection("Cloudflare Access Doctor");
     let errors = 0;
     let warns = 0;
     let fixable = 0;
@@ -604,27 +724,45 @@ async function main() {
     process.exit(errors > 0 ? 1 : 0);
   }
 
-  const { accountId, apiToken } = getCredentials();
+  let accountId: string;
+  let apiToken: string;
+  try {
+    ({ accountId, apiToken } = await getCredentials());
+  } catch (e: any) {
+    if (jsonMode) {
+      jsonOut({ error: e.message });
+    } else {
+      log("error", e.message);
+    }
+    process.exit(1);
+  }
 
   if (command === "tokens") {
-    printSection("Service Token Expiry Sweep");
     let tokens: ServiceToken[];
     try {
       tokens = await listServiceTokens(accountId, apiToken);
     } catch (e: any) {
-      log("error", `Failed to list service tokens: ${e.message}`);
+      if (jsonMode) {
+        jsonOut({ error: e.message });
+      } else {
+        log("error", `Failed to list service tokens: ${e.message}`);
+      }
       process.exit(1);
     }
-    console.log(`  Found ${tokens.length} service token(s)`);
     const violations = checkTokenExpiry(tokens);
+    if (jsonMode) {
+      jsonOut({ tokens, violations });
+      process.exit(violations.some((v) => v.reason === "expired") ? 1 : 0);
+    }
+    printSection("Service Token Expiry Sweep");
+    console.log(`  Found ${tokens.length} service token(s)`);
     printViolations(violations);
     console.log("");
-    console.log("Commands: tokens (default) | apps | doctor | fix");
+    console.log("Commands: tokens (default) | apps | doctor | fix | login | logout");
     process.exit(violations.some((v) => v.reason === "expired") ? 1 : 0);
   }
 
   if (command === "apps") {
-    printSection("Access Application Policy Audit");
     let apps: AccessApplication[];
     let tokens: ServiceToken[];
     try {
@@ -633,24 +771,36 @@ async function main() {
         listServiceTokens(accountId, apiToken),
       ]);
     } catch (e: any) {
-      log("error", `Failed to fetch Access data: ${e.message}`);
+      if (jsonMode) {
+        jsonOut({ error: e.message });
+      } else {
+        log("error", `Failed to fetch Access data: ${e.message}`);
+      }
       process.exit(1);
     }
-    console.log(`  Found ${apps.length} application(s), ${tokens.length} service token(s)`);
     const findings = auditApps(apps, tokens);
+    if (jsonMode) {
+      jsonOut({ apps, tokens, findings });
+      process.exit(findings.some((f) => f.reason === "bypass") ? 1 : 0);
+    }
+    printSection("Access Application Policy Audit");
+    console.log(`  Found ${apps.length} application(s), ${tokens.length} service token(s)`);
     printAppFindings(findings);
     console.log("");
-    console.log("Commands: tokens (default) | apps | doctor | fix");
+    console.log("Commands: tokens (default) | apps | doctor | fix | login | logout");
     process.exit(findings.some((f) => f.reason === "bypass") ? 1 : 0);
   }
 
   if (command === "fix") {
-    printSection("Service Token Rotation");
     let tokens: ServiceToken[];
     try {
       tokens = await listServiceTokens(accountId, apiToken);
     } catch (e: any) {
-      log("error", `Failed to list service tokens: ${e.message}`);
+      if (jsonMode) {
+        jsonOut({ error: e.message });
+      } else {
+        log("error", `Failed to list service tokens: ${e.message}`);
+      }
       process.exit(1);
     }
     const violations = checkTokenExpiry(tokens);
@@ -659,30 +809,47 @@ async function main() {
     );
 
     if (rotatable.length === 0) {
-      log("info", "No expired or expiring tokens to rotate");
+      if (jsonMode) {
+        jsonOut({ rotated: [], failures: [] });
+      } else {
+        log("info", "No expired or expiring tokens to rotate");
+      }
       return;
     }
 
-    let failures = 0;
+    const rotated: Array<{ token: ServiceToken; client_id: string; client_secret: string }> = [];
+    const failures: Array<{ token: ServiceToken; error: string }> = [];
     for (const v of rotatable) {
       const label = v.token.name || v.token.client_id || v.token.id;
       try {
-        const rotated = await rotateServiceToken(accountId, apiToken, v.token.id);
-        log("info", `Rotated ${label}`);
-        console.log(`    new client_id: ${rotated.client_id}`);
-        console.log(
-          `    new client_secret: ${rotated.client_secret.slice(0, 8)}... (store securely)`
-        );
+        const result = await rotateServiceToken(accountId, apiToken, v.token.id);
+        rotated.push({
+          token: v.token,
+          client_id: result.client_id,
+          client_secret: result.client_secret,
+        });
+        if (!jsonMode) {
+          log("info", `Rotated ${label}`);
+          console.log(`    new client_id: ${result.client_id}`);
+          console.log(
+            `    new client_secret: ${result.client_secret.slice(0, 8)}... (store securely)`
+          );
+        }
       } catch (e: any) {
-        failures++;
-        log("error", `Failed to rotate ${label}: ${e.message}`);
+        failures.push({ token: v.token, error: e.message });
+        if (!jsonMode) {
+          log("error", `Failed to rotate ${label}: ${e.message}`);
+        }
       }
     }
-    process.exit(failures > 0 ? 1 : 0);
+    if (jsonMode) {
+      jsonOut({ rotated, failures });
+    }
+    process.exit(failures.length > 0 ? 1 : 0);
   }
 
   console.error(`Unknown command: ${command}`);
-  console.error("Usage: kimi-cloudflare-access [tokens|apps|doctor|fix]");
+  console.error("Usage: kimi-cloudflare-access [tokens|apps|doctor|fix|login|logout]");
   process.exit(1);
 }
 

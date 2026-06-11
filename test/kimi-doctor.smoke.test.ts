@@ -203,7 +203,32 @@ describe("kimi-doctor smoke", () => {
 
   test("kimi-cloudflare-access apps reports application audit or missing credentials", async () => {
     const { stdout, exitCode } = await runTool(CLOUDFLARE_ACCESS, ["apps"]);
-    expect(stdout).toMatch(/Access Application Policy Audit|CLOUDFLARE_ACCOUNT_ID/);
+    expect(stdout).toMatch(
+      /Access Application Policy Audit|Missing Cloudflare credentials|CLOUDFLARE_ACCOUNT_ID/
+    );
+    expect(exitCode === 0 || exitCode === 1).toBe(true);
+  }, 15_000);
+
+  test("kimi-cloudflare-access doctor --json emits structured report", async () => {
+    const { stdout, exitCode } = await runTool(CLOUDFLARE_ACCESS, ["doctor", "--json"]);
+    const parsed = JSON.parse(stdout.trim()) as {
+      checks?: unknown[];
+      summary?: { errors: number; warnings: number; fixable: number };
+      error?: string;
+    };
+    expect(parsed.checks || parsed.error).toBeDefined();
+    expect(exitCode === 0 || exitCode === 1).toBe(true);
+  }, 15_000);
+
+  test("kimi-cloudflare-access apps --json emits structured report or error", async () => {
+    const { stdout, exitCode } = await runTool(CLOUDFLARE_ACCESS, ["apps", "--json"]);
+    const parsed = JSON.parse(stdout.trim()) as {
+      apps?: unknown[];
+      tokens?: unknown[];
+      findings?: unknown[];
+      error?: string;
+    };
+    expect(parsed.apps || parsed.error).toBeDefined();
     expect(exitCode === 0 || exitCode === 1).toBe(true);
   }, 15_000);
 
