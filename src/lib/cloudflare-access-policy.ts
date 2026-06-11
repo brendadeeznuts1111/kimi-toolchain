@@ -317,10 +317,10 @@ export function computeDiff(desired: AccessPolicyConfig, live: LiveState): DiffR
         `session_duration: ${liveApp.session_duration} → ${desiredApp.session_duration}`
       );
     }
-    if (desiredApp.allowed_idps) {
+    if (desiredApp.allowed_idps && Array.isArray(desiredApp.allowed_idps)) {
       const liveIdps = liveApp.allowed_idps || [];
       const desiredIdps = desiredApp.allowed_idps;
-      if (JSON.stringify(liveIdps.sort()) !== JSON.stringify(desiredIdps.sort())) {
+      if (JSON.stringify([...liveIdps].sort()) !== JSON.stringify([...desiredIdps].sort())) {
         appChanges.push(`allowed_idps: [${liveIdps.join(", ")}] → [${desiredIdps.join(", ")}]`);
       }
     }
