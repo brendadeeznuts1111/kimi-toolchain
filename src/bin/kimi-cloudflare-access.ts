@@ -675,6 +675,265 @@ async function doctor(): Promise<
   return checks;
 }
 
+// ── Dashboard ────────────────────────────────────────────────────────
+
+export interface ProjectMapping {
+  appName: string;
+  appId: string;
+  appType: string;
+  domain?: string;
+  localPath?: string;
+  repoUrl?: string;
+  packageName?: string;
+  packageVersion?: string;
+  hasWranglerConfig: boolean;
+  hasAccessConfig: boolean;
+  policyCount: number;
+  bypassCount: number;
+  allowEveryoneCount: number;
+  status: "ok" | "warn" | "error" | "info";
+  notes: string[];
+}
+
+const KNOWN_PROJECT_ROOTS = [
+  `${Bun.env.HOME || "/tmp"}/kimi-toolchain`,
+  `${Bun.env.HOME || "/tmp"}/factorywager-registry`,
+  `${Bun.env.HOME || "/tmp"}/betos-api`,
+  `${Bun.env.HOME || "/tmp"}/accounting-telegram`,
+  `${Bun.env.HOME || "/tmp"}/bettotal`,
+  `${Bun.env.HOME || "/tmp"}/Projects`,
+];
+
+export function domainToProjectName(domain?: string): string {
+  if (!domain) return "";
+  const host = domain.replace(/\/\*.*/, "").replace(/^https?:\/\//, "");
+  const parts = host.split(".");
+  if (parts.length >= 2) return parts[0];
+  return host;
+}
+
+async function discoverLocalProject(app: AccessApplication): Promise<{
+  localPath?: string;
+  repoUrl?: string;
+  packageName?: string;
+  packageVersion?: string;
+  hasWranglerConfig: boolean;
+  hasAccessConfig: boolean;
+} | null> {
+  const candidates: string[] = [];
+
+  // Domain-based guess
+  const projectName = domainToProjectName(app.domain || app.self_hosted_domains?.[0]);
+  if (projectName) {
+    for (const root of KNOWN_PROJECT_ROOTS) {
+      candidates.push(`${root}/${projectName}`);
+    }
+  }
+
+  // Name-based guess
+  const normalized = app.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+  for (const root of KNOWN_PROJECT_ROOTS) {
+    candidates.push(`${root}/${normalized}`);
+    candidates.push(`${root}/${app.name}`);
+  }
+
+  // Direct root matches
+  for (const root of KNOWN_PROJECT_ROOTS) {
+    candidates.push(root);
+  }
+
+  const seen = new Set<string>();
+  for (const dir of candidates) {
+    if (seen.has(dir)) continue;
+    seen.add(dir);
+
+    const pkgPath = `${dir}/package.json`;
+    const pkgFile = Bun.file(pkgPath);
+    if (!(await pkgFile.exists())) continue;
+
+    let pkg: { name?: string; version?: string; repository?: { url?: string } | string } = {};
+    try {
+      pkg = await pkgFile.json();
+    } catch {
+      continue;
+    }
+
+    // Verify this package matches the app domain or name
+    const pkgName = pkg.name || "";
+    const nameMatch =
+      pkgName.includes(projectName) ||
+      normalized.includes(
+        pkgName
+          .replace(/^@[^/]+\//, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "-")
+      ) ||
+      app.name.toLowerCase().includes(pkgName.replace(/^@[^/]+\//, "").toLowerCase());
+
+    const wranglerFile = Bun.file(`${dir}/wrangler.toml`);
+    const wranglerJson = Bun.file(`${dir}/wrangler.json`);
+    const wranglerJsonc = Bun.file(`${dir}/wrangler.jsonc`);
+    const hasWrangler =
+      (await wranglerFile.exists()) ||
+      (await wranglerJson.exists()) ||
+      (await wranglerJsonc.exists());
+
+    const accessFile = Bun.file(`${dir}/.cloudflare-access.yml`);
+    const accessJson = Bun.file(`${dir}/.cloudflare-access.json`);
+    const hasAccess = (await accessFile.exists()) || (await accessJson.exists());
+
+    let repoUrl: string | undefined;
+    if (typeof pkg.repository === "string") {
+      repoUrl = pkg.repository;
+    } else if (pkg.repository?.url) {
+      repoUrl = pkg.repository.url;
+    }
+
+    // Try git remote as fallback
+    if (!repoUrl) {
+      try {
+        const proc = Bun.spawn(["git", "remote", "get-url", "origin"], {
+          cwd: dir,
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        const exit = await proc.exited;
+        if (exit === 0) {
+          repoUrl = (await Bun.readableStreamToText(proc.stdout)).trim() || undefined;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    // Require strong name match for root-level dirs; subdirs can match by name alone
+    const isExactDirMatch =
+      dir.endsWith(`/${projectName}`) ||
+      dir.endsWith(`/${normalized}`) ||
+      dir.endsWith(`/${app.name}`);
+    const isStrongMatch = nameMatch || isExactDirMatch;
+    if (isStrongMatch) {
+      return {
+        localPath: dir,
+        repoUrl,
+        packageName: pkg.name,
+        packageVersion: pkg.version,
+        hasWranglerConfig: hasWrangler,
+        hasAccessConfig: hasAccess,
+      };
+    }
+  }
+
+  return null;
+}
+
+export async function buildDashboard(
+  apps: AccessApplication[],
+  tokens: ServiceToken[]
+): Promise<ProjectMapping[]> {
+  const mappings: ProjectMapping[] = [];
+
+  for (const app of apps) {
+    const local = await discoverLocalProject(app);
+    const findings = auditApps([app], tokens).filter((f) => f.app.id === app.id);
+
+    const bypassCount = findings.filter((f) => f.reason === "bypass").length;
+    const allowEveryoneCount = findings.filter((f) => f.reason === "allow-everyone").length;
+
+    const notes: string[] = [];
+    let status: ProjectMapping["status"] = "ok";
+
+    if (!local?.localPath) {
+      notes.push("No local project found");
+      status = "info";
+    } else {
+      if (!local.hasWranglerConfig) {
+        notes.push("No wrangler.toml found");
+        status = "warn";
+      }
+      if (!local.hasAccessConfig) {
+        notes.push("No .cloudflare-access.yml found");
+        status = status === "warn" ? "warn" : "info";
+      }
+    }
+
+    if (bypassCount > 0) {
+      notes.push(`${bypassCount} bypass policy(ies)`);
+      status = "error";
+    }
+    if (allowEveryoneCount > 0) {
+      notes.push(`${allowEveryoneCount} "allow everyone" policy(ies)`);
+      if (status !== "error") status = "warn";
+    }
+    if (app.type === "self_hosted" && (!app.allowed_idps || app.allowed_idps.length === 0)) {
+      notes.push("No IdP restriction");
+      if (status !== "error") status = "warn";
+    }
+
+    mappings.push({
+      appName: app.name,
+      appId: app.id,
+      appType: app.type,
+      domain: app.domain || app.self_hosted_domains?.[0],
+      localPath: local?.localPath,
+      repoUrl: local?.repoUrl,
+      packageName: local?.packageName,
+      packageVersion: local?.packageVersion,
+      hasWranglerConfig: local?.hasWranglerConfig ?? false,
+      hasAccessConfig: local?.hasAccessConfig ?? false,
+      policyCount: app.policies?.length ?? 0,
+      bypassCount,
+      allowEveryoneCount,
+      status,
+      notes,
+    });
+  }
+
+  return mappings;
+}
+
+function printDashboard(mappings: ProjectMapping[]) {
+  printSection("Cloudflare SSO Project Dashboard");
+
+  const byStatus = { ok: 0, warn: 0, error: 0, info: 0 };
+  for (const m of mappings) byStatus[m.status]++;
+
+  console.log(
+    `  Apps: ${mappings.length}  ✓ ${byStatus.ok}  ⚠ ${byStatus.warn}  ✗ ${byStatus.error}  ℹ ${byStatus.info}`
+  );
+  console.log("");
+
+  for (const m of mappings) {
+    const icon =
+      m.status === "ok" ? "✓" : m.status === "warn" ? "⚠" : m.status === "error" ? "✗" : "ℹ";
+    console.log(`  ${icon} ${m.appName}  (${m.appType})`);
+    if (m.domain) console.log(`     Domain: ${m.domain}`);
+    if (m.localPath) {
+      console.log(`     Local:  ${m.localPath}`);
+      const pkgLine = [
+        m.packageName && `pkg: ${m.packageName}`,
+        m.packageVersion && `v${m.packageVersion}`,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      if (pkgLine) console.log(`     ${pkgLine}`);
+      if (m.repoUrl) console.log(`     Repo:   ${m.repoUrl}`);
+      console.log(
+        `     Config: wrangler=${m.hasWranglerConfig ? "yes" : "no"} access=${m.hasAccessConfig ? "yes" : "no"}`
+      );
+    } else {
+      console.log(`     Local:  (not found)`);
+    }
+    console.log(
+      `     Policies: ${m.policyCount}  Bypass: ${m.bypassCount}  Allow-everyone: ${m.allowEveryoneCount}`
+    );
+    for (const note of m.notes) {
+      console.log(`     → ${note}`);
+    }
+    console.log("");
+  }
+}
+
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main() {
@@ -765,8 +1024,47 @@ async function main() {
     console.log(`  Found ${tokens.length} service token(s)`);
     printViolations(violations);
     console.log("");
-    console.log("Commands: tokens (default) | apps | doctor | fix | login | logout");
+    console.log("Commands: tokens (default) | apps | doctor | fix | login | logout | dashboard");
     process.exit(violations.some((v) => v.reason === "expired") ? 1 : 0);
+  }
+
+  if (command === "dashboard") {
+    let apps: AccessApplication[];
+    let tokens: ServiceToken[];
+    try {
+      [apps, tokens] = await Promise.all([
+        listApplications(accountId, apiToken),
+        listServiceTokens(accountId, apiToken),
+      ]);
+    } catch (e: any) {
+      if (jsonMode) {
+        jsonOut({ error: e.message });
+      } else {
+        log("error", `Failed to fetch Access data: ${e.message}`);
+      }
+      process.exit(1);
+    }
+    const mappings = await buildDashboard(apps, tokens);
+    const errors = mappings.filter((m) => m.status === "error").length;
+    const warnings = mappings.filter((m) => m.status === "warn").length;
+    const unmapped = mappings.filter((m) => !m.localPath).length;
+    if (jsonMode) {
+      jsonOut({
+        mappings,
+        summary: {
+          total: mappings.length,
+          errors,
+          warnings,
+          unmapped,
+          mappedWithAccessConfig: mappings.filter((m) => m.hasAccessConfig).length,
+          mappedWithWrangler: mappings.filter((m) => m.hasWranglerConfig).length,
+        },
+      });
+      process.exit(errors > 0 ? 1 : 0);
+    }
+    printDashboard(mappings);
+    console.log(`  ${errors} error(s), ${warnings} warning(s), ${unmapped} unmapped`);
+    process.exit(errors > 0 ? 1 : 0);
   }
 
   if (command === "apps") {
@@ -794,7 +1092,7 @@ async function main() {
     console.log(`  Found ${apps.length} application(s), ${tokens.length} service token(s)`);
     printAppFindings(findings);
     console.log("");
-    console.log("Commands: tokens (default) | apps | doctor | fix | login | logout");
+    console.log("Commands: tokens (default) | apps | doctor | fix | login | logout | dashboard");
     process.exit(findings.some((f) => f.reason === "bypass") ? 1 : 0);
   }
 
@@ -954,7 +1252,9 @@ async function main() {
   }
 
   console.error(`Unknown command: ${command}`);
-  console.error("Usage: kimi-cloudflare-access [tokens|apps|doctor|fix|login|logout|plan|apply]");
+  console.error(
+    "Usage: kimi-cloudflare-access [tokens|apps|doctor|fix|login|logout|plan|apply|dashboard]"
+  );
   process.exit(1);
 }
 
