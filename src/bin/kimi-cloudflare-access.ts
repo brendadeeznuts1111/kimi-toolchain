@@ -3,9 +3,10 @@
  * kimi-cloudflare-access — Cloudflare Access / Zero Trust hygiene
  * P0: Service token expiry sweep
  * P1: Access application policy audit
+ * P2: Policy-as-Code (plan/apply via .cloudflare-access.yml)
  *
  * Usage:
- *   kimi-cloudflare-access [tokens|apps|doctor|fix|login|logout]
+ *   kimi-cloudflare-access [tokens|apps|doctor|fix|login|logout|plan|apply]
  *
  * Auth:
  *   1. CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN env vars (CI override)
@@ -18,6 +19,12 @@
  */
 
 import { fetchWithTimeout, log, printSection } from "../lib/utils.ts";
+import {
+  applyDiff,
+  computeDiff,
+  fetchLiveState,
+  loadPolicyConfig,
+} from "../lib/cloudflare-access-policy.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -848,8 +855,106 @@ async function main() {
     process.exit(failures.length > 0 ? 1 : 0);
   }
 
+  if (command === "plan" || command === "apply") {
+    const config = await loadPolicyConfig(process.cwd());
+    if (!config) {
+      const msg = "No .cloudflare-access.yml found in current directory";
+      if (jsonMode) {
+        jsonOut({ error: msg });
+      } else {
+        log("error", msg);
+      }
+      process.exit(1);
+    }
+
+    let live;
+    try {
+      live = await fetchLiveState(accountId, apiToken);
+    } catch (e: any) {
+      if (jsonMode) {
+        jsonOut({ error: e.message });
+      } else {
+        log("error", `Failed to fetch live state: ${e.message}`);
+      }
+      process.exit(1);
+    }
+
+    const diff = computeDiff(config, live);
+    const hasChanges = diff.some((d) => d.action !== "noop");
+
+    if (command === "plan") {
+      if (jsonMode) {
+        jsonOut({ config, live, diff, hasChanges });
+      } else {
+        printSection("Policy-as-Code Plan");
+        if (!hasChanges) {
+          log("info", "No changes — live state matches desired state");
+        } else {
+          for (const d of diff) {
+            if (d.action === "noop") continue;
+            const icon = d.action === "create" ? "+" : d.action === "delete" ? "-" : "~";
+            console.log(`  ${icon} ${d.appName} (${d.action})`);
+            if (d.appChanges) {
+              for (const c of d.appChanges) console.log(`      app: ${c}`);
+            }
+            if (d.policyChanges) {
+              for (const pc of d.policyChanges) {
+                if (pc.action === "noop") continue;
+                const picon = pc.action === "create" ? "+" : pc.action === "delete" ? "-" : "~";
+                console.log(`      ${picon} policy: ${pc.policyName} (${pc.action})`);
+                if (pc.changes) {
+                  for (const c of pc.changes) console.log(`          ${c}`);
+                }
+              }
+            }
+          }
+        }
+        console.log("");
+        console.log(`Run "kimi-cloudflare-access apply" to apply changes`);
+      }
+      process.exit(hasChanges ? 1 : 0);
+    }
+
+    if (command === "apply") {
+      const dryRun = args.includes("--dry-run");
+      if (!dryRun && !hasChanges) {
+        if (jsonMode) {
+          jsonOut({ applied: false, reason: "no changes" });
+        } else {
+          log("info", "No changes to apply");
+        }
+        process.exit(0);
+      }
+
+      if (!dryRun && !jsonMode) {
+        const confirm = prompt(
+          `Apply ${diff.filter((d) => d.action !== "noop").length} change(s)? [y/N] `
+        );
+        if (confirm?.trim().toLowerCase() !== "y") {
+          log("info", "Aborted");
+          process.exit(0);
+        }
+      }
+
+      const result = await applyDiff(accountId, apiToken, diff, config, live, dryRun);
+      if (jsonMode) {
+        jsonOut({ dryRun, ...result });
+      } else {
+        printSection(dryRun ? "Apply (dry-run)" : "Apply");
+        log(
+          "info",
+          `Created: ${result.created}, Updated: ${result.updated}, Deleted: ${result.deleted}`
+        );
+        if (result.errors.length > 0) {
+          for (const e of result.errors) log("error", e);
+        }
+      }
+      process.exit(result.errors.length > 0 ? 1 : 0);
+    }
+  }
+
   console.error(`Unknown command: ${command}`);
-  console.error("Usage: kimi-cloudflare-access [tokens|apps|doctor|fix|login|logout]");
+  console.error("Usage: kimi-cloudflare-access [tokens|apps|doctor|fix|login|logout|plan|apply]");
   process.exit(1);
 }
 
