@@ -69,6 +69,7 @@ export interface AppFinding {
     | "allow-everyone"
     | "no-idp-restriction"
     | "shared-service-token"
+    | "redundant-service-token"
     | "long-session"
     | "missing-mfa";
   detail: string;
@@ -313,12 +314,21 @@ export function auditApps(apps: AccessApplication[], tokens: ServiceToken[]): Ap
         };
         const tokenId = tokenRule?.service_token?.token_id;
         if (tokenId && tokenIds.has(tokenId)) {
-          findings.push({
-            app,
-            policy,
-            reason: "shared-service-token",
-            detail: `Policy "${policy.name}" uses service token ${tokenId.slice(0, 8)}...`,
-          });
+          if (hasEveryone(policy.include)) {
+            findings.push({
+              app,
+              policy,
+              reason: "redundant-service-token",
+              detail: `Policy "${policy.name}" allows everyone, so service token ${tokenId.slice(0, 8)}... is redundant`,
+            });
+          } else {
+            findings.push({
+              app,
+              policy,
+              reason: "shared-service-token",
+              detail: `Policy "${policy.name}" uses service token ${tokenId.slice(0, 8)}...`,
+            });
+          }
         }
       }
     }
@@ -333,7 +343,7 @@ export function auditApps(apps: AccessApplication[], tokens: ServiceToken[]): Ap
     }
 
     if (!app.allowed_idps || app.allowed_idps.length === 0) {
-      const appTypesWithIdps = ["self_hosted", "saas", "ssh", "vnc", "app_launcher"];
+      const appTypesWithIdps = ["self_hosted", "saas", "ssh", "vnc"];
       if (appTypesWithIdps.includes(app.type)) {
         findings.push({
           app,
@@ -479,6 +489,7 @@ async function doctor(): Promise<
     const longSession = findings.filter((f) => f.reason === "long-session").length;
     const noIdp = findings.filter((f) => f.reason === "no-idp-restriction").length;
     const sharedToken = findings.filter((f) => f.reason === "shared-service-token").length;
+    const redundantToken = findings.filter((f) => f.reason === "redundant-service-token").length;
 
     if (bypass > 0) {
       checks.push({
@@ -528,6 +539,14 @@ async function doctor(): Promise<
         fixable: false,
       });
     }
+    if (redundantToken > 0) {
+      checks.push({
+        name: "access-apps-redundant-service-token",
+        status: "warn",
+        message: `${redundantToken} policy(ies) with redundant service token (everyone already allowed)`,
+        fixable: false,
+      });
+    }
 
     if (
       bypass === 0 &&
@@ -535,7 +554,8 @@ async function doctor(): Promise<
       missingMfa === 0 &&
       longSession === 0 &&
       noIdp === 0 &&
-      sharedToken === 0
+      sharedToken === 0 &&
+      redundantToken === 0
     ) {
       checks.push({
         name: "access-apps-policy",

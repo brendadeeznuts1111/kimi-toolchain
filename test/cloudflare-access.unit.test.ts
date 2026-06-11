@@ -148,6 +148,16 @@ describe("cloudflare-access logic", () => {
       expect(findings.some((f) => f.reason === "shared-service-token")).toBe(true);
     });
 
+    test("flags redundant service token when everyone is also allowed", () => {
+      const t = token({ id: "shared-1" });
+      const p = policy({
+        include: [{ everyone: {} }, { service_token: { token_id: "shared-1" } }],
+      });
+      const findings = auditApps([app({ policies: [p] })], [t]);
+      expect(findings.some((f) => f.reason === "redundant-service-token")).toBe(true);
+      expect(findings.some((f) => f.reason === "shared-service-token")).toBe(false);
+    });
+
     test("flags long session duration", () => {
       const findings = auditApps([app({ policies: [policy()], session_duration: "336h" })], []);
       expect(findings.some((f) => f.reason === "long-session")).toBe(true);
@@ -165,6 +175,11 @@ describe("cloudflare-access logic", () => {
 
     test("ignores IdP restriction for non-identity app types", () => {
       const findings = auditApps([app({ type: "infrastructure", policies: [policy()] })], []);
+      expect(findings.some((f) => f.reason === "no-idp-restriction")).toBe(false);
+    });
+
+    test("ignores IdP restriction for app_launcher", () => {
+      const findings = auditApps([app({ type: "app_launcher", policies: [policy()] })], []);
       expect(findings.some((f) => f.reason === "no-idp-restriction")).toBe(false);
     });
 
