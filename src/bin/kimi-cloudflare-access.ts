@@ -704,6 +704,12 @@ const KNOWN_PROJECT_ROOTS = [
   `${Bun.env.HOME || "/tmp"}/Projects`,
 ];
 
+/** Explicit overrides when heuristic discovery fails */
+const APP_TO_PROJECT_OVERRIDE: Record<string, string> = {
+  ledger: `${Bun.env.HOME || "/tmp"}/accounting-telegram`,
+  "my-stateless-mcp-server": "", // explicitly unmapped — no local project
+};
+
 export function domainToProjectName(domain?: string): string {
   if (!domain) return "";
   const host = domain.replace(/\/\*.*/, "").replace(/^https?:\/\//, "");
@@ -720,6 +726,62 @@ async function discoverLocalProject(app: AccessApplication): Promise<{
   hasWranglerConfig: boolean;
   hasAccessConfig: boolean;
 } | null> {
+  // Explicit override first
+  const override = APP_TO_PROJECT_OVERRIDE[app.name];
+  if (override === "") return null; // explicitly unmapped
+  if (override) {
+    const dir = override;
+    const pkgFile = Bun.file(`${dir}/package.json`);
+    if (await pkgFile.exists()) {
+      let pkg: { name?: string; version?: string; repository?: { url?: string } | string } = {};
+      try {
+        pkg = await pkgFile.json();
+      } catch {
+        /* ignore */
+      }
+      const wranglerFile = Bun.file(`${dir}/wrangler.toml`);
+      const wranglerJson = Bun.file(`${dir}/wrangler.json`);
+      const wranglerJsonc = Bun.file(`${dir}/wrangler.jsonc`);
+      const hasWrangler =
+        (await wranglerFile.exists()) ||
+        (await wranglerJson.exists()) ||
+        (await wranglerJsonc.exists());
+      const accessFile = Bun.file(`${dir}/.cloudflare-access.yml`);
+      const accessJson = Bun.file(`${dir}/.cloudflare-access.json`);
+      const hasAccess = (await accessFile.exists()) || (await accessJson.exists());
+      let repoUrl: string | undefined;
+      if (typeof pkg.repository === "string") {
+        repoUrl = pkg.repository;
+      } else if (pkg.repository?.url) {
+        repoUrl = pkg.repository.url;
+      }
+      if (!repoUrl) {
+        try {
+          const proc = Bun.spawn(["git", "remote", "get-url", "origin"], {
+            cwd: dir,
+            stdout: "pipe",
+            stderr: "pipe",
+          });
+          const exit = await proc.exited;
+          if (exit === 0) {
+            repoUrl = (await Bun.readableStreamToText(proc.stdout)).trim() || undefined;
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      return {
+        localPath: dir,
+        repoUrl,
+        packageName: pkg.name,
+        packageVersion: pkg.version,
+        hasWranglerConfig: hasWrangler,
+        hasAccessConfig: hasAccess,
+      };
+    }
+    return null;
+  }
+
   const candidates: string[] = [];
 
   // Domain-based guess
@@ -737,9 +799,11 @@ async function discoverLocalProject(app: AccessApplication): Promise<{
     candidates.push(`${root}/${app.name}`);
   }
 
-  // Direct root matches
-  for (const root of KNOWN_PROJECT_ROOTS) {
-    candidates.push(root);
+  // Direct root matches — only when we have a projectName to match against
+  if (projectName) {
+    for (const root of KNOWN_PROJECT_ROOTS) {
+      candidates.push(root);
+    }
   }
 
   const seen = new Set<string>();
@@ -760,15 +824,14 @@ async function discoverLocalProject(app: AccessApplication): Promise<{
 
     // Verify this package matches the app domain or name
     const pkgName = pkg.name || "";
+    const cleanPkgName = pkgName
+      .replace(/^@[^/]+\//, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "-");
     const nameMatch =
-      pkgName.includes(projectName) ||
-      normalized.includes(
-        pkgName
-          .replace(/^@[^/]+\//, "")
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "-")
-      ) ||
-      app.name.toLowerCase().includes(pkgName.replace(/^@[^/]+\//, "").toLowerCase());
+      (projectName && pkgName.includes(projectName)) ||
+      normalized.includes(cleanPkgName) ||
+      app.name.toLowerCase().includes(cleanPkgName);
 
     const wranglerFile = Bun.file(`${dir}/wrangler.toml`);
     const wranglerJson = Bun.file(`${dir}/wrangler.json`);
