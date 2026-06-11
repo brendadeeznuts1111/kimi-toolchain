@@ -25,7 +25,7 @@
 ├── credentials/                       # OAuth (managed:kimi-code)
 ├── sessions/wd_*/                     # Kimi Code chat sessions (workDir-bound)
 ├── session_index.jsonl                # Session index (cwd binding)
-├── mcp.json                           # User-level MCP (toolchain seeds unified-shell)
+├── mcp.json                           # User-level MCP (toolchain seeds unified-shell + cloudflare-api)
 ├── plugins/                           # Kimi Code plugins
 ├── skills/                            # User skills (toolchain syncs kimi-toolchain skill)
 ├── logs/                              # Diagnostic logs
@@ -85,7 +85,7 @@ kimi login
 kimi-doctor --quick
 ```
 
-`kimi-fix` uses `package.json` `name` for `AGENTS.md`. Project `.kimi-code/mcp.json` is a stub; user-level `~/.kimi-code/mcp.json` provides `unified-shell` after `bun run sync` or `bun run unify`.
+`kimi-fix` uses `package.json` `name` for `AGENTS.md`. Project `.kimi-code/mcp.json` is a stub; user-level `~/.kimi-code/mcp.json` provides `unified-shell` and `cloudflare-api` after `bun run sync` or `bun run unify`.
 
 ## Development loop
 

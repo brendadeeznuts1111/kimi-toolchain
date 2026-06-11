@@ -96,11 +96,14 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 ### Security
 
-| Command                | Description                         |
-| ---------------------- | ----------------------------------- |
-| `kimi-guardian check`  | Lockfile integrity & CVE scan       |
-| `kimi-guardian sign`   | Baseline lockfile hash              |
-| `kimi-guardian verify` | Verify lockfile against stored hash |
+| Command                       | Description                               |
+| ----------------------------- | ----------------------------------------- |
+| `kimi-guardian check`         | Lockfile integrity & CVE scan             |
+| `kimi-guardian sign`          | Baseline lockfile hash                    |
+| `kimi-guardian verify`        | Verify lockfile against stored hash       |
+| `kimi-cloudflare-access`      | Service token expiry sweep                |
+| `kimi-cloudflare-access apps` | Access application policy audit           |
+| `kimi-cloudflare-access fix`  | Rotate expired/expiring Cloudflare tokens |
 
 ### Memory & Sessions
 

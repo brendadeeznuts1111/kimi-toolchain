@@ -12,6 +12,7 @@ const GITHOOKS = join(REPO_ROOT, "src/bin/kimi-githooks.ts");
 const GUARDIAN = join(REPO_ROOT, "src/bin/kimi-guardian.ts");
 const KIMI_NEW = join(REPO_ROOT, "src/bin/kimi-new.ts");
 const KIMI_FIX = join(REPO_ROOT, "src/bin/kimi-fix.ts");
+const CLOUDFLARE_ACCESS = join(REPO_ROOT, "src/bin/kimi-cloudflare-access.ts");
 
 async function runTool(
   path: string,
@@ -190,6 +191,19 @@ describe("kimi-doctor smoke", () => {
     const { stdout, exitCode } = await runTool(KIMI_FIX, ["doctor", REPO_ROOT]);
     expect(stdout).toContain("kimi-fix Doctor");
     expect(stdout).toMatch(/AGENTS\.md|package-scripts/);
+    expect(exitCode === 0 || exitCode === 1).toBe(true);
+  }, 15_000);
+
+  test("kimi-cloudflare-access doctor reports credential status", async () => {
+    const { stdout, exitCode } = await runTool(CLOUDFLARE_ACCESS, ["doctor"]);
+    expect(stdout).toContain("Cloudflare Access Doctor");
+    expect(stdout).toMatch(/cloudflare-credentials|service-tokens|access-apps/);
+    expect(exitCode === 0 || exitCode === 1).toBe(true);
+  }, 15_000);
+
+  test("kimi-cloudflare-access apps reports application audit or missing credentials", async () => {
+    const { stdout, exitCode } = await runTool(CLOUDFLARE_ACCESS, ["apps"]);
+    expect(stdout).toMatch(/Access Application Policy Audit|CLOUDFLARE_ACCOUNT_ID/);
     expect(exitCode === 0 || exitCode === 1).toBe(true);
   }, 15_000);
 

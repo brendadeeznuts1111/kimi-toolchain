@@ -3,7 +3,10 @@ import { existsSync, mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
+  buildCloudflareApiEntry,
   buildUnifiedShellEntry,
+  CLOUDFLARE_API_SERVER,
+  mergeToolchainMcpServers,
   mergeUnifiedShellServer,
   provisionUserMcp,
   readMcpJson,
@@ -37,28 +40,44 @@ describe("mcp-config", () => {
     expect(entry.env?.KIMI_SHELL_MODE).toBe("unified");
   });
 
-  test("mergeUnifiedShellServer adds unified-shell without removing others", () => {
+  test("mergeToolchainMcpServers adds unified-shell and cloudflare-api without removing others", () => {
     const existing = {
       mcpServers: {
         other: { url: "https://example.com/mcp" },
       },
     };
-    const { config, changed } = mergeUnifiedShellServer(existing, tmpHome);
+    const { config, changed } = mergeToolchainMcpServers(existing, tmpHome);
     expect(changed).toBe(true);
     expect(config.mcpServers.other?.url).toBe("https://example.com/mcp");
     expect(config.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
+    expect(config.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
   });
 
-  test("mergeUnifiedShellServer is idempotent when entry matches", () => {
-    const { config: first } = mergeUnifiedShellServer(null, tmpHome);
-    const { config: second, changed } = mergeUnifiedShellServer(first, tmpHome);
+  test("mergeToolchainMcpServers is idempotent when entries match", () => {
+    const { config: first } = mergeToolchainMcpServers(null, tmpHome);
+    const { config: second, changed } = mergeToolchainMcpServers(first, tmpHome);
     expect(second.mcpServers[UNIFIED_SHELL_SERVER]?.command).toBe(
       first.mcpServers[UNIFIED_SHELL_SERVER]?.command
+    );
+    expect(second.mcpServers[CLOUDFLARE_API_SERVER]?.url).toBe(
+      first.mcpServers[CLOUDFLARE_API_SERVER]?.url
     );
     expect(changed).toBe(false);
   });
 
-  test("provisionUserMcp creates mcp.json", async () => {
+  test("mergeUnifiedShellServer is backward-compatible alias", () => {
+    const { config, changed } = mergeUnifiedShellServer(null, tmpHome);
+    expect(changed).toBe(true);
+    expect(config.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
+    expect(config.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
+  });
+
+  test("buildCloudflareApiEntry points to Cloudflare MCP URL", () => {
+    const entry = buildCloudflareApiEntry();
+    expect(entry.url).toBe("https://mcp.cloudflare.com/mcp");
+  });
+
+  test("provisionUserMcp creates mcp.json with both servers", async () => {
     const path = userMcpPath(tmpHome);
     expect(existsSync(path)).toBe(false);
     const result = await provisionUserMcp(tmpHome);
@@ -66,6 +85,7 @@ describe("mcp-config", () => {
     expect(existsSync(path)).toBe(true);
     const parsed = await readMcpJson(path);
     expect(parsed?.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
+    expect(parsed?.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
   });
 
   test("writeMcpJson round-trips", async () => {
@@ -76,8 +96,13 @@ describe("mcp-config", () => {
     expect(read?.mcpServers.test?.command).toBe("echo");
   });
 
-  test("validateMcpConfig reports project stub and override issues", async () => {
+  test("validateMcpConfig reports cloudflare-api and project stub/override issues", async () => {
     await provisionUserMcp(tmpHome);
+    const report = await validateMcpConfig(tmpHome);
+    const cfCheck = report.checks.find((c) => c.name === "cloudflare-api-mcp");
+    expect(cfCheck?.status).toBe("ok");
+    expect(cfCheck?.message).toContain("mcp.cloudflare.com");
+
     const projectRoot = join(tmpHome, "proj");
     const projectMcp = join(projectRoot, ".kimi-code", "mcp.json");
     mkdirSync(join(projectRoot, ".kimi-code"), { recursive: true });

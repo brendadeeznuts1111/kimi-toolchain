@@ -9,6 +9,10 @@ import { ensureDir } from "./utils.ts";
 
 export const UNIFIED_SHELL_SERVER = "unified-shell";
 export const UNIFIED_SHELL_TOOL = "mcp__unified-shell__execute";
+export const CLOUDFLARE_API_SERVER = "cloudflare-api";
+export const CLOUDFLARE_API_TOOL_SEARCH = "mcp__cloudflare__search";
+export const CLOUDFLARE_API_TOOL_EXECUTE = "mcp__cloudflare__execute";
+export const CLOUDFLARE_MCP_URL = "https://mcp.cloudflare.com/mcp";
 
 export interface McpServerEntry {
   command?: string;
@@ -83,7 +87,15 @@ export function buildUnifiedShellEntry(home: string = Bun.env.HOME || "/tmp"): M
   };
 }
 
-function entryNeedsRefresh(
+/** Canonical remote entry for Cloudflare API MCP server (Code Mode). */
+export function buildCloudflareApiEntry(): McpServerEntry {
+  return {
+    url: CLOUDFLARE_MCP_URL,
+    description: "Cloudflare API: search and execute against the full Cloudflare API via Code Mode",
+  };
+}
+
+function unifiedShellNeedsRefresh(
   existing: McpServerEntry | undefined,
   expected: McpServerEntry
 ): boolean {
@@ -97,21 +109,46 @@ function entryNeedsRefresh(
   return false;
 }
 
-/** Merge unified-shell into mcpServers without removing other servers. */
-export function mergeUnifiedShellServer(
+function cloudflareApiNeedsRefresh(
+  existing: McpServerEntry | undefined,
+  expected: McpServerEntry
+): boolean {
+  if (!existing) return true;
+  if (existing.url !== expected.url) return true;
+  return false;
+}
+
+/** Merge toolchain MCP servers into mcpServers without removing other servers. */
+export function mergeToolchainMcpServers(
   existing: McpJson | null,
   home: string = Bun.env.HOME || "/tmp"
 ): { config: McpJson; changed: boolean } {
   const config: McpJson = {
     mcpServers: existing?.mcpServers ? { ...existing.mcpServers } : {},
   };
-  const expected = buildUnifiedShellEntry(home);
-  const current = config.mcpServers[UNIFIED_SHELL_SERVER];
-  const changed = entryNeedsRefresh(current, expected);
-  if (changed) {
-    config.mcpServers[UNIFIED_SHELL_SERVER] = expected;
+  let changed = false;
+
+  const unifiedShell = buildUnifiedShellEntry(home);
+  if (unifiedShellNeedsRefresh(config.mcpServers[UNIFIED_SHELL_SERVER], unifiedShell)) {
+    config.mcpServers[UNIFIED_SHELL_SERVER] = unifiedShell;
+    changed = true;
   }
+
+  const cloudflareApi = buildCloudflareApiEntry();
+  if (cloudflareApiNeedsRefresh(config.mcpServers[CLOUDFLARE_API_SERVER], cloudflareApi)) {
+    config.mcpServers[CLOUDFLARE_API_SERVER] = cloudflareApi;
+    changed = true;
+  }
+
   return { config, changed };
+}
+
+/** @deprecated Use mergeToolchainMcpServers instead. */
+export function mergeUnifiedShellServer(
+  existing: McpJson | null,
+  home: string = Bun.env.HOME || "/tmp"
+): { config: McpJson; changed: boolean } {
+  return mergeToolchainMcpServers(existing, home);
 }
 
 export async function provisionUserMcp(home: string = Bun.env.HOME || "/tmp"): Promise<{
@@ -120,7 +157,7 @@ export async function provisionUserMcp(home: string = Bun.env.HOME || "/tmp"): P
 }> {
   const path = userMcpPath(home);
   const existing = await readMcpJson(path);
-  const { config, changed } = mergeUnifiedShellServer(existing, home);
+  const { config, changed } = mergeToolchainMcpServers(existing, home);
   if (changed || !existsSync(path)) {
     await writeMcpJson(path, config);
     return { path, changed: true };
@@ -166,6 +203,25 @@ export async function validateMcpConfig(
       name: "unified-shell",
       status: "error",
       message: "not in mcpServers — run kimi-doctor --fix",
+      fixable: true,
+    });
+  }
+
+  if (userMcp?.mcpServers[CLOUDFLARE_API_SERVER]) {
+    const entry = userMcp.mcpServers[CLOUDFLARE_API_SERVER];
+    checks.push({
+      name: "cloudflare-api-mcp",
+      status: "ok",
+      message: entry.url
+        ? `registered at ${entry.url} (tools: ${CLOUDFLARE_API_TOOL_SEARCH}, ${CLOUDFLARE_API_TOOL_EXECUTE})`
+        : `registered (tools: ${CLOUDFLARE_API_TOOL_SEARCH}, ${CLOUDFLARE_API_TOOL_EXECUTE})`,
+      fixable: false,
+    });
+  } else {
+    checks.push({
+      name: "cloudflare-api-mcp",
+      status: "warn",
+      message: "not in mcpServers — run kimi-doctor --fix to enable Cloudflare API access",
       fixable: true,
     });
   }
