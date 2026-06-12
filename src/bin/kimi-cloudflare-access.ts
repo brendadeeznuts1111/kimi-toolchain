@@ -701,6 +701,13 @@ export interface ProjectMapping {
   kvNamespaces?: string[];
 }
 
+export interface OrphanedResource {
+  type: "r2_bucket" | "d1_database" | "kv_namespace" | "worker";
+  name: string;
+  detail: string;
+  suggestedAction: string;
+}
+
 const KNOWN_PROJECT_ROOTS = [
   `${Bun.env.HOME || "/tmp"}/kimi-toolchain`,
   `${Bun.env.HOME || "/tmp"}/factorywager-registry`,
@@ -1014,6 +1021,78 @@ async function discoverInfrastructure(
   return result;
 }
 
+/** Detect orphaned resources not bound to any worker or app */
+export async function discoverOrphanedResources(
+  accountId: string,
+  apiToken: string
+): Promise<OrphanedResource[]> {
+  const orphaned: OrphanedResource[] = [];
+
+  // Fetch all R2 buckets
+  const bucketsRes = await fetchWithTimeout(`${API_BASE}/accounts/${accountId}/r2/buckets`, {
+    headers: { Authorization: `Bearer ${apiToken}` },
+  });
+  const bucketsData = (await (bucketsRes as unknown as { json(): Promise<unknown> }).json()) as {
+    result?: { buckets?: Array<{ name: string }> };
+  };
+  const buckets: Array<{ name: string }> = bucketsData.result?.buckets || [];
+
+  // Fetch all workers and their bindings
+  const workersRes = await fetchWithTimeout(`${API_BASE}/accounts/${accountId}/workers/scripts`, {
+    headers: { Authorization: `Bearer ${apiToken}` },
+  });
+  const workersData = (await (workersRes as unknown as { json(): Promise<unknown> }).json()) as {
+    result?: Array<{ id: string }>;
+  };
+  const workerNames: string[] = (workersData.result || []).map((w: { id: string }) => w.id);
+
+  const boundBuckets = new Set<string>();
+  for (const w of workerNames) {
+    try {
+      const settingsRes = await fetchWithTimeout(
+        `${API_BASE}/accounts/${accountId}/workers/scripts/${w}/settings`,
+        { headers: { Authorization: `Bearer ${apiToken}` } }
+      );
+      const settingsData = (await (
+        settingsRes as unknown as { json(): Promise<unknown> }
+      ).json()) as {
+        result?: { bindings?: Array<{ type: string; bucket_name?: string }> };
+      };
+      const r2Bindings = (settingsData.result?.bindings || []).filter(
+        (b: { type: string }) => b.type === "r2_bucket"
+      );
+      for (const b of r2Bindings) {
+        if (b.bucket_name) boundBuckets.add(b.bucket_name);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Known bucket patterns that are intentionally standalone
+  const knownOrphanPatterns = [
+    /-preview$/, // preview buckets (may be unused)
+  ];
+
+  for (const b of buckets) {
+    if (!boundBuckets.has(b.name)) {
+      const isLikelyOrphan = knownOrphanPatterns.some((p) => p.test(b.name));
+      orphaned.push({
+        type: "r2_bucket",
+        name: b.name,
+        detail: isLikelyOrphan
+          ? "Preview bucket with no worker binding"
+          : "No worker binding found",
+        suggestedAction: isLikelyOrphan
+          ? "Delete if no longer needed, or bind to a worker"
+          : "Bind to a worker or delete if unused",
+      });
+    }
+  }
+
+  return orphaned;
+}
+
 export async function buildDashboard(
   apps: AccessApplication[],
   tokens: ServiceToken[]
@@ -1248,12 +1327,14 @@ async function main() {
       process.exit(1);
     }
     const mappings = await buildDashboard(apps, tokens);
+    const orphaned = await discoverOrphanedResources(accountId, apiToken);
     const errors = mappings.filter((m) => m.status === "error").length;
     const warnings = mappings.filter((m) => m.status === "warn").length;
     const unmapped = mappings.filter((m) => !m.localPath).length;
     if (jsonMode) {
       jsonOut({
         mappings,
+        orphaned,
         summary: {
           total: mappings.length,
           errors,
@@ -1261,12 +1342,26 @@ async function main() {
           unmapped,
           mappedWithAccessConfig: mappings.filter((m) => m.hasAccessConfig).length,
           mappedWithWrangler: mappings.filter((m) => m.hasWranglerConfig).length,
+          orphanedResources: orphaned.length,
         },
       });
       process.exit(errors > 0 ? 1 : 0);
     }
     printDashboard(mappings);
+    if (orphaned.length > 0) {
+      printSection("Orphaned Resources");
+      for (const o of orphaned) {
+        const icon = o.type === "r2_bucket" ? "🪣" : "📦";
+        console.log(`  ${icon} ${o.name} (${o.type})`);
+        console.log(`     → ${o.detail}`);
+        console.log(`     → Suggested: ${o.suggestedAction}`);
+      }
+      console.log("");
+    }
     console.log(`  ${errors} error(s), ${warnings} warning(s), ${unmapped} unmapped`);
+    if (orphaned.length > 0) {
+      console.log(`  ⚠ ${orphaned.length} orphaned resource(s) detected`);
+    }
     process.exit(errors > 0 ? 1 : 0);
   }
 
