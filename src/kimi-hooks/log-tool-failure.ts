@@ -50,7 +50,10 @@ async function main() {
   }
 
   const toolName = payload.tool_name || "unknown";
-  const output = (payload.error || payload.tool_output || "").toString();
+  // Guard: only log actual failures. If payload.error is falsy, the tool succeeded.
+  const error = payload.error;
+  if (!error) return;
+  const output = error.toString();
   if (!output) return;
 
   const taxonomy = await loadTaxonomy();
