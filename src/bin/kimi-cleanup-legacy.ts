@@ -25,6 +25,7 @@ import {
   writeFileSync,
 } from "fs";
 import { join } from "path";
+import { homeDir } from "../lib/paths.ts";
 import {
   printToolBanner,
   printSection,
@@ -63,7 +64,7 @@ function sessionPathHasLegacyName(name: string): boolean {
   return name.startsWith("wd_") && LEGACY_REPO_NAMES.some((legacy) => name.includes(legacy));
 }
 
-function listLegacySessionWorkspaces(sessionsDir: string): string[] {
+export function listLegacySessionWorkspaces(sessionsDir: string): string[] {
   if (!existsSync(sessionsDir)) return [];
   const hits: string[] = [];
   for (const entry of readdirSync(sessionsDir)) {
@@ -90,7 +91,7 @@ function countLegacyIndexLines(home: string): number {
   return count;
 }
 
-function listLegacyCursorSlugs(home: string): string[] {
+export function listLegacyCursorSlugs(home: string): string[] {
   const cursorProjects = join(home, ".cursor", "projects");
   if (!existsSync(cursorProjects)) return [];
   return readdirSync(cursorProjects).filter((name) =>
@@ -98,7 +99,7 @@ function listLegacyCursorSlugs(home: string): string[] {
   );
 }
 
-function isCursorSlugActive(home: string, slug: string, maxAgeMs = SLUG_ACTIVE_MS): boolean {
+export function isCursorSlugActive(home: string, slug: string, maxAgeMs = SLUG_ACTIVE_MS): boolean {
   const slugPath = join(home, ".cursor", "projects", slug);
   if (!existsSync(slugPath)) return false;
   const cutoff = Date.now() - maxAgeMs;
@@ -332,7 +333,7 @@ function doctor(home: string) {
 // ── Main ─────────────────────────────────────────────────────────────
 
 if (import.meta.main) {
-  const home = Bun.env.HOME || "/tmp";
+  const home = homeDir();
   const cmd = Bun.argv[2] || "status";
 
   if (cmd === "doctor") {

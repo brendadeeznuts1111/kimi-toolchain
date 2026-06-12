@@ -21,11 +21,12 @@ import {
   getProjectName,
   resolveProjectRoot,
   printProjectBanner,
+  buildDoctorReport,
+  printDoctorReport,
 } from "../lib/utils.ts";
+import { guardianDir } from "../lib/paths.ts";
 
-// ── Config ───────────────────────────────────────────────────────────
-
-const GUARDIAN_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "guardian");
+const GUARDIAN_DIR = guardianDir();
 const HASH_FILE = join(GUARDIAN_DIR, "lockfile.hash");
 const MANIFEST_DB = join(GUARDIAN_DIR, "manifests.sqlite");
 const KEY_NAME = "kimi-guardian-lockfile";
@@ -575,19 +576,9 @@ async function main() {
 
   if (command === "doctor") {
     const checks = await doctor(projectDir);
-    console.log("── Guardian Doctor ───────────────────────────────────────────");
-    let errors = 0,
-      warns = 0,
-      fixable = 0;
-    for (const c of checks) {
-      const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
-      console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
-      if (c.status === "error") errors++;
-      if (c.status === "warn") warns++;
-      if (c.fixable) fixable++;
-    }
-    console.log(`  ${errors} error(s), ${warns} warning(s), ${fixable} fixable`);
-    if (fixable > 0) {
+    const report = buildDoctorReport("kimi-guardian", checks);
+    printDoctorReport(report);
+    if (report.fixableCount > 0) {
       console.log("  Run 'kimi-guardian fix' to repair");
     }
     return;

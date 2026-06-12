@@ -47,62 +47,7 @@ function toEcosystem(check: WorkspaceCheck): EcosystemCheck {
   };
 }
 
-async function runOfficialKimiDoctor(): Promise<EcosystemCheck> {
-  const kimiPath = Bun.which("kimi");
-  if (!kimiPath) {
-    return {
-      name: "kimi-doctor-official",
-      status: "error",
-      message: "kimi not installed",
-      source: "kimi-code",
-      fixable: false,
-    };
-  }
-  try {
-    const proc = Bun.spawn(["kimi", "doctor"], { stdout: "pipe", stderr: "pipe" });
-    const exitCode = await proc.exited;
-    const stdout = await Bun.readableStreamToText(proc.stdout);
-    const stderr = await Bun.readableStreamToText(proc.stderr);
-    if (exitCode === 0) {
-      const line = stdout
-        .split("\n")
-        .find((l) => l.trim())
-        ?.trim();
-      return {
-        name: "kimi-doctor-official",
-        status: "ok",
-        message: line || "passed",
-        source: "kimi-code",
-        fixable: false,
-      };
-    }
-    const detail =
-      stderr
-        .split("\n")
-        .find((l) => l.trim())
-        ?.trim() ||
-      stdout
-        .split("\n")
-        .find((l) => l.trim())
-        ?.trim() ||
-      `exit ${exitCode}`;
-    return {
-      name: "kimi-doctor-official",
-      status: "error",
-      message: detail.slice(0, 120),
-      source: "kimi-code",
-      fixable: false,
-    };
-  } catch (e: any) {
-    return {
-      name: "kimi-doctor-official",
-      status: "error",
-      message: e.message,
-      source: "kimi-code",
-      fixable: false,
-    };
-  }
-}
+import { runOfficialKimiDoctor } from "./kimi-doctor-wrapper.ts";
 
 async function checkQualityScripts(projectRoot: string): Promise<EcosystemCheck[]> {
   const pkgPath = join(projectRoot, "package.json");
@@ -237,7 +182,14 @@ export async function auditEcosystemHealth(
   }
 
   if (!options.quick) {
-    checks.push(await runOfficialKimiDoctor());
+    const doctorResult = await runOfficialKimiDoctor();
+    checks.push({
+      name: "kimi-doctor-official",
+      status: doctorResult.status,
+      message: doctorResult.message,
+      source: "kimi-code",
+      fixable: false,
+    });
   }
 
   let blockers = wsSummary.blocking;

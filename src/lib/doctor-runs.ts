@@ -7,10 +7,7 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir } from "./utils.ts";
 import { SESSIONS_SCHEMA_SQL } from "./sessions-schema.ts";
-
-function varDir(): string {
-  return join(Bun.env.HOME || "/tmp", ".kimi-code", "var");
-}
+import { varDir } from "./paths.ts";
 
 function dbPath(): string {
   return join(varDir(), "sessions.db");

@@ -8,6 +8,7 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir } from "./utils.ts";
 import { UNIFIED_SHELL_TOOL } from "./mcp-config.ts";
+import { homeDir } from "./paths.ts";
 
 const PERMISSION_SNIPPET = `
 # Kimi toolchain — unified-shell MCP permission (uncomment to pre-approve)
@@ -38,7 +39,7 @@ export interface ConfigAuditCheck {
   fixable: boolean;
 }
 
-export function configTomlPath(home: string = Bun.env.HOME || "/tmp"): string {
+export function configTomlPath(home: string = homeDir()): string {
   return join(home, ".kimi-code", "config.toml");
 }
 
@@ -68,7 +69,7 @@ export function allowsUnifiedShellMcp(rules: PermissionRule[]): boolean {
 }
 
 export async function auditKimiConfig(
-  home: string = Bun.env.HOME || "/tmp",
+  home: string = homeDir(),
   options: { unifiedShellRegistered?: boolean } = {}
 ): Promise<ConfigAuditCheck[]> {
   const checks: ConfigAuditCheck[] = [];
@@ -163,7 +164,7 @@ export async function auditKimiConfig(
 
 /** Idempotent merge — appends commented permission snippet; never overwrites existing config. */
 export async function mergeConfigTomlPermissions(
-  home: string = Bun.env.HOME || "/tmp"
+  home: string = homeDir()
 ): Promise<{ merged: boolean; created: boolean; path: string }> {
   const path = configTomlPath(home);
   ensureDir(join(path, ".."));
@@ -194,7 +195,7 @@ export async function mergeConfigTomlPermissions(
 
 /** Idempotent merge — appends PostToolUseFailure hook snippet. */
 export async function mergeConfigTomlHooks(
-  home: string = Bun.env.HOME || "/tmp"
+  home: string = homeDir()
 ): Promise<{ merged: boolean; created: boolean; path: string }> {
   const path = configTomlPath(home);
   ensureDir(join(path, ".."));

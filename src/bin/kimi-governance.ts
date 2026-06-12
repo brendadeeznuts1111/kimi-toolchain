@@ -18,6 +18,8 @@ import {
   runTool,
   resolveProjectRoot,
   printProjectBanner,
+  buildDoctorReport,
+  printDoctorReport,
 } from "../lib/utils.ts";
 import { recordDoctorRun, getPersistentWarnings } from "../lib/utils.ts";
 import {
@@ -34,10 +36,9 @@ import { checkKimiDocsAligned } from "../lib/kimi-docs-aligned.ts";
 import { checkScaffoldAligned } from "../lib/scaffold-aligned.ts";
 import { auditEcosystemHealth } from "../lib/ecosystem-health.ts";
 import { isKimiToolchainRepo } from "../lib/workspace-health.ts";
+import { governorDir } from "../lib/paths.ts";
 
-// ── Config ───────────────────────────────────────────────────────────
-
-const GOVERNANCE_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "governance");
+const GOVERNANCE_DIR = governorDir();
 const SCORE_HISTORY = join(GOVERNANCE_DIR, "r-score-history.json");
 
 interface RScore {
@@ -889,21 +890,15 @@ async function main() {
       });
     }
 
-    let errors = 0,
-      warns = 0,
-      fixable = 0;
+    const report = buildDoctorReport("kimi-governance", checks);
+    printDoctorReport(report);
+
     const warnings: Array<{ check: string; message: string; severity: "warn" | "error" }> = [];
     for (const c of checks) {
-      const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
-      console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
-      if (c.status === "error") errors++;
-      if (c.status === "warn") warns++;
-      if (c.fixable) fixable++;
       if (c.status === "warn" || c.status === "error") {
         warnings.push({ check: c.name, message: c.message, severity: c.status });
       }
     }
-    console.log(`  ${errors} error(s), ${warns} warning(s), ${fixable} fixable`);
 
     // Persist to trending
     let gitHead = "";
@@ -927,7 +922,7 @@ async function main() {
     }
 
     console.log("");
-    if (fixable > 0) {
+    if (report.fixableCount > 0) {
       console.log("  Run 'kimi-governance fix' to auto-generate missing files");
     }
   } else if (command === "adr") {

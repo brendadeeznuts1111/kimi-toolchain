@@ -53,10 +53,12 @@ function killProcess(pid: number, signal: "SIGTERM" | "SIGKILL" = "SIGKILL") {
   }
 }
 
+import { guardDir } from "../lib/paths.ts";
+import { join } from "path";
+
 export async function clearStaleLocks(): Promise<string[]> {
   const cleared: string[] = [];
-  const guardDir = `${Bun.env.HOME || "/tmp"}/.kimi-code/guard`;
-  const locks = [`${guardDir}/test-runner.pid`, `${guardDir}/kimi-test.lock`];
+  const locks = [join(guardDir(), "test-runner.pid"), join(guardDir(), "kimi-test.lock")];
   for (const lock of locks) {
     try {
       const file = Bun.file(lock);

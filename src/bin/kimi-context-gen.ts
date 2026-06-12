@@ -18,10 +18,9 @@ import {
   printProjectBanner,
 } from "../lib/utils.ts";
 import { checkDocDrift } from "../lib/readme-sync.ts";
+import { guardianDir } from "../lib/paths.ts";
 
-// ── Config ───────────────────────────────────────────────────────────
-
-const GUARDIAN_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "guardian");
+const GUARDIAN_DIR = guardianDir();
 const CONTEXT_META = join(GUARDIAN_DIR, "context-meta.json");
 
 interface TechStack {

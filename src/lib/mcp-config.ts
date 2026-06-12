@@ -6,6 +6,7 @@
 import { existsSync } from "fs";
 import { join, resolve } from "path";
 import { ensureDir } from "./utils.ts";
+import { homeDir } from "./paths.ts";
 
 export const UNIFIED_SHELL_SERVER = "unified-shell";
 export const UNIFIED_SHELL_TOOL = "mcp__unified-shell__execute";
@@ -53,7 +54,7 @@ export interface McpValidationReport {
   projectPath: string | null;
 }
 
-export function userMcpPath(home: string = Bun.env.HOME || "/tmp"): string {
+export function userMcpPath(home: string = homeDir()): string {
   return join(home, ".kimi-code", "mcp.json");
 }
 
@@ -82,12 +83,12 @@ export function resolveBunPath(): string {
   return Bun.which("bun") || "bun";
 }
 
-export function bridgeScriptPath(home: string = Bun.env.HOME || "/tmp"): string {
+export function bridgeScriptPath(home: string = homeDir()): string {
   return join(home, ".kimi-code", "tools", "unified-shell-bridge.ts");
 }
 
 /** Canonical stdio entry for unified-shell MCP server. */
-export function buildUnifiedShellEntry(home: string = Bun.env.HOME || "/tmp"): McpServerEntry {
+export function buildUnifiedShellEntry(home: string = homeDir()): McpServerEntry {
   return {
     command: resolveBunPath(),
     args: ["run", bridgeScriptPath(home)],
@@ -133,7 +134,7 @@ function cloudflareApiNeedsRefresh(
 /** Merge toolchain MCP servers into mcpServers without removing other servers. */
 export function mergeToolchainMcpServers(
   existing: McpJson | null,
-  home: string = Bun.env.HOME || "/tmp"
+  home: string = homeDir()
 ): { config: McpJson; changed: boolean } {
   const config: McpJson = {
     mcpServers: existing?.mcpServers ? { ...existing.mcpServers } : {},
@@ -158,12 +159,12 @@ export function mergeToolchainMcpServers(
 /** @deprecated Use mergeToolchainMcpServers instead. */
 export function mergeUnifiedShellServer(
   existing: McpJson | null,
-  home: string = Bun.env.HOME || "/tmp"
+  home: string = homeDir()
 ): { config: McpJson; changed: boolean } {
   return mergeToolchainMcpServers(existing, home);
 }
 
-export async function provisionUserMcp(home: string = Bun.env.HOME || "/tmp"): Promise<{
+export async function provisionUserMcp(home: string = homeDir()): Promise<{
   path: string;
   changed: boolean;
 }> {
@@ -178,7 +179,7 @@ export async function provisionUserMcp(home: string = Bun.env.HOME || "/tmp"): P
 }
 
 export async function validateMcpConfig(
-  home: string = Bun.env.HOME || "/tmp",
+  home: string = homeDir(),
   projectRoot?: string
 ): Promise<McpValidationReport> {
   const checks: McpCheck[] = [];
@@ -329,7 +330,7 @@ export async function validateMcpConfig(
 }
 
 export async function fixMcpConfig(
-  home: string = Bun.env.HOME || "/tmp",
+  home: string = homeDir(),
   projectRoot?: string
 ): Promise<{ userChanged: boolean; projectCreated: boolean }> {
   const { changed: userChanged } = await provisionUserMcp(home);

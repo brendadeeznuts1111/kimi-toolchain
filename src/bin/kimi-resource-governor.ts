@@ -16,17 +16,23 @@ import { Database } from "bun:sqlite";
 import { nanoseconds } from "bun";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { ensureDir, getProjectName, resolveProjectRoot, printProjectBanner } from "../lib/utils.ts";
+import {
+  ensureDir,
+  getProjectName,
+  resolveProjectRoot,
+  printProjectBanner,
+  buildDoctorReport,
+  printDoctorReport,
+} from "../lib/utils.ts";
 import {
   loadGovernorDefaults,
   getGovernorConfigPath,
   DEFAULT_CONFIG_TEMPLATE,
   type GovernorDefaults,
 } from "../lib/governor-config.ts";
+import { governorDir } from "../lib/paths.ts";
 
-// ── Config ───────────────────────────────────────────────────────────
-
-const GOVERNOR_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "governor");
+const GOVERNOR_DIR = governorDir();
 const DB_PATH = join(GOVERNOR_DIR, "resource-cache.sqlite");
 
 let DEFAULTS: GovernorDefaults = {
@@ -811,19 +817,9 @@ async function main() {
     );
   } else if (command === "doctor") {
     const checks = doctor();
-    console.log("── Resource Governor Doctor ──────────────────────────────────");
-    let errors = 0,
-      warns = 0,
-      fixable = 0;
-    for (const c of checks) {
-      const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
-      console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
-      if (c.status === "error") errors++;
-      if (c.status === "warn") warns++;
-      if (c.fixable) fixable++;
-    }
-    console.log(`  ${errors} error(s), ${warns} warning(s), ${fixable} fixable`);
-    if (fixable > 0) {
+    const report = buildDoctorReport("kimi-resource-governor", checks);
+    printDoctorReport(report);
+    if (report.fixableCount > 0) {
       console.log("  Run 'kimi-resource-governor fix' to repair");
     }
   } else if (command === "fix") {

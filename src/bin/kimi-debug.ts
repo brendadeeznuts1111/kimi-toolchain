@@ -10,7 +10,14 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { resolveProjectRoot, printProjectBanner } from "../lib/utils.ts";
+import { homeDir, toolsDir } from "../lib/paths.ts";
+import {
+  resolveProjectRoot,
+  printProjectBanner,
+  buildDoctorReport,
+  printDoctorReport,
+} from "../lib/utils.ts";
+import { gitStatus, gitDiff, gitLastCommitMessage } from "../lib/git-helpers.ts";
 
 import {
   buildClassifiedFailure,
@@ -37,16 +44,18 @@ interface SessionEvent {
 
 // ── Config ───────────────────────────────────────────────────────────
 
-const MEMORY_DB = join(Bun.env.HOME || "/tmp", ".kimi-code", "var", "sessions.db");
-const WIZARD_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "wizard");
+import { varDir, wizardDir } from "../lib/paths.ts";
+
+const MEMORY_DB = join(varDir(), "sessions.db");
+const WIZARD_DIR = wizardDir();
 
 // ── Git Analysis ─────────────────────────────────────────────────────
 
 async function getRecentChanges(projectDir: string, commits = 5): Promise<GitChange[]> {
-  const result = await $`git diff HEAD~${commits}..HEAD --stat`.cwd(projectDir).nothrow().quiet();
-  if (result.exitCode !== 0) return [];
+  const raw = await gitDiff(projectDir, [`HEAD~${commits}..HEAD`, "--stat"]);
+  if (!raw) return [];
 
-  const lines = result.stdout.toString().split("\n");
+  const lines = raw.split("\n");
   const changes: GitChange[] = [];
 
   for (const line of lines) {
@@ -63,10 +72,10 @@ async function getRecentChanges(projectDir: string, commits = 5): Promise<GitCha
 }
 
 async function getWorkingTreeChanges(projectDir: string): Promise<GitChange[]> {
-  const result = await $`git status --porcelain`.cwd(projectDir).nothrow().quiet();
-  if (result.exitCode !== 0) return [];
+  const raw = await gitStatus(projectDir);
+  if (!raw) return [];
 
-  const lines = result.stdout.toString().split("\n");
+  const lines = raw.split("\n");
   const changes: GitChange[] = [];
 
   for (const line of lines) {
@@ -80,8 +89,7 @@ async function getWorkingTreeChanges(projectDir: string): Promise<GitChange[]> {
 }
 
 async function getLastCommitMessage(projectDir: string): Promise<string> {
-  const result = await $`git log -1 --format=%s`.cwd(projectDir).nothrow().quiet();
-  return result.stdout.toString().trim();
+  return gitLastCommitMessage(projectDir);
 }
 
 // ── Error Pattern Detection ──────────────────────────────────────────
@@ -395,7 +403,7 @@ async function doctor(projectDir: string) {
   });
 
   // Guardian integration
-  const guardianPath = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools", "kimi-guardian.ts");
+  const guardianPath = join(toolsDir(), "kimi-guardian.ts");
   checks.push({
     name: "guardian",
     status: existsSync(guardianPath) ? "ok" : "warn",
@@ -405,17 +413,7 @@ async function doctor(projectDir: string) {
     fixable: false,
   });
 
-  let errors = 0,
-    warns = 0,
-    fixable = 0;
-  for (const c of checks) {
-    const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
-    console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
-    if (c.status === "error") errors++;
-    if (c.status === "warn") warns++;
-    if (c.fixable) fixable++;
-  }
-  console.log(`  ${errors} error(s), ${warns} warning(s), ${fixable} fixable`);
+  printDoctorReport(buildDoctorReport("kimi-debug", checks));
 }
 
 // ── Fix ──────────────────────────────────────────────────────────────
@@ -443,13 +441,13 @@ async function fixError(projectDir: string, errorText: string) {
 
   // Record for pattern matching
   await recordFailure(
-    getProjectName(projectDir),
+    getDirName(projectDir),
     errorText,
     results.map((r) => r.suggestion)
   );
 }
 
-function getProjectName(projectDir: string): string {
+function getDirName(projectDir: string): string {
   return projectDir.split("/").pop() || "unknown";
 }
 
@@ -459,7 +457,7 @@ async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "last";
   const projectDir = await resolveProjectRoot(Bun.cwd);
-  const project = getProjectName(projectDir);
+  const project = getDirName(projectDir);
 
   printProjectBanner('Kimi Debug — "What Broke?" Wizard', projectDir);
 
@@ -628,7 +626,7 @@ async function main() {
     const wirePath =
       args[1] ||
       join(
-        Bun.env.HOME || "/tmp",
+        homeDir(),
         ".kimi-code",
         "sessions",
         "wd_nolarose_b0130204790b",

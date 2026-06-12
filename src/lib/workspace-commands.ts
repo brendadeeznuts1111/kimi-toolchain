@@ -10,12 +10,15 @@ import {
   fixWorkspaceHealth,
   CANONICAL_REPO_NAME,
   LEGACY_REPO_NAMES,
-  listLegacyCursorSlugs,
   listActiveLegacyCursorSlugs,
   canonicalClonePath,
   legacyClonePath,
 } from "./workspace-health.ts";
-import { removeLegacyCursorSlugs, removeLegacySymlink } from "../bin/kimi-cleanup-legacy.ts";
+import {
+  removeLegacyCursorSlugs,
+  removeLegacySymlink,
+  listLegacyCursorSlugs,
+} from "../bin/kimi-cleanup-legacy.ts";
 
 export interface WorkspaceCommandFlags {
   json: boolean;
@@ -57,8 +60,10 @@ export function printWorkspaceHelp(): void {
   console.log("  --deep                     All fixes: cursor slugs + sessions + index prune");
 }
 
+import { homeDir } from "./paths.ts";
+
 async function runVerify(projectRoot: string, strict: boolean): Promise<number> {
-  const home = Bun.env.HOME || "/tmp";
+  const home = homeDir();
   const report = await auditWorkspaceHealth(projectRoot, { strictWorkspace: strict, home });
 
   console.log("── Workspace verify ─────────────────────────────────────────");
@@ -85,7 +90,7 @@ async function runVerify(projectRoot: string, strict: boolean): Promise<number> 
 }
 
 async function runAudit(projectRoot: string, json: boolean, strict: boolean): Promise<number> {
-  const home = Bun.env.HOME || "/tmp";
+  const home = homeDir();
   const report = await auditWorkspaceHealth(projectRoot, { strictWorkspace: strict, home });
   const summary = countWorkspaceBlockers(report, { strictWorkspace: strict });
 
@@ -126,7 +131,7 @@ async function runAudit(projectRoot: string, json: boolean, strict: boolean): Pr
 }
 
 async function runFix(projectRoot: string, flags: WorkspaceCommandFlags): Promise<number> {
-  const home = Bun.env.HOME || "/tmp";
+  const home = homeDir();
   const report = await auditWorkspaceHealth(projectRoot, { home });
   const result = await fixWorkspaceHealth(report, {
     projectRoot,
@@ -177,7 +182,7 @@ async function runCleanup(
   removeCursor: boolean,
   removeLegacyPath: boolean
 ): Promise<number> {
-  const home = Bun.env.HOME || "/tmp";
+  const home = homeDir();
   console.log("── Legacy workspace cleanup ───────────────────────────────────");
 
   const legacyPath = legacyClonePath(home);

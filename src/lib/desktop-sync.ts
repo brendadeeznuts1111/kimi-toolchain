@@ -5,11 +5,10 @@
 import { existsSync } from "fs";
 import { dirname, join } from "path";
 import { ensureDir } from "./utils.ts";
+import { desktopRoot as _desktopRoot, agentsSkillsRoot } from "./paths.ts";
 
-export function desktopRoot(): string {
-  return join(Bun.env.HOME || "/tmp", ".kimi-code");
-}
-export const AGENTS_SKILLS_ROOT = join(Bun.env.HOME || "/tmp", ".agents", "skills");
+export const desktopRoot = _desktopRoot;
+export const AGENTS_SKILLS_ROOT = agentsSkillsRoot();
 
 export function kimiCodeSkillsRoot(): string {
   return join(desktopRoot(), "skills");

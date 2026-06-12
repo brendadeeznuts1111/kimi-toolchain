@@ -8,6 +8,7 @@
 
 import { existsSync } from "fs";
 import { join } from "path";
+import { desktopRoot } from "./paths.ts";
 
 export interface ToolInvocationOptions {
   cwd?: string;
@@ -31,7 +32,7 @@ export interface ToolInvocation {
 
 /** Return the canonical tools directory path (~/.kimi-code/tools). */
 export function toolsDir(): string {
-  return join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
+  return join(desktopRoot(), "tools");
 }
 
 /** Invoke a tool script directly by path with timeout and graceful termination. */

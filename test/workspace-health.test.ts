@@ -6,8 +6,6 @@ import {
   auditWorkspaceHealth,
   countWorkspaceBlockers,
   isWorkspaceBlocker,
-  listLegacyCursorSlugs,
-  isCursorSlugActive,
   CANONICAL_REPO_NAME,
   WORKSPACE_BLOCKER_NAMES,
 } from "../src/lib/workspace-health.ts";
@@ -15,6 +13,8 @@ import {
   removeLegacyCursorSlugs,
   archiveLegacyKimiSessions,
   pruneLegacySessionIndex,
+  listLegacyCursorSlugs,
+  isCursorSlugActive,
 } from "../src/bin/kimi-cleanup-legacy.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";

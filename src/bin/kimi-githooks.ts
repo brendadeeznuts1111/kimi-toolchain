@@ -23,11 +23,10 @@ import {
   printDoctorReport,
 } from "../lib/utils.ts";
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
-
-// ── Config ───────────────────────────────────────────────────────────
+import { toolsDir } from "../lib/paths.ts";
 
 const HOOKS = ["pre-commit", "pre-push"] as const;
-const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
+const TOOLS_DIR = toolsDir();
 
 const PRE_COMMIT_HOOK = `#!/bin/sh
 # Auto-installed by kimi-githooks

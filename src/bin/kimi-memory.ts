@@ -14,17 +14,24 @@ import { Database } from "bun:sqlite";
 import { randomUUIDv7 } from "bun";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { getProjectName, safeParse, resolveProjectRoot, printProjectBanner } from "../lib/utils.ts";
+import {
+  getProjectName,
+  safeParse,
+  resolveProjectRoot,
+  printProjectBanner,
+  buildDoctorReport,
+  printDoctorReport,
+} from "../lib/utils.ts";
 import { SESSIONS_SCHEMA_SQL } from "../lib/sessions-schema.ts";
 import { recordDoctorRun, getPersistentWarnings } from "../lib/doctor-runs.ts";
 import type { DoctorWarning } from "../lib/doctor-runs.ts";
 
 export { recordDoctorRun, getPersistentWarnings };
 
-// ── Config ───────────────────────────────────────────────────────────
+import { memoryDir, varDir } from "../lib/paths.ts";
 
-const MEMORY_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "memory");
-const VAR_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "var");
+const MEMORY_DIR = memoryDir();
+const VAR_DIR = varDir();
 const DB_PATH = join(VAR_DIR, "sessions.db");
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -801,22 +808,15 @@ async function main() {
     }
   } else if (command === "doctor") {
     const checks = doctor();
-    console.log("── Memory Doctor ─────────────────────────────────────────────");
-    let errors = 0,
-      warns = 0,
-      fixable = 0;
+    const report = buildDoctorReport("kimi-memory", checks);
+    printDoctorReport(report);
+
     const warnings: DoctorWarning[] = [];
     for (const c of checks) {
-      const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
-      console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
-      if (c.status === "error") errors++;
-      if (c.status === "warn") warns++;
-      if (c.fixable) fixable++;
       if (c.status === "warn" || c.status === "error") {
         warnings.push({ check: c.name, message: c.message, severity: c.status });
       }
     }
-    console.log(`  ${errors} error(s), ${warns} warning(s), ${fixable} fixable`);
 
     // Persist to trending
     recordDoctorRun(project, "kimi-memory", warnings);
@@ -832,7 +832,7 @@ async function main() {
       }
     }
 
-    if (fixable > 0) {
+    if (report.fixableCount > 0) {
       console.log("");
       console.log("  Run 'kimi-memory fix' to repair");
     }

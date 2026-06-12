@@ -27,6 +27,8 @@ import {
   parsePolicyConfig,
 } from "../lib/cloudflare-access-policy.ts";
 import { existsSync } from "fs";
+import { join } from "path";
+import { homeDir } from "../lib/paths.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -717,12 +719,9 @@ export interface OrphanedResource {
 const KNOWN_PROJECT_ROOTS = loadProjectRoots();
 
 function loadProjectRoots(): string[] {
-  const defaults = [
-    `${Bun.env.HOME || "/tmp"}/kimi-toolchain`,
-    `${Bun.env.HOME || "/tmp"}/Projects`,
-  ];
+  const defaults = [join(homeDir(), "kimi-toolchain"), join(homeDir(), "Projects")];
   try {
-    const userConfigPath = `${Bun.env.HOME || "/tmp"}/.kimi-code/project-mappings.yml`;
+    const userConfigPath = join(homeDir(), ".kimi-code", "project-mappings.yml");
     if (existsSync(userConfigPath)) {
       const text = Bun.file(userConfigPath).textSync?.() || "";
       const parsed = parsePolicyConfig(text);
@@ -741,7 +740,7 @@ const APP_TO_PROJECT_OVERRIDE: Record<string, string> = loadAppOverrides();
 function loadAppOverrides(): Record<string, string> {
   const defaults: Record<string, string> = {};
   try {
-    const userConfigPath = `${Bun.env.HOME || "/tmp"}/.kimi-code/project-mappings.yml`;
+    const userConfigPath = join(homeDir(), ".kimi-code", "project-mappings.yml");
     if (existsSync(userConfigPath)) {
       const text = Bun.file(userConfigPath).textSync?.() || "";
       const parsed = parsePolicyConfig(text);
@@ -971,7 +970,7 @@ function loadInfraMap(): Record<
     }
   > = {};
   try {
-    const userConfigPath = `${Bun.env.HOME || "/tmp"}/.kimi-code/project-mappings.yml`;
+    const userConfigPath = join(homeDir(), ".kimi-code", "project-mappings.yml");
     if (existsSync(userConfigPath)) {
       const text = Bun.file(userConfigPath).textSync?.() || "";
       const parsed = parsePolicyConfig(text);

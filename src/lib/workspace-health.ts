@@ -2,7 +2,7 @@
  * Workspace health — single source of truth for repo/path/Cursor alignment.
  */
 
-import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, unlinkSync } from "fs";
+import { existsSync, readFileSync, readdirSync, realpathSync, unlinkSync } from "fs";
 import { basename, join, resolve } from "path";
 
 import {
@@ -10,6 +10,9 @@ import {
   pruneLegacySessionIndex,
   removeLegacyCursorSlugs,
   removeLegacySymlink,
+  listLegacyCursorSlugs,
+  isCursorSlugActive,
+  listLegacySessionWorkspaces as listLegacySessionWorkspacesImported,
 } from "../bin/kimi-cleanup-legacy.ts";
 
 export const CANONICAL_REPO_NAME = "kimi-toolchain";
@@ -117,68 +120,8 @@ export function canonicalClonePath(home: string): string {
   return join(home, CANONICAL_REPO_NAME);
 }
 
-export function listLegacyCursorSlugs(home: string): string[] {
-  const cursorProjects = join(home, ".cursor", "projects");
-  if (!existsSync(cursorProjects)) return [];
-  return readdirSync(cursorProjects).filter((name) =>
-    LEGACY_REPO_NAMES.some((legacy) => name.includes(legacy))
-  );
-}
-
-const SLUG_ACTIVE_MS = 3_600_000; // 1 hour
-
-/** True when slug dir or agent-transcripts were touched recently (session still open/resuming). */
-export function isCursorSlugActive(home: string, slug: string, maxAgeMs = SLUG_ACTIVE_MS): boolean {
-  const slugPath = join(home, ".cursor", "projects", slug);
-  if (!existsSync(slugPath)) return false;
-  const cutoff = Date.now() - maxAgeMs;
-  try {
-    if (lstatSync(slugPath).mtimeMs >= cutoff) return true;
-  } catch {
-    /* continue */
-  }
-  const transcripts = join(slugPath, "agent-transcripts");
-  if (!existsSync(transcripts)) return false;
-  for (const name of readdirSync(transcripts)) {
-    try {
-      const path = join(transcripts, name);
-      if (lstatSync(path).mtimeMs >= cutoff) return true;
-    } catch {
-      /* skip */
-    }
-  }
-  return false;
-}
-
 export function listActiveLegacyCursorSlugs(home: string): string[] {
   return listLegacyCursorSlugs(home).filter((slug) => isCursorSlugActive(home, slug));
-}
-
-function countOrphanedSnapshots(snapshotDir: string): number {
-  if (!existsSync(snapshotDir)) return 0;
-  let orphaned = 0;
-  const glob = new Bun.Glob("*.json");
-  for (const file of glob.scanSync({ cwd: snapshotDir, absolute: true })) {
-    try {
-      const snap = JSON.parse(readFileSync(file, "utf8")) as { projectPath?: string };
-      if (snap.projectPath && !existsSync(snap.projectPath)) orphaned++;
-    } catch {
-      orphaned++;
-    }
-  }
-  return orphaned;
-}
-
-function listLegacySessionWorkspaces(sessionsDir: string): string[] {
-  if (!existsSync(sessionsDir)) return [];
-  const hits: string[] = [];
-  if (!existsSync(sessionsDir)) return hits;
-  for (const entry of readdirSync(sessionsDir)) {
-    if (entry.startsWith("wd_") && LEGACY_REPO_NAMES.some((legacy) => entry.includes(legacy))) {
-      hits.push(entry);
-    }
-  }
-  return hits;
 }
 
 function countMismatchedSessionCwds(sessionIndexPath: string, expectedCwd: string): number {
@@ -200,6 +143,21 @@ function countMismatchedSessionCwds(sessionIndexPath: string, expectedCwd: strin
     return 0;
   }
   return mismatched;
+}
+
+function countOrphanedSnapshots(snapshotDir: string): number {
+  if (!existsSync(snapshotDir)) return 0;
+  let orphaned = 0;
+  const glob = new Bun.Glob("*.json");
+  for (const file of glob.scanSync({ cwd: snapshotDir, absolute: true })) {
+    try {
+      const snap = JSON.parse(readFileSync(file, "utf8")) as { projectPath?: string };
+      if (snap.projectPath && !existsSync(snap.projectPath)) orphaned++;
+    } catch {
+      orphaned++;
+    }
+  }
+  return orphaned;
 }
 
 export async function isKimiToolchainRepo(projectRoot: string): Promise<boolean> {
@@ -421,7 +379,7 @@ export async function auditWorkspaceHealth(
         }
   );
 
-  const legacySessionWorkspaces = listLegacySessionWorkspaces(sessionsDir);
+  const legacySessionWorkspaces = listLegacySessionWorkspacesImported(sessionsDir);
   const sessionStatus = legacySessionWorkspaces.length === 0 ? "ok" : strict ? "error" : "warn";
   checks.push(
     legacySessionWorkspaces.length === 0

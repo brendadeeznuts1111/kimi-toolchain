@@ -5,10 +5,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import { sha256File } from "./utils.ts";
-
-function desktopRoot(): string {
-  return join(Bun.env.HOME || "/tmp", ".kimi-code");
-}
+import { desktopRoot } from "./paths.ts";
 
 /** Compute sha256 hashes for all sync-managed source files. */
 export async function computeSyncHashes(repoRoot: string): Promise<Record<string, string>> {

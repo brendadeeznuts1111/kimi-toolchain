@@ -8,6 +8,7 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { basename, join } from "path";
+import { homeDir, toolsDir } from "../lib/paths.ts";
 import {
   TOOLCHAIN_VERSION,
   getDesktopVersion,
@@ -40,7 +41,7 @@ import { getOrphanProcesses, runOrphanKill } from "./kimi-orphan-kill.ts";
 import { resolveProjectRoot, printSection, runTool, printToolBanner } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 
-const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
+const TOOLS_DIR = toolsDir();
 const FIX = Bun.argv.includes("--fix");
 const QUICK = Bun.argv.includes("--quick");
 const SOFT_SYSTEM = Bun.argv.includes("--soft-system");
@@ -131,38 +132,7 @@ function semverBelow(version: string | null, floor: [number, number, number]): b
   return v[2] < floor[2];
 }
 
-async function runOfficialKimiDoctor(): Promise<CheckResult> {
-  const kimiPath = Bun.which("kimi");
-  if (!kimiPath) {
-    return error("kimi doctor", "kimi not installed");
-  }
-  try {
-    const proc = Bun.spawn(["kimi", "doctor"], { stdout: "pipe", stderr: "pipe" });
-    const exitCode = await proc.exited;
-    const stdout = await Bun.readableStreamToText(proc.stdout);
-    const stderr = await Bun.readableStreamToText(proc.stderr);
-    if (exitCode === 0) {
-      const line = stdout
-        .split("\n")
-        .find((l) => l.trim())
-        ?.trim();
-      return ok("kimi doctor", line || "passed");
-    }
-    const detail =
-      stderr
-        .split("\n")
-        .find((l) => l.trim())
-        ?.trim() ||
-      stdout
-        .split("\n")
-        .find((l) => l.trim())
-        ?.trim() ||
-      `exit ${exitCode}`;
-    return error("kimi doctor", detail.slice(0, 120));
-  } catch (e: any) {
-    return error("kimi doctor", e.message);
-  }
-}
+import { runOfficialKimiDoctor } from "../lib/kimi-doctor-wrapper.ts";
 
 async function versionMatrix(): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
@@ -216,12 +186,12 @@ async function versionMatrix(): Promise<CheckResult[]> {
     results.push(warn("Working tree", "uncommitted changes present"));
   }
 
-  const toolsDir = import.meta.dir;
-  const runtimeTools = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
-  if (toolsDir.startsWith(runtimeTools)) {
+  const localToolsDir = import.meta.dir;
+  const runtimeTools = toolsDir();
+  if (localToolsDir.startsWith(runtimeTools)) {
     results.push(ok("Runtime", "synced copy in ~/.kimi-code/tools/"));
   } else {
-    const repoDir = basename(join(toolsDir, "..", ".."));
+    const repoDir = basename(join(localToolsDir, "..", ".."));
     if (repoDir === "kimi-toolchain") {
       results.push(ok("Repo folder", repoDir));
     } else {
@@ -374,7 +344,7 @@ async function runQualityChecks(projectRoot: string): Promise<CheckResult[]> {
 }
 
 async function applyWorkspaceFixes(projectRoot: string): Promise<void> {
-  const home = Bun.env.HOME || "/tmp";
+  const home = homeDir();
   const report = await auditWorkspaceHealth(projectRoot, {
     strictWorkspace: STRICT_WORKSPACE,
     home,
@@ -418,7 +388,7 @@ async function applyWorkspaceFixes(projectRoot: string): Promise<void> {
 }
 
 async function applyMcpFixes(projectRoot: string): Promise<void> {
-  const home = Bun.env.HOME || "/tmp";
+  const home = homeDir();
   const isToolchain = await isKimiToolchainRepo(projectRoot);
   const { userChanged, projectCreated } = await fixMcpConfig(
     home,
@@ -429,7 +399,7 @@ async function applyMcpFixes(projectRoot: string): Promise<void> {
 }
 
 async function applyFixes(projectRoot: string): Promise<void> {
-  const home = Bun.env.HOME || "/tmp";
+  const home = homeDir();
   section("Auto-fix");
   await applySyncFix(projectRoot);
   await applyMcpFixes(projectRoot);
@@ -481,7 +451,7 @@ async function applyFixes(projectRoot: string): Promise<void> {
 }
 
 async function runWorkspaceMode(projectRoot: string): Promise<number> {
-  const home = Bun.env.HOME || "/tmp";
+  const home = homeDir();
   const report = await auditWorkspaceHealth(projectRoot, {
     strictWorkspace: STRICT_WORKSPACE,
     home,
@@ -611,7 +581,7 @@ async function main() {
 
   const results: CheckResult[] = [];
   let syncReport: { synced: boolean; drifted: string[]; missing: string[] } | undefined;
-  const home = Bun.env.HOME || "/tmp";
+  const home = homeDir();
 
   section("System");
 
@@ -648,7 +618,17 @@ async function main() {
   }
 
   section("Kimi Code Config");
-  results.push(await runOfficialKimiDoctor());
+  const officialKimiDoctorResult = await runOfficialKimiDoctor();
+  if (!JSON_OUT) {
+    const icon =
+      officialKimiDoctorResult.status === "ok"
+        ? "✓"
+        : officialKimiDoctorResult.status === "warn"
+          ? "⚠"
+          : "✗";
+    console.log(`  ${icon} ${officialKimiDoctorResult.name}: ${officialKimiDoctorResult.message}`);
+  }
+  results.push(officialKimiDoctorResult);
   if (!JSON_OUT) {
     console.log("  ℹ kimi doctor (official) ≠ kimi-doctor (toolchain)");
   }

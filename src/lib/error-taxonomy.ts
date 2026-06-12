@@ -8,6 +8,8 @@ import { existsSync } from "fs";
 import { join } from "path";
 import yaml from "js-yaml";
 
+import { homeDir } from "./paths.ts";
+
 export interface TaxonomyPattern {
   regex: string;
 }
@@ -31,7 +33,7 @@ export interface TaxonomyMatch {
   matchedPattern?: string;
 }
 
-export function taxonomyPath(home: string = Bun.env.HOME || "/tmp"): string {
+export function taxonomyPath(home: string = homeDir()): string {
   return join(home, ".kimi-code", "error-taxonomy.yml");
 }
 

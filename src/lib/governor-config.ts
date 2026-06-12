@@ -5,6 +5,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import { getFreeMemoryMB } from "./memory-budget.ts";
+import { governorDir } from "./paths.ts";
 
 export interface GovernorDefaults {
   maxMemoryMB: number;
@@ -28,7 +29,7 @@ const BUILTIN: GovernorDefaults = {
   wallClockMs: 300000,
 };
 
-const CONFIG_PATH = join(Bun.env.HOME || "/tmp", ".kimi-code", "governor", "defaults.toml");
+const CONFIG_PATH = join(governorDir(), "defaults.toml");
 
 export const DEFAULT_CONFIG_TEMPLATE = `# kimi-resource-governor defaults
 # Reloaded on each governor invocation.

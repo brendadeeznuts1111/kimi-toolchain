@@ -15,9 +15,10 @@ import {
   printToolHelp,
 } from "../lib/tool-registry.ts";
 import { runWorkspaceCommand, printWorkspaceHelp } from "../lib/workspace-commands.ts";
+import { toolsDir } from "../lib/paths.ts";
 
 const REPO_BIN = resolve(join(import.meta.dir));
-const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
+const TOOLS_DIR = toolsDir();
 
 async function dispatchTool(shortName: string, args: string[]): Promise<number> {
   if (shortName === "workspace") {

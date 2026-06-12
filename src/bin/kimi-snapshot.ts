@@ -11,10 +11,9 @@ import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot, printProjectBanner } from "../lib/utils.ts";
+import { snapshotDir } from "../lib/paths.ts";
 
-// ── Config ───────────────────────────────────────────────────────────
-
-const SNAPSHOT_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "snapshots");
+const SNAPSHOT_DIR = snapshotDir();
 
 interface Snapshot {
   id: string;

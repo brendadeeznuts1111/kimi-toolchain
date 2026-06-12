@@ -15,6 +15,8 @@ import {
   runTool,
   resolveProjectRoot,
   printProjectBanner,
+  buildDoctorReport,
+  printDoctorReport,
 } from "../lib/utils.ts";
 
 interface Commit {
@@ -409,20 +411,10 @@ async function main() {
       console.log(`    ${type}: ${count}`);
     }
   } else if (command === "doctor") {
-    console.log("── Release Doctor ────────────────────────────────────────────");
     const checks = await doctor(projectDir);
-    let errors = 0,
-      warns = 0,
-      fixable = 0;
-    for (const c of checks) {
-      const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
-      console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
-      if (c.status === "error") errors++;
-      if (c.status === "warn") warns++;
-      if (c.fixable) fixable++;
-    }
-    console.log(`  ${errors} error(s), ${warns} warning(s), ${fixable} fixable`);
-    if (fixable > 0) {
+    const report = buildDoctorReport("kimi-release", checks);
+    printDoctorReport(report);
+    if (report.fixableCount > 0) {
       console.log("  Run 'kimi-release fix' to repair");
     }
   } else if (command === "fix") {
