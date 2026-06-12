@@ -10,7 +10,7 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { resolveProjectRoot } from "../lib/utils.ts";
+import { resolveProjectRoot, printProjectBanner } from "../lib/utils.ts";
 import {
   buildClassifiedFailure,
   classifyFailure,
@@ -458,11 +458,7 @@ async function main() {
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = getProjectName(projectDir);
 
-  console.log(`╔══════════════════════════════════════════════════════════════╗`);
-  console.log(`║           Kimi Debug — "What Broke?" Wizard                  ║`);
-  console.log(`╚══════════════════════════════════════════════════════════════╝`);
-  console.log(`  Project: ${project}`);
-  console.log("");
+  printProjectBanner('Kimi Debug — "What Broke?" Wizard', projectDir);
 
   if (command === "last") {
     console.log(`── Recent Activity ───────────────────────────────────────────`);

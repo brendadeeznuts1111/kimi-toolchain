@@ -14,7 +14,7 @@ import { Database } from "bun:sqlite";
 import { randomUUIDv7 } from "bun";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { getProjectName, safeParse, resolveProjectRoot } from "../lib/utils.ts";
+import { getProjectName, safeParse, resolveProjectRoot, printProjectBanner } from "../lib/utils.ts";
 import { SESSIONS_SCHEMA_SQL } from "../lib/sessions-schema.ts";
 import { recordDoctorRun, getPersistentWarnings } from "../lib/doctor-runs.ts";
 import type { DoctorWarning } from "../lib/doctor-runs.ts";
@@ -595,9 +595,7 @@ async function main() {
   const projectPath = await resolveProjectRoot(Bun.cwd);
   const project = getProjectName(projectPath);
 
-  console.log(`╔══════════════════════════════════════════════════════════════╗`);
-  console.log(`║           Kimi Memory — Session Store & Knowledge Graph      ║`);
-  console.log(`╚══════════════════════════════════════════════════════════════╝`);
+  printProjectBanner("Kimi Memory — Session Store & Knowledge Graph");
 
   if (command === "store") {
     const sessionId = args[1] || randomUUIDv7();

@@ -37,7 +37,7 @@ import {
   mergeConfigTomlPermissions,
 } from "../lib/kimi-config-audit.ts";
 import { getOrphanProcesses, runOrphanKill } from "./kimi-orphan-kill.ts";
-import { resolveProjectRoot, printSection, runTool } from "../lib/utils.ts";
+import { resolveProjectRoot, printSection, runTool, printToolBanner } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 
 const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
@@ -598,17 +598,13 @@ async function main() {
 
   if (ECOSYSTEM) {
     if (!JSON_OUT) {
-      console.log("╔══════════════════════════════════════════════════════════════╗");
-      console.log("║        kimi-doctor — Ecosystem Health                        ║");
-      console.log("╚══════════════════════════════════════════════════════════════╝");
+      printToolBanner("Kimi Doctor — Ecosystem Health");
     }
     process.exit(await runEcosystemMode(projectRoot));
   }
 
   if (!JSON_OUT) {
-    console.log("╔══════════════════════════════════════════════════════════════╗");
-    console.log("║        kimi-doctor — Toolchain Diagnostics                   ║");
-    console.log("╚══════════════════════════════════════════════════════════════╝");
+    printToolBanner("Kimi Doctor — Toolchain Diagnostics");
   }
 
   const results: CheckResult[] = [];
@@ -709,9 +705,8 @@ async function main() {
       "kimi-githooks",
     ];
 
-    for (const tool of tools) {
-      results.push(await runToolDoctor(tool, projectRoot));
-    }
+    const toolResults = await Promise.all(tools.map((tool) => runToolDoctor(tool, projectRoot)));
+    results.push(...toolResults);
   }
 
   section("Path Alignment");

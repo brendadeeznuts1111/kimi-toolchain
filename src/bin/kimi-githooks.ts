@@ -97,20 +97,13 @@ else
   GOVERNANCE="${TOOLS_DIR}/kimi-governance.ts"
 fi
 
-# 1. Lockfile guardian check
-if [ -f "bun.lock" ] && [ -f "$GUARDIAN" ]; then
-  echo "── Lockfile Guardian ────────────────────────────────────────"
-  bun run "$GUARDIAN" check 2>/dev/null || true
-fi
-
-# 2. Dependency drift + CVE scan (only if guardian exists)
+# 1. Supply Chain Security (guardian: lockfile + dependency audit)
 if [ -f "$GUARDIAN" ]; then
-  echo ""
-  echo "── Dependency Audit ─────────────────────────────────────────"
+  echo "── Supply Chain Security ──────────────────────────────────"
   bun run "$GUARDIAN" check 2>&1 | grep -E "(CVE|outdated|untrusted|HASH MISMATCH)" || echo "  ✓ No critical issues"
 fi
 
-# 3. R-Score gate (block push if F or D grade)
+# 2. R-Score gate (block push if F or D grade)
 if [ -f "$GOVERNANCE" ]; then
   echo ""
   echo "── R-Score Gate ─────────────────────────────────────────────"

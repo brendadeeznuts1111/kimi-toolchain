@@ -18,7 +18,7 @@
  *   https://dash.cloudflare.com/profile/api-tokens.
  */
 
-import { fetchWithTimeout, log, printSection } from "../lib/utils.ts";
+import { fetchWithTimeout, log, printSection, printProjectBanner } from "../lib/utils.ts";
 import {
   applyDiff,
   computeDiff,
@@ -1267,10 +1267,7 @@ async function main() {
   }
 
   if (!jsonMode) {
-    console.log(`╔══════════════════════════════════════════════════════════════╗`);
-    console.log(`║      Kimi Cloudflare Access — Zero Trust Hygiene             ║`);
-    console.log(`╚══════════════════════════════════════════════════════════════╝`);
-    console.log("");
+    printProjectBanner("Kimi Cloudflare Access — Zero Trust Hygiene");
   }
 
   if (command === "login") {

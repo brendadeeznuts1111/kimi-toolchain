@@ -10,7 +10,13 @@
 import { $, semver, TOML } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { ensureDir, log, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import {
+  ensureDir,
+  log,
+  getProjectName,
+  resolveProjectRoot,
+  printProjectBanner,
+} from "../lib/utils.ts";
 import { checkDocDrift } from "../lib/readme-sync.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
@@ -488,11 +494,7 @@ async function main() {
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const name = getProjectName(projectDir);
 
-  console.log(`╔══════════════════════════════════════════════════════════════╗`);
-  console.log(`║           Kimi Context Generator                             ║`);
-  console.log(`╚══════════════════════════════════════════════════════════════╝`);
-  console.log(`  Project: ${name}`);
-  console.log("");
+  printProjectBanner("Kimi Context Generator", name);
 
   if (command === "scan") {
     console.log("── Tech Stack Inference ──────────────────────────────────────");

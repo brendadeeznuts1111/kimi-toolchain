@@ -9,7 +9,13 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { log, getProjectName, runTool, resolveProjectRoot } from "../lib/utils.ts";
+import {
+  log,
+  getProjectName,
+  runTool,
+  resolveProjectRoot,
+  printProjectBanner,
+} from "../lib/utils.ts";
 
 interface Commit {
   hash: string;
@@ -310,7 +316,6 @@ async function fixCommits(projectDir: string) {
   for (const msg of invalid.slice(0, 5)) {
     console.log(`    ✗ ${msg.slice(0, 80)}`);
   }
-  console.log("");
   console.log("  To fix the most recent commit:");
   console.log('    git commit --amend -m "feat(scope): description"');
   console.log("  For older commits, use interactive rebase:");
@@ -325,11 +330,7 @@ async function main() {
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = getProjectName(projectDir);
 
-  console.log(`╔══════════════════════════════════════════════════════════════╗`);
-  console.log(`║           Kimi Release — Conventional Commits                ║`);
-  console.log(`╚══════════════════════════════════════════════════════════════╝`);
-  console.log(`  Project: ${project}`);
-  console.log("");
+  printProjectBanner("Kimi Release — Conventional Commits", project);
 
   if (command === "changelog") {
     const sinceTag = await getLastTag();
@@ -364,7 +365,6 @@ async function main() {
     const section = commitsToSection(commits, newVersion);
     const formatted = formatSection(section);
 
-    console.log("");
     console.log("── Generated Section ─────────────────────────────────────────");
     console.log(formatted);
 
@@ -394,7 +394,6 @@ async function main() {
     console.log(`  Invalid commits: ${invalid.length}`);
 
     if (invalid.length > 0) {
-      console.log("");
       console.log("  Non-conventional commits (should follow 'type(scope): msg'):");
       for (const msg of invalid.slice(0, 10)) {
         console.log(`    ✗ ${msg.slice(0, 80)}`);
@@ -405,7 +404,6 @@ async function main() {
     for (const c of valid) {
       types.set(c.type, (types.get(c.type) || 0) + 1);
     }
-    console.log("");
     console.log("  Commit types:");
     for (const [type, count] of types.entries()) {
       console.log(`    ${type}: ${count}`);
@@ -437,8 +435,6 @@ async function main() {
     console.log("  doctor                 Check release readiness");
     console.log("  fix                    Fix non-conventional commits");
   }
-
-  console.log("");
 }
 
 main().catch((err) => {

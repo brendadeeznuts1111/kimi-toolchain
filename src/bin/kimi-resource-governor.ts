@@ -16,7 +16,7 @@ import { Database } from "bun:sqlite";
 import { nanoseconds } from "bun";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import { ensureDir, getProjectName, resolveProjectRoot, printProjectBanner } from "../lib/utils.ts";
 import {
   loadGovernorDefaults,
   getGovernorConfigPath,
@@ -692,9 +692,7 @@ async function main() {
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = getProjectName(projectDir);
 
-  console.log(`╔══════════════════════════════════════════════════════════════╗`);
-  console.log(`║           Kimi Resource Governor v2.0                        ║`);
-  console.log(`╚══════════════════════════════════════════════════════════════╝`);
+  printProjectBanner("Kimi Resource Governor v2.0");
 
   if (command === "limits") {
     console.log("── Current Resource Usage ────────────────────────────────────");

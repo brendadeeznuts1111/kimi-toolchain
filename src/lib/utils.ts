@@ -33,14 +33,26 @@ export function printSection(title: string, width = 60): void {
   console.log(`── ${title} ${"─".repeat(Math.max(0, width - title.length))}`);
 }
 
-export function printToolBanner(title: string, innerWidth = 62): void {
+export function printToolBanner(title: string, subtitle?: string, innerWidth = 62): void {
   const pad = Math.max(0, innerWidth - title.length);
   const left = Math.floor(pad / 2);
   const right = pad - left;
   const bar = "═".repeat(innerWidth + 2);
   console.log(`╔${bar}╗`);
   console.log(`║ ${" ".repeat(left)}${title}${" ".repeat(right)} ║`);
+  if (subtitle) {
+    const subPad = Math.max(0, innerWidth - subtitle.length);
+    const subLeft = Math.floor(subPad / 2);
+    const subRight = subPad - subLeft;
+    console.log(`║ ${" ".repeat(subLeft)}${subtitle}${" ".repeat(subRight)} ║`);
+  }
   console.log(`╚${bar}╝`);
+}
+
+export function printProjectBanner(title: string, project?: string, subtitle?: string): void {
+  printToolBanner(title, subtitle);
+  if (project) console.log(`  Project: ${project}`);
+  console.log("");
 }
 
 // ── Hashing ──────────────────────────────────────────────────────────

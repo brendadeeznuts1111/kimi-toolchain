@@ -20,6 +20,7 @@ import {
   fetchWithTimeout,
   getProjectName,
   resolveProjectRoot,
+  printProjectBanner,
 } from "../lib/utils.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
@@ -487,11 +488,11 @@ async function main() {
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const projectName = getProjectName(projectDir);
 
-  console.log(`╔══════════════════════════════════════════════════════════════╗`);
-  console.log(`║           Kimi Guardian — Supply Chain Security              ║`);
-  console.log(`║           v2.0: Signed manifests + Bun.secrets               ║`);
-  console.log(`╚══════════════════════════════════════════════════════════════╝`);
-  console.log(`  Project: ${projectName}`);
+  printProjectBanner(
+    "Kimi Guardian — Supply Chain Security",
+    projectDir,
+    "v2.0: Signed manifests + Bun.secrets"
+  );
   console.log(`  Dir:     ${projectDir}`);
   console.log("");
 

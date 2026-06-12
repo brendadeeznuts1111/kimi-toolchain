@@ -11,7 +11,14 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { ensureDir, log, getProjectName, runTool, resolveProjectRoot } from "../lib/utils.ts";
+import {
+  ensureDir,
+  log,
+  getProjectName,
+  runTool,
+  resolveProjectRoot,
+  printProjectBanner,
+} from "../lib/utils.ts";
 import { recordDoctorRun, getPersistentWarnings } from "../lib/utils.ts";
 import {
   R_SCORE_WEIGHTS as WEIGHTS,
@@ -522,11 +529,7 @@ async function main() {
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = getProjectName(projectDir);
 
-  console.log(`╔══════════════════════════════════════════════════════════════╗`);
-  console.log(`║           Kimi Governance — Quality Gates                    ║`);
-  console.log(`╚══════════════════════════════════════════════════════════════╝`);
-  console.log(`  Project: ${project}`);
-  console.log("");
+  printProjectBanner("Kimi Governance — Quality Gates", project);
 
   if (command === "governance") {
     console.log("── Governance Files ──────────────────────────────────────────");

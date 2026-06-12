@@ -30,25 +30,23 @@ async function runTool(
 }
 
 describe("kimi-doctor smoke", () => {
-  test("doctor --quick includes MCP and Kimi Code sections", async () => {
-    const { stdout } = await runTool(DOCTOR, ["--quick"]);
+  test("doctor --quick includes MCP, Kimi Code, memory pressure, and runtime sync", async () => {
+    const { stdout, exitCode } = await runTool(DOCTOR, ["--quick"]);
     expect(stdout).toContain("Kimi Code Config");
     expect(stdout).toContain("── MCP");
     expect(stdout).toContain("── Kimi Permissions");
     expect(stdout).toContain("unified-shell");
     expect(stdout).toMatch(/mcp-permission|config-toml/);
     expect(stdout).toContain("Path Alignment");
-  }, 60_000);
-
-  test("doctor --quick includes memory pressure checks", async () => {
-    const { stdout, exitCode } = await runTool(DOCTOR, ["--quick"]);
     expect(stdout).toContain("swap-used");
     expect(stdout).toContain("memory-pressure");
     expect(stdout).toContain("load-per-core");
     expect(stdout).toContain("chrome-rss");
     expect(stdout).toContain("docker-desktop");
+    expect(stdout).toContain("Runtime Sync");
+    expect(stdout).toMatch(/Desktop sync/);
     expect(exitCode === 0 || exitCode === 1).toBe(true);
-  }, 60_000);
+  }, 15_000);
 
   test("doctor --memory-budget prints app groups", async () => {
     const { stdout, exitCode } = await runTool(DOCTOR, ["--memory-budget"]);
@@ -106,13 +104,7 @@ describe("kimi-doctor smoke", () => {
     expect(report.sync).toBeDefined();
     expect(typeof report.sync?.synced).toBe("boolean");
     expect(exitCode === 0 || exitCode === 1).toBe(true);
-  }, 60_000);
-
-  test("doctor --quick reports runtime sync section", async () => {
-    const { stdout } = await runTool(DOCTOR, ["--quick"]);
-    expect(stdout).toContain("Runtime Sync");
-    expect(stdout).toMatch(/Desktop sync/);
-  }, 60_000);
+  }, 15_000);
 
   test("check script uses check.ts runner", async () => {
     const pkg = (await Bun.file(join(REPO_ROOT, "package.json")).json()) as {

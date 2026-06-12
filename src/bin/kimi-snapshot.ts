@@ -10,7 +10,7 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import { ensureDir, getProjectName, resolveProjectRoot, printProjectBanner } from "../lib/utils.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -303,11 +303,7 @@ async function main() {
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = getProjectName(projectDir);
 
-  console.log(`╔══════════════════════════════════════════════════════════════╗`);
-  console.log(`║           Kimi Snapshot — Environment Capture                ║`);
-  console.log(`╚══════════════════════════════════════════════════════════════╝`);
-  console.log(`  Project: ${project}`);
-  console.log("");
+  printProjectBanner("Kimi Snapshot — Environment Capture", project);
 
   if (command === "save") {
     const description = args.slice(1).join(" ") || undefined;
