@@ -4,25 +4,39 @@
  * Derives version from src/lib/version.ts (package.json).
  */
 
-import { $ } from "bun";
+import { existsSync } from "fs";
 import { MCP_BRIDGE_VERSION } from "../lib/version.ts";
 
 interface ShellResult {
   stdout: string;
   stderr: string;
   exitCode: number;
+  error?: string;
 }
 
 export async function executeCommand(
   command: string,
   context: { workingDir?: string } = {}
 ): Promise<ShellResult> {
-  const result = await $`${{ raw: command }}`.cwd(context.workingDir || process.cwd()).nothrow();
-  return {
-    stdout: result.stdout.toString(),
-    stderr: result.stderr.toString(),
-    exitCode: result.exitCode,
-  };
+  const cwd = context.workingDir || process.cwd();
+  if (context.workingDir && !existsSync(context.workingDir)) {
+    return {
+      stdout: "",
+      stderr: "",
+      exitCode: 1,
+      error: `Working directory does not exist: ${context.workingDir}`,
+    };
+  }
+
+  const proc = Bun.spawn(["sh", "-c", command], {
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const exitCode = await proc.exited;
+  const stdout = await Bun.readableStreamToText(proc.stdout);
+  const stderr = await Bun.readableStreamToText(proc.stderr);
+  return { stdout, stderr, exitCode };
 }
 
 // ─── MCP stdio server ───────────────────────────────────────────────────────
@@ -96,12 +110,21 @@ async function handleRequest(req: any) {
 
       try {
         const result = await executeCommand(command, { workingDir: args.workingDir });
+        const content: Array<{ type: "text"; text: string }> = [];
+        if (result.error) {
+          content.push({ type: "text", text: result.error });
+        } else {
+          if (result.stdout) content.push({ type: "text", text: result.stdout });
+          if (result.stderr) content.push({ type: "text", text: `stderr: ${result.stderr}` });
+          if (content.length === 0) content.push({ type: "text", text: "(no output)" });
+          content.push({ type: "text", text: `[exit code: ${result.exitCode}]` });
+        }
         send({
           jsonrpc: "2.0",
           id,
           result: {
-            content: [{ type: "text", text: result.stdout || result.stderr || "(no output)" }],
-            isError: result.exitCode !== 0,
+            content,
+            isError: result.exitCode !== 0 || !!result.error,
           },
         });
       } catch (err: any) {

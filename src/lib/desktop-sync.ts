@@ -37,6 +37,8 @@ export interface DesktopPaths {
   libDst: string;
   scriptsSrc: string;
   scriptsDst: string;
+  kimiHooksSrc: string;
+  kimiHooksDst: string;
   skillSrc: string;
   skillDst: string;
   kimiSkillDst: string;
@@ -52,6 +54,8 @@ export function resolveDesktopPaths(repoRoot: string): DesktopPaths {
     libDst: join(desktopRoot(), "lib"),
     scriptsSrc: join(repoRoot, "scripts"),
     scriptsDst: join(desktopRoot(), "scripts"),
+    kimiHooksSrc: join(repoRoot, "src", "kimi-hooks"),
+    kimiHooksDst: join(desktopRoot(), "kimi-hooks"),
     skillSrc: join(repoRoot, "skills", "kimi-toolchain"),
     skillDst: join(AGENTS_SKILLS_ROOT, "kimi-toolchain"),
     kimiSkillDst: join(kimiCodeSkillsRoot(), "kimi-toolchain"),
@@ -63,6 +67,7 @@ export function ensureDesktopLayout(): void {
     join(desktopRoot(), "tools"),
     join(desktopRoot(), "lib"),
     join(desktopRoot(), "scripts"),
+    join(desktopRoot(), "kimi-hooks"),
     join(desktopRoot(), "var"),
     join(desktopRoot(), "memory"),
     join(desktopRoot(), "guardian"),
@@ -147,6 +152,19 @@ export async function syncDesktop(
         join(paths.scriptsSrc, file),
         join(paths.scriptsDst, file),
         `scripts/${file}`,
+        force,
+        result
+      );
+    }
+  }
+
+  if (existsSync(paths.kimiHooksSrc)) {
+    const kimiHooksGlob = new Bun.Glob("*.ts");
+    for await (const file of kimiHooksGlob.scan(paths.kimiHooksSrc)) {
+      await copyIfChanged(
+        join(paths.kimiHooksSrc, file),
+        join(paths.kimiHooksDst, file),
+        `kimi-hooks/${file}`,
         force,
         result
       );

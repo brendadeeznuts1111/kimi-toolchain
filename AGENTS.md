@@ -58,9 +58,11 @@ kimi-toolchain/
     lib/
       ├── utils.ts          # Shared utilities (fs, hash, logging, runTool)
       └── version.ts        # Canonical version (reads package.json)
-    hooks/
-      ├── postinstall.ts    # Idempotent ~/.kimi-code/ setup
-      └── pre-push          # Git hook template
+    install-hooks/
+      └── postinstall.ts    # Idempotent ~/.kimi-code/ setup (bun package hook)
+    kimi-hooks/
+      └── log-tool-failure.ts  # Kimi Code PostToolUseFailure hook script
+    git-hooks/              # Git hook templates (installed by kimi-githooks)
     guardian/
       └── verify.ts         # Thin lockfile verifier wrapper
     drift/
@@ -203,9 +205,23 @@ Every tool supports at minimum:
   - `DoctorCheck` / `DoctorReport` interfaces — standard diagnostic shape
 - **`version.ts`** — Single source of truth for version. Derives from `package.json` at runtime, falls back to `~/.kimi-code/toolchain-manifest.json`.
 
-### Hooks (`src/hooks/`)
+### Hooks taxonomy
+
+The project uses three separate hook systems. Do not conflate them in docs or code.
+
+| System                        | Location                                                                      | Purpose                                                                 |
+| ----------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Git hooks**                 | Installed into `.git/hooks/` by `kimi-githooks`                               | `pre-commit`, `pre-push` policy gates                                   |
+| **Bun install hook**          | `src/install-hooks/postinstall.ts`                                            | Idempotent `~/.kimi-code/` setup after `bun install`                    |
+| **Kimi Code lifecycle hooks** | `src/kimi-hooks/` scripts; declared in `~/.kimi-code/config.toml` `[[hooks]]` | Intercept `PreToolUse`, audit `PostToolUseFailure`, notifications, etc. |
+
+#### Install hooks (`src/install-hooks/`)
 
 - **`postinstall.ts`** — Creates `~/.kimi-code/` directory tree, copies tools/lib/templates, initializes `sessions.db` schema, installs the agent skill to `~/.agents/skills/kimi-toolchain/`.
+
+#### Kimi Code hooks (`src/kimi-hooks/`)
+
+- **`log-tool-failure.ts`** — `PostToolUseFailure` handler. Reads JSON from stdin, classifies the failure against `~/.kimi-code/error-taxonomy.yml`, and appends to `~/.kimi-code/var/tool-failures.jsonl`.
 
 ## Testing Strategy
 

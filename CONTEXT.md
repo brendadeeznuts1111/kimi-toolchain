@@ -27,9 +27,10 @@ kimi-toolchain/
       └── unified-shell-bridge.ts
     lib/
       └── utils.ts    # Shared utilities (was kimi-utils.ts)
-    hooks/
-      ├── postinstall.ts   # Sets up ~/.kimi-code/ on install
-      └── pre-push         # Git hook template
+    install-hooks/
+      └── postinstall.ts   # Sets up ~/.kimi-code/ on install (bun package hook)
+    kimi-hooks/
+      └── log-tool-failure.ts  # Kimi Code PostToolUseFailure handler
     guardian/
       └── verify.ts        # Lockfile integrity
     drift/

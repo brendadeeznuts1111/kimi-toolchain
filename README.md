@@ -176,7 +176,8 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 src/
   bin/          # CLI tools (kimi-doctor, kimi-governance, etc.)
   lib/          # Shared utilities (utils.ts)
-  hooks/        # postinstall.ts, pre-push
+  install-hooks/# postinstall.ts (bun package hook)
+  kimi-hooks/   # Kimi Code lifecycle hooks (PostToolUseFailure, etc.)
   guardian/     # Lockfile verifier
   drift/        # Dependency drift detector
 ```

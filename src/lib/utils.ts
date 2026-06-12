@@ -7,6 +7,13 @@
 import { existsSync, mkdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { $ } from "bun";
+import {
+  runTool,
+  invokeTool,
+  toolsDir,
+  type ToolInvocation,
+  type ToolInvocationOptions,
+} from "./tool-runner.ts";
 
 // ── File System ──────────────────────────────────────────────────────
 
@@ -122,35 +129,8 @@ export async function fetchWithTimeout(
 
 // ── Tool Runner (for cross-tool integration) ─────────────────────────
 
-export function toolsDir(): string {
-  return join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
-}
-
-export async function runTool(
-  toolName: string,
-  args: string[],
-  options?: { cwd?: string; timeoutMs?: number }
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const toolPath = join(toolsDir(), `${toolName}.ts`);
-  if (!existsSync(toolPath)) {
-    throw new Error(`Tool not found: ${toolPath}`);
-  }
-  const proc = Bun.spawn(["bun", "run", toolPath, ...args], {
-    cwd: options?.cwd || Bun.cwd,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-
-  const timeoutMs = options?.timeoutMs || 60000;
-  const timer = setTimeout(() => proc.kill("SIGTERM"), timeoutMs);
-
-  const exitCode = await proc.exited;
-  clearTimeout(timer);
-
-  const stdout = await streamToText(proc.stdout);
-  const stderr = await streamToText(proc.stderr);
-  return { stdout, stderr, exitCode };
-}
+// Re-export unified tool runner, helpers, and types.
+export { runTool, invokeTool, toolsDir, ToolInvocation, ToolInvocationOptions };
 
 // ── Doctor/Fix Integration Helpers ───────────────────────────────────
 

@@ -33,7 +33,7 @@ import { auditEcosystemHealth } from "../lib/ecosystem-health.ts";
 import { fixMcpConfig, validateMcpConfig } from "../lib/mcp-config.ts";
 import { auditKimiConfig, mergeConfigTomlPermissions } from "../lib/kimi-config-audit.ts";
 import { getOrphanProcesses, runOrphanKill } from "./kimi-orphan-kill.ts";
-import { resolveProjectRoot, printSection } from "../lib/utils.ts";
+import { resolveProjectRoot, printSection, runTool } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 
 const TOOLS_DIR = join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
@@ -83,36 +83,27 @@ function recordMemoryCheck(r: MemoryCheckResult): CheckResult {
 }
 
 async function runToolDoctor(tool: string, projectRoot: string): Promise<CheckResult> {
-  const path = join(TOOLS_DIR, `${tool}.ts`);
-  if (!existsSync(path)) {
-    return error(tool, `not found at ${path}`);
-  }
-
   const cmd = FIX ? "fix" : "doctor";
   const toolArgs = tool === "kimi-fix" ? (FIX ? [projectRoot] : ["doctor", projectRoot]) : [cmd];
   console.log(`  → Running ${tool} ${toolArgs.join(" ")}...`);
 
   try {
-    const proc = Bun.spawn(["bun", "run", path, ...toolArgs], {
-      cwd: projectRoot,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const exitCode = await proc.exited;
-    const stdout = await Bun.readableStreamToText(proc.stdout);
-    const stderr = await Bun.readableStreamToText(proc.stderr);
+    const result = await runTool(tool, toolArgs, { cwd: projectRoot, timeoutMs: 120000 });
 
-    for (const line of stdout.split("\n")) {
+    for (const line of result.stdout.split("\n")) {
       if (line.trim()) console.log(`    ${line}`);
     }
-    for (const line of stderr.split("\n")) {
+    for (const line of result.stderr.split("\n")) {
       if (line.trim()) console.log(`    ${line}`);
     }
 
-    if (exitCode === 0) {
+    if (result.error) {
+      return error(tool, `${cmd} failed: ${result.error}`);
+    }
+    if (result.exitCode === 0) {
       return ok(tool, `${cmd} passed`);
     } else {
-      return error(tool, `${cmd} found problems (exit ${exitCode})`);
+      return error(tool, `${cmd} found problems (exit ${result.exitCode})`);
     }
   } catch (e: any) {
     return error(tool, `failed: ${e.message}`);

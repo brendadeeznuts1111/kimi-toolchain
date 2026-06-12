@@ -196,6 +196,16 @@ kimi-memory search <k>
 
 Unified-shell bridge is auto-registered in `~/.kimi-code/mcp.json` on `bun run sync`. Verify with `kimi-doctor --quick` MCP section or `kimi` → `/mcp`.
 
+## Hook taxonomy
+
+Three hook systems coexist. Use the right name:
+
+| System                    | Where it lives                                             | Toolchain command                              |
+| ------------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
+| Git hooks                 | `.git/hooks/`                                              | `kimi-githooks install`                        |
+| Bun package hook          | `src/install-hooks/postinstall.ts`                         | Runs on `bun install`                          |
+| Kimi Code lifecycle hooks | `~/.kimi-code/config.toml` `[[hooks]]` → `src/kimi-hooks/` | `kimi-doctor --fix` seeds `PostToolUseFailure` |
+
 ## Related
 
 - Repo: https://github.com/brendadeeznuts1111/kimi-toolchain
