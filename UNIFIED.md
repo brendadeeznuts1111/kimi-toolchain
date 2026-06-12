@@ -237,14 +237,17 @@ flowchart LR
 
 ## Kimi Code features (0.11.0)
 
-| Feature                 | How                                  |
-| ----------------------- | ------------------------------------ |
-| Official config check   | `kimi doctor`                        |
-| Goal queue              | `/goal next`, `/goal next manage`    |
-| MCP                     | `/mcp`, `/mcp-config`                |
-| Subagents               | built-in `coder`, `explore`, `plan`  |
-| Experimental sub-skills | `KIMI_CODE_EXPERIMENTAL_SUB_SKILL=1` |
-| Reload config           | `/reload`, `/reload-tui`             |
+| Feature                 | How                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| Official config check   | `kimi doctor`                                                                  |
+| Config only             | `kimi doctor config [path]`                                                    |
+| TUI only                | `kimi doctor tui [path]`                                                       |
+| Goal queue              | `/goal next`, `/goal next manage`                                              |
+| MCP                     | `/mcp`, `/mcp-config`                                                          |
+| Subagents               | built-in `coder`, `explore`, `plan`                                            |
+| Experimental sub-skills | `KIMI_CODE_EXPERIMENTAL_SUB_SKILL=1`                                           |
+| Reload config           | `/reload`, `/reload-tui`                                                       |
+| CLI flags               | `--continue`, `--session`, `--model`, `--yolo`, `--auto`, `--plan`, `--prompt` |
 
 ## Official Kimi Code Documentation
 
@@ -256,6 +259,7 @@ The following URLs are the authoritative source for Kimi Code CLI behavior. Cach
 | Providers & models                                              | `https://moonshotai.github.io/kimi-code/en/configuration/providers-and-models.html` | No                     |
 | MCP servers                                                     | `https://moonshotai.github.io/kimi-code/en/customization/mcp.html`                  | No                     |
 | ACP (IDE integration)                                           | `https://moonshotai.github.io/kimi-code/en/reference/kimi-acp.html`                 | No                     |
+| `kimi` command reference                                        | `https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html`             | No                     |
 | GitHub repo (source)                                            | `https://github.com/MoonshotAI/kimi-code`                                           | No                     |
 
 **Key config tables for agents** (from official docs, as of 2026-06-12):

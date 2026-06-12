@@ -17,11 +17,29 @@ whenToUse: |
 | ----------------------------------- | ----------------------------------------------------- |
 | Kimi config, OAuth, models          | `kimi doctor` (official)                              |
 | MCP servers, `/mcp-config`          | `kimi` TUI or edit `~/.kimi-code/mcp.json`            |
-| Sessions, goals, subagents          | `kimi` / `kimi --continue` from project cwd           |
+| Sessions, goals, subagents          | `kimi` / `kimi --continue` / `kimi --session`         |
 | Zed/JetBrains agent                 | `kimi acp` (absolute path to `~/.kimi-code/bin/kimi`) |
 | R-Score, guardian, hooks, Bun gates | `kimi-doctor`, `kimi-governance`, `bun run check`     |
 
 **`kimi doctor` (Moonshot) ≠ `kimi-doctor` (toolchain).** Run both after toolchain changes.
+
+## Kimi Code CLI flags
+
+| Flag                    | Short | Description                                                  |
+| ----------------------- | ----- | ------------------------------------------------------------ |
+| `--continue`            | `-C`  | Resume most recent session in current cwd                    |
+| `--session [id]`        | `-S`  | Resume specific session (or open selector)                   |
+| `--model <alias>`       | `-m`  | Override `default_model` for this launch                     |
+| `--prompt <text>`       | `-p`  | Single-prompt non-interactive mode (stdout)                  |
+| `--output-format <fmt>` |       | `text` or `stream-json`; only with `--prompt`                |
+| `--yolo`                | `-y`  | Auto-approve regular tool calls (skips prompts)              |
+| `--auto`                |       | Auto permission mode; Agent handles everything               |
+| `--plan`                |       | Start in Plan mode (read-only exploration first)             |
+| `--skills-dir <dir>`    |       | Load Skills from custom directory (replaces auto-discovered) |
+
+**Flag conflicts (rejected at startup):** `--continue` + `--session`, `--yolo` + `--auto`, `--plan` + `--continue`/`--session`, `--prompt` + `--yolo`/`--auto`/`--plan`.
+
+**Permission modes:** `--yolo` (flag) skips approval for regular tools but still asks for plan exit. `default_permission_mode = "yolo"` (config) is persistent. `--auto` (flag) is non-interactive for this session only.
 
 ## Kimi Code slash commands
 
@@ -34,6 +52,22 @@ whenToUse: |
 | `/reload-tui`           | Reload TUI preferences only                |
 | `/swarm`                | Agent swarms (0.12.0+)                     |
 | `/import-from-cc-codex` | Import Cursor/Codex skills + MCP (0.13.0+) |
+
+## Kimi Code subcommands
+
+| Subcommand                       | Purpose                                  | Example                                                |
+| -------------------------------- | ---------------------------------------- | ------------------------------------------------------ |
+| `kimi login`                     | OAuth device-code flow (non-interactive) | `kimi login`                                           |
+| `kimi doctor`                    | Validate `config.toml` + `tui.toml`      | `kimi doctor config` (validate only config)            |
+| `kimi doctor config [path]`      | Validate only `config.toml`              | `kimi doctor config ./config.toml`                     |
+| `kimi doctor tui [path]`         | Validate only `tui.toml`                 | `kimi doctor tui ./tui.toml`                           |
+| `kimi acp`                       | ACP IDE mode (JSON-RPC over stdio)       | Started by IDE, not manually                           |
+| `kimi export [id]`               | Export session to ZIP                    | `kimi export -y` (latest session, skip confirm)        |
+| `kimi migrate`                   | Migrate legacy `~/.kimi` data            | `kimi migrate`                                         |
+| `kimi upgrade`                   | Check for updates                        | `kimi upgrade`                                         |
+| `kimi provider list`             | List configured providers                | `kimi provider list --json`                            |
+| `kimi provider catalog list`     | Browse public model catalog              | `kimi provider catalog list --filter anthropic`        |
+| `kimi provider catalog add <id>` | Import provider from catalog             | `kimi provider catalog add anthropic --api-key sk-...` |
 
 Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0** (`/sub-skill.review`, `/sub-skill.consolidate`). Latest: **0.14.0** — run `kimi upgrade`.
 
@@ -157,3 +191,4 @@ Unified-shell bridge is auto-registered in `~/.kimi-code/mcp.json` on `bun run s
 - Repo: https://github.com/brendadeeznuts1111/kimi-toolchain
 - UNIFIED.md: product matrix, MCP, ACP, editor workflows
 - Kimi docs: https://moonshotai.github.io/kimi-code/
+  - Kimi command reference: https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html
