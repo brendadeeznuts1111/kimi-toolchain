@@ -693,6 +693,12 @@ export interface ProjectMapping {
   allowEveryoneCount: number;
   status: "ok" | "warn" | "error" | "info";
   notes: string[];
+  // Infrastructure bindings
+  workerName?: string;
+  workerRoute?: string;
+  r2Buckets?: string[];
+  d1Databases?: string[];
+  kvNamespaces?: string[];
 }
 
 const KNOWN_PROJECT_ROOTS = [
@@ -713,7 +719,7 @@ const APP_TO_PROJECT_OVERRIDE: Record<string, string> = {
   "ledger-bypass-webhook": `${Bun.env.HOME || "/tmp"}/accounting-telegram`,
   Documentation: `${Bun.env.HOME || "/tmp"}/factorywager-registry`,
   "Docs Archive": `${Bun.env.HOME || "/tmp"}/factorywager-registry`,
-  "R2 Storage": `${Bun.env.HOME || "/tmp"}/factorywager-registry`,
+  "Registry Storage": `${Bun.env.HOME || "/tmp"}/factorywager-registry`,
   "my-stateless-mcp-server": "", // explicitly unmapped — no local project
 };
 
@@ -897,6 +903,117 @@ async function discoverLocalProject(app: AccessApplication): Promise<{
   return null;
 }
 
+// ── Infrastructure Discovery ─────────────────────────────────────────
+
+/** Known infrastructure mappings (app/worker name → bindings) */
+const INFRASTRUCTURE_MAP: Record<
+  string,
+  {
+    workerName?: string;
+    workerRoute?: string;
+    r2Buckets?: string[];
+    d1Databases?: string[];
+    kvNamespaces?: string[];
+  }
+> = {
+  "API Gateway": {
+    workerName: "betos-api",
+    workerRoute: "api.factory-wager.com/*",
+    d1Databases: ["betos-db"],
+  },
+  "BetTotal Control Center": {
+    workerName: "bettotal-control-center",
+    workerRoute: "control.factory-wager.com/*",
+  },
+  "Registry Storage": { r2Buckets: ["ledger-receipts"] },
+  ledger: {
+    workerName: "accounting-telegram",
+    workerRoute: "ledger.factory-wager.com/*",
+    r2Buckets: ["ledger-receipts"],
+  },
+  "ledger-bypass-api": {
+    workerName: "accounting-telegram",
+    workerRoute: "ledger.factory-wager.com/*",
+  },
+  "ledger-bypass-status": {
+    workerName: "accounting-telegram",
+    workerRoute: "ledger.factory-wager.com/*",
+  },
+  "ledger-bypass-health": {
+    workerName: "accounting-telegram",
+    workerRoute: "ledger.factory-wager.com/*",
+  },
+  "ledger-bypass-webhook": {
+    workerName: "accounting-telegram",
+    workerRoute: "ledger.factory-wager.com/*",
+  },
+};
+
+async function discoverInfrastructure(
+  app: AccessApplication,
+  localPath?: string
+): Promise<{
+  workerName?: string;
+  workerRoute?: string;
+  r2Buckets?: string[];
+  d1Databases?: string[];
+  kvNamespaces?: string[];
+}> {
+  const result: {
+    workerName?: string;
+    workerRoute?: string;
+    r2Buckets?: string[];
+    d1Databases?: string[];
+    kvNamespaces?: string[];
+  } = {};
+
+  // 1. Check known mappings
+  const known = INFRASTRUCTURE_MAP[app.name];
+  if (known) {
+    Object.assign(result, known);
+  }
+
+  // 2. Parse wrangler config if available
+  if (localPath) {
+    const wranglerPaths = [
+      `${localPath}/wrangler.toml`,
+      `${localPath}/wrangler.json`,
+      `${localPath}/wrangler.jsonc`,
+    ];
+    for (const wp of wranglerPaths) {
+      const f = Bun.file(wp);
+      if (await f.exists()) {
+        try {
+          const text = await f.text();
+          // Simple regex extraction for bindings (wrangler.toml/json)
+          const r2Matches = [...text.matchAll(/bucket_name\s*=\s*"([^"]+)"/g)];
+          const d1Matches = [...text.matchAll(/database_name\s*=\s*"([^"]+)"/g)];
+          const kvMatches = [...text.matchAll(/id\s*=\s*"([^"]+)"/g)];
+          const nameMatches = [...text.matchAll(/name\s*=\s*"([^"]+)"/g)];
+
+          if (r2Matches.length && !result.r2Buckets) {
+            result.r2Buckets = r2Matches.map((m) => m[1]);
+          }
+          if (d1Matches.length && !result.d1Databases) {
+            result.d1Databases = d1Matches.map((m) => m[1]);
+          }
+          if (kvMatches.length && !result.kvNamespaces) {
+            result.kvNamespaces = kvMatches.map((m) => m[1]);
+          }
+          if (nameMatches.length && !result.workerName) {
+            result.workerName = nameMatches[0][1];
+          }
+        } catch {
+          /* ignore parse errors */
+        }
+        break;
+      }
+    }
+  }
+
+  return result;
+}
+
 export async function buildDashboard(
   apps: AccessApplication[],
   tokens: ServiceToken[]
@@ -905,6 +1022,7 @@ export async function buildDashboard(
 
   for (const app of apps) {
     const local = await discoverLocalProject(app);
+    const infra = await discoverInfrastructure(app, local?.localPath);
     const findings = auditApps([app], tokens).filter((f) => f.app.id === app.id);
 
     const bypassCount = findings.filter((f) => f.reason === "bypass").length;
@@ -956,6 +1074,11 @@ export async function buildDashboard(
       allowEveryoneCount,
       status,
       notes,
+      workerName: infra.workerName,
+      workerRoute: infra.workerRoute,
+      r2Buckets: infra.r2Buckets,
+      d1Databases: infra.d1Databases,
+      kvNamespaces: infra.kvNamespaces,
     });
   }
 
@@ -997,6 +1120,16 @@ function printDashboard(mappings: ProjectMapping[]) {
     console.log(
       `     Policies: ${m.policyCount}  Bypass: ${m.bypassCount}  Allow-everyone: ${m.allowEveryoneCount}`
     );
+    // Infrastructure bindings
+    const infraParts: string[] = [];
+    if (m.workerName) infraParts.push(`Worker: ${m.workerName}`);
+    if (m.workerRoute) infraParts.push(`Route: ${m.workerRoute}`);
+    if (m.r2Buckets?.length) infraParts.push(`R2: ${m.r2Buckets.join(", ")}`);
+    if (m.d1Databases?.length) infraParts.push(`D1: ${m.d1Databases.join(", ")}`);
+    if (m.kvNamespaces?.length) infraParts.push(`KV: ${m.kvNamespaces.join(", ")}`);
+    if (infraParts.length) {
+      console.log(`     Infra:  ${infraParts.join("  |  ")}`);
+    }
     for (const note of m.notes) {
       console.log(`     → ${note}`);
     }
