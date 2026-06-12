@@ -222,6 +222,9 @@ The project uses three separate hook systems. Do not conflate them in docs or co
 #### Kimi Code hooks (`src/kimi-hooks/`)
 
 - **`log-tool-failure.ts`** — `PostToolUseFailure` handler. Reads JSON from stdin, classifies the failure against `~/.kimi-code/error-taxonomy.yml`, and appends to `~/.kimi-code/var/tool-failures.jsonl`.
+- **`kimi-debug taxonomy`** — List all categories from `~/.kimi-code/error-taxonomy.yml`.
+- **`kimi-debug wire [path]`** — Parse a `wire.jsonl` and summarize failures by category.
+- **Canonical failure ledger**: `~/.kimi-code/var/tool-failures.jsonl`.
 
 ## Testing Strategy
 
@@ -361,21 +364,23 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 
 ## Key Files for Agents
 
-| File                             | Purpose                                        |
-| -------------------------------- | ---------------------------------------------- |
-| `package.json`                   | Toolchain metadata, bin mappings, scripts      |
-| `tsconfig.json`                  | Strict TypeScript, ESNext, bundler resolution  |
-| `bunfig.toml`                    | Bun install config (`saveTextLockfile = true`) |
-| `src/lib/utils.ts`               | Shared utilities — import from here            |
-| `src/lib/version.ts`             | Version resolution logic                       |
-| `src/lib/memory-budget.ts`       | System memory / RSS budget checks              |
-| `src/lib/governor-config.ts`     | Loads `~/.kimi-code/governor/defaults.toml`    |
-| `src/lib/test-gates.ts`          | Unit vs smoke test lists, `bunTestArgs()`      |
-| `src/lib/readme-sync.ts`         | README ↔ package.json drift detect + patch     |
-| `scripts/check.ts`               | CI gate runner with dry-run and fast modes     |
-| `test/kimi-doctor.smoke.test.ts` | Smoke tests for all tools                      |
-| `CONTEXT.md`                     | Auto-generated project context                 |
-| `skills/kimi-toolchain/SKILL.md` | Agent decision protocol                        |
+| File                                   | Purpose                                        |
+| -------------------------------------- | ---------------------------------------------- |
+| `package.json`                         | Toolchain metadata, bin mappings, scripts      |
+| `tsconfig.json`                        | Strict TypeScript, ESNext, bundler resolution  |
+| `bunfig.toml`                          | Bun install config (`saveTextLockfile = true`) |
+| `src/lib/utils.ts`                     | Shared utilities — import from here            |
+| `src/lib/version.ts`                   | Version resolution logic                       |
+| `src/lib/memory-budget.ts`             | System memory / RSS budget checks              |
+| `src/lib/governor-config.ts`           | Loads `~/.kimi-code/governor/defaults.toml`    |
+| `src/lib/test-gates.ts`                | Unit vs smoke test lists, `bunTestArgs()`      |
+| `src/lib/readme-sync.ts`               | README ↔ package.json drift detect + patch     |
+| `scripts/check.ts`                     | CI gate runner with dry-run and fast modes     |
+| `test/kimi-doctor.smoke.test.ts`       | Smoke tests for all tools                      |
+| `CONTEXT.md`                           | Auto-generated project context                 |
+| `skills/kimi-toolchain/SKILL.md`       | Agent decision protocol                        |
+| `error-taxonomy.yml`                   | Failure classification schema                  |
+| `~/.kimi-code/var/tool-failures.jsonl` | Canonical tool failure ledger                  |
 
 ## Quick Reference: All CLI Tools
 
@@ -391,7 +396,7 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `kimi-cloudflare-access` | `login`, `logout`, `tokens`, `apps`, `doctor`, `fix` (token expiry, app policy audit)                             |
 | `kimi-context-gen`       | `scan`, `update`, `freshness`, `doctor`, `fix [threshold]`                                                        |
 | `kimi-release`           | `changelog`, `semver`, `validate`, `doctor`, `fix`                                                                |
-| `kimi-debug`             | `last`, `diff`, `trace`, `analyze`, `doctor`, `fix`                                                               |
+| `kimi-debug`             | `last`, `diff`, `trace`, `analyze`, `classify`, `taxonomy`, `wire [path]`, `doctor`, `fix`                        |
 | `kimi-snapshot`          | `save`, `restore`, `list`, `show`, `cleanup`, `doctor`, `fix`                                                     |
 | `kimi-resource-governor` | `limits`, `parallel`, `quota`, `cache`, `spawn`, `session`, `cleanup`, `status`, `doctor`, `fix`                  |
 

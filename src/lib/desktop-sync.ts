@@ -22,6 +22,7 @@ export const ROOT_TEMPLATES = [
   "CONTRIBUTING.md",
   "dx.config.toml",
   "kimi-toolchain.code-workspace",
+  "error-taxonomy.yml",
 ] as const;
 
 export const OPTIONAL_CONFIG_FILES = ["bunfig.toml", ".gitignore"] as const;

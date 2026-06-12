@@ -11,6 +11,13 @@ import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
 import { resolveProjectRoot } from "../lib/utils.ts";
+import {
+  buildClassifiedFailure,
+  classifyFailure,
+  loadTaxonomy,
+  taxonomyPath,
+  type ClassifiedFailure,
+} from "../lib/error-taxonomy.ts";
 
 interface GitChange {
   file: string;
@@ -227,6 +234,125 @@ async function traceFile(projectDir: string, filePath: string) {
     if (diff.split("\n").length > 20) {
       console.log("    ... (truncated)");
     }
+  }
+}
+
+// ── Error Taxonomy ───────────────────────────────────────────────────
+
+async function printTaxonomy() {
+  const taxonomy = await loadTaxonomy();
+  console.log(`── Error Taxonomy (v${taxonomy.version}) ─────────────────────`);
+  console.log(`  Loaded from: ${taxonomyPath()}`);
+  console.log("");
+  for (const category of taxonomy.categories) {
+    const expectedTag = category.expected ? " [expected]" : "";
+    console.log(`  ${category.severity.toUpperCase()} ${category.id}${expectedTag}`);
+    console.log(`    ${category.name}`);
+    console.log(`    ${category.description}`);
+    if (category.patterns.length > 0) {
+      console.log(`    patterns: ${category.patterns.length}`);
+    }
+  }
+}
+
+async function analyzeWithTaxonomy(errorText: string) {
+  const taxonomy = await loadTaxonomy();
+  const match = classifyFailure(errorText, taxonomy);
+  console.log(`── Taxonomy Analysis ─────────────────────────────────────────`);
+  console.log(`  Category: ${match.category.name} (${match.category.id})`);
+  console.log(`  Severity: ${match.category.severity}`);
+  console.log(`  Expected: ${match.category.expected ? "yes" : "no"}`);
+  if (match.matchedPattern) {
+    console.log(`  Pattern:  ${match.matchedPattern}`);
+  }
+}
+
+interface WireEvent {
+  type?: string;
+  event?: {
+    type?: string;
+    toolCallId?: string;
+    result?: {
+      output?: string;
+      isError?: boolean;
+    };
+  };
+}
+
+async function parseWireLog(wirePath: string) {
+  if (!existsSync(wirePath)) {
+    console.log(`Wire log not found: ${wirePath}`);
+    process.exit(1);
+  }
+
+  const taxonomy = await loadTaxonomy();
+  const text = await Bun.file(wirePath).text();
+  const lines = text.split("\n").filter((l) => l.trim());
+
+  const failures: ClassifiedFailure[] = [];
+  let totalErrors = 0;
+
+  for (const line of lines) {
+    let event: WireEvent | null = null;
+    try {
+      event = JSON.parse(line) as WireEvent;
+    } catch {
+      continue;
+    }
+    if (event?.type !== "context.append_loop_event") continue;
+    if (event.event?.type !== "tool.result") continue;
+    if (!event.event.result?.isError) continue;
+
+    totalErrors++;
+    const output = event.event.result.output || "";
+    const toolName = "unknown";
+    const match = classifyFailure(output, taxonomy);
+    failures.push(buildClassifiedFailure(toolName, output, match));
+  }
+
+  console.log(`── Wire Log Analysis ─────────────────────────────────────────`);
+  console.log(`  File:         ${wirePath}`);
+  console.log(`  Error events: ${totalErrors}`);
+  console.log(`  Classified:   ${failures.length}`);
+  console.log("");
+
+  const byCategory = new Map<string, { count: number; severity: string; expected: boolean }>();
+  for (const f of failures) {
+    const existing = byCategory.get(f.categoryId);
+    if (existing) {
+      existing.count++;
+    } else {
+      byCategory.set(f.categoryId, {
+        count: 1,
+        severity: f.severity,
+        expected: f.expected,
+      });
+    }
+  }
+
+  if (byCategory.size === 0) {
+    console.log("  No isError=true tool results found.");
+    return;
+  }
+
+  console.log("  By category:");
+  for (const [id, { count, severity, expected }] of byCategory.entries()) {
+    const tag = expected ? " [expected]" : "";
+    console.log(`    ${severity.toUpperCase()} ${id}: ${count}${tag}`);
+  }
+
+  console.log("");
+  console.log("  Recent unclassified failures (if any):");
+  let unclassified = 0;
+  for (const f of failures.slice(-5)) {
+    if (f.categoryId === "unknown") {
+      unclassified++;
+      const preview = f.output.replace(/\n/g, " ").slice(0, 100);
+      console.log(`    ${preview}${f.output.length > 100 ? "..." : ""}`);
+    }
+  }
+  if (unclassified === 0) {
+    console.log("    (none)");
   }
 }
 
@@ -489,12 +615,39 @@ async function main() {
       process.exit(1);
     }
     await fixError(projectDir, errorText);
+  } else if (command === "taxonomy") {
+    await printTaxonomy();
+  } else if (command === "classify") {
+    const errorText = args.slice(1).join(" ") || "";
+    if (!errorText) {
+      console.log("Usage: kimi-debug classify <error-text>");
+      console.log("  Classify error text against taxonomy");
+      process.exit(1);
+    }
+    await analyzeWithTaxonomy(errorText);
+  } else if (command === "wire") {
+    const wirePath =
+      args[1] ||
+      join(
+        Bun.env.HOME || "/tmp",
+        ".kimi-code",
+        "sessions",
+        "wd_nolarose_b0130204790b",
+        "session_17df1550-19a2-4594-9c37-020ffc7b3f63",
+        "agents",
+        "main",
+        "wire.jsonl"
+      );
+    await parseWireLog(wirePath);
   } else {
     console.log("Commands:");
     console.log("  last                    Show recent activity + heuristic suggestion");
     console.log("  diff [N]                Summarize last N commits of changes");
     console.log("  trace <file>            Show git history + last diff for a file");
     console.log("  analyze <error-text>    Analyze error message for known patterns");
+    console.log("  classify <error-text>   Classify error text against taxonomy");
+    console.log("  taxonomy                List error taxonomy categories");
+    console.log("  wire [path]             Analyze a Kimi Code wire.jsonl for failures");
     console.log("  doctor                  Check debug wizard health");
     console.log("  fix <error-text>        Suggest auto-fixes for error");
   }

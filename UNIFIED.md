@@ -26,14 +26,18 @@
 ├── sessions/wd_*/                     # Kimi Code chat sessions (workDir-bound)
 ├── session_index.jsonl                # Session index (cwd binding)
 ├── mcp.json                           # User-level MCP (toolchain seeds unified-shell + cloudflare-api)
+├── config.toml                        # Agent: models, permissions, providers, [[hooks]]
 ├── plugins/                           # Kimi Code plugins
 ├── skills/                            # User skills (toolchain syncs kimi-toolchain skill)
 ├── logs/                              # Diagnostic logs
 │
 ├── tools/*.ts                         # EXTENSION: synced from kimi-toolchain src/bin/
 ├── lib/*.ts                           # EXTENSION: synced from kimi-toolchain src/lib/
+├── kimi-hooks/*.ts                    # EXTENSION: Kimi Code lifecycle hooks
 ├── scripts/*.ts                       # EXTENSION: synced gate scripts
 ├── var/sessions.db                    # EXTENSION: toolchain memory (not Kimi sessions)
+├── var/tool-failures.jsonl            # EXTENSION: classified tool failure ledger
+├── error-taxonomy.yml                 # EXTENSION: failure classification schema
 ├── governor/                          # EXTENSION: resource governor
 ├── guardian/                          # EXTENSION: lockfile security
 ├── toolchain-manifest.json            # EXTENSION: sync metadata

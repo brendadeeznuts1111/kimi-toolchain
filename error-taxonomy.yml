@@ -1,0 +1,169 @@
+# Error taxonomy for kimi-toolchain failure tracking.
+# Agents can read this file to classify tool failures consistently.
+# Loaded from ~/.kimi-code/error-taxonomy.yml (repo root is source of truth).
+version: 1
+categories:
+  - id: expected_nonzero
+    name: Expected non-zero exit
+    description: Tool completed but returned exit code 1, typically from a check or grep with no matches.
+    severity: info
+    expected: true
+    patterns:
+      - regex: "Command failed with exit code:\\s*1$"
+      - regex: "Process exited with code\\s+\\d+"
+
+  - id: approval_rejected
+    name: User rejected tool approval
+    description: The user explicitly denied permission for a tool call.
+    severity: info
+    expected: true
+    patterns:
+      - regex: "was not run because the user rejected the approval request"
+
+  - id: format_check_failure
+    name: Format check failed
+    description: oxfmt --check found formatting issues.
+    severity: warn
+    expected: false
+    patterns:
+      - regex: "Format issues found in above"
+      - regex: 'error: script "format:check" exited with code 1'
+
+  - id: lint_failure
+    name: Lint check failed
+    description: oxlint or banned-terms check failed.
+    severity: warn
+    expected: false
+    patterns:
+      - regex: "Found\\s+\\d+\\s+warning.*error"
+      - regex: 'error: script "lint" exited with code 1'
+
+  - id: typecheck_failure
+    name: TypeScript type check failed
+    description: tsc --noEmit reported type errors.
+    severity: warn
+    expected: false
+    patterns:
+      - regex: "error TS\\d+"
+      - regex: 'error: script "typecheck" exited with code 1'
+
+  - id: test_failure
+    name: Test suite failed
+    description: bun test reported failures.
+    severity: warn
+    expected: false
+    patterns:
+      - regex: "\\d+ fail"
+      - regex: 'error: script "test" exited with code 1'
+
+  - id: edit_stale
+    name: Edit old_string stale
+    description: The Edit tool's old_string no longer matches the file.
+    severity: warn
+    expected: false
+    patterns:
+      - regex: "old_string not found in .+, the file contents may be out of date"
+
+  - id: http_404
+    name: HTTP 404 Not Found
+    description: FetchURL received a 404 response.
+    severity: warn
+    expected: false
+    patterns:
+      - regex: "Failed to fetch URL\\. Status: 404"
+
+  - id: http_error
+    name: HTTP error (non-404)
+    description: FetchURL received a non-404 HTTP error.
+    severity: warn
+    expected: false
+    patterns:
+      - regex: "Failed to fetch URL\\. Status: \\d+"
+
+  - id: read_missing
+    name: Read target missing
+    description: The Read tool was asked to read a file or directory that does not exist.
+    severity: warn
+    expected: false
+    patterns:
+      - regex: "does not exist\\."
+      - regex: "Directories are not supported"
+
+  - id: command_not_found
+    name: Command not found
+    description: A shell command or executable was not found on PATH.
+    severity: error
+    expected: false
+    patterns:
+      - regex: "command not found"
+      - regex: "No such file or directory"
+
+  - id: permission_denied
+    name: Permission denied
+    description: File system or operation permission denied.
+    severity: error
+    expected: false
+    patterns:
+      - regex: "Permission denied"
+      - regex: "EACCES"
+
+  - id: syntax_error
+    name: Syntax error
+    description: TypeScript/JavaScript syntax error.
+    severity: error
+    expected: false
+    patterns:
+      - regex: "SyntaxError"
+      - regex: "Unexpected token"
+
+  - id: type_runtime_error
+    name: Runtime type error
+    description: Cannot read property of undefined/null, or similar runtime type issue.
+    severity: error
+    expected: false
+    patterns:
+      - regex: "TypeError.*undefined"
+      - regex: "Cannot read propert"
+
+  - id: orphan_process
+    name: Orphan process
+    description: A background process was found running unexpectedly.
+    severity: warn
+    expected: false
+    patterns:
+      - regex: "orphan process"
+      - regex: "orphan"
+
+  - id: blocking_issue
+    name: Blocking workspace issue
+    description: Workspace health audit found a blocker.
+    severity: warn
+    expected: false
+    patterns:
+      - regex: "blocking"
+
+  - id: network_timeout
+    name: Network timeout
+    description: Network operation timed out.
+    severity: warn
+    expected: false
+    patterns:
+      - regex: "timeout"
+      - regex: "ETIMEDOUT"
+
+  - id: lockfile_issue
+    name: Lockfile integrity issue
+    description: Guardian detected lockfile hash mismatch or unsigned manifest.
+    severity: error
+    expected: false
+    patterns:
+      - regex: "HASH MISMATCH"
+      - regex: "lockfile"
+      - regex: "bun\\.lock"
+
+  - id: unknown
+    name: Unknown
+    description: No known pattern matched.
+    severity: info
+    expected: false
+    patterns: []

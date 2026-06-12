@@ -31,7 +31,11 @@ import {
 } from "../lib/workspace-health.ts";
 import { auditEcosystemHealth } from "../lib/ecosystem-health.ts";
 import { fixMcpConfig, validateMcpConfig } from "../lib/mcp-config.ts";
-import { auditKimiConfig, mergeConfigTomlPermissions } from "../lib/kimi-config-audit.ts";
+import {
+  auditKimiConfig,
+  mergeConfigTomlHooks,
+  mergeConfigTomlPermissions,
+} from "../lib/kimi-config-audit.ts";
 import { getOrphanProcesses, runOrphanKill } from "./kimi-orphan-kill.ts";
 import { resolveProjectRoot, printSection, runTool } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
@@ -433,6 +437,13 @@ async function applyFixes(projectRoot: string): Promise<void> {
     console.log(`  ✓ Created ${configMerge.path} with permission snippet`);
   } else if (configMerge.merged) {
     console.log(`  ✓ Appended permission snippet to ${configMerge.path}`);
+  }
+
+  const hookMerge = await mergeConfigTomlHooks(home);
+  if (hookMerge.created) {
+    console.log(`  ✓ Created ${hookMerge.path} with PostToolUseFailure hook`);
+  } else if (hookMerge.merged) {
+    console.log(`  ✓ Appended PostToolUseFailure hook to ${hookMerge.path}`);
   }
 
   await applyWorkspaceFixes(projectRoot);

@@ -134,10 +134,12 @@ Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0
 
 ```
 1. RUN: kimi-debug last
-2. QUERY: kimi-memory trends + doctor_runs in sessions.db
-3. RUN: git log --oneline -20
-4. IF CONTEXT.md stale → RUN: kimi-context-gen freshness / update
-5. PRESENT: timeline + likely cause + recovery steps
+2. RUN: kimi-debug wire [path-to-wire.jsonl]   # classify recent failures
+3. QUERY: ~/.kimi-code/var/tool-failures.jsonl for recurring patterns
+4. QUERY: kimi-memory trends + doctor_runs in sessions.db
+5. RUN: git log --oneline -20
+6. IF CONTEXT.md stale → RUN: kimi-context-gen freshness / update
+7. PRESENT: timeline + likely cause + recovery steps
 ```
 
 ### Scaffold New Project

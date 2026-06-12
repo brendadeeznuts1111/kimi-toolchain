@@ -80,15 +80,17 @@ async function delegateTool(
 
   console.log(`  → ${tool} ${args.join(" ")}`);
   try {
-    const { stdout, stderr, exitCode } = await runTool(tool, args, { cwd: project });
-    for (const line of stdout.split("\n")) {
+    const result = await runTool(tool, args, { cwd: project });
+    for (const line of result.stdout.split("\n")) {
       if (line.trim()) console.log(`    ${line}`);
     }
-    for (const line of stderr.split("\n")) {
+    for (const line of result.stderr.split("\n")) {
       if (line.trim()) console.log(`    ${line}`);
     }
-    if (exitCode !== 0) {
-      console.log(`    ⚠ ${tool} failed (exit ${exitCode}), continuing...`);
+    if (result.error) {
+      console.log(`    ⚠ ${tool}: ${result.error}, continuing...`);
+    } else if (result.exitCode !== 0) {
+      console.log(`    ⚠ ${tool} failed (exit ${result.exitCode}), continuing...`);
     }
   } catch (e: any) {
     console.log(`    ⚠ ${tool}: ${e.message}, continuing...`);
