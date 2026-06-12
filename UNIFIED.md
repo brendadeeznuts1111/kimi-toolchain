@@ -245,3 +245,48 @@ flowchart LR
 | Subagents               | built-in `coder`, `explore`, `plan`  |
 | Experimental sub-skills | `KIMI_CODE_EXPERIMENTAL_SUB_SKILL=1` |
 | Reload config           | `/reload`, `/reload-tui`             |
+
+## Official Kimi Code Documentation
+
+The following URLs are the authoritative source for Kimi Code CLI behavior. Cache or reference them when making toolchain decisions that depend on Kimi Code internals.
+
+| Topic                                                           | Official URL                                                                        | Cached locally?        |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------- |
+| Config files (incl. `loop_control`, `permission`, `background`) | `https://moonshotai.github.io/kimi-code/en/configuration/config-files.html`         | No — fetch when needed |
+| Providers & models                                              | `https://moonshotai.github.io/kimi-code/en/configuration/providers-and-models.html` | No                     |
+| MCP servers                                                     | `https://moonshotai.github.io/kimi-code/en/customization/mcp.html`                  | No                     |
+| ACP (IDE integration)                                           | `https://moonshotai.github.io/kimi-code/en/reference/kimi-acp.html`                 | No                     |
+| GitHub repo (source)                                            | `https://github.com/MoonshotAI/kimi-code`                                           | No                     |
+
+**Key config tables for agents** (from official docs, as of 2026-06-12):
+
+### `loop_control`
+
+| Field                   | Type      | Default | Description                                                                                   |
+| ----------------------- | --------- | ------- | --------------------------------------------------------------------------------------------- |
+| `max_steps_per_turn`    | `integer` | —       | Maximum steps per turn; unset or `0` means unlimited                                          |
+| `max_retries_per_step`  | `integer` | `3`     | Maximum retries after a step failure                                                          |
+| `reserved_context_size` | `integer` | —       | Tokens reserved for model output; compaction triggers when remaining context falls below this |
+
+### `permission`
+
+Rules are matched in order — first match wins. `scope` defaults to `user`.
+
+```toml
+[[permission.rules]]
+decision = "allow"
+pattern = "Read"
+
+[[permission.rules]]
+decision = "deny"
+pattern = "Bash(rm -rf*)"
+```
+
+### `background`
+
+| Field                | Type      | Default | Description                             |
+| -------------------- | --------- | ------- | --------------------------------------- |
+| `max_running_tasks`  | `integer` | —       | Max concurrent background tasks         |
+| `keep_alive_on_exit` | `boolean` | `false` | Keep tasks running after session closes |
+
+**Note:** MCP server declarations belong in `~/.kimi-code/mcp.json` (or project-local `.kimi-code/mcp.json`), NOT in `config.toml`. The `[mcp]` section in some configs may be legacy or non-standard.

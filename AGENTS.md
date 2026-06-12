@@ -381,4 +381,31 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 
 ---
 
+## Kimi Code Official Documentation
+
+When toolchain behavior depends on Kimi Code internals (loop limits, permissions, MCP wiring), consult the authoritative docs rather than inferring from behavior.
+
+| Topic                                                           | URL                                                                                 |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Config files (`loop_control`, `permission`, `background`, etc.) | `https://moonshotai.github.io/kimi-code/en/configuration/config-files.html`         |
+| Providers & models                                              | `https://moonshotai.github.io/kimi-code/en/configuration/providers-and-models.html` |
+| MCP configuration                                               | `https://moonshotai.github.io/kimi-code/en/customization/mcp.html`                  |
+| ACP (IDE integration)                                           | `https://moonshotai.github.io/kimi-code/en/reference/kimi-acp.html`                 |
+| Source repo                                                     | `https://github.com/MoonshotAI/kimi-code`                                           |
+
+**Agent-relevant config defaults** (from official docs, verified 2026-06-12):
+
+| Section        | Key                       | Default               | Meaning                                                          |
+| -------------- | ------------------------- | --------------------- | ---------------------------------------------------------------- |
+| `loop_control` | `max_steps_per_turn`      | — (unset = unlimited) | Hard cap on steps per turn                                       |
+| `loop_control` | `max_retries_per_step`    | `3`                   | Auto-retry failed steps                                          |
+| `loop_control` | `reserved_context_size`   | —                     | Trigger context compaction when remaining tokens fall below this |
+| `permission`   | `default_permission_mode` | `manual`              | `manual` / `auto` / `yolo`                                       |
+| `background`   | `max_running_tasks`       | —                     | Concurrent background task limit                                 |
+| `background`   | `keep_alive_on_exit`      | `false`               | Persist background tasks after session close                     |
+
+> **Important:** MCP server declarations go in `~/.kimi-code/mcp.json` (or project-local `.kimi-code/mcp.json`), NOT in `config.toml`. The `[mcp]` section in some legacy configs may be non-standard.
+
+---
+
 _Generated from project source. Update when adding new tools or changing conventions._
