@@ -331,81 +331,83 @@ function doctor(home: string) {
 
 // ── Main ─────────────────────────────────────────────────────────────
 
-const home = Bun.env.HOME || "/tmp";
-const cmd = process.argv[2] || "status";
+if (import.meta.main) {
+  const home = Bun.env.HOME || "/tmp";
+  const cmd = process.argv[2] || "status";
 
-if (cmd === "doctor") {
-  doctor(home);
-} else if (cmd === "fix") {
-  printToolBanner("kimi-cleanup-legacy", "Legacy path migration cleanup");
-  const status = getLegacyStatus(home);
+  if (cmd === "doctor") {
+    doctor(home);
+  } else if (cmd === "fix") {
+    printToolBanner("kimi-cleanup-legacy", "Legacy path migration cleanup");
+    const status = getLegacyStatus(home);
 
-  printSection("Discovery");
-  log("info", `${status.legacySessions.length} legacy session folders`);
-  log("info", `${status.legacyIndexLines} legacy index lines`);
-  log(
-    "info",
-    `${status.legacyCursorSlugs.length} legacy Cursor slugs (${status.activeCursorSlugs.length} active)`
-  );
-  log("info", `${status.legacySymlinkExists ? 1 : 0} legacy symlinks`);
-
-  printSection("Cleanup");
-  const result = runLegacyCleanup(home);
-
-  if (result.sessionsArchived.length > 0)
-    log("info", `Archived ${result.sessionsArchived.length} session folders`);
-  if (result.indexLinesPruned > 0) log("info", `Pruned ${result.indexLinesPruned} index lines`);
-  if (result.cursorSlugsRemoved.length > 0)
-    log("info", `Removed ${result.cursorSlugsRemoved.length} Cursor slugs`);
-  if (result.legacySymlinkRemoved) log("info", `Removed legacy symlink`);
-
-  const total =
-    result.sessionsArchived.length +
-    result.indexLinesPruned +
-    result.cursorSlugsRemoved.length +
-    (result.legacySymlinkRemoved ? 1 : 0);
-  if (total === 0) log("info", "Nothing to clean — already tidy");
-
-  printSection("Remaining");
-  const after = getLegacyStatus(home);
-  if (after.legacyCloneExists)
+    printSection("Discovery");
+    log("info", `${status.legacySessions.length} legacy session folders`);
+    log("info", `${status.legacyIndexLines} legacy index lines`);
     log(
-      "warn",
-      `${LEGACY_REPO_NAMES[0]}/ directory still exists — rename manually to ${CANONICAL_REPO_NAME}/`
+      "info",
+      `${status.legacyCursorSlugs.length} legacy Cursor slugs (${status.activeCursorSlugs.length} active)`
     );
-  if (after.activeCursorSlugs.length > 0)
+    log("info", `${status.legacySymlinkExists ? 1 : 0} legacy symlinks`);
+
+    printSection("Cleanup");
+    const result = runLegacyCleanup(home);
+
+    if (result.sessionsArchived.length > 0)
+      log("info", `Archived ${result.sessionsArchived.length} session folders`);
+    if (result.indexLinesPruned > 0) log("info", `Pruned ${result.indexLinesPruned} index lines`);
+    if (result.cursorSlugsRemoved.length > 0)
+      log("info", `Removed ${result.cursorSlugsRemoved.length} Cursor slugs`);
+    if (result.legacySymlinkRemoved) log("info", `Removed legacy symlink`);
+
+    const total =
+      result.sessionsArchived.length +
+      result.indexLinesPruned +
+      result.cursorSlugsRemoved.length +
+      (result.legacySymlinkRemoved ? 1 : 0);
+    if (total === 0) log("info", "Nothing to clean — already tidy");
+
+    printSection("Remaining");
+    const after = getLegacyStatus(home);
+    if (after.legacyCloneExists)
+      log(
+        "warn",
+        `${LEGACY_REPO_NAMES[0]}/ directory still exists — rename manually to ${CANONICAL_REPO_NAME}/`
+      );
+    if (after.activeCursorSlugs.length > 0)
+      log(
+        "warn",
+        `${after.activeCursorSlugs.length} active Cursor slug(s) — close agent chat, quit Cursor, reopen workspace`
+      );
+    if (
+      !after.legacyCloneExists &&
+      after.legacyCursorSlugs.length === 0 &&
+      after.legacySessions.length === 0 &&
+      after.legacyIndexLines === 0
+    ) {
+      log("info", "All legacy artifacts resolved ✓");
+    }
+  } else {
+    // status
+    printToolBanner("kimi-cleanup-legacy", "Legacy path migration status");
+    const status = getLegacyStatus(home);
+    printSection("Legacy Artifacts");
     log(
-      "warn",
-      `${after.activeCursorSlugs.length} active Cursor slug(s) — close agent chat, quit Cursor, reopen workspace`
+      status.legacySessions.length === 0 ? "info" : "warn",
+      `Session folders: ${status.legacySessions.length}`
     );
-  if (
-    !after.legacyCloneExists &&
-    after.legacyCursorSlugs.length === 0 &&
-    after.legacySessions.length === 0 &&
-    after.legacyIndexLines === 0
-  ) {
-    log("info", "All legacy artifacts resolved ✓");
+    log(status.legacyIndexLines === 0 ? "info" : "warn", `Index lines: ${status.legacyIndexLines}`);
+    log(
+      status.legacyCursorSlugs.length === 0 ? "info" : "warn",
+      `Cursor slugs: ${status.legacyCursorSlugs.length} (${status.activeCursorSlugs.length} active)`
+    );
+    log(
+      !status.legacySymlinkExists ? "info" : "warn",
+      `Symlink: ${status.legacySymlinkExists ? "yes" : "no"}`
+    );
+    log(
+      !status.legacyCloneExists ? "info" : "warn",
+      `Clone dir: ${status.legacyCloneExists ? "yes" : "no"}`
+    );
   }
-} else {
-  // status
-  printToolBanner("kimi-cleanup-legacy", "Legacy path migration status");
-  const status = getLegacyStatus(home);
-  printSection("Legacy Artifacts");
-  log(
-    status.legacySessions.length === 0 ? "info" : "warn",
-    `Session folders: ${status.legacySessions.length}`
-  );
-  log(status.legacyIndexLines === 0 ? "info" : "warn", `Index lines: ${status.legacyIndexLines}`);
-  log(
-    status.legacyCursorSlugs.length === 0 ? "info" : "warn",
-    `Cursor slugs: ${status.legacyCursorSlugs.length} (${status.activeCursorSlugs.length} active)`
-  );
-  log(
-    !status.legacySymlinkExists ? "info" : "warn",
-    `Symlink: ${status.legacySymlinkExists ? "yes" : "no"}`
-  );
-  log(
-    !status.legacyCloneExists ? "info" : "warn",
-    `Clone dir: ${status.legacyCloneExists ? "yes" : "no"}`
-  );
 }

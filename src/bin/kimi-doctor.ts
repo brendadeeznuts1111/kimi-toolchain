@@ -89,16 +89,18 @@ function recordMemoryCheck(r: MemoryCheckResult): CheckResult {
 async function runToolDoctor(tool: string, projectRoot: string): Promise<CheckResult> {
   const cmd = FIX ? "fix" : "doctor";
   const toolArgs = tool === "kimi-fix" ? (FIX ? [projectRoot] : ["doctor", projectRoot]) : [cmd];
-  console.log(`  → Running ${tool} ${toolArgs.join(" ")}...`);
+  if (!JSON_OUT) console.log(`  → Running ${tool} ${toolArgs.join(" ")}...`);
 
   try {
     const result = await runTool(tool, toolArgs, { cwd: projectRoot, timeoutMs: 120000 });
 
-    for (const line of result.stdout.split("\n")) {
-      if (line.trim()) console.log(`    ${line}`);
-    }
-    for (const line of result.stderr.split("\n")) {
-      if (line.trim()) console.log(`    ${line}`);
+    if (!JSON_OUT) {
+      for (const line of result.stdout.split("\n")) {
+        if (line.trim()) console.log(`    ${line}`);
+      }
+      for (const line of result.stderr.split("\n")) {
+        if (line.trim()) console.log(`    ${line}`);
+      }
     }
 
     if (result.error) {
