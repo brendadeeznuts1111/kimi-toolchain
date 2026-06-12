@@ -406,6 +406,19 @@ When toolchain behavior depends on Kimi Code internals (loop limits, permissions
 
 > **Important:** MCP server declarations go in `~/.kimi-code/mcp.json` (or project-local `.kimi-code/mcp.json`), NOT in `config.toml`. The `[mcp]` section in some legacy configs may be non-standard.
 
+### Non-standard config fields (toolchain audit)
+
+The following fields were found in our `~/.kimi-code/config.toml` but are **not documented** in the official Kimi Code docs. They have been commented out and replaced with standard equivalents:
+
+| Field                               | Was in           | Standard replacement                        | Status        |
+| ----------------------------------- | ---------------- | ------------------------------------------- | ------------- |
+| `[mcp] allow`                       | `config.toml`    | `[[permission.rules]] pattern = "mcp__..."` | Migrated      |
+| `[mcp.client] tool_call_timeout_ms` | `config.toml`    | None — not supported                        | Commented out |
+| `[safety] auto_approve_destructive` | `config.toml`    | `default_permission_mode = "manual"`        | Commented out |
+| `max_ralph_iterations`              | `[loop_control]` | None — toolchain custom                     | Commented out |
+
+**Agent rule:** Never add toolchain-specific keys to `config.toml`. Use `~/.kimi-code/toolchain-manifest.json`, `~/.kimi-code/governor/defaults.toml`, or a custom file under `~/.kimi-code/` instead. `config.toml` is owned by Kimi Code and non-standard keys are silently ignored.
+
 ---
 
 _Generated from project source. Update when adding new tools or changing conventions._

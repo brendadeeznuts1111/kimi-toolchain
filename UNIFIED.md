@@ -290,3 +290,29 @@ pattern = "Bash(rm -rf*)"
 | `keep_alive_on_exit` | `boolean` | `false` | Keep tasks running after session closes |
 
 **Note:** MCP server declarations belong in `~/.kimi-code/mcp.json` (or project-local `.kimi-code/mcp.json`), NOT in `config.toml`. The `[mcp]` section in some configs may be legacy or non-standard.
+
+### Non-standard fields in our config (audit 2026-06-12)
+
+Our `~/.kimi-code/config.toml` previously contained fields not documented in the official Kimi Code docs. They have been commented out and replaced with standard equivalents where possible:
+
+| Non-standard field                  | Location         | Standard replacement                                                  | Risk                                      |
+| ----------------------------------- | ---------------- | --------------------------------------------------------------------- | ----------------------------------------- |
+| `[mcp] allow`                       | `config.toml`    | `[[permission.rules]]` with `pattern = "mcp__unified-shell__execute"` | Silently ignored; permissions don't apply |
+| `[mcp.client] tool_call_timeout_ms` | `config.toml`    | None — use `permission.rules` + manual approval                       | Silently ignored                          |
+| `[safety] auto_approve_destructive` | `config.toml`    | `default_permission_mode = "manual"` + `permission.rules`             | Silently ignored                          |
+| `max_ralph_iterations`              | `[loop_control]` | None — remove if not used by toolchain code                           | May be ignored or cause warnings          |
+
+**Rule:** When adding toolchain-specific config, prefer a separate file (e.g., `~/.kimi-code/governor/defaults.toml`, `~/.kimi-code/toolchain-manifest.json`) rather than polluting `config.toml` which Kimi Code owns.
+
+### `thinking`
+
+| Field    | Type     | Default | Description                                              |
+| -------- | -------- | ------- | -------------------------------------------------------- |
+| `mode`   | `string` | —       | `auto` (model decides), `on` (always), `off` (force off) |
+| `effort` | `string` | `high`  | `low`, `medium`, `high`, `xhigh`, `max`                  |
+
+### `experimental`
+
+| Field              | Type      | Default | Description                                           |
+| ------------------ | --------- | ------- | ----------------------------------------------------- |
+| `micro_compaction` | `boolean` | `true`  | Trim older large tool results while preserving recent |
