@@ -2,24 +2,18 @@
  * Workspace health — single source of truth for repo/path/Cursor alignment.
  */
 
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  realpathSync,
-  renameSync,
-  rmSync,
-  unlinkSync,
-  writeFileSync,
-} from "fs";
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, unlinkSync } from "fs";
 import { basename, join, resolve } from "path";
+
+import {
+  archiveLegacyKimiSessions,
+  pruneLegacySessionIndex,
+  removeLegacyCursorSlugs,
+  removeLegacySymlink,
+} from "../bin/kimi-cleanup-legacy.ts";
 
 export const CANONICAL_REPO_NAME = "kimi-toolchain";
 export const LEGACY_REPO_NAMES = ["kimicode-cli", "kimi-code-cli"] as const;
-
-/** Checks that fail gates when package.json.name === kimi-toolchain. */
 export const WORKSPACE_BLOCKER_NAMES = new Set([
   "wrapper-coverage",
   "desktop-tools",
@@ -158,61 +152,6 @@ export function isCursorSlugActive(home: string, slug: string, maxAgeMs = SLUG_A
 
 export function listActiveLegacyCursorSlugs(home: string): string[] {
   return listLegacyCursorSlugs(home).filter((slug) => isCursorSlugActive(home, slug));
-}
-
-function sessionPathHasLegacyName(name: string): boolean {
-  return name.startsWith("wd_") && LEGACY_REPO_NAMES.some((legacy) => name.includes(legacy));
-}
-
-/** Archive wd_kimicode-cli_* folders under sessions/archive/. */
-export function archiveLegacyKimiSessions(home: string): string[] {
-  const sessionsDir = join(home, ".kimi-code", "sessions");
-  if (!existsSync(sessionsDir)) return [];
-  const archiveRoot = join(sessionsDir, "archive");
-  const archived: string[] = [];
-  const stamp = new Date().toISOString().slice(0, 10);
-
-  for (const name of readdirSync(sessionsDir)) {
-    if (!sessionPathHasLegacyName(name)) continue;
-    const src = join(sessionsDir, name);
-    try {
-      if (!lstatSync(src).isDirectory()) continue;
-    } catch {
-      continue;
-    }
-    mkdirSync(archiveRoot, { recursive: true });
-    const dest = join(archiveRoot, `${name}-${stamp}`);
-    renameSync(src, dest);
-    archived.push(name);
-  }
-  return archived;
-}
-
-/** Drop session_index.jsonl lines whose cwd/workDir references legacy repo paths. */
-export function pruneLegacySessionIndex(home: string): number {
-  const indexPath = join(home, ".kimi-code", "sessions", "session_index.jsonl");
-  if (!existsSync(indexPath)) return 0;
-  const lines = readFileSync(indexPath, "utf8").split("\n");
-  const kept: string[] = [];
-  let pruned = 0;
-
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    try {
-      const entry = JSON.parse(line) as { cwd?: string; workDir?: string };
-      const cwd = entry.cwd || entry.workDir || "";
-      if (LEGACY_REPO_NAMES.some((legacy) => cwd.includes(legacy))) {
-        pruned++;
-        continue;
-      }
-      kept.push(line);
-    } catch {
-      kept.push(line);
-    }
-  }
-
-  writeFileSync(indexPath, kept.length > 0 ? `${kept.join("\n")}\n` : "");
-  return pruned;
 }
 
 function countOrphanedSnapshots(snapshotDir: string): number {
@@ -687,34 +626,6 @@ export async function removeOrphanedSnapshots(snapshotDir: string): Promise<numb
     }
   }
   return removed;
-}
-
-export function removeLegacyCursorSlugs(home: string): string[] {
-  const removed: string[] = [];
-  const cursorProjects = join(home, ".cursor", "projects");
-  for (const slug of listLegacyCursorSlugs(home)) {
-    const path = join(cursorProjects, slug);
-    if (existsSync(path)) {
-      rmSync(path, { recursive: true, force: true });
-      removed.push(slug);
-    }
-  }
-  return removed;
-}
-
-export function removeLegacySymlink(home: string): boolean {
-  const legacyPath = legacyClonePath(home);
-  if (existsSync(legacyPath)) {
-    try {
-      if (lstatSync(legacyPath).isSymbolicLink()) {
-        unlinkSync(legacyPath);
-        return true;
-      }
-    } catch {
-      /* not a symlink */
-    }
-  }
-  return false;
 }
 
 export async function fixWorkspaceHealth(

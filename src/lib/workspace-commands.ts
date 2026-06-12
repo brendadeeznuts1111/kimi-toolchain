@@ -12,11 +12,10 @@ import {
   LEGACY_REPO_NAMES,
   listLegacyCursorSlugs,
   listActiveLegacyCursorSlugs,
-  removeLegacyCursorSlugs,
-  removeLegacySymlink,
   canonicalClonePath,
   legacyClonePath,
 } from "./workspace-health.ts";
+import { removeLegacyCursorSlugs, removeLegacySymlink } from "../bin/kimi-cleanup-legacy.ts";
 
 export interface WorkspaceCommandFlags {
   json: boolean;
