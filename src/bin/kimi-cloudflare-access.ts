@@ -25,6 +25,8 @@ import {
   fetchLiveState,
   loadPolicyConfig,
 } from "../lib/cloudflare-access-policy.ts";
+import { existsSync } from "fs";
+import { parsePolicyConfig } from "../lib/cloudflare-access-policy.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -708,27 +710,47 @@ export interface OrphanedResource {
   suggestedAction: string;
 }
 
-const KNOWN_PROJECT_ROOTS = [
-  `${Bun.env.HOME || "/tmp"}/kimi-toolchain`,
-  `${Bun.env.HOME || "/tmp"}/factorywager-registry`,
-  `${Bun.env.HOME || "/tmp"}/betos-api`,
-  `${Bun.env.HOME || "/tmp"}/accounting-telegram`,
-  `${Bun.env.HOME || "/tmp"}/bettotal`,
-  `${Bun.env.HOME || "/tmp"}/Projects`,
-];
+const KNOWN_PROJECT_ROOTS = loadProjectRoots();
+
+function loadProjectRoots(): string[] {
+  const defaults = [
+    `${Bun.env.HOME || "/tmp"}/kimi-toolchain`,
+    `${Bun.env.HOME || "/tmp"}/Projects`,
+  ];
+  try {
+    const userConfigPath = `${Bun.env.HOME || "/tmp"}/.kimi-code/project-mappings.yml`;
+    if (existsSync(userConfigPath)) {
+      const text = Bun.file(userConfigPath).textSync?.() || "";
+      const parsed = parsePolicyConfig(text);
+      const roots = parsed?.roots;
+      if (Array.isArray(roots)) return roots as string[];
+    }
+  } catch {
+    /* ignore */
+  }
+  return defaults;
+}
 
 /** Explicit overrides when heuristic discovery fails */
-const APP_TO_PROJECT_OVERRIDE: Record<string, string> = {
-  ledger: `${Bun.env.HOME || "/tmp"}/accounting-telegram`,
-  "ledger-bypass-api": `${Bun.env.HOME || "/tmp"}/accounting-telegram`,
-  "ledger-bypass-status": `${Bun.env.HOME || "/tmp"}/accounting-telegram`,
-  "ledger-bypass-health": `${Bun.env.HOME || "/tmp"}/accounting-telegram`,
-  "ledger-bypass-webhook": `${Bun.env.HOME || "/tmp"}/accounting-telegram`,
-  Documentation: `${Bun.env.HOME || "/tmp"}/factorywager-registry`,
-  "Docs Archive": `${Bun.env.HOME || "/tmp"}/factorywager-registry`,
-  "Registry Storage": `${Bun.env.HOME || "/tmp"}/factorywager-registry`,
-  "my-stateless-mcp-server": "", // explicitly unmapped — no local project
-};
+const APP_TO_PROJECT_OVERRIDE: Record<string, string> = loadAppOverrides();
+
+function loadAppOverrides(): Record<string, string> {
+  const defaults: Record<string, string> = {};
+  try {
+    const userConfigPath = `${Bun.env.HOME || "/tmp"}/.kimi-code/project-mappings.yml`;
+    if (existsSync(userConfigPath)) {
+      const text = Bun.file(userConfigPath).textSync?.() || "";
+      const parsed = parsePolicyConfig(text);
+      const overrides = parsed?.appOverrides;
+      if (overrides && typeof overrides === "object") {
+        return { ...defaults, ...(overrides as Record<string, string>) };
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return defaults;
+}
 
 export function domainToProjectName(domain?: string): string {
   if (!domain) return "";
@@ -922,39 +944,55 @@ const INFRASTRUCTURE_MAP: Record<
     d1Databases?: string[];
     kvNamespaces?: string[];
   }
-> = {
-  "API Gateway": {
-    workerName: "betos-api",
-    workerRoute: "api.factory-wager.com/*",
-    d1Databases: ["betos-db"],
-  },
-  "BetTotal Control Center": {
-    workerName: "bettotal-control-center",
-    workerRoute: "control.factory-wager.com/*",
-  },
-  "Registry Storage": { r2Buckets: ["ledger-receipts"] },
-  ledger: {
-    workerName: "accounting-telegram",
-    workerRoute: "ledger.factory-wager.com/*",
-    r2Buckets: ["ledger-receipts"],
-  },
-  "ledger-bypass-api": {
-    workerName: "accounting-telegram",
-    workerRoute: "ledger.factory-wager.com/*",
-  },
-  "ledger-bypass-status": {
-    workerName: "accounting-telegram",
-    workerRoute: "ledger.factory-wager.com/*",
-  },
-  "ledger-bypass-health": {
-    workerName: "accounting-telegram",
-    workerRoute: "ledger.factory-wager.com/*",
-  },
-  "ledger-bypass-webhook": {
-    workerName: "accounting-telegram",
-    workerRoute: "ledger.factory-wager.com/*",
-  },
-};
+> = loadInfraMap();
+
+function loadInfraMap(): Record<
+  string,
+  {
+    workerName?: string;
+    workerRoute?: string;
+    r2Buckets?: string[];
+    d1Databases?: string[];
+    kvNamespaces?: string[];
+  }
+> {
+  const defaults: Record<
+    string,
+    {
+      workerName?: string;
+      workerRoute?: string;
+      r2Buckets?: string[];
+      d1Databases?: string[];
+      kvNamespaces?: string[];
+    }
+  > = {};
+  try {
+    const userConfigPath = `${Bun.env.HOME || "/tmp"}/.kimi-code/project-mappings.yml`;
+    if (existsSync(userConfigPath)) {
+      const text = Bun.file(userConfigPath).textSync?.() || "";
+      const parsed = parsePolicyConfig(text);
+      const infra = parsed?.infrastructure;
+      if (infra && typeof infra === "object") {
+        return {
+          ...defaults,
+          ...(infra as Record<
+            string,
+            {
+              workerName?: string;
+              workerRoute?: string;
+              r2Buckets?: string[];
+              d1Databases?: string[];
+              kvNamespaces?: string[];
+            }
+          >),
+        };
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return defaults;
+}
 
 async function discoverInfrastructure(
   app: AccessApplication,
@@ -1561,7 +1599,17 @@ async function main() {
       process.exit(1);
     }
 
-    const accountId = Bun.env.CLOUDFLARE_ACCOUNT_ID || "7a470541a704caaf91e71efccc78fd36";
+    let accountId: string;
+    try {
+      ({ accountId } = await getCredentials());
+    } catch (e: any) {
+      if (jsonMode) {
+        jsonOut({ error: e.message });
+      } else {
+        log("error", e.message);
+      }
+      process.exit(1);
+    }
 
     // Build MCP script for policy updates
     const policyUpdates: Array<{

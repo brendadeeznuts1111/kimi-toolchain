@@ -200,7 +200,7 @@ async function validateCommits(
 ): Promise<{ valid: Commit[]; invalid: string[] }> {
   const result = await $`git log --format=%H%x00%s%x00%b%x00`.cwd(projectDir).nothrow().quiet();
   const raw = result.stdout.toString();
-  const parts = raw.split("\x00").filter(Boolean);
+  const parts = raw.split("\x00");
 
   const valid: Commit[] = [];
   const invalid: string[] = [];
@@ -208,7 +208,7 @@ async function validateCommits(
   for (let i = 0; i < parts.length; i += 3) {
     const hash = parts[i]?.trim() || "";
     const subject = parts[i + 1]?.trim() || "";
-    const body = parts[i + 2]?.trim() || "";
+    const body = parts[i + 2] ?? "";
     const parsed = parseCommit(hash, subject, body);
     if (parsed) valid.push(parsed);
     else if (subject) invalid.push(subject);

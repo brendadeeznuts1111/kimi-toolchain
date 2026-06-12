@@ -203,9 +203,8 @@ async function versionMatrix(): Promise<CheckResult[]> {
   results.push(ok("MCP Bridge", TOOLCHAIN_VERSION));
 
   if (manifest) {
-    const synced = manifest.gitHead === repoHead && !dirty;
     const syncLabel = `${manifest.lastSyncedAt.slice(0, 19).replace("T", " ")} UTC`;
-    if (synced) {
+    if (manifest.gitHead === repoHead && !dirty) {
       results.push(ok("Last sync", syncLabel));
     } else if (dirty) {
       results.push(warn("Last sync", `${syncLabel} — repo has uncommitted changes`));
@@ -777,7 +776,10 @@ async function main() {
   if (doctorPath?.includes(".local/bin")) {
     try {
       const head = await Bun.file(doctorPath).text();
-      if (head.includes(".kimi-code/tools/kimi-doctor.ts")) {
+      if (
+        head.includes(".kimi-code/tools/kimi-doctor.ts") ||
+        head.includes(".kimi-code/tools/kimi-toolchain.ts")
+      ) {
         results.push(ok("kimi-doctor wrapper", "thin exec → ~/.kimi-code/tools/"));
       } else {
         results.push(

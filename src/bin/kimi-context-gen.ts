@@ -11,6 +11,7 @@ import { $, semver, TOML } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir, log, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import { checkDocDrift } from "../lib/readme-sync.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -138,41 +139,11 @@ interface FreshnessResult {
 }
 
 async function checkReadmeDrift(projectDir: string): Promise<FreshnessResult["readmeDrift"]> {
-  const readmePath = join(projectDir, "README.md");
-  const pkgPath = join(projectDir, "package.json");
-
-  if (!existsSync(readmePath) || !existsSync(pkgPath)) {
-    return { fresh: false, missingFromReadme: [], extraInReadme: [] };
-  }
-
-  const readme = await Bun.file(readmePath).text();
-  const pkg = (await Bun.file(pkgPath).json()) as any;
-  const scripts = pkg.scripts || {};
-
-  const readmeScripts: string[] = [];
-  const scriptPattern = /(?:bun run |npm run |yarn )([\w-]+)/g;
-  let match;
-  while ((match = scriptPattern.exec(readme)) !== null) {
-    readmeScripts.push(match[1]);
-  }
-
-  const codeBlocks = readme.match(/```[\s\S]*?```/g) || [];
-  for (const block of codeBlocks) {
-    for (const scriptName of Object.keys(scripts)) {
-      if (block.includes(scriptName) && !readmeScripts.includes(scriptName)) {
-        readmeScripts.push(scriptName);
-      }
-    }
-  }
-
-  const pkgScripts = Object.keys(scripts);
-  const missingFromReadme = pkgScripts.filter((s) => !readmeScripts.includes(s));
-  const extraInReadme = readmeScripts.filter((s) => !pkgScripts.includes(s));
-
+  const drift = await checkDocDrift(projectDir);
   return {
-    fresh: missingFromReadme.length === 0 && extraInReadme.length === 0,
-    missingFromReadme,
-    extraInReadme,
+    fresh: drift.fresh,
+    missingFromReadme: drift.missingFromReadme,
+    extraInReadme: drift.extraInReadme,
   };
 }
 

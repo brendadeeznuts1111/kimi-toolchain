@@ -34,6 +34,12 @@ export interface AccessPolicyConfig {
   apps: AppConfig[];
   /** When true, only apps listed in this config are managed. Unlisted live apps are ignored, not deleted. */
   scoped?: boolean;
+  /** Optional user-level roots for local project discovery. */
+  roots?: string[];
+  /** Optional app-name → local-path overrides. */
+  appOverrides?: Record<string, string>;
+  /** Optional infrastructure bindings per app name. */
+  infrastructure?: Record<string, unknown>;
 }
 
 // ── Config Loader ────────────────────────────────────────────────────
@@ -52,7 +58,8 @@ export async function loadPolicyConfig(cwd: string): Promise<AccessPolicyConfig 
     }
   }
 
-  // Best-effort YAML parse for simple flat structures
+  // Try YAML — Bun has built-in YAML support via Bun.TOML.parse for simple cases,
+  // but for full YAML we use js-yaml if available, otherwise best-effort parse.
   const yamlPaths = [
     `${cwd}/.cloudflare-access.yml`,
     `${cwd}/.cloudflare-access.yaml`,
@@ -63,13 +70,19 @@ export async function loadPolicyConfig(cwd: string): Promise<AccessPolicyConfig 
     const file = Bun.file(p);
     if (await file.exists()) {
       const text = await file.text();
-      return parsePolicyConfig(text);
+      try {
+        // Attempt js-yaml if available (dev dependency)
+        const yaml = await import("js-yaml");
+        return yaml.load(text) as AccessPolicyConfig;
+      } catch {
+        return parsePolicyConfig(text);
+      }
     }
   }
   return null;
 }
 
-function parsePolicyConfig(yaml: string): AccessPolicyConfig {
+export function parsePolicyConfig(yaml: string): AccessPolicyConfig {
   // Indentation-aware YAML parser for the Access policy subset.
   // Supports: apps, policies, include/require/exclude arrays, and nested objects.
   const lines = yaml.split("\n");
