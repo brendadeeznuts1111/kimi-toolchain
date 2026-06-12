@@ -333,7 +333,7 @@ function doctor(home: string) {
 
 if (import.meta.main) {
   const home = Bun.env.HOME || "/tmp";
-  const cmd = process.argv[2] || "status";
+  const cmd = Bun.argv[2] || "status";
 
   if (cmd === "doctor") {
     doctor(home);

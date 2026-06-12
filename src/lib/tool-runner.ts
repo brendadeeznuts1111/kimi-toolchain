@@ -29,10 +29,12 @@ export interface ToolInvocation {
   isError: boolean;
 }
 
+/** Return the canonical tools directory path (~/.kimi-code/tools). */
 export function toolsDir(): string {
   return join(Bun.env.HOME || "/tmp", ".kimi-code", "tools");
 }
 
+/** Invoke a tool script directly by path with timeout and graceful termination. */
 export async function invokeTool(
   toolPath: string,
   args: string[],
@@ -72,8 +74,8 @@ export async function invokeTool(
 
   try {
     exitCode = await proc.exited;
-  } catch (e: any) {
-    error = e.message || String(e);
+  } catch (e: unknown) {
+    error = e instanceof Error ? e.message : String(e);
   } finally {
     cleanup();
   }
@@ -81,8 +83,8 @@ export async function invokeTool(
   try {
     stdout = await Bun.readableStreamToText(proc.stdout);
     stderr = await Bun.readableStreamToText(proc.stderr);
-  } catch (e: any) {
-    if (!error) error = e.message || String(e);
+  } catch (e: unknown) {
+    if (!error) error = e instanceof Error ? e.message : String(e);
   }
 
   if (timedOut && !error) {

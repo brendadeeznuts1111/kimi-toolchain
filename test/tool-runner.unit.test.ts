@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
+import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { invokeTool, runTool, toolsDir } from "../src/lib/tool-runner.ts";
@@ -55,13 +55,25 @@ describe("tool-runner", () => {
   });
 
   test("runTool resolves tool from ~/.kimi-code/tools", async () => {
-    const dir = toolsDir();
-    if (!existsSync(dir)) {
-      // Skip when desktop layout not present in test environment
-      return;
+    const tmpHome = join(tmpdir(), `kimi-tool-runner-home-${Bun.randomUUIDv7()}`);
+    mkdirSync(tmpHome, { recursive: true });
+    const toolsDirPath = join(tmpHome, ".kimi-code", "tools");
+    mkdirSync(toolsDirPath, { recursive: true });
+    writeFileSync(
+      join(toolsDirPath, "kimi-doctor.ts"),
+      "#!/usr/bin/env bun\nconsole.log('mock-doctor-ok');\n"
+    );
+
+    const prevHome = Bun.env.HOME;
+    Bun.env.HOME = tmpHome;
+    try {
+      const result = await runTool("kimi-doctor", [], { timeoutMs: 5000 });
+      expect(result.stdout).toContain("mock-doctor-ok");
+      expect(result.exitCode).toBe(0);
+      expect(result.isError).toBe(false);
+    } finally {
+      Bun.env.HOME = prevHome;
+      rmSync(tmpHome, { recursive: true, force: true });
     }
-    const result = await runTool("kimi-doctor", ["--quick"], { timeoutMs: 30000 });
-    expect(result.stdout.length).toBeGreaterThan(0);
-    expect(result.exitCode).toBeDefined();
   });
 });

@@ -11,6 +11,7 @@ import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
 import { resolveProjectRoot, printProjectBanner } from "../lib/utils.ts";
+
 import {
   buildClassifiedFailure,
   classifyFailure,
@@ -18,6 +19,8 @@ import {
   taxonomyPath,
   type ClassifiedFailure,
 } from "../lib/error-taxonomy.ts";
+
+const decoder = new TextDecoder();
 
 interface GitChange {
   file: string;
@@ -557,7 +560,7 @@ async function main() {
         combined.set(chunk, offset);
         offset += chunk.length;
       }
-      errorText = new TextDecoder().decode(combined);
+      errorText = decoder.decode(combined);
     }
 
     if (!errorText.trim()) {
@@ -652,6 +655,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Debug wizard failed:", err.message);
+  console.error("kimi-debug failed:", err.message);
   process.exit(1);
 });

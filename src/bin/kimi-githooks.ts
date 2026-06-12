@@ -440,6 +440,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Git hooks failed:", err.message);
+  console.error("kimi-githooks failed:", err.message);
   process.exit(1);
 });

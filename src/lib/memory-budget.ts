@@ -4,6 +4,8 @@
 
 import { $ } from "bun";
 
+const decoder = new TextDecoder();
+
 export interface MemoryCheckResult {
   name: string;
   status: "ok" | "warn" | "error";
@@ -86,7 +88,7 @@ export function getChromeRssMB(): number {
 }
 
 export function getAppRssGroups(): AppRssGroup[] {
-  const output = new TextDecoder().decode(Bun.spawnSync(["ps", "-axo", "rss,command"]).stdout);
+  const output = decoder.decode(Bun.spawnSync(["ps", "-axo", "rss,command"]).stdout);
   const totals = new Map<string, { mb: number; count: number }>();
 
   for (const line of output.split("\n").slice(1)) {
@@ -119,7 +121,7 @@ export function getAppRssGroups(): AppRssGroup[] {
 }
 
 function getRssByPattern(pattern: RegExp): number {
-  const output = new TextDecoder().decode(Bun.spawnSync(["ps", "-axo", "rss,command"]).stdout);
+  const output = decoder.decode(Bun.spawnSync(["ps", "-axo", "rss,command"]).stdout);
   let total = 0;
   for (const line of output.split("\n")) {
     if (pattern.test(line)) {
@@ -131,15 +133,13 @@ function getRssByPattern(pattern: RegExp): number {
 }
 
 export function isDockerDesktopRunning(): boolean {
-  const output = new TextDecoder().decode(
-    Bun.spawnSync(["pgrep", "-lf", "Docker|com.docker"]).stdout
-  );
+  const output = decoder.decode(Bun.spawnSync(["pgrep", "-lf", "Docker|com.docker"]).stdout);
   return output.trim().length > 0;
 }
 
 export function isDockerCliInstalled(): boolean {
   try {
-    const out = new TextDecoder().decode(Bun.spawnSync(["which", "docker"]).stdout);
+    const out = decoder.decode(Bun.spawnSync(["which", "docker"]).stdout);
     return out.trim().length > 0;
   } catch {
     return false;
@@ -147,14 +147,12 @@ export function isDockerCliInstalled(): boolean {
 }
 
 export function isSyncDaemonRunning(): boolean {
-  const output = new TextDecoder().decode(
-    Bun.spawnSync(["pgrep", "-lf", "sync-to-desktop"]).stdout
-  );
+  const output = decoder.decode(Bun.spawnSync(["pgrep", "-lf", "sync-to-desktop"]).stdout);
   return output.trim().length > 0;
 }
 
 export function countOrphanCandidates(): number {
-  const output = new TextDecoder().decode(Bun.spawnSync(["ps", "aux"]).stdout);
+  const output = decoder.decode(Bun.spawnSync(["ps", "aux"]).stdout);
   let count = 0;
   for (const line of output.split("\n")) {
     if (

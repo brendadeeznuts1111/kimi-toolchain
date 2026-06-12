@@ -868,6 +868,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Doctor failed:", err.message);
+  console.error("kimi-doctor failed:", err.message);
   process.exit(1);
 });

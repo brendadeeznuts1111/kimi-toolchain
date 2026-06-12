@@ -78,6 +78,48 @@ function getDb(): Database {
   return db;
 }
 
+interface DbSessionRow {
+  id: string;
+  project: string;
+  cwd: string;
+  started_at: string;
+  ended_at: string | null;
+  last_cmd: string;
+  cmd_history: string;
+  env_snapshot: string;
+  git_head: string;
+  lockfile_hash: string;
+  context_size: number;
+  key_decisions: string;
+  status: string;
+}
+
+interface DbCountRow {
+  c: number;
+}
+
+interface DbKnowledgeNodeRow {
+  id: string;
+  label: string;
+  type: string;
+  project: string;
+  created_at: string;
+  metadata: string | null;
+}
+
+interface DbKnowledgeEdgeRow {
+  from_id: string;
+  to_id: string;
+  relation: string;
+  weight: number;
+}
+
+interface DbDoctorRunRow {
+  timestamp: number;
+  r_score: number | null;
+  git_head: string | null;
+}
+
 // ── Session Store ────────────────────────────────────────────────────
 
 export function saveSession(
@@ -109,13 +151,15 @@ export function saveSession(
 
 export function recallSessions(project?: string, limit = 10): SessionRecord[] {
   const db = getDb();
-  let rows;
+  let rows: DbSessionRow[];
   if (project) {
     rows = db
       .query("SELECT * FROM sessions WHERE project = ? ORDER BY started_at DESC LIMIT ?")
-      .all(project, limit) as any[];
+      .all(project, limit) as DbSessionRow[];
   } else {
-    rows = db.query("SELECT * FROM sessions ORDER BY started_at DESC LIMIT ?").all(limit) as any[];
+    rows = db
+      .query("SELECT * FROM sessions ORDER BY started_at DESC LIMIT ?")
+      .all(limit) as DbSessionRow[];
   }
   db.close();
   return rows.map(parseSessionRow);
@@ -127,7 +171,7 @@ export function getActiveSession(project: string): SessionRecord | null {
     .query(
       "SELECT * FROM sessions WHERE project = ? AND status = 'active' ORDER BY started_at DESC LIMIT 1"
     )
-    .get(project) as any;
+    .get(project) as DbSessionRow | null;
   db.close();
   return row ? parseSessionRow(row) : null;
 }
@@ -155,12 +199,12 @@ function parseSessionRow(r: any): SessionRecord {
 export async function resumeSession(
   projectPath: string
 ): Promise<{ session: SessionRecord | null; stale: boolean; changes: string[] }> {
-  const project = getProjectName(projectPath);
+  const project = await getProjectName(projectPath);
   const db = getDb();
 
   const row = db
     .query("SELECT * FROM sessions WHERE project = ? ORDER BY started_at DESC LIMIT 1")
-    .get(project) as any;
+    .get(project) as DbSessionRow | null;
   db.close();
 
   if (!row) {
@@ -234,7 +278,9 @@ export function getGraph(
   _depth = 1
 ): { nodes: KnowledgeNode[]; edges: KnowledgeEdge[] } {
   const db = getDb();
-  const nodes = db.query("SELECT * FROM knowledge_nodes WHERE project = ?").all(project) as any[];
+  const nodes = db
+    .query("SELECT * FROM knowledge_nodes WHERE project = ?")
+    .all(project) as DbKnowledgeNodeRow[];
   const nodeIds = new Set(nodes.map((n) => n.id));
 
   const edges = db
@@ -245,17 +291,17 @@ export function getGraph(
           .join(",") +
         ")"
     )
-    .all(...Array.from(nodeIds)) as any[];
+    .all(...Array.from(nodeIds)) as DbKnowledgeEdgeRow[];
 
   db.close();
   return {
     nodes: nodes.map((n) => ({
       id: n.id,
       label: n.label,
-      type: n.type,
+      type: n.type as KnowledgeNode["type"],
       project: n.project,
       createdAt: n.created_at,
-      metadata: n.metadata,
+      metadata: n.metadata ?? undefined,
     })),
     edges: edges.map((e) => ({
       from: e.from_id,
@@ -281,22 +327,24 @@ export function getImpactGraph(nodeId: string, depth = 2): ImpactResult {
     if (visited.has(current.id) || current.depth > depth) continue;
     visited.add(current.id);
 
-    const node = db.query("SELECT * FROM knowledge_nodes WHERE id = ?").get(current.id) as any;
+    const node = db
+      .query("SELECT * FROM knowledge_nodes WHERE id = ?")
+      .get(current.id) as DbKnowledgeNodeRow | null;
     if (node) {
       affectedNodes.push({
         id: node.id,
         label: node.label,
-        type: node.type,
+        type: node.type as KnowledgeNode["type"],
         project: node.project,
         createdAt: node.created_at,
-        metadata: node.metadata,
+        metadata: node.metadata ?? undefined,
       });
       affectedProjects.add(node.project);
     }
 
     const edges = db
       .query("SELECT * FROM knowledge_edges WHERE from_id = ?")
-      .all(current.id) as any[];
+      .all(current.id) as DbKnowledgeEdgeRow[];
     for (const e of edges) {
       if (!visited.has(e.to_id)) {
         queue.push({ id: e.to_id, depth: current.depth + 1 });
@@ -322,18 +370,20 @@ export function searchNodes(query: string, project?: string): KnowledgeNode[] {
   if (project) {
     rows = db
       .query("SELECT * FROM knowledge_nodes WHERE project = ? AND label LIKE ?")
-      .all(project, `%${query}%`) as any[];
+      .all(project, `%${query}%`) as DbKnowledgeNodeRow[];
   } else {
-    rows = db.query("SELECT * FROM knowledge_nodes WHERE label LIKE ?").all(`%${query}%`) as any[];
+    rows = db
+      .query("SELECT * FROM knowledge_nodes WHERE label LIKE ?")
+      .all(`%${query}%`) as DbKnowledgeNodeRow[];
   }
   db.close();
   return rows.map((n) => ({
     id: n.id,
     label: n.label,
-    type: n.type,
+    type: n.type as KnowledgeNode["type"],
     project: n.project,
     createdAt: n.created_at,
-    metadata: n.metadata,
+    metadata: n.metadata ?? undefined,
   }));
 }
 
@@ -362,7 +412,7 @@ export function getWarningHistory(checkName: string): Array<{
      WHERE warnings_json LIKE ?
      ORDER BY timestamp DESC`
     )
-    .all(`%"check":"${checkName}"%`) as any[];
+    .all(`%"check":"${checkName}"%`) as DbDoctorRunRow[];
   db.close();
   return rows.map((r) => ({
     timestamp: r.timestamp,
@@ -379,12 +429,12 @@ export function getStats(): {
   dbSize: string;
 } {
   const db = getDb();
-  const sessions = (db.query("SELECT COUNT(*) as c FROM sessions").get() as any).c;
+  const sessions = (db.query("SELECT COUNT(*) as c FROM sessions").get() as DbCountRow).c;
   const active = (
-    db.query("SELECT COUNT(*) as c FROM sessions WHERE status = 'active'").get() as any
+    db.query("SELECT COUNT(*) as c FROM sessions WHERE status = 'active'").get() as DbCountRow
   ).c;
-  const nodes = (db.query("SELECT COUNT(*) as c FROM knowledge_nodes").get() as any).c;
-  const edges = (db.query("SELECT COUNT(*) as c FROM knowledge_edges").get() as any).c;
+  const nodes = (db.query("SELECT COUNT(*) as c FROM knowledge_nodes").get() as DbCountRow).c;
+  const edges = (db.query("SELECT COUNT(*) as c FROM knowledge_edges").get() as DbCountRow).c;
   db.close();
 
   const file = Bun.file(DB_PATH);
@@ -401,12 +451,12 @@ export function getStats(): {
 
 // ── Auto-Save Integration ────────────────────────────────────────────
 
-let _autoSaveInterval: Timer | null = null;
+let _autoSaveInterval: ReturnType<typeof setInterval> | null = null;
 
-export function startAutoSave(projectPath: string, intervalMs = 30000) {
+export async function startAutoSave(projectPath: string, intervalMs = 30000) {
   if (_autoSaveInterval) clearInterval(_autoSaveInterval);
 
-  const project = getProjectName(projectPath);
+  const project = await getProjectName(projectPath);
   const id = randomUUIDv7();
 
   _autoSaveInterval = setInterval(async () => {
@@ -483,11 +533,12 @@ function doctor(): Array<{
       message: "Database accessible",
       fixable: false,
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
     checks.push({
       name: "db-access",
       status: "error",
-      message: `Cannot open DB: ${e.message}`,
+      message: `Cannot open DB: ${msg}`,
       fixable: false,
     });
     return checks;
@@ -502,18 +553,19 @@ function doctor(): Array<{
       LEFT JOIN knowledge_nodes n2 ON e.to_id = n2.id
       WHERE n1.id IS NULL OR n2.id IS NULL
     `)
-      .all() as any[];
+      .all() as Array<{ from_id: string; to_id: string }>;
     checks.push({
       name: "orphaned-edges",
       status: orphanRows.length === 0 ? "ok" : "warn",
       message: `${orphanRows.length} orphaned edge(s)`,
       fixable: orphanRows.length > 0,
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
     checks.push({
       name: "orphaned-edges",
       status: "warn",
-      message: `Check failed: ${e.message}`,
+      message: `Check failed: ${msg}`,
       fixable: false,
     });
   }
@@ -537,18 +589,19 @@ function doctor(): Array<{
   try {
     const stuck = db
       .query("SELECT COUNT(*) as c FROM sessions WHERE status = 'active' AND started_at < ?")
-      .get(new Date(Date.now() - SESSION_TTL_MS).toISOString()) as any;
+      .get(new Date(Date.now() - SESSION_TTL_MS).toISOString()) as DbCountRow;
     checks.push({
       name: "stuck-sessions",
       status: stuck.c > 0 ? "warn" : "ok",
       message: `${stuck.c} stuck session(s)`,
       fixable: stuck.c > 0,
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
     checks.push({
       name: "stuck-sessions",
       status: "warn",
-      message: `Check failed: ${e.message}`,
+      message: `Check failed: ${msg}`,
       fixable: false,
     });
   }
@@ -593,7 +646,7 @@ async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "stats";
   const projectPath = await resolveProjectRoot(Bun.cwd);
-  const project = getProjectName(projectPath);
+  const project = await getProjectName(projectPath);
 
   printProjectBanner("Kimi Memory — Session Store & Knowledge Graph");
 
@@ -653,7 +706,7 @@ async function main() {
   } else if (command === "autosave") {
     const action = args[1] || "start";
     if (action === "start") {
-      const id = startAutoSave(projectPath);
+      const id = await startAutoSave(projectPath);
       console.log(`  ✓ Auto-save started: ${id} (every 30s)`);
     } else {
       stopAutoSave();
@@ -808,6 +861,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Memory failed:", err.message);
+  console.error("kimi-memory failed:", err.message);
   process.exit(1);
 });

@@ -93,7 +93,7 @@ async function saveSnapshot(projectDir: string, description?: string): Promise<s
   ensureDir(SNAPSHOT_DIR);
 
   const id = `snap-${Date.now()}`;
-  const project = getProjectName(projectDir);
+  const project = await getProjectName(projectDir);
   const gitState = await captureGitState(projectDir);
 
   const snapshot: Snapshot = {
@@ -301,7 +301,7 @@ async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "save";
   const projectDir = await resolveProjectRoot(Bun.cwd);
-  const project = getProjectName(projectDir);
+  const project = await getProjectName(projectDir);
 
   printProjectBanner("Kimi Snapshot — Environment Capture", project);
 
@@ -414,6 +414,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Snapshot failed:", err.message);
+  console.error("kimi-snapshot failed:", err.message);
   process.exit(1);
 });

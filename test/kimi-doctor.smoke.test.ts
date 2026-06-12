@@ -13,6 +13,7 @@ const GUARDIAN = join(REPO_ROOT, "src/bin/kimi-guardian.ts");
 const KIMI_NEW = join(REPO_ROOT, "src/bin/kimi-new.ts");
 const KIMI_FIX = join(REPO_ROOT, "src/bin/kimi-fix.ts");
 const CLOUDFLARE_ACCESS = join(REPO_ROOT, "src/bin/kimi-cloudflare-access.ts");
+const CLEANUP_LEGACY = join(REPO_ROOT, "src/bin/kimi-cleanup-legacy.ts");
 
 async function runTool(
   path: string,
@@ -148,6 +149,22 @@ describe("kimi-doctor smoke", () => {
     expect(await proc.exited).toBe(0);
     expect(out).toContain("workspace");
   }, 5_000);
+
+  test("kimi-cleanup-legacy doctor returns structured output", async () => {
+    const { stdout, exitCode } = await runTool(CLEANUP_LEGACY, ["doctor"]);
+    expect(stdout).toContain("kimi-cleanup-legacy");
+    expect(stdout).toMatch(
+      /legacy-sessions|legacy-index|legacy-cursor|legacy-symlink|legacy-clone/
+    );
+    expect(exitCode === 0 || exitCode === 1).toBe(true);
+  }, 15_000);
+
+  test("kimi-cleanup-legacy status exits cleanly", async () => {
+    const { stdout, exitCode } = await runTool(CLEANUP_LEGACY, ["status"]);
+    expect(stdout).toContain("Legacy path migration status");
+    expect(stdout).toMatch(/Session folders|Index lines|Cursor slugs/);
+    expect(exitCode).toBe(0);
+  }, 15_000);
 
   test("doctor --workspace --json returns structured output", async () => {
     const { stdout, exitCode } = await runTool(DOCTOR, ["--workspace", "--json"]);

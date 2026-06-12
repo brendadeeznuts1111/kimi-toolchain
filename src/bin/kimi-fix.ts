@@ -256,7 +256,7 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
   const agentsPath = join(project, "AGENTS.md");
   if (!existsSync(agentsPath)) {
     log("agents", "creating AGENTS.md...");
-    await writeFile(agentsPath, buildAgentsMd(getProjectName(project)), dryRun);
+    await writeFile(agentsPath, buildAgentsMd(await getProjectName(project)), dryRun);
   }
 
   const kimiCodeDir = join(project, ".kimi-code");
@@ -380,6 +380,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Fix failed:", err.message);
+  console.error("kimi-fix failed:", err.message);
   process.exit(1);
 });

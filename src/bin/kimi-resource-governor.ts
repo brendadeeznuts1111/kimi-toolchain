@@ -690,7 +690,7 @@ async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "status";
   const projectDir = await resolveProjectRoot(Bun.cwd);
-  const project = getProjectName(projectDir);
+  const project = await getProjectName(projectDir);
 
   printProjectBanner("Kimi Resource Governor v2.0");
 
@@ -912,6 +912,6 @@ process.on("beforeExit", () => {
 });
 
 main().catch((err) => {
-  console.error("Governor failed:", err.message);
+  console.error("kimi-resource-governor failed:", err.message);
   process.exit(1);
 });

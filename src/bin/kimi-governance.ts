@@ -147,7 +147,7 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
   async function spawnCoverage(json: boolean) {
     const proc = Bun.spawn(["bun", ...bunTestArgs({ coverage: true, json, fast: fastCoverage })], {
       cwd: projectDir,
-      env: { ...process.env, KIMI_COVERAGE_SCAN: "1" },
+      env: { ...Bun.env, KIMI_COVERAGE_SCAN: "1" },
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -306,7 +306,7 @@ async function storeCoverageHistory(projectDir: string, report: CoverageReport) 
     }
   }
 
-  const project = getProjectName(projectDir);
+  const project = await getProjectName(projectDir);
   history.push({
     project,
     timestamp: new Date().toISOString(),
@@ -396,7 +396,7 @@ What becomes easier or more difficult to do because of this change?
 
 async function generateReadme(projectDir: string): Promise<string> {
   const filepath = join(projectDir, "README.md");
-  const content = `# ${getProjectName(projectDir)}\n\n## Getting Started\n\n\`\`\`bash\nbun install\nbun run dev\n\`\`\`\n\n## Scripts\n\nSee \`package.json\` for available scripts.\n`;
+  const content = `# ${await getProjectName(projectDir)}\n\n## Getting Started\n\n\`\`\`bash\nbun install\nbun run dev\n\`\`\`\n\n## Scripts\n\nSee \`package.json\` for available scripts.\n`;
   await Bun.write(filepath, content);
   return filepath;
 }
@@ -467,7 +467,7 @@ async function scaffoldAdr(projectDir: string, title: string): Promise<string> {
 // ── R-Score ──────────────────────────────────────────────────────────
 
 async function computeRScore(projectDir: string): Promise<RScore> {
-  const project = getProjectName(projectDir);
+  const project = await getProjectName(projectDir);
 
   const gov = await checkGovernance(projectDir);
   const coverage = await checkCoverage(projectDir);
@@ -527,7 +527,7 @@ async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "score";
   const projectDir = await resolveProjectRoot(Bun.cwd);
-  const project = getProjectName(projectDir);
+  const project = await getProjectName(projectDir);
 
   printProjectBanner("Kimi Governance — Quality Gates", project);
 
@@ -1016,6 +1016,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Governance check failed:", err.message);
+  console.error("kimi-governance failed:", err.message);
   process.exit(1);
 });

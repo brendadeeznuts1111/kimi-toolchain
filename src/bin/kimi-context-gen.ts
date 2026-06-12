@@ -254,7 +254,7 @@ async function computeFreshness(
 
 async function storeMeta(projectDir: string, hashes: ConfigHash[], score: number) {
   const meta: ContextMeta = {
-    project: getProjectName(projectDir),
+    project: await getProjectName(projectDir),
     generatedAt: new Date().toISOString(),
     configHashes: hashes,
     freshnessScore: score,
@@ -265,7 +265,7 @@ async function storeMeta(projectDir: string, hashes: ConfigHash[], score: number
 // ── CONTEXT.md Generator ─────────────────────────────────────────────
 
 async function generateContext(projectDir: string): Promise<string> {
-  const name = getProjectName(projectDir);
+  const name = await getProjectName(projectDir);
   const stack = await inferTechStack(projectDir);
 
   const structure: string[] = [];
@@ -492,7 +492,7 @@ async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "scan";
   const projectDir = await resolveProjectRoot(Bun.cwd);
-  const name = getProjectName(projectDir);
+  const name = await getProjectName(projectDir);
 
   printProjectBanner("Kimi Context Generator", name);
 
@@ -605,6 +605,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Context gen failed:", err.message);
+  console.error("kimi-context-gen failed:", err.message);
   process.exit(1);
 });

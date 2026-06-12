@@ -59,6 +59,40 @@ interface GuardianReport {
   };
 }
 
+interface DbManifestRow {
+  project_path: string;
+  lockfile_hash: string;
+  signature: string;
+  signed_by: string;
+  timestamp: number;
+  ttl: number;
+}
+
+interface DbCountRow {
+  c: number;
+}
+
+interface BunfigInstallConfig {
+  install?: {
+    trustedDependencies?: string[];
+  };
+  trustedDependencies?: string[];
+}
+
+interface PackageJson {
+  name?: string;
+  version?: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  scripts?: {
+    postinstall?: string;
+    preinstall?: string;
+    install?: string;
+  };
+  repository?: { url?: string } | string;
+}
+
 // ── Database ─────────────────────────────────────────────────────────
 
 function getDb(): Database {
@@ -129,7 +163,9 @@ async function verifyManifest(
   currentHash: string
 ): Promise<{ valid: boolean; reason?: string; manifest?: LockfileManifest }> {
   const db = getDb();
-  const row = db.query("SELECT * FROM manifests WHERE project_path = ?").get(projectDir) as any;
+  const row = db
+    .query("SELECT * FROM manifests WHERE project_path = ?")
+    .get(projectDir) as DbManifestRow | null;
   db.close();
 
   if (!row) {
@@ -202,6 +238,11 @@ async function createSigningKey(): Promise<string> {
   return key;
 }
 
+interface BunOutdatedEntry {
+  current: string;
+  latest: string;
+}
+
 // ── Lockfile Integrity ───────────────────────────────────────────────
 
 async function checkLockfile(projectDir: string): Promise<GuardianReport["lockfile"]> {
@@ -256,7 +297,7 @@ async function checkOutdated(
     const outdated: Array<{ name: string; current: string; latest: string }> = [];
 
     for (const [name, info] of Object.entries(data)) {
-      const i = info as any;
+      const i = info as BunOutdatedEntry;
       if (i.current !== i.latest) {
         outdated.push({ name, current: i.current, latest: i.latest });
       }
@@ -314,7 +355,7 @@ async function checkTrustedDeps(projectDir: string): Promise<string[]> {
   let allowed = new Set<string>();
   if (existsSync(bunfigPath)) {
     try {
-      const config = TOML.parse(await Bun.file(bunfigPath).text()) as any;
+      const config = TOML.parse(await Bun.file(bunfigPath).text()) as BunfigInstallConfig;
       const trusted = config.install?.trustedDependencies || config.trustedDependencies || [];
       allowed = new Set(Array.isArray(trusted) ? trusted : []);
     } catch {
@@ -330,7 +371,7 @@ async function checkTrustedDeps(projectDir: string): Promise<string[]> {
     }
   }
 
-  const pkg = (await Bun.file(pkgPath).json()) as any;
+  const pkg = (await Bun.file(pkgPath).json()) as PackageJson;
   const allDeps = [
     ...Object.keys(pkg.dependencies || {}),
     ...Object.keys(pkg.devDependencies || {}),
@@ -342,7 +383,7 @@ async function checkTrustedDeps(projectDir: string): Promise<string[]> {
     const depPkgPath = join(projectDir, "node_modules", dep, "package.json");
     if (!existsSync(depPkgPath)) continue;
 
-    const depPkg = (await Bun.file(depPkgPath).json()) as any;
+    const depPkg = (await Bun.file(depPkgPath).json()) as PackageJson;
     const scripts = depPkg.scripts || {};
     if (scripts.postinstall || scripts.preinstall || scripts.install) {
       if (!allowed.has(dep)) {
@@ -395,7 +436,7 @@ async function checkProvenance(
 
   for await (const file of glob.scan({ cwd: nmPath, absolute: true })) {
     try {
-      const pkg = (await Bun.file(file).json()) as any;
+      const pkg = (await Bun.file(file).json()) as PackageJson;
       const scripts = pkg.scripts || {};
       const installScript = scripts.postinstall || scripts.preinstall || scripts.install;
       if (installScript) {
@@ -431,11 +472,12 @@ async function doctor(
   try {
     db = getDb();
     checks.push({ name: "manifest-db", status: "ok", message: "Accessible", fixable: false });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
     checks.push({
       name: "manifest-db",
       status: "error",
-      message: `Cannot open: ${e.message}`,
+      message: `Cannot open: ${msg}`,
       fixable: false,
     });
     return checks;
@@ -468,7 +510,7 @@ async function doctor(
   });
 
   // Manifest count
-  const manifestCount = (db.query("SELECT COUNT(*) as c FROM manifests").get() as any).c;
+  const manifestCount = (db.query("SELECT COUNT(*) as c FROM manifests").get() as DbCountRow).c;
   checks.push({
     name: "manifests",
     status: "ok",
@@ -486,7 +528,7 @@ async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "check";
   const projectDir = await resolveProjectRoot(Bun.cwd);
-  const projectName = getProjectName(projectDir);
+  const projectName = await getProjectName(projectDir);
 
   printProjectBanner(
     "Kimi Guardian — Supply Chain Security",
@@ -610,7 +652,7 @@ async function main() {
   if (!existsSync(pkgPath)) {
     log("warn", "No package.json — skipping trusted dependency check");
   } else {
-    const pkg = (await Bun.file(pkgPath).json()) as any;
+    const pkg = (await Bun.file(pkgPath).json()) as PackageJson;
     const depCount =
       Object.keys(pkg.dependencies || {}).length + Object.keys(pkg.devDependencies || {}).length;
     if (depCount === 0) {
@@ -669,6 +711,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Guardian failed:", err.message);
+  console.error("kimi-guardian failed:", err.message);
   process.exit(1);
 });

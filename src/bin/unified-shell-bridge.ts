@@ -18,7 +18,7 @@ export async function executeCommand(
   command: string,
   context: { workingDir?: string } = {}
 ): Promise<ShellResult> {
-  const cwd = context.workingDir || process.cwd();
+  const cwd = context.workingDir || Bun.cwd;
   if (context.workingDir && !existsSync(context.workingDir)) {
     return {
       stdout: "",
@@ -138,6 +138,8 @@ async function handleRequest(req: any) {
   }
 }
 
+const decoder = new TextDecoder();
+
 // ─── Main entry point ───────────────────────────────────────────────────────
 
 if (import.meta.main) {
@@ -145,7 +147,6 @@ if (import.meta.main) {
   process.on("SIGTERM", () => process.exit(0));
   process.on("SIGHUP", () => process.exit(0));
 
-  const decoder = new TextDecoder();
   let buffer = "";
 
   for await (const chunk of Bun.stdin.stream()) {

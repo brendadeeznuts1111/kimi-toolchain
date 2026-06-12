@@ -13,9 +13,11 @@ export interface ProcessInfo {
   cpu: number;
 }
 
+const decoder = new TextDecoder();
+
 export function getOrphanProcesses(): ProcessInfo[] {
   try {
-    const output = new TextDecoder().decode(Bun.spawnSync(["ps", "aux"]).stdout);
+    const output = decoder.decode(Bun.spawnSync(["ps", "aux"]).stdout);
 
     const orphans: ProcessInfo[] = [];
     for (const line of output.split("\n")) {

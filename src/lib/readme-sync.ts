@@ -86,7 +86,7 @@ export async function patchReadmeScripts(projectDir: string): Promise<number> {
 export async function runReadmeSyncCli(args: string[]): Promise<number> {
   try {
     const fix = args.includes("--fix");
-    const projectDir = args.find((a) => !a.startsWith("-")) || process.cwd();
+    const projectDir = args.find((a) => !a.startsWith("-")) || Bun.cwd;
 
     if (fix) {
       const patched = await patchReadmeScripts(projectDir);

@@ -264,8 +264,8 @@ export async function runWorkspaceCommand(
 ): Promise<number> {
   const root = projectRoot
     ? resolve(projectRoot)
-    : process.env.KIMI_PROJECT_ROOT
-      ? resolve(process.env.KIMI_PROJECT_ROOT)
+    : Bun.env.KIMI_PROJECT_ROOT
+      ? resolve(Bun.env.KIMI_PROJECT_ROOT)
       : resolve(join(import.meta.dir, "../.."));
 
   const flags = parseWorkspaceFlags(argv);

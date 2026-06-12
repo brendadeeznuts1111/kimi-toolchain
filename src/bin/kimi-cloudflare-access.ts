@@ -155,8 +155,9 @@ async function verifyToken(apiToken: string): Promise<{ valid: boolean; message?
     }
 
     return { valid: true };
-  } catch (e: any) {
-    return { valid: false, message: e.message };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { valid: false, message: msg };
   }
 }
 
@@ -507,11 +508,12 @@ async function doctor(): Promise<
       message: "Cloudflare credentials resolved",
       fixable: false,
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
     checks.push({
       name: "cloudflare-credentials",
       status: "error",
-      message: e.message.replace(/\n/g, " "),
+      message: msg.replace(/\n/g, " "),
       fixable: false,
     });
     return checks;
@@ -565,11 +567,12 @@ async function doctor(): Promise<
         fixable: false,
       });
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
     checks.push({
       name: "service-tokens-api",
       status: "error",
-      message: `API call failed: ${e.message}`,
+      message: `API call failed: ${msg}`,
       fixable: false,
     });
   }
@@ -665,11 +668,12 @@ async function doctor(): Promise<
         fixable: false,
       });
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
     checks.push({
       name: "access-apps-api",
       status: "error",
-      message: `API call failed: ${e.message}`,
+      message: `API call failed: ${msg}`,
       fixable: false,
     });
   }
@@ -1311,11 +1315,12 @@ async function main() {
   let apiToken: string;
   try {
     ({ accountId, apiToken } = await getCredentials());
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
     if (jsonMode) {
-      jsonOut({ error: e.message });
+      jsonOut({ error: msg });
     } else {
-      log("error", e.message);
+      log("error", msg);
     }
     process.exit(1);
   }
@@ -1324,11 +1329,12 @@ async function main() {
     let tokens: ServiceToken[];
     try {
       tokens = await listServiceTokens(accountId, apiToken);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
       if (jsonMode) {
-        jsonOut({ error: e.message });
+        jsonOut({ error: msg });
       } else {
-        log("error", `Failed to list service tokens: ${e.message}`);
+        log("error", `Failed to list service tokens: ${msg}`);
       }
       process.exit(1);
     }
@@ -1353,11 +1359,12 @@ async function main() {
         listApplications(accountId, apiToken),
         listServiceTokens(accountId, apiToken),
       ]);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
       if (jsonMode) {
-        jsonOut({ error: e.message });
+        jsonOut({ error: msg });
       } else {
-        log("error", `Failed to fetch Access data: ${e.message}`);
+        log("error", `Failed to fetch Access data: ${msg}`);
       }
       process.exit(1);
     }
@@ -1408,11 +1415,12 @@ async function main() {
         listApplications(accountId, apiToken),
         listServiceTokens(accountId, apiToken),
       ]);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
       if (jsonMode) {
-        jsonOut({ error: e.message });
+        jsonOut({ error: msg });
       } else {
-        log("error", `Failed to fetch Access data: ${e.message}`);
+        log("error", `Failed to fetch Access data: ${msg}`);
       }
       process.exit(1);
     }
@@ -1433,11 +1441,12 @@ async function main() {
     let tokens: ServiceToken[];
     try {
       tokens = await listServiceTokens(accountId, apiToken);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
       if (jsonMode) {
-        jsonOut({ error: e.message });
+        jsonOut({ error: msg });
       } else {
-        log("error", `Failed to list service tokens: ${e.message}`);
+        log("error", `Failed to list service tokens: ${msg}`);
       }
       process.exit(1);
     }
@@ -1473,10 +1482,11 @@ async function main() {
             `    new client_secret: ${result.client_secret.slice(0, 8)}... (store securely)`
           );
         }
-      } catch (e: any) {
-        failures.push({ token: v.token, error: e.message });
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        failures.push({ token: v.token, error: msg });
         if (!jsonMode) {
-          log("error", `Failed to rotate ${label}: ${e.message}`);
+          log("error", `Failed to rotate ${label}: ${msg}`);
         }
       }
     }
@@ -1501,11 +1511,12 @@ async function main() {
     let live;
     try {
       live = await fetchLiveState(accountId, apiToken);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
       if (jsonMode) {
-        jsonOut({ error: e.message });
+        jsonOut({ error: msg });
       } else {
-        log("error", `Failed to fetch live state: ${e.message}`);
+        log("error", `Failed to fetch live state: ${msg}`);
       }
       process.exit(1);
     }
@@ -1599,11 +1610,12 @@ async function main() {
     let accountId: string;
     try {
       ({ accountId } = await getCredentials());
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
       if (jsonMode) {
-        jsonOut({ error: e.message });
+        jsonOut({ error: msg });
       } else {
-        log("error", e.message);
+        log("error", msg);
       }
       process.exit(1);
     }
@@ -1652,8 +1664,9 @@ async function main() {
             });
           }
         }
-      } catch (e: any) {
-        if (!jsonMode) log("error", `Failed to fetch live state for ${app.name}: ${e.message}`);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!jsonMode) log("error", `Failed to fetch live state for ${app.name}: ${msg}`);
       }
     }
 
@@ -1702,7 +1715,7 @@ async () => {
 
 if (import.meta.main) {
   main().catch((err) => {
-    console.error("Cloudflare Access check failed:", err.message);
+    console.error("kimi-cloudflare-access failed:", err.message);
     process.exit(1);
   });
 }

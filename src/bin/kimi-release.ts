@@ -328,7 +328,7 @@ async function main() {
   const args = Bun.argv.slice(2);
   const command = args[0] || "changelog";
   const projectDir = await resolveProjectRoot(Bun.cwd);
-  const project = getProjectName(projectDir);
+  const project = await getProjectName(projectDir);
 
   printProjectBanner("Kimi Release — Conventional Commits", project);
 
@@ -438,6 +438,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Release tool failed:", err.message);
+  console.error("kimi-release failed:", err.message);
   process.exit(1);
 });

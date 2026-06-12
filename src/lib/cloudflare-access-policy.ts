@@ -461,8 +461,9 @@ export async function applyDiff(
         result.created++;
         // Update live state with new IDs for policy creation
         if (newApp && typeof newApp === "object" && "id" in newApp) {
+          const appWithId = newApp as { id: string };
           liveAppMap.set(d.appName, {
-            id: (newApp as any).id,
+            id: appWithId.id,
             name: d.appName,
             policies: [],
           });

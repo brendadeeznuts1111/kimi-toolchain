@@ -59,10 +59,6 @@ export async function detectSyncDrift(repoRoot: string): Promise<SyncDriftReport
   const missing: string[] = [];
 
   for (const [key, repoHash] of Object.entries(repoHashes)) {
-    if (!key.startsWith("tools/") && !key.startsWith("lib/") && !key.startsWith("scripts/")) {
-      continue;
-    }
-
     const dstPath = desktopPathForKey(key);
     if (!dstPath || !existsSync(dstPath)) {
       missing.push(key);

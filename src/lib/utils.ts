@@ -4,7 +4,7 @@
  * Bun-native only. Zero dependencies.
  */
 
-import { existsSync, mkdirSync, readFileSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { $ } from "bun";
 import {
@@ -17,22 +17,26 @@ import {
 
 // ── File System ──────────────────────────────────────────────────────
 
+/** Ensure a directory exists, creating it recursively if needed. */
 export function ensureDir(dir: string) {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 }
 
 // ── Logging ──────────────────────────────────────────────────────────
 
+/** Log a message with a level-appropriate prefix. */
 export function log(level: "info" | "warn" | "error", msg: string) {
   const prefix = { info: "  ✓", warn: "  ⚠", error: "  ✗" }[level];
   console.log(`${prefix} ${msg}`);
 }
 
+/** Print a section header with decorative borders. */
 export function printSection(title: string, width = 60): void {
   console.log("");
   console.log(`── ${title} ${"─".repeat(Math.max(0, width - title.length))}`);
 }
 
+/** Print a centered tool banner with optional subtitle. */
 export function printToolBanner(title: string, subtitle?: string, innerWidth = 62): void {
   const pad = Math.max(0, innerWidth - title.length);
   const left = Math.floor(pad / 2);
@@ -49,6 +53,7 @@ export function printToolBanner(title: string, subtitle?: string, innerWidth = 6
   console.log(`╚${bar}╝`);
 }
 
+/** Print a project banner with optional project name and subtitle. */
 export function printProjectBanner(title: string, project?: string, subtitle?: string): void {
   printToolBanner(title, subtitle);
   if (project) console.log(`  Project: ${project}`);
@@ -57,6 +62,7 @@ export function printProjectBanner(title: string, project?: string, subtitle?: s
 
 // ── Hashing ──────────────────────────────────────────────────────────
 
+/** Compute the SHA-256 hex digest of a file. */
 export async function sha256File(path: string): Promise<string> {
   const file = Bun.file(path);
   const content = await file.arrayBuffer();
@@ -65,6 +71,7 @@ export async function sha256File(path: string): Promise<string> {
   return hash.digest("hex");
 }
 
+/** Compute the SHA-256 hex digest of a string. */
 export function sha256String(data: string): string {
   const hash = new Bun.CryptoHasher("sha256");
   hash.update(data);
@@ -73,9 +80,17 @@ export function sha256String(data: string): string {
 
 // ── Safe JSON ────────────────────────────────────────────────────────
 
-export function safeParse<T>(json: string, fallback: T): T {
+/** Safely parse JSON with a fallback value on failure. */
+export function safeParse<T>(json: string, fallback: T): T;
+/** Safely parse JSON with a fallback and optional validator. */
+export function safeParse<T>(json: string, fallback: T, validator: (v: unknown) => v is T): T;
+export function safeParse<T>(json: string, fallback: T, validator?: (v: unknown) => v is T): T {
   try {
-    return JSON.parse(json) as T;
+    const parsed = JSON.parse(json) as unknown;
+    if (validator) {
+      return validator(parsed) ? parsed : fallback;
+    }
+    return parsed as T;
   } catch {
     return fallback;
   }
@@ -83,13 +98,14 @@ export function safeParse<T>(json: string, fallback: T): T {
 
 // ── Project Info ─────────────────────────────────────────────────────
 
-export function getProjectName(projectDir: string = Bun.cwd): string {
+/** Get the project name from package.json, falling back to the directory name. */
+export async function getProjectName(projectDir: string = Bun.cwd): Promise<string> {
   const root = projectDir.replace(/\/$/, "");
   if (!root) return "unknown";
   const pkgPath = join(root, "package.json");
   if (existsSync(pkgPath)) {
     try {
-      const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { name?: string };
+      const pkg = (await Bun.file(pkgPath).json()) as { name?: string };
       if (typeof pkg.name === "string" && pkg.name.trim()) return pkg.name.trim();
     } catch {
       /* fall through to directory name */
@@ -101,6 +117,7 @@ export function getProjectName(projectDir: string = Bun.cwd): string {
 
 // ── Project Root ─────────────────────────────────────────────────────
 
+/** Resolve the project root via git, falling back to the provided path. */
 export async function resolveProjectRoot(fallback: string = Bun.cwd): Promise<string> {
   try {
     const result = await $`git rev-parse --show-toplevel`.quiet().nothrow();
@@ -113,18 +130,21 @@ export async function resolveProjectRoot(fallback: string = Bun.cwd): Promise<st
 
 // ── Executable Resolution ────────────────────────────────────────────
 
+/** Find an executable in PATH. */
 export function findExecutable(bin: string): string | null {
   return Bun.which(bin);
 }
 
 // ── Stream Helpers ───────────────────────────────────────────────────
 
+/** Convert a ReadableStream to a text string. */
 export async function streamToText(stream: ReadableStream): Promise<string> {
   return Bun.readableStreamToText(stream);
 }
 
 // ── Fetch with Timeout ───────────────────────────────────────────────
 
+/** Fetch a URL with a configurable timeout (default 10s). */
 export async function fetchWithTimeout(
   url: string,
   options: RequestInit & { timeoutMs?: number } = {}
