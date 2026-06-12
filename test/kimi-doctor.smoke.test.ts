@@ -161,8 +161,8 @@ describe("kimi-doctor smoke", () => {
 
   test("kimi-cleanup-legacy status exits cleanly", async () => {
     const { stdout, exitCode } = await runTool(CLEANUP_LEGACY, ["status"]);
-    expect(stdout).toContain("Legacy path migration status");
-    expect(stdout).toMatch(/Session folders|Index lines|Cursor slugs/);
+    expect(stdout).toContain("Legacy Path Status");
+    expect(stdout).toMatch(/Sessions|Index lines|Cursor slugs/);
     expect(exitCode).toBe(0);
   }, 15_000);
 

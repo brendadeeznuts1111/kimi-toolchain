@@ -13,7 +13,7 @@ import {
   listLegacyCursorSlugs,
   isCursorSlugActive,
   listLegacySessionWorkspaces as listLegacySessionWorkspacesImported,
-} from "../bin/kimi-cleanup-legacy.ts";
+} from "./legacy-cleanup.ts";
 
 export const CANONICAL_REPO_NAME = "kimi-toolchain";
 export const LEGACY_REPO_NAMES = ["kimicode-cli", "kimi-code-cli"] as const;

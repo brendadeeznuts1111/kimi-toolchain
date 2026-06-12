@@ -15,7 +15,7 @@ import {
   pruneLegacySessionIndex,
   listLegacyCursorSlugs,
   isCursorSlugActive,
-} from "../src/bin/kimi-cleanup-legacy.ts";
+} from "../src/lib/legacy-cleanup.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 let tmpHome: string;

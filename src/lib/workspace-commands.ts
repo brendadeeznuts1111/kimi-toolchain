@@ -18,7 +18,7 @@ import {
   removeLegacyCursorSlugs,
   removeLegacySymlink,
   listLegacyCursorSlugs,
-} from "../bin/kimi-cleanup-legacy.ts";
+} from "./legacy-cleanup.ts";
 
 export interface WorkspaceCommandFlags {
   json: boolean;
