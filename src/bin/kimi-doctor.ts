@@ -112,8 +112,8 @@ async function runToolDoctor(tool: string, projectRoot: string): Promise<CheckRe
     } else {
       return error(tool, `${cmd} found problems (exit ${result.exitCode})`);
     }
-  } catch (e: any) {
-    return error(tool, `failed: ${e.message}`);
+  } catch (e: unknown) {
+    return error(tool, `failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 
@@ -270,8 +270,8 @@ async function runScript(projectRoot: string, script: string, label: string): Pr
         .find((l) => l.trim())
         ?.slice(0, 80) || `exit ${exitCode}`;
     return error(label, detail);
-  } catch (e: any) {
-    return error(label, e.message);
+  } catch (e: unknown) {
+    return error(label, e instanceof Error ? e.message : String(e));
   }
 }
 

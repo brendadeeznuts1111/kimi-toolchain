@@ -4,6 +4,7 @@
 
 import { existsSync } from "fs";
 import { join } from "path";
+import { readPackageJson } from "./utils.ts";
 
 export const META_BIN = "kimi-toolchain";
 export const DIRECT_BIN = "unified-shell-bridge";
@@ -72,14 +73,11 @@ export function resolveRepoToolScript(shortName: string, repoBinDir: string): st
 }
 
 export async function listPackageBinNames(repoRoot: string): Promise<string[]> {
-  try {
-    const pkg = (await Bun.file(join(repoRoot, "package.json")).json()) as {
-      bin?: Record<string, string>;
-    };
-    return Object.keys(pkg.bin || {}).sort();
-  } catch {
-    return [];
-  }
+  const pkg = await readPackageJson(
+    repoRoot,
+    (p): p is { bin?: Record<string, string> } => typeof p === "object" && p !== null && "bin" in p
+  );
+  return Object.keys(pkg?.bin || {}).sort();
 }
 
 /** Wrappers required on PATH: meta bin + legacy aliases + direct MCP bridge. */

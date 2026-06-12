@@ -21,6 +21,7 @@ import {
   printSection,
   buildDoctorReport,
   printDoctorReport,
+  readPackageJson,
 } from "../lib/utils.ts";
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
 import { toolsDir } from "../lib/paths.ts";
@@ -309,47 +310,46 @@ async function doctorHooks(projectDir: string) {
   }
 
   // Desktop tool drift (kimi-toolchain repo only)
-  try {
-    const pkg = (await Bun.file(join(projectDir, "package.json")).json()) as { name?: string };
-    if (pkg.name === "kimi-toolchain") {
-      const drift = await detectSyncDrift(projectDir);
-      if (drift.synced) {
-        checks.push({
-          name: "desktop-sync",
-          status: "ok",
-          message: "Desktop tools match repo",
-          fixable: false,
-        });
-      } else {
-        const count = drift.drifted.length + drift.missing.length;
-        checks.push({
-          name: "desktop-sync",
-          status: "warn",
-          message: `${count} desktop file(s) drifted — run bun run sync`,
-          fixable: true,
-        });
-      }
-
-      const repoGov = join(projectDir, "src/bin/kimi-governance.ts");
-      const desktopGov = join(TOOLS_DIR, "kimi-governance.ts");
-      if (existsSync(repoGov) && existsSync(desktopGov)) {
-        const [repoHash, desktopHash] = await Promise.all([
-          sha256File(repoGov),
-          sha256File(desktopGov),
-        ]);
-        checks.push({
-          name: "governance-parity",
-          status: repoHash === desktopHash ? "ok" : "warn",
-          message:
-            repoHash === desktopHash
-              ? "kimi-governance.ts matches desktop"
-              : "kimi-governance.ts differs from desktop — run bun run sync",
-          fixable: repoHash !== desktopHash,
-        });
-      }
+  const pkg = await readPackageJson(
+    projectDir,
+    (p): p is { name?: string } => typeof p === "object" && p !== null && "name" in p
+  );
+  if (pkg?.name === "kimi-toolchain") {
+    const drift = await detectSyncDrift(projectDir);
+    if (drift.synced) {
+      checks.push({
+        name: "desktop-sync",
+        status: "ok",
+        message: "Desktop tools match repo",
+        fixable: false,
+      });
+    } else {
+      const count = drift.drifted.length + drift.missing.length;
+      checks.push({
+        name: "desktop-sync",
+        status: "warn",
+        message: `${count} desktop file(s) drifted — run bun run sync`,
+        fixable: true,
+      });
     }
-  } catch {
-    /* ignore */
+
+    const repoGov = join(projectDir, "src/bin/kimi-governance.ts");
+    const desktopGov = join(TOOLS_DIR, "kimi-governance.ts");
+    if (existsSync(repoGov) && existsSync(desktopGov)) {
+      const [repoHash, desktopHash] = await Promise.all([
+        sha256File(repoGov),
+        sha256File(desktopGov),
+      ]);
+      checks.push({
+        name: "governance-parity",
+        status: repoHash === desktopHash ? "ok" : "warn",
+        message:
+          repoHash === desktopHash
+            ? "kimi-governance.ts matches desktop"
+            : "kimi-governance.ts differs from desktop — run bun run sync",
+        fixable: repoHash !== desktopHash,
+      });
+    }
   }
 
   // Check core.hooksPath

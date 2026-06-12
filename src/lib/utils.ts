@@ -98,18 +98,32 @@ export function safeParse<T>(json: string, fallback: T, validator?: (v: unknown)
 
 // ── Project Info ─────────────────────────────────────────────────────
 
+/** Read and parse package.json from a project directory with type-safe fallback. */
+export async function readPackageJson<T extends Record<string, unknown>>(
+  projectDir: string,
+  validator?: (pkg: unknown) => pkg is T
+): Promise<T | null> {
+  const pkgPath = join(projectDir, "package.json");
+  if (!existsSync(pkgPath)) return null;
+  try {
+    const pkg = (await Bun.file(pkgPath).json()) as unknown;
+    if (validator && !validator(pkg)) return null;
+    return pkg as T;
+  } catch {
+    return null;
+  }
+}
+
 /** Get the project name from package.json, falling back to the directory name. */
 export async function getProjectName(projectDir: string = Bun.cwd): Promise<string> {
   const root = projectDir.replace(/\/$/, "");
   if (!root) return "unknown";
-  const pkgPath = join(root, "package.json");
-  if (existsSync(pkgPath)) {
-    try {
-      const pkg = (await Bun.file(pkgPath).json()) as { name?: string };
-      if (typeof pkg.name === "string" && pkg.name.trim()) return pkg.name.trim();
-    } catch {
-      /* fall through to directory name */
-    }
+  const pkg = await readPackageJson(
+    root,
+    (p): p is { name?: string } => typeof p === "object" && p !== null && "name" in p
+  );
+  if (pkg?.name && typeof pkg.name === "string" && pkg.name.trim()) {
+    return pkg.name.trim();
   }
   const base = root.split("/").pop();
   return base || "unknown";

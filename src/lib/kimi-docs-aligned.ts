@@ -4,6 +4,7 @@
 
 import { existsSync } from "fs";
 import { join } from "path";
+import { readPackageJson } from "./utils.ts";
 
 export interface KimiDocsCheck {
   name: string;
@@ -28,12 +29,11 @@ const DOC_MARKERS: Record<string, string[]> = {
 const REQUIRED_FILES = ["templates/kimi-config-permissions.toml"] as const;
 
 export async function isKimiToolchainProject(projectDir: string): Promise<boolean> {
-  try {
-    const pkg = (await Bun.file(join(projectDir, "package.json")).json()) as { name?: string };
-    return pkg.name === "kimi-toolchain";
-  } catch {
-    return false;
-  }
+  const pkg = await readPackageJson(
+    projectDir,
+    (p): p is { name?: string } => typeof p === "object" && p !== null && "name" in p
+  );
+  return pkg?.name === "kimi-toolchain";
 }
 
 export async function checkKimiDocsAligned(projectDir: string): Promise<KimiDocsAlignmentReport> {

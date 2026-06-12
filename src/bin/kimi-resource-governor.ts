@@ -614,11 +614,11 @@ function doctor(): Array<{
       message: "Database accessible",
       fixable: false,
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     checks.push({
       name: "db-access",
       status: "error",
-      message: `Cannot open DB: ${e.message}`,
+      message: `Cannot open DB: ${e instanceof Error ? e.message : String(e)}`,
       fixable: false,
     });
     return checks;

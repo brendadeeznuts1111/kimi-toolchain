@@ -92,8 +92,8 @@ async function delegateTool(
     } else if (result.exitCode !== 0) {
       console.log(`    ⚠ ${tool} failed (exit ${result.exitCode}), continuing...`);
     }
-  } catch (e: any) {
-    console.log(`    ⚠ ${tool}: ${e.message}, continuing...`);
+  } catch (e: unknown) {
+    console.log(`    ⚠ ${tool}: ${e instanceof Error ? e.message : String(e)}, continuing...`);
   }
 }
 

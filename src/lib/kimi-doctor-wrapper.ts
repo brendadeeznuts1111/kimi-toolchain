@@ -36,7 +36,11 @@ export async function runOfficialKimiDoctor(): Promise<KimiDoctorResult> {
         ?.trim() ||
       `exit ${exitCode}`;
     return { name: "kimi doctor", status: "error", message: detail.slice(0, 120) };
-  } catch (e: any) {
-    return { name: "kimi doctor", status: "error", message: e.message };
+  } catch (e: unknown) {
+    return {
+      name: "kimi doctor",
+      status: "error",
+      message: e instanceof Error ? e.message : String(e),
+    };
   }
 }

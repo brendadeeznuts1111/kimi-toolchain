@@ -468,8 +468,10 @@ export async function applyDiff(
             policies: [],
           });
         }
-      } catch (e: any) {
-        result.errors.push(`Failed to create app ${d.appName}: ${e.message}`);
+      } catch (e: unknown) {
+        result.errors.push(
+          `Failed to create app ${d.appName}: ${e instanceof Error ? e.message : String(e)}`
+        );
       }
       continue;
     }
@@ -484,8 +486,10 @@ export async function applyDiff(
       try {
         await apiDelete(accountId, apiToken, `/access/apps/${liveApp.id}`);
         result.deleted++;
-      } catch (e: any) {
-        result.errors.push(`Failed to delete app ${d.appName}: ${e.message}`);
+      } catch (e: unknown) {
+        result.errors.push(
+          `Failed to delete app ${d.appName}: ${e instanceof Error ? e.message : String(e)}`
+        );
       }
       continue;
     }
@@ -553,8 +557,10 @@ export async function applyDiff(
         }
 
         result.updated++;
-      } catch (e: any) {
-        result.errors.push(`Failed to update app ${d.appName}: ${e.message}`);
+      } catch (e: unknown) {
+        result.errors.push(
+          `Failed to update app ${d.appName}: ${e instanceof Error ? e.message : String(e)}`
+        );
       }
     }
   }

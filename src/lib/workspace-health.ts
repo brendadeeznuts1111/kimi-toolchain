@@ -4,6 +4,7 @@
 
 import { existsSync, readFileSync, readdirSync, realpathSync, unlinkSync } from "fs";
 import { basename, join, resolve } from "path";
+import { readPackageJson } from "./utils.ts";
 
 import {
   archiveLegacyKimiSessions,
@@ -80,14 +81,11 @@ export interface FixWorkspaceResult {
 }
 
 export async function getExpectedBinNames(repoRoot: string): Promise<string[]> {
-  try {
-    const pkg = (await Bun.file(join(repoRoot, "package.json")).json()) as {
-      bin?: Record<string, string>;
-    };
-    return Object.keys(pkg.bin || {}).sort();
-  } catch {
-    return [];
-  }
+  const pkg = await readPackageJson(
+    repoRoot,
+    (p): p is { bin?: Record<string, string> } => typeof p === "object" && p !== null && "bin" in p
+  );
+  return Object.keys(pkg?.bin || {}).sort();
 }
 
 export function listInstalledWrappers(binDir: string): string[] {
@@ -192,10 +190,13 @@ export async function auditWorkspaceHealth(
   }
 
   let pkgName = "unknown";
-  try {
-    const pkg = (await Bun.file(join(projectRoot, "package.json")).json()) as { name?: string };
+  const pkg = await readPackageJson(
+    projectRoot,
+    (p): p is { name?: string } => typeof p === "object" && p !== null && "name" in p
+  );
+  if (pkg) {
     pkgName = pkg.name || "unknown";
-  } catch {
+  } else {
     pkgName = "missing";
   }
 
