@@ -54,13 +54,14 @@ async function getCommits(sinceTag?: string): Promise<Commit[]> {
   if (result.exitCode !== 0) return [];
 
   const raw = result.stdout.toString();
-  const parts = raw.split("\x00").filter(Boolean);
+  const parts = raw.split("\x00");
   const commits: Commit[] = [];
 
   for (let i = 0; i < parts.length; i += 3) {
     const hash = parts[i]?.trim() || "";
     const subject = parts[i + 1]?.trim() || "";
     const body = parts[i + 2]?.trim() || "";
+    if (!hash && !subject) continue;
     const parsed = parseCommit(hash, subject, body);
     if (parsed) commits.push(parsed);
   }

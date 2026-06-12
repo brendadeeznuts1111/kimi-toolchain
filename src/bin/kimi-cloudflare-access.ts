@@ -24,9 +24,9 @@ import {
   computeDiff,
   fetchLiveState,
   loadPolicyConfig,
+  parsePolicyConfig,
 } from "../lib/cloudflare-access-policy.ts";
 import { existsSync } from "fs";
-import { parsePolicyConfig } from "../lib/cloudflare-access-policy.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
