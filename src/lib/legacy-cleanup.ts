@@ -15,54 +15,89 @@ import {
   writeFileSync,
 } from "fs";
 import { join } from "path";
+import { homeDir, desktopRoot } from "./paths.ts";
 
 const CANONICAL_REPO_NAME = "kimi-toolchain";
 const LEGACY_REPO_NAMES = ["kimicode-cli", "kimi-code-cli"] as const;
 const SLUG_ACTIVE_MS = 3_600_000; // 1 hour
+const SESSION_PREFIX = "wd_";
+const SESSION_INDEX_FILE = "session_index.jsonl";
+const CURSOR_PROJECTS_DIR = "projects";
+const AGENT_TRANSCRIPTS_DIR = "agent-transcripts";
+const ARCHIVE_SUBDIR = "archive";
+const DATE_STAMP_LENGTH = 10; // YYYY-MM-DD
 
-// ── Discovery ────────────────────────────────────────────────────────
+interface IndexEntry {
+  cwd?: string;
+  workDir?: string;
+}
+
+function parseIndexEntry(line: string): IndexEntry | undefined {
+  try {
+    const entry = JSON.parse(line) as unknown;
+    if (typeof entry !== "object" || entry === null) return undefined;
+    const obj = entry as Record<string, unknown>;
+    const cwd = obj.cwd;
+    const workDir = obj.workDir;
+    return {
+      cwd: typeof cwd === "string" ? cwd : undefined,
+      workDir: typeof workDir === "string" ? workDir : undefined,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function getIndexCwd(entry: IndexEntry): string {
+  return entry.cwd || entry.workDir || "";
+}
+
+function isLegacyCwd(cwd: string): boolean {
+  return LEGACY_REPO_NAMES.some((legacy) => cwd.includes(legacy));
+}
 
 function sessionPathHasLegacyName(name: string): boolean {
-  return name.startsWith("wd_") && LEGACY_REPO_NAMES.some((legacy) => name.includes(legacy));
+  return (
+    name.startsWith(SESSION_PREFIX) && LEGACY_REPO_NAMES.some((legacy) => name.includes(legacy))
+  );
 }
 
 export function listLegacySessionWorkspaces(sessionsDir: string): string[] {
   if (!existsSync(sessionsDir)) return [];
   const hits: string[] = [];
   for (const entry of readdirSync(sessionsDir)) {
-    if (entry.startsWith("wd_") && LEGACY_REPO_NAMES.some((legacy) => entry.includes(legacy))) {
+    if (sessionPathHasLegacyName(entry)) {
       hits.push(entry);
     }
   }
   return hits;
 }
 
-function countLegacyIndexLines(home: string): number {
-  const indexPath = join(home, ".kimi-code", "sessions", "session_index.jsonl");
+function countLegacyIndexLines(): number {
+  const indexPath = join(desktopRoot(), "sessions", SESSION_INDEX_FILE);
   if (!existsSync(indexPath)) return 0;
   let count = 0;
   for (const line of readFileSync(indexPath, "utf8").split("\n").filter(Boolean)) {
-    try {
-      const entry = JSON.parse(line) as { cwd?: string; workDir?: string };
-      const cwd = entry.cwd || entry.workDir || "";
-      if (LEGACY_REPO_NAMES.some((l) => cwd.includes(l))) count++;
-    } catch {
-      /* skip */
-    }
+    const entry = parseIndexEntry(line);
+    if (entry && isLegacyCwd(getIndexCwd(entry))) count++;
   }
   return count;
 }
 
-export function listLegacyCursorSlugs(home: string): string[] {
-  const cursorProjects = join(home, ".cursor", "projects");
+export function listLegacyCursorSlugs(home?: string): string[] {
+  const cursorProjects = join(home || homeDir(), ".cursor", CURSOR_PROJECTS_DIR);
   if (!existsSync(cursorProjects)) return [];
   return readdirSync(cursorProjects).filter((name) =>
     LEGACY_REPO_NAMES.some((legacy) => name.includes(legacy))
   );
 }
 
-export function isCursorSlugActive(home: string, slug: string, maxAgeMs = SLUG_ACTIVE_MS): boolean {
-  const slugPath = join(home, ".cursor", "projects", slug);
+export function isCursorSlugActive(
+  slug: string,
+  maxAgeMs = SLUG_ACTIVE_MS,
+  home?: string
+): boolean {
+  const slugPath = join(home || homeDir(), ".cursor", CURSOR_PROJECTS_DIR, slug);
   if (!existsSync(slugPath)) return false;
   const cutoff = Date.now() - maxAgeMs;
   try {
@@ -70,7 +105,7 @@ export function isCursorSlugActive(home: string, slug: string, maxAgeMs = SLUG_A
   } catch {
     /* continue */
   }
-  const transcripts = join(slugPath, "agent-transcripts");
+  const transcripts = join(slugPath, AGENT_TRANSCRIPTS_DIR);
   if (!existsSync(transcripts)) return false;
   for (const name of readdirSync(transcripts)) {
     try {
@@ -83,8 +118,8 @@ export function isCursorSlugActive(home: string, slug: string, maxAgeMs = SLUG_A
   return false;
 }
 
-function legacyClonePath(home: string): string {
-  return join(home, LEGACY_REPO_NAMES[0]);
+function legacyClonePath(): string {
+  return join(homeDir(), LEGACY_REPO_NAMES[0]);
 }
 
 interface LegacyStatus {
@@ -96,15 +131,15 @@ interface LegacyStatus {
   legacyCloneExists: boolean;
 }
 
-export function getLegacyStatus(home: string): LegacyStatus {
-  const sessionsDir = join(home, ".kimi-code", "sessions");
+export function getLegacyStatus(): LegacyStatus {
+  const sessionsDir = join(desktopRoot(), "sessions");
   const legacySessions = listLegacySessionWorkspaces(sessionsDir);
-  const legacyIndexLines = countLegacyIndexLines(home);
-  const legacyCursorSlugs = listLegacyCursorSlugs(home);
-  const activeCursorSlugs = legacyCursorSlugs.filter((slug) => isCursorSlugActive(home, slug));
-  const legacySymlinkExists = existsSync(legacyClonePath(home));
+  const legacyIndexLines = countLegacyIndexLines();
+  const legacyCursorSlugs = listLegacyCursorSlugs();
+  const activeCursorSlugs = legacyCursorSlugs.filter((slug) => isCursorSlugActive(slug));
+  const legacySymlinkExists = existsSync(legacyClonePath());
   const legacyCloneExists =
-    existsSync(legacyClonePath(home)) && lstatSync(legacyClonePath(home)).isDirectory();
+    existsSync(legacyClonePath()) && lstatSync(legacyClonePath()).isDirectory();
 
   return {
     legacySessions,
@@ -118,12 +153,12 @@ export function getLegacyStatus(home: string): LegacyStatus {
 
 // ── Cleanup ──────────────────────────────────────────────────────────
 
-export function archiveLegacyKimiSessions(home: string): string[] {
-  const sessionsDir = join(home, ".kimi-code", "sessions");
+export function archiveLegacyKimiSessions(home?: string): string[] {
+  const sessionsDir = join(home ? join(home, ".kimi-code") : desktopRoot(), "sessions");
   if (!existsSync(sessionsDir)) return [];
-  const archiveRoot = join(sessionsDir, "archive");
+  const archiveRoot = join(sessionsDir, ARCHIVE_SUBDIR);
   const archived: string[] = [];
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = new Date().toISOString().slice(0, DATE_STAMP_LENGTH);
 
   for (const name of readdirSync(sessionsDir)) {
     if (!sessionPathHasLegacyName(name)) continue;
@@ -141,8 +176,12 @@ export function archiveLegacyKimiSessions(home: string): string[] {
   return archived;
 }
 
-export function pruneLegacySessionIndex(home: string): number {
-  const indexPath = join(home, ".kimi-code", "sessions", "session_index.jsonl");
+export function pruneLegacySessionIndex(home?: string): number {
+  const indexPath = join(
+    home ? join(home, ".kimi-code") : desktopRoot(),
+    "sessions",
+    SESSION_INDEX_FILE
+  );
   if (!existsSync(indexPath)) return 0;
   const lines = readFileSync(indexPath, "utf8").split("\n");
   const kept: string[] = [];
@@ -150,26 +189,21 @@ export function pruneLegacySessionIndex(home: string): number {
 
   for (const line of lines) {
     if (!line.trim()) continue;
-    try {
-      const entry = JSON.parse(line) as { cwd?: string; workDir?: string };
-      const cwd = entry.cwd || entry.workDir || "";
-      if (LEGACY_REPO_NAMES.some((legacy) => cwd.includes(legacy))) {
-        pruned++;
-        continue;
-      }
-      kept.push(line);
-    } catch {
-      kept.push(line);
+    const entry = parseIndexEntry(line);
+    if (entry && isLegacyCwd(getIndexCwd(entry))) {
+      pruned++;
+      continue;
     }
+    kept.push(line);
   }
 
   writeFileSync(indexPath, kept.length > 0 ? `${kept.join("\n")}\n` : "");
   return pruned;
 }
 
-export function removeLegacyCursorSlugs(home: string): string[] {
+export function removeLegacyCursorSlugs(home?: string): string[] {
   const removed: string[] = [];
-  const cursorProjects = join(home, ".cursor", "projects");
+  const cursorProjects = join(home || homeDir(), ".cursor", CURSOR_PROJECTS_DIR);
   for (const slug of listLegacyCursorSlugs(home)) {
     const path = join(cursorProjects, slug);
     if (existsSync(path)) {
@@ -180,8 +214,8 @@ export function removeLegacyCursorSlugs(home: string): string[] {
   return removed;
 }
 
-export function removeLegacySymlink(home: string): boolean {
-  const legacyPath = legacyClonePath(home);
+export function removeLegacySymlink(): boolean {
+  const legacyPath = legacyClonePath();
   if (existsSync(legacyPath)) {
     try {
       if (lstatSync(legacyPath).isSymbolicLink()) {
@@ -202,12 +236,12 @@ interface CleanupResult {
   legacySymlinkRemoved: boolean;
 }
 
-export function runLegacyCleanup(home: string): CleanupResult {
+export function runLegacyCleanup(): CleanupResult {
   return {
-    sessionsArchived: archiveLegacyKimiSessions(home),
-    indexLinesPruned: pruneLegacySessionIndex(home),
-    cursorSlugsRemoved: removeLegacyCursorSlugs(home),
-    legacySymlinkRemoved: removeLegacySymlink(home),
+    sessionsArchived: archiveLegacyKimiSessions(),
+    indexLinesPruned: pruneLegacySessionIndex(),
+    cursorSlugsRemoved: removeLegacyCursorSlugs(),
+    legacySymlinkRemoved: removeLegacySymlink(),
   };
 }
 

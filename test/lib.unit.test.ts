@@ -194,9 +194,14 @@ describe("lib/version", () => {
 });
 
 describe("lib/memory-budget", () => {
-  test("getChromeRssMB returns non-negative number", () => {
-    expect(getChromeRssMB()).toBeGreaterThanOrEqual(0);
-  });
+  test(
+    "getChromeRssMB returns non-negative number",
+    () => {
+      const mb = getChromeRssMB();
+      expect(mb).toBeGreaterThanOrEqual(0);
+    },
+    { timeout: 5000 }
+  );
 
   test("getAppRssGroups returns labeled groups", () => {
     const groups = getAppRssGroups();

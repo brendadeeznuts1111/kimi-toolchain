@@ -78,14 +78,14 @@ describe("mcp-config", () => {
   });
 
   test("provisionUserMcp creates mcp.json with both servers", async () => {
-    const path = userMcpPath(tmpHome);
+    const path = userMcpPath();
     expect(existsSync(path)).toBe(false);
     const result = await provisionUserMcp(tmpHome);
     expect(result.changed).toBe(true);
     expect(existsSync(path)).toBe(true);
     const parsed = await readMcpJson(path);
-    expect(parsed?.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
-    expect(parsed?.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
+    expect(parsed?.data?.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
+    expect(parsed?.data?.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
   });
 
   test("writeMcpJson round-trips", async () => {
@@ -93,7 +93,7 @@ describe("mcp-config", () => {
     const data = { mcpServers: { test: { command: "echo" } } };
     await writeMcpJson(path, data);
     const read = await readMcpJson(path);
-    expect(read?.mcpServers.test?.command).toBe("echo");
+    expect(read?.data?.mcpServers.test?.command).toBe("echo");
   });
 
   test("validateMcpConfig reports cloudflare-api and project stub/override issues", async () => {

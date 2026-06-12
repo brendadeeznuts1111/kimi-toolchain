@@ -8,6 +8,11 @@
 import { fetchWithTimeout } from "./utils.ts";
 
 const API_BASE = "https://api.cloudflare.com/client/v4";
+const DEFAULT_RETRIES = 2;
+const DEFAULT_BASE_DELAY_MS = 500;
+const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_SESSION_DURATION = "24h";
+const DEFAULT_APP_TYPE = "self_hosted";
 
 // ── Config Schema ────────────────────────────────────────────────────
 
@@ -45,6 +50,8 @@ export interface AccessPolicyConfig {
 // ── Config Loader ────────────────────────────────────────────────────
 
 export async function loadPolicyConfig(cwd: string): Promise<AccessPolicyConfig | null> {
+  const errors: string[] = [];
+
   // Try JSON first (native parse, most reliable)
   const jsonPaths = [`${cwd}/.cloudflare-access.json`, `${cwd}/cloudflare-access.json`];
   for (const p of jsonPaths) {
@@ -52,8 +59,8 @@ export async function loadPolicyConfig(cwd: string): Promise<AccessPolicyConfig 
     if (await file.exists()) {
       try {
         return (await file.json()) as AccessPolicyConfig;
-      } catch {
-        // Fall through to YAML
+      } catch (err) {
+        errors.push(`${p}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   }
@@ -74,10 +81,22 @@ export async function loadPolicyConfig(cwd: string): Promise<AccessPolicyConfig 
         // Attempt js-yaml if available (dev dependency)
         const yaml = await import("js-yaml");
         return yaml.load(text) as AccessPolicyConfig;
-      } catch {
-        return parsePolicyConfig(text);
+      } catch (err) {
+        errors.push(`${p}: ${err instanceof Error ? err.message : String(err)}`);
+        // Fallback to best-effort parser if js-yaml is unavailable or fails
+        try {
+          return parsePolicyConfig(text);
+        } catch (parseErr) {
+          errors.push(
+            `${p} (fallback): ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`
+          );
+        }
       }
     }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Failed to load policy config from ${cwd}:\n  ${errors.join("\n  ")}`);
   }
   return null;
 }
@@ -103,27 +122,27 @@ export function parsePolicyConfig(yaml: string): AccessPolicyConfig {
 
   const stack: StackEntry[] = [{ type: "root", indent: -1 }];
 
+  function isStackEntry<T extends StackEntry["type"]>(
+    entry: StackEntry,
+    type: T
+  ): entry is Extract<StackEntry, { type: T }> {
+    return entry.type === type;
+  }
+
   function currentList(): Array<Record<string, unknown>> | null {
     for (let i = stack.length - 1; i >= 0; i--) {
-      if (stack[i].type === "list") return (stack[i] as Extract<StackEntry, { type: "list" }>).arr;
+      const entry = stack[i];
+      if (isStackEntry(entry, "list")) return entry.arr;
     }
     return null;
   }
 
   function currentObject(): Record<string, unknown> | null {
     for (let i = stack.length - 1; i >= 0; i--) {
-      if (stack[i].type === "object")
-        return (stack[i] as Extract<StackEntry, { type: "object" }>).obj;
-      if (stack[i].type === "policy")
-        return (stack[i] as Extract<StackEntry, { type: "policy" }>).policy as unknown as Record<
-          string,
-          unknown
-        >;
-      if (stack[i].type === "app")
-        return (stack[i] as Extract<StackEntry, { type: "app" }>).app as unknown as Record<
-          string,
-          unknown
-        >;
+      const entry = stack[i];
+      if (isStackEntry(entry, "object")) return entry.obj;
+      if (isStackEntry(entry, "policy")) return entry.policy as unknown as Record<string, unknown>;
+      if (isStackEntry(entry, "app")) return entry.app as unknown as Record<string, unknown>;
     }
     return null;
   }
@@ -266,15 +285,17 @@ function parseScalar(value: string): unknown {
 
 // ── Diff Engine ──────────────────────────────────────────────────────
 
+export interface PolicyDiff {
+  policyName: string;
+  action: "create" | "update" | "delete" | "noop";
+  changes?: string[];
+}
+
 export interface DiffResult {
   appName: string;
   action: "create" | "update" | "delete" | "noop";
   appChanges?: string[];
-  policyChanges?: Array<{
-    policyName: string;
-    action: "create" | "update" | "delete" | "noop";
-    changes?: string[];
-  }>;
+  policyChanges?: PolicyDiff[];
 }
 
 export interface LiveState {
@@ -297,15 +318,7 @@ export interface LiveState {
 }
 
 export async function fetchLiveState(accountId: string, apiToken: string): Promise<LiveState> {
-  const apps = (await apiGet(accountId, apiToken, "/access/apps")) as Array<{
-    id: string;
-    name: string;
-    domain?: string;
-    type?: string;
-    session_duration?: string;
-    allowed_idps?: string[];
-    policies: LiveState["apps"][0]["policies"];
-  }>;
+  const apps = await apiCall<LiveState["apps"]>(accountId, apiToken, "/access/apps", "GET");
   return { apps };
 }
 
@@ -323,7 +336,7 @@ export function computeDiff(desired: AccessPolicyConfig, live: LiveState): DiffR
         action: "create",
         policyChanges: desiredApp.policies.map((p) => ({
           policyName: p.name,
-          action: "create",
+          action: "create" as const,
         })),
       });
       continue;
@@ -376,16 +389,8 @@ export function computeDiff(desired: AccessPolicyConfig, live: LiveState): DiffR
 function computePolicyDiff(
   desired: PolicyConfig[],
   live: LiveState["apps"][0]["policies"]
-): Array<{
-  policyName: string;
-  action: "create" | "update" | "delete" | "noop";
-  changes?: string[];
-}> {
-  const results: Array<{
-    policyName: string;
-    action: "create" | "update" | "delete" | "noop";
-    changes?: string[];
-  }> = [];
+): PolicyDiff[] {
+  const results: PolicyDiff[] = [];
   const liveMap = new Map(live.map((p) => [p.name, p]));
   const desiredMap = new Map(desired.map((p) => [p.name, p]));
 
@@ -444,26 +449,32 @@ export async function applyDiff(
     if (d.action === "noop") continue;
 
     if (d.action === "create") {
-      const appConfig = desiredAppMap.get(d.appName)!;
+      const appConfig = desiredAppMap.get(d.appName);
+      if (!appConfig) continue;
       if (dryRun) {
         result.created++;
         continue;
       }
       try {
-        const newApp = await apiPost(accountId, apiToken, "/access/apps", {
-          name: appConfig.name,
-          domain: appConfig.domain,
-          type: appConfig.type || "self_hosted",
-          session_duration: appConfig.session_duration || "24h",
-          allowed_idps: appConfig.allowed_idps,
-          policies: appConfig.policies,
-        });
+        const newApp = await apiCall<Record<string, unknown>>(
+          accountId,
+          apiToken,
+          "/access/apps",
+          "POST",
+          {
+            name: appConfig.name,
+            domain: appConfig.domain,
+            type: appConfig.type || DEFAULT_APP_TYPE,
+            session_duration: appConfig.session_duration || DEFAULT_SESSION_DURATION,
+            allowed_idps: appConfig.allowed_idps,
+            policies: appConfig.policies,
+          }
+        );
         result.created++;
         // Update live state with new IDs for policy creation
-        if (newApp && typeof newApp === "object" && "id" in newApp) {
-          const appWithId = newApp as { id: string };
+        if (typeof newApp.id === "string") {
           liveAppMap.set(d.appName, {
-            id: appWithId.id,
+            id: newApp.id,
             name: d.appName,
             policies: [],
           });
@@ -484,7 +495,7 @@ export async function applyDiff(
         continue;
       }
       try {
-        await apiDelete(accountId, apiToken, `/access/apps/${liveApp.id}`);
+        await apiCall(accountId, apiToken, `/access/apps/${liveApp.id}`, "DELETE");
         result.deleted++;
       } catch (e: unknown) {
         result.errors.push(
@@ -512,15 +523,16 @@ export async function applyDiff(
         if (appConfig.allowed_idps) appUpdate.allowed_idps = appConfig.allowed_idps;
 
         if (Object.keys(appUpdate).length > 0) {
-          await apiPut(accountId, apiToken, `/access/apps/${liveApp.id}`, appUpdate);
+          await apiCall(accountId, apiToken, `/access/apps/${liveApp.id}`, "PUT", appUpdate);
         }
 
         // Update policies
         const livePolicyMap = new Map(liveApp.policies.map((p) => [p.name, p]));
         for (const pc of d.policyChanges || []) {
           if (pc.action === "create") {
-            const policyConfig = appConfig.policies.find((p) => p.name === pc.policyName)!;
-            await apiPost(accountId, apiToken, `/access/apps/${liveApp.id}/policies`, {
+            const policyConfig = appConfig.policies.find((p) => p.name === pc.policyName);
+            if (!policyConfig) continue;
+            await apiCall(accountId, apiToken, `/access/apps/${liveApp.id}/policies`, "POST", {
               name: policyConfig.name,
               decision: policyConfig.decision,
               include: policyConfig.include,
@@ -529,12 +541,13 @@ export async function applyDiff(
             });
           } else if (pc.action === "update") {
             const livePolicy = livePolicyMap.get(pc.policyName);
-            const policyConfig = appConfig.policies.find((p) => p.name === pc.policyName)!;
-            if (livePolicy) {
-              await apiPut(
+            const policyConfig = appConfig.policies.find((p) => p.name === pc.policyName);
+            if (livePolicy && policyConfig) {
+              await apiCall(
                 accountId,
                 apiToken,
                 `/access/apps/${liveApp.id}/policies/${livePolicy.id}`,
+                "PUT",
                 {
                   name: policyConfig.name,
                   decision: policyConfig.decision,
@@ -547,10 +560,11 @@ export async function applyDiff(
           } else if (pc.action === "delete") {
             const livePolicy = livePolicyMap.get(pc.policyName);
             if (livePolicy) {
-              await apiDelete(
+              await apiCall(
                 accountId,
                 apiToken,
-                `/access/apps/${liveApp.id}/policies/${livePolicy.id}`
+                `/access/apps/${liveApp.id}/policies/${livePolicy.id}`,
+                "DELETE"
               );
             }
           }
@@ -577,98 +591,118 @@ interface ApiResponse<T = unknown> {
   json(): Promise<{ result?: T; success?: boolean; errors?: Array<{ message: string }> }>;
 }
 
-async function apiGet<T = unknown>(accountId: string, apiToken: string, path: string): Promise<T> {
-  const resp = (await fetchWithTimeout(`${API_BASE}/accounts/${accountId}${path}`, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
-    timeoutMs: 30000,
-  })) as unknown as ApiResponse<T>;
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Cloudflare API ${resp.status}: ${text}`);
+export class CloudflareApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly path: string,
+    public readonly method: string,
+    public readonly errors?: Array<{ message: string }>
+  ) {
+    super(message);
+    this.name = "CloudflareApiError";
   }
-
-  const data = await resp.json();
-  if (data.success === false) {
-    const msg = data.errors?.map((e) => e.message).join("; ") || "API request failed";
-    throw new Error(`Cloudflare API error: ${msg}`);
-  }
-  return (data.result || ([] as T)) as T;
 }
 
-async function apiPost<T = unknown>(
+export interface ApiRequestOptions {
+  debug?: boolean;
+  retries?: number;
+  baseDelayMs?: number;
+  timeoutMs?: number;
+}
+
+export interface ApiRequestDebugLog {
+  retry?: { attempt: number; maxRetries: number; delayMs: number; method: string; path: string };
+  request?: { method: string; url: string; body?: unknown };
+  response?: { method: string; path: string; status: number };
+}
+
+async function apiCall<T = unknown>(
   accountId: string,
   apiToken: string,
   path: string,
-  body: unknown
+  method: "GET" | "POST" | "PUT" | "DELETE",
+  body?: unknown,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS
 ): Promise<T> {
   const resp = (await fetchWithTimeout(`${API_BASE}/accounts/${accountId}${path}`, {
-    method: "POST",
+    method,
     headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    timeoutMs: 30000,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    timeoutMs,
   })) as unknown as ApiResponse<T>;
 
   if (!resp.ok) {
     const text = await resp.text();
-    throw new Error(`Cloudflare API ${resp.status}: ${text}`);
+    throw new CloudflareApiError(
+      `Cloudflare API ${resp.status}: ${text}`,
+      resp.status,
+      path,
+      method
+    );
   }
 
   const data = await resp.json();
   if (data.success === false) {
-    const msg = data.errors?.map((e) => e.message).join("; ") || "API request failed";
-    throw new Error(`Cloudflare API error: ${msg}`);
+    const msg =
+      data.errors?.map((e: { message: string }) => e.message).join("; ") || "API request failed";
+    throw new CloudflareApiError(`Cloudflare API error: ${msg}`, 200, path, method, data.errors);
   }
-  return (data.result || ({} as T)) as T;
+
+  const empty: T = method === "GET" ? ([] as unknown as T) : ({} as unknown as T);
+  return (data.result ?? empty) as T;
 }
 
-async function apiPut<T = unknown>(
+export async function apiRequest<T = unknown>(
   accountId: string,
   apiToken: string,
   path: string,
-  body: unknown
+  method: "GET" | "POST" | "PUT" | "DELETE",
+  body?: unknown,
+  options: ApiRequestOptions = {}
 ): Promise<T> {
-  const resp = (await fetchWithTimeout(`${API_BASE}/accounts/${accountId}${path}`, {
-    method: "PUT",
-    headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    timeoutMs: 30000,
-  })) as unknown as ApiResponse<T>;
+  const {
+    debug = false,
+    retries = DEFAULT_RETRIES,
+    baseDelayMs = DEFAULT_BASE_DELAY_MS,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+  } = options;
 
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Cloudflare API ${resp.status}: ${text}`);
+  const url = `${API_BASE}/accounts/${accountId}${path}`;
+  const debugLogs: ApiRequestDebugLog[] = [];
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) {
+      const delay = baseDelayMs * 2 ** (attempt - 1);
+      if (debug) {
+        debugLogs.push({
+          retry: { attempt, maxRetries: retries, delayMs: delay, method, path },
+        });
+      }
+      await Bun.sleep(delay);
+    }
+
+    if (debug) {
+      debugLogs.push({ request: { method, url, body } });
+    }
+
+    try {
+      const result = await apiCall<T>(accountId, apiToken, path, method, body, timeoutMs);
+      return result;
+    } catch (e: unknown) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      // Only retry on 5xx or network errors, not on 4xx client errors
+      const is5xx = e instanceof CloudflareApiError && e.status >= 500 && e.status < 600;
+      const isNetworkError = !(e instanceof CloudflareApiError);
+      if (!is5xx && !isNetworkError) {
+        throw e;
+      }
+      if (attempt === retries) {
+        break;
+      }
+    }
   }
 
-  const data = await resp.json();
-  if (data.success === false) {
-    const msg = data.errors?.map((e) => e.message).join("; ") || "API request failed";
-    throw new Error(`Cloudflare API error: ${msg}`);
-  }
-  return (data.result || ({} as T)) as T;
-}
-
-async function apiDelete<T = unknown>(
-  accountId: string,
-  apiToken: string,
-  path: string
-): Promise<T> {
-  const resp = (await fetchWithTimeout(`${API_BASE}/accounts/${accountId}${path}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
-    timeoutMs: 30000,
-  })) as unknown as ApiResponse<T>;
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Cloudflare API ${resp.status}: ${text}`);
-  }
-
-  const data = await resp.json();
-  if (data.success === false) {
-    const msg = data.errors?.map((e) => e.message).join("; ") || "API request failed";
-    throw new Error(`Cloudflare API error: ${msg}`);
-  }
-  return (data.result || ({} as T)) as T;
+  throw lastError || new Error(`Cloudflare API request failed after ${retries + 1} attempts`);
 }

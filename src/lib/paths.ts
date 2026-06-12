@@ -7,19 +7,22 @@
 
 import { join } from "path";
 
-/** Return the user's home directory, falling back to "/tmp". */
+/** Fallback home directory when HOME is not set. */
+export const FALLBACK_HOME_DIR = "/tmp";
+
+/** Return the user's home directory, falling back to FALLBACK_HOME_DIR. */
 export function homeDir(): string {
-  return Bun.env.HOME || "/tmp";
+  return Bun.env.HOME || FALLBACK_HOME_DIR;
 }
 
 /** Return the canonical desktop runtime root: ~/.kimi-code */
-export function desktopRoot(): string {
-  return join(homeDir(), ".kimi-code");
+export function desktopRoot(home?: string): string {
+  return join(home || homeDir(), ".kimi-code");
 }
 
 /** Return ~/.kimi-code/tools */
-export function toolsDir(): string {
-  return join(desktopRoot(), "tools");
+export function toolsDir(home?: string): string {
+  return join(desktopRoot(home), "tools");
 }
 
 /** Return ~/.kimi-code/lib */
@@ -95,6 +98,21 @@ export function taxonomyPath(): string {
 /** Return ~/.agents/skills */
 export function agentsSkillsRoot(): string {
   return join(homeDir(), ".agents", "skills");
+}
+
+/** Return ~/.local/bin */
+export function localBinDir(): string {
+  return join(homeDir(), ".local", "bin");
+}
+
+/** Return ~/.cursor */
+export function cursorDir(): string {
+  return join(homeDir(), ".cursor");
+}
+
+/** Return ~/.cursor/projects */
+export function cursorProjectsDir(): string {
+  return join(cursorDir(), "projects");
 }
 
 /** Return ~/.kimi-code/project-mappings.yml */

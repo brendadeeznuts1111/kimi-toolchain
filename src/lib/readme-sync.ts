@@ -2,8 +2,26 @@
  * README ↔ package.json script drift detection and auto-patch.
  */
 
-import { existsSync } from "fs";
 import { join } from "path";
+import { safeParse } from "./utils.ts";
+
+// ── Constants ──────────────────────────────────────────────────────────
+
+const README_FILE = "README.md";
+const PACKAGE_FILE = "package.json";
+
+const EXIT_OK = 0;
+const EXIT_DRIFT = 1;
+const EXIT_ERROR = 1;
+
+const SCRIPT_PATTERN = /(?:bun run |npm run |yarn )([\w:-]+)/g;
+const CODE_BLOCK_PATTERN = /```[\s\S]*?```/g;
+const NEXT_SECTION_PATTERN = /\n### /;
+
+const TABLE_ROW_TEMPLATE = (script: string) =>
+  `| \`bun run ${script}\` | (synced from package.json) |`;
+
+// ── Types ──────────────────────────────────────────────────────────────
 
 export interface DocDrift {
   readmeScripts: string[];
@@ -13,7 +31,65 @@ export interface DocDrift {
   fresh: boolean;
 }
 
-export async function checkDocDrift(projectDir: string): Promise<DocDrift> {
+interface PackageJson {
+  scripts?: Record<string, string>;
+}
+
+function isPackageJson(val: unknown): val is PackageJson {
+  return (
+    typeof val === "object" &&
+    val !== null &&
+    ("scripts" in val === false || typeof (val as PackageJson).scripts === "object")
+  );
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────
+
+function readmePath(projectDir: string): string {
+  return join(projectDir, README_FILE);
+}
+
+function packagePath(projectDir: string): string {
+  return join(projectDir, PACKAGE_FILE);
+}
+
+function extractReadmeScripts(readme: string, pkgScripts: Record<string, string>): string[] {
+  const found: string[] = [];
+
+  let match: RegExpExecArray | null;
+  while ((match = SCRIPT_PATTERN.exec(readme)) !== null) {
+    found.push(match[1]);
+  }
+
+  const codeBlocks = readme.match(CODE_BLOCK_PATTERN) || [];
+  for (const block of codeBlocks) {
+    for (const scriptName of Object.keys(pkgScripts)) {
+      if (block.includes(scriptName) && !found.includes(scriptName)) {
+        found.push(scriptName);
+      }
+    }
+  }
+
+  return found;
+}
+
+function computeDrift(readmeScripts: string[], pkgScripts: Record<string, string>): DocDrift {
+  const pkgScriptNames = Object.keys(pkgScripts);
+  const missingFromReadme = pkgScriptNames.filter((s) => !readmeScripts.includes(s));
+  const extraInReadme = readmeScripts.filter((s) => !pkgScriptNames.includes(s));
+
+  return {
+    readmeScripts,
+    pkgScripts: pkgScriptNames,
+    missingFromReadme,
+    extraInReadme,
+    fresh: missingFromReadme.length === 0 && extraInReadme.length === 0,
+  };
+}
+
+// ── Pure computation ───────────────────────────────────────────────────
+
+export async function checkDocDrift(projectDir: string): Promise<DocDrift | null> {
   const drift: DocDrift = {
     readmeScripts: [],
     pkgScripts: [],
@@ -22,102 +98,115 @@ export async function checkDocDrift(projectDir: string): Promise<DocDrift> {
     fresh: true,
   };
 
-  const readmePath = join(projectDir, "README.md");
-  const pkgPath = join(projectDir, "package.json");
+  const readmeFile = Bun.file(readmePath(projectDir));
+  const pkgFile = Bun.file(packagePath(projectDir));
 
-  if (!existsSync(readmePath) || !existsSync(pkgPath)) {
+  if (!(await readmeFile.exists()) || !(await pkgFile.exists())) {
     drift.fresh = false;
     return drift;
   }
 
-  const readme = await Bun.file(readmePath).text();
-  const pkg = (await Bun.file(pkgPath).json()) as { scripts?: Record<string, string> };
-  const scripts = pkg.scripts || {};
+  const readme = await readmeFile.text();
+  const pkgText = await pkgFile.text();
+  const pkgRaw = safeParse(pkgText, null, isPackageJson);
 
-  const scriptPattern = /(?:bun run |npm run |yarn )([\w:-]+)/g;
-  const codeBlockPattern = /```[\s\S]*?```/g;
-
-  let match;
-  while ((match = scriptPattern.exec(readme)) !== null) {
-    drift.readmeScripts.push(match[1]);
+  if (pkgRaw === null) {
+    return null;
   }
 
-  const codeBlocks = readme.match(codeBlockPattern) || [];
-  for (const block of codeBlocks) {
-    for (const scriptName of Object.keys(scripts)) {
-      if (block.includes(scriptName) && !drift.readmeScripts.includes(scriptName)) {
-        drift.readmeScripts.push(scriptName);
-      }
-    }
-  }
+  const scripts = pkgRaw.scripts || {};
+  const readmeScripts = extractReadmeScripts(readme, scripts);
 
-  drift.pkgScripts = Object.keys(scripts);
-  drift.missingFromReadme = drift.pkgScripts.filter((s) => !drift.readmeScripts.includes(s));
-  drift.extraInReadme = drift.readmeScripts.filter((s) => !drift.pkgScripts.includes(s));
-  drift.fresh = drift.missingFromReadme.length === 0 && drift.extraInReadme.length === 0;
-
-  return drift;
+  return computeDrift(readmeScripts, scripts);
 }
 
-/** Append missing package.json scripts to the README Project Scripts table. */
+// ── Side-effect operations ─────────────────────────────────────────────
+
+/** Build the patch rows for missing scripts (pure). */
+export function buildPatchRows(missingScripts: string[]): string {
+  return missingScripts.map(TABLE_ROW_TEMPLATE).join("\n");
+}
+
+/** Append missing package.json scripts to the README Project Scripts table.
+ *  Returns the number of scripts patched, or -1 on error.
+ */
 export async function patchReadmeScripts(projectDir: string): Promise<number> {
   const drift = await checkDocDrift(projectDir);
+  if (drift === null) return -1;
   if (drift.missingFromReadme.length === 0) return 0;
 
-  const readmePath = join(projectDir, "README.md");
-  let readme = await Bun.file(readmePath).text();
+  const path = readmePath(projectDir);
+  let readme = await Bun.file(path).text();
 
-  const rows = drift.missingFromReadme
-    .map((s) => `| \`bun run ${s}\` | (synced from package.json) |`)
-    .join("\n");
+  const rows = buildPatchRows(drift.missingFromReadme);
 
-  const sectionEnd = readme.search(/\n### /);
+  const sectionEnd = readme.search(NEXT_SECTION_PATTERN);
   if (sectionEnd > 0) {
     readme = readme.slice(0, sectionEnd) + "\n" + rows + readme.slice(sectionEnd);
   } else {
     readme += "\n" + rows + "\n";
   }
 
-  await Bun.write(readmePath, readme);
+  await Bun.write(path, readme);
   return drift.missingFromReadme.length;
 }
 
-/** CLI entry — returns process exit code (0 = success). */
-export async function runReadmeSyncCli(args: string[]): Promise<number> {
+// ── CLI entry ──────────────────────────────────────────────────────────
+
+export interface ReadmeSyncResult {
+  exitCode: number;
+  message: string;
+  patched?: number;
+}
+
+/** CLI entry — returns structured result instead of logging directly. */
+export async function runReadmeSyncCli(args: string[]): Promise<ReadmeSyncResult> {
   try {
     const fix = args.includes("--fix");
     const projectDir = args.find((a) => !a.startsWith("-")) || Bun.cwd;
 
     if (fix) {
       const patched = await patchReadmeScripts(projectDir);
-      if (patched > 0) {
-        console.log(`Patched README.md with ${patched} script(s)`);
-      } else {
-        console.log("README scripts already in sync");
+      if (patched === -1) {
+        return { exitCode: EXIT_ERROR, message: "Error: invalid package.json" };
       }
-      return 0;
+      if (patched > 0) {
+        return {
+          exitCode: EXIT_OK,
+          message: `Patched README.md with ${patched} script(s)`,
+          patched,
+        };
+      }
+      return { exitCode: EXIT_OK, message: "README scripts already in sync" };
     }
 
     const drift = await checkDocDrift(projectDir);
-    if (drift.fresh) {
-      console.log("README scripts: in sync");
-      return 0;
+    if (drift === null) {
+      return { exitCode: EXIT_ERROR, message: "Error: invalid package.json" };
     }
+    if (drift.fresh) {
+      return { exitCode: EXIT_OK, message: "README scripts: in sync" };
+    }
+
+    const parts: string[] = [];
     if (drift.missingFromReadme.length > 0) {
-      console.log(`Missing from README: ${drift.missingFromReadme.join(", ")}`);
+      parts.push(`Missing from README: ${drift.missingFromReadme.join(", ")}`);
     }
     if (drift.extraInReadme.length > 0) {
-      console.log(`Extra in README: ${drift.extraInReadme.join(", ")}`);
+      parts.push(`Extra in README: ${drift.extraInReadme.join(", ")}`);
     }
-    return 1;
+    return { exitCode: EXIT_DRIFT, message: parts.join("; ") };
   } catch (err) {
-    console.error("readme-sync failed:", (err as Error).message);
-    return 1;
+    const message = err instanceof Error ? err.message : String(err);
+    return { exitCode: EXIT_ERROR, message: `Error: ${message}` };
   }
 }
 
+// ── Main ───────────────────────────────────────────────────────────────
+
 if (import.meta.main) {
-  runReadmeSyncCli(Bun.argv.slice(2)).then((code) => {
-    if (code !== 0) process.exit(code);
+  runReadmeSyncCli(Bun.argv.slice(2)).then((result) => {
+    console.log(result.message);
+    if (result.exitCode !== 0) process.exit(result.exitCode);
   });
 }

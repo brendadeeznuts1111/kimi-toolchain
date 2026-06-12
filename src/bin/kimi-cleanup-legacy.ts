@@ -25,8 +25,8 @@ import { getLegacyStatus, runLegacyCleanup, CANONICAL_REPO_NAME } from "../lib/l
 
 // ── Doctor ───────────────────────────────────────────────────────────
 
-function doctor(home: string) {
-  const status = getLegacyStatus(home);
+function doctor() {
+  const status = getLegacyStatus();
   const checks: {
     name: string;
     status: "ok" | "warn" | "error";
@@ -119,9 +119,9 @@ function doctor(home: string) {
 
 // ── Fix ──────────────────────────────────────────────────────────────
 
-function fix(home: string) {
+function fix() {
   printSection("Cleaning Legacy Paths");
-  const before = getLegacyStatus(home);
+  const before = getLegacyStatus();
 
   if (before.legacyCloneExists) {
     log("error", "Legacy clone exists at ~/kimicode-cli — remove or rename it first.");
@@ -129,8 +129,8 @@ function fix(home: string) {
     process.exit(1);
   }
 
-  const result = runLegacyCleanup(home);
-  const after = getLegacyStatus(home);
+  const result = runLegacyCleanup();
+  const after = getLegacyStatus();
 
   log("info", `Sessions archived: ${result.sessionsArchived.length}`);
   log("info", `Index lines pruned: ${result.indexLinesPruned}`);
@@ -146,9 +146,9 @@ function fix(home: string) {
 
 // ── Status ─────────────────────────────────────────────────────────
 
-function status(home: string) {
+function status() {
   printSection("Legacy Path Status");
-  const s = getLegacyStatus(home);
+  const s = getLegacyStatus();
   log("info", `Sessions: ${s.legacySessions.length}`);
   log("info", `Index lines: ${s.legacyIndexLines}`);
   log("info", `Cursor slugs: ${s.legacyCursorSlugs.length} (${s.activeCursorSlugs.length} active)`);
@@ -159,17 +159,17 @@ function status(home: string) {
 // ── Main ─────────────────────────────────────────────────────────────
 
 if (import.meta.main) {
-  const home = homeDir();
+  const _home = homeDir();
   const cmd = Bun.argv[2] || "status";
 
   printToolBanner("kimi-cleanup-legacy", `v2.0 — ${CANONICAL_REPO_NAME} migration`);
 
   if (cmd === "doctor") {
-    doctor(home);
+    doctor();
   } else if (cmd === "fix") {
-    fix(home);
+    fix();
   } else if (cmd === "status") {
-    status(home);
+    status();
   } else {
     console.log("Usage: kimi-cleanup-legacy [doctor|fix|status]");
     process.exit(1);

@@ -145,6 +145,7 @@ interface FreshnessResult {
 
 async function checkReadmeDrift(projectDir: string): Promise<FreshnessResult["readmeDrift"]> {
   const drift = await checkDocDrift(projectDir);
+  if (!drift) return { fresh: false, missingFromReadme: [], extraInReadme: [] };
   return {
     fresh: drift.fresh,
     missingFromReadme: drift.missingFromReadme,

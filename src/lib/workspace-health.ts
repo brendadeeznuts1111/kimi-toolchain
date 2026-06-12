@@ -118,8 +118,8 @@ export function canonicalClonePath(home: string): string {
   return join(home, CANONICAL_REPO_NAME);
 }
 
-export function listActiveLegacyCursorSlugs(home: string): string[] {
-  return listLegacyCursorSlugs(home).filter((slug) => isCursorSlugActive(home, slug));
+export function listActiveLegacyCursorSlugs(): string[] {
+  return listLegacyCursorSlugs().filter((slug) => isCursorSlugActive(slug));
 }
 
 function countMismatchedSessionCwds(sessionIndexPath: string, expectedCwd: string): number {
@@ -455,7 +455,7 @@ export async function auditWorkspaceHealth(
   if (legacyCursorSlugs.length > 0) {
     const slug = legacyCursorSlugs[0];
     const isBlocker = isToolchain && canonicalClonePresent;
-    const active = isCursorSlugActive(home, slug);
+    const active = isCursorSlugActive(slug);
     const activeHint = active
       ? " (ACTIVE — close this agent chat, quit Cursor, reopen kimi-toolchain.code-workspace)"
       : "";
@@ -644,19 +644,19 @@ export async function fixWorkspaceHealth(
   }
 
   if (options.removeLegacySymlink) {
-    result.legacySymlinkRemoved = removeLegacySymlink(home);
+    result.legacySymlinkRemoved = removeLegacySymlink();
   }
 
   if (options.removeCursorSlugs && report.legacyCursorSlugs.length > 0) {
-    result.cursorSlugsRemoved = removeLegacyCursorSlugs(home);
+    result.cursorSlugsRemoved = removeLegacyCursorSlugs();
   }
 
   if (options.archiveLegacySessions) {
-    result.sessionsArchived = archiveLegacyKimiSessions(home);
+    result.sessionsArchived = archiveLegacyKimiSessions();
   }
 
   if (options.pruneLegacySessionIndex) {
-    result.sessionIndexLinesPruned = pruneLegacySessionIndex(home);
+    result.sessionIndexLinesPruned = pruneLegacySessionIndex();
   }
 
   return result;

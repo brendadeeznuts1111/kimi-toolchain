@@ -6,7 +6,7 @@
 import { existsSync } from "fs";
 import { join, resolve } from "path";
 import { ensureDir } from "./utils.ts";
-import { homeDir } from "./paths.ts";
+import { homeDir, mcpPath, toolsDir } from "./paths.ts";
 
 export const UNIFIED_SHELL_SERVER = "unified-shell";
 export const UNIFIED_SHELL_TOOL = "mcp__unified-shell__execute";
@@ -14,6 +14,10 @@ export const CLOUDFLARE_API_SERVER = "cloudflare-api";
 export const CLOUDFLARE_API_TOOL_SEARCH = "mcp__cloudflare__search";
 export const CLOUDFLARE_API_TOOL_EXECUTE = "mcp__cloudflare__execute";
 export const CLOUDFLARE_MCP_URL = "https://mcp.cloudflare.com/mcp";
+
+const KIMI_CODE_DIR = ".kimi-code";
+const BUN_BINARY = "bun";
+const UNIFIED_SHELL_BRIDGE = "unified-shell-bridge.ts";
 
 export interface McpServerEntry {
   command?: string;
@@ -54,23 +58,36 @@ export interface McpValidationReport {
   projectPath: string | null;
 }
 
-export function userMcpPath(home: string = homeDir()): string {
-  return join(home, ".kimi-code", "mcp.json");
+export interface ReadMcpJsonResult {
+  data: McpJson | null;
+  error?: string;
+}
+
+export function userMcpPath(): string {
+  return mcpPath();
 }
 
 export function projectMcpPath(projectRoot: string): string {
-  return join(resolve(projectRoot), ".kimi-code", "mcp.json");
+  return join(resolve(projectRoot), KIMI_CODE_DIR, "mcp.json");
 }
 
-export async function readMcpJson(path: string): Promise<McpJson | null> {
-  if (!existsSync(path)) return null;
+export async function readMcpJson(path: string): Promise<ReadMcpJsonResult> {
+  if (!existsSync(path)) return { data: null };
   try {
     const raw = await Bun.file(path).json();
-    if (!raw || typeof raw !== "object") return null;
-    const servers = (raw as McpJson).mcpServers;
-    return { mcpServers: servers && typeof servers === "object" ? servers : {} };
-  } catch {
-    return null;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { data: null };
+    const servers = Reflect.get(raw, "mcpServers");
+    return {
+      data: {
+        mcpServers:
+          servers && typeof servers === "object" && !Array.isArray(servers) ? servers : {},
+      },
+    };
+  } catch (e) {
+    return {
+      data: null,
+      error: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
@@ -80,11 +97,11 @@ export async function writeMcpJson(path: string, data: McpJson): Promise<void> {
 }
 
 export function resolveBunPath(): string {
-  return Bun.which("bun") || "bun";
+  return Bun.which(BUN_BINARY) || BUN_BINARY;
 }
 
 export function bridgeScriptPath(home: string = homeDir()): string {
-  return join(home, ".kimi-code", "tools", "unified-shell-bridge.ts");
+  return join(toolsDir(home), UNIFIED_SHELL_BRIDGE);
 }
 
 /** Canonical stdio entry for unified-shell MCP server. */
@@ -113,11 +130,11 @@ function unifiedShellNeedsRefresh(
   expected: McpServerEntry
 ): boolean {
   if (!existing) return true;
-  const scriptPath = bridgeScriptPath();
   const expectedArgs = expected.args?.join(" ") ?? "";
   const existingArgs = existing.args?.join(" ") ?? "";
-  if (!existingArgs.includes("unified-shell-bridge.ts")) return true;
+  if (!existingArgs.includes(UNIFIED_SHELL_BRIDGE)) return true;
   if (existing.command !== expected.command) return true;
+  const scriptPath = expected.args?.[1] ?? "";
   if (!existingArgs.includes(scriptPath) && existingArgs !== expectedArgs) return true;
   return false;
 }
@@ -168,8 +185,8 @@ export async function provisionUserMcp(home: string = homeDir()): Promise<{
   path: string;
   changed: boolean;
 }> {
-  const path = userMcpPath(home);
-  const existing = await readMcpJson(path);
+  const path = userMcpPath();
+  const { data: existing } = await readMcpJson(path);
   const { config, changed } = mergeToolchainMcpServers(existing, home);
   if (changed || !existsSync(path)) {
     await writeMcpJson(path, config);
@@ -183,15 +200,16 @@ export async function validateMcpConfig(
   projectRoot?: string
 ): Promise<McpValidationReport> {
   const checks: McpCheck[] = [];
-  const userPath = userMcpPath(home);
+  const userPath = userMcpPath();
   const projectPath = projectRoot ? projectMcpPath(projectRoot) : null;
   const bridgePath = bridgeScriptPath(home);
 
+  const { data: userMcp, error: userReadError } = await readMcpJson(userPath);
   if (existsSync(userPath)) {
     checks.push({
       name: "mcp-user",
-      status: "ok",
-      message: userPath,
+      status: userReadError ? "warn" : "ok",
+      message: userReadError ? `${userPath} — invalid JSON: ${userReadError}` : userPath,
       fixable: false,
     });
   } else {
@@ -203,7 +221,6 @@ export async function validateMcpConfig(
     });
   }
 
-  const userMcp = await readMcpJson(userPath);
   if (userMcp?.mcpServers[UNIFIED_SHELL_SERVER]) {
     checks.push({
       name: "unified-shell",
@@ -215,7 +232,9 @@ export async function validateMcpConfig(
     checks.push({
       name: "unified-shell",
       status: "error",
-      message: "not in mcpServers — run kimi-doctor --fix",
+      message: userReadError
+        ? `cannot verify — mcp.json unreadable: ${userReadError}`
+        : "not in mcpServers — run kimi-doctor --fix",
       fixable: true,
     });
   }
@@ -234,7 +253,9 @@ export async function validateMcpConfig(
     checks.push({
       name: "cloudflare-api-mcp",
       status: "warn",
-      message: "not in mcpServers — run kimi-doctor --fix to enable Cloudflare API access",
+      message: userReadError
+        ? `cannot verify — mcp.json unreadable: ${userReadError}`
+        : "not in mcpServers — run kimi-doctor --fix to enable Cloudflare API access",
       fixable: true,
     });
   }
@@ -256,7 +277,7 @@ export async function validateMcpConfig(
   }
 
   const bunPath = resolveBunPath();
-  if (bunPath && (bunPath !== "bun" || Bun.which("bun"))) {
+  if (bunPath && (bunPath !== BUN_BINARY || Bun.which(BUN_BINARY))) {
     checks.push({
       name: "bun-runtime",
       status: "ok",
@@ -273,12 +294,14 @@ export async function validateMcpConfig(
   }
 
   if (projectPath && existsSync(projectPath)) {
-    const projectMcp = await readMcpJson(projectPath);
+    const { data: projectMcp, error: projectReadError } = await readMcpJson(projectPath);
     if (!projectMcp) {
       checks.push({
         name: "mcp-project",
         status: "warn",
-        message: `${projectPath} — invalid JSON`,
+        message: projectReadError
+          ? `${projectPath} — invalid JSON: ${projectReadError}`
+          : `${projectPath} — invalid JSON`,
         fixable: false,
       });
     } else {
@@ -312,7 +335,7 @@ export async function validateMcpConfig(
           });
         } else {
           const args = override.args?.join(" ") ?? "";
-          const usesBridge = args.includes("unified-shell-bridge");
+          const usesBridge = args.includes(UNIFIED_SHELL_BRIDGE);
           checks.push({
             name: "mcp-project-override",
             status: usesBridge || !!override.url ? "ok" : "warn",
@@ -358,7 +381,7 @@ export function projectMcpStub(): string {
       {
         mcpServers: {},
         _comment:
-          "Project MCP servers override ~/.kimi-code/mcp.json entries with the same name. See UNIFIED.md.",
+          "Project MCP servers override ${mcpPath()} entries with the same name. See UNIFIED.md.",
       },
       null,
       2

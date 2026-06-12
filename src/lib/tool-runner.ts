@@ -10,6 +10,9 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { desktopRoot } from "./paths.ts";
 
+const DEFAULT_TOOL_TIMEOUT_MS = 60_000;
+const DEFAULT_GRACE_PERIOD_MS = 5_000;
+
 export interface ToolInvocationOptions {
   cwd?: string;
   timeoutMs?: number;
@@ -42,8 +45,8 @@ export async function invokeTool(
   options: ToolInvocationOptions = {}
 ): Promise<ToolInvocation> {
   const cwd = options.cwd || Bun.cwd;
-  const timeoutMs = options.timeoutMs ?? 60000;
-  const gracePeriodMs = options.gracePeriodMs ?? 5000;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TOOL_TIMEOUT_MS;
+  const gracePeriodMs = options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
   const start = performance.now();
 
   const proc = Bun.spawn(["bun", "run", toolPath, ...args], {

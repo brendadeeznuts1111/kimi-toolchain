@@ -102,7 +102,7 @@ describe("workspace-health", () => {
     const transcripts = join(slugPath, "agent-transcripts");
     mkdirSync(transcripts, { recursive: true });
     writeFileSync(join(transcripts, "chat.jsonl"), "{}");
-    expect(isCursorSlugActive(tmpHome, "Users-test-kimicode-cli")).toBe(true);
+    expect(isCursorSlugActive("Users-test-kimicode-cli", undefined, tmpHome)).toBe(true);
   }, 5_000);
 
   test("removeLegacyCursorSlugs deletes matching folders", async () => {

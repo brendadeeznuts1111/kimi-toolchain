@@ -5,13 +5,26 @@
 import { existsSync } from "fs";
 import { dirname, join } from "path";
 import { ensureDir } from "./utils.ts";
-import { desktopRoot as _desktopRoot, agentsSkillsRoot } from "./paths.ts";
+import {
+  desktopRoot as _desktopRoot,
+  agentsSkillsRoot,
+  toolsDir,
+  libDir,
+  scriptsDir,
+  kimiHooksDir,
+  varDir,
+  memoryDir,
+  guardianDir,
+  governorDir,
+  skillsDir,
+} from "./paths.ts";
 
 export const desktopRoot = _desktopRoot;
 export const AGENTS_SKILLS_ROOT = agentsSkillsRoot();
 
+/** @deprecated Use skillsDir() from paths.ts instead. */
 export function kimiCodeSkillsRoot(): string {
-  return join(desktopRoot(), "skills");
+  return skillsDir();
 }
 
 export const ROOT_TEMPLATES = [
@@ -27,6 +40,15 @@ export const ROOT_TEMPLATES = [
 export const OPTIONAL_CONFIG_FILES = ["bunfig.toml", ".gitignore"] as const;
 
 export const TOOL_ORPHANS = ["kimi-utils.ts"] as const;
+
+export const LABEL_PREFIX = {
+  TOOLS: "tools/",
+  LIB: "lib/",
+  SCRIPTS: "scripts/",
+  KIMI_HOOKS: "kimi-hooks/",
+  AGENTS_SKILL: "agents-skill/",
+  KIMI_SKILL: "kimi-skill/",
+} as const;
 
 export interface DesktopPaths {
   repoRoot: string;
@@ -45,34 +67,35 @@ export interface DesktopPaths {
 }
 
 export function resolveDesktopPaths(repoRoot: string): DesktopPaths {
+  const dRoot = desktopRoot();
   return {
     repoRoot,
-    desktopRoot: desktopRoot(),
+    desktopRoot: dRoot,
     binSrc: join(repoRoot, "src", "bin"),
-    binDst: join(desktopRoot(), "tools"),
+    binDst: toolsDir(),
     libSrc: join(repoRoot, "src", "lib"),
-    libDst: join(desktopRoot(), "lib"),
+    libDst: libDir(),
     scriptsSrc: join(repoRoot, "scripts"),
-    scriptsDst: join(desktopRoot(), "scripts"),
+    scriptsDst: scriptsDir(),
     kimiHooksSrc: join(repoRoot, "src", "kimi-hooks"),
-    kimiHooksDst: join(desktopRoot(), "kimi-hooks"),
+    kimiHooksDst: kimiHooksDir(),
     skillSrc: join(repoRoot, "skills", "kimi-toolchain"),
     skillDst: join(AGENTS_SKILLS_ROOT, "kimi-toolchain"),
-    kimiSkillDst: join(kimiCodeSkillsRoot(), "kimi-toolchain"),
+    kimiSkillDst: join(skillsDir(), "kimi-toolchain"),
   };
 }
 
 export function ensureDesktopLayout(): void {
   for (const dir of [
-    join(desktopRoot(), "tools"),
-    join(desktopRoot(), "lib"),
-    join(desktopRoot(), "scripts"),
-    join(desktopRoot(), "kimi-hooks"),
-    join(desktopRoot(), "var"),
-    join(desktopRoot(), "memory"),
-    join(desktopRoot(), "guardian"),
-    join(desktopRoot(), "governor"),
-    kimiCodeSkillsRoot(),
+    toolsDir(),
+    libDir(),
+    scriptsDir(),
+    kimiHooksDir(),
+    varDir(),
+    memoryDir(),
+    guardianDir(),
+    governorDir(),
+    skillsDir(),
   ]) {
     ensureDir(dir);
   }
@@ -88,6 +111,8 @@ async function readTextOrNull(path: string): Promise<string | null> {
   try {
     return await Bun.file(path).text();
   } catch {
+    // File not found or unreadable — expected when destination does not exist yet.
+    // Permission errors are intentionally treated as "missing" for sync idempotency.
     return null;
   }
 }
@@ -112,6 +137,26 @@ async function copyIfChanged(
   }
 }
 
+async function syncGlobDirectory(
+  srcDir: string,
+  dstDir: string,
+  labelPrefix: string,
+  globPattern: string,
+  force: boolean,
+  result: SyncFileResult
+): Promise<void> {
+  const glob = new Bun.Glob(globPattern);
+  for await (const file of glob.scan(srcDir)) {
+    await copyIfChanged(
+      join(srcDir, file),
+      join(dstDir, file),
+      `${labelPrefix}${file}`,
+      force,
+      result
+    );
+  }
+}
+
 /** Sync managed sources from repo to desktop install. */
 export async function syncDesktop(
   repoRoot: string,
@@ -123,70 +168,43 @@ export async function syncDesktop(
 
   ensureDesktopLayout();
 
-  const binGlob = new Bun.Glob("*.ts");
-  for await (const file of binGlob.scan(paths.binSrc)) {
-    await copyIfChanged(
-      join(paths.binSrc, file),
-      join(paths.binDst, file),
-      `tools/${file}`,
-      force,
-      result
-    );
-  }
-
-  const libGlob = new Bun.Glob("*.ts");
-  for await (const file of libGlob.scan(paths.libSrc)) {
-    await copyIfChanged(
-      join(paths.libSrc, file),
-      join(paths.libDst, file),
-      `lib/${file}`,
-      force,
-      result
-    );
-  }
+  await syncGlobDirectory(paths.binSrc, paths.binDst, LABEL_PREFIX.TOOLS, "*.ts", force, result);
+  await syncGlobDirectory(paths.libSrc, paths.libDst, LABEL_PREFIX.LIB, "*.ts", force, result);
 
   if (existsSync(paths.scriptsSrc)) {
-    const scriptsGlob = new Bun.Glob("*.ts");
-    for await (const file of scriptsGlob.scan(paths.scriptsSrc)) {
-      await copyIfChanged(
-        join(paths.scriptsSrc, file),
-        join(paths.scriptsDst, file),
-        `scripts/${file}`,
-        force,
-        result
-      );
-    }
+    await syncGlobDirectory(
+      paths.scriptsSrc,
+      paths.scriptsDst,
+      LABEL_PREFIX.SCRIPTS,
+      "*.ts",
+      force,
+      result
+    );
   }
 
   if (existsSync(paths.kimiHooksSrc)) {
-    const kimiHooksGlob = new Bun.Glob("*.ts");
-    for await (const file of kimiHooksGlob.scan(paths.kimiHooksSrc)) {
-      await copyIfChanged(
-        join(paths.kimiHooksSrc, file),
-        join(paths.kimiHooksDst, file),
-        `kimi-hooks/${file}`,
-        force,
-        result
-      );
-    }
+    await syncGlobDirectory(
+      paths.kimiHooksSrc,
+      paths.kimiHooksDst,
+      LABEL_PREFIX.KIMI_HOOKS,
+      "*.ts",
+      force,
+      result
+    );
   }
 
   for (const doc of ROOT_TEMPLATES) {
     await copyIfChanged(join(repoRoot, doc), join(desktopRoot(), doc), doc, force, result);
   }
 
-  if (!force) {
-    for (const file of OPTIONAL_CONFIG_FILES) {
-      const srcPath = join(repoRoot, file);
-      const dstPath = join(desktopRoot(), file);
-      if (!existsSync(dstPath) && existsSync(srcPath)) {
-        await Bun.write(dstPath, await Bun.file(srcPath).text());
-        result.updated.push(file);
-      }
-    }
-  } else {
-    for (const file of OPTIONAL_CONFIG_FILES) {
-      await copyIfChanged(join(repoRoot, file), join(desktopRoot(), file), file, true, result);
+  for (const file of OPTIONAL_CONFIG_FILES) {
+    const srcPath = join(repoRoot, file);
+    const dstPath = join(desktopRoot(), file);
+    if (force) {
+      await copyIfChanged(srcPath, dstPath, file, true, result);
+    } else if (!existsSync(dstPath) && existsSync(srcPath)) {
+      await Bun.write(dstPath, await Bun.file(srcPath).text());
+      result.updated.push(file);
     }
   }
 
@@ -196,14 +214,14 @@ export async function syncDesktop(
       await copyIfChanged(
         join(paths.skillSrc, rel),
         join(paths.skillDst, rel),
-        `agents-skill/${rel}`,
+        `${LABEL_PREFIX.AGENTS_SKILL}${rel}`,
         force,
         result
       );
       await copyIfChanged(
         join(paths.skillSrc, rel),
         join(paths.kimiSkillDst, rel),
-        `kimi-skill/${rel}`,
+        `${LABEL_PREFIX.KIMI_SKILL}${rel}`,
         force,
         result
       );
@@ -213,8 +231,12 @@ export async function syncDesktop(
   for (const orphan of TOOL_ORPHANS) {
     const orphanPath = join(paths.binDst, orphan);
     if ((await readTextOrNull(orphanPath)) !== null) {
-      await Bun.$`rm -f ${orphanPath}`.nothrow().quiet();
-      result.removed.push(`tools/${orphan}`);
+      try {
+        await Bun.file(orphanPath).delete();
+      } catch {
+        // Ignore deletion failures (e.g., permission denied).
+      }
+      result.removed.push(`${LABEL_PREFIX.TOOLS}${orphan}`);
     }
   }
 

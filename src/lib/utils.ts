@@ -15,6 +15,18 @@ import {
   type ToolInvocationOptions,
 } from "./tool-runner.ts";
 
+// ── Constants ────────────────────────────────────────────────────────
+
+const DEFAULT_SECTION_WIDTH = 60;
+const DEFAULT_BANNER_INNER_WIDTH = 62;
+const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
+
+const LOG_PREFIXES = {
+  info: "  ✓",
+  warn: "  ⚠",
+  error: "  ✗",
+} as const;
+
 // ── File System ──────────────────────────────────────────────────────
 
 /** Ensure a directory exists, creating it recursively if needed. */
@@ -26,18 +38,26 @@ export function ensureDir(dir: string) {
 
 /** Log a message with a level-appropriate prefix. */
 export function log(level: "info" | "warn" | "error", msg: string) {
-  const prefix = { info: "  ✓", warn: "  ⚠", error: "  ✗" }[level];
-  console.log(`${prefix} ${msg}`);
+  console.log(`${LOG_PREFIXES[level]} ${msg}`);
+}
+
+/** Return the icon character for a doctor/workspace check status. */
+export function statusIcon(status: "ok" | "warn" | "error"): string {
+  return status === "ok" ? "✓" : status === "warn" ? "⚠" : "✗";
 }
 
 /** Print a section header with decorative borders. */
-export function printSection(title: string, width = 60): void {
+export function printSection(title: string, width = DEFAULT_SECTION_WIDTH): void {
   console.log("");
   console.log(`── ${title} ${"─".repeat(Math.max(0, width - title.length))}`);
 }
 
 /** Print a centered tool banner with optional subtitle. */
-export function printToolBanner(title: string, subtitle?: string, innerWidth = 62): void {
+export function printToolBanner(
+  title: string,
+  subtitle?: string,
+  innerWidth = DEFAULT_BANNER_INNER_WIDTH
+): void {
   const pad = Math.max(0, innerWidth - title.length);
   const left = Math.floor(pad / 2);
   const right = pad - left;
@@ -78,6 +98,26 @@ export function sha256String(data: string): string {
   return hash.digest("hex");
 }
 
+// ── Safe Parse (shared implementation) ─────────────────────────────────
+
+function _safeParse<T>(
+  parse: (input: string) => unknown,
+  input: string,
+  fallback: T,
+  validator?: (v: unknown) => v is T
+): T {
+  try {
+    const parsed: unknown = parse(input);
+    if (validator) {
+      return validator(parsed) ? parsed : fallback;
+    }
+    // Blind cast when no validator — caller assumes responsibility
+    return parsed as T;
+  } catch {
+    return fallback;
+  }
+}
+
 // ── Safe JSON ────────────────────────────────────────────────────────
 
 /** Safely parse JSON with a fallback value on failure. */
@@ -85,15 +125,7 @@ export function safeParse<T>(json: string, fallback: T): T;
 /** Safely parse JSON with a fallback and optional validator. */
 export function safeParse<T>(json: string, fallback: T, validator: (v: unknown) => v is T): T;
 export function safeParse<T>(json: string, fallback: T, validator?: (v: unknown) => v is T): T {
-  try {
-    const parsed = JSON.parse(json) as unknown;
-    if (validator) {
-      return validator(parsed) ? parsed : fallback;
-    }
-    return parsed as T;
-  } catch {
-    return fallback;
-  }
+  return _safeParse(JSON.parse, json, fallback, validator);
 }
 
 // ── Project Info ─────────────────────────────────────────────────────
@@ -106,7 +138,7 @@ export async function readPackageJson<T extends Record<string, unknown>>(
   const pkgPath = join(projectDir, "package.json");
   if (!existsSync(pkgPath)) return null;
   try {
-    const pkg = (await Bun.file(pkgPath).json()) as unknown;
+    const pkg: unknown = await Bun.file(pkgPath).json();
     if (validator && !validator(pkg)) return null;
     return pkg as T;
   } catch {
@@ -163,7 +195,7 @@ export async function fetchWithTimeout(
   url: string,
   options: RequestInit & { timeoutMs?: number } = {}
 ): Promise<globalThis.Response> {
-  const { timeoutMs = 10000, ...fetchOptions } = options;
+  const { timeoutMs = DEFAULT_FETCH_TIMEOUT_MS, ...fetchOptions } = options;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -198,7 +230,7 @@ export interface DoctorReport {
 export function printDoctorReport(report: DoctorReport) {
   printSection(`${report.tool} Doctor`);
   for (const check of report.checks) {
-    const icon = check.status === "ok" ? "✓" : check.status === "warn" ? "⚠" : "✗";
+    const icon = statusIcon(check.status);
     const fixTag = check.fixable ? " [fixable]" : "";
     console.log(`  ${icon} ${check.name}: ${check.message}${fixTag}`);
   }
@@ -215,6 +247,15 @@ export function buildDoctorReport(tool: string, checks: DoctorCheck[]): DoctorRe
     warnCount: checks.filter((c) => c.status === "warn").length,
     fixableCount: checks.filter((c) => c.fixable).length,
   };
+}
+
+// ── Safe TOML ────────────────────────────────────────────────────────
+
+export function safeToml<T>(text: string, fallback: T): T;
+/** Safely parse TOML with a fallback and optional validator. */
+export function safeToml<T>(text: string, fallback: T, validate: (val: unknown) => val is T): T;
+export function safeToml<T>(text: string, fallback: T, validate?: (val: unknown) => val is T): T {
+  return _safeParse(Bun.TOML.parse, text, fallback, validate);
 }
 
 // Re-export doctor persistence (canonical impl in doctor-runs.ts)

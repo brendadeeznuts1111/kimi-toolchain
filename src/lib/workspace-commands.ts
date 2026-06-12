@@ -191,7 +191,7 @@ async function runCleanup(
       const stat = lstatSync(legacyPath);
       if (stat.isSymbolicLink()) {
         console.log(`  ⚠ ~/${LEGACY_REPO_NAMES[0]} symlink exists`);
-        if (removeLegacyPath && removeLegacySymlink(home)) {
+        if (removeLegacyPath && removeLegacySymlink()) {
           console.log(`  ✓ Removed symlink ~/${LEGACY_REPO_NAMES[0]}`);
         }
       } else if (stat.isDirectory()) {
@@ -213,7 +213,7 @@ async function runCleanup(
     console.log(`  ✗ ~/${CANONICAL_REPO_NAME}/package.json missing`);
   }
 
-  const slugs = listLegacyCursorSlugs(home);
+  const slugs = listLegacyCursorSlugs();
   if (slugs.length === 0) {
     console.log("  ✓ No legacy Cursor project slugs");
   } else {
@@ -222,7 +222,7 @@ async function runCleanup(
         console.log(`      ${join(home, ".cursor", "projects", slug)}`);
       }
     } else {
-      const active = listActiveLegacyCursorSlugs(home);
+      const active = listActiveLegacyCursorSlugs();
       console.log(`  ⚠ Legacy Cursor project slug(s): ${slugs.join(", ")}`);
       if (active.length > 0) {
         console.log(`      ACTIVE (agent session open): ${active.join(", ")}`);
@@ -230,7 +230,7 @@ async function runCleanup(
       console.log("      Run: kimi-toolchain workspace fix --deep");
     }
     if (removeCursor) {
-      const removed = removeLegacyCursorSlugs(home);
+      const removed = removeLegacyCursorSlugs();
       for (const slug of removed) {
         console.log(`  ✓ Removed ${slug}`);
       }

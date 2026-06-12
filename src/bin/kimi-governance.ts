@@ -473,6 +473,9 @@ async function computeRScore(projectDir: string): Promise<RScore> {
   const gov = await checkGovernance(projectDir);
   const coverage = await checkCoverage(projectDir);
   const drift = await checkDocDrift(projectDir);
+  if (!drift) {
+    throw new Error("Failed to check README drift — could not read package.json or README.md");
+  }
 
   const lockPath = join(projectDir, "bun.lock");
   const pkgPath = join(projectDir, "package.json");
@@ -587,6 +590,10 @@ async function main() {
   } else if (command === "docs") {
     console.log("── Documentation Drift ───────────────────────────────────────");
     const drift = await checkDocDrift(projectDir);
+    if (!drift) {
+      log("error", "Failed to check README drift — could not read package.json or README.md");
+      process.exit(1);
+    }
 
     if (!existsSync(join(projectDir, "README.md"))) {
       log("error", "README.md not found");
@@ -648,7 +655,7 @@ async function main() {
     }
 
     const drift = await checkDocDrift(projectDir);
-    if (!drift.fresh && drift.missingFromReadme.length > 0) {
+    if (drift && !drift.fresh && drift.missingFromReadme.length > 0) {
       const patched = await patchReadmeScripts(projectDir);
       if (patched > 0) {
         log("info", `Patched README.md with ${patched} missing script(s)`);
@@ -717,14 +724,23 @@ async function main() {
     });
 
     const driftAfter = await checkDocDrift(projectDir);
-    checksAfter.push({
-      name: "README-drift",
-      status: driftAfter.fresh ? "ok" : "warn",
-      message: driftAfter.fresh
-        ? "in sync with package.json"
-        : `missing: ${driftAfter.missingFromReadme.join(", ")}`,
-      fixable: !driftAfter.fresh,
-    });
+    if (!driftAfter) {
+      checksAfter.push({
+        name: "README-drift",
+        status: "error",
+        message: "Failed to check README drift — could not read package.json or README.md",
+        fixable: false,
+      });
+    } else {
+      checksAfter.push({
+        name: "README-drift",
+        status: driftAfter.fresh ? "ok" : "warn",
+        message: driftAfter.fresh
+          ? "in sync with package.json"
+          : `missing: ${driftAfter.missingFromReadme.join(", ")}`,
+        fixable: !driftAfter.fresh,
+      });
+    }
 
     try {
       const guardianResult = await runTool("kimi-guardian", ["check"], {
@@ -827,14 +843,23 @@ async function main() {
     });
 
     const drift = await checkDocDrift(projectDir);
-    checks.push({
-      name: "README-drift",
-      status: drift.fresh ? "ok" : "warn",
-      message: drift.fresh
-        ? "in sync with package.json"
-        : `missing: ${drift.missingFromReadme.join(", ")}`,
-      fixable: false,
-    });
+    if (!drift) {
+      checks.push({
+        name: "README-drift",
+        status: "error",
+        message: "Failed to check README drift — could not read package.json or README.md",
+        fixable: false,
+      });
+    } else {
+      checks.push({
+        name: "README-drift",
+        status: drift.fresh ? "ok" : "warn",
+        message: drift.fresh
+          ? "in sync with package.json"
+          : `missing: ${drift.missingFromReadme.join(", ")}`,
+        fixable: false,
+      });
+    }
 
     const kimiDocs = await checkKimiDocsAligned(projectDir);
     if (kimiDocs.applicable) {
