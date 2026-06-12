@@ -71,6 +71,16 @@ whenToUse: |
 
 Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0** (`/sub-skill.review`, `/sub-skill.consolidate`). Latest: **0.14.0** — run `kimi upgrade`.
 
+## Environment variables
+
+| Variable                                  | Purpose                                                   | Example                                                              |
+| ----------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
+| `KIMI_MODEL_*`                            | Temporary model override (synthesizes provider in memory) | `KIMI_MODEL_PROVIDER=anthropic KIMI_MODEL_MODEL=claude-4-7-20251014` |
+| `KIMI_CODE_BACKGROUND_KEEP_ALIVE_ON_EXIT` | Override `keep_alive_on_exit`                             | `KIMI_CODE_BACKGROUND_KEEP_ALIVE_ON_EXIT=true`                       |
+| `KIMI_CODE_EXPERIMENTAL_SUB_SKILL`        | Enable experimental sub-skills                            | `KIMI_CODE_EXPERIMENTAL_SUB_SKILL=1`                                 |
+
+> `KIMI_MODEL_*` vars create a temporary provider that does **not** persist after restart. Use `config.toml` for permanent model configuration.
+
 ## When to Use (toolchain)
 
 - User asks about project health, diagnostics, or governance

@@ -22,6 +22,18 @@ export interface McpServerEntry {
   cwd?: string;
   enabled?: boolean;
   description?: string;
+  /** Connection timeout in milliseconds; default 30000. */
+  startupTimeoutMs?: number;
+  /** Timeout for a single tool call in milliseconds. */
+  toolTimeoutMs?: number;
+  /** Tool allowlist; only these tools are exposed. */
+  enabledTools?: string[];
+  /** Tool blocklist; these tools are hidden. */
+  disabledTools?: string[];
+  /** Static request headers for HTTP servers. */
+  headers?: Record<string, string>;
+  /** OAuth bearer token env var for HTTP servers. */
+  bearerTokenEnvVar?: string;
 }
 
 export interface McpJson {

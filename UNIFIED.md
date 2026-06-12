@@ -262,6 +262,15 @@ The following URLs are the authoritative source for Kimi Code CLI behavior. Cach
 | `kimi` command reference                                        | `https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html`             | No                     |
 | GitHub repo (source)                                            | `https://github.com/MoonshotAI/kimi-code`                                           | No                     |
 
+**Environment overrides** (take priority over `config.toml`):
+
+| Variable                                  | Overrides                       | Example               |
+| ----------------------------------------- | ------------------------------- | --------------------- |
+| `KIMI_CODE_BACKGROUND_KEEP_ALIVE_ON_EXIT` | `background.keep_alive_on_exit` | `true`                |
+| `KIMI_MODEL_PROVIDER`                     | Temporary model provider        | `anthropic`           |
+| `KIMI_MODEL_MODEL`                        | Temporary model identifier      | `claude-4-7-20251014` |
+| `KIMI_CODE_EXPERIMENTAL_SUB_SKILL`        | Experimental sub-skills         | `1`                   |
+
 **Key config tables for agents** (from official docs, as of 2026-06-12):
 
 ### `loop_control`
@@ -293,6 +302,8 @@ pattern = "Bash(rm -rf*)"
 | `max_running_tasks`  | `integer` | —       | Max concurrent background tasks         |
 | `keep_alive_on_exit` | `boolean` | `false` | Keep tasks running after session closes |
 
+**Environment override:** `KIMI_CODE_BACKGROUND_KEEP_ALIVE_ON_EXIT` takes priority over `config.toml`.
+
 **Note:** MCP server declarations belong in `~/.kimi-code/mcp.json` (or project-local `.kimi-code/mcp.json`), NOT in `config.toml`. The `[mcp]` section in some configs may be legacy or non-standard.
 
 ### Non-standard fields in our config (audit 2026-06-12)
@@ -307,6 +318,24 @@ Our `~/.kimi-code/config.toml` previously contained fields not documented in the
 | `max_ralph_iterations`              | `[loop_control]` | None — remove if not used by toolchain code                           | May be ignored or cause warnings          |
 
 **Rule:** When adding toolchain-specific config, prefer a separate file (e.g., `~/.kimi-code/governor/defaults.toml`, `~/.kimi-code/toolchain-manifest.json`) rather than polluting `config.toml` which Kimi Code owns.
+
+### MCP servers (toolchain)
+
+Our `~/.kimi-code/mcp.json` registers 7 MCP servers. All are **HTTP** (remote) except `unified-shell` which is **stdio** (local). Per the official docs:
+
+> "Only connect to servers from trusted sources."
+
+| Server                     | Type  | URL                                            | Trust basis                              |
+| -------------------------- | ----- | ---------------------------------------------- | ---------------------------------------- |
+| `unified-shell`            | stdio | Local Bun script                               | First-party toolchain code               |
+| `cloudflare`               | HTTP  | `https://mcp.cloudflare.com/mcp`               | Official Cloudflare MCP (Cloudflare org) |
+| `cloudflare-docs`          | HTTP  | `https://docs.mcp.cloudflare.com/mcp`          | Official Cloudflare MCP                  |
+| `cloudflare-bindings`      | HTTP  | `https://bindings.mcp.cloudflare.com/mcp`      | Official Cloudflare MCP                  |
+| `cloudflare-builds`        | HTTP  | `https://builds.mcp.cloudflare.com/mcp`        | Official Cloudflare MCP                  |
+| `cloudflare-observability` | HTTP  | `https://observability.mcp.cloudflare.com/mcp` | Official Cloudflare MCP                  |
+| `cloudflare-api`           | HTTP  | `https://mcp.cloudflare.com/mcp`               | Official Cloudflare MCP (Code Mode)      |
+
+All Cloudflare servers use `https://*.mcp.cloudflare.com` — a Cloudflare-controlled subdomain. No third-party or unverified servers are registered. `startupTimeoutMs` and `toolTimeoutMs` are set to `30000` on all entries.
 
 ### `thinking`
 

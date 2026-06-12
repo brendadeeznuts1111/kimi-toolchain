@@ -404,6 +404,8 @@ When toolchain behavior depends on Kimi Code internals (loop limits, permissions
 | `background`   | `max_running_tasks`       | —                     | Concurrent background task limit                                 |
 | `background`   | `keep_alive_on_exit`      | `false`               | Persist background tasks after session close                     |
 
+> **Environment override:** `KIMI_CODE_BACKGROUND_KEEP_ALIVE_ON_EXIT` takes priority over `config.toml`.
+
 > **Important:** MCP server declarations go in `~/.kimi-code/mcp.json` (or project-local `.kimi-code/mcp.json`), NOT in `config.toml`. The `[mcp]` section in some legacy configs may be non-standard.
 
 ### Non-standard config fields (toolchain audit)
