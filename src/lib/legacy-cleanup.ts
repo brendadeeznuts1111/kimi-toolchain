@@ -15,6 +15,7 @@ import {
   writeFileSync,
 } from "fs";
 import { join } from "path";
+import { safeParse } from "./utils.ts";
 import { homeDir, desktopRoot } from "./paths.ts";
 
 const CANONICAL_REPO_NAME = "kimi-toolchain";
@@ -33,19 +34,15 @@ interface IndexEntry {
 }
 
 function parseIndexEntry(line: string): IndexEntry | undefined {
-  try {
-    const entry = JSON.parse(line) as unknown;
-    if (typeof entry !== "object" || entry === null) return undefined;
-    const obj = entry as Record<string, unknown>;
-    const cwd = obj.cwd;
-    const workDir = obj.workDir;
-    return {
-      cwd: typeof cwd === "string" ? cwd : undefined,
-      workDir: typeof workDir === "string" ? workDir : undefined,
-    };
-  } catch {
-    return undefined;
-  }
+  const entry = safeParse(line, null);
+  if (typeof entry !== "object" || entry === null) return undefined;
+  const obj = entry as Record<string, unknown>;
+  const cwd = obj.cwd;
+  const workDir = obj.workDir;
+  return {
+    cwd: typeof cwd === "string" ? cwd : undefined,
+    workDir: typeof workDir === "string" ? workDir : undefined,
+  };
 }
 
 function getIndexCwd(entry: IndexEntry): string {

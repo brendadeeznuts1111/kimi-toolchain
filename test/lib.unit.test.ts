@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import {
   safeParse,
+  safeToml,
   sha256String,
   sha256File,
   getProjectName,
@@ -41,6 +42,49 @@ describe("lib/utils", () => {
 
   test("safeParse returns fallback on invalid JSON", () => {
     expect(safeParse("not-json", { fallback: 1 })).toEqual({ fallback: 1 });
+  });
+
+  test("safeParse with validator accepts valid shape", () => {
+    const isStringRecord = (v: unknown): v is Record<string, string> =>
+      typeof v === "object" && v !== null && Object.values(v).every((x) => typeof x === "string");
+    expect(safeParse('{"a":"1"}', {}, isStringRecord)).toEqual({ a: "1" });
+  });
+
+  test("safeParse with validator rejects invalid shape", () => {
+    const isStringRecord = (v: unknown): v is Record<string, string> =>
+      typeof v === "object" && v !== null && Object.values(v).every((x) => typeof x === "string");
+    expect(safeParse('{"a":1}', { fallback: "x" }, isStringRecord)).toEqual({ fallback: "x" });
+  });
+
+  test("safeToml returns parsed TOML on valid input", () => {
+    const parsed = safeToml('[section]\nkey = "value"', { section: {} });
+    expect(parsed).toEqual({ section: { key: "value" } });
+  });
+
+  test("safeToml returns fallback on invalid TOML", () => {
+    expect(safeToml("not-toml", { fallback: true })).toEqual({ fallback: true });
+  });
+
+  test("safeToml with validator accepts valid shape", () => {
+    const isConfig = (v: unknown): v is { maxMemoryMB: number } =>
+      typeof v === "object" &&
+      v !== null &&
+      "maxMemoryMB" in v &&
+      typeof (v as Record<string, unknown>).maxMemoryMB === "number";
+    expect(safeToml("maxMemoryMB = 1024", { maxMemoryMB: 0 }, isConfig)).toEqual({
+      maxMemoryMB: 1024,
+    });
+  });
+
+  test("safeToml with validator rejects invalid shape", () => {
+    const isConfig = (v: unknown): v is { maxMemoryMB: number } =>
+      typeof v === "object" &&
+      v !== null &&
+      "maxMemoryMB" in v &&
+      typeof (v as Record<string, unknown>).maxMemoryMB === "number";
+    expect(safeToml('[other]\nkey = "value"', { maxMemoryMB: 0 }, isConfig)).toEqual({
+      maxMemoryMB: 0,
+    });
   });
 
   test("sha256String produces 64-char hex digest", () => {

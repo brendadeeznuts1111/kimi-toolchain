@@ -16,6 +16,7 @@ import {
   printProjectBanner,
   buildDoctorReport,
   printDoctorReport,
+  safeParse,
 } from "../lib/utils.ts";
 import { gitStatus, gitDiff, gitLastCommitMessage } from "../lib/git-helpers.ts";
 
@@ -305,11 +306,8 @@ async function parseWireLog(wirePath: string) {
 
   for (const line of lines) {
     let event: WireEvent | null = null;
-    try {
-      event = JSON.parse(line) as WireEvent;
-    } catch {
-      continue;
-    }
+    event = safeParse(line, null as WireEvent | null);
+    if (!event) continue;
     if (event?.type !== "context.append_loop_event") continue;
     if (event.event?.type !== "tool.result") continue;
     if (!event.event.result?.isError) continue;

@@ -4,7 +4,7 @@
 
 import { existsSync, readFileSync, readdirSync, realpathSync, unlinkSync } from "fs";
 import { basename, join, resolve } from "path";
-import { readPackageJson } from "./utils.ts";
+import { readPackageJson, safeParse } from "./utils.ts";
 
 import {
   archiveLegacyKimiSessions,
@@ -129,13 +129,9 @@ function countMismatchedSessionCwds(sessionIndexPath: string, expectedCwd: strin
   try {
     const lines = readFileSync(sessionIndexPath, "utf8").split("\n").filter(Boolean);
     for (const line of lines) {
-      try {
-        const entry = JSON.parse(line) as { cwd?: string; workDir?: string };
-        const cwd = entry.cwd || entry.workDir;
-        if (cwd && resolve(cwd) !== expected) mismatched++;
-      } catch {
-        /* skip malformed lines */
-      }
+      const entry = safeParse(line, null as { cwd?: string; workDir?: string } | null);
+      const cwd = entry?.cwd || entry?.workDir;
+      if (cwd && resolve(cwd) !== expected) mismatched++;
     }
   } catch {
     return 0;
@@ -148,12 +144,8 @@ function countOrphanedSnapshots(snapshotDir: string): number {
   let orphaned = 0;
   const glob = new Bun.Glob("*.json");
   for (const file of glob.scanSync({ cwd: snapshotDir, absolute: true })) {
-    try {
-      const snap = JSON.parse(readFileSync(file, "utf8")) as { projectPath?: string };
-      if (snap.projectPath && !existsSync(snap.projectPath)) orphaned++;
-    } catch {
-      orphaned++;
-    }
+    const snap = safeParse(readFileSync(file, "utf8"), null as { projectPath?: string } | null);
+    if (snap?.projectPath && !existsSync(snap.projectPath)) orphaned++;
   }
   return orphaned;
 }
@@ -471,13 +463,9 @@ export async function auditWorkspaceHealth(
   if (isToolchain && existsSync(indexPath)) {
     let legacyIndexLines = 0;
     for (const line of readFileSync(indexPath, "utf8").split("\n").filter(Boolean)) {
-      try {
-        const entry = JSON.parse(line) as { cwd?: string; workDir?: string };
-        const cwd = entry.cwd || entry.workDir || "";
-        if (LEGACY_REPO_NAMES.some((l) => cwd.includes(l))) legacyIndexLines++;
-      } catch {
-        /* skip */
-      }
+      const entry = safeParse(line, null as { cwd?: string; workDir?: string } | null);
+      const cwd = entry?.cwd || entry?.workDir || "";
+      if (LEGACY_REPO_NAMES.some((l) => cwd.includes(l))) legacyIndexLines++;
     }
     if (legacyIndexLines > 0) {
       checks.push({
@@ -567,18 +555,17 @@ export async function removeOrphanedSnapshots(snapshotDir: string): Promise<numb
   const glob = new Bun.Glob("*.json");
   for (const file of glob.scanSync({ cwd: snapshotDir, absolute: true })) {
     let remove = false;
-    try {
-      const snap = JSON.parse(readFileSync(file, "utf8")) as {
+    const snap = safeParse(
+      readFileSync(file, "utf8"),
+      null as {
         id?: string;
         project?: string;
         commit?: string;
         projectPath?: string;
-      };
-      if (!snap.id || !snap.project || !snap.commit) remove = true;
-      else if (snap.projectPath && !existsSync(snap.projectPath)) remove = true;
-    } catch {
-      remove = true;
-    }
+      } | null
+    );
+    if (!snap?.id || !snap?.project || !snap?.commit) remove = true;
+    else if (snap.projectPath && !existsSync(snap.projectPath)) remove = true;
     if (remove) {
       unlinkSync(file);
       removed++;

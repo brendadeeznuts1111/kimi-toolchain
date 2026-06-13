@@ -15,6 +15,7 @@
 
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
+import { safeParse } from "../lib/utils.ts";
 import { buildClassifiedFailure, classifyFailure, loadTaxonomy } from "../lib/error-taxonomy.ts";
 
 interface HookPayload {
@@ -42,12 +43,9 @@ async function main() {
   const text = new TextDecoder().decode(combined).trim();
   if (!text) return;
 
-  let payload: HookPayload;
-  try {
-    payload = JSON.parse(text) as HookPayload;
-  } catch {
-    return;
-  }
+  let payload: HookPayload | null = null;
+  payload = safeParse(text, null as HookPayload | null);
+  if (!payload) return;
 
   const toolName = payload.tool_name || "unknown";
   // Guard: only log actual failures. If payload.error is falsy, the tool succeeded.

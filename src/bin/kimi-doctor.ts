@@ -37,7 +37,7 @@ import {
   mergeConfigTomlHooks,
   mergeConfigTomlPermissions,
 } from "../lib/kimi-config-audit.ts";
-import { getOrphanProcesses, runOrphanKill } from "./kimi-orphan-kill.ts";
+import { getOrphanProcesses, runOrphanKill } from "../lib/process-utils.ts";
 import { resolveProjectRoot, printSection, runTool, printToolBanner } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 

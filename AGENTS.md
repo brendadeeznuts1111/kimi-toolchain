@@ -184,6 +184,38 @@ After global install, all `kimi-*` binaries are available on PATH.
 
 ## Code Organization
 
+### Path Helpers (src/lib/paths.ts)
+
+All paths under `~/.kimi-code/` must use `src/lib/paths.ts` helpers. **Never hardcode `~/.kimi-code` or `~/.kimi-code/...` strings in source.**
+
+| Helper                    | Returns                                | Example                      |
+| ------------------------- | -------------------------------------- | ---------------------------- |
+| `homeDir()`               | `$HOME` or `/tmp`                      | `/Users/nolarose`            |
+| `desktopRoot()`           | `~/.kimi-code`                         | `/Users/nolarose/.kimi-code` |
+| `toolsDir()`              | `~/.kimi-code/tools`                   | ...                          |
+| `libDir()`                | `~/.kimi-code/lib`                     | ...                          |
+| `scriptsDir()`            | `~/.kimi-code/scripts`                 | ...                          |
+| `mcpPath()`               | `~/.kimi-code/mcp.json`                | ...                          |
+| `skillsDir()`             | `~/.kimi-code/skills`                  | ...                          |
+| `varDir()`                | `~/.kimi-code/var`                     | ...                          |
+| `guardDir()`              | `~/.kimi-code/guardian`                | ...                          |
+| `governorDir()`           | `~/.kimi-code/governor`                | ...                          |
+| `snapshotDir()`           | `~/.kimi-code/snapshots`               | ...                          |
+| `agentsSkillsRoot()`      | `~/.agents/skills`                     | ...                          |
+| `taxonomyPath()`          | `~/.kimi-code/error-taxonomy.yml`      | ...                          |
+| `toolchainManifestPath()` | `~/.kimi-code/toolchain-manifest.json` | ...                          |
+
+Import: `import { desktopRoot, toolsDir } from "../lib/paths.ts";` (adjust depth as needed).
+
+### Safe Parse Helpers (src/lib/utils.ts)
+
+| Helper                                     | Purpose                | Fallback on failure |
+| ------------------------------------------ | ---------------------- | ------------------- |
+| `safeParse<T>(json, fallback, validator?)` | Typed `JSON.parse`     | Returns `fallback`  |
+| `safeToml<T>(text, fallback, validate?)`   | Typed `Bun.TOML.parse` | Returns `fallback`  |
+
+Use these instead of unchecked `JSON.parse(...)` as `any` or `TOML.parse(...)` as `any` casts. The optional `validator` parameter accepts a type guard for runtime shape validation.
+
 ### CLI Tools (`src/bin/`)
 
 Each tool is a self-contained Bun script with a `#!/usr/bin/env bun` shebang. They share:
@@ -364,23 +396,25 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 
 ## Key Files for Agents
 
-| File                                   | Purpose                                        |
-| -------------------------------------- | ---------------------------------------------- |
-| `package.json`                         | Toolchain metadata, bin mappings, scripts      |
-| `tsconfig.json`                        | Strict TypeScript, ESNext, bundler resolution  |
-| `bunfig.toml`                          | Bun install config (`saveTextLockfile = true`) |
-| `src/lib/utils.ts`                     | Shared utilities — import from here            |
-| `src/lib/version.ts`                   | Version resolution logic                       |
-| `src/lib/memory-budget.ts`             | System memory / RSS budget checks              |
-| `src/lib/governor-config.ts`           | Loads `~/.kimi-code/governor/defaults.toml`    |
-| `src/lib/test-gates.ts`                | Unit vs smoke test lists, `bunTestArgs()`      |
-| `src/lib/readme-sync.ts`               | README ↔ package.json drift detect + patch     |
-| `scripts/check.ts`                     | CI gate runner with dry-run and fast modes     |
-| `test/kimi-doctor.smoke.test.ts`       | Smoke tests for all tools                      |
-| `CONTEXT.md`                           | Auto-generated project context                 |
-| `skills/kimi-toolchain/SKILL.md`       | Agent decision protocol                        |
-| `error-taxonomy.yml`                   | Failure classification schema                  |
-| `~/.kimi-code/var/tool-failures.jsonl` | Canonical tool failure ledger                  |
+| File                                   | Purpose                                             |
+| -------------------------------------- | --------------------------------------------------- |
+| `package.json`                         | Toolchain metadata, bin mappings, scripts           |
+| `tsconfig.json`                        | Strict TypeScript, ESNext, bundler resolution       |
+| `bunfig.toml`                          | Bun install config (`saveTextLockfile = true`)      |
+| `src/lib/utils.ts`                     | Shared utilities — import from here                 |
+| `src/lib/version.ts`                   | Version resolution logic                            |
+| `src/lib/memory-budget.ts`             | System memory / RSS budget checks                   |
+| `src/lib/governor-config.ts`           | Loads `~/.kimi-code/governor/defaults.toml`         |
+| `src/lib/test-gates.ts`                | Unit vs smoke test lists, `bunTestArgs()`           |
+| `src/lib/readme-sync.ts`               | README ↔ package.json drift detect + patch          |
+| `src/lib/paths.ts`                     | **Single source of truth for `~/.kimi-code` paths** |
+| `src/lib/process-utils.ts`             | Orphan process detection + cleanup                  |
+| `scripts/check.ts`                     | CI gate runner with dry-run and fast modes          |
+| `test/kimi-doctor.smoke.test.ts`       | Smoke tests for all tools                           |
+| `CONTEXT.md`                           | Auto-generated project context                      |
+| `skills/kimi-toolchain/SKILL.md`       | Agent decision protocol                             |
+| `error-taxonomy.yml`                   | Failure classification schema                       |
+| `~/.kimi-code/var/tool-failures.jsonl` | Canonical tool failure ledger                       |
 
 ## Quick Reference: All CLI Tools
 
