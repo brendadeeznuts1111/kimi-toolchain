@@ -298,6 +298,16 @@ bun run typecheck        # TypeScript validation
 
 Install hooks: `kimi-githooks install` or `kimi-githooks fix` to refresh outdated hooks.
 
+### Linting & Formatting Strategy
+
+| Tool             | Role       | Why                                                                     |
+| ---------------- | ---------- | ----------------------------------------------------------------------- |
+| **oxfmt**        | Formatter  | 30x faster than Prettier, same output. Alpha but stable for this repo.  |
+| **oxlint**       | Linter     | 50-100x faster than ESLint, 655+ rules, native TS support, zero-config. |
+| **tsc --noEmit** | Type check | Catches type-aware issues that oxlint (without `--type-aware`) misses.  |
+
+**Do not add ESLint.** The project has zero runtime dependencies and avoids plugin ecosystems. Oxlint's built-in rules + `tsc --noEmit` cover all needs. When `oxlint --type-aware` (via tsgolint) stabilizes, evaluate adding it for `no-floating-promises` and similar rules.
+
 ### Bun-Native Coding Standards
 
 The project follows strict Bun-native conventions. **Always prefer Bun APIs over Node equivalents.**

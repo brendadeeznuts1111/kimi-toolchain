@@ -81,18 +81,22 @@ describe("desktop-sync", () => {
     }
   });
 
-  test("syncDesktop copies optional config when desktop copy missing", async () => {
-    const tmpHome = join(REPO_ROOT, `.tmp-desktop-${Date.now()}`);
-    mkdirSync(tmpHome, { recursive: true });
-    Bun.env.HOME = tmpHome;
-    try {
-      const result = await syncDesktop(REPO_ROOT);
-      expect(result.updated.some((u) => u === "bunfig.toml" || u.includes("bunfig"))).toBe(true);
-      expect(existsSync(join(desktopRoot(), "bunfig.toml"))).toBe(true);
-    } finally {
-      rmSync(tmpHome, { recursive: true, force: true });
-    }
-  });
+  test(
+    "syncDesktop copies optional config when desktop copy missing",
+    async () => {
+      const tmpHome = join(REPO_ROOT, `.tmp-desktop-${Date.now()}`);
+      mkdirSync(tmpHome, { recursive: true });
+      Bun.env.HOME = tmpHome;
+      try {
+        const result = await syncDesktop(REPO_ROOT);
+        expect(result.updated.some((u) => u === "bunfig.toml" || u.includes("bunfig"))).toBe(true);
+        expect(existsSync(join(desktopRoot(), "bunfig.toml"))).toBe(true);
+      } finally {
+        rmSync(tmpHome, { recursive: true, force: true });
+      }
+    },
+    { timeout: 5000 }
+  );
 });
 
 function pathsToolchain(repoRoot: string) {
