@@ -78,6 +78,7 @@
     "cleanup-legacy": "bash scripts/cleanup-legacy-workspace.sh",
     "install-wrappers": "bash scripts/install-bin-wrappers.sh",
     "memory-check": "bash scripts/memory-check.sh",
+    "bench": "bun run bench/core.bench.ts",
     "memory-budget": "bun run src/bin/kimi-doctor.ts --memory-budget"
   },
   "dependencies": {

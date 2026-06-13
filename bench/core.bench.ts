@@ -1,0 +1,165 @@
+#!/usr/bin/env bun
+/**
+ * Lightweight benchmark suite for performance-critical paths.
+ * Run with: bun run bench
+ *
+ * Uses Bun.nanoseconds() for high-resolution timing.
+ * No external dependencies.
+ */
+
+import { sha256File, sha256String, safeParse, safeToml } from "../src/lib/utils.ts";
+import { computeRScore } from "../src/lib/r-score.ts";
+import { getOrphanProcesses } from "../src/lib/process-utils.ts";
+import { getChromeRssMB, getAppRssGroups } from "../src/lib/memory-budget.ts";
+
+const REPO_ROOT = import.meta.dir + "/..";
+
+interface BenchmarkResult {
+  name: string;
+  iterations: number;
+  totalMs: number;
+  avgMs: number;
+  minMs: number;
+  maxMs: number;
+  opsPerSecond: number;
+}
+
+function bench(name: string, fn: () => void, iterations: number): BenchmarkResult {
+  const times: number[] = [];
+  // Warmup
+  for (let i = 0; i < Math.min(10, iterations); i++) fn();
+  // Measure
+  for (let i = 0; i < iterations; i++) {
+    const start = Bun.nanoseconds();
+    fn();
+    const end = Bun.nanoseconds();
+    times.push((end - start) / 1_000_000);
+  }
+  const totalMs = times.reduce((s, t) => s + t, 0);
+  const avgMs = totalMs / iterations;
+  const minMs = Math.min(...times);
+  const maxMs = Math.max(...times);
+  const opsPerSecond = 1000 / avgMs;
+  return { name, iterations, totalMs, avgMs, minMs, maxMs, opsPerSecond };
+}
+
+async function benchAsync(
+  name: string,
+  fn: () => Promise<void>,
+  iterations: number
+): Promise<BenchmarkResult> {
+  const times: number[] = [];
+  for (let i = 0; i < Math.min(10, iterations); i++) await fn();
+  for (let i = 0; i < iterations; i++) {
+    const start = Bun.nanoseconds();
+    await fn();
+    const end = Bun.nanoseconds();
+    times.push((end - start) / 1_000_000);
+  }
+  const totalMs = times.reduce((s, t) => s + t, 0);
+  const avgMs = totalMs / iterations;
+  const minMs = Math.min(...times);
+  const maxMs = Math.max(...times);
+  const opsPerSecond = 1000 / avgMs;
+  return { name, iterations, totalMs, avgMs, minMs, maxMs, opsPerSecond };
+}
+
+function printResult(r: BenchmarkResult): void {
+  const ops =
+    r.opsPerSecond >= 1000
+      ? `${(r.opsPerSecond / 1000).toFixed(1)}k ops/s`
+      : `${r.opsPerSecond.toFixed(1)} ops/s`;
+  console.log(
+    `  ${r.name.padEnd(30)} ${String(r.iterations).padStart(6)} iters  ` +
+      `avg ${r.avgMs.toFixed(3).padStart(7)}ms  min ${r.minMs.toFixed(3).padStart(7)}ms  ` +
+      `max ${r.maxMs.toFixed(3).padStart(7)}ms  ${ops}`
+  );
+}
+
+async function main() {
+  console.log("══ Benchmark Suite ═══════════════════════════════════════════════");
+  const results: BenchmarkResult[] = [];
+
+  // sha256String (in-memory, no I/O)
+  results.push(
+    bench("sha256String (1KB)", () => {
+      sha256String("x".repeat(1024));
+    }, 10_000)
+  );
+
+  // sha256File (disk I/O)
+  const pkgPath = REPO_ROOT + "/package.json";
+  results.push(
+    await benchAsync(
+      "sha256File (package.json)",
+      async () => {
+        await sha256File(pkgPath);
+      },
+      100
+    )
+  );
+
+  // safeParse
+  const jsonPayload = JSON.stringify({ a: 1, b: "test", c: [1, 2, 3] });
+  results.push(
+    bench("safeParse (small object)", () => {
+      safeParse(jsonPayload, {});
+    }, 50_000)
+  );
+
+  // safeToml
+  const tomlPayload = '[section]\nkey = "value"\nnum = 42\n';
+  results.push(
+    bench("safeToml (small table)", () => {
+      safeToml(tomlPayload, {});
+    }, 20_000)
+  );
+
+  // computeRScore
+  const rScoreInput = {
+    hasLicense: true,
+    hasContributing: true,
+    hasCodeowners: true,
+    hasReadme: true,
+    hasContext: true,
+    hasChangelog: true,
+    coveragePercentage: 85,
+    docsFresh: true,
+    staleLockfile: false,
+  };
+  results.push(
+    bench("computeRScore (full)", () => {
+      computeRScore(rScoreInput);
+    }, 100_000)
+  );
+
+  // getChromeRssMB (system call)
+  results.push(
+    bench("getChromeRssMB", () => {
+      getChromeRssMB();
+    }, 50)
+  );
+
+  // getAppRssGroups (system call)
+  results.push(
+    bench("getAppRssGroups", () => {
+      getAppRssGroups();
+    }, 50)
+  );
+
+  // getOrphanProcesses (system call)
+  results.push(
+    bench("getOrphanProcesses", () => {
+      getOrphanProcesses();
+    }, 50)
+  );
+
+  console.log("");
+  for (const r of results) printResult(r);
+  console.log("══════════════════════════════════════════════════════════════════");
+}
+
+main().catch((err) => {
+  console.error("Benchmark failed:", err);
+  process.exit(1);
+});
