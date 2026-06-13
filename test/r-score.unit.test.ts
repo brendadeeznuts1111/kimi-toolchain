@@ -68,4 +68,74 @@ describe("r-score", () => {
     expect(result.max).toBe(110);
     expect(result.grade).toBe("A");
   });
+
+  test("property: grade is monotonic with score", () => {
+    // Generate 50 random scores and verify grade never decreases as score increases
+    const scores: Array<{ score: number; grade: string }> = [];
+    for (let i = 0; i < 50; i++) {
+      const coverage = Math.random() * 100;
+      const input = {
+        hasLicense: Math.random() > 0.5,
+        hasContributing: Math.random() > 0.5,
+        hasCodeowners: Math.random() > 0.5,
+        hasReadme: Math.random() > 0.5,
+        hasContext: Math.random() > 0.5,
+        hasChangelog: Math.random() > 0.5,
+        coveragePercentage: coverage,
+        docsFresh: Math.random() > 0.5,
+        staleLockfile: Math.random() > 0.5,
+      };
+      const result = computeRScore(input);
+      scores.push({ score: result.total, grade: result.grade });
+    }
+    scores.sort((a, b) => a.score - b.score);
+    const gradeOrder = ["F", "D", "C", "B", "A"];
+    let lastGradeIndex = -1;
+    for (const s of scores) {
+      const idx = gradeOrder.indexOf(s.grade);
+      expect(idx).toBeGreaterThanOrEqual(lastGradeIndex);
+      lastGradeIndex = idx;
+    }
+  });
+
+  test("property: total is within [0, max] for all random inputs", () => {
+    for (let i = 0; i < 100; i++) {
+      const input = {
+        hasLicense: Math.random() > 0.5,
+        hasContributing: Math.random() > 0.5,
+        hasCodeowners: Math.random() > 0.5,
+        hasReadme: Math.random() > 0.5,
+        hasContext: Math.random() > 0.5,
+        hasChangelog: Math.random() > 0.5,
+        coveragePercentage: Math.random() * 100,
+        docsFresh: Math.random() > 0.5,
+        staleLockfile: Math.random() > 0.5,
+      };
+      const result = computeRScore(input);
+      expect(result.total).toBeGreaterThanOrEqual(0);
+      expect(result.total).toBeLessThanOrEqual(result.max);
+      expect(result.percentage).toBeGreaterThanOrEqual(0);
+      expect(result.percentage).toBeLessThanOrEqual(100);
+    }
+  });
+
+  test("property: breakdown sums to total", () => {
+    for (let i = 0; i < 50; i++) {
+      const input = {
+        hasLicense: Math.random() > 0.5,
+        hasContributing: Math.random() > 0.5,
+        hasCodeowners: Math.random() > 0.5,
+        hasReadme: Math.random() > 0.5,
+        hasContext: Math.random() > 0.5,
+        hasChangelog: Math.random() > 0.5,
+        coveragePercentage: Math.random() * 100,
+        docsFresh: Math.random() > 0.5,
+        staleLockfile: Math.random() > 0.5,
+      };
+      const breakdown = computeBreakdown(input);
+      const sum = Object.values(breakdown).reduce((s, v) => s + v, 0);
+      const result = computeRScoreFromBreakdown(breakdown);
+      expect(sum).toBeCloseTo(result.total, 5);
+    }
+  });
 });
