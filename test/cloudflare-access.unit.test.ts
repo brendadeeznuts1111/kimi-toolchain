@@ -9,7 +9,7 @@ import {
   loadCredentialsFromSecrets,
   parseSessionHours,
   ServiceToken,
-} from "../src/bin/kimi-cloudflare-access.ts";
+} from "../src/lib/cloudflare-access.ts";
 
 function token(overrides: Partial<ServiceToken> = {}): ServiceToken {
   return {

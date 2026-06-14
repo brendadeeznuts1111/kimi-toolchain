@@ -3,7 +3,7 @@ import {
   AccessApplication,
   buildDashboard,
   domainToProjectName,
-} from "../src/bin/kimi-cloudflare-access.ts";
+} from "../src/lib/cloudflare-access.ts";
 
 function app(overrides: Partial<AccessApplication> = {}): AccessApplication {
   return {
