@@ -79,11 +79,12 @@ formatCheckCi = "bun run format:check:ci"
 verify = "bun run sync:verify"
 
 [agents]
-bootstrap = ["dx context", "dx config --project ."]
+firstRead = ["/Users/nolarose/.config/dx/AGENTS.md", "AGENTS.md", "CODE_REFERENCES.md"]
+bootstrap = ["dx context", "dx config --project .", "dx mcp-status", "dx package"]
 iterate = "bun run check:fast"
 fullValidation = "bun run check"
-prePush = ["bun run check"]
-handoff = ["bun run sync && bun run sync:verify"]
+prePush = ["kimi-githooks doctor", "bun run check", "kimi-guardian check", "kimi-governance score"]
+handoff = ["bun run sync && bun run sync:verify", "kimi-doctor --agent-ready"]
 `;
 
 const CI = `
@@ -184,6 +185,27 @@ describe("dx-github-alignment", () => {
     expect(
       report.checks.find((check) => check.name === "github.ci.governance.rScore.script")?.status
     ).toBe("warn");
+  });
+
+  test("warns when agent flow defaults drift", async () => {
+    writeProject({
+      "dx.config.toml": DX_CONFIG.replace(
+        'bootstrap = ["dx context", "dx config --project .", "dx mcp-status", "dx package"]',
+        'bootstrap = ["dx context"]'
+      ).replace(
+        'handoff = ["bun run sync && bun run sync:verify", "kimi-doctor --agent-ready"]',
+        'handoff = ["bun run sync"]'
+      ),
+      "package.json": packageJson({ governance: "bun run src/bin/kimi-governance.ts" }),
+      ".github/workflows/ci.yml": CI,
+      ".github/actions/setup/action.yml": SETUP_ACTION,
+    });
+
+    const report = await checkDxGithubAlignment(projectDir);
+
+    expect(report.aligned).toBe(false);
+    expect(report.checks.find((check) => check.name === "agents.bootstrap")?.status).toBe("warn");
+    expect(report.checks.find((check) => check.name === "agents.handoff")?.status).toBe("warn");
   });
 
   test("finds setup Bun version after earlier composite steps", async () => {
