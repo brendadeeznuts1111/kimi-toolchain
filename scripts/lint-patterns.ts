@@ -2,7 +2,7 @@
 /**
  * Fail on anti-patterns in kimi-toolchain sources:
  * - console.* in src/lib/ (except logger.ts)
- * - console.* in src/bin/ (except BIN_CONSOLE_ALLOW — migrate to createLogger())
+ * - console.* in src/bin/
  * - require() in ESM .ts files under src/
  * - process.exit in src/lib/
  */
@@ -14,11 +14,6 @@ const REPO_ROOT = join(import.meta.dir, "..");
 // Allowlists: src/lib/ should use createLogger(), not console.* or process.exit.
 const LIB_CONSOLE_ALLOW = new Set([
   "src/lib/logger.ts", // implements logging; console is intentional here
-]);
-// Bins pending logger migration (Agent tracks A–D). Empty = strict.
-const BIN_CONSOLE_ALLOW = new Set<string>([
-  // JSON_OUT console.log(JSON.stringify(...)) only — migrate to stdout.write like cloudflare-access
-  "src/bin/kimi-doctor.ts",
 ]);
 const SCAN_GLOB = new Bun.Glob("src/**/*.ts");
 const SKIP_DIRS = new Set(["node_modules", ".git", "coverage"]);
@@ -68,7 +63,7 @@ async function main() {
         }
       }
 
-      if (rel.startsWith("src/bin/") && !BIN_CONSOLE_ALLOW.has(rel)) {
+      if (rel.startsWith("src/bin/")) {
         if (/console\.(log|warn|error)\(/.test(line)) {
           violations.push({
             file: rel,

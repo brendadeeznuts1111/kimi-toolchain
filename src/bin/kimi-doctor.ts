@@ -63,6 +63,11 @@ const FIX_CURSOR = Bun.argv.includes("--fix-cursor");
 const FIX_DEEP = Bun.argv.includes("--fix-deep");
 const STRICT_WORKSPACE = Bun.argv.includes("--strict-workspace");
 
+/** Agent/programmatic JSON output (--json); bypasses Logger formatting. */
+function emitJson(data: unknown): void {
+  process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
+}
+
 interface CheckResult {
   name: string;
   status: "ok" | "warn" | "error";
@@ -450,24 +455,18 @@ async function runWorkspaceMode(projectRoot: string): Promise<number> {
   const summary = countWorkspaceBlockers(report, { strictWorkspace: STRICT_WORKSPACE });
 
   if (JSON_OUT) {
-    console.log(
-      JSON.stringify(
-        {
-          checks: report.checks,
-          summary: {
-            blocking: summary.blocking,
-            blockingErrors: summary.blocking,
-            warnings: summary.warnings,
-            errors: summary.errors,
-            ok: summary.blocking === 0,
-            strictWorkspace: STRICT_WORKSPACE,
-          },
-          legacyCursorSlugs: report.legacyCursorSlugs,
-        },
-        null,
-        2
-      )
-    );
+    emitJson({
+      checks: report.checks,
+      summary: {
+        blocking: summary.blocking,
+        blockingErrors: summary.blocking,
+        warnings: summary.warnings,
+        errors: summary.errors,
+        ok: summary.blocking === 0,
+        strictWorkspace: STRICT_WORKSPACE,
+      },
+      legacyCursorSlugs: report.legacyCursorSlugs,
+    });
     if (FIX) await applyWorkspaceFixes(projectRoot);
     return summary.blocking > 0 ? 1 : 0;
   }
@@ -494,24 +493,18 @@ async function runEcosystemMode(projectRoot: string): Promise<number> {
   });
 
   if (JSON_OUT) {
-    console.log(
-      JSON.stringify(
-        {
-          checks: report.checks,
-          fixPlan: report.fixPlan,
-          summary: {
-            blockers: report.blockers,
-            warnings: report.warnings,
-            errors: report.errors,
-            ok: report.blockers === 0,
-            strictWorkspace: STRICT_WORKSPACE,
-            quick: QUICK,
-          },
-        },
-        null,
-        2
-      )
-    );
+    emitJson({
+      checks: report.checks,
+      fixPlan: report.fixPlan,
+      summary: {
+        blockers: report.blockers,
+        warnings: report.warnings,
+        errors: report.errors,
+        ok: report.blockers === 0,
+        strictWorkspace: STRICT_WORKSPACE,
+        quick: QUICK,
+      },
+    });
     return report.blockers > 0 ? 1 : 0;
   }
 
@@ -829,25 +822,19 @@ async function main(): Promise<number> {
   );
 
   if (JSON_OUT) {
-    console.log(
-      JSON.stringify(
-        {
-          toolchainVersion: TOOLCHAIN_VERSION,
-          checks: results,
-          sync: syncReport,
-          summary: {
-            errors,
-            blockingErrors: blocking,
-            systemErrors: system,
-            warnings,
-            ok: blocking === 0,
-            softSystem: SOFT_SYSTEM,
-          },
-        },
-        null,
-        2
-      )
-    );
+    emitJson({
+      toolchainVersion: TOOLCHAIN_VERSION,
+      checks: results,
+      sync: syncReport,
+      summary: {
+        errors,
+        blockingErrors: blocking,
+        systemErrors: system,
+        warnings,
+        ok: blocking === 0,
+        softSystem: SOFT_SYSTEM,
+      },
+    });
   } else {
     logger.section("Summary");
 
