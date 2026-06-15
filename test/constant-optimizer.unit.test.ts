@@ -7,6 +7,10 @@ import { decisionsNdjsonPath } from "../src/lib/paths.ts";
 import {
   buildConstantOptimizerReport,
   collectConstantRepairEvents,
+  applyConfidenceDecay,
+  computeBaseRecommendation,
+  INSUFFICIENT_DATA_BASE_CONFIDENCE,
+  INSUFFICIENT_DATA_FLOOR_CONFIDENCE,
 } from "../src/lib/constant-optimizer.ts";
 
 describe("constant-optimizer", () => {
@@ -145,5 +149,30 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
     expect(report.entries[0]?.recommendation).toBe("promote");
 
     rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it("should decay insufficient-data confidence over time", () => {
+    const MS_DAY = 24 * 60 * 60 * 1000;
+    const base = computeBaseRecommendation([], 0, 0);
+    expect(base.recommendation).toBe("insufficient-data");
+
+    const atThirtyDays = applyConfidenceDecay({
+      recommendation: "insufficient-data",
+      baseConfidence: INSUFFICIENT_DATA_BASE_CONFIDENCE,
+      repairAgeMs: 30 * MS_DAY,
+      afterTotal: 0,
+    });
+    expect(atThirtyDays).toBeCloseTo(INSUFFICIENT_DATA_FLOOR_CONFIDENCE, 2);
+  });
+
+  it("should preserve confidence when post-repair outcomes exist", () => {
+    const MS_DAY = 24 * 60 * 60 * 1000;
+    const confidence = applyConfidenceDecay({
+      recommendation: "review",
+      baseConfidence: 0.65,
+      repairAgeMs: 45 * MS_DAY,
+      afterTotal: 3,
+    });
+    expect(confidence).toBe(0.65);
   });
 });

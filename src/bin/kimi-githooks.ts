@@ -130,7 +130,9 @@ async function installHooks(projectDir: string): Promise<number> {
   logger.info(
     "  pre-commit: blocks .env, format:check + lint + typecheck, warns on TODO/console.log"
   );
-  logger.info("  pre-push:   guardian, R-Score, check:fast (KIMI_PRE_PUSH_FULL=1 for full), sync");
+  logger.info(
+    "  pre-push:   guardian, constant-drift, R-Score, check:fast (KIMI_PRE_PUSH_FULL=1 for full), sync"
+  );
 
   try {
     const trace = ensureProcessTrace();

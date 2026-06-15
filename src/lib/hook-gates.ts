@@ -18,6 +18,7 @@ import {
 import { isQuietMode } from "./quiet-mode.ts";
 import { isKimiToolchainRepo } from "./workspace-health.ts";
 import { readPackageJson } from "./utils.ts";
+import { buildConstantRepairPlan } from "./constants-heal.ts";
 
 const PRE_COMMIT_CACHE_GATES = ["format:check", "lint", "typecheck", "test:fast"] as const;
 
@@ -168,6 +169,63 @@ async function runGuardianGate(projectRoot: string): Promise<GateResult> {
   return result;
 }
 
+export async function runConstantDriftGate(projectRoot: string): Promise<GateResult> {
+  if (Bun.env.KIMI_SKIP_CONSTANT_DRIFT_GATE === "1") {
+    return {
+      name: "constant-drift",
+      exitCode: 0,
+      ms: 0,
+      stdout: "",
+      stderr: "",
+      skipped: true,
+    };
+  }
+
+  if (!(await isKimiToolchainRepo(projectRoot))) {
+    return {
+      name: "constant-drift",
+      exitCode: 0,
+      ms: 0,
+      stdout: "",
+      stderr: "",
+      skipped: true,
+    };
+  }
+
+  const start = Bun.nanoseconds();
+  const plan = await buildConstantRepairPlan(projectRoot);
+
+  if (plan.goldenVersion === "missing") {
+    return {
+      name: "constant-drift",
+      exitCode: 0,
+      ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
+      stdout: "golden template missing — run: kimi-heal constants snapshot",
+      stderr: "",
+      skipped: true,
+    };
+  }
+
+  if (plan.repairCount > 0) {
+    const keys = [...plan.diff.missingKeys, ...plan.diff.invalidKeys.map((item) => item.key)];
+    return {
+      name: "constant-drift",
+      exitCode: 1,
+      ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
+      stdout: "",
+      stderr: `PUSH BLOCKED: constant drift (${plan.repairCount} key(s): ${keys.join(", ")}) — kimi-heal repair-constants --dry-run`,
+    };
+  }
+
+  return {
+    name: "constant-drift",
+    exitCode: 0,
+    ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
+    stdout: "bunfig [define] matches golden template",
+    stderr: "",
+  };
+}
+
 async function runRScoreGate(projectRoot: string): Promise<GateResult> {
   const governance = existsSync(join(projectRoot, "src/bin/kimi-governance.ts"))
     ? join(projectRoot, "src/bin/kimi-governance.ts")
@@ -206,6 +264,10 @@ export async function runPrePushGates(projectRoot: string): Promise<number> {
     async () => {
       if (!summary) printVerboseBanner("Supply Chain Security");
       return runGuardianGate(projectRoot);
+    },
+    async () => {
+      if (!summary) printVerboseBanner("Constant Drift Gate");
+      return runConstantDriftGate(projectRoot);
     },
     async () => {
       if (!summary) printVerboseBanner("R-Score Gate");
@@ -365,6 +427,13 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
       name: "guardian",
       cmd: ["bun", "run", "src/bin/kimi-guardian.ts", "check"],
       skipped: false,
+    });
+  }
+  if (await isKimiToolchainRepo(projectRoot)) {
+    planned.push({
+      name: "constant-drift",
+      cmd: ["hook-gates", "runConstantDriftGate"],
+      skipped: Bun.env.KIMI_SKIP_CONSTANT_DRIFT_GATE === "1",
     });
   }
   if (existsSync(join(projectRoot, "src/bin/kimi-governance.ts"))) {

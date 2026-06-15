@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-15T12:41:46.914Z",
+  "generatedAt": "2026-06-15T14:25:58.403Z",
   "repo": "kimi-toolchain",
-  "tuningSetVersion": "1.0.0",
+  "tuningSetVersion": "1.1.0",
   "domains": {
     "contract-inference": {
       "KIMI_CONTRACT_OBSERVATIONS_PATH": {
@@ -50,6 +50,14 @@
         ]
       }
     },
+    "optimizer": {
+      "KIMI_OPTIMIZER_CONFIDENCE_DECAY_DAYS": {
+        "type": "number",
+        "default": 30,
+        "restrictions": "positive integer — linear decay window for insufficient-data confidence (Phase 3.2)",
+        "see": ["src/lib/constant-optimizer.ts"]
+      }
+    },
     "error-clustering": {
       "KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD": {
         "type": "number",
@@ -61,7 +69,7 @@
     "governance": {
       "KIMI_TUNING_SET_VERSION": {
         "type": "string",
-        "default": "1.0.0",
+        "default": "1.1.0",
         "restrictions": "semver — bump when any other KIMI_* define is added, changed, or removed",
         "see": ["scripts/lint-tuning-set-version.ts"]
       }

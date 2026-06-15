@@ -1,8 +1,11 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { checkDxGithubAlignment } from "../src/lib/dx-github-alignment.ts";
+import {
+  checkDxGithubAlignment,
+  REQUIRED_AGENT_BOOTSTRAP,
+} from "../src/lib/dx-github-alignment.ts";
 
 let projectDir: string;
 
@@ -80,7 +83,7 @@ verify = "bun run sync:verify"
 
 [agents]
 firstRead = ["/Users/nolarose/.config/dx/AGENTS.md", "AGENTS.md", "CODE_REFERENCES.md"]
-bootstrap = ["dx context", "dx config --project .", "dx mcp-status", "dx package"]
+bootstrap = ["dx setup", "dx context", "dx config --project .", "dx mcp-status", "dx cli", "dx package"]
 iterate = "bun run check:fast"
 fullValidation = "bun run check"
 prePush = ["kimi-githooks doctor", "bun run check", "kimi-guardian check", "kimi-governance score"]
@@ -190,7 +193,7 @@ describe("dx-github-alignment", () => {
   test("warns when agent flow defaults drift", async () => {
     writeProject({
       "dx.config.toml": DX_CONFIG.replace(
-        'bootstrap = ["dx context", "dx config --project .", "dx mcp-status", "dx package"]',
+        'bootstrap = ["dx setup", "dx context", "dx config --project .", "dx mcp-status", "dx cli", "dx package"]',
         'bootstrap = ["dx context"]'
       ).replace(
         'handoff = ["bun run sync && bun run sync:verify", "kimi-doctor --agent-ready"]',
@@ -206,6 +209,81 @@ describe("dx-github-alignment", () => {
     expect(report.aligned).toBe(false);
     expect(report.checks.find((check) => check.name === "agents.bootstrap")?.status).toBe("warn");
     expect(report.checks.find((check) => check.name === "agents.handoff")?.status).toBe("warn");
+  });
+
+  test("warns when bootstrap omits dx setup and dx cli", async () => {
+    writeProject({
+      "dx.config.toml": DX_CONFIG.replace(
+        'bootstrap = ["dx setup", "dx context", "dx config --project .", "dx mcp-status", "dx cli", "dx package"]',
+        'bootstrap = ["dx context", "dx config --project .", "dx mcp-status", "dx package"]'
+      ),
+      "package.json": packageJson({ governance: "bun run src/bin/kimi-governance.ts" }),
+      ".github/workflows/ci.yml": CI,
+      ".github/actions/setup/action.yml": SETUP_ACTION,
+    });
+
+    const report = await checkDxGithubAlignment(projectDir);
+    const bootstrap = report.checks.find((check) => check.name === "agents.bootstrap");
+
+    expect(report.aligned).toBe(false);
+    expect(bootstrap?.status).toBe("warn");
+    expect(bootstrap?.message).toContain("dx setup");
+    expect(bootstrap?.message).toContain("dx cli");
+  });
+
+  test("warns on parseable dx config sections with wrong value shapes", async () => {
+    writeProject({
+      "dx.config.toml": DX_CONFIG.replace(
+        'packageManager = "bun"',
+        'packageManager = ["bun"]'
+      ).replace('bunVersion = "1.3.14"', "bunVersion = 1314"),
+      "package.json": packageJson({ governance: "bun run src/bin/kimi-governance.ts" }),
+      ".github/workflows/ci.yml": CI,
+      ".github/actions/setup/action.yml": SETUP_ACTION,
+    });
+
+    const report = await checkDxGithubAlignment(projectDir);
+
+    expect(report.aligned).toBe(false);
+    expect(report.checks.find((check) => check.name === "runtime.packageManager")?.status).toBe(
+      "warn"
+    );
+    expect(report.checks.find((check) => check.name === "runtime.bunVersion")?.status).toBe("warn");
+  });
+
+  test("warns when command defaults are present but not strings", async () => {
+    writeProject({
+      "dx.config.toml": DX_CONFIG.replace('lint = "bun run lint"', "lint = false").replace(
+        'lintCheck = "bun run lint"',
+        'lintCheck = ["bun run lint"]'
+      ),
+      "package.json": packageJson({ governance: "bun run src/bin/kimi-governance.ts" }),
+      ".github/workflows/ci.yml": CI,
+      ".github/actions/setup/action.yml": SETUP_ACTION,
+    });
+
+    const report = await checkDxGithubAlignment(projectDir);
+
+    expect(report.aligned).toBe(false);
+    expect(report.checks.find((check) => check.name === "quality.lintCheck")?.status).toBe("warn");
+    expect(report.checks.find((check) => check.name === "github.ci.quality.lint")?.status).toBe(
+      "warn"
+    );
+  });
+
+  test("warns when setup action steps have a malformed shape", async () => {
+    writeProject({
+      "dx.config.toml": DX_CONFIG,
+      "package.json": packageJson({ governance: "bun run src/bin/kimi-governance.ts" }),
+      ".github/workflows/ci.yml": CI,
+      ".github/actions/setup/action.yml":
+        "name: Setup\nruns:\n  using: composite\n  steps: not-a-list\n",
+    });
+
+    const report = await checkDxGithubAlignment(projectDir);
+
+    expect(report.aligned).toBe(false);
+    expect(report.checks.find((check) => check.name === "github.setupAction")?.status).toBe("warn");
   });
 
   test("finds setup Bun version after earlier composite steps", async () => {
@@ -229,5 +307,17 @@ describe("dx-github-alignment", () => {
 
     expect(report.applicable).toBe(false);
     expect(report.aligned).toBe(true);
+  });
+
+  test("project and scaffold dx templates keep the required bootstrap defaults", () => {
+    const projectConfig = Bun.TOML.parse(
+      readFileSync(join(import.meta.dir, "..", "dx.config.toml"), "utf8")
+    ) as { agents?: { bootstrap?: string[] } };
+    const scaffoldConfig = Bun.TOML.parse(
+      readFileSync(join(import.meta.dir, "..", "templates", "scaffold", "dx.config.toml"), "utf8")
+    ) as { agents?: { bootstrap?: string[] } };
+
+    expect(projectConfig.agents?.bootstrap).toEqual([...REQUIRED_AGENT_BOOTSTRAP]);
+    expect(scaffoldConfig.agents?.bootstrap).toEqual([...REQUIRED_AGENT_BOOTSTRAP]);
   });
 });

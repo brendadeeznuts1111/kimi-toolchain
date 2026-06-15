@@ -7,7 +7,10 @@ describe("buildAgentsMd", () => {
     expect(md).toContain("# Agent Guide — my-app");
     expect(md).toContain("format:check:ci");
     expect(md).toContain("/Users/nolarose/.config/dx/AGENTS.md");
+    expect(md).toContain("dx setup");
     expect(md).toContain("dx mcp-status");
+    expect(md).toContain("dx cli");
+    expect(md).toContain("dx package");
     expect(md).toContain(".kimi-code/mcp.json");
     expect(md).toContain("Cloudflare SSO/OAuth is separate");
     expect(md).toContain("./CODE_REFERENCES.md");

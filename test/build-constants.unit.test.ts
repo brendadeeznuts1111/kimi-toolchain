@@ -8,11 +8,12 @@ describe("buildConstants", () => {
   it("should load compile-time tuning values from bunfig define", () => {
     expect(KIMI_ERROR_EMBEDDING_DIM).toBe(384);
     expect(KIMI_DECISION_SCORE_WINDOW_DAYS).toBe(7);
+    expect(KIMI_OPTIMIZER_CONFIDENCE_DECAY_DAYS).toBe(30);
     expect(KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD).toBe(0.55);
     expect(KIMI_HOOK_VERIFIER_MAX_CYCLES).toBe(32);
     expect(KIMI_CONTRACT_SCHEMA_VERSION).toBe("1.0.0");
     expect(KIMI_CONTRACT_INFERENCE_ENABLED).toBe(true);
-    expect(KIMI_TUNING_SET_VERSION).toBe("1.0.0");
+    expect(KIMI_TUNING_SET_VERSION).toBe("1.1.0");
   });
 
   it("should resolve contract observations path from define", () => {

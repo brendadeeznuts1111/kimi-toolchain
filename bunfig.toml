@@ -16,10 +16,12 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
 KIMI_ERROR_EMBEDDING_DIM = "384"
 # define-domain:decision-scoring (Phase 2)
 KIMI_DECISION_SCORE_WINDOW_DAYS = "7"
+# define-domain:optimizer (Phase 3.2)
+KIMI_OPTIMIZER_CONFIDENCE_DECAY_DAYS = "30"
 # define-domain:error-clustering (Phase 2)
 KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD = "0.55"
 # define-domain:governance
-KIMI_TUNING_SET_VERSION = '"1.0.0"'
+KIMI_TUNING_SET_VERSION = '"1.1.0"'
 
 # Shared test defaults — see src/lib/test-gates.ts and scripts/run-tests.ts
 [test]

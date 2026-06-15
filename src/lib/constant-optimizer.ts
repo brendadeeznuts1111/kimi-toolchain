@@ -25,6 +25,7 @@ export interface OptimizerDoctorRecommendation {
   candidateId?: string;
   driftPct: number | null;
   confidence: number;
+  baseConfidence?: number;
   basedOnDecisionIds: string[];
   outcomeCount: number;
   lastReviewMs: number;
@@ -60,6 +61,7 @@ export interface ConstantOptimizerEntry {
   clusterHitsAfter: number;
   recommendation: ConstantOptimizerRecommendation;
   confidence: number;
+  baseConfidence: number;
   rationale: string;
 }
 
@@ -144,15 +146,39 @@ function countClusterHitsAfter(
   ).length;
 }
 
-function deriveRecommendation(
+export const CONFIDENCE_FLOOR = 0.05;
+export const INSUFFICIENT_DATA_BASE_CONFIDENCE = 0.2;
+export const INSUFFICIENT_DATA_FLOOR_CONFIDENCE = 0.1;
+const CONFIDENCE_HALF_LIFE_DAYS = 14;
+
+export interface BaseRecommendation {
+  recommendation: ConstantOptimizerRecommendation;
+  confidence: number;
+  rationale: string;
+}
+
+export interface ConfidenceDecayInput {
+  recommendation: ConstantOptimizerRecommendation;
+  baseConfidence: number;
+  repairAgeMs: number;
+  afterTotal: number;
+}
+
+function optimizerDecayDays(): number {
+  return typeof KIMI_OPTIMIZER_CONFIDENCE_DECAY_DAYS === "number"
+    ? KIMI_OPTIMIZER_CONFIDENCE_DECAY_DAYS
+    : 30;
+}
+
+export function computeBaseRecommendation(
   outcomes: TaxonomyOutcomeWindow[],
   beforeTotal: number,
   afterTotal: number
-): { recommendation: ConstantOptimizerRecommendation; confidence: number; rationale: string } {
+): BaseRecommendation {
   if (beforeTotal + afterTotal === 0) {
     return {
       recommendation: "insufficient-data",
-      confidence: 0.2,
+      confidence: INSUFFICIENT_DATA_BASE_CONFIDENCE,
       rationale: "No bound-taxonomy failures in the observation window",
     };
   }
@@ -183,6 +209,42 @@ function deriveRecommendation(
   };
 }
 
+export function applyConfidenceDecay(input: ConfidenceDecayInput): number {
+  const decayDays = optimizerDecayDays();
+  const ageDays = input.repairAgeMs / MS_DAY;
+
+  if (input.recommendation === "insufficient-data") {
+    const progress = Math.min(1, ageDays / decayDays);
+    const decayed =
+      INSUFFICIENT_DATA_BASE_CONFIDENCE -
+      (INSUFFICIENT_DATA_BASE_CONFIDENCE - INSUFFICIENT_DATA_FLOOR_CONFIDENCE) * progress;
+    return Math.max(CONFIDENCE_FLOOR, decayed);
+  }
+
+  if (input.afterTotal === 0) {
+    const factor = Math.exp(-ageDays / CONFIDENCE_HALF_LIFE_DAYS);
+    return Math.max(CONFIDENCE_FLOOR, input.baseConfidence * factor);
+  }
+
+  return input.baseConfidence;
+}
+
+function deriveRecommendation(
+  outcomes: TaxonomyOutcomeWindow[],
+  beforeTotal: number,
+  afterTotal: number,
+  repairAgeMs: number
+): BaseRecommendation & { confidence: number; baseConfidence: number } {
+  const base = computeBaseRecommendation(outcomes, beforeTotal, afterTotal);
+  const confidence = applyConfidenceDecay({
+    recommendation: base.recommendation,
+    baseConfidence: base.confidence,
+    repairAgeMs,
+    afterTotal,
+  });
+  return { ...base, confidence, baseConfidence: base.confidence };
+}
+
 export async function buildConstantOptimizerReport(
   projectRoot: string,
   options: {
@@ -200,9 +262,11 @@ export async function buildConstantOptimizerReport(
   const defineMap = await loadRepoDefineMap(projectRoot);
 
   const entries: ConstantOptimizerEntry[] = [];
+  const nowMs = options.nowMs ?? Date.now();
 
   for (const repair of repairs) {
     const decisionMs = new Date(repair.timestamp).getTime();
+    const repairAgeMs = Math.max(0, nowMs - decisionMs);
 
     for (const key of repair.restoredKeys) {
       const taxonomyIds = boundIndex.get(key);
@@ -232,10 +296,11 @@ export async function buildConstantOptimizerReport(
 
       const beforeTotal = taxonomyOutcomes.reduce((sum, item) => sum + item.beforeCount, 0);
       const afterTotal = taxonomyOutcomes.reduce((sum, item) => sum + item.afterCount, 0);
-      const { recommendation, confidence, rationale } = deriveRecommendation(
+      const { recommendation, confidence, baseConfidence, rationale } = deriveRecommendation(
         taxonomyOutcomes,
         beforeTotal,
-        afterTotal
+        afterTotal,
+        repairAgeMs
       );
 
       entries.push({
@@ -247,6 +312,7 @@ export async function buildConstantOptimizerReport(
         clusterHitsAfter: countClusterHitsAfter(clusters, taxonomySet, decisionMs, windowMs),
         recommendation,
         confidence,
+        baseConfidence,
         rationale,
       });
     }
@@ -405,7 +471,11 @@ function buildDoctorMessage(
         : "no golden"
       : `golden drift ${driftPct.toFixed(0)}%`;
   const goldenPart = goldenValue !== undefined ? `golden: ${goldenValue}` : "golden: (no snapshot)";
-  return `${entry.constantKey}: current ${entry.currentValue ?? "(undefined)"}; ${goldenPart}; failures after repair: ${deltaSummary}; ${driftLabel}; optimizer ${entry.recommendation} (confidence ${entry.confidence.toFixed(2)}) — ${severity === "error" ? "auto-rollback review suggested" : "review suggested"}`;
+  const decayNote =
+    entry.baseConfidence !== entry.confidence
+      ? ` (decayed from ${entry.baseConfidence.toFixed(2)})`
+      : "";
+  return `${entry.constantKey}: current ${entry.currentValue ?? "(undefined)"}; ${goldenPart}; failures after repair: ${deltaSummary}; ${driftLabel}; optimizer ${entry.recommendation} (confidence ${entry.confidence.toFixed(2)}${decayNote}) — ${severity === "error" ? "auto-rollback review suggested" : "review suggested"}`;
 }
 
 export function formatOptimizerDoctorMessage(rec: OptimizerDoctorRecommendation): string {
@@ -525,6 +595,7 @@ export function entryToDoctorRecommendation(
     candidateId,
     driftPct,
     confidence: entry.confidence,
+    baseConfidence: entry.baseConfidence,
     basedOnDecisionIds: [entry.repair.decisionId],
     outcomeCount,
     lastReviewMs,
@@ -571,6 +642,7 @@ export interface OptimizerDoctorMachineCheck {
   source: "constant-optimizer";
   severity: OptimizerDoctorSeverity;
   confidence: number;
+  baseConfidence?: number;
   driftPercent: number | null;
   action: string;
   decisionIds: string[];
@@ -589,6 +661,7 @@ export function optimizerRecommendationToMachineCheck(
     source: "constant-optimizer",
     severity: rec.severity,
     confidence: rec.confidence,
+    baseConfidence: rec.baseConfidence,
     driftPercent: rec.driftPct,
     action: rec.action,
     decisionIds: rec.basedOnDecisionIds,
