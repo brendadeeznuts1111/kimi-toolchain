@@ -16,6 +16,11 @@ import {
 } from "./taxonomy-constants.ts";
 import { checkTuningSetFreshness } from "./tuning-set-version.ts";
 import {
+  formatOptimizerDoctorMessage,
+  generateOptimizerDoctorRecommendations,
+  mapDoctorSeverityToCheckStatus,
+} from "./constant-optimizer.ts";
+import {
   auditWorkspaceHealth,
   countWorkspaceBlockers,
   isKimiToolchainRepo,
@@ -42,6 +47,54 @@ export interface AuditEcosystemOptions {
   home?: string;
   strictWorkspace?: boolean;
   quick?: boolean;
+}
+
+interface ConstantOptimizerHealthCheck {
+  name: string;
+  status: "ok" | "warn" | "error";
+  message: string;
+  fixable: boolean;
+  autoFix?: string;
+}
+
+export async function checkConstantOptimizerHealth(
+  projectRoot: string
+): Promise<{ applicable: boolean; aligned: boolean; checks: ConstantOptimizerHealthCheck[] }> {
+  const taxonomyPath = join(projectRoot, "error-taxonomy.yml");
+  if (!existsSync(taxonomyPath)) {
+    return { applicable: false, aligned: true, checks: [] };
+  }
+
+  const recommendations = await generateOptimizerDoctorRecommendations(projectRoot);
+
+  if (recommendations.length === 0) {
+    return {
+      applicable: true,
+      aligned: true,
+      checks: [
+        {
+          name: "summary",
+          status: "ok",
+          message: "no optimizer recommendations",
+          fixable: false,
+        },
+      ],
+    };
+  }
+
+  const checks: ConstantOptimizerHealthCheck[] = recommendations.map((rec) => ({
+    name: rec.constant,
+    status: mapDoctorSeverityToCheckStatus(rec.severity),
+    message: formatOptimizerDoctorMessage(rec),
+    fixable: false,
+    autoFix: rec.action,
+  }));
+
+  return {
+    applicable: true,
+    aligned: checks.every((check) => check.status === "ok"),
+    checks,
+  };
 }
 
 function toEcosystem(check: WorkspaceCheck): EcosystemCheck {
@@ -243,6 +296,19 @@ export async function auditEcosystemHealth(
           status: check.status,
           message: check.message,
           source: "bound-constants",
+          fixable: check.fixable,
+        });
+      }
+    }
+
+    const optimizer = await checkConstantOptimizerHealth(projectRoot);
+    if (optimizer.applicable) {
+      for (const check of optimizer.checks) {
+        checks.push({
+          name: `constant-optimizer:${check.name}`,
+          status: check.status,
+          message: check.message,
+          source: "constant-optimizer",
           fixable: check.fixable,
         });
       }

@@ -8,9 +8,26 @@ import { loadRepoDefineMap } from "./build-constants-registry.ts";
 import { buildBoundConstantIndex } from "./taxonomy-constants.ts";
 import { readFailureTraceRecords, type FailureTraceRecord } from "./trace-ledger.ts";
 import { failureLedgerPath } from "./paths.ts";
+import { loadConstantsGolden } from "./constants-heal.ts";
 
 export const OPTIMIZER_SCHEMA_VERSION = 1;
 const DEFAULT_WINDOW_MS = 24 * 60 * 60 * 1000;
+const MS_DAY = 24 * 60 * 60 * 1000;
+
+export type OptimizerDoctorSeverity = "info" | "warn" | "error";
+
+export interface OptimizerDoctorRecommendation {
+  constant: string;
+  currentValue: unknown;
+  goldenValue: unknown | undefined;
+  driftPct: number | null;
+  confidence: number;
+  basedOnDecisionIds: string[];
+  optimizerAction: ConstantOptimizerRecommendation;
+  severity: OptimizerDoctorSeverity;
+  action: string;
+  message: string;
+}
 
 export interface ConstantRepairEvent {
   decisionId: string;
@@ -250,4 +267,153 @@ export function formatConstantOptimizerReport(report: ConstantOptimizerReport): 
   }
 
   return lines.join("\n");
+}
+
+function decisionWindowMs(): number {
+  const days =
+    typeof KIMI_DECISION_SCORE_WINDOW_DAYS === "number" ? KIMI_DECISION_SCORE_WINDOW_DAYS : 7;
+  return days * MS_DAY;
+}
+
+function computeDriftPct(
+  current: unknown,
+  golden: unknown | undefined
+): { driftPct: number | null; hasDrift: boolean } {
+  if (golden === undefined) return { driftPct: null, hasDrift: false };
+  if (current === golden) return { driftPct: 0, hasDrift: false };
+
+  if (typeof golden === "number" && typeof current === "number" && golden !== 0) {
+    const pct = (Math.abs(current - golden) / Math.abs(golden)) * 100;
+    return { driftPct: pct, hasDrift: true };
+  }
+
+  return { driftPct: 100, hasDrift: true };
+}
+
+function failureDeltaSummary(outcomes: TaxonomyOutcomeWindow[]): string {
+  const parts = outcomes
+    .filter((item) => item.delta !== 0)
+    .map((item) => `${item.taxonomyId} ${item.delta >= 0 ? "+" : ""}${item.delta}`);
+  return parts.length > 0 ? parts.join(", ") : "none";
+}
+
+function hasWorsenedFailures(outcomes: TaxonomyOutcomeWindow[]): boolean {
+  return outcomes.some((item) => item.delta > 0);
+}
+
+function deriveDoctorSeverity(
+  entry: ConstantOptimizerEntry,
+  driftPct: number | null,
+  hasDrift: boolean
+): OptimizerDoctorSeverity | null {
+  if (
+    (entry.recommendation === "insufficient-data" || entry.recommendation === "hold") &&
+    !hasDrift
+  ) {
+    return null;
+  }
+
+  if (
+    hasDrift &&
+    driftPct !== null &&
+    driftPct >= 50 &&
+    hasWorsenedFailures(entry.taxonomyOutcomes)
+  ) {
+    return "error";
+  }
+
+  if (entry.recommendation === "review" || (hasDrift && entry.confidence >= 0.7)) {
+    return "warn";
+  }
+
+  if (entry.recommendation === "promote" && !hasDrift) {
+    return "info";
+  }
+
+  if (hasDrift) return "warn";
+
+  return entry.recommendation === "hold" ? null : "info";
+}
+
+function buildDoctorAction(hasDrift: boolean): string {
+  if (hasDrift) return "kimi-heal repair-constants --dry-run";
+  return "kimi-heal constants optimize --json";
+}
+
+function buildDoctorMessage(
+  entry: ConstantOptimizerEntry,
+  goldenValue: unknown | undefined,
+  driftPct: number | null,
+  hasDrift: boolean,
+  severity: OptimizerDoctorSeverity
+): string {
+  const deltaSummary = failureDeltaSummary(entry.taxonomyOutcomes);
+  const driftLabel =
+    driftPct === null
+      ? hasDrift
+        ? "drift detected"
+        : "no golden"
+      : `golden drift ${driftPct.toFixed(0)}%`;
+  const goldenPart = goldenValue !== undefined ? `golden: ${goldenValue}` : "golden: (no snapshot)";
+  return `${entry.constantKey}: current ${entry.currentValue ?? "(undefined)"}; ${goldenPart}; failures after repair: ${deltaSummary}; ${driftLabel}; optimizer ${entry.recommendation} (confidence ${entry.confidence.toFixed(2)}) — ${severity === "error" ? "review urgently" : "review suggested"}`;
+}
+
+export function formatOptimizerDoctorMessage(rec: OptimizerDoctorRecommendation): string {
+  return rec.message;
+}
+
+export function mapDoctorSeverityToCheckStatus(
+  severity: OptimizerDoctorSeverity
+): "ok" | "warn" | "error" {
+  if (severity === "error") return "error";
+  if (severity === "warn") return "warn";
+  return "ok";
+}
+
+export function entryToDoctorRecommendation(
+  entry: ConstantOptimizerEntry,
+  goldenValue: unknown | undefined
+): OptimizerDoctorRecommendation | null {
+  const { driftPct, hasDrift } = computeDriftPct(entry.currentValue, goldenValue);
+  const severity = deriveDoctorSeverity(entry, driftPct, hasDrift);
+  if (!severity) return null;
+
+  const action = buildDoctorAction(hasDrift);
+  return {
+    constant: entry.constantKey,
+    currentValue: entry.currentValue,
+    goldenValue,
+    driftPct,
+    confidence: entry.confidence,
+    basedOnDecisionIds: [entry.repair.decisionId],
+    optimizerAction: entry.recommendation,
+    severity,
+    action,
+    message: buildDoctorMessage(entry, goldenValue, driftPct, hasDrift, severity),
+  };
+}
+
+export async function generateOptimizerDoctorRecommendations(
+  projectRoot: string,
+  options: {
+    failurePath?: string;
+    windowMs?: number;
+    nowMs?: number;
+  } = {}
+): Promise<OptimizerDoctorRecommendation[]> {
+  const windowMs = options.windowMs ?? decisionWindowMs();
+  const report = await buildConstantOptimizerReport(projectRoot, {
+    ...options,
+    windowMs,
+  });
+  const golden = await loadConstantsGolden(projectRoot);
+  const recommendations: OptimizerDoctorRecommendation[] = [];
+
+  for (const entry of report.entries) {
+    const goldenValue = golden?.constants[entry.constantKey]?.value;
+    const rec = entryToDoctorRecommendation(entry, goldenValue);
+    if (rec) recommendations.push(rec);
+  }
+
+  return recommendations;
 }
