@@ -86,6 +86,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run lint`               | Lint with oxlint + banned-terms scan                |
 | `bun run lint:terms`         | Scan docs for banned internal branding tags         |
 | `bun run sync`               | Sync repo to `~/.kimi-code/`                        |
+| `bun run sync:verify`        | Verify runtime files match repo-managed hashes      |
 | `bun run sync:daemon`        | Sync on cron (every 5 min)                          |
 | `bun run unify`              | Sync runtime, wrappers, validate                    |
 | `bun run install-wrappers`   | Install `~/.local/bin/kimi-*` wrappers              |
