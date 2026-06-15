@@ -296,6 +296,24 @@ export async function runPrePushGates(projectRoot: string): Promise<number> {
 
   if (isToolchain) {
     steps.push(async () => {
+      if (!summary) printVerboseBanner("PATH Wrapper Refresh");
+      const installer = join(projectRoot, "scripts/install-bin-wrappers.sh");
+      if (!existsSync(installer)) {
+        return {
+          name: "install-wrappers",
+          exitCode: 0,
+          ms: 0,
+          stdout: "",
+          stderr: "",
+          skipped: true,
+        };
+      }
+      return runGateVisible(projectRoot, "install-wrappers", [
+        "bash",
+        "scripts/install-bin-wrappers.sh",
+      ]);
+    });
+    steps.push(async () => {
       if (!summary) printVerboseBanner("Workspace Verify");
       const verify = existsSync(join(projectRoot, "scripts/verify-workspace.sh"))
         ? ["bash", "scripts/verify-workspace.sh"]

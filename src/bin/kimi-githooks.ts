@@ -42,6 +42,32 @@ const logger = createLogger(Bun.argv, "kimi-githooks");
 const HOOKS = ["pre-commit", "pre-push"] as const;
 const TOOLS_DIR = toolsDir();
 
+interface HookCheck {
+  name: string;
+  status: "ok" | "warn" | "error";
+  message: string;
+  fixable: boolean;
+}
+
+export function buildGlobalHooksPathCheck(globalHooksPath: string | null | undefined): HookCheck {
+  const hooksPath = globalHooksPath?.trim();
+  if (!hooksPath) {
+    return {
+      name: "global-hooks-path",
+      status: "ok",
+      message: "global core.hooksPath unset",
+      fixable: false,
+    };
+  }
+
+  return {
+    name: "global-hooks-path",
+    status: "warn",
+    message: `global core.hooksPath set to ${hooksPath}; prefer repo-local hooks for worktree safety`,
+    fixable: true,
+  };
+}
+
 async function resolveHooksDir(projectDir: string): Promise<string> {
   const result = await $`git rev-parse --git-path hooks`.cwd(projectDir).nothrow().quiet();
   const resolved = result.stdout.toString().trim();
@@ -157,12 +183,7 @@ async function installHooks(projectDir: string): Promise<number> {
 
 async function doctorHooks(projectDir: string) {
   const hooksDir = await resolveHooksDir(projectDir);
-  const checks: Array<{
-    name: string;
-    status: "ok" | "warn" | "error";
-    message: string;
-    fixable: boolean;
-  }> = [];
+  const checks: HookCheck[] = [];
 
   // Check git repo
   const gitDir = join(projectDir, ".git");
@@ -321,6 +342,13 @@ async function doctorHooks(projectDir: string) {
       fixable: false,
     });
   }
+
+  const globalHooksPath = await $`git config --global --get core.hooksPath`.nothrow().quiet();
+  checks.push(
+    buildGlobalHooksPathCheck(
+      globalHooksPath.exitCode === 0 ? globalHooksPath.stdout.toString() : null
+    )
+  );
 
   return checks;
 }

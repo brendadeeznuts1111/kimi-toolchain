@@ -30,6 +30,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "sync-drift": "src/lib/sync-hashes.ts",
   "telemetry-schema": "src/lib/error-taxonomy.ts",
   "unified-shell-bridge": "src/bin/unified-shell-bridge.ts",
+  "kimi-githooks": "src/bin/kimi-githooks.ts",
   "kimi-docs-aligned": "src/lib/kimi-docs-aligned.ts",
   "cloudflare-access-dashboard": "src/lib/cloudflare-access.ts",
   "scaffold-agents": "src/lib/scaffold-agents.ts",

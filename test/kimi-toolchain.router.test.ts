@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { join } from "path";
+import { mkdirSync, rmSync } from "fs";
+import { join, resolve } from "path";
+import { desktopRoot } from "../src/lib/paths.ts";
+import { syncDesktop } from "../src/lib/desktop-sync.ts";
 
-const REPO_ROOT = import.meta.dir + "/..";
+const REPO_ROOT = resolve(import.meta.dir, "..");
 const META = join(REPO_ROOT, "src/bin/kimi-toolchain.ts");
 const DOCTOR = join(REPO_ROOT, "src/bin/kimi-doctor.ts");
 
@@ -48,5 +51,31 @@ describe("kimi-toolchain router", () => {
     const b = await run(META, ["workspace", "verify"]);
     expect(a.stdout).toContain("Workspace verify");
     expect(b.stdout).toContain("Workspace verify");
+  }, 15_000);
+
+  test("synced meta workspace verify resolves caller project root", async () => {
+    const previousHome = Bun.env.HOME;
+    const tmpHome = join(REPO_ROOT, `.tmp-router-home-${Date.now()}`);
+    mkdirSync(tmpHome, { recursive: true });
+    Bun.env.HOME = tmpHome;
+    try {
+      await syncDesktop(REPO_ROOT, { force: true });
+      const script = join(desktopRoot(), "tools", "kimi-toolchain.ts");
+      const proc = Bun.spawn(["bun", script, "workspace", "verify"], {
+        cwd: REPO_ROOT,
+        stdout: "pipe",
+        stderr: "pipe",
+        env: { ...Bun.env, HOME: tmpHome },
+      });
+      const exitCode = await proc.exited;
+      const stdout = await Bun.readableStreamToText(proc.stdout);
+      const stderr = await Bun.readableStreamToText(proc.stderr);
+      expect(stdout + stderr).toContain(`Path: ${REPO_ROOT}`);
+      expect(exitCode === 0 || exitCode === 1).toBe(true);
+    } finally {
+      if (previousHome) Bun.env.HOME = previousHome;
+      else delete Bun.env.HOME;
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
   }, 15_000);
 });
