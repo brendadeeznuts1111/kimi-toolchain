@@ -5,7 +5,7 @@
  * Usage:
  *   kimi-heal plan [--json]
  *   kimi-heal apply --action <id> [--dry-run] [--yes] [--json]
- *   kimi-heal repair-constants [--dry-run|--yes] [--json]
+ *   kimi-heal repair-constants [--all] [--impact] [--accept-drift] [--dry-run|--yes] [--json]
  *   kimi-heal suggest --error-id <id> [--json]
  *   kimi-heal constants snapshot [--json]
  */
@@ -24,6 +24,7 @@ import {
   writeConstantsGolden,
   listGoldenArchives,
   restoreGoldenFromArchive,
+  acceptConstantsDrift,
 } from "../lib/constants-heal.ts";
 import { formatErrorSuggestReport, suggestErrorWithBoundConstants } from "../lib/error-suggest.ts";
 
@@ -37,6 +38,42 @@ function argValue(flag: string): string | undefined {
   const index = Bun.argv.indexOf(flag);
   if (index < 0) return undefined;
   return Bun.argv[index + 1];
+}
+
+function impactRiskLabel(activeFailures: number, risk: string): string {
+  if (activeFailures === 0) return `${risk} (no active failures in window)`;
+  return `${risk} (${activeFailures} active failure${activeFailures === 1 ? "" : "s"} in window)`;
+}
+
+function renderRepairPreview(result: Awaited<ReturnType<typeof repairConstants>>): string[] {
+  const impactByKey = new Map((result.impact ?? []).map((impact) => [impact.key, impact]));
+  const lines: string[] = [];
+
+  for (const item of result.plan.diff.invalidKeys) {
+    const impact = impactByKey.get(item.key);
+    lines.push(`Would restore ${item.key}: ${String(item.actual)}→${String(item.expected)}`);
+    if (impact) {
+      lines.push(`  Bound taxonomies: ${impact.boundTaxonomies.join(", ") || "none"}`);
+      lines.push(`  Services affected: ${impact.servicesAffected.join(", ") || "none"}`);
+      lines.push(
+        `  Estimated risk: ${impactRiskLabel(impact.activeFailures, impact.estimatedRisk)}`
+      );
+    }
+  }
+
+  for (const key of result.plan.diff.missingKeys) {
+    const impact = impactByKey.get(key);
+    lines.push(`Would restore ${key}: (missing)→golden`);
+    if (impact) {
+      lines.push(`  Bound taxonomies: ${impact.boundTaxonomies.join(", ") || "none"}`);
+      lines.push(`  Services affected: ${impact.servicesAffected.join(", ") || "none"}`);
+      lines.push(
+        `  Estimated risk: ${impactRiskLabel(impact.activeFailures, impact.estimatedRisk)}`
+      );
+    }
+  }
+
+  return lines;
 }
 
 async function main(): Promise<number> {
@@ -139,7 +176,42 @@ async function main(): Promise<number> {
   }
 
   if (command === "repair-constants") {
-    const dryRun = hasFlag("--dry-run") || !hasFlag("--yes");
+    const includeImpact = hasFlag("--impact");
+    const acceptDrift = hasFlag("--accept-drift");
+    const dryRun = hasFlag("--dry-run") || (!acceptDrift && !hasFlag("--yes"));
+    const message = argValue("--message");
+    if (acceptDrift) {
+      if (dryRun) {
+        const snapshot = await buildConstantRepairPlan(projectRoot);
+        if (jsonMode) {
+          process.stdout.write(
+            `${JSON.stringify({ dryRun: true, acceptDrift: true, plan: snapshot }, null, 2)}\n`
+          );
+        } else {
+          logger.section("Accept Constant Drift");
+          logger.info(
+            "dry-run: would update .kimi/var/constants-golden.json to current bunfig.toml"
+          );
+          if (message) logger.info(`Message: ${message}`);
+          logger.warn("Dry run — pass --yes to write the new golden template");
+        }
+        return 0;
+      }
+      const accepted = await acceptConstantsDrift({
+        projectRoot,
+        traceId: trace.traceId,
+        message,
+      });
+      if (jsonMode) {
+        process.stdout.write(`${JSON.stringify(accepted, null, 2)}\n`);
+      } else {
+        logger.section("Accept Constant Drift");
+        logger.info(accepted.detail);
+        logger.info(`Decision: ${accepted.decisionId}`);
+      }
+      return 0;
+    }
+
     const plan = await buildConstantRepairPlan(projectRoot);
     if (!plan.canRepair && plan.goldenVersion === "missing") {
       logger.error("Golden template missing — run: kimi-heal constants snapshot");
@@ -150,18 +222,47 @@ async function main(): Promise<number> {
       projectRoot,
       dryRun,
       traceId: trace.traceId,
+      includeImpact,
     });
 
     if (jsonMode) {
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     } else {
       logger.section("Repair Constants");
-      logger.info(result.detail);
+      if (dryRun && plan.repairCount > 0) {
+        for (const line of renderRepairPreview(result)) logger.line(line);
+      } else {
+        logger.info(result.detail);
+      }
+      if (!dryRun && plan.repairCount > 0) {
+        logger.info(`${plan.repairCount} constant(s) drifted:`);
+        for (const key of plan.diff.missingKeys) {
+          logger.line(`  ${key}  (missing) -> golden`);
+        }
+        for (const item of plan.diff.invalidKeys) {
+          logger.line(
+            `  ${item.key}  ${String(item.expected)}->${String(item.actual)}->${String(item.expected)}`
+          );
+        }
+      }
+      if (result.duplicateDecisionId) {
+        logger.info(`Duplicate repair decision suppressed: ${result.duplicateDecisionId}`);
+      }
+      if (!dryRun && result.impact && result.impact.length > 0) {
+        for (const impact of result.impact) {
+          logger.line(`  ${impact.key}`);
+          logger.line(`    Bound taxonomies: ${impact.boundTaxonomies.join(", ") || "none"}`);
+          logger.line(`    Services affected: ${impact.servicesAffected.join(", ") || "none"}`);
+          logger.line(
+            `    Estimated risk: ${impactRiskLabel(impact.activeFailures, impact.estimatedRisk)}`
+          );
+        }
+      }
       if (result.decisionId) {
         logger.info(`Decision: ${result.decisionId}`);
         logger.info(`Run 'kimi-decision why ${result.decisionId}' for full rationale`);
       }
-      if (dryRun && result.repairedBunfig) {
+      if (dryRun && result.repairedBunfig && plan.repairCount === 0) {
         logger.warn("Dry run — pass --yes to write repaired bunfig.toml");
       }
     }
@@ -188,13 +289,16 @@ async function main(): Promise<number> {
   if (command === "constants") {
     const sub = args[1] ?? "snapshot";
     if (sub === "snapshot") {
-      const golden = await writeConstantsGolden(projectRoot);
+      const golden = await writeConstantsGolden(projectRoot, undefined, {
+        message: argValue("--message"),
+      });
       if (jsonMode) {
         process.stdout.write(`${JSON.stringify(golden, null, 2)}\n`);
       } else {
         logger.section("Constants Snapshot");
         logger.info(`Golden template v${golden.tuningSetVersion}`);
         logger.info(`${Object.keys(golden.constants).length} constant(s) captured`);
+        if (golden.message) logger.info(`Message: ${golden.message}`);
         logger.info(`Path: .kimi/var/constants-golden.json`);
       }
       return 0;
@@ -265,12 +369,8 @@ async function main(): Promise<number> {
   logger.line("  apply --action <id> [--dry-run|--yes] Apply heal with decision logging");
   logger.line("  clusters [--json]                     Semantic failure clusters");
   logger.line("  suggest --error-id <id> [--json]      Cluster suggestion + bound constants");
-  logger.line(
-    "  repair-constants [--dry-run|--yes]    Restore bunfig [define] from golden template"
-  );
-  logger.line(
-    "  constants snapshot [--json]           Capture golden template (.kimi/var/constants-golden.json)"
-  );
+  logger.line("  repair-constants [--all] [--impact] [--accept-drift] [--dry-run|--yes]");
+  logger.line("  constants snapshot [--message <text>] [--json] Capture golden template");
   logger.line("  constants archives [--json]         List archived golden snapshots");
   logger.line("  constants restore <name> [--dry-run|--yes]  Restore golden from archive");
   logger.line(

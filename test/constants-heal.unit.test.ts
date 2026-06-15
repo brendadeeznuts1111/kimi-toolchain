@@ -10,9 +10,11 @@ import {
   loadConstantsGolden,
   parseConstantsGolden,
   repairConstants,
+  repairHashesForDiff,
   writeConstantsGolden,
   listGoldenArchives,
   restoreGoldenFromArchive,
+  buildConstantRepairImpact,
 } from "../src/lib/constants-heal.ts";
 import { loadRepoDefineMap } from "../src/lib/build-constants-registry.ts";
 import { constantsGoldenArchiveDir } from "../src/lib/paths.ts";
@@ -123,6 +125,184 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "64"
     const current = await loadRepoDefineMap(projectDir);
     expect(current.get("KIMI_HOOK_VERIFIER_MAX_CYCLES")?.value).toBe(32);
     expect(current.get("KIMI_TUNING_SET_VERSION")?.value).toBe("1.0.0");
+
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it("should suppress duplicate repair decisions within one hour", async () => {
+    projectDir = join(tmpdir(), `constants-heal-dedupe-${Date.now()}`);
+    writeProject({
+      "bunfig.toml": `
+[define]
+# define-domain:hook-verifier
+KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
+# define-domain:governance
+KIMI_TUNING_SET_VERSION = '"1.0.0"'
+`,
+      "types/build-constants.d.ts": `
+/**
+ * @defineDomain hook-verifier
+ * @type number
+ * @default 32
+ * @restrictions positive integer
+ */
+declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
+`,
+    });
+
+    await writeConstantsGolden(projectDir);
+    writeFileSync(
+      join(projectDir, "bunfig.toml"),
+      `
+[define]
+# define-domain:hook-verifier
+KIMI_HOOK_VERIFIER_MAX_CYCLES = "64"
+`
+    );
+
+    const first = await repairConstants({ projectRoot: projectDir, dryRun: false });
+    expect(first.decisionId).toStartWith("dec-");
+    writeFileSync(
+      join(projectDir, "bunfig.toml"),
+      `
+[define]
+# define-domain:hook-verifier
+KIMI_HOOK_VERIFIER_MAX_CYCLES = "64"
+`
+    );
+    const second = await repairConstants({ projectRoot: projectDir, dryRun: false });
+    expect(second.applied).toBe(true);
+    expect(second.decisionId).toBeUndefined();
+    expect(second.duplicateDecisionId).toBe(first.decisionId);
+
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it("should validate golden constants against schema before repair", async () => {
+    projectDir = join(tmpdir(), `constants-heal-validation-${Date.now()}`);
+    writeProject({
+      "bunfig.toml": `
+[define]
+# define-domain:hook-verifier
+KIMI_HOOK_VERIFIER_MAX_CYCLES = "64"
+`,
+      "types/build-constants.d.ts": `
+/**
+ * @defineDomain hook-verifier
+ * @type number
+ * @default 32
+ * @restrictions positive integer
+ */
+declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
+`,
+    });
+
+    await writeConstantsGolden(projectDir, {
+      schemaVersion: "1.0.0",
+      tuningSetVersion: "1.0.0",
+      capturedAt: "2026-06-15T10:00:00.000Z",
+      constants: {
+        KIMI_HOOK_VERIFIER_MAX_CYCLES: {
+          defineDomain: "hook-verifier",
+          rawValue: '"nope"',
+          value: "nope",
+        },
+      },
+    });
+
+    await expect(repairConstants({ projectRoot: projectDir, dryRun: false })).rejects.toThrow(
+      "Invalid golden constant"
+    );
+
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it("should preserve snapshot messages and compute repair hashes", async () => {
+    projectDir = join(tmpdir(), `constants-heal-message-${Date.now()}`);
+    writeProject({
+      "bunfig.toml": `
+[define]
+# define-domain:hook-verifier
+KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
+`,
+    });
+
+    const golden = await writeConstantsGolden(projectDir, undefined, {
+      message: "intentional: raise max cycles for load testing",
+    });
+    expect(golden.message).toBe("intentional: raise max cycles for load testing");
+    const hashes = repairHashesForDiff({
+      missingKeys: [],
+      invalidKeys: [
+        {
+          key: "KIMI_HOOK_VERIFIER_MAX_CYCLES",
+          expected: 32,
+          actual: 750,
+        },
+      ],
+    });
+    expect(hashes).toHaveLength(1);
+    expect(hashes[0]).toMatch(/^[a-f0-9]{16}$/);
+
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  it("should preview repair impact from bound taxonomies and active failures", async () => {
+    projectDir = join(tmpdir(), `constants-heal-impact-${Date.now()}`);
+    writeProject({
+      "error-taxonomy.yml": `
+version: 2
+categories:
+  - id: lockfile_issue
+    name: Lockfile
+    description: lockfile
+    severity: warn
+    expected: false
+    boundConstants:
+      - KIMI_HOOK_VERIFIER_MAX_CYCLES
+    patterns: []
+`,
+      "bunfig.toml": `
+[define]
+# define-domain:hook-verifier
+KIMI_HOOK_VERIFIER_MAX_CYCLES = "64"
+`,
+      "types/build-constants.d.ts": `
+/**
+ * @defineDomain hook-verifier
+ * @type number
+ * @default 32
+ */
+declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
+`,
+      "failures.jsonl": `${JSON.stringify({
+        taxonomyId: "lockfile_issue",
+        timestamp: "2026-06-15T09:00:00.000Z",
+        toolName: "kimi-guardian",
+      })}\n`,
+    });
+
+    const impact = await buildConstantRepairImpact(
+      projectDir,
+      {
+        missingKeys: [],
+        invalidKeys: [
+          {
+            key: "KIMI_HOOK_VERIFIER_MAX_CYCLES",
+            expected: 32,
+            actual: 64,
+          },
+        ],
+      },
+      {
+        failurePath: join(projectDir, "failures.jsonl"),
+        nowMs: Date.parse("2026-06-15T10:00:00.000Z"),
+      }
+    );
+
+    expect(impact[0]?.boundTaxonomies).toEqual(["lockfile_issue"]);
+    expect(impact[0]?.servicesAffected).toEqual(["kimi-guardian"]);
+    expect(impact[0]?.estimatedRisk).toBe("medium");
 
     rmSync(projectDir, { recursive: true, force: true });
   });

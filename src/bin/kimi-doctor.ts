@@ -50,6 +50,7 @@ import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
 import { recordDoctorRun } from "../lib/doctor-runs.ts";
 import { filterLowQualityDecisions, filterUnverifiedDecisions } from "../lib/decision-scoring.ts";
 import { readDecisions, resolveDecisionsRoot } from "../lib/decision-ledger.ts";
+import { buildBoundConstantIndex } from "../lib/taxonomy-constants.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -743,6 +744,9 @@ async function main(): Promise<number> {
     if (!JSON_OUT) {
       logger.warn("Quick mode — skipping individual tool doctors.");
       logger.info("Run without --quick for full toolchain health check.");
+      if ((await buildBoundConstantIndex(projectRoot)).size > 0) {
+        logger.info("Run --ecosystem --quick for the full constant optimizer health view.");
+      }
     }
   } else {
     const tools = [

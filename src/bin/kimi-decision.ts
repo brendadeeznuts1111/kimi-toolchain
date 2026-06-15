@@ -4,8 +4,9 @@
  *
  * Usage:
  *   kimi-decision graph <traceId> [--json]
- *   kimi-decision why <decisionId> [--json]
- *   kimi-decision list --constant <key> [--last 7d] [--json]
+ *   kimi-decision why <decisionId> [--compact|--json]
+ *   kimi-decision list [--constant <key>] [--type <type>] [--last 7d] [--json]
+ *   kimi-decision tail [--last 24h] [--limit 20] [--json]
  *   kimi-decision diff <decisionIdA> <decisionIdB> [--json]
  *   kimi-decision suggest [--cluster-id <id>] [--json]
  *   kimi-decision log --action heal --trace-id <id> [--json]
@@ -25,9 +26,11 @@ import {
   suggestDecisions,
   buildWhyReport,
   filterDecisionsByConstant,
+  filterRecentDecisions,
   diffDecisions,
   parseDecisionWindow,
   findDecisionById,
+  formatDecisionCompact,
   type DecisionAction,
 } from "../lib/decision-ledger.ts";
 import {
@@ -74,7 +77,7 @@ async function main(): Promise<number> {
   if (command === "why") {
     const decisionId = args[1];
     if (!decisionId || decisionId.startsWith("--")) {
-      logger.error("Usage: why <decisionId> [--json]");
+      logger.error("Usage: why <decisionId> [--compact|--json]");
       return 1;
     }
     const report = await buildWhyReport(decisionId, projectRoot);
@@ -84,6 +87,8 @@ async function main(): Promise<number> {
     }
     if (jsonMode) {
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    } else if (hasFlag("--compact")) {
+      logger.line(formatDecisionCompact(report.decision));
     } else {
       const { decision } = report;
       logger.section(`Why ${decision.decisionId}`);
@@ -182,10 +187,7 @@ async function main(): Promise<number> {
   if (command === "list") {
     const constantKey = argValue("--constant");
     const last = argValue("--last") ?? "7d";
-    if (!constantKey) {
-      logger.error("Usage: list --constant <KIMI_*_KEY> [--last 7d] [--json]");
-      return 1;
-    }
+    const type = argValue("--type");
 
     let windowMs: number;
     try {
@@ -197,29 +199,63 @@ async function main(): Promise<number> {
 
     const decisions = await readDecisions(projectRoot);
     const nowMs = Date.now();
-    const matches = filterDecisionsByConstant(decisions, constantKey, {
-      sinceMs: nowMs - windowMs,
-      nowMs,
-    });
+    const matches = constantKey
+      ? filterDecisionsByConstant(decisions, constantKey, {
+          sinceMs: nowMs - windowMs,
+          nowMs,
+        }).filter((decision) => !type || decision.metadata?.type === type)
+      : filterRecentDecisions(decisions, {
+          sinceMs: nowMs - windowMs,
+          nowMs,
+          type,
+        });
 
     if (jsonMode) {
       process.stdout.write(
-        `${JSON.stringify({ constantKey, last, count: matches.length, decisions: matches }, null, 2)}\n`
+        `${JSON.stringify({ constantKey, type, last, count: matches.length, decisions: matches }, null, 2)}\n`
       );
       return 0;
     }
 
-    logger.section(`Decisions for ${constantKey} (${last})`);
+    const target = constantKey ? ` for ${constantKey}` : "";
+    const typePart = type ? ` type=${type}` : "";
+    logger.section(`Decisions${target}${typePart} (${last})`);
     if (matches.length === 0) {
       logger.info("No matching decisions in window");
       return 0;
     }
     for (const decision of matches) {
-      const type = decision.metadata?.type ?? decision.action;
-      logger.line(
-        `  ${decision.decisionId} ${decision.timestamp.slice(0, 19)} ${type} — ${decision.rationale.summary}`
-      );
+      logger.line(`  ${formatDecisionCompact(decision)}`);
     }
+    return 0;
+  }
+
+  if (command === "tail") {
+    const last = argValue("--last") ?? "24h";
+    let windowMs: number;
+    try {
+      windowMs = parseDecisionWindow(last);
+    } catch (error) {
+      logger.error(error instanceof Error ? error.message : String(error));
+      return 1;
+    }
+
+    const decisions = await readDecisions(projectRoot);
+    const nowMs = Date.now();
+    const matches = filterRecentDecisions(decisions, {
+      sinceMs: nowMs - windowMs,
+      nowMs,
+      limit: Number(argValue("--limit") ?? 20),
+    });
+
+    if (jsonMode) {
+      process.stdout.write(
+        `${JSON.stringify({ last, count: matches.length, decisions: matches }, null, 2)}\n`
+      );
+      return 0;
+    }
+
+    for (const decision of matches) logger.line(formatDecisionCompact(decision));
     return 0;
   }
 
@@ -293,8 +329,9 @@ async function main(): Promise<number> {
 
   logger.section("kimi-decision commands");
   logger.line("  graph <traceId> [--json]       Decision DAG for a trace");
-  logger.line("  why <decisionId> [--json]      Full rationale + evidence");
-  logger.line("  list --constant <key> [--last 7d] [--json]  Filter by constant");
+  logger.line("  why <decisionId> [--compact|--json] Full rationale + evidence");
+  logger.line("  list [--constant <key>] [--type <type>] [--last 7d] [--json]");
+  logger.line("  tail [--last 24h] [--limit 20] Compact recent decisions");
   logger.line("  diff <idA> <idB> [--json]      Compare two decisions");
   logger.line("  suggest [--cluster-id] [--json] Past high-quality actions");
   logger.line("  score [--json]                 Re-score all decisions");
