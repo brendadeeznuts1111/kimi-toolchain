@@ -15,6 +15,7 @@
   "bin": {
     "kimi-cleanup-legacy": "src/bin/kimi-cleanup-legacy.ts",
     "kimi-cloudflare-access": "src/bin/kimi-cloudflare-access.ts",
+    "kimi-config": "src/bin/kimi-config.ts",
     "kimi-context-gen": "src/bin/kimi-context-gen.ts",
     "kimi-debug": "src/bin/kimi-debug.ts",
     "kimi-decision": "src/bin/kimi-decision.ts",
