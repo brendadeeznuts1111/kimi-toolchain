@@ -71,7 +71,7 @@ async function main(): Promise<number> {
     const keyId = argValue("--key-id");
     if (!keyId) throw new CliError({ message: "--key-id is required" });
     const signature = await signContract(contractPath, keyId, await signingKey());
-    recordDecision({
+    await recordDecision({
       key: `contract:${contractPath}`,
       action: "contract-sign",
       trigger: `operator signed ${contractPath}`,

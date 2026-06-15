@@ -22,6 +22,7 @@ export const TOOL_SHORT_NAMES = [
   "context-gen",
   "cleanup-legacy",
   "cloudflare-access",
+  "decision",
   "debug",
   "release",
   "snapshot",
@@ -58,8 +59,9 @@ const SHORT_TO_SCRIPT: Record<string, string> = {
   trace: "kimi-trace.ts",
   capabilities: "kimi-capabilities.ts",
   contract: "kimi-contract.ts",
+  decision: "kimi-decision.ts",
   heal: "kimi-heal.ts",
-  why: "kimi-why.ts",
+  why: "kimi-decision.ts",
 };
 
 /** package.json bin name → short tool name for meta dispatch. */
