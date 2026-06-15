@@ -45,18 +45,43 @@ describe("success-metrics", () => {
       path,
       [
         JSON.stringify({ taxonomyId: "lockfile_issue", output: "secret-ish detail" }),
-        JSON.stringify({ categoryId: "unknown", output: "raw output" }),
+        JSON.stringify({
+          categoryId: "unknown",
+          toolName: "kimi-doctor",
+          output: "raw output",
+          timestamp: "2026-06-15T01:00:00.000Z",
+        }),
+        JSON.stringify({
+          taxonomyId: "unknown",
+          toolName: "kimi-doctor",
+          output: "raw output",
+          timestamp: "2026-06-15T02:00:00.000Z",
+        }),
         "not-json",
       ].join("\n")
     );
 
     const summary = await readFailureLedgerSummary(path);
-    expect(summary.total).toBe(3);
+    expect(summary.total).toBe(4);
     expect(summary.taxonomyCounts.lockfile_issue).toBe(1);
-    expect(summary.unclassified).toBe(2);
+    expect(summary.unclassified).toBe(3);
     expect(summary.reviewCommand).toBe(`kimi-debug wire ${path}`);
     expect(summary.unknownAction).toContain("error-taxonomy.yml");
+    expect(summary.unknownBuckets).toHaveLength(2);
+    expect(summary.unknownBuckets[0]).toMatchObject({
+      count: 2,
+      toolNames: ["kimi-doctor"],
+      firstSeen: "2026-06-15T01:00:00.000Z",
+      lastSeen: "2026-06-15T02:00:00.000Z",
+    });
+    expect(summary.unknownBuckets[0]?.fingerprint).toMatch(/^sha256:[a-f0-9]{16}$/);
+    expect(summary.unknownBuckets[1]).toMatchObject({
+      fingerprint: "malformed-json",
+      count: 1,
+      toolNames: ["ledger-parser"],
+    });
     expect(JSON.stringify(summary)).not.toContain("secret-ish detail");
+    expect(JSON.stringify(summary)).not.toContain("raw output");
     rmSync(dir, { recursive: true, force: true });
   });
 

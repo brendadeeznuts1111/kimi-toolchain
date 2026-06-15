@@ -8,6 +8,7 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { checkDocDrift } from "./readme-sync.ts";
 import { homeDir } from "./paths.ts";
+import { sha256String } from "./utils.ts";
 import {
   buildClassifiedFailure,
   classifyFailure,
@@ -95,6 +96,15 @@ export interface FailureLedgerSummary {
   unclassified: number;
   reviewCommand: string;
   unknownAction?: string;
+  unknownBuckets: FailureLedgerUnknownBucket[];
+}
+
+export interface FailureLedgerUnknownBucket {
+  fingerprint: string;
+  count: number;
+  toolNames: string[];
+  firstSeen?: string;
+  lastSeen?: string;
 }
 
 export interface SuccessMetricsAudit {
@@ -226,41 +236,134 @@ export async function readFailureLedgerSummary(
 ): Promise<FailureLedgerSummary> {
   const reviewCommand = `kimi-debug wire ${path}`;
   if (!existsSync(path)) {
-    return { path, present: false, total: 0, taxonomyCounts: {}, unclassified: 0, reviewCommand };
+    return {
+      path,
+      present: false,
+      total: 0,
+      taxonomyCounts: {},
+      unclassified: 0,
+      reviewCommand,
+      unknownBuckets: [],
+    };
   }
 
   const text = await Bun.file(path).text();
   const taxonomyCounts: Record<string, number> = {};
+  const unknownBuckets = new Map<
+    string,
+    {
+      count: number;
+      toolNames: Set<string>;
+      firstSeen?: string;
+      lastSeen?: string;
+    }
+  >();
   let total = 0;
 
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
     try {
-      const parsed = JSON.parse(trimmed) as { taxonomyId?: string; categoryId?: string };
+      const parsed = JSON.parse(trimmed) as {
+        taxonomyId?: string;
+        categoryId?: string;
+        toolName?: string;
+        output?: string;
+        timestamp?: string;
+      };
       const taxonomyId = parsed.taxonomyId || parsed.categoryId || "unknown";
       taxonomyCounts[taxonomyId] = (taxonomyCounts[taxonomyId] || 0) + 1;
+      if (taxonomyId === "unknown") {
+        recordUnknownBucket(unknownBuckets, {
+          fingerprint: fingerprintUnknownFailure(parsed.output || trimmed),
+          toolName: parsed.toolName,
+          timestamp: parsed.timestamp,
+        });
+      }
       total++;
     } catch {
       taxonomyCounts.unknown = (taxonomyCounts.unknown || 0) + 1;
+      recordUnknownBucket(unknownBuckets, {
+        fingerprint: "malformed-json",
+        toolName: "ledger-parser",
+      });
       total++;
     }
   }
 
+  const unclassified = taxonomyCounts.unknown || 0;
   return {
     path,
     present: true,
     total,
     taxonomyCounts,
-    unclassified: taxonomyCounts.unknown || 0,
+    unclassified,
     reviewCommand,
-    ...((taxonomyCounts.unknown || 0) > 0
+    unknownBuckets: formatUnknownBuckets(unknownBuckets),
+    ...(unclassified > 0
       ? {
           unknownAction:
             "Run the review command, then add or tune error-taxonomy.yml patterns for recurring unknown failures.",
         }
       : {}),
   };
+}
+
+function fingerprintUnknownFailure(output: string): string {
+  const normalized = output.replace(/\s+/g, " ").trim().slice(0, 1_000);
+  return `sha256:${sha256String(normalized || "unknown-output").slice(0, 16)}`;
+}
+
+function recordUnknownBucket(
+  buckets: Map<
+    string,
+    {
+      count: number;
+      toolNames: Set<string>;
+      firstSeen?: string;
+      lastSeen?: string;
+    }
+  >,
+  item: { fingerprint: string; toolName?: string; timestamp?: string }
+): void {
+  const existing =
+    buckets.get(item.fingerprint) ??
+    buckets
+      .set(item.fingerprint, {
+        count: 0,
+        toolNames: new Set<string>(),
+      })
+      .get(item.fingerprint)!;
+  existing.count++;
+  existing.toolNames.add(item.toolName || "unknown");
+  if (item.timestamp) {
+    if (!existing.firstSeen || item.timestamp < existing.firstSeen)
+      existing.firstSeen = item.timestamp;
+    if (!existing.lastSeen || item.timestamp > existing.lastSeen)
+      existing.lastSeen = item.timestamp;
+  }
+}
+
+function formatUnknownBuckets(
+  buckets: Map<
+    string,
+    {
+      count: number;
+      toolNames: Set<string>;
+      firstSeen?: string;
+      lastSeen?: string;
+    }
+  >
+): FailureLedgerUnknownBucket[] {
+  return [...buckets.entries()]
+    .map(([fingerprint, bucket]) => ({
+      fingerprint,
+      count: bucket.count,
+      toolNames: [...bucket.toolNames].sort(),
+      ...(bucket.firstSeen ? { firstSeen: bucket.firstSeen } : {}),
+      ...(bucket.lastSeen ? { lastSeen: bucket.lastSeen } : {}),
+    }))
+    .sort((a, b) => b.count - a.count || a.fingerprint.localeCompare(b.fingerprint));
 }
 
 export function buildProviderAgilityFixture(): ProviderIntegration {
