@@ -14,7 +14,6 @@ import { readFailureTraceRecords } from "./trace-ledger.ts";
 import { rewriteNdjsonFile } from "./ndjson.ts";
 
 const MS_DAY = 24 * 60 * 60 * 1000;
-const HOLD_DAYS = 7;
 const RECURRENCE_WINDOW_MS = MS_DAY;
 
 export interface ScoringInput {
@@ -87,7 +86,7 @@ export function scoreDecision(
         const ts = failure.timestamp ? new Date(failure.timestamp).getTime() : 0;
         return ts > decisionTime;
       });
-      const holdMs = HOLD_DAYS * MS_DAY;
+      const holdMs = DECISION_SCORE_WINDOW_DAYS * MS_DAY;
       if (later.length === 0 && now.getTime() - decisionTime >= holdMs) {
         factors.push("cluster-hold-7d");
         score = 1.0;

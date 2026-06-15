@@ -1,6 +1,17 @@
 [install]
 saveTextLockfile = true
 
+# Build-time constants — SSOT for clustering, decision scoring, contract inference.
+# https://bun.com/docs/guides/runtime/build-time-constants
+[define]
+KIMI_OBSERVATIONS_PATH = '".kimi/var/contract-observations.ndjson"'
+KIMI_CONTRACT_SCHEMA_VERSION = '"1.0.0"'
+HOOK_VERIFIER_MAX_CYCLES = "32"
+EMBEDDING_DIM = "384"
+DECISION_SCORE_WINDOW_DAYS = "7"
+CLUSTER_SIMILARITY_THRESHOLD = "0.55"
+ENABLE_CONTRACT_INFERENCE = "true"
+
 # Shared test defaults — see src/lib/test-gates.ts and scripts/run-tests.ts
 [test]
 preload = ["./test/setup.ts"]

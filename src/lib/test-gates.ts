@@ -42,6 +42,7 @@ export const UNIT_TEST_FILES = [
   "test/logger.unit.test.ts",
   "test/telemetry-schema.unit.test.ts",
   "test/decision-ledger.unit.test.ts",
+  "test/build-constants.unit.test.ts",
   "test/doctor-pipeline.unit.test.ts",
   "test/effect/tool-runner-effect.unit.test.ts",
   "test/effect/cli-runtime.unit.test.ts",

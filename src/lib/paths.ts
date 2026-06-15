@@ -70,6 +70,11 @@ export function decisionsNdjsonPath(projectRoot: string): string {
   return join(projectKimiDir(projectRoot), "decisions.ndjson");
 }
 
+/** Return {projectRoot}/.kimi/var/contract-observations.ndjson (path segment from bunfig define). */
+export function contractObservationsPath(projectRoot: string): string {
+  return join(projectRoot, KIMI_OBSERVATIONS_PATH);
+}
+
 /** Return ~/.kimi-code/var/institutional-memory.jsonl (deprecated — use decisions.ndjson) */
 export function institutionalMemoryPath(): string {
   return join(varDir(), "institutional-memory.jsonl");

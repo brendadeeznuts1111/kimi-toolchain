@@ -7,7 +7,6 @@
 
 import { Effect } from "effect";
 
-export const EMBEDDING_DIM = 384;
 export const MINILM_MODEL = "Xenova/all-MiniLM-L6-v2";
 
 export interface Embedder {

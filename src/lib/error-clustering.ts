@@ -81,7 +81,6 @@ interface EmbeddedFailure {
   similarities: number[];
 }
 
-const DEFAULT_CLUSTER_THRESHOLD = 0.55;
 const DEFAULT_MIN_CLUSTER_SIZE = 1;
 const KNOWN_PLAYBOOK_TAXONOMIES = new Set([
   "format_check_failure",
@@ -99,7 +98,7 @@ export function clusterFailureLedgerEffect(
   options: FailureClusterInput = {}
 ): Effect.Effect<ErrorClusterReport, never> {
   return Effect.gen(function* () {
-    const threshold = options.threshold ?? DEFAULT_CLUSTER_THRESHOLD;
+    const threshold = options.threshold ?? CLUSTER_SIMILARITY_THRESHOLD;
     const failurePath = options.failurePath ?? failureLedgerPath();
     const tracePath = options.tracePath ?? traceEventsPath();
     const persist = options.persist ?? true;

@@ -77,7 +77,7 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check -c .oxfmtrc.json .",
     "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
-    "lint": "oxlint src test scripts && bun run scripts/lint-banned-terms.ts && bun run scripts/lint-patterns.ts",
+    "lint": "oxlint src test scripts && bun run scripts/lint-banned-terms.ts && bun run scripts/lint-patterns.ts && bun run scripts/lint-build-constants.ts",
     "lint:terms": "bun run scripts/lint-banned-terms.ts",
     "typecheck": "tsc --noEmit",
     "sync": "bun run scripts/sync-to-desktop.ts",
