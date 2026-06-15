@@ -20,7 +20,7 @@ export async function computeSyncHashes(repoRoot: string): Promise<Record<string
     hashes[`tools/${file}`] = await sha256File(join(binDir, file));
   }
 
-  const libGlob = new Bun.Glob("*.ts");
+  const libGlob = new Bun.Glob("**/*.ts");
   for await (const file of libGlob.scan(libDir)) {
     hashes[`lib/${file}`] = await sha256File(join(libDir, file));
   }

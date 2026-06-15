@@ -169,7 +169,7 @@ export async function syncDesktop(
   ensureDesktopLayout();
 
   await syncGlobDirectory(paths.binSrc, paths.binDst, LABEL_PREFIX.TOOLS, "*.ts", force, result);
-  await syncGlobDirectory(paths.libSrc, paths.libDst, LABEL_PREFIX.LIB, "*.ts", force, result);
+  await syncGlobDirectory(paths.libSrc, paths.libDst, LABEL_PREFIX.LIB, "**/*.ts", force, result);
 
   if (existsSync(paths.scriptsSrc)) {
     await syncGlobDirectory(
