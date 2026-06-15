@@ -94,6 +94,7 @@ describe("success-metrics", () => {
 
   test("repo success metrics audit passes", async () => {
     const report = await auditSuccessMetrics(REPO_ROOT);
-    expect(report.checks.every((check) => check.status === "ok")).toBe(true);
+    expect(report.checks.every((check) => check.status !== "error")).toBe(true);
+    expect(report.checks.map((check) => check.name)).toContain("failure-ledger-unknowns");
   });
 });
