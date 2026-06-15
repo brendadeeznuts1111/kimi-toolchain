@@ -20,10 +20,6 @@ import { CliError } from "../lib/effect/errors.ts";
 import { recordDoctorRun, getPersistentWarnings } from "../lib/doctor-runs.ts";
 import type { DoctorWarning } from "../lib/doctor-runs.ts";
 
-const logger = createLogger(Bun.argv, "kimi-memory");
-
-export { recordDoctorRun, getPersistentWarnings };
-
 import {
   saveSession,
   recallSessions,
@@ -37,34 +33,9 @@ import {
   getStats,
   startAutoSave,
   stopAutoSave,
-  getActiveSession,
-  getWarningHistory,
-  type SessionRecord,
-  type KnowledgeNode,
-  type KnowledgeEdge,
-  type ImpactResult,
 } from "../lib/memory-sessions.ts";
 
-export {
-  saveSession,
-  recallSessions,
-  resumeSession,
-  addNode,
-  addEdge,
-  getGraph,
-  getImpactGraph,
-  searchNodes,
-  pruneOldSessions,
-  getStats,
-  startAutoSave,
-  stopAutoSave,
-  getActiveSession,
-  getWarningHistory,
-  type SessionRecord,
-  type KnowledgeNode,
-  type KnowledgeEdge,
-  type ImpactResult,
-};
+const logger = createLogger(Bun.argv, "kimi-memory");
 
 // ── Doctor ───────────────────────────────────────────────────────────
 

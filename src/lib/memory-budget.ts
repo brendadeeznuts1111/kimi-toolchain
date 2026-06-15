@@ -4,35 +4,12 @@
 
 import { $ } from "bun";
 import { createLogger, type Logger } from "./logger.ts";
+import { getCachedPs, clearProcessCache, countOrphanCandidates } from "./proc-cache.ts";
 
 const decoder = new TextDecoder();
 
-/** Lightweight TTL cache for process data (avoids repeated ps calls within the same doctor run). */
-interface CacheEntry<T> {
-  value: T;
-  ts: number;
-}
-const _procCache = new Map<string, CacheEntry<string>>();
-const CACHE_TTL_MS = 1000;
-
-function getCachedPs(args: string[]): string {
-  const key = args.join(" ");
-  const now = Date.now();
-  const entry = _procCache.get(key);
-  if (entry && now - entry.ts < CACHE_TTL_MS) return entry.value;
-
-  try {
-    const output = decoder.decode(Bun.spawnSync(["ps", ...args]).stdout);
-    _procCache.set(key, { value: output, ts: now });
-    return output;
-  } catch {
-    return "";
-  }
-}
-
-export function clearProcessCache(): void {
-  _procCache.clear();
-}
+// Re-export for consumers that imported clearProcessCache from here
+export { clearProcessCache };
 
 export interface MemoryCheckResult {
   name: string;
@@ -179,21 +156,7 @@ export function isSyncDaemonRunning(): boolean {
   return output.trim().length > 0;
 }
 
-export function countOrphanCandidates(): number {
-  const output = decoder.decode(Bun.spawnSync(["ps", "aux"]).stdout);
-  let count = 0;
-  for (const line of output.split("\n")) {
-    if (
-      line.includes("/.bun/bin/bun test") ||
-      (line.includes("bun run") && line.includes("kimi-")) ||
-      line.includes("/.kimi-code/bin/kimi --version") ||
-      (line.includes("/bin/cp") && line.includes("kimi-test"))
-    ) {
-      count++;
-    }
-  }
-  return count;
-}
+// countOrphanCandidates re-exported from proc-cache.ts above
 
 export async function runSystemMemoryChecks(): Promise<MemoryCheckResult[]> {
   const results: MemoryCheckResult[] = [];
@@ -304,7 +267,7 @@ export async function runSystemMemoryChecks(): Promise<MemoryCheckResult[]> {
     results.push({ name: "sync-daemon", status: "ok", message: "not running" });
   }
 
-  const orphans = countOrphanCandidates();
+  const orphans = countOrphanCandidates(); // from proc-cache.ts
   if (orphans > 0) {
     results.push({
       name: "orphan-processes",

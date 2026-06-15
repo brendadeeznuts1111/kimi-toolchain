@@ -15,6 +15,7 @@ import {
   printToolHelp,
 } from "../lib/tool-registry.ts";
 import { runWorkspaceCommand, printWorkspaceHelp } from "../lib/workspace-commands.ts";
+import { invokeTool, defaultToolTimeoutMs } from "../lib/tool-runner.ts";
 import { toolsDir } from "../lib/paths.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { createLogger } from "../lib/logger.ts";
@@ -23,6 +24,20 @@ import { CliError } from "../lib/effect/errors.ts";
 const logger = createLogger(Bun.argv, "kimi-toolchain");
 const REPO_BIN = resolve(join(import.meta.dir));
 const TOOLS_DIR = toolsDir();
+
+/** Spawn a tool script with timeout + step-budget, streaming output live. */
+async function spawnTool(script: string, args: string[], timeoutMs?: number): Promise<number> {
+  const result = await invokeTool(script, args, {
+    cwd: process.cwd(),
+    timeoutMs: timeoutMs ?? defaultToolTimeoutMs(),
+  });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.error) {
+    logger.error(result.error);
+  }
+  return result.isError ? result.exitCode || 1 : 0;
+}
 
 async function dispatchTool(shortName: string, args: string[]): Promise<number> {
   if (shortName === "workspace") {
@@ -44,13 +59,7 @@ async function dispatchTool(shortName: string, args: string[]): Promise<number> 
     return 1;
   }
 
-  const proc = Bun.spawn(["bun", "run", script, ...args], {
-    cwd: process.cwd(),
-    stdout: "inherit",
-    stderr: "inherit",
-    stdin: "inherit",
-  });
-  return await proc.exited;
+  return spawnTool(script, args);
 }
 
 async function main(): Promise<number> {
@@ -71,12 +80,7 @@ async function main(): Promise<number> {
       logger.error(`${DIRECT_BIN} not found`);
       return 1;
     }
-    const proc = Bun.spawn(["bun", "run", script, ...rest], {
-      stdout: "inherit",
-      stderr: "inherit",
-      stdin: "inherit",
-    });
-    return await proc.exited;
+    return spawnTool(script, rest);
   }
 
   const known = TOOL_SHORT_NAMES as readonly string[];

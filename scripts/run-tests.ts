@@ -36,7 +36,7 @@ async function main() {
     const reportsDir = join(REPO_ROOT, "reports");
     if (!existsSync(reportsDir)) mkdirSync(reportsDir, { recursive: true });
   }
-  const cmd = ["bun", ...bunTestArgs({ fast, coverage, ci, smoke, bail: true })];
+  const cmd = ["bun", ...bunTestArgs({ fast, coverage, ci, smoke, bail: ci ? 10 : true })];
   const proc = Bun.spawn(cmd, {
     cwd: REPO_ROOT,
     env: process.env,

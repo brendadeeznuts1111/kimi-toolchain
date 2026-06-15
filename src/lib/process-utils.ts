@@ -6,6 +6,7 @@
 
 import { guardDir } from "./paths.ts";
 import { join } from "path";
+import { getCachedPs, clearProcessCache, countOrphanCandidates } from "./proc-cache.ts";
 
 export interface ProcessInfo {
   pid: number;
@@ -13,34 +14,8 @@ export interface ProcessInfo {
   cpu: number;
 }
 
-const decoder = new TextDecoder();
-
-/** Lightweight TTL cache for process data (avoids repeated ps calls). */
-interface CacheEntry<T> {
-  value: T;
-  ts: number;
-}
-const _procCache = new Map<string, CacheEntry<string>>();
-const CACHE_TTL_MS = 1000;
-
-function getCachedPs(args: string[]): string {
-  const key = args.join(" ");
-  const now = Date.now();
-  const entry = _procCache.get(key);
-  if (entry && now - entry.ts < CACHE_TTL_MS) return entry.value;
-
-  try {
-    const output = decoder.decode(Bun.spawnSync(["ps", ...args]).stdout);
-    _procCache.set(key, { value: output, ts: now });
-    return output;
-  } catch {
-    return "";
-  }
-}
-
-export function clearProcessCache(): void {
-  _procCache.clear();
-}
+// Re-export for backward compat
+export { clearProcessCache, countOrphanCandidates };
 
 export function getOrphanProcesses(): ProcessInfo[] {
   const output = getCachedPs(["aux"]);
@@ -64,10 +39,6 @@ export function getOrphanProcesses(): ProcessInfo[] {
     }
   }
   return orphans;
-}
-
-export function countOrphanCandidates(): number {
-  return getOrphanProcesses().length;
 }
 
 function killProcess(pid: number, signal: "SIGTERM" | "SIGKILL" = "SIGKILL") {
