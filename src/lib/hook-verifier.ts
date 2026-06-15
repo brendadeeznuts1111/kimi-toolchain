@@ -1,9 +1,9 @@
 /**
  * Hook graph cycle verification for Kimi Code lifecycle hooks.
  *
- * @tag hook-verifier
- * @see types/build-constants.d.ts — `HOOK_VERIFIER_MAX_CYCLES`
- * @see bunfig.toml `[define]` tag:hook-verifier
+ * @defineDomain hook-verifier
+ * @see types/build-constants.d.ts — `KIMI_HOOK_VERIFIER_MAX_CYCLES`
+ * @see bunfig.toml `[define]` define-domain:hook-verifier
  */
 
 export interface HookCycleVerifyResult {
@@ -14,8 +14,8 @@ export interface HookCycleVerifyResult {
 
 export function verifyHookCycleLength(cycleLength: number): HookCycleVerifyResult {
   return {
-    ok: cycleLength <= HOOK_VERIFIER_MAX_CYCLES,
+    ok: cycleLength <= KIMI_HOOK_VERIFIER_MAX_CYCLES,
     cycleLength,
-    maxCycles: HOOK_VERIFIER_MAX_CYCLES,
+    maxCycles: KIMI_HOOK_VERIFIER_MAX_CYCLES,
   };
 }

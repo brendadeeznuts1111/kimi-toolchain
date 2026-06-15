@@ -15,5 +15,6 @@ coverageSkipTestFiles = true
 coverageThreshold = { lines = 0.35, functions = 0.25 }
 
 # Optional: project-specific build-time constants (see kimi-toolchain bunfig.toml [define])
+# Use KIMI_* or {DOMAIN}_* prefixes; group with # define-domain:kebab-name
 # [define]
-# MY_TUNING_CONSTANT = "42"
+# MY_APP_FEATURE_ENABLED = "true"

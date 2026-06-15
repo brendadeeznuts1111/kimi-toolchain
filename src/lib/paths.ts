@@ -46,11 +46,11 @@ export function projectKimiDir(projectRoot: string): string {
 }
 
 /** Return {projectRoot}/.kimi/var/contract-observations.ndjson.
- *  Path segment from bunfig [define] `KIMI_OBSERVATIONS_PATH` (tag:contract-inference).
+ *  Path segment from bunfig [define] `KIMI_CONTRACT_OBSERVATIONS_PATH` (define-domain:contract-inference).
  *  @see types/build-constants.d.ts
  */
 export function contractObservationsPath(projectRoot: string): string {
-  return join(projectRoot, KIMI_OBSERVATIONS_PATH);
+  return join(projectRoot, KIMI_CONTRACT_OBSERVATIONS_PATH);
 }
 
 /** Return ~/.kimi-code/guardian */

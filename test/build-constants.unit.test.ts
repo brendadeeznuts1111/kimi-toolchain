@@ -6,12 +6,12 @@ import { contractObservationsPath } from "../src/lib/paths.ts";
 /** @see types/build-constants.d.ts · bunfig.toml `[define]` */
 describe("buildConstants", () => {
   it("should load compile-time tuning values from bunfig define", () => {
-    expect(EMBEDDING_DIM).toBe(384);
-    expect(DECISION_SCORE_WINDOW_DAYS).toBe(7);
-    expect(CLUSTER_SIMILARITY_THRESHOLD).toBe(0.55);
-    expect(HOOK_VERIFIER_MAX_CYCLES).toBe(32);
+    expect(KIMI_ERROR_EMBEDDING_DIM).toBe(384);
+    expect(KIMI_DECISION_SCORE_WINDOW_DAYS).toBe(7);
+    expect(KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD).toBe(0.55);
+    expect(KIMI_HOOK_VERIFIER_MAX_CYCLES).toBe(32);
     expect(KIMI_CONTRACT_SCHEMA_VERSION).toBe("1.0.0");
-    expect(ENABLE_CONTRACT_INFERENCE).toBe(true);
+    expect(KIMI_CONTRACT_INFERENCE_ENABLED).toBe(true);
   });
 
   it("should resolve contract observations path from define", () => {
@@ -27,7 +27,7 @@ describe("buildConstants", () => {
   });
 
   it("should enforce hook cycle limit from define", () => {
-    expect(verifyHookCycleLength(HOOK_VERIFIER_MAX_CYCLES).ok).toBe(true);
-    expect(verifyHookCycleLength(HOOK_VERIFIER_MAX_CYCLES + 1).ok).toBe(false);
+    expect(verifyHookCycleLength(KIMI_HOOK_VERIFIER_MAX_CYCLES).ok).toBe(true);
+    expect(verifyHookCycleLength(KIMI_HOOK_VERIFIER_MAX_CYCLES + 1).ok).toBe(false);
   });
 });
