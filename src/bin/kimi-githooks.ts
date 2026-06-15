@@ -33,6 +33,12 @@ const logger = createLogger(Bun.argv, "kimi-githooks");
 const HOOKS = ["pre-commit", "pre-push"] as const;
 const TOOLS_DIR = toolsDir();
 
+async function resolveHooksDir(projectDir: string): Promise<string> {
+  const result = await $`git rev-parse --git-path hooks`.cwd(projectDir).nothrow().quiet();
+  const resolved = result.stdout.toString().trim();
+  return result.exitCode === 0 && resolved ? resolved : join(projectDir, ".git", "hooks");
+}
+
 const PRE_COMMIT_HOOK = `#!/bin/sh
 # Auto-installed by kimi-githooks
 # P0: Block secrets, env blocks, TODOs in commit messages
@@ -187,7 +193,7 @@ async function installHooks(projectDir: string): Promise<number> {
     return 1;
   }
 
-  const hooksDir = join(gitDir, "hooks");
+  const hooksDir = await resolveHooksDir(projectDir);
   ensureDir(hooksDir);
 
   const hookContent: Record<string, string> = {
@@ -239,7 +245,7 @@ async function installHooks(projectDir: string): Promise<number> {
 // ── Doctor ───────────────────────────────────────────────────────────
 
 async function doctorHooks(projectDir: string) {
-  const hooksDir = join(projectDir, ".git", "hooks");
+  const hooksDir = await resolveHooksDir(projectDir);
   const checks: Array<{
     name: string;
     status: "ok" | "warn" | "error";
