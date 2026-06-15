@@ -14,10 +14,10 @@ bun install -g github:brendadeeznuts1111/kimi-toolchain
 git clone https://github.com/brendadeeznuts1111/kimi-toolchain.git ~/kimi-toolchain
 cd ~/kimi-toolchain
 bun install -g .
-bun run unify    # sync → ~/.kimi-code/, install PATH wrappers, validate
+bun run unify    # sync to ~/.kimi-code/, install PATH wrappers, validate
 ```
 
-**Cursor:** open `~/kimi-toolchain` or `kimi-toolchain.code-workspace` — not legacy `~/kimicode-cli`.
+**Cursor:** open `~/kimi-toolchain` or `kimi-toolchain.code-workspace`.
 
 See **UNIFIED.md** for how Kimi Code (`kimi`), kimi-toolchain (`kimi-doctor`), and `~/.kimi-code/` relate.
 
@@ -59,6 +59,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | Command                        | Description                           |
 | ------------------------------ | ------------------------------------- |
+| `kimi-toolchain <tool> [...]`  | Unified router for toolchain commands |
 | `kimi-doctor`                  | Full toolchain diagnostics            |
 | `kimi-new <name> [--path dir]` | Create and scaffold a new Bun project |
 | `kimi-fix <path> [--dry-run]`  | Auto-repair project scaffolding       |
@@ -87,13 +88,16 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run format:check:ci`    | Format check with `--threads=4` (GitHub Actions)    |
 | `bun run lint`               | Lint with oxlint + banned-terms scan                |
 | `bun run lint:terms`         | Scan docs for banned internal branding tags         |
-| `bun run sync`               | Sync repo to `~/.kimi-code/`                        |
-| `bun run sync:verify`        | Verify runtime files match repo-managed hashes      |
+| `bun run sync`               | Sync repo assets and manifest to `~/.kimi-code/`    |
+| `bun run sync:verify`        | Verify runtime files match the repo sync manifest   |
 | `bun run sync:daemon`        | Sync on cron (every 5 min)                          |
 | `bun run unify`              | Sync runtime, wrappers, validate                    |
 | `bun run install-wrappers`   | Install `~/.local/bin/kimi-*` wrappers              |
 | `bun run memory-check`       | Shell memory pressure snapshot                      |
 | `bun run memory-budget`      | Per-app RSS breakdown via kimi-doctor               |
+
+When tools, docs, skills, or generated runtime assets change, final handoff
+validation includes `bun run sync && bun run sync:verify`.
 
 ### Governance
 
@@ -171,6 +175,17 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `kimi-debug trace`   | Trace execution path      |
 | `kimi-debug analyze` | Analyze failure pattern   |
 
+### Introspection & Self-Healing
+
+| Command                         | Description                            |
+| ------------------------------- | -------------------------------------- |
+| `kimi-heal plan [--json]`       | Propose safe repair actions            |
+| `kimi-heal apply --action <id>` | Apply a selected repair action         |
+| `kimi-heal clusters [--json]`   | Summarize failure clusters             |
+| `kimi-decision graph <traceId>` | Show the decision graph for a trace    |
+| `kimi-decision why <id>`        | Explain recorded rationale + evidence  |
+| `kimi-decision audit [--json]`  | Find low-quality or unverified entries |
+
 ### Snapshot
 
 | Command                        | Description               |
@@ -193,7 +208,10 @@ src/
   drift/        # Dependency drift detector
 ```
 
-Live runtime at `~/.kimi-code/` (managed by postinstall hook).
+Live runtime at `~/.kimi-code/` is managed by the postinstall hook and
+`scripts/sync-to-desktop.ts`. The sync writes `toolchain-manifest.json` with the
+current toolchain version, repo HEAD, timestamp, changed files, and source file
+hashes.
 
 ## Governance
 

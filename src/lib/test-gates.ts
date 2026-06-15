@@ -46,9 +46,19 @@ export const UNIT_TEST_FILES = [
   "test/build-constants-registry.unit.test.ts",
   "test/taxonomy-constants.unit.test.ts",
   "test/tuning-set-version.unit.test.ts",
+  "test/constants-heal.unit.test.ts",
+  "test/effect/constants-registry.unit.test.ts",
+  "test/decision-ledger.unit.test.ts",
   "test/doctor-pipeline.unit.test.ts",
   "test/effect/tool-runner-effect.unit.test.ts",
   "test/effect/cli-runtime.unit.test.ts",
+] as const;
+
+/** Integration tests — included by full Bun discovery, not the fast unit gate. */
+export const INTEGRATION_TEST_FILES = [
+  "test/cleanup-legacy.integration.test.ts",
+  "test/kimi-fix.integration.test.ts",
+  "test/decision-scoring.integration.test.ts",
 ] as const;
 
 /** Smoke tests — full CLI invocations, 15-30s each */
@@ -64,6 +74,7 @@ export function bunTestArgs(options: {
   json?: boolean;
   fast?: boolean;
   ci?: boolean;
+  integration?: boolean;
   smoke?: boolean;
   bail?: boolean | number;
   timeoutMs?: number;
@@ -87,6 +98,9 @@ export function bunTestArgs(options: {
   if (options.json) args.push("--json");
   if (options.fast) {
     args.push(...UNIT_TEST_FILES);
+  }
+  if (options.integration) {
+    args.push(...INTEGRATION_TEST_FILES);
   }
   if (options.smoke) {
     args.push(...SMOKE_TEST_FILES);

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-15T12:38:17.635Z",
+  "generatedAt": "2026-06-15T12:41:46.914Z",
   "repo": "kimi-toolchain",
   "tuningSetVersion": "1.0.0",
   "domains": {
@@ -35,7 +35,8 @@
       "KIMI_ERROR_EMBEDDING_DIM": {
         "type": "number",
         "default": 384,
-        "restrictions": "reserved — embedding vector width (Phase 2)"
+        "restrictions": "reserved — embedding vector width (Phase 2)",
+        "see": ["src/lib/error-embedding.ts"]
       }
     },
     "decision-scoring": {
@@ -43,14 +44,18 @@
         "type": "number",
         "default": 7,
         "restrictions": "positive integer — decision score rolling window in days (Phase 2)",
-        "see": ["constants-parity.toml shared id velocity-window-days"]
+        "see": [
+          "constants-parity.toml shared id velocity-window-days",
+          "src/lib/decision-scoring.ts"
+        ]
       }
     },
     "error-clustering": {
       "KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD": {
         "type": "number",
         "default": 0.55,
-        "restrictions": "reserved — cluster merge threshold in [0, 1] (Phase 2)"
+        "restrictions": "reserved — cluster merge threshold in [0, 1] (Phase 2)",
+        "see": ["src/lib/error-clustering.ts"]
       }
     },
     "governance": {

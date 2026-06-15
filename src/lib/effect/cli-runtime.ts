@@ -6,7 +6,7 @@ import { Effect, Exit } from "effect";
 import { join } from "path";
 import { createLogger, type Logger } from "../logger.ts";
 import { CliError } from "./errors.ts";
-import { homeDir } from "../paths.ts";
+import { varDir } from "../paths.ts";
 
 export interface RunCliOptions {
   toolName: string;
@@ -29,16 +29,12 @@ function flushTelemetry(logger: Logger): Effect.Effect<void> {
   return Effect.gen(function* () {
     if (!telemetryEnabled()) return;
     if (logger.getLogs().length === 0) return;
-    const telemetryPath = join(homeDir(), ".kimi-code", "var", "cli-telemetry.jsonl");
+    const telemetryPath = join(varDir(), "cli-telemetry.jsonl");
     yield* Effect.tryPromise({
       try: () => logger.flushToFile(telemetryPath),
       catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
     }).pipe(Effect.catchAll(() => Effect.void));
   });
-}
-
-function runWithTelemetry<A, E>(program: Effect.Effect<A, E>, logger: Logger): Effect.Effect<A, E> {
-  return program.pipe(Effect.ensuring(flushTelemetry(logger)));
 }
 
 /** Run an Effect program as a CLI main, mapping failures to exit codes. */
@@ -48,24 +44,28 @@ export async function runCli<A>(
 ): Promise<number> {
   const logger = resolveLogger(options);
 
-  const exit = await Effect.runPromiseExit(runWithTelemetry(program, logger));
+  try {
+    const exit = await Effect.runPromiseExit(program);
 
-  if (Exit.isSuccess(exit)) {
-    return 0;
-  }
-
-  const failure = exit.cause;
-  if (failure._tag === "Fail") {
-    const error = failure.error;
-    if (error instanceof CliError) {
-      logger.error(error.message);
-      return error.exitCode ?? 1;
+    if (Exit.isSuccess(exit)) {
+      return 0;
     }
-    logger.error(error instanceof Error ? error.message : String(error));
-  } else {
-    logger.error("Unexpected CLI failure");
+
+    const failure = exit.cause;
+    if (failure._tag === "Fail") {
+      const error = failure.error;
+      if (error instanceof CliError) {
+        logger.error(error.message);
+        return error.exitCode ?? 1;
+      }
+      logger.error(error instanceof Error ? error.message : String(error));
+    } else {
+      logger.error("Unexpected CLI failure");
+    }
+    return 1;
+  } finally {
+    await Effect.runPromise(flushTelemetry(logger));
   }
-  return 1;
 }
 
 /** Run a CLI whose success value is the process exit code (non-zero is not an error). */
@@ -75,22 +75,26 @@ export async function runCliExit(
 ): Promise<number> {
   const logger = resolveLogger(options);
 
-  const exit = await Effect.runPromiseExit(runWithTelemetry(program, logger));
+  try {
+    const exit = await Effect.runPromiseExit(program);
 
-  if (Exit.isSuccess(exit)) {
-    return exit.value;
-  }
-
-  const failure = exit.cause;
-  if (failure._tag === "Fail") {
-    const error = failure.error;
-    if (error instanceof CliError) {
-      logger.error(error.message);
-      return error.exitCode ?? 1;
+    if (Exit.isSuccess(exit)) {
+      return exit.value;
     }
-    logger.error(error instanceof Error ? error.message : String(error));
-  } else {
-    logger.error("Unexpected CLI failure");
+
+    const failure = exit.cause;
+    if (failure._tag === "Fail") {
+      const error = failure.error;
+      if (error instanceof CliError) {
+        logger.error(error.message);
+        return error.exitCode ?? 1;
+      }
+      logger.error(error instanceof Error ? error.message : String(error));
+    } else {
+      logger.error("Unexpected CLI failure");
+    }
+    return 1;
+  } finally {
+    await Effect.runPromise(flushTelemetry(logger));
   }
-  return 1;
 }

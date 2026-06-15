@@ -259,13 +259,49 @@ coverageThreshold = { lines = 0.35, functions = 0.25 }
 schemaVersion = 1
 
 [runtime]
-packageManager = "bun"
 containers = "none"
+packageManager = "bun"
+bunVersion = "1.3.14"
+install = "bun install --frozen-lockfile"
+globalFirst = true
+
+[github]
+workflow = ".github/workflows/ci.yml"
+setupAction = ".github/actions/setup/action.yml"
+protectedBranches = ["main", "master"]
+
+[github.ci]
+bunVersion = "1.3.14"
+qualityJob = "quality"
+governanceJob = "governance"
+
+[github.ci.quality]
+format = "bun run format:check:ci"
+lint = "bun run lint"
+typecheck = "bun run typecheck"
+tests = "bun run test:coverage:ci"
 
 [quality]
 formatter = "oxfmt"
 linter = "oxlint"
+formatCheck = "bun run format:check"
+lintCheck = "bun run lint"
 typecheck = "bun run typecheck"
+check = "bun run check"
+checkFast = "bun run check:fast"
+checkDryRun = "bun run check:dry-run"
+testFast = "bun run test:fast"
+testCoverage = "bun run test:coverage"
+testCoverageCi = "bun run test:coverage:ci"
+formatCheckCi = "bun run format:check:ci"
+docsSync = "bun run docs:sync"
+
+[agents]
+firstRead = ["AGENTS.md", "CODE_REFERENCES.md"]
+bootstrap = ["dx context", "dx config --project .", "dx mcp-status", "dx package"]
+iterate = "bun run check:fast"
+fullValidation = "bun run check"
+prePush = ["bun run check", "kimi-guardian check", "kimi-governance score"]
 
 [kimi]
 preflight = true

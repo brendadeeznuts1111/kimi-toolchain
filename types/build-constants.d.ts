@@ -3,7 +3,7 @@
  *
  * Naming layers (do not conflate):
  * - **define constant** — `KIMI_{DOMAIN}_{QUALIFIER}` SCREAMING_SNAKE globals below
- * - **defineDomain** — kebab-case slice label in bunfig (`# define-domain:…`) and `@defineDomain` JSDoc
+ * - **defineDomain** — kebab-case slice label in bunfig (`# define-domain:...`) and `@defineDomain` JSDoc
  * - **taxonomyId** — snake_case failure class in `error-taxonomy.yml` (runtime, not define)
  *
  * SSOT: edit values in bunfig only — do not duplicate literals in source.
@@ -56,6 +56,7 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
  * @type number
  * @default 384
  * @restrictions reserved — embedding vector width (Phase 2)
+ * @see src/lib/error-embedding.ts
  */
 declare const KIMI_ERROR_EMBEDDING_DIM: number;
 
@@ -65,6 +66,7 @@ declare const KIMI_ERROR_EMBEDDING_DIM: number;
  * @default 7
  * @restrictions positive integer — decision score rolling window in days (Phase 2)
  * @see constants-parity.toml shared id velocity-window-days
+ * @see src/lib/decision-scoring.ts
  */
 declare const KIMI_DECISION_SCORE_WINDOW_DAYS: number;
 
@@ -73,6 +75,7 @@ declare const KIMI_DECISION_SCORE_WINDOW_DAYS: number;
  * @type number
  * @default 0.55
  * @restrictions reserved — cluster merge threshold in [0, 1] (Phase 2)
+ * @see src/lib/error-clustering.ts
  */
 declare const KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD: number;
 

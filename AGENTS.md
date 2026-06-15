@@ -5,15 +5,14 @@
 
 ## Workspace (read first)
 
-| Rule                     | Value                                                                               |
-| ------------------------ | ----------------------------------------------------------------------------------- |
-| **Canonical clone path** | `~/kimi-toolchain`                                                                  |
-| **Folder name**          | Must be `kimi-toolchain` (matches `package.json` `name`)                            |
-| **Legacy path**          | `~/kimicode-cli` — **do not use** (renamed; breaks tool path resolution)            |
-| **Cursor**               | File → Open Folder → `~/kimi-toolchain` (not `$HOME`, not symlink)                  |
-| **Repo root**            | Use `git rev-parse --show-toplevel` or workspace root — never assume `kimicode-cli` |
+| Rule                     | Value                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------- |
+| **Canonical clone path** | `~/kimi-toolchain`                                                                |
+| **Folder name**          | Must be `kimi-toolchain` (matches `package.json` `name`)                          |
+| **Cursor**               | File → Open Folder → `~/kimi-toolchain` (not `$HOME`, not symlink)                |
+| **Repo root**            | Use `git rev-parse --show-toplevel` or workspace root — never assume an old clone |
 
-If Grep/Glob fail with `Path does not exist: .../kimicode-cli`, the editor opened the wrong folder. Reopen `~/kimi-toolchain`.
+If Grep/Glob fail with a path under an old renamed clone, the editor opened the wrong folder. Reopen `~/kimi-toolchain`.
 
 **Before writing code:**
 
@@ -195,12 +194,16 @@ bun run fix              # = bun run src/bin/kimi-fix.ts
 bun run governance       # = bun run src/bin/kimi-governance.ts
 
 # Sync repo → ~/.kimi-code/
-bun run sync             # one-shot (mandatory on every pre-push in this repo)
+bun run sync             # one-shot runtime sync + manifest write
+bun run sync:verify      # verify runtime files match repo-managed hashes
 bun run sync:daemon      # Bun.cron every 5 minutes
 bun run push             # git push + sync (use if hooks were skipped)
 bun run verify-workspace # fail if cwd folder is not kimi-toolchain
-bun run cleanup-legacy   # audit legacy kimicode-cli paths + Cursor slugs
+bun run cleanup-legacy   # audit stale clone paths + Cursor slugs
 ```
+
+When tools, docs, skills, templates, or generated runtime assets change, final
+handoff validation must include `bun run sync && bun run sync:verify`.
 
 ### Global Install (for end users)
 
@@ -320,7 +323,7 @@ bun run typecheck        # TypeScript validation
 | ---------- | ------------------------------------------------------------------- |
 | Local      | `bun run check` or `bun run unify`                                  |
 | pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`) |
-| pre-push   | `check` + guardian + R-Score gate + mandatory `bun run sync`        |
+| pre-push   | `check` + guardian + R-Score gate + mandatory runtime sync          |
 | CI         | `.github/workflows/ci.yml` — format:check, lint, typecheck, test    |
 | Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)    |
 
@@ -481,7 +484,7 @@ When working on this codebase, agents should:
 3. Run `kimi-doctor --agent-ready`
 4. Run `kimi-guardian check` and `kimi-governance score`
 5. Commit with conventional commit format
-6. Run `bun run sync` before push (pre-push hook enforces this)
+6. If runtime-synced assets changed, run `bun run sync && bun run sync:verify` before handoff
 
 ### Step Budget Reference
 
@@ -559,7 +562,7 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 
 - **No build step.** TypeScript is run directly via `bun run`.
 - **Distribution**: GitHub repo, installed via `bun install -g github:brendadeeznuts1111/kimi-toolchain`.
-- **Live runtime**: `~/.kimi-code/` is maintained by `postinstall.ts` and `sync-to-desktop.ts`.
+- **Live runtime**: `~/.kimi-code/` is maintained by `postinstall.ts` and `sync-to-desktop.ts`; sync writes `toolchain-manifest.json` with file hashes.
 - **Files included in package**: `src/`, `skills/`, `AGENTS.md`, `CODE_REFERENCES.md`, `UNIFIED.md`, `TEMPLATES.md`, `README.md`, `CONTRIBUTING.md`, `LICENSE`, `CHANGELOG.md`.
 
 ## Key Files for Agents

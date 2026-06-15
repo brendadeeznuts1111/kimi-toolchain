@@ -12,6 +12,9 @@ import { join } from "node:path";
 const ROOT = join(import.meta.dir, "..");
 
 const TARGETS = [
+  "src/lib/error-embedding.ts",
+  "src/lib/decision-scoring.ts",
+  "src/lib/error-clustering.ts",
   "src/lib/paths.ts",
   "src/lib/contract-inference.ts",
   "src/lib/hook-verifier.ts",
@@ -19,7 +22,7 @@ const TARGETS = [
 
 const FORBIDDEN: Array<{ pattern: RegExp; rule: string }> = [
   {
-    pattern: /export const KIMI_ERROR_EMBEDDING_DIM\s*=\s*384\b/,
+    pattern: /export const EMBEDDING_DIM\s*=\s*384\b/,
     rule: "use KIMI_ERROR_EMBEDDING_DIM from bunfig [define]",
   },
   {
@@ -63,7 +66,7 @@ function lintDefineNaming(bunfigText: string): string[] {
       continue;
     }
     if (LEGACY_TAG.test(line.trim())) {
-      violations.push(`bunfig.toml:${i + 1} — use # define-domain:… not # tag:…`);
+      violations.push(`bunfig.toml:${i + 1} — use # define-domain:... not # tag:...`);
       continue;
     }
 
@@ -85,7 +88,7 @@ function lintDefineNaming(bunfigText: string): string[] {
       );
     }
     if (currentDomain === null) {
-      violations.push(`bunfig.toml:${i + 1} — ${key} must follow a # define-domain:… comment`);
+      violations.push(`bunfig.toml:${i + 1} — ${key} must follow a # define-domain:... comment`);
     }
   }
 

@@ -21,7 +21,7 @@ function mapInvocationResult(
   result: ToolInvocation,
   gracePeriodMs: number
 ): Effect.Effect<ToolInvocationWithTaxonomy, ToolTimeout | ExitNonZero> {
-  if (result.error?.includes("timed out")) {
+  if (result.timedOut) {
     return Effect.fail(
       new ToolTimeout({
         tool: result.tool,
@@ -36,6 +36,11 @@ function mapInvocationResult(
         tool: result.tool,
         exitCode: result.exitCode,
         stderr: result.stderr || result.error || "",
+        ...(result.taxonomyId ? { taxonomyId: result.taxonomyId } : {}),
+        ...(result.suggestion ? { suggestion: result.suggestion } : {}),
+        ...(result.autoFix ? { autoFix: result.autoFix } : {}),
+        ...(result.stdoutTruncated ? { stdoutTruncated: result.stdoutTruncated } : {}),
+        ...(result.stderrTruncated ? { stderrTruncated: result.stderrTruncated } : {}),
       })
     );
   }
@@ -45,6 +50,11 @@ function mapInvocationResult(
         tool: result.tool,
         exitCode: result.exitCode,
         stderr: result.error,
+        ...(result.taxonomyId ? { taxonomyId: result.taxonomyId } : {}),
+        ...(result.suggestion ? { suggestion: result.suggestion } : {}),
+        ...(result.autoFix ? { autoFix: result.autoFix } : {}),
+        ...(result.stdoutTruncated ? { stdoutTruncated: result.stdoutTruncated } : {}),
+        ...(result.stderrTruncated ? { stderrTruncated: result.stderrTruncated } : {}),
       })
     );
   }

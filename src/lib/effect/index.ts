@@ -21,3 +21,26 @@ export {
 } from "./tool-runner-effect.ts";
 
 export { runCli, runCliExit, type RunCliOptions } from "./cli-runtime.ts";
+
+export {
+  InstitutionalMemoryLive,
+  InstitutionalMemoryServiceLive,
+  type InstitutionalMemoryService,
+} from "./institutional-memory-services.ts";
+
+export {
+  DecisionLogger,
+  DecisionQuery,
+  DecisionLayer,
+  type DecisionLoggerService,
+  type DecisionQueryService,
+} from "./decision-services.ts";
+
+export {
+  ConstantsRegistry,
+  ConstantsRegistryLive,
+  TestConstants,
+  getConstant,
+  type ConstantsRegistryService,
+  type ConstantValue,
+} from "../constants-registry.ts";
