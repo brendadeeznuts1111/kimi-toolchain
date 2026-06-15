@@ -74,6 +74,13 @@ describe("error-taxonomy", () => {
     expect(match.category.id).toBe("edit_stale");
   });
 
+  test("classifyFailure matches missing MCP registration", async () => {
+    const taxonomy = await loadTaxonomy(join(import.meta.dir, "..", "error-taxonomy.yml"));
+    const match = classifyFailure("MCP config missing unified-shell registration", taxonomy);
+    expect(match.category.id).toBe("mcp_config_missing");
+    expect(match.category.autoFix).toBe("kimi-doctor --fix");
+  });
+
   test("classifyFailure returns unknown when no match", async () => {
     const taxonomy = await loadTaxonomy();
     const match = classifyFailure("totally unrecognized gibberish xyz123", taxonomy);
