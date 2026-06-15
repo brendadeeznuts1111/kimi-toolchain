@@ -45,6 +45,8 @@ import { createLogger } from "../lib/logger.ts";
 import type { HealthCheck } from "../lib/health-check.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
 import { Effect } from "effect";
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+import { CliError } from "../lib/effect/errors.ts";
 
 const logger = createLogger(Bun.argv, "kimi-doctor");
 
@@ -521,10 +523,10 @@ async function runEcosystemMode(projectRoot: string): Promise<number> {
   return report.blockers > 0 ? 1 : 0;
 }
 
-async function main() {
+async function main(): Promise<number> {
   if (MEMORY_BUDGET) {
     printMemoryBudget();
-    process.exit(0);
+    return 0;
   }
 
   const argv = Bun.argv.slice(2);
@@ -535,20 +537,20 @@ async function main() {
     if (!sub || sub === "--help" || sub === "-h") {
       const { printWorkspaceHelp } = await import("../lib/workspace-commands.ts");
       printWorkspaceHelp();
-      process.exit(sub ? 0 : 1);
+      return sub ? 0 : 1;
     }
-    process.exit(await runWorkspaceCommand(sub, argv.slice(2), projectRoot));
+    return runWorkspaceCommand(sub, argv.slice(2), projectRoot);
   }
 
   if (WORKSPACE_ONLY) {
-    process.exit(await runWorkspaceMode(projectRoot));
+    return runWorkspaceMode(projectRoot);
   }
 
   if (ECOSYSTEM) {
     if (!JSON_OUT) {
       logger.banner("Kimi Doctor — Ecosystem Health");
     }
-    process.exit(await runEcosystemMode(projectRoot));
+    return runEcosystemMode(projectRoot);
   }
 
   if (!JSON_OUT) {
@@ -827,10 +829,17 @@ async function main() {
     }
   }
 
-  if (blocking > 0) process.exit(1);
+  return blocking > 0 ? 1 : 0;
 }
 
-main().catch((err) => {
-  console.error("kimi-doctor failed:", err.message);
-  process.exit(1);
-});
+const exitCode = await runCliExit(
+  Effect.tryPromise({
+    try: () => main(),
+    catch: (e) =>
+      new CliError({
+        message: e instanceof Error ? e.message : String(e),
+      }),
+  }),
+  { toolName: "kimi-doctor" }
+);
+process.exit(exitCode);

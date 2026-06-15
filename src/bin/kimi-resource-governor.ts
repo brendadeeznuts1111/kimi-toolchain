@@ -19,7 +19,6 @@ import {
   ensureDir,
   getProjectName,
   resolveProjectRoot,
-  printProjectBanner,
   buildDoctorReport,
   printDoctorReport,
 } from "../lib/utils.ts";
@@ -37,7 +36,9 @@ import {
 import { governedSpawn, getCurrentUsage, checkLimits } from "../lib/governor-spawn.ts";
 import { ParallelGovernor } from "../lib/governor-parallel.ts";
 import { cachedExec } from "../lib/governor-cache.ts";
+import { createLogger } from "../lib/logger.ts";
 
+const logger = createLogger(Bun.argv, "kimi-resource-governor");
 const GOVERNOR_DIR = governorDir();
 const DB_PATH = join(GOVERNOR_DIR, "resource-cache.sqlite");
 
@@ -173,7 +174,7 @@ async function main() {
   printProjectBanner("Kimi Resource Governor v2.0");
 
   if (command === "limits") {
-    console.log("── Current Resource Usage ────────────────────────────────────");
+    logger.section("Current Resource Usage");
     const usage = getCurrentUsage();
     console.log(`  Memory:     ${usage.memoryMB}MB / ${DEFAULTS.maxMemoryMB}MB`);
     console.log(`  CPU time:   ${usage.cpuTimeMs}ms / ${DEFAULTS.maxCpuTimeMs}ms`);
@@ -182,13 +183,13 @@ async function main() {
 
     const violations = checkLimits(usage, {});
     if (violations.length > 0) {
-      console.log("  ⚠ Violations:");
+      logger.warn("Violations:");
       for (const v of violations) console.log(`    ${v}`);
     } else {
-      console.log("  ✓ Within limits");
+      logger.info("Within limits");
     }
   } else if (command === "parallel") {
-    console.log("── Parallelism Governor ──────────────────────────────────────");
+    logger.section("Parallelism Governor");
     console.log(`  Hardware concurrency: ${navigator.hardwareConcurrency || "unknown"}`);
     console.log(`  Max parallel jobs:    ${DEFAULTS.maxParallelJobs}`);
 
@@ -205,23 +206,24 @@ async function main() {
     );
 
     await Promise.all(tasks);
-    console.log("  ✓ All tasks completed");
+    logger.info("All tasks completed");
   } else if (command === "quota") {
-    console.log(`── Disk Quota: ${project} ────────────────────────────────────`);
+    logger.section(`Disk Quota: ${project}`);
     const { used, remaining, ok } = await checkDiskQuota(projectDir);
     console.log(`  Used:      ${used}MB`);
     console.log(`  Quota:     ${DEFAULTS.diskQuotaMB}MB`);
     console.log(`  Remaining: ${remaining}MB`);
-    console.log(ok ? "  ✓ Within quota" : "  ✗ Quota exceeded");
+    if (ok) logger.info("Within quota");
+    else logger.error("Quota exceeded");
   } else if (command === "spawn") {
     const cmd = args.slice(1);
     if (cmd.length === 0) {
       console.log("Usage: spawn <command> [args...]");
       process.exit(1);
     }
-    console.log("── governedSpawn ─────────────────────────────────────────────");
+    logger.section("governedSpawn");
     const result = await governedSpawn(cmd, {
-      onResourceWarning: (v: string[]) => console.log(`  ⚠ ${v.join(", ")}`),
+      onResourceWarning: (v: string[]) => logger.warn(v.join(", ")),
     });
     console.log(`  Exit code: ${result.exitCode}`);
     console.log(`  Killed:    ${result.killed}`);
@@ -244,11 +246,11 @@ async function main() {
       console.log("Demonstrates retry with exponential backoff (max 3 attempts)");
       process.exit(1);
     }
-    console.log("── governedSpawn with retry ──────────────────────────────────");
+    logger.section("governedSpawn with retry");
     try {
       const result = await governedSpawn(cmd, {
         retry: { maxAttempts: 3, backoffMs: 500 },
-        onResourceWarning: (v: string[]) => console.log(`  ⚠ ${v.join(", ")}`),
+        onResourceWarning: (v: string[]) => logger.warn(v.join(", ")),
       });
       console.log(`  Exit code: ${result.exitCode}`);
       console.log(`  Attempts:  ${result.attempts}`);
@@ -263,7 +265,7 @@ async function main() {
         );
       }
     } catch (err: any) {
-      console.log(`  ✗ Failed after retries: ${err.message}`);
+      logger.error(`Failed after retries: ${err.message}`);
     }
   } else if (command === "cache") {
     const cmd = args.slice(1);
@@ -278,7 +280,7 @@ async function main() {
     const force = cmd[0] === "--force";
     const actualCmd = force ? cmd.slice(1) : cmd;
 
-    console.log("── Diagnostic Cache ──────────────────────────────────────────");
+    logger.section("Diagnostic Cache");
     const output = await cachedExec(actualCmd, { force });
     console.log("  Output:");
     console.log(
@@ -292,23 +294,23 @@ async function main() {
     const report = buildDoctorReport("kimi-resource-governor", checks);
     printDoctorReport(report);
     if (report.fixableCount > 0) {
-      console.log("  Run 'kimi-resource-governor fix' to repair");
+      logger.info("Run 'kimi-resource-governor fix' to repair");
     }
   } else if (command === "fix") {
-    console.log("── Fixing Resource Governor ──────────────────────────────────");
+    logger.section("Fixing Resource Governor");
     ensureDir(GOVERNOR_DIR);
     const configPath = getGovernorConfigPath();
     if (!existsSync(configPath)) {
       await Bun.write(configPath, DEFAULT_CONFIG_TEMPLATE);
-      console.log(`  ✓ Wrote default config: ${configPath}`);
+      logger.info(`Wrote default config: ${configPath}`);
       await ensureDefaultsLoaded();
     }
     const result = fixGovernor();
-    console.log(`  ✓ Cleaned ${result.cacheDeleted} expired cache entries`);
-    console.log(`  ✓ Ended ${result.stuckFixed} stuck sessions`);
-    console.log(`  ✓ Database vacuumed`);
+    logger.info(`Cleaned ${result.cacheDeleted} expired cache entries`);
+    logger.info(`Ended ${result.stuckFixed} stuck sessions`);
+    logger.info("Database vacuumed");
   } else if (command === "session") {
-    console.log("── Session Management ────────────────────────────────────────");
+    logger.section("Session Management");
     const id = getSessionId();
     console.log(`  Session ID: ${id}`);
 
@@ -323,13 +325,13 @@ async function main() {
     console.log(`  Total sessions:  ${total.c}`);
 
     startSession(project);
-    console.log(`  ✓ Session started for ${project}`);
+    logger.info(`Session started for ${project}`);
   } else if (command === "cleanup") {
-    console.log("── Cache Cleanup ─────────────────────────────────────────────");
+    logger.section("Cache Cleanup");
     const deleted = cleanupCache();
-    console.log(`  Removed ${deleted} expired cache entries`);
+    logger.info(`Removed ${deleted} expired cache entries`);
   } else if (command === "status") {
-    console.log("── Defaults ──────────────────────────────────────────────────");
+    logger.section("Defaults");
     console.log(`  Config file:       ${getGovernorConfigPath()}`);
     console.log(`  Max memory:        ${DEFAULTS.maxMemoryMB}MB`);
     console.log(`  Max CPU time:      ${DEFAULTS.maxCpuTimeMs}ms`);
@@ -339,8 +341,7 @@ async function main() {
     console.log(`  Disk quota:        ${DEFAULTS.diskQuotaMB}MB`);
     console.log(`  Cache TTL:         ${DEFAULTS.cacheTTLSeconds}s`);
     console.log(`  Wall-clock limit:  ${DEFAULTS.wallClockMs}ms`);
-    console.log("");
-    console.log("Commands:");
+    logger.section("Commands");
     console.log("  limits          Show current resource usage");
     console.log("  parallel        Test parallelism governor");
     console.log("  quota           Check disk quota");
@@ -363,6 +364,10 @@ async function main() {
   }
 }
 
+function printProjectBanner(title: string) {
+  logger.banner(title);
+}
+
 // Auto-end session on graceful exit
 async function gracefulShutdown(_signal: string) {
   if (hasSessionId()) {
@@ -380,6 +385,6 @@ process.on("beforeExit", () => {
 });
 
 main().catch((err) => {
-  console.error("kimi-resource-governor failed:", err.message);
+  logger.error(`kimi-resource-governor failed: ${err.message}`);
   process.exit(1);
 });

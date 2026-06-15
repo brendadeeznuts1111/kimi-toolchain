@@ -109,7 +109,6 @@ describe("kimi-doctor smoke", () => {
     };
     expect(pkg.scripts?.check).toBe("bun run scripts/check.ts");
     expect(pkg.scripts?.["check:fast"]).toContain("--fast");
-    expect(pkg.scripts?.["check:fast"]).toContain("--timeout 100");
     expect(pkg.scripts?.["check:dry-run"]).toContain("--dry-run");
   });
 

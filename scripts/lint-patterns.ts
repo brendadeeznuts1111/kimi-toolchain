@@ -10,17 +10,19 @@ import { join, relative } from "path";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
+// Allowlists: src/lib/ should use createLogger(), not console.* or process.exit.
+// Entries below are grandfathered until Track 1 logger migration lands.
 const LIB_CONSOLE_ALLOW = new Set([
-  "src/lib/logger.ts",
-  "src/lib/step-budget.ts",
-  // Legacy modules pending logger migration (Track 1):
-  "src/lib/utils.ts",
-  "src/lib/tool-registry.ts",
-  "src/lib/governor-cache.ts",
-  "src/lib/memory-budget.ts",
-  "src/lib/readme-sync.ts",
-  "src/lib/workspace-commands.ts",
+  "src/lib/logger.ts", // implements logging; console is intentional here
+  "src/lib/step-budget.ts", // CLI progress output during long operations
+  "src/lib/utils.ts", // shared CLI helpers (printToolBanner, printDoctorReport)
+  "src/lib/tool-registry.ts", // meta-binary dispatch; mirrors bin listing output
+  "src/lib/governor-cache.ts", // cache diagnostics for resource governor
+  "src/lib/memory-budget.ts", // memory-budget table rendering for doctor/scripts
+  "src/lib/readme-sync.ts", // docs:sync rewrites README from package.json
+  "src/lib/workspace-commands.ts", // workspace subcommand help and status text
 ]);
+// readme-sync exits after --fix/--check to signal CI; no logger hook yet.
 const LIB_EXIT_ALLOW = new Set(["src/lib/readme-sync.ts"]);
 const SCAN_GLOB = new Bun.Glob("src/**/*.ts");
 const SKIP_DIRS = new Set(["node_modules", ".git", "coverage"]);

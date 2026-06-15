@@ -15,16 +15,26 @@ import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import {
   ensureDir,
-  log,
   sha256File,
   fetchWithTimeout,
   getProjectName,
   resolveProjectRoot,
-  printProjectBanner,
   buildDoctorReport,
   printDoctorReport,
 } from "../lib/utils.ts";
 import { guardianDir } from "../lib/paths.ts";
+import { createLogger } from "../lib/logger.ts";
+
+const logger = createLogger(Bun.argv, "kimi-guardian");
+
+function log(level: "info" | "warn" | "error", msg: string) {
+  logger[level](msg);
+}
+
+function printProjectBanner(title: string, project?: string, subtitle?: string) {
+  logger.banner(title, subtitle);
+  if (project) logger.info(`Project: ${project}`);
+}
 
 const GUARDIAN_DIR = guardianDir();
 const HASH_FILE = join(GUARDIAN_DIR, "lockfile.hash");
@@ -536,11 +546,10 @@ async function main() {
     projectDir,
     "v2.0: Signed manifests + Bun.secrets"
   );
-  console.log(`  Dir:     ${projectDir}`);
-  console.log("");
+  logger.info(`Dir: ${projectDir}`);
 
   if (command === "sign") {
-    console.log("── Sign Lockfile Manifest ────────────────────────────────────");
+    logger.section("Sign Lockfile Manifest");
     const lockPath = join(projectDir, "bun.lock");
     if (!existsSync(lockPath)) {
       log("error", "No bun.lock found");
@@ -551,13 +560,12 @@ async function main() {
     log("info", `Signed manifest for ${projectName}`);
     log("info", `Hash: ${manifest.lockfileHash.slice(0, 16)}...`);
     log("info", `Expires: ${new Date(manifest.timestamp + manifest.ttl).toISOString()}`);
-    console.log("");
-    console.log("  Manifest stored outside repo (first-commit poisoning defense)");
+    logger.info("Manifest stored outside repo (first-commit poisoning defense)");
     return;
   }
 
   if (command === "verify") {
-    console.log("── Verify Signed Manifest ────────────────────────────────────");
+    logger.section("Verify Signed Manifest");
     const lockPath = join(projectDir, "bun.lock");
     if (!existsSync(lockPath)) {
       log("warn", "No bun.lock found");
@@ -579,12 +587,12 @@ async function main() {
     const report = buildDoctorReport("kimi-guardian", checks);
     printDoctorReport(report);
     if (report.fixableCount > 0) {
-      console.log("  Run 'kimi-guardian fix' to repair");
+      logger.info("Run 'kimi-guardian fix' to repair");
     }
     return;
   }
 
-  console.log("── Lockfile Integrity ────────────────────────────────────────");
+  logger.section("Lockfile Integrity");
   const lockfile = await checkLockfile(projectDir);
   if (!existsSync(lockfile.path)) {
     log("warn", "No bun.lock found");
@@ -609,8 +617,7 @@ async function main() {
     }
   }
 
-  console.log("");
-  console.log("── Dependency Drift ──────────────────────────────────────────");
+  logger.section("Dependency Drift");
   const outdated = await checkOutdated(projectDir);
   if (outdated.length === 0) {
     log("info", "All dependencies up to date");
@@ -620,8 +627,7 @@ async function main() {
     }
   }
 
-  console.log("");
-  console.log("── CVE Scan ──────────────────────────────────────────────────");
+  logger.section("CVE Scan");
   const depsForCVE = outdated.map((d) => ({ name: d.name, current: d.current }));
   if (depsForCVE.length === 0) {
     log("info", "No outdated deps to scan");
@@ -637,8 +643,7 @@ async function main() {
     }
   }
 
-  console.log("");
-  console.log("── Trusted Dependency Gate ───────────────────────────────────");
+  logger.section("Trusted Dependency Gate");
   const pkgPath = join(projectDir, "package.json");
   if (!existsSync(pkgPath)) {
     log("warn", "No package.json — skipping trusted dependency check");
@@ -667,8 +672,7 @@ async function main() {
   }
 
   if (command === "report") {
-    console.log("");
-    console.log("── Provenance (P1) ───────────────────────────────────────────");
+    logger.section("Provenance (P1)");
     const prov = await checkProvenance(projectDir);
     if (prov.postinstallScripts.length === 0) {
       log("info", "No postinstall scripts found");
@@ -681,8 +685,7 @@ async function main() {
   }
 
   if (command === "fix") {
-    console.log("");
-    console.log("── Fix ───────────────────────────────────────────────────────");
+    logger.section("Fix");
     await storeLockfileHash(projectDir);
 
     // Auto-add untrusted deps to bunfig.toml
@@ -695,13 +698,12 @@ async function main() {
     log("info", "Baselined lockfile hash");
   }
 
-  console.log("");
-  console.log(
+  logger.info(
     "Commands: check (default) | fix (baseline hash + trusted deps) | sign (v2 manifest) | verify (v2 manifest) | report (full P1) | doctor (health check)"
   );
 }
 
 main().catch((err) => {
-  console.error("kimi-guardian failed:", err.message);
+  logger.error(`kimi-guardian failed: ${err.message}`);
   process.exit(1);
 });

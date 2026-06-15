@@ -56,6 +56,49 @@ export async function runCli<A>(
   return 1;
 }
 
+/** Run a CLI whose success value is the process exit code (non-zero is not an error). */
+export async function runCliExit(
+  program: Effect.Effect<number, CliError | unknown>,
+  options: RunCliOptions
+): Promise<number> {
+  const argv = options.argv ?? Bun.argv;
+  const logger = createLogger(argv, options.toolName);
+
+  const exit = await Effect.runPromiseExit(
+    program.pipe(
+      Effect.tap(() =>
+        Effect.gen(function* () {
+          const telemetry = yield* telemetryEnabled;
+          if (!telemetry) return;
+          const config = yield* ToolchainConfigLive;
+          const telemetryPath = join(config.home, ".kimi-code", "var", "cli-telemetry.jsonl");
+          yield* Effect.tryPromise({
+            try: () => logger.flushToFile(telemetryPath),
+            catch: () => undefined,
+          });
+        })
+      )
+    )
+  );
+
+  if (Exit.isSuccess(exit)) {
+    return exit.value;
+  }
+
+  const failure = exit.cause;
+  if (failure._tag === "Fail") {
+    const error = failure.error;
+    if (error instanceof CliError) {
+      logger.error(error.message);
+      return error.exitCode ?? 1;
+    }
+    logger.error(error instanceof Error ? error.message : String(error));
+  } else {
+    logger.error("Unexpected CLI failure");
+  }
+  return 1;
+}
+
 /** Wrap a sync/async main function in Effect for runCli. */
 export function cliMain(
   fn: (logger: Logger) => Promise<number> | number

@@ -25,9 +25,11 @@ import {
   BUNFIG,
   KIMI_SKILLS_README,
 } from "../lib/scaffold-templates.ts";
-import { getProjectName, runTool, printSection } from "../lib/utils.ts";
+import { getProjectName, runTool } from "../lib/utils.ts";
 import { ensureQualityTooling } from "../lib/scaffold-quality.ts";
+import { createLogger } from "../lib/logger.ts";
 
+const logger = createLogger(Bun.argv, "kimi-fix");
 const TOOLCHAIN_ROOT = join(import.meta.dir, "..", "..");
 
 async function readToolchainScript(name: string): Promise<string> {
@@ -89,12 +91,12 @@ async function delegateTool(
       if (line.trim()) console.log(`    ${line}`);
     }
     if (result.error) {
-      console.log(`    ⚠ ${tool}: ${result.error}, continuing...`);
+      logger.warn(`${tool}: ${result.error}, continuing...`);
     } else if (result.exitCode !== 0) {
-      console.log(`    ⚠ ${tool} failed (exit ${result.exitCode}), continuing...`);
+      logger.warn(`${tool} failed (exit ${result.exitCode}), continuing...`);
     }
   } catch (e: unknown) {
-    console.log(`    ⚠ ${tool}: ${e instanceof Error ? e.message : String(e)}, continuing...`);
+    logger.warn(`${tool}: ${e instanceof Error ? e.message : String(e)}, continuing...`);
   }
 }
 
@@ -107,36 +109,32 @@ async function writeFile(path: string, content: string, dryRun: boolean) {
 }
 
 async function runDoctor(projectDir: string): Promise<number> {
-  printSection("kimi-fix Doctor");
+  logger.section("kimi-fix Doctor");
   const checks = await checkScaffold(projectDir);
   let errors = 0;
   let warns = 0;
 
   for (const check of checks) {
-    const icon = check.status === "ok" ? "✓" : check.status === "warn" ? "⚠" : "✗";
-    const fixTag = check.fixable ? " [fixable]" : "";
-    console.log(`  ${icon} ${check.name}: ${check.message}${fixTag}`);
+    logger.check(check);
     if (check.status === "error") errors++;
     if (check.status === "warn") warns++;
   }
 
-  console.log("");
   if (errors > 0) {
-    console.log(`  ✗ ${errors} error(s), ${warns} warning(s)`);
+    logger.error(`${errors} error(s), ${warns} warning(s)`);
     return 1;
   }
   if (warns > 0) {
-    console.log(`  ⚠ ${warns} warning(s) — run kimi-fix to repair`);
+    logger.warn(`${warns} warning(s) — run kimi-fix to repair`);
     return 1;
   }
-  console.log("  ✓ Scaffold complete");
+  logger.info("Scaffold complete");
   return 0;
 }
 
 async function runFix(project: string, dryRun: boolean): Promise<void> {
-  console.log(`=== Fixing ${basename(project)} ===`);
-  console.log(`  Path: ${project}`);
-  console.log("");
+  logger.section(`Fixing ${basename(project)}`);
+  logger.info(`Path: ${project}`);
 
   if (!existsSync(join(project, ".git"))) {
     log("git", "initializing repo...");
@@ -262,8 +260,7 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
     await writeFile(join(project, ".github", "workflows", "ci.yml"), CI_WORKFLOW, dryRun);
   }
 
-  console.log("");
-  console.log("── Next Steps ────────────────────────────────────────────────");
+  logger.section("Next Steps");
   console.log("  1. Review generated files");
   console.log("  2. Replace @team in CODEOWNERS with actual username");
   console.log("  3. Add copyright holder to LICENSE");
@@ -271,11 +268,10 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
   console.log("  5. Run 'bun run check' (or 'bun run check:fast' for unit-only gate)");
   console.log("  6. Run 'kimi-governance score' to check project health");
   console.log("  7. Run 'kimi-doctor --quick' to verify everything");
-  console.log("");
   if (dryRun) {
-    console.log("✓ Dry run complete. Remove --dry-run to apply.");
+    logger.info("Dry run complete. Remove --dry-run to apply.");
   } else {
-    console.log("✓ Fix complete. Review changes before committing.");
+    logger.info("Fix complete. Review changes before committing.");
   }
 }
 
@@ -305,7 +301,7 @@ async function main() {
   if (command === "doctor") {
     const project = resolve(filtered[1] || Bun.cwd);
     if (!existsSync(project)) {
-      console.log(`✗ Directory does not exist: ${project}`);
+      logger.error(`Directory does not exist: ${project}`);
       process.exit(1);
     }
     process.exit(await runDoctor(project));
@@ -320,7 +316,7 @@ async function main() {
 
   const project = resolve(projectPath.replace(/\/$/, ""));
   if (!existsSync(project)) {
-    console.log(`✗ Directory does not exist: ${project}`);
+    logger.error(`Directory does not exist: ${project}`);
     process.exit(1);
   }
 
@@ -328,6 +324,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("kimi-fix failed:", err.message);
+  logger.error(`kimi-fix failed: ${err.message}`);
   process.exit(1);
 });

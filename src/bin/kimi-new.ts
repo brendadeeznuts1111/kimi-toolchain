@@ -9,7 +9,9 @@ import { existsSync, mkdirSync } from "fs";
 import { join, resolve } from "path";
 import { $ } from "bun";
 import { toolsDir } from "../lib/utils.ts";
+import { createLogger } from "../lib/logger.ts";
 
+const logger = createLogger(Bun.argv, "kimi-new");
 const NAME_RE = /^[a-z0-9][a-z0-9._-]*$/i;
 
 function printHelp() {
@@ -26,7 +28,7 @@ function resolveParent(args: string[]): string {
   if (pathIdx !== -1) {
     const pathArg = args[pathIdx + 1];
     if (!pathArg) {
-      console.log("✗ --path requires a directory");
+      logger.error("--path requires a directory");
       process.exit(1);
     }
     parent = resolve(pathArg);
@@ -35,49 +37,78 @@ function resolveParent(args: string[]): string {
 }
 
 async function runDoctor(parent: string): Promise<number> {
-  console.log("── kimi-new doctor ──────────────────────────────────────────");
+  logger.section("kimi-new doctor");
   let errors = 0;
 
   const bunPath = Bun.which("bun");
   if (bunPath) {
-    console.log(`  ✓ bun: ${Bun.version} (${bunPath})`);
+    logger.check({
+      name: "bun",
+      status: "ok",
+      message: `${Bun.version} (${bunPath})`,
+      fixable: false,
+    });
   } else {
-    console.log("  ✗ bun: not on PATH");
+    logger.check({ name: "bun", status: "error", message: "not on PATH", fixable: false });
     errors++;
   }
 
   if (existsSync(parent)) {
-    console.log(`  ✓ parent path: ${parent}`);
+    logger.check({ name: "parent path", status: "ok", message: parent, fixable: false });
   } else {
-    console.log(`  ✗ parent path missing: ${parent}`);
+    logger.check({
+      name: "parent path",
+      status: "error",
+      message: `missing: ${parent}`,
+      fixable: false,
+    });
     errors++;
   }
 
   const desktopFix = join(toolsDir(), "kimi-fix.ts");
   const repoFix = join(import.meta.dir, "kimi-fix.ts");
   if (existsSync(desktopFix)) {
-    console.log(`  ✓ kimi-fix: ${desktopFix}`);
+    logger.check({ name: "kimi-fix", status: "ok", message: desktopFix, fixable: false });
   } else if (existsSync(repoFix)) {
-    console.log(`  ✓ kimi-fix: ${repoFix} (repo source)`);
+    logger.check({
+      name: "kimi-fix",
+      status: "ok",
+      message: `${repoFix} (repo source)`,
+      fixable: false,
+    });
   } else {
-    console.log("  ✗ kimi-fix not found — run bun run sync");
+    logger.check({
+      name: "kimi-fix",
+      status: "error",
+      message: "not found — run bun run sync",
+      fixable: false,
+    });
     errors++;
   }
 
   const sample = "my-app";
   if (NAME_RE.test(sample)) {
-    console.log(`  ✓ name validation: accepts '${sample}'`);
+    logger.check({
+      name: "name validation",
+      status: "ok",
+      message: `accepts '${sample}'`,
+      fixable: false,
+    });
   } else {
-    console.log("  ✗ name validation regex broken");
+    logger.check({
+      name: "name validation",
+      status: "error",
+      message: "regex broken",
+      fixable: false,
+    });
     errors++;
   }
 
-  console.log("");
   if (errors > 0) {
-    console.log(`  ✗ ${errors} issue(s) — fix before running kimi-new`);
+    logger.error(`${errors} issue(s) — fix before running kimi-new`);
     return 1;
   }
-  console.log("  ✓ Ready to scaffold — kimi-new <name> [--path <dir>]");
+  logger.info("Ready to scaffold — kimi-new <name> [--path <dir>]");
   return 0;
 }
 
@@ -87,7 +118,7 @@ async function runScaffold(args: string[]): Promise<void> {
 
   const name = filtered[0];
   if (!NAME_RE.test(name)) {
-    console.log(`✗ Invalid project name: ${name}`);
+    logger.error(`Invalid project name: ${name}`);
     process.exit(1);
   }
 
@@ -95,20 +126,18 @@ async function runScaffold(args: string[]): Promise<void> {
   const projectDir = join(parent, name);
 
   if (existsSync(projectDir)) {
-    console.log(`✗ Directory already exists: ${projectDir}`);
+    logger.error(`Directory already exists: ${projectDir}`);
     process.exit(1);
   }
 
-  console.log(`=== Creating ${name} ===`);
-  console.log(`  Path: ${projectDir}`);
-  console.log("");
+  logger.section(`Creating ${name}`);
+  logger.info(`Path: ${projectDir}`);
 
   if (dryRun) {
     console.log(`  [dry-run] mkdir ${projectDir}`);
     console.log(`  [dry-run] bun init -y (cwd=${projectDir})`);
     console.log(`  [dry-run] kimi-fix ${projectDir}`);
-    console.log("");
-    console.log("✓ Dry run complete. Remove --dry-run to create.");
+    logger.info("Dry run complete. Remove --dry-run to create.");
     return;
   }
 
@@ -131,17 +160,15 @@ async function runScaffold(args: string[]): Promise<void> {
   }
 
   if (exitCode !== 0) {
-    console.log(`⚠ kimi-fix exited ${exitCode} — review output above`);
+    logger.warn(`kimi-fix exited ${exitCode} — review output above`);
   }
 
-  console.log("");
-  console.log("── Next Steps ────────────────────────────────────────────────");
+  logger.section("Next Steps");
   console.log(`  cd ${projectDir}`);
   console.log("  bun run check:fast");
   console.log("  kimi login");
   console.log("  kimi-doctor --quick");
-  console.log("");
-  console.log(`✓ Project ${name} scaffolded.`);
+  logger.info(`Project ${name} scaffolded.`);
 }
 
 async function main() {
@@ -162,6 +189,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("kimi-new failed:", err.message);
+  logger.error(`kimi-new failed: ${err.message}`);
   process.exit(1);
 });
