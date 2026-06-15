@@ -91,12 +91,21 @@ describe("kimi-doctor smoke", () => {
   test("doctor --json emits structured report", async () => {
     const { stdout, exitCode } = await runTool(DOCTOR, ["--quick", "--json"]);
     const report = JSON.parse(stdout.trim()) as {
-      checks: Array<{ name: string; status: string }>;
+      checks: Array<{
+        name: string;
+        status: string;
+        optimizerRecommendations?: unknown[];
+      }>;
+      optimizerChecks?: unknown[];
       sync?: { synced: boolean };
       summary: { errors: number; warnings: number };
     };
     expect(Array.isArray(report.checks)).toBe(true);
     expect(report.checks.length).toBeGreaterThan(0);
+    expect(report.checks.map((check) => check.name)).toContain("Optimizer");
+    const optimizerCheck = report.checks.find((check) => check.name === "Optimizer");
+    expect(Array.isArray(optimizerCheck?.optimizerRecommendations)).toBe(true);
+    expect(report.optimizerChecks).toBeUndefined();
     expect(report.summary).toBeDefined();
     expect(report.sync).toBeDefined();
     expect(typeof report.sync?.synced).toBe("boolean");
@@ -197,10 +206,16 @@ describe("kimi-doctor smoke", () => {
     const { stdout, exitCode } = await runTool(DOCTOR, ["--ecosystem", "--quick", "--json"]);
     const parsed = JSON.parse(stdout.trim()) as {
       checks?: unknown[];
+      optimizerChecks?: unknown[];
+      optimizerRecommendations?: unknown[];
+      ecosystem?: { blockers?: number };
       fixPlan?: string[];
       summary?: { blockers?: number };
     };
     expect(Array.isArray(parsed.checks)).toBe(true);
+    expect(Array.isArray(parsed.optimizerChecks)).toBe(true);
+    expect(Array.isArray(parsed.optimizerRecommendations)).toBe(true);
+    expect(parsed.ecosystem).toBeDefined();
     expect(Array.isArray(parsed.fixPlan)).toBe(true);
     expect(exitCode === 0 || exitCode === 1).toBe(true);
   }, 30_000);

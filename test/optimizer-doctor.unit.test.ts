@@ -5,10 +5,18 @@ import { tmpdir } from "os";
 import { DECISION_SCHEMA_VERSION } from "../src/lib/decision-ledger.ts";
 import { decisionsNdjsonPath } from "../src/lib/paths.ts";
 import {
+  applyConfidenceDecayWithBreakdown,
+  buildOptimizerApplyPlan,
+  formatConfidenceBreakdownLine,
   formatOptimizerDoctorDetailLines,
+  formatOptimizerDoctorHealthMessage,
+  formatOptimizerApplyResultLines,
+  optimizerRecommendationsToJson,
+  printConstantOptimizerRecommendationsBlock,
   generateOptimizerDoctorRecommendations,
   buildOptimizerDoctorMachineChecks,
   optimizerRecommendationToMachineCheck,
+  rewriteOptimizerDefineValues,
 } from "../src/lib/constant-optimizer.ts";
 import { GOLDEN_SCHEMA_VERSION } from "../src/lib/constants-heal.ts";
 import { constantsGoldenPath } from "../src/lib/paths.ts";
@@ -257,5 +265,161 @@ declare const ${constantKey}: number;
     expect(machine.constant).toBe(constantKey);
 
     rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  test("pure formatter and JSON recommendation expose operator review details", () => {
+    const lines: string[] = [];
+    const fakeLogger = {
+      section: (title: string) => lines.push(`── ${title} ──`),
+      line: (line: string) => lines.push(line),
+    };
+    const confidenceBreakdown = applyConfidenceDecayWithBreakdown({
+      recommendation: "review",
+      baseConfidence: 0.7,
+      repairAgeMs: 0,
+      afterTotal: 1,
+    });
+    const recommendations = [
+      {
+        constant: constantKey,
+        currentValue: 600,
+        goldenValue: 500,
+        boundTaxonomies: ["lockfile_issue"],
+        driftPct: 20,
+        confidence: 0.7,
+        confidenceBreakdown,
+        baseConfidence: 0.7,
+        basedOnDecisionIds: ["dec-repair-0042"],
+        outcomeCount: 3,
+        activeFailureCount: 2,
+        resolvedFailureCount: 1,
+        lastReviewMs: 0,
+        clusterFailureRateDelta: -50,
+        optimizerAction: "review" as const,
+        severity: "warn" as const,
+        action: "kimi-heal repair-constants --dry-run",
+        message: "review suggested",
+      },
+    ];
+
+    printConstantOptimizerRecommendationsBlock(
+      fakeLogger as unknown as Parameters<typeof printConstantOptimizerRecommendationsBlock>[0],
+      recommendations
+    );
+
+    expect(lines.join("\n")).toContain("── Constant Optimizer ──");
+    expect(lines.join("\n")).toContain("• KIMI_HOOK_VERIFIER_MAX_CYCLES: 600 → 500");
+    expect(lines.join("\n")).toContain("Resolves 1 of 2 active failures in taxonomy");
+    expect(lines.join("\n")).toContain("Confidence detail: base 0.70 → final 0.70");
+    expect(lines.join("\n")).toContain("Review with: kimi-heal repair-constants --dry-run");
+    expect(formatConfidenceBreakdownLine(confidenceBreakdown)).toContain(
+      "after failures 1; no decay, no floor"
+    );
+    expect(formatOptimizerDoctorHealthMessage(recommendations)).toBe(
+      "Optimizer: KIMI_HOOK_VERIFIER_MAX_CYCLES 600 -> 500 would resolve 1 lockfile_issue error (confidence 0.70)"
+    );
+    expect(optimizerRecommendationsToJson(recommendations)[0]).toMatchObject({
+      constant: constantKey,
+      currentValue: 600,
+      recommendedValue: 500,
+      resolvedFailureCount: 1,
+      activeFailureCount: 2,
+      reason: "Would resolve 1 lockfile_issue error in the last 7 days",
+      confidence: 0.7,
+      confidenceBreakdown,
+      reviewCommand: "kimi-heal repair-constants --dry-run",
+    });
+  });
+
+  test("pure apply plan gates recommendations by requested constants and confidence", () => {
+    const highConfidence = applyConfidenceDecayWithBreakdown({
+      recommendation: "review",
+      baseConfidence: 0.82,
+      repairAgeMs: 0,
+      afterTotal: 2,
+    });
+    const lowConfidence = applyConfidenceDecayWithBreakdown({
+      recommendation: "hold",
+      baseConfidence: 0.4,
+      repairAgeMs: 0,
+      afterTotal: 2,
+    });
+    const recommendations = [
+      {
+        constant: constantKey,
+        currentValue: 600,
+        goldenValue: 500,
+        boundTaxonomies: ["lockfile_issue"],
+        driftPct: 20,
+        confidence: 0.82,
+        confidenceBreakdown: highConfidence,
+        baseConfidence: 0.82,
+        basedOnDecisionIds: ["dec-repair-0042"],
+        outcomeCount: 4,
+        activeFailureCount: 3,
+        resolvedFailureCount: 1,
+        lastReviewMs: 0,
+        clusterFailureRateDelta: -33,
+        optimizerAction: "review" as const,
+        severity: "warn" as const,
+        action: "kimi-heal repair-constants --dry-run",
+        message: "review suggested",
+      },
+      {
+        constant: "KIMI_NETWORK_TIMEOUT_MS",
+        currentValue: 3000,
+        goldenValue: 5000,
+        boundTaxonomies: ["network_timeout"],
+        driftPct: 40,
+        confidence: 0.4,
+        confidenceBreakdown: lowConfidence,
+        baseConfidence: 0.4,
+        basedOnDecisionIds: ["dec-repair-0099"],
+        outcomeCount: 4,
+        activeFailureCount: 2,
+        resolvedFailureCount: 0,
+        lastReviewMs: 0,
+        clusterFailureRateDelta: 0,
+        optimizerAction: "hold" as const,
+        severity: "warn" as const,
+        action: "kimi-heal constants optimize --json",
+        message: "hold suggested",
+      },
+    ];
+
+    const plan = buildOptimizerApplyPlan(
+      recommendations,
+      [constantKey, "KIMI_NETWORK_TIMEOUT_MS", "KIMI_MISSING"],
+      0.7
+    );
+
+    expect(plan.selected).toHaveLength(1);
+    expect(plan.selected[0]?.constant).toBe(constantKey);
+    expect(plan.selected[0]?.proposedValue).toBe(500);
+    expect(plan.skipped.map((item) => item.constant)).toContain("KIMI_NETWORK_TIMEOUT_MS");
+    expect(plan.skipped.map((item) => item.constant)).toContain("KIMI_MISSING");
+    expect(
+      plan.skipped.find((item) => item.constant === "KIMI_NETWORK_TIMEOUT_MS")?.skipReason
+    ).toContain("below threshold");
+
+    const rewritten = rewriteOptimizerDefineValues(
+      `[define]\n${constantKey} = 600 # keep me\nKIMI_NETWORK_TIMEOUT_MS = 3000\n`,
+      plan.selected
+    );
+    expect(rewritten.appliedKeys).toEqual([constantKey]);
+    expect(rewritten.missingKeys).toEqual([]);
+    expect(rewritten.text).toContain(`${constantKey} = 500 # keep me`);
+
+    const lines = formatOptimizerApplyResultLines({
+      ...plan,
+      applied: false,
+      dryRun: true,
+      bunfigPath: "/tmp/demo/bunfig.toml",
+      decisionIds: [],
+      rewrittenBunfig: rewritten.text,
+      detail: "dry-run",
+    });
+    expect(lines.join("\n")).toContain("Would apply KIMI_HOOK_VERIFIER_MAX_CYCLES: 600 → 500");
+    expect(lines.join("\n")).toContain("Dry run — pass --yes to write bunfig.toml");
   });
 });
