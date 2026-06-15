@@ -37,6 +37,7 @@ import { isAgentContext } from "../lib/tool-runner.ts";
 import { resolveProjectRoot, getProjectName } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 import { auditAgentReady } from "../lib/agent-ready.ts";
+import { auditSuccessMetrics } from "../lib/success-metrics.ts";
 import { createLogger } from "../lib/logger.ts";
 import { aggregateChecks, type HealthCheck } from "../lib/health-check.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
@@ -56,6 +57,7 @@ const JSON_OUT = Bun.argv.includes("--json");
 const WORKSPACE_ONLY = Bun.argv.includes("--workspace");
 const ECOSYSTEM = Bun.argv.includes("--ecosystem");
 const AGENT_READY = Bun.argv.includes("--agent-ready");
+const SUCCESS_METRICS = Bun.argv.includes("--success-metrics");
 const FIX_CURSOR = Bun.argv.includes("--fix-cursor");
 const FIX_DEEP = Bun.argv.includes("--fix-deep");
 const STRICT_WORKSPACE = Bun.argv.includes("--strict-workspace");
@@ -549,6 +551,43 @@ async function runAgentReadyMode(projectRoot: string): Promise<number> {
   return report.ok ? 0 : 1;
 }
 
+async function runSuccessMetricsMode(projectRoot: string): Promise<number> {
+  const report = await auditSuccessMetrics(projectRoot);
+  const errors = report.checks.filter((c) => c.status === "error").length;
+
+  if (JSON_OUT) {
+    emitJson({
+      checks: report.checks,
+      errorCoverage: {
+        total: report.errorCoverage.total,
+        classified: report.errorCoverage.classified,
+        coverage: report.errorCoverage.coverage,
+        unclassified: report.errorCoverage.unclassified.map((f) => ({
+          source: f.source,
+          toolName: f.toolName,
+          output: f.output,
+        })),
+      },
+      providerIntegration: {
+        provider: report.providerIntegration.contract.provider,
+        service: report.providerIntegration.contract.service,
+        artifacts: ["contract", "credential-adapter"],
+      },
+      summary: {
+        errors,
+        ok: errors === 0,
+      },
+    });
+    return errors > 0 ? 1 : 0;
+  }
+
+  logger.banner("Kimi Doctor — Success Metrics");
+  logger.printHealthReport(aggregateChecks("kimi-doctor", report.checks), "Success Metrics");
+  if (errors > 0) logger.error(`${errors} success metric blocker(s)`);
+  else logger.info("Success metrics passed");
+  return errors > 0 ? 1 : 0;
+}
+
 async function main(): Promise<number> {
   if (MEMORY_BUDGET) {
     printMemoryBudget(logger);
@@ -581,6 +620,10 @@ async function main(): Promise<number> {
 
   if (AGENT_READY) {
     return runAgentReadyMode(projectRoot);
+  }
+
+  if (SUCCESS_METRICS) {
+    return runSuccessMetricsMode(projectRoot);
   }
 
   if (!JSON_OUT) {
@@ -665,6 +708,14 @@ async function main(): Promise<number> {
   results.push(...(await runQualityChecks(projectRoot)));
   if (QUICK && !JSON_OUT) {
     logger.line("  ⚡ Quick mode — config checks only; run without --quick to execute gates.");
+  }
+
+  logger.section("Success Metrics");
+  const successMetrics = await auditSuccessMetrics(projectRoot);
+  for (const check of successMetrics.checks) {
+    if (check.status === "ok") results.push(ok(check.name, check.message));
+    else if (check.status === "warn") results.push(warn(check.name, check.message));
+    else results.push(error(check.name, check.message));
   }
 
   logger.section("Toolchain Health");

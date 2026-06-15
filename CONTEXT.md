@@ -101,6 +101,16 @@ kimi-context-gen update  # Regenerate CONTEXT.md
 | CHANGELOG.md    | present |
 | CONTEXT.md      | present |
 
+## Success Metrics
+
+These are enforced by `kimi-doctor --success-metrics` and `bun run check`.
+
+| Metric                  | Contract                                                                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **Drift latency**       | One `kimi doctor` or `kimi-doctor` run must produce a pass/fail for documented command drift with no manual inspection.               |
+| **Error coverage**      | >= 90% of managed contract, hook, and integration failures must classify to taxonomy ids with stack, inputs, and environment context. |
+| **Integration agility** | New cloud providers require only a contract declaration and a thin credential adapter using `getSecret(scope) -> string`.             |
+
 ## Agent References
 
 - `AGENTS.md` — operating rules for future agents

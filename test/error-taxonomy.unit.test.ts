@@ -94,9 +94,16 @@ describe("error-taxonomy suggestions", () => {
 
   test("buildClassifiedFailure sets taxonomyId alias", () => {
     const match = classifyFailure("Agent max steps exceeded in turn", sampleTaxonomy);
-    const record = buildClassifiedFailure("Agent", "output", match);
+    const record = buildClassifiedFailure("Agent", "output", match, {
+      context: {
+        stack: "Agent stack",
+        inputs: { command: "bun run check:fast" },
+        environment: { runtime: "bun" },
+      },
+    });
     expect(record.schemaVersion).toBe(FAILURE_SCHEMA_VERSION);
     expect(record.taxonomyId).toBe("max_steps_exceeded");
     expect(record.categoryId).toBe("max_steps_exceeded");
+    expect(record.context?.inputs?.command).toBe("bun run check:fast");
   });
 });

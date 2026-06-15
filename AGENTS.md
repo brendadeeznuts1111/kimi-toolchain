@@ -21,6 +21,7 @@ If Grep/Glob fail with `Path does not exist: .../kimicode-cli`, the editor opene
 2. Run `dx context`, `dx config`, `dx mcp-status`, or `dx mcp-doctor` when the task touches global setup, MCP, package, or shell behavior.
 3. Read `./CODE_REFERENCES.md`, pick the closest existing pattern, and preserve local conventions before editing.
 4. Cloudflare SSO/OAuth is separate from Wrangler OAuth and `kimi-cloudflare-access` API tokens; do not assume one login satisfies another.
+5. Keep Success Metrics green: Drift latency, Error coverage, and Integration agility are checked by `kimi-doctor --success-metrics`.
 
 **After reopen checklist:**
 
@@ -99,6 +100,7 @@ When the package is installed (globally or locally), `postinstall.ts` copies sou
   guardian/           # Lockfile manifest DB
   governor/           # Resource governor DB + cache
   AGENTS.md           # Copied from repo root
+  CODE_REFERENCES.md  # Copied from repo root
   UNIFIED.md          # Copied from repo root
   TEMPLATES.md        # Copied from repo root
 ```
@@ -118,6 +120,18 @@ When the package is installed (globally or locally), `postinstall.ts` copies sou
 - `kimi-doctor` — this repo's Bun diagnostics aggregator.
 - Clone path should be `~/kimi-toolchain` (matches `package.json` name and GitHub repo).
 - Full map: see **UNIFIED.md**. One-shot setup: `bash scripts/unify.sh`.
+
+## Success Metrics
+
+These contracts describe what “better code by future agents” means in this repo.
+Run `kimi-doctor --success-metrics` for a single pass/fail view; `bun run check`
+also runs the same audit.
+
+| Metric                  | Required default                                                                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Drift latency**       | Documented commands, samples, and help examples must be checkable in one `kimi doctor` or `kimi-doctor` run without manual inspection.        |
+| **Error coverage**      | >= 90% of managed contract, hook, and integration failures must get a taxonomy code plus structured stack, input, and environment context.    |
+| **Integration agility** | New cloud providers are represented by only two artifacts: a contract declaration and a thin `getSecret(scope) -> string` credential adapter. |
 
 ## Technology Stack
 

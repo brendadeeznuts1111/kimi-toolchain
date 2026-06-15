@@ -198,6 +198,30 @@ Live runtime at `~/.kimi-code/` (managed by postinstall hook).
 - License: MIT
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
 
+### Success Metrics
+
+These goals define whether the toolchain is doing its job. They are checked by
+`kimi-doctor --success-metrics` and are part of `bun run check`, so CI gets a
+clear pass/fail on every commit.
+
+**Drift latency**
+: Any single documented behaviour, such as a README command, API sample, or CLI
+help example, must be verified against the live system in one `kimi doctor`
+or `kimi-doctor` run. The current automated check verifies README command
+drift against `package.json` without manual inspection.
+
+**Error coverage**
+: At least 90% of failures from managed contracts, hooks, and integrations must
+receive a taxonomy code and structured context containing stack, inputs, and
+environment details. The remaining failures stay in a monitored
+`unknown` bucket until the taxonomy is expanded.
+
+**Integration agility**
+: A new cloud provider must require only two artifacts: a contract declaration
+for shape, permissions, and error categories, plus a thin credential adapter
+that maps `getSecret(scope) -> string` into a short-lived token. The scheduler,
+contract engine, taxonomy schema, and existing providers stay provider-agnostic.
+
 ## Cloudflare API Token Setup
 
 The `kimi-cloudflare-access` tool reads credentials from `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` environment variables, or from the OS keychain via `kimi-cloudflare-access login`.

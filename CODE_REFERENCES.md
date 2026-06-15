@@ -14,6 +14,8 @@ This file points future agents at local examples that define the code style for 
 | Health report shape           | `src/lib/health-check.ts`              | Return `{ name, status, message, fixable }` checks and aggregate once                       |
 | Path ownership                | `src/lib/paths.ts`                     | Use helpers for `~/.kimi-code`, `~/.agents`, and runtime paths                              |
 | Safe parsing                  | `src/lib/utils.ts`                     | Use `safeParse()` / `safeToml()` with validators at config boundaries                       |
+| Success metric gates          | `src/lib/success-metrics.ts`           | Keep drift, taxonomy coverage, and provider agility measurable in CI                        |
+| Provider contracts            | `src/lib/provider-contract.ts`         | Add providers with a contract declaration plus a thin credential adapter only               |
 
 ## Effect Patterns
 
@@ -96,6 +98,8 @@ Use these local references before changing Cloudflare or MCP behavior:
 - `src/lib/mcp-config.ts` for provisioned MCP defaults (`unified-shell`, `cloudflare-api`).
 - `UNIFIED.md` for optional Cloudflare MCP servers and auth boundaries.
 - `src/lib/cloudflare-access.ts` and `src/lib/cloudflare-access-policy.ts` for API-token based Access checks.
+- `src/lib/provider-contract.ts` for the provider-agnostic contract plus credential adapter boundary.
+- `src/lib/success-metrics.ts` for the Integration agility audit fixture.
 - `skills/cloudflare-access/SKILL.md` for plan-before-apply rules.
 
 Cloudflare MCP SSO/OAuth, Wrangler OAuth, and `kimi-cloudflare-access` API tokens are separate auth paths. Do not assume one login satisfies the others.

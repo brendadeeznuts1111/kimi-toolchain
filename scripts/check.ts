@@ -24,6 +24,7 @@ const REPO_ROOT = join(import.meta.dir, "..");
 interface Step {
   name: string;
   cmd: string[];
+  silentOnSuccess?: boolean;
 }
 
 function parseCli(): { dryRun: boolean; fast: boolean; timeoutMs: number } {
@@ -69,6 +70,11 @@ async function buildSteps(fast: boolean, timeoutMs: number): Promise<Step[]> {
     });
   }
   steps.push(
+    {
+      name: "success-metrics",
+      cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "--success-metrics", "--json"],
+      silentOnSuccess: true,
+    },
     { name: "format:check", cmd: ["bun", "run", "format:check"] },
     { name: "lint", cmd: ["bun", "run", "lint"] },
     { name: "typecheck", cmd: ["bun", "run", "typecheck"] },
@@ -81,6 +87,24 @@ async function buildSteps(fast: boolean, timeoutMs: number): Promise<Step[]> {
 }
 
 async function runStep(step: Step): Promise<number> {
+  if (step.silentOnSuccess) {
+    const proc = Bun.spawn(step.cmd, {
+      cwd: REPO_ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr, exitCode] = await Promise.all([
+      Bun.readableStreamToText(proc.stdout),
+      Bun.readableStreamToText(proc.stderr),
+      proc.exited,
+    ]);
+    if (exitCode !== 0) {
+      if (stdout) process.stdout.write(stdout);
+      if (stderr) process.stderr.write(stderr);
+    }
+    return exitCode;
+  }
+
   const proc = Bun.spawn(step.cmd, {
     cwd: REPO_ROOT,
     stdout: "inherit",

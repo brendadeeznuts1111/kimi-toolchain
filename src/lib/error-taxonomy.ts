@@ -166,13 +166,25 @@ export interface ClassifiedFailure {
   sessionId?: string;
   suggestion?: string;
   autoFix?: string;
+  context?: {
+    stack?: string;
+    inputs?: Record<string, unknown>;
+    environment?: Record<string, string>;
+  };
 }
 
 export function buildClassifiedFailure(
   toolName: string,
   output: string,
   match: TaxonomyMatch,
-  extras?: { sessionId?: string }
+  extras?: {
+    sessionId?: string;
+    context?: {
+      stack?: string;
+      inputs?: Record<string, unknown>;
+      environment?: Record<string, string>;
+    };
+  }
 ): ClassifiedFailure {
   const taxonomyId = match.category.id;
   return {
@@ -189,5 +201,6 @@ export function buildClassifiedFailure(
     suggestion: match.category.suggestion || match.category.description,
     autoFix: match.category.autoFix,
     sessionId: extras?.sessionId,
+    context: extras?.context,
   };
 }
