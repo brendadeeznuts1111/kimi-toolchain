@@ -92,4 +92,33 @@ describe("cli-runtime", () => {
       rmSync(tmpHome, { recursive: true, force: true });
     }
   });
+
+  test("runCliExit flushes telemetry when the Effect fails", async () => {
+    const tmpHome = join(tmpdir(), `cli-runtime-telemetry-failure-${Bun.randomUUIDv7()}`);
+    mkdirSync(tmpHome, { recursive: true });
+    const prevHome = Bun.env.HOME;
+    const prevTelemetry = Bun.env.KIMI_TOOLCHAIN_TELEMETRY;
+    Bun.env.HOME = tmpHome;
+    Bun.env.KIMI_TOOLCHAIN_TELEMETRY = "true";
+
+    const logger = createLogger([], "test-cli");
+    logger.warn("pre-failure telemetry");
+
+    try {
+      const code = await runCliExit(Effect.fail(new Error("effect failed")), {
+        toolName: "test-cli",
+        logger,
+      });
+      expect(code).toBe(1);
+
+      const path = join(tmpHome, ".kimi-code", "var", "cli-telemetry.jsonl");
+      const content = readFileSync(path, "utf8");
+      expect(content).toContain("pre-failure telemetry");
+      expect(content).toContain("effect failed");
+    } finally {
+      Bun.env.HOME = prevHome;
+      Bun.env.KIMI_TOOLCHAIN_TELEMETRY = prevTelemetry;
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
 });

@@ -112,13 +112,15 @@ cd ~/kimi-toolchain
 #    src/bin/*.ts  src/lib/*.ts
 
 # 2. Test from repo (fastest)
-bun run check:fast          # unit tests @ 100ms (~1s total gate)
+bun run check:fast          # unit tests @ 500ms (~2-3s total gate)
 bun run check:dry-run       # preview format/lint/typecheck/test steps
 bun test                    # full suite (unit + smoke)
 bun run doctor --quick
 
 # 3. Push to live runtime
 bun run sync
+# Final handoff after tools/docs/skills/templates changed:
+bun run sync && bun run sync:verify
 
 # 4. Verify PATH commands match
 kimi-doctor --quick
@@ -126,7 +128,8 @@ kimi-doctor --quick
 
 Optional during active toolchain work: `bun run sync:daemon` (every 5 min).
 
-**Rule:** never hand-edit `~/.kimi-code/tools/` — always sync from repo.
+**Rule:** never hand-edit `~/.kimi-code/tools/` — always sync from repo, then
+verify with `bun run sync:verify`.
 
 ## Command routing
 
@@ -152,7 +155,7 @@ Optional during active toolchain work: `bun run sync:daemon` (every 5 min).
 | --------------------------- | -------------------------------------------- |
 | `~/.kimi/`                  | Deprecated — run `kimi migrate`, then remove |
 | `~/.kimi-code/bin/kimi.bak` | Safe to delete after upgrade                 |
-| `kimicode-cli` folder name  | Done — clone path is `~/kimi-toolchain`      |
+| Old clone folder names      | Done — clone path is `~/kimi-toolchain`      |
 
 ## Unify checklist
 
@@ -169,13 +172,19 @@ Or step-by-step:
 cd ~/kimi-toolchain
 kimi migrate                          # if ~/.kimi exists
 bun run sync                          # repo → ~/.kimi-code/ (+ scripts/)
+bun run sync:verify                   # verify runtime manifest + source hashes
 bash scripts/install-bin-wrappers.sh
 kimi doctor                           # Kimi Code config
 kimi-doctor --quick                   # toolchain + sync drift + memory
 bun run memory-check                  # pre-session gate
 ```
 
-`kimi-doctor --json` emits structured output for agents. `kimi-doctor --fix` runs `sync`, MCP provisioning, and wrapper install when drift is detected.
+`scripts/sync-to-desktop.ts` writes `toolchain-manifest.json` with the
+toolchain version, repo HEAD, sync timestamp, changed files, and source hashes.
+`bun run sync:verify` checks repo-managed runtime files against the synced
+hashes. `kimi-doctor --json` emits structured output for agents.
+`kimi-doctor --fix` runs `sync`, MCP provisioning, and wrapper install when
+drift is detected.
 
 ## MCP (Model Context Protocol)
 
@@ -207,9 +216,9 @@ kimi --continue   # resume previous session for this directory
 
 ### Cursor
 
-- Open folder: `~/kimi-toolchain` (not legacy `kimicode-cli`)
+- Open folder: `~/kimi-toolchain`
 - Or open workspace file: `~/kimi-toolchain/kimi-toolchain.code-workspace`
-- If tools fail with `Path does not exist: .../kimicode-cli`, you opened the wrong path — see `AGENTS.md` Workspace section
+- If tools fail with a path under an old renamed clone, you opened the wrong path — see `AGENTS.md` Workspace section
 - **Composer** uses Cursor's agent (separate from Kimi MCP)
 - Integrated terminal `kimi` shares `~/.kimi-code/mcp.json`
 - Toolchain: `kimi-doctor`, `bun run check`
@@ -235,12 +244,12 @@ Run `kimi login` once in terminal before IDE ACP sessions.
 
 ## Agent session health
 
-Cursor binds the workspace root at folder-open time. If the editor still points at `~/kimicode-cli` (removed/renamed), agent Grep/Glob fail even when shell `pwd` is `~/kimi-toolchain`.
+Cursor binds the workspace root at folder-open time. If the editor still points at an old renamed clone, agent Grep/Glob fail even when shell `pwd` is `~/kimi-toolchain`.
 
 ```mermaid
 flowchart LR
   disk["~/kimi-toolchain"] --> shell["verify-workspace passes"]
-  slug["~/.cursor/projects/*kimicode*"] --> agent["Agent tools use wrong root"]
+  slug["stale Cursor project slug"] --> agent["Agent tools use wrong root"]
 ```
 
 **Recovery:**
@@ -251,7 +260,7 @@ flowchart LR
 
 **CLI:** `kimi-toolchain workspace verify` (blockers), `kimi-toolchain doctor --ecosystem` (full map), `kimi-toolchain doctor --fix --fix-cursor` (opt-in slug removal). Legacy `kimi-doctor` etc. dispatch through `kimi-toolchain`.
 
-## Kimi Code features (0.11.0)
+## Kimi Code features
 
 | Feature                 | How                                                                            |
 | ----------------------- | ------------------------------------------------------------------------------ |

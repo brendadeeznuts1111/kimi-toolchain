@@ -21,6 +21,8 @@ import {
 
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
 import { toolsDir } from "../lib/paths.ts";
+import { logDecision } from "../lib/decision-ledger.ts";
+import { ensureProcessTrace } from "../lib/effect/trace-context.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -214,6 +216,23 @@ async function installHooks(projectDir: string): Promise<number> {
   logger.info(
     "  pre-push:   guardian scan, R-Score gate (blocks F/D), check/test gate, mandatory bun run sync"
   );
+
+  try {
+    const trace = ensureProcessTrace();
+    await logDecision({
+      action: "hook-register",
+      trigger: { traceId: trace.traceId, hookName: HOOKS.join(",") },
+      outcome: {
+        result: "success",
+        verifiedAt: new Date().toISOString(),
+        proof: { type: "health-probe", detail: `Installed hooks in ${hooksDir}` },
+      },
+      metadata: { projectDir, hooksDir },
+    });
+  } catch {
+    // best-effort decision logging
+  }
+
   return 0;
 }
 

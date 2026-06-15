@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { invokeTool, runTool, toolsDir } from "../src/lib/tool-runner.ts";
+import { invokeCommand, invokeTool, runTool, toolsDir } from "../src/lib/tool-runner.ts";
 
 function tmpScript(content: string): string {
   const dir = join(tmpdir(), `kimi-tool-runner-${Bun.randomUUIDv7()}`);
@@ -69,6 +69,24 @@ describe("tool-runner", () => {
     rmSync(join(script, ".."), { recursive: true, force: true });
   });
 
+  test("invokeCommand normalizes negative output limits to zero bytes", async () => {
+    const result = await invokeCommand(["bun", "--version"], { maxOutputBytes: -1 });
+    expect(result.maxOutputBytes).toBe(0);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("");
+  });
+
+  test("invokeCommand returns a structured error when spawn fails", async () => {
+    const missingCommand = join(tmpdir(), `missing-command-${Bun.randomUUIDv7()}`);
+    const result = await invokeCommand([missingCommand], { timeoutMs: 1000 });
+    expect(result.tool).toBe(missingCommand);
+    expect(result.exitCode).toBe(-1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("");
+    expect(result.error).toContain("Failed to spawn command");
+    expect(result.isError).toBe(true);
+  });
+
   test("invokeTool drains large output without blocking child exit", async () => {
     const script = tmpScript(`
       await Bun.write(Bun.stdout, "x".repeat(2_000_000));
@@ -90,6 +108,7 @@ describe("tool-runner", () => {
       const script = tmpScript(`setTimeout(() => {}, 60000);`);
       const result = await invokeTool(script, [], { timeoutMs: 100, gracePeriodMs: 50 });
       expect(result.isError).toBe(true);
+      expect(result.timedOut).toBe(true);
       expect(result.error).toContain("timed out");
       rmSync(join(script, ".."), { recursive: true, force: true });
     },

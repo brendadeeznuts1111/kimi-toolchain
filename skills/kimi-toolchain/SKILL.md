@@ -2,10 +2,12 @@
 name: kimi-toolchain
 description: |
   Teaches agents to operate kimi-toolchain CLI and align with Kimi Code docs.
-  Use for kimi-doctor, kimi-governance, kimi-guardian, kimi-fix, or project health.
+  Use for kimi-doctor, kimi-governance, kimi-guardian, kimi-fix, kimi-heal,
+  kimi-decision, or project health.
   For Kimi Code config/MCP/sessions use `kimi` and `kimi doctor` (official).
 whenToUse: |
-  Project health, R-Score, lockfile security, scaffolding, or Bun quality gates.
+  Project health, R-Score, lockfile security, scaffolding, failure healing,
+  decision rationale, or Bun quality gates.
   Kimi Code slash commands (/mcp, /goal) and ACP are separate from toolchain CLIs.
 ---
 
@@ -94,6 +96,8 @@ Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0
 | ------------------ | -------------------------- | ------------------------------------- |
 | `kimi doctor`      | Official Kimi Code config  | MCP/auth/model issues                 |
 | `kimi-doctor`      | Toolchain diagnostic suite | Project + desktop sync + MCP wiring   |
+| `kimi-heal`        | Failure clusters + plans   | After failures; dry-run before apply  |
+| `kimi-decision`    | Decision ledger            | Explain or audit recorded rationale   |
 | `kimi-governance`  | R-Score + governance check | After doctor, for scoring             |
 | `kimi-guardian`    | Lockfile integrity         | After dep changes, before push        |
 | `kimi-fix`         | Scaffold / auto-fix        | When grade is D/F or scaffold request |
@@ -111,13 +115,14 @@ Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0
    IF cursor-workspace blocker → reopen ~/kimi-toolchain; kimi-toolchain doctor --fix --fix-cursor
 1. RUN: kimi doctor          # official Kimi Code config
 2. RUN: kimi-toolchain doctor --ecosystem --quick  # cross-product health
-3. RUN: kimi-governance score
-4. PARSE doctor output + R-Score breakdown
-5. IF lockfile warning → RUN: kimi-guardian check
-6. IF coverage gap → RUN: bun run test:coverage:fast (local) or bun run test:coverage:ci (CI)
-7. IF governance gap → RUN: kimi-governance fix
-8. QUERY: kimi-memory trends (sessions.db warning_trends)
-9. PRESENT: current state + trend + next action
+3. RUN: kimi-heal plan --json
+4. RUN: kimi-governance score
+5. PARSE doctor output + R-Score breakdown
+6. IF lockfile warning → RUN: kimi-guardian check
+7. IF coverage gap → RUN: bun run test:coverage:fast (local) or bun run test:coverage:ci (CI)
+8. IF governance gap → RUN: kimi-governance fix
+9. QUERY: kimi-memory trends (sessions.db warning_trends)
+10. PRESENT: current state + trend + next action
 ```
 
 ### Dependency Changes
@@ -136,10 +141,13 @@ Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0
 1. RUN: kimi-debug last
 2. RUN: kimi-debug wire [path-to-wire.jsonl]   # classify recent failures
 3. QUERY: ~/.kimi-code/var/tool-failures.jsonl for recurring patterns (taxonomyId, suggestion, autoFix)
-4. QUERY: kimi-memory trends + doctor_runs in sessions.db (grouped by taxonomy_id when present)
-5. RUN: git log --oneline -20
-6. IF CONTEXT.md stale → RUN: kimi-context-gen freshness / update
-7. PRESENT: timeline + taxonomy id + likely cause + recovery steps (use autoFix from taxonomy when safe)
+4. RUN: kimi-heal clusters --json
+5. RUN: kimi-heal plan --json
+6. RUN: kimi-decision audit --json
+7. QUERY: kimi-memory trends + doctor_runs in sessions.db (grouped by taxonomy_id when present)
+8. RUN: git log --oneline -20
+9. IF CONTEXT.md stale → RUN: kimi-context-gen freshness / update
+10. PRESENT: timeline + taxonomy id + likely cause + recovery steps (use heal plan first; taxonomy autoFix only when safe)
 ```
 
 Use `kimi-debug analyze --json` or `kimi-debug classify <text>` for taxonomy ids (`max_steps_exceeded`, `lockfile_issue`, etc.) from `error-taxonomy.yml`.
@@ -161,9 +169,11 @@ Use `kimi-debug analyze --json` or `kimi-debug classify <text>` for taxonomy ids
 ```
 1. RUN: kimi-githooks doctor
 2. LOCAL (fast): bun run check:fast
-3. BEFORE PUSH: bun run check
+3. BEFORE PUSH: managed pre-push runs check:fast by default; use KIMI_PRE_PUSH_FULL=1 git push for a full local gate
 4. RUN: kimi-guardian check
-5. RUN: kimi-governance score (pre-push blocks F/D)
+5. IF tools, docs, skills, templates, or generated runtime assets changed:
+   RUN: bun run sync && bun run sync:verify
+6. RUN: kimi-governance score (pre-push blocks F/D)
 ```
 
 ## R-Score Interpretation
@@ -198,7 +208,7 @@ kimi-memory search <k>
 
 ## MCP (toolchain)
 
-Unified-shell bridge is auto-registered in `~/.kimi-code/mcp.json` on `bun run sync`. Verify with `kimi-doctor --quick` MCP section or `kimi` → `/mcp`.
+Unified-shell bridge is auto-registered in `~/.kimi-code/mcp.json` on `bun run sync`. The sync writes `toolchain-manifest.json` with source hashes. Verify runtime-synced assets with `bun run sync && bun run sync:verify`. Verify MCP wiring with `kimi-doctor --quick` MCP section or `kimi` → `/mcp`.
 
 ## Hook taxonomy
 

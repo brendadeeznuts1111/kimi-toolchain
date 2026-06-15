@@ -40,6 +40,46 @@ export function varDir(): string {
   return join(desktopRoot(), "var");
 }
 
+/** Return ~/.kimi-code/var/tool-failures.jsonl */
+export function failureLedgerPath(): string {
+  return join(varDir(), "tool-failures.jsonl");
+}
+
+/** Return ~/.kimi-code/var/trace-events.jsonl */
+export function traceEventsPath(): string {
+  return join(varDir(), "trace-events.jsonl");
+}
+
+/** Return ~/.kimi-code/var/error-clusters.json */
+export function clusterMetadataPath(): string {
+  return join(varDir(), "error-clusters.json");
+}
+
+/** Return ~/.kimi-code/var/decision-ledger.jsonl (legacy v1 — read-only compat) */
+export function decisionLedgerPath(): string {
+  return join(varDir(), "decision-ledger.jsonl");
+}
+
+/** Return {projectRoot}/.kimi */
+export function projectKimiDir(projectRoot: string): string {
+  return join(projectRoot, ".kimi");
+}
+
+/** Return {projectRoot}/.kimi/decisions.ndjson */
+export function decisionsNdjsonPath(projectRoot: string): string {
+  return join(projectKimiDir(projectRoot), "decisions.ndjson");
+}
+
+/** Return ~/.kimi-code/var/institutional-memory.jsonl (deprecated — use decisions.ndjson) */
+export function institutionalMemoryPath(): string {
+  return join(varDir(), "institutional-memory.jsonl");
+}
+
+/** Return ~/.kimi-code/var/capabilities */
+export function capabilitySnapshotsDir(): string {
+  return join(varDir(), "capabilities");
+}
+
 /** Return ~/.kimi-code/guardian */
 export function guardianDir(): string {
   return join(desktopRoot(), "guardian");

@@ -5,8 +5,10 @@
 
 import { existsSync } from "fs";
 import { join, resolve } from "path";
+import { logDecision } from "./decision-ledger.ts";
 import { ensureDir } from "./utils.ts";
 import { homeDir, mcpPath, toolsDir } from "./paths.ts";
+import { ensureProcessTrace } from "./effect/trace-context.ts";
 
 export const UNIFIED_SHELL_SERVER = "unified-shell";
 export const UNIFIED_SHELL_TOOL = "mcp__unified-shell__execute";
@@ -190,6 +192,22 @@ export async function provisionUserMcp(home: string = homeDir()): Promise<{
   const { config, changed } = mergeToolchainMcpServers(existing, home);
   if (changed || !existsSync(path)) {
     await writeMcpJson(path, config);
+    try {
+      const trace = ensureProcessTrace();
+      const servers = Object.keys(config.mcpServers).sort().join(", ");
+      await logDecision({
+        action: "config-change",
+        trigger: { traceId: trace.traceId, capabilityItem: "mcp.json" },
+        outcome: {
+          result: "success",
+          verifiedAt: new Date().toISOString(),
+          proof: { type: "health-probe", detail: `Provisioned MCP servers: ${servers}` },
+        },
+        metadata: { path, changed: true },
+      });
+    } catch {
+      // best-effort decision logging
+    }
     return { path, changed: true };
   }
   return { path, changed: false };
