@@ -93,6 +93,8 @@ export interface FailureLedgerSummary {
   total: number;
   taxonomyCounts: Record<string, number>;
   unclassified: number;
+  reviewCommand: string;
+  unknownAction?: string;
 }
 
 export interface SuccessMetricsAudit {
@@ -222,8 +224,9 @@ export function metricThresholdEvidenceComplete(
 export async function readFailureLedgerSummary(
   path: string = join(homeDir(), ".kimi-code", "var", "tool-failures.jsonl")
 ): Promise<FailureLedgerSummary> {
+  const reviewCommand = `kimi-debug wire ${path}`;
   if (!existsSync(path)) {
-    return { path, present: false, total: 0, taxonomyCounts: {}, unclassified: 0 };
+    return { path, present: false, total: 0, taxonomyCounts: {}, unclassified: 0, reviewCommand };
   }
 
   const text = await Bun.file(path).text();
@@ -250,6 +253,13 @@ export async function readFailureLedgerSummary(
     total,
     taxonomyCounts,
     unclassified: taxonomyCounts.unknown || 0,
+    reviewCommand,
+    ...((taxonomyCounts.unknown || 0) > 0
+      ? {
+          unknownAction:
+            "Run the review command, then add or tune error-taxonomy.yml patterns for recurring unknown failures.",
+        }
+      : {}),
   };
 }
 

@@ -54,6 +54,8 @@ describe("success-metrics", () => {
     expect(summary.total).toBe(3);
     expect(summary.taxonomyCounts.lockfile_issue).toBe(1);
     expect(summary.unclassified).toBe(2);
+    expect(summary.reviewCommand).toBe(`kimi-debug wire ${path}`);
+    expect(summary.unknownAction).toContain("error-taxonomy.yml");
     expect(JSON.stringify(summary)).not.toContain("secret-ish detail");
     rmSync(dir, { recursive: true, force: true });
   });

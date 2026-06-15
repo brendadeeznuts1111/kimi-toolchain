@@ -815,6 +815,8 @@ async function runSuccessMetricsMode(projectRoot: string): Promise<number> {
         total: report.ledger.total,
         taxonomyCounts: report.ledger.taxonomyCounts,
         unclassified: report.ledger.unclassified,
+        reviewCommand: report.ledger.reviewCommand,
+        ...(report.ledger.unknownAction ? { unknownAction: report.ledger.unknownAction } : {}),
       },
       summary: {
         errors,
