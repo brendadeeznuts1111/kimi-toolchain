@@ -21,6 +21,9 @@ describe("success-metrics", () => {
     const taxonomy = await loadTaxonomy(join(REPO_ROOT, "error-taxonomy.yml"));
     const coverage = auditErrorCoverage(taxonomy);
     expect(coverage.coverage).toBeGreaterThanOrEqual(ERROR_COVERAGE_TARGET);
+    expect(coverage.coverage).toBe(1);
+    expect(coverage.unclassified).toEqual([]);
+    expect(coverage.records.map((record) => record.taxonomyId)).toContain("mcp_config_missing");
     expect(coverage.records[0].context?.inputs).toBeDefined();
     expect(coverage.records[0].context?.environment).toBeDefined();
   });

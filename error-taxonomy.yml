@@ -267,6 +267,18 @@ categories:
       - regex: "SIGTERM sent"
       - regex: "SIGKILL after"
 
+  - id: mcp_config_missing
+    name: MCP config missing
+    description: Kimi Code MCP configuration is missing a required toolchain server registration.
+    severity: warn
+    expected: false
+    suggestion: "Provision MCP defaults with kimi-doctor --fix or bun run sync."
+    autoFix: "kimi-doctor --fix"
+    patterns:
+      - regex: "MCP config missing unified-shell registration"
+      - regex: "unified-shell.*not configured in user MCP servers"
+      - regex: "cloudflare-api.*not configured in user MCP servers"
+
   - id: unknown
     name: Unknown
     description: No known pattern matched.
