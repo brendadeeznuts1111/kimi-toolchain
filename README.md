@@ -260,7 +260,7 @@ data from `~/.kimi-code/var/tool-failures.jsonl`.
 
 The `kimi-cloudflare-access` tool reads credentials from `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` environment variables, or from the OS keychain via `kimi-cloudflare-access login`.
 
-`kimi-cloudflare-access status --json` is the read-only local inventory path for the DX homepage/dashboard. It reports credential presence, MCP wiring, Wrangler availability, project config files, and the DX Cloudflare contract without calling the Cloudflare API.
+`kimi-cloudflare-access status --json` is the read-only local inventory path for the DX homepage/dashboard. It reports credential presence, MCP wiring, Wrangler availability, identity profile coverage, project config files, diagnostics, and the DX Cloudflare contract without calling the Cloudflare API. The default path checks whether `wrangler` is available without spawning it; add `--versions` when version details are needed.
 
 ### Required token permissions
 

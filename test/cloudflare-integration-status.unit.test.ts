@@ -28,6 +28,12 @@ mode = "read-only"
 [cloudflare.dashboard]
 source = "snapshot"
 ${extra}
+
+[identity.profiles.personal]
+userName = "Test User"
+userEmail = "test@example.com"
+pathPatterns = ["${projectRoot}"]
+remotePatterns = ["github.com/example/*"]
 `
   );
 }
@@ -82,6 +88,9 @@ describe("cloudflare-integration-status", () => {
     expect(status.mcp.unifiedShellConfigured).toBe(true);
     expect(status.projectFiles.wranglerConfig?.endsWith("wrangler.toml")).toBe(true);
     expect(status.projectFiles.accessPolicy?.endsWith(".cloudflare-access.yml")).toBe(true);
+    expect(status.identity.configured).toBe(true);
+    expect(status.summary).toEqual({ errors: 0, warnings: 0, actions: 0 });
+    expect(status.diagnostics).toEqual([]);
     expect(status.actions).toEqual([]);
   });
 
@@ -125,5 +134,39 @@ describe("cloudflare-integration-status", () => {
 
     expect(status.dxCloudflare.aligned).toBe(false);
     expect(status.actions.some((action) => action.command.includes("dx.config.toml"))).toBe(true);
+  });
+
+  test("tracks missing identity profile as a diagnostic and action", async () => {
+    await Bun.write(
+      join(projectRoot, "dx.config.toml"),
+      `
+schemaVersion = 1
+scope = "project"
+
+[cloudflare]
+mode = "read-only"
+
+[cloudflare.dashboard]
+source = "snapshot"
+`
+    );
+
+    const status = await buildCloudflareIntegrationStatus({
+      home: tmpHome,
+      projectRoot,
+      env: {
+        CLOUDFLARE_ACCOUNT_ID: "account-id",
+        CLOUDFLARE_API_TOKEN: "api-token",
+      },
+      secrets: nullSecrets,
+      detectWrangler: async () => ({ available: true, version: "4.91.0" }),
+      now: fixedNow,
+    });
+
+    expect(status.identity.configured).toBe(false);
+    expect(
+      status.diagnostics.some((diagnostic) => diagnostic.code === "identity-matrix-missing")
+    ).toBe(true);
+    expect(status.actions.some((action) => action.command.startsWith("kimi-identity"))).toBe(true);
   });
 });

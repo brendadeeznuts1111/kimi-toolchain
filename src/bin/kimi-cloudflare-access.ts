@@ -413,6 +413,9 @@ function printDashboard(mappings: import("../lib/cloudflare-access.ts").ProjectM
 function printStatus(status: Awaited<ReturnType<typeof buildCloudflareIntegrationStatus>>) {
   logger.section("Cloudflare Integration Status");
   logger.line(`  Overall: ${status.overall}`);
+  logger.line(
+    `  Summary: ${status.summary.errors} error(s), ${status.summary.warnings} warning(s), ${status.summary.actions} action(s)`
+  );
   logger.line(`  Credentials: ${status.credentials.source}`);
   logger.line(
     `  MCP: cloudflare-api=${status.mcp.cloudflareApiConfigured ? "yes" : "no"} unified-shell=${status.mcp.unifiedShellConfigured ? "yes" : "no"}`
@@ -424,8 +427,19 @@ function printStatus(status: Awaited<ReturnType<typeof buildCloudflareIntegratio
     `  Project files: wrangler=${status.projectFiles.wranglerConfig ? "yes" : "no"} access=${status.projectFiles.accessPolicy ? "yes" : "no"}`
   );
   logger.line(
+    `  Identity: ${status.identity.configured ? `${status.identity.profileCount} profile(s)` : "not configured"}`
+  );
+  logger.line(
     `  DX Cloudflare contract: ${status.dxCloudflare.applicable ? (status.dxCloudflare.aligned ? "aligned" : "drift") : "not configured"}`
   );
+  if (status.diagnostics.length > 0) {
+    logger.line("");
+    logger.section("Diagnostics");
+    for (const diagnostic of status.diagnostics) {
+      logger.line(`  ${diagnostic.status}: ${diagnostic.code}`);
+      logger.line(`     ${diagnostic.message}`);
+    }
+  }
   if (status.actions.length > 0) {
     logger.line("");
     logger.section("Recommended Actions");
@@ -476,7 +490,10 @@ async function main(): Promise<number> {
   }
 
   if (command === "status") {
-    const status = await buildCloudflareIntegrationStatus({ projectRoot: process.cwd() });
+    const status = await buildCloudflareIntegrationStatus({
+      projectRoot: process.cwd(),
+      includeToolVersions: args.includes("--versions"),
+    });
     if (jsonMode) {
       jsonOut(status);
     } else {
