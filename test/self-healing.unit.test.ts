@@ -63,6 +63,70 @@ describe("self-healing", () => {
     }
   });
 
+  test("buildHealPlan does not record capability decisions while planning", async () => {
+    const dir = tempDir();
+    const oldHome = Bun.env.HOME;
+    mkdirSync(join(dir, ".kimi-code", "var"), { recursive: true });
+    try {
+      Bun.env.HOME = dir;
+      await buildHealPlan(dir);
+
+      const ledger = await readDecisionLedger();
+      expect(ledger).toHaveLength(0);
+    } finally {
+      if (oldHome === undefined) delete Bun.env.HOME;
+      else Bun.env.HOME = oldHome;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("format playbook remains manual because it edits source", async () => {
+    const dir = tempDir();
+    try {
+      const failurePath = join(dir, "tool-failures.jsonl");
+      writeFileSync(
+        failurePath,
+        [
+          JSON.stringify({
+            errorId: "error-format-1",
+            traceId: "trace-format",
+            toolName: "format:check",
+            output: "format check failed",
+            taxonomyId: "format_check_failure",
+          }),
+        ].join("\n")
+      );
+
+      const clusters = await clusterFailureLedger({
+        failurePath,
+        tracePath: join(dir, "trace-events.jsonl"),
+        clustersPath: join(dir, "error-clusters.json"),
+        threshold: 0.35,
+      });
+      const plan = await buildHealPlan(dir, {
+        clusters,
+        capabilities: {
+          schemaVersion: 1,
+          generatedAt: new Date().toISOString(),
+          readiness: 100,
+          readinessScore: 100,
+          healthy: 0,
+          degraded: 0,
+          unavailable: 0,
+          checks: [],
+        },
+      });
+      const formatAction = plan.actions.find(
+        (action) => action.metadata?.taxonomyId === "format_check_failure"
+      );
+
+      expect(formatAction?.safeToAutoApply).toBe(false);
+      expect(formatAction?.status).toBe("manual");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("applyHealPlan records preview decision before execute and appends outcome follow-up", async () => {
     const dir = tempDir();
     const oldHome = Bun.env.HOME;
@@ -170,6 +234,26 @@ describe("self-healing", () => {
     } finally {
       if (oldHome === undefined) delete Bun.env.HOME;
       else Bun.env.HOME = oldHome;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("applyHealPlan reports unknown requested action ids", async () => {
+    const dir = tempDir();
+    try {
+      const plan: HealPlan = {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        projectRoot: dir,
+        actions: [],
+        summary: { total: 0, autoApplicable: 0, manual: 0, blocked: 0 },
+      };
+
+      const report = await applyHealPlan(plan, { yes: true, actionIds: ["missing-action"] });
+      expect(report.summary.failed).toBe(1);
+      expect(report.applied[0]?.status).toBe("failed");
+      expect(report.applied[0]?.reason).toContain("not found");
+    } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   });

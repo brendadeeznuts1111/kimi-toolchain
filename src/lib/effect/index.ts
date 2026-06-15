@@ -23,6 +23,16 @@ export {
 export { runCli, runCliExit, type RunCliOptions } from "./cli-runtime.ts";
 
 export {
+  DecisionLogger,
+  DecisionLoggerLive,
+  makeDecisionLogger,
+  type DecisionExplanation,
+  type DecisionInput,
+  type DecisionQueryFilters,
+  type DecisionRecord,
+} from "../decision-ledger.ts";
+
+export {
   KimiCapabilities,
   KimiContract,
   KimiIntrospectionConfig,

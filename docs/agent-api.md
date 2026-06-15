@@ -15,6 +15,8 @@ import {
   KimiIntrospectionLive,
   KimiIntrospectionLiveFor,
   KimiTrace,
+  DecisionLogger,
+  DecisionLoggerLive,
 } from "../src/lib/effect/index.ts";
 ```
 
@@ -92,6 +94,33 @@ const validateContract = (contractPath: string) =>
 Validation failures are represented as `ContractValidationError`; signing uses
 the underlying typed `ContractError` values from `src/lib/contract-signing.ts`.
 
+## Decisions
+
+`DecisionLogger` records and queries durable rationale in
+`~/.kimi-code/var/decision-ledger.jsonl`. Use it when an Effect program changes
+toolchain state and needs to explain why later.
+
+```ts
+import { Effect } from "effect";
+import { DecisionLogger, DecisionLoggerLive } from "../src/lib/effect/index.ts";
+
+const recordHookDecision = Effect.gen(function* () {
+  const decisions = yield* DecisionLogger;
+  return yield* decisions.recordAction({
+    key: "hook-register:pre-push",
+    actor: "kimi",
+    action: "hook-register",
+    trigger: "trace-hook-registration",
+    rationale: "Managed hooks keep sync manifests fresh before push.",
+    outcome: "success",
+  });
+}).pipe(Effect.provide(DecisionLoggerLive()));
+```
+
+The service exposes `logDecision`, `recordAction`, `list`, and `why`.
+`why(query)` returns matching decisions, follow-up decisions, and a linked
+`TraceGraph` root-cause chain when the decision trigger or trace id is present.
+
 ## CLI Bridge
 
 Use the CLI for shell scripts and ad-hoc operator checks:
@@ -99,7 +128,10 @@ Use the CLI for shell scripts and ad-hoc operator checks:
 ```bash
 bun run capabilities --json
 bun run kimi contract validate ./contracts/sample.contract.json --json
+bun run kimi decision log --json
+bun run kimi why <decision-id> --json
 ```
 
-Use the services when an Effect program needs to compose probes, traces, and
-contract validation without subprocess overhead or stringly typed JSON parsing.
+Use the services when an Effect program needs to compose probes, traces,
+contract validation, and decision rationale without subprocess overhead or
+stringly typed JSON parsing.

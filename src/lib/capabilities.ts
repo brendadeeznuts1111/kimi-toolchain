@@ -53,6 +53,7 @@ export interface CapabilityTrend {
 export interface CapabilityOptions {
   concurrency?: number;
   saveSnapshot?: boolean;
+  recordDecisions?: boolean;
 }
 
 export function defaultCapabilityChecks(projectRoot: string): CapabilityCheck[] {
@@ -95,9 +96,11 @@ export function runCapabilityAggregator(
     );
     const enriched = applyLastSuccessfulContact(results, previous);
     const report = buildCapabilityReport(enriched);
-    yield* Effect.promise(() => recordDeliberateCapabilityDegradations(report.checks)).pipe(
-      Effect.catchAll(() => Effect.void)
-    );
+    if (options.recordDecisions ?? true) {
+      yield* Effect.promise(() => recordDeliberateCapabilityDegradations(report.checks)).pipe(
+        Effect.catchAll(() => Effect.void)
+      );
+    }
     if (options.saveSnapshot ?? true) {
       yield* Effect.promise(() => writeCapabilitySnapshot(report)).pipe(
         Effect.catchAll(() => Effect.void)

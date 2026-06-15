@@ -92,10 +92,14 @@ function filtersFromArgs(args: string[]): DecisionQueryFilters {
 
 export async function runDecisionCli(args: string[] = Bun.argv.slice(2)): Promise<number> {
   const json = args.includes("--json");
+  if (args.includes("--help") || args.includes("-h")) {
+    printHelp();
+    return 0;
+  }
   const positional = nonFlagArgs(args);
   const command = positional[0];
 
-  if (!command || command === "help" || command === "-h") {
+  if (!command || command === "help") {
     printHelp();
     return command ? 0 : 1;
   }

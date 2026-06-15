@@ -107,11 +107,12 @@ interface ClusterPlaybook {
 
 const CLUSTER_PLAYBOOKS: Record<string, ClusterPlaybook> = {
   format_check_failure: {
-    title: "Apply repository formatter",
-    reason: "Formatting failures are deterministic and the formatter is the canonical repair.",
+    title: "Review repository formatting",
+    reason:
+      "Formatting failures are deterministic, but applying the formatter changes source files and requires human review.",
     command: ["bun", "run", "format"],
-    safeToAutoApply: true,
-    status: "available",
+    safeToAutoApply: false,
+    status: "manual",
     confidence: 0.95,
   },
   timeout_hang: {
@@ -201,7 +202,7 @@ export function buildHealPlanEffect(
     const capabilitiesEffect = options.capabilities
       ? Effect.succeed(options.capabilities)
       : Effect.tryPromise({
-          try: () => capabilityReport(projectRoot, { saveSnapshot: false }),
+          try: () => capabilityReport(projectRoot, { saveSnapshot: false, recordDecisions: false }),
           catch: () => "capability-read-failed",
         }).pipe(Effect.catchAll(() => Effect.succeed(emptyCapabilityReport())));
 
@@ -243,10 +244,18 @@ export function applyHealPlanEffect(
       actionIds.size === 0
         ? plan.actions
         : plan.actions.filter((action) => actionIds.has(action.id));
-    const applied = yield* Effect.all(
+    const missing = [...actionIds].filter((id) => !plan.actions.some((action) => action.id === id));
+    const missingActions: AppliedHealAction[] = missing.map((id) => ({
+      id,
+      title: "Unknown heal action",
+      status: "failed",
+      reason: "requested action id was not found in the heal plan",
+    }));
+    const appliedSelected = yield* Effect.all(
       selected.map((action) => applyOneAction(action, plan, { ...options, dryRun })),
       { concurrency: 1 }
     );
+    const applied = [...appliedSelected, ...missingActions];
 
     return {
       schemaVersion: 1,

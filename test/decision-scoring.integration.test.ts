@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
+import { mkdirSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
@@ -53,9 +53,18 @@ describe("decision-scoring integration", () => {
       const persisted = await persistDecisionQualityScores(updates, decisionPath);
       const refreshed = await readDecisionLedger(decisionPath);
       const scored = refreshed.find((record) => record.decisionId === healDecision.decisionId);
+      const rawLines = readFileSync(decisionPath, "utf8").trim().split("\n");
+      const original = JSON.parse(rawLines[0] ?? "{}") as { qualityScore?: number };
+      const scoreUpdate = JSON.parse(rawLines[1] ?? "{}") as {
+        metadata?: { scoreUpdateFor?: string; qualityScore?: number };
+      };
 
       expect(updates.get(healDecision.decisionId)).toBe(0.2);
       expect(scored?.qualityScore).toBe(0.2);
+      expect(refreshed).toHaveLength(1);
+      expect(original.qualityScore).toBeUndefined();
+      expect(scoreUpdate.metadata?.scoreUpdateFor).toBe(healDecision.decisionId);
+      expect(scoreUpdate.metadata?.qualityScore).toBe(0.2);
       expect(persisted.updated).toBeGreaterThanOrEqual(1);
     } finally {
       rmSync(home, { recursive: true, force: true });

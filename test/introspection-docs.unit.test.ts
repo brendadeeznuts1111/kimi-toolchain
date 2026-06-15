@@ -26,6 +26,7 @@ describe("introspection docs", () => {
     expect(readme).toContain("trusted-keys.json");
     expect(readme).toContain("x-kimi-signature");
     expect(readme).toContain("KimiIntrospectionLive");
+    expect(readme).toContain("kimi-decision log --json");
     expect(readme).toContain("docs/agent-api.md");
   });
 
@@ -37,6 +38,8 @@ describe("introspection docs", () => {
     expect(agentApi).toContain("KimiContract");
     expect(agentApi).toContain("KimiIntrospectionLive");
     expect(agentApi).toContain("KimiIntrospectionLiveFor");
+    expect(agentApi).toContain("DecisionLogger");
+    expect(agentApi).toContain("DecisionLoggerLive");
     expect(agentApi).toContain("TraceNotFound");
     expect(agentApi).toContain("MissingSigningKey");
   });
@@ -49,10 +52,13 @@ describe("introspection docs", () => {
       expect(text).toContain("kimi-capabilities --json");
       expect(text).toContain("kimi-trace <trace-id> --json");
       expect(text).toContain("kimi-contract validate --json");
+      expect(text).toContain("kimi-why");
     }
 
     expect(await readRepoFile("CONTEXT.md")).toContain("KimiIntrospectionLive");
+    expect(await readRepoFile("CONTEXT.md")).toContain("DecisionLoggerLive");
     expect(await readRepoFile("skills/kimi-toolchain/SKILL.md")).toContain("KimiIntrospectionLive");
+    expect(await readRepoFile("skills/kimi-toolchain/SKILL.md")).toContain("kimi-decision log");
   });
 
   test("generated AGENTS template preserves introspection onboarding", () => {
@@ -61,6 +67,7 @@ describe("introspection docs", () => {
     expect(generated).toContain("kimi-capabilities --json");
     expect(generated).toContain("kimi-trace <trace-id> --json");
     expect(generated).toContain("kimi-contract validate --json");
+    expect(generated).toContain("kimi-why <topic> --json");
     expect(generated).toContain("trusted-keys.json");
     expect(generated).toContain("x-kimi-signature");
   });

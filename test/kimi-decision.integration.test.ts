@@ -9,6 +9,22 @@ const REPO_ROOT = new URL("..", import.meta.url).pathname;
 const DECISION = join(REPO_ROOT, "src/bin/kimi-decision.ts");
 
 describe("kimi-decision CLI", () => {
+  test("help exits successfully for decision and why aliases", async () => {
+    const home = join(tmpdir(), `kimi-decision-help-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(home, ".kimi-code", "var"), { recursive: true });
+    try {
+      const decisionHelp = await spawnDecision(["--help"], home);
+      const whyHelp = await spawnWhy(["--help"], home);
+
+      expect(decisionHelp.exitCode).toBe(0);
+      expect(whyHelp.exitCode).toBe(0);
+      expect(decisionHelp.stdout).toContain("Usage: kimi-decision");
+      expect(whyHelp.stdout).toContain("Usage: kimi-decision");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   test("why returns a seeded decision with its trace root-cause chain", async () => {
     const home = join(tmpdir(), `kimi-decision-cli-${Bun.randomUUIDv7()}`);
     mkdirSync(join(home, ".kimi-code", "var"), { recursive: true });
@@ -85,6 +101,24 @@ async function spawnDecision(
   home: string
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   const proc = Bun.spawn(["bun", "run", DECISION, ...args], {
+    cwd: REPO_ROOT,
+    env: { ...Bun.env, HOME: home },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    Bun.readableStreamToText(proc.stdout),
+    Bun.readableStreamToText(proc.stderr),
+    proc.exited,
+  ]);
+  return { exitCode, stdout, stderr };
+}
+
+async function spawnWhy(
+  args: string[],
+  home: string
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  const proc = Bun.spawn(["bun", "run", join(REPO_ROOT, "src/bin/kimi-why.ts"), ...args], {
     cwd: REPO_ROOT,
     env: { ...Bun.env, HOME: home },
     stdout: "pipe",

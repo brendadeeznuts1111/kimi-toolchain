@@ -3,26 +3,7 @@
  */
 
 import { Effect } from "effect";
-
-export interface DecisionEvidence {
-  type: "traceStep" | "error" | "contractDiff" | "cluster" | "playbook" | "capability";
-  traceId?: string;
-  stepIndex?: number;
-  errorId?: string;
-  oldHash?: string;
-  newHash?: string;
-  clusterId?: string;
-  playbookTitle?: string;
-  contractFile?: string;
-  capabilityItem?: string;
-  detail?: string;
-}
-
-export interface DecisionRationaleBlock {
-  summary: string;
-  fullReasoning: string;
-  evidence: DecisionEvidence[];
-}
+import type { DecisionEvidence, DecisionRationaleBlock } from "./decision-ledger.ts";
 
 export type RationaleKind = "heal" | "contract-sign" | "capability-degrade" | "generic";
 

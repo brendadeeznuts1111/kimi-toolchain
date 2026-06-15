@@ -44,7 +44,7 @@ export async function executeCommand(
   const stdout = await Bun.readableStreamToText(proc.stdout);
   const stderr = await Bun.readableStreamToText(proc.stderr);
   try {
-    recordTraceEvent(
+    await recordTraceEvent(
       buildTraceEvent({
         traceId: parentTraceId,
         childTraceIds: [traceOverlay.KIMI_TRACE_ID],

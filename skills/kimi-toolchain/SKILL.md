@@ -102,7 +102,8 @@ Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0
 | `kimi-trace`        | Causal graph reconstruction    | When a trace-id or nested failure exists |
 | `kimi-heal`         | Failure clustering + heal plan | After failures; always dry-run first     |
 | `kimi-contract`     | Signed contract trust          | When contracts/providers change          |
-| `kimi-why`          | Decision ledger                | When explaining previous choices         |
+| `kimi-decision`     | Decision ledger                | When listing or recording rationale      |
+| `kimi-why`          | Decision ledger alias          | When explaining previous choices         |
 | `kimi-governance`   | R-Score + governance check     | After doctor, for scoring                |
 | `kimi-guardian`     | Lockfile integrity             | After dep changes, before push           |
 | `kimi-fix`          | Scaffold / auto-fix            | When grade is D/F or scaffold request    |
@@ -140,7 +141,8 @@ Effect-native agents can use `KimiIntrospectionLive` from
    a. RUN: kimi-heal apply --dry-run --json
    b. ONLY with explicit user intent or pre-approved safe sync: kimi-heal apply --yes --action <id>
 5. IF contract trust is degraded → RUN: kimi-contract validate --json
-6. IF a decision needs explanation → RUN: kimi-why <topic> --json
+6. IF a decision needs explanation → RUN: kimi-why <decision-id|topic> --json
+7. IF recent rationale is needed → RUN: kimi-decision log --limit 10 --json
 ```
 
 `kimi-heal apply` is dry-run by default. It may only execute actions marked
@@ -277,7 +279,7 @@ Three hook systems coexist. Use the right name:
 - `capabilities/*.json` snapshots store `CapabilityReport` with grep-friendly `readiness`, canonical `readinessScore`, healthy/degraded/unavailable counts, and `checks[]` entries with `id`, `type`, `status`, `summary`, `latencyMs`, and optional `details`.
 - `<contract>.sig` files store Ed25519 `ContractSignatureEnvelope` values: `schemaVersion`, `algorithm`, `keyId`, `signatureHex`, `payloadSha256`, and `signedAt`. Embedded `x-kimi-signature` fields are stripped from normalized payloads. Trusted public keys live in project-root `trusted-keys.json` as a direct key map or `{ "keys": { ... } }`.
 - `docs/agent-api.md` documents `KimiCapabilities`, `KimiTrace`, `KimiContract`, and `KimiIntrospectionLive` for Effect programs that should compose introspection without subprocesses.
-- `decision-ledger.jsonl` stores `kimi-why` records; self-heal applies append a decision when an action actually runs.
+- `decision-ledger.jsonl` stores `kimi-decision` / `kimi-why` records with `decisionId`, `actor`, `action`, `trigger`, optional `clusterId`, `rationale`, `alternativesConsidered`, `outcome`, trace aliases, and parent/child decision links. Self-heal applies append a decision when an action actually runs.
 - Repo-local generated outputs belong under `.kimi-artifacts/`; test homes, coverage, JUnit reports, and disposable markers should not be created at repo root.
 - `bun run sync` regenerates `~/.kimi-code/toolchain-manifest.json`; `bun run sync:verify` verifies manifest hashes and desktop drift and is part of the managed pre-push hook.
 

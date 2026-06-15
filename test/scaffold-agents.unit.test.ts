@@ -17,6 +17,8 @@ describe("buildAgentsMd", () => {
     expect(md).toContain("kimi-heal apply --dry-run");
     expect(md).toContain("kimi-trace <trace-id> --json");
     expect(md).toContain("kimi-contract validate --json");
+    expect(md).toContain("kimi-decision log --json");
+    expect(md).toContain("kimi-why <topic> --json");
     expect(md).toContain("safeToAutoApply");
     expect(md).toContain("~/.kimi-code/var/trace-events.jsonl");
     expect(md).toContain(

@@ -75,8 +75,9 @@ kimi-toolchain/
       ├── kimi-trace.ts           # Causal trace graph reconstruction
       ├── kimi-capabilities.ts    # Live integration health probing
       ├── kimi-contract.ts        # Signed contract trust validation
+      ├── kimi-decision.ts        # Decision ledger list/why/record CLI
       ├── kimi-heal.ts            # Failure clustering + self-healing plan
-      ├── kimi-why.ts             # Decision ledger lookup
+      ├── kimi-why.ts             # Decision ledger alias
       └── unified-shell-bridge.ts # MCP stdio server for shell execution
     lib/
       ├── utils.ts          # Shared utilities (fs, hash, logging, runTool)
@@ -120,7 +121,7 @@ When the package is installed (globally or locally), `postinstall.ts` copies sou
   var/                # Toolchain state (sessions.db — not Kimi sessions/)
   var/tool-failures.jsonl  # Classified failures with trace context
   var/trace-events.jsonl   # Causal trace events
-  var/decision-ledger.jsonl # Recorded decisions for kimi-why
+  var/decision-ledger.jsonl # Recorded decisions for kimi-decision / kimi-why
   var/capabilities/        # Capability snapshots over time
   guardian/           # Lockfile manifest DB
   governor/           # Resource governor DB + cache
@@ -637,7 +638,7 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `src/lib/contract-signing.ts`                   | Ed25519 contract signature schema + trust audit     |
 | `src/lib/error-clustering.ts`                   | Failure clustering report schema                    |
 | `src/lib/self-healing.ts`                       | HealPlan / HealApplyReport schema and safe apply    |
-| `src/lib/decision-ledger.ts`                    | Append-only decision records for `kimi-why`         |
+| `src/lib/decision-ledger.ts`                    | Append-only decision records and `DecisionLogger`   |
 | `scripts/check.ts`                              | CI gate runner with dry-run and fast modes          |
 | `test/kimi-doctor.smoke.test.ts`                | Smoke tests for all tools                           |
 | `CONTEXT.md`                                    | Auto-generated project context                      |
@@ -670,7 +671,8 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `kimi-capabilities`      | `--json`, `--trend`                                                                                               |
 | `kimi-contract`          | `sign <contract-file>`, `validate [contract-file or --all]`, `--json`, `--strict`                                 |
 | `kimi-heal`              | `plan`, `apply --dry-run`, `apply --yes --action <id>`, `clusters`, `match`                                       |
-| `kimi-why`               | `record`, `<topic>`, `--json`                                                                                     |
+| `kimi-decision`          | `log`, `why <decision-id>`, `record`, filters, `--json`                                                           |
+| `kimi-why`               | `<decision-id\|topic>`, `list`, `record`, `--json`                                                                |
 
 ---
 

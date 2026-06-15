@@ -145,7 +145,7 @@ traced, clustered, and converted into guarded repair plans.
 | Failure clustering | `kimi-heal clusters --json`                    | Groups `tool-failures.jsonl` records with trace evidence            |
 | Self-healing plans | `kimi-heal plan --json`                        | Produces safe/manual/blocked actions                                |
 | Guarded apply      | `kimi-heal apply --dry-run`, `--yes`           | Dry-run by default; `--yes` only runs `safeToAutoApply` actions     |
-| Decision ledger    | `kimi-why <topic> --json`                      | Reads `var/decision-ledger.jsonl`                                   |
+| Decision ledger    | `kimi-decision log`, `kimi-why <topic> --json` | Reads `var/decision-ledger.jsonl` with trace/cluster links          |
 
 Agents should prefer `kimi-heal plan --json` after a failure has surfaced.
 Manual or blocked actions are evidence, not permission to mutate. Use

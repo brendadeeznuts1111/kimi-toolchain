@@ -27,6 +27,7 @@ kimi-toolchain/
       ├── kimi-trace.ts
       ├── kimi-capabilities.ts
       ├── kimi-contract.ts
+      ├── kimi-decision.ts
       ├── kimi-heal.ts
       ├── kimi-why.ts
       └── unified-shell-bridge.ts
@@ -112,7 +113,8 @@ kimi-trace <trace-id> --json  # Causal graph and root-cause chain
 kimi-contract validate --json # Contract signature trust audit
 kimi-heal plan --json         # Safe/manual/blocked healing actions
 kimi-heal apply --dry-run     # Non-mutating apply preview
-kimi-why <topic> --json       # Explain prior decisions
+kimi-decision log --json      # List prior decisions
+kimi-why <topic> --json       # Explain prior decisions; alias for decision why
 ```
 
 ## Governance
@@ -150,7 +152,7 @@ threshold changes require justification linked to real ledger data.
 - `TEMPLATES.md` — scaffold templates and generated AGENTS.md reference
 - `skills/kimi-toolchain/SKILL.md` — agent workflow for diagnostics, traces, capability probing, self-healing, contracts, and governance
 - `src/lib/agent-context-quality.ts` — measurable contract for the 15% agent context and skill quality lift
-- `docs/agent-api.md` — Effect service descriptor for `KimiIntrospectionLive`, `KimiCapabilities`, `KimiTrace`, and `KimiContract`
+- `docs/agent-api.md` — Effect service descriptor for `KimiIntrospectionLive`, `KimiCapabilities`, `KimiTrace`, `KimiContract`, and `DecisionLoggerLive`
 
 ## Toolchain Context Map
 
@@ -160,10 +162,11 @@ threshold changes require justification linked to real ledger data.
 | `kimi-trace`        | Explain nested subprocess/hook/MCP failures     | `TraceGraph.rootCauseChain`, `nodes[].failures[]`                 |
 | `kimi-contract`     | Sign or validate declarative contracts          | `ContractSignatureEnvelope`, `ContractValidationResult`           |
 | `kimi-heal`         | Convert surfaced failures into repair options   | `HealPlan.actions[].safeToAutoApply`, `HealApplyReport`           |
-| `kimi-why`          | Explain previous toolchain decisions            | `DecisionRecord.rationale`, `DecisionRecord.outcome`              |
+| `kimi-decision`     | List or record previous toolchain decisions     | `DecisionRecord.decisionId`, `DecisionRecord.rationale`           |
+| `kimi-why`          | Explain previous toolchain decisions            | `DecisionRecord.rationale`, `DecisionExplanation.rootCauseChain`  |
 
 Agent default: run `kimi-capabilities --json` before deeper debugging, `kimi-trace <trace-id> --json` when a trace id is present, and `kimi-contract validate --json` before trusting changed provider or schema contracts.
-Effect-native agents can compose the same surface without subprocesses through `KimiIntrospectionLive` from `src/lib/effect/kimi-introspection-services.ts`.
+Effect-native agents can compose the same surface without subprocesses through `KimiIntrospectionLive` from `src/lib/effect/kimi-introspection-services.ts` and `DecisionLoggerLive` from `src/lib/decision-ledger.ts`.
 
 ## Generated Artifacts
 
@@ -179,7 +182,7 @@ Effect-native agents can compose the same surface without subprocesses through `
 - Capability snapshots: JSON reports under `~/.kimi-code/var/capabilities/` with `schemaVersion`, `readiness`, `readinessScore`, healthy/degraded/unavailable counts, and `checks[]` with `id`, `type`, `status`, `summary`, `latencyMs`, and optional details.
 - Contract signatures: sibling `<contract>.sig` files using Ed25519 `ContractSignatureEnvelope` values. Embedded `x-kimi-signature` fields are stripped from the normalized payload. Project trust roots live in `trusted-keys.json` as either a direct key map or `{ "keys": { "<key-id>": { "publicKey": "...", "roles": [] } } }`.
 - Heal plans: `HealPlan` / `HealApplyReport` values from `kimi-heal`; apply is dry-run by default and only runs `safeToAutoApply` actions with `--yes`.
-- Decision ledger: append-only `~/.kimi-code/var/decision-ledger.jsonl` records used by `kimi-why`.
+- Decision ledger: append-only `~/.kimi-code/var/decision-ledger.jsonl` records used by `kimi-decision` and `kimi-why`, with canonical `decisionId`, `actor`, `action`, `trigger`, optional `clusterId`, `rationale`, `alternativesConsidered`, `outcome`, trace fields, and parent/child decision links.
 
 ## Decisions
 

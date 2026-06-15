@@ -67,6 +67,8 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run heal` | (synced from package.json) |
 | `bun run why` | (synced from package.json) |
 
+| `bun run decision` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                           |
@@ -145,7 +147,8 @@ bun run kimi contract validate ./contracts/sample.contract.json --json | grep '"
 | `kimi-heal plan --json`         | Convert capabilities and failure clusters into an action plan |
 | `kimi-heal apply --dry-run`     | Preview safe healing actions without mutating state           |
 | `kimi-heal apply --yes`         | Apply only actions marked `safeToAutoApply`                   |
-| `kimi-why <topic> --json`       | Explain recorded decisions from the decision ledger           |
+| `kimi-decision log --json`      | List recorded decisions from the decision ledger              |
+| `kimi-why <topic> --json`       | Explain recorded decisions; alias for `kimi-decision why`     |
 
 Effect-native agents can skip subprocesses and compose the same surface through
 `KimiIntrospectionLive`; see [docs/agent-api.md](docs/agent-api.md).
@@ -161,7 +164,7 @@ Effect-native agents can skip subprocesses and compose the same surface through
 | `~/.kimi-code/var/capabilities/*.json`   | `CapabilityReport` snapshots with readiness score and per-check status |
 | `<contract>.sig`                         | Ed25519 `ContractSignatureEnvelope` for a normalized contract          |
 | `trusted-keys.json`                      | Project trusted public keys and optional roles                         |
-| `~/.kimi-code/var/decision-ledger.jsonl` | `DecisionRecord` entries for `kimi-why`                                |
+| `~/.kimi-code/var/decision-ledger.jsonl` | `DecisionRecord` entries for `kimi-decision` and `kimi-why`            |
 | `HealPlan` / `HealApplyReport`           | `kimi-heal` planning/apply output schemas                              |
 
 #### JSON Shapes

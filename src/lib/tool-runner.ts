@@ -243,7 +243,7 @@ export async function invokeTool(
   };
 
   try {
-    recordTraceEvent(
+    await recordTraceEvent(
       buildTraceEvent({
         traceId: parentTraceId,
         childTraceIds: [traceOverlay.KIMI_TRACE_ID],

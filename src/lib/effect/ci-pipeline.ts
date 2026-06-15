@@ -557,39 +557,44 @@ function runProcess(
         ),
         Effect.flatMap((exitCode) => {
           const durationMs = Date.now() - started;
-          try {
-            recordTraceEvent(
-              buildTraceEvent({
-                traceId: parentTraceId,
-                childTraceIds: [traceOverlay.KIMI_TRACE_ID],
-                eventType: "subprocess",
-                tool: step.id,
-                command: step.command,
-                cwd: env.repoRoot,
-                status: exitCode === 0 ? "ok" : "error",
-                startedAt,
-                endedAt: new Date().toISOString(),
-                durationMs,
-                ...(exitCode === 0 ? {} : { error: `exit ${exitCode}` }),
-              })
-            );
-          } catch {
-            // CI tracing is observational only.
-          }
-          return exitCode === 0
-            ? Effect.succeed({
-                id: step.id,
-                command: step.command,
-                durationMs,
-              })
-            : Effect.fail(
-                new PipelineStepFailed({
-                  step: step.id,
+          return Effect.promise(async () => {
+            try {
+              await recordTraceEvent(
+                buildTraceEvent({
+                  traceId: parentTraceId,
+                  childTraceIds: [traceOverlay.KIMI_TRACE_ID],
+                  eventType: "subprocess",
+                  tool: step.id,
                   command: step.command,
-                  exitCode,
+                  cwd: env.repoRoot,
+                  status: exitCode === 0 ? "ok" : "error",
+                  startedAt,
+                  endedAt: new Date().toISOString(),
                   durationMs,
+                  ...(exitCode === 0 ? {} : { error: `exit ${exitCode}` }),
                 })
               );
+            } catch {
+              // CI tracing is observational only.
+            }
+          }).pipe(
+            Effect.flatMap(() =>
+              exitCode === 0
+                ? Effect.succeed({
+                    id: step.id,
+                    command: step.command,
+                    durationMs,
+                  })
+                : Effect.fail(
+                    new PipelineStepFailed({
+                      step: step.id,
+                      command: step.command,
+                      exitCode,
+                      durationMs,
+                    })
+                  )
+            )
+          );
         })
       )
     );

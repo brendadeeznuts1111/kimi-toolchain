@@ -55,7 +55,7 @@ export async function runCli<A>(
   const exit = await Effect.runPromiseExit(runWithTelemetry(program, logger));
 
   if (Exit.isSuccess(exit)) {
-    recordCliTrace(options.toolName, trace, started, 0);
+    await recordCliTrace(options.toolName, trace, started, 0);
     return 0;
   }
 
@@ -65,14 +65,14 @@ export async function runCli<A>(
     if (error instanceof CliError) {
       logger.error(error.message);
       const exitCode = error.exitCode ?? 1;
-      recordCliTrace(options.toolName, trace, started, exitCode, error.message);
+      await recordCliTrace(options.toolName, trace, started, exitCode, error.message);
       return exitCode;
     }
     logger.error(error instanceof Error ? error.message : String(error));
-    recordCliTrace(options.toolName, trace, started, 1, String(error));
+    await recordCliTrace(options.toolName, trace, started, 1, String(error));
   } else {
     logger.error("Unexpected CLI failure");
-    recordCliTrace(options.toolName, trace, started, 1, "Unexpected CLI failure");
+    await recordCliTrace(options.toolName, trace, started, 1, "Unexpected CLI failure");
   }
   return 1;
 }
@@ -89,7 +89,7 @@ export async function runCliExit(
   const exit = await Effect.runPromiseExit(runWithTelemetry(program, logger));
 
   if (Exit.isSuccess(exit)) {
-    recordCliTrace(options.toolName, trace, started, exit.value);
+    await recordCliTrace(options.toolName, trace, started, exit.value);
     return exit.value;
   }
 
@@ -99,28 +99,28 @@ export async function runCliExit(
     if (error instanceof CliError) {
       logger.error(error.message);
       const exitCode = error.exitCode ?? 1;
-      recordCliTrace(options.toolName, trace, started, exitCode, error.message);
+      await recordCliTrace(options.toolName, trace, started, exitCode, error.message);
       return exitCode;
     }
     logger.error(error instanceof Error ? error.message : String(error));
-    recordCliTrace(options.toolName, trace, started, 1, String(error));
+    await recordCliTrace(options.toolName, trace, started, 1, String(error));
   } else {
     logger.error("Unexpected CLI failure");
-    recordCliTrace(options.toolName, trace, started, 1, "Unexpected CLI failure");
+    await recordCliTrace(options.toolName, trace, started, 1, "Unexpected CLI failure");
   }
   return 1;
 }
 
-function recordCliTrace(
+async function recordCliTrace(
   toolName: string,
   trace: ReturnType<typeof ensureProcessTrace>,
   started: number,
   exitCode: number,
   error?: string
-): void {
+): Promise<void> {
   const ended = Date.now();
   try {
-    recordTraceEvent(
+    await recordTraceEvent(
       buildTraceEvent({
         traceId: trace.traceId,
         parentTraceId: trace.parentTraceId,

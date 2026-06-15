@@ -7,7 +7,7 @@ import { decisionLedgerPath } from "./paths.ts";
 import { sha256String } from "./utils.ts";
 import { ensureProcessTrace } from "./effect/trace-context.ts";
 import { buildTraceGraph, type TraceGraph } from "./trace-ledger.ts";
-import { appendNdjsonRecord, readNdjsonFile, writeNdjsonFile } from "./ndjson.ts";
+import { appendNdjsonRecord, readNdjsonFile } from "./ndjson.ts";
 import {
   buildDecisionRationale,
   buildDecisionRationaleEffect,
@@ -303,7 +303,7 @@ export async function readDecisionLedger(
     .map(normalizeDecisionRecord)
     .filter((record): record is DecisionRecord => !!record)
     .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-  return withChildDecisionIds(records);
+  return withChildDecisionIds(applyQualityScoreUpdates(records));
 }
 
 export async function queryDecisionLedger(
@@ -787,19 +787,52 @@ export async function persistDecisionQualityScores(
 ): Promise<{ updated: number; total: number }> {
   if (updates.size === 0) return { updated: 0, total: 0 };
 
-  const rawRecords = await readNdjsonFile<unknown>(path);
+  const records = await readDecisionLedger(path);
+  const byId = new Map(records.map((record) => [record.decisionId, record]));
   let updated = 0;
-  const next = rawRecords.map((value) => {
-    if (!value || typeof value !== "object") return value;
-    const raw = value as Record<string, unknown>;
-    const decisionId = stringValue(raw.decisionId) ?? stringValue(raw.id);
-    if (!decisionId) return value;
-    const score = updates.get(decisionId);
-    if (score === undefined) return value;
+  for (const [decisionId, score] of updates.entries()) {
+    const record = byId.get(decisionId);
+    if (!record || record.qualityScore === score) continue;
+    await recordDecision(
+      {
+        key: `decision-score:${decisionId}`,
+        actor: "kimi",
+        action: "score decision quality",
+        trigger: `quality score recomputed for ${decisionId}`,
+        rationale: `Quality score set to ${score} based on current decision and failure evidence.`,
+        outcome: "success",
+        parentDecisionId: decisionId,
+        metadata: {
+          phase: "quality-score",
+          scoreUpdateFor: decisionId,
+          qualityScore: score,
+        },
+      },
+      path
+    );
     updated++;
-    return { ...raw, qualityScore: score };
-  });
+  }
+  return { updated, total: records.length };
+}
 
-  await writeNdjsonFile(path, next);
-  return { updated, total: rawRecords.length };
+function applyQualityScoreUpdates(records: DecisionRecord[]): DecisionRecord[] {
+  const scores = new Map<string, number>();
+  for (const record of records) {
+    const target = scoreUpdateTarget(record);
+    if (target && typeof record.metadata?.qualityScore === "number") {
+      scores.set(target, record.metadata.qualityScore);
+    }
+  }
+  return records
+    .filter((record) => !scoreUpdateTarget(record))
+    .map((record) => {
+      const score = scores.get(record.decisionId);
+      return score === undefined ? record : { ...record, qualityScore: score };
+    });
+}
+
+function scoreUpdateTarget(record: DecisionRecord): string | undefined {
+  return typeof record.metadata?.scoreUpdateFor === "string"
+    ? record.metadata.scoreUpdateFor
+    : undefined;
 }
