@@ -13,6 +13,7 @@ import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 import { snapshotDir } from "../lib/paths.ts";
 import { Snapshot, snapshotPath, saveSnapshot, listSnapshots } from "../lib/snapshot-core.ts";
+import { aggregateChecks } from "../lib/health-check.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -57,31 +58,6 @@ async function restoreSnapshot(id: string, projectDir: string) {
   }
 
   logger.info("Restore complete. Review changes before continuing.");
-}
-
-function emitDoctorReport(
-  checks: Array<{
-    name: string;
-    status: "ok" | "warn" | "error";
-    message: string;
-    fixable: boolean;
-  }>
-) {
-  logger.section("Snapshot Doctor");
-  let errors = 0;
-  let warns = 0;
-  let fixable = 0;
-  for (const c of checks) {
-    logger.check(c);
-    if (c.status === "error") errors++;
-    if (c.status === "warn") warns++;
-    if (c.fixable) fixable++;
-  }
-  logger.info(`${errors} error(s), ${warns} warning(s), ${fixable} fixable`);
-  if (fixable > 0) {
-    logger.info("Run 'kimi-snapshot fix' to repair");
-  }
-  return errors > 0 ? 1 : 0;
 }
 
 // ── Doctor ───────────────────────────────────────────────────────────
@@ -288,7 +264,12 @@ async function main(): Promise<number> {
     logger.info(`Removed ${removed} snapshots older than ${days} days`);
   } else if (command === "doctor") {
     const checks = await doctor();
-    return emitDoctorReport(checks);
+    const report = aggregateChecks("kimi-snapshot", checks);
+    logger.printHealthReport(report, "Snapshot Doctor");
+    if (report.fixableCount > 0) {
+      logger.info("Run 'kimi-snapshot fix' to repair");
+    }
+    return report.errorCount > 0 ? 1 : 0;
   } else if (command === "fix") {
     await fixSnapshots();
   } else {

@@ -42,7 +42,7 @@ import { isAgentContext } from "../lib/tool-runner.ts";
 import { resolveProjectRoot, getProjectName } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 import { createLogger } from "../lib/logger.ts";
-import type { HealthCheck } from "../lib/health-check.ts";
+import { aggregateChecks, type HealthCheck } from "../lib/health-check.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
 import { recordDoctorRun } from "../lib/doctor-runs.ts";
 import { Effect } from "effect";
@@ -88,11 +88,6 @@ function error(name: string, message: string): CheckResult {
   const check: HealthCheck = { name, status: "error", message, fixable: false };
   if (!JSON_OUT) logger.check(check);
   return check;
-}
-
-function section(title: string) {
-  if (JSON_OUT) return;
-  logger.section(title);
 }
 
 function recordMemoryCheck(r: MemoryCheckResult): CheckResult {
@@ -218,7 +213,7 @@ async function applySyncFix(projectRoot: string): Promise<void> {
   const wrapperScript = join(projectRoot, "scripts", "install-bin-wrappers.sh");
 
   if (existsSync(syncScript)) {
-    if (!JSON_OUT) console.log("  → Running bun run sync...");
+    if (!JSON_OUT) logger.line("  → Running bun run sync...");
     const proc = Bun.spawn(["bun", "run", syncScript], {
       cwd: projectRoot,
       stdout: JSON_OUT ? "pipe" : "inherit",
@@ -228,7 +223,7 @@ async function applySyncFix(projectRoot: string): Promise<void> {
   }
 
   if (existsSync(wrapperScript)) {
-    if (!JSON_OUT) console.log("  → Installing PATH wrappers...");
+    if (!JSON_OUT) logger.line("  → Installing PATH wrappers...");
     const proc = Bun.spawn(["bash", wrapperScript], {
       cwd: projectRoot,
       stdout: JSON_OUT ? "pipe" : "inherit",
@@ -344,28 +339,32 @@ async function applyWorkspaceFixes(projectRoot: string): Promise<void> {
     installWrappers: true,
   });
 
-  if (result.staleWrappersRemoved > 0) {
-    console.log(`  ✓ Removed ${result.staleWrappersRemoved} stale PATH wrapper(s)`);
-  }
-  if (result.snapshotsRemoved > 0) {
-    console.log(`  ✓ Removed ${result.snapshotsRemoved} orphaned snapshot(s)`);
-  }
-  if (result.syncRan) console.log("  ✓ Desktop sync completed");
-  if (result.wrappersInstalled) console.log("  ✓ PATH wrappers installed");
-  if (result.legacySymlinkRemoved) {
-    console.log("  ✓ Removed legacy kimicode-cli symlink");
-  }
-  if (result.cursorSlugsRemoved.length > 0) {
-    for (const slug of result.cursorSlugsRemoved) {
-      console.log(`  ✓ Removed Cursor slug ${slug}`);
+  if (!JSON_OUT) {
+    if (result.staleWrappersRemoved > 0) {
+      logger.info(`Removed ${result.staleWrappersRemoved} stale PATH wrapper(s)`);
     }
-    console.log("  → Quit Cursor fully, then open ~/kimi-toolchain/kimi-toolchain.code-workspace");
-  }
-  if (result.sessionsArchived.length > 0) {
-    console.log(`  ✓ Archived ${result.sessionsArchived.length} legacy Kimi session folder(s)`);
-  }
-  if (result.sessionIndexLinesPruned > 0) {
-    console.log(`  ✓ Pruned ${result.sessionIndexLinesPruned} legacy session_index line(s)`);
+    if (result.snapshotsRemoved > 0) {
+      logger.info(`Removed ${result.snapshotsRemoved} orphaned snapshot(s)`);
+    }
+    if (result.syncRan) logger.info("Desktop sync completed");
+    if (result.wrappersInstalled) logger.info("PATH wrappers installed");
+    if (result.legacySymlinkRemoved) {
+      logger.info("Removed legacy kimicode-cli symlink");
+    }
+    if (result.cursorSlugsRemoved.length > 0) {
+      for (const slug of result.cursorSlugsRemoved) {
+        logger.info(`Removed Cursor slug ${slug}`);
+      }
+      logger.line(
+        "  → Quit Cursor fully, then open ~/kimi-toolchain/kimi-toolchain.code-workspace"
+      );
+    }
+    if (result.sessionsArchived.length > 0) {
+      logger.info(`Archived ${result.sessionsArchived.length} legacy Kimi session folder(s)`);
+    }
+    if (result.sessionIndexLinesPruned > 0) {
+      logger.info(`Pruned ${result.sessionIndexLinesPruned} legacy session_index line(s)`);
+    }
   }
 }
 
@@ -376,44 +375,54 @@ async function applyMcpFixes(projectRoot: string): Promise<void> {
     home,
     isToolchain ? projectRoot : undefined
   );
-  if (userChanged) console.log("  ✓ MCP: unified-shell registered in ~/.kimi-code/mcp.json");
-  if (projectCreated) console.log("  ✓ MCP: created .kimi-code/mcp.json stub");
+  if (!JSON_OUT) {
+    if (userChanged) logger.info("MCP: unified-shell registered in ~/.kimi-code/mcp.json");
+    if (projectCreated) logger.info("MCP: created .kimi-code/mcp.json stub");
+  }
 }
 
 async function applyFixes(projectRoot: string): Promise<void> {
   const home = homeDir();
-  section("Auto-fix");
+  logger.section("Auto-fix");
   await applySyncFix(projectRoot);
   await applyMcpFixes(projectRoot);
 
   const configMerge = await mergeConfigTomlPermissions(home);
-  if (configMerge.created) {
-    console.log(`  ✓ Created ${configMerge.path} with permission snippet`);
-  } else if (configMerge.merged) {
-    console.log(`  ✓ Appended permission snippet to ${configMerge.path}`);
+  if (!JSON_OUT) {
+    if (configMerge.created) {
+      logger.info(`Created ${configMerge.path} with permission snippet`);
+    } else if (configMerge.merged) {
+      logger.info(`Appended permission snippet to ${configMerge.path}`);
+    }
   }
 
   const hookMerge = await mergeConfigTomlHooks(home);
-  if (hookMerge.created) {
-    console.log(`  ✓ Created ${hookMerge.path} with PostToolUseFailure hook`);
-  } else if (hookMerge.merged) {
-    console.log(`  ✓ Appended PostToolUseFailure hook to ${hookMerge.path}`);
+  if (!JSON_OUT) {
+    if (hookMerge.created) {
+      logger.info(`Created ${hookMerge.path} with PostToolUseFailure hook`);
+    } else if (hookMerge.merged) {
+      logger.info(`Appended PostToolUseFailure hook to ${hookMerge.path}`);
+    }
   }
 
   await applyWorkspaceFixes(projectRoot);
 
   const orphans = getOrphanProcesses();
-  if (orphans.length > 0) {
-    console.log(`  → Killing ${orphans.length} orphan process(es)...`);
-    const { killed } = await runOrphanKill(false);
-    console.log(`  ✓ Killed ${killed} orphan process(es)`);
-  } else {
-    console.log("  ✓ No orphan processes to kill");
+  if (!JSON_OUT) {
+    if (orphans.length > 0) {
+      logger.line(`  → Killing ${orphans.length} orphan process(es)...`);
+      const { killed } = await runOrphanKill(false);
+      logger.info(`Killed ${killed} orphan process(es)`);
+    } else {
+      logger.info("No orphan processes to kill");
+    }
+  } else if (orphans.length > 0) {
+    await runOrphanKill(false);
   }
 
   const govPath = join(TOOLS_DIR, "kimi-resource-governor.ts");
   if (existsSync(govPath)) {
-    console.log("  → Running kimi-resource-governor fix...");
+    if (!JSON_OUT) logger.line("  → Running kimi-resource-governor fix...");
     const proc = Bun.spawn(["bun", "run", govPath, "fix"], { stdout: "pipe", stderr: "pipe" });
     await proc.exited;
   }
@@ -426,7 +435,7 @@ async function applyFixes(projectRoot: string): Promise<void> {
         (c.status === "warn" || c.status === "error")
     );
     if (legacyIssue && !FIX_CURSOR) {
-      console.log("  → Legacy workspace audit:");
+      if (!JSON_OUT) logger.line("  → Legacy workspace audit:");
       await runWorkspaceCommand("cleanup", [], projectRoot, logger);
     }
   }
@@ -463,19 +472,15 @@ async function runWorkspaceMode(projectRoot: string): Promise<number> {
     return summary.blocking > 0 ? 1 : 0;
   }
 
-  section("Workspace Health");
-  for (const check of report.checks) {
-    const icon = check.status === "ok" ? "✓" : check.status === "warn" ? "⚠" : "✗";
-    console.log(`  ${icon} ${check.name}: ${check.message}`);
-  }
+  const healthReport = aggregateChecks("kimi-doctor", report.checks);
+  logger.printHealthReport(healthReport, "Workspace Health");
 
-  section("Summary");
   if (summary.blocking > 0) {
-    console.log(`  ✗ ${summary.blocking} workspace blocker(s)`);
+    logger.error(`${summary.blocking} workspace blocker(s)`);
   } else if (summary.warnings > 0) {
-    console.log(`  ⚠ ${summary.warnings} warning(s), no blockers`);
+    logger.warn(`${summary.warnings} warning(s), no blockers`);
   } else {
-    console.log("  ✓ Workspace healthy");
+    logger.info("Workspace healthy");
   }
 
   if (FIX) await applyWorkspaceFixes(projectRoot);
@@ -510,17 +515,21 @@ async function runEcosystemMode(projectRoot: string): Promise<number> {
     return report.blockers > 0 ? 1 : 0;
   }
 
-  section("Ecosystem Health");
-  for (const check of report.checks) {
-    const label = `${check.source}/${check.name}`;
-    if (check.status === "ok") console.log(`  ✓ ${label}: ${check.message}`);
-    else if (check.status === "warn") console.log(`  ⚠ ${label}: ${check.message}`);
-    else console.log(`  ✗ ${label}: ${check.message}`);
-  }
+  const checks: HealthCheck[] = report.checks.map((c) => ({
+    name: `${c.source}/${c.name}`,
+    status: c.status,
+    message: c.message,
+    fixable: c.fixable,
+  }));
+  const healthReport = aggregateChecks("kimi-doctor", checks);
+  logger.printHealthReport(healthReport, "Ecosystem Health");
+
   if (report.fixPlan.length > 0) {
-    console.log("");
-    console.log("  Fix plan:");
-    for (const step of report.fixPlan) console.log(`    → ${step}`);
+    logger.line("");
+    logger.line("  Fix plan:");
+    for (const step of report.fixPlan) {
+      logger.line(`    → ${step}`);
+    }
   }
 
   if (FIX) await applyFixes(projectRoot);
@@ -565,7 +574,7 @@ async function main(): Promise<number> {
   let syncReport: { synced: boolean; drifted: string[]; missing: string[] } | undefined;
   const home = homeDir();
 
-  section("System");
+  logger.section("System");
 
   try {
     const df = await $`df /`.quiet();
@@ -583,7 +592,7 @@ async function main(): Promise<number> {
     results.push(recordMemoryCheck(check));
   }
 
-  section("Kimi Products");
+  logger.section("Kimi Products");
 
   const kimiPath = Bun.which("kimi");
   if (kimiPath) {
@@ -599,7 +608,7 @@ async function main(): Promise<number> {
     );
   }
 
-  section("Kimi Code Config");
+  logger.section("Kimi Code Config");
   const officialKimiDoctorResult = await runOfficialKimiDoctor();
   if (!JSON_OUT) {
     logger.check({
@@ -614,15 +623,15 @@ async function main(): Promise<number> {
     logger.info("kimi doctor (official) ≠ kimi-doctor (toolchain)");
   }
 
-  section("Version Matrix");
+  logger.section("Version Matrix");
   results.push(...(await versionMatrix()));
 
-  section("Runtime Sync");
+  logger.section("Runtime Sync");
   const syncCheck = await checkDesktopSync(projectRoot);
   results.push(...syncCheck.results);
   syncReport = syncCheck.drift;
 
-  section("MCP");
+  logger.section("MCP");
   const mcpReport = await validateMcpConfig(home, projectRoot);
   const unifiedShellRegistered = mcpReport.checks.some(
     (c) => c.name === "unified-shell" && c.status === "ok"
@@ -633,7 +642,7 @@ async function main(): Promise<number> {
     else results.push(error(check.name, check.message));
   }
 
-  section("Kimi Permissions");
+  logger.section("Kimi Permissions");
   const configAudit = await auditKimiConfig(home, { unifiedShellRegistered });
   for (const check of configAudit) {
     if (check.status === "ok") results.push(ok(check.name, check.message));
@@ -641,13 +650,13 @@ async function main(): Promise<number> {
     else results.push(error(check.name, check.message));
   }
 
-  section("Code Quality");
+  logger.section("Code Quality");
   results.push(...(await runQualityChecks(projectRoot)));
   if (QUICK && !JSON_OUT) {
-    console.log("  ⚡ Quick mode — config checks only; run without --quick to execute gates.");
+    logger.line("  ⚡ Quick mode — config checks only; run without --quick to execute gates.");
   }
 
-  section("Toolchain Health");
+  logger.section("Toolchain Health");
 
   if (QUICK) {
     if (!JSON_OUT) {
@@ -689,7 +698,7 @@ async function main(): Promise<number> {
     );
   }
 
-  section("Path Alignment");
+  logger.section("Path Alignment");
   const pathReport = await auditWorkspaceHealth(projectRoot, {
     strictWorkspace: STRICT_WORKSPACE,
     home,
@@ -704,7 +713,7 @@ async function main(): Promise<number> {
     else results.push(error(check.name, check.message));
   }
 
-  section("Global Context");
+  logger.section("Global Context");
 
   results.push(
     existsSync(join(home, ".kimi-code", "AGENTS.md"))
@@ -722,7 +731,7 @@ async function main(): Promise<number> {
       : warn("TEMPLATES.md", "missing")
   );
 
-  section("PATH");
+  logger.section("PATH");
 
   const pathEntries = (Bun.env.PATH || "").split(":");
   const kimiIdx = pathEntries.findIndex((p) => p.includes("kimi-code"));
@@ -737,7 +746,7 @@ async function main(): Promise<number> {
     bunIdx === 1 ? ok("bun/bin", "#2 in PATH") : warn("bun/bin", `#${bunIdx + 1} in PATH`)
   );
 
-  section("Legacy");
+  logger.section("Legacy");
   results.push(
     existsSync(join(home, ".kimi"))
       ? warn("~/.kimi", "deprecated — run: kimi migrate")
@@ -768,7 +777,7 @@ async function main(): Promise<number> {
     }
   }
 
-  section("Node Ecosystem");
+  logger.section("Node Ecosystem");
 
   const bunPath = Bun.which("bun");
   results.push(bunPath ? ok("bun", Bun.version) : error("bun", "not found"));
@@ -784,7 +793,7 @@ async function main(): Promise<number> {
         results.push(ok(cmd, "installed"));
       }
     } else {
-      console.log(`  ○ ${cmd}: not installed`);
+      logger.line(`  ○ ${cmd}: not installed`);
     }
   }
 
@@ -840,7 +849,7 @@ async function main(): Promise<number> {
       )
     );
   } else {
-    section("Summary");
+    logger.section("Summary");
 
     if (blocking > 0) {
       logger.error(`${blocking} blocking issue(s) found`);

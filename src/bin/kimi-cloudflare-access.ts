@@ -18,6 +18,7 @@
  *   https://dash.cloudflare.com/profile/api-tokens.
  */
 
+import { aggregateChecks } from "../lib/health-check.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -446,16 +447,9 @@ async function main(): Promise<number> {
       });
       return errors > 0 ? 1 : 0;
     }
-    logger.section("Cloudflare Access Doctor");
-    let errors = 0;
-    for (const c of checks) {
-      logger.check(c);
-      if (c.status === "error") errors++;
-    }
-    const warns = checks.filter((c) => c.status === "warn").length;
-    const fixable = checks.filter((c) => c.fixable).length;
-    logger.info(`${errors} error(s), ${warns} warning(s), ${fixable} fixable`);
-    return errors > 0 ? 1 : 0;
+    const report = aggregateChecks("kimi-cloudflare-access", checks);
+    logger.printHealthReport(report, "Cloudflare Access Doctor");
+    return report.errorCount > 0 ? 1 : 0;
   }
 
   let accountId: string;

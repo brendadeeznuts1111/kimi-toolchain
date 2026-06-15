@@ -28,6 +28,7 @@ import {
 import { Effect } from "effect";
 import { getProjectName, runTool } from "../lib/utils.ts";
 import { ensureQualityTooling } from "../lib/scaffold-quality.ts";
+import { aggregateChecks } from "../lib/health-check.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -65,12 +66,12 @@ async function readScaffoldReadmeSyncScript(): Promise<string> {
   return Bun.file(join(TOOLCHAIN_ROOT, "src", "lib", "readme-sync.ts")).text();
 }
 
-function log(step: string, msg: string) {
-  console.log(`  → ${step}: ${msg}`);
+function stepLog(step: string, msg: string) {
+  logger.info(`  → ${step}: ${msg}`);
 }
 
-function dry(step: string, msg: string) {
-  console.log(`  [dry-run] ${step}: ${msg}`);
+function dryLog(step: string, msg: string) {
+  logger.info(`  [dry-run] ${step}: ${msg}`);
 }
 
 async function delegateTool(
@@ -80,18 +81,18 @@ async function delegateTool(
   dryRun: boolean
 ): Promise<void> {
   if (dryRun) {
-    dry(tool, `bun run ~/.kimi-code/tools/${tool}.ts ${args.join(" ")} (cwd=${project})`);
+    dryLog(tool, `bun run ~/.kimi-code/tools/${tool}.ts ${args.join(" ")} (cwd=${project})`);
     return;
   }
 
-  console.log(`  → ${tool} ${args.join(" ")}`);
+  logger.info(`  → ${tool} ${args.join(" ")}`);
   try {
     const result = await runTool(tool, args, { cwd: project });
     for (const line of result.stdout.split("\n")) {
-      if (line.trim()) console.log(`    ${line}`);
+      if (line.trim()) logger.line(`    ${line}`);
     }
     for (const line of result.stderr.split("\n")) {
-      if (line.trim()) console.log(`    ${line}`);
+      if (line.trim()) logger.line(`    ${line}`);
     }
     if (result.error) {
       logger.warn(`${tool}: ${result.error}, continuing...`);
@@ -105,30 +106,21 @@ async function delegateTool(
 
 async function writeFile(path: string, content: string, dryRun: boolean) {
   if (dryRun) {
-    dry("write", path);
+    dryLog("write", path);
     return;
   }
   await Bun.write(path, content);
 }
 
 async function runDoctor(projectDir: string): Promise<number> {
-  logger.section("kimi-fix Doctor");
   const checks = await checkScaffold(projectDir);
-  let errors = 0;
-  let warns = 0;
-
-  for (const check of checks) {
-    logger.check(check);
-    if (check.status === "error") errors++;
-    if (check.status === "warn") warns++;
-  }
-
-  if (errors > 0) {
-    logger.error(`${errors} error(s), ${warns} warning(s)`);
+  const report = aggregateChecks("kimi-fix", checks);
+  logger.printHealthReport(report);
+  if (report.errorCount > 0) {
     return 1;
   }
-  if (warns > 0) {
-    logger.warn(`${warns} warning(s) — run kimi-fix to repair`);
+  if (report.warnCount > 0) {
+    logger.info("Run 'kimi-fix' to repair");
     return 1;
   }
   logger.info("Scaffold complete");
@@ -140,7 +132,7 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
   logger.info(`Path: ${project}`);
 
   if (!existsSync(join(project, ".git"))) {
-    log("git", "initializing repo...");
+    stepLog("git", "initializing repo...");
     if (!dryRun) {
       await $`git -C ${project} init`.quiet();
       const userName = await $`git config --global user.name`.nothrow().quiet();
@@ -149,7 +141,7 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
       await $`git -C ${project} config user.email ${userEmail.stdout.toString().trim() || "dev@localhost"}`.quiet();
     }
   } else {
-    log("git", "repo already exists");
+    stepLog("git", "repo already exists");
   }
 
   await Promise.all([
@@ -162,7 +154,7 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
   const envExample = join(project, ".env.example");
   if (!existsSync(envExample)) {
     if (existsSync(join(project, ".env"))) {
-      log("env", "creating .env.example from .env...");
+      stepLog("env", "creating .env.example from .env...");
       if (!dryRun) {
         const envContent = await Bun.file(join(project, ".env")).text();
         const example = envContent
@@ -178,63 +170,63 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
         );
       }
     } else {
-      log("env", "creating .env.example template...");
+      stepLog("env", "creating .env.example template...");
       await writeFile(envExample, ENV_EXAMPLE, dryRun);
     }
   }
 
   if (!existsSync(join(project, ".gitignore"))) {
-    log("gitignore", "creating...");
+    stepLog("gitignore", "creating...");
     await writeFile(join(project, ".gitignore"), GITIGNORE, dryRun);
   }
 
   if (!existsSync(join(project, "bunfig.toml"))) {
-    log("bunfig", "creating...");
+    stepLog("bunfig", "creating...");
     await writeFile(join(project, "bunfig.toml"), BUNFIG, dryRun);
   }
 
   if (!existsSync(join(project, ".oxfmtrc.json"))) {
-    log("oxfmt", "creating .oxfmtrc.json...");
+    stepLog("oxfmt", "creating .oxfmtrc.json...");
     await writeFile(join(project, ".oxfmtrc.json"), OXFMTRC, dryRun);
   }
   if (!existsSync(join(project, ".oxlintrc.json"))) {
-    log("oxlint", "creating .oxlintrc.json...");
+    stepLog("oxlint", "creating .oxlintrc.json...");
     await writeFile(join(project, ".oxlintrc.json"), OXLINTRC, dryRun);
   }
 
   const agentsPath = join(project, "AGENTS.md");
   if (!existsSync(agentsPath)) {
-    log("agents", "creating AGENTS.md...");
+    stepLog("agents", "creating AGENTS.md...");
     await writeFile(agentsPath, buildAgentsMd(await getProjectName(project)), dryRun);
   }
 
   const kimiCodeDir = join(project, ".kimi-code");
   const projectMcp = join(kimiCodeDir, "mcp.json");
   if (!existsSync(projectMcp)) {
-    log("kimi-code", "creating .kimi-code/mcp.json...");
+    stepLog("kimi-code", "creating .kimi-code/mcp.json...");
     if (!dryRun) mkdirSync(kimiCodeDir, { recursive: true });
     await writeFile(projectMcp, projectMcpStub(), dryRun);
   }
   const kimiSkillsReadme = join(kimiCodeDir, "skills", "README.md");
   if (!existsSync(kimiSkillsReadme)) {
-    log("kimi-code", "creating .kimi-code/skills/README.md...");
+    stepLog("kimi-code", "creating .kimi-code/skills/README.md...");
     if (!dryRun) mkdirSync(join(kimiCodeDir, "skills"), { recursive: true });
     await writeFile(kimiSkillsReadme, KIMI_SKILLS_README, dryRun);
   }
 
   if (!existsSync(join(project, "dx.config.toml"))) {
-    log("dx", "creating dx.config.toml...");
+    stepLog("dx", "creating dx.config.toml...");
     await writeFile(join(project, "dx.config.toml"), DX_CONFIG, dryRun);
   }
 
   if (!existsSync(join(project, "tsconfig.json"))) {
-    log("tsconfig", "creating tsconfig.json...");
+    stepLog("tsconfig", "creating tsconfig.json...");
     await writeFile(join(project, "tsconfig.json"), TSCONFIG, dryRun);
   }
 
   const globalsPath = join(project, "src", "bun-globals.d.ts");
   if (!existsSync(globalsPath)) {
-    log("types", "creating src/bun-globals.d.ts...");
+    stepLog("types", "creating src/bun-globals.d.ts...");
     if (!dryRun) mkdirSync(join(project, "src"), { recursive: true });
     await writeFile(globalsPath, BUN_GLOBALS, dryRun);
   }
@@ -249,16 +241,16 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
   for (const { name, content } of scriptFiles) {
     const scriptPath = join(project, "scripts", name);
     if (!existsSync(scriptPath)) {
-      log("scripts", `creating scripts/${name}...`);
+      stepLog("scripts", `creating scripts/${name}...`);
       if (!dryRun) mkdirSync(join(project, "scripts"), { recursive: true });
       await writeFile(scriptPath, await content(), dryRun);
     }
   }
 
-  await ensureQualityTooling(project, dryRun, log);
+  await ensureQualityTooling(project, dryRun, stepLog);
 
   if (!existsSync(join(project, ".github", "workflows", "ci.yml"))) {
-    log("ci", "creating CI template...");
+    stepLog("ci", "creating CI template...");
     if (!dryRun) mkdirSync(join(project, ".github", "workflows"), { recursive: true });
     await writeFile(join(project, ".github", "workflows", "ci.yml"), CI_WORKFLOW, dryRun);
   }
