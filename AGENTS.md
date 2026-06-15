@@ -370,39 +370,62 @@ When working on this codebase, agents should:
 | -------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------- |
 | **Permission mode**  | `auto` for safe paths (tests, docs), `manual` for destructive ops        | Prevents accidental deletes while allowing fast iteration |
 | **Background tasks** | Keep `keep_alive_on_exit = false` unless explicitly daemonizing          | Avoids orphan processes                                   |
-| **Loop control**     | Leave `max_steps_per_turn` unset (unlimited) for complex refactors       | Context compaction handles memory                         |
+| **Loop control**     | `max_steps_per_turn` is **unset** in `config.toml` (unlimited)           | Context compaction + step-budget discipline handle memory |
 | **MCP timeout**      | Default 30s is sufficient; increase only for long-running Cloudflare ops | Most tools complete in < 5s                               |
 | **Session memory**   | Use `kimi-memory store` for cross-session context, not file hacks        | Proper SQLite persistence                                 |
 
+> **Note on step limits:** The live `~/.kimi-code/config.toml` has `max_steps_per_turn` commented out (unlimited). If your local config still has it set to 30, run `kimi-doctor --fix` to align with the recommended defaults. The toolchain now auto-detects agent context and reduces tool timeouts to 15s.
+
 **Before starting a long session:**
 
-1. Run `kimi-doctor --quick` to check memory pressure and orphan count
+1. Run `kimi-doctor --quick` to check memory pressure, orphan count, and loop-control config
 2. Run `kimi-orphan-kill --dry-run` if orphans detected
 3. Ensure R-Score is ≥ B (run `kimi-governance score`)
 
-**During a session (to avoid `max_steps_exceeded`):**
+**During a session (step-budget discipline):**
 
 | Instead of                                                    | Use                                                          | Why                                                            |
 | ------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------- |
-| `bun test` (all 322 tests)                                    | `bun run test:fast` (127 unit tests, ~500ms)                 | Smoke tests are subprocess-heavy and not needed for most edits |
-| `bun run check` (4 gates)                                     | `bun run check:fast` (fast mode)                             | Runs only unit tests with 100ms timeout                        |
+| `bun test` (all ~315 tests, ~15s)                             | `bun run test:fast` (~292 unit tests, ~2s)                   | Smoke tests are subprocess-heavy and not needed for most edits |
+| `bun run check` (4 gates, ~30s)                               | `bun run check:fast` (fast mode, ~3s)                        | Runs only unit tests with 500ms timeout                        |
 | `bun run format` then `bun run lint` then `bun run typecheck` | `bun run check:fast`                                         | Bundles all three; agents should not run them separately       |
 | Re-running full suite after every edit                        | Target specific test files: `bun test test/lib.unit.test.ts` | 1-2 steps instead of 5-10                                      |
 | `bun run bench` (benchmarks)                                  | Only run when optimizing performance                         | Benchmarks are for regression detection, not validation        |
+| Running `kimi-doctor` without `--quick`                       | `kimi-doctor --quick`                                        | Full doctor runs 10 parallel tools with 120s timeouts each     |
+| Running `kimi-debug wire` without path                        | `kimi-debug wire` (now auto-discovers latest session)        | Previously hardcoded to a stale session                        |
 
-**Agent workflow for validation:**
+**Agent workflow for validation (batching strategy):**
 
-1. Make all edits first (batch them)
-2. Run `bun run check:fast` (1 step, ~2s)
+1. **Batch all edits first** (1 step per file, up to 5-8 files)
+2. Run `bun run check:fast` (1 step, ~2-3s)
 3. If failures: read the specific failing test file (1 step), read source (1 step), edit (1 step)
 4. Re-run `bun run check:fast` (1 step)
-5. Total: 4-5 steps per iteration, well under the 30-step limit
+5. **Total: 4-6 steps per iteration**
+6. After 3-4 iterations or when confident, run `bun run check` (full validation, 1 step)
+
+> **Recovery if you hit `max_steps_exceeded`:**
+>
+> 1. Run `kimi-debug analyze "max_steps_exceeded"` for immediate guidance
+> 2. Switch to `bun run check:fast` instead of full suite
+> 3. Batch remaining edits without running tests between each one
+> 4. Run only targeted tests: `bun test <specific-file>`
 
 **After finishing a session:**
 
 1. Run `bun run check` (full validation: format + lint + typecheck + all tests)
 2. Commit with conventional commit format
 3. Run `bun run sync` before push (pre-push hook enforces this)
+
+### Step Budget Reference
+
+| Step Range | Action Pattern                                |
+| ---------- | --------------------------------------------- |
+| 1-2        | Batch edits for 1 file                        |
+| 3-4        | Run `check:fast` + read failure               |
+| 5-6        | Read source + edit + re-run                   |
+| 7-10       | Multi-file refactor batch                     |
+| 11-15      | Full `bun run check` + commit                 |
+| 16+        | Reserve for complex validation or smoke tests |
 
 ### Commit Convention
 

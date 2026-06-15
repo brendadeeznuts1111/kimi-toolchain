@@ -10,8 +10,18 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { desktopRoot } from "./paths.ts";
 
-const DEFAULT_TOOL_TIMEOUT_MS = 60_000;
+const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
+const AGENT_TOOL_TIMEOUT_MS = 15_000;
 const DEFAULT_GRACE_PERIOD_MS = 5_000;
+
+/** Detect if running inside an agent session (Kimi Code loop). */
+function isAgentContext(): boolean {
+  return !!(Bun.env.KIMI_AGENT_SESSION || Bun.env.KIMI_CODE_SESSION || Bun.env.CI);
+}
+
+export function defaultToolTimeoutMs(): number {
+  return isAgentContext() ? AGENT_TOOL_TIMEOUT_MS : DEFAULT_TOOL_TIMEOUT_MS;
+}
 
 export interface ToolInvocationOptions {
   cwd?: string;
@@ -45,7 +55,7 @@ export async function invokeTool(
   options: ToolInvocationOptions = {}
 ): Promise<ToolInvocation> {
   const cwd = options.cwd || Bun.cwd;
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TOOL_TIMEOUT_MS;
+  const timeoutMs = options.timeoutMs ?? defaultToolTimeoutMs();
   const gracePeriodMs = options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
   const start = performance.now();
 

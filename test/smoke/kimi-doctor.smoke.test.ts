@@ -17,14 +17,22 @@ const CLEANUP_LEGACY = join(REPO_ROOT, "src/bin/kimi-cleanup-legacy.ts");
 
 async function runTool(
   path: string,
-  args: string[] = []
+  args: string[] = [],
+  timeoutMs: number = 15_000
 ): Promise<{ stdout: string; exitCode: number }> {
   const proc = Bun.spawn(["bun", "run", path, ...args], {
     stdout: "pipe",
     stderr: "pipe",
     env: { ...Bun.env, HOME: REAL_HOME },
   });
+
+  const timer = setTimeout(() => {
+    proc.kill("SIGTERM");
+    setTimeout(() => proc.kill("SIGKILL"), 3000);
+  }, timeoutMs);
+
   const exitCode = await proc.exited;
+  clearTimeout(timer);
   const stdout = await Bun.readableStreamToText(proc.stdout);
   const stderr = await Bun.readableStreamToText(proc.stderr);
   return { stdout: stdout + stderr, exitCode };

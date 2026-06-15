@@ -161,6 +161,38 @@ categories:
       - regex: "lockfile"
       - regex: "bun\\.lock"
 
+  - id: max_steps_exceeded
+    name: Max steps per turn exceeded
+    description: Agent reached the max_steps_per_turn limit before completing the task. Common causes — running full test suites in one turn, too many file reads/edits without batching, or long-running subprocesses. Recovery — break work into smaller chunks, use `bun run check:fast` instead of full suite, and batch edits before testing.
+    severity: error
+    expected: false
+    patterns:
+      - regex: "max_steps_exceeded"
+      - regex: "max steps exceeded"
+      - regex: "step limit reached"
+      - regex: "loop limit exceeded"
+      - regex: "Turn exceeded maxSteps"
+
+  - id: context_limit
+    name: Context window limit
+    description: Agent context window approached or exceeded model capacity. Compaction may have failed to recover enough tokens. Recovery — reduce output verbosity, avoid reading large files in full, and use targeted reads with line offsets.
+    severity: error
+    expected: false
+    patterns:
+      - regex: "context window"
+      - regex: "reserved_context_size"
+      - regex: "compaction failed"
+
+  - id: timeout_hang
+    name: Subprocess timeout hang
+    description: A spawned subprocess did not complete within its timeout and was killed. May indicate an infinite loop or deadlocked process. Recovery — check for orphan processes with `kimi-orphan-kill --dry-run`.
+    severity: warn
+    expected: false
+    patterns:
+      - regex: "Tool timed out after"
+      - regex: "SIGTERM sent"
+      - regex: "SIGKILL after"
+
   - id: unknown
     name: Unknown
     description: No known pattern matched.

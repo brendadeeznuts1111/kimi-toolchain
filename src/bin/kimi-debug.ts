@@ -97,6 +97,18 @@ async function getLastCommitMessage(projectDir: string): Promise<string> {
 
 const ERROR_PATTERNS = [
   {
+    pattern: /max_steps_exceeded|max steps exceeded|step limit reached|Turn exceeded maxSteps/,
+    suggestion:
+      "Agent hit step limit — break work into smaller chunks. Use `bun run check:fast` instead of full suite, batch edits before testing, and avoid long-running subprocesses in a single turn.",
+    autoFix: "bun run check:fast",
+  },
+  {
+    pattern: /Tool timed out after|SIGTERM sent|SIGKILL after/,
+    suggestion:
+      "Subprocess hung — check for orphan processes with `kimi-orphan-kill --dry-run`, then reduce tool timeouts or run with `--quick`.",
+    autoFix: "kimi-orphan-kill --dry-run",
+  },
+  {
     pattern: /Cannot find module|Module not found|ENOENT/,
     suggestion: "Missing dependency — run 'bun install'",
     autoFix: "bun install",
@@ -139,6 +151,33 @@ const ERROR_PATTERNS = [
     autoFix: "bun install",
   },
 ];
+
+// ── Wire Log Discovery ───────────────────────────────────────────────
+
+/** Find the most recent wire.jsonl across all sessions. */
+function findLatestWireLog(home: string = homeDir()): string | null {
+  const sessionsDir = join(home, ".kimi-code", "sessions");
+  if (!existsSync(sessionsDir)) return null;
+
+  let latestWire: string | null = null;
+  let latestMtime = 0;
+
+  for (const workspace of require("fs").readdirSync(sessionsDir, { withFileTypes: true })) {
+    if (!workspace.isDirectory()) continue;
+    const workspacePath = join(sessionsDir, workspace.name);
+    for (const session of require("fs").readdirSync(workspacePath, { withFileTypes: true })) {
+      if (!session.isDirectory()) continue;
+      const wirePath = join(workspacePath, session.name, "agents", "main", "wire.jsonl");
+      if (!existsSync(wirePath)) continue;
+      const mtime = require("fs").statSync(wirePath).mtimeMs;
+      if (mtime > latestMtime) {
+        latestMtime = mtime;
+        latestWire = wirePath;
+      }
+    }
+  }
+  return latestWire;
+}
 
 function analyzeError(errorText: string): Array<{ suggestion: string; autoFix?: string }> {
   const results: Array<{ suggestion: string; autoFix?: string }> = [];
@@ -621,18 +660,11 @@ async function main() {
     }
     await analyzeWithTaxonomy(errorText);
   } else if (command === "wire") {
-    const wirePath =
-      args[1] ||
-      join(
-        homeDir(),
-        ".kimi-code",
-        "sessions",
-        "wd_nolarose_b0130204790b",
-        "session_17df1550-19a2-4594-9c37-020ffc7b3f63",
-        "agents",
-        "main",
-        "wire.jsonl"
-      );
+    const wirePath = args[1] || findLatestWireLog();
+    if (!wirePath) {
+      console.log("No wire.jsonl found — specify a path or ensure a Kimi Code session exists.");
+      process.exit(1);
+    }
     await parseWireLog(wirePath);
   } else {
     console.log("Commands:");

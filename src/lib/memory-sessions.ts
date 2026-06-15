@@ -436,7 +436,7 @@ export function getStats(): {
 
 let _autoSaveInterval: ReturnType<typeof setInterval> | null = null;
 
-export async function startAutoSave(projectPath: string, intervalMs = 30000) {
+export async function startAutoSave(projectPath: string, intervalMs = 120000) {
   if (_autoSaveInterval) clearInterval(_autoSaveInterval);
 
   const project = await getProjectName(projectPath);

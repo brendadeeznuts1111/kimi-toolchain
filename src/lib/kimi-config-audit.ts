@@ -168,6 +168,62 @@ export async function auditKimiConfig(
     });
   }
 
+  // ── Loop control audit ───────────────────────────────────────────────
+  const loopMatch = text.match(/\[loop_control\]\s*\n([\s\S]*?)(?=\n\[|\n*$)/);
+  if (loopMatch) {
+    const hasMaxSteps = loopMatch[1].includes("max_steps_per_turn");
+    const maxStepsMatch = loopMatch[1].match(/max_steps_per_turn\s*=\s*(\d+)/);
+    const maxSteps = maxStepsMatch ? parseInt(maxStepsMatch[1], 10) : undefined;
+
+    if (hasMaxSteps && maxSteps !== undefined && maxSteps < 50) {
+      checks.push({
+        name: "loop-control",
+        status: "warn",
+        message: `max_steps_per_turn=${maxSteps} is low — AGENTS.md recommends unset for complex refactors; consider commenting out or raising to 100+`,
+        fixable: true,
+      });
+    } else if (hasMaxSteps && maxSteps !== undefined && maxSteps >= 50) {
+      checks.push({
+        name: "loop-control",
+        status: "ok",
+        message: `max_steps_per_turn=${maxSteps} (adequate)`,
+        fixable: false,
+      });
+    } else {
+      checks.push({
+        name: "loop-control",
+        status: "ok",
+        message: "max_steps_per_turn unset (recommended — unlimited for complex refactors)",
+        fixable: false,
+      });
+    }
+
+    const reservedMatch = loopMatch[1].match(/reserved_context_size\s*=\s*(\d+)/);
+    const reserved = reservedMatch ? parseInt(reservedMatch[1], 10) : undefined;
+    if (reserved !== undefined && reserved < 20000) {
+      checks.push({
+        name: "context-reserve",
+        status: "warn",
+        message: `reserved_context_size=${reserved} is low — compaction triggers too late; recommend 40000+`,
+        fixable: true,
+      });
+    } else if (reserved !== undefined) {
+      checks.push({
+        name: "context-reserve",
+        status: "ok",
+        message: `reserved_context_size=${reserved}`,
+        fixable: false,
+      });
+    }
+  } else {
+    checks.push({
+      name: "loop-control",
+      status: "warn",
+      message: "no [loop_control] section found in config.toml",
+      fixable: false,
+    });
+  }
+
   return checks;
 }
 
