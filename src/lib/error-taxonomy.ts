@@ -9,6 +9,7 @@ import { join } from "path";
 import yaml from "js-yaml";
 
 import { homeDir } from "./paths.ts";
+import { sha256String } from "./utils.ts";
 
 export interface TaxonomyPattern {
   regex: string;
@@ -155,6 +156,10 @@ export interface ClassifiedFailure {
   timestamp: string;
   toolName: string;
   output: string;
+  /** Stable id for clustering and suggest lookups. */
+  errorId?: string;
+  /** Assigned by semantic clustering; optional for backward compatibility. */
+  clusterId?: string;
   /** Canonical taxonomy category id (preferred). */
   taxonomyId: string;
   /** @deprecated Use taxonomyId — kept for one release for JSONL readers. */
@@ -169,6 +174,8 @@ export interface ClassifiedFailure {
   childTraceIds?: string[];
   suggestion?: string;
   autoFix?: string;
+  /** Base64-encoded Float32 embedding (384-dim). */
+  embedding?: string;
   context?: {
     stack?: string;
     inputs?: Record<string, unknown>;
@@ -201,9 +208,10 @@ export function buildClassifiedFailure(
   }
 ): ClassifiedFailure {
   const taxonomyId = match.category.id;
-  return {
+  const timestamp = new Date().toISOString();
+  const record: ClassifiedFailure = {
     schemaVersion: FAILURE_SCHEMA_VERSION,
-    timestamp: new Date().toISOString(),
+    timestamp,
     toolName,
     output: output.slice(0, 2000),
     taxonomyId,
@@ -220,6 +228,8 @@ export function buildClassifiedFailure(
     childTraceIds: extras?.childTraceIds,
     context: extras?.context,
   };
+  record.errorId = `error-${sha256String(`${timestamp}|${toolName}|${output.slice(0, 512)}`).slice(0, 12)}`;
+  return record;
 }
 
 function formatFailureValue(value: unknown): string {

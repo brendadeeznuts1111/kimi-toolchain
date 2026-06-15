@@ -6,12 +6,7 @@
 import { Effect } from "effect";
 import { createLogger } from "../lib/logger.ts";
 import { clusterFailureLedger, matchErrorToClusters } from "../lib/error-clustering.ts";
-import {
-  applyHealPlan,
-  buildHealPlan,
-  type HealApplyReport,
-  type HealPlan,
-} from "../lib/self-healing.ts";
+import { buildHealPlan, type HealPlan } from "../lib/self-healing.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
@@ -23,16 +18,14 @@ function emitJson(value: unknown): void {
 }
 
 function printHelp(): void {
-  logger.line(
-    "Usage: kimi-heal <plan|apply|clusters|match> [text] [--json] [--threshold <0..1>] [--yes]"
-  );
+  logger.line("Usage: kimi-heal <plan|clusters|match> [text] [--json] [--threshold <0..1>]");
   logger.line("");
   logger.line("Examples:");
   logger.line("  kimi-heal plan --json");
-  logger.line("  kimi-heal apply --dry-run");
-  logger.line("  kimi-heal apply --yes --action capability:mcp-config:doctor-fix");
   logger.line("  kimi-heal clusters --json");
   logger.line('  kimi-heal match "Tool timed out after 30000ms"');
+  logger.line("");
+  logger.line("For clustering output, prefer: kimi-error cluster --json");
 }
 
 function argValue(flag: string): string | null {
@@ -47,14 +40,6 @@ function threshold(): number | undefined {
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1) return undefined;
   return parsed;
-}
-
-function argValues(flag: string): string[] {
-  const values: string[] = [];
-  for (let index = 0; index < Bun.argv.length; index++) {
-    if (Bun.argv[index] === flag && Bun.argv[index + 1]) values.push(Bun.argv[index + 1]);
-  }
-  return values;
 }
 
 async function main(): Promise<number> {
@@ -74,24 +59,15 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  if (command === "apply") {
-    const projectRoot = await resolveProjectRoot();
-    const plan = await buildHealPlan(projectRoot, { threshold: threshold() });
-    const report = await applyHealPlan(plan, {
-      projectRoot,
-      yes: Bun.argv.includes("--yes"),
-      dryRun: Bun.argv.includes("--dry-run") || !Bun.argv.includes("--yes"),
-      actionIds: argValues("--action"),
-    });
-    if (json) emitJson(report);
-    else printApplyReport(report);
-    return report.summary.failed > 0 ? 1 : 0;
-  }
-
   if (command === "clusters") {
     const report = await clusterFailureLedger({ threshold: threshold() });
-    if (json) emitJson(report);
-    else printClusters(report);
+    if (json) emitJson(report.summaries);
+    else {
+      logger.banner("Kimi Heal Clusters");
+      for (const row of report.summaries) {
+        logger.info(`${row.clusterId}: ${row.count} failure(s), playbook=${row.hasPlaybook}`);
+      }
+    }
     return 0;
   }
 
@@ -108,10 +84,9 @@ async function main(): Promise<number> {
     if (json) emitJson({ query: text, match });
     else if (match) {
       logger.info(
-        `${match.cluster.id}: ${match.cluster.label} (${Math.round(match.confidence * 100)}% confidence)`
+        `${match.cluster.id}: ${match.cluster.label} (${Math.round(match.confidence * 100)}%)`
       );
       if (match.cluster.suggestedFix) logger.info(match.cluster.suggestedFix);
-      if (match.cluster.autoFix) logger.info(`autoFix: ${match.cluster.autoFix}`);
     } else {
       logger.warn("No similar cluster found");
     }
@@ -121,21 +96,6 @@ async function main(): Promise<number> {
   throw new CliError({ message: `Unknown heal command: ${command}` });
 }
 
-function printClusters(report: Awaited<ReturnType<typeof clusterFailureLedger>>): void {
-  logger.banner("Kimi Heal");
-  if (report.clusters.length === 0) {
-    logger.warn("No failure ledger records found.");
-    return;
-  }
-  for (const cluster of report.clusters) {
-    logger.info(
-      `${cluster.id}: ${cluster.label} — ${cluster.size} failure(s), ${Math.round(cluster.confidence * 100)}% confidence`
-    );
-    if (cluster.suggestedFix) logger.line(`    fix: ${cluster.suggestedFix}`);
-    if (cluster.autoFix) logger.line(`    autoFix: ${cluster.autoFix}`);
-  }
-}
-
 function printPlan(plan: HealPlan): void {
   logger.banner("Kimi Heal Plan");
   if (plan.actions.length === 0) {
@@ -143,34 +103,14 @@ function printPlan(plan: HealPlan): void {
     return;
   }
   logger.info(
-    `${plan.summary.autoApplicable} safe auto-apply, ${plan.summary.manual} manual, ${plan.summary.blocked} blocked`
+    `${plan.summary.autoApplicable} auto, ${plan.summary.manual} manual, ${plan.summary.blocked} blocked`
   );
   for (const action of plan.actions) {
-    const mode =
-      action.status === "blocked" ? "blocked" : action.safeToAutoApply ? "auto" : "manual";
-    logger.line(
-      `  [${mode}] ${action.id}: ${action.title} (${Math.round(action.confidence * 100)}%)`
-    );
+    const mode = action.safeToAutoApply ? "auto" : action.status;
+    logger.line(`  [${mode}] ${action.id}: ${action.title}`);
     logger.line(`      ${action.reason}`);
     if (action.command) logger.line(`      command: ${action.command.join(" ")}`);
   }
-}
-
-function printApplyReport(report: HealApplyReport): void {
-  logger.banner(report.dryRun ? "Kimi Heal Apply — Dry Run" : "Kimi Heal Apply");
-  if (report.applied.length === 0) {
-    logger.info("No selected actions.");
-    return;
-  }
-  for (const item of report.applied) {
-    logger.line(`  [${item.status}] ${item.id}: ${item.title}`);
-    if (item.command) logger.line(`      command: ${item.command.join(" ")}`);
-    if (item.reason) logger.line(`      ${item.reason}`);
-    if (typeof item.exitCode === "number") logger.line(`      exitCode: ${item.exitCode}`);
-  }
-  logger.info(
-    `${report.summary.applied} applied, ${report.summary.failed} failed, ${report.summary.skipped} skipped`
-  );
 }
 
 const exitCode = await runCliExit(

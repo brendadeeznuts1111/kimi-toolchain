@@ -10,7 +10,7 @@ describe("decision-ledger", () => {
     const path = join(dir, "decision-ledger.jsonl");
     mkdirSync(dir, { recursive: true });
     try {
-      const record = recordDecision(
+      const record = await recordDecision(
         {
           key: "typecheck-strict",
           action: "enable strict typecheck",

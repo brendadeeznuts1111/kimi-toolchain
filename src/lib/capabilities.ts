@@ -36,6 +36,7 @@ export interface CapabilityCheck {
 export interface CapabilityReport {
   schemaVersion: 1;
   generatedAt: string;
+  readiness: number;
   readinessScore: number;
   healthy: number;
   degraded: number;
@@ -165,10 +166,12 @@ function buildCapabilityReport(checks: CapabilityResult[]): CapabilityReport {
   const healthy = checks.filter((check) => check.status === "healthy").length;
   const degraded = checks.filter((check) => check.status === "degraded").length;
   const unavailable = checks.filter((check) => check.status === "unavailable").length;
+  const readinessScore = checks.length === 0 ? 100 : Math.round((healthy / checks.length) * 100);
   return {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
-    readinessScore: checks.length === 0 ? 100 : Math.round((healthy / checks.length) * 100),
+    readiness: readinessScore,
+    readinessScore,
     healthy,
     degraded,
     unavailable,

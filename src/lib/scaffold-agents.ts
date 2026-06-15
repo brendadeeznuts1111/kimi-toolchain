@@ -55,6 +55,16 @@ One-line description of what this does.
 - Keep background keep-alive off unless intentionally daemonizing
 - Batch related edits, then run targeted tests before broad gates
 
+## Agent Operating Loop
+
+| Step | Action |
+| ---- | ------ |
+| Scope | Read \`./CODE_REFERENCES.md\`, identify the closest existing pattern, and name the smallest change slice. |
+| Implement | Keep parsing, mutation, subprocess, and telemetry boundaries typed and local to established modules. |
+| Guard | Do not leave root-cause fixes as one-off patches; add a detector, regression test, or stale-pattern scan. |
+| Validate | Run targeted tests first, then \`bun run check:fast\`; reserve full checks for handoff or high-risk changes. |
+| Handoff | Check \`git diff --cached --stat\` after index-touching commands and sync generated runtime files when needed. |
+
 ## Commands
 
 \`\`\`bash

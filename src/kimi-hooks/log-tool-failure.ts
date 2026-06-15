@@ -7,7 +7,7 @@
  * ~/.kimi-code/var/tool-failures.jsonl.
  */
 
-import { appendFileSync, existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 import { safeParse } from "../lib/utils.ts";
 import {
   buildClassifiedFailure,
@@ -22,6 +22,9 @@ import {
   TRACE_STARTED_AT_ENV,
 } from "../lib/effect/trace-context.ts";
 import { buildTraceEvent, recordTraceEvent } from "../lib/trace-ledger.ts";
+import { appendFailureRecord } from "../lib/failure-ledger.ts";
+import { embedFailure, encodeEmbedding } from "../lib/error-embedding.ts";
+import { readTraceEvents } from "../lib/trace-ledger.ts";
 
 interface HookPayload {
   hook_event_name?: string;
@@ -48,8 +51,7 @@ async function main() {
   const text = new TextDecoder().decode(combined).trim();
   if (!text) return;
 
-  let payload: HookPayload | null = null;
-  payload = safeParse(text, null as HookPayload | null);
+  const payload = safeParse(text, null as HookPayload | null);
   if (!payload) return;
 
   const toolName = payload.tool_name || "unknown";
@@ -74,14 +76,19 @@ async function main() {
     },
   });
 
+  const traces = await readTraceEvents();
+  const { vector } = embedFailure(record, traces);
+  record.embedding = encodeEmbedding(vector);
+
   const logPath = failureLedgerPath();
   const varDir = logPath.slice(0, logPath.lastIndexOf("/"));
   if (!existsSync(varDir)) mkdirSync(varDir, { recursive: true });
 
-  appendFileSync(logPath, JSON.stringify(record) + "\n");
+  await appendFailureRecord(record, logPath);
+
   if (traceId) {
     const startedAt = Bun.env[TRACE_STARTED_AT_ENV] || record.timestamp;
-    recordTraceEvent(
+    await recordTraceEvent(
       buildTraceEvent({
         traceId,
         parentTraceId,
@@ -96,6 +103,7 @@ async function main() {
         metadata: {
           taxonomyId: record.taxonomyId,
           hookEventName: payload.hook_event_name,
+          errorId: record.errorId,
         },
       })
     );

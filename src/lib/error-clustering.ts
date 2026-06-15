@@ -1,27 +1,43 @@
 /**
- * Local semantic-ish clustering for failure-ledger records.
+ * Semantic error clustering pipeline (Effect-TS).
  *
- * This intentionally avoids model downloads and external services. It builds a
- * normalized lexical vector from failure output, taxonomy, tool, context, and
- * trace errors, then greedily clusters by cosine similarity.
+ * Embeds failure records, clusters by cosine similarity, persists clusterId
+ * assignments to the ledger and metadata to error-clusters.json.
  */
 
-import { failureLedgerPath, traceEventsPath } from "./paths.ts";
-import { sha256String } from "./utils.ts";
+import { Effect } from "effect";
+import { mkdirSync, writeFileSync } from "fs";
+import { dirname } from "path";
 import {
-  readFailureTraceRecords,
-  readTraceEvents,
+  cosineSimilarity,
+  decodeEmbedding,
+  embedFailure,
+  embedText,
+  encodeEmbedding,
+} from "./error-embedding.ts";
+import {
+  applyClusterAssignments,
+  readFailureRecords,
+  writeFailureRecords,
   type FailureTraceRecord,
-  type TraceEvent,
-} from "./trace-ledger.ts";
+} from "./failure-ledger.ts";
+import { getClusterPlaybook, readClusterPlaybooks } from "./cluster-playbooks.ts";
+import { errorClustersPath, failureLedgerPath, traceEventsPath } from "./paths.ts";
+import { readTraceEvents, type TraceEvent } from "./trace-ledger.ts";
+import { sha256String } from "./utils.ts";
+
+export const DEFAULT_CLUSTER_THRESHOLD = 0.55;
 
 export interface FailureClusterInput {
   failurePath?: string;
   tracePath?: string;
+  clustersPath?: string;
   threshold?: number;
+  persist?: boolean;
 }
 
 export interface ClusterMember {
+  errorId?: string;
   traceId?: string;
   toolName: string;
   taxonomyId: string;
@@ -38,7 +54,20 @@ export interface ErrorCluster {
   tools: string[];
   suggestedFix?: string;
   autoFix?: string;
+  hasPlaybook: boolean;
   members: ClusterMember[];
+}
+
+export interface ClusterSummary {
+  clusterId: string;
+  count: number;
+  representativeError: {
+    summary: string;
+    traceId?: string;
+    errorId?: string;
+  };
+  topTaxonomy: string | null;
+  hasPlaybook: boolean;
 }
 
 export interface ErrorClusterReport {
@@ -47,6 +76,7 @@ export interface ErrorClusterReport {
   threshold: number;
   totalFailures: number;
   clusters: ErrorCluster[];
+  summaries: ClusterSummary[];
 }
 
 export interface ClusterMatch {
@@ -54,112 +84,228 @@ export interface ClusterMatch {
   confidence: number;
 }
 
+export interface ErrorSuggestion {
+  errorId: string;
+  clusterId: string | null;
+  confidence: number;
+  cluster?: ErrorCluster;
+  playbook?: {
+    title: string;
+    command?: string[];
+    confidence: number;
+  };
+  similarErrors: ClusterMember[];
+  recommendation: string;
+}
+
 interface EmbeddedFailure {
   record: FailureTraceRecord;
   text: string;
-  vector: Map<string, number>;
-  traceErrors: string[];
+  vector: Float32Array;
 }
 
 interface MutableCluster {
+  id: string;
   members: EmbeddedFailure[];
-  centroid: Map<string, number>;
+  centroid: Float32Array;
   similarities: number[];
 }
 
-const DEFAULT_CLUSTER_THRESHOLD = 0.42;
-const STOP_WORDS = new Set([
-  "a",
-  "an",
-  "and",
-  "are",
-  "as",
-  "at",
-  "be",
-  "by",
-  "for",
-  "from",
-  "in",
-  "is",
-  "it",
-  "of",
-  "on",
-  "or",
-  "the",
-  "to",
-  "with",
-]);
+export function clusterFailureLedgerEffect(
+  options: FailureClusterInput = {}
+): Effect.Effect<ErrorClusterReport, never> {
+  return Effect.gen(function* () {
+    const threshold = options.threshold ?? DEFAULT_CLUSTER_THRESHOLD;
+    const failurePath = options.failurePath ?? failureLedgerPath();
+    const tracePath = options.tracePath ?? traceEventsPath();
+    const clustersPath = options.clustersPath ?? errorClustersPath();
+    const persist = options.persist ?? true;
 
-export async function clusterFailureLedger(
+    const [failures, traces, playbooks] = yield* Effect.all(
+      [
+        Effect.tryPromise({
+          try: () => readFailureRecords(failurePath),
+          catch: () => new Error("failure-read"),
+        }).pipe(Effect.catchAll(() => Effect.succeed([] as FailureTraceRecord[]))),
+        Effect.tryPromise({
+          try: () => readTraceEvents(tracePath),
+          catch: () => new Error("trace-read"),
+        }).pipe(Effect.catchAll(() => Effect.succeed([] as TraceEvent[]))),
+        Effect.tryPromise({
+          try: () => readClusterPlaybooks(),
+          catch: () => new Error("playbook-read"),
+        }).pipe(
+          Effect.catchAll(() =>
+            Effect.succeed({ schemaVersion: 1 as const, updatedAt: "", playbooks: {} })
+          )
+        ),
+      ],
+      { concurrency: "unbounded" }
+    );
+
+    const embedded = yield* Effect.sync(() =>
+      failures
+        .filter((failure) => (failure.output || "").trim().length > 0)
+        .map((failure) => embedRecord(failure, traces))
+    );
+
+    const { clusters, assignments, encodings } = yield* Effect.sync(() =>
+      buildClusters(embedded, threshold)
+    );
+
+    if (persist && failures.length > 0) {
+      yield* Effect.tryPromise({
+        try: () =>
+          writeFailureRecords(
+            applyClusterAssignments(failures, assignments, encodings),
+            failurePath
+          ),
+        catch: () => new Error("failure-write"),
+      }).pipe(Effect.catchAll(() => Effect.void));
+    }
+
+    const formatted = yield* Effect.sync(() =>
+      clusters.map((cluster) => formatCluster(cluster, playbooks.playbooks))
+    );
+    formatted.sort((a, b) => b.size - a.size || a.id.localeCompare(b.id));
+
+    const report: ErrorClusterReport = {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      threshold,
+      totalFailures: embedded.length,
+      clusters: formatted,
+      summaries: formatted.map(toSummary),
+    };
+
+    if (persist) {
+      yield* Effect.sync(() => writeClusterMetadata(report, clustersPath));
+    }
+
+    return report;
+  });
+}
+
+export function clusterFailureLedger(
   options: FailureClusterInput = {}
 ): Promise<ErrorClusterReport> {
-  const threshold = options.threshold ?? DEFAULT_CLUSTER_THRESHOLD;
-  const [failures, traces] = await Promise.all([
-    readFailureTraceRecords(options.failurePath ?? failureLedgerPath()),
-    readTraceEvents(options.tracePath ?? traceEventsPath()),
-  ]);
-  const embedded = failures
-    .filter((failure) => (failure.output || "").trim().length > 0)
-    .map((failure) => embedFailure(failure, traces));
-  const clusters = buildClusters(embedded, threshold).map(formatCluster);
-  clusters.sort((a, b) => b.size - a.size || a.id.localeCompare(b.id));
+  return Effect.runPromise(clusterFailureLedgerEffect(options));
+}
 
-  return {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    threshold,
-    totalFailures: embedded.length,
-    clusters,
-  };
+export function suggestForErrorEffect(
+  errorId: string,
+  options: FailureClusterInput = {}
+): Effect.Effect<ErrorSuggestion | null, never> {
+  return Effect.gen(function* () {
+    const report = yield* clusterFailureLedgerEffect({ ...options, persist: false });
+    const failurePath = options.failurePath ?? failureLedgerPath();
+    const failures = yield* Effect.tryPromise({
+      try: () => readFailureRecords(failurePath),
+      catch: () => new Error("failure-read"),
+    }).pipe(Effect.catchAll(() => Effect.succeed([] as FailureTraceRecord[])));
+    const record = failures.find((item) => item.errorId === errorId);
+    if (!record) return null;
+
+    const cluster =
+      report.clusters.find((item) => item.members.some((member) => member.errorId === errorId)) ??
+      matchByEmbedding(record, report.clusters);
+
+    if (!cluster) {
+      return {
+        errorId,
+        clusterId: null,
+        confidence: 0,
+        similarErrors: [],
+        recommendation: "No cluster match — run manual triage and add taxonomy coverage.",
+      };
+    }
+
+    const playbooks = yield* Effect.tryPromise({
+      try: () => readClusterPlaybooks(),
+      catch: () => new Error("playbook-read"),
+    }).pipe(
+      Effect.catchAll(() =>
+        Effect.succeed({ schemaVersion: 1 as const, updatedAt: "", playbooks: {} })
+      )
+    );
+    const playbook = getClusterPlaybook(cluster.id, playbooks);
+
+    return {
+      errorId,
+      clusterId: cluster.id,
+      confidence: cluster.confidence,
+      cluster,
+      playbook: playbook
+        ? {
+            title: playbook.title,
+            command: playbook.command,
+            confidence: playbook.confidence,
+          }
+        : undefined,
+      similarErrors: cluster.members.filter((member) => member.errorId !== errorId).slice(0, 5),
+      recommendation: playbook
+        ? `Apply known playbook: ${playbook.title}`
+        : (cluster.suggestedFix ??
+          "Review similar past errors and add a healing playbook for this cluster."),
+    };
+  });
+}
+
+export function suggestForError(
+  errorId: string,
+  options: FailureClusterInput = {}
+): Promise<ErrorSuggestion | null> {
+  return Effect.runPromise(suggestForErrorEffect(errorId, options));
 }
 
 export function matchErrorToClusters(
   errorText: string,
   clusters: ErrorCluster[]
 ): ClusterMatch | null {
-  const vector = vectorize(errorText);
+  const vector = embedText(errorText);
   let best: ClusterMatch | null = null;
   for (const cluster of clusters) {
-    const clusterVector = vectorize(cluster.members.map((member) => member.output).join("\n"));
-    const confidence = cosine(vector, clusterVector);
+    const clusterText = cluster.members.map((member) => member.output).join("\n");
+    const clusterVector = embedText(clusterText);
+    const confidence = cosineSimilarity(vector, clusterVector);
     if (!best || confidence > best.confidence) best = { cluster, confidence };
   }
   return best && best.confidence > 0 ? best : null;
 }
 
-export function vectorize(text: string): Map<string, number> {
-  const tokens = tokenize(text);
-  const vector = new Map<string, number>();
-  for (const token of tokens) {
-    vector.set(token, (vector.get(token) || 0) + 1);
+function embedRecord(record: FailureTraceRecord, traces: TraceEvent[]): EmbeddedFailure {
+  if (record.embedding) {
+    try {
+      return {
+        record,
+        text: "",
+        vector: decodeEmbedding(record.embedding),
+      };
+    } catch {
+      // Re-embed below.
+    }
   }
-  for (let index = 0; index < tokens.length - 1; index++) {
-    const bigram = `${tokens[index]}_${tokens[index + 1]}`;
-    vector.set(bigram, (vector.get(bigram) || 0) + 1.5);
-  }
-  return vector;
+  const { text, vector } = embedFailure(record, traces);
+  return { record, text, vector };
 }
 
-export function cosine(a: Map<string, number>, b: Map<string, number>): number {
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  for (const value of a.values()) normA += value * value;
-  for (const value of b.values()) normB += value * value;
-  for (const [key, value] of a.entries()) {
-    dot += value * (b.get(key) || 0);
-  }
-  if (normA === 0 || normB === 0) return 0;
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-}
-
-function buildClusters(records: EmbeddedFailure[], threshold: number): MutableCluster[] {
+function buildClusters(
+  records: EmbeddedFailure[],
+  threshold: number
+): {
+  clusters: MutableCluster[];
+  assignments: Map<string, string>;
+  encodings: Map<string, string>;
+} {
   const clusters: MutableCluster[] = [];
+  const assignments = new Map<string, string>();
+  const encodings = new Map<string, string>();
+
   for (const record of records) {
     let bestIndex = -1;
     let bestSimilarity = 0;
     for (let index = 0; index < clusters.length; index++) {
-      const similarity = cosine(record.vector, clusters[index].centroid);
+      const similarity = cosineSimilarity(record.vector, clusters[index].centroid);
       if (similarity > bestSimilarity) {
         bestSimilarity = similarity;
         bestIndex = index;
@@ -171,52 +317,47 @@ function buildClusters(records: EmbeddedFailure[], threshold: number): MutableCl
       cluster.members.push(record);
       cluster.similarities.push(bestSimilarity);
       cluster.centroid = mergeCentroid(cluster.members);
+      if (record.record.errorId) {
+        assignments.set(record.record.errorId, cluster.id);
+        encodings.set(record.record.errorId, encodeEmbedding(record.vector));
+      }
     } else {
-      clusters.push({
+      const id = `cluster-${sha256String(record.text || record.record.output || "").slice(0, 12)}`;
+      const cluster: MutableCluster = {
+        id,
         members: [record],
-        centroid: new Map(record.vector),
+        centroid: new Float32Array(record.vector),
         similarities: [1],
-      });
+      };
+      clusters.push(cluster);
+      if (record.record.errorId) {
+        assignments.set(record.record.errorId, id);
+        encodings.set(record.record.errorId, encodeEmbedding(record.vector));
+      }
     }
   }
-  return clusters;
+
+  return { clusters, assignments, encodings };
 }
 
-function embedFailure(record: FailureTraceRecord, traces: TraceEvent[]): EmbeddedFailure {
-  const traceErrors = traces
-    .filter((event) => event.traceId === record.traceId || event.parentTraceId === record.traceId)
-    .map((event) => event.error)
-    .filter((error): error is string => !!error);
-  const text = [
-    record.toolName,
-    record.taxonomyId || record.categoryId,
-    record.taxonomyId || record.categoryId,
-    record.taxonomyId || record.categoryId,
-    record.output,
-    record.severity,
-    ...traceErrors,
-  ]
-    .filter(Boolean)
-    .join("\n");
-  return {
-    record,
-    text,
-    vector: vectorize(text),
-    traceErrors,
-  };
-}
-
-function mergeCentroid(members: EmbeddedFailure[]): Map<string, number> {
-  const merged = new Map<string, number>();
+function mergeCentroid(members: EmbeddedFailure[]): Float32Array {
+  const centroid = new Float32Array(members[0].vector.length);
   for (const member of members) {
-    for (const [key, value] of member.vector.entries()) {
-      merged.set(key, (merged.get(key) || 0) + value / members.length);
+    for (let i = 0; i < centroid.length; i++) {
+      centroid[i] += member.vector[i] / members.length;
     }
   }
-  return merged;
+  const norm = Math.sqrt(centroid.reduce((sum, value) => sum + value * value, 0));
+  if (norm > 0) {
+    for (let i = 0; i < centroid.length; i++) centroid[i] /= norm;
+  }
+  return centroid;
 }
 
-function formatCluster(cluster: MutableCluster): ErrorCluster {
+function formatCluster(
+  cluster: MutableCluster,
+  playbooks: Record<string, { outcome: string }>
+): ErrorCluster {
   const taxonomyCounts: Record<string, number> = {};
   const tools = new Set<string>();
   const members = cluster.members.map((member, index) => {
@@ -224,6 +365,7 @@ function formatCluster(cluster: MutableCluster): ErrorCluster {
     taxonomyCounts[taxonomyId] = (taxonomyCounts[taxonomyId] || 0) + 1;
     if (member.record.toolName) tools.add(member.record.toolName);
     return {
+      errorId: member.record.errorId,
       traceId: member.record.traceId,
       toolName: member.record.toolName || "unknown",
       taxonomyId,
@@ -231,49 +373,75 @@ function formatCluster(cluster: MutableCluster): ErrorCluster {
       similarity: round(cluster.similarities[index] ?? 1),
     };
   });
-  const label = deriveLabel(cluster.members);
+
   const suggestion = deriveSuggestion(cluster.members);
+  const playbookRecord = playbooks[cluster.id];
+  const hasPlaybook = playbookRecord?.outcome === "success";
+
   return {
-    id: `cluster-${sha256String(cluster.members.map((member) => member.text).join("\n")).slice(0, 12)}`,
-    label,
+    id: cluster.id,
+    label: deriveLabel(cluster.members),
     size: cluster.members.length,
     confidence: round(average(cluster.similarities)),
     taxonomyCounts,
     tools: [...tools].sort(),
+    hasPlaybook,
     ...(suggestion.suggestedFix ? { suggestedFix: suggestion.suggestedFix } : {}),
     ...(suggestion.autoFix ? { autoFix: suggestion.autoFix } : {}),
     members,
   };
 }
 
+function toSummary(cluster: ErrorCluster): ClusterSummary {
+  const representative = cluster.members[cluster.members.length - 1] ?? cluster.members[0] ?? null;
+  const topTaxonomy = dominantTaxonomy(cluster.taxonomyCounts);
+  return {
+    clusterId: cluster.id,
+    count: cluster.size,
+    representativeError: {
+      summary: representative?.output ?? cluster.label,
+      traceId: representative?.traceId,
+      errorId: representative?.errorId,
+    },
+    topTaxonomy: topTaxonomy === "unknown" ? null : topTaxonomy,
+    hasPlaybook: cluster.hasPlaybook,
+  };
+}
+
+function matchByEmbedding(
+  record: FailureTraceRecord,
+  clusters: ErrorCluster[]
+): ErrorCluster | undefined {
+  const match = matchErrorToClusters(record.output || "", clusters);
+  return match?.cluster;
+}
+
 function deriveLabel(members: EmbeddedFailure[]): string {
+  const text = members.map((member) => member.text).join(" ");
+  const tokens = text
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((token) => token.length >= 4);
   const counts = new Map<string, number>();
-  for (const member of members) {
-    for (const token of tokenize(member.text)) {
-      counts.set(token, (counts.get(token) || 0) + 1);
-    }
-  }
+  for (const token of tokens) counts.set(token, (counts.get(token) || 0) + 1);
   const top = [...counts.entries()]
-    .filter(([token]) => !token.includes("_"))
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, 4)
     .map(([token]) => token);
   return top.length > 0 ? top.join(" ") : "unclassified failure";
 }
 
-function deriveSuggestion(members: EmbeddedFailure[]): { suggestedFix?: string; autoFix?: string } {
-  const known = members
-    .map(
-      (member) => member.record as FailureTraceRecord & { suggestion?: string; autoFix?: string }
-    )
-    .find((record) => record.suggestion || record.autoFix);
+function deriveSuggestion(members: EmbeddedFailure[]): {
+  suggestedFix?: string;
+  autoFix?: string;
+} {
+  const known = members.find((member) => member.record.suggestion || member.record.autoFix)?.record;
   if (known?.suggestion || known?.autoFix) {
-    return {
-      suggestedFix: known.suggestion,
-      autoFix: known.autoFix,
-    };
+    return { suggestedFix: known.suggestion, autoFix: known.autoFix };
   }
-  const taxonomyIds = members.map((member) => member.record.taxonomyId || member.record.categoryId);
+  const taxonomyIds = members.map(
+    (member) => member.record.taxonomyId || member.record.categoryId || "unknown"
+  );
   if (taxonomyIds.every((id) => id === "unknown")) {
     return {
       suggestedFix: "Review this cluster and add a taxonomy rule or healing playbook.",
@@ -282,29 +450,29 @@ function deriveSuggestion(members: EmbeddedFailure[]): { suggestedFix?: string; 
   return {};
 }
 
-function tokenize(text: string): string[] {
-  return normalize(text)
-    .split(/\s+/)
-    .map((token) => token.trim())
-    .filter((token) => token.length >= 3 && !STOP_WORDS.has(token));
+function dominantTaxonomy(counts: Record<string, number>): string {
+  const entries = Object.entries(counts);
+  if (entries.length === 0) return "unknown";
+  entries.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return entries[0][0];
 }
 
-function normalize(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/g, " uuid ")
-    .replace(/[0-9a-f]{32,}/g, " hash ")
-    .replace(/\/[^\s"'`]+/g, " path ")
-    .replace(
-      /\b\d+(\.\d+)?\s*(ms|s|sec|secs|second|seconds|m|min|mins|minute|minutes)\b/g,
-      " duration "
-    )
-    .replace(/\b\d+(\.\d+)?\b/g, " number ")
-    .replace(/timed\s*out|timeout/g, " timeout ")
-    .replace(/waiting|waited/g, " wait ")
-    .replace(/not\s+found|missing/g, " missing ")
-    .replace(/permission\s+denied|forbidden|unauthorized/g, " permission ")
-    .replace(/[^a-z0-9_]+/g, " ");
+function writeClusterMetadata(report: ErrorClusterReport, path: string): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(
+    path,
+    `${JSON.stringify(
+      {
+        schemaVersion: 1,
+        generatedAt: report.generatedAt,
+        threshold: report.threshold,
+        totalFailures: report.totalFailures,
+        summaries: report.summaries,
+      },
+      null,
+      2
+    )}\n`
+  );
 }
 
 function average(values: number[]): number {

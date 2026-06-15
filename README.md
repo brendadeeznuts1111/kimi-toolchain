@@ -61,6 +61,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run capabilities` | (synced from package.json) |
 | `bun run contract` | (synced from package.json) |
+| `bun run kimi` | (synced from package.json) |
 | `bun run trace` | (synced from package.json) |
 
 | `bun run heal` | (synced from package.json) |
@@ -80,16 +81,17 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | Command                      | Description                                         |
 | ---------------------------- | --------------------------------------------------- |
 | `bun run doctor`             | Run kimi-doctor from repo                           |
+| `bun run kimi`               | Run the local kimi-toolchain router from repo       |
 | `bun run fix`                | Run kimi-fix from repo                              |
 | `bun run new`                | Run kimi-new from repo                              |
 | `bun run governance`         | Run kimi-governance from repo                       |
 | `bun run test`               | Full test suite (unit + smoke; default 5s timeout)  |
-| `bun run test:fast`          | Unit tests only at `--timeout 100` (~90ms)          |
+| `bun run test:fast`          | Unit tests only at the fast timeout                 |
 | `bun run test:coverage`      | Full suite with Bun coverage report                 |
-| `bun run test:coverage:fast` | Unit coverage at 100ms timeout (R-Score gate)       |
+| `bun run test:coverage:fast` | Unit coverage at the fast timeout (R-Score gate)    |
 | `bun run test:coverage:ci`   | Full suite + coverage (60s timeout, lcov, `--bail`) |
-| `bun run check`              | format:check + lint + typecheck + test (CI/hooks)   |
-| `bun run check:fast`         | Same gates; unit tests at `--timeout 100`           |
+| `bun run check`              | format:check + lint + typecheck + test (CI/full)    |
+| `bun run check:fast`         | Same gates; unit tests at the fast timeout          |
 | `bun run check:dry-run`      | List check steps without running them               |
 | `bun run docs:sync`          | Patch README script table from package.json         |
 | `bun run typecheck`          | TypeScript type check (no emit)                     |
@@ -117,7 +119,7 @@ Generated test, report, coverage, and temp-home outputs are written under `.kimi
 
 ### Sync Manifest
 
-`bun run sync` copies managed files to `~/.kimi-code/` and regenerates `~/.kimi-code/toolchain-manifest.json` with sha256 hashes for every sync-managed source. `bun run sync:verify` recomputes those hashes and compares them with both the manifest and the live desktop copy. The managed pre-push hook runs `sync` followed by `sync:verify`, so stale runtime hashes or drifted desktop files block the push.
+`bun run sync` copies managed files to `~/.kimi-code/` and regenerates `~/.kimi-code/toolchain-manifest.json` with sha256 hashes for every sync-managed source. `bun run sync:verify` recomputes those hashes and compares them with both the manifest and the live desktop copy. The managed pre-push hook skips no-op/delete-only pushes, otherwise runs the fast local gate by default, then runs `sync` followed by `sync:verify`; set `KIMI_PRE_PUSH_FULL=1` when a push should run the full local gate.
 
 ### Introspection & Self-Healing
 
@@ -125,6 +127,13 @@ The toolchain stores local causal telemetry under `~/.kimi-code/var/` and keeps 
 When an agent needs to understand a failure chain, run `kimi-trace <trace-id> --json`.
 When it needs to know whether integrations are alive, run `kimi-capabilities --json`.
 When contracts or provider declarations change, run `kimi-contract validate --json` before trusting them.
+
+Smoke-check the introspection surface from a working tree:
+
+```bash
+bun run capabilities --json | grep '"readiness"'
+bun run kimi contract validate ./contracts/sample.contract.json --json | grep '"trusted"'
+```
 
 | Command                         | Description                                                   |
 | ------------------------------- | ------------------------------------------------------------- |
@@ -137,6 +146,9 @@ When contracts or provider declarations change, run `kimi-contract validate --js
 | `kimi-heal apply --dry-run`     | Preview safe healing actions without mutating state           |
 | `kimi-heal apply --yes`         | Apply only actions marked `safeToAutoApply`                   |
 | `kimi-why <topic> --json`       | Explain recorded decisions from the decision ledger           |
+
+Effect-native agents can skip subprocesses and compose the same surface through
+`KimiIntrospectionLive`; see [docs/agent-api.md](docs/agent-api.md).
 
 `kimi-heal apply` is dry-run by default. Manual or blocked actions, including lockfile trust baselines, dependency installs, signing keys, and source edits, are surfaced but not applied automatically.
 
@@ -160,6 +172,7 @@ When contracts or provider declarations change, run `kimi-contract validate --js
 {
   "schemaVersion": 1,
   "generatedAt": "2026-06-15T00:00:00.000Z",
+  "readiness": 75,
   "readinessScore": 75,
   "healthy": 3,
   "degraded": 1,

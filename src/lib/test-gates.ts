@@ -7,27 +7,29 @@
 
 import { ARTIFACTS_COVERAGE_DIR, ARTIFACTS_REPORTS_DIR } from "./artifacts.ts";
 
-/** Pure unit tests (no subprocess smoke); safe at --timeout 100 */
+/** Pure unit tests (no subprocess smoke); safe at the fast timeout below. */
 export const UNIT_TEST_FILES = [
   "test/lib.unit.test.ts",
   "test/r-score.unit.test.ts",
   "test/sync.unit.test.ts",
   "test/desktop-sync.unit.test.ts",
-  "test/doctor-runs.db.test.ts",
+  "test/doctor-runs.unit.test.ts",
   "test/test-gates.unit.test.ts",
+  "test/agent-context-quality.unit.test.ts",
   "test/ci-impact.unit.test.ts",
   "test/ci-pipeline.unit.test.ts",
   "test/sync-drift.unit.test.ts",
   "test/readme-sync.unit.test.ts",
   "test/introspection-docs.unit.test.ts",
+  "test/githook-templates.unit.test.ts",
   "test/path-alignment.unit.test.ts",
   "test/mcp-config.unit.test.ts",
   "test/kimi-config-audit.unit.test.ts",
   "test/scaffold-agents.unit.test.ts",
   "test/scaffold-templates.unit.test.ts",
   "test/scaffold-aligned.unit.test.ts",
-  "test/workspace-health.test.ts",
-  "test/ecosystem-health.test.ts",
+  "test/workspace-health.unit.test.ts",
+  "test/ecosystem-health.unit.test.ts",
   "test/governance-check.unit.test.ts",
   "test/conventional-commits.unit.test.ts",
   "test/changelog.unit.test.ts",
@@ -41,11 +43,11 @@ export const UNIT_TEST_FILES = [
   "test/contract-signing.unit.test.ts",
   "test/capabilities.unit.test.ts",
   "test/error-clustering.unit.test.ts",
+  "test/ndjson.unit.test.ts",
   "test/self-healing.unit.test.ts",
   "test/decision-ledger.unit.test.ts",
   "test/success-metrics.unit.test.ts",
-  "test/kimi-toolchain.router.test.ts",
-  "test/unified-shell-bridge.unit.test.ts",
+  "test/kimi-toolchain.router.unit.test.ts",
   "test/error-taxonomy.unit.test.ts",
   "test/health-check.unit.test.ts",
   "test/logger.unit.test.ts",
@@ -53,6 +55,7 @@ export const UNIT_TEST_FILES = [
   "test/doctor-pipeline.unit.test.ts",
   "test/effect/tool-runner-effect.unit.test.ts",
   "test/effect/cli-runtime.unit.test.ts",
+  "test/effect/kimi-introspection-services.unit.test.ts",
 ] as const;
 
 /** Smoke tests — full CLI invocations, 15-30s each */
@@ -61,9 +64,12 @@ export const SMOKE_TEST_FILES = ["test/smoke/kimi-doctor.smoke.test.ts"] as cons
 /** Integration tests — slower filesystem/subprocess coverage but not full CLI smoke. */
 export const INTEGRATION_TEST_FILES = [
   "test/cleanup-legacy.integration.test.ts",
+  "test/error-clustering.integration.test.ts",
+  "test/kimi-docs-aligned.integration.test.ts",
   "test/kimi-fix.integration.test.ts",
-  "test/sync-manifest.unit.test.ts",
+  "test/sync-manifest.integration.test.ts",
   "test/trace-ledger.integration.test.ts",
+  "test/unified-shell-bridge.integration.test.ts",
 ] as const;
 
 export const FAST_TEST_TIMEOUT_MS = 500;

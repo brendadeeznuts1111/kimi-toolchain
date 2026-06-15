@@ -25,6 +25,7 @@ describe("capabilities", () => {
 
       expect(report.checks.map((check) => check.id)).toContain("mcp-config");
       expect(report.checks.map((check) => check.id)).toContain("contract-trust");
+      expect(report.readiness).toBe(report.readinessScore);
       expect(report.readinessScore).toBeGreaterThanOrEqual(50);
       expect(trend.snapshots.length).toBeGreaterThan(0);
     } finally {

@@ -548,7 +548,7 @@ async function readLimited(
 
 function recordHealDecision(action: HealAction, applied: AppliedHealAction): void {
   try {
-    recordDecision({
+    void recordDecision({
       key: `self-heal:${action.id}`,
       action: action.command?.join(" ") ?? action.title,
       trigger: action.reason,
@@ -654,6 +654,7 @@ function emptyClusterReport(threshold?: number): ErrorClusterReport {
     threshold: threshold ?? 0.42,
     totalFailures: 0,
     clusters: [],
+    summaries: [],
   };
 }
 
@@ -661,6 +662,7 @@ function emptyCapabilityReport(): CapabilityReport {
   return {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
+    readiness: 100,
     readinessScore: 100,
     healthy: 0,
     degraded: 0,

@@ -58,7 +58,7 @@ async function main(): Promise<number> {
         message: "record requires --action, --trigger, --reason, and --outcome",
       });
     }
-    const record = recordDecision({
+    const record = await recordDecision({
       key,
       action,
       trigger,

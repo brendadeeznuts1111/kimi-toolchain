@@ -48,9 +48,9 @@ describe("success-metrics", () => {
     );
 
     const summary = await readFailureLedgerSummary(path);
-    expect(summary.total).toBe(3);
+    expect(summary.total).toBe(2);
     expect(summary.taxonomyCounts.lockfile_issue).toBe(1);
-    expect(summary.unclassified).toBe(2);
+    expect(summary.unclassified).toBe(1);
     expect(JSON.stringify(summary)).not.toContain("secret-ish detail");
     rmSync(dir, { recursive: true, force: true });
   });

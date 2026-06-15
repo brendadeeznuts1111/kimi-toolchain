@@ -5,7 +5,7 @@
  * Usage:
  *   bun run scripts/check.ts
  *   bun run scripts/check.ts --dry-run
- *   bun run scripts/check.ts --fast --timeout 100
+ *   bun run scripts/check.ts --fast
  *   bun run scripts/check.ts --dryrun --fast
  *
  * @see https://bun.com/docs/guides/test/timeout

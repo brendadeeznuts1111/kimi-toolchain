@@ -14,13 +14,31 @@ describe("introspection docs", () => {
 
     expect(readme).toContain("kimi-capabilities --json");
     expect(readme).toContain("CapabilityReport");
+    expect(readme).toContain("bun run capabilities --json | grep '\"readiness\"'");
     expect(readme).toContain("readinessScore");
     expect(readme).toContain("kimi-trace <trace-id> --json");
     expect(readme).toContain("rootCauseChain");
     expect(readme).toContain("kimi-contract validate --json");
+    expect(readme).toContain(
+      "bun run kimi contract validate ./contracts/sample.contract.json --json"
+    );
     expect(readme).toContain("ContractSignatureEnvelope");
     expect(readme).toContain("trusted-keys.json");
     expect(readme).toContain("x-kimi-signature");
+    expect(readme).toContain("KimiIntrospectionLive");
+    expect(readme).toContain("docs/agent-api.md");
+  });
+
+  test("agent API documents Effect service descriptors", async () => {
+    const agentApi = await readRepoFile("docs/agent-api.md");
+
+    expect(agentApi).toContain("KimiCapabilities");
+    expect(agentApi).toContain("KimiTrace");
+    expect(agentApi).toContain("KimiContract");
+    expect(agentApi).toContain("KimiIntrospectionLive");
+    expect(agentApi).toContain("KimiIntrospectionLiveFor");
+    expect(agentApi).toContain("TraceNotFound");
+    expect(agentApi).toContain("MissingSigningKey");
   });
 
   test("agent-facing docs point future agents at capabilities, trace, and contracts", async () => {
@@ -32,6 +50,9 @@ describe("introspection docs", () => {
       expect(text).toContain("kimi-trace <trace-id> --json");
       expect(text).toContain("kimi-contract validate --json");
     }
+
+    expect(await readRepoFile("CONTEXT.md")).toContain("KimiIntrospectionLive");
+    expect(await readRepoFile("skills/kimi-toolchain/SKILL.md")).toContain("KimiIntrospectionLive");
   });
 
   test("generated AGENTS template preserves introspection onboarding", () => {

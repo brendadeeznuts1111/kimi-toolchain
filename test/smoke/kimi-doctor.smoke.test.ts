@@ -124,11 +124,43 @@ describe("kimi-doctor smoke", () => {
     expect(exitCode).toBe(0);
   }, 15_000);
 
+  test("capabilities smoke exposes readiness for shell checks", async () => {
+    const proc = Bun.spawn(["bash", "-lc", "bun run capabilities --json | grep '\"readiness\"'"], {
+      cwd: REPO_ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const out = await Bun.readableStreamToText(proc.stdout);
+    const err = await Bun.readableStreamToText(proc.stderr);
+    expect(await proc.exited).toBe(0);
+    expect(out + err).toContain('"readiness"');
+  }, 15_000);
+
+  test("contract smoke validates the sample contract through the local kimi router", async () => {
+    const proc = Bun.spawn(
+      [
+        "bash",
+        "-lc",
+        "bun run kimi contract validate ./contracts/sample.contract.json --json | grep '\"trusted\"'",
+      ],
+      {
+        cwd: REPO_ROOT,
+        stdout: "pipe",
+        stderr: "pipe",
+      }
+    );
+    const out = await Bun.readableStreamToText(proc.stdout);
+    const err = await Bun.readableStreamToText(proc.stderr);
+    expect(await proc.exited).toBe(0);
+    expect(out + err).toContain('"trusted"');
+  }, 15_000);
+
   test("check script uses check.ts runner", async () => {
     const pkg = (await Bun.file(join(REPO_ROOT, "package.json")).json()) as {
       scripts?: Record<string, string>;
     };
     expect(pkg.scripts?.check).toBe("bun run scripts/check.ts");
+    expect(pkg.scripts?.kimi).toBe("bun run src/bin/kimi-toolchain.ts");
     expect(pkg.scripts?.["check:fast"]).toContain("--fast");
     expect(pkg.scripts?.["check:dry-run"]).toContain("--dry-run");
   });
@@ -268,7 +300,7 @@ describe("kimi-doctor smoke", () => {
       Bun.readableStreamToText(proc.stderr),
       proc.exited,
     ]);
-    // test:fast may exit 1 if any test exceeds 100ms timeout; we only check output contains pass count
+    // test:fast may exit 1 if any test exceeds the fast timeout; we only check output contains pass count
     expect(stdout + stderr).toMatch(/\d+ pass/);
   }, 30_000);
 });

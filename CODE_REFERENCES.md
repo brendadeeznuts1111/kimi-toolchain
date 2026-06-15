@@ -4,25 +4,27 @@ This file points future agents at local examples that define the code style for 
 
 ## Core Defaults
 
-| Need                          | Reference                              | Follow                                                                                      |
-| ----------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Cross-tool subprocess calls   | `src/lib/tool-runner.ts`               | Use `invokeTool()` / `runTool()`, bounded output, timeout, env overlay, taxonomy enrichment |
-| Effect wrapper for tool calls | `src/lib/effect/tool-runner-effect.ts` | Convert runner results to typed Effect failures at the boundary                             |
-| CLI exit handling             | `src/lib/effect/cli-runtime.ts`        | Wrap CLI mains in `runCliExit()` and map failures to exit codes centrally                   |
-| Tagged errors                 | `src/lib/effect/errors.ts`             | Use `Data.TaggedError` for typed, inspectable failures                                      |
-| Structured logging            | `src/lib/logger.ts`                    | Use `createLogger(Bun.argv, toolName)`, `logger.check()`, and `logger.printHealthReport()`  |
-| Health report shape           | `src/lib/health-check.ts`              | Return `{ name, status, message, fixable }` checks and aggregate once                       |
-| Path ownership                | `src/lib/paths.ts`                     | Use helpers for `~/.kimi-code`, `~/.agents`, and runtime paths                              |
-| Generated artifacts           | `src/lib/artifacts.ts`                 | Put reports, coverage, temp HOME, and disposable files under `.kimi-artifacts/`             |
-| Safe parsing                  | `src/lib/utils.ts`                     | Use `safeParse()` / `safeToml()` with validators at config boundaries                       |
-| Success metric gates          | `src/lib/success-metrics.ts`           | Keep drift, taxonomy coverage, and provider agility measurable in CI                        |
-| Provider contracts            | `src/lib/provider-contract.ts`         | Add providers with a contract declaration plus a thin credential adapter only               |
-| Causal traces                 | `src/lib/trace-ledger.ts`              | Use append-only `TraceEvent` records and `KIMI_TRACE_ID` propagation                        |
-| Capability checks             | `src/lib/capabilities.ts`              | Model integration health as parallel Effect checks with snapshots                           |
-| Signed contracts              | `src/lib/contract-signing.ts`          | Normalize payloads, use Ed25519 envelopes, and keep unsigned contracts untrusted            |
-| Healing plans                 | `src/lib/self-healing.ts`              | Surface actions with confidence and `safeToAutoApply`; apply is dry-run by default          |
-| Decision explanations         | `src/lib/decision-ledger.ts`           | Append durable `kimi-why` records instead of burying rationale in comments                  |
-| Sync manifests                | `src/lib/sync-manifest.ts`             | Generate and verify `toolchain-manifest.json` hashes before pre-push                        |
+| Need                          | Reference                                       | Follow                                                                                      |
+| ----------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Cross-tool subprocess calls   | `src/lib/tool-runner.ts`                        | Use `invokeTool()` / `runTool()`, bounded output, timeout, env overlay, taxonomy enrichment |
+| Effect wrapper for tool calls | `src/lib/effect/tool-runner-effect.ts`          | Convert runner results to typed Effect failures at the boundary                             |
+| Effect service descriptors    | `src/lib/effect/kimi-introspection-services.ts` | Use Context services for capabilities, trace, and contracts inside Effect programs          |
+| CLI exit handling             | `src/lib/effect/cli-runtime.ts`                 | Wrap CLI mains in `runCliExit()` and map failures to exit codes centrally                   |
+| Tagged errors                 | `src/lib/effect/errors.ts`                      | Use `Data.TaggedError` for typed, inspectable failures                                      |
+| Structured logging            | `src/lib/logger.ts`                             | Use `createLogger(Bun.argv, toolName)`, `logger.check()`, and `logger.printHealthReport()`  |
+| Health report shape           | `src/lib/health-check.ts`                       | Return `{ name, status, message, fixable }` checks and aggregate once                       |
+| Path ownership                | `src/lib/paths.ts`                              | Use helpers for `~/.kimi-code`, `~/.agents`, and runtime paths                              |
+| Generated artifacts           | `src/lib/artifacts.ts`                          | Put reports, coverage, temp HOME, and disposable files under `.kimi-artifacts/`             |
+| Safe parsing                  | `src/lib/utils.ts`                              | Use `safeParse()` / `safeToml()` with validators at config boundaries                       |
+| Success metric gates          | `src/lib/success-metrics.ts`                    | Keep drift, taxonomy coverage, and provider agility measurable in CI                        |
+| Provider contracts            | `src/lib/provider-contract.ts`                  | Add providers with a contract declaration plus a thin credential adapter only               |
+| Causal traces                 | `src/lib/trace-ledger.ts`                       | Use append-only `TraceEvent` records and `KIMI_TRACE_ID` propagation                        |
+| Capability checks             | `src/lib/capabilities.ts`                       | Model integration health as parallel Effect checks with snapshots                           |
+| Signed contracts              | `src/lib/contract-signing.ts`                   | Normalize payloads, use Ed25519 envelopes, and keep unsigned contracts untrusted            |
+| Healing plans                 | `src/lib/self-healing.ts`                       | Surface actions with confidence and `safeToAutoApply`; apply is dry-run by default          |
+| Decision explanations         | `src/lib/decision-ledger.ts`                    | Append durable `kimi-why` records instead of burying rationale in comments                  |
+| Sync manifests                | `src/lib/sync-manifest.ts`                      | Generate and verify `toolchain-manifest.json` hashes before pre-push                        |
+| Agent context quality         | `src/lib/agent-context-quality.ts`              | Keep AGENTS, skills, scaffolds, and guardrails above the 15% quality lift target            |
 
 Success metrics are expected to evolve. If a threshold changes, update the
 release cadence, justification, and failure-ledger evidence in
@@ -36,6 +38,7 @@ Good local examples:
 
 - `src/lib/effect/cli-runtime.ts` for CLI main lifecycle and telemetry `ensuring`.
 - `src/lib/effect/tool-runner-effect.ts` for adapting Promise-based subprocess work to typed failures.
+- `src/lib/effect/kimi-introspection-services.ts` for Effect Context services over capabilities, trace, and contract validation.
 - `src/lib/doctor-pipeline.ts` for `Effect.all` parallel doctor aggregation.
 - `src/lib/capabilities.ts` for parallel readiness checks that never throw defects into CLI output.
 - `src/lib/self-healing.ts` for converting multiple signal sources into one Effect-built plan.
@@ -104,23 +107,25 @@ Do not import packages that are not declared in `package.json`. In this repo tha
 
 ## Testing References
 
-| Need                       | Reference                                                |
-| -------------------------- | -------------------------------------------------------- |
-| Tool runner behavior       | `test/tool-runner.unit.test.ts`                          |
-| Effect CLI lifecycle       | `test/effect/cli-runtime.unit.test.ts`                   |
-| Effect tool failures       | `test/effect/tool-runner-effect.unit.test.ts`            |
-| Trace graph reconstruction | `test/trace-ledger.integration.test.ts`                  |
-| Capability aggregation     | `test/capabilities.unit.test.ts`                         |
-| Contract signing/trust     | `test/contract-signing.unit.test.ts`                     |
-| Failure clustering         | `test/error-clustering.unit.test.ts`                     |
-| Self-healing plan/apply    | `test/self-healing.unit.test.ts`                         |
-| Decision ledger            | `test/decision-ledger.unit.test.ts`                      |
-| Config merge/idempotency   | `test/mcp-config.unit.test.ts`                           |
-| Sync manifest verification | `test/sync-manifest.unit.test.ts`                        |
-| Policy parser/diff         | `test/cloudflare-access-policy.unit.test.ts`             |
-| Scaffold agent output      | `test/scaffold-agents.unit.test.ts`                      |
-| Introspection docs         | `test/introspection-docs.unit.test.ts`                   |
-| Desktop sync drift         | `test/sync.unit.test.ts`, `test/sync-drift.unit.test.ts` |
+| Need                          | Reference                                                |
+| ----------------------------- | -------------------------------------------------------- |
+| Tool runner behavior          | `test/tool-runner.unit.test.ts`                          |
+| Effect CLI lifecycle          | `test/effect/cli-runtime.unit.test.ts`                   |
+| Effect tool failures          | `test/effect/tool-runner-effect.unit.test.ts`            |
+| Effect introspection services | `test/effect/kimi-introspection-services.unit.test.ts`   |
+| Trace graph reconstruction    | `test/trace-ledger.integration.test.ts`                  |
+| Capability aggregation        | `test/capabilities.unit.test.ts`                         |
+| Contract signing/trust        | `test/contract-signing.unit.test.ts`                     |
+| Failure clustering            | `test/error-clustering.unit.test.ts`                     |
+| Self-healing plan/apply       | `test/self-healing.unit.test.ts`                         |
+| Decision ledger               | `test/decision-ledger.unit.test.ts`                      |
+| Agent context quality         | `test/agent-context-quality.unit.test.ts`                |
+| Config merge/idempotency      | `test/mcp-config.unit.test.ts`                           |
+| Sync manifest verification    | `test/sync-manifest.integration.test.ts`                 |
+| Policy parser/diff            | `test/cloudflare-access-policy.unit.test.ts`             |
+| Scaffold agent output         | `test/scaffold-agents.unit.test.ts`                      |
+| Introspection docs            | `test/introspection-docs.unit.test.ts`                   |
+| Desktop sync drift            | `test/sync.unit.test.ts`, `test/sync-drift.unit.test.ts` |
 
 ## Cloudflare and MCP Boundaries
 

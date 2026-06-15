@@ -50,6 +50,16 @@ export function traceEventsPath(): string {
   return join(varDir(), "trace-events.jsonl");
 }
 
+/** Return ~/.kimi-code/var/error-clusters.json */
+export function errorClustersPath(): string {
+  return join(varDir(), "error-clusters.json");
+}
+
+/** Return ~/.kimi-code/var/cluster-playbooks.json */
+export function clusterPlaybooksPath(): string {
+  return join(varDir(), "cluster-playbooks.json");
+}
+
 /** Return ~/.kimi-code/var/decision-ledger.jsonl */
 export function decisionLedgerPath(): string {
   return join(varDir(), "decision-ledger.jsonl");

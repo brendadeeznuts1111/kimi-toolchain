@@ -2,10 +2,10 @@
  * Append-only causal trace ledger and graph reconstruction.
  */
 
-import { appendFileSync, existsSync, mkdirSync } from "fs";
+import { mkdirSync } from "fs";
 import { dirname } from "path";
 import { failureLedgerPath, traceEventsPath } from "./paths.ts";
-import { safeParse } from "./utils.ts";
+import { readNdjsonFile, appendNdjsonRecord } from "./ndjson.ts";
 
 export type TraceEventType = "cli" | "subprocess" | "hook" | "mcp";
 export type TraceStatus = "started" | "ok" | "error" | "interrupted";
@@ -28,6 +28,8 @@ export interface TraceEvent {
 }
 
 export interface FailureTraceRecord {
+  errorId?: string;
+  clusterId?: string;
   traceId?: string;
   parentTraceId?: string;
   childTraceIds?: string[];
@@ -36,8 +38,18 @@ export interface FailureTraceRecord {
   output?: string;
   taxonomyId?: string;
   categoryId?: string;
+  categoryName?: string;
   severity?: string;
   expected?: boolean;
+  suggestion?: string;
+  autoFix?: string;
+  sessionId?: string;
+  embedding?: string;
+  context?: {
+    stack?: string;
+    inputs?: Record<string, unknown>;
+    environment?: Record<string, string>;
+  };
 }
 
 export interface TraceGraphNode {
@@ -65,9 +77,12 @@ export interface TraceGraphOptions {
   failurePath?: string;
 }
 
-export function recordTraceEvent(event: TraceEvent, path: string = traceEventsPath()): void {
+export async function recordTraceEvent(
+  event: TraceEvent,
+  path: string = traceEventsPath()
+): Promise<void> {
   mkdirSync(dirname(path), { recursive: true });
-  appendFileSync(path, `${JSON.stringify(event)}\n`);
+  await appendNdjsonRecord(path, event);
 }
 
 export function buildTraceEvent(input: Omit<TraceEvent, "schemaVersion">): TraceEvent {
@@ -75,27 +90,25 @@ export function buildTraceEvent(input: Omit<TraceEvent, "schemaVersion">): Trace
 }
 
 export async function readTraceEvents(path: string = traceEventsPath()): Promise<TraceEvent[]> {
-  if (!existsSync(path)) return [];
-  const text = await Bun.file(path).text();
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => safeParse<TraceEvent | null>(line, null))
-    .filter((event): event is TraceEvent => isTraceEvent(event));
+  const records = await readNdjsonFile<TraceEvent>(path);
+  return records.filter((event): event is TraceEvent => isTraceEvent(event));
 }
 
 export async function readFailureTraceRecords(
   path: string = failureLedgerPath()
 ): Promise<FailureTraceRecord[]> {
-  if (!existsSync(path)) return [];
-  const text = await Bun.file(path).text();
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => safeParse<FailureTraceRecord | null>(line, null))
-    .filter((record): record is FailureTraceRecord => !!record && typeof record === "object");
+  const records = await readNdjsonFile<FailureTraceRecord>(path);
+  return records
+    .filter((record): record is FailureTraceRecord => !!record && typeof record === "object")
+    .map((record, index) => {
+      if (!record.errorId) record.errorId = deriveErrorId(record, index);
+      return record;
+    });
+}
+
+export function deriveErrorId(record: FailureTraceRecord, index: number): string {
+  const body = `${record.timestamp ?? ""}|${record.toolName ?? ""}|${record.output ?? ""}|${index}`;
+  return `error-${Bun.hash(body).toString(16).slice(0, 12)}`;
 }
 
 export async function buildTraceGraph(
@@ -186,31 +199,6 @@ export async function buildTraceGraph(
   };
 }
 
-export function renderTraceTree(graph: TraceGraph): string {
-  if (!graph.found) return `trace ${graph.requestedTraceId} not found`;
-  const byId = new Map(graph.nodes.map((node) => [node.traceId, node]));
-  const lines: string[] = [];
-  const walk = (traceId: string, prefix: string) => {
-    const node = byId.get(traceId);
-    if (!node) return;
-    const tool = node.events[0]?.tool || node.failures[0]?.toolName || "unknown";
-    const duration = node.durationMs === undefined ? "" : ` ${node.durationMs}ms`;
-    const cause = node.failures[0]?.taxonomyId || node.failures[0]?.categoryId;
-    lines.push(
-      `${prefix}${statusLabel(node.status)} ${tool} ${traceId}${duration}${cause ? ` [${cause}]` : ""}`
-    );
-    node.childTraceIds.forEach((child, index) => {
-      const last = index === node.childTraceIds.length - 1;
-      walk(child, `${prefix}${last ? "└─ " : "├─ "}`);
-    });
-  };
-  walk(graph.rootTraceId, "");
-  if (graph.rootCauseChain.length > 0) {
-    lines.push(`root-cause-chain: ${graph.rootCauseChain.join(" -> ")}`);
-  }
-  return lines.join("\n");
-}
-
 function buildNode(
   traceId: string,
   parentTraceId: string | undefined,
@@ -267,6 +255,31 @@ function buildRootCauseChain(rootTraceId: string, nodes: TraceGraphNode[]): stri
   return chain;
 }
 
+export function renderTraceTree(graph: TraceGraph): string {
+  if (!graph.found) return `trace ${graph.requestedTraceId} not found`;
+  const byId = new Map(graph.nodes.map((node) => [node.traceId, node]));
+  const lines: string[] = [];
+  const walk = (traceId: string, prefix: string) => {
+    const node = byId.get(traceId);
+    if (!node) return;
+    const tool = node.events[0]?.tool || node.failures[0]?.toolName || "unknown";
+    const duration = node.durationMs === undefined ? "" : ` ${node.durationMs}ms`;
+    const cause = node.failures[0]?.taxonomyId || node.failures[0]?.categoryId;
+    lines.push(
+      `${prefix}${node.status} ${tool} ${traceId}${duration}${cause ? ` [${cause}]` : ""}`
+    );
+    node.childTraceIds.forEach((child, index) => {
+      const last = index === node.childTraceIds.length - 1;
+      walk(child, `${prefix}${last ? "└─ " : "├─ "}`);
+    });
+  };
+  walk(graph.rootTraceId, "");
+  if (graph.rootCauseChain.length > 0) {
+    lines.push(`root-cause-chain: ${graph.rootCauseChain.join(" -> ")}`);
+  }
+  return lines.join("\n");
+}
+
 function isTraceEvent(value: unknown): value is TraceEvent {
   return (
     !!value &&
@@ -275,10 +288,4 @@ function isTraceEvent(value: unknown): value is TraceEvent {
     typeof (value as TraceEvent).traceId === "string" &&
     typeof (value as TraceEvent).eventType === "string"
   );
-}
-
-function statusLabel(status: TraceGraphNode["status"]): string {
-  if (status === "ok") return "ok";
-  if (status === "interrupted") return "interrupted";
-  return "error";
 }

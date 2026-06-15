@@ -23,6 +23,16 @@ If Grep/Glob fail with `Path does not exist: .../kimicode-cli`, the editor opene
 4. Cloudflare SSO/OAuth is separate from Wrangler OAuth and `kimi-cloudflare-access` API tokens; do not assume one login satisfies another.
 5. Keep Success Metrics green: Drift latency, Error coverage, and Integration agility are checked by `kimi-doctor --success-metrics`.
 
+**Agent Operating Loop (15% quality lift target):**
+
+| Step          | Agent action                                                                                  |
+| ------------- | --------------------------------------------------------------------------------------------- |
+| **Scope**     | Classify the change, read the matching `CODE_REFERENCES.md` row, and name the smallest slice. |
+| **Implement** | Follow the closest local pattern; keep parsing, mutation, and subprocess boundaries typed.    |
+| **Guard**     | Add or update a detector/test for any behavior that failed or could silently drift.           |
+| **Validate**  | Run the narrow test first, then `bun run check:fast`; use `bun run check` before handoff.     |
+| **Sync**      | Run `bun run sync && bun run sync:verify` after changing synced tools, docs, or skills.       |
+
 **After reopen checklist:**
 
 1. `pwd` ends with `kimi-toolchain`
@@ -178,7 +188,7 @@ bun install
 # Run the full test suite (unit + smoke; default 5s per-test timeout)
 bun test
 
-# Fast unit-only gate (~90ms at --timeout 100)
+# Fast unit-only gate (uses the repo fast timeout)
 bun run test:fast
 bun run check:fast       # format + lint + typecheck + test:fast
 
@@ -188,7 +198,7 @@ bun run check:dry-run    # accepts --dryrun alias (gate steps only)
 bun run test:coverage:ci
 bun run format:check:ci   # oxfmt --threads=4 for CI runners
 
-# Full quality gate (CI / pre-push)
+# Full quality gate (CI / explicit local validation)
 bun run check            # scripts/check.ts
 
 # TypeScript type check (no emit)
@@ -336,13 +346,13 @@ bun run typecheck        # TypeScript validation
 
 ### Quality gates (enforced)
 
-| Layer      | Command / hook                                                               |
-| ---------- | ---------------------------------------------------------------------------- |
-| Local      | `bun run check` or `bun run unify`                                           |
-| pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`)          |
-| pre-push   | `check` + guardian + R-Score gate + mandatory `bun run sync` + `sync:verify` |
-| CI         | `.github/workflows/ci.yml` — format:check, lint, typecheck, test             |
-| Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)             |
+| Layer      | Command / hook                                                                                                                                           |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local      | `bun run check` or `bun run unify`                                                                                                                       |
+| pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`)                                                                                      |
+| pre-push   | skips no-op/delete-only pushes; otherwise guardian + R-Score + `check:fast` + mandatory `bun run sync` + `sync:verify` (`KIMI_PRE_PUSH_FULL=1` for full) |
+| CI         | `.github/workflows/ci.yml` — format:check, lint, typecheck, test                                                                                         |
+| Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)                                                                                         |
 
 Install hooks: `kimi-githooks install` or `kimi-githooks fix` to refresh outdated hooks.
 
@@ -494,6 +504,14 @@ When working on this codebase, agents should:
 5. **Total: 4-6 steps per iteration**
 6. After 3-4 iterations or when confident, run `bun run check` (full validation, 1 step)
 
+**Regression hygiene after fixing a tooling mistake:**
+
+- Add a typed detector or gate for the behavior that failed, not just a one-off fix.
+- Search for the same pattern in CI config, generated scaffolds, README, AGENTS.md, skills, and test gate lists.
+- Test files must declare their class in the filename: `.unit.test.ts`, `.integration.test.ts`, or `.smoke.test.ts`. `test/test-gates.unit.test.ts` enforces this and requires every classified test to appear in the matching gate list.
+- Git rename helpers can stage changes. After any `git mv` or other index-touching operation, run `git diff --cached --stat`; unstage with `git restore --staged ...` unless the user asked to stage/commit.
+- When searching for text containing backticks, `$()`, pipes, or other shell metacharacters, use single-quoted patterns or `rg -e` arguments so the shell cannot execute the search text.
+
 > **Recovery if you hit `max_steps_exceeded`:**
 >
 > 1. Run `kimi-debug analyze "max_steps_exceeded"` for immediate guidance
@@ -508,7 +526,7 @@ When working on this codebase, agents should:
 3. Run `kimi-doctor --agent-ready`
 4. Run `kimi-guardian check` and `kimi-governance score`
 5. Commit with conventional commit format
-6. Run `bun run sync` before push (pre-push hook enforces this)
+6. Run `bun run sync && bun run sync:verify` before push if hooks were skipped; the managed pre-push hook enforces this for real ref updates
 
 ### Step Budget Reference
 
@@ -587,47 +605,49 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 - **No build step.** TypeScript is run directly via `bun run`.
 - **Distribution**: GitHub repo, installed via `bun install -g github:brendadeeznuts1111/kimi-toolchain`.
 - **Live runtime**: `~/.kimi-code/` is maintained by `postinstall.ts` and `sync-to-desktop.ts`.
-- **Files included in package**: `src/`, `skills/`, `AGENTS.md`, `CODE_REFERENCES.md`, `UNIFIED.md`, `TEMPLATES.md`, `README.md`, `CONTRIBUTING.md`, `LICENSE`, `CHANGELOG.md`.
+- **Files included in package**: `src/`, `scripts/`, `ci/`, `contracts/`, `docs/`, `skills/`, `templates/`, `AGENTS.md`, `CODE_REFERENCES.md`, `UNIFIED.md`, `TEMPLATES.md`, `README.md`, `CONTRIBUTING.md`, `LICENSE`, `CHANGELOG.md`.
 
 ## Key Files for Agents
 
-| File                                     | Purpose                                             |
-| ---------------------------------------- | --------------------------------------------------- |
-| `package.json`                           | Toolchain metadata, bin mappings, scripts           |
-| `tsconfig.json`                          | Strict TypeScript, ESNext, bundler resolution       |
-| `bunfig.toml`                            | Bun install config (`saveTextLockfile = true`)      |
-| `src/lib/utils.ts`                       | Shared utilities — import from here                 |
-| `src/lib/version.ts`                     | Version resolution logic                            |
-| `src/lib/memory-budget.ts`               | System memory / RSS budget checks                   |
-| `src/lib/governor-config.ts`             | Loads `~/.kimi-code/governor/defaults.toml`         |
-| `src/lib/test-gates.ts`                  | Unit vs smoke test lists, `bunTestArgs()`           |
-| `src/lib/readme-sync.ts`                 | README ↔ package.json drift detect + patch          |
-| `src/lib/artifacts.ts`                   | Repo-local generated artifact paths                 |
-| `src/lib/sync-manifest.ts`               | Sync manifest generation + stale hash verification  |
-| `src/lib/paths.ts`                       | **Single source of truth for `~/.kimi-code` paths** |
-| `src/lib/governance-check.ts`            | License/CONTRIBUTING/CODEOWNERS checker             |
-| `src/lib/r-score.ts`                     | R-Score calculation + grade formatting              |
-| `src/lib/conventional-commits.ts`        | Conventional commit parser + semver bump logic      |
-| `src/lib/changelog.ts`                   | Changelog section generation + update               |
-| `src/lib/scaffold-templates.ts`          | README, LICENSE, ADR template generators            |
-| `src/lib/scaffold-quality.ts`            | package.json quality tooling injection              |
-| `src/lib/process-utils.ts`               | Orphan process detection + cleanup                  |
-| `src/lib/trace-ledger.ts`                | Causal trace event schema + graph rendering         |
-| `src/lib/capabilities.ts`                | Live capability probe schema + snapshots            |
-| `src/lib/contract-signing.ts`            | Ed25519 contract signature schema + trust audit     |
-| `src/lib/error-clustering.ts`            | Failure clustering report schema                    |
-| `src/lib/self-healing.ts`                | HealPlan / HealApplyReport schema and safe apply    |
-| `src/lib/decision-ledger.ts`             | Append-only decision records for `kimi-why`         |
-| `scripts/check.ts`                       | CI gate runner with dry-run and fast modes          |
-| `test/kimi-doctor.smoke.test.ts`         | Smoke tests for all tools                           |
-| `CONTEXT.md`                             | Auto-generated project context                      |
-| `CODE_REFERENCES.md`                     | Local exemplar map for agent coding patterns        |
-| `skills/kimi-toolchain/SKILL.md`         | Agent decision protocol                             |
-| `error-taxonomy.yml`                     | Failure classification schema                       |
-| `~/.kimi-code/var/tool-failures.jsonl`   | Canonical tool failure ledger                       |
-| `~/.kimi-code/var/trace-events.jsonl`    | Canonical causal trace ledger                       |
-| `~/.kimi-code/var/decision-ledger.jsonl` | Canonical decision ledger                           |
-| `trusted-keys.json`                      | Project trusted public keys for signed contracts    |
+| File                                            | Purpose                                             |
+| ----------------------------------------------- | --------------------------------------------------- |
+| `package.json`                                  | Toolchain metadata, bin mappings, scripts           |
+| `tsconfig.json`                                 | Strict TypeScript, ESNext, bundler resolution       |
+| `bunfig.toml`                                   | Bun install config (`saveTextLockfile = true`)      |
+| `src/lib/utils.ts`                              | Shared utilities — import from here                 |
+| `src/lib/version.ts`                            | Version resolution logic                            |
+| `src/lib/memory-budget.ts`                      | System memory / RSS budget checks                   |
+| `src/lib/governor-config.ts`                    | Loads `~/.kimi-code/governor/defaults.toml`         |
+| `src/lib/test-gates.ts`                         | Unit vs smoke test lists, `bunTestArgs()`           |
+| `src/lib/agent-context-quality.ts`              | Agent docs, skill, scaffold, and guardrail score    |
+| `src/lib/effect/kimi-introspection-services.ts` | Effect services for capabilities, trace, contracts  |
+| `src/lib/readme-sync.ts`                        | README ↔ package.json drift detect + patch          |
+| `src/lib/artifacts.ts`                          | Repo-local generated artifact paths                 |
+| `src/lib/sync-manifest.ts`                      | Sync manifest generation + stale hash verification  |
+| `src/lib/paths.ts`                              | **Single source of truth for `~/.kimi-code` paths** |
+| `src/lib/governance-check.ts`                   | License/CONTRIBUTING/CODEOWNERS checker             |
+| `src/lib/r-score.ts`                            | R-Score calculation + grade formatting              |
+| `src/lib/conventional-commits.ts`               | Conventional commit parser + semver bump logic      |
+| `src/lib/changelog.ts`                          | Changelog section generation + update               |
+| `src/lib/scaffold-templates.ts`                 | README, LICENSE, ADR template generators            |
+| `src/lib/scaffold-quality.ts`                   | package.json quality tooling injection              |
+| `src/lib/process-utils.ts`                      | Orphan process detection + cleanup                  |
+| `src/lib/trace-ledger.ts`                       | Causal trace event schema + graph rendering         |
+| `src/lib/capabilities.ts`                       | Live capability probe schema + snapshots            |
+| `src/lib/contract-signing.ts`                   | Ed25519 contract signature schema + trust audit     |
+| `src/lib/error-clustering.ts`                   | Failure clustering report schema                    |
+| `src/lib/self-healing.ts`                       | HealPlan / HealApplyReport schema and safe apply    |
+| `src/lib/decision-ledger.ts`                    | Append-only decision records for `kimi-why`         |
+| `scripts/check.ts`                              | CI gate runner with dry-run and fast modes          |
+| `test/kimi-doctor.smoke.test.ts`                | Smoke tests for all tools                           |
+| `CONTEXT.md`                                    | Auto-generated project context                      |
+| `CODE_REFERENCES.md`                            | Local exemplar map for agent coding patterns        |
+| `skills/kimi-toolchain/SKILL.md`                | Agent decision protocol                             |
+| `error-taxonomy.yml`                            | Failure classification schema                       |
+| `~/.kimi-code/var/tool-failures.jsonl`          | Canonical tool failure ledger                       |
+| `~/.kimi-code/var/trace-events.jsonl`           | Canonical causal trace ledger                       |
+| `~/.kimi-code/var/decision-ledger.jsonl`        | Canonical decision ledger                           |
+| `trusted-keys.json`                             | Project trusted public keys for signed contracts    |
 
 ## Quick Reference: All CLI Tools
 

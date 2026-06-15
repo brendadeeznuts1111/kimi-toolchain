@@ -130,11 +130,12 @@ kimi-why <topic> --json       # Explain prior decisions
 
 These are enforced by `kimi-doctor --success-metrics` and `bun run check`.
 
-| Metric                  | Contract                                                                                                                                     |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Drift latency**       | One `kimi doctor` or `kimi-doctor` run must produce a pass/fail for documented command drift with no manual inspection.                      |
-| **Error coverage**      | >= 90% of managed contract, hook, and integration failures must classify to taxonomy ids with stack, inputs, environment, and trace context. |
-| **Integration agility** | New cloud providers require only a contract declaration and a thin credential adapter using `getSecret(scope) -> string`.                    |
+| Metric                    | Contract                                                                                                                                     |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Drift latency**         | One `kimi doctor` or `kimi-doctor` run must produce a pass/fail for documented command drift with no manual inspection.                      |
+| **Error coverage**        | >= 90% of managed contract, hook, and integration failures must classify to taxonomy ids with stack, inputs, environment, and trace context. |
+| **Integration agility**   | New cloud providers require only a contract declaration and a thin credential adapter using `getSecret(scope) -> string`.                    |
+| **Agent context quality** | Agent-facing docs, skill metadata, generated scaffolds, and guardrails must score >= 92/100, a 15% lift over the 80-point baseline.          |
 
 The metrics are not frozen. As the toolchain learns, the taxonomy may expand,
 the definition of core logic may tighten, and new metrics may emerge from the
@@ -148,18 +149,21 @@ threshold changes require justification linked to real ledger data.
 - `UNIFIED.md` — Kimi Code vs kimi-toolchain vs DX/MCP product map
 - `TEMPLATES.md` — scaffold templates and generated AGENTS.md reference
 - `skills/kimi-toolchain/SKILL.md` — agent workflow for diagnostics, traces, capability probing, self-healing, contracts, and governance
+- `src/lib/agent-context-quality.ts` — measurable contract for the 15% agent context and skill quality lift
+- `docs/agent-api.md` — Effect service descriptor for `KimiIntrospectionLive`, `KimiCapabilities`, `KimiTrace`, and `KimiContract`
 
 ## Toolchain Context Map
 
-| Surface             | Run When                                        | JSON Anchor                                             |
-| ------------------- | ----------------------------------------------- | ------------------------------------------------------- |
-| `kimi-capabilities` | Check MCP, hook, credential, contract readiness | `CapabilityReport.readinessScore`, `checks[].status`    |
-| `kimi-trace`        | Explain nested subprocess/hook/MCP failures     | `TraceGraph.rootCauseChain`, `nodes[].failures[]`       |
-| `kimi-contract`     | Sign or validate declarative contracts          | `ContractSignatureEnvelope`, `ContractValidationResult` |
-| `kimi-heal`         | Convert surfaced failures into repair options   | `HealPlan.actions[].safeToAutoApply`, `HealApplyReport` |
-| `kimi-why`          | Explain previous toolchain decisions            | `DecisionRecord.rationale`, `DecisionRecord.outcome`    |
+| Surface             | Run When                                        | JSON Anchor                                                       |
+| ------------------- | ----------------------------------------------- | ----------------------------------------------------------------- |
+| `kimi-capabilities` | Check MCP, hook, credential, contract readiness | `CapabilityReport.readiness`, `readinessScore`, `checks[].status` |
+| `kimi-trace`        | Explain nested subprocess/hook/MCP failures     | `TraceGraph.rootCauseChain`, `nodes[].failures[]`                 |
+| `kimi-contract`     | Sign or validate declarative contracts          | `ContractSignatureEnvelope`, `ContractValidationResult`           |
+| `kimi-heal`         | Convert surfaced failures into repair options   | `HealPlan.actions[].safeToAutoApply`, `HealApplyReport`           |
+| `kimi-why`          | Explain previous toolchain decisions            | `DecisionRecord.rationale`, `DecisionRecord.outcome`              |
 
 Agent default: run `kimi-capabilities --json` before deeper debugging, `kimi-trace <trace-id> --json` when a trace id is present, and `kimi-contract validate --json` before trusting changed provider or schema contracts.
+Effect-native agents can compose the same surface without subprocesses through `KimiIntrospectionLive` from `src/lib/effect/kimi-introspection-services.ts`.
 
 ## Generated Artifacts
 
@@ -172,7 +176,7 @@ Agent default: run `kimi-capabilities --json` before deeper debugging, `kimi-tra
 
 - Failure ledger: append-only `~/.kimi-code/var/tool-failures.jsonl` with `schemaVersion`, `taxonomyId`, legacy `categoryId`, trace fields, and structured context.
 - Trace ledger: append-only `~/.kimi-code/var/trace-events.jsonl` with `TraceEvent` records: `traceId`, `parentTraceId`, `childTraceIds`, `eventType`, `tool`, `status`, timing, command/cwd, and metadata.
-- Capability snapshots: JSON reports under `~/.kimi-code/var/capabilities/` with `schemaVersion`, `readinessScore`, healthy/degraded/unavailable counts, and `checks[]` with `id`, `type`, `status`, `summary`, `latencyMs`, and optional details.
+- Capability snapshots: JSON reports under `~/.kimi-code/var/capabilities/` with `schemaVersion`, `readiness`, `readinessScore`, healthy/degraded/unavailable counts, and `checks[]` with `id`, `type`, `status`, `summary`, `latencyMs`, and optional details.
 - Contract signatures: sibling `<contract>.sig` files using Ed25519 `ContractSignatureEnvelope` values. Embedded `x-kimi-signature` fields are stripped from the normalized payload. Project trust roots live in `trusted-keys.json` as either a direct key map or `{ "keys": { "<key-id>": { "publicKey": "...", "roles": [] } } }`.
 - Heal plans: `HealPlan` / `HealApplyReport` values from `kimi-heal`; apply is dry-run by default and only runs `safeToAutoApply` actions with `--yes`.
 - Decision ledger: append-only `~/.kimi-code/var/decision-ledger.jsonl` records used by `kimi-why`.

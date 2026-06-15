@@ -111,6 +111,17 @@ Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0
 | `kimi-memory`       | Session + warning trends       | When interpreting recurring warnings     |
 | `kimi-debug`        | Failure wizard                 | When user asks "what broke?"             |
 
+## Agent Operating Loop
+
+Use this loop before editing source, docs, hooks, or CI:
+
+1. **Observe**: Run the narrow state command first (`kimi-githooks doctor`, `kimi-capabilities --json`, `kimi-heal plan --json`, or the failing targeted test).
+2. **Scope**: Read `CODE_REFERENCES.md`, choose the closest existing pattern, and name the smallest change that can satisfy the request.
+3. **Implement**: Keep parsing, subprocess calls, sync paths, and telemetry boundaries typed and local to the established module.
+4. **Guard**: Add or update a detector/test when fixing a mistake, stale default, naming drift, or skipped gate.
+5. **Validate**: Run the targeted test, then `bun run check:fast`; run `bun run check` before handoff when hooks, gates, smoke paths, or synced runtime files changed.
+6. **Sync**: Run `bun run sync && bun run sync:verify` after changing tools, docs, skills, or generated runtime assets.
+
 ## Introspection + Self-Healing Protocol
 
 All new introspection commands support `--json` for machine-readable output.
@@ -118,6 +129,8 @@ Use them before reading implementation when the question is about current toolch
 `kimi-capabilities` answers "what is alive?", `kimi-trace` answers "what caused this?",
 `kimi-contract` answers "can I trust this declaration?", and `kimi-heal` answers
 "what can be safely repaired?".
+Effect-native agents can use `KimiIntrospectionLive` from
+`src/lib/effect/kimi-introspection-services.ts` instead of spawning CLI commands.
 
 ```
 1. RUN: kimi-capabilities --json
@@ -200,11 +213,18 @@ Use `kimi-debug analyze --json` or `kimi-debug classify <text>` for taxonomy ids
 ```
 1. RUN: kimi-githooks doctor
 2. LOCAL (fast): bun run check:fast
-3. BEFORE PUSH: bun run check
+3. BEFORE PUSH: managed pre-push runs check:fast by default; use KIMI_PRE_PUSH_FULL=1 git push for a full local gate
 4. RUN: kimi-guardian check
 5. RUN: bun run sync && bun run sync:verify
 6. RUN: kimi-governance score (pre-push blocks F/D)
 ```
+
+### Regression Hygiene
+
+- After fixing a tooling mistake, add a detector or gate for that failure mode, then search generated scaffolds, CI config, README, AGENTS.md, skills, and test gate lists for the same stale pattern.
+- Test files should declare their class in the filename: `.unit.test.ts`, `.integration.test.ts`, or `.smoke.test.ts`. Keep each classified file in the matching `src/lib/test-gates.ts` list.
+- Git rename helpers can stage changes. After `git mv` or other index-touching commands, run `git diff --cached --stat`; unstage with `git restore --staged ...` unless the user asked to stage/commit.
+- Search patterns containing backticks, `$()`, pipes, or other shell metacharacters need single-quoted patterns or `rg -e` arguments so the shell cannot execute the search text.
 
 ## R-Score Interpretation
 
@@ -254,8 +274,9 @@ Three hook systems coexist. Use the right name:
 
 - `tool-failures.jsonl` records `schemaVersion`, `taxonomyId`, `traceId`, `parentTraceId`, `childTraceIds`, and structured `context.inputs` / `context.environment`.
 - `trace-events.jsonl` records `schemaVersion`, `traceId`, `parentTraceId`, `childTraceIds`, `eventType`, `tool`, timing, status, command/cwd, and metadata. `kimi-trace --json` exposes `TraceGraph.rootCauseChain` and `nodes[].failures[]`.
-- `capabilities/*.json` snapshots store `CapabilityReport` with `readinessScore`, healthy/degraded/unavailable counts, and `checks[]` entries with `id`, `type`, `status`, `summary`, `latencyMs`, and optional `details`.
+- `capabilities/*.json` snapshots store `CapabilityReport` with grep-friendly `readiness`, canonical `readinessScore`, healthy/degraded/unavailable counts, and `checks[]` entries with `id`, `type`, `status`, `summary`, `latencyMs`, and optional `details`.
 - `<contract>.sig` files store Ed25519 `ContractSignatureEnvelope` values: `schemaVersion`, `algorithm`, `keyId`, `signatureHex`, `payloadSha256`, and `signedAt`. Embedded `x-kimi-signature` fields are stripped from normalized payloads. Trusted public keys live in project-root `trusted-keys.json` as a direct key map or `{ "keys": { ... } }`.
+- `docs/agent-api.md` documents `KimiCapabilities`, `KimiTrace`, `KimiContract`, and `KimiIntrospectionLive` for Effect programs that should compose introspection without subprocesses.
 - `decision-ledger.jsonl` stores `kimi-why` records; self-heal applies append a decision when an action actually runs.
 - Repo-local generated outputs belong under `.kimi-artifacts/`; test homes, coverage, JUnit reports, and disposable markers should not be created at repo root.
 - `bun run sync` regenerates `~/.kimi-code/toolchain-manifest.json`; `bun run sync:verify` verifies manifest hashes and desktop drift and is part of the managed pre-push hook.

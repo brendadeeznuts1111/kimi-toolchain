@@ -84,7 +84,7 @@
         "scripts/install-bin-wrappers.sh",
         "scripts/verify-workspace.sh"
       ],
-      "tests": ["test/workspace-health.test.ts", "test/path-alignment.unit.test.ts"],
+      "tests": ["test/workspace-health.unit.test.ts", "test/path-alignment.unit.test.ts"],
       "integrationTests": ["test/cleanup-legacy.integration.test.ts"]
     },
     {
@@ -102,7 +102,7 @@
       "tests": [
         "test/doctor-pipeline.unit.test.ts",
         "test/health-check.unit.test.ts",
-        "test/ecosystem-health.test.ts",
+        "test/ecosystem-health.unit.test.ts",
         "test/success-metrics.unit.test.ts"
       ],
       "smoke": true
@@ -126,7 +126,7 @@
     {
       "id": "tool-registry",
       "paths": ["src/bin/kimi-toolchain.ts", "src/lib/tool-registry.ts"],
-      "tests": ["test/kimi-toolchain.router.test.ts", "test/tool-registry.unit.test.ts"]
+      "tests": ["test/kimi-toolchain.router.unit.test.ts", "test/tool-registry.unit.test.ts"]
     },
     {
       "id": "mcp",
@@ -136,7 +136,7 @@
     {
       "id": "kimi-config",
       "paths": ["src/lib/kimi-config-audit.ts", "src/lib/kimi-docs-aligned.ts"],
-      "tests": ["test/kimi-config-audit.unit.test.ts", "test/kimi-docs-aligned.unit.test.ts"]
+      "tests": ["test/kimi-config-audit.unit.test.ts", "test/kimi-docs-aligned.integration.test.ts"]
     },
     {
       "id": "scaffold",
@@ -197,7 +197,7 @@
         "src/lib/memory-sessions.ts",
         "src/lib/sessions-schema.ts"
       ],
-      "tests": ["test/doctor-runs.db.test.ts"]
+      "tests": ["test/doctor-runs.unit.test.ts"]
     },
     {
       "id": "docs-sync",

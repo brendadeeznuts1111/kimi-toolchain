@@ -8,6 +8,7 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { checkDocDrift } from "./readme-sync.ts";
 import { homeDir } from "./paths.ts";
+import { streamNdjsonRecords } from "./ndjson.ts";
 import {
   buildClassifiedFailure,
   classifyFailure,
@@ -225,22 +226,15 @@ export async function readFailureLedgerSummary(
     return { path, present: false, total: 0, taxonomyCounts: {}, unclassified: 0 };
   }
 
-  const text = await Bun.file(path).text();
   const taxonomyCounts: Record<string, number> = {};
   let total = 0;
 
-  for (const line of text.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      const parsed = JSON.parse(trimmed) as { taxonomyId?: string; categoryId?: string };
-      const taxonomyId = parsed.taxonomyId || parsed.categoryId || "unknown";
-      taxonomyCounts[taxonomyId] = (taxonomyCounts[taxonomyId] || 0) + 1;
-      total++;
-    } catch {
-      taxonomyCounts.unknown = (taxonomyCounts.unknown || 0) + 1;
-      total++;
-    }
+  for await (const { value } of streamNdjsonRecords<{ taxonomyId?: string; categoryId?: string }>(
+    path
+  )) {
+    const taxonomyId = value.taxonomyId || value.categoryId || "unknown";
+    taxonomyCounts[taxonomyId] = (taxonomyCounts[taxonomyId] || 0) + 1;
+    total++;
   }
 
   return {
