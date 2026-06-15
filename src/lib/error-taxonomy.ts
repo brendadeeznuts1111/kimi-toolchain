@@ -148,10 +148,16 @@ export async function classifyAndSuggest(
   return { match, suggestions };
 }
 
+export const FAILURE_SCHEMA_VERSION = 1;
+
 export interface ClassifiedFailure {
+  schemaVersion: number;
   timestamp: string;
   toolName: string;
   output: string;
+  /** Canonical taxonomy category id (preferred). */
+  taxonomyId: string;
+  /** @deprecated Use taxonomyId — kept for one release for JSONL readers. */
   categoryId: string;
   categoryName: string;
   severity: string;
@@ -168,11 +174,14 @@ export function buildClassifiedFailure(
   match: TaxonomyMatch,
   extras?: { sessionId?: string }
 ): ClassifiedFailure {
+  const taxonomyId = match.category.id;
   return {
+    schemaVersion: FAILURE_SCHEMA_VERSION,
     timestamp: new Date().toISOString(),
     toolName,
     output: output.slice(0, 2000),
-    categoryId: match.category.id,
+    taxonomyId,
+    categoryId: taxonomyId,
     categoryName: match.category.name,
     severity: match.category.severity,
     expected: match.category.expected,

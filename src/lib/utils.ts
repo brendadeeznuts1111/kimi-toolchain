@@ -22,11 +22,10 @@ const DEFAULT_SECTION_WIDTH = 60;
 const DEFAULT_BANNER_INNER_WIDTH = 62;
 const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 
-const LOG_PREFIXES = {
-  info: "  ✓",
-  warn: "  ⚠",
-  error: "  ✗",
-} as const;
+/** Return the icon character for a doctor/workspace check status. */
+export function statusIcon(status: "ok" | "warn" | "error"): string {
+  return status === "ok" ? "✓" : status === "warn" ? "⚠" : "✗";
+}
 
 // ── File System ──────────────────────────────────────────────────────
 
@@ -37,51 +36,36 @@ export function ensureDir(dir: string) {
 
 // ── Logging ──────────────────────────────────────────────────────────
 
-/** Log a message with a level-appropriate prefix. */
+import type { HealthReport } from "./health-check.ts";
+import { createLogger, logger as defaultLogger } from "./logger.ts";
+
+/** @deprecated Use createLogger() and Logger.info/warn/error instead */
 export function log(level: "info" | "warn" | "error", msg: string) {
-  console.log(`${LOG_PREFIXES[level]} ${msg}`);
+  defaultLogger[level](msg);
 }
 
-/** Return the icon character for a doctor/workspace check status. */
-export function statusIcon(status: "ok" | "warn" | "error"): string {
-  return status === "ok" ? "✓" : status === "warn" ? "⚠" : "✗";
-}
-
-/** Print a section header with decorative borders. */
-export function printSection(title: string, width = DEFAULT_SECTION_WIDTH): void {
+/** @deprecated Use Logger.section() instead */
+export function printSection(title: string, _width = DEFAULT_SECTION_WIDTH): void {
   if (isAgentContext()) return;
-  console.log("");
-  console.log(`── ${title} ${"─".repeat(Math.max(0, width - title.length))}`);
+  defaultLogger.section(title);
 }
 
-/** Print a centered tool banner with optional subtitle. */
+/** @deprecated Use Logger.banner() instead */
 export function printToolBanner(
   title: string,
   subtitle?: string,
-  innerWidth = DEFAULT_BANNER_INNER_WIDTH
+  _innerWidth = DEFAULT_BANNER_INNER_WIDTH
 ): void {
   if (isAgentContext()) return;
-  const pad = Math.max(0, innerWidth - title.length);
-  const left = Math.floor(pad / 2);
-  const right = pad - left;
-  const bar = "═".repeat(innerWidth + 2);
-  console.log(`╔${bar}╗`);
-  console.log(`║ ${" ".repeat(left)}${title}${" ".repeat(right)} ║`);
-  if (subtitle) {
-    const subPad = Math.max(0, innerWidth - subtitle.length);
-    const subLeft = Math.floor(subPad / 2);
-    const subRight = subPad - subLeft;
-    console.log(`║ ${" ".repeat(subLeft)}${subtitle}${" ".repeat(subRight)} ║`);
-  }
-  console.log(`╚${bar}╝`);
+  defaultLogger.banner(title, subtitle);
 }
 
-/** Print a project banner with optional project name and subtitle. */
+/** @deprecated Use Logger.banner() and Logger.info() instead */
 export function printProjectBanner(title: string, project?: string, subtitle?: string): void {
   if (isAgentContext()) return;
-  printToolBanner(title, subtitle);
-  if (project) console.log(`  Project: ${project}`);
-  console.log("");
+  defaultLogger.banner(title, subtitle);
+  if (project) defaultLogger.info(`Project: ${project}`);
+  defaultLogger.line("");
 }
 
 // ── Hashing ──────────────────────────────────────────────────────────
@@ -226,9 +210,6 @@ export {
   buildDoctorReport,
   statusIcon as healthStatusIcon,
 } from "./health-check.ts";
-
-import type { HealthReport } from "./health-check.ts";
-import { createLogger } from "./logger.ts";
 
 /** @deprecated Use Logger.check() with createLogger() instead */
 export function printDoctorReport(report: HealthReport) {

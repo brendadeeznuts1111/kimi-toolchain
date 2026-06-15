@@ -67,7 +67,7 @@
     "check:fast": "bun run scripts/check.ts --fast",
     "check:dry-run": "bun run scripts/check.ts --dry-run",
     "check:staged": "bun run scripts/check.ts --staged",
-    "docs:sync": "bun run src/lib/readme-sync.ts --fix",
+    "docs:sync": "bun run scripts/readme-sync.ts --fix",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check -c .oxfmtrc.json .",
     "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
@@ -86,7 +86,6 @@
     "memory-budget": "bun run src/bin/kimi-doctor.ts --memory-budget"
   },
   "dependencies": {
-    "@effect/platform": "^0.96.1",
     "effect": "^3.21.3",
     "js-yaml": "^4.1.0"
   },

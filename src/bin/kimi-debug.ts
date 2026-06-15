@@ -11,12 +11,10 @@ import { $ } from "bun";
 import { existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { homeDir, toolsDir } from "../lib/paths.ts";
-import {
-  resolveProjectRoot,
-  buildDoctorReport,
-  printDoctorReport,
-  safeParse,
-} from "../lib/utils.ts";
+import { resolveProjectRoot, buildDoctorReport, safeParse } from "../lib/utils.ts";
+import { Effect } from "effect";
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+import { CliError } from "../lib/effect/errors.ts";
 import { gitStatus, gitDiff, gitLastCommitMessage } from "../lib/git-helpers.ts";
 import { createLogger } from "../lib/logger.ts";
 
@@ -205,13 +203,13 @@ async function traceFile(projectDir: string, filePath: string) {
   const result = await $`git log --oneline -- ${filePath}`.cwd(projectDir).nothrow().quiet();
   const lines = result.stdout.toString().split("\n").filter(Boolean);
 
-  console.log(`── Trace: ${filePath} ─────────────────────────────────────────`);
+  logger.section(`Trace: ${filePath}`);
   if (lines.length === 0) {
-    console.log("  No git history for this file (untracked or new)");
+    logger.info("No git history for this file (untracked or new)");
     return;
   }
 
-  console.log(`  ${lines.length} commits touching this file:`);
+  logger.info(`${lines.length} commits touching this file:`);
   for (const line of lines.slice(0, 10)) {
     console.log(`    ${line}`);
   }
@@ -222,8 +220,7 @@ async function traceFile(projectDir: string, filePath: string) {
   const diffResult = await $`git diff HEAD~1 -- ${filePath}`.cwd(projectDir).nothrow().quiet();
   const diff = diffResult.stdout.toString();
   if (diff) {
-    console.log("");
-    console.log("  Last change:");
+    logger.info("Last change:");
     const diffLines = diff.split("\n").slice(0, 20);
     for (const line of diffLines) {
       const prefix = line.startsWith("+") ? "  + " : line.startsWith("-") ? "  - " : "    ";
@@ -239,16 +236,15 @@ async function traceFile(projectDir: string, filePath: string) {
 
 async function printTaxonomy() {
   const taxonomy = await loadTaxonomy();
-  console.log(`── Error Taxonomy (v${taxonomy.version}) ─────────────────────`);
-  console.log(`  Loaded from: ${taxonomyPath()}`);
-  console.log("");
+  logger.section(`Error Taxonomy (v${taxonomy.version})`);
+  logger.info(`Loaded from: ${taxonomyPath()}`);
   for (const category of taxonomy.categories) {
     const expectedTag = category.expected ? " [expected]" : "";
-    console.log(`  ${category.severity.toUpperCase()} ${category.id}${expectedTag}`);
-    console.log(`    ${category.name}`);
-    console.log(`    ${category.description}`);
+    logger.info(`${category.severity.toUpperCase()} ${category.id}${expectedTag}`);
+    logger.info(`  ${category.name}`);
+    logger.info(`  ${category.description}`);
     if (category.patterns.length > 0) {
-      console.log(`    patterns: ${category.patterns.length}`);
+      logger.info(`  patterns: ${category.patterns.length}`);
     }
   }
 }
@@ -256,12 +252,12 @@ async function printTaxonomy() {
 async function analyzeWithTaxonomy(errorText: string) {
   const taxonomy = await loadTaxonomy();
   const match = classifyFailure(errorText, taxonomy);
-  console.log(`── Taxonomy Analysis ─────────────────────────────────────────`);
-  console.log(`  Category: ${match.category.name} (${match.category.id})`);
-  console.log(`  Severity: ${match.category.severity}`);
-  console.log(`  Expected: ${match.category.expected ? "yes" : "no"}`);
+  logger.section("Taxonomy Analysis");
+  logger.info(`Category: ${match.category.name} (${match.category.id})`);
+  logger.info(`Severity: ${match.category.severity}`);
+  logger.info(`Expected: ${match.category.expected ? "yes" : "no"}`);
   if (match.matchedPattern) {
-    console.log(`  Pattern:  ${match.matchedPattern}`);
+    logger.info(`Pattern:  ${match.matchedPattern}`);
   }
 }
 
@@ -277,10 +273,10 @@ interface WireEvent {
   };
 }
 
-async function parseWireLog(wirePath: string) {
+async function parseWireLog(wirePath: string): Promise<number> {
   if (!existsSync(wirePath)) {
-    console.log(`Wire log not found: ${wirePath}`);
-    process.exit(1);
+    logger.error(`Wire log not found: ${wirePath}`);
+    return 1;
   }
 
   const taxonomy = await loadTaxonomy();
@@ -305,11 +301,10 @@ async function parseWireLog(wirePath: string) {
     failures.push(buildClassifiedFailure(toolName, output, match));
   }
 
-  console.log(`── Wire Log Analysis ─────────────────────────────────────────`);
-  console.log(`  File:         ${wirePath}`);
-  console.log(`  Error events: ${totalErrors}`);
-  console.log(`  Classified:   ${failures.length}`);
-  console.log("");
+  logger.section("Wire Log Analysis");
+  logger.info(`File:         ${wirePath}`);
+  logger.info(`Error events: ${totalErrors}`);
+  logger.info(`Classified:   ${failures.length}`);
 
   const byCategory = new Map<string, { count: number; severity: string; expected: boolean }>();
   for (const f of failures) {
@@ -326,18 +321,17 @@ async function parseWireLog(wirePath: string) {
   }
 
   if (byCategory.size === 0) {
-    console.log("  No isError=true tool results found.");
-    return;
+    logger.info("No isError=true tool results found.");
+    return 0;
   }
 
-  console.log("  By category:");
+  logger.info("By category:");
   for (const [id, { count, severity, expected }] of byCategory.entries()) {
     const tag = expected ? " [expected]" : "";
     console.log(`    ${severity.toUpperCase()} ${id}: ${count}${tag}`);
   }
 
-  console.log("");
-  console.log("  Recent unclassified failures (if any):");
+  logger.info("Recent unclassified failures (if any):");
   let unclassified = 0;
   for (const f of failures.slice(-5)) {
     if (f.categoryId === "unknown") {
@@ -347,8 +341,9 @@ async function parseWireLog(wirePath: string) {
     }
   }
   if (unclassified === 0) {
-    console.log("    (none)");
+    logger.info("(none)");
   }
+  return 0;
 }
 
 // ── Doctor ───────────────────────────────────────────────────────────
@@ -398,7 +393,14 @@ async function doctor(projectDir: string) {
     fixable: false,
   });
 
-  printDoctorReport(buildDoctorReport("kimi-debug", checks));
+  const report = buildDoctorReport("kimi-debug", checks);
+  logger.section(`${report.tool} Doctor`);
+  for (const check of report.checks) {
+    logger.check(check);
+  }
+  logger.info(
+    `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
+  );
 }
 
 // ── Fix ──────────────────────────────────────────────────────────────
@@ -435,7 +437,7 @@ function getDirName(projectDir: string): string {
 
 // ── Main ─────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
   const command = args[0] || "last";
   const projectDir = await resolveProjectRoot(Bun.cwd);
@@ -444,15 +446,14 @@ async function main() {
   logger.banner('Kimi Debug — "What Broke?" Wizard', projectDir);
 
   if (command === "last") {
-    console.log(`── Recent Activity ───────────────────────────────────────────`);
+    logger.section("Recent Activity");
 
     const lastCommit = await getLastCommitMessage(projectDir);
-    console.log(`  Last commit: ${lastCommit}`);
+    logger.info(`Last commit: ${lastCommit}`);
 
     const recent = await getRecentChanges(projectDir, 3);
     if (recent.length > 0) {
-      console.log("");
-      console.log(`  Files changed in last 3 commits (${recent.length} files):`);
+      logger.info(`Files changed in last 3 commits (${recent.length} files):`);
       for (const c of recent.slice(0, 10)) {
         console.log(`    ${c.file} (+${c.insertions}/-${c.deletions})`);
       }
@@ -460,8 +461,7 @@ async function main() {
 
     const working = await getWorkingTreeChanges(projectDir);
     if (working.length > 0) {
-      console.log("");
-      console.log(`  Uncommitted changes (${working.length} files):`);
+      logger.info(`Uncommitted changes (${working.length} files):`);
       for (const c of working.slice(0, 10)) {
         console.log(`    [${c.status}] ${c.file}`);
       }
@@ -469,8 +469,7 @@ async function main() {
 
     const sessions = await getRecentSessions(project, 3);
     if (sessions.length > 0) {
-      console.log("");
-      console.log(`  Recent sessions:`);
+      logger.info("Recent sessions:");
       for (const s of sessions) {
         console.log(`    ${s.time.slice(0, 19)} — ${s.detail.slice(0, 60)}`);
       }
@@ -480,20 +479,19 @@ async function main() {
       const mostChanged = recent.reduce((a, b) =>
         a.insertions + a.deletions > b.insertions + b.deletions ? a : b
       );
-      console.log("");
-      console.log(`── Suggestion ────────────────────────────────────────────────`);
-      console.log(`  Most changed file: ${mostChanged.file}`);
-      console.log(`  If something broke recently, check this file first.`);
-      console.log(`  Run: kimi-debug trace ${mostChanged.file}`);
+      logger.section("Suggestion");
+      logger.info(`Most changed file: ${mostChanged.file}`);
+      logger.info("If something broke recently, check this file first.");
+      logger.info(`Run: kimi-debug trace ${mostChanged.file}`);
     }
   } else if (command === "diff") {
     const commits = parseInt(args[1], 10) || 3;
-    console.log(`── Diff Summary (last ${commits} commits) ─────────────────────`);
+    logger.section(`Diff Summary (last ${commits} commits)`);
 
     const changes = await getRecentChanges(projectDir, commits);
     if (changes.length === 0) {
-      console.log("  No changes found");
-      return;
+      logger.info("No changes found");
+      return 0;
     }
 
     const byExt = new Map<string, GitChange[]>();
@@ -502,8 +500,8 @@ async function main() {
       byExt.set(ext, [...(byExt.get(ext) || []), c]);
     }
 
-    console.log(`  Total files: ${changes.length}`);
-    console.log("  By type:");
+    logger.info(`Total files: ${changes.length}`);
+    logger.info("By type:");
     for (const [ext, files] of byExt.entries()) {
       const totalLines = files.reduce((s, f) => s + f.insertions + f.deletions, 0);
       console.log(`    .${ext}: ${files.length} files, ${totalLines} lines changed`);
@@ -511,8 +509,7 @@ async function main() {
 
     const highRisk = changes.filter((c) => c.insertions + c.deletions > 50);
     if (highRisk.length > 0) {
-      console.log("");
-      console.log("  High-risk changes (>50 lines):");
+      logger.warn("High-risk changes (>50 lines):");
       for (const c of highRisk) {
         console.log(`    ⚠ ${c.file} (+${c.insertions}/-${c.deletions})`);
       }
@@ -520,8 +517,8 @@ async function main() {
   } else if (command === "trace") {
     const filePath = args[1];
     if (!filePath) {
-      console.log("Usage: kimi-debug trace <file-path>");
-      process.exit(1);
+      logger.error("Usage: kimi-debug trace <file-path>");
+      return 1;
     }
     await traceFile(projectDir, filePath);
   } else if (command === "analyze") {
@@ -544,9 +541,9 @@ async function main() {
     }
 
     if (!errorText.trim()) {
-      console.log("Usage: kimi-debug analyze <error-message-or-log-snippet>");
-      console.log("  Or pipe: cat error.log | kimi-debug analyze");
-      process.exit(1);
+      logger.error("Usage: kimi-debug analyze <error-message-or-log-snippet>");
+      logger.info("Or pipe: cat error.log | kimi-debug analyze");
+      return 1;
     }
 
     logger.section("Error Analysis");
@@ -563,8 +560,7 @@ async function main() {
     const recent = await getRecentChanges(projectDir, 5);
     const errorFiles = errorText.match(/[\w-/.]+\.(ts|js|tsx|jsx|json|toml)/g) || [];
     if (errorFiles.length > 0) {
-      console.log("");
-      console.log("  Files mentioned in error:");
+      logger.info("Files mentioned in error:");
       for (const f of new Set(errorFiles)) {
         const changed = recent.some((r) => r.file.includes(f));
         console.log(`    ${changed ? "⚠" : "  "} ${f}${changed ? " (recently changed)" : ""}`);
@@ -577,22 +573,19 @@ async function main() {
       errorText,
       results.map((r) => r.suggestion)
     );
-    console.log("");
-    console.log("  Recorded failure for similarity matching");
+    logger.info("Recorded failure for similarity matching");
 
-    // Cross-tool: suggest guardian for lockfile issues
     if (errorText.includes("lockfile") || errorText.includes("bun.lock")) {
-      console.log("");
-      console.log("  → Lockfile-related error detected. Run: kimi-guardian check");
+      logger.info("Lockfile-related error detected. Run: kimi-guardian check");
     }
   } else if (command === "doctor") {
     await doctor(projectDir);
   } else if (command === "fix") {
     const errorText = args.slice(1).join(" ") || "";
     if (!errorText) {
-      console.log("Usage: kimi-debug fix <error-text>");
-      console.log("  Analyzes error and suggests auto-fixes");
-      process.exit(1);
+      logger.error("Usage: kimi-debug fix <error-text>");
+      logger.info("Analyzes error and suggests auto-fixes");
+      return 1;
     }
     await fixError(projectDir, errorText);
   } else if (command === "taxonomy") {
@@ -600,20 +593,20 @@ async function main() {
   } else if (command === "classify") {
     const errorText = args.slice(1).join(" ") || "";
     if (!errorText) {
-      console.log("Usage: kimi-debug classify <error-text>");
-      console.log("  Classify error text against taxonomy");
-      process.exit(1);
+      logger.error("Usage: kimi-debug classify <error-text>");
+      logger.info("Classify error text against taxonomy");
+      return 1;
     }
     await analyzeWithTaxonomy(errorText);
   } else if (command === "wire") {
     const wirePath = args[1] || findLatestWireLog();
     if (!wirePath) {
-      console.log("No wire.jsonl found — specify a path or ensure a Kimi Code session exists.");
-      process.exit(1);
+      logger.error("No wire.jsonl found — specify a path or ensure a Kimi Code session exists.");
+      return 1;
     }
-    await parseWireLog(wirePath);
+    return await parseWireLog(wirePath);
   } else {
-    console.log("Commands:");
+    logger.section("Commands");
     console.log("  last                    Show recent activity + heuristic suggestion");
     console.log("  diff [N]                Summarize last N commits of changes");
     console.log("  trace <file>            Show git history + last diff for a file");
@@ -625,10 +618,17 @@ async function main() {
     console.log("  fix <error-text>        Suggest auto-fixes for error");
   }
 
-  console.log("");
+  return 0;
 }
 
-main().catch((err) => {
-  console.error("kimi-debug failed:", err.message);
-  process.exit(1);
-});
+const exitCode = await runCliExit(
+  Effect.tryPromise({
+    try: () => main(),
+    catch: (e) =>
+      new CliError({
+        message: e instanceof Error ? e.message : String(e),
+      }),
+  }),
+  { toolName: "kimi-debug" }
+);
+process.exit(exitCode);

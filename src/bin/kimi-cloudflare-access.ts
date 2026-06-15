@@ -18,7 +18,12 @@
  *   https://dash.cloudflare.com/profile/api-tokens.
  */
 
-import { log, printSection, printProjectBanner } from "../lib/utils.ts";
+import { createLogger } from "../lib/logger.ts";
+import { Effect } from "effect";
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+import { CliError } from "../lib/effect/errors.ts";
+
+const logger = createLogger(Bun.argv, "kimi-cloudflare-access");
 import {
   applyDiff,
   computeDiff,
@@ -47,21 +52,21 @@ const DEFAULT_WARN_DAYS = 30;
 
 // ── Credentials ──────────────────────────────────────────────────────
 
-async function login(): Promise<void> {
+async function login(): Promise<number> {
   const accountId = prompt("Cloudflare Account ID:")?.trim();
   const apiToken = prompt("Cloudflare API Token:")?.trim();
 
   if (!accountId || !apiToken) {
-    console.error("Account ID and API token are required.");
-    process.exit(1);
+    logger.error("Account ID and API token are required.");
+    return 1;
   }
 
   Bun.stdout.write("Verifying token...");
   const verification = await verifyToken(apiToken);
   if (!verification.valid) {
     console.log(" failed");
-    console.error(`Token verification failed: ${verification.message}`);
-    process.exit(1);
+    logger.error(`Token verification failed: ${verification.message}`);
+    return 1;
   }
   console.log(" ok");
 
@@ -76,14 +81,16 @@ async function login(): Promise<void> {
     value: apiToken,
   });
 
-  log("info", "Credentials saved to OS keychain.");
-  console.log("Run `kimi-cloudflare-access logout` to remove them.");
+  logger.info("Credentials saved to OS keychain.");
+  logger.info("Run `kimi-cloudflare-access logout` to remove them.");
+  return 0;
 }
 
-async function logout(): Promise<void> {
+async function logout(): Promise<number> {
   await Bun.secrets.delete({ service: CREDENTIAL_SERVICE, name: "cloudflare-account-id" });
   await Bun.secrets.delete({ service: CREDENTIAL_SERVICE, name: "cloudflare-api-token" });
-  log("info", "Cloudflare credentials removed from OS keychain.");
+  logger.info("Cloudflare credentials removed from OS keychain.");
+  return 0;
 }
 
 // ── API ──────────────────────────────────────────────────────────────
@@ -98,7 +105,7 @@ function printAuthHelp() {
     "error",
     "API token lacks Access permissions. Ensure the token has Account > Access: Read (and Access: Edit to rotate tokens)."
   );
-  log("info", "Create or verify tokens at https://dash.cloudflare.com/profile/api-tokens");
+  logger.info("Create or verify tokens at https://dash.cloudflare.com/profile/api-tokens");
 }
 */
 
@@ -106,18 +113,18 @@ function printAuthHelp() {
 
 function printViolations(violations: import("../lib/cloudflare-access.ts").TokenViolation[]) {
   if (violations.length === 0) {
-    log("info", "No service token expiry issues");
+    logger.info("No service token expiry issues");
     return;
   }
 
   for (const v of violations) {
     const label = v.token.name || v.token.client_id || v.token.id;
     if (v.reason === "expired") {
-      log("error", `${label}: expired ${Math.abs(v.daysRemaining || 0)} day(s) ago`);
+      logger.error(`${label}: expired ${Math.abs(v.daysRemaining || 0)} day(s) ago`);
     } else if (v.reason === "expiring-soon") {
-      log("warn", `${label}: expires in ${v.daysRemaining} day(s)`);
+      logger.warn(`${label}: expires in ${v.daysRemaining} day(s)`);
     } else {
-      log("warn", `${label}: no expiry set`);
+      logger.warn(`${label}: no expiry set`);
     }
   }
 }
@@ -126,7 +133,7 @@ function printViolations(violations: import("../lib/cloudflare-access.ts").Token
 
 function printAppFindings(findings: import("../lib/cloudflare-access.ts").AppFinding[]) {
   if (findings.length === 0) {
-    log("info", "No Access application policy issues");
+    logger.info("No Access application policy issues");
     return;
   }
 
@@ -352,7 +359,7 @@ async function doctor(): Promise<
 // ── Dashboard ────────────────────────────────────────────────────────
 
 function printDashboard(mappings: import("../lib/cloudflare-access.ts").ProjectMapping[]) {
-  printSection("Cloudflare SSO Project Dashboard");
+  logger.section("Cloudflare SSO Project Dashboard");
 
   const byStatus = { ok: 0, warn: 0, error: 0, info: 0 };
   for (const m of mappings) byStatus[m.status]++;
@@ -405,7 +412,7 @@ function printDashboard(mappings: import("../lib/cloudflare-access.ts").ProjectM
 
 // ── Main ─────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<number> {
   const rawArgs = Bun.argv.slice(2);
   const jsonMode = rawArgs.includes("--json");
   const args = rawArgs.filter((a) => a !== "--json");
@@ -416,17 +423,15 @@ async function main() {
   }
 
   if (!jsonMode) {
-    printProjectBanner("Kimi Cloudflare Access — Zero Trust Hygiene");
+    logger.banner("Kimi Cloudflare Access — Zero Trust Hygiene");
   }
 
   if (command === "login") {
-    await login();
-    return;
+    return await login();
   }
 
   if (command === "logout") {
-    await logout();
-    return;
+    return await logout();
   }
 
   if (command === "doctor") {
@@ -439,21 +444,18 @@ async function main() {
         checks,
         summary: { errors, warnings, fixable },
       });
-      process.exit(errors > 0 ? 1 : 0);
+      return errors > 0 ? 1 : 0;
     }
-    printSection("Cloudflare Access Doctor");
+    logger.section("Cloudflare Access Doctor");
     let errors = 0;
-    let warns = 0;
-    let fixable = 0;
     for (const c of checks) {
-      const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
-      console.log(`  ${icon} ${c.name}: ${c.message}${c.fixable ? " [fixable]" : ""}`);
+      logger.check(c);
       if (c.status === "error") errors++;
-      if (c.status === "warn") warns++;
-      if (c.fixable) fixable++;
     }
-    console.log(`  ${errors} error(s), ${warns} warning(s), ${fixable} fixable`);
-    process.exit(errors > 0 ? 1 : 0);
+    const warns = checks.filter((c) => c.status === "warn").length;
+    const fixable = checks.filter((c) => c.fixable).length;
+    logger.info(`${errors} error(s), ${warns} warning(s), ${fixable} fixable`);
+    return errors > 0 ? 1 : 0;
   }
 
   let accountId: string;
@@ -465,9 +467,9 @@ async function main() {
     if (jsonMode) {
       jsonOut({ error: msg });
     } else {
-      log("error", msg);
+      logger.error(msg);
     }
-    process.exit(1);
+    return 1;
   }
 
   if (command === "tokens") {
@@ -479,21 +481,20 @@ async function main() {
       if (jsonMode) {
         jsonOut({ error: msg });
       } else {
-        log("error", `Failed to list service tokens: ${msg}`);
+        logger.error(`Failed to list service tokens: ${msg}`);
       }
-      process.exit(1);
+      return 1;
     }
     const violations = checkTokenExpiry(tokens);
     if (jsonMode) {
       jsonOut({ tokens, violations });
-      process.exit(violations.some((v) => v.reason === "expired") ? 1 : 0);
+      return violations.some((v) => v.reason === "expired") ? 1 : 0;
     }
-    printSection("Service Token Expiry Sweep");
-    console.log(`  Found ${tokens.length} service token(s)`);
+    logger.section("Service Token Expiry Sweep");
+    logger.info(`Found ${tokens.length} service token(s)`);
     printViolations(violations);
-    console.log("");
-    console.log("Commands: tokens (default) | apps | doctor | fix | login | logout | dashboard");
-    process.exit(violations.some((v) => v.reason === "expired") ? 1 : 0);
+    logger.info("Commands: tokens (default) | apps | doctor | fix | login | logout | dashboard");
+    return violations.some((v) => v.reason === "expired") ? 1 : 0;
   }
 
   if (command === "dashboard") {
@@ -509,9 +510,9 @@ async function main() {
       if (jsonMode) {
         jsonOut({ error: msg });
       } else {
-        log("error", `Failed to fetch Access data: ${msg}`);
+        logger.error(`Failed to fetch Access data: ${msg}`);
       }
-      process.exit(1);
+      return 1;
     }
     const mappings = await buildDashboard(apps, tokens);
     const orphaned = await discoverOrphanedResources(accountId, apiToken);
@@ -532,11 +533,11 @@ async function main() {
           orphanedResources: orphaned.length,
         },
       });
-      process.exit(errors > 0 ? 1 : 0);
+      return errors > 0 ? 1 : 0;
     }
     printDashboard(mappings);
     if (orphaned.length > 0) {
-      printSection("Orphaned Resources");
+      logger.section("Orphaned Resources");
       for (const o of orphaned) {
         const icon = o.type === "r2_bucket" ? "🪣" : "📦";
         console.log(`  ${icon} ${o.name} (${o.type})`);
@@ -545,11 +546,11 @@ async function main() {
       }
       console.log("");
     }
-    console.log(`  ${errors} error(s), ${warnings} warning(s), ${unmapped} unmapped`);
+    logger.info(`${errors} error(s), ${warnings} warning(s), ${unmapped} unmapped`);
     if (orphaned.length > 0) {
-      console.log(`  ⚠ ${orphaned.length} orphaned resource(s) detected`);
+      logger.warn(`${orphaned.length} orphaned resource(s) detected`);
     }
-    process.exit(errors > 0 ? 1 : 0);
+    return errors > 0 ? 1 : 0;
   }
 
   if (command === "apps") {
@@ -565,21 +566,20 @@ async function main() {
       if (jsonMode) {
         jsonOut({ error: msg });
       } else {
-        log("error", `Failed to fetch Access data: ${msg}`);
+        logger.error(`Failed to fetch Access data: ${msg}`);
       }
-      process.exit(1);
+      return 1;
     }
     const findings = auditApps(apps, tokens);
     if (jsonMode) {
       jsonOut({ apps, tokens, findings });
-      process.exit(findings.some((f) => f.reason === "bypass") ? 1 : 0);
+      return findings.some((f) => f.reason === "bypass") ? 1 : 0;
     }
-    printSection("Access Application Policy Audit");
-    console.log(`  Found ${apps.length} application(s), ${tokens.length} service token(s)`);
+    logger.section("Access Application Policy Audit");
+    logger.info(`Found ${apps.length} application(s), ${tokens.length} service token(s)`);
     printAppFindings(findings);
-    console.log("");
-    console.log("Commands: tokens (default) | apps | doctor | fix | login | logout | dashboard");
-    process.exit(findings.some((f) => f.reason === "bypass") ? 1 : 0);
+    logger.info("Commands: tokens (default) | apps | doctor | fix | login | logout | dashboard");
+    return findings.some((f) => f.reason === "bypass") ? 1 : 0;
   }
 
   if (command === "fix") {
@@ -591,9 +591,9 @@ async function main() {
       if (jsonMode) {
         jsonOut({ error: msg });
       } else {
-        log("error", `Failed to list service tokens: ${msg}`);
+        logger.error(`Failed to list service tokens: ${msg}`);
       }
-      process.exit(1);
+      return 1;
     }
     const violations = checkTokenExpiry(tokens);
     const rotatable = violations.filter(
@@ -604,9 +604,9 @@ async function main() {
       if (jsonMode) {
         jsonOut({ rotated: [], failures: [] });
       } else {
-        log("info", "No expired or expiring tokens to rotate");
+        logger.info("No expired or expiring tokens to rotate");
       }
-      return;
+      return 0;
     }
 
     const rotated: Array<{ token: ServiceToken; client_id: string; client_secret: string }> = [];
@@ -621,7 +621,7 @@ async function main() {
           client_secret: result.client_secret,
         });
         if (!jsonMode) {
-          log("info", `Rotated ${label}`);
+          logger.info(`Rotated ${label}`);
           console.log(`    new client_id: ${result.client_id}`);
           console.log(
             `    new client_secret: ${result.client_secret.slice(0, 8)}... (store securely)`
@@ -631,14 +631,14 @@ async function main() {
         const msg = e instanceof Error ? e.message : String(e);
         failures.push({ token: v.token, error: msg });
         if (!jsonMode) {
-          log("error", `Failed to rotate ${label}: ${msg}`);
+          logger.error(`Failed to rotate ${label}: ${msg}`);
         }
       }
     }
     if (jsonMode) {
       jsonOut({ rotated, failures });
     }
-    process.exit(failures.length > 0 ? 1 : 0);
+    return failures.length > 0 ? 1 : 0;
   }
 
   if (command === "plan" || command === "apply") {
@@ -648,9 +648,9 @@ async function main() {
       if (jsonMode) {
         jsonOut({ error: msg });
       } else {
-        log("error", msg);
+        logger.error(msg);
       }
-      process.exit(1);
+      return 1;
     }
 
     let live;
@@ -661,9 +661,9 @@ async function main() {
       if (jsonMode) {
         jsonOut({ error: msg });
       } else {
-        log("error", `Failed to fetch live state: ${msg}`);
+        logger.error(`Failed to fetch live state: ${msg}`);
       }
-      process.exit(1);
+      return 1;
     }
 
     const diff = computeDiff(config, live);
@@ -673,9 +673,9 @@ async function main() {
       if (jsonMode) {
         jsonOut({ config, live, diff, hasChanges });
       } else {
-        printSection("Policy-as-Code Plan");
+        logger.section("Policy-as-Code Plan");
         if (!hasChanges) {
-          log("info", "No changes — live state matches desired state");
+          logger.info("No changes — live state matches desired state");
         } else {
           for (const d of diff) {
             if (d.action === "noop") continue;
@@ -696,10 +696,9 @@ async function main() {
             }
           }
         }
-        console.log("");
-        console.log(`Run "kimi-cloudflare-access apply" to apply changes`);
+        logger.info('Run "kimi-cloudflare-access apply" to apply changes');
       }
-      process.exit(hasChanges ? 1 : 0);
+      return hasChanges ? 1 : 0;
     }
 
     if (command === "apply") {
@@ -708,9 +707,9 @@ async function main() {
         if (jsonMode) {
           jsonOut({ applied: false, reason: "no changes" });
         } else {
-          log("info", "No changes to apply");
+          logger.info("No changes to apply");
         }
-        process.exit(0);
+        return 0;
       }
 
       if (!dryRun && !jsonMode) {
@@ -718,8 +717,8 @@ async function main() {
           `Apply ${diff.filter((d) => d.action !== "noop").length} change(s)? [y/N] `
         );
         if (confirm?.trim().toLowerCase() !== "y") {
-          log("info", "Aborted");
-          process.exit(0);
+          logger.info("Aborted");
+          return 0;
         }
       }
 
@@ -727,16 +726,15 @@ async function main() {
       if (jsonMode) {
         jsonOut({ dryRun, ...result });
       } else {
-        printSection(dryRun ? "Apply (dry-run)" : "Apply");
-        log(
-          "info",
+        logger.section(dryRun ? "Apply (dry-run)" : "Apply");
+        logger.info(
           `Created: ${result.created}, Updated: ${result.updated}, Deleted: ${result.deleted}`
         );
         if (result.errors.length > 0) {
-          for (const e of result.errors) log("error", e);
+          for (const e of result.errors) logger.error(e);
         }
       }
-      process.exit(result.errors.length > 0 ? 1 : 0);
+      return result.errors.length > 0 ? 1 : 0;
     }
   }
 
@@ -747,22 +745,22 @@ async function main() {
       if (jsonMode) {
         jsonOut({ error: msg });
       } else {
-        log("error", msg);
+        logger.error(msg);
       }
-      process.exit(1);
+      return 1;
     }
 
-    let accountId: string;
+    let mcpAccountId: string;
     try {
-      ({ accountId } = await getCredentials());
+      ({ accountId: mcpAccountId } = await getCredentials());
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (jsonMode) {
         jsonOut({ error: msg });
       } else {
-        log("error", msg);
+        logger.error(msg);
       }
-      process.exit(1);
+      return 1;
     }
 
     // Build MCP script for policy updates
@@ -785,10 +783,10 @@ async function main() {
               name: string;
               policies: Array<{ id: string; name: string; reusable?: boolean }>;
             }>
-          >(accountId, apiToken, "/access/apps")) || [];
+          >(mcpAccountId, apiToken, "/access/apps")) || [];
         const liveApp = liveApps.find((a) => a.name === app.name);
         if (!liveApp) {
-          if (!jsonMode) log("warn", `App "${app.name}" not found live — skipping`);
+          if (!jsonMode) logger.warn(`App "${app.name}" not found live — skipping`);
           continue;
         }
         for (const desiredPolicy of app.policies) {
@@ -811,20 +809,20 @@ async function main() {
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
-        if (!jsonMode) log("error", `Failed to fetch live state for ${app.name}: ${msg}`);
+        if (!jsonMode) logger.error(`Failed to fetch live state for ${app.name}: ${msg}`);
       }
     }
 
     if (policyUpdates.length === 0) {
-      if (!jsonMode) log("info", "No matching live policies to update");
-      process.exit(0);
+      if (!jsonMode) logger.info("No matching live policies to update");
+      return 0;
     }
 
     // Generate MCP script
     const mcpScript = `// Run this via MCP cloudflare-api server
 // Generated by kimi-cloudflare-access mcp-apply
 async () => {
-  const accountId = "${accountId}";
+  const accountId = "${mcpAccountId}";
   const updates = ${JSON.stringify(policyUpdates, null, 2)};
   const results = [];
   for (const u of updates) {
@@ -841,26 +839,33 @@ async () => {
     if (jsonMode) {
       jsonOut({ policyUpdates, mcpScript });
     } else {
-      printSection("MCP Apply Script");
+      logger.section("MCP Apply Script");
       console.log("  Copy the script below and run via MCP cloudflare-api:");
       console.log("");
       console.log(mcpScript);
       console.log("");
-      console.log(`  ${policyUpdates.length} policy update(s) ready`);
+      logger.info(`${policyUpdates.length} policy update(s) ready`);
     }
-    process.exit(0);
+    return 0;
   }
 
-  console.error(`Unknown command: ${command}`);
-  console.error(
+  logger.error(`Unknown command: ${command}`);
+  logger.info(
     "Usage: kimi-cloudflare-access [tokens|apps|doctor|fix|login|logout|plan|apply|dashboard|mcp-apply]"
   );
-  process.exit(1);
+  return 1;
 }
 
 if (import.meta.main) {
-  main().catch((err) => {
-    console.error("kimi-cloudflare-access failed:", err.message);
-    process.exit(1);
-  });
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        new CliError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    }),
+    { toolName: "kimi-cloudflare-access" }
+  );
+  process.exit(exitCode);
 }

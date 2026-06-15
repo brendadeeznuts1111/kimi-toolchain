@@ -14,6 +14,9 @@ import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 import { checkDocDrift } from "../lib/readme-sync.ts";
 import { guardianDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
+import { Effect } from "effect";
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+import { CliError } from "../lib/effect/errors.ts";
 
 const logger = createLogger(Bun.argv, "kimi-context-gen");
 
@@ -494,7 +497,7 @@ async function doctor(
 
 // ── Main ─────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
   const command = args[0] || "scan";
   const projectDir = await resolveProjectRoot(Bun.cwd);
@@ -595,15 +598,25 @@ async function main() {
     }
   } else {
     logger.section("Commands");
-    console.log("  scan (default)   Infer tech stack and show freshness");
-    console.log("  update           Generate/regenerate CONTEXT.md");
-    console.log("  freshness        Check freshness score");
-    console.log("  doctor           Check CONTEXT.md health");
-    console.log("  fix [threshold]  Regenerate if freshness below threshold (default 7)");
+    logger.info("  scan (default)   Infer tech stack and show freshness");
+    logger.info("  update           Generate/regenerate CONTEXT.md");
+    logger.info("  freshness        Check freshness score");
+    logger.info("  doctor           Check CONTEXT.md health");
+    logger.info("  fix [threshold]  Regenerate if freshness below threshold (default 7)");
   }
+  return 0;
 }
 
-main().catch((err) => {
-  logger.error(`kimi-context-gen failed: ${err.message}`);
-  process.exit(1);
-});
+if (import.meta.main) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        new CliError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    }),
+    { toolName: "kimi-context-gen" }
+  );
+  process.exit(exitCode);
+}

@@ -36,6 +36,10 @@ export const UNIT_TEST_FILES = [
   "test/error-taxonomy.unit.test.ts",
   "test/health-check.unit.test.ts",
   "test/logger.unit.test.ts",
+  "test/telemetry-schema.unit.test.ts",
+  "test/doctor-pipeline.unit.test.ts",
+  "test/effect/tool-runner-effect.unit.test.ts",
+  "test/effect/cli-runtime.unit.test.ts",
 ] as const;
 
 /** Smoke tests — full CLI invocations, 15-30s each */

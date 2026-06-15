@@ -218,6 +218,12 @@ export class Logger {
     console.log(`── ${title} ${"─".repeat(Math.max(0, width - title.length))}`);
   }
 
+  /** Raw stdout line (help text, tables). Suppressed in agent/quiet/json modes. */
+  line(msg: string): void {
+    if (isAgentContext() || this.quiet || this.json) return;
+    console.log(msg);
+  }
+
   /** Print a banner (suppressed in agent context). */
   banner(title: string, subtitle?: string): void {
     if (isAgentContext() || this.quiet || this.json) return;
@@ -242,10 +248,15 @@ export class Logger {
     return [...this.logs];
   }
 
-  /** Flush logs to a file for persistent telemetry. */
+  /** Append logs as JSONL for persistent telemetry (matches tool-failures.jsonl semantics). */
   async flushToFile(path: string): Promise<void> {
-    const lines = this.logs.map((l) => JSON.stringify(l)).join("\n");
-    await Bun.write(path, lines + (lines ? "\n" : ""));
+    if (this.logs.length === 0) return;
+    const { appendFileSync, mkdirSync } = await import("fs");
+    const { dirname } = await import("path");
+    const dir = dirname(path);
+    mkdirSync(dir, { recursive: true });
+    const lines = this.logs.map((l) => JSON.stringify(l)).join("\n") + "\n";
+    appendFileSync(path, lines);
   }
 }
 

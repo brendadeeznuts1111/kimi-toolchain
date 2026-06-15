@@ -33,20 +33,31 @@ function openSessionsDb(): Database {
   return db;
 }
 
+function resolveSessionId(): string | undefined {
+  return Bun.env.KIMI_CODE_SESSION || Bun.env.KIMI_AGENT_SESSION || undefined;
+}
+
 export function recordDoctorRun(
   project: string,
   tool: string,
   warnings: DoctorWarning[],
   rScore?: number,
-  gitHead?: string
+  gitHead?: string,
+  sessionId?: string
 ): void {
   const db = openSessionsDb();
   const now = Date.now();
+  try {
+    db.exec("ALTER TABLE doctor_runs ADD COLUMN session_id TEXT");
+  } catch {
+    // Column already exists.
+  }
 
+  const sid = sessionId ?? resolveSessionId() ?? null;
   db.run(
-    `INSERT INTO doctor_runs (timestamp, tool, warnings_json, r_score, git_head, project)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [now, tool, JSON.stringify(warnings), rScore ?? null, gitHead ?? null, project]
+    `INSERT INTO doctor_runs (timestamp, tool, warnings_json, r_score, git_head, project, session_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [now, tool, JSON.stringify(warnings), rScore ?? null, gitHead ?? null, project, sid]
   );
 
   for (const w of warnings) {

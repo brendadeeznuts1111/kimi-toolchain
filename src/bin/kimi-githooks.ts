@@ -17,12 +17,14 @@ import {
   resolveProjectRoot,
   sha256File,
   buildDoctorReport,
-  printDoctorReport,
   readPackageJson,
 } from "../lib/utils.ts";
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
 import { toolsDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
+import { Effect } from "effect";
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+import { CliError } from "../lib/effect/errors.ts";
 
 const logger = createLogger(Bun.argv, "kimi-githooks");
 
@@ -178,17 +180,17 @@ exit 0
 
 // ── Hook Installation ────────────────────────────────────────────────
 
-async function installHooks(projectDir: string) {
+async function installHooks(projectDir: string): Promise<number> {
   const gitPath = findExecutable("git");
   if (!gitPath) {
     log("error", "git not found in PATH. Install git first.");
-    process.exit(1);
+    return 1;
   }
 
   const gitDir = join(projectDir, ".git");
   if (!existsSync(gitDir)) {
     log("error", "Not a git repository. Run 'git init' first.");
-    process.exit(1);
+    return 1;
   }
 
   const hooksDir = join(gitDir, "hooks");
@@ -214,12 +216,13 @@ async function installHooks(projectDir: string) {
   }
 
   logger.info("Hooks active. They will run on next commit/push.");
-  console.log(
+  logger.info(
     "  pre-commit: blocks .env, format:check + lint + typecheck, warns on TODO/console.log"
   );
-  console.log(
+  logger.info(
     "  pre-push:   guardian scan, R-Score gate (blocks F/D), check/test gate, mandatory bun run sync"
   );
+  return 0;
 }
 
 // ── Doctor ───────────────────────────────────────────────────────────
@@ -392,7 +395,7 @@ async function doctorHooks(projectDir: string) {
 
 // ── Main ─────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
   const command = args[0] || "install";
   const projectDir = await resolveProjectRoot(Bun.cwd);
@@ -400,11 +403,21 @@ async function main() {
   printToolBanner("Kimi Git Hooks");
 
   if (command === "install") {
-    await installHooks(projectDir);
-  } else if (command === "doctor") {
+    return installHooks(projectDir);
+  }
+  if (command === "doctor") {
     const checks = await doctorHooks(projectDir);
-    printDoctorReport(buildDoctorReport("Hook Health Check", checks));
-  } else if (command === "fix") {
+    const report = buildDoctorReport("Hook Health Check", checks);
+    logger.section(`${report.tool} Doctor`);
+    for (const check of report.checks) {
+      logger.check(check);
+    }
+    logger.info(
+      `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
+    );
+    return report.errorCount > 0 ? 1 : 0;
+  }
+  if (command === "fix") {
     logger.section("Fixing Hooks");
     const checks = await doctorHooks(projectDir);
     const needsInstall = checks.some(
@@ -412,11 +425,12 @@ async function main() {
         c.fixable && (c.name === "pre-commit" || c.name === "pre-push" || c.name === "hooks-dir")
     );
     if (needsInstall) {
-      await installHooks(projectDir);
-    } else {
-      log("info", "All hooks properly installed");
+      return installHooks(projectDir);
     }
-  } else if (command === "pre-commit") {
+    log("info", "All hooks properly installed");
+    return 0;
+  }
+  if (command === "pre-commit") {
     logger.section("Pre-commit checks");
     const result = await $`git diff --cached --name-only`.cwd(projectDir).nothrow().quiet();
     const files = result.stdout.toString().trim().split("\n").filter(Boolean);
@@ -427,23 +441,36 @@ async function main() {
       const envFiles = files.filter((f) => /^\.env($|\.)/.test(f) && f !== ".env.example");
       if (envFiles.length > 0) {
         log("error", `.env files in staged changes: ${envFiles.join(", ")}`);
-        process.exit(1);
+        return 1;
       }
     }
-  } else if (command === "pre-push") {
+    return 0;
+  }
+  if (command === "pre-push") {
     logger.section("Pre-push checks (manual run)");
     log("info", "Run 'git push' to trigger automatically, or use guardian/governance directly");
-  } else {
-    logger.section("Commands");
-    console.log("  install        Install pre-commit and pre-push hooks");
-    console.log("  doctor         Check hook installation health");
-    console.log("  fix            Re-install missing/outdated hooks");
-    console.log("  pre-commit     Run pre-commit checks manually");
-    console.log("  pre-push       Info about pre-push checks");
+    return 0;
   }
+
+  logger.section("Commands");
+  logger.info("  install        Install pre-commit and pre-push hooks");
+  logger.info("  doctor         Check hook installation health");
+  logger.info("  fix            Re-install missing/outdated hooks");
+  logger.info("  pre-commit     Run pre-commit checks manually");
+  logger.info("  pre-push       Info about pre-push checks");
+  return 0;
 }
 
-main().catch((err) => {
-  logger.error(`kimi-githooks failed: ${err.message}`);
-  process.exit(1);
-});
+if (import.meta.main) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        new CliError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    }),
+    { toolName: "kimi-githooks" }
+  );
+  process.exit(exitCode);
+}

@@ -5,6 +5,7 @@
 import { Effect } from "effect";
 import type { HealthCheck } from "./health-check.ts";
 import { aggregateChecks } from "./health-check.ts";
+import { ToolNotFound } from "./effect/errors.ts";
 import { runToolEffect, type ToolInvocationWithTaxonomy } from "./effect/tool-runner-effect.ts";
 import { defaultToolTimeoutMs } from "./tool-runner.ts";
 import type { Logger } from "./logger.ts";
@@ -66,7 +67,7 @@ export function runSubDoctorsEffect(options: RunSubDoctorsOptions): Effect.Effec
           Effect.succeed({
             name: spec.tool,
             status: "error" as const,
-            message: `failed: ${e.tool}`,
+            message: `failed: ${e instanceof ToolNotFound ? e.tool : String(e)}`,
             fixable: false,
           })
         )

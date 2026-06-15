@@ -13,15 +13,15 @@
  *   kimi-cleanup-legacy [doctor|fix|status]
  */
 
+import { Effect } from "effect";
 import { homeDir } from "../lib/paths.ts";
-import {
-  printToolBanner,
-  printSection,
-  log,
-  buildDoctorReport,
-  printDoctorReport,
-} from "../lib/utils.ts";
+import { buildDoctorReport } from "../lib/utils.ts";
 import { getLegacyStatus, runLegacyCleanup, CANONICAL_REPO_NAME } from "../lib/legacy-cleanup.ts";
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+import { createLogger } from "../lib/logger.ts";
+import { CliError } from "../lib/effect/errors.ts";
+
+const logger = createLogger(Bun.argv, "kimi-cleanup-legacy");
 
 // ── Doctor ───────────────────────────────────────────────────────────
 
@@ -114,64 +114,90 @@ function doctor() {
         }
   );
 
-  printDoctorReport(buildDoctorReport("kimi-cleanup-legacy", checks));
+  const report = buildDoctorReport("kimi-cleanup-legacy", checks);
+  logger.section(`${report.tool} Doctor`);
+  for (const check of report.checks) {
+    logger.check(check);
+  }
+  logger.info(
+    `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
+  );
 }
 
 // ── Fix ──────────────────────────────────────────────────────────────
 
-function fix() {
-  printSection("Cleaning Legacy Paths");
+function fix(): number {
+  logger.section("Cleaning Legacy Paths");
   const before = getLegacyStatus();
 
   if (before.legacyCloneExists) {
-    log("error", "Legacy clone exists at ~/kimicode-cli — remove or rename it first.");
-    log("info", "  mv ~/kimicode-cli ~/kimicode-cli-old  # or delete if unneeded");
-    process.exit(1);
+    logger.error("Legacy clone exists at ~/kimicode-cli — remove or rename it first.");
+    logger.info("  mv ~/kimicode-cli ~/kimicode-cli-old  # or delete if unneeded");
+    return 1;
   }
 
   const result = runLegacyCleanup();
   const after = getLegacyStatus();
 
-  log("info", `Sessions archived: ${result.sessionsArchived.length}`);
-  log("info", `Index lines pruned: ${result.indexLinesPruned}`);
-  log("info", `Cursor slugs removed: ${result.cursorSlugsRemoved.length}`);
-  log("info", `Symlink removed: ${result.legacySymlinkRemoved}`);
+  logger.info(`Sessions archived: ${result.sessionsArchived.length}`);
+  logger.info(`Index lines pruned: ${result.indexLinesPruned}`);
+  logger.info(`Cursor slugs removed: ${result.cursorSlugsRemoved.length}`);
+  logger.info(`Symlink removed: ${result.legacySymlinkRemoved}`);
 
   if (after.legacySessions.length === 0 && after.legacyIndexLines === 0) {
-    log("info", "Legacy cleanup complete.");
+    logger.info("Legacy cleanup complete.");
   } else {
-    log("warn", "Some legacy items remain — re-run fix or check permissions.");
+    logger.warn("Some legacy items remain — re-run fix or check permissions.");
   }
+  return 0;
 }
 
 // ── Status ─────────────────────────────────────────────────────────
 
 function status() {
-  printSection("Legacy Path Status");
+  logger.section("Legacy Path Status");
   const s = getLegacyStatus();
-  log("info", `Sessions: ${s.legacySessions.length}`);
-  log("info", `Index lines: ${s.legacyIndexLines}`);
-  log("info", `Cursor slugs: ${s.legacyCursorSlugs.length} (${s.activeCursorSlugs.length} active)`);
-  log("info", `Symlink: ${s.legacySymlinkExists ? "exists" : "none"}`);
-  log("info", `Clone: ${s.legacyCloneExists ? "exists" : "none"}`);
+  logger.info(`Sessions: ${s.legacySessions.length}`);
+  logger.info(`Index lines: ${s.legacyIndexLines}`);
+  logger.info(`Cursor slugs: ${s.legacyCursorSlugs.length} (${s.activeCursorSlugs.length} active)`);
+  logger.info(`Symlink: ${s.legacySymlinkExists ? "exists" : "none"}`);
+  logger.info(`Clone: ${s.legacyCloneExists ? "exists" : "none"}`);
 }
 
 // ── Main ─────────────────────────────────────────────────────────────
 
-if (import.meta.main) {
+async function main(): Promise<number> {
   const _home = homeDir();
   const cmd = Bun.argv[2] || "status";
 
-  printToolBanner("kimi-cleanup-legacy", `v2.0 — ${CANONICAL_REPO_NAME} migration`);
+  logger.banner("kimi-cleanup-legacy", `v2.0 — ${CANONICAL_REPO_NAME} migration`);
 
   if (cmd === "doctor") {
     doctor();
-  } else if (cmd === "fix") {
-    fix();
-  } else if (cmd === "status") {
-    status();
-  } else {
-    console.log("Usage: kimi-cleanup-legacy [doctor|fix|status]");
-    process.exit(1);
+    return 0;
   }
+  if (cmd === "fix") {
+    return fix();
+  }
+  if (cmd === "status") {
+    status();
+    return 0;
+  }
+
+  logger.info("Usage: kimi-cleanup-legacy [doctor|fix|status]");
+  return 1;
+}
+
+if (import.meta.main) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        new CliError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    }),
+    { toolName: "kimi-cleanup-legacy" }
+  );
+  process.exit(exitCode);
 }

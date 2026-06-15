@@ -5,21 +5,24 @@
  *        kimi-new doctor [--path <parent-dir>]
  */
 
+import { Effect } from "effect";
 import { existsSync, mkdirSync } from "fs";
 import { join, resolve } from "path";
 import { $ } from "bun";
 import { toolsDir } from "../lib/utils.ts";
 import { createLogger } from "../lib/logger.ts";
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+import { CliError } from "../lib/effect/errors.ts";
 
 const logger = createLogger(Bun.argv, "kimi-new");
 const NAME_RE = /^[a-z0-9][a-z0-9._-]*$/i;
 
 function printHelp() {
-  console.log("Usage: kimi-new <name> [--path <parent-dir>] [--dry-run]");
-  console.log("       kimi-new doctor [--path <parent-dir>]");
-  console.log("");
-  console.log("Creates a new Bun project and runs kimi-fix:");
-  console.log("  mkdir <name> && bun init -y && kimi-fix .");
+  logger.info("Usage: kimi-new <name> [--path <parent-dir>] [--dry-run]");
+  logger.info("       kimi-new doctor [--path <parent-dir>]");
+  logger.info("");
+  logger.info("Creates a new Bun project and runs kimi-fix:");
+  logger.info("  mkdir <name> && bun init -y && kimi-fix .");
 }
 
 function resolveParent(args: string[]): string {
@@ -28,8 +31,7 @@ function resolveParent(args: string[]): string {
   if (pathIdx !== -1) {
     const pathArg = args[pathIdx + 1];
     if (!pathArg) {
-      logger.error("--path requires a directory");
-      process.exit(1);
+      throw new CliError({ message: "--path requires a directory" });
     }
     parent = resolve(pathArg);
   }
@@ -112,33 +114,31 @@ async function runDoctor(parent: string): Promise<number> {
   return 0;
 }
 
-async function runScaffold(args: string[]): Promise<void> {
+async function runScaffold(args: string[]): Promise<number> {
   const dryRun = args.includes("--dry-run");
   const filtered = args.filter((a) => a !== "--dry-run");
 
   const name = filtered[0];
   if (!NAME_RE.test(name)) {
-    logger.error(`Invalid project name: ${name}`);
-    process.exit(1);
+    throw new CliError({ message: `Invalid project name: ${name}` });
   }
 
   const parent = resolveParent(filtered);
   const projectDir = join(parent, name);
 
   if (existsSync(projectDir)) {
-    logger.error(`Directory already exists: ${projectDir}`);
-    process.exit(1);
+    throw new CliError({ message: `Directory already exists: ${projectDir}` });
   }
 
   logger.section(`Creating ${name}`);
   logger.info(`Path: ${projectDir}`);
 
   if (dryRun) {
-    console.log(`  [dry-run] mkdir ${projectDir}`);
-    console.log(`  [dry-run] bun init -y (cwd=${projectDir})`);
-    console.log(`  [dry-run] kimi-fix ${projectDir}`);
+    logger.info(`  [dry-run] mkdir ${projectDir}`);
+    logger.info(`  [dry-run] bun init -y (cwd=${projectDir})`);
+    logger.info(`  [dry-run] kimi-fix ${projectDir}`);
     logger.info("Dry run complete. Remove --dry-run to create.");
-    return;
+    return 0;
   }
 
   mkdirSync(projectDir, { recursive: true });
@@ -156,7 +156,7 @@ async function runScaffold(args: string[]): Promise<void> {
   const stderr = await Bun.readableStreamToText(proc.stderr);
 
   for (const line of (stdout + stderr).split("\n")) {
-    if (line.trim()) console.log(line);
+    if (line.trim()) process.stdout.write(`${line}\n`);
   }
 
   if (exitCode !== 0) {
@@ -164,31 +164,43 @@ async function runScaffold(args: string[]): Promise<void> {
   }
 
   logger.section("Next Steps");
-  console.log(`  cd ${projectDir}`);
-  console.log("  bun run check:fast");
-  console.log("  kimi login");
-  console.log("  kimi-doctor --quick");
+  logger.info(`  cd ${projectDir}`);
+  logger.info("  bun run check:fast");
+  logger.info("  kimi login");
+  logger.info("  kimi-doctor --quick");
   logger.info(`Project ${name} scaffolded.`);
+  return exitCode !== 0 ? 1 : 0;
 }
 
-async function main() {
+async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
   const filtered = args.filter((a) => a !== "--dry-run");
 
   if (filtered.length === 0 || filtered[0] === "--help" || filtered[0] === "-h") {
     printHelp();
-    process.exit(filtered.length === 0 ? 1 : 0);
+    return filtered.length === 0 ? 1 : 0;
   }
 
   if (filtered[0] === "doctor") {
     const parent = resolveParent(filtered.slice(1));
-    process.exit(await runDoctor(parent));
+    return runDoctor(parent);
   }
 
-  await runScaffold(args);
+  return runScaffold(args);
 }
 
-main().catch((err) => {
-  logger.error(`kimi-new failed: ${err.message}`);
-  process.exit(1);
-});
+if (import.meta.main) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        e instanceof CliError
+          ? e
+          : new CliError({
+              message: e instanceof Error ? e.message : String(e),
+            }),
+    }),
+    { toolName: "kimi-new" }
+  );
+  process.exit(exitCode);
+}

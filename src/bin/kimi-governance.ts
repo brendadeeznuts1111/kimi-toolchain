@@ -17,9 +17,11 @@ import {
   runTool,
   resolveProjectRoot,
   buildDoctorReport,
-  printDoctorReport,
 } from "../lib/utils.ts";
-import { recordDoctorRun, getPersistentWarnings } from "../lib/doctor-runs.ts";
+import { Effect } from "effect";
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+import { CliError } from "../lib/effect/errors.ts";
+import { recordDoctorRun, getPersistentWarnings, type DoctorWarning } from "../lib/doctor-runs.ts";
 import { createLogger } from "../lib/logger.ts";
 import {
   R_SCORE_WEIGHTS as WEIGHTS,
@@ -47,6 +49,24 @@ import {
 } from "../lib/scaffold-templates.ts";
 
 const logger = createLogger(Bun.argv, "kimi-governance");
+
+/** Map governance check names to error-taxonomy.yml category ids when known. */
+const GOVERNANCE_TAXONOMY: Record<string, string> = {
+  lockfile: "lockfile_issue",
+};
+
+function toDoctorWarning(c: {
+  name: string;
+  message: string;
+  status: "warn" | "error";
+}): DoctorWarning {
+  return {
+    check: c.name,
+    message: c.message,
+    severity: c.status,
+    taxonomyId: GOVERNANCE_TAXONOMY[c.name],
+  };
+}
 const GOVERNANCE_DIR = governorDir();
 const SCORE_HISTORY = join(GOVERNANCE_DIR, "r-score-history.json");
 
@@ -354,7 +374,7 @@ async function computeRScore(projectDir: string): Promise<RScore> {
 
 // ── Main ─────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
   const command = args[0] || "score";
   const projectDir = await resolveProjectRoot(Bun.cwd);
@@ -363,7 +383,7 @@ async function main() {
   printProjectBanner("Kimi Governance — Quality Gates", project);
 
   if (command === "governance") {
-    console.log("── Governance Files ──────────────────────────────────────────");
+    logger.section("Governance Files");
     const gov = await checkGovernance(projectDir);
 
     log(
@@ -386,7 +406,7 @@ async function main() {
     );
   } else if (command === "coverage") {
     const threshold = parseInt(args[1], 10) || 70;
-    console.log(`── Test Coverage Gate (threshold: ${threshold}%) ──────────────`);
+    logger.section(`Test Coverage Gate (threshold: ${threshold}%)`);
     const cov = await checkCoverage(projectDir, threshold);
 
     if (cov.total === 0) {
@@ -398,7 +418,7 @@ async function main() {
       );
 
       if (cov.files.length > 0) {
-        console.log("  Files:");
+        logger.info("Files:");
         for (const f of cov.files.slice(0, 10)) {
           const indicator = f.percentage >= threshold ? "✓" : "✗";
           console.log(`    ${indicator} ${f.path}: ${f.percentage.toFixed(1)}%`);
@@ -409,17 +429,16 @@ async function main() {
       }
 
       if (cov.percentage < threshold) {
-        console.log("");
         log("error", `GATE FAILED: ${cov.percentage.toFixed(1)}% < ${threshold}% threshold`);
-        process.exit(1);
+        return 1;
       }
     }
   } else if (command === "docs") {
-    console.log("── Documentation Drift ───────────────────────────────────────");
+    logger.section("Documentation Drift");
     const drift = await checkDocDrift(projectDir);
     if (!drift) {
       log("error", "Failed to check README drift — could not read package.json or README.md");
-      process.exit(1);
+      return 1;
     }
 
     if (!existsSync(join(projectDir, "README.md"))) {
@@ -440,7 +459,7 @@ async function main() {
       }
     }
   } else if (command === "fix") {
-    console.log("── Auto-Fixing Governance Gaps ───────────────────────────────");
+    logger.section("Auto-Fixing Governance Gaps");
     const gov = await checkGovernance(projectDir);
     let generated = 0;
 
@@ -498,13 +517,10 @@ async function main() {
     if (generated === 0) {
       log("info", "All governance files present — nothing to generate");
     } else {
-      console.log("");
       log("warn", `Applied ${generated} fix(es). Review and customize before committing.`);
     }
 
-    // Re-run doctor to record post-fix state and show remaining warnings
-    console.log("");
-    console.log("── Re-checking after fix ─────────────────────────────────────");
+    logger.section("Re-checking after fix");
     const govAfter = await checkGovernance(projectDir);
     const checksAfter: Array<{
       name: string;
@@ -593,13 +609,12 @@ async function main() {
     }
 
     let warnsAfter = 0;
-    const warningsAfter: Array<{ check: string; message: string; severity: "warn" | "error" }> = [];
+    const warningsAfter: DoctorWarning[] = [];
     for (const c of checksAfter) {
-      const icon = c.status === "ok" ? "✓" : c.status === "warn" ? "⚠" : "✗";
-      console.log(`  ${icon} ${c.name}: ${c.message}`);
+      logger.check(c);
       if (c.status === "warn") warnsAfter++;
       if (c.status === "warn" || c.status === "error") {
-        warningsAfter.push({ check: c.name, message: c.message, severity: c.status });
+        warningsAfter.push(toDoctorWarning({ name: c.name, message: c.message, status: c.status }));
       }
     }
 
@@ -619,11 +634,10 @@ async function main() {
     );
 
     if (warnsAfter === 0) {
-      console.log("");
       log("info", "All checks clean after fix.");
     }
   } else if (command === "doctor") {
-    console.log("── Governance Doctor ─────────────────────────────────────────");
+    logger.section("Governance Doctor");
     const gov = await checkGovernance(projectDir);
     const checks: Array<{
       name: string;
@@ -743,12 +757,17 @@ async function main() {
     }
 
     const report = buildDoctorReport("kimi-governance", checks);
-    printDoctorReport(report);
+    for (const check of report.checks) {
+      logger.check(check);
+    }
+    logger.info(
+      `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
+    );
 
-    const warnings: Array<{ check: string; message: string; severity: "warn" | "error" }> = [];
+    const warnings: DoctorWarning[] = [];
     for (const c of checks) {
       if (c.status === "warn" || c.status === "error") {
-        warnings.push({ check: c.name, message: c.message, severity: c.status });
+        warnings.push(toDoctorWarning({ name: c.name, message: c.message, status: c.status }));
       }
     }
 
@@ -765,37 +784,35 @@ async function main() {
     // Show persistent warnings
     const persistent = getPersistentWarnings("kimi-governance");
     if (persistent.length > 0) {
-      console.log("");
-      console.log("  Persistent warnings (governance):");
+      logger.info("Persistent warnings (governance):");
       for (const p of persistent) {
         const age = p.age_days === 0 ? "today" : `${p.age_days}d ago`;
-        console.log(`    ⚠ ${p.check_name}: ${p.occurrence_count}× since ${age}`);
+        logger.warn(`${p.check_name}: ${p.occurrence_count}× since ${age}`);
       }
     }
 
-    console.log("");
     if (report.fixableCount > 0) {
-      console.log("  Run 'kimi-governance fix' to auto-generate missing files");
+      logger.info("Run 'kimi-governance fix' to auto-generate missing files");
     }
+    return report.errorCount > 0 ? 1 : 0;
   } else if (command === "adr") {
     const title = args.slice(1).join(" ") || "Untitled Decision";
-    console.log("── ADR Scaffold ──────────────────────────────────────────────");
+    logger.section("ADR Scaffold");
     const filepath = await scaffoldAdr(projectDir, title, ensureDir);
     log("info", `Created: ${filepath}`);
-    console.log("  Edit the file and update status: proposed → accepted | rejected | deprecated");
+    logger.info("Edit the file and update status: proposed → accepted | rejected | deprecated");
   } else if (command === "ecosystem") {
-    console.log("── Ecosystem Health ───────────────────────────────────────────");
-    console.log("  Use: kimi-toolchain doctor --ecosystem [--quick] [--json]");
-    process.exit(1);
+    logger.section("Ecosystem Health");
+    logger.info("Use: kimi-toolchain doctor --ecosystem [--quick] [--json]");
+    return 1;
   } else if (command === "score") {
-    console.log("── Computing R-Score ─────────────────────────────────────────");
+    logger.section("Computing R-Score");
     const score = await computeRScore(projectDir);
 
-    console.log(
-      `  Grade: ${score.grade} (${formatPoints(score.total)}/${score.max}, ${formatPct(score.total, score.max)})`
+    logger.info(
+      `Grade: ${score.grade} (${formatPoints(score.total)}/${score.max}, ${formatPct(score.total, score.max)})`
     );
-    console.log("");
-    console.log("  Breakdown:");
+    logger.info("Breakdown:");
     for (const [key, value] of Object.entries(score.breakdown)) {
       const weight = WEIGHTS[key as keyof typeof WEIGHTS];
       const indicator = breakdownIndicator(value, weight);
@@ -804,26 +821,25 @@ async function main() {
 
     const kimiDocs = await checkKimiDocsAligned(projectDir);
     if (kimiDocs.applicable) {
-      console.log("");
       const icon = kimiDocs.aligned ? "✓" : "⚠";
-      console.log(
-        `  ${icon} kimiDocsAligned (soft): ${kimiDocs.aligned ? "product matrix + MCP docs in sync" : "see kimi-governance doctor"}`
+      logger.info(
+        `${icon} kimiDocsAligned (soft): ${kimiDocs.aligned ? "product matrix + MCP docs in sync" : "see kimi-governance doctor"}`
       );
     }
 
     const scaffold = await checkScaffoldAligned(projectDir);
     if (scaffold.applicable) {
       const icon = scaffold.aligned ? "✓" : "⚠";
-      console.log(
-        `  ${icon} scaffoldAligned (soft): ${scaffold.aligned ? "AGENTS.md markers present" : "see kimi-governance doctor"}`
+      logger.info(
+        `${icon} scaffoldAligned (soft): ${scaffold.aligned ? "AGENTS.md markers present" : "see kimi-governance doctor"}`
       );
     }
 
     if (await isKimiToolchainRepo(projectDir)) {
       const ecosystem = await auditEcosystemHealth(projectDir, { quick: true });
       const icon = ecosystem.blockers === 0 ? "✓" : "⚠";
-      console.log(
-        `  ${icon} ecosystemAligned (soft): ${ecosystem.blockers === 0 ? "workspace + sync ok" : `${ecosystem.blockers} blocker(s) — kimi-toolchain doctor --ecosystem`}`
+      logger.info(
+        `${icon} ecosystemAligned (soft): ${ecosystem.blockers === 0 ? "workspace + sync ok" : `${ecosystem.blockers} blocker(s) — kimi-toolchain doctor --ecosystem`}`
       );
     }
 
@@ -835,20 +851,18 @@ async function main() {
         const arrow = delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
         const deltaStr = formatPoints(Math.abs(delta));
         const signedDelta = delta > 0 ? `+${deltaStr}` : delta < 0 ? `-${deltaStr}` : "0";
-        console.log("");
-        console.log(
-          `  Trend: ${arrow} ${signedDelta} from last run (${prev.grade} → ${score.grade})`
+        logger.info(
+          `Trend: ${arrow} ${signedDelta} from last run (${prev.grade} → ${score.grade})`
         );
       }
     }
 
     if (score.grade === "F" || score.grade === "D") {
-      console.log("");
       log("error", "R-Score below C — address governance gaps before release");
-      process.exit(1);
+      return 1;
     }
   } else {
-    console.log("Commands:");
+    logger.section("Commands");
     console.log("  governance     Check LICENSE, CONTRIBUTING, CODEOWNERS, README, CONTEXT");
     console.log("  coverage [N]   Test coverage gate (default threshold 70%)");
     console.log("  docs           Detect README.md ↔ package.json script drift");
@@ -859,10 +873,17 @@ async function main() {
     console.log("  ecosystem      → use kimi-toolchain doctor --ecosystem");
   }
 
-  console.log("");
+  return 0;
 }
 
-main().catch((err) => {
-  console.error("kimi-governance failed:", err.message);
-  process.exit(1);
-});
+const exitCode = await runCliExit(
+  Effect.tryPromise({
+    try: () => main(),
+    catch: (e) =>
+      new CliError({
+        message: e instanceof Error ? e.message : String(e),
+      }),
+  }),
+  { toolName: "kimi-governance" }
+);
+process.exit(exitCode);

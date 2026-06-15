@@ -5,9 +5,9 @@
  *        kimi-toolchain workspace verify|audit|fix|cleanup
  */
 
+import { Effect } from "effect";
 import { join, resolve } from "path";
 import {
-  META_BIN,
   DIRECT_BIN,
   TOOL_SHORT_NAMES,
   resolveRepoToolScript,
@@ -16,7 +16,11 @@ import {
 } from "../lib/tool-registry.ts";
 import { runWorkspaceCommand, printWorkspaceHelp } from "../lib/workspace-commands.ts";
 import { toolsDir } from "../lib/paths.ts";
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+import { createLogger } from "../lib/logger.ts";
+import { CliError } from "../lib/effect/errors.ts";
 
+const logger = createLogger(Bun.argv, "kimi-toolchain");
 const REPO_BIN = resolve(join(import.meta.dir));
 const TOOLS_DIR = toolsDir();
 
@@ -35,7 +39,7 @@ async function dispatchTool(shortName: string, args: string[]): Promise<number> 
   const script = repoScript ?? desktopScript;
 
   if (!script) {
-    console.error(`✗ Unknown tool: ${shortName}`);
+    logger.error(`Unknown tool: ${shortName}`);
     printToolHelp();
     return 1;
   }
@@ -49,12 +53,12 @@ async function dispatchTool(shortName: string, args: string[]): Promise<number> 
   return await proc.exited;
 }
 
-async function main(): Promise<void> {
+async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
 
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
     printToolHelp();
-    process.exit(args.length === 0 ? 1 : 0);
+    return args.length === 0 ? 1 : 0;
   }
 
   const tool = args[0];
@@ -64,30 +68,37 @@ async function main(): Promise<void> {
     const script =
       resolveRepoToolScript(DIRECT_BIN, REPO_BIN) ?? resolveToolScript(DIRECT_BIN, TOOLS_DIR);
     if (!script) {
-      console.error(`✗ ${DIRECT_BIN} not found`);
-      process.exit(1);
+      logger.error(`${DIRECT_BIN} not found`);
+      return 1;
     }
     const proc = Bun.spawn(["bun", "run", script, ...rest], {
       stdout: "inherit",
       stderr: "inherit",
       stdin: "inherit",
     });
-    process.exit(await proc.exited);
+    return await proc.exited;
   }
 
   const known = TOOL_SHORT_NAMES as readonly string[];
   if (!known.includes(tool)) {
-    console.error(`✗ Unknown tool: ${tool}`);
+    logger.error(`Unknown tool: ${tool}`);
     printToolHelp();
-    process.exit(1);
+    return 1;
   }
 
-  process.exit(await dispatchTool(tool, rest));
+  return dispatchTool(tool, rest);
 }
 
 if (import.meta.main) {
-  main().catch((err) => {
-    console.error(`${META_BIN} failed:`, err.message);
-    process.exit(1);
-  });
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        new CliError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    }),
+    { toolName: "kimi-toolchain" }
+  );
+  process.exit(exitCode);
 }

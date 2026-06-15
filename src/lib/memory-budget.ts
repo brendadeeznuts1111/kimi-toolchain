@@ -3,6 +3,7 @@
  */
 
 import { $ } from "bun";
+import { createLogger, type Logger } from "./logger.ts";
 
 const decoder = new TextDecoder();
 
@@ -317,14 +318,15 @@ export async function runSystemMemoryChecks(): Promise<MemoryCheckResult[]> {
   return results;
 }
 
-export function printMemoryBudget(): void {
-  console.log("── Memory Budget ─────────────────────────────────────────────");
+export function printMemoryBudget(logger?: Logger): void {
+  const log = logger ?? createLogger(Bun.argv, "kimi-doctor");
+  log.section("Memory Budget");
   const groups = getAppRssGroups();
   let total = 0;
   for (const g of groups) {
-    console.log(`  ${g.label.padEnd(18)} ${String(g.mb).padStart(5)} MB  (${g.processes} procs)`);
+    log.line(`  ${g.label.padEnd(18)} ${String(g.mb).padStart(5)} MB  (${g.processes} procs)`);
     total += g.mb;
   }
-  console.log(`  ${"─".repeat(40)}`);
-  console.log(`  ${"Tracked subtotal".padEnd(18)} ${String(total).padStart(5)} MB`);
+  log.line(`  ${"─".repeat(40)}`);
+  log.line(`  ${"Tracked subtotal".padEnd(18)} ${String(total).padStart(5)} MB`);
 }

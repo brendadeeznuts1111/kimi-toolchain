@@ -51,7 +51,8 @@ export const SESSIONS_SCHEMA_SQL = `
     warnings_json TEXT NOT NULL,
     r_score REAL,
     git_head TEXT,
-    project TEXT NOT NULL
+    project TEXT NOT NULL,
+    session_id TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_doctor_runs_project ON doctor_runs(project);
   CREATE INDEX IF NOT EXISTS idx_doctor_runs_tool ON doctor_runs(tool);

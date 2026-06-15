@@ -201,12 +201,3 @@ export async function runReadmeSyncCli(args: string[]): Promise<ReadmeSyncResult
     return { exitCode: EXIT_ERROR, message: `Error: ${message}` };
   }
 }
-
-// ── Main ───────────────────────────────────────────────────────────────
-
-if (import.meta.main) {
-  runReadmeSyncCli(Bun.argv.slice(2)).then((result) => {
-    console.log(result.message);
-    if (result.exitCode !== 0) process.exit(result.exitCode);
-  });
-}

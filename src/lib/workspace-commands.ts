@@ -19,6 +19,8 @@ import {
   removeLegacySymlink,
   listLegacyCursorSlugs,
 } from "./legacy-cleanup.ts";
+import { createLogger, type Logger } from "./logger.ts";
+import { homeDir } from "./paths.ts";
 
 export interface WorkspaceCommandFlags {
   json: boolean;
@@ -28,6 +30,10 @@ export interface WorkspaceCommandFlags {
   removeLegacyPath: boolean;
   deep: boolean;
   archiveLegacySessions: boolean;
+}
+
+function resolveLogger(logger?: Logger): Logger {
+  return logger ?? createLogger(Bun.argv, "workspace");
 }
 
 export function parseWorkspaceFlags(argv: string[]): WorkspaceCommandFlags {
@@ -46,57 +52,62 @@ export function parseWorkspaceFlags(argv: string[]): WorkspaceCommandFlags {
   };
 }
 
-export function printWorkspaceHelp(): void {
-  console.log("Usage: kimi-doctor workspace <verify|audit|fix|cleanup> [options]");
-  console.log("       kimi-toolchain workspace <verify|audit|fix|cleanup> [options]");
-  console.log("");
-  console.log("Options:");
-  console.log("  --json                 JSON output (audit)");
-  console.log("  --strict               Treat soft warnings as errors");
-  console.log("  --list-cursor-slugs    List legacy Cursor project folders");
-  console.log("  --remove-cursor-slugs      Delete legacy Cursor slugs (opt-in)");
-  console.log("  --remove-legacy-path       Remove ~/kimicode-cli symlink if present");
-  console.log("  --archive-legacy-sessions  Move wd_kimicode-cli_* to sessions/archive/");
-  console.log("  --deep                     All fixes: cursor slugs + sessions + index prune");
+export function printWorkspaceHelp(logger?: Logger): void {
+  const log = resolveLogger(logger);
+  log.line("Usage: kimi-doctor workspace <verify|audit|fix|cleanup> [options]");
+  log.line("       kimi-toolchain workspace <verify|audit|fix|cleanup> [options]");
+  log.line("");
+  log.line("Options:");
+  log.line("  --json                 JSON output (audit)");
+  log.line("  --strict               Treat soft warnings as errors");
+  log.line("  --list-cursor-slugs    List legacy Cursor project folders");
+  log.line("  --remove-cursor-slugs      Delete legacy Cursor slugs (opt-in)");
+  log.line("  --remove-legacy-path       Remove ~/kimicode-cli symlink if present");
+  log.line("  --archive-legacy-sessions  Move wd_kimicode-cli_* to sessions/archive/");
+  log.line("  --deep                     All fixes: cursor slugs + sessions + index prune");
 }
 
-import { homeDir } from "./paths.ts";
-
-async function runVerify(projectRoot: string, strict: boolean): Promise<number> {
+async function runVerify(projectRoot: string, strict: boolean, logger: Logger): Promise<number> {
   const home = homeDir();
   const report = await auditWorkspaceHealth(projectRoot, { strictWorkspace: strict, home });
 
-  console.log("── Workspace verify ─────────────────────────────────────────");
-  console.log(`  Path: ${projectRoot}`);
+  logger.section("Workspace verify");
+  logger.line(`  Path: ${projectRoot}`);
 
   for (const check of report.checks) {
     if (!["package-name", "physical-folder", "repo-folder", "package-json"].includes(check.name)) {
       continue;
     }
-    const icon = check.status === "ok" ? "✓" : check.status === "warn" ? "⚠" : "✗";
-    console.log(`  ${icon} ${check.message}`);
+    if (check.status === "error") logger.error(check.message);
+    else if (check.status === "warn") logger.warn(check.message);
+    else logger.info(check.message);
   }
 
   const { blocking } = countWorkspaceBlockers(report, { strictWorkspace: strict });
   if (blocking > 0) {
-    console.log(`  ✗ ${blocking} workspace blocker(s)`);
+    logger.error(`${blocking} workspace blocker(s)`);
     return 1;
   }
 
   if (report.isToolchainRepo) {
-    console.log(`  ✓ Canonical repo (${CANONICAL_REPO_NAME}, package.json ok)`);
+    logger.info(`Canonical repo (${CANONICAL_REPO_NAME}, package.json ok)`);
   }
   return 0;
 }
 
-async function runAudit(projectRoot: string, json: boolean, strict: boolean): Promise<number> {
+async function runAudit(
+  projectRoot: string,
+  json: boolean,
+  strict: boolean,
+  logger: Logger
+): Promise<number> {
   const home = homeDir();
   const report = await auditWorkspaceHealth(projectRoot, { strictWorkspace: strict, home });
   const summary = countWorkspaceBlockers(report, { strictWorkspace: strict });
 
   if (json) {
-    console.log(
-      JSON.stringify(
+    process.stdout.write(
+      `${JSON.stringify(
         {
           checks: report.checks,
           summary: {
@@ -111,26 +122,32 @@ async function runAudit(projectRoot: string, json: boolean, strict: boolean): Pr
         },
         null,
         2
-      )
+      )}\n`
     );
     return summary.blocking > 0 ? 1 : 0;
   }
 
-  console.log("── Workspace health audit ───────────────────────────────────");
+  logger.section("Workspace health audit");
   for (const check of report.checks) {
-    const icon = check.status === "ok" ? "✓" : check.status === "warn" ? "⚠" : "✗";
-    console.log(`  ${icon} ${check.name}: ${check.message}`);
+    const label = `${check.name}: ${check.message}`;
+    if (check.status === "error") logger.error(label);
+    else if (check.status === "warn") logger.warn(label);
+    else logger.info(label);
   }
-  console.log("");
+  logger.line("");
   if (summary.blocking > 0) {
-    console.log(`  ✗ ${summary.blocking} blocker(s), ${summary.warnings} warning(s)`);
+    logger.error(`${summary.blocking} blocker(s), ${summary.warnings} warning(s)`);
     return 1;
   }
-  console.log(`  ✓ No blockers (${summary.warnings} warning(s))`);
+  logger.info(`No blockers (${summary.warnings} warning(s))`);
   return 0;
 }
 
-async function runFix(projectRoot: string, flags: WorkspaceCommandFlags): Promise<number> {
+async function runFix(
+  projectRoot: string,
+  flags: WorkspaceCommandFlags,
+  logger: Logger
+): Promise<number> {
   const home = homeDir();
   const report = await auditWorkspaceHealth(projectRoot, { home });
   const result = await fixWorkspaceHealth(report, {
@@ -144,31 +161,31 @@ async function runFix(projectRoot: string, flags: WorkspaceCommandFlags): Promis
     installWrappers: true,
   });
 
-  console.log("── Workspace fix ────────────────────────────────────────────");
+  logger.section("Workspace fix");
   if (result.staleWrappersRemoved > 0) {
-    console.log(`  ✓ Removed ${result.staleWrappersRemoved} stale wrapper(s)`);
+    logger.info(`Removed ${result.staleWrappersRemoved} stale wrapper(s)`);
   }
   if (result.snapshotsRemoved > 0) {
-    console.log(`  ✓ Removed ${result.snapshotsRemoved} orphaned snapshot(s)`);
+    logger.info(`Removed ${result.snapshotsRemoved} orphaned snapshot(s)`);
   }
-  if (result.syncRan) console.log("  ✓ Desktop sync completed");
-  if (result.wrappersInstalled) console.log("  ✓ PATH wrappers installed");
+  if (result.syncRan) logger.info("Desktop sync completed");
+  if (result.wrappersInstalled) logger.info("PATH wrappers installed");
   if (result.legacySymlinkRemoved) {
-    console.log(`  ✓ Removed ~/${LEGACY_REPO_NAMES[0]} symlink`);
+    logger.info(`Removed ~/${LEGACY_REPO_NAMES[0]} symlink`);
   }
   if (result.cursorSlugsRemoved.length > 0) {
     for (const slug of result.cursorSlugsRemoved) {
-      console.log(`  ✓ Removed Cursor slug ${slug}`);
+      logger.info(`Removed Cursor slug ${slug}`);
     }
-    console.log(
+    logger.line(
       `  → Quit Cursor fully, then open ~/${CANONICAL_REPO_NAME}/kimi-toolchain.code-workspace`
     );
   }
   if (result.sessionsArchived.length > 0) {
-    console.log(`  ✓ Archived ${result.sessionsArchived.length} legacy Kimi session folder(s)`);
+    logger.info(`Archived ${result.sessionsArchived.length} legacy Kimi session folder(s)`);
   }
   if (result.sessionIndexLinesPruned > 0) {
-    console.log(`  ✓ Pruned ${result.sessionIndexLinesPruned} legacy session_index line(s)`);
+    logger.info(`Pruned ${result.sessionIndexLinesPruned} legacy session_index line(s)`);
   }
 
   const after = await auditWorkspaceHealth(projectRoot, { home });
@@ -180,61 +197,60 @@ async function runCleanup(
   projectRoot: string,
   listCursor: boolean,
   removeCursor: boolean,
-  removeLegacyPath: boolean
+  removeLegacyPath: boolean,
+  logger: Logger
 ): Promise<number> {
   const home = homeDir();
-  console.log("── Legacy workspace cleanup ───────────────────────────────────");
+  logger.section("Legacy workspace cleanup");
 
   const legacyPath = legacyClonePath(home);
   if (existsSync(legacyPath)) {
     try {
       const stat = lstatSync(legacyPath);
       if (stat.isSymbolicLink()) {
-        console.log(`  ⚠ ~/${LEGACY_REPO_NAMES[0]} symlink exists`);
+        logger.warn(`~/${LEGACY_REPO_NAMES[0]} symlink exists`);
         if (removeLegacyPath && removeLegacySymlink()) {
-          console.log(`  ✓ Removed symlink ~/${LEGACY_REPO_NAMES[0]}`);
+          logger.info(`Removed symlink ~/${LEGACY_REPO_NAMES[0]}`);
         }
       } else if (stat.isDirectory()) {
-        console.log(
-          `  ⚠ ~/${LEGACY_REPO_NAMES[0]} directory exists — remove manually if duplicate`
-        );
+        logger.warn(`~/${LEGACY_REPO_NAMES[0]} directory exists — remove manually if duplicate`);
       }
     } catch {
-      console.log(`  ⚠ ~/${LEGACY_REPO_NAMES[0]} exists`);
+      logger.warn(`~/${LEGACY_REPO_NAMES[0]} exists`);
     }
   } else {
-    console.log(`  ✓ No ~/${LEGACY_REPO_NAMES[0]} on disk`);
+    logger.info(`No ~/${LEGACY_REPO_NAMES[0]} on disk`);
   }
 
   const canonical = canonicalClonePath(home);
   if (existsSync(join(canonical, "package.json"))) {
-    console.log(`  ✓ ~/${CANONICAL_REPO_NAME} present`);
+    logger.info(`~/${CANONICAL_REPO_NAME} present`);
   } else {
-    console.log(`  ✗ ~/${CANONICAL_REPO_NAME}/package.json missing`);
+    logger.error(`~/${CANONICAL_REPO_NAME}/package.json missing`);
   }
 
   const slugs = listLegacyCursorSlugs();
   if (slugs.length === 0) {
-    console.log("  ✓ No legacy Cursor project slugs");
+    logger.info("No legacy Cursor project slugs");
   } else {
     if (listCursor || removeCursor) {
       for (const slug of slugs) {
-        console.log(`      ${join(home, ".cursor", "projects", slug)}`);
+        logger.line(`      ${join(home, ".cursor", "projects", slug)}`);
       }
     } else {
       const active = listActiveLegacyCursorSlugs();
-      console.log(`  ⚠ Legacy Cursor project slug(s): ${slugs.join(", ")}`);
+      logger.warn(`Legacy Cursor project slug(s): ${slugs.join(", ")}`);
       if (active.length > 0) {
-        console.log(`      ACTIVE (agent session open): ${active.join(", ")}`);
+        logger.line(`      ACTIVE (agent session open): ${active.join(", ")}`);
       }
-      console.log("      Run: kimi-toolchain workspace fix --deep");
+      logger.line("      Run: kimi-toolchain workspace fix --deep");
     }
     if (removeCursor) {
       const removed = removeLegacyCursorSlugs();
       for (const slug of removed) {
-        console.log(`  ✓ Removed ${slug}`);
+        logger.info(`Removed ${slug}`);
       }
-      console.log(
+      logger.line(
         `  → Restart Cursor and open ~/${CANONICAL_REPO_NAME}/kimi-toolchain.code-workspace`
       );
     }
@@ -242,22 +258,22 @@ async function runCleanup(
 
   const report = await auditWorkspaceHealth(projectRoot, { home });
   if (report.legacySessionWorkspaces.length > 0) {
-    console.log(`  ⚠ Legacy kimi session folder(s): ${report.legacySessionWorkspaces.join(", ")}`);
+    logger.warn(`Legacy kimi session folder(s): ${report.legacySessionWorkspaces.join(", ")}`);
   } else {
-    console.log("  ✓ No legacy-named kimi session folders");
+    logger.info("No legacy-named kimi session folders");
   }
 
-  console.log("");
-  const verifyCode = await runVerify(projectRoot, false);
+  logger.line("");
+  const verifyCode = await runVerify(projectRoot, false, logger);
   if (slugs.length > 0 && !removeCursor) {
-    console.log("");
-    console.log("Next steps:");
-    console.log(`  1. File → Open Folder → ~/${CANONICAL_REPO_NAME}`);
-    console.log(
+    logger.line("");
+    logger.line("Next steps:");
+    logger.line(`  1. File → Open Folder → ~/${CANONICAL_REPO_NAME}`);
+    logger.line(
       `     Or: File → Open Workspace → ~/${CANONICAL_REPO_NAME}/kimi-toolchain.code-workspace`
     );
-    console.log(`  2. Close any window rooted at ~/${LEGACY_REPO_NAMES[0]}`);
-    console.log("  3. Optional: kimi-toolchain workspace fix --deep");
+    logger.line(`  2. Close any window rooted at ~/${LEGACY_REPO_NAMES[0]}`);
+    logger.line("  3. Optional: kimi-toolchain workspace fix --deep");
   }
   return verifyCode;
 }
@@ -265,8 +281,10 @@ async function runCleanup(
 export async function runWorkspaceCommand(
   command: string,
   argv: string[],
-  projectRoot?: string
+  projectRoot?: string,
+  logger?: Logger
 ): Promise<number> {
+  const log = resolveLogger(logger);
   const root = projectRoot
     ? resolve(projectRoot)
     : Bun.env.KIMI_PROJECT_ROOT
@@ -277,15 +295,15 @@ export async function runWorkspaceCommand(
 
   switch (command) {
     case "verify":
-      return runVerify(root, flags.strict);
+      return runVerify(root, flags.strict, log);
     case "audit":
-      return runAudit(root, flags.json, flags.strict);
+      return runAudit(root, flags.json, flags.strict, log);
     case "fix":
-      return runFix(root, flags);
+      return runFix(root, flags, log);
     case "cleanup":
-      return runCleanup(root, flags.listCursor, flags.removeCursor, flags.removeLegacyPath);
+      return runCleanup(root, flags.listCursor, flags.removeCursor, flags.removeLegacyPath, log);
     default:
-      console.error(`Unknown workspace command: ${command}`);
+      log.error(`Unknown workspace command: ${command}`);
       return 1;
   }
 }

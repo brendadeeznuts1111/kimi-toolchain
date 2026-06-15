@@ -8,6 +8,8 @@ import {
   loadTaxonomy,
   taxonomyPath,
   unknownCategory,
+  buildClassifiedFailure,
+  FAILURE_SCHEMA_VERSION,
   type Taxonomy,
 } from "../src/lib/error-taxonomy.ts";
 
@@ -88,5 +90,13 @@ describe("error-taxonomy suggestions", () => {
     expect(results.length).toBe(1);
     expect(results[0].categoryId).toBe("max_steps_exceeded");
     expect(results[0].autoFix).toBe("bun run check:fast");
+  });
+
+  test("buildClassifiedFailure sets taxonomyId alias", () => {
+    const match = classifyFailure("Agent max steps exceeded in turn", sampleTaxonomy);
+    const record = buildClassifiedFailure("Agent", "output", match);
+    expect(record.schemaVersion).toBe(FAILURE_SCHEMA_VERSION);
+    expect(record.taxonomyId).toBe("max_steps_exceeded");
+    expect(record.categoryId).toBe("max_steps_exceeded");
   });
 });

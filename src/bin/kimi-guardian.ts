@@ -20,10 +20,12 @@ import {
   getProjectName,
   resolveProjectRoot,
   buildDoctorReport,
-  printDoctorReport,
 } from "../lib/utils.ts";
 import { guardianDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
+import { Effect } from "effect";
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+import { CliError } from "../lib/effect/errors.ts";
 
 const logger = createLogger(Bun.argv, "kimi-guardian");
 
@@ -535,7 +537,7 @@ async function doctor(
 
 // ── Main ─────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
   const command = args[0] || "check";
   const projectDir = await resolveProjectRoot(Bun.cwd);
@@ -553,7 +555,7 @@ async function main() {
     const lockPath = join(projectDir, "bun.lock");
     if (!existsSync(lockPath)) {
       log("error", "No bun.lock found");
-      process.exit(1);
+      return 1;
     }
     const hash = await sha256File(lockPath);
     const manifest = await signManifest(projectDir, hash);
@@ -561,7 +563,7 @@ async function main() {
     log("info", `Hash: ${manifest.lockfileHash.slice(0, 16)}...`);
     log("info", `Expires: ${new Date(manifest.timestamp + manifest.ttl).toISOString()}`);
     logger.info("Manifest stored outside repo (first-commit poisoning defense)");
-    return;
+    return 0;
   }
 
   if (command === "verify") {
@@ -569,7 +571,7 @@ async function main() {
     const lockPath = join(projectDir, "bun.lock");
     if (!existsSync(lockPath)) {
       log("warn", "No bun.lock found");
-      return;
+      return 0;
     }
     const hash = await sha256File(lockPath);
     const result = await verifyManifest(projectDir, hash);
@@ -579,17 +581,23 @@ async function main() {
     } else {
       log("error", `Manifest INVALID: ${result.reason}`);
     }
-    return;
+    return result.valid ? 0 : 1;
   }
 
   if (command === "doctor") {
     const checks = await doctor(projectDir);
     const report = buildDoctorReport("kimi-guardian", checks);
-    printDoctorReport(report);
+    logger.section(`${report.tool} Doctor`);
+    for (const check of report.checks) {
+      logger.check(check);
+    }
+    logger.info(
+      `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
+    );
     if (report.fixableCount > 0) {
       logger.info("Run 'kimi-guardian fix' to repair");
     }
-    return;
+    return report.errorCount > 0 ? 1 : 0;
   }
 
   logger.section("Lockfile Integrity");
@@ -679,7 +687,7 @@ async function main() {
     } else {
       log("warn", `${prov.postinstallScripts.length} postinstall scripts:`);
       for (const s of prov.postinstallScripts.slice(0, 5)) {
-        console.log(`    ${s.pkg}: ${s.script.slice(0, 60)}...`);
+        logger.info(`  ${s.pkg}: ${s.script.slice(0, 60)}...`);
       }
     }
   }
@@ -701,9 +709,19 @@ async function main() {
   logger.info(
     "Commands: check (default) | fix (baseline hash + trusted deps) | sign (v2 manifest) | verify (v2 manifest) | report (full P1) | doctor (health check)"
   );
+  return 0;
 }
 
-main().catch((err) => {
-  logger.error(`kimi-guardian failed: ${err.message}`);
-  process.exit(1);
-});
+if (import.meta.main) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        new CliError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    }),
+    { toolName: "kimi-guardian" }
+  );
+  process.exit(exitCode);
+}

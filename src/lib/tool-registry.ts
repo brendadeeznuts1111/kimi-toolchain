@@ -5,6 +5,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import { readPackageJson } from "./utils.ts";
+import { createLogger, type Logger } from "./logger.ts";
 
 export const META_BIN = "kimi-toolchain";
 export const DIRECT_BIN = "unified-shell-bridge";
@@ -90,19 +91,26 @@ export async function listExpectedWrapperNames(repoRoot: string): Promise<string
   return [...expected].sort();
 }
 
-export function printToolHelp(): void {
-  console.log(`Usage: ${META_BIN} <tool> [args...]`);
-  console.log(`       ${META_BIN} workspace <verify|audit|fix|cleanup> [options]`);
-  console.log("");
-  console.log("Tools:");
-  for (const name of TOOL_SHORT_NAMES) {
-    if (name === "workspace") continue;
-    console.log(`  ${name}`);
+export function formatToolHelp(): string {
+  const lines = [
+    `Usage: ${META_BIN} <tool> [args...]`,
+    `       ${META_BIN} workspace <verify|audit|fix|cleanup> [options]`,
+    "",
+    "Tools:",
+    ...TOOL_SHORT_NAMES.filter((name) => name !== "workspace").map((name) => `  ${name}`),
+    "  workspace   verify | audit | fix | cleanup",
+    "",
+    "Examples:",
+    `  ${META_BIN} doctor --quick`,
+    `  ${META_BIN} workspace verify`,
+    `  ${META_BIN} guardian check`,
+  ];
+  return lines.join("\n");
+}
+
+export function printToolHelp(logger?: Logger): void {
+  const log = logger ?? createLogger(Bun.argv, META_BIN);
+  for (const line of formatToolHelp().split("\n")) {
+    log.line(line);
   }
-  console.log("  workspace   verify | audit | fix | cleanup");
-  console.log("");
-  console.log("Examples:");
-  console.log(`  ${META_BIN} doctor --quick`);
-  console.log(`  ${META_BIN} workspace verify`);
-  console.log(`  ${META_BIN} guardian check`);
 }

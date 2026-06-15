@@ -39,11 +39,12 @@ import {
 } from "../lib/kimi-config-audit.ts";
 import { getOrphanProcesses, runOrphanKill } from "../lib/process-utils.ts";
 import { isAgentContext } from "../lib/tool-runner.ts";
-import { resolveProjectRoot } from "../lib/utils.ts";
+import { resolveProjectRoot, getProjectName } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 import { createLogger } from "../lib/logger.ts";
 import type { HealthCheck } from "../lib/health-check.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
+import { recordDoctorRun } from "../lib/doctor-runs.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -66,6 +67,9 @@ interface CheckResult {
   name: string;
   status: "ok" | "warn" | "error";
   message: string;
+  category?: string;
+  autoFix?: string;
+  taxonomyId?: string;
 }
 
 function ok(name: string, message: string): CheckResult {
@@ -423,7 +427,7 @@ async function applyFixes(projectRoot: string): Promise<void> {
     );
     if (legacyIssue && !FIX_CURSOR) {
       console.log("  → Legacy workspace audit:");
-      await runWorkspaceCommand("cleanup", [], projectRoot);
+      await runWorkspaceCommand("cleanup", [], projectRoot, logger);
     }
   }
 }
@@ -525,7 +529,7 @@ async function runEcosystemMode(projectRoot: string): Promise<number> {
 
 async function main(): Promise<number> {
   if (MEMORY_BUDGET) {
-    printMemoryBudget();
+    printMemoryBudget(logger);
     return 0;
   }
 
@@ -536,10 +540,10 @@ async function main(): Promise<number> {
     const sub = argv[1];
     if (!sub || sub === "--help" || sub === "-h") {
       const { printWorkspaceHelp } = await import("../lib/workspace-commands.ts");
-      printWorkspaceHelp();
+      printWorkspaceHelp(logger);
       return sub ? 0 : 1;
     }
-    return runWorkspaceCommand(sub, argv.slice(2), projectRoot);
+    return runWorkspaceCommand(sub, argv.slice(2), projectRoot, logger);
   }
 
   if (WORKSPACE_ONLY) {
@@ -673,7 +677,16 @@ async function main(): Promise<number> {
     const subChecks = await Effect.runPromise(
       runSubDoctorsEffect({ projectRoot, specs, quick: QUICK, logger })
     );
-    results.push(...subChecks.map((c) => ({ name: c.name, status: c.status, message: c.message })));
+    results.push(
+      ...subChecks.map((c) => ({
+        name: c.name,
+        status: c.status,
+        message: c.message,
+        category: c.category,
+        autoFix: c.autoFix,
+        taxonomyId: c.category,
+      }))
+    );
   }
 
   section("Path Alignment");
@@ -781,6 +794,30 @@ async function main(): Promise<number> {
 
   const { blocking, system, total: errors } = countBlockingErrors(results, SOFT_SYSTEM);
   const warnings = results.filter((r) => r.status === "warn").length;
+
+  const doctorWarnings = results
+    .filter((r) => r.status === "warn" || r.status === "error")
+    .map((r) => ({
+      check: r.name,
+      message: r.message,
+      severity: r.status as "warn" | "error",
+      taxonomyId: r.taxonomyId || r.category,
+    }));
+
+  let gitHead = "";
+  try {
+    const result = await $`git rev-parse HEAD`.cwd(projectRoot).nothrow().quiet();
+    gitHead = result.stdout.toString().trim();
+  } catch {
+    /* ignore */
+  }
+  recordDoctorRun(
+    await getProjectName(projectRoot),
+    "kimi-doctor",
+    doctorWarnings,
+    undefined,
+    gitHead || undefined
+  );
 
   if (JSON_OUT) {
     console.log(

@@ -8,15 +8,13 @@
 
 import { existsSync } from "fs";
 import { join } from "path";
-import {
-  log,
-  getProjectName,
-  runTool,
-  resolveProjectRoot,
-  printProjectBanner,
-  buildDoctorReport,
-  printDoctorReport,
-} from "../lib/utils.ts";
+import { getProjectName, runTool, resolveProjectRoot, buildDoctorReport } from "../lib/utils.ts";
+import { createLogger } from "../lib/logger.ts";
+import { Effect } from "effect";
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+import { CliError } from "../lib/effect/errors.ts";
+
+const logger = createLogger(Bun.argv, "kimi-release");
 import {
   getCommits,
   getLastTag,
@@ -107,52 +105,50 @@ async function doctor(
 // ── Fix ──────────────────────────────────────────────────────────────
 
 async function fixCommits(projectDir: string) {
-  console.log("── Fixing Non-Conventional Commits ───────────────────────────");
+  logger.section("Fixing Non-Conventional Commits");
   const { invalid } = await validateCommits(projectDir);
   if (invalid.length === 0) {
-    log("info", "All recent commits follow conventional format");
+    logger.info("All recent commits follow conventional format");
     return;
   }
 
-  console.log(`  ${invalid.length} non-conventional commit(s) found:`);
+  logger.warn(`${invalid.length} non-conventional commit(s) found:`);
   for (const msg of invalid.slice(0, 5)) {
     console.log(`    ✗ ${msg.slice(0, 80)}`);
   }
-  console.log("  To fix the most recent commit:");
-  console.log('    git commit --amend -m "feat(scope): description"');
-  console.log("  For older commits, use interactive rebase:");
-  console.log("    git rebase -i HEAD~20");
+  logger.info('To fix the most recent commit: git commit --amend -m "feat(scope): description"');
+  logger.info("For older commits, use interactive rebase: git rebase -i HEAD~20");
 }
 
 // ── Main ─────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
   const command = args[0] || "changelog";
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = await getProjectName(projectDir);
 
-  printProjectBanner("Kimi Release — Conventional Commits", project);
+  logger.banner("Kimi Release — Conventional Commits", project);
 
   if (command === "changelog") {
     const sinceTag = await getLastTag();
-    console.log(`── Changelog Generation ──────────────────────────────────────`);
-    if (sinceTag) console.log(`  Since tag: ${sinceTag}`);
-    else console.log(`  No tags found — scanning last 50 commits`);
+    logger.section("Changelog Generation");
+    if (sinceTag) logger.info(`Since tag: ${sinceTag}`);
+    else logger.info("No tags found — scanning last 50 commits");
 
     const commits = await getCommits(sinceTag);
     if (commits.length === 0) {
-      console.log("  No conventional commits found since last tag.");
-      console.log("  Expected format: feat(scope): description");
-      console.log("                   fix(scope): description");
-      console.log("                   feat!: breaking change");
-      return;
+      logger.warn("No conventional commits found since last tag.");
+      logger.info("Expected format: feat(scope): description");
+      logger.info("                 fix(scope): description");
+      logger.info("                 feat!: breaking change");
+      return 0;
     }
 
-    console.log(`  Found ${commits.length} conventional commits`);
+    logger.info(`Found ${commits.length} conventional commits`);
 
     const bump = determineBump(commits);
-    console.log(`  Semver bump: ${bump}`);
+    logger.info(`Semver bump: ${bump}`);
 
     const pkgPath = join(projectDir, "package.json");
     let currentVersion = "0.0.0";
@@ -162,41 +158,41 @@ async function main() {
     }
 
     const newVersion = bump === "none" ? currentVersion : bumpVersion(currentVersion, bump);
-    console.log(`  Version: ${currentVersion} → ${newVersion}`);
+    logger.info(`Version: ${currentVersion} → ${newVersion}`);
 
     const section = commitsToSection(commits, newVersion);
     const formatted = formatSection(section);
 
-    console.log("── Generated Section ─────────────────────────────────────────");
+    logger.section("Generated Section");
     console.log(formatted);
 
     const dryRun = args.includes("--dry-run");
     if (!dryRun) {
       await updateChangelog(projectDir, formatted, newVersion);
-      console.log("  ✓ CHANGELOG.md updated");
+      logger.info("CHANGELOG.md updated");
     } else {
-      console.log("  [dry-run] No files modified");
+      logger.info("[dry-run] No files modified");
     }
   } else if (command === "semver") {
-    console.log(`── Semver Analysis ───────────────────────────────────────────`);
+    logger.section("Semver Analysis");
     const sinceTag = await getLastTag();
     const commits = await getCommits(sinceTag);
     const bump = determineBump(commits);
 
-    console.log(`  Commits since ${sinceTag || "last 50"}: ${commits.length}`);
-    console.log(`  Breaking: ${commits.filter((c) => c.breaking).length}`);
-    console.log(`  Features: ${commits.filter((c) => c.type === "feat").length}`);
-    console.log(`  Fixes:    ${commits.filter((c) => c.type === "fix").length}`);
-    console.log(`  Bump:     ${bump}`);
+    logger.info(`Commits since ${sinceTag || "last 50"}: ${commits.length}`);
+    logger.info(`Breaking: ${commits.filter((c) => c.breaking).length}`);
+    logger.info(`Features: ${commits.filter((c) => c.type === "feat").length}`);
+    logger.info(`Fixes:    ${commits.filter((c) => c.type === "fix").length}`);
+    logger.info(`Bump:     ${bump}`);
   } else if (command === "validate") {
-    console.log(`── Commit Validation ─────────────────────────────────────────`);
+    logger.section("Commit Validation");
     const { valid, invalid } = await validateCommits(projectDir);
 
-    console.log(`  Valid conventional commits: ${valid.length}`);
-    console.log(`  Invalid commits: ${invalid.length}`);
+    logger.info(`Valid conventional commits: ${valid.length}`);
+    logger.info(`Invalid commits: ${invalid.length}`);
 
     if (invalid.length > 0) {
-      console.log("  Non-conventional commits (should follow 'type(scope): msg'):");
+      logger.warn("Non-conventional commits (should follow 'type(scope): msg'):");
       for (const msg of invalid.slice(0, 10)) {
         console.log(`    ✗ ${msg.slice(0, 80)}`);
       }
@@ -206,30 +202,46 @@ async function main() {
     for (const c of valid) {
       types.set(c.type, (types.get(c.type) || 0) + 1);
     }
-    console.log("  Commit types:");
+    logger.info("Commit types:");
     for (const [type, count] of types.entries()) {
       console.log(`    ${type}: ${count}`);
     }
   } else if (command === "doctor") {
     const checks = await doctor(projectDir);
     const report = buildDoctorReport("kimi-release", checks);
-    printDoctorReport(report);
-    if (report.fixableCount > 0) {
-      console.log("  Run 'kimi-release fix' to repair");
+    logger.section(`${report.tool} Doctor`);
+    for (const check of report.checks) {
+      logger.check(check);
     }
+    logger.info(
+      `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
+    );
+    if (report.fixableCount > 0) {
+      logger.info("Run 'kimi-release fix' to repair");
+    }
+    return report.errorCount > 0 ? 1 : 0;
   } else if (command === "fix") {
     await fixCommits(projectDir);
   } else {
-    console.log("Commands:");
+    logger.section("Commands");
     console.log("  changelog [--dry-run]  Generate CHANGELOG.md section from conventional commits");
     console.log("  semver                 Analyze semver bump needed");
     console.log("  validate               Validate recent commits follow conventional format");
     console.log("  doctor                 Check release readiness");
     console.log("  fix                    Fix non-conventional commits");
   }
+
+  return 0;
 }
 
-main().catch((err) => {
-  console.error("kimi-release failed:", err.message);
-  process.exit(1);
-});
+const exitCode = await runCliExit(
+  Effect.tryPromise({
+    try: () => main(),
+    catch: (e) =>
+      new CliError({
+        message: e instanceof Error ? e.message : String(e),
+      }),
+  }),
+  { toolName: "kimi-release" }
+);
+process.exit(exitCode);

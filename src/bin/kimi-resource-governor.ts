@@ -15,13 +15,10 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "fs";
 import { join } from "path";
-import {
-  ensureDir,
-  getProjectName,
-  resolveProjectRoot,
-  buildDoctorReport,
-  printDoctorReport,
-} from "../lib/utils.ts";
+import { ensureDir, getProjectName, resolveProjectRoot, buildDoctorReport } from "../lib/utils.ts";
+import { Effect } from "effect";
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+import { CliError } from "../lib/effect/errors.ts";
 import { getGovernorConfigPath, DEFAULT_CONFIG_TEMPLATE } from "../lib/governor-config.ts";
 import { governorDir } from "../lib/paths.ts";
 import { DEFAULTS, ensureDefaultsLoaded } from "../lib/governor-state.ts";
@@ -164,7 +161,7 @@ function fixGovernor() {
 
 // ── Main CLI ─────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<number> {
   await ensureDefaultsLoaded();
   const args = Bun.argv.slice(2);
   const command = args[0] || "status";
@@ -218,8 +215,8 @@ async function main() {
   } else if (command === "spawn") {
     const cmd = args.slice(1);
     if (cmd.length === 0) {
-      console.log("Usage: spawn <command> [args...]");
-      process.exit(1);
+      logger.error("Usage: spawn <command> [args...]");
+      return 1;
     }
     logger.section("governedSpawn");
     const result = await governedSpawn(cmd, {
@@ -242,9 +239,9 @@ async function main() {
   } else if (command === "retry") {
     const cmd = args.slice(1);
     if (cmd.length === 0) {
-      console.log("Usage: retry <command> [args...]");
-      console.log("Demonstrates retry with exponential backoff (max 3 attempts)");
-      process.exit(1);
+      logger.error("Usage: retry <command> [args...]");
+      logger.info("Demonstrates retry with exponential backoff (max 3 attempts)");
+      return 1;
     }
     logger.section("governedSpawn with retry");
     try {
@@ -270,18 +267,18 @@ async function main() {
   } else if (command === "cache") {
     const cmd = args.slice(1);
     if (cmd.length === 0) {
-      console.log("Usage: cache <command> [args...]");
-      console.log("Examples:");
-      console.log("  cache bun --version");
-      console.log("  cache --force bun --version  (bypass cache)");
-      process.exit(1);
+      logger.error("Usage: cache <command> [args...]");
+      logger.info("Examples:");
+      logger.info("  cache bun --version");
+      logger.info("  cache --force bun --version  (bypass cache)");
+      return 1;
     }
 
     const force = cmd[0] === "--force";
     const actualCmd = force ? cmd.slice(1) : cmd;
 
     logger.section("Diagnostic Cache");
-    const output = await cachedExec(actualCmd, { force });
+    const output = await cachedExec(actualCmd, { force, logger });
     console.log("  Output:");
     console.log(
       output
@@ -292,10 +289,17 @@ async function main() {
   } else if (command === "doctor") {
     const checks = doctor();
     const report = buildDoctorReport("kimi-resource-governor", checks);
-    printDoctorReport(report);
+    logger.section(`${report.tool} Doctor`);
+    for (const check of report.checks) {
+      logger.check(check);
+    }
+    logger.info(
+      `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
+    );
     if (report.fixableCount > 0) {
       logger.info("Run 'kimi-resource-governor fix' to repair");
     }
+    return report.errorCount > 0 ? 1 : 0;
   } else if (command === "fix") {
     logger.section("Fixing Resource Governor");
     ensureDir(GOVERNOR_DIR);
@@ -362,6 +366,8 @@ async function main() {
     console.log("  killTree: false       — disable process tree cleanup");
     console.log("  retry: { maxAttempts, backoffMs } — exponential backoff retry");
   }
+
+  return 0;
 }
 
 function printProjectBanner(title: string) {
@@ -384,7 +390,14 @@ process.on("beforeExit", () => {
   if (hasSessionId()) endSession(getSessionId());
 });
 
-main().catch((err) => {
-  logger.error(`kimi-resource-governor failed: ${err.message}`);
-  process.exit(1);
-});
+const exitCode = await runCliExit(
+  Effect.tryPromise({
+    try: () => main(),
+    catch: (e) =>
+      new CliError({
+        message: e instanceof Error ? e.message : String(e),
+      }),
+  }),
+  { toolName: "kimi-resource-governor" }
+);
+process.exit(exitCode);

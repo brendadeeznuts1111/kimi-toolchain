@@ -61,13 +61,11 @@ export function checkStepBudget(
 ): boolean {
   const { status, message } = getStepBudgetStatus();
   if (status === "critical") {
-    if (sink) sink("error", message);
-    else console.error(`  ✗ ${message}`);
+    sink?.("error", message);
     return true;
   }
   if (status === "warn") {
-    if (sink) sink("warn", message);
-    else console.warn(`  ⚠ ${message}`);
+    sink?.("warn", message);
   }
   return false;
 }

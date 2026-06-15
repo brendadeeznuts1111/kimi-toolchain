@@ -12,16 +12,14 @@
 
 import { randomUUIDv7 } from "bun";
 import { createLogger } from "../lib/logger.ts";
-import {
-  getProjectName,
-  resolveProjectRoot,
-  buildDoctorReport,
-  printDoctorReport,
-} from "../lib/utils.ts";
+import { getProjectName, resolveProjectRoot, buildDoctorReport } from "../lib/utils.ts";
+import { Effect } from "effect";
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+import { CliError } from "../lib/effect/errors.ts";
 import { recordDoctorRun, getPersistentWarnings } from "../lib/doctor-runs.ts";
 import type { DoctorWarning } from "../lib/doctor-runs.ts";
 
-const trendsLogger = createLogger(Bun.argv, "kimi-memory");
+const logger = createLogger(Bun.argv, "kimi-memory");
 
 export { recordDoctorRun, getPersistentWarnings };
 
@@ -209,13 +207,13 @@ function fixDb() {
 
 // ── Main CLI ─────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
   const command = args[0] || "stats";
   const projectPath = await resolveProjectRoot(Bun.cwd);
   const project = await getProjectName(projectPath);
 
-  trendsLogger.banner("Kimi Memory — Session Store & Knowledge Graph");
+  logger.banner("Kimi Memory — Session Store & Knowledge Graph");
 
   if (command === "store") {
     const sessionId = args[1] || randomUUIDv7();
@@ -233,11 +231,11 @@ async function main() {
       contextSize: 0,
       keyDecisions: decisions,
     });
-    console.log(`  ✓ Stored session: ${sessionId}`);
+    logger.info(`Stored session: ${sessionId}`);
   } else if (command === "recall") {
     const limit = parseInt(args[1], 10) || 5;
     const sessions = recallSessions(project, limit);
-    console.log(`── Recent sessions for ${project} ────────────────────────────`);
+    logger.section(`Recent sessions for ${project}`);
     for (const s of sessions) {
       const statusIcon = s.status === "active" ? "●" : s.status === "stale" ? "◌" : "○";
       console.log(
@@ -245,27 +243,27 @@ async function main() {
       );
     }
   } else if (command === "resume") {
-    console.log(`── Resume Session: ${project} ────────────────────────────────`);
+    logger.section(`Resume Session: ${project}`);
     const { session, stale, changes } = await resumeSession(projectPath);
 
     if (!session) {
-      console.log("  No previous session found");
-      return;
+      logger.info("No previous session found");
+      return 0;
     }
 
-    console.log(`  Last session: ${session.startedAt.slice(0, 19)}`);
-    console.log(`  Status: ${stale ? "STALE" : "FRESH"}`);
+    logger.info(`Last session: ${session.startedAt.slice(0, 19)}`);
+    logger.info(`Status: ${stale ? "STALE" : "FRESH"}`);
 
     if (changes.length > 0) {
       for (const c of changes) {
-        console.log(`  ⚠ ${c}`);
+        logger.warn(c);
       }
     } else {
-      console.log("  ✓ Context unchanged — safe to resume");
+      logger.info("Context unchanged — safe to resume");
     }
 
     if (session.keyDecisions.length > 0) {
-      console.log("  Key decisions from last session:");
+      logger.info("Key decisions from last session:");
       for (const d of session.keyDecisions) {
         console.log(`    • ${d}`);
       }
@@ -274,18 +272,18 @@ async function main() {
     const action = args[1] || "start";
     if (action === "start") {
       const id = await startAutoSave(projectPath);
-      console.log(`  ✓ Auto-save started: ${id} (every 30s)`);
+      logger.info(`Auto-save started: ${id} (every 30s)`);
     } else {
       stopAutoSave();
-      console.log(`  ✓ Auto-save stopped`);
+      logger.info("Auto-save stopped");
     }
   } else if (command === "link") {
     const fromNode = args[1];
     const toNode = args[2];
     const relation = args[3] || "depends_on";
     if (!fromNode || !toNode) {
-      console.log("Usage: link <from> <to> [relation]");
-      process.exit(1);
+      logger.error("Usage: link <from> <to> [relation]");
+      return 1;
     }
     addNode({
       id: fromNode,
@@ -302,73 +300,79 @@ async function main() {
       createdAt: new Date().toISOString(),
     });
     addEdge({ from: fromNode, to: toNode, relation, weight: 1.0 });
-    console.log(`  ✓ Linked: ${fromNode} →[${relation}]→ ${toNode}`);
+    logger.info(`Linked: ${fromNode} →[${relation}]→ ${toNode}`);
   } else if (command === "graph") {
     const { nodes, edges } = getGraph(project);
-    console.log(`── Knowledge Graph: ${project} ───────────────────────────────`);
-    console.log(`  Nodes: ${nodes.length}`);
+    logger.section(`Knowledge Graph: ${project}`);
+    logger.info(`Nodes: ${nodes.length}`);
     for (const n of nodes.slice(0, 10)) {
       console.log(`    [${n.type}] ${n.label}`);
     }
-    console.log(`  Edges: ${edges.length}`);
+    logger.info(`Edges: ${edges.length}`);
     for (const e of edges.slice(0, 10)) {
       console.log(`    ${e.from} →[${e.relation}]→ ${e.to}`);
     }
   } else if (command === "impact") {
     const nodeId = args[1];
     if (!nodeId) {
-      console.log("Usage: impact <node-id>");
-      console.log("  Shows cross-project impact of changing a node");
-      process.exit(1);
+      logger.error("Usage: impact <node-id>");
+      logger.info("Shows cross-project impact of changing a node");
+      return 1;
     }
     const impact = getImpactGraph(nodeId);
-    console.log(`── Impact Analysis: ${nodeId} ────────────────────────────────`);
-    console.log(`  Risk score: ${(impact.riskScore * 100).toFixed(0)}%`);
-    console.log(`  Affected nodes: ${impact.affectedNodes.length}`);
-    console.log(`  Affected projects: ${impact.affectedProjects.join(", ") || "none"}`);
+    logger.section(`Impact Analysis: ${nodeId}`);
+    logger.info(`Risk score: ${(impact.riskScore * 100).toFixed(0)}%`);
+    logger.info(`Affected nodes: ${impact.affectedNodes.length}`);
+    logger.info(`Affected projects: ${impact.affectedProjects.join(", ") || "none"}`);
     for (const n of impact.affectedNodes.slice(0, 10)) {
       console.log(`    [${n.project}] ${n.label} (${n.type})`);
     }
   } else if (command === "search") {
     const query = args[1];
     if (!query) {
-      console.log("Usage: search <query>");
-      process.exit(1);
+      logger.error("Usage: search <query>");
+      return 1;
     }
     const results = searchNodes(query, project);
-    console.log(`── Search: '${query}' ────────────────────────────────────────`);
+    logger.section(`Search: '${query}'`);
     for (const r of results) {
       console.log(`  [${r.type}] ${r.label} (${r.project})`);
     }
   } else if (command === "prune") {
     const days = parseInt(args[1], 10) || 30;
     const deleted = pruneOldSessions(days);
-    console.log(`  ✓ Pruned ${deleted} sessions older than ${days} days`);
+    logger.info(`Pruned ${deleted} sessions older than ${days} days`);
   } else if (command === "stats") {
     const stats = getStats();
-    console.log("── Memory Stats ──────────────────────────────────────────────");
-    console.log(`  Sessions: ${stats.sessions} (${stats.active} active)`);
-    console.log(`  Nodes:    ${stats.nodes}`);
-    console.log(`  Edges:    ${stats.edges}`);
-    console.log(`  DB size:  ${stats.dbSize}`);
+    logger.section("Memory Stats");
+    logger.info(`Sessions: ${stats.sessions} (${stats.active} active)`);
+    logger.info(`Nodes:    ${stats.nodes}`);
+    logger.info(`Edges:    ${stats.edges}`);
+    logger.info(`DB size:  ${stats.dbSize}`);
   } else if (command === "trends") {
     const toolFilter = args[1];
     const persistent = getPersistentWarnings(toolFilter);
-    trendsLogger.section(`Warning Trends ${toolFilter ? `(${toolFilter})` : "(all tools)"}`);
+    logger.section(`Warning Trends ${toolFilter ? `(${toolFilter})` : "(all tools)"}`);
     if (persistent.length === 0) {
-      trendsLogger.info("No persistent warnings — all checks clean");
+      logger.info("No persistent warnings — all checks clean");
     } else {
       for (const p of persistent) {
         const age = p.age_days === 0 ? "today" : `${p.age_days}d ago`;
         const freq = p.occurrence_count === 1 ? "1×" : `${p.occurrence_count}×`;
         const label = p.taxonomy_id ? `${p.taxonomy_id} (${p.check_name})` : p.check_name;
-        trendsLogger.warn(`${label} [${p.tool}]: ${freq} since ${age}`);
+        logger.warn(`${label} [${p.tool}]: ${freq} since ${age}`);
       }
     }
   } else if (command === "doctor") {
     const checks = doctor();
     const report = buildDoctorReport("kimi-memory", checks);
-    printDoctorReport(report);
+    logger.section(`${report.tool} Doctor`);
+    for (const check of report.checks) {
+      logger.check(check);
+    }
+    logger.info(
+      `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
+    );
 
     const warnings: DoctorWarning[] = [];
     for (const c of checks) {
@@ -377,32 +381,29 @@ async function main() {
       }
     }
 
-    // Persist to trending
     recordDoctorRun(project, "kimi-memory", warnings);
 
-    // Show persistent warnings
     const persistent = getPersistentWarnings("kimi-memory");
     if (persistent.length > 0) {
-      console.log("");
-      console.log("  Persistent warnings (kimi-memory):");
+      logger.info("Persistent warnings (kimi-memory):");
       for (const p of persistent) {
         const age = p.age_days === 0 ? "today" : `${p.age_days}d ago`;
-        console.log(`    ⚠ ${p.check_name}: ${p.occurrence_count}× since ${age}`);
+        logger.warn(`${p.check_name}: ${p.occurrence_count}× since ${age}`);
       }
     }
 
     if (report.fixableCount > 0) {
-      console.log("");
-      console.log("  Run 'kimi-memory fix' to repair");
+      logger.info("Run 'kimi-memory fix' to repair");
     }
+    return report.errorCount > 0 ? 1 : 0;
   } else if (command === "fix") {
-    console.log("── Fixing Memory DB ──────────────────────────────────────────");
+    logger.section("Fixing Memory DB");
     const result = fixDb();
-    console.log(`  ✓ Pruned ${result.orphansDeleted} orphaned edges`);
-    console.log(`  ✓ Reset ${result.stuckReset} stuck sessions`);
-    console.log(`  ✓ Database vacuumed`);
+    logger.info(`Pruned ${result.orphansDeleted} orphaned edges`);
+    logger.info(`Reset ${result.stuckReset} stuck sessions`);
+    logger.info("Database vacuumed");
   } else {
-    console.log("Commands:");
+    logger.section("Commands");
     console.log("  store <id> [decisions]   Save a session snapshot");
     console.log("  recall [limit]           Show recent sessions");
     console.log("  resume                   Check if last session is stale");
@@ -417,9 +418,18 @@ async function main() {
     console.log("  stats                    Show database stats");
     console.log("  trends [tool]            Show persistent warnings across sessions");
   }
+
+  return 0;
 }
 
-main().catch((err) => {
-  console.error("kimi-memory failed:", err.message);
-  process.exit(1);
-});
+const exitCode = await runCliExit(
+  Effect.tryPromise({
+    try: () => main(),
+    catch: (e) =>
+      new CliError({
+        message: e instanceof Error ? e.message : String(e),
+      }),
+  }),
+  { toolName: "kimi-memory" }
+);
+process.exit(exitCode);
