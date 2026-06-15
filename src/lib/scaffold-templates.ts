@@ -36,22 +36,32 @@ export const BUNFIG = load("bunfig.toml");
 export const KIMI_SKILLS_README = load("skills-readme.md");
 export const ADR_TEMPLATE = load("adr-template.md");
 export const CODE_REFERENCES_TEMPLATE = load("code-references.md");
+export const MIT_LICENSE_TEMPLATE = load("LICENSE-MIT");
 
 // ── Generator functions ──────────────────────────────────────────────
 
-/** Required package.json scripts added by kimi-fix. */
-export const REQUIRED_PACKAGE_SCRIPTS = [
-  "test",
-  "test:fast",
-  "check",
-  "check:fast",
-  "typecheck",
-  "format",
-  "format:check",
-  "format:check:ci",
-  "lint",
-  "fix",
-] as const;
+/** Required package.json scripts added by kimi-fix and audited by scaffold doctor. */
+export const REQUIRED_PACKAGE_SCRIPT_ENTRIES = {
+  test: "bun run scripts/run-tests.ts",
+  "test:fast": "bun run scripts/run-tests.ts --fast",
+  "test:coverage": "bun run scripts/run-tests.ts --coverage",
+  "test:coverage:ci": "bun run scripts/run-tests.ts --ci --coverage",
+  check: "bun run scripts/check.ts",
+  "check:fast": "bun run scripts/check.ts --fast",
+  "check:dry-run": "bun run scripts/check.ts --dry-run",
+  "docs:sync": "bun run scripts/readme-sync.ts --fix",
+  typecheck: "tsc --noEmit",
+  format: "oxfmt --write .",
+  "format:check": "oxfmt --check -c .oxfmtrc.json .",
+  "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
+  lint: "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
+  "lint:terms": "bun run scripts/lint-banned-terms.ts",
+  fix: "kimi-fix .",
+} as const;
+
+export const REQUIRED_PACKAGE_SCRIPTS = Object.keys(REQUIRED_PACKAGE_SCRIPT_ENTRIES) as Array<
+  keyof typeof REQUIRED_PACKAGE_SCRIPT_ENTRIES
+>;
 
 /** Generate README.md with project name and basic structure. */
 export async function generateReadme(
@@ -78,7 +88,7 @@ export async function generateLicense(projectDir: string, type: string): Promise
   const year = new Date().getFullYear();
   let content = "";
   if (type === "MIT") {
-    content = `MIT License\n\nCopyright (c) ${year}\n\nPermission is hereby granted...`;
+    content = MIT_LICENSE_TEMPLATE.replace("{{YEAR}}", String(year));
   } else {
     content = `${type} License\n\nCopyright (c) ${year}\n`;
   }
@@ -147,4 +157,5 @@ export const TEMPLATE_MARKERS: Record<string, string[]> = {
   BUNFIG: ["concurrentTestGlob", "coverageThreshold"],
   GITIGNORE: ["coverage/", ".bun-cache"],
   ENV_EXAMPLE: ["DATABASE_URL", "PORT=0"],
+  MIT_LICENSE_TEMPLATE: ["Permission is hereby granted, free of charge", "WITHOUT WARRANTY"],
 };

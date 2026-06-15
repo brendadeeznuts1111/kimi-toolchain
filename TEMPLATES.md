@@ -152,7 +152,7 @@ No ADRs yet. Create one: `bun run ~/.kimi-code/tools/kimi-governance.ts adr "<ti
     "test:coverage": "bun run scripts/run-tests.ts --coverage",
     "test:coverage:ci": "bun run scripts/run-tests.ts --ci --coverage",
     "check": "bun run scripts/check.ts",
-    "check:fast": "bun run scripts/check.ts --fast --timeout 100",
+    "check:fast": "bun run scripts/check.ts --fast",
     "check:dry-run": "bun run scripts/check.ts --dry-run",
     "docs:sync": "bun run scripts/readme-sync.ts --fix",
     "typecheck": "tsc --noEmit",

@@ -4,39 +4,91 @@
  * Derives version from src/lib/version.ts (package.json).
  */
 
-import { existsSync } from "fs";
+import { existsSync, statSync } from "fs";
 import { MCP_BRIDGE_VERSION } from "../lib/version.ts";
+import { defaultToolTimeoutMs, invokeCommand } from "../lib/tool-runner.ts";
+
+const DEFAULT_SHELL_MAX_OUTPUT_BYTES = 262_144;
+const MAX_SHELL_TIMEOUT_MS = 120_000;
+const MAX_SHELL_OUTPUT_BYTES = 1_048_576;
 
 interface ShellResult {
   stdout: string;
   stderr: string;
   exitCode: number;
+  timeoutMs: number;
+  maxOutputBytes: number;
+  timedOut?: boolean;
+  stdoutTruncated?: boolean;
+  stderrTruncated?: boolean;
   error?: string;
+}
+
+interface ExecuteContext {
+  workingDir?: string;
+  timeoutMs?: number;
+  maxOutputBytes?: number;
+}
+
+function boundedPositiveInt(value: unknown, fallback: number, max: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(Math.max(Math.floor(value), 1), max);
 }
 
 export async function executeCommand(
   command: string,
-  context: { workingDir?: string } = {}
+  context: ExecuteContext = {}
 ): Promise<ShellResult> {
   const cwd = context.workingDir || Bun.cwd;
+  const timeoutMs = boundedPositiveInt(
+    context.timeoutMs,
+    defaultToolTimeoutMs(),
+    MAX_SHELL_TIMEOUT_MS
+  );
+  const maxOutputBytes = boundedPositiveInt(
+    context.maxOutputBytes,
+    DEFAULT_SHELL_MAX_OUTPUT_BYTES,
+    MAX_SHELL_OUTPUT_BYTES
+  );
+
   if (context.workingDir && !existsSync(context.workingDir)) {
     return {
       stdout: "",
       stderr: "",
       exitCode: 1,
+      timeoutMs,
+      maxOutputBytes,
       error: `Working directory does not exist: ${context.workingDir}`,
     };
   }
+  if (context.workingDir && !statSync(context.workingDir).isDirectory()) {
+    return {
+      stdout: "",
+      stderr: "",
+      exitCode: 1,
+      timeoutMs,
+      maxOutputBytes,
+      error: `Working directory is not a directory: ${context.workingDir}`,
+    };
+  }
 
-  const proc = Bun.spawn(["sh", "-c", command], {
+  const result = await invokeCommand(["sh", "-c", command], {
     cwd,
-    stdout: "pipe",
-    stderr: "pipe",
+    timeoutMs,
+    maxOutputBytes,
+    timeoutError: (ms) => `Command timed out after ${ms}ms`,
   });
-  const exitCode = await proc.exited;
-  const stdout = await Bun.readableStreamToText(proc.stdout);
-  const stderr = await Bun.readableStreamToText(proc.stderr);
-  return { stdout, stderr, exitCode };
+  return {
+    stdout: result.stdout,
+    stderr: result.stderr,
+    exitCode: result.exitCode,
+    timeoutMs: result.timeoutMs,
+    maxOutputBytes: result.maxOutputBytes,
+    ...(result.timedOut ? { timedOut: true } : {}),
+    ...(result.stdoutTruncated ? { stdoutTruncated: true } : {}),
+    ...(result.stderrTruncated ? { stderrTruncated: true } : {}),
+    error: result.error,
+  };
 }
 
 // ─── MCP stdio server ───────────────────────────────────────────────────────
@@ -53,6 +105,8 @@ const TOOLS = [
       properties: {
         command: { type: "string" },
         workingDir: { type: "string" },
+        timeoutMs: { type: "number" },
+        maxOutputBytes: { type: "number" },
       },
       required: ["command"],
     },
@@ -61,6 +115,10 @@ const TOOLS = [
 
 function send(msg: unknown) {
   process.stdout.write(JSON.stringify(msg) + "\n");
+}
+
+function invalidParams(id: unknown, message: string) {
+  send({ jsonrpc: "2.0", id, error: { code: -32602, message } });
 }
 
 async function handleRequest(req: any) {
@@ -100,25 +158,54 @@ async function handleRequest(req: any) {
 
       const command = args.command;
       if (typeof command !== "string" || !command) {
-        send({
-          jsonrpc: "2.0",
-          id,
-          error: { code: -32602, message: "Missing or invalid 'command' argument" },
-        });
+        invalidParams(id, "Missing or invalid 'command' argument");
+        return;
+      }
+      const workingDir = args.workingDir;
+      if (workingDir !== undefined && typeof workingDir !== "string") {
+        invalidParams(id, "Invalid 'workingDir' argument; expected string");
+        return;
+      }
+      const timeoutMs = args.timeoutMs;
+      if (timeoutMs !== undefined && typeof timeoutMs !== "number") {
+        invalidParams(id, "Invalid 'timeoutMs' argument; expected number");
+        return;
+      }
+      const maxOutputBytes = args.maxOutputBytes;
+      if (maxOutputBytes !== undefined && typeof maxOutputBytes !== "number") {
+        invalidParams(id, "Invalid 'maxOutputBytes' argument; expected number");
         return;
       }
 
       try {
-        const result = await executeCommand(command, { workingDir: args.workingDir });
+        const result = await executeCommand(command, {
+          workingDir,
+          timeoutMs,
+          maxOutputBytes,
+        });
         const content: Array<{ type: "text"; text: string }> = [];
         if (result.error) {
           content.push({ type: "text", text: result.error });
-        } else {
-          if (result.stdout) content.push({ type: "text", text: result.stdout });
-          if (result.stderr) content.push({ type: "text", text: `stderr: ${result.stderr}` });
-          if (content.length === 0) content.push({ type: "text", text: "(no output)" });
-          content.push({ type: "text", text: `[exit code: ${result.exitCode}]` });
         }
+        if (result.stdout) content.push({ type: "text", text: result.stdout });
+        if (result.stderr) content.push({ type: "text", text: `stderr: ${result.stderr}` });
+        if (result.stdoutTruncated) {
+          content.push({
+            type: "text",
+            text: `[stdout truncated at: ${result.maxOutputBytes} bytes]`,
+          });
+        }
+        if (result.stderrTruncated) {
+          content.push({
+            type: "text",
+            text: `[stderr truncated at: ${result.maxOutputBytes} bytes]`,
+          });
+        }
+        if (content.length === 0) content.push({ type: "text", text: "(no output)" });
+        if (result.timedOut) {
+          content.push({ type: "text", text: `[timed out after: ${result.timeoutMs}ms]` });
+        }
+        content.push({ type: "text", text: `[exit code: ${result.exitCode}]` });
         send({
           jsonrpc: "2.0",
           id,

@@ -43,6 +43,17 @@ export interface ToolInvocationOptions {
   gracePeriodMs?: number;
 }
 
+export interface CommandInvocationOptions extends ToolInvocationOptions {
+  /** Label exposed in the returned invocation; defaults to command[0]. */
+  tool?: string;
+  /** Args exposed in the returned invocation; defaults to command.slice(1). */
+  args?: string[];
+  /** Step-budget key to record, or undefined to skip budget recording. */
+  recordStepName?: string;
+  /** Custom timeout message for adapters with user-facing terminology. */
+  timeoutError?: (timeoutMs: number, gracePeriodMs: number) => string;
+}
+
 export interface ToolInvocation {
   tool: string;
   args: string[];
@@ -54,6 +65,7 @@ export interface ToolInvocation {
   maxOutputBytes: number;
   stdoutTruncated?: boolean;
   stderrTruncated?: boolean;
+  timedOut?: boolean;
   error?: string;
   durationMs: number;
   isError: boolean;
@@ -80,7 +92,7 @@ function mergedEnv(env?: Record<string, string | undefined>): Record<string, str
   return merged;
 }
 
-async function streamToLimitedText(
+async function readStreamToLimitedText(
   stream: ReadableStream<Uint8Array> | null,
   maxBytes: number
 ): Promise<{ text: string; truncated: boolean }> {
@@ -122,26 +134,29 @@ async function streamToLimitedText(
   return { text: new TextDecoder().decode(retained), truncated };
 }
 
-/** Invoke a tool script directly by path with timeout and graceful termination. */
-export async function invokeTool(
-  toolPath: string,
-  args: string[],
-  options: ToolInvocationOptions = {}
+/** Invoke an arbitrary command with timeout, output bounds, and graceful termination. */
+export async function invokeCommand(
+  command: string[],
+  options: CommandInvocationOptions = {}
 ): Promise<ToolInvocation> {
+  if (command.length === 0) {
+    throw new Error("Cannot invoke empty command");
+  }
+
   const cwd = options.cwd || Bun.cwd;
   const timeoutMs = options.timeoutMs ?? defaultToolTimeoutMs();
   const gracePeriodMs = options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
   const maxOutputBytes = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
   const start = performance.now();
 
-  const proc = Bun.spawn(["bun", "run", toolPath, ...args], {
+  const proc = Bun.spawn(command, {
     cwd,
     env: mergedEnv(options.env),
     stdout: "pipe",
     stderr: "pipe",
   });
-  const stdoutPromise = streamToLimitedText(proc.stdout, maxOutputBytes);
-  const stderrPromise = streamToLimitedText(proc.stderr, maxOutputBytes);
+  const stdoutPromise = readStreamToLimitedText(proc.stdout, maxOutputBytes);
+  const stderrPromise = readStreamToLimitedText(proc.stderr, maxOutputBytes);
 
   let timedOut = false;
   let sigkillTimer: ReturnType<typeof setTimeout> | null = null;
@@ -185,16 +200,20 @@ export async function invokeTool(
   }
 
   if (timedOut && !error) {
-    error = `Tool timed out after ${timeoutMs}ms (SIGTERM sent, SIGKILL after ${gracePeriodMs}ms)`;
+    error =
+      options.timeoutError?.(timeoutMs, gracePeriodMs) ??
+      `Command timed out after ${timeoutMs}ms (SIGTERM sent, SIGKILL after ${gracePeriodMs}ms)`;
   }
 
   const durationMs = Math.round(performance.now() - start);
 
-  recordStep(toolPath, durationMs, exitCode !== 0 || !!error);
+  if (options.recordStepName) {
+    recordStep(options.recordStepName, durationMs, exitCode !== 0 || !!error);
+  }
 
-  const base: ToolInvocation = {
-    tool: toolPath,
-    args,
+  return {
+    tool: options.tool ?? command[0] ?? "",
+    args: options.args ?? command.slice(1),
     cwd,
     timeoutMs,
     exitCode,
@@ -203,17 +222,34 @@ export async function invokeTool(
     maxOutputBytes,
     ...(stdoutTruncated ? { stdoutTruncated } : {}),
     ...(stderrTruncated ? { stderrTruncated } : {}),
+    ...(timedOut ? { timedOut } : {}),
     error,
     durationMs,
     isError: exitCode !== 0 || !!error,
   };
+}
+
+/** Invoke a tool script directly by path with timeout and graceful termination. */
+export async function invokeTool(
+  toolPath: string,
+  args: string[],
+  options: ToolInvocationOptions = {}
+): Promise<ToolInvocation> {
+  const base = await invokeCommand(["bun", "run", toolPath, ...args], {
+    ...options,
+    tool: toolPath,
+    args,
+    recordStepName: toolPath,
+    timeoutError: (timeoutMs, gracePeriodMs) =>
+      `Tool timed out after ${timeoutMs}ms (SIGTERM sent, SIGKILL after ${gracePeriodMs}ms)`,
+  });
 
   if (!base.isError) {
     return base;
   }
 
   try {
-    const output = [error, stderr, stdout].filter(Boolean).join("\n");
+    const output = [base.error, base.stderr, base.stdout].filter(Boolean).join("\n");
     const { match, suggestions } = await classifyAndSuggest(output);
     const primary = suggestions[0];
     const suggestion =

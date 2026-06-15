@@ -16,6 +16,7 @@ import {
   type Taxonomy,
 } from "./error-taxonomy.ts";
 import {
+  createCredentialAdapter,
   defineProviderIntegration,
   isTwoArtifactProviderIntegration,
   type ProviderIntegration,
@@ -264,13 +265,7 @@ export function buildProviderAgilityFixture(): ProviderIntegration {
       permissions: ["Account > Access: Read", "Account > Access: Edit"],
       errorCategories: ["http_error", "permission_denied", "network_timeout"],
     },
-    {
-      provider: "cloudflare",
-      secretScope: "cloudflare-access",
-      async getToken(getSecret) {
-        return { value: await getSecret("cloudflare-access") };
-      },
-    }
+    createCredentialAdapter("cloudflare", "cloudflare-access")
   );
 }
 

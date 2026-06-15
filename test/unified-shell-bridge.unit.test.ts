@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
+import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
@@ -120,6 +120,60 @@ describe("unified-shell-bridge", () => {
     expect(res.result?.isError).toBe(true);
   });
 
+  test("execute rejects non-string workingDir", async () => {
+    const [res] = await sendRequests([
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "execute", arguments: { command: "pwd", workingDir: { path: "/" } } },
+      },
+    ]);
+    expect(res.error?.code).toBe(-32602);
+    expect(res.error?.message).toContain("Invalid 'workingDir'");
+  });
+
+  test("execute rejects non-number timeout and output limits", async () => {
+    const [timeoutRes, outputRes] = await sendRequests([
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "execute", arguments: { command: "pwd", timeoutMs: "50" } },
+      },
+      {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "execute", arguments: { command: "pwd", maxOutputBytes: "8" } },
+      },
+    ]);
+    expect(timeoutRes.error?.code).toBe(-32602);
+    expect(timeoutRes.error?.message).toContain("Invalid 'timeoutMs'");
+    expect(outputRes.error?.code).toBe(-32602);
+    expect(outputRes.error?.message).toContain("Invalid 'maxOutputBytes'");
+  });
+
+  test("execute rejects file workingDir", async () => {
+    const filePath = join(tmpdir(), `kimi-bridge-file-${Bun.randomUUIDv7()}`);
+    writeFileSync(filePath, "not a directory");
+    try {
+      const [res] = await sendRequests([
+        {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: { name: "execute", arguments: { command: "pwd", workingDir: filePath } },
+        },
+      ]);
+      const text = res.result?.content?.map((c) => c.text).join("\n") || "";
+      expect(text).toContain("Working directory is not a directory");
+      expect(res.result?.isError).toBe(true);
+    } finally {
+      rmSync(filePath, { force: true });
+    }
+  });
+
   test("execute runs in provided workingDir", async () => {
     const cwd = join(tmpdir(), `kimi-bridge-cwd-${Bun.randomUUIDv7()}`);
     mkdirSync(cwd, { recursive: true });
@@ -138,5 +192,39 @@ describe("unified-shell-bridge", () => {
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
+  });
+
+  test("execute truncates retained stdout", async () => {
+    const [res] = await sendRequests([
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: {
+          name: "execute",
+          arguments: { command: "printf 1234567890abcdef", maxOutputBytes: 8 },
+        },
+      },
+    ]);
+    const text = res.result?.content?.map((c) => c.text).join("\n") || "";
+    expect(text).toContain("12345678");
+    expect(text).not.toContain("90abcdef");
+    expect(text).toContain("stdout truncated at: 8 bytes");
+    expect(res.result?.isError).toBe(false);
+  });
+
+  test("execute times out long-running commands", async () => {
+    const [res] = await sendRequests([
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "execute", arguments: { command: "sleep 1", timeoutMs: 50 } },
+      },
+    ]);
+    const text = res.result?.content?.map((c) => c.text).join("\n") || "";
+    expect(text).toContain("Command timed out after 50ms");
+    expect(text).toContain("timed out after: 50ms");
+    expect(res.result?.isError).toBe(true);
   });
 });

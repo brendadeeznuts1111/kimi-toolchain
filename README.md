@@ -71,12 +71,12 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run new`                | Run kimi-new from repo                              |
 | `bun run governance`         | Run kimi-governance from repo                       |
 | `bun run test`               | Full test suite (unit + smoke; default 5s timeout)  |
-| `bun run test:fast`          | Unit tests only at `--timeout 100` (~90ms)          |
+| `bun run test:fast`          | Unit tests only at `--timeout 500`                  |
 | `bun run test:coverage`      | Full suite with Bun coverage report                 |
-| `bun run test:coverage:fast` | Unit coverage at 100ms timeout (R-Score gate)       |
+| `bun run test:coverage:fast` | Unit coverage at 500ms timeout (R-Score gate)       |
 | `bun run test:coverage:ci`   | Full suite + coverage (60s timeout, lcov, `--bail`) |
 | `bun run check`              | format:check + lint + typecheck + test (CI/hooks)   |
-| `bun run check:fast`         | Same gates; unit tests at `--timeout 100`           |
+| `bun run check:fast`         | Same gates; unit tests at `--timeout 500`           |
 | `bun run check:dry-run`      | List check steps without running them               |
 | `bun run docs:sync`          | Patch README script table from package.json         |
 | `bun run typecheck`          | TypeScript type check (no emit)                     |

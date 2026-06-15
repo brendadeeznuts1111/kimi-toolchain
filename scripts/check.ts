@@ -1,10 +1,11 @@
 #!/usr/bin/env bun
 /**
- * Quality gate runner with --dry-run and --timeout support.
+ * Quality gate runner with --dry-run, --staged, and --timeout support.
  *
  * Usage:
  *   bun run scripts/check.ts
  *   bun run scripts/check.ts --dry-run
+ *   bun run scripts/check.ts --staged
  *   bun run scripts/check.ts --fast --timeout 100
  *   bun run scripts/check.ts --dryrun --fast
  *
@@ -27,10 +28,19 @@ interface Step {
   silentOnSuccess?: boolean;
 }
 
-function parseCli(): { dryRun: boolean; fast: boolean; timeoutMs: number } {
+function parseTimeout(raw: string | undefined): number {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`Invalid --timeout: ${raw ?? ""}`);
+  }
+  return value;
+}
+
+function parseCli(): { dryRun: boolean; fast: boolean; staged: boolean; timeoutMs: number } {
   const argv = Bun.argv.slice(2);
   let dryRun = false;
   let fast = false;
+  let staged = false;
   let timeoutMs = DEFAULT_TEST_TIMEOUT_MS;
 
   for (let i = 0; i < argv.length; i++) {
@@ -43,13 +53,22 @@ function parseCli(): { dryRun: boolean; fast: boolean; timeoutMs: number } {
       fast = true;
       continue;
     }
+    if (arg === "--staged") {
+      staged = true;
+      fast = true;
+      continue;
+    }
     if (arg === "--timeout") {
       const next = argv[++i];
-      if (next) timeoutMs = parseInt(next, 10);
+      timeoutMs = parseTimeout(next);
       continue;
     }
     if (arg.startsWith("--timeout=")) {
-      timeoutMs = parseInt(arg.split("=")[1] ?? "", 10);
+      timeoutMs = parseTimeout(arg.split("=")[1]);
+      continue;
+    }
+    if (arg.startsWith("-")) {
+      throw new Error(`Unknown option: ${arg}`);
     }
   }
 
@@ -57,11 +76,17 @@ function parseCli(): { dryRun: boolean; fast: boolean; timeoutMs: number } {
     timeoutMs = FAST_TEST_TIMEOUT_MS;
   }
 
-  return { dryRun, fast, timeoutMs };
+  return { dryRun, fast, staged, timeoutMs };
 }
 
-async function buildSteps(fast: boolean, timeoutMs: number): Promise<Step[]> {
+async function buildSteps(fast: boolean, staged: boolean, timeoutMs: number): Promise<Step[]> {
   const steps: Step[] = [];
+  if (staged) {
+    steps.push({
+      name: "pre-commit",
+      cmd: ["bun", "run", "src/bin/kimi-githooks.ts", "pre-commit"],
+    });
+  }
   // Full check only — check:fast skips env blockers (cursor slug, wrappers) for quick iteration
   if (!fast && (await isKimiToolchainRepo(REPO_ROOT))) {
     steps.push({
@@ -114,11 +139,12 @@ async function runStep(step: Step): Promise<number> {
 }
 
 async function main() {
-  const { dryRun, fast, timeoutMs } = parseCli();
-  const steps = await buildSteps(fast, timeoutMs);
+  const { dryRun, fast, staged, timeoutMs } = parseCli();
+  const steps = await buildSteps(fast, staged, timeoutMs);
 
   if (dryRun) {
-    console.log(`check ${fast ? "(fast) " : ""}— dry run`);
+    const mode = staged ? "(staged fast) " : fast ? "(fast) " : "";
+    console.log(`check ${mode}— dry run`);
     console.log(`  test timeout: ${timeoutMs}ms`);
     for (const step of steps) {
       console.log(`  → ${step.cmd.join(" ")}`);

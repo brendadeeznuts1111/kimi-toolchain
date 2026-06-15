@@ -1,6 +1,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import { $ } from "bun";
+import { REQUIRED_PACKAGE_SCRIPT_ENTRIES } from "./scaffold-templates.ts";
 
 export async function ensureQualityTooling(
   project: string,
@@ -15,25 +16,8 @@ export async function ensureQualityTooling(
     devDependencies?: Record<string, string>;
   };
   const scripts = pkg.scripts || {};
-  const additions: Record<string, string> = {
-    test: "bun run scripts/run-tests.ts",
-    "test:fast": "bun run scripts/run-tests.ts --fast",
-    "test:coverage": "bun run scripts/run-tests.ts --coverage",
-    "test:coverage:ci": "bun run scripts/run-tests.ts --ci --coverage",
-    check: "bun run scripts/check.ts",
-    "check:fast": "bun run scripts/check.ts --fast --timeout 100",
-    "check:dry-run": "bun run scripts/check.ts --dry-run",
-    "docs:sync": "bun run scripts/readme-sync.ts --fix",
-    typecheck: "tsc --noEmit",
-    format: "oxfmt --write .",
-    "format:check": "oxfmt --check -c .oxfmtrc.json .",
-    "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
-    lint: "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
-    "lint:terms": "bun run scripts/lint-banned-terms.ts",
-    fix: "kimi-fix .",
-  };
   let scriptsChanged = false;
-  for (const [key, value] of Object.entries(additions)) {
+  for (const [key, value] of Object.entries(REQUIRED_PACKAGE_SCRIPT_ENTRIES)) {
     if (!scripts[key]) {
       scripts[key] = value;
       scriptsChanged = true;

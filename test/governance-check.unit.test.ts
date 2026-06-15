@@ -157,7 +157,9 @@ describe("generateLicense", () => {
     const content = await Bun.file(path).text();
     expect(content).toContain("MIT License");
     expect(content).toContain("Copyright (c)");
-    expect(content).toContain("Permission is hereby granted...");
+    expect(content).toContain("Permission is hereby granted, free of charge");
+    expect(content).toContain("WITHOUT WARRANTY OF ANY KIND");
+    expect(content).not.toContain("...");
     await cleanup(dir);
   });
 

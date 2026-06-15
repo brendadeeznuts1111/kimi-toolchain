@@ -2,8 +2,15 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
 import { ensureQualityTooling } from "../src/lib/scaffold-quality.ts";
+import { REQUIRED_PACKAGE_SCRIPT_ENTRIES } from "../src/lib/scaffold-templates.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
+const INSTALLED_DEV_DEPS = {
+  "@types/bun": "*",
+  oxfmt: "*",
+  oxlint: "*",
+  typescript: "*",
+};
 
 describe("scaffold-quality", () => {
   let tmpDir: string;
@@ -25,22 +32,17 @@ describe("scaffold-quality", () => {
     async () => {
       writeFileSync(
         join(tmpDir, "package.json"),
-        JSON.stringify({ name: "test-project", scripts: {}, devDependencies: {} }, null, 2)
+        JSON.stringify(
+          { name: "test-project", scripts: {}, devDependencies: INSTALLED_DEV_DEPS },
+          null,
+          2
+        )
       );
 
       await ensureQualityTooling(tmpDir, false, log);
 
       const pkg = await Bun.file(join(tmpDir, "package.json")).json();
-      expect(pkg.scripts.test).toBeDefined();
-      expect(pkg.scripts["test:fast"]).toBeDefined();
-      expect(pkg.scripts.check).toBeDefined();
-      expect(pkg.scripts["check:fast"]).toBeDefined();
-      expect(pkg.scripts.typecheck).toBeDefined();
-      expect(pkg.scripts.format).toBeDefined();
-      expect(pkg.scripts["format:check"]).toBeDefined();
-      expect(pkg.scripts["format:check:ci"]).toBeDefined();
-      expect(pkg.scripts.lint).toBeDefined();
-      expect(pkg.scripts.fix).toBeDefined();
+      expect(pkg.scripts).toEqual(REQUIRED_PACKAGE_SCRIPT_ENTRIES);
     },
     { timeout: 5000 }
   );
@@ -57,7 +59,7 @@ describe("scaffold-quality", () => {
       writeFileSync(
         join(tmpDir, "package.json"),
         JSON.stringify(
-          { name: "test-project", scripts: existingScripts, devDependencies: {} },
+          { name: "test-project", scripts: existingScripts, devDependencies: INSTALLED_DEV_DEPS },
           null,
           2
         )
@@ -77,26 +79,16 @@ describe("scaffold-quality", () => {
   test(
     "does not modify package.json when all scripts exist",
     async () => {
-      const allScripts: Record<string, string> = {
-        test: "bun test",
-        "test:fast": "bun test --fast",
-        "test:coverage": "bun test --coverage",
-        "test:coverage:ci": "bun test --ci --coverage",
-        check: "bun run check",
-        "check:fast": "bun run check --fast",
-        "check:dry-run": "bun run check --dry-run",
-        "docs:sync": "bun run docs:sync",
-        typecheck: "tsc --noEmit",
-        format: "oxfmt --write .",
-        "format:check": "oxfmt --check .",
-        "format:check:ci": "oxfmt --check --threads=4 .",
-        lint: "oxlint src",
-        "lint:terms": "bun run lint:terms",
-        fix: "kimi-fix .",
-      };
+      const allScripts: Record<string, string> = Object.fromEntries(
+        Object.keys(REQUIRED_PACKAGE_SCRIPT_ENTRIES).map((key) => [key, `custom ${key}`])
+      );
       writeFileSync(
         join(tmpDir, "package.json"),
-        JSON.stringify({ name: "test-project", scripts: allScripts, devDependencies: {} }, null, 2)
+        JSON.stringify(
+          { name: "test-project", scripts: allScripts, devDependencies: INSTALLED_DEV_DEPS },
+          null,
+          2
+        )
       );
 
       await ensureQualityTooling(tmpDir, false, log);

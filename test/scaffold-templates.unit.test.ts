@@ -8,6 +8,7 @@ import {
   BUNFIG,
   GITIGNORE,
   ENV_EXAMPLE,
+  MIT_LICENSE_TEMPLATE,
   TEMPLATE_MARKERS,
   ADR_TEMPLATE,
   generateReadme,
@@ -26,6 +27,7 @@ describe("scaffold-templates", () => {
       BUNFIG,
       GITIGNORE,
       ENV_EXAMPLE,
+      MIT_LICENSE_TEMPLATE,
     };
 
     for (const [name, markers] of Object.entries(TEMPLATE_MARKERS)) {
@@ -108,7 +110,9 @@ describe("scaffold-templates", () => {
       expect(filepath).toBe(join(tmpDir, "LICENSE"));
       expect(content).toContain("MIT License");
       expect(content).toContain(`Copyright (c) ${year}`);
-      expect(content).toContain("Permission is hereby granted...");
+      expect(content).toContain("Permission is hereby granted, free of charge");
+      expect(content).toContain("WITHOUT WARRANTY OF ANY KIND");
+      expect(content).not.toContain("...");
     });
 
     test("returns correct generic content for Apache-2.0", async () => {
@@ -118,7 +122,7 @@ describe("scaffold-templates", () => {
 
       expect(content).toContain("Apache-2.0 License");
       expect(content).toContain(`Copyright (c) ${year}`);
-      expect(content).not.toContain("Permission is hereby granted...");
+      expect(content).not.toContain("Permission is hereby granted, free of charge");
     });
 
     test("returns correct generic content for GPL", async () => {

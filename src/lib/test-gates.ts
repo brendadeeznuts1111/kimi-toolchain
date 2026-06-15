@@ -5,7 +5,7 @@
  * @see https://bun.com/docs/test/configuration
  */
 
-/** Pure unit tests (no subprocess smoke); safe at --timeout 100 */
+/** Pure unit tests (no subprocess smoke); safe at the fast timeout. */
 export const UNIT_TEST_FILES = [
   "test/lib.unit.test.ts",
   "test/r-score.unit.test.ts",
@@ -20,6 +20,7 @@ export const UNIT_TEST_FILES = [
   "test/kimi-config-audit.unit.test.ts",
   "test/scaffold-agents.unit.test.ts",
   "test/scaffold-templates.unit.test.ts",
+  "test/scaffold-doctor.unit.test.ts",
   "test/scaffold-aligned.unit.test.ts",
   "test/workspace-health.test.ts",
   "test/ecosystem-health.test.ts",
