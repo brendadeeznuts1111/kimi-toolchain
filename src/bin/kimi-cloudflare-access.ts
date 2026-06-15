@@ -62,14 +62,13 @@ async function login(): Promise<number> {
     return 1;
   }
 
-  Bun.stdout.write("Verifying token...");
+  logger.info("Verifying token...");
   const verification = await verifyToken(apiToken);
   if (!verification.valid) {
-    console.log(" failed");
     logger.error(`Token verification failed: ${verification.message}`);
     return 1;
   }
-  console.log(" ok");
+  logger.info("Token verified");
 
   await Bun.secrets.set({
     service: CREDENTIAL_SERVICE,
@@ -146,7 +145,7 @@ function printAppFindings(findings: import("../lib/cloudflare-access.ts").AppFin
   }
 
   for (const [appName, list] of byApp) {
-    console.log(`  ${appName}`);
+    logger.line(`  ${appName}`);
     for (const f of list) {
       const icon =
         f.reason === "bypass"
@@ -154,7 +153,7 @@ function printAppFindings(findings: import("../lib/cloudflare-access.ts").AppFin
           : f.reason === "allow-everyone" || f.reason === "missing-mfa"
             ? "⚠"
             : "⚠";
-      console.log(`    ${icon} ${f.detail}`);
+      logger.line(`    ${icon} ${f.detail}`);
     }
   }
 }
@@ -365,33 +364,33 @@ function printDashboard(mappings: import("../lib/cloudflare-access.ts").ProjectM
   const byStatus = { ok: 0, warn: 0, error: 0, info: 0 };
   for (const m of mappings) byStatus[m.status]++;
 
-  console.log(
+  logger.line(
     `  Apps: ${mappings.length}  ✓ ${byStatus.ok}  ⚠ ${byStatus.warn}  ✗ ${byStatus.error}  ℹ ${byStatus.info}`
   );
-  console.log("");
+  logger.line("");
 
   for (const m of mappings) {
     const icon =
       m.status === "ok" ? "✓" : m.status === "warn" ? "⚠" : m.status === "error" ? "✗" : "ℹ";
-    console.log(`  ${icon} ${m.appName}  (${m.appType})`);
-    if (m.domain) console.log(`     Domain: ${m.domain}`);
+    logger.line(`  ${icon} ${m.appName}  (${m.appType})`);
+    if (m.domain) logger.line(`     Domain: ${m.domain}`);
     if (m.localPath) {
-      console.log(`     Local:  ${m.localPath}`);
+      logger.line(`     Local:  ${m.localPath}`);
       const pkgLine = [
         m.packageName && `pkg: ${m.packageName}`,
         m.packageVersion && `v${m.packageVersion}`,
       ]
         .filter(Boolean)
         .join(" ");
-      if (pkgLine) console.log(`     ${pkgLine}`);
-      if (m.repoUrl) console.log(`     Repo:   ${m.repoUrl}`);
-      console.log(
+      if (pkgLine) logger.line(`     ${pkgLine}`);
+      if (m.repoUrl) logger.line(`     Repo:   ${m.repoUrl}`);
+      logger.line(
         `     Config: wrangler=${m.hasWranglerConfig ? "yes" : "no"} access=${m.hasAccessConfig ? "yes" : "no"}`
       );
     } else {
-      console.log(`     Local:  (not found)`);
+      logger.line(`     Local:  (not found)`);
     }
-    console.log(
+    logger.line(
       `     Policies: ${m.policyCount}  Bypass: ${m.bypassCount}  Allow-everyone: ${m.allowEveryoneCount}`
     );
     // Infrastructure bindings
@@ -402,12 +401,12 @@ function printDashboard(mappings: import("../lib/cloudflare-access.ts").ProjectM
     if (m.d1Databases?.length) infraParts.push(`D1: ${m.d1Databases.join(", ")}`);
     if (m.kvNamespaces?.length) infraParts.push(`KV: ${m.kvNamespaces.join(", ")}`);
     if (infraParts.length) {
-      console.log(`     Infra:  ${infraParts.join("  |  ")}`);
+      logger.line(`     Infra:  ${infraParts.join("  |  ")}`);
     }
     for (const note of m.notes) {
-      console.log(`     → ${note}`);
+      logger.line(`     → ${note}`);
     }
-    console.log("");
+    logger.line("");
   }
 }
 
@@ -420,7 +419,7 @@ async function main(): Promise<number> {
   const command = args[0] || "tokens";
 
   function jsonOut(data: unknown) {
-    console.log(JSON.stringify(data, null, 2));
+    process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
   }
 
   if (!jsonMode) {
@@ -534,11 +533,11 @@ async function main(): Promise<number> {
       logger.section("Orphaned Resources");
       for (const o of orphaned) {
         const icon = o.type === "r2_bucket" ? "🪣" : "📦";
-        console.log(`  ${icon} ${o.name} (${o.type})`);
-        console.log(`     → ${o.detail}`);
-        console.log(`     → Suggested: ${o.suggestedAction}`);
+        logger.line(`  ${icon} ${o.name} (${o.type})`);
+        logger.line(`     → ${o.detail}`);
+        logger.line(`     → Suggested: ${o.suggestedAction}`);
       }
-      console.log("");
+      logger.line("");
     }
     logger.info(`${errors} error(s), ${warnings} warning(s), ${unmapped} unmapped`);
     if (orphaned.length > 0) {
@@ -616,8 +615,8 @@ async function main(): Promise<number> {
         });
         if (!jsonMode) {
           logger.info(`Rotated ${label}`);
-          console.log(`    new client_id: ${result.client_id}`);
-          console.log(
+          logger.line(`    new client_id: ${result.client_id}`);
+          logger.line(
             `    new client_secret: ${result.client_secret.slice(0, 8)}... (store securely)`
           );
         }
@@ -674,17 +673,17 @@ async function main(): Promise<number> {
           for (const d of diff) {
             if (d.action === "noop") continue;
             const icon = d.action === "create" ? "+" : d.action === "delete" ? "-" : "~";
-            console.log(`  ${icon} ${d.appName} (${d.action})`);
+            logger.line(`  ${icon} ${d.appName} (${d.action})`);
             if (d.appChanges) {
-              for (const c of d.appChanges) console.log(`      app: ${c}`);
+              for (const c of d.appChanges) logger.line(`      app: ${c}`);
             }
             if (d.policyChanges) {
               for (const pc of d.policyChanges) {
                 if (pc.action === "noop") continue;
                 const picon = pc.action === "create" ? "+" : pc.action === "delete" ? "-" : "~";
-                console.log(`      ${picon} policy: ${pc.policyName} (${pc.action})`);
+                logger.line(`      ${picon} policy: ${pc.policyName} (${pc.action})`);
                 if (pc.changes) {
-                  for (const c of pc.changes) console.log(`          ${c}`);
+                  for (const c of pc.changes) logger.line(`          ${c}`);
                 }
               }
             }
@@ -834,10 +833,10 @@ async () => {
       jsonOut({ policyUpdates, mcpScript });
     } else {
       logger.section("MCP Apply Script");
-      console.log("  Copy the script below and run via MCP cloudflare-api:");
-      console.log("");
-      console.log(mcpScript);
-      console.log("");
+      logger.line("  Copy the script below and run via MCP cloudflare-api:");
+      logger.line("");
+      logger.line(mcpScript);
+      logger.line("");
       logger.info(`${policyUpdates.length} policy update(s) ready`);
     }
     return 0;
