@@ -155,6 +155,7 @@ export const TEMPLATE_MARKERS: Record<string, string[]> = {
   CI_WORKFLOW: ["format:check:ci", "test:coverage:ci", "1.3.14"],
   TSCONFIG: ["moduleResolution", "bundler"],
   BUNFIG: ["concurrentTestGlob", "coverageThreshold"],
+  DX_CONFIG: ["dx setup", "dx cli", "dx package"],
   GITIGNORE: ["coverage/", ".bun-cache"],
   ENV_EXAMPLE: ["DATABASE_URL", "PORT=0"],
   MIT_LICENSE_TEMPLATE: ["Permission is hereby granted, free of charge", "WITHOUT WARRANTY"],

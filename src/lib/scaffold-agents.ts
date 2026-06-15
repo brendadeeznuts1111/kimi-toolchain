@@ -18,7 +18,7 @@ One-line description of what this does.
 ## Global DX First
 
 - Read \`/Users/nolarose/.config/dx/AGENTS.md\` before project-local setup
-- Start with \`dx context\`, \`dx config\`, \`dx mcp-status\`, and \`dx mcp-doctor\`
+- Start with \`dx setup\`, \`dx context\`, \`dx config\`, \`dx mcp-status\`, \`dx cli\`, and \`dx package\`
 - Use \`dx package\` after dependency changes, then rerun Kimi guardian/governance gates
 
 ## Formatting & lint

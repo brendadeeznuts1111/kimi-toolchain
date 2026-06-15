@@ -20,7 +20,10 @@ export interface ScaffoldAlignmentReport {
 const AGENTS_MARKERS = [
   "Kimi Code",
   "/Users/nolarose/.config/dx/AGENTS.md",
+  "dx setup",
   "dx mcp-status",
+  "dx cli",
+  "dx package",
   "Cloudflare SSO/OAuth is separate",
   "./CODE_REFERENCES.md",
   "closest existing pattern",

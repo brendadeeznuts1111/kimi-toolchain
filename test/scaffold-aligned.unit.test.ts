@@ -30,6 +30,24 @@ describe("scaffold-aligned", () => {
     expect(report.aligned).toBe(true);
   });
 
+  test("warns when scaffolded AGENTS.md has old DX bootstrap defaults", async () => {
+    writeFileSync(join(projectDir, "dx.config.toml"), "[kimi]\npreflight = true\n");
+    writeFileSync(
+      join(projectDir, "AGENTS.md"),
+      buildAgentsMd("demo")
+        .replace("dx setup`, ", "")
+        .replace(", `dx cli`, and `dx package", ", and `dx mcp-doctor")
+    );
+
+    const report = await checkScaffoldAligned(projectDir);
+    const agents = report.checks.find((check) => check.name === "AGENTS.md");
+
+    expect(report.aligned).toBe(false);
+    expect(agents?.status).toBe("warn");
+    expect(agents?.message).toContain("dx setup");
+    expect(agents?.message).toContain("dx cli");
+  });
+
   test("skips projects without kimi preflight", async () => {
     const report = await checkScaffoldAligned(projectDir);
     expect(report.applicable).toBe(false);

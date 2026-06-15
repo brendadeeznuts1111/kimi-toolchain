@@ -40,6 +40,15 @@ smoke = "bun run test:smoke"
 [github.ci.governance]
 rScore = "bun run governance score --min 60"
 
+# Local Bun CI replaces GitHub Actions when billing blocks Actions runners.
+[github.ci.local]
+quality = "bun run ci:local --job quality"
+governance = "bun run ci:local --job governance"
+full = "bun run ci:local"
+prDiff = "bun run pr:diff"
+prStatus = "bun run pr:status"
+mergeGate = "local-ci"
+
 [quality]
 formatter = "oxfmt"
 linter = "oxlint"
@@ -59,7 +68,14 @@ docsSync = "bun run docs:sync"
 
 [agents]
 firstRead = ["/Users/nolarose/.config/dx/AGENTS.md", "AGENTS.md", "CODE_REFERENCES.md"]
-bootstrap = ["dx context", "dx config --project .", "dx mcp-status", "dx package"]
+bootstrap = [
+  "dx setup",
+  "dx context",
+  "dx config --project .",
+  "dx mcp-status",
+  "dx cli",
+  "dx package",
+]
 iterate = "bun run check:fast"
 fullValidation = "bun run check"
 prePush = ["kimi-githooks doctor", "bun run check", "kimi-guardian check", "kimi-governance score"]
