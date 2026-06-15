@@ -441,6 +441,18 @@ export async function auditSuccessMetrics(projectRoot: string): Promise<SuccessM
   });
 
   checks.push({
+    name: "failure-ledger-unknowns",
+    status: ledger.unclassified > 0 ? "warn" : "ok",
+    message:
+      ledger.unclassified > 0
+        ? `${ledger.unclassified} unclassified live ledger failure(s); review with ${ledger.reviewCommand}`
+        : "No unclassified live ledger failures",
+    fixable: ledger.unclassified > 0,
+    autoFix: ledger.unclassified > 0 ? ledger.reviewCommand : undefined,
+    category: "blocking_issue",
+  });
+
+  checks.push({
     name: "integration-agility",
     status: isTwoArtifactProviderIntegration(providerIntegration) ? "ok" : "error",
     message:

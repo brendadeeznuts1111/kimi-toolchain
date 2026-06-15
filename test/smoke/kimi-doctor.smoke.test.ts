@@ -121,16 +121,24 @@ describe("kimi-doctor smoke", () => {
       errorCoverage: { coverage: number };
       providerIntegration: { artifacts: string[] };
       thresholdPolicy: { releaseCadence: string; thresholds: unknown[] };
-      ledger: { total: number; taxonomyCounts: Record<string, number> };
+      ledger: {
+        total: number;
+        taxonomyCounts: Record<string, number>;
+        reviewCommand: string;
+        unknownBuckets: unknown[];
+      };
       summary: { ok: boolean };
     };
     expect(report.checks.map((c) => c.name)).toContain("drift-latency");
     expect(report.checks.map((c) => c.name)).toContain("metric-threshold-evidence");
+    expect(report.checks.map((c) => c.name)).toContain("failure-ledger-unknowns");
     expect(report.errorCoverage.coverage).toBeGreaterThanOrEqual(0.9);
     expect(report.providerIntegration.artifacts).toEqual(["contract", "credential-adapter"]);
     expect(report.thresholdPolicy.releaseCadence).toBe("toolchain-release");
     expect(Array.isArray(report.thresholdPolicy.thresholds)).toBe(true);
     expect(typeof report.ledger.total).toBe("number");
+    expect(report.ledger.reviewCommand).toContain("kimi-debug ledger");
+    expect(Array.isArray(report.ledger.unknownBuckets)).toBe(true);
     expect(report.summary.ok).toBe(true);
     expect(exitCode).toBe(0);
   }, 15_000);
