@@ -21,6 +21,17 @@ import { readPackageJson } from "./utils.ts";
 
 const PRE_COMMIT_CACHE_GATES = ["format:check", "lint", "typecheck", "test:fast"] as const;
 
+export interface PlannedGate {
+  name: string;
+  cmd: string[];
+  skipped: boolean;
+}
+
+export interface PreCommitPolicyAudit {
+  ok: boolean;
+  messages: string[];
+}
+
 async function packageHasScript(projectRoot: string, script: string): Promise<boolean> {
   const pkg = await readPackageJson<{ scripts?: Record<string, string> }>(projectRoot);
   return typeof pkg?.scripts?.[script] === "string";
@@ -262,34 +273,166 @@ export async function runPrePushGates(projectRoot: string): Promise<number> {
 }
 
 /** Shell-hook policy checks (secrets, TODO warnings) — stays lightweight. */
-export async function runPreCommitPolicy(projectRoot: string): Promise<number> {
+export async function auditPreCommitPolicy(projectRoot: string): Promise<PreCommitPolicyAudit> {
+  const messages: string[] = [];
   const result = await $`git diff --cached --name-only`.cwd(projectRoot).nothrow().quiet();
   const files = result.stdout.toString().trim().split("\n").filter(Boolean);
 
   const envFiles = files.filter((f) => /^\.env($|\.)/.test(f) && f !== ".env.example");
   if (envFiles.length > 0) {
-    gateErr("✗ Commit blocked: .env file detected in staged changes");
-    return 1;
+    messages.push(
+      `✗ Commit blocked: .env file detected in staged changes (${envFiles.join(", ")})`
+    );
+    return { ok: false, messages };
   }
 
-  if (!isQuietMode()) {
-    const todoResult = await $`git diff --cached --name-only`.cwd(projectRoot).nothrow().quiet();
-    const nonTest = todoResult.stdout
+  const nonTest = files.filter((f) => f && !/\.(test|spec)\./.test(f));
+  if (nonTest.length > 0) {
+    const diff = await $`git diff --cached -- ${nonTest}`.cwd(projectRoot).nothrow().quiet();
+    const todoCount = diff.stdout
       .toString()
-      .trim()
       .split("\n")
-      .filter((f) => f && !/\.(test|spec)\./.test(f));
-    if (nonTest.length > 0) {
-      const diff = await $`git diff --cached -- ${nonTest}`.cwd(projectRoot).nothrow().quiet();
-      const todoCount = diff.stdout
-        .toString()
-        .split("\n")
-        .filter((line) => /^\+.*TODO|FIXME/.test(line)).length;
-      if (todoCount > 0) {
-        gateWarn(`⚠ ${todoCount} TODO/FIXME found in staged non-test files`);
-      }
+      .filter((line) => /^\+.*TODO|FIXME/.test(line)).length;
+    if (todoCount > 0) {
+      messages.push(`⚠ ${todoCount} TODO/FIXME found in staged non-test files`);
     }
   }
 
+  if (messages.length === 0) {
+    messages.push("✓ No staged .env files");
+  }
+
+  return { ok: true, messages };
+}
+
+export async function runPreCommitPolicy(projectRoot: string): Promise<number> {
+  const audit = await auditPreCommitPolicy(projectRoot);
+  for (const message of audit.messages) {
+    if (message.startsWith("✗")) gateErr(message);
+    else if (message.startsWith("⚠") && !isQuietMode()) gateWarn(message);
+  }
+  return audit.ok ? 0 : 1;
+}
+
+export async function planPreCommitGates(projectRoot: string): Promise<PlannedGate[]> {
+  const planned: PlannedGate[] = [];
+
+  if (await packageHasScript(projectRoot, "format:check")) {
+    planned.push({
+      name: "format:check",
+      cmd: ["bun", "run", "format:check"],
+      skipped: await shouldSkipGate(projectRoot, "format:check"),
+    });
+  }
+  if (await packageHasScript(projectRoot, "lint")) {
+    planned.push({
+      name: "lint",
+      cmd: ["bun", "run", "lint"],
+      skipped: await shouldSkipGate(projectRoot, "lint"),
+    });
+  }
+  if (await packageHasScript(projectRoot, "typecheck")) {
+    planned.push({
+      name: "typecheck",
+      cmd: ["bun", "run", "typecheck"],
+      skipped: await shouldSkipGate(projectRoot, "typecheck"),
+    });
+  }
+  if (await packageHasScript(projectRoot, "test:fast")) {
+    planned.push({
+      name: "test:fast",
+      cmd: ["bun", "run", "test:fast"],
+      skipped: await shouldSkipGate(projectRoot, "test:fast"),
+    });
+  }
+  if (existsSync(join(projectRoot, "scripts/lint-tuning-set-version.ts"))) {
+    planned.push({
+      name: "tuning-set",
+      cmd: ["bun", "run", "scripts/lint-tuning-set-version.ts", "--staged"],
+      skipped: false,
+    });
+  }
+
+  return planned;
+}
+
+export async function planPrePushGates(projectRoot: string): Promise<PlannedGate[]> {
+  const planned: PlannedGate[] = [];
+  const isToolchain = await isKimiToolchainRepo(projectRoot);
+
+  if (existsSync(join(projectRoot, "src/bin/kimi-guardian.ts"))) {
+    planned.push({
+      name: "guardian",
+      cmd: ["bun", "run", "src/bin/kimi-guardian.ts", "check"],
+      skipped: false,
+    });
+  }
+  if (existsSync(join(projectRoot, "src/bin/kimi-governance.ts"))) {
+    planned.push({
+      name: "r-score",
+      cmd: ["bun", "run", "src/bin/kimi-governance.ts", "score"],
+      skipped: false,
+    });
+  }
+
+  const full = Bun.env.KIMI_PRE_PUSH_FULL === "1";
+  const script = full ? "check" : "check:fast";
+  if (await packageHasScript(projectRoot, script)) {
+    planned.push({
+      name: script,
+      cmd: ["bun", "run", script],
+      skipped: !full && (await qualityGatesCached(projectRoot)),
+    });
+  }
+
+  if (isToolchain) {
+    const verify = existsSync(join(projectRoot, "scripts/verify-workspace.sh"))
+      ? ["bash", "scripts/verify-workspace.sh"]
+      : ["bun", "run", "src/bin/kimi-doctor.ts", "workspace", "verify"];
+    planned.push({ name: "workspace-verify", cmd: verify, skipped: false });
+
+    const sync = existsSync(join(projectRoot, "scripts/sync-to-desktop.ts"))
+      ? ["bun", "run", "scripts/sync-to-desktop.ts"]
+      : ["bun", "run", "sync"];
+    planned.push({ name: "sync", cmd: sync, skipped: false });
+    planned.push({
+      name: "sync:verify",
+      cmd: ["bun", "run", "sync:verify"],
+      skipped: false,
+    });
+  }
+
+  return planned;
+}
+
+export function emitHookDryRun(
+  hook: string,
+  policy: PreCommitPolicyAudit | null,
+  gates: PlannedGate[]
+): void {
+  gateOut(`${hook} — dry run`);
+  if (policy) {
+    gateOut("  policy:");
+    for (const message of policy.messages) {
+      gateOut(`    ${message}`);
+    }
+  }
+  gateOut("  gates:");
+  for (const gate of gates) {
+    const skip = gate.skipped ? " (cached — would skip)" : "";
+    gateOut(`    → ${gate.cmd.join(" ")}${skip}`);
+  }
+}
+
+export async function runPreCommitDryRun(projectRoot: string): Promise<number> {
+  const policy = await auditPreCommitPolicy(projectRoot);
+  const gates = await planPreCommitGates(projectRoot);
+  emitHookDryRun("pre-commit", policy, gates);
+  return policy.ok ? 0 : 1;
+}
+
+export async function runPrePushDryRun(projectRoot: string): Promise<number> {
+  const gates = await planPrePushGates(projectRoot);
+  emitHookDryRun("pre-push", null, gates);
   return 0;
 }

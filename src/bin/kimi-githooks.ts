@@ -28,7 +28,14 @@ import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { ensureQuietEnv } from "../lib/quiet-mode.ts";
-import { runPreCommitGates, runPreCommitPolicy, runPrePushGates } from "../lib/hook-gates.ts";
+import {
+  runPreCommitDryRun,
+  runPreCommitGates,
+  runPreCommitPolicy,
+  runPrePushDryRun,
+  runPrePushGates,
+} from "../lib/hook-gates.ts";
+import { TOOLCHAIN_VERSION } from "../lib/version.ts";
 
 const logger = createLogger(Bun.argv, "kimi-githooks");
 
@@ -320,10 +327,17 @@ async function doctorHooks(projectDir: string) {
 
 async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
-  const command = args[0] || "install";
+  if (args.includes("--version") || args.includes("-V")) {
+    Bun.stdout.write(`kimi-githooks ${TOOLCHAIN_VERSION}\n`);
+    return 0;
+  }
+
+  const dryRun = args.includes("--dry-run");
+  const cmdArgs = args.filter((arg) => arg !== "--dry-run");
+  const command = cmdArgs[0] || "install";
   const projectDir = await resolveProjectRoot(Bun.cwd);
 
-  logger.banner("Kimi Git Hooks");
+  if (!dryRun) logger.banner("Kimi Git Hooks");
 
   if (command === "install") {
     return installHooks(projectDir);
@@ -346,6 +360,7 @@ async function main(): Promise<number> {
     return 0;
   }
   if (command === "pre-commit") {
+    if (dryRun) return runPreCommitDryRun(projectDir);
     logger.section("Pre-commit checks");
     const policy = await runPreCommitPolicy(projectDir);
     if (policy !== 0) return policy;
@@ -353,16 +368,18 @@ async function main(): Promise<number> {
   }
   if (command === "run-gates") {
     ensureQuietEnv();
-    const hook = args[1];
+    const hook = cmdArgs[1];
     if (hook === "pre-commit") {
+      if (dryRun) return runPreCommitDryRun(projectDir);
       const policy = await runPreCommitPolicy(projectDir);
       if (policy !== 0) return policy;
       return runPreCommitGates(projectDir);
     }
     if (hook === "pre-push") {
+      if (dryRun) return runPrePushDryRun(projectDir);
       return runPrePushGates(projectDir);
     }
-    logger.error("Usage: run-gates <pre-commit|pre-push>");
+    logger.error("Usage: run-gates <pre-commit|pre-push> [--dry-run]");
     return 1;
   }
   if (command === "pre-push") {
@@ -375,9 +392,9 @@ async function main(): Promise<number> {
   logger.info("  install        Install pre-commit and pre-push hooks");
   logger.info("  doctor         Check hook installation health");
   logger.info("  fix            Re-install missing/outdated hooks");
-  logger.info("  pre-commit     Run pre-commit gates manually");
+  logger.info("  pre-commit     Run pre-commit gates manually [--dry-run]");
   logger.info("  pre-push       Info about pre-push checks");
-  logger.info("  run-gates      Hook gate runner (pre-commit | pre-push)");
+  logger.info("  run-gates      Hook gate runner (pre-commit | pre-push) [--dry-run]");
   logger.info("  Env: KIMI_QUIET=1 silences success; KIMI_PRE_PUSH_FULL=1 runs full check on push");
   return 0;
 }
