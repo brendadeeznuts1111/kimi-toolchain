@@ -24,7 +24,9 @@ export interface TaxonomyCategory {
   suggestion?: string;
   autoFix?: string;
   docLink?: string;
-  /** Define constants that influence detection or remediation for this failure class. */
+  /** Define constants that contractually govern detection or remediation for this failure class. */
+  boundConstants?: string[];
+  /** @deprecated Use boundConstants — kept for one release for YAML readers. */
   relatedConstants?: string[];
 }
 
@@ -65,15 +67,23 @@ export async function loadTaxonomy(path?: string): Promise<Taxonomy> {
 
   const categories = (parsed.categories || [])
     .filter((c): c is TaxonomyCategory => !!c && typeof c === "object" && typeof c.id === "string")
-    .map((c) => ({
-      ...c,
-      patterns: (c.patterns || []).filter(
-        (p): p is TaxonomyPattern => !!p && typeof p.regex === "string"
-      ),
-      relatedConstants: Array.isArray(c.relatedConstants)
-        ? c.relatedConstants.filter((key): key is string => typeof key === "string")
-        : undefined,
-    }));
+    .map((c) => {
+      const raw = c as TaxonomyCategory & { relatedConstants?: string[] };
+      const boundConstants = Array.isArray(raw.boundConstants)
+        ? raw.boundConstants.filter((key): key is string => typeof key === "string")
+        : Array.isArray(raw.relatedConstants)
+          ? raw.relatedConstants.filter((key): key is string => typeof key === "string")
+          : undefined;
+
+      return {
+        ...raw,
+        patterns: (raw.patterns || []).filter(
+          (p): p is TaxonomyPattern => !!p && typeof p.regex === "string"
+        ),
+        boundConstants,
+        relatedConstants: boundConstants,
+      };
+    });
 
   return { version: parsed.version || 1, categories };
 }

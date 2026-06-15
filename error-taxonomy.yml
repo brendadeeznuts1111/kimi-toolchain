@@ -38,7 +38,7 @@ categories:
     expected: false
     suggestion: "Regenerate constants-manifest.json and align bunfig.toml [define] with constants-parity.toml."
     autoFix: "bun run manifest:generate"
-    relatedConstants:
+    boundConstants:
       - KIMI_TUNING_SET_VERSION
     patterns:
       - regex: "constants-manifest.json is stale"
@@ -53,7 +53,7 @@ categories:
     expected: false
     suggestion: "Fix lint errors reported by oxlint or banned-terms check."
     autoFix: "bun run lint"
-    relatedConstants:
+    boundConstants:
       - KIMI_TUNING_SET_VERSION
     patterns:
       - regex: "Found\\s+\\d+\\s+warning.*error"
@@ -222,7 +222,7 @@ categories:
     suggestion: "Lockfile issue — run 'bun install' or 'kimi-guardian fix'."
     autoFix: "bun install"
     docLink: "skills/kimi-toolchain/examples/guardian-failure.md"
-    relatedConstants:
+    boundConstants:
       - KIMI_HOOK_VERIFIER_MAX_CYCLES
     patterns:
       - regex: "HASH MISMATCH"

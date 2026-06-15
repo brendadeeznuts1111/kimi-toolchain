@@ -10,7 +10,10 @@ import { auditKimiConfig } from "./kimi-config-audit.ts";
 import { checkScaffoldAligned } from "./scaffold-aligned.ts";
 import { checkDxGithubAlignment } from "./dx-github-alignment.ts";
 import { checkConstantParity } from "./constant-parity.ts";
-import { checkTaxonomyConstantLinks } from "./taxonomy-constants.ts";
+import {
+  checkTaxonomyConstantLinks,
+  checkRecentlyModifiedBoundConstants,
+} from "./taxonomy-constants.ts";
 import { checkTuningSetFreshness } from "./tuning-set-version.ts";
 import {
   auditWorkspaceHealth,
@@ -228,7 +231,20 @@ export async function auditEcosystemHealth(
         });
       }
       if (!taxonomyConstants.aligned) {
-        fixPlan.push("fix error-taxonomy.yml relatedConstants — unknown keys in bunfig/manifest");
+        fixPlan.push("fix error-taxonomy.yml boundConstants — unknown keys in bunfig/manifest");
+      }
+    }
+
+    const boundRecent = await checkRecentlyModifiedBoundConstants(projectRoot);
+    if (boundRecent.applicable) {
+      for (const check of boundRecent.checks) {
+        checks.push({
+          name: `bound-constants:${check.name}`,
+          status: check.status,
+          message: check.message,
+          source: "bound-constants",
+          fixable: check.fixable,
+        });
       }
     }
 

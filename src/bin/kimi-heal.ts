@@ -6,6 +6,7 @@
  *   kimi-heal plan [--json]
  *   kimi-heal apply --action <id> [--dry-run] [--yes] [--json]
  *   kimi-heal repair-constants [--dry-run|--yes] [--json]
+ *   kimi-heal suggest --error-id <id> [--json]
  *   kimi-heal constants snapshot [--json]
  */
 
@@ -22,6 +23,7 @@ import {
   repairConstants,
   writeConstantsGolden,
 } from "../lib/constants-heal.ts";
+import { formatErrorSuggestReport, suggestErrorWithBoundConstants } from "../lib/error-suggest.ts";
 
 const logger = createLogger(Bun.argv, "kimi-heal");
 
@@ -164,6 +166,23 @@ async function main(): Promise<number> {
     return result.applied || dryRun ? 0 : plan.canRepair ? 1 : 0;
   }
 
+  if (command === "suggest") {
+    const errorId = argValue("--error-id");
+    if (!errorId) {
+      logger.error("Usage: suggest --error-id <id> [--json]");
+      return 1;
+    }
+
+    const report = await suggestErrorWithBoundConstants(errorId, { projectRoot });
+    if (jsonMode) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    } else {
+      logger.section("Error Suggest");
+      logger.line(formatErrorSuggestReport(report));
+    }
+    return 0;
+  }
+
   if (command === "constants") {
     const sub = args[1] ?? "snapshot";
     if (sub === "snapshot") {
@@ -186,6 +205,7 @@ async function main(): Promise<number> {
   logger.line("  plan [--json]                         Proposed heal actions + decision refs");
   logger.line("  apply --action <id> [--dry-run|--yes] Apply heal with decision logging");
   logger.line("  clusters [--json]                     Semantic failure clusters");
+  logger.line("  suggest --error-id <id> [--json]      Cluster suggestion + bound constants");
   logger.line(
     "  repair-constants [--dry-run|--yes]    Restore bunfig [define] from golden template"
   );

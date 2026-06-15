@@ -258,7 +258,7 @@ async function printTaxonomy() {
     }
     const link = linkById.get(category.id);
     if (link && link.resolved.length > 0) {
-      logger.info(`  relatedConstants: ${formatTaxonomyConstantHint(link)}`);
+      logger.info(`  boundConstants: ${formatTaxonomyConstantHint(link)}`);
     }
   }
 }
@@ -272,9 +272,9 @@ async function printErrorCluster(projectDir: string) {
   logger.section("Error Cluster — Taxonomy × Constants");
   logger.info(`Ledger: ${ledgerPath}`);
 
-  const linked = links.filter((link) => link.relatedConstants.length > 0);
+  const linked = links.filter((link) => link.boundConstants.length > 0);
   if (linked.length === 0) {
-    logger.warn("No taxonomy categories declare relatedConstants");
+    logger.warn("No taxonomy categories declare boundConstants");
     return 0;
   }
 
