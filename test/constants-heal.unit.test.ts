@@ -8,6 +8,7 @@ import {
   captureConstantsGolden,
   diffAgainstGolden,
   loadConstantsGolden,
+  parseConstantsGolden,
   repairConstants,
   writeConstantsGolden,
 } from "../src/lib/constants-heal.ts";
@@ -37,6 +38,7 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
     });
 
     const golden = await writeConstantsGolden(projectDir);
+    expect(golden.schemaVersion).toBe("1.0.0");
     expect(golden.tuningSetVersion).toBe("1.0.0");
     expect(golden.constants.KIMI_HOOK_VERIFIER_MAX_CYCLES?.value).toBe(32);
 
@@ -131,7 +133,7 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "64"
 preload = []
 `;
     const golden = {
-      schemaVersion: 1,
+      schemaVersion: "1.0.0",
       tuningSetVersion: "1.0.0",
       capturedAt: new Date().toISOString(),
       constants: {
@@ -167,5 +169,23 @@ preload = []
     expect(repaired).toContain('KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"');
     expect(repaired).toContain("# define-domain:governance");
     expect(repaired).toContain('KIMI_TUNING_SET_VERSION = "1.0.0"');
+  });
+
+  it("should normalize legacy numeric golden schemaVersion on load", () => {
+    const parsed = parseConstantsGolden({
+      schemaVersion: 1,
+      tuningSetVersion: "1.0.0",
+      capturedAt: "2026-06-15T10:00:00.000Z",
+      constants: {
+        KIMI_HOOK_VERIFIER_MAX_CYCLES: {
+          defineDomain: "hook-verifier",
+          rawValue: '"32"',
+          value: 32,
+        },
+      },
+    });
+
+    expect(parsed?.schemaVersion).toBe("1.0.0");
+    expect(parsed?.tuningSetVersion).toBe("1.0.0");
   });
 });
