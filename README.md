@@ -122,6 +122,7 @@ validation includes `bun run sync && bun run sync:verify`.
 | `kimi-guardian check`           | Lockfile integrity & CVE scan               |
 | `kimi-guardian sign`            | Baseline lockfile hash                      |
 | `kimi-guardian verify`          | Verify lockfile against stored hash         |
+| `kimi-cloudflare-access status` | Read-only Cloudflare/DX/MCP local inventory |
 | `kimi-cloudflare-access login`  | Store Cloudflare credentials in OS keychain |
 | `kimi-cloudflare-access logout` | Remove stored Cloudflare credentials        |
 | `kimi-cloudflare-access`        | Service token expiry sweep                  |
@@ -259,14 +260,17 @@ data from `~/.kimi-code/var/tool-failures.jsonl`.
 
 The `kimi-cloudflare-access` tool reads credentials from `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` environment variables, or from the OS keychain via `kimi-cloudflare-access login`.
 
+`kimi-cloudflare-access status --json` is the read-only local inventory path for the DX homepage/dashboard. It reports credential presence, MCP wiring, Wrangler availability, project config files, and the DX Cloudflare contract without calling the Cloudflare API.
+
 ### Required token permissions
 
 Create a dedicated API token at https://dash.cloudflare.com/profile/api-tokens with these permissions:
 
-| Permission             | Commands                      |
-| ---------------------- | ----------------------------- |
-| Account > Access: Read | `tokens`, `apps`, `doctor`    |
-| Account > Access: Edit | `fix` (rotate service tokens) |
+| Permission             | Commands                                |
+| ---------------------- | --------------------------------------- |
+| None                   | `status`                                |
+| Account > Access: Read | `tokens`, `apps`, `doctor`, `dashboard` |
+| Account > Access: Edit | `fix` (rotate service tokens)           |
 
 ### Login / logout
 

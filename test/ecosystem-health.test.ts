@@ -61,6 +61,58 @@ describe("ecosystem-health", () => {
     }
   }, 15_000);
 
+  test("includes dx-cloudflare contract checks for toolchain repo", async () => {
+    const report = await auditEcosystemHealth(REPO_ROOT, { home: tmpHome, quick: true });
+    const cloudflareCheck = report.checks.find((c) => c.name === "dx-cloudflare:cloudflare-config");
+
+    expect(cloudflareCheck).toBeDefined();
+    expect(cloudflareCheck?.source).toBe("dx-cloudflare");
+    expect(cloudflareCheck?.status).toBe("ok");
+  }, 15_000);
+
+  test("counts dx-cloudflare drift as warning without promoting it to blocker", async () => {
+    const projectDir = join(tmpHome, "kimi-toolchain");
+    mkdirSync(projectDir, { recursive: true });
+    writeFileSync(join(projectDir, "package.json"), JSON.stringify({ name: "kimi-toolchain" }));
+    writeFileSync(
+      join(projectDir, "dx.config.toml"),
+      `
+schemaVersion = 1
+scope = "project"
+
+[cloudflare]
+mode = "read-only"
+
+[cloudflare.dashboard]
+source = "snapshot"
+`
+    );
+    const alignedReport = await auditEcosystemHealth(projectDir, { home: tmpHome, quick: true });
+
+    writeFileSync(
+      join(projectDir, "dx.config.toml"),
+      `
+schemaVersion = 1
+scope = "project"
+
+[cloudflare]
+mode = "read-only"
+
+[cloudflare.dashboard]
+source = "live-api"
+`
+    );
+
+    const report = await auditEcosystemHealth(projectDir, { home: tmpHome, quick: true });
+    const sourceCheck = report.checks.find(
+      (c) => c.name === "dx-cloudflare:cloudflare.dashboard.source"
+    );
+
+    expect(sourceCheck?.status).toBe("warn");
+    expect(report.warnings).toBeGreaterThan(0);
+    expect(report.blockers).toBe(alignedReport.blockers);
+  }, 15_000);
+
   test("counts dx-github errors as blockers", async () => {
     const projectDir = join(tmpHome, "kimi-toolchain");
     mkdirSync(projectDir, { recursive: true });
