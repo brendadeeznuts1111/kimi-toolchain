@@ -11,7 +11,7 @@
  */
 
 import type { HealthCheck, HealthReport } from "./health-check.ts";
-import { statusIcon as healthStatusIcon } from "./health-check.ts";
+import { statusIcon as healthStatusIcon, aggregateChecks } from "./health-check.ts";
 import { isAgentContext } from "./tool-runner.ts";
 import { getStepBudgetStatus } from "./step-budget.ts";
 
@@ -239,6 +239,19 @@ export class Logger {
     this.info(
       `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
     );
+  }
+
+  /**
+   * Aggregate checks, print the health report, and return exit code (1 if errors).
+   * Convenience wrapper over aggregateChecks + printHealthReport used by every tool's doctor command.
+   */
+  runDoctor(tool: string, checks: HealthCheck[], sectionTitle?: string, fixHint?: string): number {
+    const report = aggregateChecks(tool, checks);
+    this.printHealthReport(report, sectionTitle);
+    if (checks.some((c) => c.fixable)) {
+      this.info(fixHint ?? `Run '${tool} fix' to repair`);
+    }
+    return report.errorCount > 0 ? 1 : 0;
   }
 
   /** Print a project banner with optional project name and subtitle. */

@@ -17,6 +17,7 @@ interface CacheEntry<T> {
 
 const _procCache = new Map<string, CacheEntry<string>>();
 const CACHE_TTL_MS = 1000;
+const ORPHAN_MIN_AGE_SECONDS = 120;
 
 /** Run a ps command with TTL caching — avoids repeated subprocess calls. */
 export function getCachedPs(args: string[]): string {
@@ -41,22 +42,65 @@ export function clearProcessCache(): void {
 
 // ── Orphan detection ─────────────────────────────────────────────────
 
+export interface OrphanProcessInfo {
+  pid: number;
+  cmd: string;
+  cpu: number;
+  elapsedSeconds: number;
+}
+
+function isOrphanCandidateCommand(cmd: string): boolean {
+  if (
+    cmd.includes("kimi-orphan-kill") ||
+    cmd.includes("kimi-toolchain.ts orphan-kill") ||
+    cmd.includes("kimi-toolchain orphan-kill")
+  ) {
+    return false;
+  }
+
+  return (
+    cmd.includes("/.bun/bin/bun test") ||
+    (cmd.includes("bun run") && /\bkimi-[\w-]+/.test(cmd)) ||
+    cmd.includes("/.kimi-code/bin/kimi --version") ||
+    (cmd.includes("/bin/cp") && cmd.includes("kimi-test"))
+  );
+}
+
+export function getOrphanCandidates(): OrphanProcessInfo[] {
+  const output = getCachedPs(["-axo", "pid=,pcpu=,etimes=,command="]);
+  const orphans: OrphanProcessInfo[] = [];
+
+  for (const line of output.split("\n")) {
+    const match = line.trim().match(/^(\d+)\s+([\d.]+)\s+(\d+)\s+(.+)$/);
+    if (!match) continue;
+
+    const pid = parseInt(match[1] || "", 10);
+    const cpu = parseFloat(match[2] || "");
+    const elapsedSeconds = parseInt(match[3] || "", 10);
+    const cmd = match[4] || "";
+
+    if (
+      isNaN(pid) ||
+      isNaN(cpu) ||
+      isNaN(elapsedSeconds) ||
+      pid === process.pid ||
+      pid === process.ppid ||
+      elapsedSeconds < ORPHAN_MIN_AGE_SECONDS ||
+      !isOrphanCandidateCommand(cmd)
+    ) {
+      continue;
+    }
+
+    orphans.push({ pid, cmd, cpu, elapsedSeconds });
+  }
+
+  return orphans;
+}
+
 /**
  * Count candidate orphan processes (stale bun test / kimi tool runners)
  * without parsing per-process details.
  */
 export function countOrphanCandidates(): number {
-  const output = getCachedPs(["aux"]);
-  let count = 0;
-  for (const line of output.split("\n")) {
-    if (
-      line.includes("/.bun/bin/bun test") ||
-      (line.includes("bun run") && line.includes("kimi-")) ||
-      line.includes("/.kimi-code/bin/kimi --version") ||
-      (line.includes("/bin/cp") && line.includes("kimi-test"))
-    ) {
-      count++;
-    }
-  }
-  return count;
+  return getOrphanCandidates().length;
 }

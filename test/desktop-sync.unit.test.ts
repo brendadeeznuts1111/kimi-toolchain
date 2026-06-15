@@ -27,6 +27,7 @@ describe("desktop-sync", () => {
     expect(paths.binSrc).toContain("src/bin");
     expect(paths.binDst).toContain(".kimi-code/tools");
     expect(paths.scriptsSrc).toContain("scripts");
+    expect(paths.templatesDst).toContain(".kimi-code/templates");
   });
 
   test("ROOT_TEMPLATES includes core docs", () => {
@@ -97,6 +98,19 @@ describe("desktop-sync", () => {
     },
     { timeout: 5000 }
   );
+
+  test("syncDesktop copies scaffold templates", async () => {
+    const tmpHome = join(REPO_ROOT, `.tmp-desktop-templates-${Date.now()}`);
+    mkdirSync(tmpHome, { recursive: true });
+    Bun.env.HOME = tmpHome;
+    try {
+      const result = await syncDesktop(REPO_ROOT, { force: true });
+      expect(result.updated).toContain("templates/scaffold/oxfmtrc.json");
+      expect(existsSync(join(desktopRoot(), "templates", "scaffold", "oxfmtrc.json"))).toBe(true);
+    } finally {
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
 });
 
 function pathsToolchain(repoRoot: string) {

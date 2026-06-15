@@ -18,7 +18,7 @@ import {
   sha256File,
   readPackageJson,
 } from "../lib/utils.ts";
-import { aggregateChecks } from "../lib/health-check.ts";
+
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
 import { toolsDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
@@ -399,9 +399,7 @@ async function main(): Promise<number> {
   }
   if (command === "doctor") {
     const checks = await doctorHooks(projectDir);
-    const report = aggregateChecks("Hook Health Check", checks);
-    logger.printHealthReport(report);
-    return report.errorCount > 0 ? 1 : 0;
+    return logger.runDoctor("Hook Health Check", checks);
   }
   if (command === "fix") {
     logger.section("Fixing Hooks");

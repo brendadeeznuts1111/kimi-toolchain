@@ -20,7 +20,7 @@ import {
   getProjectName,
   resolveProjectRoot,
 } from "../lib/utils.ts";
-import { aggregateChecks } from "../lib/health-check.ts";
+
 import { guardianDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
@@ -577,12 +577,7 @@ async function main(): Promise<number> {
 
   if (command === "doctor") {
     const checks = await doctor(projectDir);
-    const report = aggregateChecks("kimi-guardian", checks);
-    logger.printHealthReport(report);
-    if (report.fixableCount > 0) {
-      logger.info("Run 'kimi-guardian fix' to repair");
-    }
-    return report.errorCount > 0 ? 1 : 0;
+    return logger.runDoctor("kimi-guardian", checks);
   }
 
   logger.section("Lockfile Integrity");

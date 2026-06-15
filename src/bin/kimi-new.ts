@@ -9,7 +9,7 @@ import { Effect } from "effect";
 import { existsSync, mkdirSync } from "fs";
 import { join, resolve } from "path";
 import { $ } from "bun";
-import { toolsDir } from "../lib/utils.ts";
+import { toolsDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";

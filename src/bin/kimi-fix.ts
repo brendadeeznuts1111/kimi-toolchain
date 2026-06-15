@@ -26,7 +26,8 @@ import {
   KIMI_SKILLS_README,
 } from "../lib/scaffold-templates.ts";
 import { Effect } from "effect";
-import { getProjectName, runTool } from "../lib/utils.ts";
+import { getProjectName } from "../lib/utils.ts";
+import { runTool } from "../lib/tool-runner.ts";
 import { ensureQualityTooling } from "../lib/scaffold-quality.ts";
 import { aggregateChecks } from "../lib/health-check.ts";
 import { createLogger } from "../lib/logger.ts";

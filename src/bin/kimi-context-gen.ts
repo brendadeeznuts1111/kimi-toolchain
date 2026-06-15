@@ -11,7 +11,7 @@ import { $, semver, TOML } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
-import { aggregateChecks } from "../lib/health-check.ts";
+
 import { checkDocDrift } from "../lib/readme-sync.ts";
 import { guardianDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
@@ -555,11 +555,12 @@ async function main(): Promise<number> {
     }
   } else if (command === "doctor") {
     const checks = await doctor(projectDir);
-    const report = aggregateChecks("kimi-context-gen", checks);
-    logger.printHealthReport(report, "Context Doctor");
-    if (report.fixableCount > 0) {
-      logger.info("Run 'kimi-context-gen fix' to regenerate CONTEXT.md");
-    }
+    return logger.runDoctor(
+      "kimi-context-gen",
+      checks,
+      "Context Doctor",
+      "Run 'kimi-context-gen fix' to regenerate CONTEXT.md"
+    );
   } else if (command === "fix") {
     logger.section("Fixing CONTEXT.md");
     const hashes = await hashConfigs(projectDir);

@@ -1,195 +1,42 @@
 /**
  * Canonical scaffold templates — single source of truth for kimi-fix.
+ * Template bodies live in templates/scaffold/ (diffable, editable as plain files).
+ * This module reads them at import time and re-exports as constants.
  * Keep in sync with TEMPLATES.md (validated by unit test).
  */
 
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 
-export const OXFMTRC = `{
-  "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "printWidth": 100,
-  "tabWidth": 2,
-  "useTabs": false,
-  "semi": true,
-  "singleQuote": false,
-  "trailingComma": "es5",
-  "ignorePatterns": ["bun.lock", "CHANGELOG.md"]
-}
-`;
-
-export const OXLINTRC = `{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn", "oxc"],
-  "categories": {
-    "correctness": "error"
-  },
-  "rules": {},
-  "env": {
-    "builtin": true
-  }
-}
-`;
-
-export const CI_WORKFLOW = `name: CI
-
-on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
-
-permissions:
-  contents: read
-  checks: write
-  pull-requests: write
-
-jobs:
-  quality:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: "1.3.14"
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Format check
-        run: bun run format:check:ci
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Type check
-        run: bun run typecheck
-
-      - name: Test + coverage
-        run: bun run test:coverage:ci
-`;
-
-export const TSCONFIG = `{
-  "compilerOptions": {
-    "lib": ["ESNext"],
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "types": ["bun"]
-  },
-  "include": ["src/**/*", "test/**/*", "scripts/**/*"]
-}
-`;
-
-export const BUN_GLOBALS = `/**
- * Runtime APIs present in Bun 1.3+ that may lag behind bun-types.
- * Remove entries as @types/bun catches up.
- */
-/// <reference types="bun" />
-
-declare module "bun" {
-  const cwd: string;
-  const pid: number;
-
-  interface BunFile {
-    textSync(encoding?: string): string;
-  }
+function resolveTemplateDir(): string {
+  const candidates = [
+    join(import.meta.dir, "..", "..", "templates", "scaffold"),
+    join(import.meta.dir, "..", "templates", "scaffold"),
+  ];
+  return candidates.find((dir) => existsSync(dir)) ?? candidates[0];
 }
 
-interface ReadableStream<R = any> {
-  [Symbol.asyncIterator](): AsyncIterator<R>;
+const TEMPLATE_DIR = resolveTemplateDir();
+
+function load(name: string): string {
+  return readFileSync(join(TEMPLATE_DIR, name), "utf8");
 }
-`;
 
-export const DX_CONFIG = `# Project DX + kimi runtime policy
-schemaVersion = 1
+// ── Config templates ─────────────────────────────────────────────────
 
-[runtime]
-containers = "none"
-packageManager = "bun"
+export const OXFMTRC = load("oxfmtrc.json");
+export const OXLINTRC = load("oxlintrc.json");
+export const CI_WORKFLOW = load("ci.yml");
+export const TSCONFIG = load("tsconfig.json");
+export const BUN_GLOBALS = load("bun-globals.d.ts");
+export const DX_CONFIG = load("dx.config.toml");
+export const GITIGNORE = load("gitignore");
+export const ENV_EXAMPLE = load("env.example");
+export const BUNFIG = load("bunfig.toml");
+export const KIMI_SKILLS_README = load("skills-readme.md");
+export const ADR_TEMPLATE = load("adr-template.md");
 
-[quality]
-formatter = "oxfmt"
-linter = "oxlint"
-typecheck = "bun run typecheck"
-
-[kimi]
-preflight = true
-`;
-
-export const GITIGNORE = `# Dependencies
-node_modules/
-.pnp.*
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Build outputs
-dist/
-build/
-out/
-*.tsbuildinfo
-coverage/
-.bun-cache
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-npm-debug.log*
-
-# Editor
-.vscode/
-.idea/
-*.swp
-*~
-`;
-
-export const ENV_EXAMPLE = `# ── Required ──
-DATABASE_URL=postgresql://user:pass@localhost:5432/dbname
-API_KEY=replace_me_in_dot_env
-
-# ── Optional ──
-# PORT=0                    # 0 = auto-assign. Override only if needed.
-# LOG_LEVEL=info            # debug | info | warn | error
-# NODE_ENV=development      # development | test | production
-# BUN_RUNTIME_TRANSPILER_CACHE_PATH=./.bun-cache
-`;
-
-export const BUNFIG = `[install]
-# Trusted dependencies with postinstall scripts
-# Run \`kimi-guardian check\` to auto-populate
-trustedDependencies = []
-
-[install.cache]
-# Global cache directory (shared across projects)
-dir = "~/.bun/install/cache"
-
-[test]
-# Unit tests run concurrently; smoke tests stay sequential
-concurrentTestGlob = ["test/*.unit.test.ts"]
-coverageSkipTestFiles = true
-
-coverageThreshold = { lines = 0.35, functions = 0.25 }
-`;
-
-export const KIMI_SKILLS_README = `# Project skills
-
-Place Kimi Code skills in \`.kimi-code/skills/<name>/SKILL.md\`.
-User skills: \`~/.kimi-code/skills/\` and \`~/.agents/skills/\`.
-See UNIFIED.md.
-`;
+// ── Generator functions ──────────────────────────────────────────────
 
 /** Required package.json scripts added by kimi-fix. */
 export const REQUIRED_PACKAGE_SCRIPTS = [
@@ -204,52 +51,6 @@ export const REQUIRED_PACKAGE_SCRIPTS = [
   "lint",
   "fix",
 ] as const;
-
-export const ADR_TEMPLATE = `---
-status: proposed
-date: {{DATE}}
-deciders: {{DECIDERS}}
-consulted: []
-informed: []
----
-
-# {{TITLE}}
-
-## Context
-
-What is the issue that we're seeing that is motivating this decision or change?
-
-## Decision
-
-What is the change that we're proposing or have agreed to implement?
-
-## Consequences
-
-What becomes easier or more difficult to do because of this change?
-
-### Positive
-
-- 
-
-### Negative
-
-- 
-
-### Neutral
-
-- 
-
-## Alternatives Considered
-
-| Alternative | Pros | Cons | Decision |
-|-------------|------|------|----------|
-| Option A | | | Rejected |
-| Option B | | | Selected |
-
-## References
-
-- 
-`;
 
 /** Generate README.md with project name and basic structure. */
 export async function generateReadme(
@@ -313,7 +114,7 @@ export async function scaffoldAdr(
   const adrDir = join(projectDir, "docs", "adr");
   ensureDir(adrDir);
 
-  const existing = [];
+  const existing: number[] = [];
   const glob = new Bun.Glob("*.md");
   for await (const file of glob.scan({ cwd: adrDir, absolute: false })) {
     const num = parseInt(file.split("-")[0], 10);

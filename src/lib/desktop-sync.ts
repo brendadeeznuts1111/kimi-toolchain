@@ -46,6 +46,7 @@ export const LABEL_PREFIX = {
   LIB: "lib/",
   SCRIPTS: "scripts/",
   KIMI_HOOKS: "kimi-hooks/",
+  TEMPLATES: "templates/",
   AGENTS_SKILL: "agents-skill/",
   KIMI_SKILL: "kimi-skill/",
 } as const;
@@ -61,6 +62,8 @@ export interface DesktopPaths {
   scriptsDst: string;
   kimiHooksSrc: string;
   kimiHooksDst: string;
+  templatesSrc: string;
+  templatesDst: string;
   skillSrc: string;
   skillDst: string;
   kimiSkillDst: string;
@@ -79,6 +82,8 @@ export function resolveDesktopPaths(repoRoot: string): DesktopPaths {
     scriptsDst: scriptsDir(),
     kimiHooksSrc: join(repoRoot, "src", "kimi-hooks"),
     kimiHooksDst: kimiHooksDir(),
+    templatesSrc: join(repoRoot, "templates"),
+    templatesDst: join(dRoot, "templates"),
     skillSrc: join(repoRoot, "skills", "kimi-toolchain"),
     skillDst: join(AGENTS_SKILLS_ROOT, "kimi-toolchain"),
     kimiSkillDst: join(skillsDir(), "kimi-toolchain"),
@@ -188,6 +193,17 @@ export async function syncDesktop(
       paths.kimiHooksDst,
       LABEL_PREFIX.KIMI_HOOKS,
       "*.ts",
+      force,
+      result
+    );
+  }
+
+  if (existsSync(paths.templatesSrc)) {
+    await syncGlobDirectory(
+      paths.templatesSrc,
+      paths.templatesDst,
+      LABEL_PREFIX.TEMPLATES,
+      "**/*",
       force,
       result
     );

@@ -1,6 +1,49 @@
 /**
- * Canonical SQLite schema for ~/.kimi-code/var/sessions.db
+ * Canonical SQLite schema + TypeScript types for ~/.kimi-code/var/sessions.db
  */
+
+// ── TypeScript types ──────────────────────────────────────────────────
+
+export interface SessionRecord {
+  id: string;
+  project: string;
+  cwd: string;
+  startedAt: string;
+  endedAt?: string;
+  lastCmd: string;
+  cmdHistory: string[];
+  envSnapshot: Record<string, string>;
+  gitHead: string;
+  lockfileHash: string;
+  contextSize: number;
+  keyDecisions: string[];
+  status: "active" | "closed" | "stale";
+}
+
+export interface KnowledgeNode {
+  id: string;
+  label: string;
+  type: "concept" | "file" | "dependency" | "decision" | "project";
+  project: string;
+  createdAt: string;
+  metadata?: string;
+}
+
+export interface KnowledgeEdge {
+  from: string;
+  to: string;
+  relation: string;
+  weight: number;
+}
+
+export interface ImpactResult {
+  project: string;
+  affectedNodes: KnowledgeNode[];
+  affectedProjects: string[];
+  riskScore: number;
+}
+
+// ── SQL schema ────────────────────────────────────────────────────────
 
 export const SESSIONS_SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS sessions (

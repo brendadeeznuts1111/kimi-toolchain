@@ -160,18 +160,49 @@ export function isSyncDaemonRunning(): boolean {
 
 export async function runSystemMemoryChecks(): Promise<MemoryCheckResult[]> {
   const results: MemoryCheckResult[] = [];
+  let pressurePct: number | null = null;
+
+  try {
+    pressurePct = await getMemoryPressureFreePct();
+  } catch {
+    pressurePct = null;
+  }
 
   try {
     const freeMB = await getFreeMemoryMB();
-    if (freeMB < 500)
+    const pressureContext = pressurePct === null ? "" : `; pressure ${pressurePct}% free`;
+
+    if (freeMB < 500 && pressurePct !== null && pressurePct >= 50) {
+      results.push({
+        name: "memory-free",
+        status: "ok",
+        message: `~${freeMB}MB free pages${pressureContext}`,
+      });
+    } else if (freeMB < 500 && pressurePct !== null && pressurePct >= 30) {
+      results.push({
+        name: "memory-free",
+        status: "warn",
+        message: `~${freeMB}MB free pages${pressureContext}`,
+      });
+    } else if (freeMB < 500) {
       results.push({
         name: "memory-free",
         status: "error",
         message: `~${freeMB}MB free (critical)`,
       });
-    else if (freeMB < 1024)
-      results.push({ name: "memory-free", status: "warn", message: `~${freeMB}MB free (low)` });
-    else results.push({ name: "memory-free", status: "ok", message: `~${freeMB}MB free` });
+    } else if (freeMB < 1024) {
+      results.push({
+        name: "memory-free",
+        status: "warn",
+        message: `~${freeMB}MB free pages${pressureContext}`,
+      });
+    } else {
+      results.push({
+        name: "memory-free",
+        status: "ok",
+        message: `~${freeMB}MB free pages${pressureContext}`,
+      });
+    }
   } catch {
     results.push({ name: "memory-free", status: "warn", message: "could not check" });
   }
@@ -188,7 +219,7 @@ export async function runSystemMemoryChecks(): Promise<MemoryCheckResult[]> {
   }
 
   try {
-    const pct = await getMemoryPressureFreePct();
+    const pct = pressurePct;
     if (pct === null) {
       results.push({ name: "memory-pressure", status: "warn", message: "could not check" });
     } else if (pct < 30) {

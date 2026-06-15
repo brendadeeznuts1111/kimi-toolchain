@@ -5,7 +5,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import { REQUIRED_PACKAGE_SCRIPTS } from "./scaffold-templates.ts";
-import type { DoctorCheck } from "./utils.ts";
+import type { HealthCheck as DoctorCheck } from "./health-check.ts";
 
 export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [];

@@ -16,7 +16,7 @@ import { Database } from "bun:sqlite";
 import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
-import { aggregateChecks } from "../lib/health-check.ts";
+
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -289,12 +289,7 @@ async function main(): Promise<number> {
     );
   } else if (command === "doctor") {
     const checks = doctor();
-    const report = aggregateChecks("kimi-resource-governor", checks);
-    logger.printHealthReport(report);
-    if (report.fixableCount > 0) {
-      logger.info("Run 'kimi-resource-governor fix' to repair");
-    }
-    return report.errorCount > 0 ? 1 : 0;
+    return logger.runDoctor("kimi-resource-governor", checks);
   } else if (command === "fix") {
     logger.section("Fixing Resource Governor");
     ensureDir(GOVERNOR_DIR);

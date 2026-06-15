@@ -11,7 +11,8 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import { ensureDir, getProjectName, runTool, resolveProjectRoot } from "../lib/utils.ts";
+import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import { runTool } from "../lib/tool-runner.ts";
 import { aggregateChecks } from "../lib/health-check.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";

@@ -2,25 +2,25 @@
 /**
  * kimi-utils — Shared utilities for all kimi tools
  * Bun-native only. Zero dependencies.
+ *
+ * For logging: import { createLogger } from "./logger.ts"
+ * For tool running: import { runTool, invokeTool } from "./tool-runner.ts"
+ * For health checks: import { aggregateChecks, type HealthCheck } from "./health-check.ts"
+ * For paths: import { toolsDir, homeDir } from "./paths.ts"
  */
 
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { $ } from "bun";
-import {
-  runTool,
-  invokeTool,
-  toolsDir,
-  isAgentContext,
-  type ToolInvocation,
-  type ToolInvocationOptions,
-} from "./tool-runner.ts";
+import { isAgentContext, runTool, invokeTool, toolsDir } from "./tool-runner.ts";
+import type { HealthReport } from "./health-check.ts";
+import { createLogger, logger as defaultLogger } from "./logger.ts";
 
 // ── Constants ────────────────────────────────────────────────────────
 
+const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 const DEFAULT_SECTION_WIDTH = 60;
 const DEFAULT_BANNER_INNER_WIDTH = 62;
-const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 
 // ── File System ──────────────────────────────────────────────────────
 
@@ -31,21 +31,18 @@ export function ensureDir(dir: string) {
 
 // ── Logging ──────────────────────────────────────────────────────────
 
-import type { HealthReport } from "./health-check.ts";
-import { createLogger, logger as defaultLogger } from "./logger.ts";
-
-/** @deprecated Use createLogger() and Logger.info/warn/error instead */
+/** @deprecated Use createLogger() and Logger.info/warn/error instead. */
 export function log(level: "info" | "warn" | "error", msg: string) {
   defaultLogger[level](msg);
 }
 
-/** @deprecated Use Logger.section() instead */
+/** @deprecated Use Logger.section() instead. */
 export function printSection(title: string, _width = DEFAULT_SECTION_WIDTH): void {
   if (isAgentContext()) return;
   defaultLogger.section(title);
 }
 
-/** @deprecated Use Logger.banner() instead */
+/** @deprecated Use Logger.banner() instead. */
 export function printToolBanner(
   title: string,
   subtitle?: string,
@@ -55,7 +52,7 @@ export function printToolBanner(
   defaultLogger.banner(title, subtitle);
 }
 
-/** @deprecated Use Logger.projectBanner() instead */
+/** @deprecated Use Logger.projectBanner() instead. */
 export function printProjectBanner(title: string, project?: string, subtitle?: string): void {
   if (isAgentContext()) return;
   defaultLogger.projectBanner(title, project, subtitle);
@@ -92,7 +89,6 @@ function _safeParse<T>(
     if (validator) {
       return validator(parsed) ? parsed : fallback;
     }
-    // Blind cast when no validator — caller assumes responsibility
     return parsed as T;
   } catch {
     return fallback;
@@ -188,8 +184,7 @@ export async function fetchWithTimeout(
 
 // ── Tool Runner (for cross-tool integration) ─────────────────────────
 
-// Re-export unified tool runner, helpers, and types.
-export { runTool, invokeTool, toolsDir, ToolInvocation, ToolInvocationOptions };
+export { runTool, invokeTool, toolsDir };
 
 // ── Doctor/Fix Integration Helpers ───────────────────────────────────
 
@@ -204,7 +199,7 @@ export {
   statusIcon as healthStatusIcon,
 } from "./health-check.ts";
 
-/** @deprecated Use Logger.printHealthReport() with createLogger() instead */
+/** @deprecated Use Logger.printHealthReport() with createLogger() instead. */
 export function printDoctorReport(report: HealthReport) {
   createLogger(Bun.argv, report.tool).printHealthReport(report);
 }

@@ -16,12 +16,7 @@ import {
   hasUncommittedChanges,
   readManifest,
 } from "../lib/version.ts";
-import {
-  runSystemMemoryChecks,
-  printMemoryBudget,
-  countBlockingErrors,
-  type MemoryCheckResult,
-} from "../lib/memory-budget.ts";
+import { runSystemChecks, printMemoryBudget, countBlockingErrors } from "../lib/system-checks.ts";
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
 import {
   auditWorkspaceHealth,
@@ -41,6 +36,7 @@ import { getOrphanProcesses, runOrphanKill } from "../lib/process-utils.ts";
 import { isAgentContext } from "../lib/tool-runner.ts";
 import { resolveProjectRoot, getProjectName } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
+import { auditAgentReady } from "../lib/agent-ready.ts";
 import { createLogger } from "../lib/logger.ts";
 import { aggregateChecks, type HealthCheck } from "../lib/health-check.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
@@ -59,6 +55,7 @@ const MEMORY_BUDGET = Bun.argv.includes("--memory-budget");
 const JSON_OUT = Bun.argv.includes("--json");
 const WORKSPACE_ONLY = Bun.argv.includes("--workspace");
 const ECOSYSTEM = Bun.argv.includes("--ecosystem");
+const AGENT_READY = Bun.argv.includes("--agent-ready");
 const FIX_CURSOR = Bun.argv.includes("--fix-cursor");
 const FIX_DEEP = Bun.argv.includes("--fix-deep");
 const STRICT_WORKSPACE = Bun.argv.includes("--strict-workspace");
@@ -91,12 +88,6 @@ function warn(name: string, message: string): CheckResult {
 
 function error(name: string, message: string): CheckResult {
   const check: HealthCheck = { name, status: "error", message, fixable: false };
-  if (!JSON_OUT) logger.check(check);
-  return check;
-}
-
-function recordMemoryCheck(r: MemoryCheckResult): CheckResult {
-  const check: HealthCheck = { name: r.name, status: r.status, message: r.message, fixable: false };
   if (!JSON_OUT) logger.check(check);
   return check;
 }
@@ -529,6 +520,35 @@ async function runEcosystemMode(projectRoot: string): Promise<number> {
   return report.blockers > 0 ? 1 : 0;
 }
 
+async function runAgentReadyMode(projectRoot: string): Promise<number> {
+  const report = await auditAgentReady(projectRoot);
+
+  if (JSON_OUT) {
+    emitJson({
+      checks: report.checks,
+      summary: {
+        blockers: report.blockers,
+        warnings: report.warnings,
+        ok: report.ok,
+      },
+    });
+    return report.ok ? 0 : 1;
+  }
+
+  logger.banner("Kimi Doctor — Agent Ready");
+  logger.printHealthReport(aggregateChecks("kimi-doctor", report.checks), "Agent Readiness");
+
+  if (report.blockers > 0) {
+    logger.error(`${report.blockers} agent readiness blocker(s)`);
+  } else if (report.warnings > 0) {
+    logger.warn(`${report.warnings} warning(s), no blockers`);
+  } else {
+    logger.info("Agent runtime ready");
+  }
+
+  return report.ok ? 0 : 1;
+}
+
 async function main(): Promise<number> {
   if (MEMORY_BUDGET) {
     printMemoryBudget(logger);
@@ -559,6 +579,10 @@ async function main(): Promise<number> {
     return runEcosystemMode(projectRoot);
   }
 
+  if (AGENT_READY) {
+    return runAgentReadyMode(projectRoot);
+  }
+
   if (!JSON_OUT) {
     logger.banner("Kimi Doctor — Toolchain Diagnostics");
   }
@@ -568,22 +592,16 @@ async function main(): Promise<number> {
   const home = homeDir();
 
   logger.section("System");
-
-  try {
-    const df = await $`df /`.quiet();
-    const line = df.stdout.toString().split("\n")[1];
-    const used = parseInt(line?.trim().split(/\s+/)[4]?.replace("%", "") || "0");
-    if (used > 90) results.push(error("disk", `${used}% (critical)`));
-    else if (used > 80) results.push(warn("disk", `${used}% (high)`));
-    else results.push(ok("disk", `${used}%`));
-  } catch {
-    results.push(warn("disk", "could not check"));
+  const systemChecks = await runSystemChecks(logger, {
+    softSystem: SOFT_SYSTEM,
+    memoryBudgetOnly: false,
+  });
+  if (!JSON_OUT) {
+    for (const check of systemChecks) {
+      logger.check(check);
+    }
   }
-
-  const memoryChecks = await runSystemMemoryChecks();
-  for (const check of memoryChecks) {
-    results.push(recordMemoryCheck(check));
-  }
+  results.push(...systemChecks);
 
   logger.section("Kimi Products");
 

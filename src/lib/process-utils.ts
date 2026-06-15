@@ -6,7 +6,7 @@
 
 import { guardDir } from "./paths.ts";
 import { join } from "path";
-import { getCachedPs, clearProcessCache, countOrphanCandidates } from "./proc-cache.ts";
+import { clearProcessCache, countOrphanCandidates, getOrphanCandidates } from "./proc-cache.ts";
 
 export interface ProcessInfo {
   pid: number;
@@ -18,27 +18,7 @@ export interface ProcessInfo {
 export { clearProcessCache, countOrphanCandidates };
 
 export function getOrphanProcesses(): ProcessInfo[] {
-  const output = getCachedPs(["aux"]);
-  const orphans: ProcessInfo[] = [];
-  for (const line of output.split("\n")) {
-    if (
-      line.includes("/.bun/bin/bun test") ||
-      (line.includes("bun run") && line.includes("kimi-")) ||
-      line.includes("/.kimi-code/bin/kimi --version") ||
-      (line.includes("/bin/cp") && line.includes("kimi-test"))
-    ) {
-      const parts = line.trim().split(/\s+/);
-      if (parts.length >= 11) {
-        const pid = parseInt(parts[1], 10);
-        const cpu = parseFloat(parts[2]);
-        const cmd = parts.slice(10).join(" ");
-        if (!isNaN(pid) && pid !== process.pid) {
-          orphans.push({ pid, cmd, cpu });
-        }
-      }
-    }
-  }
-  return orphans;
+  return getOrphanCandidates().map(({ pid, cmd, cpu }) => ({ pid, cmd, cpu }));
 }
 
 function killProcess(pid: number, signal: "SIGTERM" | "SIGKILL" = "SIGKILL") {

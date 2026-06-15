@@ -1,0 +1,15 @@
+[install]
+# Trusted dependencies with postinstall scripts
+# Run `kimi-guardian check` to auto-populate
+trustedDependencies = []
+
+[install.cache]
+# Global cache directory (shared across projects)
+dir = "~/.bun/install/cache"
+
+[test]
+# Unit tests run concurrently; smoke tests stay sequential
+concurrentTestGlob = ["test/*.unit.test.ts"]
+coverageSkipTestFiles = true
+
+coverageThreshold = { lines = 0.35, functions = 0.25 }

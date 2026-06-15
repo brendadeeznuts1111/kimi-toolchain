@@ -12,7 +12,7 @@ import { existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { homeDir, toolsDir } from "../lib/paths.ts";
 import { resolveProjectRoot, safeParse } from "../lib/utils.ts";
-import { aggregateChecks } from "../lib/health-check.ts";
+
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -394,8 +394,7 @@ async function doctor(projectDir: string) {
     fixable: false,
   });
 
-  const report = aggregateChecks("kimi-debug", checks);
-  logger.printHealthReport(report);
+  logger.runDoctor("kimi-debug", checks);
 }
 
 // ── Fix ──────────────────────────────────────────────────────────────

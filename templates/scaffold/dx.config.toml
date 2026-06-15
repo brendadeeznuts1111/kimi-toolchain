@@ -1,0 +1,14 @@
+# Project DX + kimi runtime policy
+schemaVersion = 1
+
+[runtime]
+containers = "none"
+packageManager = "bun"
+
+[quality]
+formatter = "oxfmt"
+linter = "oxlint"
+typecheck = "bun run typecheck"
+
+[kimi]
+preflight = true

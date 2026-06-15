@@ -13,7 +13,7 @@
 import { randomUUIDv7 } from "bun";
 import { createLogger } from "../lib/logger.ts";
 import { getProjectName, resolveProjectRoot } from "../lib/utils.ts";
-import { aggregateChecks } from "../lib/health-check.ts";
+
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -337,8 +337,7 @@ async function main(): Promise<number> {
     }
   } else if (command === "doctor") {
     const checks = doctor();
-    const report = aggregateChecks("kimi-memory", checks);
-    logger.printHealthReport(report);
+    const exitCode = logger.runDoctor("kimi-memory", checks);
 
     const warnings: DoctorWarning[] = [];
     for (const c of checks) {
@@ -358,10 +357,10 @@ async function main(): Promise<number> {
       }
     }
 
-    if (report.fixableCount > 0) {
+    if (checks.some((c) => c.fixable)) {
       logger.info("Run 'kimi-memory fix' to repair");
     }
-    return report.errorCount > 0 ? 1 : 0;
+    return exitCode;
   } else if (command === "fix") {
     logger.section("Fixing Memory DB");
     const result = fixDb();

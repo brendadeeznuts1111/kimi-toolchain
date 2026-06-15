@@ -8,8 +8,8 @@
 
 import { existsSync } from "fs";
 import { join } from "path";
-import { getProjectName, runTool, resolveProjectRoot } from "../lib/utils.ts";
-import { aggregateChecks } from "../lib/health-check.ts";
+import { getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import { runTool } from "../lib/tool-runner.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -209,12 +209,7 @@ async function main(): Promise<number> {
     }
   } else if (command === "doctor") {
     const checks = await doctor(projectDir);
-    const report = aggregateChecks("kimi-release", checks);
-    logger.printHealthReport(report);
-    if (report.fixableCount > 0) {
-      logger.info("Run 'kimi-release fix' to repair");
-    }
-    return report.errorCount > 0 ? 1 : 0;
+    return logger.runDoctor("kimi-release", checks);
   } else if (command === "fix") {
     await fixCommits(projectDir);
   } else {

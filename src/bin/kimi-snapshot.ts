@@ -13,7 +13,6 @@ import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 import { snapshotDir } from "../lib/paths.ts";
 import { Snapshot, snapshotPath, saveSnapshot, listSnapshots } from "../lib/snapshot-core.ts";
-import { aggregateChecks } from "../lib/health-check.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -264,12 +263,7 @@ async function main(): Promise<number> {
     logger.info(`Removed ${removed} snapshots older than ${days} days`);
   } else if (command === "doctor") {
     const checks = await doctor();
-    const report = aggregateChecks("kimi-snapshot", checks);
-    logger.printHealthReport(report, "Snapshot Doctor");
-    if (report.fixableCount > 0) {
-      logger.info("Run 'kimi-snapshot fix' to repair");
-    }
-    return report.errorCount > 0 ? 1 : 0;
+    return logger.runDoctor("kimi-snapshot", checks, "Snapshot Doctor");
   } else if (command === "fix") {
     await fixSnapshots();
   } else {

@@ -31,6 +31,7 @@ export const UNIT_TEST_FILES = [
   "test/cloudflare-access-dashboard.unit.test.ts",
   "test/cloudflare-access-policy.unit.test.ts",
   "test/tool-runner.unit.test.ts",
+  "test/tool-registry.unit.test.ts",
   "test/kimi-toolchain.router.test.ts",
   "test/unified-shell-bridge.unit.test.ts",
   "test/error-taxonomy.unit.test.ts",

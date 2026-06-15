@@ -3,7 +3,13 @@ import { randomUUIDv7 } from "bun";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { getProjectName, safeParse } from "./utils.ts";
-import { SESSIONS_SCHEMA_SQL } from "./sessions-schema.ts";
+import {
+  SESSIONS_SCHEMA_SQL,
+  type SessionRecord,
+  type KnowledgeNode,
+  type KnowledgeEdge,
+  type ImpactResult,
+} from "./sessions-schema.ts";
 import { memoryDir, varDir } from "./paths.ts";
 
 const MEMORY_DIR = memoryDir();
@@ -11,44 +17,8 @@ const VAR_DIR = varDir();
 const DB_PATH = join(VAR_DIR, "sessions.db");
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
-export interface SessionRecord {
-  id: string;
-  project: string;
-  cwd: string;
-  startedAt: string;
-  endedAt?: string;
-  lastCmd: string;
-  cmdHistory: string[];
-  envSnapshot: Record<string, string>;
-  gitHead: string;
-  lockfileHash: string;
-  contextSize: number;
-  keyDecisions: string[];
-  status: "active" | "closed" | "stale";
-}
-
-export interface KnowledgeNode {
-  id: string;
-  label: string;
-  type: "concept" | "file" | "dependency" | "decision" | "project";
-  project: string;
-  createdAt: string;
-  metadata?: string;
-}
-
-export interface KnowledgeEdge {
-  from: string;
-  to: string;
-  relation: string;
-  weight: number;
-}
-
-export interface ImpactResult {
-  project: string;
-  affectedNodes: KnowledgeNode[];
-  affectedProjects: string[];
-  riskScore: number;
-}
+// Re-export types for backward compatibility
+export type { SessionRecord, KnowledgeNode, KnowledgeEdge, ImpactResult };
 
 // ── Database ─────────────────────────────────────────────────────────
 
