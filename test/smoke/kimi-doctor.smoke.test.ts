@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 
-const REPO_ROOT = import.meta.dir + "/..";
+const REPO_ROOT = import.meta.dir + "/../..";
 /** Captured before concurrent unit tests may mutate Bun.env.HOME */
 const REAL_HOME = process.env.HOME || "/tmp";
 const DOCTOR = join(REPO_ROOT, "src/bin/kimi-doctor.ts");
