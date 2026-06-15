@@ -15,33 +15,59 @@ export interface ProcessInfo {
 
 const decoder = new TextDecoder();
 
-export function getOrphanProcesses(): ProcessInfo[] {
-  try {
-    const output = decoder.decode(Bun.spawnSync(["ps", "aux"]).stdout);
+/** Lightweight TTL cache for process data (avoids repeated ps calls). */
+interface CacheEntry<T> {
+  value: T;
+  ts: number;
+}
+const _procCache = new Map<string, CacheEntry<string>>();
+const CACHE_TTL_MS = 1000;
 
-    const orphans: ProcessInfo[] = [];
-    for (const line of output.split("\n")) {
-      if (
-        line.includes("/.bun/bin/bun test") ||
-        (line.includes("bun run") && line.includes("kimi-")) ||
-        line.includes("/.kimi-code/bin/kimi --version") ||
-        (line.includes("/bin/cp") && line.includes("kimi-test"))
-      ) {
-        const parts = line.trim().split(/\s+/);
-        if (parts.length >= 11) {
-          const pid = parseInt(parts[1], 10);
-          const cpu = parseFloat(parts[2]);
-          const cmd = parts.slice(10).join(" ");
-          if (!isNaN(pid) && pid !== process.pid) {
-            orphans.push({ pid, cmd, cpu });
-          }
+function getCachedPs(args: string[]): string {
+  const key = args.join(" ");
+  const now = Date.now();
+  const entry = _procCache.get(key);
+  if (entry && now - entry.ts < CACHE_TTL_MS) return entry.value;
+
+  try {
+    const output = decoder.decode(Bun.spawnSync(["ps", ...args]).stdout);
+    _procCache.set(key, { value: output, ts: now });
+    return output;
+  } catch {
+    return "";
+  }
+}
+
+export function clearProcessCache(): void {
+  _procCache.clear();
+}
+
+export function getOrphanProcesses(): ProcessInfo[] {
+  const output = getCachedPs(["aux"]);
+  const orphans: ProcessInfo[] = [];
+  for (const line of output.split("\n")) {
+    if (
+      line.includes("/.bun/bin/bun test") ||
+      (line.includes("bun run") && line.includes("kimi-")) ||
+      line.includes("/.kimi-code/bin/kimi --version") ||
+      (line.includes("/bin/cp") && line.includes("kimi-test"))
+    ) {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length >= 11) {
+        const pid = parseInt(parts[1], 10);
+        const cpu = parseFloat(parts[2]);
+        const cmd = parts.slice(10).join(" ");
+        if (!isNaN(pid) && pid !== process.pid) {
+          orphans.push({ pid, cmd, cpu });
         }
       }
     }
-    return orphans;
-  } catch {
-    return [];
   }
+  return orphans;
+}
+
+export function countOrphanCandidates(): number {
+  return getOrphanProcesses().length;
 }
 
 function killProcess(pid: number, signal: "SIGTERM" | "SIGKILL" = "SIGKILL") {

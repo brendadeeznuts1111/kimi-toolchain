@@ -330,11 +330,61 @@ The project follows strict Bun-native conventions. **Always prefer Bun APIs over
 - Prefer `for await...of` over `.on("data", ...)` for stream consumption.
 - Use `await proc.exited` to get exit code from `Bun.spawn`. Do not read `proc.exitCode` before the process finishes.
 
-### Process & Signal Handling
+### Process Cache (src/lib/process-utils.ts, src/lib/memory-budget.ts)
+
+Both modules share a lightweight TTL cache for `ps` output to avoid repeated system calls within the same doctor run:
+
+- **Cache TTL**: 1000ms (1 second)
+- **Clear cache**: `clearProcessCache()` from either module
+- **Why**: `ps aux` / `ps -axo` calls take ~30-140ms each; a typical doctor run calls them 3-5 times. Caching reduces this to a single call.
+- **Benchmark improvement**: `getOrphanProcesses` from ~108ms → ~0.3ms (cached); `getAppRssGroups` + `getChromeRssMB` from ~70ms → ~1.3ms (shared call).
+
+### src/lib/ Flat Structure
+
+`src/lib/` contains 43 modules at a single level (no subdirectories). This is intentional to avoid deep import paths and circular dependencies. See `src/lib/README.md` for the domain map.
+
+**Import rule**: Use relative paths (`../lib/foo.ts`) — never absolute or path aliases.
+
+### Benchmarking
+
+Run `bun run bench` to execute `bench/core.bench.ts`. Add new benchmarks when introducing performance-critical paths. The suite uses `Bun.nanoseconds()` for high-resolution timing.
+
+| Benchmark                     | Baseline | Target    |
+| ----------------------------- | -------- | --------- |
+| `sha256String (1KB)`          | ~0.001ms | < 0.01ms  |
+| `safeParse (small object)`    | ~0.000ms | < 0.001ms |
+| `computeRScore (full)`        | ~0.001ms | < 0.01ms  |
+| `getOrphanProcesses (cold)`   | ~140ms   | < 200ms   |
+| `getOrphanProcesses (cached)` | ~0.3ms   | < 1ms     |
+| `getAppRssGroups+cachedRss`   | ~1.3ms   | < 5ms     |
 
 - `process.on("SIGINT", handler)` is acceptable.
 - `process.exit(code)` is acceptable for CLI tools.
 - For resource-limited spawning, use `governedSpawn()` from `kimi-resource-governor.ts`.
+
+### Agent Defaults & Recommendations
+
+When working on this codebase, agents should:
+
+| Setting              | Recommendation                                                           | Why                                                       |
+| -------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------- |
+| **Permission mode**  | `auto` for safe paths (tests, docs), `manual` for destructive ops        | Prevents accidental deletes while allowing fast iteration |
+| **Background tasks** | Keep `keep_alive_on_exit = false` unless explicitly daemonizing          | Avoids orphan processes                                   |
+| **Loop control**     | Leave `max_steps_per_turn` unset (unlimited) for complex refactors       | Context compaction handles memory                         |
+| **MCP timeout**      | Default 30s is sufficient; increase only for long-running Cloudflare ops | Most tools complete in < 5s                               |
+| **Session memory**   | Use `kimi-memory store` for cross-session context, not file hacks        | Proper SQLite persistence                                 |
+
+**Before starting a long session:**
+
+1. Run `kimi-doctor --quick` to check memory pressure and orphan count
+2. Run `kimi-orphan-kill --dry-run` if orphans detected
+3. Ensure R-Score is ≥ B (run `kimi-governance score`)
+
+**After finishing a session:**
+
+1. Run `bun run check` (or `bun run check:fast` for quick validation)
+2. Commit with conventional commit format
+3. Run `bun run sync` before push (pre-push hook enforces this)
 
 ### Commit Convention
 
@@ -418,6 +468,12 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `src/lib/test-gates.ts`                | Unit vs smoke test lists, `bunTestArgs()`           |
 | `src/lib/readme-sync.ts`               | README ↔ package.json drift detect + patch          |
 | `src/lib/paths.ts`                     | **Single source of truth for `~/.kimi-code` paths** |
+| `src/lib/governance-check.ts`          | License/CONTRIBUTING/CODEOWNERS checker             |
+| `src/lib/r-score.ts`                   | R-Score calculation + grade formatting              |
+| `src/lib/conventional-commits.ts`      | Conventional commit parser + semver bump logic      |
+| `src/lib/changelog.ts`                 | Changelog section generation + update               |
+| `src/lib/scaffold-templates.ts`        | README, LICENSE, ADR template generators            |
+| `src/lib/scaffold-quality.ts`          | package.json quality tooling injection              |
 | `src/lib/process-utils.ts`             | Orphan process detection + cleanup                  |
 | `scripts/check.ts`                     | CI gate runner with dry-run and fast modes          |
 | `test/kimi-doctor.smoke.test.ts`       | Smoke tests for all tools                           |

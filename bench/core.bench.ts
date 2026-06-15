@@ -9,8 +9,12 @@
 
 import { sha256File, sha256String, safeParse, safeToml } from "../src/lib/utils.ts";
 import { computeRScore } from "../src/lib/r-score.ts";
-import { getOrphanProcesses } from "../src/lib/process-utils.ts";
-import { getChromeRssMB, getAppRssGroups } from "../src/lib/memory-budget.ts";
+import { getOrphanProcesses, clearProcessCache } from "../src/lib/process-utils.ts";
+import {
+  getChromeRssMB,
+  getAppRssGroups,
+  clearProcessCache as clearMemCache,
+} from "../src/lib/memory-budget.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 
@@ -133,23 +137,41 @@ async function main() {
     }, 100_000)
   );
 
-  // getChromeRssMB (system call)
+  // getChromeRssMB (system call — cold, no cache)
   results.push(
-    bench("getChromeRssMB", () => {
+    bench("getChromeRssMB (cold)", () => {
+      clearMemCache();
       getChromeRssMB();
     }, 50)
   );
 
-  // getAppRssGroups (system call)
+  // getAppRssGroups (system call — cold, no cache)
   results.push(
-    bench("getAppRssGroups", () => {
+    bench("getAppRssGroups (cold)", () => {
+      clearMemCache();
       getAppRssGroups();
     }, 50)
   );
 
-  // getOrphanProcesses (system call)
+  // getAppRssGroups + getChromeRssMB (cached — same ps call)
   results.push(
-    bench("getOrphanProcesses", () => {
+    bench("getAppRssGroups+cachedRss", () => {
+      getAppRssGroups();
+      getChromeRssMB();
+    }, 50)
+  );
+
+  // getOrphanProcesses (system call — cold)
+  results.push(
+    bench("getOrphanProcesses (cold)", () => {
+      clearProcessCache();
+      getOrphanProcesses();
+    }, 50)
+  );
+
+  // getOrphanProcesses (cached)
+  results.push(
+    bench("getOrphanProcesses (cached)", () => {
       getOrphanProcesses();
     }, 50)
   );

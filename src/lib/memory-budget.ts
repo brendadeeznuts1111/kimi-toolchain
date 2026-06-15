@@ -6,6 +6,33 @@ import { $ } from "bun";
 
 const decoder = new TextDecoder();
 
+/** Lightweight TTL cache for process data (avoids repeated ps calls within the same doctor run). */
+interface CacheEntry<T> {
+  value: T;
+  ts: number;
+}
+const _procCache = new Map<string, CacheEntry<string>>();
+const CACHE_TTL_MS = 1000;
+
+function getCachedPs(args: string[]): string {
+  const key = args.join(" ");
+  const now = Date.now();
+  const entry = _procCache.get(key);
+  if (entry && now - entry.ts < CACHE_TTL_MS) return entry.value;
+
+  try {
+    const output = decoder.decode(Bun.spawnSync(["ps", ...args]).stdout);
+    _procCache.set(key, { value: output, ts: now });
+    return output;
+  } catch {
+    return "";
+  }
+}
+
+export function clearProcessCache(): void {
+  _procCache.clear();
+}
+
 export interface MemoryCheckResult {
   name: string;
   status: "ok" | "warn" | "error";
@@ -88,7 +115,7 @@ export function getChromeRssMB(): number {
 }
 
 export function getAppRssGroups(): AppRssGroup[] {
-  const output = decoder.decode(Bun.spawnSync(["ps", "-axo", "rss,command"]).stdout);
+  const output = getCachedPs(["-axo", "rss,command"]);
   const totals = new Map<string, { mb: number; count: number }>();
 
   for (const line of output.split("\n").slice(1)) {
@@ -121,7 +148,7 @@ export function getAppRssGroups(): AppRssGroup[] {
 }
 
 function getRssByPattern(pattern: RegExp): number {
-  const output = decoder.decode(Bun.spawnSync(["ps", "-axo", "rss,command"]).stdout);
+  const output = getCachedPs(["-axo", "rss,command"]);
   let total = 0;
   for (const line of output.split("\n")) {
     if (pattern.test(line)) {
