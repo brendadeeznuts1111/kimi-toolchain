@@ -6,22 +6,29 @@
 import { Effect } from "effect";
 import { createLogger } from "../lib/logger.ts";
 import { clusterFailureLedger, matchErrorToClusters } from "../lib/error-clustering.ts";
-import { buildHealPlan, type HealPlan } from "../lib/self-healing.ts";
+import {
+  applyHealPlan,
+  buildHealPlan,
+  type HealApplyReport,
+  type HealPlan,
+} from "../lib/self-healing.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
 
 const logger = createLogger(Bun.argv, "kimi-heal");
 
-function emitJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+async function emitJson(value: unknown): Promise<void> {
+  await Bun.write(Bun.stdout, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 function printHelp(): void {
-  logger.line("Usage: kimi-heal <plan|clusters|match> [text] [--json] [--threshold <0..1>]");
+  logger.line("Usage: kimi-heal <plan|apply|clusters|match> [text] [--json] [--threshold <0..1>]");
   logger.line("");
   logger.line("Examples:");
   logger.line("  kimi-heal plan --json");
+  logger.line("  kimi-heal apply --dry-run --json");
+  logger.line("  kimi-heal apply --yes --action <id>");
   logger.line("  kimi-heal clusters --json");
   logger.line('  kimi-heal match "Tool timed out after 30000ms"');
   logger.line("");
@@ -42,6 +49,14 @@ function threshold(): number | undefined {
   return parsed;
 }
 
+function argValues(flag: string): string[] {
+  const values: string[] = [];
+  for (let index = 0; index < Bun.argv.length; index++) {
+    if (Bun.argv[index] === flag && Bun.argv[index + 1]) values.push(Bun.argv[index + 1]);
+  }
+  return values;
+}
+
 async function main(): Promise<number> {
   const json = Bun.argv.includes("--json");
   const argv = Bun.argv.slice(2);
@@ -54,14 +69,28 @@ async function main(): Promise<number> {
 
   if (command === "plan") {
     const plan = await buildHealPlan(await resolveProjectRoot(), { threshold: threshold() });
-    if (json) emitJson(plan);
+    if (json) await emitJson(plan);
     else printPlan(plan);
     return 0;
   }
 
+  if (command === "apply") {
+    const projectRoot = await resolveProjectRoot();
+    const plan = await buildHealPlan(projectRoot, { threshold: threshold() });
+    const report = await applyHealPlan(plan, {
+      projectRoot,
+      dryRun: Bun.argv.includes("--dry-run") ? true : undefined,
+      yes: Bun.argv.includes("--yes"),
+      actionIds: argValues("--action"),
+    });
+    if (json) await emitJson(report);
+    else printApplyReport(report);
+    return report.summary.failed > 0 ? 1 : 0;
+  }
+
   if (command === "clusters") {
     const report = await clusterFailureLedger({ threshold: threshold() });
-    if (json) emitJson(report.summaries);
+    if (json) await emitJson(report.summaries);
     else {
       logger.banner("Kimi Heal Clusters");
       for (const row of report.summaries) {
@@ -81,7 +110,7 @@ async function main(): Promise<number> {
     if (!text) throw new CliError({ message: "Usage: kimi-heal match <error-text>" });
     const report = await clusterFailureLedger({ threshold: threshold() });
     const match = matchErrorToClusters(text, report.clusters);
-    if (json) emitJson({ query: text, match });
+    if (json) await emitJson({ query: text, match });
     else if (match) {
       logger.info(
         `${match.cluster.id}: ${match.cluster.label} (${Math.round(match.confidence * 100)}%)`
@@ -108,7 +137,21 @@ function printPlan(plan: HealPlan): void {
   for (const action of plan.actions) {
     const mode = action.safeToAutoApply ? "auto" : action.status;
     logger.line(`  [${mode}] ${action.id}: ${action.title}`);
+    if (action.decisionPreviewId) logger.line(`      decision: ${action.decisionPreviewId}`);
     logger.line(`      ${action.reason}`);
+    if (action.command) logger.line(`      command: ${action.command.join(" ")}`);
+  }
+}
+
+function printApplyReport(report: HealApplyReport): void {
+  logger.banner("Kimi Heal Apply");
+  logger.info(
+    `${report.summary.applied} applied, ${report.summary.failed} failed, ${report.summary.skipped} skipped`
+  );
+  for (const action of report.applied) {
+    logger.line(`  [${action.status}] ${action.id}: ${action.title}`);
+    if (action.decisionId) logger.line(`      decision: ${action.decisionId}`);
+    if (action.reason) logger.line(`      ${action.reason}`);
     if (action.command) logger.line(`      command: ${action.command.join(" ")}`);
   }
 }

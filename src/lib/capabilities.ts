@@ -8,6 +8,7 @@ import { join } from "path";
 import { capabilitySnapshotsDir, configTomlPath, failureLedgerPath, mcpPath } from "./paths.ts";
 import { safeParse } from "./utils.ts";
 import { auditContractTrust } from "./contract-signing.ts";
+import { queryDecisionLedger, recordDecision } from "./decision-ledger.ts";
 
 export type CapabilityStatus = "healthy" | "degraded" | "unavailable";
 export type CapabilityType = "mcp" | "hook" | "credential" | "contract";
@@ -94,6 +95,9 @@ export function runCapabilityAggregator(
     );
     const enriched = applyLastSuccessfulContact(results, previous);
     const report = buildCapabilityReport(enriched);
+    yield* Effect.promise(() => recordDeliberateCapabilityDegradations(report.checks)).pipe(
+      Effect.catchAll(() => Effect.void)
+    );
     if (options.saveSnapshot ?? true) {
       yield* Effect.promise(() => writeCapabilitySnapshot(report)).pipe(
         Effect.catchAll(() => Effect.void)
@@ -269,7 +273,11 @@ function checkCredentialProvider(): Omit<CapabilityResult, "latencyMs"> {
       configured.length > 0
         ? `${configured.length} credential source(s) available`
         : "no optional credential env vars detected",
-    details: { configuredKeys: configured },
+    details: {
+      configuredKeys: configured,
+      intentionalDegrade: configured.length === 0,
+      degradeReason: "Credential providers are optional in local-only workflows.",
+    },
   };
 }
 
@@ -305,4 +313,48 @@ async function checkContractTrust(
         : `${audit.signed} trusted contract(s)`,
     details: { audit },
   };
+}
+
+async function recordDeliberateCapabilityDegradations(checks: CapabilityResult[]): Promise<void> {
+  const degraded = checks.filter(
+    (check) => check.status === "degraded" && isIntentionalDegrade(check.details)
+  );
+  for (const check of degraded) {
+    await recordDeliberateCapabilityDecision(check);
+  }
+}
+
+async function recordDeliberateCapabilityDecision(check: CapabilityResult): Promise<void> {
+  const key = `capability-degrade:${check.id}`;
+  const action = `mark capability ${check.id} degraded`;
+  const existing = await queryDecisionLedger({ action, limit: 20 });
+  if (existing.some((decision) => decision.key === key && decision.outcome.result === "success")) {
+    return;
+  }
+  const degradeReason =
+    typeof check.details?.degradeReason === "string" ? check.details.degradeReason : check.summary;
+  await recordDecision({
+    key,
+    actor: "kimi",
+    action,
+    trigger: check.summary,
+    triggerContext: { summary: check.summary, capabilityItem: check.id },
+    rationaleContext: {
+      kind: "capability-degrade",
+      capabilityItem: check.id,
+      reason: degradeReason,
+      impactSummary: "Capability remains intentionally degraded until the operator opts in.",
+    },
+    alternativesConsidered: ["configure optional credential provider env vars"],
+    outcome: "success",
+    metadata: {
+      capabilityType: check.type,
+      latencyMs: check.latencyMs,
+      deliberate: true,
+    },
+  });
+}
+
+function isIntentionalDegrade(details: Record<string, unknown> | undefined): boolean {
+  return details?.intentionalDegrade === true || details?.deliberate === true;
 }

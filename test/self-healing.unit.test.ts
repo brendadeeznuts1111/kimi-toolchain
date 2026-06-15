@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { buildHealPlan } from "../src/lib/self-healing.ts";
+import {
+  previewDecisionId,
+  readDecisionLedger,
+  recordDecision,
+} from "../src/lib/decision-ledger.ts";
+import { applyHealPlan, buildHealPlan, type HealPlan } from "../src/lib/self-healing.ts";
 import { clusterFailureLedger } from "../src/lib/error-clustering.ts";
 import { writeFileSync } from "fs";
 
@@ -54,6 +59,117 @@ describe("self-healing", () => {
       expect(clusterAction).toBeTruthy();
       expect(clusterAction?.metadata?.clusterId).toBeTruthy();
     } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("applyHealPlan records preview decision before execute and appends outcome follow-up", async () => {
+    const dir = tempDir();
+    const oldHome = Bun.env.HOME;
+    mkdirSync(join(dir, ".kimi-code", "var"), { recursive: true });
+    try {
+      Bun.env.HOME = dir;
+      const actionId = "cluster:format_check_failure:bun---version";
+      const action = "bun --version";
+      const decisionPreviewId = previewDecisionId({
+        key: `self-heal:${actionId}`,
+        action,
+        trigger: "format cluster surfaced",
+      });
+      const plan: HealPlan = {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        projectRoot: dir,
+        actions: [
+          {
+            id: actionId,
+            title: "Probe bun runtime",
+            source: "cluster",
+            reason: "format cluster surfaced",
+            confidence: 0.9,
+            command: ["bun", "--version"],
+            safeToAutoApply: true,
+            status: "available",
+            decisionPreviewId,
+            traceIds: ["trace-heal-1"],
+            metadata: {
+              clusterId: "cluster-1",
+              clusterSize: 2,
+              taxonomyId: "format_check_failure",
+            },
+          },
+        ],
+        summary: { total: 1, autoApplicable: 1, manual: 0, blocked: 0 },
+      };
+
+      const report = await applyHealPlan(plan, { yes: true, projectRoot: dir });
+      const [applied] = report.applied;
+      expect(applied?.status).toBe("applied");
+      expect(applied?.decisionId).toBeTruthy();
+
+      const ledger = await readDecisionLedger();
+      const preview = ledger.find((entry) => entry.decisionId === decisionPreviewId);
+      expect(preview?.outcome.result).toBe("unknown");
+
+      const followUp = ledger.find((entry) => entry.parentDecisionId === decisionPreviewId);
+      expect(followUp).toBeTruthy();
+      expect(followUp?.outcome.result).toBe("success");
+      expect(followUp?.metadata?.status).toBe("applied");
+      expect(applied?.decisionId).toBe(followUp?.decisionId);
+    } finally {
+      if (oldHome === undefined) delete Bun.env.HOME;
+      else Bun.env.HOME = oldHome;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("applyHealPlan skips actions that previously failed with same key and action", async () => {
+    const dir = tempDir();
+    const oldHome = Bun.env.HOME;
+    mkdirSync(join(dir, ".kimi-code", "var"), { recursive: true });
+    try {
+      Bun.env.HOME = dir;
+      const actionId = "cluster:format_check_failure:bun---version";
+      const action = "bun --version";
+      await recordDecision({
+        key: `self-heal:${actionId}`,
+        actor: "kimi",
+        action,
+        trigger: "previous failure",
+        rationale: "Previous attempt failed and should not be repeated automatically.",
+        outcome: "failure",
+      });
+
+      const plan: HealPlan = {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        projectRoot: dir,
+        actions: [
+          {
+            id: actionId,
+            title: "Probe bun runtime",
+            source: "cluster",
+            reason: "format cluster surfaced",
+            confidence: 0.9,
+            command: ["bun", "--version"],
+            safeToAutoApply: true,
+            status: "available",
+          },
+        ],
+        summary: { total: 1, autoApplicable: 1, manual: 0, blocked: 0 },
+      };
+
+      const report = await applyHealPlan(plan, { yes: true, projectRoot: dir });
+      const [applied] = report.applied;
+      expect(applied?.status).toBe("skipped");
+      expect(applied?.reason).toContain("previous failed decision");
+
+      const ledger = await readDecisionLedger();
+      expect(ledger).toHaveLength(1);
+      expect(ledger[0]?.outcome.result).toBe("failure");
+    } finally {
+      if (oldHome === undefined) delete Bun.env.HOME;
+      else Bun.env.HOME = oldHome;
       rmSync(dir, { recursive: true, force: true });
     }
   });

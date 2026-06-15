@@ -3,6 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { capabilityReport, readCapabilityTrend } from "../src/lib/capabilities.ts";
+import { readDecisionLedger } from "../src/lib/decision-ledger.ts";
 
 describe("capabilities", () => {
   test("aggregates checks and stores a snapshot", async () => {
@@ -28,6 +29,17 @@ describe("capabilities", () => {
       expect(report.readiness).toBe(report.readinessScore);
       expect(report.readinessScore).toBeGreaterThanOrEqual(50);
       expect(trend.snapshots.length).toBeGreaterThan(0);
+
+      const ledger = await readDecisionLedger();
+      expect(
+        ledger.some(
+          (entry) =>
+            entry.key === "capability-degrade:credential-provider-env" &&
+            entry.rationale.evidence.some(
+              (evidence) => evidence.capabilityItem === "credential-provider-env"
+            )
+        )
+      ).toBe(true);
     } finally {
       if (oldHome === undefined) delete Bun.env.HOME;
       else Bun.env.HOME = oldHome;

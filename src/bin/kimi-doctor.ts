@@ -43,6 +43,7 @@ import {
   readCapabilityTrend,
   type CapabilityReport,
 } from "../lib/capabilities.ts";
+import { queryDecisionLedger } from "../lib/decision-ledger.ts";
 import { buildHealPlan, type HealPlan } from "../lib/self-healing.ts";
 import { createLogger } from "../lib/logger.ts";
 import { aggregateChecks, type HealthCheck } from "../lib/health-check.ts";
@@ -623,6 +624,74 @@ async function runTrendMode(): Promise<number> {
   return 0;
 }
 
+async function runDecisionLedgerChecks(quick: boolean): Promise<CheckResult[]> {
+  const checks: CheckResult[] = [];
+  const now = Date.now();
+  const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const staleUnknownCutoff = now - 60 * 60 * 1000;
+  const recentLimit = quick ? 60 : 300;
+  const unknownLimit = quick ? 60 : 300;
+
+  try {
+    const recent = await queryDecisionLedger({ since: sevenDaysAgo, limit: recentLimit });
+    const lowQuality = recent.filter((decision) => {
+      if (typeof decision.qualityScore === "number") return decision.qualityScore < 0.5;
+      return decision.outcome.result === "failure";
+    });
+    if (lowQuality.length === 0) {
+      checks.push(ok("decision-quality", "no low-quality decisions in the last 7 days"));
+    } else {
+      const sample = lowQuality
+        .slice(0, 3)
+        .map((decision) => decision.decisionId)
+        .join(", ");
+      checks.push(
+        warn(
+          "decision-quality",
+          `${lowQuality.length} low-quality decision(s) in 7d${sample ? ` (${sample})` : ""}`
+        )
+      );
+    }
+  } catch (error) {
+    checks.push(
+      warn(
+        "decision-quality",
+        `decision ledger query failed: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
+  }
+
+  try {
+    const unknown = await queryDecisionLedger({ outcome: "unknown", limit: unknownLimit });
+    const unverified = unknown.filter(
+      (decision) => Date.parse(decision.timestamp) <= staleUnknownCutoff
+    );
+    if (unverified.length === 0) {
+      checks.push(ok("decision-unverified", "no stale unknown-outcome decisions"));
+    } else {
+      const sample = unverified
+        .slice(0, 3)
+        .map((decision) => decision.decisionId)
+        .join(", ");
+      checks.push(
+        warn(
+          "decision-unverified",
+          `${unverified.length} unknown decision(s) older than 1h${sample ? ` (${sample})` : ""}`
+        )
+      );
+    }
+  } catch (error) {
+    checks.push(
+      warn(
+        "decision-unverified",
+        `decision ledger query failed: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
+  }
+
+  return checks;
+}
+
 async function main(): Promise<number> {
   if (MEMORY_BUDGET) {
     printMemoryBudget(logger);
@@ -777,6 +846,9 @@ async function main(): Promise<number> {
     const message = `${summary.autoApplicable} safe auto-apply, ${summary.manual} manual, ${summary.blocked} blocked — run kimi-heal plan`;
     results.push(warn("heal-plan", message));
   }
+
+  logger.section("Decision Ledger");
+  results.push(...(await runDecisionLedgerChecks(QUICK)));
 
   logger.section("Toolchain Health");
 

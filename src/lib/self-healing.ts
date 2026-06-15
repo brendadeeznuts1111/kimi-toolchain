@@ -13,7 +13,13 @@ import {
   type ErrorCluster,
   type ErrorClusterReport,
 } from "./error-clustering.ts";
-import { recordDecision } from "./decision-ledger.ts";
+import {
+  previewDecisionId,
+  queryDecisionLedger,
+  recordDecision,
+  type DecisionRecord,
+} from "./decision-ledger.ts";
+import type { RationaleBuildContext } from "./decision-rationale.ts";
 
 export type HealActionStatus = "available" | "manual" | "blocked";
 export type HealActionSource = "capability" | "cluster" | "contract" | "governance";
@@ -30,6 +36,7 @@ export interface HealAction {
   status: HealActionStatus;
   requiresApproval?: boolean;
   traceIds?: string[];
+  decisionPreviewId?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -65,6 +72,7 @@ export interface AppliedHealAction {
   id: string;
   title: string;
   status: AppliedHealActionStatus;
+  decisionId?: string;
   command?: string[];
   exitCode?: number;
   stdout?: string;
@@ -204,7 +212,7 @@ export function buildHealPlanEffect(
       dedupeActions([
         ...actionsFromCapabilities(capabilities),
         ...actionsFromClusters(clusters.clusters),
-      ])
+      ]).map(withDecisionPreview)
     );
 
     return {
@@ -378,6 +386,7 @@ function actionFromCluster(cluster: ErrorCluster): HealAction {
     traceIds,
     metadata: {
       clusterId: cluster.id,
+      clusterSize: cluster.size,
       taxonomyId,
       tools: cluster.tools,
       taxonomyCounts: cluster.taxonomyCounts,
@@ -478,6 +487,7 @@ function applyOneAction(
       id: action.id,
       title: action.title,
       status: "dry-run",
+      decisionId: action.decisionPreviewId,
       command: action.command,
       reason: "dry-run; pass --yes to apply safe actions",
     });
@@ -485,23 +495,55 @@ function applyOneAction(
 
   return Effect.tryPromise({
     try: async () => {
+      const priorFailure = await findPriorFailedPlaybook(action);
+      if (priorFailure) {
+        return {
+          id: action.id,
+          title: action.title,
+          status: "skipped" as const,
+          command: action.command,
+          reason: `previous failed decision ${priorFailure.decisionId}; refusing to re-apply without manual intervention`,
+          decisionId: priorFailure.decisionId,
+        };
+      }
+
+      const preDecisionId = await recordHealPreviewDecision(action);
       const started = performance.now();
-      const result = await runCommand(action.command!, options.projectRoot ?? plan.projectRoot, {
-        maxOutputBytes: options.maxOutputBytes,
-        actionId: action.id,
-      });
-      const applied: AppliedHealAction = {
-        id: action.id,
-        title: action.title,
-        status: result.exitCode === 0 ? "applied" : "failed",
-        command: action.command,
-        exitCode: result.exitCode,
-        stdout: result.stdout,
-        stderr: result.stderr,
-        durationMs: Math.round(performance.now() - started),
-      };
-      recordHealDecision(action, applied);
-      return applied;
+      try {
+        const result = await runCommand(action.command!, options.projectRoot ?? plan.projectRoot, {
+          maxOutputBytes: options.maxOutputBytes,
+          actionId: action.id,
+        });
+        const applied: AppliedHealAction = {
+          id: action.id,
+          title: action.title,
+          status: result.exitCode === 0 ? "applied" : "failed",
+          command: action.command,
+          exitCode: result.exitCode,
+          stdout: result.stdout,
+          stderr: result.stderr,
+          durationMs: Math.round(performance.now() - started),
+        };
+        const followUpDecisionId = await recordHealOutcomeDecision(action, applied, preDecisionId);
+        return {
+          ...applied,
+          decisionId: followUpDecisionId ?? preDecisionId,
+        };
+      } catch (error) {
+        const applied: AppliedHealAction = {
+          id: action.id,
+          title: action.title,
+          status: "failed",
+          command: action.command,
+          reason: error instanceof Error ? error.message : String(error),
+          durationMs: Math.round(performance.now() - started),
+        };
+        const followUpDecisionId = await recordHealOutcomeDecision(action, applied, preDecisionId);
+        return {
+          ...applied,
+          decisionId: followUpDecisionId ?? preDecisionId,
+        };
+      }
     },
     catch: (error) => error,
   }).pipe(
@@ -510,6 +552,7 @@ function applyOneAction(
         id: action.id,
         title: action.title,
         status: "failed" as const,
+        decisionId: action.decisionPreviewId,
         command: action.command,
         reason: error instanceof Error ? error.message : String(error),
       })
@@ -546,27 +589,105 @@ async function readLimited(
   return `${text.slice(0, maxBytes)}\n[truncated ${text.length - maxBytes} chars]`;
 }
 
-function recordHealDecision(action: HealAction, applied: AppliedHealAction): void {
+async function recordHealPreviewDecision(action: HealAction): Promise<string | undefined> {
   try {
-    void recordDecision({
-      key: `self-heal:${action.id}`,
-      action: action.command?.join(" ") ?? action.title,
+    const priorSuccessDecisionIds = await priorSuccessDecisions(action);
+    const preview = await recordDecision({
+      decisionId: action.decisionPreviewId,
+      key: actionDecisionKey(action),
+      actor: "kimi",
+      action: actionDecisionAction(action),
       trigger: action.reason,
-      reasoning: "Self-healing only applies actions marked safeToAutoApply by the local planner.",
-      alternatives: ["review manually", "run kimi-heal apply without --yes as a dry run"],
-      outcome:
-        applied.status === "applied"
-          ? `applied with exit code ${applied.exitCode}`
-          : `failed with exit code ${applied.exitCode}`,
+      triggerContext: {
+        summary: action.reason,
+        clusterId:
+          typeof action.metadata?.clusterId === "string" ? action.metadata.clusterId : undefined,
+        traceId: action.traceIds?.[0],
+      },
+      clusterId:
+        typeof action.metadata?.clusterId === "string" ? action.metadata.clusterId : undefined,
+      rationaleContext: healRationaleContext(action, priorSuccessDecisionIds) ?? {
+        kind: "generic",
+        summary: "Previewed self-heal action before execution.",
+        fullReasoning:
+          "Self-healing records an unknown-outcome decision before executing safeToAutoApply actions.",
+      },
+      alternativesConsidered: ["review manually", "run kimi-heal apply without --yes as a dry run"],
+      outcome: "unknown",
       metadata: {
+        phase: "preview",
         source: action.source,
         confidence: action.confidence,
         traceIds: action.traceIds,
+        plannedDecisionId: action.decisionPreviewId,
       },
     });
+    return preview.decisionId;
   } catch {
     // Self-healing should not fail because the explanatory ledger is unavailable.
+    return action.decisionPreviewId;
   }
+}
+
+async function recordHealOutcomeDecision(
+  action: HealAction,
+  applied: AppliedHealAction,
+  parentDecisionId?: string
+): Promise<string | undefined> {
+  try {
+    const priorSuccessDecisionIds = await priorSuccessDecisions(action);
+    const recorded = await recordDecision({
+      key: actionDecisionKey(action),
+      actor: "kimi",
+      action: actionDecisionAction(action),
+      trigger: action.reason,
+      triggerContext: {
+        summary: action.reason,
+        clusterId:
+          typeof action.metadata?.clusterId === "string" ? action.metadata.clusterId : undefined,
+        traceId: action.traceIds?.[0],
+      },
+      clusterId:
+        typeof action.metadata?.clusterId === "string" ? action.metadata.clusterId : undefined,
+      rationaleContext: healRationaleContext(action, priorSuccessDecisionIds) ?? {
+        kind: "generic",
+        summary: "Recorded self-heal execution outcome.",
+        fullReasoning:
+          "Self-healing appends outcome decisions after action execution without mutating previous ledger lines.",
+      },
+      alternativesConsidered: ["review manually", "run kimi-heal apply without --yes as a dry run"],
+      outcome:
+        applied.status === "applied"
+          ? "success"
+          : applied.status === "failed"
+            ? "failure"
+            : "unknown",
+      parentDecisionId,
+      metadata: {
+        phase: "result",
+        source: action.source,
+        confidence: action.confidence,
+        traceIds: action.traceIds,
+        exitCode: applied.exitCode,
+        status: applied.status,
+        plannedDecisionId: action.decisionPreviewId,
+      },
+    });
+    return recorded.decisionId;
+  } catch {
+    return parentDecisionId;
+  }
+}
+
+function withDecisionPreview(action: HealAction): HealAction {
+  return {
+    ...action,
+    decisionPreviewId: previewDecisionId({
+      key: `self-heal:${action.id}`,
+      action: action.command?.join(" ") ?? action.title,
+      trigger: action.reason,
+    }),
+  };
 }
 
 function dedupeActions(actions: HealAction[]): HealAction[] {
@@ -637,6 +758,64 @@ function commandKey(command: string[] | undefined): string {
 
 function mergeReason(a: string, b: string): string {
   return a.includes(b) ? a : `${a} Additional evidence: ${b}`;
+}
+
+function actionDecisionKey(action: HealAction): string {
+  return `self-heal:${action.id}`;
+}
+
+function actionDecisionAction(action: HealAction): string {
+  return action.command?.join(" ") ?? action.title;
+}
+
+async function findPriorFailedPlaybook(action: HealAction): Promise<DecisionRecord | undefined> {
+  const actionLabel = actionDecisionAction(action);
+  const key = actionDecisionKey(action);
+  const failures = await queryDecisionLedger({
+    action: actionLabel,
+    outcome: "failure",
+    limit: 25,
+  });
+  return failures.find((decision) => decision.key === key);
+}
+
+async function priorSuccessDecisions(action: HealAction): Promise<string[]> {
+  const actionLabel = actionDecisionAction(action);
+  const key = actionDecisionKey(action);
+  const successes = await queryDecisionLedger({
+    action: actionLabel,
+    outcome: "success",
+    limit: 25,
+  });
+  return successes
+    .filter((decision) => decision.key === key)
+    .map((decision) => decision.decisionId);
+}
+
+function healRationaleContext(
+  action: HealAction,
+  priorSuccessDecisionIds: string[]
+): RationaleBuildContext | undefined {
+  const clusterId =
+    typeof action.metadata?.clusterId === "string" ? action.metadata.clusterId : undefined;
+  const topTaxonomy =
+    typeof action.metadata?.taxonomyId === "string" ? action.metadata.taxonomyId : undefined;
+  const traceId = action.traceIds?.[0];
+  if (!clusterId || !topTaxonomy || !traceId) return undefined;
+  const clusterSize =
+    typeof action.metadata?.clusterSize === "number"
+      ? action.metadata.clusterSize
+      : Math.max(1, action.traceIds?.length ?? 1);
+  return {
+    kind: "heal",
+    playbookTitle: action.title,
+    clusterId,
+    clusterSize,
+    topTaxonomy,
+    traceId,
+    priorSuccessCount: priorSuccessDecisionIds.length,
+    priorDecisionIds: priorSuccessDecisionIds.slice(0, 5),
+  };
 }
 
 function asArray(value: unknown): unknown[] {
