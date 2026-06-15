@@ -53,6 +53,8 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run test:smoke` | (synced from package.json) |
 | `bun run check:staged` | (synced from package.json) |
 
+| `bun run manifest:generate` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                           |

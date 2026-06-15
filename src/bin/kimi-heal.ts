@@ -5,7 +5,8 @@
  * Usage:
  *   kimi-heal plan [--json]
  *   kimi-heal apply --action <id> [--dry-run] [--yes] [--json]
- *   kimi-heal clusters [--json]
+ *   kimi-heal repair-constants [--dry-run|--yes] [--json]
+ *   kimi-heal constants snapshot [--json]
  */
 
 import { Effect } from "effect";
@@ -16,6 +17,11 @@ import { resolveDecisionsRoot } from "../lib/decision-ledger.ts";
 import { applyHealAction, buildHealPlan } from "../lib/self-healing.ts";
 import { clusterFailureLedger } from "../lib/error-clustering.ts";
 import { ensureProcessTrace } from "../lib/effect/trace-context.ts";
+import {
+  buildConstantRepairPlan,
+  repairConstants,
+  writeConstantsGolden,
+} from "../lib/constants-heal.ts";
 
 const logger = createLogger(Bun.argv, "kimi-heal");
 
@@ -128,10 +134,64 @@ async function main(): Promise<number> {
     return 0;
   }
 
+  if (command === "repair-constants") {
+    const dryRun = hasFlag("--dry-run") || !hasFlag("--yes");
+    const plan = await buildConstantRepairPlan(projectRoot);
+    if (!plan.canRepair && plan.goldenVersion === "missing") {
+      logger.error("Golden template missing — run: kimi-heal constants snapshot");
+      return 1;
+    }
+
+    const result = await repairConstants({
+      projectRoot,
+      dryRun,
+      traceId: trace.traceId,
+    });
+
+    if (jsonMode) {
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    } else {
+      logger.section("Repair Constants");
+      logger.info(result.detail);
+      if (result.decisionId) {
+        logger.info(`Decision: ${result.decisionId}`);
+        logger.info(`Run 'kimi-decision why ${result.decisionId}' for full rationale`);
+      }
+      if (dryRun && result.repairedBunfig) {
+        logger.warn("Dry run — pass --yes to write repaired bunfig.toml");
+      }
+    }
+    return result.applied || dryRun ? 0 : plan.canRepair ? 1 : 0;
+  }
+
+  if (command === "constants") {
+    const sub = args[1] ?? "snapshot";
+    if (sub === "snapshot") {
+      const golden = await writeConstantsGolden(projectRoot);
+      if (jsonMode) {
+        process.stdout.write(`${JSON.stringify(golden, null, 2)}\n`);
+      } else {
+        logger.section("Constants Snapshot");
+        logger.info(`Golden template v${golden.tuningSetVersion}`);
+        logger.info(`${Object.keys(golden.constants).length} constant(s) captured`);
+        logger.info(`Path: .kimi/var/constants-golden.json`);
+      }
+      return 0;
+    }
+    logger.error(`Unknown constants subcommand: ${sub}`);
+    return 1;
+  }
+
   logger.section("kimi-heal commands");
   logger.line("  plan [--json]                         Proposed heal actions + decision refs");
   logger.line("  apply --action <id> [--dry-run|--yes] Apply heal with decision logging");
   logger.line("  clusters [--json]                     Semantic failure clusters");
+  logger.line(
+    "  repair-constants [--dry-run|--yes]    Restore bunfig [define] from golden template"
+  );
+  logger.line(
+    "  constants snapshot [--json]           Capture golden template (.kimi/var/constants-golden.json)"
+  );
   return command === "help" ? 0 : 1;
 }
 

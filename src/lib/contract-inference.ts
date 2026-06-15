@@ -1,5 +1,9 @@
 /**
  * Contract inference from local observation NDJSON.
+ *
+ * @defineDomain contract-inference
+ * @see types/build-constants.d.ts — `KIMI_CONTRACT_SCHEMA_VERSION`, `KIMI_CONTRACT_INFERENCE_ENABLED`
+ * @see bunfig.toml `[define]` define-domain:contract-inference
  */
 
 import { contractObservationsPath } from "./paths.ts";
@@ -12,7 +16,7 @@ export interface ContractInferenceResult {
 }
 
 export function inferContractFromObservations(projectRoot: string): ContractInferenceResult {
-  if (!ENABLE_CONTRACT_INFERENCE) {
+  if (!KIMI_CONTRACT_INFERENCE_ENABLED) {
     return { skipped: true, reason: "inference-disabled" };
   }
 

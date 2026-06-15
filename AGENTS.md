@@ -567,32 +567,35 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 
 ## Key Files for Agents
 
-| File                                   | Purpose                                             |
-| -------------------------------------- | --------------------------------------------------- |
-| `package.json`                         | Toolchain metadata, bin mappings, scripts           |
-| `tsconfig.json`                        | Strict TypeScript, ESNext, bundler resolution       |
-| `bunfig.toml`                          | Bun install config (`saveTextLockfile = true`)      |
-| `src/lib/utils.ts`                     | Shared utilities — import from here                 |
-| `src/lib/version.ts`                   | Version resolution logic                            |
-| `src/lib/memory-budget.ts`             | System memory / RSS budget checks                   |
-| `src/lib/governor-config.ts`           | Loads `~/.kimi-code/governor/defaults.toml`         |
-| `src/lib/test-gates.ts`                | Unit vs smoke test lists, `bunTestArgs()`           |
-| `src/lib/readme-sync.ts`               | README ↔ package.json drift detect + patch          |
-| `src/lib/paths.ts`                     | **Single source of truth for `~/.kimi-code` paths** |
-| `src/lib/governance-check.ts`          | License/CONTRIBUTING/CODEOWNERS checker             |
-| `src/lib/r-score.ts`                   | R-Score calculation + grade formatting              |
-| `src/lib/conventional-commits.ts`      | Conventional commit parser + semver bump logic      |
-| `src/lib/changelog.ts`                 | Changelog section generation + update               |
-| `src/lib/scaffold-templates.ts`        | README, LICENSE, ADR template generators            |
-| `src/lib/scaffold-quality.ts`          | package.json quality tooling injection              |
-| `src/lib/process-utils.ts`             | Orphan process detection + cleanup                  |
-| `scripts/check.ts`                     | CI gate runner with dry-run and fast modes          |
-| `test/kimi-doctor.smoke.test.ts`       | Smoke tests for all tools                           |
-| `CONTEXT.md`                           | Auto-generated project context                      |
-| `CODE_REFERENCES.md`                   | Local exemplar map for agent coding patterns        |
-| `skills/kimi-toolchain/SKILL.md`       | Agent decision protocol                             |
-| `error-taxonomy.yml`                   | Failure classification schema                       |
-| `~/.kimi-code/var/tool-failures.jsonl` | Canonical tool failure ledger                       |
+| File                                   | Purpose                                                                             |
+| -------------------------------------- | ----------------------------------------------------------------------------------- |
+| `package.json`                         | Toolchain metadata, bin mappings, scripts                                           |
+| `tsconfig.json`                        | Strict TypeScript, ESNext, bundler resolution                                       |
+| `bunfig.toml`                          | Bun install + `[define]` build-time constants (`KIMI_*`, `# define-domain:` groups) |
+| `types/build-constants.d.ts`           | TypeScript globals + `@defineDomain` JSDoc (not taxonomyId)                         |
+| `scripts/lint-build-constants.ts`      | Regression lint — literals + `KIMI_*` / defineDomain naming rules                   |
+| `error-taxonomy.yml`                   | Failure **taxonomyId** schema (runtime — separate from `[define]`)                  |
+| `src/lib/utils.ts`                     | Shared utilities — import from here                                                 |
+| `src/lib/version.ts`                   | Version resolution logic                                                            |
+| `src/lib/memory-budget.ts`             | System memory / RSS budget checks                                                   |
+| `src/lib/governor-config.ts`           | Loads `~/.kimi-code/governor/defaults.toml`                                         |
+| `src/lib/test-gates.ts`                | Unit vs smoke test lists, `bunTestArgs()`                                           |
+| `src/lib/readme-sync.ts`               | README ↔ package.json drift detect + patch                                          |
+| `src/lib/paths.ts`                     | **Single source of truth for `~/.kimi-code` paths**                                 |
+| `src/lib/governance-check.ts`          | License/CONTRIBUTING/CODEOWNERS checker                                             |
+| `src/lib/r-score.ts`                   | R-Score calculation + grade formatting                                              |
+| `src/lib/conventional-commits.ts`      | Conventional commit parser + semver bump logic                                      |
+| `src/lib/changelog.ts`                 | Changelog section generation + update                                               |
+| `src/lib/scaffold-templates.ts`        | README, LICENSE, ADR template generators                                            |
+| `src/lib/scaffold-quality.ts`          | package.json quality tooling injection                                              |
+| `src/lib/process-utils.ts`             | Orphan process detection + cleanup                                                  |
+| `scripts/check.ts`                     | CI gate runner with dry-run and fast modes                                          |
+| `test/kimi-doctor.smoke.test.ts`       | Smoke tests for all tools                                                           |
+| `CONTEXT.md`                           | Auto-generated project context                                                      |
+| `CODE_REFERENCES.md`                   | Local exemplar map for agent coding patterns                                        |
+| `skills/kimi-toolchain/SKILL.md`       | Agent decision protocol                                                             |
+| `error-taxonomy.yml`                   | Failure classification schema                                                       |
+| `~/.kimi-code/var/tool-failures.jsonl` | Canonical tool failure ledger                                                       |
 
 ## Quick Reference: All CLI Tools
 

@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-15T12:41:46.914Z",
+  "repo": "kimi-toolchain",
+  "tuningSetVersion": "1.0.0",
+  "domains": {
+    "contract-inference": {
+      "KIMI_CONTRACT_OBSERVATIONS_PATH": {
+        "type": "string",
+        "default": ".kimi/var/contract-observations.ndjson",
+        "restrictions": "must be a relative path from project root",
+        "see": ["src/lib/paths.ts contractObservationsPath"]
+      },
+      "KIMI_CONTRACT_SCHEMA_VERSION": {
+        "type": "string",
+        "default": "1.0.0",
+        "restrictions": "semver string written/read by contract inference",
+        "see": ["src/lib/contract-inference.ts"]
+      },
+      "KIMI_CONTRACT_INFERENCE_ENABLED": {
+        "type": "boolean",
+        "default": true,
+        "restrictions": "when false, inferContractFromObservations skips work"
+      }
+    },
+    "hook-verifier": {
+      "KIMI_HOOK_VERIFIER_MAX_CYCLES": {
+        "type": "number",
+        "default": 32,
+        "restrictions": "positive integer — max allowed hook-graph cycle length",
+        "see": ["src/lib/hook-verifier.ts"]
+      }
+    },
+    "error-embedding": {
+      "KIMI_ERROR_EMBEDDING_DIM": {
+        "type": "number",
+        "default": 384,
+        "restrictions": "reserved — embedding vector width (Phase 2)",
+        "see": ["src/lib/error-embedding.ts"]
+      }
+    },
+    "decision-scoring": {
+      "KIMI_DECISION_SCORE_WINDOW_DAYS": {
+        "type": "number",
+        "default": 7,
+        "restrictions": "positive integer — decision score rolling window in days (Phase 2)",
+        "see": [
+          "constants-parity.toml shared id velocity-window-days",
+          "src/lib/decision-scoring.ts"
+        ]
+      }
+    },
+    "error-clustering": {
+      "KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD": {
+        "type": "number",
+        "default": 0.55,
+        "restrictions": "reserved — cluster merge threshold in [0, 1] (Phase 2)",
+        "see": ["src/lib/error-clustering.ts"]
+      }
+    },
+    "governance": {
+      "KIMI_TUNING_SET_VERSION": {
+        "type": "string",
+        "default": "1.0.0",
+        "restrictions": "semver — bump when any other KIMI_* define is added, changed, or removed",
+        "see": ["scripts/lint-tuning-set-version.ts"]
+      }
+    }
+  },
+  "parity": {
+    "shared": [
+      {
+        "id": "velocity-window-days",
+        "description": "Rolling window for velocity/decision scoring (days)",
+        "repos": {
+          "kimi-toolchain": {
+            "key": "KIMI_DECISION_SCORE_WINDOW_DAYS",
+            "defineDomain": "decision-scoring",
+            "value": 7,
+            "present": true
+          },
+          "accounting-telegram": {
+            "key": "DRIFT_VELOCITY_WINDOW_DAYS",
+            "defineDomain": "drift-predict",
+            "value": 7,
+            "present": true
+          }
+        },
+        "aligned": true
+      }
+    ]
+  }
+}

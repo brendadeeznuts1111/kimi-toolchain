@@ -98,7 +98,7 @@ export function clusterFailureLedgerEffect(
   options: FailureClusterInput = {}
 ): Effect.Effect<ErrorClusterReport, never> {
   return Effect.gen(function* () {
-    const threshold = options.threshold ?? CLUSTER_SIMILARITY_THRESHOLD;
+    const threshold = options.threshold ?? KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD;
     const failurePath = options.failurePath ?? failureLedgerPath();
     const tracePath = options.tracePath ?? traceEventsPath();
     const persist = options.persist ?? true;

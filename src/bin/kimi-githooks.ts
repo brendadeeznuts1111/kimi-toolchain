@@ -83,6 +83,10 @@ if [ -f package.json ]; then
     echo "── Unit tests (fast) ────────────────────────────────────────"
     bun run test:fast || exit 1
   fi
+  if [ -f scripts/lint-tuning-set-version.ts ]; then
+    echo "── Tuning set version ───────────────────────────────────────"
+    bun run scripts/lint-tuning-set-version.ts --staged || exit 1
+  fi
 fi
 
 exit 0

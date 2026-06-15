@@ -70,9 +70,14 @@ export function decisionsNdjsonPath(projectRoot: string): string {
   return join(projectKimiDir(projectRoot), "decisions.ndjson");
 }
 
+/** Return {projectRoot}/.kimi/var/constants-golden.json */
+export function constantsGoldenPath(projectRoot: string): string {
+  return join(projectKimiDir(projectRoot), "var", "constants-golden.json");
+}
+
 /** Return {projectRoot}/.kimi/var/contract-observations.ndjson (path segment from bunfig define). */
 export function contractObservationsPath(projectRoot: string): string {
-  return join(projectRoot, KIMI_OBSERVATIONS_PATH);
+  return join(projectRoot, KIMI_CONTRACT_OBSERVATIONS_PATH);
 }
 
 /** Return ~/.kimi-code/var/institutional-memory.jsonl (deprecated — use decisions.ndjson) */
@@ -84,7 +89,6 @@ export function institutionalMemoryPath(): string {
 export function capabilitySnapshotsDir(): string {
   return join(varDir(), "capabilities");
 }
-
 /** Return ~/.kimi-code/guardian */
 export function guardianDir(): string {
   return join(desktopRoot(), "guardian");

@@ -8,23 +8,24 @@ For agent-facing examples of the preferred patterns, see `../../CODE_REFERENCES.
 
 ## Domains
 
-| Domain         | Files                                                                                                             | Purpose                                                             |
-| -------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| **Core**       | `utils.ts`, `version.ts`, `paths.ts`, `tool-runner.ts`, `health-check.ts`, `logger.ts`                            | Shared utilities, health checks, structured logging, tool execution |
-| **Effect**     | `effect/` (`errors`, `config`, `tool-runner-effect`, `cli-runtime`)                                               | Effect-TS subprocess orchestration and unified CLI exit handling    |
-| **Governance** | `r-score.ts`, `governance-check.ts`, `governance.ts`, `readme-sync.ts`                                            | R-Score calculation, license/CONTRIBUTING checker, README drift     |
-| **Scaffold**   | `scaffold-templates.ts`, `scaffold-agents.ts`, `scaffold-aligned.ts`, `scaffold-doctor.ts`, `scaffold-quality.ts` | Template generation, AGENTS.md builder, alignment checks            |
-| **Cloudflare** | `cloudflare-access.ts`, `cloudflare-access-policy.ts`                                                             | Cloudflare Access API, policy diff/plan/apply                       |
-| **Governor**   | `governor-*.ts` (6 files)                                                                                         | Resource limits, parallelism, disk quota, diagnostic cache          |
-| **Memory**     | `memory-budget.ts`, `memory-sessions.ts`, `sessions-schema.ts`                                                    | System memory checks, session store, DB schema                      |
-| **Git**        | `git-helpers.ts`, `conventional-commits.ts`, `changelog.ts`                                                       | Git operations, conventional commit parsing, changelog generation   |
-| **Config**     | `mcp-config.ts`, `kimi-config-audit.ts`, `test-gates.ts`                                                          | MCP configuration, Kimi config audit, test gate configs             |
-| **Health**     | `workspace-health.ts`, `workspace-commands.ts`, `legacy-cleanup.ts`, `ecosystem-health.ts`                        | Workspace health, commands, legacy cleanup, ecosystem checks        |
-| **Process**    | `process-utils.ts`, `snapshot-core.ts`                                                                            | Orphan process detection, snapshot management                       |
-| **Doctor**     | `doctor-runs.ts`, `doctor-pipeline.ts`                                                                            | Doctor run persistence + parallel sub-doctor aggregation            |
-| **Sync**       | `desktop-sync.ts`, `sync-hashes.ts`                                                                               | Desktop sync, hash verification                                     |
-| **Registry**   | `tool-registry.ts`                                                                                                | Tool registry                                                       |
-| **Taxonomy**   | `error-taxonomy.ts`                                                                                               | Error taxonomy                                                      |
+| Domain         | Files                                                                                                             | Purpose                                                                                |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **Core**       | `utils.ts`, `version.ts`, `paths.ts`, `tool-runner.ts`, `health-check.ts`, `logger.ts`                            | Shared utilities, health checks, structured logging, tool execution                    |
+| **Effect**     | `effect/` (`errors`, `config`, `tool-runner-effect`, `cli-runtime`)                                               | Effect-TS subprocess orchestration and unified CLI exit handling                       |
+| **Governance** | `r-score.ts`, `governance-check.ts`, `governance.ts`, `readme-sync.ts`                                            | R-Score calculation, license/CONTRIBUTING checker, README drift                        |
+| **Contracts**  | `contract-inference.ts`, `hook-verifier.ts`                                                                       | Contract observation inference, hook graph limits (`bunfig [define]`, `@defineDomain`) |
+| **Scaffold**   | `scaffold-templates.ts`, `scaffold-agents.ts`, `scaffold-aligned.ts`, `scaffold-doctor.ts`, `scaffold-quality.ts` | Template generation, AGENTS.md builder, alignment checks                               |
+| **Cloudflare** | `cloudflare-access.ts`, `cloudflare-access-policy.ts`                                                             | Cloudflare Access API, policy diff/plan/apply                                          |
+| **Governor**   | `governor-*.ts` (6 files)                                                                                         | Resource limits, parallelism, disk quota, diagnostic cache                             |
+| **Memory**     | `memory-budget.ts`, `memory-sessions.ts`, `sessions-schema.ts`                                                    | System memory checks, session store, DB schema                                         |
+| **Git**        | `git-helpers.ts`, `conventional-commits.ts`, `changelog.ts`                                                       | Git operations, conventional commit parsing, changelog generation                      |
+| **Config**     | `mcp-config.ts`, `kimi-config-audit.ts`, `dx-github-alignment.ts`, `test-gates.ts`                                | MCP/Kimi/DX configuration audits and test gate configs                                 |
+| **Health**     | `workspace-health.ts`, `workspace-commands.ts`, `legacy-cleanup.ts`, `ecosystem-health.ts`                        | Workspace health, commands, legacy cleanup, ecosystem checks                           |
+| **Process**    | `process-utils.ts`, `snapshot-core.ts`                                                                            | Orphan process detection, snapshot management                                          |
+| **Doctor**     | `doctor-runs.ts`, `doctor-pipeline.ts`                                                                            | Doctor run persistence + parallel sub-doctor aggregation                               |
+| **Sync**       | `desktop-sync.ts`, `sync-hashes.ts`                                                                               | Desktop sync, hash verification                                                        |
+| **Registry**   | `tool-registry.ts`                                                                                                | Tool registry                                                                          |
+| **Taxonomy**   | `error-taxonomy.ts`                                                                                               | Error taxonomy                                                                         |
 
 ## Import Rules
 

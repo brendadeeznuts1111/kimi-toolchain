@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, rmSync } from "fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { auditEcosystemHealth } from "../src/lib/ecosystem-health.ts";
@@ -48,5 +48,18 @@ describe("ecosystem-health", () => {
     const syncCheck = report.checks.find((c) => c.name === "desktop-sync");
     expect(syncCheck).toBeDefined();
     expect(syncCheck?.source).toBe("sync");
+  }, 15_000);
+
+  test("counts dx-github errors as blockers", async () => {
+    const projectDir = join(tmpHome, "kimi-toolchain");
+    mkdirSync(projectDir, { recursive: true });
+    writeFileSync(join(projectDir, "package.json"), JSON.stringify({ name: "kimi-toolchain" }));
+    writeFileSync(join(projectDir, "dx.config.toml"), "schemaVersion = [\n");
+
+    const report = await auditEcosystemHealth(projectDir, { home: tmpHome, quick: true });
+    const dxConfig = report.checks.find((c) => c.name === "dx-github:dx-config");
+
+    expect(dxConfig?.status).toBe("error");
+    expect(report.blockers).toBeGreaterThan(0);
   }, 15_000);
 });

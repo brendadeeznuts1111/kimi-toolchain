@@ -109,8 +109,8 @@ async function createMiniLmEmbedder(): Promise<Embedder> {
     const output = await extractor(text, { pooling: "mean", normalize: true });
     const data = output.data as Float32Array | number[];
     const vec = data instanceof Float32Array ? data : new Float32Array(data);
-    if (vec.length !== EMBEDDING_DIM) {
-      return resizeVector(vec, EMBEDDING_DIM);
+    if (vec.length !== KIMI_ERROR_EMBEDDING_DIM) {
+      return resizeVector(vec, KIMI_ERROR_EMBEDDING_DIM);
     }
     return l2Normalize(vec);
   };
@@ -129,17 +129,17 @@ async function createMiniLmEmbedder(): Promise<Embedder> {
 }
 
 export function hashEmbed384(text: string): Float32Array {
-  const vec = new Float32Array(EMBEDDING_DIM);
+  const vec = new Float32Array(KIMI_ERROR_EMBEDDING_DIM);
   const tokens = tokenize(text);
   for (const token of tokens) {
-    const h = fnv1a(token) % EMBEDDING_DIM;
+    const h = fnv1a(token) % KIMI_ERROR_EMBEDDING_DIM;
     vec[h] += 1;
-    const h2 = fnv1a(`${token}#`) % EMBEDDING_DIM;
+    const h2 = fnv1a(`${token}#`) % KIMI_ERROR_EMBEDDING_DIM;
     vec[h2] += 0.5;
   }
   for (let index = 0; index < tokens.length - 1; index++) {
     const bigram = `${tokens[index]}_${tokens[index + 1]}`;
-    const h = fnv1a(bigram) % EMBEDDING_DIM;
+    const h = fnv1a(bigram) % KIMI_ERROR_EMBEDDING_DIM;
     vec[h] += 1.5;
   }
   return l2Normalize(vec);

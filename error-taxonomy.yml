@@ -31,6 +31,21 @@ categories:
       - regex: "Format issues found in above"
       - regex: 'error: script "format:check" exited with code 1'
 
+  - id: constants_drift
+    name: Define constants drift
+    description: Build-time tuning constants manifest, parity, or tuning set version is stale or misaligned.
+    severity: warn
+    expected: false
+    suggestion: "Regenerate constants-manifest.json and align bunfig.toml [define] with constants-parity.toml."
+    autoFix: "bun run manifest:generate"
+    relatedConstants:
+      - KIMI_TUNING_SET_VERSION
+    patterns:
+      - regex: "constants-manifest.json is stale"
+      - regex: "lint:constant-parity failed"
+      - regex: "lint:build-constants failed"
+      - regex: "tuning set version"
+
   - id: lint_failure
     name: Lint check failed
     description: oxlint or banned-terms check failed.
@@ -38,6 +53,8 @@ categories:
     expected: false
     suggestion: "Fix lint errors reported by oxlint or banned-terms check."
     autoFix: "bun run lint"
+    relatedConstants:
+      - KIMI_TUNING_SET_VERSION
     patterns:
       - regex: "Found\\s+\\d+\\s+warning.*error"
       - regex: 'error: script "lint" exited with code 1'
@@ -205,6 +222,8 @@ categories:
     suggestion: "Lockfile issue — run 'bun install' or 'kimi-guardian fix'."
     autoFix: "bun install"
     docLink: "skills/kimi-toolchain/examples/guardian-failure.md"
+    relatedConstants:
+      - KIMI_HOOK_VERIFIER_MAX_CYCLES
     patterns:
       - regex: "HASH MISMATCH"
       - regex: "lockfile"

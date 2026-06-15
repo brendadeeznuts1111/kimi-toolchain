@@ -24,6 +24,19 @@ describe("error-taxonomy", () => {
     expect(taxonomy.categories[0].id).toBe("unknown");
   });
 
+  test("loadTaxonomy parses relatedConstants", async () => {
+    const dir = join(tmpdir(), `kimi-taxonomy-related-${Bun.randomUUIDv7()}`);
+    mkdirSync(dir, { recursive: true });
+    const path = join(dir, "taxonomy.yml");
+    writeFileSync(
+      path,
+      `version: 2\ncategories:\n  - id: lint_failure\n    name: Lint\n    description: lint\n    severity: warn\n    expected: false\n    relatedConstants:\n      - KIMI_TUNING_SET_VERSION\n    patterns: []\n`
+    );
+    const taxonomy = await loadTaxonomy(path);
+    expect(taxonomy.categories[0].relatedConstants).toEqual(["KIMI_TUNING_SET_VERSION"]);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   test("loadTaxonomy parses yaml categories", async () => {
     const dir = join(tmpdir(), `kimi-taxonomy-${Bun.randomUUIDv7()}`);
     mkdirSync(dir, { recursive: true });

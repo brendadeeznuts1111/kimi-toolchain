@@ -11,6 +11,7 @@ import {
   CANONICAL_REPO_NAME,
   LEGACY_REPO_NAMES,
   listActiveLegacyCursorSlugs,
+  isWorkspaceBlocker,
   canonicalClonePath,
   legacyClonePath,
 } from "./workspace-health.ts";
@@ -85,6 +86,16 @@ async function runVerify(projectRoot: string, strict: boolean, logger: Logger): 
 
   const { blocking } = countWorkspaceBlockers(report, { strictWorkspace: strict });
   if (blocking > 0) {
+    for (const check of report.checks) {
+      if (
+        isWorkspaceBlocker(check, {
+          isToolchainRepo: report.isToolchainRepo,
+          strictWorkspace: strict,
+        })
+      ) {
+        logger.error(`${check.name}: ${check.message}`);
+      }
+    }
     logger.error(`${blocking} workspace blocker(s)`);
     return 1;
   }

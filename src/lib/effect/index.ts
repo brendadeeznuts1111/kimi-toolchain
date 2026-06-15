@@ -35,3 +35,12 @@ export {
   type DecisionLoggerService,
   type DecisionQueryService,
 } from "./decision-services.ts";
+
+export {
+  ConstantsRegistry,
+  ConstantsRegistryLive,
+  TestConstants,
+  getConstant,
+  type ConstantsRegistryService,
+  type ConstantValue,
+} from "../constants-registry.ts";

@@ -13,6 +13,7 @@ This file points future agents at local examples that define the code style for 
 | Structured logging            | `src/lib/logger.ts`                    | Use `createLogger(Bun.argv, toolName)`, `logger.check()`, and `logger.printHealthReport()`  |
 | Health report shape           | `src/lib/health-check.ts`              | Return `{ name, status, message, fixable }` checks and aggregate once                       |
 | Path ownership                | `src/lib/paths.ts`                     | Use helpers for `~/.kimi-code`, `~/.agents`, and runtime paths                              |
+| Build-time tuning constants   | `bunfig.toml` `[define]`               | SSOT — `KIMI_*` globals grouped by `# define-domain:` (separate from taxonomyId)            |
 | Safe parsing                  | `src/lib/utils.ts`                     | Use `safeParse()` / `safeToml()` with validators at config boundaries                       |
 | Success metric gates          | `src/lib/success-metrics.ts`           | Keep drift, taxonomy coverage, and provider agility measurable in CI                        |
 | Provider contracts            | `src/lib/provider-contract.ts`         | Add providers with a contract declaration plus a thin credential adapter only               |
@@ -51,9 +52,10 @@ This repo intentionally avoids large schema dependencies. Config boundaries shou
 Good local examples:
 
 - `src/lib/cloudflare-access-policy.ts` for a narrow policy config interface plus parser.
+- `src/lib/dx-github-alignment.ts` for DX config, package script, and GitHub Actions parity checks.
 - `src/lib/kimi-config-audit.ts` for targeted TOML extraction and validation.
 - `src/lib/mcp-config.ts` for config merge/idempotency behavior.
-- `test/cloudflare-access-policy.unit.test.ts` and `test/mcp-config.unit.test.ts` for parser and merge expectations.
+- `test/cloudflare-access-policy.unit.test.ts`, `test/dx-github-alignment.unit.test.ts`, and `test/mcp-config.unit.test.ts` for parser and merge expectations.
 
 Do:
 
@@ -65,6 +67,63 @@ Avoid:
 
 - Casting parsed config to broad `any` and using it across module boundaries.
 - Adding a schema package for one config file. New runtime dependencies must earn their cost and pass guardian.
+
+## Build-time constants
+
+Three **separate naming layers** — do not reuse one vocabulary for another:
+
+| Layer               | Purpose                             | Format                                      | Example                                  | Where                                                  |
+| ------------------- | ----------------------------------- | ------------------------------------------- | ---------------------------------------- | ------------------------------------------------------ |
+| **define constant** | Immutable compile-time tuning       | `KIMI_{DOMAIN}_{QUALIFIER}` SCREAMING_SNAKE | `KIMI_HOOK_VERIFIER_MAX_CYCLES`          | `bunfig.toml` `[define]`, `types/build-constants.d.ts` |
+| **defineDomain**    | Group constants by functional slice | kebab-case, matches lib module              | `contract-inference`, `error-embedding`  | `# define-domain:…` in bunfig, `@defineDomain` JSDoc   |
+| **taxonomyId**      | Classify tool/runtime **failures**  | snake*case `{domain}*{reason}`              | `lockfile_issue`, `format_check_failure` | `error-taxonomy.yml`, failure JSONL                    |
+
+**Cross-repo parity (accounting-telegram):** same layers; app repo uses domain prefixes instead of `KIMI_` — `DRIFT_*`, `CI_*`, `SCRIPTS_*` map to defineDomains `drift-predict`, `ci-pipeline`, `governance`. Tags optional in bunfig comments there; prefix is the domain key.
+
+### define constant rules (kimi-toolchain)
+
+1. Every `[define]` key starts with `KIMI_`.
+2. Booleans end with `_ENABLED` (`KIMI_CONTRACT_INFERENCE_ENABLED`), never `ENABLE_*`.
+3. Paths/versions include domain: `KIMI_CONTRACT_OBSERVATIONS_PATH`, `KIMI_CONTRACT_SCHEMA_VERSION`.
+4. Numeric tuning includes domain: `KIMI_ERROR_EMBEDDING_DIM`, `KIMI_DECISION_SCORE_WINDOW_DAYS`.
+5. Change values in `bunfig.toml` only — no duplicated literals in lib code.
+
+### defineDomain rules
+
+1. One `# define-domain:{name}` comment immediately before each constant group in bunfig.
+2. `{name}` is kebab-case and aligns with the owning lib file or Phase 2 module (`error-clustering`, not umbrella `self-healing`).
+3. JSDoc uses `@defineDomain {name}` — **never** `@tag` (collides mentally with failure taxonomy).
+
+### taxonomyId rules (unchanged)
+
+1. Loaded from `error-taxonomy.yml`; used in tool failures, doctor checks, JSONL — **not** for bunfig tuning.
+2. snake_case only; never used as a defineDomain or define constant prefix.
+
+| defineDomain         | Constants                                                                                            | Source modules                      |
+| -------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `contract-inference` | `KIMI_CONTRACT_OBSERVATIONS_PATH`, `KIMI_CONTRACT_SCHEMA_VERSION`, `KIMI_CONTRACT_INFERENCE_ENABLED` | `paths.ts`, `contract-inference.ts` |
+| `hook-verifier`      | `KIMI_HOOK_VERIFIER_MAX_CYCLES`                                                                      | `hook-verifier.ts`                  |
+| `error-embedding`    | `KIMI_ERROR_EMBEDDING_DIM`                                                                           | Phase 2: `error-embedding.ts`       |
+| `decision-scoring`   | `KIMI_DECISION_SCORE_WINDOW_DAYS`                                                                    | Phase 2: `decision-scoring.ts`      |
+| `error-clustering`   | `KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD`                                                            | Phase 2: `error-clustering.ts`      |
+
+Good local examples:
+
+- `bunfig.toml` — SSOT values grouped by `# define-domain:…`
+- `types/build-constants.d.ts` — `declare const` + `@defineDomain` JSDoc
+- `scripts/lint-build-constants.ts` — literal regression + naming-rule enforcement
+- `test/build-constants.unit.test.ts` — asserts define globals load with expected types/values
+
+Do:
+
+- Change tuning in `bunfig.toml` only; extend `types/build-constants.d.ts` and lint forbidden patterns when adding constants.
+- Use path helpers (`contractObservationsPath`) instead of hard-coded `.kimi/…` segments.
+
+Avoid:
+
+- Duplicating define values as `export const` or string literals in lib code.
+- Using `[define]` for secrets, deploy toggles, or per-user runtime config — keep those on `Bun.env` / `Bun.secrets`.
+- Using `@tag`, `# tag:`, or taxonomyId strings as defineDomain labels.
 
 ## Package Policy
 

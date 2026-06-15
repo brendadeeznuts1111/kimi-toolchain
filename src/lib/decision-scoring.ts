@@ -86,7 +86,7 @@ export function scoreDecision(
         const ts = failure.timestamp ? new Date(failure.timestamp).getTime() : 0;
         return ts > decisionTime;
       });
-      const holdMs = DECISION_SCORE_WINDOW_DAYS * MS_DAY;
+      const holdMs = KIMI_DECISION_SCORE_WINDOW_DAYS * MS_DAY;
       if (later.length === 0 && now.getTime() - decisionTime >= holdMs) {
         factors.push("cluster-hold-7d");
         score = 1.0;
