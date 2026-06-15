@@ -1,0 +1,23 @@
+/**
+ * Contract inference from local observation NDJSON.
+ */
+
+import { contractObservationsPath } from "./paths.ts";
+
+export interface ContractInferenceResult {
+  skipped?: boolean;
+  reason?: string;
+  schemaVersion?: string;
+  observationsPath?: string;
+}
+
+export function inferContractFromObservations(projectRoot: string): ContractInferenceResult {
+  if (!ENABLE_CONTRACT_INFERENCE) {
+    return { skipped: true, reason: "inference-disabled" };
+  }
+
+  return {
+    schemaVersion: KIMI_CONTRACT_SCHEMA_VERSION,
+    observationsPath: contractObservationsPath(projectRoot),
+  };
+}

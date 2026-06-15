@@ -34,6 +34,68 @@ describe("tool-runner-effect", () => {
     rmSync(join(script, ".."), { recursive: true, force: true });
   });
 
+  test("invokeToolEffect does not treat ordinary output text as a timeout", async () => {
+    const script = tmpScript(
+      `console.error("timed out while waiting for fixture"); process.exit(7);`
+    );
+    const exit = await Effect.runPromiseExit(invokeToolEffect(script, []));
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
+      expect(exit.cause.error).toBeInstanceOf(ExitNonZero);
+      expect(exit.cause.error).not.toBeInstanceOf(ToolTimeout);
+      expect((exit.cause.error as ExitNonZero).exitCode).toBe(7);
+    }
+    rmSync(join(script, ".."), { recursive: true, force: true });
+  });
+
+  test("invokeToolEffect preserves taxonomy and truncation details on ExitNonZero", async () => {
+    const tmpHome = join(tmpdir(), `kimi-tool-effect-taxonomy-${Bun.randomUUIDv7()}`);
+    const taxonomyDir = join(tmpHome, ".kimi-code");
+    mkdirSync(taxonomyDir, { recursive: true });
+    writeFileSync(
+      join(taxonomyDir, "error-taxonomy.yml"),
+      [
+        "version: 1",
+        "categories:",
+        "  - id: synthetic_failure",
+        "    name: Synthetic Failure",
+        "    description: Synthetic taxonomy fixture.",
+        "    severity: error",
+        "    expected: false",
+        "    suggestion: Use the fixture recovery path.",
+        "    autoFix: fixture-fix",
+        "    patterns:",
+        "      - regex: synthetic-taxonomy-marker",
+      ].join("\n")
+    );
+    const script = tmpScript(`
+      console.error("synthetic-taxonomy-marker-" + "x".repeat(128));
+      process.exit(9);
+    `);
+    const prevHome = Bun.env.HOME;
+    Bun.env.HOME = tmpHome;
+
+    try {
+      const exit = await Effect.runPromiseExit(
+        invokeToolEffect(script, [], { maxOutputBytes: 32 })
+      );
+      expect(Exit.isFailure(exit)).toBe(true);
+      if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
+        const error = exit.cause.error as ExitNonZero;
+        expect(error).toBeInstanceOf(ExitNonZero);
+        expect(error.exitCode).toBe(9);
+        expect(error.taxonomyId).toBe("synthetic_failure");
+        expect(error.suggestion).toContain("fixture recovery");
+        expect(error.autoFix).toBe("fixture-fix");
+        expect(error.stderrTruncated).toBe(true);
+      }
+    } finally {
+      Bun.env.HOME = prevHome;
+      rmSync(tmpHome, { recursive: true, force: true });
+      rmSync(join(script, ".."), { recursive: true, force: true });
+    }
+  });
+
   test(
     "invokeToolEffect fails with ToolTimeout on timeout",
     async () => {

@@ -19,6 +19,11 @@ export class ExitNonZero extends Data.TaggedError("ExitNonZero")<{
   tool: string;
   exitCode: number;
   stderr: string;
+  taxonomyId?: string;
+  suggestion?: string;
+  autoFix?: string;
+  stdoutTruncated?: boolean;
+  stderrTruncated?: boolean;
 }> {}
 
 export class TaxonomyLoadFailed extends Data.TaggedError("TaxonomyLoadFailed")<{

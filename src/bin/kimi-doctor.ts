@@ -42,6 +42,8 @@ import { createLogger } from "../lib/logger.ts";
 import { aggregateChecks, type HealthCheck } from "../lib/health-check.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
 import { recordDoctorRun } from "../lib/doctor-runs.ts";
+import { filterLowQualityDecisions, filterUnverifiedDecisions } from "../lib/decision-scoring.ts";
+import { readDecisions, resolveDecisionsRoot } from "../lib/decision-ledger.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -897,11 +899,28 @@ async function main(): Promise<number> {
     gitHead || undefined
   );
 
+  const decisions = await readDecisions(await resolveDecisionsRoot(projectRoot));
+  const lowQuality = filterLowQualityDecisions(decisions).slice(0, 5);
+  const unverified = filterUnverifiedDecisions(decisions).slice(0, 5);
+
   if (JSON_OUT) {
     emitJson({
       toolchainVersion: TOOLCHAIN_VERSION,
       checks: results,
       sync: syncReport,
+      decisions: {
+        total: decisions.length,
+        lowQuality: lowQuality.map((d) => ({
+          decisionId: d.decisionId,
+          qualityScore: d.qualityScore,
+          summary: d.rationale.summary,
+        })),
+        unverified: unverified.map((d) => ({
+          decisionId: d.decisionId,
+          outcome: d.outcome.result,
+          summary: d.rationale.summary,
+        })),
+      },
       summary: {
         errors,
         blockingErrors: blocking,
@@ -935,6 +954,21 @@ async function main(): Promise<number> {
       logger.info("Run with --workspace for workspace-only checks.");
       logger.info("Run with --ecosystem for cross-product health.");
       logger.info("Run with --fix --fix-cursor to remove legacy Cursor slugs.");
+    }
+
+    if (lowQuality.length > 0 || unverified.length > 0) {
+      logger.section("Decision Ledger");
+      if (lowQuality.length > 0) {
+        logger.warn(`${lowQuality.length} recent low-quality decision(s):`);
+        for (const item of lowQuality) {
+          logger.line(
+            `  ${item.decisionId} score=${item.qualityScore ?? "n/a"} — ${item.rationale.summary}`
+          );
+        }
+      }
+      if (unverified.length > 0) {
+        logger.info(`${unverified.length} unverified decision(s) — run 'kimi-decision score'`);
+      }
     }
   }
 

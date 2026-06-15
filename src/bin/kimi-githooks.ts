@@ -21,6 +21,8 @@ import {
 
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
 import { toolsDir } from "../lib/paths.ts";
+import { logDecision } from "../lib/decision-ledger.ts";
+import { ensureProcessTrace } from "../lib/effect/trace-context.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -30,6 +32,12 @@ const logger = createLogger(Bun.argv, "kimi-githooks");
 
 const HOOKS = ["pre-commit", "pre-push"] as const;
 const TOOLS_DIR = toolsDir();
+
+async function resolveHooksDir(projectDir: string): Promise<string> {
+  const result = await $`git rev-parse --git-path hooks`.cwd(projectDir).nothrow().quiet();
+  const resolved = result.stdout.toString().trim();
+  return result.exitCode === 0 && resolved ? resolved : join(projectDir, ".git", "hooks");
+}
 
 const PRE_COMMIT_HOOK = `#!/bin/sh
 # Auto-installed by kimi-githooks
@@ -185,7 +193,7 @@ async function installHooks(projectDir: string): Promise<number> {
     return 1;
   }
 
-  const hooksDir = join(gitDir, "hooks");
+  const hooksDir = await resolveHooksDir(projectDir);
   ensureDir(hooksDir);
 
   const hookContent: Record<string, string> = {
@@ -214,13 +222,30 @@ async function installHooks(projectDir: string): Promise<number> {
   logger.info(
     "  pre-push:   guardian scan, R-Score gate (blocks F/D), check/test gate, mandatory bun run sync"
   );
+
+  try {
+    const trace = ensureProcessTrace();
+    await logDecision({
+      action: "hook-register",
+      trigger: { traceId: trace.traceId, hookName: HOOKS.join(",") },
+      outcome: {
+        result: "success",
+        verifiedAt: new Date().toISOString(),
+        proof: { type: "health-probe", detail: `Installed hooks in ${hooksDir}` },
+      },
+      metadata: { projectDir, hooksDir },
+    });
+  } catch {
+    // best-effort decision logging
+  }
+
   return 0;
 }
 
 // ── Doctor ───────────────────────────────────────────────────────────
 
 async function doctorHooks(projectDir: string) {
-  const hooksDir = join(projectDir, ".git", "hooks");
+  const hooksDir = await resolveHooksDir(projectDir);
   const checks: Array<{
     name: string;
     status: "ok" | "warn" | "error";

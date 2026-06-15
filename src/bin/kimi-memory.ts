@@ -34,6 +34,11 @@ import {
   startAutoSave,
   stopAutoSave,
 } from "../lib/memory-sessions.ts";
+import {
+  formatDecisionChainHuman,
+  formatDecisionChainJson,
+  reconstructDecisionChain,
+} from "../lib/decision-chain.ts";
 
 const logger = createLogger(Bun.argv, "kimi-memory");
 
@@ -335,6 +340,29 @@ async function main(): Promise<number> {
         logger.warn(`${label} [${p.tool}]: ${freq} since ${age}`);
       }
     }
+  } else if (command === "trace" || command === "chain") {
+    const jsonMode = args.includes("--json");
+    const filtered = args.filter((arg) => arg !== "--json");
+    const id = filtered[1];
+    const errorFlagIndex = filtered.indexOf("--error-id");
+    const errorId = errorFlagIndex >= 0 ? filtered[errorFlagIndex + 1] : undefined;
+    if (!id && !errorId) {
+      logger.error(`Usage: ${command} <trace-id> [--json]`);
+      logger.error(`       ${command} --error-id <error-id> [--json]`);
+      return 1;
+    }
+    const chain = await reconstructDecisionChain({
+      traceId: errorId ? undefined : id,
+      errorId,
+    });
+    if (jsonMode) {
+      process.stdout.write(formatDecisionChainJson(chain));
+    } else {
+      logger.section(command === "trace" ? "Trace Decision Chain" : "Decision Chain");
+      for (const line of formatDecisionChainHuman(chain).trim().split("\n")) {
+        logger.line(line);
+      }
+    }
   } else if (command === "doctor") {
     const checks = doctor();
     const exitCode = logger.runDoctor("kimi-memory", checks);
@@ -382,6 +410,9 @@ async function main(): Promise<number> {
     logger.line("  fix                      Prune orphans, reset stuck sessions, vacuum");
     logger.line("  stats                    Show database stats");
     logger.line("  trends [tool]            Show persistent warnings across sessions");
+    logger.line("  trace <trace-id> [--json] Reconstruct decision chain for a trace");
+    logger.line("  chain <trace-id> [--json] Alias for trace / full decision chain");
+    logger.line("  chain --error-id <id>     Reconstruct chain starting from an error id");
   }
 
   return 0;

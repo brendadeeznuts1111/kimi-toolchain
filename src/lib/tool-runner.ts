@@ -146,15 +146,37 @@ export async function invokeCommand(
   const cwd = options.cwd || Bun.cwd;
   const timeoutMs = options.timeoutMs ?? defaultToolTimeoutMs();
   const gracePeriodMs = options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
-  const maxOutputBytes = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
+  const maxOutputBytes = Math.max(0, options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES);
   const start = performance.now();
 
-  const proc = Bun.spawn(command, {
-    cwd,
-    env: mergedEnv(options.env),
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  let proc: Bun.ReadableSubprocess;
+  try {
+    proc = Bun.spawn(command, {
+      cwd,
+      env: mergedEnv(options.env),
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+  } catch (e: unknown) {
+    const durationMs = Math.round(performance.now() - start);
+    const error = e instanceof Error ? e.message : String(e);
+    if (options.recordStepName) {
+      recordStep(options.recordStepName, durationMs, true);
+    }
+    return {
+      tool: options.tool ?? command[0] ?? "",
+      args: options.args ?? command.slice(1),
+      cwd,
+      timeoutMs,
+      exitCode: -1,
+      stdout: "",
+      stderr: "",
+      maxOutputBytes,
+      error: `Failed to spawn command: ${error}`,
+      durationMs,
+      isError: true,
+    };
+  }
   const stdoutPromise = readStreamToLimitedText(proc.stdout, maxOutputBytes);
   const stderrPromise = readStreamToLimitedText(proc.stderr, maxOutputBytes);
 
