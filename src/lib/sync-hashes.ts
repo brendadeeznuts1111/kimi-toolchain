@@ -5,7 +5,21 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import { sha256File } from "./utils.ts";
-import { desktopRoot } from "./paths.ts";
+import { agentsSkillsRoot, desktopRoot, skillsDir } from "./paths.ts";
+import { LABEL_PREFIX, ROOT_TEMPLATES } from "./desktop-sync.ts";
+
+async function addGlobHashes(
+  hashes: Record<string, string>,
+  sourceDir: string,
+  keyPrefix: string,
+  pattern: string
+): Promise<void> {
+  if (!existsSync(sourceDir)) return;
+  const glob = new Bun.Glob(pattern);
+  for await (const file of glob.scan({ cwd: sourceDir, onlyFiles: true })) {
+    hashes[`${keyPrefix}${file}`] = await sha256File(join(sourceDir, file));
+  }
+}
 
 /** Compute sha256 hashes for all sync-managed source files. */
 export async function computeSyncHashes(repoRoot: string): Promise<Record<string, string>> {
@@ -14,21 +28,27 @@ export async function computeSyncHashes(repoRoot: string): Promise<Record<string
   const binDir = join(repoRoot, "src", "bin");
   const libDir = join(repoRoot, "src", "lib");
   const scriptsDir = join(repoRoot, "scripts");
+  const kimiHooksDir = join(repoRoot, "src", "kimi-hooks");
+  const templatesDir = join(repoRoot, "templates");
+  const skillDir = join(repoRoot, "skills", "kimi-toolchain");
 
-  const binGlob = new Bun.Glob("*.ts");
-  for await (const file of binGlob.scan(binDir)) {
-    hashes[`tools/${file}`] = await sha256File(join(binDir, file));
+  await addGlobHashes(hashes, binDir, LABEL_PREFIX.TOOLS, "*.ts");
+  await addGlobHashes(hashes, libDir, LABEL_PREFIX.LIB, "**/*.ts");
+  await addGlobHashes(hashes, scriptsDir, LABEL_PREFIX.SCRIPTS, "*.ts");
+  await addGlobHashes(hashes, kimiHooksDir, LABEL_PREFIX.KIMI_HOOKS, "*.ts");
+  await addGlobHashes(hashes, templatesDir, LABEL_PREFIX.TEMPLATES, "**/*");
+
+  for (const doc of ROOT_TEMPLATES) {
+    const path = join(repoRoot, doc);
+    if (existsSync(path)) hashes[doc] = await sha256File(path);
   }
 
-  const libGlob = new Bun.Glob("**/*.ts");
-  for await (const file of libGlob.scan(libDir)) {
-    hashes[`lib/${file}`] = await sha256File(join(libDir, file));
-  }
-
-  if (existsSync(scriptsDir)) {
-    const scriptsGlob = new Bun.Glob("*.ts");
-    for await (const file of scriptsGlob.scan(scriptsDir)) {
-      hashes[`scripts/${file}`] = await sha256File(join(scriptsDir, file));
+  if (existsSync(skillDir)) {
+    const skillGlob = new Bun.Glob("**/*");
+    for await (const file of skillGlob.scan({ cwd: skillDir, onlyFiles: true })) {
+      const hash = await sha256File(join(skillDir, file));
+      hashes[`${LABEL_PREFIX.AGENTS_SKILL}${file}`] = hash;
+      hashes[`${LABEL_PREFIX.KIMI_SKILL}${file}`] = hash;
     }
   }
 
@@ -40,6 +60,13 @@ function desktopPathForKey(key: string): string | null {
   if (key.startsWith("tools/")) return join(root, "tools", key.slice(6));
   if (key.startsWith("lib/")) return join(root, "lib", key.slice(4));
   if (key.startsWith("scripts/")) return join(root, "scripts", key.slice(8));
+  if (key.startsWith("kimi-hooks/")) return join(root, "kimi-hooks", key.slice(11));
+  if (key.startsWith("templates/")) return join(root, "templates", key.slice(10));
+  if (key.startsWith("agents-skill/")) {
+    return join(agentsSkillsRoot(), "kimi-toolchain", key.slice(13));
+  }
+  if (key.startsWith("kimi-skill/")) return join(skillsDir(), "kimi-toolchain", key.slice(11));
+  if ((ROOT_TEMPLATES as readonly string[]).includes(key)) return join(root, key);
   return null;
 }
 

@@ -7,11 +7,16 @@ import { sha256File } from "../src/lib/utils.ts";
 const REPO_ROOT = import.meta.dir + "/..";
 
 describe("sync-hashes", () => {
-  test("computeSyncHashes includes tools lib and scripts", async () => {
+  test("computeSyncHashes includes all sync-managed asset classes", async () => {
     const hashes = await computeSyncHashes(REPO_ROOT);
     expect(hashes["tools/kimi-doctor.ts"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["lib/utils.ts"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["scripts/lint-banned-terms.ts"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["kimi-hooks/log-tool-failure.ts"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["templates/scaffold/dx.config.toml"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["AGENTS.md"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["agents-skill/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["kimi-skill/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
   });
 
   test("computeSyncHashes is stable for unchanged files", async () => {

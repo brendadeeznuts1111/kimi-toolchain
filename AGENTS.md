@@ -330,6 +330,27 @@ The project follows strict Bun-native conventions. **Always prefer Bun APIs over
 - Prefer `for await...of` over `.on("data", ...)` for stream consumption.
 - Use `await proc.exited` to get exit code from `Bun.spawn`. Do not read `proc.exitCode` before the process finishes.
 
+### Tool Invocation & Logging Standards
+
+Use the shared tool runner and logger for cross-tool calls instead of open-coded subprocess/logging behavior.
+
+| Need                            | Use                                                | Avoid                                                     |
+| ------------------------------- | -------------------------------------------------- | --------------------------------------------------------- |
+| Invoke another toolchain CLI    | `invokeTool()` / `runTool()` from `tool-runner.ts` | Raw `Bun.spawn(["bun", "run", ...])` in feature code      |
+| Invoke from Effect code         | `invokeToolEffect()` / `runToolEffect()`           | Converting every error to an untyped string               |
+| Emit CLI status                 | `createLogger(Bun.argv, toolName)`                 | Raw `console.log` for doctor/check output                 |
+| Emit structured health results  | `logger.check()` / `logger.printHealthReport()`    | Ad hoc JSON shapes                                        |
+| Persist agent/session telemetry | `logger.flushToFile()`                             | Writing unrelated files under `~/.kimi-code/var/`         |
+| Long or noisy subprocess output | `maxOutputBytes` on `invokeTool()`                 | Unbounded `Bun.readableStreamToText(proc.stdout)` capture |
+| Child environment changes       | `env` overlay on `invokeTool()`                    | Mutating `Bun.env` for a subprocess                       |
+
+Runner defaults:
+
+- `invokeTool()` uses `Bun.cwd`, a 30s human timeout, a 15s agent/CI timeout, 5s SIGTERM-to-SIGKILL grace, and 1 MiB retained output per stream.
+- `stdoutTruncated` / `stderrTruncated` mark clipped output. Preserve those fields in higher-level reports when relevant.
+- If a command needs live streaming UX, keep the tool-runner contract and stream the returned output at the router boundary.
+- JSON mode must emit `schemaVersion`, `tool`, `level`, `message`, and `timestamp`; do not invent one-off machine-readable formats for new doctors.
+
 ### Process Cache (src/lib/process-utils.ts, src/lib/memory-budget.ts)
 
 Both modules share a lightweight TTL cache for `ps` output to avoid repeated system calls within the same doctor run:
@@ -378,9 +399,10 @@ When working on this codebase, agents should:
 
 **Before starting a long session:**
 
-1. Run `kimi-doctor --quick` to check memory pressure, orphan count, and loop-control config
-2. Run `kimi-orphan-kill --dry-run` if orphans detected
-3. Ensure R-Score is ≥ B (run `kimi-governance score`)
+1. Run `kimi-doctor --agent-ready` to check shell, PATH, official Kimi Code config, MCP config, and memory readiness
+2. Run `kimi-doctor --quick` when you need the broader diagnostics view
+3. Run `kimi-orphan-kill --dry-run` if orphans detected
+4. Ensure R-Score is ≥ B (run `kimi-governance score`)
 
 **During a session (step-budget discipline):**
 
@@ -412,9 +434,12 @@ When working on this codebase, agents should:
 
 **After finishing a session:**
 
-1. Run `bun run check` (full validation: format + lint + typecheck + all tests)
-2. Commit with conventional commit format
-3. Run `bun run sync` before push (pre-push hook enforces this)
+1. Run `kimi-githooks doctor`
+2. Run `bun run check:fast` during iteration, then `bun run check` before commit
+3. Run `kimi-doctor --agent-ready`
+4. Run `kimi-guardian check` and `kimi-governance score`
+5. Commit with conventional commit format
+6. Run `bun run sync` before push (pre-push hook enforces this)
 
 ### Step Budget Reference
 

@@ -46,6 +46,44 @@ describe("tool-runner", () => {
     rmSync(join(script, ".."), { recursive: true, force: true });
   });
 
+  test("invokeTool applies env overlay", async () => {
+    const script = tmpScript(`console.log(Bun.env.KIMI_TOOL_RUNNER_TEST_VALUE ?? "missing");`);
+    const result = await invokeTool(script, [], {
+      env: { KIMI_TOOL_RUNNER_TEST_VALUE: "from-env-overlay" },
+    });
+    expect(result.stdout).toContain("from-env-overlay");
+    rmSync(join(script, ".."), { recursive: true, force: true });
+  });
+
+  test("invokeTool truncates retained stdout and stderr", async () => {
+    const script = tmpScript(`
+      console.log("stdout-" + "x".repeat(128));
+      console.error("stderr-" + "y".repeat(128));
+    `);
+    const result = await invokeTool(script, [], { maxOutputBytes: 24 });
+    expect(result.maxOutputBytes).toBe(24);
+    expect(result.stdout.length).toBeLessThanOrEqual(24);
+    expect(result.stderr.length).toBeLessThanOrEqual(24);
+    expect(result.stdoutTruncated).toBe(true);
+    expect(result.stderrTruncated).toBe(true);
+    rmSync(join(script, ".."), { recursive: true, force: true });
+  });
+
+  test("invokeTool drains large output without blocking child exit", async () => {
+    const script = tmpScript(`
+      await Bun.write(Bun.stdout, "x".repeat(2_000_000));
+      await Bun.write(Bun.stderr, "y".repeat(2_000_000));
+    `);
+    const result = await invokeTool(script, [], { maxOutputBytes: 64, timeoutMs: 5000 });
+    expect(result.exitCode).toBe(0);
+    expect(result.isError).toBe(false);
+    expect(result.stdout.length).toBe(64);
+    expect(result.stderr.length).toBe(64);
+    expect(result.stdoutTruncated).toBe(true);
+    expect(result.stderrTruncated).toBe(true);
+    rmSync(join(script, ".."), { recursive: true, force: true });
+  });
+
   test(
     "invokeTool reports timeout",
     async () => {

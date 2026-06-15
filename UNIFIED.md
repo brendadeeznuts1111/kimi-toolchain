@@ -337,21 +337,26 @@ Our `~/.kimi-code/config.toml` previously contained fields not documented in the
 
 ### MCP servers (toolchain)
 
-Our `~/.kimi-code/mcp.json` registers 7 MCP servers. All are **HTTP** (remote) except `unified-shell` which is **stdio** (local). Per the official docs:
+Our default `~/.kimi-code/mcp.json` registers `unified-shell` plus `cloudflare-api`. Other official Cloudflare MCP endpoints can be added explicitly when a project needs docs, bindings, builds, or observability tools. Per the official docs:
 
 > "Only connect to servers from trusted sources."
 
-| Server                     | Type  | URL                                            | Trust basis                              |
-| -------------------------- | ----- | ---------------------------------------------- | ---------------------------------------- |
-| `unified-shell`            | stdio | Local Bun script                               | First-party toolchain code               |
-| `cloudflare`               | HTTP  | `https://mcp.cloudflare.com/mcp`               | Official Cloudflare MCP (Cloudflare org) |
-| `cloudflare-docs`          | HTTP  | `https://docs.mcp.cloudflare.com/mcp`          | Official Cloudflare MCP                  |
-| `cloudflare-bindings`      | HTTP  | `https://bindings.mcp.cloudflare.com/mcp`      | Official Cloudflare MCP                  |
-| `cloudflare-builds`        | HTTP  | `https://builds.mcp.cloudflare.com/mcp`        | Official Cloudflare MCP                  |
-| `cloudflare-observability` | HTTP  | `https://observability.mcp.cloudflare.com/mcp` | Official Cloudflare MCP                  |
-| `cloudflare-api`           | HTTP  | `https://mcp.cloudflare.com/mcp`               | Official Cloudflare MCP (Code Mode)      |
+| Server           | Type  | URL                              | Provisioned by default | Trust basis                         |
+| ---------------- | ----- | -------------------------------- | ---------------------- | ----------------------------------- |
+| `unified-shell`  | stdio | Local Bun script                 | Yes                    | First-party toolchain code          |
+| `cloudflare-api` | HTTP  | `https://mcp.cloudflare.com/mcp` | Yes                    | Official Cloudflare MCP (Code Mode) |
 
-All Cloudflare servers use `https://*.mcp.cloudflare.com` — a Cloudflare-controlled subdomain. No third-party or unverified servers are registered. `startupTimeoutMs` and `toolTimeoutMs` are set to `30000` on all entries.
+Optional Cloudflare MCP endpoints, all under Cloudflare-controlled domains:
+
+| Server                     | Type | URL                                            | Use when                                  |
+| -------------------------- | ---- | ---------------------------------------------- | ----------------------------------------- |
+| `cloudflare`               | HTTP | `https://mcp.cloudflare.com/mcp`               | General Cloudflare account/resource tools |
+| `cloudflare-docs`          | HTTP | `https://docs.mcp.cloudflare.com/mcp`          | Current Cloudflare documentation          |
+| `cloudflare-bindings`      | HTTP | `https://bindings.mcp.cloudflare.com/mcp`      | Worker binding discovery                  |
+| `cloudflare-builds`        | HTTP | `https://builds.mcp.cloudflare.com/mcp`        | Build/deploy workflows                    |
+| `cloudflare-observability` | HTTP | `https://observability.mcp.cloudflare.com/mcp` | Logs, traces, and runtime observability   |
+
+Cloudflare MCP SSO/OAuth, Wrangler OAuth, and `kimi-cloudflare-access` API tokens are separate auth paths. Do not assume one login satisfies the others.
 
 ### `thinking`
 

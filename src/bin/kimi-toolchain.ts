@@ -28,7 +28,7 @@ const TOOLS_DIR = toolsDir();
 /** Spawn a tool script with timeout + step-budget, streaming output live. */
 async function spawnTool(script: string, args: string[], timeoutMs?: number): Promise<number> {
   const result = await invokeTool(script, args, {
-    cwd: process.cwd(),
+    cwd: Bun.cwd,
     timeoutMs: timeoutMs ?? defaultToolTimeoutMs(),
   });
   if (result.stdout) process.stdout.write(result.stdout);

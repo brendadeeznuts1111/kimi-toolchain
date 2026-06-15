@@ -17,7 +17,16 @@ export interface ScaffoldAlignmentReport {
   checks: ScaffoldCheck[];
 }
 
-const AGENTS_MARKERS = ["Kimi Code", "kimi-governance", "kimi-doctor"] as const;
+const AGENTS_MARKERS = [
+  "Kimi Code",
+  "/Users/nolarose/.config/dx/AGENTS.md",
+  "dx mcp-status",
+  "Cloudflare SSO/OAuth is separate",
+  "kimi-doctor --agent-ready",
+  "kimi-githooks doctor",
+  "bun run check",
+  "kimi-governance",
+] as const;
 
 export async function hasKimiPreflight(projectDir: string): Promise<boolean> {
   const path = join(projectDir, "dx.config.toml");

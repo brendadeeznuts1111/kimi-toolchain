@@ -40,14 +40,18 @@ kimi-cloudflare-access doctor
 # Policy-as-Code plan (dry-run)
 kimi-cloudflare-access plan
 
-# Policy-as-Code apply
+# Policy-as-Code apply (mutates Access apps/policies)
 kimi-cloudflare-access apply
 ```
+
+Run `plan` before every `apply`. Agents must show the planned app/policy diff and get explicit user confirmation before running `apply`.
 
 ## Auth
 
 1. `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` env vars (CI override)
 2. OS keychain via `Bun.secrets` (set with `kimi-cloudflare-access login`)
+
+Cloudflare MCP SSO/OAuth, Wrangler OAuth, and this CLI's API token path are separate. A successful MCP or Wrangler login does not satisfy `kimi-cloudflare-access` unless the account id and API token are also available.
 
 Create an API token at https://dash.cloudflare.com/profile/api-tokens with:
 

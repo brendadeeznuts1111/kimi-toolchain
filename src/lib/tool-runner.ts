@@ -15,6 +15,7 @@ import { classifyAndSuggest } from "./error-taxonomy.ts";
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 const AGENT_TOOL_TIMEOUT_MS = 15_000;
 const DEFAULT_GRACE_PERIOD_MS = 5_000;
+const DEFAULT_MAX_OUTPUT_BYTES = 1_048_576;
 
 /** Detect if running inside an agent session (Kimi Code loop, CI, etc.). */
 export function isAgentContext(): boolean {
@@ -34,6 +35,10 @@ export function defaultToolTimeoutMs(): number {
 export interface ToolInvocationOptions {
   cwd?: string;
   timeoutMs?: number;
+  /** Environment overlay for the child process. Undefined values remove keys. */
+  env?: Record<string, string | undefined>;
+  /** Maximum bytes retained separately for stdout and stderr. Default 1 MiB. */
+  maxOutputBytes?: number;
   /** Milliseconds to wait after SIGTERM before SIGKILL. Default 5000. */
   gracePeriodMs?: number;
 }
@@ -46,6 +51,9 @@ export interface ToolInvocation {
   exitCode: number;
   stdout: string;
   stderr: string;
+  maxOutputBytes: number;
+  stdoutTruncated?: boolean;
+  stderrTruncated?: boolean;
   error?: string;
   durationMs: number;
   isError: boolean;
@@ -59,6 +67,61 @@ export function toolsDir(): string {
   return join(desktopRoot(), "tools");
 }
 
+function mergedEnv(env?: Record<string, string | undefined>): Record<string, string> | undefined {
+  if (!env) return undefined;
+  const merged: Record<string, string> = {};
+  for (const [key, value] of Object.entries(Bun.env)) {
+    if (value !== undefined) merged[key] = value;
+  }
+  for (const [key, value] of Object.entries(env)) {
+    if (value === undefined) delete merged[key];
+    else merged[key] = value;
+  }
+  return merged;
+}
+
+async function streamToLimitedText(
+  stream: ReadableStream<Uint8Array> | null,
+  maxBytes: number
+): Promise<{ text: string; truncated: boolean }> {
+  if (!stream) return { text: "", truncated: false };
+
+  const limit = Math.max(0, maxBytes);
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let retainedBytes = 0;
+  let truncated = false;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+
+    const remaining = limit - retainedBytes;
+    if (remaining > 0) {
+      if (value.byteLength <= remaining) {
+        chunks.push(value);
+        retainedBytes += value.byteLength;
+      } else {
+        chunks.push(value.slice(0, remaining));
+        retainedBytes += remaining;
+        truncated = true;
+      }
+    } else if (value.byteLength > 0) {
+      truncated = true;
+    }
+  }
+
+  const retained = new Uint8Array(retainedBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    retained.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return { text: new TextDecoder().decode(retained), truncated };
+}
+
 /** Invoke a tool script directly by path with timeout and graceful termination. */
 export async function invokeTool(
   toolPath: string,
@@ -68,13 +131,17 @@ export async function invokeTool(
   const cwd = options.cwd || Bun.cwd;
   const timeoutMs = options.timeoutMs ?? defaultToolTimeoutMs();
   const gracePeriodMs = options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
+  const maxOutputBytes = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
   const start = performance.now();
 
   const proc = Bun.spawn(["bun", "run", toolPath, ...args], {
     cwd,
+    env: mergedEnv(options.env),
     stdout: "pipe",
     stderr: "pipe",
   });
+  const stdoutPromise = streamToLimitedText(proc.stdout, maxOutputBytes);
+  const stderrPromise = streamToLimitedText(proc.stderr, maxOutputBytes);
 
   let timedOut = false;
   let sigkillTimer: ReturnType<typeof setTimeout> | null = null;
@@ -95,6 +162,8 @@ export async function invokeTool(
   let exitCode = 0;
   let stdout = "";
   let stderr = "";
+  let stdoutTruncated = false;
+  let stderrTruncated = false;
   let error: string | undefined;
 
   try {
@@ -106,8 +175,11 @@ export async function invokeTool(
   }
 
   try {
-    stdout = await Bun.readableStreamToText(proc.stdout);
-    stderr = await Bun.readableStreamToText(proc.stderr);
+    const [stdoutResult, stderrResult] = await Promise.all([stdoutPromise, stderrPromise]);
+    stdout = stdoutResult.text;
+    stderr = stderrResult.text;
+    stdoutTruncated = stdoutResult.truncated;
+    stderrTruncated = stderrResult.truncated;
   } catch (e: unknown) {
     if (!error) error = e instanceof Error ? e.message : String(e);
   }
@@ -128,6 +200,9 @@ export async function invokeTool(
     exitCode,
     stdout,
     stderr,
+    maxOutputBytes,
+    ...(stdoutTruncated ? { stdoutTruncated } : {}),
+    ...(stderrTruncated ? { stderrTruncated } : {}),
     error,
     durationMs,
     isError: exitCode !== 0 || !!error,

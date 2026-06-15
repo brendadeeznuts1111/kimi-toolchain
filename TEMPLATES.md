@@ -335,6 +335,12 @@ One-line description of what this does.
 - Prefer Bun-native APIs: `Bun.file`, `Bun.serve`, `Bun.hash`, `Bun.sleep`
 - No Node APIs unless Bun lacks equivalent (see `~/.kimi-code/AGENTS.md` for full table)
 
+## Global DX First
+
+- Read `/Users/nolarose/.config/dx/AGENTS.md` before project-local setup
+- Start with `dx context`, `dx config`, `dx mcp-status`, and `dx mcp-doctor`
+- Use `dx package` after dependency changes, then rerun Kimi guardian/governance gates
+
 ## Formatting & lint
 
 - **oxfmt** — `.oxfmtrc.json`, `bun run format` / `bun run format:check`
@@ -351,6 +357,7 @@ One-line description of what this does.
 - Use `Bun.cwd` not `process.cwd()`
 - Use `Bun.argv` not `process.argv`
 - Use `Uint8Array` not `Buffer`
+- Prefer shared tool/logging helpers from `~/.kimi-code/AGENTS.md` over raw subprocess and console patterns
 
 ## Commands
 
@@ -367,6 +374,10 @@ kimi-fix .            # Auto-fix scaffolding
 ## Quality Gates
 
 ```bash
+kimi-doctor --agent-ready
+kimi-githooks doctor
+bun run check:fast
+bun run check
 kimi-guardian check
 kimi-governance score
 kimi-context-gen scan
@@ -377,6 +388,7 @@ kimi-doctor --quick
 ## Kimi Code
 
 - User MCP: `~/.kimi-code/mcp.json` (unified-shell from toolchain sync)
+- Cloudflare MCP default: `cloudflare-api` in user MCP; Cloudflare SSO/OAuth is separate from Wrangler OAuth and `kimi-cloudflare-access` API tokens
 - Project override: `.kimi-code/mcp.json` (empty stub unless you add stdio servers)
 - Skills: `.kimi-code/skills/<name>/SKILL.md`
 
@@ -433,38 +445,37 @@ jobs:
         run: bun run test:coverage:ci
 ```
 
-## TypeScript Function Template (Bun-Native)
+## Tool Invocation Template (Bun-Native)
 
 ```typescript
-import { $ } from "bun";
+import { invokeTool } from "./src/lib/tool-runner.ts";
 
 interface Result {
   stdout: string;
   stderr: string;
   exitCode: number;
+  stdoutTruncated?: boolean;
+  stderrTruncated?: boolean;
 }
 
-export async function runCommand(
-  cmd: string[],
+export async function runToolchainCommand(
+  toolPath: string,
+  args: string[],
   options: { cwd?: string; timeoutMs?: number } = {}
 ): Promise<Result> {
-  const proc = Bun.spawn(cmd, {
-    cwd: options.cwd || Bun.cwd,
-    stdout: "pipe",
-    stderr: "pipe",
+  const result = await invokeTool(toolPath, args, {
+    cwd: options.cwd ?? Bun.cwd,
+    timeoutMs: options.timeoutMs,
+    maxOutputBytes: 1_048_576,
   });
 
-  const timeout = options.timeoutMs
-    ? setTimeout(() => proc.kill("SIGTERM"), options.timeoutMs)
-    : null;
-
-  const exitCode = await proc.exited;
-  if (timeout) clearTimeout(timeout);
-
-  const stdout = await new Response(proc.stdout).text();
-  const stderr = await new Response(proc.stderr).text();
-
-  return { stdout, stderr, exitCode };
+  return {
+    stdout: result.stdout,
+    stderr: result.stderr,
+    exitCode: result.exitCode,
+    stdoutTruncated: result.stdoutTruncated,
+    stderrTruncated: result.stderrTruncated,
+  };
 }
 ```
 
