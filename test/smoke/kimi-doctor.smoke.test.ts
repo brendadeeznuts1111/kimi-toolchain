@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { invokeTool } from "../../src/lib/tool-runner.ts";
 
@@ -9,6 +10,7 @@ const GOVERNOR = join(REPO_ROOT, "src/bin/kimi-resource-governor.ts");
 const GOVERNANCE = join(REPO_ROOT, "src/bin/kimi-governance.ts");
 const GITHOOKS = join(REPO_ROOT, "src/bin/kimi-githooks.ts");
 const GUARDIAN = join(REPO_ROOT, "src/bin/kimi-guardian.ts");
+const DEBUG = join(REPO_ROOT, "src/bin/kimi-debug.ts");
 const KIMI_NEW = join(REPO_ROOT, "src/bin/kimi-new.ts");
 const KIMI_FIX = join(REPO_ROOT, "src/bin/kimi-fix.ts");
 const CLOUDFLARE_ACCESS = join(REPO_ROOT, "src/bin/kimi-cloudflare-access.ts");
@@ -131,6 +133,43 @@ describe("kimi-doctor smoke", () => {
     expect(typeof report.ledger.total).toBe("number");
     expect(report.summary.ok).toBe(true);
     expect(exitCode).toBe(0);
+  }, 15_000);
+
+  test("kimi-debug ledger --json emits sanitized unknown buckets", async () => {
+    const dir = join(REPO_ROOT, `.tmp-debug-ledger-${Date.now()}`);
+    const ledgerPath = join(dir, "tool-failures.jsonl");
+    mkdirSync(dir, { recursive: true });
+    await Bun.write(
+      ledgerPath,
+      [
+        JSON.stringify({
+          taxonomyId: "unknown",
+          toolName: "Edit",
+          output: "raw failure text that should not leak",
+          timestamp: "2026-06-15T01:00:00.000Z",
+        }),
+        "not-json",
+      ].join("\n")
+    );
+
+    const { stdout, exitCode } = await runTool(DEBUG, ["ledger", ledgerPath, "--json"]);
+    const report = JSON.parse(stdout.trim()) as {
+      schemaVersion: number;
+      tool: string;
+      summary: {
+        total: number;
+        unclassified: number;
+        unknownBuckets: Array<{ fingerprint: string; count: number; toolNames: string[] }>;
+      };
+    };
+    expect(report.schemaVersion).toBe(1);
+    expect(report.tool).toBe("kimi-debug");
+    expect(report.summary.total).toBe(2);
+    expect(report.summary.unclassified).toBe(2);
+    expect(report.summary.unknownBuckets).toHaveLength(2);
+    expect(JSON.stringify(report)).not.toContain("raw failure text");
+    expect(exitCode).toBe(0);
+    rmSync(dir, { recursive: true, force: true });
   }, 15_000);
 
   test("check script uses check.ts runner", async () => {

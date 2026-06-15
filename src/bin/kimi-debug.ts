@@ -32,6 +32,7 @@ import {
   formatTaxonomyConstantHint,
   loadFailureCountsByTaxonomy,
 } from "../lib/taxonomy-constants.ts";
+import { readFailureLedgerSummary } from "../lib/success-metrics.ts";
 
 const logger = createLogger(Bun.argv, "kimi-debug");
 
@@ -52,7 +53,7 @@ interface SessionEvent {
 
 // ── Config ───────────────────────────────────────────────────────────
 
-import { varDir, wizardDir } from "../lib/paths.ts";
+import { failureLedgerPath, varDir, wizardDir } from "../lib/paths.ts";
 
 const MEMORY_DB = join(varDir(), "sessions.db");
 const WIZARD_DIR = wizardDir();
@@ -266,7 +267,7 @@ async function printTaxonomy() {
 async function printErrorCluster(projectDir: string) {
   const taxonomy = await loadTaxonomy(join(projectDir, "error-taxonomy.yml"));
   const links = await buildTaxonomyConstantLinks(projectDir);
-  const ledgerPath = join(homeDir(), ".kimi-code", "var", "tool-failures.jsonl");
+  const ledgerPath = failureLedgerPath();
   const ledgerCounts = await loadFailureCountsByTaxonomy(ledgerPath);
 
   logger.section("Error Cluster — Taxonomy × Constants");
@@ -294,6 +295,54 @@ async function printErrorCluster(projectDir: string) {
     }
   }
 
+  return 0;
+}
+
+async function printFailureLedger(path?: string) {
+  const summary = await readFailureLedgerSummary(path || failureLedgerPath());
+
+  if (Bun.argv.includes("--json")) {
+    Bun.stdout.write(JSON.stringify({ schemaVersion: 1, tool: "kimi-debug", summary }));
+    return 0;
+  }
+
+  logger.section("Failure Ledger");
+  logger.info(`File: ${summary.path}`);
+  if (!summary.present) {
+    logger.warn("No failure ledger found");
+    return 0;
+  }
+
+  logger.info(`Total failures: ${summary.total}`);
+  logger.info(`Unclassified:   ${summary.unclassified}`);
+  logger.info(`Review:         ${summary.reviewCommand}`);
+
+  const counts = Object.entries(summary.taxonomyCounts).sort((a, b) => b[1] - a[1]);
+  if (counts.length > 0) {
+    logger.info("By taxonomy:");
+    for (const [taxonomyId, count] of counts.slice(0, 12)) {
+      logger.line(`    ${taxonomyId}: ${count}`);
+    }
+  }
+
+  if (summary.unknownBuckets.length === 0) {
+    logger.info("Unknown buckets: none");
+    return 0;
+  }
+
+  logger.info("Unknown buckets:");
+  for (const bucket of summary.unknownBuckets.slice(0, 10)) {
+    const seen =
+      bucket.firstSeen && bucket.lastSeen
+        ? ` first=${bucket.firstSeen} last=${bucket.lastSeen}`
+        : "";
+    logger.line(
+      `    ${bucket.fingerprint}: count=${bucket.count} tools=${bucket.toolNames.join(",")}${seen}`
+    );
+  }
+  if (summary.unknownAction) {
+    logger.info(summary.unknownAction);
+  }
   return 0;
 }
 
@@ -643,6 +692,8 @@ async function main(): Promise<number> {
     await printTaxonomy();
   } else if (command === "cluster") {
     return await printErrorCluster(projectDir);
+  } else if (command === "ledger") {
+    return await printFailureLedger(args.find((arg, index) => index > 0 && !arg.startsWith("-")));
   } else if (command === "classify") {
     const errorText = args.slice(1).join(" ") || "";
     if (!errorText) {
@@ -667,6 +718,7 @@ async function main(): Promise<number> {
     logger.line("  classify <error-text>   Classify error text against taxonomy");
     logger.line("  taxonomy                List error taxonomy categories");
     logger.line("  cluster                 Group taxonomy failures with related define constants");
+    logger.line("  ledger [path] [--json]  Review failure ledger taxonomy and unknown buckets");
     logger.line("  wire [path]             Analyze a Kimi Code wire.jsonl for failures");
     logger.line("  doctor                  Check debug wizard health");
     logger.line("  fix <error-text>        Suggest auto-fixes for error");
