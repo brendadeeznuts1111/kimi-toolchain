@@ -145,6 +145,14 @@ export interface RationaleContext {
   capabilityDetail?: string;
 }
 
+export interface RecentDecisionFilter {
+  sinceMs?: number;
+  nowMs?: number;
+  type?: string;
+  constantKey?: string;
+  limit?: number;
+}
+
 function isDecision(value: unknown): value is Decision {
   return (
     !!value &&
@@ -708,20 +716,83 @@ export function decisionTouchesConstant(decision: Decision, constantKey: string)
   return Array.isArray(restored) && restored.includes(constantKey);
 }
 
+export function filterRecentDecisions(
+  decisions: Decision[],
+  options: RecentDecisionFilter = {}
+): Decision[] {
+  const nowMs = options.nowMs ?? Date.now();
+  const sinceMs = options.sinceMs ?? 0;
+  const matches = decisions
+    .filter((decision) => {
+      const ts = new Date(decision.timestamp).getTime();
+      if (ts < sinceMs || ts > nowMs) return false;
+      if (options.type && decision.metadata?.type !== options.type) return false;
+      if (options.constantKey && !decisionTouchesConstant(decision, options.constantKey)) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  return matches.slice(0, options.limit ?? matches.length);
+}
+
 export function filterDecisionsByConstant(
   decisions: Decision[],
   constantKey: string,
   options: { sinceMs?: number; nowMs?: number } = {}
 ): Decision[] {
-  const nowMs = options.nowMs ?? Date.now();
-  const sinceMs = options.sinceMs ?? 0;
-  return decisions
-    .filter((decision) => {
-      if (!decisionTouchesConstant(decision, constantKey)) return false;
-      const ts = new Date(decision.timestamp).getTime();
-      return ts >= sinceMs && ts <= nowMs;
+  return filterRecentDecisions(decisions, { ...options, constantKey });
+}
+
+function compactValue(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return JSON.stringify(value);
+}
+
+function compactRepairPath(decision: Decision): string | undefined {
+  const diff = decision.metadata?.diff;
+  if (!diff || typeof diff !== "object") return undefined;
+  const invalidKeys = (diff as { invalidKeys?: unknown }).invalidKeys;
+  if (!Array.isArray(invalidKeys) || invalidKeys.length === 0) return undefined;
+
+  const parts = invalidKeys
+    .filter(
+      (item): item is { key?: unknown; expected?: unknown; actual?: unknown } =>
+        !!item && typeof item === "object"
+    )
+    .map((item) => {
+      const expected = compactValue(item.expected);
+      const actual = compactValue(item.actual);
+      if (!expected && !actual) return "";
+      return expected && actual ? `${expected}->${actual}->${expected}` : `${actual}->${expected}`;
     })
-    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    .filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : undefined;
+}
+
+function compactDecisionTarget(decision: Decision): string {
+  const constantKey = decision.metadata?.constantKey;
+  if (typeof constantKey === "string") return constantKey;
+  const restored = decision.metadata?.restoredKeys;
+  if (Array.isArray(restored)) {
+    return restored.filter((key): key is string => typeof key === "string").join(",");
+  }
+  return decision.trigger.capabilityItem ?? decision.trigger.clusterId ?? decision.trigger.traceId;
+}
+
+export function formatDecisionCompact(decision: Decision): string {
+  const type = String(decision.metadata?.type ?? decision.action);
+  const target = compactDecisionTarget(decision);
+  const repair = compactRepairPath(decision);
+  const golden = decision.metadata?.goldenVersion
+    ? `golden v${String(decision.metadata.goldenVersion)}`
+    : undefined;
+  return [decision.decisionId, decision.timestamp.slice(0, 10), type, target, repair, golden]
+    .filter((part) => part !== undefined && part !== "")
+    .join(" | ");
 }
 
 export interface DecisionDiffField {

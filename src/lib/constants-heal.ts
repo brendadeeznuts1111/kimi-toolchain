@@ -12,8 +12,15 @@ import {
 } from "./build-constants-registry.ts";
 import { logDecision, updateDecisionOutcome } from "./decision-ledger.ts";
 import { ensureProcessTrace } from "./effect/trace-context.ts";
-import { constantsGoldenPath, constantsGoldenArchiveDir } from "./paths.ts";
-import { ensureDir } from "./utils.ts";
+import { constantsGoldenPath, constantsGoldenArchiveDir, failureLedgerPath } from "./paths.ts";
+import { ensureDir, sha256String } from "./utils.ts";
+import {
+  loadConstantSchemas,
+  validateConstant,
+  type ConstantValidationIssue,
+} from "./constants-registry.ts";
+import { buildBoundConstantIndex } from "./taxonomy-constants.ts";
+import { readFailureTraceRecords } from "./trace-ledger.ts";
 
 export const GOLDEN_SCHEMA_VERSION = "1.0.0";
 
@@ -27,6 +34,7 @@ export interface ConstantsGolden {
   schemaVersion: string;
   tuningSetVersion: string;
   capturedAt: string;
+  message?: string;
   constants: Record<string, GoldenConstant>;
 }
 
@@ -64,6 +72,7 @@ export function parseConstantsGolden(raw: unknown): ConstantsGolden | null {
       typeof record.tuningSetVersion === "string" ? record.tuningSetVersion : "0.0.0",
     capturedAt:
       typeof record.capturedAt === "string" ? record.capturedAt : new Date().toISOString(),
+    message: typeof record.message === "string" ? record.message : undefined,
     constants: parsedConstants,
   };
 }
@@ -83,6 +92,8 @@ export interface ConstantRepairPlan {
   goldenPath: string;
   goldenVersion: string;
   diff: ConstantRepairDiff;
+  validationIssues: ConstantValidationIssue[];
+  goldenValidationIssues: ConstantValidationIssue[];
   repairCount: number;
   canRepair: boolean;
 }
@@ -93,7 +104,17 @@ export interface ConstantRepairResult {
   plan: ConstantRepairPlan;
   decisionId?: string;
   repairedBunfig?: string;
+  duplicateDecisionId?: string;
+  impact?: ConstantRepairImpact[];
   detail: string;
+}
+
+export interface ConstantRepairImpact {
+  key: string;
+  boundTaxonomies: string[];
+  servicesAffected: string[];
+  activeFailures: number;
+  estimatedRisk: "low" | "medium" | "high";
 }
 
 const DEFINE_KEY = /^([A-Z][A-Z0-9_]*) = /;
@@ -188,7 +209,10 @@ export async function restoreGoldenFromArchive(
   return golden;
 }
 
-export async function captureConstantsGolden(projectRoot: string): Promise<ConstantsGolden> {
+export async function captureConstantsGolden(
+  projectRoot: string,
+  options: { message?: string } = {}
+): Promise<ConstantsGolden> {
   const defines = parseBunfigDefines(await Bun.file(join(projectRoot, "bunfig.toml")).text());
   const constants: Record<string, GoldenConstant> = {};
 
@@ -205,16 +229,20 @@ export async function captureConstantsGolden(projectRoot: string): Promise<Const
     schemaVersion: GOLDEN_SCHEMA_VERSION,
     tuningSetVersion: typeof tuning === "string" ? tuning : "0.0.0",
     capturedAt: new Date().toISOString(),
+    message: options.message,
     constants,
   };
 }
 
 export async function writeConstantsGolden(
   projectRoot: string,
-  golden?: ConstantsGolden
+  golden?: ConstantsGolden,
+  options: { message?: string } = {}
 ): Promise<ConstantsGolden> {
   await archiveCurrentGolden(projectRoot);
-  const snapshot = golden ?? (await captureConstantsGolden(projectRoot));
+  const snapshot = golden
+    ? { ...golden, message: options.message ?? golden.message }
+    : await captureConstantsGolden(projectRoot, options);
   const path = constantsGoldenPath(projectRoot);
   ensureDir(join(projectRoot, ".kimi", "var"));
   await Bun.write(path, `${JSON.stringify(snapshot, null, 2)}\n`);
@@ -266,19 +294,37 @@ export async function buildConstantRepairPlan(projectRoot: string): Promise<Cons
       goldenPath,
       goldenVersion: "missing",
       diff: { missingKeys: [], invalidKeys: [] },
+      validationIssues: [],
+      goldenValidationIssues: [],
       repairCount: 0,
       canRepair: false,
     };
   }
 
   const current = await loadRepoDefineMap(projectRoot);
+  const schemas = await loadConstantSchemas(projectRoot);
   const diff = diffAgainstGolden(current, golden);
+  const validationIssues: ConstantValidationIssue[] = [];
+  const goldenValidationIssues: ConstantValidationIssue[] = [];
+
+  for (const [key, entry] of current) {
+    const issue = validateConstant(key, entry.value, schemas.get(key));
+    if (issue) validationIssues.push(issue);
+  }
+
+  for (const [key, entry] of Object.entries(golden.constants)) {
+    const issue = validateConstant(key, entry.value, schemas.get(key));
+    if (issue) goldenValidationIssues.push(issue);
+  }
+
   const repairCount = diff.missingKeys.length + diff.invalidKeys.length;
 
   return {
     goldenPath,
     goldenVersion: golden.tuningSetVersion,
     diff,
+    validationIssues,
+    goldenValidationIssues,
     repairCount,
     canRepair: repairCount > 0,
   };
@@ -344,12 +390,139 @@ export function applyDefineRepairs(
   return lines.join("\n");
 }
 
+export function repairHashesForDiff(diff: ConstantRepairDiff): string[] {
+  const hashes: string[] = [];
+  for (const key of diff.missingKeys) {
+    hashes.push(sha256String(`${key}:(missing):restore`).slice(0, 16));
+  }
+  for (const invalid of diff.invalidKeys) {
+    hashes.push(
+      sha256String(`${invalid.key}:${String(invalid.actual)}:${String(invalid.expected)}`).slice(
+        0,
+        16
+      )
+    );
+  }
+  return hashes.sort();
+}
+
+async function findDuplicateRepairDecision(options: {
+  projectRoot: string;
+  repairHashes: string[];
+  nowMs?: number;
+  windowMs?: number;
+}): Promise<string | undefined> {
+  if (options.repairHashes.length === 0) return undefined;
+  const { readDecisions } = await import("./decision-ledger.ts");
+  const nowMs = options.nowMs ?? Date.now();
+  const sinceMs = nowMs - (options.windowMs ?? 60 * 60 * 1000);
+  const wanted = options.repairHashes.join(",");
+
+  for (const decision of (await readDecisions(options.projectRoot)).sort((a, b) =>
+    b.timestamp.localeCompare(a.timestamp)
+  )) {
+    if (decision.metadata?.type !== "constant-repair") continue;
+    const ts = new Date(decision.timestamp).getTime();
+    if (ts < sinceMs || ts > nowMs) continue;
+    const hashes = decision.metadata?.repairHashes;
+    if (!Array.isArray(hashes)) continue;
+    const actual = hashes.filter((hash): hash is string => typeof hash === "string").sort();
+    if (actual.join(",") === wanted) return decision.decisionId;
+  }
+
+  return undefined;
+}
+
+function taxonomyIdForFailure(record: { taxonomyId?: string; categoryId?: string }): string {
+  return record.taxonomyId || record.categoryId || "unknown";
+}
+
+export async function buildConstantRepairImpact(
+  projectRoot: string,
+  diff: ConstantRepairDiff,
+  options: { nowMs?: number; windowMs?: number; failurePath?: string } = {}
+): Promise<ConstantRepairImpact[]> {
+  const keys = [...diff.missingKeys, ...diff.invalidKeys.map((item) => item.key)].sort();
+  if (keys.length === 0) return [];
+
+  const boundIndex = await buildBoundConstantIndex(projectRoot);
+  const failures = await readFailureTraceRecords(options.failurePath ?? failureLedgerPath());
+  const nowMs = options.nowMs ?? Date.now();
+  const sinceMs = nowMs - (options.windowMs ?? 24 * 60 * 60 * 1000);
+
+  return keys.map((key) => {
+    const boundTaxonomies = boundIndex.get(key) ?? [];
+    const taxonomySet = new Set(boundTaxonomies);
+    const active = failures.filter((failure) => {
+      const ts = failure.timestamp ? new Date(failure.timestamp).getTime() : 0;
+      return ts >= sinceMs && ts <= nowMs && taxonomySet.has(taxonomyIdForFailure(failure));
+    });
+    const servicesAffected = [
+      ...new Set(
+        active.map((failure) => failure.toolName).filter((tool): tool is string => !!tool)
+      ),
+    ].sort();
+    const estimatedRisk = active.length === 0 ? "low" : active.length <= 2 ? "medium" : "high";
+    return {
+      key,
+      boundTaxonomies,
+      servicesAffected,
+      activeFailures: active.length,
+      estimatedRisk,
+    };
+  });
+}
+
+export async function acceptConstantsDrift(options: {
+  projectRoot: string;
+  traceId?: string;
+  message?: string;
+}): Promise<{ golden: ConstantsGolden; decisionId: string; detail: string }> {
+  const traceId = options.traceId ?? ensureProcessTrace().traceId;
+  const golden = await writeConstantsGolden(options.projectRoot, undefined, {
+    message: options.message,
+  });
+  const decision = await logDecision(
+    {
+      action: "config-change",
+      trigger: { traceId },
+      metadata: {
+        type: "constant-drift-accept",
+        goldenVersion: golden.tuningSetVersion,
+        message: options.message,
+        capturedKeys: Object.keys(golden.constants).sort(),
+      },
+      rationaleOverride: {
+        summary: `Accepted current define constants as golden v${golden.tuningSetVersion}`,
+        fullReasoning: options.message
+          ? `Captured current bunfig.toml [define] values as the new golden template: ${options.message}.`
+          : "Captured current bunfig.toml [define] values as the new golden template.",
+        evidence: [{ type: "contractDiff", detail: `goldenVersion=${golden.tuningSetVersion}` }],
+      },
+      outcome: { result: "success", verifiedAt: new Date().toISOString() },
+    },
+    { projectRoot: options.projectRoot }
+  );
+  return {
+    golden,
+    decisionId: decision.decisionId,
+    detail: `accepted current [define] constants as golden v${golden.tuningSetVersion}`,
+  };
+}
+
 export async function repairConstants(options: {
   projectRoot: string;
   dryRun?: boolean;
   traceId?: string;
+  includeImpact?: boolean;
 }): Promise<ConstantRepairResult> {
   const plan = await buildConstantRepairPlan(options.projectRoot);
+  if (plan.goldenValidationIssues.length > 0) {
+    const issue = plan.goldenValidationIssues[0]!;
+    throw new Error(
+      `Invalid golden constant ${issue.key}: ${issue.reason} (value=${String(issue.value)})`
+    );
+  }
   if (!plan.canRepair) {
     if (plan.goldenVersion === "missing") {
       return {
@@ -373,6 +546,10 @@ export async function repairConstants(options: {
   const repairedBunfig = applyDefineRepairs(bunfigText, golden, plan.diff);
   const restoredKeys = [...plan.diff.missingKeys, ...plan.diff.invalidKeys.map((item) => item.key)];
   const traceId = options.traceId ?? ensureProcessTrace().traceId;
+  const repairHashes = repairHashesForDiff(plan.diff);
+  const impact = options.includeImpact
+    ? await buildConstantRepairImpact(options.projectRoot, plan.diff)
+    : undefined;
 
   if (options.dryRun) {
     return {
@@ -380,11 +557,28 @@ export async function repairConstants(options: {
       dryRun: true,
       plan,
       repairedBunfig,
+      impact,
       detail: `dry-run: would restore ${restoredKeys.length} key(s): ${restoredKeys.join(", ")}`,
     };
   }
 
   await Bun.write(bunfigPath, repairedBunfig);
+  const duplicateDecisionId = await findDuplicateRepairDecision({
+    projectRoot: options.projectRoot,
+    repairHashes,
+  });
+  if (duplicateDecisionId) {
+    return {
+      applied: true,
+      dryRun: false,
+      plan,
+      duplicateDecisionId,
+      repairedBunfig,
+      impact,
+      detail: `restored ${restoredKeys.length} key(s); duplicate decision suppressed (${duplicateDecisionId})`,
+    };
+  }
+
   const decision = await logDecision(
     {
       action: "config-change",
@@ -394,6 +588,7 @@ export async function repairConstants(options: {
         playbookId: "constant-repair",
         goldenVersion: golden.tuningSetVersion,
         restoredKeys,
+        repairHashes,
         diff: plan.diff,
       },
       rationaleOverride: {
@@ -430,6 +625,7 @@ export async function repairConstants(options: {
     plan,
     decisionId: decision.decisionId,
     repairedBunfig,
+    impact,
     detail: `restored ${restoredKeys.length} key(s); decision ${decision.decisionId}`,
   };
 }

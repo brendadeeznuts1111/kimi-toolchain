@@ -290,6 +290,38 @@ smoke = "bun run test:smoke"
 [github.ci.governance]
 rScore = "bun run governance score --min 60"
 
+[cloudflare]
+mode = "read-only"
+accountIdEnv = "CLOUDFLARE_ACCOUNT_ID"
+apiTokenEnv = "CLOUDFLARE_API_TOKEN"
+
+[cloudflare.dashboard]
+enabled = true
+title = "DX Dashboard"
+homepagePath = "/"
+source = "snapshot"
+snapshotCommand = "kimi-cloudflare-access dashboard --json"
+access = "cloudflare-sso"
+
+[cloudflare.domain]
+managed = true
+zone = ""
+hostname = ""
+accessRequired = true
+tls = "managed"
+
+[cloudflare.access]
+policyFile = ".cloudflare-access.yml"
+appLauncherVisible = true
+sessionDuration = "24h"
+
+[cloudflare.mcp]
+server = "cloudflare-api"
+url = "https://mcp.cloudflare.com/mcp"
+auth = "cloudflare-sso-oauth"
+readOnlyByDefault = true
+mutationMode = "manual-script"
+
 [quality]
 formatter = "oxfmt"
 linter = "oxlint"

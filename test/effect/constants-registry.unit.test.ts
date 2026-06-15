@@ -7,6 +7,7 @@ import {
   ConstantsRegistry,
   ConstantsRegistryLive,
   TestConstants,
+  validateConstant,
 } from "../../src/lib/constants-registry.ts";
 
 function writeBunfig(dir: string, body: string): void {
@@ -68,5 +69,29 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
     expect(await Effect.runPromise(liveProgram)).toBe(32);
 
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("validateConstant enforces type and numeric restrictions", () => {
+    expect(
+      validateConstant("KIMI_HOOK_VERIFIER_MAX_CYCLES", 32, {
+        type: "number",
+        min: 1,
+        integer: true,
+      })
+    ).toBeNull();
+    expect(
+      validateConstant("KIMI_HOOK_VERIFIER_MAX_CYCLES", "32", {
+        type: "number",
+        min: 1,
+        integer: true,
+      })?.reason
+    ).toContain("expected number");
+    expect(
+      validateConstant("KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD", 1.5, {
+        type: "number",
+        min: 0,
+        max: 1,
+      })?.reason
+    ).toContain("expected <= 1");
   });
 });
