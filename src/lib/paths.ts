@@ -40,6 +40,16 @@ export function varDir(): string {
   return join(desktopRoot(), "var");
 }
 
+/** Return {projectRoot}/.kimi */
+export function projectKimiDir(projectRoot: string): string {
+  return join(projectRoot, ".kimi");
+}
+
+/** Return {projectRoot}/.kimi/var/contract-observations.ndjson (segment from bunfig define). */
+export function contractObservationsPath(projectRoot: string): string {
+  return join(projectRoot, KIMI_OBSERVATIONS_PATH);
+}
+
 /** Return ~/.kimi-code/guardian */
 export function guardianDir(): string {
   return join(desktopRoot(), "guardian");
