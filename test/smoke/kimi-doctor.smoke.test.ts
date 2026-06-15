@@ -205,6 +205,25 @@ describe("kimi-doctor smoke", () => {
     expect(exitCode === 0 || exitCode === 1).toBe(true);
   }, 30_000);
 
+  test("doctor predictive analytics flags emit stable JSON", async () => {
+    for (const args of [
+      ["--history", "7d", "--json"],
+      ["--anomaly", "--json"],
+      ["--velocity", "--json"],
+      ["--predict", "--json"],
+      ["--correlate", "--json"],
+    ]) {
+      const { stdout, exitCode } = await runTool(DOCTOR, args);
+      const parsed = JSON.parse(stdout.trim()) as {
+        schemaVersion?: number;
+        tool?: string;
+      };
+      expect(parsed.schemaVersion).toBe(1);
+      expect(parsed.tool).toBe("kimi-doctor");
+      expect(exitCode === 0 || exitCode === 1).toBe(true);
+    }
+  }, 30_000);
+
   test("kimi-new doctor reports readiness", async () => {
     const { stdout, exitCode } = await runTool(KIMI_NEW, ["doctor"]);
     expect(stdout).toContain("kimi-new doctor");

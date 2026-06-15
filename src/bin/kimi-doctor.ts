@@ -51,6 +51,17 @@ import { recordDoctorRun } from "../lib/doctor-runs.ts";
 import { filterLowQualityDecisions, filterUnverifiedDecisions } from "../lib/decision-scoring.ts";
 import { readDecisions, resolveDecisionsRoot } from "../lib/decision-ledger.ts";
 import { buildBoundConstantIndex } from "../lib/taxonomy-constants.ts";
+import {
+  HEALTH_SNAPSHOT_SCHEMA_VERSION,
+  appendHealthSnapshot,
+  computeDecisionVelocity,
+  correlateHealthWithConstants,
+  detectAnomalies,
+  parsePredictiveWindow,
+  predictThresholdBreach,
+  readHealthSnapshots,
+  type HealthSnapshot,
+} from "../lib/predictive-doctor.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -70,6 +81,18 @@ const SUCCESS_METRICS = Bun.argv.includes("--success-metrics");
 const FIX_CURSOR = Bun.argv.includes("--fix-cursor");
 const FIX_DEEP = Bun.argv.includes("--fix-deep");
 const STRICT_WORKSPACE = Bun.argv.includes("--strict-workspace");
+const HISTORY = Bun.argv.includes("--history");
+const ANOMALY = Bun.argv.includes("--anomaly");
+const VELOCITY = Bun.argv.includes("--velocity");
+const PREDICT = Bun.argv.includes("--predict");
+const CORRELATE = Bun.argv.includes("--correlate");
+
+function argValue(flag: string): string | undefined {
+  const index = Bun.argv.indexOf(flag);
+  if (index < 0) return undefined;
+  const value = Bun.argv[index + 1];
+  return value && !value.startsWith("--") ? value : undefined;
+}
 
 /** Agent/programmatic JSON output (--json); bypasses Logger formatting. */
 function emitJson(data: unknown): void {
@@ -493,6 +516,21 @@ async function runEcosystemMode(projectRoot: string): Promise<number> {
     strictWorkspace: STRICT_WORKSPACE,
     quick: QUICK,
   });
+  const gitHead = await resolveGitHead(projectRoot);
+  await appendHealthSnapshot(projectRoot, {
+    checks: report.checks.map((check) => ({
+      name: `${check.source}/${check.name}`,
+      status: check.status,
+      message: check.message,
+      fixable: check.fixable,
+    })),
+    ecosystem: {
+      blockers: report.blockers,
+      warnings: report.warnings,
+      errors: report.errors,
+    },
+    gitHead,
+  });
 
   if (JSON_OUT) {
     const optimizerChecks = (await isKimiToolchainRepo(projectRoot))
@@ -533,6 +571,151 @@ async function runEcosystemMode(projectRoot: string): Promise<number> {
 
   if (FIX) await applyFixes(projectRoot);
   return report.blockers > 0 ? 1 : 0;
+}
+
+async function resolveGitHead(projectRoot: string): Promise<string | undefined> {
+  try {
+    const result = await $`git rev-parse HEAD`.cwd(projectRoot).nothrow().quiet();
+    const head = result.stdout.toString().trim();
+    return head || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function sparkline(snapshots: HealthSnapshot[]): string {
+  const ticks = "▁▂▃▄▅▆▇█";
+  if (snapshots.length === 0) return "";
+  return snapshots
+    .map(
+      (snapshot) =>
+        ticks[Math.min(ticks.length - 1, Math.max(0, Math.floor(snapshot.score / 12.5)))]
+    )
+    .join("");
+}
+
+function parseWindowFlag(flag: string, fallback: string): number {
+  return parsePredictiveWindow(argValue(flag) ?? fallback);
+}
+
+function parseHorizonHours(): number {
+  const raw = argValue("--horizon") ?? "6h";
+  const ms = parsePredictiveWindow(raw);
+  return Math.max(1, Math.round((ms / 3_600_000) * 100) / 100);
+}
+
+async function runPredictiveMode(projectRoot: string): Promise<number> {
+  const payload: Record<string, unknown> = {
+    schemaVersion: HEALTH_SNAPSHOT_SCHEMA_VERSION,
+    tool: "kimi-doctor",
+  };
+  let exitCode = 0;
+
+  if (HISTORY) {
+    const windowLabel = argValue("--history") ?? "7d";
+    const snapshots = await readHealthSnapshots(projectRoot, {
+      windowMs: parsePredictiveWindow(windowLabel),
+    });
+    payload.history = {
+      window: windowLabel,
+      count: snapshots.length,
+      sparkline: sparkline(snapshots),
+      snapshots,
+    };
+    if (!JSON_OUT) {
+      logger.section(`Health History (${windowLabel})`);
+      if (snapshots.length === 0) logger.info("No health snapshots yet");
+      else {
+        logger.line(`  ${sparkline(snapshots)}  ${snapshots.length} snapshot(s)`);
+        for (const snapshot of snapshots.slice(-10)) {
+          logger.line(
+            `  ${snapshot.timestamp.slice(0, 19)} score=${snapshot.score} warn=${snapshot.summary.warn} error=${snapshot.summary.error} drift=${snapshot.activeDriftCount}`
+          );
+        }
+      }
+    }
+  }
+
+  if (ANOMALY) {
+    const windowMs = parseWindowFlag("--window", "7d");
+    const snapshots = await readHealthSnapshots(projectRoot, { windowMs });
+    const anomalies = detectAnomalies(snapshots, windowMs);
+    payload.anomaly = { count: anomalies.length, anomalies };
+    if (anomalies.some((item) => item.severity === "error")) exitCode = 1;
+    if (!JSON_OUT) {
+      logger.section("Health Anomalies");
+      if (anomalies.length === 0) logger.info("No anomalies in window");
+      else {
+        for (const anomaly of anomalies) {
+          const line = `${anomaly.name}: ${anomaly.message} (current=${anomaly.current}, mean=${anomaly.mean}, σ=${anomaly.stddev})`;
+          if (anomaly.severity === "error") logger.error(line);
+          else logger.warn(line);
+        }
+      }
+    }
+  }
+
+  if (VELOCITY) {
+    const decisions = await readDecisions(await resolveDecisionsRoot(projectRoot));
+    const currentWindowMs = parseWindowFlag("--last", "24h");
+    const baselineWindowMs = parseWindowFlag("--baseline", "7d");
+    const velocity = computeDecisionVelocity(decisions, currentWindowMs, baselineWindowMs);
+    payload.velocity = velocity;
+    if (velocity.alert) exitCode = 1;
+    if (!JSON_OUT) {
+      logger.section("Decision Velocity");
+      const detail = `${velocity.currentCount} recent decision(s), ${velocity.baselineCount} baseline decision(s)`;
+      if (velocity.alert) logger.warn(`${detail} — investigate config churn`);
+      else logger.info(detail);
+    }
+  }
+
+  if (PREDICT) {
+    const horizonHours = parseHorizonHours();
+    const snapshots = await readHealthSnapshots(projectRoot, {
+      windowMs: parseWindowFlag("--window", "7d"),
+    });
+    const prediction = predictThresholdBreach(snapshots, { horizonHours });
+    payload.predict = prediction;
+    if (prediction.status === "breaching" || prediction.status === "predicted") exitCode = 1;
+    if (!JSON_OUT) {
+      logger.section("Health Prediction");
+      if (prediction.status === "breaching" || prediction.status === "predicted") {
+        logger.warn(prediction.message);
+      } else {
+        logger.info(prediction.message);
+      }
+    }
+  }
+
+  if (CORRELATE) {
+    const windowMs = parseWindowFlag("--last", "24h");
+    const [snapshots, decisions] = await Promise.all([
+      readHealthSnapshots(projectRoot, { windowMs }),
+      readDecisions(await resolveDecisionsRoot(projectRoot)),
+    ]);
+    const correlations = correlateHealthWithConstants(snapshots, decisions, {
+      lookbackMs: windowMs,
+    });
+    payload.correlate = { count: correlations.length, correlations };
+    if (!JSON_OUT) {
+      logger.section("Health Correlation");
+      if (correlations.length === 0) logger.info("No constant-linked health drops in window");
+      else {
+        for (const correlation of correlations) {
+          logger.warn(
+            `${correlation.fromTimestamp.slice(0, 19)} → ${correlation.toTimestamp.slice(0, 19)} score ${correlation.scoreDelta}`
+          );
+          for (const decision of correlation.decisions.slice(0, 5)) {
+            logger.line(`  ${decision.decisionId} ${decision.type} ${decision.target}`);
+          }
+        }
+      }
+    }
+  }
+
+  if (JSON_OUT) emitJson(payload);
+  return exitCode;
 }
 
 async function runAgentReadyMode(projectRoot: string): Promise<number> {
@@ -616,6 +799,15 @@ async function main(): Promise<number> {
 
   const argv = Bun.argv.slice(2);
   const projectRoot = await resolveProjectRoot();
+
+  if (HISTORY || ANOMALY || VELOCITY || PREDICT || CORRELATE) {
+    try {
+      return await runPredictiveMode(projectRoot);
+    } catch (error) {
+      logger.error(error instanceof Error ? error.message : String(error));
+      return 1;
+    }
+  }
 
   if (argv[0] === "workspace") {
     const sub = argv[1];
@@ -912,20 +1104,32 @@ async function main(): Promise<number> {
       taxonomyId: r.taxonomyId || r.category,
     }));
 
-  let gitHead = "";
-  try {
-    const result = await $`git rev-parse HEAD`.cwd(projectRoot).nothrow().quiet();
-    gitHead = result.stdout.toString().trim();
-  } catch {
-    /* ignore */
-  }
+  const gitHead = await resolveGitHead(projectRoot);
   recordDoctorRun(
     await getProjectName(projectRoot),
     "kimi-doctor",
     doctorWarnings,
     undefined,
-    gitHead || undefined
+    gitHead
   );
+  await appendHealthSnapshot(projectRoot, {
+    checks: results.map((result) => ({
+      name: result.name,
+      status: result.status,
+      message: result.message,
+      fixable: false,
+      category: result.taxonomyId || result.category,
+    })),
+    ecosystem:
+      QUICK && (await isKimiToolchainRepo(projectRoot))
+        ? {
+            blockers: blocking,
+            warnings,
+            errors,
+          }
+        : undefined,
+    gitHead,
+  });
 
   const decisions = await readDecisions(await resolveDecisionsRoot(projectRoot));
   const lowQuality = filterLowQualityDecisions(decisions).slice(0, 5);
