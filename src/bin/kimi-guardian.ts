@@ -721,7 +721,7 @@ if (import.meta.main) {
           message: e instanceof Error ? e.message : String(e),
         }),
     }),
-    { toolName: "kimi-guardian" }
+    { toolName: "kimi-guardian", logger }
   );
   process.exit(exitCode);
 }

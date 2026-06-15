@@ -398,6 +398,6 @@ const exitCode = await runCliExit(
         message: e instanceof Error ? e.message : String(e),
       }),
   }),
-  { toolName: "kimi-resource-governor" }
+  { toolName: "kimi-resource-governor", logger }
 );
 process.exit(exitCode);

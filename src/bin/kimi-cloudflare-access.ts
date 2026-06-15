@@ -865,7 +865,7 @@ if (import.meta.main) {
           message: e instanceof Error ? e.message : String(e),
         }),
     }),
-    { toolName: "kimi-cloudflare-access" }
+    { toolName: "kimi-cloudflare-access", logger }
   );
   process.exit(exitCode);
 }

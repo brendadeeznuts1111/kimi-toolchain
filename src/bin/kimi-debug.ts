@@ -629,6 +629,6 @@ const exitCode = await runCliExit(
         message: e instanceof Error ? e.message : String(e),
       }),
   }),
-  { toolName: "kimi-debug" }
+  { toolName: "kimi-debug", logger }
 );
 process.exit(exitCode);

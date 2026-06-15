@@ -470,7 +470,7 @@ if (import.meta.main) {
           message: e instanceof Error ? e.message : String(e),
         }),
     }),
-    { toolName: "kimi-githooks" }
+    { toolName: "kimi-githooks", logger }
   );
   process.exit(exitCode);
 }

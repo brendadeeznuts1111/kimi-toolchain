@@ -616,7 +616,7 @@ if (import.meta.main) {
           message: e instanceof Error ? e.message : String(e),
         }),
     }),
-    { toolName: "kimi-context-gen" }
+    { toolName: "kimi-context-gen", logger }
   );
   process.exit(exitCode);
 }

@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import { Effect } from "effect";
 import { runCli, runCliExit } from "../../src/lib/effect/cli-runtime.ts";
 import { CliError } from "../../src/lib/effect/errors.ts";
+import { createLogger } from "../../src/lib/logger.ts";
 
 describe("cli-runtime", () => {
   test("runCli returns 0 on success", async () => {
@@ -33,5 +37,59 @@ describe("cli-runtime", () => {
       { toolName: "test-cli" }
     );
     expect(code).toBe(3);
+  });
+
+  test("runCliExit flushes passed logger when telemetry enabled", async () => {
+    const tmpHome = join(tmpdir(), `cli-runtime-telemetry-${Bun.randomUUIDv7()}`);
+    mkdirSync(tmpHome, { recursive: true });
+    const prevHome = Bun.env.HOME;
+    const prevTelemetry = Bun.env.KIMI_TOOLCHAIN_TELEMETRY;
+    Bun.env.HOME = tmpHome;
+    Bun.env.KIMI_TOOLCHAIN_TELEMETRY = "true";
+
+    const logger = createLogger([], "test-cli");
+    logger.info("telemetry flush test");
+
+    try {
+      const code = await runCliExit(Effect.succeed(0), { toolName: "test-cli", logger });
+      expect(code).toBe(0);
+
+      const path = join(tmpHome, ".kimi-code", "var", "cli-telemetry.jsonl");
+      expect(existsSync(path)).toBe(true);
+      const lines = readFileSync(path, "utf8").trim().split("\n");
+      expect(lines.length).toBeGreaterThan(0);
+      const entry = JSON.parse(lines[lines.length - 1]);
+      expect(entry.message).toBe("telemetry flush test");
+      expect(entry.tool).toBe("test-cli");
+    } finally {
+      Bun.env.HOME = prevHome;
+      Bun.env.KIMI_TOOLCHAIN_TELEMETRY = prevTelemetry;
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
+  test("runCliExit flushes passed logger on non-zero exit code", async () => {
+    const tmpHome = join(tmpdir(), `cli-runtime-telemetry-exit-${Bun.randomUUIDv7()}`);
+    mkdirSync(tmpHome, { recursive: true });
+    const prevHome = Bun.env.HOME;
+    const prevTelemetry = Bun.env.KIMI_TOOLCHAIN_TELEMETRY;
+    Bun.env.HOME = tmpHome;
+    Bun.env.KIMI_TOOLCHAIN_TELEMETRY = "true";
+
+    const logger = createLogger([], "test-cli");
+    logger.warn("doctor-style warning");
+
+    try {
+      const code = await runCliExit(Effect.succeed(1), { toolName: "test-cli", logger });
+      expect(code).toBe(1);
+
+      const path = join(tmpHome, ".kimi-code", "var", "cli-telemetry.jsonl");
+      const content = readFileSync(path, "utf8");
+      expect(content).toContain("doctor-style warning");
+    } finally {
+      Bun.env.HOME = prevHome;
+      Bun.env.KIMI_TOOLCHAIN_TELEMETRY = prevTelemetry;
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
   });
 });

@@ -200,7 +200,7 @@ if (import.meta.main) {
               message: e instanceof Error ? e.message : String(e),
             }),
     }),
-    { toolName: "kimi-new" }
+    { toolName: "kimi-new", logger }
   );
   process.exit(exitCode);
 }

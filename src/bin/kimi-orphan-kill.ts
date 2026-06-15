@@ -50,7 +50,7 @@ if (import.meta.main) {
           message: e instanceof Error ? e.message : String(e),
         }),
     }),
-    { toolName: "kimi-orphan-kill" }
+    { toolName: "kimi-orphan-kill", logger }
   );
   process.exit(exitCode);
 }

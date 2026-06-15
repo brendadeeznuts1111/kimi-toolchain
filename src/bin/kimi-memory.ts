@@ -430,6 +430,6 @@ const exitCode = await runCliExit(
         message: e instanceof Error ? e.message : String(e),
       }),
   }),
-  { toolName: "kimi-memory" }
+  { toolName: "kimi-memory", logger }
 );
 process.exit(exitCode);

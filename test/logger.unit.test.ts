@@ -276,6 +276,21 @@ describe("logger", () => {
     expect(parsed.check.name).toBe("disk");
   });
 
+  test("check() buffers ok checks in agent context for telemetry", () => {
+    const prev = Bun.env.KIMI_CODE_SESSION;
+    Bun.env.KIMI_CODE_SESSION = "agent-test";
+    try {
+      const logger = new Logger({ tool: "kimi-doctor" });
+      logger.check({ name: "bun", status: "ok", message: "1.3.14", fixable: false });
+      logger.check({ name: "disk", status: "error", message: "critical", fixable: false });
+      expect(logger.getLogs().length).toBe(2);
+      expect(logger.getLogs()[0].check?.name).toBe("bun");
+      expect(logger.getLogs()[1].level).toBe("error");
+    } finally {
+      Bun.env.KIMI_CODE_SESSION = prev;
+    }
+  });
+
   test("suggest() includes taxonomyId and autoFix in JSON mode", () => {
     const logs: string[] = [];
     const originalLog = console.log;

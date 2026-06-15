@@ -197,7 +197,7 @@ if (import.meta.main) {
           message: e instanceof Error ? e.message : String(e),
         }),
     }),
-    { toolName: "kimi-cleanup-legacy" }
+    { toolName: "kimi-cleanup-legacy", logger }
   );
   process.exit(exitCode);
 }

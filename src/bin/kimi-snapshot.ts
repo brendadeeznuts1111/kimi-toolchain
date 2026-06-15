@@ -313,6 +313,6 @@ const exitCode = await runCliExit(
         message: e instanceof Error ? e.message : String(e),
       }),
   }),
-  { toolName: "kimi-snapshot" }
+  { toolName: "kimi-snapshot", logger }
 );
 process.exit(exitCode);

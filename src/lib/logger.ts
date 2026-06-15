@@ -156,28 +156,34 @@ export class Logger {
     const level = result.status === "error" ? "error" : result.status === "warn" ? "warn" : "info";
     const fixTag = result.fixable ? " [fixable]" : "";
     const message = `${result.name}: ${result.message}${fixTag}`;
+    const entry: LogEntry = {
+      ...this.baseEntry(level, message),
+      check: result,
+      ...(result.category ? { taxonomyId: result.category } : {}),
+      ...(result.autoFix ? { autoFix: result.autoFix } : {}),
+    };
+
+    // Always buffer for telemetry (even when agent context suppresses console output).
+    this.pushEntry(entry);
 
     if (this.json) {
-      this.emitEntry({
-        ...this.baseEntry(level, message),
-        check: result,
-        ...(result.category ? { taxonomyId: result.category } : {}),
-        ...(result.autoFix ? { autoFix: result.autoFix } : {}),
-      });
+      if (this.shouldEmit(level)) console.log(JSON.stringify(entry));
       return;
     }
 
     if (isAgentContext()) {
-      if (result.status !== "ok") this.emit(level, message);
+      if (result.status === "error" && this.shouldEmit("error")) {
+        console.error(`  ✗ ${message}`);
+      } else if (result.status === "warn" && this.shouldEmit("warn")) {
+        console.warn(`  ⚠ ${message}`);
+      }
       return;
     }
 
+    if (!this.shouldEmit(level)) return;
+
     const icon = healthStatusIcon(result.status);
     console.log(`  ${icon} ${message}`);
-    this.pushEntry({
-      ...this.baseEntry(level, message),
-      check: result,
-    });
   }
 
   /** Log a taxonomy-linked suggestion with optional autoFix command. */
