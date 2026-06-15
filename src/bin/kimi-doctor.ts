@@ -33,10 +33,14 @@ import {
 } from "../lib/workspace-known-blockers.ts";
 import { auditEcosystemHealth } from "../lib/ecosystem-health.ts";
 import {
-  generateOptimizerDoctorRecommendations,
-  printConstantOptimizerDoctorBlock,
+  generateOptimizerDoctorRecommendationsEffect,
+  formatOptimizerDoctorHealthMessage,
+  optimizerRecommendationToMachineCheck,
+  optimizerRecommendationsToJson,
+  printConstantOptimizerRecommendationsBlock,
   summarizeOptimizerDoctorBlock,
-  buildOptimizerDoctorMachineChecks,
+  type OptimizerDoctorJsonRecommendation,
+  type OptimizerDoctorRecommendation,
 } from "../lib/constant-optimizer.ts";
 import { fixMcpConfig, validateMcpConfig } from "../lib/mcp-config.ts";
 import {
@@ -113,6 +117,7 @@ interface CheckResult {
   autoFix?: string;
   taxonomyId?: string;
   known?: WorkspaceKnownContext;
+  optimizerRecommendations?: OptimizerDoctorJsonRecommendation[];
 }
 
 function ok(name: string, message: string): CheckResult {
@@ -533,6 +538,8 @@ async function runEcosystemMode(projectRoot: string): Promise<number> {
     strictWorkspace: STRICT_WORKSPACE,
     quick: QUICK,
   });
+  const optimizerRecs = await Effect.runPromise(runOptimizerCheck(projectRoot));
+  const optimizerRecommendations = optimizerRecommendationsToJson(optimizerRecs);
   const gitHead = await resolveGitHead(projectRoot);
   await appendHealthSnapshot(projectRoot, {
     checks: report.checks.map((check) => ({
@@ -550,12 +557,15 @@ async function runEcosystemMode(projectRoot: string): Promise<number> {
   });
 
   if (JSON_OUT) {
-    const optimizerChecks = (await isKimiToolchainRepo(projectRoot))
-      ? await buildOptimizerDoctorMachineChecks(projectRoot)
-      : [];
     emitJson({
       checks: report.checks,
-      optimizerChecks,
+      optimizerChecks: optimizerRecs.map(optimizerRecommendationToMachineCheck),
+      optimizerRecommendations,
+      ecosystem: {
+        blockers: report.blockers,
+        warnings: report.warnings,
+        errors: report.errors,
+      },
       fixPlan: report.fixPlan,
       summary: {
         blockers: report.blockers,
@@ -577,6 +587,7 @@ async function runEcosystemMode(projectRoot: string): Promise<number> {
   }));
   const healthReport = aggregateChecks("kimi-doctor", checks);
   logger.printHealthReport(healthReport, "Ecosystem Health");
+  printConstantOptimizerRecommendationsBlock(logger, optimizerRecs);
 
   if (report.fixPlan.length > 0) {
     logger.line("");
@@ -588,6 +599,18 @@ async function runEcosystemMode(projectRoot: string): Promise<number> {
 
   if (FIX) await applyFixes(projectRoot);
   return report.blockers > 0 ? 1 : 0;
+}
+
+function runOptimizerCheck(projectRoot: string): Effect.Effect<OptimizerDoctorRecommendation[]> {
+  return Effect.tryPromise({
+    try: () => isKimiToolchainRepo(projectRoot),
+    catch: () => "optimizer-repo-detect-failed",
+  }).pipe(
+    Effect.catchAll(() => Effect.succeed(false)),
+    Effect.flatMap((isToolchain) =>
+      isToolchain ? generateOptimizerDoctorRecommendationsEffect(projectRoot) : Effect.succeed([])
+    )
+  );
 }
 
 async function resolveGitHead(projectRoot: string): Promise<string | undefined> {
@@ -1015,17 +1038,19 @@ async function main(): Promise<number> {
     results.push(result);
   }
 
-  if (QUICK && (await isKimiToolchainRepo(projectRoot))) {
-    const optimizerRecs = await generateOptimizerDoctorRecommendations(projectRoot);
+  const optimizerRecs = await Effect.runPromise(runOptimizerCheck(projectRoot));
+  const optimizerRecommendations = optimizerRecommendationsToJson(optimizerRecs);
+  if (optimizerRecs.length > 0 || (await isKimiToolchainRepo(projectRoot))) {
     const optimizerSummary = summarizeOptimizerDoctorBlock(optimizerRecs);
+    const optimizerMessage = formatOptimizerDoctorHealthMessage(optimizerRecs);
     if (!JSON_OUT) {
-      logger.section("Ecosystem Health");
-      printConstantOptimizerDoctorBlock(logger, optimizerRecs);
+      printConstantOptimizerRecommendationsBlock(logger, optimizerRecs);
     }
     results.push({
-      name: "constant-optimizer",
+      name: "Optimizer",
       status: optimizerSummary.status,
-      message: optimizerSummary.message,
+      message: optimizerMessage,
+      optimizerRecommendations,
     });
   }
 
@@ -1159,16 +1184,11 @@ async function main(): Promise<number> {
   const decisions = await readDecisions(await resolveDecisionsRoot(projectRoot));
   const lowQuality = filterLowQualityDecisions(decisions).slice(0, 5);
   const unverified = filterUnverifiedDecisions(decisions).slice(0, 5);
-  const optimizerChecks =
-    QUICK && (await isKimiToolchainRepo(projectRoot))
-      ? await buildOptimizerDoctorMachineChecks(projectRoot)
-      : [];
 
   if (JSON_OUT) {
     emitJson({
       toolchainVersion: TOOLCHAIN_VERSION,
       checks: results,
-      optimizerChecks,
       sync: syncReport,
       decisions: {
         total: decisions.length,

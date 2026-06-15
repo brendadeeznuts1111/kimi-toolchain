@@ -8,6 +8,7 @@
  *   kimi-heal repair-constants [--all] [--impact] [--accept-drift] [--dry-run|--yes] [--json]
  *   kimi-heal suggest --error-id <id> [--json]
  *   kimi-heal constants snapshot [--json]
+ *   kimi-heal constants optimize [--apply <keys|all>] [--min-confidence 0.7] [--dry-run|--yes] [--json]
  */
 
 import { Effect } from "effect";
@@ -27,6 +28,15 @@ import {
   acceptConstantsDrift,
 } from "../lib/constants-heal.ts";
 import { formatErrorSuggestReport, suggestErrorWithBoundConstants } from "../lib/error-suggest.ts";
+import {
+  applyOptimizerRecommendationsEffect,
+  buildConstantOptimizerReport,
+  formatConstantOptimizerReport,
+  formatOptimizerApplyResultLines,
+  generateOptimizerDoctorRecommendationsEffect,
+  optimizerRecommendationsToJson,
+  printConstantOptimizerRecommendationsBlock,
+} from "../lib/constant-optimizer.ts";
 
 const logger = createLogger(Bun.argv, "kimi-heal");
 
@@ -38,6 +48,25 @@ function argValue(flag: string): string | undefined {
   const index = Bun.argv.indexOf(flag);
   if (index < 0) return undefined;
   return Bun.argv[index + 1];
+}
+
+function argList(flag: string): string[] {
+  const index = Bun.argv.indexOf(flag);
+  if (index < 0) return [];
+  const values: string[] = [];
+  for (let i = index + 1; i < Bun.argv.length; i++) {
+    const value = Bun.argv[i];
+    if (!value || value.startsWith("--")) break;
+    values.push(...value.split(","));
+  }
+  return values.map((item) => item.trim()).filter(Boolean);
+}
+
+function numericArg(flag: string, fallback: number): number {
+  const raw = argValue(flag);
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function impactRiskLabel(activeFailures: number, risk: string): string {
@@ -349,14 +378,63 @@ async function main(): Promise<number> {
       return 0;
     }
     if (sub === "optimize") {
-      const { buildConstantOptimizerReport, formatConstantOptimizerReport } =
-        await import("../lib/constant-optimizer.ts");
-      const report = await buildConstantOptimizerReport(projectRoot);
+      const recommendations = await Effect.runPromise(
+        generateOptimizerDoctorRecommendationsEffect(projectRoot)
+      );
+      const applyRequested = hasFlag("--apply");
+      const minConfidence = numericArg("--min-confidence", 0.7);
+      if (minConfidence < 0 || minConfidence > 1) {
+        logger.error("--min-confidence must be between 0 and 1");
+        return 1;
+      }
+
+      if (applyRequested) {
+        const requestedConstants = argList("--apply");
+        if (requestedConstants.length === 0) {
+          logger.error(
+            "Usage: constants optimize --apply <CONSTANT[,CONSTANT]|all> [--min-confidence 0.7] [--yes] [--json]"
+          );
+          return 1;
+        }
+        const result = await Effect.runPromise(
+          applyOptimizerRecommendationsEffect({
+            projectRoot,
+            recommendations,
+            requestedConstants,
+            minConfidence,
+            dryRun: hasFlag("--dry-run") || !hasFlag("--yes"),
+            traceId: trace.traceId,
+          })
+        );
+        if (jsonMode) {
+          process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+        } else {
+          logger.section("Constant Optimizer Apply");
+          logger.info(result.detail);
+          for (const line of formatOptimizerApplyResultLines(result)) logger.line(line);
+        }
+        return result.applied || result.dryRun ? 0 : 1;
+      }
+
       if (jsonMode) {
-        process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+        process.stdout.write(
+          `${JSON.stringify(
+            {
+              schemaVersion: 1,
+              recommendations: optimizerRecommendationsToJson(recommendations),
+            },
+            null,
+            2
+          )}\n`
+        );
       } else {
-        logger.section("Constant Optimizer");
-        logger.line(formatConstantOptimizerReport(report));
+        if (recommendations.length > 0) {
+          printConstantOptimizerRecommendationsBlock(logger, recommendations);
+        } else {
+          const report = await buildConstantOptimizerReport(projectRoot);
+          logger.section("Constant Optimizer");
+          logger.line(formatConstantOptimizerReport(report));
+        }
       }
       return 0;
     }
@@ -374,7 +452,7 @@ async function main(): Promise<number> {
   logger.line("  constants archives [--json]         List archived golden snapshots");
   logger.line("  constants restore <name> [--dry-run|--yes]  Restore golden from archive");
   logger.line(
-    "  constants optimize [--json]           Correlate bound-constant repairs with failure outcomes"
+    "  constants optimize [--apply <keys|all>] [--min-confidence 0.7] [--dry-run|--yes] [--json]"
   );
   return command === "help" ? 0 : 1;
 }

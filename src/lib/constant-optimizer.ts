@@ -2,7 +2,8 @@
  * Phase 3 skeleton — correlate bound-constant repairs with taxonomy/cluster outcomes.
  */
 
-import { readDecisions, type Decision } from "./decision-ledger.ts";
+import { Effect } from "effect";
+import { logDecisionEffect, readDecisions, type Decision } from "./decision-ledger.ts";
 import { readClusterMetadata, type ClusterMetadataFile } from "./failure-ledger.ts";
 import { loadRepoDefineMap } from "./build-constants-registry.ts";
 import { buildBoundConstantIndex, formatAgeShort } from "./taxonomy-constants.ts";
@@ -23,17 +24,69 @@ export interface OptimizerDoctorRecommendation {
   goldenValue: unknown | undefined;
   candidateValue?: unknown;
   candidateId?: string;
+  boundTaxonomies: string[];
   driftPct: number | null;
   confidence: number;
+  confidenceBreakdown: ConfidenceBreakdown;
   baseConfidence?: number;
   basedOnDecisionIds: string[];
   outcomeCount: number;
+  activeFailureCount: number;
+  resolvedFailureCount: number;
   lastReviewMs: number;
   clusterFailureRateDelta: number | null;
   optimizerAction: ConstantOptimizerRecommendation;
   severity: OptimizerDoctorSeverity;
   action: string;
   message: string;
+}
+
+export interface OptimizerDoctorJsonRecommendation {
+  constant: string;
+  currentValue: unknown;
+  recommendedValue: unknown;
+  goldenValue?: unknown;
+  candidateValue?: unknown;
+  boundTaxonomies: string[];
+  resolvedFailureCount: number;
+  activeFailureCount: number;
+  reason: string;
+  confidence: number;
+  confidenceBreakdown: ConfidenceBreakdown;
+  reviewCommand: string;
+  decisionIds: string[];
+  severity: OptimizerDoctorSeverity;
+}
+
+export interface OptimizerApplyPlanItem {
+  constant: string;
+  currentValue: unknown;
+  proposedValue: unknown;
+  confidence: number;
+  confidenceBreakdown: ConfidenceBreakdown;
+  reason: string;
+  decisionIds: string[];
+}
+
+export interface OptimizerApplySkippedItem extends OptimizerApplyPlanItem {
+  skipReason: string;
+}
+
+export interface OptimizerApplyPlan {
+  schemaVersion: typeof OPTIMIZER_SCHEMA_VERSION;
+  minConfidence: number;
+  requestedConstants: string[];
+  selected: OptimizerApplyPlanItem[];
+  skipped: OptimizerApplySkippedItem[];
+}
+
+export interface OptimizerApplyResult extends OptimizerApplyPlan {
+  applied: boolean;
+  dryRun: boolean;
+  bunfigPath: string;
+  decisionIds: string[];
+  rewrittenBunfig?: string;
+  detail: string;
 }
 
 export interface ConstantRepairEvent {
@@ -61,6 +114,7 @@ export interface ConstantOptimizerEntry {
   clusterHitsAfter: number;
   recommendation: ConstantOptimizerRecommendation;
   confidence: number;
+  confidenceBreakdown: ConfidenceBreakdown;
   baseConfidence: number;
   rationale: string;
 }
@@ -155,6 +209,7 @@ export interface BaseRecommendation {
   recommendation: ConstantOptimizerRecommendation;
   confidence: number;
   rationale: string;
+  confidenceBreakdown: ConfidenceBreakdown;
 }
 
 export interface ConfidenceDecayInput {
@@ -162,6 +217,17 @@ export interface ConfidenceDecayInput {
   baseConfidence: number;
   repairAgeMs: number;
   afterTotal: number;
+}
+
+export interface ConfidenceBreakdown {
+  recommendation: ConstantOptimizerRecommendation;
+  baseConfidence: number;
+  finalConfidence: number;
+  repairAgeDays: number;
+  afterFailureCount: number;
+  decayApplied: boolean;
+  floorApplied: boolean;
+  reason: string;
 }
 
 function optimizerDecayDays(): number {
@@ -176,10 +242,21 @@ export function computeBaseRecommendation(
   afterTotal: number
 ): BaseRecommendation {
   if (beforeTotal + afterTotal === 0) {
+    const confidence = INSUFFICIENT_DATA_BASE_CONFIDENCE;
     return {
       recommendation: "insufficient-data",
-      confidence: INSUFFICIENT_DATA_BASE_CONFIDENCE,
+      confidence,
       rationale: "No bound-taxonomy failures in the observation window",
+      confidenceBreakdown: {
+        recommendation: "insufficient-data",
+        baseConfidence: confidence,
+        finalConfidence: confidence,
+        repairAgeDays: 0,
+        afterFailureCount: afterTotal,
+        decayApplied: false,
+        floorApplied: false,
+        reason: "No bound-taxonomy failures in the observation window",
+      },
     };
   }
 
@@ -187,46 +264,99 @@ export function computeBaseRecommendation(
   const worsened = outcomes.filter((item) => item.delta > 0);
 
   if (worsened.length > 0) {
+    const confidence = Math.min(0.95, 0.55 + worsened.length * 0.1);
     return {
       recommendation: "review",
-      confidence: Math.min(0.95, 0.55 + worsened.length * 0.1),
+      confidence,
       rationale: `Failures increased for ${worsened.map((item) => item.taxonomyId).join(", ")} after repair`,
+      confidenceBreakdown: {
+        recommendation: "review",
+        baseConfidence: confidence,
+        finalConfidence: confidence,
+        repairAgeDays: 0,
+        afterFailureCount: afterTotal,
+        decayApplied: false,
+        floorApplied: false,
+        reason: `${worsened.length} bound taxonomy failure rate(s) worsened`,
+      },
     };
   }
 
   if (improved.length > 0 && afterTotal < beforeTotal) {
+    const confidence = Math.min(0.95, 0.6 + improved.length * 0.1);
     return {
       recommendation: "promote",
-      confidence: Math.min(0.95, 0.6 + improved.length * 0.1),
+      confidence,
       rationale: `Failures decreased for ${improved.map((item) => item.taxonomyId).join(", ")} after repair`,
+      confidenceBreakdown: {
+        recommendation: "promote",
+        baseConfidence: confidence,
+        finalConfidence: confidence,
+        repairAgeDays: 0,
+        afterFailureCount: afterTotal,
+        decayApplied: false,
+        floorApplied: false,
+        reason: `${improved.length} bound taxonomy failure rate(s) improved`,
+      },
     };
   }
 
+  const confidence = 0.5;
   return {
     recommendation: "hold",
-    confidence: 0.5,
+    confidence,
     rationale: "No clear improvement or regression in bound-taxonomy failure rates",
+    confidenceBreakdown: {
+      recommendation: "hold",
+      baseConfidence: confidence,
+      finalConfidence: confidence,
+      repairAgeDays: 0,
+      afterFailureCount: afterTotal,
+      decayApplied: false,
+      floorApplied: false,
+      reason: "No clear improvement or regression in bound-taxonomy failure rates",
+    },
+  };
+}
+
+export function applyConfidenceDecayWithBreakdown(
+  input: ConfidenceDecayInput
+): ConfidenceBreakdown {
+  const decayDays = optimizerDecayDays();
+  const ageDays = input.repairAgeMs / MS_DAY;
+  let decayed = input.baseConfidence;
+  let decayApplied = false;
+  let reason = "Evidence includes post-repair failures; base confidence retained";
+
+  if (input.recommendation === "insufficient-data") {
+    const progress = Math.min(1, ageDays / decayDays);
+    decayed =
+      INSUFFICIENT_DATA_BASE_CONFIDENCE -
+      (INSUFFICIENT_DATA_BASE_CONFIDENCE - INSUFFICIENT_DATA_FLOOR_CONFIDENCE) * progress;
+    decayApplied = true;
+    reason = `Insufficient-data confidence decayed over ${ageDays.toFixed(2)} day(s)`;
+  } else if (input.afterTotal === 0) {
+    const factor = Math.exp(-ageDays / CONFIDENCE_HALF_LIFE_DAYS);
+    decayed = input.baseConfidence * factor;
+    decayApplied = true;
+    reason = `No post-repair failures; confidence decayed with ${CONFIDENCE_HALF_LIFE_DAYS}d half-life`;
+  }
+
+  const finalConfidence = Math.max(CONFIDENCE_FLOOR, decayed);
+  return {
+    recommendation: input.recommendation,
+    baseConfidence: input.baseConfidence,
+    finalConfidence,
+    repairAgeDays: ageDays,
+    afterFailureCount: input.afterTotal,
+    decayApplied,
+    floorApplied: finalConfidence !== decayed,
+    reason,
   };
 }
 
 export function applyConfidenceDecay(input: ConfidenceDecayInput): number {
-  const decayDays = optimizerDecayDays();
-  const ageDays = input.repairAgeMs / MS_DAY;
-
-  if (input.recommendation === "insufficient-data") {
-    const progress = Math.min(1, ageDays / decayDays);
-    const decayed =
-      INSUFFICIENT_DATA_BASE_CONFIDENCE -
-      (INSUFFICIENT_DATA_BASE_CONFIDENCE - INSUFFICIENT_DATA_FLOOR_CONFIDENCE) * progress;
-    return Math.max(CONFIDENCE_FLOOR, decayed);
-  }
-
-  if (input.afterTotal === 0) {
-    const factor = Math.exp(-ageDays / CONFIDENCE_HALF_LIFE_DAYS);
-    return Math.max(CONFIDENCE_FLOOR, input.baseConfidence * factor);
-  }
-
-  return input.baseConfidence;
+  return applyConfidenceDecayWithBreakdown(input).finalConfidence;
 }
 
 function deriveRecommendation(
@@ -236,13 +366,18 @@ function deriveRecommendation(
   repairAgeMs: number
 ): BaseRecommendation & { confidence: number; baseConfidence: number } {
   const base = computeBaseRecommendation(outcomes, beforeTotal, afterTotal);
-  const confidence = applyConfidenceDecay({
+  const confidenceBreakdown = applyConfidenceDecayWithBreakdown({
     recommendation: base.recommendation,
     baseConfidence: base.confidence,
     repairAgeMs,
     afterTotal,
   });
-  return { ...base, confidence, baseConfidence: base.confidence };
+  return {
+    ...base,
+    confidence: confidenceBreakdown.finalConfidence,
+    confidenceBreakdown,
+    baseConfidence: base.confidence,
+  };
 }
 
 export async function buildConstantOptimizerReport(
@@ -296,12 +431,8 @@ export async function buildConstantOptimizerReport(
 
       const beforeTotal = taxonomyOutcomes.reduce((sum, item) => sum + item.beforeCount, 0);
       const afterTotal = taxonomyOutcomes.reduce((sum, item) => sum + item.afterCount, 0);
-      const { recommendation, confidence, baseConfidence, rationale } = deriveRecommendation(
-        taxonomyOutcomes,
-        beforeTotal,
-        afterTotal,
-        repairAgeMs
-      );
+      const { recommendation, confidence, confidenceBreakdown, baseConfidence, rationale } =
+        deriveRecommendation(taxonomyOutcomes, beforeTotal, afterTotal, repairAgeMs);
 
       entries.push({
         constantKey: key,
@@ -312,6 +443,7 @@ export async function buildConstantOptimizerReport(
         clusterHitsAfter: countClusterHitsAfter(clusters, taxonomySet, decisionMs, windowMs),
         recommendation,
         confidence,
+        confidenceBreakdown,
         baseConfidence,
         rationale,
       });
@@ -421,13 +553,24 @@ function deriveDoctorSeverity(
 
 function computeOutcomeStats(entry: ConstantOptimizerEntry): {
   outcomeCount: number;
+  activeFailureCount: number;
+  resolvedFailureCount: number;
   clusterFailureRateDelta: number | null;
 } {
   const beforeTotal = entry.taxonomyOutcomes.reduce((sum, item) => sum + item.beforeCount, 0);
   const afterTotal = entry.taxonomyOutcomes.reduce((sum, item) => sum + item.afterCount, 0);
+  const resolvedFailureCount = entry.taxonomyOutcomes.reduce(
+    (sum, item) => sum + Math.max(0, item.beforeCount - item.afterCount),
+    0
+  );
   const clusterFailureRateDelta =
     beforeTotal > 0 ? Math.round(((afterTotal - beforeTotal) / beforeTotal) * 100) : null;
-  return { outcomeCount: beforeTotal + afterTotal, clusterFailureRateDelta };
+  return {
+    outcomeCount: beforeTotal + afterTotal,
+    activeFailureCount: beforeTotal,
+    resolvedFailureCount,
+    clusterFailureRateDelta,
+  };
 }
 
 function formatDoctorValue(value: unknown): string {
@@ -480,6 +623,404 @@ function buildDoctorMessage(
 
 export function formatOptimizerDoctorMessage(rec: OptimizerDoctorRecommendation): string {
   return rec.message;
+}
+
+function doctorSeverityRank(severity: OptimizerDoctorSeverity): number {
+  return severity === "error" ? 3 : severity === "warn" ? 2 : 1;
+}
+
+function pickTopOptimizerRecommendation(
+  recommendations: OptimizerDoctorRecommendation[]
+): OptimizerDoctorRecommendation | undefined {
+  return [...recommendations].sort((a, b) => {
+    const severityDelta = doctorSeverityRank(b.severity) - doctorSeverityRank(a.severity);
+    if (severityDelta !== 0) return severityDelta;
+    return b.confidence - a.confidence;
+  })[0];
+}
+
+function optimizerTargetValue(rec: OptimizerDoctorRecommendation): unknown {
+  if (rec.candidateValue !== undefined) return rec.candidateValue;
+  if (rec.goldenValue !== undefined && rec.currentValue !== rec.goldenValue) return rec.goldenValue;
+  return rec.currentValue;
+}
+
+function formatOptimizerImpact(rec: OptimizerDoctorRecommendation): string {
+  if (rec.resolvedFailureCount > 0) {
+    const taxonomyLabel = formatOptimizerTaxonomyLabel(rec);
+    return `would resolve ${rec.resolvedFailureCount} ${taxonomyLabel} error${rec.resolvedFailureCount === 1 ? "" : "s"}`;
+  }
+  if (rec.driftPct !== null && rec.driftPct > 0) {
+    return `would restore ${Math.round(rec.driftPct)}% golden drift`;
+  }
+  return `needs ${rec.optimizerAction} review`;
+}
+
+export function formatOptimizerDoctorHealthMessage(
+  recommendations: OptimizerDoctorRecommendation[]
+): string {
+  const top = pickTopOptimizerRecommendation(recommendations);
+  if (!top) return "no optimizer recommendations";
+
+  const targetValue = optimizerTargetValue(top);
+  const valuePart =
+    top.currentValue !== targetValue
+      ? `${top.constant} ${formatDoctorValue(top.currentValue)} -> ${formatDoctorValue(targetValue)}`
+      : `${top.constant} ${formatDoctorValue(top.currentValue)}`;
+  const more = recommendations.length > 1 ? ` (+${recommendations.length - 1} more)` : "";
+  return `Optimizer: ${valuePart} ${formatOptimizerImpact(top)} (confidence ${top.confidence.toFixed(2)})${more}`;
+}
+
+function formatOptimizerTaxonomyLabel(rec: OptimizerDoctorRecommendation): string {
+  return rec.boundTaxonomies.length > 0 ? rec.boundTaxonomies.slice(0, 2).join(", ") : "bound";
+}
+
+function formatOptimizerRecommendationValueLine(rec: OptimizerDoctorRecommendation): string {
+  return `${rec.constant}: ${formatDoctorValue(rec.currentValue)} → ${formatDoctorValue(optimizerTargetValue(rec))}`;
+}
+
+export function formatConfidenceBreakdownLine(breakdown: ConfidenceBreakdown): string {
+  const flags = [
+    breakdown.decayApplied ? "decay applied" : "no decay",
+    breakdown.floorApplied ? "floor applied" : "no floor",
+  ].join(", ");
+  return `base ${breakdown.baseConfidence.toFixed(2)} → final ${breakdown.finalConfidence.toFixed(2)}; age ${breakdown.repairAgeDays.toFixed(2)}d; after failures ${breakdown.afterFailureCount}; ${flags}; ${breakdown.reason}`;
+}
+
+export function formatOptimizerDoctorReason(
+  rec: OptimizerDoctorRecommendation,
+  windowMs: number = decisionWindowMs()
+): string {
+  const days = Math.max(1, Math.round(windowMs / MS_DAY));
+  if (rec.resolvedFailureCount > 0) {
+    return `Would resolve ${rec.resolvedFailureCount} ${formatOptimizerTaxonomyLabel(rec)} error${rec.resolvedFailureCount === 1 ? "" : "s"} in the last ${days} day${days === 1 ? "" : "s"}`;
+  }
+  if (rec.driftPct !== null && rec.driftPct > 0) {
+    return `Would restore ${Math.round(rec.driftPct)}% drift from the golden constant snapshot`;
+  }
+  return rec.message;
+}
+
+export function optimizerRecommendationToJson(
+  rec: OptimizerDoctorRecommendation
+): OptimizerDoctorJsonRecommendation {
+  return {
+    constant: rec.constant,
+    currentValue: rec.currentValue,
+    recommendedValue: optimizerTargetValue(rec),
+    ...(rec.goldenValue !== undefined ? { goldenValue: rec.goldenValue } : {}),
+    ...(rec.candidateValue !== undefined ? { candidateValue: rec.candidateValue } : {}),
+    boundTaxonomies: rec.boundTaxonomies,
+    resolvedFailureCount: rec.resolvedFailureCount,
+    activeFailureCount: rec.activeFailureCount,
+    reason: formatOptimizerDoctorReason(rec),
+    confidence: rec.confidence,
+    confidenceBreakdown: rec.confidenceBreakdown,
+    reviewCommand: rec.action,
+    decisionIds: rec.basedOnDecisionIds,
+    severity: rec.severity,
+  };
+}
+
+export function optimizerRecommendationsToJson(
+  recommendations: OptimizerDoctorRecommendation[]
+): OptimizerDoctorJsonRecommendation[] {
+  return recommendations.map(optimizerRecommendationToJson);
+}
+
+export function printConstantOptimizerRecommendationsBlock(
+  logger: Logger,
+  recommendations: OptimizerDoctorRecommendation[]
+): void {
+  if (recommendations.length === 0) return;
+
+  logger.section("Constant Optimizer");
+  for (const rec of recommendations) {
+    logger.line(`• ${formatOptimizerRecommendationValueLine(rec)}`);
+    logger.line(
+      `  Resolves ${rec.resolvedFailureCount} of ${rec.activeFailureCount} active failures in taxonomy`
+    );
+    logger.line(`  Reason: ${formatOptimizerDoctorReason(rec)}`);
+    logger.line(`  Confidence: ${rec.confidence.toFixed(2)}`);
+    logger.line(`  Confidence detail: ${formatConfidenceBreakdownLine(rec.confidenceBreakdown)}`);
+    logger.line(`  Review with: ${rec.action}`);
+  }
+}
+
+function isOptimizerDefineValue(value: unknown): value is string | number | boolean {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+
+function valuesEqual(a: unknown, b: unknown): boolean {
+  return Object.is(a, b);
+}
+
+function applyPlanItem(
+  rec: OptimizerDoctorRecommendation,
+  proposedValue: unknown
+): OptimizerApplyPlanItem {
+  return {
+    constant: rec.constant,
+    currentValue: rec.currentValue,
+    proposedValue,
+    confidence: rec.confidence,
+    confidenceBreakdown: rec.confidenceBreakdown,
+    reason: formatOptimizerDoctorReason(rec),
+    decisionIds: rec.basedOnDecisionIds,
+  };
+}
+
+export function buildOptimizerApplyPlan(
+  recommendations: OptimizerDoctorRecommendation[],
+  requestedConstants: string[],
+  minConfidence: number
+): OptimizerApplyPlan {
+  const requested = requestedConstants.map((item) => item.trim()).filter(Boolean);
+  const applyAll = requested.some((item) => item.toLowerCase() === "all");
+  const requestedSet = new Set(requested);
+  const candidates = applyAll
+    ? recommendations
+    : recommendations.filter((rec) => requestedSet.has(rec.constant));
+  const selected: OptimizerApplyPlanItem[] = [];
+  const skipped: OptimizerApplySkippedItem[] = [];
+
+  for (const rec of candidates) {
+    const proposedValue = optimizerTargetValue(rec);
+    const item = applyPlanItem(rec, proposedValue);
+    if (!isOptimizerDefineValue(proposedValue)) {
+      skipped.push({ ...item, skipReason: "proposed value is not a Bun [define] primitive" });
+      continue;
+    }
+    if (valuesEqual(rec.currentValue, proposedValue)) {
+      skipped.push({ ...item, skipReason: "current value already matches recommendation" });
+      continue;
+    }
+    if (rec.confidence < minConfidence) {
+      skipped.push({
+        ...item,
+        skipReason: `confidence ${rec.confidence.toFixed(2)} is below threshold ${minConfidence.toFixed(2)}`,
+      });
+      continue;
+    }
+    selected.push(item);
+  }
+
+  if (!applyAll) {
+    for (const constant of requested) {
+      if (recommendations.some((rec) => rec.constant === constant)) continue;
+      skipped.push({
+        constant,
+        currentValue: undefined,
+        proposedValue: undefined,
+        confidence: 0,
+        confidenceBreakdown: {
+          recommendation: "insufficient-data",
+          baseConfidence: 0,
+          finalConfidence: 0,
+          repairAgeDays: 0,
+          afterFailureCount: 0,
+          decayApplied: false,
+          floorApplied: false,
+          reason: "No optimizer recommendation matched this constant",
+        },
+        reason: "No optimizer recommendation matched this constant",
+        decisionIds: [],
+        skipReason: "no matching optimizer recommendation",
+      });
+    }
+  }
+
+  return {
+    schemaVersion: OPTIMIZER_SCHEMA_VERSION,
+    minConfidence,
+    requestedConstants: requested,
+    selected,
+    skipped,
+  };
+}
+
+function formatDefineValue(value: string | number | boolean): string {
+  return typeof value === "string" ? JSON.stringify(value) : String(value);
+}
+
+export function rewriteOptimizerDefineValues(
+  bunfigText: string,
+  updates: OptimizerApplyPlanItem[]
+): { text: string; appliedKeys: string[]; missingKeys: string[] } {
+  const updateByKey = new Map(
+    updates
+      .filter((item) => isOptimizerDefineValue(item.proposedValue))
+      .map((item) => [item.constant, item.proposedValue as string | number | boolean])
+  );
+  const seen = new Set<string>();
+  const lines = bunfigText.split("\n");
+  let inDefine = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const trimmed = line.trim();
+    if (trimmed === "[define]") {
+      inDefine = true;
+      continue;
+    }
+    if (inDefine && trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      inDefine = false;
+    }
+    if (!inDefine) continue;
+
+    const match = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^#]*?)(\s*#.*)?$/);
+    const key = match?.[2];
+    if (!key || !updateByKey.has(key)) continue;
+    lines[i] = `${match![1]}${key} = ${formatDefineValue(updateByKey.get(key)!)}${match![4] ?? ""}`;
+    seen.add(key);
+  }
+
+  return {
+    text: lines.join("\n"),
+    appliedKeys: [...seen].sort(),
+    missingKeys: [...updateByKey.keys()].filter((key) => !seen.has(key)).sort(),
+  };
+}
+
+function applyResultDetail(result: OptimizerApplyResult): string {
+  if (result.selected.length === 0) {
+    return `no optimizer recommendations met the apply threshold (${result.minConfidence.toFixed(2)})`;
+  }
+  const action = result.dryRun ? "would apply" : "applied";
+  return `${action} ${result.selected.length} optimizer recommendation${result.selected.length === 1 ? "" : "s"}: ${result.selected.map((item) => item.constant).join(", ")}`;
+}
+
+export function formatOptimizerApplyResultLines(result: OptimizerApplyResult): string[] {
+  const lines: string[] = [];
+  const action = result.dryRun ? "Would apply" : "Applied";
+  for (const item of result.selected) {
+    lines.push(
+      `${action} ${item.constant}: ${formatDoctorValue(item.currentValue)} → ${formatDoctorValue(item.proposedValue)} (confidence ${item.confidence.toFixed(2)})`
+    );
+    lines.push(`  Confidence detail: ${formatConfidenceBreakdownLine(item.confidenceBreakdown)}`);
+    lines.push(`  Reason: ${item.reason}`);
+  }
+  for (const item of result.skipped) {
+    lines.push(`Skipped ${item.constant}: ${item.skipReason}`);
+  }
+  if (result.dryRun && result.selected.length > 0) {
+    lines.push("Dry run — pass --yes to write bunfig.toml");
+  }
+  if (result.decisionIds.length > 0) {
+    lines.push(
+      `Decision${result.decisionIds.length === 1 ? "" : "s"}: ${result.decisionIds.join(", ")}`
+    );
+  }
+  return lines;
+}
+
+export function applyOptimizerRecommendationsEffect(input: {
+  projectRoot: string;
+  recommendations: OptimizerDoctorRecommendation[];
+  requestedConstants: string[];
+  minConfidence: number;
+  dryRun: boolean;
+  traceId: string;
+}): Effect.Effect<OptimizerApplyResult, unknown> {
+  const plan = buildOptimizerApplyPlan(
+    input.recommendations,
+    input.requestedConstants,
+    input.minConfidence
+  );
+  const root = input.projectRoot.endsWith("/") ? input.projectRoot.slice(0, -1) : input.projectRoot;
+  const bunfigPath = `${root}/bunfig.toml`;
+
+  return Effect.gen(function* () {
+    if (plan.selected.length === 0) {
+      const result: OptimizerApplyResult = {
+        ...plan,
+        applied: false,
+        dryRun: input.dryRun,
+        bunfigPath,
+        decisionIds: [],
+        detail: "",
+      };
+      return { ...result, detail: applyResultDetail(result) };
+    }
+
+    const bunfigText = yield* Effect.tryPromise({
+      try: () => Bun.file(bunfigPath).text(),
+      catch: (error) => error,
+    });
+    const rewrite = rewriteOptimizerDefineValues(bunfigText, plan.selected);
+    const missingSelected = new Set(rewrite.missingKeys);
+    const selected = plan.selected.filter((item) => !missingSelected.has(item.constant));
+    const skipped = [
+      ...plan.skipped,
+      ...plan.selected
+        .filter((item) => missingSelected.has(item.constant))
+        .map((item) => ({ ...item, skipReason: "constant not found in bunfig.toml [define]" })),
+    ];
+    const resolvedPlan: OptimizerApplyPlan = { ...plan, selected, skipped };
+
+    if (input.dryRun || selected.length === 0) {
+      const result: OptimizerApplyResult = {
+        ...resolvedPlan,
+        applied: false,
+        dryRun: true,
+        bunfigPath,
+        decisionIds: [],
+        rewrittenBunfig: rewrite.text,
+        detail: "",
+      };
+      return { ...result, detail: applyResultDetail(result) };
+    }
+
+    yield* Effect.tryPromise({
+      try: () => Bun.write(bunfigPath, rewrite.text),
+      catch: (error) => error,
+    });
+
+    const decisions = yield* Effect.all(
+      selected.map((item) =>
+        logDecisionEffect(
+          {
+            action: "config-change",
+            trigger: { traceId: input.traceId, capabilityItem: item.constant },
+            metadata: {
+              type: "constant-optimization",
+              constantKey: item.constant,
+              previousValue: item.currentValue,
+              candidateValue: item.proposedValue,
+              confidence: item.confidence,
+              confidenceBreakdown: item.confidenceBreakdown,
+              minConfidence: input.minConfidence,
+              basedOnDecisionIds: item.decisionIds,
+            },
+            rationaleOverride: {
+              summary: `Applied optimizer recommendation for ${item.constant}`,
+              fullReasoning: `Rewrote bunfig.toml [define] ${item.constant} from ${formatDoctorValue(item.currentValue)} to ${formatDoctorValue(item.proposedValue)} after confidence ${item.confidence.toFixed(2)} met threshold ${input.minConfidence.toFixed(2)}. ${item.reason}.`,
+              evidence: [
+                {
+                  type: "contractDiff",
+                  detail: `${item.constant}: ${formatDoctorValue(item.currentValue)} -> ${formatDoctorValue(item.proposedValue)}; basedOn=${item.decisionIds.join(",")}`,
+                },
+              ],
+            },
+            outcome: { result: "success", verifiedAt: new Date().toISOString() },
+          },
+          { projectRoot: input.projectRoot }
+        )
+      ),
+      { concurrency: 1 }
+    );
+
+    const result: OptimizerApplyResult = {
+      ...resolvedPlan,
+      applied: selected.length > 0,
+      dryRun: false,
+      bunfigPath,
+      decisionIds: decisions.map((decision) => decision.decisionId),
+      rewrittenBunfig: rewrite.text,
+      detail: "",
+    };
+    return { ...result, detail: applyResultDetail(result) };
+  });
 }
 
 export function formatOptimizerDoctorDetailLines(rec: OptimizerDoctorRecommendation): string[] {
@@ -543,9 +1084,9 @@ export function printConstantOptimizerDoctorBlock(
 ): void {
   const summary = summarizeOptimizerDoctorBlock(recommendations);
   logger.check({
-    name: "constant-optimizer",
+    name: "Optimizer",
     status: summary.status,
-    message: summary.message,
+    message: formatOptimizerDoctorHealthMessage(recommendations),
     fixable: false,
   });
 
@@ -575,7 +1116,8 @@ export function entryToDoctorRecommendation(
   if (!severity) return null;
 
   const nowMs = options.nowMs ?? Date.now();
-  const { outcomeCount, clusterFailureRateDelta } = computeOutcomeStats(entry);
+  const { outcomeCount, activeFailureCount, resolvedFailureCount, clusterFailureRateDelta } =
+    computeOutcomeStats(entry);
   const lastReviewMs = Math.max(0, nowMs - new Date(entry.repair.timestamp).getTime());
   const candidateId =
     entry.recommendation === "promote" && options.candidateValue !== undefined
@@ -593,11 +1135,15 @@ export function entryToDoctorRecommendation(
     goldenValue,
     candidateValue: options.candidateValue,
     candidateId,
+    boundTaxonomies: entry.boundTaxonomies,
     driftPct,
     confidence: entry.confidence,
+    confidenceBreakdown: entry.confidenceBreakdown,
     baseConfidence: entry.baseConfidence,
     basedOnDecisionIds: [entry.repair.decisionId],
     outcomeCount,
+    activeFailureCount,
+    resolvedFailureCount,
     lastReviewMs,
     clusterFailureRateDelta,
     optimizerAction: entry.recommendation,
@@ -636,12 +1182,27 @@ export async function generateOptimizerDoctorRecommendations(
   return recommendations;
 }
 
+export function generateOptimizerDoctorRecommendationsEffect(
+  projectRoot: string,
+  options: {
+    failurePath?: string;
+    windowMs?: number;
+    nowMs?: number;
+  } = {}
+): Effect.Effect<OptimizerDoctorRecommendation[]> {
+  return Effect.tryPromise({
+    try: () => generateOptimizerDoctorRecommendations(projectRoot, options),
+    catch: () => "optimizer-recommendations-failed",
+  }).pipe(Effect.catchAll(() => Effect.succeed([])));
+}
+
 export interface OptimizerDoctorMachineCheck {
   name: string;
   status: "ok" | "warn" | "error";
   source: "constant-optimizer";
   severity: OptimizerDoctorSeverity;
   confidence: number;
+  confidenceBreakdown?: ConfidenceBreakdown;
   baseConfidence?: number;
   driftPercent: number | null;
   action: string;
@@ -661,6 +1222,7 @@ export function optimizerRecommendationToMachineCheck(
     source: "constant-optimizer",
     severity: rec.severity,
     confidence: rec.confidence,
+    confidenceBreakdown: rec.confidenceBreakdown,
     baseConfidence: rec.baseConfidence,
     driftPercent: rec.driftPct,
     action: rec.action,
