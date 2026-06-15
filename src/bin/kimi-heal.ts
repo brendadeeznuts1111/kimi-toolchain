@@ -22,6 +22,8 @@ import {
   buildConstantRepairPlan,
   repairConstants,
   writeConstantsGolden,
+  listGoldenArchives,
+  restoreGoldenFromArchive,
 } from "../lib/constants-heal.ts";
 import { formatErrorSuggestReport, suggestErrorWithBoundConstants } from "../lib/error-suggest.ts";
 
@@ -197,6 +199,51 @@ async function main(): Promise<number> {
       }
       return 0;
     }
+    if (sub === "archives") {
+      const archives = await listGoldenArchives(projectRoot);
+      if (jsonMode) {
+        process.stdout.write(`${JSON.stringify(archives, null, 2)}\n`);
+      } else {
+        logger.section("Golden Archives");
+        if (archives.length === 0) {
+          logger.info("No archived golden snapshots");
+        } else {
+          for (const archive of archives) {
+            logger.line(`  ${archive.name} — v${archive.tuningSetVersion} @ ${archive.capturedAt}`);
+          }
+        }
+      }
+      return 0;
+    }
+    if (sub === "restore") {
+      const archiveName = args[2];
+      const dryRun = hasFlag("--dry-run") || !hasFlag("--yes");
+      if (!archiveName) {
+        logger.error("Usage: constants restore <archive-name> [--dry-run|--yes] [--json]");
+        return 1;
+      }
+      if (dryRun) {
+        const archives = await listGoldenArchives(projectRoot);
+        const match = archives.find((item) => item.name === archiveName);
+        if (!match) {
+          logger.error(`Archive not found: ${archiveName}`);
+          return 1;
+        }
+        logger.section("Restore Golden");
+        logger.info(`dry-run: would restore ${archiveName} (v${match.tuningSetVersion})`);
+        logger.warn("Dry run — pass --yes to write constants-golden.json");
+        return 0;
+      }
+      const golden = await restoreGoldenFromArchive(projectRoot, archiveName);
+      if (jsonMode) {
+        process.stdout.write(`${JSON.stringify(golden, null, 2)}\n`);
+      } else {
+        logger.section("Restore Golden");
+        logger.info(`Restored ${archiveName} → .kimi/var/constants-golden.json`);
+        logger.info(`Golden template v${golden.tuningSetVersion}`);
+      }
+      return 0;
+    }
     if (sub === "optimize") {
       const { buildConstantOptimizerReport, formatConstantOptimizerReport } =
         await import("../lib/constant-optimizer.ts");
@@ -224,6 +271,8 @@ async function main(): Promise<number> {
   logger.line(
     "  constants snapshot [--json]           Capture golden template (.kimi/var/constants-golden.json)"
   );
+  logger.line("  constants archives [--json]         List archived golden snapshots");
+  logger.line("  constants restore <name> [--dry-run|--yes]  Restore golden from archive");
   logger.line(
     "  constants optimize [--json]           Correlate bound-constant repairs with failure outcomes"
   );

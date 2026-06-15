@@ -71,6 +71,15 @@ declare const KIMI_ERROR_EMBEDDING_DIM: number;
 declare const KIMI_DECISION_SCORE_WINDOW_DAYS: number;
 
 /**
+ * @defineDomain optimizer
+ * @type number
+ * @default 30
+ * @restrictions positive integer — linear decay window for insufficient-data confidence (Phase 3.2)
+ * @see src/lib/constant-optimizer.ts
+ */
+declare const KIMI_OPTIMIZER_CONFIDENCE_DECAY_DAYS: number;
+
+/**
  * @defineDomain error-clustering
  * @type number
  * @default 0.55

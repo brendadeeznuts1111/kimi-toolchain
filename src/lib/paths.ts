@@ -75,6 +75,16 @@ export function constantsGoldenPath(projectRoot: string): string {
   return join(projectKimiDir(projectRoot), "var", "constants-golden.json");
 }
 
+/** Return {projectRoot}/.kimi/var/constants-golden/archive */
+export function constantsGoldenArchiveDir(projectRoot: string): string {
+  return join(projectKimiDir(projectRoot), "var", "constants-golden", "archive");
+}
+
+/** Return {projectRoot}/.kimi/var/optimizer-health.ndjson */
+export function optimizerHealthTrendPath(projectRoot: string): string {
+  return join(projectKimiDir(projectRoot), "var", "optimizer-health.ndjson");
+}
+
 /** Return {projectRoot}/.kimi/var/contract-observations.ndjson (path segment from bunfig define). */
 export function contractObservationsPath(projectRoot: string): string {
   return join(projectRoot, KIMI_CONTRACT_OBSERVATIONS_PATH);

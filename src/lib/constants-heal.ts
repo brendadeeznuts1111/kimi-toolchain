@@ -2,7 +2,7 @@
  * Auto-healing for bunfig [define] constants via golden template diff + repair.
  */
 
-import { existsSync } from "fs";
+import { existsSync, readdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import {
   loadRepoDefineMap,
@@ -12,7 +12,7 @@ import {
 } from "./build-constants-registry.ts";
 import { logDecision, updateDecisionOutcome } from "./decision-ledger.ts";
 import { ensureProcessTrace } from "./effect/trace-context.ts";
-import { constantsGoldenPath } from "./paths.ts";
+import { constantsGoldenPath, constantsGoldenArchiveDir } from "./paths.ts";
 import { ensureDir } from "./utils.ts";
 
 export const GOLDEN_SCHEMA_VERSION = "1.0.0";
@@ -97,6 +97,96 @@ export interface ConstantRepairResult {
 }
 
 const DEFINE_KEY = /^([A-Z][A-Z0-9_]*) = /;
+const MAX_GOLDEN_ARCHIVES = 10;
+
+export interface GoldenArchiveEntry {
+  name: string;
+  path: string;
+  tuningSetVersion: string;
+  capturedAt: string;
+  schemaVersion: string;
+}
+
+function sanitizeArchiveTimestamp(iso: string): string {
+  return iso.replace(/[:.]/g, "-");
+}
+
+function archiveFileName(golden: ConstantsGolden): string {
+  return `${golden.tuningSetVersion}-${sanitizeArchiveTimestamp(golden.capturedAt)}.json`;
+}
+
+async function archiveCurrentGolden(projectRoot: string): Promise<void> {
+  const current = await loadConstantsGolden(projectRoot);
+  if (!current) return;
+
+  const archiveDir = constantsGoldenArchiveDir(projectRoot);
+  ensureDir(archiveDir);
+  const dest = join(archiveDir, archiveFileName(current));
+  await Bun.write(dest, `${JSON.stringify(current, null, 2)}\n`);
+  pruneGoldenArchives(projectRoot);
+}
+
+function pruneGoldenArchives(projectRoot: string): void {
+  const archiveDir = constantsGoldenArchiveDir(projectRoot);
+  if (!existsSync(archiveDir)) return;
+
+  const entries = readdirSync(archiveDir)
+    .filter((name) => name.endsWith(".json"))
+    .map((name) => {
+      const path = join(archiveDir, name);
+      return { name, path, mtime: Bun.file(path).lastModified };
+    })
+    .sort((a, b) => b.mtime - a.mtime);
+
+  for (const entry of entries.slice(MAX_GOLDEN_ARCHIVES)) {
+    unlinkSync(entry.path);
+  }
+}
+
+export async function listGoldenArchives(projectRoot: string): Promise<GoldenArchiveEntry[]> {
+  const archiveDir = constantsGoldenArchiveDir(projectRoot);
+  if (!existsSync(archiveDir)) return [];
+
+  const names = readdirSync(archiveDir).filter((name) => name.endsWith(".json"));
+  const entries: GoldenArchiveEntry[] = [];
+
+  for (const name of names) {
+    const path = join(archiveDir, name);
+    const golden = parseConstantsGolden(await Bun.file(path).json());
+    if (!golden) continue;
+    entries.push({
+      name,
+      path,
+      tuningSetVersion: golden.tuningSetVersion,
+      capturedAt: golden.capturedAt,
+      schemaVersion: golden.schemaVersion,
+    });
+  }
+
+  return entries.sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
+}
+
+export async function restoreGoldenFromArchive(
+  projectRoot: string,
+  archiveName: string
+): Promise<ConstantsGolden> {
+  const archiveDir = constantsGoldenArchiveDir(projectRoot);
+  const archivePath = join(archiveDir, archiveName);
+  if (!existsSync(archivePath)) {
+    throw new Error(`Golden archive not found: ${archiveName}`);
+  }
+
+  const golden = parseConstantsGolden(await Bun.file(archivePath).json());
+  if (!golden) {
+    throw new Error(`Invalid golden archive: ${archiveName}`);
+  }
+
+  await archiveCurrentGolden(projectRoot);
+  const goldenPath = constantsGoldenPath(projectRoot);
+  ensureDir(join(projectRoot, ".kimi", "var"));
+  await Bun.write(goldenPath, `${JSON.stringify(golden, null, 2)}\n`);
+  return golden;
+}
 
 export async function captureConstantsGolden(projectRoot: string): Promise<ConstantsGolden> {
   const defines = parseBunfigDefines(await Bun.file(join(projectRoot, "bunfig.toml")).text());
@@ -123,6 +213,7 @@ export async function writeConstantsGolden(
   projectRoot: string,
   golden?: ConstantsGolden
 ): Promise<ConstantsGolden> {
+  await archiveCurrentGolden(projectRoot);
   const snapshot = golden ?? (await captureConstantsGolden(projectRoot));
   const path = constantsGoldenPath(projectRoot);
   ensureDir(join(projectRoot, ".kimi", "var"));

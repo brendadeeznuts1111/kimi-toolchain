@@ -16,11 +16,10 @@ import {
 } from "./taxonomy-constants.ts";
 import { checkTuningSetFreshness } from "./tuning-set-version.ts";
 import {
-  formatOptimizerDoctorMessage,
-  generateOptimizerDoctorRecommendations,
-  optimizerRecommendationToMachineCheck,
+  buildOptimizerDoctorMachineChecks,
   type OptimizerDoctorSeverity,
 } from "./constant-optimizer.ts";
+import { appendOptimizerHealthTrend } from "./optimizer-health-trend.ts";
 import {
   auditWorkspaceHealth,
   countWorkspaceBlockers,
@@ -100,9 +99,13 @@ export async function checkConstantOptimizerHealth(
     return { applicable: false, aligned: true, checks: [] };
   }
 
-  const recommendations = await generateOptimizerDoctorRecommendations(projectRoot);
+  const machineChecks = await buildOptimizerDoctorMachineChecks(projectRoot);
+  await appendOptimizerHealthTrend(projectRoot, machineChecks);
 
-  if (recommendations.length === 0) {
+  const actionable = machineChecks.filter((check) => check.constant !== "summary");
+
+  if (actionable.length === 0) {
+    const summary = machineChecks.find((check) => check.constant === "summary");
     return {
       applicable: true,
       aligned: true,
@@ -110,31 +113,28 @@ export async function checkConstantOptimizerHealth(
         {
           name: "summary",
           status: "ok",
-          message: "no optimizer recommendations",
+          message: summary?.message ?? "no optimizer recommendations",
           fixable: false,
         },
       ],
     };
   }
 
-  const checks: ConstantOptimizerHealthCheck[] = recommendations.map((rec) => {
-    const machine = optimizerRecommendationToMachineCheck(rec);
-    return {
-      name: rec.constant,
-      status: machine.status,
-      message: formatOptimizerDoctorMessage(rec),
-      fixable: false,
-      autoFix: rec.action,
-      severity: machine.severity,
-      confidence: machine.confidence,
-      driftPercent: machine.driftPercent,
-      action: machine.action,
-      decisionIds: machine.decisionIds,
-      candidateId: machine.candidateId,
-      candidateValue: machine.candidateValue,
-      constant: machine.constant,
-    };
-  });
+  const checks: ConstantOptimizerHealthCheck[] = actionable.map((machine) => ({
+    name: machine.constant,
+    status: machine.status,
+    message: machine.message,
+    fixable: false,
+    autoFix: machine.action,
+    severity: machine.severity,
+    confidence: machine.confidence,
+    driftPercent: machine.driftPercent,
+    action: machine.action,
+    decisionIds: machine.decisionIds,
+    candidateId: machine.candidateId,
+    candidateValue: machine.candidateValue,
+    constant: machine.constant,
+  }));
 
   return {
     applicable: true,

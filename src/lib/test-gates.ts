@@ -48,6 +48,8 @@ export const UNIT_TEST_FILES = [
   "test/error-suggest.unit.test.ts",
   "test/constant-optimizer.unit.test.ts",
   "test/optimizer-doctor.unit.test.ts",
+  "test/hook-gates.unit.test.ts",
+  "test/optimizer-health-trend.unit.test.ts",
   "test/decision-list-diff.unit.test.ts",
   "test/taxonomy-coverage.unit.test.ts",
   "test/quiet-mode.unit.test.ts",

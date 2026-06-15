@@ -11,8 +11,12 @@ import {
   parseConstantsGolden,
   repairConstants,
   writeConstantsGolden,
+  listGoldenArchives,
+  restoreGoldenFromArchive,
 } from "../src/lib/constants-heal.ts";
 import { loadRepoDefineMap } from "../src/lib/build-constants-registry.ts";
+import { constantsGoldenArchiveDir } from "../src/lib/paths.ts";
+import { existsSync } from "fs";
 
 describe("constantsHeal", () => {
   let projectDir: string;
@@ -187,5 +191,47 @@ preload = []
 
     expect(parsed?.schemaVersion).toBe("1.0.0");
     expect(parsed?.tuningSetVersion).toBe("1.0.0");
+  });
+
+  it("should archive prior golden on snapshot and support restore", async () => {
+    projectDir = join(tmpdir(), `constants-heal-archive-${Date.now()}`);
+    writeProject({
+      "bunfig.toml": `
+[define]
+# define-domain:hook-verifier
+KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
+# define-domain:governance
+KIMI_TUNING_SET_VERSION = '"1.0.0"'
+`,
+    });
+
+    const first = await writeConstantsGolden(projectDir);
+    writeFileSync(
+      join(projectDir, "bunfig.toml"),
+      `
+[define]
+# define-domain:hook-verifier
+KIMI_HOOK_VERIFIER_MAX_CYCLES = "64"
+# define-domain:governance
+KIMI_TUNING_SET_VERSION = '"1.0.0"'
+`
+    );
+    await writeConstantsGolden(projectDir);
+
+    const archiveDir = constantsGoldenArchiveDir(projectDir);
+    expect(existsSync(archiveDir)).toBe(true);
+    const archives = await listGoldenArchives(projectDir);
+    expect(archives.length).toBeGreaterThanOrEqual(1);
+
+    const archiveName = archives.find(
+      (item) => item.tuningSetVersion === first.tuningSetVersion
+    )?.name;
+    expect(archiveName).toBeDefined();
+
+    await restoreGoldenFromArchive(projectDir, archiveName!);
+    const restored = await loadConstantsGolden(projectDir);
+    expect(restored?.constants.KIMI_HOOK_VERIFIER_MAX_CYCLES?.value).toBe(32);
+
+    rmSync(projectDir, { recursive: true, force: true });
   });
 });
