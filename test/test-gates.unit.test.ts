@@ -57,13 +57,23 @@ describe("test-gates", () => {
     expect(useFastUnitCoverage("other-project")).toBe(false);
   });
 
+  test("bunTestArgs dots mode adds --dots reporter", () => {
+    expect(bunTestArgs({ bail: true, dots: true })).toEqual([
+      "test",
+      "--timeout",
+      "5000",
+      "--bail",
+      "--dots",
+    ]);
+  });
+
   test(
     "check script staged mode is explicit in dry-run output",
     async () => {
       const result = await runCheckScript(["--dry-run", "--staged"]);
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("check (staged fast)");
-      expect(result.stdout).toContain("src/bin/kimi-githooks.ts pre-commit");
+      expect(result.stdout).toContain("run-gates pre-commit");
       expect(result.stdout).toContain("test/unified-shell-bridge.unit.test.ts");
     },
     { timeout: 5000 }

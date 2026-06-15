@@ -9,6 +9,8 @@
  *   bun run scripts/check.ts --fast --timeout 100
  *   bun run scripts/check.ts --dryrun --fast
  *
+ * Set KIMI_QUIET=1 for silent success (failures still verbose).
+ *
  * @see https://bun.com/docs/guides/test/timeout
  */
 
@@ -18,6 +20,8 @@ import {
   FAST_TEST_TIMEOUT_MS,
   DEFAULT_TEST_TIMEOUT_MS,
 } from "../src/lib/test-gates.ts";
+import { runCheckStep, shouldSilentOnSuccess } from "../src/lib/gate-runner.ts";
+import { ensureQuietEnv } from "../src/lib/quiet-mode.ts";
 import { isKimiToolchainRepo } from "../src/lib/workspace-health.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -80,18 +84,20 @@ function parseCli(): { dryRun: boolean; fast: boolean; staged: boolean; timeoutM
 }
 
 async function buildSteps(fast: boolean, staged: boolean, timeoutMs: number): Promise<Step[]> {
+  const quiet = shouldSilentOnSuccess();
   const steps: Step[] = [];
   if (staged) {
     steps.push({
       name: "pre-commit",
-      cmd: ["bun", "run", "src/bin/kimi-githooks.ts", "pre-commit"],
+      cmd: ["bun", "run", "src/bin/kimi-githooks.ts", "run-gates", "pre-commit"],
+      silentOnSuccess: quiet,
     });
   }
-  // Full check only — check:fast skips env blockers (cursor slug, wrappers) for quick iteration
   if (!fast && (await isKimiToolchainRepo(REPO_ROOT))) {
     steps.push({
       name: "verify-workspace",
       cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "workspace", "verify"],
+      silentOnSuccess: quiet,
     });
   }
   steps.push(
@@ -100,12 +106,25 @@ async function buildSteps(fast: boolean, staged: boolean, timeoutMs: number): Pr
       cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "--success-metrics", "--json"],
       silentOnSuccess: true,
     },
-    { name: "format:check", cmd: ["bun", "run", "format:check"] },
-    { name: "lint", cmd: ["bun", "run", "lint"] },
-    { name: "typecheck", cmd: ["bun", "run", "typecheck"] },
+    {
+      name: "format:check",
+      cmd: ["bun", "run", "format:check"],
+      silentOnSuccess: quiet,
+    },
+    {
+      name: "lint",
+      cmd: ["bun", "run", "lint"],
+      silentOnSuccess: quiet,
+    },
+    {
+      name: "typecheck",
+      cmd: ["bun", "run", "typecheck"],
+      silentOnSuccess: quiet,
+    },
     {
       name: fast ? "test:fast" : "test",
-      cmd: ["bun", ...bunTestArgs({ fast, timeoutMs, bail: true })],
+      cmd: ["bun", ...bunTestArgs({ fast, timeoutMs, bail: true, dots: quiet })],
+      silentOnSuccess: quiet,
     }
   );
   return steps;
@@ -113,23 +132,8 @@ async function buildSteps(fast: boolean, staged: boolean, timeoutMs: number): Pr
 
 async function runStep(step: Step): Promise<number> {
   if (step.silentOnSuccess) {
-    const proc = Bun.spawn(step.cmd, {
-      cwd: REPO_ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const [stdout, stderr, exitCode] = await Promise.all([
-      Bun.readableStreamToText(proc.stdout),
-      Bun.readableStreamToText(proc.stderr),
-      proc.exited,
-    ]);
-    if (exitCode !== 0) {
-      if (stdout) process.stdout.write(stdout);
-      if (stderr) process.stderr.write(stderr);
-    }
-    return exitCode;
+    return runCheckStep(step.name, step.cmd, REPO_ROOT);
   }
-
   const proc = Bun.spawn(step.cmd, {
     cwd: REPO_ROOT,
     stdout: "inherit",
@@ -139,12 +143,14 @@ async function runStep(step: Step): Promise<number> {
 }
 
 async function main() {
+  ensureQuietEnv();
   const { dryRun, fast, staged, timeoutMs } = parseCli();
   const steps = await buildSteps(fast, staged, timeoutMs);
 
   if (dryRun) {
     const mode = staged ? "(staged fast) " : fast ? "(fast) " : "";
-    console.log(`check ${mode}— dry run`);
+    const quiet = shouldSilentOnSuccess() ? "(quiet) " : "";
+    console.log(`check ${mode}${quiet}— dry run`);
     console.log(`  test timeout: ${timeoutMs}ms`);
     for (const step of steps) {
       console.log(`  → ${step.cmd.join(" ")}`);
@@ -152,7 +158,6 @@ async function main() {
     return;
   }
 
-  // Run independent gates (format, lint, typecheck) in parallel, then test
   const testStep = steps.find((s) => s.name === "test" || s.name === "test:fast");
   const independentSteps = steps.filter((s) => s !== testStep);
 

@@ -216,7 +216,19 @@ describe("logger", () => {
 
   test("createLogger parses --quiet flag", () => {
     const logger = createLogger(["--quiet"], "test");
-    expect(logger.getLogs().length).toBe(0);
+    expect(logger.getLogs()).toEqual([]);
+  });
+
+  test("createLogger enables quiet from KIMI_QUIET env", () => {
+    Bun.env.KIMI_QUIET = "1";
+    const logger = createLogger([], "test");
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+    logger.info("hidden");
+    console.log = originalLog;
+    expect(logs.length).toBe(0);
+    delete Bun.env.KIMI_QUIET;
   });
 
   test("createLogger parses --debug flag", () => {

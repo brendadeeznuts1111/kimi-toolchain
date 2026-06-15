@@ -13,6 +13,7 @@
 import type { HealthCheck, HealthReport } from "./health-check.ts";
 import { statusIcon as healthStatusIcon, aggregateChecks } from "./health-check.ts";
 import { isAgentContext } from "./tool-runner.ts";
+import { ensureQuietEnv, isQuietMode } from "./quiet-mode.ts";
 import { getStepBudgetStatus } from "./step-budget.ts";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
@@ -299,8 +300,9 @@ export class Logger {
 
 /** Create a logger instance from CLI argv flags. */
 export function createLogger(argv: string[], toolName?: string): Logger {
+  ensureQuietEnv();
   const json = argv.includes("--json");
-  const quiet = argv.includes("--quiet");
+  const quiet = argv.includes("--quiet") || isQuietMode();
   const debug = argv.includes("--debug");
   const stepBudget = argv.includes("--step-budget");
   return new Logger({

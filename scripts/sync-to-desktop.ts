@@ -19,6 +19,7 @@ import {
   hasUncommittedChanges,
   writeManifest,
 } from "../src/lib/version.ts";
+import { isQuietMode } from "../src/lib/quiet-mode.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 
@@ -31,7 +32,7 @@ async function main() {
     hasUncommittedChanges(),
   ]);
 
-  if (dirty && !isDaemon) {
+  if (dirty && !isDaemon && !isQuietMode()) {
     console.log("⚠️  Repo has uncommitted changes. Sync will reflect working tree, not HEAD.");
   }
 
@@ -65,11 +66,15 @@ async function main() {
     return;
   }
 
-  console.log("🔄 Syncing repo → ~/.kimi-code/ ...");
+  if (!isQuietMode()) {
+    console.log("🔄 Syncing repo → ~/.kimi-code/ ...");
+  }
   const result = await syncDesktop(REPO_ROOT);
   const mcp = await provisionUserMcp();
-  if (mcp.changed) {
+  if (mcp.changed && !isQuietMode()) {
     console.log("   ✓ mcp.json: unified-shell updated");
+    result.updated.push("mcp.json");
+  } else if (mcp.changed) {
     result.updated.push("mcp.json");
   }
   const fileHashes = await computeSyncHashes(REPO_ROOT);
@@ -84,19 +89,21 @@ async function main() {
   });
 
   if (result.updated.length === 0 && result.removed.length === 0) {
-    console.log("✅ Already up to date.");
+    if (!isQuietMode()) console.log("✅ Already up to date.");
     return;
   }
 
-  if (result.updated.length) {
-    console.log("📤 Updated:");
-    for (const f of result.updated) console.log(`   ✓ ${f}`);
+  if (!isQuietMode()) {
+    if (result.updated.length) {
+      console.log("📤 Updated:");
+      for (const f of result.updated) console.log(`   ✓ ${f}`);
+    }
+    if (result.removed.length) {
+      console.log("🗑️  Removed:");
+      for (const f of result.removed) console.log(`   ✗ ${f}`);
+    }
+    console.log(`   (${result.skipped} files unchanged)`);
   }
-  if (result.removed.length) {
-    console.log("🗑️  Removed:");
-    for (const f of result.removed) console.log(`   ✗ ${f}`);
-  }
-  console.log(`   (${result.skipped} files unchanged)`);
 }
 
 main().catch((err) => {

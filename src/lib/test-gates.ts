@@ -47,6 +47,8 @@ export const UNIT_TEST_FILES = [
   "test/taxonomy-constants.unit.test.ts",
   "test/error-suggest.unit.test.ts",
   "test/constant-optimizer.unit.test.ts",
+  "test/quiet-mode.unit.test.ts",
+  "test/gate-runner.unit.test.ts",
   "test/lint-test-names.unit.test.ts",
   "test/tuning-set-version.unit.test.ts",
   "test/constants-heal.unit.test.ts",
@@ -81,6 +83,7 @@ export function bunTestArgs(options: {
   smoke?: boolean;
   bail?: boolean | number;
   timeoutMs?: number;
+  dots?: boolean;
 }): string[] {
   const timeout = String(
     options.timeoutMs ??
@@ -98,6 +101,7 @@ export function bunTestArgs(options: {
   if (options.ci) {
     args.push("--reporter=junit", "--reporter-outfile=reports/junit.xml");
   }
+  if (options.dots) args.push("--dots");
   if (options.json) args.push("--json");
   if (options.fast) {
     args.push(...UNIT_TEST_FILES);

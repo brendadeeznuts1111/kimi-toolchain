@@ -27,6 +27,8 @@ import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import { ensureQuietEnv } from "../lib/quiet-mode.ts";
+import { runPreCommitGates, runPreCommitPolicy, runPrePushGates } from "../lib/hook-gates.ts";
 
 const logger = createLogger(Bun.argv, "kimi-githooks");
 
@@ -41,144 +43,39 @@ async function resolveHooksDir(projectDir: string): Promise<string> {
 
 const PRE_COMMIT_HOOK = `#!/bin/sh
 # Auto-installed by kimi-githooks
-# P0: Block secrets, env blocks, TODOs in commit messages
+# P0: Block secrets; P1: quality gates (quiet when KIMI_QUIET=1 or KIMI_AGENT_SESSION)
 
-# Check for .env files being committed (.env.example is allowed)
-ENV_BLOCKED=$(git diff --cached --name-only | grep -E '^\\.env($|\\.)' | grep -v '^\\.env\\.example$' || true)
-if [ -n "$ENV_BLOCKED" ]; then
-  echo "✗ Commit blocked: .env file detected in staged changes"
-  echo "  Use Bun.secrets or a vault. Never commit .env files."
+if [ -n "$KIMI_AGENT_SESSION" ]; then export KIMI_QUIET=1; fi
+
+if [ -f "src/bin/kimi-githooks.ts" ]; then
+  GITHOOKS="bun run src/bin/kimi-githooks.ts"
+elif [ -f "${TOOLS_DIR}/kimi-githooks.ts" ]; then
+  GITHOOKS="bun run ${TOOLS_DIR}/kimi-githooks.ts"
+else
+  echo "✗ kimi-githooks not found — run: kimi-githooks install"
   exit 1
 fi
 
-# Check for TODO/FIXME in staged files (not test files)
-TODO_COUNT=$(git diff --cached --name-only | grep -v '\\.test\\.' | grep -v '\\.spec\\.' | xargs -I {} git diff --cached -- {} 2>/dev/null | grep -c '^+.*TODO\\|FIXME' || true)
-if [ "$TODO_COUNT" -gt 0 ]; then
-  echo "⚠ $TODO_COUNT TODO/FIXME found in staged non-test files"
-  echo "  Commit allowed, but consider addressing before merge."
-fi
-
-# Check for console.log in staged .ts files (not .test.ts)
-LOG_COUNT=$(git diff --cached --name-only | grep '\\.ts$' | grep -v '\\.test\\.' | grep -v '\\.spec\\.' | xargs -I {} git diff --cached -- {} 2>/dev/null | grep -c '^+.*console\\.log' || true)
-if [ "$LOG_COUNT" -gt 0 ]; then
-  echo "⚠ $LOG_COUNT console.log found in staged .ts files"
-  echo "  Consider using a proper logger or removing debug output."
-fi
-
-# Quality gates (when package.json defines scripts)
-if [ -f package.json ]; then
-  if grep -q '"format:check"' package.json 2>/dev/null; then
-    echo "── Format check ─────────────────────────────────────────────"
-    bun run format:check || exit 1
-  fi
-  if grep -q '"lint"' package.json 2>/dev/null; then
-    echo "── Lint ─────────────────────────────────────────────────────"
-    bun run lint || exit 1
-  fi
-  if grep -q '"typecheck"' package.json 2>/dev/null; then
-    echo "── Type check ───────────────────────────────────────────────"
-    bun run typecheck || exit 1
-  fi
-  if grep -q '"test:fast"' package.json 2>/dev/null; then
-    echo "── Unit tests (fast) ────────────────────────────────────────"
-    bun run test:fast || exit 1
-  fi
-  if [ -f scripts/lint-tuning-set-version.ts ]; then
-    echo "── Tuning set version ───────────────────────────────────────"
-    bun run scripts/lint-tuning-set-version.ts --staged || exit 1
-  fi
-fi
-
+$GITHOOKS run-gates pre-commit || exit 1
 exit 0
 `;
 
 const PRE_PUSH_HOOK = `#!/bin/sh
 # Auto-installed by kimi-githooks
-# P1: Lockfile verification, guardian scan, R-Score gate
+# P1: guardian, R-Score, check:fast (KIMI_PRE_PUSH_FULL=1 for full check)
 
-echo "═══ Kimi Pre-Push Gate ═══"
+if [ -n "$KIMI_AGENT_SESSION" ]; then export KIMI_QUIET=1; fi
 
-# Prefer repo src when developing kimi-toolchain
-if [ -f "src/bin/kimi-guardian.ts" ] && [ -f "package.json" ]; then
-  GUARDIAN="src/bin/kimi-guardian.ts"
+if [ -f "src/bin/kimi-githooks.ts" ]; then
+  GITHOOKS="bun run src/bin/kimi-githooks.ts"
+elif [ -f "${TOOLS_DIR}/kimi-githooks.ts" ]; then
+  GITHOOKS="bun run ${TOOLS_DIR}/kimi-githooks.ts"
 else
-  GUARDIAN="${TOOLS_DIR}/kimi-guardian.ts"
+  echo "✗ kimi-githooks not found — run: kimi-githooks install"
+  exit 1
 fi
 
-if [ -f "src/bin/kimi-governance.ts" ] && [ -f "package.json" ]; then
-  GOVERNANCE="src/bin/kimi-governance.ts"
-else
-  GOVERNANCE="${TOOLS_DIR}/kimi-governance.ts"
-fi
-
-# 1. Supply Chain Security (guardian: lockfile + dependency audit)
-if [ -f "$GUARDIAN" ]; then
-  echo "── Supply Chain Security ──────────────────────────────────"
-  bun run "$GUARDIAN" check 2>&1 | grep -E "(CVE|outdated|untrusted|HASH MISMATCH)" || echo "  ✓ No critical issues"
-fi
-
-# 2. R-Score gate (block push if F or D grade)
-if [ -f "$GOVERNANCE" ]; then
-  echo ""
-  echo "── R-Score Gate ─────────────────────────────────────────────"
-  SCORE_OUTPUT=$(bun run "$GOVERNANCE" score 2>&1)
-  echo "$SCORE_OUTPUT" | grep -E "Grade:|Breakdown:"
-
-  GRADE=$(echo "$SCORE_OUTPUT" | grep "Grade:" | sed 's/.*Grade: \\([A-F]\\).*/\\1/')
-  if [ "$GRADE" = "F" ] || [ "$GRADE" = "D" ]; then
-    echo ""
-    echo "✗ PUSH BLOCKED: R-Score is $GRADE. Address governance gaps first."
-    echo "  Run: bun run $GOVERNANCE fix"
-    exit 1
-  fi
-fi
-
-# 4. Quality gate (format, lint, test)
-if [ -f "package.json" ]; then
-  echo ""
-  echo "── Quality Gate ─────────────────────────────────────────────"
-  if grep -q '"check"' package.json 2>/dev/null; then
-    bun run check || exit 1
-  else
-    if grep -q '"format:check"' package.json 2>/dev/null; then
-      bun run format:check || exit 1
-    fi
-    if grep -q '"lint"' package.json 2>/dev/null; then
-      bun run lint || exit 1
-    fi
-    if grep -q '"test"' package.json 2>/dev/null; then
-      bun test || exit 1
-    fi
-  fi
-fi
-
-# 5. Workspace verify (kimi-toolchain only)
-if [ -f "package.json" ] && grep -q '"name": "kimi-toolchain"' package.json 2>/dev/null; then
-  echo ""
-  echo "── Workspace Verify ─────────────────────────────────────────"
-  if [ -f "scripts/verify-workspace.sh" ]; then
-    bash scripts/verify-workspace.sh || exit 1
-  else
-    bun run src/bin/kimi-doctor.ts workspace verify || exit 1
-  fi
-fi
-
-# 6. Desktop sync (mandatory for kimi-toolchain — keeps ~/.kimi-code/ on pushed HEAD)
-if [ -f "package.json" ] && grep -q '"name": "kimi-toolchain"' package.json 2>/dev/null; then
-  echo ""
-  echo "── Desktop Sync (mandatory) ─────────────────────────────────"
-  if [ -f "scripts/sync-to-desktop.ts" ]; then
-    bun run scripts/sync-to-desktop.ts || exit 1
-  elif grep -q '"sync"' package.json 2>/dev/null; then
-    bun run sync || exit 1
-  else
-    echo "✗ PUSH BLOCKED: kimi-toolchain sync script missing"
-    exit 1
-  fi
-fi
-
-echo ""
-echo "✓ Pre-push checks passed"
+$GITHOOKS run-gates pre-push || exit 1
 exit 0
 `;
 
@@ -223,9 +120,7 @@ async function installHooks(projectDir: string): Promise<number> {
   logger.info(
     "  pre-commit: blocks .env, format:check + lint + typecheck, warns on TODO/console.log"
   );
-  logger.info(
-    "  pre-push:   guardian scan, R-Score gate (blocks F/D), check/test gate, mandatory bun run sync"
-  );
+  logger.info("  pre-push:   guardian, R-Score, check:fast (KIMI_PRE_PUSH_FULL=1 for full), sync");
 
   try {
     const trace = ensureProcessTrace();
@@ -445,19 +340,23 @@ async function main(): Promise<number> {
   }
   if (command === "pre-commit") {
     logger.section("Pre-commit checks");
-    const result = await $`git diff --cached --name-only`.cwd(projectDir).nothrow().quiet();
-    const files = result.stdout.toString().trim().split("\n").filter(Boolean);
-    if (files.length === 0) {
-      logger.warn("No staged files");
-    } else {
-      logger.info(`${files.length} staged file(s)`);
-      const envFiles = files.filter((f) => /^\.env($|\.)/.test(f) && f !== ".env.example");
-      if (envFiles.length > 0) {
-        logger.error(`.env files in staged changes: ${envFiles.join(", ")}`);
-        return 1;
-      }
+    const policy = await runPreCommitPolicy(projectDir);
+    if (policy !== 0) return policy;
+    return runPreCommitGates(projectDir);
+  }
+  if (command === "run-gates") {
+    ensureQuietEnv();
+    const hook = args[1];
+    if (hook === "pre-commit") {
+      const policy = await runPreCommitPolicy(projectDir);
+      if (policy !== 0) return policy;
+      return runPreCommitGates(projectDir);
     }
-    return 0;
+    if (hook === "pre-push") {
+      return runPrePushGates(projectDir);
+    }
+    logger.error("Usage: run-gates <pre-commit|pre-push>");
+    return 1;
   }
   if (command === "pre-push") {
     logger.section("Pre-push checks (manual run)");
@@ -469,8 +368,10 @@ async function main(): Promise<number> {
   logger.info("  install        Install pre-commit and pre-push hooks");
   logger.info("  doctor         Check hook installation health");
   logger.info("  fix            Re-install missing/outdated hooks");
-  logger.info("  pre-commit     Run pre-commit checks manually");
+  logger.info("  pre-commit     Run pre-commit gates manually");
   logger.info("  pre-push       Info about pre-push checks");
+  logger.info("  run-gates      Hook gate runner (pre-commit | pre-push)");
+  logger.info("  Env: KIMI_QUIET=1 silences success; KIMI_PRE_PUSH_FULL=1 runs full check on push");
   return 0;
 }
 
