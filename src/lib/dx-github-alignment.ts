@@ -154,6 +154,56 @@ function addPackageScriptCheck(
   );
 }
 
+function hasCommand(commands: readonly string[], expected: string): boolean {
+  return commands.some((command) => command === expected);
+}
+
+function hasCommandContaining(commands: readonly string[], expected: string): boolean {
+  return commands.some((command) => command.includes(expected));
+}
+
+function addRequiredListEntriesCheck(
+  checks: DxGithubAlignmentCheck[],
+  name: string,
+  actual: readonly string[],
+  required: readonly string[]
+): void {
+  const missing = required.filter((entry) => !actual.includes(entry));
+  checks.push(
+    missing.length === 0
+      ? ok(name, `required entries present: ${required.join(", ")}`)
+      : warn(name, `missing required entries: ${missing.join(", ")}`)
+  );
+}
+
+function addRequiredCommandsCheck(
+  checks: DxGithubAlignmentCheck[],
+  name: string,
+  actual: readonly string[],
+  required: readonly string[]
+): void {
+  const missing = required.filter((command) => !hasCommand(actual, command));
+  checks.push(
+    missing.length === 0
+      ? ok(name, `required commands present: ${required.join(", ")}`)
+      : warn(name, `missing required commands: ${missing.join(", ")}`)
+  );
+}
+
+function addRequiredCommandFragmentsCheck(
+  checks: DxGithubAlignmentCheck[],
+  name: string,
+  actual: readonly string[],
+  required: readonly string[]
+): void {
+  const missing = required.filter((fragment) => !hasCommandContaining(actual, fragment));
+  checks.push(
+    missing.length === 0
+      ? ok(name, `required command fragments present: ${required.join(", ")}`)
+      : warn(name, `missing command fragments: ${missing.join(", ")}`)
+  );
+}
+
 function findBunVersionInSetupAction(action: UnknownRecord | null): string | null {
   const steps = getPath(action ?? {}, ["runs", "steps"]);
   if (!Array.isArray(steps)) return null;
@@ -340,6 +390,29 @@ export async function checkDxGithubAlignment(
       ? ok("agents.commands", "referenced package scripts exist")
       : warn("agents.commands", `missing package scripts: ${missingAgentScripts.join(", ")}`)
   );
+
+  addRequiredListEntriesCheck(checks, "agents.firstRead", stringArray(agents.firstRead), [
+    "/Users/nolarose/.config/dx/AGENTS.md",
+    "AGENTS.md",
+    "CODE_REFERENCES.md",
+  ]);
+  addRequiredCommandsCheck(checks, "agents.bootstrap", stringArray(agents.bootstrap), [
+    "dx context",
+    "dx config --project .",
+    "dx mcp-status",
+    "dx package",
+  ]);
+  addRequiredCommandsCheck(checks, "agents.prePush", stringArray(agents.prePush), [
+    "kimi-githooks doctor",
+    "bun run check",
+    "kimi-guardian check",
+    "kimi-governance score",
+  ]);
+  addRequiredCommandFragmentsCheck(checks, "agents.handoff", stringArray(agents.handoff), [
+    "bun run sync",
+    "bun run sync:verify",
+    "kimi-doctor --agent-ready",
+  ]);
 
   return {
     applicable: true,

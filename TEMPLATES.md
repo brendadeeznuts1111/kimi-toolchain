@@ -257,6 +257,8 @@ coverageThreshold = { lines = 0.35, functions = 0.25 }
 
 ```toml
 schemaVersion = 1
+scope = "project"
+mode = "development"
 
 [runtime]
 containers = "none"
@@ -269,41 +271,59 @@ globalFirst = true
 workflow = ".github/workflows/ci.yml"
 setupAction = ".github/actions/setup/action.yml"
 protectedBranches = ["main", "master"]
+permissions = ["contents:read", "checks:write", "pull-requests:write"]
 
 [github.ci]
 bunVersion = "1.3.14"
 qualityJob = "quality"
+qualityTimeoutMinutes = 15
 governanceJob = "governance"
+governanceTimeoutMinutes = 5
 
 [github.ci.quality]
 format = "bun run format:check:ci"
 lint = "bun run lint"
 typecheck = "bun run typecheck"
 tests = "bun run test:coverage:ci"
+smoke = "bun run test:smoke"
+
+[github.ci.governance]
+rScore = "bun run governance score --min 60"
 
 [quality]
 formatter = "oxfmt"
 linter = "oxlint"
 formatCheck = "bun run format:check"
 lintCheck = "bun run lint"
+lintTerms = "bun run lint:terms"
 typecheck = "bun run typecheck"
 check = "bun run check"
 checkFast = "bun run check:fast"
 checkDryRun = "bun run check:dry-run"
 testFast = "bun run test:fast"
 testCoverage = "bun run test:coverage"
+testCoverageFast = "bun run test:coverage:fast"
 testCoverageCi = "bun run test:coverage:ci"
 formatCheckCi = "bun run format:check:ci"
 docsSync = "bun run docs:sync"
 
 [agents]
-firstRead = ["AGENTS.md", "CODE_REFERENCES.md"]
+firstRead = ["/Users/nolarose/.config/dx/AGENTS.md", "AGENTS.md", "CODE_REFERENCES.md"]
 bootstrap = ["dx context", "dx config --project .", "dx mcp-status", "dx package"]
 iterate = "bun run check:fast"
 fullValidation = "bun run check"
-prePush = ["bun run check", "kimi-guardian check", "kimi-governance score"]
+prePush = ["kimi-githooks doctor", "bun run check", "kimi-guardian check", "kimi-governance score"]
+handoff = ["bun run sync && bun run sync:verify", "kimi-doctor --agent-ready"]
+avoid = ["docker", "sync daemon unless actively developing runtime tooling"]
+
+[sync]
+command = "bun run sync"
+verify = "bun run sync:verify"
+managedRuntime = "~/.kimi-code"
+manifest = "~/.kimi-code/toolchain-manifest.json"
 
 [kimi]
+memoryGate = true
 preflight = true
 ```
 
