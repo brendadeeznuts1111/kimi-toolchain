@@ -41,21 +41,33 @@ async function resolveHooksDir(projectDir: string): Promise<string> {
   return result.exitCode === 0 && resolved ? resolved : join(projectDir, ".git", "hooks");
 }
 
+const HOOK_GITHOOKS_RESOLVER = `
+GITHOOKS=""
+if [ -f "src/bin/kimi-githooks.ts" ]; then
+  GITHOOKS="bun src/bin/kimi-githooks.ts"
+elif [ -f "${TOOLS_DIR}/kimi-githooks.ts" ]; then
+  GITHOOKS="bun ${TOOLS_DIR}/kimi-githooks.ts"
+elif command -v kimi-githooks >/dev/null 2>&1; then
+  GITHOOKS="kimi-githooks"
+fi
+
+if [ -z "$GITHOOKS" ]; then
+  echo "✗ kimi-githooks not found"
+  echo "  Checked: src/bin/kimi-githooks.ts"
+  echo "           ${TOOLS_DIR}/kimi-githooks.ts"
+  echo "           PATH (kimi-githooks)"
+  echo "  Fix: kimi-githooks install"
+  echo "       bun run sync && kimi-githooks fix"
+  exit 1
+fi
+`;
+
 const PRE_COMMIT_HOOK = `#!/bin/sh
 # Auto-installed by kimi-githooks
 # P0: Block secrets; P1: quality gates (quiet when KIMI_QUIET=1 or KIMI_AGENT_SESSION)
 
 if [ -n "$KIMI_AGENT_SESSION" ]; then export KIMI_QUIET=1; fi
-
-if [ -f "src/bin/kimi-githooks.ts" ]; then
-  GITHOOKS="bun run src/bin/kimi-githooks.ts"
-elif [ -f "${TOOLS_DIR}/kimi-githooks.ts" ]; then
-  GITHOOKS="bun run ${TOOLS_DIR}/kimi-githooks.ts"
-else
-  echo "✗ kimi-githooks not found — run: kimi-githooks install"
-  exit 1
-fi
-
+${HOOK_GITHOOKS_RESOLVER}
 $GITHOOKS run-gates pre-commit || exit 1
 exit 0
 `;
@@ -65,16 +77,7 @@ const PRE_PUSH_HOOK = `#!/bin/sh
 # P1: guardian, R-Score, check:fast (KIMI_PRE_PUSH_FULL=1 for full check)
 
 if [ -n "$KIMI_AGENT_SESSION" ]; then export KIMI_QUIET=1; fi
-
-if [ -f "src/bin/kimi-githooks.ts" ]; then
-  GITHOOKS="bun run src/bin/kimi-githooks.ts"
-elif [ -f "${TOOLS_DIR}/kimi-githooks.ts" ]; then
-  GITHOOKS="bun run ${TOOLS_DIR}/kimi-githooks.ts"
-else
-  echo "✗ kimi-githooks not found — run: kimi-githooks install"
-  exit 1
-fi
-
+${HOOK_GITHOOKS_RESOLVER}
 $GITHOOKS run-gates pre-push || exit 1
 exit 0
 `;
@@ -194,7 +197,9 @@ async function doctorHooks(projectDir: string) {
   } else {
     const content = await Bun.file(preCommitPath).text();
     const hasKimi = content.includes("kimi-githooks");
-    const hasQuality = content.includes("format:check") && content.includes("typecheck");
+    const hasQuality =
+      content.includes("run-gates pre-commit") ||
+      (content.includes("format:check") && content.includes("typecheck"));
     checks.push({
       name: "pre-commit",
       status: hasKimi && hasQuality ? "ok" : hasKimi ? "warn" : "warn",
@@ -219,9 +224,11 @@ async function doctorHooks(projectDir: string) {
   } else {
     const content = await Bun.file(prePushPath).text();
     const hasKimi = content.includes("kimi-githooks");
-    const hasQuality = content.includes("Quality Gate");
-    const hasRepoFirst = content.includes("src/bin/kimi-governance.ts");
-    const hasDesktopSync = content.includes("Desktop Sync (mandatory)");
+    const hasQuality = content.includes("run-gates pre-push") || content.includes("Quality Gate");
+    const hasRepoFirst =
+      content.includes("run-gates pre-push") || content.includes("src/bin/kimi-governance.ts");
+    const hasDesktopSync =
+      content.includes("run-gates pre-push") || content.includes("Desktop Sync (mandatory)");
     const prePushOk = hasKimi && hasQuality && hasRepoFirst && hasDesktopSync;
     checks.push({
       name: "pre-push",
