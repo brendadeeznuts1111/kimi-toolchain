@@ -46,14 +46,14 @@ async function restoreSnapshot(id: string, projectDir: string) {
   if (snapshot.untrackedFiles.length > 0) {
     logger.info("Untracked files at snapshot time (may need manual restore):");
     for (const f of snapshot.untrackedFiles) {
-      console.log(`    ${f}`);
+      logger.line(`    ${f}`);
     }
   }
 
   if (Object.keys(snapshot.envVars).length > 0) {
     logger.info("Environment variables at snapshot time:");
     for (const [k, v] of Object.entries(snapshot.envVars)) {
-      console.log(`    ${k}=${v.slice(0, 30)}${v.length > 30 ? "..." : ""}`);
+      logger.line(`    ${k}=${v.slice(0, 30)}${v.length > 30 ? "..." : ""}`);
     }
   }
 
@@ -213,7 +213,7 @@ async function main(): Promise<number> {
       logger.info("No snapshots found");
     } else {
       for (const s of snaps) {
-        console.log(
+        logger.line(
           `  ${s.id}  ${s.createdAt.slice(0, 19)}  ${s.branch}@${s.commit.slice(0, 7)}  ${s.description.slice(0, 50)}`
         );
       }
@@ -242,7 +242,7 @@ async function main(): Promise<number> {
     if (Object.keys(snap.envVars).length > 0) {
       logger.info("Env vars:");
       for (const [k, v] of Object.entries(snap.envVars)) {
-        console.log(`    ${k}=${v.slice(0, 40)}${v.length > 40 ? "..." : ""}`);
+        logger.line(`    ${k}=${v.slice(0, 40)}${v.length > 40 ? "..." : ""}`);
       }
     }
   } else if (command === "cleanup") {
@@ -274,13 +274,13 @@ async function main(): Promise<number> {
     await fixSnapshots();
   } else {
     logger.section("Commands");
-    console.log("  save [description]   Capture current git state + env vars");
-    console.log("  restore <id>         Checkout snapshot commit");
-    console.log("  list                 Show snapshots for current project");
-    console.log("  show <id>            Display snapshot details");
-    console.log("  cleanup [days]       Remove old snapshots (default 30 days)");
-    console.log("  doctor               Check snapshot integrity");
-    console.log("  fix                  Remove corrupted/orphaned snapshots");
+    logger.line("  save [description]   Capture current git state + env vars");
+    logger.line("  restore <id>         Checkout snapshot commit");
+    logger.line("  list                 Show snapshots for current project");
+    logger.line("  show <id>            Display snapshot details");
+    logger.line("  cleanup [days]       Remove old snapshots (default 30 days)");
+    logger.line("  doctor               Check snapshot integrity");
+    logger.line("  fix                  Remove corrupted/orphaned snapshots");
   }
 
   return 0;

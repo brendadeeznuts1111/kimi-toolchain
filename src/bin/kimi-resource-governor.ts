@@ -174,31 +174,31 @@ async function main(): Promise<number> {
   if (command === "limits") {
     logger.section("Current Resource Usage");
     const usage = getCurrentUsage();
-    console.log(`  Memory:     ${usage.memoryMB}MB / ${DEFAULTS.maxMemoryMB}MB`);
-    console.log(`  CPU time:   ${usage.cpuTimeMs}ms / ${DEFAULTS.maxCpuTimeMs}ms`);
-    console.log(`  File size:  ${usage.fileSizeMB}MB / ${DEFAULTS.maxFileSizeMB}MB`);
-    console.log(`  Open files: ${usage.openFiles} / ${DEFAULTS.maxOpenFiles}`);
+    logger.line(`  Memory:     ${usage.memoryMB}MB / ${DEFAULTS.maxMemoryMB}MB`);
+    logger.line(`  CPU time:   ${usage.cpuTimeMs}ms / ${DEFAULTS.maxCpuTimeMs}ms`);
+    logger.line(`  File size:  ${usage.fileSizeMB}MB / ${DEFAULTS.maxFileSizeMB}MB`);
+    logger.line(`  Open files: ${usage.openFiles} / ${DEFAULTS.maxOpenFiles}`);
 
     const violations = checkLimits(usage, {});
     if (violations.length > 0) {
       logger.warn("Violations:");
-      for (const v of violations) console.log(`    ${v}`);
+      for (const v of violations) logger.line(`    ${v}`);
     } else {
       logger.info("Within limits");
     }
   } else if (command === "parallel") {
     logger.section("Parallelism Governor");
-    console.log(`  Hardware concurrency: ${navigator.hardwareConcurrency || "unknown"}`);
-    console.log(`  Max parallel jobs:    ${DEFAULTS.maxParallelJobs}`);
+    logger.line(`  Hardware concurrency: ${navigator.hardwareConcurrency || "unknown"}`);
+    logger.line(`  Max parallel jobs:    ${DEFAULTS.maxParallelJobs}`);
 
     const gov = new ParallelGovernor();
-    console.log(`  Available slots:      ${gov.available}`);
+    logger.line(`  Available slots:      ${gov.available}`);
 
     const tasks = [1, 2, 3, 4].map((i) =>
       gov.run(async () => {
-        console.log(`    Task ${i} starting (slots: ${gov.available}, queued: ${gov.queued})...`);
+        logger.line(`    Task ${i} starting (slots: ${gov.available}, queued: ${gov.queued})...`);
         await Bun.sleep(500);
-        console.log(`    Task ${i} done`);
+        logger.line(`    Task ${i} done`);
         return i;
       })
     );
@@ -208,9 +208,9 @@ async function main(): Promise<number> {
   } else if (command === "quota") {
     logger.section(`Disk Quota: ${project}`);
     const { used, remaining, ok } = await checkDiskQuota(projectDir);
-    console.log(`  Used:      ${used}MB`);
-    console.log(`  Quota:     ${DEFAULTS.diskQuotaMB}MB`);
-    console.log(`  Remaining: ${remaining}MB`);
+    logger.line(`  Used:      ${used}MB`);
+    logger.line(`  Quota:     ${DEFAULTS.diskQuotaMB}MB`);
+    logger.line(`  Remaining: ${remaining}MB`);
     if (ok) logger.info("Within quota");
     else logger.error("Quota exceeded");
   } else if (command === "spawn") {
@@ -223,14 +223,14 @@ async function main(): Promise<number> {
     const result = await governedSpawn(cmd, {
       onResourceWarning: (v: string[]) => logger.warn(v.join(", ")),
     });
-    console.log(`  Exit code: ${result.exitCode}`);
-    console.log(`  Killed:    ${result.killed}`);
-    console.log(`  Memory:    ${result.usage.memoryMB}MB`);
-    console.log(`  CPU:       ${result.usage.cpuTimeMs}ms`);
-    console.log(`  Attempts:  ${result.attempts}`);
+    logger.line(`  Exit code: ${result.exitCode}`);
+    logger.line(`  Killed:    ${result.killed}`);
+    logger.line(`  Memory:    ${result.usage.memoryMB}MB`);
+    logger.line(`  CPU:       ${result.usage.cpuTimeMs}ms`);
+    logger.line(`  Attempts:  ${result.attempts}`);
     if (result.stdout) {
-      console.log("  stdout:");
-      console.log(
+      logger.line("  stdout:");
+      logger.line(
         result.stdout
           .split("\n")
           .map((l: string) => `    ${l}`)
@@ -250,12 +250,12 @@ async function main(): Promise<number> {
         retry: { maxAttempts: 3, backoffMs: 500 },
         onResourceWarning: (v: string[]) => logger.warn(v.join(", ")),
       });
-      console.log(`  Exit code: ${result.exitCode}`);
-      console.log(`  Attempts:  ${result.attempts}`);
-      console.log(`  Memory:    ${result.usage.memoryMB}MB`);
+      logger.line(`  Exit code: ${result.exitCode}`);
+      logger.line(`  Attempts:  ${result.attempts}`);
+      logger.line(`  Memory:    ${result.usage.memoryMB}MB`);
       if (result.stdout) {
-        console.log("  stdout:");
-        console.log(
+        logger.line("  stdout:");
+        logger.line(
           result.stdout
             .split("\n")
             .map((l: string) => `    ${l}`)
@@ -280,8 +280,8 @@ async function main(): Promise<number> {
 
     logger.section("Diagnostic Cache");
     const output = await cachedExec(actualCmd, { force, logger });
-    console.log("  Output:");
-    console.log(
+    logger.line("  Output:");
+    logger.line(
       output
         .split("\n")
         .map((l: string) => `    ${l}`)
@@ -311,7 +311,7 @@ async function main(): Promise<number> {
   } else if (command === "session") {
     logger.section("Session Management");
     const id = getSessionId();
-    console.log(`  Session ID: ${id}`);
+    logger.line(`  Session ID: ${id}`);
 
     const db = getDb();
     const active = db
@@ -320,8 +320,8 @@ async function main(): Promise<number> {
     const total = db.query("SELECT COUNT(*) as c FROM resource_sessions").get() as any;
     db.close();
 
-    console.log(`  Active sessions: ${active.c}`);
-    console.log(`  Total sessions:  ${total.c}`);
+    logger.line(`  Active sessions: ${active.c}`);
+    logger.line(`  Total sessions:  ${total.c}`);
 
     startSession(project);
     logger.info(`Session started for ${project}`);
@@ -331,35 +331,35 @@ async function main(): Promise<number> {
     logger.info(`Removed ${deleted} expired cache entries`);
   } else if (command === "status") {
     logger.section("Defaults");
-    console.log(`  Config file:       ${getGovernorConfigPath()}`);
-    console.log(`  Max memory:        ${DEFAULTS.maxMemoryMB}MB`);
-    console.log(`  Max CPU time:      ${DEFAULTS.maxCpuTimeMs}ms`);
-    console.log(`  Max file size:     ${DEFAULTS.maxFileSizeMB}MB`);
-    console.log(`  Max open files:    ${DEFAULTS.maxOpenFiles}`);
-    console.log(`  Max parallel:      ${DEFAULTS.maxParallelJobs}`);
-    console.log(`  Disk quota:        ${DEFAULTS.diskQuotaMB}MB`);
-    console.log(`  Cache TTL:         ${DEFAULTS.cacheTTLSeconds}s`);
-    console.log(`  Wall-clock limit:  ${DEFAULTS.wallClockMs}ms`);
+    logger.line(`  Config file:       ${getGovernorConfigPath()}`);
+    logger.line(`  Max memory:        ${DEFAULTS.maxMemoryMB}MB`);
+    logger.line(`  Max CPU time:      ${DEFAULTS.maxCpuTimeMs}ms`);
+    logger.line(`  Max file size:     ${DEFAULTS.maxFileSizeMB}MB`);
+    logger.line(`  Max open files:    ${DEFAULTS.maxOpenFiles}`);
+    logger.line(`  Max parallel:      ${DEFAULTS.maxParallelJobs}`);
+    logger.line(`  Disk quota:        ${DEFAULTS.diskQuotaMB}MB`);
+    logger.line(`  Cache TTL:         ${DEFAULTS.cacheTTLSeconds}s`);
+    logger.line(`  Wall-clock limit:  ${DEFAULTS.wallClockMs}ms`);
     logger.section("Commands");
-    console.log("  limits          Show current resource usage");
-    console.log("  parallel        Test parallelism governor");
-    console.log("  quota           Check disk quota");
-    console.log("  spawn <cmd>     Run command with governedSpawn (tree-kill, ps memory)");
-    console.log("  retry <cmd>     Run command with retry + exponential backoff");
-    console.log("  cache <cmd>     Cached command execution");
-    console.log("  doctor          Check governor health");
-    console.log("  fix             Clean cache, end stuck sessions, vacuum");
-    console.log("  session         Start/manage sessions");
-    console.log("  cleanup         Remove expired cache entries");
-    console.log("");
-    console.log("Import in your code:");
-    console.log(
+    logger.line("  limits          Show current resource usage");
+    logger.line("  parallel        Test parallelism governor");
+    logger.line("  quota           Check disk quota");
+    logger.line("  spawn <cmd>     Run command with governedSpawn (tree-kill, ps memory)");
+    logger.line("  retry <cmd>     Run command with retry + exponential backoff");
+    logger.line("  cache <cmd>     Cached command execution");
+    logger.line("  doctor          Check governor health");
+    logger.line("  fix             Clean cache, end stuck sessions, vacuum");
+    logger.line("  session         Start/manage sessions");
+    logger.line("  cleanup         Remove expired cache entries");
+    logger.line("");
+    logger.line("Import in your code:");
+    logger.line(
       "  import { governedSpawn, ParallelGovernor, cachedExec, cachedDoctor } from './kimi-resource-governor.ts'"
     );
-    console.log("");
-    console.log("New spawn options:");
-    console.log("  killTree: false       — disable process tree cleanup");
-    console.log("  retry: { maxAttempts, backoffMs } — exponential backoff retry");
+    logger.line("");
+    logger.line("New spawn options:");
+    logger.line("  killTree: false       — disable process tree cleanup");
+    logger.line("  retry: { maxAttempts, backoffMs } — exponential backoff retry");
   }
 
   return 0;

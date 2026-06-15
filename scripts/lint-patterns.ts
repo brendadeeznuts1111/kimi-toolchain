@@ -17,10 +17,8 @@ const LIB_CONSOLE_ALLOW = new Set([
 ]);
 // Bins pending logger migration (Agent tracks A–D). Empty = strict.
 const BIN_CONSOLE_ALLOW = new Set<string>([
-  // JSON stdout blobs or table/help output pending migration (kimi-doctor: JSON-only)
-  "src/bin/kimi-doctor.ts", // JSON_OUT console.log(JSON.stringify(...)) only
-  "src/bin/kimi-resource-governor.ts",
-  "src/bin/kimi-snapshot.ts",
+  // JSON_OUT console.log(JSON.stringify(...)) only — migrate to stdout.write like cloudflare-access
+  "src/bin/kimi-doctor.ts",
 ]);
 const SCAN_GLOB = new Bun.Glob("src/**/*.ts");
 const SKIP_DIRS = new Set(["node_modules", ".git", "coverage"]);
