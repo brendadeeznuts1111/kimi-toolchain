@@ -25,6 +25,7 @@
     "kimi-governance": "src/bin/kimi-governance.ts",
     "kimi-guardian": "src/bin/kimi-guardian.ts",
     "kimi-heal": "src/bin/kimi-heal.ts",
+    "kimi-identity": "src/bin/kimi-identity.ts",
     "kimi-memory": "src/bin/kimi-memory.ts",
     "kimi-new": "src/bin/kimi-new.ts",
     "kimi-orphan-kill": "src/bin/kimi-orphan-kill.ts",

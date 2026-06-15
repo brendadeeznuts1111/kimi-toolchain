@@ -36,6 +36,12 @@ import {
   runPrePushGates,
 } from "../lib/hook-gates.ts";
 import { TOOLCHAIN_VERSION } from "../lib/version.ts";
+import {
+  detectIdentityProfile,
+  loadIdentityMatrix,
+  profileMatchesGitIdentity,
+  type GitIdentity,
+} from "../lib/identity-matrix.ts";
 
 const logger = createLogger(Bun.argv, "kimi-githooks");
 
@@ -64,6 +70,49 @@ export function buildGlobalHooksPathCheck(globalHooksPath: string | null | undef
     name: "global-hooks-path",
     status: "warn",
     message: `global core.hooksPath set to ${hooksPath}; prefer repo-local hooks for worktree safety`,
+    fixable: true,
+  };
+}
+
+async function gitOutput(projectDir: string, args: string[]): Promise<string | undefined> {
+  const proc = Bun.spawn(["git", ...args], {
+    cwd: projectDir,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [exitCode, stdout] = await Promise.all([
+    proc.exited,
+    Bun.readableStreamToText(proc.stdout),
+  ]);
+  await Bun.readableStreamToText(proc.stderr);
+  const text = stdout.trim();
+  return exitCode === 0 && text ? text : undefined;
+}
+
+export function buildIdentityProfileCheck(input: {
+  expectedProfile?: { name: string; userName: string; userEmail: string };
+  identity: GitIdentity;
+}): HookCheck {
+  if (!input.expectedProfile) {
+    return {
+      name: "identity-profile",
+      status: "ok",
+      message: "no identity profile matched this repository",
+      fixable: false,
+    };
+  }
+  if (profileMatchesGitIdentity(input.expectedProfile, input.identity)) {
+    return {
+      name: "identity-profile",
+      status: "ok",
+      message: `identity matches ${input.expectedProfile.name}`,
+      fixable: false,
+    };
+  }
+  return {
+    name: "identity-profile",
+    status: "warn",
+    message: `expected ${input.expectedProfile.name} (${input.expectedProfile.userName} <${input.expectedProfile.userEmail}>)`,
     fixable: true,
   };
 }
@@ -348,6 +397,20 @@ async function doctorHooks(projectDir: string) {
     buildGlobalHooksPathCheck(
       globalHooksPath.exitCode === 0 ? globalHooksPath.stdout.toString() : null
     )
+  );
+
+  const [matrix, remoteUrl, userName, userEmail] = await Promise.all([
+    loadIdentityMatrix({ projectRoot: projectDir }),
+    gitOutput(projectDir, ["remote", "get-url", "origin"]),
+    gitOutput(projectDir, ["config", "--get", "user.name"]),
+    gitOutput(projectDir, ["config", "--get", "user.email"]),
+  ]);
+  const detection = detectIdentityProfile({ matrix, repoPath: projectDir, remoteUrl });
+  checks.push(
+    buildIdentityProfileCheck({
+      expectedProfile: detection.profile,
+      identity: { userName, userEmail },
+    })
   );
 
   return checks;
