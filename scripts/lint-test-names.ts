@@ -35,6 +35,9 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "scaffold-agents": "src/lib/scaffold-agents.ts",
   "lint-test-names": "scripts/lint-test-names.ts",
   "constants-registry": "src/lib/constants-registry.ts",
+  "optimizer-doctor": "src/lib/constant-optimizer.ts",
+  "decision-list-diff": "src/lib/decision-ledger.ts",
+  "taxonomy-coverage": "src/lib/taxonomy-coverage.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */

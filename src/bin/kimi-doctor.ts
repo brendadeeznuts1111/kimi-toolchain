@@ -26,6 +26,12 @@ import {
   WORKSPACE_SOFT_NAMES,
 } from "../lib/workspace-health.ts";
 import { auditEcosystemHealth } from "../lib/ecosystem-health.ts";
+import {
+  generateOptimizerDoctorRecommendations,
+  printConstantOptimizerDoctorBlock,
+  summarizeOptimizerDoctorBlock,
+  buildOptimizerDoctorMachineChecks,
+} from "../lib/constant-optimizer.ts";
 import { fixMcpConfig, validateMcpConfig } from "../lib/mcp-config.ts";
 import {
   auditKimiConfig,
@@ -488,8 +494,12 @@ async function runEcosystemMode(projectRoot: string): Promise<number> {
   });
 
   if (JSON_OUT) {
+    const optimizerChecks = (await isKimiToolchainRepo(projectRoot))
+      ? await buildOptimizerDoctorMachineChecks(projectRoot)
+      : [];
     emitJson({
       checks: report.checks,
+      optimizerChecks,
       fixPlan: report.fixPlan,
       summary: {
         blockers: report.blockers,
@@ -784,6 +794,20 @@ async function main(): Promise<number> {
     else results.push(error(check.name, check.message));
   }
 
+  if (QUICK && (await isKimiToolchainRepo(projectRoot))) {
+    const optimizerRecs = await generateOptimizerDoctorRecommendations(projectRoot);
+    const optimizerSummary = summarizeOptimizerDoctorBlock(optimizerRecs);
+    if (!JSON_OUT) {
+      logger.section("Ecosystem Health");
+      printConstantOptimizerDoctorBlock(logger, optimizerRecs);
+    }
+    results.push({
+      name: "constant-optimizer",
+      status: optimizerSummary.status,
+      message: optimizerSummary.message,
+    });
+  }
+
   logger.section("Global Context");
 
   results.push(
@@ -902,11 +926,16 @@ async function main(): Promise<number> {
   const decisions = await readDecisions(await resolveDecisionsRoot(projectRoot));
   const lowQuality = filterLowQualityDecisions(decisions).slice(0, 5);
   const unverified = filterUnverifiedDecisions(decisions).slice(0, 5);
+  const optimizerChecks =
+    QUICK && (await isKimiToolchainRepo(projectRoot))
+      ? await buildOptimizerDoctorMachineChecks(projectRoot)
+      : [];
 
   if (JSON_OUT) {
     emitJson({
       toolchainVersion: TOOLCHAIN_VERSION,
       checks: results,
+      optimizerChecks,
       sync: syncReport,
       decisions: {
         total: decisions.length,

@@ -55,6 +55,10 @@ describe("ecosystem-health", () => {
     const optimizerCheck = report.checks.find((c) => c.name.startsWith("constant-optimizer:"));
     expect(optimizerCheck).toBeDefined();
     expect(optimizerCheck?.source).toBe("constant-optimizer");
+    if (optimizerCheck?.name !== "constant-optimizer:summary") {
+      expect(optimizerCheck?.decisionIds).toBeDefined();
+      expect(optimizerCheck?.confidence).toBeTypeOf("number");
+    }
   }, 15_000);
 
   test("counts dx-github errors as blockers", async () => {

@@ -18,7 +18,8 @@ import { checkTuningSetFreshness } from "./tuning-set-version.ts";
 import {
   formatOptimizerDoctorMessage,
   generateOptimizerDoctorRecommendations,
-  mapDoctorSeverityToCheckStatus,
+  optimizerRecommendationToMachineCheck,
+  type OptimizerDoctorSeverity,
 } from "./constant-optimizer.ts";
 import {
   auditWorkspaceHealth,
@@ -33,6 +34,14 @@ export interface EcosystemCheck {
   message: string;
   source: string;
   fixable: boolean;
+  severity?: OptimizerDoctorSeverity;
+  confidence?: number;
+  driftPercent?: number | null;
+  action?: string;
+  decisionIds?: string[];
+  candidateId?: string;
+  candidateValue?: unknown;
+  constant?: string;
 }
 
 export interface EcosystemHealthReport {
@@ -55,6 +64,32 @@ interface ConstantOptimizerHealthCheck {
   message: string;
   fixable: boolean;
   autoFix?: string;
+  severity?: OptimizerDoctorSeverity;
+  confidence?: number;
+  driftPercent?: number | null;
+  action?: string;
+  decisionIds?: string[];
+  candidateId?: string;
+  candidateValue?: unknown;
+  constant?: string;
+}
+
+function optimizerCheckToEcosystem(check: ConstantOptimizerHealthCheck): EcosystemCheck {
+  return {
+    name: `constant-optimizer:${check.name}`,
+    status: check.status,
+    message: check.message,
+    source: "constant-optimizer",
+    fixable: check.fixable,
+    severity: check.severity,
+    confidence: check.confidence,
+    driftPercent: check.driftPercent,
+    action: check.autoFix ?? check.action,
+    decisionIds: check.decisionIds,
+    candidateId: check.candidateId,
+    candidateValue: check.candidateValue,
+    constant: check.constant ?? check.name,
+  };
 }
 
 export async function checkConstantOptimizerHealth(
@@ -82,13 +117,24 @@ export async function checkConstantOptimizerHealth(
     };
   }
 
-  const checks: ConstantOptimizerHealthCheck[] = recommendations.map((rec) => ({
-    name: rec.constant,
-    status: mapDoctorSeverityToCheckStatus(rec.severity),
-    message: formatOptimizerDoctorMessage(rec),
-    fixable: false,
-    autoFix: rec.action,
-  }));
+  const checks: ConstantOptimizerHealthCheck[] = recommendations.map((rec) => {
+    const machine = optimizerRecommendationToMachineCheck(rec);
+    return {
+      name: rec.constant,
+      status: machine.status,
+      message: formatOptimizerDoctorMessage(rec),
+      fixable: false,
+      autoFix: rec.action,
+      severity: machine.severity,
+      confidence: machine.confidence,
+      driftPercent: machine.driftPercent,
+      action: machine.action,
+      decisionIds: machine.decisionIds,
+      candidateId: machine.candidateId,
+      candidateValue: machine.candidateValue,
+      constant: machine.constant,
+    };
+  });
 
   return {
     applicable: true,
@@ -304,13 +350,7 @@ export async function auditEcosystemHealth(
     const optimizer = await checkConstantOptimizerHealth(projectRoot);
     if (optimizer.applicable) {
       for (const check of optimizer.checks) {
-        checks.push({
-          name: `constant-optimizer:${check.name}`,
-          status: check.status,
-          message: check.message,
-          source: "constant-optimizer",
-          fixable: check.fixable,
-        });
+        checks.push(optimizerCheckToEcosystem(check));
       }
     }
 

@@ -685,3 +685,88 @@ export function recordDecision(input: {
 export function globalFallbackDecisionsPath(): string {
   return join(homeDir(), ".kimi-code", ".kimi", "decisions.ndjson");
 }
+
+const WINDOW_MS: Record<"d" | "h" | "m", number> = {
+  d: 24 * 60 * 60 * 1000,
+  h: 60 * 60 * 1000,
+  m: 60 * 1000,
+};
+
+export function parseDecisionWindow(last: string): number {
+  const match = last.trim().match(/^(\d+)(d|h|m)$/i);
+  if (!match) {
+    throw new Error(`Invalid --last window "${last}" — use 7d, 24h, or 30m`);
+  }
+  const amount = Number(match[1]);
+  const unit = match[2]!.toLowerCase() as "d" | "h" | "m";
+  return amount * WINDOW_MS[unit];
+}
+
+export function decisionTouchesConstant(decision: Decision, constantKey: string): boolean {
+  if (decision.metadata?.constantKey === constantKey) return true;
+  const restored = decision.metadata?.restoredKeys;
+  return Array.isArray(restored) && restored.includes(constantKey);
+}
+
+export function filterDecisionsByConstant(
+  decisions: Decision[],
+  constantKey: string,
+  options: { sinceMs?: number; nowMs?: number } = {}
+): Decision[] {
+  const nowMs = options.nowMs ?? Date.now();
+  const sinceMs = options.sinceMs ?? 0;
+  return decisions
+    .filter((decision) => {
+      if (!decisionTouchesConstant(decision, constantKey)) return false;
+      const ts = new Date(decision.timestamp).getTime();
+      return ts >= sinceMs && ts <= nowMs;
+    })
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
+export interface DecisionDiffField {
+  field: string;
+  left: unknown;
+  right: unknown;
+}
+
+export interface DecisionDiffReport {
+  leftId: string;
+  rightId: string;
+  fields: DecisionDiffField[];
+}
+
+function metadataRestoredKeys(metadata: Record<string, unknown> | undefined): string[] {
+  const restored = metadata?.restoredKeys;
+  return Array.isArray(restored)
+    ? restored.filter((key): key is string => typeof key === "string")
+    : [];
+}
+
+export function diffDecisions(left: Decision, right: Decision): DecisionDiffReport {
+  const fields: DecisionDiffField[] = [];
+
+  const pairs: Array<[string, unknown, unknown]> = [
+    ["action", left.action, right.action],
+    ["actor", left.actor, right.actor],
+    ["outcome", left.outcome.result, right.outcome.result],
+    ["metadata.type", left.metadata?.type, right.metadata?.type],
+    ["metadata.constantKey", left.metadata?.constantKey, right.metadata?.constantKey],
+    ["metadata.candidateValue", left.metadata?.candidateValue, right.metadata?.candidateValue],
+    ["metadata.goldenVersion", left.metadata?.goldenVersion, right.metadata?.goldenVersion],
+    ["restoredKeys", metadataRestoredKeys(left.metadata), metadataRestoredKeys(right.metadata)],
+    ["rationale.summary", left.rationale.summary, right.rationale.summary],
+    ["timestamp", left.timestamp, right.timestamp],
+  ];
+
+  for (const [field, leftValue, rightValue] of pairs) {
+    const same = JSON.stringify(leftValue ?? null) === JSON.stringify(rightValue ?? null);
+    if (!same) fields.push({ field, left: leftValue, right: rightValue });
+  }
+
+  return {
+    leftId: left.decisionId,
+    rightId: right.decisionId,
+    fields,
+  };
+}
