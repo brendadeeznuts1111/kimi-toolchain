@@ -7,7 +7,7 @@ import { decisionLedgerPath } from "./paths.ts";
 import { sha256String } from "./utils.ts";
 import { ensureProcessTrace } from "./effect/trace-context.ts";
 import { buildTraceGraph, type TraceGraph } from "./trace-ledger.ts";
-import { appendNdjsonRecord, readNdjsonFile } from "./ndjson.ts";
+import { appendNdjsonRecord, readNdjsonFile, writeNdjsonFile } from "./ndjson.ts";
 import {
   buildDecisionRationale,
   buildDecisionRationaleEffect,
@@ -747,4 +747,59 @@ function stringArray(value: unknown): string[] | undefined {
 
 function numberValue(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+export interface DecisionSuggestionInput {
+  clusterId?: string;
+  action?: string;
+  limit?: number;
+}
+
+export async function suggestDecisions(
+  input: DecisionSuggestionInput,
+  path: string = decisionLedgerPath()
+): Promise<DecisionRecord[]> {
+  const records = await readDecisionLedger(path);
+  const limit = typeof input.limit === "number" && input.limit > 0 ? input.limit : 5;
+  const actionNeedle = input.action?.trim().toLowerCase();
+
+  return records
+    .filter((record) => (record.qualityScore ?? 0) >= 0.7)
+    .filter((record) => {
+      if (input.clusterId && record.clusterId !== input.clusterId) return false;
+      if (!actionNeedle) return true;
+      const haystack = [record.action, ...record.alternatives.map((option) => option.action)]
+        .join("\n")
+        .toLowerCase();
+      return haystack.includes(actionNeedle);
+    })
+    .sort((a, b) => {
+      const scoreDelta = (b.qualityScore ?? 0) - (a.qualityScore ?? 0);
+      if (scoreDelta !== 0) return scoreDelta;
+      return b.timestamp.localeCompare(a.timestamp);
+    })
+    .slice(0, limit);
+}
+
+export async function persistDecisionQualityScores(
+  updates: Map<string, number>,
+  path: string = decisionLedgerPath()
+): Promise<{ updated: number; total: number }> {
+  if (updates.size === 0) return { updated: 0, total: 0 };
+
+  const rawRecords = await readNdjsonFile<unknown>(path);
+  let updated = 0;
+  const next = rawRecords.map((value) => {
+    if (!value || typeof value !== "object") return value;
+    const raw = value as Record<string, unknown>;
+    const decisionId = stringValue(raw.decisionId) ?? stringValue(raw.id);
+    if (!decisionId) return value;
+    const score = updates.get(decisionId);
+    if (score === undefined) return value;
+    updated++;
+    return { ...raw, qualityScore: score };
+  });
+
+  await writeNdjsonFile(path, next);
+  return { updated, total: rawRecords.length };
 }

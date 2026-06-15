@@ -6,15 +6,20 @@
 import { Effect } from "effect";
 import { createLogger } from "../lib/logger.ts";
 import {
+  decisionAlternativeActions,
   decisionOutcomeResult,
   decisionRationaleText,
   decisionTriggerSummary,
   explainDecision,
+  persistDecisionQualityScores,
   queryDecisionLedger,
   recordDecision,
+  suggestDecisions,
   type DecisionQueryFilters,
   type DecisionRecord,
 } from "../lib/decision-ledger.ts";
+import { buildDecisionGraph, renderDecisionGraphAscii } from "../lib/decision-graph.ts";
+import { scoreDecisions } from "../lib/decision-scoring.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 
@@ -25,13 +30,16 @@ async function emitJson(value: unknown): Promise<void> {
 }
 
 function printHelp(): void {
-  logger.line("Usage: kimi-decision <log|why|record> [options]");
+  logger.line("Usage: kimi-decision <log|why|record|graph|suggest|score> [options]");
   logger.line("       kimi-why <decision-id|topic> [--json]");
   logger.line("");
   logger.line("Commands:");
   logger.line("  log                      List recent decisions");
   logger.line("  why <decision-id|topic>  Explain one decision with trace/root-cause context");
   logger.line("  record <key>             Append a decision record");
+  logger.line("  graph <trace|decision>   Render decision DAG");
+  logger.line("  suggest                  Recommend high-quality prior decisions");
+  logger.line("  score                    Recompute quality scores");
   logger.line("");
   logger.line("Options:");
   logger.line("  --json                   Machine-readable output");
@@ -130,6 +138,59 @@ export async function runDecisionCli(args: string[] = Bun.argv.slice(2)): Promis
     return 0;
   }
 
+  if (command === "graph") {
+    const target = positional[1];
+    if (!target)
+      throw new CliError({ message: "Usage: kimi-decision graph <trace-id|decision-id>" });
+    const graph = await buildDecisionGraph(target);
+    if (json) {
+      await emitJson(graph);
+    } else {
+      logger.line(renderDecisionGraphAscii(graph));
+    }
+    return graph.found ? 0 : 1;
+  }
+
+  if (command === "suggest") {
+    const suggestions = await suggestDecisions({
+      clusterId: argValue(args, "--cluster") ?? undefined,
+      action: argValue(args, "--action") ?? undefined,
+      limit: Number(argValue(args, "--limit") ?? "5"),
+    });
+    if (json) {
+      await emitJson({ schemaVersion: 1, suggestions });
+    } else {
+      printSuggestedDecisions(suggestions);
+    }
+    return suggestions.length > 0 ? 0 : 1;
+  }
+
+  if (command === "score") {
+    const since = argValue(args, "--since");
+    const all = await queryDecisionLedger();
+    const candidates =
+      since && Number.isFinite(Date.parse(since))
+        ? all.filter((record) => Date.parse(record.timestamp) >= Date.parse(since))
+        : all;
+    const updates = await scoreDecisions(candidates);
+    const persisted = await persistDecisionQualityScores(updates);
+    const payload = {
+      schemaVersion: 1,
+      scored: updates.size,
+      updated: persisted.updated,
+      total: persisted.total,
+      since: since ?? null,
+    };
+    if (json) {
+      await emitJson(payload);
+    } else {
+      logger.info(
+        `scored ${payload.scored} decisions (updated ${payload.updated}/${payload.total})${since ? ` since ${since}` : ""}`
+      );
+    }
+    return 0;
+  }
+
   const query = command === "why" ? positional.slice(1).join(" ") : positional.join(" ");
   if (!query.trim()) throw new CliError({ message: "Usage: kimi-decision why <decision-id>" });
   const explanation = await explainDecision(query.trim());
@@ -154,6 +215,24 @@ function printDecisionLog(records: DecisionRecord[]): void {
       `  ${record.timestamp} ${record.decisionId} [${record.actor}] ${record.action}${cluster}`
     );
     logger.line(`      ${decisionRationaleText(record)}`);
+  }
+}
+
+function printSuggestedDecisions(records: DecisionRecord[]): void {
+  logger.banner("Kimi Decision Suggestions");
+  if (records.length === 0) {
+    logger.info("No high-quality suggestions found.");
+    return;
+  }
+  for (const record of records) {
+    const score = record.qualityScore === undefined ? "n/a" : record.qualityScore.toFixed(2);
+    logger.line(`  ${record.decisionId} score=${score} action=${record.action}`);
+    logger.line(`      trigger: ${decisionTriggerSummary(record)}`);
+    logger.line(`      rationale: ${decisionRationaleText(record)}`);
+    const alternatives = decisionAlternativeActions(record);
+    if (alternatives.length > 0) {
+      logger.line(`      alternatives: ${alternatives.join("; ")}`);
+    }
   }
 }
 
