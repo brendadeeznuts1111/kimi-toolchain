@@ -7,7 +7,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import { checkDocDrift } from "./readme-sync.ts";
-import { homeDir } from "./paths.ts";
+import { failureLedgerPath } from "./paths.ts";
 import { sha256String } from "./utils.ts";
 import {
   buildClassifiedFailure,
@@ -232,9 +232,9 @@ export function metricThresholdEvidenceComplete(
 }
 
 export async function readFailureLedgerSummary(
-  path: string = join(homeDir(), ".kimi-code", "var", "tool-failures.jsonl")
+  path: string = failureLedgerPath()
 ): Promise<FailureLedgerSummary> {
-  const reviewCommand = `kimi-debug wire ${path}`;
+  const reviewCommand = `kimi-debug ledger ${path}`;
   if (!existsSync(path)) {
     return {
       path,
