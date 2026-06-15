@@ -54,6 +54,9 @@ describe("kimi-fix integration", () => {
     expect(existsSync(join(projectDir, "AGENTS.md"))).toBe(true);
     const agents = await Bun.file(join(projectDir, "AGENTS.md")).text();
     expect(agents).toContain("demo-app");
+    expect(existsSync(join(projectDir, "CODE_REFERENCES.md"))).toBe(true);
+    const codeReferences = await Bun.file(join(projectDir, "CODE_REFERENCES.md")).text();
+    expect(codeReferences).toContain("Local Exemplars");
 
     expect(existsSync(join(projectDir, "tsconfig.json"))).toBe(true);
     expect(existsSync(join(projectDir, ".kimi-code", "mcp.json"))).toBe(true);

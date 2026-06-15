@@ -153,7 +153,7 @@ Use `kimi-debug analyze --json` or `kimi-debug classify <text>` for taxonomy ids
 3. RUN: kimi-fix doctor .         # verify scaffold completeness
 4. RUN: kimi-governance score (target grade ≥ C)
 5. RUN: kimi login                # Kimi Code CLI
-6. REMIND: customize AGENTS.md one-liner + CODEOWNERS (@team) before commit
+6. REMIND: customize AGENTS.md one-liner, CODE_REFERENCES.md local exemplars, and CODEOWNERS (@team) before commit
 ```
 
 ### Before Commit or Push

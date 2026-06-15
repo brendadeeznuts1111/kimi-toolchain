@@ -1,8 +1,10 @@
 # src/lib/ — Domain Guide
 
-This directory contains 43 shared modules used by CLI tools and tests.
-The flat structure is intentional — all modules are at the same level
-to avoid deep import paths and circular dependency issues.
+This directory contains shared modules used by CLI tools and tests.
+The structure is flat by default to avoid deep import paths and circular dependency issues.
+`effect/` is the intentional exception for Effect adapters and typed CLI/runtime errors.
+
+For agent-facing examples of the preferred patterns, see `../../CODE_REFERENCES.md`.
 
 ## Domains
 
@@ -32,7 +34,7 @@ to avoid deep import paths and circular dependency issues.
 
 ## Adding New Files
 
-1. Place the file directly in `src/lib/` (no subdirectories)
+1. Place the file directly in `src/lib/` unless there is a documented exception like `src/lib/effect/`
 2. Import from `core/` files as needed
 3. Export only what's needed by CLI tools or tests
 4. Add unit tests in `test/<name>.unit.test.ts`

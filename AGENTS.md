@@ -15,6 +15,13 @@
 
 If Grep/Glob fail with `Path does not exist: .../kimicode-cli`, the editor opened the wrong folder. Reopen `~/kimi-toolchain`.
 
+**Before writing code:**
+
+1. Read `/Users/nolarose/.config/dx/AGENTS.md` for the global DX layer.
+2. Run `dx context`, `dx config`, `dx mcp-status`, or `dx mcp-doctor` when the task touches global setup, MCP, package, or shell behavior.
+3. Read `./CODE_REFERENCES.md`, pick the closest existing pattern, and preserve local conventions before editing.
+4. Cloudflare SSO/OAuth is separate from Wrangler OAuth and `kimi-cloudflare-access` API tokens; do not assume one login satisfies another.
+
 **After reopen checklist:**
 
 1. `pwd` ends with `kimi-toolchain`
@@ -33,7 +40,7 @@ If Grep/Glob fail with `Path does not exist: .../kimicode-cli`, the editor opene
 - **License**: MIT
 - **Language**: TypeScript (ESNext, strict mode)
 - **Runtime**: Bun >= 1.3.14
-- **Minimal runtime dependencies** — `js-yaml`, `effect`, `@effect/platform`; everything else uses Bun built-ins (`bun:sqlite`, `Bun.file`, `Bun.spawn`, etc.)
+- **Minimal runtime dependencies** — `effect` and `js-yaml`; everything else uses Bun built-ins (`bun:sqlite`, `Bun.file`, `Bun.spawn`, etc.)
 
 ## Architecture
 
@@ -261,8 +268,8 @@ The project uses three separate hook systems. Do not conflate them in docs or co
 ## Testing Strategy
 
 - **Test runner**: `bun:test` (built into Bun)
-- **Test file**: `test/kimi-doctor.smoke.test.ts`
-- **Test style**: Smoke tests — spawn each CLI tool as a subprocess and assert on stdout + exit code.
+- **Test files**: unit tests under `test/`, Effect tests under `test/effect/`, smoke tests in `test/smoke/kimi-doctor.smoke.test.ts`
+- **Test style**: Unit tests for pure logic and typed errors; smoke tests spawn CLI tools and assert on stdout + exit code.
 - **Isolation**: Tests use a temporary `HOME` directory so they never touch the real `~/.kimi-code/`.
 - **Timeout**: Default 30s per test; 120s for the full `kimi-doctor` run (which invokes all sub-doctors).
 - **Coverage**: Run `bun test --coverage`.
@@ -306,7 +313,7 @@ Install hooks: `kimi-githooks install` or `kimi-githooks fix` to refresh outdate
 | **oxlint**       | Linter     | 50-100x faster than ESLint, 655+ rules, native TS support, zero-config. |
 | **tsc --noEmit** | Type check | Catches type-aware issues that oxlint (without `--type-aware`) misses.  |
 
-**Do not add ESLint.** The project has zero runtime dependencies and avoids plugin ecosystems. Oxlint's built-in rules + `tsc --noEmit` cover all needs. When `oxlint --type-aware` (via tsgolint) stabilizes, evaluate adding it for `no-floating-promises` and similar rules.
+**Do not add ESLint.** The project keeps runtime dependencies minimal and avoids plugin ecosystems. Oxlint's built-in rules + `tsc --noEmit` cover all needs. When `oxlint --type-aware` (via tsgolint) stabilizes, evaluate adding it for `no-floating-promises` and similar rules.
 
 ### Bun-Native Coding Standards
 
@@ -333,6 +340,7 @@ The project follows strict Bun-native conventions. **Always prefer Bun APIs over
 ### Tool Invocation & Logging Standards
 
 Use the shared tool runner and logger for cross-tool calls instead of open-coded subprocess/logging behavior.
+See [CODE_REFERENCES.md](CODE_REFERENCES.md) for the local exemplar map future agents should follow before writing new modules.
 
 | Need                            | Use                                                | Avoid                                                     |
 | ------------------------------- | -------------------------------------------------- | --------------------------------------------------------- |
@@ -351,6 +359,19 @@ Runner defaults:
 - If a command needs live streaming UX, keep the tool-runner contract and stream the returned output at the router boundary.
 - JSON mode must emit `schemaVersion`, `tool`, `level`, `message`, and `timestamp`; do not invent one-off machine-readable formats for new doctors.
 
+### Reference Code Before Writing
+
+Agents should choose the closest existing implementation and match it before creating new patterns.
+
+| New work                        | Read first                                                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| New CLI main                    | `src/lib/effect/cli-runtime.ts`, `src/bin/kimi-toolchain.ts`                                   |
+| New cross-tool call             | `src/lib/tool-runner.ts`, `src/lib/effect/tool-runner-effect.ts`                               |
+| New doctor/check output         | `src/lib/logger.ts`, `src/lib/health-check.ts`, `src/lib/doctor-pipeline.ts`                   |
+| New config or schema parser     | `src/lib/cloudflare-access-policy.ts`, `src/lib/mcp-config.ts`, `src/lib/kimi-config-audit.ts` |
+| New package/dependency behavior | `package.json`, `bunfig.toml`, `src/lib/scaffold-quality.ts`, `kimi-guardian check`            |
+| New scaffold/agent docs         | `src/lib/scaffold-agents.ts`, `TEMPLATES.md`, `test/scaffold-agents.unit.test.ts`              |
+
 ### Process Cache (src/lib/process-utils.ts, src/lib/memory-budget.ts)
 
 Both modules share a lightweight TTL cache for `ps` output to avoid repeated system calls within the same doctor run:
@@ -362,7 +383,7 @@ Both modules share a lightweight TTL cache for `ps` output to avoid repeated sys
 
 ### src/lib/ Flat Structure
 
-`src/lib/` contains 43 modules at a single level (no subdirectories). This is intentional to avoid deep import paths and circular dependencies. See `src/lib/README.md` for the domain map.
+`src/lib/` is flat by default to avoid deep import paths and circular dependencies. `src/lib/effect/` is the intentional exception for Effect adapters and typed CLI/runtime errors. New subdirectories need an explicit rationale in `src/lib/README.md`.
 
 **Import rule**: Use relative paths (`../lib/foo.ts`) — never absolute or path aliases.
 
@@ -518,7 +539,7 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 - **No build step.** TypeScript is run directly via `bun run`.
 - **Distribution**: GitHub repo, installed via `bun install -g github:brendadeeznuts1111/kimi-toolchain`.
 - **Live runtime**: `~/.kimi-code/` is maintained by `postinstall.ts` and `sync-to-desktop.ts`.
-- **Files included in package**: `src/`, `skills/`, `AGENTS.md`, `UNIFIED.md`, `TEMPLATES.md`, `README.md`, `CONTRIBUTING.md`, `LICENSE`, `CHANGELOG.md`.
+- **Files included in package**: `src/`, `skills/`, `AGENTS.md`, `CODE_REFERENCES.md`, `UNIFIED.md`, `TEMPLATES.md`, `README.md`, `CONTRIBUTING.md`, `LICENSE`, `CHANGELOG.md`.
 
 ## Key Files for Agents
 
@@ -544,6 +565,7 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `scripts/check.ts`                     | CI gate runner with dry-run and fast modes          |
 | `test/kimi-doctor.smoke.test.ts`       | Smoke tests for all tools                           |
 | `CONTEXT.md`                           | Auto-generated project context                      |
+| `CODE_REFERENCES.md`                   | Local exemplar map for agent coding patterns        |
 | `skills/kimi-toolchain/SKILL.md`       | Agent decision protocol                             |
 | `error-taxonomy.yml`                   | Failure classification schema                       |
 | `~/.kimi-code/var/tool-failures.jsonl` | Canonical tool failure ledger                       |

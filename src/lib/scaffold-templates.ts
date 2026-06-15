@@ -35,6 +35,7 @@ export const ENV_EXAMPLE = load("env.example");
 export const BUNFIG = load("bunfig.toml");
 export const KIMI_SKILLS_README = load("skills-readme.md");
 export const ADR_TEMPLATE = load("adr-template.md");
+export const CODE_REFERENCES_TEMPLATE = load("code-references.md");
 
 // ── Generator functions ──────────────────────────────────────────────
 

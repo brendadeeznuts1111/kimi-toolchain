@@ -32,6 +32,7 @@ describe("desktop-sync", () => {
 
   test("ROOT_TEMPLATES includes core docs", () => {
     expect(ROOT_TEMPLATES).toContain("AGENTS.md");
+    expect(ROOT_TEMPLATES).toContain("CODE_REFERENCES.md");
     expect(ROOT_TEMPLATES).toContain("UNIFIED.md");
   });
 

@@ -347,6 +347,9 @@ async function generateContext(projectDir: string): Promise<string> {
       adrs.push(file.replace(/\.md$/, ""));
     }
   }
+  const agentReferenceLines = ["AGENTS.md", "CODE_REFERENCES.md", "UNIFIED.md", "TEMPLATES.md"]
+    .filter((file) => existsSync(join(projectDir, file)))
+    .map((file) => `- \`${file}\``);
 
   return `# CONTEXT — ${name}
 
@@ -378,6 +381,10 @@ ${commands || "bun run dev    # Start dev server\nbun test       # Run tests"}
 | Check | Status |
 |-------|--------|
 ${govLines.join("\n")}
+
+## Agent References
+
+${agentReferenceLines.length > 0 ? agentReferenceLines.join("\n") : "- Add `AGENTS.md` for project-local agent rules"}
 
 ${
   adrs.length > 0

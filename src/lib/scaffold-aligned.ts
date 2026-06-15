@@ -22,6 +22,8 @@ const AGENTS_MARKERS = [
   "/Users/nolarose/.config/dx/AGENTS.md",
   "dx mcp-status",
   "Cloudflare SSO/OAuth is separate",
+  "./CODE_REFERENCES.md",
+  "closest existing pattern",
   "kimi-doctor --agent-ready",
   "kimi-githooks doctor",
   "bun run check",

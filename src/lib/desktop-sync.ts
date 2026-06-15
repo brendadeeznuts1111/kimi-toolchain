@@ -29,6 +29,7 @@ export function kimiCodeSkillsRoot(): string {
 
 export const ROOT_TEMPLATES = [
   "AGENTS.md",
+  "CODE_REFERENCES.md",
   "UNIFIED.md",
   "TEMPLATES.md",
   "CONTRIBUTING.md",

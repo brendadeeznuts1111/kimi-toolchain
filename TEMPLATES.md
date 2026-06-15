@@ -80,23 +80,24 @@ bun run fix
 
 - No secrets in source. Use `Bun.env` or `Bun.secrets`.
 - No `eval()`, `new Function()`, or dynamic imports from untrusted input.
-- Validate all external input with Zod or similar at system boundaries.
+- Validate external input with narrow interfaces, type guards, parser checks, and focused tests before adding schema packages.
 
 ## Governance
 
-| Check           | Status | Notes                                |
-| --------------- | ------ | ------------------------------------ |
-| LICENSE         |        | MIT / Apache-2.0 / BSD — add file    |
-| CONTRIBUTING.md |        | PR process, code style, testing      |
-| CODEOWNERS      |        | `@username` for critical paths       |
-| CHANGELOG.md    |        | Keep a Changelog format              |
-| README.md       |        | Quickstart, badges, links            |
-| CONTEXT.md      |        | This file — architecture & decisions |
-| AGENTS.md       |        | Project agent guide (kimi-fix)       |
-| `.oxfmtrc.json` |        | oxfmt formatter config               |
-| `tsconfig.json` |        | Bun bundler mode strict TS           |
-| `bunfig.toml`   |        | Trusted deps + test coverage gates   |
-| `.kimi-code/`   |        | Project MCP stub + skills dir        |
+| Check              | Status | Notes                                |
+| ------------------ | ------ | ------------------------------------ |
+| LICENSE            |        | MIT / Apache-2.0 / BSD — add file    |
+| CONTRIBUTING.md    |        | PR process, code style, testing      |
+| CODEOWNERS         |        | `@username` for critical paths       |
+| CHANGELOG.md       |        | Keep a Changelog format              |
+| README.md          |        | Quickstart, badges, links            |
+| CONTEXT.md         |        | This file — architecture & decisions |
+| AGENTS.md          |        | Project agent guide (kimi-fix)       |
+| CODE_REFERENCES.md |        | Local exemplar map for agent coding  |
+| `.oxfmtrc.json`    |        | oxfmt formatter config               |
+| `tsconfig.json`    |        | Bun bundler mode strict TS           |
+| `bunfig.toml`      |        | Trusted deps + test coverage gates   |
+| `.kimi-code/`      |        | Project MCP stub + skills dir        |
 
 Run `bun run ~/.kimi-code/tools/kimi-governance.ts score` to check project health.
 
@@ -359,6 +360,22 @@ One-line description of what this does.
 - Use `Uint8Array` not `Buffer`
 - Prefer shared tool/logging helpers from `~/.kimi-code/AGENTS.md` over raw subprocess and console patterns
 
+## Reference Code Before Writing
+
+- Read local `./CODE_REFERENCES.md` before adding new modules or tool paths
+- If local references are incomplete, fall back to `~/.kimi-code/CODE_REFERENCES.md`
+- Match the closest existing pattern for logging, tool invocation, config parsing, and tests
+- For Effect code, use it only when the project already uses it or the workflow needs typed failures, cleanup, subprocess orchestration, or parallel aggregation
+- For config/schema work, prefer narrow interfaces, type guards, parser checks, and focused validation tests before adding schema packages
+
+## Agent Defaults
+
+- Preserve dirty worktrees; never revert user changes without explicit instruction
+- Keep destructive operations and dependency changes in manual approval mode
+- Do not use YOLO/auto-approve for mutation-heavy MCP or shell operations
+- Keep background keep-alive off unless intentionally daemonizing
+- Batch related edits, then run targeted tests before broad gates
+
 ## Commands
 
 ```bash
@@ -395,9 +412,11 @@ kimi-doctor --quick
 ## References
 
 - `CONTEXT.md` — domain model and architecture
+- `CODE_REFERENCES.md` — local exemplars for good code patterns
 - `.env.example` — required environment variables
 - `docs/adr/` — architecture decision records
 - `~/.kimi-code/AGENTS.md` — global agent rules
+- `~/.kimi-code/CODE_REFERENCES.md` — fallback global exemplar map
 - `~/.kimi-code/UNIFIED.md` — Kimi Code vs kimi-toolchain map
 - `~/.kimi-code/TEMPLATES.md` — scaffold templates (this file)
 ````
@@ -445,7 +464,9 @@ jobs:
         run: bun run test:coverage:ci
 ```
 
-## Tool Invocation Template (Bun-Native)
+## Tool Invocation Reference (kimi-toolchain)
+
+This example is for kimi-toolchain internals. Other projects should use their local runner/helper first and record that path in `CODE_REFERENCES.md`.
 
 ```typescript
 import { invokeTool } from "./src/lib/tool-runner.ts";

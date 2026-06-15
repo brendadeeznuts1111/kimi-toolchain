@@ -20,9 +20,14 @@ export interface KimiDocsAlignmentReport {
 
 const DOC_MARKERS: Record<string, string[]> = {
   "UNIFIED.md": ["Kimi Work", "Kimi Code", "kimi-toolchain"],
-  "AGENTS.md": ["kimi-toolchain", "Kimi Code"],
-  "CONTEXT.md": ["Kimi Code", "kimi-toolchain"],
-  "TEMPLATES.md": ["config.toml", "mcp.json"],
+  "AGENTS.md": ["kimi-toolchain", "Kimi Code", "CODE_REFERENCES.md"],
+  "CODE_REFERENCES.md": [
+    "src/lib/tool-runner.ts",
+    "src/lib/effect/cli-runtime.ts",
+    "Package Policy",
+  ],
+  "CONTEXT.md": ["Kimi Code", "kimi-toolchain", "CODE_REFERENCES.md"],
+  "TEMPLATES.md": ["config.toml", "mcp.json", "CODE_REFERENCES.md"],
   "skills/kimi-toolchain/SKILL.md": ["/mcp", "unified-shell"],
 };
 

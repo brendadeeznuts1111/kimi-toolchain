@@ -39,6 +39,22 @@ One-line description of what this does.
 - Use \`Uint8Array\` not \`Buffer\`
 - Prefer shared tool/logging helpers from \`~/.kimi-code/AGENTS.md\` over raw subprocess and console patterns
 
+## Reference Code Before Writing
+
+- Read local \`./CODE_REFERENCES.md\` before adding new modules or tool paths
+- If local references are incomplete, fall back to \`~/.kimi-code/CODE_REFERENCES.md\`
+- Match the closest existing pattern for logging, tool invocation, config parsing, and tests
+- For Effect code, use it only when the project already uses it or the workflow needs typed failures, cleanup, subprocess orchestration, or parallel aggregation
+- For config/schema work, prefer narrow interfaces, type guards, parser checks, and focused validation tests before adding schema packages
+
+## Agent Defaults
+
+- Preserve dirty worktrees; never revert user changes without explicit instruction
+- Keep destructive operations and dependency changes in manual approval mode
+- Do not use YOLO/auto-approve for mutation-heavy MCP or shell operations
+- Keep background keep-alive off unless intentionally daemonizing
+- Batch related edits, then run targeted tests before broad gates
+
 ## Commands
 
 \`\`\`bash
@@ -75,9 +91,11 @@ kimi-doctor --quick
 ## References
 
 - \`CONTEXT.md\` — domain model and architecture
+- \`CODE_REFERENCES.md\` — local exemplars for good code patterns
 - \`.env.example\` — required environment variables
 - \`docs/adr/\` — architecture decision records
 - \`~/.kimi-code/AGENTS.md\` — global agent rules
+- \`~/.kimi-code/CODE_REFERENCES.md\` — fallback global exemplar map
 - \`~/.kimi-code/UNIFIED.md\` — Kimi Code vs kimi-toolchain map
 - \`~/.kimi-code/TEMPLATES.md\` — scaffold templates
 `;

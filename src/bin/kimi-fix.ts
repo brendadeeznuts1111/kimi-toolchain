@@ -24,6 +24,7 @@ import {
   ENV_EXAMPLE,
   BUNFIG,
   KIMI_SKILLS_README,
+  CODE_REFERENCES_TEMPLATE,
 } from "../lib/scaffold-templates.ts";
 import { Effect } from "effect";
 import { getProjectName } from "../lib/utils.ts";
@@ -199,6 +200,11 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
   if (!existsSync(agentsPath)) {
     stepLog("agents", "creating AGENTS.md...");
     await writeFile(agentsPath, buildAgentsMd(await getProjectName(project)), dryRun);
+  }
+  const codeRefsPath = join(project, "CODE_REFERENCES.md");
+  if (!existsSync(codeRefsPath)) {
+    stepLog("agents", "creating CODE_REFERENCES.md...");
+    await writeFile(codeRefsPath, CODE_REFERENCES_TEMPLATE, dryRun);
   }
 
   const kimiCodeDir = join(project, ".kimi-code");

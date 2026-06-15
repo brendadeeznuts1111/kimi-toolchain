@@ -50,19 +50,20 @@ kimi-toolchain/
   guardian/           # Lockfile manifests
   governor/           # Resource cache
   AGENTS.md           # Copied from repo
+  CODE_REFERENCES.md  # Copied from repo
   UNIFIED.md          # Copied from repo
   TEMPLATES.md        # Copied from repo
 ```
 
 ## Tech Stack
 
-| Layer    | Choice                            |
-| -------- | --------------------------------- |
-| Runtime  | Bun >=1.3.14                      |
-| Language | TypeScript                        |
-| Database | SQLite (bun:sqlite)               |
-| Config   | TOML (bunfig.toml)                |
-| Deps     | js-yaml, effect, @effect/platform |
+| Layer    | Choice              |
+| -------- | ------------------- |
+| Runtime  | Bun >=1.3.14        |
+| Language | TypeScript          |
+| Database | SQLite (bun:sqlite) |
+| Config   | TOML (bunfig.toml)  |
+| Deps     | effect, js-yaml     |
 
 ## Commands
 
@@ -100,6 +101,13 @@ kimi-context-gen update  # Regenerate CONTEXT.md
 | CHANGELOG.md    | present |
 | CONTEXT.md      | present |
 
+## Agent References
+
+- `AGENTS.md` — operating rules for future agents
+- `CODE_REFERENCES.md` — local exemplar map for Effect, tool runner, logging, config/schema, packages, tests, and Cloudflare/MCP boundaries
+- `UNIFIED.md` — Kimi Code vs kimi-toolchain vs DX/MCP product map
+- `TEMPLATES.md` — scaffold templates and generated AGENTS.md reference
+
 ## Decisions
 
 No ADRs yet. Create one: `kimi-governance adr "<title>"`
@@ -117,6 +125,7 @@ No ADRs yet. Create one: `kimi-governance adr "<title>"`
 ## Notes
 
 - This is a meta-project: it manages the tools that manage other projects.
+- Future agents should read `CODE_REFERENCES.md` before adding new modules or packages.
 - All tools are Bun-native: use `Bun.file`, `Bun.spawn`, `Bun.hash`, etc.
 - Shared utilities in `src/lib/utils.ts` — import from there, don't duplicate.
 - Live runtime at `~/.kimi-code/` is managed by `postinstall.ts` — don't edit manually.
