@@ -216,41 +216,30 @@ export { runTool, invokeTool, toolsDir, ToolInvocation, ToolInvocationOptions };
 
 // ── Doctor/Fix Integration Helpers ───────────────────────────────────
 
-export interface DoctorCheck {
-  name: string;
-  status: "ok" | "warn" | "error";
-  message: string;
-  fixable: boolean;
-}
+export {
+  type HealthCheck,
+  type HealthReport,
+  type DoctorCheck,
+  type DoctorReport,
+  type CheckStatus,
+  aggregateChecks,
+  buildDoctorReport,
+  statusIcon as healthStatusIcon,
+} from "./health-check.ts";
 
-export interface DoctorReport {
-  tool: string;
-  checks: DoctorCheck[];
-  fixableCount: number;
-  errorCount: number;
-  warnCount: number;
-}
+import type { HealthReport } from "./health-check.ts";
+import { createLogger } from "./logger.ts";
 
-export function printDoctorReport(report: DoctorReport) {
-  printSection(`${report.tool} Doctor`);
+/** @deprecated Use Logger.check() with createLogger() instead */
+export function printDoctorReport(report: HealthReport) {
+  const logger = createLogger(Bun.argv, report.tool);
+  logger.section(`${report.tool} Doctor`);
   for (const check of report.checks) {
-    const icon = statusIcon(check.status);
-    const fixTag = check.fixable ? " [fixable]" : "";
-    console.log(`  ${icon} ${check.name}: ${check.message}${fixTag}`);
+    logger.check(check);
   }
-  console.log(
-    `  ${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
+  logger.info(
+    `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
   );
-}
-
-export function buildDoctorReport(tool: string, checks: DoctorCheck[]): DoctorReport {
-  return {
-    tool,
-    checks,
-    errorCount: checks.filter((c) => c.status === "error").length,
-    warnCount: checks.filter((c) => c.status === "warn").length,
-    fixableCount: checks.filter((c) => c.fixable).length,
-  };
 }
 
 // ── Safe TOML ────────────────────────────────────────────────────────

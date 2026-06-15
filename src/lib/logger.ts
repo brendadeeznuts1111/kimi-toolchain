@@ -7,10 +7,13 @@
  *   - JSON mode (structured output for programmatic consumption)
  *   - Quiet mode (errors only)
  *   - Step-budget aware (warns when approaching max_steps)
+ *   - Health check and taxonomy suggestion emission
  */
 
+import type { HealthCheck } from "./health-check.ts";
+import { statusIcon as healthStatusIcon } from "./health-check.ts";
 import { isAgentContext } from "./tool-runner.ts";
-import { checkStepBudget } from "./step-budget.ts";
+import { getStepBudgetStatus } from "./step-budget.ts";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -20,6 +23,21 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
   warn: 2,
   error: 3,
 };
+
+export const LOG_SCHEMA_VERSION = 1;
+
+export interface LogEntry {
+  schemaVersion: number;
+  tool: string;
+  level: LogLevel;
+  message: string;
+  timestamp: number;
+  sessionId?: string;
+  check?: HealthCheck;
+  taxonomyId?: string;
+  suggestion?: string;
+  autoFix?: string;
+}
 
 export interface LoggerOptions {
   /** Minimum level to emit. Default "info". */
@@ -32,6 +50,12 @@ export interface LoggerOptions {
   tool?: string;
   /** Enable step-budget checks after each log. */
   stepBudget?: boolean;
+  /** Session id from env for correlation. */
+  sessionId?: string;
+}
+
+function resolveSessionId(): string | undefined {
+  return Bun.env.KIMI_CODE_SESSION || Bun.env.KIMI_AGENT_SESSION || undefined;
 }
 
 export class Logger {
@@ -40,7 +64,8 @@ export class Logger {
   private quiet: boolean;
   private tool: string;
   private stepBudget: boolean;
-  private logs: Array<{ level: LogLevel; message: string; timestamp: number }> = [];
+  private sessionId: string | undefined;
+  private logs: LogEntry[] = [];
 
   constructor(options: LoggerOptions = {}) {
     this.level = options.level ?? "info";
@@ -48,6 +73,7 @@ export class Logger {
     this.quiet = options.quiet ?? false;
     this.tool = options.tool ?? "kimi-toolchain";
     this.stepBudget = options.stepBudget ?? false;
+    this.sessionId = options.sessionId ?? resolveSessionId();
   }
 
   private shouldEmit(level: LogLevel): boolean {
@@ -55,31 +81,61 @@ export class Logger {
     return LEVEL_PRIORITY[level] >= LEVEL_PRIORITY[this.level];
   }
 
-  private emit(level: LogLevel, message: string): void {
-    if (!this.shouldEmit(level)) return;
-
-    const entry = { level, message, timestamp: Date.now() };
+  private pushEntry(entry: LogEntry): void {
     this.logs.push(entry);
+  }
+
+  private emitEntry(entry: LogEntry): void {
+    if (!this.shouldEmit(entry.level)) return;
+    this.pushEntry(entry);
 
     if (this.json) {
-      console.log(JSON.stringify({ tool: this.tool, ...entry }));
+      console.log(JSON.stringify(entry));
       return;
     }
 
-    // Agent context: minimal output, no decorative prefixes
     if (isAgentContext()) {
-      if (level === "error") console.error(`  ✗ ${message}`);
-      else if (level === "warn") console.warn(`  ⚠ ${message}`);
-      // Suppress info/debug in agent context unless error/warn
+      if (entry.level === "error") console.error(`  ✗ ${entry.message}`);
+      else if (entry.level === "warn") console.warn(`  ⚠ ${entry.message}`);
       return;
     }
 
-    // Human-readable output with icons
-    const icon = level === "error" ? "✗" : level === "warn" ? "⚠" : level === "info" ? "✓" : "◦";
-    const prefix = level === "error" ? "  ✗" : `  ${icon}`;
-    console.log(`${prefix} ${message}`);
+    const icon =
+      entry.level === "error"
+        ? "✗"
+        : entry.level === "warn"
+          ? "⚠"
+          : entry.level === "info"
+            ? "✓"
+            : "◦";
+    const prefix = entry.level === "error" ? "  ✗" : `  ${icon}`;
+    console.log(`${prefix} ${entry.message}`);
 
-    if (this.stepBudget) checkStepBudget();
+    if (this.stepBudget) this.emitStepBudgetWarning();
+  }
+
+  private baseEntry(level: LogLevel, message: string): LogEntry {
+    return {
+      schemaVersion: LOG_SCHEMA_VERSION,
+      tool: this.tool,
+      level,
+      message,
+      timestamp: Date.now(),
+      ...(this.sessionId ? { sessionId: this.sessionId } : {}),
+    };
+  }
+
+  private emit(level: LogLevel, message: string): void {
+    this.emitEntry(this.baseEntry(level, message));
+  }
+
+  /** Emit step-budget warning through logger instead of raw console. */
+  emitStepBudgetWarning(): boolean {
+    const { status, message } = getStepBudgetStatus();
+    if (status === "ok") return false;
+    const level = status === "critical" ? "error" : "warn";
+    this.emitEntry(this.baseEntry(level, message));
+    return status === "critical";
   }
 
   debug(msg: string): void {
@@ -95,15 +151,63 @@ export class Logger {
     this.emit("error", msg);
   }
 
-  /** Log a structured result from a sub-tool invocation. */
-  result(name: string, status: "ok" | "warn" | "error", message: string): void {
-    const level = status === "error" ? "error" : status === "warn" ? "warn" : "info";
-    const icon = status === "ok" ? "✓" : status === "warn" ? "⚠" : "✗";
-    if (isAgentContext()) {
-      if (status !== "ok") this.emit(level, `${name}: ${message}`);
+  /** Log a structured health check result. */
+  check(result: HealthCheck): void {
+    const level = result.status === "error" ? "error" : result.status === "warn" ? "warn" : "info";
+    const fixTag = result.fixable ? " [fixable]" : "";
+    const message = `${result.name}: ${result.message}${fixTag}`;
+
+    if (this.json) {
+      this.emitEntry({
+        ...this.baseEntry(level, message),
+        check: result,
+        ...(result.category ? { taxonomyId: result.category } : {}),
+        ...(result.autoFix ? { autoFix: result.autoFix } : {}),
+      });
       return;
     }
-    console.log(`  ${icon} ${name}: ${message}`);
+
+    if (isAgentContext()) {
+      if (result.status !== "ok") this.emit(level, message);
+      return;
+    }
+
+    const icon = healthStatusIcon(result.status);
+    console.log(`  ${icon} ${message}`);
+    this.pushEntry({
+      ...this.baseEntry(level, message),
+      check: result,
+    });
+  }
+
+  /** Log a taxonomy-linked suggestion with optional autoFix command. */
+  suggest(taxonomyId: string, suggestion: string, autoFix?: string): void {
+    const entry: LogEntry = {
+      ...this.baseEntry("info", suggestion),
+      taxonomyId,
+      suggestion,
+      ...(autoFix ? { autoFix } : {}),
+    };
+    if (!this.shouldEmit("info")) return;
+    this.pushEntry(entry);
+
+    if (this.json) {
+      console.log(JSON.stringify(entry));
+      return;
+    }
+
+    if (isAgentContext()) {
+      console.log(`  → ${suggestion}${autoFix ? ` (fix: ${autoFix})` : ""}`);
+      return;
+    }
+
+    console.log(`  💡 ${suggestion}`);
+    if (autoFix) console.log(`     autoFix: ${autoFix}`);
+  }
+
+  /** Log a structured result from a sub-tool invocation. */
+  result(name: string, status: "ok" | "warn" | "error", message: string): void {
+    this.check({ name, status, message, fixable: false });
   }
 
   /** Print a section header (suppressed in agent context). */
@@ -134,14 +238,14 @@ export class Logger {
   }
 
   /** Get all logged entries for testing/telemetry. */
-  getLogs(): Array<{ level: LogLevel; message: string; timestamp: number }> {
+  getLogs(): LogEntry[] {
     return [...this.logs];
   }
 
   /** Flush logs to a file for persistent telemetry. */
   async flushToFile(path: string): Promise<void> {
     const lines = this.logs.map((l) => JSON.stringify(l)).join("\n");
-    await Bun.write(path, lines + "\n");
+    await Bun.write(path, lines + (lines ? "\n" : ""));
   }
 }
 
@@ -157,6 +261,7 @@ export function createLogger(argv: string[], toolName?: string): Logger {
     quiet,
     tool: toolName,
     stepBudget,
+    sessionId: resolveSessionId(),
   });
 }
 
@@ -169,5 +274,5 @@ export function log(level: "info" | "warn" | "error", msg: string): void {
 }
 
 export function statusIcon(status: "ok" | "warn" | "error"): string {
-  return status === "ok" ? "✓" : status === "warn" ? "⚠" : "✗";
+  return healthStatusIcon(status);
 }

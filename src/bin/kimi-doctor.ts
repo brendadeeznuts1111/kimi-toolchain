@@ -38,9 +38,15 @@ import {
   mergeConfigTomlPermissions,
 } from "../lib/kimi-config-audit.ts";
 import { getOrphanProcesses, runOrphanKill } from "../lib/process-utils.ts";
-import { runTool, defaultToolTimeoutMs, isAgentContext } from "../lib/tool-runner.ts";
-import { resolveProjectRoot, printSection, printToolBanner } from "../lib/utils.ts";
+import { isAgentContext } from "../lib/tool-runner.ts";
+import { resolveProjectRoot } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
+import { createLogger } from "../lib/logger.ts";
+import type { HealthCheck } from "../lib/health-check.ts";
+import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
+import { Effect } from "effect";
+
+const logger = createLogger(Bun.argv, "kimi-doctor");
 
 const TOOLS_DIR = toolsDir();
 const FIX = Bun.argv.includes("--fix");
@@ -61,65 +67,32 @@ interface CheckResult {
 }
 
 function ok(name: string, message: string): CheckResult {
-  if (!JSON_OUT) console.log(`  ✓ ${name}: ${message}`);
-  return { name, status: "ok", message };
+  const check: HealthCheck = { name, status: "ok", message, fixable: false };
+  if (!JSON_OUT) logger.check(check);
+  return check;
 }
 
 function warn(name: string, message: string): CheckResult {
-  if (!JSON_OUT) console.log(`  ⚠ ${name}: ${message}`);
-  return { name, status: "warn", message };
+  const check: HealthCheck = { name, status: "warn", message, fixable: false };
+  if (!JSON_OUT) logger.check(check);
+  return check;
 }
 
 function error(name: string, message: string): CheckResult {
-  if (!JSON_OUT) console.log(`  ✗ ${name}: ${message}`);
-  return { name, status: "error", message };
+  const check: HealthCheck = { name, status: "error", message, fixable: false };
+  if (!JSON_OUT) logger.check(check);
+  return check;
 }
 
 function section(title: string) {
   if (JSON_OUT) return;
-  printSection(title);
+  logger.section(title);
 }
 
 function recordMemoryCheck(r: MemoryCheckResult): CheckResult {
-  if (!JSON_OUT) {
-    const icon = r.status === "ok" ? "✓" : r.status === "warn" ? "⚠" : "✗";
-    console.log(`  ${icon} ${r.name}: ${r.message}`);
-  }
-  return { name: r.name, status: r.status, message: r.message };
-}
-
-async function runToolDoctor(tool: string, projectRoot: string): Promise<CheckResult> {
-  const cmd = FIX ? "fix" : "doctor";
-  const toolArgs = tool === "kimi-fix" ? (FIX ? [projectRoot] : ["doctor", projectRoot]) : [cmd];
-  if (!JSON_OUT && !isAgentContext()) console.log(`  → Running ${tool} ${toolArgs.join(" ")}...`);
-
-  try {
-    const timeoutMs = QUICK ? defaultToolTimeoutMs() : 120000;
-    const result = await runTool(tool, toolArgs, { cwd: projectRoot, timeoutMs });
-
-    if (!JSON_OUT && !isAgentContext()) {
-      for (const line of result.stdout.split("\n")) {
-        if (line.trim()) console.log(`    ${line}`);
-      }
-      for (const line of result.stderr.split("\n")) {
-        if (line.trim()) console.log(`    ${line}`);
-      }
-    } else if (!JSON_OUT && isAgentContext() && result.isError) {
-      const summary = (result.stdout + result.stderr).split("\n").slice(0, 5).join("; ");
-      console.log(`    ⚠ ${tool}: ${summary.slice(0, 120)}`);
-    }
-
-    if (result.error) {
-      return error(tool, `${cmd} failed: ${result.error}`);
-    }
-    if (result.exitCode === 0) {
-      return ok(tool, `${cmd} passed`);
-    } else {
-      return error(tool, `${cmd} found problems (exit ${result.exitCode})`);
-    }
-  } catch (e: unknown) {
-    return error(tool, `failed: ${e instanceof Error ? e.message : String(e)}`);
-  }
+  const check: HealthCheck = { name: r.name, status: r.status, message: r.message, fixable: false };
+  if (!JSON_OUT) logger.check(check);
+  return check;
 }
 
 function parseSemver(version: string): [number, number, number] | null {
@@ -573,13 +546,13 @@ async function main() {
 
   if (ECOSYSTEM) {
     if (!JSON_OUT) {
-      printToolBanner("Kimi Doctor — Ecosystem Health");
+      logger.banner("Kimi Doctor — Ecosystem Health");
     }
     process.exit(await runEcosystemMode(projectRoot));
   }
 
   if (!JSON_OUT) {
-    printToolBanner("Kimi Doctor — Toolchain Diagnostics");
+    logger.banner("Kimi Doctor — Toolchain Diagnostics");
   }
 
   const results: CheckResult[] = [];
@@ -623,17 +596,16 @@ async function main() {
   section("Kimi Code Config");
   const officialKimiDoctorResult = await runOfficialKimiDoctor();
   if (!JSON_OUT) {
-    const icon =
-      officialKimiDoctorResult.status === "ok"
-        ? "✓"
-        : officialKimiDoctorResult.status === "warn"
-          ? "⚠"
-          : "✗";
-    console.log(`  ${icon} ${officialKimiDoctorResult.name}: ${officialKimiDoctorResult.message}`);
+    logger.check({
+      name: officialKimiDoctorResult.name,
+      status: officialKimiDoctorResult.status,
+      message: officialKimiDoctorResult.message,
+      fixable: false,
+    });
   }
   results.push(officialKimiDoctorResult);
   if (!JSON_OUT) {
-    console.log("  ℹ kimi doctor (official) ≠ kimi-doctor (toolchain)");
+    logger.info("kimi doctor (official) ≠ kimi-doctor (toolchain)");
   }
 
   section("Version Matrix");
@@ -673,8 +645,8 @@ async function main() {
 
   if (QUICK) {
     if (!JSON_OUT) {
-      console.log("  ⚡ Quick mode — skipping individual tool doctors.");
-      console.log("     Run without --quick for full toolchain health check.");
+      logger.warn("Quick mode — skipping individual tool doctors.");
+      logger.info("Run without --quick for full toolchain health check.");
     }
   } else {
     const tools = [
@@ -690,8 +662,16 @@ async function main() {
       "kimi-githooks",
     ];
 
-    const toolResults = await Promise.all(tools.map((tool) => runToolDoctor(tool, projectRoot)));
-    results.push(...toolResults);
+    const cmd = FIX ? "fix" : "doctor";
+    const specs = tools.map((tool) => ({
+      tool,
+      args: tool === "kimi-fix" ? (FIX ? [projectRoot] : ["doctor", projectRoot]) : [cmd],
+    }));
+
+    const subChecks = await Effect.runPromise(
+      runSubDoctorsEffect({ projectRoot, specs, quick: QUICK, logger })
+    );
+    results.push(...subChecks.map((c) => ({ name: c.name, status: c.status, message: c.message })));
   }
 
   section("Path Alignment");
@@ -824,26 +804,26 @@ async function main() {
     section("Summary");
 
     if (blocking > 0) {
-      console.log(`  ✗ ${blocking} blocking issue(s) found`);
+      logger.error(`${blocking} blocking issue(s) found`);
     } else if (errors > 0 && SOFT_SYSTEM) {
-      console.log(`  ⚠ ${system} system issue(s) found (non-blocking with --soft-system)`);
+      logger.warn(`${system} system issue(s) found (non-blocking with --soft-system)`);
     } else if (warnings > 0) {
-      console.log(`  ⚠ ${warnings} warning(s) found`);
+      logger.warn(`${warnings} warning(s) found`);
     } else {
-      console.log("  ✓ All checks passed");
+      logger.info("All checks passed");
     }
 
     if (FIX) {
-      console.log("  Auto-fix applied where possible.");
+      logger.info("Auto-fix applied where possible.");
     } else if (QUICK) {
-      console.log("  Quick mode — run without --quick for full check.");
+      logger.info("Quick mode — run without --quick for full check.");
     } else if (!isAgentContext()) {
-      console.log("  Run with --fix to apply tool fixes, --quick to skip tool doctors.");
-      console.log("  Run with --memory-budget to print per-app RSS breakdown.");
-      console.log("  Run with --json for structured agent output.");
-      console.log("  Run with --workspace for workspace-only checks.");
-      console.log("  Run with --ecosystem for cross-product health.");
-      console.log("  Run with --fix --fix-cursor to remove legacy Cursor slugs.");
+      logger.info("Run with --fix to apply tool fixes, --quick to skip tool doctors.");
+      logger.info("Run with --memory-budget to print per-app RSS breakdown.");
+      logger.info("Run with --json for structured agent output.");
+      logger.info("Run with --workspace for workspace-only checks.");
+      logger.info("Run with --ecosystem for cross-product health.");
+      logger.info("Run with --fix --fix-cursor to remove legacy Cursor slugs.");
     }
   }
 

@@ -70,7 +70,7 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check -c .oxfmtrc.json .",
     "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
-    "lint": "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
+    "lint": "oxlint src test scripts && bun run scripts/lint-banned-terms.ts && bun run scripts/lint-patterns.ts",
     "lint:terms": "bun run scripts/lint-banned-terms.ts",
     "typecheck": "tsc --noEmit",
     "sync": "bun run scripts/sync-to-desktop.ts",
@@ -85,6 +85,8 @@
     "memory-budget": "bun run src/bin/kimi-doctor.ts --memory-budget"
   },
   "dependencies": {
+    "@effect/platform": "^0.96.1",
+    "effect": "^3.21.3",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {

@@ -8,25 +8,28 @@
  */
 
 import { $ } from "bun";
-import { existsSync } from "fs";
+import { existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { homeDir, toolsDir } from "../lib/paths.ts";
 import {
   resolveProjectRoot,
-  printProjectBanner,
   buildDoctorReport,
   printDoctorReport,
   safeParse,
 } from "../lib/utils.ts";
 import { gitStatus, gitDiff, gitLastCommitMessage } from "../lib/git-helpers.ts";
+import { createLogger } from "../lib/logger.ts";
 
 import {
   buildClassifiedFailure,
   classifyFailure,
+  getSuggestions,
   loadTaxonomy,
   taxonomyPath,
   type ClassifiedFailure,
 } from "../lib/error-taxonomy.ts";
+
+const logger = createLogger(Bun.argv, "kimi-debug");
 
 const decoder = new TextDecoder();
 
@@ -93,65 +96,6 @@ async function getLastCommitMessage(projectDir: string): Promise<string> {
   return gitLastCommitMessage(projectDir);
 }
 
-// ── Error Pattern Detection ──────────────────────────────────────────
-
-const ERROR_PATTERNS = [
-  {
-    pattern: /max_steps_exceeded|max steps exceeded|step limit reached|Turn exceeded maxSteps/,
-    suggestion:
-      "Agent hit step limit — break work into smaller chunks. Use `bun run check:fast` instead of full suite, batch edits before testing, and avoid long-running subprocesses in a single turn.",
-    autoFix: "bun run check:fast",
-  },
-  {
-    pattern: /Tool timed out after|SIGTERM sent|SIGKILL after/,
-    suggestion:
-      "Subprocess hung — check for orphan processes with `kimi-orphan-kill --dry-run`, then reduce tool timeouts or run with `--quick`.",
-    autoFix: "kimi-orphan-kill --dry-run",
-  },
-  {
-    pattern: /Cannot find module|Module not found|ENOENT/,
-    suggestion: "Missing dependency — run 'bun install'",
-    autoFix: "bun install",
-  },
-  {
-    pattern: /SyntaxError|Unexpected token/,
-    suggestion: "Syntax error in recently changed file — check the diff",
-  },
-  {
-    pattern: /TypeError.*undefined|Cannot read prop/,
-    suggestion: "Null/undefined access — add runtime checks or fix types",
-  },
-  {
-    pattern: /ECONNREFUSED|ENOTFOUND/,
-    suggestion: "Network/service unavailable — check if required service is running",
-  },
-  {
-    pattern: /port.*already in use|EADDRINUSE/,
-    suggestion: "Port conflict — use PORT=0 for auto-assignment or kill existing process",
-  },
-  {
-    pattern: /test.*fail|AssertionError|expect.*received/,
-    suggestion: "Test failure — run 'bun test' to see details",
-  },
-  {
-    pattern: /permission denied|EACCES/,
-    suggestion: "Permission issue — check file ownership or use sudo if appropriate",
-  },
-  {
-    pattern: /out of memory|ENOMEM/,
-    suggestion: "Memory limit hit — check for leaks or increase limit",
-  },
-  {
-    pattern: /timeout|ETIMEDOUT/,
-    suggestion: "Operation timed out — check network or increase timeout",
-  },
-  {
-    pattern: /lockfile|bun\.lock/,
-    suggestion: "Lockfile issue — run 'bun install' or 'kimi-guardian fix'",
-    autoFix: "bun install",
-  },
-];
-
 // ── Wire Log Discovery ───────────────────────────────────────────────
 
 /** Find the most recent wire.jsonl across all sessions. */
@@ -162,14 +106,14 @@ function findLatestWireLog(home: string = homeDir()): string | null {
   let latestWire: string | null = null;
   let latestMtime = 0;
 
-  for (const workspace of require("fs").readdirSync(sessionsDir, { withFileTypes: true })) {
+  for (const workspace of readdirSync(sessionsDir, { withFileTypes: true })) {
     if (!workspace.isDirectory()) continue;
     const workspacePath = join(sessionsDir, workspace.name);
-    for (const session of require("fs").readdirSync(workspacePath, { withFileTypes: true })) {
+    for (const session of readdirSync(workspacePath, { withFileTypes: true })) {
       if (!session.isDirectory()) continue;
       const wirePath = join(workspacePath, session.name, "agents", "main", "wire.jsonl");
       if (!existsSync(wirePath)) continue;
-      const mtime = require("fs").statSync(wirePath).mtimeMs;
+      const mtime = statSync(wirePath).mtimeMs;
       if (mtime > latestMtime) {
         latestMtime = mtime;
         latestWire = wirePath;
@@ -179,16 +123,19 @@ function findLatestWireLog(home: string = homeDir()): string | null {
   return latestWire;
 }
 
-function analyzeError(errorText: string): Array<{ suggestion: string; autoFix?: string }> {
-  const results: Array<{ suggestion: string; autoFix?: string }> = [];
-  for (const { pattern, suggestion, autoFix } of ERROR_PATTERNS) {
-    if (pattern.test(errorText)) {
-      results.push({ suggestion, autoFix });
-    }
+async function analyzeError(
+  errorText: string
+): Promise<Array<{ suggestion: string; autoFix?: string; categoryId?: string }>> {
+  const taxonomy = await loadTaxonomy();
+  const suggestions = getSuggestions(errorText, taxonomy);
+  if (suggestions.length === 0) {
+    return [{ suggestion: "No known pattern matched — check logs manually" }];
   }
-  return results.length > 0
-    ? results
-    : [{ suggestion: "No known pattern matched — check logs manually" }];
+  return suggestions.map((s) => ({
+    suggestion: s.suggestion,
+    autoFix: s.autoFix,
+    categoryId: s.categoryId,
+  }));
 }
 
 // ── Session History (from memory DB if available) ────────────────────
@@ -431,11 +378,12 @@ async function doctor(projectDir: string) {
     fixable: false,
   });
 
-  // Error pattern coverage
+  // Error taxonomy coverage
+  const taxonomy = await loadTaxonomy();
   checks.push({
-    name: "patterns",
+    name: "taxonomy",
     status: "ok",
-    message: `${ERROR_PATTERNS.length} error patterns loaded`,
+    message: `${taxonomy.categories.length} taxonomy categories loaded (v${taxonomy.version})`,
     fixable: false,
   });
 
@@ -456,24 +404,21 @@ async function doctor(projectDir: string) {
 // ── Fix ──────────────────────────────────────────────────────────────
 
 async function fixError(projectDir: string, errorText: string) {
-  const results = analyzeError(errorText);
-  console.log(`── Auto-Fix Analysis ─────────────────────────────────────────`);
+  const results = await analyzeError(errorText);
+  logger.section("Auto-Fix Analysis");
 
   let fixable = 0;
   for (const r of results) {
-    if (r.autoFix) {
-      console.log(`  → ${r.suggestion}`);
-      console.log(`    Auto-fix: ${r.autoFix}`);
-      fixable++;
+    if (r.categoryId) {
+      logger.suggest(r.categoryId, r.suggestion, r.autoFix);
     } else {
-      console.log(`  → ${r.suggestion} (no auto-fix)`);
+      logger.info(r.suggestion);
     }
+    if (r.autoFix) fixable++;
   }
 
   if (fixable > 0) {
-    console.log("");
-    console.log("  Run the suggested commands manually. For lockfile issues, use:");
-    console.log("    kimi-guardian fix");
+    logger.info("Run the suggested commands manually. For lockfile issues, use: kimi-guardian fix");
   }
 
   // Record for pattern matching
@@ -496,7 +441,7 @@ async function main() {
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = getDirName(projectDir);
 
-  printProjectBanner('Kimi Debug — "What Broke?" Wizard', projectDir);
+  logger.banner('Kimi Debug — "What Broke?" Wizard', projectDir);
 
   if (command === "last") {
     console.log(`── Recent Activity ───────────────────────────────────────────`);
@@ -604,12 +549,13 @@ async function main() {
       process.exit(1);
     }
 
-    console.log(`── Error Analysis ────────────────────────────────────────────`);
-    const results = analyzeError(errorText);
+    logger.section("Error Analysis");
+    const results = await analyzeError(errorText);
     for (const r of results) {
-      console.log(`  → ${r.suggestion}`);
-      if (r.autoFix) {
-        console.log(`    Auto-fix available: ${r.autoFix}`);
+      if (r.categoryId) {
+        logger.suggest(r.categoryId, r.suggestion, r.autoFix);
+      } else {
+        logger.info(r.suggestion);
       }
     }
 

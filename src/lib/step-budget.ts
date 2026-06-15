@@ -56,14 +56,18 @@ export function getStepBudgetStatus(): {
 }
 
 /** Print a step-budget warning if thresholds are crossed. Returns true if critical. */
-export function checkStepBudget(): boolean {
+export function checkStepBudget(
+  sink?: (level: "warn" | "error", message: string) => void
+): boolean {
   const { status, message } = getStepBudgetStatus();
   if (status === "critical") {
-    console.error(`  ✗ ${message}`);
+    if (sink) sink("error", message);
+    else console.error(`  ✗ ${message}`);
     return true;
   }
   if (status === "warn") {
-    console.warn(`  ⚠ ${message}`);
+    if (sink) sink("warn", message);
+    else console.warn(`  ⚠ ${message}`);
   }
   return false;
 }

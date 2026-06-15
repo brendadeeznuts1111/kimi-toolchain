@@ -56,12 +56,13 @@ kimi-toolchain/
 
 ## Tech Stack
 
-| Layer    | Choice              |
-| -------- | ------------------- |
-| Runtime  | Bun >=1.3.14        |
-| Language | TypeScript          |
-| Database | SQLite (bun:sqlite) |
-| Config   | TOML (bunfig.toml)  |
+| Layer    | Choice                            |
+| -------- | --------------------------------- |
+| Runtime  | Bun >=1.3.14                      |
+| Language | TypeScript                        |
+| Database | SQLite (bun:sqlite)               |
+| Config   | TOML (bunfig.toml)                |
+| Deps     | js-yaml, effect, @effect/platform |
 
 ## Commands
 

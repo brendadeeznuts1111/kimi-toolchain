@@ -11,15 +11,17 @@
  */
 
 import { randomUUIDv7 } from "bun";
+import { createLogger } from "../lib/logger.ts";
 import {
   getProjectName,
   resolveProjectRoot,
-  printProjectBanner,
   buildDoctorReport,
   printDoctorReport,
 } from "../lib/utils.ts";
 import { recordDoctorRun, getPersistentWarnings } from "../lib/doctor-runs.ts";
 import type { DoctorWarning } from "../lib/doctor-runs.ts";
+
+const trendsLogger = createLogger(Bun.argv, "kimi-memory");
 
 export { recordDoctorRun, getPersistentWarnings };
 
@@ -213,7 +215,7 @@ async function main() {
   const projectPath = await resolveProjectRoot(Bun.cwd);
   const project = await getProjectName(projectPath);
 
-  printProjectBanner("Kimi Memory — Session Store & Knowledge Graph");
+  trendsLogger.banner("Kimi Memory — Session Store & Knowledge Graph");
 
   if (command === "store") {
     const sessionId = args[1] || randomUUIDv7();
@@ -352,16 +354,15 @@ async function main() {
   } else if (command === "trends") {
     const toolFilter = args[1];
     const persistent = getPersistentWarnings(toolFilter);
-    console.log(
-      `── Warning Trends ${toolFilter ? `(${toolFilter})` : "(all tools)"} ─────────────────────────────────────`
-    );
+    trendsLogger.section(`Warning Trends ${toolFilter ? `(${toolFilter})` : "(all tools)"}`);
     if (persistent.length === 0) {
-      console.log("  ✓ No persistent warnings — all checks clean");
+      trendsLogger.info("No persistent warnings — all checks clean");
     } else {
       for (const p of persistent) {
         const age = p.age_days === 0 ? "today" : `${p.age_days}d ago`;
         const freq = p.occurrence_count === 1 ? "1×" : `${p.occurrence_count}×`;
-        console.log(`  ⚠ ${p.check_name} [${p.tool}]: ${freq} since ${age}`);
+        const label = p.taxonomy_id ? `${p.taxonomy_id} (${p.check_name})` : p.check_name;
+        trendsLogger.warn(`${label} [${p.tool}]: ${freq} since ${age}`);
       }
     }
   } else if (command === "doctor") {

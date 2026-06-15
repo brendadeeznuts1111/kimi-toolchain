@@ -17,6 +17,7 @@ export interface DoctorWarning {
   check: string;
   message: string;
   severity: "warn" | "error";
+  taxonomyId?: string;
 }
 
 function openSessionsDb(): Database {
@@ -24,6 +25,11 @@ function openSessionsDb(): Database {
   const db = new Database(dbPath(), { create: true });
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec(SESSIONS_SCHEMA_SQL);
+  try {
+    db.exec("ALTER TABLE warning_trends ADD COLUMN taxonomy_id TEXT");
+  } catch {
+    // Column already exists.
+  }
   return db;
 }
 
@@ -44,28 +50,30 @@ export function recordDoctorRun(
   );
 
   for (const w of warnings) {
+    const trendKey = w.taxonomyId || w.check;
     const existing = db
       .query("SELECT occurrence_count FROM warning_trends WHERE check_name = ?")
-      .get(w.check) as { occurrence_count: number } | null;
+      .get(trendKey) as { occurrence_count: number } | null;
 
     if (existing) {
       db.run(
         `UPDATE warning_trends
-         SET last_seen = ?, occurrence_count = occurrence_count + 1, resolved_at = NULL
+         SET last_seen = ?, occurrence_count = occurrence_count + 1, resolved_at = NULL,
+             taxonomy_id = COALESCE(?, taxonomy_id)
          WHERE check_name = ?`,
-        [now, w.check]
+        [now, w.taxonomyId ?? null, trendKey]
       );
     } else {
       db.run(
-        `INSERT INTO warning_trends (check_name, tool, first_seen, last_seen, occurrence_count)
-         VALUES (?, ?, ?, ?, 1)`,
-        [w.check, tool, now, now]
+        `INSERT INTO warning_trends (check_name, tool, first_seen, last_seen, occurrence_count, taxonomy_id)
+         VALUES (?, ?, ?, ?, 1, ?)`,
+        [trendKey, tool, now, now, w.taxonomyId ?? null]
       );
     }
   }
 
   if (warnings.length > 0) {
-    const checkNames = warnings.map((w) => w.check);
+    const checkNames = warnings.map((w) => w.taxonomyId || w.check);
     const placeholders = checkNames.map(() => "?").join(",");
     db.run(
       `UPDATE warning_trends SET resolved_at = ?
@@ -86,6 +94,7 @@ export function getPersistentWarnings(tool?: string): Array<{
   first_seen: number;
   last_seen: number;
   age_days: number;
+  taxonomy_id: string | null;
 }> {
   if (!existsSync(dbPath())) return [];
 
@@ -96,12 +105,13 @@ export function getPersistentWarnings(tool?: string): Array<{
     occurrence_count: number;
     first_seen: number;
     last_seen: number;
+    taxonomy_id: string | null;
   }>;
 
   if (tool) {
     rows = db
       .query(
-        `SELECT check_name, tool, occurrence_count, first_seen, last_seen
+        `SELECT check_name, tool, occurrence_count, first_seen, last_seen, taxonomy_id
          FROM warning_trends WHERE resolved_at IS NULL AND tool = ?
          ORDER BY occurrence_count DESC`
       )
@@ -109,7 +119,7 @@ export function getPersistentWarnings(tool?: string): Array<{
   } else {
     rows = db
       .query(
-        `SELECT check_name, tool, occurrence_count, first_seen, last_seen
+        `SELECT check_name, tool, occurrence_count, first_seen, last_seen, taxonomy_id
          FROM warning_trends WHERE resolved_at IS NULL
          ORDER BY occurrence_count DESC`
       )
@@ -125,6 +135,7 @@ export function getPersistentWarnings(tool?: string): Array<{
     occurrence_count: r.occurrence_count,
     first_seen: r.first_seen,
     last_seen: r.last_seen,
+    taxonomy_id: r.taxonomy_id,
     age_days: Math.round((now - r.first_seen) / (24 * 60 * 60 * 1000)),
   }));
 }

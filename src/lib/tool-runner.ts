@@ -10,6 +10,7 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { desktopRoot } from "./paths.ts";
 import { recordStep } from "./step-budget.ts";
+import { classifyFailure, loadTaxonomy } from "./error-taxonomy.ts";
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 const AGENT_TOOL_TIMEOUT_MS = 15_000;
@@ -48,6 +49,9 @@ export interface ToolInvocation {
   error?: string;
   durationMs: number;
   isError: boolean;
+  taxonomyId?: string;
+  suggestion?: string;
+  autoFix?: string;
 }
 
 /** Return the canonical tools directory path (~/.kimi-code/tools). */
@@ -116,7 +120,7 @@ export async function invokeTool(
 
   recordStep(toolPath, durationMs, exitCode !== 0 || !!error);
 
-  return {
+  const base: ToolInvocation = {
     tool: toolPath,
     args,
     cwd,
@@ -128,6 +132,24 @@ export async function invokeTool(
     durationMs,
     isError: exitCode !== 0 || !!error,
   };
+
+  if (!base.isError) {
+    return base;
+  }
+
+  try {
+    const taxonomy = await loadTaxonomy();
+    const output = [error, stderr, stdout].filter(Boolean).join("\n");
+    const match = classifyFailure(output, taxonomy);
+    return {
+      ...base,
+      taxonomyId: match.category.id,
+      suggestion: match.category.suggestion || match.category.description,
+      autoFix: match.category.autoFix,
+    };
+  } catch {
+    return base;
+  }
 }
 
 /**

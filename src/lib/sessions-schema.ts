@@ -63,7 +63,8 @@ export const SESSIONS_SCHEMA_SQL = `
     first_seen INTEGER NOT NULL,
     last_seen INTEGER NOT NULL,
     occurrence_count INTEGER DEFAULT 1,
-    resolved_at INTEGER
+    resolved_at INTEGER,
+    taxonomy_id TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_warning_trends_tool ON warning_trends(tool);
   CREATE INDEX IF NOT EXISTS idx_warning_trends_resolved ON warning_trends(resolved_at);

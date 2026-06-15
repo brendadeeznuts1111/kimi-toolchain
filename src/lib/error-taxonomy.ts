@@ -1,5 +1,5 @@
 /**
- * Error taxonomy — classify tool failures against ~/.kimi-code/error-taxonomy.yml.
+ * error-taxonomy.ts — classify tool failures against ~/.kimi-code/error-taxonomy.yml.
  *
  * Categories are defined in YAML so agents and hooks can share a single schema.
  */
@@ -21,6 +21,9 @@ export interface TaxonomyCategory {
   severity: "info" | "warn" | "error";
   expected: boolean;
   patterns: TaxonomyPattern[];
+  suggestion?: string;
+  autoFix?: string;
+  docLink?: string;
 }
 
 export interface Taxonomy {
@@ -31,6 +34,15 @@ export interface Taxonomy {
 export interface TaxonomyMatch {
   category: TaxonomyCategory;
   matchedPattern?: string;
+}
+
+export interface TaxonomySuggestion {
+  categoryId: string;
+  categoryName: string;
+  suggestion: string;
+  autoFix?: string;
+  docLink?: string;
+  severity: TaxonomyCategory["severity"];
 }
 
 export function taxonomyPath(home: string = homeDir()): string {
@@ -89,6 +101,53 @@ export function classifyFailure(output: string, taxonomy?: Taxonomy): TaxonomyMa
   return { category: unknownCategory() };
 }
 
+/** Return all taxonomy suggestions matching output text. */
+export function getSuggestions(output: string, taxonomy?: Taxonomy): TaxonomySuggestion[] {
+  const categories = taxonomy?.categories || [unknownCategory()];
+  const results: TaxonomySuggestion[] = [];
+  const seen = new Set<string>();
+
+  for (const category of categories) {
+    if (category.id === "unknown") continue;
+    for (const pattern of category.patterns) {
+      try {
+        const re = new RegExp(pattern.regex, "i");
+        if (re.test(output) && !seen.has(category.id)) {
+          seen.add(category.id);
+          const suggestion =
+            category.suggestion ||
+            category.description ||
+            `Matched ${category.name}. See error-taxonomy.yml#${category.id}.`;
+          results.push({
+            categoryId: category.id,
+            categoryName: category.name,
+            suggestion,
+            autoFix: category.autoFix,
+            docLink: category.docLink,
+            severity: category.severity,
+          });
+          break;
+        }
+      } catch {
+        // Invalid regex — skip.
+      }
+    }
+  }
+
+  return results;
+}
+
+/** Classify failure and return primary suggestion if available. */
+export async function classifyAndSuggest(
+  output: string,
+  taxonomyPathOverride?: string
+): Promise<{ match: TaxonomyMatch; suggestions: TaxonomySuggestion[] }> {
+  const taxonomy = await loadTaxonomy(taxonomyPathOverride);
+  const match = classifyFailure(output, taxonomy);
+  const suggestions = getSuggestions(output, taxonomy);
+  return { match, suggestions };
+}
+
 export interface ClassifiedFailure {
   timestamp: string;
   toolName: string;
@@ -98,12 +157,16 @@ export interface ClassifiedFailure {
   severity: string;
   expected: boolean;
   matchedPattern?: string;
+  sessionId?: string;
+  suggestion?: string;
+  autoFix?: string;
 }
 
 export function buildClassifiedFailure(
   toolName: string,
   output: string,
-  match: TaxonomyMatch
+  match: TaxonomyMatch,
+  extras?: { sessionId?: string }
 ): ClassifiedFailure {
   return {
     timestamp: new Date().toISOString(),
@@ -114,5 +177,8 @@ export function buildClassifiedFailure(
     severity: match.category.severity,
     expected: match.category.expected,
     matchedPattern: match.matchedPattern,
+    suggestion: match.category.suggestion || match.category.description,
+    autoFix: match.category.autoFix,
+    sessionId: extras?.sessionId,
   };
 }

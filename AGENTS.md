@@ -33,7 +33,7 @@ If Grep/Glob fail with `Path does not exist: .../kimicode-cli`, the editor opene
 - **License**: MIT
 - **Language**: TypeScript (ESNext, strict mode)
 - **Runtime**: Bun >= 1.3.14
-- **Zero runtime dependencies** — everything uses Bun built-ins (`bun:sqlite`, `Bun.file`, `Bun.spawn`, `Bun.CryptoHasher`, etc.)
+- **Minimal runtime dependencies** — `js-yaml`, `effect`, `@effect/platform`; everything else uses Bun built-ins (`bun:sqlite`, `Bun.file`, `Bun.spawn`, etc.)
 
 ## Architecture
 
@@ -42,7 +42,7 @@ If Grep/Glob fail with `Path does not exist: .../kimicode-cli`, the editor opene
 ```
 kimi-toolchain/
   src/
-    bin/                    # CLI entry points (11 tools)
+    bin/                    # CLI entry points (16 registered bins)
       ├── kimi-doctor.ts          # Comprehensive diagnostics aggregator
       ├── kimi-fix.ts             # Auto-repair project scaffolding
       ├── kimi-governance.ts      # R-Score, coverage gate, ADR scaffold

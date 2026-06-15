@@ -4,9 +4,11 @@ import { tmpdir } from "os";
 import { join } from "path";
 import {
   classifyFailure,
+  getSuggestions,
   loadTaxonomy,
   taxonomyPath,
   unknownCategory,
+  type Taxonomy,
 } from "../src/lib/error-taxonomy.ts";
 
 describe("error-taxonomy", () => {
@@ -53,5 +55,38 @@ describe("error-taxonomy", () => {
     const cat = unknownCategory();
     expect(cat.id).toBe("unknown");
     expect(cat.severity).toBe("info");
+  });
+});
+
+const sampleTaxonomy: Taxonomy = {
+  version: 2,
+  categories: [
+    {
+      id: "max_steps_exceeded",
+      name: "Max steps",
+      description: "Step limit hit",
+      severity: "error",
+      expected: false,
+      suggestion: "Break work into smaller chunks",
+      autoFix: "bun run check:fast",
+      patterns: [{ regex: "max steps exceeded" }],
+    },
+    {
+      id: "unknown",
+      name: "Unknown",
+      description: "No match",
+      severity: "info",
+      expected: false,
+      patterns: [],
+    },
+  ],
+};
+
+describe("error-taxonomy suggestions", () => {
+  test("getSuggestions returns suggestion and autoFix", () => {
+    const results = getSuggestions("Agent max steps exceeded in turn", sampleTaxonomy);
+    expect(results.length).toBe(1);
+    expect(results[0].categoryId).toBe("max_steps_exceeded");
+    expect(results[0].autoFix).toBe("bun run check:fast");
   });
 });

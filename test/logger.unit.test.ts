@@ -260,4 +260,33 @@ describe("logger", () => {
     expect(logs[1].message).toBe("second");
     expect(logs[2].message).toBe("third");
   });
+
+  test("check() emits structured JSON with schemaVersion", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ json: true, tool: "test-tool" });
+    logger.check({ name: "disk", status: "warn", message: "85%", fixable: false });
+
+    console.log = originalLog;
+    expect(logs.length).toBe(1);
+    const parsed = JSON.parse(logs[0]);
+    expect(parsed.schemaVersion).toBe(1);
+    expect(parsed.check.name).toBe("disk");
+  });
+
+  test("suggest() includes taxonomyId and autoFix in JSON mode", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ json: true, tool: "kimi-debug" });
+    logger.suggest("lockfile_issue", "Run bun install", "bun install");
+
+    console.log = originalLog;
+    const parsed = JSON.parse(logs[0]);
+    expect(parsed.taxonomyId).toBe("lockfile_issue");
+    expect(parsed.autoFix).toBe("bun install");
+  });
 });

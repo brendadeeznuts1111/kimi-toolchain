@@ -35,12 +35,9 @@ export const WORKSPACE_SOFT_NAMES = new Set([
   "snapshots",
 ]);
 
-export interface WorkspaceCheck {
-  name: string;
-  status: "ok" | "warn" | "error";
-  message: string;
-  fixable: boolean;
-}
+import type { HealthCheck } from "./health-check.ts";
+
+export type WorkspaceCheck = HealthCheck;
 
 export interface WorkspaceHealthReport {
   checks: WorkspaceCheck[];

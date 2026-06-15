@@ -5,15 +5,9 @@
  * Reads the hook event JSON from stdin, classifies the failure using
  * ~/.kimi-code/error-taxonomy.yml, and appends a JSON line to
  * ~/.kimi-code/var/tool-failures.jsonl.
- *
- * Configured in ~/.kimi-code/config.toml:
- *   [[hooks]]
- *   event = "PostToolUseFailure"
- *   command = "bun run /Users/nolarose/.kimi-code/kimi-hooks/log-tool-failure.ts"
- *   timeout = 10
  */
 
-import { existsSync, mkdirSync } from "fs";
+import { appendFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { safeParse } from "../lib/utils.ts";
 import { buildClassifiedFailure, classifyFailure, loadTaxonomy } from "../lib/error-taxonomy.ts";
@@ -48,24 +42,25 @@ async function main() {
   if (!payload) return;
 
   const toolName = payload.tool_name || "unknown";
-  // Guard: only log actual failures. If payload.error is falsy, the tool succeeded.
   const error = payload.error;
   if (!error) return;
   const output = error.toString();
   if (!output) return;
 
+  const sessionId =
+    payload.session_id || Bun.env.KIMI_CODE_SESSION || Bun.env.KIMI_AGENT_SESSION || undefined;
+
   const taxonomy = await loadTaxonomy();
   const match = classifyFailure(output, taxonomy);
-  const record = buildClassifiedFailure(toolName, output, match);
+  const record = buildClassifiedFailure(toolName, output, match, { sessionId });
 
   const varDir = join(Bun.env.HOME || "/tmp", ".kimi-code", "var");
   if (!existsSync(varDir)) mkdirSync(varDir, { recursive: true });
   const logPath = join(varDir, "tool-failures.jsonl");
 
-  await Bun.write(logPath, JSON.stringify(record) + "\n", { createPath: true });
+  appendFileSync(logPath, JSON.stringify(record) + "\n");
 }
 
 main().catch(() => {
-  // Fail-open: observation-only hook must never block tool execution.
   process.exit(0);
 });

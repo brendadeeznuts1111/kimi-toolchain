@@ -1,7 +1,7 @@
 # Error taxonomy for kimi-toolchain failure tracking.
 # Agents can read this file to classify tool failures consistently.
 # Loaded from ~/.kimi-code/error-taxonomy.yml (repo root is source of truth).
-version: 1
+version: 2
 categories:
   - id: expected_nonzero
     name: Expected non-zero exit
@@ -25,6 +25,8 @@ categories:
     description: oxfmt --check found formatting issues.
     severity: warn
     expected: false
+    suggestion: "Run oxfmt to fix formatting issues."
+    autoFix: "bun run format"
     patterns:
       - regex: "Format issues found in above"
       - regex: 'error: script "format:check" exited with code 1'
@@ -34,6 +36,8 @@ categories:
     description: oxlint or banned-terms check failed.
     severity: warn
     expected: false
+    suggestion: "Fix lint errors reported by oxlint or banned-terms check."
+    autoFix: "bun run lint"
     patterns:
       - regex: "Found\\s+\\d+\\s+warning.*error"
       - regex: 'error: script "lint" exited with code 1'
@@ -43,6 +47,8 @@ categories:
     description: tsc --noEmit reported type errors.
     severity: warn
     expected: false
+    suggestion: "Fix TypeScript errors before continuing."
+    autoFix: "bun run typecheck"
     patterns:
       - regex: "error TS\\d+"
       - regex: 'error: script "typecheck" exited with code 1'
@@ -52,15 +58,21 @@ categories:
     description: bun test reported failures.
     severity: warn
     expected: false
+    suggestion: "Test failure — run 'bun test' to see details."
+    autoFix: "bun test"
     patterns:
       - regex: "\\d+ fail"
       - regex: 'error: script "test" exited with code 1'
+      - regex: "test.*fail"
+      - regex: "AssertionError"
+      - regex: "expect.*received"
 
   - id: edit_stale
     name: Edit old_string stale
     description: The Edit tool's old_string no longer matches the file.
     severity: warn
     expected: false
+    suggestion: "Re-read the file and retry the edit with current content."
     patterns:
       - regex: "old_string not found in .+, the file contents may be out of date"
 
@@ -94,17 +106,24 @@ categories:
     description: A shell command or executable was not found on PATH.
     severity: error
     expected: false
+    suggestion: "Missing dependency or executable — run 'bun install' or verify PATH."
+    autoFix: "bun install"
     patterns:
       - regex: "command not found"
       - regex: "No such file or directory"
+      - regex: "Cannot find module"
+      - regex: "Module not found"
+      - regex: "ENOENT"
 
   - id: permission_denied
     name: Permission denied
     description: File system or operation permission denied.
     severity: error
     expected: false
+    suggestion: "Permission issue — check file ownership or use sudo if appropriate."
     patterns:
       - regex: "Permission denied"
+      - regex: "permission denied"
       - regex: "EACCES"
 
   - id: syntax_error
@@ -112,6 +131,7 @@ categories:
     description: TypeScript/JavaScript syntax error.
     severity: error
     expected: false
+    suggestion: "Syntax error in recently changed file — check the diff."
     patterns:
       - regex: "SyntaxError"
       - regex: "Unexpected token"
@@ -121,6 +141,7 @@ categories:
     description: Cannot read property of undefined/null, or similar runtime type issue.
     severity: error
     expected: false
+    suggestion: "Null/undefined access — add runtime checks or fix types."
     patterns:
       - regex: "TypeError.*undefined"
       - regex: "Cannot read propert"
@@ -130,6 +151,8 @@ categories:
     description: A background process was found running unexpectedly.
     severity: warn
     expected: false
+    suggestion: "Check for orphan processes with kimi-orphan-kill --dry-run."
+    autoFix: "kimi-orphan-kill --dry-run"
     patterns:
       - regex: "orphan process"
       - regex: "orphan"
@@ -147,15 +170,41 @@ categories:
     description: Network operation timed out.
     severity: warn
     expected: false
+    suggestion: "Operation timed out — check network or increase timeout."
     patterns:
       - regex: "timeout"
       - regex: "ETIMEDOUT"
+      - regex: "ECONNREFUSED"
+      - regex: "ENOTFOUND"
+
+  - id: port_conflict
+    name: Port already in use
+    description: A network port is already bound by another process.
+    severity: warn
+    expected: false
+    suggestion: "Port conflict — use PORT=0 for auto-assignment or kill existing process."
+    patterns:
+      - regex: "port.*already in use"
+      - regex: "EADDRINUSE"
+
+  - id: memory_limit
+    name: Out of memory
+    description: Process hit memory limits.
+    severity: error
+    expected: false
+    suggestion: "Memory limit hit — check for leaks or increase limit."
+    patterns:
+      - regex: "out of memory"
+      - regex: "ENOMEM"
 
   - id: lockfile_issue
     name: Lockfile integrity issue
     description: Guardian detected lockfile hash mismatch or unsigned manifest.
     severity: error
     expected: false
+    suggestion: "Lockfile issue — run 'bun install' or 'kimi-guardian fix'."
+    autoFix: "bun install"
+    docLink: "skills/kimi-toolchain/examples/guardian-failure.md"
     patterns:
       - regex: "HASH MISMATCH"
       - regex: "lockfile"
@@ -163,9 +212,12 @@ categories:
 
   - id: max_steps_exceeded
     name: Max steps per turn exceeded
-    description: Agent reached the max_steps_per_turn limit before completing the task. Common causes — running full test suites in one turn, too many file reads/edits without batching, or long-running subprocesses. Recovery — break work into smaller chunks, use `bun run check:fast` instead of full suite, and batch edits before testing.
+    description: Agent reached the max_steps_per_turn limit before completing the task.
     severity: error
     expected: false
+    suggestion: "Agent hit step limit — break work into smaller chunks. Use `bun run check:fast` instead of full suite, batch edits before testing, and avoid long-running subprocesses in a single turn."
+    autoFix: "bun run check:fast"
+    docLink: "skills/kimi-toolchain/examples/doctor-smell.md"
     patterns:
       - regex: "max_steps_exceeded"
       - regex: "max steps exceeded"
@@ -175,9 +227,10 @@ categories:
 
   - id: context_limit
     name: Context window limit
-    description: Agent context window approached or exceeded model capacity. Compaction may have failed to recover enough tokens. Recovery — reduce output verbosity, avoid reading large files in full, and use targeted reads with line offsets.
+    description: Agent context window approached or exceeded model capacity.
     severity: error
     expected: false
+    suggestion: "Reduce output verbosity, avoid reading large files in full, and use targeted reads with line offsets."
     patterns:
       - regex: "context window"
       - regex: "reserved_context_size"
@@ -185,9 +238,11 @@ categories:
 
   - id: timeout_hang
     name: Subprocess timeout hang
-    description: A spawned subprocess did not complete within its timeout and was killed. May indicate an infinite loop or deadlocked process. Recovery — check for orphan processes with `kimi-orphan-kill --dry-run`.
+    description: A spawned subprocess did not complete within its timeout and was killed.
     severity: warn
     expected: false
+    suggestion: "Subprocess hung — check for orphan processes with `kimi-orphan-kill --dry-run`, then reduce tool timeouts or run with `--quick`."
+    autoFix: "kimi-orphan-kill --dry-run"
     patterns:
       - regex: "Tool timed out after"
       - regex: "SIGTERM sent"

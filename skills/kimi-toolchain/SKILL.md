@@ -135,12 +135,14 @@ Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0
 ```
 1. RUN: kimi-debug last
 2. RUN: kimi-debug wire [path-to-wire.jsonl]   # classify recent failures
-3. QUERY: ~/.kimi-code/var/tool-failures.jsonl for recurring patterns
-4. QUERY: kimi-memory trends + doctor_runs in sessions.db
+3. QUERY: ~/.kimi-code/var/tool-failures.jsonl for recurring patterns (taxonomyId, suggestion, autoFix)
+4. QUERY: kimi-memory trends + doctor_runs in sessions.db (grouped by taxonomy_id when present)
 5. RUN: git log --oneline -20
 6. IF CONTEXT.md stale → RUN: kimi-context-gen freshness / update
-7. PRESENT: timeline + likely cause + recovery steps
+7. PRESENT: timeline + taxonomy id + likely cause + recovery steps (use autoFix from taxonomy when safe)
 ```
+
+Use `kimi-debug analyze --json` or `kimi-debug classify <text>` for taxonomy ids (`max_steps_exceeded`, `lockfile_issue`, etc.) from `error-taxonomy.yml`.
 
 ### Scaffold New Project
 

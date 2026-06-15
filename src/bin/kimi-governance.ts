@@ -13,15 +13,14 @@ import { existsSync } from "fs";
 import { join } from "path";
 import {
   ensureDir,
-  log,
   getProjectName,
   runTool,
   resolveProjectRoot,
-  printProjectBanner,
   buildDoctorReport,
   printDoctorReport,
 } from "../lib/utils.ts";
-import { recordDoctorRun, getPersistentWarnings } from "../lib/utils.ts";
+import { recordDoctorRun, getPersistentWarnings } from "../lib/doctor-runs.ts";
+import { createLogger } from "../lib/logger.ts";
 import {
   R_SCORE_WEIGHTS as WEIGHTS,
   computeBreakdown,
@@ -47,8 +46,18 @@ import {
   scaffoldAdr,
 } from "../lib/scaffold-templates.ts";
 
+const logger = createLogger(Bun.argv, "kimi-governance");
 const GOVERNANCE_DIR = governorDir();
 const SCORE_HISTORY = join(GOVERNANCE_DIR, "r-score-history.json");
+
+function log(level: "info" | "warn" | "error", msg: string) {
+  logger[level](msg);
+}
+
+function printProjectBanner(title: string, project?: string) {
+  logger.banner(title);
+  if (project) logger.info(`Project: ${project}`);
+}
 
 interface RScore {
   project: string;
