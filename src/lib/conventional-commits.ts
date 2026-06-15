@@ -5,7 +5,7 @@ export interface Commit {
   subject: string;
   body: string;
   type: string;
-  scope: string;
+  scope: string | undefined;
   breaking: boolean;
 }
 
