@@ -16,6 +16,12 @@ import {
 } from "./taxonomy-constants.ts";
 import { checkTuningSetFreshness } from "./tuning-set-version.ts";
 import {
+  formatOptimizerDoctorMessage,
+  generateOptimizerDoctorRecommendations,
+  optimizerRecommendationToMachineCheck,
+  type OptimizerDoctorSeverity,
+} from "./constant-optimizer.ts";
+import {
   auditWorkspaceHealth,
   countWorkspaceBlockers,
   isKimiToolchainRepo,
@@ -28,6 +34,14 @@ export interface EcosystemCheck {
   message: string;
   source: string;
   fixable: boolean;
+  severity?: OptimizerDoctorSeverity;
+  confidence?: number;
+  driftPercent?: number | null;
+  action?: string;
+  decisionIds?: string[];
+  candidateId?: string;
+  candidateValue?: unknown;
+  constant?: string;
 }
 
 export interface EcosystemHealthReport {
@@ -42,6 +56,91 @@ export interface AuditEcosystemOptions {
   home?: string;
   strictWorkspace?: boolean;
   quick?: boolean;
+}
+
+interface ConstantOptimizerHealthCheck {
+  name: string;
+  status: "ok" | "warn" | "error";
+  message: string;
+  fixable: boolean;
+  autoFix?: string;
+  severity?: OptimizerDoctorSeverity;
+  confidence?: number;
+  driftPercent?: number | null;
+  action?: string;
+  decisionIds?: string[];
+  candidateId?: string;
+  candidateValue?: unknown;
+  constant?: string;
+}
+
+function optimizerCheckToEcosystem(check: ConstantOptimizerHealthCheck): EcosystemCheck {
+  return {
+    name: `constant-optimizer:${check.name}`,
+    status: check.status,
+    message: check.message,
+    source: "constant-optimizer",
+    fixable: check.fixable,
+    severity: check.severity,
+    confidence: check.confidence,
+    driftPercent: check.driftPercent,
+    action: check.autoFix ?? check.action,
+    decisionIds: check.decisionIds,
+    candidateId: check.candidateId,
+    candidateValue: check.candidateValue,
+    constant: check.constant ?? check.name,
+  };
+}
+
+export async function checkConstantOptimizerHealth(
+  projectRoot: string
+): Promise<{ applicable: boolean; aligned: boolean; checks: ConstantOptimizerHealthCheck[] }> {
+  const taxonomyPath = join(projectRoot, "error-taxonomy.yml");
+  if (!existsSync(taxonomyPath)) {
+    return { applicable: false, aligned: true, checks: [] };
+  }
+
+  const recommendations = await generateOptimizerDoctorRecommendations(projectRoot);
+
+  if (recommendations.length === 0) {
+    return {
+      applicable: true,
+      aligned: true,
+      checks: [
+        {
+          name: "summary",
+          status: "ok",
+          message: "no optimizer recommendations",
+          fixable: false,
+        },
+      ],
+    };
+  }
+
+  const checks: ConstantOptimizerHealthCheck[] = recommendations.map((rec) => {
+    const machine = optimizerRecommendationToMachineCheck(rec);
+    return {
+      name: rec.constant,
+      status: machine.status,
+      message: formatOptimizerDoctorMessage(rec),
+      fixable: false,
+      autoFix: rec.action,
+      severity: machine.severity,
+      confidence: machine.confidence,
+      driftPercent: machine.driftPercent,
+      action: machine.action,
+      decisionIds: machine.decisionIds,
+      candidateId: machine.candidateId,
+      candidateValue: machine.candidateValue,
+      constant: machine.constant,
+    };
+  });
+
+  return {
+    applicable: true,
+    aligned: checks.every((check) => check.status === "ok"),
+    checks,
+  };
 }
 
 function toEcosystem(check: WorkspaceCheck): EcosystemCheck {
@@ -245,6 +344,13 @@ export async function auditEcosystemHealth(
           source: "bound-constants",
           fixable: check.fixable,
         });
+      }
+    }
+
+    const optimizer = await checkConstantOptimizerHealth(projectRoot);
+    if (optimizer.applicable) {
+      for (const check of optimizer.checks) {
+        checks.push(optimizerCheckToEcosystem(check));
       }
     }
 

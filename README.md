@@ -55,6 +55,8 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run manifest:generate` | (synced from package.json) |
 
+| `bun run lint:taxonomy-coverage` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                           |

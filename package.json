@@ -78,6 +78,7 @@
     "format:check": "oxfmt --check -c .oxfmtrc.json .",
     "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
     "lint": "oxlint src test scripts && bun run scripts/lint-banned-terms.ts && bun run scripts/lint-patterns.ts && bun run scripts/lint-test-names.ts && bun run scripts/lint-build-constants.ts && bun run scripts/generate-constants-manifest.ts --check && bun run scripts/lint-constant-parity.ts",
+    "lint:taxonomy-coverage": "bun run scripts/lint-taxonomy-coverage.ts",
     "lint:terms": "bun run scripts/lint-banned-terms.ts",
     "manifest:generate": "bun run scripts/generate-constants-manifest.ts",
     "typecheck": "tsc --noEmit",

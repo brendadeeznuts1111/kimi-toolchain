@@ -15,7 +15,7 @@ import { ensureProcessTrace } from "./effect/trace-context.ts";
 import { constantsGoldenPath } from "./paths.ts";
 import { ensureDir } from "./utils.ts";
 
-export const GOLDEN_SCHEMA_VERSION = 1;
+export const GOLDEN_SCHEMA_VERSION = "1.0.0";
 
 export interface GoldenConstant {
   defineDomain: string;
@@ -24,10 +24,48 @@ export interface GoldenConstant {
 }
 
 export interface ConstantsGolden {
-  schemaVersion: number;
+  schemaVersion: string;
   tuningSetVersion: string;
   capturedAt: string;
   constants: Record<string, GoldenConstant>;
+}
+
+function normalizeGoldenSchemaVersion(value: unknown): string {
+  if (value === 1 || value === "1") return GOLDEN_SCHEMA_VERSION;
+  if (typeof value === "string" && value.trim().length > 0) return value.trim();
+  return GOLDEN_SCHEMA_VERSION;
+}
+
+export function parseConstantsGolden(raw: unknown): ConstantsGolden | null {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  const constants = record.constants;
+  if (!constants || typeof constants !== "object") return null;
+
+  const parsedConstants: Record<string, GoldenConstant> = {};
+  for (const [key, entry] of Object.entries(constants as Record<string, unknown>)) {
+    if (!entry || typeof entry !== "object") continue;
+    const constant = entry as Record<string, unknown>;
+    if (typeof constant.defineDomain !== "string" || typeof constant.rawValue !== "string") {
+      continue;
+    }
+    parsedConstants[key] = {
+      defineDomain: constant.defineDomain,
+      rawValue: constant.rawValue,
+      value: constant.value as string | number | boolean,
+    };
+  }
+
+  if (Object.keys(parsedConstants).length === 0) return null;
+
+  return {
+    schemaVersion: normalizeGoldenSchemaVersion(record.schemaVersion),
+    tuningSetVersion:
+      typeof record.tuningSetVersion === "string" ? record.tuningSetVersion : "0.0.0",
+    capturedAt:
+      typeof record.capturedAt === "string" ? record.capturedAt : new Date().toISOString(),
+    constants: parsedConstants,
+  };
 }
 
 export interface InvalidConstant {
@@ -96,7 +134,7 @@ export async function loadConstantsGolden(projectRoot: string): Promise<Constant
   const path = constantsGoldenPath(projectRoot);
   if (!existsSync(path)) return null;
   try {
-    return (await Bun.file(path).json()) as ConstantsGolden;
+    return parseConstantsGolden(await Bun.file(path).json());
   } catch {
     return null;
   }

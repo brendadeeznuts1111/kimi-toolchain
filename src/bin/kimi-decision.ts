@@ -5,6 +5,8 @@
  * Usage:
  *   kimi-decision graph <traceId> [--json]
  *   kimi-decision why <decisionId> [--json]
+ *   kimi-decision list --constant <key> [--last 7d] [--json]
+ *   kimi-decision diff <decisionIdA> <decisionIdB> [--json]
  *   kimi-decision suggest [--cluster-id <id>] [--json]
  *   kimi-decision log --action heal --trace-id <id> [--json]
  *   kimi-decision score [--json]
@@ -22,6 +24,10 @@ import {
   renderDecisionGraphAscii,
   suggestDecisions,
   buildWhyReport,
+  filterDecisionsByConstant,
+  diffDecisions,
+  parseDecisionWindow,
+  findDecisionById,
   type DecisionAction,
 } from "../lib/decision-ledger.ts";
 import {
@@ -173,6 +179,86 @@ async function main(): Promise<number> {
     return 0;
   }
 
+  if (command === "list") {
+    const constantKey = argValue("--constant");
+    const last = argValue("--last") ?? "7d";
+    if (!constantKey) {
+      logger.error("Usage: list --constant <KIMI_*_KEY> [--last 7d] [--json]");
+      return 1;
+    }
+
+    let windowMs: number;
+    try {
+      windowMs = parseDecisionWindow(last);
+    } catch (error) {
+      logger.error(error instanceof Error ? error.message : String(error));
+      return 1;
+    }
+
+    const decisions = await readDecisions(projectRoot);
+    const nowMs = Date.now();
+    const matches = filterDecisionsByConstant(decisions, constantKey, {
+      sinceMs: nowMs - windowMs,
+      nowMs,
+    });
+
+    if (jsonMode) {
+      process.stdout.write(
+        `${JSON.stringify({ constantKey, last, count: matches.length, decisions: matches }, null, 2)}\n`
+      );
+      return 0;
+    }
+
+    logger.section(`Decisions for ${constantKey} (${last})`);
+    if (matches.length === 0) {
+      logger.info("No matching decisions in window");
+      return 0;
+    }
+    for (const decision of matches) {
+      const type = decision.metadata?.type ?? decision.action;
+      logger.line(
+        `  ${decision.decisionId} ${decision.timestamp.slice(0, 19)} ${type} — ${decision.rationale.summary}`
+      );
+    }
+    return 0;
+  }
+
+  if (command === "diff") {
+    const leftId = args[1];
+    const rightId = args[2];
+    if (!leftId || !rightId || leftId.startsWith("--") || rightId.startsWith("--")) {
+      logger.error("Usage: diff <decisionIdA> <decisionIdB> [--json]");
+      return 1;
+    }
+
+    const [left, right] = await Promise.all([
+      findDecisionById(leftId, projectRoot),
+      findDecisionById(rightId, projectRoot),
+    ]);
+    if (!left || !right) {
+      logger.error(`Decision not found: ${!left ? leftId : rightId}`);
+      return 1;
+    }
+
+    const report = diffDecisions(left, right);
+    if (jsonMode) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      return 0;
+    }
+
+    logger.section(`Diff ${leftId} ↔ ${rightId}`);
+    if (report.fields.length === 0) {
+      logger.info("No field differences");
+      return 0;
+    }
+    for (const field of report.fields) {
+      logger.line(`  ${field.field}`);
+      logger.line(`    left:  ${JSON.stringify(field.left)}`);
+      logger.line(`    right: ${JSON.stringify(field.right)}`);
+    }
+    return 0;
+  }
+
   if (command === "audit") {
     const decisions = await readDecisions(projectRoot);
     const low = filterLowQualityDecisions(decisions);
@@ -208,6 +294,8 @@ async function main(): Promise<number> {
   logger.section("kimi-decision commands");
   logger.line("  graph <traceId> [--json]       Decision DAG for a trace");
   logger.line("  why <decisionId> [--json]      Full rationale + evidence");
+  logger.line("  list --constant <key> [--last 7d] [--json]  Filter by constant");
+  logger.line("  diff <idA> <idB> [--json]      Compare two decisions");
   logger.line("  suggest [--cluster-id] [--json] Past high-quality actions");
   logger.line("  score [--json]                 Re-score all decisions");
   logger.line("  log --action --trace-id [...]  Manual decision entry");

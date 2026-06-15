@@ -50,6 +50,17 @@ describe("ecosystem-health", () => {
     expect(syncCheck?.source).toBe("sync");
   }, 15_000);
 
+  test("includes constant-optimizer check for toolchain repo", async () => {
+    const report = await auditEcosystemHealth(REPO_ROOT, { home: tmpHome, quick: true });
+    const optimizerCheck = report.checks.find((c) => c.name.startsWith("constant-optimizer:"));
+    expect(optimizerCheck).toBeDefined();
+    expect(optimizerCheck?.source).toBe("constant-optimizer");
+    if (optimizerCheck?.name !== "constant-optimizer:summary") {
+      expect(optimizerCheck?.decisionIds).toBeDefined();
+      expect(optimizerCheck?.confidence).toBeTypeOf("number");
+    }
+  }, 15_000);
+
   test("counts dx-github errors as blockers", async () => {
     const projectDir = join(tmpHome, "kimi-toolchain");
     mkdirSync(projectDir, { recursive: true });
