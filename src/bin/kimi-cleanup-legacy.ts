@@ -14,8 +14,7 @@
  */
 
 import { Effect } from "effect";
-import { homeDir } from "../lib/paths.ts";
-import { buildDoctorReport } from "../lib/utils.ts";
+import { aggregateChecks } from "../lib/health-check.ts";
 import { getLegacyStatus, runLegacyCleanup, CANONICAL_REPO_NAME } from "../lib/legacy-cleanup.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { createLogger } from "../lib/logger.ts";
@@ -114,14 +113,8 @@ function doctor() {
         }
   );
 
-  const report = buildDoctorReport("kimi-cleanup-legacy", checks);
-  logger.section(`${report.tool} Doctor`);
-  for (const check of report.checks) {
-    logger.check(check);
-  }
-  logger.info(
-    `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
-  );
+  const report = aggregateChecks("kimi-cleanup-legacy", checks);
+  logger.printHealthReport(report);
 }
 
 // ── Fix ──────────────────────────────────────────────────────────────
@@ -167,7 +160,6 @@ function status() {
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main(): Promise<number> {
-  const _home = homeDir();
   const cmd = Bun.argv[2] || "status";
 
   logger.banner("kimi-cleanup-legacy", `v2.0 — ${CANONICAL_REPO_NAME} migration`);

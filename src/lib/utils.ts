@@ -22,11 +22,6 @@ const DEFAULT_SECTION_WIDTH = 60;
 const DEFAULT_BANNER_INNER_WIDTH = 62;
 const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 
-/** Return the icon character for a doctor/workspace check status. */
-export function statusIcon(status: "ok" | "warn" | "error"): string {
-  return status === "ok" ? "✓" : status === "warn" ? "⚠" : "✗";
-}
-
 // ── File System ──────────────────────────────────────────────────────
 
 /** Ensure a directory exists, creating it recursively if needed. */
@@ -60,12 +55,10 @@ export function printToolBanner(
   defaultLogger.banner(title, subtitle);
 }
 
-/** @deprecated Use Logger.banner() and Logger.info() instead */
+/** @deprecated Use Logger.projectBanner() instead */
 export function printProjectBanner(title: string, project?: string, subtitle?: string): void {
   if (isAgentContext()) return;
-  defaultLogger.banner(title, subtitle);
-  if (project) defaultLogger.info(`Project: ${project}`);
-  defaultLogger.line("");
+  defaultLogger.projectBanner(title, project, subtitle);
 }
 
 // ── Hashing ──────────────────────────────────────────────────────────
@@ -211,16 +204,9 @@ export {
   statusIcon as healthStatusIcon,
 } from "./health-check.ts";
 
-/** @deprecated Use Logger.check() with createLogger() instead */
+/** @deprecated Use Logger.printHealthReport() with createLogger() instead */
 export function printDoctorReport(report: HealthReport) {
-  const logger = createLogger(Bun.argv, report.tool);
-  logger.section(`${report.tool} Doctor`);
-  for (const check of report.checks) {
-    logger.check(check);
-  }
-  logger.info(
-    `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
-  );
+  createLogger(Bun.argv, report.tool).printHealthReport(report);
 }
 
 // ── Safe TOML ────────────────────────────────────────────────────────

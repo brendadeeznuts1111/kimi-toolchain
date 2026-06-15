@@ -25,9 +25,12 @@ import {
   BUNFIG,
   KIMI_SKILLS_README,
 } from "../lib/scaffold-templates.ts";
+import { Effect } from "effect";
 import { getProjectName, runTool } from "../lib/utils.ts";
 import { ensureQualityTooling } from "../lib/scaffold-quality.ts";
 import { createLogger } from "../lib/logger.ts";
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+import { CliError } from "../lib/effect/errors.ts";
 
 const logger = createLogger(Bun.argv, "kimi-fix");
 const TOOLCHAIN_ROOT = join(import.meta.dir, "..", "..");
@@ -261,13 +264,13 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
   }
 
   logger.section("Next Steps");
-  console.log("  1. Review generated files");
-  console.log("  2. Replace @team in CODEOWNERS with actual username");
-  console.log("  3. Add copyright holder to LICENSE");
-  console.log("  4. Customize AGENTS.md one-line project description");
-  console.log("  5. Run 'bun run check' (or 'bun run check:fast' for unit-only gate)");
-  console.log("  6. Run 'kimi-governance score' to check project health");
-  console.log("  7. Run 'kimi-doctor --quick' to verify everything");
+  logger.line("  1. Review generated files");
+  logger.line("  2. Replace @team in CODEOWNERS with actual username");
+  logger.line("  3. Add copyright holder to LICENSE");
+  logger.line("  4. Customize AGENTS.md one-line project description");
+  logger.line("  5. Run 'bun run check' (or 'bun run check:fast' for unit-only gate)");
+  logger.line("  6. Run 'kimi-governance score' to check project health");
+  logger.line("  7. Run 'kimi-doctor --quick' to verify everything");
   if (dryRun) {
     logger.info("Dry run complete. Remove --dry-run to apply.");
   } else {
@@ -276,24 +279,24 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
 }
 
 function printHelp() {
-  console.log("Usage:");
-  console.log("  kimi-fix <project-path> [--dry-run]");
-  console.log("  kimi-fix fix <project-path> [--dry-run]");
-  console.log("  kimi-fix doctor [project-path]");
-  console.log("");
-  console.log("Fixes missing project scaffolding:");
-  console.log("  - git init, governance files, CONTEXT.md, guardian baseline, git hooks");
-  console.log("  - AGENTS.md, .env.example, .gitignore, bunfig.toml, quality scripts, CI");
+  logger.line("Usage:");
+  logger.line("  kimi-fix <project-path> [--dry-run]");
+  logger.line("  kimi-fix fix <project-path> [--dry-run]");
+  logger.line("  kimi-fix doctor [project-path]");
+  logger.line("");
+  logger.line("Fixes missing project scaffolding:");
+  logger.line("  - git init, governance files, CONTEXT.md, guardian baseline, git hooks");
+  logger.line("  - AGENTS.md, .env.example, .gitignore, bunfig.toml, quality scripts, CI");
 }
 
-async function main() {
+async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
   const dryRun = args.includes("--dry-run");
   const filtered = args.filter((a) => a !== "--dry-run");
 
   if (filtered.length === 0 || filtered[0] === "--help" || filtered[0] === "-h") {
     printHelp();
-    process.exit(filtered.length === 0 ? 1 : 0);
+    return filtered.length === 0 ? 1 : 0;
   }
 
   const command = filtered[0];
@@ -302,28 +305,36 @@ async function main() {
     const project = resolve(filtered[1] || Bun.cwd);
     if (!existsSync(project)) {
       logger.error(`Directory does not exist: ${project}`);
-      process.exit(1);
+      return 1;
     }
-    process.exit(await runDoctor(project));
+    return await runDoctor(project);
   }
 
   const projectPath =
     command === "fix" ? filtered[1] : command === "doctor" ? filtered[1] : filtered[0];
   if (!projectPath || projectPath === "fix") {
     printHelp();
-    process.exit(1);
+    return 1;
   }
 
   const project = resolve(projectPath.replace(/\/$/, ""));
   if (!existsSync(project)) {
     logger.error(`Directory does not exist: ${project}`);
-    process.exit(1);
+    return 1;
   }
 
   await runFix(project, dryRun);
+  return 0;
 }
 
-main().catch((err) => {
-  logger.error(`kimi-fix failed: ${err.message}`);
-  process.exit(1);
-});
+const exitCode = await runCliExit(
+  Effect.tryPromise({
+    try: () => main(),
+    catch: (e) =>
+      new CliError({
+        message: e instanceof Error ? e.message : String(e),
+      }),
+  }),
+  { toolName: "kimi-fix", logger }
+);
+process.exit(exitCode);

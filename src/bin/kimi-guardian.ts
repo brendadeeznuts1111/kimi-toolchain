@@ -19,8 +19,8 @@ import {
   fetchWithTimeout,
   getProjectName,
   resolveProjectRoot,
-  buildDoctorReport,
 } from "../lib/utils.ts";
+import { aggregateChecks } from "../lib/health-check.ts";
 import { guardianDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
@@ -28,15 +28,6 @@ import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 
 const logger = createLogger(Bun.argv, "kimi-guardian");
-
-function log(level: "info" | "warn" | "error", msg: string) {
-  logger[level](msg);
-}
-
-function printProjectBanner(title: string, project?: string, subtitle?: string) {
-  logger.banner(title, subtitle);
-  if (project) logger.info(`Project: ${project}`);
-}
 
 const GUARDIAN_DIR = guardianDir();
 const HASH_FILE = join(GUARDIAN_DIR, "lockfile.hash");
@@ -294,7 +285,7 @@ async function storeLockfileHash(projectDir: string) {
   ensureDir(GUARDIAN_DIR);
   const hash = await sha256File(lockPath);
   await Bun.write(HASH_FILE, hash);
-  log("info", `Stored lockfile hash: ${hash.slice(0, 16)}...`);
+  logger.info(`Stored lockfile hash: ${hash.slice(0, 16)}...`);
 }
 
 // ── Dependency Drift ─────────────────────────────────────────────────
@@ -543,7 +534,7 @@ async function main(): Promise<number> {
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const projectName = await getProjectName(projectDir);
 
-  printProjectBanner(
+  logger.projectBanner(
     "Kimi Guardian — Supply Chain Security",
     projectDir,
     "v2.0: Signed manifests + Bun.secrets"
@@ -554,14 +545,14 @@ async function main(): Promise<number> {
     logger.section("Sign Lockfile Manifest");
     const lockPath = join(projectDir, "bun.lock");
     if (!existsSync(lockPath)) {
-      log("error", "No bun.lock found");
+      logger.error("No bun.lock found");
       return 1;
     }
     const hash = await sha256File(lockPath);
     const manifest = await signManifest(projectDir, hash);
-    log("info", `Signed manifest for ${projectName}`);
-    log("info", `Hash: ${manifest.lockfileHash.slice(0, 16)}...`);
-    log("info", `Expires: ${new Date(manifest.timestamp + manifest.ttl).toISOString()}`);
+    logger.info(`Signed manifest for ${projectName}`);
+    logger.info(`Hash: ${manifest.lockfileHash.slice(0, 16)}...`);
+    logger.info(`Expires: ${new Date(manifest.timestamp + manifest.ttl).toISOString()}`);
     logger.info("Manifest stored outside repo (first-commit poisoning defense)");
     return 0;
   }
@@ -570,30 +561,24 @@ async function main(): Promise<number> {
     logger.section("Verify Signed Manifest");
     const lockPath = join(projectDir, "bun.lock");
     if (!existsSync(lockPath)) {
-      log("warn", "No bun.lock found");
+      logger.warn("No bun.lock found");
       return 0;
     }
     const hash = await sha256File(lockPath);
     const result = await verifyManifest(projectDir, hash);
     if (result.valid) {
-      log("info", "Manifest VALID");
-      log("info", `Signed: ${new Date(result.manifest!.timestamp).toISOString()}`);
+      logger.info("Manifest VALID");
+      logger.info(`Signed: ${new Date(result.manifest!.timestamp).toISOString()}`);
     } else {
-      log("error", `Manifest INVALID: ${result.reason}`);
+      logger.error(`Manifest INVALID: ${result.reason}`);
     }
     return result.valid ? 0 : 1;
   }
 
   if (command === "doctor") {
     const checks = await doctor(projectDir);
-    const report = buildDoctorReport("kimi-guardian", checks);
-    logger.section(`${report.tool} Doctor`);
-    for (const check of report.checks) {
-      logger.check(check);
-    }
-    logger.info(
-      `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
-    );
+    const report = aggregateChecks("kimi-guardian", checks);
+    logger.printHealthReport(report);
     if (report.fixableCount > 0) {
       logger.info("Run 'kimi-guardian fix' to repair");
     }
@@ -603,50 +588,50 @@ async function main(): Promise<number> {
   logger.section("Lockfile Integrity");
   const lockfile = await checkLockfile(projectDir);
   if (!existsSync(lockfile.path)) {
-    log("warn", "No bun.lock found");
+    logger.warn("No bun.lock found");
   } else {
-    log("info", `Hash: ${lockfile.hash.slice(0, 16)}...`);
+    logger.info(`Hash: ${lockfile.hash.slice(0, 16)}...`);
     if (lockfile.hashMatch === null) {
-      log("warn", "No stored hash — run 'kimi-guardian fix' to baseline");
+      logger.warn("No stored hash — run 'kimi-guardian fix' to baseline");
     } else if (lockfile.hashMatch) {
-      log("info", "Hash matches baseline");
+      logger.info("Hash matches baseline");
     } else {
-      log("error", "HASH MISMATCH — lockfile may have been tampered with");
+      logger.error("HASH MISMATCH — lockfile may have been tampered with");
     }
     if (lockfile.manifestValid === null) {
-      log("warn", "No signed manifest — run 'kimi-guardian sign' for v2 protection");
+      logger.warn("No signed manifest — run 'kimi-guardian sign' for v2 protection");
     } else if (lockfile.manifestValid) {
-      log("info", "Signed manifest VALID (v2)");
+      logger.info("Signed manifest VALID (v2)");
     } else {
-      log("error", "Signed manifest INVALID — possible tampering (v2)");
+      logger.error("Signed manifest INVALID — possible tampering (v2)");
     }
     if (lockfile.stale) {
-      log("warn", "Lockfile stale (package.json newer)");
+      logger.warn("Lockfile stale (package.json newer)");
     }
   }
 
   logger.section("Dependency Drift");
   const outdated = await checkOutdated(projectDir);
   if (outdated.length === 0) {
-    log("info", "All dependencies up to date");
+    logger.info("All dependencies up to date");
   } else {
     for (const dep of outdated) {
-      log("warn", `${dep.name}: ${dep.current} → ${dep.latest}`);
+      logger.warn(`${dep.name}: ${dep.current} → ${dep.latest}`);
     }
   }
 
   logger.section("CVE Scan");
   const depsForCVE = outdated.map((d) => ({ name: d.name, current: d.current }));
   if (depsForCVE.length === 0) {
-    log("info", "No outdated deps to scan");
+    logger.info("No outdated deps to scan");
   } else {
-    log("info", `Scanning ${depsForCVE.length} deps via OSV...`);
+    logger.info(`Scanning ${depsForCVE.length} deps via OSV...`);
     const cves = await checkCVEs(depsForCVE);
     if (cves.length === 0) {
-      log("info", "No CVEs found");
+      logger.info("No CVEs found");
     } else {
       for (const cve of cves) {
-        log("error", `${cve.name}: ${cve.cveId} (${cve.severity})`);
+        logger.error(`${cve.name}: ${cve.cveId} (${cve.severity})`);
       }
     }
   }
@@ -654,23 +639,22 @@ async function main(): Promise<number> {
   logger.section("Trusted Dependency Gate");
   const pkgPath = join(projectDir, "package.json");
   if (!existsSync(pkgPath)) {
-    log("warn", "No package.json — skipping trusted dependency check");
+    logger.warn("No package.json — skipping trusted dependency check");
   } else {
     const pkg = (await Bun.file(pkgPath).json()) as PackageJson;
     const depCount =
       Object.keys(pkg.dependencies || {}).length + Object.keys(pkg.devDependencies || {}).length;
     if (depCount === 0) {
-      log("info", "No dependencies — nothing to check");
+      logger.info("No dependencies — nothing to check");
     } else {
       const untrusted = await checkTrustedDeps(projectDir);
       if (untrusted.length === 0) {
-        log("info", "All install scripts trusted");
+        logger.info("All install scripts trusted");
       } else {
         for (const dep of untrusted) {
-          log("error", `${dep}: postinstall script NOT in trustedDependencies`);
+          logger.error(`${dep}: postinstall script NOT in trustedDependencies`);
         }
-        log(
-          "warn",
+        logger.warn(
           "Add to bunfig.toml: trustedDependencies = [" +
             untrusted.map((d) => `"${d}"`).join(", ") +
             "]"
@@ -683,9 +667,9 @@ async function main(): Promise<number> {
     logger.section("Provenance (P1)");
     const prov = await checkProvenance(projectDir);
     if (prov.postinstallScripts.length === 0) {
-      log("info", "No postinstall scripts found");
+      logger.info("No postinstall scripts found");
     } else {
-      log("warn", `${prov.postinstallScripts.length} postinstall scripts:`);
+      logger.warn(`${prov.postinstallScripts.length} postinstall scripts:`);
       for (const s of prov.postinstallScripts.slice(0, 5)) {
         logger.info(`  ${s.pkg}: ${s.script.slice(0, 60)}...`);
       }
@@ -700,10 +684,10 @@ async function main(): Promise<number> {
     const untrusted = await checkTrustedDeps(projectDir);
     if (untrusted.length > 0) {
       await addTrustedDeps(projectDir, untrusted);
-      log("info", `Added to trustedDependencies: ${untrusted.join(", ")}`);
+      logger.info(`Added to trustedDependencies: ${untrusted.join(", ")}`);
     }
 
-    log("info", "Baselined lockfile hash");
+    logger.info("Baselined lockfile hash");
   }
 
   logger.info(

@@ -20,4 +20,4 @@ export {
   type ToolInvocationWithTaxonomy,
 } from "./tool-runner-effect.ts";
 
-export { runCli, runCliExit, cliMain, type RunCliOptions } from "./cli-runtime.ts";
+export { runCli, runCliExit, type RunCliOptions } from "./cli-runtime.ts";

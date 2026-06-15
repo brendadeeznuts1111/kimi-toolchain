@@ -16,9 +16,9 @@ import {
   findExecutable,
   resolveProjectRoot,
   sha256File,
-  buildDoctorReport,
   readPackageJson,
 } from "../lib/utils.ts";
+import { aggregateChecks } from "../lib/health-check.ts";
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
 import { toolsDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
@@ -27,14 +27,6 @@ import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 
 const logger = createLogger(Bun.argv, "kimi-githooks");
-
-function log(level: "info" | "warn" | "error", msg: string) {
-  logger[level](msg);
-}
-
-function printToolBanner(title: string) {
-  logger.banner(title);
-}
 
 const HOOKS = ["pre-commit", "pre-push"] as const;
 const TOOLS_DIR = toolsDir();
@@ -183,13 +175,13 @@ exit 0
 async function installHooks(projectDir: string): Promise<number> {
   const gitPath = findExecutable("git");
   if (!gitPath) {
-    log("error", "git not found in PATH. Install git first.");
+    logger.error("git not found in PATH. Install git first.");
     return 1;
   }
 
   const gitDir = join(projectDir, ".git");
   if (!existsSync(gitDir)) {
-    log("error", "Not a git repository. Run 'git init' first.");
+    logger.error("Not a git repository. Run 'git init' first.");
     return 1;
   }
 
@@ -205,7 +197,7 @@ async function installHooks(projectDir: string): Promise<number> {
     const hookPath = join(hooksDir, hook);
     await Bun.write(hookPath, hookContent[hook]);
     await $`chmod +x ${hookPath}`;
-    log("info", `Installed ${hook} hook`);
+    logger.info(`Installed ${hook} hook`);
   }
 
   // Configure git to use this hooks dir
@@ -400,21 +392,15 @@ async function main(): Promise<number> {
   const command = args[0] || "install";
   const projectDir = await resolveProjectRoot(Bun.cwd);
 
-  printToolBanner("Kimi Git Hooks");
+  logger.banner("Kimi Git Hooks");
 
   if (command === "install") {
     return installHooks(projectDir);
   }
   if (command === "doctor") {
     const checks = await doctorHooks(projectDir);
-    const report = buildDoctorReport("Hook Health Check", checks);
-    logger.section(`${report.tool} Doctor`);
-    for (const check of report.checks) {
-      logger.check(check);
-    }
-    logger.info(
-      `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
-    );
+    const report = aggregateChecks("Hook Health Check", checks);
+    logger.printHealthReport(report);
     return report.errorCount > 0 ? 1 : 0;
   }
   if (command === "fix") {
@@ -427,7 +413,7 @@ async function main(): Promise<number> {
     if (needsInstall) {
       return installHooks(projectDir);
     }
-    log("info", "All hooks properly installed");
+    logger.info("All hooks properly installed");
     return 0;
   }
   if (command === "pre-commit") {
@@ -435,12 +421,12 @@ async function main(): Promise<number> {
     const result = await $`git diff --cached --name-only`.cwd(projectDir).nothrow().quiet();
     const files = result.stdout.toString().trim().split("\n").filter(Boolean);
     if (files.length === 0) {
-      log("warn", "No staged files");
+      logger.warn("No staged files");
     } else {
-      log("info", `${files.length} staged file(s)`);
+      logger.info(`${files.length} staged file(s)`);
       const envFiles = files.filter((f) => /^\.env($|\.)/.test(f) && f !== ".env.example");
       if (envFiles.length > 0) {
-        log("error", `.env files in staged changes: ${envFiles.join(", ")}`);
+        logger.error(`.env files in staged changes: ${envFiles.join(", ")}`);
         return 1;
       }
     }
@@ -448,7 +434,7 @@ async function main(): Promise<number> {
   }
   if (command === "pre-push") {
     logger.section("Pre-push checks (manual run)");
-    log("info", "Run 'git push' to trigger automatically, or use guardian/governance directly");
+    logger.info("Run 'git push' to trigger automatically, or use guardian/governance directly");
     return 0;
   }
 

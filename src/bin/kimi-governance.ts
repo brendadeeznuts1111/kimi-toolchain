@@ -11,13 +11,8 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
-import {
-  ensureDir,
-  getProjectName,
-  runTool,
-  resolveProjectRoot,
-  buildDoctorReport,
-} from "../lib/utils.ts";
+import { ensureDir, getProjectName, runTool, resolveProjectRoot } from "../lib/utils.ts";
+import { aggregateChecks } from "../lib/health-check.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -69,15 +64,6 @@ function toDoctorWarning(c: {
 }
 const GOVERNANCE_DIR = governorDir();
 const SCORE_HISTORY = join(GOVERNANCE_DIR, "r-score-history.json");
-
-function log(level: "info" | "warn" | "error", msg: string) {
-  logger[level](msg);
-}
-
-function printProjectBanner(title: string, project?: string) {
-  logger.banner(title);
-  if (project) logger.info(`Project: ${project}`);
-}
 
 interface RScore {
   project: string;
@@ -380,28 +366,28 @@ async function main(): Promise<number> {
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = await getProjectName(projectDir);
 
-  printProjectBanner("Kimi Governance — Quality Gates", project);
+  logger.projectBanner("Kimi Governance — Quality Gates", project);
 
   if (command === "governance") {
     logger.section("Governance Files");
     const gov = await checkGovernance(projectDir);
 
-    log(
-      gov.hasLicense ? "info" : "warn",
+    (gov.hasLicense ? logger.info : logger.warn)(
       `License: ${gov.hasLicense ? gov.licenseType || "present" : "MISSING"}`
     );
-    log(
-      gov.hasContributing ? "info" : "warn",
+    (gov.hasContributing ? logger.info : logger.warn)(
       `CONTRIBUTING.md: ${gov.hasContributing ? "present" : "MISSING"}`
     );
-    log(
-      gov.hasCodeowners ? "info" : "warn",
+    (gov.hasCodeowners ? logger.info : logger.warn)(
       `CODEOWNERS: ${gov.hasCodeowners ? gov.codeowners.join(", ") || "present" : "MISSING"}`
     );
-    log(gov.hasReadme ? "info" : "warn", `README.md: ${gov.hasReadme ? "present" : "MISSING"}`);
-    log(gov.hasContext ? "info" : "warn", `CONTEXT.md: ${gov.hasContext ? "present" : "MISSING"}`);
-    log(
-      gov.hasChangelog ? "info" : "warn",
+    (gov.hasReadme ? logger.info : logger.warn)(
+      `README.md: ${gov.hasReadme ? "present" : "MISSING"}`
+    );
+    (gov.hasContext ? logger.info : logger.warn)(
+      `CONTEXT.md: ${gov.hasContext ? "present" : "MISSING"}`
+    );
+    (gov.hasChangelog ? logger.info : logger.warn)(
       `CHANGELOG.md: ${gov.hasChangelog ? "present" : "MISSING"}`
     );
   } else if (command === "coverage") {
@@ -410,10 +396,9 @@ async function main(): Promise<number> {
     const cov = await checkCoverage(projectDir, threshold);
 
     if (cov.total === 0) {
-      log("warn", "No coverage data found — run tests with --coverage first");
+      logger.warn("No coverage data found — run tests with --coverage first");
     } else {
-      log(
-        cov.percentage >= threshold ? "info" : "error",
+      (cov.percentage >= threshold ? logger.info : logger.error)(
         `Coverage: ${cov.percentage.toFixed(1)}% (${cov.covered}/${cov.total} statements)`
       );
 
@@ -429,7 +414,7 @@ async function main(): Promise<number> {
       }
 
       if (cov.percentage < threshold) {
-        log("error", `GATE FAILED: ${cov.percentage.toFixed(1)}% < ${threshold}% threshold`);
+        logger.error(`GATE FAILED: ${cov.percentage.toFixed(1)}% < ${threshold}% threshold`);
         return 1;
       }
     }
@@ -437,25 +422,24 @@ async function main(): Promise<number> {
     logger.section("Documentation Drift");
     const drift = await checkDocDrift(projectDir);
     if (!drift) {
-      log("error", "Failed to check README drift — could not read package.json or README.md");
+      logger.error("Failed to check README drift — could not read package.json or README.md");
       return 1;
     }
 
     if (!existsSync(join(projectDir, "README.md"))) {
-      log("error", "README.md not found");
+      logger.error("README.md not found");
     } else if (!existsSync(join(projectDir, "package.json"))) {
-      log("warn", "No package.json — skipping script comparison");
+      logger.warn("No package.json — skipping script comparison");
     } else {
-      log(
-        drift.fresh ? "info" : "warn",
+      (drift.fresh ? logger.info : logger.warn)(
         `README scripts: ${drift.fresh ? "in sync" : "DRIFT DETECTED"}`
       );
 
       if (drift.missingFromReadme.length > 0) {
-        log("warn", `Missing from README: ${drift.missingFromReadme.join(", ")}`);
+        logger.warn(`Missing from README: ${drift.missingFromReadme.join(", ")}`);
       }
       if (drift.extraInReadme.length > 0) {
-        log("warn", `In README but not package.json: ${drift.extraInReadme.join(", ")}`);
+        logger.warn(`In README but not package.json: ${drift.extraInReadme.join(", ")}`);
       }
     }
   } else if (command === "fix") {
@@ -465,27 +449,27 @@ async function main(): Promise<number> {
 
     if (!gov.hasReadme) {
       const path = await generateReadme(projectDir, getProjectName);
-      log("info", `Generated README.md: ${path}`);
+      logger.info(`Generated README.md: ${path}`);
       generated++;
     }
     if (!gov.hasContributing) {
       const path = await generateContributing(projectDir);
-      log("info", `Generated CONTRIBUTING.md: ${path}`);
+      logger.info(`Generated CONTRIBUTING.md: ${path}`);
       generated++;
     }
     if (!gov.hasLicense) {
       const path = await generateLicense(projectDir, "MIT");
-      log("info", `Generated LICENSE: ${path}`);
+      logger.info(`Generated LICENSE: ${path}`);
       generated++;
     }
     if (!gov.hasCodeowners) {
       const path = await generateCodeowners(projectDir, ensureDir);
-      log("info", `Generated CODEOWNERS: ${path}`);
+      logger.info(`Generated CODEOWNERS: ${path}`);
       generated++;
     }
     if (!gov.hasChangelog) {
       const path = await generateChangelog(projectDir);
-      log("info", `Generated CHANGELOG.md: ${path}`);
+      logger.info(`Generated CHANGELOG.md: ${path}`);
       generated++;
     }
 
@@ -493,10 +477,10 @@ async function main(): Promise<number> {
     if (!gov.hasContext) {
       try {
         await runTool("kimi-context-gen", ["update"], { cwd: projectDir, timeoutMs: 30000 });
-        log("info", "Generated CONTEXT.md via kimi-context-gen");
+        logger.info("Generated CONTEXT.md via kimi-context-gen");
         generated++;
       } catch {
-        log("warn", "kimi-context-gen update failed — generate CONTEXT.md manually");
+        logger.warn("kimi-context-gen update failed — generate CONTEXT.md manually");
       }
     }
 
@@ -504,20 +488,20 @@ async function main(): Promise<number> {
     if (drift && !drift.fresh && drift.missingFromReadme.length > 0) {
       const patched = await patchReadmeScripts(projectDir);
       if (patched > 0) {
-        log("info", `Patched README.md with ${patched} missing script(s)`);
+        logger.info(`Patched README.md with ${patched} missing script(s)`);
         generated += patched;
       }
     }
 
     if (await refreshStaleLockfile(projectDir)) {
-      log("info", "Refreshed bun.lock timestamp (package.json was newer)");
+      logger.info("Refreshed bun.lock timestamp (package.json was newer)");
       generated++;
     }
 
     if (generated === 0) {
-      log("info", "All governance files present — nothing to generate");
+      logger.info("All governance files present — nothing to generate");
     } else {
-      log("warn", `Applied ${generated} fix(es). Review and customize before committing.`);
+      logger.warn(`Applied ${generated} fix(es). Review and customize before committing.`);
     }
 
     logger.section("Re-checking after fix");
@@ -634,10 +618,9 @@ async function main(): Promise<number> {
     );
 
     if (warnsAfter === 0) {
-      log("info", "All checks clean after fix.");
+      logger.info("All checks clean after fix.");
     }
   } else if (command === "doctor") {
-    logger.section("Governance Doctor");
     const gov = await checkGovernance(projectDir);
     const checks: Array<{
       name: string;
@@ -756,13 +739,8 @@ async function main(): Promise<number> {
       });
     }
 
-    const report = buildDoctorReport("kimi-governance", checks);
-    for (const check of report.checks) {
-      logger.check(check);
-    }
-    logger.info(
-      `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
-    );
+    const report = aggregateChecks("kimi-governance", checks);
+    logger.printHealthReport(report);
 
     const warnings: DoctorWarning[] = [];
     for (const c of checks) {
@@ -799,7 +777,7 @@ async function main(): Promise<number> {
     const title = args.slice(1).join(" ") || "Untitled Decision";
     logger.section("ADR Scaffold");
     const filepath = await scaffoldAdr(projectDir, title, ensureDir);
-    log("info", `Created: ${filepath}`);
+    logger.info(`Created: ${filepath}`);
     logger.info("Edit the file and update status: proposed → accepted | rejected | deprecated");
   } else if (command === "ecosystem") {
     logger.section("Ecosystem Health");
@@ -858,7 +836,7 @@ async function main(): Promise<number> {
     }
 
     if (score.grade === "F" || score.grade === "D") {
-      log("error", "R-Score below C — address governance gaps before release");
+      logger.error("R-Score below C — address governance gaps before release");
       return 1;
     }
   } else {

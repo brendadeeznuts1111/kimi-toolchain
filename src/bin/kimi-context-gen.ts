@@ -11,6 +11,7 @@ import { $, semver, TOML } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import { aggregateChecks } from "../lib/health-check.ts";
 import { checkDocDrift } from "../lib/readme-sync.ts";
 import { guardianDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
@@ -19,15 +20,6 @@ import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 
 const logger = createLogger(Bun.argv, "kimi-context-gen");
-
-function log(level: "info" | "warn" | "error", msg: string) {
-  logger[level](msg);
-}
-
-function printProjectBanner(title: string, project?: string) {
-  logger.banner(title);
-  if (project) logger.info(`Project: ${project}`);
-}
 
 const GUARDIAN_DIR = guardianDir();
 const CONTEXT_META = join(GUARDIAN_DIR, "context-meta.json");
@@ -503,26 +495,26 @@ async function main(): Promise<number> {
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const name = await getProjectName(projectDir);
 
-  printProjectBanner("Kimi Context Generator", name);
+  logger.projectBanner("Kimi Context Generator", name);
 
   if (command === "scan") {
     logger.section("Tech Stack Inference");
     const stack = await inferTechStack(projectDir);
     for (const [k, v] of Object.entries(stack)) {
-      log("info", `${k}: ${v}`);
+      logger.info(`${k}: ${v}`);
     }
 
     logger.section("Config Hash Tree");
     const hashes = await hashConfigs(projectDir);
     for (const h of hashes) {
-      log("info", `${h.file}: ${h.hash.slice(0, 16)}...`);
+      logger.info(`${h.file}: ${h.hash.slice(0, 16)}...`);
     }
 
     logger.section("Freshness Score");
     const { score, changed } = await computeFreshness(projectDir, hashes);
-    log(score >= 4 ? "info" : score >= 2 ? "warn" : "error", `Score: ${score}/10`);
+    (score >= 4 ? logger.info : score >= 2 ? logger.warn : logger.error)(`Score: ${score}/10`);
     if (changed.length > 0) {
-      log("warn", `Changed configs: ${changed.join(", ")}`);
+      logger.warn(`Changed configs: ${changed.join(", ")}`);
     }
 
     await storeMeta(projectDir, hashes, score);
@@ -537,44 +529,35 @@ async function main(): Promise<number> {
     const contextPath = join(projectDir, "CONTEXT.md");
 
     if (existsSync(contextPath)) {
-      log("warn", "CONTEXT.md exists — backing up to CONTEXT.md.bak");
+      logger.warn("CONTEXT.md exists — backing up to CONTEXT.md.bak");
       await Bun.write(join(projectDir, "CONTEXT.md.bak"), await Bun.file(contextPath).text());
     }
 
     await Bun.write(contextPath, content);
-    log("info", `Written to ${contextPath}`);
+    logger.info(`Written to ${contextPath}`);
 
     const hashes = await hashConfigs(projectDir);
     await storeMeta(projectDir, hashes, 10);
-    log("info", "Freshness baselined at 10/10");
+    logger.info("Freshness baselined at 10/10");
   } else if (command === "freshness") {
     logger.section("Freshness Check");
     const hashes = await hashConfigs(projectDir);
     const { score, changed } = await computeFreshness(projectDir, hashes);
 
-    log(score >= 4 ? "info" : score >= 2 ? "warn" : "error", `Score: ${score}/10`);
+    (score >= 4 ? logger.info : score >= 2 ? logger.warn : logger.error)(`Score: ${score}/10`);
     if (changed.length > 0) {
       for (const c of changed) {
-        log("warn", `${c} changed since last CONTEXT.md update`);
+        logger.warn(`${c} changed since last CONTEXT.md update`);
       }
       logger.info("Run 'kimi-context-gen update' to regenerate.");
     } else {
-      log("info", "All configs match — CONTEXT.md is fresh");
+      logger.info("All configs match — CONTEXT.md is fresh");
     }
   } else if (command === "doctor") {
-    logger.section("Context Doctor");
     const checks = await doctor(projectDir);
-    let errors = 0,
-      warns = 0,
-      fixable = 0;
-    for (const c of checks) {
-      logger.check(c);
-      if (c.status === "error") errors++;
-      if (c.status === "warn") warns++;
-      if (c.fixable) fixable++;
-    }
-    logger.info(`${errors} error(s), ${warns} warning(s), ${fixable} fixable`);
-    if (fixable > 0) {
+    const report = aggregateChecks("kimi-context-gen", checks);
+    logger.printHealthReport(report, "Context Doctor");
+    if (report.fixableCount > 0) {
       logger.info("Run 'kimi-context-gen fix' to regenerate CONTEXT.md");
     }
   } else if (command === "fix") {
@@ -584,7 +567,7 @@ async function main(): Promise<number> {
     const threshold = parseInt(args[1], 10) || 7;
 
     if (score < threshold) {
-      log("warn", `Freshness ${score}/10 < threshold ${threshold}/10 — regenerating`);
+      logger.warn(`Freshness ${score}/10 < threshold ${threshold}/10 — regenerating`);
       const content = await generateContext(projectDir);
       const contextPath = join(projectDir, "CONTEXT.md");
       if (existsSync(contextPath)) {
@@ -592,9 +575,9 @@ async function main(): Promise<number> {
       }
       await Bun.write(contextPath, content);
       await storeMeta(projectDir, hashes, 10);
-      log("info", "CONTEXT.md regenerated and freshness baselined");
+      logger.info("CONTEXT.md regenerated and freshness baselined");
     } else {
-      log("info", `Freshness ${score}/10 ≥ threshold ${threshold}/10 — no action needed`);
+      logger.info(`Freshness ${score}/10 ≥ threshold ${threshold}/10 — no action needed`);
     }
   } else {
     logger.section("Commands");

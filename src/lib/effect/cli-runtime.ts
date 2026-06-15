@@ -94,23 +94,3 @@ export async function runCliExit(
   }
   return 1;
 }
-
-/** Wrap a sync/async main function in Effect for runCli. */
-export function cliMain(
-  fn: (logger: Logger) => Promise<number> | number
-): Effect.Effect<number, CliError> {
-  return Effect.gen(function* () {
-    const logger = createLogger(Bun.argv);
-    const code = yield* Effect.tryPromise({
-      try: () => Promise.resolve(fn(logger)),
-      catch: (e) =>
-        new CliError({
-          message: e instanceof Error ? e.message : String(e),
-        }),
-    });
-    if (code !== 0) {
-      return yield* Effect.fail(new CliError({ message: "Command failed", exitCode: code }));
-    }
-    return code;
-  });
-}

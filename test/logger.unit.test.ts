@@ -1,4 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { aggregateChecks } from "../src/lib/health-check.ts";
 import { Logger, createLogger, log, statusIcon } from "../src/lib/logger.ts";
 
 describe("logger", () => {
@@ -289,6 +290,70 @@ describe("logger", () => {
     } finally {
       Bun.env.KIMI_CODE_SESSION = prev;
     }
+  });
+
+  test("printHealthReport prints section, checks, and summary", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const report = aggregateChecks("kimi-doctor", [
+      { name: "bun", status: "ok", message: "1.3.14", fixable: false },
+      { name: "disk", status: "warn", message: "85%", fixable: true },
+    ]);
+    const logger = new Logger({ level: "info", tool: "kimi-doctor" });
+    logger.printHealthReport(report);
+
+    console.log = originalLog;
+    expect(logs.some((l) => l.includes("kimi-doctor Doctor"))).toBe(true);
+    expect(logs.some((l) => l.includes("bun: 1.3.14"))).toBe(true);
+    expect(logs.some((l) => l.includes("disk: 85%"))).toBe(true);
+    expect(logs.some((l) => l.includes("0 error(s), 1 warning(s), 1 fixable"))).toBe(true);
+    expect(logger.getLogs().length).toBeGreaterThanOrEqual(3);
+  });
+
+  test("printHealthReport accepts custom section title", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const report = aggregateChecks("kimi-fix", [
+      { name: "lockfile", status: "ok", message: "present", fixable: false },
+    ]);
+    const logger = new Logger();
+    logger.printHealthReport(report, "Custom Section");
+
+    console.log = originalLog;
+    expect(logs.some((l) => l.includes("Custom Section"))).toBe(true);
+    expect(logs.some((l) => l.includes("kimi-fix Doctor"))).toBe(false);
+  });
+
+  test("projectBanner prints banner, project line, and blank line", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ level: "info" });
+    logger.projectBanner("Kimi Doctor", "my-project", "Health checks");
+
+    console.log = originalLog;
+    expect(logs.some((l) => l.includes("Kimi Doctor"))).toBe(true);
+    expect(logs.some((l) => l.includes("Health checks"))).toBe(true);
+    expect(logs.some((l) => l.includes("Project: my-project"))).toBe(true);
+    expect(logs.some((l) => l === "")).toBe(true);
+  });
+
+  test("projectBanner omits project line when project is omitted", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ level: "info" });
+    logger.projectBanner("Kimi Doctor");
+
+    console.log = originalLog;
+    expect(logs.some((l) => l.includes("Project:"))).toBe(false);
+    expect(logs.some((l) => l.includes("Kimi Doctor"))).toBe(true);
   });
 
   test("suggest() includes taxonomyId and autoFix in JSON mode", () => {

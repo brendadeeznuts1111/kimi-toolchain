@@ -10,7 +10,7 @@
  *   - Health check and taxonomy suggestion emission
  */
 
-import type { HealthCheck } from "./health-check.ts";
+import type { HealthCheck, HealthReport } from "./health-check.ts";
 import { statusIcon as healthStatusIcon } from "./health-check.ts";
 import { isAgentContext } from "./tool-runner.ts";
 import { getStepBudgetStatus } from "./step-budget.ts";
@@ -228,6 +228,24 @@ export class Logger {
   line(msg: string): void {
     if (isAgentContext() || this.quiet || this.json) return;
     console.log(msg);
+  }
+
+  /** Print a full doctor/health report with section, checks, and summary counts. */
+  printHealthReport(report: HealthReport, sectionTitle?: string): void {
+    this.section(sectionTitle ?? `${report.tool} Doctor`);
+    for (const check of report.checks) {
+      this.check(check);
+    }
+    this.info(
+      `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
+    );
+  }
+
+  /** Print a project banner with optional project name and subtitle. */
+  projectBanner(title: string, project?: string, subtitle?: string): void {
+    this.banner(title, subtitle);
+    if (project) this.info(`Project: ${project}`);
+    this.line("");
   }
 
   /** Print a banner (suppressed in agent context). */

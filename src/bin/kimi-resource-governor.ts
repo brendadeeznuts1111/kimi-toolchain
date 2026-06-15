@@ -15,7 +15,8 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "fs";
 import { join } from "path";
-import { ensureDir, getProjectName, resolveProjectRoot, buildDoctorReport } from "../lib/utils.ts";
+import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import { aggregateChecks } from "../lib/health-check.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -168,7 +169,7 @@ async function main(): Promise<number> {
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = await getProjectName(projectDir);
 
-  printProjectBanner("Kimi Resource Governor v2.0");
+  logger.projectBanner("Kimi Resource Governor v2.0");
 
   if (command === "limits") {
     logger.section("Current Resource Usage");
@@ -288,14 +289,8 @@ async function main(): Promise<number> {
     );
   } else if (command === "doctor") {
     const checks = doctor();
-    const report = buildDoctorReport("kimi-resource-governor", checks);
-    logger.section(`${report.tool} Doctor`);
-    for (const check of report.checks) {
-      logger.check(check);
-    }
-    logger.info(
-      `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
-    );
+    const report = aggregateChecks("kimi-resource-governor", checks);
+    logger.printHealthReport(report);
     if (report.fixableCount > 0) {
       logger.info("Run 'kimi-resource-governor fix' to repair");
     }
@@ -368,10 +363,6 @@ async function main(): Promise<number> {
   }
 
   return 0;
-}
-
-function printProjectBanner(title: string) {
-  logger.banner(title);
 }
 
 // Auto-end session on graceful exit

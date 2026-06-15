@@ -11,7 +11,8 @@ import { $ } from "bun";
 import { existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { homeDir, toolsDir } from "../lib/paths.ts";
-import { resolveProjectRoot, buildDoctorReport, safeParse } from "../lib/utils.ts";
+import { resolveProjectRoot, safeParse } from "../lib/utils.ts";
+import { aggregateChecks } from "../lib/health-check.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -393,14 +394,8 @@ async function doctor(projectDir: string) {
     fixable: false,
   });
 
-  const report = buildDoctorReport("kimi-debug", checks);
-  logger.section(`${report.tool} Doctor`);
-  for (const check of report.checks) {
-    logger.check(check);
-  }
-  logger.info(
-    `${report.errorCount} error(s), ${report.warnCount} warning(s), ${report.fixableCount} fixable`
-  );
+  const report = aggregateChecks("kimi-debug", checks);
+  logger.printHealthReport(report);
 }
 
 // ── Fix ──────────────────────────────────────────────────────────────
