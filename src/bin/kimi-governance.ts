@@ -38,6 +38,14 @@ import { auditEcosystemHealth } from "../lib/ecosystem-health.ts";
 import { isKimiToolchainRepo } from "../lib/workspace-health.ts";
 import { governorDir } from "../lib/paths.ts";
 import { checkGovernance } from "../lib/governance-check.ts";
+import {
+  generateReadme,
+  generateContributing,
+  generateLicense,
+  generateCodeowners,
+  generateChangelog,
+  scaffoldAdr,
+} from "../lib/scaffold-templates.ts";
 
 const GOVERNANCE_DIR = governorDir();
 const SCORE_HISTORY = join(GOVERNANCE_DIR, "r-score-history.json");
@@ -273,126 +281,6 @@ async function refreshStaleLockfile(projectDir: string): Promise<boolean> {
   return true;
 }
 
-// ── ADR Scaffold ─────────────────────────────────────────────────────
-
-const ADR_TEMPLATE = `---
-status: proposed
-date: {{DATE}}
-deciders: {{DECIDERS}}
-consulted: []
-informed: []
----
-
-# {{TITLE}}
-
-## Context
-
-What is the issue that we're seeing that is motivating this decision or change?
-
-## Decision
-
-What is the change that we're proposing or have agreed to implement?
-
-## Consequences
-
-What becomes easier or more difficult to do because of this change?
-
-### Positive
-
-- 
-
-### Negative
-
-- 
-
-### Neutral
-
-- 
-
-## Alternatives Considered
-
-| Alternative | Pros | Cons | Decision |
-|-------------|------|------|----------|
-| Option A | | | Rejected |
-| Option B | | | Selected |
-
-## References
-
-- 
-`;
-
-// ── File Generators ──────────────────────────────────────────────────
-
-async function generateReadme(projectDir: string): Promise<string> {
-  const filepath = join(projectDir, "README.md");
-  const content = `# ${await getProjectName(projectDir)}\n\n## Getting Started\n\n\`\`\`bash\nbun install\nbun run dev\n\`\`\`\n\n## Scripts\n\nSee \`package.json\` for available scripts.\n`;
-  await Bun.write(filepath, content);
-  return filepath;
-}
-
-async function generateContributing(projectDir: string): Promise<string> {
-  const filepath = join(projectDir, "CONTRIBUTING.md");
-  const content = `# Contributing\n\n## Development Setup\n\n\`\`\`bash\nbun install\n\`\`\`\n\n## Pull Request Process\n\n1. Ensure tests pass: \`bun test\`\n2. Update documentation\n3. Open a PR with a clear description\n`;
-  await Bun.write(filepath, content);
-  return filepath;
-}
-
-async function generateLicense(projectDir: string, type: string): Promise<string> {
-  const filepath = join(projectDir, "LICENSE");
-  const year = new Date().getFullYear();
-  let content = "";
-  if (type === "MIT") {
-    content = `MIT License\n\nCopyright (c) ${year}\n\nPermission is hereby granted...`;
-  } else {
-    content = `${type} License\n\nCopyright (c) ${year}\n`;
-  }
-  await Bun.write(filepath, content);
-  return filepath;
-}
-
-async function generateCodeowners(projectDir: string): Promise<string> {
-  const filepath = join(projectDir, ".github", "CODEOWNERS");
-  ensureDir(join(projectDir, ".github"));
-  const content = `# Code Owners\n* @team\n`;
-  await Bun.write(filepath, content);
-  return filepath;
-}
-
-async function generateChangelog(projectDir: string): Promise<string> {
-  const filepath = join(projectDir, "CHANGELOG.md");
-  const content = `# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n## [Unreleased]\n\n### Added\n- Initial setup\n`;
-  await Bun.write(filepath, content);
-  return filepath;
-}
-
-async function scaffoldAdr(projectDir: string, title: string): Promise<string> {
-  const adrDir = join(projectDir, "docs", "adr");
-  ensureDir(adrDir);
-
-  const existing = [];
-  const glob = new Bun.Glob("*.md");
-  for await (const file of glob.scan({ cwd: adrDir, absolute: false })) {
-    const num = parseInt(file.split("-")[0], 10);
-    if (!isNaN(num)) existing.push(num);
-  }
-  const nextNum = (existing.length > 0 ? Math.max(...existing) : 0) + 1;
-  const paddedNum = String(nextNum).padStart(4, "0");
-
-  const slug = title
-    .toLowerCase()
-    .replace(/[^\w]+/g, "-")
-    .replace(/^-|-$/g, "");
-  const filename = `${paddedNum}-${slug}.md`;
-  const filepath = join(adrDir, filename);
-
-  const content = ADR_TEMPLATE.replace("{{DATE}}", new Date().toISOString().split("T")[0])
-    .replace("{{DECIDERS}}", "@team")
-    .replace("{{TITLE}}", title);
-
-  await Bun.write(filepath, content);
-  return filepath;
-}
-
 // ── R-Score ──────────────────────────────────────────────────────────
 
 async function computeRScore(projectDir: string): Promise<RScore> {
@@ -546,7 +434,7 @@ async function main() {
     let generated = 0;
 
     if (!gov.hasReadme) {
-      const path = await generateReadme(projectDir);
+      const path = await generateReadme(projectDir, getProjectName);
       log("info", `Generated README.md: ${path}`);
       generated++;
     }
@@ -561,7 +449,7 @@ async function main() {
       generated++;
     }
     if (!gov.hasCodeowners) {
-      const path = await generateCodeowners(projectDir);
+      const path = await generateCodeowners(projectDir, ensureDir);
       log("info", `Generated CODEOWNERS: ${path}`);
       generated++;
     }
@@ -881,7 +769,7 @@ async function main() {
   } else if (command === "adr") {
     const title = args.slice(1).join(" ") || "Untitled Decision";
     console.log("── ADR Scaffold ──────────────────────────────────────────────");
-    const filepath = await scaffoldAdr(projectDir, title);
+    const filepath = await scaffoldAdr(projectDir, title, ensureDir);
     log("info", `Created: ${filepath}`);
     console.log("  Edit the file and update status: proposed → accepted | rejected | deprecated");
   } else if (command === "ecosystem") {
