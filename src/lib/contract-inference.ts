@@ -1,5 +1,9 @@
 /**
  * Contract inference from local observation NDJSON.
+ *
+ * @tag contract-inference
+ * @see types/build-constants.d.ts — `KIMI_CONTRACT_SCHEMA_VERSION`, `ENABLE_CONTRACT_INFERENCE`
+ * @see bunfig.toml `[define]` tag:contract-inference
  */
 
 import { contractObservationsPath } from "./paths.ts";

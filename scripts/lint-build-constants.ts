@@ -1,6 +1,20 @@
 #!/usr/bin/env bun
 /**
  * Fail when toolchain tuning literals reappear instead of bunfig [define] globals.
+ *
+ * SSOT: bunfig.toml `[define]` · Types: types/build-constants.d.ts
+ *
+ * | Constant | Tag | Consumers (Phase 1) |
+ * | -------- | --- | ------------------- |
+ * | KIMI_OBSERVATIONS_PATH | contract-inference | paths.ts |
+ * | KIMI_CONTRACT_SCHEMA_VERSION | contract-inference | contract-inference.ts |
+ * | ENABLE_CONTRACT_INFERENCE | contract-inference | contract-inference.ts |
+ * | HOOK_VERIFIER_MAX_CYCLES | hook-verifier | hook-verifier.ts |
+ * | EMBEDDING_DIM | self-healing | (Phase 2: error-embedding.ts) |
+ * | DECISION_SCORE_WINDOW_DAYS | self-healing | (Phase 2: decision-scoring.ts) |
+ * | CLUSTER_SIMILARITY_THRESHOLD | self-healing | (Phase 2: error-clustering.ts) |
+ *
+ * @see CODE_REFERENCES.md § Build-time constants
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

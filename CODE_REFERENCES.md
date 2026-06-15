@@ -13,6 +13,7 @@ This file points future agents at local examples that define the code style for 
 | Structured logging            | `src/lib/logger.ts`                    | Use `createLogger(Bun.argv, toolName)`, `logger.check()`, and `logger.printHealthReport()`  |
 | Health report shape           | `src/lib/health-check.ts`              | Return `{ name, status, message, fixable }` checks and aggregate once                       |
 | Path ownership                | `src/lib/paths.ts`                     | Use helpers for `~/.kimi-code`, `~/.agents`, and runtime paths                              |
+| Build-time tuning constants   | `bunfig.toml` `[define]`               | SSOT for contract inference, hook limits, self-healing dims — use globals, not literals     |
 | Safe parsing                  | `src/lib/utils.ts`                     | Use `safeParse()` / `safeToml()` with validators at config boundaries                       |
 | Success metric gates          | `src/lib/success-metrics.ts`           | Keep drift, taxonomy coverage, and provider agility measurable in CI                        |
 | Provider contracts            | `src/lib/provider-contract.ts`         | Add providers with a contract declaration plus a thin credential adapter only               |
@@ -65,6 +66,34 @@ Avoid:
 
 - Casting parsed config to broad `any` and using it across module boundaries.
 - Adding a schema package for one config file. New runtime dependencies must earn their cost and pass guardian.
+
+## Build-time constants
+
+Immutable toolchain tuning lives in `bunfig.toml` `[define]`, not `process.env` or scattered literals.
+Bun injects globals at compile/run time; TypeScript sees them via `types/build-constants.d.ts`.
+
+| Tag                  | Constants                                                                             | Source modules                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `contract-inference` | `KIMI_OBSERVATIONS_PATH`, `KIMI_CONTRACT_SCHEMA_VERSION`, `ENABLE_CONTRACT_INFERENCE` | `src/lib/paths.ts`, `src/lib/contract-inference.ts`                                       |
+| `hook-verifier`      | `HOOK_VERIFIER_MAX_CYCLES`                                                            | `src/lib/hook-verifier.ts`                                                                |
+| `self-healing`       | `EMBEDDING_DIM`, `DECISION_SCORE_WINDOW_DAYS`, `CLUSTER_SIMILARITY_THRESHOLD`         | Reserved for Phase 2 (`error-embedding.ts`, `decision-scoring.ts`, `error-clustering.ts`) |
+
+Good local examples:
+
+- `bunfig.toml` — SSOT values grouped by `# tag:…` comments
+- `types/build-constants.d.ts` — `declare const` + `@tag` JSDoc for agents and `tsc`
+- `scripts/lint-build-constants.ts` — regression lint (runs in `bun run lint`)
+- `test/build-constants.unit.test.ts` — asserts define globals load with expected types/values
+
+Do:
+
+- Change tuning in `bunfig.toml` only; extend `types/build-constants.d.ts` and the lint forbidden patterns when adding constants.
+- Use path helpers (`contractObservationsPath`) instead of hard-coded `.kimi/…` segments.
+
+Avoid:
+
+- Duplicating define values as `export const` or string literals in lib code.
+- Using `[define]` for secrets, deploy toggles, or per-user runtime config — keep those on `Bun.env` / `Bun.secrets`.
 
 ## Package Policy
 

@@ -1,5 +1,9 @@
 /**
  * Hook graph cycle verification for Kimi Code lifecycle hooks.
+ *
+ * @tag hook-verifier
+ * @see types/build-constants.d.ts — `HOOK_VERIFIER_MAX_CYCLES`
+ * @see bunfig.toml `[define]` tag:hook-verifier
  */
 
 export interface HookCycleVerifyResult {

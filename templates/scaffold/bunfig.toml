@@ -13,3 +13,7 @@ concurrentTestGlob = ["test/*.unit.test.ts"]
 coverageSkipTestFiles = true
 
 coverageThreshold = { lines = 0.35, functions = 0.25 }
+
+# Optional: project-specific build-time constants (see kimi-toolchain bunfig.toml [define])
+# [define]
+# MY_TUNING_CONSTANT = "42"

@@ -3,6 +3,7 @@ import { inferContractFromObservations } from "../src/lib/contract-inference.ts"
 import { verifyHookCycleLength } from "../src/lib/hook-verifier.ts";
 import { contractObservationsPath } from "../src/lib/paths.ts";
 
+/** @see types/build-constants.d.ts · bunfig.toml `[define]` */
 describe("buildConstants", () => {
   it("should load compile-time tuning values from bunfig define", () => {
     expect(EMBEDDING_DIM).toBe(384);
