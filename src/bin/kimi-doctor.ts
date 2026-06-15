@@ -573,6 +573,13 @@ async function runSuccessMetricsMode(projectRoot: string): Promise<number> {
         service: report.providerIntegration.contract.service,
         artifacts: ["contract", "credential-adapter"],
       },
+      thresholdPolicy: report.thresholdPolicy,
+      ledger: {
+        present: report.ledger.present,
+        total: report.ledger.total,
+        taxonomyCounts: report.ledger.taxonomyCounts,
+        unclassified: report.ledger.unclassified,
+      },
       summary: {
         errors,
         ok: errors === 0,

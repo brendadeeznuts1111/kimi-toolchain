@@ -111,6 +111,11 @@ These are enforced by `kimi-doctor --success-metrics` and `bun run check`.
 | **Error coverage**      | >= 90% of managed contract, hook, and integration failures must classify to taxonomy ids with stack, inputs, and environment context. |
 | **Integration agility** | New cloud providers require only a contract declaration and a thin credential adapter using `getSecret(scope) -> string`.             |
 
+The metrics are not frozen. As the toolchain learns, the taxonomy may expand,
+the definition of core logic may tighten, and new metrics may emerge from the
+failure ledger. The metrics section follows the toolchain release cadence, and
+threshold changes require justification linked to real ledger data.
+
 ## Agent References
 
 - `AGENTS.md` — operating rules for future agents

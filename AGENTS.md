@@ -133,6 +133,13 @@ also runs the same audit.
 | **Error coverage**      | >= 90% of managed contract, hook, and integration failures must get a taxonomy code plus structured stack, input, and environment context.    |
 | **Integration agility** | New cloud providers are represented by only two artifacts: a contract declaration and a thin `getSecret(scope) -> string` credential adapter. |
 
+The metrics are not frozen. As the toolchain learns, the taxonomy may expand,
+the definition of core logic may tighten, and new metrics may emerge from the
+failure ledger. The release cadence for metrics is the toolchain release
+cadence. Any metric threshold change must update the threshold metadata in
+`src/lib/success-metrics.ts` with a justification and ledger evidence from
+`~/.kimi-code/var/tool-failures.jsonl`.
+
 ## Technology Stack
 
 | Layer           | Choice                                                 |

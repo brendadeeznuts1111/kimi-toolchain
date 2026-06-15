@@ -109,11 +109,17 @@ describe("kimi-doctor smoke", () => {
       checks: Array<{ name: string; status: string }>;
       errorCoverage: { coverage: number };
       providerIntegration: { artifacts: string[] };
+      thresholdPolicy: { releaseCadence: string; thresholds: unknown[] };
+      ledger: { total: number; taxonomyCounts: Record<string, number> };
       summary: { ok: boolean };
     };
     expect(report.checks.map((c) => c.name)).toContain("drift-latency");
+    expect(report.checks.map((c) => c.name)).toContain("metric-threshold-evidence");
     expect(report.errorCoverage.coverage).toBeGreaterThanOrEqual(0.9);
     expect(report.providerIntegration.artifacts).toEqual(["contract", "credential-adapter"]);
+    expect(report.thresholdPolicy.releaseCadence).toBe("toolchain-release");
+    expect(Array.isArray(report.thresholdPolicy.thresholds)).toBe(true);
+    expect(typeof report.ledger.total).toBe("number");
     expect(report.summary.ok).toBe(true);
     expect(exitCode).toBe(0);
   }, 15_000);

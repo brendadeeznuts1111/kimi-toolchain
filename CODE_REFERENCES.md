@@ -17,6 +17,10 @@ This file points future agents at local examples that define the code style for 
 | Success metric gates          | `src/lib/success-metrics.ts`           | Keep drift, taxonomy coverage, and provider agility measurable in CI                        |
 | Provider contracts            | `src/lib/provider-contract.ts`         | Add providers with a contract declaration plus a thin credential adapter only               |
 
+Success metrics are expected to evolve. If a threshold changes, update the
+release cadence, justification, and failure-ledger evidence in
+`src/lib/success-metrics.ts` in the same commit.
+
 ## Effect Patterns
 
 Use Effect when a CLI path needs typed failures, telemetry-safe cleanup, or parallel orchestration.

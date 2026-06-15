@@ -222,6 +222,12 @@ for shape, permissions, and error categories, plus a thin credential adapter
 that maps `getSecret(scope) -> string` into a short-lived token. The scheduler,
 contract engine, taxonomy schema, and existing providers stay provider-agnostic.
 
+The metrics are not frozen. As the toolchain learns, the taxonomy may expand,
+the definition of core logic may tighten, and new metrics may emerge from the
+failure ledger. This section is updated on the same release cadence as the
+toolchain, and any threshold change must include a justification linked to real
+data from `~/.kimi-code/var/tool-failures.jsonl`.
+
 ## Cloudflare API Token Setup
 
 The `kimi-cloudflare-access` tool reads credentials from `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` environment variables, or from the OS keychain via `kimi-cloudflare-access login`.
