@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
+import { artifactPath } from "../src/lib/artifacts.ts";
 import { checkDocDrift, patchReadmeScripts, runReadmeSyncCli } from "../src/lib/readme-sync.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
@@ -8,7 +9,7 @@ let tmpDir: string;
 
 describe("readme-sync", () => {
   beforeEach(() => {
-    tmpDir = join(REPO_ROOT, `.tmp-readme-${Date.now()}`);
+    tmpDir = artifactPath(REPO_ROOT, "tmp", `readme-${Date.now()}`);
     mkdirSync(tmpDir, { recursive: true });
   });
 

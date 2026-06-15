@@ -53,6 +53,19 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run test:smoke` | (synced from package.json) |
 | `bun run check:staged` | (synced from package.json) |
 
+| `bun run test:integration` | (synced from package.json) |
+| `bun run ci:pipeline` | (synced from package.json) |
+| `bun run ci:impact` | (synced from package.json) |
+
+| `bun run quality:check:ci` | (synced from package.json) |
+
+| `bun run capabilities` | (synced from package.json) |
+| `bun run contract` | (synced from package.json) |
+| `bun run trace` | (synced from package.json) |
+
+| `bun run heal` | (synced from package.json) |
+| `bun run why` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                           |
@@ -86,11 +99,132 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run lint`               | Lint with oxlint + banned-terms scan                |
 | `bun run lint:terms`         | Scan docs for banned internal branding tags         |
 | `bun run sync`               | Sync repo to `~/.kimi-code/`                        |
+| `bun run sync:manifest`      | Generate `~/.kimi-code/toolchain-manifest.json`     |
+| `bun run sync:verify`        | Verify sync manifest hashes and desktop drift       |
 | `bun run sync:daemon`        | Sync on cron (every 5 min)                          |
 | `bun run unify`              | Sync runtime, wrappers, validate                    |
 | `bun run install-wrappers`   | Install `~/.local/bin/kimi-*` wrappers              |
 | `bun run memory-check`       | Shell memory pressure snapshot                      |
 | `bun run memory-budget`      | Per-app RSS breakdown via kimi-doctor               |
+
+### Effect CI impact rules
+
+`bun run ci:pipeline --affected` builds an Effect graph from `ci/impact.config.json` and the import dependency graph. `docsOnly` changes run only `success-metrics` and fast governance. `configOnly` changes are for CI metadata and env examples and also use the minimal graph. Source changes run the combined `quality` gate, typecheck, and only the tests, smoke checks, benchmarks, and security scan affected by the changed files. Unknown risky source files intentionally fall back to the full graph.
+
+When updating `ci/impact.config.json`, put runtime-impacting files in `fullRun`, pure CI metadata in `configOnly`, and source ownership in `targets`. JSON does not allow comments, so policy notes live in the top-level `notes` field.
+
+Generated test, report, coverage, and temp-home outputs are written under `.kimi-artifacts/`. That directory is ignored and is the only supported local artifact root for CI/test outputs.
+
+### Sync Manifest
+
+`bun run sync` copies managed files to `~/.kimi-code/` and regenerates `~/.kimi-code/toolchain-manifest.json` with sha256 hashes for every sync-managed source. `bun run sync:verify` recomputes those hashes and compares them with both the manifest and the live desktop copy. The managed pre-push hook runs `sync` followed by `sync:verify`, so stale runtime hashes or drifted desktop files block the push.
+
+### Introspection & Self-Healing
+
+The toolchain stores local causal telemetry under `~/.kimi-code/var/` and keeps apply behavior guarded.
+When an agent needs to understand a failure chain, run `kimi-trace <trace-id> --json`.
+When it needs to know whether integrations are alive, run `kimi-capabilities --json`.
+When contracts or provider declarations change, run `kimi-contract validate --json` before trusting them.
+
+| Command                         | Description                                                   |
+| ------------------------------- | ------------------------------------------------------------- |
+| `kimi-capabilities --json`      | Run live MCP, hook, credential, and contract readiness probes |
+| `kimi-capabilities --trend`     | Show saved capability snapshots over time                     |
+| `kimi-trace <trace-id> --json`  | Reconstruct a causal graph and root-cause chain               |
+| `kimi-contract validate --json` | Audit signed/unsigned/unknown/invalid contracts               |
+| `kimi-contract sign <file>`     | Sign a normalized JSON/YAML contract with an Ed25519 key      |
+| `kimi-heal plan --json`         | Convert capabilities and failure clusters into an action plan |
+| `kimi-heal apply --dry-run`     | Preview safe healing actions without mutating state           |
+| `kimi-heal apply --yes`         | Apply only actions marked `safeToAutoApply`                   |
+| `kimi-why <topic> --json`       | Explain recorded decisions from the decision ledger           |
+
+`kimi-heal apply` is dry-run by default. Manual or blocked actions, including lockfile trust baselines, dependency installs, signing keys, and source edits, are surfaced but not applied automatically.
+
+#### Local Schemas
+
+| File / object                            | Purpose                                                                |
+| ---------------------------------------- | ---------------------------------------------------------------------- |
+| `~/.kimi-code/var/tool-failures.jsonl`   | Classified failures with `taxonomyId`, trace fields, and context       |
+| `~/.kimi-code/var/trace-events.jsonl`    | `TraceEvent` records for CLI, subprocess, hook, and MCP activity       |
+| `~/.kimi-code/var/capabilities/*.json`   | `CapabilityReport` snapshots with readiness score and per-check status |
+| `<contract>.sig`                         | Ed25519 `ContractSignatureEnvelope` for a normalized contract          |
+| `trusted-keys.json`                      | Project trusted public keys and optional roles                         |
+| `~/.kimi-code/var/decision-ledger.jsonl` | `DecisionRecord` entries for `kimi-why`                                |
+| `HealPlan` / `HealApplyReport`           | `kimi-heal` planning/apply output schemas                              |
+
+#### JSON Shapes
+
+`kimi-capabilities --json` writes a `CapabilityReport` and saves the same shape under `~/.kimi-code/var/capabilities/`:
+
+```json
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-15T00:00:00.000Z",
+  "readinessScore": 75,
+  "healthy": 3,
+  "degraded": 1,
+  "unavailable": 0,
+  "checks": [
+    {
+      "id": "contract-trust",
+      "type": "contract",
+      "status": "degraded",
+      "summary": "0 trusted, 2 unsigned, 0 unknown-key, 0 invalid",
+      "latencyMs": 4,
+      "lastSuccessfulContact": "2026-06-15T00:00:00.000Z",
+      "details": { "unsigned": 2 }
+    }
+  ]
+}
+```
+
+`kimi-trace <trace-id> --json` returns a trace graph:
+
+```json
+{
+  "rootTraceId": "root-123",
+  "requestedTraceId": "child-456",
+  "found": true,
+  "rootCauseChain": ["root-123", "child-456"],
+  "nodes": [
+    {
+      "traceId": "child-456",
+      "parentTraceId": "root-123",
+      "childTraceIds": [],
+      "status": "error",
+      "durationMs": 128,
+      "events": [],
+      "failures": [{ "taxonomyId": "lockfile_issue" }]
+    }
+  ]
+}
+```
+
+Contracts are normalized before signing. Sibling signatures are preferred; embedded `x-kimi-signature` fields are ignored during normalization so a future embedded form can be validated against the same payload.
+
+```json
+{
+  "schemaVersion": 1,
+  "algorithm": "ed25519",
+  "keyId": "schema-team",
+  "signatureHex": "0123abcd",
+  "payloadSha256": "64-character-sha256-hex",
+  "signedAt": "2026-06-15T00:00:00.000Z"
+}
+```
+
+`trusted-keys.json` may be either a direct key map or a `{ "keys": { ... } }` wrapper:
+
+```json
+{
+  "keys": {
+    "schema-team": {
+      "publicKey": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n",
+      "roles": ["schema", "provider-contracts"]
+    }
+  }
+}
+```
 
 ### Governance
 

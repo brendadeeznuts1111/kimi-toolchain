@@ -11,12 +11,13 @@ import { commitsToSection, formatSection, updateChangelog } from "../src/lib/cha
 import { ensureQualityTooling } from "../src/lib/scaffold-quality.ts";
 import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
+import { artifactPath } from "../src/lib/artifacts.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 
 function tmpDir(name: string): string {
   const ts = Date.now();
-  const dir = join(REPO_ROOT, `.tmp-test-${name}-${ts}`);
+  const dir = artifactPath(REPO_ROOT, "tmp", `${name}-${ts}`);
   mkdirSync(dir, { recursive: true });
   return dir;
 }

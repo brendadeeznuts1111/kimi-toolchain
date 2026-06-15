@@ -11,6 +11,8 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
   const checks: DoctorCheck[] = [];
 
   const fileChecks: Array<{ name: string; rel: string }> = [
+    { name: "README.md", rel: "README.md" },
+    { name: "CONTEXT.md", rel: "CONTEXT.md" },
     { name: "AGENTS.md", rel: "AGENTS.md" },
     { name: "CODE_REFERENCES.md", rel: "CODE_REFERENCES.md" },
     { name: "tsconfig.json", rel: "tsconfig.json" },

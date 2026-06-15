@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
+import { artifactPath } from "../src/lib/artifacts.ts";
 import { ensureQualityTooling } from "../src/lib/scaffold-quality.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
@@ -11,7 +12,7 @@ describe("scaffold-quality", () => {
   const log = (step: string, msg: string) => logs.push([step, msg]);
 
   beforeEach(() => {
-    tmpDir = join(REPO_ROOT, `.tmp-test-scaffold-quality-${Date.now()}`);
+    tmpDir = artifactPath(REPO_ROOT, "tmp", `scaffold-quality-${Date.now()}`);
     mkdirSync(tmpDir, { recursive: true });
     logs.length = 0;
   });

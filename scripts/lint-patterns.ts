@@ -16,7 +16,7 @@ const LIB_CONSOLE_ALLOW = new Set([
   "src/lib/logger.ts", // implements logging; console is intentional here
 ]);
 const SCAN_GLOB = new Bun.Glob("src/**/*.ts");
-const SKIP_DIRS = new Set(["node_modules", ".git", "coverage"]);
+const SKIP_DIRS = new Set(["node_modules", ".git", "coverage", ".kimi-artifacts"]);
 
 interface Violation {
   file: string;

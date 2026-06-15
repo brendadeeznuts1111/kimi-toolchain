@@ -5,6 +5,8 @@
  * @see https://bun.com/docs/test/configuration
  */
 
+import { ARTIFACTS_COVERAGE_DIR, ARTIFACTS_REPORTS_DIR } from "./artifacts.ts";
+
 /** Pure unit tests (no subprocess smoke); safe at --timeout 100 */
 export const UNIT_TEST_FILES = [
   "test/lib.unit.test.ts",
@@ -13,8 +15,11 @@ export const UNIT_TEST_FILES = [
   "test/desktop-sync.unit.test.ts",
   "test/doctor-runs.db.test.ts",
   "test/test-gates.unit.test.ts",
+  "test/ci-impact.unit.test.ts",
+  "test/ci-pipeline.unit.test.ts",
   "test/sync-drift.unit.test.ts",
   "test/readme-sync.unit.test.ts",
+  "test/introspection-docs.unit.test.ts",
   "test/path-alignment.unit.test.ts",
   "test/mcp-config.unit.test.ts",
   "test/kimi-config-audit.unit.test.ts",
@@ -33,6 +38,11 @@ export const UNIT_TEST_FILES = [
   "test/tool-runner.unit.test.ts",
   "test/tool-registry.unit.test.ts",
   "test/provider-contract.unit.test.ts",
+  "test/contract-signing.unit.test.ts",
+  "test/capabilities.unit.test.ts",
+  "test/error-clustering.unit.test.ts",
+  "test/self-healing.unit.test.ts",
+  "test/decision-ledger.unit.test.ts",
   "test/success-metrics.unit.test.ts",
   "test/kimi-toolchain.router.test.ts",
   "test/unified-shell-bridge.unit.test.ts",
@@ -48,6 +58,14 @@ export const UNIT_TEST_FILES = [
 /** Smoke tests — full CLI invocations, 15-30s each */
 export const SMOKE_TEST_FILES = ["test/smoke/kimi-doctor.smoke.test.ts"] as const;
 
+/** Integration tests — slower filesystem/subprocess coverage but not full CLI smoke. */
+export const INTEGRATION_TEST_FILES = [
+  "test/cleanup-legacy.integration.test.ts",
+  "test/kimi-fix.integration.test.ts",
+  "test/sync-manifest.unit.test.ts",
+  "test/trace-ledger.integration.test.ts",
+] as const;
+
 export const FAST_TEST_TIMEOUT_MS = 500;
 export const DEFAULT_TEST_TIMEOUT_MS = 5000;
 export const CI_TEST_TIMEOUT_MS = 60_000;
@@ -57,8 +75,11 @@ export function bunTestArgs(options: {
   coverage?: boolean;
   json?: boolean;
   fast?: boolean;
+  integration?: boolean;
   ci?: boolean;
   smoke?: boolean;
+  files?: readonly string[];
+  reporterOutfile?: string;
   bail?: boolean | number;
   timeoutMs?: number;
 }): string[] {
@@ -74,16 +95,25 @@ export function bunTestArgs(options: {
   if (options.bail) {
     args.push(typeof options.bail === "number" ? `--bail=${options.bail}` : "--bail");
   }
-  if (options.coverage) args.push("--coverage");
+  if (options.coverage) args.push("--coverage", "--coverage-dir", ARTIFACTS_COVERAGE_DIR);
   if (options.ci) {
-    args.push("--reporter=junit", "--reporter-outfile=reports/junit.xml");
+    args.push(
+      "--reporter=junit",
+      `--reporter-outfile=${options.reporterOutfile ?? `${ARTIFACTS_REPORTS_DIR}/junit.xml`}`
+    );
   }
   if (options.json) args.push("--json");
   if (options.fast) {
     args.push(...UNIT_TEST_FILES);
   }
+  if (options.integration) {
+    args.push(...INTEGRATION_TEST_FILES);
+  }
   if (options.smoke) {
     args.push(...SMOKE_TEST_FILES);
+  }
+  if (options.files) {
+    args.push(...options.files);
   }
   return args;
 }

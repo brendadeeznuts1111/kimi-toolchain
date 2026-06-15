@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
+import { artifactPath } from "../src/lib/artifacts.ts";
 import { commitsToSection, formatSection, updateChangelog } from "../src/lib/changelog.ts";
 import type { Commit } from "../src/lib/conventional-commits.ts";
 
@@ -252,7 +253,7 @@ describe("changelog", () => {
     let tmpDir: string;
 
     beforeEach(() => {
-      tmpDir = join(REPO_ROOT, `.tmp-test-changelog-${Date.now()}`);
+      tmpDir = artifactPath(REPO_ROOT, "tmp", `changelog-${Date.now()}`);
       mkdirSync(tmpDir, { recursive: true });
     });
 

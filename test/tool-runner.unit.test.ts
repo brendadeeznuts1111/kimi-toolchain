@@ -55,6 +55,29 @@ describe("tool-runner", () => {
     rmSync(join(script, ".."), { recursive: true, force: true });
   });
 
+  test("invokeTool scrubs Git hook-local env by default", async () => {
+    const script = tmpScript(`console.log(Bun.env.GIT_DIR ?? "missing");`);
+    const previousGitDir = Bun.env.GIT_DIR;
+    Bun.env.GIT_DIR = "/tmp/parent-hook-git-dir";
+    try {
+      const result = await invokeTool(script, []);
+      expect(result.stdout.trim()).toBe("missing");
+    } finally {
+      if (previousGitDir === undefined) delete Bun.env.GIT_DIR;
+      else Bun.env.GIT_DIR = previousGitDir;
+      rmSync(join(script, ".."), { recursive: true, force: true });
+    }
+  });
+
+  test("invokeTool allows explicit Git env overlay", async () => {
+    const script = tmpScript(`console.log(Bun.env.GIT_DIR ?? "missing");`);
+    const result = await invokeTool(script, [], {
+      env: { GIT_DIR: "/tmp/explicit-git-dir" },
+    });
+    expect(result.stdout.trim()).toBe("/tmp/explicit-git-dir");
+    rmSync(join(script, ".."), { recursive: true, force: true });
+  });
+
   test("invokeTool truncates retained stdout and stderr", async () => {
     const script = tmpScript(`
       console.log("stdout-" + "x".repeat(128));

@@ -164,6 +164,9 @@ export interface ClassifiedFailure {
   expected: boolean;
   matchedPattern?: string;
   sessionId?: string;
+  traceId?: string;
+  parentTraceId?: string;
+  childTraceIds?: string[];
   suggestion?: string;
   autoFix?: string;
   context?: {
@@ -173,12 +176,23 @@ export interface ClassifiedFailure {
   };
 }
 
+export function formatFailureOutput(error: unknown, fallback?: unknown): string {
+  for (const value of [error, fallback]) {
+    const formatted = formatFailureValue(value);
+    if (formatted) return formatted.slice(0, 4000);
+  }
+  return "";
+}
+
 export function buildClassifiedFailure(
   toolName: string,
   output: string,
   match: TaxonomyMatch,
   extras?: {
     sessionId?: string;
+    traceId?: string;
+    parentTraceId?: string;
+    childTraceIds?: string[];
     context?: {
       stack?: string;
       inputs?: Record<string, unknown>;
@@ -201,6 +215,30 @@ export function buildClassifiedFailure(
     suggestion: match.category.suggestion || match.category.description,
     autoFix: match.category.autoFix,
     sessionId: extras?.sessionId,
+    traceId: extras?.traceId,
+    parentTraceId: extras?.parentTraceId,
+    childTraceIds: extras?.childTraceIds,
     context: extras?.context,
   };
+}
+
+function formatFailureValue(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value.trim();
+  if (value instanceof Error) return (value.stack || value.message).trim();
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["message", "error", "stderr", "stdout", "reason"]) {
+      if (typeof record[key] === "string" && record[key].trim()) return record[key].trim();
+    }
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return Object.prototype.toString.call(value);
+    }
+  }
+  return String(value);
 }

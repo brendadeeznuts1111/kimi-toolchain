@@ -11,25 +11,15 @@
 
 import { syncDesktop } from "../src/lib/desktop-sync.ts";
 import { provisionUserMcp } from "../src/lib/mcp-config.ts";
-import { computeSyncHashes } from "../src/lib/sync-hashes.ts";
-import {
-  TOOLCHAIN_VERSION,
-  getDesktopVersion,
-  getRepoHead,
-  hasUncommittedChanges,
-  writeManifest,
-} from "../src/lib/version.ts";
+import { writeSyncManifest } from "../src/lib/sync-manifest.ts";
+import { hasUncommittedChanges } from "../src/lib/version.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 
 async function main() {
   const isDaemon = Bun.argv.includes("--daemon");
 
-  const [desktopVersion, gitHead, dirty] = await Promise.all([
-    getDesktopVersion(),
-    getRepoHead(),
-    hasUncommittedChanges(),
-  ]);
+  const dirty = await hasUncommittedChanges();
 
   if (dirty && !isDaemon) {
     console.log("⚠️  Repo has uncommitted changes. Sync will reflect working tree, not HEAD.");
@@ -48,18 +38,8 @@ async function main() {
         if (result.updated.length) parts.push(`${result.updated.length} updated`);
         if (result.removed.length) parts.push(`${result.removed.length} removed`);
         console.log(`[${stamp}] Synced: ${parts.join(", ")}`);
-
-        const head = await getRepoHead();
-        const fileHashes = await computeSyncHashes(REPO_ROOT);
-        await writeManifest({
-          toolchainVersion: TOOLCHAIN_VERSION,
-          desktopVersion,
-          gitHead: head,
-          lastSyncedAt: new Date().toISOString(),
-          files: [...result.updated, ...result.removed],
-          fileHashes,
-        });
       }
+      await writeSyncManifest(REPO_ROOT, { files: [...result.updated, ...result.removed] });
     });
     console.log("   Press Ctrl+C to stop.");
     return;
@@ -72,16 +52,7 @@ async function main() {
     console.log("   ✓ mcp.json: unified-shell updated");
     result.updated.push("mcp.json");
   }
-  const fileHashes = await computeSyncHashes(REPO_ROOT);
-
-  await writeManifest({
-    toolchainVersion: TOOLCHAIN_VERSION,
-    desktopVersion,
-    gitHead,
-    lastSyncedAt: new Date().toISOString(),
-    files: [...result.updated, ...result.removed],
-    fileHashes,
-  });
+  await writeSyncManifest(REPO_ROOT, { files: [...result.updated, ...result.removed] });
 
   if (result.updated.length === 0 && result.removed.length === 0) {
     console.log("✅ Already up to date.");

@@ -20,6 +20,7 @@ import {
 } from "../lib/utils.ts";
 
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
+import { verifySyncManifest } from "../lib/sync-manifest.ts";
 import { toolsDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
@@ -83,6 +84,19 @@ exit 0
 const PRE_PUSH_HOOK = `#!/bin/sh
 # Auto-installed by kimi-githooks
 # P1: Lockfile verification, guardian scan, R-Score gate
+
+# Git streams hook files while they execute. The pre-push gate is long-running and
+# may install/sync hooks as part of validation, so execute a temp snapshot.
+if [ -z "\${KIMI_HOOK_SNAPSHOT:-}" ]; then
+  KIMI_HOOK_TMP="\${TMPDIR:-/tmp}/kimi-pre-push.$$"
+  cp "$0" "$KIMI_HOOK_TMP" || exit 1
+  chmod +x "$KIMI_HOOK_TMP" || exit 1
+  KIMI_HOOK_SNAPSHOT="$KIMI_HOOK_TMP" exec "$KIMI_HOOK_TMP" "$@"
+fi
+
+if [ -n "\${KIMI_HOOK_SNAPSHOT:-}" ]; then
+  trap 'rm -f "$KIMI_HOOK_SNAPSHOT"' EXIT
+fi
 
 echo "═══ Kimi Pre-Push Gate ═══"
 
@@ -163,6 +177,17 @@ if [ -f "package.json" ] && grep -q '"name": "kimi-toolchain"' package.json 2>/d
     echo "✗ PUSH BLOCKED: kimi-toolchain sync script missing"
     exit 1
   fi
+
+  echo ""
+  echo "── Sync Manifest Verify ─────────────────────────────────────"
+  if grep -q '"sync:verify"' package.json 2>/dev/null; then
+    bun run sync:verify || exit 1
+  elif [ -f "scripts/sync-manifest.ts" ]; then
+    bun run scripts/sync-manifest.ts --verify || exit 1
+  else
+    echo "✗ PUSH BLOCKED: sync manifest verifier missing"
+    exit 1
+  fi
 fi
 
 echo ""
@@ -172,6 +197,14 @@ exit 0
 
 // ── Hook Installation ────────────────────────────────────────────────
 
+async function resolveGitPath(projectDir: string, path: string): Promise<string | null> {
+  const result = await $`git rev-parse --git-path ${path}`.cwd(projectDir).nothrow().quiet();
+  if (result.exitCode !== 0) return null;
+  const resolved = result.stdout.toString().trim();
+  if (!resolved) return null;
+  return resolved.startsWith("/") ? resolved : join(projectDir, resolved);
+}
+
 async function installHooks(projectDir: string): Promise<number> {
   const gitPath = findExecutable("git");
   if (!gitPath) {
@@ -179,13 +212,12 @@ async function installHooks(projectDir: string): Promise<number> {
     return 1;
   }
 
-  const gitDir = join(projectDir, ".git");
-  if (!existsSync(gitDir)) {
+  const hooksDir = await resolveGitPath(projectDir, "hooks");
+  if (!hooksDir) {
     logger.error("Not a git repository. Run 'git init' first.");
     return 1;
   }
 
-  const hooksDir = join(gitDir, "hooks");
   ensureDir(hooksDir);
 
   const hookContent: Record<string, string> = {
@@ -212,7 +244,7 @@ async function installHooks(projectDir: string): Promise<number> {
     "  pre-commit: blocks .env, format:check + lint + typecheck, warns on TODO/console.log"
   );
   logger.info(
-    "  pre-push:   guardian scan, R-Score gate (blocks F/D), check/test gate, mandatory bun run sync"
+    "  pre-push:   guardian scan, R-Score gate (blocks F/D), check/test gate, mandatory bun run sync + sync:verify"
   );
   return 0;
 }
@@ -220,7 +252,6 @@ async function installHooks(projectDir: string): Promise<number> {
 // ── Doctor ───────────────────────────────────────────────────────────
 
 async function doctorHooks(projectDir: string) {
-  const hooksDir = join(projectDir, ".git", "hooks");
   const checks: Array<{
     name: string;
     status: "ok" | "warn" | "error";
@@ -229,8 +260,8 @@ async function doctorHooks(projectDir: string) {
   }> = [];
 
   // Check git repo
-  const gitDir = join(projectDir, ".git");
-  if (!existsSync(gitDir)) {
+  const hooksDir = await resolveGitPath(projectDir, "hooks");
+  if (!hooksDir) {
     checks.push({
       name: "git-repo",
       status: "error",
@@ -298,13 +329,21 @@ async function doctorHooks(projectDir: string) {
     const hasQuality = content.includes("Quality Gate");
     const hasRepoFirst = content.includes("src/bin/kimi-governance.ts");
     const hasDesktopSync = content.includes("Desktop Sync (mandatory)");
-    const prePushOk = hasKimi && hasQuality && hasRepoFirst && hasDesktopSync;
+    const hasSyncManifest = content.includes("Sync Manifest Verify");
+    const hasSnapshotGuard = content.includes("KIMI_HOOK_SNAPSHOT");
+    const prePushOk =
+      hasKimi &&
+      hasQuality &&
+      hasRepoFirst &&
+      hasDesktopSync &&
+      hasSyncManifest &&
+      hasSnapshotGuard;
     checks.push({
       name: "pre-push",
       status: prePushOk ? "ok" : hasKimi ? "warn" : "warn",
       message: hasKimi
         ? prePushOk
-          ? "Installed with repo-first tools, quality gate, mandatory desktop sync"
+          ? "Installed with repo-first tools, quality gate, mandatory desktop sync, sync manifest verify, snapshot guard"
           : "Installed but stale template — run kimi-githooks fix"
         : "Custom pre-push (not managed)",
       fixable: !prePushOk,
@@ -334,6 +373,16 @@ async function doctorHooks(projectDir: string) {
         fixable: true,
       });
     }
+
+    const manifest = await verifySyncManifest(projectDir);
+    checks.push({
+      name: "sync-manifest",
+      status: manifest.ok ? "ok" : "warn",
+      message: manifest.ok
+        ? "Sync manifest hashes match repo and desktop runtime"
+        : `Manifest needs regeneration (${manifest.changedHashes.length} changed hash(es), ${manifest.missingHashes.length} missing hash(es), ${manifest.drift.drifted.length + manifest.drift.missing.length} desktop drift item(s))`,
+      fixable: !manifest.ok,
+    });
 
     const repoGov = join(projectDir, "src/bin/kimi-governance.ts");
     const desktopGov = join(TOOLS_DIR, "kimi-governance.ts");

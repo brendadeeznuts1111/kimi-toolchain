@@ -38,6 +38,12 @@ import { resolveProjectRoot, getProjectName } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 import { auditAgentReady } from "../lib/agent-ready.ts";
 import { auditSuccessMetrics } from "../lib/success-metrics.ts";
+import {
+  capabilityReport,
+  readCapabilityTrend,
+  type CapabilityReport,
+} from "../lib/capabilities.ts";
+import { buildHealPlan, type HealPlan } from "../lib/self-healing.ts";
 import { createLogger } from "../lib/logger.ts";
 import { aggregateChecks, type HealthCheck } from "../lib/health-check.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
@@ -58,6 +64,7 @@ const WORKSPACE_ONLY = Bun.argv.includes("--workspace");
 const ECOSYSTEM = Bun.argv.includes("--ecosystem");
 const AGENT_READY = Bun.argv.includes("--agent-ready");
 const SUCCESS_METRICS = Bun.argv.includes("--success-metrics");
+const TREND = Bun.argv.includes("--trend");
 const FIX_CURSOR = Bun.argv.includes("--fix-cursor");
 const FIX_DEEP = Bun.argv.includes("--fix-deep");
 const STRICT_WORKSPACE = Bun.argv.includes("--strict-workspace");
@@ -595,6 +602,27 @@ async function runSuccessMetricsMode(projectRoot: string): Promise<number> {
   return errors > 0 ? 1 : 0;
 }
 
+async function runTrendMode(): Promise<number> {
+  const trend = await readCapabilityTrend();
+
+  if (JSON_OUT) {
+    emitJson(trend);
+    return 0;
+  }
+
+  logger.banner("Kimi Doctor — Capability Trend");
+  if (trend.snapshots.length === 0) {
+    logger.warn("No capability snapshots found; run kimi capabilities first.");
+    return 0;
+  }
+  for (const snapshot of trend.snapshots) {
+    logger.info(
+      `${snapshot.generatedAt}: ${snapshot.readinessScore}% readiness (${snapshot.healthy}/${snapshot.checks.length} healthy)`
+    );
+  }
+  return 0;
+}
+
 async function main(): Promise<number> {
   if (MEMORY_BUDGET) {
     printMemoryBudget(logger);
@@ -631,6 +659,10 @@ async function main(): Promise<number> {
 
   if (SUCCESS_METRICS) {
     return runSuccessMetricsMode(projectRoot);
+  }
+
+  if (TREND) {
+    return runTrendMode();
   }
 
   if (!JSON_OUT) {
@@ -723,6 +755,27 @@ async function main(): Promise<number> {
     if (check.status === "ok") results.push(ok(check.name, check.message));
     else if (check.status === "warn") results.push(warn(check.name, check.message));
     else results.push(error(check.name, check.message));
+  }
+
+  logger.section("Capabilities");
+  let capabilities: CapabilityReport | undefined;
+  capabilities = await capabilityReport(projectRoot);
+  for (const check of capabilities.checks) {
+    const message = `${check.summary} (${check.latencyMs}ms)`;
+    if (check.status === "healthy") results.push(ok(check.id, message));
+    else if (check.status === "degraded") results.push(warn(check.id, message));
+    else results.push(error(check.id, message));
+  }
+
+  logger.section("Self-Healing");
+  let selfHealing: HealPlan | undefined;
+  selfHealing = await buildHealPlan(projectRoot, { capabilities });
+  if (selfHealing.actions.length === 0) {
+    results.push(ok("heal-plan", "no local healing actions surfaced"));
+  } else {
+    const summary = selfHealing.summary;
+    const message = `${summary.autoApplicable} safe auto-apply, ${summary.manual} manual, ${summary.blocked} blocked — run kimi-heal plan`;
+    results.push(warn("heal-plan", message));
   }
 
   logger.section("Toolchain Health");
@@ -901,6 +954,8 @@ async function main(): Promise<number> {
     emitJson({
       toolchainVersion: TOOLCHAIN_VERSION,
       checks: results,
+      capabilities,
+      selfHealing,
       sync: syncReport,
       summary: {
         errors,

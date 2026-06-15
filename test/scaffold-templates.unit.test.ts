@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
+import { artifactPath } from "../src/lib/artifacts.ts";
 import {
   OXFMTRC,
   CI_WORKFLOW,
@@ -11,6 +12,7 @@ import {
   TEMPLATE_MARKERS,
   ADR_TEMPLATE,
   generateReadme,
+  generateContext,
   generateLicense,
   scaffoldAdr,
 } from "../src/lib/scaffold-templates.ts";
@@ -57,7 +59,7 @@ describe("scaffold-templates", () => {
     let tmpDir: string;
 
     beforeEach(() => {
-      tmpDir = join(REPO_ROOT, `.tmp-test-generateReadme-${Date.now()}`);
+      tmpDir = artifactPath(REPO_ROOT, "tmp", `generateReadme-${Date.now()}`);
       mkdirSync(tmpDir, { recursive: true });
     });
 
@@ -88,11 +90,38 @@ describe("scaffold-templates", () => {
     });
   });
 
+  describe("generateContext", () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = artifactPath(REPO_ROOT, "tmp", `generateContext-${Date.now()}`);
+      mkdirSync(tmpDir, { recursive: true });
+    });
+
+    afterEach(() => {
+      if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    test("returns correct content with project name", async () => {
+      const mockGetProjectName = async (_dir: string) => "my-awesome-project";
+      const filepath = await generateContext(tmpDir, mockGetProjectName);
+
+      expect(filepath).toBe(join(tmpDir, "CONTEXT.md"));
+      expect(existsSync(filepath)).toBe(true);
+
+      const content = await Bun.file(filepath).text();
+      expect(content).toContain("# CONTEXT - my-awesome-project");
+      expect(content).toContain("## Domain");
+      expect(content).toContain("## Commands");
+      expect(content).toContain("CODE_REFERENCES.md");
+    });
+  });
+
   describe("generateLicense", () => {
     let tmpDir: string;
 
     beforeEach(() => {
-      tmpDir = join(REPO_ROOT, `.tmp-test-generateLicense-${Date.now()}`);
+      tmpDir = artifactPath(REPO_ROOT, "tmp", `generateLicense-${Date.now()}`);
       mkdirSync(tmpDir, { recursive: true });
     });
 
@@ -144,7 +173,7 @@ describe("scaffold-templates", () => {
     let tmpDir: string;
 
     beforeEach(() => {
-      tmpDir = join(REPO_ROOT, `.tmp-test-scaffoldAdr-${Date.now()}`);
+      tmpDir = artifactPath(REPO_ROOT, "tmp", `scaffoldAdr-${Date.now()}`);
       mkdirSync(tmpDir, { recursive: true });
     });
 

@@ -25,10 +25,12 @@ import {
   BUNFIG,
   KIMI_SKILLS_README,
   CODE_REFERENCES_TEMPLATE,
+  generateReadme,
+  generateContext,
 } from "../lib/scaffold-templates.ts";
 import { Effect } from "effect";
 import { getProjectName } from "../lib/utils.ts";
-import { runTool } from "../lib/tool-runner.ts";
+import { runTool, scrubProcessGitEnv } from "../lib/tool-runner.ts";
 import { ensureQualityTooling } from "../lib/scaffold-quality.ts";
 import { aggregateChecks } from "../lib/health-check.ts";
 import { createLogger } from "../lib/logger.ts";
@@ -152,6 +154,26 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
     delegateTool("kimi-guardian", ["fix"], project, dryRun),
     delegateTool("kimi-githooks", ["install"], project, dryRun),
   ]);
+
+  const readmePath = join(project, "README.md");
+  if (!existsSync(readmePath)) {
+    stepLog("readme", "creating README.md...");
+    if (dryRun) {
+      dryLog("write", readmePath);
+    } else {
+      await generateReadme(project, getProjectName);
+    }
+  }
+
+  const contextPath = join(project, "CONTEXT.md");
+  if (!existsSync(contextPath)) {
+    stepLog("context", "creating CONTEXT.md...");
+    if (dryRun) {
+      dryLog("write", contextPath);
+    } else {
+      await generateContext(project, getProjectName);
+    }
+  }
 
   const envExample = join(project, ".env.example");
   if (!existsSync(envExample)) {
@@ -289,6 +311,8 @@ function printHelp() {
 }
 
 async function main(): Promise<number> {
+  scrubProcessGitEnv();
+
   const args = Bun.argv.slice(2);
   const dryRun = args.includes("--dry-run");
   const filtered = args.filter((a) => a !== "--dry-run");

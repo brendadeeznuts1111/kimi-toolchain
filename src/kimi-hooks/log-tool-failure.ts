@@ -8,9 +8,20 @@
  */
 
 import { appendFileSync, existsSync, mkdirSync } from "fs";
-import { join } from "path";
 import { safeParse } from "../lib/utils.ts";
-import { buildClassifiedFailure, classifyFailure, loadTaxonomy } from "../lib/error-taxonomy.ts";
+import {
+  buildClassifiedFailure,
+  classifyFailure,
+  formatFailureOutput,
+  loadTaxonomy,
+} from "../lib/error-taxonomy.ts";
+import { failureLedgerPath } from "../lib/paths.ts";
+import {
+  PARENT_TRACE_ID_ENV,
+  TRACE_ID_ENV,
+  TRACE_STARTED_AT_ENV,
+} from "../lib/effect/trace-context.ts";
+import { buildTraceEvent, recordTraceEvent } from "../lib/trace-ledger.ts";
 
 interface HookPayload {
   hook_event_name?: string;
@@ -18,8 +29,8 @@ interface HookPayload {
   cwd?: string;
   tool_name?: string;
   tool_input?: Record<string, unknown>;
-  tool_output?: string;
-  error?: string;
+  tool_output?: unknown;
+  error?: unknown;
 }
 
 async function main() {
@@ -42,23 +53,53 @@ async function main() {
   if (!payload) return;
 
   const toolName = payload.tool_name || "unknown";
-  const error = payload.error;
-  if (!error) return;
-  const output = error.toString();
+  const output = formatFailureOutput(payload.error, payload.tool_output);
   if (!output) return;
 
   const sessionId =
     payload.session_id || Bun.env.KIMI_CODE_SESSION || Bun.env.KIMI_AGENT_SESSION || undefined;
+  const traceId = Bun.env[TRACE_ID_ENV];
+  const parentTraceId = Bun.env[PARENT_TRACE_ID_ENV];
 
   const taxonomy = await loadTaxonomy();
   const match = classifyFailure(output, taxonomy);
-  const record = buildClassifiedFailure(toolName, output, match, { sessionId });
+  const record = buildClassifiedFailure(toolName, output, match, {
+    sessionId,
+    traceId,
+    parentTraceId,
+    childTraceIds: [],
+    context: {
+      inputs: payload.tool_input,
+      environment: payload.cwd ? { cwd: payload.cwd } : {},
+    },
+  });
 
-  const varDir = join(Bun.env.HOME || "/tmp", ".kimi-code", "var");
+  const logPath = failureLedgerPath();
+  const varDir = logPath.slice(0, logPath.lastIndexOf("/"));
   if (!existsSync(varDir)) mkdirSync(varDir, { recursive: true });
-  const logPath = join(varDir, "tool-failures.jsonl");
 
   appendFileSync(logPath, JSON.stringify(record) + "\n");
+  if (traceId) {
+    const startedAt = Bun.env[TRACE_STARTED_AT_ENV] || record.timestamp;
+    recordTraceEvent(
+      buildTraceEvent({
+        traceId,
+        parentTraceId,
+        childTraceIds: [],
+        eventType: "hook",
+        tool: toolName,
+        status: "error",
+        startedAt,
+        endedAt: record.timestamp,
+        durationMs: Math.max(0, Date.parse(record.timestamp) - Date.parse(startedAt)),
+        error: output.slice(0, 500),
+        metadata: {
+          taxonomyId: record.taxonomyId,
+          hookEventName: payload.hook_event_name,
+        },
+      })
+    );
+  }
 }
 
 main().catch(() => {

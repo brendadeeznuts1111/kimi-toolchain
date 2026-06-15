@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
+import { artifactPath } from "../src/lib/artifacts.ts";
 import { computeSyncHashes, detectSyncDrift } from "../src/lib/sync-hashes.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
@@ -11,7 +12,11 @@ describe("sync-drift", () => {
 
   beforeEach(() => {
     prevHome = Bun.env.HOME;
-    tmpHome = join(REPO_ROOT, `.tmp-drift-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    tmpHome = artifactPath(
+      REPO_ROOT,
+      "tmp",
+      `drift-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    );
     mkdirSync(tmpHome, { recursive: true });
     Bun.env.HOME = tmpHome;
   });

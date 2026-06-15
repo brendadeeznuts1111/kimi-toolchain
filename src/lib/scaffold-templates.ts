@@ -64,6 +64,34 @@ export async function generateReadme(
   return filepath;
 }
 
+/** Generate CONTEXT.md with a minimal agent-readable project map. */
+export async function generateContext(
+  projectDir: string,
+  getProjectName: (dir: string) => Promise<string>
+): Promise<string> {
+  const filepath = join(projectDir, "CONTEXT.md");
+  const content = `# CONTEXT - ${await getProjectName(projectDir)}
+
+## Domain
+
+[Auto-generated. Describe what this project does and who uses it.]
+
+## Commands
+
+\`\`\`bash
+bun install
+bun run check
+\`\`\`
+
+## Agent References
+
+- \`AGENTS.md\`
+- \`CODE_REFERENCES.md\`
+`;
+  await Bun.write(filepath, content);
+  return filepath;
+}
+
 /** Generate CONTRIBUTING.md with basic guidelines. */
 export async function generateContributing(projectDir: string): Promise<string> {
   const filepath = join(projectDir, "CONTRIBUTING.md");

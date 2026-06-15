@@ -37,6 +37,9 @@
 ├── scripts/*.ts                       # EXTENSION: synced gate scripts
 ├── var/sessions.db                    # EXTENSION: toolchain memory (not Kimi sessions)
 ├── var/tool-failures.jsonl            # EXTENSION: classified tool failure ledger
+├── var/trace-events.jsonl             # EXTENSION: causal trace event ledger
+├── var/decision-ledger.jsonl          # EXTENSION: recorded toolchain decisions
+├── var/capabilities/*.json            # EXTENSION: capability health snapshots
 ├── error-taxonomy.yml                 # EXTENSION: failure classification schema
 ├── governor/                          # EXTENSION: resource governor
 ├── guardian/                          # EXTENSION: lockfile security
@@ -59,11 +62,11 @@
 
 Three independent hook systems are used. Do not conflate naming in docs or code.
 
-| System                        | Config / location                                                         | Trigger                  | Examples                                                                        |
-| ----------------------------- | ------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------- |
-| **Git hooks**                 | `.git/hooks/` (installed by `kimi-githooks`)                              | `git commit`, `git push` | `pre-commit` (format/lint/typecheck), `pre-push` (guardian + R-Score + sync)    |
-| **Bun package hook**          | `package.json` `scripts.postinstall` → `src/install-hooks/postinstall.ts` | `bun install`            | Set up `~/.kimi-code/` layout, sync tools, init `sessions.db`                   |
-| **Kimi Code lifecycle hooks** | `~/.kimi-code/config.toml` `[[hooks]]` → scripts in `src/kimi-hooks/`     | Agent tool lifecycle     | `PostToolUseFailure` → classify + log to `~/.kimi-code/var/tool-failures.jsonl` |
+| System                        | Config / location                                                         | Trigger                  | Examples                                                                                            |
+| ----------------------------- | ------------------------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------- |
+| **Git hooks**                 | `.git/hooks/` (installed by `kimi-githooks`)                              | `git commit`, `git push` | `pre-commit` (format/lint/typecheck), `pre-push` (guardian + R-Score + sync + sync manifest verify) |
+| **Bun package hook**          | `package.json` `scripts.postinstall` → `src/install-hooks/postinstall.ts` | `bun install`            | Set up `~/.kimi-code/` layout, sync tools, init `sessions.db`                                       |
+| **Kimi Code lifecycle hooks** | `~/.kimi-code/config.toml` `[[hooks]]` → scripts in `src/kimi-hooks/`     | Agent tool lifecycle     | `PostToolUseFailure` → classify + log to `~/.kimi-code/var/tool-failures.jsonl` with trace context  |
 
 See official docs: https://moonshotai.github.io/kimi-code/en/customization/hooks.html
 
@@ -119,14 +122,34 @@ bun run doctor --quick
 
 # 3. Push to live runtime
 bun run sync
+bun run sync:verify
 
 # 4. Verify PATH commands match
 kimi-doctor --quick
 ```
 
-Optional during active toolchain work: `bun run sync:daemon` (every 5 min).
+`bun run sync` writes `~/.kimi-code/toolchain-manifest.json` with sha256 hashes for sync-managed files. `bun run sync:verify` recomputes those hashes and checks the live desktop copy; the managed pre-push hook runs both. Optional during active toolchain work: `bun run sync:daemon` (every 5 min).
 
 **Rule:** never hand-edit `~/.kimi-code/tools/` — always sync from repo.
+
+## Introspection and self-healing
+
+The toolchain keeps local, append-only telemetry so agent failures can be
+traced, clustered, and converted into guarded repair plans.
+
+| Surface            | Command / path                                 | Notes                                                               |
+| ------------------ | ---------------------------------------------- | ------------------------------------------------------------------- |
+| Causal traces      | `kimi-trace <trace-id> --json`                 | Reads `var/trace-events.jsonl` plus failure records                 |
+| Capability probing | `kimi-capabilities --json`, `--trend`          | Saves snapshots under `var/capabilities/`                           |
+| Signed contracts   | `kimi-contract sign`, `kimi-contract validate` | Uses sibling `<contract>.sig` files and project `trusted-keys.json` |
+| Failure clustering | `kimi-heal clusters --json`                    | Groups `tool-failures.jsonl` records with trace evidence            |
+| Self-healing plans | `kimi-heal plan --json`                        | Produces safe/manual/blocked actions                                |
+| Guarded apply      | `kimi-heal apply --dry-run`, `--yes`           | Dry-run by default; `--yes` only runs `safeToAutoApply` actions     |
+| Decision ledger    | `kimi-why <topic> --json`                      | Reads `var/decision-ledger.jsonl`                                   |
+
+Agents should prefer `kimi-heal plan --json` after a failure has surfaced.
+Manual or blocked actions are evidence, not permission to mutate. Use
+`kimi-heal apply --dry-run` before any `--yes` invocation.
 
 ## Command routing
 

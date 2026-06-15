@@ -13,9 +13,16 @@ This file points future agents at local examples that define the code style for 
 | Structured logging            | `src/lib/logger.ts`                    | Use `createLogger(Bun.argv, toolName)`, `logger.check()`, and `logger.printHealthReport()`  |
 | Health report shape           | `src/lib/health-check.ts`              | Return `{ name, status, message, fixable }` checks and aggregate once                       |
 | Path ownership                | `src/lib/paths.ts`                     | Use helpers for `~/.kimi-code`, `~/.agents`, and runtime paths                              |
+| Generated artifacts           | `src/lib/artifacts.ts`                 | Put reports, coverage, temp HOME, and disposable files under `.kimi-artifacts/`             |
 | Safe parsing                  | `src/lib/utils.ts`                     | Use `safeParse()` / `safeToml()` with validators at config boundaries                       |
 | Success metric gates          | `src/lib/success-metrics.ts`           | Keep drift, taxonomy coverage, and provider agility measurable in CI                        |
 | Provider contracts            | `src/lib/provider-contract.ts`         | Add providers with a contract declaration plus a thin credential adapter only               |
+| Causal traces                 | `src/lib/trace-ledger.ts`              | Use append-only `TraceEvent` records and `KIMI_TRACE_ID` propagation                        |
+| Capability checks             | `src/lib/capabilities.ts`              | Model integration health as parallel Effect checks with snapshots                           |
+| Signed contracts              | `src/lib/contract-signing.ts`          | Normalize payloads, use Ed25519 envelopes, and keep unsigned contracts untrusted            |
+| Healing plans                 | `src/lib/self-healing.ts`              | Surface actions with confidence and `safeToAutoApply`; apply is dry-run by default          |
+| Decision explanations         | `src/lib/decision-ledger.ts`           | Append durable `kimi-why` records instead of burying rationale in comments                  |
+| Sync manifests                | `src/lib/sync-manifest.ts`             | Generate and verify `toolchain-manifest.json` hashes before pre-push                        |
 
 Success metrics are expected to evolve. If a threshold changes, update the
 release cadence, justification, and failure-ledger evidence in
@@ -30,6 +37,8 @@ Good local examples:
 - `src/lib/effect/cli-runtime.ts` for CLI main lifecycle and telemetry `ensuring`.
 - `src/lib/effect/tool-runner-effect.ts` for adapting Promise-based subprocess work to typed failures.
 - `src/lib/doctor-pipeline.ts` for `Effect.all` parallel doctor aggregation.
+- `src/lib/capabilities.ts` for parallel readiness checks that never throw defects into CLI output.
+- `src/lib/self-healing.ts` for converting multiple signal sources into one Effect-built plan.
 - `src/bin/kimi-toolchain.ts` for a thin CLI main that delegates to `runCliExit()`.
 
 Do:
@@ -53,13 +62,23 @@ Good local examples:
 - `src/lib/cloudflare-access-policy.ts` for a narrow policy config interface plus parser.
 - `src/lib/kimi-config-audit.ts` for targeted TOML extraction and validation.
 - `src/lib/mcp-config.ts` for config merge/idempotency behavior.
+- `src/lib/error-taxonomy.ts` for the `ClassifiedFailure` ledger schema and object error normalization.
+- `src/lib/trace-ledger.ts` for the trace event and trace graph schemas.
+- `src/lib/capabilities.ts` for `CapabilityReport` and time-series snapshot schemas.
+- `src/lib/contract-signing.ts` for `ContractSignatureEnvelope` and trust audit schemas.
+- `src/lib/self-healing.ts` for `HealPlan` and `HealApplyReport` schemas.
+- `src/lib/decision-ledger.ts` for append-only `DecisionRecord` schema.
 - `test/cloudflare-access-policy.unit.test.ts` and `test/mcp-config.unit.test.ts` for parser and merge expectations.
+- `test/telemetry-schema.unit.test.ts`, `test/contract-signing.unit.test.ts`, and `test/self-healing.unit.test.ts` for schema regression expectations.
+- `test/introspection-docs.unit.test.ts` for README, skill, context, and generated AGENTS snippet expectations.
 
 Do:
 
 - Define TypeScript interfaces near the config loader.
 - Validate untrusted JSON/TOML/YAML with small type guards or parser checks.
 - Make merge functions idempotent and add tests for repeated runs.
+- Preserve `schemaVersion` and legacy aliases such as `categoryId` when changing JSONL records.
+- Store local telemetry as append-only JSONL under `~/.kimi-code/var/` through `src/lib/paths.ts`.
 
 Avoid:
 
@@ -85,15 +104,23 @@ Do not import packages that are not declared in `package.json`. In this repo tha
 
 ## Testing References
 
-| Need                     | Reference                                                |
-| ------------------------ | -------------------------------------------------------- |
-| Tool runner behavior     | `test/tool-runner.unit.test.ts`                          |
-| Effect CLI lifecycle     | `test/effect/cli-runtime.unit.test.ts`                   |
-| Effect tool failures     | `test/effect/tool-runner-effect.unit.test.ts`            |
-| Config merge/idempotency | `test/mcp-config.unit.test.ts`                           |
-| Policy parser/diff       | `test/cloudflare-access-policy.unit.test.ts`             |
-| Scaffold agent output    | `test/scaffold-agents.unit.test.ts`                      |
-| Desktop sync drift       | `test/sync.unit.test.ts`, `test/sync-drift.unit.test.ts` |
+| Need                       | Reference                                                |
+| -------------------------- | -------------------------------------------------------- |
+| Tool runner behavior       | `test/tool-runner.unit.test.ts`                          |
+| Effect CLI lifecycle       | `test/effect/cli-runtime.unit.test.ts`                   |
+| Effect tool failures       | `test/effect/tool-runner-effect.unit.test.ts`            |
+| Trace graph reconstruction | `test/trace-ledger.integration.test.ts`                  |
+| Capability aggregation     | `test/capabilities.unit.test.ts`                         |
+| Contract signing/trust     | `test/contract-signing.unit.test.ts`                     |
+| Failure clustering         | `test/error-clustering.unit.test.ts`                     |
+| Self-healing plan/apply    | `test/self-healing.unit.test.ts`                         |
+| Decision ledger            | `test/decision-ledger.unit.test.ts`                      |
+| Config merge/idempotency   | `test/mcp-config.unit.test.ts`                           |
+| Sync manifest verification | `test/sync-manifest.unit.test.ts`                        |
+| Policy parser/diff         | `test/cloudflare-access-policy.unit.test.ts`             |
+| Scaffold agent output      | `test/scaffold-agents.unit.test.ts`                      |
+| Introspection docs         | `test/introspection-docs.unit.test.ts`                   |
+| Desktop sync drift         | `test/sync.unit.test.ts`, `test/sync-drift.unit.test.ts` |
 
 ## Cloudflare and MCP Boundaries
 

@@ -14,7 +14,7 @@ coveragePathIgnorePatterns = [
   "src/lib/memory-budget.ts",
 ]
 coverageReporter = ["text", "lcov"]
-coverageDir = "./coverage"
+coverageDir = "./.kimi-artifacts/coverage"
 # Enforced when --coverage is passed (CI uses test:coverage:ci)
 coverageThreshold = { lines = 0.70, functions = 0.85 }
 smol = false

@@ -12,6 +12,7 @@ import { ensureDir, getProjectName } from "./utils.ts";
 import { bunTestArgs, useFastUnitCoverage } from "./test-gates.ts";
 import { governorDir } from "./paths.ts";
 import { checkGovernance, type GovernanceCheck } from "./governance-check.ts";
+import { ARTIFACTS_COVERAGE_DIR } from "./artifacts.ts";
 
 export { checkGovernance, type GovernanceCheck };
 
@@ -170,7 +171,7 @@ export async function checkCoverage(projectDir: string, _threshold = 70): Promis
     }
 
     if (report.total === 0) {
-      const lcovPath = join(projectDir, "coverage", "lcov.info");
+      const lcovPath = join(projectDir, ARTIFACTS_COVERAGE_DIR, "lcov.info");
       if (existsSync(lcovPath)) {
         const lcov = await Bun.file(lcovPath).text();
         let totalLines = 0;

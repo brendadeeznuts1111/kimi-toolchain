@@ -7,6 +7,8 @@ import { join } from "path";
 import { createLogger, type Logger } from "../logger.ts";
 import { CliError } from "./errors.ts";
 import { homeDir } from "../paths.ts";
+import { ensureProcessTrace } from "./trace-context.ts";
+import { buildTraceEvent, recordTraceEvent } from "../trace-ledger.ts";
 
 export interface RunCliOptions {
   toolName: string;
@@ -47,10 +49,13 @@ export async function runCli<A>(
   options: RunCliOptions
 ): Promise<number> {
   const logger = resolveLogger(options);
+  const trace = ensureProcessTrace();
+  const started = Date.now();
 
   const exit = await Effect.runPromiseExit(runWithTelemetry(program, logger));
 
   if (Exit.isSuccess(exit)) {
+    recordCliTrace(options.toolName, trace, started, 0);
     return 0;
   }
 
@@ -59,11 +64,15 @@ export async function runCli<A>(
     const error = failure.error;
     if (error instanceof CliError) {
       logger.error(error.message);
-      return error.exitCode ?? 1;
+      const exitCode = error.exitCode ?? 1;
+      recordCliTrace(options.toolName, trace, started, exitCode, error.message);
+      return exitCode;
     }
     logger.error(error instanceof Error ? error.message : String(error));
+    recordCliTrace(options.toolName, trace, started, 1, String(error));
   } else {
     logger.error("Unexpected CLI failure");
+    recordCliTrace(options.toolName, trace, started, 1, "Unexpected CLI failure");
   }
   return 1;
 }
@@ -74,10 +83,13 @@ export async function runCliExit(
   options: RunCliOptions
 ): Promise<number> {
   const logger = resolveLogger(options);
+  const trace = ensureProcessTrace();
+  const started = Date.now();
 
   const exit = await Effect.runPromiseExit(runWithTelemetry(program, logger));
 
   if (Exit.isSuccess(exit)) {
+    recordCliTrace(options.toolName, trace, started, exit.value);
     return exit.value;
   }
 
@@ -86,11 +98,44 @@ export async function runCliExit(
     const error = failure.error;
     if (error instanceof CliError) {
       logger.error(error.message);
-      return error.exitCode ?? 1;
+      const exitCode = error.exitCode ?? 1;
+      recordCliTrace(options.toolName, trace, started, exitCode, error.message);
+      return exitCode;
     }
     logger.error(error instanceof Error ? error.message : String(error));
+    recordCliTrace(options.toolName, trace, started, 1, String(error));
   } else {
     logger.error("Unexpected CLI failure");
+    recordCliTrace(options.toolName, trace, started, 1, "Unexpected CLI failure");
   }
   return 1;
+}
+
+function recordCliTrace(
+  toolName: string,
+  trace: ReturnType<typeof ensureProcessTrace>,
+  started: number,
+  exitCode: number,
+  error?: string
+): void {
+  const ended = Date.now();
+  try {
+    recordTraceEvent(
+      buildTraceEvent({
+        traceId: trace.traceId,
+        parentTraceId: trace.parentTraceId,
+        eventType: "cli",
+        tool: toolName,
+        command: Bun.argv.slice(1),
+        cwd: Bun.cwd,
+        status: exitCode === 0 ? "ok" : "error",
+        startedAt: trace.startedAt,
+        endedAt: new Date(ended).toISOString(),
+        durationMs: ended - started,
+        ...(error ? { error } : {}),
+      })
+    );
+  } catch {
+    // Tracing must never change CLI exit behavior.
+  }
 }

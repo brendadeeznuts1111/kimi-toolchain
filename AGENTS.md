@@ -35,7 +35,7 @@ If Grep/Glob fail with `Path does not exist: .../kimicode-cli`, the editor opene
 
 ## Project Overview
 
-`kimi-toolchain` is a Bun-native CLI toolkit that provides project health checks, supply-chain security, governance scoring, session memory, git hooks, and scaffolding automation. It is a meta-project: the tools manage other projects.
+`kimi-toolchain` is a Bun-native CLI toolkit that provides project health checks, supply-chain security, governance scoring, session memory, git hooks, scaffolding automation, and introspection/self-healing over local failures. It is a meta-project: the tools manage other projects.
 
 - **Repository**: `https://github.com/brendadeeznuts1111/kimi-toolchain`
 - **License**: MIT
@@ -62,9 +62,20 @@ kimi-toolchain/
       ├── kimi-resource-governor.ts  # Resource limits, spawn wrapper, cache
       ├── kimi-release.ts         # Conventional commits + changelog
       ├── kimi-snapshot.ts        # Environment snapshot save/restore
+      ├── kimi-trace.ts           # Causal trace graph reconstruction
+      ├── kimi-capabilities.ts    # Live integration health probing
+      ├── kimi-contract.ts        # Signed contract trust validation
+      ├── kimi-heal.ts            # Failure clustering + self-healing plan
+      ├── kimi-why.ts             # Decision ledger lookup
       └── unified-shell-bridge.ts # MCP stdio server for shell execution
     lib/
       ├── utils.ts          # Shared utilities (fs, hash, logging, runTool)
+      ├── trace-ledger.ts   # Append-only trace event graph
+      ├── capabilities.ts   # Capability probe protocol + snapshots
+      ├── contract-signing.ts # Ed25519 contract signing/validation
+      ├── error-clustering.ts # Semantic-ish local failure clustering
+      ├── self-healing.ts   # HealPlan schema + guarded apply
+      ├── decision-ledger.ts # Append-only "why" decisions
       └── version.ts        # Canonical version (reads package.json)
     install-hooks/
       └── postinstall.ts    # Idempotent ~/.kimi-code/ setup (bun package hook)
@@ -97,6 +108,10 @@ When the package is installed (globally or locally), `postinstall.ts` copies sou
   mcp.json            # User MCP config (postinstall seeds unified-shell)
   skills/             # Kimi Code skills (incl. kimi-toolchain copy)
   var/                # Toolchain state (sessions.db — not Kimi sessions/)
+  var/tool-failures.jsonl  # Classified failures with trace context
+  var/trace-events.jsonl   # Causal trace events
+  var/decision-ledger.jsonl # Recorded decisions for kimi-why
+  var/capabilities/        # Capability snapshots over time
   guardian/           # Lockfile manifest DB
   governor/           # Resource governor DB + cache
   AGENTS.md           # Copied from repo root
@@ -105,7 +120,7 @@ When the package is installed (globally or locally), `postinstall.ts` copies sou
   TEMPLATES.md        # Copied from repo root
 ```
 
-**Do not edit `~/.kimi-code/` manually.** Use `bun run sync` (or `bun run sync:daemon`) to push repo changes to the live runtime.
+**Do not edit `~/.kimi-code/` manually.** Use `bun run sync` (or `bun run sync:daemon`) to push repo changes to the live runtime. Sync regenerates `~/.kimi-code/toolchain-manifest.json`; pre-push also runs `bun run sync:verify` to block stale hashes or desktop drift.
 
 ### Naming & paths (Kimi Code vs kimi-toolchain)
 
@@ -127,11 +142,11 @@ These contracts describe what “better code by future agents” means in this r
 Run `kimi-doctor --success-metrics` for a single pass/fail view; `bun run check`
 also runs the same audit.
 
-| Metric                  | Required default                                                                                                                              |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Drift latency**       | Documented commands, samples, and help examples must be checkable in one `kimi doctor` or `kimi-doctor` run without manual inspection.        |
-| **Error coverage**      | >= 90% of managed contract, hook, and integration failures must get a taxonomy code plus structured stack, input, and environment context.    |
-| **Integration agility** | New cloud providers are represented by only two artifacts: a contract declaration and a thin `getSecret(scope) -> string` credential adapter. |
+| Metric                  | Required default                                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Drift latency**       | Documented commands, samples, and help examples must be checkable in one `kimi doctor` or `kimi-doctor` run without manual inspection.            |
+| **Error coverage**      | >= 90% of managed contract, hook, and integration failures must get a taxonomy code plus structured stack, input, environment, and trace context. |
+| **Integration agility** | New cloud providers are represented by only two artifacts: a contract declaration and a thin `getSecret(scope) -> string` credential adapter.     |
 
 The metrics are not frozen. As the toolchain learns, the taxonomy may expand,
 the definition of core logic may tighten, and new metrics may emerge from the
@@ -196,11 +211,15 @@ bun run governance       # = bun run src/bin/kimi-governance.ts
 
 # Sync repo → ~/.kimi-code/
 bun run sync             # one-shot (mandatory on every pre-push in this repo)
+bun run sync:manifest    # regenerate ~/.kimi-code/toolchain-manifest.json
+bun run sync:verify      # verify manifest hashes + desktop drift
 bun run sync:daemon      # Bun.cron every 5 minutes
 bun run push             # git push + sync (use if hooks were skipped)
 bun run verify-workspace # fail if cwd folder is not kimi-toolchain
 bun run cleanup-legacy   # audit legacy kimicode-cli paths + Cursor slugs
 ```
+
+Generated test homes, JUnit reports, coverage output, and disposable temp files must go under `.kimi-artifacts/`. That directory is ignored; do not create new root-level `coverage/`, `reports/`, or `.tmp-*` outputs.
 
 ### Global Install (for end users)
 
@@ -281,10 +300,11 @@ The project uses three separate hook systems. Do not conflate them in docs or co
 
 #### Kimi Code hooks (`src/kimi-hooks/`)
 
-- **`log-tool-failure.ts`** — `PostToolUseFailure` handler. Reads JSON from stdin, classifies the failure against `~/.kimi-code/error-taxonomy.yml`, and appends to `~/.kimi-code/var/tool-failures.jsonl`.
+- **`log-tool-failure.ts`** — `PostToolUseFailure` handler. Reads JSON from stdin, normalizes string/object errors without losing evidence, classifies the failure against `~/.kimi-code/error-taxonomy.yml`, and appends to `~/.kimi-code/var/tool-failures.jsonl`.
 - **`kimi-debug taxonomy`** — List all categories from `~/.kimi-code/error-taxonomy.yml`.
 - **`kimi-debug wire [path]`** — Parse a `wire.jsonl` and summarize failures by category.
-- **Canonical failure ledger**: `~/.kimi-code/var/tool-failures.jsonl`.
+- **Canonical failure ledger**: `~/.kimi-code/var/tool-failures.jsonl`. Records include `schemaVersion`, `taxonomyId`, `traceId`, `parentTraceId`, `childTraceIds`, and structured `context.inputs` / `context.environment` where available.
+- **Canonical trace ledger**: `~/.kimi-code/var/trace-events.jsonl`. Records include `schemaVersion`, `traceId`, `parentTraceId`, `eventType`, timing, status, and optional metadata.
 
 ## Testing Strategy
 
@@ -316,13 +336,13 @@ bun run typecheck        # TypeScript validation
 
 ### Quality gates (enforced)
 
-| Layer      | Command / hook                                                      |
-| ---------- | ------------------------------------------------------------------- |
-| Local      | `bun run check` or `bun run unify`                                  |
-| pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`) |
-| pre-push   | `check` + guardian + R-Score gate + mandatory `bun run sync`        |
-| CI         | `.github/workflows/ci.yml` — format:check, lint, typecheck, test    |
-| Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)    |
+| Layer      | Command / hook                                                               |
+| ---------- | ---------------------------------------------------------------------------- |
+| Local      | `bun run check` or `bun run unify`                                           |
+| pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`)          |
+| pre-push   | `check` + guardian + R-Score gate + mandatory `bun run sync` + `sync:verify` |
+| CI         | `.github/workflows/ci.yml` — format:check, lint, typecheck, test             |
+| Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)             |
 
 Install hooks: `kimi-githooks install` or `kimi-githooks fix` to refresh outdated hooks.
 
@@ -384,14 +404,21 @@ Runner defaults:
 
 Agents should choose the closest existing implementation and match it before creating new patterns.
 
-| New work                        | Read first                                                                                     |
-| ------------------------------- | ---------------------------------------------------------------------------------------------- |
-| New CLI main                    | `src/lib/effect/cli-runtime.ts`, `src/bin/kimi-toolchain.ts`                                   |
-| New cross-tool call             | `src/lib/tool-runner.ts`, `src/lib/effect/tool-runner-effect.ts`                               |
-| New doctor/check output         | `src/lib/logger.ts`, `src/lib/health-check.ts`, `src/lib/doctor-pipeline.ts`                   |
-| New config or schema parser     | `src/lib/cloudflare-access-policy.ts`, `src/lib/mcp-config.ts`, `src/lib/kimi-config-audit.ts` |
-| New package/dependency behavior | `package.json`, `bunfig.toml`, `src/lib/scaffold-quality.ts`, `kimi-guardian check`            |
-| New scaffold/agent docs         | `src/lib/scaffold-agents.ts`, `TEMPLATES.md`, `test/scaffold-agents.unit.test.ts`              |
+| New work                        | Read first                                                                                      |
+| ------------------------------- | ----------------------------------------------------------------------------------------------- |
+| New CLI main                    | `src/lib/effect/cli-runtime.ts`, `src/bin/kimi-toolchain.ts`                                    |
+| New cross-tool call             | `src/lib/tool-runner.ts`, `src/lib/effect/tool-runner-effect.ts`                                |
+| New doctor/check output         | `src/lib/logger.ts`, `src/lib/health-check.ts`, `src/lib/doctor-pipeline.ts`                    |
+| New introspection surface       | `src/lib/trace-ledger.ts`, `src/lib/capabilities.ts`, `src/lib/error-clustering.ts`             |
+| New self-healing action         | `src/lib/self-healing.ts`, `src/bin/kimi-heal.ts`, `test/self-healing.unit.test.ts`             |
+| New signed contract behavior    | `src/lib/contract-signing.ts`, `src/bin/kimi-contract.ts`, `test/contract-signing.unit.test.ts` |
+| New config or schema parser     | `src/lib/cloudflare-access-policy.ts`, `src/lib/mcp-config.ts`, `src/lib/kimi-config-audit.ts`  |
+| New package/dependency behavior | `package.json`, `bunfig.toml`, `src/lib/scaffold-quality.ts`, `kimi-guardian check`             |
+| New scaffold/agent docs         | `src/lib/scaffold-agents.ts`, `TEMPLATES.md`, `test/scaffold-agents.unit.test.ts`               |
+
+### Introspection onboarding
+
+When a future agent needs current toolchain state, start with the purpose-built surfaces before reading raw ledgers. Use `kimi-capabilities --json` to check live MCP, hook, credential, and contract readiness. Use `kimi-trace <trace-id> --json` to reconstruct nested subprocess, hook, or MCP failure chains and inspect `rootCauseChain`. Use `kimi-contract validate --json` before trusting changed declarations or provider contracts. Use `kimi-heal plan --json` to surface safe/manual/blocked repairs, and only run `kimi-heal apply --yes` for actions marked `safeToAutoApply`.
 
 ### Process Cache (src/lib/process-utils.ts, src/lib/memory-budget.ts)
 
@@ -564,32 +591,43 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 
 ## Key Files for Agents
 
-| File                                   | Purpose                                             |
-| -------------------------------------- | --------------------------------------------------- |
-| `package.json`                         | Toolchain metadata, bin mappings, scripts           |
-| `tsconfig.json`                        | Strict TypeScript, ESNext, bundler resolution       |
-| `bunfig.toml`                          | Bun install config (`saveTextLockfile = true`)      |
-| `src/lib/utils.ts`                     | Shared utilities — import from here                 |
-| `src/lib/version.ts`                   | Version resolution logic                            |
-| `src/lib/memory-budget.ts`             | System memory / RSS budget checks                   |
-| `src/lib/governor-config.ts`           | Loads `~/.kimi-code/governor/defaults.toml`         |
-| `src/lib/test-gates.ts`                | Unit vs smoke test lists, `bunTestArgs()`           |
-| `src/lib/readme-sync.ts`               | README ↔ package.json drift detect + patch          |
-| `src/lib/paths.ts`                     | **Single source of truth for `~/.kimi-code` paths** |
-| `src/lib/governance-check.ts`          | License/CONTRIBUTING/CODEOWNERS checker             |
-| `src/lib/r-score.ts`                   | R-Score calculation + grade formatting              |
-| `src/lib/conventional-commits.ts`      | Conventional commit parser + semver bump logic      |
-| `src/lib/changelog.ts`                 | Changelog section generation + update               |
-| `src/lib/scaffold-templates.ts`        | README, LICENSE, ADR template generators            |
-| `src/lib/scaffold-quality.ts`          | package.json quality tooling injection              |
-| `src/lib/process-utils.ts`             | Orphan process detection + cleanup                  |
-| `scripts/check.ts`                     | CI gate runner with dry-run and fast modes          |
-| `test/kimi-doctor.smoke.test.ts`       | Smoke tests for all tools                           |
-| `CONTEXT.md`                           | Auto-generated project context                      |
-| `CODE_REFERENCES.md`                   | Local exemplar map for agent coding patterns        |
-| `skills/kimi-toolchain/SKILL.md`       | Agent decision protocol                             |
-| `error-taxonomy.yml`                   | Failure classification schema                       |
-| `~/.kimi-code/var/tool-failures.jsonl` | Canonical tool failure ledger                       |
+| File                                     | Purpose                                             |
+| ---------------------------------------- | --------------------------------------------------- |
+| `package.json`                           | Toolchain metadata, bin mappings, scripts           |
+| `tsconfig.json`                          | Strict TypeScript, ESNext, bundler resolution       |
+| `bunfig.toml`                            | Bun install config (`saveTextLockfile = true`)      |
+| `src/lib/utils.ts`                       | Shared utilities — import from here                 |
+| `src/lib/version.ts`                     | Version resolution logic                            |
+| `src/lib/memory-budget.ts`               | System memory / RSS budget checks                   |
+| `src/lib/governor-config.ts`             | Loads `~/.kimi-code/governor/defaults.toml`         |
+| `src/lib/test-gates.ts`                  | Unit vs smoke test lists, `bunTestArgs()`           |
+| `src/lib/readme-sync.ts`                 | README ↔ package.json drift detect + patch          |
+| `src/lib/artifacts.ts`                   | Repo-local generated artifact paths                 |
+| `src/lib/sync-manifest.ts`               | Sync manifest generation + stale hash verification  |
+| `src/lib/paths.ts`                       | **Single source of truth for `~/.kimi-code` paths** |
+| `src/lib/governance-check.ts`            | License/CONTRIBUTING/CODEOWNERS checker             |
+| `src/lib/r-score.ts`                     | R-Score calculation + grade formatting              |
+| `src/lib/conventional-commits.ts`        | Conventional commit parser + semver bump logic      |
+| `src/lib/changelog.ts`                   | Changelog section generation + update               |
+| `src/lib/scaffold-templates.ts`          | README, LICENSE, ADR template generators            |
+| `src/lib/scaffold-quality.ts`            | package.json quality tooling injection              |
+| `src/lib/process-utils.ts`               | Orphan process detection + cleanup                  |
+| `src/lib/trace-ledger.ts`                | Causal trace event schema + graph rendering         |
+| `src/lib/capabilities.ts`                | Live capability probe schema + snapshots            |
+| `src/lib/contract-signing.ts`            | Ed25519 contract signature schema + trust audit     |
+| `src/lib/error-clustering.ts`            | Failure clustering report schema                    |
+| `src/lib/self-healing.ts`                | HealPlan / HealApplyReport schema and safe apply    |
+| `src/lib/decision-ledger.ts`             | Append-only decision records for `kimi-why`         |
+| `scripts/check.ts`                       | CI gate runner with dry-run and fast modes          |
+| `test/kimi-doctor.smoke.test.ts`         | Smoke tests for all tools                           |
+| `CONTEXT.md`                             | Auto-generated project context                      |
+| `CODE_REFERENCES.md`                     | Local exemplar map for agent coding patterns        |
+| `skills/kimi-toolchain/SKILL.md`         | Agent decision protocol                             |
+| `error-taxonomy.yml`                     | Failure classification schema                       |
+| `~/.kimi-code/var/tool-failures.jsonl`   | Canonical tool failure ledger                       |
+| `~/.kimi-code/var/trace-events.jsonl`    | Canonical causal trace ledger                       |
+| `~/.kimi-code/var/decision-ledger.jsonl` | Canonical decision ledger                           |
+| `trusted-keys.json`                      | Project trusted public keys for signed contracts    |
 
 ## Quick Reference: All CLI Tools
 
@@ -608,6 +646,11 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `kimi-debug`             | `last`, `diff`, `trace`, `analyze`, `classify`, `taxonomy`, `wire [path]`, `doctor`, `fix`                        |
 | `kimi-snapshot`          | `save`, `restore`, `list`, `show`, `cleanup`, `doctor`, `fix`                                                     |
 | `kimi-resource-governor` | `limits`, `parallel`, `quota`, `cache`, `spawn`, `session`, `cleanup`, `status`, `doctor`, `fix`                  |
+| `kimi-trace`             | `<trace-id>`, `--json`                                                                                            |
+| `kimi-capabilities`      | `--json`, `--trend`                                                                                               |
+| `kimi-contract`          | `sign <contract-file>`, `validate [contract-file or --all]`, `--json`, `--strict`                                 |
+| `kimi-heal`              | `plan`, `apply --dry-run`, `apply --yes --action <id>`, `clusters`, `match`                                       |
+| `kimi-why`               | `record`, `<topic>`, `--json`                                                                                     |
 
 ---
 

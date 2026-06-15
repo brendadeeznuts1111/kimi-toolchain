@@ -4,6 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import {
   classifyFailure,
+  formatFailureOutput,
   getSuggestions,
   loadTaxonomy,
   taxonomyPath,
@@ -57,6 +58,16 @@ describe("error-taxonomy", () => {
     const cat = unknownCategory();
     expect(cat.id).toBe("unknown");
     expect(cat.severity).toBe("info");
+  });
+
+  test("formatFailureOutput preserves object error evidence", () => {
+    expect(formatFailureOutput({ message: "old_string not found in src/file.ts" })).toBe(
+      "old_string not found in src/file.ts"
+    );
+    expect(formatFailureOutput({ code: "E_FAIL", details: { file: "src/file.ts" } })).toContain(
+      '"code": "E_FAIL"'
+    );
+    expect(formatFailureOutput({ code: "E_FAIL" })).not.toBe("[object Object]");
   });
 });
 

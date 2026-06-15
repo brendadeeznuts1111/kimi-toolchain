@@ -28,9 +28,17 @@ describe("test-gates", () => {
       "60000",
       "--bail",
       "--coverage",
+      "--coverage-dir",
+      ".kimi-artifacts/coverage",
       "--reporter=junit",
-      "--reporter-outfile=reports/junit.xml",
+      "--reporter-outfile=.kimi-artifacts/reports/junit.xml",
     ]);
+  });
+
+  test("bunTestArgs ci mode supports isolated report files", () => {
+    expect(
+      bunTestArgs({ ci: true, reporterOutfile: ".kimi-artifacts/reports/unit.xml" })
+    ).toContain("--reporter-outfile=.kimi-artifacts/reports/unit.xml");
   });
 
   test("useFastUnitCoverage is repo-specific", () => {

@@ -4,11 +4,12 @@
  */
 import { mkdirSync } from "fs";
 import { join } from "path";
+import { artifactPath } from "../src/lib/artifacts.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
 if (!Bun.env.KIMI_TEST_HOME) {
-  const dir = join(REPO_ROOT, ".tmp-kimi-test-home");
+  const dir = artifactPath(REPO_ROOT, "test-home");
   mkdirSync(dir, { recursive: true });
   Bun.env.KIMI_TEST_HOME = dir;
 }

@@ -2,10 +2,12 @@
 name: kimi-toolchain
 description: |
   Teaches agents to operate kimi-toolchain CLI and align with Kimi Code docs.
-  Use for kimi-doctor, kimi-governance, kimi-guardian, kimi-fix, or project health.
+  Use for kimi-doctor, kimi-governance, kimi-guardian, kimi-fix, kimi-heal,
+  causal traces, capabilities, signed contracts, or project health.
   For Kimi Code config/MCP/sessions use `kimi` and `kimi doctor` (official).
 whenToUse: |
-  Project health, R-Score, lockfile security, scaffolding, or Bun quality gates.
+  Project health, R-Score, lockfile security, scaffolding, introspection,
+  self-healing, signed contracts, or Bun quality gates.
   Kimi Code slash commands (/mcp, /goal) and ACP are separate from toolchain CLIs.
 ---
 
@@ -83,24 +85,56 @@ Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0
 
 ## When to Use (toolchain)
 
-- User asks about project health, diagnostics, or governance
+- User asks about project health, diagnostics, introspection, self-healing, or governance
 - User modifies `package.json`, `bun.lock`, or `bunfig.toml`
 - User reports failures, loops, or unexpected behavior
 - User requests scaffolding, templating, or project setup
+- User asks why a toolchain decision was made, why a trace failed, or whether a contract/capability is trusted
+- User asks to plan or prioritize self-awareness, self-correction, failure-ledger, contract-integration, verification, or developer-experience work from `ROADMAP.md`
 
 ## Tools
 
-| Command            | Purpose                    | When to Invoke                        |
-| ------------------ | -------------------------- | ------------------------------------- |
-| `kimi doctor`      | Official Kimi Code config  | MCP/auth/model issues                 |
-| `kimi-doctor`      | Toolchain diagnostic suite | Project + desktop sync + MCP wiring   |
-| `kimi-governance`  | R-Score + governance check | After doctor, for scoring             |
-| `kimi-guardian`    | Lockfile integrity         | After dep changes, before push        |
-| `kimi-fix`         | Scaffold / auto-fix        | When grade is D/F or scaffold request |
-| `kimi-context-gen` | CONTEXT.md regeneration    | When freshness is stale               |
-| `kimi-githooks`    | Hook management            | On setup or hook issues               |
-| `kimi-memory`      | Session + warning trends   | When interpreting recurring warnings  |
-| `kimi-debug`       | Failure wizard             | When user asks "what broke?"          |
+| Command             | Purpose                        | When to Invoke                           |
+| ------------------- | ------------------------------ | ---------------------------------------- |
+| `kimi doctor`       | Official Kimi Code config      | MCP/auth/model issues                    |
+| `kimi-doctor`       | Toolchain diagnostic suite     | Project + desktop sync + MCP wiring      |
+| `kimi-capabilities` | Live integration readiness     | Before debugging degraded MCP/hooks/auth |
+| `kimi-trace`        | Causal graph reconstruction    | When a trace-id or nested failure exists |
+| `kimi-heal`         | Failure clustering + heal plan | After failures; always dry-run first     |
+| `kimi-contract`     | Signed contract trust          | When contracts/providers change          |
+| `kimi-why`          | Decision ledger                | When explaining previous choices         |
+| `kimi-governance`   | R-Score + governance check     | After doctor, for scoring                |
+| `kimi-guardian`     | Lockfile integrity             | After dep changes, before push           |
+| `kimi-fix`          | Scaffold / auto-fix            | When grade is D/F or scaffold request    |
+| `kimi-context-gen`  | CONTEXT.md regeneration        | When freshness is stale                  |
+| `kimi-githooks`     | Hook management                | On setup or hook issues                  |
+| `kimi-memory`       | Session + warning trends       | When interpreting recurring warnings     |
+| `kimi-debug`        | Failure wizard                 | When user asks "what broke?"             |
+
+## Introspection + Self-Healing Protocol
+
+All new introspection commands support `--json` for machine-readable output.
+Use them before reading implementation when the question is about current toolchain state:
+`kimi-capabilities` answers "what is alive?", `kimi-trace` answers "what caused this?",
+`kimi-contract` answers "can I trust this declaration?", and `kimi-heal` answers
+"what can be safely repaired?".
+
+```
+1. RUN: kimi-capabilities --json
+2. IF trace-id is known → RUN: kimi-trace <trace-id> --json
+3. RUN: kimi-heal plan --json
+4. IF plan has safe auto-applicable actions:
+   a. RUN: kimi-heal apply --dry-run --json
+   b. ONLY with explicit user intent or pre-approved safe sync: kimi-heal apply --yes --action <id>
+5. IF contract trust is degraded → RUN: kimi-contract validate --json
+6. IF a decision needs explanation → RUN: kimi-why <topic> --json
+```
+
+`kimi-heal apply` is dry-run by default. It may only execute actions marked
+`safeToAutoApply`; manual or blocked actions stay skipped until a human handles
+the underlying risk. Examples: `bun run sync` for runtime drift is safe;
+guardian baseline changes, dependency installs, signing keys, and source edits
+remain manual.
 
 ## Decision Protocol
 
@@ -111,13 +145,15 @@ Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0
    IF cursor-workspace blocker → reopen ~/kimi-toolchain; kimi-toolchain doctor --fix --fix-cursor
 1. RUN: kimi doctor          # official Kimi Code config
 2. RUN: kimi-toolchain doctor --ecosystem --quick  # cross-product health
-3. RUN: kimi-governance score
-4. PARSE doctor output + R-Score breakdown
-5. IF lockfile warning → RUN: kimi-guardian check
-6. IF coverage gap → RUN: bun run test:coverage:fast (local) or bun run test:coverage:ci (CI)
-7. IF governance gap → RUN: kimi-governance fix
-8. QUERY: kimi-memory trends (sessions.db warning_trends)
-9. PRESENT: current state + trend + next action
+3. RUN: kimi-capabilities --json
+4. RUN: kimi-heal plan --json
+5. RUN: kimi-governance score
+6. PARSE doctor output + R-Score breakdown
+7. IF lockfile warning → RUN: kimi-guardian check
+8. IF coverage gap → RUN: bun run test:coverage:fast (local) or bun run test:coverage:ci (CI)
+9. IF governance gap → RUN: kimi-governance fix
+10. QUERY: kimi-memory trends (sessions.db warning_trends)
+11. PRESENT: current state + trend + next action
 ```
 
 ### Dependency Changes
@@ -135,11 +171,14 @@ Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0
 ```
 1. RUN: kimi-debug last
 2. RUN: kimi-debug wire [path-to-wire.jsonl]   # classify recent failures
-3. QUERY: ~/.kimi-code/var/tool-failures.jsonl for recurring patterns (taxonomyId, suggestion, autoFix)
-4. QUERY: kimi-memory trends + doctor_runs in sessions.db (grouped by taxonomy_id when present)
-5. RUN: git log --oneline -20
-6. IF CONTEXT.md stale → RUN: kimi-context-gen freshness / update
-7. PRESENT: timeline + taxonomy id + likely cause + recovery steps (use autoFix from taxonomy when safe)
+3. QUERY: ~/.kimi-code/var/tool-failures.jsonl for recurring patterns (taxonomyId, traceId, suggestion, autoFix)
+4. IF traceId exists → RUN: kimi-trace <traceId> --json
+5. RUN: kimi-heal clusters --json
+6. RUN: kimi-heal plan --json
+7. QUERY: kimi-memory trends + doctor_runs in sessions.db (grouped by taxonomy_id when present)
+8. RUN: git log --oneline -20
+9. IF CONTEXT.md stale → RUN: kimi-context-gen freshness / update
+10. PRESENT: timeline + taxonomy id + root cause chain + recovery steps (use heal plan first; taxonomy autoFix only when safe)
 ```
 
 Use `kimi-debug analyze --json` or `kimi-debug classify <text>` for taxonomy ids (`max_steps_exceeded`, `lockfile_issue`, etc.) from `error-taxonomy.yml`.
@@ -163,7 +202,8 @@ Use `kimi-debug analyze --json` or `kimi-debug classify <text>` for taxonomy ids
 2. LOCAL (fast): bun run check:fast
 3. BEFORE PUSH: bun run check
 4. RUN: kimi-guardian check
-5. RUN: kimi-governance score (pre-push blocks F/D)
+5. RUN: bun run sync && bun run sync:verify
+6. RUN: kimi-governance score (pre-push blocks F/D)
 ```
 
 ## R-Score Interpretation
@@ -209,6 +249,16 @@ Three hook systems coexist. Use the right name:
 | Git hooks                 | `.git/hooks/`                                              | `kimi-githooks install`                        |
 | Bun package hook          | `src/install-hooks/postinstall.ts`                         | Runs on `bun install`                          |
 | Kimi Code lifecycle hooks | `~/.kimi-code/config.toml` `[[hooks]]` → `src/kimi-hooks/` | `kimi-doctor --fix` seeds `PostToolUseFailure` |
+
+## Schema Notes
+
+- `tool-failures.jsonl` records `schemaVersion`, `taxonomyId`, `traceId`, `parentTraceId`, `childTraceIds`, and structured `context.inputs` / `context.environment`.
+- `trace-events.jsonl` records `schemaVersion`, `traceId`, `parentTraceId`, `childTraceIds`, `eventType`, `tool`, timing, status, command/cwd, and metadata. `kimi-trace --json` exposes `TraceGraph.rootCauseChain` and `nodes[].failures[]`.
+- `capabilities/*.json` snapshots store `CapabilityReport` with `readinessScore`, healthy/degraded/unavailable counts, and `checks[]` entries with `id`, `type`, `status`, `summary`, `latencyMs`, and optional `details`.
+- `<contract>.sig` files store Ed25519 `ContractSignatureEnvelope` values: `schemaVersion`, `algorithm`, `keyId`, `signatureHex`, `payloadSha256`, and `signedAt`. Embedded `x-kimi-signature` fields are stripped from normalized payloads. Trusted public keys live in project-root `trusted-keys.json` as a direct key map or `{ "keys": { ... } }`.
+- `decision-ledger.jsonl` stores `kimi-why` records; self-heal applies append a decision when an action actually runs.
+- Repo-local generated outputs belong under `.kimi-artifacts/`; test homes, coverage, JUnit reports, and disposable markers should not be created at repo root.
+- `bun run sync` regenerates `~/.kimi-code/toolchain-manifest.json`; `bun run sync:verify` verifies manifest hashes and desktop drift and is part of the managed pre-push hook.
 
 ## Related
 

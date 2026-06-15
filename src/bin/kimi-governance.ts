@@ -19,6 +19,7 @@ import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { recordDoctorRun, getPersistentWarnings, type DoctorWarning } from "../lib/doctor-runs.ts";
 import { createLogger } from "../lib/logger.ts";
+import { ARTIFACTS_COVERAGE_DIR } from "../lib/artifacts.ts";
 import {
   R_SCORE_WEIGHTS as WEIGHTS,
   computeBreakdown,
@@ -208,7 +209,7 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
     }
 
     if (report.total === 0) {
-      const lcovPath = join(projectDir, "coverage", "lcov.info");
+      const lcovPath = join(projectDir, ARTIFACTS_COVERAGE_DIR, "lcov.info");
       if (existsSync(lcovPath)) {
         const lcov = await Bun.file(lcovPath).text();
         let totalLines = 0;
@@ -246,6 +247,27 @@ interface CoverageHistoryEntry {
   percentage: number;
   covered: number;
   total: number;
+}
+
+async function latestCoverageHistory(projectDir: string): Promise<CoverageReport | null> {
+  if (!existsSync(COVERAGE_HISTORY)) return null;
+  let history: CoverageHistoryEntry[];
+  try {
+    history = (await Bun.file(COVERAGE_HISTORY).json()) as CoverageHistoryEntry[];
+  } catch {
+    return null;
+  }
+  const project = await getProjectName(projectDir);
+  const latest = history
+    .filter((entry) => entry.project === project)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0];
+  if (!latest) return null;
+  return {
+    covered: latest.covered,
+    total: latest.total,
+    percentage: latest.percentage,
+    files: [],
+  };
 }
 
 async function storeCoverageHistory(projectDir: string, report: CoverageReport) {
@@ -299,12 +321,19 @@ async function refreshStaleLockfile(projectDir: string): Promise<boolean> {
 
 // ── R-Score ──────────────────────────────────────────────────────────
 
-async function computeRScore(projectDir: string): Promise<RScore> {
+async function computeRScore(
+  projectDir: string,
+  options: { fast?: boolean } = {}
+): Promise<RScore> {
   const project = await getProjectName(projectDir);
 
   const [gov, coverage, drift] = await Promise.all([
     checkGovernance(projectDir),
-    checkCoverage(projectDir),
+    options.fast
+      ? latestCoverageHistory(projectDir).then(
+          (latest) => latest ?? { covered: 0, total: 0, percentage: 0, files: [] }
+        )
+      : checkCoverage(projectDir),
     checkDocDrift(projectDir),
   ]);
   if (!drift) {
@@ -785,12 +814,19 @@ async function main(): Promise<number> {
     logger.info("Use: kimi-toolchain doctor --ecosystem [--quick] [--json]");
     return 1;
   } else if (command === "score") {
-    logger.section("Computing R-Score");
-    const score = await computeRScore(projectDir);
+    const fastScore = args.includes("--fast");
+    const minIndex = args.findIndex((arg) => arg === "--min");
+    const minScore =
+      minIndex >= 0 && args[minIndex + 1] ? parseFloat(args[minIndex + 1]) : undefined;
+    logger.section(fastScore ? "Computing Fast R-Score" : "Computing R-Score");
+    const score = await computeRScore(projectDir, { fast: fastScore });
 
     logger.info(
       `Grade: ${score.grade} (${formatPoints(score.total)}/${score.max}, ${formatPct(score.total, score.max)})`
     );
+    if (fastScore) {
+      logger.info("Fast mode: coverage uses latest stored history and does not run tests");
+    }
     logger.info("Breakdown:");
     for (const [key, value] of Object.entries(score.breakdown)) {
       const weight = WEIGHTS[key as keyof typeof WEIGHTS];
@@ -840,6 +876,10 @@ async function main(): Promise<number> {
       logger.error("R-Score below C — address governance gaps before release");
       return 1;
     }
+    if (minScore !== undefined && score.total < minScore) {
+      logger.error(`R-Score below minimum — ${formatPoints(score.total)} < ${minScore}`);
+      return 1;
+    }
   } else {
     logger.section("Commands");
     logger.line("  governance     Check LICENSE, CONTRIBUTING, CODEOWNERS, README, CONTEXT");
@@ -849,6 +889,7 @@ async function main(): Promise<number> {
     logger.line("  doctor         Diagnose governance health with actionable fixes");
     logger.line("  adr <title>    Scaffold a new ADR in docs/adr/");
     logger.line("  score          Compute full R-Score with trend");
+    logger.line("  score --fast   Compute R-Score without recomputing coverage");
     logger.line("  ecosystem      → use kimi-toolchain doctor --ecosystem");
   }
 

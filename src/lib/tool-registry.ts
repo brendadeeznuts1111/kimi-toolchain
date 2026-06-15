@@ -27,6 +27,11 @@ export const TOOL_SHORT_NAMES = [
   "snapshot",
   "resource-governor",
   "orphan-kill",
+  "trace",
+  "capabilities",
+  "contract",
+  "heal",
+  "why",
   "workspace",
 ] as const;
 
@@ -48,6 +53,11 @@ const SHORT_TO_SCRIPT: Record<string, string> = {
   snapshot: "kimi-snapshot.ts",
   "resource-governor": "kimi-resource-governor.ts",
   "orphan-kill": "kimi-orphan-kill.ts",
+  trace: "kimi-trace.ts",
+  capabilities: "kimi-capabilities.ts",
+  contract: "kimi-contract.ts",
+  heal: "kimi-heal.ts",
+  why: "kimi-why.ts",
 };
 
 /** package.json bin name → short tool name for meta dispatch. */

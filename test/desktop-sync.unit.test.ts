@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
+import { artifactPath } from "../src/lib/artifacts.ts";
 import {
   desktopRoot,
   ensureDesktopLayout,
@@ -52,7 +53,7 @@ describe("desktop-sync", () => {
   });
 
   test("syncDesktop force overwrites stale optional config", async () => {
-    const tmpHome = join(REPO_ROOT, `.tmp-desktop-force-${Date.now()}`);
+    const tmpHome = artifactPath(REPO_ROOT, "tmp", `desktop-force-${Date.now()}`);
     mkdirSync(tmpHome, { recursive: true });
     Bun.env.HOME = tmpHome;
     try {
@@ -68,7 +69,7 @@ describe("desktop-sync", () => {
   });
 
   test("syncDesktop removes orphaned tool files", async () => {
-    const tmpHome = join(REPO_ROOT, `.tmp-desktop-orphan-${Date.now()}`);
+    const tmpHome = artifactPath(REPO_ROOT, "tmp", `desktop-orphan-${Date.now()}`);
     mkdirSync(tmpHome, { recursive: true });
     Bun.env.HOME = tmpHome;
     try {
@@ -86,7 +87,7 @@ describe("desktop-sync", () => {
   test(
     "syncDesktop copies optional config when desktop copy missing",
     async () => {
-      const tmpHome = join(REPO_ROOT, `.tmp-desktop-${Date.now()}`);
+      const tmpHome = artifactPath(REPO_ROOT, "tmp", `desktop-${Date.now()}`);
       mkdirSync(tmpHome, { recursive: true });
       Bun.env.HOME = tmpHome;
       try {
@@ -101,7 +102,7 @@ describe("desktop-sync", () => {
   );
 
   test("syncDesktop copies scaffold templates", async () => {
-    const tmpHome = join(REPO_ROOT, `.tmp-desktop-templates-${Date.now()}`);
+    const tmpHome = artifactPath(REPO_ROOT, "tmp", `desktop-templates-${Date.now()}`);
     mkdirSync(tmpHome, { recursive: true });
     Bun.env.HOME = tmpHome;
     try {

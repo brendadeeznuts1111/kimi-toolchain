@@ -14,6 +14,7 @@ node_modules/
 
 # Build artifacts
 dist/
+.kimi-artifacts/
 coverage/
 reports/
 .tmp-kimi-test-home/

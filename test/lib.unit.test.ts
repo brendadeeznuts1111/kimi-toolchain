@@ -20,6 +20,7 @@ import {
   fetchWithTimeout,
 } from "../src/lib/utils.ts";
 import { TOOLCHAIN_VERSION, TOOLCHAIN_NAME } from "../src/lib/version.ts";
+import { artifactPath } from "../src/lib/artifacts.ts";
 import {
   getChromeRssMB,
   getAppRssGroups,
@@ -94,7 +95,7 @@ describe("lib/utils", () => {
   });
 
   test("getProjectName prefers package.json name over directory", async () => {
-    const dir = join(REPO_ROOT, ".tmp-test-project-name");
+    const dir = artifactPath(REPO_ROOT, "tmp", "test-project-name");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "my-real-app" }));
     expect(await getProjectName(dir)).toBe("my-real-app");
@@ -107,7 +108,7 @@ describe("lib/utils", () => {
   });
 
   test("ensureDir creates missing directories", () => {
-    const dir = join(REPO_ROOT, ".tmp-test-ensure-dir");
+    const dir = artifactPath(REPO_ROOT, "tmp", "test-ensure-dir");
     ensureDir(dir);
     expect(existsSync(dir)).toBe(true);
     Bun.spawnSync(["rm", "-rf", dir]);
@@ -201,7 +202,7 @@ describe("lib/utils", () => {
 
     beforeEach(() => {
       prevHome = Bun.env.HOME;
-      Bun.env.HOME = Bun.env.KIMI_TEST_HOME || join(REPO_ROOT, ".tmp-kimi-test-home");
+      Bun.env.HOME = Bun.env.KIMI_TEST_HOME || artifactPath(REPO_ROOT, "test-home");
       mkdirSync(Bun.env.HOME, { recursive: true });
     });
 

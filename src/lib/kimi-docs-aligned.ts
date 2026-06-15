@@ -19,16 +19,18 @@ export interface KimiDocsAlignmentReport {
 }
 
 const DOC_MARKERS: Record<string, string[]> = {
-  "UNIFIED.md": ["Kimi Work", "Kimi Code", "kimi-toolchain"],
-  "AGENTS.md": ["kimi-toolchain", "Kimi Code", "CODE_REFERENCES.md"],
+  "README.md": ["CapabilityReport", "rootCauseChain", "trusted-keys.json", "x-kimi-signature"],
+  "UNIFIED.md": ["Kimi Work", "Kimi Code", "kimi-toolchain", "kimi-heal plan"],
+  "AGENTS.md": ["kimi-toolchain", "Kimi Code", "CODE_REFERENCES.md", "self-healing.ts"],
   "CODE_REFERENCES.md": [
     "src/lib/tool-runner.ts",
     "src/lib/effect/cli-runtime.ts",
+    "src/lib/self-healing.ts",
     "Package Policy",
   ],
-  "CONTEXT.md": ["Kimi Code", "kimi-toolchain", "CODE_REFERENCES.md"],
-  "TEMPLATES.md": ["config.toml", "mcp.json", "CODE_REFERENCES.md"],
-  "skills/kimi-toolchain/SKILL.md": ["/mcp", "unified-shell"],
+  "CONTEXT.md": ["Kimi Code", "kimi-toolchain", "CODE_REFERENCES.md", "HealPlan"],
+  "TEMPLATES.md": ["config.toml", "mcp.json", "CODE_REFERENCES.md", "kimi-heal plan"],
+  "skills/kimi-toolchain/SKILL.md": ["/mcp", "unified-shell", "kimi-capabilities"],
 };
 
 const REQUIRED_FILES = ["templates/kimi-config-permissions.toml"] as const;

@@ -15,7 +15,7 @@ const BANNED: Array<{ pattern: RegExp; label: string }> = [
 ];
 
 const SCAN_GLOB = new Bun.Glob("**/*.{md,ts,json,toml}");
-const SKIP_DIRS = new Set(["node_modules", ".git", "coverage", ".bun"]);
+const SKIP_DIRS = new Set(["node_modules", ".git", "coverage", ".bun", ".kimi-artifacts"]);
 /** Files that define or embed the ban rule itself */
 const SKIP_FILES = new Set(["scripts/lint-banned-terms.ts", "src/bin/kimi-fix.ts"]);
 

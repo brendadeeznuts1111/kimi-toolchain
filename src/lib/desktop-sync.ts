@@ -20,6 +20,8 @@ import {
 } from "./paths.ts";
 
 export const desktopRoot = _desktopRoot;
+
+/** @deprecated Resolve dynamically with agentsSkillsRoot() instead. */
 export const AGENTS_SKILLS_ROOT = agentsSkillsRoot();
 
 /** @deprecated Use skillsDir() from paths.ts instead. */
@@ -86,7 +88,7 @@ export function resolveDesktopPaths(repoRoot: string): DesktopPaths {
     templatesSrc: join(repoRoot, "templates"),
     templatesDst: join(dRoot, "templates"),
     skillSrc: join(repoRoot, "skills", "kimi-toolchain"),
-    skillDst: join(AGENTS_SKILLS_ROOT, "kimi-toolchain"),
+    skillDst: join(agentsSkillsRoot(), "kimi-toolchain"),
     kimiSkillDst: join(skillsDir(), "kimi-toolchain"),
   };
 }

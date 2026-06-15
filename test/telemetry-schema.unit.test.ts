@@ -39,11 +39,23 @@ describe("telemetry schema", () => {
     const match = classifyFailure("lockfile hash mismatch", sampleTaxonomy);
     const record = buildClassifiedFailure("Shell", "lockfile hash mismatch", match, {
       sessionId: "sess-1",
+      traceId: "trace-1",
+      parentTraceId: "trace-parent",
+      childTraceIds: ["trace-child"],
+      context: {
+        inputs: { command: "kimi-guardian check" },
+        environment: { cwd: "/tmp/project" },
+      },
     });
     expect(record.schemaVersion).toBe(FAILURE_SCHEMA_VERSION);
     expect(record.taxonomyId).toBe("lockfile_issue");
     expect(record.categoryId).toBe("lockfile_issue");
     expect(record.sessionId).toBe("sess-1");
+    expect(record.traceId).toBe("trace-1");
+    expect(record.parentTraceId).toBe("trace-parent");
+    expect(record.childTraceIds).toEqual(["trace-child"]);
+    expect(record.context?.inputs?.command).toBe("kimi-guardian check");
+    expect(record.context?.environment?.cwd).toBe("/tmp/project");
   });
 
   test("flushToFile appends JSONL without overwriting prior content", async () => {

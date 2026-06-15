@@ -388,6 +388,22 @@ bun run lint          # oxlint
 kimi-fix .            # Auto-fix scaffolding
 ```
 
+## Diagnostics & Recovery
+
+```bash
+kimi-capabilities --json       # Live MCP/hook/credential/contract readiness
+kimi-heal plan --json          # Safe/manual/blocked repair plan
+kimi-heal apply --dry-run      # Preview safe repairs; default is non-mutating
+kimi-trace <trace-id> --json   # Causal graph for nested failures
+kimi-contract validate --json  # Contract trust audit
+kimi-why <topic> --json        # Decision ledger lookup
+```
+
+- Treat `kimi-heal apply --yes` as an explicit mutation. It only runs `safeToAutoApply` actions; manual and blocked items require human review.
+- Failure ledgers live under `~/.kimi-code/var/tool-failures.jsonl`; trace events live under `~/.kimi-code/var/trace-events.jsonl`.
+- Agent defaults: use `kimi-capabilities --json` to check live readiness, `kimi-trace <trace-id> --json` to inspect root-cause chains, and `kimi-contract validate --json` before trusting changed contracts.
+- Contract trust roots live in project-root `trusted-keys.json`; signatures are sibling `<contract>.sig` files and embedded `x-kimi-signature` fields are ignored during normalization.
+
 ## Quality Gates
 
 ```bash
@@ -408,6 +424,7 @@ kimi-doctor --quick
 - Cloudflare MCP default: `cloudflare-api` in user MCP; Cloudflare SSO/OAuth is separate from Wrangler OAuth and `kimi-cloudflare-access` API tokens
 - Project override: `.kimi-code/mcp.json` (empty stub unless you add stdio servers)
 - Skills: `.kimi-code/skills/<name>/SKILL.md`
+- Runtime telemetry: `~/.kimi-code/var/tool-failures.jsonl`, `trace-events.jsonl`, `decision-ledger.jsonl`, and `capabilities/*.json`
 
 ## References
 

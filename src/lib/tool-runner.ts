@@ -11,11 +11,34 @@ import { join } from "path";
 import { desktopRoot } from "./paths.ts";
 import { recordStep } from "./step-budget.ts";
 import { classifyAndSuggest } from "./error-taxonomy.ts";
+import { childTraceEnv, ensureProcessTrace, TRACE_ID_ENV } from "./effect/trace-context.ts";
+import { buildTraceEvent, recordTraceEvent } from "./trace-ledger.ts";
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 const AGENT_TOOL_TIMEOUT_MS = 15_000;
 const DEFAULT_GRACE_PERIOD_MS = 5_000;
 const DEFAULT_MAX_OUTPUT_BYTES = 1_048_576;
+export const GIT_LOCAL_ENV_KEYS = [
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+  "GIT_CONFIG_COUNT",
+  "GIT_CONFIG_PARAMETERS",
+  "GIT_DIR",
+  "GIT_INDEX_FILE",
+  "GIT_INTERNAL_SUPER_PREFIX",
+  "GIT_NAMESPACE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_OPTIONAL_LOCKS",
+  "GIT_PREFIX",
+  "GIT_QUARANTINE_PATH",
+  "GIT_WORK_TREE",
+] as const;
+
+export function scrubProcessGitEnv(): void {
+  for (const key of GIT_LOCAL_ENV_KEYS) {
+    delete Bun.env[key];
+  }
+}
 
 /** Detect if running inside an agent session (Kimi Code loop, CI, etc.). */
 export function isAgentContext(): boolean {
@@ -60,6 +83,8 @@ export interface ToolInvocation {
   taxonomyId?: string;
   suggestion?: string;
   autoFix?: string;
+  traceId?: string;
+  parentTraceId?: string;
 }
 
 /** Return the canonical tools directory path (~/.kimi-code/tools). */
@@ -67,13 +92,17 @@ export function toolsDir(): string {
   return join(desktopRoot(), "tools");
 }
 
-function mergedEnv(env?: Record<string, string | undefined>): Record<string, string> | undefined {
-  if (!env) return undefined;
+function mergedEnv(env?: Record<string, string | undefined>): Record<string, string> {
   const merged: Record<string, string> = {};
   for (const [key, value] of Object.entries(Bun.env)) {
     if (value !== undefined) merged[key] = value;
   }
-  for (const [key, value] of Object.entries(env)) {
+
+  for (const key of GIT_LOCAL_ENV_KEYS) {
+    delete merged[key];
+  }
+
+  for (const [key, value] of Object.entries(env ?? {})) {
     if (value === undefined) delete merged[key];
     else merged[key] = value;
   }
@@ -133,10 +162,13 @@ export async function invokeTool(
   const gracePeriodMs = options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
   const maxOutputBytes = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
   const start = performance.now();
+  const startedAt = new Date().toISOString();
+  const parentTraceId = options.env?.[TRACE_ID_ENV] || ensureProcessTrace().traceId;
+  const traceOverlay = childTraceEnv(parentTraceId);
 
   const proc = Bun.spawn(["bun", "run", toolPath, ...args], {
     cwd,
-    env: mergedEnv(options.env),
+    env: mergedEnv({ ...options.env, ...traceOverlay }),
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -206,7 +238,31 @@ export async function invokeTool(
     error,
     durationMs,
     isError: exitCode !== 0 || !!error,
+    traceId: traceOverlay.KIMI_TRACE_ID,
+    parentTraceId,
   };
+
+  try {
+    recordTraceEvent(
+      buildTraceEvent({
+        traceId: parentTraceId,
+        childTraceIds: [traceOverlay.KIMI_TRACE_ID],
+        eventType: "subprocess",
+        tool: toolPath,
+        command: ["bun", "run", toolPath, ...args],
+        cwd,
+        status: base.isError ? "error" : "ok",
+        startedAt,
+        endedAt: new Date().toISOString(),
+        durationMs,
+        ...(base.isError
+          ? { error: [error, stderr, stdout].filter(Boolean).join("\n").slice(0, 500) }
+          : {}),
+      })
+    );
+  } catch {
+    // Trace collection is best-effort and must not affect tool execution.
+  }
 
   if (!base.isError) {
     return base;

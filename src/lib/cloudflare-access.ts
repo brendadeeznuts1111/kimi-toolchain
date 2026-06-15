@@ -281,7 +281,8 @@ export function checkTokenExpiry(
       continue;
     }
 
-    const daysRemaining = Math.floor((expiry - now) / (1000 * 60 * 60 * 24));
+    const dayDelta = (expiry - now) / (1000 * 60 * 60 * 24);
+    const daysRemaining = dayDelta >= 0 ? Math.ceil(dayDelta) : Math.floor(dayDelta);
 
     if (daysRemaining < 0) {
       violations.push({ token, reason: "expired", daysRemaining });

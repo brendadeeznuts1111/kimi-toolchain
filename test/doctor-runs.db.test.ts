@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdirSync, rmSync } from "fs";
-import { join } from "path";
+import { artifactPath } from "../src/lib/artifacts.ts";
 import { getPersistentWarnings, recordDoctorRun } from "../src/lib/doctor-runs.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
@@ -11,7 +11,7 @@ describe("doctor-runs", () => {
 
   beforeEach(() => {
     prevHome = Bun.env.HOME;
-    testHome = join(REPO_ROOT, `.tmp-doctor-${Date.now()}`);
+    testHome = artifactPath(REPO_ROOT, "tmp", `doctor-${Date.now()}`);
     mkdirSync(testHome, { recursive: true });
     Bun.env.HOME = testHome;
   });

@@ -12,6 +12,13 @@ describe("buildAgentsMd", () => {
     expect(md).toContain("Cloudflare SSO/OAuth is separate");
     expect(md).toContain("./CODE_REFERENCES.md");
     expect(md).toContain("~/.kimi-code/CODE_REFERENCES.md");
+    expect(md).toContain("kimi-capabilities --json");
+    expect(md).toContain("kimi-heal plan --json");
+    expect(md).toContain("kimi-heal apply --dry-run");
+    expect(md).toContain("kimi-trace <trace-id> --json");
+    expect(md).toContain("kimi-contract validate --json");
+    expect(md).toContain("safeToAutoApply");
+    expect(md).toContain("~/.kimi-code/var/trace-events.jsonl");
     expect(md).toContain(
       "Keep destructive operations and dependency changes in manual approval mode"
     );
