@@ -63,7 +63,7 @@
     "test:coverage:fast": "bun run scripts/run-tests.ts --fast --coverage",
     "test:coverage:ci": "bun run scripts/run-tests.ts --ci --coverage",
     "check": "bun run scripts/check.ts",
-    "check:fast": "bun run scripts/check.ts --fast --timeout 100",
+    "check:fast": "bun run scripts/check.ts --fast",
     "check:dry-run": "bun run scripts/check.ts --dry-run",
     "check:staged": "bun run scripts/check.ts --staged",
     "docs:sync": "bun run src/lib/readme-sync.ts --fix",

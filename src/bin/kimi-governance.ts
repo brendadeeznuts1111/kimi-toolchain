@@ -286,9 +286,11 @@ async function refreshStaleLockfile(projectDir: string): Promise<boolean> {
 async function computeRScore(projectDir: string): Promise<RScore> {
   const project = await getProjectName(projectDir);
 
-  const gov = await checkGovernance(projectDir);
-  const coverage = await checkCoverage(projectDir);
-  const drift = await checkDocDrift(projectDir);
+  const [gov, coverage, drift] = await Promise.all([
+    checkGovernance(projectDir),
+    checkCoverage(projectDir),
+    checkDocDrift(projectDir),
+  ]);
   if (!drift) {
     throw new Error("Failed to check README drift — could not read package.json or README.md");
   }

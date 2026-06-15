@@ -9,14 +9,21 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import { desktopRoot } from "./paths.ts";
+import { recordStep } from "./step-budget.ts";
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 const AGENT_TOOL_TIMEOUT_MS = 15_000;
 const DEFAULT_GRACE_PERIOD_MS = 5_000;
 
-/** Detect if running inside an agent session (Kimi Code loop). */
-function isAgentContext(): boolean {
-  return !!(Bun.env.KIMI_AGENT_SESSION || Bun.env.KIMI_CODE_SESSION || Bun.env.CI);
+/** Detect if running inside an agent session (Kimi Code loop, CI, etc.). */
+export function isAgentContext(): boolean {
+  return !!(
+    Bun.env.KIMI_AGENT_SESSION ||
+    Bun.env.KIMI_CODE_SESSION ||
+    Bun.env.CI ||
+    Bun.env.GITHUB_ACTIONS ||
+    Bun.env.GITLAB_CI
+  );
 }
 
 export function defaultToolTimeoutMs(): number {
@@ -106,6 +113,8 @@ export async function invokeTool(
   }
 
   const durationMs = Math.round(performance.now() - start);
+
+  recordStep(toolPath, durationMs, exitCode !== 0 || !!error);
 
   return {
     tool: toolPath,

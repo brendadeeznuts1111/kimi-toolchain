@@ -11,6 +11,7 @@ import {
   runTool,
   invokeTool,
   toolsDir,
+  isAgentContext,
   type ToolInvocation,
   type ToolInvocationOptions,
 } from "./tool-runner.ts";
@@ -48,6 +49,7 @@ export function statusIcon(status: "ok" | "warn" | "error"): string {
 
 /** Print a section header with decorative borders. */
 export function printSection(title: string, width = DEFAULT_SECTION_WIDTH): void {
+  if (isAgentContext()) return;
   console.log("");
   console.log(`── ${title} ${"─".repeat(Math.max(0, width - title.length))}`);
 }
@@ -58,6 +60,7 @@ export function printToolBanner(
   subtitle?: string,
   innerWidth = DEFAULT_BANNER_INNER_WIDTH
 ): void {
+  if (isAgentContext()) return;
   const pad = Math.max(0, innerWidth - title.length);
   const left = Math.floor(pad / 2);
   const right = pad - left;
@@ -75,6 +78,7 @@ export function printToolBanner(
 
 /** Print a project banner with optional project name and subtitle. */
 export function printProjectBanner(title: string, project?: string, subtitle?: string): void {
+  if (isAgentContext()) return;
   printToolBanner(title, subtitle);
   if (project) console.log(`  Project: ${project}`);
   console.log("");

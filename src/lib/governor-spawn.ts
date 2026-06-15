@@ -162,9 +162,11 @@ export async function governedSpawn(
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     attempts = attempt;
 
-    // Retry backoff (skip on first attempt)
+    // Retry backoff with jitter (skip on first attempt)
     if (attempt > 1) {
-      const delay = backoffMs * Math.pow(2, attempt - 2);
+      const baseDelay = backoffMs * Math.pow(2, attempt - 2);
+      const jitter = Math.floor(Math.random() * 1000);
+      const delay = Math.min(baseDelay + jitter, 30000); // cap at 30s
       await Bun.sleep(delay);
     }
 

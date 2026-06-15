@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
+import { invokeTool } from "../../src/lib/tool-runner.ts";
 
 const REPO_ROOT = import.meta.dir + "/../..";
-/** Captured before concurrent unit tests may mutate Bun.env.HOME */
-const REAL_HOME = process.env.HOME || "/tmp";
 const DOCTOR = join(REPO_ROOT, "src/bin/kimi-doctor.ts");
 const ORPHAN_KILL = join(REPO_ROOT, "src/bin/kimi-orphan-kill.ts");
 const GOVERNOR = join(REPO_ROOT, "src/bin/kimi-resource-governor.ts");
@@ -20,22 +19,11 @@ async function runTool(
   args: string[] = [],
   timeoutMs: number = 15_000
 ): Promise<{ stdout: string; exitCode: number }> {
-  const proc = Bun.spawn(["bun", "run", path, ...args], {
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...Bun.env, HOME: REAL_HOME },
+  const result = await invokeTool(path, args, {
+    cwd: REPO_ROOT,
+    timeoutMs,
   });
-
-  const timer = setTimeout(() => {
-    proc.kill("SIGTERM");
-    setTimeout(() => proc.kill("SIGKILL"), 3000);
-  }, timeoutMs);
-
-  const exitCode = await proc.exited;
-  clearTimeout(timer);
-  const stdout = await Bun.readableStreamToText(proc.stdout);
-  const stderr = await Bun.readableStreamToText(proc.stderr);
-  return { stdout: stdout + stderr, exitCode };
+  return { stdout: result.stdout + result.stderr, exitCode: result.exitCode };
 }
 
 describe("kimi-doctor smoke", () => {

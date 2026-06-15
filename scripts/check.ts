@@ -102,9 +102,17 @@ async function main() {
     return;
   }
 
-  for (const step of steps) {
-    const code = await runStep(step);
-    if (code !== 0) process.exit(code);
+  // Run independent gates (format, lint, typecheck) in parallel, then test
+  const testStep = steps.find((s) => s.name === "test" || s.name === "test:fast");
+  const independentSteps = steps.filter((s) => s !== testStep);
+
+  const independentResults = await Promise.all(independentSteps.map(runStep));
+  const firstFail = independentResults.find((c) => c !== 0);
+  if (firstFail !== undefined) process.exit(firstFail);
+
+  if (testStep) {
+    const testCode = await runStep(testStep);
+    if (testCode !== 0) process.exit(testCode);
   }
 }
 

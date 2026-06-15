@@ -151,10 +151,12 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
     log("git", "repo already exists");
   }
 
-  await delegateTool("kimi-governance", ["fix"], project, dryRun);
-  await delegateTool("kimi-context-gen", ["update"], project, dryRun);
-  await delegateTool("kimi-guardian", ["fix"], project, dryRun);
-  await delegateTool("kimi-githooks", ["install"], project, dryRun);
+  await Promise.all([
+    delegateTool("kimi-governance", ["fix"], project, dryRun),
+    delegateTool("kimi-context-gen", ["update"], project, dryRun),
+    delegateTool("kimi-guardian", ["fix"], project, dryRun),
+    delegateTool("kimi-githooks", ["install"], project, dryRun),
+  ]);
 
   const envExample = join(project, ".env.example");
   if (!existsSync(envExample)) {

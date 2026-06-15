@@ -38,7 +38,8 @@ import {
   mergeConfigTomlPermissions,
 } from "../lib/kimi-config-audit.ts";
 import { getOrphanProcesses, runOrphanKill } from "../lib/process-utils.ts";
-import { resolveProjectRoot, printSection, runTool, printToolBanner } from "../lib/utils.ts";
+import { runTool, defaultToolTimeoutMs, isAgentContext } from "../lib/tool-runner.ts";
+import { resolveProjectRoot, printSection, printToolBanner } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 
 const TOOLS_DIR = toolsDir();
@@ -90,18 +91,22 @@ function recordMemoryCheck(r: MemoryCheckResult): CheckResult {
 async function runToolDoctor(tool: string, projectRoot: string): Promise<CheckResult> {
   const cmd = FIX ? "fix" : "doctor";
   const toolArgs = tool === "kimi-fix" ? (FIX ? [projectRoot] : ["doctor", projectRoot]) : [cmd];
-  if (!JSON_OUT) console.log(`  → Running ${tool} ${toolArgs.join(" ")}...`);
+  if (!JSON_OUT && !isAgentContext()) console.log(`  → Running ${tool} ${toolArgs.join(" ")}...`);
 
   try {
-    const result = await runTool(tool, toolArgs, { cwd: projectRoot, timeoutMs: 120000 });
+    const timeoutMs = QUICK ? defaultToolTimeoutMs() : 120000;
+    const result = await runTool(tool, toolArgs, { cwd: projectRoot, timeoutMs });
 
-    if (!JSON_OUT) {
+    if (!JSON_OUT && !isAgentContext()) {
       for (const line of result.stdout.split("\n")) {
         if (line.trim()) console.log(`    ${line}`);
       }
       for (const line of result.stderr.split("\n")) {
         if (line.trim()) console.log(`    ${line}`);
       }
+    } else if (!JSON_OUT && isAgentContext() && result.isError) {
+      const summary = (result.stdout + result.stderr).split("\n").slice(0, 5).join("; ");
+      console.log(`    ⚠ ${tool}: ${summary.slice(0, 120)}`);
     }
 
     if (result.error) {
@@ -314,22 +319,20 @@ async function runQualityChecks(projectRoot: string): Promise<CheckResult[]> {
   const pkg = (await Bun.file(pkgPath).json()) as { scripts?: Record<string, string> };
   const scripts = pkg.scripts || {};
 
-  if (!scripts["format:check"]) {
-    results.push(warn("format:check", "script not defined"));
-  } else if (!QUICK) {
-    results.push(await runScript(projectRoot, "format:check", "format:check"));
-  }
-
-  if (!scripts.lint) {
-    results.push(warn("lint", "script not defined"));
-  } else if (!QUICK) {
-    results.push(await runScript(projectRoot, "lint", "lint"));
-  }
-
-  if (!scripts.typecheck) {
-    results.push(warn("typecheck", "script not defined"));
-  } else if (!QUICK) {
-    results.push(await runScript(projectRoot, "typecheck", "typecheck"));
+  if (!QUICK) {
+    const qualityPromises: Promise<CheckResult>[] = [];
+    if (scripts["format:check"]) {
+      qualityPromises.push(runScript(projectRoot, "format:check", "format:check"));
+    }
+    if (scripts.lint) {
+      qualityPromises.push(runScript(projectRoot, "lint", "lint"));
+    }
+    if (scripts.typecheck) {
+      qualityPromises.push(runScript(projectRoot, "typecheck", "typecheck"));
+    }
+    if (qualityPromises.length > 0) {
+      results.push(...(await Promise.all(qualityPromises)));
+    }
   }
 
   if (scripts.check) {
@@ -834,14 +837,14 @@ async function main() {
       console.log("  Auto-fix applied where possible.");
     } else if (QUICK) {
       console.log("  Quick mode — run without --quick for full check.");
-    } else {
+    } else if (!isAgentContext()) {
       console.log("  Run with --fix to apply tool fixes, --quick to skip tool doctors.");
+      console.log("  Run with --memory-budget to print per-app RSS breakdown.");
+      console.log("  Run with --json for structured agent output.");
+      console.log("  Run with --workspace for workspace-only checks.");
+      console.log("  Run with --ecosystem for cross-product health.");
+      console.log("  Run with --fix --fix-cursor to remove legacy Cursor slugs.");
     }
-    console.log("  Run with --memory-budget to print per-app RSS breakdown.");
-    console.log("  Run with --json for structured agent output.");
-    console.log("  Run with --workspace for workspace-only checks.");
-    console.log("  Run with --ecosystem for cross-product health.");
-    console.log("  Run with --fix --fix-cursor to remove legacy Cursor slugs.");
   }
 
   if (blocking > 0) process.exit(1);
