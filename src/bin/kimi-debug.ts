@@ -27,6 +27,11 @@ import {
   taxonomyPath,
   type ClassifiedFailure,
 } from "../lib/error-taxonomy.ts";
+import {
+  buildTaxonomyConstantLinks,
+  formatTaxonomyConstantHint,
+  loadFailureCountsByTaxonomy,
+} from "../lib/taxonomy-constants.ts";
 
 const logger = createLogger(Bun.argv, "kimi-debug");
 
@@ -237,6 +242,10 @@ async function traceFile(projectDir: string, filePath: string) {
 
 async function printTaxonomy() {
   const taxonomy = await loadTaxonomy();
+  const projectDir = await resolveProjectRoot();
+  const links = await buildTaxonomyConstantLinks(projectDir);
+  const linkById = new Map(links.map((link) => [link.taxonomyId, link]));
+
   logger.section(`Error Taxonomy (v${taxonomy.version})`);
   logger.info(`Loaded from: ${taxonomyPath()}`);
   for (const category of taxonomy.categories) {
@@ -247,18 +256,66 @@ async function printTaxonomy() {
     if (category.patterns.length > 0) {
       logger.info(`  patterns: ${category.patterns.length}`);
     }
+    const link = linkById.get(category.id);
+    if (link && link.resolved.length > 0) {
+      logger.info(`  relatedConstants: ${formatTaxonomyConstantHint(link)}`);
+    }
   }
+}
+
+async function printErrorCluster(projectDir: string) {
+  const taxonomy = await loadTaxonomy(join(projectDir, "error-taxonomy.yml"));
+  const links = await buildTaxonomyConstantLinks(projectDir);
+  const ledgerPath = join(homeDir(), ".kimi-code", "var", "tool-failures.jsonl");
+  const ledgerCounts = await loadFailureCountsByTaxonomy(ledgerPath);
+
+  logger.section("Error Cluster — Taxonomy × Constants");
+  logger.info(`Ledger: ${ledgerPath}`);
+
+  const linked = links.filter((link) => link.relatedConstants.length > 0);
+  if (linked.length === 0) {
+    logger.warn("No taxonomy categories declare relatedConstants");
+    return 0;
+  }
+
+  for (const link of linked.sort((a, b) => {
+    const aCount = ledgerCounts.get(a.taxonomyId) ?? 0;
+    const bCount = ledgerCounts.get(b.taxonomyId) ?? 0;
+    return bCount - aCount;
+  })) {
+    const hits = ledgerCounts.get(link.taxonomyId) ?? 0;
+    logger.info(
+      `${link.taxonomyId} (${hits} ledger hit${hits === 1 ? "" : "s"}) — ${link.categoryName}`
+    );
+    logger.info(`  ${formatTaxonomyConstantHint(link)}`);
+    const category = taxonomy.categories.find((entry) => entry.id === link.taxonomyId);
+    if (category?.autoFix) {
+      logger.info(`  autoFix: ${category.autoFix}`);
+    }
+  }
+
+  return 0;
 }
 
 async function analyzeWithTaxonomy(errorText: string) {
   const taxonomy = await loadTaxonomy();
   const match = classifyFailure(errorText, taxonomy);
+  const projectDir = await resolveProjectRoot();
+  const links = await buildTaxonomyConstantLinks(projectDir);
+  const link = links.find((entry) => entry.taxonomyId === match.category.id);
+
   logger.section("Taxonomy Analysis");
   logger.info(`Category: ${match.category.name} (${match.category.id})`);
   logger.info(`Severity: ${match.category.severity}`);
   logger.info(`Expected: ${match.category.expected ? "yes" : "no"}`);
   if (match.matchedPattern) {
     logger.info(`Pattern:  ${match.matchedPattern}`);
+  }
+  if (link && link.resolved.length > 0) {
+    logger.info(`Tuning:   ${formatTaxonomyConstantHint(link)}`);
+  }
+  if (match.category.autoFix) {
+    logger.info(`AutoFix:  ${match.category.autoFix}`);
   }
 }
 
@@ -434,7 +491,7 @@ function getDirName(projectDir: string): string {
 async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
   const command = args[0] || "last";
-  const projectDir = await resolveProjectRoot(Bun.cwd);
+  const projectDir = await resolveProjectRoot();
   const project = getDirName(projectDir);
 
   logger.banner('Kimi Debug — "What Broke?" Wizard', projectDir);
@@ -584,6 +641,8 @@ async function main(): Promise<number> {
     await fixError(projectDir, errorText);
   } else if (command === "taxonomy") {
     await printTaxonomy();
+  } else if (command === "cluster") {
+    return await printErrorCluster(projectDir);
   } else if (command === "classify") {
     const errorText = args.slice(1).join(" ") || "";
     if (!errorText) {
@@ -607,6 +666,7 @@ async function main(): Promise<number> {
     logger.line("  analyze <error-text>    Analyze error message for known patterns");
     logger.line("  classify <error-text>   Classify error text against taxonomy");
     logger.line("  taxonomy                List error taxonomy categories");
+    logger.line("  cluster                 Group taxonomy failures with related define constants");
     logger.line("  wire [path]             Analyze a Kimi Code wire.jsonl for failures");
     logger.line("  doctor                  Check debug wizard health");
     logger.line("  fix <error-text>        Suggest auto-fixes for error");

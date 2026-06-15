@@ -12,6 +12,7 @@ describe("buildConstants", () => {
     expect(KIMI_HOOK_VERIFIER_MAX_CYCLES).toBe(32);
     expect(KIMI_CONTRACT_SCHEMA_VERSION).toBe("1.0.0");
     expect(KIMI_CONTRACT_INFERENCE_ENABLED).toBe(true);
+    expect(KIMI_TUNING_SET_VERSION).toBe("1.0.0");
   });
 
   it("should resolve contract observations path from define", () => {

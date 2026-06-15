@@ -24,6 +24,8 @@ export interface TaxonomyCategory {
   suggestion?: string;
   autoFix?: string;
   docLink?: string;
+  /** Define constants that influence detection or remediation for this failure class. */
+  relatedConstants?: string[];
 }
 
 export interface Taxonomy {
@@ -68,6 +70,9 @@ export async function loadTaxonomy(path?: string): Promise<Taxonomy> {
       patterns: (c.patterns || []).filter(
         (p): p is TaxonomyPattern => !!p && typeof p.regex === "string"
       ),
+      relatedConstants: Array.isArray(c.relatedConstants)
+        ? c.relatedConstants.filter((key): key is string => typeof key === "string")
+        : undefined,
     }));
 
   return { version: parsed.version || 1, categories };

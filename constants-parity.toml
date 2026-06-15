@@ -1,0 +1,27 @@
+schemaVersion = 1
+
+# Cross-repo define constant parity — shared logical tuning across products.
+# SSOT for which constants must agree; values still live in each repo's bunfig.toml.
+# @see CODE_REFERENCES.md § Build-time constants
+
+[repos.kimi-toolchain]
+path = "."
+bunfig = "bunfig.toml"
+types = "types/build-constants.d.ts"
+
+[repos.accounting-telegram]
+path = "~/accounting-telegram"
+bunfig = "bunfig.toml"
+types = "types/build-constants.d.ts"
+
+[[shared]]
+id = "velocity-window-days"
+description = "Rolling window for velocity/decision scoring (days)"
+
+[shared.repos.kimi-toolchain]
+key = "KIMI_DECISION_SCORE_WINDOW_DAYS"
+defineDomain = "decision-scoring"
+
+[shared.repos.accounting-telegram]
+key = "DRIFT_VELOCITY_WINDOW_DAYS"
+defineDomain = "drift-predict"

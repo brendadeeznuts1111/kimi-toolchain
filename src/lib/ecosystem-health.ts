@@ -8,6 +8,10 @@ import { detectSyncDrift } from "./sync-hashes.ts";
 import { validateMcpConfig } from "./mcp-config.ts";
 import { auditKimiConfig } from "./kimi-config-audit.ts";
 import { checkScaffoldAligned } from "./scaffold-aligned.ts";
+import { checkDxGithubAlignment } from "./dx-github-alignment.ts";
+import { checkConstantParity } from "./constant-parity.ts";
+import { checkTaxonomyConstantLinks } from "./taxonomy-constants.ts";
+import { checkTuningSetFreshness } from "./tuning-set-version.ts";
 import {
   auditWorkspaceHealth,
   countWorkspaceBlockers,
@@ -163,6 +167,22 @@ export async function auditEcosystemHealth(
   }
 
   if (isToolchain) {
+    const dxGithub = await checkDxGithubAlignment(projectRoot);
+    if (dxGithub.applicable) {
+      for (const check of dxGithub.checks) {
+        checks.push({
+          name: `dx-github:${check.name}`,
+          status: check.status,
+          message: check.message,
+          source: "dx-github",
+          fixable: check.fixable,
+        });
+      }
+      if (!dxGithub.aligned) {
+        fixPlan.push("align dx.config.toml with package.json and .github/workflows/ci.yml");
+      }
+    }
+
     const scaffold = await checkScaffoldAligned(projectRoot);
     if (scaffold.applicable) {
       for (const check of scaffold.checks) {
@@ -179,6 +199,56 @@ export async function auditEcosystemHealth(
 
     const qualityChecks = await checkQualityScripts(projectRoot);
     checks.push(...qualityChecks);
+
+    const constantParity = await checkConstantParity(projectRoot);
+    if (constantParity.applicable) {
+      for (const check of constantParity.checks) {
+        checks.push({
+          name: `constant-parity:${check.name}`,
+          status: check.status,
+          message: check.message,
+          source: "constant-parity",
+          fixable: check.fixable,
+        });
+      }
+      if (!constantParity.aligned) {
+        fixPlan.push("align shared define constants — see constants-parity.toml");
+      }
+    }
+
+    const taxonomyConstants = await checkTaxonomyConstantLinks(projectRoot);
+    if (taxonomyConstants.applicable) {
+      for (const check of taxonomyConstants.checks) {
+        checks.push({
+          name: `taxonomy-constants:${check.name}`,
+          status: check.status,
+          message: check.message,
+          source: "taxonomy-constants",
+          fixable: check.fixable,
+        });
+      }
+      if (!taxonomyConstants.aligned) {
+        fixPlan.push("fix error-taxonomy.yml relatedConstants — unknown keys in bunfig/manifest");
+      }
+    }
+
+    const tuningSet = await checkTuningSetFreshness(projectRoot);
+    if (tuningSet.applicable) {
+      for (const check of tuningSet.checks) {
+        checks.push({
+          name: `tuning-set:${check.name}`,
+          status: check.status,
+          message: check.message,
+          source: "tuning-set",
+          fixable: check.fixable,
+        });
+      }
+      if (!tuningSet.aligned) {
+        fixPlan.push(
+          "bump KIMI_TUNING_SET_VERSION in bunfig.toml and run bun run manifest:generate"
+        );
+      }
+    }
   }
 
   if (!options.quick) {
@@ -201,7 +271,11 @@ export async function auditEcosystemHealth(
     if (check.status === "warn") warnings++;
     if (check.status === "error") {
       errors++;
-      if (check.name === "desktop-sync" || check.name === "kimi-doctor-official") {
+      if (
+        check.name === "desktop-sync" ||
+        check.name === "kimi-doctor-official" ||
+        check.source === "dx-github"
+      ) {
         blockers++;
       }
     }
