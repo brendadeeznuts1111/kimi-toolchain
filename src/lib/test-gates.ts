@@ -46,6 +46,7 @@ export const UNIT_TEST_FILES = [
   "test/build-constants-registry.unit.test.ts",
   "test/taxonomy-constants.unit.test.ts",
   "test/error-suggest.unit.test.ts",
+  "test/constant-optimizer.unit.test.ts",
   "test/lint-test-names.unit.test.ts",
   "test/tuning-set-version.unit.test.ts",
   "test/constants-heal.unit.test.ts",

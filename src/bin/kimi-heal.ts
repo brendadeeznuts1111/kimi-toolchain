@@ -197,6 +197,18 @@ async function main(): Promise<number> {
       }
       return 0;
     }
+    if (sub === "optimize") {
+      const { buildConstantOptimizerReport, formatConstantOptimizerReport } =
+        await import("../lib/constant-optimizer.ts");
+      const report = await buildConstantOptimizerReport(projectRoot);
+      if (jsonMode) {
+        process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      } else {
+        logger.section("Constant Optimizer");
+        logger.line(formatConstantOptimizerReport(report));
+      }
+      return 0;
+    }
     logger.error(`Unknown constants subcommand: ${sub}`);
     return 1;
   }
@@ -211,6 +223,9 @@ async function main(): Promise<number> {
   );
   logger.line(
     "  constants snapshot [--json]           Capture golden template (.kimi/var/constants-golden.json)"
+  );
+  logger.line(
+    "  constants optimize [--json]           Correlate bound-constant repairs with failure outcomes"
   );
   return command === "help" ? 0 : 1;
 }
