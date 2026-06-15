@@ -26,6 +26,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   lib: "src/lib/utils.ts",
   "build-constants": "types/build-constants.d.ts",
   "path-alignment": "src/lib/workspace-health.ts",
+  "workspace-known-blockers": "src/lib/workspace-known-blockers.ts",
   sync: "src/lib/sync-hashes.ts",
   "sync-drift": "src/lib/sync-hashes.ts",
   "telemetry-schema": "src/lib/error-taxonomy.ts",
