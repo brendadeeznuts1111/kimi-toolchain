@@ -11,6 +11,13 @@ import {
   writeGateCache,
 } from "../src/lib/gate-runner.ts";
 
+const gitFixtureEnv = {
+  GIT_DIR: undefined,
+  GIT_WORK_TREE: undefined,
+  GIT_INDEX_FILE: undefined,
+  GIT_PREFIX: undefined,
+};
+
 describe("gate-runner", () => {
   let projectDir: string;
 
@@ -41,11 +48,12 @@ describe("gate-runner", () => {
   });
 
   it("should cache and skip gates for the same commit", async () => {
-    await $`git init`.cwd(projectDir).quiet();
+    await $`git init`.cwd(projectDir).env(gitFixtureEnv).quiet();
     await Bun.write(join(projectDir, "README.md"), "# demo\n");
     await $`git add README.md`
       .cwd(projectDir)
       .env({
+        ...gitFixtureEnv,
         GIT_AUTHOR_NAME: "test",
         GIT_AUTHOR_EMAIL: "test@test",
         GIT_COMMITTER_NAME: "test",
@@ -55,6 +63,7 @@ describe("gate-runner", () => {
     await $`git commit -m init`
       .cwd(projectDir)
       .env({
+        ...gitFixtureEnv,
         GIT_AUTHOR_NAME: "test",
         GIT_AUTHOR_EMAIL: "test@test",
         GIT_COMMITTER_NAME: "test",

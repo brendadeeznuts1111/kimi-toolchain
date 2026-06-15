@@ -85,6 +85,11 @@ export function optimizerHealthTrendPath(projectRoot: string): string {
   return join(projectKimiDir(projectRoot), "var", "optimizer-health.ndjson");
 }
 
+/** Return {projectRoot}/.kimi/var/health.ndjson */
+export function healthSnapshotsPath(projectRoot: string): string {
+  return join(projectKimiDir(projectRoot), "var", "health.ndjson");
+}
+
 /** Return {projectRoot}/.kimi/var/contract-observations.ndjson (path segment from bunfig define). */
 export function contractObservationsPath(projectRoot: string): string {
   return join(projectRoot, KIMI_CONTRACT_OBSERVATIONS_PATH);
