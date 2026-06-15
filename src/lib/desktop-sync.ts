@@ -128,6 +128,7 @@ async function copyIfChanged(
   dstPath: string,
   label: string,
   force: boolean,
+  dryRun: boolean,
   result: SyncFileResult
 ): Promise<void> {
   const srcText = await readTextOrNull(srcPath);
@@ -135,8 +136,10 @@ async function copyIfChanged(
 
   const dstText = await readTextOrNull(dstPath);
   if (force || srcText !== dstText) {
-    ensureDir(dirname(dstPath));
-    await Bun.write(dstPath, srcText);
+    if (!dryRun) {
+      ensureDir(dirname(dstPath));
+      await Bun.write(dstPath, srcText);
+    }
     result.updated.push(label);
   } else {
     result.skipped++;
@@ -149,6 +152,7 @@ async function syncGlobDirectory(
   labelPrefix: string,
   globPattern: string,
   force: boolean,
+  dryRun: boolean,
   result: SyncFileResult
 ): Promise<void> {
   const glob = new Bun.Glob(globPattern);
@@ -158,6 +162,7 @@ async function syncGlobDirectory(
       join(dstDir, file),
       `${labelPrefix}${file}`,
       force,
+      dryRun,
       result
     );
   }
@@ -166,16 +171,33 @@ async function syncGlobDirectory(
 /** Sync managed sources from repo to desktop install. */
 export async function syncDesktop(
   repoRoot: string,
-  options: { force?: boolean } = {}
+  options: { force?: boolean; dryRun?: boolean } = {}
 ): Promise<SyncFileResult> {
   const force = options.force ?? false;
+  const dryRun = options.dryRun ?? false;
   const paths = resolveDesktopPaths(repoRoot);
   const result: SyncFileResult = { updated: [], removed: [], skipped: 0 };
 
-  ensureDesktopLayout();
+  if (!dryRun) ensureDesktopLayout();
 
-  await syncGlobDirectory(paths.binSrc, paths.binDst, LABEL_PREFIX.TOOLS, "*.ts", force, result);
-  await syncGlobDirectory(paths.libSrc, paths.libDst, LABEL_PREFIX.LIB, "**/*.ts", force, result);
+  await syncGlobDirectory(
+    paths.binSrc,
+    paths.binDst,
+    LABEL_PREFIX.TOOLS,
+    "*.ts",
+    force,
+    dryRun,
+    result
+  );
+  await syncGlobDirectory(
+    paths.libSrc,
+    paths.libDst,
+    LABEL_PREFIX.LIB,
+    "**/*.ts",
+    force,
+    dryRun,
+    result
+  );
 
   if (existsSync(paths.scriptsSrc)) {
     await syncGlobDirectory(
@@ -184,6 +206,7 @@ export async function syncDesktop(
       LABEL_PREFIX.SCRIPTS,
       "*.ts",
       force,
+      dryRun,
       result
     );
   }
@@ -195,6 +218,7 @@ export async function syncDesktop(
       LABEL_PREFIX.KIMI_HOOKS,
       "*.ts",
       force,
+      dryRun,
       result
     );
   }
@@ -206,21 +230,22 @@ export async function syncDesktop(
       LABEL_PREFIX.TEMPLATES,
       "**/*",
       force,
+      dryRun,
       result
     );
   }
 
   for (const doc of ROOT_TEMPLATES) {
-    await copyIfChanged(join(repoRoot, doc), join(desktopRoot(), doc), doc, force, result);
+    await copyIfChanged(join(repoRoot, doc), join(desktopRoot(), doc), doc, force, dryRun, result);
   }
 
   for (const file of OPTIONAL_CONFIG_FILES) {
     const srcPath = join(repoRoot, file);
     const dstPath = join(desktopRoot(), file);
     if (force) {
-      await copyIfChanged(srcPath, dstPath, file, true, result);
+      await copyIfChanged(srcPath, dstPath, file, true, dryRun, result);
     } else if (!existsSync(dstPath) && existsSync(srcPath)) {
-      await Bun.write(dstPath, await Bun.file(srcPath).text());
+      if (!dryRun) await Bun.write(dstPath, await Bun.file(srcPath).text());
       result.updated.push(file);
     }
   }
@@ -233,6 +258,7 @@ export async function syncDesktop(
         join(paths.skillDst, rel),
         `${LABEL_PREFIX.AGENTS_SKILL}${rel}`,
         force,
+        dryRun,
         result
       );
       await copyIfChanged(
@@ -240,6 +266,7 @@ export async function syncDesktop(
         join(paths.kimiSkillDst, rel),
         `${LABEL_PREFIX.KIMI_SKILL}${rel}`,
         force,
+        dryRun,
         result
       );
     }
@@ -248,10 +275,12 @@ export async function syncDesktop(
   for (const orphan of TOOL_ORPHANS) {
     const orphanPath = join(paths.binDst, orphan);
     if ((await readTextOrNull(orphanPath)) !== null) {
-      try {
-        await Bun.file(orphanPath).delete();
-      } catch {
-        // Ignore deletion failures (e.g., permission denied).
+      if (!dryRun) {
+        try {
+          await Bun.file(orphanPath).delete();
+        } catch {
+          // Ignore deletion failures (e.g., permission denied).
+        }
       }
       result.removed.push(`${LABEL_PREFIX.TOOLS}${orphan}`);
     }

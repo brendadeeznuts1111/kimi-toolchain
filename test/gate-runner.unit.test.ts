@@ -16,6 +16,9 @@ const gitFixtureEnv = {
   GIT_WORK_TREE: undefined,
   GIT_INDEX_FILE: undefined,
   GIT_PREFIX: undefined,
+  GIT_CONFIG_GLOBAL: "/dev/null",
+  GIT_CONFIG_NOSYSTEM: "1",
+  LEFTHOOK: "0",
 };
 
 describe("gate-runner", () => {

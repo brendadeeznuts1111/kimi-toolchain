@@ -90,6 +90,11 @@ export function healthSnapshotsPath(projectRoot: string): string {
   return join(projectKimiDir(projectRoot), "var", "health.ndjson");
 }
 
+/** Return {projectRoot}/.kimi/identity.ndjson */
+export function identityAuditPath(projectRoot: string): string {
+  return join(projectKimiDir(projectRoot), "identity.ndjson");
+}
+
 /** Return {projectRoot}/.kimi/var/optimizer-health.ndjson */
 export function optimizerHealthTrendPath(projectRoot: string): string {
   return join(projectKimiDir(projectRoot), "var", "optimizer-health.ndjson");
@@ -172,6 +177,11 @@ export function agentsSkillsRoot(): string {
 /** Return ~/.local/bin */
 export function localBinDir(): string {
   return join(homeDir(), ".local", "bin");
+}
+
+/** Return ~/.config/dx/global-config.toml */
+export function globalDxConfigPath(home?: string): string {
+  return join(home || homeDir(), ".config", "dx", "global-config.toml");
 }
 
 /** Return ~/.cursor */

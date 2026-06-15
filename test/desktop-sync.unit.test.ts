@@ -67,6 +67,25 @@ describe("desktop-sync", () => {
     }
   });
 
+  test("syncDesktop dry-run reports changes without writing", async () => {
+    const tmpHome = join(REPO_ROOT, `.tmp-desktop-dry-run-${Date.now()}`);
+    mkdirSync(tmpHome, { recursive: true });
+    Bun.env.HOME = tmpHome;
+    try {
+      await syncDesktop(REPO_ROOT, { force: true });
+      const target = join(desktopRoot(), "lib", "r-score.ts");
+      const stale = "// stale runtime copy\n";
+      await Bun.write(target, stale);
+
+      const result = await syncDesktop(REPO_ROOT, { dryRun: true });
+
+      expect(result.updated).toContain("lib/r-score.ts");
+      expect(await Bun.file(target).text()).toBe(stale);
+    } finally {
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
   test("syncDesktop removes orphaned tool files", async () => {
     const tmpHome = join(REPO_ROOT, `.tmp-desktop-orphan-${Date.now()}`);
     mkdirSync(tmpHome, { recursive: true });

@@ -6,8 +6,6 @@
  * except in checkDxCloudflareConfig().
  */
 
-import { existsSync } from "fs";
-import { join } from "path";
 import { CLOUDFLARE_API_SERVER, CLOUDFLARE_MCP_URL } from "./mcp-config.ts";
 
 type Status = "ok" | "warn" | "error";
@@ -475,12 +473,14 @@ export function evaluateDxCloudflareConfig(
 export async function checkDxCloudflareConfig(
   projectRoot: string
 ): Promise<DxCloudflareContractReport> {
-  const dxPath = join(projectRoot, "dx.config.toml");
-  if (!existsSync(dxPath)) return { applicable: false, aligned: true, checks: [] };
+  const root = projectRoot.endsWith("/") ? projectRoot.slice(0, -1) : projectRoot;
+  const dxPath = `${root}/dx.config.toml`;
+  const dxConfig = Bun.file(dxPath);
+  if (!(await dxConfig.exists())) return { applicable: false, aligned: true, checks: [] };
 
   let raw: UnknownRecord;
   try {
-    raw = record(Bun.TOML.parse(await Bun.file(dxPath).text()));
+    raw = record(Bun.TOML.parse(await dxConfig.text()));
   } catch {
     return {
       applicable: true,

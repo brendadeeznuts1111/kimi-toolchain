@@ -6,7 +6,7 @@
  * P2: Policy-as-Code (plan/apply via .cloudflare-access.yml)
  *
  * Usage:
- *   kimi-cloudflare-access [tokens|apps|doctor|fix|login|logout|plan|apply]
+ *   kimi-cloudflare-access [status|tokens|apps|doctor|fix|login|logout|plan|apply]
  *
  * Auth:
  *   1. CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN env vars (CI override)
@@ -22,6 +22,7 @@ import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import { buildCloudflareIntegrationStatus } from "../lib/cloudflare-integration-status.ts";
 
 const logger = createLogger(Bun.argv, "kimi-cloudflare-access");
 import {
@@ -409,6 +410,46 @@ function printDashboard(mappings: import("../lib/cloudflare-access.ts").ProjectM
   }
 }
 
+function printStatus(status: Awaited<ReturnType<typeof buildCloudflareIntegrationStatus>>) {
+  logger.section("Cloudflare Integration Status");
+  logger.line(`  Overall: ${status.overall}`);
+  logger.line(
+    `  Summary: ${status.summary.errors} error(s), ${status.summary.warnings} warning(s), ${status.summary.actions} action(s)`
+  );
+  logger.line(`  Credentials: ${status.credentials.source}`);
+  logger.line(
+    `  MCP: cloudflare-api=${status.mcp.cloudflareApiConfigured ? "yes" : "no"} unified-shell=${status.mcp.unifiedShellConfigured ? "yes" : "no"}`
+  );
+  logger.line(
+    `  Wrangler: ${status.wrangler.available ? status.wrangler.version || status.wrangler.path || "available" : "missing"}`
+  );
+  logger.line(
+    `  Project files: wrangler=${status.projectFiles.wranglerConfig ? "yes" : "no"} access=${status.projectFiles.accessPolicy ? "yes" : "no"}`
+  );
+  logger.line(
+    `  Identity: ${status.identity.configured ? `${status.identity.profileCount} profile(s)` : "not configured"}`
+  );
+  logger.line(
+    `  DX Cloudflare contract: ${status.dxCloudflare.applicable ? (status.dxCloudflare.aligned ? "aligned" : "drift") : "not configured"}`
+  );
+  if (status.diagnostics.length > 0) {
+    logger.line("");
+    logger.section("Diagnostics");
+    for (const diagnostic of status.diagnostics) {
+      logger.line(`  ${diagnostic.status}: ${diagnostic.code}`);
+      logger.line(`     ${diagnostic.message}`);
+    }
+  }
+  if (status.actions.length > 0) {
+    logger.line("");
+    logger.section("Recommended Actions");
+    for (const action of status.actions) {
+      logger.line(`  ${action.safety}: ${action.command}`);
+      logger.line(`     ${action.reason}`);
+    }
+  }
+}
+
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main(): Promise<number> {
@@ -448,6 +489,19 @@ async function main(): Promise<number> {
     return logger.runDoctor("kimi-cloudflare-access", checks, "Cloudflare Access Doctor");
   }
 
+  if (command === "status") {
+    const status = await buildCloudflareIntegrationStatus({
+      projectRoot: process.cwd(),
+      includeToolVersions: args.includes("--versions"),
+    });
+    if (jsonMode) {
+      jsonOut(status);
+    } else {
+      printStatus(status);
+    }
+    return status.overall === "error" ? 1 : 0;
+  }
+
   let accountId: string;
   let apiToken: string;
   try {
@@ -483,7 +537,9 @@ async function main(): Promise<number> {
     logger.section("Service Token Expiry Sweep");
     logger.info(`Found ${tokens.length} service token(s)`);
     printViolations(violations);
-    logger.info("Commands: tokens (default) | apps | doctor | fix | login | logout | dashboard");
+    logger.info(
+      "Commands: status | tokens (default) | apps | doctor | fix | login | logout | dashboard"
+    );
     return violations.some((v) => v.reason === "expired") ? 1 : 0;
   }
 
@@ -568,7 +624,9 @@ async function main(): Promise<number> {
     logger.section("Access Application Policy Audit");
     logger.info(`Found ${apps.length} application(s), ${tokens.length} service token(s)`);
     printAppFindings(findings);
-    logger.info("Commands: tokens (default) | apps | doctor | fix | login | logout | dashboard");
+    logger.info(
+      "Commands: status | tokens (default) | apps | doctor | fix | login | logout | dashboard"
+    );
     return findings.some((f) => f.reason === "bypass") ? 1 : 0;
   }
 
@@ -841,7 +899,7 @@ async () => {
 
   logger.error(`Unknown command: ${command}`);
   logger.info(
-    "Usage: kimi-cloudflare-access [tokens|apps|doctor|fix|login|logout|plan|apply|dashboard|mcp-apply]"
+    "Usage: kimi-cloudflare-access [status|tokens|apps|doctor|fix|login|logout|plan|apply|dashboard|mcp-apply]"
   );
   return 1;
 }

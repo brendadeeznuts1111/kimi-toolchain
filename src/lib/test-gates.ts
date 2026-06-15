@@ -16,6 +16,7 @@ export const UNIT_TEST_FILES = [
   "test/sync-drift.unit.test.ts",
   "test/readme-sync.unit.test.ts",
   "test/path-alignment.unit.test.ts",
+  "test/workspace-known-blockers.unit.test.ts",
   "test/mcp-config.unit.test.ts",
   "test/kimi-config-audit.unit.test.ts",
   "test/dx-github-alignment.unit.test.ts",
@@ -54,6 +55,8 @@ export const UNIT_TEST_FILES = [
   "test/taxonomy-coverage.unit.test.ts",
   "test/quiet-mode.unit.test.ts",
   "test/gate-runner.unit.test.ts",
+  "test/kimi-githooks.unit.test.ts",
+  "test/identity-matrix.unit.test.ts",
   "test/lint-test-names.unit.test.ts",
   "test/tuning-set-version.unit.test.ts",
   "test/constants-heal.unit.test.ts",
@@ -72,7 +75,10 @@ export const INTEGRATION_TEST_FILES = [
 ] as const;
 
 /** Smoke tests — full CLI invocations, 15-30s each */
-export const SMOKE_TEST_FILES = ["test/smoke/kimi-doctor.smoke.test.ts"] as const;
+export const SMOKE_TEST_FILES = [
+  "test/smoke/kimi-doctor.smoke.test.ts",
+  "test/smoke/kimi-identity.smoke.test.ts",
+] as const;
 
 export const FAST_TEST_TIMEOUT_MS = 500;
 export const DEFAULT_TEST_TIMEOUT_MS = 5000;

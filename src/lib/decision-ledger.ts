@@ -774,6 +774,8 @@ function compactRepairPath(decision: Decision): string | undefined {
 }
 
 function compactDecisionTarget(decision: Decision): string {
+  const workspaceCheckName = decision.metadata?.workspaceCheckName;
+  if (typeof workspaceCheckName === "string") return workspaceCheckName;
   const constantKey = decision.metadata?.constantKey;
   if (typeof constantKey === "string") return constantKey;
   const restored = decision.metadata?.restoredKeys;

@@ -17,6 +17,7 @@ import {
 import { runWorkspaceCommand, printWorkspaceHelp } from "../lib/workspace-commands.ts";
 import { invokeTool, defaultToolTimeoutMs } from "../lib/tool-runner.ts";
 import { toolsDir } from "../lib/paths.ts";
+import { resolveProjectRoot } from "../lib/utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { createLogger } from "../lib/logger.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -46,7 +47,7 @@ async function dispatchTool(shortName: string, args: string[]): Promise<number> 
       printWorkspaceHelp();
       return sub ? 0 : 1;
     }
-    return runWorkspaceCommand(sub, args.slice(1));
+    return runWorkspaceCommand(sub, args.slice(1), await resolveProjectRoot());
   }
 
   const repoScript = resolveRepoToolScript(shortName, REPO_BIN);

@@ -22,6 +22,11 @@ import {
 } from "./legacy-cleanup.ts";
 import { createLogger, type Logger } from "./logger.ts";
 import { homeDir } from "./paths.ts";
+import {
+  enrichWorkspaceReportWithDecisions,
+  formatKnownWorkspaceSuffix,
+  recordWorkspaceKnownBlockers,
+} from "./workspace-known-blockers.ts";
 
 export interface WorkspaceCommandFlags {
   json: boolean;
@@ -70,7 +75,9 @@ export function printWorkspaceHelp(logger?: Logger): void {
 
 async function runVerify(projectRoot: string, strict: boolean, logger: Logger): Promise<number> {
   const home = homeDir();
-  const report = await auditWorkspaceHealth(projectRoot, { strictWorkspace: strict, home });
+  let report = await auditWorkspaceHealth(projectRoot, { strictWorkspace: strict, home });
+  await recordWorkspaceKnownBlockers(projectRoot, report.checks);
+  report = await enrichWorkspaceReportWithDecisions(report, projectRoot);
 
   logger.section("Workspace verify");
   logger.line(`  Path: ${projectRoot}`);
@@ -93,7 +100,7 @@ async function runVerify(projectRoot: string, strict: boolean, logger: Logger): 
           strictWorkspace: strict,
         })
       ) {
-        logger.error(`${check.name}: ${check.message}`);
+        logger.error(`${check.name}: ${check.message}${formatKnownWorkspaceSuffix(check)}`);
       }
     }
     logger.error(`${blocking} workspace blocker(s)`);
@@ -113,7 +120,9 @@ async function runAudit(
   logger: Logger
 ): Promise<number> {
   const home = homeDir();
-  const report = await auditWorkspaceHealth(projectRoot, { strictWorkspace: strict, home });
+  let report = await auditWorkspaceHealth(projectRoot, { strictWorkspace: strict, home });
+  await recordWorkspaceKnownBlockers(projectRoot, report.checks);
+  report = await enrichWorkspaceReportWithDecisions(report, projectRoot);
   const summary = countWorkspaceBlockers(report, { strictWorkspace: strict });
 
   if (json) {
@@ -140,7 +149,7 @@ async function runAudit(
 
   logger.section("Workspace health audit");
   for (const check of report.checks) {
-    const label = `${check.name}: ${check.message}`;
+    const label = `${check.name}: ${check.message}${formatKnownWorkspaceSuffix(check)}`;
     if (check.status === "error") logger.error(label);
     else if (check.status === "warn") logger.warn(label);
     else logger.info(label);

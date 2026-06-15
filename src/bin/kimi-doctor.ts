@@ -23,8 +23,14 @@ import {
   countWorkspaceBlockers,
   fixWorkspaceHealth,
   isKimiToolchainRepo,
+  type WorkspaceKnownContext,
   WORKSPACE_SOFT_NAMES,
 } from "../lib/workspace-health.ts";
+import {
+  enrichWorkspaceReportWithDecisions,
+  formatKnownWorkspaceSuffix,
+  recordWorkspaceKnownBlockers,
+} from "../lib/workspace-known-blockers.ts";
 import { auditEcosystemHealth } from "../lib/ecosystem-health.ts";
 import {
   generateOptimizerDoctorRecommendations,
@@ -106,6 +112,7 @@ interface CheckResult {
   category?: string;
   autoFix?: string;
   taxonomyId?: string;
+  known?: WorkspaceKnownContext;
 }
 
 function ok(name: string, message: string): CheckResult {
@@ -458,7 +465,9 @@ async function applyFixes(projectRoot: string): Promise<void> {
   }
 
   if (await isKimiToolchainRepo(projectRoot)) {
-    const pathReport = await auditWorkspaceHealth(projectRoot);
+    let pathReport = await auditWorkspaceHealth(projectRoot);
+    await recordWorkspaceKnownBlockers(projectRoot, pathReport.checks);
+    pathReport = await enrichWorkspaceReportWithDecisions(pathReport, projectRoot);
     const legacyIssue = pathReport.checks.some(
       (c) =>
         (c.name === "cursor-workspace" || c.name === "legacy-clone") &&
@@ -473,10 +482,12 @@ async function applyFixes(projectRoot: string): Promise<void> {
 
 async function runWorkspaceMode(projectRoot: string): Promise<number> {
   const home = homeDir();
-  const report = await auditWorkspaceHealth(projectRoot, {
+  let report = await auditWorkspaceHealth(projectRoot, {
     strictWorkspace: STRICT_WORKSPACE,
     home,
   });
+  await recordWorkspaceKnownBlockers(projectRoot, report.checks);
+  report = await enrichWorkspaceReportWithDecisions(report, projectRoot);
   const summary = countWorkspaceBlockers(report, { strictWorkspace: STRICT_WORKSPACE });
 
   if (JSON_OUT) {
@@ -496,7 +507,13 @@ async function runWorkspaceMode(projectRoot: string): Promise<number> {
     return summary.blocking > 0 ? 1 : 0;
   }
 
-  const healthReport = aggregateChecks("kimi-doctor", report.checks);
+  const healthReport = aggregateChecks(
+    "kimi-doctor",
+    report.checks.map((check) => ({
+      ...check,
+      message: `${check.message}${formatKnownWorkspaceSuffix(check)}`,
+    }))
+  );
   logger.printHealthReport(healthReport, "Workspace Health");
 
   if (summary.blocking > 0) {
@@ -976,18 +993,26 @@ async function main(): Promise<number> {
   }
 
   logger.section("Path Alignment");
-  const pathReport = await auditWorkspaceHealth(projectRoot, {
+  let pathReport = await auditWorkspaceHealth(projectRoot, {
     strictWorkspace: STRICT_WORKSPACE,
     home,
   });
+  await recordWorkspaceKnownBlockers(projectRoot, pathReport.checks);
+  pathReport = await enrichWorkspaceReportWithDecisions(pathReport, projectRoot);
   for (const check of pathReport.checks) {
+    const message = `${check.message}${formatKnownWorkspaceSuffix(check)}`;
     const status =
       STRICT_WORKSPACE && WORKSPACE_SOFT_NAMES.has(check.name) && check.status === "warn"
         ? "error"
         : check.status;
-    if (status === "ok") results.push(ok(check.name, check.message));
-    else if (status === "warn") results.push(warn(check.name, check.message));
-    else results.push(error(check.name, check.message));
+    const result =
+      status === "ok"
+        ? ok(check.name, message)
+        : status === "warn"
+          ? warn(check.name, message)
+          : error(check.name, message);
+    if (check.known) result.known = check.known;
+    results.push(result);
   }
 
   if (QUICK && (await isKimiToolchainRepo(projectRoot))) {

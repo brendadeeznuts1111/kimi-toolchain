@@ -9,6 +9,7 @@ import { validateMcpConfig } from "./mcp-config.ts";
 import { auditKimiConfig } from "./kimi-config-audit.ts";
 import { checkScaffoldAligned } from "./scaffold-aligned.ts";
 import { checkDxGithubAlignment } from "./dx-github-alignment.ts";
+import { checkDxCloudflareConfig } from "./dx-cloudflare-config.ts";
 import { checkConstantParity } from "./constant-parity.ts";
 import {
   checkTaxonomyConstantLinks,
@@ -282,6 +283,22 @@ export async function auditEcosystemHealth(
       }
       if (!dxGithub.aligned) {
         fixPlan.push("align dx.config.toml with package.json and .github/workflows/ci.yml");
+      }
+    }
+
+    const dxCloudflare = await checkDxCloudflareConfig(projectRoot);
+    if (dxCloudflare.applicable) {
+      for (const check of dxCloudflare.checks) {
+        checks.push({
+          name: `dx-cloudflare:${check.name}`,
+          status: check.status,
+          message: check.message,
+          source: "dx-cloudflare",
+          fixable: check.fixable,
+        });
+      }
+      if (!dxCloudflare.aligned) {
+        fixPlan.push("align dx.config.toml Cloudflare dashboard defaults");
       }
     }
 

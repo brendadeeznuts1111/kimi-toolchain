@@ -22,9 +22,24 @@ import {
 import { isQuietMode } from "../src/lib/quiet-mode.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
+const KNOWN_FLAGS = new Set(["--daemon", "--dry-run", "--force"]);
 
 async function main() {
-  const isDaemon = Bun.argv.includes("--daemon");
+  const args = Bun.argv.slice(2);
+  const unknown = args.filter((arg) => arg.startsWith("-") && !KNOWN_FLAGS.has(arg));
+  if (unknown.length > 0) {
+    console.error(`❌ Unknown sync flag(s): ${unknown.join(", ")}`);
+    console.error("Usage: bun run scripts/sync-to-desktop.ts [--dry-run] [--force] [--daemon]");
+    process.exit(2);
+  }
+
+  const isDaemon = args.includes("--daemon");
+  const dryRun = args.includes("--dry-run");
+  const force = args.includes("--force");
+  if (isDaemon && dryRun) {
+    console.error("❌ --daemon and --dry-run cannot be combined");
+    process.exit(2);
+  }
 
   const [desktopVersion, gitHead, dirty] = await Promise.all([
     getDesktopVersion(),
@@ -32,7 +47,7 @@ async function main() {
     hasUncommittedChanges(),
   ]);
 
-  if (dirty && !isDaemon && !isQuietMode()) {
+  if (dirty && !isDaemon && !dryRun && !isQuietMode()) {
     console.log("⚠️  Repo has uncommitted changes. Sync will reflect working tree, not HEAD.");
   }
 
@@ -67,39 +82,46 @@ async function main() {
   }
 
   if (!isQuietMode()) {
-    console.log("🔄 Syncing repo → ~/.kimi-code/ ...");
+    console.log(
+      dryRun ? "🔎 Previewing repo → ~/.kimi-code/ sync ..." : "🔄 Syncing repo → ~/.kimi-code/ ..."
+    );
   }
-  const result = await syncDesktop(REPO_ROOT);
-  const mcp = await provisionUserMcp();
-  if (mcp.changed && !isQuietMode()) {
-    console.log("   ✓ mcp.json: unified-shell updated");
-    result.updated.push("mcp.json");
-  } else if (mcp.changed) {
-    result.updated.push("mcp.json");
+  const result = await syncDesktop(REPO_ROOT, { dryRun, force });
+  if (!dryRun) {
+    const mcp = await provisionUserMcp();
+    if (mcp.changed && !isQuietMode()) {
+      console.log("   ✓ mcp.json: unified-shell updated");
+      result.updated.push("mcp.json");
+    } else if (mcp.changed) {
+      result.updated.push("mcp.json");
+    }
   }
   const fileHashes = await computeSyncHashes(REPO_ROOT);
 
-  await writeManifest({
-    toolchainVersion: TOOLCHAIN_VERSION,
-    desktopVersion,
-    gitHead,
-    lastSyncedAt: new Date().toISOString(),
-    files: [...result.updated, ...result.removed],
-    fileHashes,
-  });
+  if (!dryRun) {
+    await writeManifest({
+      toolchainVersion: TOOLCHAIN_VERSION,
+      desktopVersion,
+      gitHead,
+      lastSyncedAt: new Date().toISOString(),
+      files: [...result.updated, ...result.removed],
+      fileHashes,
+    });
+  }
 
   if (result.updated.length === 0 && result.removed.length === 0) {
-    if (!isQuietMode()) console.log("✅ Already up to date.");
+    if (!isQuietMode())
+      console.log(dryRun ? "✅ Would make no changes." : "✅ Already up to date.");
     return;
   }
 
   if (!isQuietMode()) {
     if (result.updated.length) {
-      console.log("📤 Updated:");
+      console.log(dryRun ? "📤 Would update:" : "📤 Updated:");
       for (const f of result.updated) console.log(`   ✓ ${f}`);
     }
     if (result.removed.length) {
-      console.log("🗑️  Removed:");
+      console.log(dryRun ? "🗑️  Would remove:" : "🗑️  Removed:");
       for (const f of result.removed) console.log(`   ✗ ${f}`);
     }
     console.log(`   (${result.skipped} files unchanged)`);
