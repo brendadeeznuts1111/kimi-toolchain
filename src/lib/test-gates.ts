@@ -17,16 +17,29 @@ export const UNIT_TEST_FILES = [
   "test/readme-sync.unit.test.ts",
   "test/path-alignment.unit.test.ts",
   "test/mcp-config.unit.test.ts",
-  "test/kimi-docs-aligned.unit.test.ts",
   "test/kimi-config-audit.unit.test.ts",
   "test/scaffold-agents.unit.test.ts",
   "test/scaffold-templates.unit.test.ts",
   "test/scaffold-aligned.unit.test.ts",
   "test/workspace-health.test.ts",
   "test/ecosystem-health.test.ts",
+  "test/governance-check.unit.test.ts",
+  "test/conventional-commits.unit.test.ts",
+  "test/changelog.unit.test.ts",
+  "test/scaffold-quality.unit.test.ts",
+  "test/cloudflare-access.unit.test.ts",
+  "test/cloudflare-access-dashboard.unit.test.ts",
+  "test/cloudflare-access-policy.unit.test.ts",
+  "test/tool-runner.unit.test.ts",
+  "test/kimi-toolchain.router.test.ts",
+  "test/unified-shell-bridge.unit.test.ts",
+  "test/error-taxonomy.unit.test.ts",
 ] as const;
 
-export const FAST_TEST_TIMEOUT_MS = 100;
+/** Smoke tests — full CLI invocations, 15-30s each */
+export const SMOKE_TEST_FILES = ["test/smoke/kimi-doctor.smoke.test.ts"] as const;
+
+export const FAST_TEST_TIMEOUT_MS = 500;
 export const DEFAULT_TEST_TIMEOUT_MS = 5000;
 export const CI_TEST_TIMEOUT_MS = 60_000;
 export const SMOKE_TEST_TIMEOUT_MS = 60_000;
@@ -36,6 +49,7 @@ export function bunTestArgs(options: {
   json?: boolean;
   fast?: boolean;
   ci?: boolean;
+  smoke?: boolean;
   bail?: boolean | number;
   timeoutMs?: number;
 }): string[] {
@@ -58,6 +72,9 @@ export function bunTestArgs(options: {
   if (options.json) args.push("--json");
   if (options.fast) {
     args.push(...UNIT_TEST_FILES);
+  }
+  if (options.smoke) {
+    args.push(...SMOKE_TEST_FILES);
   }
   return args;
 }

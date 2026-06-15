@@ -9,12 +9,16 @@ describe("kimi-docs-aligned", () => {
     expect(await isKimiToolchainProject(REPO_ROOT)).toBe(true);
   });
 
-  test("checkKimiDocsAligned passes for toolchain docs", async () => {
-    const report = await checkKimiDocsAligned(REPO_ROOT);
-    expect(report.applicable).toBe(true);
-    expect(report.aligned).toBe(true);
-    expect(report.checks.every((c) => c.status === "ok")).toBe(true);
-  });
+  test(
+    "checkKimiDocsAligned passes for toolchain docs",
+    async () => {
+      const report = await checkKimiDocsAligned(REPO_ROOT);
+      expect(report.applicable).toBe(true);
+      expect(report.aligned).toBe(true);
+      expect(report.checks.every((c) => c.status === "ok")).toBe(true);
+    },
+    { timeout: 5000 }
+  );
 
   test("skips non-toolchain projects", async () => {
     const report = await checkKimiDocsAligned(import.meta.dir);

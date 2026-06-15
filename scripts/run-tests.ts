@@ -20,22 +20,23 @@ import { bunTestArgs } from "../src/lib/test-gates.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
-function parseCli(): { fast: boolean; coverage: boolean; ci: boolean } {
+function parseCli(): { fast: boolean; coverage: boolean; ci: boolean; smoke: boolean } {
   const argv = Bun.argv.slice(2);
   return {
     fast: argv.includes("--fast"),
     coverage: argv.includes("--coverage"),
     ci: argv.includes("--ci"),
+    smoke: argv.includes("--smoke"),
   };
 }
 
 async function main() {
-  const { fast, coverage, ci } = parseCli();
+  const { fast, coverage, ci, smoke } = parseCli();
   if (ci) {
     const reportsDir = join(REPO_ROOT, "reports");
     if (!existsSync(reportsDir)) mkdirSync(reportsDir, { recursive: true });
   }
-  const cmd = ["bun", ...bunTestArgs({ fast, coverage, ci, bail: true })];
+  const cmd = ["bun", ...bunTestArgs({ fast, coverage, ci, smoke, bail: true })];
   const proc = Bun.spawn(cmd, {
     cwd: REPO_ROOT,
     env: process.env,

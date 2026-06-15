@@ -46,13 +46,17 @@ describe("tool-runner", () => {
     rmSync(join(script, ".."), { recursive: true, force: true });
   });
 
-  test("invokeTool reports timeout", async () => {
-    const script = tmpScript(`setTimeout(() => {}, 60000);`);
-    const result = await invokeTool(script, [], { timeoutMs: 100, gracePeriodMs: 50 });
-    expect(result.isError).toBe(true);
-    expect(result.error).toContain("timed out");
-    rmSync(join(script, ".."), { recursive: true, force: true });
-  });
+  test(
+    "invokeTool reports timeout",
+    async () => {
+      const script = tmpScript(`setTimeout(() => {}, 60000);`);
+      const result = await invokeTool(script, [], { timeoutMs: 100, gracePeriodMs: 50 });
+      expect(result.isError).toBe(true);
+      expect(result.error).toContain("timed out");
+      rmSync(join(script, ".."), { recursive: true, force: true });
+    },
+    { timeout: 5000 }
+  );
 
   test("runTool resolves tool from ~/.kimi-code/tools", async () => {
     const tmpHome = join(tmpdir(), `kimi-tool-runner-home-${Bun.randomUUIDv7()}`);

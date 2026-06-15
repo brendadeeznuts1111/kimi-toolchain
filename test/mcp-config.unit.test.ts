@@ -78,7 +78,11 @@ describe("mcp-config", () => {
   });
 
   test("provisionUserMcp creates mcp.json with both servers", async () => {
+    const originalHome = process.env.HOME;
+    process.env.HOME = tmpHome;
     const path = userMcpPath();
+    // Clean up any pre-existing file from other test runs
+    if (existsSync(path)) rmSync(path, { force: true });
     expect(existsSync(path)).toBe(false);
     const result = await provisionUserMcp(tmpHome);
     expect(result.changed).toBe(true);
@@ -86,6 +90,7 @@ describe("mcp-config", () => {
     const parsed = await readMcpJson(path);
     expect(parsed?.data?.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
     expect(parsed?.data?.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
+    process.env.HOME = originalHome;
   });
 
   test("writeMcpJson round-trips", async () => {

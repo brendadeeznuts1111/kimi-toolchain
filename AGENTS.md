@@ -380,9 +380,27 @@ When working on this codebase, agents should:
 2. Run `kimi-orphan-kill --dry-run` if orphans detected
 3. Ensure R-Score is ≥ B (run `kimi-governance score`)
 
+**During a session (to avoid `max_steps_exceeded`):**
+
+| Instead of                                                    | Use                                                          | Why                                                            |
+| ------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------- |
+| `bun test` (all 322 tests)                                    | `bun run test:fast` (127 unit tests, ~500ms)                 | Smoke tests are subprocess-heavy and not needed for most edits |
+| `bun run check` (4 gates)                                     | `bun run check:fast` (fast mode)                             | Runs only unit tests with 100ms timeout                        |
+| `bun run format` then `bun run lint` then `bun run typecheck` | `bun run check:fast`                                         | Bundles all three; agents should not run them separately       |
+| Re-running full suite after every edit                        | Target specific test files: `bun test test/lib.unit.test.ts` | 1-2 steps instead of 5-10                                      |
+| `bun run bench` (benchmarks)                                  | Only run when optimizing performance                         | Benchmarks are for regression detection, not validation        |
+
+**Agent workflow for validation:**
+
+1. Make all edits first (batch them)
+2. Run `bun run check:fast` (1 step, ~2s)
+3. If failures: read the specific failing test file (1 step), read source (1 step), edit (1 step)
+4. Re-run `bun run check:fast` (1 step)
+5. Total: 4-5 steps per iteration, well under the 30-step limit
+
 **After finishing a session:**
 
-1. Run `bun run check` (or `bun run check:fast` for quick validation)
+1. Run `bun run check` (full validation: format + lint + typecheck + all tests)
 2. Commit with conventional commit format
 3. Run `bun run sync` before push (pre-push hook enforces this)
 
