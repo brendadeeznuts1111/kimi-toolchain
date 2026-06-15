@@ -406,10 +406,10 @@ async function main(): Promise<number> {
         logger.info("Files:");
         for (const f of cov.files.slice(0, 10)) {
           const indicator = f.percentage >= threshold ? "✓" : "✗";
-          console.log(`    ${indicator} ${f.path}: ${f.percentage.toFixed(1)}%`);
+          logger.line(`    ${indicator} ${f.path}: ${f.percentage.toFixed(1)}%`);
         }
         if (cov.files.length > 10) {
-          console.log(`    ... and ${cov.files.length - 10} more`);
+          logger.line(`    ... and ${cov.files.length - 10} more`);
         }
       }
 
@@ -794,7 +794,7 @@ async function main(): Promise<number> {
     for (const [key, value] of Object.entries(score.breakdown)) {
       const weight = WEIGHTS[key as keyof typeof WEIGHTS];
       const indicator = breakdownIndicator(value, weight);
-      console.log(`    ${indicator} ${key}: ${formatPoints(value)}/${weight}`);
+      logger.line(`    ${indicator} ${key}: ${formatPoints(value)}/${weight}`);
     }
 
     const kimiDocs = await checkKimiDocsAligned(projectDir);
@@ -841,14 +841,14 @@ async function main(): Promise<number> {
     }
   } else {
     logger.section("Commands");
-    console.log("  governance     Check LICENSE, CONTRIBUTING, CODEOWNERS, README, CONTEXT");
-    console.log("  coverage [N]   Test coverage gate (default threshold 70%)");
-    console.log("  docs           Detect README.md ↔ package.json script drift");
-    console.log("  fix            Auto-generate missing governance files");
-    console.log("  doctor         Diagnose governance health with actionable fixes");
-    console.log("  adr <title>    Scaffold a new ADR in docs/adr/");
-    console.log("  score          Compute full R-Score with trend");
-    console.log("  ecosystem      → use kimi-toolchain doctor --ecosystem");
+    logger.line("  governance     Check LICENSE, CONTRIBUTING, CODEOWNERS, README, CONTEXT");
+    logger.line("  coverage [N]   Test coverage gate (default threshold 70%)");
+    logger.line("  docs           Detect README.md ↔ package.json script drift");
+    logger.line("  fix            Auto-generate missing governance files");
+    logger.line("  doctor         Diagnose governance health with actionable fixes");
+    logger.line("  adr <title>    Scaffold a new ADR in docs/adr/");
+    logger.line("  score          Compute full R-Score with trend");
+    logger.line("  ecosystem      → use kimi-toolchain doctor --ecosystem");
   }
 
   return 0;

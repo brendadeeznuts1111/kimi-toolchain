@@ -212,10 +212,10 @@ async function traceFile(projectDir: string, filePath: string) {
 
   logger.info(`${lines.length} commits touching this file:`);
   for (const line of lines.slice(0, 10)) {
-    console.log(`    ${line}`);
+    logger.line(`    ${line}`);
   }
   if (lines.length > 10) {
-    console.log(`    ... and ${lines.length - 10} more`);
+    logger.line(`    ... and ${lines.length - 10} more`);
   }
 
   const diffResult = await $`git diff HEAD~1 -- ${filePath}`.cwd(projectDir).nothrow().quiet();
@@ -225,10 +225,10 @@ async function traceFile(projectDir: string, filePath: string) {
     const diffLines = diff.split("\n").slice(0, 20);
     for (const line of diffLines) {
       const prefix = line.startsWith("+") ? "  + " : line.startsWith("-") ? "  - " : "    ";
-      console.log(prefix + line.slice(1).slice(0, 100));
+      logger.line(prefix + line.slice(1).slice(0, 100));
     }
     if (diff.split("\n").length > 20) {
-      console.log("    ... (truncated)");
+      logger.line("    ... (truncated)");
     }
   }
 }
@@ -329,7 +329,7 @@ async function parseWireLog(wirePath: string): Promise<number> {
   logger.info("By category:");
   for (const [id, { count, severity, expected }] of byCategory.entries()) {
     const tag = expected ? " [expected]" : "";
-    console.log(`    ${severity.toUpperCase()} ${id}: ${count}${tag}`);
+    logger.line(`    ${severity.toUpperCase()} ${id}: ${count}${tag}`);
   }
 
   logger.info("Recent unclassified failures (if any):");
@@ -338,7 +338,7 @@ async function parseWireLog(wirePath: string): Promise<number> {
     if (f.categoryId === "unknown") {
       unclassified++;
       const preview = f.output.replace(/\n/g, " ").slice(0, 100);
-      console.log(`    ${preview}${f.output.length > 100 ? "..." : ""}`);
+      logger.line(`    ${preview}${f.output.length > 100 ? "..." : ""}`);
     }
   }
   if (unclassified === 0) {
@@ -450,7 +450,7 @@ async function main(): Promise<number> {
     if (recent.length > 0) {
       logger.info(`Files changed in last 3 commits (${recent.length} files):`);
       for (const c of recent.slice(0, 10)) {
-        console.log(`    ${c.file} (+${c.insertions}/-${c.deletions})`);
+        logger.line(`    ${c.file} (+${c.insertions}/-${c.deletions})`);
       }
     }
 
@@ -458,7 +458,7 @@ async function main(): Promise<number> {
     if (working.length > 0) {
       logger.info(`Uncommitted changes (${working.length} files):`);
       for (const c of working.slice(0, 10)) {
-        console.log(`    [${c.status}] ${c.file}`);
+        logger.line(`    [${c.status}] ${c.file}`);
       }
     }
 
@@ -466,7 +466,7 @@ async function main(): Promise<number> {
     if (sessions.length > 0) {
       logger.info("Recent sessions:");
       for (const s of sessions) {
-        console.log(`    ${s.time.slice(0, 19)} — ${s.detail.slice(0, 60)}`);
+        logger.line(`    ${s.time.slice(0, 19)} — ${s.detail.slice(0, 60)}`);
       }
     }
 
@@ -499,14 +499,14 @@ async function main(): Promise<number> {
     logger.info("By type:");
     for (const [ext, files] of byExt.entries()) {
       const totalLines = files.reduce((s, f) => s + f.insertions + f.deletions, 0);
-      console.log(`    .${ext}: ${files.length} files, ${totalLines} lines changed`);
+      logger.line(`    .${ext}: ${files.length} files, ${totalLines} lines changed`);
     }
 
     const highRisk = changes.filter((c) => c.insertions + c.deletions > 50);
     if (highRisk.length > 0) {
       logger.warn("High-risk changes (>50 lines):");
       for (const c of highRisk) {
-        console.log(`    ⚠ ${c.file} (+${c.insertions}/-${c.deletions})`);
+        logger.line(`    ⚠ ${c.file} (+${c.insertions}/-${c.deletions})`);
       }
     }
   } else if (command === "trace") {
@@ -558,7 +558,7 @@ async function main(): Promise<number> {
       logger.info("Files mentioned in error:");
       for (const f of new Set(errorFiles)) {
         const changed = recent.some((r) => r.file.includes(f));
-        console.log(`    ${changed ? "⚠" : "  "} ${f}${changed ? " (recently changed)" : ""}`);
+        logger.line(`    ${changed ? "⚠" : "  "} ${f}${changed ? " (recently changed)" : ""}`);
       }
     }
 
@@ -602,15 +602,15 @@ async function main(): Promise<number> {
     return await parseWireLog(wirePath);
   } else {
     logger.section("Commands");
-    console.log("  last                    Show recent activity + heuristic suggestion");
-    console.log("  diff [N]                Summarize last N commits of changes");
-    console.log("  trace <file>            Show git history + last diff for a file");
-    console.log("  analyze <error-text>    Analyze error message for known patterns");
-    console.log("  classify <error-text>   Classify error text against taxonomy");
-    console.log("  taxonomy                List error taxonomy categories");
-    console.log("  wire [path]             Analyze a Kimi Code wire.jsonl for failures");
-    console.log("  doctor                  Check debug wizard health");
-    console.log("  fix <error-text>        Suggest auto-fixes for error");
+    logger.line("  last                    Show recent activity + heuristic suggestion");
+    logger.line("  diff [N]                Summarize last N commits of changes");
+    logger.line("  trace <file>            Show git history + last diff for a file");
+    logger.line("  analyze <error-text>    Analyze error message for known patterns");
+    logger.line("  classify <error-text>   Classify error text against taxonomy");
+    logger.line("  taxonomy                List error taxonomy categories");
+    logger.line("  wire [path]             Analyze a Kimi Code wire.jsonl for failures");
+    logger.line("  doctor                  Check debug wizard health");
+    logger.line("  fix <error-text>        Suggest auto-fixes for error");
   }
 
   return 0;

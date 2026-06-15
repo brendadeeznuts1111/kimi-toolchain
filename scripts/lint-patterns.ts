@@ -19,11 +19,7 @@ const LIB_CONSOLE_ALLOW = new Set([
 const BIN_CONSOLE_ALLOW = new Set<string>([
   // JSON stdout blobs or table/help output pending migration (kimi-doctor: JSON-only)
   "src/bin/kimi-cloudflare-access.ts",
-  "src/bin/kimi-debug.ts",
   "src/bin/kimi-doctor.ts", // JSON_OUT console.log(JSON.stringify(...)) only
-  "src/bin/kimi-governance.ts",
-  "src/bin/kimi-memory.ts",
-  "src/bin/kimi-release.ts",
   "src/bin/kimi-resource-governor.ts",
   "src/bin/kimi-snapshot.ts",
 ]);

@@ -239,7 +239,7 @@ async function main(): Promise<number> {
     logger.section(`Recent sessions for ${project}`);
     for (const s of sessions) {
       const statusIcon = s.status === "active" ? "●" : s.status === "stale" ? "◌" : "○";
-      console.log(
+      logger.line(
         `  ${statusIcon} ${s.startedAt.slice(0, 19)}  ${s.id.slice(0, 20)}...  decisions: ${s.keyDecisions.length}`
       );
     }
@@ -266,7 +266,7 @@ async function main(): Promise<number> {
     if (session.keyDecisions.length > 0) {
       logger.info("Key decisions from last session:");
       for (const d of session.keyDecisions) {
-        console.log(`    • ${d}`);
+        logger.line(`    • ${d}`);
       }
     }
   } else if (command === "autosave") {
@@ -307,11 +307,11 @@ async function main(): Promise<number> {
     logger.section(`Knowledge Graph: ${project}`);
     logger.info(`Nodes: ${nodes.length}`);
     for (const n of nodes.slice(0, 10)) {
-      console.log(`    [${n.type}] ${n.label}`);
+      logger.line(`    [${n.type}] ${n.label}`);
     }
     logger.info(`Edges: ${edges.length}`);
     for (const e of edges.slice(0, 10)) {
-      console.log(`    ${e.from} →[${e.relation}]→ ${e.to}`);
+      logger.line(`    ${e.from} →[${e.relation}]→ ${e.to}`);
     }
   } else if (command === "impact") {
     const nodeId = args[1];
@@ -326,7 +326,7 @@ async function main(): Promise<number> {
     logger.info(`Affected nodes: ${impact.affectedNodes.length}`);
     logger.info(`Affected projects: ${impact.affectedProjects.join(", ") || "none"}`);
     for (const n of impact.affectedNodes.slice(0, 10)) {
-      console.log(`    [${n.project}] ${n.label} (${n.type})`);
+      logger.line(`    [${n.project}] ${n.label} (${n.type})`);
     }
   } else if (command === "search") {
     const query = args[1];
@@ -337,7 +337,7 @@ async function main(): Promise<number> {
     const results = searchNodes(query, project);
     logger.section(`Search: '${query}'`);
     for (const r of results) {
-      console.log(`  [${r.type}] ${r.label} (${r.project})`);
+      logger.line(`  [${r.type}] ${r.label} (${r.project})`);
     }
   } else if (command === "prune") {
     const days = parseInt(args[1], 10) || 30;
@@ -399,19 +399,19 @@ async function main(): Promise<number> {
     logger.info("Database vacuumed");
   } else {
     logger.section("Commands");
-    console.log("  store <id> [decisions]   Save a session snapshot");
-    console.log("  recall [limit]           Show recent sessions");
-    console.log("  resume                   Check if last session is stale");
-    console.log("  autosave [start|stop]    Auto-save every 30s");
-    console.log("  link <from> <to> [rel]   Link knowledge nodes");
-    console.log("  graph                    Show project knowledge graph");
-    console.log("  impact <node-id>         Cross-project impact analysis");
-    console.log("  search <query>           Search knowledge nodes");
-    console.log("  prune [days]             Remove old sessions");
-    console.log("  doctor                   Check DB health + record warning trends");
-    console.log("  fix                      Prune orphans, reset stuck sessions, vacuum");
-    console.log("  stats                    Show database stats");
-    console.log("  trends [tool]            Show persistent warnings across sessions");
+    logger.line("  store <id> [decisions]   Save a session snapshot");
+    logger.line("  recall [limit]           Show recent sessions");
+    logger.line("  resume                   Check if last session is stale");
+    logger.line("  autosave [start|stop]    Auto-save every 30s");
+    logger.line("  link <from> <to> [rel]   Link knowledge nodes");
+    logger.line("  graph                    Show project knowledge graph");
+    logger.line("  impact <node-id>         Cross-project impact analysis");
+    logger.line("  search <query>           Search knowledge nodes");
+    logger.line("  prune [days]             Remove old sessions");
+    logger.line("  doctor                   Check DB health + record warning trends");
+    logger.line("  fix                      Prune orphans, reset stuck sessions, vacuum");
+    logger.line("  stats                    Show database stats");
+    logger.line("  trends [tool]            Show persistent warnings across sessions");
   }
 
   return 0;

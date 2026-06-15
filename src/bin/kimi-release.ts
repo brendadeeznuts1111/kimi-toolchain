@@ -115,7 +115,7 @@ async function fixCommits(projectDir: string) {
 
   logger.warn(`${invalid.length} non-conventional commit(s) found:`);
   for (const msg of invalid.slice(0, 5)) {
-    console.log(`    ✗ ${msg.slice(0, 80)}`);
+    logger.line(`    ✗ ${msg.slice(0, 80)}`);
   }
   logger.info('To fix the most recent commit: git commit --amend -m "feat(scope): description"');
   logger.info("For older commits, use interactive rebase: git rebase -i HEAD~20");
@@ -165,7 +165,7 @@ async function main(): Promise<number> {
     const formatted = formatSection(section);
 
     logger.section("Generated Section");
-    console.log(formatted);
+    logger.line(formatted);
 
     const dryRun = args.includes("--dry-run");
     if (!dryRun) {
@@ -195,7 +195,7 @@ async function main(): Promise<number> {
     if (invalid.length > 0) {
       logger.warn("Non-conventional commits (should follow 'type(scope): msg'):");
       for (const msg of invalid.slice(0, 10)) {
-        console.log(`    ✗ ${msg.slice(0, 80)}`);
+        logger.line(`    ✗ ${msg.slice(0, 80)}`);
       }
     }
 
@@ -205,7 +205,7 @@ async function main(): Promise<number> {
     }
     logger.info("Commit types:");
     for (const [type, count] of types.entries()) {
-      console.log(`    ${type}: ${count}`);
+      logger.line(`    ${type}: ${count}`);
     }
   } else if (command === "doctor") {
     const checks = await doctor(projectDir);
@@ -219,11 +219,11 @@ async function main(): Promise<number> {
     await fixCommits(projectDir);
   } else {
     logger.section("Commands");
-    console.log("  changelog [--dry-run]  Generate CHANGELOG.md section from conventional commits");
-    console.log("  semver                 Analyze semver bump needed");
-    console.log("  validate               Validate recent commits follow conventional format");
-    console.log("  doctor                 Check release readiness");
-    console.log("  fix                    Fix non-conventional commits");
+    logger.line("  changelog [--dry-run]  Generate CHANGELOG.md section from conventional commits");
+    logger.line("  semver                 Analyze semver bump needed");
+    logger.line("  validate               Validate recent commits follow conventional format");
+    logger.line("  doctor                 Check release readiness");
+    logger.line("  fix                    Fix non-conventional commits");
   }
 
   return 0;
