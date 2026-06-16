@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync } from "fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { invokeTool } from "../../src/lib/tool-runner.ts";
 
@@ -419,4 +419,209 @@ describe("kimi-doctor smoke", () => {
     // test:fast may exit 1 if any test exceeds 100ms timeout; we only check output contains pass count
     expect(stdout + stderr).toMatch(/\d+ pass/);
   }, 30_000);
+
+  test("doctor --probe emits a capability manifest", async () => {
+    const { stdout, exitCode } = await runTool(DOCTOR, ["--probe"]);
+    const manifest = JSON.parse(stdout.trim()) as {
+      schemaVersion: number;
+      tool: string;
+      version: string;
+      modes: Array<{ name: string }>;
+      flags: Array<{ name: string }>;
+      checks: Array<{ type: string; name: string }>;
+      supportsMcp: boolean;
+      supportsPlugins: boolean;
+    };
+    expect(manifest.schemaVersion).toBe(1);
+    expect(manifest.tool).toBe("kimi-doctor");
+    expect(typeof manifest.version).toBe("string");
+    expect(manifest.modes.map((m) => m.name)).toContain("probe");
+    expect(manifest.modes.map((m) => m.name)).toContain("mcp-server");
+    expect(manifest.flags.map((f) => f.name)).toContain("--adapter");
+    expect(manifest.flags.map((f) => f.name)).toContain("--plugin");
+    expect(manifest.checks.map((c) => c.name)).toContain("effect-gates");
+    expect(manifest.checks.some((c) => c.type === "adapter")).toBe(true);
+    expect(manifest.supportsMcp).toBe(true);
+    expect(manifest.supportsPlugins).toBe(true);
+    expect(exitCode).toBe(0);
+  }, 5_000);
+
+  test("doctor --mcp-server responds to JSON-RPC initialize, tools/list, and tools/call", async () => {
+    const proc = Bun.spawn(["bun", "run", DOCTOR, "--mcp-server"], {
+      cwd: REPO_ROOT,
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const requestId = Date.now();
+    const initReq = JSON.stringify({
+      jsonrpc: "2.0",
+      id: requestId,
+      method: "initialize",
+      params: { protocolVersion: "2024-11-05" },
+    });
+
+    const stdin = proc.stdin;
+    stdin.write(new TextEncoder().encode(`${initReq}\n`));
+
+    const reader = proc.stdout.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let initReceived = false;
+    let toolsListReceived = false;
+    let probeCallReceived = false;
+
+    async function readLine(): Promise<string | null> {
+      while (true) {
+        const newline = buffer.indexOf("\n");
+        if (newline >= 0) {
+          const line = buffer.slice(0, newline).trim();
+          buffer = buffer.slice(newline + 1);
+          if (line) return line;
+          continue;
+        }
+        const { done, value } = await reader.read();
+        if (done) return buffer.trim() || null;
+        buffer += decoder.decode(value, { stream: true });
+      }
+    }
+
+    try {
+      // Read initialize response
+      const initLine = await readLine();
+      expect(initLine).not.toBeNull();
+      const initRes = JSON.parse(initLine!);
+      expect(initRes.jsonrpc).toBe("2.0");
+      expect(initRes.id).toBe(requestId);
+      expect(initRes.result.serverInfo.name).toBe("kimi-doctor");
+      expect(initRes.result.capabilities.tools).toBeDefined();
+      initReceived = true;
+
+      // Send tools/list
+      const listReq = JSON.stringify({ jsonrpc: "2.0", id: requestId + 1, method: "tools/list" });
+      stdin.write(new TextEncoder().encode(`${listReq}\n`));
+      const listLine = await readLine();
+      expect(listLine).not.toBeNull();
+      const listRes = JSON.parse(listLine!);
+      expect(listRes.jsonrpc).toBe("2.0");
+      const toolNames = listRes.result.tools.map((t: { name: string }) => t.name);
+      expect(toolNames).toContain("kimi_doctor_probe");
+      expect(toolNames).toContain("kimi_doctor_run");
+      expect(toolNames).toContain("kimi_doctor_fix");
+      expect(toolNames).toContain("kimi_doctor_run_all");
+      toolsListReceived = true;
+
+      // Send tools/call for probe
+      const probeReq = JSON.stringify({
+        jsonrpc: "2.0",
+        id: requestId + 2,
+        method: "tools/call",
+        params: { name: "kimi_doctor_probe", arguments: {} },
+      });
+      stdin.write(new TextEncoder().encode(`${probeReq}\n`));
+      const probeLine = await readLine();
+      expect(probeLine).not.toBeNull();
+      const probeRes = JSON.parse(probeLine!);
+      expect(probeRes.jsonrpc).toBe("2.0");
+      expect(probeRes.result.content).toBeDefined();
+      expect(probeRes.result.content.length).toBeGreaterThan(0);
+      const probeText = probeRes.result.content[0].text;
+      const probeManifest = JSON.parse(probeText) as {
+        schemaVersion: number;
+        tool: string;
+        checks: unknown[];
+      };
+      expect(probeManifest.schemaVersion).toBe(1);
+      expect(probeManifest.tool).toBe("kimi-doctor");
+      expect(Array.isArray(probeManifest.checks)).toBe(true);
+      probeCallReceived = true;
+    } finally {
+      try {
+        stdin.end();
+      } catch {
+        // ignore
+      }
+      proc.kill("SIGTERM");
+      try {
+        await proc.exited;
+      } catch {
+        // ignore
+      }
+    }
+
+    expect(initReceived).toBe(true);
+    expect(toolsListReceived).toBe(true);
+    expect(probeCallReceived).toBe(true);
+  }, 10_000);
+
+  test("doctor --adapter typecheck --json runs the typecheck adapter", async () => {
+    const { stdout, exitCode } = await runTool(DOCTOR, ["--adapter", "typecheck", "--json"]);
+    const report = JSON.parse(stdout.trim()) as {
+      mode: string;
+      adapter: string;
+      checks: Array<{ name: string; status: string; message: string }>;
+      summary: { errorCount: number };
+    };
+    expect(report.mode).toBe("adapter");
+    expect(report.adapter).toBe("typecheck");
+    expect(report.checks.length).toBeGreaterThan(0);
+    expect(report.checks[0].name).toBe("typecheck");
+    expect(report.summary).toBeDefined();
+    expect(exitCode).toBe(0);
+  }, 30_000);
+
+  test("doctor --all --json runs every adapter and returns sources", async () => {
+    const { stdout, exitCode } = await runTool(DOCTOR, ["--all", "--json"], 60_000);
+    const report = JSON.parse(stdout.trim()) as {
+      mode: string;
+      checks: Array<{ name: string; status: string }>;
+      sources: Record<string, unknown>;
+      summary: { errorCount: number };
+    };
+    expect(report.mode).toBe("all");
+    expect(report.checks.some((c) => c.name === "effect-gates")).toBe(true);
+    expect(report.checks.some((c) => c.name === "typecheck")).toBe(true);
+    expect(report.checks.some((c) => c.name === "oxlint")).toBe(true);
+    expect(report.sources).toBeDefined();
+    expect(Object.keys(report.sources).length).toBeGreaterThan(0);
+    expect(report.summary).toBeDefined();
+    expect(exitCode).toBe(0);
+  }, 60_000);
+
+  test("doctor --plugin runs a project-local plugin via --project-root", async () => {
+    const tmpDir = mkdtempSync(join(REPO_ROOT, "node_modules", ".smoke-plugin-"));
+    mkdirSync(join(tmpDir, ".kimi"), { recursive: true });
+    const pluginScript = join(tmpDir, "plugin.ts");
+    writeFileSync(
+      pluginScript,
+      `console.log(JSON.stringify({ checks: [{ name: "smoke-plugin", status: "ok", message: "from plugin", fixable: false }] }));`
+    );
+    writeFileSync(
+      join(tmpDir, ".kimi", "doctor-plugins.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        plugins: [{ name: "smoke-plugin", command: "bun", args: ["run", pluginScript] }],
+      })
+    );
+    try {
+      const { stdout, exitCode } = await runTool(
+        DOCTOR,
+        ["--plugin", "smoke-plugin", "--project-root", tmpDir, "--json"],
+        15_000
+      );
+      const report = JSON.parse(stdout.trim()) as {
+        mode: string;
+        plugin: string;
+        checks: Array<{ name: string; status: string; message: string }>;
+      };
+      expect(report.mode).toBe("plugin");
+      expect(report.plugin).toBe("smoke-plugin");
+      expect(report.checks[0]?.name).toBe("smoke-plugin");
+      expect(report.checks[0]?.status).toBe("ok");
+      expect(exitCode).toBe(0);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 15_000);
 });

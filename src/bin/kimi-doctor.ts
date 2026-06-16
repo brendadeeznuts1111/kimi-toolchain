@@ -68,6 +68,12 @@ import {
 } from "../lib/effect-gates.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
 import { recordDoctorRun } from "../lib/doctor-runs.ts";
+import { buildDoctorProbeManifest } from "../lib/doctor-probe.ts";
+import { runDoctorPluginsEffect } from "../lib/doctor-plugins.ts";
+import {
+  listExternalToolAdapters,
+  runExternalToolAdapterEffect,
+} from "../lib/external-tool-runner.ts";
 import { filterLowQualityDecisions, filterUnverifiedDecisions } from "../lib/decision-scoring.ts";
 import { readDecisions, resolveDecisionsRoot } from "../lib/decision-ledger.ts";
 import { buildBoundConstantIndex } from "../lib/taxonomy-constants.ts";
@@ -110,6 +116,12 @@ const PREDICT = Bun.argv.includes("--predict");
 const CORRELATE = Bun.argv.includes("--correlate");
 const EFFECT_GATES = Bun.argv.includes("--effect-gates");
 const SESSION_REPORT = Bun.argv.includes("--session-report");
+const PROBE = Bun.argv.includes("--probe");
+const MCP_SERVER = Bun.argv.includes("--mcp-server");
+const ALL = Bun.argv.includes("--all");
+const AGENT_ID = argValue("--agent-id");
+const ADAPTER = argValue("--adapter");
+const PLUGIN = argValue("--plugin");
 
 function argValue(flag: string): string | undefined {
   const index = Bun.argv.indexOf(flag);
@@ -1011,14 +1023,154 @@ async function runSessionReportMode(): Promise<number> {
   return floor.passed ? 0 : 1;
 }
 
+interface AllModeSourceSummary {
+  adapterName?: string;
+  pluginName?: string;
+  durationMs: number;
+  errorCount: number;
+  warnCount: number;
+}
+
+interface AllModeSource {
+  name: string;
+  summary: AllModeSourceSummary;
+  checks: HealthCheck[];
+}
+
+async function runAllMode(projectRoot: string): Promise<number> {
+  const sources: AllModeSource[] = [];
+  const rawTimeout = argValue("--timeout");
+  const adapterTimeout = rawTimeout ? Number(rawTimeout) : undefined;
+
+  const adapterNames = listExternalToolAdapters();
+  for (const name of adapterNames) {
+    const output = await Effect.runPromise(
+      runExternalToolAdapterEffect(name, projectRoot, {
+        timeoutMs: Number.isFinite(adapterTimeout) ? adapterTimeout : undefined,
+      })
+    );
+    sources.push({
+      name,
+      checks: output.checks,
+      summary: {
+        adapterName: name,
+        durationMs: output.durationMs,
+        errorCount: output.checks.filter((c) => c.status === "error").length,
+        warnCount: output.checks.filter((c) => c.status === "warn").length,
+      },
+    });
+  }
+
+  const pluginChecks = await Effect.runPromise(
+    runDoctorPluginsEffect({ projectRoot, home: homeDir() })
+  );
+  if (pluginChecks.length > 0) {
+    sources.push({
+      name: "plugins",
+      checks: pluginChecks,
+      summary: {
+        pluginName: "all",
+        durationMs: 0,
+        errorCount: pluginChecks.filter((c) => c.status === "error").length,
+        warnCount: pluginChecks.filter((c) => c.status === "warn").length,
+      },
+    });
+  }
+
+  const checks = sources.flatMap((s) => s.checks);
+  const summary = aggregateChecks("kimi-doctor", checks);
+  const sourcesRecord = Object.fromEntries(sources.map((s) => [s.name, s.summary]));
+
+  if (JSON_OUT) {
+    emitJson({
+      schemaVersion: 1,
+      tool: "kimi-doctor",
+      mode: "all",
+      checks,
+      sources: sourcesRecord,
+      summary,
+    });
+  } else {
+    logger.banner("Kimi Doctor — All Checks");
+    for (const source of sources) {
+      logger.section(source.name);
+      for (const check of source.checks) {
+        logger.check(check);
+      }
+      logger.info(`${source.summary.errorCount} error(s), ${source.summary.warnCount} warning(s)`);
+    }
+    logger.section("Summary");
+    logger.info(`${summary.errorCount} error(s), ${summary.warnCount} warning(s)`);
+  }
+
+  return summary.errorCount > 0 ? 1 : 0;
+}
+
 async function main(): Promise<number> {
   if (MEMORY_BUDGET) {
     printMemoryBudget(logger);
     return 0;
   }
 
+  if (PROBE) {
+    const probeRoot = await resolveProjectRoot(argValue("--project-root"));
+    emitJson(await buildDoctorProbeManifest(probeRoot));
+    return 0;
+  }
+
+  if (MCP_SERVER) {
+    const { startDoctorMcpServer } = await import("../lib/doctor-mcp-server.ts");
+    await startDoctorMcpServer();
+    return 0;
+  }
+
   const argv = Bun.argv.slice(2);
   const projectRoot = await resolveProjectRoot(argValue("--project-root"));
+
+  if (ADAPTER) {
+    const rawTimeout = argValue("--timeout");
+    const adapterTimeout = rawTimeout ? Number(rawTimeout) : undefined;
+    const output = await Effect.runPromise(
+      runExternalToolAdapterEffect(ADAPTER, projectRoot, {
+        timeoutMs: Number.isFinite(adapterTimeout) ? adapterTimeout : undefined,
+      })
+    );
+    if (JSON_OUT) {
+      emitJson({
+        agentId: AGENT_ID,
+        mode: "adapter",
+        adapter: ADAPTER,
+        checks: output.checks,
+        durationMs: output.durationMs,
+        summary: aggregateChecks(ADAPTER, output.checks),
+      });
+    } else {
+      for (const check of output.checks) logger.check(check);
+    }
+    return output.checks.some((c) => c.status === "error") ? 1 : 0;
+  }
+
+  if (PLUGIN) {
+    const checks = await Effect.runPromise(
+      runDoctorPluginsEffect({ projectRoot, home: homeDir(), only: PLUGIN })
+    );
+    if (JSON_OUT) {
+      emitJson({
+        agentId: AGENT_ID,
+        mode: "plugin",
+        plugin: PLUGIN,
+        checks,
+        summary: aggregateChecks(PLUGIN, checks),
+      });
+    } else {
+      for (const check of checks) logger.check(check);
+    }
+    return checks.some((c) => c.status === "error") ? 1 : 0;
+  }
+
+  if (ALL) {
+    return runAllMode(projectRoot);
+  }
 
   if (HISTORY || ANOMALY || VELOCITY || PREDICT || CORRELATE) {
     try {

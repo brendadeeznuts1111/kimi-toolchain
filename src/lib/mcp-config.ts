@@ -17,6 +17,18 @@ export const CLOUDFLARE_API_TOOL_SEARCH = "mcp__cloudflare__search";
 export const CLOUDFLARE_API_TOOL_EXECUTE = "mcp__cloudflare__execute";
 export const CLOUDFLARE_MCP_URL = "https://mcp.cloudflare.com/mcp";
 
+export const DOCTOR_MCP_SERVER = "kimi-doctor";
+export const DOCTOR_MCP_TOOL_PROBE = "kimi_doctor_probe";
+export const DOCTOR_MCP_TOOL_RUN = "kimi_doctor_run";
+export const DOCTOR_MCP_TOOL_FIX = "kimi_doctor_fix";
+export const DOCTOR_MCP_TOOL_RUN_ALL = "kimi_doctor_run_all";
+export const DOCTOR_MCP_TOOLS = [
+  DOCTOR_MCP_TOOL_PROBE,
+  DOCTOR_MCP_TOOL_RUN,
+  DOCTOR_MCP_TOOL_FIX,
+  DOCTOR_MCP_TOOL_RUN_ALL,
+];
+
 const KIMI_CODE_DIR = ".kimi-code";
 const BUN_BINARY = "bun";
 const UNIFIED_SHELL_BRIDGE = "unified-shell-bridge.ts";
@@ -106,6 +118,10 @@ export function bridgeScriptPath(home: string = homeDir()): string {
   return join(toolsDir(home), UNIFIED_SHELL_BRIDGE);
 }
 
+export function doctorMcpScriptPath(home: string = homeDir()): string {
+  return join(toolsDir(home), "kimi-doctor.ts");
+}
+
 /** Canonical stdio entry for unified-shell MCP server. */
 export function buildUnifiedShellEntry(home: string = homeDir()): McpServerEntry {
   return {
@@ -116,6 +132,15 @@ export function buildUnifiedShellEntry(home: string = homeDir()): McpServerEntry
       KIMI_SHELL_MODE: "unified",
     },
     description: "Unified Shell Bridge: Bun-native shell execution with signal handling",
+  };
+}
+
+/** Canonical stdio entry for the kimi-doctor MCP server. */
+export function buildDoctorMcpEntry(home: string = homeDir()): McpServerEntry {
+  return {
+    command: resolveBunPath(),
+    args: ["run", doctorMcpScriptPath(home), "--mcp-server"],
+    description: "kimi-doctor MCP server: structured diagnostics and health checks",
   };
 }
 
@@ -150,6 +175,21 @@ function cloudflareApiNeedsRefresh(
   return false;
 }
 
+function doctorMcpNeedsRefresh(
+  existing: McpServerEntry | undefined,
+  expected: McpServerEntry
+): boolean {
+  if (!existing) return true;
+  const expectedArgs = expected.args?.join(" ") ?? "";
+  const existingArgs = existing.args?.join(" ") ?? "";
+  if (!existingArgs.includes("kimi-doctor.ts")) return true;
+  if (!existingArgs.includes("--mcp-server")) return true;
+  if (existing.command !== expected.command) return true;
+  const scriptPath = expected.args?.[1] ?? "";
+  if (!existingArgs.includes(scriptPath) && existingArgs !== expectedArgs) return true;
+  return false;
+}
+
 /** Merge toolchain MCP servers into mcpServers without removing other servers. */
 export function mergeToolchainMcpServers(
   existing: McpJson | null,
@@ -169,6 +209,12 @@ export function mergeToolchainMcpServers(
   const cloudflareApi = buildCloudflareApiEntry();
   if (cloudflareApiNeedsRefresh(config.mcpServers[CLOUDFLARE_API_SERVER], cloudflareApi)) {
     config.mcpServers[CLOUDFLARE_API_SERVER] = cloudflareApi;
+    changed = true;
+  }
+
+  const doctorMcp = buildDoctorMcpEntry(home);
+  if (doctorMcpNeedsRefresh(config.mcpServers[DOCTOR_MCP_SERVER], doctorMcp)) {
+    config.mcpServers[DOCTOR_MCP_SERVER] = doctorMcp;
     changed = true;
   }
 
@@ -274,6 +320,24 @@ export async function validateMcpConfig(
       message: userReadError
         ? `cannot verify — mcp.json unreadable: ${userReadError}`
         : "not in mcpServers — run kimi-doctor --fix to enable Cloudflare API access",
+      fixable: true,
+    });
+  }
+
+  if (userMcp?.mcpServers[DOCTOR_MCP_SERVER]) {
+    checks.push({
+      name: "kimi-doctor-mcp",
+      status: "ok",
+      message: `registered (tools: ${DOCTOR_MCP_TOOLS.join(", ")})`,
+      fixable: false,
+    });
+  } else {
+    checks.push({
+      name: "kimi-doctor-mcp",
+      status: "warn",
+      message: userReadError
+        ? `cannot verify — mcp.json unreadable: ${userReadError}`
+        : "not in mcpServers — run kimi-doctor --fix to enable agent diagnostics",
       fixable: true,
     });
   }
