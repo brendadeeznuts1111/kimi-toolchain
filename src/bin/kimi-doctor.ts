@@ -120,6 +120,7 @@ const EFFECT_GATES = Bun.argv.includes("--effect-gates");
 const SESSION_REPORT = Bun.argv.includes("--session-report");
 const WORKSPACE_CONTEXT = Bun.argv.includes("--workspace-context");
 const WORKSPACE_CONTEXT_BRIEF = Bun.argv.includes("--brief");
+const WRITE_CONTEXT_FILES = Bun.argv.includes("--write-context-files");
 const WATCH = Bun.argv.includes("--watch");
 const PROBE = Bun.argv.includes("--probe");
 const MCP_SERVER = Bun.argv.includes("--mcp-server");
@@ -1051,11 +1052,16 @@ async function runSessionReportMode(projectRoot: string): Promise<number> {
 }
 
 async function runWorkspaceContextMode(projectRoot: string): Promise<number> {
-  const { buildWorkspaceContextReport } = await import("../lib/doctor-workspace-context.ts");
+  const { buildWorkspaceContextReport, writeWorkspaceContextJsonFile } =
+    await import("../lib/doctor-workspace-context.ts");
   const report = await buildWorkspaceContextReport({
     projectRoot,
     brief: WORKSPACE_CONTEXT_BRIEF,
   });
+
+  if (JSON_OUT || WRITE_CONTEXT_FILES) {
+    writeWorkspaceContextJsonFile(report);
+  }
 
   if (JSON_OUT) {
     emitJson(report);

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import type { HerdrAgentsTabPane, HerdrProjectConfig } from "./herdr-project-config.ts";
 import { herdrCliJson, herdrCliRun, resolveHerdrPanePath } from "./herdr-project-cli.ts";
 
@@ -102,6 +102,7 @@ export interface SyncAgentsTabContextResult {
   warnings: string[];
   /** Set when at least one delivery also wrote the context file drop. */
   contextFile?: string;
+  contextJsonFile?: string;
 }
 
 /** Deliver pane.context output to running agents via `herdr agent send`. */
@@ -113,6 +114,7 @@ export function syncAgentsTabContext(
   const delivered: Array<{ agent: string; bytes: number }> = [];
   const warnings: string[] = [];
   let contextFile: string | undefined;
+  let contextJsonFile: string | undefined;
   const projectPath = config.projectPath || "";
   if (!projectPath || !panes?.length) return { delivered, warnings };
 
@@ -136,6 +138,11 @@ export function syncAgentsTabContext(
       delivered.push({ agent: pane.agent, bytes: text.length });
       try {
         contextFile = writeContextDrop(text);
+        if (pane.context.includes("--write-context-files") || pane.context.includes("--json")) {
+          const jsonPath =
+            process.env.HERDR_CONTEXT_JSON_FILE?.trim() || "/tmp/workspace-context.json";
+          if (existsSync(jsonPath)) contextJsonFile = jsonPath;
+        }
       } catch (error) {
         warnings.push(
           `context file drop failed: ${error instanceof Error ? error.message : String(error)}`
@@ -146,5 +153,5 @@ export function syncAgentsTabContext(
     }
   }
 
-  return { delivered, warnings, contextFile };
+  return { delivered, warnings, contextFile, contextJsonFile };
 }

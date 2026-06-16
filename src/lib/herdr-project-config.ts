@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { TOML } from "bun";
+import type { PaneRequirementSpec } from "./herdr-pane-requires.ts";
 
 export const HERDR_PROJECT_CONFIG_NAMES = [
   ".dx/herdr.toml",
@@ -22,6 +23,8 @@ export interface HerdrAgentsTabPane {
   command?: string;
   /** Shell command whose stdout is sent to the agent after start/reconcile. */
   context?: string;
+  /** Tools required before this pane starts (which → bun x → optional install hint). */
+  requires?: PaneRequirementSpec[];
   env?: Record<string, string>;
 }
 
@@ -72,6 +75,8 @@ function parseAgentsTabPane(value: unknown): HerdrAgentsTabPane | null {
         )
       : undefined;
 
+  const requires = Array.isArray(row.requires) ? row.requires : undefined;
+
   return {
     role: role as HerdrPaneRole,
     agent: typeof row.agent === "string" ? row.agent : undefined,
@@ -80,6 +85,7 @@ function parseAgentsTabPane(value: unknown): HerdrAgentsTabPane | null {
     label: typeof row.label === "string" ? row.label : undefined,
     command: typeof row.command === "string" ? row.command : undefined,
     context: typeof row.context === "string" ? row.context : undefined,
+    requires,
     env,
   };
 }

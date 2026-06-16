@@ -179,7 +179,8 @@ label = "agents"
 [[herdr.agentsTab.panes]]
 role = "primary"
 agent = "kimi"
-context = "kimi-doctor --workspace-context --brief"
+context = "kimi-doctor --workspace-context --brief --write-context-files"
+requires = ["git", "kimi-doctor"]
 # ratio = 0.6  # advisory — runner does not pass --ratio yet
 
 [[herdr.agentsTab.panes]]
@@ -191,7 +192,8 @@ split = "right"
 role = "secondary"
 agent = "codex"
 split = "right"
-context = "kimi-doctor --workspace-context --brief"
+context = "kimi-doctor --workspace-context --brief --write-context-files"
+requires = ["git", "kimi-doctor"]
 
 [herdr.orchestrator]
 enabled = true

@@ -10,6 +10,7 @@ import {
 } from "./herdr-project-cli.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";
 import type { HerdrProjectConfig } from "./herdr-project-config.ts";
+import { verifyPaneRequirements, type PaneRequirementSpec } from "./herdr-pane-requires.ts";
 import { homeDir } from "./paths.ts";
 
 export { herdrCliJson, herdrCliRun, resolveHerdrPanePath };
@@ -182,6 +183,20 @@ function splitPane(
   return execCliJson("herdr", args);
 }
 
+function paneRequirementsOk(
+  pane: { agent?: string; role?: string; requires?: PaneRequirementSpec[] },
+  warnings: string[]
+): boolean {
+  if (!pane.requires?.length) return true;
+  const verified = verifyPaneRequirements(pane.requires);
+  if (verified.ok) return true;
+  const label = pane.agent || pane.role || "pane";
+  for (const check of verified.checks.filter((row) => !row.ok)) {
+    warnings.push(`${label} requires ${check.spec.bin} (${check.hint || "not on PATH"})`);
+  }
+  return false;
+}
+
 function bootstrapFromAgentsTab(
   config: HerdrProjectConfig,
   workspaceId: string,
@@ -195,6 +210,7 @@ function bootstrapFromAgentsTab(
 
   for (const pane of panes) {
     if (pane.role === "primary" && pane.agent) {
+      if (!paneRequirementsOk(pane, warnings)) continue;
       const argv = resolveAgentArgv(pane.agent);
       const already =
         agents.ok && agentRunning(agents, pane.agent, config.projectPath || "", workspaceId);
@@ -237,6 +253,7 @@ function bootstrapFromAgentsTab(
     }
 
     if (pane.role === "secondary" && pane.agent) {
+      if (!paneRequirementsOk(pane, warnings)) continue;
       const argv = resolveAgentArgv(pane.agent);
       const already =
         agents.ok && agentRunning(agents, pane.agent, config.projectPath || "", workspaceId);

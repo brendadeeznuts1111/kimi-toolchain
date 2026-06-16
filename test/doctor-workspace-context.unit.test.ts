@@ -3,7 +3,11 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { appendEffectGatesSnapshot, buildEffectGatesReport } from "../src/lib/effect-gates.ts";
-import { buildWorkspaceContextReport } from "../src/lib/doctor-workspace-context.ts";
+import {
+  buildWorkspaceContextReport,
+  writeWorkspaceContextJsonFile,
+  workspaceContextJsonPayload,
+} from "../src/lib/doctor-workspace-context.ts";
 import { extractHerdrProjectSection } from "../src/lib/herdr-project-config.ts";
 
 describe("doctor-workspace-context", () => {
@@ -52,6 +56,12 @@ handoff = ["bun run sync && bun run sync:verify"]
     expect(brief.nextSteps).toContain("bun run check:fast");
     expect(brief.effectGates?.tool).toBe("test");
     expect(brief.git.isRepo).toBe(true);
+
+    const jsonPath = writeWorkspaceContextJsonFile(brief);
+    const payload = workspaceContextJsonPayload(brief);
+    expect(jsonPath).toContain("workspace-context.json");
+    expect("markdown" in payload).toBe(false);
+    expect(payload.project).toBe(brief.project);
   });
 
   test("extractHerdrProjectSection parses agentsTab pane context", () => {

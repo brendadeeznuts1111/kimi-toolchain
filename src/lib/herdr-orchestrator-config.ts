@@ -76,10 +76,12 @@ export function parseOrchestratorEventsSection(
 
   return {
     enabled: section.enabled !== false,
-    debounceMs:
-      typeof section.debounceMs === "number" && section.debounceMs >= 0
-        ? section.debounceMs
-        : 2_000,
+    debounceMs: (() => {
+      const camel = section.debounceMs;
+      const snake = section.debounce_ms;
+      const value = typeof camel === "number" ? camel : typeof snake === "number" ? snake : 2_000;
+      return value >= 0 ? value : 2_000;
+    })(),
     allowlist,
     watchGit: section.watchGit !== false,
   };

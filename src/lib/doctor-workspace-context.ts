@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { TOML } from "bun";
 import {
@@ -202,4 +202,26 @@ export async function buildWorkspaceContextReport(
     ...base,
     markdown: buildMarkdown(base, brief),
   };
+}
+
+const DEFAULT_CONTEXT_JSON_FILE = "/tmp/workspace-context.json";
+
+export function resolveContextJsonFilePath(): string {
+  const override = process.env.HERDR_CONTEXT_JSON_FILE?.trim();
+  return override || DEFAULT_CONTEXT_JSON_FILE;
+}
+
+/** JSON payload for agents/tools (excludes markdown). */
+export function workspaceContextJsonPayload(
+  report: WorkspaceContextReport
+): Omit<WorkspaceContextReport, "markdown"> {
+  const { markdown: _markdown, ...payload } = report;
+  return payload;
+}
+
+export function writeWorkspaceContextJsonFile(report: WorkspaceContextReport): string {
+  const path = resolveContextJsonFilePath();
+  const payload = workspaceContextJsonPayload(report);
+  writeFileSync(path, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  return path;
 }
