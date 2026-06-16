@@ -1,6 +1,22 @@
 import { execFileSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
 import type { HerdrAgentsTabPane, HerdrProjectConfig } from "./herdr-project-config.ts";
 import { herdrCliJson, herdrCliRun, resolveHerdrPanePath } from "./herdr-project-cli.ts";
+
+const DEFAULT_CONTEXT_FILE = "/tmp/workspace-context.md";
+
+/** Path for the persistent context drop (HERDR_CONTEXT_FILE overrides). */
+export function resolveContextFilePath(): string {
+  const override = process.env.HERDR_CONTEXT_FILE?.trim();
+  return override || DEFAULT_CONTEXT_FILE;
+}
+
+/** Write delivered context to disk for non-chat agents and manual inspection. */
+export function writeContextDrop(text: string): string {
+  const path = resolveContextFilePath();
+  writeFileSync(path, text, "utf8");
+  return path;
+}
 
 function pauseSync(ms: number) {
   try {
@@ -84,6 +100,8 @@ function deliverContextWithRetry(
 export interface SyncAgentsTabContextResult {
   delivered: Array<{ agent: string; bytes: number }>;
   warnings: string[];
+  /** Set when at least one delivery also wrote the context file drop. */
+  contextFile?: string;
 }
 
 /** Deliver pane.context output to running agents via `herdr agent send`. */
@@ -94,6 +112,7 @@ export function syncAgentsTabContext(
 ): SyncAgentsTabContextResult {
   const delivered: Array<{ agent: string; bytes: number }> = [];
   const warnings: string[] = [];
+  let contextFile: string | undefined;
   const projectPath = config.projectPath || "";
   if (!projectPath || !panes?.length) return { delivered, warnings };
 
@@ -115,10 +134,17 @@ export function syncAgentsTabContext(
     const result = deliverContextWithRetry(config, pane.agent, text, workspaceId);
     if (result.ok) {
       delivered.push({ agent: pane.agent, bytes: text.length });
+      try {
+        contextFile = writeContextDrop(text);
+      } catch (error) {
+        warnings.push(
+          `context file drop failed: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
     } else {
       warnings.push(`agent send ${pane.agent} failed: ${result.error}`);
     }
   }
 
-  return { delivered, warnings };
+  return { delivered, warnings, contextFile };
 }

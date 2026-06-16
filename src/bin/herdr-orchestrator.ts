@@ -89,10 +89,12 @@ try {
       writeJson({
         ok: sync.warnings.length === 0,
         delivered: sync.delivered,
+        contextFile: sync.contextFile,
         warnings: sync.warnings,
       });
     else {
       for (const row of sync.delivered) writeOut(`delivered ${row.agent} (${row.bytes} bytes)`);
+      if (sync.contextFile) writeOut(`context file: ${sync.contextFile}`);
       for (const warning of sync.warnings) writeOut(`warn: ${warning}`);
     }
     process.exit(sync.warnings.length ? 2 : 0);
