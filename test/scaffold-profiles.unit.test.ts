@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
   renderDxConfig,
-  renderWorkspaceToml,
   scaffoldDxConfigTemplateRel,
   resolveScaffoldProfile,
   filterScaffoldArgv,
@@ -70,10 +69,10 @@ describe("scaffold-profiles", () => {
     expect(DX_CONFIG_TOOLCHAIN).not.toContain("[sync]");
   });
 
-  test("renderWorkspaceToml substitutes project name", () => {
-    const rendered = renderWorkspaceToml("demo-app");
-    expect(rendered).toContain("demo-app");
-    expect(rendered).not.toContain("{{PROJECT_NAME}}");
+  test("toolchain renderDxConfig documents herdr layout in comments", () => {
+    const rendered = renderDxConfig("toolchain", "demo-app", "/tmp/home");
+    expect(rendered).toContain("single source of truth");
+    expect(rendered).toContain("[[herdr.tabs]]");
   });
 
   test("dxAgentsPath joins home and dx agents file", () => {
@@ -85,7 +84,7 @@ describe("scaffold-profiles", () => {
     mkdirSync(root, { recursive: true });
     writeFileSync(join(root, "dx.config.toml"), "[kimi]\n");
     try {
-      expect(detectProfileDrift(root, "toolchain")).toContain("dx/workspace.toml");
+      expect(detectProfileDrift(root, "toolchain")).toContain("scripts/finish-work.ts");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

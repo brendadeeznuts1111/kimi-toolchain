@@ -146,6 +146,9 @@ verify = "artifact-verify --project ."
 memoryGate = true
 preflight = true
 
+# Herdr workspace layout — single source of truth (herdr-project reads [herdr] only):
+#   Tab "agents" (default): primaryAgent + shellPane (split shellSplit) + secondaryAgents
+#   Extra tabs: [[herdr.tabs]] (doctor, shell, …)
 [herdr]
 enabled = true
 workspaceLabel = "kimi-toolchain"

@@ -46,7 +46,6 @@
     ".oxfmtrc.json",
     ".oxlintrc.json",
     "dx.config.toml",
-    "dx/workspace.toml",
     "AGENTS.md",
     "CODE_REFERENCES.md",
     "UNIFIED.md",

@@ -364,32 +364,40 @@ preflight = true
 | Profile | Command | `dx.config` source | Extras |
 |---------|---------|-------------------|--------|
 | **app** (default) | `kimi-fix <path>` | `templates/scaffold/dx.config.app.toml` | Standard DX/CI/quality — no `[sync]`, `ci:local`, `[finishWork]`, or `[herdr]` |
-| **toolchain** | `kimi-fix <path> --profile toolchain` | `templates/scaffold/dx.config.toolchain.toml` | `[finishWork]`, `[herdr]`, `dx/workspace.toml`, `scripts/finish-work.ts` |
+| **toolchain** | `kimi-fix <path> --profile toolchain` | `templates/scaffold/dx.config.toolchain.toml` | `[finishWork]`, `[herdr]`, `scripts/finish-work.ts` |
 
 Full runtime sync/ci.local blocks live only in the **kimi-toolchain reference** `dx.config.toml`, not in scaffold templates.
 
 **Effect gates (canonical):** Use `kimi-doctor --effect-gates` in `[agents].prePush` and `[finishWork].gates` everywhere — scaffold templates and live `dx.config.toml` match. `bun run doctor` in `package.json` is an in-tree dev alias only; do not put it in gate config.
 
-**Profile drift:** `kimi-fix` never overwrites existing `dx.config.toml`, `dx/workspace.toml`, or finish-work scripts. Re-scaffolding with a different `--profile` logs a warning; delete the stale files and re-run, or scaffold into a fresh tree.
+**Profile drift:** `kimi-fix` never overwrites existing `dx.config.toml` or finish-work scripts. Re-scaffolding with a different `--profile` logs a warning; delete the stale files and re-run, or scaffold into a fresh tree.
 
 **finish-work staging:** `git add -u` only (tracked files). Untracked files and secrets are never blanket-staged.
 
 ### Migrating an existing project to the toolchain profile
 
-Use when a repo was scaffolded with the default **app** profile and you want `[finishWork]`, `[herdr]`, `dx/workspace.toml`, and `scripts/finish-work.ts`.
+Use when a repo was scaffolded with the default **app** profile and you want `[finishWork]`, `[herdr]`, and `scripts/finish-work.ts`.
 
 1. Confirm toolchain on PATH: `kimi-doctor --quick`
 2. Back up `dx.config.toml` if it has custom blocks you need to keep
 3. Remove stale scaffold files so `kimi-fix` can recreate them:
    - `dx.config.toml` (or manually add `[finishWork]` + `[herdr]` from `templates/scaffold/dx.config.toolchain.toml`)
-   - `dx/workspace.toml`, `scripts/finish-work.ts`, `scripts/finish-work-config.ts` if missing or app-era
+   - `scripts/finish-work.ts`, `scripts/finish-work-config.ts` if missing or app-era
 4. Run `kimi-fix <path> --profile toolchain`
 5. Verify: `bun run finish-work --dry-run` (gates should include `kimi-doctor --effect-gates`)
 6. If `[finishWork]` still lists `bun run doctor --effect-gates`, replace with `kimi-doctor --effect-gates` to match the canonical gate
 
-### Herdr project profile (`[herdr]`)
+### Herdr project profile (`[herdr]`) — v1.5.4
 
-Per-repo workspace bootstrap only. Global Herdr config uses a three-layer symlink chain — see **Herdr Config Symlink Chain** in `CODE_REFERENCES.md`. Do not flatten that chain.
+Single source of truth for Herdr workspace layout. `herdr-project` reads `[herdr]` from `dx.config.toml` (or flat `.dx/herdr.toml` in config repos). Global Herdr keys/theme use the three-layer symlink chain — see **Herdr Config Symlink Chain** in `CODE_REFERENCES.md`.
+
+**Layout model:**
+
+- Tab **agents** (default): `primaryAgent` + `shellPane` (split `shellSplit`) + `secondaryAgents`
+- Extra tabs: `[[herdr.tabs]]` (doctor, shell, reviewer, …)
+- Shell bootstrap: `bootstrap` commands run once in the shell pane on first workspace create
+
+Finish-work gates live in `[finishWork]` (falls back to `[agents].prePush`) — not in `[herdr]`.
 
 ```toml
 [herdr]
@@ -399,38 +407,22 @@ primaryAgent = "kimi"
 secondaryAgents = ["codex"]
 shellPane = true
 shellSplit = "right"
-bootstrap = ["dx config --project ."]
-```
+bootstrap = [
+  "dx config --project .",
+  "echo 'Finish work: bun run finish-work --message \"...\"'",
+  "bun run check:fast && echo '✅ Ready to commit'",
+]
 
-Global source of truth: `~/dx-config`. Project block lives in this repo's `dx.config.toml`.
-
-### Workspace layout (`dx/workspace.toml`) — v1.5.4
-
-Canonical Herdr tab/pane layout (`DxWorkspace`). Layout + intent only — **not** runtime gate config. `herdr-project` reads `dx.config.toml` `[herdr]`; mirror tab commands there. Runtime bootstrap/tabs may add small hardening (error suppression, `herdr-quickref`, etc.) beyond this spec.
-
-Finish-work gates live in `dx.config.toml` `[finishWork]` (falls back to `[agents].prePush`). Do not duplicate gates in `dx/workspace.toml`.
-
-```toml
-schemaVersion = 1
-layoutVersion = "1.5.4"
-
-[[tabs]]
-label = "agents"
-primaryPane = { role = "agent", agent = "kimi", share = 60, command = "kimi" }
-shellPane = { role = "shell", share = 40, split = "right", command = "bun run check:fast && echo '✅ Ready to commit'" }
-secondaryPane = { role = "agent", agent = "codex", share = 40, split = "right", command = "codex" }
-
-[[tabs]]
+[[herdr.tabs]]
 label = "doctor"
-command = "kimi-doctor --quick"
+command = "kimi-doctor --quick 2>/dev/null || true"
 
-[[tabs]]
+[[herdr.tabs]]
 label = "shell"
-command = "git status -sb"
-
-[shellBootstrap]
-commands = ["dx config --project .", "echo 'Finish work: bun run finish-work --message \"...\"'"]
+command = "git status -sb; herdr-quickref"
 ```
+
+Config/dotfiles repos use the same fields in flat `.dx/herdr.toml` (`[[tabs]]` instead of `[[herdr.tabs]]`). Global machine wiring: `~/dx-config`.
 
 Finish-work helper (reads `dx.config.toml` only):
 

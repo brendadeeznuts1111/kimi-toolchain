@@ -36,7 +36,6 @@ function loadTemplate(name: string): string {
 
 export const DX_CONFIG_APP_TEMPLATE = loadTemplate("dx.config.app.toml");
 export const DX_CONFIG_TOOLCHAIN_TEMPLATE = loadTemplate("dx.config.toolchain.toml");
-export const DX_WORKSPACE_TEMPLATE = loadTemplate("dx.workspace.toml");
 
 export const FINISH_WORK_CONFIG_TEMPLATE = loadTemplate("scripts/finish-work-config.ts");
 export const FINISH_WORK_TEMPLATE = loadTemplate("scripts/finish-work.ts");
@@ -94,9 +93,6 @@ export function detectProfileDrift(projectRoot: string, profile: ScaffoldProfile
 
   if (profile === "toolchain") {
     const missing: string[] = [];
-    if (!existsSync(join(projectRoot, "dx", "workspace.toml"))) {
-      missing.push("dx/workspace.toml");
-    }
     if (!existsSync(join(projectRoot, "scripts", "finish-work.ts"))) {
       missing.push("scripts/finish-work.ts");
     }
@@ -143,10 +139,6 @@ export function renderDxConfig(
     PROJECT_NAME: projectName,
     DX_AGENTS_PATH: dxAgentsPath(home),
   });
-}
-
-export function renderWorkspaceToml(projectName: string): string {
-  return renderTemplate(DX_WORKSPACE_TEMPLATE, { PROJECT_NAME: projectName });
 }
 
 export function packageScriptEntriesForProfile(profile: ScaffoldProfile): Record<string, string> {

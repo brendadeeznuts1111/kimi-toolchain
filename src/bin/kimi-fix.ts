@@ -30,7 +30,6 @@ import {
   FINISH_WORK_TEMPLATE,
   TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES,
   renderDxConfig,
-  renderWorkspaceToml,
   scaffoldDxConfigTemplateRel,
   resolveScaffoldProfile,
   filterScaffoldArgv,
@@ -248,16 +247,6 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
     await writeFile(
       join(project, "dx.config.toml"),
       renderDxConfig(profile, projectName, home),
-      dryRun
-    );
-  }
-
-  if (profile === "toolchain" && !existsSync(join(project, "dx", "workspace.toml"))) {
-    stepLog("dx", "creating dx/workspace.toml...");
-    if (!dryRun) mkdirSync(join(project, "dx"), { recursive: true });
-    await writeFile(
-      join(project, "dx", "workspace.toml"),
-      renderWorkspaceToml(projectName),
       dryRun
     );
   }

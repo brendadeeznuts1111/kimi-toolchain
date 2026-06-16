@@ -221,15 +221,14 @@ Use this pattern when extending `kimi-doctor` with new agent-facing diagnostics.
 
 | File | Role | Type | Tests |
 | ---- | ---- | ---- | ----- |
-| `dx/workspace.toml` | Layout + intent spec (tabs, panes, bootstrap intent) | `DxWorkspace` | — |
-| `dx.config.toml` `[herdr]` | Runtime workspace bootstrap (what `herdr-project` executes) | — | — |
+| `dx.config.toml` `[herdr]` | Herdr workspace layout + bootstrap (what `herdr-project` executes) | — | `test/herdr-project-config.unit.test.ts` |
 | `dx.config.toml` `[finishWork]` | Finish-work gate list | — | — |
 | `scripts/finish-work.ts` | Gates + optional git commit/push | CLI | `test/finish-work-config.unit.test.ts` |
 | `src/lib/finish-work-config.ts` | Read `[finishWork]` / `[agents].prePush` from `dx.config.toml` | Config loader | `test/finish-work-config.unit.test.ts` |
 
-**Scaffold profiles:** `kimi-fix` defaults to **app** (`templates/scaffold/dx.config.app.toml`). Use `--profile toolchain` for `[finishWork]`, `[herdr]`, and `dx/workspace.toml`. See `src/lib/scaffold-profiles.ts`.
+**Scaffold profiles:** `kimi-fix` defaults to **app** (`templates/scaffold/dx.config.app.toml`). Use `--profile toolchain` for `[finishWork]` and `[herdr]`. See `src/lib/scaffold-profiles.ts`.
 
-**Spec vs runtime:** `dx/workspace.toml` documents layout intent. `dx.config.toml` `[herdr]` is runtime — it may harden tab commands beyond the spec. Gates belong only in `dx.config.toml` (`[finishWork]` → `[agents].prePush` fallback). Automated spec/runtime diff is deferred.
+**Single source of truth:** `[herdr]` owns tab/pane layout (`primaryAgent`, `shellPane`, `[[herdr.tabs]]`, `bootstrap`). Config/dotfiles repos use flat `.dx/herdr.toml` with the same fields (`[[tabs]]`). Gates belong only in `dx.config.toml` (`[finishWork]` → `[agents].prePush` fallback).
 
 ## Herdr Config Symlink Chain
 

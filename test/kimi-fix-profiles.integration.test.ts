@@ -6,7 +6,6 @@ import {
   FINISH_WORK_CONFIG_TEMPLATE,
   FINISH_WORK_TEMPLATE,
   renderDxConfig,
-  renderWorkspaceToml,
 } from "../src/lib/scaffold-profiles.ts";
 import { injectMissingScripts } from "../src/lib/scaffold-quality.ts";
 import { homeDir } from "../src/lib/paths.ts";
@@ -44,8 +43,6 @@ describe("kimi-fix-profiles profile artifacts", () => {
       join(projectRoot, "dx.config.toml"),
       renderDxConfig("toolchain", "profile-demo", homeDir())
     );
-    mkdirSync(join(projectRoot, "dx"), { recursive: true });
-    await Bun.write(join(projectRoot, "dx", "workspace.toml"), renderWorkspaceToml("profile-demo"));
     mkdirSync(join(projectRoot, "scripts"), { recursive: true });
     await Bun.write(
       join(projectRoot, "scripts", "finish-work-config.ts"),
@@ -58,7 +55,7 @@ describe("kimi-fix-profiles profile artifacts", () => {
     expect(dxConfig).toContain("[finishWork]");
     expect(dxConfig).toContain("[herdr]");
     expect(existsSync(join(projectRoot, "scripts/finish-work.ts"))).toBe(true);
-    expect(existsSync(join(projectRoot, "dx/workspace.toml"))).toBe(true);
+    expect(dxConfig).toContain("single source of truth");
 
     const pkg = (await Bun.file(join(projectRoot, "package.json")).json()) as {
       scripts?: Record<string, string>;
