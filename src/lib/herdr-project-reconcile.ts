@@ -26,6 +26,7 @@ import {
   resolveHerdrPanePath,
   startHerdrAgent,
 } from "./herdr-project-runner.ts";
+import { interruptPaneAgents, panesWithAgentsOnTab } from "./herdr-tab-lifecycle.ts";
 
 export type ReconcileActionType =
   | "create_tab"
@@ -499,7 +500,9 @@ function closePane(config: HerdrProjectConfig, paneId: string) {
   return herdrCliRun(config.session, ["pane", "close", paneId]);
 }
 
-function closeTab(config: HerdrProjectConfig, tabId: string) {
+function closeTab(config: HerdrProjectConfig, workspaceId: string, tabId: string) {
+  const snapshot = captureWorkspaceLayout(config.session, workspaceId);
+  interruptPaneAgents(config.session, panesWithAgentsOnTab(snapshot.panes, tabId));
   return herdrCliRun(config.session, ["tab", "close", tabId]);
 }
 
@@ -615,7 +618,7 @@ function applyReconcileAction(
         warning: "skipped close_tab (pass --close-orphans or --force-layout)",
       });
     }
-    const closed = closeTab(config, action.target);
+    const closed = closeTab(config, workspaceId, action.target);
     return Effect.succeed(
       closed.ok ? { ok: true } : { ok: false, warning: closed.output || "tab close failed" }
     );
@@ -658,6 +661,11 @@ function applyLayoutAction(
   return Effect.gen(function* () {
     const resolvedTabId =
       tabId ?? resolveTabIdByLabel(config, workspaceId, spec.tabLabel) ?? undefined;
+
+    if (resolvedTabId) {
+      const snapshot = captureWorkspaceLayout(config.session, workspaceId);
+      interruptPaneAgents(config.session, panesWithAgentsOnTab(snapshot.panes, resolvedTabId));
+    }
 
     const applied = yield* applyTabLayoutEffect({
       workspaceId,
