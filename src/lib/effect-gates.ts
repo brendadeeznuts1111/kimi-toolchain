@@ -27,6 +27,7 @@ export const EFFECT_GATES = {
   missingServiceTag: "missing-service-tag",
   domainPurity: "domain-purity",
   runPromiseBoundary: "run-promise-boundary",
+  eventStream: "event-stream",
 } as const;
 
 /** A single discipline violation. */
@@ -48,6 +49,7 @@ export interface EffectGatesCounts {
   missingServiceTag: number;
   domainPurity: number;
   runPromiseBoundary: number;
+  eventStream: number;
 }
 
 /** Threshold snapshot baked into the report for reproducibility. */
@@ -57,6 +59,7 @@ export interface EffectGatesThresholds {
   serviceTagRequired: boolean;
   domainPurityLevel: "strict" | "gradual" | "off";
   runPromiseBoundaryEnabled: boolean;
+  eventStreamsEnabled: boolean;
 }
 
 /** Discipline report emitted by buildEffectGatesReport. */
@@ -87,6 +90,8 @@ export interface BuildEffectGatesReportOptions {
   include?: string[];
   /** Paths to exclude from scanning. */
   exclude?: string[];
+  /** Override constant-derived thresholds for this run. */
+  thresholdOverrides?: Partial<EffectGatesThresholds>;
 }
 
 /** Runtime thresholds loaded from bunfig [define] constants. */
@@ -98,6 +103,7 @@ function loadThresholds(): EffectGatesThresholds {
     serviceTagRequired: KIMI_SERVICE_TAG_REQUIRED,
     domainPurityLevel: level === "strict" || level === "gradual" || level === "off" ? level : "off",
     runPromiseBoundaryEnabled: KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED,
+    eventStreamsEnabled: false,
   };
 }
 
@@ -230,6 +236,43 @@ function scanRunPromiseBoundary(
       message: "Effect.runPromise called outside permitted CLI/runtime/test boundary",
       location: formatLocation(filePath, line),
     });
+  }
+
+  return violations;
+}
+
+/** Detect Node.js EventEmitter usage in service code that should be Effect streams. */
+function scanEventStreams(
+  sourceFile: ts.SourceFile,
+  filePath: string,
+  thresholds: EffectGatesThresholds
+): EffectGatesViolation[] {
+  if (!thresholds.eventStreamsEnabled) return [];
+  if (!filePath.startsWith("src/services/")) return [];
+
+  const violations: EffectGatesViolation[] = [];
+  const text = sourceFile.text;
+  const patterns = [
+    { regex: /\bnew\s+EventEmitter\b/g, label: "new EventEmitter" },
+    { regex: /\bnew\s+CustomEmitter\b/g, label: "new CustomEmitter" },
+    { regex: /\bEventEmitter\b/g, label: "EventEmitter reference" },
+    { regex: /\bCustomEmitter\b/g, label: "CustomEmitter reference" },
+    { regex: /from\s+["']events["']/g, label: "events module import" },
+    { regex: /require\s*\(\s*["']events["']\s*\)/g, label: "events module require" },
+  ];
+
+  for (const { regex, label } of patterns) {
+    for (const match of text.matchAll(regex)) {
+      const pos = match.index ?? 0;
+      if (isTokenInCommentOrString(sourceFile, pos)) continue;
+      const line = sourceFile.getLineAndCharacterOfPosition(pos).line + 1;
+      violations.push({
+        gate: EFFECT_GATES.eventStream,
+        severity: "error",
+        message: `EventEmitter-style code should be an Effect stream: ${label}`,
+        location: formatLocation(filePath, line),
+      });
+    }
   }
 
   return violations;
@@ -408,6 +451,7 @@ function aggregateCounts(violations: EffectGatesViolation[]): EffectGatesCounts 
     missingServiceTag: violations.filter((v) => v.gate === EFFECT_GATES.missingServiceTag).length,
     domainPurity: violations.filter((v) => v.gate === EFFECT_GATES.domainPurity).length,
     runPromiseBoundary: violations.filter((v) => v.gate === EFFECT_GATES.runPromiseBoundary).length,
+    eventStream: violations.filter((v) => v.gate === EFFECT_GATES.eventStream).length,
   };
 }
 
@@ -440,7 +484,7 @@ export async function buildEffectGatesReport(
   options: BuildEffectGatesReportOptions
 ): Promise<EffectGatesReport> {
   const projectRoot = resolve(options.projectRoot);
-  const thresholds = loadThresholds();
+  const thresholds = { ...loadThresholds(), ...options.thresholdOverrides };
   const sourceFilePaths = await resolveSourceFiles(projectRoot, options.include, options.exclude);
   const program = createTypeScriptProgram(sourceFilePaths);
   const sourceFiles = program
@@ -459,6 +503,7 @@ export async function buildEffectGatesReport(
     violations.push(...scanRunPromiseBoundary(sourceFile, filePath, thresholds));
     violations.push(...scanMissingServiceTags(sourceFile, filePath, thresholds));
     violations.push(...scanDomainPurity(sourceFile, filePath, thresholds));
+    violations.push(...scanEventStreams(sourceFile, filePath, thresholds));
   }
 
   violations.push(...scanLayerCircularity(sourceFiles, filePathMap, thresholds));
@@ -523,4 +568,69 @@ export async function readEffectGatesSnapshots(
   return lines
     .map((line) => safeParse<EffectGatesReport>(line, null as unknown as EffectGatesReport))
     .filter((r): r is EffectGatesReport => r !== null && typeof r === "object");
+}
+
+/** Required session-floor counts and their hardcoded minimums. */
+export interface SessionFloorCounts {
+  rawPromisesRemoved: number;
+  servicesMigratedToTagLayer: number;
+  domainPurityViolationsResolved: number;
+  rawErrorsConvertedToTyped: number;
+  eventEmittersConvertedToStreams: number;
+  circularLayerDependencies: number;
+}
+
+/** Result of evaluating a session floor. */
+export interface SessionFloorResult {
+  passed: boolean;
+  missing: string[];
+  below: string[];
+  details: Array<{ field: keyof SessionFloorCounts; actual: number; floor: number }>;
+}
+
+const SESSION_FLOOR_MINIMUMS: Record<keyof SessionFloorCounts, number> = {
+  rawPromisesRemoved: 2,
+  servicesMigratedToTagLayer: 2,
+  domainPurityViolationsResolved: 1,
+  rawErrorsConvertedToTyped: 1,
+  eventEmittersConvertedToStreams: 0,
+  circularLayerDependencies: 0,
+};
+
+/**
+ * Evaluate whether a session's Effect-discipline counts meet the hardcoded floor.
+ *
+ * Missing or undefined fields are failures. Negative values are failures. Values
+ * below the floor are failures. Zero-tolerance fields (event emitters, circular
+ * layers) fail only when below zero, i.e., when the supplied count is negative.
+ */
+export function evaluateSessionFloor(counts: Partial<SessionFloorCounts>): SessionFloorResult {
+  const missing: string[] = [];
+  const below: string[] = [];
+  const details: SessionFloorResult["details"] = [];
+  let passed = true;
+
+  for (const field of Object.keys(SESSION_FLOOR_MINIMUMS) as Array<keyof SessionFloorCounts>) {
+    const raw = counts[field];
+    const floor = SESSION_FLOOR_MINIMUMS[field];
+    if (raw === undefined || raw === null || Number.isNaN(raw)) {
+      missing.push(field);
+      details.push({ field, actual: NaN, floor });
+      passed = false;
+      continue;
+    }
+    if (!Number.isInteger(raw) || raw < 0) {
+      missing.push(field);
+      details.push({ field, actual: raw, floor });
+      passed = false;
+      continue;
+    }
+    details.push({ field, actual: raw, floor });
+    if (raw < floor) {
+      below.push(field);
+      passed = false;
+    }
+  }
+
+  return { passed, missing, below, details };
 }

@@ -335,6 +335,15 @@ categories:
     patterns:
       - regex: "run-promise-boundary"
 
+  - id: effect_gates_event_stream_violation
+    name: Effect event stream violation
+    description: Service code used Node.js EventEmitter-style patterns instead of Effect streams.
+    severity: error
+    expected: false
+    suggestion: "Replace EventEmitter usage with Effect streams in src/services code."
+    patterns:
+      - regex: "event-stream"
+
   - id: unknown
     name: Unknown
     description: No known pattern matched.

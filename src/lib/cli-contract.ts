@@ -235,8 +235,18 @@ export interface MachineWriter {
   flags: Readonly<CliFlags>;
 }
 
+/** Options for createMachineWriter. */
+export interface CreateMachineWriterOptions {
+  /** Force human-readable output to stderr even when not in JSON mode. */
+  humanStderr?: boolean;
+}
+
 /** Create a writer that respects --json, --quiet, --debug, and agent context. */
-export function createMachineWriter(flags: CliFlags, toolName?: string): MachineWriter {
+export function createMachineWriter(
+  flags: CliFlags,
+  toolName?: string,
+  options?: CreateMachineWriterOptions
+): MachineWriter {
   const resolvedTool = toolName ?? "kimi-toolchain";
   const logger = new Logger({
     level: flags.debug ? "debug" : "info",
@@ -246,7 +256,7 @@ export function createMachineWriter(flags: CliFlags, toolName?: string): Machine
     stepBudget: flags.stepBudget,
     // Route errors to stderr only in JSON mode so stdout stays clean;
     // normal mode preserves the existing stdout contract for backward compatibility.
-    humanStderr: flags.json,
+    humanStderr: options?.humanStderr ?? flags.json,
   });
 
   function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -302,7 +312,11 @@ export function createMachineWriter(flags: CliFlags, toolName?: string): Machine
 }
 
 /** Convenience: parse argv and create writer in one call. */
-export function createCli(argv: string[], toolName: string): MachineWriter {
+export function createCli(
+  argv: string[],
+  toolName: string,
+  options?: CreateMachineWriterOptions
+): MachineWriter {
   const flags = parseCliFlags(argv, toolName);
-  return createMachineWriter(flags, toolName);
+  return createMachineWriter(flags, toolName, options);
 }

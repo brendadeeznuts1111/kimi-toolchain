@@ -57,6 +57,15 @@ import { auditSuccessMetrics } from "../lib/success-metrics.ts";
 import { generateAgentDiagnosisReport } from "../lib/agent-diagnosis.ts";
 import { aggregateChecks, type HealthCheck } from "../lib/health-check.ts";
 import { createCli } from "../lib/cli-contract.ts";
+import {
+  appendEffectGatesSnapshot,
+  buildEffectGatesReport,
+  detectRegressions,
+  evaluateSessionFloor,
+  type EffectGatesCounts,
+  readEffectGatesSnapshots,
+  type SessionFloorCounts,
+} from "../lib/effect-gates.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
 import { recordDoctorRun } from "../lib/doctor-runs.ts";
 import { filterLowQualityDecisions, filterUnverifiedDecisions } from "../lib/decision-scoring.ts";
@@ -99,6 +108,8 @@ const ANOMALY = Bun.argv.includes("--anomaly");
 const VELOCITY = Bun.argv.includes("--velocity");
 const PREDICT = Bun.argv.includes("--predict");
 const CORRELATE = Bun.argv.includes("--correlate");
+const EFFECT_GATES = Bun.argv.includes("--effect-gates");
+const SESSION_REPORT = Bun.argv.includes("--session-report");
 
 function argValue(flag: string): string | undefined {
   const index = Bun.argv.indexOf(flag);
@@ -874,6 +885,132 @@ async function runAgentDiagnosisMode(projectRoot: string): Promise<number> {
   return 0;
 }
 
+async function runEffectGatesMode(projectRoot: string): Promise<number> {
+  const [previous] = await readEffectGatesSnapshots(projectRoot, 1);
+  const gitHead = await resolveGitHead(projectRoot);
+  const current = await buildEffectGatesReport({
+    projectRoot,
+    tool: "kimi-doctor",
+    gitHead,
+  });
+  const regressions = detectRegressions(current, previous ?? null);
+  await appendEffectGatesSnapshot(projectRoot, current);
+
+  const keys = Object.keys(current.counts) as Array<keyof EffectGatesCounts>;
+  const delta = Object.fromEntries(
+    keys.map((key) => {
+      const before = previous?.counts[key] ?? 0;
+      return [key, current.counts[key] - before];
+    })
+  ) as Record<keyof EffectGatesCounts, number>;
+
+  const ok = current.summary.errors === 0 && regressions.length === 0;
+
+  if (JSON_OUT) {
+    emitJson({
+      effectGates: {
+        previous: previous ?? null,
+        current,
+        delta,
+        regressions,
+      },
+      thresholds: current.thresholds,
+      violations: current.violations,
+      summary: { ok },
+    });
+  } else {
+    logger.section("Effect Gates");
+    logger.info(
+      `${current.summary.total} violation(s), ${current.summary.errors} error(s), ${current.summary.warnings} warning(s)`
+    );
+    if (regressions.length > 0) {
+      logger.warn(`${regressions.length} regression(s) detected`);
+      for (const regression of regressions) logger.warn(regression.message);
+    }
+    for (const violation of current.violations) {
+      const message = violation.location
+        ? `${violation.location}: ${violation.message}`
+        : violation.message;
+      if (violation.severity === "error") logger.error(message);
+      else logger.warn(message);
+    }
+  }
+
+  return ok ? 0 : 1;
+}
+
+function parseSessionReportFlag(flag: string): number | undefined {
+  const raw = argValue(flag);
+  if (raw === undefined) return undefined;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+async function runSessionReportMode(): Promise<number> {
+  const counts: Partial<SessionFloorCounts> = {
+    rawPromisesRemoved: parseSessionReportFlag("--raw-promises-removed"),
+    servicesMigratedToTagLayer: parseSessionReportFlag("--services-migrated"),
+    domainPurityViolationsResolved: parseSessionReportFlag("--domain-purity-resolved"),
+    rawErrorsConvertedToTyped: parseSessionReportFlag("--raw-errors-converted"),
+    eventEmittersConvertedToStreams: parseSessionReportFlag("--event-emitters-converted"),
+    circularLayerDependencies: parseSessionReportFlag("--circular-layers"),
+  };
+
+  const invalid: string[] = [];
+  for (const [field, raw] of Object.entries(counts)) {
+    if (raw === undefined) invalid.push(field);
+    else if (!Number.isInteger(raw) || raw < 0) invalid.push(field);
+  }
+
+  if (invalid.length > 0) {
+    const message = `Missing or invalid session-floor field(s): ${invalid.join(", ")}`;
+    if (JSON_OUT) {
+      emitJson({
+        schemaVersion: 1,
+        tool: "kimi-doctor",
+        counts,
+        error: message,
+        summary: { passed: false, missing: invalid, below: [] },
+      });
+    } else {
+      logger.error(message);
+    }
+    return 1;
+  }
+
+  const floor = evaluateSessionFloor(counts as SessionFloorCounts);
+
+  if (JSON_OUT) {
+    emitJson({
+      schemaVersion: 1,
+      tool: "kimi-doctor",
+      counts,
+      floor,
+      summary: {
+        passed: floor.passed,
+        missing: floor.missing,
+        below: floor.below,
+      },
+    });
+  } else {
+    logger.section("Session Report");
+    if (floor.passed) {
+      logger.info("Session floor passed");
+    } else {
+      logger.error("Session floor failed");
+      for (const field of floor.missing) logger.error(`Missing field: ${field}`);
+      for (const field of floor.below) logger.error(`Below floor: ${field}`);
+      for (const detail of floor.details) {
+        if (detail.actual < detail.floor || Number.isNaN(detail.actual)) {
+          logger.line(`  ${detail.field}: ${detail.actual} (floor ${detail.floor})`);
+        }
+      }
+    }
+  }
+
+  return floor.passed ? 0 : 1;
+}
+
 async function main(): Promise<number> {
   if (MEMORY_BUDGET) {
     printMemoryBudget(logger);
@@ -881,7 +1018,7 @@ async function main(): Promise<number> {
   }
 
   const argv = Bun.argv.slice(2);
-  const projectRoot = await resolveProjectRoot();
+  const projectRoot = await resolveProjectRoot(argValue("--project-root"));
 
   if (HISTORY || ANOMALY || VELOCITY || PREDICT || CORRELATE) {
     try {
@@ -923,6 +1060,14 @@ async function main(): Promise<number> {
 
   if (AGENT) {
     return runAgentDiagnosisMode(projectRoot);
+  }
+
+  if (EFFECT_GATES) {
+    return runEffectGatesMode(projectRoot);
+  }
+
+  if (SESSION_REPORT) {
+    return runSessionReportMode();
   }
 
   if (!JSON_OUT) {

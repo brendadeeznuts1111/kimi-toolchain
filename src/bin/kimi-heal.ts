@@ -9,10 +9,12 @@
  *   kimi-heal suggest --error-id <id> [--json]
  *   kimi-heal constants snapshot [--json]
  *   kimi-heal constants optimize [--apply <keys|all>] [--min-confidence 0.7] [--dry-run|--yes] [--json]
+ *   kimi-heal effect audit [--check-tags] [--event-streams] [--json]
  */
 
 import { Effect } from "effect";
 import { createLogger } from "../lib/logger.ts";
+import { createCli } from "../lib/cli-contract.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { resolveDecisionsRoot } from "../lib/decision-ledger.ts";
@@ -37,6 +39,7 @@ import {
   optimizerRecommendationsToJson,
   printConstantOptimizerRecommendationsBlock,
 } from "../lib/constant-optimizer.ts";
+import { buildEffectGatesReport } from "../lib/effect-gates.ts";
 
 const logger = createLogger(Bun.argv, "kimi-heal");
 
@@ -442,6 +445,47 @@ async function main(): Promise<number> {
     return 1;
   }
 
+  if (command === "effect") {
+    const sub = args[1];
+    if (sub !== "audit") {
+      logger.error(
+        "Usage: effect audit [--check-tags] [--event-streams] [--json] [--project-root <path>]"
+      );
+      return 1;
+    }
+
+    const writer = createCli(Bun.argv, "kimi-heal", { humanStderr: true });
+    const checkTags = hasFlag("--check-tags");
+    const eventStreams = hasFlag("--event-streams");
+    const auditProjectRoot = argValue("--project-root") || projectRoot;
+
+    const report = await buildEffectGatesReport({
+      projectRoot: auditProjectRoot,
+      tool: "kimi-heal",
+      thresholdOverrides: {
+        serviceTagRequired: KIMI_SERVICE_TAG_REQUIRED || checkTags,
+        eventStreamsEnabled: eventStreams,
+      },
+    });
+
+    if (writer.flags.json) {
+      writer.writeJsonSchema("effect-gates-report", report);
+    } else {
+      writer.info("── Effect Audit ──────────────────────────────────────────────");
+      writer.info(
+        `${report.summary.total} violation(s), ${report.summary.errors} error(s), ${report.summary.warnings} warning(s)`
+      );
+      for (const violation of report.violations) {
+        const message = violation.location
+          ? `${violation.location}: ${violation.message}`
+          : violation.message;
+        if (violation.severity === "error") writer.error(message);
+        else writer.warn(message);
+      }
+    }
+    return report.violations.length > 0 ? 1 : 0;
+  }
+
   logger.section("kimi-heal commands");
   logger.line("  plan [--json]                         Proposed heal actions + decision refs");
   logger.line("  apply --action <id> [--dry-run|--yes] Apply heal with decision logging");
@@ -454,6 +498,7 @@ async function main(): Promise<number> {
   logger.line(
     "  constants optimize [--apply <keys|all>] [--min-confidence 0.7] [--dry-run|--yes] [--json]"
   );
+  logger.line("  effect audit [--check-tags] [--event-streams] [--json]  Effect discipline audit");
   return command === "help" ? 0 : 1;
 }
 

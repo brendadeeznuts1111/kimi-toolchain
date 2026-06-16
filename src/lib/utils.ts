@@ -140,8 +140,17 @@ export async function getProjectName(projectDir: string = Bun.cwd): Promise<stri
 
 // ── Project Root ─────────────────────────────────────────────────────
 
-/** Resolve the project root via git, falling back to the provided path. */
-export async function resolveProjectRoot(fallback: string = Bun.cwd): Promise<string> {
+/**
+ * Resolve the project root.
+ *
+ * If `explicit` is provided, it is returned directly. Otherwise git is queried
+ * for the top-level directory, falling back to `fallback`.
+ */
+export async function resolveProjectRoot(
+  explicit?: string,
+  fallback: string = Bun.cwd
+): Promise<string> {
+  if (explicit) return explicit;
   try {
     const result = await $`git rev-parse --show-toplevel`.quiet().nothrow();
     const root = result.stdout?.toString().trim();

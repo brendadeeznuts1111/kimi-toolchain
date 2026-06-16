@@ -6,6 +6,7 @@ import {
   appendEffectGatesSnapshot,
   readEffectGatesSnapshots,
   detectRegressions,
+  evaluateSessionFloor,
   EFFECT_GATES,
   EFFECT_GATES_REPORT_SCHEMA_VERSION,
 } from "../src/lib/effect-gates.ts";
@@ -136,6 +137,78 @@ describe("effect-gates", () => {
     expect(boundaryViolations).toHaveLength(0);
   });
 
+  test("detects EventEmitter usage in src/services when event-streams enabled", async () => {
+    await mkdir(join(tmpDir, "src", "services"), { recursive: true });
+    await writeFile(
+      join(tmpDir, "src", "services", "broker.ts"),
+      `import { EventEmitter } from "events"; export const broker = new EventEmitter();`
+    );
+
+    const report = await buildEffectGatesReport({
+      projectRoot: tmpDir,
+      tool: "test",
+      thresholdOverrides: { eventStreamsEnabled: true },
+    });
+    const streamViolations = report.violations.filter((v) => v.gate === EFFECT_GATES.eventStream);
+    expect(streamViolations.length).toBeGreaterThan(0);
+    expect(streamViolations[0].message).toContain("EventEmitter");
+  });
+
+  test("ignores EventEmitter usage outside src/services", async () => {
+    await mkdir(join(tmpDir, "src", "lib"), { recursive: true });
+    await writeFile(
+      join(tmpDir, "src", "lib", "broker.ts"),
+      `import { EventEmitter } from "events"; export const broker = new EventEmitter();`
+    );
+
+    const report = await buildEffectGatesReport({
+      projectRoot: tmpDir,
+      tool: "test",
+      thresholdOverrides: { eventStreamsEnabled: true },
+    });
+    const streamViolations = report.violations.filter((v) => v.gate === EFFECT_GATES.eventStream);
+    expect(streamViolations).toHaveLength(0);
+  });
+
+  test("evaluates session floor as passed when all counts meet thresholds", () => {
+    const result = evaluateSessionFloor({
+      rawPromisesRemoved: 2,
+      servicesMigratedToTagLayer: 2,
+      domainPurityViolationsResolved: 1,
+      rawErrorsConvertedToTyped: 1,
+      eventEmittersConvertedToStreams: 0,
+      circularLayerDependencies: 0,
+    });
+    expect(result.passed).toBe(true);
+    expect(result.missing).toHaveLength(0);
+    expect(result.below).toHaveLength(0);
+  });
+
+  test("evaluates session floor as failed when a field is missing", () => {
+    const result = evaluateSessionFloor({
+      rawPromisesRemoved: 2,
+      servicesMigratedToTagLayer: 2,
+      domainPurityViolationsResolved: 1,
+      rawErrorsConvertedToTyped: 1,
+      eventEmittersConvertedToStreams: 0,
+    });
+    expect(result.passed).toBe(false);
+    expect(result.missing).toContain("circularLayerDependencies");
+  });
+
+  test("evaluates session floor as failed when a count is below threshold", () => {
+    const result = evaluateSessionFloor({
+      rawPromisesRemoved: 1,
+      servicesMigratedToTagLayer: 2,
+      domainPurityViolationsResolved: 1,
+      rawErrorsConvertedToTyped: 1,
+      eventEmittersConvertedToStreams: 0,
+      circularLayerDependencies: 0,
+    });
+    expect(result.passed).toBe(false);
+    expect(result.below).toContain("rawPromisesRemoved");
+  });
+
   test("persists and reads snapshots", async () => {
     const report = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
     await appendEffectGatesSnapshot(tmpDir, report);
@@ -157,6 +230,7 @@ describe("effect-gates", () => {
         serviceTagRequired: true,
         domainPurityLevel: "strict" as const,
         runPromiseBoundaryEnabled: true,
+        eventStreamsEnabled: false,
       },
       counts: {
         directPromise: 1,
@@ -164,6 +238,7 @@ describe("effect-gates", () => {
         missingServiceTag: 0,
         domainPurity: 0,
         runPromiseBoundary: 0,
+        eventStream: 0,
       },
       summary: { total: 1, errors: 1, warnings: 0 },
       violations: [],
@@ -177,6 +252,7 @@ describe("effect-gates", () => {
         missingServiceTag: 0,
         domainPurity: 0,
         runPromiseBoundary: 0,
+        eventStream: 0,
       },
     };
 
@@ -198,6 +274,7 @@ describe("effect-gates", () => {
         serviceTagRequired: true,
         domainPurityLevel: "strict" as const,
         runPromiseBoundaryEnabled: true,
+        eventStreamsEnabled: false,
       },
       counts: {
         directPromise: 2,
@@ -205,6 +282,7 @@ describe("effect-gates", () => {
         missingServiceTag: 0,
         domainPurity: 0,
         runPromiseBoundary: 0,
+        eventStream: 0,
       },
       summary: { total: 2, errors: 2, warnings: 0 },
       violations: [],
@@ -218,6 +296,7 @@ describe("effect-gates", () => {
         missingServiceTag: 0,
         domainPurity: 0,
         runPromiseBoundary: 0,
+        eventStream: 0,
       },
     };
 
@@ -233,5 +312,6 @@ describe("effect-gates", () => {
     expect(report.thresholds.runPromiseBoundaryEnabled).toBe(
       KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED
     );
+    expect(report.thresholds.eventStreamsEnabled).toBe(false);
   });
 });
