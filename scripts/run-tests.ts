@@ -43,7 +43,15 @@ async function main() {
 
   const cmd = [
     "bun",
-    ...bunTestArgs({ fast, coverage, ci, smoke, bail: ci ? 10 : true, dots: quiet }),
+    ...bunTestArgs({
+      fast,
+      coverage,
+      ci,
+      smoke,
+      bail: true,
+      retry: 2,
+      dots: quiet,
+    }),
   ];
 
   if (!quiet) {

@@ -63,6 +63,11 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run constants:verify` | (synced from package.json) |
 
+| `bun run test:ci` | (synced from package.json) |
+| `bun run test:flake-hunt` | (synced from package.json) |
+| `bun run test:shuffle` | (synced from package.json) |
+| `bun run test:pattern` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                           |

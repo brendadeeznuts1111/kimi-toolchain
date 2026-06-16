@@ -26,8 +26,8 @@ async function runCheckScript(args: string[]): Promise<{
 }
 
 describe("test-gates", () => {
-  test("bunTestArgs defaults include bail and 5s timeout", () => {
-    expect(bunTestArgs({ bail: true })).toEqual(["test", "--timeout", "5000", "--bail"]);
+  test("bunTestArgs defaults include bail and 30s timeout", () => {
+    expect(bunTestArgs({ bail: true })).toEqual(["test", "--timeout", "30000", "--bail"]);
   });
 
   test("bunTestArgs fast mode uses the configured fast timeout and unit files", () => {
@@ -40,15 +40,25 @@ describe("test-gates", () => {
     }
   });
 
-  test("bunTestArgs ci mode uses 60s timeout and junit reporter", () => {
+  test("bunTestArgs ci mode uses 30s timeout and junit reporter", () => {
     expect(bunTestArgs({ coverage: true, ci: true, bail: true })).toEqual([
       "test",
       "--timeout",
-      "60000",
+      "30000",
       "--bail",
       "--coverage",
       "--reporter=junit",
       "--reporter-outfile=reports/junit.xml",
+    ]);
+  });
+
+  test("bunTestArgs retry option adds --retry", () => {
+    expect(bunTestArgs({ bail: true, retry: 2 })).toEqual([
+      "test",
+      "--timeout",
+      "30000",
+      "--bail",
+      "--retry=2",
     ]);
   });
 
@@ -61,7 +71,7 @@ describe("test-gates", () => {
     expect(bunTestArgs({ bail: true, dots: true })).toEqual([
       "test",
       "--timeout",
-      "5000",
+      "30000",
       "--bail",
       "--dots",
     ]);

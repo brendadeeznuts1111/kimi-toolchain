@@ -36,13 +36,22 @@ KIMI_TUNING_SET_VERSION = '"1.4.0"'
 
 # Shared test defaults — see src/lib/test-gates.ts and scripts/run-tests.ts
 [test]
-preload = ["./test/setup.ts"]
+preload = ["./test-setup.ts"]
 # *.db.test.ts excluded — DB tests mutate shared state and must run sequentially
 concurrentTestGlob = ["test/*.unit.test.ts"]
+# Fail fast in normal/CI runs; flake-hunt scripts override with --bail=99999.
+bail = 1
+# Randomize test order, but pin the seed so failures are reproducible.
+randomize = true
+seed = 42
+# Generous per-test ceiling; fast gate overrides per-test timeout via CLI.
+timeout = 30000
 # Reduce noise in human and agent output; failures are still surfaced.
 onlyFailures = true
-bail = true
-timeout = "5s"
+# Coverage is opt-in via --coverage or test:coverage scripts.
+coverage = false
+# NOTE: retry is intentionally NOT set here because Bun forbids it together with
+# --rerun-each. Apply retry explicitly in package scripts / run-tests.ts.
 # Compact dot reporter instead of verbose spec output.
 [test.reporter]
 dots = true

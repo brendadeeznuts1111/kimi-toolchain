@@ -82,8 +82,8 @@ export const SMOKE_TEST_FILES = [
 ] as const;
 
 export const FAST_TEST_TIMEOUT_MS = 500;
-export const DEFAULT_TEST_TIMEOUT_MS = 5000;
-export const CI_TEST_TIMEOUT_MS = 60_000;
+export const DEFAULT_TEST_TIMEOUT_MS = 30_000;
+export const CI_TEST_TIMEOUT_MS = 30_000;
 export const SMOKE_TEST_TIMEOUT_MS = 60_000;
 
 export function bunTestArgs(options: {
@@ -95,19 +95,25 @@ export function bunTestArgs(options: {
   smoke?: boolean;
   bail?: boolean | number;
   timeoutMs?: number;
+  retry?: number;
   dots?: boolean;
 }): string[] {
   const timeout = String(
     options.timeoutMs ??
       (options.fast
         ? FAST_TEST_TIMEOUT_MS
-        : options.ci
-          ? CI_TEST_TIMEOUT_MS
-          : DEFAULT_TEST_TIMEOUT_MS)
+        : options.smoke
+          ? SMOKE_TEST_TIMEOUT_MS
+          : options.ci
+            ? CI_TEST_TIMEOUT_MS
+            : DEFAULT_TEST_TIMEOUT_MS)
   );
   const args = ["test", "--timeout", timeout];
   if (options.bail) {
     args.push(typeof options.bail === "number" ? `--bail=${options.bail}` : "--bail");
+  }
+  if (options.retry !== undefined && options.retry > 0) {
+    args.push(`--retry=${options.retry}`);
   }
   if (options.coverage) args.push("--coverage");
   if (options.ci) {

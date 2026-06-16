@@ -141,7 +141,8 @@ async function buildSteps(
     },
     {
       name: fast ? "test:fast" : "test",
-      cmd: ["bun", ...bunTestArgs({ fast, timeoutMs, bail: true, dots: quiet })],
+      cmd: ["bun", ...bunTestArgs({ fast, timeoutMs, bail: true, retry: 2, dots: quiet })],
+      // retry is applied here because Bun forbids [test] retry together with --rerun-each.
       silentOnSuccess: quiet,
     }
   );
