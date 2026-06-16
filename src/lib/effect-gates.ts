@@ -6,6 +6,7 @@
  *   - KIMI_DOMAIN_PURITY_LEVEL
  *   - KIMI_LAYER_CIRCULARITY_TOLERANCE
  *   - KIMI_SERVICE_TAG_REQUIRED
+ *   - KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED
  *
  * Produces an EffectGatesReport that callers should emit via
  * writer.writeJsonSchema("effect-gates-report", report) for schema-envelope safety.
@@ -25,6 +26,7 @@ export const EFFECT_GATES = {
   layerCircularity: "layer-circularity",
   missingServiceTag: "missing-service-tag",
   domainPurity: "domain-purity",
+  runPromiseBoundary: "run-promise-boundary",
 } as const;
 
 /** A single discipline violation. */
@@ -45,6 +47,7 @@ export interface EffectGatesCounts {
   layerCircularity: number;
   missingServiceTag: number;
   domainPurity: number;
+  runPromiseBoundary: number;
 }
 
 /** Threshold snapshot baked into the report for reproducibility. */
@@ -53,6 +56,7 @@ export interface EffectGatesThresholds {
   layerCircularityTolerance: number;
   serviceTagRequired: boolean;
   domainPurityLevel: "strict" | "gradual" | "off";
+  runPromiseBoundaryEnabled: boolean;
 }
 
 /** Discipline report emitted by buildEffectGatesReport. */
@@ -93,6 +97,7 @@ function loadThresholds(): EffectGatesThresholds {
     layerCircularityTolerance: KIMI_LAYER_CIRCULARITY_TOLERANCE,
     serviceTagRequired: KIMI_SERVICE_TAG_REQUIRED,
     domainPurityLevel: level === "strict" || level === "gradual" || level === "off" ? level : "off",
+    runPromiseBoundaryEnabled: KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED,
   };
 }
 
@@ -176,6 +181,55 @@ function scanDirectPromises(sourceFile: ts.SourceFile, filePath: string): Effect
         location: formatLocation(filePath, line),
       });
     }
+  }
+
+  return violations;
+}
+
+/**
+ * Allowed locations for `Effect.runPromise` calls.
+ *
+ * Boundary policy: Effect program execution must start at the outer shell of
+ * the runtime. Library/service code should return Effects and let the CLI or
+ * runtime entry unwrap them.
+ */
+const RUN_PROMISE_ALLOWED_PATHS = ["src/cli/", "src/entry/", "src/runtime.ts", "test/"] as const;
+
+/** Check whether a file path is allowed to call Effect.runPromise. */
+function isRunPromiseAllowedPath(relativePath: string): boolean {
+  for (const allowed of RUN_PROMISE_ALLOWED_PATHS) {
+    if (allowed.endsWith("/")) {
+      const dir = allowed.slice(0, -1);
+      if (relativePath === dir || relativePath.startsWith(allowed)) return true;
+    } else if (relativePath === allowed) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Detect Effect.runPromise calls outside permitted CLI/runtime/test boundaries. */
+function scanRunPromiseBoundary(
+  sourceFile: ts.SourceFile,
+  filePath: string,
+  thresholds: EffectGatesThresholds
+): EffectGatesViolation[] {
+  if (!thresholds.runPromiseBoundaryEnabled) return [];
+  if (isRunPromiseAllowedPath(filePath)) return [];
+
+  const violations: EffectGatesViolation[] = [];
+  const regex = /\bEffect\.runPromise\b/g;
+
+  for (const match of sourceFile.text.matchAll(regex)) {
+    const pos = match.index ?? 0;
+    if (isTokenInCommentOrString(sourceFile, pos)) continue;
+    const line = sourceFile.getLineAndCharacterOfPosition(pos).line + 1;
+    violations.push({
+      gate: EFFECT_GATES.runPromiseBoundary,
+      severity: "error",
+      message: "Effect.runPromise called outside permitted CLI/runtime/test boundary",
+      location: formatLocation(filePath, line),
+    });
   }
 
   return violations;
@@ -353,6 +407,7 @@ function aggregateCounts(violations: EffectGatesViolation[]): EffectGatesCounts 
     layerCircularity: violations.filter((v) => v.gate === EFFECT_GATES.layerCircularity).length,
     missingServiceTag: violations.filter((v) => v.gate === EFFECT_GATES.missingServiceTag).length,
     domainPurity: violations.filter((v) => v.gate === EFFECT_GATES.domainPurity).length,
+    runPromiseBoundary: violations.filter((v) => v.gate === EFFECT_GATES.runPromiseBoundary).length,
   };
 }
 
@@ -401,6 +456,7 @@ export async function buildEffectGatesReport(
   for (const sourceFile of sourceFiles) {
     const filePath = filePathMap.get(sourceFile.fileName) ?? sourceFile.fileName;
     violations.push(...scanDirectPromises(sourceFile, filePath));
+    violations.push(...scanRunPromiseBoundary(sourceFile, filePath, thresholds));
     violations.push(...scanMissingServiceTags(sourceFile, filePath, thresholds));
     violations.push(...scanDomainPurity(sourceFile, filePath, thresholds));
   }

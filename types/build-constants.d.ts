@@ -149,6 +149,15 @@ declare const KIMI_LAYER_CIRCULARITY_TOLERANCE: number;
 declare const KIMI_SERVICE_TAG_REQUIRED: boolean;
 
 /**
+ * @defineDomain effect-discipline
+ * @type boolean
+ * @default true
+ * @restrictions when true, Effect.runPromise calls outside src/cli, src/entry, src/runtime.ts, or test files are flagged
+ * @see src/lib/effect-gates.ts
+ */
+declare const KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED: boolean;
+
+/**
  * @defineDomain governance
  * @type string
  * @default "1.2.0"

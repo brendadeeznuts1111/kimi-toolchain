@@ -97,6 +97,45 @@ describe("effect-gates", () => {
     expect(purityViolations[0].message).toContain("process.env");
   });
 
+  test("detects Effect.runPromise outside permitted boundary", async () => {
+    await mkdir(join(tmpDir, "src", "lib"), { recursive: true });
+    await writeFile(
+      join(tmpDir, "src", "lib", "service.ts"),
+      `import { Effect } from "effect"; export function run() { return Effect.runPromise(Effect.succeed(1)); }`
+    );
+
+    const report = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
+    const boundaryViolations = report.violations.filter(
+      (v) => v.gate === EFFECT_GATES.runPromiseBoundary
+    );
+    expect(boundaryViolations.length).toBe(1);
+    expect(boundaryViolations[0].message).toContain("Effect.runPromise");
+    expect(boundaryViolations[0].location).toContain("src/lib/service.ts");
+  });
+
+  test("allows Effect.runPromise inside permitted boundaries", async () => {
+    await mkdir(join(tmpDir, "src", "cli"), { recursive: true });
+    await mkdir(join(tmpDir, "test"), { recursive: true });
+    await writeFile(
+      join(tmpDir, "src", "cli", "run.ts"),
+      `import { Effect } from "effect"; Effect.runPromise(Effect.succeed(1));`
+    );
+    await writeFile(
+      join(tmpDir, "test", "foo.unit.test.ts"),
+      `import { Effect } from "effect"; Effect.runPromise(Effect.succeed(1));`
+    );
+
+    const report = await buildEffectGatesReport({
+      projectRoot: tmpDir,
+      tool: "test",
+      include: ["src/**/*.ts", "test/**/*.ts"],
+    });
+    const boundaryViolations = report.violations.filter(
+      (v) => v.gate === EFFECT_GATES.runPromiseBoundary
+    );
+    expect(boundaryViolations).toHaveLength(0);
+  });
+
   test("persists and reads snapshots", async () => {
     const report = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
     await appendEffectGatesSnapshot(tmpDir, report);
@@ -117,12 +156,14 @@ describe("effect-gates", () => {
         layerCircularityTolerance: 0,
         serviceTagRequired: true,
         domainPurityLevel: "strict" as const,
+        runPromiseBoundaryEnabled: true,
       },
       counts: {
         directPromise: 1,
         layerCircularity: 0,
         missingServiceTag: 0,
         domainPurity: 0,
+        runPromiseBoundary: 0,
       },
       summary: { total: 1, errors: 1, warnings: 0 },
       violations: [],
@@ -135,6 +176,7 @@ describe("effect-gates", () => {
         layerCircularity: 0,
         missingServiceTag: 0,
         domainPurity: 0,
+        runPromiseBoundary: 0,
       },
     };
 
@@ -155,12 +197,14 @@ describe("effect-gates", () => {
         layerCircularityTolerance: 0,
         serviceTagRequired: true,
         domainPurityLevel: "strict" as const,
+        runPromiseBoundaryEnabled: true,
       },
       counts: {
         directPromise: 2,
         layerCircularity: 0,
         missingServiceTag: 0,
         domainPurity: 0,
+        runPromiseBoundary: 0,
       },
       summary: { total: 2, errors: 2, warnings: 0 },
       violations: [],
@@ -173,6 +217,7 @@ describe("effect-gates", () => {
         layerCircularity: 0,
         missingServiceTag: 0,
         domainPurity: 0,
+        runPromiseBoundary: 0,
       },
     };
 
@@ -185,5 +230,8 @@ describe("effect-gates", () => {
     expect(report.thresholds.layerCircularityTolerance).toBe(KIMI_LAYER_CIRCULARITY_TOLERANCE);
     expect(report.thresholds.serviceTagRequired).toBe(KIMI_SERVICE_TAG_REQUIRED);
     expect(report.thresholds.domainPurityLevel).toBe(KIMI_DOMAIN_PURITY_LEVEL);
+    expect(report.thresholds.runPromiseBoundaryEnabled).toBe(
+      KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED
+    );
   });
 });
