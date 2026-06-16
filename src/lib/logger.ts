@@ -53,6 +53,16 @@ export interface LoggerOptions {
   stepBudget?: boolean;
   /** Session id from env for correlation. */
   sessionId?: string;
+  /**
+   * Buffer entries without writing to console.
+   * Useful when another writer (e.g. cli-contract) owns stdout/stderr.
+   */
+  bufferOnly?: boolean;
+  /**
+   * Route human-readable output to stderr instead of stdout.
+   * JSON output still goes to stdout when json is true.
+   */
+  humanStderr?: boolean;
 }
 
 function resolveSessionId(): string | undefined {
@@ -66,6 +76,8 @@ export class Logger {
   private tool: string;
   private stepBudget: boolean;
   private sessionId: string | undefined;
+  private bufferOnly: boolean;
+  private humanStderr: boolean;
   private logs: LogEntry[] = [];
 
   constructor(options: LoggerOptions = {}) {
@@ -75,6 +87,8 @@ export class Logger {
     this.tool = options.tool ?? "kimi-toolchain";
     this.stepBudget = options.stepBudget ?? false;
     this.sessionId = options.sessionId ?? resolveSessionId();
+    this.bufferOnly = options.bufferOnly ?? false;
+    this.humanStderr = options.humanStderr ?? false;
   }
 
   private shouldEmit(level: LogLevel): boolean {
@@ -89,6 +103,8 @@ export class Logger {
   private emitEntry(entry: LogEntry): void {
     if (!this.shouldEmit(entry.level)) return;
     this.pushEntry(entry);
+
+    if (this.bufferOnly) return;
 
     if (this.json) {
       console.log(JSON.stringify(entry));
@@ -110,7 +126,14 @@ export class Logger {
             ? "✓"
             : "◦";
     const prefix = entry.level === "error" ? "  ✗" : `  ${icon}`;
-    console.log(`${prefix} ${entry.message}`);
+    const line = `${prefix} ${entry.message}`;
+
+    if (this.humanStderr) {
+      if (entry.level === "warn") console.warn(line);
+      else console.error(line);
+    } else {
+      console.log(line);
+    }
 
     if (this.stepBudget) this.emitStepBudgetWarning();
   }
@@ -128,6 +151,12 @@ export class Logger {
 
   private emit(level: LogLevel, message: string): void {
     this.emitEntry(this.baseEntry(level, message));
+  }
+
+  /** Emit a human-only line to stdout or stderr depending on configuration. */
+  private out(line: string): void {
+    if (this.humanStderr) console.error(line);
+    else console.log(line);
   }
 
   /** Emit step-budget warning through logger instead of raw console. */
@@ -184,7 +213,7 @@ export class Logger {
     if (!this.shouldEmit(level)) return;
 
     const icon = healthStatusIcon(result.status);
-    console.log(`  ${icon} ${message}`);
+    this.out(`  ${icon} ${message}`);
   }
 
   /** Log a taxonomy-linked suggestion with optional autoFix command. */
@@ -208,8 +237,8 @@ export class Logger {
       return;
     }
 
-    console.log(`  💡 ${suggestion}`);
-    if (autoFix) console.log(`     autoFix: ${autoFix}`);
+    this.out(`  💡 ${suggestion}`);
+    if (autoFix) this.out(`     autoFix: ${autoFix}`);
   }
 
   /** Log a structured result from a sub-tool invocation. */
@@ -221,14 +250,14 @@ export class Logger {
   section(title: string): void {
     if (isAgentContext() || this.quiet || this.json) return;
     const width = 60;
-    console.log("");
-    console.log(`── ${title} ${"─".repeat(Math.max(0, width - title.length))}`);
+    this.out("");
+    this.out(`── ${title} ${"─".repeat(Math.max(0, width - title.length))}`);
   }
 
   /** Raw stdout line (help text, tables). Suppressed in agent/quiet/json modes. */
   line(msg: string): void {
     if (isAgentContext() || this.quiet || this.json) return;
-    console.log(msg);
+    this.out(msg);
   }
 
   /** Print a full doctor/health report with section, checks, and summary counts. */
@@ -270,15 +299,15 @@ export class Logger {
     const left = Math.floor(pad / 2);
     const right = pad - left;
     const bar = "═".repeat(innerWidth + 2);
-    console.log(`╔${bar}╗`);
-    console.log(`║ ${" ".repeat(left)}${title}${" ".repeat(right)} ║`);
+    this.out(`╔${bar}╗`);
+    this.out(`║ ${" ".repeat(left)}${title}${" ".repeat(right)} ║`);
     if (subtitle) {
       const subPad = Math.max(0, innerWidth - subtitle.length);
       const subLeft = Math.floor(subPad / 2);
       const subRight = subPad - subLeft;
-      console.log(`║ ${" ".repeat(subLeft)}${subtitle}${" ".repeat(subRight)} ║`);
+      this.out(`║ ${" ".repeat(subLeft)}${subtitle}${" ".repeat(subRight)} ║`);
     }
-    console.log(`╚${bar}╝`);
+    this.out(`╚${bar}╝`);
   }
 
   /** Get all logged entries for testing/telemetry. */

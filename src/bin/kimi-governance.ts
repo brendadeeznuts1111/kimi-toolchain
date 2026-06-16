@@ -18,7 +18,7 @@ import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { recordDoctorRun, getPersistentWarnings, type DoctorWarning } from "../lib/doctor-runs.ts";
-import { createLogger } from "../lib/logger.ts";
+import { createCli } from "../lib/cli-contract.ts";
 import {
   R_SCORE_WEIGHTS as WEIGHTS,
   computeBreakdown,
@@ -44,7 +44,8 @@ import {
   scaffoldAdr,
 } from "../lib/scaffold-templates.ts";
 
-const logger = createLogger(Bun.argv, "kimi-governance");
+const writer = createCli(Bun.argv, "kimi-governance");
+const logger = writer.logger;
 
 /** Map governance check names to error-taxonomy.yml category ids when known. */
 const GOVERNANCE_TAXONOMY: Record<string, string> = {

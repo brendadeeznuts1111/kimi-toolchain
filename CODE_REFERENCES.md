@@ -10,7 +10,8 @@ This file points future agents at local examples that define the code style for 
 | Effect wrapper for tool calls | `src/lib/effect/tool-runner-effect.ts` | Convert runner results to typed Effect failures at the boundary                             |
 | CLI exit handling             | `src/lib/effect/cli-runtime.ts`        | Wrap CLI mains in `runCliExit()` and map failures to exit codes centrally                   |
 | Tagged errors                 | `src/lib/effect/errors.ts`             | Use `Data.TaggedError` for typed, inspectable failures                                      |
-| Structured logging            | `src/lib/logger.ts`                    | Use `createLogger(Bun.argv, toolName)`, `logger.check()`, and `logger.printHealthReport()`  |
+| CLI argument/output contract  | `src/lib/cli-contract.ts`              | Parse common flags with env fallbacks; write JSON to stdout and human text to stderr        |
+| Structured logging            | `src/lib/logger.ts`                    | Use `createCli(Bun.argv, toolName).logger` or `logger.check()` for health reports           |
 | Health report shape           | `src/lib/health-check.ts`              | Return `{ name, status, message, fixable }` checks and aggregate once                       |
 | Path ownership                | `src/lib/paths.ts`                     | Use helpers for `~/.kimi-code`, `~/.agents`, and runtime paths                              |
 | Build-time tuning constants   | `bunfig.toml` `[define]`               | SSOT — `KIMI_*` globals grouped by `# define-domain:` (separate from taxonomyId)            |

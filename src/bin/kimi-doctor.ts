@@ -55,8 +55,8 @@ import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 import { auditAgentReady } from "../lib/agent-ready.ts";
 import { auditSuccessMetrics } from "../lib/success-metrics.ts";
 import { generateAgentDiagnosisReport } from "../lib/agent-diagnosis.ts";
-import { createLogger } from "../lib/logger.ts";
 import { aggregateChecks, type HealthCheck } from "../lib/health-check.ts";
+import { createCli } from "../lib/cli-contract.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
 import { recordDoctorRun } from "../lib/doctor-runs.ts";
 import { filterLowQualityDecisions, filterUnverifiedDecisions } from "../lib/decision-scoring.ts";
@@ -77,14 +77,15 @@ import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 
-const logger = createLogger(Bun.argv, "kimi-doctor");
+const writer = createCli(Bun.argv, "kimi-doctor");
+const logger = writer.logger;
 
 const TOOLS_DIR = toolsDir();
 const FIX = Bun.argv.includes("--fix");
 const QUICK = Bun.argv.includes("--quick");
 const SOFT_SYSTEM = Bun.argv.includes("--soft-system");
 const MEMORY_BUDGET = Bun.argv.includes("--memory-budget");
-const JSON_OUT = Bun.argv.includes("--json");
+const JSON_OUT = writer.flags.json;
 const WORKSPACE_ONLY = Bun.argv.includes("--workspace");
 const ECOSYSTEM = Bun.argv.includes("--ecosystem");
 const AGENT_READY = Bun.argv.includes("--agent-ready");
@@ -108,7 +109,7 @@ function argValue(flag: string): string | undefined {
 
 /** Agent/programmatic JSON output (--json); bypasses Logger formatting. */
 function emitJson(data: unknown): void {
-  process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
+  writer.writeJson(data);
 }
 
 interface CheckResult {

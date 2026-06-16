@@ -17,7 +17,7 @@ import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { gitStatus, gitDiff, gitLastCommitMessage } from "../lib/git-helpers.ts";
-import { createLogger } from "../lib/logger.ts";
+import { createCli } from "../lib/cli-contract.ts";
 
 import {
   buildClassifiedFailure,
@@ -34,7 +34,8 @@ import {
 } from "../lib/taxonomy-constants.ts";
 import { readFailureLedgerSummary } from "../lib/success-metrics.ts";
 
-const logger = createLogger(Bun.argv, "kimi-debug");
+const writer = createCli(Bun.argv, "kimi-debug");
+const logger = writer.logger;
 
 const decoder = new TextDecoder();
 
@@ -301,8 +302,8 @@ async function printErrorCluster(projectDir: string) {
 async function printFailureLedger(path?: string) {
   const summary = await readFailureLedgerSummary(path || failureLedgerPath());
 
-  if (Bun.argv.includes("--json")) {
-    Bun.stdout.write(JSON.stringify({ schemaVersion: 1, tool: "kimi-debug", summary }));
+  if (writer.flags.json) {
+    writer.writeJson({ schemaVersion: 1, tool: "kimi-debug", summary });
     return 0;
   }
 
