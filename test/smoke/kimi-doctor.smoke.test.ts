@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
+import { mkdirSync, mkdtempSync, rmSync } from "fs";
 import { join } from "path";
 import { invokeTool } from "../../src/lib/tool-runner.ts";
 
@@ -19,11 +19,35 @@ const CLEANUP_LEGACY = join(REPO_ROOT, "src/bin/kimi-cleanup-legacy.ts");
 async function runTool(
   path: string,
   args: string[] = [],
-  timeoutMs: number = 15_000
+  options: number | { timeoutMs?: number; maxOutputBytes?: number } = 15_000
 ): Promise<{ stdout: string; exitCode: number }> {
+  const { timeoutMs = 15_000, maxOutputBytes } =
+    typeof options === "number" ? { timeoutMs: options } : options;
+
+  // For large expected outputs, redirect stdout to a temp file to work around
+  // Bun pipe stream data loss on high-volume subprocess output.
+  if (maxOutputBytes !== undefined && maxOutputBytes > 1_048_576) {
+    const tmpDir = mkdtempSync(join(REPO_ROOT, "node_modules", ".smoke-"));
+    const tmpOut = join(tmpDir, "stdout.json");
+    try {
+      const proc = Bun.spawn(["bun", "run", path, ...args], {
+        cwd: REPO_ROOT,
+        stdout: Bun.file(tmpOut),
+        stderr: "pipe",
+      });
+      const exitCode = await proc.exited;
+      const stderr = await Bun.readableStreamToText(proc.stderr);
+      const stdout = await Bun.file(tmpOut).text();
+      return { stdout: stdout + stderr, exitCode };
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }
+
   const result = await invokeTool(path, args, {
     cwd: REPO_ROOT,
     timeoutMs,
+    ...(maxOutputBytes !== undefined ? { maxOutputBytes } : {}),
   });
   return { stdout: result.stdout + result.stderr, exitCode: result.exitCode };
 }
@@ -316,7 +340,9 @@ describe("kimi-doctor smoke", () => {
       ["--predict", "--json"],
       ["--correlate", "--json"],
     ]) {
-      const { stdout, exitCode } = await runTool(DOCTOR, args);
+      const { stdout, exitCode } = await runTool(DOCTOR, args, {
+        maxOutputBytes: 5_000_000,
+      });
       const parsed = JSON.parse(stdout.trim()) as {
         schemaVersion?: number;
         tool?: string;
