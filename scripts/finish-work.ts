@@ -328,7 +328,7 @@ async function main(): Promise<number> {
   }
 
   if (git.committed || git.pushed) {
-    emitWorkspaceUpdatedMetadata();
+    await emitWorkspaceUpdatedMetadata();
   }
 
   if (options.json) {

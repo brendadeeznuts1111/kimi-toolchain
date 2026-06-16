@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   finishWorkOutcome,
+  isPaneBlockedForReview,
   shouldEscalateToReviewer,
   type FinishWorkReport,
 } from "../src/lib/finish-work-herdr.ts";
@@ -25,6 +26,18 @@ describe("finish-work-herdr", () => {
     expect(finishWorkOutcome(true, true, true)).toBe("ok");
     expect(finishWorkOutcome(true, false, false)).toBe("ok");
     expect(finishWorkOutcome(false, true, false)).toBe("failed");
+  });
+
+  test("isPaneBlockedForReview matches finish-work escalation signal", () => {
+    expect(isPaneBlockedForReview({ agent_status: "blocked", custom_status: "needs-review" })).toBe(
+      true
+    );
+    expect(
+      isPaneBlockedForReview({ agent_status: "blocked", custom_status: "workspace.updated" })
+    ).toBe(false);
+    expect(isPaneBlockedForReview({ agent_status: "idle", custom_status: "needs-review" })).toBe(
+      false
+    );
   });
 
   test("shouldEscalateToReviewer requires push and dirty tree", () => {

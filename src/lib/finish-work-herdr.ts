@@ -67,10 +67,28 @@ export function shouldEscalateToReviewer(report: FinishWorkReport): boolean {
   return report.ok && report.git.pushed && !report.tree.clean;
 }
 
+export const FINISH_WORK_NEEDS_REVIEW_STATUS = "needs-review";
+
+export function isPaneBlockedForReview(pane: {
+  agent_status?: string;
+  custom_status?: string;
+}): boolean {
+  return pane.agent_status === "blocked" && pane.custom_status === FINISH_WORK_NEEDS_REVIEW_STATUS;
+}
+
 /** Signal workspace change to orchestrator event watcher via pane metadata. */
-export function emitWorkspaceUpdatedMetadata(): void {
+export async function emitWorkspaceUpdatedMetadata(): Promise<void> {
   const paneId = process.env.HERDR_PANE_ID;
   if (!paneId) return;
+
+  if (process.env.HERDR_ENV === "1") {
+    const got = await herdrCliJson<{
+      result?: { pane?: { agent_status?: string; custom_status?: string } };
+    }>(["pane", "get", paneId]);
+    const pane = got.ok ? got.json?.result?.pane : undefined;
+    if (pane && isPaneBlockedForReview(pane)) return;
+  }
+
   herdrReportPaneMetadata({
     paneId,
     source: "finish-work",
