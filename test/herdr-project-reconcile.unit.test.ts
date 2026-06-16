@@ -24,6 +24,7 @@ const toolchainExpected: ExpectedHerdrLayout = {
     { label: "doctor", command: "kimi-doctor --quick" },
     { label: "shell", command: "git status -sb" },
   ],
+  tabLayouts: [],
 };
 
 describe("herdr-project-reconcile", () => {
@@ -38,22 +39,26 @@ describe("herdr-project-reconcile", () => {
       shellSplit: "right",
       bootstrap: [],
       session: "",
+      agentsTab: null,
       tabs: [{ label: "doctor", command: "kimi-doctor --quick" }],
       sourcePath: "dx.config.toml",
+      projectPath: "/tmp/demo",
     };
 
-    expect(buildExpectedLayout(config)).toEqual({
-      agentsTabLabel: "agents",
-      primaryAgent: "kimi",
-      secondaryAgents: ["codex"],
-      shellPane: true,
-      extraTabs: [{ label: "doctor", command: "kimi-doctor --quick" }],
-    });
+    const expected = buildExpectedLayout(config);
+    expect(expected.agentsTabLabel).toBe("agents");
+    expect(expected.primaryAgent).toBe("kimi");
+    expect(expected.secondaryAgents).toEqual(["codex"]);
+    expect(expected.shellPane).toBe(true);
+    expect(expected.extraTabs).toEqual([{ label: "doctor", command: "kimi-doctor --quick" }]);
+    expect(expected.tabLayouts).toHaveLength(2);
+    expect(expected.tabLayouts[0]?.tabLabel).toBe("agents");
+    expect(expected.tabLayouts[1]?.tabLabel).toBe("doctor");
   });
 
-  test("diff flags kimi-toolchain live drift shape", () => {
+  test("diff flags kimi-toolchain live drift shape when layout already matches", () => {
     const actions = diffWorkspaceLayout(
-      toolchainExpected,
+      { ...toolchainExpected, tabLayouts: [] },
       snapshot(
         "wB",
         [{ tabId: "wB:t1", label: "agents", paneCount: 3 }],
@@ -82,6 +87,7 @@ describe("herdr-project-reconcile", () => {
         { label: "doctor", command: "herdr-doctor" },
         { label: "shell", command: "git status -sb" },
       ],
+      tabLayouts: [],
     };
 
     const actions = diffWorkspaceLayout(

@@ -77,6 +77,34 @@ describe("herdr-project-config", () => {
     expect(config?.secondaryAgents).toEqual(["codex"]);
   });
 
+  test("extractHerdrProjectSection parses agentsTab and syncs legacy fields", () => {
+    const config = extractHerdrProjectSection(
+      {
+        schemaVersion: 1,
+        herdr: {
+          enabled: true,
+          workspaceLabel: "demo-app",
+          agentsTab: {
+            label: "agents",
+            panes: [
+              { role: "primary", agent: "kimi" },
+              { role: "shell", split: "right", ratio: 0.55 },
+              { role: "secondary", agent: "codex", split: "right" },
+            ],
+          },
+        },
+      },
+      "dx.config.toml"
+    );
+
+    expect(config?.agentsTab?.label).toBe("agents");
+    expect(config?.agentsTab?.panes).toHaveLength(3);
+    expect(config?.primaryAgent).toBe("kimi");
+    expect(config?.secondaryAgents).toEqual(["codex"]);
+    expect(config?.shellPane).toBe(true);
+    expect(config?.shellSplit).toBe("right");
+  });
+
   test("discoverHerdrProjectConfig prefers flat .dx/herdr.toml over dx.config.toml", () => {
     mkdirSync(join(projectRoot, ".dx"), { recursive: true });
     writeFileSync(

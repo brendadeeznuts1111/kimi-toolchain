@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
+import { Effect } from "effect";
 import { discoverHerdrProjectConfig } from "../lib/herdr-project-config.ts";
-import { reconcileHerdrProject } from "../lib/herdr-project-reconcile.ts";
+import { reconcileHerdrProjectEffect } from "../lib/herdr-project-reconcile.ts";
 import {
   bootstrapHerdrProject,
   findWorkspaceForProject,
@@ -17,6 +18,7 @@ function parseArgs(argv: string[]) {
     apply: args.includes("--apply"),
     closeOrphans: args.includes("--close-orphans"),
     fixAgents: args.includes("--fix-agents"),
+    forceLayout: args.includes("--force-layout"),
     help: args.includes("--help") || args.includes("-h"),
   };
   const positionals = args.filter((arg) => !arg.startsWith("-"));
@@ -53,6 +55,7 @@ Flags:
   --apply           Apply reconcile fixes (default: dry-run)
   --close-orphans   Close agent panes not listed in the project profile (with --apply)
   --fix-agents      Respawn primary agent when the primary slot has the wrong agent (with --apply)
+  --force-layout    Rebuild drifted tabs via layout.apply (with --apply; destroys scrollback)
 `);
 }
 
@@ -130,18 +133,27 @@ try {
       else writeErr(message);
       process.exit(1);
     }
-    const report = reconcileHerdrProject(
-      { ...config, projectPath },
-      {
-        apply: flags.apply,
-        closeOrphans: flags.closeOrphans,
-        fixAgents: flags.fixAgents,
-      }
+    const report = await Effect.runPromise(
+      reconcileHerdrProjectEffect(
+        { ...config, projectPath },
+        {
+          apply: flags.apply,
+          closeOrphans: flags.closeOrphans,
+          fixAgents: flags.fixAgents,
+          forceLayout: flags.forceLayout,
+        }
+      )
     );
     if (flags.json) writeJson(report);
     else {
       writeOut(`Reconcile ${projectPath} (${report.dryRun ? "dry-run" : "apply"})`);
       writeOut(`Workspace: ${report.workspaceId || "(not open)"}`);
+      if (report.layoutDrifts.length) {
+        writeOut("Layout drifts:");
+        for (const drift of report.layoutDrifts) {
+          writeOut(`- ${drift.tabLabel}: ${drift.reason}`);
+        }
+      }
       for (const action of report.actions) {
         writeOut(`${action.type.toUpperCase()}  ${action.target}: ${action.reason}`);
       }

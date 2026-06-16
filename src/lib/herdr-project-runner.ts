@@ -196,7 +196,7 @@ export function startHerdrAgent(
   config: HerdrProjectConfig,
   name: string,
   argv: string[],
-  options: { workspaceId?: string; split?: string } = {}
+  options: { workspaceId?: string; split?: string; env?: Record<string, string> } = {}
 ) {
   const args = [
     ...herdrArgs(config.session),
@@ -210,9 +210,110 @@ export function startHerdrAgent(
   if (options.workspaceId) args.push("--workspace", options.workspaceId);
   if (options.split) args.push("--split", options.split);
   const panePath = resolveHerdrPanePath();
-  if (panePath) args.push("--env", `PATH=${panePath}`);
+  const env: Record<string, string> = { ...options.env };
+  if (panePath) env.PATH = panePath;
+  for (const [key, value] of Object.entries(env)) {
+    args.push("--env", `${key}=${value}`);
+  }
   args.push("--", ...argv);
   return runJson("herdr", args);
+}
+
+function splitPane(
+  config: HerdrProjectConfig,
+  paneId: string,
+  direction: string,
+  options: { ratio?: number; env?: Record<string, string> } = {}
+) {
+  const args = [
+    ...herdrArgs(config.session),
+    "pane",
+    "split",
+    paneId,
+    "--direction",
+    direction,
+    "--no-focus",
+  ];
+  if (typeof options.ratio === "number") args.push("--ratio", String(options.ratio));
+  for (const [key, value] of Object.entries(options.env ?? {})) {
+    args.push("--env", `${key}=${value}`);
+  }
+  return runJson("herdr", args);
+}
+
+function bootstrapFromAgentsTab(
+  config: HerdrProjectConfig,
+  workspaceId: string,
+  rootPaneId: string,
+  actions: Array<Record<string, unknown>>,
+  warnings: string[]
+) {
+  const panes = config.agentsTab?.panes || [];
+  const agents = listAgents(config.session);
+  let shellPaneId: string | null = null;
+
+  for (const pane of panes) {
+    if (pane.role === "primary" && pane.agent) {
+      const argv = resolveAgentArgv(pane.agent);
+      const already =
+        agents.ok && agentRunning(agents, pane.agent, config.projectPath || "", workspaceId);
+      if (!already) {
+        const started = startHerdrAgent(config, pane.agent, argv, {
+          workspaceId,
+          env: { HERDR_ROLE: "primary", ...pane.env },
+        });
+        if (!started.ok) warnings.push(`primary agent failed: ${started.error}`);
+        else actions.push({ action: "primary_agent_started", agent: pane.agent });
+      } else {
+        actions.push({ action: "primary_agent_present", agent: pane.agent });
+      }
+      continue;
+    }
+
+    if (pane.role === "shell") {
+      const existingShell = findShellPane(config, workspaceId);
+      if (existingShell?.pane_id) {
+        shellPaneId = existingShell.pane_id;
+        actions.push({ action: "shell_pane_present", paneId: shellPaneId });
+        continue;
+      }
+      const split = splitPane(config, rootPaneId, pane.split || config.shellSplit || "right", {
+        ratio: pane.ratio,
+        env: { HERDR_ROLE: "shell", ...pane.env },
+      });
+      shellPaneId = parseHerdrPaneId(split.json, null) || shellPaneId;
+      if (split.ok) {
+        actions.push({
+          action: "shell_split",
+          paneId: shellPaneId,
+          direction: pane.split || config.shellSplit || "right",
+          ratio: pane.ratio ?? null,
+        });
+      } else {
+        warnings.push(`shell split failed: ${split.error}`);
+      }
+      continue;
+    }
+
+    if (pane.role === "secondary" && pane.agent) {
+      const argv = resolveAgentArgv(pane.agent);
+      const already =
+        agents.ok && agentRunning(agents, pane.agent, config.projectPath || "", workspaceId);
+      if (already) {
+        actions.push({ action: "secondary_agent_present", agent: pane.agent });
+        continue;
+      }
+      const started = startHerdrAgent(config, pane.agent, argv, {
+        workspaceId,
+        split: pane.split || "right",
+        env: { HERDR_ROLE: "secondary", ...pane.env },
+      });
+      if (!started.ok) warnings.push(`secondary agent ${pane.agent} failed: ${started.error}`);
+      else actions.push({ action: "secondary_agent_started", agent: pane.agent });
+    }
+  }
+
+  return shellPaneId;
 }
 
 export interface BootstrapProjectOptions {
@@ -253,60 +354,63 @@ export function bootstrapHerdrProject(
   }
 
   const rootPaneId = workspaceId ? `${workspaceId}:p1` : null;
-  const agents = listAgents(config.session);
+  let shellPaneId: string | null = rootPaneId;
 
-  if (config.primaryAgent) {
-    const argv = resolveAgentArgv(config.primaryAgent);
-    const already =
-      agents.ok && agentRunning(agents, config.primaryAgent, config.projectPath || "", workspaceId);
-    if (!already) {
-      const started = startHerdrAgent(config, config.primaryAgent, argv, {
-        workspaceId: workspaceId || undefined,
+  if (config.agentsTab?.panes?.length && workspaceId && rootPaneId) {
+    shellPaneId =
+      bootstrapFromAgentsTab(config, workspaceId, rootPaneId, actions, warnings) || shellPaneId;
+  } else {
+    const agents = listAgents(config.session);
+
+    if (config.primaryAgent) {
+      const argv = resolveAgentArgv(config.primaryAgent);
+      const already =
+        agents.ok &&
+        agentRunning(agents, config.primaryAgent, config.projectPath || "", workspaceId);
+      if (!already) {
+        const started = startHerdrAgent(config, config.primaryAgent, argv, {
+          workspaceId: workspaceId || undefined,
+          env: { HERDR_ROLE: "primary" },
+        });
+        if (!started.ok) warnings.push(`primary agent failed: ${started.error}`);
+        else actions.push({ action: "primary_agent_started", agent: config.primaryAgent });
+      } else {
+        actions.push({ action: "primary_agent_present", agent: config.primaryAgent });
+      }
+    }
+
+    const existingShell = workspaceId ? findShellPane(config, workspaceId) : null;
+    if (existingShell?.pane_id) {
+      shellPaneId = existingShell.pane_id;
+      actions.push({ action: "shell_pane_present", paneId: shellPaneId });
+    } else if (config.shellPane && rootPaneId) {
+      const split = splitPane(config, rootPaneId, config.shellSplit, {
+        env: { HERDR_ROLE: "shell" },
       });
-      if (!started.ok) warnings.push(`primary agent failed: ${started.error}`);
-      else actions.push({ action: "primary_agent_started", agent: config.primaryAgent });
-    } else {
-      actions.push({ action: "primary_agent_present", agent: config.primaryAgent });
+      shellPaneId = parseHerdrPaneId(split.json, null) || shellPaneId;
+      if (split.ok) {
+        actions.push({ action: "shell_split", paneId: shellPaneId, direction: config.shellSplit });
+      } else {
+        warnings.push(`shell split failed: ${split.error}`);
+      }
     }
-  }
 
-  let shellPaneId = rootPaneId;
-  const existingShell = workspaceId ? findShellPane(config, workspaceId) : null;
-  if (existingShell?.pane_id) {
-    shellPaneId = existingShell.pane_id;
-    actions.push({ action: "shell_pane_present", paneId: shellPaneId });
-  } else if (config.shellPane && rootPaneId) {
-    const split = runJson("herdr", [
-      ...herdrArgs(config.session),
-      "pane",
-      "split",
-      rootPaneId,
-      "--direction",
-      config.shellSplit,
-      "--no-focus",
-    ]);
-    shellPaneId = parseHerdrPaneId(split.json, null) || shellPaneId;
-    if (split.ok) {
-      actions.push({ action: "shell_split", paneId: shellPaneId, direction: config.shellSplit });
-    } else {
-      warnings.push(`shell split failed: ${split.error}`);
+    for (const agentName of config.secondaryAgents || []) {
+      const argv = resolveAgentArgv(agentName);
+      const already =
+        agents.ok && agentRunning(agents, agentName, config.projectPath || "", workspaceId);
+      if (already) {
+        actions.push({ action: "secondary_agent_present", agent: agentName });
+        continue;
+      }
+      const started = startHerdrAgent(config, agentName, argv, {
+        workspaceId: workspaceId || undefined,
+        split: "right",
+        env: { HERDR_ROLE: "secondary" },
+      });
+      if (!started.ok) warnings.push(`secondary agent ${agentName} failed: ${started.error}`);
+      else actions.push({ action: "secondary_agent_started", agent: agentName });
     }
-  }
-
-  for (const agentName of config.secondaryAgents || []) {
-    const argv = resolveAgentArgv(agentName);
-    const already =
-      agents.ok && agentRunning(agents, agentName, config.projectPath || "", workspaceId);
-    if (already) {
-      actions.push({ action: "secondary_agent_present", agent: agentName });
-      continue;
-    }
-    const started = startHerdrAgent(config, agentName, argv, {
-      workspaceId: workspaceId || undefined,
-      split: "right",
-    });
-    if (!started.ok) warnings.push(`secondary agent ${agentName} failed: ${started.error}`);
-    else actions.push({ action: "secondary_agent_started", agent: agentName });
   }
 
   const shouldRunBootstrap = workspaceWasNew || options.force;

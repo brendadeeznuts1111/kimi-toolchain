@@ -115,8 +115,9 @@ memoryGate = true
 preflight = true
 
 # Herdr workspace layout — single source of truth (herdr-project reads [herdr] only):
-#   Tab "agents" (default): primaryAgent + shellPane (split shellSplit) + secondaryAgents
-#   Extra tabs: [[herdr.tabs]] (doctor, shell, …)
+#   agents tab: [herdr.agentsTab] + [[herdr.agentsTab.panes]] (canonical pane layout spec)
+#   Legacy shorthand: primaryAgent, shellPane, shellSplit, secondaryAgents (runner uses these today)
+#   Extra tabs: [[herdr.tabs]] — one pane per tab (doctor, shell, reviewer, …)
 [herdr]
 enabled = true
 workspaceLabel = "{{PROJECT_NAME}}"
@@ -129,6 +130,24 @@ bootstrap = [
   "echo 'Finish work: bun run finish-work --message \"...\"'",
   "bun run check:fast && echo '✅ Ready to commit'",
 ]
+
+[herdr.agentsTab]
+label = "agents"
+
+[[herdr.agentsTab.panes]]
+role = "primary"
+agent = "kimi"
+# ratio = 0.6  # advisory — runner does not pass --ratio yet
+
+[[herdr.agentsTab.panes]]
+role = "shell"
+split = "right"
+# bootstrap commands run in the shell pane
+
+[[herdr.agentsTab.panes]]
+role = "secondary"
+agent = "codex"
+split = "right"
 
 [[herdr.tabs]]
 label = "doctor"
