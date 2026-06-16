@@ -1,11 +1,14 @@
 import { join } from "node:path";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { TOML } from "bun";
+import type { GateResult } from "./gate-runner.ts";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
 import {
   findWorkspaceForProject,
   parseHerdrPaneId,
   resolveHerdrPanePath,
 } from "./herdr-project-runner.ts";
+import { resolveOrchestratorConfig } from "./herdr-orchestrator-config.ts";
 import { herdrCli, herdrCliJson } from "./herdr-socket.ts";
 import { herdrReportPaneMetadata } from "./herdr-socket-client.ts";
 
@@ -15,6 +18,8 @@ export interface FinishWorkGateSummary {
   name: string;
   exitCode: number;
   ms: number;
+  routed?: boolean;
+  doctorPaneId?: string;
 }
 
 export interface FinishWorkGitSummary {
@@ -101,6 +106,13 @@ export async function emitWorkspaceUpdatedMetadata(): Promise<void> {
   });
 }
 
+export const FINISH_WORK_DOCTOR_GATE_TIMEOUT_MS = 120_000;
+
+export type FinishWorkHerdrDeps = {
+  herdrCli?: typeof herdrCli;
+  herdrCliJson?: typeof herdrCliJson;
+};
+
 function shellQuote(value: string) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
@@ -125,6 +137,204 @@ type TabRow = {
   label?: string;
   workspace_id?: string;
 };
+
+function readHerdrDoc(projectRoot: string): Record<string, unknown> | null {
+  const config = discoverHerdrProjectConfig(projectRoot);
+  if (!config?.sourcePath) return null;
+  return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+}
+
+export function shouldRouteGateThroughDoctor(command: string): boolean {
+  return /^kimi-heal\s+effect\s+audit\b/.test(command.trim());
+}
+
+export function finishWorkLocalGatesForced(): boolean {
+  const value = process.env.KIMI_FINISH_WORK_LOCAL_GATES;
+  return value === "1" || value === "true";
+}
+
+export function shouldRunGateInDoctorPane(command: string): boolean {
+  return (
+    process.env.HERDR_ENV === "1" &&
+    !finishWorkLocalGatesForced() &&
+    shouldRouteGateThroughDoctor(command)
+  );
+}
+
+export async function resolveTabPrimaryPane(
+  workspaceId: string,
+  tabLabel: string,
+  deps: FinishWorkHerdrDeps = {}
+): Promise<{ paneId: string | null; error?: string }> {
+  const cliJson = deps.herdrCliJson ?? herdrCliJson;
+
+  const tabs = await cliJson<{ result?: { tabs?: TabRow[] } }>([
+    "tab",
+    "list",
+    "--workspace",
+    workspaceId,
+  ]);
+  if (!tabs.ok) {
+    return { paneId: null, error: tabs.error || "tab list failed" };
+  }
+
+  const tab = (tabs.json?.result?.tabs || []).find((row) => row.label === tabLabel);
+  if (!tab?.tab_id) {
+    return { paneId: null, error: `${tabLabel} tab not found` };
+  }
+
+  const panes = await cliJson<{ result?: { panes?: PaneRow[] } }>(["pane", "list"]);
+  if (!panes.ok) {
+    return { paneId: null, error: panes.error || "pane list failed" };
+  }
+
+  const paneId =
+    (panes.json?.result?.panes || [])
+      .filter((pane) => pane.tab_id === tab.tab_id)
+      .sort((a, b) => String(a.pane_id).localeCompare(String(b.pane_id)))[0]?.pane_id ?? null;
+
+  if (!paneId) {
+    return { paneId: null, error: `${tabLabel} tab has no panes` };
+  }
+
+  return { paneId };
+}
+
+export async function resolveDoctorPaneId(
+  projectRoot: string,
+  deps: FinishWorkHerdrDeps = {}
+): Promise<{ paneId: string | null; doctorTab: string; error?: string }> {
+  const override = process.env.HERDR_DOCTOR_PANE_ID;
+  if (override) {
+    return { paneId: override, doctorTab: "doctor" };
+  }
+
+  const config = discoverHerdrProjectConfig(projectRoot);
+  if (!config?.enabled) {
+    return { paneId: null, doctorTab: "doctor", error: "no enabled [herdr] profile" };
+  }
+
+  const doc = readHerdrDoc(projectRoot);
+  const orchestrator = resolveOrchestratorConfig(config, doc);
+  const doctorTab = orchestrator.doctorTab;
+
+  const match = findWorkspaceForProject({ ...config, projectPath: projectRoot });
+  if (!match.workspaceId) {
+    return {
+      paneId: null,
+      doctorTab,
+      error: `workspace not open (${match.reason})`,
+    };
+  }
+
+  const resolved = await resolveTabPrimaryPane(match.workspaceId, doctorTab, deps);
+  if (!resolved.paneId) {
+    return {
+      paneId: null,
+      doctorTab,
+      error: resolved.error || `doctor tab not found — run herdr-project reconcile`,
+    };
+  }
+
+  return { paneId: resolved.paneId, doctorTab };
+}
+
+function finishWorkGateLogPath(projectRoot: string, gateName: string): string {
+  const safe = gateName.replace(/[^a-zA-Z0-9._-]+/g, "-");
+  return join(projectRoot, ".kimi", `finish-work-gate-${safe}.log`);
+}
+
+function parseDoctorGateMarker(output: string, nonce: string): number | null {
+  const match = output.match(new RegExp(`__KIMI_FW_GATE_${nonce}:(\\d+)__`));
+  if (!match) return null;
+  return Number(match[1]);
+}
+
+export type DoctorPaneGateResult = GateResult & { routed: true; doctorPaneId?: string };
+
+export async function runDoctorPaneGate(
+  projectRoot: string,
+  name: string,
+  command: string,
+  deps: FinishWorkHerdrDeps = {}
+): Promise<DoctorPaneGateResult> {
+  const start = Bun.nanoseconds();
+  const cli = deps.herdrCli ?? herdrCli;
+  const resolved = await resolveDoctorPaneId(projectRoot, deps);
+
+  if (!resolved.paneId) {
+    return {
+      name,
+      exitCode: 1,
+      ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
+      stdout: "",
+      stderr: resolved.error || "doctor pane not resolved",
+      routed: true,
+    };
+  }
+
+  const doctorPaneId = resolved.paneId;
+  const nonce = Bun.randomUUIDv7().replace(/-/g, "");
+  const logPath = finishWorkGateLogPath(projectRoot, name);
+  mkdirSync(join(projectRoot, ".kimi"), { recursive: true });
+
+  const wrapped = [
+    `rm -f ${shellQuote(logPath)}`,
+    `${command} > ${shellQuote(logPath)} 2>&1`,
+    `EC=$?`,
+    `echo __KIMI_FW_GATE_${nonce}:$EC__`,
+    "exit 0",
+  ].join("; ");
+
+  const ran = await cli(["pane", "run", doctorPaneId, paneRunCommand(wrapped)]);
+  if (!ran.ok) {
+    return {
+      name,
+      exitCode: 1,
+      ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
+      stdout: ran.stdout,
+      stderr: ran.stderr || "pane run failed",
+      doctorPaneId,
+      routed: true,
+    };
+  }
+
+  const wait = await cli([
+    "wait",
+    "output",
+    doctorPaneId,
+    "--match",
+    `__KIMI_FW_GATE_${nonce}:[0-9]+__`,
+    "--regex",
+    "--timeout",
+    String(FINISH_WORK_DOCTOR_GATE_TIMEOUT_MS),
+  ]);
+
+  const markerExit = parseDoctorGateMarker(`${wait.stdout}\n${wait.stderr}`, nonce);
+  const log = existsSync(logPath) ? await Bun.file(logPath).text() : "";
+
+  if (!wait.ok || markerExit == null) {
+    return {
+      name,
+      exitCode: 1,
+      ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
+      stdout: log,
+      stderr: wait.stderr || wait.stdout || "doctor gate wait timed out",
+      doctorPaneId,
+      routed: true,
+    };
+  }
+
+  return {
+    name,
+    exitCode: markerExit,
+    ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
+    stdout: log,
+    stderr: "",
+    doctorPaneId,
+    routed: true,
+  };
+}
 
 export async function escalateFinishWorkToReviewer(
   projectRoot: string,
@@ -163,25 +373,13 @@ export async function escalateFinishWorkToReviewer(
 
   const reviewerCommand = `bun run scripts/reviewer-pane.ts --report-file ${shellQuote(reportPath)}`;
 
+  const doc = readHerdrDoc(projectRoot);
+  const orchestrator = resolveOrchestratorConfig(config, doc);
+  const reviewerTabLabel = orchestrator.reviewerTab;
+
   let reviewerPaneId: string | null = null;
-
-  const tabs = await herdrCliJson<{ result?: { tabs?: TabRow[] } }>([
-    "tab",
-    "list",
-    "--workspace",
-    workspaceId,
-  ]);
-  const reviewerTab = tabs.ok
-    ? (tabs.json?.result?.tabs || []).find((tab) => tab.label === "reviewer")
-    : undefined;
-
-  if (reviewerTab?.tab_id) {
-    const panes = await herdrCliJson<{ result?: { panes?: PaneRow[] } }>(["pane", "list"]);
-    reviewerPaneId =
-      (panes.ok ? panes.json?.result?.panes : [])
-        ?.filter((pane) => pane.tab_id === reviewerTab.tab_id)
-        .sort((a, b) => String(a.pane_id).localeCompare(String(b.pane_id)))[0]?.pane_id ?? null;
-  }
+  const existing = await resolveTabPrimaryPane(workspaceId, reviewerTabLabel);
+  reviewerPaneId = existing.paneId;
 
   if (!reviewerPaneId) {
     const created = await herdrCliJson([
@@ -191,7 +389,7 @@ export async function escalateFinishWorkToReviewer(
       workspaceId,
       "--no-focus",
       "--label",
-      "reviewer",
+      reviewerTabLabel,
     ]);
     if (!created.ok) {
       report.herdr = { escalated: false, error: created.error || "reviewer tab create failed" };

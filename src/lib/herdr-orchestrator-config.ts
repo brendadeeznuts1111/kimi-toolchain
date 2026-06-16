@@ -26,6 +26,8 @@ export interface HerdrOrchestratorConfig {
   handoffTo: string | null;
   /** Tab label for finish-work reviewer escalation. */
   reviewerTab: string;
+  /** Tab label for finish-work doctor-pane gate routing. */
+  doctorTab: string;
   events: HerdrOrchestratorEventsConfig;
 }
 
@@ -50,6 +52,7 @@ export function parseHerdrOrchestratorSection(
     handoffFrom: typeof nested.handoffFrom === "string" ? nested.handoffFrom : null,
     handoffTo: typeof nested.handoffTo === "string" ? nested.handoffTo : null,
     reviewerTab: typeof nested.reviewerTab === "string" ? nested.reviewerTab : "reviewer",
+    doctorTab: typeof nested.doctorTab === "string" ? nested.doctorTab : "doctor",
     events: parseOrchestratorEventsSection(eventsNested),
   };
 }
@@ -113,6 +116,7 @@ export function resolveOrchestratorConfig(
     handoffFrom,
     handoffTo,
     reviewerTab: fromDoc?.reviewerTab ?? "reviewer",
+    doctorTab: fromDoc?.doctorTab ?? "doctor",
     events: fromDoc?.events ?? parseOrchestratorEventsSection(null),
   };
 }

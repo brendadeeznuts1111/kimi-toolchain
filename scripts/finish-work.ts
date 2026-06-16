@@ -26,7 +26,11 @@ import {
   escalateFinishWorkToReviewer,
   emitWorkspaceUpdatedMetadata,
   finishWorkOutcome,
+  runDoctorPaneGate,
   shouldEscalateToReviewer as shouldEscalate,
+  shouldRunGateInDoctorPane,
+  type DoctorPaneGateResult,
+  type FinishWorkGateSummary,
   type FinishWorkReport,
 } from "../src/lib/finish-work-herdr.ts";
 import { loadFinishWorkConfig, type FinishWorkFollowUp } from "../src/lib/finish-work-config.ts";
@@ -102,6 +106,29 @@ function gateName(command: string, index: number): string {
 
 async function runShellGate(name: string, command: string): Promise<GateResult> {
   return runGate(name, ["sh", "-lc", command], { cwd: REPO_ROOT });
+}
+
+async function runConfiguredGate(
+  name: string,
+  command: string
+): Promise<GateResult | DoctorPaneGateResult> {
+  if (shouldRunGateInDoctorPane(command)) {
+    return runDoctorPaneGate(REPO_ROOT, name, command);
+  }
+  return runShellGate(name, command);
+}
+
+function summarizeGateResult(item: GateResult | DoctorPaneGateResult): FinishWorkGateSummary {
+  if ("routed" in item && item.routed) {
+    return {
+      name: item.name,
+      exitCode: item.exitCode,
+      ms: item.ms,
+      routed: true,
+      doctorPaneId: item.doctorPaneId,
+    };
+  }
+  return { name: item.name, exitCode: item.exitCode, ms: item.ms };
 }
 
 function followUpStepName(command: string): string {
@@ -230,7 +257,7 @@ async function main(): Promise<number> {
 
   const results: GateResult[] = [];
   for (const [index, command] of config.gates.entries()) {
-    const result = await runShellGate(gateName(command, index), command);
+    const result = await runConfiguredGate(gateName(command, index), command);
     results.push(result);
     if (result.exitCode !== 0) {
       if (options.json) {
@@ -297,11 +324,7 @@ async function main(): Promise<number> {
     ok: true,
     outcome: finishWorkOutcome(true, git.pushed, tree.clean),
     gateSource: config.source,
-    results: results.map((item) => ({
-      name: item.name,
-      exitCode: item.exitCode,
-      ms: item.ms,
-    })),
+    results: results.map(summarizeGateResult),
     git,
     tree,
   };

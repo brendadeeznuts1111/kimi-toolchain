@@ -19,6 +19,16 @@ describe("herdr-orchestrator", () => {
     expect(parsed?.handoffFrom).toBe("kimi");
     expect(parsed?.handoffTo).toBe("codex");
     expect(parsed?.reviewerTab).toBe("reviewer");
+    expect(parsed?.doctorTab).toBe("doctor");
+  });
+
+  test("parseHerdrOrchestratorSection reads doctorTab override", () => {
+    const parsed = parseHerdrOrchestratorSection({
+      orchestrator: {
+        doctorTab: "health",
+      },
+    });
+    expect(parsed?.doctorTab).toBe("health");
   });
 
   test("resolveOrchestratorConfig falls back to agentsTab roles", () => {
