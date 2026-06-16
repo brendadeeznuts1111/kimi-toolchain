@@ -155,6 +155,8 @@
     "ci:local": "bun run scripts/ci-local.ts",
     "pr:status": "bun run scripts/pr-status.ts",
     "pr:diff": "bun run scripts/pr-diff.ts",
+    "build": "bun run scripts/build-compile.ts",
+    "build:compile": "bun run scripts/build-compile.ts",
     "docs:sync": "bun run scripts/readme-sync.ts --fix",
     "agents:sync": "bun run scripts/sync-agents-md.ts --write",
     "agents:sync:check": "bun run scripts/sync-agents-md.ts --check",

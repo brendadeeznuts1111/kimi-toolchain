@@ -270,6 +270,8 @@ export const UNIT_TEST_FILES = [
   "test/gate-runner.unit.test.ts",
   "test/git-helpers.unit.test.ts",
   "test/kimi-githooks.unit.test.ts",
+  "test/build-compile.unit.test.ts",
+  "test/ci-local.unit.test.ts",
   "test/identity-matrix.unit.test.ts",
   "test/lint-build-constants.unit.test.ts",
   "test/lint-test-names.unit.test.ts",
