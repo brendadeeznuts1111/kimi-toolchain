@@ -6,26 +6,34 @@ export type ExecCliOptions = {
   session?: string;
 };
 
-/** HERDR_SESSION env, or explicit session; empty and "default" mean the primary server. */
+/**
+ * Resolved session name for automation, or "" for the primary server.
+ * Empty, "default", and unset all mean ~/.config/herdr/herdr.sock.
+ *
+ * Herdr 0.7.0: HERDR_SESSION env does not select the socket — only `herdr --session NAME`
+ * or HERDR_SOCKET_PATH do. Toolchain automation therefore uses the primary server unless
+ * a future Herdr release restores env-based routing.
+ */
 export function resolveHerdrSession(explicit?: string): string {
   const session = (explicit !== undefined ? explicit : (process.env.HERDR_SESSION ?? "")).trim();
   if (!session || session === "default") return "";
   return session;
 }
 
-/** Child-process env for herdr CLI — HERDR_SESSION is authoritative (not --session). */
+/** Child-process env for herdr CLI. Primary server: HERDR_SESSION unset. */
 export function herdrSessionEnv(explicit?: string): NodeJS.ProcessEnv {
   const resolved = resolveHerdrSession(explicit);
   const env = { ...process.env };
   if (!resolved) {
     delete env.HERDR_SESSION;
+    delete env.HERDR_SOCKET_PATH;
     return env;
   }
   env.HERDR_SESSION = resolved;
   return env;
 }
 
-/** @deprecated Prefer HERDR_SESSION via herdrSessionEnv; --session targets a different namespace. */
+/** @deprecated Session routing uses herdrSessionEnv; do not pass --session from automation. */
 export function herdrSessionArgs(_session?: string): string[] {
   return [];
 }

@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { TOML } from "bun";
 import { MIN_INTEGRATION_VERSIONS, REQUIRED_INTEGRATIONS, SPAWN_AGENTS } from "./herdr-agents.ts";
+import { resolveHerdrSession } from "./herdr-project-cli.ts";
 import { HerdrSessionError, requireSessionRunning } from "./herdr-session-preflight.ts";
 import { homeDir } from "./paths.ts";
 
@@ -296,7 +297,8 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
 
   if (blockers.length === 0) {
     try {
-      await ensureSessionRunning(process.env.HERDR_SESSION);
+      const session = resolveHerdrSession() || undefined;
+      await ensureSessionRunning(session);
 
       status = run("herdr", ["status"]);
       serverRunning = /status:\s*running/.test(status.output);

@@ -9,6 +9,7 @@ import {
   type EffectGatesReport,
 } from "./effect-gates.ts";
 import { resolveDoctorPaneId } from "./finish-work-herdr.ts";
+import { resolveHerdrSession } from "./herdr-project-cli.ts";
 import { herdrReportPaneMetadata } from "./herdr-socket-client.ts";
 import type { createLogger } from "./logger.ts";
 
@@ -90,7 +91,8 @@ export async function reportEffectGatesChanged(
   options: { paneId?: string; projectRoot?: string } = {}
 ): Promise<void> {
   const explicit = options.paneId?.trim() || process.env.HERDR_PANE_ID?.trim();
-  const session = process.env.HERDR_SESSION?.trim() || undefined;
+  const resolved = resolveHerdrSession();
+  const session = resolved || undefined;
   let paneId = explicit || null;
 
   if (!paneId) {
