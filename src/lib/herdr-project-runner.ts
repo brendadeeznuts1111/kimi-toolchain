@@ -5,6 +5,20 @@ import { resolveAgentArgv } from "./herdr-agents.ts";
 import type { HerdrProjectConfig } from "./herdr-project-config.ts";
 import { homeDir } from "./paths.ts";
 
+export function herdrCliRun(session: string, args: string[] = [], timeout = 30_000) {
+  return run("herdr", [...herdrArgs(session), ...args], timeout);
+}
+
+export function herdrCliJson(session: string, args: string[] = []) {
+  const result = herdrCliRun(session, args);
+  if (!result.ok) return { ok: false as const, error: result.output, json: null };
+  try {
+    return { ok: true as const, json: JSON.parse(result.output), error: null };
+  } catch {
+    return { ok: false as const, error: "invalid JSON from herdr CLI", json: null };
+  }
+}
+
 function run(cmd: string, args: string[] = [], timeout = 30_000) {
   try {
     return {
@@ -102,7 +116,7 @@ function findShellPane(config: HerdrProjectConfig, workspaceId: string) {
   return workspacePanes(config, workspaceId).find((pane) => !isKnownAgentPane(pane)) || null;
 }
 
-function parsePaneId(
+export function parseHerdrPaneId(
   payload: { result?: Record<string, unknown> } | null,
   fallback: string | null
 ) {
@@ -178,7 +192,7 @@ function paneRun(
   ]);
 }
 
-function startAgent(
+export function startHerdrAgent(
   config: HerdrProjectConfig,
   name: string,
   argv: string[],
@@ -246,7 +260,7 @@ export function bootstrapHerdrProject(
     const already =
       agents.ok && agentRunning(agents, config.primaryAgent, config.projectPath || "", workspaceId);
     if (!already) {
-      const started = startAgent(config, config.primaryAgent, argv, {
+      const started = startHerdrAgent(config, config.primaryAgent, argv, {
         workspaceId: workspaceId || undefined,
       });
       if (!started.ok) warnings.push(`primary agent failed: ${started.error}`);
@@ -271,7 +285,7 @@ export function bootstrapHerdrProject(
       config.shellSplit,
       "--no-focus",
     ]);
-    shellPaneId = parsePaneId(split.json, null) || shellPaneId;
+    shellPaneId = parseHerdrPaneId(split.json, null) || shellPaneId;
     if (split.ok) {
       actions.push({ action: "shell_split", paneId: shellPaneId, direction: config.shellSplit });
     } else {
@@ -287,7 +301,7 @@ export function bootstrapHerdrProject(
       actions.push({ action: "secondary_agent_present", agent: agentName });
       continue;
     }
-    const started = startAgent(config, agentName, argv, {
+    const started = startHerdrAgent(config, agentName, argv, {
       workspaceId: workspaceId || undefined,
       split: "right",
     });
@@ -307,7 +321,7 @@ export function bootstrapHerdrProject(
       "--no-focus",
       ...(tab.label ? ["--label", String(tab.label)] : []),
     ]);
-    const tabPaneId = parsePaneId(tabCreate.json, null);
+    const tabPaneId = parseHerdrPaneId(tabCreate.json, null);
     if (!tabCreate.ok || !tabPaneId) {
       warnings.push(`tab ${tab.label || "extra"} failed`);
       continue;

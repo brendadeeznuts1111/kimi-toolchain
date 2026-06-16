@@ -1,0 +1,504 @@
+import type { HerdrProjectConfig, HerdrProjectTab } from "./herdr-project-config.ts";
+import { resolveAgentArgv } from "./herdr-agents.ts";
+import {
+  findWorkspaceForProject,
+  herdrCliJson,
+  herdrCliRun,
+  parseHerdrPaneId,
+  resolveHerdrPanePath,
+  startHerdrAgent,
+} from "./herdr-project-runner.ts";
+
+export type ReconcileActionType =
+  | "create_tab"
+  | "run_tab_command"
+  | "start_agent"
+  | "split_shell"
+  | "close_pane"
+  | "warn";
+
+export interface ReconcileAction {
+  type: ReconcileActionType;
+  target: string;
+  reason: string;
+  detail?: Record<string, unknown>;
+}
+
+export interface WorkspaceTabRow {
+  tabId: string;
+  label: string;
+  paneCount: number;
+}
+
+export interface WorkspacePaneRow {
+  paneId: string;
+  tabId: string;
+  agent: string | null;
+  isShell: boolean;
+}
+
+export interface ExpectedHerdrLayout {
+  agentsTabLabel: string;
+  primaryAgent: string | null;
+  secondaryAgents: string[];
+  shellPane: boolean;
+  extraTabs: HerdrProjectTab[];
+}
+
+export interface WorkspaceLayoutSnapshot {
+  workspaceId: string;
+  tabs: WorkspaceTabRow[];
+  panes: WorkspacePaneRow[];
+}
+
+export interface ReconcileReport {
+  schemaVersion: 1;
+  generatedAt: string;
+  projectPath: string;
+  configPath: string | null;
+  workspaceId: string | null;
+  dryRun: boolean;
+  expected: ExpectedHerdrLayout;
+  actual: WorkspaceLayoutSnapshot | null;
+  actions: ReconcileAction[];
+  applied: ReconcileAction[];
+  warnings: string[];
+  drift: boolean;
+}
+
+export interface ReconcileOptions {
+  apply?: boolean;
+  closeOrphans?: boolean;
+  fixAgents?: boolean;
+}
+
+function normalizeLabel(label: string | undefined): string {
+  return String(label || "")
+    .trim()
+    .toLowerCase();
+}
+
+export function buildExpectedLayout(config: HerdrProjectConfig): ExpectedHerdrLayout {
+  return {
+    agentsTabLabel: "agents",
+    primaryAgent: config.primaryAgent,
+    secondaryAgents: [...(config.secondaryAgents || [])],
+    shellPane: config.shellPane !== false,
+    extraTabs: [...(config.tabs || [])],
+  };
+}
+
+function isAgentPane(agent: string | null | undefined): boolean {
+  return typeof agent === "string" && agent.length > 0;
+}
+
+function paneSortKey(paneId: string): number {
+  const match = paneId.match(/:p(\d+)$/);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+export function listWorkspaceTabs(session: string, workspaceId: string): WorkspaceTabRow[] {
+  const listed = herdrCliJson(session, ["tab", "list", "--workspace", workspaceId]);
+  if (!listed.ok) return [];
+  const rows = (listed.json?.result?.tabs || []) as Array<{
+    tab_id?: string;
+    label?: string;
+    pane_count?: number;
+  }>;
+  return rows
+    .filter((row) => typeof row.tab_id === "string")
+    .map((row) => ({
+      tabId: row.tab_id!,
+      label: String(row.label || ""),
+      paneCount: typeof row.pane_count === "number" ? row.pane_count : 0,
+    }));
+}
+
+export function captureWorkspaceLayout(
+  session: string,
+  workspaceId: string
+): WorkspaceLayoutSnapshot {
+  const panes = herdrCliJson(session, ["pane", "list"]);
+  const rows = panes.ok
+    ? ((panes.json?.result?.panes || []) as Array<{
+        pane_id?: string;
+        tab_id?: string;
+        workspace_id?: string;
+        agent?: string;
+      }>)
+    : [];
+
+  return {
+    workspaceId,
+    tabs: listWorkspaceTabs(session, workspaceId),
+    panes: rows
+      .filter((row) => row.pane_id && row.tab_id)
+      .filter(
+        (row) => row.workspace_id === workspaceId || row.tab_id?.startsWith(`${workspaceId}:`)
+      )
+      .map((row) => ({
+        paneId: row.pane_id!,
+        tabId: row.tab_id!,
+        agent: isAgentPane(row.agent) ? row.agent! : null,
+        isShell: !isAgentPane(row.agent),
+      })),
+  };
+}
+
+function resolveAgentsTab(
+  expected: ExpectedHerdrLayout,
+  snapshot: WorkspaceLayoutSnapshot
+): WorkspaceTabRow | null {
+  const extraLabels = new Set(
+    expected.extraTabs.map((tab) => normalizeLabel(tab.label)).filter(Boolean)
+  );
+  const byAgentsLabel = snapshot.tabs.find(
+    (tab) => normalizeLabel(tab.label) === normalizeLabel(expected.agentsTabLabel)
+  );
+  if (byAgentsLabel) return byAgentsLabel;
+
+  const nonExtra = snapshot.tabs.filter((tab) => !extraLabels.has(normalizeLabel(tab.label)));
+  if (nonExtra.length === 1) return nonExtra[0] ?? null;
+  if (nonExtra.length > 1) {
+    return [...nonExtra].sort(
+      (a, b) => paneSortKey(`${a.tabId}:p1`) - paneSortKey(`${b.tabId}:p1`)
+    )[0];
+  }
+  return snapshot.tabs[0] ?? null;
+}
+
+function panesForTab(snapshot: WorkspaceLayoutSnapshot, tabId: string): WorkspacePaneRow[] {
+  return snapshot.panes
+    .filter((pane) => pane.tabId === tabId)
+    .sort((a, b) => paneSortKey(a.paneId) - paneSortKey(b.paneId));
+}
+
+function expectedAgentSet(expected: ExpectedHerdrLayout): Set<string> {
+  const names = new Set<string>();
+  if (expected.primaryAgent) names.add(expected.primaryAgent);
+  for (const agent of expected.secondaryAgents) names.add(agent);
+  return names;
+}
+
+export function diffWorkspaceLayout(
+  expected: ExpectedHerdrLayout,
+  snapshot: WorkspaceLayoutSnapshot
+): ReconcileAction[] {
+  const actions: ReconcileAction[] = [];
+  const agentsTab = resolveAgentsTab(expected, snapshot);
+
+  if (!agentsTab) {
+    actions.push({
+      type: "warn",
+      target: snapshot.workspaceId,
+      reason: "no agents tab found in workspace",
+    });
+    return actions;
+  }
+
+  const agentsPanes = panesForTab(snapshot, agentsTab.tabId);
+  const agentsPresent = new Set(
+    agentsPanes.map((pane) => pane.agent).filter((agent): agent is string => Boolean(agent))
+  );
+  const expectedAgents = expectedAgentSet(expected);
+
+  if (normalizeLabel(agentsTab.label) !== normalizeLabel(expected.agentsTabLabel)) {
+    actions.push({
+      type: "warn",
+      target: agentsTab.tabId,
+      reason: `agents tab labeled "${agentsTab.label}", expected "${expected.agentsTabLabel}"`,
+      detail: { actualLabel: agentsTab.label, expectedLabel: expected.agentsTabLabel },
+    });
+  }
+
+  if (expected.primaryAgent) {
+    if (!agentsPresent.has(expected.primaryAgent)) {
+      actions.push({
+        type: "start_agent",
+        target: expected.primaryAgent,
+        reason: `missing primary agent ${expected.primaryAgent} on agents tab`,
+        detail: { role: "primary", tabId: agentsTab.tabId },
+      });
+    }
+
+    const primarySlot = agentsPanes[0];
+    if (
+      primarySlot?.agent &&
+      primarySlot.agent !== expected.primaryAgent &&
+      agentsPresent.has(expected.primaryAgent)
+    ) {
+      actions.push({
+        type: "warn",
+        target: primarySlot.paneId,
+        reason: `primary slot ${primarySlot.paneId} has ${primarySlot.agent}, expected ${expected.primaryAgent}`,
+        detail: {
+          role: "primary_slot",
+          actualAgent: primarySlot.agent,
+          expectedAgent: expected.primaryAgent,
+        },
+      });
+    } else if (primarySlot?.agent && primarySlot.agent !== expected.primaryAgent) {
+      actions.push({
+        type: "warn",
+        target: primarySlot.paneId,
+        reason: `primary slot ${primarySlot.paneId} has ${primarySlot.agent}, expected ${expected.primaryAgent}`,
+        detail: {
+          role: "primary_slot",
+          actualAgent: primarySlot.agent,
+          expectedAgent: expected.primaryAgent,
+          fixAgents: true,
+        },
+      });
+    }
+  }
+
+  for (const agent of expected.secondaryAgents) {
+    if (!agentsPresent.has(agent)) {
+      actions.push({
+        type: "start_agent",
+        target: agent,
+        reason: `missing secondary agent ${agent}`,
+        detail: { role: "secondary", tabId: agentsTab.tabId },
+      });
+    }
+  }
+
+  if (expected.shellPane && !agentsPanes.some((pane) => pane.isShell)) {
+    actions.push({
+      type: "split_shell",
+      target: agentsPanes[0]?.paneId || agentsTab.tabId,
+      reason: "missing shell pane on agents tab",
+      detail: { tabId: agentsTab.tabId },
+    });
+  }
+
+  for (const pane of agentsPanes) {
+    if (pane.agent && !expectedAgents.has(pane.agent)) {
+      actions.push({
+        type: "close_pane",
+        target: pane.paneId,
+        reason: `extra agent ${pane.agent} not in project profile`,
+        detail: { agent: pane.agent, tabId: agentsTab.tabId, orphan: true },
+      });
+    }
+  }
+
+  for (const tab of expected.extraTabs) {
+    const label = tab.label || "";
+    const normalized = normalizeLabel(label);
+    if (!normalized) continue;
+
+    const actual = snapshot.tabs.find((row) => normalizeLabel(row.label) === normalized);
+    if (!actual) {
+      actions.push({
+        type: "create_tab",
+        target: label,
+        reason: `missing tab ${label}`,
+        detail: { command: tab.command || null },
+      });
+    }
+  }
+
+  return actions;
+}
+
+function shellQuote(value: string) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+function paneRun(config: HerdrProjectConfig, paneId: string, command: string) {
+  let payload = command;
+  const path = resolveHerdrPanePath();
+  if (path) {
+    const escapedPath = path.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    payload = `export PATH="${escapedPath}"; ${command}`;
+  }
+  return herdrCliRun(config.session, ["pane", "run", paneId, `sh -lc ${shellQuote(payload)}`]);
+}
+
+function createTab(config: HerdrProjectConfig, workspaceId: string, label: string) {
+  return herdrCliJson(config.session, [
+    "tab",
+    "create",
+    "--workspace",
+    workspaceId,
+    "--no-focus",
+    "--label",
+    label,
+  ]);
+}
+
+function closePane(config: HerdrProjectConfig, paneId: string) {
+  return herdrCliRun(config.session, ["pane", "close", paneId]);
+}
+
+function splitShellPane(config: HerdrProjectConfig, paneId: string, direction: string) {
+  return herdrCliJson(config.session, [
+    "pane",
+    "split",
+    paneId,
+    "--direction",
+    direction,
+    "--no-focus",
+  ]);
+}
+
+function applyReconcileAction(
+  config: HerdrProjectConfig,
+  workspaceId: string,
+  action: ReconcileAction,
+  options: ReconcileOptions
+): { ok: boolean; warning?: string } {
+  if (action.type === "warn") {
+    return { ok: false, warning: action.reason };
+  }
+
+  if (action.type === "create_tab") {
+    const created = createTab(config, workspaceId, action.target);
+    if (!created.ok) return { ok: false, warning: created.error || "tab create failed" };
+    const paneId = parseHerdrPaneId(created.json, null);
+    const command = action.detail?.command;
+    if (paneId && typeof command === "string" && command.length) {
+      const ran = paneRun(config, paneId, command);
+      if (!ran.ok) return { ok: false, warning: ran.output || "tab command failed" };
+    }
+    return { ok: true };
+  }
+
+  if (action.type === "run_tab_command") {
+    const command = action.detail?.command;
+    if (typeof command !== "string" || !command.length) return { ok: true };
+    const panes = captureWorkspaceLayout(config.session, workspaceId).panes.filter(
+      (pane) => pane.tabId === action.target
+    );
+    const paneId = panes.sort((a, b) => paneSortKey(a.paneId) - paneSortKey(b.paneId))[0]?.paneId;
+    if (!paneId) return { ok: false, warning: `no pane for tab ${action.target}` };
+    const ran = paneRun(config, paneId, command);
+    return ran.ok ? { ok: true } : { ok: false, warning: ran.output || "tab command failed" };
+  }
+
+  if (action.type === "start_agent") {
+    const argv = resolveAgentArgv(action.target);
+    const role = action.detail?.role;
+    const started = startHerdrAgent(config, action.target, argv, {
+      workspaceId,
+      split: role === "secondary" ? "right" : undefined,
+    });
+    return started.ok
+      ? { ok: true }
+      : { ok: false, warning: started.error || "agent start failed" };
+  }
+
+  if (action.type === "split_shell") {
+    const paneId = String(action.target);
+    const split = splitShellPane(config, paneId, config.shellSplit || "right");
+    return split.ok ? { ok: true } : { ok: false, warning: split.error || "shell split failed" };
+  }
+
+  if (action.type === "close_pane") {
+    if (!options.closeOrphans) {
+      return { ok: false, warning: "skipped close_pane (pass --close-orphans)" };
+    }
+    const closed = closePane(config, action.target);
+    return closed.ok ? { ok: true } : { ok: false, warning: closed.output || "pane close failed" };
+  }
+
+  return { ok: false, warning: `unsupported action ${action.type}` };
+}
+
+export function reconcileHerdrProject(
+  config: HerdrProjectConfig,
+  options: ReconcileOptions = {}
+): ReconcileReport {
+  const expected = buildExpectedLayout(config);
+  const match = findWorkspaceForProject(config);
+  const warnings: string[] = [];
+  const applied: ReconcileAction[] = [];
+
+  if (!match.workspaceId) {
+    return {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      projectPath: config.projectPath || "",
+      configPath: config.sourcePath,
+      workspaceId: null,
+      dryRun: !options.apply,
+      expected,
+      actual: null,
+      actions: [
+        {
+          type: "warn",
+          target: config.projectPath || "",
+          reason: `workspace not open (${match.reason})`,
+        },
+      ],
+      applied,
+      warnings: [`workspace not open (${match.reason})`],
+      drift: true,
+    };
+  }
+
+  const actual = captureWorkspaceLayout(config.session, match.workspaceId);
+  const actions = diffWorkspaceLayout(expected, actual);
+  const actionable = actions.filter((action) => action.type !== "warn");
+
+  if (options.apply) {
+    for (const action of actions) {
+      if (action.type === "warn") {
+        if (
+          action.detail?.fixAgents &&
+          options.fixAgents &&
+          action.detail.role === "primary_slot"
+        ) {
+          const closed = closePane(config, action.target);
+          if (!closed.ok) {
+            warnings.push(closed.output || `failed to close ${action.target}`);
+            continue;
+          }
+          const expectedAgent = String(action.detail.expectedAgent || "");
+          if (expectedAgent) {
+            const argv = resolveAgentArgv(expectedAgent);
+            const started = startHerdrAgent(config, expectedAgent, argv, {
+              workspaceId: match.workspaceId,
+            });
+            if (started.ok) {
+              applied.push({
+                type: "start_agent",
+                target: expectedAgent,
+                reason: `respawned primary after closing ${action.target}`,
+              });
+            } else {
+              warnings.push(started.error || `failed to start ${expectedAgent}`);
+            }
+          }
+        } else {
+          warnings.push(action.reason);
+        }
+        continue;
+      }
+
+      const result = applyReconcileAction(config, match.workspaceId, action, options);
+      if (result.ok) applied.push(action);
+      else if (result.warning) warnings.push(result.warning);
+    }
+  } else {
+    for (const action of actions) {
+      if (action.type === "warn") warnings.push(action.reason);
+    }
+  }
+
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    projectPath: config.projectPath || "",
+    configPath: config.sourcePath,
+    workspaceId: match.workspaceId,
+    dryRun: !options.apply,
+    expected,
+    actual,
+    actions,
+    applied,
+    warnings,
+    drift: actionable.length > 0 || actions.some((action) => action.type === "warn"),
+  };
+}

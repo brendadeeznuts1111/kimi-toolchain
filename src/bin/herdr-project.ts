@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { discoverHerdrProjectConfig } from "../lib/herdr-project-config.ts";
+import { reconcileHerdrProject } from "../lib/herdr-project-reconcile.ts";
 import {
   bootstrapHerdrProject,
   findWorkspaceForProject,
@@ -13,6 +14,9 @@ function parseArgs(argv: string[]) {
     json: args.includes("--json"),
     attach: args.includes("--attach"),
     force: args.includes("--force"),
+    apply: args.includes("--apply"),
+    closeOrphans: args.includes("--close-orphans"),
+    fixAgents: args.includes("--fix-agents"),
     help: args.includes("--help") || args.includes("-h"),
   };
   const positionals = args.filter((arg) => !arg.startsWith("-"));
@@ -39,12 +43,16 @@ Commands:
   discover    Print resolved project Herdr config
   has-config  Exit 0 when an enabled project profile exists
   status      Show whether a workspace already exists for the project
+  reconcile   Diff live Herdr layout against project [herdr] profile
   scaffold    Write .dx/herdr.toml from the DX template
 
 Flags:
-  --json      JSON output
-  --attach    After bootstrap, run herdr attach (when not already inside Herdr)
-  --force     Re-run bootstrap/tab commands on an existing workspace; overwrite on scaffold
+  --json            JSON output
+  --attach          After bootstrap, run herdr attach (when not already inside Herdr)
+  --force           Re-run bootstrap/tab commands on an existing workspace; overwrite on scaffold
+  --apply           Apply reconcile fixes (default: dry-run)
+  --close-orphans   Close agent panes not listed in the project profile (with --apply)
+  --fix-agents      Respawn primary agent when the primary slot has the wrong agent (with --apply)
 `);
 }
 
@@ -113,6 +121,39 @@ try {
     if (flags.json) writeJson(result);
     else writeOut(`${result.message}: ${result.path}`);
     process.exit(result.ok ? 0 : 1);
+  }
+
+  if (command === "reconcile") {
+    if (!config?.enabled) {
+      const message = `No enabled Herdr project config in ${projectPath}`;
+      if (flags.json) writeJson({ ok: false, message });
+      else writeErr(message);
+      process.exit(1);
+    }
+    const report = reconcileHerdrProject(
+      { ...config, projectPath },
+      {
+        apply: flags.apply,
+        closeOrphans: flags.closeOrphans,
+        fixAgents: flags.fixAgents,
+      }
+    );
+    if (flags.json) writeJson(report);
+    else {
+      writeOut(`Reconcile ${projectPath} (${report.dryRun ? "dry-run" : "apply"})`);
+      writeOut(`Workspace: ${report.workspaceId || "(not open)"}`);
+      for (const action of report.actions) {
+        writeOut(`${action.type.toUpperCase()}  ${action.target}: ${action.reason}`);
+      }
+      if (report.applied.length) {
+        writeOut("Applied:");
+        for (const action of report.applied) {
+          writeOut(`- ${action.type} ${action.target}`);
+        }
+      }
+      if (report.warnings.length) writeOut(`Warnings: ${report.warnings.join("; ")}`);
+    }
+    process.exit(report.drift && report.dryRun ? 1 : report.warnings.length && flags.apply ? 2 : 0);
   }
 
   if (command === "bootstrap") {
