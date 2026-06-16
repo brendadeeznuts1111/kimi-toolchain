@@ -20,6 +20,16 @@ describe("finish-work-config", () => {
     expect(config.gates).toEqual(["bun run check:fast", EFFECT_GATES_COMMAND]);
   });
 
+  test("resolveFinishWorkGates falls back to [agents].prePush when finishWork.gates is empty", () => {
+    const config = resolveFinishWorkGatesFromUnknown({
+      finishWork: { gates: [] },
+      agents: { prePush: ["bun run check:fast", "kimi-guardian check"] },
+    });
+
+    expect(config.source).toBe("agents.prePush");
+    expect(config.gates).toEqual(["bun run check:fast", "kimi-guardian check"]);
+  });
+
   test("resolveFinishWorkGates falls back to [agents].prePush", () => {
     const config = resolveFinishWorkGatesFromUnknown({
       agents: { prePush: ["bun run check:fast", "kimi-guardian check"] },
@@ -55,9 +65,16 @@ gates = ["bun run check:fast"]
   });
 
   test("resolveFinishWorkGatesFromUnknown rejects invalid finishWork.gates", () => {
-    expect(() =>
-      resolveFinishWorkGatesFromUnknown({ finishWork: { gates: "not-an-array" } })
-    ).toThrow(FinishWorkConfigParseError);
+    try {
+      resolveFinishWorkGatesFromUnknown(
+        { finishWork: { gates: "not-an-array" } },
+        "/tmp/demo/dx.config.toml"
+      );
+      expect.unreachable();
+    } catch (error) {
+      expect(error).toBeInstanceOf(FinishWorkConfigParseError);
+      expect((error as FinishWorkConfigParseError).path).toBe("/tmp/demo/dx.config.toml");
+    }
   });
 
   test("resolveFinishWorkGatesFromUnknown rejects empty gate strings", () => {

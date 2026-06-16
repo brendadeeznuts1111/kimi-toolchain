@@ -37,12 +37,15 @@ export class FinishWorkConfigParseError extends Data.TaggedError("FinishWorkConf
   message: string;
 }> {}
 
-export function decodeFinishWorkDxConfig(doc: unknown): FinishWorkDxConfig {
+export function decodeFinishWorkDxConfig(
+  doc: unknown,
+  path = "dx.config.toml"
+): FinishWorkDxConfig {
   try {
     return Schema.decodeUnknownSync(FinishWorkDxConfigSchema)(doc);
   } catch (cause) {
     throw new FinishWorkConfigParseError({
-      path: "dx.config.toml",
+      path,
       message: cause instanceof Error ? cause.message : String(cause),
     });
   }
@@ -66,8 +69,11 @@ export function resolveFinishWorkGates(decoded: FinishWorkDxConfig): FinishWorkC
   return { gates: DEFAULT_GATES, source: "default" };
 }
 
-export function resolveFinishWorkGatesFromUnknown(doc: unknown): FinishWorkConfig {
-  return resolveFinishWorkGates(decodeFinishWorkDxConfig(doc));
+export function resolveFinishWorkGatesFromUnknown(
+  doc: unknown,
+  path = "dx.config.toml"
+): FinishWorkConfig {
+  return resolveFinishWorkGates(decodeFinishWorkDxConfig(doc, path));
 }
 
 export function loadFinishWorkConfig(projectRoot: string): FinishWorkConfig {
@@ -86,5 +92,5 @@ export function loadFinishWorkConfig(projectRoot: string): FinishWorkConfig {
     });
   }
 
-  return resolveFinishWorkGatesFromUnknown(doc);
+  return resolveFinishWorkGatesFromUnknown(doc, path);
 }
