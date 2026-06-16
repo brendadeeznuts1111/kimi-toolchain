@@ -522,7 +522,11 @@ describe("updateChangelog", () => {
 describe("ensureQualityTooling", () => {
   test("adds missing scripts to package.json", async () => {
     const dir = tmpDir("quality-add");
-    const pkg = { name: "test", scripts: { test: "bun test" } };
+    const pkg = {
+      name: "test",
+      scripts: { test: "bun test" },
+      devDependencies: { oxfmt: "*", oxlint: "*", typescript: "*", "@types/bun": "*" },
+    };
     await writeFile(join(dir, "package.json"), JSON.stringify(pkg, null, 2));
     const logs: string[] = [];
     const log = (_step: string, msg: string) => logs.push(msg);
@@ -559,6 +563,7 @@ describe("ensureQualityTooling", () => {
         "lint:terms": "bun run lint:terms",
         fix: "kimi-fix .",
       },
+      devDependencies: { oxfmt: "*", oxlint: "*", typescript: "*", "@types/bun": "*" },
     };
     await writeFile(join(dir, "package.json"), JSON.stringify(pkg, null, 2));
     const logs: string[] = [];
