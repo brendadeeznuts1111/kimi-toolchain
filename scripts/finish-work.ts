@@ -99,7 +99,7 @@ async function runGitSteps(message: string, push: boolean, dryRun: boolean): Pro
 
   if (dryRun) return result;
 
-  const add = await $`git add -A`.cwd(REPO_ROOT).nothrow().quiet();
+  const add = await $`git add -u`.cwd(REPO_ROOT).nothrow().quiet();
   if (add.exitCode !== 0) {
     result.error = add.stderr.toString().trim() || "git add failed";
     return result;
@@ -148,7 +148,7 @@ async function main(): Promise<number> {
       logger.line(`gate source: ${config.source}`);
       for (const gate of config.gates) logger.line(`  → ${gate}`);
       if (!options.skipGit && options.message) {
-        logger.line(`  → git add -A && git commit -m ${JSON.stringify(options.message)}`);
+        logger.line(`  → git add -u && git commit -m ${JSON.stringify(options.message)}`);
         if (options.push) logger.line("  → git push");
       }
     }

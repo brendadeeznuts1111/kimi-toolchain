@@ -19,7 +19,11 @@ function resolveTemplateDir(): string {
 const TEMPLATE_DIR = resolveTemplateDir();
 
 function load(name: string): string {
-  return readFileSync(join(TEMPLATE_DIR, name), "utf8");
+  const path = join(TEMPLATE_DIR, name);
+  if (!existsSync(path)) {
+    throw new Error(`Template missing: templates/scaffold/${name}`);
+  }
+  return readFileSync(path, "utf8");
 }
 
 // ── Config templates ─────────────────────────────────────────────────

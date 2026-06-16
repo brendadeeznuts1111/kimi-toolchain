@@ -103,7 +103,7 @@ function emitGateFailure(result: GateResult): void {
 }
 
 async function runGitSteps(message: string, push: boolean): Promise<number> {
-  const add = await $`git add -A`.cwd(REPO_ROOT).nothrow().quiet();
+  const add = await $`git add -u`.cwd(REPO_ROOT).nothrow().quiet();
   if (add.exitCode !== 0) return add.exitCode;
 
   const commit = await $`git commit -m ${message}`.cwd(REPO_ROOT).nothrow().quiet();

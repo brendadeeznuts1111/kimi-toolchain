@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { homeDir } from "./paths.ts";
 
 export type ScaffoldProfile = "app" | "toolchain";
@@ -8,6 +8,13 @@ const PROFILE_ALIASES: Record<string, ScaffoldProfile> = {
   app: "app",
   toolchain: "toolchain",
 };
+
+export class ScaffoldProfileError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ScaffoldProfileError";
+  }
+}
 
 function resolveTemplateDir(): string {
   const candidates = [
@@ -20,7 +27,11 @@ function resolveTemplateDir(): string {
 const TEMPLATE_DIR = resolveTemplateDir();
 
 function loadTemplate(name: string): string {
-  return readFileSync(join(TEMPLATE_DIR, name), "utf8");
+  const path = join(TEMPLATE_DIR, name);
+  if (!existsSync(path)) {
+    throw new Error(`Template missing: templates/scaffold/${name}`);
+  }
+  return readFileSync(path, "utf8");
 }
 
 export const DX_CONFIG_APP_TEMPLATE = loadTemplate("dx.config.app.toml");
@@ -30,20 +41,30 @@ export const DX_WORKSPACE_TEMPLATE = loadTemplate("dx.workspace.toml");
 export const FINISH_WORK_CONFIG_TEMPLATE = loadTemplate("scripts/finish-work-config.ts");
 export const FINISH_WORK_TEMPLATE = loadTemplate("scripts/finish-work.ts");
 
+function parseProfileValue(value: string | undefined): ScaffoldProfile {
+  if (!value || value.startsWith("-")) {
+    throw new ScaffoldProfileError("--profile requires a value: app or toolchain");
+  }
+  const profile = PROFILE_ALIASES[value];
+  if (!profile) {
+    throw new ScaffoldProfileError(`Unknown scaffold profile "${value}" — use app or toolchain`);
+  }
+  return profile;
+}
+
 export function resolveScaffoldProfile(argv: readonly string[]): ScaffoldProfile {
+  let explicit: ScaffoldProfile | null = null;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--profile") {
-      const next = argv[i + 1];
-      if (next && PROFILE_ALIASES[next]) return PROFILE_ALIASES[next];
+      explicit = parseProfileValue(argv[i + 1]);
       continue;
     }
     if (arg.startsWith("--profile=")) {
-      const value = arg.slice("--profile=".length);
-      if (PROFILE_ALIASES[value]) return PROFILE_ALIASES[value];
+      explicit = parseProfileValue(arg.slice("--profile=".length));
     }
   }
-  return "app";
+  return explicit ?? "app";
 }
 
 export function filterScaffoldArgv(argv: readonly string[]): string[] {
@@ -61,7 +82,43 @@ export function filterScaffoldArgv(argv: readonly string[]): string[] {
 }
 
 export function dxAgentsPath(home = homeDir()): string {
-  return join(home, ".config", "dx", "AGENTS.md");
+  return resolve(home, ".config", "dx", "AGENTS.md");
+}
+
+export function detectProfileDrift(projectRoot: string, profile: ScaffoldProfile): string | null {
+  const dxConfigPath = join(projectRoot, "dx.config.toml");
+  if (!existsSync(dxConfigPath)) return null;
+
+  const content = readFileSync(dxConfigPath, "utf8");
+  const hasToolchainMarkers = content.includes("[finishWork]") || content.includes("[herdr]");
+
+  if (profile === "toolchain") {
+    const missing: string[] = [];
+    if (!existsSync(join(projectRoot, "dx", "workspace.toml"))) {
+      missing.push("dx/workspace.toml");
+    }
+    if (!existsSync(join(projectRoot, "scripts", "finish-work.ts"))) {
+      missing.push("scripts/finish-work.ts");
+    }
+    if (missing.length > 0) {
+      return (
+        `Profile toolchain but missing ${missing.join(", ")} — kimi-fix skips existing files; ` +
+        "delete them and re-run or scaffold into a fresh tree"
+      );
+    }
+    if (!hasToolchainMarkers) {
+      return (
+        "Profile toolchain but dx.config.toml lacks [finishWork]/[herdr] — " +
+        "delete dx.config.toml and re-run kimi-fix --profile toolchain"
+      );
+    }
+  }
+
+  if (profile === "app" && hasToolchainMarkers) {
+    return "Profile app but dx.config.toml has toolchain sections — kimi-fix will not downgrade existing config";
+  }
+
+  return null;
 }
 
 export function renderTemplate(template: string, replacements: Record<string, string>): string {

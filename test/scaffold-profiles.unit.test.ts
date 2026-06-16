@@ -5,7 +5,12 @@ import {
   resolveScaffoldProfile,
   filterScaffoldArgv,
   dxAgentsPath,
+  detectProfileDrift,
+  ScaffoldProfileError,
 } from "../src/lib/scaffold-profiles.ts";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { DX_CONFIG_APP, DX_CONFIG_TOOLCHAIN } from "../src/lib/scaffold-templates.ts";
 
 describe("scaffold-profiles", () => {
@@ -16,6 +21,18 @@ describe("scaffold-profiles", () => {
   test("resolveScaffoldProfile reads --profile toolchain", () => {
     expect(resolveScaffoldProfile(["fix", ".", "--profile", "toolchain"])).toBe("toolchain");
     expect(resolveScaffoldProfile(["--profile=toolchain", "."])).toBe("toolchain");
+  });
+
+  test("resolveScaffoldProfile rejects unknown profile", () => {
+    expect(() => resolveScaffoldProfile([".", "--profile", "foo"])).toThrow(ScaffoldProfileError);
+    expect(() => resolveScaffoldProfile(["--profile=foo"])).toThrow(ScaffoldProfileError);
+  });
+
+  test("resolveScaffoldProfile rejects --profile without value", () => {
+    expect(() => resolveScaffoldProfile([".", "--profile", "--dry-run"])).toThrow(
+      ScaffoldProfileError
+    );
+    expect(() => resolveScaffoldProfile([".", "--profile"])).toThrow(ScaffoldProfileError);
   });
 
   test("filterScaffoldArgv removes profile flags", () => {
@@ -55,5 +72,27 @@ describe("scaffold-profiles", () => {
 
   test("dxAgentsPath joins home and dx agents file", () => {
     expect(dxAgentsPath("/tmp/home")).toBe("/tmp/home/.config/dx/AGENTS.md");
+  });
+
+  test("detectProfileDrift warns when toolchain files missing", () => {
+    const root = join(tmpdir(), `scaffold-drift-${Bun.randomUUIDv7()}`);
+    mkdirSync(root, { recursive: true });
+    writeFileSync(join(root, "dx.config.toml"), "[kimi]\n");
+    try {
+      expect(detectProfileDrift(root, "toolchain")).toContain("dx/workspace.toml");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("detectProfileDrift returns null for fresh app scaffold", () => {
+    const root = join(tmpdir(), `scaffold-drift-${Bun.randomUUIDv7()}`);
+    mkdirSync(root, { recursive: true });
+    try {
+      expect(detectProfileDrift(root, "app")).toBeNull();
+      expect(existsSync(join(root, "dx.config.toml"))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

@@ -363,10 +363,16 @@ preflight = true
 
 | Profile | Command | `dx.config` source | Extras |
 |---------|---------|-------------------|--------|
-| **app** (default) | `kimi-fix <path>` | `templates/scaffold/dx.config.app.toml` | Core quality scripts only — no `[sync]`, `ci:local`, or `test:smoke` |
+| **app** (default) | `kimi-fix <path>` | `templates/scaffold/dx.config.app.toml` | Standard DX/CI/quality — no `[sync]`, `ci:local`, `[finishWork]`, or `[herdr]` |
 | **toolchain** | `kimi-fix <path> --profile toolchain` | `templates/scaffold/dx.config.toolchain.toml` | `[finishWork]`, `[herdr]`, `dx/workspace.toml`, `scripts/finish-work.ts` |
 
 Full runtime sync/ci.local blocks live only in the **kimi-toolchain reference** `dx.config.toml`, not in scaffold templates.
+
+**Gate divergence:** Scaffolded repos use installed CLIs (`kimi-doctor --effect-gates` in `prePush` / `[finishWork]`). The live kimi-toolchain repo uses vendored entrypoints (`bun run doctor --effect-gates`) because it develops those scripts in-tree. Both are intentional.
+
+**Profile drift:** `kimi-fix` never overwrites existing `dx.config.toml`, `dx/workspace.toml`, or finish-work scripts. Re-scaffolding with a different `--profile` logs a warning; delete the stale files and re-run, or scaffold into a fresh tree.
+
+**finish-work staging:** `git add -u` only (tracked files). Untracked files and secrets are never blanket-staged.
 
 ### Herdr project profile (`[herdr]`)
 

@@ -131,7 +131,10 @@ describe("dx-cloudflare-config", () => {
     );
     const scaffoldConfig = parseDxCloudflareConfig(
       Bun.TOML.parse(
-        readFileSync(join(import.meta.dir, "..", "templates", "scaffold", "dx.config.toml"), "utf8")
+        readFileSync(
+          join(import.meta.dir, "..", "templates", "scaffold", "dx.config.app.toml"),
+          "utf8"
+        )
       )
     );
 

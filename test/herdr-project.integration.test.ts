@@ -1,15 +1,22 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { invokeTool } from "../src/lib/tool-runner.ts";
-import { localBinDir, toolsDir } from "../src/lib/paths.ts";
 
-const HERDR_PROJECT_TOOL = join(toolsDir(), "herdr-project.ts");
-const HERDR_PROJECT_WRAPPER = join(localBinDir(), "herdr-project");
+const REPO_HERDR_PROJECT = join(import.meta.dir, "..", "src", "bin", "herdr-project.ts");
+
+function herdrProjectTool(): string {
+  const desktop = join(homedir(), ".kimi-code", "tools", "herdr-project.ts");
+  return existsSync(desktop) ? desktop : REPO_HERDR_PROJECT;
+}
+
+function herdrProjectWrapper(): string {
+  return join(homedir(), ".local", "bin", "herdr-project");
+}
 
 async function runHerdrProject(projectRoot: string, args: string[]) {
-  return invokeTool(HERDR_PROJECT_TOOL, args, {
+  return invokeTool(herdrProjectTool(), args, {
     cwd: projectRoot,
     timeoutMs: 60_000,
   });
@@ -47,17 +54,17 @@ bootstrap = ["echo herdr-bootstrap-ok"]
   });
 
   test("requires herdr-project tool and PATH wrapper", () => {
-    expect(existsSync(HERDR_PROJECT_TOOL)).toBe(true);
-    expect(existsSync(HERDR_PROJECT_WRAPPER)).toBe(true);
+    expect(existsSync(herdrProjectTool())).toBe(true);
+    expect(existsSync(herdrProjectWrapper())).toBe(true);
   });
 
   test("has-config exits 0 for flat .dx/herdr.toml", async () => {
-    const result = await runHerdrProject(projectRoot, ["has-config", "."]);
+    const result = await runHerdrProject(projectRoot, ["has-config", projectRoot]);
     expect(result.exitCode).toBe(0);
   });
 
   test("discover --json resolves flat project profile", async () => {
-    const result = await runHerdrProject(projectRoot, ["discover", ".", "--json"]);
+    const result = await runHerdrProject(projectRoot, ["discover", projectRoot, "--json"]);
     expect(result.exitCode).toBe(0);
 
     const payload = JSON.parse(result.stdout) as {
@@ -77,10 +84,10 @@ bootstrap = ["echo herdr-bootstrap-ok"]
       return;
     }
 
-    const discover = await runHerdrProject(projectRoot, ["discover", ".", "--json"]);
+    const discover = await runHerdrProject(projectRoot, ["discover", projectRoot, "--json"]);
     const label = JSON.parse(discover.stdout).config.workspaceLabel as string;
 
-    const bootstrap = await runHerdrProject(projectRoot, ["bootstrap", ".", "--json"]);
+    const bootstrap = await runHerdrProject(projectRoot, ["bootstrap", projectRoot, "--json"]);
     expect(bootstrap.exitCode).toBe(0);
 
     const report = JSON.parse(bootstrap.stdout) as {

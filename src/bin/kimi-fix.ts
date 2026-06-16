@@ -33,6 +33,8 @@ import {
   renderWorkspaceToml,
   resolveScaffoldProfile,
   filterScaffoldArgv,
+  detectProfileDrift,
+  ScaffoldProfileError,
   type ScaffoldProfile,
 } from "../lib/scaffold-profiles.ts";
 import { homeDir } from "../lib/paths.ts";
@@ -143,6 +145,10 @@ async function runDoctor(projectDir: string): Promise<number> {
 async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile): Promise<void> {
   logger.section(`Fixing ${basename(project)} (${profile} profile)`);
   logger.info(`Path: ${project}`);
+  logger.info(`Profile: ${profile}`);
+
+  const drift = detectProfileDrift(project, profile);
+  if (drift) logger.warn(drift);
 
   if (!existsSync(join(project, ".git"))) {
     stepLog("git", "initializing repo...");
@@ -336,7 +342,16 @@ function printHelp() {
 
 async function main(): Promise<number> {
   const positional = writer.flags.positional;
-  const profile = resolveScaffoldProfile(positional);
+  let profile: ScaffoldProfile;
+  try {
+    profile = resolveScaffoldProfile(positional);
+  } catch (e) {
+    if (e instanceof ScaffoldProfileError) {
+      logger.error(e.message);
+      return 1;
+    }
+    throw e;
+  }
   const dryRun = positional.includes("--dry-run");
   const filtered = filterScaffoldArgv(positional).filter((a: string) => a !== "--dry-run");
 
