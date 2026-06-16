@@ -89,9 +89,33 @@ declare const KIMI_OPTIMIZER_CONFIDENCE_DECAY_DAYS: number;
 declare const KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD: number;
 
 /**
+ * @defineDomain runtime
+ * @type string
+ * @default "1.3.14"
+ * @restrictions semver — minimum Bun runtime version required by toolchain tooling
+ */
+declare const KIMI_RUNTIME_MIN_BUN_VERSION: string;
+
+/**
+ * @defineDomain runtime
+ * @type string
+ * @default "source"
+ * @restrictions one of source | release | canary — identifies how CLI binaries were built
+ */
+declare const KIMI_RUNTIME_CLI_BUILD_CHANNEL: string;
+
+/**
+ * @defineDomain dashboard
+ * @type boolean
+ * @default true
+ * @restrictions boolean flag — when false, dashboard live refresh is disabled
+ */
+declare const KIMI_DASHBOARD_LIVE_REFRESH_ENABLED: boolean;
+
+/**
  * @defineDomain governance
  * @type string
- * @default "1.0.0"
+ * @default "1.2.0"
  * @restrictions semver — bump when any other KIMI_* define is added, changed, or removed
  * @see scripts/lint-tuning-set-version.ts
  */

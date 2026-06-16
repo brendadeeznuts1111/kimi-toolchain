@@ -13,7 +13,10 @@ describe("buildConstants", () => {
     expect(KIMI_HOOK_VERIFIER_MAX_CYCLES).toBe(32);
     expect(KIMI_CONTRACT_SCHEMA_VERSION).toBe("1.0.0");
     expect(KIMI_CONTRACT_INFERENCE_ENABLED).toBe(true);
-    expect(KIMI_TUNING_SET_VERSION).toBe("1.1.0");
+    expect(KIMI_RUNTIME_MIN_BUN_VERSION).toBe("1.3.14");
+    expect(KIMI_RUNTIME_CLI_BUILD_CHANNEL).toBe("source");
+    expect(KIMI_DASHBOARD_LIVE_REFRESH_ENABLED).toBe(true);
+    expect(KIMI_TUNING_SET_VERSION).toBe("1.2.0");
   });
 
   it("should resolve contract observations path from define", () => {
