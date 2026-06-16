@@ -15,6 +15,7 @@ import { statusIcon as healthStatusIcon, aggregateChecks } from "./health-check.
 import { isAgentContext } from "./tool-runner.ts";
 import { ensureQuietEnv, isQuietMode } from "./quiet-mode.ts";
 import { getStepBudgetStatus } from "./step-budget.ts";
+import { inspectAgent } from "./inspect.ts";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -107,7 +108,7 @@ export class Logger {
     if (this.bufferOnly) return;
 
     if (this.json) {
-      console.log(JSON.stringify(entry));
+      console.log(inspectAgent(entry));
       return;
     }
 
@@ -197,7 +198,7 @@ export class Logger {
     this.pushEntry(entry);
 
     if (this.json) {
-      if (this.shouldEmit(level)) console.log(JSON.stringify(entry));
+      if (this.shouldEmit(level)) console.log(inspectAgent(entry));
       return;
     }
 
@@ -228,7 +229,7 @@ export class Logger {
     this.pushEntry(entry);
 
     if (this.json) {
-      console.log(JSON.stringify(entry));
+      console.log(inspectAgent(entry));
       return;
     }
 

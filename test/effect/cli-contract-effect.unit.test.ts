@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Exit } from "effect";
+import { inspectAgent } from "../../src/lib/inspect.ts";
 import { EffectCliContractError } from "../../src/lib/effect/errors.ts";
 import {
   createCliEffect,
@@ -89,11 +90,9 @@ describe("cli-contract-effect", () => {
       const jsonMode = await Effect.runPromise(program);
       expect(jsonMode).toBe(true);
       expect(stdout.data).toHaveLength(1);
-      expect(JSON.parse(stdout.data[0]!)).toEqual({
-        ok: true,
-        schemaVersion: 1,
-        tool: "kimi-test",
-      });
+      expect(stdout.data[0]).toBe(
+        inspectAgent({ ok: true, schemaVersion: 1, tool: "kimi-test" }) + "\n"
+      );
       expect(stderr.data).toContain("  ✗ visible error");
       expect(stderr.data).not.toContain("suppressed info");
     } finally {
@@ -115,10 +114,7 @@ describe("cli-contract-effect", () => {
       const jsonMode = await Effect.runPromise(program);
       expect(jsonMode).toBe(true);
       expect(stdout.data).toHaveLength(1);
-      expect(JSON.parse(stdout.data[0]!)).toEqual({
-        tool: "kimi-test",
-        schemaVersion: 1,
-      });
+      expect(stdout.data[0]).toBe(inspectAgent({ tool: "kimi-test", schemaVersion: 1 }) + "\n");
       expect(stderr.data).toHaveLength(0);
     } finally {
       stdout.restore();

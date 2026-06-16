@@ -17,6 +17,7 @@ This file points future agents at local examples that define the code style for 
 | Path ownership                  | `src/lib/paths.ts`                      | Use helpers for `~/.kimi-code`, `~/.agents`, and runtime paths                              |
 | Build-time tuning constants     | `bunfig.toml` `[define]`                | SSOT — `KIMI_*` globals grouped by `# define-domain:` (separate from taxonomyId)            |
 | Safe parsing                    | `src/lib/utils.ts`                      | Use `safeParse()` / `safeToml()` with validators at config boundaries                       |
+| Inspection / equality / ANSI    | `src/lib/inspect.ts`                    | Use `inspectAgent()` for `--json`, `inspectHuman()` for logs, `deepEqual*()` for alignment  |
 | Success metric gates            | `src/lib/success-metrics.ts`            | Keep drift, taxonomy coverage, and provider agility measurable in CI                        |
 | Provider contracts              | `src/lib/provider-contract.ts`          | Add providers with a contract declaration plus a thin credential adapter only               |
 

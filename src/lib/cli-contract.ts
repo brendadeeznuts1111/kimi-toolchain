@@ -11,6 +11,7 @@
 
 import { Logger, type LogLevel } from "./logger.ts";
 import { isQuietMode } from "./quiet-mode.ts";
+import { inspectAgent } from "./inspect.ts";
 
 const TAXONOMY_ID_CLI_INVALID_FLAG = "cli_invalid_flag";
 
@@ -277,7 +278,7 @@ export function createMachineWriter(
   }
 
   function writeJson(data: unknown): void {
-    process.stdout.write(`${JSON.stringify(wrapJson(data))}\n`);
+    process.stdout.write(`${inspectAgent(wrapJson(data))}\n`);
   }
 
   function writeJsonl(entries: unknown[]): void {

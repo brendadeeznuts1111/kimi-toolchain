@@ -66,7 +66,7 @@ describe("error-taxonomy", () => {
   });
 
   test("classifyFailure matches known pattern", async () => {
-    const taxonomy = await loadTaxonomy();
+    const taxonomy = await loadTaxonomy(join(import.meta.dir, "..", "error-taxonomy.yml"));
     const match = classifyFailure(
       "old_string not found in foo.ts, the file contents may be out of date. Please use the Read Tool to reload the content.",
       taxonomy

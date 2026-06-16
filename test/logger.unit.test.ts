@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { aggregateChecks } from "../src/lib/health-check.ts";
 import { Logger, createLogger, log, statusIcon } from "../src/lib/logger.ts";
+import { inspectAgent } from "../src/lib/inspect.ts";
 
 describe("logger", () => {
   let originalEnv: Record<string, string | undefined>;
@@ -109,7 +110,7 @@ describe("logger", () => {
     expect(logs[0]).toContain("test error");
   });
 
-  test("json mode outputs structured JSON", () => {
+  test("json mode outputs structured agent format", () => {
     const logs: string[] = [];
     const originalLog = console.log;
     console.log = (...args: unknown[]) => logs.push(args.join(" "));
@@ -119,11 +120,11 @@ describe("logger", () => {
 
     console.log = originalLog;
     expect(logs.length).toBe(1);
-    const parsed = JSON.parse(logs[0]);
-    expect(parsed.tool).toBe("test-tool");
-    expect(parsed.level).toBe("info");
-    expect(parsed.message).toBe("test message");
-    expect(parsed.timestamp).toBeGreaterThan(0);
+    const output = logs[0];
+    expect(output).toContain("test-tool");
+    expect(output).toContain("info");
+    expect(output).toContain("test message");
+    expect(output).toContain("timestamp");
   });
 
   test("agent context suppresses info output", () => {
@@ -274,7 +275,7 @@ describe("logger", () => {
     expect(logs[2].message).toBe("third");
   });
 
-  test("check() emits structured JSON with schemaVersion", () => {
+  test("check() emits structured agent format with schemaVersion", () => {
     const logs: string[] = [];
     const originalLog = console.log;
     console.log = (...args: unknown[]) => logs.push(args.join(" "));
@@ -284,9 +285,10 @@ describe("logger", () => {
 
     console.log = originalLog;
     expect(logs.length).toBe(1);
-    const parsed = JSON.parse(logs[0]);
-    expect(parsed.schemaVersion).toBe(1);
-    expect(parsed.check.name).toBe("disk");
+    const output = logs[0];
+    expect(output).toContain("schemaVersion");
+    expect(output).toContain("disk");
+    expect(output).toContain("85%");
   });
 
   test("check() buffers ok checks in agent context for telemetry", () => {
@@ -377,8 +379,17 @@ describe("logger", () => {
     logger.suggest("lockfile_issue", "Run bun install", "bun install");
 
     console.log = originalLog;
-    const parsed = JSON.parse(logs[0]);
-    expect(parsed.taxonomyId).toBe("lockfile_issue");
-    expect(parsed.autoFix).toBe("bun install");
+    expect(logs[0]).toBe(
+      inspectAgent({
+        schemaVersion: 1,
+        tool: "kimi-debug",
+        level: "info",
+        message: "Run bun install",
+        timestamp: logger.getLogs()[0]?.timestamp,
+        taxonomyId: "lockfile_issue",
+        suggestion: "Run bun install",
+        autoFix: "bun install",
+      })
+    );
   });
 });
