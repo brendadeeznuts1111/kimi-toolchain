@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { TOML } from "bun";
 import { MIN_INTEGRATION_VERSIONS, REQUIRED_INTEGRATIONS, SPAWN_AGENTS } from "./herdr-agents.ts";
+import { HerdrSessionError, requireSessionRunning } from "./herdr-session-preflight.ts";
 import { homeDir } from "./paths.ts";
 
 const KNOWN_TOP_LEVEL = new Set([
@@ -25,6 +26,7 @@ const DEPRECATED_SECTIONS: Record<string, string> = {
 
 export interface HerdrDoctorOptions {
   fix?: boolean;
+  requireSessionRunning?: (sessionName?: string) => Promise<void>;
 }
 
 function dxDir(home = homeDir()): string {
@@ -211,12 +213,13 @@ function parseVersion(versionText: string | null | undefined) {
     : null;
 }
 
-export function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home = homeDir()) {
+export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home = homeDir()) {
   const dx = dxDir(home);
   const manifestPath = join(dx, "herdr.json");
   const configPath = join(dx, "herdr.toml");
   const runtimeConfig = join(home, ".config", "herdr", "config.toml");
   const skillPath = join(home, ".config", "agents", "skills", "herdr", "SKILL.md");
+  const ensureSessionRunning = options.requireSessionRunning ?? requireSessionRunning;
 
   const blockers: string[] = [];
   const warnings: string[] = [];
@@ -224,10 +227,6 @@ export function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home = home
   const binary = which("herdr");
   const terminalNotifier = which("terminal-notifier");
   const version = binary ? run("herdr", ["--version"]) : { ok: false, output: "" };
-  const status = binary ? run("herdr", ["status"]) : { ok: false, output: "" };
-  const integrationStatus = binary
-    ? run("herdr", ["integration", "status"])
-    : { ok: false, output: "" };
   const configSymlinkOk = isSymlinkTo(runtimeConfig, configPath);
   const configExists = existsSync(configPath);
   const manifest = readJson(manifestPath);
@@ -252,45 +251,12 @@ export function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home = home
   }
   if (!existsSync(worktreesDir)) warnings.push(`worktrees directory missing: ${worktreesDir}`);
 
-  const integrations = manifest?.integrations as { required?: string[] } | undefined;
-  const requiredIntegrations = (Array.isArray(integrations?.required)
-    ? integrations.required
-    : null) || [...REQUIRED_INTEGRATIONS];
-  const integrationVersions = parseIntegrationVersions(integrationStatus.output);
-  const installed: string[] = [];
-  const missing: string[] = [];
-  const outdated: string[] = [];
-  for (const name of requiredIntegrations) {
-    const versionNum = integrationVersions[name];
-    if (!versionNum) {
-      missing.push(name);
-      continue;
-    }
-    installed.push(name);
-    const minVersions = manifest?.minIntegrationVersions as Record<string, number> | undefined;
-    const min = MIN_INTEGRATION_VERSIONS[name] ?? minVersions?.[name];
-    if (min && versionNum < min) outdated.push(`${name} v${versionNum} < v${min}`);
-  }
-  if (missing.length) warnings.push(`integrations not current: ${missing.join(", ")}`);
-  if (outdated.length)
-    warnings.push(`integrations below minimum for restore: ${outdated.join(", ")}`);
-
-  const manifestStatus = checkManifests(binary);
-  if (!manifestStatus.ok) {
-    warnings.push(`agent manifests need attention: ${manifestStatus.stale.join(", ")}`);
-  }
-  if (options.fix && binary && !manifestStatus.ok) {
-    const updated = run("herdr", ["server", "update-agent-manifests"]);
-    if (updated.ok) fixes.push("updated agent manifests");
-    else warnings.push(`manifest update failed: ${updated.output}`);
-  }
-
   const missingWrappers = checkSpawnWrappers(home);
   if (missingWrappers.length) {
     warnings.push(`missing spawn wrappers: ${missingWrappers.join(", ")}`);
   }
 
-  warnings.push(...lintConfig(configPath));
+  if (configExists) warnings.push(...lintConfig(configPath));
 
   const skillLinks = (Array.isArray(manifest?.agentSkills) ? manifest.agentSkills : []).map(
     (path) => expand(String(path), home)
@@ -306,9 +272,6 @@ export function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home = home
     warnings.push(`agent skill links broken: ${brokenSkillLinks.join(", ")}`);
   }
 
-  const serverRunning = /status:\s*running/.test(status.output);
-  if (binary && !serverRunning) warnings.push("herdr server is not running");
-
   const projectProfiles = which("herdr-project") ? scanProjectProfiles(home) : [];
   if (!which("herdr-project")) warnings.push("herdr-project missing from PATH");
 
@@ -316,6 +279,65 @@ export function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home = home
     warnings.push(
       `herdr ${parsedVersion.text} uses legacy pane ids — upgrade to 0.7.0+ for stable w1:p1 handles`
     );
+  }
+
+  const integrations = manifest?.integrations as { required?: string[] } | undefined;
+  const requiredIntegrations = (Array.isArray(integrations?.required)
+    ? integrations.required
+    : null) || [...REQUIRED_INTEGRATIONS];
+
+  let status = { ok: false, output: "" };
+  let integrationVersions: Record<string, number> = {};
+  const installed: string[] = [];
+  const missing: string[] = [];
+  const outdated: string[] = [];
+  let manifestStatus = { ok: false, stale: [] as string[], result: null as unknown };
+  let serverRunning = false;
+
+  if (blockers.length === 0) {
+    try {
+      await ensureSessionRunning(process.env.HERDR_SESSION);
+
+      status = run("herdr", ["status"]);
+      serverRunning = /status:\s*running/.test(status.output);
+      if (!serverRunning) warnings.push("herdr server is not running");
+
+      const integrationStatus = run("herdr", ["integration", "status"]);
+      integrationVersions = parseIntegrationVersions(integrationStatus.output);
+      for (const name of requiredIntegrations) {
+        const versionNum = integrationVersions[name];
+        if (!versionNum) {
+          missing.push(name);
+          continue;
+        }
+        installed.push(name);
+        const minVersions = manifest?.minIntegrationVersions as Record<string, number> | undefined;
+        const min = MIN_INTEGRATION_VERSIONS[name] ?? minVersions?.[name];
+        if (min && versionNum < min) outdated.push(`${name} v${versionNum} < v${min}`);
+      }
+      if (missing.length) warnings.push(`integrations not current: ${missing.join(", ")}`);
+      if (outdated.length) {
+        warnings.push(`integrations below minimum for restore: ${outdated.join(", ")}`);
+      }
+
+      manifestStatus = checkManifests(binary);
+      if (!manifestStatus.ok) {
+        warnings.push(`agent manifests need attention: ${manifestStatus.stale.join(", ")}`);
+      }
+      if (options.fix && !manifestStatus.ok) {
+        const updated = run("herdr", ["server", "update-agent-manifests"]);
+        if (updated.ok) fixes.push("updated agent manifests");
+        else warnings.push(`manifest update failed: ${updated.output}`);
+      }
+    } catch (error) {
+      if (error instanceof HerdrSessionError) {
+        warnings.push(error.message);
+        serverRunning = false;
+        if (options.fix) warnings.push("manifest fix skipped: server not running");
+      } else {
+        throw error;
+      }
+    }
   }
 
   return {
@@ -366,11 +388,13 @@ export function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home = home
   };
 }
 
+export type HerdrDoctorReport = Awaited<ReturnType<typeof inspectHerdrDoctor>>;
+
 function writeOut(line = ""): void {
   process.stdout.write(`${line}\n`);
 }
 
-export function printHerdrDoctorHuman(report: ReturnType<typeof inspectHerdrDoctor>): void {
+export function printHerdrDoctorHuman(report: HerdrDoctorReport): void {
   writeOut("Herdr Doctor");
   writeOut(`Generated: ${report.generatedAt}`);
   writeOut("");

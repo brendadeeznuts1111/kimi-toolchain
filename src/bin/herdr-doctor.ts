@@ -21,7 +21,7 @@ if (options.help) {
   process.exit(0);
 }
 
-const report = inspectHerdrDoctor({ fix: options.fix });
+const report = await inspectHerdrDoctor({ fix: options.fix });
 if (options.json) writeOut(JSON.stringify(report, null, 2));
 else printHerdrDoctorHuman(report);
 process.exit(report.readiness.ready ? 0 : 1);
