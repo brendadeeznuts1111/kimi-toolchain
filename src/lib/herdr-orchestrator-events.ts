@@ -97,7 +97,27 @@ function readGitHead(projectRoot: string): string | null {
   const headPath = join(projectRoot, ".git", "HEAD");
   if (!existsSync(headPath)) return null;
   try {
-    return readFileSync(headPath, "utf8").trim();
+    const raw = readFileSync(headPath, "utf8").trim();
+    if (raw.startsWith("ref: ")) {
+      const refPath = join(projectRoot, ".git", raw.slice(5).trim());
+      if (existsSync(refPath)) return readFileSync(refPath, "utf8").trim();
+    }
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+function resolveGitHeadWatchPath(projectRoot: string): string | null {
+  const headPath = join(projectRoot, ".git", "HEAD");
+  if (!existsSync(headPath)) return null;
+  try {
+    const raw = readFileSync(headPath, "utf8").trim();
+    if (raw.startsWith("ref: ")) {
+      const refPath = join(projectRoot, ".git", raw.slice(5).trim());
+      return existsSync(refPath) ? refPath : headPath;
+    }
+    return headPath;
   } catch {
     return null;
   }
@@ -235,8 +255,8 @@ async function runWatchOrchestratorEvents(
   let gitHead = readGitHead(projectRoot);
 
   if (eventsConfig.watchGit) {
-    const gitHeadPath = join(projectRoot, ".git", "HEAD");
-    if (existsSync(gitHeadPath)) {
+    const gitHeadPath = resolveGitHeadWatchPath(projectRoot);
+    if (gitHeadPath && existsSync(gitHeadPath)) {
       gitWatcher = watch(gitHeadPath, () => {
         const next = readGitHead(projectRoot);
         if (!next || next === gitHead) return;
