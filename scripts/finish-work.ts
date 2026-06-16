@@ -287,48 +287,15 @@ async function main(): Promise<number> {
     }
   }
 
-  let followUpSummary = config.followUp
-    ? await runFollowUpStep(config.followUp, {
-        pushed: git.pushed,
-        skipGit: options.skipGit,
-      })
-    : undefined;
-
-  if (followUpSummary?.ran && followUpSummary.exitCode !== 0) {
-    if (options.json) {
-      process.stdout.write(
-        `${inspectAgent({
-          schemaVersion: 1,
-          tool: "finish-work",
-          ok: false,
-          gateSource: config.source,
-          failedStep: "followUp",
-          results: results.map((item) => ({
-            name: item.name,
-            exitCode: item.exitCode,
-            ms: item.ms,
-          })),
-          git,
-          followUp: followUpSummary,
-        })}\n`
-      );
-    } else {
-      logger.error("follow-up failed");
-      if (followUpSummary.error) logger.line(followUpSummary.error);
-    }
-    return 1;
-  }
-
   const totalMs = results.reduce((sum, item) => sum + item.ms, 0);
   const dirty = git.pushed ? await porcelainDirtyLines(REPO_ROOT) : [];
   const tree = { clean: dirty.length === 0, dirty };
-  const ok = true;
 
   let report: FinishWorkReport = {
     schemaVersion: 1,
     tool: "finish-work",
-    ok,
-    outcome: finishWorkOutcome(ok, git.pushed, tree.clean),
+    ok: true,
+    outcome: finishWorkOutcome(true, git.pushed, tree.clean),
     gateSource: config.source,
     results: results.map((item) => ({
       name: item.name,
@@ -337,11 +304,27 @@ async function main(): Promise<number> {
     })),
     git,
     tree,
-    followUp: followUpSummary,
   };
 
+  // Escalation runs before followUp — dirty tree must not be hidden by followUp failure.
   if (shouldEscalate(report)) {
     report = await escalateFinishWorkToReviewer(REPO_ROOT, report);
+  }
+
+  const followUpSummary = config.followUp
+    ? await runFollowUpStep(config.followUp, {
+        pushed: git.pushed,
+        skipGit: options.skipGit,
+      })
+    : undefined;
+
+  if (followUpSummary) {
+    report.followUp = followUpSummary;
+  }
+
+  if (followUpSummary?.ran && followUpSummary.exitCode !== 0 && report.outcome !== "escalated") {
+    report.ok = false;
+    report.outcome = "failed";
   }
 
   if (git.committed || git.pushed) {
@@ -359,6 +342,13 @@ async function main(): Promise<number> {
     }
     if (followUpSummary?.ran && followUpSummary.exitCode === 0) {
       logger.info(`follow-up passed (${followUpSummary.ms ?? 0}ms)`);
+    } else if (followUpSummary?.ran && followUpSummary.exitCode !== 0) {
+      if (report.outcome === "escalated") {
+        logger.warn("follow-up failed (tree already escalated to reviewer)");
+      } else {
+        logger.error("follow-up failed");
+      }
+      if (followUpSummary.error) logger.line(followUpSummary.error);
     } else if (followUpSummary?.skipped && config.followUp) {
       logger.line(`follow-up skipped — ${followUpSummary.reason}`);
     }
@@ -375,7 +365,11 @@ async function main(): Promise<number> {
     }
   }
 
-  return report.outcome === "escalated" && !report.herdr?.escalated ? 2 : 0;
+  if (report.outcome === "escalated") {
+    return report.herdr?.escalated === false ? 2 : 0;
+  }
+  if (followUpSummary?.ran && followUpSummary.exitCode !== 0) return 1;
+  return 0;
 }
 
 main()
