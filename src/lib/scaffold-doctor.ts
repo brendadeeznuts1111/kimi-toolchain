@@ -1,30 +1,63 @@
 /**
  * Scaffold completeness checks for kimi-fix doctor.
+ *
+ * CI workflow detection reads the configured path from dx.config.toml.
+ * If the path points under workflows-disabled/, the check reports "ok"
+ * with a note that server CI is unavailable and local enforcement is active.
+ * This prevents false-positive "missing ci.yml" warnings when server CI
+ * has been intentionally disabled.
+ *
+ * Enforcement surface: pre-push hooks + bun run ci:local.
+ * Server CI is not the enforcement layer for this project.
  */
 
-import { existsSync, readFileSync } from "fs";
+import { existsSync } from "fs";
 import { join } from "path";
 import { REQUIRED_PACKAGE_SCRIPTS } from "./scaffold-templates.ts";
 import type { HealthCheck as DoctorCheck } from "./health-check.ts";
 
-function readDxWorkflowPath(projectDir: string): string {
+/** Default CI workflow path (used when dx.config.toml is absent or unreadable). */
+const DEFAULT_WORKFLOW_PATH = ".github/workflows/ci.yml";
+
+interface DxCiConfig {
+  workflowPath: string;
+  ciDisabled: boolean;
+}
+
+/**
+ * Read CI config from dx.config.toml.
+ * Returns the workflow path and an explicit disabled flag.
+ * Falls back to DEFAULT_WORKFLOW_PATH with disabled=false when the file is absent or unreadable.
+ * The disabled flag is true when either `github.ci.disabled` is set in the TOML
+ * or the workflow path points under workflows-disabled/ (legacy convention).
+ */
+async function readDxCiConfig(projectDir: string): Promise<DxCiConfig> {
   const dxPath = join(projectDir, "dx.config.toml");
-  if (!existsSync(dxPath)) return ".github/workflows/ci.yml";
+  if (!existsSync(dxPath)) {
+    return { workflowPath: DEFAULT_WORKFLOW_PATH, ciDisabled: false };
+  }
   try {
-    const raw = Bun.TOML.parse(readFileSync(dxPath, "utf8")) as {
-      github?: { workflow?: string };
+    const raw = Bun.TOML.parse(await Bun.file(dxPath).text()) as {
+      github?: {
+        workflow?: string;
+        ci?: { disabled?: boolean };
+      };
     };
-    return raw.github?.workflow ?? ".github/workflows/ci.yml";
+    const workflowPath = raw.github?.workflow ?? DEFAULT_WORKFLOW_PATH;
+    const explicitDisabled = raw.github?.ci?.disabled === true;
+    const pathImpliesDisabled = workflowPath.includes("workflows-disabled");
+    return { workflowPath, ciDisabled: explicitDisabled || pathImpliesDisabled };
   } catch {
-    return ".github/workflows/ci.yml";
+    return { workflowPath: DEFAULT_WORKFLOW_PATH, ciDisabled: false };
   }
 }
 
 export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [];
 
-  const workflowPath = readDxWorkflowPath(projectDir);
-  const ciDisabled = workflowPath.includes("workflows-disabled");
+  const { workflowPath, ciDisabled } = await readDxCiConfig(projectDir);
+
+  // --- File presence checks ---
 
   const fileChecks: Array<{ name: string; rel: string }> = [
     { name: "AGENTS.md", rel: "AGENTS.md" },
@@ -48,17 +81,38 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
     });
   }
 
+  // --- CI workflow check ---
+  // Three states: present at configured path, disabled (intentionally moved), or missing.
+  // Only "missing and not disabled" is fixable — disabled CI is a valid configuration.
+
   const ciPresent = existsSync(join(projectDir, workflowPath));
+
+  let ciStatus: DoctorCheck["status"];
+  let ciMessage: string;
+  let ciFixable: boolean;
+
+  if (ciPresent) {
+    ciStatus = "ok";
+    ciMessage = `present at ${workflowPath}`;
+    ciFixable = false;
+  } else if (ciDisabled) {
+    ciStatus = "ok";
+    ciMessage = "disabled (server CI unavailable) — enforcement via pre-push hooks + ci:local";
+    ciFixable = false;
+  } else {
+    ciStatus = "warn";
+    ciMessage = "missing — run kimi-fix";
+    ciFixable = true;
+  }
+
   checks.push({
     name: "ci.yml",
-    status: ciPresent ? "ok" : ciDisabled ? "ok" : "warn",
-    message: ciPresent
-      ? `present at ${workflowPath}`
-      : ciDisabled
-        ? `disabled (server CI unavailable) — configured at ${workflowPath}`
-        : `missing — run kimi-fix`,
-    fixable: !ciPresent && !ciDisabled,
+    status: ciStatus,
+    message: ciMessage,
+    fixable: ciFixable,
   });
+
+  // --- Package scripts check ---
 
   const pkgPath = join(projectDir, "package.json");
   if (!existsSync(pkgPath)) {
