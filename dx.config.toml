@@ -139,3 +139,21 @@ verify = "artifact-verify --project ."
 [kimi]
 memoryGate = true
 preflight = true
+
+[herdr]
+enabled = true
+workspaceLabel = "kimi-toolchain"
+primaryAgent = "kimi"
+secondaryAgents = ["codex"]
+shellPane = true
+shellSplit = "right"
+bootstrap = [
+  "dx config --project .",
+  "git status -sb",
+  "herdr-quickref",
+  "kimi-doctor --quick 2>/dev/null || true",
+]
+
+[[herdr.tabs]]
+label = "shell"
+command = "herdr-quickref"
