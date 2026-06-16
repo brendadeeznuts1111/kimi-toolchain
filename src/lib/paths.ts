@@ -90,6 +90,11 @@ export function healthSnapshotsPath(projectRoot: string): string {
   return join(projectKimiDir(projectRoot), "var", "health.ndjson");
 }
 
+/** Return {projectRoot}/.kimi/var/effect-gates.ndjson */
+export function effectGatesPath(projectRoot: string): string {
+  return join(projectKimiDir(projectRoot), "var", "effect-gates.ndjson");
+}
+
 /** Return {projectRoot}/.kimi/identity.ndjson */
 export function identityAuditPath(projectRoot: string): string {
   return join(projectKimiDir(projectRoot), "identity.ndjson");
