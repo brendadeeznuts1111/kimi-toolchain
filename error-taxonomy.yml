@@ -324,6 +324,17 @@ categories:
     patterns:
       - regex: "effect.gates.*session.floor"
 
+  - id: effect_gates_run_promise_boundary_violation
+    name: Effect.runPromise boundary violation
+    description: Effect.runPromise was called outside src/cli, src/entry, src/runtime.ts, or test files.
+    severity: error
+    expected: false
+    suggestion: "Move the Effect.runPromise call to a CLI entry, runtime file, or test; library code should return Effects."
+    boundConstants:
+      - KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED
+    patterns:
+      - regex: "run-promise-boundary"
+
   - id: unknown
     name: Unknown
     description: No known pattern matched.
