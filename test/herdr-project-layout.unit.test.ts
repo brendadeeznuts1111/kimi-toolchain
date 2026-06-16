@@ -97,8 +97,8 @@ describe("herdr-project-layout", () => {
         second: {
           type: "pane",
           pane_id: "w1:p2",
+          label: "shell",
           cwd: projectPath,
-          env: { HERDR_ROLE: "shell" },
         },
       },
       second: {
@@ -114,8 +114,8 @@ describe("herdr-project-layout", () => {
     expect(layoutTreesEqual(expected, actual, projectPath)).toBe(true);
   });
 
-  test("normalizeLayoutNode extracts role and agent", () => {
-    const normalized = normalizeLayoutNode(
+  test("normalizeLayoutNode compares label and command without env", () => {
+    const withEnv = normalizeLayoutNode(
       {
         type: "pane",
         label: "kimi",
@@ -125,8 +125,64 @@ describe("herdr-project-layout", () => {
       },
       projectPath
     );
+    const exported = normalizeLayoutNode(
+      {
+        type: "pane",
+        label: "kimi",
+        cwd: projectPath,
+        command: ["/usr/bin/kimi"],
+      },
+      projectPath
+    );
 
-    expect(normalized.role).toBe("primary");
-    expect(normalized.agent).toBe("kimi");
+    expect(withEnv).toEqual(exported);
+    expect(withEnv.command).toBe("kimi");
+    expect(withEnv.label).toBe("kimi");
+  });
+
+  test("layoutTreesEqual matches intended tree to layout.export shape", () => {
+    const intended = buildAgentsTabLayoutTree(
+      {
+        label: "agents",
+        panes: [
+          { role: "primary", agent: "kimi" },
+          { role: "shell", split: "right" },
+          { role: "secondary", agent: "codex", split: "right" },
+        ],
+      },
+      projectPath
+    );
+    const exported = {
+      type: "split",
+      direction: "right",
+      ratio: 0.6,
+      first: {
+        type: "split",
+        direction: "right",
+        ratio: 0.6,
+        first: {
+          type: "pane",
+          pane_id: "wB:p1",
+          label: "kimi",
+          cwd: projectPath,
+          command: ["/Users/nolarose/.kimi-code/bin/kimi"],
+        },
+        second: {
+          type: "pane",
+          pane_id: "wB:p2",
+          label: "shell",
+          cwd: projectPath,
+        },
+      },
+      second: {
+        type: "pane",
+        pane_id: "wB:p3",
+        label: "codex",
+        cwd: projectPath,
+        command: ["/opt/homebrew/bin/codex"],
+      },
+    } as LayoutNode;
+
+    expect(layoutTreesEqual(intended, exported, projectPath)).toBe(true);
   });
 });

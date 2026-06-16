@@ -209,14 +209,21 @@ export interface NormalizedLayoutNode {
   direction?: HerdrShellSplit;
   ratio?: number;
   label?: string;
-  role?: string;
-  agent?: string | null;
   command?: string | null;
   cwd?: string;
   first?: NormalizedLayoutNode;
   second?: NormalizedLayoutNode;
 }
 
+function normalizePaneLabel(node: LayoutPaneNode): string | undefined {
+  if (node.label) return node.label;
+  if (!node.command?.length) return "shell";
+  const command = commandFingerprint(node.command);
+  if (command && !command.includes(";") && !command.includes("&&")) return command;
+  return undefined;
+}
+
+/** Compare layout trees without env — layout.export does not round-trip pane env. */
 export function normalizeLayoutNode(node: LayoutNode, projectPath = ""): NormalizedLayoutNode {
   if (node.type === "split") {
     return {
@@ -228,21 +235,14 @@ export function normalizeLayoutNode(node: LayoutNode, projectPath = ""): Normali
     };
   }
 
-  const role = node.env?.HERDR_ROLE;
-  const command = commandFingerprint(node.command);
-  const agent =
-    role === "primary" || role === "secondary"
-      ? node.label || commandFingerprint(node.command)
-      : null;
-
-  const label = node.label || role || undefined;
+  const label = normalizePaneLabel(node);
+  const command =
+    label === "shell" || !node.command?.length ? null : commandFingerprint(node.command);
 
   return {
     type: "pane",
     label,
-    role,
-    agent,
-    command: role === "shell" ? null : command,
+    command,
     cwd: projectPath && node.cwd === projectPath ? projectPath : node.cwd,
   };
 }
@@ -376,12 +376,16 @@ export function applyTabLayoutEffect(options: {
 }): Effect.Effect<ApplyTabLayoutResult, never> {
   return Effect.gen(function* () {
     const params: Record<string, unknown> = {
-      workspace_id: options.workspaceId,
-      tab_label: options.tabLabel,
       focus: options.focus ?? false,
       root: options.root,
     };
-    if (options.tabId) params.tab_id = options.tabId;
+    // layout.apply: use either tab_id or workspace_id, not both (Herdr server constraint).
+    if (options.tabId) {
+      params.tab_id = options.tabId;
+    } else {
+      params.workspace_id = options.workspaceId;
+      params.tab_label = options.tabLabel;
+    }
 
     const response = yield* herdrSocketRequest<HerdrSocketResponse>("layout.apply", params);
     if (!response.ok) return response;

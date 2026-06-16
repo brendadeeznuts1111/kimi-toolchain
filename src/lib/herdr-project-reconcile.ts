@@ -465,18 +465,32 @@ function applyReconcileAction(
   return Effect.succeed({ ok: false, warning: `unsupported action ${action.type}` });
 }
 
+function resolveTabIdByLabel(
+  config: HerdrProjectConfig,
+  workspaceId: string,
+  tabLabel: string
+): string | undefined {
+  const normalized = tabLabel.trim().toLowerCase();
+  return listWorkspaceTabs(config.session, workspaceId).find(
+    (tab) => tab.label.trim().toLowerCase() === normalized
+  )?.tabId;
+}
+
 function applyLayoutAction(
   config: HerdrProjectConfig,
   workspaceId: string,
   spec: TabLayoutSpec,
-  tabId?: string
+  tabId?: string | null
 ): Effect.Effect<{ ok: boolean; warning?: string }, never> {
   return Effect.gen(function* () {
+    const resolvedTabId =
+      tabId ?? resolveTabIdByLabel(config, workspaceId, spec.tabLabel) ?? undefined;
+
     const applied = yield* applyTabLayoutEffect({
       workspaceId,
       tabLabel: spec.tabLabel,
       root: spec.root,
-      tabId,
+      tabId: resolvedTabId,
       focus: false,
     });
     if (!applied.ok) return { ok: false, warning: applied.error };
@@ -501,6 +515,52 @@ function applyLayoutAction(
     }
 
     return { ok: true };
+  });
+}
+
+function applyLayoutDriftsSerial(
+  config: HerdrProjectConfig,
+  workspaceId: string,
+  expected: ExpectedHerdrLayout
+): Effect.Effect<{ applied: ReconcileAction[]; warnings: string[] }, never> {
+  return Effect.gen(function* () {
+    const applied: ReconcileAction[] = [];
+    const warnings: string[] = [];
+    const tabOrder = expected.tabLayouts.map((spec) => spec.tabLabel);
+
+    while (true) {
+      const drifts = yield* collectLayoutDrifts(config, workspaceId, expected);
+      if (!drifts.length) break;
+
+      const drift =
+        tabOrder
+          .map((label) => drifts.find((row) => row.tabLabel === label))
+          .find((row): row is LayoutDrift => row != null) ?? drifts[0]!;
+
+      const spec = expected.tabLayouts.find((row) => row.tabLabel === drift.tabLabel);
+      if (!spec) {
+        warnings.push(`missing layout spec for ${drift.tabLabel}`);
+        break;
+      }
+
+      const result = yield* applyLayoutAction(config, workspaceId, spec, drift.tabId);
+      const action: ReconcileAction = {
+        type: "apply_layout",
+        target: drift.tabLabel,
+        reason: drift.reason,
+        detail: { tabId: drift.tabId, layout: spec },
+      };
+
+      if (result.ok) {
+        applied.push(action);
+        continue;
+      }
+
+      warnings.push(result.warning || `apply_layout failed for ${drift.tabLabel}`);
+      break;
+    }
+
+    return { applied, warnings };
   });
 }
 
@@ -579,7 +639,17 @@ export function reconcileHerdrProjectEffect(
     const actionable = actions.filter((action) => action.type !== "warn");
 
     if (options.apply) {
+      if (layoutDrifts.length && options.forceLayout) {
+        const serial = yield* applyLayoutDriftsSerial(config, match.workspaceId, expected);
+        applied.push(...serial.applied);
+        warnings.push(...serial.warnings);
+      }
+
       for (const action of actions) {
+        if (layoutDrifts.length && options.forceLayout && action.type === "apply_layout") {
+          continue;
+        }
+
         if (action.type === "warn") {
           if (
             action.detail?.fixAgents &&
