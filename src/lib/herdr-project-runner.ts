@@ -25,16 +25,12 @@ export function resolveHerdrProjectPath(path: string): string {
   return root;
 }
 
-function herdrArgs(session: string) {
-  return session ? ["--session", session] : [];
-}
-
 function listPanes(session = "") {
-  return execCliJson("herdr", [...herdrArgs(session), "pane", "list"]);
+  return herdrCliJson(session, ["pane", "list"]);
 }
 
 function listAgents(session = "") {
-  return execCliJson("herdr", [...herdrArgs(session), "agent", "list"]);
+  return herdrCliJson(session, ["agent", "list"]);
 }
 
 function workspacePanes(config: HerdrProjectConfig, workspaceId: string) {
@@ -99,13 +95,9 @@ function paneRun(
       payload = `export PATH="${escapedPath}"; ${command}`;
     }
   }
-  return execCli("herdr", [
-    ...herdrArgs(config.session),
-    "pane",
-    "run",
-    paneId,
-    `sh -lc ${shellQuote(payload)}`,
-  ]);
+  return execCli("herdr", ["pane", "run", paneId, `sh -lc ${shellQuote(payload)}`], {
+    session: config.session,
+  });
 }
 
 export function startHerdrAgent(
@@ -114,15 +106,7 @@ export function startHerdrAgent(
   argv: string[],
   options: { workspaceId?: string; split?: string; env?: Record<string, string> } = {}
 ) {
-  const args = [
-    ...herdrArgs(config.session),
-    "agent",
-    "start",
-    name,
-    "--cwd",
-    config.projectPath || "",
-    "--no-focus",
-  ];
+  const args = ["agent", "start", name, "--cwd", config.projectPath || "", "--no-focus"];
   if (options.workspaceId) args.push("--workspace", options.workspaceId);
   if (options.split) args.push("--split", options.split);
   const panePath = resolveHerdrPanePath();
@@ -132,7 +116,7 @@ export function startHerdrAgent(
     args.push("--env", `${key}=${value}`);
   }
   args.push("--", ...argv);
-  return execCliJson("herdr", args);
+  return execCliJson("herdr", args, config.session);
 }
 
 function splitPane(
@@ -141,20 +125,12 @@ function splitPane(
   direction: string,
   options: { ratio?: number; env?: Record<string, string> } = {}
 ) {
-  const args = [
-    ...herdrArgs(config.session),
-    "pane",
-    "split",
-    paneId,
-    "--direction",
-    direction,
-    "--no-focus",
-  ];
+  const args = ["pane", "split", paneId, "--direction", direction, "--no-focus"];
   if (typeof options.ratio === "number") args.push("--ratio", String(options.ratio));
   for (const [key, value] of Object.entries(options.env ?? {})) {
     args.push("--env", `${key}=${value}`);
   }
-  return execCliJson("herdr", args);
+  return execCliJson("herdr", args, config.session);
 }
 
 function paneRequirementsOk(
@@ -265,25 +241,15 @@ export function bootstrapHerdrProject(
   if (existing.workspaceId) {
     workspaceId = existing.workspaceId;
     actions.push({ action: "focus_existing", workspaceId, reason: existing.reason });
-    const focus = execCli("herdr", [
-      ...herdrArgs(config.session),
-      "workspace",
-      "focus",
-      workspaceId,
-    ]);
+    const focus = execCli("herdr", ["workspace", "focus", workspaceId], {
+      session: config.session,
+    });
     if (!focus.ok) warnings.push(`workspace focus failed: ${focus.output}`);
   } else {
     workspaceWasNew = true;
-    const createArgs = [
-      ...herdrArgs(config.session),
-      "workspace",
-      "create",
-      "--cwd",
-      config.projectPath || "",
-      "--no-focus",
-    ];
+    const createArgs = ["workspace", "create", "--cwd", config.projectPath || "", "--no-focus"];
     if (config.workspaceLabel) createArgs.push("--label", config.workspaceLabel);
-    const created = execCliJson("herdr", createArgs);
+    const created = execCliJson("herdr", createArgs, config.session);
     if (!created.ok) throw new Error(created.error || "workspace create failed");
     workspaceId =
       (created.json?.result?.workspace as { workspace_id?: string })?.workspace_id || null;
@@ -353,15 +319,18 @@ export function bootstrapHerdrProject(
   const shouldRunBootstrap = workspaceWasNew || options.force;
   for (const tab of config.tabs || []) {
     if (!shouldRunBootstrap || !tab?.command || !workspaceId) continue;
-    const tabCreate = execCliJson("herdr", [
-      ...herdrArgs(config.session),
-      "tab",
-      "create",
-      "--workspace",
-      workspaceId,
-      "--no-focus",
-      ...(tab.label ? ["--label", String(tab.label)] : []),
-    ]);
+    const tabCreate = execCliJson(
+      "herdr",
+      [
+        "tab",
+        "create",
+        "--workspace",
+        workspaceId,
+        "--no-focus",
+        ...(tab.label ? ["--label", String(tab.label)] : []),
+      ],
+      config.session
+    );
     const tabId = parseHerdrTabId(tabCreate.json);
     const tabPaneId = parseHerdrPaneId(tabCreate.json, null);
     if (!tabCreate.ok || (!tabPaneId && !tabId)) {
@@ -409,11 +378,11 @@ export function bootstrapHerdrProject(
   }
 
   if (workspaceId) {
-    execCli("herdr", [...herdrArgs(config.session), "workspace", "focus", workspaceId]);
+    execCli("herdr", ["workspace", "focus", workspaceId], { session: config.session });
   }
 
   if (options.attach && process.env.HERDR_ENV !== "1") {
-    const attach = execCli("herdr", [...herdrArgs(config.session)]);
+    const attach = execCli("herdr", [], { session: config.session });
     if (!attach.ok && !attach.output.includes("nested herdr")) {
       warnings.push(`attach: ${attach.output}`);
     } else {

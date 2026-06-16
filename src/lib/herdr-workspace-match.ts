@@ -1,21 +1,17 @@
 import { normalize, resolve } from "node:path";
 import type { HerdrProjectConfig } from "./herdr-project-config.ts";
-import { execCliJson } from "./herdr-project-cli.ts";
-
-function herdrArgs(session: string) {
-  return session ? ["--session", session] : [];
-}
+import { herdrCliJson } from "./herdr-project-cli.ts";
 
 function listWorkspaces(session = "") {
-  return execCliJson("herdr", [...herdrArgs(session), "workspace", "list"]);
+  return herdrCliJson(session, ["workspace", "list"]);
 }
 
 function listPanes(session = "") {
-  return execCliJson("herdr", [...herdrArgs(session), "pane", "list"]);
+  return herdrCliJson(session, ["pane", "list"]);
 }
 
 function listAgents(session = "") {
-  return execCliJson("herdr", [...herdrArgs(session), "agent", "list"]);
+  return herdrCliJson(session, ["agent", "list"]);
 }
 
 function normalizeProjectPath(path: string): string {

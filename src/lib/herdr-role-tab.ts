@@ -5,9 +5,7 @@ import {
   execCliJson,
   herdrCliJson,
   herdrCliRun,
-  herdrSessionArgs,
   resolveHerdrPanePath,
-  resolveHerdrSession,
 } from "./herdr-project-cli.ts";
 
 function parseHerdrPaneId(
@@ -31,15 +29,6 @@ export interface GrokRoleTabCommand {
 }
 
 export type TabCommandStrategy = "pane_run" | "grok_role_agent";
-
-function herdrArgvPrefix(session?: string): string[] {
-  return herdrSessionArgs(resolveHerdrSession(session));
-}
-
-function configSessionArgs(config: HerdrProjectConfig): string[] {
-  const session = config.session?.trim();
-  return herdrArgvPrefix(session || undefined);
-}
 
 /** Tokenize a simple shell command (quotes respected; no expansions). */
 export function tokenizeShellCommand(command: string): string[] {
@@ -168,7 +157,6 @@ export function buildRoleTabAgentStartArgs(
   target: { tabId?: string | null; paneId?: string | null } = {}
 ): string[] {
   const args = [
-    ...configSessionArgs(config),
     "agent",
     "start",
     plan.agent,
@@ -186,12 +174,11 @@ export function buildRoleTabAgentStartArgs(
 }
 
 export function buildGrokRoleRenameArgs(
-  session: string | undefined,
+  _session: string | undefined,
   paneId: string,
   renameTo: string
 ): string[] {
-  const resolved = session?.trim() || undefined;
-  return [...herdrArgvPrefix(resolved), "agent", "rename", paneId, renameTo];
+  return ["agent", "rename", paneId, renameTo];
 }
 
 export function buildGrokRoleReportAgentArgs(
@@ -199,9 +186,7 @@ export function buildGrokRoleReportAgentArgs(
   paneId: string,
   report: NonNullable<RoleTabAgentPlan["reportAgent"]>
 ): string[] {
-  const resolved = session?.trim() || undefined;
   return [
-    ...herdrArgvPrefix(resolved),
     "pane",
     "report-agent",
     paneId,
@@ -243,14 +228,7 @@ export function buildGrokRolePaneRunArgs(
   paneId: string,
   command: string
 ): string[] {
-  const resolved = session?.trim() || undefined;
-  return [
-    ...herdrArgvPrefix(resolved),
-    "pane",
-    "run",
-    paneId,
-    buildGrokRolePaneRunPayload(command),
-  ];
+  return ["pane", "run", paneId, buildGrokRolePaneRunPayload(command)];
 }
 
 export interface GrokRoleTabStartSteps {
@@ -385,14 +363,17 @@ function finalizeGrokRolePane(
   const cli = resolveHerdrRoleTabCliDeps(deps);
   const session = config.session?.trim() || undefined;
   if (plan.renameTo) {
-    const renamed = cli.execCli("herdr", buildGrokRoleRenameArgs(session, paneId, plan.renameTo));
+    const renamed = cli.execCli("herdr", buildGrokRoleRenameArgs(session, paneId, plan.renameTo), {
+      session,
+    });
     if (!renamed.ok) return { ok: false, output: renamed.output || "agent rename failed" };
   }
 
   if (plan.reportAgent) {
     const reported = cli.execCli(
       "herdr",
-      buildGrokRoleReportAgentArgs(session, paneId, plan.reportAgent)
+      buildGrokRoleReportAgentArgs(session, paneId, plan.reportAgent),
+      { session }
     );
     if (!reported.ok) return { ok: false, output: reported.output || "report-agent failed" };
   }
@@ -415,7 +396,7 @@ export function startGrokRoleTabAgent(
   if (!steps) return { ok: false, output: "not a grok --role tab command" };
 
   if (steps.mode === "pane_run" && steps.paneId) {
-    const ran = cli.execCli("herdr", steps.start);
+    const ran = cli.execCli("herdr", steps.start, { session: config.session });
     if (!ran.ok) return { ok: false, output: ran.output || "pane run failed" };
     const finalized = finalizeGrokRolePane(config, plan, steps.paneId, deps);
     return finalized.ok
@@ -423,7 +404,7 @@ export function startGrokRoleTabAgent(
       : { ok: false, output: finalized.output };
   }
 
-  const started = cli.execCliJson("herdr", steps.start);
+  const started = cli.execCliJson("herdr", steps.start, config.session);
   if (!started.ok) {
     return { ok: false, output: started.error || "agent start failed" };
   }

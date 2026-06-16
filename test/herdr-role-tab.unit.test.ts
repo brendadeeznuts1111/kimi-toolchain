@@ -165,8 +165,7 @@ describe("herdr-role-tab", () => {
       tabLabel: "test",
     });
     expect(steps?.mode).toBe("pane_run");
-    expect(steps?.start[0]).toBe("--session");
-    expect(steps?.start[1]).toBe("dev");
+    expect(steps?.start[0]).toBe("pane");
     expect(steps?.start).toContain("pane");
     expect(steps?.start).toContain("run");
     expect(startGrokRoleTabAgent(config, "wB", "not a grok command", { paneId: "wB:p5N" }).ok).toBe(
@@ -228,7 +227,8 @@ describe("herdr-role-tab", () => {
     expect(result.output).toContain("pane run failed");
     expect(execCli).toHaveBeenCalledWith(
       "herdr",
-      expect.arrayContaining(["pane", "run", "wB:p5N"])
+      expect.arrayContaining(["pane", "run", "wB:p5N"]),
+      expect.objectContaining({ session: "" })
     );
     expect(execCli).not.toHaveBeenCalledWith("herdr", expect.arrayContaining(["agent", "start"]));
     expect(execCliJson).not.toHaveBeenCalled();

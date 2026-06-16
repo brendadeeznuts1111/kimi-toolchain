@@ -1,7 +1,38 @@
 import { execFileSync } from "node:child_process";
 import { homeDir } from "./paths.ts";
 
-export function execCli(cmd: string, args: string[] = [], timeout = 30_000) {
+export type ExecCliOptions = {
+  timeout?: number;
+  session?: string;
+};
+
+/** HERDR_SESSION env, or explicit session; empty and "default" mean the primary server. */
+export function resolveHerdrSession(explicit?: string): string {
+  const session = (explicit !== undefined ? explicit : (process.env.HERDR_SESSION ?? "")).trim();
+  if (!session || session === "default") return "";
+  return session;
+}
+
+/** Child-process env for herdr CLI — HERDR_SESSION is authoritative (not --session). */
+export function herdrSessionEnv(explicit?: string): NodeJS.ProcessEnv {
+  const resolved = resolveHerdrSession(explicit);
+  const env = { ...process.env };
+  if (!resolved) {
+    delete env.HERDR_SESSION;
+    return env;
+  }
+  env.HERDR_SESSION = resolved;
+  return env;
+}
+
+/** @deprecated Prefer HERDR_SESSION via herdrSessionEnv; --session targets a different namespace. */
+export function herdrSessionArgs(_session?: string): string[] {
+  return [];
+}
+
+export function execCli(cmd: string, args: string[] = [], options: ExecCliOptions | number = {}) {
+  const opts: ExecCliOptions = typeof options === "number" ? { timeout: options } : options;
+  const timeout = opts.timeout ?? 30_000;
   try {
     return {
       ok: true,
@@ -9,6 +40,7 @@ export function execCli(cmd: string, args: string[] = [], timeout = 30_000) {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
         timeout,
+        env: herdrSessionEnv(opts.session),
       }).trim(),
     };
   } catch (error) {
@@ -21,8 +53,8 @@ export function execCli(cmd: string, args: string[] = [], timeout = 30_000) {
   }
 }
 
-export function execCliJson(cmd: string, args: string[] = []) {
-  const result = execCli(cmd, args);
+export function execCliJson(cmd: string, args: string[] = [], session?: string) {
+  const result = execCli(cmd, args, { session });
   if (!result.ok) return { ok: false as const, error: result.output, json: null };
   try {
     return { ok: true as const, json: JSON.parse(result.output), error: null };
@@ -31,20 +63,8 @@ export function execCliJson(cmd: string, args: string[] = []) {
   }
 }
 
-/** HERDR_SESSION env, or explicit session; empty and "default" mean the primary server. */
-export function resolveHerdrSession(explicit?: string): string {
-  const session = (explicit !== undefined ? explicit : (process.env.HERDR_SESSION ?? "")).trim();
-  if (!session || session === "default") return "";
-  return session;
-}
-
-export function herdrSessionArgs(session?: string): string[] {
-  const resolved = resolveHerdrSession(session);
-  return resolved ? ["--session", resolved] : [];
-}
-
 export function herdrCliRun(session?: string, args: string[] = [], timeout = 30_000) {
-  return execCli("herdr", [...herdrSessionArgs(session), ...args], timeout);
+  return execCli("herdr", args, { timeout, session });
 }
 
 export function herdrCliJson(session?: string, args: string[] = []) {
