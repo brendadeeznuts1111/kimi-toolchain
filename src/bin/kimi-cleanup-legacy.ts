@@ -41,7 +41,8 @@ async function main(): Promise<number> {
     logger.info("Index lines: see workspace verify");
     logger.info("Cursor slugs: see cleanup audit");
     // cleanup with list flag reports the same status info
-    return runWorkspaceCommand("cleanup", ["--list-cursor-slugs"]);
+    await runWorkspaceCommand("cleanup", ["--list-cursor-slugs"]);
+    return 0;
   }
 
   logger.info("Usage: kimi-cleanup-legacy [doctor|fix|status]");

@@ -136,6 +136,98 @@ declare const KIMI_DOMAIN_PURITY_LEVEL: "strict" | "gradual" | "off";
       })
     ).toBe(true);
   });
+
+  it("should allow missing sibling parity only when requested", () => {
+    const existing = {
+      schemaVersion: 1,
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      repo: "demo",
+      tuningSetVersion: "1.0.0",
+      domains: { demo: { KIMI_X: { type: "number", default: 1 } } },
+      parity: {
+        shared: [
+          {
+            id: "velocity-window-days",
+            repos: {
+              local: {
+                key: "KIMI_DECISION_SCORE_WINDOW_DAYS",
+                defineDomain: "decision-scoring",
+                value: 7,
+                present: true,
+              },
+              sibling: {
+                key: "DRIFT_VELOCITY_WINDOW_DAYS",
+                defineDomain: "drift-predict",
+                value: 7,
+                present: true,
+              },
+            },
+            aligned: true,
+          },
+        ],
+      },
+    };
+    const existingShared = existing.parity.shared[0];
+    expect(existingShared).toBeDefined();
+    if (!existingShared) return;
+
+    const generated = {
+      ...existing,
+      generatedAt: "2026-06-01T00:00:00.000Z",
+      parity: {
+        shared: [
+          {
+            ...existingShared,
+            repos: {
+              ...existingShared.repos,
+              sibling: {
+                key: "DRIFT_VELOCITY_WINDOW_DAYS",
+                defineDomain: "drift-predict",
+                value: "(missing)",
+                present: false,
+              },
+            },
+            aligned: false,
+            drift: "sibling:DRIFT_VELOCITY_WINDOW_DAYS missing",
+          },
+        ],
+      },
+    };
+
+    expect(manifestNeedsRefresh(generated, existing)).toBe(true);
+    expect(manifestNeedsRefresh(generated, existing, { allowMissingSiblingParity: true })).toBe(
+      false
+    );
+
+    const generatedShared = generated.parity.shared[0];
+    expect(generatedShared).toBeDefined();
+    if (!generatedShared) return;
+
+    const generatedWithLocalDrift = {
+      ...generated,
+      parity: {
+        shared: [
+          {
+            ...generatedShared,
+            repos: {
+              ...generatedShared.repos,
+              local: {
+                key: "KIMI_DECISION_SCORE_WINDOW_DAYS",
+                defineDomain: "decision-scoring",
+                value: 14,
+                present: true,
+              },
+            },
+          },
+        ],
+      },
+    };
+    expect(
+      manifestNeedsRefresh(generatedWithLocalDrift, existing, {
+        allowMissingSiblingParity: true,
+      })
+    ).toBe(true);
+  });
 });
 
 describe("constantParity", () => {

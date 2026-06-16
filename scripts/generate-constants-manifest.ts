@@ -19,6 +19,12 @@ import {
 const ROOT = join(import.meta.dir, "..");
 const MANIFEST_PATH = join(ROOT, "constants-manifest.json");
 
+function isCi(): boolean {
+  return (
+    Bun.env.CI === "true" || Bun.env.GITHUB_ACTIONS === "true" || Bun.env.KIMI_CI_LOCAL === "true"
+  );
+}
+
 async function main(): Promise<void> {
   const check = Bun.argv.includes("--check");
   const jsonOnly = Bun.argv.includes("--json");
@@ -31,9 +37,21 @@ async function main(): Promise<void> {
 
   if (check) {
     const existing = await readConstantsManifest(ROOT);
-    if (manifestNeedsRefresh(generated, existing)) {
+    const allowMissingSiblingParity = isCi();
+    if (manifestNeedsRefresh(generated, existing, { allowMissingSiblingParity })) {
       console.error("constants-manifest.json is stale — run: bun run manifest:generate");
       process.exit(1);
+    }
+    if (allowMissingSiblingParity) {
+      const partialParity = generated.parity.shared.filter((entry) => {
+        const repos = Object.values(entry.repos);
+        return repos.some((repo) => !repo.present) && repos.some((repo) => repo.present);
+      });
+      for (const entry of partialParity) {
+        console.warn(
+          `constants-manifest parity warning: ${entry.id} has missing sibling checkout in CI`
+        );
+      }
     }
     console.log("constants-manifest.json OK");
     return;
