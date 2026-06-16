@@ -304,18 +304,16 @@ async function doctorHooks(projectDir: string) {
   } else {
     const content = await Bun.file(prePushPath).text();
     const hasKimi = content.includes("kimi-githooks");
-    const hasQuality = content.includes("run-gates pre-push") || content.includes("Quality Gate");
-    const hasRepoFirst =
-      content.includes("run-gates pre-push") || content.includes("src/bin/kimi-governance.ts");
-    const hasDesktopSync =
-      content.includes("run-gates pre-push") || content.includes("Desktop Sync (mandatory)");
-    const prePushOk = hasKimi && hasQuality && hasRepoFirst && hasDesktopSync;
+    const hasQuality = content.includes("check:fast") || content.includes("Quality Gate");
+    const delegatesToRunner = content.includes("run-gates pre-push");
+    const hasEffectGates = content.includes("effect-gates");
+    const prePushOk = hasKimi && hasQuality && delegatesToRunner && hasEffectGates;
     checks.push({
       name: "pre-push",
       status: prePushOk ? "ok" : hasKimi ? "warn" : "warn",
       message: hasKimi
         ? prePushOk
-          ? "Installed with repo-first tools, quality gate, mandatory desktop sync"
+          ? "Installed with repo-first tools, quality gate, effect-gates, mandatory desktop sync"
           : "Installed but stale template — run kimi-githooks fix"
         : "Custom pre-push (not managed)",
       fixable: !prePushOk,
