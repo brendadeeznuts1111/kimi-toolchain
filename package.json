@@ -36,7 +36,8 @@
     "unified-shell-bridge": "src/bin/unified-shell-bridge.ts",
     "herdr-doctor": "src/bin/herdr-doctor.ts",
     "herdr-project": "src/bin/herdr-project.ts",
-    "herdr-spawn": "src/bin/herdr-spawn.ts"
+    "herdr-spawn": "src/bin/herdr-spawn.ts",
+    "herdr-orchestrator": "src/bin/herdr-orchestrator.ts"
   },
   "files": [
     "src",

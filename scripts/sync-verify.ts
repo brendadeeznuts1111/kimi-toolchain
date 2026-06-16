@@ -3,15 +3,22 @@
  * Verify repo-managed runtime files match the desktop install.
  */
 
+import { desktopRuntimeDepsOk } from "../src/lib/desktop-runtime-deps.ts";
 import { detectSyncDrift } from "../src/lib/sync-hashes.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 
 const report = await detectSyncDrift(REPO_ROOT);
+const depsOk = desktopRuntimeDepsOk();
 
-if (report.synced) {
+if (report.synced && depsOk) {
   console.log("Desktop runtime is in sync.");
   process.exit(0);
+}
+
+if (!depsOk) {
+  console.error("Desktop runtime dependencies missing (typescript).");
+  console.error("Run: bun run sync");
 }
 
 if (report.missing.length) {

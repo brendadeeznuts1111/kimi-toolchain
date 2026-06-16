@@ -151,6 +151,13 @@ agent = "codex"
 split = "right"
 context = "kimi-doctor --workspace-context --brief"
 
+[herdr.orchestrator]
+enabled = true
+contextOnIdle = true
+handoffFrom = "kimi"
+handoffTo = "codex"
+reviewerTab = "reviewer"
+
 [[herdr.tabs]]
 label = "doctor"
 command = "kimi-doctor --watch"

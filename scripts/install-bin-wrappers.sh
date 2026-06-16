@@ -65,7 +65,7 @@ for dest in "${BIN_DIR}"/kimi-* "${BIN_DIR}/kimi-toolchain"; do
 done
 
 # Herdr CLIs — direct to synced tools (not kimi-toolchain router)
-HERDR_TOOLS="herdr-doctor herdr-project herdr-spawn"
+HERDR_TOOLS="herdr-doctor herdr-project herdr-spawn herdr-orchestrator"
 HERDR_COUNT=0
 for name in ${HERDR_TOOLS}; do
   tool="${TOOLS_DIR}/${name}.ts"

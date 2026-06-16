@@ -4,6 +4,7 @@
 
 import { existsSync } from "fs";
 import { dirname, join } from "path";
+import { provisionDesktopRuntimeDeps } from "./desktop-runtime-deps.ts";
 import { ensureDir } from "./utils.ts";
 import {
   desktopRoot as _desktopRoot,
@@ -283,6 +284,14 @@ export async function syncDesktop(
         }
       }
       result.removed.push(`${LABEL_PREFIX.TOOLS}${orphan}`);
+    }
+  }
+
+  if (!dryRun) {
+    const deps = await provisionDesktopRuntimeDeps();
+    if (deps.installed) {
+      result.updated.push("package.json");
+      result.updated.push("node_modules/");
     }
   }
 
