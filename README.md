@@ -68,6 +68,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run test:shuffle` | (synced from package.json) |
 | `bun run test:pattern` | (synced from package.json) |
 
+| `bun run finish-work` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                           |

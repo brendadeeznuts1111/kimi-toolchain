@@ -217,6 +217,18 @@ Use this pattern when extending `kimi-doctor` with new agent-facing diagnostics.
 - The `checks` array must list every registered adapter, discovered plugin, and
   built-in check so agents can discover capabilities programmatically.
 
+## DX Workspace Layout (v1.5.4)
+
+| File | Role | Type | Tests |
+| ---- | ---- | ---- | ----- |
+| `dx/workspace.toml` | Layout + intent spec (tabs, panes, bootstrap intent) | `DxWorkspace` | — |
+| `dx.config.toml` `[herdr]` | Runtime workspace bootstrap (what `herdr-project` executes) | — | — |
+| `dx.config.toml` `[finishWork]` | Finish-work gate list | — | — |
+| `scripts/finish-work.ts` | Gates + optional git commit/push | CLI | `test/finish-work-config.unit.test.ts` |
+| `src/lib/finish-work-config.ts` | Read `[finishWork]` / `[agents].prePush` from `dx.config.toml` | Config loader | `test/finish-work-config.unit.test.ts` |
+
+**Spec vs runtime:** `dx/workspace.toml` documents layout intent. `dx.config.toml` `[herdr]` is runtime — it may harden tab commands beyond the spec. Gates belong only in `dx.config.toml` (`[finishWork]` → `[agents].prePush` fallback). Automated spec/runtime diff is deferred.
+
 ## Herdr Config Symlink Chain
 
 ```

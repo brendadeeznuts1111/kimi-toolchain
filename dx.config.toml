@@ -123,6 +123,12 @@ prePush = [
 handoff = ["bun run sync && bun run sync:verify", "kimi-doctor --agent-ready"]
 avoid = ["docker", "sync daemon unless actively developing the toolchain runtime"]
 
+[finishWork]
+gates = [
+  "bun run check:fast",
+  "kimi-doctor --effect-gates",
+]
+
 [sync]
 command = "bun run sync"
 verify = "bun run sync:verify"
@@ -149,11 +155,19 @@ shellPane = true
 shellSplit = "right"
 bootstrap = [
   "dx config --project .",
-  "git status -sb",
-  "herdr-quickref",
-  "kimi-doctor --quick 2>/dev/null || true",
+  "echo '[kimi-toolchain] Available commands:'",
+  "echo '  bun run check:fast        # lint + typecheck'",
+  "echo '  bun run test:ci           # full test suite with coverage'",
+  "echo '  kimi-doctor --effect-gates # verify Effect discipline'",
+  "echo '  kimi-heal effect audit    # scan for bare promises'",
+  "echo '  bun run finish-work --message \"...\"  # gates + commit'",
+  "bun run check:fast && echo '✅ Ready to commit'",
 ]
 
 [[herdr.tabs]]
+label = "doctor"
+command = "kimi-doctor --quick 2>/dev/null || true"
+
+[[herdr.tabs]]
 label = "shell"
-command = "herdr-quickref"
+command = "git status -sb; herdr-quickref"

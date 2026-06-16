@@ -376,6 +376,42 @@ bootstrap = ["dx config --project ."]
 
 Global source of truth: `~/dx-config`. Project block lives in this repo's `dx.config.toml`.
 
+### Workspace layout (`dx/workspace.toml`) — v1.5.4
+
+Canonical Herdr tab/pane layout (`DxWorkspace`). Layout + intent only — **not** runtime gate config. `herdr-project` reads `dx.config.toml` `[herdr]`; mirror tab commands there. Runtime bootstrap/tabs may add small hardening (error suppression, `herdr-quickref`, etc.) beyond this spec.
+
+Finish-work gates live in `dx.config.toml` `[finishWork]` (falls back to `[agents].prePush`). Do not duplicate gates in `dx/workspace.toml`.
+
+```toml
+schemaVersion = 1
+layoutVersion = "1.5.4"
+
+[[tabs]]
+label = "agents"
+primaryPane = { role = "agent", agent = "kimi", share = 60, command = "kimi" }
+shellPane = { role = "shell", share = 40, split = "right", command = "bun run check:fast && echo '✅ Ready to commit'" }
+secondaryPane = { role = "agent", agent = "codex", share = 40, split = "right", command = "codex" }
+
+[[tabs]]
+label = "doctor"
+command = "kimi-doctor --quick"
+
+[[tabs]]
+label = "shell"
+command = "git status -sb"
+
+[shellBootstrap]
+commands = ["dx config --project .", "echo 'Finish work: bun run finish-work --message \"...\"'"]
+```
+
+Finish-work helper (reads `dx.config.toml` only):
+
+```bash
+bun run finish-work --dry-run
+bun run finish-work --message "feat: workspace layout"
+bun run finish-work --message "fix: gates" --push
+```
+
 ## CHANGELOG.md Template
 
 ```markdown
