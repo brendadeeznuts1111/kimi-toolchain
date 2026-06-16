@@ -279,6 +279,15 @@ categories:
       - regex: "unified-shell.*not configured in user MCP servers"
       - regex: "cloudflare-api.*not configured in user MCP servers"
 
+  - id: cli_invalid_flag
+    name: CLI invalid flag
+    description: A tool received an unrecognized or malformed command-line flag.
+    severity: error
+    expected: false
+    suggestion: "Check the tool help or use a supported flag."
+    patterns:
+      - regex: "Unknown flag"
+
   - id: unknown
     name: Unknown
     description: No known pattern matched.

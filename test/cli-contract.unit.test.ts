@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseCliFlags, createMachineWriter } from "../src/lib/cli-contract.ts";
+import { parseCliFlags, createMachineWriter, CliContractError } from "../src/lib/cli-contract.ts";
 
 function captureStdout(): { data: string[]; restore: () => void } {
   const originalLog = console.log;
@@ -32,6 +32,23 @@ function captureStderr(): { data: string[]; restore: () => void } {
     restore: () => {
       console.error = original;
       console.warn = originalWarn;
+    },
+  };
+}
+
+function captureStderrWrite(): { data: string[]; restore: () => void } {
+  const original = process.stderr.write.bind(process.stderr);
+  const data: string[] = [];
+  process.stderr.write = (chunk: string | Uint8Array, ...rest: unknown[]) => {
+    data.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
+    const callback = rest.find((r) => typeof r === "function") as (() => void) | undefined;
+    if (callback) callback();
+    return true;
+  };
+  return {
+    data,
+    restore: () => {
+      process.stderr.write = original;
     },
   };
 }
@@ -97,9 +114,71 @@ describe("cli-contract", () => {
       }
     });
 
-    test("strict mode rejects unknown flags", () => {
+    test("invalid --timeout value warns on stderr and does not use env fallback", () => {
+      Bun.env.KIMI_TIMEOUT_MS = "10000";
+      const stderr = captureStderrWrite();
+      try {
+        const flags = parseCliFlags(["bun", "kimi-doctor", "--timeout", "abc"], "kimi-doctor");
+        expect(flags.timeout).toBeUndefined();
+        expect(stderr.data.join("\n")).toContain('Invalid --timeout value "abc"');
+      } finally {
+        delete Bun.env.KIMI_TIMEOUT_MS;
+        stderr.restore();
+      }
+    });
+
+    test("invalid --timeout numeric zero warns on stderr", () => {
+      const stderr = captureStderrWrite();
+      try {
+        const flags = parseCliFlags(["bun", "kimi-doctor", "--timeout", "0"], "kimi-doctor");
+        expect(flags.timeout).toBeUndefined();
+        expect(stderr.data.join("\n")).toContain('Invalid --timeout value "0"');
+      } finally {
+        stderr.restore();
+      }
+    });
+
+    test("env fallback precedence: env values apply when argv omits the flag", () => {
+      Bun.env.KIMI_DEBUG = "1";
+      Bun.env.KIMI_BAIL = "true";
+      try {
+        const flags = parseCliFlags(["bun", "kimi-doctor"], "kimi-doctor");
+        expect(flags.debug).toBe(true);
+        expect(flags.bail).toBe(true);
+      } finally {
+        delete Bun.env.KIMI_DEBUG;
+        delete Bun.env.KIMI_BAIL;
+      }
+    });
+
+    test("strict mode rejects unknown flags with taxonomy-coded error", () => {
       const argv = ["bun", "kimi-doctor", "--unknown-flag"];
-      expect(() => parseCliFlags(argv, "kimi-doctor", { strict: true })).toThrow();
+      let thrown: unknown;
+      try {
+        parseCliFlags(argv, "kimi-doctor", { strict: true });
+      } catch (err) {
+        thrown = err;
+      }
+      expect(thrown).toBeInstanceOf(CliContractError);
+      const error = thrown as CliContractError;
+      expect(error.toolName).toBe("kimi-doctor");
+      expect(error.taxonomyId).toBe("cli_invalid_flag");
+      expect(error.unknownFlag).toBe("--unknown-flag");
+      expect(error.message).toContain("Unknown flag --unknown-flag");
+    });
+
+    test("strict mode suggests the closest valid flag", () => {
+      const argv = ["bun", "kimi-doctor", "--jsn"];
+      let thrown: unknown;
+      try {
+        parseCliFlags(argv, "kimi-doctor", { strict: true });
+      } catch (err) {
+        thrown = err;
+      }
+      expect(thrown).toBeInstanceOf(CliContractError);
+      const error = thrown as CliContractError;
+      expect(error.message).toContain("Did you mean --json?");
+      expect(error.suggestions).toEqual(["--json"]);
     });
 
     test("allowedFlags permits tool-specific flags in strict mode", () => {
@@ -113,21 +192,28 @@ describe("cli-contract", () => {
   });
 
   describe("create-machine-writer", () => {
-    test("writeJson emits valid JSON to stdout", () => {
+    test("writeJson emits valid JSON to stdout with schema envelope", () => {
       const stdout = captureStdout();
       const stderr = captureStderr();
       try {
-        const writer = createMachineWriter({
-          json: true,
-          quiet: true,
-          debug: false,
-          bail: false,
-          stepBudget: false,
-          positional: [],
-        });
-        writer.writeJson({ tool: "kimi-doctor", ok: true });
+        const writer = createMachineWriter(
+          {
+            json: true,
+            quiet: true,
+            debug: false,
+            bail: false,
+            stepBudget: false,
+            positional: [],
+          },
+          "test-tool"
+        );
+        writer.writeJson({ ok: true });
         expect(stdout.data).toHaveLength(1);
-        expect(JSON.parse(stdout.data[0])).toEqual({ tool: "kimi-doctor", ok: true });
+        expect(JSON.parse(stdout.data[0])).toEqual({
+          schemaVersion: 1,
+          tool: "test-tool",
+          ok: true,
+        });
         expect(stderr.data).toHaveLength(0);
       } finally {
         stdout.restore();
@@ -135,23 +221,100 @@ describe("cli-contract", () => {
       }
     });
 
-    test("writeJsonl emits multiple JSON lines to stdout", () => {
+    test("writeJsonl emits multiple JSON lines to stdout with schema envelope", () => {
       const stdout = captureStdout();
       const stderr = captureStderr();
       try {
-        const writer = createMachineWriter({
-          json: true,
-          quiet: true,
-          debug: false,
-          bail: false,
-          stepBudget: false,
-          positional: [],
-        });
+        const writer = createMachineWriter(
+          {
+            json: true,
+            quiet: true,
+            debug: false,
+            bail: false,
+            stepBudget: false,
+            positional: [],
+          },
+          "test-tool"
+        );
         writer.writeJsonl([{ a: 1 }, { b: 2 }]);
         expect(stdout.data).toHaveLength(2);
-        expect(JSON.parse(stdout.data[0])).toEqual({ a: 1 });
-        expect(JSON.parse(stdout.data[1])).toEqual({ b: 2 });
+        expect(JSON.parse(stdout.data[0])).toEqual({ schemaVersion: 1, tool: "test-tool", a: 1 });
+        expect(JSON.parse(stdout.data[1])).toEqual({ schemaVersion: 1, tool: "test-tool", b: 2 });
         expect(stderr.data).toHaveLength(0);
+      } finally {
+        stdout.restore();
+        stderr.restore();
+      }
+    });
+
+    test("writeJsonSchema emits schema-named envelope", () => {
+      const stdout = captureStdout();
+      const stderr = captureStderr();
+      try {
+        const writer = createMachineWriter(
+          {
+            json: true,
+            quiet: true,
+            debug: false,
+            bail: false,
+            stepBudget: false,
+            positional: [],
+          },
+          "test-tool"
+        );
+        writer.writeJsonSchema("health-report", { checks: [{ status: "ok" }] });
+        expect(stdout.data).toHaveLength(1);
+        expect(JSON.parse(stdout.data[0])).toEqual({
+          schemaVersion: 1,
+          tool: "test-tool",
+          schemaName: "health-report",
+          payload: { checks: [{ status: "ok" }] },
+        });
+        expect(stderr.data).toHaveLength(0);
+      } finally {
+        stdout.restore();
+        stderr.restore();
+      }
+    });
+
+    test("json mode keeps stdout exclusively parseable JSON and routes human output to stderr", () => {
+      const stdout = captureStdout();
+      const stderr = captureStderr();
+      try {
+        const writer = createMachineWriter(
+          {
+            json: true,
+            quiet: true,
+            debug: false,
+            bail: false,
+            stepBudget: false,
+            positional: [],
+          },
+          "test-tool"
+        );
+        writer.writeJson({ stage: "start" });
+        writer.writeJsonl([{ stage: "middle" }]);
+        writer.info("info line");
+        writer.warn("warn line");
+        writer.error("error line");
+
+        // Every stdout line must be valid JSON and carry the contract envelope.
+        expect(stdout.data).toHaveLength(2);
+        for (const line of stdout.data) {
+          const parsed = JSON.parse(line);
+          expect(parsed.schemaVersion).toBe(1);
+          expect(parsed.tool).toBe("test-tool");
+        }
+
+        // Human output must not leak to stdout.
+        expect(stdout.data.some((line) => line.includes("info line"))).toBe(false);
+        expect(stdout.data.some((line) => line.includes("warn line"))).toBe(false);
+        expect(stdout.data.some((line) => line.includes("error line"))).toBe(false);
+
+        // Errors go to stderr; non-errors are suppressed in quiet/json mode.
+        expect(stderr.data).not.toContain("info line");
+        expect(stderr.data).not.toContain("warn line");
+        expect(stderr.data.some((line) => line.includes("error line"))).toBe(true);
       } finally {
         stdout.restore();
         stderr.restore();
