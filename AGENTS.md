@@ -102,6 +102,7 @@ When the package is installed (globally or locally), `postinstall.ts` copies sou
   CODE_REFERENCES.md  # Copied from repo root
   UNIFIED.md          # Copied from repo root
   TEMPLATES.md        # Copied from repo root
+  DEEP-QUALITY.md     # Copied from repo root
 ```
 
 **Do not edit `~/.kimi-code/` manually.** Use `bun run sync` (or `bun run sync:daemon`) to push repo changes to the live runtime.
@@ -488,6 +489,40 @@ When working on this codebase, agents should:
 5. Commit with conventional commit format
 6. If runtime-synced assets changed, run `bun run sync && bun run sync:verify` before handoff
 
+### Deep Quality Floor (Effect Discipline)
+
+When a session touches Effect code, run the Effect-discipline gates before committing. See `DEEP-QUALITY.md` for the full contract, constants, thresholds, and JSON shapes.
+
+```bash
+# Full scan with snapshot + regression detection
+kimi-doctor --effect-gates
+kimi-doctor --effect-gates --json
+
+# Standalone audit (no snapshot)
+kimi-heal effect audit
+kimi-heal effect audit --check-tags --event-streams --json
+
+# Session-floor sign-off
+kimi-doctor --session-report \
+  --raw-promises-removed 2 \
+  --services-migrated 2 \
+  --domain-purity-resolved 1 \
+  --raw-errors-converted 1 \
+  --event-emitters-converted 0 \
+  --circular-layers 0
+```
+
+Floor rules:
+
+- `--raw-promises-removed 2`
+- `--services-migrated 2`
+- `--domain-purity-resolved 1`
+- `--raw-errors-converted 1`
+- `--event-emitters-converted 0`
+- `--circular-layers 0`
+
+Missing/invalid values or counts below the floor cause exit code `1`. Event-emitter and circular-layer counts are zero-tolerance fields (negative values fail; zero is expected).
+
 ### Agent Diagnosis Report
 
 `kimi-doctor --agent --json` emits a stable, machine-readable `AgentDiagnosisReport` that agents can consume to reason about project health without parsing human-formatted doctor output.
@@ -590,7 +625,7 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 - **No build step.** TypeScript is run directly via `bun run`.
 - **Distribution**: GitHub repo, installed via `bun install -g github:brendadeeznuts1111/kimi-toolchain`.
 - **Live runtime**: `~/.kimi-code/` is maintained by `postinstall.ts` and `sync-to-desktop.ts`; sync writes `toolchain-manifest.json` with file hashes.
-- **Files included in package**: `src/`, `skills/`, `AGENTS.md`, `CODE_REFERENCES.md`, `UNIFIED.md`, `TEMPLATES.md`, `README.md`, `CONTRIBUTING.md`, `LICENSE`, `CHANGELOG.md`.
+- **Files included in package**: `src/`, `skills/`, `AGENTS.md`, `CODE_REFERENCES.md`, `UNIFIED.md`, `TEMPLATES.md`, `DEEP-QUALITY.md`, `README.md`, `CONTRIBUTING.md`, `LICENSE`, `CHANGELOG.md`.
 
 ## Key Files for Agents
 
@@ -620,6 +655,7 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `test/kimi-doctor.smoke.test.ts`       | Smoke tests for all tools                                                           |
 | `CONTEXT.md`                           | Auto-generated project context                                                      |
 | `CODE_REFERENCES.md`                   | Local exemplar map for agent coding patterns                                        |
+| `DEEP-QUALITY.md`                      | Effect-discipline constants, thresholds, CLI commands, and report shapes            |
 | `skills/kimi-toolchain/SKILL.md`       | Agent decision protocol                                                             |
 | `error-taxonomy.yml`                   | Failure classification schema                                                       |
 | `~/.kimi-code/var/tool-failures.jsonl` | Canonical tool failure ledger                                                       |
