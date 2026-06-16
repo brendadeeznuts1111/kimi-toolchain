@@ -155,6 +155,25 @@ function paneSortKey(paneId: string): number {
   return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
 }
 
+/** Poll layout snapshot briefly after layout.apply before post-apply tab commands. */
+function resolvePrimaryPaneForTab(
+  config: HerdrProjectConfig,
+  workspaceId: string,
+  tabId: string
+): Effect.Effect<string | undefined, never> {
+  return Effect.gen(function* () {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const snapshot = captureWorkspaceLayout(config.session, workspaceId);
+      const paneId = snapshot.panes
+        .filter((pane) => pane.tabId === tabId)
+        .sort((a, b) => paneSortKey(a.paneId) - paneSortKey(b.paneId))[0]?.paneId;
+      if (paneId) return paneId;
+      if (attempt < 4) yield* Effect.sleep("100 millis");
+    }
+    return undefined;
+  });
+}
+
 export function listWorkspaceTabs(session: string, workspaceId: string): WorkspaceTabRow[] {
   const listed = herdrCliJson(session, ["tab", "list", "--workspace", workspaceId]);
   if (!listed.ok) return [];
@@ -682,10 +701,7 @@ function applyLayoutAction(
 
     const postApply = postLayoutTabCommandPlan(config.tabs || [], spec.tabLabel);
     if (postApply) {
-      const snapshot = captureWorkspaceLayout(config.session, workspaceId);
-      const paneId = snapshot.panes
-        .filter((pane) => pane.tabId === applied.tabId)
-        .sort((a, b) => paneSortKey(a.paneId) - paneSortKey(b.paneId))[0]?.paneId;
+      const paneId = yield* resolvePrimaryPaneForTab(config, workspaceId, applied.tabId);
       const ran = runTabCommand(config, workspaceId, postApply.command, {
         tabId: applied.tabId,
         paneId,

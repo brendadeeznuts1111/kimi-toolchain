@@ -9,7 +9,7 @@ import type {
   HerdrShellSplit,
 } from "./herdr-project-config.ts";
 import { resolveHerdrPanePath } from "./herdr-project-cli.ts";
-import { tabCommandStrategy } from "./herdr-role-tab.ts";
+import { parseGrokRoleTabCommand, tabCommandStrategy } from "./herdr-role-tab.ts";
 
 export type LayoutNodeType = "pane" | "split";
 
@@ -147,9 +147,10 @@ export function buildExtraTabLayoutTree(tab: HerdrProjectTab, projectPath: strin
   if (!tab.command) {
     return { type: "pane", label, cwd: projectPath };
   }
-  // grok --role tabs: defer to runTabCommand after layout.apply (agent start + rename).
+  // grok --role tabs: defer command to runTabCommand; pane label matches post-rename agent role.
   if (tabCommandStrategy(tab.command) === "grok_role_agent") {
-    return { type: "pane", label, cwd: projectPath };
+    const role = parseGrokRoleTabCommand(tab.command)?.role || label;
+    return { type: "pane", label: role, cwd: projectPath };
   }
   return {
     type: "pane",

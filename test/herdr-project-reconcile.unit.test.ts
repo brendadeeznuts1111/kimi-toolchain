@@ -156,6 +156,7 @@ describe("herdr-project-reconcile", () => {
     expect(testLayout?.root.type).toBe("pane");
     if (testLayout?.root.type === "pane") {
       expect(testLayout.root.command).toBeUndefined();
+      expect(testLayout.root.label).toBe("test-agent");
     }
 
     const postApply = postLayoutTabCommandPlan(expected.extraTabs, "test");

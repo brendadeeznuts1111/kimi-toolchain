@@ -151,8 +151,20 @@ describe("herdr-project-layout", () => {
     );
     expect(root.type).toBe("pane");
     if (root.type !== "pane") return;
-    expect(root.label).toBe("test");
+    expect(root.label).toBe("test-agent");
     expect(root.command).toBeUndefined();
+  });
+
+  test("grok --role tab layout converges after agent rename", () => {
+    const root = buildExtraTabLayoutTree(
+      {
+        label: "test",
+        command: "grok --role test-agent --cwd . -- bun run scripts/test-agent.ts --watch",
+      },
+      projectPath
+    );
+    const actual = { type: "pane" as const, label: "test-agent", cwd: projectPath };
+    expect(layoutTreesEqual(root, actual, projectPath)).toBe(true);
   });
 
   test("tab commands keep an interactive shell after one-shot tab boot", () => {
