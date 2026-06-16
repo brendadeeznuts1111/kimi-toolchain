@@ -16,7 +16,11 @@ describe("buildConstants", () => {
     expect(KIMI_RUNTIME_MIN_BUN_VERSION).toBe("1.3.14");
     expect(KIMI_RUNTIME_CLI_BUILD_CHANNEL).toBe("source");
     expect(KIMI_DASHBOARD_LIVE_REFRESH_ENABLED).toBe(true);
-    expect(KIMI_TUNING_SET_VERSION).toBe("1.2.0");
+    expect(KIMI_EFFECT_MAX_DIRECT_PROMISE).toBe(0);
+    expect(KIMI_DOMAIN_PURITY_LEVEL).toBe("strict");
+    expect(KIMI_LAYER_CIRCULARITY_TOLERANCE).toBe(0);
+    expect(KIMI_SERVICE_TAG_REQUIRED).toBe(true);
+    expect(KIMI_TUNING_SET_VERSION).toBe("1.3.0");
   });
 
   it("should resolve contract observations path from define", () => {

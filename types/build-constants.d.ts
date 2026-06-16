@@ -113,6 +113,42 @@ declare const KIMI_RUNTIME_CLI_BUILD_CHANNEL: string;
 declare const KIMI_DASHBOARD_LIVE_REFRESH_ENABLED: boolean;
 
 /**
+ * @defineDomain effect-discipline
+ * @type number
+ * @default 0
+ * @restrictions zero-tolerance threshold for bare Promise usage in service code
+ * @see src/lib/effect-gates.ts
+ */
+declare const KIMI_EFFECT_MAX_DIRECT_PROMISE: number;
+
+/**
+ * @defineDomain effect-discipline
+ * @type string
+ * @default "strict"
+ * @restrictions one of strict | gradual | off
+ * @see src/lib/effect-gates.ts
+ */
+declare const KIMI_DOMAIN_PURITY_LEVEL: "strict" | "gradual" | "off";
+
+/**
+ * @defineDomain effect-discipline
+ * @type number
+ * @default 0
+ * @restrictions zero-tolerance threshold for circular layer dependencies
+ * @see src/lib/effect-gates.ts
+ */
+declare const KIMI_LAYER_CIRCULARITY_TOLERANCE: number;
+
+/**
+ * @defineDomain effect-discipline
+ * @type boolean
+ * @default true
+ * @restrictions when true, exported services must be provided through Tag + Layer
+ * @see src/lib/effect-gates.ts
+ */
+declare const KIMI_SERVICE_TAG_REQUIRED: boolean;
+
+/**
  * @defineDomain governance
  * @type string
  * @default "1.2.0"

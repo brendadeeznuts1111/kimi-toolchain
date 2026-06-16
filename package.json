@@ -86,6 +86,7 @@
     "lint:taxonomy-coverage": "bun run scripts/lint-taxonomy-coverage.ts",
     "lint:terms": "bun run scripts/lint-banned-terms.ts",
     "manifest:generate": "bun run scripts/generate-constants-manifest.ts",
+    "constants:verify": "bun run scripts/generate-constants-manifest.ts --check",
     "typecheck": "tsc --noEmit",
     "sync": "bun run scripts/sync-to-desktop.ts",
     "sync:verify": "bun run scripts/sync-verify.ts",
