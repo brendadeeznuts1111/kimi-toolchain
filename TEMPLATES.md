@@ -409,7 +409,8 @@ Finish-work helper (reads `dx.config.toml` only):
 ```bash
 bun run finish-work --dry-run
 bun run finish-work --message "feat: workspace layout"
-bun run finish-work --message "fix: gates" --push
+bun run finish-work --message "fix: gates" --push   # gates + commit + push (daily default)
+bun run finish-work --skip-git                      # gates only
 ```
 
 ## CHANGELOG.md Template

@@ -7,12 +7,12 @@ import { loadFinishWorkConfig, resolveFinishWorkGates } from "../src/lib/finish-
 describe("finish-work-config", () => {
   test("resolveFinishWorkGates prefers [finishWork].gates", () => {
     const config = resolveFinishWorkGates({
-      finishWork: { gates: ["bun run check:fast", "kimi-doctor --effect-gates"] },
+      finishWork: { gates: ["bun run check:fast", "bun run doctor --effect-gates"] },
       agents: { prePush: ["kimi-githooks doctor", "bun run check"] },
     });
 
     expect(config.source).toBe("finishWork");
-    expect(config.gates).toEqual(["bun run check:fast", "kimi-doctor --effect-gates"]);
+    expect(config.gates).toEqual(["bun run check:fast", "bun run doctor --effect-gates"]);
   });
 
   test("resolveFinishWorkGates falls back to [agents].prePush", () => {
@@ -27,7 +27,7 @@ describe("finish-work-config", () => {
   test("resolveFinishWorkGates uses defaults when config is empty", () => {
     const config = resolveFinishWorkGates({});
     expect(config.source).toBe("default");
-    expect(config.gates).toEqual(["bun run check:fast", "kimi-doctor --effect-gates"]);
+    expect(config.gates).toEqual(["bun run check:fast", "bun run doctor --effect-gates"]);
   });
 
   test("loadFinishWorkConfig reads dx.config.toml", () => {

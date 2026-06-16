@@ -126,7 +126,7 @@ avoid = ["docker", "sync daemon unless actively developing the toolchain runtime
 [finishWork]
 gates = [
   "bun run check:fast",
-  "kimi-doctor --effect-gates",
+  "bun run doctor --effect-gates",
 ]
 
 [sync]

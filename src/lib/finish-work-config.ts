@@ -9,7 +9,7 @@ export interface FinishWorkConfig {
   source: FinishWorkGateSource;
 }
 
-const DEFAULT_GATES = ["bun run check:fast", "kimi-doctor --effect-gates"];
+const DEFAULT_GATES = ["bun run check:fast", "bun run doctor --effect-gates"];
 
 function stringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
