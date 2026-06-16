@@ -100,13 +100,22 @@ export function extractHerdrProjectSection(
   };
 }
 
-export function discoverHerdrProjectConfig(projectPath: string): HerdrProjectConfig | null {
+export interface DiscoverHerdrProjectOptions {
+  /** When true, return profiles with enabled = false (default: skip them). */
+  includeDisabled?: boolean;
+}
+
+export function discoverHerdrProjectConfig(
+  projectPath: string,
+  options: DiscoverHerdrProjectOptions = {}
+): HerdrProjectConfig | null {
   for (const name of HERDR_PROJECT_CONFIG_NAMES) {
     const candidate = join(projectPath, name);
     if (!existsSync(candidate)) continue;
     const doc = readToml(candidate);
     const section = extractHerdrProjectSection(doc, name);
-    if (!section || !section.enabled) continue;
+    if (!section) continue;
+    if (!options.includeDisabled && !section.enabled) continue;
     return {
       ...section,
       sourcePath: candidate,

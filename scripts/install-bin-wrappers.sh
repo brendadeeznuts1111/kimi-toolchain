@@ -64,8 +64,28 @@ for dest in "${BIN_DIR}"/kimi-* "${BIN_DIR}/kimi-toolchain"; do
   fi
 done
 
+# Herdr CLIs — direct to synced tools (not kimi-toolchain router)
+HERDR_TOOLS="herdr-doctor herdr-project herdr-spawn"
+HERDR_COUNT=0
+for name in ${HERDR_TOOLS}; do
+  tool="${TOOLS_DIR}/${name}.ts"
+  if [[ ! -f "${tool}" ]]; then
+    echo "  ⚠ skip ${name}: ${tool} missing (run bun run sync first)"
+    continue
+  fi
+  dest="${BIN_DIR}/${name}"
+  cat > "$dest" <<EOF
+#!/usr/bin/env bash
+# ${name} — herdr DX tool (auto-generated)
+exec ${BUN} run "\${HOME}/.kimi-code/tools/${name}.ts" "\$@"
+EOF
+  chmod +x "$dest"
+  echo "  ✓ ${dest}"
+  HERDR_COUNT=$((HERDR_COUNT + 1))
+done
+
 echo ""
-echo "Installed ${COUNT} wrapper(s) in ${BIN_DIR} (${META} + aliases)"
+echo "Installed ${COUNT} kimi wrapper(s) + ${HERDR_COUNT} herdr tool(s) in ${BIN_DIR}"
 if [[ "${REMOVED}" -gt 0 ]]; then
   echo "Removed ${REMOVED} stale wrapper(s)"
 fi

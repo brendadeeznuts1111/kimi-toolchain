@@ -3,12 +3,13 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { invokeTool } from "../src/lib/tool-runner.ts";
-import { homeDir } from "../src/lib/paths.ts";
+import { localBinDir, toolsDir } from "../src/lib/paths.ts";
 
-const HERDR_PROJECT = join(homeDir(), ".local/bin/herdr-project");
+const HERDR_PROJECT_TOOL = join(toolsDir(), "herdr-project.ts");
+const HERDR_PROJECT_WRAPPER = join(localBinDir(), "herdr-project");
 
 async function runHerdrProject(projectRoot: string, args: string[]) {
-  return invokeTool(HERDR_PROJECT, args, {
+  return invokeTool(HERDR_PROJECT_TOOL, args, {
     cwd: projectRoot,
     timeoutMs: 60_000,
   });
@@ -45,8 +46,9 @@ bootstrap = ["echo herdr-bootstrap-ok"]
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
-  test("requires herdr-project on PATH", () => {
-    expect(existsSync(HERDR_PROJECT)).toBe(true);
+  test("requires herdr-project tool and PATH wrapper", () => {
+    expect(existsSync(HERDR_PROJECT_TOOL)).toBe(true);
+    expect(existsSync(HERDR_PROJECT_WRAPPER)).toBe(true);
   });
 
   test("has-config exits 0 for flat .dx/herdr.toml", async () => {

@@ -33,7 +33,10 @@
     "kimi-resource-governor": "src/bin/kimi-resource-governor.ts",
     "kimi-snapshot": "src/bin/kimi-snapshot.ts",
     "kimi-toolchain": "src/bin/kimi-toolchain.ts",
-    "unified-shell-bridge": "src/bin/unified-shell-bridge.ts"
+    "unified-shell-bridge": "src/bin/unified-shell-bridge.ts",
+    "herdr-doctor": "src/bin/herdr-doctor.ts",
+    "herdr-project": "src/bin/herdr-project.ts",
+    "herdr-spawn": "src/bin/herdr-spawn.ts"
   },
   "files": [
     "src",
