@@ -107,7 +107,7 @@ async function runShellGate(name: string, command: string): Promise<GateResult> 
 function followUpStepName(command: string): string {
   const trimmed = command.trim();
   const first = trimmed.split(/\s+/)[0] ?? "follow-up";
-  if (first.includes("doctor")) return "session-report";
+  if (first.includes("doctor")) return "effect-floor";
   return first.replace(/^kimi-/, "");
 }
 

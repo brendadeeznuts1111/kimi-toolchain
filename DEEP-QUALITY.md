@@ -87,12 +87,12 @@ Flags:
 - `--json` — Emit machine-readable JSON.
 - `--project-root <path>` — Project to scan (defaults to resolved project root).
 
-### `kimi-doctor --session-report`
+### `kimi-doctor --effect-floor`
 
-Evaluates a session's manual counts against the hardcoded session floor. Fails closed: missing or invalid flags, negative values, or counts below the floor all return exit code `1`.
+Evaluates manual effect-floor counts against the hardcoded session floor. Fails closed: missing or invalid flags, negative values, or counts below the floor all return exit code `1`. The legacy flag `--session-report` remains as a deprecated alias for one release cycle.
 
 ```bash
-kimi-doctor --session-report \
+kimi-doctor --effect-floor \
   --raw-promises-removed 2 \
   --services-migrated 2 \
   --domain-purity-resolved 1 \
@@ -195,7 +195,7 @@ interface EffectGatesViolation {
 }
 ```
 
-### `kimi-doctor --session-report --json` envelope
+### `kimi-doctor --effect-floor --json` envelope
 
 ```json
 {
@@ -364,7 +364,7 @@ The `error-taxonomy.yml` entries used by the Effect gates:
 | Gap                                                                               | Status     | Notes                                                                                                                                                                                                                                |
 | --------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `kimi-doctor` reads Effect-discipline constants from `bunfig.toml` `[define]`     | **Closed** | `loadThresholds()` in `src/lib/effect-gates.ts` reads `KIMI_EFFECT_MAX_DIRECT_PROMISE`, `KIMI_DOMAIN_PURITY_LEVEL`, `KIMI_LAYER_CIRCULARITY_TOLERANCE`, `KIMI_SERVICE_TAG_REQUIRED`, and `KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED`. |
-| `kimi-doctor --session-report` fails closed on missing/invalid/below-floor values | **Closed** | Invalid input returns exit code `1` with an `error` field; floor evaluation returns `1` when `passed` is `false`.                                                                                                                    |
+| `kimi-doctor --effect-floor` fails closed on missing/invalid/below-floor values | **Closed** | Invalid input returns exit code `1` with an `error` field; floor evaluation returns `1` when `passed` is `false`.                                                                                                                    |
 | Dual `CliContractError` definitions                                               | **Closed** | Effect variant renamed to `EffectCliContractError` in `src/lib/effect/errors.ts`; fields aligned with sync `CliContractError`. See COMPLEXITY-NOTE below.                                                                            |
 
 ## Enforcement Surface

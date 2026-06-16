@@ -117,7 +117,12 @@ const VELOCITY = Bun.argv.includes("--velocity");
 const PREDICT = Bun.argv.includes("--predict");
 const CORRELATE = Bun.argv.includes("--correlate");
 const EFFECT_GATES = Bun.argv.includes("--effect-gates");
-const SESSION_REPORT = Bun.argv.includes("--session-report");
+const HAS_EFFECT_FLOOR = Bun.argv.includes("--effect-floor");
+const HAS_LEGACY_SESSION_REPORT = Bun.argv.includes("--session-report");
+if (HAS_LEGACY_SESSION_REPORT && !HAS_EFFECT_FLOOR) {
+  process.stderr.write("[deprecated] --session-report is renamed to --effect-floor\n");
+}
+const EFFECT_FLOOR = HAS_EFFECT_FLOOR || HAS_LEGACY_SESSION_REPORT;
 const WORKSPACE_CONTEXT = Bun.argv.includes("--workspace-context");
 const WORKSPACE_CONTEXT_BRIEF = Bun.argv.includes("--brief");
 const WRITE_CONTEXT_FILES = Bun.argv.includes("--write-context-files");
@@ -977,7 +982,7 @@ function sessionReportUsesManualFlags(): boolean {
   return SESSION_REPORT_FLAGS.some((flag) => Bun.argv.includes(flag));
 }
 
-async function runSessionReportMode(projectRoot: string): Promise<number> {
+async function runEffectFloorMode(projectRoot: string): Promise<number> {
   let counts: Partial<SessionFloorCounts>;
   let source: "manual" | "effect-gates-snapshots" = "manual";
 
@@ -991,7 +996,7 @@ async function runSessionReportMode(projectRoot: string): Promise<number> {
       circularLayerDependencies: parseSessionReportFlag("--circular-layers"),
     };
   } else {
-    return runSessionReportAutoMode(projectRoot);
+    return runEffectFloorAutoMode(projectRoot);
   }
 
   const invalid: string[] = [];
@@ -1033,9 +1038,9 @@ async function runSessionReportMode(projectRoot: string): Promise<number> {
       },
     });
   } else {
-    logger.section("Session Report");
+    logger.section("Effect Floor");
     if (floor.passed) {
-      logger.info("Session floor passed");
+      logger.info("Effect floor passed");
     } else {
       logger.error("Session floor failed");
       for (const field of floor.missing) logger.error(`Missing field: ${field}`);
@@ -1072,7 +1077,7 @@ async function runWorkspaceContextMode(projectRoot: string): Promise<number> {
   return 0;
 }
 
-async function runSessionReportAutoMode(projectRoot: string): Promise<number> {
+async function runEffectFloorAutoMode(projectRoot: string): Promise<number> {
   const source = "effect-gates-auto";
   const [previous] = await readEffectGatesSnapshots(projectRoot, 1);
   const current = await buildEffectGatesReport({ projectRoot, tool: "kimi-doctor" });
@@ -1103,7 +1108,7 @@ async function runSessionReportAutoMode(projectRoot: string): Promise<number> {
       },
     });
   } else {
-    logger.section("Session Report");
+    logger.section("Effect Floor");
     logger.line("Auto mode: current effect-gates scan + snapshot floor when history exists");
     if (!gatesOk) {
       logger.error("Effect gates failed");
@@ -1119,7 +1124,7 @@ async function runSessionReportAutoMode(projectRoot: string): Promise<number> {
       logger.error("Session floor failed");
       for (const field of floor.below) logger.error(`Below floor: ${field}`);
     } else {
-      logger.info("Session report passed");
+      logger.info("Effect floor passed");
     }
   }
 
@@ -1321,8 +1326,8 @@ async function main(): Promise<number> {
     return runEffectGatesMode(projectRoot);
   }
 
-  if (SESSION_REPORT) {
-    return runSessionReportMode(projectRoot);
+  if (EFFECT_FLOOR) {
+    return runEffectFloorMode(projectRoot);
   }
 
   if (WORKSPACE_CONTEXT) {

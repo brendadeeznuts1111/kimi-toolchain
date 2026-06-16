@@ -30,7 +30,7 @@ The close-loop answers: *“I pushed my work — is the tree clean, did gates pa
 
 ## Pipeline order (critical)
 
-Order is intentional. A prior bug ran `followUp` before the dirty-tree check; when `kimi-doctor --session-report` failed, the process exited before escalation could run.
+Order is intentional. A prior bug ran `followUp` before the dirty-tree check; when `kimi-doctor --effect-floor` failed, the process exited before escalation could run.
 
 ```mermaid
 flowchart TD
@@ -56,7 +56,7 @@ flowchart TD
 2. **Git** — `git add -u` (tracked modifications only), `git commit -m`, optional `git push`. Requires `--message`; use `--skip-git` to gate-only.
 3. **Dirty-tree check** — `porcelainDirtyLines()` after a successful push. Untracked and modified paths both count.
 4. **Escalation** — if pushed and tree not clean (`outcome: escalated`). Runs **before** followUp.
-5. **followUp** — `[finishWork.followUp].command` (default: `kimi-doctor --session-report`). Failure does **not** override `escalated` outcome.
+5. **followUp** — `[finishWork.followUp].command` (default: `kimi-doctor --effect-floor`). Failure does **not** override `escalated` outcome.
 6. **Workspace metadata** — `emitWorkspaceUpdatedMetadata()` only when outcome is **not** `escalated`. Triggers orchestrator `context-sync` on clean closes.
 
 ---
@@ -165,7 +165,7 @@ gates = [
 ]
 
 [finishWork.followUp]
-command = "kimi-doctor --session-report"
+command = "kimi-doctor --effect-floor"
 
 [herdr.orchestrator.events]
 allowlist = ["workspace.updated", "pane.agent_status_changed", "effect.gates.changed", "git.ref.changed"]

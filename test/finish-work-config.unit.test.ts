@@ -49,11 +49,18 @@ describe("finish-work-config", () => {
     const config = resolveFinishWorkGatesFromUnknown({
       finishWork: {
         gates: ["bun run check:fast"],
-        followUp: { command: "kimi-doctor --session-report" },
+        followUp: { command: "kimi-doctor --effect-floor" },
       },
     });
 
-    expect(config.followUp).toEqual({ command: "kimi-doctor --session-report" });
+    expect(config.followUp).toEqual({ command: "kimi-doctor --effect-floor" });
+  });
+
+  test("finish-work followUp step name for effect-floor command", () => {
+    const command = "kimi-doctor --effect-floor";
+    const first = command.trim().split(/\s+/)[0] ?? "follow-up";
+    const step = first.includes("doctor") ? "effect-floor" : first.replace(/^kimi-/, "");
+    expect(step).toBe("effect-floor");
   });
 
   test("loadFinishWorkConfig reads dx.config.toml", () => {

@@ -108,7 +108,7 @@ avoid = ["docker", "sync daemon unless actively developing runtime tooling"]
 gates = ["bun run check:fast", "kimi-doctor --effect-gates", "kimi-heal effect audit"]
 
 [finishWork.followUp]
-command = "kimi-doctor --session-report"
+command = "kimi-doctor --effect-floor"
 
 [kimi]
 memoryGate = true

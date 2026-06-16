@@ -131,7 +131,7 @@ gates = [
 ]
 
 [finishWork.followUp]
-command = "kimi-doctor --session-report"
+command = "kimi-doctor --effect-floor"
 
 [sync]
 command = "bun run sync"

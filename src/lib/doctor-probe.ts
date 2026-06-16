@@ -116,10 +116,10 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
         flags: ["--effect-gates", "--json"],
       },
       {
-        name: "session-report",
+        name: "effect-floor",
         description:
-          "Session-floor evaluation (auto from effect-gates snapshots when flags omitted)",
-        flags: ["--session-report"],
+          "Effect-floor evaluation (auto from effect-gates snapshots when flags omitted)",
+        flags: ["--effect-floor", "--session-report"],
       },
       {
         name: "workspace-context",

@@ -506,8 +506,8 @@ kimi-doctor --effect-gates --json
 kimi-heal effect audit
 kimi-heal effect audit --check-tags --event-streams --json
 
-# Session-floor sign-off
-kimi-doctor --session-report \
+# Effect-floor sign-off
+kimi-doctor --effect-floor \
   --raw-promises-removed 2 \
   --services-migrated 2 \
   --domain-purity-resolved 1 \

@@ -131,11 +131,62 @@ describe("effect-gates CLI", () => {
     );
   });
 
-  test("kimi-doctor --session-report --json fails when a required flag is missing", async () => {
-    const { stdout, exitCode } = await runCli(
+  test("kimi-doctor accepts both effect-floor flags without deprecation warn", async () => {
+    const { stderr, exitCode } = await runCli(
+      DOCTOR,
+      [
+        "--effect-floor",
+        "--session-report",
+        "--json",
+        "--raw-promises-removed",
+        "2",
+        "--services-migrated",
+        "2",
+        "--domain-purity-resolved",
+        "1",
+        "--raw-errors-converted",
+        "1",
+        "--event-emitters-converted",
+        "0",
+        "--circular-layers",
+        "0",
+      ],
+      REPO_ROOT
+    );
+    expect(exitCode).toBe(0);
+    expect(stderr).not.toContain("[deprecated]");
+  });
+
+  test("kimi-doctor --session-report alias warns and runs effect-floor mode", async () => {
+    const { stderr, exitCode } = await runCli(
       DOCTOR,
       [
         "--session-report",
+        "--json",
+        "--raw-promises-removed",
+        "2",
+        "--services-migrated",
+        "2",
+        "--domain-purity-resolved",
+        "1",
+        "--raw-errors-converted",
+        "1",
+        "--event-emitters-converted",
+        "0",
+        "--circular-layers",
+        "0",
+      ],
+      REPO_ROOT
+    );
+    expect(exitCode).toBe(0);
+    expect(stderr).toContain("[deprecated] --session-report is renamed to --effect-floor");
+  });
+
+  test("kimi-doctor --effect-floor --json fails when a required flag is missing", async () => {
+    const { stdout, exitCode } = await runCli(
+      DOCTOR,
+      [
+        "--effect-floor",
         "--json",
         "--raw-promises-removed",
         "2",
@@ -159,7 +210,7 @@ describe("effect-gates CLI", () => {
     expect(parsed.summary.missing).toContain("circularLayerDependencies");
   });
 
-  test("kimi-doctor --session-report --json auto-derives counts after effect-gates snapshots", async () => {
+  test("kimi-doctor --effect-floor --json auto-derives counts after effect-gates snapshots", async () => {
     const seed = await runCli(
       DOCTOR,
       ["--effect-gates", "--json", "--project-root", tmpDir],
@@ -169,7 +220,7 @@ describe("effect-gates CLI", () => {
 
     const { stdout, exitCode } = await runCli(
       DOCTOR,
-      ["--session-report", "--json", "--project-root", tmpDir],
+      ["--effect-floor", "--json", "--project-root", tmpDir],
       REPO_ROOT
     );
     expect(exitCode).toBe(0);
@@ -185,11 +236,11 @@ describe("effect-gates CLI", () => {
     expect(parsed.counts).toBeNull();
   });
 
-  test("kimi-doctor --session-report --json passes when all floors are met", async () => {
+  test("kimi-doctor --effect-floor --json passes when all floors are met", async () => {
     const { stdout, exitCode } = await runCli(
       DOCTOR,
       [
-        "--session-report",
+        "--effect-floor",
         "--json",
         "--raw-promises-removed",
         "2",
