@@ -7,6 +7,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import YAML from "js-yaml";
+import { EFFECT_GATES_COMMAND } from "./finish-work-config.ts";
 
 type Status = "ok" | "warn" | "error";
 type UnknownRecord = Record<string, unknown>;
@@ -41,7 +42,7 @@ export const REQUIRED_AGENT_PRE_PUSH = [
   "kimi-githooks doctor",
   "bun run check:fast",
   "kimi-guardian check",
-  "kimi-doctor --effect-gates",
+  EFFECT_GATES_COMMAND,
   "kimi-governance score",
 ] as const;
 

@@ -712,7 +712,7 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | `kimi-doctor`            | `doctor`, `doctor --fix`, `doctor --quick`, `doctor --memory-budget`                                              |
 | `kimi-orphan-kill`       | `--dry-run` (cleanup stale test/tool processes)                                                                   |
-| `kimi-fix`               | `fix <path>`, `fix <path> --profile app\|toolchain`, `fix <path> --dry-run` — scaffold gates use `kimi-doctor`; live repo uses `bun run doctor` (see TEMPLATES.md) |
+| `kimi-fix`               | `fix <path>`, `fix <path> --profile app\|toolchain`, `fix <path> --dry-run` — gate config uses `kimi-doctor --effect-gates` (see TEMPLATES.md migration) |
 | `kimi-governance`        | `score`, `fix`, `coverage [N]`, `docs`, `adr <title>`, `doctor`                                                   |
 | `kimi-guardian`          | `check`, `sign`, `verify`, `report`, `fix`, `doctor`                                                              |
 | `kimi-memory`            | `store`, `recall`, `resume`, `autosave`, `graph`, `impact`, `search`, `prune`, `stats`, `trends`, `doctor`, `fix` |

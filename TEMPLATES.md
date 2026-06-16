@@ -368,11 +368,24 @@ preflight = true
 
 Full runtime sync/ci.local blocks live only in the **kimi-toolchain reference** `dx.config.toml`, not in scaffold templates.
 
-**Gate divergence:** Scaffolded repos use installed CLIs (`kimi-doctor --effect-gates` in `prePush` / `[finishWork]`). The live kimi-toolchain repo uses vendored entrypoints (`bun run doctor --effect-gates`) because it develops those scripts in-tree. Both are intentional.
+**Effect gates (canonical):** Use `kimi-doctor --effect-gates` in `[agents].prePush` and `[finishWork].gates` everywhere — scaffold templates and live `dx.config.toml` match. `bun run doctor` in `package.json` is an in-tree dev alias only; do not put it in gate config.
 
 **Profile drift:** `kimi-fix` never overwrites existing `dx.config.toml`, `dx/workspace.toml`, or finish-work scripts. Re-scaffolding with a different `--profile` logs a warning; delete the stale files and re-run, or scaffold into a fresh tree.
 
 **finish-work staging:** `git add -u` only (tracked files). Untracked files and secrets are never blanket-staged.
+
+### Migrating an existing project to the toolchain profile
+
+Use when a repo was scaffolded with the default **app** profile and you want `[finishWork]`, `[herdr]`, `dx/workspace.toml`, and `scripts/finish-work.ts`.
+
+1. Confirm toolchain on PATH: `kimi-doctor --quick`
+2. Back up `dx.config.toml` if it has custom blocks you need to keep
+3. Remove stale scaffold files so `kimi-fix` can recreate them:
+   - `dx.config.toml` (or manually add `[finishWork]` + `[herdr]` from `templates/scaffold/dx.config.toolchain.toml`)
+   - `dx/workspace.toml`, `scripts/finish-work.ts`, `scripts/finish-work-config.ts` if missing or app-era
+4. Run `kimi-fix <path> --profile toolchain`
+5. Verify: `bun run finish-work --dry-run` (gates should include `kimi-doctor --effect-gates`)
+6. If `[finishWork]` still lists `bun run doctor --effect-gates`, replace with `kimi-doctor --effect-gates` to match the canonical gate
 
 ### Herdr project profile (`[herdr]`)
 

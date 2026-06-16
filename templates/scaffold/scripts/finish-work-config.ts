@@ -9,7 +9,10 @@ export interface FinishWorkConfig {
   source: FinishWorkGateSource;
 }
 
-const DEFAULT_GATES = ["bun run check:fast", "kimi-doctor --effect-gates"];
+/** Canonical Effect discipline gate — matches live finish-work-config.ts / dx.config.toml. */
+const EFFECT_GATES_COMMAND = "kimi-doctor --effect-gates";
+
+const DEFAULT_GATES = ["bun run check:fast", EFFECT_GATES_COMMAND];
 
 function stringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];

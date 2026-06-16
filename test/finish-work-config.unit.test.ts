@@ -2,17 +2,21 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { loadFinishWorkConfig, resolveFinishWorkGates } from "../src/lib/finish-work-config.ts";
+import {
+  EFFECT_GATES_COMMAND,
+  loadFinishWorkConfig,
+  resolveFinishWorkGates,
+} from "../src/lib/finish-work-config.ts";
 
 describe("finish-work-config", () => {
   test("resolveFinishWorkGates prefers [finishWork].gates", () => {
     const config = resolveFinishWorkGates({
-      finishWork: { gates: ["bun run check:fast", "bun run doctor --effect-gates"] },
+      finishWork: { gates: ["bun run check:fast", EFFECT_GATES_COMMAND] },
       agents: { prePush: ["kimi-githooks doctor", "bun run check"] },
     });
 
     expect(config.source).toBe("finishWork");
-    expect(config.gates).toEqual(["bun run check:fast", "bun run doctor --effect-gates"]);
+    expect(config.gates).toEqual(["bun run check:fast", EFFECT_GATES_COMMAND]);
   });
 
   test("resolveFinishWorkGates falls back to [agents].prePush", () => {
@@ -27,7 +31,7 @@ describe("finish-work-config", () => {
   test("resolveFinishWorkGates uses defaults when config is empty", () => {
     const config = resolveFinishWorkGates({});
     expect(config.source).toBe("default");
-    expect(config.gates).toEqual(["bun run check:fast", "bun run doctor --effect-gates"]);
+    expect(config.gates).toEqual(["bun run check:fast", EFFECT_GATES_COMMAND]);
   });
 
   test("loadFinishWorkConfig reads dx.config.toml", () => {
