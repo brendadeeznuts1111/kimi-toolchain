@@ -10,6 +10,9 @@ import {
 } from "./herdr-project-cli.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";
 import type { HerdrProjectConfig } from "./herdr-project-config.ts";
+import { findWorkspaceForProject } from "./herdr-workspace-match.ts";
+
+export { findWorkspaceForProject } from "./herdr-workspace-match.ts";
 import { verifyPaneRequirements, type PaneRequirementSpec } from "./herdr-pane-requires.ts";
 import { homeDir } from "./paths.ts";
 
@@ -23,10 +26,6 @@ export function resolveHerdrProjectPath(path: string): string {
 
 function herdrArgs(session: string) {
   return session ? ["--session", session] : [];
-}
-
-function listWorkspaces(session = "") {
-  return execCliJson("herdr", [...herdrArgs(session), "workspace", "list"]);
 }
 
 function listPanes(session = "") {
@@ -46,32 +45,6 @@ function workspacePanes(config: HerdrProjectConfig, workspaceId: string) {
     agent?: string;
   }>;
   return rows.filter((pane) => pane.workspace_id === workspaceId);
-}
-
-export function findWorkspaceForProject(config: HerdrProjectConfig) {
-  const panes = listPanes(config.session);
-  if (!panes.ok) return { workspaceId: null as string | null, reason: panes.error };
-  const projectPath = config.projectPath || "";
-  const label = config.workspaceLabel;
-  const paneRows = (panes.json?.result?.panes || []) as Array<{
-    workspace_id?: string;
-    cwd?: string;
-    foreground_cwd?: string;
-  }>;
-  const byCwd = paneRows.find(
-    (pane) => pane.cwd === projectPath || pane.foreground_cwd === projectPath
-  );
-  if (byCwd?.workspace_id) return { workspaceId: byCwd.workspace_id, reason: "cwd" };
-  if (label) {
-    const workspaces = listWorkspaces(config.session);
-    if (workspaces.ok) {
-      const match = (
-        workspaces.json?.result?.workspaces as Array<{ label?: string; workspace_id?: string }>
-      )?.find((ws) => ws.label === label);
-      if (match?.workspace_id) return { workspaceId: match.workspace_id, reason: "label" };
-    }
-  }
-  return { workspaceId: null, reason: "not_found" };
 }
 
 function isKnownAgentPane(pane: { agent?: string }) {

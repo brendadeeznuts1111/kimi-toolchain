@@ -89,7 +89,8 @@ export function listWorkspaceAgents(workspaceId: string, session = ""): AgentSna
 function resolveAgentTarget(agents: AgentSnapshot[], label: string | null): AgentSnapshot | null {
   if (!label) return null;
   const matches = agents.filter((row) => row.agent === label);
-  return matches.length === 1 ? matches[0]! : (matches[0] ?? null);
+  if (matches.length === 1) return matches[0]!;
+  return null;
 }
 
 function readAgentRecentText(paneId: string, session = "", lines = 12): string {

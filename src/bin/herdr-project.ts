@@ -53,7 +53,7 @@ Flags:
   --attach          After bootstrap, run herdr attach (when not already inside Herdr)
   --force           Re-run bootstrap/tab commands on an existing workspace; overwrite on scaffold
   --apply           Apply reconcile fixes (default: dry-run)
-  --close-orphans   Close agent panes not listed in the project profile (with --apply)
+  --close-orphans   Close orphan agent panes and extra/duplicate tabs (with --apply)
   --fix-agents      Respawn primary agent when the primary slot has the wrong agent (with --apply)
   --force-layout    Rebuild drifted tabs via layout.apply (with --apply; destroys scrollback)
 `);

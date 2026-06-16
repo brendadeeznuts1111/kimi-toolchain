@@ -26,6 +26,7 @@ export type ReconcileActionType =
   | "start_agent"
   | "split_shell"
   | "close_pane"
+  | "close_tab"
   | "apply_layout"
   | "warn";
 
@@ -333,6 +334,85 @@ export function diffWorkspaceLayout(
   return actions;
 }
 
+/** Tabs not in the profile, or duplicate labels (e.g. three "shell" tabs). */
+export function diffOrphanTabs(
+  expected: ExpectedHerdrLayout,
+  snapshot: WorkspaceLayoutSnapshot
+): ReconcileAction[] {
+  const intended = new Set(expected.tabLayouts.map((spec) => normalizeLabel(spec.tabLabel)));
+  const actions: ReconcileAction[] = [];
+  const byLabel = new Map<string, WorkspaceTabRow[]>();
+
+  for (const tab of snapshot.tabs) {
+    const key = normalizeLabel(tab.label);
+    if (!byLabel.has(key)) byLabel.set(key, []);
+    byLabel.get(key)!.push(tab);
+  }
+
+  for (const tab of snapshot.tabs) {
+    if (!intended.has(normalizeLabel(tab.label))) {
+      actions.push({
+        type: "close_tab",
+        target: tab.tabId,
+        reason: `orphan tab "${tab.label}" not in project profile`,
+        detail: { label: tab.label, orphan: true },
+      });
+    }
+  }
+
+  for (const [, tabs] of byLabel) {
+    if (tabs.length <= 1) continue;
+    const label = normalizeLabel(tabs[0]!.label);
+    if (!intended.has(label)) continue;
+    const sorted = [...tabs].sort(
+      (a, b) => paneSortKey(`${a.tabId}:p1`) - paneSortKey(`${b.tabId}:p1`)
+    );
+    for (const duplicate of sorted.slice(1)) {
+      actions.push({
+        type: "close_tab",
+        target: duplicate.tabId,
+        reason: `duplicate tab "${duplicate.label}" (${duplicate.tabId})`,
+        detail: { label: duplicate.label, duplicate: true },
+      });
+    }
+  }
+
+  return actions;
+}
+
+function mergeReconcileActions(
+  expected: ExpectedHerdrLayout,
+  snapshot: WorkspaceLayoutSnapshot,
+  layoutDrifts: LayoutDrift[]
+): ReconcileAction[] {
+  const structural = diffWorkspaceLayout(expected, snapshot);
+  const orphanTabs = diffOrphanTabs(expected, snapshot);
+  const driftLabels = new Set(layoutDrifts.map((row) => normalizeLabel(row.tabLabel)));
+
+  const createFromStructural = structural.filter(
+    (action) =>
+      action.type === "create_tab" && !driftLabels.has(normalizeLabel(String(action.target)))
+  );
+  const otherStructural = structural.filter((action) => action.type !== "create_tab");
+
+  if (layoutDrifts.length) {
+    const layoutActions = layoutDriftActions(layoutDrifts).map((action) => {
+      const drift = layoutDrifts.find((row) => row.tabLabel === action.target);
+      return {
+        ...action,
+        detail: {
+          ...action.detail,
+          tabId: drift?.tabId || null,
+          layout: expected.tabLayouts.find((row) => row.tabLabel === action.target),
+        },
+      };
+    });
+    return [...orphanTabs, ...otherStructural, ...createFromStructural, ...layoutActions];
+  }
+
+  return [...orphanTabs, ...structural];
+}
+
 function shellQuote(value: string) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
@@ -361,6 +441,10 @@ function createTab(config: HerdrProjectConfig, workspaceId: string, label: strin
 
 function closePane(config: HerdrProjectConfig, paneId: string) {
   return herdrCliRun(config.session, ["pane", "close", paneId]);
+}
+
+function closeTab(config: HerdrProjectConfig, tabId: string) {
+  return herdrCliRun(config.session, ["tab", "close", tabId]);
 }
 
 function splitShellPane(config: HerdrProjectConfig, paneId: string, direction: string) {
@@ -455,6 +539,19 @@ function applyReconcileAction(
     const closed = closePane(config, action.target);
     return Effect.succeed(
       closed.ok ? { ok: true } : { ok: false, warning: closed.output || "pane close failed" }
+    );
+  }
+
+  if (action.type === "close_tab") {
+    if (!options.closeOrphans && !options.forceLayout) {
+      return Effect.succeed({
+        ok: false,
+        warning: "skipped close_tab (pass --close-orphans or --force-layout)",
+      });
+    }
+    const closed = closeTab(config, action.target);
+    return Effect.succeed(
+      closed.ok ? { ok: true } : { ok: false, warning: closed.output || "tab close failed" }
     );
   }
 
@@ -641,37 +738,31 @@ export function reconcileHerdrProjectEffect(
     const actual = captureWorkspaceLayout(config.session, match.workspaceId);
     const layoutDrifts = yield* collectLayoutDrifts(config, match.workspaceId, expected);
 
-    let actions: ReconcileAction[] = [];
-    if (layoutDrifts.length) {
-      actions = layoutDriftActions(layoutDrifts).map((action) => {
-        const drift = layoutDrifts.find((row) => row.tabLabel === action.target);
-        return {
-          ...action,
-          detail: {
-            ...action.detail,
-            tabId: drift?.tabId || null,
-            layout: expected.tabLayouts.find((row) => row.tabLabel === action.target),
-          },
-        };
-      });
-    } else {
-      actions = diffWorkspaceLayout(expected, actual);
-    }
+    const actions = mergeReconcileActions(expected, actual, layoutDrifts);
 
     const actionable = actions.filter((action) => action.type !== "warn");
 
     if (options.apply) {
+      const closeTabActions = actions.filter((action) => action.type === "close_tab");
+      const deferredLayout = actions.filter(
+        (action) =>
+          action.type !== "close_tab" &&
+          !(layoutDrifts.length && options.forceLayout && action.type === "apply_layout")
+      );
+
+      for (const action of closeTabActions) {
+        const result = yield* applyReconcileAction(config, match.workspaceId, action, options);
+        if (result.ok) applied.push(action);
+        else if (result.warning) warnings.push(result.warning);
+      }
+
       if (layoutDrifts.length && options.forceLayout) {
         const serial = yield* applyLayoutDriftsSerial(config, match.workspaceId, expected);
         applied.push(...serial.applied);
         warnings.push(...serial.warnings);
       }
 
-      for (const action of actions) {
-        if (layoutDrifts.length && options.forceLayout && action.type === "apply_layout") {
-          continue;
-        }
-
+      for (const action of deferredLayout) {
         if (action.type === "warn") {
           if (
             action.detail?.fixAgents &&

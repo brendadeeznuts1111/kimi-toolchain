@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildExpectedLayout,
+  diffOrphanTabs,
   diffWorkspaceLayout,
   type ExpectedHerdrLayout,
   type WorkspaceLayoutSnapshot,
 } from "../src/lib/herdr-project-reconcile.ts";
+import { buildIntendedTabLayouts } from "../src/lib/herdr-project-layout.ts";
 import type { HerdrProjectConfig } from "../src/lib/herdr-project-config.ts";
 
 function snapshot(
@@ -112,5 +114,50 @@ describe("herdr-project-reconcile", () => {
     expect(actions.some((row) => row.type === "close_pane" && row.target === "w4:p7")).toBe(true);
     expect(actions.some((row) => row.reason.includes('labeled "config"'))).toBe(true);
     expect(actions.some((row) => row.type === "split_shell")).toBe(false);
+  });
+
+  test("diffOrphanTabs flags duplicate shell tabs and tabs outside profile", () => {
+    const config: HerdrProjectConfig = {
+      schemaVersion: 1,
+      enabled: true,
+      workspaceLabel: "kimi-toolchain",
+      primaryAgent: "kimi",
+      secondaryAgents: ["codex"],
+      shellPane: true,
+      shellSplit: "right",
+      bootstrap: [],
+      session: "",
+      agentsTab: { label: "agents", panes: [{ role: "primary", agent: "kimi" }] },
+      tabs: [
+        { label: "doctor", command: "kimi-doctor --watch" },
+        { label: "shell", command: "git status -sb" },
+        { label: "reviewer" },
+      ],
+      sourcePath: "dx.config.toml",
+      projectPath: "/tmp/kimi-toolchain",
+    };
+    const expected = buildExpectedLayout(config);
+    expected.tabLayouts = buildIntendedTabLayouts(config);
+
+    const actions = diffOrphanTabs(
+      expected,
+      snapshot(
+        "wB",
+        [
+          { tabId: "wB:t1C", label: "agents", paneCount: 3 },
+          { tabId: "wB:t0", label: "shell", paneCount: 1 },
+          { tabId: "wB:t13", label: "shell", paneCount: 1 },
+          { tabId: "wB:t15", label: "shell", paneCount: 1 },
+          { tabId: "wB:t99", label: "scratch", paneCount: 1 },
+        ],
+        []
+      )
+    );
+
+    expect(actions.filter((row) => row.type === "close_tab").map((row) => row.target)).toEqual([
+      "wB:t99",
+      "wB:t13",
+      "wB:t15",
+    ]);
   });
 });

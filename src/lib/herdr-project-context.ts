@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
 import type { HerdrAgentsTabPane, HerdrProjectConfig } from "./herdr-project-config.ts";
-import { herdrCliJson, herdrCliRun, resolveHerdrPanePath } from "./herdr-project-cli.ts";
+import { herdrCliRun, resolveHerdrPanePath } from "./herdr-project-cli.ts";
+import { findWorkspaceForProject, resolveWorkspaceAgentPaneId } from "./herdr-workspace-match.ts";
 
 const DEFAULT_CONTEXT_FILE = "/tmp/workspace-context.md";
 
@@ -51,28 +52,11 @@ function resolveAgentSendTarget(
   config: HerdrProjectConfig,
   agentName: string,
   workspaceId?: string | null
-): string {
-  const listed = herdrCliJson(config.session, ["agent", "list"]);
-  if (!listed.ok) return agentName;
-
-  const projectPath = config.projectPath || "";
-  const rows = (listed.json?.result?.agents || []) as Array<{
-    agent?: string;
-    pane_id?: string;
-    workspace_id?: string;
-    cwd?: string;
-    foreground_cwd?: string;
-  }>;
-
-  const matches = rows.filter((row) => {
-    if (row.agent !== agentName || !row.pane_id) return false;
-    if (workspaceId) return row.workspace_id === workspaceId;
-    if (!projectPath) return true;
-    return row.cwd === projectPath || row.foreground_cwd === projectPath;
-  });
-
-  if (matches.length === 1) return matches[0]!.pane_id!;
-  return agentName;
+): string | null {
+  const resolvedWorkspace = workspaceId ?? findWorkspaceForProject(config).workspaceId;
+  const paneId = resolveWorkspaceAgentPaneId(config, agentName, resolvedWorkspace);
+  if (paneId) return paneId;
+  return null;
 }
 
 function sendAgentText(config: HerdrProjectConfig, target: string, text: string) {
@@ -87,6 +71,13 @@ function deliverContextWithRetry(
   attempts = 3
 ): { ok: boolean; error?: string; target?: string } {
   const target = resolveAgentSendTarget(config, agentName, workspaceId);
+  if (!target) {
+    const ws = workspaceId ?? findWorkspaceForProject(config).workspaceId ?? "?";
+    return {
+      ok: false,
+      error: `no pane for agent ${agentName} in workspace ${ws} (refuse bare agent label)`,
+    };
+  }
   let lastError = "agent send failed";
   for (let attempt = 0; attempt < attempts; attempt++) {
     if (attempt > 0) pauseSync(600);
@@ -118,6 +109,12 @@ export function syncAgentsTabContext(
   const projectPath = config.projectPath || "";
   if (!projectPath || !panes?.length) return { delivered, warnings };
 
+  const resolvedWorkspace = workspaceId ?? findWorkspaceForProject(config).workspaceId;
+  if (!resolvedWorkspace) {
+    warnings.push(`workspace not open for ${projectPath}`);
+    return { delivered, warnings };
+  }
+
   for (const pane of panes) {
     if (!pane.context?.trim() || !pane.agent) continue;
     let text = "";
@@ -133,7 +130,7 @@ export function syncAgentsTabContext(
       warnings.push(`context command for ${pane.agent} produced no output`);
       continue;
     }
-    const result = deliverContextWithRetry(config, pane.agent, text, workspaceId);
+    const result = deliverContextWithRetry(config, pane.agent, text, resolvedWorkspace);
     if (result.ok) {
       delivered.push({ agent: pane.agent, bytes: text.length });
       try {
