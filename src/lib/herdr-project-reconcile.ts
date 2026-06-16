@@ -430,7 +430,7 @@ function applyReconcileAction(
       (row) => row.agent === action.target && row.context?.trim()
     );
     if (pane) {
-      const contextSync = syncAgentsTabContext(config, [pane]);
+      const contextSync = syncAgentsTabContext(config, [pane], workspaceId);
       const warning = contextSync.warnings[0];
       if (warning) return Effect.succeed({ ok: true, warning });
     }
@@ -528,7 +528,7 @@ function applyLayoutAction(
       isAgentsTab &&
       config.agentsTab?.panes?.some((pane) => pane.context?.trim() && pane.agent)
     ) {
-      const contextSync = syncAgentsTabContext(config);
+      const contextSync = syncAgentsTabContext(config, config.agentsTab?.panes, workspaceId);
       const warning = contextSync.warnings[0];
       if (warning && contextSync.delivered.length === 0) {
         return { ok: false, warning };

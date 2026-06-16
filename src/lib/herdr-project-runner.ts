@@ -400,7 +400,7 @@ export function bootstrapHerdrProject(
   }
 
   if (config.agentsTab?.panes?.some((pane) => pane.context?.trim() && pane.agent)) {
-    const contextSync = syncAgentsTabContext(config);
+    const contextSync = syncAgentsTabContext(config, config.agentsTab?.panes, workspaceId);
     for (const row of contextSync.delivered) {
       actions.push({ action: "agent_context_delivered", agent: row.agent, bytes: row.bytes });
     }

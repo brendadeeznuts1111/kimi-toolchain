@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import type { HerdrAgentsTabPane, HerdrProjectConfig } from "./herdr-project-config.ts";
-import { herdrCliRun, resolveHerdrPanePath } from "./herdr-project-cli.ts";
+import { herdrCliJson, herdrCliRun, resolveHerdrPanePath } from "./herdr-project-cli.ts";
 
 function pauseSync(ms: number) {
   try {
@@ -31,24 +31,54 @@ export function runContextCommand(projectPath: string, command: string, timeout 
   }
 }
 
-function sendAgentText(config: HerdrProjectConfig, agent: string, text: string) {
-  return herdrCliRun(config.session, ["agent", "send", agent, text], 30_000);
+function resolveAgentSendTarget(
+  config: HerdrProjectConfig,
+  agentName: string,
+  workspaceId?: string | null
+): string {
+  const listed = herdrCliJson(config.session, ["agent", "list"]);
+  if (!listed.ok) return agentName;
+
+  const projectPath = config.projectPath || "";
+  const rows = (listed.json?.result?.agents || []) as Array<{
+    agent?: string;
+    pane_id?: string;
+    workspace_id?: string;
+    cwd?: string;
+    foreground_cwd?: string;
+  }>;
+
+  const matches = rows.filter((row) => {
+    if (row.agent !== agentName || !row.pane_id) return false;
+    if (workspaceId) return row.workspace_id === workspaceId;
+    if (!projectPath) return true;
+    return row.cwd === projectPath || row.foreground_cwd === projectPath;
+  });
+
+  if (matches.length === 1) return matches[0]!.pane_id!;
+  return agentName;
+}
+
+function sendAgentText(config: HerdrProjectConfig, target: string, text: string) {
+  return herdrCliRun(config.session, ["agent", "send", target, text], 30_000);
 }
 
 function deliverContextWithRetry(
   config: HerdrProjectConfig,
-  agent: string,
+  agentName: string,
   text: string,
+  workspaceId?: string | null,
   attempts = 3
-): { ok: boolean; error?: string } {
+): { ok: boolean; error?: string; target?: string } {
+  const target = resolveAgentSendTarget(config, agentName, workspaceId);
   let lastError = "agent send failed";
   for (let attempt = 0; attempt < attempts; attempt++) {
     if (attempt > 0) pauseSync(600);
-    const sent = sendAgentText(config, agent, text);
-    if (sent.ok) return { ok: true };
+    const sent = sendAgentText(config, target, text);
+    if (sent.ok) return { ok: true, target };
     lastError = sent.output || lastError;
   }
-  return { ok: false, error: lastError };
+  return { ok: false, error: lastError, target };
 }
 
 export interface SyncAgentsTabContextResult {
@@ -59,7 +89,8 @@ export interface SyncAgentsTabContextResult {
 /** Deliver pane.context output to running agents via `herdr agent send`. */
 export function syncAgentsTabContext(
   config: HerdrProjectConfig,
-  panes: HerdrAgentsTabPane[] | undefined = config.agentsTab?.panes
+  panes: HerdrAgentsTabPane[] | undefined = config.agentsTab?.panes,
+  workspaceId?: string | null
 ): SyncAgentsTabContextResult {
   const delivered: Array<{ agent: string; bytes: number }> = [];
   const warnings: string[] = [];
@@ -81,7 +112,7 @@ export function syncAgentsTabContext(
       warnings.push(`context command for ${pane.agent} produced no output`);
       continue;
     }
-    const result = deliverContextWithRetry(config, pane.agent, text);
+    const result = deliverContextWithRetry(config, pane.agent, text, workspaceId);
     if (result.ok) {
       delivered.push({ agent: pane.agent, bytes: text.length });
     } else {
