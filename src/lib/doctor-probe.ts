@@ -117,8 +117,14 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
       },
       {
         name: "session-report",
-        description: "Session-floor evaluation",
+        description:
+          "Session-floor evaluation (auto from effect-gates snapshots when flags omitted)",
         flags: ["--session-report"],
+      },
+      {
+        name: "watch",
+        description: "Continuous effect-gates polling; reports only on change",
+        flags: ["--watch", "--watch-interval"],
       },
       { name: "probe", description: "Capability discovery manifest", flags: ["--probe"] },
       { name: "mcp-server", description: "Start MCP stdio server", flags: ["--mcp-server"] },
@@ -186,6 +192,18 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
         name: "--all",
         type: "boolean",
         description: "Run all adapters, plugins, and effect-gates",
+        agentFacing: true,
+      },
+      {
+        name: "--watch",
+        type: "boolean",
+        description: "Poll effect-gates on an interval and print changes only",
+        agentFacing: true,
+      },
+      {
+        name: "--watch-interval",
+        type: "number",
+        description: "Seconds between watch polls (default 5)",
         agentFacing: true,
       },
     ],

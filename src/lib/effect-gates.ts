@@ -632,6 +632,35 @@ export async function readEffectGatesSnapshots(
     .filter((r): r is EffectGatesReport => r !== null && typeof r === "object");
 }
 
+/** Map effect-gates snapshot history to session-floor progress counts. */
+export function deriveSessionCountsFromSnapshots(
+  snapshots: readonly EffectGatesReport[]
+): SessionFloorCounts | null {
+  if (snapshots.length === 0) return null;
+
+  const newest = snapshots[0];
+  const oldest = snapshots[snapshots.length - 1];
+  const improved = (before: number, after: number) => Math.max(0, before - after);
+
+  return {
+    rawPromisesRemoved: improved(oldest.counts.directPromise, newest.counts.directPromise),
+    servicesMigratedToTagLayer: improved(
+      oldest.counts.missingServiceTag,
+      newest.counts.missingServiceTag
+    ),
+    domainPurityViolationsResolved: improved(
+      oldest.counts.domainPurity,
+      newest.counts.domainPurity
+    ),
+    rawErrorsConvertedToTyped: improved(
+      oldest.counts.runPromiseBoundary,
+      newest.counts.runPromiseBoundary
+    ),
+    eventEmittersConvertedToStreams: improved(oldest.counts.eventStream, newest.counts.eventStream),
+    circularLayerDependencies: newest.counts.layerCircularity,
+  };
+}
+
 /** Required session-floor counts and their hardcoded minimums. */
 export interface SessionFloorCounts {
   rawPromisesRemoved: number;

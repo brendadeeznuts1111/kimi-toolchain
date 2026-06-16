@@ -105,7 +105,10 @@ handoff = ["kimi-doctor --agent-ready"]
 avoid = ["docker", "sync daemon unless actively developing runtime tooling"]
 
 [finishWork]
-gates = ["bun run check:fast", "kimi-doctor --effect-gates"]
+gates = ["bun run check:fast", "kimi-doctor --effect-gates", "kimi-heal effect audit"]
+
+[finishWork.followUp]
+command = "kimi-doctor --session-report"
 
 [kimi]
 memoryGate = true
@@ -129,7 +132,7 @@ bootstrap = [
 
 [[herdr.tabs]]
 label = "doctor"
-command = "kimi-doctor --quick 2>/dev/null || true"
+command = "kimi-doctor --watch"
 
 [[herdr.tabs]]
 label = "shell"

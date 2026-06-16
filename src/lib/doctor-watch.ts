@@ -1,0 +1,144 @@
+/**
+ * doctor-watch.ts — Continuous effect-gates monitoring for Herdr doctor tab.
+ */
+
+import {
+  buildEffectGatesReport,
+  detectRegressions,
+  readEffectGatesSnapshots,
+  type EffectGatesReport,
+} from "./effect-gates.ts";
+import type { createLogger } from "./logger.ts";
+
+export const DOCTOR_WATCH_DEFAULT_INTERVAL_SECONDS = 5;
+
+export interface DoctorWatchSnapshot {
+  ok: boolean;
+  errors: number;
+  warnings: number;
+  total: number;
+  regressions: number;
+  generatedAt: string;
+}
+
+export function fingerprintDoctorWatch(report: EffectGatesReport, regressions: number): string {
+  const payload: DoctorWatchSnapshot = {
+    ok: report.summary.errors === 0 && regressions === 0,
+    errors: report.summary.errors,
+    warnings: report.summary.warnings,
+    total: report.summary.total,
+    regressions,
+    generatedAt: report.generatedAt,
+  };
+  return JSON.stringify(payload);
+}
+
+export function formatDoctorWatchChange(
+  report: EffectGatesReport,
+  regressions: string[]
+): string[] {
+  const lines = [
+    `effect-gates: ${report.summary.total} violation(s), ${report.summary.errors} error(s), ${report.summary.warnings} warning(s)`,
+  ];
+  if (regressions.length > 0) {
+    lines.push(`${regressions.length} regression(s):`);
+    for (const message of regressions) lines.push(`  ${message}`);
+  }
+  const sample = report.violations.slice(0, 5);
+  for (const violation of sample) {
+    const location = violation.location ? `${violation.location}: ` : "";
+    lines.push(`  [${violation.severity}] ${location}${violation.message}`);
+  }
+  if (report.violations.length > 5) {
+    lines.push(`  … +${report.violations.length - 5} more`);
+  }
+  return lines;
+}
+
+type Logger = ReturnType<typeof createLogger>;
+
+export interface DoctorWatchOptions {
+  projectRoot: string;
+  intervalSeconds?: number;
+  logger: Logger;
+  json?: boolean;
+  signal?: AbortSignal;
+}
+
+export async function runDoctorWatchOnce(projectRoot: string): Promise<{
+  report: EffectGatesReport;
+  regressions: string[];
+  fingerprint: string;
+}> {
+  const [previous] = await readEffectGatesSnapshots(projectRoot, 1);
+  const report = await buildEffectGatesReport({ projectRoot, tool: "kimi-doctor" });
+  const regressionRows = detectRegressions(report, previous ?? null);
+  const regressions = regressionRows.map((row) => row.message);
+  return {
+    report,
+    regressions,
+    fingerprint: fingerprintDoctorWatch(report, regressions.length),
+  };
+}
+
+export async function runDoctorWatchLoop(options: DoctorWatchOptions): Promise<void> {
+  const intervalSeconds = Math.max(
+    1,
+    options.intervalSeconds ?? DOCTOR_WATCH_DEFAULT_INTERVAL_SECONDS
+  );
+  const intervalMs = intervalSeconds * 1000;
+  let lastFingerprint: string | null = null;
+
+  options.logger.section("kimi-doctor — watch");
+  options.logger.line(`Polling effect-gates every ${intervalSeconds}s (Ctrl+C to stop)`);
+
+  const tick = async () => {
+    const { report, regressions, fingerprint } = await runDoctorWatchOnce(options.projectRoot);
+    if (fingerprint === lastFingerprint) return;
+    lastFingerprint = fingerprint;
+
+    const stamp = new Date().toISOString();
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({
+          schemaVersion: 1,
+          tool: "kimi-doctor",
+          mode: "watch",
+          at: stamp,
+          summary: {
+            ok: report.summary.errors === 0 && regressions.length === 0,
+            errors: report.summary.errors,
+            warnings: report.summary.warnings,
+            total: report.summary.total,
+            regressions: regressions.length,
+          },
+          violations: report.violations,
+        })}\n`
+      );
+      return;
+    }
+
+    options.logger.line(`[${stamp}]`);
+    for (const line of formatDoctorWatchChange(report, regressions)) {
+      options.logger.line(line);
+    }
+  };
+
+  await tick();
+
+  while (!options.signal?.aborted) {
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, intervalMs);
+      options.signal?.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(timer);
+          resolve();
+        },
+        { once: true }
+      );
+    });
+    if (options.signal?.aborted) break;
+    await tick();
+  }
+}

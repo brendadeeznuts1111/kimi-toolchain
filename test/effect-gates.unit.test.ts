@@ -5,6 +5,7 @@ import {
   buildEffectGatesReport,
   appendEffectGatesSnapshot,
   readEffectGatesSnapshots,
+  deriveSessionCountsFromSnapshots,
   detectRegressions,
   evaluateSessionFloor,
   EFFECT_GATES,
@@ -208,6 +209,20 @@ describe("effect-gates", () => {
     });
     expect(result.passed).toBe(false);
     expect(result.below).toContain("rawPromisesRemoved");
+  });
+
+  test("deriveSessionCountsFromSnapshots maps snapshot deltas to session floor counts", async () => {
+    const older = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
+    await writeFile(
+      join(tmpDir, "src", "leaky.ts"),
+      `export function leaky() { return fetch("/x").then((r) => r.json()); }`
+    );
+    const newer = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
+
+    const counts = deriveSessionCountsFromSnapshots([newer, older]);
+    expect(counts).not.toBeNull();
+    expect(counts!.rawPromisesRemoved).toBeGreaterThanOrEqual(0);
+    expect(counts!.circularLayerDependencies).toBe(newer.counts.layerCircularity);
   });
 
   test("persists and reads snapshots", async () => {

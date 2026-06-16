@@ -21,6 +21,15 @@ export interface FinishWorkReport {
     error: string | null;
   };
   tree: { clean: boolean; dirty: string[] };
+  followUp?: {
+    command: string;
+    ran: boolean;
+    exitCode?: number;
+    ms?: number;
+    skipped?: boolean;
+    reason?: string;
+    error?: string;
+  };
   herdr?: {
     escalated: boolean;
     reviewerPaneId?: string | null;

@@ -127,7 +127,11 @@ avoid = ["docker", "sync daemon unless actively developing the toolchain runtime
 gates = [
   "bun run check:fast",
   "kimi-doctor --effect-gates",
+  "kimi-heal effect audit",
 ]
+
+[finishWork.followUp]
+command = "kimi-doctor --session-report"
 
 [sync]
 command = "bun run sync"
@@ -169,7 +173,7 @@ bootstrap = [
 
 [[herdr.tabs]]
 label = "doctor"
-command = "kimi-doctor --quick 2>/dev/null || true"
+command = "kimi-doctor --watch"
 
 [[herdr.tabs]]
 label = "shell"

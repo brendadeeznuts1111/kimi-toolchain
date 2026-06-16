@@ -159,6 +159,32 @@ describe("effect-gates CLI", () => {
     expect(parsed.summary.missing).toContain("circularLayerDependencies");
   });
 
+  test("kimi-doctor --session-report --json auto-derives counts after effect-gates snapshots", async () => {
+    const seed = await runCli(
+      DOCTOR,
+      ["--effect-gates", "--json", "--project-root", tmpDir],
+      REPO_ROOT
+    );
+    expect(seed.exitCode).toBe(0);
+
+    const { stdout, exitCode } = await runCli(
+      DOCTOR,
+      ["--session-report", "--json", "--project-root", tmpDir],
+      REPO_ROOT
+    );
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout.trim()) as {
+      source: string;
+      summary: { passed: boolean };
+      counts: Record<string, number> | null;
+      effectGates: { summary: { ok: boolean } };
+    };
+    expect(parsed.source).toBe("effect-gates-auto");
+    expect(parsed.summary.passed).toBe(true);
+    expect(parsed.effectGates.summary.ok).toBe(true);
+    expect(parsed.counts).toBeNull();
+  });
+
   test("kimi-doctor --session-report --json passes when all floors are met", async () => {
     const { stdout, exitCode } = await runCli(
       DOCTOR,

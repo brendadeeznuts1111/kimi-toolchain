@@ -14,7 +14,7 @@ import {
   shouldEscalateToReviewer,
   type FinishWorkReport,
 } from "./finish-work-herdr.ts";
-import { loadFinishWorkConfig } from "./finish-work-config.ts";
+import { loadFinishWorkConfig, type FinishWorkFollowUp } from "./finish-work-config.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
@@ -100,6 +100,36 @@ function gateName(command: string, index: number): string {
   const trimmed = command.trim();
   const first = trimmed.split(/\s+/)[0] ?? `gate-${index + 1}`;
   return first.replace(/^bun$/, trimmed.includes("run") ? "bun-run" : "bun");
+}
+
+function followUpStepName(command: string): string {
+  const trimmed = command.trim();
+  const first = trimmed.split(/\s+/)[0] ?? "follow-up";
+  if (first.includes("doctor")) return "session-report";
+  return first.replace(/^kimi-/, "");
+}
+
+async function runFollowUpStep(
+  followUp: FinishWorkFollowUp,
+  options: { pushed: boolean; skipGit: boolean }
+) {
+  if (options.skipGit) {
+    return { command: followUp.command, ran: false, skipped: true, reason: "skip-git" };
+  }
+  if (!options.pushed) {
+    return { command: followUp.command, ran: false, skipped: true, reason: "push required" };
+  }
+  const result = await runShellGate(followUpStepName(followUp.command), followUp.command);
+  if (result.exitCode !== 0) {
+    return {
+      command: followUp.command,
+      ran: true,
+      exitCode: result.exitCode,
+      ms: result.ms,
+      error: [result.stdout, result.stderr].filter(Boolean).join("\n").trim() || "follow-up failed",
+    };
+  }
+  return { command: followUp.command, ran: true, exitCode: result.exitCode, ms: result.ms };
 }
 
 async function runShellGate(name: string, command: string): Promise<GateResult> {
@@ -193,6 +223,7 @@ async function main(): Promise<number> {
       dryRun: true,
       gateSource: config.source,
       gates: config.gates,
+      followUp: config.followUp,
       git: { skipGit: options.skipGit, message: options.message, push: options.push },
     };
     if (options.json) {
@@ -201,6 +232,13 @@ async function main(): Promise<number> {
       process.stderr.write("finish-work — dry run\n");
       process.stderr.write(`gate source: ${config.source}\n`);
       for (const gate of config.gates) process.stderr.write(`  → ${gate}\n`);
+      if (config.followUp) {
+        if (options.push && options.message && !options.skipGit) {
+          process.stderr.write(`[DRY] After push: ${config.followUp.command}\n`);
+        } else {
+          process.stderr.write("follow-up skipped — requires --message and --push\n");
+        }
+      }
       logDryGitSteps(options);
     }
     return 0;
@@ -242,6 +280,28 @@ async function main(): Promise<number> {
     }
   }
 
+  const followUpSummary = config.followUp
+    ? await runFollowUpStep(config.followUp, { pushed: git.pushed, skipGit: options.skipGit })
+    : undefined;
+
+  if (followUpSummary?.ran && followUpSummary.exitCode !== 0) {
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({
+          schemaVersion: 1,
+          tool: "finish-work",
+          ok: false,
+          failedStep: "followUp",
+          followUp: followUpSummary,
+        })}\n`
+      );
+    } else {
+      process.stderr.write("follow-up failed\n");
+      if (followUpSummary.error) process.stderr.write(`${followUpSummary.error}\n`);
+    }
+    return 1;
+  }
+
   const dirty = git.pushed ? await porcelainDirtyLines() : [];
   const tree = { clean: dirty.length === 0, dirty };
   let report: FinishWorkReport = {
@@ -257,6 +317,7 @@ async function main(): Promise<number> {
     })),
     git,
     tree,
+    followUp: followUpSummary,
   };
 
   if (shouldEscalateToReviewer(report)) {
@@ -267,6 +328,9 @@ async function main(): Promise<number> {
     process.stdout.write(`${JSON.stringify(report)}\n`);
   } else {
     process.stderr.write(`${okMark()} finish-work — gates passed\n`);
+    if (followUpSummary?.ran && followUpSummary.exitCode === 0) {
+      process.stderr.write(`follow-up passed (${followUpSummary.ms ?? 0}ms)\n`);
+    }
     if (report.outcome === "escalated") {
       process.stderr.write("warn: post-push tree dirty — escalated to reviewer pane\n");
       if (report.herdr?.reviewerPaneId) {

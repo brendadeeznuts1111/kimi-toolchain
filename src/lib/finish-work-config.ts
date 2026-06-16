@@ -5,9 +5,14 @@ import { Data, Schema } from "effect";
 
 export type FinishWorkGateSource = "finishWork" | "agents.prePush" | "default";
 
+export interface FinishWorkFollowUp {
+  command: string;
+}
+
 export interface FinishWorkConfig {
   gates: string[];
   source: FinishWorkGateSource;
+  followUp: FinishWorkFollowUp | null;
 }
 
 /** Canonical Effect discipline gate — same in scaffold templates and live dx.config.toml. */
@@ -21,6 +26,11 @@ export const FinishWorkDxConfigSchema = Schema.Struct({
   finishWork: Schema.optional(
     Schema.Struct({
       gates: Schema.optional(Schema.Array(NonEmptyString)),
+      followUp: Schema.optional(
+        Schema.Struct({
+          command: NonEmptyString,
+        })
+      ),
     })
   ),
   agents: Schema.optional(
@@ -55,31 +65,53 @@ function nonEmptyStrings(values: readonly string[] | undefined): string[] {
   return values?.filter((item) => item.length > 0) ?? [];
 }
 
-export function resolveFinishWorkGates(decoded: FinishWorkDxConfig): FinishWorkConfig {
+function resolveFollowUp(finishWork: FinishWorkDxConfig["finishWork"]): FinishWorkFollowUp | null {
+  const command = finishWork?.followUp?.command?.trim();
+  return command ? { command } : null;
+}
+
+export function resolveFinishWorkConfig(decoded: FinishWorkDxConfig): FinishWorkConfig {
   const finishGates = nonEmptyStrings(decoded.finishWork?.gates);
   if (finishGates.length > 0) {
-    return { gates: finishGates, source: "finishWork" };
+    return {
+      gates: finishGates,
+      source: "finishWork",
+      followUp: resolveFollowUp(decoded.finishWork),
+    };
   }
 
   const prePush = nonEmptyStrings(decoded.agents?.prePush);
   if (prePush.length > 0) {
-    return { gates: prePush, source: "agents.prePush" };
+    return { gates: prePush, source: "agents.prePush", followUp: null };
   }
 
-  return { gates: DEFAULT_GATES, source: "default" };
+  return { gates: DEFAULT_GATES, source: "default", followUp: null };
 }
 
+/** @deprecated Use resolveFinishWorkConfig */
+export function resolveFinishWorkGates(decoded: FinishWorkDxConfig): FinishWorkConfig {
+  return resolveFinishWorkConfig(decoded);
+}
+
+export function resolveFinishWorkConfigFromUnknown(
+  doc: unknown,
+  path = "dx.config.toml"
+): FinishWorkConfig {
+  return resolveFinishWorkConfig(decodeFinishWorkDxConfig(doc, path));
+}
+
+/** @deprecated Use resolveFinishWorkConfigFromUnknown */
 export function resolveFinishWorkGatesFromUnknown(
   doc: unknown,
   path = "dx.config.toml"
 ): FinishWorkConfig {
-  return resolveFinishWorkGates(decodeFinishWorkDxConfig(doc, path));
+  return resolveFinishWorkConfigFromUnknown(doc, path);
 }
 
 export function loadFinishWorkConfig(projectRoot: string): FinishWorkConfig {
   const path = join(projectRoot, "dx.config.toml");
   if (!existsSync(path)) {
-    return { gates: DEFAULT_GATES, source: "default" };
+    return { gates: DEFAULT_GATES, source: "default", followUp: null };
   }
 
   let doc: unknown;
@@ -92,5 +124,5 @@ export function loadFinishWorkConfig(projectRoot: string): FinishWorkConfig {
     });
   }
 
-  return resolveFinishWorkGatesFromUnknown(doc, path);
+  return resolveFinishWorkConfigFromUnknown(doc, path);
 }

@@ -60,12 +60,14 @@ import { createCli } from "../lib/cli-contract.ts";
 import {
   appendEffectGatesSnapshot,
   buildEffectGatesReport,
+  deriveSessionCountsFromSnapshots,
   detectRegressions,
   evaluateSessionFloor,
   type EffectGatesCounts,
   readEffectGatesSnapshots,
   type SessionFloorCounts,
 } from "../lib/effect-gates.ts";
+import { DOCTOR_WATCH_DEFAULT_INTERVAL_SECONDS, runDoctorWatchLoop } from "../lib/doctor-watch.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
 import { recordDoctorRun } from "../lib/doctor-runs.ts";
 import { buildDoctorProbeManifest } from "../lib/doctor-probe.ts";
@@ -116,6 +118,7 @@ const PREDICT = Bun.argv.includes("--predict");
 const CORRELATE = Bun.argv.includes("--correlate");
 const EFFECT_GATES = Bun.argv.includes("--effect-gates");
 const SESSION_REPORT = Bun.argv.includes("--session-report");
+const WATCH = Bun.argv.includes("--watch");
 const PROBE = Bun.argv.includes("--probe");
 const MCP_SERVER = Bun.argv.includes("--mcp-server");
 const ALL = Bun.argv.includes("--all");
@@ -958,15 +961,35 @@ function parseSessionReportFlag(flag: string): number | undefined {
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
-async function runSessionReportMode(): Promise<number> {
-  const counts: Partial<SessionFloorCounts> = {
-    rawPromisesRemoved: parseSessionReportFlag("--raw-promises-removed"),
-    servicesMigratedToTagLayer: parseSessionReportFlag("--services-migrated"),
-    domainPurityViolationsResolved: parseSessionReportFlag("--domain-purity-resolved"),
-    rawErrorsConvertedToTyped: parseSessionReportFlag("--raw-errors-converted"),
-    eventEmittersConvertedToStreams: parseSessionReportFlag("--event-emitters-converted"),
-    circularLayerDependencies: parseSessionReportFlag("--circular-layers"),
-  };
+const SESSION_REPORT_FLAGS = [
+  "--raw-promises-removed",
+  "--services-migrated",
+  "--domain-purity-resolved",
+  "--raw-errors-converted",
+  "--event-emitters-converted",
+  "--circular-layers",
+] as const;
+
+function sessionReportUsesManualFlags(): boolean {
+  return SESSION_REPORT_FLAGS.some((flag) => Bun.argv.includes(flag));
+}
+
+async function runSessionReportMode(projectRoot: string): Promise<number> {
+  let counts: Partial<SessionFloorCounts>;
+  let source: "manual" | "effect-gates-snapshots" = "manual";
+
+  if (sessionReportUsesManualFlags()) {
+    counts = {
+      rawPromisesRemoved: parseSessionReportFlag("--raw-promises-removed"),
+      servicesMigratedToTagLayer: parseSessionReportFlag("--services-migrated"),
+      domainPurityViolationsResolved: parseSessionReportFlag("--domain-purity-resolved"),
+      rawErrorsConvertedToTyped: parseSessionReportFlag("--raw-errors-converted"),
+      eventEmittersConvertedToStreams: parseSessionReportFlag("--event-emitters-converted"),
+      circularLayerDependencies: parseSessionReportFlag("--circular-layers"),
+    };
+  } else {
+    return runSessionReportAutoMode(projectRoot);
+  }
 
   const invalid: string[] = [];
   for (const [field, raw] of Object.entries(counts)) {
@@ -980,6 +1003,7 @@ async function runSessionReportMode(): Promise<number> {
       emitJson({
         schemaVersion: 1,
         tool: "kimi-doctor",
+        source,
         counts,
         error: message,
         summary: { passed: false, missing: invalid, below: [] },
@@ -996,6 +1020,7 @@ async function runSessionReportMode(): Promise<number> {
     emitJson({
       schemaVersion: 1,
       tool: "kimi-doctor",
+      source,
       counts,
       floor,
       summary: {
@@ -1021,6 +1046,60 @@ async function runSessionReportMode(): Promise<number> {
   }
 
   return floor.passed ? 0 : 1;
+}
+
+async function runSessionReportAutoMode(projectRoot: string): Promise<number> {
+  const source = "effect-gates-auto";
+  const [previous] = await readEffectGatesSnapshots(projectRoot, 1);
+  const current = await buildEffectGatesReport({ projectRoot, tool: "kimi-doctor" });
+  const regressionRows = detectRegressions(current, previous ?? null);
+  const gatesOk = current.summary.errors === 0 && regressionRows.length === 0;
+
+  const snapshots = await readEffectGatesSnapshots(projectRoot, 50);
+  const derived = snapshots.length >= 2 ? deriveSessionCountsFromSnapshots(snapshots) : null;
+  const floor = derived ? evaluateSessionFloor(derived) : null;
+  const passed = gatesOk && (floor?.passed ?? true);
+
+  if (JSON_OUT) {
+    emitJson({
+      schemaVersion: 1,
+      tool: "kimi-doctor",
+      source,
+      effectGates: {
+        current,
+        regressions: regressionRows,
+        summary: { ok: gatesOk },
+      },
+      counts: derived,
+      floor,
+      summary: {
+        passed,
+        missing: floor?.missing ?? [],
+        below: floor?.below ?? [],
+      },
+    });
+  } else {
+    logger.section("Session Report");
+    logger.line("Auto mode: current effect-gates scan + snapshot floor when history exists");
+    if (!gatesOk) {
+      logger.error("Effect gates failed");
+      for (const regression of regressionRows) logger.error(regression.message);
+      for (const violation of current.violations) {
+        if (violation.severity !== "error") continue;
+        const message = violation.location
+          ? `${violation.location}: ${violation.message}`
+          : violation.message;
+        logger.error(message);
+      }
+    } else if (floor && !floor.passed) {
+      logger.error("Session floor failed");
+      for (const field of floor.below) logger.error(`Below floor: ${field}`);
+    } else {
+      logger.info("Session report passed");
+    }
+  }
+
+  return passed ? 0 : 1;
 }
 
 interface AllModeSourceSummary {
@@ -1219,7 +1298,34 @@ async function main(): Promise<number> {
   }
 
   if (SESSION_REPORT) {
-    return runSessionReportMode();
+    return runSessionReportMode(projectRoot);
+  }
+
+  if (WATCH) {
+    const rawInterval = argValue("--watch-interval");
+    const parsedInterval = rawInterval
+      ? Number(rawInterval)
+      : DOCTOR_WATCH_DEFAULT_INTERVAL_SECONDS;
+    const intervalSeconds = Number.isFinite(parsedInterval)
+      ? parsedInterval
+      : DOCTOR_WATCH_DEFAULT_INTERVAL_SECONDS;
+    const controller = new AbortController();
+    const onSignal = () => controller.abort();
+    process.on("SIGINT", onSignal);
+    process.on("SIGTERM", onSignal);
+    try {
+      await runDoctorWatchLoop({
+        projectRoot,
+        intervalSeconds,
+        logger,
+        json: JSON_OUT,
+        signal: controller.signal,
+      });
+    } finally {
+      process.off("SIGINT", onSignal);
+      process.off("SIGTERM", onSignal);
+    }
+    return 0;
   }
 
   if (!JSON_OUT) {

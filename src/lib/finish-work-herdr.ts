@@ -21,6 +21,16 @@ export interface FinishWorkGitSummary {
   error: string | null;
 }
 
+export interface FinishWorkFollowUpSummary {
+  command: string;
+  ran: boolean;
+  exitCode?: number;
+  ms?: number;
+  skipped?: boolean;
+  reason?: string;
+  error?: string;
+}
+
 export interface FinishWorkReport {
   schemaVersion: 1;
   tool: "finish-work";
@@ -30,6 +40,7 @@ export interface FinishWorkReport {
   results: FinishWorkGateSummary[];
   git: FinishWorkGitSummary;
   tree: { clean: boolean; dirty: string[] };
+  followUp?: FinishWorkFollowUpSummary;
   herdr?: {
     escalated: boolean;
     reviewerPaneId?: string | null;

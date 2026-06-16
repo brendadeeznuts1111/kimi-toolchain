@@ -28,7 +28,7 @@ import {
   shouldEscalateToReviewer as shouldEscalate,
   type FinishWorkReport,
 } from "../src/lib/finish-work-herdr.ts";
-import { loadFinishWorkConfig } from "../src/lib/finish-work-config.ts";
+import { loadFinishWorkConfig, type FinishWorkFollowUp } from "../src/lib/finish-work-config.ts";
 import { inspectAgent } from "../src/lib/inspect.ts";
 import { createLogger } from "../src/lib/logger.ts";
 
@@ -103,6 +103,53 @@ async function runShellGate(name: string, command: string): Promise<GateResult> 
   return runGate(name, ["sh", "-lc", command], { cwd: REPO_ROOT });
 }
 
+function followUpStepName(command: string): string {
+  const trimmed = command.trim();
+  const first = trimmed.split(/\s+/)[0] ?? "follow-up";
+  if (first.includes("doctor")) return "session-report";
+  return first.replace(/^kimi-/, "");
+}
+
+async function runFollowUpStep(
+  followUp: FinishWorkFollowUp,
+  options: { pushed: boolean; skipGit: boolean }
+) {
+  if (options.skipGit) {
+    return {
+      command: followUp.command,
+      ran: false,
+      skipped: true,
+      reason: "skip-git",
+    };
+  }
+  if (!options.pushed) {
+    return {
+      command: followUp.command,
+      ran: false,
+      skipped: true,
+      reason: "push required",
+    };
+  }
+
+  const result = await runShellGate(followUpStepName(followUp.command), followUp.command);
+  if (result.exitCode !== 0) {
+    return {
+      command: followUp.command,
+      ran: true,
+      exitCode: result.exitCode,
+      ms: result.ms,
+      error: [result.stdout, result.stderr].filter(Boolean).join("\n").trim() || "follow-up failed",
+    };
+  }
+
+  return {
+    command: followUp.command,
+    ran: true,
+    exitCode: result.exitCode,
+    ms: result.ms,
+  };
+}
+
 async function runGitSteps(message: string, push: boolean, dryRun: boolean): Promise<GitResult> {
   const result: GitResult = {
     attempted: true,
@@ -149,6 +196,7 @@ async function main(): Promise<number> {
       dryRun: true,
       gateSource: config.source,
       gates: config.gates,
+      followUp: config.followUp,
       git: {
         skipGit: options.skipGit,
         message: options.message,
@@ -161,6 +209,13 @@ async function main(): Promise<number> {
       logger.section("finish-work — dry run");
       logger.line(`gate source: ${config.source}`);
       for (const gate of config.gates) logger.line(`  → ${gate}`);
+      if (config.followUp) {
+        if (options.push && options.message && !options.skipGit) {
+          logger.line(`[DRY] After push: ${config.followUp.command}`);
+        } else {
+          logger.line(`follow-up skipped — requires --message and --push`);
+        }
+      }
       if (!options.skipGit && options.message) {
         logger.line("[DRY] Would run: git add -u");
         logger.line(`[DRY] Would run: git commit -m ${JSON.stringify(options.message)}`);
@@ -231,6 +286,38 @@ async function main(): Promise<number> {
     }
   }
 
+  let followUpSummary = config.followUp
+    ? await runFollowUpStep(config.followUp, {
+        pushed: git.pushed,
+        skipGit: options.skipGit,
+      })
+    : undefined;
+
+  if (followUpSummary?.ran && followUpSummary.exitCode !== 0) {
+    if (options.json) {
+      process.stdout.write(
+        `${inspectAgent({
+          schemaVersion: 1,
+          tool: "finish-work",
+          ok: false,
+          gateSource: config.source,
+          failedStep: "followUp",
+          results: results.map((item) => ({
+            name: item.name,
+            exitCode: item.exitCode,
+            ms: item.ms,
+          })),
+          git,
+          followUp: followUpSummary,
+        })}\n`
+      );
+    } else {
+      logger.error("follow-up failed");
+      if (followUpSummary.error) logger.line(followUpSummary.error);
+    }
+    return 1;
+  }
+
   const totalMs = results.reduce((sum, item) => sum + item.ms, 0);
   const dirty = git.pushed ? await porcelainDirtyLines(REPO_ROOT) : [];
   const tree = { clean: dirty.length === 0, dirty };
@@ -249,6 +336,7 @@ async function main(): Promise<number> {
     })),
     git,
     tree,
+    followUp: followUpSummary,
   };
 
   if (shouldEscalate(report)) {
@@ -263,6 +351,11 @@ async function main(): Promise<number> {
       logger.info(options.push && git.pushed ? "committed and pushed" : "committed");
     } else if (!options.skipGit && !options.message) {
       logger.line("gates passed — add --message to commit");
+    }
+    if (followUpSummary?.ran && followUpSummary.exitCode === 0) {
+      logger.info(`follow-up passed (${followUpSummary.ms ?? 0}ms)`);
+    } else if (followUpSummary?.skipped && config.followUp) {
+      logger.line(`follow-up skipped — ${followUpSummary.reason}`);
     }
     if (report.outcome === "escalated") {
       logger.warn("Post-push tree dirty — escalated to reviewer pane");

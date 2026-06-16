@@ -45,6 +45,17 @@ describe("finish-work-config", () => {
     expect(config.gates).toEqual(["bun run check:fast", EFFECT_GATES_COMMAND]);
   });
 
+  test("resolveFinishWorkConfig reads [finishWork.followUp]", () => {
+    const config = resolveFinishWorkGatesFromUnknown({
+      finishWork: {
+        gates: ["bun run check:fast"],
+        followUp: { command: "kimi-doctor --session-report" },
+      },
+    });
+
+    expect(config.followUp).toEqual({ command: "kimi-doctor --session-report" });
+  });
+
   test("loadFinishWorkConfig reads dx.config.toml", () => {
     const root = join(tmpdir(), `finish-work-config-${Bun.randomUUIDv7()}`);
     mkdirSync(root, { recursive: true });
