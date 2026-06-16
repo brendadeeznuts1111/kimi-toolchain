@@ -16,6 +16,7 @@ import {
   parseHerdrTabId,
   runTabCommand,
   tabCommandStrategy,
+  type TabCommandStrategy,
 } from "./herdr-role-tab.ts";
 import {
   findWorkspaceForProject,
@@ -98,6 +99,25 @@ function normalizeLabel(label: string | undefined): string {
   return String(label || "")
     .trim()
     .toLowerCase();
+}
+
+export function profileTabByLabel(
+  tabs: HerdrProjectTab[],
+  tabLabel: string
+): HerdrProjectTab | undefined {
+  const normalized = normalizeLabel(tabLabel);
+  return tabs.find((tab) => normalizeLabel(tab.label) === normalized);
+}
+
+export function postLayoutTabCommandPlan(
+  extraTabs: HerdrProjectTab[],
+  tabLabel: string
+): { command: string; strategy: TabCommandStrategy } | null {
+  const tab = profileTabByLabel(extraTabs, tabLabel);
+  if (!tab?.command) return null;
+  const strategy = tabCommandStrategy(tab.command);
+  if (strategy !== "grok_role_agent") return null;
+  return { command: tab.command, strategy };
 }
 
 export function buildExpectedLayout(config: HerdrProjectConfig): ExpectedHerdrLayout {
@@ -392,7 +412,8 @@ export function diffOrphanTabs(
   return actions;
 }
 
-function mergeReconcileActions(
+/** Merge structural diff + layout drifts into ordered reconcile actions (testable). */
+export function planReconcileActions(
   expected: ExpectedHerdrLayout,
   snapshot: WorkspaceLayoutSnapshot,
   layoutDrifts: LayoutDrift[]
@@ -410,12 +431,16 @@ function mergeReconcileActions(
   if (layoutDrifts.length) {
     const layoutActions = layoutDriftActions(layoutDrifts).map((action) => {
       const drift = layoutDrifts.find((row) => row.tabLabel === action.target);
+      const profileTab = profileTabByLabel(expected.extraTabs, String(action.target));
+      const postApply = postLayoutTabCommandPlan(expected.extraTabs, String(action.target));
       return {
         ...action,
         detail: {
           ...action.detail,
           tabId: drift?.tabId || null,
           layout: expected.tabLayouts.find((row) => row.tabLabel === action.target),
+          command: profileTab?.command || null,
+          postApplyStrategy: postApply?.strategy || null,
         },
       };
     });
@@ -655,6 +680,25 @@ function applyLayoutAction(
       if (warning) return { ok: true, warning };
     }
 
+    const postApply = postLayoutTabCommandPlan(config.tabs || [], spec.tabLabel);
+    if (postApply) {
+      const snapshot = captureWorkspaceLayout(config.session, workspaceId);
+      const paneId = snapshot.panes
+        .filter((pane) => pane.tabId === applied.tabId)
+        .sort((a, b) => paneSortKey(a.paneId) - paneSortKey(b.paneId))[0]?.paneId;
+      const ran = runTabCommand(config, workspaceId, postApply.command, {
+        tabId: applied.tabId,
+        paneId,
+        tabLabel: spec.tabLabel,
+      });
+      if (!ran.ok) {
+        return {
+          ok: false,
+          warning: ran.output || "grok role tab start failed after layout apply",
+        };
+      }
+    }
+
     return { ok: true };
   });
 }
@@ -760,7 +804,7 @@ export function reconcileHerdrProjectEffect(
     const actual = captureWorkspaceLayout(config.session, match.workspaceId);
     const layoutDrifts = yield* collectLayoutDrifts(config, match.workspaceId, expected);
 
-    const actions = mergeReconcileActions(expected, actual, layoutDrifts);
+    const actions = planReconcileActions(expected, actual, layoutDrifts);
 
     const actionable = actions.filter((action) => action.type !== "warn");
 

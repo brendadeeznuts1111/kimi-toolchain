@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildAgentsTabLayoutTree,
+  buildExtraTabLayoutTree,
   buildIntendedTabLayouts,
   layoutTreesEqual,
   normalizeLayoutNode,
@@ -138,6 +139,20 @@ describe("herdr-project-layout", () => {
     expect(withEnv).toEqual(exported);
     expect(withEnv.command).toBe("kimi");
     expect(withEnv.label).toBe("kimi");
+  });
+
+  test("grok --role test tab defers command in layout tree for post-apply agent start", () => {
+    const root = buildExtraTabLayoutTree(
+      {
+        label: "test",
+        command: "grok --role test-agent --cwd . -- bun run scripts/test-agent.ts --watch",
+      },
+      projectPath
+    );
+    expect(root.type).toBe("pane");
+    if (root.type !== "pane") return;
+    expect(root.label).toBe("test");
+    expect(root.command).toBeUndefined();
   });
 
   test("tab commands keep an interactive shell after one-shot tab boot", () => {
