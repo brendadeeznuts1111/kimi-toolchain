@@ -87,8 +87,9 @@ describe("effect-gates", () => {
   });
 
   test("detects domain purity violations", async () => {
+    await mkdir(join(tmpDir, "src", "domain"), { recursive: true });
     await writeFile(
-      join(tmpDir, "src", "service.ts"),
+      join(tmpDir, "src", "domain", "service.ts"),
       `export function config() { return process.env.FOO; }`
     );
 
@@ -115,10 +116,10 @@ describe("effect-gates", () => {
   });
 
   test("allows Effect.runPromise inside permitted boundaries", async () => {
-    await mkdir(join(tmpDir, "src", "cli"), { recursive: true });
+    await mkdir(join(tmpDir, "src", "bin"), { recursive: true });
     await mkdir(join(tmpDir, "test"), { recursive: true });
     await writeFile(
-      join(tmpDir, "src", "cli", "run.ts"),
+      join(tmpDir, "src", "bin", "run.ts"),
       `import { Effect } from "effect"; Effect.runPromise(Effect.succeed(1));`
     );
     await writeFile(

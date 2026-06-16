@@ -135,31 +135,51 @@ function formatLocation(filePath: string, line?: number): string {
   return line !== undefined && line > 0 ? `${filePath}:${line}` : filePath;
 }
 
+interface ExcludedRange {
+  start: number;
+  end: number;
+}
+
+/** Collect ranges for comments and string/template literals so regex scanners can skip them. */
+function getExcludedRanges(sourceFile: ts.SourceFile): ExcludedRange[] {
+  const ranges: ExcludedRange[] = [];
+
+  function visit(node: ts.Node): void {
+    if (
+      ts.isStringLiteral(node) ||
+      ts.isNoSubstitutionTemplateLiteral(node) ||
+      ts.isTemplateExpression(node) ||
+      ts.isTemplateHead(node) ||
+      ts.isTemplateMiddle(node) ||
+      ts.isTemplateTail(node)
+    ) {
+      ranges.push({ start: node.getStart(sourceFile), end: node.getEnd() });
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sourceFile);
+
+  const text = sourceFile.text;
+  const commentRegex = /\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
+  for (const match of text.matchAll(commentRegex)) {
+    ranges.push({ start: match.index ?? 0, end: (match.index ?? 0) + match[0].length });
+  }
+
+  return ranges.sort((a, b) => a.start - b.start);
+}
+
+const excludedRangeCache = new WeakMap<ts.SourceFile, ExcludedRange[]>();
+
 /** Check whether a token is inside a comment or string literal. */
 function isTokenInCommentOrString(sourceFile: ts.SourceFile, position: number): boolean {
-  const scanner = ts.createScanner(
-    sourceFile.languageVersion,
-    false,
-    sourceFile.languageVariant,
-    sourceFile.text
-  );
-  let pos = 0;
-  while (pos < position) {
-    const kind = scanner.scan();
-    const start = scanner.getTokenPos();
-    const end = scanner.getTextPos();
-    if (start <= position && position < end) {
-      return (
-        kind === ts.SyntaxKind.StringLiteral ||
-        kind === ts.SyntaxKind.NoSubstitutionTemplateLiteral ||
-        kind === ts.SyntaxKind.TemplateHead ||
-        kind === ts.SyntaxKind.TemplateMiddle ||
-        kind === ts.SyntaxKind.TemplateTail ||
-        kind === ts.SyntaxKind.SingleLineCommentTrivia ||
-        kind === ts.SyntaxKind.MultiLineCommentTrivia
-      );
-    }
-    pos = end;
+  let ranges = excludedRangeCache.get(sourceFile);
+  if (!ranges) {
+    ranges = getExcludedRanges(sourceFile);
+    excludedRangeCache.set(sourceFile, ranges);
+  }
+  for (const range of ranges) {
+    if (position < range.start) return false;
+    if (position < range.end) return true;
   }
   return false;
 }
@@ -199,7 +219,13 @@ function scanDirectPromises(sourceFile: ts.SourceFile, filePath: string): Effect
  * the runtime. Library/service code should return Effects and let the CLI or
  * runtime entry unwrap them.
  */
-const RUN_PROMISE_ALLOWED_PATHS = ["src/cli/", "src/entry/", "src/runtime.ts", "test/"] as const;
+const RUN_PROMISE_ALLOWED_PATHS = [
+  "src/bin/",
+  "src/entry/",
+  "src/lib/effect/",
+  "src/runtime.ts",
+  "test/",
+] as const;
 
 /** Check whether a file path is allowed to call Effect.runPromise. */
 function isRunPromiseAllowedPath(relativePath: string): boolean {
@@ -376,11 +402,22 @@ function scanMissingServiceTags(
 
   if (!hasEffectImports || hasLayerOrTag) return [];
 
+  function extendsErrorOrTaggedError(node: ts.ClassDeclaration): boolean {
+    if (!node.heritageClauses) return false;
+    for (const clause of node.heritageClauses) {
+      if (clause.token !== ts.SyntaxKind.ExtendsKeyword) continue;
+      const heritageText = clause.types.map((t) => t.getText(sourceFile)).join(" ");
+      if (/\bError\b/.test(heritageText) || /TaggedError/.test(heritageText)) return true;
+    }
+    return false;
+  }
+
   sourceFile.forEachChild((node) => {
     if (
       ts.isClassDeclaration(node) &&
       node.name &&
-      node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
+      node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) &&
+      !extendsErrorOrTaggedError(node)
     ) {
       const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
       violations.push({
@@ -395,13 +432,14 @@ function scanMissingServiceTags(
   return violations;
 }
 
-/** Detect impure platform API usage in service files when domain purity is enabled. */
+/** Detect impure platform API usage in domain files when domain purity is enabled. */
 function scanDomainPurity(
   sourceFile: ts.SourceFile,
   filePath: string,
   thresholds: EffectGatesThresholds
 ): EffectGatesViolation[] {
   if (thresholds.domainPurityLevel === "off") return [];
+  if (!filePath.startsWith("src/domain/")) return [];
 
   const violations: EffectGatesViolation[] = [];
   const text = sourceFile.text;

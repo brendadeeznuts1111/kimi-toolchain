@@ -37,25 +37,28 @@ interface EffectGatesThresholds {
 
 `EFFECT_GATES` in `src/lib/effect-gates.ts` defines these gate identifiers (kept in sync with `error-taxonomy.yml`):
 
-| Identifier             | Scanner                  | Severity Logic                                                                                                                                          |
-| ---------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `direct-promise`       | `scanDirectPromises`     | Error by default; downgraded to `warn` when `counts.directPromise <= maxDirectPromise` and `maxDirectPromise > 0`.                                      |
-| `layer-circularity`    | `scanLayerCircularity`   | Error when `layerCircularityTolerance <= 0` and a circular relative import is detected.                                                                 |
-| `missing-service-tag`  | `scanMissingServiceTags` | Error in `strict` mode, `warn` in `gradual` mode, skipped when `off` or `serviceTagRequired === false`.                                                 |
-| `domain-purity`        | `scanDomainPurity`       | Flags `process.env`, `Bun.env`, `fs`, `child_process`, `node:fs`, `node:child_process`. Error in `strict`, warn in `gradual`, skipped when `off`.       |
-| `run-promise-boundary` | `scanRunPromiseBoundary` | Error when `runPromiseBoundaryEnabled === true` and `Effect.runPromise` is called outside allowed paths.                                                |
-| `event-stream`         | `scanEventStreams`       | Error when `eventStreamsEnabled === true` and the file is under `src/services/` and references `EventEmitter`, `CustomEmitter`, or the `events` module. |
+| Identifier             | Scanner                  | Severity Logic                                                                                                                                                                 |
+| ---------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `direct-promise`       | `scanDirectPromises`     | Error by default; downgraded to `warn` when `counts.directPromise <= maxDirectPromise` and `maxDirectPromise > 0`.                                                             |
+| `layer-circularity`    | `scanLayerCircularity`   | Error when `layerCircularityTolerance <= 0` and a circular relative import is detected.                                                                                        |
+| `missing-service-tag`  | `scanMissingServiceTags` | Error in `strict` mode, `warn` in `gradual` mode, skipped when `off` or `serviceTagRequired === false`. Classes extending `Error` or `Data.TaggedError` are excluded.          |
+| `domain-purity`        | `scanDomainPurity`       | Flags `process.env`, `Bun.env`, `fs`, `child_process`, `node:fs`, `node:child_process` in files under `src/domain/`. Error in `strict`, warn in `gradual`, skipped when `off`. |
+| `run-promise-boundary` | `scanRunPromiseBoundary` | Error when `runPromiseBoundaryEnabled === true` and `Effect.runPromise` is called outside allowed paths.                                                                       |
+| `event-stream`         | `scanEventStreams`       | Error when `eventStreamsEnabled === true` and the file is under `src/services/` and references `EventEmitter`, `CustomEmitter`, or the `events` module.                        |
 
 ### `Effect.runPromise` Boundary
 
 Allowed paths are hardcoded in `RUN_PROMISE_ALLOWED_PATHS`:
 
-- `src/cli/`
+- `src/bin/`
 - `src/entry/`
+- `src/lib/effect/`
 - `src/runtime.ts`
 - `test/`
 
 Any `Effect.runPromise` call outside these locations is a `run-promise-boundary` error when the boundary is enabled.
+
+> **Comment and string exclusion:** All regex-based scanners (`direct-promise`, `run-promise-boundary`, `domain-purity`, `event-stream`) pre-compute a set of comment and string/template-literal ranges and skip matches that fall inside them. This prevents JSDoc examples and string literals from being flagged.
 
 ### Event-Stream Boundary
 
