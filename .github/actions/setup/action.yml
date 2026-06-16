@@ -21,4 +21,8 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      run: bun install --frozen-lockfile
+      run: |
+        bun install --frozen-lockfile
+        # Ensure bun.lock mtime is not older than package.json; Bun does not
+        # rewrite the lockfile on no-op installs, but governance compares mtimes.
+        touch bun.lock
