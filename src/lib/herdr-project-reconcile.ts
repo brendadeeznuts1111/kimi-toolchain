@@ -12,6 +12,12 @@ import {
 } from "./herdr-project-layout.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";
 import {
+  parseGrokRoleTabCommand,
+  parseHerdrTabId,
+  runTabCommand,
+  tabCommandStrategy,
+} from "./herdr-role-tab.ts";
+import {
   findWorkspaceForProject,
   herdrCliJson,
   herdrCliRun,
@@ -322,11 +328,17 @@ export function diffWorkspaceLayout(
 
     const actual = snapshot.tabs.find((row) => normalizeLabel(row.label) === normalized);
     if (!actual) {
+      const command = tab.command || null;
+      const parsedRole = command ? parseGrokRoleTabCommand(command) : null;
       actions.push({
         type: "create_tab",
         target: label,
         reason: `missing tab ${label}`,
-        detail: { command: tab.command || null },
+        detail: {
+          command,
+          strategy: command ? tabCommandStrategy(command) : "pane_run",
+          role: parsedRole?.role || null,
+        },
       });
     }
   }
@@ -473,10 +485,15 @@ function applyReconcileAction(
     if (!created.ok) {
       return Effect.succeed({ ok: false, warning: created.error || "tab create failed" });
     }
+    const tabId = parseHerdrTabId(created.json);
     const paneId = parseHerdrPaneId(created.json, null);
     const command = action.detail?.command;
-    if (paneId && typeof command === "string" && command.length) {
-      const ran = paneRun(config, paneId, command);
+    if (typeof command === "string" && command.length) {
+      const ran = runTabCommand(config, workspaceId, command, {
+        tabId,
+        paneId,
+        tabLabel: action.target,
+      });
       if (!ran.ok) {
         return Effect.succeed({ ok: false, warning: ran.output || "tab command failed" });
       }
@@ -487,14 +504,19 @@ function applyReconcileAction(
   if (action.type === "run_tab_command") {
     const command = action.detail?.command;
     if (typeof command !== "string" || !command.length) return Effect.succeed({ ok: true });
+    const tabId = typeof action.target === "string" ? action.target : null;
     const panes = captureWorkspaceLayout(config.session, workspaceId).panes.filter(
-      (pane) => pane.tabId === action.target
+      (pane) => pane.tabId === tabId
     );
     const paneId = panes.sort((a, b) => paneSortKey(a.paneId) - paneSortKey(b.paneId))[0]?.paneId;
-    if (!paneId) {
+    if (!paneId && tabCommandStrategy(command) === "pane_run") {
       return Effect.succeed({ ok: false, warning: `no pane for tab ${action.target}` });
     }
-    const ran = paneRun(config, paneId, command);
+    const ran = runTabCommand(config, workspaceId, command, {
+      tabId,
+      paneId,
+      tabLabel: typeof action.detail?.label === "string" ? action.detail.label : undefined,
+    });
     return Effect.succeed(
       ran.ok ? { ok: true } : { ok: false, warning: ran.output || "tab command failed" }
     );

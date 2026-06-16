@@ -6,6 +6,7 @@ import {
   type ExpectedHerdrLayout,
   type WorkspaceLayoutSnapshot,
 } from "../src/lib/herdr-project-reconcile.ts";
+import { parseGrokRoleTabCommand } from "../src/lib/herdr-role-tab.ts";
 import { buildIntendedTabLayouts } from "../src/lib/herdr-project-layout.ts";
 import type { HerdrProjectConfig } from "../src/lib/herdr-project-config.ts";
 
@@ -16,6 +17,18 @@ function snapshot(
 ): WorkspaceLayoutSnapshot {
   return { workspaceId, tabs, panes };
 }
+
+const V2_TEST_TAB_COMMAND =
+  "grok --role test-agent --cwd . -- bun run scripts/test-agent.ts --watch";
+
+const scaffoldV2ExtraTabs = [
+  { label: "dev", command: "bun run dev" },
+  { label: "check", command: "bun run check:fast" },
+  { label: "test", command: V2_TEST_TAB_COMMAND },
+  { label: "repl", command: "bun repl" },
+  { label: "doctor", command: "kimi-doctor --quick" },
+  { label: "shell", command: "git status -sb" },
+];
 
 const toolchainExpected: ExpectedHerdrLayout = {
   agentsTabLabel: "agents",
@@ -114,6 +127,35 @@ describe("herdr-project-reconcile", () => {
     expect(actions.some((row) => row.type === "close_pane" && row.target === "w4:p7")).toBe(true);
     expect(actions.some((row) => row.reason.includes('labeled "config"'))).toBe(true);
     expect(actions.some((row) => row.type === "split_shell")).toBe(false);
+  });
+
+  test("diffWorkspaceLayout marks test tab create_tab as grok_role_agent strategy", () => {
+    const actions = diffWorkspaceLayout(
+      {
+        ...toolchainExpected,
+        extraTabs: scaffoldV2ExtraTabs,
+        tabLayouts: [],
+      },
+      snapshot(
+        "wB",
+        [{ tabId: "wB:t1C", label: "agents", paneCount: 3 }],
+        [
+          { paneId: "wB:p1W", tabId: "wB:t1C", agent: "kimi", isShell: false },
+          { paneId: "wB:p1Y", tabId: "wB:t1C", agent: null, isShell: true },
+          { paneId: "wB:p1X", tabId: "wB:t1C", agent: "codex", isShell: false },
+        ]
+      )
+    );
+
+    const testTab = actions.find((row) => row.type === "create_tab" && row.target === "test");
+    expect(testTab).toBeDefined();
+    expect(testTab?.detail?.strategy).toBe("grok_role_agent");
+    expect(testTab?.detail?.role).toBe("test-agent");
+    expect(testTab?.detail?.command).toBe(V2_TEST_TAB_COMMAND);
+    expect(parseGrokRoleTabCommand(String(testTab?.detail?.command))?.role).toBe("test-agent");
+
+    const devTab = actions.find((row) => row.type === "create_tab" && row.target === "dev");
+    expect(devTab?.detail?.strategy).toBe("pane_run");
   });
 
   test("diffOrphanTabs flags duplicate shell tabs and tabs outside profile", () => {

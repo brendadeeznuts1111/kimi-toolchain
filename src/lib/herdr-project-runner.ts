@@ -14,6 +14,7 @@ import { findWorkspaceForProject } from "./herdr-workspace-match.ts";
 
 export { findWorkspaceForProject } from "./herdr-workspace-match.ts";
 import { verifyPaneRequirements, type PaneRequirementSpec } from "./herdr-pane-requires.ts";
+import { parseHerdrTabId, runTabCommand, tabCommandStrategy } from "./herdr-role-tab.ts";
 import { homeDir } from "./paths.ts";
 
 export { herdrCliJson, herdrCliRun, resolveHerdrPanePath };
@@ -361,15 +362,25 @@ export function bootstrapHerdrProject(
       "--no-focus",
       ...(tab.label ? ["--label", String(tab.label)] : []),
     ]);
+    const tabId = parseHerdrTabId(tabCreate.json);
     const tabPaneId = parseHerdrPaneId(tabCreate.json, null);
-    if (!tabCreate.ok || !tabPaneId) {
+    if (!tabCreate.ok || (!tabPaneId && !tabId)) {
       warnings.push(`tab ${tab.label || "extra"} failed`);
       continue;
     }
-    const ran = paneRun(config, tabPaneId, String(tab.command));
+    const ran = runTabCommand(config, workspaceId, String(tab.command), {
+      tabId,
+      paneId: tabPaneId,
+      tabLabel: tab.label || undefined,
+    });
     if (!ran.ok) warnings.push(`tab command failed: ${ran.output}`);
     else
-      actions.push({ action: "tab_bootstrapped", label: tab.label || null, command: tab.command });
+      actions.push({
+        action: "tab_bootstrapped",
+        label: tab.label || null,
+        command: tab.command,
+        strategy: tabCommandStrategy(String(tab.command)),
+      });
   }
 
   const bootstrapPane = shellPaneId || rootPaneId;
