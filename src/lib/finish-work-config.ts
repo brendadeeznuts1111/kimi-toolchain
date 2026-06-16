@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { TOML } from "bun";
+import { Data, Schema } from "effect";
 
 export type FinishWorkGateSource = "finishWork" | "agents.prePush" | "default";
 
@@ -14,29 +15,59 @@ export const EFFECT_GATES_COMMAND = "kimi-doctor --effect-gates";
 
 const DEFAULT_GATES = ["bun run check:fast", EFFECT_GATES_COMMAND];
 
-function stringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === "string" && item.length > 0);
+const NonEmptyString = Schema.String.pipe(Schema.minLength(1));
+
+export const FinishWorkDxConfigSchema = Schema.Struct({
+  finishWork: Schema.optional(
+    Schema.Struct({
+      gates: Schema.optional(Schema.Array(NonEmptyString)),
+    })
+  ),
+  agents: Schema.optional(
+    Schema.Struct({
+      prePush: Schema.optional(Schema.Array(NonEmptyString)),
+    })
+  ),
+});
+
+export type FinishWorkDxConfig = Schema.Schema.Type<typeof FinishWorkDxConfigSchema>;
+
+export class FinishWorkConfigParseError extends Data.TaggedError("FinishWorkConfigParseError")<{
+  path: string;
+  message: string;
+}> {}
+
+export function decodeFinishWorkDxConfig(doc: unknown): FinishWorkDxConfig {
+  try {
+    return Schema.decodeUnknownSync(FinishWorkDxConfigSchema)(doc);
+  } catch (cause) {
+    throw new FinishWorkConfigParseError({
+      path: "dx.config.toml",
+      message: cause instanceof Error ? cause.message : String(cause),
+    });
+  }
 }
 
-export function resolveFinishWorkGates(doc: Record<string, unknown>): FinishWorkConfig {
-  const finishWork =
-    doc.finishWork && typeof doc.finishWork === "object"
-      ? (doc.finishWork as Record<string, unknown>)
-      : null;
-  const finishGates = stringArray(finishWork?.gates);
-  if (finishGates.length) {
+function nonEmptyStrings(values: readonly string[] | undefined): string[] {
+  return values?.filter((item) => item.length > 0) ?? [];
+}
+
+export function resolveFinishWorkGates(decoded: FinishWorkDxConfig): FinishWorkConfig {
+  const finishGates = nonEmptyStrings(decoded.finishWork?.gates);
+  if (finishGates.length > 0) {
     return { gates: finishGates, source: "finishWork" };
   }
 
-  const agents =
-    doc.agents && typeof doc.agents === "object" ? (doc.agents as Record<string, unknown>) : null;
-  const prePush = stringArray(agents?.prePush);
-  if (prePush.length) {
+  const prePush = nonEmptyStrings(decoded.agents?.prePush);
+  if (prePush.length > 0) {
     return { gates: prePush, source: "agents.prePush" };
   }
 
   return { gates: DEFAULT_GATES, source: "default" };
+}
+
+export function resolveFinishWorkGatesFromUnknown(doc: unknown): FinishWorkConfig {
+  return resolveFinishWorkGates(decodeFinishWorkDxConfig(doc));
 }
 
 export function loadFinishWorkConfig(projectRoot: string): FinishWorkConfig {
@@ -44,6 +75,16 @@ export function loadFinishWorkConfig(projectRoot: string): FinishWorkConfig {
   if (!existsSync(path)) {
     return { gates: DEFAULT_GATES, source: "default" };
   }
-  const doc = TOML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
-  return resolveFinishWorkGates(doc);
+
+  let doc: unknown;
+  try {
+    doc = TOML.parse(readFileSync(path, "utf8"));
+  } catch (cause) {
+    throw new FinishWorkConfigParseError({
+      path,
+      message: cause instanceof Error ? cause.message : String(cause),
+    });
+  }
+
+  return resolveFinishWorkGatesFromUnknown(doc);
 }

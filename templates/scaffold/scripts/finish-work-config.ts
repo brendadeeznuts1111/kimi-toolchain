@@ -9,6 +9,7 @@ export interface FinishWorkConfig {
   source: FinishWorkGateSource;
 }
 
+/** Slim scaffold copy — no Effect dep; live repo validates via Effect Schema in src/lib/finish-work-config.ts */
 /** Canonical Effect discipline gate — matches live finish-work-config.ts / dx.config.toml. */
 const EFFECT_GATES_COMMAND = "kimi-doctor --effect-gates";
 
