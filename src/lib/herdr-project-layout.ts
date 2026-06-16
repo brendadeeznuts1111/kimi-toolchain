@@ -76,9 +76,14 @@ function agentCommand(agent: string): string[] {
 
 function tabRunCommand(command: string): string[] {
   const path = resolveHerdrPanePath();
-  const payload = path
-    ? `export PATH="${path.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"; ${command}`
-    : command;
+  let payload = command;
+  // layout.apply panes close when their command exits; keep an interactive shell for one-shot tab commands.
+  if (!/\bexec\s/.test(command) && !/--watch\b/.test(command)) {
+    payload = `${command}; exec "\${SHELL:-/bin/bash}" -l`;
+  }
+  if (path) {
+    payload = `export PATH="${path.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"; ${payload}`;
+  }
   return ["sh", "-c", payload];
 }
 

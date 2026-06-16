@@ -140,6 +140,29 @@ describe("herdr-project-layout", () => {
     expect(withEnv.label).toBe("kimi");
   });
 
+  test("tab commands keep an interactive shell after one-shot tab boot", () => {
+    const config: HerdrProjectConfig = {
+      schemaVersion: 1,
+      enabled: true,
+      workspaceLabel: "demo",
+      primaryAgent: "kimi",
+      secondaryAgents: [],
+      shellPane: false,
+      shellSplit: "right",
+      bootstrap: [],
+      session: "",
+      agentsTab: null,
+      tabs: [{ label: "shell", command: "git status -sb; herdr-quickref" }],
+      sourcePath: "dx.config.toml",
+      projectPath,
+    };
+    const layouts = buildIntendedTabLayouts(config);
+    const root = layouts.find((row) => row.tabLabel === "shell")?.root;
+    expect(root?.type).toBe("pane");
+    if (root?.type !== "pane") return;
+    expect(root.command?.[2]).toContain('exec "${SHELL:-/bin/bash}" -l');
+  });
+
   test("layoutTreesEqual matches intended tree to layout.export shape", () => {
     const intended = buildAgentsTabLayoutTree(
       {
