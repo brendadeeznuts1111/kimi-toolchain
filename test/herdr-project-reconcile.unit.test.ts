@@ -242,7 +242,8 @@ describe("herdr-project-reconcile", () => {
         tabId: "wB:t1J",
         paneId: "wB:p24",
         tabLabel: "test",
-      }
+      },
+      { paneExists: true }
     );
     const applySequence = grokRoleTabCliSequence(
       config,
@@ -252,9 +253,11 @@ describe("herdr-project-reconcile", () => {
         tabId: "wB:t1J",
         paneId: "wB:p24",
         tabLabel: "test",
-      }
+      },
+      { paneExists: true }
     );
     expect(createSequence).toEqual(applySequence);
+    expect(createSequence?.mode).toBe("pane_run");
     expect(createSequence?.rename[3]).toBe("test-agent");
     expect(createSequence?.reportAgent).toContain("report-agent");
   });
