@@ -68,7 +68,7 @@ All items must pass on the same run date. Record command output or log excerpts 
 
 ### Orchestrator bootstrap
 
-- [ ] `herdr-project bootstrap ~/kimi-toolchain` — agents tab: kimi + shell + codex; doctor + shell + reviewer tabs present
+- [ ] `herdr-project bootstrap ~/kimi-toolchain` — agents tab: kimi + shell + codex; doctor + shell + **test** (`grok --role`) + reviewer tabs present
 - [ ] `herdr-orchestrator status ~/kimi-toolchain` — `enabled`, handoff `kimi → codex`, events `enabled`
 - [ ] Shell bootstrap started `watch-events` — `/tmp/herdr-orchestrator-events.log` exists and shows subscription / dispatch lines
 
@@ -163,7 +163,7 @@ See [CODE_REFERENCES.md](../CODE_REFERENCES.md) and [dx-config SCOPE.md](https:/
 
 ### Doc alignment confirmed
 
-- Upstream Herdr: [session-state](https://herdr.dev/docs/session-state/), [persistence-remote](https://herdr.dev/docs/persistence-remote/), [agents](https://herdr.dev/docs/agents/), [socket-api](https://herdr.dev/docs/socket-api/)
+- Upstream Herdr: [how-to-work](https://herdr.dev/docs/how-to-work/), [session-state](https://herdr.dev/docs/session-state/), [persistence-remote](https://herdr.dev/docs/persistence-remote/), [agents](https://herdr.dev/docs/agents/), [socket-api](https://herdr.dev/docs/socket-api/)
 - Machine layer: `~/dx-config/config/dx/herdr.md` (cross-checked 2026-06-16)
 - Orchestrator skill: `~/.config/agents/skills/orchestrator/SKILL.md`
 - Effect gates: [ADR-0001](adr/ADR-0001-effect-gates-baseline.md), [DEEP-QUALITY.md](../DEEP-QUALITY.md)

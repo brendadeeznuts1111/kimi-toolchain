@@ -179,5 +179,14 @@ command = "kimi-doctor --watch"
 label = "shell"
 command = "git status -sb; herdr-quickref"
 
+# Scaffold v2 — grok --role for first-class agent semantics (see ~/.config/dx/herdr.md).
+# Grok = screen manifest only; no native session restore. After server restart:
+#   herdr-project reconcile . --apply --force-layout
+# Requires scripts/test-agent.ts (copy from kimi-toolchain or add your own watcher).
+[[herdr.tabs]]
+label = "test"
+command = "grok --role test-agent --cwd . -- bun run scripts/test-agent.ts --watch"
+
+# Created on demand by finish-work when post-push tree is dirty (no static command).
 [[herdr.tabs]]
 label = "reviewer"
