@@ -552,6 +552,8 @@ jobs:
         run: bun run test:coverage:ci
 ```
 
+> **Server CI status:** For this repository, GitHub Actions is disabled because the account is locked due to a billing issue. The workflow template above is preserved for reference and for new projects, but the active enforcement surface is `bun run ci:local` and the pre-push hooks installed by `kimi-githooks install`. The disabled workflow is archived at `.github/workflows-disabled/ci.yml`.
+
 ## Tool Invocation Reference (kimi-toolchain)
 
 This example is for kimi-toolchain internals. Other projects should use their local runner/helper first and record that path in `CODE_REFERENCES.md`.

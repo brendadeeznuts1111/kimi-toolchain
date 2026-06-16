@@ -2,13 +2,29 @@
  * Scaffold completeness checks for kimi-fix doctor.
  */
 
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { REQUIRED_PACKAGE_SCRIPTS } from "./scaffold-templates.ts";
 import type { HealthCheck as DoctorCheck } from "./health-check.ts";
 
+function readDxWorkflowPath(projectDir: string): string {
+  const dxPath = join(projectDir, "dx.config.toml");
+  if (!existsSync(dxPath)) return ".github/workflows/ci.yml";
+  try {
+    const raw = Bun.TOML.parse(readFileSync(dxPath, "utf8")) as {
+      github?: { workflow?: string };
+    };
+    return raw.github?.workflow ?? ".github/workflows/ci.yml";
+  } catch {
+    return ".github/workflows/ci.yml";
+  }
+}
+
 export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [];
+
+  const workflowPath = readDxWorkflowPath(projectDir);
+  const ciDisabled = workflowPath.includes("workflows-disabled");
 
   const fileChecks: Array<{ name: string; rel: string }> = [
     { name: "AGENTS.md", rel: "AGENTS.md" },
@@ -18,7 +34,6 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
     { name: "dx.config.toml", rel: "dx.config.toml" },
     { name: "mcp.json", rel: ".kimi-code/mcp.json" },
     { name: "check.ts", rel: "scripts/check.ts" },
-    { name: "ci.yml", rel: ".github/workflows/ci.yml" },
     { name: "oxfmtrc", rel: ".oxfmtrc.json" },
     { name: "oxlintrc", rel: ".oxlintrc.json" },
   ];
@@ -32,6 +47,18 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
       fixable: !present,
     });
   }
+
+  const ciPresent = existsSync(join(projectDir, workflowPath));
+  checks.push({
+    name: "ci.yml",
+    status: ciPresent ? "ok" : ciDisabled ? "ok" : "warn",
+    message: ciPresent
+      ? `present at ${workflowPath}`
+      : ciDisabled
+        ? `disabled (server CI unavailable) — configured at ${workflowPath}`
+        : `missing — run kimi-fix`,
+    fixable: !ciPresent && !ciDisabled,
+  });
 
   const pkgPath = join(projectDir, "package.json");
   if (!existsSync(pkgPath)) {

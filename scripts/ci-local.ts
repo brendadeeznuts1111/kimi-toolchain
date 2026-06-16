@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 /**
- * Local Bun CI — mirrors .github/workflows/ci.yml quality + governance jobs.
+ * Local Bun CI — the canonical enforcement surface.
+ * Server CI is disabled; this script + pre-push hooks enforce all gates.
  *
  * Usage:
  *   bun run ci:local
@@ -29,6 +30,11 @@ const STEPS: CiStep[] = [
   { job: "quality", name: "typecheck", cmd: ["bun", "run", "typecheck"] },
   { job: "quality", name: "test:coverage:ci", cmd: ["bun", "run", "test:coverage:ci"] },
   { job: "quality", name: "test:smoke", cmd: ["bun", "run", "test:smoke"] },
+  {
+    job: "quality",
+    name: "effect-gates",
+    cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "--effect-gates"],
+  },
   {
     job: "governance",
     name: "governance-r-score",

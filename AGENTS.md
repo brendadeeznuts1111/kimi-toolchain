@@ -320,13 +320,17 @@ bun run typecheck        # TypeScript validation
 
 ### Quality gates (enforced)
 
-| Layer      | Command / hook                                                      |
-| ---------- | ------------------------------------------------------------------- |
-| Local      | `bun run check` or `bun run unify`                                  |
-| pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`) |
-| pre-push   | `check` + guardian + R-Score gate + mandatory runtime sync          |
-| CI         | `.github/workflows/ci.yml` — format:check, lint, typecheck, test    |
-| Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)    |
+| Layer      | Command / hook                                                                               |
+| ---------- | -------------------------------------------------------------------------------------------- |
+| Local      | `bun run check` or `bun run unify`                                                           |
+| pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`)                          |
+| pre-push   | `check:fast` + guardian + effect-gates + constant-drift + R-Score + mandatory runtime sync   |
+| Local CI   | `bun run ci:local` — format:check, lint, typecheck, test, coverage, effect-gates, governance |
+| Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)                             |
+
+**Server CI note:** GitHub Actions is disabled for this account due to a billing lock. Enforcement is local only: pre-push hooks and `bun run ci:local`. The disabled workflow is preserved at `.github/workflows-disabled/ci.yml` for reference.
+
+**Escape hatch:** `KIMI_SKIP_EFFECT_GATES=1` bypasses the Effect-discipline gate. Use only in emergencies and document the bypass in the commit message.
 
 Install hooks: `kimi-githooks install` or `kimi-githooks fix` to refresh outdated hooks.
 

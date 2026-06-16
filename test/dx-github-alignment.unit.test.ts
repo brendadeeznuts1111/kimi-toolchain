@@ -86,7 +86,7 @@ firstRead = ["/Users/nolarose/.config/dx/AGENTS.md", "AGENTS.md", "CODE_REFERENC
 bootstrap = ["dx setup", "dx context", "dx config --project .", "dx mcp-status", "dx cli", "dx package"]
 iterate = "bun run check:fast"
 fullValidation = "bun run check"
-prePush = ["kimi-githooks doctor", "bun run check", "kimi-guardian check", "kimi-governance score"]
+prePush = ["kimi-githooks doctor", "bun run check:fast", "kimi-guardian check", "kimi-doctor --effect-gates", "kimi-governance score"]
 handoff = ["bun run sync && bun run sync:verify", "kimi-doctor --agent-ready"]
 `;
 

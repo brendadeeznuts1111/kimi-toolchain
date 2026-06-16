@@ -336,6 +336,17 @@ The `error-taxonomy.yml` entries used by the Effect gates:
 | `kimi-doctor --session-report` fails closed on missing/invalid/below-floor values | **Closed** | Invalid input returns exit code `1` with an `error` field; floor evaluation returns `1` when `passed` is `false`.                                                                                                                    |
 | Dual `CliContractError` definitions                                               | **Closed** | Effect variant renamed to `EffectCliContractError` in `src/lib/effect/errors.ts`; fields aligned with sync `CliContractError`. See COMPLEXITY-NOTE below.                                                                            |
 
+## Enforcement Surface
+
+The Effect-discipline gates are enforced locally. Server-side GitHub Actions is disabled for this account due to a billing lock, so the active gates are:
+
+- **Pre-push hooks** (`kimi-githooks install`) — run `kimi-doctor --effect-gates` on every push, along with `check:fast`, guardian, constant-drift, R-Score, and mandatory desktop sync.
+- **Local CI** (`bun run ci:local`) — runs the full quality + governance + effect-gates pipeline on demand.
+
+`kimi-doctor --effect-gates` reads and writes `{projectRoot}/.kimi/var/effect-gates.ndjson` for regression detection. To bypass the gate in an emergency, set `KIMI_SKIP_EFFECT_GATES=1`; any bypass must be documented in the commit message.
+
+The archived server workflow is preserved at `.github/workflows-disabled/ci.yml` for reference.
+
 ## COMPLEXITY-NOTE: `CliContractError` / `EffectCliContractError`
 
 There are two representations of the same CLI-contract failure:

@@ -282,7 +282,7 @@ export async function auditEcosystemHealth(
         });
       }
       if (!dxGithub.aligned) {
-        fixPlan.push("align dx.config.toml with package.json and .github/workflows/ci.yml");
+        fixPlan.push("align dx.config.toml with package.json and the configured GitHub workflow");
       }
     }
 
