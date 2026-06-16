@@ -2,11 +2,7 @@ import { existsSync, lstatSync, readFileSync, readlinkSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { TOML } from "bun";
-import {
-  MIN_INTEGRATION_VERSIONS,
-  REQUIRED_INTEGRATIONS,
-  SPAWN_AGENTS,
-} from "./herdr-agents.ts";
+import { MIN_INTEGRATION_VERSIONS, REQUIRED_INTEGRATIONS, SPAWN_AGENTS } from "./herdr-agents.ts";
 import { homeDir } from "./paths.ts";
 
 const KNOWN_TOP_LEVEL = new Set([
@@ -98,7 +94,7 @@ function scanProjectProfiles(home = homeDir()) {
   } | null;
   const rows: Array<{ key: string; path: string; label: string }> = [];
   for (const project of projects?.topProjects || []) {
-    const path = project?.path;
+    const path = project?.path ? expand(project.path, home) : "";
     if (!path || !existsSync(path)) continue;
     const result = run("herdr-project", ["has-config", path]);
     if (result.ok) {
@@ -160,9 +156,7 @@ function lintConfig(configPath: string) {
       }
     }
   } catch (error) {
-    warnings.push(
-      `config parse failed: ${error instanceof Error ? error.message : String(error)}`
-    );
+    warnings.push(`config parse failed: ${error instanceof Error ? error.message : String(error)}`);
   }
   return warnings;
 }
@@ -259,9 +253,9 @@ export function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home = home
   if (!existsSync(worktreesDir)) warnings.push(`worktrees directory missing: ${worktreesDir}`);
 
   const integrations = manifest?.integrations as { required?: string[] } | undefined;
-  const requiredIntegrations =
-    (Array.isArray(integrations?.required) ? integrations.required : null) ||
-    [...REQUIRED_INTEGRATIONS];
+  const requiredIntegrations = (Array.isArray(integrations?.required)
+    ? integrations.required
+    : null) || [...REQUIRED_INTEGRATIONS];
   const integrationVersions = parseIntegrationVersions(integrationStatus.output);
   const installed: string[] = [];
   const missing: string[] = [];
@@ -278,7 +272,8 @@ export function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home = home
     if (min && versionNum < min) outdated.push(`${name} v${versionNum} < v${min}`);
   }
   if (missing.length) warnings.push(`integrations not current: ${missing.join(", ")}`);
-  if (outdated.length) warnings.push(`integrations below minimum for restore: ${outdated.join(", ")}`);
+  if (outdated.length)
+    warnings.push(`integrations below minimum for restore: ${outdated.join(", ")}`);
 
   const manifestStatus = checkManifests(binary);
   if (!manifestStatus.ok) {
@@ -371,24 +366,28 @@ export function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home = home
   };
 }
 
+function writeOut(line = ""): void {
+  process.stdout.write(`${line}\n`);
+}
+
 export function printHerdrDoctorHuman(report: ReturnType<typeof inspectHerdrDoctor>): void {
-  console.log("Herdr Doctor");
-  console.log(`Generated: ${report.generatedAt}`);
-  console.log("");
+  writeOut("Herdr Doctor");
+  writeOut(`Generated: ${report.generatedAt}`);
+  writeOut("");
   for (const [name, ok] of Object.entries(report.checks)) {
-    console.log(`${ok ? "PASS" : "FAIL"} ${name}`);
+    writeOut(`${ok ? "PASS" : "FAIL"} ${name}`);
   }
-  console.log("");
-  if (report.details.version) console.log(`Version: ${report.details.version}`);
-  if (report.details.binary) console.log(`Binary: ${report.details.binary}`);
-  console.log(`Config: ${report.details.configPath}`);
-  if (report.details.fixes?.length) console.log(`Fixes: ${report.details.fixes.join("; ")}`);
-  console.log("");
-  console.log(`Status: ${report.readiness.ready ? "ready" : "blocked"}`);
+  writeOut("");
+  if (report.details.version) writeOut(`Version: ${report.details.version}`);
+  if (report.details.binary) writeOut(`Binary: ${report.details.binary}`);
+  writeOut(`Config: ${report.details.configPath}`);
+  if (report.details.fixes?.length) writeOut(`Fixes: ${report.details.fixes.join("; ")}`);
+  writeOut("");
+  writeOut(`Status: ${report.readiness.ready ? "ready" : "blocked"}`);
   if (report.readiness.blockers.length) {
-    console.log(`Blockers: ${report.readiness.blockers.join("; ")}`);
+    writeOut(`Blockers: ${report.readiness.blockers.join("; ")}`);
   }
   if (report.readiness.warnings.length) {
-    console.log(`Warnings: ${report.readiness.warnings.join("; ")}`);
+    writeOut(`Warnings: ${report.readiness.warnings.join("; ")}`);
   }
 }

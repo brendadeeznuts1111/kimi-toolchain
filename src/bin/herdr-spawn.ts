@@ -4,7 +4,7 @@ import { resolveAgentArgv } from "../lib/herdr-agents.ts";
 
 const agent = process.argv[2];
 if (!agent) {
-  console.error("usage: herdr-spawn <agent> [args...]");
+  process.stderr.write("usage: herdr-spawn <agent> [args...]\n");
   process.exit(1);
 }
 

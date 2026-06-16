@@ -19,8 +19,20 @@ function parseArgs(argv: string[]) {
   return { flags, command: positionals[0] || "bootstrap", path: positionals[1] || process.cwd() };
 }
 
+function writeOut(line = ""): void {
+  process.stdout.write(`${line}\n`);
+}
+
+function writeErr(line: string): void {
+  process.stderr.write(`${line}\n`);
+}
+
+function writeJson(value: unknown): void {
+  writeOut(JSON.stringify(value, null, 2));
+}
+
 function printHelp() {
-  console.log(`herdr-project <command> [path] [flags]
+  writeOut(`herdr-project <command> [path] [flags]
 
 Commands:
   bootstrap   Create/focus project workspace and start configured agents
@@ -50,32 +62,24 @@ try {
   if (command === "has-config") {
     const ok = Boolean(configForDiscover?.enabled);
     if (flags.json) {
-      console.log(
-        JSON.stringify(
-          { ok, projectPath, configPath: configForDiscover?.sourcePath || null },
-          null,
-          2
-        )
-      );
+      writeJson({ ok, projectPath, configPath: configForDiscover?.sourcePath || null });
     }
     process.exit(ok ? 0 : 1);
   }
 
   if (command === "discover") {
     if (!configForDiscover) {
-      if (flags.json) console.log(JSON.stringify({ projectPath, config: null }, null, 2));
-      else console.log(`No Herdr project config in ${projectPath}`);
+      if (flags.json) writeJson({ projectPath, config: null });
+      else writeOut(`No Herdr project config in ${projectPath}`);
       process.exit(1);
     }
-    if (flags.json) console.log(JSON.stringify({ projectPath, config: configForDiscover }, null, 2));
+    if (flags.json) writeJson({ projectPath, config: configForDiscover });
     else {
-      console.log(`Project: ${projectPath}`);
-      console.log(`Config: ${configForDiscover.sourcePath}`);
-      console.log(`Label: ${configForDiscover.workspaceLabel || "(auto)"}`);
-      console.log(`Primary: ${configForDiscover.primaryAgent || "(none)"}`);
-      console.log(
-        `Secondary: ${(configForDiscover.secondaryAgents || []).join(", ") || "(none)"}`
-      );
+      writeOut(`Project: ${projectPath}`);
+      writeOut(`Config: ${configForDiscover.sourcePath}`);
+      writeOut(`Label: ${configForDiscover.workspaceLabel || "(auto)"}`);
+      writeOut(`Primary: ${configForDiscover.primaryAgent || "(none)"}`);
+      writeOut(`Secondary: ${(configForDiscover.secondaryAgents || []).join(", ") || "(none)"}`);
     }
     process.exit(0);
   }
@@ -83,8 +87,8 @@ try {
   if (command === "status") {
     if (!configForDiscover) {
       const payload = { projectPath, configured: false, workspaceId: null };
-      if (flags.json) console.log(JSON.stringify(payload, null, 2));
-      else console.log("No project Herdr config");
+      if (flags.json) writeJson(payload);
+      else writeOut("No project Herdr config");
       process.exit(1);
     }
     const match = findWorkspaceForProject({ ...configForDiscover, projectPath });
@@ -95,39 +99,39 @@ try {
       workspaceId: match.workspaceId,
       matchReason: match.reason,
     };
-    if (flags.json) console.log(JSON.stringify(payload, null, 2));
+    if (flags.json) writeJson(payload);
     else {
-      console.log(`Project: ${projectPath}`);
-      console.log(`Config: ${configForDiscover.sourcePath}`);
-      console.log(`Workspace: ${match.workspaceId || "(not open)"} (${match.reason})`);
+      writeOut(`Project: ${projectPath}`);
+      writeOut(`Config: ${configForDiscover.sourcePath}`);
+      writeOut(`Workspace: ${match.workspaceId || "(not open)"} (${match.reason})`);
     }
     process.exit(0);
   }
 
   if (command === "scaffold") {
     const result = scaffoldHerdrProject(projectPath, flags.force);
-    if (flags.json) console.log(JSON.stringify(result, null, 2));
-    else console.log(`${result.message}: ${result.path}`);
+    if (flags.json) writeJson(result);
+    else writeOut(`${result.message}: ${result.path}`);
     process.exit(result.ok ? 0 : 1);
   }
 
   if (command === "bootstrap") {
     if (!config?.enabled) {
       const message = `No enabled Herdr project config in ${projectPath}`;
-      if (flags.json) console.log(JSON.stringify({ ok: false, message }, null, 2));
-      else console.error(message);
+      if (flags.json) writeJson({ ok: false, message });
+      else writeErr(message);
       process.exit(1);
     }
     const report = bootstrapHerdrProject(
       { ...config, projectPath },
       { attach: flags.attach, force: flags.force }
     );
-    if (flags.json) console.log(JSON.stringify(report, null, 2));
+    if (flags.json) writeJson(report);
     else {
-      console.log(`Bootstrapped ${projectPath}`);
-      console.log(`Workspace: ${report.workspaceId || "(unknown)"}`);
-      for (const action of report.actions) console.log(`- ${action.action}`);
-      if (report.warnings.length) console.log(`Warnings: ${report.warnings.join("; ")}`);
+      writeOut(`Bootstrapped ${projectPath}`);
+      writeOut(`Workspace: ${report.workspaceId || "(unknown)"}`);
+      for (const action of report.actions) writeOut(`- ${action.action}`);
+      if (report.warnings.length) writeOut(`Warnings: ${report.warnings.join("; ")}`);
     }
     process.exit(report.readiness.ready ? 0 : 2);
   }
@@ -136,7 +140,7 @@ try {
   process.exit(2);
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
-  if (flags.json) console.log(JSON.stringify({ ok: false, error: message }, null, 2));
-  else console.error(message);
+  if (flags.json) writeJson({ ok: false, error: message });
+  else writeErr(message);
   process.exit(1);
 }

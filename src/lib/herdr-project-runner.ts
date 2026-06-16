@@ -102,7 +102,10 @@ function findShellPane(config: HerdrProjectConfig, workspaceId: string) {
   return workspacePanes(config, workspaceId).find((pane) => !isKnownAgentPane(pane)) || null;
 }
 
-function parsePaneId(payload: { result?: Record<string, unknown> } | null, fallback: string | null) {
+function parsePaneId(
+  payload: { result?: Record<string, unknown> } | null,
+  fallback: string | null
+) {
   const result = payload?.result;
   const pane = result?.pane as { pane_id?: string } | undefined;
   const rootPane = (result?.root_pane || result?.rootPane) as { pane_id?: string } | undefined;
@@ -230,7 +233,8 @@ export function bootstrapHerdrProject(
     if (config.workspaceLabel) createArgs.push("--label", config.workspaceLabel);
     const created = runJson("herdr", createArgs);
     if (!created.ok) throw new Error(created.error || "workspace create failed");
-    workspaceId = (created.json?.result?.workspace as { workspace_id?: string })?.workspace_id || null;
+    workspaceId =
+      (created.json?.result?.workspace as { workspace_id?: string })?.workspace_id || null;
     actions.push({ action: "workspace_created", workspaceId });
   }
 
@@ -240,8 +244,7 @@ export function bootstrapHerdrProject(
   if (config.primaryAgent) {
     const argv = resolveAgentArgv(config.primaryAgent);
     const already =
-      agents.ok &&
-      agentRunning(agents, config.primaryAgent, config.projectPath || "", workspaceId);
+      agents.ok && agentRunning(agents, config.primaryAgent, config.projectPath || "", workspaceId);
     if (!already) {
       const started = startAgent(config, config.primaryAgent, argv, {
         workspaceId: workspaceId || undefined,
@@ -311,12 +314,15 @@ export function bootstrapHerdrProject(
     }
     const ran = paneRun(config, tabPaneId, String(tab.command));
     if (!ran.ok) warnings.push(`tab command failed: ${ran.output}`);
-    else actions.push({ action: "tab_bootstrapped", label: tab.label || null, command: tab.command });
+    else
+      actions.push({ action: "tab_bootstrapped", label: tab.label || null, command: tab.command });
   }
 
   const bootstrapPane = shellPaneId || rootPaneId;
   if (shouldRunBootstrap) {
-    const commands = (config.bootstrap || []).filter((item) => typeof item === "string" && item.length);
+    const commands = (config.bootstrap || []).filter(
+      (item) => typeof item === "string" && item.length
+    );
     if (bootstrapPane && commands.length) {
       const script = commands.join(" && ");
       const ran = paneRun(config, bootstrapPane, script);
@@ -365,7 +371,10 @@ export function scaffoldHerdrProject(projectPath: string, force = false, home = 
   mkdirSync(targetDir, { recursive: true });
   const template = readFileSync(templatePath, "utf8");
   const projectName = projectPath.split("/").filter(Boolean).pop() || "project";
-  const body = template.replace('workspaceLabel = "my-project"', `workspaceLabel = "${projectName}"`);
+  const body = template.replace(
+    'workspaceLabel = "my-project"',
+    `workspaceLabel = "${projectName}"`
+  );
   writeFileSync(target, body, "utf8");
   return { ok: true, path: target, message: "scaffolded" };
 }

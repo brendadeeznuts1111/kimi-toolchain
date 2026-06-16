@@ -27,6 +27,7 @@ import {
   isKimiToolchainRepo,
   type WorkspaceCheck,
 } from "./workspace-health.ts";
+import { auditHerdrToolHealth } from "./herdr-tool-health.ts";
 
 export interface EcosystemCheck {
   name: string;
@@ -241,6 +242,14 @@ export async function auditEcosystemHealth(
         fixable: true,
       });
       fixPlan.push("bun run sync");
+    }
+
+    const herdrHealth = await auditHerdrToolHealth(projectRoot, home);
+    for (const check of herdrHealth.checks) {
+      checks.push(check);
+    }
+    for (const step of herdrHealth.fixPlan) {
+      if (!fixPlan.includes(step)) fixPlan.push(step);
     }
   }
 

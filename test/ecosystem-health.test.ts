@@ -50,6 +50,13 @@ describe("ecosystem-health", () => {
     expect(syncCheck?.source).toBe("sync");
   }, 15_000);
 
+  test("includes herdr tool health checks for toolchain repo", async () => {
+    const report = await auditEcosystemHealth(REPO_ROOT, { home: tmpHome, quick: true });
+    const herdrSync = report.checks.find((c) => c.name === "herdr-tools:desktop-sync");
+    expect(herdrSync).toBeDefined();
+    expect(herdrSync?.source).toBe("herdr");
+  }, 15_000);
+
   test("includes constant-optimizer check for toolchain repo", async () => {
     const report = await auditEcosystemHealth(REPO_ROOT, { home: tmpHome, quick: true });
     const optimizerCheck = report.checks.find((c) => c.name.startsWith("constant-optimizer:"));

@@ -6,5 +6,14 @@
   "semi": true,
   "singleQuote": false,
   "trailingComma": "es5",
-  "ignorePatterns": ["bun.lock", "CHANGELOG.md", ".tmp-*"]
+  "ignorePatterns": [
+    "bun.lock",
+    "CHANGELOG.md",
+    ".tmp-*",
+    "node_modules/**",
+    ".kimi-code/**",
+    ".kimi/**",
+    "coverage/**",
+    "reports/**"
+  ]
 }
