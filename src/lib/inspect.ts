@@ -19,7 +19,7 @@ export interface InspectAgentOptions {
   sorted?: boolean;
   /** Include ANSI color codes. Always false for agent output. */
   colors?: false;
-  /** Compact arrays/objects. Default false. */
+  /** Compact arrays/objects. Default true for JSONL-compatible stdout. */
   compact?: boolean;
 }
 
@@ -38,7 +38,7 @@ const DEFAULT_AGENT_OPTIONS: Required<InspectAgentOptions> = {
   depth: 8,
   sorted: true,
   colors: false,
-  compact: false,
+  compact: true,
 };
 
 const DEFAULT_HUMAN_OPTIONS: Required<InspectHumanOptions> = {
@@ -48,28 +48,59 @@ const DEFAULT_HUMAN_OPTIONS: Required<InspectHumanOptions> = {
   compact: false,
 };
 
-/**
- * Recursively build a value with sorted object keys so that JSON.stringify
- * produces deterministic output for the same input.
- */
-function sortKeys(value: unknown, depth: number, maxDepth: number): unknown {
-  if (depth > maxDepth) return value;
-  if (Array.isArray(value)) {
-    return value.map((item) => sortKeys(item, depth + 1, maxDepth));
+function serializeForAgent(
+  value: unknown,
+  depth: number,
+  maxDepth: number,
+  sorted: boolean,
+  seen: WeakSet<object>
+): unknown {
+  if (depth > maxDepth) {
+    if (Array.isArray(value)) return "[Array]";
+    if (value !== null && typeof value === "object") return "[Object]";
   }
-  if (value !== null && typeof value === "object" && !(value instanceof Date)) {
-    const sorted: Record<string, unknown> = {};
-    for (const key of Object.keys(value).sort()) {
-      sorted[key] = sortKeys((value as Record<string, unknown>)[key], depth + 1, maxDepth);
+
+  if (typeof value === "bigint") return `${value.toString()}n`;
+  if (value === null || typeof value !== "object") return value;
+  if (value instanceof Date) return value.toISOString();
+
+  if (seen.has(value)) return "[Circular]";
+  seen.add(value);
+
+  try {
+    if (Array.isArray(value)) {
+      return value.map((item) => serializeForAgent(item, depth + 1, maxDepth, sorted, seen));
     }
-    return sorted;
+
+    const keys = sorted
+      ? Object.keys(value as Record<string, unknown>).sort()
+      : Object.keys(value as Record<string, unknown>);
+    const serialized: Record<string, unknown> = {};
+    for (const key of keys) {
+      serialized[key] = serializeForAgent(
+        (value as Record<string, unknown>)[key],
+        depth + 1,
+        maxDepth,
+        sorted,
+        seen
+      );
+    }
+    return serialized;
+  } finally {
+    seen.delete(value);
   }
-  return value;
 }
 
 /**
  * Produce deterministic, structured JSON for machine consumption.
  * This is the canonical serializer for --json contracts.
+ *
+ * Guarantees:
+ * - Output is compact by default so each call emits a single JSONL line.
+ * - Object keys are sorted for deterministic diffing.
+ * - Circular references are replaced with "[Circular]".
+ * - BigInt values are serialized as strings (e.g. "42n").
+ * - Values beyond `depth` are replaced with "[Object]" / "[Array]".
  */
 export function inspectAgent(value: unknown, options: InspectAgentOptions = {}): string {
   const opts: Required<InspectAgentOptions> = {
@@ -77,8 +108,8 @@ export function inspectAgent(value: unknown, options: InspectAgentOptions = {}):
     ...options,
     colors: false,
   };
-  const sorted = opts.sorted ? sortKeys(value, 0, opts.depth) : value;
-  return JSON.stringify(sorted, null, opts.compact ? undefined : 2);
+  const serialized = serializeForAgent(value, 0, opts.depth, opts.sorted, new WeakSet());
+  return JSON.stringify(serialized, null, opts.compact ? undefined : 2);
 }
 
 /**

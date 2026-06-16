@@ -7,6 +7,7 @@
 
 import { resolve } from "path";
 import { buildDoctorProbeManifest } from "./doctor-probe.ts";
+import { inspectAgent } from "./inspect.ts";
 import { invokeCommand, type ToolInvocation } from "./tool-runner.ts";
 
 const SERVER_NAME = "kimi-doctor";
@@ -63,7 +64,7 @@ const TOOLS = [
 ];
 
 function send(msg: unknown) {
-  process.stdout.write(JSON.stringify(msg) + "\n");
+  process.stdout.write(`${inspectAgent(msg)}\n`);
 }
 
 function invalidParams(id: unknown, message: string) {

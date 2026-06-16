@@ -9,8 +9,7 @@ This document is the decision matrix for spawning subprocesses in `kimi-toolchai
 | Cross-tool calls inside the toolchain  | `invokeTool()` / `runTool()` from `src/lib/tool-runner.ts` | Raw `Bun.spawn(["bun", "run", ...])` | Bounded output, timeout, env overlay, taxonomy enrichment, and uniform `ToolInvocation` shape. |
 | One-off shell commands with piping     | `import { $ } from "bun"`                                  | `node:child_process`                 | Bun's `$` handles shell syntax, escaping, and streaming with Bun-native ergonomics.            |
 | Low-level process control              | `Bun.spawn()` / `Bun.spawnSync()`                          | `node:child_process`                 | Fine-grained control over stdio, env, and lifecycle.                                           |
-| Resource-limited or governed execution | `governedSpawn()` from `src/bin/kimi-resource-governor.ts` | Unbounded raw spawn                  | Enforces memory/CPU/time budgets and global spawn limits.                                      |
-| Simple command execution from lib code | `shellCommand()` (where available)                         | Reaching for `$` directly            | Keeps shell invocation centralized and testable.                                               |
+| Resource-limited or governed execution | `governedSpawn()` from `src/lib/governor-spawn.ts`         | Unbounded raw spawn                  | Enforces memory/CPU/time budgets and global spawn limits.                                      |
 
 ## Rules
 

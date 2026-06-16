@@ -109,7 +109,7 @@ async function main() {
 
       // The stdout-stringify rule applies only to src/lib; CLI tools may still
       // emit formatted JSON directly when that is their explicit contract.
-      if (rel.startsWith("lib/")) {
+      if (rel.startsWith("src/lib/")) {
         for (const _ of line.matchAll(stringifyStdoutRegex)) {
           violations.push({
             file: rel,

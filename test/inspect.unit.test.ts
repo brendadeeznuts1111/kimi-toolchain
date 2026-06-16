@@ -48,6 +48,52 @@ describe("inspect", () => {
       expect(output).toContain("info");
       expect(output).toContain("ok");
     });
+
+    test("defaults to compact JSONL-compatible output", () => {
+      const output = inspectAgent({ a: 1, b: 2 });
+      expect(output).not.toContain("\n");
+      expect(JSON.parse(output)).toEqual({ a: 1, b: 2 });
+    });
+
+    test("pretty-prints when compact is false", () => {
+      const output = inspectAgent({ a: 1 }, { compact: false });
+      expect(output).toContain("\n");
+      expect(JSON.parse(output)).toEqual({ a: 1 });
+    });
+
+    test("serializes BigInt values as strings", () => {
+      const output = inspectAgent({ value: 9007199254740993n });
+      expect(output).toContain('"9007199254740993n"');
+      expect(JSON.parse(output)).toEqual({ value: "9007199254740993n" });
+    });
+
+    test("replaces circular references with [Circular]", () => {
+      const obj: Record<string, unknown> = { a: 1 };
+      obj.self = obj;
+      const output = inspectAgent(obj);
+      expect(output).toContain('"self":"[Circular]"');
+      expect(JSON.parse(output)).toEqual({ a: 1, self: "[Circular]" });
+    });
+
+    test("truncates values beyond depth", () => {
+      const obj = { level1: { level2: { level3: { level4: { keep: true } } } } };
+      const output = inspectAgent(obj, { depth: 2 });
+      const parsed = JSON.parse(output) as Record<string, unknown>;
+      const level1 = parsed.level1 as Record<string, unknown>;
+      const level2 = level1.level2 as Record<string, unknown>;
+      expect(level2.level3).toBe("[Object]");
+    });
+
+    test("always disables colors regardless of caller option", () => {
+      const output = inspectAgent({ color: "red" }, { colors: false });
+      expect(output).not.toContain("\u001b[");
+    });
+
+    test("serializes dates as ISO strings", () => {
+      const date = new Date("2024-01-15T00:00:00.000Z");
+      const output = inspectAgent({ date });
+      expect(JSON.parse(output)).toEqual({ date: "2024-01-15T00:00:00.000Z" });
+    });
   });
 
   describe("inspectHuman", () => {
