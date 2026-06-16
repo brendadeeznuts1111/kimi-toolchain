@@ -33,6 +33,10 @@ KIMI_TUNING_SET_VERSION = '"1.2.0"'
 preload = ["./test/setup.ts"]
 # *.db.test.ts excluded — DB tests mutate shared state and must run sequentially
 concurrentTestGlob = ["test/*.unit.test.ts"]
+# Reduce noise in human and agent output; failures are still surfaced.
+onlyFailures = true
+bail = true
+timeout = "5s"
 coverageSkipTestFiles = true
 coveragePathIgnorePatterns = [
   "scripts/**",
