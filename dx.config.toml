@@ -178,7 +178,8 @@ label = "agents"
 [[herdr.agentsTab.panes]]
 role = "primary"
 agent = "kimi"
-context = "kimi-doctor --workspace-context --brief"
+# Repo-local bun until ~/.kimi-code effect-gates resolves typescript on PATH doctor.
+context = "bun src/bin/kimi-doctor.ts --workspace-context --brief --project-root ."
 # ratio = 0.6  # advisory — runner does not pass --ratio yet
 
 [[herdr.agentsTab.panes]]
@@ -190,7 +191,7 @@ split = "right"
 role = "secondary"
 agent = "codex"
 split = "right"
-context = "kimi-doctor --workspace-context --brief"
+context = "bun src/bin/kimi-doctor.ts --workspace-context --brief --project-root ."
 
 [[herdr.tabs]]
 label = "doctor"
