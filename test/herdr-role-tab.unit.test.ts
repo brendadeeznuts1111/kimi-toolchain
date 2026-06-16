@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import {
   buildGrokRolePaneRunArgs,
   buildGrokRoleTabStartSteps,
@@ -200,5 +200,37 @@ describe("herdr-role-tab", () => {
       "--custom-status",
       "test",
     ]);
+  });
+
+  test("startGrokRoleTabAgent fails when pane run fails without agent start fallback", () => {
+    const execCli = mock((cmd: string, args: string[] = []) => {
+      if (cmd === "herdr" && args.includes("pane") && args.includes("run")) {
+        return { ok: false, output: "", code: 1 };
+      }
+      return { ok: true, output: "" };
+    });
+    const execCliJson = mock(() => ({
+      ok: false as const,
+      error: "agent start should not run",
+      json: null,
+    }));
+
+    const config = baseConfig();
+    const result = startGrokRoleTabAgent(
+      config,
+      "wB",
+      V2_TEST_COMMAND,
+      { paneId: "wB:p5N", tabLabel: "test" },
+      { execCli, execCliJson }
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain("pane run failed");
+    expect(execCli).toHaveBeenCalledWith(
+      "herdr",
+      expect.arrayContaining(["pane", "run", "wB:p5N"])
+    );
+    expect(execCli).not.toHaveBeenCalledWith("herdr", expect.arrayContaining(["agent", "start"]));
+    expect(execCliJson).not.toHaveBeenCalled();
   });
 });

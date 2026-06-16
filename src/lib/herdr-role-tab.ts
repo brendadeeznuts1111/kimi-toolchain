@@ -364,19 +364,33 @@ function paneRunCommand(config: HerdrProjectConfig, paneId: string, command: str
   return herdrCliRun(config.session, ["pane", "run", paneId, buildGrokRolePaneRunPayload(command)]);
 }
 
+export type HerdrRoleTabCliDeps = {
+  execCli?: typeof execCli;
+  execCliJson?: typeof execCliJson;
+};
+
+function resolveHerdrRoleTabCliDeps(deps: HerdrRoleTabCliDeps = {}) {
+  return {
+    execCli: deps.execCli ?? execCli,
+    execCliJson: deps.execCliJson ?? execCliJson,
+  };
+}
+
 function finalizeGrokRolePane(
   config: HerdrProjectConfig,
   plan: RoleTabAgentPlan,
-  paneId: string
+  paneId: string,
+  deps: HerdrRoleTabCliDeps = {}
 ): { ok: boolean; output?: string } {
+  const cli = resolveHerdrRoleTabCliDeps(deps);
   const session = config.session?.trim() || undefined;
   if (plan.renameTo) {
-    const renamed = execCli("herdr", buildGrokRoleRenameArgs(session, paneId, plan.renameTo));
+    const renamed = cli.execCli("herdr", buildGrokRoleRenameArgs(session, paneId, plan.renameTo));
     if (!renamed.ok) return { ok: false, output: renamed.output || "agent rename failed" };
   }
 
   if (plan.reportAgent) {
-    const reported = execCli(
+    const reported = cli.execCli(
       "herdr",
       buildGrokRoleReportAgentArgs(session, paneId, plan.reportAgent)
     );
@@ -390,8 +404,10 @@ export function startGrokRoleTabAgent(
   config: HerdrProjectConfig,
   workspaceId: string,
   command: string,
-  target: RunTabCommandTarget = {}
+  target: RunTabCommandTarget = {},
+  deps: HerdrRoleTabCliDeps = {}
 ): { ok: boolean; paneId?: string | null; output?: string } {
+  const cli = resolveHerdrRoleTabCliDeps(deps);
   const plan = planGrokRoleTabAgent(config, command, { tabLabel: target.tabLabel });
   if (!plan) return { ok: false, output: "not a grok --role tab command" };
 
@@ -399,15 +415,15 @@ export function startGrokRoleTabAgent(
   if (!steps) return { ok: false, output: "not a grok --role tab command" };
 
   if (steps.mode === "pane_run" && steps.paneId) {
-    const ran = execCli("herdr", steps.start);
+    const ran = cli.execCli("herdr", steps.start);
     if (!ran.ok) return { ok: false, output: ran.output || "pane run failed" };
-    const finalized = finalizeGrokRolePane(config, plan, steps.paneId);
+    const finalized = finalizeGrokRolePane(config, plan, steps.paneId, deps);
     return finalized.ok
       ? { ok: true, paneId: steps.paneId }
       : { ok: false, output: finalized.output };
   }
 
-  const started = execCliJson("herdr", steps.start);
+  const started = cli.execCliJson("herdr", steps.start);
   if (!started.ok) {
     return { ok: false, output: started.error || "agent start failed" };
   }
@@ -415,7 +431,7 @@ export function startGrokRoleTabAgent(
   const paneId = parseHerdrPaneId(started.json, null);
   if (!paneId) return { ok: false, output: "agent start missing pane_id" };
 
-  const finalized = finalizeGrokRolePane(config, plan, paneId);
+  const finalized = finalizeGrokRolePane(config, plan, paneId, deps);
   return finalized.ok ? { ok: true, paneId } : { ok: false, output: finalized.output };
 }
 

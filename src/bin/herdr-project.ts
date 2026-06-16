@@ -2,6 +2,7 @@
 import { Effect } from "effect";
 import { discoverHerdrProjectConfig } from "../lib/herdr-project-config.ts";
 import { reconcileHerdrProjectEffect } from "../lib/herdr-project-reconcile.ts";
+import { requireSessionRunning } from "../lib/herdr-session-preflight.ts";
 import {
   bootstrapHerdrProject,
   findWorkspaceForProject,
@@ -31,6 +32,21 @@ function writeOut(line = ""): void {
 
 function writeErr(line: string): void {
   process.stderr.write(`${line}\n`);
+}
+
+interface ReconcileCliFlags {
+  apply: boolean;
+  closeOrphans: boolean;
+  fixAgents: boolean;
+  forceLayout: boolean;
+}
+
+function resolveReconcileFlags(flags: ReconcileCliFlags): ReconcileCliFlags {
+  if (flags.forceLayout && !flags.closeOrphans) {
+    writeErr("[reconcile] --force-layout implies --close-orphans");
+    return { ...flags, closeOrphans: true };
+  }
+  return flags;
 }
 
 function writeJson(value: unknown): void {
@@ -133,16 +149,15 @@ try {
       else writeErr(message);
       process.exit(1);
     }
+    await requireSessionRunning(config.session);
+    const reconcileFlags = resolveReconcileFlags({
+      apply: flags.apply,
+      closeOrphans: flags.closeOrphans,
+      fixAgents: flags.fixAgents,
+      forceLayout: flags.forceLayout,
+    });
     const report = await Effect.runPromise(
-      reconcileHerdrProjectEffect(
-        { ...config, projectPath },
-        {
-          apply: flags.apply,
-          closeOrphans: flags.closeOrphans,
-          fixAgents: flags.fixAgents,
-          forceLayout: flags.forceLayout,
-        }
-      )
+      reconcileHerdrProjectEffect({ ...config, projectPath }, reconcileFlags)
     );
     if (flags.json) writeJson(report);
     else {
@@ -175,6 +190,7 @@ try {
       else writeErr(message);
       process.exit(1);
     }
+    await requireSessionRunning(config.session);
     const report = bootstrapHerdrProject(
       { ...config, projectPath },
       { attach: flags.attach, force: flags.force }
