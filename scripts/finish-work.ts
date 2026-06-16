@@ -29,6 +29,7 @@ import {
   runDoctorPaneGate,
   shouldEscalateToReviewer as shouldEscalate,
   shouldRunGateInDoctorPane,
+  shouldSkipFinishWorkFollowUp,
   type DoctorPaneGateResult,
   type FinishWorkGateSummary,
   type FinishWorkReport,
@@ -140,22 +141,15 @@ function followUpStepName(command: string): string {
 
 async function runFollowUpStep(
   followUp: FinishWorkFollowUp,
-  options: { pushed: boolean; skipGit: boolean }
+  options: { pushed: boolean; skipGit: boolean; treeClean: boolean }
 ) {
-  if (options.skipGit) {
+  const skip = shouldSkipFinishWorkFollowUp(options);
+  if (skip.skip) {
     return {
       command: followUp.command,
       ran: false,
       skipped: true,
-      reason: "skip-git",
-    };
-  }
-  if (!options.pushed) {
-    return {
-      command: followUp.command,
-      ran: false,
-      skipped: true,
-      reason: "push required",
+      reason: skip.reason,
     };
   }
 
@@ -338,6 +332,7 @@ async function main(): Promise<number> {
     ? await runFollowUpStep(config.followUp, {
         pushed: git.pushed,
         skipGit: options.skipGit,
+        treeClean: tree.clean,
       })
     : undefined;
 

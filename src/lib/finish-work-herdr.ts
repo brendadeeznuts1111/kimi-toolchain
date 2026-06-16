@@ -161,6 +161,17 @@ export function shouldRunGateInDoctorPane(command: string): boolean {
   );
 }
 
+export function shouldSkipFinishWorkFollowUp(options: {
+  skipGit: boolean;
+  pushed: boolean;
+  treeClean: boolean;
+}): { skip: boolean; reason?: string } {
+  if (options.skipGit) return { skip: true, reason: "skip-git" };
+  if (!options.pushed) return { skip: true, reason: "push required" };
+  if (!options.treeClean) return { skip: true, reason: "dirty tree escalated" };
+  return { skip: false };
+}
+
 export async function resolveTabPrimaryPane(
   workspaceId: string,
   tabLabel: string,

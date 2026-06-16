@@ -415,7 +415,7 @@ bootstrap = [
 
 [[herdr.tabs]]
 label = "doctor"
-command = "kimi-doctor --quick 2>/dev/null || true"
+command = "kimi-doctor --watch"
 
 [[herdr.tabs]]
 label = "shell"

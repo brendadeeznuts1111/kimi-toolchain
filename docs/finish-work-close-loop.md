@@ -52,11 +52,11 @@ flowchart TD
 
 ### Stages
 
-1. **Gates** — `[finishWork].gates` (default: `check:fast`, `kimi-doctor --effect-gates`, `kimi-heal effect audit`). Any non-zero exit → stop, exit 1.
+1. **Gates** — `[finishWork].gates` (default: `check:fast`, `kimi-doctor --effect-gates`, `kimi-heal effect audit`). Any non-zero exit → stop, exit 1. When `HERDR_ENV=1`, `kimi-heal effect audit` runs in the **doctor tab pane** via `herdr pane run` (hard-fail if doctor tab missing; no local fallback). Other gates stay local.
 2. **Git** — `git add -u` (tracked modifications only), `git commit -m`, optional `git push`. Requires `--message`; use `--skip-git` to gate-only.
 3. **Dirty-tree check** — `porcelainDirtyLines()` after a successful push. Untracked and modified paths both count.
 4. **Escalation** — if pushed and tree not clean (`outcome: escalated`). Runs **before** followUp.
-5. **followUp** — `[finishWork.followUp].command` (default: `kimi-doctor --effect-floor`). Failure does **not** override `escalated` outcome.
+5. **followUp** — `[finishWork.followUp].command` (default: `kimi-doctor --effect-floor`). Skipped when post-push tree is dirty (escalation path). Failure does **not** override `escalated` outcome.
 6. **Workspace metadata** — `emitWorkspaceUpdatedMetadata()` only when outcome is **not** `escalated`. Triggers orchestrator `context-sync` on clean closes.
 
 ---
@@ -172,6 +172,8 @@ allowlist = ["workspace.updated", "pane.agent_status_changed", "effect.gates.cha
 ```
 
 Reviewer tab: `[[herdr.tabs]]` with `label = "reviewer"` (or `[herdr.orchestrator].reviewerTab = "reviewer"`).
+
+Doctor tab (gate routing): `[[herdr.tabs]]` with `label = "doctor"`, `command = "kimi-doctor --watch"` (or `[herdr.orchestrator].doctorTab = "doctor"`). Optional overrides: `HERDR_DOCTOR_PANE_ID` (tests), `KIMI_FINISH_WORK_LOCAL_GATES=1` (force local gates).
 
 ---
 

@@ -12,6 +12,7 @@ import {
   shouldEscalateToReviewer,
   shouldRouteGateThroughDoctor,
   shouldRunGateInDoctorPane,
+  shouldSkipFinishWorkFollowUp,
   type FinishWorkHerdrDeps,
   type FinishWorkReport,
 } from "../src/lib/finish-work-herdr.ts";
@@ -70,6 +71,15 @@ describe("finish-work-herdr", () => {
         })
       )
     ).toBe(false);
+  });
+
+  test("shouldSkipFinishWorkFollowUp skips effect-floor on dirty post-push tree", () => {
+    expect(
+      shouldSkipFinishWorkFollowUp({ skipGit: false, pushed: true, treeClean: false })
+    ).toEqual({ skip: true, reason: "dirty tree escalated" });
+    expect(shouldSkipFinishWorkFollowUp({ skipGit: false, pushed: true, treeClean: true })).toEqual(
+      { skip: false }
+    );
   });
 
   test("shouldRouteGateThroughDoctor matches kimi-heal effect audit only", () => {

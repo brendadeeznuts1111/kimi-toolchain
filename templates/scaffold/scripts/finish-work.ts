@@ -111,13 +111,21 @@ function followUpStepName(command: string): string {
 
 async function runFollowUpStep(
   followUp: FinishWorkFollowUp,
-  options: { pushed: boolean; skipGit: boolean }
+  options: { pushed: boolean; skipGit: boolean; treeClean: boolean }
 ) {
   if (options.skipGit) {
     return { command: followUp.command, ran: false, skipped: true, reason: "skip-git" };
   }
   if (!options.pushed) {
     return { command: followUp.command, ran: false, skipped: true, reason: "push required" };
+  }
+  if (!options.treeClean) {
+    return {
+      command: followUp.command,
+      ran: false,
+      skipped: true,
+      reason: "dirty tree escalated",
+    };
   }
   const result = await runShellGate(followUpStepName(followUp.command), followUp.command);
   if (result.exitCode !== 0) {
@@ -281,7 +289,11 @@ async function main(): Promise<number> {
   }
 
   const followUpSummary = config.followUp
-    ? await runFollowUpStep(config.followUp, { pushed: git.pushed, skipGit: options.skipGit })
+    ? await runFollowUpStep(config.followUp, {
+        pushed: git.pushed,
+        skipGit: options.skipGit,
+        treeClean: tree.clean,
+      })
     : undefined;
 
   if (followUpSummary?.ran && followUpSummary.exitCode !== 0) {
