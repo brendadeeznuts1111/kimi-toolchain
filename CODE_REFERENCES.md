@@ -4,20 +4,21 @@ This file points future agents at local examples that define the code style for 
 
 ## Core Defaults
 
-| Need                          | Reference                              | Follow                                                                                      |
-| ----------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Cross-tool subprocess calls   | `src/lib/tool-runner.ts`               | Use `invokeTool()` / `runTool()`, bounded output, timeout, env overlay, taxonomy enrichment |
-| Effect wrapper for tool calls | `src/lib/effect/tool-runner-effect.ts` | Convert runner results to typed Effect failures at the boundary                             |
-| CLI exit handling             | `src/lib/effect/cli-runtime.ts`        | Wrap CLI mains in `runCliExit()` and map failures to exit codes centrally                   |
-| Tagged errors                 | `src/lib/effect/errors.ts`             | Use `Data.TaggedError` for typed, inspectable failures                                      |
-| CLI argument/output contract  | `src/lib/cli-contract.ts`              | Parse common flags with env fallbacks; write JSON to stdout and human text to stderr        |
-| Structured logging            | `src/lib/logger.ts`                    | Use `createCli(Bun.argv, toolName).logger` or `logger.check()` for health reports           |
-| Health report shape           | `src/lib/health-check.ts`              | Return `{ name, status, message, fixable }` checks and aggregate once                       |
-| Path ownership                | `src/lib/paths.ts`                     | Use helpers for `~/.kimi-code`, `~/.agents`, and runtime paths                              |
-| Build-time tuning constants   | `bunfig.toml` `[define]`               | SSOT — `KIMI_*` globals grouped by `# define-domain:` (separate from taxonomyId)            |
-| Safe parsing                  | `src/lib/utils.ts`                     | Use `safeParse()` / `safeToml()` with validators at config boundaries                       |
-| Success metric gates          | `src/lib/success-metrics.ts`           | Keep drift, taxonomy coverage, and provider agility measurable in CI                        |
-| Provider contracts            | `src/lib/provider-contract.ts`         | Add providers with a contract declaration plus a thin credential adapter only               |
+| Need                            | Reference                               | Follow                                                                                      |
+| ------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Cross-tool subprocess calls     | `src/lib/tool-runner.ts`                | Use `invokeTool()` / `runTool()`, bounded output, timeout, env overlay, taxonomy enrichment |
+| Effect wrapper for tool calls   | `src/lib/effect/tool-runner-effect.ts`  | Convert runner results to typed Effect failures at the boundary                             |
+| Effect wrapper for CLI contract | `src/lib/effect/cli-contract-effect.ts` | Parse flags and route output as typed Effects without throwing                              |
+| CLI exit handling               | `src/lib/effect/cli-runtime.ts`         | Wrap CLI mains in `runCliExit()` and map failures to exit codes centrally                   |
+| Tagged errors                   | `src/lib/effect/errors.ts`              | Use `Data.TaggedError` for typed, inspectable failures                                      |
+| CLI argument/output contract    | `src/lib/cli-contract.ts`               | Parse common flags with env fallbacks; write JSON to stdout and human text to stderr        |
+| Structured logging              | `src/lib/logger.ts`                     | Use `createCli(Bun.argv, toolName).logger` or `logger.check()` for health reports           |
+| Health report shape             | `src/lib/health-check.ts`               | Return `{ name, status, message, fixable }` checks and aggregate once                       |
+| Path ownership                  | `src/lib/paths.ts`                      | Use helpers for `~/.kimi-code`, `~/.agents`, and runtime paths                              |
+| Build-time tuning constants     | `bunfig.toml` `[define]`                | SSOT — `KIMI_*` globals grouped by `# define-domain:` (separate from taxonomyId)            |
+| Safe parsing                    | `src/lib/utils.ts`                      | Use `safeParse()` / `safeToml()` with validators at config boundaries                       |
+| Success metric gates            | `src/lib/success-metrics.ts`            | Keep drift, taxonomy coverage, and provider agility measurable in CI                        |
+| Provider contracts              | `src/lib/provider-contract.ts`          | Add providers with a contract declaration plus a thin credential adapter only               |
 
 Success metrics are expected to evolve. If a threshold changes, update the
 release cadence, justification, and failure-ledger evidence in
@@ -31,6 +32,7 @@ Good local examples:
 
 - `src/lib/effect/cli-runtime.ts` for CLI main lifecycle and telemetry `ensuring`.
 - `src/lib/effect/tool-runner-effect.ts` for adapting Promise-based subprocess work to typed failures.
+- `src/lib/effect/cli-contract-effect.ts` for CLI flag parsing and output routing in Effect pipelines.
 - `src/lib/doctor-pipeline.ts` for `Effect.all` parallel doctor aggregation.
 - `src/bin/kimi-toolchain.ts` for a thin CLI main that delegates to `runCliExit()`.
 
@@ -150,6 +152,7 @@ Do not import packages that are not declared in `package.json`. In this repo tha
 | Tool runner behavior     | `test/tool-runner.unit.test.ts`                          |
 | Effect CLI lifecycle     | `test/effect/cli-runtime.unit.test.ts`                   |
 | Effect tool failures     | `test/effect/tool-runner-effect.unit.test.ts`            |
+| Effect CLI contract      | `test/effect/cli-contract-effect.unit.test.ts`           |
 | Config merge/idempotency | `test/mcp-config.unit.test.ts`                           |
 | Policy parser/diff       | `test/cloudflare-access-policy.unit.test.ts`             |
 | Scaffold agent output    | `test/scaffold-agents.unit.test.ts`                      |
