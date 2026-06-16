@@ -39,6 +39,8 @@ export const DX_CONFIG_TOOLCHAIN_TEMPLATE = loadTemplate("dx.config.toolchain.to
 
 export const FINISH_WORK_CONFIG_TEMPLATE = loadTemplate("scripts/finish-work-config.ts");
 export const FINISH_WORK_TEMPLATE = loadTemplate("scripts/finish-work.ts");
+export const FINISH_WORK_HERDR_TEMPLATE = loadTemplate("scripts/finish-work-herdr.ts");
+export const REVIEWER_PANE_TEMPLATE = loadTemplate("scripts/reviewer-pane.ts");
 
 function parseProfileValue(value: string | undefined): ScaffoldProfile {
   if (!value || value.startsWith("-")) {
@@ -93,8 +95,8 @@ export function detectProfileDrift(projectRoot: string, profile: ScaffoldProfile
 
   if (profile === "toolchain") {
     const missing: string[] = [];
-    if (!existsSync(join(projectRoot, "scripts", "finish-work.ts"))) {
-      missing.push("scripts/finish-work.ts");
+    for (const script of ["scripts/finish-work.ts", "scripts/reviewer-pane.ts"]) {
+      if (!existsSync(join(projectRoot, script))) missing.push(script);
     }
     if (missing.length > 0) {
       return (
@@ -150,4 +152,9 @@ export function packageScriptEntriesForProfile(profile: ScaffoldProfile): Record
   return {};
 }
 
-export const TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES = ["finish-work-config.ts", "finish-work.ts"] as const;
+export const TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES = [
+  "finish-work-config.ts",
+  "finish-work-herdr.ts",
+  "finish-work.ts",
+  "reviewer-pane.ts",
+] as const;

@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
   FINISH_WORK_CONFIG_TEMPLATE,
+  FINISH_WORK_HERDR_TEMPLATE,
   FINISH_WORK_TEMPLATE,
+  REVIEWER_PANE_TEMPLATE,
   renderDxConfig,
 } from "../src/lib/scaffold-profiles.ts";
 import { injectMissingScripts } from "../src/lib/scaffold-quality.ts";
@@ -48,13 +50,19 @@ describe("kimi-fix-profiles profile artifacts", () => {
       join(projectRoot, "scripts", "finish-work-config.ts"),
       FINISH_WORK_CONFIG_TEMPLATE
     );
+    await Bun.write(
+      join(projectRoot, "scripts", "finish-work-herdr.ts"),
+      FINISH_WORK_HERDR_TEMPLATE
+    );
     await Bun.write(join(projectRoot, "scripts", "finish-work.ts"), FINISH_WORK_TEMPLATE);
+    await Bun.write(join(projectRoot, "scripts", "reviewer-pane.ts"), REVIEWER_PANE_TEMPLATE);
     await injectMissingScripts(projectRoot, false, () => {}, "toolchain");
 
     const dxConfig = await Bun.file(join(projectRoot, "dx.config.toml")).text();
     expect(dxConfig).toContain("[finishWork]");
     expect(dxConfig).toContain("[herdr]");
     expect(existsSync(join(projectRoot, "scripts/finish-work.ts"))).toBe(true);
+    expect(existsSync(join(projectRoot, "scripts/reviewer-pane.ts"))).toBe(true);
     expect(dxConfig).toContain("single source of truth");
 
     const pkg = (await Bun.file(join(projectRoot, "package.json")).json()) as {

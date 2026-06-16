@@ -424,6 +424,8 @@ command = "git status -sb; herdr-quickref"
 
 Config/dotfiles repos use the same fields in flat `.dx/herdr.toml` (`[[tabs]]` instead of `[[herdr.tabs]]`). Global machine wiring: `~/dx-config`.
 
+**Scaffold vs live finish-work:** `kimi-fix --profile toolchain` copies self-contained scripts from `templates/scaffold/scripts/` (`finish-work.ts`, `finish-work-herdr.ts`, `reviewer-pane.ts`, `finish-work-config.ts`). Live `~/kimi-toolchain` uses `src/lib/finish-work-config.ts` (Effect Schema) and `src/lib/finish-work-herdr.ts` (shared with herdr-project). dx-config owns Herdr *machine* templates (`config/dx/templates/herdr.project.toml`), not toolchain scaffold scripts.
+
 Finish-work helper (reads `dx.config.toml` only):
 
 ```bash

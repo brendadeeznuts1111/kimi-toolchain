@@ -8,6 +8,12 @@
 
 import { join } from "path";
 import { $ } from "bun";
+import {
+  escalateFinishWorkToReviewer,
+  finishWorkOutcome,
+  shouldEscalateToReviewer,
+  type FinishWorkReport,
+} from "./finish-work-herdr.ts";
 import { loadFinishWorkConfig } from "./finish-work-config.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -29,9 +35,10 @@ interface GateResult {
 }
 
 interface GitResult {
+  attempted: boolean;
   committed: boolean;
   pushed: boolean;
-  exitCode: number;
+  error: string | null;
 }
 
 function noColorEnabled(): boolean {
@@ -133,20 +140,35 @@ async function porcelainDirtyLines(): Promise<string[]> {
 }
 
 async function runGitSteps(message: string, push: boolean): Promise<GitResult> {
+  const result: GitResult = {
+    attempted: true,
+    committed: false,
+    pushed: false,
+    error: null,
+  };
+
   const add = await $`git add -u`.cwd(REPO_ROOT).nothrow().quiet();
-  if (add.exitCode !== 0) return { committed: false, pushed: false, exitCode: add.exitCode };
+  if (add.exitCode !== 0) {
+    result.error = add.stderr.toString().trim() || "git add failed";
+    return result;
+  }
 
   const commit = await $`git commit -m ${message}`.cwd(REPO_ROOT).nothrow().quiet();
-  if (commit.exitCode !== 0) return { committed: false, pushed: false, exitCode: commit.exitCode };
+  if (commit.exitCode !== 0) {
+    result.error = `${commit.stdout}${commit.stderr}`.trim() || "git commit failed";
+    return result;
+  }
+  result.committed = true;
 
-  if (!push) return { committed: true, pushed: false, exitCode: 0 };
+  if (!push) return result;
 
   const pushResult = await $`git push`.cwd(REPO_ROOT).nothrow().quiet();
-  return {
-    committed: true,
-    pushed: pushResult.exitCode === 0,
-    exitCode: pushResult.exitCode,
-  };
+  if (pushResult.exitCode !== 0) {
+    result.error = pushResult.stderr.toString().trim() || "git push failed";
+    return result;
+  }
+  result.pushed = true;
+  return result;
 }
 
 function logDryGitSteps(options: CliOptions): void {
@@ -184,8 +206,10 @@ async function main(): Promise<number> {
     return 0;
   }
 
+  const results: GateResult[] = [];
   for (const [index, command] of config.gates.entries()) {
     const result = await runShellGate(gateName(command, index), command);
+    results.push(result);
     if (result.exitCode !== 0) {
       if (options.json) {
         process.stdout.write(
@@ -203,23 +227,57 @@ async function main(): Promise<number> {
     }
   }
 
+  let git: GitResult = { attempted: false, committed: false, pushed: false, error: null };
   if (!options.skipGit && options.message) {
-    const git = await runGitSteps(options.message, options.push);
-    if (git.exitCode !== 0) return 1;
-
-    if (git.pushed) {
-      const dirty = await porcelainDirtyLines();
-      if (dirty.length > 0) {
-        process.stderr.write(`warn: working tree dirty after push (${dirty.length} path(s))\n`);
-        for (const line of dirty.slice(0, 8)) process.stderr.write(`  ${line}\n`);
-        if (dirty.length > 8) process.stderr.write(`  … +${dirty.length - 8} more\n`);
+    git = await runGitSteps(options.message, options.push);
+    if (git.error) {
+      if (options.json) {
+        process.stdout.write(
+          `${JSON.stringify({ schemaVersion: 1, tool: "finish-work", ok: false, git })}\n`
+        );
+      } else {
+        process.stderr.write(`${git.error}\n`);
       }
+      return 1;
     }
-  } else if (!options.json) {
-    process.stderr.write(`${okMark()} finish-work — gates passed\n`);
   }
 
-  return 0;
+  const dirty = git.pushed ? await porcelainDirtyLines() : [];
+  const tree = { clean: dirty.length === 0, dirty };
+  let report: FinishWorkReport = {
+    schemaVersion: 1,
+    tool: "finish-work",
+    ok: true,
+    outcome: finishWorkOutcome(true, git.pushed, tree.clean),
+    gateSource: config.source,
+    results: results.map((item) => ({
+      name: item.name,
+      exitCode: item.exitCode,
+      ms: item.ms,
+    })),
+    git,
+    tree,
+  };
+
+  if (shouldEscalateToReviewer(report)) {
+    report = await escalateFinishWorkToReviewer(REPO_ROOT, report);
+  }
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify(report)}\n`);
+  } else {
+    process.stderr.write(`${okMark()} finish-work — gates passed\n`);
+    if (report.outcome === "escalated") {
+      process.stderr.write("warn: post-push tree dirty — escalated to reviewer pane\n");
+      if (report.herdr?.reviewerPaneId) {
+        process.stderr.write(`  reviewer: ${report.herdr.reviewerPaneId}\n`);
+      }
+    } else if (git.pushed && dirty.length > 0) {
+      process.stderr.write(`warn: working tree dirty after push (${dirty.length} path(s))\n`);
+    }
+  }
+
+  return report.outcome === "escalated" && !report.herdr?.escalated ? 2 : 0;
 }
 
 main()

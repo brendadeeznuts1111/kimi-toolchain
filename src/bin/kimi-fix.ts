@@ -27,7 +27,9 @@ import {
 } from "../lib/scaffold-templates.ts";
 import {
   FINISH_WORK_CONFIG_TEMPLATE,
+  FINISH_WORK_HERDR_TEMPLATE,
   FINISH_WORK_TEMPLATE,
+  REVIEWER_PANE_TEMPLATE,
   TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES,
   renderDxConfig,
   scaffoldDxConfigTemplateRel,
@@ -282,7 +284,9 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
   if (profile === "toolchain") {
     const toolchainScripts: Record<string, string> = {
       "finish-work-config.ts": FINISH_WORK_CONFIG_TEMPLATE,
+      "finish-work-herdr.ts": FINISH_WORK_HERDR_TEMPLATE,
       "finish-work.ts": FINISH_WORK_TEMPLATE,
+      "reviewer-pane.ts": REVIEWER_PANE_TEMPLATE,
     };
     for (const name of TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES) {
       const scriptPath = join(project, "scripts", name);
