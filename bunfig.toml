@@ -37,6 +37,9 @@ concurrentTestGlob = ["test/*.unit.test.ts"]
 onlyFailures = true
 bail = true
 timeout = "5s"
+# Compact dot reporter instead of verbose spec output.
+[test.reporter]
+dots = true
 coverageSkipTestFiles = true
 coveragePathIgnorePatterns = [
   "scripts/**",

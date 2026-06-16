@@ -8,8 +8,10 @@
  *   bun run scripts/check.ts --staged
  *   bun run scripts/check.ts --fast --timeout 100
  *   bun run scripts/check.ts --dryrun --fast
+ *   bun run scripts/check.ts --verbose
  *
- * Set KIMI_QUIET=1 for silent success (failures still verbose).
+ * Gates are silent on success by default. Use --verbose or set KIMI_VERBOSE=1
+ * to stream full output. Failures are always verbose.
  *
  * @see https://bun.com/docs/guides/test/timeout
  */
@@ -40,11 +42,18 @@ function parseTimeout(raw: string | undefined): number {
   return value;
 }
 
-function parseCli(): { dryRun: boolean; fast: boolean; staged: boolean; timeoutMs: number } {
+function parseCli(): {
+  dryRun: boolean;
+  fast: boolean;
+  staged: boolean;
+  verbose: boolean;
+  timeoutMs: number;
+} {
   const argv = Bun.argv.slice(2);
   let dryRun = false;
   let fast = false;
   let staged = false;
+  let verbose = false;
   let timeoutMs = DEFAULT_TEST_TIMEOUT_MS;
 
   for (let i = 0; i < argv.length; i++) {
@@ -60,6 +69,10 @@ function parseCli(): { dryRun: boolean; fast: boolean; staged: boolean; timeoutM
     if (arg === "--staged") {
       staged = true;
       fast = true;
+      continue;
+    }
+    if (arg === "--verbose") {
+      verbose = true;
       continue;
     }
     if (arg === "--timeout") {
@@ -80,11 +93,16 @@ function parseCli(): { dryRun: boolean; fast: boolean; staged: boolean; timeoutM
     timeoutMs = FAST_TEST_TIMEOUT_MS;
   }
 
-  return { dryRun, fast, staged, timeoutMs };
+  return { dryRun, fast, staged, verbose, timeoutMs };
 }
 
-async function buildSteps(fast: boolean, staged: boolean, timeoutMs: number): Promise<Step[]> {
-  const quiet = shouldSilentOnSuccess();
+async function buildSteps(
+  fast: boolean,
+  staged: boolean,
+  verbose: boolean,
+  timeoutMs: number
+): Promise<Step[]> {
+  const quiet = !verbose && shouldSilentOnSuccess();
   const steps: Step[] = [];
   if (staged) {
     steps.push({
@@ -144,12 +162,12 @@ async function runStep(step: Step): Promise<number> {
 
 async function main() {
   ensureQuietEnv();
-  const { dryRun, fast, staged, timeoutMs } = parseCli();
-  const steps = await buildSteps(fast, staged, timeoutMs);
+  const { dryRun, fast, staged, verbose, timeoutMs } = parseCli();
+  const steps = await buildSteps(fast, staged, verbose, timeoutMs);
 
   if (dryRun) {
     const mode = staged ? "(staged fast) " : fast ? "(fast) " : "";
-    const quiet = shouldSilentOnSuccess() ? "(quiet) " : "";
+    const quiet = !verbose && shouldSilentOnSuccess() ? "(quiet) " : "";
     console.log(`check ${mode}${quiet}— dry run`);
     console.log(`  test timeout: ${timeoutMs}ms`);
     for (const step of steps) {
