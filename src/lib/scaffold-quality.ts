@@ -1,7 +1,11 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import { $ } from "bun";
-import { REQUIRED_PACKAGE_SCRIPT_ENTRIES } from "./scaffold-templates.ts";
+import {
+  REQUIRED_PACKAGE_SCRIPT_ENTRIES,
+  TOOLCHAIN_PACKAGE_SCRIPT_ENTRIES,
+} from "./scaffold-templates.ts";
+import type { ScaffoldProfile } from "./scaffold-profiles.ts";
 
 export interface PackageJsonScaffold {
   scripts?: Record<string, string>;
@@ -16,7 +20,8 @@ export interface PackageJsonScaffold {
 export async function injectMissingScripts(
   project: string,
   dryRun: boolean,
-  log: (step: string, msg: string) => void
+  log: (step: string, msg: string) => void,
+  profile: ScaffoldProfile = "app"
 ): Promise<void> {
   const pkgPath = join(project, "package.json");
   if (!existsSync(pkgPath)) return;
@@ -24,7 +29,11 @@ export async function injectMissingScripts(
   const pkg = (await Bun.file(pkgPath).json()) as PackageJsonScaffold;
   const scripts = pkg.scripts || {};
   let scriptsChanged = false;
-  for (const [key, value] of Object.entries(REQUIRED_PACKAGE_SCRIPT_ENTRIES)) {
+  const entries = {
+    ...REQUIRED_PACKAGE_SCRIPT_ENTRIES,
+    ...(profile === "toolchain" ? TOOLCHAIN_PACKAGE_SCRIPT_ENTRIES : {}),
+  };
+  for (const [key, value] of Object.entries(entries)) {
     if (!scripts[key]) {
       scripts[key] = value;
       scriptsChanged = true;
@@ -75,8 +84,9 @@ export async function installMissingDeps(
 export async function ensureQualityTooling(
   project: string,
   dryRun: boolean,
-  log: (step: string, msg: string) => void
+  log: (step: string, msg: string) => void,
+  profile: ScaffoldProfile = "app"
 ): Promise<void> {
-  await injectMissingScripts(project, dryRun, log);
+  await injectMissingScripts(project, dryRun, log, profile);
   await installMissingDeps(project, dryRun, log);
 }

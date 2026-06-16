@@ -227,6 +227,8 @@ Use this pattern when extending `kimi-doctor` with new agent-facing diagnostics.
 | `scripts/finish-work.ts` | Gates + optional git commit/push | CLI | `test/finish-work-config.unit.test.ts` |
 | `src/lib/finish-work-config.ts` | Read `[finishWork]` / `[agents].prePush` from `dx.config.toml` | Config loader | `test/finish-work-config.unit.test.ts` |
 
+**Scaffold profiles:** `kimi-fix` defaults to **app** (`templates/scaffold/dx.config.app.toml`). Use `--profile toolchain` for `[finishWork]`, `[herdr]`, and `dx/workspace.toml`. See `src/lib/scaffold-profiles.ts`.
+
 **Spec vs runtime:** `dx/workspace.toml` documents layout intent. `dx.config.toml` `[herdr]` is runtime — it may harden tab commands beyond the spec. Gates belong only in `dx.config.toml` (`[finishWork]` → `[agents].prePush` fallback). Automated spec/runtime diff is deferred.
 
 ## Herdr Config Symlink Chain

@@ -1,4 +1,4 @@
-# Project DX + kimi runtime policy
+# Project DX + kimi runtime policy (app profile — default kimi-fix scaffold)
 schemaVersion = 1
 scope = "project"
 mode = "development"
@@ -28,18 +28,9 @@ format = "bun run format:check:ci"
 lint = "bun run lint"
 typecheck = "bun run typecheck"
 tests = "bun run test:coverage:ci"
-smoke = "bun run test:smoke"
 
 [github.ci.governance]
 rScore = "bun run governance score --min 60"
-
-[github.ci.local]
-quality = "bun run ci:local --job quality"
-governance = "bun run ci:local --job governance"
-full = "bun run ci:local"
-prDiff = "bun run pr:diff"
-prStatus = "bun run pr:status"
-mergeGate = "local-ci"
 
 [cloudflare]
 mode = "read-only"
@@ -91,7 +82,7 @@ formatCheckCi = "bun run format:check:ci"
 docsSync = "bun run docs:sync"
 
 [agents]
-firstRead = ["/Users/nolarose/.config/dx/AGENTS.md", "AGENTS.md", "CODE_REFERENCES.md"]
+firstRead = ["{{DX_AGENTS_PATH}}", "AGENTS.md", "CODE_REFERENCES.md"]
 bootstrap = [
   "dx setup",
   "dx context",
@@ -109,14 +100,8 @@ prePush = [
   "kimi-doctor --effect-gates",
   "kimi-governance score",
 ]
-handoff = ["bun run sync && bun run sync:verify", "kimi-doctor --agent-ready"]
-avoid = ["docker", "sync daemon unless actively developing runtime tooling"]
-
-[sync]
-command = "bun run sync"
-verify = "bun run sync:verify"
-managedRuntime = "~/.kimi-code"
-manifest = "~/.kimi-code/toolchain-manifest.json"
+handoff = ["kimi-doctor --agent-ready"]
+avoid = ["docker"]
 
 [kimi]
 memoryGate = true

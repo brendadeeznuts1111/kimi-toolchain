@@ -19,13 +19,23 @@ import {
   CI_WORKFLOW,
   TSCONFIG,
   BUN_GLOBALS,
-  DX_CONFIG,
   GITIGNORE,
   ENV_EXAMPLE,
   BUNFIG,
   KIMI_SKILLS_README,
   CODE_REFERENCES_TEMPLATE,
 } from "../lib/scaffold-templates.ts";
+import {
+  FINISH_WORK_CONFIG_TEMPLATE,
+  FINISH_WORK_TEMPLATE,
+  TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES,
+  renderDxConfig,
+  renderWorkspaceToml,
+  resolveScaffoldProfile,
+  filterScaffoldArgv,
+  type ScaffoldProfile,
+} from "../lib/scaffold-profiles.ts";
+import { homeDir } from "../lib/paths.ts";
 import { Effect } from "effect";
 import { getProjectName } from "../lib/utils.ts";
 import { runTool } from "../lib/tool-runner.ts";
@@ -130,8 +140,8 @@ async function runDoctor(projectDir: string): Promise<number> {
   return 0;
 }
 
-async function runFix(project: string, dryRun: boolean): Promise<void> {
-  logger.section(`Fixing ${basename(project)}`);
+async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile): Promise<void> {
+  logger.section(`Fixing ${basename(project)} (${profile} profile)`);
   logger.info(`Path: ${project}`);
 
   if (!existsSync(join(project, ".git"))) {
@@ -197,10 +207,13 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
     await writeFile(join(project, ".oxlintrc.json"), OXLINTRC, dryRun);
   }
 
+  const projectName = await getProjectName(project);
+  const home = homeDir();
+
   const agentsPath = join(project, "AGENTS.md");
   if (!existsSync(agentsPath)) {
     stepLog("agents", "creating AGENTS.md...");
-    await writeFile(agentsPath, buildAgentsMd(await getProjectName(project)), dryRun);
+    await writeFile(agentsPath, buildAgentsMd(projectName, home), dryRun);
   }
   const codeRefsPath = join(project, "CODE_REFERENCES.md");
   if (!existsSync(codeRefsPath)) {
@@ -223,8 +236,22 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
   }
 
   if (!existsSync(join(project, "dx.config.toml"))) {
-    stepLog("dx", "creating dx.config.toml...");
-    await writeFile(join(project, "dx.config.toml"), DX_CONFIG, dryRun);
+    stepLog("dx", `creating dx.config.toml (${profile})...`);
+    await writeFile(
+      join(project, "dx.config.toml"),
+      renderDxConfig(profile, projectName, home),
+      dryRun
+    );
+  }
+
+  if (profile === "toolchain" && !existsSync(join(project, "dx", "workspace.toml"))) {
+    stepLog("dx", "creating dx/workspace.toml...");
+    if (!dryRun) mkdirSync(join(project, "dx"), { recursive: true });
+    await writeFile(
+      join(project, "dx", "workspace.toml"),
+      renderWorkspaceToml(projectName),
+      dryRun
+    );
   }
 
   if (!existsSync(join(project, "tsconfig.json"))) {
@@ -255,7 +282,22 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
     }
   }
 
-  await ensureQualityTooling(project, dryRun, stepLog);
+  if (profile === "toolchain") {
+    const toolchainScripts: Record<string, string> = {
+      "finish-work-config.ts": FINISH_WORK_CONFIG_TEMPLATE,
+      "finish-work.ts": FINISH_WORK_TEMPLATE,
+    };
+    for (const name of TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES) {
+      const scriptPath = join(project, "scripts", name);
+      if (!existsSync(scriptPath)) {
+        stepLog("scripts", `creating scripts/${name}...`);
+        if (!dryRun) mkdirSync(join(project, "scripts"), { recursive: true });
+        await writeFile(scriptPath, toolchainScripts[name], dryRun);
+      }
+    }
+  }
+
+  await ensureQualityTooling(project, dryRun, stepLog, profile);
 
   if (!existsSync(join(project, ".github", "workflows", "ci.yml"))) {
     stepLog("ci", "creating CI template...");
@@ -271,6 +313,9 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
   logger.line("  5. Run 'bun run check' (or 'bun run check:fast' for unit-only gate)");
   logger.line("  6. Run 'kimi-governance score' to check project health");
   logger.line("  7. Run 'kimi-doctor --quick' to verify everything");
+  if (profile === "toolchain") {
+    logger.line("  8. Run 'bun run finish-work --dry-run' to preview finish-work gates");
+  }
   if (dryRun) {
     logger.info("Dry run complete. Remove --dry-run to apply.");
   } else {
@@ -280,8 +325,8 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
 
 function printHelp() {
   logger.line("Usage:");
-  logger.line("  kimi-fix <project-path> [--dry-run]");
-  logger.line("  kimi-fix fix <project-path> [--dry-run]");
+  logger.line("  kimi-fix <project-path> [--profile app|toolchain] [--dry-run]");
+  logger.line("  kimi-fix fix <project-path> [--profile app|toolchain] [--dry-run]");
   logger.line("  kimi-fix doctor [project-path]");
   logger.line("");
   logger.line("Fixes missing project scaffolding:");
@@ -291,8 +336,9 @@ function printHelp() {
 
 async function main(): Promise<number> {
   const positional = writer.flags.positional;
+  const profile = resolveScaffoldProfile(positional);
   const dryRun = positional.includes("--dry-run");
-  const filtered = positional.filter((a: string) => a !== "--dry-run");
+  const filtered = filterScaffoldArgv(positional).filter((a: string) => a !== "--dry-run");
 
   if (filtered.length === 0 || filtered[0] === "--help" || filtered[0] === "-h") {
     printHelp();
@@ -323,7 +369,7 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  await runFix(project, dryRun);
+  await runFix(project, dryRun, profile);
   return 0;
 }
 

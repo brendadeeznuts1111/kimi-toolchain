@@ -13,7 +13,8 @@ describe("sync-hashes", () => {
     expect(hashes["lib/utils.ts"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["scripts/lint-banned-terms.ts"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["kimi-hooks/log-tool-failure.ts"]).toMatch(/^[a-f0-9]{64}$/);
-    expect(hashes["templates/scaffold/dx.config.toml"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["templates/scaffold/dx.config.app.toml"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["templates/scaffold/dx.config.toolchain.toml"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["templates/scaffold/code-references.md"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["AGENTS.md"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["CODE_REFERENCES.md"]).toMatch(/^[a-f0-9]{64}$/);

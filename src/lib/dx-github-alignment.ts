@@ -24,11 +24,9 @@ export interface DxGithubAlignmentReport {
   checks: DxGithubAlignmentCheck[];
 }
 
-export const REQUIRED_AGENT_FIRST_READ = [
-  "/Users/nolarose/.config/dx/AGENTS.md",
-  "AGENTS.md",
-  "CODE_REFERENCES.md",
-] as const;
+export const REQUIRED_AGENT_FIRST_READ_ENTRIES = ["AGENTS.md", "CODE_REFERENCES.md"] as const;
+
+export const REQUIRED_AGENT_FIRST_READ_DX_SUFFIX = ".config/dx/AGENTS.md";
 
 export const REQUIRED_AGENT_BOOTSTRAP = [
   "dx setup",
@@ -94,6 +92,7 @@ export interface DxQualityConfig {
 }
 
 export interface DxSyncConfig {
+  command: string | null;
   verify: string | null;
 }
 
@@ -263,6 +262,7 @@ function parseDxProjectConfig(dx: UnknownRecord): DxProjectConfig {
       formatCheckCi: stringValue(quality.formatCheckCi),
     },
     sync: {
+      command: stringValue(sync.command),
       verify: stringValue(sync.verify),
     },
     agents: {
@@ -340,20 +340,6 @@ function hasCommand(commands: readonly string[], expected: string): boolean {
 
 function hasCommandContaining(commands: readonly string[], expected: string): boolean {
   return commands.some((command) => command.includes(expected));
-}
-
-function addRequiredListEntriesCheck(
-  checks: DxGithubAlignmentCheck[],
-  name: string,
-  actual: readonly string[],
-  required: readonly string[]
-): void {
-  const missing = required.filter((entry) => !actual.includes(entry));
-  checks.push(
-    missing.length === 0
-      ? ok(name, "required entries present: " + required.join(", "))
-      : warn(name, "missing required entries: " + missing.join(", "))
-  );
 }
 
 function addRequiredCommandsCheck(
@@ -453,8 +439,10 @@ export function evaluateDxGithubAlignment(
     ["quality.testFast", dx.quality.testFast, "test:fast"],
     ["quality.testCoverageCi", dx.quality.testCoverageCi, "test:coverage:ci"],
     ["quality.formatCheckCi", dx.quality.formatCheckCi, "format:check:ci"],
-    ["sync.verify", dx.sync.verify, "sync:verify"],
   ];
+  if (dx.sync.command || dx.sync.verify) {
+    scriptPairs.push(["sync.verify", dx.sync.verify, "sync:verify"]);
+  }
 
   for (const [name, expected, scriptName] of scriptPairs) {
     const actual = pkg.scripts[scriptName];
@@ -471,12 +459,14 @@ export function evaluateDxGithubAlignment(
     }
   }
 
-  addPackageScriptCheck(
-    checks,
-    "github.ci.quality.smoke.script",
-    dx.github.ci.quality.smoke,
-    pkg.scripts
-  );
+  if (dx.github.ci.quality.smoke) {
+    addPackageScriptCheck(
+      checks,
+      "github.ci.quality.smoke.script",
+      dx.github.ci.quality.smoke,
+      pkg.scripts
+    );
+  }
   addPackageScriptCheck(
     checks,
     "github.ci.governance.rScore.script",
@@ -516,13 +506,15 @@ export function evaluateDxGithubAlignment(
       workflow.runCommands,
       workflowPath
     );
-    addCommandCheck(
-      checks,
-      "github.ci.quality.smoke",
-      dx.github.ci.quality.smoke,
-      workflow.runCommands,
-      workflowPath
-    );
+    if (dx.github.ci.quality.smoke) {
+      addCommandCheck(
+        checks,
+        "github.ci.quality.smoke",
+        dx.github.ci.quality.smoke,
+        workflow.runCommands,
+        workflowPath
+      );
+    }
     addCommandCheck(
       checks,
       "github.ci.governance.rScore",
@@ -548,12 +540,21 @@ export function evaluateDxGithubAlignment(
       : warn("agents.commands", "missing package scripts: " + missingAgentScripts.join(", "))
   );
 
-  addRequiredListEntriesCheck(
-    checks,
-    "agents.firstRead",
-    dx.agents.firstRead,
-    REQUIRED_AGENT_FIRST_READ
+  const missingFirstRead = REQUIRED_AGENT_FIRST_READ_ENTRIES.filter(
+    (entry) => !dx.agents.firstRead.includes(entry)
   );
+  const hasDxAgents = dx.agents.firstRead.some((entry) =>
+    entry.includes(REQUIRED_AGENT_FIRST_READ_DX_SUFFIX)
+  );
+  if (missingFirstRead.length === 0 && hasDxAgents) {
+    checks.push(ok("agents.firstRead", "required entries present"));
+  } else {
+    const gaps = [
+      ...missingFirstRead.map((entry) => `missing ${entry}`),
+      ...(hasDxAgents ? [] : [`missing path ending with ${REQUIRED_AGENT_FIRST_READ_DX_SUFFIX}`]),
+    ];
+    checks.push(warn("agents.firstRead", gaps.join("; ")));
+  }
   addRequiredCommandsCheck(
     checks,
     "agents.bootstrap",
@@ -561,12 +562,10 @@ export function evaluateDxGithubAlignment(
     REQUIRED_AGENT_BOOTSTRAP
   );
   addRequiredCommandsCheck(checks, "agents.prePush", dx.agents.prePush, REQUIRED_AGENT_PRE_PUSH);
-  addRequiredCommandFragmentsCheck(
-    checks,
-    "agents.handoff",
-    dx.agents.handoff,
-    REQUIRED_AGENT_HANDOFF_FRAGMENTS
-  );
+  const handoffFragments = dx.sync.command
+    ? [...REQUIRED_AGENT_HANDOFF_FRAGMENTS]
+    : (["kimi-doctor --agent-ready"] as const);
+  addRequiredCommandFragmentsCheck(checks, "agents.handoff", dx.agents.handoff, handoffFragments);
 
   return {
     applicable: true,

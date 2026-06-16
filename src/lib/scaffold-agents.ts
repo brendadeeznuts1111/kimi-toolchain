@@ -2,7 +2,10 @@
  * AGENTS.md scaffold for new projects — mirrors TEMPLATES.md minimal template.
  */
 
-export function buildAgentsMd(projectName: string): string {
+import { homeDir } from "./paths.ts";
+
+export function buildAgentsMd(projectName: string, home = homeDir()): string {
+  const dxAgentsPath = `${home}/.config/dx/AGENTS.md`;
   return `# Agent Guide — ${projectName}
 
 ## Project
@@ -17,7 +20,7 @@ One-line description of what this does.
 
 ## Global DX First
 
-- Read \`/Users/nolarose/.config/dx/AGENTS.md\` before project-local setup
+- Read \`${dxAgentsPath}\` before project-local setup
 - Start with \`dx setup\`, \`dx context\`, \`dx config\`, \`dx mcp-status\`, \`dx cli\`, and \`dx package\`
 - Use \`dx package\` after dependency changes, then rerun Kimi guardian/governance gates
 

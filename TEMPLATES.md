@@ -359,6 +359,15 @@ memoryGate = true
 preflight = true
 ```
 
+### Scaffold profiles (`kimi-fix`)
+
+| Profile | Command | `dx.config` source | Extras |
+|---------|---------|-------------------|--------|
+| **app** (default) | `kimi-fix <path>` | `templates/scaffold/dx.config.app.toml` | Core quality scripts only — no `[sync]`, `ci:local`, or `test:smoke` |
+| **toolchain** | `kimi-fix <path> --profile toolchain` | `templates/scaffold/dx.config.toolchain.toml` | `[finishWork]`, `[herdr]`, `dx/workspace.toml`, `scripts/finish-work.ts` |
+
+Full runtime sync/ci.local blocks live only in the **kimi-toolchain reference** `dx.config.toml`, not in scaffold templates.
+
 ### Herdr project profile (`[herdr]`)
 
 Per-repo workspace bootstrap only. Global Herdr config uses a three-layer symlink chain — see **Herdr Config Symlink Chain** in `CODE_REFERENCES.md`. Do not flatten that chain.

@@ -3,10 +3,11 @@ import { buildAgentsMd } from "../src/lib/scaffold-agents.ts";
 
 describe("buildAgentsMd", () => {
   test("includes project name and Kimi Code sections", () => {
-    const md = buildAgentsMd("my-app");
+    const home = "/tmp/kimi-scaffold-home";
+    const md = buildAgentsMd("my-app", home);
     expect(md).toContain("# Agent Guide — my-app");
     expect(md).toContain("format:check:ci");
-    expect(md).toContain("/Users/nolarose/.config/dx/AGENTS.md");
+    expect(md).toContain(`${home}/.config/dx/AGENTS.md`);
     expect(md).toContain("dx setup");
     expect(md).toContain("dx mcp-status");
     expect(md).toContain("dx cli");

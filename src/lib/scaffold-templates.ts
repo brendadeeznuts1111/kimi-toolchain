@@ -29,7 +29,10 @@ export const OXLINTRC = load("oxlintrc.json");
 export const CI_WORKFLOW = load("ci.yml");
 export const TSCONFIG = load("tsconfig.json");
 export const BUN_GLOBALS = load("bun-globals.d.ts");
-export const DX_CONFIG = load("dx.config.toml");
+export const DX_CONFIG_APP = load("dx.config.app.toml");
+export const DX_CONFIG_TOOLCHAIN = load("dx.config.toolchain.toml");
+/** Default scaffold profile (app). */
+export const DX_CONFIG = DX_CONFIG_APP;
 export const GITIGNORE = load("gitignore");
 export const ENV_EXAMPLE = load("env.example");
 export const BUNFIG = load("bunfig.toml");
@@ -57,6 +60,10 @@ export const REQUIRED_PACKAGE_SCRIPT_ENTRIES = {
   lint: "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
   "lint:terms": "bun run scripts/lint-banned-terms.ts",
   fix: "kimi-fix .",
+} as const;
+
+export const TOOLCHAIN_PACKAGE_SCRIPT_ENTRIES = {
+  "finish-work": "bun run scripts/finish-work.ts",
 } as const;
 
 export const REQUIRED_PACKAGE_SCRIPTS = Object.keys(REQUIRED_PACKAGE_SCRIPT_ENTRIES) as Array<
@@ -155,7 +162,8 @@ export const TEMPLATE_MARKERS: Record<string, string[]> = {
   CI_WORKFLOW: ["format:check:ci", "test:coverage:ci", "1.3.14"],
   TSCONFIG: ["moduleResolution", "bundler"],
   BUNFIG: ["concurrentTestGlob", "coverageThreshold"],
-  DX_CONFIG: ["dx setup", "dx cli", "dx package"],
+  DX_CONFIG_APP: ["dx setup", "dx cli", "dx package"],
+  DX_CONFIG_TOOLCHAIN: ["[finishWork]", "[herdr]", "finish-work"],
   GITIGNORE: ["coverage/", ".bun-cache"],
   ENV_EXAMPLE: ["DATABASE_URL", "PORT=0"],
   MIT_LICENSE_TEMPLATE: ["Permission is hereby granted, free of charge", "WITHOUT WARRANTY"],

@@ -79,17 +79,23 @@ testFast = "bun run test:fast"
 testCoverageCi = "bun run test:coverage:ci"
 formatCheckCi = "bun run format:check:ci"
 
-[sync]
-verify = "bun run sync:verify"
-
 [agents]
 firstRead = ["/Users/nolarose/.config/dx/AGENTS.md", "AGENTS.md", "CODE_REFERENCES.md"]
 bootstrap = ["dx setup", "dx context", "dx config --project .", "dx mcp-status", "dx cli", "dx package"]
 iterate = "bun run check:fast"
 fullValidation = "bun run check"
 prePush = ["kimi-githooks doctor", "bun run check:fast", "kimi-guardian check", "kimi-doctor --effect-gates", "kimi-governance score"]
-handoff = ["bun run sync && bun run sync:verify", "kimi-doctor --agent-ready"]
+handoff = ["kimi-doctor --agent-ready"]
 `;
+
+const DX_CONFIG_WITH_SYNC = `${DX_CONFIG}
+[sync]
+command = "bun run sync"
+verify = "bun run sync:verify"
+`.replace(
+  'handoff = ["kimi-doctor --agent-ready"]',
+  'handoff = ["bun run sync && bun run sync:verify", "kimi-doctor --agent-ready"]'
+);
 
 const CI = `
 name: CI
@@ -191,9 +197,22 @@ describe("dx-github-alignment", () => {
     ).toBe("warn");
   });
 
+  test("app profile aligns without sync scripts", async () => {
+    writeProject({
+      "dx.config.toml": DX_CONFIG,
+      "package.json": packageJson({ governance: "bun run src/bin/kimi-governance.ts" }),
+      ".github/workflows/ci.yml": CI,
+      ".github/actions/setup/action.yml": SETUP_ACTION,
+    });
+
+    const report = await checkDxGithubAlignment(projectDir);
+    expect(report.checks.find((check) => check.name === "sync.verify")?.status).toBeUndefined();
+    expect(report.checks.find((check) => check.name === "agents.handoff")?.status).toBe("ok");
+  });
+
   test("warns when agent flow defaults drift", async () => {
     writeProject({
-      "dx.config.toml": DX_CONFIG.replace(
+      "dx.config.toml": DX_CONFIG_WITH_SYNC.replace(
         'bootstrap = ["dx setup", "dx context", "dx config --project .", "dx mcp-status", "dx cli", "dx package"]',
         'bootstrap = ["dx context"]'
       ).replace(
@@ -310,17 +329,15 @@ describe("dx-github-alignment", () => {
     expect(report.aligned).toBe(true);
   });
 
-  test("project and scaffold dx templates keep the required bootstrap and prePush defaults", () => {
-    const projectConfig = Bun.TOML.parse(
-      readFileSync(join(import.meta.dir, "..", "dx.config.toml"), "utf8")
-    ) as { agents?: { bootstrap?: string[]; prePush?: string[] } };
+  test("scaffold app template keeps required bootstrap and prePush defaults", () => {
     const scaffoldConfig = Bun.TOML.parse(
-      readFileSync(join(import.meta.dir, "..", "templates", "scaffold", "dx.config.toml"), "utf8")
+      readFileSync(
+        join(import.meta.dir, "..", "templates", "scaffold", "dx.config.app.toml"),
+        "utf8"
+      ).replaceAll("{{DX_AGENTS_PATH}}", "/tmp/.config/dx/AGENTS.md")
     ) as { agents?: { bootstrap?: string[]; prePush?: string[] } };
 
-    expect(projectConfig.agents?.bootstrap).toEqual([...REQUIRED_AGENT_BOOTSTRAP]);
     expect(scaffoldConfig.agents?.bootstrap).toEqual([...REQUIRED_AGENT_BOOTSTRAP]);
-    expect(projectConfig.agents?.prePush).toEqual([...REQUIRED_AGENT_PRE_PUSH]);
     expect(scaffoldConfig.agents?.prePush).toEqual([...REQUIRED_AGENT_PRE_PUSH]);
   });
 });
