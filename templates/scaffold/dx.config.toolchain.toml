@@ -137,6 +137,7 @@ label = "agents"
 [[herdr.agentsTab.panes]]
 role = "primary"
 agent = "kimi"
+context = "kimi-doctor --workspace-context --brief"
 # ratio = 0.6  # advisory — runner does not pass --ratio yet
 
 [[herdr.agentsTab.panes]]
@@ -148,6 +149,7 @@ split = "right"
 role = "secondary"
 agent = "codex"
 split = "right"
+context = "kimi-doctor --workspace-context --brief"
 
 [[herdr.tabs]]
 label = "doctor"

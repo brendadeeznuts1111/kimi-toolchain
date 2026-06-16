@@ -118,6 +118,8 @@ const PREDICT = Bun.argv.includes("--predict");
 const CORRELATE = Bun.argv.includes("--correlate");
 const EFFECT_GATES = Bun.argv.includes("--effect-gates");
 const SESSION_REPORT = Bun.argv.includes("--session-report");
+const WORKSPACE_CONTEXT = Bun.argv.includes("--workspace-context");
+const WORKSPACE_CONTEXT_BRIEF = Bun.argv.includes("--brief");
 const WATCH = Bun.argv.includes("--watch");
 const PROBE = Bun.argv.includes("--probe");
 const MCP_SERVER = Bun.argv.includes("--mcp-server");
@@ -1048,6 +1050,22 @@ async function runSessionReportMode(projectRoot: string): Promise<number> {
   return floor.passed ? 0 : 1;
 }
 
+async function runWorkspaceContextMode(projectRoot: string): Promise<number> {
+  const { buildWorkspaceContextReport } = await import("../lib/doctor-workspace-context.ts");
+  const report = await buildWorkspaceContextReport({
+    projectRoot,
+    brief: WORKSPACE_CONTEXT_BRIEF,
+  });
+
+  if (JSON_OUT) {
+    emitJson(report);
+  } else {
+    process.stdout.write(report.markdown);
+  }
+
+  return 0;
+}
+
 async function runSessionReportAutoMode(projectRoot: string): Promise<number> {
   const source = "effect-gates-auto";
   const [previous] = await readEffectGatesSnapshots(projectRoot, 1);
@@ -1299,6 +1317,10 @@ async function main(): Promise<number> {
 
   if (SESSION_REPORT) {
     return runSessionReportMode(projectRoot);
+  }
+
+  if (WORKSPACE_CONTEXT) {
+    return runWorkspaceContextMode(projectRoot);
   }
 
   if (WATCH) {

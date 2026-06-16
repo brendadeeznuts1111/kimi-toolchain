@@ -10,6 +10,7 @@ import {
   type LayoutDrift,
   type TabLayoutSpec,
 } from "./herdr-project-layout.ts";
+import { syncAgentsTabContext } from "./herdr-project-context.ts";
 import {
   findWorkspaceForProject,
   herdrCliJson,
@@ -422,9 +423,18 @@ function applyReconcileAction(
       workspaceId,
       split: role === "secondary" ? "right" : undefined,
     });
-    return Effect.succeed(
-      started.ok ? { ok: true } : { ok: false, warning: started.error || "agent start failed" }
+    if (!started.ok) {
+      return Effect.succeed({ ok: false, warning: started.error || "agent start failed" });
+    }
+    const pane = config.agentsTab?.panes?.find(
+      (row) => row.agent === action.target && row.context?.trim()
     );
+    if (pane) {
+      const contextSync = syncAgentsTabContext(config, [pane]);
+      const warning = contextSync.warnings[0];
+      if (warning) return Effect.succeed({ ok: true, warning });
+    }
+    return Effect.succeed({ ok: true });
   }
 
   if (action.type === "split_shell") {
@@ -495,11 +505,11 @@ function applyLayoutAction(
     });
     if (!applied.ok) return { ok: false, warning: applied.error };
 
-    if (
+    const isAgentsTab =
       spec.tabLabel.trim().toLowerCase() ===
-        (config.agentsTab?.label || "agents").trim().toLowerCase() &&
-      (config.bootstrap || []).length
-    ) {
+      (config.agentsTab?.label || "agents").trim().toLowerCase();
+
+    if (isAgentsTab && (config.bootstrap || []).length) {
       const snapshot = captureWorkspaceLayout(config.session, workspaceId);
       const shellPane = snapshot.panes.find((pane) => pane.tabId === applied.tabId && pane.isShell);
       if (shellPane) {
@@ -512,6 +522,18 @@ function applyLayoutAction(
           };
         }
       }
+    }
+
+    if (
+      isAgentsTab &&
+      config.agentsTab?.panes?.some((pane) => pane.context?.trim() && pane.agent)
+    ) {
+      const contextSync = syncAgentsTabContext(config);
+      const warning = contextSync.warnings[0];
+      if (warning && contextSync.delivered.length === 0) {
+        return { ok: false, warning };
+      }
+      if (warning) return { ok: true, warning };
     }
 
     return { ok: true };

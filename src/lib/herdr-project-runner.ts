@@ -1,53 +1,18 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
 import { isAbsolute, join, normalize, resolve } from "node:path";
 import { resolveAgentArgv } from "./herdr-agents.ts";
+import {
+  execCli,
+  execCliJson,
+  herdrCliJson,
+  herdrCliRun,
+  resolveHerdrPanePath,
+} from "./herdr-project-cli.ts";
+import { syncAgentsTabContext } from "./herdr-project-context.ts";
 import type { HerdrProjectConfig } from "./herdr-project-config.ts";
 import { homeDir } from "./paths.ts";
 
-export function herdrCliRun(session: string, args: string[] = [], timeout = 30_000) {
-  return run("herdr", [...herdrArgs(session), ...args], timeout);
-}
-
-export function herdrCliJson(session: string, args: string[] = []) {
-  const result = herdrCliRun(session, args);
-  if (!result.ok) return { ok: false as const, error: result.output, json: null };
-  try {
-    return { ok: true as const, json: JSON.parse(result.output), error: null };
-  } catch {
-    return { ok: false as const, error: "invalid JSON from herdr CLI", json: null };
-  }
-}
-
-function run(cmd: string, args: string[] = [], timeout = 30_000) {
-  try {
-    return {
-      ok: true,
-      output: execFileSync(cmd, args, {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-        timeout,
-      }).trim(),
-    };
-  } catch (error) {
-    const err = error as { stdout?: string; stderr?: string; status?: number };
-    return {
-      ok: false,
-      output: `${err.stdout || ""}${err.stderr || ""}`.trim(),
-      code: err.status ?? 1,
-    };
-  }
-}
-
-function runJson(cmd: string, args: string[] = []) {
-  const result = run(cmd, args);
-  if (!result.ok) return { ok: false as const, error: result.output, json: null };
-  try {
-    return { ok: true as const, json: JSON.parse(result.output), error: null };
-  } catch {
-    return { ok: false as const, error: "invalid JSON from herdr CLI", json: null };
-  }
-}
+export { herdrCliJson, herdrCliRun, resolveHerdrPanePath };
 
 export function resolveHerdrProjectPath(path: string): string {
   const root = isAbsolute(path) ? normalize(path) : resolve(process.cwd(), path);
@@ -60,15 +25,15 @@ function herdrArgs(session: string) {
 }
 
 function listWorkspaces(session = "") {
-  return runJson("herdr", [...herdrArgs(session), "workspace", "list"]);
+  return execCliJson("herdr", [...herdrArgs(session), "workspace", "list"]);
 }
 
 function listPanes(session = "") {
-  return runJson("herdr", [...herdrArgs(session), "pane", "list"]);
+  return execCliJson("herdr", [...herdrArgs(session), "pane", "list"]);
 }
 
 function listAgents(session = "") {
-  return runJson("herdr", [...herdrArgs(session), "agent", "list"]);
+  return execCliJson("herdr", [...herdrArgs(session), "agent", "list"]);
 }
 
 function workspacePanes(config: HerdrProjectConfig, workspaceId: string) {
@@ -145,30 +110,6 @@ function shellQuote(value: string) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
-export function resolveHerdrPanePath(home = homeDir()): string {
-  const parts: string[] = [];
-  const seen = new Set<string>();
-  const add = (value: string | undefined) => {
-    for (const entry of String(value || "").split(":")) {
-      if (!entry || seen.has(entry)) continue;
-      seen.add(entry);
-      parts.push(entry);
-    }
-  };
-  add(process.env.PATH);
-  for (const segment of [
-    `${home}/.local/bin`,
-    `${home}/.kimi-code/bin`,
-    `${home}/.bun/bin`,
-    `${home}/bin`,
-    "/opt/homebrew/bin",
-    "/usr/local/bin",
-  ]) {
-    add(segment);
-  }
-  return parts.join(":");
-}
-
 function paneRun(
   config: HerdrProjectConfig,
   paneId: string,
@@ -183,7 +124,7 @@ function paneRun(
       payload = `export PATH="${escapedPath}"; ${command}`;
     }
   }
-  return run("herdr", [
+  return execCli("herdr", [
     ...herdrArgs(config.session),
     "pane",
     "run",
@@ -216,7 +157,7 @@ export function startHerdrAgent(
     args.push("--env", `${key}=${value}`);
   }
   args.push("--", ...argv);
-  return runJson("herdr", args);
+  return execCliJson("herdr", args);
 }
 
 function splitPane(
@@ -238,7 +179,7 @@ function splitPane(
   for (const [key, value] of Object.entries(options.env ?? {})) {
     args.push("--env", `${key}=${value}`);
   }
-  return runJson("herdr", args);
+  return execCliJson("herdr", args);
 }
 
 function bootstrapFromAgentsTab(
@@ -333,7 +274,12 @@ export function bootstrapHerdrProject(
   if (existing.workspaceId) {
     workspaceId = existing.workspaceId;
     actions.push({ action: "focus_existing", workspaceId, reason: existing.reason });
-    const focus = run("herdr", [...herdrArgs(config.session), "workspace", "focus", workspaceId]);
+    const focus = execCli("herdr", [
+      ...herdrArgs(config.session),
+      "workspace",
+      "focus",
+      workspaceId,
+    ]);
     if (!focus.ok) warnings.push(`workspace focus failed: ${focus.output}`);
   } else {
     workspaceWasNew = true;
@@ -346,7 +292,7 @@ export function bootstrapHerdrProject(
       "--no-focus",
     ];
     if (config.workspaceLabel) createArgs.push("--label", config.workspaceLabel);
-    const created = runJson("herdr", createArgs);
+    const created = execCliJson("herdr", createArgs);
     if (!created.ok) throw new Error(created.error || "workspace create failed");
     workspaceId =
       (created.json?.result?.workspace as { workspace_id?: string })?.workspace_id || null;
@@ -416,7 +362,7 @@ export function bootstrapHerdrProject(
   const shouldRunBootstrap = workspaceWasNew || options.force;
   for (const tab of config.tabs || []) {
     if (!shouldRunBootstrap || !tab?.command || !workspaceId) continue;
-    const tabCreate = runJson("herdr", [
+    const tabCreate = execCliJson("herdr", [
       ...herdrArgs(config.session),
       "tab",
       "create",
@@ -453,12 +399,20 @@ export function bootstrapHerdrProject(
     actions.push({ action: "bootstrap_skipped", reason: "workspace_already_initialized" });
   }
 
+  if (config.agentsTab?.panes?.some((pane) => pane.context?.trim() && pane.agent)) {
+    const contextSync = syncAgentsTabContext(config);
+    for (const row of contextSync.delivered) {
+      actions.push({ action: "agent_context_delivered", agent: row.agent, bytes: row.bytes });
+    }
+    warnings.push(...contextSync.warnings);
+  }
+
   if (workspaceId) {
-    run("herdr", [...herdrArgs(config.session), "workspace", "focus", workspaceId]);
+    execCli("herdr", [...herdrArgs(config.session), "workspace", "focus", workspaceId]);
   }
 
   if (options.attach && process.env.HERDR_ENV !== "1") {
-    const attach = run("herdr", [...herdrArgs(config.session)]);
+    const attach = execCli("herdr", [...herdrArgs(config.session)]);
     if (!attach.ok && !attach.output.includes("nested herdr")) {
       warnings.push(`attach: ${attach.output}`);
     } else {

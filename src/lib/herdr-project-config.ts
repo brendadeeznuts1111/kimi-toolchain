@@ -20,6 +20,8 @@ export interface HerdrAgentsTabPane {
   ratio?: number;
   label?: string;
   command?: string;
+  /** Shell command whose stdout is sent to the agent after start/reconcile. */
+  context?: string;
   env?: Record<string, string>;
 }
 
@@ -77,6 +79,7 @@ function parseAgentsTabPane(value: unknown): HerdrAgentsTabPane | null {
     ratio: typeof row.ratio === "number" ? row.ratio : undefined,
     label: typeof row.label === "string" ? row.label : undefined,
     command: typeof row.command === "string" ? row.command : undefined,
+    context: typeof row.context === "string" ? row.context : undefined,
     env,
   };
 }

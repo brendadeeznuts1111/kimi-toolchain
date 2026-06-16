@@ -122,6 +122,11 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
         flags: ["--session-report"],
       },
       {
+        name: "workspace-context",
+        description: "Markdown workspace brief for agent handoff (git, effect-gates, next steps)",
+        flags: ["--workspace-context", "--brief"],
+      },
+      {
         name: "watch",
         description: "Continuous effect-gates polling; reports only on change",
         flags: ["--watch", "--watch-interval"],

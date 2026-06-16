@@ -8,7 +8,7 @@ import type {
   HerdrProjectTab,
   HerdrShellSplit,
 } from "./herdr-project-config.ts";
-import { resolveHerdrPanePath } from "./herdr-project-runner.ts";
+import { resolveHerdrPanePath } from "./herdr-project-cli.ts";
 
 export type LayoutNodeType = "pane" | "split";
 
