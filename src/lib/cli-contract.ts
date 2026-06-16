@@ -12,6 +12,34 @@
 import { Logger, type LogLevel } from "./logger.ts";
 import { isQuietMode } from "./quiet-mode.ts";
 
+const TAXONOMY_ID_CLI_INVALID_FLAG = "cli_invalid_flag";
+
+/** Error thrown when the CLI contract is violated (unknown flag, invalid value). */
+export class CliContractError extends Error {
+  readonly toolName: string;
+  readonly taxonomyId: string;
+  readonly unknownFlag?: string;
+  readonly suggestions?: string[];
+
+  constructor(options: {
+    toolName: string;
+    message: string;
+    taxonomyId: string;
+    unknownFlag?: string;
+    suggestions?: string[];
+  }) {
+    super(options.message);
+    this.name = "CliContractError";
+    this.toolName = options.toolName;
+    this.taxonomyId = options.taxonomyId;
+    this.unknownFlag = options.unknownFlag;
+    this.suggestions = options.suggestions;
+  }
+}
+
+/** Machine-readable output schema version. Bump only on breaking envelope changes. */
+export const CLI_OUTPUT_SCHEMA_VERSION = 1;
+
 /** Common flags supported by every kimi-* tool. */
 export interface CliFlags {
   /** Emit structured JSON/JSONL on stdout. */
@@ -47,6 +75,41 @@ const COMMON_FLAGS = new Set([
   "--step-budget",
 ]);
 
+/** Compute a fuzzy flag suggestion using Levenshtein distance. */
+function suggestFlag(unknown: string, candidates: string[]): string | undefined {
+  if (candidates.length === 0) return undefined;
+
+  function distance(a: string, b: string): number {
+    const m = a.length;
+    const n = b.length;
+    const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        dp[i][j] =
+          a[i - 1] === b[j - 1]
+            ? dp[i - 1][j - 1]
+            : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+    return dp[m][n];
+  }
+
+  let best: string | undefined;
+  let bestScore = Infinity;
+  for (const candidate of candidates) {
+    const score = distance(unknown, candidate);
+    if (score < bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  }
+
+  const threshold = Math.max(1, Math.floor(unknown.length / 2));
+  return bestScore <= threshold ? best : undefined;
+}
+
 /** Read a boolean-ish environment variable. */
 function envBool(name: string): boolean {
   const value = Bun.env[name];
@@ -81,15 +144,23 @@ export function parseCliFlags(
   let stepBudget = argv.includes("--step-budget") || envBool("KIMI_STEP_BUDGET");
 
   let timeout: number | undefined;
+  let timeoutProvided = false;
   const timeoutIndex = argv.indexOf("--timeout");
   if (timeoutIndex >= 0) {
     const raw = argv[timeoutIndex + 1];
     if (raw && !raw.startsWith("--")) {
+      timeoutProvided = true;
       const n = Number(raw);
-      if (Number.isFinite(n) && n > 0) timeout = n;
+      if (Number.isFinite(n) && n > 0) {
+        timeout = n;
+      } else {
+        process.stderr.write(
+          `[${toolName}] Invalid --timeout value "${raw}"; expected a positive number.\n`
+        );
+      }
     }
   }
-  if (timeout === undefined) {
+  if (timeout === undefined && !timeoutProvided) {
     timeout = envMs("KIMI_TIMEOUT_MS");
   }
 
@@ -112,7 +183,18 @@ export function parseCliFlags(
     }
 
     if (options.strict && !allowed.has(arg)) {
-      throw new Error(`Unknown flag ${arg} for ${toolName}`);
+      const candidates = [...COMMON_FLAGS, ...allowed];
+      const suggestion = suggestFlag(arg, candidates);
+      const message = suggestion
+        ? `Unknown flag ${arg} for ${toolName}. Did you mean ${suggestion}?`
+        : `Unknown flag ${arg} for ${toolName}. Valid flags: ${candidates.join(", ")}`;
+      throw new CliContractError({
+        toolName,
+        message,
+        taxonomyId: TAXONOMY_ID_CLI_INVALID_FLAG,
+        unknownFlag: arg,
+        suggestions: suggestion ? [suggestion] : undefined,
+      });
     }
 
     // Allow tool-specific flags to pass through to positional so callers can
@@ -135,6 +217,11 @@ export interface MachineWriter {
   writeJson(data: unknown): void;
   /** Emit multiple JSON objects as JSONL on stdout. */
   writeJsonl(entries: unknown[]): void;
+  /**
+   * Emit a single JSON object on stdout with an explicit schema name.
+   * The schema name is included in the output envelope alongside schemaVersion and tool.
+   */
+  writeJsonSchema(schemaName: string, payload: unknown): void;
   /** Emit a human-readable line on stderr (suppressed in json/quiet/agent modes). */
   writeHuman(level: LogLevel, message: string): void;
   /** Convenience wrappers. */
@@ -150,6 +237,7 @@ export interface MachineWriter {
 
 /** Create a writer that respects --json, --quiet, --debug, and agent context. */
 export function createMachineWriter(flags: CliFlags, toolName?: string): MachineWriter {
+  const resolvedTool = toolName ?? "kimi-toolchain";
   const logger = new Logger({
     level: flags.debug ? "debug" : "info",
     json: false,
@@ -161,14 +249,35 @@ export function createMachineWriter(flags: CliFlags, toolName?: string): Machine
     humanStderr: flags.json,
   });
 
+  function isPlainObject(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function buildEnvelope(extra: Record<string, unknown> = {}): Record<string, unknown> {
+    return { schemaVersion: CLI_OUTPUT_SCHEMA_VERSION, tool: resolvedTool, ...extra };
+  }
+
+  function wrapJson(data: unknown, extra: Record<string, unknown> = {}): unknown {
+    const meta = buildEnvelope(extra);
+    if (isPlainObject(data)) {
+      // Contract fields are authoritative: they overwrite any caller-provided duplicates.
+      return { ...data, ...meta };
+    }
+    return { ...meta, data };
+  }
+
   function writeJson(data: unknown): void {
-    process.stdout.write(`${JSON.stringify(data)}\n`);
+    process.stdout.write(`${JSON.stringify(wrapJson(data))}\n`);
   }
 
   function writeJsonl(entries: unknown[]): void {
     for (const entry of entries) {
       writeJson(entry);
     }
+  }
+
+  function writeJsonSchema(schemaName: string, payload: unknown): void {
+    writeJson({ schemaName, payload });
   }
 
   function writeHuman(level: LogLevel, message: string): void {
@@ -181,6 +290,7 @@ export function createMachineWriter(flags: CliFlags, toolName?: string): Machine
   return {
     writeJson,
     writeJsonl,
+    writeJsonSchema,
     writeHuman,
     info: (message) => writeHuman("info", message),
     warn: (message) => writeHuman("warn", message),
