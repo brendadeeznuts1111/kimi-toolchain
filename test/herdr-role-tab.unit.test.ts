@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
   buildRoleTabAgentStartArgs,
+  grokRoleTabCliSequence,
   parseGrokRoleTabCommand,
   planGrokRoleTabAgent,
   tabCommandStrategy,
@@ -94,5 +95,37 @@ describe("herdr-role-tab", () => {
     expect(args).toContain("wB");
     expect(args).toContain("--");
     expect(args.indexOf("--")).toBeLessThan(args.indexOf("--role"));
+  });
+
+  test("grokRoleTabCliSequence orders agent start, rename, and report-agent", () => {
+    const config = baseConfig();
+    const sequence = grokRoleTabCliSequence(config, "wB", V2_TEST_COMMAND, {
+      tabId: "wB:t1J",
+      paneId: "wB:p24",
+      tabLabel: "test",
+    });
+    expect(sequence).not.toBeNull();
+    expect(sequence!.start).toEqual(
+      buildRoleTabAgentStartArgs(
+        config,
+        "wB",
+        planGrokRoleTabAgent(config, V2_TEST_COMMAND, { tabLabel: "test" })!,
+        { tabId: "wB:t1J", paneId: "wB:p24" }
+      )
+    );
+    expect(sequence!.rename).toEqual(["agent", "rename", "wB:p24", "test-agent"]);
+    expect(sequence!.reportAgent).toEqual([
+      "pane",
+      "report-agent",
+      "wB:p24",
+      "--source",
+      "kimi-toolchain:herdr-project",
+      "--agent",
+      "test-agent",
+      "--state",
+      "working",
+      "--custom-status",
+      "test",
+    ]);
   });
 });

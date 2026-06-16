@@ -9,7 +9,11 @@ import {
   type WorkspaceLayoutSnapshot,
 } from "../src/lib/herdr-project-reconcile.ts";
 import { buildIntendedTabLayouts, diffTabLayouts } from "../src/lib/herdr-project-layout.ts";
-import { parseGrokRoleTabCommand, planGrokRoleTabAgent } from "../src/lib/herdr-role-tab.ts";
+import {
+  grokRoleTabCliSequence,
+  parseGrokRoleTabCommand,
+  planGrokRoleTabAgent,
+} from "../src/lib/herdr-role-tab.ts";
 import type { HerdrProjectConfig } from "../src/lib/herdr-project-config.ts";
 
 function snapshot(
@@ -182,6 +186,76 @@ describe("herdr-project-reconcile", () => {
       { tabLabel: "test" }
     );
     expect(plan?.renameTo).toBe("test-agent");
+  });
+
+  test("create_tab and apply_layout grok --role paths share runTabCommand CLI sequence", () => {
+    const config: HerdrProjectConfig = {
+      schemaVersion: 2,
+      enabled: true,
+      workspaceLabel: "kimi-toolchain",
+      primaryAgent: "kimi",
+      secondaryAgents: ["codex"],
+      shellPane: true,
+      shellSplit: "right",
+      bootstrap: [],
+      session: "",
+      agentsTab: { label: "agents", panes: [{ role: "primary", agent: "kimi" }] },
+      tabs: [{ label: "test", command: V2_TEST_TAB_COMMAND }],
+      sourcePath: "dx.config.toml",
+      projectPath: "/Users/nolarose/kimi-toolchain",
+    };
+    const expected = buildExpectedLayout(config);
+    const agentsSnapshot = snapshot(
+      "wB",
+      [{ tabId: "wB:t1C", label: "agents", paneCount: 3 }],
+      [
+        { paneId: "wB:p1W", tabId: "wB:t1C", agent: "kimi", isShell: false },
+        { paneId: "wB:p1Y", tabId: "wB:t1C", agent: null, isShell: true },
+        { paneId: "wB:p1X", tabId: "wB:t1C", agent: "codex", isShell: false },
+      ]
+    );
+
+    const createTab = diffWorkspaceLayout(expected, agentsSnapshot).find(
+      (row) => row.type === "create_tab" && row.target === "test"
+    );
+    expect(createTab?.detail?.strategy).toBe("grok_role_agent");
+    expect(createTab?.detail?.command).toBe(V2_TEST_TAB_COMMAND);
+
+    const layoutDrifts = diffTabLayouts(
+      expected.tabLayouts,
+      agentsSnapshot.tabs,
+      new Map(),
+      config.projectPath || ""
+    );
+    const applyLayout = planReconcileActions(expected, agentsSnapshot, layoutDrifts).find(
+      (row) => row.type === "apply_layout" && row.target === "test"
+    );
+    expect(applyLayout?.detail?.postApplyStrategy).toBe("grok_role_agent");
+    expect(applyLayout?.detail?.command).toBe(V2_TEST_TAB_COMMAND);
+
+    const createSequence = grokRoleTabCliSequence(
+      config,
+      "wB",
+      String(createTab?.detail?.command),
+      {
+        tabId: "wB:t1J",
+        paneId: "wB:p24",
+        tabLabel: "test",
+      }
+    );
+    const applySequence = grokRoleTabCliSequence(
+      config,
+      "wB",
+      String(applyLayout?.detail?.command),
+      {
+        tabId: "wB:t1J",
+        paneId: "wB:p24",
+        tabLabel: "test",
+      }
+    );
+    expect(createSequence).toEqual(applySequence);
+    expect(createSequence?.rename[3]).toBe("test-agent");
+    expect(createSequence?.reportAgent).toContain("report-agent");
   });
 
   test("diffWorkspaceLayout marks test tab create_tab as grok_role_agent strategy", () => {

@@ -172,6 +172,51 @@ export function buildRoleTabAgentStartArgs(
   return args;
 }
 
+export function buildGrokRoleRenameArgs(
+  session: string,
+  paneId: string,
+  renameTo: string
+): string[] {
+  return [...herdrArgs(session), "agent", "rename", paneId, renameTo];
+}
+
+export function buildGrokRoleReportAgentArgs(
+  session: string,
+  paneId: string,
+  report: NonNullable<RoleTabAgentPlan["reportAgent"]>
+): string[] {
+  return [
+    ...herdrArgs(session),
+    "pane",
+    "report-agent",
+    paneId,
+    "--source",
+    report.source,
+    "--agent",
+    report.agent,
+    "--state",
+    report.state,
+    "--custom-status",
+    report.customStatus,
+  ];
+}
+
+/** Ordered herdr argv after layout.apply / create_tab for grok --role tabs (testable). */
+export function grokRoleTabCliSequence(
+  config: HerdrProjectConfig,
+  workspaceId: string,
+  command: string,
+  target: RunTabCommandTarget & { paneId: string }
+): { start: string[]; rename: string[]; reportAgent: string[] } | null {
+  const plan = planGrokRoleTabAgent(config, command, { tabLabel: target.tabLabel });
+  if (!plan?.reportAgent) return null;
+  return {
+    start: buildRoleTabAgentStartArgs(config, workspaceId, plan, target),
+    rename: buildGrokRoleRenameArgs(config.session, target.paneId, plan.renameTo),
+    reportAgent: buildGrokRoleReportAgentArgs(config.session, target.paneId, plan.reportAgent),
+  };
+}
+
 export function parseHerdrTabId(
   payload: { result?: Record<string, unknown> } | null
 ): string | null {
@@ -223,23 +268,14 @@ export function startGrokRoleTabAgent(
 
   const paneId = parseHerdrPaneId(started.json, target.paneId || null);
   if (paneId && plan.renameTo) {
-    herdrCliRun(config.session, ["agent", "rename", paneId, plan.renameTo]);
+    herdrCliRun(config.session, buildGrokRoleRenameArgs(config.session, paneId, plan.renameTo));
   }
 
   if (paneId && plan.reportAgent) {
-    herdrCliRun(config.session, [
-      "pane",
-      "report-agent",
-      paneId,
-      "--source",
-      plan.reportAgent.source,
-      "--agent",
-      plan.reportAgent.agent,
-      "--state",
-      plan.reportAgent.state,
-      "--custom-status",
-      plan.reportAgent.customStatus,
-    ]);
+    herdrCliRun(
+      config.session,
+      buildGrokRoleReportAgentArgs(config.session, paneId, plan.reportAgent)
+    );
   }
 
   return { ok: true, paneId };
