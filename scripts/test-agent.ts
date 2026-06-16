@@ -44,7 +44,7 @@ async function runCommand(label: string, cmd: string[]): Promise<boolean> {
   const proc = Bun.spawn(cmd, { cwd: REPO_ROOT, stdout: "inherit", stderr: "inherit" });
   const code = await proc.exited;
   if (code === 0) {
-    report("done", "passed");
+    report("idle", "passed");
     return true;
   }
   report("blocked", "failed");

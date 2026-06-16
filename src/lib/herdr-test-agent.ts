@@ -1,7 +1,8 @@
 import { join } from "node:path";
 import { bunTestArgs, FAST_TEST_TIMEOUT_MS } from "./test-gates.ts";
 
-export type HerdrAgentState = "working" | "done" | "idle" | "blocked";
+/** Herdr report-agent states (this build: idle | working | blocked | unknown). */
+export type HerdrAgentState = "working" | "idle" | "blocked" | "unknown";
 export type TestAgentMode = "watch" | "once" | "check" | "ci";
 
 export const TEST_AGENT_WATCH_DIRS = ["src", "test", "scripts"] as const;
