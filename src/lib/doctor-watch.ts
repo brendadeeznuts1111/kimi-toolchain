@@ -127,17 +127,7 @@ export async function runDoctorWatchLoop(options: DoctorWatchOptions): Promise<v
   await tick();
 
   while (!options.signal?.aborted) {
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(resolve, intervalMs);
-      options.signal?.addEventListener(
-        "abort",
-        () => {
-          clearTimeout(timer);
-          resolve();
-        },
-        { once: true }
-      );
-    });
+    await Bun.sleep(intervalMs);
     if (options.signal?.aborted) break;
     await tick();
   }
