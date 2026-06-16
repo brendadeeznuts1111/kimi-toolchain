@@ -9,11 +9,19 @@
  *   bun run finish-work --message "feat: add workspace layout"
  *   bun run finish-work --message "fix: gate" --push
  *   bun run finish-work --skip-git
+ *
+ * Exit codes: 0 = success or dry-run; 1 = gate, git, or unhandled failure.
  */
 
 import { join } from "path";
 import { $ } from "bun";
-import { emitGateFailure, runGate, type GateResult } from "../src/lib/gate-runner.ts";
+import {
+  emitGateFailure,
+  okMark,
+  porcelainDirtyLines,
+  runGate,
+  type GateResult,
+} from "../src/lib/gate-runner.ts";
 import { loadFinishWorkConfig } from "../src/lib/finish-work-config.ts";
 import { inspectAgent } from "../src/lib/inspect.ts";
 import { createLogger } from "../src/lib/logger.ts";
@@ -148,8 +156,11 @@ async function main(): Promise<number> {
       logger.line(`gate source: ${config.source}`);
       for (const gate of config.gates) logger.line(`  → ${gate}`);
       if (!options.skipGit && options.message) {
-        logger.line(`  → git add -u && git commit -m ${JSON.stringify(options.message)}`);
-        if (options.push) logger.line("  → git push");
+        logger.line("[DRY] Would run: git add -u");
+        logger.line(`[DRY] Would run: git commit -m ${JSON.stringify(options.message)}`);
+        if (options.push) logger.line("[DRY] Would run: git push");
+      } else if (!options.skipGit) {
+        logger.line("[DRY] Git skipped — no --message");
       }
     }
     return 0;
@@ -233,11 +244,20 @@ async function main(): Promise<number> {
       })}\n`
     );
   } else {
-    logger.info(`✓ finish-work — ${results.length} gates (${totalMs}ms)`);
+    logger.info(`${okMark()} finish-work — ${results.length} gates (${totalMs}ms)`);
     if (git.committed) {
       logger.info(options.push && git.pushed ? "committed and pushed" : "committed");
     } else if (!options.skipGit && !options.message) {
       logger.line("gates passed — add --message to commit");
+    }
+  }
+
+  if (git.pushed) {
+    const dirty = await porcelainDirtyLines(REPO_ROOT);
+    if (dirty.length > 0) {
+      logger.warn(`Working tree dirty after push (${dirty.length} path(s))`);
+      for (const line of dirty.slice(0, 8)) logger.line(`  ${line}`);
+      if (dirty.length > 8) logger.line(`  … +${dirty.length - 8} more`);
     }
   }
 

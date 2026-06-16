@@ -129,6 +129,10 @@ export function renderTemplate(template: string, replacements: Record<string, st
   return rendered;
 }
 
+export function scaffoldDxConfigTemplateRel(profile: ScaffoldProfile): string {
+  return profile === "toolchain" ? "dx.config.toolchain.toml" : "dx.config.app.toml";
+}
+
 export function renderDxConfig(
   profile: ScaffoldProfile,
   projectName: string,

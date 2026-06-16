@@ -2,6 +2,8 @@
 /**
  * Finish-work pipeline — run gates then optionally commit/push.
  * Scaffold slim copy for toolchain-profile projects.
+ *
+ * Exit codes: 0 = success or dry-run; 1 = gate, git, or unhandled failure.
  */
 
 import { join } from "path";
@@ -24,6 +26,24 @@ interface GateResult {
   ms: number;
   stdout: string;
   stderr: string;
+}
+
+interface GitResult {
+  committed: boolean;
+  pushed: boolean;
+  exitCode: number;
+}
+
+function noColorEnabled(): boolean {
+  return Bun.env.NO_COLOR !== undefined && Bun.env.NO_COLOR !== "0" && Bun.env.NO_COLOR !== "false";
+}
+
+function failMark(): string {
+  return noColorEnabled() ? "FAIL" : "✗";
+}
+
+function okMark(): string {
+  return noColorEnabled() ? "OK" : "✓";
 }
 
 function parseCli(): CliOptions {
@@ -97,21 +117,47 @@ async function runShellGate(name: string, command: string): Promise<GateResult> 
 }
 
 function emitGateFailure(result: GateResult): void {
-  Bun.stderr.write(`✗ ${result.name}\n`);
+  Bun.stderr.write(`${failMark()} ${result.name}\n`);
   const detail = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
   if (detail) Bun.stderr.write(`${detail}\n`);
 }
 
-async function runGitSteps(message: string, push: boolean): Promise<number> {
+async function porcelainDirtyLines(): Promise<string[]> {
+  const result = await $`git status --porcelain=v1`.cwd(REPO_ROOT).nothrow().quiet();
+  if (result.exitCode !== 0) return [];
+  return result.stdout
+    .toString()
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter(Boolean);
+}
+
+async function runGitSteps(message: string, push: boolean): Promise<GitResult> {
   const add = await $`git add -u`.cwd(REPO_ROOT).nothrow().quiet();
-  if (add.exitCode !== 0) return add.exitCode;
+  if (add.exitCode !== 0) return { committed: false, pushed: false, exitCode: add.exitCode };
 
   const commit = await $`git commit -m ${message}`.cwd(REPO_ROOT).nothrow().quiet();
-  if (commit.exitCode !== 0) return commit.exitCode;
+  if (commit.exitCode !== 0) return { committed: false, pushed: false, exitCode: commit.exitCode };
 
-  if (!push) return 0;
+  if (!push) return { committed: true, pushed: false, exitCode: 0 };
+
   const pushResult = await $`git push`.cwd(REPO_ROOT).nothrow().quiet();
-  return pushResult.exitCode;
+  return {
+    committed: true,
+    pushed: pushResult.exitCode === 0,
+    exitCode: pushResult.exitCode,
+  };
+}
+
+function logDryGitSteps(options: CliOptions): void {
+  if (options.skipGit) return;
+  if (options.message) {
+    process.stderr.write("[DRY] Would run: git add -u\n");
+    process.stderr.write(`[DRY] Would run: git commit -m ${JSON.stringify(options.message)}\n`);
+    if (options.push) process.stderr.write("[DRY] Would run: git push\n");
+  } else {
+    process.stderr.write("[DRY] Git skipped — no --message\n");
+  }
 }
 
 async function main(): Promise<number> {
@@ -133,6 +179,7 @@ async function main(): Promise<number> {
       process.stderr.write("finish-work — dry run\n");
       process.stderr.write(`gate source: ${config.source}\n`);
       for (const gate of config.gates) process.stderr.write(`  → ${gate}\n`);
+      logDryGitSteps(options);
     }
     return 0;
   }
@@ -152,15 +199,24 @@ async function main(): Promise<number> {
       } else {
         emitGateFailure(result);
       }
-      return result.exitCode;
+      return 1;
     }
   }
 
   if (!options.skipGit && options.message) {
-    const gitCode = await runGitSteps(options.message, options.push);
-    if (gitCode !== 0) return gitCode;
+    const git = await runGitSteps(options.message, options.push);
+    if (git.exitCode !== 0) return 1;
+
+    if (git.pushed) {
+      const dirty = await porcelainDirtyLines();
+      if (dirty.length > 0) {
+        process.stderr.write(`warn: working tree dirty after push (${dirty.length} path(s))\n`);
+        for (const line of dirty.slice(0, 8)) process.stderr.write(`  ${line}\n`);
+        if (dirty.length > 8) process.stderr.write(`  … +${dirty.length - 8} more\n`);
+      }
+    }
   } else if (!options.json) {
-    process.stderr.write("✓ finish-work — gates passed\n");
+    process.stderr.write(`${okMark()} finish-work — gates passed\n`);
   }
 
   return 0;

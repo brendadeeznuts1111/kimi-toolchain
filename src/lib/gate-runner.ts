@@ -88,8 +88,30 @@ export async function runGate(
   };
 }
 
+export function noColorEnabled(): boolean {
+  return Bun.env.NO_COLOR !== undefined && Bun.env.NO_COLOR !== "0" && Bun.env.NO_COLOR !== "false";
+}
+
+export function failMark(): string {
+  return noColorEnabled() ? "FAIL" : "✗";
+}
+
+export function okMark(): string {
+  return noColorEnabled() ? "OK" : "✓";
+}
+
+export async function porcelainDirtyLines(projectRoot: string): Promise<string[]> {
+  const result = await $`git status --porcelain=v1`.cwd(projectRoot).nothrow().quiet();
+  if (result.exitCode !== 0) return [];
+  return result.stdout
+    .toString()
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter(Boolean);
+}
+
 export function emitGateFailure(result: GateResult): void {
-  Bun.stderr.write(`✗ ${result.name}\n`);
+  Bun.stderr.write(`${failMark()} ${result.name}\n`);
   const detail = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
   if (detail) Bun.stderr.write(`${detail}\n`);
 }
@@ -98,7 +120,9 @@ export function formatHookSummary(hook: string, results: GateResult[]): string {
   const totalMs = results.reduce((sum, item) => sum + item.ms, 0);
   const parts = results.map((item) => {
     if (item.skipped) return `↷${shortGateName(item.name)}`;
-    return item.exitCode === 0 ? `✓${shortGateName(item.name)}` : `✗${shortGateName(item.name)}`;
+    return item.exitCode === 0
+      ? `${okMark()}${shortGateName(item.name)}`
+      : `${failMark()}${shortGateName(item.name)}`;
   });
   return `[${hook}] ${parts.join(" ")} (${totalMs}ms)`;
 }

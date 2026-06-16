@@ -4,8 +4,10 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { $ } from "bun";
 import {
+  failMark,
   formatHookSummary,
   formatTestSummaryLine,
+  okMark,
   readGateCache,
   shouldSkipGate,
   writeGateCache,
@@ -23,8 +25,11 @@ const gitFixtureEnv = {
 
 describe("gate-runner", () => {
   let projectDir: string;
+  let prevNoColor: string | undefined;
 
   beforeEach(() => {
+    prevNoColor = Bun.env.NO_COLOR;
+    delete Bun.env.NO_COLOR;
     projectDir = join(tmpdir(), `gate-runner-${Date.now()}`);
     mkdirSync(join(projectDir, ".git"), { recursive: true });
     mkdirSync(join(projectDir, ".kimi"), { recursive: true });
@@ -32,6 +37,8 @@ describe("gate-runner", () => {
 
   afterEach(() => {
     rmSync(projectDir, { recursive: true, force: true });
+    if (prevNoColor === undefined) delete Bun.env.NO_COLOR;
+    else Bun.env.NO_COLOR = prevNoColor;
   });
 
   it("should format hook summary with skipped gates", () => {
@@ -80,5 +87,17 @@ describe("gate-runner", () => {
 
     expect(await shouldSkipGate(projectDir, "format:check")).toBe(true);
     expect(await shouldSkipGate(projectDir, "typecheck")).toBe(false);
+  });
+
+  it("uses plain marks when NO_COLOR is set", () => {
+    Bun.env.NO_COLOR = "1";
+    expect(failMark()).toBe("FAIL");
+    expect(okMark()).toBe("OK");
+    const line = formatHookSummary("pre-push", [
+      { name: "lint", exitCode: 0, ms: 1, stdout: "", stderr: "" },
+      { name: "check", exitCode: 1, ms: 1, stdout: "", stderr: "" },
+    ]);
+    expect(line).toContain("OKlint");
+    expect(line).toContain("FAILcheck");
   });
 });

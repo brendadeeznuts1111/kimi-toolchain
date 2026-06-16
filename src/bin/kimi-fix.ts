@@ -31,6 +31,7 @@ import {
   TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES,
   renderDxConfig,
   renderWorkspaceToml,
+  scaffoldDxConfigTemplateRel,
   resolveScaffoldProfile,
   filterScaffoldArgv,
   detectProfileDrift,
@@ -146,6 +147,7 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
   logger.section(`Fixing ${basename(project)} (${profile} profile)`);
   logger.info(`Path: ${project}`);
   logger.info(`Profile: ${profile}`);
+  logger.info(`Template: templates/scaffold/${scaffoldDxConfigTemplateRel(profile)}`);
 
   const drift = detectProfileDrift(project, profile);
   if (drift) logger.warn(drift);

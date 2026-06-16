@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   renderDxConfig,
   renderWorkspaceToml,
+  scaffoldDxConfigTemplateRel,
   resolveScaffoldProfile,
   filterScaffoldArgv,
   dxAgentsPath,
@@ -33,6 +34,11 @@ describe("scaffold-profiles", () => {
       ScaffoldProfileError
     );
     expect(() => resolveScaffoldProfile([".", "--profile"])).toThrow(ScaffoldProfileError);
+  });
+
+  test("scaffoldDxConfigTemplateRel maps profiles to template files", () => {
+    expect(scaffoldDxConfigTemplateRel("app")).toBe("dx.config.app.toml");
+    expect(scaffoldDxConfigTemplateRel("toolchain")).toBe("dx.config.toolchain.toml");
   });
 
   test("filterScaffoldArgv removes profile flags", () => {
