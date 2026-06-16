@@ -89,7 +89,11 @@ describe("cli-contract-effect", () => {
       const jsonMode = await Effect.runPromise(program);
       expect(jsonMode).toBe(true);
       expect(stdout.data).toHaveLength(1);
-      expect(JSON.parse(stdout.data[0]!)).toEqual({ ok: true });
+      expect(JSON.parse(stdout.data[0]!)).toEqual({
+        ok: true,
+        schemaVersion: 1,
+        tool: "kimi-test",
+      });
       expect(stderr.data).toContain("  ✗ visible error");
       expect(stderr.data).not.toContain("suppressed info");
     } finally {
@@ -111,7 +115,10 @@ describe("cli-contract-effect", () => {
       const jsonMode = await Effect.runPromise(program);
       expect(jsonMode).toBe(true);
       expect(stdout.data).toHaveLength(1);
-      expect(JSON.parse(stdout.data[0]!)).toEqual({ tool: true });
+      expect(JSON.parse(stdout.data[0]!)).toEqual({
+        tool: "kimi-test",
+        schemaVersion: 1,
+      });
       expect(stderr.data).toHaveLength(0);
     } finally {
       stdout.restore();
