@@ -54,6 +54,7 @@ import { resolveProjectRoot, getProjectName } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 import { auditAgentReady } from "../lib/agent-ready.ts";
 import { auditSuccessMetrics } from "../lib/success-metrics.ts";
+import { generateAgentDiagnosisReport } from "../lib/agent-diagnosis.ts";
 import { createLogger } from "../lib/logger.ts";
 import { aggregateChecks, type HealthCheck } from "../lib/health-check.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
@@ -88,6 +89,7 @@ const WORKSPACE_ONLY = Bun.argv.includes("--workspace");
 const ECOSYSTEM = Bun.argv.includes("--ecosystem");
 const AGENT_READY = Bun.argv.includes("--agent-ready");
 const SUCCESS_METRICS = Bun.argv.includes("--success-metrics");
+const AGENT = Bun.argv.includes("--agent");
 const FIX_CURSOR = Bun.argv.includes("--fix-cursor");
 const FIX_DEEP = Bun.argv.includes("--fix-deep");
 const STRICT_WORKSPACE = Bun.argv.includes("--strict-workspace");
@@ -834,6 +836,43 @@ async function runSuccessMetricsMode(projectRoot: string): Promise<number> {
   return errors > 0 ? 1 : 0;
 }
 
+async function runAgentDiagnosisMode(projectRoot: string): Promise<number> {
+  const report = await generateAgentDiagnosisReport(projectRoot);
+
+  if (JSON_OUT) {
+    emitJson(report);
+    return 0;
+  }
+
+  logger.banner("Kimi Doctor — Agent Diagnosis");
+  logger.info(`Overall confidence: ${(report.summary.overallConfidence * 100).toFixed(1)}%`);
+  logger.info(`Issues: ${report.summary.issueCount} (${report.summary.fixableIssueCount} fixable)`);
+
+  if (report.prioritizedIssues.length > 0) {
+    logger.section("Prioritized issues");
+    for (const issue of report.prioritizedIssues.slice(0, 12)) {
+      logger.check({
+        name: issue.name,
+        status: issue.status,
+        message: issue.message,
+        fixable: !!issue.autoFix,
+        autoFix: issue.autoFix,
+      });
+    }
+  }
+
+  if (report.proposedActions.length > 0) {
+    logger.section("Proposed actions");
+    for (const action of report.proposedActions) {
+      const cmd = action.command ? ` → ${action.command}` : "";
+      logger.info(`${action.title} (${action.expectedImpact})${cmd}`);
+      logger.line(`  ${action.rationale}`);
+    }
+  }
+
+  return 0;
+}
+
 async function main(): Promise<number> {
   if (MEMORY_BUDGET) {
     printMemoryBudget(logger);
@@ -879,6 +918,10 @@ async function main(): Promise<number> {
 
   if (SUCCESS_METRICS) {
     return runSuccessMetricsMode(projectRoot);
+  }
+
+  if (AGENT) {
+    return runAgentDiagnosisMode(projectRoot);
   }
 
   if (!JSON_OUT) {

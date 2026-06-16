@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
+import { mkdirSync, mkdtempSync, rmSync } from "fs";
 import { join } from "path";
 import { invokeTool } from "../../src/lib/tool-runner.ts";
 
@@ -19,11 +19,35 @@ const CLEANUP_LEGACY = join(REPO_ROOT, "src/bin/kimi-cleanup-legacy.ts");
 async function runTool(
   path: string,
   args: string[] = [],
-  timeoutMs: number = 15_000
+  options: number | { timeoutMs?: number; maxOutputBytes?: number } = 15_000
 ): Promise<{ stdout: string; exitCode: number }> {
+  const { timeoutMs = 15_000, maxOutputBytes } =
+    typeof options === "number" ? { timeoutMs: options } : options;
+
+  // For large expected outputs, redirect stdout to a temp file to work around
+  // Bun pipe stream data loss on high-volume subprocess output.
+  if (maxOutputBytes !== undefined && maxOutputBytes > 1_048_576) {
+    const tmpDir = mkdtempSync(join(REPO_ROOT, "node_modules", ".smoke-"));
+    const tmpOut = join(tmpDir, "stdout.json");
+    try {
+      const proc = Bun.spawn(["bun", "run", path, ...args], {
+        cwd: REPO_ROOT,
+        stdout: Bun.file(tmpOut),
+        stderr: "pipe",
+      });
+      const exitCode = await proc.exited;
+      const stderr = await Bun.readableStreamToText(proc.stderr);
+      const stdout = await Bun.file(tmpOut).text();
+      return { stdout: stdout + stderr, exitCode };
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }
+
   const result = await invokeTool(path, args, {
     cwd: REPO_ROOT,
     timeoutMs,
+    ...(maxOutputBytes !== undefined ? { maxOutputBytes } : {}),
   });
   return { stdout: result.stdout + result.stderr, exitCode: result.exitCode };
 }
@@ -140,6 +164,47 @@ describe("kimi-doctor smoke", () => {
     expect(report.ledger.reviewCommand).toContain("kimi-debug ledger");
     expect(Array.isArray(report.ledger.unknownBuckets)).toBe(true);
     expect(report.summary.ok).toBe(true);
+    expect(exitCode).toBe(0);
+  }, 15_000);
+
+  test("doctor --agent --json emits AgentDiagnosisReport", async () => {
+    const { stdout, exitCode } = await runTool(DOCTOR, ["--agent", "--json"]);
+    const report = JSON.parse(stdout.trim()) as {
+      schemaVersion: number;
+      tool: string;
+      generatedAt: string;
+      projectRoot: string;
+      summary: { overallConfidence: number; issueCount: number; fixableIssueCount: number };
+      confidenceBreakdown: {
+        errorCoverage: number;
+        ledgerClassification: number;
+        healthCheckPassRate: number;
+        tuningSetAlignment: number;
+      };
+      prioritizedIssues: Array<{ name: string; status: string; message: string; priority: number }>;
+      proposedActions: Array<{ id: string; title: string; expectedImpact: string }>;
+      sourceData: {
+        errorCoverage: { coverage: number };
+        ledger: { total: number };
+        tuningSet: { aligned: boolean };
+      };
+    };
+    expect(report.schemaVersion).toBe(1);
+    expect(report.tool).toBe("kimi-doctor");
+    expect(typeof report.generatedAt).toBe("string");
+    expect(report.projectRoot).toMatch(/kimi-toolchain$/);
+    expect(typeof report.summary.overallConfidence).toBe("number");
+    expect(typeof report.summary.issueCount).toBe("number");
+    expect(typeof report.summary.fixableIssueCount).toBe("number");
+    expect(report.confidenceBreakdown.errorCoverage).toBeGreaterThanOrEqual(0);
+    expect(report.confidenceBreakdown.ledgerClassification).toBeGreaterThanOrEqual(0);
+    expect(report.confidenceBreakdown.healthCheckPassRate).toBeGreaterThanOrEqual(0);
+    expect(report.confidenceBreakdown.tuningSetAlignment).toBeGreaterThanOrEqual(0);
+    expect(Array.isArray(report.prioritizedIssues)).toBe(true);
+    expect(Array.isArray(report.proposedActions)).toBe(true);
+    expect(report.sourceData.errorCoverage.coverage).toBeGreaterThanOrEqual(0.9);
+    expect(typeof report.sourceData.ledger.total).toBe("number");
+    expect(typeof report.sourceData.tuningSet.aligned).toBe("boolean");
     expect(exitCode).toBe(0);
   }, 15_000);
 
@@ -275,7 +340,9 @@ describe("kimi-doctor smoke", () => {
       ["--predict", "--json"],
       ["--correlate", "--json"],
     ]) {
-      const { stdout, exitCode } = await runTool(DOCTOR, args);
+      const { stdout, exitCode } = await runTool(DOCTOR, args, {
+        maxOutputBytes: 5_000_000,
+      });
       const parsed = JSON.parse(stdout.trim()) as {
         schemaVersion?: number;
         tool?: string;
