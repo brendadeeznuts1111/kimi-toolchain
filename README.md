@@ -312,5 +312,3 @@ Wrangler OAuth tokens and the Kimi Code Cloudflare MCP server authenticate throu
 
 - No secrets in source. Use `Bun.env` or `Bun.secrets`.
 - Validate all external input at system boundaries.
-# smoke test
-# smoke test 2
