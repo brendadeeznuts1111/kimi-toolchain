@@ -143,6 +143,47 @@ describe("kimi-doctor smoke", () => {
     expect(exitCode).toBe(0);
   }, 15_000);
 
+  test("doctor --agent --json emits AgentDiagnosisReport", async () => {
+    const { stdout, exitCode } = await runTool(DOCTOR, ["--agent", "--json"]);
+    const report = JSON.parse(stdout.trim()) as {
+      schemaVersion: number;
+      tool: string;
+      generatedAt: string;
+      projectRoot: string;
+      summary: { overallConfidence: number; issueCount: number; fixableIssueCount: number };
+      confidenceBreakdown: {
+        errorCoverage: number;
+        ledgerClassification: number;
+        healthCheckPassRate: number;
+        tuningSetAlignment: number;
+      };
+      prioritizedIssues: Array<{ name: string; status: string; message: string; priority: number }>;
+      proposedActions: Array<{ id: string; title: string; expectedImpact: string }>;
+      sourceData: {
+        errorCoverage: { coverage: number };
+        ledger: { total: number };
+        tuningSet: { aligned: boolean };
+      };
+    };
+    expect(report.schemaVersion).toBe(1);
+    expect(report.tool).toBe("kimi-doctor");
+    expect(typeof report.generatedAt).toBe("string");
+    expect(report.projectRoot).toMatch(/kimi-toolchain$/);
+    expect(typeof report.summary.overallConfidence).toBe("number");
+    expect(typeof report.summary.issueCount).toBe("number");
+    expect(typeof report.summary.fixableIssueCount).toBe("number");
+    expect(report.confidenceBreakdown.errorCoverage).toBeGreaterThanOrEqual(0);
+    expect(report.confidenceBreakdown.ledgerClassification).toBeGreaterThanOrEqual(0);
+    expect(report.confidenceBreakdown.healthCheckPassRate).toBeGreaterThanOrEqual(0);
+    expect(report.confidenceBreakdown.tuningSetAlignment).toBeGreaterThanOrEqual(0);
+    expect(Array.isArray(report.prioritizedIssues)).toBe(true);
+    expect(Array.isArray(report.proposedActions)).toBe(true);
+    expect(report.sourceData.errorCoverage.coverage).toBeGreaterThanOrEqual(0.9);
+    expect(typeof report.sourceData.ledger.total).toBe("number");
+    expect(typeof report.sourceData.tuningSet.aligned).toBe("boolean");
+    expect(exitCode).toBe(0);
+  }, 15_000);
+
   test("kimi-debug ledger --json emits sanitized unknown buckets", async () => {
     const dir = join(REPO_ROOT, `.tmp-debug-ledger-${Date.now()}`);
     const ledgerPath = join(dir, "tool-failures.jsonl");
