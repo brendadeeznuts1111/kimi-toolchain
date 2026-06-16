@@ -236,7 +236,7 @@ describe("generateConstantsManifest", () => {
     const root = join(import.meta.dir, "..");
     const manifest = await generateConstantsManifest(root);
     expect(manifest.repo).toBe("kimi-toolchain");
-    expect(manifest.tuningSetVersion).toBe("1.2.0");
+    expect(manifest.tuningSetVersion).toBe("1.3.0");
     expect(manifest.domains["decision-scoring"]?.KIMI_DECISION_SCORE_WINDOW_DAYS?.default).toBe(7);
     expect(manifest.parity.shared.some((entry) => entry.id === "velocity-window-days")).toBe(true);
     expect(stableStringify(manifest)).toContain("KIMI_HOOK_VERIFIER_MAX_CYCLES");

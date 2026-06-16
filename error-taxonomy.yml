@@ -288,6 +288,42 @@ categories:
     patterns:
       - regex: "Unknown flag"
 
+  - id: effect_gates_threshold_exceeded
+    name: Effect gates threshold exceeded
+    description: An Effect gate count exceeds its constant-derived threshold.
+    severity: error
+    expected: false
+    suggestion: "Review the gate report and reduce the flagged pattern."
+    patterns:
+      - regex: "effect.gates.*threshold"
+
+  - id: effect_gates_regression_detected
+    name: Effect gates regression detected
+    description: A gate metric regressed compared to the previous snapshot.
+    severity: error
+    expected: false
+    suggestion: "Compare the current report with the prior snapshot in .kimi/var/effect-gates.ndjson."
+    patterns:
+      - regex: "effect.gates.*regression"
+
+  - id: effect_gates_manifest_invalid
+    name: Effect gates manifest invalid
+    description: The constants manifest is missing, stale, or lacks required Effect discipline constants.
+    severity: error
+    expected: false
+    suggestion: "Run bun run manifest:generate && bun run format."
+    patterns:
+      - regex: "effect.gates.*manifest"
+
+  - id: effect_gates_session_floor_failed
+    name: Effect gates session floor failed
+    description: Session floor counts are missing or below required thresholds.
+    severity: error
+    expected: false
+    suggestion: "Review session-level Effect usage and run kimi-doctor --effect-gates."
+    patterns:
+      - regex: "effect.gates.*session.floor"
+
   - id: unknown
     name: Unknown
     description: No known pattern matched.

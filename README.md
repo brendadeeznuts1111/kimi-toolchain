@@ -61,6 +61,8 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run pr:diff` | (synced from package.json) |
 | `bun run pr:status` | (synced from package.json) |
 
+| `bun run constants:verify` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                           |
