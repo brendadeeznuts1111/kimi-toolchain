@@ -9,6 +9,7 @@ import {
   parseGrokRoleTabCommand,
   planGrokRoleTabAgent,
   resolveGrokRoleStartMode,
+  startGrokRoleTabAgent,
   tabCommandStrategy,
   tokenizeShellCommand,
 } from "../src/lib/herdr-role-tab.ts";
@@ -100,10 +101,21 @@ describe("herdr-role-tab", () => {
     expect(args.indexOf("--")).toBeLessThan(args.indexOf("--role"));
   });
 
-  test("resolveGrokRoleStartMode uses pane run when pane exists", () => {
-    expect(resolveGrokRoleStartMode({ paneId: "wB:p5N" }, true)).toBe("pane_run");
-    expect(resolveGrokRoleStartMode({ paneId: "wB:p5N" }, false)).toBe("agent_start");
-    expect(resolveGrokRoleStartMode({}, false)).toBe("agent_start");
+  test("resolveGrokRoleStartMode uses pane run when paneId is provided", () => {
+    expect(resolveGrokRoleStartMode({ paneId: "wB:p5N" })).toBe("pane_run");
+    expect(resolveGrokRoleStartMode({})).toBe("agent_start");
+  });
+
+  test("buildGrokRoleTabStartSteps forces agent start when paneExists is false", () => {
+    const config = baseConfig();
+    const steps = buildGrokRoleTabStartSteps(
+      config,
+      "wB",
+      V2_TEST_COMMAND,
+      { tabId: "wB:t3C", paneId: "wB:p5N", tabLabel: "test" },
+      { paneExists: false }
+    );
+    expect(steps?.mode).toBe("agent_start");
   });
 
   test("buildGrokRoleTabStartSteps uses pane run on existing layout.apply pane", () => {
@@ -142,6 +154,23 @@ describe("herdr-role-tab", () => {
         planGrokRoleTabAgent(config, V2_TEST_COMMAND, { tabLabel: "test" })!,
         { tabId: "wB:t3C" }
       )
+    );
+  });
+
+  test("startGrokRoleTabAgent plans pane run on layout.apply pane without live pane get", () => {
+    const config = baseConfig({ session: "dev" });
+    const steps = buildGrokRoleTabStartSteps(config, "wB", V2_TEST_COMMAND, {
+      tabId: "wB:t3C",
+      paneId: "wB:p5N",
+      tabLabel: "test",
+    });
+    expect(steps?.mode).toBe("pane_run");
+    expect(steps?.start[0]).toBe("--session");
+    expect(steps?.start[1]).toBe("dev");
+    expect(steps?.start).toContain("pane");
+    expect(steps?.start).toContain("run");
+    expect(startGrokRoleTabAgent(config, "wB", "not a grok command", { paneId: "wB:p5N" }).ok).toBe(
+      false
     );
   });
 
