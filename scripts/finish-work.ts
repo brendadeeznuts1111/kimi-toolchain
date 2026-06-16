@@ -22,6 +22,12 @@ import {
   runGate,
   type GateResult,
 } from "../src/lib/gate-runner.ts";
+import {
+  escalateFinishWorkToReviewer,
+  finishWorkOutcome,
+  shouldEscalateToReviewer as shouldEscalate,
+  type FinishWorkReport,
+} from "../src/lib/finish-work-herdr.ts";
 import { loadFinishWorkConfig } from "../src/lib/finish-work-config.ts";
 import { inspectAgent } from "../src/lib/inspect.ts";
 import { createLogger } from "../src/lib/logger.ts";
@@ -226,23 +232,31 @@ async function main(): Promise<number> {
   }
 
   const totalMs = results.reduce((sum, item) => sum + item.ms, 0);
+  const dirty = git.pushed ? await porcelainDirtyLines(REPO_ROOT) : [];
+  const tree = { clean: dirty.length === 0, dirty };
   const ok = true;
 
+  let report: FinishWorkReport = {
+    schemaVersion: 1,
+    tool: "finish-work",
+    ok,
+    outcome: finishWorkOutcome(ok, git.pushed, tree.clean),
+    gateSource: config.source,
+    results: results.map((item) => ({
+      name: item.name,
+      exitCode: item.exitCode,
+      ms: item.ms,
+    })),
+    git,
+    tree,
+  };
+
+  if (shouldEscalate(report)) {
+    report = await escalateFinishWorkToReviewer(REPO_ROOT, report);
+  }
+
   if (options.json) {
-    process.stdout.write(
-      `${inspectAgent({
-        schemaVersion: 1,
-        tool: "finish-work",
-        ok,
-        gateSource: config.source,
-        results: results.map((item) => ({
-          name: item.name,
-          exitCode: item.exitCode,
-          ms: item.ms,
-        })),
-        git,
-      })}\n`
-    );
+    process.stdout.write(`${inspectAgent(report)}\n`);
   } else {
     logger.info(`${okMark()} finish-work — ${results.length} gates (${totalMs}ms)`);
     if (git.committed) {
@@ -250,18 +264,20 @@ async function main(): Promise<number> {
     } else if (!options.skipGit && !options.message) {
       logger.line("gates passed — add --message to commit");
     }
-  }
-
-  if (git.pushed) {
-    const dirty = await porcelainDirtyLines(REPO_ROOT);
-    if (dirty.length > 0) {
+    if (report.outcome === "escalated") {
+      logger.warn("Post-push tree dirty — escalated to reviewer pane");
+      if (report.herdr?.reviewerPaneId) {
+        logger.line(`  reviewer: ${report.herdr.reviewerPaneId}`);
+      }
+      if (report.herdr?.error) logger.line(`  herdr: ${report.herdr.error}`);
+    } else if (git.pushed && dirty.length > 0) {
       logger.warn(`Working tree dirty after push (${dirty.length} path(s))`);
       for (const line of dirty.slice(0, 8)) logger.line(`  ${line}`);
       if (dirty.length > 8) logger.line(`  … +${dirty.length - 8} more`);
     }
   }
 
-  return 0;
+  return report.outcome === "escalated" && !report.herdr?.escalated ? 2 : 0;
 }
 
 main()

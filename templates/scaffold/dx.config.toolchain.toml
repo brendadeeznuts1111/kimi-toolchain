@@ -134,3 +134,6 @@ command = "kimi-doctor --quick 2>/dev/null || true"
 [[herdr.tabs]]
 label = "shell"
 command = "git status -sb; herdr-quickref"
+
+[[herdr.tabs]]
+label = "reviewer"

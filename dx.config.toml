@@ -174,3 +174,7 @@ command = "kimi-doctor --quick 2>/dev/null || true"
 [[herdr.tabs]]
 label = "shell"
 command = "git status -sb; herdr-quickref"
+
+# Created on demand by finish-work when post-push tree is dirty (no static command).
+[[herdr.tabs]]
+label = "reviewer"
