@@ -217,6 +217,24 @@ Use this pattern when extending `kimi-doctor` with new agent-facing diagnostics.
 - The `checks` array must list every registered adapter, discovered plugin, and
   built-in check so agents can discover capabilities programmatically.
 
+## Herdr Config Symlink Chain
+
+```
+~/.config/herdr/config.toml  →  ~/.config/dx/herdr.toml  →  ~/dx-config/config/dx/herdr.toml
+```
+
+| Layer | Path                               | Responsibility                                                                                |
+| ----- | ---------------------------------- | --------------------------------------------------------------------------------------------- |
+| Herdr | `~/.config/herdr/config.toml`      | What Herdr reads at startup (`herdr server reload-config`)                                    |
+| DX    | `~/.config/dx/herdr.toml`          | What DX tooling reads (`global-config.json`, `herdr-doctor`, spawn wrappers, `herdr-project`) |
+| Git   | `~/dx-config/config/dx/herdr.toml` | Version-controlled source of truth; deployed by `~/dx-config/scripts/install.sh`              |
+
+**Indirection reason:** DX tooling owns the DX layer (`~/.config/dx/`) independently of Herdr's canonical path. This separation prevents DX config changes from colliding with Herdr's file ownership expectations and allows either system to evolve without forcing rewrites in the other.
+
+**Do not flatten** this chain by pointing `~/.config/herdr/config.toml` directly at the repo or by collapsing DX and Herdr onto one path. The middle hop is intentional — not needless indirection.
+
+Runtime state (`~/.config/herdr/session.json`, sockets, logs) and integration hooks (`herdr integration install`) stay outside `~/dx-config`. See `~/.config/dx/herdr.md` and `~/dx-config/README.md`.
+
 ## New Code Checklist
 
 Before writing a new module or CLI path:
