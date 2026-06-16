@@ -239,7 +239,7 @@ Runtime state (`~/.config/herdr/session.json`, sockets, logs) and integration ho
 
 Keep separate git repos. `~/dx-config` is dotfiles (config + install); `kimi-toolchain` is code (semver, releases).
 
-Herdr executables (`herdr-doctor`, `herdr-project`, `herdr-spawn`, `herdr-agents.ts`) should be authored in `kimi-toolchain` and deployed to `~/.local/bin/` — not duplicated or implemented in `dx-config`. `dx-config` only references them in `herdr.json`, keybindings, and `install.sh`.
+Herdr executables (`herdr-doctor`, `herdr-project`, `herdr-spawn`, `herdr-agents.ts`) are authored in `kimi-toolchain` and deployed via `bun run sync` + `install-wrappers` — not duplicated in `dx-config`. `dx-config` references them in `herdr.json`, keybindings, `install.sh`, and `bootstrap-machine.sh`.
 
 Herdr CLIs live in `src/bin/herdr-doctor.ts`, `src/bin/herdr-project.ts`, `src/bin/herdr-spawn.ts` with shared libs `src/lib/herdr-agents.ts`, `src/lib/herdr-doctor.ts`, `src/lib/herdr-project-runner.ts`, and `src/lib/herdr-project-config.ts`. Deploy via `bun run sync` + `bun run install-wrappers` (also installs `herdr-spawn-*` keybinding stubs from `SPAWN_AGENTS`). Fresh machine entry: `~/dx-config/scripts/bootstrap-machine.sh`. Regression tests: `test/herdr-doctor.unit.test.ts`, `test/herdr-project-config.unit.test.ts`, `test/herdr-project.integration.test.ts`.
 
