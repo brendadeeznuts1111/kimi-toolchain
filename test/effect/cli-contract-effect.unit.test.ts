@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Exit } from "effect";
-import { CliContractError } from "../../src/lib/effect/errors.ts";
+import { EffectCliContractError } from "../../src/lib/effect/errors.ts";
 import {
   createCliEffect,
   createMachineWriterEffect,
@@ -49,18 +49,18 @@ describe("cli-contract-effect", () => {
     expect(result.positional).toEqual(["score"]);
   });
 
-  test("parseCliFlagsEffect fails with CliContractError on unknown strict flag", async () => {
+  test("parseCliFlagsEffect fails with EffectCliContractError on unknown strict flag", async () => {
     const program = parseCliFlagsEffect(["bun", "kimi-doctor", "--unknown-flag"], "kimi-doctor", {
       strict: true,
     });
     const exit = await Effect.runPromiseExit(program);
     expect(Exit.isFailure(exit)).toBe(true);
     if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
-      expect(exit.cause.error).toBeInstanceOf(CliContractError);
-      const error = exit.cause.error as CliContractError;
+      expect(exit.cause.error).toBeInstanceOf(EffectCliContractError);
+      const error = exit.cause.error as EffectCliContractError;
       expect(error.toolName).toBe("kimi-doctor");
       expect(error.message).toContain("--unknown-flag");
-      expect(error.flag).toBe("--unknown-flag");
+      expect(error.unknownFlag).toBe("--unknown-flag");
     }
   });
 
@@ -126,14 +126,14 @@ describe("cli-contract-effect", () => {
     }
   });
 
-  test("createCliEffect surfaces parse failures as CliContractError", async () => {
+  test("createCliEffect surfaces parse failures as EffectCliContractError", async () => {
     const program = createCliEffect(["bun", "kimi-test", "--bad-flag"], "kimi-test", {
       strict: true,
     });
     const exit = await Effect.runPromiseExit(program);
     expect(Exit.isFailure(exit)).toBe(true);
     if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
-      expect(exit.cause.error).toBeInstanceOf(CliContractError);
+      expect(exit.cause.error).toBeInstanceOf(EffectCliContractError);
     }
   });
 });

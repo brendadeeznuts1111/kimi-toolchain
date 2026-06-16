@@ -36,11 +36,12 @@ export class CliError extends Data.TaggedError("CliError")<{
   exitCode?: number;
 }> {}
 
-export class CliContractError extends Data.TaggedError("CliContractError")<{
+export class EffectCliContractError extends Data.TaggedError("EffectCliContractError")<{
   message: string;
   toolName: string;
-  taxonomyId?: string;
-  flag?: string;
+  taxonomyId: string;
+  unknownFlag?: string;
+  suggestions?: string[];
 }> {}
 
 export type ToolRunnerError = ToolNotFound | ToolTimeout | ExitNonZero;

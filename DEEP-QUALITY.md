@@ -330,17 +330,17 @@ The `error-taxonomy.yml` entries used by the Effect gates:
 
 ## Implementation Gaps
 
-| Gap                                                                               | Status                     | Notes                                                                                                                                                                                                                                |
-| --------------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `kimi-doctor` reads Effect-discipline constants from `bunfig.toml` `[define]`     | **Closed**                 | `loadThresholds()` in `src/lib/effect-gates.ts` reads `KIMI_EFFECT_MAX_DIRECT_PROMISE`, `KIMI_DOMAIN_PURITY_LEVEL`, `KIMI_LAYER_CIRCULARITY_TOLERANCE`, `KIMI_SERVICE_TAG_REQUIRED`, and `KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED`. |
-| `kimi-doctor --session-report` fails closed on missing/invalid/below-floor values | **Closed**                 | Invalid input returns exit code `1` with an `error` field; floor evaluation returns `1` when `passed` is `false`.                                                                                                                    |
-| Dual `CliContractError` definitions                                               | **Open / COMPLEXITY-NOTE** | `src/lib/cli-contract.ts` and `src/lib/effect/errors.ts` both define a `CliContractError`. They are not unified. Future refactor should consolidate them or give them distinct names.                                                |
+| Gap                                                                               | Status     | Notes                                                                                                                                                                                                                                |
+| --------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `kimi-doctor` reads Effect-discipline constants from `bunfig.toml` `[define]`     | **Closed** | `loadThresholds()` in `src/lib/effect-gates.ts` reads `KIMI_EFFECT_MAX_DIRECT_PROMISE`, `KIMI_DOMAIN_PURITY_LEVEL`, `KIMI_LAYER_CIRCULARITY_TOLERANCE`, `KIMI_SERVICE_TAG_REQUIRED`, and `KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED`. |
+| `kimi-doctor --session-report` fails closed on missing/invalid/below-floor values | **Closed** | Invalid input returns exit code `1` with an `error` field; floor evaluation returns `1` when `passed` is `false`.                                                                                                                    |
+| Dual `CliContractError` definitions                                               | **Closed** | Effect variant renamed to `EffectCliContractError` in `src/lib/effect/errors.ts`; fields aligned with sync `CliContractError`. See COMPLEXITY-NOTE below.                                                                            |
 
-## COMPLEXITY-NOTE: Dual `CliContractError`
+## COMPLEXITY-NOTE: `CliContractError` / `EffectCliContractError`
 
-There are two `CliContractError` classes in the codebase:
+There are two representations of the same CLI-contract failure:
 
-1. `src/lib/cli-contract.ts` — a plain `Error` subclass used by the sync CLI machinery.
-2. `src/lib/effect/errors.ts` — a `Data.TaggedError("CliContractError")` used by the Effect runtime.
+1. `src/lib/cli-contract.ts` — `CliContractError`, a plain `Error` subclass thrown by the sync CLI parsing layer. Fields: `toolName`, `taxonomyId`, `unknownFlag?`, `suggestions?`.
+2. `src/lib/effect/errors.ts` — `EffectCliContractError`, a `Data.TaggedError("EffectCliContractError")` carried in Effect error channels. Fields: `message`, `toolName`, `taxonomyId`, `unknownFlag?`, `suggestions?`.
 
-They serve different layers (sync CLI parsing vs. typed Effect errors) but share a name, which is confusing when grepping and when importing across layers. Do not add a third variant. The next time this area is touched, consolidate them into one canonical definition or rename the Effect variant to `EffectCliContractError`.
+`src/lib/effect/cli-contract-effect.ts` converts the sync error into the Effect error when bridging the two layers. They are intentionally not merged into a single class because a plain `Error` cannot serve as a `Data.TaggedError` and vice versa. Do not add a third variant.

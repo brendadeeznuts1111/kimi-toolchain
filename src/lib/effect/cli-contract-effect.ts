@@ -10,12 +10,13 @@ import { Effect } from "effect";
 import {
   createMachineWriter,
   parseCliFlags,
+  CliContractError,
   type CliFlags,
   type MachineWriter,
   type ParseCliFlagsOptions,
 } from "../cli-contract.ts";
 import { type LogLevel } from "../logger.ts";
-import { CliContractError } from "./errors.ts";
+import { EffectCliContractError } from "./errors.ts";
 
 /** Effect-based machine writer: every output operation is a typed Effect. */
 export interface MachineWriterEffect {
@@ -63,16 +64,26 @@ export function parseCliFlagsEffect(
   argv: string[],
   toolName: string,
   options: ParseCliFlagsOptions = {}
-): Effect.Effect<CliFlags, CliContractError> {
+): Effect.Effect<CliFlags, EffectCliContractError> {
   return Effect.try({
     try: () => parseCliFlags(argv, toolName, options),
-    catch: (cause) =>
-      new CliContractError({
+    catch: (cause) => {
+      if (cause instanceof CliContractError) {
+        return new EffectCliContractError({
+          message: cause.message,
+          toolName: cause.toolName,
+          taxonomyId: cause.taxonomyId,
+          unknownFlag: cause.unknownFlag,
+          suggestions: cause.suggestions,
+        });
+      }
+      return new EffectCliContractError({
         message: cause instanceof Error ? cause.message : String(cause),
         toolName,
         taxonomyId: "cli_invalid_flag",
-        flag: extractUnknownFlag(cause instanceof Error ? cause.message : String(cause)),
-      }),
+        unknownFlag: extractUnknownFlag(cause instanceof Error ? cause.message : String(cause)),
+      });
+    },
   });
 }
 
@@ -94,7 +105,7 @@ export function createCliEffect(
   argv: string[],
   toolName: string,
   options: ParseCliFlagsOptions = {}
-): Effect.Effect<MachineWriterEffect, CliContractError> {
+): Effect.Effect<MachineWriterEffect, EffectCliContractError> {
   return parseCliFlagsEffect(argv, toolName, options).pipe(
     Effect.flatMap((flags) => createMachineWriterEffect(flags, toolName))
   );
