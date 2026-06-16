@@ -246,6 +246,27 @@ async function runRScoreGate(projectRoot: string): Promise<GateResult> {
   return result;
 }
 
+async function runEffectGatesGate(projectRoot: string): Promise<GateResult> {
+  if (Bun.env.KIMI_SKIP_EFFECT_GATES === "1") {
+    return {
+      name: "effect-gates",
+      exitCode: 0,
+      ms: 0,
+      stdout: "",
+      stderr: "",
+      skipped: true,
+    };
+  }
+
+  const doctor = existsSync(join(projectRoot, "src/bin/kimi-doctor.ts"))
+    ? join(projectRoot, "src/bin/kimi-doctor.ts")
+    : null;
+  if (!doctor) {
+    return { name: "effect-gates", exitCode: 0, ms: 0, stdout: "", stderr: "", skipped: true };
+  }
+  return runGateVisible(projectRoot, "effect-gates", ["bun", "run", doctor, "--effect-gates"]);
+}
+
 async function qualityGatesCached(projectRoot: string): Promise<boolean> {
   for (const gate of PRE_COMMIT_CACHE_GATES) {
     if (!(await shouldSkipGate(projectRoot, gate))) return false;
@@ -291,6 +312,10 @@ export async function runPrePushGates(projectRoot: string): Promise<number> {
         };
       }
       return runGateVisible(projectRoot, full ? "check" : "check:fast", ["bun", "run", script]);
+    },
+    async () => {
+      if (!summary) printVerboseBanner("Effect Discipline Gates");
+      return runEffectGatesGate(projectRoot);
     },
   ];
 
@@ -469,6 +494,17 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
       name: script,
       cmd: ["bun", "run", script],
       skipped: !full && (await qualityGatesCached(projectRoot)),
+    });
+  }
+
+  const doctor = existsSync(join(projectRoot, "src/bin/kimi-doctor.ts"))
+    ? join(projectRoot, "src/bin/kimi-doctor.ts")
+    : null;
+  if (doctor) {
+    planned.push({
+      name: "effect-gates",
+      cmd: ["bun", "run", doctor, "--effect-gates"],
+      skipped: Bun.env.KIMI_SKIP_EFFECT_GATES === "1",
     });
   }
 

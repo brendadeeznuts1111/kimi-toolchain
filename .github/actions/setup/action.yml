@@ -15,10 +15,9 @@ runs:
         path: |
           ~/.bun/install/cache
           node_modules
-        key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'package.json') }}
+        key: ${{ runner.os }}-bun-v2-${{ hashFiles('bun.lock', 'package.json') }}
         restore-keys: |
-          ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          ${{ runner.os }}-bun-
+          ${{ runner.os }}-bun-v2-
 
     - name: Install dependencies
       shell: bash

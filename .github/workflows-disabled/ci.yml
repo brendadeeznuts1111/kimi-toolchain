@@ -1,3 +1,11 @@
+# DISABLED — GitHub Actions workflow preserved for reference but not executed.
+# The account associated with this repository is locked due to a billing issue,
+# so GitHub Actions jobs cannot start. Enforcement has moved to local pre-push
+# hooks (kimi-githooks). See src/lib/hook-gates.ts for the active gate list.
+#
+# If CI is re-enabled in the future, move this file back to .github/workflows/
+# and verify the effect-gates-baseline artifact upload/download steps.
+
 name: CI
 
 on:

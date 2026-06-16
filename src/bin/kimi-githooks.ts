@@ -156,7 +156,8 @@ exit 0
 
 const PRE_PUSH_HOOK = `#!/bin/sh
 # Auto-installed by kimi-githooks
-# P1: guardian, R-Score, check:fast (KIMI_PRE_PUSH_FULL=1 for full check)
+# P1: guardian, constant-drift, R-Score, check:fast, effect-gates
+#     (KIMI_PRE_PUSH_FULL=1 for full check; KIMI_SKIP_EFFECT_GATES=1 to skip)
 
 if [ -n "$KIMI_AGENT_SESSION" ]; then export KIMI_QUIET=1; fi
 ${HOOK_GITHOOKS_RESOLVER}
