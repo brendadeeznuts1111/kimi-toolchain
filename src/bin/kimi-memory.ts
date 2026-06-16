@@ -11,7 +11,7 @@
  */
 
 import { randomUUIDv7 } from "bun";
-import { createLogger } from "../lib/logger.ts";
+import { createCli } from "../lib/cli-contract.ts";
 import { getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
 import { Effect } from "effect";
@@ -34,13 +34,10 @@ import {
   startAutoSave,
   stopAutoSave,
 } from "../lib/memory-sessions.ts";
-import {
-  formatDecisionChainHuman,
-  formatDecisionChainJson,
-  reconstructDecisionChain,
-} from "../lib/decision-chain.ts";
+import { formatDecisionChainHuman, reconstructDecisionChain } from "../lib/decision-chain.ts";
 
-const logger = createLogger(Bun.argv, "kimi-memory");
+const writer = createCli(Bun.argv, "kimi-memory");
+const logger = writer.logger;
 
 // ── Doctor ───────────────────────────────────────────────────────────
 
@@ -185,23 +182,23 @@ function fixDb() {
 // ── Main CLI ─────────────────────────────────────────────────────────
 
 async function main(): Promise<number> {
-  const args = Bun.argv.slice(2);
-  const command = args[0] || "stats";
+  const positional = writer.flags.positional;
+  const command = positional[0] || "stats";
   const projectPath = await resolveProjectRoot(Bun.cwd);
   const project = await getProjectName(projectPath);
 
   logger.banner("Kimi Memory — Session Store & Knowledge Graph");
 
   if (command === "store") {
-    const sessionId = args[1] || randomUUIDv7();
-    const decisions = args.slice(2);
+    const sessionId = positional[1] || randomUUIDv7();
+    const decisions = positional.slice(2);
     saveSession({
       id: sessionId,
       project,
       cwd: projectPath,
       startedAt: new Date().toISOString(),
-      lastCmd: args.join(" "),
-      cmdHistory: [args.join(" ")],
+      lastCmd: positional.join(" "),
+      cmdHistory: [positional.join(" ")],
       envSnapshot: {},
       gitHead: "",
       lockfileHash: "",
@@ -210,7 +207,7 @@ async function main(): Promise<number> {
     });
     logger.info(`Stored session: ${sessionId}`);
   } else if (command === "recall") {
-    const limit = parseInt(args[1], 10) || 5;
+    const limit = parseInt(positional[1], 10) || 5;
     const sessions = recallSessions(project, limit);
     logger.section(`Recent sessions for ${project}`);
     for (const s of sessions) {
@@ -246,7 +243,7 @@ async function main(): Promise<number> {
       }
     }
   } else if (command === "autosave") {
-    const action = args[1] || "start";
+    const action = positional[1] || "start";
     if (action === "start") {
       const id = await startAutoSave(projectPath);
       logger.info(`Auto-save started: ${id} (every 30s)`);
@@ -255,9 +252,9 @@ async function main(): Promise<number> {
       logger.info("Auto-save stopped");
     }
   } else if (command === "link") {
-    const fromNode = args[1];
-    const toNode = args[2];
-    const relation = args[3] || "depends_on";
+    const fromNode = positional[1];
+    const toNode = positional[2];
+    const relation = positional[3] || "depends_on";
     if (!fromNode || !toNode) {
       logger.error("Usage: link <from> <to> [relation]");
       return 1;
@@ -290,7 +287,7 @@ async function main(): Promise<number> {
       logger.line(`    ${e.from} →[${e.relation}]→ ${e.to}`);
     }
   } else if (command === "impact") {
-    const nodeId = args[1];
+    const nodeId = positional[1];
     if (!nodeId) {
       logger.error("Usage: impact <node-id>");
       logger.info("Shows cross-project impact of changing a node");
@@ -305,7 +302,7 @@ async function main(): Promise<number> {
       logger.line(`    [${n.project}] ${n.label} (${n.type})`);
     }
   } else if (command === "search") {
-    const query = args[1];
+    const query = positional[1];
     if (!query) {
       logger.error("Usage: search <query>");
       return 1;
@@ -316,7 +313,7 @@ async function main(): Promise<number> {
       logger.line(`  [${r.type}] ${r.label} (${r.project})`);
     }
   } else if (command === "prune") {
-    const days = parseInt(args[1], 10) || 30;
+    const days = parseInt(positional[1], 10) || 30;
     const deleted = pruneOldSessions(days);
     logger.info(`Pruned ${deleted} sessions older than ${days} days`);
   } else if (command === "stats") {
@@ -327,7 +324,7 @@ async function main(): Promise<number> {
     logger.info(`Edges:    ${stats.edges}`);
     logger.info(`DB size:  ${stats.dbSize}`);
   } else if (command === "trends") {
-    const toolFilter = args[1];
+    const toolFilter = positional[1];
     const persistent = getPersistentWarnings(toolFilter);
     logger.section(`Warning Trends ${toolFilter ? `(${toolFilter})` : "(all tools)"}`);
     if (persistent.length === 0) {
@@ -341,11 +338,9 @@ async function main(): Promise<number> {
       }
     }
   } else if (command === "trace" || command === "chain") {
-    const jsonMode = args.includes("--json");
-    const filtered = args.filter((arg) => arg !== "--json");
-    const id = filtered[1];
-    const errorFlagIndex = filtered.indexOf("--error-id");
-    const errorId = errorFlagIndex >= 0 ? filtered[errorFlagIndex + 1] : undefined;
+    const id = positional[1];
+    const errorFlagIndex = positional.indexOf("--error-id");
+    const errorId = errorFlagIndex >= 0 ? positional[errorFlagIndex + 1] : undefined;
     if (!id && !errorId) {
       logger.error(`Usage: ${command} <trace-id> [--json]`);
       logger.error(`       ${command} --error-id <error-id> [--json]`);
@@ -355,8 +350,8 @@ async function main(): Promise<number> {
       traceId: errorId ? undefined : id,
       errorId,
     });
-    if (jsonMode) {
-      process.stdout.write(formatDecisionChainJson(chain));
+    if (writer.flags.json) {
+      writer.writeJson(chain);
     } else {
       logger.section(command === "trace" ? "Trace Decision Chain" : "Decision Chain");
       for (const line of formatDecisionChainHuman(chain).trim().split("\n")) {
