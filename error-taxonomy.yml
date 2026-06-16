@@ -344,6 +344,52 @@ categories:
     patterns:
       - regex: "event-stream"
 
+  - id: doctor_adapter_failed
+    name: Doctor adapter failed
+    description: An external tool adapter failed to execute or returned a non-zero exit code.
+    severity: error
+    expected: false
+    suggestion: "Check the adapter output and rerun with --adapter <name> --json."
+    autoFix: "kimi-doctor --adapter <name>"
+    patterns:
+      - regex: "adapter .* failed"
+
+  - id: doctor_adapter_timeout
+    name: Doctor adapter timeout
+    description: An external tool adapter exceeded its execution timeout.
+    severity: error
+    expected: false
+    suggestion: "Increase timeout with --timeout or reduce scope."
+    patterns:
+      - regex: "adapter .* timed out"
+
+  - id: doctor_plugin_invalid
+    name: Doctor plugin invalid
+    description: A doctor plugin entry failed schema validation or its command is not executable.
+    severity: warning
+    expected: false
+    suggestion: "Fix the plugin entry in doctor-plugins.json."
+    patterns:
+      - regex: "invalid plugin"
+
+  - id: doctor_plugin_failed
+    name: Doctor plugin failed
+    description: A doctor plugin command failed to execute.
+    severity: error
+    expected: false
+    suggestion: "Check the plugin output and fix the plugin script."
+    patterns:
+      - regex: "plugin failed"
+
+  - id: doctor_mcp_internal
+    name: Doctor MCP internal error
+    description: The kimi-doctor MCP server encountered an internal error handling a request.
+    severity: error
+    expected: false
+    suggestion: "Restart the MCP server and check stderr."
+    patterns:
+      - regex: "doctor_mcp_internal"
+
   - id: unknown
     name: Unknown
     description: No known pattern matched.

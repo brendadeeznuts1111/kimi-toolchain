@@ -552,6 +552,48 @@ kimi-doctor --agent
 
 This mode is additive; existing `--quick`, `--success-metrics`, and `--agent-ready` modes are unchanged.
 
+### Agent & Plugin Hub (new)
+
+`kimi-doctor` is now an agent-facing diagnostics hub:
+
+- `--probe` emits a versioned capability manifest (schema version 1) so new agents can discover modes, flags, available check sources, and MCP tools without parsing help text.
+- `--adapter <name>` runs an external-tool adapter (`oxlint`, `typecheck`, `effect-gates`, `guardian`, `governance`, ...) and returns a structured `AdapterOutput` envelope containing `HealthCheck` results.
+- `--plugin <name>` runs a custom check from `.kimi/doctor-plugins.json` or `~/.kimi-code/doctor-plugins.json`.
+- `--all` runs every registered adapter, every valid plugin, and the built-in `effect-gates` check in sequence, returning a flattened `HealthCheck` list plus per-source metadata.
+- `--mcp-server` starts an MCP stdio server exposing `kimi_doctor_probe`, `kimi_doctor_run`, `kimi_doctor_fix`, and `kimi_doctor_run_all`.
+
+Plugin sources and precedence:
+
+- Project-local `.kimi/doctor-plugins.json` overrides user-global `~/.kimi-code/doctor-plugins.json` by plugin name.
+- Invalid plugin entries (bad schema, missing name, command not on PATH, etc.) emit an error check and are not executed.
+
+Plugin manifest contract:
+
+```json
+{
+  "schemaVersion": 1,
+  "plugins": [
+    {
+      "name": "my-check",
+      "command": "my-doctor-plugin",
+      "args": ["--json"],
+      "timeoutMs": 30000,
+      "maxOutputBytes": 1048576
+    }
+  ]
+}
+```
+
+Plugin executable output contract (must print JSON to stdout):
+
+```json
+{
+  "checks": [{ "name": "my-check", "status": "ok", "message": "...", "fixable": false }]
+}
+```
+
+Register the MCP server by running `kimi-doctor --fix` (or `kimi-config fix`), which updates `~/.kimi-code/mcp.json` via `src/lib/mcp-config.ts`.
+
 ### Step Budget Reference
 
 | Step Range | Action Pattern                                |

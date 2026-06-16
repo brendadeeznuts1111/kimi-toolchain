@@ -232,6 +232,37 @@ interface EffectGatesViolation {
 
 When validation fails (missing/invalid/below floor), `summary.passed` is `false` and an `error` field is included.
 
+### `kimi-doctor --probe` manifest schema
+
+Probe schema version is `1` and is defined in `src/lib/doctor-probe.ts`. The manifest lists every available check source so agents can discover capabilities programmatically.
+
+```ts
+interface DoctorProbeManifest {
+  schemaVersion: number; // 1
+  tool: "kimi-doctor";
+  version: string;
+  modes: DoctorProbeMode[];
+  flags: DoctorProbeFlag[];
+  checks: DoctorProbeCheck[];
+  supportsAutoFix: boolean;
+  supportsJson: boolean;
+  supportsPlugins: boolean;
+  supportsMcp: boolean;
+}
+
+interface DoctorProbeCheck {
+  type: "adapter" | "plugin" | "builtin";
+  name: string;
+  description?: string;
+}
+```
+
+`checks` includes:
+
+- Every registered external-tool adapter from `listExternalToolAdapters()`.
+- Every discovered doctor plugin from `discoverDoctorPlugins()` (valid and invalid entries).
+- The built-in `effect-gates` check.
+
 ## Session-Floor Thresholds
 
 `evaluateSessionFloor()` in `src/lib/effect-gates.ts` uses these hardcoded minimums:

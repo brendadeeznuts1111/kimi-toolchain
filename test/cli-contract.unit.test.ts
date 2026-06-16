@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseCliFlags, createMachineWriter, CliContractError } from "../src/lib/cli-contract.ts";
+import { inspectAgent } from "../src/lib/inspect.ts";
 
 function captureStdout(): { data: string[]; restore: () => void } {
   const originalLog = console.log;
@@ -192,7 +193,7 @@ describe("cli-contract", () => {
   });
 
   describe("create-machine-writer", () => {
-    test("writeJson emits valid JSON to stdout with schema envelope", () => {
+    test("writeJson emits structured agent format to stdout with schema envelope", () => {
       const stdout = captureStdout();
       const stderr = captureStderr();
       try {
@@ -209,11 +210,9 @@ describe("cli-contract", () => {
         );
         writer.writeJson({ ok: true });
         expect(stdout.data).toHaveLength(1);
-        expect(JSON.parse(stdout.data[0])).toEqual({
-          schemaVersion: 1,
-          tool: "test-tool",
-          ok: true,
-        });
+        expect(stdout.data[0]).toBe(
+          inspectAgent({ schemaVersion: 1, tool: "test-tool", ok: true }) + "\n"
+        );
         expect(stderr.data).toHaveLength(0);
       } finally {
         stdout.restore();
@@ -221,7 +220,7 @@ describe("cli-contract", () => {
       }
     });
 
-    test("writeJsonl emits multiple JSON lines to stdout with schema envelope", () => {
+    test("writeJsonl emits multiple agent-format lines to stdout with schema envelope", () => {
       const stdout = captureStdout();
       const stderr = captureStderr();
       try {
@@ -238,8 +237,12 @@ describe("cli-contract", () => {
         );
         writer.writeJsonl([{ a: 1 }, { b: 2 }]);
         expect(stdout.data).toHaveLength(2);
-        expect(JSON.parse(stdout.data[0])).toEqual({ schemaVersion: 1, tool: "test-tool", a: 1 });
-        expect(JSON.parse(stdout.data[1])).toEqual({ schemaVersion: 1, tool: "test-tool", b: 2 });
+        expect(stdout.data[0]).toBe(
+          inspectAgent({ schemaVersion: 1, tool: "test-tool", a: 1 }) + "\n"
+        );
+        expect(stdout.data[1]).toBe(
+          inspectAgent({ schemaVersion: 1, tool: "test-tool", b: 2 }) + "\n"
+        );
         expect(stderr.data).toHaveLength(0);
       } finally {
         stdout.restore();
@@ -247,7 +250,7 @@ describe("cli-contract", () => {
       }
     });
 
-    test("writeJsonSchema emits schema-named envelope", () => {
+    test("writeJsonSchema emits schema-named agent-format envelope", () => {
       const stdout = captureStdout();
       const stderr = captureStderr();
       try {
@@ -264,12 +267,14 @@ describe("cli-contract", () => {
         );
         writer.writeJsonSchema("health-report", { checks: [{ status: "ok" }] });
         expect(stdout.data).toHaveLength(1);
-        expect(JSON.parse(stdout.data[0])).toEqual({
-          schemaVersion: 1,
-          tool: "test-tool",
-          schemaName: "health-report",
-          payload: { checks: [{ status: "ok" }] },
-        });
+        expect(stdout.data[0]).toBe(
+          inspectAgent({
+            schemaVersion: 1,
+            tool: "test-tool",
+            schemaName: "health-report",
+            payload: { checks: [{ status: "ok" }] },
+          }) + "\n"
+        );
         expect(stderr.data).toHaveLength(0);
       } finally {
         stdout.restore();
@@ -277,7 +282,7 @@ describe("cli-contract", () => {
       }
     });
 
-    test("json mode keeps stdout exclusively parseable JSON and routes human output to stderr", () => {
+    test("json mode keeps stdout exclusively structured agent format and routes human output to stderr", () => {
       const stdout = captureStdout();
       const stderr = captureStderr();
       try {
@@ -298,13 +303,14 @@ describe("cli-contract", () => {
         writer.warn("warn line");
         writer.error("error line");
 
-        // Every stdout line must be valid JSON and carry the contract envelope.
+        // Every stdout line must carry the contract envelope in agent format.
         expect(stdout.data).toHaveLength(2);
-        for (const line of stdout.data) {
-          const parsed = JSON.parse(line);
-          expect(parsed.schemaVersion).toBe(1);
-          expect(parsed.tool).toBe("test-tool");
-        }
+        expect(stdout.data[0]).toBe(
+          inspectAgent({ schemaVersion: 1, tool: "test-tool", stage: "start" }) + "\n"
+        );
+        expect(stdout.data[1]).toBe(
+          inspectAgent({ schemaVersion: 1, tool: "test-tool", stage: "middle" }) + "\n"
+        );
 
         // Human output must not leak to stdout.
         expect(stdout.data.some((line) => line.includes("info line"))).toBe(false);

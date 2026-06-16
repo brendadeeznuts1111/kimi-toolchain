@@ -359,6 +359,23 @@ memoryGate = true
 preflight = true
 ```
 
+### Herdr project profile (`[herdr]`)
+
+Per-repo workspace bootstrap only. Global Herdr config uses a three-layer symlink chain — see **Herdr Config Symlink Chain** in `CODE_REFERENCES.md`. Do not flatten that chain.
+
+```toml
+[herdr]
+enabled = true
+workspaceLabel = "my-project"
+primaryAgent = "kimi"
+secondaryAgents = ["codex"]
+shellPane = true
+shellSplit = "right"
+bootstrap = ["dx config --project ."]
+```
+
+Global source of truth: `~/dx-config`. Project block lives in this repo's `dx.config.toml`.
+
 ## CHANGELOG.md Template
 
 ```markdown

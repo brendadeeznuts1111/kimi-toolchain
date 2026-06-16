@@ -17,6 +17,7 @@ This file points future agents at local examples that define the code style for 
 | Path ownership                  | `src/lib/paths.ts`                      | Use helpers for `~/.kimi-code`, `~/.agents`, and runtime paths                              |
 | Build-time tuning constants     | `bunfig.toml` `[define]`                | SSOT — `KIMI_*` globals grouped by `# define-domain:` (separate from taxonomyId)            |
 | Safe parsing                    | `src/lib/utils.ts`                      | Use `safeParse()` / `safeToml()` with validators at config boundaries                       |
+| Inspection / equality / ANSI    | `src/lib/inspect.ts`                    | Use `inspectAgent()` for `--json`, `inspectHuman()` for logs, `deepEqual*()` for alignment  |
 | Success metric gates            | `src/lib/success-metrics.ts`            | Keep drift, taxonomy coverage, and provider agility measurable in CI                        |
 | Provider contracts              | `src/lib/provider-contract.ts`          | Add providers with a contract declaration plus a thin credential adapter only               |
 
@@ -170,6 +171,77 @@ Use these local references before changing Cloudflare or MCP behavior:
 - `skills/cloudflare-access/SKILL.md` for plan-before-apply rules.
 
 Cloudflare MCP SSO/OAuth, Wrangler OAuth, and `kimi-cloudflare-access` API tokens are separate auth paths. Do not assume one login satisfies the others.
+
+## Doctor Adapter / Plugin / MCP Golden Template
+
+Use this pattern when extending `kimi-doctor` with new agent-facing diagnostics.
+
+### External-tool adapters
+
+- Define the adapter in `src/lib/doctor-adapters/{name}.ts`.
+- Implement `ExternalToolAdapter` from `src/lib/doctor-adapter-types.ts`:
+  - `name`: stable kebab-case identifier.
+  - `command`: `["executable", ...args]`; the runner resolves the executable
+    from `PATH` or `{projectRoot}/node_modules/.bin` automatically.
+  - `parse(result)`: return `AdapterOutput` (`adapterName`, `durationMs`, `checks`).
+- Check `result.timedOut` before `result.error` to emit `doctor_adapter_timeout`.
+- Register the adapter in `src/lib/external-tool-runner.ts` `ADAPTERS`.
+- Add a focused unit test in `test/external-tool-runner.unit.test.ts` (or a new
+  `test/{source-module}.unit.test.ts` that matches the source stem).
+
+### Doctor plugins
+
+- Plugins are declared in `.kimi/doctor-plugins.json` (project-local) or
+  `~/.kimi-code/doctor-plugins.json` (user-global).
+- Project-local plugins override user-global plugins by `name`; collisions are logged.
+- Each plugin entry requires `name` and `command`; optional `args`, `cwd`,
+  `timeoutMs`, `maxOutputBytes`.
+- The executable must be on `PATH` or resolvable via `cwd`.
+- Plugin executables must print JSON to stdout:
+  `{ "checks": [{ "name": "...", "status": "ok|warn|error", "message": "...", "fixable": false }] }`.
+- Invalid entries emit a `doctor_plugin_invalid` check and are skipped.
+
+### MCP server tools
+
+- The stdio MCP server lives in `src/lib/doctor-mcp-server.ts`.
+- Add a new tool name constant (e.g., `DOCTOR_MCP_TOOL_*`) in `src/lib/mcp-config.ts`.
+- Expose the tool in `doctor-mcp-server.ts` `TOOLS` and route it in the handler.
+- Register/validate the server entry in `src/lib/mcp-config.ts` so `kimi-doctor --fix`
+  keeps `~/.kimi-code/mcp.json` in sync.
+
+### Probe manifest
+
+- `kimi-doctor --probe` emits `DoctorProbeManifest` from `src/lib/doctor-probe.ts`.
+- Bump `schemaVersion` only when the manifest shape changes; document the version
+  in `DEEP-QUALITY.md`.
+- The `checks` array must list every registered adapter, discovered plugin, and
+  built-in check so agents can discover capabilities programmatically.
+
+## Herdr Config Symlink Chain
+
+```
+~/.config/herdr/config.toml  →  ~/.config/dx/herdr.toml  →  ~/dx-config/config/dx/herdr.toml
+```
+
+| Layer | Path                               | Responsibility                                                                                |
+| ----- | ---------------------------------- | --------------------------------------------------------------------------------------------- |
+| Herdr | `~/.config/herdr/config.toml`      | What Herdr reads at startup (`herdr server reload-config`)                                    |
+| DX    | `~/.config/dx/herdr.toml`          | What DX tooling reads (`global-config.json`, `herdr-doctor`, spawn wrappers, `herdr-project`) |
+| Git   | `~/dx-config/config/dx/herdr.toml` | Version-controlled source of truth; deployed by `~/dx-config/scripts/install.sh`              |
+
+**Indirection reason:** DX tooling owns the DX layer (`~/.config/dx/`) independently of Herdr's canonical path. This separation prevents DX config changes from colliding with Herdr's file ownership expectations and allows either system to evolve without forcing rewrites in the other.
+
+**Do not flatten** this chain by pointing `~/.config/herdr/config.toml` directly at the repo or by collapsing DX and Herdr onto one path. The middle hop is intentional — not needless indirection.
+
+Runtime state (`~/.config/herdr/session.json`, sockets, logs) and integration hooks (`herdr integration install`) stay outside `~/dx-config`. See `~/.config/dx/herdr.md` and `~/dx-config/README.md`.
+
+## dx-config vs kimi-toolchain
+
+Keep separate git repos. `~/dx-config` is dotfiles (config + install); `kimi-toolchain` is code (semver, releases).
+
+Herdr executables (`herdr-doctor`, `herdr-project`, `herdr-spawn`, `herdr-agents.ts`) should be authored in `kimi-toolchain` and deployed to `~/.local/bin/` — not duplicated or implemented in `dx-config`. `dx-config` only references them in `herdr.json`, keybindings, and `install.sh`.
+
+Project profile discovery (`extractHerdrProjectSection`, flat `.dx/herdr.toml` support) lives in `src/lib/herdr-project-config.ts` with regression tests in `test/herdr-project-config.unit.test.ts` and `test/herdr-project.integration.test.ts`. Keep `~/.local/bin/herdr-project` in sync until the CLI migrates here.
 
 ## New Code Checklist
 

@@ -837,7 +837,18 @@ async function main(): Promise<number> {
       }
     }
 
-    if (score.grade === "F" || score.grade === "D") {
+    const ok = score.grade !== "F" && score.grade !== "D";
+
+    if (writer.flags.json) {
+      writer.writeJson({
+        mode: "score",
+        score,
+        summary: { ok, grade: score.grade },
+      });
+      return ok ? 0 : 1;
+    }
+
+    if (!ok) {
       logger.error("R-Score below C — address governance gaps before release");
       return 1;
     }
