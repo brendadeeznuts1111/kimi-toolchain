@@ -11,7 +11,7 @@ import {
 } from "./decision-ledger.ts";
 import { DecisionLogger, DecisionQuery, DecisionLayer } from "./effect/decision-services.ts";
 import { ensureProcessTrace } from "./effect/trace-context.ts";
-import { clusterFailureLedger, loadCachedClusters } from "./error-clustering.ts";
+import { clusterFailureLedgerEffect, loadCachedClusters } from "./error-clustering.ts";
 
 export interface HealPlanAction {
   id: string;
@@ -48,58 +48,71 @@ export interface HealApplyResult {
   detail: string;
 }
 
-export async function buildHealPlan(
+export function buildHealPlanEffect(
   options: {
     projectRoot?: string;
     traceId?: string;
   } = {}
-): Promise<HealPlan> {
-  const trace = ensureProcessTrace();
-  const traceId = options.traceId ?? trace.traceId;
-  const suggestions = await suggestDecisions({ projectRoot: options.projectRoot, limit: 10 });
-  const clusterReport = await clusterFailureLedger({ persist: false });
-  const cached = await loadCachedClusters();
+): Effect.Effect<HealPlan, never> {
+  return Effect.gen(function* () {
+    const trace = ensureProcessTrace();
+    const traceId = options.traceId ?? trace.traceId;
+    const suggestions = yield* Effect.tryPromise({
+      try: () => suggestDecisions({ projectRoot: options.projectRoot, limit: 10 }),
+      catch: () => [] as Awaited<ReturnType<typeof suggestDecisions>>,
+    }).pipe(
+      Effect.catchAll(() => Effect.succeed([] as Awaited<ReturnType<typeof suggestDecisions>>))
+    );
+    const clusterReport = yield* clusterFailureLedgerEffect({ persist: false });
+    const cached = yield* Effect.tryPromise({
+      try: () => loadCachedClusters(),
+      catch: () => null as Awaited<ReturnType<typeof loadCachedClusters>>,
+    }).pipe(Effect.catchAll(() => Effect.succeed(null)));
 
-  const failedDecisionIds = (
-    await suggestDecisions({ projectRoot: options.projectRoot, limit: 50 })
-  )
-    .filter((item) => item.qualityScore < 0.35)
-    .map((item) => item.decisionId);
+    const failedDecisionIds = (yield* Effect.tryPromise({
+      try: () => suggestDecisions({ projectRoot: options.projectRoot, limit: 50 }),
+      catch: () => [] as Awaited<ReturnType<typeof suggestDecisions>>,
+    }).pipe(
+      Effect.catchAll(() => Effect.succeed([] as Awaited<ReturnType<typeof suggestDecisions>>))
+    ))
+      .filter((item) => item.qualityScore < 0.35)
+      .map((item) => item.decisionId);
 
-  const actions: HealPlanAction[] = clusterReport.clusters
-    .filter((cluster) => cluster.hasPlaybook)
-    .slice(0, 5)
-    .map((cluster) => ({
-      id: `heal-${cluster.clusterId}`,
-      playbookId: cluster.playbookId ?? cluster.topTaxonomy,
-      description: cluster.suggestedFix ?? cluster.autoFix ?? `Heal cluster ${cluster.clusterId}`,
-      safeToAutoApply:
-        !!cluster.autoFix?.includes("sync") || cluster.topTaxonomy === "format_check_failure",
-      clusterId: cluster.clusterId,
-      clusterConfidence: cluster.confidence,
-      errorId: cluster.representativeError.errorId,
-    }));
+    const actions: HealPlanAction[] = clusterReport.clusters
+      .filter((cluster) => cluster.hasPlaybook)
+      .slice(0, 5)
+      .map((cluster) => ({
+        id: `heal-${cluster.clusterId}`,
+        playbookId: cluster.playbookId ?? cluster.topTaxonomy,
+        description: cluster.suggestedFix ?? cluster.autoFix ?? `Heal cluster ${cluster.clusterId}`,
+        safeToAutoApply:
+          !!cluster.autoFix?.includes("sync") || cluster.topTaxonomy === "format_check_failure",
+        clusterId: cluster.clusterId,
+        clusterConfidence: cluster.confidence,
+        errorId: cluster.representativeError.errorId,
+      }));
 
-  if (actions.length === 0 && suggestions.length > 0) {
-    for (const suggestion of suggestions.slice(0, 3)) {
-      actions.push({
-        id: `replay-${suggestion.decisionId}`,
-        playbookId: suggestion.playbookId ?? suggestion.action,
-        description: suggestion.summary,
-        safeToAutoApply: false,
-        clusterId: suggestion.clusterId,
-      });
+    if (actions.length === 0 && suggestions.length > 0) {
+      for (const suggestion of suggestions.slice(0, 3)) {
+        actions.push({
+          id: `replay-${suggestion.decisionId}`,
+          playbookId: suggestion.playbookId ?? suggestion.action,
+          description: suggestion.summary,
+          safeToAutoApply: false,
+          clusterId: suggestion.clusterId,
+        });
+      }
     }
-  }
 
-  void cached;
+    void cached;
 
-  return {
-    generatedAt: new Date().toISOString(),
-    traceId,
-    actions,
-    skippedDecisionIds: failedDecisionIds,
-  };
+    return {
+      generatedAt: new Date().toISOString(),
+      traceId,
+      actions,
+      skippedDecisionIds: failedDecisionIds,
+    };
+  });
 }
 
 export async function applyHealAction(input: HealApplyInput): Promise<HealApplyResult> {

@@ -129,10 +129,9 @@ export function clusterFailureLedgerEffect(
       { concurrency: 3 }
     );
 
-    const embedded = yield* Effect.tryPromise({
-      try: async () => embedFailures(failures, traces, embedder),
-      catch: () => "embed-failed",
-    }).pipe(Effect.catchAll(() => Effect.succeed([] as EmbeddedFailure[])));
+    const embedded = yield* embedFailures(failures, traces, embedder).pipe(
+      Effect.catchAll(() => Effect.succeed([] as EmbeddedFailure[]))
+    );
 
     const labels = dbscan(
       embedded.map((item) => item.vector),
@@ -161,12 +160,6 @@ export function clusterFailureLedgerEffect(
   });
 }
 
-export async function clusterFailureLedger(
-  options: FailureClusterInput = {}
-): Promise<ErrorClusterReport> {
-  return Effect.runPromise(clusterFailureLedgerEffect(options));
-}
-
 export function matchErrorToClusters(
   errorText: string,
   clusters: ErrorCluster[],
@@ -184,69 +177,80 @@ export function matchErrorToClusters(
   return best && best.confidence > 0 ? best : null;
 }
 
-export async function suggestForErrorId(
+export function suggestForErrorIdEffect(
   errorId: string,
   options: FailureClusterInput = {}
-): Promise<{
-  errorId: string;
-  record?: FailureTraceRecord;
-  cluster?: ErrorCluster;
-  confidence: number;
-  similarErrors: ClusterMember[];
-  playbook?: { suggestedFix?: string; autoFix?: string; playbookId?: string };
-}> {
-  const report = await clusterFailureLedger(options);
-  const record = (await readFailureTraceRecords(options.failurePath)).find(
-    (entry) => entry.errorId === errorId
-  );
-  if (!record) {
-    return { errorId, confidence: 0, similarErrors: [] };
-  }
-  const traces = await readTraceEvents(options.tracePath);
-  const vector = await ensureRecordEmbedding(record, traces);
-  const match = matchErrorToClusters(record.output || "", report.clusters, vector);
-  const cluster = match?.cluster;
-  const similarErrors = cluster
-    ? cluster.members.filter((member) => member.errorId !== errorId).slice(0, 5)
-    : [];
-  return {
-    errorId,
-    record,
-    cluster,
-    confidence: match?.confidence ?? 0,
-    similarErrors,
-    playbook: cluster?.hasPlaybook
-      ? {
-          suggestedFix: cluster.suggestedFix,
-          autoFix: cluster.autoFix,
-          playbookId: cluster.playbookId,
-        }
-      : undefined,
-  };
+): Effect.Effect<
+  {
+    errorId: string;
+    record?: FailureTraceRecord;
+    cluster?: ErrorCluster;
+    confidence: number;
+    similarErrors: ClusterMember[];
+    playbook?: { suggestedFix?: string; autoFix?: string; playbookId?: string };
+  },
+  never
+> {
+  return Effect.gen(function* () {
+    const report = yield* clusterFailureLedgerEffect(options);
+    const records = yield* Effect.tryPromise({
+      try: () => readFailureTraceRecords(options.failurePath),
+      catch: () => [] as FailureTraceRecord[],
+    }).pipe(Effect.catchAll(() => Effect.succeed([] as FailureTraceRecord[])));
+    const record = records.find((entry) => entry.errorId === errorId);
+    if (!record) {
+      return { errorId, confidence: 0, similarErrors: [] };
+    }
+    const traces = yield* Effect.tryPromise({
+      try: () => readTraceEvents(options.tracePath),
+      catch: () => [] as TraceEvent[],
+    }).pipe(Effect.catchAll(() => Effect.succeed([] as TraceEvent[])));
+    const vector = yield* Effect.tryPromise({
+      try: () => ensureRecordEmbedding(record, traces),
+      catch: () => null as Float32Array | null,
+    }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+    const match = matchErrorToClusters(record.output || "", report.clusters, vector ?? undefined);
+    const cluster = match?.cluster;
+    const similarErrors = cluster
+      ? cluster.members.filter((member) => member.errorId !== errorId).slice(0, 5)
+      : [];
+    return {
+      errorId,
+      record,
+      cluster,
+      confidence: match?.confidence ?? 0,
+      similarErrors,
+      playbook: cluster?.hasPlaybook
+        ? {
+            suggestedFix: cluster.suggestedFix,
+            autoFix: cluster.autoFix,
+            playbookId: cluster.playbookId,
+          }
+        : undefined,
+    };
+  });
 }
 
 function embedFailures(
   failures: FailureTraceRecord[],
   traces: TraceEvent[],
   embedder: Embedder
-): Promise<EmbeddedFailure[]> {
-  return Effect.runPromise(
-    Effect.all(
-      failures
-        .filter((failure) => (failure.output || "").trim().length > 0)
-        .map((record) =>
-          Effect.tryPromise({
-            try: async () => ({
-              record,
-              vector: await ensureRecordEmbedding(record, traces, embedder),
-              similarities: [1],
-            }),
-            catch: () => "embed-record-failed",
-          }).pipe(Effect.catchAll(() => Effect.succeed(null)))
-        ),
-      { concurrency: 8 }
-    ).pipe(Effect.map((items) => items.filter((item): item is EmbeddedFailure => item !== null)))
-  );
+): Effect.Effect<EmbeddedFailure[], never> {
+  return Effect.all(
+    failures
+      .filter((failure) => (failure.output || "").trim().length > 0)
+      .map((record) =>
+        Effect.tryPromise({
+          try: async () => ({
+            record,
+            vector: await ensureRecordEmbedding(record, traces, embedder),
+            similarities: [1],
+          }),
+          catch: () => "embed-record-failed",
+        }).pipe(Effect.catchAll(() => Effect.succeed(null)))
+      ),
+    { concurrency: 8 }
+  ).pipe(Effect.map((items) => items.filter((item): item is EmbeddedFailure => item !== null)));
 }
 
 function dbscan(vectors: Float32Array[], eps: number, minPts: number): number[] {

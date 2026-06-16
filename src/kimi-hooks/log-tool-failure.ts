@@ -9,6 +9,7 @@
 
 import { appendFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
+import { Effect } from "effect";
 import { safeParse } from "../lib/utils.ts";
 import { buildClassifiedFailure, classifyFailure, loadTaxonomy } from "../lib/error-taxonomy.ts";
 
@@ -22,7 +23,7 @@ interface HookPayload {
   error?: string;
 }
 
-async function main() {
+async function main(): Promise<void> {
   const chunks: Uint8Array[] = [];
   for await (const chunk of Bun.stdin.stream()) {
     chunks.push(chunk);
@@ -37,8 +38,7 @@ async function main() {
   const text = new TextDecoder().decode(combined).trim();
   if (!text) return;
 
-  let payload: HookPayload | null = null;
-  payload = safeParse(text, null as HookPayload | null);
+  const payload = safeParse<HookPayload | null>(text, null);
   if (!payload) return;
 
   const toolName = payload.tool_name || "unknown";
@@ -61,6 +61,16 @@ async function main() {
   appendFileSync(logPath, JSON.stringify(record) + "\n");
 }
 
-main().catch(() => {
+(async () => {
+  try {
+    await Effect.runPromise(
+      Effect.tryPromise({
+        try: () => main(),
+        catch: () => "hook-failed" as const,
+      })
+    );
+  } catch {
+    // Silent fail — hook recording is best-effort.
+  }
   process.exit(0);
-});
+})();

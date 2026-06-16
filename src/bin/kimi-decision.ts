@@ -34,7 +34,7 @@ import {
   type DecisionAction,
 } from "../lib/decision-ledger.ts";
 import {
-  scoreAllDecisions,
+  scoreAllDecisionsEffect,
   filterLowQualityDecisions,
   filterUnverifiedDecisions,
 } from "../lib/decision-scoring.ts";
@@ -139,7 +139,7 @@ async function main(): Promise<number> {
   }
 
   if (command === "score") {
-    const report = await scoreAllDecisions({ projectRoot });
+    const report = await Effect.runPromise(scoreAllDecisionsEffect({ projectRoot }));
     if (jsonMode) {
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     } else {

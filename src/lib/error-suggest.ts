@@ -2,10 +2,11 @@
  * Error suggestions enriched with bound define constants from taxonomy linkage.
  */
 
+import { Effect } from "effect";
 import { loadRepoDefineMap } from "./build-constants-registry.ts";
 import { loadConstantsGolden } from "./constants-heal.ts";
 import { readDecisions, type Decision } from "./decision-ledger.ts";
-import { suggestForErrorId } from "./error-clustering.ts";
+import { suggestForErrorIdEffect } from "./error-clustering.ts";
 import {
   buildTaxonomyConstantLinks,
   findLastConstantModification,
@@ -71,47 +72,62 @@ async function resolveBoundConstants(
   return contexts;
 }
 
-export async function suggestErrorWithBoundConstants(
+export function suggestErrorWithBoundConstantsEffect(
   errorId: string,
   options: { projectRoot: string; failurePath?: string }
-): Promise<ErrorSuggestReport> {
-  const base = await suggestForErrorId(errorId, {
-    failurePath: options.failurePath,
-    persist: false,
+): Effect.Effect<ErrorSuggestReport, never> {
+  return Effect.gen(function* () {
+    const base = yield* suggestForErrorIdEffect(errorId, {
+      failurePath: options.failurePath,
+      persist: false,
+    });
+
+    const taxonomyId =
+      base.cluster?.topTaxonomy ?? base.record?.taxonomyId ?? base.record?.categoryId;
+    const links = yield* Effect.tryPromise({
+      try: () => buildTaxonomyConstantLinks(options.projectRoot),
+      catch: () => [] as Awaited<ReturnType<typeof buildTaxonomyConstantLinks>>,
+    }).pipe(
+      Effect.catchAll(() =>
+        Effect.succeed([] as Awaited<ReturnType<typeof buildTaxonomyConstantLinks>>)
+      )
+    );
+    const link = taxonomyId ? links.find((entry) => entry.taxonomyId === taxonomyId) : undefined;
+    const decisions = yield* Effect.tryPromise({
+      try: () => readDecisions(options.projectRoot),
+      catch: () => [] as Decision[],
+    }).pipe(Effect.catchAll(() => Effect.succeed([] as Decision[])));
+
+    const boundConstants = link
+      ? yield* Effect.tryPromise({
+          try: () => resolveBoundConstants(link.boundConstants, options.projectRoot, decisions),
+          catch: () => [] as BoundConstantContext[],
+        }).pipe(Effect.catchAll(() => Effect.succeed([] as BoundConstantContext[])))
+      : [];
+
+    const suggestion =
+      base.playbook?.suggestedFix ??
+      base.record?.suggestion ??
+      (taxonomyId
+        ? `Review cluster outcomes for taxonomy ${taxonomyId}`
+        : "No cluster or taxonomy match found");
+
+    return {
+      errorId,
+      cluster: base.cluster
+        ? {
+            clusterId: base.cluster.clusterId,
+            count: base.cluster.count,
+            topTaxonomy: base.cluster.topTaxonomy,
+            confidence: base.confidence,
+          }
+        : undefined,
+      boundConstants,
+      suggestion,
+      autoFix: base.playbook?.autoFix ?? base.record?.autoFix,
+      confidence: base.confidence,
+    };
   });
-
-  const taxonomyId =
-    base.cluster?.topTaxonomy ?? base.record?.taxonomyId ?? base.record?.categoryId;
-  const links = await buildTaxonomyConstantLinks(options.projectRoot);
-  const link = taxonomyId ? links.find((entry) => entry.taxonomyId === taxonomyId) : undefined;
-  const decisions = await readDecisions(options.projectRoot);
-
-  const boundConstants = link
-    ? await resolveBoundConstants(link.boundConstants, options.projectRoot, decisions)
-    : [];
-
-  const suggestion =
-    base.playbook?.suggestedFix ??
-    base.record?.suggestion ??
-    (taxonomyId
-      ? `Review cluster outcomes for taxonomy ${taxonomyId}`
-      : "No cluster or taxonomy match found");
-
-  return {
-    errorId,
-    cluster: base.cluster
-      ? {
-          clusterId: base.cluster.clusterId,
-          count: base.cluster.count,
-          topTaxonomy: base.cluster.topTaxonomy,
-          confidence: base.confidence,
-        }
-      : undefined,
-    boundConstants,
-    suggestion,
-    autoFix: base.playbook?.autoFix ?? base.record?.autoFix,
-    confidence: base.confidence,
-  };
 }
 
 export function formatBoundConstantLine(ctx: BoundConstantContext): string {

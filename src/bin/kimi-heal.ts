@@ -18,8 +18,8 @@ import { createCli } from "../lib/cli-contract.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { resolveDecisionsRoot } from "../lib/decision-ledger.ts";
-import { applyHealAction, buildHealPlan } from "../lib/self-healing.ts";
-import { clusterFailureLedger } from "../lib/error-clustering.ts";
+import { applyHealAction, buildHealPlanEffect } from "../lib/self-healing.ts";
+import { clusterFailureLedgerEffect } from "../lib/error-clustering.ts";
 import { ensureProcessTrace } from "../lib/effect/trace-context.ts";
 import {
   buildConstantRepairPlan,
@@ -29,7 +29,10 @@ import {
   restoreGoldenFromArchive,
   acceptConstantsDrift,
 } from "../lib/constants-heal.ts";
-import { formatErrorSuggestReport, suggestErrorWithBoundConstants } from "../lib/error-suggest.ts";
+import {
+  formatErrorSuggestReport,
+  suggestErrorWithBoundConstantsEffect,
+} from "../lib/error-suggest.ts";
 import {
   applyOptimizerRecommendationsEffect,
   buildConstantOptimizerReport,
@@ -116,7 +119,9 @@ async function main(): Promise<number> {
   const trace = ensureProcessTrace();
 
   if (command === "plan") {
-    const plan = await buildHealPlan({ projectRoot, traceId: trace.traceId });
+    const plan = await Effect.runPromise(
+      buildHealPlanEffect({ projectRoot, traceId: trace.traceId })
+    );
     if (jsonMode) {
       process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
     } else {
@@ -144,7 +149,9 @@ async function main(): Promise<number> {
       logger.error("Usage: apply --action <id> [--dry-run] [--yes] [--json]");
       return 1;
     }
-    const plan = await buildHealPlan({ projectRoot, traceId: trace.traceId });
+    const plan = await Effect.runPromise(
+      buildHealPlanEffect({ projectRoot, traceId: trace.traceId })
+    );
     const action = plan.actions.find((item) => item.id === actionId);
     if (!action) {
       logger.error(`Unknown action: ${actionId}. Run 'kimi-heal plan' first.`);
@@ -192,7 +199,7 @@ async function main(): Promise<number> {
   }
 
   if (command === "clusters") {
-    const report = await clusterFailureLedger({ persist: true });
+    const report = await Effect.runPromise(clusterFailureLedgerEffect({ persist: true }));
     if (jsonMode) {
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     } else {
@@ -308,7 +315,9 @@ async function main(): Promise<number> {
       return 1;
     }
 
-    const report = await suggestErrorWithBoundConstants(errorId, { projectRoot });
+    const report = await Effect.runPromise(
+      suggestErrorWithBoundConstantsEffect(errorId, { projectRoot })
+    );
     if (jsonMode) {
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     } else {

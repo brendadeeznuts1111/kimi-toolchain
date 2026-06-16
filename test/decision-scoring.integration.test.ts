@@ -2,6 +2,7 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { Effect } from "effect";
 import {
   logDecision,
   readDecisions,
@@ -10,7 +11,7 @@ import {
 } from "../src/lib/decision-ledger.ts";
 import {
   scoreDecision,
-  scoreAllDecisions,
+  scoreAllDecisionsEffect,
   filterLowQualityDecisions,
 } from "../src/lib/decision-scoring.ts";
 import { suggestDecisions } from "../src/lib/decision-ledger.ts";
@@ -91,7 +92,7 @@ describe("decision-scoring integration", () => {
     }));
     await rewriteNdjsonFile(decisionsNdjsonPath(tmpRoot), bulk);
 
-    const report = await scoreAllDecisions({ projectRoot: tmpRoot });
+    const report = await Effect.runPromise(scoreAllDecisionsEffect({ projectRoot: tmpRoot }));
     expect(report.total).toBe(1000);
     expect(report.durationMs).toBeLessThan(1000);
   });

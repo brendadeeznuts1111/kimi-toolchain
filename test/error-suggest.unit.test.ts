@@ -2,11 +2,12 @@ import { describe, expect, it } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { Effect } from "effect";
 import { DECISION_SCHEMA_VERSION } from "../src/lib/decision-ledger.ts";
 import { decisionsNdjsonPath } from "../src/lib/paths.ts";
 import {
   formatBoundConstantLine,
-  suggestErrorWithBoundConstants,
+  suggestErrorWithBoundConstantsEffect,
 } from "../src/lib/error-suggest.ts";
 import { writeConstantsGolden } from "../src/lib/constants-heal.ts";
 
@@ -94,10 +95,12 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
       })}\n`
     );
 
-    const report = await suggestErrorWithBoundConstants("err-lock-1", {
-      projectRoot: projectDir,
-      failurePath,
-    });
+    const report = await Effect.runPromise(
+      suggestErrorWithBoundConstantsEffect("err-lock-1", {
+        projectRoot: projectDir,
+        failurePath,
+      })
+    );
 
     expect(report.errorId).toBe("err-lock-1");
     expect(report.boundConstants).toHaveLength(1);

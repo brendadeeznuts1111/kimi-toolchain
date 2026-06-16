@@ -374,104 +374,138 @@ export async function parseProposedConstantValue(
   return parseCliConstantValue(raw, types.get(key));
 }
 
-async function runSuiteWithOverrides(
+function runSuiteWithOverridesEffect(
   projectRoot: string,
   overrides: Record<string, ConstantValue>
-): Promise<Record<string, ConstantValue>> {
-  return Effect.runPromise(
-    Effect.gen(function* () {
-      const registry = yield* ConstantsRegistry;
-      return yield* registry.getAll();
-    }).pipe(Effect.provide(TestConstants(projectRoot, overrides)))
-  );
+): Effect.Effect<Record<string, ConstantValue>, never> {
+  return Effect.gen(function* () {
+    const registry = yield* ConstantsRegistry;
+    return yield* registry.getAll();
+  }).pipe(Effect.provide(TestConstants(projectRoot, overrides)));
 }
 
-export async function createCanaryProposal(input: {
+export function createCanaryProposalEffect(input: {
   projectRoot: string;
   constant: string;
   value: ConstantValue;
   percent: number;
   suite?: string;
   message?: string;
-}): Promise<ProposalResult> {
-  const current = await loadRepoDefineMap(input.projectRoot);
-  const issues = await validateProposedValue(input.projectRoot, input.constant, input.value);
-  const allValues = await runSuiteWithOverrides(input.projectRoot, {
-    [input.constant]: input.value,
+}): Effect.Effect<ProposalResult, Error> {
+  return Effect.gen(function* () {
+    const current = yield* Effect.tryPromise({
+      try: () => loadRepoDefineMap(input.projectRoot),
+      catch: (err) =>
+        new Error(
+          `Failed to load repo defines: ${err instanceof Error ? err.message : String(err)}`
+        ),
+    });
+    const issues = yield* Effect.tryPromise({
+      try: () => validateProposedValue(input.projectRoot, input.constant, input.value),
+      catch: (err) => new Error(String(err)),
+    });
+    const allValues = yield* runSuiteWithOverridesEffect(input.projectRoot, {
+      [input.constant]: input.value,
+    });
+    if (allValues[input.constant] !== input.value) {
+      issues.push(issue(input.constant, "error", "test constant override did not resolve"));
+    }
+    const passed = issues.every((item) => item.severity !== "error");
+    const values = {
+      current: current.get(input.constant)?.value ?? "(missing)",
+      candidate: input.value,
+      percent: input.percent,
+    };
+    const record: ConfigLifecycleRecord = {
+      schemaVersion: CONFIG_LIFECYCLE_SCHEMA_VERSION,
+      id: lifecycleId({ type: "canary", constant: input.constant, values, suite: input.suite }),
+      timestamp: nowIso(),
+      type: "canary",
+      constant: input.constant,
+      values,
+      status: passed ? "passed" : "failed",
+      validationIssues: issues,
+      suite: input.suite ?? "default",
+      message:
+        input.message ??
+        `proposal-only canary intent: ${input.constant}=${String(input.value)} at ${input.percent}%`,
+    };
+    yield* Effect.tryPromise({
+      try: () => appendConfigLifecycle(input.projectRoot, record),
+      catch: (err) =>
+        new Error(
+          `Failed to append canary proposal: ${err instanceof Error ? err.message : String(err)}`
+        ),
+    });
+    return {
+      schemaVersion: CONFIG_LIFECYCLE_SCHEMA_VERSION,
+      record,
+      variants: [{ name: "candidate", value: input.value, passed, issues }],
+      recommendation: passed
+        ? `apply with: kimi-config apply ${record.id} --yes`
+        : "fix validation issues",
+    };
   });
-  if (allValues[input.constant] !== input.value) {
-    issues.push(issue(input.constant, "error", "test constant override did not resolve"));
-  }
-  const passed = issues.every((item) => item.severity !== "error");
-  const values = {
-    current: current.get(input.constant)?.value ?? "(missing)",
-    candidate: input.value,
-    percent: input.percent,
-  };
-  const record: ConfigLifecycleRecord = {
-    schemaVersion: CONFIG_LIFECYCLE_SCHEMA_VERSION,
-    id: lifecycleId({ type: "canary", constant: input.constant, values, suite: input.suite }),
-    timestamp: nowIso(),
-    type: "canary",
-    constant: input.constant,
-    values,
-    status: passed ? "passed" : "failed",
-    validationIssues: issues,
-    suite: input.suite ?? "default",
-    message:
-      input.message ??
-      `proposal-only canary intent: ${input.constant}=${String(input.value)} at ${input.percent}%`,
-  };
-  await appendConfigLifecycle(input.projectRoot, record);
-  return {
-    schemaVersion: CONFIG_LIFECYCLE_SCHEMA_VERSION,
-    record,
-    variants: [{ name: "candidate", value: input.value, passed, issues }],
-    recommendation: passed
-      ? `apply with: kimi-config apply ${record.id} --yes`
-      : "fix validation issues",
-  };
 }
 
-export async function createAbProposal(input: {
+export function createAbProposalEffect(input: {
   projectRoot: string;
   constant: string;
   a: ConstantValue;
   b: ConstantValue;
   duration: string;
   suite?: string;
-}): Promise<ProposalResult> {
-  const issuesA = await validateProposedValue(input.projectRoot, input.constant, input.a);
-  const issuesB = await validateProposedValue(input.projectRoot, input.constant, input.b);
-  await runSuiteWithOverrides(input.projectRoot, { [input.constant]: input.a });
-  await runSuiteWithOverrides(input.projectRoot, { [input.constant]: input.b });
-  const aPassed = issuesA.every((item) => item.severity !== "error");
-  const bPassed = issuesB.every((item) => item.severity !== "error");
-  const values = { a: input.a, b: input.b, duration: input.duration };
-  const record: ConfigLifecycleRecord = {
-    schemaVersion: CONFIG_LIFECYCLE_SCHEMA_VERSION,
-    id: lifecycleId({ type: "ab", constant: input.constant, values, suite: input.suite }),
-    timestamp: nowIso(),
-    type: "ab",
-    constant: input.constant,
-    values,
-    status: aPassed && bPassed ? "passed" : "failed",
-    validationIssues: [...issuesA, ...issuesB],
-    suite: input.suite ?? "default",
-    message: `proposal-only A/B intent: ${input.constant} A=${String(input.a)} B=${String(input.b)} for ${input.duration}`,
-  };
-  await appendConfigLifecycle(input.projectRoot, record);
-  const recommendation =
-    bPassed && !aPassed ? "prefer b" : aPassed && !bPassed ? "prefer a" : "compare externally";
-  return {
-    schemaVersion: CONFIG_LIFECYCLE_SCHEMA_VERSION,
-    record,
-    variants: [
-      { name: "a", value: input.a, passed: aPassed, issues: issuesA },
-      { name: "b", value: input.b, passed: bPassed, issues: issuesB },
-    ],
-    recommendation,
-  };
+}): Effect.Effect<ProposalResult, Error> {
+  return Effect.gen(function* () {
+    const [issuesA, issuesB] = yield* Effect.all(
+      [
+        Effect.tryPromise({
+          try: () => validateProposedValue(input.projectRoot, input.constant, input.a),
+          catch: (err) => new Error(String(err)),
+        }),
+        Effect.tryPromise({
+          try: () => validateProposedValue(input.projectRoot, input.constant, input.b),
+          catch: (err) => new Error(String(err)),
+        }),
+      ],
+      { concurrency: 2 }
+    );
+    yield* runSuiteWithOverridesEffect(input.projectRoot, { [input.constant]: input.a });
+    yield* runSuiteWithOverridesEffect(input.projectRoot, { [input.constant]: input.b });
+    const aPassed = issuesA.every((item) => item.severity !== "error");
+    const bPassed = issuesB.every((item) => item.severity !== "error");
+    const values = { a: input.a, b: input.b, duration: input.duration };
+    const record: ConfigLifecycleRecord = {
+      schemaVersion: CONFIG_LIFECYCLE_SCHEMA_VERSION,
+      id: lifecycleId({ type: "ab", constant: input.constant, values, suite: input.suite }),
+      timestamp: nowIso(),
+      type: "ab",
+      constant: input.constant,
+      values,
+      status: aPassed && bPassed ? "passed" : "failed",
+      validationIssues: [...issuesA, ...issuesB],
+      suite: input.suite ?? "default",
+      message: `proposal-only A/B intent: ${input.constant} A=${String(input.a)} B=${String(input.b)} for ${input.duration}`,
+    };
+    yield* Effect.tryPromise({
+      try: () => appendConfigLifecycle(input.projectRoot, record),
+      catch: (err) =>
+        new Error(
+          `Failed to append A/B proposal: ${err instanceof Error ? err.message : String(err)}`
+        ),
+    });
+    const recommendation =
+      bPassed && !aPassed ? "prefer b" : aPassed && !bPassed ? "prefer a" : "compare externally";
+    return {
+      schemaVersion: CONFIG_LIFECYCLE_SCHEMA_VERSION,
+      record,
+      variants: [
+        { name: "a", value: input.a, passed: aPassed, issues: issuesA },
+        { name: "b", value: input.b, passed: bPassed, issues: issuesB },
+      ],
+      recommendation,
+    };
+  });
 }
 
 function rawValueForBunfig(value: ConstantValue, schema?: TypeEntry): string {

@@ -10,6 +10,7 @@
 import { $ } from "bun";
 import { existsSync } from "fs";
 import { join } from "path";
+import { Effect } from "effect";
 
 const QUICK = Bun.argv.includes("--quick");
 const EXIT_ON_FAIL = Bun.argv.includes("--exit-code");
@@ -21,14 +22,14 @@ interface DriftIssue {
   latest?: string;
 }
 
-async function main() {
+async function main(): Promise<number> {
   const cwd = Bun.cwd;
   const pkgPath = join(cwd, "package.json");
   const lockPath = join(cwd, "bun.lock");
 
   if (!existsSync(pkgPath)) {
     console.log("⚠ No package.json found — skipping drift check");
-    process.exit(0);
+    return 0;
   }
 
   const issues: DriftIssue[] = [];
@@ -62,14 +63,24 @@ async function main() {
       console.log(`  ${i.type}: ${i.package}${i.current ? ` (${i.current})` : ""}`);
     }
     console.log("   Run 'bun install' to update lockfile");
-    if (EXIT_ON_FAIL) process.exit(1);
-  } else {
-    console.log("✓ No dependency drift");
-    process.exit(0);
+    return EXIT_ON_FAIL ? 1 : 0;
   }
+
+  console.log("✓ No dependency drift");
+  return 0;
 }
 
-main().catch((err) => {
-  console.error("Drift check failed:", err.message);
-  if (EXIT_ON_FAIL) process.exit(1);
-});
+(async () => {
+  try {
+    const exitCode = await Effect.runPromise(
+      Effect.tryPromise({
+        try: () => main(),
+        catch: (err) => new Error(err instanceof Error ? err.message : String(err)),
+      })
+    );
+    process.exit(exitCode);
+  } catch (err) {
+    console.error("Drift check failed:", err instanceof Error ? err.message : String(err));
+    process.exit(EXIT_ON_FAIL ? 1 : 0);
+  }
+})();

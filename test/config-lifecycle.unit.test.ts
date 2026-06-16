@@ -2,11 +2,12 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { Effect } from "effect";
 import {
   applyLifecycleProposal,
   buildConfigTimeline,
-  createAbProposal,
-  createCanaryProposal,
+  createAbProposalEffect,
+  createCanaryProposalEffect,
   rollbackLifecycleChange,
   validateConfigConstants,
   validateProposedValue,
@@ -67,12 +68,14 @@ describe("config-lifecycle", () => {
 
   test("canary writes proposal without mutating bunfig", async () => {
     const before = await Bun.file(join(projectRoot, "bunfig.toml")).text();
-    const result = await createCanaryProposal({
-      projectRoot,
-      constant: "KIMI_HOOK_VERIFIER_MAX_CYCLES",
-      value: 64,
-      percent: 10,
-    });
+    const result = await Effect.runPromise(
+      createCanaryProposalEffect({
+        projectRoot,
+        constant: "KIMI_HOOK_VERIFIER_MAX_CYCLES",
+        value: 64,
+        percent: 10,
+      })
+    );
     const after = await Bun.file(join(projectRoot, "bunfig.toml")).text();
     expect(result.record.status).toBe("passed");
     expect(after).toBe(before);
@@ -82,25 +85,29 @@ describe("config-lifecycle", () => {
   });
 
   test("A/B proposal compares variants deterministically", async () => {
-    const result = await createAbProposal({
-      projectRoot,
-      constant: "KIMI_HOOK_VERIFIER_MAX_CYCLES",
-      a: 32,
-      b: 0,
-      duration: "1h",
-    });
+    const result = await Effect.runPromise(
+      createAbProposalEffect({
+        projectRoot,
+        constant: "KIMI_HOOK_VERIFIER_MAX_CYCLES",
+        a: 32,
+        b: 0,
+        duration: "1h",
+      })
+    );
     expect(result.record.status).toBe("failed");
     expect(result.variants.find((item) => item.name === "a")?.passed).toBe(true);
     expect(result.variants.find((item) => item.name === "b")?.passed).toBe(false);
   });
 
   test("timeline includes lifecycle and decision events", async () => {
-    const proposal = await createCanaryProposal({
-      projectRoot,
-      constant: "KIMI_HOOK_VERIFIER_MAX_CYCLES",
-      value: 64,
-      percent: 10,
-    });
+    const proposal = await Effect.runPromise(
+      createCanaryProposalEffect({
+        projectRoot,
+        constant: "KIMI_HOOK_VERIFIER_MAX_CYCLES",
+        value: 64,
+        percent: 10,
+      })
+    );
     const decision = await logDecision(
       {
         action: "config-change",
@@ -122,12 +129,14 @@ describe("config-lifecycle", () => {
   });
 
   test("apply and rollback mutate only the targeted define", async () => {
-    const proposal = await createCanaryProposal({
-      projectRoot,
-      constant: "KIMI_HOOK_VERIFIER_MAX_CYCLES",
-      value: 64,
-      percent: 10,
-    });
+    const proposal = await Effect.runPromise(
+      createCanaryProposalEffect({
+        projectRoot,
+        constant: "KIMI_HOOK_VERIFIER_MAX_CYCLES",
+        value: 64,
+        percent: 10,
+      })
+    );
     const apply = await applyLifecycleProposal({
       projectRoot,
       proposalId: proposal.record.id,
@@ -142,12 +151,14 @@ describe("config-lifecycle", () => {
   });
 
   test("watch recommends rollback when health score drops over threshold", async () => {
-    const proposal = await createCanaryProposal({
-      projectRoot,
-      constant: "KIMI_HOOK_VERIFIER_MAX_CYCLES",
-      value: 64,
-      percent: 10,
-    });
+    const proposal = await Effect.runPromise(
+      createCanaryProposalEffect({
+        projectRoot,
+        constant: "KIMI_HOOK_VERIFIER_MAX_CYCLES",
+        value: 64,
+        percent: 10,
+      })
+    );
     const apply = await applyLifecycleProposal({
       projectRoot,
       proposalId: proposal.record.id,

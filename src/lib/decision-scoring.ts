@@ -128,10 +128,6 @@ export function scoreDecision(
   };
 }
 
-export function scoreAllDecisions(input: ScoringInput = {}): Promise<ScoringReport> {
-  return Effect.runPromise(scoreAllDecisionsEffect(input));
-}
-
 export function scoreAllDecisionsEffect(
   input: ScoringInput = {}
 ): Effect.Effect<ScoringReport, never> {

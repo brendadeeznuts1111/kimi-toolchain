@@ -17,7 +17,7 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
-import { Effect } from "effect";
+import { Duration, Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { getGovernorConfigPath, DEFAULT_CONFIG_TEMPLATE } from "../lib/governor-config.ts";
@@ -195,15 +195,17 @@ async function main(): Promise<number> {
     logger.line(`  Available slots:      ${gov.available}`);
 
     const tasks = [1, 2, 3, 4].map((i) =>
-      gov.run(async () => {
-        logger.line(`    Task ${i} starting (slots: ${gov.available}, queued: ${gov.queued})...`);
-        await Bun.sleep(500);
-        logger.line(`    Task ${i} done`);
-        return i;
-      })
+      gov.run(() =>
+        Effect.gen(function* () {
+          logger.line(`    Task ${i} starting (slots: ${gov.available}, queued: ${gov.queued})...`);
+          yield* Effect.sleep(Duration.millis(500));
+          logger.line(`    Task ${i} done`);
+          return i;
+        })
+      )
     );
 
-    await Promise.all(tasks);
+    await Effect.runPromise(Effect.all(tasks));
     logger.info("All tasks completed");
   } else if (command === "quota") {
     logger.section(`Disk Quota: ${project}`);

@@ -7,6 +7,7 @@
 import { existsSync } from "fs";
 import { join, resolve } from "path";
 import { Database } from "bun:sqlite";
+import { Effect } from "effect";
 import {
   desktopRoot,
   AGENTS_SKILLS_ROOT,
@@ -22,7 +23,7 @@ const REPO_ROOT = resolve(import.meta.dir, "../..");
 const VAR_DIR = join(desktopRoot(), "var");
 const GOVERNOR_DIR = join(desktopRoot(), "governor");
 
-async function main() {
+async function main(): Promise<number> {
   console.log("🔧 Setting up kimi-toolchain...");
 
   ensureDesktopLayout();
@@ -67,9 +68,20 @@ async function main() {
   console.log(`   Tools: ${join(desktopRoot(), "tools")}`);
   console.log(`   State: ${VAR_DIR}`);
   console.log(`   Docs:  ${join(desktopRoot())}/{AGENTS,UNIFIED,TEMPLATES}.md`);
+  return 0;
 }
 
-main().catch((err) => {
-  console.error("❌ Setup failed:", err.message);
-  process.exit(1);
-});
+(async () => {
+  try {
+    const exitCode = await Effect.runPromise(
+      Effect.tryPromise({
+        try: () => main(),
+        catch: (err) => new Error(err instanceof Error ? err.message : String(err)),
+      })
+    );
+    process.exit(exitCode);
+  } catch (err) {
+    console.error("❌ Setup failed:", err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  }
+})();

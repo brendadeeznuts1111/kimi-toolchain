@@ -15,8 +15,8 @@ import {
   applyLifecycleProposal,
   buildConfigDiffReport,
   buildConfigTimeline,
-  createAbProposal,
-  createCanaryProposal,
+  createAbProposalEffect,
+  createCanaryProposalEffect,
   parseProposedConstantValue,
   rollbackLifecycleChange,
   validateConfigConstants,
@@ -130,14 +130,16 @@ async function main(): Promise<number> {
       return 1;
     }
     const value = await parseProposedConstantValue(projectRoot, constant, rawValue);
-    const result = await createCanaryProposal({
-      projectRoot,
-      constant,
-      value,
-      percent,
-      suite: argValue("--suite"),
-      message: argValue("--message"),
-    });
+    const result = await Effect.runPromise(
+      createCanaryProposalEffect({
+        projectRoot,
+        constant,
+        value,
+        percent,
+        suite: argValue("--suite"),
+        message: argValue("--message"),
+      })
+    );
     if (jsonMode) {
       writeJson(result);
     } else {
@@ -164,14 +166,16 @@ async function main(): Promise<number> {
       parseProposedConstantValue(projectRoot, constant, rawA),
       parseProposedConstantValue(projectRoot, constant, rawB),
     ]);
-    const result = await createAbProposal({
-      projectRoot,
-      constant,
-      a,
-      b,
-      duration,
-      suite: argValue("--suite"),
-    });
+    const result = await Effect.runPromise(
+      createAbProposalEffect({
+        projectRoot,
+        constant,
+        a,
+        b,
+        duration,
+        suite: argValue("--suite"),
+      })
+    );
     if (jsonMode) {
       writeJson(result);
     } else {

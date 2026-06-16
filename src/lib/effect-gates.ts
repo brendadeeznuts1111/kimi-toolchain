@@ -227,8 +227,21 @@ const RUN_PROMISE_ALLOWED_PATHS = [
   "test/",
 ] as const;
 
+/**
+ * Exact file paths that are permitted to call Effect.runPromise even though they
+ * live outside the directory prefixes above. These are outer-shell scripts invoked
+ * directly by Bun, git hooks, or Kimi Code rather than library code.
+ */
+const RUN_PROMISE_ALLOWED_FILES = new Set([
+  "src/drift/check.ts",
+  "src/guardian/verify.ts",
+  "src/install-hooks/postinstall.ts",
+  "src/kimi-hooks/log-tool-failure.ts",
+]);
+
 /** Check whether a file path is allowed to call Effect.runPromise. */
 function isRunPromiseAllowedPath(relativePath: string): boolean {
+  if (RUN_PROMISE_ALLOWED_FILES.has(relativePath)) return true;
   for (const allowed of RUN_PROMISE_ALLOWED_PATHS) {
     if (allowed.endsWith("/")) {
       const dir = allowed.slice(0, -1);
@@ -412,12 +425,23 @@ function scanMissingServiceTags(
     return false;
   }
 
+  function hasServiceTagExemption(node: ts.ClassDeclaration): boolean {
+    const tags = ts.getJSDocTags(node);
+    for (const tag of tags) {
+      if (tag.tagName.text === "effect-gates-exempt-service-tag") return true;
+    }
+    // Fallback: check the raw source text immediately preceding the class keyword.
+    const leading = sourceFile.text.slice(0, node.getStart(sourceFile));
+    return /@effect-gates-exempt-service-tag\b/.test(leading);
+  }
+
   sourceFile.forEachChild((node) => {
     if (
       ts.isClassDeclaration(node) &&
       node.name &&
       node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) &&
-      !extendsErrorOrTaggedError(node)
+      !extendsErrorOrTaggedError(node) &&
+      !hasServiceTagExemption(node)
     ) {
       const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
       violations.push({

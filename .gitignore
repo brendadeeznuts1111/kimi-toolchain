@@ -6,7 +6,7 @@
 tools/
 var/
 memory/
-guardian/
+/guardian/
 governor/
 node_modules/
 *.sqlite
