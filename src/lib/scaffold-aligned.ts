@@ -19,7 +19,7 @@ export interface ScaffoldAlignmentReport {
 
 const AGENTS_MARKERS = [
   "Kimi Code",
-  "/Users/nolarose/.config/dx/AGENTS.md",
+  ".config/dx/AGENTS.md",
   "dx setup",
   "dx mcp-status",
   "dx cli",

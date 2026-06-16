@@ -23,18 +23,20 @@ describe("scaffold-aligned", () => {
   });
 
   test("checkScaffoldAligned passes for scaffolded AGENTS.md", async () => {
+    const home = join(projectDir, "home");
     writeFileSync(join(projectDir, "dx.config.toml"), "[kimi]\npreflight = true\n");
-    writeFileSync(join(projectDir, "AGENTS.md"), buildAgentsMd("demo"));
+    writeFileSync(join(projectDir, "AGENTS.md"), buildAgentsMd("demo", home));
     const report = await checkScaffoldAligned(projectDir);
     expect(report.applicable).toBe(true);
     expect(report.aligned).toBe(true);
   });
 
   test("warns when scaffolded AGENTS.md has old DX bootstrap defaults", async () => {
+    const home = join(projectDir, "home");
     writeFileSync(join(projectDir, "dx.config.toml"), "[kimi]\npreflight = true\n");
     writeFileSync(
       join(projectDir, "AGENTS.md"),
-      buildAgentsMd("demo")
+      buildAgentsMd("demo", home)
         .replace("dx setup`, ", "")
         .replace(", `dx cli`, and `dx package", ", and `dx mcp-doctor")
     );
