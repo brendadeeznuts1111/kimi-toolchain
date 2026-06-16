@@ -15,6 +15,8 @@ import { classifyAndSuggest } from "./error-taxonomy.ts";
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 const AGENT_TOOL_TIMEOUT_MS = 15_000;
 const DEFAULT_GRACE_PERIOD_MS = 5_000;
+/** Pass as timeoutMs to invokeCommand/invokeTool to disable the watchdog. */
+export const NO_TOOL_TIMEOUT_MS = 0;
 const DEFAULT_MAX_OUTPUT_BYTES = 1_048_576;
 
 /** Detect if running inside an agent session (Kimi Code loop, CI, etc.). */
@@ -30,6 +32,16 @@ export function isAgentContext(): boolean {
 
 export function defaultToolTimeoutMs(): number {
   return isAgentContext() ? AGENT_TOOL_TIMEOUT_MS : DEFAULT_TOOL_TIMEOUT_MS;
+}
+
+const LONG_RUNNING_TOOL_FLAGS = new Set(["--watch", "--mcp-server"]);
+
+/** Long-running tools (watch loops, MCP stdio servers) must not inherit the 30s router timeout. */
+export function resolveToolSpawnTimeoutMs(args: string[]): number {
+  if (args.some((arg) => LONG_RUNNING_TOOL_FLAGS.has(arg) || arg.startsWith("--watch-interval"))) {
+    return NO_TOOL_TIMEOUT_MS;
+  }
+  return defaultToolTimeoutMs();
 }
 
 export interface ToolInvocationOptions {
@@ -183,16 +195,19 @@ export async function invokeCommand(
   let timedOut = false;
   let sigkillTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const termTimer = setTimeout(() => {
-    timedOut = true;
-    proc.kill("SIGTERM");
-    sigkillTimer = setTimeout(() => {
-      proc.kill("SIGKILL");
-    }, gracePeriodMs);
-  }, timeoutMs);
+  const termTimer =
+    timeoutMs > 0
+      ? setTimeout(() => {
+          timedOut = true;
+          proc.kill("SIGTERM");
+          sigkillTimer = setTimeout(() => {
+            proc.kill("SIGKILL");
+          }, gracePeriodMs);
+        }, timeoutMs)
+      : null;
 
   const cleanup = () => {
-    clearTimeout(termTimer);
+    if (termTimer) clearTimeout(termTimer);
     if (sigkillTimer) clearTimeout(sigkillTimer);
   };
 

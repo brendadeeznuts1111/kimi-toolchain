@@ -2,7 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { invokeCommand, invokeTool, runTool, toolsDir } from "../src/lib/tool-runner.ts";
+import {
+  invokeCommand,
+  invokeTool,
+  NO_TOOL_TIMEOUT_MS,
+  resolveToolSpawnTimeoutMs,
+  runTool,
+  toolsDir,
+} from "../src/lib/tool-runner.ts";
 
 function tmpScript(content: string): string {
   const dir = join(tmpdir(), `kimi-tool-runner-${Bun.randomUUIDv7()}`);
@@ -125,6 +132,26 @@ describe("tool-runner", () => {
       expect(result.stderr.length).toBe(64);
       expect(result.stdoutTruncated).toBe(true);
       expect(result.stderrTruncated).toBe(true);
+      rmSync(join(script, ".."), { recursive: true, force: true });
+    },
+    { timeout: 5000 }
+  );
+
+  test("resolveToolSpawnTimeoutMs disables timeout for watch and MCP server", () => {
+    expect(resolveToolSpawnTimeoutMs(["--watch"])).toBe(NO_TOOL_TIMEOUT_MS);
+    expect(resolveToolSpawnTimeoutMs(["--mcp-server"])).toBe(NO_TOOL_TIMEOUT_MS);
+    expect(resolveToolSpawnTimeoutMs(["--watch-interval", "10"])).toBe(NO_TOOL_TIMEOUT_MS);
+    expect(resolveToolSpawnTimeoutMs(["--effect-gates"])).toBeGreaterThan(0);
+  });
+
+  test(
+    "invokeTool with NO_TOOL_TIMEOUT_MS does not kill a long-running child",
+    async () => {
+      const script = tmpScript(`await Bun.sleep(400);`);
+      const result = await invokeTool(script, [], { timeoutMs: NO_TOOL_TIMEOUT_MS });
+      expect(result.timedOut).toBeUndefined();
+      expect(result.isError).toBe(false);
+      expect(result.exitCode).toBe(0);
       rmSync(join(script, ".."), { recursive: true, force: true });
     },
     { timeout: 5000 }

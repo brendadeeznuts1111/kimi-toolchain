@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { fingerprintDoctorWatch, formatDoctorWatchChange } from "../src/lib/doctor-watch.ts";
+import {
+  fingerprintDoctorWatch,
+  formatDoctorWatchChange,
+  reportEffectGatesChanged,
+} from "../src/lib/doctor-watch.ts";
 import type { EffectGatesReport } from "../src/lib/effect-gates.ts";
 
 function sampleReport(overrides: Partial<EffectGatesReport["counts"]> = {}): EffectGatesReport {
@@ -55,5 +59,14 @@ describe("doctor-watch", () => {
     const lines = formatDoctorWatchChange(sampleReport(), ["count increased"]);
     expect(lines[0]).toContain("0 violation(s)");
     expect(lines.some((line) => line.includes("regression"))).toBe(true);
+  });
+
+  test("reportEffectGatesChanged no-ops without pane id when herdr is unavailable", async () => {
+    const prior = process.env.HERDR_PANE_ID;
+    delete process.env.HERDR_PANE_ID;
+    await expect(
+      reportEffectGatesChanged('{"ok":true}', { projectRoot: "/nonexistent-project-path" })
+    ).resolves.toBeUndefined();
+    if (prior) process.env.HERDR_PANE_ID = prior;
   });
 });

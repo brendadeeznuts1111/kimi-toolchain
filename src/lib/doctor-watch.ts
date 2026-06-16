@@ -8,6 +8,7 @@ import {
   readEffectGatesSnapshots,
   type EffectGatesReport,
 } from "./effect-gates.ts";
+import { resolveDoctorPaneId } from "./finish-work-herdr.ts";
 import { herdrReportPaneMetadata } from "./herdr-socket-client.ts";
 import type { createLogger } from "./logger.ts";
 
@@ -84,17 +85,29 @@ export async function runDoctorWatchOnce(projectRoot: string): Promise<{
   };
 }
 
-export function reportEffectGatesChanged(
+export async function reportEffectGatesChanged(
   fingerprint: string,
-  paneId = process.env.HERDR_PANE_ID
-): void {
+  options: { paneId?: string; projectRoot?: string } = {}
+): Promise<void> {
+  const explicit = options.paneId?.trim() || process.env.HERDR_PANE_ID?.trim();
+  const session = process.env.HERDR_SESSION?.trim() || undefined;
+  let paneId = explicit || null;
+
+  if (!paneId) {
+    const projectRoot = options.projectRoot || process.cwd();
+    const resolved = await resolveDoctorPaneId(projectRoot);
+    paneId = resolved.paneId;
+  }
+
   if (!paneId) return;
+
   herdrReportPaneMetadata({
     paneId,
     source: "kimi-doctor",
     customStatus: EFFECT_GATES_CHANGED_STATUS,
     stateLabels: { effect_gates: fingerprint },
     ttlMs: 120_000,
+    session,
   });
 }
 
@@ -113,7 +126,7 @@ export async function runDoctorWatchLoop(options: DoctorWatchOptions): Promise<v
     const { report, regressions, fingerprint } = await runDoctorWatchOnce(options.projectRoot);
     if (fingerprint === lastFingerprint) return;
     lastFingerprint = fingerprint;
-    reportEffectGatesChanged(fingerprint);
+    await reportEffectGatesChanged(fingerprint, { projectRoot: options.projectRoot });
 
     const stamp = new Date().toISOString();
     if (options.json) {
