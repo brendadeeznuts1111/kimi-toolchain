@@ -171,6 +171,51 @@ Use these local references before changing Cloudflare or MCP behavior:
 
 Cloudflare MCP SSO/OAuth, Wrangler OAuth, and `kimi-cloudflare-access` API tokens are separate auth paths. Do not assume one login satisfies the others.
 
+## Doctor Adapter / Plugin / MCP Golden Template
+
+Use this pattern when extending `kimi-doctor` with new agent-facing diagnostics.
+
+### External-tool adapters
+
+- Define the adapter in `src/lib/doctor-adapters/{name}.ts`.
+- Implement `ExternalToolAdapter` from `src/lib/doctor-adapter-types.ts`:
+  - `name`: stable kebab-case identifier.
+  - `command`: `["executable", ...args]`; the runner resolves the executable
+    from `PATH` or `{projectRoot}/node_modules/.bin` automatically.
+  - `parse(result)`: return `AdapterOutput` (`adapterName`, `durationMs`, `checks`).
+- Check `result.timedOut` before `result.error` to emit `doctor_adapter_timeout`.
+- Register the adapter in `src/lib/external-tool-runner.ts` `ADAPTERS`.
+- Add a focused unit test in `test/external-tool-runner.unit.test.ts` (or a new
+  `test/{source-module}.unit.test.ts` that matches the source stem).
+
+### Doctor plugins
+
+- Plugins are declared in `.kimi/doctor-plugins.json` (project-local) or
+  `~/.kimi-code/doctor-plugins.json` (user-global).
+- Project-local plugins override user-global plugins by `name`; collisions are logged.
+- Each plugin entry requires `name` and `command`; optional `args`, `cwd`,
+  `timeoutMs`, `maxOutputBytes`.
+- The executable must be on `PATH` or resolvable via `cwd`.
+- Plugin executables must print JSON to stdout:
+  `{ "checks": [{ "name": "...", "status": "ok|warn|error", "message": "...", "fixable": false }] }`.
+- Invalid entries emit a `doctor_plugin_invalid` check and are skipped.
+
+### MCP server tools
+
+- The stdio MCP server lives in `src/lib/doctor-mcp-server.ts`.
+- Add a new tool name constant (e.g., `DOCTOR_MCP_TOOL_*`) in `src/lib/mcp-config.ts`.
+- Expose the tool in `doctor-mcp-server.ts` `TOOLS` and route it in the handler.
+- Register/validate the server entry in `src/lib/mcp-config.ts` so `kimi-doctor --fix`
+  keeps `~/.kimi-code/mcp.json` in sync.
+
+### Probe manifest
+
+- `kimi-doctor --probe` emits `DoctorProbeManifest` from `src/lib/doctor-probe.ts`.
+- Bump `schemaVersion` only when the manifest shape changes; document the version
+  in `DEEP-QUALITY.md`.
+- The `checks` array must list every registered adapter, discovered plugin, and
+  built-in check so agents can discover capabilities programmatically.
+
 ## New Code Checklist
 
 Before writing a new module or CLI path:
