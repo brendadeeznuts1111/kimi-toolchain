@@ -366,15 +366,16 @@ The project follows strict Bun-native conventions. **Always prefer Bun APIs over
 Use the shared tool runner and logger for cross-tool calls instead of open-coded subprocess/logging behavior.
 See [CODE_REFERENCES.md](CODE_REFERENCES.md) for the local exemplar map future agents should follow before writing new modules.
 
-| Need                            | Use                                                | Avoid                                                     |
-| ------------------------------- | -------------------------------------------------- | --------------------------------------------------------- |
-| Invoke another toolchain CLI    | `invokeTool()` / `runTool()` from `tool-runner.ts` | Raw `Bun.spawn(["bun", "run", ...])` in feature code      |
-| Invoke from Effect code         | `invokeToolEffect()` / `runToolEffect()`           | Converting every error to an untyped string               |
-| Emit CLI status                 | `createLogger(Bun.argv, toolName)`                 | Raw `console.log` for doctor/check output                 |
-| Emit structured health results  | `logger.check()` / `logger.printHealthReport()`    | Ad hoc JSON shapes                                        |
-| Persist agent/session telemetry | `logger.flushToFile()`                             | Writing unrelated files under `~/.kimi-code/var/`         |
-| Long or noisy subprocess output | `maxOutputBytes` on `invokeTool()`                 | Unbounded `Bun.readableStreamToText(proc.stdout)` capture |
-| Child environment changes       | `env` overlay on `invokeTool()`                    | Mutating `Bun.env` for a subprocess                       |
+| Need                            | Use                                                    | Avoid                                                     |
+| ------------------------------- | ------------------------------------------------------ | --------------------------------------------------------- |
+| Invoke another toolchain CLI    | `invokeTool()` / `runTool()` from `tool-runner.ts`     | Raw `Bun.spawn(["bun", "run", ...])` in feature code      |
+| Invoke from Effect code         | `invokeToolEffect()` / `runToolEffect()`               | Converting every error to an untyped string               |
+| Parse common CLI flags          | `createCli(Bun.argv, toolName)` from `cli-contract.ts` | Ad-hoc `Bun.argv.includes("--json")` in every tool        |
+| Emit CLI status                 | `createCli(...).logger` or `createLogger(...)`         | Raw `console.log` for doctor/check output                 |
+| Emit structured health results  | `logger.check()` / `logger.printHealthReport()`        | Ad hoc JSON shapes                                        |
+| Persist agent/session telemetry | `logger.flushToFile()`                                 | Writing unrelated files under `~/.kimi-code/var/`         |
+| Long or noisy subprocess output | `maxOutputBytes` on `invokeTool()`                     | Unbounded `Bun.readableStreamToText(proc.stdout)` capture |
+| Child environment changes       | `env` overlay on `invokeTool()`                        | Mutating `Bun.env` for a subprocess                       |
 
 Runner defaults:
 
@@ -387,14 +388,14 @@ Runner defaults:
 
 Agents should choose the closest existing implementation and match it before creating new patterns.
 
-| New work                        | Read first                                                                                     |
-| ------------------------------- | ---------------------------------------------------------------------------------------------- |
-| New CLI main                    | `src/lib/effect/cli-runtime.ts`, `src/bin/kimi-toolchain.ts`                                   |
-| New cross-tool call             | `src/lib/tool-runner.ts`, `src/lib/effect/tool-runner-effect.ts`                               |
-| New doctor/check output         | `src/lib/logger.ts`, `src/lib/health-check.ts`, `src/lib/doctor-pipeline.ts`                   |
-| New config or schema parser     | `src/lib/cloudflare-access-policy.ts`, `src/lib/mcp-config.ts`, `src/lib/kimi-config-audit.ts` |
-| New package/dependency behavior | `package.json`, `bunfig.toml`, `src/lib/scaffold-quality.ts`, `kimi-guardian check`            |
-| New scaffold/agent docs         | `src/lib/scaffold-agents.ts`, `TEMPLATES.md`, `test/scaffold-agents.unit.test.ts`              |
+| New work                        | Read first                                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| New CLI main                    | `src/lib/effect/cli-runtime.ts`, `src/lib/cli-contract.ts`, `src/bin/kimi-toolchain.ts`                 |
+| New cross-tool call             | `src/lib/tool-runner.ts`, `src/lib/effect/tool-runner-effect.ts`                                        |
+| New doctor/check output         | `src/lib/cli-contract.ts`, `src/lib/logger.ts`, `src/lib/health-check.ts`, `src/lib/doctor-pipeline.ts` |
+| New config or schema parser     | `src/lib/cloudflare-access-policy.ts`, `src/lib/mcp-config.ts`, `src/lib/kimi-config-audit.ts`          |
+| New package/dependency behavior | `package.json`, `bunfig.toml`, `src/lib/scaffold-quality.ts`, `kimi-guardian check`                     |
+| New scaffold/agent docs         | `src/lib/scaffold-agents.ts`, `TEMPLATES.md`, `test/scaffold-agents.unit.test.ts`                       |
 
 ### Process Cache (src/lib/process-utils.ts, src/lib/memory-budget.ts)
 

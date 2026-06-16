@@ -5,7 +5,7 @@
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { $ } from "bun";
-import { isHookSummaryMode, isQuietMode, parseBunTestSummary } from "./quiet-mode.ts";
+import { isHookSummaryMode, parseBunTestSummary } from "./quiet-mode.ts";
 import { safeParse } from "./utils.ts";
 
 export interface GateCacheFile {
@@ -139,7 +139,10 @@ export async function runGateOrSkip(
 }
 
 export function shouldSilentOnSuccess(): boolean {
-  return isQuietMode();
+  // Default to silent-on-success for gates; opt out with KIMI_VERBOSE=1 or KIMI_QUIET=0.
+  if (Bun.env.KIMI_VERBOSE === "1") return false;
+  if (Bun.env.KIMI_QUIET === "0") return false;
+  return true;
 }
 
 /** Run gate: inherit stdout when verbose; pipe + dump on failure when quiet. */
