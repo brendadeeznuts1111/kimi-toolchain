@@ -486,6 +486,31 @@ When working on this codebase, agents should:
 5. Commit with conventional commit format
 6. If runtime-synced assets changed, run `bun run sync && bun run sync:verify` before handoff
 
+### Agent Diagnosis Report
+
+`kimi-doctor --agent --json` emits a stable, machine-readable `AgentDiagnosisReport` that agents can consume to reason about project health without parsing human-formatted doctor output.
+
+The report includes:
+
+- `summary.overallConfidence` — aggregated 0-1 score across error coverage, ledger classification, health checks, and tuning-set alignment
+- `prioritizedIssues` — health checks and ledger findings sorted by severity (error > warn > ok)
+- `proposedActions` — concrete, runnable next steps such as reviewing the failure ledger or regenerating the constants manifest
+- `sourceData` — raw `errorCoverage`, `ledger`, and `tuningSet` audits for deeper inspection
+
+Use it when you need a structured health snapshot:
+
+```bash
+kimi-doctor --agent --json
+```
+
+Or read it in human-readable form:
+
+```bash
+kimi-doctor --agent
+```
+
+This mode is additive; existing `--quick`, `--success-metrics`, and `--agent-ready` modes are unchanged.
+
 ### Step Budget Reference
 
 | Step Range | Action Pattern                                |
