@@ -156,6 +156,7 @@ preflight = true
 #   Extra tabs: [[herdr.tabs]] — one pane per tab (doctor, shell, reviewer, …)
 [herdr]
 enabled = true
+session = "dev"
 workspaceLabel = "kimi-toolchain"
 primaryAgent = "kimi"
 secondaryAgents = ["codex"]
