@@ -8,7 +8,10 @@ import {
   readEffectGatesSnapshots,
   type EffectGatesReport,
 } from "./effect-gates.ts";
+import { herdrReportPaneMetadata } from "./herdr-socket-client.ts";
 import type { createLogger } from "./logger.ts";
+
+export const EFFECT_GATES_CHANGED_STATUS = "effect.gates.changed";
 
 export const DOCTOR_WATCH_DEFAULT_INTERVAL_SECONDS = 5;
 
@@ -81,6 +84,20 @@ export async function runDoctorWatchOnce(projectRoot: string): Promise<{
   };
 }
 
+export function reportEffectGatesChanged(
+  fingerprint: string,
+  paneId = process.env.HERDR_PANE_ID
+): void {
+  if (!paneId) return;
+  herdrReportPaneMetadata({
+    paneId,
+    source: "kimi-doctor",
+    customStatus: EFFECT_GATES_CHANGED_STATUS,
+    stateLabels: { effect_gates: fingerprint },
+    ttlMs: 120_000,
+  });
+}
+
 export async function runDoctorWatchLoop(options: DoctorWatchOptions): Promise<void> {
   const intervalSeconds = Math.max(
     1,
@@ -96,6 +113,7 @@ export async function runDoctorWatchLoop(options: DoctorWatchOptions): Promise<v
     const { report, regressions, fingerprint } = await runDoctorWatchOnce(options.projectRoot);
     if (fingerprint === lastFingerprint) return;
     lastFingerprint = fingerprint;
+    reportEffectGatesChanged(fingerprint);
 
     const stamp = new Date().toISOString();
     if (options.json) {

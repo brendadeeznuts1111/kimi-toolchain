@@ -7,6 +7,9 @@ import {
   resolveHerdrPanePath,
 } from "./herdr-project-runner.ts";
 import { herdrCli, herdrCliJson } from "./herdr-socket.ts";
+import { herdrReportPaneMetadata } from "./herdr-socket-client.ts";
+
+export const WORKSPACE_UPDATED_STATUS = "workspace.updated";
 
 export interface FinishWorkGateSummary {
   name: string;
@@ -62,6 +65,18 @@ export function finishWorkOutcome(
 
 export function shouldEscalateToReviewer(report: FinishWorkReport): boolean {
   return report.ok && report.git.pushed && !report.tree.clean;
+}
+
+/** Signal workspace change to orchestrator event watcher via pane metadata. */
+export function emitWorkspaceUpdatedMetadata(): void {
+  const paneId = process.env.HERDR_PANE_ID;
+  if (!paneId) return;
+  herdrReportPaneMetadata({
+    paneId,
+    source: "finish-work",
+    customStatus: WORKSPACE_UPDATED_STATUS,
+    ttlMs: 60_000,
+  });
 }
 
 function shellQuote(value: string) {

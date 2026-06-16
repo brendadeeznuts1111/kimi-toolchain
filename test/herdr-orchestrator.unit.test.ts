@@ -47,5 +47,6 @@ describe("herdr-orchestrator", () => {
     expect(resolved.handoffFrom).toBe("kimi");
     expect(resolved.handoffTo).toBe("codex");
     expect(resolved.contextOnIdle).toBe(true);
+    expect(resolved.events.enabled).toBe(true);
   });
 });

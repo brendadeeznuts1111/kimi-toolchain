@@ -170,6 +170,7 @@ bootstrap = [
   "echo '  kimi-heal effect audit    # scan for bare promises'",
   "echo '  bun run finish-work --message \"...\"  # gates + commit'",
   "bun run check:fast && echo '✅ Ready to commit'",
+  "herdr-orchestrator watch-events . >/tmp/herdr-orchestrator-events.log 2>&1 &",
 ]
 
 [herdr.agentsTab]
@@ -198,6 +199,12 @@ contextOnIdle = true
 handoffFrom = "kimi"
 handoffTo = "codex"
 reviewerTab = "reviewer"
+
+[herdr.orchestrator.events]
+enabled = true
+debounceMs = 2000
+allowlist = ["workspace.updated", "pane.agent_status_changed", "effect.gates.changed", "git.ref.changed"]
+watchGit = true
 
 [[herdr.tabs]]
 label = "doctor"

@@ -2,6 +2,8 @@
 import { discoverHerdrProjectConfig } from "../lib/herdr-project-config.ts";
 import { syncAgentsTabContext } from "../lib/herdr-project-context.ts";
 import { reactHerdrOrchestrator, orchestratorStatus } from "../lib/herdr-orchestrator.ts";
+import { Effect } from "effect";
+import { watchOrchestratorEventsEffect } from "../lib/herdr-orchestrator-events.ts";
 import { findWorkspaceForProject, resolveHerdrProjectPath } from "../lib/herdr-project-runner.ts";
 import { escalateFinishWorkToReviewer, type FinishWorkReport } from "../lib/finish-work-herdr.ts";
 import { readFileSync, existsSync } from "node:fs";
@@ -35,6 +37,7 @@ Commands:
   status         Show orchestrator config and live agent snapshot
   context-sync   Force agentsTab context delivery now
   escalate       Escalate pending finish-work report to reviewer tab
+  watch-events   Subscribe to Herdr events and react (context-sync / handoff)
 
 Flags:
   --json            JSON output
@@ -72,6 +75,9 @@ try {
       writeOut(`Orchestrator: ${status.config.enabled ? "enabled" : "disabled"}`);
       writeOut(`Handoff: ${status.config.handoffFrom || "-"} → ${status.config.handoffTo || "-"}`);
       writeOut(`Context on idle: ${status.config.contextOnIdle}`);
+      writeOut(
+        `Events: ${status.config.events.enabled ? "enabled" : "disabled"} (debounce ${status.config.events.debounceMs}ms)`
+      );
       for (const agent of status.agents) {
         writeOut(`- ${agent.agent} (${agent.paneId}): ${agent.status}`);
       }
@@ -116,6 +122,26 @@ try {
           : result.herdr?.error || "not escalated"
       );
     process.exit(result.herdr?.escalated ? 0 : 2);
+  }
+
+  if (command === "watch-events") {
+    const controller = new AbortController();
+    const onSignal = () => controller.abort();
+    process.on("SIGINT", onSignal);
+    process.on("SIGTERM", onSignal);
+    try {
+      const result = await Effect.runPromise(
+        watchOrchestratorEventsEffect(projectPath, {
+          json,
+          signal: controller.signal,
+        })
+      );
+      if (json) writeJson(result);
+      process.exit(result.ok ? 0 : 2);
+    } finally {
+      process.off("SIGINT", onSignal);
+      process.off("SIGTERM", onSignal);
+    }
   }
 
   if (command === "react" || command === "watch") {

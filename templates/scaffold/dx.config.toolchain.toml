@@ -158,6 +158,17 @@ handoffFrom = "kimi"
 handoffTo = "codex"
 reviewerTab = "reviewer"
 
+[herdr.orchestrator.events]
+enabled = true
+debounceMs = 2000
+allowlist = [
+  "workspace.updated",
+  "pane.agent_status_changed",
+  "effect.gates.changed",
+  "git.ref.changed",
+]
+watchGit = true
+
 [[herdr.tabs]]
 label = "doctor"
 command = "kimi-doctor --watch"

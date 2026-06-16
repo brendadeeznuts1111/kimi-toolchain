@@ -24,6 +24,7 @@ import {
 } from "../src/lib/gate-runner.ts";
 import {
   escalateFinishWorkToReviewer,
+  emitWorkspaceUpdatedMetadata,
   finishWorkOutcome,
   shouldEscalateToReviewer as shouldEscalate,
   type FinishWorkReport,
@@ -341,6 +342,10 @@ async function main(): Promise<number> {
 
   if (shouldEscalate(report)) {
     report = await escalateFinishWorkToReviewer(REPO_ROOT, report);
+  }
+
+  if (git.committed || git.pushed) {
+    emitWorkspaceUpdatedMetadata();
   }
 
   if (options.json) {
