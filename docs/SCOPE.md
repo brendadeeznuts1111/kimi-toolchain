@@ -27,7 +27,7 @@ We are **not** shipping new features in this run. We are validating wiring, docs
 |-----------|----------------|----------------|
 | **Reactive orchestrator** | `src/lib/herdr-orchestrator-events.ts`, `src/bin/herdr-orchestrator.ts` | `[herdr.orchestrator.events]` in `dx.config.toml`; bootstrap starts `watch-events` |
 | **Handoff + context sync** | `src/lib/herdr-orchestrator.ts`, `src/lib/herdr-project-context.ts` | `[herdr.orchestrator]` (`handoffFrom`, `handoffTo`, `contextOnIdle`) |
-| **Finish-work escalation** | `src/lib/finish-work-herdr.ts` | `[finishWork]` gates; reviewer tab label `reviewer` |
+| **Finish-work escalation** | `src/lib/finish-work-herdr.ts` | `[finishWork]` gates; reviewer tab label `reviewer` — see [finish-work close-loop](./finish-work-close-loop.md) |
 | **Effect gates signal** | `src/lib/doctor-watch.ts`, `kimi-doctor --watch` | Doctor tab command; metadata `effect.gates.changed` |
 | **Worktree workspace** | `herdr worktree create` / `herdr-project` | `[worktrees].directory` in machine `herdr.toml` → `~/Projects/herdr-worktrees` |
 | **Remote agent attach** | Herdr `herdr agent attach` / `herdr --remote` (thin client) | Machine `[remote] manage_ssh_config` in `~/dx-config/config/dx/herdr.toml` |
