@@ -235,6 +235,12 @@ Use this pattern when extending `kimi-doctor` with new agent-facing diagnostics.
 
 Runtime state (`~/.config/herdr/session.json`, sockets, logs) and integration hooks (`herdr integration install`) stay outside `~/dx-config`. See `~/.config/dx/herdr.md` and `~/dx-config/README.md`.
 
+## dx-config vs kimi-toolchain
+
+Keep separate git repos. `~/dx-config` is dotfiles (config + install); `kimi-toolchain` is code (semver, releases).
+
+Herdr executables (`herdr-doctor`, `herdr-project`, `herdr-spawn`, `herdr-agents.ts`) should be authored in `kimi-toolchain` and deployed to `~/.local/bin/` — not duplicated or implemented in `dx-config`. `dx-config` only references them in `herdr.json`, keybindings, and `install.sh`.
+
 ## New Code Checklist
 
 Before writing a new module or CLI path:
