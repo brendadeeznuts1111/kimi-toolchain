@@ -241,6 +241,8 @@ Keep separate git repos. `~/dx-config` is dotfiles (config + install); `kimi-too
 
 Herdr executables (`herdr-doctor`, `herdr-project`, `herdr-spawn`, `herdr-agents.ts`) should be authored in `kimi-toolchain` and deployed to `~/.local/bin/` — not duplicated or implemented in `dx-config`. `dx-config` only references them in `herdr.json`, keybindings, and `install.sh`.
 
+Project profile discovery (`extractHerdrProjectSection`, flat `.dx/herdr.toml` support) lives in `src/lib/herdr-project-config.ts` with regression tests in `test/herdr-project-config.unit.test.ts` and `test/herdr-project.integration.test.ts`. Keep `~/.local/bin/herdr-project` in sync until the CLI migrates here.
+
 ## New Code Checklist
 
 Before writing a new module or CLI path:
