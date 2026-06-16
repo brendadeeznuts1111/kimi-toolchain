@@ -84,8 +84,38 @@ EOF
   HERDR_COUNT=$((HERDR_COUNT + 1))
 done
 
+# Per-agent spawn stubs for herdr.toml keybindings (herdr-spawn must exist first).
+SPAWN_AGENTS="$(bun -e "
+  const { SPAWN_AGENTS } = await import('${REPO_ROOT}/src/lib/herdr-agents.ts');
+  console.log(SPAWN_AGENTS.join(' '));
+")"
+SPAWN_COUNT=0
+for agent in ${SPAWN_AGENTS}; do
+  dest="${BIN_DIR}/herdr-spawn-${agent}"
+  cat > "$dest" <<EOF
+#!/usr/bin/env sh
+# herdr-spawn-${agent} — keybinding stub (auto-generated)
+exec "\${HOME}/.local/bin/herdr-spawn" "${agent}" "\$@"
+EOF
+  chmod +x "$dest"
+  echo "  ✓ ${dest}"
+  SPAWN_COUNT=$((SPAWN_COUNT + 1))
+done
+
+# Remove stale per-agent stubs not in SPAWN_AGENTS.
+EXPECTED_SPAWN=" ${SPAWN_AGENTS} "
+for dest in "${BIN_DIR}"/herdr-spawn-*; do
+  [[ -e "$dest" ]] || continue
+  name="$(basename "$dest")"
+  agent="${name#herdr-spawn-}"
+  if [[ "${EXPECTED_SPAWN}" != *" ${agent} "* ]]; then
+    rm -f "$dest"
+    echo "  ✗ removed stale ${name}"
+  fi
+done
+
 echo ""
-echo "Installed ${COUNT} kimi wrapper(s) + ${HERDR_COUNT} herdr tool(s) in ${BIN_DIR}"
+echo "Installed ${COUNT} kimi wrapper(s) + ${HERDR_COUNT} herdr tool(s) + ${SPAWN_COUNT} spawn stub(s) in ${BIN_DIR}"
 if [[ "${REMOVED}" -gt 0 ]]; then
   echo "Removed ${REMOVED} stale wrapper(s)"
 fi
