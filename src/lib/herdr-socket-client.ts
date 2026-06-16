@@ -35,7 +35,7 @@ export function herdrReportPaneMetadata(options: {
     }
   }
   if (options.ttlMs != null) args.push("--ttl-ms", String(options.ttlMs));
-  herdrCliRun(options.session || "", args);
+  herdrCliRun(options.session, args);
 }
 
 export interface HerdrSocketSubscribeOptions {

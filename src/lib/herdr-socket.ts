@@ -3,6 +3,8 @@
  * Raw socket path available via HERDR_SOCKET_PATH; finish-work uses the CLI.
  */
 
+import { herdrSessionArgs } from "./herdr-project-cli.ts";
+
 export interface HerdrCliResult {
   ok: boolean;
   stdout: string;
@@ -18,7 +20,7 @@ export interface HerdrCliJsonResult<T = unknown> {
 }
 
 export async function herdrCli(args: string[]): Promise<HerdrCliResult> {
-  const proc = Bun.spawn(["herdr", ...args], {
+  const proc = Bun.spawn(["herdr", ...herdrSessionArgs(), ...args], {
     stdout: "pipe",
     stderr: "pipe",
   });

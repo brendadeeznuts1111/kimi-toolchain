@@ -31,15 +31,23 @@ export function execCliJson(cmd: string, args: string[] = []) {
   }
 }
 
-function herdrArgs(session: string) {
-  return session ? ["--session", session] : [];
+/** HERDR_SESSION env, or explicit session; empty and "default" mean the primary server. */
+export function resolveHerdrSession(explicit?: string): string {
+  const session = (explicit !== undefined ? explicit : (process.env.HERDR_SESSION ?? "")).trim();
+  if (!session || session === "default") return "";
+  return session;
 }
 
-export function herdrCliRun(session: string, args: string[] = [], timeout = 30_000) {
-  return execCli("herdr", [...herdrArgs(session), ...args], timeout);
+export function herdrSessionArgs(session?: string): string[] {
+  const resolved = resolveHerdrSession(session);
+  return resolved ? ["--session", resolved] : [];
 }
 
-export function herdrCliJson(session: string, args: string[] = []) {
+export function herdrCliRun(session?: string, args: string[] = [], timeout = 30_000) {
+  return execCli("herdr", [...herdrSessionArgs(session), ...args], timeout);
+}
+
+export function herdrCliJson(session?: string, args: string[] = []) {
   const result = herdrCliRun(session, args);
   if (!result.ok) return { ok: false as const, error: result.output, json: null };
   try {
