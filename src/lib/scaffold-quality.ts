@@ -3,18 +3,25 @@ import { join } from "path";
 import { $ } from "bun";
 import { REQUIRED_PACKAGE_SCRIPT_ENTRIES } from "./scaffold-templates.ts";
 
-export async function ensureQualityTooling(
+export interface PackageJsonScaffold {
+  scripts?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+}
+
+/**
+ * Inject missing required scripts into package.json.
+ * Pure filesystem read/write — no network, no side-effects outside the file.
+ * Fast and safe to call in tests without fake devDependencies.
+ */
+export async function injectMissingScripts(
   project: string,
   dryRun: boolean,
   log: (step: string, msg: string) => void
-) {
+): Promise<void> {
   const pkgPath = join(project, "package.json");
   if (!existsSync(pkgPath)) return;
 
-  const pkg = (await Bun.file(pkgPath).json()) as {
-    scripts?: Record<string, string>;
-    devDependencies?: Record<string, string>;
-  };
+  const pkg = (await Bun.file(pkgPath).json()) as PackageJsonScaffold;
   const scripts = pkg.scripts || {};
   let scriptsChanged = false;
   for (const [key, value] of Object.entries(REQUIRED_PACKAGE_SCRIPT_ENTRIES)) {
@@ -30,7 +37,22 @@ export async function ensureQualityTooling(
       await Bun.write(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
     }
   }
+}
 
+/**
+ * Install missing devDependencies via `bun add`.
+ * Side-effect: spawns a network process. Skip in tests by providing
+ * devDependencies in the fixture, use dryRun, or call injectMissingScripts directly.
+ */
+export async function installMissingDeps(
+  project: string,
+  dryRun: boolean,
+  log: (step: string, msg: string) => void
+): Promise<void> {
+  const pkgPath = join(project, "package.json");
+  if (!existsSync(pkgPath)) return;
+
+  const pkg = (await Bun.file(pkgPath).json()) as PackageJsonScaffold;
   const devDeps = pkg.devDependencies || {};
   const missingDeps: string[] = [];
   if (!devDeps.oxfmt) missingDeps.push("oxfmt");
@@ -43,4 +65,18 @@ export async function ensureQualityTooling(
       await $`bun add -d ${missingDeps}`.cwd(project).quiet();
     }
   }
+}
+
+/**
+ * Full quality tooling setup: inject missing scripts + install missing deps.
+ * Kept for backward compatibility — new callers should consider calling
+ * injectMissingScripts and installMissingDeps separately.
+ */
+export async function ensureQualityTooling(
+  project: string,
+  dryRun: boolean,
+  log: (step: string, msg: string) => void
+): Promise<void> {
+  await injectMissingScripts(project, dryRun, log);
+  await installMissingDeps(project, dryRun, log);
 }
