@@ -31,11 +31,12 @@ import { getProjectName } from "../lib/utils.ts";
 import { runTool } from "../lib/tool-runner.ts";
 import { ensureQualityTooling } from "../lib/scaffold-quality.ts";
 import { aggregateChecks } from "../lib/health-check.ts";
-import { createLogger } from "../lib/logger.ts";
+import { createCli } from "../lib/cli-contract.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 
-const logger = createLogger(Bun.argv, "kimi-fix");
+const writer = createCli(Bun.argv, "kimi-fix");
+const logger = writer.logger;
 const TOOLCHAIN_ROOT = join(import.meta.dir, "..", "..");
 
 async function readToolchainScript(name: string): Promise<string> {
@@ -289,9 +290,9 @@ function printHelp() {
 }
 
 async function main(): Promise<number> {
-  const args = Bun.argv.slice(2);
-  const dryRun = args.includes("--dry-run");
-  const filtered = args.filter((a) => a !== "--dry-run");
+  const positional = writer.flags.positional;
+  const dryRun = positional.includes("--dry-run");
+  const filtered = positional.filter((a: string) => a !== "--dry-run");
 
   if (filtered.length === 0 || filtered[0] === "--help" || filtered[0] === "-h") {
     printHelp();
