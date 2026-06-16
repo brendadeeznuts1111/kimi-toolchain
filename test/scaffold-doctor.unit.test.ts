@@ -215,10 +215,9 @@ describe("scaffold-doctor", () => {
     });
 
     test("disabled via default path containing workflows-disabled", async () => {
-      // No dx.config.toml, but the DEFAULT path itself has "workflows-disabled"
-      // This is testing isCiDisabled on the DEFAULT_WORKFLOW_PATH — which doesn't
-      // contain "workflows-disabled", so this is really testing the custom-path
-      // variant.  Keeping for clarity that disabled only triggers via config.
+      // No dx.config.toml; the DEFAULT_WORKFLOW_PATH does not contain
+      // "workflows-disabled", so this test supplies a custom path via config
+      // to exercise the pathImpliesDisabled branch in readDxCiConfig.
       writeFileSync(
         join(tmpDir, "dx.config.toml"),
         `[github]\nworkflow = ".github/workflows-disabled/ci.yml"\n`

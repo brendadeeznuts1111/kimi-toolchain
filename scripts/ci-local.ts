@@ -22,6 +22,8 @@ interface CiStep {
   job: Exclude<JobName, "all">;
   name: string;
   cmd: string[];
+  /** When true, this step always runs regardless of --job filter. */
+  crossCut?: boolean;
 }
 
 const STEPS: CiStep[] = [
@@ -34,6 +36,7 @@ const STEPS: CiStep[] = [
     job: "quality",
     name: "effect-gates",
     cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "--effect-gates"],
+    crossCut: true,
   },
   {
     job: "governance",
@@ -76,7 +79,7 @@ function parseCli(): { job: JobName; dryRun: boolean; json: boolean } {
 
 function selectedSteps(job: JobName): CiStep[] {
   if (job === "all") return STEPS;
-  return STEPS.filter((step) => step.job === job);
+  return STEPS.filter((step) => step.job === job || step.crossCut === true);
 }
 
 async function runSteps(steps: CiStep[]): Promise<GateResult[]> {

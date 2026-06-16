@@ -5,6 +5,7 @@ import { tmpdir } from "os";
 import {
   checkDxGithubAlignment,
   REQUIRED_AGENT_BOOTSTRAP,
+  REQUIRED_AGENT_PRE_PUSH,
 } from "../src/lib/dx-github-alignment.ts";
 
 let projectDir: string;
@@ -309,15 +310,17 @@ describe("dx-github-alignment", () => {
     expect(report.aligned).toBe(true);
   });
 
-  test("project and scaffold dx templates keep the required bootstrap defaults", () => {
+  test("project and scaffold dx templates keep the required bootstrap and prePush defaults", () => {
     const projectConfig = Bun.TOML.parse(
       readFileSync(join(import.meta.dir, "..", "dx.config.toml"), "utf8")
-    ) as { agents?: { bootstrap?: string[] } };
+    ) as { agents?: { bootstrap?: string[]; prePush?: string[] } };
     const scaffoldConfig = Bun.TOML.parse(
       readFileSync(join(import.meta.dir, "..", "templates", "scaffold", "dx.config.toml"), "utf8")
-    ) as { agents?: { bootstrap?: string[] } };
+    ) as { agents?: { bootstrap?: string[]; prePush?: string[] } };
 
     expect(projectConfig.agents?.bootstrap).toEqual([...REQUIRED_AGENT_BOOTSTRAP]);
     expect(scaffoldConfig.agents?.bootstrap).toEqual([...REQUIRED_AGENT_BOOTSTRAP]);
+    expect(projectConfig.agents?.prePush).toEqual([...REQUIRED_AGENT_PRE_PUSH]);
+    expect(scaffoldConfig.agents?.prePush).toEqual([...REQUIRED_AGENT_PRE_PUSH]);
   });
 });
