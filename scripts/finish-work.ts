@@ -327,7 +327,7 @@ async function main(): Promise<number> {
     report.outcome = "failed";
   }
 
-  if (git.committed || git.pushed) {
+  if ((git.committed || git.pushed) && report.outcome !== "escalated") {
     await emitWorkspaceUpdatedMetadata();
   }
 

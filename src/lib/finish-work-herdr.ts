@@ -70,9 +70,11 @@ export function shouldEscalateToReviewer(report: FinishWorkReport): boolean {
 export const FINISH_WORK_NEEDS_REVIEW_STATUS = "needs-review";
 
 export function isPaneBlockedForReview(pane: {
+  agent?: string;
   agent_status?: string;
   custom_status?: string;
 }): boolean {
+  if (pane.agent_status === "blocked" && pane.agent === "finish-work") return true;
   return pane.agent_status === "blocked" && pane.custom_status === FINISH_WORK_NEEDS_REVIEW_STATUS;
 }
 
@@ -83,7 +85,9 @@ export async function emitWorkspaceUpdatedMetadata(): Promise<void> {
 
   if (process.env.HERDR_ENV === "1") {
     const got = await herdrCliJson<{
-      result?: { pane?: { agent_status?: string; custom_status?: string } };
+      result?: {
+        pane?: { agent?: string; agent_status?: string; custom_status?: string };
+      };
     }>(["pane", "get", paneId]);
     const pane = got.ok ? got.json?.result?.pane : undefined;
     if (pane && isPaneBlockedForReview(pane)) return;
@@ -229,8 +233,14 @@ export async function escalateFinishWorkToReviewer(
       "--message",
       "Review dirty tree after push",
       "--custom-status",
-      "needs-review",
+      FINISH_WORK_NEEDS_REVIEW_STATUS,
     ]);
+    // report_metadata wins display over stale workspace.updated TTL from prior emits.
+    herdrReportPaneMetadata({
+      paneId: sourcePane,
+      source: "kimi-toolchain:finish-work",
+      customStatus: FINISH_WORK_NEEDS_REVIEW_STATUS,
+    });
   }
 
   report.herdr = { escalated: true, reviewerPaneId };

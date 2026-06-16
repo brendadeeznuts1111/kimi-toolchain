@@ -29,6 +29,13 @@ describe("finish-work-herdr", () => {
   });
 
   test("isPaneBlockedForReview matches finish-work escalation signal", () => {
+    expect(
+      isPaneBlockedForReview({
+        agent: "finish-work",
+        agent_status: "blocked",
+        custom_status: "workspace.updated",
+      })
+    ).toBe(true);
     expect(isPaneBlockedForReview({ agent_status: "blocked", custom_status: "needs-review" })).toBe(
       true
     );
