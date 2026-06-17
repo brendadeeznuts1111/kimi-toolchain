@@ -26,6 +26,7 @@ reports/
 
 # Agent / IDE caches
 .reasonix/
+reasonix.toml
 
 # Backups (context-gen, manual)
 *.bak
