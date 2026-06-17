@@ -101,6 +101,20 @@ testCoverageCi = "bun run test:coverage:ci"
 formatCheckCi = "bun run format:check:ci"
 docsSync = "bun run docs:sync"
 
+[dx.propertyTable]
+file = "test/fixtures/property-table-target.ts"
+class = "DemoConfig"
+output = "docs/table-DemoConfig.md"
+
+# URL endpoint inventory (dx:table extract dx.config.toml endpoints --decompose-urls)
+[[endpoints]]
+name = "cloudflare-mcp"
+url = "https://mcp.cloudflare.com/mcp"
+
+[[endpoints]]
+name = "herdr-skill"
+url = "https://github.com/ogulcancelik/herdr/blob/d998753efe506a04c80306795efc72bff60bb0ec/SKILL.md"
+
 [agents]
 firstRead = ["/Users/nolarose/.config/dx/AGENTS.md", "AGENTS.md", "CODE_REFERENCES.md", "skills/herdr/SKILL.md"]
 bootstrap = [
@@ -218,7 +232,6 @@ reviewerTab = "reviewer"
 # Remote fleet — alias labels used by herdr-orchestrator and `herdr --remote <alias>`.
 # Requires matching `Host <alias>` stanzas in ~/.ssh/config (see commented scaffold there).
 # Verify: herdr-orchestrator check-hosts --versions
-#
 [herdr.orchestrator.remote_hosts]
 staging = "staging"   # local SSH alias → localhost (testing remote bootstrap pipeline)
 # workbox = "workbox"   # shorthand when Host alias == label

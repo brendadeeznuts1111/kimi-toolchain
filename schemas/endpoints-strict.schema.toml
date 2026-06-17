@@ -1,0 +1,5 @@
+# Stricter endpoints contract (pathname must not contain path traversal segments)
+required = ["name", "url_pathname"]
+
+[columns.url_pathname]
+custom = "value.startsWith('/') && !value.includes('..')"

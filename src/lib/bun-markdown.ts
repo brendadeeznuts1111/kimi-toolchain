@@ -1,12 +1,16 @@
 /**
- * bun-markdown.ts — Bun.markdown.ansi helpers (v1.3.14+).
+ * bun-markdown.ts — Bun.markdown.ansi helpers (v1.3.12+).
  *
  * @see https://bun.sh/docs/runtime/markdown
+ * @see https://bun.com/blog/bun-v1.3.12#render-markdown-in-the-terminal-with-bun-file-md
  */
 
 export interface MarkdownAnsiOptions {
   colors?: boolean;
   columns?: number;
+  /** Clickable OSC-8 hyperlinks when terminal supports them. */
+  hyperlinks?: boolean;
+  kittyGraphics?: boolean;
 }
 
 /** True when Bun.markdown.ansi is available in this runtime. */
@@ -38,9 +42,11 @@ export function stripMarkdownPlain(text: string): string {
 export function renderMarkdownAnsi(text: string, options: MarkdownAnsiOptions = {}): string {
   if (!markdownAnsiSupported()) return stripMarkdownPlain(text);
 
-  const theme: { colors?: boolean; columns?: number } = {};
+  const theme: MarkdownAnsiOptions = {};
   if (options.colors !== undefined) theme.colors = options.colors;
   if (options.columns !== undefined) theme.columns = options.columns;
+  if (options.hyperlinks !== undefined) theme.hyperlinks = options.hyperlinks;
+  if (options.kittyGraphics !== undefined) theme.kittyGraphics = options.kittyGraphics;
 
   return Bun.markdown.ansi(text, Object.keys(theme).length > 0 ? theme : undefined);
 }

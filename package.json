@@ -129,7 +129,11 @@
     "install-herdr-plugin": "bash scripts/install-herdr-plugin.sh",
     "memory-check": "bash scripts/memory-check.sh",
     "bench": "bun run bench/core.bench.ts",
-    "memory-budget": "bun run src/bin/kimi-doctor.ts --memory-budget"
+    "memory-budget": "bun run src/bin/kimi-doctor.ts --memory-budget",
+    "dx:property-table": "bun run scripts/dx-property-table.ts",
+    "dx:table": "bun run scripts/dx-table.ts",
+    "dx-table": "bun run scripts/dx-table.ts",
+    "artifacts:property-table": "bun run artifacts/generate-property-table.ts"
   },
   "dependencies": {
     "effect": "^3.21.3",
@@ -140,6 +144,7 @@
     "@types/js-yaml": "^4.0.9",
     "oxfmt": "^0.53.0",
     "oxlint": "^1.69.0",
+    "ts-morph": "^25.0.1",
     "typescript": "^5.9.3"
   },
   "engines": {

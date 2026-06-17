@@ -261,6 +261,10 @@ export function findOrphanAgentDocs(activeDocs: string[], indexText: string): Co
   const issues: ContextBloatIssue[] = [];
   for (const rel of activeDocs) {
     if (!rel.startsWith("docs/") || rel.startsWith("docs/plans/archive/")) continue;
+    // dx-table / dx:property-table outputs — indexed by docs/table-*.md in CODE_REFERENCES
+    if (rel.startsWith("docs/table-") && rel.endsWith(".md")) continue;
+    if (rel.startsWith("docs/groups/table-") && rel.endsWith(".md")) continue;
+    if (rel.startsWith("docs/describe/table-") && rel.endsWith(".md")) continue;
     if (isDocReferencedFromIndex(rel, indexText)) continue;
     issues.push({
       file: rel,

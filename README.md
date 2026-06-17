@@ -49,6 +49,10 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run skills:table` | (synced from package.json) |
 | `bun run lint:tochange` | (synced from package.json) |
 | `bun run frontmatter` | (synced from package.json) |
+| `bun run dx:property-table` | (synced from package.json) |
+| `bun run dx:table` | (synced from package.json) |
+| `bun run artifacts:property-table` | (synced from package.json) |
+| `bun run dx-table` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                           |
