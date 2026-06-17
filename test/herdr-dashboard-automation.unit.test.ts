@@ -2,9 +2,13 @@ import { describe, expect, mock, test } from "bun:test";
 import { join } from "path";
 import {
   AGENT_ATTACH_SELECTOR,
+  AGENTS_BODY_SELECTOR,
   DASHBOARD_READY_EVAL,
+  DASHBOARD_SCROLL_SETTLE_MS,
   runHerdrDashboardAutomation,
+  scrollToDashboardAgentsBody,
   waitForDashboardReady,
+  waitForDashboardView,
   webViewScreenshotBytes,
 } from "../src/lib/herdr-dashboard-automation.ts";
 import { startHerdrDashboardServer } from "../src/lib/herdr-dashboard-server.ts";
@@ -30,7 +34,7 @@ describe("herdr-dashboard-automation", () => {
     expect(bytes[3]).toBe(0x47);
   }, 10_000);
 
-  test("waitForDashboardReady resolves after SSE render", async () => {
+  test("waitForDashboardView resolves after SSE render", async () => {
     if (!webViewSupported()) return;
 
     const server = startHerdrDashboardServer({
@@ -40,14 +44,29 @@ describe("herdr-dashboard-automation", () => {
     });
     try {
       await using view = new Bun.WebView({ width: 960, height: 720, url: server.url });
-      const ready = await waitForDashboardReady(view, { timeoutMs: 8_000 });
+      const ready = await waitForDashboardView(view, { timeoutMs: 8_000 });
       expect(ready).toBe(true);
       const flag = await view.evaluate(DASHBOARD_READY_EVAL);
       expect(flag).toBe(true);
+      const scrolled = await scrollToDashboardAgentsBody(view, { timeoutMs: 3_000 });
+      expect(scrolled).toBe(true);
     } finally {
       server.stop();
     }
   }, 15_000);
+
+  test("waitForDashboardReady still polls ready flag as fallback", async () => {
+    if (!webViewSupported()) return;
+
+    await using view = new Bun.WebView({ width: 640, height: 480 });
+    await view.navigate(
+      "data:text/html,<script>window.__HERDR_DASHBOARD_READY__=true</script><div id='agents-body'></div>"
+    );
+    await Bun.sleep(DASHBOARD_SCROLL_SETTLE_MS);
+    expect(await waitForDashboardReady(view, { timeoutMs: 2_000 })).toBe(true);
+    expect(await scrollToDashboardAgentsBody(view, { timeoutMs: 2_000 })).toBe(true);
+    expect(AGENTS_BODY_SELECTOR).toBe("#agents-body");
+  }, 10_000);
 
   test("runHerdrDashboardAutomation captures dashboard PNG", async () => {
     if (!webViewSupported()) return;

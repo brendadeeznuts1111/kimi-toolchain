@@ -1,7 +1,7 @@
 /**
  * bun-spawn-env.ts — Bun spawn/run environment helpers (v1.3.14+ no-orphans).
  *
- * @see https://bun.sh/docs/runtime/bunfig#run-noorphans-don-t-leave-orphan-processes-behind
+ * @see https://bun.com/docs/runtime/bunfig#run-noorphans-don-t-leave-orphan-processes-behind
  */
 
 /** Merge `BUN_FEATURE_FLAG_NO_ORPHANS=1` into a spawn env (macOS/Linux). */

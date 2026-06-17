@@ -1,7 +1,7 @@
 /**
  * bun-markdown.ts — Bun.markdown.ansi helpers (v1.3.12+).
  *
- * @see https://bun.sh/docs/runtime/markdown
+ * @see https://bun.com/docs/runtime/markdown
  * @see https://bun.com/blog/bun-v1.3.12#render-markdown-in-the-terminal-with-bun-file-md
  */
 

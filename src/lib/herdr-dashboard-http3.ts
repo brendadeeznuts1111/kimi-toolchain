@@ -8,7 +8,7 @@
  * Enable HTTP/3 with HERDR_DASHBOARD_HTTP3=1 or the orchestrator `--http3` flag.
  * Falls back to plain HTTP/1.1 when certs are missing or HTTP/3 is unavailable.
  *
- * @see https://bun.sh/docs/runtime/http/server#http-3-quic
+ * @see https://bun.com/docs/runtime/http/server#http-3-quic
  */
 
 import { pathExists } from "./bun-io.ts";

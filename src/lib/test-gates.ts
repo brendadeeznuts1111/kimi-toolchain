@@ -37,6 +37,8 @@ export const UNIT_TEST_FILES = [
   "test/property-table-inventory.unit.test.ts",
   "test/skill-preview.unit.test.ts",
   "test/herdr-dashboard-server.unit.test.ts",
+  "test/herdr-dashboard-webview-store.unit.test.ts",
+  "test/doc-links-lint.unit.test.ts",
   "test/herdr-dashboard-http3.unit.test.ts",
   "test/herdr-dashboard-hub.unit.test.ts",
   "test/herdr-dashboard-automation.unit.test.ts",

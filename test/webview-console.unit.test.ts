@@ -6,7 +6,10 @@ import {
   parseFrontmatterText,
 } from "../src/lib/frontmatter.ts";
 import {
+  BUN_WEBVIEW_DOCS_URL,
+  bunWebViewDocAnchor,
   createWebViewConsoleCollector,
+  webViewConsoleMirror,
   formatWebViewConsoleEvents,
   parseWebViewCliArgs,
   probeWebViewFrontmatter,
@@ -96,6 +99,18 @@ meta:
     expect(html).toContain('"name":"demo"');
     expect(html).toContain("# Body");
     expect(frontmatterPreviewDataUrl(parsed).startsWith("data:text/html")).toBe(true);
+  });
+
+  test("webViewConsoleMirror returns globalThis.console by reference", () => {
+    expect(webViewConsoleMirror()).toBe(globalThis.console);
+  });
+
+  test("bunWebViewDocAnchor builds bun.com deep links", () => {
+    expect(bunWebViewDocAnchor()).toBe(BUN_WEBVIEW_DOCS_URL);
+    expect(bunWebViewDocAnchor("console-capture")).toBe(`${BUN_WEBVIEW_DOCS_URL}#console-capture`);
+    expect(bunWebViewDocAnchor("#persistent-storage")).toBe(
+      `${BUN_WEBVIEW_DOCS_URL}#persistent-storage`
+    );
   });
 
   test("probeWebViewFrontmatter captures page console on supported runtimes", async () => {

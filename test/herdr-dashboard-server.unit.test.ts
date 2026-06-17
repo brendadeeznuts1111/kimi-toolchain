@@ -14,11 +14,15 @@ import {
   startHerdrDashboardServer,
 } from "../src/lib/herdr-dashboard-server.ts";
 import {
-  DashboardConsole,
+  buildDashboardWebViewOptions,
   createDashboardConsoleMirror,
+  createDashboardWebViewConsole,
+  IPC_CONSOLE_TAG,
+  resolveDashboardWebViewConsole,
 } from "../src/lib/herdr-webview-dashboard.ts";
+import { webViewConsoleMirror } from "../src/lib/webview-console.ts";
 import type { DashboardIpcCommand } from "../src/lib/herdr-dashboard-data.ts";
-import { REPO_ROOT } from "./helpers.ts";
+import { REPO_ROOT, captureConsole } from "./helpers.ts";
 
 describe("herdr-dashboard-server", () => {
   test("DEFAULT_DASHBOARD_PORT is 18412", () => {
@@ -36,6 +40,28 @@ describe("herdr-dashboard-server", () => {
     const handler = createDashboardConsoleMirror();
     expect(typeof handler).toBe("function");
     expect(() => handler("log", "probe")).not.toThrow();
+  });
+
+  test("buildDashboardWebViewOptions defaults to ephemeral dataStore", () => {
+    const built = buildDashboardWebViewOptions("http://127.0.0.1:18412/");
+    expect(built.constructorOptions.dataStore).toBe("ephemeral");
+    expect(built.store.mode).toBe("ephemeral");
+    expect(built.constructorOptions.width).toBe(1280);
+    expect(built.constructorOptions.height).toBe(800);
+    expect(built.constructorOptions.url).toBe("http://127.0.0.1:18412/");
+  });
+
+  test("buildDashboardWebViewOptions reuses resolvedStore without re-resolving", () => {
+    const preResolved = {
+      dataStore: "ephemeral" as const,
+      mode: "ephemeral" as const,
+    };
+    const built = buildDashboardWebViewOptions("http://127.0.0.1:18412/", {
+      resolvedStore: preResolved,
+      persistProfile: true,
+    });
+    expect(built.store).toBe(preResolved);
+    expect(built.constructorOptions.dataStore).toBe("ephemeral");
   });
 
   test("runDashboardAgentAction rejects remote without CLI delegation message", () => {
@@ -120,16 +146,39 @@ describe("herdr-dashboard-server", () => {
     expect(result.message).toContain("herdr-orchestrator");
   });
 
-  test("DashboardConsole webViewHandler intercepts IPC tag", () => {
+  test("createDashboardWebViewConsole intercepts IPC tag", () => {
     const received: DashboardIpcCommand[] = [];
-    const c = new DashboardConsole();
-    c.webViewHandler((cmd) => received.push(cmd))("log", "__HERDR_IPC__", {
+    const handler = createDashboardWebViewConsole((cmd) => received.push(cmd));
+    handler("log", IPC_CONSOLE_TAG, {
       command: "agent.stop",
       args: { agent: "kimi" },
     });
     expect(received).toHaveLength(1);
     expect(received[0]?.command).toBe("agent.stop");
     expect(received[0]?.args).toEqual({ agent: "kimi" });
+  });
+
+  test("createDashboardWebViewConsole mirrors non-IPC logs to globalThis.console", async () => {
+    const handler = createDashboardWebViewConsole();
+    const lines = await captureConsole(() => {
+      handler("log", "dashboard.agents", 3);
+    });
+    expect(lines.join(" ")).toContain("dashboard.agents");
+    expect(lines.join(" ")).toContain("3");
+  });
+
+  test("buildDashboardWebViewOptions mirrors page console via globalThis.console by default", () => {
+    const built = buildDashboardWebViewOptions("http://127.0.0.1:18412/");
+    expect(built.constructorOptions.console).toBe(webViewConsoleMirror());
+    expect(resolveDashboardWebViewConsole({})).toBe(globalThis.console);
+  });
+
+  test("buildDashboardWebViewOptions uses custom handler when onIpc is set", () => {
+    const built = buildDashboardWebViewOptions("http://127.0.0.1:18412/", {
+      onIpc: () => {},
+    });
+    expect(typeof built.constructorOptions.console).toBe("function");
+    expect(built.constructorOptions.console).not.toBe(globalThis.console);
   });
 
   test("resolveHerdrDashboardHtmlPath finds synced or repo template", () => {

@@ -1,21 +1,20 @@
 /**
  * herdr-dashboard-automation.ts — Bun.WebView screenshot, click, and CDP probes for the dashboard.
  *
- * @see https://bun.sh/docs/runtime/webview
+ * @see https://bun.com/docs/runtime/webview#console-capture
  */
 
 import { bunImageSupported, dashboardWebpThumbnail } from "./bun-image.ts";
-import { makeDir } from "./bun-io.ts";
+
 import type { DashboardIpcCommand } from "./herdr-dashboard-data.ts";
 import {
   startHerdrDashboardServer,
   type HerdrDashboardServerOptions,
 } from "./herdr-dashboard-server.ts";
-import { DashboardConsole } from "./herdr-webview-dashboard.ts";
-import { herdrDashboardWebViewStoreDir } from "./paths.ts";
+import { buildDashboardWebViewOptions } from "./herdr-webview-dashboard.ts";
 import {
   chromeWebViewBackend,
-  defaultWebViewBackend,
+  formatWebViewExperimentalNotice,
   tapChromeCdpEvents,
   webViewSupported,
 } from "./webview-console.ts";
@@ -24,10 +23,13 @@ export const DASHBOARD_TITLE_MARKER = "Herdr Orchestrator Dashboard";
 export const DASHBOARD_READY_EVAL = "Boolean(window.__HERDR_DASHBOARD_READY__)";
 export const AGENTS_BODY_SELECTOR = "#agents-body";
 export const AGENT_ATTACH_SELECTOR = `${AGENTS_BODY_SELECTOR} tr button[data-action="attach"]`;
+/** Settle time after scrollTo before screenshot (Bun scrollIntoView is instant). */
+export const DASHBOARD_SCROLL_SETTLE_MS = 120;
 export interface HerdrDashboardAutomationOptions extends HerdrDashboardServerOptions {
   backend?: Bun.WebView.ConstructorOptions["backend"];
   dataStore?: Bun.WebView.ConstructorOptions["dataStore"];
   persistProfile?: boolean;
+  profileDir?: string;
   width?: number;
   height?: number;
   readyTimeoutMs?: number;
@@ -59,7 +61,38 @@ export async function webViewScreenshotBytes(view: Bun.WebView): Promise<Uint8Ar
   return new Uint8Array(shot);
 }
 
-/** Poll until the dashboard sets `window.__HERDR_DASHBOARD_READY__` or the agents table exists. */
+/** Scroll the agents table into view; returns false when the selector never appears. */
+export async function scrollToDashboardAgentsBody(
+  view: Bun.WebView,
+  opts?: { timeoutMs?: number; settleMs?: number }
+): Promise<boolean> {
+  try {
+    await view.scrollTo(AGENTS_BODY_SELECTOR, {
+      timeout: opts?.timeoutMs ?? 30_000,
+    });
+    await Bun.sleep(opts?.settleMs ?? DASHBOARD_SCROLL_SETTLE_MS);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Scroll a dashboard selector into view (used before selector-based clicks). */
+export async function scrollToDashboardSelector(
+  view: Bun.WebView,
+  selector: string,
+  opts?: { timeoutMs?: number; settleMs?: number }
+): Promise<boolean> {
+  try {
+    await view.scrollTo(selector, { timeout: opts?.timeoutMs ?? 30_000 });
+    await Bun.sleep(opts?.settleMs ?? DASHBOARD_SCROLL_SETTLE_MS);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Poll until `window.__HERDR_DASHBOARD_READY__` is true (fallback when scrollTo is insufficient). */
 export async function waitForDashboardReady(
   view: Bun.WebView,
   opts?: { timeoutMs?: number; pollMs?: number }
@@ -77,14 +110,24 @@ export async function waitForDashboardReady(
   return false;
 }
 
-function resolveDataStore(
-  options: HerdrDashboardAutomationOptions
-): Bun.WebView.ConstructorOptions["dataStore"] {
-  if (options.dataStore) return options.dataStore;
-  if (!options.persistProfile) return "ephemeral";
-  const directory = herdrDashboardWebViewStoreDir();
-  makeDir(directory, { recursive: true });
-  return { directory };
+/**
+ * Prefer selector-based readiness (scrollTo agents table), then fall back to ready-flag polling.
+ * @see https://bun.com/docs/runtime/webview#scrollto — scrollTo waits for element existence
+ */
+export async function waitForDashboardView(
+  view: Bun.WebView,
+  opts?: { timeoutMs?: number; pollMs?: number; settleMs?: number }
+): Promise<boolean> {
+  const timeoutMs = opts?.timeoutMs ?? 10_000;
+  const scrolled = await scrollToDashboardAgentsBody(view, {
+    timeoutMs: Math.min(timeoutMs, 5_000),
+    settleMs: opts?.settleMs,
+  });
+  if (scrolled) {
+    const ready = await view.evaluate(DASHBOARD_READY_EVAL);
+    if (ready === true) return true;
+  }
+  return waitForDashboardReady(view, { timeoutMs, pollMs: opts?.pollMs });
 }
 
 /** Headless probe: serve dashboard, wait for SSE render, screenshot, optional attach click. */
@@ -96,27 +139,32 @@ export async function runHerdrDashboardAutomation(
   }
 
   const ipcCommands: DashboardIpcCommand[] = [];
-  const audit = new DashboardConsole();
-  const server = startHerdrDashboardServer({ ...options, port: options.port ?? 0 });
+  const server = startHerdrDashboardServer({
+    ...options,
+    port: options.port ?? 0,
+    onIpc: (result) => ipcCommands.push({ command: result.command }),
+  });
   const url = server.url;
-  const backend = options.backend ?? defaultWebViewBackend();
+  const { backend, constructorOptions } = buildDashboardWebViewOptions(url, {
+    backend: options.backend,
+    dataStore: options.dataStore,
+    persistProfile: options.persistProfile,
+    profileDir: options.profileDir,
+    width: options.width,
+    height: options.height,
+    onIpc: (command) => ipcCommands.push(command),
+  });
+  process.stderr.write(`${formatWebViewExperimentalNotice()}\n`);
   let detachCdp: (() => void) | undefined;
 
   try {
-    await using view = new Bun.WebView({
-      width: options.width ?? 1280,
-      height: options.height ?? 800,
-      backend,
-      dataStore: resolveDataStore(options),
-      console: audit.webViewHandler((command) => ipcCommands.push(command)),
-      url,
-    });
+    await using view = new Bun.WebView(constructorOptions);
 
     if (options.onCdp && options.cdpEvents?.length && chromeWebViewBackend(backend)) {
       detachCdp = tapChromeCdpEvents(view, options.cdpEvents, options.onCdp);
     }
 
-    const ready = await waitForDashboardReady(view, {
+    const ready = await waitForDashboardView(view, {
       timeoutMs: options.readyTimeoutMs ?? 10_000,
     });
     const title = String(view.title || (await view.evaluate("document.title || ''")));
@@ -129,13 +177,16 @@ export async function runHerdrDashboardAutomation(
     let clickAttachOk: boolean | undefined;
     if (options.clickAttach && agentRows > 0) {
       try {
+        await scrollToDashboardSelector(view, AGENT_ATTACH_SELECTOR);
         await view.click(AGENT_ATTACH_SELECTOR);
+        await Bun.sleep(50);
         clickAttachOk = ipcCommands.some((cmd) => cmd.command === "agent.attach");
       } catch {
         clickAttachOk = false;
       }
     }
 
+    await scrollToDashboardAgentsBody(view);
     const png = await webViewScreenshotBytes(view);
     let outputPath: string | undefined;
     if (options.outputPath) {

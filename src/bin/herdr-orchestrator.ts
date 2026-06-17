@@ -53,6 +53,7 @@ import {
 import { Effect } from "effect";
 import { mergedHerdrConfigLayer } from "../lib/herdr-merged-config.ts";
 import { watchOrchestratorEventsEffect } from "../lib/herdr-orchestrator-events.ts";
+import { BUN_WEBVIEW_DOCS_URL } from "../lib/webview-console.ts";
 import {
   findAllWorkspacesForProject,
   findWorkspaceForProject,
@@ -129,6 +130,10 @@ function parseArgs(argv: string[]) {
       return idx >= 0 ? args[idx + 1] || "" : "";
     })(),
     dashboardPersistProfile: args.includes("--persist-profile"),
+    dashboardProfileDir: (() => {
+      const idx = args.indexOf("--profile-dir");
+      return idx >= 0 ? args[idx + 1] || "" : "";
+    })(),
     dashboardProbe: args.includes("--probe"),
     dashboardHttp3: args.includes("--http3"),
     port: (() => {
@@ -165,6 +170,7 @@ function resolveOrchestratorPluginRoot(): string | null {
 }
 
 function printHelp() {
+  const webviewDocs = BUN_WEBVIEW_DOCS_URL;
   writeOut(`herdr-orchestrator <command> [path] [flags]
 
 Commands:
@@ -178,7 +184,9 @@ Commands:
   history        Tail/filter handoff audit log [--limit 20] [--workspace wB] [--agent kimi] [--follow] [--verify] [--json]
   dashboard      Unified view of all agents across all workspaces
                  Use --serve for http://127.0.0.1:18412 API + HTML UI
-                 Use --webview for Bun.WebView pane (--serve implied)
+                 Use --webview for Bun.WebView shell (--serve implied; experimental API)
+                 WebView dataStore defaults to ephemeral (Bun docs) — no disk profile unless
+                 you pass --persist-profile or --profile-dir
   readiness      Check agent integration versions for native session restore
   agent          Manage agents: start, stop, or attach remotely (herdr-orchestrator agent <subcommand> --help)
   context-sync   Force agentsTab context delivery now
@@ -201,13 +209,31 @@ Flags:
   --serve             Start dashboard HTTP server (default port 18412, override with --port)
   --http3             Enable HTTP/3 (QUIC) when TLS certs are configured
                       Set HERDR_DASHBOARD_TLS_CERT + HERDR_DASHBOARD_TLS_KEY, or HERDR_DASHBOARD_HTTP3=1
-  --webview           Open Bun.WebView dashboard (implies --serve)
+  --webview           Open Bun.WebView dashboard (implies --serve; experimental — ${webviewDocs})
   --backend <b>       WebView backend: webkit (macOS default) or chrome
   --screenshot <path> Headless WebView PNG capture (implies --serve)
   --thumbnail <path>  WebP thumbnail via Bun.Image (with --screenshot)
   --probe             With --screenshot: also click first Attach button
-  --persist-profile   Reuse ~/.kimi-code/var/herdr-dashboard-webview profile
+  --persist-profile   Persist cookies/localStorage to ~/.kimi-code/var/herdr-orchestrator-dashboard-webview
+                      (Bun dataStore directory; not your Chrome/Safari user profile)
+                      WebKit persistence requires macOS 15.2+; otherwise falls back to ephemeral
+  --profile-dir <p>   Persistent dataStore directory (overrides --persist-profile default;
+                      also honored via HERDR_DASHBOARD_WEBVIEW_STORE)
   --port <n>          Dashboard server port (default 18412)
+
+WebView storage (${webviewDocs}#persistent-storage):
+  Default (no flags)  dataStore: ephemeral — in-memory; discarded when WebView closes
+  --persist-profile   dataStore: { directory: ~/.kimi-code/var/herdr-orchestrator-dashboard-webview }
+  --profile-dir <p>   dataStore: { directory: <p> }
+  Legacy directory    ~/.kimi-code/var/herdr-dashboard-webview (pre-rename; not auto-migrated)
+
+Bun.WebView capabilities (${webviewDocs}):
+  • Real OS-level input (isTrusted: true) — indistinguishable from human clicks
+  • click / scrollTo auto-wait for actionability (attached, visible, stable, unobscured)
+  • scrollTo(selector) scrolls ancestor containers until the element is visible
+  • One browser subprocess per Bun process; new WebView() opens tabs in the same instance
+  • Chrome CDP events use the method name as event type (e.g. Network.responseReceived)
+  • Experimental API — see ${webviewDocs}
 `);
 }
 
@@ -232,6 +258,7 @@ const {
   dashboardScreenshot,
   dashboardThumbnail,
   dashboardPersistProfile,
+  dashboardProfileDir,
   dashboardProbe,
   dashboardHttp3,
   port: dashboardPort,
@@ -1545,6 +1572,7 @@ try {
           thumbnailPath: dashboardThumbnail || undefined,
           backend: dashboardBackend,
           persistProfile: dashboardPersistProfile,
+          profileDir: dashboardProfileDir || undefined,
           clickAttach: dashboardProbe,
         });
         if (json) {
@@ -1567,6 +1595,7 @@ try {
         await runHerdrDashboardWebView(serverOpts, {
           backend: dashboardBackend,
           persistProfile: dashboardPersistProfile,
+          profileDir: dashboardProfileDir || undefined,
         });
       } else {
         await runHerdrDashboardServe(serverOpts);

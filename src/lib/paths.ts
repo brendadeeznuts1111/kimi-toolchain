@@ -214,9 +214,18 @@ export function herdrConfigDir(home?: string): string {
   return join(home || homeDir(), ".config", "herdr");
 }
 
-/** Return ~/.kimi-code/var/herdr-dashboard-webview — persistent Bun.WebView profile */
-export function herdrDashboardWebViewStoreDir(home?: string): string {
-  return join(desktopRoot(home), "var", "herdr-dashboard-webview");
+/** Default Bun.WebView dataStore folder for herdr-orchestrator dashboard. */
+export const HERDR_DASHBOARD_WEBVIEW_STORE_NAME = "herdr-orchestrator-dashboard-webview";
+
+/** Pre-rename store folder — documented in orchestrator --help for migration. */
+export const HERDR_DASHBOARD_WEBVIEW_STORE_LEGACY_NAME = "herdr-dashboard-webview";
+
+/** Return ~/.kimi-code/var/<name> — persistent Bun.WebView dataStore for the orchestrator dashboard. */
+export function herdrDashboardWebViewStoreDir(
+  home?: string,
+  name = HERDR_DASHBOARD_WEBVIEW_STORE_NAME
+): string {
+  return join(desktopRoot(home), "var", name);
 }
 
 /** Return ~/.config/herdr/agents — LATM pane capability manifests */

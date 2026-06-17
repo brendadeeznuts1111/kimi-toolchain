@@ -1,7 +1,17 @@
 /**
  * webview-console.ts — Bun.WebView console capture, normalization, and probes.
  *
- * @see https://bun.sh/docs/runtime/webview
+ * Bun.WebView ({@link BUN_WEBVIEW_DOCS_URL})
+ * • Real OS-level input events (isTrusted: true) — sites cannot distinguish from human clicks
+ * • Selector methods (click, scrollTo) auto-wait for actionability (attached + visible + stable)
+ * • scrollTo(selector) scrolls all ancestor containers until visible
+ * • One browser subprocess per Bun process; additional WebView() calls open new tabs
+ * • CDP events dispatched with method name as event type (e.g. Network.responseReceived)
+ * • Experimental API — storage defaults to ephemeral unless dataStore is provided
+ * • console: globalThis.console (by reference) mirrors page logs with zero wrapper overhead;
+ *   custom handlers receive (type, ...args) for IPC filtering (see createDashboardWebViewConsole)
+ *
+ * @see https://bun.com/docs/runtime/webview#console-capture
  */
 
 import { fileUrlFromPath } from "./bun-utils.ts";
@@ -74,9 +84,17 @@ export function webViewSupported(): boolean {
 }
 
 /**
+ * Zero-overhead page console mirror — pass by reference to Bun.WebView `console`.
+ * @see https://bun.com/docs/runtime/webview#console-capture
+ */
+export function webViewConsoleMirror(): typeof globalThis.console {
+  return globalThis.console;
+}
+
+/**
  * Chrome backend only — subscribe to a CDP event (event `type` is the CDP method name;
  * `event.data` is the parsed params object).
- * @see https://bun.sh/docs/runtime/webview#cdp
+ * @see https://bun.com/docs/runtime/webview#cdp
  */
 export function addChromeCdpListener(
   view: Bun.WebView,
@@ -118,6 +136,87 @@ export function chromeWebViewBackend(
 /** Default backend: webkit on macOS, chrome elsewhere. */
 export function defaultWebViewBackend(): "webkit" | "chrome" {
   return process.platform === "darwin" ? "webkit" : "chrome";
+}
+
+/** Bun docs: WebKit persistent dataStore requires macOS 15.2+. @see BUN_WEBVIEW_DOCS_URL */
+export const WEBKIT_PERSISTENT_STORAGE_MIN_MACOS = { major: 15, minor: 2, patch: 0 } as const;
+
+export function webkitWebViewBackend(
+  backend: Bun.WebView.ConstructorOptions["backend"] | undefined
+): boolean {
+  if (!backend) return defaultWebViewBackend() === "webkit";
+  if (backend === "webkit") return true;
+  return typeof backend === "object" && backend.type === "webkit";
+}
+
+/** macOS product version from sw_vers (e.g. "15.2.1"), or null when unavailable. */
+export function macOSProductVersion(): string | null {
+  if (process.platform !== "darwin") return null;
+  try {
+    const proc = Bun.spawnSync(["sw_vers", "-productVersion"]);
+    if (proc.exitCode !== 0) return null;
+    const text = new TextDecoder().decode(proc.stdout).trim();
+    return text || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Compare dotted version strings (major.minor.patch). */
+export function versionAtLeast(
+  version: string,
+  minimum: { major: number; minor: number; patch?: number }
+): boolean {
+  const parts = version.split(".").map((part) => Number.parseInt(part, 10));
+  const major = parts[0] ?? 0;
+  const minor = parts[1] ?? 0;
+  const patch = parts[2] ?? 0;
+  const minPatch = minimum.patch ?? 0;
+  if (major !== minimum.major) return major > minimum.major;
+  if (minor !== minimum.minor) return minor > minimum.minor;
+  return patch >= minPatch;
+}
+
+/** True when WebKit backend can persist cookies/localStorage to disk (macOS 15.2+). */
+export function webkitPersistentDataStoreSupported(version = macOSProductVersion()): boolean {
+  if (process.platform !== "darwin") return false;
+  if (!version) return false;
+  return versionAtLeast(version, WEBKIT_PERSISTENT_STORAGE_MIN_MACOS);
+}
+
+export const BUN_WEBVIEW_DOCS_URL = "https://bun.com/docs/runtime/webview";
+
+/** Deep-link into Bun WebView docs (e.g. `#console-capture`, `#persistent-storage`). */
+export function bunWebViewDocAnchor(fragment?: string): string {
+  if (!fragment) return BUN_WEBVIEW_DOCS_URL;
+  const hash = fragment.startsWith("#") ? fragment : `#${fragment}`;
+  return `${BUN_WEBVIEW_DOCS_URL}${hash}`;
+}
+
+/**
+ * Apply Bun's WebKit persistence guard — fall back to ephemeral when unsupported.
+ * @see https://bun.com/docs/runtime/webview#persistent-storage
+ */
+export function guardWebViewDataStore(options: {
+  dataStore: Bun.WebView.ConstructorOptions["dataStore"];
+  backend?: Bun.WebView.ConstructorOptions["backend"];
+  warn?: (message: string) => void;
+}): Bun.WebView.ConstructorOptions["dataStore"] {
+  if (options.dataStore === "ephemeral" || options.dataStore === undefined) {
+    return "ephemeral";
+  }
+  if (!webkitWebViewBackend(options.backend)) return options.dataStore;
+  if (webkitPersistentDataStoreSupported()) return options.dataStore;
+  const min = WEBKIT_PERSISTENT_STORAGE_MIN_MACOS;
+  options.warn?.(
+    `WebKit persistent storage requires macOS ${min.major}.${min.minor}+; using ephemeral dataStore (${BUN_WEBVIEW_DOCS_URL})`
+  );
+  return "ephemeral";
+}
+
+/** One-line experimental API notice for dashboard / automation startup. */
+export function formatWebViewExperimentalNotice(): string {
+  return `[dashboard] Bun.WebView is experimental (${BUN_WEBVIEW_DOCS_URL})`;
 }
 
 function isCdpRemoteObject(value: Record<string, unknown>): boolean {
@@ -311,7 +410,7 @@ export async function runWebViewConsoleCapture(
     width: 800,
     height: 600,
     backend,
-    console: mirrored ? globalThis.console : collector.handler,
+    console: mirrored ? webViewConsoleMirror() : collector.handler,
   });
 
   await view.navigate(options.url);

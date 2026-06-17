@@ -1,7 +1,7 @@
 /**
  * bun-image.ts — Bun.Image helpers (v1.3.14+).
  *
- * @see https://bun.sh/docs/runtime/image
+ * @see https://bun.com/docs/runtime/image
  */
 
 export const DASHBOARD_THUMB_WIDTH = 320;
