@@ -7,6 +7,7 @@ import { join } from "path";
 import type { OrchestratorEventAction } from "./herdr-orchestrator-events.ts";
 import { FINISH_WORK_PROBE_IDS } from "./finish-work-herdr.ts";
 import { PANE_WHEN_FIELDS } from "./condition-evaluator.ts";
+import { EFFECT_GATES } from "./effect-gates.ts";
 
 export interface SkillContractIssue {
   skill: string;
@@ -269,7 +270,18 @@ export const REPO_SKILL_CODE_COVERAGE: Record<
       "test/cloudflare-access-policy.unit.test.ts",
     ],
   },
+  "skills/effect-discipline/SKILL.md": {
+    libModules: [
+      "src/lib/effect-gates.ts",
+      "src/lib/effect/cli-runtime.ts",
+      "src/lib/effect/errors.ts",
+    ],
+    testFiles: ["test/effect-gates.unit.test.ts", "test/effect/cli-runtime.unit.test.ts"],
+  },
 };
+
+/** Gate identifier strings from `EFFECT_GATES` — skill must name each id. */
+export const EFFECT_GATE_IDENTIFIERS = Object.values(EFFECT_GATES);
 
 function findBarePortableDocLinks(skillRel: string, text: string): SkillContractIssue[] {
   if (!skillRel.startsWith("skills/")) return [];
@@ -336,6 +348,11 @@ export function auditKimiToolchainSkillContract(
       re: /bun run sync/,
       rule: "kimi-toolchain-sync",
       message: "must document bun run sync for runtime assets",
+    },
+    {
+      re: /effect-discipline/,
+      rule: "kimi-toolchain-effect-pointer",
+      message: "must point Effect work to effect-discipline skill",
     },
   ];
 
@@ -406,6 +423,79 @@ export function auditCloudflareAccessSkillContract(
   return issues;
 }
 
+/** Effect discipline skill — runCliExit pattern, gate ids, depth doc pointers. */
+export function auditEffectDisciplineSkillContract(
+  skillRel: string,
+  text: string
+): SkillContractIssue[] {
+  const issues: SkillContractIssue[] = [
+    ...findSyncedSkillEscapeLinks(skillRel, text),
+    ...findBarePortableDocLinks(skillRel, text),
+  ];
+
+  const required: Array<{ re: RegExp; rule: string; message: string }> = [
+    {
+      re: /runCliExit/,
+      rule: "effect-run-cli-exit",
+      message: "must document runCliExit CLI pattern",
+    },
+    {
+      re: /invokeToolEffect|tool-runner-effect/,
+      rule: "effect-tool-boundary",
+      message: "must document invokeToolEffect / tool-runner-effect boundary",
+    },
+    {
+      re: /kimi-doctor --effect-gates/,
+      rule: "effect-gates-command",
+      message: "must document kimi-doctor --effect-gates",
+    },
+    {
+      re: /kimi-heal effect audit/,
+      rule: "effect-heal-audit",
+      message: "must document kimi-heal effect audit",
+    },
+    {
+      re: /~\/\.kimi-code\/DEEP-QUALITY\.md/,
+      rule: "effect-deep-quality-link",
+      message: "must link ~/.kimi-code/DEEP-QUALITY.md for depth",
+    },
+    {
+      re: /~\/\.kimi-code\/CODE_REFERENCES\.md/,
+      rule: "effect-code-refs-link",
+      message: "must link ~/.kimi-code/CODE_REFERENCES.md",
+    },
+    {
+      re: /src\/lib\/effect-gates\.ts/,
+      rule: "effect-gates-code-pointer",
+      message: "must point to src/lib/effect-gates.ts",
+    },
+  ];
+
+  for (const { re, rule, message } of required) {
+    if (!re.test(text)) issues.push({ skill: skillRel, rule, message });
+  }
+
+  for (const gateId of EFFECT_GATE_IDENTIFIERS) {
+    if (!text.includes(gateId)) {
+      issues.push({
+        skill: skillRel,
+        rule: "effect-gate-id-missing",
+        message: `must mention gate id ${gateId}`,
+      });
+    }
+  }
+
+  if (/KIMI_EFFECT_MAX_DIRECT_PROMISE|EffectGatesThresholds/.test(text)) {
+    issues.push({
+      skill: skillRel,
+      rule: "effect-no-threshold-dump",
+      message: "threshold tables belong in DEEP-QUALITY.md, not the skill",
+    });
+  }
+
+  return issues;
+}
+
 /** Verify on-disk lib modules and unit tests exist for each repo skill. */
 export function auditSkillCodeCoverage(repoRoot: string): SkillContractIssue[] {
   const issues: SkillContractIssue[] = [];
@@ -441,6 +531,9 @@ export function auditRepoSkill(skillRel: string, text: string): SkillContractIss
   }
   if (skillRel === "skills/cloudflare-access/SKILL.md") {
     return auditCloudflareAccessSkillContract(skillRel, text);
+  }
+  if (skillRel === "skills/effect-discipline/SKILL.md") {
+    return auditEffectDisciplineSkillContract(skillRel, text);
   }
   return findSyncedSkillEscapeLinks(skillRel, text);
 }

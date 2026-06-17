@@ -3,8 +3,10 @@ import { join } from "path";
 import {
   auditCloudflareAccessSkillContract,
   auditCodeProbeWhenExports,
+  auditEffectDisciplineSkillContract,
   auditHerdrSkillContract,
   auditKimiToolchainSkillContract,
+  EFFECT_GATE_IDENTIFIERS,
   auditOrchestratorEventTable,
   auditOrchestratorProbeContract,
   auditSkillCodeCoverage,
@@ -25,6 +27,7 @@ describe("skill-contract", () => {
     expect(Object.keys(REPO_SKILL_CODE_COVERAGE).sort()).toEqual(
       [
         "skills/cloudflare-access/SKILL.md",
+        "skills/effect-discipline/SKILL.md",
         "skills/herdr/SKILL.md",
         "skills/kimi-toolchain/SKILL.md",
       ].sort()
@@ -82,6 +85,23 @@ describe("skill-contract", () => {
   test("kimi-toolchain skill passes contract gates", async () => {
     const text = await Bun.file(join(REPO_ROOT, "skills/kimi-toolchain/SKILL.md")).text();
     const issues = auditKimiToolchainSkillContract("skills/kimi-toolchain/SKILL.md", text);
+    expect(formatSkillContractReport(issues)).toBe("skill-contract OK");
+  });
+
+  test("EFFECT_GATE_IDENTIFIERS matches effect-gates.ts exports", () => {
+    expect(EFFECT_GATE_IDENTIFIERS).toEqual([
+      "direct-promise",
+      "layer-circularity",
+      "missing-service-tag",
+      "domain-purity",
+      "run-promise-boundary",
+      "event-stream",
+    ]);
+  });
+
+  test("effect-discipline skill passes contract gates", async () => {
+    const text = await Bun.file(join(REPO_ROOT, "skills/effect-discipline/SKILL.md")).text();
+    const issues = auditEffectDisciplineSkillContract("skills/effect-discipline/SKILL.md", text);
     expect(formatSkillContractReport(issues)).toBe("skill-contract OK");
   });
 

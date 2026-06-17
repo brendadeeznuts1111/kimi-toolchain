@@ -20,8 +20,10 @@ describe("sync-hashes", () => {
     expect(hashes["CODE_REFERENCES.md"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["agents-skill/kimi-toolchain/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["agents-skill/herdr/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["agents-skill/effect-discipline/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["kimi-skill/kimi-toolchain/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["kimi-skill/herdr/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["kimi-skill/effect-discipline/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
   });
 
   test("computeSyncHashes is stable for unchanged files", async () => {
