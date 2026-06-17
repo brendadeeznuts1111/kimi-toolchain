@@ -1,5 +1,6 @@
 import { join } from "path";
 import { Effect } from "effect";
+import { loadMergedConfigDocument } from "./dx-config-parse.ts";
 import type { DxConfigDocument } from "./dx-config-merge.ts";
 import { DxConfigLive, getMergedConfig } from "./effect/dx-config.ts";
 
@@ -43,7 +44,8 @@ export const readPropertyTableDxConfigEffect = (projectRoot: string) =>
 export async function readPropertyTableDxConfig(
   projectRoot: string
 ): Promise<PropertyTableDxConfig> {
-  return Effect.runPromise(readPropertyTableDxConfigEffect(projectRoot));
+  const meta = await loadMergedConfigDocument(projectRoot);
+  return extractPropertyTableDxConfig(meta.document);
 }
 
 export interface PropertyTableCliArgs {
