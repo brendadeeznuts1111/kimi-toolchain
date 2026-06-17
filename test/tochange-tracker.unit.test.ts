@@ -5,15 +5,13 @@ import { clearProcessCache, getCachedPsAsync } from "../src/lib/proc-cache.ts";
 import { clearInvokeCommandInflight, invokeCommand } from "../src/lib/tool-runner.ts";
 import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
 import { join } from "path";
-import { testTempDir } from "./helpers.ts";
+import { REPO_ROOT, testTempDir } from "./helpers.ts";
 import {
   auditPeekAdoption,
   auditTochangeRegistry,
   PEEK_ADOPTION_REGISTRY,
   scanTochangeMarkers,
 } from "../src/lib/tochange-tracker.ts";
-
-const REPO_ROOT = import.meta.dir + "/..";
 
 describe("tochange-tracker", () => {
   describe("peek wrappers", () => {
@@ -64,10 +62,11 @@ describe("tochange-tracker", () => {
     const report = await auditPeekAdoption(REPO_ROOT);
     expect(report.ok).toBe(true);
     expect(report.registryPending).toHaveLength(0);
-    expect(report.registryImplemented.length).toBe(7);
+    expect(report.registryImplemented.length).toBe(10);
     expect(report.probeFailures).toEqual([]);
     expect(report.orphanMarkers).toEqual([]);
     expect(report.staleTochangeMarkers).toEqual([]);
+    expect(report.directStreamReads).toEqual([]);
   });
 
   test("auditTochangeRegistry flags probe failures", async () => {
@@ -101,8 +100,8 @@ describe("tochange-tracker", () => {
     const script = join(dir, "script.ts");
     writeText(
       script,
-      `const n = parseInt(await Bun.file(process.env.COUNTER_FILE!).text());
-await Bun.write(process.env.COUNTER_FILE!, String(n + 1));
+      `const n = parseInt(await Bun.file(Bun.env.COUNTER_FILE!).text());
+await Bun.write(Bun.env.COUNTER_FILE!, String(n + 1));
 await Bun.sleep(120);
 console.log("ok");`
     );
@@ -147,5 +146,11 @@ console.log("ok");`
 
   test("PEEK_ADOPTION_REGISTRY has no pending drift", () => {
     expect(PEEK_ADOPTION_REGISTRY.every((e) => e.status !== "pending")).toBe(true);
+  });
+
+  test("scanDirectStreamReads finds no feature-code bypasses", async () => {
+    const { scanDirectStreamReads } = await import("../src/lib/tochange-tracker.ts");
+    const hits = await scanDirectStreamReads(REPO_ROOT);
+    expect(hits).toEqual([]);
   });
 });

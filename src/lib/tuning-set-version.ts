@@ -2,6 +2,7 @@
  * Semantic versioning for bunfig [define] tuning sets.
  */
 
+import { readableStreamToText } from "./bun-utils.ts";
 import { pathExists } from "./bun-io.ts";
 
 import { join } from "path";
@@ -78,10 +79,7 @@ export async function readGitCachedDiff(projectRoot: string, paths: string[]): P
     stdout: "pipe",
     stderr: "pipe",
   });
-  const [stdout, exitCode] = await Promise.all([
-    Bun.readableStreamToText(proc.stdout),
-    proc.exited,
-  ]);
+  const [stdout, exitCode] = await Promise.all([readableStreamToText(proc.stdout), proc.exited]);
   if (exitCode !== 0) return "";
   return stdout;
 }

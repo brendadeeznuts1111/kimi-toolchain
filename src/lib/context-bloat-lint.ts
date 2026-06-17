@@ -2,6 +2,7 @@
  * Agent-facing doc hygiene — broken links, stale paths, CONTEXT placeholders.
  */
 
+import { readableStreamToText } from "./bun-utils.ts";
 import { pathExists } from "./bun-io.ts";
 
 import { dirname, join, resolve } from "path";
@@ -416,7 +417,7 @@ export async function listTrackedBackupFiles(projectRoot: string): Promise<strin
   });
   const exitCode = await proc.exited;
   if (exitCode !== 0) return [];
-  const stdout = await Bun.readableStreamToText(proc.stdout);
+  const stdout = await readableStreamToText(proc.stdout);
   return stdout
     .split("\n")
     .map((line) => line.trim())

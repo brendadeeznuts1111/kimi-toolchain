@@ -2,6 +2,7 @@
  * Read-only Cloudflare integration inventory for the DX homepage/status surface.
  */
 
+import { readableStreamToText } from "./bun-utils.ts";
 import {
   checkDxCloudflareConfig,
   type DxCloudflareContractReport,
@@ -171,8 +172,8 @@ async function defaultDetectWrangler(includeVersion = false): Promise<WranglerSt
       stderr: "pipe",
     });
     const exit = await proc.exited;
-    const stdout = (await Bun.readableStreamToText(proc.stdout)).trim();
-    const stderr = (await Bun.readableStreamToText(proc.stderr)).trim();
+    const stdout = (await readableStreamToText(proc.stdout)).trim();
+    const stderr = (await readableStreamToText(proc.stderr)).trim();
     if (exit !== 0) {
       return { available: true, path, error: stderr || `wrangler exited ${exit}` };
     }

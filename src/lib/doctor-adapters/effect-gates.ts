@@ -2,6 +2,7 @@
  * doctor-adapters/effect-gates.ts — Adapter wrapping the Effect discipline scanner.
  */
 
+import { readableStreamToText } from "../bun-utils.ts";
 import type { AdapterOutput, ExternalToolAdapter } from "../doctor-adapter-types.ts";
 import type { EffectGatesReport, EffectGatesViolation } from "../effect-gates.ts";
 import {
@@ -27,7 +28,7 @@ async function resolveGitHead(projectRoot: string): Promise<string | undefined> 
     });
     const exitCode = await proc.exited;
     if (exitCode !== 0) return undefined;
-    const out = await Bun.readableStreamToText(proc.stdout);
+    const out = await readableStreamToText(proc.stdout);
     return out.trim() || undefined;
   } catch {
     return undefined;

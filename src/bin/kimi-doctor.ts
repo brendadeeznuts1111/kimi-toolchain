@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { readableStreamToText } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-doctor — Comprehensive diagnostics
@@ -321,7 +322,7 @@ async function runScript(projectRoot: string, script: string, label: string): Pr
     });
     const exitCode = await proc.exited;
     if (exitCode === 0) return ok(label, "passed");
-    const stderr = await Bun.readableStreamToText(proc.stderr);
+    const stderr = await readableStreamToText(proc.stderr);
     const detail =
       stderr
         .split("\n")
@@ -1611,7 +1612,7 @@ async function main(): Promise<number> {
     if (p) {
       try {
         const proc = Bun.spawn([cmd, "--version"], { stdout: "pipe", stderr: "pipe" });
-        const out = await Bun.readableStreamToText(proc.stdout);
+        const out = await readableStreamToText(proc.stdout);
         results.push(ok(cmd, out.trim()));
       } catch {
         results.push(ok(cmd, "installed"));

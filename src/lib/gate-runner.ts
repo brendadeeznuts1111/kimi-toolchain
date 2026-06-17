@@ -2,6 +2,7 @@
  * Shared quality-gate runner — silent on success, verbose on failure, optional cache.
  */
 
+import { readableStreamToText } from "./bun-utils.ts";
 import { makeDir, pathExists } from "./bun-io.ts";
 
 import { join } from "path";
@@ -87,8 +88,8 @@ export async function runGate(
     stderr: "pipe",
   });
   const [stdout, stderr, exitCode] = await Promise.all([
-    Bun.readableStreamToText(proc.stdout),
-    Bun.readableStreamToText(proc.stderr),
+    readableStreamToText(proc.stdout),
+    readableStreamToText(proc.stderr),
     proc.exited,
   ]);
   return {

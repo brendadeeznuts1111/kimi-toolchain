@@ -1,3 +1,5 @@
+import { readableStreamToText } from "./bun-utils.ts";
+
 /**
  * Kimi doctor wrapper — shared helper to run the official `kimi doctor` command.
  */
@@ -16,8 +18,8 @@ export async function runOfficialKimiDoctor(): Promise<KimiDoctorResult> {
   try {
     const proc = Bun.spawn(["kimi", "doctor"], { stdout: "pipe", stderr: "pipe" });
     const exitCode = await proc.exited;
-    const stdout = await Bun.readableStreamToText(proc.stdout);
-    const stderr = await Bun.readableStreamToText(proc.stderr);
+    const stdout = await readableStreamToText(proc.stdout);
+    const stderr = await readableStreamToText(proc.stderr);
     if (exitCode === 0) {
       const line = stdout
         .split("\n")

@@ -4,6 +4,7 @@
  */
 
 import { Effect } from "effect";
+import { readableStreamToText } from "../lib/bun-utils.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -50,11 +51,8 @@ async function git(
     stdout: "pipe",
     stderr: "pipe",
   });
-  const [exitCode, stdout] = await Promise.all([
-    proc.exited,
-    Bun.readableStreamToText(proc.stdout),
-  ]);
-  await Bun.readableStreamToText(proc.stderr);
+  const [exitCode, stdout] = await Promise.all([proc.exited, readableStreamToText(proc.stdout)]);
+  await readableStreamToText(proc.stderr);
   return { exitCode, stdout: stdout.trim() };
 }
 

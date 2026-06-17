@@ -3,6 +3,7 @@
  * Raw socket path available via HERDR_SOCKET_PATH; finish-work uses the CLI.
  */
 
+import { readableStreamToText } from "./bun-utils.ts";
 import { herdrSessionArgs, herdrSessionEnv } from "./herdr-project-cli.ts";
 
 export interface HerdrCliResult {
@@ -26,8 +27,8 @@ export async function herdrCli(args: string[], session?: string): Promise<HerdrC
     stderr: "pipe",
   });
   const [stdout, stderr, exitCode] = await Promise.all([
-    Bun.readableStreamToText(proc.stdout),
-    Bun.readableStreamToText(proc.stderr),
+    readableStreamToText(proc.stdout),
+    readableStreamToText(proc.stderr),
     proc.exited,
   ]);
   return {

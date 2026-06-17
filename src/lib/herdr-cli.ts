@@ -7,6 +7,7 @@
  */
 
 import { Effect } from "effect";
+import { readableStreamToText } from "./bun-utils.ts";
 import {
   ensureJsonArgs,
   resolveHerdrPanePath,
@@ -65,10 +66,10 @@ export function herdrCli(args: string[], session?: string): Effect.Effect<string
 
     const exitCode = yield* Effect.promise(() => proc.exited);
     const stdout = yield* Effect.promise(async () => {
-      return await Bun.readableStreamToText(proc.stdout);
+      return await readableStreamToText(proc.stdout);
     });
     const stderr = yield* Effect.promise(async () => {
-      return await Bun.readableStreamToText(proc.stderr);
+      return await readableStreamToText(proc.stderr);
     });
 
     if (exitCode !== 0) {

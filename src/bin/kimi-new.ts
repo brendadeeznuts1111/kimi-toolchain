@@ -7,6 +7,7 @@ import { makeDir, pathExists } from "../lib/bun-io.ts";
  */
 
 import { Effect } from "effect";
+import { readableStreamToText } from "../lib/bun-utils.ts";
 import { join, resolve } from "path";
 import { $ } from "bun";
 import { toolsDir } from "../lib/paths.ts";
@@ -152,8 +153,8 @@ async function runScaffold(args: string[]): Promise<number> {
     stderr: "pipe",
   });
   const exitCode = await proc.exited;
-  const stdout = await Bun.readableStreamToText(proc.stdout);
-  const stderr = await Bun.readableStreamToText(proc.stderr);
+  const stdout = await readableStreamToText(proc.stdout);
+  const stderr = await readableStreamToText(proc.stderr);
 
   for (const line of (stdout + stderr).split("\n")) {
     if (line.trim()) process.stdout.write(`${line}\n`);

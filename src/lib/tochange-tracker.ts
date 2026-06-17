@@ -30,6 +30,11 @@ export interface TochangeMarker {
   text: string;
 }
 
+export interface DirectStreamReadHit {
+  file: string;
+  line: number;
+}
+
 export interface TochangeAuditReport {
   ok: boolean;
   registryPending: TochangeRegistryEntry[];
@@ -42,6 +47,8 @@ export interface TochangeAuditReport {
   probeFailures: TochangeRegistryEntry[];
   staleTochangeMarkers: TochangeMarker[];
   missingTochangeMarkers: TochangeRegistryEntry[];
+  /** Direct Bun.readableStreamToText outside canonical owner (feature code only). */
+  directStreamReads: DirectStreamReadHit[];
 }
 
 const MARKER_RE = /\/\/\s*\.(tochange|implemented):([a-z0-9-]+)/;
@@ -127,8 +134,64 @@ export const PEEK_ADOPTION_REGISTRY: TochangeRegistryEntry[] = [
   },
 ];
 
-const REGISTRY_IDS = new Set(PEEK_ADOPTION_REGISTRY.map((e) => e.id));
+/** Canonical stream-read adoption — feature code routes through bun-utils. */
+export const STREAM_READ_REGISTRY: TochangeRegistryEntry[] = [
+  {
+    id: "stream-read-wrapper",
+    file: "src/lib/bun-utils.ts",
+    tier: "required",
+    status: "implemented",
+    summary: "readableStreamToText null-safe canonical wrapper",
+    probe: "export async function readableStreamToText",
+  },
+  {
+    id: "stream-read-delegate-utils",
+    file: "src/lib/utils.ts",
+    tier: "tier1",
+    status: "implemented",
+    summary: "streamToText re-exports bun-utils.readableStreamToText",
+    probe: "readableStreamToText as streamToText",
+  },
+  {
+    id: "stream-read-delegate-inspect",
+    file: "src/lib/inspect.ts",
+    tier: "tier1",
+    status: "implemented",
+    summary: "inspectStream routes through bun-utils",
+    probe: "readableStreamToText(stream)",
+  },
+  {
+    id: "stream-read-tests",
+    file: "(aggregate)",
+    tier: "skip",
+    status: "skip",
+    summary: "test/** may use Bun.readableStreamToText for subprocess fixtures",
+  },
+  {
+    id: "stream-read-scripts",
+    file: "(aggregate)",
+    tier: "skip",
+    status: "skip",
+    summary: "scripts/** subprocess helpers — migrate opportunistically",
+  },
+];
+
+/** All adoption registries audited by lint:tochange. */
+export const ADOPTION_REGISTRIES: TochangeRegistryEntry[] = [
+  ...PEEK_ADOPTION_REGISTRY,
+  ...STREAM_READ_REGISTRY,
+];
+
+const REGISTRY_IDS = new Set(ADOPTION_REGISTRIES.map((e) => e.id));
 const SCAN_GLOBS = ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"];
+
+const STREAM_READ_SCAN_GLOBS = ["src/lib/**/*.ts", "src/bin/**/*.ts", "src/install-hooks/**/*.ts"];
+const STREAM_READ_ALLOWLIST = new Set([
+  "src/lib/bun-utils.ts",
+  "src/lib/bun-native-lint.ts",
+  "src/lib/tochange-tracker.ts",
+]);
+const STREAM_READ_CALL_RE = /\bBun\.readableStreamToText\s*\(/;
 
 /** Scan tracked trees for optional `.tochange` / `.implemented` markers. */
 export async function scanTochangeMarkers(repoRoot: string): Promise<TochangeMarker[]> {
@@ -161,11 +224,34 @@ async function readProbeFile(repoRoot: string, rel: string): Promise<string> {
   return Bun.file(join(repoRoot, rel)).text();
 }
 
+/** Find direct Bun.readableStreamToText in feature code (should be zero). */
+export async function scanDirectStreamReads(repoRoot: string): Promise<DirectStreamReadHit[]> {
+  const hits: DirectStreamReadHit[] = [];
+
+  for (const pattern of STREAM_READ_SCAN_GLOBS) {
+    const glob = new Bun.Glob(pattern);
+    for await (const rel of glob.scan({ cwd: repoRoot, onlyFiles: true })) {
+      if (STREAM_READ_ALLOWLIST.has(rel)) continue;
+      const text = await Bun.file(join(repoRoot, rel)).text();
+      const lines = text.split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!STREAM_READ_CALL_RE.test(line)) continue;
+        if (/^\s*(\/\/|\*)/.test(line)) continue;
+        hits.push({ file: rel, line: i + 1 });
+      }
+    }
+  }
+
+  return hits.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+}
+
 /** Validate registry status, probes, and optional markers. */
 export async function auditTochangeRegistry(
   repoRoot: string,
   markers: TochangeMarker[],
-  registry: TochangeRegistryEntry[] = PEEK_ADOPTION_REGISTRY
+  registry: TochangeRegistryEntry[] = ADOPTION_REGISTRIES,
+  directStreamReads: DirectStreamReadHit[] = []
 ): Promise<TochangeAuditReport> {
   const markersPending = markers.filter((m) => m.kind === "tochange");
   const markersImplemented = markers.filter((m) => m.kind === "implemented");
@@ -206,7 +292,8 @@ export async function auditTochangeRegistry(
     duplicateIds.length === 0 &&
     missingTochangeMarkers.length === 0 &&
     staleTochangeMarkers.length === 0 &&
-    probeFailures.length === 0;
+    probeFailures.length === 0 &&
+    directStreamReads.length === 0;
 
   return {
     ok,
@@ -220,12 +307,14 @@ export async function auditTochangeRegistry(
     probeFailures,
     staleTochangeMarkers,
     missingTochangeMarkers,
+    directStreamReads,
   };
 }
 
 export async function auditPeekAdoption(repoRoot: string): Promise<TochangeAuditReport> {
   const markers = await scanTochangeMarkers(repoRoot);
-  return auditTochangeRegistry(repoRoot, markers);
+  const directStreamReads = await scanDirectStreamReads(repoRoot);
+  return auditTochangeRegistry(repoRoot, markers, ADOPTION_REGISTRIES, directStreamReads);
 }
 
 /** Human-readable report for lint:tochange. */
@@ -291,6 +380,13 @@ export function formatTochangeReport(report: TochangeAuditReport): string {
     lines.push("", "orphan markers:");
     for (const m of report.orphanMarkers) {
       lines.push(`  ✗ ${m.id}  ${m.file}:${m.line}`);
+    }
+  }
+
+  if (report.directStreamReads.length > 0) {
+    lines.push("", "direct Bun.readableStreamToText (use bun-utils.readableStreamToText):");
+    for (const hit of report.directStreamReads) {
+      lines.push(`  ✗ ${hit.file}:${hit.line}`);
     }
   }
 

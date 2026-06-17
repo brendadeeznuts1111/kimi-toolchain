@@ -10,6 +10,7 @@ import { pathExists } from "../lib/bun-io.ts";
  */
 
 import { $ } from "bun";
+import { readableStreamToText } from "../lib/bun-utils.ts";
 import { join } from "path";
 import {
   ensureDir,
@@ -80,11 +81,8 @@ async function gitOutput(projectDir: string, args: string[]): Promise<string | u
     stdout: "pipe",
     stderr: "pipe",
   });
-  const [exitCode, stdout] = await Promise.all([
-    proc.exited,
-    Bun.readableStreamToText(proc.stdout),
-  ]);
-  await Bun.readableStreamToText(proc.stderr);
+  const [exitCode, stdout] = await Promise.all([proc.exited, readableStreamToText(proc.stdout)]);
+  await readableStreamToText(proc.stderr);
   const text = stdout.trim();
   return exitCode === 0 && text ? text : undefined;
 }

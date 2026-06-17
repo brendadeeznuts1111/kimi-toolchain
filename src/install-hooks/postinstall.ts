@@ -17,6 +17,7 @@ import {
 import { DEFAULT_CONFIG_TEMPLATE } from "../lib/governor-config.ts";
 import { SESSIONS_SCHEMA_SQL } from "../lib/sessions-schema.ts";
 import { provisionUserMcp } from "../lib/mcp-config.ts";
+import { readableStreamToText } from "../lib/bun-utils.ts";
 import { ensureDir } from "../lib/utils.ts";
 
 const REPO_ROOT = resolve(import.meta.dir, "../..");
@@ -56,7 +57,7 @@ async function main(): Promise<number> {
     if (exitCode === 0) {
       console.log("   Wrappers: ~/.local/bin/kimi-*");
     } else {
-      const err = await Bun.readableStreamToText(proc.stderr);
+      const err = await readableStreamToText(proc.stderr);
       console.warn(`  ⚠ Wrapper install failed: ${err.trim()}`);
     }
   }

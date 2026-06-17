@@ -292,8 +292,8 @@ export const RULE_DEFINITIONS: RuleDefinition[] = [
   },
   {
     id: "response-stream-text",
-    message: "Prefer Bun.readableStreamToText",
-    replacement: "Bun.readableStreamToText(stream)",
+    message: "Prefer readableStreamToText from bun-utils.ts",
+    replacement: "readableStreamToText(stream)",
     defaultMode: "off",
     detect(ctx) {
       return scanLineMatches(

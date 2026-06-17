@@ -1,3 +1,5 @@
+import { readableStreamToText } from "./bun-utils.ts";
+
 /**
  * inspect.ts — Bun-native inspection, equality, and ANSI helpers.
  *
@@ -162,5 +164,5 @@ export const customInspect: typeof Bun.inspect.custom = Bun.inspect.custom;
 
 /** Consume a ReadableStream and return its text content. */
 export async function inspectStream(stream: ReadableStream<Uint8Array>): Promise<string> {
-  return Bun.readableStreamToText(stream);
+  return readableStreamToText(stream);
 }

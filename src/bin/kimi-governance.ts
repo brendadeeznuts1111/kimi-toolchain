@@ -10,6 +10,7 @@ import { pathExists } from "../lib/bun-io.ts";
  */
 
 import { $ } from "bun";
+import { readableStreamToText } from "../lib/bun-utils.ts";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 import { runTool } from "../lib/tool-runner.ts";
@@ -108,8 +109,8 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
       stderr: "pipe",
     });
     const exitCode = await proc.exited;
-    const stdout = await Bun.readableStreamToText(proc.stdout);
-    const stderr = await Bun.readableStreamToText(proc.stderr);
+    const stdout = await readableStreamToText(proc.stdout);
+    const stderr = await readableStreamToText(proc.stderr);
     return { exitCode, stdout, stderr };
   }
 

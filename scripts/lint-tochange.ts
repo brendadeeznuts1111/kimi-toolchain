@@ -10,9 +10,9 @@
 
 import { join } from "path";
 import {
+  ADOPTION_REGISTRIES,
   auditPeekAdoption,
   formatTochangeReport,
-  PEEK_ADOPTION_REGISTRY,
 } from "../src/lib/tochange-tracker.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -31,7 +31,8 @@ async function main(): Promise<number> {
         pending: report.registryPending.length,
         implemented: report.registryImplemented.length,
         skipped: report.skipped.length,
-        registry: PEEK_ADOPTION_REGISTRY,
+        registry: ADOPTION_REGISTRIES,
+        directStreamReads: report.directStreamReads,
         markers: {
           pending: report.markersPending,
           implemented: report.markersImplemented,

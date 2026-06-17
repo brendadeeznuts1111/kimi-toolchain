@@ -169,10 +169,8 @@ export function findExecutable(bin: string): string | null {
 
 // ── Stream Helpers ───────────────────────────────────────────────────
 
-/** Convert a ReadableStream to a text string. */
-export async function streamToText(stream: ReadableStream): Promise<string> {
-  return Bun.readableStreamToText(stream);
-}
+/** @deprecated Prefer readableStreamToText from bun-utils.ts */
+export { readableStreamToText as streamToText } from "./bun-utils.ts";
 
 // ── Fetch with Timeout ───────────────────────────────────────────────
 

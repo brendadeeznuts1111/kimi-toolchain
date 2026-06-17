@@ -3,6 +3,7 @@
  */
 
 import { nanoseconds } from "bun";
+import { readableStreamToText } from "./bun-utils.ts";
 import { DEFAULTS } from "./governor-state.ts";
 import { getSessionId, updateSessionPeak } from "./governor-sessions.ts";
 
@@ -52,7 +53,7 @@ async function getChildPids(pid: number): Promise<number[]> {
       stdout: "pipe",
       stderr: "pipe",
     });
-    const output = await Bun.readableStreamToText(result.stdout);
+    const output = await readableStreamToText(result.stdout);
     await result.exited;
     return output
       .split("\n")
@@ -100,7 +101,7 @@ async function getSubprocessMemory(pid: number): Promise<number> {
       stdout: "pipe",
       stderr: "pipe",
     });
-    const output = await Bun.readableStreamToText(result.stdout);
+    const output = await readableStreamToText(result.stdout);
     await result.exited;
     const kb = parseInt(output.trim(), 10);
     return isNaN(kb) ? 0 : Math.round(kb / 1024); // MB
@@ -234,8 +235,8 @@ export async function governedSpawn(
 
       const exitCode = await proc.exited;
       const [stdout, stderr] = await Promise.all([
-        Bun.readableStreamToText(proc.stdout),
-        Bun.readableStreamToText(proc.stderr),
+        readableStreamToText(proc.stdout),
+        readableStreamToText(proc.stderr),
       ]);
 
       clearTimeout(timeoutId);
