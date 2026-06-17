@@ -16,7 +16,7 @@ If Grep/Glob fail with a path under an old renamed clone, the editor opened the 
 
 **Before writing code:**
 
-1. Read `/Users/nolarose/.config/dx/AGENTS.md` for the global DX layer.
+1. Read `~/.config/dx/AGENTS.md` for the global DX layer.
 2. Run `dx context`, `dx config`, `dx mcp-status`, or `dx mcp-doctor` when the task touches global setup, MCP, package, or shell behavior.
 3. Read `./CODE_REFERENCES.md`, pick the closest existing pattern, and preserve local conventions before editing.
 4. Cloudflare SSO/OAuth is separate from Wrangler OAuth and `kimi-cloudflare-access` API tokens; do not assume one login satisfies another.
@@ -44,67 +44,24 @@ If Grep/Glob fail with a path under an old renamed clone, the editor opened the 
 
 ## Architecture
 
-### Repo Layout
+### Repo layout
 
-```
-kimi-toolchain/
-  src/
-    bin/                    # CLI entry points (27 registered bins)
-      ├── kimi-doctor.ts          # Comprehensive diagnostics aggregator
-      ├── kimi-fix.ts             # Auto-repair project scaffolding
-      ├── kimi-governance.ts      # R-Score, coverage gate, ADR scaffold
-      ├── kimi-guardian.ts        # Lockfile integrity + CVE scan
-      ├── kimi-memory.ts          # SQLite session store + knowledge graph
-      ├── kimi-githooks.ts        # pre-commit / pre-push hook installer
-      ├── kimi-context-gen.ts     # CONTEXT.md auto-generator
-      ├── kimi-debug.ts           # "What broke?" failure wizard
-      ├── kimi-resource-governor.ts  # Resource limits, spawn wrapper, cache
-      ├── kimi-release.ts         # Conventional commits + changelog
-      ├── kimi-snapshot.ts        # Environment snapshot save/restore
-      └── unified-shell-bridge.ts # MCP stdio server for shell execution
-    lib/
-      ├── utils.ts          # Shared utilities (fs, hash, logging, runTool)
-      └── version.ts        # Canonical version (reads package.json)
-    install-hooks/
-      └── postinstall.ts    # Idempotent ~/.kimi-code/ setup (bun package hook)
-    kimi-hooks/
-      └── log-tool-failure.ts  # Kimi Code PostToolUseFailure hook script
-    git-hooks/              # Git hook templates (installed by kimi-githooks)
-    guardian/
-      └── verify.ts         # Thin lockfile verifier wrapper
-    drift/
-      └── check.ts          # Dependency drift detector
-  test/
-    ├── smoke/*.smoke.test.ts             # CLI smoke tests (doctor, identity, config)
-    └── …                         # Unit tests (see test-gates.ts fast list)
-  skills/
-    └── kimi-toolchain/
-      └── SKILL.md          # Agent decision protocol
-  scripts/
-    ├── check.ts            # Quality gate runner (--dry-run, --fast, --timeout)
-    └── sync-to-desktop.ts  # Repo → ~/.kimi-code/ sync (one-shot or daemon)
-```
+Authoritative maps — do not duplicate stale trees here:
 
-### Live Runtime (managed by `postinstall`)
+| Need | Source |
+| ---- | ------ |
+| CLI entry points (27 registered bins) | `package.json` `bin` + `src/bin/*.ts` |
+| Tool routing | [UNIFIED.md](UNIFIED.md) |
+| Shared library | `src/lib/` (flat; `src/lib/effect/` for Effect adapters) |
+| Unit vs smoke tests | `src/lib/test-gates.ts` (`UNIT_TEST_FILES`, `SMOKE_TEST_FILES`) |
+| Coding exemplars | [CODE_REFERENCES.md](CODE_REFERENCES.md) |
+| Scaffolding templates | [TEMPLATES.md](TEMPLATES.md) |
 
-When the package is installed (globally or locally), `postinstall.ts` copies sources to:
+Top-level dirs: `src/` (bins, lib, install-hooks, kimi-hooks), `test/`, `scripts/`, `skills/`, `docs/`, `bench/`.
 
-```
-~/.kimi-code/
-  tools/              # Copies of src/bin/*.ts
-  lib/                # Copies of src/lib/*.ts
-  scripts/            # Copies of scripts/*.ts
-  mcp.json            # User MCP config (postinstall seeds unified-shell)
-  skills/             # Kimi Code skills (incl. kimi-toolchain copy)
-  var/                # Toolchain state (sessions.db — not Kimi sessions/)
-  guardian/           # Lockfile manifest DB
-  governor/           # Resource governor DB + cache
-  AGENTS.md           # Copied from repo root
-  CODE_REFERENCES.md  # Copied from repo root
-  UNIFIED.md          # Copied from repo root
-  TEMPLATES.md        # Copied from repo root
-  DEEP-QUALITY.md     # Copied from repo root
-```
+### Live runtime (managed by `postinstall`)
+
+`postinstall.ts` copies sources to `~/.kimi-code/` (`tools/`, `lib/`, `scripts/`, `mcp.json`, `skills/`, `var/`, `guardian/`, `governor/`, synced docs).
 
 **Do not edit `~/.kimi-code/` manually.** Use `bun run sync` (or `bun run sync:daemon`) to push repo changes to the live runtime.
 
@@ -119,8 +76,8 @@ When the package is installed (globally or locally), `postinstall.ts` copies sou
 
 - `kimi doctor` — official Kimi Code config check (not `kimi-doctor`).
 - `kimi-doctor` — this repo's Bun diagnostics aggregator.
-- Clone path should be `~/kimi-toolchain` (matches `package.json` name and GitHub repo).
-- Full map: see **UNIFIED.md**. One-shot setup: `bash scripts/unify.sh`.
+- Kimi Code config, MCP, sessions, slash commands: see `skills/kimi-toolchain/SKILL.md`.
+- One-shot setup: `bash scripts/unify.sh`.
 
 ## Success Metrics
 
@@ -153,173 +110,50 @@ cadence. Any metric threshold change must update the threshold metadata in
 | Package manager | `bun pm`                                               |
 | Shell           | Bun's `$` template literal (`import { $ } from "bun"`) |
 
-## Build & Test Commands
+## Build, Test & Quality Gates
 
-All commands are run from the repo root.
+All commands run from the repo root.
 
 ```bash
-# Install dependencies
 bun install
 
-# Run the full test suite (unit + smoke; default 30s per-test timeout — bunfig.toml)
-bun test
-
-# Fast unit-only gate (1500ms per test — see FAST_TEST_TIMEOUT_MS in test-gates.ts)
+# Fast iteration (~3s): format + lint + typecheck + 81 unit files
+bun run check:fast
 bun run test:fast
-bun run check:fast       # format + lint + typecheck + test:fast
 
-# Preview CI gates without running them
-bun run check:dry-run    # accepts --dryrun alias (gate steps only)
-# CI test profile (60s timeout, coverage, lcov, junit, --bail)
-bun run test:coverage:ci
-bun run format:check:ci   # oxfmt --threads=4 for CI runners
+# Full gate (CI / pre-push): format:check + lint + typecheck + all tests
+bun run check
 
-# Full quality gate (CI / pre-push)
-bun run check            # scripts/check.ts
+# Preview gate steps without running them
+bun run check:dry-run
 
-# TypeScript type check (no emit)
-bun run typecheck        # tsc --noEmit
+# TypeScript (no emit)
+bun run typecheck
 
-# Format and lint (oxfmt / oxlint)
+# Format / lint (oxfmt / oxlint — do not add ESLint)
 bun run format           # oxfmt --write .
 bun run format:check     # oxfmt --check .
-bun run lint             # oxlint src test scripts
+bun run lint             # oxlint src test scripts + banned-terms
 
-# Run individual tools from source
-bun run src/bin/kimi-doctor.ts --quick
-bun run src/bin/kimi-governance.ts score
-bun run src/bin/kimi-guardian.ts check
+# Targeted test
+bun test test/lib.unit.test.ts
+bun test --coverage
 
-# Convenience wrappers (defined in package.json scripts)
-bun run doctor           # = bun run src/bin/kimi-doctor.ts
-bun run fix              # = bun run src/bin/kimi-fix.ts
-bun run governance       # = bun run src/bin/kimi-governance.ts
+# Run tools from source
+bun run doctor           # = src/bin/kimi-doctor.ts
+bun run governance       # = src/bin/kimi-governance.ts
 
 # Sync repo → ~/.kimi-code/
-bun run sync             # one-shot runtime sync + manifest write
-bun run sync:verify      # verify runtime files match repo-managed hashes
-bun run sync:daemon      # Bun.cron every 5 minutes
-bun run push             # git push + sync (use if hooks were skipped)
-bun run verify-workspace # fail if cwd folder is not kimi-toolchain
-bun run cleanup-legacy   # audit stale clone paths + Cursor slugs
+bun run sync && bun run sync:verify
+
+# Global install (end users)
+bun install -g github:brendadeeznuts1111/kimi-toolchain
 ```
 
 When tools, docs, skills, templates, or generated runtime assets change, final
 handoff validation must include `bun run sync && bun run sync:verify`.
 
-### Global Install (for end users)
-
-```bash
-bun install -g github:brendadeeznuts1111/kimi-toolchain
-```
-
-After global install, all `kimi-*` binaries are available on PATH.
-
-## Code Organization
-
-### Path Helpers (src/lib/paths.ts)
-
-All paths under `~/.kimi-code/` must use `src/lib/paths.ts` helpers. **Never hardcode `~/.kimi-code` or `~/.kimi-code/...` strings in source.**
-
-| Helper                    | Returns                                | Example                      |
-| ------------------------- | -------------------------------------- | ---------------------------- |
-| `homeDir()`               | `$HOME` or `/tmp`                      | `/Users/nolarose`            |
-| `desktopRoot()`           | `~/.kimi-code`                         | `/Users/nolarose/.kimi-code` |
-| `toolsDir()`              | `~/.kimi-code/tools`                   | ...                          |
-| `libDir()`                | `~/.kimi-code/lib`                     | ...                          |
-| `scriptsDir()`            | `~/.kimi-code/scripts`                 | ...                          |
-| `mcpPath()`               | `~/.kimi-code/mcp.json`                | ...                          |
-| `skillsDir()`             | `~/.kimi-code/skills`                  | ...                          |
-| `varDir()`                | `~/.kimi-code/var`                     | ...                          |
-| `guardDir()`              | `~/.kimi-code/guardian`                | ...                          |
-| `governorDir()`           | `~/.kimi-code/governor`                | ...                          |
-| `snapshotDir()`           | `~/.kimi-code/snapshots`               | ...                          |
-| `agentsSkillsRoot()`      | `~/.agents/skills`                     | ...                          |
-| `taxonomyPath()`          | `~/.kimi-code/error-taxonomy.yml`      | ...                          |
-| `toolchainManifestPath()` | `~/.kimi-code/toolchain-manifest.json` | ...                          |
-
-Import: `import { desktopRoot, toolsDir } from "../lib/paths.ts";` (adjust depth as needed).
-
-### Safe Parse Helpers (src/lib/utils.ts)
-
-| Helper                                     | Purpose                | Fallback on failure |
-| ------------------------------------------ | ---------------------- | ------------------- |
-| `safeParse<T>(json, fallback, validator?)` | Typed `JSON.parse`     | Returns `fallback`  |
-| `safeToml<T>(text, fallback, validate?)`   | Typed `Bun.TOML.parse` | Returns `fallback`  |
-
-Use these instead of unchecked `JSON.parse(...)` as `any` or `TOML.parse(...)` as `any` casts. The optional `validator` parameter accepts a type guard for runtime shape validation.
-
-### CLI Tools (`src/bin/`)
-
-Each tool is a self-contained Bun script with a `#!/usr/bin/env bun` shebang. They share:
-
-- `../lib/utils.ts` — `ensureDir`, `log`, `sha256File`, `runTool`, `resolveProjectRoot`, `getProjectName`, `safeParse`, etc.
-- `../lib/version.ts` — `TOOLCHAIN_VERSION`, `getDesktopVersion()`, `getRepoHead()`, etc.
-
-Every tool supports at minimum:
-
-- A `doctor` subcommand — health check returning structured `{ name, status, message, fixable }` checks.
-- A `fix` subcommand — auto-repair where applicable.
-
-### Shared Library (`src/lib/`)
-
-- **`utils.ts`** — Zero-dependency helpers. Key exports:
-  - `runTool(toolName, args, options)` — executes another kimi tool via `~/.kimi-code/tools/`
-  - `recordDoctorRun(project, tool, warnings, rScore?, gitHead?)` — persists warnings to `sessions.db`
-  - `getPersistentWarnings(tool?)` — reads warning trends from `sessions.db`
-  - `DoctorCheck` / `DoctorReport` interfaces — standard diagnostic shape
-- **`version.ts`** — Single source of truth for version. Derives from `package.json` at runtime, falls back to `~/.kimi-code/toolchain-manifest.json`.
-
-### Hooks taxonomy
-
-The project uses three separate hook systems. Do not conflate them in docs or code.
-
-| System                        | Location                                                                      | Purpose                                                                 |
-| ----------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **Git hooks**                 | Installed into `.git/hooks/` by `kimi-githooks`                               | `pre-commit`, `pre-push` policy gates                                   |
-| **Bun install hook**          | `src/install-hooks/postinstall.ts`                                            | Idempotent `~/.kimi-code/` setup after `bun install`                    |
-| **Kimi Code lifecycle hooks** | `src/kimi-hooks/` scripts; declared in `~/.kimi-code/config.toml` `[[hooks]]` | Intercept `PreToolUse`, audit `PostToolUseFailure`, notifications, etc. |
-
-#### Install hooks (`src/install-hooks/`)
-
-- **`postinstall.ts`** — Creates `~/.kimi-code/` directory tree, copies tools/lib/templates, initializes `sessions.db` schema, installs the agent skill to `~/.agents/skills/kimi-toolchain/`.
-
-#### Kimi Code hooks (`src/kimi-hooks/`)
-
-- **`log-tool-failure.ts`** — `PostToolUseFailure` handler. Reads JSON from stdin, classifies the failure against `~/.kimi-code/error-taxonomy.yml`, and appends to `~/.kimi-code/var/tool-failures.jsonl`.
-- **`kimi-debug taxonomy`** — List all categories from `~/.kimi-code/error-taxonomy.yml`.
-- **`kimi-debug wire [path]`** — Parse a `wire.jsonl` and summarize failures by category.
-- **Canonical failure ledger**: `~/.kimi-code/var/tool-failures.jsonl`.
-
-## Testing Strategy
-
-- **Test runner**: `bun:test` (built into Bun)
-- **Test files**: unit tests under `test/` (76 in fast gate via `test-gates.ts`), Effect tests under `test/effect/`, smoke tests in `test/smoke/` (`bun run test:smoke` runs the `SMOKE_TEST_FILES` subset)
-- **Test style**: Unit tests for pure logic and typed errors; smoke tests spawn CLI tools and assert on stdout + exit code.
-- **Isolation**: Tests use a temporary `HOME` directory so they never touch the real `~/.kimi-code/`.
-- **Timeout**: Default 30s per test; 120s for the full `kimi-doctor` run (which invokes all sub-doctors).
-- **Coverage**: Run `bun test --coverage`.
-
-### Running tests
-
-```bash
-bun test                 # all tests
-bun test --coverage      # with coverage report
-bun run typecheck        # TypeScript validation
-```
-
-## Development Conventions
-
-### Formatting & lint
-
-- **Formatter:** [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html) — config in `.oxfmtrc.json`
-- **Linter:** [oxlint](https://oxc.rs/docs/guide/usage/linter.html) — config in `.oxlintrc.json`
-- **Banned terms:** `scripts/lint-banned-terms.ts` — blocks internal branding tags in docs; runs via `bun run lint`
-- Run `bun run format` before commit; CI uses `format:check`, `lint`, and `typecheck`
-- Composite gate: `bun run check` (= format:check + lint + typecheck + test)
-- Cursor: `oxc.oxc-vscode` extension as default formatter for TS/JS (format on save)
-
-### Quality gates (enforced)
+### Gate layers
 
 | Layer      | Command / hook                                                                               |
 | ---------- | -------------------------------------------------------------------------------------------- |
@@ -335,307 +169,9 @@ bun run typecheck        # TypeScript validation
 
 Install hooks: `kimi-githooks install` or `kimi-githooks fix` to refresh outdated hooks.
 
-### Linting & Formatting Strategy
+### R-Score & governance preflight
 
-| Tool             | Role       | Why                                                                     |
-| ---------------- | ---------- | ----------------------------------------------------------------------- |
-| **oxfmt**        | Formatter  | 30x faster than Prettier, same output. Alpha but stable for this repo.  |
-| **oxlint**       | Linter     | 50-100x faster than ESLint, 655+ rules, native TS support, zero-config. |
-| **tsc --noEmit** | Type check | Catches type-aware issues that oxlint (without `--type-aware`) misses.  |
-
-**Do not add ESLint.** The project keeps runtime dependencies minimal and avoids plugin ecosystems. Oxlint's built-in rules + `tsc --noEmit` cover all needs. When `oxlint --type-aware` (via tsgolint) stabilizes, evaluate adding it for `no-floating-promises` and similar rules.
-
-### Bun-Native Coding Standards
-
-The project follows strict Bun-native conventions. **Always prefer Bun APIs over Node equivalents.**
-
-| Task          | Use                                  | Avoid                                 |
-| ------------- | ------------------------------------ | ------------------------------------- |
-| Read file     | `Bun.file(path).text()` / `.json()`  | `fs.readFileSync`                     |
-| Write file    | `Bun.write(path, data)`              | `fs.writeFileSync`                    |
-| Hash          | `new Bun.CryptoHasher("sha256")`     | `crypto.createHash`                   |
-| Spawn         | `Bun.spawn(cmd, { stdout: "pipe" })` | `child_process.spawn`                 |
-| Sleep         | `await Bun.sleep(ms)`                | `new Promise(r => setTimeout(r, ms))` |
-| Glob          | `new Bun.Glob(pattern)`              | `fs.readdir` + regex                  |
-| TOML          | `Bun.TOML.parse(text)`               | `@iarna/toml`                         |
-| Semver        | `Bun.semver.satisfies(v, range)`     | `semver` package                      |
-| Stdout        | `Bun.stdout.write(data)`             | `process.stdout.write`                |
-| Stream → text | `Bun.readableStreamToText(stream)`   | `new Response(stream).text()`         |
-
-- Use `Uint8Array` instead of `Buffer` for binary data.
-- Use `Bun.file(path).lastModified` for mtime, not `fs.stat()`.
-- Prefer `for await...of` over `.on("data", ...)` for stream consumption.
-- Use `await proc.exited` to get exit code from `Bun.spawn`. Do not read `proc.exitCode` before the process finishes.
-
-### Tool Invocation & Logging Standards
-
-Use the shared tool runner and logger for cross-tool calls instead of open-coded subprocess/logging behavior.
-See [CODE_REFERENCES.md](CODE_REFERENCES.md) for the local exemplar map future agents should follow before writing new modules.
-
-| Need                            | Use                                                                         | Avoid                                                     |
-| ------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Invoke another toolchain CLI    | `invokeTool()` / `runTool()` from `tool-runner.ts`                          | Raw `Bun.spawn(["bun", "run", ...])` in feature code      |
-| Invoke from Effect code         | `invokeToolEffect()` / `runToolEffect()`                                    | Converting every error to an untyped string               |
-| Parse common CLI flags          | `createCli(Bun.argv, toolName)` from `cli-contract.ts`                      | Ad-hoc `Bun.argv.includes("--json")` in every tool        |
-| Parse CLI flags from Effect     | `parseCliFlagsEffect()` / `createCliEffect()` from `cli-contract-effect.ts` | Throwing raw `Error` from `parseCliFlags` in Effect code  |
-| Emit CLI status                 | `createCli(...).logger` or `createLogger(...)`                              | Raw `console.log` for doctor/check output                 |
-| Emit structured health results  | `logger.check()` / `logger.printHealthReport()`                             | Ad hoc JSON shapes                                        |
-| Persist agent/session telemetry | `logger.flushToFile()`                                                      | Writing unrelated files under `~/.kimi-code/var/`         |
-| Long or noisy subprocess output | `maxOutputBytes` on `invokeTool()`                                          | Unbounded `Bun.readableStreamToText(proc.stdout)` capture |
-| Child environment changes       | `env` overlay on `invokeTool()`                                             | Mutating `Bun.env` for a subprocess                       |
-
-Runner defaults:
-
-- `invokeTool()` uses `Bun.cwd`, a 30s human timeout, a 15s agent/CI timeout, 5s SIGTERM-to-SIGKILL grace, and 1 MiB retained output per stream.
-- `stdoutTruncated` / `stderrTruncated` mark clipped output. Preserve those fields in higher-level reports when relevant.
-- If a command needs live streaming UX, keep the tool-runner contract and stream the returned output at the router boundary.
-- JSON mode must emit `schemaVersion`, `tool`, `level`, `message`, and `timestamp`; do not invent one-off machine-readable formats for new doctors.
-
-### Reference Code Before Writing
-
-Agents should choose the closest existing implementation and match it before creating new patterns.
-
-| New work                        | Read first                                                                                              |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| New CLI main                    | `src/lib/effect/cli-runtime.ts`, `src/lib/cli-contract.ts`, `src/bin/kimi-toolchain.ts`                 |
-| New cross-tool call             | `src/lib/tool-runner.ts`, `src/lib/effect/tool-runner-effect.ts`                                        |
-| New doctor/check output         | `src/lib/cli-contract.ts`, `src/lib/logger.ts`, `src/lib/health-check.ts`, `src/lib/doctor-pipeline.ts` |
-| New config or schema parser     | `src/lib/cloudflare-access-policy.ts`, `src/lib/mcp-config.ts`, `src/lib/kimi-config-audit.ts`          |
-| New package/dependency behavior | `package.json`, `bunfig.toml`, `src/lib/scaffold-quality.ts`, `kimi-guardian check`                     |
-| New scaffold/agent docs         | `src/lib/scaffold-agents.ts`, `TEMPLATES.md`, `test/scaffold-agents.unit.test.ts`                       |
-
-### Process Cache (src/lib/process-utils.ts, src/lib/memory-budget.ts)
-
-Both modules share a lightweight TTL cache for `ps` output to avoid repeated system calls within the same doctor run:
-
-- **Cache TTL**: 1000ms (1 second)
-- **Clear cache**: `clearProcessCache()` from either module
-- **Why**: `ps aux` / `ps -axo` calls take ~30-140ms each; a typical doctor run calls them 3-5 times. Caching reduces this to a single call.
-- **Benchmark improvement**: `getOrphanProcesses` from ~108ms → ~0.3ms (cached); `getAppRssGroups` + `getChromeRssMB` from ~70ms → ~1.3ms (shared call).
-
-### src/lib/ Flat Structure
-
-`src/lib/` is flat by default to avoid deep import paths and circular dependencies. `src/lib/effect/` is the intentional exception for Effect adapters and typed CLI/runtime errors. New subdirectories need an explicit rationale in `src/lib/README.md`.
-
-**Import rule**: Use relative paths (`../lib/foo.ts`) — never absolute or path aliases.
-
-### Benchmarking
-
-Run `bun run bench` to execute `bench/core.bench.ts`. Add new benchmarks when introducing performance-critical paths. The suite uses `Bun.nanoseconds()` for high-resolution timing.
-
-| Benchmark                     | Baseline | Target    |
-| ----------------------------- | -------- | --------- |
-| `sha256String (1KB)`          | ~0.001ms | < 0.01ms  |
-| `safeParse (small object)`    | ~0.000ms | < 0.001ms |
-| `computeRScore (full)`        | ~0.001ms | < 0.01ms  |
-| `getOrphanProcesses (cold)`   | ~140ms   | < 200ms   |
-| `getOrphanProcesses (cached)` | ~0.3ms   | < 1ms     |
-| `getAppRssGroups+cachedRss`   | ~1.3ms   | < 5ms     |
-
-- `process.on("SIGINT", handler)` is acceptable.
-- `process.exit(code)` is acceptable for CLI tools.
-- For resource-limited spawning, use `governedSpawn()` from `src/lib/governor-spawn.ts` (CLI: `kimi-resource-governor spawn`).
-
-### Agent Defaults & Recommendations
-
-When working on this codebase, agents should:
-
-| Setting              | Recommendation                                                           | Why                                                       |
-| -------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------- |
-| **Permission mode**  | `auto` for safe paths (tests, docs), `manual` for destructive ops        | Prevents accidental deletes while allowing fast iteration |
-| **Background tasks** | Keep `keep_alive_on_exit = false` unless explicitly daemonizing          | Avoids orphan processes                                   |
-| **Loop control**     | `max_steps_per_turn` is **unset** in `config.toml` (unlimited)           | Context compaction + step-budget discipline handle memory |
-| **MCP timeout**      | Default 30s is sufficient; increase only for long-running Cloudflare ops | Most tools complete in < 5s                               |
-| **Session memory**   | Use `kimi-memory store` for cross-session context, not file hacks        | Proper SQLite persistence                                 |
-
-> **Note on step limits:** The live `~/.kimi-code/config.toml` has `max_steps_per_turn` commented out (unlimited). If your local config still has it set to 30, run `kimi-doctor --fix` to align with the recommended defaults. The toolchain now auto-detects agent context and reduces tool timeouts to 15s.
-
-**Before starting a long session:**
-
-1. Run `kimi-doctor --agent-ready` to check shell, PATH, official Kimi Code config, MCP config, and memory readiness
-2. Run `kimi-doctor --quick` when you need the broader diagnostics view
-3. Run `kimi-orphan-kill --dry-run` if orphans detected
-4. Ensure R-Score is ≥ B (`kimi-governance score --preflight --quick`)
-
-**During a session (step-budget discipline):**
-
-| Instead of                                                    | Use                                                          | Why                                                            |
-| ------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------- |
-| `bun test` (full suite incl. smoke, ~15s)                     | `bun run test:fast` (76 unit files, ~5s)                     | Smoke tests are subprocess-heavy and not needed for most edits |
-| `bun run check` (4 gates, ~30s)                               | `bun run check:fast` (fast mode, ~3s)                        | Runs only unit tests with 1500ms timeout                       |
-| `bun run format` then `bun run lint` then `bun run typecheck` | `bun run check:fast`                                         | Bundles all three; agents should not run them separately       |
-| Re-running full suite after every edit                        | Target specific test files: `bun test test/lib.unit.test.ts` | 1-2 steps instead of 5-10                                      |
-| `bun run bench` (benchmarks)                                  | Only run when optimizing performance                         | Benchmarks are for regression detection, not validation        |
-| Running `kimi-doctor` without `--quick`                       | `kimi-doctor --quick`                                        | Full doctor runs 10 parallel tools with 120s timeouts each     |
-| Running `kimi-debug wire` without path                        | `kimi-debug wire` (now auto-discovers latest session)        | Previously hardcoded to a stale session                        |
-
-**Agent workflow for validation (batching strategy):**
-
-1. **Batch all edits first** (1 step per file, up to 5-8 files)
-2. Run `bun run check:fast` (1 step, ~2-3s)
-3. If failures: read the specific failing test file (1 step), read source (1 step), edit (1 step)
-4. Re-run `bun run check:fast` (1 step)
-5. **Total: 4-6 steps per iteration**
-6. After 3-4 iterations or when confident, run `bun run check` (full validation, 1 step)
-
-> **Recovery if you hit `max_steps_exceeded`:**
->
-> 1. Run `kimi-debug analyze "max_steps_exceeded"` for immediate guidance
-> 2. Switch to `bun run check:fast` instead of full suite
-> 3. Batch remaining edits without running tests between each one
-> 4. Run only targeted tests: `bun test <specific-file>`
-
-**After finishing a session:**
-
-1. Run `kimi-githooks doctor`
-2. Run `bun run check:fast` during iteration, then `bun run check` before commit
-3. Run `kimi-doctor --agent-ready`
-4. Run `kimi-governance score --preflight --quick` (lock/README/guardian auto-fix + grade; pre-push runs the same preflight via `--hook`)
-5. Commit with conventional commit format
-6. If runtime-synced assets changed, run `bun run sync && bun run sync:verify` before handoff
-
-### Deep Quality Floor (Effect Discipline)
-
-When a session touches Effect code, run the Effect-discipline gates before committing. See `DEEP-QUALITY.md` for the full contract, constants, thresholds, and JSON shapes.
-
-```bash
-# Full scan with snapshot + regression detection
-kimi-doctor --effect-gates
-kimi-doctor --effect-gates --json
-
-# Standalone audit (no snapshot)
-kimi-heal effect audit
-kimi-heal effect audit --check-tags --event-streams --json
-
-# Effect-floor sign-off
-kimi-doctor --effect-floor \
-  --raw-promises-removed 2 \
-  --services-migrated 2 \
-  --domain-purity-resolved 1 \
-  --raw-errors-converted 1 \
-  --event-emitters-converted 0 \
-  --circular-layers 0
-```
-
-Floor rules:
-
-- `--raw-promises-removed 2`
-- `--services-migrated 2`
-- `--domain-purity-resolved 1`
-- `--raw-errors-converted 1`
-- `--event-emitters-converted 0`
-- `--circular-layers 0`
-
-Missing/invalid values or counts below the floor cause exit code `1`. Event-emitter and circular-layer counts are zero-tolerance fields (negative values fail; zero is expected).
-
-### Agent Diagnosis Report
-
-`kimi-doctor --agent --json` emits a stable, machine-readable `AgentDiagnosisReport` that agents can consume to reason about project health without parsing human-formatted doctor output.
-
-The report includes:
-
-- `summary.overallConfidence` — aggregated 0-1 score across error coverage, ledger classification, health checks, and tuning-set alignment
-- `prioritizedIssues` — health checks and ledger findings sorted by severity (error > warn > ok)
-- `proposedActions` — concrete, runnable next steps such as reviewing the failure ledger or regenerating the constants manifest
-- `sourceData` — raw `errorCoverage`, `ledger`, and `tuningSet` audits for deeper inspection
-
-Use it when you need a structured health snapshot:
-
-```bash
-kimi-doctor --agent --json
-```
-
-Or read it in human-readable form:
-
-```bash
-kimi-doctor --agent
-```
-
-This mode is additive; existing `--quick`, `--success-metrics`, and `--agent-ready` modes are unchanged.
-
-### Agent & Plugin Hub (new)
-
-`kimi-doctor` is now an agent-facing diagnostics hub:
-
-- `--probe` emits a versioned capability manifest (schema version 1) so new agents can discover modes, flags, available check sources, and MCP tools without parsing help text.
-- `--adapter <name>` runs an external-tool adapter (`oxlint`, `typecheck`, `effect-gates`, `guardian`, `governance`, ...) and returns a structured `AdapterOutput` envelope containing `HealthCheck` results.
-- `--plugin <name>` runs a custom check from `.kimi/doctor-plugins.json` or `~/.kimi-code/doctor-plugins.json`.
-- `--all` runs every registered adapter, every valid plugin, and the built-in `effect-gates` check in sequence, returning a flattened `HealthCheck` list plus per-source metadata.
-- `--mcp-server` starts an MCP stdio server exposing `kimi_doctor_probe`, `kimi_doctor_run`, `kimi_doctor_fix`, and `kimi_doctor_run_all`.
-
-Plugin sources and precedence:
-
-- Project-local `.kimi/doctor-plugins.json` overrides user-global `~/.kimi-code/doctor-plugins.json` by plugin name.
-- Invalid plugin entries (bad schema, missing name, command not on PATH, etc.) emit an error check and are not executed.
-
-Plugin manifest contract:
-
-```json
-{
-  "schemaVersion": 1,
-  "plugins": [
-    {
-      "name": "my-check",
-      "command": "my-doctor-plugin",
-      "args": ["--json"],
-      "timeoutMs": 30000,
-      "maxOutputBytes": 1048576
-    }
-  ]
-}
-```
-
-Plugin executable output contract (must print JSON to stdout):
-
-```json
-{
-  "checks": [{ "name": "my-check", "status": "ok", "message": "...", "fixable": false }]
-}
-```
-
-Register the MCP server by running `kimi-doctor --fix` (or `kimi-config fix`), which updates `~/.kimi-code/mcp.json` via `src/lib/mcp-config.ts`.
-
-### Step Budget Reference
-
-| Step Range | Action Pattern                                |
-| ---------- | --------------------------------------------- |
-| 1-2        | Batch edits for 1 file                        |
-| 3-4        | Run `check:fast` + read failure               |
-| 5-6        | Read source + edit + re-run                   |
-| 7-10       | Multi-file refactor batch                     |
-| 11-15      | Full `bun run check` + commit                 |
-| 16+        | Reserve for complex validation or smoke tests |
-
-### Commit Convention
-
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-- `feat:` — new feature
-- `fix:` — bug fix
-- `docs:` — documentation only
-- `refactor:` — code change that neither fixes a bug nor adds a feature
-- `test:` — adding or correcting tests
-- `chore:` — maintenance tasks
-
-## Quality Gates (R-Score)
-
-The project uses its own `kimi-governance score` system. The R-Score formula checks:
-
-| Check           | Weight    |
-| --------------- | --------- |
-| hasLicense      | 10        |
-| hasContributing | 10        |
-| hasCodeowners   | 10        |
-| hasReadme       | 10        |
-| hasContext      | 10        |
-| hasChangelog    | 5 (bonus) |
-| testCoverage    | 25        |
-| docsFresh       | 15        |
-| noStaleLockfile | 10        |
-
-Grades: A (≥90%), B (≥80%), C (≥70%), D (≥60%), F (<60%). CLI shows points, max (110), and decimal % (e.g. `C (87.3/110, 79.4%)`). Coverage points are fractional, not rounded.
-
-**Pre-push hooks block push if R-Score is F or D.**
+`kimi-governance score` checks license, CONTRIBUTING, CODEOWNERS, README, CONTEXT, changelog (bonus), test coverage, docs freshness, and lockfile staleness. Grades: A (≥90%), B (≥80%), C (≥70%), D (≥60%), F (<60%). Pre-push blocks D and F.
 
 **Governance preflight** (`src/lib/governance-preflight.ts`) runs automatically before hook scoring and on `kimi-governance score --preflight`:
 
@@ -650,77 +186,173 @@ kimi-governance score --preflight --quick   # manual pre-push check
 bun run finish-work --message "..." --push  # gates + commit + push close-loop
 ```
 
+## Testing Strategy
+
+- **Test runner**: `bun:test` (built into Bun)
+- **Fast gate**: 81 unit files in `UNIT_TEST_FILES` (`test-gates.ts`); 1500ms timeout per test
+- **Smoke**: `test/smoke/` — full CLI invocations (`bun run test:smoke`)
+- **Integration**: `INTEGRATION_TEST_FILES` in `test-gates.ts` — full suite only
+- **Isolation**: Tests use a temporary `HOME` so they never touch the real `~/.kimi-code/`
+- **Timeout**: Default 30s per test; 120s for full `kimi-doctor` (invokes all sub-doctors)
+
+## Code Organization
+
+### Path helpers (`src/lib/paths.ts`)
+
+All paths under `~/.kimi-code/` must use `src/lib/paths.ts` helpers. **Never hardcode `~/.kimi-code` or `~/.kimi-code/...` strings in source.**
+
+Key exports: `desktopRoot()`, `toolsDir()`, `libDir()`, `mcpPath()`, `varDir()`, `guardDir()`, `governorDir()`, `taxonomyPath()`, `toolchainManifestPath()`.
+
+Import: `import { desktopRoot, toolsDir } from "../lib/paths.ts";` (adjust depth as needed).
+
+### Safe parse helpers (`src/lib/utils.ts`)
+
+Use `safeParse<T>()` and `safeToml<T>()` instead of unchecked `JSON.parse` / `TOML.parse` casts.
+
+### CLI tools (`src/bin/`)
+
+Each tool is a self-contained Bun script with a `#!/usr/bin/env bun` shebang. They share `../lib/utils.ts` and `../lib/version.ts`. Every tool supports at minimum a `doctor` subcommand and a `fix` subcommand where applicable.
+
+### Hooks taxonomy
+
+Do not conflate these three hook systems:
+
+| System                        | Location                                                                      | Purpose                                                                 |
+| ----------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Git hooks**                 | Installed into `.git/hooks/` by `kimi-githooks`                               | `pre-commit`, `pre-push` policy gates                                   |
+| **Bun install hook**          | `src/install-hooks/postinstall.ts`                                            | Idempotent `~/.kimi-code/` setup after `bun install`                    |
+| **Kimi Code lifecycle hooks** | `src/kimi-hooks/` scripts; declared in `~/.kimi-code/config.toml` `[[hooks]]` | Intercept `PreToolUse`, audit `PostToolUseFailure`, notifications, etc. |
+
+Canonical failure ledger: `~/.kimi-code/var/tool-failures.jsonl` (classified by `src/kimi-hooks/log-tool-failure.ts`).
+
+### Tool invocation & logging
+
+See [CODE_REFERENCES.md](CODE_REFERENCES.md) for the exemplar map. Summary:
+
+| Need                            | Use                                                                         | Avoid                                                     |
+| ------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Invoke another toolchain CLI    | `invokeTool()` / `runTool()` from `tool-runner.ts`                          | Raw `Bun.spawn(["bun", "run", ...])` in feature code      |
+| Invoke from Effect code         | `invokeToolEffect()` / `runToolEffect()`                                    | Converting every error to an untyped string               |
+| Parse common CLI flags          | `createCli(Bun.argv, toolName)` from `cli-contract.ts`                      | Ad-hoc `Bun.argv.includes("--json")` in every tool        |
+| Emit structured health results  | `logger.check()` / `logger.printHealthReport()`                             | Ad hoc JSON shapes                                        |
+| Long or noisy subprocess output | `maxOutputBytes` on `invokeTool()`                                          | Unbounded stream capture                                |
+
+Runner defaults: 30s human timeout, 15s agent/CI timeout, 5s SIGTERM-to-SIGKILL grace, 1 MiB retained output per stream. JSON mode must emit `schemaVersion`, `tool`, `level`, `message`, and `timestamp`.
+
+### Reference code before writing
+
+| New work                        | Read first                                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| New CLI main                    | `src/lib/effect/cli-runtime.ts`, `src/lib/cli-contract.ts`, `src/bin/kimi-toolchain.ts`                 |
+| New cross-tool call             | `src/lib/tool-runner.ts`, `src/lib/effect/tool-runner-effect.ts`                                        |
+| New doctor/check output         | `src/lib/cli-contract.ts`, `src/lib/logger.ts`, `src/lib/health-check.ts`, `src/lib/doctor-pipeline.ts` |
+| New config or schema parser     | `src/lib/cloudflare-access-policy.ts`, `src/lib/mcp-config.ts`, `src/lib/kimi-config-audit.ts`          |
+| New package/dependency behavior | `package.json`, `bunfig.toml`, `src/lib/scaffold-quality.ts`, `kimi-guardian check`                     |
+| New scaffold/agent docs         | `src/lib/scaffold-agents.ts`, `TEMPLATES.md`, `test/scaffold-agents.unit.test.ts`                       |
+| Doctor adapters/plugins/MCP     | [CODE_REFERENCES.md](CODE_REFERENCES.md) § Doctor Adapter / Plugin / MCP                                |
+
+### Bun-native coding standards
+
+**Always prefer Bun APIs over Node equivalents.**
+
+| Task          | Use                                  | Avoid                                 |
+| ------------- | ------------------------------------ | ------------------------------------- |
+| Read file     | `Bun.file(path).text()` / `.json()`  | `fs.readFileSync`                     |
+| Write file    | `Bun.write(path, data)`              | `fs.writeFileSync`                    |
+| Hash          | `new Bun.CryptoHasher("sha256")`     | `crypto.createHash`                   |
+| Spawn         | `Bun.spawn(cmd, { stdout: "pipe" })` | `child_process.spawn`                 |
+| Sleep         | `await Bun.sleep(ms)`                | `new Promise(r => setTimeout(r, ms))` |
+| Glob          | `new Bun.Glob(pattern)`              | `fs.readdir` + regex                  |
+| TOML          | `Bun.TOML.parse(text)`               | `@iarna/toml`                         |
+| Stream → text | `Bun.readableStreamToText(stream)`   | `new Response(stream).text()`         |
+
+Use `Uint8Array` instead of `Buffer`. Use `await proc.exited` for exit codes. For resource-limited spawning, use `governedSpawn()` from `src/lib/governor-spawn.ts`.
+
+`src/lib/` is flat by default; new subdirectories need rationale in `src/lib/README.md`. Use relative imports — never path aliases.
+
+### Process cache
+
+`src/lib/process-utils.ts` and `src/lib/memory-budget.ts` share a 1s TTL cache for `ps` output. Call `clearProcessCache()` to invalidate within a doctor run.
+
+## Agent Workflow
+
+### Defaults
+
+| Setting              | Recommendation                                                           |
+| -------------------- | ------------------------------------------------------------------------ |
+| **Permission mode**  | `auto` for safe paths (tests, docs), `manual` for destructive ops        |
+| **Background tasks** | Keep `keep_alive_on_exit = false` unless explicitly daemonizing          |
+| **Loop control**     | `max_steps_per_turn` unset in `config.toml` (unlimited)                  |
+| **Session memory**   | Use `kimi-memory store` for cross-session context, not file hacks        |
+
+**Before a long session:** `kimi-doctor --agent-ready` → `kimi-doctor --quick` → `kimi-orphan-kill --dry-run` if needed → `kimi-governance score --preflight --quick`.
+
+**During iteration (step-budget discipline):**
+
+| Instead of                                                    | Use                                                          |
+| ------------------------------------------------------------- | ------------------------------------------------------------ |
+| `bun test` (full suite incl. smoke, ~15s)                     | `bun run test:fast` (81 unit files, ~5s)                     |
+| `bun run check` (~30s)                                        | `bun run check:fast` (~3s)                                   |
+| Re-running full suite after every edit                        | `bun test <specific-file>`                                   |
+| `kimi-doctor` without `--quick`                               | `kimi-doctor --quick`                                        |
+
+Batch edits (up to 5–8 files) → `bun run check:fast` → fix failures → repeat → `bun run check` before commit.
+
+**After finishing:** `kimi-githooks doctor` → `kimi-doctor --agent-ready` → `kimi-governance score --preflight --quick` → conventional commit → `bun run sync && bun run sync:verify` if runtime assets changed.
+
+### Effect discipline
+
+When a session touches Effect code, run Effect gates before committing. Full contract: [DEEP-QUALITY.md](DEEP-QUALITY.md).
+
+```bash
+kimi-doctor --effect-gates
+kimi-heal effect audit --check-tags --event-streams --json
+```
+
+### Agent diagnosis & doctor hub
+
+```bash
+kimi-doctor --agent --json    # structured AgentDiagnosisReport
+kimi-doctor --probe           # capability manifest for agents
+kimi-doctor --adapter <name>  # oxlint, typecheck, guardian, governance, ...
+kimi-doctor --all             # every adapter + plugins + effect-gates
+```
+
+Adapters, plugins, MCP tools, and JSON contracts: [CODE_REFERENCES.md](CODE_REFERENCES.md) § Doctor Adapter / Plugin / MCP. Register MCP via `kimi-doctor --fix`.
+
+### Commit convention
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`.
+
 ## Security Considerations
 
 - **No secrets in source.** Use `Bun.env` or `Bun.secrets`.
 - **Pre-commit hook** blocks `.env` files from being committed.
-- **Guardian** baselines `bun.lock` hashes and signs manifests with HMAC (key stored in macOS Keychain or `~/.kimi-code/guardian/.key` with `chmod 600`).
-- **CVE scanning** uses the OSV API (`api.osv.dev`) for outdated dependencies.
-- **Trusted dependencies** gate: packages with `postinstall`/`preinstall`/`install` scripts must be listed in `bunfig.toml`'s `trustedDependencies`.
+- **Guardian** baselines `bun.lock` hashes and signs manifests with HMAC (key in macOS Keychain or `~/.kimi-code/guardian/.key` with `chmod 600`).
+- **CVE scanning** uses the OSV API (`api.osv.dev`).
+- **Trusted dependencies** gate: postinstall scripts must be listed in `bunfig.toml` `trustedDependencies`.
 - Validate all external input at system boundaries.
 
 ## Memory Budget (16 GB)
 
-On memory-constrained hosts, swap thrashing inflates load average and disk I/O before CPU looks busy. Prevent it:
+On memory-constrained hosts, swap thrashing inflates load before CPU looks busy.
 
 | Rule                                                                                                  | Why                                         |
 | ----------------------------------------------------------------------------------------------------- | ------------------------------------------- |
 | Do **not** run Chrome + Kimi Desktop + kimi CLI + cursor-agent concurrently                           | Chrome alone can use ~5 GB                  |
 | **No Docker** on this machine — use Bun-native dev (`dx.config.toml` `[runtime].containers = "none"`) | Docker VM was ~600MB idle overhead          |
 | Run `bun run memory-check` or `kimi-doctor --quick` before long agent sessions                        | Catches low RAM / high swap early           |
-| Run `kimi-doctor --memory-budget` to see per-app RSS                                                  | Same breakdown as investigation tooling     |
 | Use **kimi CLI OR Kimi Desktop**, not both                                                            | Duplicate Electron/Node stacks              |
 | Never run `bun run sync:daemon` unless developing toolchain                                           | Background Bun cron every 5 min             |
 | Run `kimi-orphan-kill --dry-run` weekly                                                               | Cleans stale `bun test` / kimi-tool orphans |
 
 **Governor config:** `~/.kimi-code/governor/defaults.toml` — `maxParallelJobs` caps at 2 when free RAM < 2 GB.
 
-**Monitoring scripts:**
-
-- `scripts/memory-check.sh` — pre-session gate (`bun run memory-check`)
-- `scripts/memory-baseline.sh` — before/after metrics snapshot
-
 ## Deployment / Distribution
 
 - **No build step.** TypeScript is run directly via `bun run`.
-- **Distribution**: GitHub repo, installed via `bun install -g github:brendadeeznuts1111/kimi-toolchain`.
-- **Live runtime**: `~/.kimi-code/` is maintained by `postinstall.ts` and `sync-to-desktop.ts`; sync writes `toolchain-manifest.json` with file hashes.
-- **Files included in package**: `src/`, `skills/`, `AGENTS.md`, `CODE_REFERENCES.md`, `UNIFIED.md`, `TEMPLATES.md`, `DEEP-QUALITY.md`, `README.md`, `CONTRIBUTING.md`, `LICENSE`, `CHANGELOG.md`.
-
-## Key Files for Agents
-
-| File                                   | Purpose                                                                             |
-| -------------------------------------- | ----------------------------------------------------------------------------------- |
-| `package.json`                         | Toolchain metadata, bin mappings, scripts                                           |
-| `tsconfig.json`                        | Strict TypeScript, ESNext, bundler resolution                                       |
-| `bunfig.toml`                          | Bun install + `[define]` build-time constants (`KIMI_*`, `# define-domain:` groups) |
-| `types/build-constants.d.ts`           | TypeScript globals + `@defineDomain` JSDoc (not taxonomyId)                         |
-| `scripts/lint-build-constants.ts`      | Regression lint — literals + `KIMI_*` / defineDomain naming rules                   |
-| `error-taxonomy.yml`                   | Failure **taxonomyId** schema (runtime — separate from `[define]`)                  |
-| `src/lib/utils.ts`                     | Shared utilities — import from here                                                 |
-| `src/lib/version.ts`                   | Version resolution logic                                                            |
-| `src/lib/memory-budget.ts`             | System memory / RSS budget checks                                                   |
-| `src/lib/governor-config.ts`           | Loads `~/.kimi-code/governor/defaults.toml`                                         |
-| `src/lib/test-gates.ts`                | Unit vs smoke test lists, `bunTestArgs()`                                           |
-| `src/lib/readme-sync.ts`               | README ↔ package.json drift detect + patch                                          |
-| `src/lib/paths.ts`                     | **Single source of truth for `~/.kimi-code` paths**                                 |
-| `src/lib/governance-check.ts`          | License/CONTRIBUTING/CODEOWNERS checker                                             |
-| `src/lib/governance-preflight.ts`      | Pre-score auto-fix: stale lock mtime, README drift, guardian baseline               |
-| `src/lib/r-score.ts`                   | R-Score calculation + grade formatting                                              |
-| `src/lib/conventional-commits.ts`      | Conventional commit parser + semver bump logic                                      |
-| `src/lib/changelog.ts`                 | Changelog section generation + update                                               |
-| `src/lib/scaffold-templates.ts`        | README, LICENSE, ADR template generators                                            |
-| `src/lib/scaffold-quality.ts`          | package.json quality tooling injection                                              |
-| `src/lib/process-utils.ts`             | Orphan process detection + cleanup                                                  |
-| `scripts/check.ts`                     | CI gate runner with dry-run and fast modes                                          |
-| `test/smoke/`                            | CLI smoke tests (`kimi-doctor`, `kimi-identity`, `kimi-config`)                     |
-| `CONTEXT.md`                           | Auto-generated project context                                                      |
-| `CODE_REFERENCES.md`                   | Local exemplar map for agent coding patterns                                        |
-| `DEEP-QUALITY.md`                      | Effect-discipline constants, thresholds, CLI commands, and report shapes            |
-| `skills/kimi-toolchain/SKILL.md`       | Agent decision protocol                                                             |
-| `skills/herdr/SKILL.md`                | Herdr pane/workspace control from inside a pane                                       |
-| `error-taxonomy.yml`                   | Failure classification schema                                                       |
-| `~/.kimi-code/var/tool-failures.jsonl` | Canonical tool failure ledger                                                       |
+- **Distribution**: GitHub repo, `bun install -g github:brendadeeznuts1111/kimi-toolchain`.
+- **Live runtime**: `~/.kimi-code/` maintained by `postinstall.ts` and `sync-to-desktop.ts`; sync writes `toolchain-manifest.json` with file hashes.
 
 ## Project docs (active)
 
@@ -739,9 +371,9 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | Tool                     | Key Commands                                                                                                      |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | `kimi-toolchain`         | Unified router — `kimi-toolchain <tool> [args]` (see UNIFIED.md)                                                |
-| `kimi-doctor`            | `doctor`, `doctor --fix`, `doctor --quick`, `doctor --memory-budget`                                              |
+| `kimi-doctor`            | `doctor`, `doctor --fix`, `doctor --quick`, `doctor --memory-budget`, `--agent`, `--probe`, `--adapter`, `--all`  |
 | `kimi-orphan-kill`       | `--dry-run` (cleanup stale test/tool processes)                                                                   |
-| `kimi-fix`               | `fix <path>`, `fix <path> --profile app\|toolchain`, `fix <path> --dry-run` — gate config uses `kimi-doctor --effect-gates` (see TEMPLATES.md migration) |
+| `kimi-fix`               | `fix <path>`, `fix <path> --profile app\|toolchain`, `fix <path> --dry-run`                                       |
 | `kimi-governance`        | `score`, `score --preflight`, `fix`, `coverage [N]`, `docs`, `adr <title>`, `doctor`                             |
 | `kimi-guardian`          | `check`, `sign`, `verify`, `report`, `fix`, `doctor`                                                              |
 | `kimi-memory`            | `store`, `recall`, `resume`, `autosave`, `graph`, `impact`, `search`, `prune`, `stats`, `trends`, `doctor`, `fix` |
@@ -758,48 +390,8 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `herdr-doctor`           | Herdr integration health checks                                                                                   |
 | `herdr-latm`             | `list`, `sync --project .`, `invoke --tool <name>` — pane capability mesh (auto-routes to shell/reviewer)        |
 
----
-
-## Kimi Code Official Documentation
-
-When toolchain behavior depends on Kimi Code internals (loop limits, permissions, MCP wiring), consult the authoritative docs rather than inferring from behavior.
-
-| Topic                                                           | URL                                                                                 |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Config files (`loop_control`, `permission`, `background`, etc.) | `https://moonshotai.github.io/kimi-code/en/configuration/config-files.html`         |
-| Providers & models                                              | `https://moonshotai.github.io/kimi-code/en/configuration/providers-and-models.html` |
-| MCP configuration                                               | `https://moonshotai.github.io/kimi-code/en/customization/mcp.html`                  |
-| ACP (IDE integration)                                           | `https://moonshotai.github.io/kimi-code/en/reference/kimi-acp.html`                 |
-| Source repo                                                     | `https://github.com/MoonshotAI/kimi-code`                                           |
-
-**Agent-relevant config defaults** (from official docs, verified 2026-06-12):
-
-| Section        | Key                       | Default               | Meaning                                                          |
-| -------------- | ------------------------- | --------------------- | ---------------------------------------------------------------- |
-| `loop_control` | `max_steps_per_turn`      | — (unset = unlimited) | Hard cap on steps per turn                                       |
-| `loop_control` | `max_retries_per_step`    | `3`                   | Auto-retry failed steps                                          |
-| `loop_control` | `reserved_context_size`   | —                     | Trigger context compaction when remaining tokens fall below this |
-| `permission`   | `default_permission_mode` | `manual`              | `manual` / `auto` / `yolo`                                       |
-| `background`   | `max_running_tasks`       | —                     | Concurrent background task limit                                 |
-| `background`   | `keep_alive_on_exit`      | `false`               | Persist background tasks after session close                     |
-
-> **Environment override:** `KIMI_CODE_BACKGROUND_KEEP_ALIVE_ON_EXIT` takes priority over `config.toml`.
-
-> **Important:** MCP server declarations go in `~/.kimi-code/mcp.json` (or project-local `.kimi-code/mcp.json`), NOT in `config.toml`. The `[mcp]` section in some legacy configs may be non-standard.
-
-### Non-standard config fields (toolchain audit)
-
-The following fields were found in our `~/.kimi-code/config.toml` but are **not documented** in the official Kimi Code docs. They have been commented out and replaced with standard equivalents:
-
-| Field                               | Was in           | Standard replacement                        | Status        |
-| ----------------------------------- | ---------------- | ------------------------------------------- | ------------- |
-| `[mcp] allow`                       | `config.toml`    | `[[permission.rules]] pattern = "mcp__..."` | Migrated      |
-| `[mcp.client] tool_call_timeout_ms` | `config.toml`    | None — not supported                        | Commented out |
-| `[safety] auto_approve_destructive` | `config.toml`    | `default_permission_mode = "manual"`        | Commented out |
-| `max_ralph_iterations`              | `[loop_control]` | None — toolchain custom                     | Commented out |
-
-**Agent rule:** Never add toolchain-specific keys to `config.toml`. Use `~/.kimi-code/toolchain-manifest.json`, `~/.kimi-code/governor/defaults.toml`, or a custom file under `~/.kimi-code/` instead. `config.toml` is owned by Kimi Code and non-standard keys are silently ignored.
+Further reading: [CODE_REFERENCES.md](CODE_REFERENCES.md), [DEEP-QUALITY.md](DEEP-QUALITY.md), `skills/kimi-toolchain/SKILL.md` (Kimi Code config/MCP/sessions).
 
 ---
 
-_Generated from project source. Update when adding new tools or changing conventions._
+_Update when adding new tools or changing conventions._
