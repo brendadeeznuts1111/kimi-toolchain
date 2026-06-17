@@ -8,7 +8,7 @@
  *   bun run scripts/finish-work-status.ts --project .
  */
 
-import { join } from "path";
+import { isAbsolute, join, normalize, resolve } from "path";
 import { execCli } from "../src/lib/herdr-project-cli.ts";
 import { LATM_DONE_MARKER } from "../src/lib/herdr-latm.ts";
 import { finishWorkReportPath, loadFinishWorkReportPublic } from "../src/lib/finish-work-herdr.ts";
@@ -19,6 +19,10 @@ import {
 import { inspectAgent } from "../src/lib/inspect.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
+
+function resolveProjectArg(path: string): string {
+  return isAbsolute(path) ? normalize(path) : resolve(process.cwd(), path);
+}
 
 interface CliOptions {
   json: boolean;
@@ -51,7 +55,7 @@ function parseCli(): CliOptions {
     if (arg === "--project") {
       const next = argv[++i];
       if (!next) throw new Error("--project requires a path");
-      projectRoot = join(process.cwd(), next);
+      projectRoot = resolveProjectArg(next);
       continue;
     }
     if (arg === "--pane") {

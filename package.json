@@ -108,6 +108,7 @@
     "typecheck": "tsc --noEmit",
     "sync": "bun run scripts/sync-to-desktop.ts",
     "sync:verify": "bun run scripts/sync-verify.ts",
+    "scope:run": "bun run scripts/scope-run.ts",
     "sync:daemon": "bun run scripts/sync-to-desktop.ts --daemon",
     "push": "bash scripts/push.sh",
     "unify": "bash scripts/unify.sh",

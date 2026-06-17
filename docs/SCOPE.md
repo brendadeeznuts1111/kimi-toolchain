@@ -38,6 +38,7 @@ We are **not** shipping new features in this run. We are validating wiring, docs
 - `herdr-doctor` — machine integration health (`dx-config`)
 - `kimi-doctor --effect-gates` — Effect discipline baseline ([ADR-0001](adr/ADR-0001-effect-gates-baseline.md))
 - `bun run sync && bun run sync:verify` — runtime deploy parity ([AGENTS.md](../AGENTS.md))
+- `bun run scope:run` — automatable preflight slice (see [Automated preflight](#automated-preflight) below)
 
 ---
 
@@ -112,9 +113,45 @@ If no remote host is configured, mark **N/A** and do not fail the run.
 
 ---
 
+## Automated preflight
+
+`bun run scope:run` executes the automatable subset of this document and writes a run log:
+
+| Log | Path |
+|-----|------|
+| Latest report | `.kimi/var/scope-run-latest.json` |
+| History | `.kimi/var/scope-runs.jsonl` |
+
+```bash
+bun run scope:run              # human summary + log path
+bun run scope:run --json       # machine-readable report (includes logPath)
+bun run scope:run --no-log     # stdout only, no persistence
+```
+
+**Checks covered automatically** (`src/lib/scope-preflight.ts`):
+
+| Check id | Maps to acceptance item |
+|----------|-------------------------|
+| `sync-verify` | `bun run sync && bun run sync:verify` |
+| `effect-gates` | `kimi-doctor --effect-gates --json` → `summary.ok` |
+| `skill-coverage` | `lint:skills` / skill-contract parity |
+| `herdr-unit-tests` | herdr orchestrator unit test subset |
+| `orchestrator-status` | `herdr-orchestrator status . --json` enabled + handoff |
+| `orchestrator-config-parity` | `dx.config.toml` ↔ `resolveOrchestratorConfig` |
+| `orchestrator-allowlist-routes` | orchestrator skill event table ⊆ allowlist |
+| `finish-work-status` | v1.1 fixture via `scripts/finish-work-status.ts` |
+
+**Smoke tests** (full CLI, `bun run test:smoke`): `herdr-orchestrator status --json`, `finish-work-status --json`.
+
+**Still manual** (steps 2–7): live Herdr bootstrap, reactive events, handoff, worktree, remote attach, session persistence, `herdr-doctor`, `herdr status`.
+
+Record manual step evidence in run notes; append `scope-run-latest.json` excerpt for automated checks.
+
+---
+
 ## Test sequence (runbook steps 1–7)
 
-Execute in order. Times are indicative; do not skip preflight.
+Execute in order. Times are indicative; do not skip preflight. Run `bun run scope:run` first for the automatable slice.
 
 | Step | Action | Pass signal |
 |------|--------|-------------|

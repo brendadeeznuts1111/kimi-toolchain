@@ -97,6 +97,7 @@ export const UNIT_TEST_FILES = [
   "test/context-sync-from-report.unit.test.ts",
   "test/condition-evaluator.unit.test.ts",
   "test/handoff-target-resolver.unit.test.ts",
+  "test/scope-preflight.unit.test.ts",
 ] as const;
 
 /** Integration tests — included by full Bun discovery, not the fast unit gate. */
@@ -111,6 +112,8 @@ export const INTEGRATION_TEST_FILES = [
 export const SMOKE_TEST_FILES = [
   "test/smoke/kimi-doctor.smoke.test.ts",
   "test/smoke/kimi-identity.smoke.test.ts",
+  "test/smoke/herdr-orchestrator.smoke.test.ts",
+  "test/smoke/finish-work-status.smoke.test.ts",
 ] as const;
 
 export const FAST_TEST_TIMEOUT_MS = 1_500;
