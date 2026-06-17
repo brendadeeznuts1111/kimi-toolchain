@@ -19,29 +19,63 @@ const SKIP_DIRS = new Set(["node_modules", ".git", "coverage", ".bun"]);
 /** Files that define or embed the ban rule itself */
 const SKIP_FILES = new Set(["scripts/lint-banned-terms.ts", "src/bin/kimi-fix.ts"]);
 
-async function main() {
+function shouldScanRel(rel: string): boolean {
+  if (rel.split("/").some((seg) => SKIP_DIRS.has(seg))) return false;
+  if (SKIP_FILES.has(rel) || rel === "bun.lock") return false;
+  return /\.(md|ts|json|toml)$/.test(rel);
+}
+
+export async function lintBannedTerms(
+  root: string = REPO_ROOT,
+  onlyFiles?: string[]
+): Promise<string[]> {
   const violations: string[] = [];
+  const targets = onlyFiles !== undefined ? onlyFiles.filter((rel) => shouldScanRel(rel)) : null;
 
-  for await (const rel of SCAN_GLOB.scan({ cwd: REPO_ROOT, onlyFiles: true })) {
-    if (rel.split("/").some((seg) => SKIP_DIRS.has(seg))) continue;
-    if (SKIP_FILES.has(rel) || rel === "bun.lock") continue;
+  if (targets) {
+    for (const rel of targets) {
+      const path = join(root, rel);
+      let text: string;
+      try {
+        text = await readTextAsync(path);
+      } catch {
+        continue;
+      }
+      for (const line of text.split("\n")) {
+        for (const { pattern, label } of BANNED) {
+          if (pattern.test(line)) {
+            violations.push(`${relative(root, path)}: ${label}\n  ${line.trim().slice(0, 120)}`);
+          }
+        }
+      }
+    }
+    return violations;
+  }
 
-    const path = join(REPO_ROOT, rel);
+  for await (const rel of SCAN_GLOB.scan({ cwd: root, onlyFiles: true })) {
+    if (!shouldScanRel(rel)) continue;
+    const path = join(root, rel);
     let text: string;
     try {
       text = await readTextAsync(path);
     } catch {
       continue;
     }
-
     for (const line of text.split("\n")) {
       for (const { pattern, label } of BANNED) {
         if (pattern.test(line)) {
-          violations.push(`${relative(REPO_ROOT, path)}: ${label}\n  ${line.trim().slice(0, 120)}`);
+          violations.push(`${relative(root, path)}: ${label}\n  ${line.trim().slice(0, 120)}`);
         }
       }
     }
   }
+
+  return violations;
+}
+
+async function main() {
+  const fileArgs = Bun.argv.slice(2).filter((arg) => !arg.startsWith("-"));
+  const violations = await lintBannedTerms(REPO_ROOT, fileArgs.length > 0 ? fileArgs : undefined);
 
   if (violations.length > 0) {
     console.error("✗ Banned terms found:\n");

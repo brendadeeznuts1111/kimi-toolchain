@@ -164,6 +164,8 @@ export function bunTestArgs(options: {
   timeoutMs?: number;
   retry?: number;
   dots?: boolean;
+  /** Bun test --changed=<ref> — import-graph related tests vs a git ref */
+  changedRef?: string;
 }): string[] {
   const timeout = String(
     options.timeoutMs ??
@@ -190,7 +192,9 @@ export function bunTestArgs(options: {
   }
   if (options.dots) args.push("--dots");
   if (options.json) args.push("--json");
-  if (options.fast) {
+  if (options.changedRef) {
+    args.push(`--changed=${options.changedRef}`);
+  } else if (options.fast) {
     args.push("--isolate", ...UNIT_TEST_FILES);
   }
   if (options.integration) {

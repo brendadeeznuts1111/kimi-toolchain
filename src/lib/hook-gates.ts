@@ -22,6 +22,11 @@ import { readPackageJson, sha256File } from "./utils.ts";
 import { buildConstantRepairPlan } from "./constants-heal.ts";
 import { detectSyncDrift } from "./sync-hashes.ts";
 import { desktopRuntimeDepsOk } from "./desktop-runtime-deps.ts";
+import { listStagedPaths } from "./scoped-test-cache.ts";
+import {
+  allPreCommitGatesCoveredAtHead,
+  shouldSkipGateFromScopedCache,
+} from "./scoped-gate-cache.ts";
 
 const PRE_COMMIT_CACHE_GATES = ["format:check", "lint", "typecheck", "test:fast"] as const;
 const PRE_PUSH_CACHE_GATES = [
@@ -64,18 +69,6 @@ function gateWarn(message: string): void {
   Bun.stderr.write(`${message}\n`);
 }
 
-async function runScriptGate(
-  projectRoot: string,
-  name: string,
-  script: string,
-  options: { cacheable?: boolean } = {}
-): Promise<GateResult> {
-  if (options.cacheable && (await shouldSkipGate(projectRoot, name))) {
-    return { name, exitCode: 0, ms: 0, stdout: "", stderr: "", skipped: true };
-  }
-  return runGateVisible(projectRoot, name, ["bun", "run", script]);
-}
-
 async function runGateVisible(
   projectRoot: string,
   name: string,
@@ -106,30 +99,52 @@ function printVerboseBanner(title: string): void {
   gateOut(`── ${title} ${"─".repeat(Math.max(0, 58 - title.length))}`);
 }
 
+function skippedGateResult(name: string): GateResult {
+  return { name, exitCode: 0, ms: 0, stdout: "", stderr: "", skipped: true };
+}
+
 export async function runPreCommitGates(projectRoot: string): Promise<number> {
   const summary = hookUsesSummary();
   const results: GateResult[] = [];
+  const staged = await listStagedPaths(projectRoot);
 
   const gates: Array<() => Promise<GateResult | null>> = [
     async () => {
       if (!(await packageHasScript(projectRoot, "format:check"))) return null;
       if (!summary) printVerboseBanner("Format check");
-      return runScriptGate(projectRoot, "format:check", "format:check", { cacheable: true });
+      if (await shouldSkipGate(projectRoot, "format:check"))
+        return skippedGateResult("format:check");
+      if (await shouldSkipGateFromScopedCache(projectRoot, "format:check", staged)) {
+        return skippedGateResult("format:check");
+      }
+      return runGateVisible(projectRoot, "format:check", ["bun", "run", "format:check"]);
     },
     async () => {
       if (!(await packageHasScript(projectRoot, "lint"))) return null;
       if (!summary) printVerboseBanner("Lint");
-      return runScriptGate(projectRoot, "lint", "lint", { cacheable: true });
+      if (await shouldSkipGate(projectRoot, "lint")) return skippedGateResult("lint");
+      if (await shouldSkipGateFromScopedCache(projectRoot, "lint", staged)) {
+        return skippedGateResult("lint");
+      }
+      return runGateVisible(projectRoot, "lint", ["bun", "run", "lint"]);
     },
     async () => {
       if (!(await packageHasScript(projectRoot, "typecheck"))) return null;
       if (!summary) printVerboseBanner("Type check");
-      return runScriptGate(projectRoot, "typecheck", "typecheck", { cacheable: true });
+      if (await shouldSkipGate(projectRoot, "typecheck")) return skippedGateResult("typecheck");
+      if (await shouldSkipGateFromScopedCache(projectRoot, "typecheck", staged)) {
+        return skippedGateResult("typecheck");
+      }
+      return runGateVisible(projectRoot, "typecheck", ["bun", "run", "typecheck"]);
     },
     async () => {
       if (!(await packageHasScript(projectRoot, "test:fast"))) return null;
       if (!summary) printVerboseBanner("Unit tests (fast)");
-      return runScriptGate(projectRoot, "test:fast", "test:fast", { cacheable: true });
+      if (await shouldSkipGate(projectRoot, "test:fast")) return skippedGateResult("test:fast");
+      if (await shouldSkipGateFromScopedCache(projectRoot, "test:fast", staged)) {
+        return skippedGateResult("test:fast");
+      }
+      return runGateVisible(projectRoot, "test:fast", ["bun", "run", "test:fast"]);
     },
     async () => {
       const tuning = join(projectRoot, "scripts/lint-tuning-set-version.ts");
@@ -155,8 +170,10 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
     }
   }
 
-  const passed = results.filter((item) => !item.skipped).map((item) => item.name);
-  const cacheable = PRE_COMMIT_CACHE_GATES.filter((gate) => passed.includes(gate));
+  const succeeded = results.filter((item) => item.exitCode === 0);
+  const cacheable = PRE_COMMIT_CACHE_GATES.filter((gate) =>
+    succeeded.some((item) => item.name === gate)
+  );
   if (cacheable.length > 0) await appendGateCache(projectRoot, [...cacheable]);
 
   if (summary) emitHookSummary("pre-commit", results);
@@ -549,10 +566,7 @@ async function runPrePushToolchainGates(
 }
 
 async function qualityGatesCached(projectRoot: string): Promise<boolean> {
-  for (const gate of PRE_COMMIT_CACHE_GATES) {
-    if (!(await shouldSkipGate(projectRoot, gate))) return false;
-  }
-  return true;
+  return await allPreCommitGatesCoveredAtHead(projectRoot);
 }
 
 export async function runPrePushGates(projectRoot: string): Promise<number> {
