@@ -2,7 +2,7 @@ import { makeDir, pathExists, removePath } from "../src/lib/bun-io.ts";
 
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
-import { testTempDir } from "./helpers.ts";
+import { testTempDir, withEnv } from "./helpers.ts";
 import {
   buildCloudflareApiEntry,
   buildUnifiedShellEntry,
@@ -79,19 +79,17 @@ describe("mcp-config", () => {
   });
 
   test("provisionUserMcp creates mcp.json with both servers", async () => {
-    const originalHome = Bun.env.HOME;
-    Bun.env.HOME = tmpHome;
-    const path = userMcpPath();
-    // Clean up any pre-existing file from other test runs
-    if (pathExists(path)) removePath(path, { force: true });
-    expect(pathExists(path)).toBe(false);
-    const result = await provisionUserMcp(tmpHome);
-    expect(result.changed).toBe(true);
-    expect(pathExists(path)).toBe(true);
-    const parsed = await readMcpJson(path);
-    expect(parsed?.data?.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
-    expect(parsed?.data?.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
-    Bun.env.HOME = originalHome;
+    await withEnv({ HOME: tmpHome }, async () => {
+      const path = userMcpPath();
+      if (pathExists(path)) removePath(path, { force: true });
+      expect(pathExists(path)).toBe(false);
+      const result = await provisionUserMcp(tmpHome);
+      expect(result.changed).toBe(true);
+      expect(pathExists(path)).toBe(true);
+      const parsed = await readMcpJson(path);
+      expect(parsed?.data?.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
+      expect(parsed?.data?.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
+    });
   });
 
   test("writeMcpJson round-trips", async () => {
