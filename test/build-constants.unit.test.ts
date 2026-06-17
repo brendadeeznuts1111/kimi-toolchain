@@ -13,7 +13,7 @@ describe("buildConstants", () => {
     expect(KIMI_HOOK_VERIFIER_MAX_CYCLES).toBe(32);
     expect(KIMI_CONTRACT_SCHEMA_VERSION).toBe("1.0.0");
     expect(KIMI_CONTRACT_INFERENCE_ENABLED).toBe(true);
-    expect(KIMI_RUNTIME_MIN_BUN_VERSION).toBe("1.3.14");
+    expect(KIMI_RUNTIME_MIN_BUN_VERSION).toBe("1.4.0");
     expect(KIMI_RUNTIME_CLI_BUILD_CHANNEL).toBe("source");
     expect(KIMI_DASHBOARD_LIVE_REFRESH_ENABLED).toBe(true);
     expect(KIMI_EFFECT_MAX_DIRECT_PROMISE).toBe(0);
@@ -21,7 +21,7 @@ describe("buildConstants", () => {
     expect(KIMI_LAYER_CIRCULARITY_TOLERANCE).toBe(0);
     expect(KIMI_SERVICE_TAG_REQUIRED).toBe(true);
     expect(KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED).toBe(true);
-    expect(KIMI_TUNING_SET_VERSION).toBe("1.4.0");
+    expect(KIMI_TUNING_SET_VERSION).toBe("1.4.1");
   });
 
   it("should resolve contract observations path from define", () => {

@@ -1,21 +1,25 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-16T04:24:25.660Z",
+  "generatedAt": "2026-06-17T16:16:05.799Z",
   "repo": "kimi-toolchain",
-  "tuningSetVersion": "1.4.0",
+  "tuningSetVersion": "1.4.1",
   "domains": {
     "contract-inference": {
       "KIMI_CONTRACT_OBSERVATIONS_PATH": {
         "type": "string",
         "default": ".kimi/var/contract-observations.ndjson",
         "restrictions": "must be a relative path from project root",
-        "see": ["src/lib/paths.ts contractObservationsPath"]
+        "see": [
+          "src/lib/paths.ts contractObservationsPath"
+        ]
       },
       "KIMI_CONTRACT_SCHEMA_VERSION": {
         "type": "string",
         "default": "1.0.0",
         "restrictions": "semver string written/read by contract inference",
-        "see": ["src/lib/contract-inference.ts"]
+        "see": [
+          "src/lib/contract-inference.ts"
+        ]
       },
       "KIMI_CONTRACT_INFERENCE_ENABLED": {
         "type": "boolean",
@@ -28,7 +32,9 @@
         "type": "number",
         "default": 32,
         "restrictions": "positive integer — max allowed hook-graph cycle length",
-        "see": ["src/lib/hook-verifier.ts"]
+        "see": [
+          "src/lib/hook-verifier.ts"
+        ]
       }
     },
     "error-embedding": {
@@ -36,7 +42,9 @@
         "type": "number",
         "default": 384,
         "restrictions": "reserved — embedding vector width (Phase 2)",
-        "see": ["src/lib/error-embedding.ts"]
+        "see": [
+          "src/lib/error-embedding.ts"
+        ]
       }
     },
     "decision-scoring": {
@@ -55,7 +63,9 @@
         "type": "number",
         "default": 30,
         "restrictions": "positive integer — linear decay window for insufficient-data confidence (Phase 3.2)",
-        "see": ["src/lib/constant-optimizer.ts"]
+        "see": [
+          "src/lib/constant-optimizer.ts"
+        ]
       }
     },
     "error-clustering": {
@@ -63,13 +73,15 @@
         "type": "number",
         "default": 0.55,
         "restrictions": "reserved — cluster merge threshold in [0, 1] (Phase 2)",
-        "see": ["src/lib/error-clustering.ts"]
+        "see": [
+          "src/lib/error-clustering.ts"
+        ]
       }
     },
     "runtime": {
       "KIMI_RUNTIME_MIN_BUN_VERSION": {
         "type": "string",
-        "default": "1.3.14",
+        "default": "1.4.0",
         "restrictions": "semver — minimum Bun runtime version required by toolchain tooling"
       },
       "KIMI_RUNTIME_CLI_BUILD_CHANNEL": {
@@ -90,7 +102,9 @@
         "type": "number",
         "default": 0,
         "restrictions": "zero-tolerance threshold for bare Promise usage in service code",
-        "see": ["src/lib/effect-gates.ts"]
+        "see": [
+          "src/lib/effect-gates.ts"
+        ]
       },
       "KIMI_DOMAIN_PURITY_LEVEL": {
         "type": "string",
@@ -100,27 +114,35 @@
         "type": "number",
         "default": 0,
         "restrictions": "zero-tolerance threshold for circular layer dependencies",
-        "see": ["src/lib/effect-gates.ts"]
+        "see": [
+          "src/lib/effect-gates.ts"
+        ]
       },
       "KIMI_SERVICE_TAG_REQUIRED": {
         "type": "boolean",
         "default": true,
         "restrictions": "when true, exported services must be provided through Tag + Layer",
-        "see": ["src/lib/effect-gates.ts"]
+        "see": [
+          "src/lib/effect-gates.ts"
+        ]
       },
       "KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED": {
         "type": "boolean",
         "default": true,
         "restrictions": "when true, Effect.runPromise calls outside src/cli, src/entry, src/runtime.ts, or test files are flagged",
-        "see": ["src/lib/effect-gates.ts"]
+        "see": [
+          "src/lib/effect-gates.ts"
+        ]
       }
     },
     "governance": {
       "KIMI_TUNING_SET_VERSION": {
         "type": "string",
-        "default": "1.4.0",
+        "default": "1.4.1",
         "restrictions": "semver — bump when any other KIMI_* define is added, changed, or removed",
-        "see": ["scripts/lint-tuning-set-version.ts"]
+        "see": [
+          "scripts/lint-tuning-set-version.ts"
+        ]
       }
     }
   },

@@ -36,6 +36,7 @@ Repos: [kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain) (`
 | Herdr unix IPC                  | `src/lib/herdr-unix-socket.ts`          | `Bun.connect({ unix })` — not `node:net`                                                     |
 | Herdr ws+unix transport         | `src/lib/herdr-ws-unix.ts`              | `new WebSocket("ws+unix://…")`; env `HERDR_SOCKET_TRANSPORT=websocket\|auto`                 |
 | Bun.markdown.ansi / skill preview | `src/lib/bun-markdown.ts`, `src/lib/skill-preview.ts` | `kimi-context-gen preview [skill]` — probe via `markdownAnsiSupported()` like `bun-image.ts` |
+| Bun install policy audit          | `src/lib/bun-install-config.ts`         | `SECURE_BUN_INSTALL_POLICY` + `auditBunInstallConfig()` — warn on drift from frozen/isolated/3-day defaults |
 | Build-time tuning constants     | `bunfig.toml` `[define]`                | SSOT — `KIMI_*` globals grouped by `# define-domain:` (separate from taxonomyId)            |
 | Safe parsing                    | `src/lib/utils.ts`                      | Use `safeParse()` / `safeToml()` with validators at config boundaries                       |
 | Inspection / equality / ANSI    | `src/lib/inspect.ts`                    | Use `inspectAgent()` for `--json`, `inspectHuman()` for logs, `deepEqual*()` for alignment  |

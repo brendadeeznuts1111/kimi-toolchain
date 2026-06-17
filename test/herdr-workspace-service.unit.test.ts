@@ -19,6 +19,10 @@ mock.module("../src/lib/herdr-cli.ts", () => ({
     if (mockCliSyncThrow) throw mockCliSyncThrow;
     return mockCliSyncJson ?? "{}";
   },
+  herdrCliJsonSync: () => {
+    if (mockCliSyncThrow) throw mockCliSyncThrow;
+    return mockCliSyncJson ?? mockCliJson ?? "{}";
+  },
   herdrCliError: (stderr: string, exitCode: number | null, context: string): HerdrCliError => ({
     _tag: "HerdrCliError" as const,
     message: `herdr ${context}: ${stderr.slice(0, 200)}`,

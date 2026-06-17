@@ -237,13 +237,21 @@ API_KEY=replace_me_in_dot_env
 
 ```toml
 [install]
-# Trusted dependencies with postinstall scripts
-# Run `kimi-guardian check` to auto-populate
-trustedDependencies = []
-
-[install.cache]
-# Global cache directory (shared across projects)
-dir = "~/.bun/install/cache"
+# https://bun.com/docs/pm/cli/install#configuring-bun-install-with-bunfig-toml
+# Merged with $XDG_CONFIG_HOME/.bunfig.toml and $HOME/.bunfig.toml; BUN_CONFIG_* overrides.
+optional = true
+dev = true
+peer = true
+production = false
+saveTextLockfile = true
+frozenLockfile = true
+dryRun = false
+ignoreScripts = false
+linker = "isolated"
+globalDir = "~/.bun/install/global"
+globalBinDir = "~/.bun/bin"
+minimumReleaseAge = 259200
+minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 
 [test]
 # Unit tests run concurrently; smoke tests stay sequential
