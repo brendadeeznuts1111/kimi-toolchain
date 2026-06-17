@@ -36,6 +36,7 @@ import { isKimiToolchainRepo } from "../lib/workspace-health.ts";
 import { isQuietMode } from "../lib/quiet-mode.ts";
 import { governorDir } from "../lib/paths.ts";
 import { checkGovernance } from "../lib/governance-check.ts";
+import { refreshStaleLockfile, runGovernancePreflight } from "../lib/governance-preflight.ts";
 import {
   generateReadme,
   generateContributing,
@@ -325,22 +326,6 @@ async function storeCoverageHistory(projectDir: string, report: CoverageReport) 
   }
 
   await Bun.write(COVERAGE_HISTORY, JSON.stringify(trimmed, null, 2));
-}
-
-async function refreshStaleLockfile(projectDir: string): Promise<boolean> {
-  const lockPath = join(projectDir, "bun.lock");
-  const pkgPath = join(projectDir, "package.json");
-  if (!pathExists(lockPath) || !pathExists(pkgPath)) return false;
-
-  const pkgMtime = Bun.file(pkgPath).lastModified;
-  const lockMtime = Bun.file(lockPath).lastModified;
-  if (pkgMtime <= lockMtime) return false;
-
-  await $`bun install --ignore-scripts`.cwd(projectDir).nothrow().quiet();
-  if (Bun.file(lockPath).lastModified <= pkgMtime) {
-    await Bun.write(lockPath, await Bun.file(lockPath).text());
-  }
-  return true;
 }
 
 // ── R-Score ──────────────────────────────────────────────────────────
@@ -836,6 +821,13 @@ async function main(): Promise<number> {
   } else if (command === "score") {
     const quick = args.includes("--quick");
     const hook = args.includes("--hook") || (quick && isQuietMode());
+    const preflight =
+      (args.includes("--preflight") || hook) && Bun.env.KIMI_SKIP_GOVERNANCE_PREFLIGHT !== "1";
+    const preflightReport = preflight ? await runGovernancePreflight(projectDir) : null;
+    if (preflightReport?.changed && !hook) {
+      logger.section("Preflight");
+      for (const action of preflightReport.actions) logger.info(`Applied: ${action}`);
+    }
     logger.section(
       hook
         ? "Computing R-Score (hook)"
@@ -902,6 +894,7 @@ async function main(): Promise<number> {
         mode: "score",
         score,
         summary: { ok, grade: score.grade },
+        ...(preflightReport ? { preflight: preflightReport } : {}),
       });
       return ok ? 0 : 1;
     }
@@ -919,6 +912,7 @@ async function main(): Promise<number> {
     logger.line("  doctor         Diagnose governance health with actionable fixes");
     logger.line("  adr <title>    Scaffold a new ADR in docs/adr/");
     logger.line("  score          Compute full R-Score with trend");
+    logger.line("  score --preflight   Auto-fix lock/README/guardian then score");
     logger.line("  ecosystem      → use kimi-toolchain doctor --ecosystem");
   }
 

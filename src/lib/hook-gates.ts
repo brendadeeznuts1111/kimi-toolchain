@@ -315,7 +315,7 @@ async function runRScoreGate(projectRoot: string): Promise<GateResult> {
     return {
       ...result,
       exitCode: 1,
-      stderr: `PUSH BLOCKED: R-Score is ${grade}. Run: bun run ${governance} fix`,
+      stderr: `PUSH BLOCKED: R-Score is ${grade}. Run: bun run ${governance} score --preflight`,
     };
   }
   return result;
