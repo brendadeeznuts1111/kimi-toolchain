@@ -5,11 +5,14 @@ import { pathExists } from "../lib/bun-io.ts";
  * P1: Tech stack inference, config hash tree, freshness scoring
  *
  * Usage:
- *   kimi-context-gen [scan|freshness|update|doctor|fix]
+ *   kimi-context-gen [scan|freshness|update|doctor|fix|frontmatter <file> [--json]]
  */
 
 import { $, semver, TOML } from "bun";
 import { join } from "path";
+import { CLI_OUTPUT_SCHEMA_VERSION } from "../lib/cli-contract.ts";
+import { inspectAgent } from "../lib/inspect.ts";
+import { parseFrontmatterFile } from "../lib/frontmatter.ts";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
 import { checkDocDrift } from "../lib/readme-sync.ts";
@@ -536,8 +539,11 @@ async function main(): Promise<number> {
   const command = args[0] || "scan";
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const name = await getProjectName(projectDir);
+  const jsonOnly = command === "frontmatter" && args.includes("--json");
 
-  logger.projectBanner("Kimi Context Generator", name);
+  if (!jsonOnly) {
+    logger.projectBanner("Kimi Context Generator", name);
+  }
 
   if (command === "scan") {
     logger.section("Tech Stack Inference");
@@ -603,6 +609,53 @@ async function main(): Promise<number> {
       "Context Doctor",
       "Run 'kimi-context-gen fix' to regenerate CONTEXT.md"
     );
+  } else if (command === "frontmatter") {
+    const file = args[1];
+    const json = args.includes("--json");
+    if (!file || file.startsWith("-")) {
+      logger.error("Usage: kimi-context-gen frontmatter <file> [--json]");
+      return 1;
+    }
+    try {
+      const result = await parseFrontmatterFile(file);
+      if (json) {
+        Bun.stdout.write(
+          `${inspectAgent({
+            schemaVersion: CLI_OUTPUT_SCHEMA_VERSION,
+            tool: "kimi-context-gen",
+            command: "frontmatter",
+            level: "info",
+            timestamp: result.meta.parsed,
+            data: result.data,
+            body: result.body,
+            meta: result.meta,
+          })}\n`
+        );
+      } else {
+        logger.info(`format: ${result.meta.format}`);
+        if (result.meta.delimiter) logger.info(`delimiter: ${result.meta.delimiter}`);
+        logger.info(`body: ${result.body.length} chars`);
+        logger.line(JSON.stringify(result.data, null, 2));
+      }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      if (json) {
+        Bun.stdout.write(
+          `${inspectAgent({
+            schemaVersion: CLI_OUTPUT_SCHEMA_VERSION,
+            tool: "kimi-context-gen",
+            command: "frontmatter",
+            level: "error",
+            timestamp: new Date().toISOString(),
+            error: message,
+            file,
+          })}\n`
+        );
+      } else {
+        logger.error(message);
+      }
+      return 1;
+    }
   } else if (command === "fix") {
     logger.section("Fixing CONTEXT.md");
     const hashes = await hashConfigs(projectDir);
@@ -629,6 +682,7 @@ async function main(): Promise<number> {
     logger.info("  freshness        Check freshness score");
     logger.info("  doctor           Check CONTEXT.md health");
     logger.info("  fix [threshold]  Regenerate if freshness below threshold (default 7)");
+    logger.info("  frontmatter <file> [--json]  Parse TOML (+++) or YAML (---) frontmatter");
   }
   return 0;
 }
