@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { gunzipSync } from "node:zlib";
 import {
   configureHandoffLog,
   getHandoffHistory,
@@ -59,7 +60,8 @@ describe("handoff-log", () => {
     const logPath = join(tempDir, "handoff-log.jsonl");
     configureHandoffLog({ path: logPath, enabled: true, maxBytes: 256 });
 
-    writeFileSync(logPath, `${"x".repeat(300)}\n`, "utf8");
+    const preRotationContent = `${"x".repeat(300)}\n`;
+    writeFileSync(logPath, preRotationContent, "utf8");
 
     logHandoff({
       workspace: "w1",
@@ -74,6 +76,14 @@ describe("handoff-log", () => {
 
     const archives = readdirSync(tempDir).filter((name) => name.endsWith(".jsonl.gz"));
     expect(archives.length).toBe(1);
+
+    // Verify the log was cleared and repopulated with the new entry
     expect(readFileSync(logPath, "utf8").trim().length).toBeGreaterThan(0);
+
+    // Verify archive content integrity — decompress and check pre-rotation data survived
+    const archivePath = join(tempDir, archives[0]!);
+    const decompressed = gunzipSync(readFileSync(archivePath)).toString("utf8");
+    expect(decompressed).toContain("x".repeat(300));
+    expect(decompressed).toBe(preRotationContent);
   });
 });

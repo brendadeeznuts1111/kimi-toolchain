@@ -653,7 +653,7 @@ export function readHerdrNotifyDefaults(): NotificationsConfig {
   return defaults;
 }
 
-function mergeNotifications(
+export function mergeNotifications(
   primary: NotificationsConfig,
   fallback: NotificationsConfig
 ): NotificationsConfig {

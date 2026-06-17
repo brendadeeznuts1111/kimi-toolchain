@@ -243,7 +243,7 @@ export function bootstrapHerdrProject(
       session: config.session,
     });
     if (!created.ok) throw new Error(created.error || "workspace create failed");
-    workspaceId = created.ok ? created.workspaceId : null;
+    workspaceId = created.workspaceId || null;
     actions.push({ action: "workspace_created", workspaceId });
   }
 

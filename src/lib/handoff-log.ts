@@ -3,12 +3,13 @@ import {
   mkdirSync,
   appendFileSync,
   readFileSync,
+  readdirSync,
   statSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { gzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -82,8 +83,10 @@ function rotateIfNeeded() {
   const stat = statSync(logPath);
   if (stat.size < maxLogBytes) return;
 
-  const now = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  const archiveName = `handoff-history.${now}.jsonl.gz`;
+  const iso = new Date().toISOString();
+  const date = iso.slice(0, 10); // YYYY-MM-DD
+  const time = iso.slice(11, 23).replace(/:/g, ""); // HHMMSS.sss
+  const archiveName = `handoff-history.${date}.${time}.jsonl.gz`;
   const archivePath = join(join(logPath, ".."), archiveName);
 
   const raw = readFileSync(logPath);

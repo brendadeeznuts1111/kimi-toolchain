@@ -144,8 +144,12 @@ if [ -z "$GITHOOKS" ]; then
 fi
 `;
 
+/** Bump when hook shell template changes — doctor/fix use this to detect stale installs. */
+const HOOK_TEMPLATE_REV = "2026-06-17";
+
 const PRE_COMMIT_HOOK = `#!/bin/sh
 # Auto-installed by kimi-githooks
+# template-rev: ${HOOK_TEMPLATE_REV}
 # P0: Block secrets; P1: quality gates (quiet when KIMI_QUIET=1 or KIMI_AGENT_SESSION)
 
 if [ -n "$KIMI_AGENT_SESSION" ]; then export KIMI_QUIET=1; fi
@@ -156,9 +160,11 @@ exit 0
 
 const PRE_PUSH_HOOK = `#!/bin/sh
 # Auto-installed by kimi-githooks
-# P1: guardian, constant-drift, R-Score, check:fast, effect-gates
-#     (KIMI_PRE_PUSH_FULL=1 for full check; KIMI_SKIP_EFFECT_GATES=1 to skip)
+# template-rev: ${HOOK_TEMPLATE_REV}
+# P1: parallel guardian/drift/effect + quick R-Score + check:fast (cached after pre-commit)
+#     KIMI_PRE_PUSH_FULL=1 — full check suite; KIMI_SKIP_EFFECT_GATES=1 — skip effect scan
 
+if [ -z "$KIMI_QUIET" ]; then export KIMI_QUIET=1; fi
 if [ -n "$KIMI_AGENT_SESSION" ]; then export KIMI_QUIET=1; fi
 ${HOOK_GITHOOKS_RESOLVER}
 $GITHOOKS run-gates pre-push || exit 1
@@ -207,7 +213,7 @@ async function installHooks(projectDir: string): Promise<number> {
     "  pre-commit: blocks .env, format:check + lint + typecheck, warns on TODO/console.log"
   );
   logger.info(
-    "  pre-push:   guardian, constant-drift, R-Score, check:fast, effect-gates (KIMI_PRE_PUSH_FULL=1 for full), sync"
+    "  pre-push:   concurrent gates (KIMI_PRE_PUSH_SERIAL=1 to disable), score --quick, cached check:fast (KIMI_PRE_PUSH_FULL=1 for full)"
   );
 
   try {
@@ -277,18 +283,22 @@ async function doctorHooks(projectDir: string) {
   } else {
     const content = await Bun.file(preCommitPath).text();
     const hasKimi = content.includes("kimi-githooks");
+    const hasTemplateRev = content.includes(`template-rev: ${HOOK_TEMPLATE_REV}`);
     const hasQuality =
       content.includes("run-gates pre-commit") ||
       (content.includes("format:check") && content.includes("typecheck"));
+    const preCommitOk = hasKimi && hasQuality && hasTemplateRev;
     checks.push({
       name: "pre-commit",
-      status: hasKimi && hasQuality ? "ok" : hasKimi ? "warn" : "warn",
+      status: preCommitOk ? "ok" : hasKimi ? "warn" : "warn",
       message: hasKimi
-        ? hasQuality
+        ? preCommitOk
           ? "Installed with format/lint/typecheck gates"
-          : "Installed but missing quality gates"
+          : hasTemplateRev
+            ? "Installed but missing quality gates"
+            : "Stale hook template — run kimi-githooks fix"
         : "Custom pre-commit (not managed)",
-      fixable: !hasKimi || !hasQuality,
+      fixable: !preCommitOk,
     });
   }
 
@@ -304,17 +314,16 @@ async function doctorHooks(projectDir: string) {
   } else {
     const content = await Bun.file(prePushPath).text();
     const hasKimi = content.includes("kimi-githooks");
-    const hasQuality = content.includes("check:fast") || content.includes("Quality Gate");
+    const hasTemplateRev = content.includes(`template-rev: ${HOOK_TEMPLATE_REV}`);
     const delegatesToRunner = content.includes("run-gates pre-push");
-    const hasEffectGates = content.includes("effect-gates");
-    const prePushOk = hasKimi && hasQuality && delegatesToRunner && hasEffectGates;
+    const prePushOk = hasKimi && hasTemplateRev && delegatesToRunner;
     checks.push({
       name: "pre-push",
       status: prePushOk ? "ok" : hasKimi ? "warn" : "warn",
       message: hasKimi
         ? prePushOk
-          ? "Installed with repo-first tools, quality gate, effect-gates, mandatory desktop sync"
-          : "Installed but stale template — run kimi-githooks fix"
+          ? "Installed with fast parallel pre-push gates + conditional desktop sync"
+          : "Stale hook template — run kimi-githooks fix"
         : "Custom pre-push (not managed)",
       fixable: !prePushOk,
     });

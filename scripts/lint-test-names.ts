@@ -32,6 +32,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "telemetry-schema": "src/lib/error-taxonomy.ts",
   "unified-shell-bridge": "src/bin/unified-shell-bridge.ts",
   "kimi-githooks": "src/bin/kimi-githooks.ts",
+  "kimi-governance": "src/bin/kimi-governance.ts",
   "identity-matrix": "src/lib/identity-matrix.ts",
   "kimi-identity": "src/bin/kimi-identity.ts",
   "kimi-docs-aligned": "src/lib/kimi-docs-aligned.ts",

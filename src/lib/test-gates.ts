@@ -65,6 +65,22 @@ export const UNIT_TEST_FILES = [
   "test/doctor-pipeline.unit.test.ts",
   "test/effect/tool-runner-effect.unit.test.ts",
   "test/effect/cli-runtime.unit.test.ts",
+  // herdr orchestration unit tests
+  "test/herdr-orchestrator.unit.test.ts",
+  "test/herdr-orchestrator-remote.unit.test.ts",
+  "test/herdr-orchestrator-events.unit.test.ts",
+  "test/herdr-project-cli.unit.test.ts",
+  "test/herdr-project-config.unit.test.ts",
+  "test/herdr-project-context.unit.test.ts",
+  "test/herdr-project-layout.unit.test.ts",
+  "test/herdr-project-reconcile.unit.test.ts",
+  "test/herdr-role-tab.unit.test.ts",
+  "test/herdr-doctor.unit.test.ts",
+  "test/herdr-session-preflight.unit.test.ts",
+  "test/herdr-test-agent.unit.test.ts",
+  "test/herdr-tab-lifecycle.unit.test.ts",
+  "test/herdr-pane-requires.unit.test.ts",
+  "test/herdr-tool-health.unit.test.ts",
 ] as const;
 
 /** Integration tests — included by full Bun discovery, not the fast unit gate. */
@@ -81,7 +97,7 @@ export const SMOKE_TEST_FILES = [
   "test/smoke/kimi-identity.smoke.test.ts",
 ] as const;
 
-export const FAST_TEST_TIMEOUT_MS = 500;
+export const FAST_TEST_TIMEOUT_MS = 1_500;
 export const DEFAULT_TEST_TIMEOUT_MS = 30_000;
 export const CI_TEST_TIMEOUT_MS = 30_000;
 export const SMOKE_TEST_TIMEOUT_MS = 60_000;

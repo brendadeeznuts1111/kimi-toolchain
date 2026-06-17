@@ -9,6 +9,8 @@ import {
   normalizeRemoteHostConfig,
   parseEnvOverrides,
   discoverIdentityFile,
+  mergeNotifications,
+  readHerdrNotifyDefaults,
   type RemoteDefaults,
 } from "../src/lib/herdr-orchestrator-config.ts";
 import { parseHostSession } from "../src/lib/herdr-orchestrator.ts";
@@ -652,5 +654,69 @@ describe("Herdr app config plugins.notify", () => {
     const resolved = resolveOrchestratorConfig(config, doc);
     expect(resolved.notifications.webhookUrl).toBe("https://hooks.example.com/project");
     expect(resolved.notifications.onSpawn).toBe(true);
+  });
+
+  // ── mergeNotifications pure-function tests ──────────────────────────
+
+  test("mergeNotifications: primary wins over fallback on every field", () => {
+    const primary = {
+      webhookUrl: "https://project.example.com/hook",
+      onHandoff: true,
+      onSpawn: false,
+      onError: true,
+    };
+    const fallback = {
+      webhookUrl: "https://herdr.example.com/hook",
+      onHandoff: false,
+      onSpawn: true,
+      onError: false,
+    };
+    const merged = mergeNotifications(primary, fallback);
+    expect(merged.webhookUrl).toBe("https://project.example.com/hook");
+    expect(merged.onHandoff).toBe(true);
+    expect(merged.onSpawn).toBe(false);
+    expect(merged.onError).toBe(true);
+  });
+
+  test("mergeNotifications: fallback fills gaps when primary is partial", () => {
+    const primary = { onSpawn: true };
+    const fallback = {
+      webhookUrl: "https://herdr.example.com/hook",
+      onHandoff: true,
+      onError: true,
+    };
+    const merged = mergeNotifications(primary, fallback);
+    expect(merged.webhookUrl).toBe("https://herdr.example.com/hook");
+    expect(merged.onHandoff).toBe(true);
+    expect(merged.onSpawn).toBe(true);
+    expect(merged.onError).toBe(true);
+  });
+
+  test("mergeNotifications: fallback provides all values when primary is empty", () => {
+    const fallback = {
+      webhookUrl: "https://herdr.example.com/hook",
+      onHandoff: false,
+      onSpawn: true,
+      onError: false,
+    };
+    const merged = mergeNotifications({}, fallback);
+    expect(merged.webhookUrl).toBe("https://herdr.example.com/hook");
+    expect(merged.onHandoff).toBe(false);
+    expect(merged.onSpawn).toBe(true);
+    expect(merged.onError).toBe(false);
+  });
+
+  test("mergeNotifications: returns empty when both are empty", () => {
+    const merged = mergeNotifications({}, {});
+    expect(merged.webhookUrl).toBeUndefined();
+    expect(merged.onHandoff).toBeUndefined();
+    expect(merged.onSpawn).toBeUndefined();
+    expect(merged.onError).toBeUndefined();
+  });
+
+  test("readHerdrNotifyDefaults: returns {} when no Herdr config exists on disk", () => {
+    // In test/CI there is no ~/.config/herdr/config.toml, so this should return {}
+    const defaults = readHerdrNotifyDefaults();
+    expect(defaults).toEqual({});
   });
 });

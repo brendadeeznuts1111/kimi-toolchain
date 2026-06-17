@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { Effect } from "effect";
@@ -47,7 +47,9 @@ function loadState(): Record<string, HostState> {
 
 function saveState(state: Record<string, HostState>) {
   mkdirSync(STATE_DIR, { recursive: true });
-  writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), "utf8");
+  const tmpPath = STATE_PATH + ".tmp";
+  writeFileSync(tmpPath, JSON.stringify(state, null, 2), "utf8");
+  renameSync(tmpPath, STATE_PATH);
 }
 
 // ── Health check ─────────────────────────────────────────────────────────
@@ -115,8 +117,7 @@ export function clearHostState(hostLabel: string) {
 
 export function recoveryEffect(
   hosts: Record<string, string | RemoteHostConfig>,
-  defaults?: RemoteDefaults,
-  _options: { intervalSec?: number; signal?: AbortSignal } = {}
+  defaults?: RemoteDefaults
 ): Effect.Effect<RecoveryResult[], never> {
   const resolved = normalizeRemoteHostConfig(hosts, defaults);
 

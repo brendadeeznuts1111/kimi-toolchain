@@ -2,7 +2,11 @@ import { describe, expect, it, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { runConstantDriftGate } from "../src/lib/hook-gates.ts";
+import {
+  prePushRunsInParallel,
+  runConstantDriftGate,
+  syncWillWrite,
+} from "../src/lib/hook-gates.ts";
 import { writeConstantsGolden } from "../src/lib/constants-heal.ts";
 
 describe("hook-gates constant drift", () => {
@@ -81,6 +85,29 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
     const result = await runConstantDriftGate(projectDir);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("matches golden");
+  });
+
+  it("prePushRunsInParallel defaults true unless KIMI_PRE_PUSH_SERIAL=1", () => {
+    const previous = Bun.env.KIMI_PRE_PUSH_SERIAL;
+    delete Bun.env.KIMI_PRE_PUSH_SERIAL;
+    expect(prePushRunsInParallel()).toBe(true);
+    Bun.env.KIMI_PRE_PUSH_SERIAL = "1";
+    expect(prePushRunsInParallel()).toBe(false);
+    if (previous === undefined) delete Bun.env.KIMI_PRE_PUSH_SERIAL;
+    else Bun.env.KIMI_PRE_PUSH_SERIAL = previous;
+  });
+
+  it("syncWillWrite is false when desktop runtime is already synced", async () => {
+    writeFileSync(
+      join(projectDir, "bunfig.toml"),
+      `
+[define]
+KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
+`
+    );
+    await writeConstantsGolden(projectDir);
+    const willWrite = await syncWillWrite(projectDir);
+    expect(willWrite).toBe(false);
   });
 
   it("should skip when golden is missing", async () => {

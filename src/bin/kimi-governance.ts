@@ -249,6 +249,50 @@ interface CoverageHistoryEntry {
   total: number;
 }
 
+/** Reuse last coverage snapshot — avoids re-running tests during pre-push R-Score. */
+export async function loadCachedCoverage(projectDir: string): Promise<CoverageReport> {
+  const report: CoverageReport = { covered: 0, total: 0, percentage: 0, files: [] };
+  const project = await getProjectName(projectDir);
+
+  if (existsSync(COVERAGE_HISTORY)) {
+    try {
+      const history = (await Bun.file(COVERAGE_HISTORY).json()) as CoverageHistoryEntry[];
+      const latest = [...history].reverse().find((entry) => entry.project === project);
+      if (latest && latest.total > 0) {
+        return {
+          covered: latest.covered,
+          total: latest.total,
+          percentage: latest.percentage,
+          files: [],
+        };
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  const lcovPath = join(projectDir, "coverage", "lcov.info");
+  if (existsSync(lcovPath)) {
+    const lcov = await Bun.file(lcovPath).text();
+    let totalLines = 0;
+    let hitLines = 0;
+    for (const line of lcov.split("\n")) {
+      if (line.startsWith("DA:")) {
+        const [, , hits] = line.split(":")[1].split(",");
+        totalLines++;
+        if (parseInt(hits, 10) > 0) hitLines++;
+      }
+    }
+    if (totalLines > 0) {
+      report.total = totalLines;
+      report.covered = hitLines;
+      report.percentage = (hitLines / totalLines) * 100;
+    }
+  }
+
+  return report;
+}
+
 async function storeCoverageHistory(projectDir: string, report: CoverageReport) {
   ensureDir(GOVERNANCE_DIR);
   let history: CoverageHistoryEntry[] = [];
@@ -300,12 +344,15 @@ async function refreshStaleLockfile(projectDir: string): Promise<boolean> {
 
 // ── R-Score ──────────────────────────────────────────────────────────
 
-async function computeRScore(projectDir: string): Promise<RScore> {
+async function computeRScore(
+  projectDir: string,
+  options: { quick?: boolean } = {}
+): Promise<RScore> {
   const project = await getProjectName(projectDir);
 
   const [gov, coverage, drift] = await Promise.all([
     checkGovernance(projectDir),
-    checkCoverage(projectDir),
+    options.quick ? loadCachedCoverage(projectDir) : checkCoverage(projectDir),
     checkDocDrift(projectDir),
   ]);
   if (!drift) {
@@ -786,8 +833,9 @@ async function main(): Promise<number> {
     logger.info("Use: kimi-toolchain doctor --ecosystem [--quick] [--json]");
     return 1;
   } else if (command === "score") {
-    logger.section("Computing R-Score");
-    const score = await computeRScore(projectDir);
+    const quick = args.includes("--quick");
+    logger.section(quick ? "Computing R-Score (cached coverage)" : "Computing R-Score");
+    const score = await computeRScore(projectDir, { quick });
 
     logger.info(
       `Grade: ${score.grade} (${formatPoints(score.total)}/${score.max}, ${formatPct(score.total, score.max)})`
