@@ -164,7 +164,10 @@ export function connectHerdrSocket(
   const timer = setTimeout(() => {
     if (!gotData && !switched) switchToJsonl();
   }, timeoutMs);
-  active.on("close", () => clearTimeout(timer));
+  active.on("close", () => {
+    clearTimeout(timer);
+    if (!gotData && !switched) switchToJsonl();
+  });
 
   const proxy: HerdrUnixSocket & { transport: ActiveHerdrSocketTransport } = {
     get transport() {
