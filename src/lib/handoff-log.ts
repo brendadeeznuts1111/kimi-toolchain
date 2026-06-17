@@ -4,13 +4,11 @@ import {
   appendFileSync,
   readFileSync,
   statSync,
-  renameSync,
-  createWriteStream,
+  writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { gzipSync } from "node:zlib";
-import { createHash } from "node:crypto";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -40,15 +38,29 @@ export interface HandoffLogEntry {
 
 const DEFAULT_LOG_DIR = join(homedir(), ".herdr", "orchestrator");
 const DEFAULT_LOG_PATH = join(DEFAULT_LOG_DIR, "handoff-log.jsonl");
-const MAX_LOG_BYTES = 50 * 1024 * 1024; // 50MB
+const DEFAULT_MAX_LOG_BYTES = 50 * 1024 * 1024; // 50MB
 
 let logPath = DEFAULT_LOG_PATH;
 let enabled = true;
 let seq = 0;
+let maxLogBytes = DEFAULT_MAX_LOG_BYTES;
 
-export function configureHandoffLog(options: { path?: string; enabled?: boolean }) {
+export function configureHandoffLog(options: {
+  path?: string;
+  enabled?: boolean;
+  maxBytes?: number;
+}) {
   if (options.path) logPath = options.path;
   if (options.enabled !== undefined) enabled = options.enabled;
+  if (options.maxBytes !== undefined) maxLogBytes = options.maxBytes;
+}
+
+/** Attach remote-host metadata for thin-client SSH orchestration events. */
+export function remoteHandoffContext(
+  remoteHost: string,
+  context?: Record<string, unknown>
+): Record<string, unknown> {
+  return { ...context, remote_host: remoteHost, via_ssh: true };
 }
 
 function ensureLogDir() {
@@ -58,7 +70,9 @@ function ensureLogDir() {
 // ── Checksums ────────────────────────────────────────────────────────────
 
 function sha256(data: string): string {
-  return createHash("sha256").update(data).digest("hex");
+  const hasher = new Bun.CryptoHasher("sha256");
+  hasher.update(data);
+  return hasher.digest("hex");
 }
 
 // ── Rotation ─────────────────────────────────────────────────────────────
@@ -66,23 +80,15 @@ function sha256(data: string): string {
 function rotateIfNeeded() {
   if (!existsSync(logPath)) return;
   const stat = statSync(logPath);
-  if (stat.size < MAX_LOG_BYTES) return;
+  if (stat.size < maxLogBytes) return;
 
   const now = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   const archiveName = `handoff-history.${now}.jsonl.gz`;
   const archivePath = join(join(logPath, ".."), archiveName);
 
-  // gzip the current log
   const raw = readFileSync(logPath);
-  const compressed = gzipSync(raw);
-  const writeStream = createWriteStream(archivePath);
-  writeStream.write(compressed);
-  writeStream.end();
-
-  // Clear the live log
-  const clearStream = createWriteStream(logPath);
-  clearStream.write("");
-  clearStream.end();
+  writeFileSync(archivePath, gzipSync(raw));
+  writeFileSync(logPath, "", "utf8");
 }
 
 // ── Write ────────────────────────────────────────────────────────────────

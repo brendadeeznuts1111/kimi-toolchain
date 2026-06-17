@@ -574,6 +574,14 @@ export function validateRemoteHostConfig(
 // ── Herdr app config reader ────────────────────────────────────────────
 
 /** Structure of ~/.config/herdr/config.toml relevant to remote operations. */
+export interface HerdrNotifyPluginConfig {
+  enabled?: boolean;
+  webhookUrl?: string;
+  onHandoff?: boolean;
+  onSpawn?: boolean;
+  onError?: boolean;
+}
+
 export interface HerdrAppConfig {
   onboarding?: boolean;
   update?: {
@@ -582,9 +590,80 @@ export interface HerdrAppConfig {
   remote?: {
     manageSshConfig?: boolean;
   };
+  plugins?: {
+    notify?: HerdrNotifyPluginConfig;
+  };
 }
 
 const HERDR_CONFIG_PATH = join(homedir(), ".config", "herdr", "config.toml");
+
+export function parseHerdrAppConfig(doc: Record<string, unknown>): HerdrAppConfig {
+  const result: HerdrAppConfig = {};
+
+  if (typeof doc.onboarding === "boolean") result.onboarding = doc.onboarding;
+
+  const upd = doc.update;
+  if (upd && typeof upd === "object") {
+    const u = upd as Record<string, unknown>;
+    if (u.channel === "stable" || u.channel === "preview") {
+      result.update = { channel: u.channel };
+    }
+  }
+
+  const rem = doc.remote;
+  if (rem && typeof rem === "object") {
+    const r = rem as Record<string, unknown>;
+    if (typeof r.manage_ssh_config === "boolean") {
+      result.remote = { manageSshConfig: r.manage_ssh_config };
+    }
+  }
+
+  const plugins = doc.plugins;
+  if (plugins && typeof plugins === "object") {
+    const notifyRaw = (plugins as Record<string, unknown>).notify;
+    if (notifyRaw && typeof notifyRaw === "object") {
+      const n = notifyRaw as Record<string, unknown>;
+      const notify: HerdrNotifyPluginConfig = {};
+      if (typeof n.enabled === "boolean") notify.enabled = n.enabled;
+      if (typeof n.webhook_url === "string") notify.webhookUrl = n.webhook_url;
+      if (typeof n.on_handoff === "boolean") notify.onHandoff = n.on_handoff;
+      if (typeof n.on_spawn === "boolean") notify.onSpawn = n.on_spawn;
+      if (typeof n.on_error === "boolean") notify.onError = n.on_error;
+      result.plugins = { notify };
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Read notification defaults from Herdr's [plugins.notify] plugin config.
+ * Project-level [herdr.orchestrator.notifications] overrides these values.
+ */
+export function readHerdrNotifyDefaults(): NotificationsConfig {
+  const app = readHerdrAppConfig();
+  const notify = app?.plugins?.notify;
+  if (!notify || notify.enabled === false) return {};
+
+  const defaults: NotificationsConfig = {};
+  if (notify.webhookUrl) defaults.webhookUrl = notify.webhookUrl;
+  if (notify.onHandoff !== undefined) defaults.onHandoff = notify.onHandoff;
+  if (notify.onSpawn !== undefined) defaults.onSpawn = notify.onSpawn;
+  if (notify.onError !== undefined) defaults.onError = notify.onError;
+  return defaults;
+}
+
+function mergeNotifications(
+  primary: NotificationsConfig,
+  fallback: NotificationsConfig
+): NotificationsConfig {
+  return {
+    webhookUrl: primary.webhookUrl ?? fallback.webhookUrl,
+    onHandoff: primary.onHandoff ?? fallback.onHandoff,
+    onSpawn: primary.onSpawn ?? fallback.onSpawn,
+    onError: primary.onError ?? fallback.onError,
+  };
+}
 
 /**
  * Read and parse ~/.config/herdr/config.toml.
@@ -594,30 +673,8 @@ export function readHerdrAppConfig(): HerdrAppConfig | null {
   if (!existsSync(HERDR_CONFIG_PATH)) return null;
   try {
     const raw = readFileSync(HERDR_CONFIG_PATH, "utf8");
-    // Use Bun.TOML to parse
     const doc = TOML.parse(raw) as Record<string, unknown>;
-
-    const result: HerdrAppConfig = {};
-
-    if (typeof doc.onboarding === "boolean") result.onboarding = doc.onboarding;
-
-    const upd = doc.update;
-    if (upd && typeof upd === "object") {
-      const u = upd as Record<string, unknown>;
-      if (u.channel === "stable" || u.channel === "preview") {
-        result.update = { channel: u.channel };
-      }
-    }
-
-    const rem = doc.remote;
-    if (rem && typeof rem === "object") {
-      const r = rem as Record<string, unknown>;
-      if (typeof r.manage_ssh_config === "boolean") {
-        result.remote = { manageSshConfig: r.manage_ssh_config };
-      }
-    }
-
-    return result;
+    return parseHerdrAppConfig(doc);
   } catch {
     return null;
   }
@@ -1011,7 +1068,7 @@ export function resolveOrchestratorConfig(
         const herdrDefaults = readHerdrRemoteDefaults();
         return Object.keys(herdrDefaults).length > 0 ? herdrDefaults : {};
       })(),
-    notifications: fromDoc?.notifications ?? {},
+    notifications: mergeNotifications(fromDoc?.notifications ?? {}, readHerdrNotifyDefaults()),
     domains: fromDoc?.domains ?? {},
   };
 }

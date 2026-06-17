@@ -1,6 +1,5 @@
 import { sshExec } from "./herdr-orchestrator.ts";
 import {
-  resolveOrchestratorConfig,
   normalizeRemoteHostConfig,
   type ResolvedRemoteHost,
   type RemoteHostConfig,
@@ -193,6 +192,8 @@ export interface NotifyEvent {
   toAgent?: string;
   toWorkspace?: string;
   toHost?: string;
+  /** SSH host label when the event originated on a remote fleet host. */
+  remoteHost?: string;
   condition?: string;
   detail: string;
   ok: boolean;
@@ -242,7 +243,8 @@ export function notifyWebhook(
         }
       : null,
     condition: event.condition,
-    detail: event.detail,
+    detail: event.remoteHost ? `${event.detail} | remote: \`${event.remoteHost}\`` : event.detail,
+    remote_host: event.remoteHost || "",
     hostname: event.hostname || "",
     domain: event.domain || "",
     metadata: event.metadata || {},

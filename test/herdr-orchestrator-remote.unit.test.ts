@@ -32,7 +32,7 @@ const testHost = {
   proxyJump: undefined as string | undefined,
 };
 
-describe("resolveHost", () => {
+describe("herdr-orchestrator-remote resolve-host", () => {
   test("resolves simple string host", () => {
     const resolved = resolveHost("staging", { staging: "staging.example.com" });
     expect(resolved).not.toBeNull();

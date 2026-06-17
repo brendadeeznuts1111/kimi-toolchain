@@ -60,7 +60,7 @@
     "CHANGELOG.md"
   ],
   "type": "module",
-  "main": "src/lib/utils.ts",
+
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },

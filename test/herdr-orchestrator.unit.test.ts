@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   parseHerdrOrchestratorSection,
+  parseHerdrAppConfig,
   resolveOrchestratorConfig,
   normalizeRemoteHostConfig,
   parseEnvOverrides,
@@ -602,5 +603,54 @@ describe("spawn_fallback TOML parsing", () => {
     };
     const parsed = parseHerdrOrchestratorSection(section);
     expect(parsed!.handoffRules[0]!.spawnFallback).toBeUndefined();
+  });
+});
+
+describe("Herdr app config plugins.notify", () => {
+  test("parseHerdrAppConfig reads [plugins.notify]", () => {
+    const parsed = parseHerdrAppConfig({
+      plugins: {
+        notify: {
+          webhook_url: "https://hooks.example.com/herdr",
+          on_handoff: true,
+          on_spawn: false,
+          on_error: true,
+        },
+      },
+    });
+    expect(parsed.plugins?.notify?.webhookUrl).toBe("https://hooks.example.com/herdr");
+    expect(parsed.plugins?.notify?.onHandoff).toBe(true);
+    expect(parsed.plugins?.notify?.onSpawn).toBe(false);
+  });
+
+  test("resolveOrchestratorConfig merges project notifications over Herdr plugin defaults", () => {
+    const config: HerdrProjectConfig = {
+      schemaVersion: 1,
+      enabled: true,
+      workspaceLabel: "demo",
+      primaryAgent: "kimi",
+      secondaryAgents: [],
+      shellPane: true,
+      shellSplit: "right",
+      bootstrap: [],
+      session: "dev",
+      agentsTab: { label: "agents", panes: [{ role: "primary", agent: "kimi" }] },
+      tabs: [],
+      sourcePath: "",
+      projectPath: "/tmp/demo",
+    };
+    const doc = {
+      herdr: {
+        orchestrator: {
+          notifications: {
+            webhook_url: "https://hooks.example.com/project",
+            on_spawn: true,
+          },
+        },
+      },
+    };
+    const resolved = resolveOrchestratorConfig(config, doc);
+    expect(resolved.notifications.webhookUrl).toBe("https://hooks.example.com/project");
+    expect(resolved.notifications.onSpawn).toBe(true);
   });
 });

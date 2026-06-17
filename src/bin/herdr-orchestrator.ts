@@ -88,6 +88,7 @@ function parseArgs(argv: string[]) {
     })(),
     takeover: args.includes("--takeover"),
     daemon: args.includes("--daemon"),
+    watch: args.includes("--watch"),
     workspace: workspace || undefined,
     host: host || undefined,
     agentSession: agentSession || undefined,
@@ -152,6 +153,7 @@ const {
   versions,
   domain,
   daemon: showDaemon,
+  watch: dashboardWatch,
   workspace,
   host: cliHost,
   agentSession,
@@ -964,6 +966,14 @@ try {
         writeOut(`  onboarding: ${app.onboarding ?? "(not set)"}`);
         if (app.update) writeOut(`  update.channel: ${app.update.channel}`);
         if (app.remote) writeOut(`  remote.manage_ssh_config: ${app.remote.manageSshConfig}`);
+        if (app.plugins?.notify) {
+          const n = app.plugins.notify;
+          writeOut(`  plugins.notify.enabled: ${n.enabled ?? true}`);
+          if (n.webhookUrl) writeOut(`  plugins.notify.webhook_url: ${n.webhookUrl}`);
+          if (n.onHandoff !== undefined) writeOut(`  plugins.notify.on_handoff: ${n.onHandoff}`);
+          if (n.onSpawn !== undefined) writeOut(`  plugins.notify.on_spawn: ${n.onSpawn}`);
+          if (n.onError !== undefined) writeOut(`  plugins.notify.on_error: ${n.onError}`);
+        }
       }
       process.exit(0);
     };
@@ -1577,7 +1587,36 @@ try {
     if (other > 0) parts.push(`${D}${other} other${R}`);
     writeOut(`  ${B}${total}${R} agent(s) · ${parts.join(`  ${D}│${R}  `)}`);
     writeOut("");
-    process.exit(0);
+
+    if (dashboardWatch) {
+      writeOut(`${D}── watch mode: ctrl+c to stop ──${R}`);
+      writeOut("");
+
+      const refresh = async () => {
+        while (true) {
+          await Bun.sleep(3000);
+          process.stdout.write("\x1b[2J\x1b[H");
+          const proc = Bun.spawn(
+            [
+              process.execPath,
+              process.argv[1],
+              "dashboard",
+              ...(showSessions ? ["--sessions"] : []),
+              ...(cliHost ? ["--host", cliHost] : []),
+              ...(domain ? ["--domain", domain] : []),
+              ...(includeDoctor ? ["--include-doctor"] : []),
+            ],
+            { stdio: ["ignore", "inherit", "inherit"], env: process.env }
+          );
+          await proc.exited;
+        }
+      };
+
+      process.on("SIGINT", () => process.exit(0));
+      refresh().catch(() => process.exit(1));
+    } else {
+      process.exit(0);
+    }
   }
 
   if (command === "context-sync") {
@@ -2339,7 +2378,8 @@ try {
         wsSub === "plugin-logs" ||
         wsSub === "plugin-pane-open" ||
         wsSub === "plugin-pane-focus" ||
-        wsSub === "plugin-pane-close") &&
+        wsSub === "plugin-pane-close" ||
+        wsSub === "plugin-manifest") &&
       cliHost;
 
     if (
