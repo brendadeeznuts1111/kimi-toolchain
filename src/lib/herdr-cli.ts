@@ -7,7 +7,12 @@
  */
 
 import { Effect } from "effect";
-import { resolveHerdrPanePath, resolveHerdrSession, herdrSessionEnv } from "./herdr-project-cli.ts";
+import {
+  ensureJsonArgs,
+  resolveHerdrPanePath,
+  resolveHerdrSession,
+  herdrSessionEnv,
+} from "./herdr-project-cli.ts";
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -75,6 +80,11 @@ export function herdrCli(args: string[], session?: string): Effect.Effect<string
 }
 
 // ── Sync CLI (Bun.spawnSync) ────────────────────────────────────────────
+
+/** Run herdr CLI synchronously with `--json` appended when absent. */
+export function herdrCliJsonSync(args: string[], session?: string): string {
+  return herdrCliSync(ensureJsonArgs(args), session);
+}
 
 /** Run herdr CLI synchronously via Bun.spawnSync. Returns stdout or throws. */
 export function herdrCliSync(args: string[], session?: string): string {

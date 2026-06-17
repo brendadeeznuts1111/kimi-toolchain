@@ -63,11 +63,11 @@ function herdrPrefix(session?: string): string[] {
 
 // ── Core: invoke a plugin action on a remote host ────────────────────────
 
-export function invokeRemoteAction(
+export async function invokeRemoteAction(
   actionId: string,
   context: RemoteActionContext,
   args: string[] = []
-): RemoteActionResult {
+): Promise<RemoteActionResult> {
   const { resolved, session, workspace, env = {} } = context;
 
   const cmd = [...herdrPrefix(session), "plugin", "action", "invoke", actionId];
@@ -78,7 +78,7 @@ export function invokeRemoteAction(
   }
   cmd.push(...args);
 
-  const result = sshExec(resolved, cmd);
+  const result = await sshExec(resolved, cmd);
   if (!result.ok) {
     return {
       ok: false,
@@ -94,12 +94,12 @@ export function invokeRemoteAction(
 
 // ── Convenience: agent lifecycle ─────────────────────────────────────────
 
-export function remoteAgentStart(
+export async function remoteAgentStart(
   resolved: ResolvedRemoteHost,
   agentName: string,
   session?: string,
   workspace?: string
-): RemoteActionResult {
+): Promise<RemoteActionResult> {
   return invokeRemoteAction(
     "agent-manager.start",
     { resolved, session, workspace, env: { AGENT_NAME: agentName } },
@@ -107,11 +107,11 @@ export function remoteAgentStart(
   );
 }
 
-export function remoteAgentStop(
+export async function remoteAgentStop(
   resolved: ResolvedRemoteHost,
   agentName: string,
   session?: string
-): RemoteActionResult {
+): Promise<RemoteActionResult> {
   return invokeRemoteAction(
     "agent-manager.stop",
     { resolved, session, env: { AGENT_NAME: agentName } },
@@ -119,11 +119,11 @@ export function remoteAgentStop(
   );
 }
 
-export function remoteAgentAttach(
+export async function remoteAgentAttach(
   resolved: ResolvedRemoteHost,
   agentName: string,
   session?: string
-): RemoteActionResult {
+): Promise<RemoteActionResult> {
   return invokeRemoteAction(
     "agent-manager.attach",
     { resolved, session, env: { AGENT_NAME: agentName } },
@@ -133,17 +133,17 @@ export function remoteAgentAttach(
 
 // ── Convenience: bootstrap ───────────────────────────────────────────────
 
-export function remoteBootstrap(
+export async function remoteBootstrap(
   resolved: ResolvedRemoteHost,
   pluginRepo = "ogulcancelik/herdr-orchestrator-agent-manager",
   ref?: string
-): RemoteActionResult[] {
+): Promise<RemoteActionResult[]> {
   const results: RemoteActionResult[] = [];
 
   // Install
   const installArgs = ["--yes"];
   if (ref) installArgs.push("--ref", ref);
-  const installResult = invokeRemoteAction("plugin.install", { resolved }, [
+  const installResult = await invokeRemoteAction("plugin.install", { resolved }, [
     pluginRepo,
     ...installArgs,
   ]);
@@ -151,7 +151,7 @@ export function remoteBootstrap(
   if (!installResult.ok) return results;
 
   // Enable
-  const enableResult = invokeRemoteAction("plugin.enable", { resolved }, [pluginRepo]);
+  const enableResult = await invokeRemoteAction("plugin.enable", { resolved }, [pluginRepo]);
   results.push(enableResult);
 
   return results;

@@ -66,9 +66,9 @@ describe("resolveAllHosts", () => {
 });
 
 describe("invokeRemoteAction", () => {
-  test("returns structured result for failed SSH exec", () => {
+  test("returns structured result for failed SSH exec", async () => {
     // sshExec will fail with this; we test that the result shape is correct
-    const result = invokeRemoteAction(
+    const result = await invokeRemoteAction(
       "agent-manager.start",
       { resolved: { ...testHost, host: "nonexistent.invalid" } },
       ["reviewer"]
@@ -80,8 +80,8 @@ describe("invokeRemoteAction", () => {
 });
 
 describe("remoteAgentStart", () => {
-  test("builds correct call", () => {
-    const result = remoteAgentStart(
+  test("builds correct call", async () => {
+    const result = await remoteAgentStart(
       { ...testHost, host: "nonexistent.invalid" },
       "reviewer",
       "dev",
@@ -94,15 +94,19 @@ describe("remoteAgentStart", () => {
 });
 
 describe("remoteAgentStop", () => {
-  test("builds correct call", () => {
-    const result = remoteAgentStop({ ...testHost, host: "nonexistent.invalid" }, "reviewer", "dev");
+  test("builds correct call", async () => {
+    const result = await remoteAgentStop(
+      { ...testHost, host: "nonexistent.invalid" },
+      "reviewer",
+      "dev"
+    );
     expect(result.action).toBe("agent-manager.stop");
   });
 });
 
 describe("remoteAgentAttach", () => {
-  test("builds correct call", () => {
-    const result = remoteAgentAttach(
+  test("builds correct call", async () => {
+    const result = await remoteAgentAttach(
       { ...testHost, host: "nonexistent.invalid" },
       "reviewer",
       "dev"
@@ -112,8 +116,8 @@ describe("remoteAgentAttach", () => {
 });
 
 describe("remoteBootstrap", () => {
-  test("attempts install then enable", () => {
-    const results = remoteBootstrap(
+  test("attempts install then enable", async () => {
+    const results = await remoteBootstrap(
       { ...testHost, host: "nonexistent.invalid" },
       "ogulcancelik/herdr-orchestrator-agent-manager"
     );
@@ -122,8 +126,8 @@ describe("remoteBootstrap", () => {
     expect(results[0]!.action).toBe("plugin.install");
   });
 
-  test("includes ref when provided", () => {
-    const results = remoteBootstrap(
+  test("includes ref when provided", async () => {
+    const results = await remoteBootstrap(
       { ...testHost, host: "nonexistent.invalid" },
       "ogulcancelik/herdr-orchestrator-agent-manager",
       "v0.2.0"

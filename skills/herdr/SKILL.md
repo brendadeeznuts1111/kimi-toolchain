@@ -280,7 +280,6 @@ herdr pane split 1-2 --direction right --no-focus
 that prints json with the new pane nested at `result.pane.pane_id`. parse that value, then run a command in that pane:
 
 ```bash
-# bun-native json parse (python3 also works)
 NEW_PANE=$(herdr pane split 1-2 --direction right --no-focus | bun -e 'const j=JSON.parse(await Bun.stdin.text()); console.log(j.result.pane.pane_id)')
 herdr pane run "$NEW_PANE" "npm run dev"
 ```

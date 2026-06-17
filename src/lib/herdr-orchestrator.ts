@@ -1,6 +1,6 @@
 import { makeDir, pathExists, readText, writeText } from "./bun-io.ts";
 
-import { execArgvSync } from "./bun-utils.ts";
+import { governedSpawn } from "./governor-spawn.ts";
 import { join } from "path";
 import { TOML } from "bun";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
@@ -219,28 +219,31 @@ export function buildSshArgs(resolved: ResolvedRemoteHost): string[] {
  * Uses per-host or global SSH options; falls back to BatchMode=yes, ConnectTimeout=5.
  * Includes one automatic retry on connection failure.
  */
-export function sshExec(resolved: ResolvedRemoteHost, command: string[]): SshExecResult {
+export async function sshExec(
+  resolved: ResolvedRemoteHost,
+  command: string[]
+): Promise<SshExecResult> {
   const args = [...buildSshArgs(resolved), "--", ...command];
   const timeoutMs = resolved.timeout;
 
-  const run = (): SshExecResult => {
+  const run = async (): Promise<SshExecResult> => {
     try {
-      return {
-        ok: true,
-        output: execArgvSync("ssh", args, { timeout: timeoutMs }),
-      };
+      const result = await governedSpawn(["ssh", ...args], {
+        timeoutMs,
+        retry: { maxAttempts: 1, backoffMs: 1000 },
+      });
+      const output = `${result.stdout}${result.stderr}`.trim();
+      if (result.exitCode !== 0) {
+        return { ok: false, output, code: result.exitCode };
+      }
+      return { ok: true, output };
     } catch (error) {
-      const err = error as { stdout?: string; stderr?: string; status?: number };
-      const combined = `${err.stdout || ""}${err.stderr || ""}`.trim();
-      return {
-        ok: false,
-        output: combined,
-        code: err.status ?? 1,
-      };
+      const message = error instanceof Error ? error.message : String(error);
+      return { ok: false, output: message, code: 1 };
     }
   };
 
-  const first = run();
+  const first = await run();
   if (first.ok) return first;
 
   // Single retry on connection failure
@@ -290,17 +293,17 @@ export function friendlySshError(output: string, host: string): string {
  * Accepts raw config map (simple strings or per-host objects) and optional global defaults.
  * Returns discovered sessions or error rows for unreachable hosts.
  */
-export function discoverRemoteSessions(
+export async function discoverRemoteSessions(
   hosts: Record<string, string | RemoteHostConfig>,
   defaults?: RemoteDefaults
-): { sessions: RemoteSession[]; errors: Array<{ host: string; message: string }> } {
+): Promise<{ sessions: RemoteSession[]; errors: Array<{ host: string; message: string }> }> {
   const resolvedHosts = normalizeRemoteHostConfig(hosts, defaults);
   const sessions: RemoteSession[] = [];
   const errors: Array<{ host: string; message: string }> = [];
 
   for (const [hostLabel, resolved] of Object.entries(resolvedHosts)) {
     // Test connectivity first
-    const versionCheck = sshExec(resolved, ["herdr", "version"]);
+    const versionCheck = await sshExec(resolved, ["herdr", "version"]);
     if (!versionCheck.ok) {
       const msg =
         versionCheck.output.includes("command not found") ||
@@ -312,7 +315,7 @@ export function discoverRemoteSessions(
     }
 
     // Discover sessions
-    const sessionResult = sshExec(resolved, ["herdr", "session", "list", "--json"]);
+    const sessionResult = await sshExec(resolved, ["herdr", "session", "list", "--json"]);
     if (!sessionResult.ok) {
       errors.push({ host: hostLabel, message: `${hostLabel}: failed to list sessions` });
       continue;
@@ -325,7 +328,7 @@ export function discoverRemoteSessions(
       const hostSessions = parsed.sessions || [];
       for (const s of hostSessions) {
         // Fetch workspace count for this session
-        const wsResult = sshExec(resolved, [
+        const wsResult = await sshExec(resolved, [
           "herdr",
           "--session",
           s.name,
@@ -343,7 +346,7 @@ export function discoverRemoteSessions(
             const workspaces = wsParsed.result?.workspaces || [];
             workspaceCount = workspaces.length;
             for (const ws of workspaces) {
-              const agentResult = sshExec(resolved, [
+              const agentResult = await sshExec(resolved, [
                 "herdr",
                 "--session",
                 s.name,
@@ -392,14 +395,14 @@ export function discoverRemoteSessions(
  * Fetch workspace agents from a remote Herdr session over SSH.
  * Accepts a resolved host config (with all SSH options pre-merged) and a label for attribution.
  */
-export function discoverRemoteWorkspaceAgents(
+export async function discoverRemoteWorkspaceAgents(
   hostLabel: string,
   resolved: ResolvedRemoteHost,
   session: string
-): RemoteAgentSnapshot[] {
+): Promise<RemoteAgentSnapshot[]> {
   const agents: RemoteAgentSnapshot[] = [];
 
-  const wsResult = sshExec(resolved, [
+  const wsResult = await sshExec(resolved, [
     "herdr",
     "--session",
     session,
@@ -417,7 +420,7 @@ export function discoverRemoteWorkspaceAgents(
 
     for (const ws of workspaces) {
       if (!ws.workspace_id) continue;
-      const agentResult = sshExec(resolved, [
+      const agentResult = await sshExec(resolved, [
         "herdr",
         "--session",
         session,
@@ -813,7 +816,7 @@ export async function evaluateCrossWorkspaceHandoffs(
         );
         const resolved = resolvedHosts[toParsed.host!];
         if (resolved) {
-          const sshStartResult = sshExec(resolved, [
+          const sshStartResult = await sshExec(resolved, [
             "herdr",
             "--session",
             toParsed.session,
@@ -833,7 +836,7 @@ export async function evaluateCrossWorkspaceHandoffs(
                 config.remoteDefaults
               )[fromParsed.host];
               if (fromResolved) {
-                const agentGetResult = sshExec(fromResolved, [
+                const agentGetResult = await sshExec(fromResolved, [
                   "herdr",
                   "--session",
                   fromParsed.session,
@@ -852,7 +855,7 @@ export async function evaluateCrossWorkspaceHandoffs(
                       agentData.result?.agent_session?.path
                     ) {
                       // Forward to the newly spawned target
-                      sshExec(resolved, [
+                      await sshExec(resolved, [
                         "herdr",
                         "--session",
                         toParsed.session,
@@ -929,7 +932,7 @@ export async function evaluateCrossWorkspaceHandoffs(
               detail: `[dry-run] ${prefix}spawn ${sf.agentCli} as "${label}" on ${sf.host}/${targetSession}/${targetWorkspace}`,
             });
           } else {
-            const spawnResult = sshExec(resolved, startArgs);
+            const spawnResult = await sshExec(resolved, startArgs);
             if (spawnResult.ok) {
               pushResult({
                 rule,
@@ -1016,7 +1019,7 @@ export async function evaluateCrossWorkspaceHandoffs(
         config.remoteDefaults
       );
       const resolved = resolvedHosts[toParsed.host!];
-      const sshResult = sshExec(resolved, [
+      const sshResult = await sshExec(resolved, [
         "herdr",
         "--session",
         toParsed.session,

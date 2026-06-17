@@ -8,10 +8,10 @@ import { appendText, makeDir, pathExists } from "../lib/bun-io.ts";
  * ~/.kimi-code/var/tool-failures.jsonl.
  */
 
-import { join } from "path";
 import { Effect } from "effect";
 import { safeParse } from "../lib/utils.ts";
 import { buildClassifiedFailure, classifyFailure, loadTaxonomy } from "../lib/error-taxonomy.ts";
+import { failureLedgerPath, varDir } from "../lib/paths.ts";
 
 interface HookPayload {
   hook_event_name?: string;
@@ -54,9 +54,9 @@ async function main(): Promise<void> {
   const match = classifyFailure(output, taxonomy);
   const record = buildClassifiedFailure(toolName, output, match, { sessionId });
 
-  const varDir = join(Bun.env.HOME || "/tmp", ".kimi-code", "var");
-  if (!pathExists(varDir)) makeDir(varDir, { recursive: true });
-  const logPath = join(varDir, "tool-failures.jsonl");
+  const varRoot = varDir();
+  if (!pathExists(varRoot)) makeDir(varRoot, { recursive: true });
+  const logPath = failureLedgerPath();
 
   appendText(logPath, JSON.stringify(record) + "\n");
 }

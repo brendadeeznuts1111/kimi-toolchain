@@ -6,7 +6,14 @@
  */
 
 import { Effect, pipe } from "effect";
-import { herdrCli, herdrCliSync, herdrCliError, type HerdrCliError } from "./herdr-cli.ts";
+import {
+  herdrCli,
+  herdrCliJsonSync,
+  herdrCliSync,
+  herdrCliError,
+  type HerdrCliError,
+} from "./herdr-cli.ts";
+import { ensureJsonArgs } from "./herdr-project-cli.ts";
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -30,7 +37,7 @@ export interface WorkspaceCreateResult {
 /** Async herdr CLI → JSON. */
 function herdrCliJson<T>(args: string[], session?: string): Effect.Effect<T, HerdrCliError> {
   return pipe(
-    herdrCli(args, session),
+    herdrCli(ensureJsonArgs(args), session),
     Effect.flatMap((stdout) => {
       try {
         return Effect.succeed(JSON.parse(stdout) as T);
@@ -160,7 +167,7 @@ export function listWorkspacesSync(
   session?: string
 ): { ok: true; workspaces: WorkspaceInfo[] } | { ok: false; error: string } {
   try {
-    const stdout = herdrCliSync(["workspace", "list"], session);
+    const stdout = herdrCliJsonSync(["workspace", "list"], session);
     const json = JSON.parse(stdout) as {
       result?: { workspaces?: Array<Record<string, unknown>> };
     };
@@ -187,7 +194,7 @@ export function getWorkspaceSync(
   session?: string
 ): { ok: true; workspace: WorkspaceInfo } | { ok: false; error: string } {
   try {
-    const stdout = herdrCliSync(["workspace", "get", workspaceId], session);
+    const stdout = herdrCliJsonSync(["workspace", "get", workspaceId], session);
     const json = JSON.parse(stdout) as {
       result?: { workspace?: Record<string, unknown> };
     };
@@ -230,7 +237,7 @@ export function createWorkspaceSync(options: CreateWorkspaceOptions = {}):
     if (options.focus === true) args.push("--focus");
     if (options.focus === false) args.push("--no-focus");
 
-    const stdout = herdrCliSync(args, options.session);
+    const stdout = herdrCliJsonSync(args, options.session);
     const json = JSON.parse(stdout) as Record<string, unknown>;
     const result = json.result as
       | {

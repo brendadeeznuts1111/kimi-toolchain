@@ -4,7 +4,7 @@ import { TOML } from "bun";
 import type { ReportConditionClause } from "./condition-evaluator.ts";
 import { parseWhenTable } from "./condition-evaluator.ts";
 import type { HerdrProjectConfig } from "./herdr-project-config.ts";
-import { homeDir } from "./paths.ts";
+import { herdrConfigTomlPath, homeDir } from "./paths.ts";
 import { join } from "path";
 
 // ── Orchestrator event allowlist ────────────────────────────────────────
@@ -696,8 +696,6 @@ export interface HerdrAppConfig {
   };
 }
 
-const HERDR_CONFIG_PATH = join(homeDir(), ".config", "herdr", "config.toml");
-
 export function parseHerdrAppConfig(doc: Record<string, unknown>): HerdrAppConfig {
   const result: HerdrAppConfig = {};
 
@@ -776,9 +774,10 @@ export function mergeNotifications(
  * Returns null if the file doesn't exist or can't be parsed.
  */
 export function readHerdrAppConfig(): HerdrAppConfig | null {
-  if (!pathExists(HERDR_CONFIG_PATH)) return null;
+  const configPath = herdrConfigTomlPath();
+  if (!pathExists(configPath)) return null;
   try {
-    const raw = readText(HERDR_CONFIG_PATH);
+    const raw = readText(configPath);
     const doc = TOML.parse(raw) as Record<string, unknown>;
     return parseHerdrAppConfig(doc);
   } catch {

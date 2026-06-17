@@ -56,6 +56,26 @@ function findShellPane(config: HerdrProjectConfig, workspaceId: string) {
   return workspacePanes(config, workspaceId).find((pane) => !isKnownAgentPane(pane)) || null;
 }
 
+/** Resolve workspace root pane from create response or live pane list (never `${id}:p1` guess). */
+function resolveWorkspaceRootPaneId(
+  config: HerdrProjectConfig,
+  workspaceId: string,
+  createdRootPaneId?: string | null
+): string | null {
+  if (createdRootPaneId) return createdRootPaneId;
+  const panes = listPanes(config.session);
+  if (!panes.ok) return null;
+  const rows = (panes.json?.result?.panes || []) as Array<{
+    workspace_id?: string;
+    pane_id?: string;
+  }>;
+  const sorted = rows
+    .filter((row) => row.workspace_id === workspaceId && row.pane_id)
+    .map((row) => row.pane_id!)
+    .sort((a, b) => a.localeCompare(b));
+  return sorted[0] ?? null;
+}
+
 export function parseHerdrPaneId(
   payload: { result?: Record<string, unknown> } | null,
   fallback: string | null
@@ -230,6 +250,7 @@ export async function bootstrapHerdrProject(
   const warnings: string[] = [];
   let workspaceId: string | null = null;
   let workspaceWasNew = false;
+  let createdRootPaneId: string | null = null;
   const existing = findWorkspaceForProject(config);
   if (existing.workspaceId) {
     workspaceId = existing.workspaceId;
@@ -246,10 +267,13 @@ export async function bootstrapHerdrProject(
     });
     if (!created.ok) throw new Error(created.error || "workspace create failed");
     workspaceId = created.workspaceId || null;
-    actions.push({ action: "workspace_created", workspaceId });
+    createdRootPaneId = created.rootPaneId || null;
+    actions.push({ action: "workspace_created", workspaceId, rootPaneId: createdRootPaneId });
   }
 
-  const rootPaneId = workspaceId ? `${workspaceId}:p1` : null;
+  const rootPaneId = workspaceId
+    ? resolveWorkspaceRootPaneId(config, workspaceId, createdRootPaneId)
+    : null;
   let shellPaneId: string | null = rootPaneId;
 
   if (config.agentsTab?.panes?.length && workspaceId && rootPaneId) {

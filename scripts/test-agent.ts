@@ -8,8 +8,8 @@
  *   bun run scripts/test-agent.ts --ci      # ci:local --job quality
  */
 
-import { watch } from "node:fs";
-import { join } from "node:path";
+import { join } from "path";
+import { watchPath } from "../src/lib/bun-io.ts";
 import { herdrCliRun } from "../src/lib/herdr-project-cli.ts";
 import {
   parseTestAgentMode,
@@ -72,7 +72,7 @@ function startWatch(run: () => Promise<boolean>) {
 
   void run();
   for (const path of watchPaths(REPO_ROOT)) {
-    watch(path, { recursive: true }, schedule);
+    watchPath(path, { recursive: true }, schedule);
   }
   console.log(
     `test-agent: watching ${watchPaths(REPO_ROOT).join(", ")} (debounce ${TEST_AGENT_DEBOUNCE_MS}ms); Ctrl+C to stop`

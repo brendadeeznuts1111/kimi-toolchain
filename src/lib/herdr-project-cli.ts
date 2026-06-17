@@ -1,6 +1,11 @@
 import { execArgvSync } from "./bun-utils.ts";
 
-import { homeDir } from "./paths.ts";
+import { desktopBinDir, homeDir, localBinDir } from "./paths.ts";
+
+/** Append `--json` when absent so programmatic CLI calls always parse JSON. */
+export function ensureJsonArgs(args: string[]): string[] {
+  return args.includes("--json") ? args : [...args, "--json"];
+}
 
 export type ExecCliOptions = {
   timeout?: number;
@@ -64,7 +69,7 @@ export function execCli(cmd: string, args: string[] = [], options: ExecCliOption
 }
 
 export function execCliJson(cmd: string, args: string[] = [], session?: string) {
-  const result = execCli(cmd, args, { session });
+  const result = execCli(cmd, ensureJsonArgs(args), { session });
   if (!result.ok) return { ok: false as const, error: result.output, json: null };
   try {
     return { ok: true as const, json: JSON.parse(result.output), error: null };
@@ -78,7 +83,7 @@ export function herdrCliRun(session?: string, args: string[] = [], timeout = 30_
 }
 
 export function herdrCliJson(session?: string, args: string[] = []) {
-  const result = herdrCliRun(session, args);
+  const result = herdrCliRun(session, ensureJsonArgs(args));
   if (!result.ok) return { ok: false as const, error: result.output, json: null };
   try {
     return { ok: true as const, json: JSON.parse(result.output), error: null };
@@ -99,8 +104,8 @@ export function resolveHerdrPanePath(home = homeDir()): string {
   };
   add(Bun.env.PATH);
   for (const segment of [
-    `${home}/.local/bin`,
-    `${home}/.kimi-code/bin`,
+    localBinDir(home),
+    desktopBinDir(home),
     `${home}/.bun/bin`,
     `${home}/bin`,
     "/opt/homebrew/bin",

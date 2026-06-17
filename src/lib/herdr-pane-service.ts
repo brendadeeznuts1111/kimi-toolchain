@@ -10,7 +10,8 @@
 
 import { Effect, pipe } from "effect";
 import { resolveHerdrPanePath } from "./herdr-project-cli.ts";
-import { herdrCli, herdrCliSync, type HerdrCliError } from "./herdr-cli.ts";
+import { herdrCli, herdrCliJsonSync, herdrCliSync, type HerdrCliError } from "./herdr-cli.ts";
+import { ensureJsonArgs } from "./herdr-project-cli.ts";
 // Re-export for consumers (herdr-doctor, herdr-workspace-service)
 export { resolveHerdrPanePath };
 
@@ -94,7 +95,7 @@ function herdrJsonError(raw: string, context: string): HerdrJsonError {
 /** Run herdr CLI and parse JSON output. */
 function herdrCliJson<T>(args: string[], session?: string): Effect.Effect<T, HerdrPaneError> {
   return pipe(
-    herdrCli(args, session),
+    herdrCli(ensureJsonArgs(args), session),
     Effect.mapError((err) => err as HerdrPaneError),
     Effect.flatMap((stdout) => {
       try {
@@ -685,7 +686,7 @@ export function splitPaneSync(
       }
     }
     args.push("--no-focus");
-    const stdout = herdrCliSync(args, options.session);
+    const stdout = herdrCliJsonSync(args, options.session);
     const raw = JSON.parse(stdout) as Record<string, unknown>;
     const json = raw as Record<string, unknown>;
     const pane = (
@@ -761,7 +762,7 @@ export function listPanesSync(
 ): { ok: true; panes: PaneInfo[] } | { ok: false; error: string } {
   try {
     const args = workspaceId ? ["pane", "list", "--workspace", workspaceId] : ["pane", "list"];
-    const stdout = herdrCliSync(args, session);
+    const stdout = herdrCliJsonSync(args, session);
     const json = JSON.parse(stdout) as {
       result?: { panes?: Array<Record<string, unknown>> };
     };
@@ -789,7 +790,7 @@ export function getPaneSync(
   session?: string
 ): { ok: true; pane: PaneInfo } | { ok: false; error: string } {
   try {
-    const stdout = herdrCliSync(["pane", "get", paneId], session);
+    const stdout = herdrCliJsonSync(["pane", "get", paneId], session);
     const json = JSON.parse(stdout) as {
       result?: { pane?: Record<string, unknown> };
     };
@@ -900,7 +901,7 @@ export function listTabsSync(
   session?: string
 ): { ok: true; tabs: TabInfo[] } | { ok: false; error: string } {
   try {
-    const stdout = herdrCliSync(["tab", "list", "--workspace", workspaceId], session);
+    const stdout = herdrCliJsonSync(["tab", "list", "--workspace", workspaceId], session);
     const json = JSON.parse(stdout) as {
       result?: { tabs?: Array<Record<string, unknown>> };
     };
@@ -934,7 +935,7 @@ export function createTabSync(
     if (options.focus === true) args.push("--focus");
     else args.push("--no-focus");
 
-    const stdout = herdrCliSync(args, options.session);
+    const stdout = herdrCliJsonSync(args, options.session);
     const json = JSON.parse(stdout) as Record<string, unknown>;
     const result = json.result as
       | {

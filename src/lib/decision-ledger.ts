@@ -4,14 +4,12 @@
  */
 
 import { Effect } from "effect";
-import { join } from "path";
 import { appendNdjsonRecord, readNdjsonFile, rewriteNdjsonFile } from "./ndjson.ts";
-import { decisionLedgerPath, decisionsNdjsonPath, homeDir } from "./paths.ts";
+import { decisionLedgerPath, decisionsNdjsonPath } from "./paths.ts";
 import { ensureProcessTrace } from "./effect/trace-context.ts";
 import { readFailureTraceRecords, readTraceEvents } from "./trace-ledger.ts";
 import { readClusterMetadata } from "./failure-ledger.ts";
-import { resolveProjectRoot } from "./utils.ts";
-import { safeParse, sha256String } from "./utils.ts";
+import { resolveProjectRoot, safeParse, sha256String } from "./utils.ts";
 
 export const DECISION_SCHEMA_VERSION = 2;
 
@@ -690,9 +688,7 @@ export function recordDecision(input: {
   });
 }
 
-export function globalFallbackDecisionsPath(): string {
-  return join(homeDir(), ".kimi-code", ".kimi", "decisions.ndjson");
-}
+export { globalFallbackDecisionsPath } from "./paths.ts";
 
 const WINDOW_MS: Record<"d" | "h" | "m", number> = {
   d: 24 * 60 * 60 * 1000,

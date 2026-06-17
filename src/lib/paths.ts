@@ -185,8 +185,23 @@ export function agentsSkillsRoot(): string {
 }
 
 /** Return ~/.local/bin */
-export function localBinDir(): string {
-  return join(homeDir(), ".local", "bin");
+export function localBinDir(home?: string): string {
+  return join(home || homeDir(), ".local", "bin");
+}
+
+/** Return ~/.kimi-code/bin */
+export function desktopBinDir(home?: string): string {
+  return join(desktopRoot(home), "bin");
+}
+
+/** Return ~/.config/herdr/config.toml */
+export function herdrConfigTomlPath(home?: string): string {
+  return join(herdrConfigDir(home), "config.toml");
+}
+
+/** Return ~/.kimi-code/.kimi/decisions.ndjson (global fallback ledger) */
+export function globalFallbackDecisionsPath(home?: string): string {
+  return join(desktopRoot(home), ".kimi", "decisions.ndjson");
 }
 
 /** Return ~/.config/dx/global-config.toml */

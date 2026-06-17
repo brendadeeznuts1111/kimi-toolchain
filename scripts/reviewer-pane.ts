@@ -5,8 +5,8 @@
  *   bun run scripts/reviewer-pane.ts --report-file .kimi/finish-work-report.json
  */
 
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { isAbsolute, normalize, resolve } from "path";
+import { readText } from "../src/lib/bun-io.ts";
 import { herdrCli } from "../src/lib/herdr-socket.ts";
 import {
   appendReviewerFeedback,
@@ -43,9 +43,17 @@ function parseArgs(): string | null {
   return null;
 }
 
+function resolveReportPath(path: string): string {
+  return isAbsolute(path) ? normalize(path) : resolve(process.cwd(), path);
+}
+
+function projectRootFromReport(reportPath: string): string {
+  return resolve(reportPath, "../..");
+}
+
 function loadReport(path: string | null): FinishWorkReport | null {
   if (!path) return null;
-  const raw = readFileSync(resolve(path), "utf8");
+  const raw = readText(resolveReportPath(path));
   return normalizeFinishWorkReport(JSON.parse(raw) as Record<string, unknown>);
 }
 
@@ -137,17 +145,15 @@ async function main(): Promise<number> {
 
   renderTable(report);
 
-  if (filePath) {
-    const projectRoot = resolve(filePath, "../..");
-    const feedbackMessage = report.tree.clean
-      ? "Post-push review complete — tree clean"
-      : `Dirty tree after push (${report.tree.dirty.length} path(s)) — review required`;
-    await appendReviewerFeedback(projectRoot, {
-      message: feedbackMessage,
-      resolved: report.tree.clean,
-      reviewerPane: process.env.HERDR_PANE_ID,
-    });
-  }
+  const projectRoot = projectRootFromReport(resolveReportPath(filePath));
+  const feedbackMessage = report.tree.clean
+    ? "Post-push review complete — tree clean"
+    : `Dirty tree after push (${report.tree.dirty.length} path(s)) — review required`;
+  await appendReviewerFeedback(projectRoot, {
+    message: feedbackMessage,
+    resolved: report.tree.clean,
+    reviewerPane: process.env.HERDR_PANE_ID,
+  });
 
   await reportAgentState(report);
   return report.tree.clean ? 0 : 2;

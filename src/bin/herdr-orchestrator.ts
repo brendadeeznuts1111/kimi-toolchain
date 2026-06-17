@@ -409,7 +409,7 @@ try {
       remoteHosts = orchConfig.remoteHosts;
 
       if (Object.keys(remoteHosts).length > 0) {
-        const discovered = discoverRemoteSessions(remoteHosts, orchConfig.remoteDefaults);
+        const discovered = await discoverRemoteSessions(remoteHosts, orchConfig.remoteDefaults);
         remoteErrors.push(...discovered.errors);
         for (const rs of discovered.sessions) {
           rows.push({
@@ -516,7 +516,7 @@ try {
     const results: HostCheck[] = [];
     for (const [label, resolved] of Object.entries(resolvedHosts)) {
       const check: HostCheck = { host: label, reachable: false };
-      const versionResult = sshExec(resolved, ["herdr", "version"]);
+      const versionResult = await sshExec(resolved, ["herdr", "version"]);
       if (versionResult.ok) {
         check.reachable = true;
         const lines = versionResult.output.split("\n");
@@ -542,7 +542,7 @@ try {
         if (!r.reachable) continue;
         const resolved = resolvedHosts[r.host];
         if (!resolved) continue;
-        const integResult = sshExec(resolved, ["herdr", "integration", "status"]);
+        const integResult = await sshExec(resolved, ["herdr", "integration", "status"]);
         if (integResult.ok) {
           const integVersions = parseIntegrationStatus(integResult.output);
           r.integrations = {};
@@ -657,12 +657,12 @@ try {
     const remoteRunningSessions = new Map<string, Set<string>>(); // hostLabel → Set<sessionName>
     if (Object.keys(resolvedRemoteHosts).length > 0) {
       for (const [hostLabel, resolved] of Object.entries(resolvedRemoteHosts)) {
-        const versionCheck = sshExec(resolved, ["herdr", "version"]);
+        const versionCheck = await sshExec(resolved, ["herdr", "version"]);
         if (!versionCheck.ok) continue;
         reachableHosts.set(hostLabel, resolved);
 
         // Discover remote sessions
-        const remoteSessRaw = sshExec(resolved, ["herdr", "session", "list", "--json"]);
+        const remoteSessRaw = await sshExec(resolved, ["herdr", "session", "list", "--json"]);
         if (remoteSessRaw.ok) {
           try {
             const parsed = JSON.parse(remoteSessRaw.output) as {
@@ -785,7 +785,7 @@ try {
           // Remote validation
           const hostConn = reachableHosts.get(parsed.host);
           if (hostConn) {
-            const wsResult = sshExec(hostConn, [
+            const wsResult = await sshExec(hostConn, [
               "herdr",
               "--session",
               parsed.session,
@@ -803,7 +803,7 @@ try {
                 /* skip */
               }
             }
-            const agentResult = sshExec(hostConn, [
+            const agentResult = await sshExec(hostConn, [
               "herdr",
               "--session",
               parsed.session,
@@ -925,7 +925,7 @@ try {
           if (toParsed.host) {
             const hostConn = reachableHosts.get(toParsed.host);
             if (hostConn) {
-              const integResult = sshExec(hostConn, [
+              const integResult = await sshExec(hostConn, [
                 "herdr",
                 "--session",
                 toParsed.session,
@@ -1131,7 +1131,7 @@ try {
       process.exit(0);
     };
 
-    const reloadConfig = () => {
+    const reloadConfig = async () => {
       const config = discoverHerdrProjectConfig(projectPath);
       if (!config?.enabled) {
         if (json) writeJson({ ok: false, error: "no [herdr] profile" });
@@ -1162,7 +1162,7 @@ try {
       const results: Array<{ host: string; ok: boolean; error?: string }> = [];
       for (const [hostLabel, resolved] of Object.entries(resolvedHosts)) {
         if (!json) writeOut(`Reloading config on ${hostLabel}...`);
-        const result = sshExec(resolved, ["herdr", "server", "reload-config"]);
+        const result = await sshExec(resolved, ["herdr", "server", "reload-config"]);
         results.push({
           host: hostLabel,
           ok: result.ok,
@@ -1512,12 +1512,16 @@ try {
       if (Object.keys(hostsToScan).length > 0) {
         hasRemote = true;
         const resolvedHosts = normalizeRemoteHostConfig(hostsToScan, orchConfig.remoteDefaults);
-        const discovered = discoverRemoteSessions(hostsToScan, orchConfig.remoteDefaults);
+        const discovered = await discoverRemoteSessions(hostsToScan, orchConfig.remoteDefaults);
         for (const rs of discovered.sessions) {
           if (rs.status !== "running") continue;
           const resolved = resolvedHosts[rs.host];
           if (!resolved) continue;
-          const remoteAgents = discoverRemoteWorkspaceAgents(rs.host, resolved, rs.sessionName);
+          const remoteAgents = await discoverRemoteWorkspaceAgents(
+            rs.host,
+            resolved,
+            rs.sessionName
+          );
           for (const ra of remoteAgents) {
             rows.push({
               host: ra.host,
@@ -1928,7 +1932,7 @@ try {
         writeOut(JSON.stringify({ ok: true, host: cliHost, command: "start", agent: agentTarget }));
       else writeOut(`Starting agent "${agentTarget}" on ${cliHost}...`);
 
-      const result = sshExec(resolved, sshCommand);
+      const result = await sshExec(resolved, sshCommand);
       if (!result.ok) {
         if (json) writeJson({ ok: false, error: result.output });
         else writeOut(`Failed: ${result.output}`);
@@ -1946,7 +1950,7 @@ try {
       // Resolve agent name to pane ID if not already a pane ID
       let paneOrAgent = agentTarget;
       if (!agentTarget.includes(":")) {
-        const listResult = sshExec(resolved, [...herdrArgs(["agent", "list", "--json"])]);
+        const listResult = await sshExec(resolved, [...herdrArgs(["agent", "list", "--json"])]);
         if (listResult.ok) {
           try {
             const parsed = JSON.parse(listResult.output) as {
@@ -1973,7 +1977,7 @@ try {
         writeOut(JSON.stringify({ ok: true, host: cliHost, command: "stop", target: agentTarget }));
       else writeOut(`Stopping agent "${agentTarget}" on ${cliHost}...`);
 
-      const result = sshExec(resolved, closeCmd);
+      const result = await sshExec(resolved, closeCmd);
       if (!result.ok) {
         if (json) writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
         else writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
@@ -1991,7 +1995,7 @@ try {
       if (json) writeOut(JSON.stringify({ ok: true, host: cliHost, command: "upgrade" }));
       else writeOut(`Upgrading herdr on ${cliHost}...`);
 
-      const result = sshExec(resolved, ["herdr", "update"]);
+      const result = await sshExec(resolved, ["herdr", "update"]);
       if (!result.ok) {
         if (json) writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
         else writeOut(`Upgrade failed: ${friendlySshError(result.output, cliHost)}`);
@@ -2019,7 +2023,7 @@ try {
 
       // Stop
       if (!json) writeOut(`  ⏹  stopping...`);
-      const stopResult = sshExec(resolved, [...herdrArgs(["agent", "stop", agentTarget])]);
+      const stopResult = await sshExec(resolved, [...herdrArgs(["agent", "stop", agentTarget])]);
       if (!stopResult.ok) {
         if (json)
           writeJson({
@@ -2036,7 +2040,7 @@ try {
 
       // Start
       if (!json) writeOut(`  ▶  starting...`);
-      const startResult = sshExec(resolved, [
+      const startResult = await sshExec(resolved, [
         ...herdrArgs(["agent", "start", agentTarget, ...wsArgs]),
       ]);
       if (!startResult.ok) {
@@ -2059,7 +2063,7 @@ try {
       // Resolve agent by name to provide rich feedback
       let foundInfo = "";
       if (agentTarget) {
-        const listResult = sshExec(resolved, [...herdrArgs(["agent", "list", "--json"])]);
+        const listResult = await sshExec(resolved, [...herdrArgs(["agent", "list", "--json"])]);
         if (listResult.ok) {
           try {
             const parsed = JSON.parse(listResult.output) as {
@@ -2110,7 +2114,7 @@ try {
     }
 
     if (agentSubcommand === "list") {
-      const listResult = sshExec(resolved, [
+      const listResult = await sshExec(resolved, [
         ...herdrArgs(["agent", "list", ...(json ? ["--json"] : [])]),
       ]);
       if (!listResult.ok) {
@@ -2189,7 +2193,7 @@ try {
 
     if (agentSubcommand === "manifests") {
       // Query herdr server agent-manifests (server-level, not per-session)
-      const manifestsResult = sshExec(resolved, [
+      const manifestsResult = await sshExec(resolved, [
         "herdr",
         "server",
         "agent-manifests",
@@ -2227,7 +2231,7 @@ try {
     }
 
     if (agentSubcommand === "get") {
-      const getResult = sshExec(resolved, [
+      const getResult = await sshExec(resolved, [
         ...herdrArgs(["agent", "get", agentTarget, ...(json ? ["--json"] : [])]),
       ]);
       if (!getResult.ok) {
@@ -2248,7 +2252,7 @@ try {
     }
 
     if (agentSubcommand === "explain") {
-      const explainResult = sshExec(resolved, [
+      const explainResult = await sshExec(resolved, [
         ...herdrArgs([
           "agent",
           "explain",
@@ -2284,7 +2288,9 @@ try {
         );
         process.exit(2);
       }
-      const renameResult = sshExec(resolved, [...herdrArgs(["agent", "rename", oldName, newName])]);
+      const renameResult = await sshExec(resolved, [
+        ...herdrArgs(["agent", "rename", oldName, newName]),
+      ]);
       if (!renameResult.ok) {
         if (json) writeJson({ ok: false, error: friendlySshError(renameResult.output, cliHost) });
         else writeOut(`Failed: ${friendlySshError(renameResult.output, cliHost)}`);
@@ -2327,7 +2333,7 @@ try {
 
       if (!json)
         writeOut(`Waiting for agent "${agentTarget}" to become ${statusFlag} on ${cliHost}...`);
-      const waitResult = sshExec(resolved, waitArgs);
+      const waitResult = await sshExec(resolved, waitArgs);
       if (!waitResult.ok) {
         if (json) writeJson({ ok: false, error: friendlySshError(waitResult.output, cliHost) });
         else writeOut(`Wait failed: ${friendlySshError(waitResult.output, cliHost)}`);
@@ -2340,7 +2346,7 @@ try {
 
     if (agentSubcommand === "log") {
       // Resolve agent name to pane ID first
-      const listResult = sshExec(resolved, [...herdrArgs(["agent", "list", "--json"])]);
+      const listResult = await sshExec(resolved, [...herdrArgs(["agent", "list", "--json"])]);
       let paneId: string | undefined;
       if (listResult.ok) {
         try {
@@ -2364,7 +2370,7 @@ try {
         process.exit(1);
       }
 
-      const logResult = sshExec(resolved, [
+      const logResult = await sshExec(resolved, [
         ...herdrArgs([
           "agent",
           "read",
@@ -2422,7 +2428,9 @@ try {
         writeOut(
           `Sending to ${agentTarget}@${cliHost}: ${text.slice(0, 60)}${text.length > 60 ? "…" : ""}`
         );
-      const sendResult = sshExec(resolved, [...herdrArgs(["agent", "send", agentTarget, text])]);
+      const sendResult = await sshExec(resolved, [
+        ...herdrArgs(["agent", "send", agentTarget, text]),
+      ]);
       if (!sendResult.ok) {
         if (json) writeJson({ ok: false, error: friendlySshError(sendResult.output, cliHost) });
         else writeOut(`Send failed: ${friendlySshError(sendResult.output, cliHost)}`);
@@ -2445,7 +2453,7 @@ try {
       }
 
       // Resolve agent name to pane ID
-      const listResult = sshExec(resolved, [...herdrArgs(["agent", "list", "--json"])]);
+      const listResult = await sshExec(resolved, [...herdrArgs(["agent", "list", "--json"])]);
       let paneId: string | undefined;
       if (listResult.ok) {
         try {
@@ -2479,7 +2487,7 @@ try {
         writeJson({ ok: true, host: cliHost, agent: agentTarget, paneId, command: execCmd });
       else writeOut(`Sending to ${agentTarget}@${cliHost} (pane ${paneId}): ${execCmd}`);
 
-      const execResult = sshExec(resolved, [...herdrArgs(["pane", "run", paneId, execCmd])]);
+      const execResult = await sshExec(resolved, [...herdrArgs(["pane", "run", paneId, execCmd])]);
       if (!execResult.ok) {
         if (json) writeJson({ ok: false, error: execResult.output });
         else writeOut(`Exec failed: ${execResult.output}`);
@@ -2584,7 +2592,7 @@ try {
       const extraArgs: string[] = [];
       if ((isWorktrees || isTabs || isPanes) && workspace) extraArgs.push("--workspace", workspace);
       if (json) extraArgs.push("--json");
-      const wsResult = sshExec(resolved, [...herdrWsArgs, ...extraArgs]);
+      const wsResult = await sshExec(resolved, [...herdrWsArgs, ...extraArgs]);
       if (!wsResult.ok) {
         if (json) writeJson({ ok: false, error: wsResult.output });
         else writeOut(`Failed to list workspaces: ${wsResult.output}`);
@@ -2734,7 +2742,7 @@ try {
         : ["herdr", "pane", "read", paneId, "--source", sourceFlag, "--lines", String(linesFlag)];
       if (ansiFlag) readArgs.push("--ansi");
 
-      const readResult = sshExec(resolved, readArgs);
+      const readResult = await sshExec(resolved, readArgs);
       if (!readResult.ok) {
         if (json) writeJson({ ok: false, error: friendlySshError(readResult.output, cliHost) });
         else writeOut(`Failed: ${friendlySshError(readResult.output, cliHost)}`);
@@ -2793,7 +2801,7 @@ try {
         ? ["herdr", "--session", sess, "pane", "get", paneId, ...(json ? ["--json"] : [])]
         : ["herdr", "pane", "get", paneId, ...(json ? ["--json"] : [])];
 
-      const getResult = sshExec(resolved, getArgs);
+      const getResult = await sshExec(resolved, getArgs);
       if (!getResult.ok) {
         if (json) writeJson({ ok: false, error: friendlySshError(getResult.output, cliHost) });
         else writeOut(`Failed: ${friendlySshError(getResult.output, cliHost)}`);
@@ -2867,7 +2875,7 @@ try {
         process.exit(0);
       }
 
-      const result = sshExec(resolved, reportArgs);
+      const result = await sshExec(resolved, reportArgs);
       if (!result.ok) {
         if (json) writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
         else writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
@@ -2968,7 +2976,7 @@ try {
         process.exit(0);
       }
 
-      const result = sshExec(resolved, cmdArgs);
+      const result = await sshExec(resolved, cmdArgs);
       if (!result.ok) {
         if (json) writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
         else writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
@@ -3036,7 +3044,7 @@ try {
       }
 
       if (!json) writeOut(`Waiting on ${paneId}@${cliHost}...`);
-      const result = sshExec(resolved, waitArgs);
+      const result = await sshExec(resolved, waitArgs);
       if (!result.ok) {
         if (json) writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
         else writeOut(`Wait failed: ${friendlySshError(result.output, cliHost)}`);
@@ -3203,7 +3211,7 @@ try {
         process.exit(0);
       }
 
-      const result = sshExec(resolved, ["herdr", ...pluginCmd]);
+      const result = await sshExec(resolved, ["herdr", ...pluginCmd]);
       if (!result.ok) {
         if (json) writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
         else writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
@@ -3281,7 +3289,7 @@ try {
         process.exit(0);
       }
 
-      const result = sshExec(resolved, sendArgs);
+      const result = await sshExec(resolved, sendArgs);
       if (!result.ok) {
         if (json) writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
         else writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
@@ -3415,7 +3423,7 @@ try {
               );
               const resolved = resolvedHosts[parsed.host];
               if (resolved) {
-                const remoteAgents = discoverRemoteWorkspaceAgents(
+                const remoteAgents = await discoverRemoteWorkspaceAgents(
                   parsed.host,
                   resolved,
                   parsed.session
@@ -3452,7 +3460,7 @@ try {
                 orchConfig.remoteDefaults
               )[parsed.host];
               if (resolvedForLabels) {
-                const labelResult = sshExec(resolvedForLabels, [
+                const labelResult = await sshExec(resolvedForLabels, [
                   "herdr",
                   "--session",
                   parsed.session,
@@ -3614,7 +3622,7 @@ try {
                 ]
               : null;
             if (toSessParsed.host && toResolved) {
-              const agentResult = sshExec(toResolved, [
+              const agentResult = await sshExec(toResolved, [
                 "herdr",
                 "--session",
                 toSessParsed.session,
@@ -3652,7 +3660,7 @@ try {
 
             let integVersions: Map<string, { version: number; status: string }>;
             if (toSessParsed.host && toResolved) {
-              const integResult = sshExec(toResolved, [
+              const integResult = await sshExec(toResolved, [
                 "herdr",
                 "--session",
                 toSessParsed.session,

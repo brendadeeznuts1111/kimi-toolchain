@@ -9,7 +9,7 @@
  */
 
 import { isAbsolute, join, normalize, resolve } from "path";
-import { execCli } from "../src/lib/herdr-project-cli.ts";
+import { invokeTool } from "../src/lib/tool-runner.ts";
 import { LATM_DONE_MARKER } from "../src/lib/herdr-latm.ts";
 import { finishWorkReportPath, loadFinishWorkReportPublic } from "../src/lib/finish-work-herdr.ts";
 import {
@@ -19,6 +19,7 @@ import {
 import { inspectAgent } from "../src/lib/inspect.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
+const HERDR_PANE_BIN = join(REPO_ROOT, "src/bin/herdr-pane.ts");
 
 function resolveProjectArg(path: string): string {
   return isAbsolute(path) ? normalize(path) : resolve(process.cwd(), path);
@@ -82,13 +83,21 @@ function parseCli(): CliOptions {
   return { json, projectRoot, waitForMarker, paneId, timeoutMs, session };
 }
 
-function waitForLatmMarker(paneId: string, timeoutMs: number, session: string): boolean {
-  const waited = execCli(
-    "herdr",
-    ["wait", "output", paneId, "--match", LATM_DONE_MARKER, "--timeout", String(timeoutMs)],
-    { session, timeout: timeoutMs + 5_000 }
+async function waitForLatmMarker(
+  paneId: string,
+  timeoutMs: number,
+  session: string
+): Promise<boolean> {
+  const result = await invokeTool(
+    HERDR_PANE_BIN,
+    ["wait-output", paneId, "--match", LATM_DONE_MARKER, "--timeout", String(timeoutMs), "--json"],
+    {
+      cwd: REPO_ROOT,
+      timeoutMs: timeoutMs + 5_000,
+      env: session ? { HERDR_SESSION: session } : undefined,
+    }
   );
-  return waited.ok;
+  return result.exitCode === 0;
 }
 
 async function main(): Promise<number> {
@@ -99,7 +108,7 @@ async function main(): Promise<number> {
       process.stderr.write("--wait-for-marker requires --pane or HERDR_PANE_ID\n");
       return 1;
     }
-    const seen = waitForLatmMarker(options.paneId, options.timeoutMs, options.session);
+    const seen = await waitForLatmMarker(options.paneId, options.timeoutMs, options.session);
     if (!seen) {
       if (options.json) {
         process.stdout.write(
