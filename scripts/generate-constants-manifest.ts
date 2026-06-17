@@ -9,6 +9,7 @@
  */
 
 import { join } from "path";
+import { writeTextAsync } from "../src/lib/bun-io.ts";
 import {
   generateConstantsManifest,
   manifestNeedsRefresh,
@@ -39,7 +40,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  await Bun.write(MANIFEST_PATH, stableStringify(generated));
+  await writeTextAsync(MANIFEST_PATH, stableStringify(generated));
   const domainCount = Object.keys(generated.domains).length;
   const constantCount = Object.values(generated.domains).reduce(
     (sum, group) => sum + Object.keys(group).length,

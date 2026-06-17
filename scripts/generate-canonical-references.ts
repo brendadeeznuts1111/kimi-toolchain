@@ -9,6 +9,7 @@
  */
 
 import { join } from "path";
+import { writeTextAsync } from "../src/lib/bun-io.ts";
 import {
   buildCanonicalReferencesManifest,
   repoCanonicalReferencesPath,
@@ -40,7 +41,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  await Bun.write(MANIFEST_PATH, stableStringify(generated));
+  await writeTextAsync(MANIFEST_PATH, stableStringify(generated));
   console.log(
     `wrote canonical-references.json (${generated.ecosystem.length} ecosystem, ${generated.localDocs.length} local docs, ${generated.repos.length} repos)`
   );

@@ -24,13 +24,14 @@ import {
   hasUncommittedChanges,
   writeManifest,
 } from "../src/lib/version.ts";
+import { writeTextAsync } from "../src/lib/bun-io.ts";
 import { isQuietMode } from "../src/lib/quiet-mode.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 const KNOWN_FLAGS = new Set(["--daemon", "--dry-run", "--force"]);
 
 async function ensureCanonicalReferencesManifest(): Promise<void> {
-  await Bun.write(
+  await writeTextAsync(
     repoCanonicalReferencesPath(REPO_ROOT),
     stableStringify(buildCanonicalReferencesManifest())
   );

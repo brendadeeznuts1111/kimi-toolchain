@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 /** Move shebang to line 1 when migration placed shim import above it. */
 import { join } from "path";
+import { readTextAsync, writeTextAsync } from "../src/lib/bun-io.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 const glob = new Bun.Glob("src/**/*.ts");
@@ -24,10 +25,10 @@ function fixShebangOrder(text: string): string | null {
 
 for await (const rel of glob.scan({ cwd: REPO_ROOT, onlyFiles: true })) {
   const path = join(REPO_ROOT, rel);
-  const text = await Bun.file(path).text();
+  const text = await readTextAsync(path);
   const next = fixShebangOrder(text);
   if (!next || next === text) continue;
-  await Bun.write(path, next);
+  await writeTextAsync(path, next);
   fixed++;
   console.log(`fixed ${rel}`);
 }

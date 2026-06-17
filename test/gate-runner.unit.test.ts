@@ -1,9 +1,7 @@
-import { makeDir, removePath } from "../src/lib/bun-io.ts";
-
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
 import { $ } from "bun";
-import { testTempDir } from "./helpers.ts";
+import { cleanupPath, ensureTestDir, testTempDir } from "./helpers.ts";
 import {
   failMark,
   formatHookSummary,
@@ -27,20 +25,20 @@ const gitFixtureEnv = {
 
 describe("gate-runner", () => {
   let projectDir: string;
-  let prevNoColor: string | undefined;
+  let previousNoColor: string | undefined;
 
   beforeEach(() => {
-    prevNoColor = Bun.env.NO_COLOR;
+    previousNoColor = Bun.env.NO_COLOR;
     delete Bun.env.NO_COLOR;
     projectDir = testTempDir("gate-runner-");
-    makeDir(join(projectDir, ".git"), { recursive: true });
-    makeDir(join(projectDir, ".kimi"), { recursive: true });
+    ensureTestDir(join(projectDir, ".git"));
+    ensureTestDir(join(projectDir, ".kimi"));
   });
 
   afterEach(() => {
-    removePath(projectDir, { recursive: true, force: true });
-    if (prevNoColor === undefined) delete Bun.env.NO_COLOR;
-    else Bun.env.NO_COLOR = prevNoColor;
+    cleanupPath(projectDir);
+    if (previousNoColor === undefined) delete Bun.env.NO_COLOR;
+    else Bun.env.NO_COLOR = previousNoColor;
   });
 
   it("should format hook summary with skipped gates", () => {

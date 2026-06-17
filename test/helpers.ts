@@ -250,5 +250,52 @@ export function ensureTestDir(dir: string): void {
   makeDir(dir, { recursive: true });
 }
 
+/** Captured subprocess stdout, stderr, and exit code. */
+export interface SpawnCaptureResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}
+
+/**
+ * Spawn a process and capture stdout, stderr, and exit code in parallel.
+ * Centralizes Bun.readableStreamToText for test subprocess fixtures.
+ */
+export async function spawnCaptured(
+  cmd: string[],
+  options?: {
+    cwd?: string;
+    env?: Record<string, string | undefined>;
+  }
+): Promise<SpawnCaptureResult> {
+  const proc = Bun.spawn(cmd, {
+    cwd: options?.cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+    env: options?.env ? { ...Bun.env, ...options.env } : undefined,
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    Bun.readableStreamToText(proc.stdout),
+    Bun.readableStreamToText(proc.stderr),
+    proc.exited,
+  ]);
+  return { stdout, stderr, exitCode };
+}
+
+/** Run `bun run <script> [args...]` with stdout/stderr capture. */
+export async function runBunScript(
+  scriptPath: string,
+  args: string[] = [],
+  options?: {
+    cwd?: string;
+    env?: Record<string, string | undefined>;
+  }
+): Promise<SpawnCaptureResult> {
+  return spawnCaptured(["bun", "run", scriptPath, ...args], {
+    cwd: options?.cwd ?? REPO_ROOT,
+    env: { HOME: Bun.env.HOME || "/tmp", ...options?.env },
+  });
+}
+
 // Re-export bun-io primitives used directly in tests (no redundant wrappers).
 export { pathExists, readText, writeText };

@@ -128,6 +128,14 @@ export const PEEK_ADOPTION_REGISTRY: TochangeRegistryEntry[] = [
     probe: "getCachedPsAsync",
   },
   {
+    id: "memory-budget-pgrep",
+    file: "src/lib/memory-budget.ts",
+    tier: "tier2",
+    status: "implemented",
+    summary: "Docker/sync daemon probes route pgrep through proc-cache",
+    probe: 'getCachedCommandOutput("pgrep"',
+  },
+  {
     id: "promise-all-fanout",
     file: "(aggregate)",
     tier: "skip",
@@ -234,6 +242,14 @@ export const SPAWN_BOUNDARY_REGISTRY: TochangeRegistryEntry[] = [
     status: "implemented",
     summary: "MCP shell bridge maps invokeCommand → ShellResult contract",
     probe: 'invokeCommand(["sh", "-c", command]',
+  },
+  {
+    id: "spawn-kimi-doctor-wrapper",
+    file: "src/lib/kimi-doctor-wrapper.ts",
+    tier: "tier1",
+    status: "implemented",
+    summary: "runOfficialKimiDoctor routes through invokeCommand not raw Bun.spawn",
+    probe: 'invokeCommand(["kimi", "doctor"]',
   },
 ];
 

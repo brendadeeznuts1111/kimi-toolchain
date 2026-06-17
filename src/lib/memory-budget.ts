@@ -5,13 +5,12 @@
 import { $ } from "bun";
 import { createLogger, type Logger } from "./logger.ts";
 import {
+  getCachedCommandOutput,
   getCachedPs,
   getCachedPsAsync,
   clearProcessCache,
   countOrphanCandidates,
 } from "./proc-cache.ts";
-
-const decoder = new TextDecoder();
 
 // Re-export for consumers that imported clearProcessCache from here
 export { clearProcessCache };
@@ -143,8 +142,7 @@ function getRssByPattern(pattern: RegExp): number {
 }
 
 export function isDockerDesktopRunning(): boolean {
-  const output = decoder.decode(Bun.spawnSync(["pgrep", "-lf", "Docker|com.docker"]).stdout);
-  return output.trim().length > 0;
+  return getCachedCommandOutput("pgrep", ["-lf", "Docker|com.docker"]).trim().length > 0;
 }
 
 export function isDockerCliInstalled(): boolean {
@@ -152,8 +150,7 @@ export function isDockerCliInstalled(): boolean {
 }
 
 export function isSyncDaemonRunning(): boolean {
-  const output = decoder.decode(Bun.spawnSync(["pgrep", "-lf", "sync-to-desktop"]).stdout);
-  return output.trim().length > 0;
+  return getCachedCommandOutput("pgrep", ["-lf", "sync-to-desktop"]).trim().length > 0;
 }
 
 // countOrphanCandidates re-exported from proc-cache.ts above

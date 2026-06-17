@@ -5,7 +5,8 @@
  *   bun run scripts/reviewer-pane.ts --report-file .kimi/finish-work-report.json
  */
 
-import { readFileSync } from "node:fs";
+import { readText } from "./lib/bun-io.ts";
+import { readableStreamToText } from "./lib/bun-utils.ts";
 import { resolve } from "node:path";
 import type { FinishWorkReport } from "./finish-work-herdr.ts";
 
@@ -35,8 +36,8 @@ function pad(value: string, width: number): string {
 async function herdrCli(args: string[]) {
   const proc = Bun.spawn(["herdr", ...args], { stdout: "pipe", stderr: "pipe" });
   const [stdout, stderr, exitCode] = await Promise.all([
-    Bun.readableStreamToText(proc.stdout),
-    Bun.readableStreamToText(proc.stderr),
+    readableStreamToText(proc.stdout),
+    readableStreamToText(proc.stderr),
     proc.exited,
   ]);
   return { ok: exitCode === 0, stdout: stdout.trim(), stderr: stderr.trim(), exitCode };
@@ -72,7 +73,7 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const report = JSON.parse(readFileSync(resolve(filePath), "utf8")) as FinishWorkReport;
+  const report = JSON.parse(readText(resolve(filePath))) as FinishWorkReport;
   renderTable(report);
 
   const paneId = process.env.HERDR_PANE_ID;

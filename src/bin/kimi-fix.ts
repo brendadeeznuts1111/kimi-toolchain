@@ -30,6 +30,9 @@ import {
   FINISH_WORK_HERDR_TEMPLATE,
   FINISH_WORK_TEMPLATE,
   REVIEWER_PANE_TEMPLATE,
+  SCAFFOLD_BUN_IO_TEMPLATE,
+  SCAFFOLD_BUN_UTILS_TEMPLATE,
+  TOOLCHAIN_SCAFFOLD_LIB_NAMES,
   TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES,
   renderDxConfig,
   scaffoldDxConfigTemplateRel,
@@ -282,6 +285,19 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
   }
 
   if (profile === "toolchain") {
+    const toolchainLibs: Record<string, string> = {
+      "lib/bun-io.ts": SCAFFOLD_BUN_IO_TEMPLATE,
+      "lib/bun-utils.ts": SCAFFOLD_BUN_UTILS_TEMPLATE,
+    };
+    for (const name of TOOLCHAIN_SCAFFOLD_LIB_NAMES) {
+      const libPath = join(project, "scripts", name);
+      if (!pathExists(libPath)) {
+        stepLog("scripts", `creating scripts/${name}...`);
+        if (!dryRun) makeDir(join(project, "scripts", "lib"), { recursive: true });
+        await writeFile(libPath, toolchainLibs[name], dryRun);
+      }
+    }
+
     const toolchainScripts: Record<string, string> = {
       "finish-work-config.ts": FINISH_WORK_CONFIG_TEMPLATE,
       "finish-work-herdr.ts": FINISH_WORK_HERDR_TEMPLATE,

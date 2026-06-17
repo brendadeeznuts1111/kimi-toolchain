@@ -3,7 +3,8 @@
  * Live kimi-toolchain uses src/lib/finish-work-herdr.ts (shared with herdr-project).
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { makeDir, pathExists, readText, writeText } from "./lib/bun-io.ts";
+import { readableStreamToText } from "./lib/bun-utils.ts";
 import { join } from "node:path";
 import { TOML } from "bun";
 
@@ -56,8 +57,8 @@ export function shouldEscalateToReviewer(report: FinishWorkReport): boolean {
 async function herdrCli(args: string[]) {
   const proc = Bun.spawn(["herdr", ...args], { stdout: "pipe", stderr: "pipe" });
   const [stdout, stderr, exitCode] = await Promise.all([
-    Bun.readableStreamToText(proc.stdout),
-    Bun.readableStreamToText(proc.stderr),
+    readableStreamToText(proc.stdout),
+    readableStreamToText(proc.stderr),
     proc.exited,
   ]);
   return { ok: exitCode === 0, stdout: stdout.trim(), stderr: stderr.trim(), exitCode };
@@ -92,10 +93,10 @@ function readHerdrProfile(projectRoot: string): {
 } | null {
   const dxConfig = join(projectRoot, "dx.config.toml");
   const flat = join(projectRoot, ".dx", "herdr.toml");
-  const path = existsSync(flat) ? flat : existsSync(dxConfig) ? dxConfig : null;
+  const path = pathExists(flat) ? flat : pathExists(dxConfig) ? dxConfig : null;
   if (!path) return null;
 
-  const doc = TOML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+  const doc = TOML.parse(readText(path)) as Record<string, unknown>;
   const section =
     doc.herdr && typeof doc.herdr === "object"
       ? (doc.herdr as Record<string, unknown>)
@@ -167,9 +168,9 @@ export async function escalateFinishWorkToReviewer(
 
   const workspaceId = match.workspaceId;
   const reportDir = join(projectRoot, ".kimi");
-  mkdirSync(reportDir, { recursive: true });
+  makeDir(reportDir, { recursive: true });
   const reportPath = join(reportDir, "finish-work-report.json");
-  writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  writeText(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 
   const reviewerCommand = `bun run scripts/reviewer-pane.ts --report-file ${shellQuote(reportPath)}`;
   const panePayload = `sh -lc ${shellQuote(reviewerCommand)}`;

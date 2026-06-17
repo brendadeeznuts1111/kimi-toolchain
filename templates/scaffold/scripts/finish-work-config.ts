@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { pathExists, readText } from "./lib/bun-io.ts";
 import { join } from "node:path";
 import { TOML } from "bun";
 
@@ -60,9 +60,9 @@ export function resolveFinishWorkGates(doc: Record<string, unknown>): FinishWork
 
 export function loadFinishWorkConfig(projectRoot: string): FinishWorkConfig {
   const path = join(projectRoot, "dx.config.toml");
-  if (!existsSync(path)) {
+  if (!pathExists(path)) {
     return { gates: DEFAULT_GATES, source: "default", followUp: null };
   }
-  const doc = TOML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+  const doc = TOML.parse(readText(path)) as Record<string, unknown>;
   return resolveFinishWorkGates(doc);
 }

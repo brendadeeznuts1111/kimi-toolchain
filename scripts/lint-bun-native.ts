@@ -4,7 +4,7 @@
  */
 
 import { join } from "path";
-import { pathExists } from "../src/lib/bun-io.ts";
+import { pathExists, readTextAsync, writeTextAsync } from "../src/lib/bun-io.ts";
 import {
   buildBaselineFromViolations,
   defaultConfig,
@@ -64,12 +64,12 @@ function printHelp(): void {
 
 async function loadConfig(): Promise<BunNativeLintConfig> {
   if (!pathExists(CONFIG_PATH)) return defaultConfig();
-  return parseConfigToml(await Bun.file(CONFIG_PATH).text());
+  return parseConfigToml(await readTextAsync(CONFIG_PATH));
 }
 
 async function loadBaseline(): Promise<BaselineFile | null> {
   if (!pathExists(BASELINE_PATH)) return null;
-  return parseBaselineJson(await Bun.file(BASELINE_PATH).text());
+  return parseBaselineJson(await readTextAsync(BASELINE_PATH));
 }
 
 function filterViolations(violations: Violation[], ruleId?: string): Violation[] {
@@ -112,7 +112,7 @@ async function main(): Promise<number> {
 
   if (opts.updateBaseline) {
     const next = buildBaselineFromViolations(violations, config, baseline, opts.ruleFilter);
-    await Bun.write(BASELINE_PATH, JSON.stringify(next, null, 2) + "\n");
+    await writeTextAsync(BASELINE_PATH, JSON.stringify(next, null, 2) + "\n");
     console.log(
       `  ✓ Updated baseline${opts.ruleFilter ? ` for "${opts.ruleFilter}"` : ""} (${next.entries.length} entries)`
     );

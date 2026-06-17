@@ -38,6 +38,8 @@ function loadTemplate(name: string): string {
 export const DX_CONFIG_APP_TEMPLATE = loadTemplate("dx.config.app.toml");
 export const DX_CONFIG_TOOLCHAIN_TEMPLATE = loadTemplate("dx.config.toolchain.toml");
 
+export const SCAFFOLD_BUN_IO_TEMPLATE = loadTemplate("scripts/lib/bun-io.ts");
+export const SCAFFOLD_BUN_UTILS_TEMPLATE = loadTemplate("scripts/lib/bun-utils.ts");
 export const FINISH_WORK_CONFIG_TEMPLATE = loadTemplate("scripts/finish-work-config.ts");
 export const FINISH_WORK_TEMPLATE = loadTemplate("scripts/finish-work.ts");
 export const FINISH_WORK_HERDR_TEMPLATE = loadTemplate("scripts/finish-work-herdr.ts");
@@ -152,6 +154,8 @@ export function packageScriptEntriesForProfile(profile: ScaffoldProfile): Record
   }
   return {};
 }
+
+export const TOOLCHAIN_SCAFFOLD_LIB_NAMES = ["lib/bun-io.ts", "lib/bun-utils.ts"] as const;
 
 export const TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES = [
   "finish-work-config.ts",

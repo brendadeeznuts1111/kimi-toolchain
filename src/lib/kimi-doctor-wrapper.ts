@@ -1,4 +1,4 @@
-import { readableStreamToText } from "./bun-utils.ts";
+import { invokeCommand } from "./tool-runner.ts";
 
 /**
  * Kimi doctor wrapper — shared helper to run the official `kimi doctor` command.
@@ -16,10 +16,11 @@ export async function runOfficialKimiDoctor(): Promise<KimiDoctorResult> {
     return { name: "kimi doctor", status: "error", message: "kimi not installed" };
   }
   try {
-    const proc = Bun.spawn(["kimi", "doctor"], { stdout: "pipe", stderr: "pipe" });
-    const exitCode = await proc.exited;
-    const stdout = await readableStreamToText(proc.stdout);
-    const stderr = await readableStreamToText(proc.stderr);
+    const result = await invokeCommand(["kimi", "doctor"], { tool: "kimi" });
+    const { exitCode, stdout, stderr, error } = result;
+    if (error && exitCode === -1) {
+      return { name: "kimi doctor", status: "error", message: error.slice(0, 120) };
+    }
     if (exitCode === 0) {
       const line = stdout
         .split("\n")

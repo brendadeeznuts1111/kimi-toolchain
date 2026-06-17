@@ -11,6 +11,7 @@
  */
 
 import { join } from "path";
+import { readTextAsync } from "../src/lib/bun-io.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 const HELPERS = "test/helpers.ts";
@@ -99,7 +100,7 @@ function scanFile(rel: string, text: string): Violation[] {
 const violations: Violation[] = [];
 const glob = new Bun.Glob("test/**/*.ts");
 for await (const rel of glob.scan({ cwd: REPO_ROOT, onlyFiles: true })) {
-  const text = await Bun.file(join(REPO_ROOT, rel)).text();
+  const text = await readTextAsync(join(REPO_ROOT, rel));
   violations.push(...scanFile(rel, text));
 }
 

@@ -8,6 +8,7 @@
 
 import { join } from "path";
 import { $ } from "bun";
+import { readableStreamToText } from "./lib/bun-utils.ts";
 import {
   escalateFinishWorkToReviewer,
   finishWorkOutcome,
@@ -148,8 +149,8 @@ async function runShellGate(name: string, command: string): Promise<GateResult> 
     stderr: "pipe",
   });
   const [stdout, stderr, exitCode] = await Promise.all([
-    Bun.readableStreamToText(proc.stdout),
-    Bun.readableStreamToText(proc.stderr),
+    readableStreamToText(proc.stdout),
+    readableStreamToText(proc.stderr),
     proc.exited,
   ]);
   return {

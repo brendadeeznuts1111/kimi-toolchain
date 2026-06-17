@@ -5,7 +5,7 @@
  */
 
 import { join } from "path";
-import { listDir } from "../src/lib/bun-io.ts";
+import { listDir, readTextAsync } from "../src/lib/bun-io.ts";
 
 const BIN_DIR = join(import.meta.dir, "..", "src", "bin");
 
@@ -30,7 +30,7 @@ async function main(): Promise<number> {
 
   for (const file of files) {
     const path = join(BIN_DIR, file);
-    const source = await Bun.file(path).text();
+    const source = await readTextAsync(path);
 
     for (const pattern of COMMON_FLAGS) {
       if (source.includes(pattern)) {

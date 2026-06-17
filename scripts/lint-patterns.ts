@@ -8,6 +8,7 @@
  */
 
 import { join, relative } from "path";
+import { readTextAsync } from "../src/lib/bun-io.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
@@ -34,7 +35,7 @@ async function main() {
     const path = join(REPO_ROOT, rel);
     let text: string;
     try {
-      text = await Bun.file(path).text();
+      text = await readTextAsync(path);
     } catch {
       continue;
     }

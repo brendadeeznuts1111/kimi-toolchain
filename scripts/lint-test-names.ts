@@ -11,7 +11,7 @@
  */
 
 import { basename, join } from "path";
-import { pathExists } from "../src/lib/bun-io.ts";
+import { pathExists, readTextAsync } from "../src/lib/bun-io.ts";
 import { UNIT_TEST_FILES } from "../src/lib/test-gates.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -122,7 +122,7 @@ export async function lintTestNames(root: string = REPO_ROOT): Promise<string[]>
       }
     }
 
-    const text = await Bun.file(join(root, rel)).text();
+    const text = await readTextAsync(join(root, rel));
     const describeLabel = firstTopLevelDescribe(text);
     if (!describeLabel || LEGACY_DESCRIBE_EXEMPT.has(rel)) continue;
 
