@@ -575,7 +575,7 @@ function applyReconcileAction(
     }
     const closed = closePane(config, action.target);
     return Effect.succeed(
-      closed.ok ? { ok: true } : { ok: false, warning: closed.output || "pane close failed" }
+      closed.ok ? { ok: true } : { ok: false, warning: closed.error || "pane close failed" }
     );
   }
 
@@ -588,7 +588,7 @@ function applyReconcileAction(
     }
     const closed = closeTab(config, workspaceId, action.target);
     return Effect.succeed(
-      closed.ok ? { ok: true } : { ok: false, warning: closed.output || "tab close failed" }
+      closed.ok ? { ok: true } : { ok: false, warning: closed.error || "tab close failed" }
     );
   }
 
@@ -657,7 +657,7 @@ function applyLayoutAction(
         if (!ran.ok) {
           return {
             ok: false,
-            warning: ran.output || "bootstrap command failed after layout apply",
+            warning: ran.error || "bootstrap command failed after layout apply",
           };
         }
       }
@@ -829,7 +829,7 @@ export function reconcileHerdrProjectEffect(
           ) {
             const closed = closePane(config, action.target);
             if (!closed.ok) {
-              warnings.push(closed.output || `failed to close ${action.target}`);
+              warnings.push(closed.error || `failed to close ${action.target}`);
               continue;
             }
             const expectedAgent = String(action.detail.expectedAgent || "");

@@ -428,5 +428,5 @@ export function runTabCommand(
   const paneId = target.paneId;
   if (!paneId) return { ok: false, output: "pane_run requires paneId" };
   const ran = paneRunCommand(config, paneId, command);
-  return ran.ok ? { ok: true } : { ok: false, output: ran.output || "tab command failed" };
+  return ran.ok ? { ok: true } : { ok: false, output: ran.error || "tab command failed" };
 }

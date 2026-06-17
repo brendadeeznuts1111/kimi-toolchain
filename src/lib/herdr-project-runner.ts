@@ -233,7 +233,7 @@ export function bootstrapHerdrProject(
     workspaceId = existing.workspaceId;
     actions.push({ action: "focus_existing", workspaceId, reason: existing.reason });
     const focus = focusWorkspaceSync(workspaceId, config.session);
-    if (!focus.ok) warnings.push(`workspace focus failed: ${focus.output}`);
+    if (!focus.ok) warnings.push(`workspace focus failed: ${focus.error}`);
   } else {
     workspaceWasNew = true;
     const created = createWorkspaceSync({
@@ -351,7 +351,7 @@ export function bootstrapHerdrProject(
     if (bootstrapPane && commands.length) {
       const script = commands.join(" && ");
       const ran = paneRun(config, bootstrapPane, script);
-      if (!ran.ok) warnings.push(`bootstrap failed: ${ran.output || script}`);
+      if (!ran.ok) warnings.push(`bootstrap failed: ${ran.error || script}`);
       else {
         for (const command of commands) actions.push({ action: "bootstrap_command", command });
       }

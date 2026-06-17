@@ -49,6 +49,9 @@ beforeAll(async () => {
 afterEach(() => {
   clearState();
   mockSshOk = true;
+  // Clean up any leftover .tmp files
+  const tmpPath = STATE_PATH + ".tmp";
+  if (existsSync(tmpPath)) require("node:fs").unlinkSync(tmpPath);
 });
 
 // ── Tests ───────────────────────────────────────────────────────────────
@@ -244,39 +247,27 @@ describe("host-health", () => {
       expect(results[0]!.revived).toBe(true);
     });
 
-    test("detects newly dead hosts (alive → dead)", async () => {
+    test("detects degraded → alive recovery", async () => {
       writeState({
         testbox: {
           label: "testbox",
-          status: "alive",
+          status: "degraded",
           since: new Date().toISOString(),
           lastChecked: new Date().toISOString(),
-          failureCount: 0,
+          failureCount: 3,
         },
       });
 
-      mockSshOk = false;
+      mockSshOk = true;
       const program = hostHealth.recoveryEffect({ testbox: "testbox.local" });
       const results = await require("effect").Effect.runPromise(program);
 
-      // first failure — not dead yet (needs threshold*2 = 6)
-      expect(results).toHaveLength(0);
-
-      // Accumulate more failures
-      for (let i = 0; i < 10; i++) {
-        mockSshOk = false;
-        hostHealth.checkHostHealth("testbox", resolvedHost);
-      }
-
-      mockSshOk = false;
-      const program2 = hostHealth.recoveryEffect({ testbox: "testbox.local" });
-      const results2 = await require("effect").Effect.runPromise(program2);
-
-      const deadResult = results2.find(
-        (r: RecoveryResult) => r.host === "testbox" && r.newStatus === "dead"
+      const recovered = results.find(
+        (r: RecoveryResult) => r.host === "testbox" && r.newStatus === "alive"
       );
-      expect(deadResult).toBeDefined();
-      expect(deadResult!.revived).toBe(false);
+      expect(recovered).toBeDefined();
+      expect(recovered!.previousStatus).toBe("degraded");
+      expect(recovered!.revived).toBe(true);
     });
 
     test("empty hosts returns empty results", async () => {

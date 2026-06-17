@@ -705,25 +705,25 @@ export function splitPaneSync(
   }
 }
 
-/** Sync wrapper for closePane. Returns { ok } or { ok: false, output }. */
+/** Sync wrapper for closePane. Returns { ok } or { ok: false, error }. */
 export function closePaneSync(
   paneId: string,
   session?: string
-): { ok: true } | { ok: false; output: string } {
+): { ok: true } | { ok: false; error: string } {
   try {
     herdrCliSync(["pane", "close", paneId], session);
     return { ok: true };
   } catch (err) {
-    return { ok: false, output: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
-/** Sync wrapper for paneRun. Returns { ok } or { ok: false, output }. */
+/** Sync wrapper for paneRun. Returns { ok } or { ok: false, error }. */
 export function paneRunSync(
   paneId: string,
   command: string,
   session?: string
-): { ok: true } | { ok: false; output: string } {
+): { ok: true } | { ok: false; error: string } {
   // Build shell command with PATH prefix (same as legacy helpers)
   const path = resolveHerdrPanePath();
   let payload = command;
@@ -736,7 +736,7 @@ export function paneRunSync(
     herdrCliSync(["pane", "run", paneId, shellCmd], session);
     return { ok: true };
   } catch (err) {
-    return { ok: false, output: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -745,12 +745,12 @@ export function sendKeysSync(
   paneId: string,
   keys: string,
   session?: string
-): { ok: true } | { ok: false; output: string } {
+): { ok: true } | { ok: false; error: string } {
   try {
     herdrCliSync(["pane", "send-keys", paneId, keys], session);
     return { ok: true };
   } catch (err) {
-    return { ok: false, output: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -957,11 +957,11 @@ export function createTabSync(
 export function closeTabSync(
   tabId: string,
   session?: string
-): { ok: true } | { ok: false; output: string } {
+): { ok: true } | { ok: false; error: string } {
   try {
     herdrCliSync(["tab", "close", tabId], session);
     return { ok: true };
   } catch (err) {
-    return { ok: false, output: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }

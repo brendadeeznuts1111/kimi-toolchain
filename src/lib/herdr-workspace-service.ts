@@ -255,12 +255,12 @@ export function createWorkspaceSync(options: CreateWorkspaceOptions = {}):
 export function focusWorkspaceSync(
   workspaceId: string,
   session?: string
-): { ok: true } | { ok: false; output: string } {
+): { ok: true } | { ok: false; error: string } {
   try {
     herdrCliSync(["workspace", "focus", workspaceId], session);
     return { ok: true };
   } catch (err) {
-    return { ok: false, output: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -269,12 +269,12 @@ export function renameWorkspaceSync(
   workspaceId: string,
   label: string,
   session?: string
-): { ok: true } | { ok: false; output: string } {
+): { ok: true } | { ok: false; error: string } {
   try {
     herdrCliSync(["workspace", "rename", workspaceId, label], session);
     return { ok: true };
   } catch (err) {
-    return { ok: false, output: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -282,11 +282,11 @@ export function renameWorkspaceSync(
 export function closeWorkspaceSync(
   workspaceId: string,
   session?: string
-): { ok: true } | { ok: false; output: string } {
+): { ok: true } | { ok: false; error: string } {
   try {
     herdrCliSync(["workspace", "close", workspaceId], session);
     return { ok: true };
   } catch (err) {
-    return { ok: false, output: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
