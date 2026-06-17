@@ -3,8 +3,48 @@
  */
 
 import { join } from "path";
+import { terminalWidth } from "./bun-utils.ts";
 import { customInspect, formatTable } from "./inspect.ts";
 import type { SkillCoverageRow } from "./skill-contract.ts";
+
+export type SkillTableSortMode = "name" | "layer" | "width";
+
+export const LOADED_BY_MAX_COLS = 28;
+
+/** Truncate text to fit a terminal column budget (Bun.stringWidth-aware). */
+export function truncateDisplay(text: string, maxCols: number): string {
+  if (terminalWidth(text) <= maxCols) return text;
+  const ell = "…";
+  let out = "";
+  for (const ch of text) {
+    if (terminalWidth(out + ch + ell) > maxCols) break;
+    out += ch;
+  }
+  return out + ell;
+}
+
+/** Sort skill table rows by name, layer, or skill display width. */
+export function sortSkillTableRows(
+  rows: SkillTableRow[],
+  mode: SkillTableSortMode = "name"
+): SkillTableRow[] {
+  const sorted = [...rows];
+  switch (mode) {
+    case "width":
+      return sorted.sort((a, b) => {
+        const dw = terminalWidth(a.skill) - terminalWidth(b.skill);
+        return dw !== 0 ? dw : a.skill.localeCompare(b.skill);
+      });
+    case "layer":
+      return sorted.sort((a, b) => {
+        const dl = a.layer.localeCompare(b.layer);
+        return dl !== 0 ? dl : a.skill.localeCompare(b.skill);
+      });
+    case "name":
+    default:
+      return sorted.sort((a, b) => a.skill.localeCompare(b.skill));
+  }
+}
 
 export interface SkillTableRow {
   skill: string;
@@ -64,10 +104,9 @@ export async function buildSkillTableRows(
   repoRoot: string,
   rows: SkillCoverageRow[]
 ): Promise<SkillTableRow[]> {
-  const sorted = [...rows].sort((a, b) => a.skill.localeCompare(b.skill));
   const table: SkillTableRow[] = [];
 
-  for (const row of sorted) {
+  for (const row of rows) {
     const text = await Bun.file(join(repoRoot, row.skill)).text();
     const head = sliceSkillFrontmatter(text);
     const libOk = row.libModules.filter((m) => m.exists).length;
@@ -80,7 +119,7 @@ export async function buildSkillTableRows(
       tokens: readFrontmatterScalar(head, "token_estimate"),
       triggers: countFrontmatterList(head, "trigger"),
       deps: countFrontmatterList(head, "dependencies"),
-      loaded_by: loadedBy.length > 28 ? `${loadedBy.slice(0, 25)}…` : loadedBy,
+      loaded_by: truncateDisplay(loadedBy, LOADED_BY_MAX_COLS),
       contract: row.contractOk ? "✓" : "✗",
       lib: `${libOk}/${row.libModules.length}`,
       tests: row.testsOk ? "✓" : "✗",
