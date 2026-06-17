@@ -9,7 +9,7 @@ import {
   type EffectGatesReport,
 } from "./effect-gates.ts";
 import { resolveDoctorPaneId } from "./finish-work-herdr.ts";
-import { resolveHerdrSession } from "./herdr-project-cli.ts";
+import { herdrCliRun, resolveHerdrSession } from "./herdr-project-cli.ts";
 import { herdrReportPaneMetadata } from "./herdr-socket-client.ts";
 import type { createLogger } from "./logger.ts";
 
@@ -111,6 +111,37 @@ export async function reportEffectGatesChanged(
     ttlMs: 120_000,
     session,
   });
+
+  // Force pane.agent_status_changed broadcast via state toggle.
+  // Herdr 0.7.0 emits events only on report-agent state transitions,
+  // not on report-metadata. blocked → working ensures the orchestrator
+  // receives custom_status = "effect.gates.changed" and dispatches react.
+  herdrCliRun(session, [
+    "pane",
+    "report-agent",
+    paneId,
+    "--source",
+    "kimi-doctor",
+    "--agent",
+    "doctor-watch",
+    "--state",
+    "blocked",
+    "--custom-status",
+    EFFECT_GATES_CHANGED_STATUS,
+  ]);
+  herdrCliRun(session, [
+    "pane",
+    "report-agent",
+    paneId,
+    "--source",
+    "kimi-doctor",
+    "--agent",
+    "doctor-watch",
+    "--state",
+    "working",
+    "--custom-status",
+    EFFECT_GATES_CHANGED_STATUS,
+  ]);
 }
 
 export async function runDoctorWatchLoop(options: DoctorWatchOptions): Promise<void> {

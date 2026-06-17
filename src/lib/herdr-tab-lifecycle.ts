@@ -1,4 +1,9 @@
-import { herdrCliRun } from "./herdr-project-cli.ts";
+import { sendKeysSync } from "./herdr-pane-service.ts";
+
+/** @deprecated Use sendKeysSync from herdr-pane-service instead. */
+export function buildPaneInterruptArgs(paneId: string): string[] {
+  return ["pane", "send-keys", paneId, "ctrl+c"];
+}
 
 export interface TabPaneAgentRow {
   paneId: string;
@@ -10,10 +15,6 @@ export function panesWithAgentsOnTab<T extends TabPaneAgentRow>(panes: T[], tabI
   return panes.filter((pane) => pane.tabId === tabId && pane.agent);
 }
 
-export function buildPaneInterruptArgs(paneId: string): string[] {
-  return ["pane", "send-keys", paneId, "ctrl+c"];
-}
-
 /** Send SIGINT to agent panes before tab close or layout.apply replacement. */
 export function interruptPaneAgents(
   session: string,
@@ -22,7 +23,7 @@ export function interruptPaneAgents(
   const interrupted: string[] = [];
   for (const pane of panes) {
     if (!pane.agent) continue;
-    herdrCliRun(session, buildPaneInterruptArgs(pane.paneId));
+    sendKeysSync(pane.paneId, "ctrl+c", session);
     interrupted.push(pane.paneId);
   }
   return interrupted;

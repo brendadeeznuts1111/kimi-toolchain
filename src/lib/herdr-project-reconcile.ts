@@ -23,10 +23,10 @@ import {
   herdrCliJson,
   herdrCliRun,
   parseHerdrPaneId,
-  resolveHerdrPanePath,
   startHerdrAgent,
 } from "./herdr-project-runner.ts";
 import { interruptPaneAgents, panesWithAgentsOnTab } from "./herdr-tab-lifecycle.ts";
+import { closePaneSync, listPanesSync, paneRunSync, splitPaneSync } from "./herdr-pane-service.ts";
 
 export type ReconcileActionType =
   | "create_tab"
@@ -196,30 +196,22 @@ export function captureWorkspaceLayout(
   session: string,
   workspaceId: string
 ): WorkspaceLayoutSnapshot {
-  const panes = herdrCliJson(session, ["pane", "list"]);
-  const rows = panes.ok
-    ? ((panes.json?.result?.panes || []) as Array<{
-        pane_id?: string;
-        tab_id?: string;
-        workspace_id?: string;
-        agent?: string;
-      }>)
+  const result = listPanesSync(undefined, session);
+  const rows = result.ok
+    ? result.panes.filter(
+        (p) => p.workspaceId === workspaceId || p.tabId.startsWith(`${workspaceId}:`)
+      )
     : [];
 
   return {
     workspaceId,
     tabs: listWorkspaceTabs(session, workspaceId),
-    panes: rows
-      .filter((row) => row.pane_id && row.tab_id)
-      .filter(
-        (row) => row.workspace_id === workspaceId || row.tab_id?.startsWith(`${workspaceId}:`)
-      )
-      .map((row) => ({
-        paneId: row.pane_id!,
-        tabId: row.tab_id!,
-        agent: isAgentPane(row.agent) ? row.agent! : null,
-        isShell: !isAgentPane(row.agent),
-      })),
+    panes: rows.map((p) => ({
+      paneId: p.paneId,
+      tabId: p.tabId,
+      agent: p.agent,
+      isShell: p.isShell,
+    })),
   };
 }
 
@@ -469,19 +461,9 @@ export function planReconcileActions(
 
   return [...orphanTabs, ...structural];
 }
-
-function shellQuote(value: string) {
-  return `'${String(value).replace(/'/g, `'\\''`)}'`;
-}
-
+/** @deprecated Use paneRunSync from herdr-pane-service.ts instead. */
 function paneRun(config: HerdrProjectConfig, paneId: string, command: string) {
-  let payload = command;
-  const path = resolveHerdrPanePath();
-  if (path) {
-    const escapedPath = path.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    payload = `export PATH="${escapedPath}"; ${command}`;
-  }
-  return herdrCliRun(config.session, ["pane", "run", paneId, `sh -lc ${shellQuote(payload)}`]);
+  return paneRunSync(paneId, command, config.session);
 }
 
 function createTab(config: HerdrProjectConfig, workspaceId: string, label: string) {
@@ -496,8 +478,9 @@ function createTab(config: HerdrProjectConfig, workspaceId: string, label: strin
   ]);
 }
 
+/** @deprecated Use closePaneSync from herdr-pane-service.ts instead. */
 function closePane(config: HerdrProjectConfig, paneId: string) {
-  return herdrCliRun(config.session, ["pane", "close", paneId]);
+  return closePaneSync(paneId, config.session);
 }
 
 function closeTab(config: HerdrProjectConfig, workspaceId: string, tabId: string) {
@@ -506,15 +489,13 @@ function closeTab(config: HerdrProjectConfig, workspaceId: string, tabId: string
   return herdrCliRun(config.session, ["tab", "close", tabId]);
 }
 
+/** @deprecated Use splitPaneSync from herdr-pane-service.ts instead. */
 function splitShellPane(config: HerdrProjectConfig, paneId: string, direction: string) {
-  return herdrCliJson(config.session, [
-    "pane",
-    "split",
-    paneId,
-    "--direction",
-    direction,
-    "--no-focus",
-  ]);
+  return splitPaneSync(paneId, {
+    direction: direction as "right" | "down",
+    focus: false,
+    session: config.session,
+  });
 }
 
 function applyReconcileAction(

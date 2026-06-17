@@ -8,11 +8,12 @@ import {
   herdrCliRun,
   resolveHerdrPanePath,
 } from "./herdr-project-cli.ts";
+import { paneRunSync, splitPaneSync } from "./herdr-pane-service.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";
 import type { HerdrProjectConfig } from "./herdr-project-config.ts";
-import { findWorkspaceForProject } from "./herdr-workspace-match.ts";
+import { findAllWorkspacesForProject, findWorkspaceForProject } from "./herdr-workspace-match.ts";
 
-export { findWorkspaceForProject } from "./herdr-workspace-match.ts";
+export { findAllWorkspacesForProject, findWorkspaceForProject } from "./herdr-workspace-match.ts";
 import { verifyPaneRequirements, type PaneRequirementSpec } from "./herdr-pane-requires.ts";
 import { parseHerdrTabId, runTabCommand, tabCommandStrategy } from "./herdr-role-tab.ts";
 import { homeDir } from "./paths.ts";
@@ -77,27 +78,14 @@ function agentRunning(
   });
 }
 
-function shellQuote(value: string) {
-  return `'${String(value).replace(/'/g, `'\\''`)}'`;
-}
-
+/** @deprecated Use paneRunSync from herdr-pane-service.ts instead. */
 function paneRun(
   config: HerdrProjectConfig,
   paneId: string,
   command: string,
-  options: { skipPathPrefix?: boolean } = {}
+  _options: { skipPathPrefix?: boolean } = {}
 ) {
-  let payload = command;
-  if (!options.skipPathPrefix) {
-    const path = resolveHerdrPanePath();
-    if (path) {
-      const escapedPath = path.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-      payload = `export PATH="${escapedPath}"; ${command}`;
-    }
-  }
-  return execCli("herdr", ["pane", "run", paneId, `sh -lc ${shellQuote(payload)}`], {
-    session: config.session,
-  });
+  return paneRunSync(paneId, command, config.session);
 }
 
 export function startHerdrAgent(
@@ -119,18 +107,20 @@ export function startHerdrAgent(
   return execCliJson("herdr", args, config.session);
 }
 
+/** @deprecated Use splitPaneSync from herdr-pane-service.ts instead. */
 function splitPane(
   config: HerdrProjectConfig,
   paneId: string,
   direction: string,
   options: { ratio?: number; env?: Record<string, string> } = {}
 ) {
-  const args = ["pane", "split", paneId, "--direction", direction, "--no-focus"];
-  if (typeof options.ratio === "number") args.push("--ratio", String(options.ratio));
-  for (const [key, value] of Object.entries(options.env ?? {})) {
-    args.push("--env", `${key}=${value}`);
-  }
-  return execCliJson("herdr", args, config.session);
+  return splitPaneSync(paneId, {
+    direction: direction as "right" | "down",
+    ratio: options.ratio,
+    env: options.env,
+    focus: false,
+    session: config.session,
+  });
 }
 
 function paneRequirementsOk(
@@ -188,8 +178,8 @@ function bootstrapFromAgentsTab(
         ratio: pane.ratio,
         env: { HERDR_ROLE: "shell", ...pane.env },
       });
-      shellPaneId = parseHerdrPaneId(split.json, null) || shellPaneId;
       if (split.ok) {
+        shellPaneId = parseHerdrPaneId(split.json, null) || shellPaneId;
         actions.push({
           action: "shell_split",
           paneId: shellPaneId,
@@ -290,8 +280,8 @@ export function bootstrapHerdrProject(
       const split = splitPane(config, rootPaneId, config.shellSplit, {
         env: { HERDR_ROLE: "shell" },
       });
-      shellPaneId = parseHerdrPaneId(split.json, null) || shellPaneId;
       if (split.ok) {
+        shellPaneId = parseHerdrPaneId(split.json, null) || shellPaneId;
         actions.push({ action: "shell_split", paneId: shellPaneId, direction: config.shellSplit });
       } else {
         warnings.push(`shell split failed: ${split.error}`);

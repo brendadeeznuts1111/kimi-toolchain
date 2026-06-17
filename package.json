@@ -35,15 +35,17 @@
     "kimi-toolchain": "src/bin/kimi-toolchain.ts",
     "unified-shell-bridge": "src/bin/unified-shell-bridge.ts",
     "herdr-doctor": "src/bin/herdr-doctor.ts",
+    "herdr-orchestrator": "src/bin/herdr-orchestrator.ts",
+    "herdr-pane": "src/bin/herdr-pane.ts",
     "herdr-project": "src/bin/herdr-project.ts",
-    "herdr-spawn": "src/bin/herdr-spawn.ts",
-    "herdr-orchestrator": "src/bin/herdr-orchestrator.ts"
+    "herdr-spawn": "src/bin/herdr-spawn.ts"
   },
   "files": [
     "src",
     "scripts",
     "skills",
     "templates",
+    "herdr-plugin",
     ".oxfmtrc.json",
     ".oxlintrc.json",
     "dx.config.toml",
@@ -106,6 +108,7 @@
     "verify-workspace": "bash scripts/verify-workspace.sh",
     "cleanup-legacy": "bash scripts/cleanup-legacy-workspace.sh",
     "install-wrappers": "bash scripts/install-bin-wrappers.sh",
+    "install-herdr-plugin": "bash scripts/install-herdr-plugin.sh",
     "memory-check": "bash scripts/memory-check.sh",
     "bench": "bun run bench/core.bench.ts",
     "memory-budget": "bun run src/bin/kimi-doctor.ts --memory-budget"

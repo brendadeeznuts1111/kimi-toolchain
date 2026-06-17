@@ -2,7 +2,7 @@
  * Canonical repo → ~/.kimi-code/ sync (single source of truth).
  */
 
-import { existsSync } from "fs";
+import { existsSync, readdirSync, statSync } from "fs";
 import { dirname, join } from "path";
 import { provisionDesktopRuntimeDeps } from "./desktop-runtime-deps.ts";
 import { ensureDir } from "./utils.ts";
@@ -66,9 +66,6 @@ export interface DesktopPaths {
   kimiHooksDst: string;
   templatesSrc: string;
   templatesDst: string;
-  skillSrc: string;
-  skillDst: string;
-  kimiSkillDst: string;
 }
 
 export function resolveDesktopPaths(repoRoot: string): DesktopPaths {
@@ -86,9 +83,6 @@ export function resolveDesktopPaths(repoRoot: string): DesktopPaths {
     kimiHooksDst: kimiHooksDir(),
     templatesSrc: join(repoRoot, "templates"),
     templatesDst: join(dRoot, "templates"),
-    skillSrc: join(repoRoot, "skills", "kimi-toolchain"),
-    skillDst: join(AGENTS_SKILLS_ROOT, "kimi-toolchain"),
-    kimiSkillDst: join(skillsDir(), "kimi-toolchain"),
   };
 }
 
@@ -251,25 +245,40 @@ export async function syncDesktop(
     }
   }
 
-  if (existsSync(paths.skillSrc)) {
-    const skillGlob = new Bun.Glob("**/*");
-    for await (const rel of skillGlob.scan({ cwd: paths.skillSrc, onlyFiles: true })) {
-      await copyIfChanged(
-        join(paths.skillSrc, rel),
-        join(paths.skillDst, rel),
-        `${LABEL_PREFIX.AGENTS_SKILL}${rel}`,
-        force,
-        dryRun,
-        result
-      );
-      await copyIfChanged(
-        join(paths.skillSrc, rel),
-        join(paths.kimiSkillDst, rel),
-        `${LABEL_PREFIX.KIMI_SKILL}${rel}`,
-        force,
-        dryRun,
-        result
-      );
+  // Sync all skill directories under skills/
+  const skillsSrc = join(repoRoot, "skills");
+  if (existsSync(skillsSrc)) {
+    const agentsRoot = agentsSkillsRoot();
+    const kimiSkillsRoot = skillsDir();
+    for (const skillName of readdirSync(skillsSrc)) {
+      const skillSrcDir = join(skillsSrc, skillName);
+      if (!existsSync(skillSrcDir)) continue;
+      try {
+        if (!statSync(skillSrcDir).isDirectory()) continue;
+      } catch {
+        continue;
+      }
+      const agentsDst = join(agentsRoot, skillName);
+      const kimiDst = join(kimiSkillsRoot, skillName);
+      const skillGlob = new Bun.Glob("**/*");
+      for await (const rel of skillGlob.scan({ cwd: skillSrcDir, onlyFiles: true })) {
+        await copyIfChanged(
+          join(skillSrcDir, rel),
+          join(agentsDst, rel),
+          `${LABEL_PREFIX.AGENTS_SKILL}${skillName}/${rel}`,
+          force,
+          dryRun,
+          result
+        );
+        await copyIfChanged(
+          join(skillSrcDir, rel),
+          join(kimiDst, rel),
+          `${LABEL_PREFIX.KIMI_SKILL}${skillName}/${rel}`,
+          force,
+          dryRun,
+          result
+        );
+      }
     }
   }
 

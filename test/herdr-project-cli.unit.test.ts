@@ -5,11 +5,14 @@ import {
   resolveHerdrSession,
 } from "../src/lib/herdr-project-cli.ts";
 
-const prior = process.env.HERDR_SESSION;
+const priorSession = process.env.HERDR_SESSION;
+const priorSocketPath = process.env.HERDR_SOCKET_PATH;
 
 afterEach(() => {
-  if (prior === undefined) delete process.env.HERDR_SESSION;
-  else process.env.HERDR_SESSION = prior;
+  if (priorSession === undefined) delete process.env.HERDR_SESSION;
+  else process.env.HERDR_SESSION = priorSession;
+  if (priorSocketPath === undefined) delete process.env.HERDR_SOCKET_PATH;
+  else process.env.HERDR_SOCKET_PATH = priorSocketPath;
 });
 
 describe("herdr-project-cli", () => {

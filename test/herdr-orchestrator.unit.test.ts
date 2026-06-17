@@ -1,9 +1,19 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test, afterEach } from "bun:test";
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import {
   parseHerdrOrchestratorSection,
   resolveOrchestratorConfig,
+  normalizeRemoteHostConfig,
+  parseEnvOverrides,
+  discoverIdentityFile,
+  type RemoteDefaults,
 } from "../src/lib/herdr-orchestrator-config.ts";
+import { parseHostSession } from "../src/lib/herdr-orchestrator.ts";
 import type { HerdrProjectConfig } from "../src/lib/herdr-project-config.ts";
+
+// ── core orchestrator config ──────────────────────────────────────────────
 
 describe("herdr-orchestrator", () => {
   test("parseHerdrOrchestratorSection reads nested orchestrator block", () => {
@@ -58,5 +68,539 @@ describe("herdr-orchestrator", () => {
     expect(resolved.handoffTo).toBe("codex");
     expect(resolved.contextOnIdle).toBe(true);
     expect(resolved.events.enabled).toBe(true);
+  });
+});
+
+// ── remote_hosts TOML parsing ─────────────────────────────────────────────
+
+describe("remote_hosts TOML parsing", () => {
+  test("parses simple string hosts", () => {
+    const parsed = parseHerdrOrchestratorSection({
+      orchestrator: {
+        remote_hosts: { workbox: "workbox.local", staging: "user@staging.example.com" },
+      },
+    });
+    expect(parsed!.remoteHosts).toEqual({
+      workbox: "workbox.local",
+      staging: "user@staging.example.com",
+    });
+  });
+
+  test("handles empty remote_hosts", () => {
+    const parsed = parseHerdrOrchestratorSection({ orchestrator: { enabled: true } });
+    expect(parsed!.remoteHosts).toEqual({});
+  });
+
+  test("filters non-string non-object values", () => {
+    const parsed = parseHerdrOrchestratorSection({
+      orchestrator: { remote_hosts: { valid: "host.local", num: 123, empty: "" } },
+    });
+    expect(parsed!.remoteHosts).toEqual({ valid: "host.local" });
+  });
+
+  test("parses per-host config tables", () => {
+    const parsed = parseHerdrOrchestratorSection({
+      orchestrator: {
+        remote_hosts: {
+          staging: {
+            host: "staging.example.com",
+            port: 2222,
+            user: "deploy",
+            identity_file: "~/.ssh/staging_key",
+            timeout: 10,
+            control_master: "auto",
+            control_path: "~/.ssh/control/%C",
+            control_persist: 600,
+            compression: true,
+            proxy_jump: "bastion.example.com",
+            strict_host_key_checking: "accept-new",
+          },
+        },
+      },
+    });
+    const s = parsed!.remoteHosts["staging"]!;
+    expect(typeof s).toBe("object");
+    if (typeof s === "object") {
+      expect(s.host).toBe("staging.example.com");
+      expect(s.port).toBe(2222);
+      expect(s.user).toBe("deploy");
+      expect(s.identityFile).toBe("~/.ssh/staging_key");
+      expect(s.timeout).toBe(10);
+      expect(s.controlMaster).toBe("auto");
+      expect(s.controlPath).toBe("~/.ssh/control/%C");
+      expect(s.controlPersist).toBe(600);
+      expect(s.compression).toBe(true);
+      expect(s.proxyJump).toBe("bastion.example.com");
+      expect(s.strictHostKeyChecking).toBe("accept-new");
+    }
+  });
+
+  test("skips per-host table without host field", () => {
+    const parsed = parseHerdrOrchestratorSection({
+      orchestrator: { remote_hosts: { missing: { port: 2222 }, good: "good.local" } },
+    });
+    expect(parsed!.remoteHosts).toEqual({ good: "good.local" });
+  });
+
+  test("handles mixed simple + table hosts", () => {
+    const parsed = parseHerdrOrchestratorSection({
+      orchestrator: {
+        remote_hosts: {
+          workbox: "workbox.local",
+          staging: { host: "staging.example.com", port: 2222 },
+        },
+      },
+    });
+    expect(parsed!.remoteHosts["workbox"]).toBe("workbox.local");
+    const staging = parsed!.remoteHosts["staging"]!;
+    expect(typeof staging).toBe("object");
+    if (typeof staging === "object") {
+      expect(staging.host).toBe("staging.example.com");
+      expect(staging.port).toBe(2222);
+    }
+  });
+});
+
+// ── remote_defaults TOML parsing ──────────────────────────────────────────
+
+describe("remote_defaults TOML parsing", () => {
+  test("parses all default fields", () => {
+    const parsed = parseHerdrOrchestratorSection({
+      orchestrator: {
+        remote_defaults: {
+          timeout: 10,
+          batch_mode: false,
+          connect_timeout: 3,
+          identity_file: "~/.ssh/id_rsa",
+          control_master: "yes",
+          control_path: "~/.ssh/control/%C",
+          control_persist: 300,
+          compression: true,
+          proxy_jump: "bastion.internal",
+          strict_host_key_checking: "yes",
+          server_alive_interval: 60,
+          server_alive_count_max: 3,
+        },
+        remote_hosts: { workbox: "workbox.local" },
+      },
+    });
+    const d = parsed!.remoteDefaults;
+    expect(d.timeout).toBe(10);
+    expect(d.batchMode).toBe(false);
+    expect(d.connectTimeout).toBe(3);
+    expect(d.identityFile).toBe("~/.ssh/id_rsa");
+    expect(d.controlMaster).toBe("yes");
+    expect(d.controlPath).toBe("~/.ssh/control/%C");
+    expect(d.controlPersist).toBe(300);
+    expect(d.compression).toBe(true);
+    expect(d.proxyJump).toBe("bastion.internal");
+    expect(d.strictHostKeyChecking).toBe("yes");
+    expect(d.serverAliveInterval).toBe(60);
+    expect(d.serverAliveCountMax).toBe(3);
+  });
+
+  test("empty remote_defaults yields empty object", () => {
+    const parsed = parseHerdrOrchestratorSection({
+      orchestrator: {
+        remote_defaults: {},
+        remote_hosts: { w: "w.local" },
+      },
+    });
+    expect(parsed!.remoteDefaults).toEqual({});
+  });
+});
+
+// ── normalizeRemoteHostConfig ─────────────────────────────────────────────
+
+describe("normalizeRemoteHostConfig", () => {
+  test("simple string hosts get all defaults", () => {
+    const result = normalizeRemoteHostConfig({
+      workbox: "workbox.local",
+    });
+    const r = result["workbox"]!;
+    expect(r.host).toBe("workbox.local");
+    expect(r.port).toBeUndefined(); // not set for simple hosts
+    expect(r.user).toBeUndefined();
+    expect(r.timeout).toBe(15_000);
+    expect(r.batchMode).toBe(true);
+    expect(r.connectTimeout).toBe(5);
+    expect(r.strictHostKeyChecking).toBe("accept-new");
+    expect(r.compression).toBe(false);
+    expect(r.controlMaster).toBe("no");
+    expect(r.identitiesOnly).toBe(false);
+    expect(r.serverAliveInterval).toBe(0);
+    expect(r.serverAliveCountMax).toBe(3); // HARDCODED_DEFAULTS
+  });
+
+  test("per-host config objects override defaults", () => {
+    const result = normalizeRemoteHostConfig({
+      staging: {
+        host: "staging.example.com",
+        port: 2222,
+        user: "deploy",
+        identityFile: "~/.ssh/key",
+        timeout: 10,
+        compression: true,
+      },
+    });
+    const r = result["staging"]!;
+    expect(r.host).toBe("staging.example.com");
+    expect(r.port).toBe(2222);
+    expect(r.user).toBe("deploy");
+    expect(r.identityFile).toBe("~/.ssh/key");
+    expect(r.timeout).toBe(10000); // 10 seconds → 10000 ms
+    expect(r.compression).toBe(true);
+    expect(r.batchMode).toBe(true);
+  });
+
+  test("global defaults merge with per-host overrides", () => {
+    const defaults: RemoteDefaults = {
+      timeout: 30,
+      batchMode: false,
+      connectTimeout: 10,
+      identityFile: "~/.ssh/global",
+      compression: true,
+      proxyJump: "bastion.local",
+    };
+    const result = normalizeRemoteHostConfig(
+      {
+        simple: "simple.local",
+        detailed: { host: "detailed.local", timeout: 15 },
+      },
+      defaults
+    );
+    // Simple inherits all globals
+    expect(result["simple"]!.timeout).toBe(30000); // 30 seconds → ms
+    expect(result["simple"]!.batchMode).toBe(false);
+    expect(result["simple"]!.connectTimeout).toBe(10);
+    expect(result["simple"]!.identityFile).toBe("~/.ssh/global");
+    expect(result["simple"]!.compression).toBe(true);
+    expect(result["simple"]!.proxyJump).toBe("bastion.local");
+    // Detailed overrides timeout, inherits rest
+    expect(result["detailed"]!.timeout).toBe(15000); // 15 seconds → ms
+    expect(result["detailed"]!.compression).toBe(true);
+    expect(result["detailed"]!.proxyJump).toBe("bastion.local");
+  });
+
+  test("per-host identityFile overrides global", () => {
+    const defaults: RemoteDefaults = { identityFile: "~/.ssh/global" };
+    const result = normalizeRemoteHostConfig(
+      { w: { host: "w.local", identityFile: "~/.ssh/w" } },
+      defaults
+    );
+    expect(result["w"]!.identityFile).toBe("~/.ssh/w");
+  });
+
+  test("empty hosts returns empty", () => {
+    expect(Object.keys(normalizeRemoteHostConfig({}))).toEqual([]);
+  });
+
+  test("mixed string and object hosts", () => {
+    const result = normalizeRemoteHostConfig({
+      simple: "simple.local",
+      detailed: { host: "detailed.local", port: 2222, user: "admin" },
+    });
+    expect(result["simple"]!.host).toBe("simple.local");
+    expect(result["simple"]!.port).toBeUndefined();
+    expect(result["detailed"]!.port).toBe(2222);
+    expect(result["detailed"]!.user).toBe("admin");
+  });
+
+  test("controlMaster defaults to no when not set", () => {
+    const result = normalizeRemoteHostConfig({ w: "w.local" });
+    expect(result["w"]!.controlMaster).toBe("no");
+    expect(result["w"]!.controlPath).toBeUndefined();
+    expect(result["w"]!.controlPersist).toBeUndefined();
+  });
+
+  test("controlMaster auto with path propagates", () => {
+    const result = normalizeRemoteHostConfig({
+      w: {
+        host: "w.local",
+        controlMaster: "auto",
+        controlPath: "~/.ssh/ctl/%C",
+        controlPersist: 600,
+      },
+    });
+    expect(result["w"]!.controlMaster).toBe("auto");
+    expect(result["w"]!.controlPath).toBe("~/.ssh/ctl/%C");
+    expect(result["w"]!.controlPersist).toBe(600);
+  });
+
+  test("strictHostKeyChecking values flow through", () => {
+    const result = normalizeRemoteHostConfig({
+      yes: { host: "y.local", strictHostKeyChecking: "yes" },
+      no: { host: "n.local", strictHostKeyChecking: "no" },
+    });
+    expect(result["yes"]!.strictHostKeyChecking).toBe("yes");
+    expect(result["no"]!.strictHostKeyChecking).toBe("no");
+  });
+
+  test("resolveOrchestratorConfig defaults remoteHosts and remoteDefaults", () => {
+    const config = {
+      schemaVersion: 1,
+      enabled: true,
+      workspaceLabel: "demo",
+      primaryAgent: null,
+      secondaryAgents: [],
+      shellPane: true,
+      shellSplit: "right" as const,
+      bootstrap: [],
+      session: "",
+      agentsTab: null,
+      tabs: [],
+      sourcePath: null,
+    } satisfies HerdrProjectConfig;
+    const resolved = resolveOrchestratorConfig(config);
+    expect(resolved.remoteHosts).toEqual({});
+    expect(resolved.remoteDefaults).toEqual({});
+  });
+});
+
+// ── identity file discovery ───────────────────────────────────────────────
+
+describe("discoverIdentityFile", () => {
+  test("returns first existing key from probe list", () => {
+    // We can't rely on real files existing, but we can test the function shape
+    const result = discoverIdentityFile();
+    expect(result === undefined || typeof result === "string").toBe(true);
+  });
+
+  test("returns undefined when no standard keys exist", () => {
+    // discoverIdentityFile uses a hardcoded probe list; we test via
+    // the invariant that if ~/.ssh doesn't exist at all, result is undefined.
+    const sshDir = join(homedir(), ".ssh");
+    if (!existsSync(sshDir)) {
+      expect(discoverIdentityFile()).toBeUndefined();
+    }
+  });
+});
+
+// ── environment variable overrides ────────────────────────────────────────
+
+describe("parseEnvOverrides", () => {
+  afterEach(() => {
+    delete process.env.HERDR_SSH_TIMEOUT;
+    delete process.env.HERDR_SSH_BATCH_MODE;
+    delete process.env.HERDR_SSH_CONNECT_TIMEOUT;
+    delete process.env.HERDR_SSH_IDENTITY_FILE;
+    delete process.env.HERDR_SSH_STRICT_HOST_KEY_CHECKING;
+    delete process.env.HERDR_SSH_CONTROL_MASTER;
+    delete process.env.HERDR_SSH_CONTROL_PATH;
+    delete process.env.HERDR_SSH_CONTROL_PERSIST;
+    delete process.env.HERDR_SSH_COMPRESSION;
+    delete process.env.HERDR_SSH_PROXY_JUMP;
+    delete process.env.HERDR_SSH_IDENTITIES_ONLY;
+    delete process.env.HERDR_SSH_SERVER_ALIVE_INTERVAL;
+    delete process.env.HERDR_SSH_SERVER_ALIVE_COUNT_MAX;
+    delete process.env.HERDR_SSH_PORT;
+    delete process.env.HERDR_SSH_USER;
+  });
+
+  test("returns empty when no env vars set", () => {
+    expect(parseEnvOverrides()).toEqual({});
+  });
+
+  test("parses numeric vars", () => {
+    process.env.HERDR_SSH_TIMEOUT = "30";
+    process.env.HERDR_SSH_CONNECT_TIMEOUT = "8";
+    process.env.HERDR_SSH_PORT = "2222";
+    const overrides = parseEnvOverrides();
+    expect(overrides.timeout).toBe(30000); // seconds → ms
+    expect(overrides.connectTimeout).toBe(8);
+    expect(overrides.port).toBe(2222);
+  });
+
+  test("ignores non-numeric numeric vars", () => {
+    process.env.HERDR_SSH_TIMEOUT = "abc";
+    process.env.HERDR_SSH_PORT = "xyz";
+    const overrides = parseEnvOverrides();
+    expect(overrides.timeout).toBeUndefined();
+    expect(overrides.port).toBeUndefined();
+  });
+
+  test("parses boolean vars", () => {
+    process.env.HERDR_SSH_BATCH_MODE = "false";
+    process.env.HERDR_SSH_COMPRESSION = "1";
+    process.env.HERDR_SSH_IDENTITIES_ONLY = "true";
+    const overrides = parseEnvOverrides();
+    expect(overrides.batchMode).toBe(false);
+    expect(overrides.compression).toBe(true);
+    expect(overrides.identitiesOnly).toBe(true);
+  });
+
+  test("parses string vars", () => {
+    process.env.HERDR_SSH_IDENTITY_FILE = "~/.ssh/ci_key";
+    process.env.HERDR_SSH_STRICT_HOST_KEY_CHECKING = "no";
+    process.env.HERDR_SSH_CONTROL_MASTER = "auto";
+    process.env.HERDR_SSH_CONTROL_PATH = "~/.ssh/ctl/%C";
+    process.env.HERDR_SSH_PROXY_JUMP = "bastion.ci";
+    process.env.HERDR_SSH_USER = "ci-runner";
+    const overrides = parseEnvOverrides();
+    expect(overrides.identityFile).toBe("~/.ssh/ci_key");
+    expect(overrides.strictHostKeyChecking).toBe("no");
+    expect(overrides.controlMaster).toBe("auto");
+    expect(overrides.controlPath).toBe("~/.ssh/ctl/%C");
+    expect(overrides.proxyJump).toBe("bastion.ci");
+    expect(overrides.user).toBe("ci-runner");
+  });
+
+  test("parses control_persist and server_alive as numbers", () => {
+    process.env.HERDR_SSH_CONTROL_PERSIST = "120";
+    process.env.HERDR_SSH_SERVER_ALIVE_INTERVAL = "45";
+    process.env.HERDR_SSH_SERVER_ALIVE_COUNT_MAX = "2";
+    const overrides = parseEnvOverrides();
+    expect(overrides.controlPersist).toBe(120);
+    expect(overrides.serverAliveInterval).toBe(45);
+    expect(overrides.serverAliveCountMax).toBe(2);
+  });
+});
+
+// ── env overrides in normalizeRemoteHostConfig ────────────────────────────
+
+describe("normalizeRemoteHostConfig with env overrides", () => {
+  afterEach(() => {
+    delete process.env.HERDR_SSH_TIMEOUT;
+    delete process.env.HERDR_SSH_IDENTITY_FILE;
+    delete process.env.HERDR_SSH_BATCH_MODE;
+    delete process.env.HERDR_SSH_USER;
+    delete process.env.HERDR_SSH_PORT;
+  });
+
+  test("env overrides trump TOML defaults", () => {
+    process.env.HERDR_SSH_TIMEOUT = "60";
+    process.env.HERDR_SSH_BATCH_MODE = "false";
+    const defaults: RemoteDefaults = { timeout: 10, batchMode: true };
+    const result = normalizeRemoteHostConfig({ w: "w.local" }, defaults);
+    expect(result["w"]!.timeout).toBe(60000); // 60 seconds env → ms
+    expect(result["w"]!.batchMode).toBe(false);
+  });
+
+  test("env overrides trump per-host settings", () => {
+    process.env.HERDR_SSH_IDENTITY_FILE = "~/.ssh/env_key";
+    process.env.HERDR_SSH_PORT = "9999";
+    const result = normalizeRemoteHostConfig({
+      w: { host: "w.local", identityFile: "~/.ssh/toml_key", port: 2222 },
+    });
+    expect(result["w"]!.identityFile).toBe("~/.ssh/env_key");
+    expect(result["w"]!.port).toBe(9999);
+  });
+
+  test("env user propagates", () => {
+    process.env.HERDR_SSH_USER = "envuser";
+    const result = normalizeRemoteHostConfig({ w: "w.local" });
+    expect(result["w"]!.user).toBe("envuser");
+  });
+});
+
+// ── parseHostSession ──────────────────────────────────────────────────────
+
+describe("parseHostSession", () => {
+  test("parses host:session", () => {
+    expect(parseHostSession("workbox:dev")).toEqual({ host: "workbox", session: "dev" });
+  });
+  test("plain session name", () => {
+    expect(parseHostSession("default")).toEqual({ host: null, session: "default" });
+  });
+  test("empty string", () => {
+    expect(parseHostSession("")).toEqual({ host: null, session: "" });
+  });
+  test("foo: → host null", () => {
+    const r = parseHostSession("foo:");
+    expect(r.host).toBeNull();
+    expect(r.session).toBe("foo:");
+  });
+  test(":bar → host null", () => {
+    const r = parseHostSession(":bar");
+    expect(r.host).toBeNull();
+    expect(r.session).toBe(":bar");
+  });
+  test("host with dots", () => {
+    expect(parseHostSession("staging.example.com:prod")).toEqual({
+      host: "staging.example.com",
+      session: "prod",
+    });
+  });
+});
+
+// ── spawn_fallback TOML parsing ─────────────────────────────────────────
+
+describe("spawn_fallback TOML parsing", () => {
+  test("parses full spawn_fallback config", () => {
+    const section = {
+      orchestrator: {
+        handoff_rules: [
+          {
+            from_workspace: "w1",
+            from_agent: "kimi",
+            condition: "done",
+            to_workspace: "w1",
+            to_agent: "least_busy",
+            spawn_fallback: {
+              host: "staging",
+              session: "dev",
+              agent_cli: "kimi",
+              label: "reviewer-2",
+              workspace: "w1",
+              cwd: "/home/deploy/projects/app",
+              split: "right",
+              tab: "tab_p4",
+            },
+          },
+        ],
+      },
+    };
+    const parsed = parseHerdrOrchestratorSection(section);
+    expect(parsed).not.toBeNull();
+    const rule = parsed!.handoffRules[0]!;
+    expect(rule.spawnFallback).not.toBeUndefined();
+    const sf = rule.spawnFallback!;
+    expect(sf.host).toBe("staging");
+    expect(sf.session).toBe("dev");
+    expect(sf.agentCli).toBe("kimi");
+    expect(sf.label).toBe("reviewer-2");
+    expect(sf.workspace).toBe("w1");
+    expect(sf.cwd).toBe("/home/deploy/projects/app");
+    expect(sf.split).toBe("right");
+    expect(sf.tab).toBe("tab_p4");
+  });
+
+  test("skips spawn_fallback without host or agent_cli", () => {
+    const section = {
+      orchestrator: {
+        handoff_rules: [
+          {
+            from_workspace: "w1",
+            from_agent: "kimi",
+            condition: "done",
+            to_workspace: "w1",
+            to_agent: "codex",
+            spawn_fallback: {
+              session: "dev",
+            },
+          },
+        ],
+      },
+    };
+    const parsed = parseHerdrOrchestratorSection(section);
+    expect(parsed!.handoffRules[0]!.spawnFallback).toBeUndefined();
+  });
+
+  test("spawn_fallback is undefined when not set", () => {
+    const section = {
+      orchestrator: {
+        handoff_rules: [
+          {
+            from_workspace: "w1",
+            from_agent: "kimi",
+            condition: "done",
+            to_workspace: "w1",
+            to_agent: "codex",
+          },
+        ],
+      },
+    };
+    const parsed = parseHerdrOrchestratorSection(section);
+    expect(parsed!.handoffRules[0]!.spawnFallback).toBeUndefined();
   });
 });

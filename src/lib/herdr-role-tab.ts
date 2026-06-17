@@ -1,12 +1,7 @@
 import type { HerdrProjectConfig } from "./herdr-project-config.ts";
 import { resolveAgentArgv } from "./herdr-agents.ts";
-import {
-  execCli,
-  execCliJson,
-  herdrCliJson,
-  herdrCliRun,
-  resolveHerdrPanePath,
-} from "./herdr-project-cli.ts";
+import { execCli, execCliJson, herdrCliJson, resolveHerdrPanePath } from "./herdr-project-cli.ts";
+import { getPaneSync, paneRunSync } from "./herdr-pane-service.ts";
 
 function parseHerdrPaneId(
   payload: { result?: Record<string, unknown> } | null,
@@ -209,8 +204,7 @@ export function resolveGrokRoleStartMode(target: RunTabCommandTarget): GrokRoleS
 }
 
 export function paneExists(session: string | undefined, paneId: string): boolean {
-  const resolved = session?.trim() || undefined;
-  return herdrCliJson(resolved, ["pane", "get", paneId]).ok;
+  return getPaneSync(paneId, session?.trim() || undefined).ok;
 }
 
 export function buildGrokRolePaneRunPayload(command: string): string {
@@ -338,8 +332,9 @@ function shellQuote(value: string) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
+/** @deprecated Use paneRunSync from herdr-pane-service.ts instead. */
 function paneRunCommand(config: HerdrProjectConfig, paneId: string, command: string) {
-  return herdrCliRun(config.session, ["pane", "run", paneId, buildGrokRolePaneRunPayload(command)]);
+  return paneRunSync(paneId, command, config.session);
 }
 
 export type HerdrRoleTabCliDeps = {

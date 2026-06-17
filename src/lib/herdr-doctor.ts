@@ -1,11 +1,11 @@
 import { existsSync, lstatSync, readFileSync, readlinkSync } from "node:fs";
-import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { TOML } from "bun";
 import { MIN_INTEGRATION_VERSIONS, REQUIRED_INTEGRATIONS, SPAWN_AGENTS } from "./herdr-agents.ts";
 import { resolveHerdrSession } from "./herdr-project-cli.ts";
 import { HerdrSessionError, requireSessionRunning } from "./herdr-session-preflight.ts";
 import { homeDir } from "./paths.ts";
+import { resolveHerdrPanePath } from "./herdr-pane-service.ts";
 
 const KNOWN_TOP_LEVEL = new Set([
   "onboarding",
@@ -38,21 +38,27 @@ function expand(path: string, home = homeDir()): string {
   return path.replace(/^~(?=$|\/)/, home).replace(/^~\//, `${home}/`);
 }
 
-function run(cmd: string, args: string[] = [], timeout = 20_000) {
+/** Run a CLI command via Bun.spawnSync (Bun-native, synchronous). */
+function run(cmd: string, args: string[] = [], _timeoutMs = 20_000) {
   try {
-    return {
-      ok: true,
-      output: execFileSync(cmd, args, {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-        timeout,
-      }).trim(),
-    };
+    const result = Bun.spawnSync({
+      cmd: [cmd, ...args],
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, PATH: resolveHerdrPanePath() },
+    });
+    // Bun.spawnSync doesn't support per-call timeout natively,
+    // but herdr commands are fast (<1s) so 20s is generous.
+    const stdout = result.stdout ? new TextDecoder().decode(result.stdout).trim() : "";
+    const stderr = result.stderr ? new TextDecoder().decode(result.stderr).trim() : "";
+    if (result.exitCode === 0) {
+      return { ok: true as const, output: stdout };
+    }
+    return { ok: false as const, output: `${stdout}${stderr}`.trim() };
   } catch (error) {
-    const err = error as { stdout?: string; stderr?: string };
     return {
-      ok: false,
-      output: `${err.stdout || ""}${err.stderr || ""}`.trim(),
+      ok: false as const,
+      output: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -226,6 +232,7 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
   const warnings: string[] = [];
   const fixes: string[] = [];
   const binary = which("herdr");
+  const paneBinary = which("herdr-pane");
   const terminalNotifier = which("terminal-notifier");
   const version = binary ? run("herdr", ["--version"]) : { ok: false, output: "" };
   const configSymlinkOk = isSymlinkTo(runtimeConfig, configPath);
@@ -366,6 +373,7 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
       spawnWrappers: missingWrappers.length === 0,
       server: serverRunning,
       projectTool: Boolean(which("herdr-project")),
+      paneService: Boolean(paneBinary),
     },
     details: {
       binary,
@@ -379,6 +387,7 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
       integrationVersions,
       manifestStatus: manifestStatus.result,
       serverStatus: status.ok ? status.output : status.output || null,
+      paneBinary,
       projectProfiles,
       fixes,
     },
@@ -406,6 +415,7 @@ export function printHerdrDoctorHuman(report: HerdrDoctorReport): void {
   writeOut("");
   if (report.details.version) writeOut(`Version: ${report.details.version}`);
   if (report.details.binary) writeOut(`Binary: ${report.details.binary}`);
+  if (report.details.paneBinary) writeOut(`Pane CLI: ${report.details.paneBinary}`);
   writeOut(`Config: ${report.details.configPath}`);
   if (report.details.fixes?.length) writeOut(`Fixes: ${report.details.fixes.join("; ")}`);
   writeOut("");

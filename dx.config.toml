@@ -156,8 +156,7 @@ preflight = true
 #   Extra tabs: [[herdr.tabs]] — one pane per tab (doctor, shell, reviewer, …)
 [herdr]
 enabled = true
-# session omitted — primary server (~/.config/herdr/herdr.sock). On Herdr 0.7.0 HERDR_SESSION
-# env alone does not select a named socket; use default for live automation (wB lives here).
+session = "dev"
 workspaceLabel = "kimi-toolchain"
 primaryAgent = "kimi"
 secondaryAgents = ["codex"]
@@ -204,11 +203,24 @@ handoffFrom = "kimi"
 handoffTo = "codex"
 reviewerTab = "reviewer"
 
+[herdr.orchestrator.remote_hosts]
+staging = "staging.example.com"
+
 [herdr.orchestrator.events]
 enabled = true
 debounceMs = 2000
 allowlist = ["workspace.updated", "pane.agent_status_changed", "effect.gates.changed", "git.ref.changed"]
 watchGit = true
+
+# Cross-workspace handoff rules — labels resolve via herdr agent rename
+[[herdr.orchestrator.handoff_rules]]
+from_workspace = "w1"
+from_agent = "test-agent"
+condition = "done"
+to_workspace = "w1"
+to_agent = "kimi"
+
+
 
 [[herdr.tabs]]
 label = "doctor"
@@ -226,3 +238,146 @@ command = "grok --role test-agent --cwd . -- bun run scripts/test-agent.ts --wat
 # Created on demand by finish-work when post-push tree is dirty (no static command).
 [[herdr.tabs]]
 label = "reviewer"
+
+# Control plane — cross-workspace observability and coordination (Phase 3)
+[[herdr.tabs]]
+label = "control"
+command = "watch -n 10 'herdr-orchestrator dashboard'"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Herdr Orchestrator — Remote Session Management Configuration Reference
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Full documentation: see UNIFIED.md and herdr-orchestrator --help.
+#
+# ── Quickstart ─────────────────────────────────────────────────────────────
+#
+# 1. Add remote hosts:
+#
+#    [herdr.orchestrator.remote_hosts]
+#    staging = "staging.example.com"
+#
+#    [herdr.orchestrator.remote_hosts.workbox]
+#    host = "workbox.local"
+#    port = 2222
+#    user = "deploy"
+#    identity_file = "~/.ssh/workbox_key"
+#
+# 2. Verify connectivity:
+#
+#    herdr-orchestrator check-hosts --versions
+#
+# 3. View the resolved dashboard:
+#
+#    herdr-orchestrator dashboard --sessions
+#
+# ── Domains ────────────────────────────────────────────────────────────────
+#
+# Group hosts into domains with shared defaults, rules, and notifications:
+#
+#    [herdr.orchestrator.domains.staging]
+#    hosts = ["staging-1", "staging-2"]
+#
+#    [herdr.orchestrator.domains.staging.defaults]
+#    batch_mode = true
+#    server_alive_interval = 30
+#
+#    [herdr.orchestrator.domains.staging.notifications]
+#    webhook_url = "https://hooks.slack.com/services/..."
+#    on_spawn = true
+#
+#    [[herdr.orchestrator.domains.staging.handoff_rules]]
+#    from_workspace = "w1"
+#    from_agent = "kimi"
+#    condition = "done"
+#    to_workspace = "w1"
+#    to_agent = "codex"
+#
+# ── Handoff Rules ──────────────────────────────────────────────────────────
+#
+# Cross-workspace, cross-host handoff with auto-spawn:
+#
+#    [[herdr.orchestrator.handoff_rules]]
+#    from_workspace = "w1"
+#    from_agent = "kimi"
+#    condition = "done"
+#    to_session = "staging:dev"
+#    to_workspace = "w1"
+#    to_agent = "codex"
+#    spawn_if_missing = true
+#
+# Spawn fallback — create a new agent when no candidates exist:
+#
+#    [[herdr.orchestrator.handoff_rules]]
+#    from_workspace = "w1"
+#    from_agent = "reviewer"
+#    condition = "blocked > 5m"
+#    to_workspace = "w1"
+#    to_agent = "least_busy:reviewer"
+#
+#    [herdr.orchestrator.handoff_rules.spawn_fallback]
+#    host = "staging"
+#    session = "dev"
+#    agent_cli = "kimi"
+#    label = "reviewer-2"
+#    workspace = "w1"
+#
+# ── SSH Defaults ───────────────────────────────────────────────────────────
+#
+# Global defaults (merged with ~/.config/herdr/config.toml [remote]):
+#
+#    [herdr.orchestrator.remote_defaults]
+#    timeout = 30
+#    batch_mode = true
+#    connect_timeout = 5
+#    identity_file = "~/.ssh/id_ed25519"
+#    strict_host_key_checking = "accept-new"
+#    server_alive_interval = 60
+#    control_master = "auto"
+#    control_path = "~/.ssh/control/%C"
+#    control_persist = 600
+#    compression = true
+#    proxy_jump = "bastion.internal"
+#
+# Env var overrides (highest priority):
+#   HERDR_SSH_PORT=2222
+#   HERDR_SSH_USER=ci-runner
+#   HERDR_SSH_TIMEOUT=30
+#   HERDR_SSH_IDENTITY_FILE=~/.ssh/ci_key
+#   HERDR_SSH_STRICT_HOST_KEY_CHECKING=no
+#
+# ── Notifications ──────────────────────────────────────────────────────────
+#
+# Webhook for handoff / spawn / error events:
+#
+#    [herdr.orchestrator.notifications]
+#    webhook_url = "https://hooks.slack.com/services/T00/B00/xxx"
+#    on_handoff = true
+#    on_spawn = true
+#    on_error = true
+#
+# ── Commands ───────────────────────────────────────────────────────────────
+#
+# Remote agent lifecycle:
+#   herdr-orchestrator agent start|stop|restart|upgrade <name> --host <h>
+#   herdr-orchestrator agent list|get|explain|rename|wait --host <h>
+#   herdr-orchestrator agent send|exec|log --host <h> -- <text/command>
+#
+# Remote workspace/pane/terminal/plugin:
+#   herdr-orchestrator workspace list|worktrees|tabs|panes --host <h>
+#   herdr-orchestrator workspace pane-get|pane-read|pane-run --host <h>
+#   herdr-orchestrator workspace pane-send|pane-send-keys --host <h>
+#   herdr-orchestrator workspace wait-output|wait-agent-status --host <h>
+#   herdr-orchestrator workspace plugins|plugin-* --host <h>
+#
+# Observability:
+#   herdr-orchestrator dashboard --sessions [--host <h>] [--domain <d>] [--include-doctor]
+#   herdr-orchestrator check-hosts --versions
+#   herdr-orchestrator config show|herdr|reload
+#   herdr-orchestrator history [--limit 20]
+#   herdr-orchestrator status --daemon
+#
+# Control plane:
+#   herdr-orchestrator react --all --dry-run
+#   herdr-orchestrator check-sessions
+#   herdr-orchestrator watch-events

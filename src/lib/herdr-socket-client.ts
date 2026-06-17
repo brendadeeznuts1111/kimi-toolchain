@@ -1,4 +1,5 @@
 import { connect, type Socket } from "node:net";
+import { Effect } from "effect";
 import { herdrCliRun } from "./herdr-project-cli.ts";
 
 export interface HerdrStreamEnvelope {
@@ -125,4 +126,20 @@ export function herdrSocketSubscribe(options: HerdrSocketSubscribeOptions): Sock
 
   socket.write(payload);
   return socket;
+}
+
+// ── Effect wrappers ─────────────────────────────────────────────────────
+
+/** Effect wrapper for herdrReportPaneMetadata (fire-and-forget). */
+export function reportPaneMetadataEffect(options: {
+  paneId: string;
+  source: string;
+  customStatus?: string;
+  stateLabels?: Record<string, string>;
+  ttlMs?: number;
+  session?: string;
+}): Effect.Effect<void, never> {
+  return Effect.sync(() => {
+    herdrReportPaneMetadata(options);
+  });
 }

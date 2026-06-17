@@ -28,10 +28,11 @@ function paneMatchesProject(
   return cwd === projectPath || foreground === projectPath;
 }
 
-export function findWorkspaceForProject(config: HerdrProjectConfig) {
+export function findAllWorkspacesForProject(config: HerdrProjectConfig): string[] {
   const projectPath = normalizeProjectPath(config.projectPath || "");
-  if (!projectPath) return { workspaceId: null as string | null, reason: "not_found" };
+  if (!projectPath) return [];
   const label = config.workspaceLabel;
+  const ids = new Set<string>();
 
   const workspaces = listWorkspaces(config.session);
   if (workspaces.ok) {
@@ -41,21 +42,23 @@ export function findWorkspaceForProject(config: HerdrProjectConfig) {
       worktree?: { checkout_path?: string };
     }>;
 
-    const byCheckout = rows.find(
-      (ws) =>
+    // checkout_path matches (all, not just first)
+    for (const ws of rows) {
+      if (
+        ws.workspace_id &&
         ws.worktree?.checkout_path &&
         normalizeProjectPath(ws.worktree.checkout_path) === projectPath
-    );
-    if (byCheckout?.workspace_id) {
-      return { workspaceId: byCheckout.workspace_id, reason: "checkout_path" };
+      ) {
+        ids.add(ws.workspace_id);
+      }
     }
 
+    // label matches
     if (label) {
-      const labeled = rows.filter((ws) => ws.label === label);
-      if (labeled.length === 1 && labeled[0]?.workspace_id) {
-        return { workspaceId: labeled[0].workspace_id, reason: "label" };
-      }
-      if (labeled.length > 1) {
+      const labeled = rows.filter((ws) => ws.label === label && ws.workspace_id);
+      if (labeled.length === 1) {
+        ids.add(labeled[0]!.workspace_id!);
+      } else if (labeled.length > 1) {
         const panes = listPanes(config.session);
         if (panes.ok) {
           const paneRows = (panes.json?.result?.panes || []) as Array<{
@@ -68,24 +71,42 @@ export function findWorkspaceForProject(config: HerdrProjectConfig) {
               (pane) =>
                 pane.workspace_id === ws.workspace_id && paneMatchesProject(pane, projectPath)
             );
-            if (confirmed && ws.workspace_id) {
-              return { workspaceId: ws.workspace_id, reason: "label+cwd" };
-            }
+            if (confirmed && ws.workspace_id) ids.add(ws.workspace_id);
           }
         }
       }
     }
   }
 
+  // cwd matches via panes
+  const panes = listPanes(config.session);
+  if (panes.ok) {
+    const paneRows = (panes.json?.result?.panes || []) as Array<{
+      workspace_id?: string;
+      cwd?: string;
+      foreground_cwd?: string;
+    }>;
+    for (const pane of paneRows) {
+      if (pane.workspace_id && paneMatchesProject(pane, projectPath)) {
+        ids.add(pane.workspace_id);
+      }
+    }
+  }
+
+  return [...ids];
+}
+
+export function findWorkspaceForProject(config: HerdrProjectConfig) {
+  const ids = findAllWorkspacesForProject(config);
+  if (ids.length > 0) {
+    return { workspaceId: ids[0]!, reason: ids[0]! };
+  }
+  // Preserve original reason strings for backward compatibility
+  const projectPath = normalizeProjectPath(config.projectPath || "");
+  if (!projectPath) return { workspaceId: null as string | null, reason: "not_found" };
+
   const panes = listPanes(config.session);
   if (!panes.ok) return { workspaceId: null as string | null, reason: panes.error };
-  const paneRows = (panes.json?.result?.panes || []) as Array<{
-    workspace_id?: string;
-    cwd?: string;
-    foreground_cwd?: string;
-  }>;
-  const byCwd = paneRows.find((pane) => paneMatchesProject(pane, projectPath));
-  if (byCwd?.workspace_id) return { workspaceId: byCwd.workspace_id, reason: "cwd" };
   return { workspaceId: null, reason: "not_found" };
 }
 
