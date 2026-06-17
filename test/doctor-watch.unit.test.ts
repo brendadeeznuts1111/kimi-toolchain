@@ -5,6 +5,7 @@ import {
   reportEffectGatesChanged,
 } from "../src/lib/doctor-watch.ts";
 import type { EffectGatesReport } from "../src/lib/effect-gates.ts";
+import { withClearedEnv } from "./helpers.ts";
 
 function sampleReport(overrides: Partial<EffectGatesReport["counts"]> = {}): EffectGatesReport {
   return {
@@ -62,11 +63,10 @@ describe("doctor-watch", () => {
   });
 
   test("reportEffectGatesChanged no-ops without pane id when herdr is unavailable", async () => {
-    const prior = Bun.env.HERDR_PANE_ID;
-    delete Bun.env.HERDR_PANE_ID;
-    await expect(
-      reportEffectGatesChanged('{"ok":true}', { projectRoot: "/nonexistent-project-path" })
-    ).resolves.toBeUndefined();
-    if (prior) Bun.env.HERDR_PANE_ID = prior;
+    await withClearedEnv(["HERDR_PANE_ID"], async () => {
+      await expect(
+        reportEffectGatesChanged('{"ok":true}', { projectRoot: "/nonexistent-project-path" })
+      ).resolves.toBeUndefined();
+    });
   });
 });

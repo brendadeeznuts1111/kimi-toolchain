@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { parseCliFlags, createMachineWriter, CliContractError } from "../src/lib/cli-contract.ts";
 import { inspectAgent } from "../src/lib/inspect.ts";
-import { captureStdout, captureStderr, captureStderrWrite } from "./helpers.ts";
+import { captureStdout, captureStderr, captureStderrWrite, withEnv } from "./helpers.ts";
 
 describe("cli-contract", () => {
   describe("parse-cli-flags", () => {
@@ -34,45 +34,36 @@ describe("cli-contract", () => {
     });
 
     test("falls back to KIMI_JSON env var", () => {
-      Bun.env.KIMI_JSON = "1";
-      try {
+      withEnv({ KIMI_JSON: "1" }, () => {
         const flags = parseCliFlags(["bun", "kimi-doctor"], "kimi-doctor");
         expect(flags.json).toBe(true);
         expect(flags.quiet).toBe(true);
-      } finally {
-        delete Bun.env.KIMI_JSON;
-      }
+      });
     });
 
     test("falls back to KIMI_TIMEOUT_MS env var", () => {
-      Bun.env.KIMI_TIMEOUT_MS = "10000";
-      try {
+      withEnv({ KIMI_TIMEOUT_MS: "10000" }, () => {
         const flags = parseCliFlags(["bun", "kimi-doctor"], "kimi-doctor");
         expect(flags.timeout).toBe(10000);
-      } finally {
-        delete Bun.env.KIMI_TIMEOUT_MS;
-      }
+      });
     });
 
     test("argv flags override env vars", () => {
-      Bun.env.KIMI_TIMEOUT_MS = "10000";
-      try {
+      withEnv({ KIMI_TIMEOUT_MS: "10000" }, () => {
         const flags = parseCliFlags(["bun", "kimi-doctor", "--timeout", "2500"], "kimi-doctor");
         expect(flags.timeout).toBe(2500);
-      } finally {
-        delete Bun.env.KIMI_TIMEOUT_MS;
-      }
+      });
     });
 
     test("invalid --timeout value warns on stderr and does not use env fallback", () => {
-      Bun.env.KIMI_TIMEOUT_MS = "10000";
       const stderr = captureStderrWrite();
       try {
-        const flags = parseCliFlags(["bun", "kimi-doctor", "--timeout", "abc"], "kimi-doctor");
-        expect(flags.timeout).toBeUndefined();
-        expect(stderr.lines.join("\n")).toContain('Invalid --timeout value "abc"');
+        withEnv({ KIMI_TIMEOUT_MS: "10000" }, () => {
+          const flags = parseCliFlags(["bun", "kimi-doctor", "--timeout", "abc"], "kimi-doctor");
+          expect(flags.timeout).toBeUndefined();
+          expect(stderr.lines.join("\n")).toContain('Invalid --timeout value "abc"');
+        });
       } finally {
-        delete Bun.env.KIMI_TIMEOUT_MS;
         stderr.restore();
       }
     });
@@ -89,16 +80,11 @@ describe("cli-contract", () => {
     });
 
     test("env fallback precedence: env values apply when argv omits the flag", () => {
-      Bun.env.KIMI_DEBUG = "1";
-      Bun.env.KIMI_BAIL = "true";
-      try {
+      withEnv({ KIMI_DEBUG: "1", KIMI_BAIL: "true" }, () => {
         const flags = parseCliFlags(["bun", "kimi-doctor"], "kimi-doctor");
         expect(flags.debug).toBe(true);
         expect(flags.bail).toBe(true);
-      } finally {
-        delete Bun.env.KIMI_DEBUG;
-        delete Bun.env.KIMI_BAIL;
-      }
+      });
     });
 
     test("strict mode rejects unknown flags with taxonomy-coded error", () => {
