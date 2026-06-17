@@ -83,6 +83,9 @@ export const UNIT_TEST_FILES = [
   "test/herdr-tab-lifecycle.unit.test.ts",
   "test/herdr-pane-requires.unit.test.ts",
   "test/herdr-tool-health.unit.test.ts",
+  "test/herdr-latm.unit.test.ts",
+  "test/herdr-unix-socket.unit.test.ts",
+  "test/herdr-workspace-match.unit.test.ts",
   "test/herdr-workspace-service.unit.test.ts",
   "test/handoff-log.unit.test.ts",
 ] as const;

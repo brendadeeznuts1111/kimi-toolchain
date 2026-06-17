@@ -1,5 +1,6 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { pathExists } from "./bun-io.ts";
+
+import { join } from "path";
 import { SPAWN_AGENTS } from "./herdr-agents.ts";
 import { sha256File } from "./utils.ts";
 import { desktopRoot } from "./paths.ts";
@@ -11,7 +12,12 @@ export interface HerdrEcosystemCheck {
   fixable: boolean;
 }
 
-export const HERDR_CLI_TOOLS = ["herdr-doctor", "herdr-project", "herdr-spawn"] as const;
+export const HERDR_CLI_TOOLS = [
+  "herdr-doctor",
+  "herdr-latm",
+  "herdr-project",
+  "herdr-spawn",
+] as const;
 
 export interface HerdrToolDrift {
   missingDesktop: string[];
@@ -36,9 +42,9 @@ export async function detectHerdrToolDrift(
     const desktopPath = join(toolsDir, `${name}.ts`);
     const wrapperPath = join(binDir, name);
 
-    if (!existsSync(repoPath)) continue;
+    if (!pathExists(repoPath)) continue;
 
-    if (!existsSync(desktopPath)) {
+    if (!pathExists(desktopPath)) {
       missingDesktop.push(name);
     } else {
       const [repoHash, desktopHash] = await Promise.all([
@@ -48,12 +54,12 @@ export async function detectHerdrToolDrift(
       if (repoHash !== desktopHash) drifted.push(name);
     }
 
-    if (!existsSync(wrapperPath)) missingWrappers.push(name);
+    if (!pathExists(wrapperPath)) missingWrappers.push(name);
   }
 
   for (const agent of SPAWN_AGENTS) {
     const stub = join(binDir, `herdr-spawn-${agent}`);
-    if (!existsSync(stub)) missingSpawnStubs.push(`herdr-spawn-${agent}`);
+    if (!pathExists(stub)) missingSpawnStubs.push(`herdr-spawn-${agent}`);
   }
 
   return { missingDesktop, missingWrappers, missingSpawnStubs, drifted };

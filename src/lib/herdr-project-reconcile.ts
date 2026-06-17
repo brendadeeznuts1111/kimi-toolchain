@@ -641,6 +641,7 @@ function applyLayoutAction(
       root: spec.root,
       tabId: resolvedTabId,
       focus: false,
+      session: config.session,
     });
     if (!applied.ok) return { ok: false, warning: applied.error };
 
@@ -751,7 +752,7 @@ function collectLayoutDrifts(
     const exported = new Map<string, ExportedTabLayout | null>();
 
     for (const tab of tabs) {
-      const result = yield* exportTabLayoutEffect(tab.tabId);
+      const result = yield* exportTabLayoutEffect(tab.tabId, config.session);
       exported.set(tab.tabId, result.ok ? result.layout : null);
     }
 

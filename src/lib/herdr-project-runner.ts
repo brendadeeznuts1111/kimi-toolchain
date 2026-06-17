@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, normalize, resolve } from "node:path";
+import { makeDir, pathExists, readText, writeText } from "./bun-io.ts";
+
+import { isAbsolute, join, normalize, resolve } from "path";
 import { resolveAgentArgv } from "./herdr-agents.ts";
 import {
   execCli,
@@ -17,13 +18,14 @@ import { findWorkspaceForProject } from "./herdr-workspace-match.ts";
 export { findAllWorkspacesForProject, findWorkspaceForProject } from "./herdr-workspace-match.ts";
 import { verifyPaneRequirements, type PaneRequirementSpec } from "./herdr-pane-requires.ts";
 import { parseHerdrTabId, runTabCommand, tabCommandStrategy } from "./herdr-role-tab.ts";
+import { resolveLatmSyncWorkspace, syncLatmManifestsForWorkspace } from "./herdr-latm.ts";
 import { homeDir } from "./paths.ts";
 
 export { herdrCliJson, herdrCliRun, resolveHerdrPanePath };
 
 export function resolveHerdrProjectPath(path: string): string {
   const root = isAbsolute(path) ? normalize(path) : resolve(process.cwd(), path);
-  if (!existsSync(root)) throw new Error(`project path not found: ${root}`);
+  if (!pathExists(root)) throw new Error(`project path not found: ${root}`);
   return root;
 }
 
@@ -220,7 +222,7 @@ export interface BootstrapProjectOptions {
   force?: boolean;
 }
 
-export function bootstrapHerdrProject(
+export async function bootstrapHerdrProject(
   config: HerdrProjectConfig,
   options: BootstrapProjectOptions = {}
 ) {
@@ -372,6 +374,18 @@ export function bootstrapHerdrProject(
     focusWorkspaceSync(workspaceId, config.session);
   }
 
+  if (workspaceId && shouldRunBootstrap) {
+    const latmWorkspace =
+      resolveLatmSyncWorkspace({ ...config, projectPath: config.projectPath }) ?? workspaceId;
+    const latm = await syncLatmManifestsForWorkspace(config, latmWorkspace);
+    actions.push({
+      action: "latm_manifests_synced",
+      written: latm.written.length,
+      paths: latm.written,
+      skipped: latm.skipped,
+    });
+  }
+
   if (options.attach && Bun.env.HERDR_ENV !== "1") {
     const attach = execCli("herdr", [], { session: config.session });
     if (!attach.ok && !attach.output.includes("nested herdr")) {
@@ -398,16 +412,16 @@ export function scaffoldHerdrProject(projectPath: string, force = false, home = 
   const targetDir = join(projectPath, ".dx");
   const target = join(targetDir, "herdr.toml");
   const templatePath = join(dxDir, "templates", "herdr.project.toml");
-  if (existsSync(target) && !force) {
+  if (pathExists(target) && !force) {
     return { ok: false, path: target, message: "already exists (use --force to overwrite)" };
   }
-  mkdirSync(targetDir, { recursive: true });
-  const template = readFileSync(templatePath, "utf8");
+  makeDir(targetDir, { recursive: true });
+  const template = readText(templatePath);
   const projectName = projectPath.split("/").filter(Boolean).pop() || "project";
   const body = template.replace(
     'workspaceLabel = "my-project"',
     `workspaceLabel = "${projectName}"`
   );
-  writeFileSync(target, body, "utf8");
+  writeText(target, body);
   return { ok: true, path: target, message: "scaffolded" };
 }

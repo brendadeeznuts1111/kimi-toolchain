@@ -1,4 +1,4 @@
-import { normalize, resolve } from "node:path";
+import { normalize, resolve } from "path";
 import type { HerdrProjectConfig } from "./herdr-project-config.ts";
 import { herdrCliJson } from "./herdr-project-cli.ts";
 
@@ -96,10 +96,44 @@ export function findAllWorkspacesForProject(config: HerdrProjectConfig): string[
   return [...ids];
 }
 
+export type WorkspacePaneCountFn = (workspaceId: string, session: string) => number;
+
+function defaultWorkspacePaneCount(workspaceId: string, session: string): number {
+  const listed = herdrCliJson(session, ["pane", "list", "--workspace", workspaceId]);
+  return listed.ok ? ((listed.json?.result?.panes || []) as unknown[]).length : 0;
+}
+
+/** When several workspaces match, prefer the one with the most panes in this session. */
+export function pickBestWorkspaceId(
+  workspaceIds: string[],
+  session = "",
+  paneCount: WorkspacePaneCountFn = defaultWorkspacePaneCount
+): string {
+  if (workspaceIds.length === 0) {
+    throw new Error("pickBestWorkspaceId requires at least one workspace id");
+  }
+  if (workspaceIds.length === 1) return workspaceIds[0]!;
+
+  let bestId = workspaceIds[0]!;
+  let bestCount = -1;
+  for (const workspaceId of workspaceIds) {
+    const count = paneCount(workspaceId, session);
+    if (count > bestCount) {
+      bestCount = count;
+      bestId = workspaceId;
+    }
+  }
+  return bestId;
+}
+
 export function findWorkspaceForProject(config: HerdrProjectConfig) {
   const ids = findAllWorkspacesForProject(config);
   if (ids.length > 0) {
-    return { workspaceId: ids[0]!, reason: ids[0]! };
+    const workspaceId = pickBestWorkspaceId(ids, config.session);
+    return {
+      workspaceId,
+      reason: ids.length > 1 ? `best_match:${workspaceId}` : workspaceId,
+    };
   }
   // Preserve original reason strings for backward compatibility
   const projectPath = normalizeProjectPath(config.projectPath || "");

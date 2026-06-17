@@ -3,7 +3,7 @@
  * Raw socket path available via HERDR_SOCKET_PATH; finish-work uses the CLI.
  */
 
-import { herdrSessionEnv } from "./herdr-project-cli.ts";
+import { herdrSessionArgs, herdrSessionEnv } from "./herdr-project-cli.ts";
 
 export interface HerdrCliResult {
   ok: boolean;
@@ -19,9 +19,9 @@ export interface HerdrCliJsonResult<T = unknown> {
   exitCode: number;
 }
 
-export async function herdrCli(args: string[]): Promise<HerdrCliResult> {
-  const proc = Bun.spawn(["herdr", ...args], {
-    env: herdrSessionEnv(),
+export async function herdrCli(args: string[], session?: string): Promise<HerdrCliResult> {
+  const proc = Bun.spawn(["herdr", ...herdrSessionArgs(session), ...args], {
+    env: herdrSessionEnv(session),
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -38,8 +38,11 @@ export async function herdrCli(args: string[]): Promise<HerdrCliResult> {
   };
 }
 
-export async function herdrCliJson<T = unknown>(args: string[]): Promise<HerdrCliJsonResult<T>> {
-  const result = await herdrCli(args);
+export async function herdrCliJson<T = unknown>(
+  args: string[],
+  session?: string
+): Promise<HerdrCliJsonResult<T>> {
+  const result = await herdrCli(args, session);
   if (!result.ok) {
     return {
       ok: false,

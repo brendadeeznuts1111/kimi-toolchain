@@ -189,6 +189,21 @@ export function globalDxConfigPath(home?: string): string {
   return join(home || homeDir(), ".config", "dx", "global-config.toml");
 }
 
+/** Return ~/.config/herdr */
+export function herdrConfigDir(home?: string): string {
+  return join(home || homeDir(), ".config", "herdr");
+}
+
+/** Return ~/.config/herdr/agents — LATM pane capability manifests */
+export function herdrAgentsDir(home?: string): string {
+  return join(herdrConfigDir(home), "agents");
+}
+
+/** Return ~/.config/herdr/agents/<paneId>/capabilities.json */
+export function herdrLatmManifestPath(paneId: string, home?: string): string {
+  return join(herdrAgentsDir(home), paneId, "capabilities.json");
+}
+
 /** Return ~/.cursor */
 export function cursorDir(): string {
   return join(homeDir(), ".cursor");

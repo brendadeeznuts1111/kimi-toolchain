@@ -14,7 +14,7 @@ describe("herdr-tool-health", () => {
     mkdirSync(join(home, ".local", "bin"), { recursive: true });
     mkdirSync(join(home, ".kimi-code", "tools"), { recursive: true });
     mkdirSync(join(repoRoot, "src", "bin"), { recursive: true });
-    for (const name of ["herdr-doctor", "herdr-project", "herdr-spawn"]) {
+    for (const name of ["herdr-doctor", "herdr-latm", "herdr-project", "herdr-spawn"]) {
       writeFileSync(join(repoRoot, "src", "bin", `${name}.ts`), `export const ${name} = 1;\n`);
     }
     writeFileSync(
@@ -45,7 +45,7 @@ describe("herdr-tool-health", () => {
   });
 
   test("auditHerdrToolHealth ok when desktop and wrappers fully installed", async () => {
-    for (const name of ["herdr-project", "herdr-spawn"]) {
+    for (const name of ["herdr-latm", "herdr-project", "herdr-spawn"]) {
       const text = await Bun.file(join(repoRoot, "src", "bin", `${name}.ts`)).text();
       writeFileSync(join(home, ".kimi-code", "tools", `${name}.ts`), text);
       writeFileSync(join(home, ".local", "bin", name), "#!/bin/sh\necho stub\n");

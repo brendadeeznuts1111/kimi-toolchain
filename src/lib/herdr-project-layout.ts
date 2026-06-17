@@ -1,6 +1,6 @@
-import { connect } from "node:net";
 import { Effect } from "effect";
 import { resolveAgentArgv } from "./herdr-agents.ts";
+import { connectHerdrUnixSocket, resolveHerdrSocketPath } from "./herdr-unix-socket.ts";
 import type {
   HerdrAgentsTab,
   HerdrAgentsTabPane,
@@ -9,7 +9,6 @@ import type {
   HerdrShellSplit,
 } from "./herdr-project-config.ts";
 import { resolveHerdrPanePath } from "./herdr-project-cli.ts";
-import { homeDir } from "./paths.ts";
 import { parseGrokRoleTabCommand, tabCommandStrategy } from "./herdr-role-tab.ts";
 
 export type LayoutNodeType = "pane" | "split";
@@ -271,23 +270,18 @@ export function layoutTreesEqual(
   );
 }
 
-function resolveSocketPath(): string {
-  if (Bun.env.HERDR_SOCKET_PATH) return Bun.env.HERDR_SOCKET_PATH;
-  const home = homeDir();
-  return `${home}/.config/herdr/herdr.sock`;
-}
-
 export type HerdrSocketResult<T> = { ok: true; json: T } | { ok: false; error: string };
 
 export function herdrSocketRequest<T = HerdrSocketResponse>(
   method: string,
   params: Record<string, unknown>,
-  timeoutMs = 5_000
+  options: { timeoutMs?: number; session?: string } = {}
 ): Effect.Effect<HerdrSocketResult<T>, never> {
   return Effect.async<HerdrSocketResult<T>>((resume) => {
-    const socketPath = resolveSocketPath();
+    const socketPath = resolveHerdrSocketPath(options.session);
+    const timeoutMs = options.timeoutMs ?? 5_000;
     const payload = JSON.stringify({ id: `herdr-project:${method}`, method, params }) + "\n";
-    const socket = connect(socketPath);
+    const socket = connectHerdrUnixSocket(socketPath);
     let buffer = "";
 
     const finish = (result: HerdrSocketResult<T>) => {
@@ -354,11 +348,18 @@ export type ExportTabLayoutResult =
 
 export type ApplyTabLayoutResult = { ok: true; tabId: string } | { ok: false; error: string };
 
-export function exportTabLayoutEffect(tabId: string): Effect.Effect<ExportTabLayoutResult, never> {
+export function exportTabLayoutEffect(
+  tabId: string,
+  session?: string
+): Effect.Effect<ExportTabLayoutResult, never> {
   return Effect.gen(function* () {
-    const response = yield* herdrSocketRequest<HerdrSocketResponse>("layout.export", {
-      tab_id: tabId,
-    });
+    const response = yield* herdrSocketRequest<HerdrSocketResponse>(
+      "layout.export",
+      {
+        tab_id: tabId,
+      },
+      { session }
+    );
     if (!response.ok) return response;
 
     const result = response.json.result || {};
@@ -385,6 +386,7 @@ export function applyTabLayoutEffect(options: {
   root: LayoutNode;
   tabId?: string;
   focus?: boolean;
+  session?: string;
 }): Effect.Effect<ApplyTabLayoutResult, never> {
   return Effect.gen(function* () {
     const params: Record<string, unknown> = {
@@ -399,7 +401,9 @@ export function applyTabLayoutEffect(options: {
       params.tab_label = options.tabLabel;
     }
 
-    const response = yield* herdrSocketRequest<HerdrSocketResponse>("layout.apply", params);
+    const response = yield* herdrSocketRequest<HerdrSocketResponse>("layout.apply", params, {
+      session: options.session,
+    });
     if (!response.ok) return response;
 
     const result = response.json.result || {};

@@ -156,7 +156,9 @@ preflight = true
 #   Extra tabs: [[herdr.tabs]] — one pane per tab (doctor, shell, reviewer, …)
 [herdr]
 enabled = true
-session = "dev"
+# Herdr server session: "" or omit = primary (~/.config/herdr/herdr.sock, live wB workspace).
+# "dev" = named session (~/.config/herdr/sessions/dev/herdr.sock). CLI + watch-events socket must match.
+session = ""
 workspaceLabel = "kimi-toolchain"
 primaryAgent = "kimi"
 secondaryAgents = ["codex"]

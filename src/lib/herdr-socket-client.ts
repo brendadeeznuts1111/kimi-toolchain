@@ -1,7 +1,12 @@
-import { connect, type Socket } from "node:net";
 import { Effect } from "effect";
-import { homeDir } from "./paths.ts";
+import {
+  connectHerdrUnixSocket,
+  resolveHerdrSocketPath,
+  type HerdrUnixSocket,
+} from "./herdr-unix-socket.ts";
 import { herdrCliRun } from "./herdr-project-cli.ts";
+
+export { resolveHerdrSocketPath };
 
 export interface HerdrStreamEnvelope {
   event?: string;
@@ -12,12 +17,6 @@ export interface HerdrEventSubscription {
   type: string;
   pane_id?: string;
   agent_status?: string;
-}
-
-export function resolveHerdrSocketPath(): string {
-  if (Bun.env.HERDR_SOCKET_PATH) return Bun.env.HERDR_SOCKET_PATH;
-  const home = homeDir();
-  return `${home}/.config/herdr/herdr.sock`;
 }
 
 /** Report custom pane metadata via Herdr CLI (triggers pane.agent_status_changed). */
@@ -45,11 +44,13 @@ export interface HerdrSocketSubscribeOptions {
   onEvent: (envelope: HerdrStreamEnvelope) => void;
   onError?: (error: string) => void;
   signal?: AbortSignal;
+  /** Herdr session name; primary when omitted, empty, or "default". */
+  session?: string;
 }
 
 /** Long-lived events.subscribe stream (connection stays open after ack). */
-export function herdrSocketSubscribe(options: HerdrSocketSubscribeOptions): Socket {
-  const socketPath = resolveHerdrSocketPath();
+export function herdrSocketSubscribe(options: HerdrSocketSubscribeOptions): HerdrUnixSocket {
+  const socketPath = resolveHerdrSocketPath(options.session);
   const payload =
     JSON.stringify({
       id: "kimi:events.subscribe",
@@ -57,7 +58,7 @@ export function herdrSocketSubscribe(options: HerdrSocketSubscribeOptions): Sock
       params: { subscriptions: options.subscriptions },
     }) + "\n";
 
-  const socket = connect(socketPath);
+  const socket = connectHerdrUnixSocket(socketPath);
   let buffer = "";
   let acked = false;
 
@@ -105,7 +106,7 @@ export function herdrSocketSubscribe(options: HerdrSocketSubscribeOptions): Sock
   };
 
   socket.on("data", (chunk) => {
-    buffer += chunk.toString();
+    buffer += chunk;
     let newline = buffer.indexOf("\n");
     while (newline >= 0) {
       const line = buffer.slice(0, newline);

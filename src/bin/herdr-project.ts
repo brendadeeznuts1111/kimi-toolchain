@@ -75,7 +75,7 @@ Flags:
 `);
 }
 
-const { flags, command, path: rawPath } = parseArgs(process.argv.slice(2));
+const { flags, command, path: rawPath } = parseArgs(Bun.argv.slice(2));
 if (flags.help) {
   printHelp();
   process.exit(0);
@@ -191,7 +191,7 @@ try {
       process.exit(1);
     }
     await requireSessionRunning(config.session);
-    const report = bootstrapHerdrProject(
+    const report = await bootstrapHerdrProject(
       { ...config, projectPath },
       { attach: flags.attach, force: flags.force }
     );

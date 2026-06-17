@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, watch } from "node:fs";
-import { join } from "node:path";
+import { pathExists, readText, watchPath } from "./bun-io.ts";
+
+import { join } from "path";
 import { TOML } from "bun";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";
@@ -15,6 +16,7 @@ import {
   type HerdrEventSubscription,
   type HerdrStreamEnvelope,
 } from "./herdr-socket-client.ts";
+import { resolveHerdrSocketPath } from "./herdr-unix-socket.ts";
 
 export type OrchestratorEventAction = "context-sync" | "react";
 
@@ -87,7 +89,7 @@ class DebouncedOrchestratorActions {
 function loadHerdrDoc(configPath: string | null): Record<string, unknown> | null {
   if (!configPath) return null;
   try {
-    return TOML.parse(readFileSync(configPath, "utf8")) as Record<string, unknown>;
+    return TOML.parse(readText(configPath)) as Record<string, unknown>;
   } catch {
     return null;
   }
@@ -95,12 +97,12 @@ function loadHerdrDoc(configPath: string | null): Record<string, unknown> | null
 
 function readGitHead(projectRoot: string): string | null {
   const headPath = join(projectRoot, ".git", "HEAD");
-  if (!existsSync(headPath)) return null;
+  if (!pathExists(headPath)) return null;
   try {
-    const raw = readFileSync(headPath, "utf8").trim();
+    const raw = readText(headPath).trim();
     if (raw.startsWith("ref: ")) {
       const refPath = join(projectRoot, ".git", raw.slice(5).trim());
-      if (existsSync(refPath)) return readFileSync(refPath, "utf8").trim();
+      if (pathExists(refPath)) return readText(refPath).trim();
     }
     return raw;
   } catch {
@@ -110,12 +112,12 @@ function readGitHead(projectRoot: string): string | null {
 
 function resolveGitHeadWatchPath(projectRoot: string): string | null {
   const headPath = join(projectRoot, ".git", "HEAD");
-  if (!existsSync(headPath)) return null;
+  if (!pathExists(headPath)) return null;
   try {
-    const raw = readFileSync(headPath, "utf8").trim();
+    const raw = readText(headPath).trim();
     if (raw.startsWith("ref: ")) {
       const refPath = join(projectRoot, ".git", raw.slice(5).trim());
-      return existsSync(refPath) ? refPath : headPath;
+      return pathExists(refPath) ? refPath : headPath;
     }
     return headPath;
   } catch {
@@ -221,7 +223,8 @@ async function runWatchOrchestratorEvents(
   }
 
   const workspaceId = match.workspaceId;
-  const agents = listWorkspaceAgents(workspaceId, config.session);
+  const boundSession = config.session;
+  const agents = listWorkspaceAgents(workspaceId, boundSession);
   const paneIds = [...new Set(agents.map((row) => row.paneId))];
   const subscriptions = buildSubscriptions(workspaceId, paneIds);
   const debouncer = new DebouncedOrchestratorActions();
@@ -251,13 +254,13 @@ async function runWatchOrchestratorEvents(
     });
   };
 
-  let gitWatcher: ReturnType<typeof watch> | null = null;
+  let gitWatcher: ReturnType<typeof watchPath> | null = null;
   let gitHead = readGitHead(projectRoot);
 
   if (eventsConfig.watchGit) {
     const gitHeadPath = resolveGitHeadWatchPath(projectRoot);
-    if (gitHeadPath && existsSync(gitHeadPath)) {
-      gitWatcher = watch(gitHeadPath, () => {
+    if (gitHeadPath && pathExists(gitHeadPath)) {
+      gitWatcher = watchPath(gitHeadPath, () => {
         const next = readGitHead(projectRoot);
         if (!next || next === gitHead) return;
         gitHead = next;
@@ -271,8 +274,11 @@ async function runWatchOrchestratorEvents(
   }
 
   if (!options.json) {
+    const sessionLabel =
+      boundSession?.trim() && boundSession !== "default" ? boundSession : "default";
+    const socketPath = resolveHerdrSocketPath(boundSession);
     process.stdout.write(
-      `watch-events: workspace ${workspaceId}, ${subscriptions.length} subscription(s)\n`
+      `watch-events: session ${sessionLabel}, socket ${socketPath}, workspace ${workspaceId}, ${subscriptions.length} subscription(s)\n`
     );
   }
 
@@ -287,6 +293,7 @@ async function runWatchOrchestratorEvents(
 
   const socket = herdrSocketSubscribe({
     subscriptions,
+    session: boundSession,
     signal: options.signal,
     onError: (error) => {
       finish({ ok: false, workspaceId, subscriptions, error });

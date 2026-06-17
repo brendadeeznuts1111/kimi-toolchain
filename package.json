@@ -35,6 +35,7 @@
     "kimi-toolchain": "src/bin/kimi-toolchain.ts",
     "unified-shell-bridge": "src/bin/unified-shell-bridge.ts",
     "herdr-doctor": "src/bin/herdr-doctor.ts",
+    "herdr-latm": "src/bin/herdr-latm.ts",
     "herdr-orchestrator": "src/bin/herdr-orchestrator.ts",
     "herdr-pane": "src/bin/herdr-pane.ts",
     "herdr-project": "src/bin/herdr-project.ts",

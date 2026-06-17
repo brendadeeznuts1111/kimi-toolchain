@@ -49,7 +49,7 @@ If Grep/Glob fail with a path under an old renamed clone, the editor opened the 
 ```
 kimi-toolchain/
   src/
-    bin/                    # CLI entry points (26 registered bins)
+    bin/                    # CLI entry points (27 registered bins)
       ├── kimi-doctor.ts          # Comprehensive diagnostics aggregator
       ├── kimi-fix.ts             # Auto-repair project scaffolding
       ├── kimi-governance.ts      # R-Score, coverage gate, ADR scaffold
