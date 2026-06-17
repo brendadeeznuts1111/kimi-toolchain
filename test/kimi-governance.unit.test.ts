@@ -1,34 +1,35 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { loadCachedCoverage } from "../src/bin/kimi-governance.ts";
 import { governorDir } from "../src/lib/paths.ts";
 
+import { testTempDir } from "./helpers.ts";
 describe("kimi-governance", () => {
   let projectDir: string;
   let previousHome: string | undefined;
 
   beforeEach(() => {
-    previousHome = process.env.HOME;
-    projectDir = join(tmpdir(), `gov-score-${Date.now()}`);
-    process.env.HOME = projectDir;
-    mkdirSync(governorDir(), { recursive: true });
-    mkdirSync(join(projectDir, "coverage"), { recursive: true });
-    writeFileSync(
+    previousHome = Bun.env.HOME;
+    projectDir = testTempDir("gov-score-");
+    Bun.env.HOME = projectDir;
+    makeDir(governorDir(), { recursive: true });
+    makeDir(join(projectDir, "coverage"), { recursive: true });
+    writeText(
       join(projectDir, "package.json"),
       JSON.stringify({ name: "demo-project", scripts: { test: "bun test" } })
     );
   });
 
   afterEach(() => {
-    if (previousHome === undefined) delete process.env.HOME;
-    else process.env.HOME = previousHome;
-    rmSync(projectDir, { recursive: true, force: true });
+    if (previousHome === undefined) delete Bun.env.HOME;
+    else Bun.env.HOME = previousHome;
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   it("loadCachedCoverage reads the latest coverage-history entry", async () => {
-    writeFileSync(
+    writeText(
       join(governorDir(), "coverage-history.json"),
       JSON.stringify([
         {

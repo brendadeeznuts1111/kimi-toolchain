@@ -1,7 +1,8 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
 import { join } from "path";
+import { testTempDir } from "./helpers.ts";
 import {
   isLockfileMtimeStale,
   lockfileNeedsGuardianBaseline,
@@ -16,27 +17,27 @@ let previousHome: string | undefined;
 describe("governance-preflight", () => {
   beforeEach(() => {
     previousHome = Bun.env.HOME;
-    tmpHome = join(tmpdir(), `gov-preflight-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(tmpHome, ".kimi-code", "guardian"), { recursive: true });
+    tmpHome = testTempDir("gov-preflight-");
+    makeDir(join(tmpHome, ".kimi-code", "guardian"), { recursive: true });
     Bun.env.HOME = tmpHome;
 
     projectDir = join(tmpHome, "project");
-    mkdirSync(projectDir, { recursive: true });
-    writeFileSync(join(projectDir, "bun.lock"), "# lock\n");
-    writeFileSync(join(projectDir, "package.json"), JSON.stringify({ name: "demo", scripts: {} }));
-    writeFileSync(join(projectDir, "README.md"), "# demo\n");
+    makeDir(projectDir, { recursive: true });
+    writeText(join(projectDir, "bun.lock"), "# lock\n");
+    writeText(join(projectDir, "package.json"), JSON.stringify({ name: "demo", scripts: {} }));
+    writeText(join(projectDir, "README.md"), "# demo\n");
   });
 
   afterEach(() => {
     if (previousHome === undefined) delete Bun.env.HOME;
     else Bun.env.HOME = previousHome;
-    rmSync(tmpHome, { recursive: true, force: true });
+    removePath(tmpHome, { recursive: true, force: true });
   });
 
   test("isLockfileMtimeStale when package.json is newer than bun.lock", async () => {
     expect(isLockfileMtimeStale(projectDir)).toBe(false);
     await Bun.sleep(15);
-    writeFileSync(
+    writeText(
       join(projectDir, "package.json"),
       JSON.stringify({ name: "demo", scripts: { lint: "oxlint ." } })
     );
@@ -45,7 +46,7 @@ describe("governance-preflight", () => {
 
   test("refreshStaleLockfile returns true and clears mtime stale", async () => {
     await Bun.sleep(15);
-    writeFileSync(
+    writeText(
       join(projectDir, "package.json"),
       JSON.stringify({ name: "demo", scripts: { test: "bun test" } })
     );

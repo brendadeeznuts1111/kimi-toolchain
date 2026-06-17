@@ -1,5 +1,6 @@
+import { makeDir, removePath } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import {
   enrichWorkspaceChecksWithDecisions,
@@ -89,7 +90,7 @@ describe("workspace-known-blockers", () => {
 
   test("records once and updates seen count for recurring blocker", async () => {
     const root = join(import.meta.dir, "..", `.tmp-workspace-known-${Date.now()}`);
-    mkdirSync(root, { recursive: true });
+    makeDir(root, { recursive: true });
     try {
       await recordWorkspaceKnownBlockers(root, [check("wrapper-coverage", "missing wrapper")]);
       await recordWorkspaceKnownBlockers(root, [check("wrapper-coverage", "missing wrapper")]);
@@ -101,7 +102,7 @@ describe("workspace-known-blockers", () => {
       expect(decisions[0]?.metadata?.seenCount).toBe(2);
       expect(decisions[0]?.outcome.result).toBe("pending");
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      removePath(root, { recursive: true, force: true });
     }
   });
 });

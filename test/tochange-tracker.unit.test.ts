@@ -62,7 +62,7 @@ describe("tochange-tracker", () => {
     const report = await auditPeekAdoption(REPO_ROOT);
     expect(report.ok).toBe(true);
     expect(report.registryPending).toHaveLength(0);
-    expect(report.registryImplemented.length).toBe(10);
+    expect(report.registryImplemented.length).toBe(14);
     expect(report.probeFailures).toEqual([]);
     expect(report.orphanMarkers).toEqual([]);
     expect(report.staleTochangeMarkers).toEqual([]);

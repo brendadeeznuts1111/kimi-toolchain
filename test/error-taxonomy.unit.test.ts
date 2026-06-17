@@ -1,7 +1,9 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+import { testTempDir } from "./helpers.ts";
 import {
   classifyFailure,
   getSuggestions,
@@ -25,44 +27,44 @@ describe("error-taxonomy", () => {
   });
 
   test("loadTaxonomy parses boundConstants", async () => {
-    const dir = join(tmpdir(), `kimi-taxonomy-bound-${Bun.randomUUIDv7()}`);
-    mkdirSync(dir, { recursive: true });
+    const dir = testTempDir("kimi-taxonomy-bound-");
+    makeDir(dir, { recursive: true });
     const path = join(dir, "taxonomy.yml");
-    writeFileSync(
+    writeText(
       path,
       `version: 2\ncategories:\n  - id: lint_failure\n    name: Lint\n    description: lint\n    severity: warn\n    expected: false\n    boundConstants:\n      - KIMI_TUNING_SET_VERSION\n    patterns: []\n`
     );
     const taxonomy = await loadTaxonomy(path);
     expect(taxonomy.categories[0].boundConstants).toEqual(["KIMI_TUNING_SET_VERSION"]);
-    rmSync(dir, { recursive: true, force: true });
+    removePath(dir, { recursive: true, force: true });
   });
 
   test("loadTaxonomy back-compat parses relatedConstants", async () => {
-    const dir = join(tmpdir(), `kimi-taxonomy-related-${Bun.randomUUIDv7()}`);
-    mkdirSync(dir, { recursive: true });
+    const dir = testTempDir("kimi-taxonomy-related-");
+    makeDir(dir, { recursive: true });
     const path = join(dir, "taxonomy.yml");
-    writeFileSync(
+    writeText(
       path,
       `version: 2\ncategories:\n  - id: lint_failure\n    name: Lint\n    description: lint\n    severity: warn\n    expected: false\n    relatedConstants:\n      - KIMI_TUNING_SET_VERSION\n    patterns: []\n`
     );
     const taxonomy = await loadTaxonomy(path);
     expect(taxonomy.categories[0].boundConstants).toEqual(["KIMI_TUNING_SET_VERSION"]);
     expect(taxonomy.categories[0].relatedConstants).toEqual(["KIMI_TUNING_SET_VERSION"]);
-    rmSync(dir, { recursive: true, force: true });
+    removePath(dir, { recursive: true, force: true });
   });
 
   test("loadTaxonomy parses yaml categories", async () => {
-    const dir = join(tmpdir(), `kimi-taxonomy-${Bun.randomUUIDv7()}`);
-    mkdirSync(dir, { recursive: true });
+    const dir = testTempDir("kimi-taxonomy-");
+    makeDir(dir, { recursive: true });
     const path = join(dir, "taxonomy.yml");
-    writeFileSync(
+    writeText(
       path,
       `version: 2\ncategories:\n  - id: test_cat\n    name: Test Category\n    description: A test category\n    severity: warn\n    expected: false\n    patterns:\n      - regex: "test error"\n`
     );
     const taxonomy = await loadTaxonomy(path);
     expect(taxonomy.version).toBe(2);
     expect(taxonomy.categories[0].id).toBe("test_cat");
-    rmSync(dir, { recursive: true, force: true });
+    removePath(dir, { recursive: true, force: true });
   });
 
   test("classifyFailure matches known pattern", async () => {

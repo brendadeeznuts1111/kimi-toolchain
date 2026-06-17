@@ -1,16 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "path";
+import { REPO_ROOT, testTempDir } from "../helpers.ts";
+import { makeDir, removePath, writeText } from "../../src/lib/bun-io.ts";
 import { invokeTool } from "../../src/lib/tool-runner.ts";
 import { FINISH_WORK_REPORT_PUBLIC_SCHEMA_VERSION } from "../../src/lib/finish-work-report-schema.ts";
 
-const REPO_ROOT = import.meta.dir + "/../..";
 const FINISH_WORK_STATUS = join(REPO_ROOT, "scripts/finish-work-status.ts");
 
 function writeFixtureReport(root: string): void {
-  mkdirSync(join(root, ".kimi"), { recursive: true });
-  writeFileSync(
+  makeDir(join(root, ".kimi"), { recursive: true });
+  writeText(
     join(root, ".kimi", "finish-work-report.json"),
     JSON.stringify(
       {
@@ -48,7 +47,7 @@ function writeFixtureReport(root: string): void {
 
 describe("finish-work-status smoke", () => {
   test("reads and validates v1.1 fixture report --json", async () => {
-    const root = mkdtempSync(join(tmpdir(), "fw-status-smoke-"));
+    const root = testTempDir("fw-status-smoke-");
     try {
       writeFixtureReport(root);
       const result = await invokeTool(FINISH_WORK_STATUS, ["--json", "--project", root], {
@@ -67,14 +66,14 @@ describe("finish-work-status smoke", () => {
       expect(parsed.report.outcome).toBe("clean");
       expect(parsed.report.handoffCandidate?.shouldHandoff).toBe(true);
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      removePath(root, { recursive: true, force: true });
     }
   }, 15_000);
 
   test("exits non-zero when report missing", async () => {
-    const root = mkdtempSync(join(tmpdir(), "fw-status-missing-"));
+    const root = testTempDir("fw-status-missing-");
     try {
-      mkdirSync(join(root, ".kimi"), { recursive: true });
+      makeDir(join(root, ".kimi"), { recursive: true });
       const result = await invokeTool(FINISH_WORK_STATUS, ["--json", "--project", root], {
         cwd: REPO_ROOT,
         timeoutMs: 15_000,
@@ -83,7 +82,7 @@ describe("finish-work-status smoke", () => {
       const parsed = JSON.parse(result.stdout.trim()) as { ok: boolean; error?: string };
       expect(parsed.ok).toBe(false);
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      removePath(root, { recursive: true, force: true });
     }
   }, 15_000);
 });

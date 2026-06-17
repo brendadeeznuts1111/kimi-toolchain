@@ -1,6 +1,8 @@
+import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
+import { REPO_ROOT } from "./helpers.ts";
 import {
   OXFMTRC,
   CI_WORKFLOW,
@@ -17,8 +19,6 @@ import {
   generateLicense,
   scaffoldAdr,
 } from "../src/lib/scaffold-templates.ts";
-
-const REPO_ROOT = import.meta.dir + "/..";
 
 describe("scaffold-templates", () => {
   test("TEMPLATE_MARKERS match exported template strings", () => {
@@ -64,11 +64,11 @@ describe("scaffold-templates", () => {
 
     beforeEach(() => {
       tmpDir = join(REPO_ROOT, `.tmp-test-generateReadme-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      makeDir(tmpDir, { recursive: true });
     });
 
     afterEach(() => {
-      if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true });
+      if (pathExists(tmpDir)) removePath(tmpDir, { recursive: true, force: true });
     });
 
     test("returns correct content with project name", async () => {
@@ -76,7 +76,7 @@ describe("scaffold-templates", () => {
       const filepath = await generateReadme(tmpDir, mockGetProjectName);
 
       expect(filepath).toBe(join(tmpDir, "README.md"));
-      expect(existsSync(filepath)).toBe(true);
+      expect(pathExists(filepath)).toBe(true);
 
       const content = await Bun.file(filepath).text();
       expect(content).toContain("# my-awesome-project");
@@ -99,11 +99,11 @@ describe("scaffold-templates", () => {
 
     beforeEach(() => {
       tmpDir = join(REPO_ROOT, `.tmp-test-generateLicense-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      makeDir(tmpDir, { recursive: true });
     });
 
     afterEach(() => {
-      if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true });
+      if (pathExists(tmpDir)) removePath(tmpDir, { recursive: true, force: true });
     });
 
     test("returns correct MIT content", async () => {
@@ -153,19 +153,19 @@ describe("scaffold-templates", () => {
 
     beforeEach(() => {
       tmpDir = join(REPO_ROOT, `.tmp-test-scaffoldAdr-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      makeDir(tmpDir, { recursive: true });
     });
 
     afterEach(() => {
-      if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true });
+      if (pathExists(tmpDir)) removePath(tmpDir, { recursive: true, force: true });
     });
 
     test("creates first ADR with correct naming pattern", async () => {
-      const ensureDir = (dir: string) => mkdirSync(dir, { recursive: true });
+      const ensureDir = (dir: string) => makeDir(dir, { recursive: true });
       const filepath = await scaffoldAdr(tmpDir, "Use SQLite for storage", ensureDir);
 
       expect(filepath).toBe(join(tmpDir, "docs", "adr", "0001-use-sqlite-for-storage.md"));
-      expect(existsSync(filepath)).toBe(true);
+      expect(pathExists(filepath)).toBe(true);
 
       const content = await Bun.file(filepath).text();
       expect(content).toContain("# Use SQLite for storage");
@@ -176,18 +176,18 @@ describe("scaffold-templates", () => {
     });
 
     test("auto-increments ADR number", async () => {
-      const ensureDir = (dir: string) => mkdirSync(dir, { recursive: true });
+      const ensureDir = (dir: string) => makeDir(dir, { recursive: true });
       const adrDir = join(tmpDir, "docs", "adr");
-      mkdirSync(adrDir, { recursive: true });
-      writeFileSync(join(adrDir, "0001-first-adr.md"), "# First ADR\n");
-      writeFileSync(join(adrDir, "0003-third-adr.md"), "# Third ADR\n");
+      makeDir(adrDir, { recursive: true });
+      writeText(join(adrDir, "0001-first-adr.md"), "# First ADR\n");
+      writeText(join(adrDir, "0003-third-adr.md"), "# Third ADR\n");
 
       const filepath = await scaffoldAdr(tmpDir, "Fourth decision", ensureDir);
       expect(filepath).toBe(join(adrDir, "0004-fourth-decision.md"));
     });
 
     test("handles titles with special characters in slug", async () => {
-      const ensureDir = (dir: string) => mkdirSync(dir, { recursive: true });
+      const ensureDir = (dir: string) => makeDir(dir, { recursive: true });
       const filepath = await scaffoldAdr(tmpDir, "API v2.0: GraphQL vs REST?!", ensureDir);
 
       const filename = filepath.split("/").pop();
@@ -195,7 +195,7 @@ describe("scaffold-templates", () => {
     });
 
     test("handles titles with leading and trailing special characters", async () => {
-      const ensureDir = (dir: string) => mkdirSync(dir, { recursive: true });
+      const ensureDir = (dir: string) => makeDir(dir, { recursive: true });
       const filepath = await scaffoldAdr(tmpDir, "!!!Important decision!!!", ensureDir);
 
       const filename = filepath.split("/").pop();
@@ -203,7 +203,7 @@ describe("scaffold-templates", () => {
     });
 
     test("replaces template placeholders correctly", async () => {
-      const ensureDir = (dir: string) => mkdirSync(dir, { recursive: true });
+      const ensureDir = (dir: string) => makeDir(dir, { recursive: true });
       const filepath = await scaffoldAdr(tmpDir, "Migrate to Bun", ensureDir);
       const content = await Bun.file(filepath).text();
 
@@ -218,7 +218,7 @@ describe("scaffold-templates", () => {
     });
 
     test("handles multiple ADRs sequentially", async () => {
-      const ensureDir = (dir: string) => mkdirSync(dir, { recursive: true });
+      const ensureDir = (dir: string) => makeDir(dir, { recursive: true });
 
       const filepath1 = await scaffoldAdr(tmpDir, "First decision", ensureDir);
       const filepath2 = await scaffoldAdr(tmpDir, "Second decision", ensureDir);

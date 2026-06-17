@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
+import { makeDir, pathExists, writeText } from "../src/lib/bun-io.ts";
+import { REPO_ROOT, captureConsole, cleanupPath } from "./helpers.ts";
 import {
   safeParse,
   safeToml,
@@ -32,8 +33,6 @@ import {
   loadGovernorDefaults,
   BUILTIN_DEFAULTS,
 } from "../src/lib/governor-config.ts";
-
-const REPO_ROOT = import.meta.dir + "/..";
 
 describe("lib/utils", () => {
   test("safeParse returns parsed JSON on valid input", () => {
@@ -95,10 +94,10 @@ describe("lib/utils", () => {
 
   test("getProjectName prefers package.json name over directory", async () => {
     const dir = join(REPO_ROOT, ".tmp-test-project-name");
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "my-real-app" }));
+    makeDir(dir, { recursive: true });
+    writeText(join(dir, "package.json"), JSON.stringify({ name: "my-real-app" }));
     expect(await getProjectName(dir)).toBe("my-real-app");
-    Bun.spawnSync(["rm", "-rf", dir]);
+    cleanupPath(dir);
   });
 
   test("getProjectName falls back to directory basename", async () => {
@@ -109,8 +108,8 @@ describe("lib/utils", () => {
   test("ensureDir creates missing directories", () => {
     const dir = join(REPO_ROOT, ".tmp-test-ensure-dir");
     ensureDir(dir);
-    expect(existsSync(dir)).toBe(true);
-    Bun.spawnSync(["rm", "-rf", dir]);
+    expect(pathExists(dir)).toBe(true);
+    cleanupPath(dir);
   });
 
   test("findExecutable resolves bun on PATH", () => {
@@ -127,14 +126,11 @@ describe("lib/utils", () => {
   test("resolveProjectRoot returns git toplevel in repo", async () => {
     const root = await resolveProjectRoot(REPO_ROOT);
     expect(root).toContain("kimi-toolchain");
-    expect(existsSync(join(root, "package.json"))).toBe(true);
+    expect(pathExists(join(root, "package.json"))).toBe(true);
   });
 
-  test("log and print helpers emit formatted output", () => {
-    const lines: string[] = [];
-    const orig = console.log;
-    console.log = (...args: unknown[]) => lines.push(args.join(" "));
-    try {
+  test("log and print helpers emit formatted output", async () => {
+    const lines = await captureConsole(() => {
       log("info", "ok");
       log("warn", "caution");
       printSection("Section");
@@ -144,14 +140,12 @@ describe("lib/utils", () => {
         { name: "b", status: "warn", message: "fix me", fixable: true },
       ]);
       printDoctorReport(report);
-      expect(lines.some((l) => l.includes("✓ ok"))).toBe(true);
-      expect(lines.some((l) => l.includes("Section"))).toBe(true);
-      expect(lines.some((l) => l.includes("Banner"))).toBe(true);
       expect(report.warnCount).toBe(1);
       expect(report.fixableCount).toBe(1);
-    } finally {
-      console.log = orig;
-    }
+    });
+    expect(lines.some((l) => l.includes("✓ ok"))).toBe(true);
+    expect(lines.some((l) => l.includes("Section"))).toBe(true);
+    expect(lines.some((l) => l.includes("Banner"))).toBe(true);
   });
 
   test("fetchWithTimeout returns response from local server", async () => {
@@ -202,7 +196,7 @@ describe("lib/utils", () => {
     beforeEach(() => {
       prevHome = Bun.env.HOME;
       Bun.env.HOME = Bun.env.KIMI_TEST_HOME || join(REPO_ROOT, ".tmp-kimi-test-home");
-      mkdirSync(Bun.env.HOME, { recursive: true });
+      makeDir(Bun.env.HOME, { recursive: true });
     });
 
     afterEach(() => {
@@ -215,11 +209,8 @@ describe("lib/utils", () => {
 
     test("runs tool from ~/.kimi-code/tools", async () => {
       const toolsDir = join(Bun.env.HOME!, ".kimi-code", "tools");
-      mkdirSync(toolsDir, { recursive: true });
-      writeFileSync(
-        join(toolsDir, "stub-tool.ts"),
-        "#!/usr/bin/env bun\nconsole.log('stub-ok');\n"
-      );
+      makeDir(toolsDir, { recursive: true });
+      writeText(join(toolsDir, "stub-tool.ts"), "#!/usr/bin/env bun\nconsole.log('stub-ok');\n");
       const { stdout, exitCode } = await runTool("stub-tool", [], { timeoutMs: 5000 });
       expect(exitCode).toBe(0);
       expect(stdout).toContain("stub-ok");

@@ -1,7 +1,8 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { makeDir, writeText } from "../src/lib/bun-io.ts";
+
+import { join } from "path";
 import { describe, expect, test } from "bun:test";
+import { testTempDir } from "./helpers.ts";
 import {
   evaluateFinishWorkReportConditions,
   evaluatePaneConditions,
@@ -15,7 +16,7 @@ import { parseHandoffRuleEntry } from "../src/lib/herdr-orchestrator-config.ts";
 import { $ } from "bun";
 
 function writeV11Report(root: string, overrides: Record<string, unknown> = {}): void {
-  mkdirSync(join(root, ".kimi"), { recursive: true });
+  makeDir(join(root, ".kimi"), { recursive: true });
   const head = (overrides.git as { head?: string } | undefined)?.head ?? "abc123def4567890abcd";
   const body = {
     schemaVersion: FINISH_WORK_REPORT_PUBLIC_SCHEMA_VERSION,
@@ -36,7 +37,7 @@ function writeV11Report(root: string, overrides: Record<string, unknown> = {}): 
     latm: { markerSeen: true, completionSignal: "__LATM_DONE__", invokedVia: "finish-work --push" },
     ...overrides,
   };
-  writeFileSync(join(root, ".kimi", "finish-work-report.json"), JSON.stringify(body, null, 2));
+  writeText(join(root, ".kimi", "finish-work-report.json"), JSON.stringify(body, null, 2));
 }
 
 describe("condition-evaluator", () => {
@@ -73,7 +74,7 @@ describe("condition-evaluator", () => {
   });
 
   test("evaluateFinishWorkReportConditions passes matching clauses", async () => {
-    const root = join(tmpdir(), `cond-eval-${Bun.randomUUIDv7()}`);
+    const root = testTempDir("cond-eval-");
     writeV11Report(root);
 
     const result = await evaluateFinishWorkReportConditions(root, [
@@ -84,8 +85,8 @@ describe("condition-evaluator", () => {
   });
 
   test("evaluateFinishWorkReportConditions rejects stale report", async () => {
-    const root = join(tmpdir(), `cond-stale-${Bun.randomUUIDv7()}`);
-    mkdirSync(root, { recursive: true });
+    const root = testTempDir("cond-stale-");
+    makeDir(root, { recursive: true });
     await $`git init`.cwd(root).nothrow().quiet();
     await $`git commit --allow-empty -m init`.cwd(root).nothrow().quiet();
     writeV11Report(root, {
@@ -105,7 +106,7 @@ describe("condition-evaluator", () => {
   });
 
   test("evaluateFinishWorkReportConditions reports field mismatch", async () => {
-    const root = join(tmpdir(), `cond-mismatch-${Bun.randomUUIDv7()}`);
+    const root = testTempDir("cond-mismatch-");
     writeV11Report(root, { outcome: "dirty" });
 
     const result = await evaluateFinishWorkReportConditions(root, [
@@ -131,7 +132,7 @@ describe("condition-evaluator", () => {
   });
 
   test("evaluateWhenConditions combines report and pane clauses", async () => {
-    const root = join(tmpdir(), `cond-combined-${Bun.randomUUIDv7()}`);
+    const root = testTempDir("cond-combined-");
     writeV11Report(root, {
       review: {
         escalated: false,

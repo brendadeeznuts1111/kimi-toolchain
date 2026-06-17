@@ -1,18 +1,17 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { buildCanonicalReferencesManifest } from "../src/lib/canonical-references.ts";
 import { DOCTOR_PROBE_SCHEMA_VERSION, buildDoctorProbeManifest } from "../src/lib/doctor-probe.ts";
 
-const REPO_ROOT = import.meta.dir + "/..";
-
+import { REPO_ROOT, testTempDir } from "./helpers.ts";
 describe("doctor-probe", () => {
   test("includes canonicalReferences with manifest for toolchain repo", async () => {
-    const tmpHome = join(tmpdir(), `probe-refs-${Bun.randomUUIDv7()}`);
+    const tmpHome = testTempDir("probe-refs-");
     const prevHome = Bun.env.HOME;
-    mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
-    writeFileSync(
+    makeDir(join(tmpHome, ".kimi-code"), { recursive: true });
+    writeText(
       join(tmpHome, ".kimi-code", "canonical-references.json"),
       JSON.stringify(buildCanonicalReferencesManifest(), null, 2)
     );
@@ -28,7 +27,7 @@ describe("doctor-probe", () => {
       expect(manifest.checks.some((c) => c.name === "canonical-references")).toBe(true);
     } finally {
       Bun.env.HOME = prevHome;
-      rmSync(tmpHome, { recursive: true, force: true });
+      removePath(tmpHome, { recursive: true, force: true });
     }
   });
 });

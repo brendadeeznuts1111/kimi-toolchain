@@ -1,7 +1,8 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
 import { join } from "path";
+import { REPO_ROOT, testTempDir, withIsolatedHome } from "./helpers.ts";
 import {
   ERROR_COVERAGE_TARGET,
   SUCCESS_METRIC_THRESHOLDS,
@@ -13,8 +14,6 @@ import {
 } from "../src/lib/success-metrics.ts";
 import { loadTaxonomy } from "../src/lib/error-taxonomy.ts";
 import { isTwoArtifactProviderIntegration } from "../src/lib/provider-contract.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
 
 describe("success-metrics", () => {
   test("managed failure fixtures meet taxonomy coverage target", async () => {
@@ -38,10 +37,10 @@ describe("success-metrics", () => {
   });
 
   test("failure ledger summary only returns counts", async () => {
-    const dir = join(tmpdir(), `kimi-ledger-${Bun.randomUUIDv7()}`);
-    mkdirSync(dir, { recursive: true });
+    const dir = testTempDir("kimi-ledger-");
+    makeDir(dir, { recursive: true });
     const path = join(dir, "tool-failures.jsonl");
-    writeFileSync(
+    writeText(
       path,
       [
         JSON.stringify({ taxonomyId: "lockfile_issue", output: "secret-ish detail" }),
@@ -85,7 +84,7 @@ describe("success-metrics", () => {
     });
     expect(JSON.stringify(summary)).not.toContain("secret-ish detail");
     expect(JSON.stringify(summary)).not.toContain("raw output");
-    rmSync(dir, { recursive: true, force: true });
+    removePath(dir, { recursive: true, force: true });
   });
 
   test("provider agility fixture uses exactly two artifacts", () => {
@@ -96,8 +95,10 @@ describe("success-metrics", () => {
   });
 
   test("repo success metrics audit passes", async () => {
-    const report = await auditSuccessMetrics(REPO_ROOT);
-    expect(report.checks.every((check) => check.status !== "error")).toBe(true);
-    expect(report.checks.map((check) => check.name)).toContain("failure-ledger-unknowns");
+    await withIsolatedHome(async () => {
+      const report = await auditSuccessMetrics(REPO_ROOT);
+      expect(report.checks.every((check) => check.status !== "error")).toBe(true);
+      expect(report.checks.map((check) => check.name)).toContain("failure-ledger-unknowns");
+    });
   });
 });

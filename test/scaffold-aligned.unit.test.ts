@@ -1,31 +1,32 @@
+import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { checkScaffoldAligned, hasKimiPreflight } from "../src/lib/scaffold-aligned.ts";
 import { buildAgentsMd } from "../src/lib/scaffold-agents.ts";
 
+import { testTempDir } from "./helpers.ts";
 let projectDir: string;
 
 beforeEach(() => {
-  projectDir = join(tmpdir(), `kimi-scaffold-align-${Bun.randomUUIDv7()}`);
-  mkdirSync(projectDir, { recursive: true });
+  projectDir = testTempDir("kimi-scaffold-align-");
+  makeDir(projectDir, { recursive: true });
 });
 
 afterEach(() => {
-  if (existsSync(projectDir)) rmSync(projectDir, { recursive: true, force: true });
+  if (pathExists(projectDir)) removePath(projectDir, { recursive: true, force: true });
 });
 
 describe("scaffold-aligned", () => {
   test("hasKimiPreflight true when dx.config.toml has preflight", async () => {
-    writeFileSync(join(projectDir, "dx.config.toml"), "[kimi]\npreflight = true\n");
+    writeText(join(projectDir, "dx.config.toml"), "[kimi]\npreflight = true\n");
     expect(await hasKimiPreflight(projectDir)).toBe(true);
   });
 
   test("checkScaffoldAligned passes for scaffolded AGENTS.md", async () => {
     const home = join(projectDir, "home");
-    writeFileSync(join(projectDir, "dx.config.toml"), "[kimi]\npreflight = true\n");
-    writeFileSync(join(projectDir, "AGENTS.md"), buildAgentsMd("demo", home));
+    writeText(join(projectDir, "dx.config.toml"), "[kimi]\npreflight = true\n");
+    writeText(join(projectDir, "AGENTS.md"), buildAgentsMd("demo", home));
     const report = await checkScaffoldAligned(projectDir);
     expect(report.applicable).toBe(true);
     expect(report.aligned).toBe(true);
@@ -33,8 +34,8 @@ describe("scaffold-aligned", () => {
 
   test("warns when scaffolded AGENTS.md has old DX bootstrap defaults", async () => {
     const home = join(projectDir, "home");
-    writeFileSync(join(projectDir, "dx.config.toml"), "[kimi]\npreflight = true\n");
-    writeFileSync(
+    writeText(join(projectDir, "dx.config.toml"), "[kimi]\npreflight = true\n");
+    writeText(
       join(projectDir, "AGENTS.md"),
       buildAgentsMd("demo", home)
         .replace("dx setup`, ", "")

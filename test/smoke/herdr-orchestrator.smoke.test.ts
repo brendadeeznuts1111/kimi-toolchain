@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { invokeTool } from "../../src/lib/tool-runner.ts";
+import { REPO_ROOT } from "../helpers.ts";
 import {
   compareOrchestratorConfigParity,
   validateOrchestratorAllowlistCoversRoutes,
 } from "../../src/lib/scope-preflight.ts";
 
-const REPO_ROOT = import.meta.dir + "/../..";
 const ORCHESTRATOR = join(REPO_ROOT, "src/bin/herdr-orchestrator.ts");
 
 describe("herdr-orchestrator smoke", () => {

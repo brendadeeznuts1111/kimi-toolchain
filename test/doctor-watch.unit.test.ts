@@ -62,11 +62,11 @@ describe("doctor-watch", () => {
   });
 
   test("reportEffectGatesChanged no-ops without pane id when herdr is unavailable", async () => {
-    const prior = process.env.HERDR_PANE_ID;
-    delete process.env.HERDR_PANE_ID;
+    const prior = Bun.env.HERDR_PANE_ID;
+    delete Bun.env.HERDR_PANE_ID;
     await expect(
       reportEffectGatesChanged('{"ok":true}', { projectRoot: "/nonexistent-project-path" })
     ).resolves.toBeUndefined();
-    if (prior) process.env.HERDR_PANE_ID = prior;
+    if (prior) Bun.env.HERDR_PANE_ID = prior;
   });
 });

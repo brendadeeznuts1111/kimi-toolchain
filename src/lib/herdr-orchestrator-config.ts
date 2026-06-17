@@ -264,6 +264,26 @@ export interface ResolvedRemoteHost {
 
 // ── Env-var overrides ───────────────────────────────────────────────────
 
+/** HERDR_SSH_* env var names read by parseEnvOverrides (SSOT for tests and tooling). */
+export const HERDR_SSH_ENV_KEYS = [
+  "HERDR_SSH_PORT",
+  "HERDR_SSH_USER",
+  "HERDR_SSH_TIMEOUT",
+  "HERDR_SSH_BATCH_MODE",
+  "HERDR_SSH_CONNECT_TIMEOUT",
+  "HERDR_SSH_IDENTITY_FILE",
+  "HERDR_SSH_IDENTITIES_ONLY",
+  "HERDR_SSH_STRICT_HOST_KEY_CHECKING",
+  "HERDR_SSH_USER_KNOWN_HOSTS_FILE",
+  "HERDR_SSH_SERVER_ALIVE_INTERVAL",
+  "HERDR_SSH_SERVER_ALIVE_COUNT_MAX",
+  "HERDR_SSH_CONTROL_MASTER",
+  "HERDR_SSH_CONTROL_PATH",
+  "HERDR_SSH_CONTROL_PERSIST",
+  "HERDR_SSH_COMPRESSION",
+  "HERDR_SSH_PROXY_JUMP",
+] as const;
+
 /** Keys are HERDR_SSH_<NAME> env vars. Values override EVERYTHING. */
 interface EnvOverrides {
   port?: number;

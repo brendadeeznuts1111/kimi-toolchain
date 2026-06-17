@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
 import { join } from "path";
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+import { testTempDir, testTempPath } from "./helpers.ts";
 
 const BRIDGE = join(import.meta.dir, "..", "src", "bin", "unified-shell-bridge.ts");
 
@@ -106,7 +106,7 @@ describe("unified-shell-bridge", () => {
   });
 
   test("execute rejects missing workingDir", async () => {
-    const missingDir = join(tmpdir(), `kimi-bridge-missing-${Bun.randomUUIDv7()}`);
+    const missingDir = testTempPath("kimi-bridge-missing-");
     const [res] = await sendRequests([
       {
         jsonrpc: "2.0",
@@ -155,8 +155,8 @@ describe("unified-shell-bridge", () => {
   });
 
   test("execute rejects file workingDir", async () => {
-    const filePath = join(tmpdir(), `kimi-bridge-file-${Bun.randomUUIDv7()}`);
-    writeFileSync(filePath, "not a directory");
+    const filePath = testTempPath("kimi-bridge-file-");
+    writeText(filePath, "not a directory");
     try {
       const [res] = await sendRequests([
         {
@@ -170,13 +170,13 @@ describe("unified-shell-bridge", () => {
       expect(text).toContain("Working directory is not a directory");
       expect(res.result?.isError).toBe(true);
     } finally {
-      rmSync(filePath, { force: true });
+      removePath(filePath, { force: true });
     }
   });
 
   test("execute runs in provided workingDir", async () => {
-    const cwd = join(tmpdir(), `kimi-bridge-cwd-${Bun.randomUUIDv7()}`);
-    mkdirSync(cwd, { recursive: true });
+    const cwd = testTempDir("kimi-bridge-cwd-");
+    makeDir(cwd, { recursive: true });
     try {
       const [res] = await sendRequests([
         {
@@ -190,7 +190,7 @@ describe("unified-shell-bridge", () => {
       expect(text).toContain(cwd);
       expect(res.result?.isError).toBe(false);
     } finally {
-      rmSync(cwd, { recursive: true, force: true });
+      removePath(cwd, { recursive: true, force: true });
     }
   });
 

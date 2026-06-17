@@ -1,7 +1,8 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { makeDir, writeText } from "../src/lib/bun-io.ts";
+
+import { join } from "path";
 import { describe, expect, test } from "bun:test";
+import { testTempDir } from "./helpers.ts";
 import {
   buildContextSyncFromReport,
   enrichHandoffMessage,
@@ -11,8 +12,8 @@ import {
 import { FINISH_WORK_REPORT_PUBLIC_SCHEMA_VERSION } from "../src/lib/finish-work-report-schema.ts";
 
 function writeV11Report(root: string): void {
-  mkdirSync(join(root, ".kimi"), { recursive: true });
-  writeFileSync(
+  makeDir(join(root, ".kimi"), { recursive: true });
+  writeText(
     join(root, ".kimi", "finish-work-report.json"),
     JSON.stringify(
       {
@@ -63,7 +64,7 @@ describe("context-sync-from-report", () => {
   });
 
   test("buildContextSyncFromReport reads v1.1 report", () => {
-    const root = join(tmpdir(), `ctx-sync-${Bun.randomUUIDv7()}`);
+    const root = testTempDir("ctx-sync-");
     writeV11Report(root);
 
     const payload = buildContextSyncFromReport(root);
@@ -76,7 +77,7 @@ describe("context-sync-from-report", () => {
   });
 
   test("enrichHandoffMessage appends report brief block", () => {
-    const root = join(tmpdir(), `ctx-enrich-${Bun.randomUUIDv7()}`);
+    const root = testTempDir("ctx-enrich-");
     writeV11Report(root);
     const payload = buildContextSyncFromReport(root);
 
@@ -96,9 +97,9 @@ describe("context-sync-from-report", () => {
   });
 
   test("enrichHandoffMessage includes review notes when present", () => {
-    const root = join(tmpdir(), `ctx-review-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(root, ".kimi"), { recursive: true });
-    writeFileSync(
+    const root = testTempDir("ctx-review-");
+    makeDir(join(root, ".kimi"), { recursive: true });
+    writeText(
       join(root, ".kimi", "finish-work-report.json"),
       JSON.stringify(
         {
@@ -135,7 +136,7 @@ describe("context-sync-from-report", () => {
   });
 
   test("formatFinishWorkBrief omits empty base prefix", () => {
-    const root = join(tmpdir(), `ctx-brief-${Bun.randomUUIDv7()}`);
+    const root = testTempDir("ctx-brief-");
     writeV11Report(root);
     const payload = buildContextSyncFromReport(root);
     const brief = formatFinishWorkBrief(payload!);

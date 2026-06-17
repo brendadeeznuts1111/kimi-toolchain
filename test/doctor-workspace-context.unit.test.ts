@@ -1,8 +1,9 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { join } from "path";
 import { appendEffectGatesSnapshot, buildEffectGatesReport } from "../src/lib/effect-gates.ts";
+import { testTempDir } from "./helpers.ts";
 import {
   buildWorkspaceContextReport,
   writeWorkspaceContextJsonFile,
@@ -14,16 +15,16 @@ describe("doctor-workspace-context", () => {
   let projectRoot: string;
 
   beforeEach(() => {
-    projectRoot = join(tmpdir(), `doctor-workspace-context-${Bun.randomUUIDv7()}`);
-    mkdirSync(projectRoot, { recursive: true });
+    projectRoot = testTempDir("doctor-workspace-context-");
+    makeDir(projectRoot, { recursive: true });
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    removePath(projectRoot, { recursive: true, force: true });
   });
 
   test("buildWorkspaceContextReport includes git, effect-gates, and next steps", async () => {
-    writeFileSync(
+    writeText(
       join(projectRoot, "dx.config.toml"),
       `[agents]
 iterate = "bun run check:fast"
@@ -36,7 +37,7 @@ handoff = ["bun run sync && bun run sync:verify"]
       stdout: "ignore",
       stderr: "ignore",
       env: {
-        ...process.env,
+        ...Bun.env,
         GIT_AUTHOR_NAME: "test",
         GIT_AUTHOR_EMAIL: "t@test",
         GIT_COMMITTER_NAME: "test",

@@ -1,6 +1,8 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
+import { REPO_ROOT } from "./helpers.ts";
 import {
   README_SCRIPT_EXCLUSIONS,
   buildScriptSyncBlock,
@@ -9,25 +11,24 @@ import {
   runReadmeSyncCli,
 } from "../src/lib/readme-sync.ts";
 
-const REPO_ROOT = import.meta.dir + "/..";
 let tmpDir: string;
 
 describe("readme-sync", () => {
   beforeEach(() => {
     tmpDir = join(REPO_ROOT, `.tmp-readme-${Date.now()}`);
-    mkdirSync(tmpDir, { recursive: true });
+    makeDir(tmpDir, { recursive: true });
   });
 
   afterEach(() => {
-    if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+    if (tmpDir) removePath(tmpDir, { recursive: true, force: true });
   });
 
   test("checkDocDrift detects missing scripts", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify({ scripts: { test: "bun test", "check:fast": "bun run check" } }, null, 2)
     );
-    writeFileSync(
+    writeText(
       join(tmpDir, "README.md"),
       "### Project Scripts\n\n| `bun run test` | Run tests |\n\n### Governance\n"
     );
@@ -39,7 +40,7 @@ describe("readme-sync", () => {
   });
 
   test("checkDocDrift returns stale when README missing", async () => {
-    writeFileSync(join(tmpDir, "package.json"), JSON.stringify({ scripts: { test: "bun test" } }));
+    writeText(join(tmpDir, "package.json"), JSON.stringify({ scripts: { test: "bun test" } }));
     const drift = await checkDocDrift(tmpDir);
     expect(drift).not.toBeNull();
     expect(drift!.fresh).toBe(false);
@@ -47,11 +48,11 @@ describe("readme-sync", () => {
   });
 
   test("checkDocDrift finds script keys in code blocks without bun run prefix", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify({ scripts: { serve: "bun run src/server.ts" } }, null, 2)
     );
-    writeFileSync(join(tmpDir, "README.md"), "## Run\n\n```bash\n# start serve\nserve\n```\n");
+    writeText(join(tmpDir, "README.md"), "## Run\n\n```bash\n# start serve\nserve\n```\n");
     const drift = await checkDocDrift(tmpDir);
     expect(drift).not.toBeNull();
     expect(drift!.readmeScripts).toContain("serve");
@@ -59,14 +60,11 @@ describe("readme-sync", () => {
   });
 
   test("checkDocDrift finds scripts mentioned in code blocks", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify({ scripts: { dev: "bun run src/index.ts", build: "bun build" } }, null, 2)
     );
-    writeFileSync(
-      join(tmpDir, "README.md"),
-      "## Dev\n\n```bash\nbun run dev\nbun run build\n```\n"
-    );
+    writeText(join(tmpDir, "README.md"), "## Dev\n\n```bash\nbun run dev\nbun run build\n```\n");
     const drift = await checkDocDrift(tmpDir);
     expect(drift).not.toBeNull();
     expect(drift!.readmeScripts).toContain("dev");
@@ -75,8 +73,8 @@ describe("readme-sync", () => {
   });
 
   test("checkDocDrift flags extra scripts in README", async () => {
-    writeFileSync(join(tmpDir, "package.json"), JSON.stringify({ scripts: { test: "bun test" } }));
-    writeFileSync(join(tmpDir, "README.md"), "Run `bun run test` and `bun run removed-script`");
+    writeText(join(tmpDir, "package.json"), JSON.stringify({ scripts: { test: "bun test" } }));
+    writeText(join(tmpDir, "README.md"), "Run `bun run test` and `bun run removed-script`");
     const drift = await checkDocDrift(tmpDir);
     expect(drift).not.toBeNull();
     expect(drift!.extraInReadme).toContain("removed-script");
@@ -84,11 +82,11 @@ describe("readme-sync", () => {
   });
 
   test("patchReadmeScripts appends when no markdown subsection", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify({ scripts: { only: "echo", missing: "echo 2" } }, null, 2)
     );
-    writeFileSync(join(tmpDir, "README.md"), "| `bun run only` | ok |\n");
+    writeText(join(tmpDir, "README.md"), "| `bun run only` | ok |\n");
 
     const patched = await patchReadmeScripts(tmpDir);
     expect(patched).toBe(1);
@@ -97,11 +95,11 @@ describe("readme-sync", () => {
   });
 
   test("patchReadmeScripts inserts missing rows", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify({ scripts: { alpha: "echo a", beta: "echo b" } }, null, 2)
     );
-    writeFileSync(
+    writeText(
       join(tmpDir, "README.md"),
       "### Project Scripts\n\n| `bun run alpha` | A |\n\n### Governance\n"
     );
@@ -118,11 +116,11 @@ describe("readme-sync", () => {
   });
 
   test("CLI --fix patches drift", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify({ scripts: { cli: "echo cli" } }, null, 2)
     );
-    writeFileSync(join(tmpDir, "README.md"), "# Project\n");
+    writeText(join(tmpDir, "README.md"), "# Project\n");
 
     const result = await runReadmeSyncCli(["--fix", tmpDir]);
     expect(result.exitCode).toBe(0);
@@ -133,11 +131,11 @@ describe("readme-sync", () => {
   });
 
   test("CLI reports in sync without --fix", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify({ scripts: { test: "bun test" } }, null, 2)
     );
-    writeFileSync(join(tmpDir, "README.md"), "Run `bun run test` for tests.\n");
+    writeText(join(tmpDir, "README.md"), "Run `bun run test` for tests.\n");
 
     const result = await runReadmeSyncCli([tmpDir]);
     expect(result.exitCode).toBe(0);
@@ -145,11 +143,11 @@ describe("readme-sync", () => {
   });
 
   test("CLI exits 1 and lists drift without --fix", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify({ scripts: { missing: "echo" } }, null, 2)
     );
-    writeFileSync(join(tmpDir, "README.md"), "Also `bun run ghost`.\n");
+    writeText(join(tmpDir, "README.md"), "Also `bun run ghost`.\n");
 
     const result = await runReadmeSyncCli([tmpDir]);
     expect(result.exitCode).toBe(1);
@@ -158,11 +156,11 @@ describe("readme-sync", () => {
   });
 
   test("CLI --fix reports already synced", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify({ scripts: { test: "bun test" } }, null, 2)
     );
-    writeFileSync(join(tmpDir, "README.md"), "`bun run test`\n");
+    writeText(join(tmpDir, "README.md"), "`bun run test`\n");
 
     const result = await runReadmeSyncCli(["--fix", tmpDir]);
     expect(result.exitCode).toBe(0);
@@ -170,7 +168,7 @@ describe("readme-sync", () => {
   });
 
   test("checkDocDrift ignores lifecycle script exclusions", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify(
         { scripts: { test: "bun test", postinstall: "echo hi", toolchain: "echo tc" } },
@@ -178,7 +176,7 @@ describe("readme-sync", () => {
         2
       )
     );
-    writeFileSync(join(tmpDir, "README.md"), "Run `bun run test`.\n");
+    writeText(join(tmpDir, "README.md"), "Run `bun run test`.\n");
 
     const drift = await checkDocDrift(tmpDir);
     expect(drift).not.toBeNull();
@@ -194,8 +192,8 @@ describe("readme-sync", () => {
   });
 
   test("CLI reports failure on invalid package.json", async () => {
-    writeFileSync(join(tmpDir, "README.md"), "# Project\n");
-    writeFileSync(join(tmpDir, "package.json"), "not-json");
+    writeText(join(tmpDir, "README.md"), "# Project\n");
+    writeText(join(tmpDir, "package.json"), "not-json");
 
     const errorSpy = spyOn(console, "error").mockImplementation(() => {});
     const result = await runReadmeSyncCli([tmpDir]);

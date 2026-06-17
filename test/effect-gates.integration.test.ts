@@ -1,8 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-
-const REPO_ROOT = import.meta.dir + "/..";
+import { join } from "path";
+import { REPO_ROOT } from "./helpers.ts";
 const HEAL = join(REPO_ROOT, "src/bin/kimi-heal.ts");
 const DOCTOR = join(REPO_ROOT, "src/bin/kimi-doctor.ts");
 

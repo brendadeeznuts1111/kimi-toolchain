@@ -1,8 +1,9 @@
+import { makeDir, removePath } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { Effect } from "effect";
+import { testTempDir } from "./helpers.ts";
 import {
   applyLifecycleProposal,
   buildConfigTimeline,
@@ -43,16 +44,16 @@ describe("config-lifecycle", () => {
   let projectRoot: string;
 
   beforeEach(async () => {
-    projectRoot = join(tmpdir(), `config-lifecycle-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(projectRoot, "types"), { recursive: true });
-    mkdirSync(join(projectRoot, ".kimi", "var"), { recursive: true });
+    projectRoot = testTempDir("config-lifecycle-");
+    makeDir(join(projectRoot, "types"), { recursive: true });
+    makeDir(join(projectRoot, ".kimi", "var"), { recursive: true });
     await Bun.write(join(projectRoot, ".kimi", "decisions.ndjson"), "");
     await Bun.write(join(projectRoot, "bunfig.toml"), BUNFIG);
     await Bun.write(join(projectRoot, "types", "build-constants.d.ts"), TYPES);
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    removePath(projectRoot, { recursive: true, force: true });
   });
 
   test("validates current constants against build-constants types", async () => {

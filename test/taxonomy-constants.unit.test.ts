@@ -1,9 +1,10 @@
+import { appendText, makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, it } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { DECISION_SCHEMA_VERSION } from "../src/lib/decision-ledger.ts";
 import { decisionsNdjsonPath } from "../src/lib/paths.ts";
+import { testTempDir } from "./helpers.ts";
 import {
   buildTaxonomyConstantLinks,
   checkRecentlyModifiedBoundConstants,
@@ -17,13 +18,13 @@ describe("taxonomy-constants", () => {
   function writeProject(files: Record<string, string>): void {
     for (const [path, content] of Object.entries(files)) {
       const fullPath = join(projectDir, path);
-      mkdirSync(fullPath.split("/").slice(0, -1).join("/"), { recursive: true });
-      writeFileSync(fullPath, content);
+      makeDir(fullPath.split("/").slice(0, -1).join("/"), { recursive: true });
+      writeText(fullPath, content);
     }
   }
 
   it("should resolve boundConstants from bunfig and manifest", async () => {
-    projectDir = join(tmpdir(), `taxonomy-constants-${Date.now()}`);
+    projectDir = testTempDir("taxonomy-constants-");
     writeProject({
       "error-taxonomy.yml": `
 version: 2
@@ -67,11 +68,11 @@ declare const KIMI_TUNING_SET_VERSION: string;
     const report = await checkTaxonomyConstantLinks(projectDir);
     expect(report.aligned).toBe(true);
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   it("should accept deprecated relatedConstants in yaml", async () => {
-    projectDir = join(tmpdir(), `taxonomy-constants-legacy-${Date.now()}`);
+    projectDir = testTempDir("taxonomy-constants-legacy-");
     writeProject({
       "error-taxonomy.yml": `
 version: 2
@@ -104,11 +105,11 @@ declare const KIMI_TUNING_SET_VERSION: string;
     const links = await buildTaxonomyConstantLinks(projectDir);
     expect(links[0]?.boundConstants).toEqual(["KIMI_TUNING_SET_VERSION"]);
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   it("should flag unknown boundConstants", async () => {
-    projectDir = join(tmpdir(), `taxonomy-constants-bad-${Date.now()}`);
+    projectDir = testTempDir("taxonomy-constants-bad-");
     writeProject({
       "error-taxonomy.yml": `
 version: 2
@@ -142,7 +143,7 @@ declare const KIMI_TUNING_SET_VERSION: string;
     expect(report.aligned).toBe(false);
     expect(report.checks.some((check) => check.name === "taxonomy:lint_failure")).toBe(true);
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   describe("recently-modified-bound-constants", () => {
@@ -165,7 +166,7 @@ declare const KIMI_TUNING_SET_VERSION: string;
           restoredKeys: [key],
         },
       });
-      writeFileSync(decisionsNdjsonPath(projectDir), `${line}\n`, { flag: "a" });
+      appendText(decisionsNdjsonPath(projectDir), `${line}\n`);
     }
 
     function baseProject(): void {
@@ -198,11 +199,11 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
 `,
         "package.json": JSON.stringify({ name: "demo" }),
       });
-      mkdirSync(join(projectDir, ".kimi"), { recursive: true });
+      makeDir(join(projectDir, ".kimi"), { recursive: true });
     }
 
     it("should emit error severity for modifications under 1h", async () => {
-      projectDir = join(tmpdir(), `taxonomy-bound-recent-error-${Date.now()}`);
+      projectDir = testTempDir("taxonomy-bound-recent-error-");
       baseProject();
       writeDecision("KIMI_HOOK_VERIFIER_MAX_CYCLES", 30 * 60 * 1000, "dec-30m");
 
@@ -211,11 +212,11 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
       expect(check?.status).toBe("error");
       expect(check?.message).toContain("lockfile_issue");
 
-      rmSync(projectDir, { recursive: true, force: true });
+      removePath(projectDir, { recursive: true, force: true });
     });
 
     it("should emit warn severity for modifications between 1h and 6h", async () => {
-      projectDir = join(tmpdir(), `taxonomy-bound-recent-warn-${Date.now()}`);
+      projectDir = testTempDir("taxonomy-bound-recent-warn-");
       baseProject();
       writeDecision("KIMI_HOOK_VERIFIER_MAX_CYCLES", 3 * 60 * 60 * 1000, "dec-3h");
 
@@ -223,11 +224,11 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
       const check = report.checks.find((item) => item.name === "KIMI_HOOK_VERIFIER_MAX_CYCLES");
       expect(check?.status).toBe("warn");
 
-      rmSync(projectDir, { recursive: true, force: true });
+      removePath(projectDir, { recursive: true, force: true });
     });
 
     it("should emit warn severity for modifications between 6h and 24h", async () => {
-      projectDir = join(tmpdir(), `taxonomy-bound-recent-12h-${Date.now()}`);
+      projectDir = testTempDir("taxonomy-bound-recent-12h-");
       baseProject();
       writeDecision("KIMI_HOOK_VERIFIER_MAX_CYCLES", 12 * 60 * 60 * 1000, "dec-12h");
 
@@ -235,18 +236,18 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
       const check = report.checks.find((item) => item.name === "KIMI_HOOK_VERIFIER_MAX_CYCLES");
       expect(check?.status).toBe("warn");
 
-      rmSync(projectDir, { recursive: true, force: true });
+      removePath(projectDir, { recursive: true, force: true });
     });
 
     it("should report ok when no recent bound constant modifications", async () => {
-      projectDir = join(tmpdir(), `taxonomy-bound-recent-ok-${Date.now()}`);
+      projectDir = testTempDir("taxonomy-bound-recent-ok-");
       baseProject();
 
       const report = await checkRecentlyModifiedBoundConstants(projectDir, { nowMs });
       expect(report.checks.some((item) => item.name === "recent-modifications")).toBe(true);
       expect(report.aligned).toBe(true);
 
-      rmSync(projectDir, { recursive: true, force: true });
+      removePath(projectDir, { recursive: true, force: true });
     });
   });
 });

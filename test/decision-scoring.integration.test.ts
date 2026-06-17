@@ -1,8 +1,9 @@
+import { makeDir, removePath } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { Effect } from "effect";
+import { testTempDir } from "./helpers.ts";
 import {
   logDecision,
   readDecisions,
@@ -23,21 +24,24 @@ import { readFailureTraceRecords } from "../src/lib/trace-ledger.ts";
 describe("decision-scoring integration", () => {
   let tmpRoot: string;
   let tmpHome: string;
+  let previousHome: string | undefined;
 
   beforeEach(() => {
-    tmpRoot = join(tmpdir(), `kimi-score-${Bun.randomUUIDv7()}`);
-    tmpHome = join(tmpdir(), `kimi-score-home-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(tmpRoot, ".kimi"), { recursive: true });
-    mkdirSync(join(tmpHome, ".kimi-code", "var"), { recursive: true });
+    previousHome = Bun.env.HOME;
+    tmpRoot = testTempDir("kimi-score-");
+    tmpHome = testTempDir("kimi-score-home-");
+    makeDir(join(tmpRoot, ".kimi"), { recursive: true });
+    makeDir(join(tmpHome, ".kimi-code", "var"), { recursive: true });
     Bun.env.HOME = tmpHome;
     Bun.env.KIMI_TRACE_ID = "trace-score-test";
   });
 
   afterEach(() => {
-    Bun.env.HOME = process.env.HOME;
+    if (previousHome === undefined) delete Bun.env.HOME;
+    else Bun.env.HOME = previousHome;
     delete Bun.env.KIMI_TRACE_ID;
-    if (tmpRoot) rmSync(tmpRoot, { recursive: true, force: true });
-    if (tmpHome) rmSync(tmpHome, { recursive: true, force: true });
+    if (tmpRoot) removePath(tmpRoot, { recursive: true, force: true });
+    if (tmpHome) removePath(tmpHome, { recursive: true, force: true });
   });
 
   test("cluster recurrence within 24h yields low quality score", async () => {

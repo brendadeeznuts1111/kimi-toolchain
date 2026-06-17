@@ -1,7 +1,8 @@
+import { makeDir, removePath } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { testTempDir } from "./helpers.ts";
 import {
   generateRationale,
   logDecision,
@@ -19,15 +20,15 @@ describe("decision-ledger", () => {
   let decisionsPath: string;
 
   beforeEach(() => {
-    tmpRoot = join(tmpdir(), `kimi-decision-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(tmpRoot, ".kimi"), { recursive: true });
+    tmpRoot = testTempDir("kimi-decision-");
+    makeDir(join(tmpRoot, ".kimi"), { recursive: true });
     decisionsPath = decisionsNdjsonPath(tmpRoot);
     Bun.env.KIMI_TRACE_ID = "trace-ledger-test";
   });
 
   afterEach(() => {
     delete Bun.env.KIMI_TRACE_ID;
-    if (tmpRoot) rmSync(tmpRoot, { recursive: true, force: true });
+    if (tmpRoot) removePath(tmpRoot, { recursive: true, force: true });
   });
 
   test("generateRationale builds heal playbook text from cluster context", async () => {

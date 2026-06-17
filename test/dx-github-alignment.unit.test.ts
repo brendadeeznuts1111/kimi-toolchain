@@ -1,7 +1,8 @@
+import { makeDir, pathExists, readText, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { testTempDir } from "./helpers.ts";
 import {
   checkDxGithubAlignment,
   REQUIRED_AGENT_BOOTSTRAP,
@@ -13,8 +14,8 @@ let projectDir: string;
 function writeProject(files: Record<string, string>): void {
   for (const [path, content] of Object.entries(files)) {
     const fullPath = join(projectDir, path);
-    mkdirSync(fullPath.split("/").slice(0, -1).join("/"), { recursive: true });
-    writeFileSync(fullPath, content);
+    makeDir(fullPath.split("/").slice(0, -1).join("/"), { recursive: true });
+    writeText(fullPath, content);
   }
 }
 
@@ -139,12 +140,12 @@ runs:
 `;
 
 beforeEach(() => {
-  projectDir = join(tmpdir(), `kimi-dx-gh-${Bun.randomUUIDv7()}`);
-  mkdirSync(projectDir, { recursive: true });
+  projectDir = testTempDir("kimi-dx-gh-");
+  makeDir(projectDir, { recursive: true });
 });
 
 afterEach(() => {
-  if (existsSync(projectDir)) rmSync(projectDir, { recursive: true, force: true });
+  if (pathExists(projectDir)) removePath(projectDir, { recursive: true, force: true });
 });
 
 describe("dx-github-alignment", () => {
@@ -331,9 +332,8 @@ describe("dx-github-alignment", () => {
 
   test("scaffold app template keeps required bootstrap and prePush defaults", () => {
     const scaffoldConfig = Bun.TOML.parse(
-      readFileSync(
-        join(import.meta.dir, "..", "templates", "scaffold", "dx.config.app.toml"),
-        "utf8"
+      readText(
+        join(import.meta.dir, "..", "templates", "scaffold", "dx.config.app.toml")
       ).replaceAll("{{DX_AGENTS_PATH}}", "/tmp/.config/dx/AGENTS.md")
     ) as { agents?: { bootstrap?: string[]; prePush?: string[] } };
 

@@ -1,20 +1,20 @@
+import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { auditEcosystemHealth } from "../src/lib/ecosystem-health.ts";
 
-const REPO_ROOT = import.meta.dir + "/..";
+import { REPO_ROOT, testTempDir } from "./helpers.ts";
 let tmpHome: string;
 
 beforeEach(() => {
-  tmpHome = join(tmpdir(), `eco-health-${Bun.randomUUIDv7()}`);
-  mkdirSync(tmpHome, { recursive: true });
-  mkdirSync(join(tmpHome, ".local", "bin"), { recursive: true });
+  tmpHome = testTempDir("eco-health-");
+  makeDir(tmpHome, { recursive: true });
+  makeDir(join(tmpHome, ".local", "bin"), { recursive: true });
 });
 
 afterEach(() => {
-  if (existsSync(tmpHome)) rmSync(tmpHome, { recursive: true, force: true });
+  if (pathExists(tmpHome)) removePath(tmpHome, { recursive: true, force: true });
 });
 
 describe("ecosystem-health", () => {
@@ -52,8 +52,8 @@ describe("ecosystem-health", () => {
 
   test("includes canonical-references checks for toolchain repo", async () => {
     const manifest = await Bun.file(join(REPO_ROOT, "canonical-references.json")).json();
-    mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
-    writeFileSync(
+    makeDir(join(tmpHome, ".kimi-code"), { recursive: true });
+    writeText(
       join(tmpHome, ".kimi-code", "canonical-references.json"),
       JSON.stringify(manifest, null, 2)
     );
@@ -99,9 +99,9 @@ describe("ecosystem-health", () => {
 
   test("counts dx-cloudflare drift as warning without promoting it to blocker", async () => {
     const projectDir = join(tmpHome, "kimi-toolchain");
-    mkdirSync(projectDir, { recursive: true });
-    writeFileSync(join(projectDir, "package.json"), JSON.stringify({ name: "kimi-toolchain" }));
-    writeFileSync(
+    makeDir(projectDir, { recursive: true });
+    writeText(join(projectDir, "package.json"), JSON.stringify({ name: "kimi-toolchain" }));
+    writeText(
       join(projectDir, "dx.config.toml"),
       `
 schemaVersion = 1
@@ -116,7 +116,7 @@ source = "snapshot"
     );
     const alignedReport = await auditEcosystemHealth(projectDir, { home: tmpHome, quick: true });
 
-    writeFileSync(
+    writeText(
       join(projectDir, "dx.config.toml"),
       `
 schemaVersion = 1
@@ -142,9 +142,9 @@ source = "live-api"
 
   test("counts dx-github errors as blockers", async () => {
     const projectDir = join(tmpHome, "kimi-toolchain");
-    mkdirSync(projectDir, { recursive: true });
-    writeFileSync(join(projectDir, "package.json"), JSON.stringify({ name: "kimi-toolchain" }));
-    writeFileSync(join(projectDir, "dx.config.toml"), "schemaVersion = [\n");
+    makeDir(projectDir, { recursive: true });
+    writeText(join(projectDir, "package.json"), JSON.stringify({ name: "kimi-toolchain" }));
+    writeText(join(projectDir, "dx.config.toml"), "schemaVersion = [\n");
 
     const report = await auditEcosystemHealth(projectDir, { home: tmpHome, quick: true });
     const dxConfig = report.checks.find((c) => c.name === "dx-github:dx-config");

@@ -1,5 +1,6 @@
+import { makeDir, removePath } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import {
   buildIdentitySwitchPlan,
@@ -100,7 +101,7 @@ pathPatterns = ["~/Work/*"]
 
   test("reads audit records with malformed-line tolerance", async () => {
     const root = join(import.meta.dir, "..", `.tmp-identity-audit-${Date.now()}`);
-    mkdirSync(join(root, ".kimi"), { recursive: true });
+    makeDir(join(root, ".kimi"), { recursive: true });
     try {
       await Bun.write(identityAuditPath(root), "{bad-json}\n");
       const written = await appendIdentityAuditRecord(root, {
@@ -114,14 +115,14 @@ pathPatterns = ["~/Work/*"]
       const records = await readIdentityAudit(root);
       expect(records).toEqual([written]);
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      removePath(root, { recursive: true, force: true });
     }
   });
 
   test("upserts a single profile section in DX TOML", async () => {
     const root = join(import.meta.dir, "..", `.tmp-identity-dx-${Date.now()}`);
     const path = join(root, "global-config.toml");
-    mkdirSync(root, { recursive: true });
+    makeDir(root, { recursive: true });
     try {
       const profile = parseIdentityMatrixToml(MATRIX_TOML).profiles[0]!;
       await writeIdentityProfileToDxConfig(path, profile);
@@ -132,7 +133,7 @@ pathPatterns = ["~/Work/*"]
       expect(text).toContain('sshKey = "/tmp/id_ed25519"');
       expect(upsertIdentityProfileToml(text, profile)).toContain("userName");
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      removePath(root, { recursive: true, force: true });
     }
   });
 });

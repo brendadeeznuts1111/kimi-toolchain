@@ -1,7 +1,8 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, it } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { testTempDir } from "./helpers.ts";
 import {
   buildManifestDomains,
   expandRepoPath,
@@ -126,13 +127,13 @@ describe("constantParity", () => {
   function writeProject(files: Record<string, string>): void {
     for (const [path, content] of Object.entries(files)) {
       const fullPath = join(projectDir, path);
-      mkdirSync(fullPath.split("/").slice(0, -1).join("/"), { recursive: true });
-      writeFileSync(fullPath, content);
+      makeDir(fullPath.split("/").slice(0, -1).join("/"), { recursive: true });
+      writeText(fullPath, content);
     }
   }
 
   it("should warn when sibling repo is missing but local shared value exists", async () => {
-    projectDir = join(tmpdir(), `constant-parity-${Date.now()}`);
+    projectDir = testTempDir("constant-parity-");
     writeProject({
       "constants-parity.toml": `
 schemaVersion = 1
@@ -174,13 +175,13 @@ KIMI_DECISION_SCORE_WINDOW_DAYS = "7"
     expect(report.aligned).toBe(false);
     expect(report.checks.some((check) => check.status === "warn")).toBe(true);
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   it("should error on value drift when both repos are present", async () => {
-    projectDir = join(tmpdir(), `constant-parity-drift-${Date.now()}`);
+    projectDir = testTempDir("constant-parity-drift-");
     const siblingDir = join(projectDir, "sibling");
-    mkdirSync(siblingDir, { recursive: true });
+    makeDir(siblingDir, { recursive: true });
 
     writeProject({
       "constants-parity.toml": `
@@ -214,7 +215,7 @@ KIMI_DECISION_SCORE_WINDOW_DAYS = "7"
       "package.json": JSON.stringify({ name: "demo" }),
     });
 
-    writeFileSync(
+    writeText(
       join(siblingDir, "bunfig.toml"),
       `
 [define]
@@ -227,7 +228,7 @@ DRIFT_VELOCITY_WINDOW_DAYS = "14"
     expect(lint.ok).toBe(false);
     expect(lint.violations.join("\n")).toContain("value drift");
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 });
 

@@ -1,11 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
+import { REPO_ROOT } from "./helpers.ts";
 import {
   listExternalToolAdapters,
   runExternalToolAdapterEffect,
 } from "../src/lib/external-tool-runner.ts";
-
-const REPO_ROOT = import.meta.dir + "/..";
 
 describe("external-tool-runner adapters", () => {
   test("lists registered adapters", () => {

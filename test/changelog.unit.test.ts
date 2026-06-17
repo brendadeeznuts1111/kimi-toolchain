@@ -1,11 +1,11 @@
+import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
 import { commitsToSection, formatSection, updateChangelog } from "../src/lib/changelog.ts";
 import type { Commit } from "../src/lib/conventional-commits.ts";
 
-const REPO_ROOT = import.meta.dir + "/..";
-
+import { REPO_ROOT } from "./helpers.ts";
 describe("changelog", () => {
   describe("commitsToSection", () => {
     test("maps feat commits to Added category", () => {
@@ -253,17 +253,17 @@ describe("changelog", () => {
 
     beforeEach(() => {
       tmpDir = join(REPO_ROOT, `.tmp-test-changelog-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
+      makeDir(tmpDir, { recursive: true });
     });
 
     afterEach(() => {
-      if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true });
+      if (pathExists(tmpDir)) removePath(tmpDir, { recursive: true, force: true });
     });
 
     test("inserts section into existing changelog with Unreleased", async () => {
       const initial =
         "# Changelog\n\nAll notable changes...\n\n## [Unreleased]\n\n### Added\n- Initial\n\n## [1.0.0] - 2024-01-01\n";
-      writeFileSync(join(tmpDir, "CHANGELOG.md"), initial);
+      writeText(join(tmpDir, "CHANGELOG.md"), initial);
 
       const section = "## [1.1.0] - 2024-06-15\n\n### Added\n- New feature\n";
       await updateChangelog(tmpDir, section, "1.1.0");
@@ -285,7 +285,7 @@ describe("changelog", () => {
 
     test("inserts section before first version when no Unreleased", async () => {
       const initial = "# Changelog\n\n## [1.0.0] - 2024-01-01\n\n### Added\n- Initial\n";
-      writeFileSync(join(tmpDir, "CHANGELOG.md"), initial);
+      writeText(join(tmpDir, "CHANGELOG.md"), initial);
 
       const section = "## [1.1.0] - 2024-06-15\n\n### Added\n- New feature\n";
       await updateChangelog(tmpDir, section, "1.1.0");

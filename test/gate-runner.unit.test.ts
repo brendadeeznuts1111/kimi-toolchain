@@ -1,8 +1,9 @@
+import { makeDir, removePath } from "../src/lib/bun-io.ts";
+
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { $ } from "bun";
+import { testTempDir } from "./helpers.ts";
 import {
   failMark,
   formatHookSummary,
@@ -31,13 +32,13 @@ describe("gate-runner", () => {
   beforeEach(() => {
     prevNoColor = Bun.env.NO_COLOR;
     delete Bun.env.NO_COLOR;
-    projectDir = join(tmpdir(), `gate-runner-${Date.now()}`);
-    mkdirSync(join(projectDir, ".git"), { recursive: true });
-    mkdirSync(join(projectDir, ".kimi"), { recursive: true });
+    projectDir = testTempDir("gate-runner-");
+    makeDir(join(projectDir, ".git"), { recursive: true });
+    makeDir(join(projectDir, ".kimi"), { recursive: true });
   });
 
   afterEach(() => {
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
     if (prevNoColor === undefined) delete Bun.env.NO_COLOR;
     else Bun.env.NO_COLOR = prevNoColor;
   });

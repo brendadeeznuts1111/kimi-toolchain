@@ -1,10 +1,10 @@
+import { makeDir, removePath } from "../../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { invokeTool } from "../../src/lib/tool-runner.ts";
 
-const REPO_ROOT = import.meta.dir + "/../..";
+import { REPO_ROOT, testTempDir } from "../helpers.ts";
 const KIMI_CONFIG = join(REPO_ROOT, "src/bin/kimi-config.ts");
 
 const BUNFIG = `[define]
@@ -46,16 +46,16 @@ describe("kimi-config smoke", () => {
   let projectRoot: string;
 
   beforeEach(async () => {
-    projectRoot = join(tmpdir(), `kimi-config-smoke-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(projectRoot, "types"), { recursive: true });
-    mkdirSync(join(projectRoot, ".kimi", "var"), { recursive: true });
+    projectRoot = testTempDir("kimi-config-smoke-");
+    makeDir(join(projectRoot, "types"), { recursive: true });
+    makeDir(join(projectRoot, ".kimi", "var"), { recursive: true });
     await Bun.write(join(projectRoot, ".kimi", "decisions.ndjson"), "");
     await Bun.write(join(projectRoot, "bunfig.toml"), BUNFIG);
     await Bun.write(join(projectRoot, "types", "build-constants.d.ts"), TYPES);
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    removePath(projectRoot, { recursive: true, force: true });
   });
 
   test("validate --json emits stable report", async () => {

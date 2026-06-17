@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join } from "path";
+import { testTempDir } from "./helpers.ts";
+import { makeDir, writeText } from "../src/lib/bun-io.ts";
 import {
   AGENTS_MAX_LINES,
   CONTEXT_MAX_LINES,
@@ -45,21 +45,21 @@ describe("context-bloat-lint", () => {
   });
 
   test("findBrokenInternalLinks flags missing relative targets", () => {
-    const root = mkdtempSync(join(tmpdir(), "ctx-bloat-"));
+    const root = testTempDir("ctx-bloat-");
     const issues = findBrokenInternalLinks(root, "docs/a.md", "[x](./missing.md)");
     expect(issues.length).toBe(1);
     expect(issues[0]?.rule).toBe("broken-internal-link");
   });
 
   test("findBareRepoPathRefs flags missing src/test/scripts paths", () => {
-    const root = mkdtempSync(join(tmpdir(), "ctx-bloat-"));
+    const root = testTempDir("ctx-bloat-");
     const issues = findBareRepoPathRefs(root, "AGENTS.md", "See `test/missing-file.ts`");
     expect(issues.length).toBe(1);
     expect(issues[0]?.rule).toBe("bare-path-missing");
   });
 
   test("findBrokenInternalLinks ignores portable home paths", () => {
-    const root = mkdtempSync(join(tmpdir(), "ctx-bloat-"));
+    const root = testTempDir("ctx-bloat-");
     const issues = findBrokenInternalLinks(
       root,
       "skills/herdr/SKILL.md",
@@ -69,7 +69,7 @@ describe("context-bloat-lint", () => {
   });
 
   test("findBrokenInternalLinks ignores external URLs", () => {
-    const root = mkdtempSync(join(tmpdir(), "ctx-bloat-"));
+    const root = testTempDir("ctx-bloat-");
     const issues = findBrokenInternalLinks(root, "README.md", "[docs](https://example.com/foo)");
     expect(issues).toHaveLength(0);
   });
@@ -84,10 +84,10 @@ describe("context-bloat-lint", () => {
   });
 
   test("auditMarkdownFile passes when link target exists", async () => {
-    const root = mkdtempSync(join(tmpdir(), "ctx-bloat-"));
-    mkdirSync(join(root, "docs"), { recursive: true });
-    writeFileSync(join(root, "docs", "target.md"), "# ok\n");
-    writeFileSync(join(root, "docs", "source.md"), "[t](./target.md)\n");
+    const root = testTempDir("ctx-bloat-");
+    makeDir(join(root, "docs"), { recursive: true });
+    writeText(join(root, "docs", "target.md"), "# ok\n");
+    writeText(join(root, "docs", "source.md"), "[t](./target.md)\n");
 
     const issues = await auditMarkdownFile(root, "docs/source.md");
     expect(issues).toHaveLength(0);
@@ -200,9 +200,9 @@ describe("context-bloat-lint", () => {
   });
 
   test("findBrokenInternalLinks ignores anchors, mailto, and strips query fragments", () => {
-    const root = mkdtempSync(join(tmpdir(), "ctx-bloat-"));
-    mkdirSync(join(root, "docs"), { recursive: true });
-    writeFileSync(join(root, "docs", "real.md"), "# ok\n");
+    const root = testTempDir("ctx-bloat-");
+    makeDir(join(root, "docs"), { recursive: true });
+    writeText(join(root, "docs", "real.md"), "# ok\n");
 
     const issues = findBrokenInternalLinks(
       root,
@@ -218,14 +218,14 @@ describe("context-bloat-lint", () => {
   });
 
   test("findBareRepoPathRefs accepts concrete src/test/scripts extensions", () => {
-    const root = mkdtempSync(join(tmpdir(), "ctx-bloat-"));
-    mkdirSync(join(root, "src", "lib"), { recursive: true });
-    mkdirSync(join(root, "scripts"), { recursive: true });
-    mkdirSync(join(root, "test"), { recursive: true });
-    writeFileSync(join(root, "src", "lib", "a.ts"), "export {};\n");
-    writeFileSync(join(root, "scripts", "run.sh"), "#!/bin/sh\n");
-    writeFileSync(join(root, "test", "cfg.toml"), "[x]\n");
-    writeFileSync(join(root, "test", "data.json"), "{}\n");
+    const root = testTempDir("ctx-bloat-");
+    makeDir(join(root, "src", "lib"), { recursive: true });
+    makeDir(join(root, "scripts"), { recursive: true });
+    makeDir(join(root, "test"), { recursive: true });
+    writeText(join(root, "src", "lib", "a.ts"), "export {};\n");
+    writeText(join(root, "scripts", "run.sh"), "#!/bin/sh\n");
+    writeText(join(root, "test", "cfg.toml"), "[x]\n");
+    writeText(join(root, "test", "data.json"), "{}\n");
 
     const text = [
       "`src/lib/a.ts`",
@@ -241,7 +241,7 @@ describe("context-bloat-lint", () => {
   });
 
   test("findBareRepoPathRefs skips templates, directories, and suffix patterns", () => {
-    const root = mkdtempSync(join(tmpdir(), "ctx-bloat-"));
+    const root = testTempDir("ctx-bloat-");
     const text = [
       "`src/{templates}/foo.ts`",
       "`test/**/*.ts`",
@@ -259,9 +259,9 @@ describe("context-bloat-lint", () => {
   });
 
   test("findBareRepoPathRefs checks path before colon line suffix", () => {
-    const root = mkdtempSync(join(tmpdir(), "ctx-bloat-"));
-    mkdirSync(join(root, "src"), { recursive: true });
-    writeFileSync(join(root, "src", "real.ts"), "export {};\n");
+    const root = testTempDir("ctx-bloat-");
+    makeDir(join(root, "src"), { recursive: true });
+    writeText(join(root, "src", "real.ts"), "export {};\n");
 
     const ok = findBareRepoPathRefs(root, "AGENTS.md", "See `src/real.ts:42`");
     const missing = findBareRepoPathRefs(root, "AGENTS.md", "See `src/ghost.ts:99`");
@@ -332,7 +332,7 @@ describe("context-bloat-lint", () => {
   });
 
   test("auditMarkdownText aggregates per-file rules", () => {
-    const root = mkdtempSync(join(tmpdir(), "ctx-bloat-"));
+    const root = testTempDir("ctx-bloat-");
     const text = [
       "See docs/dx-homepage-dashboard-plan.md",
       "[broken](./nope.md)",

@@ -1,11 +1,11 @@
+import { pathExists } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test } from "bun:test";
-import { existsSync } from "fs";
 import { join } from "path";
 import { computeSyncHashes } from "../src/lib/sync-hashes.ts";
 import { sha256File } from "../src/lib/utils.ts";
 
-const REPO_ROOT = import.meta.dir + "/..";
-
+import { REPO_ROOT } from "./helpers.ts";
 describe("sync-hashes", () => {
   test("computeSyncHashes includes all sync-managed asset classes", async () => {
     const hashes = await computeSyncHashes(REPO_ROOT);
@@ -35,7 +35,7 @@ describe("sync-hashes", () => {
   test("hash matches sha256File for a known tool", async () => {
     const hashes = await computeSyncHashes(REPO_ROOT);
     const path = join(REPO_ROOT, "src/lib/r-score.ts");
-    expect(existsSync(path)).toBe(true);
+    expect(pathExists(path)).toBe(true);
     expect(hashes["lib/r-score.ts"]).toBe(await sha256File(path));
   });
 });

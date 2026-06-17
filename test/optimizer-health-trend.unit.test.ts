@@ -1,7 +1,8 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { testTempDir } from "./helpers.ts";
 import {
   appendOptimizerHealthTrend,
   readOptimizerHealthTrend,
@@ -13,13 +14,13 @@ describe("optimizer-health-trend", () => {
   let projectDir: string;
 
   beforeEach(() => {
-    projectDir = join(tmpdir(), `optimizer-trend-${Date.now()}`);
-    mkdirSync(join(projectDir, ".kimi", "var"), { recursive: true });
-    writeFileSync(join(projectDir, "package.json"), JSON.stringify({ name: "demo" }));
+    projectDir = testTempDir("optimizer-trend-");
+    makeDir(join(projectDir, ".kimi", "var"), { recursive: true });
+    writeText(join(projectDir, "package.json"), JSON.stringify({ name: "demo" }));
   });
 
   afterEach(() => {
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   const warnCheck: OptimizerDoctorMachineCheck = {

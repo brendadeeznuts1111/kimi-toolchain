@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { auditTaxonomyCoverage } from "../src/lib/taxonomy-coverage.ts";
 
-const REPO_ROOT = import.meta.dir + "/..";
-
+import { REPO_ROOT } from "./helpers.ts";
 describe("taxonomy-coverage", () => {
   test("reports linked and unlinked taxonomy categories", async () => {
     const report = await auditTaxonomyCoverage(REPO_ROOT);

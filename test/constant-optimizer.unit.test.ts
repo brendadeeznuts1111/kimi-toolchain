@@ -1,9 +1,10 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, it } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { DECISION_SCHEMA_VERSION, type Decision } from "../src/lib/decision-ledger.ts";
 import { decisionsNdjsonPath } from "../src/lib/paths.ts";
+import { testTempDir } from "./helpers.ts";
 import {
   buildConstantOptimizerReport,
   collectConstantRepairEvents,
@@ -21,8 +22,8 @@ describe("constant-optimizer", () => {
   function writeProject(files: Record<string, string>): void {
     for (const [path, content] of Object.entries(files)) {
       const fullPath = join(projectDir, path);
-      mkdirSync(fullPath.split("/").slice(0, -1).join("/"), { recursive: true });
-      writeFileSync(fullPath, content);
+      makeDir(fullPath.split("/").slice(0, -1).join("/"), { recursive: true });
+      writeText(fullPath, content);
     }
   }
 
@@ -51,7 +52,7 @@ describe("constant-optimizer", () => {
   });
 
   it("should correlate bound constant repairs with taxonomy failure deltas", async () => {
-    projectDir = join(tmpdir(), `constant-optimizer-${Date.now()}`);
+    projectDir = testTempDir("constant-optimizer-");
     failurePath = join(projectDir, "failures.jsonl");
 
     writeProject({
@@ -84,8 +85,8 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
       "package.json": JSON.stringify({ name: "demo" }),
     });
 
-    mkdirSync(join(projectDir, ".kimi"), { recursive: true });
-    writeFileSync(
+    makeDir(join(projectDir, ".kimi"), { recursive: true });
+    writeText(
       decisionsNdjsonPath(projectDir),
       `${JSON.stringify({
         schemaVersion: DECISION_SCHEMA_VERSION,
@@ -105,7 +106,7 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
       })}\n`
     );
 
-    writeFileSync(
+    writeText(
       failurePath,
       [
         JSON.stringify({
@@ -148,7 +149,7 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
     });
     expect(report.entries[0]?.recommendation).toBe("promote");
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   it("should decay insufficient-data confidence over time", () => {

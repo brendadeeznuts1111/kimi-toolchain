@@ -1,9 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { join } from "path";
 import { checkKimiDocsAligned, isKimiToolchainProject } from "../src/lib/kimi-docs-aligned.ts";
 
-const REPO_ROOT = join(import.meta.dir, "..");
-
+import { REPO_ROOT } from "./helpers.ts";
 describe("kimi-docs-aligned", () => {
   test("isKimiToolchainProject true for this repo", async () => {
     expect(await isKimiToolchainProject(REPO_ROOT)).toBe(true);

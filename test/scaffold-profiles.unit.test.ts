@@ -1,4 +1,7 @@
+import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test } from "bun:test";
+import { testTempDir } from "./helpers.ts";
 import {
   renderDxConfig,
   scaffoldDxConfigTemplateRel,
@@ -8,9 +11,7 @@ import {
   detectProfileDrift,
   ScaffoldProfileError,
 } from "../src/lib/scaffold-profiles.ts";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { join } from "path";
 import { DX_CONFIG_APP, DX_CONFIG_TOOLCHAIN } from "../src/lib/scaffold-templates.ts";
 
 describe("scaffold-profiles", () => {
@@ -80,24 +81,24 @@ describe("scaffold-profiles", () => {
   });
 
   test("detectProfileDrift warns when toolchain files missing", () => {
-    const root = join(tmpdir(), `scaffold-drift-${Bun.randomUUIDv7()}`);
-    mkdirSync(root, { recursive: true });
-    writeFileSync(join(root, "dx.config.toml"), "[kimi]\n");
+    const root = testTempDir("scaffold-drift-");
+    makeDir(root, { recursive: true });
+    writeText(join(root, "dx.config.toml"), "[kimi]\n");
     try {
       expect(detectProfileDrift(root, "toolchain")).toContain("scripts/finish-work.ts");
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      removePath(root, { recursive: true, force: true });
     }
   });
 
   test("detectProfileDrift returns null for fresh app scaffold", () => {
-    const root = join(tmpdir(), `scaffold-drift-${Bun.randomUUIDv7()}`);
-    mkdirSync(root, { recursive: true });
+    const root = testTempDir("scaffold-drift-");
+    makeDir(root, { recursive: true });
     try {
       expect(detectProfileDrift(root, "app")).toBeNull();
-      expect(existsSync(join(root, "dx.config.toml"))).toBe(false);
+      expect(pathExists(join(root, "dx.config.toml"))).toBe(false);
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      removePath(root, { recursive: true, force: true });
     }
   });
 });

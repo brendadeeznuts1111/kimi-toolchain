@@ -1,7 +1,8 @@
+import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { join } from "path";
+import { testTempDir } from "./helpers.ts";
 import {
   FINISH_WORK_CONFIG_TEMPLATE,
   FINISH_WORK_HERDR_TEMPLATE,
@@ -16,16 +17,16 @@ describe("kimi-fix-profiles profile artifacts", () => {
   let projectRoot: string;
 
   beforeEach(() => {
-    projectRoot = join(tmpdir(), `kimi-fix-profile-${Bun.randomUUIDv7()}`);
-    mkdirSync(projectRoot, { recursive: true });
-    writeFileSync(
+    projectRoot = testTempDir("kimi-fix-profile-");
+    makeDir(projectRoot, { recursive: true });
+    writeText(
       join(projectRoot, "package.json"),
       JSON.stringify({ name: "profile-demo", version: "0.0.0", scripts: {} }, null, 2)
     );
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    removePath(projectRoot, { recursive: true, force: true });
   });
 
   test("app profile dx.config has no broken toolchain-only references", async () => {
@@ -45,7 +46,7 @@ describe("kimi-fix-profiles profile artifacts", () => {
       join(projectRoot, "dx.config.toml"),
       renderDxConfig("toolchain", "profile-demo", homeDir())
     );
-    mkdirSync(join(projectRoot, "scripts"), { recursive: true });
+    makeDir(join(projectRoot, "scripts"), { recursive: true });
     await Bun.write(
       join(projectRoot, "scripts", "finish-work-config.ts"),
       FINISH_WORK_CONFIG_TEMPLATE
@@ -61,8 +62,8 @@ describe("kimi-fix-profiles profile artifacts", () => {
     const dxConfig = await Bun.file(join(projectRoot, "dx.config.toml")).text();
     expect(dxConfig).toContain("[finishWork]");
     expect(dxConfig).toContain("[herdr]");
-    expect(existsSync(join(projectRoot, "scripts/finish-work.ts"))).toBe(true);
-    expect(existsSync(join(projectRoot, "scripts/reviewer-pane.ts"))).toBe(true);
+    expect(pathExists(join(projectRoot, "scripts/finish-work.ts"))).toBe(true);
+    expect(pathExists(join(projectRoot, "scripts/reviewer-pane.ts"))).toBe(true);
     expect(dxConfig).toContain("single source of truth");
 
     const pkg = (await Bun.file(join(projectRoot, "package.json")).json()) as {

@@ -1,15 +1,16 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { makeDir, writeText } from "../src/lib/bun-io.ts";
+
+import { join } from "path";
 import { describe, expect, test } from "bun:test";
 import { REQUIRED_INTEGRATIONS } from "../src/lib/herdr-agents.ts";
 import { inspectHerdrDoctor } from "../src/lib/herdr-doctor.ts";
 import { HerdrSessionError } from "../src/lib/herdr-session-preflight.ts";
 
+import { testTempDir } from "./helpers.ts";
 function minimalDoctorHome(): string {
-  const home = join(tmpdir(), `herdr-doctor-${Bun.randomUUIDv7()}`);
-  mkdirSync(join(home, ".config", "dx"), { recursive: true });
-  writeFileSync(join(home, ".config", "dx", "herdr.toml"), 'session = "dev"\n');
+  const home = testTempDir("herdr-doctor-");
+  makeDir(join(home, ".config", "dx"), { recursive: true });
+  writeText(join(home, ".config", "dx", "herdr.toml"), 'session = "dev"\n');
   return home;
 }
 

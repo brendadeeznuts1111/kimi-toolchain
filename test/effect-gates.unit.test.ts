@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join } from "path";
 import {
   buildEffectGatesReport,
   appendEffectGatesSnapshot,
@@ -91,13 +91,13 @@ describe("effect-gates", () => {
     await mkdir(join(tmpDir, "src", "domain"), { recursive: true });
     await writeFile(
       join(tmpDir, "src", "domain", "service.ts"),
-      `export function config() { return process.env.FOO; }`
+      `export function config() { return Bun.env.FOO; }`
     );
 
     const report = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
     const purityViolations = report.violations.filter((v) => v.gate === EFFECT_GATES.domainPurity);
     expect(purityViolations.length).toBe(1);
-    expect(purityViolations[0].message).toContain("process.env");
+    expect(purityViolations[0].message).toContain("process environment access");
   });
 
   test("detects Effect.runPromise outside permitted boundary", async () => {

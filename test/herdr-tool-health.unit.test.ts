@@ -1,31 +1,32 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { join } from "path";
 import { auditHerdrToolHealth, detectHerdrToolDrift } from "../src/lib/herdr-tool-health.ts";
 
+import { testTempDir } from "./helpers.ts";
 describe("herdr-tool-health", () => {
   let home: string;
   let repoRoot: string;
 
   beforeEach(() => {
-    home = join(tmpdir(), `herdr-tool-health-${Bun.randomUUIDv7()}`);
+    home = testTempDir("herdr-tool-health-");
     repoRoot = join(home, "kimi-toolchain");
-    mkdirSync(join(home, ".local", "bin"), { recursive: true });
-    mkdirSync(join(home, ".kimi-code", "tools"), { recursive: true });
-    mkdirSync(join(repoRoot, "src", "bin"), { recursive: true });
+    makeDir(join(home, ".local", "bin"), { recursive: true });
+    makeDir(join(home, ".kimi-code", "tools"), { recursive: true });
+    makeDir(join(repoRoot, "src", "bin"), { recursive: true });
     for (const name of ["herdr-doctor", "herdr-latm", "herdr-project", "herdr-spawn"]) {
-      writeFileSync(join(repoRoot, "src", "bin", `${name}.ts`), `export const ${name} = 1;\n`);
+      writeText(join(repoRoot, "src", "bin", `${name}.ts`), `export const ${name} = 1;\n`);
     }
-    writeFileSync(
+    writeText(
       join(home, ".kimi-code", "tools", "herdr-doctor.ts"),
       "export const herdr-doctor = 1;\n"
     );
-    writeFileSync(join(home, ".local", "bin", "herdr-doctor"), "#!/bin/sh\necho doctor\n");
+    writeText(join(home, ".local", "bin", "herdr-doctor"), "#!/bin/sh\necho doctor\n");
   });
 
   afterEach(() => {
-    rmSync(home, { recursive: true, force: true });
+    removePath(home, { recursive: true, force: true });
   });
 
   test("detectHerdrToolDrift reports missing desktop tools", async () => {
@@ -47,11 +48,11 @@ describe("herdr-tool-health", () => {
   test("auditHerdrToolHealth ok when desktop and wrappers fully installed", async () => {
     for (const name of ["herdr-latm", "herdr-project", "herdr-spawn"]) {
       const text = await Bun.file(join(repoRoot, "src", "bin", `${name}.ts`)).text();
-      writeFileSync(join(home, ".kimi-code", "tools", `${name}.ts`), text);
-      writeFileSync(join(home, ".local", "bin", name), "#!/bin/sh\necho stub\n");
+      writeText(join(home, ".kimi-code", "tools", `${name}.ts`), text);
+      writeText(join(home, ".local", "bin", name), "#!/bin/sh\necho stub\n");
     }
     for (const agent of ["codex", "kimi", "hermes", "grok", "claude"]) {
-      writeFileSync(join(home, ".local", "bin", `herdr-spawn-${agent}`), "#!/bin/sh\necho\n");
+      writeText(join(home, ".local", "bin", `herdr-spawn-${agent}`), "#!/bin/sh\necho\n");
     }
 
     const report = await auditHerdrToolHealth(repoRoot, home);

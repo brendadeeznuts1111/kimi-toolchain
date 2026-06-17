@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
+import { REPO_ROOT } from "./helpers.ts";
 import {
   auditCloudflareAccessSkillContract,
   auditCodeProbeWhenExports,
@@ -23,8 +24,6 @@ import {
   resolveOrchestratorSkillPaths,
 } from "../src/lib/skill-contract.ts";
 import { routeOrchestratorEvent } from "../src/lib/herdr-orchestrator-events.ts";
-
-const REPO_ROOT = import.meta.dir + "/..";
 
 describe("skill-contract", () => {
   test("every repo skill declares code coverage map", () => {

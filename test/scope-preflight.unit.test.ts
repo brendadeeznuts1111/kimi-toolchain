@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { REPO_ROOT } from "./helpers.ts";
 import {
   compareOrchestratorConfigParity,
   validateOrchestratorAllowlistCoversRoutes,
@@ -7,8 +8,6 @@ import { resolveOrchestratorConfig } from "../src/lib/herdr-orchestrator-config.
 import { discoverHerdrProjectConfig } from "../src/lib/herdr-project-config.ts";
 import { TOML } from "bun";
 import { readText } from "../src/lib/bun-io.ts";
-
-const REPO_ROOT = import.meta.dir + "/..";
 
 describe("scope-preflight", () => {
   test("validateOrchestratorAllowlistCoversRoutes fails when event missing", () => {

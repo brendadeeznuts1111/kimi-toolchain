@@ -1,7 +1,8 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { join } from "path";
+import { testTempDir } from "./helpers.ts";
 import {
   EFFECT_GATES_COMMAND,
   FinishWorkConfigParseError,
@@ -64,9 +65,9 @@ describe("finish-work-config", () => {
   });
 
   test("loadFinishWorkConfig reads dx.config.toml", () => {
-    const root = join(tmpdir(), `finish-work-config-${Bun.randomUUIDv7()}`);
-    mkdirSync(root, { recursive: true });
-    writeFileSync(
+    const root = testTempDir("finish-work-config-");
+    makeDir(root, { recursive: true });
+    writeText(
       join(root, "dx.config.toml"),
       `[finishWork]
 gates = ["bun run check:fast"]
@@ -78,7 +79,7 @@ gates = ["bun run check:fast"]
       expect(config.source).toBe("finishWork");
       expect(config.gates).toEqual(["bun run check:fast"]);
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      removePath(root, { recursive: true, force: true });
     }
   });
 
@@ -102,14 +103,14 @@ gates = ["bun run check:fast"]
   });
 
   test("loadFinishWorkConfig rejects invalid TOML", () => {
-    const root = join(tmpdir(), `finish-work-config-${Bun.randomUUIDv7()}`);
-    mkdirSync(root, { recursive: true });
-    writeFileSync(join(root, "dx.config.toml"), "finishWork = [\n");
+    const root = testTempDir("finish-work-config-");
+    makeDir(root, { recursive: true });
+    writeText(join(root, "dx.config.toml"), "finishWork = [\n");
 
     try {
       expect(() => loadFinishWorkConfig(root)).toThrow(FinishWorkConfigParseError);
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      removePath(root, { recursive: true, force: true });
     }
   });
 });

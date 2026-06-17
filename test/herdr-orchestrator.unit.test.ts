@@ -1,7 +1,9 @@
-import { describe, expect, test, afterEach } from "bun:test";
-import { existsSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+
+import { describe, expect, test } from "bun:test";
+import { homedir } from "os";
+import { join } from "path";
+import { REPO_ROOT, testTempDir, withClearedEnv, withEnv } from "./helpers.ts";
 import {
   parseCondition,
   parseHerdrOrchestratorSection,
@@ -12,11 +14,11 @@ import {
   discoverIdentityFile,
   mergeNotifications,
   readHerdrNotifyDefaults,
+  HERDR_SSH_ENV_KEYS,
   type RemoteDefaults,
 } from "../src/lib/herdr-orchestrator-config.ts";
 import { evaluateCrossWorkspaceHandoffs, parseHostSession } from "../src/lib/herdr-orchestrator.ts";
 import { buildCanonicalReferencesManifest } from "../src/lib/canonical-references.ts";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import type { HerdrProjectConfig } from "../src/lib/herdr-project-config.ts";
 
@@ -377,7 +379,7 @@ describe("discoverIdentityFile", () => {
     // discoverIdentityFile uses a hardcoded probe list; we test via
     // the invariant that if ~/.ssh doesn't exist at all, result is undefined.
     const sshDir = join(homedir(), ".ssh");
-    if (!existsSync(sshDir)) {
+    if (!pathExists(sshDir)) {
       expect(discoverIdentityFile()).toBeUndefined();
     }
   });
@@ -386,117 +388,118 @@ describe("discoverIdentityFile", () => {
 // ── environment variable overrides ────────────────────────────────────────
 
 describe("parseEnvOverrides", () => {
-  afterEach(() => {
-    delete process.env.HERDR_SSH_TIMEOUT;
-    delete process.env.HERDR_SSH_BATCH_MODE;
-    delete process.env.HERDR_SSH_CONNECT_TIMEOUT;
-    delete process.env.HERDR_SSH_IDENTITY_FILE;
-    delete process.env.HERDR_SSH_STRICT_HOST_KEY_CHECKING;
-    delete process.env.HERDR_SSH_CONTROL_MASTER;
-    delete process.env.HERDR_SSH_CONTROL_PATH;
-    delete process.env.HERDR_SSH_CONTROL_PERSIST;
-    delete process.env.HERDR_SSH_COMPRESSION;
-    delete process.env.HERDR_SSH_PROXY_JUMP;
-    delete process.env.HERDR_SSH_IDENTITIES_ONLY;
-    delete process.env.HERDR_SSH_SERVER_ALIVE_INTERVAL;
-    delete process.env.HERDR_SSH_SERVER_ALIVE_COUNT_MAX;
-    delete process.env.HERDR_SSH_PORT;
-    delete process.env.HERDR_SSH_USER;
-  });
-
   test("returns empty when no env vars set", () => {
-    expect(parseEnvOverrides()).toEqual({});
+    withClearedEnv(HERDR_SSH_ENV_KEYS, () => {
+      expect(parseEnvOverrides()).toEqual({});
+    });
   });
 
   test("parses numeric vars", () => {
-    process.env.HERDR_SSH_TIMEOUT = "30";
-    process.env.HERDR_SSH_CONNECT_TIMEOUT = "8";
-    process.env.HERDR_SSH_PORT = "2222";
-    const overrides = parseEnvOverrides();
-    expect(overrides.timeout).toBe(30000); // seconds → ms
-    expect(overrides.connectTimeout).toBe(8);
-    expect(overrides.port).toBe(2222);
+    withEnv(
+      {
+        HERDR_SSH_TIMEOUT: "30",
+        HERDR_SSH_CONNECT_TIMEOUT: "8",
+        HERDR_SSH_PORT: "2222",
+      },
+      () => {
+        const overrides = parseEnvOverrides();
+        expect(overrides.timeout).toBe(30000);
+        expect(overrides.connectTimeout).toBe(8);
+        expect(overrides.port).toBe(2222);
+      }
+    );
   });
 
   test("ignores non-numeric numeric vars", () => {
-    process.env.HERDR_SSH_TIMEOUT = "abc";
-    process.env.HERDR_SSH_PORT = "xyz";
-    const overrides = parseEnvOverrides();
-    expect(overrides.timeout).toBeUndefined();
-    expect(overrides.port).toBeUndefined();
+    withEnv({ HERDR_SSH_TIMEOUT: "abc", HERDR_SSH_PORT: "xyz" }, () => {
+      const overrides = parseEnvOverrides();
+      expect(overrides.timeout).toBeUndefined();
+      expect(overrides.port).toBeUndefined();
+    });
   });
 
   test("parses boolean vars", () => {
-    process.env.HERDR_SSH_BATCH_MODE = "false";
-    process.env.HERDR_SSH_COMPRESSION = "1";
-    process.env.HERDR_SSH_IDENTITIES_ONLY = "true";
-    const overrides = parseEnvOverrides();
-    expect(overrides.batchMode).toBe(false);
-    expect(overrides.compression).toBe(true);
-    expect(overrides.identitiesOnly).toBe(true);
+    withEnv(
+      {
+        HERDR_SSH_BATCH_MODE: "false",
+        HERDR_SSH_COMPRESSION: "1",
+        HERDR_SSH_IDENTITIES_ONLY: "true",
+      },
+      () => {
+        const overrides = parseEnvOverrides();
+        expect(overrides.batchMode).toBe(false);
+        expect(overrides.compression).toBe(true);
+        expect(overrides.identitiesOnly).toBe(true);
+      }
+    );
   });
 
   test("parses string vars", () => {
-    process.env.HERDR_SSH_IDENTITY_FILE = "~/.ssh/ci_key";
-    process.env.HERDR_SSH_STRICT_HOST_KEY_CHECKING = "no";
-    process.env.HERDR_SSH_CONTROL_MASTER = "auto";
-    process.env.HERDR_SSH_CONTROL_PATH = "~/.ssh/ctl/%C";
-    process.env.HERDR_SSH_PROXY_JUMP = "bastion.ci";
-    process.env.HERDR_SSH_USER = "ci-runner";
-    const overrides = parseEnvOverrides();
-    expect(overrides.identityFile).toBe("~/.ssh/ci_key");
-    expect(overrides.strictHostKeyChecking).toBe("no");
-    expect(overrides.controlMaster).toBe("auto");
-    expect(overrides.controlPath).toBe("~/.ssh/ctl/%C");
-    expect(overrides.proxyJump).toBe("bastion.ci");
-    expect(overrides.user).toBe("ci-runner");
+    withEnv(
+      {
+        HERDR_SSH_IDENTITY_FILE: "~/.ssh/ci_key",
+        HERDR_SSH_STRICT_HOST_KEY_CHECKING: "no",
+        HERDR_SSH_CONTROL_MASTER: "auto",
+        HERDR_SSH_CONTROL_PATH: "~/.ssh/ctl/%C",
+        HERDR_SSH_PROXY_JUMP: "bastion.ci",
+        HERDR_SSH_USER: "ci-runner",
+      },
+      () => {
+        const overrides = parseEnvOverrides();
+        expect(overrides.identityFile).toBe("~/.ssh/ci_key");
+        expect(overrides.strictHostKeyChecking).toBe("no");
+        expect(overrides.controlMaster).toBe("auto");
+        expect(overrides.controlPath).toBe("~/.ssh/ctl/%C");
+        expect(overrides.proxyJump).toBe("bastion.ci");
+        expect(overrides.user).toBe("ci-runner");
+      }
+    );
   });
 
   test("parses control_persist and server_alive as numbers", () => {
-    process.env.HERDR_SSH_CONTROL_PERSIST = "120";
-    process.env.HERDR_SSH_SERVER_ALIVE_INTERVAL = "45";
-    process.env.HERDR_SSH_SERVER_ALIVE_COUNT_MAX = "2";
-    const overrides = parseEnvOverrides();
-    expect(overrides.controlPersist).toBe(120);
-    expect(overrides.serverAliveInterval).toBe(45);
-    expect(overrides.serverAliveCountMax).toBe(2);
+    withEnv(
+      {
+        HERDR_SSH_CONTROL_PERSIST: "120",
+        HERDR_SSH_SERVER_ALIVE_INTERVAL: "45",
+        HERDR_SSH_SERVER_ALIVE_COUNT_MAX: "2",
+      },
+      () => {
+        const overrides = parseEnvOverrides();
+        expect(overrides.controlPersist).toBe(120);
+        expect(overrides.serverAliveInterval).toBe(45);
+        expect(overrides.serverAliveCountMax).toBe(2);
+      }
+    );
   });
 });
 
 // ── env overrides in normalizeRemoteHostConfig ────────────────────────────
 
 describe("normalizeRemoteHostConfig with env overrides", () => {
-  afterEach(() => {
-    delete process.env.HERDR_SSH_TIMEOUT;
-    delete process.env.HERDR_SSH_IDENTITY_FILE;
-    delete process.env.HERDR_SSH_BATCH_MODE;
-    delete process.env.HERDR_SSH_USER;
-    delete process.env.HERDR_SSH_PORT;
-  });
-
   test("env overrides trump TOML defaults", () => {
-    process.env.HERDR_SSH_TIMEOUT = "60";
-    process.env.HERDR_SSH_BATCH_MODE = "false";
-    const defaults: RemoteDefaults = { timeout: 10, batchMode: true };
-    const result = normalizeRemoteHostConfig({ w: "w.local" }, defaults);
-    expect(result["w"]!.timeout).toBe(60000); // 60 seconds env → ms
-    expect(result["w"]!.batchMode).toBe(false);
+    withEnv({ HERDR_SSH_TIMEOUT: "60", HERDR_SSH_BATCH_MODE: "false" }, () => {
+      const defaults: RemoteDefaults = { timeout: 10, batchMode: true };
+      const result = normalizeRemoteHostConfig({ w: "w.local" }, defaults);
+      expect(result["w"]!.timeout).toBe(60000);
+      expect(result["w"]!.batchMode).toBe(false);
+    });
   });
 
   test("env overrides trump per-host settings", () => {
-    process.env.HERDR_SSH_IDENTITY_FILE = "~/.ssh/env_key";
-    process.env.HERDR_SSH_PORT = "9999";
-    const result = normalizeRemoteHostConfig({
-      w: { host: "w.local", identityFile: "~/.ssh/toml_key", port: 2222 },
+    withEnv({ HERDR_SSH_IDENTITY_FILE: "~/.ssh/env_key", HERDR_SSH_PORT: "9999" }, () => {
+      const result = normalizeRemoteHostConfig({
+        w: { host: "w.local", identityFile: "~/.ssh/toml_key", port: 2222 },
+      });
+      expect(result["w"]!.identityFile).toBe("~/.ssh/env_key");
+      expect(result["w"]!.port).toBe(9999);
     });
-    expect(result["w"]!.identityFile).toBe("~/.ssh/env_key");
-    expect(result["w"]!.port).toBe(9999);
   });
 
   test("env user propagates", () => {
-    process.env.HERDR_SSH_USER = "envuser";
-    const result = normalizeRemoteHostConfig({ w: "w.local" });
-    expect(result["w"]!.user).toBe("envuser");
+    withEnv({ HERDR_SSH_USER: "envuser" }, () => {
+      const result = normalizeRemoteHostConfig({ w: "w.local" });
+      expect(result["w"]!.user).toBe("envuser");
+    });
   });
 });
 
@@ -725,8 +728,6 @@ describe("herdr_app_config plugins.notify", () => {
 });
 
 describe("handoff probe conditions", () => {
-  const REPO_ROOT = import.meta.dir + "/..";
-
   test("parseCondition accepts probe:canonical-references:runtime-aligned", () => {
     expect(parseCondition("probe:canonical-references:runtime-aligned")).toEqual({
       kind: "probe",
@@ -742,9 +743,9 @@ describe("handoff probe conditions", () => {
   });
 
   test("evaluateCrossWorkspaceHandoffs fires on aligned runtime probe", async () => {
-    const tmpHome = join(tmpdir(), `handoff-probe-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
-    writeFileSync(
+    const tmpHome = testTempDir("handoff-probe-");
+    makeDir(join(tmpHome, ".kimi-code"), { recursive: true });
+    writeText(
       join(tmpHome, ".kimi-code", "canonical-references.json"),
       JSON.stringify(buildCanonicalReferencesManifest(), null, 2)
     );
@@ -799,12 +800,12 @@ describe("handoff probe conditions", () => {
 
     expect(results[0]?.ok).toBe(true);
     expect(results[0]?.detail).toContain("[dry-run]");
-    rmSync(tmpHome, { recursive: true, force: true });
+    removePath(tmpHome, { recursive: true, force: true });
   });
 
   test("evaluateCrossWorkspaceHandoffs skips satisfied probe when cache missing", async () => {
-    const tmpHome = join(tmpdir(), `handoff-probe-fail-${Bun.randomUUIDv7()}`);
-    mkdirSync(tmpHome, { recursive: true });
+    const tmpHome = testTempDir("handoff-probe-fail-");
+    makeDir(tmpHome, { recursive: true });
 
     const agents = [
       {
@@ -857,14 +858,14 @@ describe("handoff probe conditions", () => {
     expect(results[0]?.ok).toBe(false);
     expect(results[0]?.detail).toContain("runtime cache missing");
     expect(results[0]?.detail).not.toContain("probe check missing");
-    rmSync(tmpHome, { recursive: true, force: true });
+    removePath(tmpHome, { recursive: true, force: true });
   });
 
   test("evaluateCrossWorkspaceHandoffs fires on finish-work:pushed probe", async () => {
-    const root = join(tmpdir(), `handoff-fw-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(root, ".kimi"), { recursive: true });
+    const root = testTempDir("handoff-fw-");
+    makeDir(join(root, ".kimi"), { recursive: true });
     const head = "abc123def456";
-    writeFileSync(
+    writeText(
       join(root, ".kimi", "finish-work-report.json"),
       JSON.stringify(
         {
@@ -936,7 +937,7 @@ describe("handoff probe conditions", () => {
 
     expect(results[0]?.ok).toBe(true);
     expect(results[0]?.detail).toContain("[dry-run]");
-    rmSync(root, { recursive: true, force: true });
+    removePath(root, { recursive: true, force: true });
   });
 
   test("evaluateCrossWorkspaceHandoffs uses target_strategy least_busy in workspace", async () => {
@@ -1002,9 +1003,9 @@ describe("handoff probe conditions", () => {
   });
 
   test("evaluateCrossWorkspaceHandoffs fires on report when clauses", async () => {
-    const root = join(tmpdir(), `handoff-when-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(root, ".kimi"), { recursive: true });
-    writeFileSync(
+    const root = testTempDir("handoff-when-");
+    makeDir(join(root, ".kimi"), { recursive: true });
+    writeText(
       join(root, ".kimi", "finish-work-report.json"),
       JSON.stringify(
         {
@@ -1093,13 +1094,13 @@ describe("handoff probe conditions", () => {
     expect(results[0]?.ok).toBe(true);
     expect(results[0]?.detail).toContain("[dry-run]");
     expect(results[0]?.durationMs).toBeGreaterThanOrEqual(0);
-    rmSync(root, { recursive: true, force: true });
+    removePath(root, { recursive: true, force: true });
   });
 
   test("evaluateCrossWorkspaceHandoffs fires on handoff-ready probe with review when + pane idle", async () => {
-    const root = join(tmpdir(), `handoff-ready-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(root, ".kimi"), { recursive: true });
-    writeFileSync(
+    const root = testTempDir("handoff-ready-");
+    makeDir(join(root, ".kimi"), { recursive: true });
+    writeText(
       join(root, ".kimi", "finish-work-report.json"),
       JSON.stringify(
         {
@@ -1189,6 +1190,6 @@ describe("handoff probe conditions", () => {
     expect(results[0]?.ok).toBe(true);
     expect(results[0]?.detail).toContain("[dry-run]");
     expect(results[0]?.durationMs).toBeGreaterThanOrEqual(0);
-    rmSync(root, { recursive: true, force: true });
+    removePath(root, { recursive: true, force: true });
   });
 });

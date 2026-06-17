@@ -1,26 +1,27 @@
+import { makeDir, removePath } from "../src/lib/bun-io.ts";
+
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { resolveHerdrSocketPath } from "../src/lib/herdr-unix-socket.ts";
 
+import { testTempDir } from "./helpers.ts";
 let tmpHome: string;
 let priorSocketPath: string | undefined;
 
 describe("herdr-unix-socket", () => {
   beforeEach(() => {
-    tmpHome = join(tmpdir(), `kimi-herdr-sock-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(tmpHome, ".config", "herdr", "sessions", "dev"), { recursive: true });
-    priorSocketPath = process.env.HERDR_SOCKET_PATH;
-    process.env.HOME = tmpHome;
-    delete process.env.HERDR_SESSION;
-    delete process.env.HERDR_SOCKET_PATH;
+    tmpHome = testTempDir("kimi-herdr-sock-");
+    makeDir(join(tmpHome, ".config", "herdr", "sessions", "dev"), { recursive: true });
+    priorSocketPath = Bun.env.HERDR_SOCKET_PATH;
+    Bun.env.HOME = tmpHome;
+    delete Bun.env.HERDR_SESSION;
+    delete Bun.env.HERDR_SOCKET_PATH;
   });
 
   afterEach(() => {
-    if (priorSocketPath === undefined) delete process.env.HERDR_SOCKET_PATH;
-    else process.env.HERDR_SOCKET_PATH = priorSocketPath;
-    if (tmpHome) rmSync(tmpHome, { recursive: true, force: true });
+    if (priorSocketPath === undefined) delete Bun.env.HERDR_SOCKET_PATH;
+    else Bun.env.HERDR_SOCKET_PATH = priorSocketPath;
+    if (tmpHome) removePath(tmpHome, { recursive: true, force: true });
   });
 
   test("primary session resolves default socket", () => {
@@ -36,7 +37,7 @@ describe("herdr-unix-socket", () => {
   });
 
   test("HERDR_SOCKET_PATH overrides only primary session", () => {
-    process.env.HERDR_SOCKET_PATH = "/tmp/custom-primary.sock";
+    Bun.env.HERDR_SOCKET_PATH = "/tmp/custom-primary.sock";
     expect(resolveHerdrSocketPath()).toBe("/tmp/custom-primary.sock");
     expect(resolveHerdrSocketPath("dev")).toBe(
       join(tmpHome, ".config", "herdr", "sessions", "dev", "herdr.sock")
@@ -44,7 +45,7 @@ describe("herdr-unix-socket", () => {
   });
 
   test("inherits HERDR_SESSION env when session arg omitted", () => {
-    process.env.HERDR_SESSION = "dev";
+    Bun.env.HERDR_SESSION = "dev";
     expect(resolveHerdrSocketPath()).toBe(
       join(tmpHome, ".config", "herdr", "sessions", "dev", "herdr.sock")
     );

@@ -1,9 +1,10 @@
+import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { buildCloudflareIntegrationStatus } from "../src/lib/cloudflare-integration-status.ts";
 
+import { testTempDir } from "./helpers.ts";
 let tmpHome: string;
 let projectRoot: string;
 
@@ -16,7 +17,7 @@ function fixedNow(): Date {
 }
 
 function writeDxConfig(extra = "") {
-  writeFileSync(
+  writeText(
     join(projectRoot, "dx.config.toml"),
     `
 schemaVersion = 1
@@ -39,15 +40,15 @@ remotePatterns = ["github.com/example/*"]
 }
 
 beforeEach(() => {
-  tmpHome = join(tmpdir(), `kimi-cf-status-${Bun.randomUUIDv7()}`);
+  tmpHome = testTempDir("kimi-cf-status-");
   projectRoot = join(tmpHome, "kimi-toolchain");
-  mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
-  mkdirSync(projectRoot, { recursive: true });
+  makeDir(join(tmpHome, ".kimi-code"), { recursive: true });
+  makeDir(projectRoot, { recursive: true });
   writeDxConfig();
 });
 
 afterEach(() => {
-  if (existsSync(tmpHome)) rmSync(tmpHome, { recursive: true, force: true });
+  if (pathExists(tmpHome)) removePath(tmpHome, { recursive: true, force: true });
 });
 
 describe("cloudflare-integration-status", () => {

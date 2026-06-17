@@ -1,7 +1,8 @@
+import { makeDir, pathExists, readText, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { testTempDir } from "./helpers.ts";
 import {
   checkDxCloudflareConfig,
   DEFAULT_DX_CLOUDFLARE_CONFIG,
@@ -12,16 +13,16 @@ import {
 let projectDir: string;
 
 function writeProjectDxConfig(content: string): void {
-  writeFileSync(join(projectDir, "dx.config.toml"), content);
+  writeText(join(projectDir, "dx.config.toml"), content);
 }
 
 beforeEach(() => {
-  projectDir = join(tmpdir(), `kimi-dx-cloudflare-${Bun.randomUUIDv7()}`);
-  mkdirSync(projectDir, { recursive: true });
+  projectDir = testTempDir("kimi-dx-cloudflare-");
+  makeDir(projectDir, { recursive: true });
 });
 
 afterEach(() => {
-  if (existsSync(projectDir)) rmSync(projectDir, { recursive: true, force: true });
+  if (pathExists(projectDir)) removePath(projectDir, { recursive: true, force: true });
 });
 
 const VALID_DX_CONFIG = `
@@ -127,14 +128,11 @@ describe("dx-cloudflare-config", () => {
 
   test("project and scaffold dx configs keep the Cloudflare defaults in parity", () => {
     const projectConfig = parseDxCloudflareConfig(
-      Bun.TOML.parse(readFileSync(join(import.meta.dir, "..", "dx.config.toml"), "utf8"))
+      Bun.TOML.parse(readText(join(import.meta.dir, "..", "dx.config.toml")))
     );
     const scaffoldConfig = parseDxCloudflareConfig(
       Bun.TOML.parse(
-        readFileSync(
-          join(import.meta.dir, "..", "templates", "scaffold", "dx.config.app.toml"),
-          "utf8"
-        )
+        readText(join(import.meta.dir, "..", "templates", "scaffold", "dx.config.app.toml"))
       )
     );
 

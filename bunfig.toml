@@ -67,6 +67,9 @@ coveragePathIgnorePatterns = [
   "src/lib/proc-cache.ts",
   "src/lib/step-budget.ts",
   "src/lib/effect/errors.ts",
+  # Shared test utilities — covered indirectly by every test file
+  "test/helpers.ts",
+  "test/effect-helpers.ts",
 ]
 coverageReporter = ["text", "lcov"]
 coverageDir = "./coverage"

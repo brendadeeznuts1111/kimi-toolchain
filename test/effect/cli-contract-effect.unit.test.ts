@@ -7,36 +7,7 @@ import {
   createMachineWriterEffect,
   parseCliFlagsEffect,
 } from "../../src/lib/effect/cli-contract-effect.ts";
-
-function captureStdout(): { data: string[]; restore: () => void } {
-  const original = process.stdout.write.bind(process.stdout);
-  const data: string[] = [];
-  process.stdout.write = (chunk: string | Uint8Array) => {
-    data.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
-    return true;
-  };
-  return {
-    data,
-    restore: () => {
-      process.stdout.write = original;
-    },
-  };
-}
-
-function captureStderr(): { data: string[]; restore: () => void } {
-  const originalError = console.error.bind(console);
-  const originalWarn = console.warn.bind(console);
-  const data: string[] = [];
-  console.error = (msg: string) => data.push(msg);
-  console.warn = (msg: string) => data.push(msg);
-  return {
-    data,
-    restore: () => {
-      console.error = originalError;
-      console.warn = originalWarn;
-    },
-  };
-}
+import { captureStdout, captureStderr } from "../helpers.ts";
 
 describe("cli-contract-effect", () => {
   test("parseCliFlagsEffect succeeds with parsed flags", async () => {
@@ -89,12 +60,12 @@ describe("cli-contract-effect", () => {
 
       const jsonMode = await Effect.runPromise(program);
       expect(jsonMode).toBe(true);
-      expect(stdout.data).toHaveLength(1);
-      expect(stdout.data[0]).toBe(
+      expect(stdout.lines).toHaveLength(1);
+      expect(stdout.lines[0]).toBe(
         inspectAgent({ ok: true, schemaVersion: 1, tool: "kimi-test" }) + "\n"
       );
-      expect(stderr.data).toContain("  ✗ visible error");
-      expect(stderr.data).not.toContain("suppressed info");
+      expect(stderr.lines).toContain("  ✗ visible error");
+      expect(stderr.lines).not.toContain("suppressed info");
     } finally {
       stdout.restore();
       stderr.restore();
@@ -113,9 +84,9 @@ describe("cli-contract-effect", () => {
 
       const jsonMode = await Effect.runPromise(program);
       expect(jsonMode).toBe(true);
-      expect(stdout.data).toHaveLength(1);
-      expect(stdout.data[0]).toBe(inspectAgent({ tool: "kimi-test", schemaVersion: 1 }) + "\n");
-      expect(stderr.data).toHaveLength(0);
+      expect(stdout.lines).toHaveLength(1);
+      expect(stdout.lines[0]).toBe(inspectAgent({ tool: "kimi-test", schemaVersion: 1 }) + "\n");
+      expect(stderr.lines).toHaveLength(0);
     } finally {
       stdout.restore();
       stderr.restore();

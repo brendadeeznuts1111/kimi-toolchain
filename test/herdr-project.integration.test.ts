@@ -1,14 +1,16 @@
+import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { homedir, tmpdir } from "node:os";
+import { join } from "path";
+import { homedir } from "os";
 import { invokeTool } from "../src/lib/tool-runner.ts";
 
+import { testTempDir } from "./helpers.ts";
 const REPO_HERDR_PROJECT = join(import.meta.dir, "..", "src", "bin", "herdr-project.ts");
 
 function herdrProjectTool(): string {
   const desktop = join(homedir(), ".kimi-code", "tools", "herdr-project.ts");
-  return existsSync(desktop) ? desktop : REPO_HERDR_PROJECT;
+  return pathExists(desktop) ? desktop : REPO_HERDR_PROJECT;
 }
 
 function herdrProjectWrapper(): string {
@@ -35,9 +37,9 @@ describe("herdr-project integration", () => {
   let projectRoot: string;
 
   beforeEach(() => {
-    projectRoot = join(tmpdir(), `herdr-project-integration-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(projectRoot, ".dx"), { recursive: true });
-    writeFileSync(
+    projectRoot = testTempDir("herdr-project-integration-");
+    makeDir(join(projectRoot, ".dx"), { recursive: true });
+    writeText(
       join(projectRoot, ".dx/herdr.toml"),
       `schemaVersion = 1
 enabled = true
@@ -50,12 +52,12 @@ bootstrap = ["echo herdr-bootstrap-ok"]
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    removePath(projectRoot, { recursive: true, force: true });
   });
 
   test("requires herdr-project tool and PATH wrapper", () => {
-    expect(existsSync(herdrProjectTool())).toBe(true);
-    expect(existsSync(herdrProjectWrapper())).toBe(true);
+    expect(pathExists(herdrProjectTool())).toBe(true);
+    expect(pathExists(herdrProjectWrapper())).toBe(true);
   });
 
   test("has-config exits 0 for flat .dx/herdr.toml", async () => {

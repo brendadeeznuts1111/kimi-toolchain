@@ -1,9 +1,11 @@
+import { makeDir, removePath } from "../../src/lib/bun-io.ts";
+
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { invokeTool } from "../../src/lib/tool-runner.ts";
 
-const REPO_ROOT = join(import.meta.dir, "../..");
+import { REPO_ROOT } from "../helpers.ts";
+
 const IDENTITY = join(REPO_ROOT, "src/bin/kimi-identity.ts");
 
 const DX_CONFIG = `
@@ -39,9 +41,9 @@ async function setupFixture(): Promise<{ home: string; repo: string; key: string
   const home = join(REPO_ROOT, `.tmp-identity-home-${Date.now()}`);
   const repo = join(home, "repo");
   const key = join(home, ".ssh", "id_ed25519");
-  mkdirSync(join(home, ".config", "dx"), { recursive: true });
-  mkdirSync(join(home, ".ssh"), { recursive: true });
-  mkdirSync(repo, { recursive: true });
+  makeDir(join(home, ".config", "dx"), { recursive: true });
+  makeDir(join(home, ".ssh"), { recursive: true });
+  makeDir(repo, { recursive: true });
   await Bun.write(join(home, ".config", "dx", "global-config.toml"), DX_CONFIG);
   await Bun.write(key, "not-a-real-key\n");
   await runGit(repo, ["init"]);
@@ -129,7 +131,7 @@ describe("kimi-identity smoke", () => {
       expect(signed.exitCode).toBe(0);
       expect(JSON.parse(signed.stdout).profile.signingKey).toBe("ABC123");
     } finally {
-      rmSync(fixture.home, { recursive: true, force: true });
+      removePath(fixture.home, { recursive: true, force: true });
     }
   }, 30_000);
 });

@@ -1,10 +1,11 @@
+import { makeDir, removePath } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
-import { join, resolve } from "path";
+import { join } from "path";
 import { desktopRoot } from "../src/lib/paths.ts";
 import { syncDesktop } from "../src/lib/desktop-sync.ts";
 
-const REPO_ROOT = resolve(import.meta.dir, "..");
+import { REPO_ROOT } from "./helpers.ts";
 const META = join(REPO_ROOT, "src/bin/kimi-toolchain.ts");
 const DOCTOR = join(REPO_ROOT, "src/bin/kimi-doctor.ts");
 
@@ -16,7 +17,7 @@ async function run(
     cwd: REPO_ROOT,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...Bun.env, HOME: process.env.HOME || "/tmp" },
+    env: { ...Bun.env, HOME: Bun.env.HOME || "/tmp" },
   });
   const exitCode = await proc.exited;
   const stdout = await Bun.readableStreamToText(proc.stdout);
@@ -56,7 +57,7 @@ describe("kimi-toolchain router", () => {
   test("synced meta workspace verify resolves caller project root", async () => {
     const previousHome = Bun.env.HOME;
     const tmpHome = join(REPO_ROOT, `.tmp-router-home-${Date.now()}`);
-    mkdirSync(tmpHome, { recursive: true });
+    makeDir(tmpHome, { recursive: true });
     Bun.env.HOME = tmpHome;
     try {
       await syncDesktop(REPO_ROOT, { force: true });
@@ -75,7 +76,7 @@ describe("kimi-toolchain router", () => {
     } finally {
       if (previousHome) Bun.env.HOME = previousHome;
       else delete Bun.env.HOME;
-      rmSync(tmpHome, { recursive: true, force: true });
+      removePath(tmpHome, { recursive: true, force: true });
     }
   }, 15_000);
 });

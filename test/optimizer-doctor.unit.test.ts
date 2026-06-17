@@ -1,9 +1,10 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { DECISION_SCHEMA_VERSION } from "../src/lib/decision-ledger.ts";
 import { decisionsNdjsonPath } from "../src/lib/paths.ts";
+import { testTempDir } from "./helpers.ts";
 import {
   applyConfidenceDecayWithBreakdown,
   buildOptimizerApplyPlan,
@@ -32,8 +33,8 @@ describe("optimizer-doctor", () => {
   function writeProject(files: Record<string, string>): void {
     for (const [path, content] of Object.entries(files)) {
       const fullPath = join(projectDir, path);
-      mkdirSync(fullPath.split("/").slice(0, -1).join("/"), { recursive: true });
-      writeFileSync(fullPath, content);
+      makeDir(fullPath.split("/").slice(0, -1).join("/"), { recursive: true });
+      writeText(fullPath, content);
     }
   }
 
@@ -67,11 +68,11 @@ declare const ${constantKey}: number;
 `,
       "package.json": JSON.stringify({ name: "demo" }),
     });
-    mkdirSync(join(projectDir, ".kimi", "var"), { recursive: true });
+    makeDir(join(projectDir, ".kimi", "var"), { recursive: true });
   }
 
   function writeGolden(value: number): void {
-    writeFileSync(
+    writeText(
       constantsGoldenPath(projectDir),
       `${JSON.stringify({
         schemaVersion: GOLDEN_SCHEMA_VERSION,
@@ -106,7 +107,7 @@ declare const ${constantKey}: number;
       },
     };
     const lines = [repairDecision, ...extraDecisions].map((item) => JSON.stringify(item));
-    writeFileSync(decisionsNdjsonPath(projectDir), `${lines.join("\n")}\n`);
+    writeText(decisionsNdjsonPath(projectDir), `${lines.join("\n")}\n`);
   }
 
   function writeFailures(before: number, after: number, worsened = false): void {
@@ -134,11 +135,11 @@ declare const ${constantKey}: number;
         })
       );
     }
-    writeFileSync(failurePath, `${lines.join("\n")}\n`);
+    writeText(failurePath, `${lines.join("\n")}\n`);
   }
 
   test("optimizer surfaces info when candidate exists but no drift", async () => {
-    projectDir = join(tmpdir(), `optimizer-doctor-info-candidate-${Date.now()}`);
+    projectDir = testTempDir("optimizer-doctor-info-candidate-");
     failurePath = join(projectDir, "failures.jsonl");
     writeBaseProject("500");
     writeGolden(500);
@@ -177,11 +178,11 @@ declare const ${constantKey}: number;
     const detail = formatOptimizerDoctorDetailLines(recommendations[0]!);
     expect(detail.join("\n")).toContain("Candidate: 450");
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   test("optimizer surfaces warn when drift + high confidence", async () => {
-    projectDir = join(tmpdir(), `optimizer-doctor-warn-drift-${Date.now()}`);
+    projectDir = testTempDir("optimizer-doctor-warn-drift-");
     failurePath = join(projectDir, "failures.jsonl");
     writeBaseProject("600");
     writeGolden(500);
@@ -203,11 +204,11 @@ declare const ${constantKey}: number;
     const detail = formatOptimizerDoctorDetailLines(recommendations[0]!);
     expect(detail.join("\n")).toContain("Drift: +20%");
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   test("optimizer surfaces error when critical drift + failure rate up", async () => {
-    projectDir = join(tmpdir(), `optimizer-doctor-error-rollback-${Date.now()}`);
+    projectDir = testTempDir("optimizer-doctor-error-rollback-");
     failurePath = join(projectDir, "failures.jsonl");
     writeBaseProject("1000");
     writeGolden(500);
@@ -230,11 +231,11 @@ declare const ${constantKey}: number;
     expect(detail.join("\n")).toContain("Drift: +100%");
     expect(detail.join("\n")).toContain("repair-constants --dry-run");
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   test("machine checks expose structured optimizer metadata", async () => {
-    projectDir = join(tmpdir(), `optimizer-doctor-machine-${Date.now()}`);
+    projectDir = testTempDir("optimizer-doctor-machine-");
     failurePath = join(projectDir, "failures.jsonl");
     writeBaseProject("1000");
     writeGolden(500);
@@ -264,7 +265,7 @@ declare const ${constantKey}: number;
     const machine = optimizerRecommendationToMachineCheck(recommendations[0]!);
     expect(machine.constant).toBe(constantKey);
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   test("pure formatter and JSON recommendation expose operator review details", () => {

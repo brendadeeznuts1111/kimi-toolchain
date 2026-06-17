@@ -1,10 +1,10 @@
+import { makeDir, pathExists, removePath } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { getPersistentWarnings, recordDoctorRun } from "../src/lib/doctor-runs.ts";
 
-const REPO_ROOT = import.meta.dir + "/..";
-
+import { REPO_ROOT } from "./helpers.ts";
 describe("doctor-runs", () => {
   let prevHome: string | undefined;
   let testHome: string;
@@ -12,13 +12,13 @@ describe("doctor-runs", () => {
   beforeEach(() => {
     prevHome = Bun.env.HOME;
     testHome = join(REPO_ROOT, `.tmp-doctor-${Date.now()}`);
-    mkdirSync(testHome, { recursive: true });
+    makeDir(testHome, { recursive: true });
     Bun.env.HOME = testHome;
   });
 
   afterEach(() => {
     if (prevHome) Bun.env.HOME = prevHome;
-    if (testHome && existsSync(testHome)) rmSync(testHome, { recursive: true, force: true });
+    if (testHome && pathExists(testHome)) removePath(testHome, { recursive: true, force: true });
   });
 
   test("recordDoctorRun inserts new warning trend", () => {

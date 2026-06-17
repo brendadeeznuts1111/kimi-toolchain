@@ -1,6 +1,8 @@
+import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
+import { REPO_ROOT } from "./helpers.ts";
 import {
   ensureQualityTooling,
   injectMissingScripts,
@@ -8,7 +10,6 @@ import {
 } from "../src/lib/scaffold-quality.ts";
 import { REQUIRED_PACKAGE_SCRIPT_ENTRIES } from "../src/lib/scaffold-templates.ts";
 
-const REPO_ROOT = import.meta.dir + "/..";
 const INSTALLED_DEV_DEPS = {
   "@types/bun": "*",
   oxfmt: "*",
@@ -23,19 +24,19 @@ describe("scaffold-quality", () => {
 
   beforeEach(() => {
     tmpDir = join(REPO_ROOT, `.tmp-test-scaffold-quality-${Date.now()}`);
-    mkdirSync(tmpDir, { recursive: true });
+    makeDir(tmpDir, { recursive: true });
     logs.length = 0;
   });
 
   afterEach(() => {
-    if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true });
+    if (pathExists(tmpDir)) removePath(tmpDir, { recursive: true, force: true });
   });
 
   // ── Pure function: injectMissingScripts (no network, no devDeps needed) ──
 
   describe("injectMissingScripts", () => {
     test("adds missing scripts — no devDeps required", async () => {
-      writeFileSync(
+      writeText(
         join(tmpDir, "package.json"),
         JSON.stringify({ name: "test-project", scripts: {} }, null, 2)
       );
@@ -47,7 +48,7 @@ describe("scaffold-quality", () => {
     });
 
     test("preserves existing scripts", async () => {
-      writeFileSync(
+      writeText(
         join(tmpDir, "package.json"),
         JSON.stringify(
           { name: "test-project", scripts: { test: "bun test", start: "bun run index.ts" } },
@@ -66,7 +67,7 @@ describe("scaffold-quality", () => {
     });
 
     test("dryRun does not write", async () => {
-      writeFileSync(
+      writeText(
         join(tmpDir, "package.json"),
         JSON.stringify({ name: "test-project", scripts: {} }, null, 2)
       );
@@ -83,7 +84,7 @@ describe("scaffold-quality", () => {
 
   describe("installMissingDeps", () => {
     test("logs missing deps without installing (dryRun)", async () => {
-      writeFileSync(
+      writeText(
         join(tmpDir, "package.json"),
         JSON.stringify({ name: "test-project", devDependencies: {} }, null, 2)
       );
@@ -99,7 +100,7 @@ describe("scaffold-quality", () => {
     });
 
     test("skips when all deps present", async () => {
-      writeFileSync(
+      writeText(
         join(tmpDir, "package.json"),
         JSON.stringify({ name: "test-project", devDependencies: INSTALLED_DEV_DEPS }, null, 2)
       );
@@ -113,7 +114,7 @@ describe("scaffold-quality", () => {
   // ── Integration: ensureQualityTooling (scripts + dep check) ──
 
   test("adds missing scripts to package.json", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify(
         { name: "test-project", scripts: {}, devDependencies: INSTALLED_DEV_DEPS },
@@ -135,7 +136,7 @@ describe("scaffold-quality", () => {
       typecheck: "tsc --noEmit",
       format: "prettier --write .",
     };
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify(
         { name: "test-project", scripts: existingScripts, devDependencies: INSTALLED_DEV_DEPS },
@@ -157,7 +158,7 @@ describe("scaffold-quality", () => {
     const allScripts: Record<string, string> = Object.fromEntries(
       Object.keys(REQUIRED_PACKAGE_SCRIPT_ENTRIES).map((key) => [key, `custom ${key}`])
     );
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify(
         { name: "test-project", scripts: allScripts, devDependencies: INSTALLED_DEV_DEPS },
@@ -175,7 +176,7 @@ describe("scaffold-quality", () => {
   });
 
   test("dryRun does not write changes", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify({ name: "test-project", scripts: {}, devDependencies: {} }, null, 2)
     );
@@ -188,7 +189,7 @@ describe("scaffold-quality", () => {
   });
 
   test("dryRun logs missing deps without installing (integration)", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify(
         { name: "test-project", scripts: {}, devDependencies: { typescript: "*" } },

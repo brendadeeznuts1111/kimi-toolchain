@@ -1,5 +1,8 @@
+import { makeDir, pathExists } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test } from "bun:test";
 import { checkGovernance } from "../src/lib/governance-check.ts";
+import { REPO_ROOT } from "./helpers.ts";
 import {
   generateReadme,
   generateLicense,
@@ -9,14 +12,10 @@ import {
 import { parseCommit, determineBump, bumpVersion } from "../src/lib/conventional-commits.ts";
 import { commitsToSection, formatSection, updateChangelog } from "../src/lib/changelog.ts";
 import { join } from "path";
-import { existsSync, mkdirSync } from "fs";
-
-const REPO_ROOT = import.meta.dir + "/..";
-
 function tmpDir(name: string): string {
   const ts = Date.now();
   const dir = join(REPO_ROOT, `.tmp-test-${name}-${ts}`);
-  mkdirSync(dir, { recursive: true });
+  makeDir(dir, { recursive: true });
   return dir;
 }
 
@@ -109,7 +108,7 @@ describe("checkGovernance", () => {
 
   test("CODEOWNERS parsing from .github/CODEOWNERS", async () => {
     const dir = tmpDir("gov-gh-codeowners");
-    mkdirSync(join(dir, ".github"), { recursive: true });
+    makeDir(join(dir, ".github"), { recursive: true });
     await writeFile(
       join(dir, ".github", "CODEOWNERS"),
       "# Comment\n* @alice @bob\n/src @carol-doe\n"
@@ -122,7 +121,7 @@ describe("checkGovernance", () => {
 
   test("CODEOWNERS parsing from docs/CODEOWNERS", async () => {
     const dir = tmpDir("gov-docs-codeowners");
-    mkdirSync(join(dir, "docs"), { recursive: true });
+    makeDir(join(dir, "docs"), { recursive: true });
     await writeFile(join(dir, "docs", "CODEOWNERS"), "* @team-lead\n");
     const result = await checkGovernance(dir);
     expect(result.hasCodeowners).toBe(true);
@@ -175,10 +174,10 @@ describe("generateLicense", () => {
 describe("scaffoldAdr", () => {
   test("creates file with correct naming pattern", async () => {
     const dir = tmpDir("adr");
-    const ensureDir = (d: string) => mkdirSync(d, { recursive: true });
+    const ensureDir = (d: string) => makeDir(d, { recursive: true });
     const path = await scaffoldAdr(dir, "Use Bun Runtime", ensureDir);
     expect(path).toMatch(/0001-use-bun-runtime\.md$/);
-    expect(existsSync(path)).toBe(true);
+    expect(pathExists(path)).toBe(true);
     const content = await Bun.file(path).text();
     expect(content).toContain("# Use Bun Runtime");
     expect(content).toContain("status: proposed");
@@ -187,7 +186,7 @@ describe("scaffoldAdr", () => {
 
   test("increments number for existing ADRs", async () => {
     const dir = tmpDir("adr-multi");
-    const ensureDir = (d: string) => mkdirSync(d, { recursive: true });
+    const ensureDir = (d: string) => makeDir(d, { recursive: true });
     await scaffoldAdr(dir, "First Decision", ensureDir);
     const path = await scaffoldAdr(dir, "Second Decision", ensureDir);
     expect(path).toMatch(/0002-second-decision\.md$/);

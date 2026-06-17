@@ -1,7 +1,8 @@
+import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, it } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { testTempDir } from "./helpers.ts";
 import {
   applyDefineRepairs,
   buildConstantRepairPlan,
@@ -18,21 +19,19 @@ import {
 } from "../src/lib/constants-heal.ts";
 import { loadRepoDefineMap } from "../src/lib/build-constants-registry.ts";
 import { constantsGoldenArchiveDir } from "../src/lib/paths.ts";
-import { existsSync } from "fs";
-
 describe("constantsHeal", () => {
   let projectDir: string;
 
   function writeProject(files: Record<string, string>): void {
     for (const [path, content] of Object.entries(files)) {
       const fullPath = join(projectDir, path);
-      mkdirSync(fullPath.split("/").slice(0, -1).join("/"), { recursive: true });
-      writeFileSync(fullPath, content);
+      makeDir(fullPath.split("/").slice(0, -1).join("/"), { recursive: true });
+      writeText(fullPath, content);
     }
   }
 
   it("should capture and persist golden template", async () => {
-    projectDir = join(tmpdir(), `constants-heal-${Date.now()}`);
+    projectDir = testTempDir("constants-heal-");
     writeProject({
       "bunfig.toml": `
 [define]
@@ -51,11 +50,11 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
     const loaded = await loadConstantsGolden(projectDir);
     expect(loaded?.constants.KIMI_HOOK_VERIFIER_MAX_CYCLES?.rawValue).toBe('"32"');
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   it("should detect missing and invalid define keys", async () => {
-    projectDir = join(tmpdir(), `constants-heal-diff-${Date.now()}`);
+    projectDir = testTempDir("constants-heal-diff-");
     writeProject({
       "bunfig.toml": `
 [define]
@@ -74,7 +73,7 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
     };
     await writeConstantsGolden(projectDir, golden);
 
-    writeFileSync(
+    writeText(
       join(projectDir, "bunfig.toml"),
       `
 [define]
@@ -90,11 +89,11 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "99"
     );
     expect(plan.diff.missingKeys).toContain("KIMI_CONTRACT_INFERENCE_ENABLED");
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   it("should repair bunfig from golden template", async () => {
-    projectDir = join(tmpdir(), `constants-heal-repair-${Date.now()}`);
+    projectDir = testTempDir("constants-heal-repair-");
     writeProject({
       "bunfig.toml": `
 [define]
@@ -106,7 +105,7 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
     });
 
     await writeConstantsGolden(projectDir);
-    writeFileSync(
+    writeText(
       join(projectDir, "bunfig.toml"),
       `
 [define]
@@ -126,11 +125,11 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "64"
     expect(current.get("KIMI_HOOK_VERIFIER_MAX_CYCLES")?.value).toBe(32);
     expect(current.get("KIMI_TUNING_SET_VERSION")?.value).toBe("1.0.0");
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   it("should suppress duplicate repair decisions within one hour", async () => {
-    projectDir = join(tmpdir(), `constants-heal-dedupe-${Date.now()}`);
+    projectDir = testTempDir("constants-heal-dedupe-");
     writeProject({
       "bunfig.toml": `
 [define]
@@ -151,7 +150,7 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
     });
 
     await writeConstantsGolden(projectDir);
-    writeFileSync(
+    writeText(
       join(projectDir, "bunfig.toml"),
       `
 [define]
@@ -162,7 +161,7 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "64"
 
     const first = await repairConstants({ projectRoot: projectDir, dryRun: false });
     expect(first.decisionId).toStartWith("dec-");
-    writeFileSync(
+    writeText(
       join(projectDir, "bunfig.toml"),
       `
 [define]
@@ -175,11 +174,11 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "64"
     expect(second.decisionId).toBeUndefined();
     expect(second.duplicateDecisionId).toBe(first.decisionId);
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   it("should validate golden constants against schema before repair", async () => {
-    projectDir = join(tmpdir(), `constants-heal-validation-${Date.now()}`);
+    projectDir = testTempDir("constants-heal-validation-");
     writeProject({
       "bunfig.toml": `
 [define]
@@ -214,11 +213,11 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
       "Invalid golden constant"
     );
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   it("should preserve snapshot messages and compute repair hashes", async () => {
-    projectDir = join(tmpdir(), `constants-heal-message-${Date.now()}`);
+    projectDir = testTempDir("constants-heal-message-");
     writeProject({
       "bunfig.toml": `
 [define]
@@ -244,11 +243,11 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
     expect(hashes).toHaveLength(1);
     expect(hashes[0]).toMatch(/^[a-f0-9]{16}$/);
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   it("should preview repair impact from bound taxonomies and active failures", async () => {
-    projectDir = join(tmpdir(), `constants-heal-impact-${Date.now()}`);
+    projectDir = testTempDir("constants-heal-impact-");
     writeProject({
       "error-taxonomy.yml": `
 version: 2
@@ -304,7 +303,7 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
     expect(impact[0]?.servicesAffected).toEqual(["kimi-guardian"]);
     expect(impact[0]?.estimatedRisk).toBe("medium");
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   it("should apply define repairs with domain comments for missing keys", () => {
@@ -374,7 +373,7 @@ preload = []
   });
 
   it("should archive prior golden on snapshot and support restore", async () => {
-    projectDir = join(tmpdir(), `constants-heal-archive-${Date.now()}`);
+    projectDir = testTempDir("constants-heal-archive-");
     writeProject({
       "bunfig.toml": `
 [define]
@@ -386,7 +385,7 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
     });
 
     const first = await writeConstantsGolden(projectDir);
-    writeFileSync(
+    writeText(
       join(projectDir, "bunfig.toml"),
       `
 [define]
@@ -399,7 +398,7 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
     await writeConstantsGolden(projectDir);
 
     const archiveDir = constantsGoldenArchiveDir(projectDir);
-    expect(existsSync(archiveDir)).toBe(true);
+    expect(pathExists(archiveDir)).toBe(true);
     const archives = await listGoldenArchives(projectDir);
     expect(archives.length).toBeGreaterThanOrEqual(1);
 
@@ -412,6 +411,6 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
     const restored = await loadConstantsGolden(projectDir);
     expect(restored?.constants.KIMI_HOOK_VERIFIER_MAX_CYCLES?.value).toBe(32);
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 });

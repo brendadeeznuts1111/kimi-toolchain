@@ -1,7 +1,8 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { REPO_ROOT, testTempDir } from "./helpers.ts";
 import {
   CANONICAL_REFERENCES_SCHEMA_VERSION,
   ECOSYSTEM_REFERENCES,
@@ -17,8 +18,6 @@ import {
   manifestNeedsRefresh,
   referencesContentEqual,
 } from "../src/lib/canonical-references.ts";
-
-const REPO_ROOT = import.meta.dir + "/..";
 
 describe("canonical-references", () => {
   test("ecosystem includes bun, effect, kimi-code, herdr", () => {
@@ -68,10 +67,10 @@ describe("canonical-references", () => {
   });
 
   test("auditCanonicalReferencesHealth passes for aligned repo + runtime", async () => {
-    const tmpHome = join(tmpdir(), `refs-health-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
+    const tmpHome = testTempDir("refs-health-");
+    makeDir(join(tmpHome, ".kimi-code"), { recursive: true });
     const manifest = buildCanonicalReferencesManifest();
-    writeFileSync(
+    writeText(
       join(tmpHome, ".kimi-code", "canonical-references.json"),
       JSON.stringify(manifest, null, 2)
     );
@@ -83,14 +82,14 @@ describe("canonical-references", () => {
     expect(report.checks.find((c) => c.name === "repo-fresh")?.status).toBe("ok");
     expect(report.checks.find((c) => c.name === "runtime-aligned")?.status).toBe("ok");
 
-    rmSync(tmpHome, { recursive: true, force: true });
+    removePath(tmpHome, { recursive: true, force: true });
   });
 
   test("auditCanonicalReferencesHealth detects runtime drift", async () => {
-    const tmpHome = join(tmpdir(), `refs-drift-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
+    const tmpHome = testTempDir("refs-drift-");
+    makeDir(join(tmpHome, ".kimi-code"), { recursive: true });
     const drifted = { ...buildCanonicalReferencesManifest(), ecosystem: [] };
-    writeFileSync(
+    writeText(
       join(tmpHome, ".kimi-code", "canonical-references.json"),
       JSON.stringify(drifted, null, 2)
     );
@@ -101,7 +100,7 @@ describe("canonical-references", () => {
     expect(report.checks.find((c) => c.name === "runtime-aligned")?.status).toBe("error");
     expect(report.fixPlan).toContain("bun run sync");
 
-    rmSync(tmpHome, { recursive: true, force: true });
+    removePath(tmpHome, { recursive: true, force: true });
   });
 
   test("referencesContentEqual ignores generatedAt", () => {
@@ -111,9 +110,9 @@ describe("canonical-references", () => {
   });
 
   test("evaluateProbeHandoffCondition passes for runtime-aligned", async () => {
-    const tmpHome = join(tmpdir(), `probe-handoff-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
-    writeFileSync(
+    const tmpHome = testTempDir("probe-handoff-");
+    makeDir(join(tmpHome, ".kimi-code"), { recursive: true });
+    writeText(
       join(tmpHome, ".kimi-code", "canonical-references.json"),
       JSON.stringify(buildCanonicalReferencesManifest(), null, 2)
     );
@@ -125,7 +124,7 @@ describe("canonical-references", () => {
     );
     expect(result.ok).toBe(true);
 
-    rmSync(tmpHome, { recursive: true, force: true });
+    removePath(tmpHome, { recursive: true, force: true });
   });
 
   test("resolveProbeHealthCheck maps runtime-aligned to runtime-cache prerequisite", () => {
@@ -168,8 +167,8 @@ describe("canonical-references", () => {
   });
 
   test("evaluateProbeHandoffCondition surfaces sync fix when runtime cache missing", async () => {
-    const tmpHome = join(tmpdir(), `probe-missing-cache-${Bun.randomUUIDv7()}`);
-    mkdirSync(tmpHome, { recursive: true });
+    const tmpHome = testTempDir("probe-missing-cache-");
+    makeDir(tmpHome, { recursive: true });
 
     const result = await evaluateProbeHandoffCondition(
       "canonical-references:runtime-aligned",
@@ -181,13 +180,13 @@ describe("canonical-references", () => {
     expect(result.message).toContain("runtime cache missing");
     expect(result.message).toContain("bun run sync");
 
-    rmSync(tmpHome, { recursive: true, force: true });
+    removePath(tmpHome, { recursive: true, force: true });
   });
 
   test("evaluateProbeHandoffCondition passes runtime-cache when cache file exists", async () => {
-    const tmpHome = join(tmpdir(), `probe-cache-exists-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
-    writeFileSync(
+    const tmpHome = testTempDir("probe-cache-exists-");
+    makeDir(join(tmpHome, ".kimi-code"), { recursive: true });
+    writeText(
       join(tmpHome, ".kimi-code", "canonical-references.json"),
       JSON.stringify(buildCanonicalReferencesManifest(), null, 2)
     );
@@ -199,6 +198,6 @@ describe("canonical-references", () => {
     );
     expect(result.ok).toBe(true);
 
-    rmSync(tmpHome, { recursive: true, force: true });
+    removePath(tmpHome, { recursive: true, force: true });
   });
 });

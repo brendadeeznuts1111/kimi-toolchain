@@ -4,8 +4,8 @@
  * that should be parsed through src/lib/cli-contract.ts.
  */
 
-import { readdirSync, readFileSync } from "fs";
 import { join } from "path";
+import { listDir } from "../src/lib/bun-io.ts";
 
 const BIN_DIR = join(import.meta.dir, "..", "src", "bin");
 
@@ -24,13 +24,13 @@ const COMMON_FLAGS = [
   'process.argv.includes("--step-budget")',
 ];
 
-function main(): number {
-  const files = readdirSync(BIN_DIR).filter((name) => name.endsWith(".ts"));
+async function main(): Promise<number> {
+  const files = listDir(BIN_DIR).filter((name) => name.endsWith(".ts"));
   let violations = 0;
 
   for (const file of files) {
     const path = join(BIN_DIR, file);
-    const source = readFileSync(path, "utf8");
+    const source = await Bun.file(path).text();
 
     for (const pattern of COMMON_FLAGS) {
       if (source.includes(pattern)) {
@@ -50,4 +50,4 @@ function main(): number {
   return 1;
 }
 
-process.exit(main());
+process.exit(await main());

@@ -12,7 +12,7 @@ import { pathExists } from "./bun-io.ts";
 import { Effect } from "effect";
 import { join } from "path";
 import type { AdapterOutput, ExternalToolAdapter } from "./doctor-adapter-types.ts";
-import { invokeCommand } from "./tool-runner.ts";
+import { invokeCommandEffect } from "./effect/tool-runner-effect.ts";
 import { oxlintAdapter } from "./doctor-adapters/oxlint.ts";
 import { tscAdapter } from "./doctor-adapters/tsc.ts";
 import { effectGatesAdapter } from "./doctor-adapters/effect-gates.ts";
@@ -83,47 +83,38 @@ export function runExternalToolAdapterEffect(
     resolveExecutable(adapter.command[0]!, projectRoot),
     ...adapter.command.slice(1),
   ];
-  return Effect.tryPromise({
-    try: () =>
-      invokeCommand(resolvedCommand, {
-        cwd: projectRoot,
-        timeoutMs,
-        maxOutputBytes: options.maxOutputBytes,
-        timeoutError: () => `adapter ${name} timed out after ${timeoutMs}ms`,
-      }),
-    catch: (e) =>
-      ({
-        adapterName: adapter.name,
-        durationMs: 0,
-        checks: [
-          {
-            name: adapter.name,
-            status: "error",
-            message: `adapter ${adapter.name} failed: ${e instanceof Error ? e.message : String(e)}`,
-            fixable: false,
-            category: "doctor_adapter_failed",
-          },
-        ],
-      }) as AdapterOutput,
+  return invokeCommandEffect(resolvedCommand, {
+    cwd: projectRoot,
+    tool: adapter.name,
+    timeoutMs,
+    maxOutputBytes: options.maxOutputBytes,
+    timeoutError: () => `adapter ${name} timed out after ${timeoutMs}ms`,
   }).pipe(
-    Effect.flatMap((result) => {
-      if (result.timedOut) {
+    Effect.matchEffect({
+      onFailure: (error) => {
+        const message =
+          error._tag === "ToolTimeout"
+            ? `adapter ${adapter.name} timed out after ${error.timeoutMs}ms`
+            : error._tag === "ToolNotFound"
+              ? `adapter command not found: ${error.tool}`
+              : error.stderr || `adapter ${adapter.name} failed`;
+        const category =
+          error._tag === "ToolTimeout" ? "doctor_adapter_timeout" : "doctor_adapter_failed";
         return Effect.succeed<AdapterOutput>({
           adapterName: adapter.name,
-          durationMs: result.durationMs,
+          durationMs: 0,
           checks: [
             {
               name: adapter.name,
               status: "error",
-              message: `adapter ${adapter.name} timed out after ${result.timeoutMs}ms`,
+              message,
               fixable: false,
-              category: "doctor_adapter_timeout",
+              category,
             },
           ],
         });
-      }
-      return Effect.succeed(adapter.parse(result));
-    }),
-    Effect.catchAll((output) => Effect.succeed(output))
+      },
+      onSuccess: (result) => Effect.succeed(adapter.parse(result)),
+    })
   );
 }

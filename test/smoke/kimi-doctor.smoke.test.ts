@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
+import { REPO_ROOT, testTempDir } from "../helpers.ts";
+import { makeDir, removePath, writeText } from "../../src/lib/bun-io.ts";
 import { invokeTool } from "../../src/lib/tool-runner.ts";
 
-const REPO_ROOT = import.meta.dir + "/../..";
 const DOCTOR = join(REPO_ROOT, "src/bin/kimi-doctor.ts");
 const ORPHAN_KILL = join(REPO_ROOT, "src/bin/kimi-orphan-kill.ts");
 const GOVERNOR = join(REPO_ROOT, "src/bin/kimi-resource-governor.ts");
@@ -27,7 +27,7 @@ async function runTool(
   // For large expected outputs, redirect stdout to a temp file to work around
   // Bun pipe stream data loss on high-volume subprocess output.
   if (maxOutputBytes !== undefined && maxOutputBytes > 1_048_576) {
-    const tmpDir = mkdtempSync(join(REPO_ROOT, "node_modules", ".smoke-"));
+    const tmpDir = testTempDir("smoke");
     const tmpOut = join(tmpDir, "stdout.json");
     try {
       const proc = Bun.spawn(["bun", "run", path, ...args], {
@@ -40,7 +40,7 @@ async function runTool(
       const stdout = await Bun.file(tmpOut).text();
       return { stdout: stdout + stderr, exitCode };
     } finally {
-      rmSync(tmpDir, { recursive: true, force: true });
+      removePath(tmpDir, { recursive: true, force: true });
     }
   }
 
@@ -211,7 +211,7 @@ describe("kimi-doctor smoke", () => {
   test("kimi-debug ledger --json emits sanitized unknown buckets", async () => {
     const dir = join(REPO_ROOT, `.tmp-debug-ledger-${Date.now()}`);
     const ledgerPath = join(dir, "tool-failures.jsonl");
-    mkdirSync(dir, { recursive: true });
+    makeDir(dir, { recursive: true });
     await Bun.write(
       ledgerPath,
       [
@@ -242,7 +242,7 @@ describe("kimi-doctor smoke", () => {
     expect(report.summary.unknownBuckets).toHaveLength(2);
     expect(JSON.stringify(report)).not.toContain("raw failure text");
     expect(exitCode).toBe(0);
-    rmSync(dir, { recursive: true, force: true });
+    removePath(dir, { recursive: true, force: true });
   }, 15_000);
 
   test("check script uses check.ts runner", async () => {
@@ -532,7 +532,7 @@ describe("kimi-doctor smoke", () => {
         tool: string;
         checks: unknown[];
       };
-      expect(probeManifest.schemaVersion).toBe(1);
+      expect(probeManifest.schemaVersion).toBe(2);
       expect(probeManifest.tool).toBe("kimi-doctor");
       expect(Array.isArray(probeManifest.checks)).toBe(true);
       probeCallReceived = true;
@@ -590,14 +590,14 @@ describe("kimi-doctor smoke", () => {
   }, 60_000);
 
   test("doctor --plugin runs a project-local plugin via --project-root", async () => {
-    const tmpDir = mkdtempSync(join(REPO_ROOT, "node_modules", ".smoke-plugin-"));
-    mkdirSync(join(tmpDir, ".kimi"), { recursive: true });
+    const tmpDir = testTempDir("smoke");
+    makeDir(join(tmpDir, ".kimi"), { recursive: true });
     const pluginScript = join(tmpDir, "plugin.ts");
-    writeFileSync(
+    writeText(
       pluginScript,
       `console.log(JSON.stringify({ checks: [{ name: "smoke-plugin", status: "ok", message: "from plugin", fixable: false }] }));`
     );
-    writeFileSync(
+    writeText(
       join(tmpDir, ".kimi", "doctor-plugins.json"),
       JSON.stringify({
         schemaVersion: 1,
@@ -621,7 +621,7 @@ describe("kimi-doctor smoke", () => {
       expect(report.checks[0]?.status).toBe("ok");
       expect(exitCode).toBe(0);
     } finally {
-      rmSync(tmpDir, { recursive: true, force: true });
+      removePath(tmpDir, { recursive: true, force: true });
     }
   }, 15_000);
 });

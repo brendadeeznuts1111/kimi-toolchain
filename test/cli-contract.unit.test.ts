@@ -1,58 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { parseCliFlags, createMachineWriter, CliContractError } from "../src/lib/cli-contract.ts";
 import { inspectAgent } from "../src/lib/inspect.ts";
-
-function captureStdout(): { data: string[]; restore: () => void } {
-  const originalLog = console.log;
-  const originalWrite = process.stdout.write.bind(process.stdout);
-  const data: string[] = [];
-  console.log = (...args: unknown[]) => {
-    data.push(args.map((a) => (typeof a === "string" ? a : String(a))).join(" "));
-  };
-  process.stdout.write = (chunk: string | Uint8Array) => {
-    data.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
-    return true;
-  };
-  return {
-    data,
-    restore: () => {
-      console.log = originalLog;
-      process.stdout.write = originalWrite;
-    },
-  };
-}
-
-function captureStderr(): { data: string[]; restore: () => void } {
-  const original = console.error;
-  const originalWarn = console.warn;
-  const data: string[] = [];
-  console.error = (msg: string) => data.push(msg);
-  console.warn = (msg: string) => data.push(msg);
-  return {
-    data,
-    restore: () => {
-      console.error = original;
-      console.warn = originalWarn;
-    },
-  };
-}
-
-function captureStderrWrite(): { data: string[]; restore: () => void } {
-  const original = process.stderr.write.bind(process.stderr);
-  const data: string[] = [];
-  process.stderr.write = (chunk: string | Uint8Array, ...rest: unknown[]) => {
-    data.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
-    const callback = rest.find((r) => typeof r === "function") as (() => void) | undefined;
-    if (callback) callback();
-    return true;
-  };
-  return {
-    data,
-    restore: () => {
-      process.stderr.write = original;
-    },
-  };
-}
+import { captureStdout, captureStderr, captureStderrWrite } from "./helpers.ts";
 
 describe("cli-contract", () => {
   describe("parse-cli-flags", () => {
@@ -121,7 +70,7 @@ describe("cli-contract", () => {
       try {
         const flags = parseCliFlags(["bun", "kimi-doctor", "--timeout", "abc"], "kimi-doctor");
         expect(flags.timeout).toBeUndefined();
-        expect(stderr.data.join("\n")).toContain('Invalid --timeout value "abc"');
+        expect(stderr.lines.join("\n")).toContain('Invalid --timeout value "abc"');
       } finally {
         delete Bun.env.KIMI_TIMEOUT_MS;
         stderr.restore();
@@ -133,7 +82,7 @@ describe("cli-contract", () => {
       try {
         const flags = parseCliFlags(["bun", "kimi-doctor", "--timeout", "0"], "kimi-doctor");
         expect(flags.timeout).toBeUndefined();
-        expect(stderr.data.join("\n")).toContain('Invalid --timeout value "0"');
+        expect(stderr.lines.join("\n")).toContain('Invalid --timeout value "0"');
       } finally {
         stderr.restore();
       }
@@ -209,11 +158,11 @@ describe("cli-contract", () => {
           "test-tool"
         );
         writer.writeJson({ ok: true });
-        expect(stdout.data).toHaveLength(1);
-        expect(stdout.data[0]).toBe(
+        expect(stdout.lines).toHaveLength(1);
+        expect(stdout.lines[0]).toBe(
           inspectAgent({ schemaVersion: 1, tool: "test-tool", ok: true }) + "\n"
         );
-        expect(stderr.data).toHaveLength(0);
+        expect(stderr.lines).toHaveLength(0);
       } finally {
         stdout.restore();
         stderr.restore();
@@ -236,14 +185,14 @@ describe("cli-contract", () => {
           "test-tool"
         );
         writer.writeJsonl([{ a: 1 }, { b: 2 }]);
-        expect(stdout.data).toHaveLength(2);
-        expect(stdout.data[0]).toBe(
+        expect(stdout.lines).toHaveLength(2);
+        expect(stdout.lines[0]).toBe(
           inspectAgent({ schemaVersion: 1, tool: "test-tool", a: 1 }) + "\n"
         );
-        expect(stdout.data[1]).toBe(
+        expect(stdout.lines[1]).toBe(
           inspectAgent({ schemaVersion: 1, tool: "test-tool", b: 2 }) + "\n"
         );
-        expect(stderr.data).toHaveLength(0);
+        expect(stderr.lines).toHaveLength(0);
       } finally {
         stdout.restore();
         stderr.restore();
@@ -266,8 +215,8 @@ describe("cli-contract", () => {
           "test-tool"
         );
         writer.writeJsonSchema("health-report", { checks: [{ status: "ok" }] });
-        expect(stdout.data).toHaveLength(1);
-        expect(stdout.data[0]).toBe(
+        expect(stdout.lines).toHaveLength(1);
+        expect(stdout.lines[0]).toBe(
           inspectAgent({
             schemaVersion: 1,
             tool: "test-tool",
@@ -275,7 +224,7 @@ describe("cli-contract", () => {
             payload: { checks: [{ status: "ok" }] },
           }) + "\n"
         );
-        expect(stderr.data).toHaveLength(0);
+        expect(stderr.lines).toHaveLength(0);
       } finally {
         stdout.restore();
         stderr.restore();
@@ -304,23 +253,23 @@ describe("cli-contract", () => {
         writer.error("error line");
 
         // Every stdout line must carry the contract envelope in agent format.
-        expect(stdout.data).toHaveLength(2);
-        expect(stdout.data[0]).toBe(
+        expect(stdout.lines).toHaveLength(2);
+        expect(stdout.lines[0]).toBe(
           inspectAgent({ schemaVersion: 1, tool: "test-tool", stage: "start" }) + "\n"
         );
-        expect(stdout.data[1]).toBe(
+        expect(stdout.lines[1]).toBe(
           inspectAgent({ schemaVersion: 1, tool: "test-tool", stage: "middle" }) + "\n"
         );
 
         // Human output must not leak to stdout.
-        expect(stdout.data.some((line) => line.includes("info line"))).toBe(false);
-        expect(stdout.data.some((line) => line.includes("warn line"))).toBe(false);
-        expect(stdout.data.some((line) => line.includes("error line"))).toBe(false);
+        expect(stdout.lines.some((line) => line.includes("info line"))).toBe(false);
+        expect(stdout.lines.some((line) => line.includes("warn line"))).toBe(false);
+        expect(stdout.lines.some((line) => line.includes("error line"))).toBe(false);
 
         // Errors go to stderr; non-errors are suppressed in quiet/json mode.
-        expect(stderr.data).not.toContain("info line");
-        expect(stderr.data).not.toContain("warn line");
-        expect(stderr.data.some((line) => line.includes("error line"))).toBe(true);
+        expect(stderr.lines).not.toContain("info line");
+        expect(stderr.lines).not.toContain("warn line");
+        expect(stderr.lines.some((line) => line.includes("error line"))).toBe(true);
       } finally {
         stdout.restore();
         stderr.restore();
@@ -342,10 +291,10 @@ describe("cli-contract", () => {
         writer.info("info line");
         writer.warn("warn line");
         writer.error("error line");
-        expect(stderr.data).toHaveLength(0);
-        expect(stdout.data).toContain("  ✓ info line");
-        expect(stdout.data).toContain("  ⚠ warn line");
-        expect(stdout.data).toContain("  ✗ error line");
+        expect(stderr.lines).toHaveLength(0);
+        expect(stdout.lines).toContain("  ✓ info line");
+        expect(stdout.lines).toContain("  ⚠ warn line");
+        expect(stdout.lines).toContain("  ✗ error line");
       } finally {
         stdout.restore();
         stderr.restore();
@@ -367,10 +316,10 @@ describe("cli-contract", () => {
         writer.info("info line");
         writer.warn("warn line");
         writer.error("error line");
-        expect(stdout.data).toHaveLength(0);
-        expect(stderr.data).not.toContain("info line");
-        expect(stderr.data).not.toContain("warn line");
-        expect(stderr.data).toContain("  ✗ error line");
+        expect(stdout.lines).toHaveLength(0);
+        expect(stderr.lines).not.toContain("info line");
+        expect(stderr.lines).not.toContain("warn line");
+        expect(stderr.lines).toContain("  ✗ error line");
       } finally {
         stdout.restore();
         stderr.restore();
@@ -392,10 +341,10 @@ describe("cli-contract", () => {
         writer.info("info line");
         writer.warn("warn line");
         writer.error("error line");
-        expect(stdout.data).not.toContain("info line");
-        expect(stdout.data).not.toContain("warn line");
-        expect(stdout.data).toContain("  ✗ error line");
-        expect(stderr.data).toHaveLength(0);
+        expect(stdout.lines).not.toContain("info line");
+        expect(stdout.lines).not.toContain("warn line");
+        expect(stdout.lines).toContain("  ✗ error line");
+        expect(stderr.lines).toHaveLength(0);
       } finally {
         stdout.restore();
         stderr.restore();
@@ -416,9 +365,9 @@ describe("cli-contract", () => {
         });
         writer.logger.info("buffered info");
         writer.logger.error("buffered error");
-        expect(stderr.data).toHaveLength(0);
-        expect(stdout.data).toContain("  ✓ buffered info");
-        expect(stdout.data).toContain("  ✗ buffered error");
+        expect(stderr.lines).toHaveLength(0);
+        expect(stdout.lines).toContain("  ✓ buffered info");
+        expect(stdout.lines).toContain("  ✗ buffered error");
         const logs = writer.logger.getLogs();
         expect(logs.map((l) => l.message)).toContain("buffered info");
         expect(logs.map((l) => l.message)).toContain("buffered error");

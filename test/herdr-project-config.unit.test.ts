@@ -1,7 +1,8 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { join } from "path";
+import { testTempDir } from "./helpers.ts";
 import {
   discoverHerdrProjectConfig,
   extractHerdrProjectSection,
@@ -12,12 +13,12 @@ describe("herdr-project-config", () => {
   let projectRoot: string;
 
   beforeEach(() => {
-    projectRoot = join(tmpdir(), `herdr-project-config-${Bun.randomUUIDv7()}`);
-    mkdirSync(projectRoot, { recursive: true });
+    projectRoot = testTempDir("herdr-project-config-");
+    makeDir(projectRoot, { recursive: true });
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    removePath(projectRoot, { recursive: true, force: true });
   });
 
   test("isProjectOnlyHerdrProfilePath matches flat profile filenames", () => {
@@ -106,8 +107,8 @@ describe("herdr-project-config", () => {
   });
 
   test("discoverHerdrProjectConfig prefers flat .dx/herdr.toml over dx.config.toml", () => {
-    mkdirSync(join(projectRoot, ".dx"), { recursive: true });
-    writeFileSync(
+    makeDir(join(projectRoot, ".dx"), { recursive: true });
+    writeText(
       join(projectRoot, ".dx/herdr.toml"),
       `schemaVersion = 1
 enabled = true
@@ -115,7 +116,7 @@ workspaceLabel = "dx"
 shellPane = true
 `
     );
-    writeFileSync(
+    writeText(
       join(projectRoot, "dx.config.toml"),
       `schemaVersion = 1
 name = "ignored"
@@ -132,7 +133,7 @@ workspaceLabel = "other"
   });
 
   test("discoverHerdrProjectConfig returns null when only dx.config.toml lacks [herdr]", () => {
-    writeFileSync(
+    writeText(
       join(projectRoot, "dx.config.toml"),
       `schemaVersion = 1
 name = "no-herdr"

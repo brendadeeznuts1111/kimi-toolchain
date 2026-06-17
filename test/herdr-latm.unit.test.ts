@@ -1,7 +1,8 @@
+import { makeDir, removePath } from "../src/lib/bun-io.ts";
+
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
-import { tmpdir } from "os";
 import { join } from "path";
+import { testTempDir } from "./helpers.ts";
 import {
   buildLatmListReport,
   buildLatmManifest,
@@ -20,12 +21,12 @@ let tmpHome: string;
 
 describe("herdr-latm", () => {
   beforeEach(() => {
-    tmpHome = join(tmpdir(), `kimi-latm-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(tmpHome, ".config", "herdr", "agents", "1-3"), { recursive: true });
+    tmpHome = testTempDir("kimi-latm-");
+    makeDir(join(tmpHome, ".config", "herdr", "agents", "1-3"), { recursive: true });
   });
 
   afterEach(() => {
-    if (tmpHome) rmSync(tmpHome, { recursive: true, force: true });
+    if (tmpHome) removePath(tmpHome, { recursive: true, force: true });
   });
 
   test("latmToolsForRole returns doctor tools", () => {
@@ -125,7 +126,7 @@ describe("herdr-latm", () => {
       buildLatmManifest({ paneId: "wB:p6E", workspaceId: "wB", role: "doctor" }),
       tmpHome
     );
-    mkdirSync(join(tmpHome, ".config", "herdr", "agents", "w1:p99"), { recursive: true });
+    makeDir(join(tmpHome, ".config", "herdr", "agents", "w1:p99"), { recursive: true });
     await writeLatmManifest(
       buildLatmManifest({ paneId: "w1:p99", workspaceId: "w1", role: "shell" }),
       tmpHome

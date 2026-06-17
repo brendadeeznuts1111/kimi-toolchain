@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { terminalWidth } from "../src/lib/bun-utils.ts";
+import { REPO_ROOT } from "./helpers.ts";
 import {
   buildSkillTableRows,
   countFrontmatterList,
@@ -29,8 +30,6 @@ function sampleRow(skill: string, layer = "L1"): SkillTableRow {
     tests: "✓",
   };
 }
-
-const REPO_ROOT = import.meta.dir + "/..";
 
 describe("skill-table", () => {
   test("readFrontmatterScalar and countFrontmatterList parse loader manifest", async () => {

@@ -5,10 +5,13 @@
  * the CLI emits, so any MCP client gets a stable, versioned contract.
  */
 
+import { Effect, Exit } from "effect";
 import { resolve } from "path";
 import { buildDoctorProbeManifest } from "./doctor-probe.ts";
+import { ToolTimeout, ExitNonZero, ToolNotFound } from "./effect/errors.ts";
+import { invokeCommandEffect } from "./effect/tool-runner-effect.ts";
 import { inspectAgent } from "./inspect.ts";
-import { invokeCommand, type ToolInvocation } from "./tool-runner.ts";
+import type { ToolInvocation } from "./tool-runner.ts";
 
 const SERVER_NAME = "kimi-doctor";
 let SERVER_VERSION = "0.0.0";
@@ -100,9 +103,62 @@ async function* readLines(stream: ReadableStream<Uint8Array>): AsyncGenerator<st
   }
 }
 
+function runnerFailureToInvocation(
+  mode: string,
+  extraArgs: string[],
+  error: ToolTimeout | ExitNonZero | ToolNotFound
+): ToolInvocation {
+  const message =
+    error._tag === "ToolTimeout"
+      ? `kimi-doctor timed out after ${error.timeoutMs}ms`
+      : error._tag === "ToolNotFound"
+        ? `kimi-doctor command not found: ${error.tool}`
+        : error.stderr || `kimi-doctor exited ${error.exitCode}`;
+  return {
+    tool: "kimi-doctor",
+    args: [mode, ...extraArgs],
+    cwd: process.cwd(),
+    timeoutMs: error._tag === "ToolTimeout" ? error.timeoutMs : 0,
+    exitCode: error._tag === "ExitNonZero" ? error.exitCode : -1,
+    stdout: "",
+    stderr: "",
+    maxOutputBytes: 0,
+    durationMs: 0,
+    isError: true,
+    error: message,
+    timedOut: error._tag === "ToolTimeout",
+  };
+}
+
 async function runDoctor(mode: string, extraArgs: string[]): Promise<ToolInvocation> {
   const args = ["run", SCRIPT_PATH, `--${mode}`, "--json", ...extraArgs];
-  return invokeCommand(["bun", ...args], { cwd: process.cwd() });
+  const exit = await Effect.runPromiseExit(
+    invokeCommandEffect(["bun", ...args], { cwd: process.cwd(), tool: "kimi-doctor" })
+  );
+  if (Exit.isSuccess(exit)) return exit.value;
+  if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
+    const error = exit.cause.error;
+    if (
+      error._tag === "ToolTimeout" ||
+      error._tag === "ExitNonZero" ||
+      error._tag === "ToolNotFound"
+    ) {
+      return runnerFailureToInvocation(mode, extraArgs, error);
+    }
+  }
+  return {
+    tool: "kimi-doctor",
+    args: [mode, ...extraArgs],
+    cwd: process.cwd(),
+    timeoutMs: 0,
+    exitCode: -1,
+    stdout: "",
+    stderr: "",
+    maxOutputBytes: 0,
+    durationMs: 0,
+    isError: true,
+    error: "kimi-doctor invocation failed",
+  };
 }
 
 function toolResultText(result: ToolInvocation): string {

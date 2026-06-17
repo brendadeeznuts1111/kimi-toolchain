@@ -1,10 +1,10 @@
+import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { computeSyncHashes, detectSyncDrift } from "../src/lib/sync-hashes.ts";
 
-const REPO_ROOT = import.meta.dir + "/..";
-
+import { REPO_ROOT } from "./helpers.ts";
 describe("sync-drift", () => {
   let prevHome: string | undefined;
   let tmpHome: string;
@@ -12,13 +12,13 @@ describe("sync-drift", () => {
   beforeEach(() => {
     prevHome = Bun.env.HOME;
     tmpHome = join(REPO_ROOT, `.tmp-drift-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    mkdirSync(tmpHome, { recursive: true });
+    makeDir(tmpHome, { recursive: true });
     Bun.env.HOME = tmpHome;
   });
 
   afterEach(() => {
     if (prevHome) Bun.env.HOME = prevHome;
-    if (existsSync(tmpHome)) rmSync(tmpHome, { recursive: true, force: true });
+    if (pathExists(tmpHome)) removePath(tmpHome, { recursive: true, force: true });
   });
 
   test("detectSyncDrift reports missing when desktop is empty", async () => {
@@ -34,8 +34,8 @@ describe("sync-drift", () => {
     expect(hashes[key]).toBeTruthy();
 
     const desktopLib = join(tmpHome, ".kimi-code", "lib");
-    mkdirSync(desktopLib, { recursive: true });
-    writeFileSync(
+    makeDir(desktopLib, { recursive: true });
+    writeText(
       join(desktopLib, "r-score.ts"),
       await Bun.file(join(REPO_ROOT, "src/lib/r-score.ts")).text()
     );
@@ -47,8 +47,8 @@ describe("sync-drift", () => {
 
   test("detectSyncDrift reports drift when desktop file differs", async () => {
     const desktopLib = join(tmpHome, ".kimi-code", "lib");
-    mkdirSync(desktopLib, { recursive: true });
-    writeFileSync(join(desktopLib, "r-score.ts"), "// stale content\n");
+    makeDir(desktopLib, { recursive: true });
+    writeText(join(desktopLib, "r-score.ts"), "// stale content\n");
 
     const report = await detectSyncDrift(REPO_ROOT);
     expect(report.drifted).toContain("lib/r-score.ts");

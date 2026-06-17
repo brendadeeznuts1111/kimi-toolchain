@@ -10,8 +10,8 @@
  *   (grandfathered files listed in LEGACY_DESCRIBE_EXEMPT)
  */
 
-import { existsSync } from "fs";
 import { basename, join } from "path";
+import { pathExists } from "../src/lib/bun-io.ts";
 import { UNIT_TEST_FILES } from "../src/lib/test-gates.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -85,7 +85,7 @@ function resolveUnitSource(root: string, rel: string, stem: string): string {
     ? [`src/lib/effect/${stem}.ts`, `src/lib/${stem}.ts`]
     : [`src/lib/${stem}.ts`];
   for (const candidate of candidates) {
-    if (existsSync(join(root, candidate))) return candidate;
+    if (pathExists(join(root, candidate))) return candidate;
   }
   return candidates[candidates.length - 1]!;
 }
@@ -117,7 +117,7 @@ export async function lintTestNames(root: string = REPO_ROOT): Promise<string[]>
     const stem = parseStem(rel);
     if (stem && rel.endsWith(".unit.test.ts")) {
       const source = resolveUnitSource(root, rel, stem);
-      if (!existsSync(join(root, source))) {
+      if (!pathExists(join(root, source))) {
         violations.push(`${rel}: unit stem "${stem}" has no source at ${source}`);
       }
     }
@@ -147,7 +147,7 @@ export async function lintTestNames(root: string = REPO_ROOT): Promise<string[]>
   }
 
   for (const rel of UNIT_TEST_FILES) {
-    if (!existsSync(join(root, rel))) {
+    if (!pathExists(join(root, rel))) {
       violations.push(`test-gates: UNIT_TEST_FILES entry missing on disk: ${rel}`);
     }
   }

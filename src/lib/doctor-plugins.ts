@@ -12,7 +12,9 @@ import { join, resolve } from "path";
 import { Effect } from "effect";
 import type { HealthCheck } from "./health-check.ts";
 import { homeDir } from "./paths.ts";
-import { invokeCommand, type ToolInvocation } from "./tool-runner.ts";
+import { invokeCommandEffect } from "./effect/tool-runner-effect.ts";
+import type { ToolInvocation } from "./tool-runner.ts";
+import { ToolTimeout, ExitNonZero, ToolNotFound } from "./effect/errors.ts";
 import { log, safeParse } from "./utils.ts";
 
 export const DOCTOR_PLUGIN_SCHEMA_VERSION = 1;
@@ -277,25 +279,32 @@ function parsePluginOutput(result: ToolInvocation, name: string): HealthCheck[] 
   return checks;
 }
 
+function pluginRunnerErrorMessage(error: ToolTimeout | ExitNonZero | ToolNotFound): string {
+  if (error._tag === "ToolTimeout") {
+    return `plugin ${error.tool} timed out after ${error.timeoutMs}ms`;
+  }
+  if (error._tag === "ToolNotFound") {
+    return `plugin command not found: ${error.tool}`;
+  }
+  return error.stderr || `plugin ${error.tool} exited ${error.exitCode}`;
+}
+
 /** Run a single plugin and return its HealthChecks wrapped in an Effect. */
 export function runDoctorPluginEffect(
   plugin: DoctorPluginSpec,
   projectRoot: string
 ): Effect.Effect<HealthCheck[], never> {
-  return Effect.tryPromise(async () => {
-    const cwd = plugin.cwd ? resolve(projectRoot, plugin.cwd) : projectRoot;
-    const result = await invokeCommand([plugin.command, ...(plugin.args ?? [])], {
-      cwd,
-      timeoutMs: plugin.timeoutMs ?? DEFAULT_PLUGIN_TIMEOUT_MS,
-      maxOutputBytes: plugin.maxOutputBytes,
-      timeoutError: (timeoutMs) => `plugin ${plugin.name} timed out after ${timeoutMs}ms`,
-    });
-    return parsePluginOutput(result, plugin.name);
+  const cwd = plugin.cwd ? resolve(projectRoot, plugin.cwd) : projectRoot;
+  return invokeCommandEffect([plugin.command, ...(plugin.args ?? [])], {
+    cwd,
+    tool: plugin.name,
+    timeoutMs: plugin.timeoutMs ?? DEFAULT_PLUGIN_TIMEOUT_MS,
+    maxOutputBytes: plugin.maxOutputBytes,
+    timeoutError: (timeoutMs) => `plugin ${plugin.name} timed out after ${timeoutMs}ms`,
   }).pipe(
+    Effect.map((result) => parsePluginOutput(result, plugin.name)),
     Effect.catchAll((e) =>
-      Effect.succeed([
-        defaultCheck(plugin.name, "error", e instanceof Error ? e.message : String(e)),
-      ])
+      Effect.succeed([defaultCheck(plugin.name, "error", pluginRunnerErrorMessage(e))])
     )
   );
 }

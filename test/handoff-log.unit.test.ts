@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join } from "path";
+import { cleanupPath, testTempDir } from "./helpers.ts";
+import { listDir, pathExists, readText, writeText } from "../src/lib/bun-io.ts";
 import { gunzipText } from "../src/lib/bun-utils.ts";
 import {
   configureHandoffLog,
@@ -21,14 +21,14 @@ describe("handoff-log", () => {
   afterEach(() => {
     resetHandoffSeq(0);
     configureHandoffLog({ enabled: true, maxBytes: 50 * 1024 * 1024 });
-    if (tempDir && existsSync(tempDir)) {
-      Bun.spawnSync(["rm", "-rf", tempDir]);
+    if (tempDir && pathExists(tempDir)) {
+      cleanupPath(tempDir);
     }
     tempDir = "";
   });
 
   test("logHandoff writes checksum-verified JSONL entries", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "handoff-log-"));
+    tempDir = testTempDir("handoff-log-");
     const logPath = join(tempDir, "handoff-log.jsonl");
     configureHandoffLog({ path: logPath, enabled: true });
 
@@ -58,13 +58,13 @@ describe("handoff-log", () => {
     });
   });
 
-  test("rotateIfNeeded gzips logs at maxBytes threshold", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "handoff-log-"));
+  test("rotateIfNeeded gzips logs at maxBytes threshold", async () => {
+    tempDir = testTempDir("handoff-log-");
     const logPath = join(tempDir, "handoff-log.jsonl");
     configureHandoffLog({ path: logPath, enabled: true, maxBytes: 256 });
 
     const preRotationContent = `${"x".repeat(300)}\n`;
-    writeFileSync(logPath, preRotationContent, "utf8");
+    writeText(logPath, preRotationContent);
 
     logHandoff({
       workspace: "w1",
@@ -77,21 +77,21 @@ describe("handoff-log", () => {
       context: remoteHandoffContext("workbox"),
     });
 
-    const archives = readdirSync(tempDir).filter((name) => name.endsWith(".jsonl.gz"));
+    const archives = listDir(tempDir).filter((name) => name.endsWith(".jsonl.gz"));
     expect(archives.length).toBe(1);
 
     // Verify the log was cleared and repopulated with the new entry
-    expect(readFileSync(logPath, "utf8").trim().length).toBeGreaterThan(0);
+    expect(readText(logPath).trim().length).toBeGreaterThan(0);
 
     // Verify archive content integrity — decompress and check pre-rotation data survived
     const archivePath = join(tempDir, archives[0]!);
-    const decompressed = gunzipText(readFileSync(archivePath));
+    const decompressed = gunzipText(new Uint8Array(await Bun.file(archivePath).arrayBuffer()));
     expect(decompressed).toContain("x".repeat(300));
     expect(decompressed).toBe(preRotationContent);
   });
 
   test("getHandoffHistory reads from both live log and rotation archives", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "handoff-log-"));
+    tempDir = testTempDir("handoff-log-");
     const logPath = join(tempDir, "handoff-log.jsonl");
     configureHandoffLog({ path: logPath, enabled: true, maxBytes: 256 });
 
@@ -108,7 +108,7 @@ describe("handoff-log", () => {
       ok: true,
       checksum: "abc",
     });
-    writeFileSync(logPath, `${preEntry}\n${"y".repeat(300)}\n`, "utf8");
+    writeText(logPath, `${preEntry}\n${"y".repeat(300)}\n`);
 
     // Phase 2: logHandoff triggers rotation, archiving the old content
     logHandoff({
@@ -130,7 +130,7 @@ describe("handoff-log", () => {
   });
 
   test("queryHandoffHistory filters by workspace and trigger", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "handoff-log-"));
+    tempDir = testTempDir("handoff-log-");
     const logPath = join(tempDir, "handoff-log.jsonl");
     configureHandoffLog({ path: logPath, enabled: true });
 
@@ -166,7 +166,7 @@ describe("handoff-log", () => {
   });
 
   test("recordHandoffRuleEvaluation writes audit entry", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "handoff-log-"));
+    tempDir = testTempDir("handoff-log-");
     const logPath = join(tempDir, "handoff-log.jsonl");
     configureHandoffLog({ path: logPath, enabled: true });
 

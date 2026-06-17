@@ -1,10 +1,11 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, it } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { Effect } from "effect";
 import { DECISION_SCHEMA_VERSION } from "../src/lib/decision-ledger.ts";
 import { decisionsNdjsonPath } from "../src/lib/paths.ts";
+import { testTempDir } from "./helpers.ts";
 import {
   formatBoundConstantLine,
   suggestErrorWithBoundConstantsEffect,
@@ -18,13 +19,13 @@ describe("error-suggest", () => {
   function writeProject(files: Record<string, string>): void {
     for (const [path, content] of Object.entries(files)) {
       const fullPath = join(projectDir, path);
-      mkdirSync(fullPath.split("/").slice(0, -1).join("/"), { recursive: true });
-      writeFileSync(fullPath, content);
+      makeDir(fullPath.split("/").slice(0, -1).join("/"), { recursive: true });
+      writeText(fullPath, content);
     }
   }
 
   it("should resolve bound constants with golden and decision context", async () => {
-    projectDir = join(tmpdir(), `error-suggest-${Date.now()}`);
+    projectDir = testTempDir("error-suggest-");
     failurePath = join(projectDir, "failures.jsonl");
     const now = Date.now();
     const decisionTimestamp = new Date(now - 2 * 60 * 60 * 1000).toISOString();
@@ -63,7 +64,7 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
 
     await writeConstantsGolden(projectDir);
 
-    writeFileSync(
+    writeText(
       decisionsNdjsonPath(projectDir),
       `${JSON.stringify({
         schemaVersion: DECISION_SCHEMA_VERSION,
@@ -82,7 +83,7 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
       })}\n`
     );
 
-    writeFileSync(
+    writeText(
       failurePath,
       `${JSON.stringify({
         errorId: "err-lock-1",
@@ -114,6 +115,6 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
     expect(line).toContain("KIMI_HOOK_VERIFIER_MAX_CYCLES = 500");
     expect(line).toContain("dec-test-lockfile");
 
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 });

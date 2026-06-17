@@ -1,7 +1,8 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { makeDir, readText, writeText } from "../src/lib/bun-io.ts";
+
+import { join } from "path";
 import { describe, expect, test } from "bun:test";
+import { testTempDir } from "./helpers.ts";
 import {
   finishWorkLocalGatesForced,
   finishWorkOutcome,
@@ -100,34 +101,34 @@ describe("finish-work-herdr", () => {
   });
 
   test("shouldRunGateInDoctorPane requires HERDR_ENV and no local override", () => {
-    const priorHerdr = process.env.HERDR_ENV;
-    const priorLocal = process.env.KIMI_FINISH_WORK_LOCAL_GATES;
+    const priorHerdr = Bun.env.HERDR_ENV;
+    const priorLocal = Bun.env.KIMI_FINISH_WORK_LOCAL_GATES;
     try {
-      process.env.HERDR_ENV = "1";
-      delete process.env.KIMI_FINISH_WORK_LOCAL_GATES;
+      Bun.env.HERDR_ENV = "1";
+      delete Bun.env.KIMI_FINISH_WORK_LOCAL_GATES;
       expect(shouldRunGateInDoctorPane("kimi-heal effect audit")).toBe(true);
 
-      process.env.KIMI_FINISH_WORK_LOCAL_GATES = "1";
+      Bun.env.KIMI_FINISH_WORK_LOCAL_GATES = "1";
       expect(shouldRunGateInDoctorPane("kimi-heal effect audit")).toBe(false);
 
-      delete process.env.HERDR_ENV;
+      delete Bun.env.HERDR_ENV;
       expect(shouldRunGateInDoctorPane("kimi-heal effect audit")).toBe(false);
     } finally {
-      if (priorHerdr === undefined) delete process.env.HERDR_ENV;
-      else process.env.HERDR_ENV = priorHerdr;
-      if (priorLocal === undefined) delete process.env.KIMI_FINISH_WORK_LOCAL_GATES;
-      else process.env.KIMI_FINISH_WORK_LOCAL_GATES = priorLocal;
+      if (priorHerdr === undefined) delete Bun.env.HERDR_ENV;
+      else Bun.env.HERDR_ENV = priorHerdr;
+      if (priorLocal === undefined) delete Bun.env.KIMI_FINISH_WORK_LOCAL_GATES;
+      else Bun.env.KIMI_FINISH_WORK_LOCAL_GATES = priorLocal;
     }
   });
 
   test("finishWorkLocalGatesForced accepts true", () => {
-    const prior = process.env.KIMI_FINISH_WORK_LOCAL_GATES;
+    const prior = Bun.env.KIMI_FINISH_WORK_LOCAL_GATES;
     try {
-      process.env.KIMI_FINISH_WORK_LOCAL_GATES = "true";
+      Bun.env.KIMI_FINISH_WORK_LOCAL_GATES = "true";
       expect(finishWorkLocalGatesForced()).toBe(true);
     } finally {
-      if (prior === undefined) delete process.env.KIMI_FINISH_WORK_LOCAL_GATES;
-      else process.env.KIMI_FINISH_WORK_LOCAL_GATES = prior;
+      if (prior === undefined) delete Bun.env.KIMI_FINISH_WORK_LOCAL_GATES;
+      else Bun.env.KIMI_FINISH_WORK_LOCAL_GATES = prior;
     }
   });
 
@@ -166,9 +167,9 @@ describe("finish-work-herdr", () => {
   });
 
   test("resolveDoctorPaneId uses HERDR_DOCTOR_PANE_ID override", async () => {
-    const prior = process.env.HERDR_DOCTOR_PANE_ID;
+    const prior = Bun.env.HERDR_DOCTOR_PANE_ID;
     try {
-      process.env.HERDR_DOCTOR_PANE_ID = "w9:p9";
+      Bun.env.HERDR_DOCTOR_PANE_ID = "w9:p9";
       const resolved = await resolveDoctorPaneId("/tmp/unused", {
         herdrCliJson: async () => {
           throw new Error("should not call herdr");
@@ -176,8 +177,8 @@ describe("finish-work-herdr", () => {
       });
       expect(resolved).toEqual({ paneId: "w9:p9", doctorTab: "doctor" });
     } finally {
-      if (prior === undefined) delete process.env.HERDR_DOCTOR_PANE_ID;
-      else process.env.HERDR_DOCTOR_PANE_ID = prior;
+      if (prior === undefined) delete Bun.env.HERDR_DOCTOR_PANE_ID;
+      else Bun.env.HERDR_DOCTOR_PANE_ID = prior;
     }
   });
 
@@ -197,13 +198,13 @@ describe("finish-work-herdr", () => {
   });
 
   test("runDoctorPaneGate returns command exit code from doctor pane marker", async () => {
-    const root = join(tmpdir(), `finish-work-herdr-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(root, ".kimi"), { recursive: true });
+    const root = testTempDir("finish-work-herdr-");
+    makeDir(join(root, ".kimi"), { recursive: true });
     const logPath = join(root, ".kimi", "finish-work-gate-kimi-heal.log");
-    writeFileSync(logPath, "audit ok\n");
+    writeText(logPath, "audit ok\n");
 
-    const prior = process.env.HERDR_DOCTOR_PANE_ID;
-    process.env.HERDR_DOCTOR_PANE_ID = "w1:p7";
+    const prior = Bun.env.HERDR_DOCTOR_PANE_ID;
+    Bun.env.HERDR_DOCTOR_PANE_ID = "w1:p7";
 
     let capturedRun = "";
     let gateNonce = "";
@@ -235,14 +236,14 @@ describe("finish-work-herdr", () => {
       expect(result.stdout).toContain("audit ok");
       expect(capturedRun).toContain("kimi-heal effect audit");
     } finally {
-      if (prior === undefined) delete process.env.HERDR_DOCTOR_PANE_ID;
-      else process.env.HERDR_DOCTOR_PANE_ID = prior;
+      if (prior === undefined) delete Bun.env.HERDR_DOCTOR_PANE_ID;
+      else Bun.env.HERDR_DOCTOR_PANE_ID = prior;
     }
   });
 
   test("evaluateFinishWorkProbeCondition passes finish-work:pushed on clean close", async () => {
-    const root = join(tmpdir(), `fw-probe-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(root, ".kimi"), { recursive: true });
+    const root = testTempDir("fw-probe-");
+    makeDir(join(root, ".kimi"), { recursive: true });
     await persistFinishWorkReport(
       root,
       baseReport({ gitHead: "abc123", completedAt: new Date().toISOString() })
@@ -259,8 +260,8 @@ describe("finish-work-herdr", () => {
   });
 
   test("serializeFinishWorkReport matches public JSON contract", async () => {
-    const root = join(tmpdir(), `fw-serialize-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(root, ".kimi"), { recursive: true });
+    const root = testTempDir("fw-serialize-");
+    makeDir(join(root, ".kimi"), { recursive: true });
     await persistFinishWorkReport(
       root,
       baseReport({
@@ -275,9 +276,10 @@ describe("finish-work-herdr", () => {
       })
     );
 
-    const raw = JSON.parse(
-      readFileSync(join(root, ".kimi", "finish-work-report.json"), "utf8")
-    ) as Record<string, unknown>;
+    const raw = JSON.parse(readText(join(root, ".kimi", "finish-work-report.json"))) as Record<
+      string,
+      unknown
+    >;
     expect(raw.schemaVersion).toBe("1.1");
     expect(raw.timestamp).toBeTypeOf("string");
     expect(raw.agent).toBe("kimi");
@@ -329,8 +331,8 @@ describe("finish-work-herdr", () => {
   });
 
   test("evaluateFinishWorkProbeCondition supports finish-work:clean and dirty", async () => {
-    const root = join(tmpdir(), `fw-probe-outcome-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(root, ".kimi"), { recursive: true });
+    const root = testTempDir("fw-probe-outcome-");
+    makeDir(join(root, ".kimi"), { recursive: true });
     await persistFinishWorkReport(root, baseReport({ gitHead: "abc1234" }));
 
     const clean = await evaluateFinishWorkProbeCondition("finish-work:clean", root);
@@ -397,8 +399,8 @@ describe("finish-work-herdr", () => {
   });
 
   test("appendReviewerFeedback writes review block", async () => {
-    const root = join(tmpdir(), `fw-review-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(root, ".kimi"), { recursive: true });
+    const root = testTempDir("fw-review-");
+    makeDir(join(root, ".kimi"), { recursive: true });
     await persistFinishWorkReport(root, baseReport());
 
     const result = await appendReviewerFeedback(
@@ -411,9 +413,7 @@ describe("finish-work-herdr", () => {
       { triggerContextSync: false, emitProcessedEvent: false }
     );
 
-    const raw = JSON.parse(
-      readFileSync(join(root, ".kimi", "finish-work-report.json"), "utf8")
-    ) as {
+    const raw = JSON.parse(readText(join(root, ".kimi", "finish-work-report.json"))) as {
       review?: { feedback?: string; resolved?: boolean; lastFeedbackAt?: string };
     };
     expect(raw.review?.feedback).toBe("looks good");
@@ -423,8 +423,8 @@ describe("finish-work-herdr", () => {
   });
 
   test("evaluateFinishWorkProbeCondition supports finish-work:handoff-ready", async () => {
-    const root = join(tmpdir(), `fw-handoff-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(root, ".kimi"), { recursive: true });
+    const root = testTempDir("fw-handoff-");
+    makeDir(join(root, ".kimi"), { recursive: true });
     await persistFinishWorkReport(
       root,
       baseReport({
@@ -443,8 +443,8 @@ describe("finish-work-herdr", () => {
   });
 
   test("evaluateFinishWorkProbeCondition blocks escalated outcome", async () => {
-    const root = join(tmpdir(), `fw-probe-esc-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(root, ".kimi"), { recursive: true });
+    const root = testTempDir("fw-probe-esc-");
+    makeDir(join(root, ".kimi"), { recursive: true });
     const head = (await gitRevParse(import.meta.dir + "/..", "HEAD")) ?? "deadbeef";
     await persistFinishWorkReport(
       root,

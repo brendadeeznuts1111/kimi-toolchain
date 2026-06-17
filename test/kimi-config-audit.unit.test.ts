@@ -1,7 +1,8 @@
+import { makeDir, pathExists, removePath } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { testTempDir } from "./helpers.ts";
 import {
   allowsUnifiedShellMcp,
   auditKimiConfig,
@@ -49,18 +50,18 @@ pattern = "mcp__unified-shell__execute"
     let home: string;
 
     beforeEach(() => {
-      home = join(tmpdir(), `kimi-config-merge-${Bun.randomUUIDv7()}`);
-      mkdirSync(join(home, ".kimi-code"), { recursive: true });
+      home = testTempDir("kimi-config-merge-");
+      makeDir(join(home, ".kimi-code"), { recursive: true });
     });
 
     afterEach(() => {
-      if (existsSync(home)) rmSync(home, { recursive: true, force: true });
+      if (pathExists(home)) removePath(home, { recursive: true, force: true });
     });
 
     test("creates config.toml with snippet when missing", async () => {
       const result = await mergeConfigTomlPermissions(home);
       expect(result.created).toBe(true);
-      expect(existsSync(result.path)).toBe(true);
+      expect(pathExists(result.path)).toBe(true);
       const text = await Bun.file(result.path).text();
       expect(text).toContain("mcp__unified-shell__execute");
     });
@@ -76,12 +77,12 @@ pattern = "mcp__unified-shell__execute"
     let home: string;
 
     beforeEach(() => {
-      home = join(tmpdir(), `kimi-config-hooks-${Bun.randomUUIDv7()}`);
-      mkdirSync(join(home, ".kimi-code"), { recursive: true });
+      home = testTempDir("kimi-config-hooks-");
+      makeDir(join(home, ".kimi-code"), { recursive: true });
     });
 
     afterEach(() => {
-      if (existsSync(home)) rmSync(home, { recursive: true, force: true });
+      if (pathExists(home)) removePath(home, { recursive: true, force: true });
     });
 
     test("creates config.toml with PostToolUseFailure hook", async () => {
@@ -103,12 +104,12 @@ pattern = "mcp__unified-shell__execute"
     let home: string;
 
     beforeEach(() => {
-      home = join(tmpdir(), `kimi-config-audit-hooks-${Bun.randomUUIDv7()}`);
-      mkdirSync(join(home, ".kimi-code"), { recursive: true });
+      home = testTempDir("kimi-config-audit-hooks-");
+      makeDir(join(home, ".kimi-code"), { recursive: true });
     });
 
     afterEach(() => {
-      if (existsSync(home)) rmSync(home, { recursive: true, force: true });
+      if (pathExists(home)) removePath(home, { recursive: true, force: true });
     });
 
     test("warns when PostToolUseFailure hook is missing", async () => {

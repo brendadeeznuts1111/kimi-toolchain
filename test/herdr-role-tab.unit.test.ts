@@ -1,5 +1,6 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readText } from "../src/lib/bun-io.ts";
+
+import { join } from "path";
 import { describe, expect, mock, test } from "bun:test";
 import {
   buildGrokRolePaneRunArgs,
@@ -42,7 +43,7 @@ function loadDxConfigV2TestCommand(): string {
     "../../dx-config/config/dx/templates/herdr.project.toml"
   );
   try {
-    const raw = readFileSync(templatePath, "utf8");
+    const raw = readText(templatePath);
     const match = raw.match(/label = "test"\ncommand = "([^"]+)"/);
     if (match?.[1]) return match[1];
   } catch {

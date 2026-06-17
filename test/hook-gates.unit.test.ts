@@ -1,11 +1,12 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { prePushRunsInParallel, runConstantDriftGate } from "../src/lib/hook-gates.ts";
 import { detectSyncDrift } from "../src/lib/sync-hashes.ts";
 import { writeConstantsGolden } from "../src/lib/constants-heal.ts";
 
+import { testTempDir } from "./helpers.ts";
 describe("hook-gates constant drift", () => {
   let projectDir: string;
   let previousSkip: string | undefined;
@@ -13,9 +14,9 @@ describe("hook-gates constant drift", () => {
   beforeEach(() => {
     previousSkip = Bun.env.KIMI_SKIP_CONSTANT_DRIFT_GATE;
     delete Bun.env.KIMI_SKIP_CONSTANT_DRIFT_GATE;
-    projectDir = join(tmpdir(), `hook-gates-drift-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(projectDir, ".git"), { recursive: true });
-    writeFileSync(
+    projectDir = testTempDir("hook-gates-drift-");
+    makeDir(join(projectDir, ".git"), { recursive: true });
+    writeText(
       join(projectDir, "package.json"),
       JSON.stringify({ name: "kimi-toolchain", scripts: {} })
     );
@@ -24,11 +25,11 @@ describe("hook-gates constant drift", () => {
   afterEach(() => {
     if (previousSkip === undefined) delete Bun.env.KIMI_SKIP_CONSTANT_DRIFT_GATE;
     else Bun.env.KIMI_SKIP_CONSTANT_DRIFT_GATE = previousSkip;
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   it("should skip gate for non-toolchain repos", async () => {
-    writeFileSync(
+    writeText(
       join(projectDir, "package.json"),
       JSON.stringify({ name: "other-project", scripts: {} })
     );
@@ -38,7 +39,7 @@ describe("hook-gates constant drift", () => {
   });
 
   it("should fail when bunfig drifts from golden", async () => {
-    writeFileSync(
+    writeText(
       join(projectDir, "bunfig.toml"),
       `
 [define]
@@ -49,7 +50,7 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
 `
     );
     await writeConstantsGolden(projectDir);
-    writeFileSync(
+    writeText(
       join(projectDir, "bunfig.toml"),
       `
 [define]
@@ -67,7 +68,7 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
   });
 
   it("should pass when bunfig matches golden", async () => {
-    writeFileSync(
+    writeText(
       join(projectDir, "bunfig.toml"),
       `
 [define]
@@ -95,7 +96,7 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
   });
 
   it("detectSyncDrift is clean for minimal toolchain stub (no managed sources)", async () => {
-    writeFileSync(
+    writeText(
       join(projectDir, "bunfig.toml"),
       `
 [define]
@@ -110,7 +111,7 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
   });
 
   it("should skip when golden is missing", async () => {
-    writeFileSync(
+    writeText(
       join(projectDir, "bunfig.toml"),
       `
 [define]

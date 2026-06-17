@@ -176,10 +176,47 @@ export const STREAM_READ_REGISTRY: TochangeRegistryEntry[] = [
   },
 ];
 
+/** Effect boundary for subprocess invocation — invokeCommandEffect over raw invokeCommand. */
+export const EFFECT_BOUNDARY_REGISTRY: TochangeRegistryEntry[] = [
+  {
+    id: "invoke-command-effect",
+    file: "src/lib/effect/tool-runner-effect.ts",
+    tier: "required",
+    status: "implemented",
+    summary: "invokeCommandEffect wraps invokeCommand with tagged errors",
+    probe: "export function invokeCommandEffect",
+  },
+  {
+    id: "doctor-plugins-effect",
+    file: "src/lib/doctor-plugins.ts",
+    tier: "tier1",
+    status: "implemented",
+    summary: "runDoctorPluginEffect routes through invokeCommandEffect",
+    probe: "invokeCommandEffect([plugin.command",
+  },
+  {
+    id: "doctor-mcp-effect",
+    file: "src/lib/doctor-mcp-server.ts",
+    tier: "tier1",
+    status: "implemented",
+    summary: "MCP runDoctor routes through invokeCommandEffect",
+    probe: 'invokeCommandEffect(["bun"',
+  },
+  {
+    id: "external-tool-runner-effect",
+    file: "src/lib/external-tool-runner.ts",
+    tier: "tier1",
+    status: "implemented",
+    summary: "runExternalToolAdapterEffect routes through invokeCommandEffect",
+    probe: "invokeCommandEffect(resolvedCommand",
+  },
+];
+
 /** All adoption registries audited by lint:tochange. */
 export const ADOPTION_REGISTRIES: TochangeRegistryEntry[] = [
   ...PEEK_ADOPTION_REGISTRY,
   ...STREAM_READ_REGISTRY,
+  ...EFFECT_BOUNDARY_REGISTRY,
 ];
 
 const REGISTRY_IDS = new Set(ADOPTION_REGISTRIES.map((e) => e.id));

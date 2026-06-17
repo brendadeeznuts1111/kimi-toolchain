@@ -1,12 +1,12 @@
+import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { checkScaffold } from "../src/lib/scaffold-doctor.ts";
 import { REQUIRED_PACKAGE_SCRIPT_ENTRIES } from "../src/lib/scaffold-templates.ts";
 
-const REPO_ROOT = import.meta.dir + "/..";
-
 /** File check `name` values (the short names used in the check output). */
+import { REPO_ROOT } from "./helpers.ts";
 const EXPECTED_FILE_NAMES = [
   "AGENTS.md",
   "CODE_REFERENCES.md",
@@ -33,12 +33,12 @@ const FILE_PATHS: Record<string, string> = {
 };
 
 function writeJson(path: string, data: unknown) {
-  writeFileSync(path, JSON.stringify(data, null, 2));
+  writeText(path, JSON.stringify(data, null, 2));
 }
 
 function touch(path: string) {
-  mkdirSync(join(path, ".."), { recursive: true });
-  writeFileSync(path, "");
+  makeDir(join(path, ".."), { recursive: true });
+  writeText(path, "");
 }
 
 describe("scaffold-doctor", () => {
@@ -46,11 +46,11 @@ describe("scaffold-doctor", () => {
 
   beforeEach(() => {
     tmpDir = join(REPO_ROOT, `.tmp-test-scaffold-doctor-${Date.now()}`);
-    mkdirSync(tmpDir, { recursive: true });
+    makeDir(tmpDir, { recursive: true });
   });
 
   afterEach(() => {
-    if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true });
+    if (pathExists(tmpDir)) removePath(tmpDir, { recursive: true, force: true });
   });
 
   // ─── File presence checks ──────────────────────────────────────────────
@@ -136,7 +136,7 @@ describe("scaffold-doctor", () => {
       const workflowPath = ".github/workflows/deploy.yml";
       writeJson(join(tmpDir, "dx.config.toml"), ""); // TOML is not JSON, but Bun.TOML.parse will fail → fallback
       // Actually write proper TOML
-      writeFileSync(join(tmpDir, "dx.config.toml"), `[github]\nworkflow = "${workflowPath}"\n`);
+      writeText(join(tmpDir, "dx.config.toml"), `[github]\nworkflow = "${workflowPath}"\n`);
       touch(join(tmpDir, workflowPath));
 
       const checks = await checkScaffold(tmpDir);
@@ -149,7 +149,7 @@ describe("scaffold-doctor", () => {
 
     test("reports 'warn' when custom workflow path is missing", async () => {
       const workflowPath = ".github/workflows/deploy.yml";
-      writeFileSync(join(tmpDir, "dx.config.toml"), `[github]\nworkflow = "${workflowPath}"\n`);
+      writeText(join(tmpDir, "dx.config.toml"), `[github]\nworkflow = "${workflowPath}"\n`);
 
       const checks = await checkScaffold(tmpDir);
       const ci = checks.find((c) => c.name === "ci.yml")!;
@@ -160,7 +160,7 @@ describe("scaffold-doctor", () => {
     });
 
     test("falls back to default when dx.config.toml has no github.workflow key", async () => {
-      writeFileSync(join(tmpDir, "dx.config.toml"), `[other]\nkey = "value"\n`);
+      writeText(join(tmpDir, "dx.config.toml"), `[other]\nkey = "value"\n`);
       touch(join(tmpDir, ".github/workflows/ci.yml"));
 
       const checks = await checkScaffold(tmpDir);
@@ -171,7 +171,7 @@ describe("scaffold-doctor", () => {
     });
 
     test("falls back to default when dx.config.toml is unparseable", async () => {
-      writeFileSync(join(tmpDir, "dx.config.toml"), "this is not valid toml {{{");
+      writeText(join(tmpDir, "dx.config.toml"), "this is not valid toml {{{");
       touch(join(tmpDir, ".github/workflows/ci.yml"));
 
       const checks = await checkScaffold(tmpDir);
@@ -188,7 +188,7 @@ describe("scaffold-doctor", () => {
     const disabledPath = ".github/workflows-disabled/ci.yml";
 
     test("reports 'ok' with enforcement note when CI is disabled", async () => {
-      writeFileSync(join(tmpDir, "dx.config.toml"), `[github]\nworkflow = "${disabledPath}"\n`);
+      writeText(join(tmpDir, "dx.config.toml"), `[github]\nworkflow = "${disabledPath}"\n`);
       // File does NOT exist at the disabled path
 
       const checks = await checkScaffold(tmpDir);
@@ -202,7 +202,7 @@ describe("scaffold-doctor", () => {
     });
 
     test("reports disabled as 'ok' even if the file happens to exist there", async () => {
-      writeFileSync(join(tmpDir, "dx.config.toml"), `[github]\nworkflow = "${disabledPath}"\n`);
+      writeText(join(tmpDir, "dx.config.toml"), `[github]\nworkflow = "${disabledPath}"\n`);
       touch(join(tmpDir, disabledPath));
 
       const checks = await checkScaffold(tmpDir);
@@ -218,7 +218,7 @@ describe("scaffold-doctor", () => {
       // No dx.config.toml; the DEFAULT_WORKFLOW_PATH does not contain
       // "workflows-disabled", so this test supplies a custom path via config
       // to exercise the pathImpliesDisabled branch in readDxCiConfig.
-      writeFileSync(
+      writeText(
         join(tmpDir, "dx.config.toml"),
         `[github]\nworkflow = ".github/workflows-disabled/ci.yml"\n`
       );
@@ -236,7 +236,7 @@ describe("scaffold-doctor", () => {
 
   describe("ci.yml — github.ci.disabled (explicit boolean)", () => {
     test("reports 'ok' + disabled when github.ci.disabled = true and file is missing", async () => {
-      writeFileSync(
+      writeText(
         join(tmpDir, "dx.config.toml"),
         `[github]\nworkflow = ".github/workflows/ci.yml"\n[github.ci]\ndisabled = true\n`
       );
@@ -251,7 +251,7 @@ describe("scaffold-doctor", () => {
     });
 
     test("present file takes precedence over github.ci.disabled = true", async () => {
-      writeFileSync(
+      writeText(
         join(tmpDir, "dx.config.toml"),
         `[github]\nworkflow = ".github/workflows/ci.yml"\n[github.ci]\ndisabled = true\n`
       );
@@ -267,7 +267,7 @@ describe("scaffold-doctor", () => {
 
     test("path convention still wins when github.ci.disabled = false but path in workflows-disabled/", async () => {
       const disabledPath = ".github/workflows-disabled/ci.yml";
-      writeFileSync(
+      writeText(
         join(tmpDir, "dx.config.toml"),
         `[github]\nworkflow = "${disabledPath}"\n[github.ci]\ndisabled = false\n`
       );
@@ -281,7 +281,7 @@ describe("scaffold-doctor", () => {
     });
 
     test("reports 'warn' when github.ci.disabled = false and file is genuinely missing", async () => {
-      writeFileSync(
+      writeText(
         join(tmpDir, "dx.config.toml"),
         `[github]\nworkflow = ".github/workflows/ci.yml"\n[github.ci]\ndisabled = false\n`
       );
@@ -374,7 +374,7 @@ describe("scaffold-doctor", () => {
     });
 
     test("reports 'error' when package.json is invalid JSON", async () => {
-      writeFileSync(join(tmpDir, "package.json"), "not json {");
+      writeText(join(tmpDir, "package.json"), "not json {");
 
       const checks = await checkScaffold(tmpDir);
       const pkg = checks.find((c) => c.name === "package.json")!;

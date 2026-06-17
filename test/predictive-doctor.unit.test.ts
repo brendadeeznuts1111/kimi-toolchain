@@ -1,7 +1,8 @@
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { testTempDir } from "./helpers.ts";
 import {
   appendHealthSnapshot,
   computeDecisionVelocity,
@@ -20,13 +21,13 @@ describe("predictive-doctor", () => {
   let projectDir: string;
 
   beforeEach(() => {
-    projectDir = join(tmpdir(), `predictive-doctor-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(projectDir, ".kimi", "var"), { recursive: true });
-    writeFileSync(join(projectDir, "package.json"), JSON.stringify({ name: "demo" }));
+    projectDir = testTempDir("predictive-doctor-");
+    makeDir(join(projectDir, ".kimi", "var"), { recursive: true });
+    writeText(join(projectDir, "package.json"), JSON.stringify({ name: "demo" }));
   });
 
   afterEach(() => {
-    rmSync(projectDir, { recursive: true, force: true });
+    removePath(projectDir, { recursive: true, force: true });
   });
 
   function snapshot(
