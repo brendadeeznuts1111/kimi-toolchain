@@ -1,20 +1,23 @@
-# Install policy — https://bun.com/docs/pm/cli/install#configuring-bun-install-with-bunfig-toml
-# Search order (merged): $XDG_CONFIG_HOME/.bunfig.toml → $HOME/.bunfig.toml → ./bunfig.toml
-# BUN_CONFIG_* env overrides bunfig. Dep changes: `bun add` / `bun update`. Trust: package.json `trustedDependencies`.
+# Hardened install policy — src/lib/bun-install-config.ts (BUN_INSTALL_POLICY_MATRIX)
 [install]
 optional = true
 dev = true
 peer = true
 production = false
+dryRun = false
 saveTextLockfile = true
 frozenLockfile = true
-dryRun = false
+exact = false
 ignoreScripts = false
+concurrentScripts = 8
 linker = "isolated"
 globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
 minimumReleaseAge = 259200
 minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
+
+[install.cache]
+dir = "~/.bun/install/cache"
 
 [test]
 concurrentTestGlob = ["test/*.unit.test.ts"]

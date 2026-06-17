@@ -1,6 +1,7 @@
 import { copyTree, pathExists } from "./bun-io.ts";
 
 import { join } from "path";
+import { BUN_INSTALL_CLI } from "./bun-install-config.ts";
 import { desktopRoot, homeDir } from "./paths.ts";
 import { spawnBun } from "./tool-runner.ts";
 import { ensureDir, sha256File } from "./utils.ts";
@@ -47,8 +48,8 @@ export async function provisionDesktopRuntimeDeps(
     return {
       installed: false,
       reason: packageChanged
-        ? "would update package.json and run bun install"
-        : "would run bun install (typescript missing)",
+        ? `would update package.json and run ${BUN_INSTALL_CLI.install}`
+        : `would run ${BUN_INSTALL_CLI.install} (typescript missing)`,
     };
   }
 
@@ -65,7 +66,7 @@ export async function provisionDesktopRuntimeDeps(
     throw new Error(
       install.stderr.trim() ||
         install.error ||
-        `bun install failed in ${root} (exit ${install.exitCode})`
+        `${BUN_INSTALL_CLI.install} failed in ${root} (exit ${install.exitCode})`
     );
   }
 

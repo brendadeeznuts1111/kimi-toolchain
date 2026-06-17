@@ -4,10 +4,23 @@ import { writeText } from "../src/lib/bun-io.ts";
 import {
   auditBunInstallConfig,
   BUN_GLOBAL_INSTALL_PATHS,
+  BUN_INSTALL_BUNFIG_POLICY,
+  BUN_INSTALL_CLI,
   BUN_INSTALL_DOCS_URL,
   BUN_INSTALL_ENV_VARS,
+  BUN_INSTALL_PLATFORM_POLICY,
+  BUN_INSTALL_POLICY_GROUP_ORDER,
+  BUN_INSTALL_POLICY_MIN_BUN,
+  buildInstallPolicyReport,
+  BUN_INSTALL_REQUIRED_KEYS,
+  collectInstallPropertyReferences,
+  formatInstallCliWorkflow,
+  formatInstallPropertyReferenceTable,
+  formatInstallPolicyReport,
+  policyRowToPropertyRef,
   SECURE_BUN_INSTALL_POLICY,
 } from "../src/lib/bun-install-config.ts";
+import { loadTaxonomy } from "../src/lib/error-taxonomy.ts";
 import { REPO_ROOT, testTempDir, withEnv } from "./helpers.ts";
 
 const SECURE_BUNFIG = `[install]
@@ -15,24 +28,40 @@ optional = true
 dev = true
 peer = true
 production = false
+dryRun = false
 saveTextLockfile = true
 frozenLockfile = true
-dryRun = false
+exact = false
 ignoreScripts = false
+concurrentScripts = 8
 linker = "isolated"
 globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
 minimumReleaseAge = 259200
 minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
+
+[install.cache]
+dir = "~/.bun/install/cache"
 `;
 
+const SECURE_PACKAGE_JSON = {
+  name: "demo",
+  version: "1.0.0",
+  packageManager: `bun@${BUN_INSTALL_POLICY_MIN_BUN}`,
+  engines: { bun: `>=${BUN_INSTALL_POLICY_MIN_BUN}` },
+  trustedDependencies: [] as string[],
+};
+
 describe("bun-install-config", () => {
-  test("SECURE_BUN_INSTALL_POLICY matches Bun secure defaults", () => {
-    expect(SECURE_BUN_INSTALL_POLICY.frozenLockfile).toBe(true);
-    expect(SECURE_BUN_INSTALL_POLICY.linker).toBe("isolated");
-    expect(SECURE_BUN_INSTALL_POLICY.minimumReleaseAge).toBe(259_200);
-    expect(SECURE_BUN_INSTALL_POLICY.globalDir).toBe(BUN_GLOBAL_INSTALL_PATHS.globalDir);
-    expect(SECURE_BUN_INSTALL_POLICY.globalBinDir).toBe(BUN_GLOBAL_INSTALL_PATHS.globalBinDir);
+  test("BUN_INSTALL_BUNFIG_POLICY rows cover hardened policy keys", () => {
+    for (const [key, value] of Object.entries(SECURE_BUN_INSTALL_POLICY)) {
+      if (key === "minimumReleaseAgeExcludes") continue;
+      const row = BUN_INSTALL_BUNFIG_POLICY.find((r) => r.key === key);
+      expect(row, `missing policy row for ${key}`).toBeDefined();
+      expect(String(value)).toBe(row!.hardenedDefault);
+    }
+    expect(BUN_INSTALL_PLATFORM_POLICY.some((r) => r.key === "targetOs")).toBe(true);
+    expect(BUN_INSTALL_PLATFORM_POLICY.find((r) => r.key === "targetOs")?.notes).toContain("sunos");
   });
 
   test("BUN_INSTALL_ENV_VARS documents risky skip flags", () => {
@@ -41,9 +70,77 @@ describe("bun-install-config", () => {
     expect(risky).toContain("BUN_CONFIG_SKIP_LOAD_LOCKFILE");
   });
 
+  test("buildInstallPolicyReport groups tables in stable order", async () => {
+    const dir = testTempDir("bun-install-groups-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    const report = await buildInstallPolicyReport(dir);
+    expect(report.schemaVersion).toBe(1);
+    expect(report.versions.policyMinBun).toBe(BUN_INSTALL_POLICY_MIN_BUN);
+    expect(Object.keys(report.tables)).toEqual(
+      expect.arrayContaining(BUN_INSTALL_POLICY_GROUP_ORDER.filter((g) => g !== "environment"))
+    );
+    expect(report.tables.platform.length).toBeGreaterThan(0);
+    expect(
+      report.tables["package-json"].find((r) => r.key === "trustedDependencies")?.current
+    ).toBe("[]");
+  });
+
+  test("formatInstallPropertyReferenceTable uses standard column schema", () => {
+    const lines = formatInstallPropertyReferenceTable();
+    expect(lines[0]).toBe(
+      "| Property | Type | Default | Required | Description | VersionAdded | LastModified |"
+    );
+    expect(lines.some((l) => l.includes("[install].frozenLockfile"))).toBe(true);
+    expect(lines.some((l) => l.includes("cli.update"))).toBe(true);
+  });
+
+  test("policyRowToPropertyRef marks hardened keys as required", () => {
+    const frozen = BUN_INSTALL_BUNFIG_POLICY.find((r) => r.key === "frozenLockfile");
+    expect(frozen).toBeDefined();
+    const ref = policyRowToPropertyRef(frozen!);
+    expect(ref.property).toBe("[install].frozenLockfile");
+    expect(ref.required).toBe(true);
+    expect(BUN_INSTALL_REQUIRED_KEYS.has("frozenLockfile")).toBe(true);
+    expect(collectInstallPropertyReferences().length).toBeGreaterThan(
+      BUN_INSTALL_BUNFIG_POLICY.length
+    );
+  });
+
+  test("BUN_INSTALL_CLI documents add and update paths", () => {
+    expect(BUN_INSTALL_CLI.add).toBe("bun add <pkg>");
+    expect(BUN_INSTALL_CLI.update).toBe("bun update <pkg>");
+    expect(BUN_INSTALL_CLI.reproducible).toBe("bun ci");
+    expect(formatInstallCliWorkflow().some((l) => l.includes("bun update"))).toBe(true);
+  });
+
+  test("error-taxonomy lockfile_issue autoFix matches BUN_INSTALL_CLI.guardianFix", async () => {
+    const taxonomy = await loadTaxonomy(join(REPO_ROOT, "error-taxonomy.yml"));
+    const lockfile = taxonomy.categories.find((c) => c.id === "lockfile_issue");
+    expect(lockfile?.autoFix).toBe(BUN_INSTALL_CLI.guardianFix);
+    expect(lockfile?.suggestion).toContain("bun add");
+    expect(lockfile?.suggestion).toContain("bun update");
+  });
+
+  test("formatInstallPolicyReport includes version header and platform section", async () => {
+    const dir = testTempDir("bun-install-format-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    const report = await buildInstallPolicyReport(dir);
+    const lines = formatInstallPolicyReport(report);
+    expect(lines[0]).toContain("policy≥");
+    expect(lines.some((l) => l.includes("Platform-specific"))).toBe(true);
+    expect(lines.some((l) => l.includes("targetOs"))).toBe(true);
+    expect(lines.some((l) => l.includes("Install CLI workflow"))).toBe(true);
+    expect(lines.some((l) => l.includes("## Property reference"))).toBe(true);
+  });
+
   test("auditBunInstallConfig warns on risky env overrides", async () => {
     const dir = testTempDir("bun-install-audit-");
     writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
 
     await withEnv({ BUN_CONFIG_SKIP_SAVE_LOCKFILE: "1" }, async () => {
       const audit = await auditBunInstallConfig(dir);
@@ -59,15 +156,17 @@ describe("bun-install-config", () => {
       join(dir, "bunfig.toml"),
       SECURE_BUNFIG.replace("frozenLockfile = true", "frozenLockfile = false")
     );
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
 
     const audit = await auditBunInstallConfig(dir);
     expect(audit.ok).toBe(false);
-    expect(audit.warnings.some((w) => w.includes("frozenLockfile=false"))).toBe(true);
+    expect(audit.tables.lockfile.find((r) => r.key === "frozenLockfile")?.status).toBe("drift");
   });
 
   test("auditBunInstallConfig passes secure toolchain bunfig", async () => {
     const dir = testTempDir("bun-install-ok-");
     writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
 
     await withEnv(
       {
@@ -85,13 +184,16 @@ describe("bun-install-config", () => {
     );
   });
 
-  test("auditBunInstallConfig warns when globalBinDir is missing", async () => {
-    const dir = testTempDir("bun-install-no-global-");
-    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG.replace('globalBinDir = "~/.bun/bin"\n', ""));
+  test("auditBunInstallConfig warns when concurrentScripts is unset", async () => {
+    const dir = testTempDir("bun-install-no-concurrent-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG.replace("concurrentScripts = 8\n", ""));
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
 
     const audit = await auditBunInstallConfig(dir);
     expect(audit.ok).toBe(false);
-    expect(audit.warnings.some((w) => w.includes("globalBinDir unset"))).toBe(true);
+    expect(audit.tables.performance.find((r) => r.key === "concurrentScripts")?.status).toBe(
+      "missing"
+    );
   });
 
   test("repo root bunfig.toml matches secure install policy", async () => {
@@ -106,6 +208,7 @@ describe("bun-install-config", () => {
         expect(audit.ok).toBe(true);
         expect(audit.bunfigInstall?.globalDir).toBe(BUN_GLOBAL_INSTALL_PATHS.globalDir);
         expect(audit.bunfigInstall?.globalBinDir).toBe(BUN_GLOBAL_INSTALL_PATHS.globalBinDir);
+        expect(audit.versions.packageManager).toMatch(/^bun@/);
       }
     );
   });

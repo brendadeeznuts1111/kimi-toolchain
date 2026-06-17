@@ -264,18 +264,18 @@ describe("logger", () => {
   test("suggest() includes taxonomyId and autoFix in JSON mode", async () => {
     const logger = new Logger({ json: true, tool: "kimi-debug" });
     const logs = await captureConsole(() =>
-      logger.suggest("lockfile_issue", "Run bun install", "bun install")
+      logger.suggest("lockfile_issue", "Run kimi-guardian fix", "kimi-guardian fix")
     );
     expect(logs[0]).toBe(
       inspectAgent({
         schemaVersion: 1,
         tool: "kimi-debug",
         level: "info",
-        message: "Run bun install",
+        message: "Run kimi-guardian fix",
         timestamp: logger.getLogs()[0]?.timestamp,
         taxonomyId: "lockfile_issue",
-        suggestion: "Run bun install",
-        autoFix: "bun install",
+        suggestion: "Run kimi-guardian fix",
+        autoFix: "kimi-guardian fix",
       })
     );
   });

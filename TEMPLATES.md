@@ -237,21 +237,25 @@ API_KEY=replace_me_in_dot_env
 
 ```toml
 [install]
-# https://bun.com/docs/pm/cli/install#configuring-bun-install-with-bunfig-toml
-# Merged with $XDG_CONFIG_HOME/.bunfig.toml and $HOME/.bunfig.toml; BUN_CONFIG_* overrides.
+# Policy tables (official | hardened | current): src/lib/bun-install-config.ts
 optional = true
 dev = true
 peer = true
 production = false
+dryRun = false
 saveTextLockfile = true
 frozenLockfile = true
-dryRun = false
+exact = false
 ignoreScripts = false
+concurrentScripts = 8
 linker = "isolated"
 globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
 minimumReleaseAge = 259200
 minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
+
+[install.cache]
+dir = "~/.bun/install/cache"
 
 [test]
 # Unit tests run concurrently; smoke tests stay sequential

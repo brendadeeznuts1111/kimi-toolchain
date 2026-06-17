@@ -356,7 +356,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `f
 - **Pre-commit hook** blocks `.env` files from being committed.
 - **Guardian** baselines `bun.lock` hashes and signs manifests with HMAC (key in macOS Keychain or `~/.kimi-code/guardian/.key` with `chmod 600`).
 - **CVE scanning** uses the OSV API (`api.osv.dev`).
-- **Trusted dependencies** gate: dependency lifecycle scripts must be listed in `package.json` `trustedDependencies` (Bun SSOT). `kimi-guardian check` audits; `kimi-guardian fix` or `bun pm trust <pkg>` adds entries. Secure install policy lives in `bunfig.toml` `[install]` (see `src/lib/bun-install-config.ts`): `frozenLockfile`, `linker = "isolated"`, `minimumReleaseAge`, `globalDir` / `globalBinDir` for `bun install -g`. Bun merges `$HOME/.bunfig.toml` with project `bunfig.toml`; `BUN_CONFIG_*` env overrides. Use `bun add` / `bun update` for dep changes — not plain `bun install`.
+- **Trusted dependencies** gate: dependency lifecycle scripts must be listed in `package.json` `trustedDependencies` (Bun SSOT). `kimi-guardian check` audits; `kimi-guardian fix` or `bun pm trust <pkg>` adds entries. Secure install policy lives in `bunfig.toml` `[install]` (see `src/lib/bun-install-config.ts`): `frozenLockfile`, `linker = "isolated"`, `minimumReleaseAge`, `globalDir` / `globalBinDir` for `bun install -g`. CLI SSOT: `BUN_INSTALL_CLI` in `bun-install-config.ts` (`bun ci`, `bun add <pkg>`, `bun update <pkg>`, `kimi-guardian fix`). Taxonomy `lockfile_issue` uses the same strings. Bun merges `$HOME/.bunfig.toml` with project `bunfig.toml`; `BUN_CONFIG_*` env overrides.
 - Validate all external input at system boundaries.
 
 ## Memory Budget (16 GB)

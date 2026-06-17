@@ -219,8 +219,8 @@ categories:
     description: Guardian detected lockfile hash mismatch or unsigned manifest.
     severity: error
     expected: false
-    suggestion: "Lockfile issue — run 'bun install' or 'kimi-guardian fix'."
-    autoFix: "bun install"
+    suggestion: "Lockfile drift — dep change: bun add / bun update (not plain bun install); baseline: kimi-guardian fix."
+    autoFix: "kimi-guardian fix"
     docLink: "skills/kimi-toolchain/examples/guardian-failure.md"
     boundConstants:
       - KIMI_HOOK_VERIFIER_MAX_CYCLES

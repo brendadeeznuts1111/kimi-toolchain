@@ -552,8 +552,11 @@ async function main(): Promise<number> {
   }
 
   logger.section("Install Policy (bunfig + env)");
-  const { auditBunInstallConfig } = await import("../lib/bun-install-config.ts");
+  const { auditBunInstallConfig, BUN_DEP_CHANGE_HINT, formatInstallPolicyReport } =
+    await import("../lib/bun-install-config.ts");
   const installAudit = await auditBunInstallConfig(projectDir);
+  const versionLine = `runtime=${installAudit.versions.runtimeBun} policy≥${installAudit.versions.policyMinBun} packageManager=${installAudit.versions.packageManager ?? "unset"}`;
+  logger.info(versionLine);
   if (installAudit.envOverrides.length === 0) {
     logger.info("No BUN_CONFIG_* install overrides in environment");
   } else {
@@ -565,8 +568,14 @@ async function main(): Promise<number> {
   for (const warning of installAudit.warnings) {
     logger.warn(warning);
   }
+  if (command === "report") {
+    for (const line of formatInstallPolicyReport(installAudit)) {
+      logger.info(line);
+    }
+  }
   if (installAudit.ok && installAudit.bunfigPath) {
     logger.info(`bunfig install policy OK (${installAudit.bunfigPath})`);
+    logger.info(BUN_DEP_CHANGE_HINT);
   } else if (!installAudit.ok) {
     logger.warn(`Install policy drift — see ${installAudit.docsUrl}`);
   }

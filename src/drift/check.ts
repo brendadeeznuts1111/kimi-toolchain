@@ -11,6 +11,7 @@ import { pathExists } from "../lib/bun-io.ts";
 import { $ } from "bun";
 import { join } from "path";
 import { Effect } from "effect";
+import { BUN_LOCKFILE_DRIFT_HINT } from "../lib/bun-install-config.ts";
 
 const QUICK = Bun.argv.includes("--quick");
 const EXIT_ON_FAIL = Bun.argv.includes("--exit-code");
@@ -62,7 +63,7 @@ async function main(): Promise<number> {
     for (const i of issues) {
       console.log(`  ${i.type}: ${i.package}${i.current ? ` (${i.current})` : ""}`);
     }
-    console.log("   Run 'bun install' to update lockfile");
+    console.log(`   ${BUN_LOCKFILE_DRIFT_HINT}`);
     return EXIT_ON_FAIL ? 1 : 0;
   }
 

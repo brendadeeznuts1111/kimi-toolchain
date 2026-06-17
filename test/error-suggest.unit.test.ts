@@ -40,7 +40,7 @@ categories:
     severity: error
     expected: false
     suggestion: Run kimi-guardian fix
-    autoFix: bun install
+    autoFix: kimi-guardian fix
     boundConstants:
       - KIMI_HOOK_VERIFIER_MAX_CYCLES
     patterns:
@@ -91,7 +91,7 @@ declare const KIMI_HOOK_VERIFIER_MAX_CYCLES: number;
         output: "HASH MISMATCH in bun.lock",
         toolName: "kimi-guardian",
         suggestion: "Lockfile issue — run 'kimi-guardian fix'.",
-        autoFix: "bun install",
+        autoFix: "kimi-guardian fix",
         timestamp: new Date().toISOString(),
       })}\n`
     );
