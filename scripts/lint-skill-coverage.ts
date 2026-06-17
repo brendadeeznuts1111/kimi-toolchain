@@ -9,6 +9,7 @@
 
 import { join } from "path";
 import { auditSkillCoverage, formatSkillCoverageReport } from "../src/lib/skill-contract.ts";
+import { buildSkillTableRows, formatSkillTable } from "../src/lib/skill-table.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 const json = Bun.argv.includes("--json");
@@ -32,6 +33,9 @@ async function main(): Promise<number> {
   }
 
   console.log(formatSkillCoverageReport(report));
+  const tableRows = await buildSkillTableRows(REPO_ROOT, report.rows);
+  console.log("");
+  console.log(formatSkillTable(tableRows));
   return report.ok ? 0 : 1;
 }
 

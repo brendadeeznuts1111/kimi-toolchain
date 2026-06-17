@@ -17,6 +17,7 @@ export const UNIT_TEST_FILES = [
   "test/readme-sync.unit.test.ts",
   "test/context-bloat-lint.unit.test.ts",
   "test/skill-contract.unit.test.ts",
+  "test/skill-table.unit.test.ts",
   "test/bun-native-lint.unit.test.ts",
   "test/path-alignment.unit.test.ts",
   "test/workspace-known-blockers.unit.test.ts",
