@@ -97,7 +97,7 @@ describe("effect-gates", () => {
     const report = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
     const purityViolations = report.violations.filter((v) => v.gate === EFFECT_GATES.domainPurity);
     expect(purityViolations.length).toBe(1);
-    expect(purityViolations[0].message).toContain("process environment access");
+    expect(purityViolations[0].message).toContain("Bun.env access");
   });
 
   test("detects Effect.runPromise outside permitted boundary", async () => {
