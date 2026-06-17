@@ -17,11 +17,16 @@ import {
   ConfigParseError,
   type DxConfigError,
 } from "./errors.ts";
+import {
+  getAgentContext as getAgentContextFromDocument,
+  type AgentContext,
+} from "../dx-config-agents.ts";
 import type { DxConfigDocument } from "../dx-config-merge.ts";
 
 export interface DxConfigService {
   readonly getMergedConfig: (projectRoot: string) => Effect.Effect<DxConfigDocument, DxConfigError>;
   readonly getMergedMeta: (projectRoot: string) => Effect.Effect<MergedDxConfigMeta, DxConfigError>;
+  readonly getAgentContext: (projectRoot: string) => Effect.Effect<AgentContext, DxConfigError>;
 }
 
 export class DxConfig extends Context.Tag("@kimi/DxConfig")<DxConfig, DxConfigService>() {}
@@ -31,6 +36,9 @@ export const getMergedConfig = (projectRoot: string) =>
 
 export const getMergedMeta = (projectRoot: string) =>
   Effect.flatMap(DxConfig, (svc) => svc.getMergedMeta(projectRoot));
+
+export const getAgentContext = (projectRoot: string) =>
+  Effect.flatMap(DxConfig, (svc) => svc.getAgentContext(projectRoot));
 
 export interface DxConfigErrorSummary {
   tag: DxConfigError["_tag"];
@@ -89,6 +97,13 @@ export function runGetMergedMeta(
   return withDxConfigLive(home)(getMergedMeta(projectRoot));
 }
 
+export function runGetAgentContext(
+  projectRoot: string,
+  home?: string
+): Effect.Effect<AgentContext, DxConfigError> {
+  return withDxConfigLive(home)(getAgentContext(projectRoot));
+}
+
 function mapLoadError(cause: unknown): DxConfigError {
   if (cause instanceof TomlConfigParseError) {
     return new ConfigParseError({ path: cause.path, cause: cause.cause });
@@ -112,6 +127,8 @@ function makeService(home?: string): DxConfigService {
   return {
     getMergedConfig: (projectRoot) => load(projectRoot).pipe(Effect.map((meta) => meta.document)),
     getMergedMeta: (projectRoot) => load(projectRoot),
+    getAgentContext: (projectRoot) =>
+      load(projectRoot).pipe(Effect.map((meta) => getAgentContextFromDocument(meta.document))),
   };
 }
 
@@ -132,6 +149,7 @@ export const DxConfigTest = (
         projectPath: meta?.projectPath ?? null,
         document,
       }),
+    getAgentContext: () => Effect.succeed(getAgentContextFromDocument(document)),
   });
 
 export { ConfigNotFound, ConfigParseError, ConfigMergeConflict, type DxConfigError };
