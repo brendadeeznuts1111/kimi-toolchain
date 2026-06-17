@@ -13,6 +13,7 @@ import {
 import { Effect } from "effect";
 import {
   herdrSocketSubscribe,
+  resolveHerdrSocketTransport,
   type HerdrEventSubscription,
   type HerdrStreamEnvelope,
 } from "./herdr-socket-client.ts";
@@ -295,8 +296,11 @@ async function runWatchOrchestratorEvents(
     const sessionLabel =
       boundSession?.trim() && boundSession !== "default" ? boundSession : "default";
     const socketPath = resolveHerdrSocketPath(boundSession);
+    const mode = resolveHerdrSocketTransport();
+    const transportHint =
+      mode === "auto" ? "auto (ws+unix → jsonl)" : mode === "websocket" ? "ws+unix" : "jsonl";
     process.stdout.write(
-      `watch-events: session ${sessionLabel}, socket ${socketPath}, workspace ${workspaceId}, ${subscriptions.length} subscription(s)\n`
+      `watch-events: session ${sessionLabel}, transport ${transportHint}, socket ${socketPath}, workspace ${workspaceId}, ${subscriptions.length} subscription(s)\n`
     );
   }
 

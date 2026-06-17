@@ -33,7 +33,7 @@ export interface HerdrUnixSocket {
   removeAllListeners(): void;
   on(event: "data", listener: (chunk: string) => void): void;
   on(event: "error", listener: (error: unknown) => void): void;
-  on(event: "end" | "close", listener: () => void): void;
+  on(event: "end" | "close" | "open", listener: () => void): void;
 }
 
 /** Node-style EventEmitter surface over Bun.connect for Herdr JSONL sockets. */
@@ -62,6 +62,7 @@ export function connectHerdrUnixSocket(path: string): HerdrUnixSocket {
         bunSocket = socket;
         opened = true;
         flushWrites();
+        emit("open");
       },
       data(_socket, data) {
         const text =

@@ -19,6 +19,7 @@ import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { resolveDecisionsRoot } from "../lib/decision-ledger.ts";
 import { applyHealAction, buildHealPlanEffect } from "../lib/self-healing.ts";
+import { spawnBun } from "../lib/tool-runner.ts";
 import { clusterFailureLedgerEffect } from "../lib/error-clustering.ts";
 import { ensureProcessTrace } from "../lib/effect/trace-context.ts";
 import {
@@ -173,15 +174,13 @@ async function main(): Promise<number> {
       execute:
         action.playbookId.includes("sync") && !dryRun
           ? async () => {
-              const proc = Bun.spawn(["bun", "run", "sync"], {
-                cwd: projectRoot,
-                stdout: "pipe",
-                stderr: "pipe",
-              });
-              const code = await proc.exited;
+              const result = await spawnBun(["run", "sync"], { cwd: projectRoot });
               return {
-                success: code === 0,
-                detail: code === 0 ? "bun run sync completed" : `sync exited ${code}`,
+                success: result.exitCode === 0,
+                detail:
+                  result.exitCode === 0
+                    ? "bun run sync completed"
+                    : `sync exited ${result.exitCode}`,
               };
             }
           : undefined,

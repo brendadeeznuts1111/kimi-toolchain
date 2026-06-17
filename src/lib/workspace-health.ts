@@ -5,6 +5,7 @@
 import { listDir, pathExists, readText, removeFile, resolveRealPath } from "./bun-io.ts";
 
 import { basename, join, resolve } from "path";
+import { withBunNoOrphans } from "./tool-runner.ts";
 import { readPackageJson, safeParse } from "./utils.ts";
 
 import {
@@ -614,7 +615,7 @@ export async function fixWorkspaceHealth(
   if (needsSync) {
     const syncScript = join(options.projectRoot, "scripts", "sync-to-desktop.ts");
     if (pathExists(syncScript)) {
-      const proc = Bun.spawn(["bun", "run", syncScript], {
+      const proc = Bun.spawn(withBunNoOrphans(["bun", "run", syncScript]), {
         cwd: options.projectRoot,
         stdout: "inherit",
         stderr: "inherit",

@@ -9,6 +9,7 @@ import { join } from "path";
 import {
   invokeCommand,
   invokeTool,
+  spawnBun,
   toolsDir,
   type CommandInvocationOptions,
   type ToolInvocation,
@@ -122,6 +123,18 @@ export function invokeToolEffect(
   return Effect.tryPromise({
     try: () => invokeTool(toolPath, args, options),
     catch: () => new ToolNotFound({ tool: toolPath, path: toolPath }),
+  }).pipe(Effect.flatMap((result) => mapInvocationResult(result, gracePeriodMs)));
+}
+
+/** Spawn `bun` with `--no-orphans` through the Effect boundary. */
+export function spawnBunEffect(
+  args: string[],
+  options: ToolInvocationOptions = {}
+): Effect.Effect<ToolInvocationWithTaxonomy, ToolRunnerError> {
+  const gracePeriodMs = options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
+  return Effect.tryPromise({
+    try: () => spawnBun(args, options),
+    catch: () => new ToolNotFound({ tool: "bun", path: "bun" }),
   }).pipe(Effect.flatMap((result) => mapInvocationResult(result, gracePeriodMs)));
 }
 

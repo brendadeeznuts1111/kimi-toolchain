@@ -6,7 +6,7 @@ import { listDir, pathExists, pathStat } from "./bun-io.ts";
 
 import { dirname, join } from "path";
 import { provisionDesktopRuntimeDeps } from "./desktop-runtime-deps.ts";
-import { ensureDir } from "./utils.ts";
+import { ensureDir, sha256File } from "./utils.ts";
 import {
   desktopRoot as _desktopRoot,
   agentsSkillsRoot,
@@ -111,12 +111,18 @@ export interface SyncFileResult {
   skipped: number;
 }
 
-async function readTextOrNull(path: string): Promise<string | null> {
+function sha256Bytes(bytes: ArrayBuffer): string {
+  const hasher = new Bun.CryptoHasher("sha256");
+  hasher.update(bytes);
+  return hasher.digest("hex");
+}
+
+async function sha256FileOrNull(path: string): Promise<string | null> {
   try {
-    return await Bun.file(path).text();
+    if (!pathExists(path)) return null;
+    return await sha256File(path);
   } catch {
-    // File not found or unreadable — expected when destination does not exist yet.
-    // Permission errors are intentionally treated as "missing" for sync idempotency.
+    // File unreadable — treat as missing for sync idempotency.
     return null;
   }
 }
@@ -129,19 +135,27 @@ async function copyIfChanged(
   dryRun: boolean,
   result: SyncFileResult
 ): Promise<void> {
-  const srcText = await readTextOrNull(srcPath);
-  if (srcText === null) return;
-
-  const dstText = await readTextOrNull(dstPath);
-  if (force || srcText !== dstText) {
-    if (!dryRun) {
-      ensureDir(dirname(dstPath));
-      await Bun.write(dstPath, srcText);
-    }
-    result.updated.push(label);
-  } else {
-    result.skipped++;
+  let srcBytes: ArrayBuffer;
+  try {
+    srcBytes = await Bun.file(srcPath).arrayBuffer();
+  } catch {
+    return;
   }
+
+  const srcHash = sha256Bytes(srcBytes);
+  if (!force) {
+    const dstHash = await sha256FileOrNull(dstPath);
+    if (dstHash === srcHash) {
+      result.skipped++;
+      return;
+    }
+  }
+
+  if (!dryRun) {
+    ensureDir(dirname(dstPath));
+    await Bun.write(dstPath, srcBytes);
+  }
+  result.updated.push(label);
 }
 
 async function syncGlobDirectory(
@@ -287,7 +301,7 @@ export async function syncDesktop(
 
   for (const orphan of TOOL_ORPHANS) {
     const orphanPath = join(paths.binDst, orphan);
-    if ((await readTextOrNull(orphanPath)) !== null) {
+    if (pathExists(orphanPath)) {
       if (!dryRun) {
         try {
           await Bun.file(orphanPath).delete();

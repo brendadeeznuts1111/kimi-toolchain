@@ -5,6 +5,7 @@
 import { pathExists } from "./bun-io.ts";
 
 import { join } from "path";
+import { parseNdjsonText } from "./ndjson.ts";
 import {
   generateConstantsManifest,
   loadRepoDefineMap,
@@ -167,15 +168,13 @@ export async function loadFailureCountsByTaxonomy(
   if (!pathExists(ledgerPath)) return counts;
 
   const text = await Bun.file(ledgerPath).text();
-  for (const line of text.split("\n")) {
-    if (!line.trim()) continue;
-    try {
-      const parsed = JSON.parse(line) as { taxonomyId?: string; categoryId?: string };
-      const id = parsed.taxonomyId || parsed.categoryId || "unknown";
-      counts.set(id, (counts.get(id) ?? 0) + 1);
-    } catch {
-      // skip malformed lines
-    }
+  const isFailureLedgerRecord = (
+    value: unknown
+  ): value is { taxonomyId?: string; categoryId?: string } => !!value && typeof value === "object";
+
+  for (const parsed of parseNdjsonText(text, isFailureLedgerRecord)) {
+    const id = parsed.taxonomyId || parsed.categoryId || "unknown";
+    counts.set(id, (counts.get(id) ?? 0) + 1);
   }
 
   return counts;

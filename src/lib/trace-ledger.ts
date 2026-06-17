@@ -6,7 +6,7 @@ import { appendText, makeDir, pathExists } from "./bun-io.ts";
 
 import { dirname } from "path";
 import { failureLedgerPath, traceEventsPath } from "./paths.ts";
-import { safeParse } from "./utils.ts";
+import { parseNdjsonText } from "./ndjson.ts";
 
 export type TraceEventType = "cli" | "subprocess" | "hook" | "mcp";
 export type TraceStatus = "started" | "ok" | "error" | "interrupted";
@@ -64,12 +64,7 @@ export function buildTraceEvent(input: Omit<TraceEvent, "schemaVersion">): Trace
 export async function readTraceEvents(path: string = traceEventsPath()): Promise<TraceEvent[]> {
   if (!pathExists(path)) return [];
   const text = await Bun.file(path).text();
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => safeParse<TraceEvent | null>(line, null))
-    .filter((event): event is TraceEvent => isTraceEvent(event));
+  return parseNdjsonText(text, isTraceEvent);
 }
 
 export async function readFailureTraceRecords(
@@ -77,12 +72,7 @@ export async function readFailureTraceRecords(
 ): Promise<FailureTraceRecord[]> {
   if (!pathExists(path)) return [];
   const text = await Bun.file(path).text();
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => safeParse<FailureTraceRecord | null>(line, null))
-    .filter((record): record is FailureTraceRecord => !!record && typeof record === "object");
+  return parseNdjsonText(text, isFailureTraceRecord);
 }
 
 function isTraceEvent(value: unknown): value is TraceEvent {
@@ -93,4 +83,8 @@ function isTraceEvent(value: unknown): value is TraceEvent {
     typeof (value as TraceEvent).traceId === "string" &&
     typeof (value as TraceEvent).eventType === "string"
   );
+}
+
+function isFailureTraceRecord(value: unknown): value is FailureTraceRecord {
+  return !!value && typeof value === "object";
 }

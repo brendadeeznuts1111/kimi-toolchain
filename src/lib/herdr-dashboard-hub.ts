@@ -98,19 +98,27 @@ export class HerdrDashboardHub {
     }
   }
 
-  start(): void {
-    if (this.pollTimer) return;
-    void this.refresh();
+  /** Resume sub-minute polling when at least one SSE subscriber is connected. */
+  private resumePolling(): void {
+    if (this.pollTimer || this.subscribers.size === 0) return;
     this.pollTimer = setInterval(() => {
       void this.refresh();
     }, this.pollMs);
   }
 
+  /** Pause polling when no SSE subscribers remain. */
+  private pausePolling(): void {
+    if (!this.pollTimer) return;
+    clearInterval(this.pollTimer);
+    this.pollTimer = null;
+  }
+
+  start(): void {
+    if (this.subscribers.size > 0) this.resumePolling();
+  }
+
   stop(): void {
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
+    this.pausePolling();
     for (const controller of this.subscribers) {
       try {
         controller.close();
@@ -136,7 +144,11 @@ export class HerdrDashboardHub {
     return new ReadableStream<Uint8Array>({
       start: (controller) => {
         active = controller;
+        const wasEmpty = this.subscribers.size === 0;
         this.subscribers.add(controller);
+        if (wasEmpty) {
+          this.resumePolling();
+        }
         if (this.lastPayload) {
           this.enqueuePayload(controller, this.lastPayload);
           return;
@@ -147,7 +159,11 @@ export class HerdrDashboardHub {
         })();
       },
       cancel: () => {
-        if (active) this.subscribers.delete(active);
+        if (!active) return;
+        this.subscribers.delete(active);
+        if (this.subscribers.size === 0) {
+          this.pausePolling();
+        }
       },
     });
   }

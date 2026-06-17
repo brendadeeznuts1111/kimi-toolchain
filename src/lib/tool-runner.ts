@@ -47,6 +47,14 @@ export function withBunNoOrphans(command: string[]): string[] {
   return ["bun", "--no-orphans", ...command.slice(1)];
 }
 
+/** Spawn `bun` with `--no-orphans` via the unified invokeCommand contract. */
+export async function spawnBun(
+  args: string[],
+  options?: ToolInvocationOptions
+): Promise<ToolInvocation> {
+  return invokeCommand(withBunNoOrphans(["bun", ...args]), options);
+}
+
 /** Long-running tools (watch loops, MCP stdio servers) must not inherit the 30s router timeout. */
 export function resolveToolSpawnTimeoutMs(args: string[]): number {
   if (args.some((arg) => LONG_RUNNING_TOOL_FLAGS.has(arg) || arg.startsWith("--watch-interval"))) {

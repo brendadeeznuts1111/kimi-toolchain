@@ -5,7 +5,7 @@ import { pathExists } from "../lib/bun-io.ts";
  * P1: Tech stack inference, config hash tree, freshness scoring
  *
  * Usage:
- *   kimi-context-gen [scan|freshness|update|doctor|fix|frontmatter <file> [--json] [--depth N]]
+ *   kimi-context-gen [scan|freshness|update|doctor|fix|frontmatter <file> [--json] [--depth N]|preview [skill-name] [--all] [--json] [--no-color] [--columns N]]
  */
 
 import { $, semver, TOML } from "bun";
@@ -24,6 +24,12 @@ import { checkDocDrift } from "../lib/readme-sync.ts";
 import { formatCanonicalReferencesMarkdown } from "../lib/canonical-references.ts";
 import { guardianDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
+import {
+  buildSkillPreviewJsonSkills,
+  formatSkillPreviewHuman,
+  parsePreviewCliArgs,
+  resolveSkillPreviews,
+} from "../lib/skill-preview.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -555,7 +561,9 @@ async function main(): Promise<number> {
   const command = args[0] || "scan";
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const name = await getProjectName(projectDir);
-  const jsonOnly = command === "frontmatter" && args.includes("--json");
+  const jsonOnly =
+    (command === "frontmatter" && args.includes("--json")) ||
+    (command === "preview" && args.includes("--json"));
 
   if (!jsonOnly) {
     logger.projectBanner("Kimi Context Generator", name);
@@ -678,6 +686,66 @@ async function main(): Promise<number> {
       }
       return 1;
     }
+  } else if (command === "preview") {
+    const cli = parsePreviewCliArgs(args.slice(1));
+    if ("error" in cli) {
+      logger.error(cli.error);
+      logger.error(
+        "Usage: kimi-context-gen preview [skill-name] [--all] [--json] [--no-color] [--columns N]"
+      );
+      return 1;
+    }
+
+    const targets = await resolveSkillPreviews({
+      repoRoot: projectDir,
+      skillName: cli.skillName,
+      includeAgents: cli.all,
+    });
+
+    if (targets.length === 0) {
+      const hint = cli.skillName
+        ? `No skill named "${cli.skillName}" found`
+        : "No skills found under skills/";
+      if (cli.json) {
+        Bun.stdout.write(
+          `${inspectAgent({
+            schemaVersion: CLI_OUTPUT_SCHEMA_VERSION,
+            tool: "kimi-context-gen",
+            command: "preview",
+            level: "error",
+            timestamp: new Date().toISOString(),
+            error: hint,
+            skills: [],
+          })}\n`
+        );
+      } else {
+        logger.error(hint);
+      }
+      return 1;
+    }
+
+    const colors = !cli.noColor;
+    if (cli.json) {
+      const skills = buildSkillPreviewJsonSkills(targets, {
+        colors,
+        columns: cli.columns,
+        includeAnsi: colors,
+      });
+      Bun.stdout.write(
+        `${inspectAgent({
+          schemaVersion: CLI_OUTPUT_SCHEMA_VERSION,
+          tool: "kimi-context-gen",
+          command: "preview",
+          level: "info",
+          timestamp: new Date().toISOString(),
+          skills,
+        })}\n`
+      );
+    } else {
+      process.stdout.write(
+        `${formatSkillPreviewHuman(targets, { colors, columns: cli.columns })}\n`
+      );
+    }
   } else if (command === "fix") {
     logger.section("Fixing CONTEXT.md");
     const hashes = await hashConfigs(projectDir);
@@ -706,6 +774,9 @@ async function main(): Promise<number> {
     logger.info("  fix [threshold]  Regenerate if freshness below threshold (default 7)");
     logger.info(
       "  frontmatter <file> [--json] [--depth N]  Table view of TOML (+++) or YAML (---) frontmatter (default depth 10)"
+    );
+    logger.info(
+      "  preview [skill-name] [--all] [--json] [--no-color] [--columns N]  ANSI terminal preview of SKILL.md"
     );
   }
   return 0;

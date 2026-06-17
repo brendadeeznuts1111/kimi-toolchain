@@ -8,6 +8,7 @@ import {
   DASHBOARD_THUMB_HEIGHT,
   DASHBOARD_THUMB_WIDTH,
   dashboardWebpThumbnail,
+  imagePlaceholderDataUrl,
 } from "./bun-image.ts";
 import { pathExists, readText } from "./bun-io.ts";
 import { inspectAgent } from "./inspect.ts";
@@ -61,6 +62,11 @@ function dashboardHtml(): string {
     return readText(path);
   }
   return "<!DOCTYPE html><html><body><h1>herdr-dashboard.html missing</h1></body></html>";
+}
+
+/** LQIP data URL for a cached dashboard screenshot PNG. */
+export async function dashboardScreenshotPlaceholder(png: Uint8Array): Promise<string | null> {
+  return imagePlaceholderDataUrl(png);
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -127,7 +133,7 @@ export function startHerdrDashboardServer(
       }
 
       if (path === "/api/meta") {
-        return jsonResponse({
+        const meta: Record<string, unknown> = {
           ok: true,
           projectPath: options.projectPath,
           pollHintMs,
@@ -136,7 +142,12 @@ export function startHerdrDashboardServer(
           dryRun: options.dryRun ?? false,
           thumbnail: bunImageSupported(),
           thumbnailPath: "/api/thumbnail",
-        });
+        };
+        if (screenshotPng) {
+          const placeholder = await dashboardScreenshotPlaceholder(screenshotPng);
+          if (placeholder) meta.placeholder = placeholder;
+        }
+        return jsonResponse(meta);
       }
 
       if (path === "/api/thumbnail") {

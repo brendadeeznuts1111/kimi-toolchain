@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { pathExists, readText } from "../lib/bun-io.ts";
+import { pathExists, readText, watchPath } from "../lib/bun-io.ts";
 import { TOML } from "bun";
 import { discoverHerdrProjectConfig } from "../lib/herdr-project-config.ts";
 import { syncAgentsTabContext } from "../lib/herdr-project-context.ts";
@@ -184,6 +184,8 @@ Commands:
   config herdr   Display ~/.config/herdr/config.toml settings
   config reload  Trigger herdr server reload-config on all configured remote hosts
   watch-events   Subscribe to Herdr events and react (context-sync / handoff)
+                 HERDR_SOCKET_TRANSPORT=jsonl|websocket|auto (default jsonl)
+                 jsonl: Bun.connect JSONL; websocket: ws+unix; auto: try ws then jsonl
 
 Flags:
   --json              JSON output
@@ -1131,11 +1133,32 @@ try {
       writeOut(`Following ${logPath} (Ctrl+C to stop)…`);
       printHistoryEntries(queryHandoffHistory(query));
       renderNew();
-      const timer = setInterval(renderNew, 1000);
-      process.on("SIGINT", () => {
-        clearInterval(timer);
+
+      const followAbort = new AbortController();
+      let watcher: ReturnType<typeof watchPath> | null = null;
+      const stopFollow = () => {
+        followAbort.abort();
+        watcher?.close();
         process.exit(0);
-      });
+      };
+
+      if (pathExists(logPath)) {
+        watcher = watchPath(logPath, renderNew);
+      }
+
+      void (async () => {
+        while (!followAbort.signal.aborted) {
+          await Bun.sleep(1000);
+          if (followAbort.signal.aborted) break;
+          if (!pathExists(logPath)) continue;
+          if (!watcher) {
+            watcher = watchPath(logPath, renderNew);
+            renderNew();
+          }
+        }
+      })();
+
+      process.on("SIGINT", stopFollow);
     } else {
       printHistoryEntries(queryHandoffHistory(query));
       process.exit(0);

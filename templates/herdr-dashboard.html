@@ -161,14 +161,37 @@
       .rule-dry {
         color: var(--yellow);
       }
+      #agent-thumb-wrap {
+        display: none;
+        margin-left: 12px;
+      }
+      #agent-thumb {
+        display: block;
+        width: 160px;
+        height: 90px;
+        object-fit: contain;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: #0d1117;
+        transition: filter 0.2s ease;
+      }
+      #agent-thumb.lqip {
+        filter: blur(6px);
+        transform: scale(1.02);
+      }
     </style>
   </head>
   <body>
     <header>
       <h1>Herdr Orchestrator Dashboard</h1>
-      <div>
-        <div id="meta">loading…</div>
-        <div id="stream-status">SSE connecting…</div>
+      <div style="display: flex; align-items: center">
+        <div id="agent-thumb-wrap">
+          <img id="agent-thumb" alt="Agent preview" width="160" height="90" decoding="async" />
+        </div>
+        <div>
+          <div id="meta">loading…</div>
+          <div id="stream-status">SSE connecting…</div>
+        </div>
       </div>
     </header>
     <nav>
@@ -302,6 +325,34 @@
         }
       }
 
+      function wireAgentThumbnail(data) {
+        const wrap = document.getElementById("agent-thumb-wrap");
+        const img = document.getElementById("agent-thumb");
+        if (!data.thumbnail || !data.thumbnailPath) {
+          wrap.style.display = "none";
+          return;
+        }
+        wrap.style.display = "block";
+        const thumbUrl = `${data.thumbnailPath}?width=160&height=90&quality=75`;
+        if (data.placeholder) {
+          img.src = data.placeholder;
+          img.classList.add("lqip");
+        } else {
+          img.removeAttribute("src");
+          img.classList.remove("lqip");
+        }
+        const full = new Image();
+        full.decoding = "async";
+        full.onload = () => {
+          img.src = thumbUrl;
+          img.classList.remove("lqip");
+        };
+        full.onerror = () => {
+          if (!data.placeholder) wrap.style.display = "none";
+        };
+        full.src = thumbUrl;
+      }
+
       async function loadMeta() {
         const res = await fetch("/api/meta");
         const data = await res.json();
@@ -309,6 +360,7 @@
         document.getElementById("meta").textContent =
           `${data.projectPath || "."} · SSE live · stale ${(data.staleMs || 15000) / 1000}s` +
           (data.dryRun ? " · dry-run" : "");
+        wireAgentThumbnail(data);
         return poll;
       }
 

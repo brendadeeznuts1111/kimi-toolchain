@@ -97,17 +97,18 @@ herdr --session dev status   # when project uses named session
 
 Official Herdr runtime vars ([integrations docs](https://herdr.dev/docs/preview/integrations/)):
 
-| Variable              | Purpose                                               |
-| --------------------- | ----------------------------------------------------- |
-| `HERDR_CONFIG_PATH`   | Override config file path                             |
-| `HERDR_SESSION`       | Named session label (see caveat below)                |
-| `HERDR_SOCKET_PATH`   | Low-level socket path override (primary session only) |
-| `HERDR_ENV`           | Set to `1` inside Herdr-managed pane processes        |
-| `HERDR_PANE_ID`       | Public pane id for the running pane process           |
-| `HERDR_TAB_ID`        | Public tab id for the running pane process            |
-| `HERDR_WORKSPACE_ID`  | Public workspace id for the running pane process      |
-| `HERDR_LOG`           | Log filter, e.g. `HERDR_LOG=herdr=debug`              |
-| `HERDR_DISABLE_SOUND` | Disable sound even when notifications are enabled     |
+| Variable                 | Purpose                                                             |
+| ------------------------ | ------------------------------------------------------------------- |
+| `HERDR_CONFIG_PATH`      | Override config file path                                           |
+| `HERDR_SESSION`          | Named session label (see caveat below)                              |
+| `HERDR_SOCKET_PATH`      | Low-level socket path override (primary session only)               |
+| `HERDR_SOCKET_TRANSPORT` | Orchestrator socket mode: `jsonl` (default), `websocket`, or `auto` |
+| `HERDR_ENV`              | Set to `1` inside Herdr-managed pane processes                      |
+| `HERDR_PANE_ID`          | Public pane id for the running pane process                         |
+| `HERDR_TAB_ID`           | Public tab id for the running pane process                          |
+| `HERDR_WORKSPACE_ID`     | Public workspace id for the running pane process                    |
+| `HERDR_LOG`              | Log filter, e.g. `HERDR_LOG=herdr=debug`                            |
+| `HERDR_DISABLE_SOUND`    | Disable sound even when notifications are enabled                   |
 
 **Session routing caveat (Herdr 0.7.0):** `HERDR_SESSION` env alone does **not** select the CLI socket. Automation must pass `herdr --session NAME` on the command line or set `HERDR_SOCKET_PATH` to the named session socket. kimi-toolchain implements this in `src/lib/herdr-project-cli.ts` (`herdrSessionArgs`, `herdrSessionEnv`).
 

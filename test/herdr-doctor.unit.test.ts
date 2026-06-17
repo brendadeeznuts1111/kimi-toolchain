@@ -24,6 +24,12 @@ describe("herdr-doctor", () => {
     expect(typeof report.readiness.ready).toBe("boolean");
     expect(Array.isArray(report.readiness.blockers)).toBe(true);
     expect(Array.isArray(report.readiness.warnings)).toBe(true);
+    expect(typeof report.checks.socketTransport).toBe("boolean");
+    expect(report.details.socketTransportProbe).toMatchObject({
+      transport: expect.any(String),
+      wsSupported: expect.any(Boolean),
+      socketPath: expect.any(String),
+    });
   });
 
   test("inspectHerdrDoctor flags missing config on empty home", async () => {

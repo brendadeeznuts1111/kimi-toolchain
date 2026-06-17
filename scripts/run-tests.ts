@@ -10,6 +10,9 @@
  *
  * Set KIMI_QUIET=1 for dots reporter + summary line on success.
  *
+ * Stale coverage: if governance coverage fails after interrupted runs, clear
+ * orphaned temp files before re-running: `rm -f coverage/*.tmp`
+ *
  * @see https://bun.com/docs/guides/test/bail
  */
 

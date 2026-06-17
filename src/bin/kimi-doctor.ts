@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { readableStreamToText } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
+import { spawnBun, withBunNoOrphans } from "../lib/tool-runner.ts";
 /**
  * kimi-doctor — Comprehensive diagnostics
  * Delegates to individual tool doctor commands + runs system checks
@@ -294,12 +295,16 @@ async function applySyncFix(projectRoot: string): Promise<void> {
 
   if (pathExists(syncScript)) {
     if (!JSON_OUT) logger.line("  → Running bun run sync...");
-    const proc = Bun.spawn(["bun", "run", syncScript], {
-      cwd: projectRoot,
-      stdout: JSON_OUT ? "pipe" : "inherit",
-      stderr: JSON_OUT ? "pipe" : "inherit",
-    });
-    await proc.exited;
+    if (JSON_OUT) {
+      await spawnBun(["run", syncScript], { cwd: projectRoot });
+    } else {
+      const proc = Bun.spawn(withBunNoOrphans(["bun", "run", syncScript]), {
+        cwd: projectRoot,
+        stdout: "inherit",
+        stderr: "inherit",
+      });
+      await proc.exited;
+    }
   }
 
   if (pathExists(wrapperScript)) {
@@ -315,19 +320,13 @@ async function applySyncFix(projectRoot: string): Promise<void> {
 
 async function runScript(projectRoot: string, script: string, label: string): Promise<CheckResult> {
   try {
-    const proc = Bun.spawn(["bun", "run", script], {
-      cwd: projectRoot,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const exitCode = await proc.exited;
-    if (exitCode === 0) return ok(label, "passed");
-    const stderr = await readableStreamToText(proc.stderr);
+    const result = await spawnBun(["run", script], { cwd: projectRoot });
+    if (result.exitCode === 0) return ok(label, "passed");
     const detail =
-      stderr
+      result.stderr
         .split("\n")
         .find((l) => l.trim())
-        ?.slice(0, 80) || `exit ${exitCode}`;
+        ?.slice(0, 80) || `exit ${result.exitCode}`;
     return error(label, detail);
   } catch (e: unknown) {
     return error(label, e instanceof Error ? e.message : String(e));
@@ -503,8 +502,7 @@ async function applyFixes(projectRoot: string): Promise<void> {
   const govPath = join(TOOLS_DIR, "kimi-resource-governor.ts");
   if (pathExists(govPath)) {
     if (!JSON_OUT) logger.line("  → Running kimi-resource-governor fix...");
-    const proc = Bun.spawn(["bun", "run", govPath, "fix"], { stdout: "pipe", stderr: "pipe" });
-    await proc.exited;
+    await spawnBun(["run", govPath, "fix"]);
   }
 
   if (await isKimiToolchainRepo(projectRoot)) {

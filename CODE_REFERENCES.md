@@ -34,6 +34,8 @@ Repos: [kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain) (`
 | Bun APIs / utils facade         | `src/lib/bun-utils.ts`                  | Gzip, exec, UUID v7, semver, streams — [Bun APIs](https://bun.com/docs/runtime/bun-apis)   |
 | Node sync escape hatch          | `src/lib/bun-native-shim.ts`            | Only blessed `node:fs` re-exports; shrink via `bun-native:batch`                           |
 | Herdr unix IPC                  | `src/lib/herdr-unix-socket.ts`          | `Bun.connect({ unix })` — not `node:net`                                                     |
+| Herdr ws+unix transport         | `src/lib/herdr-ws-unix.ts`              | `new WebSocket("ws+unix://…")`; env `HERDR_SOCKET_TRANSPORT=websocket\|auto`                 |
+| Bun.markdown.ansi / skill preview | `src/lib/bun-markdown.ts`, `src/lib/skill-preview.ts` | `kimi-context-gen preview [skill]` — probe via `markdownAnsiSupported()` like `bun-image.ts` |
 | Build-time tuning constants     | `bunfig.toml` `[define]`                | SSOT — `KIMI_*` globals grouped by `# define-domain:` (separate from taxonomyId)            |
 | Safe parsing                    | `src/lib/utils.ts`                      | Use `safeParse()` / `safeToml()` with validators at config boundaries                       |
 | Inspection / equality / ANSI    | `src/lib/inspect.ts`                    | Use `inspectAgent()` for `--json`, `inspectHuman()` for logs, `deepEqual*()` for alignment  |

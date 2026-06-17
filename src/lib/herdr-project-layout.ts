@@ -1,6 +1,13 @@
 import { Effect } from "effect";
 import { resolveAgentArgv } from "./herdr-agents.ts";
-import { connectHerdrUnixSocket, resolveHerdrSocketPath } from "./herdr-unix-socket.ts";
+import { resolveHerdrSocketPath } from "./herdr-unix-socket.ts";
+import {
+  connectHerdrSocket,
+  formatHerdrSocketPayload,
+  resolveHerdrSocketTransport,
+  type ActiveHerdrSocketTransport,
+} from "./herdr-socket-transport.ts";
+import { createJsonlLineBuffer, parseHerdrSocketJsonLine } from "./herdr-socket-protocol.ts";
 import type {
   HerdrAgentsTab,
   HerdrAgentsTabPane,
@@ -275,31 +282,78 @@ export type HerdrSocketResult<T> = { ok: true; json: T } | { ok: false; error: s
 export function herdrSocketRequest<T = HerdrSocketResponse>(
   method: string,
   params: Record<string, unknown>,
-  options: { timeoutMs?: number; session?: string } = {}
+  options: {
+    timeoutMs?: number;
+    session?: string;
+    transport?: string;
+    onTransport?: (transport: ActiveHerdrSocketTransport) => void;
+  } = {}
 ): Effect.Effect<HerdrSocketResult<T>, never> {
   return Effect.async<HerdrSocketResult<T>>((resume) => {
     const socketPath = resolveHerdrSocketPath(options.session);
     const timeoutMs = options.timeoutMs ?? 5_000;
-    const payload = JSON.stringify({ id: `herdr-project:${method}`, method, params }) + "\n";
-    const socket = connectHerdrUnixSocket(socketPath);
+    const wireTransport =
+      options.transport?.trim().toLowerCase() === "websocket" ||
+      options.transport?.trim().toLowerCase() === "ws" ||
+      resolveHerdrSocketTransport() === "websocket"
+        ? "websocket"
+        : "jsonl";
+    const payload = formatHerdrSocketPayload(
+      { id: `herdr-project:${method}`, method, params },
+      wireTransport
+    );
+    const socket = connectHerdrSocket(socketPath, {
+      transport: options.transport,
+      onTransport: options.onTransport,
+    });
+    let settled = false;
     let buffer = "";
 
     const finish = (result: HerdrSocketResult<T>) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       socket.removeAllListeners();
       socket.end();
       resume(Effect.succeed(result));
+    };
+
+    const handleResponseLine = (line: string) => {
+      const json = parseHerdrSocketJsonLine(line);
+      if (!json) {
+        finish({ ok: false, error: `invalid socket JSON (${method})` });
+        return;
+      }
+      const response = json as HerdrSocketResponse;
+      if (response.error) {
+        finish({
+          ok: false,
+          error: response.error.message || response.error.code || `socket error (${method})`,
+        });
+        return;
+      }
+      finish({ ok: true, json: json as T });
     };
 
     const timer = setTimeout(() => {
       finish({ ok: false, error: `herdr socket timeout (${method})` });
     }, timeoutMs);
 
+    const pushChunk =
+      socket.transport === "jsonl" || socket.transport === "websocket-fallback"
+        ? createJsonlLineBuffer(handleResponseLine)
+        : handleResponseLine;
+
     socket.on("data", (chunk) => {
-      buffer += chunk.toString();
+      if (socket.transport === "websocket") {
+        pushChunk(chunk);
+        return;
+      }
+      buffer += chunk;
+      pushChunk(chunk);
     });
 
     socket.on("error", (error) => {
-      clearTimeout(timer);
       finish({
         ok: false,
         error: error instanceof Error ? error.message : String(error),
@@ -307,7 +361,7 @@ export function herdrSocketRequest<T = HerdrSocketResponse>(
     });
 
     socket.on("end", () => {
-      clearTimeout(timer);
+      if (socket.transport === "websocket" || settled) return;
       const line = buffer
         .split("\n")
         .map((row) => row.trim())
@@ -316,19 +370,7 @@ export function herdrSocketRequest<T = HerdrSocketResponse>(
         finish({ ok: false, error: `empty socket response (${method})` });
         return;
       }
-      try {
-        const json = JSON.parse(line) as HerdrSocketResponse;
-        if (json.error) {
-          finish({
-            ok: false,
-            error: json.error.message || json.error.code || `socket error (${method})`,
-          });
-          return;
-        }
-        finish({ ok: true, json: json as T });
-      } catch {
-        finish({ ok: false, error: `invalid socket JSON (${method})` });
-      }
+      handleResponseLine(line);
     });
 
     socket.write(payload);

@@ -34,6 +34,7 @@ import {
 } from "../lib/taxonomy-constants.ts";
 import { readFailureLedgerSummary } from "../lib/success-metrics.ts";
 import { formatFrontmatterTable } from "../lib/frontmatter.ts";
+import { truncateTerminal } from "../lib/inspect.ts";
 import {
   defaultWebViewBackend,
   formatWebViewConsoleEvents,
@@ -241,10 +242,11 @@ async function traceFile(projectDir: string, filePath: string) {
     const diffLines = diff.split("\n").slice(0, 20);
     for (const line of diffLines) {
       const prefix = line.startsWith("+") ? "  + " : line.startsWith("-") ? "  - " : "    ";
-      logger.line(prefix + line.slice(1).slice(0, 100));
+      const body = line.startsWith("+") || line.startsWith("-") ? line.slice(1) : line;
+      logger.line(prefix + truncateTerminal(body, 100));
     }
     if (diff.split("\n").length > 20) {
-      logger.line("    ... (truncated)");
+      logger.line(`    … (${diff.split("\n").length - 20} more lines)`);
     }
   }
 }
@@ -453,8 +455,8 @@ async function parseWireLog(wirePath: string): Promise<number> {
   for (const f of failures.slice(-5)) {
     if (f.categoryId === "unknown") {
       unclassified++;
-      const preview = f.output.replace(/\n/g, " ").slice(0, 100);
-      logger.line(`    ${preview}${f.output.length > 100 ? "..." : ""}`);
+      const preview = truncateTerminal(f.output.replace(/\n/g, " "), 100);
+      logger.line(`    ${preview}`);
     }
   }
   if (unclassified === 0) {
@@ -696,7 +698,7 @@ async function main(): Promise<number> {
     if (sessions.length > 0) {
       logger.info("Recent sessions:");
       for (const s of sessions) {
-        logger.line(`    ${s.time.slice(0, 19)} — ${s.detail.slice(0, 60)}`);
+        logger.line(`    ${s.time.slice(0, 19)} — ${truncateTerminal(s.detail, 60)}`);
       }
     }
 

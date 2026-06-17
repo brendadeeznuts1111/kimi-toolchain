@@ -7,6 +7,7 @@ import { resolveHerdrSession } from "./herdr-project-cli.ts";
 import { HerdrSessionError, requireSessionRunning } from "./herdr-session-preflight.ts";
 import { homeDir } from "./paths.ts";
 import { resolveHerdrPanePath } from "./herdr-pane-service.ts";
+import { probeHerdrSocketTransport } from "./herdr-socket-transport.ts";
 
 const KNOWN_TOP_LEVEL = new Set([
   "onboarding",
@@ -247,6 +248,7 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
     home
   );
   const parsedVersion = parseVersion(version.output);
+  const socketTransportProbe = probeHerdrSocketTransport();
 
   if (!binary) blockers.push("herdr binary missing from PATH");
   if (!configExists) blockers.push(`missing config: ${configPath}`);
@@ -259,6 +261,15 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
     warnings.push("terminal-notifier missing; system notifications may fall back to osascript");
   }
   if (!pathExists(worktreesDir)) warnings.push(`worktrees directory missing: ${worktreesDir}`);
+
+  if (
+    (socketTransportProbe.transport === "websocket" || socketTransportProbe.transport === "auto") &&
+    !socketTransportProbe.wsSupported
+  ) {
+    warnings.push(
+      `HERDR_SOCKET_TRANSPORT=${socketTransportProbe.transport} requires ws+unix WebSocket support (Bun 1.3.13+)`
+    );
+  }
 
   const missingWrappers = checkSpawnWrappers(home);
   if (missingWrappers.length) {
@@ -375,6 +386,8 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
       server: serverRunning,
       projectTool: Boolean(which("herdr-project")),
       paneService: Boolean(paneBinary),
+      socketTransport:
+        socketTransportProbe.transport === "jsonl" || socketTransportProbe.wsSupported,
     },
     details: {
       binary,
@@ -391,6 +404,7 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
       paneBinary,
       projectProfiles,
       fixes,
+      socketTransportProbe,
     },
     readiness: {
       ready: blockers.length === 0,
@@ -417,6 +431,12 @@ export function printHerdrDoctorHuman(report: HerdrDoctorReport): void {
   if (report.details.version) writeOut(`Version: ${report.details.version}`);
   if (report.details.binary) writeOut(`Binary: ${report.details.binary}`);
   if (report.details.paneBinary) writeOut(`Pane CLI: ${report.details.paneBinary}`);
+  if (report.details.socketTransportProbe) {
+    const probe = report.details.socketTransportProbe;
+    writeOut(
+      `Socket transport: ${probe.transport} (ws+unix: ${probe.wsSupported ? "yes" : "no"}, path: ${probe.socketPath})`
+    );
+  }
   writeOut(`Config: ${report.details.configPath}`);
   if (report.details.fixes?.length) writeOut(`Fixes: ${report.details.fixes.join("; ")}`);
   writeOut("");

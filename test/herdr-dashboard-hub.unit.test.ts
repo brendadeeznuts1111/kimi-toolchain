@@ -47,4 +47,26 @@ describe("herdr-dashboard-hub", () => {
       expect(text.startsWith("data:")).toBe(true);
     }
   });
+
+  test("SSE polling pauses without subscribers and resumes on connect", async () => {
+    const hub = new HerdrDashboardHub({ projectPath: REPO_ROOT, fetchOpts: {}, pollMs: 50 });
+    hub.start();
+    expect(
+      (hub as unknown as { pollTimer: ReturnType<typeof setInterval> | null }).pollTimer
+    ).toBeNull();
+
+    const stream = hub.createAgentsLiveStream();
+    expect(
+      (hub as unknown as { pollTimer: ReturnType<typeof setInterval> | null }).pollTimer
+    ).not.toBeNull();
+
+    const reader = stream.getReader();
+    await reader.cancel();
+    await Bun.sleep(20);
+    expect(
+      (hub as unknown as { pollTimer: ReturnType<typeof setInterval> | null }).pollTimer
+    ).toBeNull();
+
+    hub.stop();
+  });
 });

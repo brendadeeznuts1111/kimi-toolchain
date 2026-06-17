@@ -10,10 +10,9 @@ import { pathExists } from "../lib/bun-io.ts";
  */
 
 import { $ } from "bun";
-import { readableStreamToText } from "../lib/bun-utils.ts";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
-import { runTool } from "../lib/tool-runner.ts";
+import { runTool, spawnBun } from "../lib/tool-runner.ts";
 import { aggregateChecks } from "../lib/health-check.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -102,16 +101,11 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
   const fastCoverage = useFastUnitCoverage(pkg.name);
 
   async function spawnCoverage(json: boolean) {
-    const proc = Bun.spawn(["bun", ...bunTestArgs({ coverage: true, json, fast: fastCoverage })], {
+    const result = await spawnBun(bunTestArgs({ coverage: true, json, fast: fastCoverage }), {
       cwd: projectDir,
       env: { ...Bun.env, KIMI_COVERAGE_SCAN: "1" },
-      stdout: "pipe",
-      stderr: "pipe",
     });
-    const exitCode = await proc.exited;
-    const stdout = await readableStreamToText(proc.stdout);
-    const stderr = await readableStreamToText(proc.stderr);
-    return { exitCode, stdout, stderr };
+    return { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr };
   }
 
   // Try --json output first (Bun test runner may support this)

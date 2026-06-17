@@ -9,6 +9,7 @@ import {
   NO_TOOL_TIMEOUT_MS,
   resolveToolSpawnTimeoutMs,
   runTool,
+  spawnBun,
   toolsDir,
   withBunNoOrphans,
 } from "../src/lib/tool-runner.ts";
@@ -36,6 +37,35 @@ describe("tool-runner", () => {
     ]);
     expect(withBunNoOrphans(["node", "script.js"])).toEqual(["node", "script.js"]);
   });
+
+  test(
+    "spawnBun runs bun with --no-orphans via invokeCommand",
+    async () => {
+      const result = await spawnBun(["--version"]);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
+      expect(result.isError).toBe(false);
+    },
+    { timeout: 3000 }
+  );
+
+  test(
+    "spawnBun forwards cwd and env overlays",
+    async () => {
+      const cwd = testTempDir("kimi-spawnbun-cwd-");
+      makeDir(cwd, { recursive: true });
+      const script = tmpScript(`console.log(Bun.env.KIMI_SPAWN_BUN_TEST ?? "missing");`);
+      const result = await spawnBun(["run", script], {
+        cwd,
+        env: { KIMI_SPAWN_BUN_TEST: "spawn-bun-ok" },
+      });
+      expect(result.stdout).toContain("spawn-bun-ok");
+      expect(result.exitCode).toBe(0);
+      removePath(cwd, { recursive: true, force: true });
+      removePath(join(script, ".."), { recursive: true, force: true });
+    },
+    { timeout: 3000 }
+  );
 
   test("runTool throws when tool file is missing", async () => {
     await expect(runTool("definitely-missing-tool-xyz", [])).rejects.toThrow("Tool not found");

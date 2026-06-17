@@ -9,6 +9,7 @@ import {
 } from "../src/lib/herdr-dashboard-data.ts";
 import { bunImageSupported } from "../src/lib/bun-image.ts";
 import {
+  dashboardScreenshotPlaceholder,
   resolveHerdrDashboardHtmlPath,
   startHerdrDashboardServer,
 } from "../src/lib/herdr-dashboard-server.ts";
@@ -164,6 +165,47 @@ describe("herdr-dashboard-server", () => {
       expect(bytes.byteLength).toBeGreaterThan(10);
       expect(bytes[0]).toBe(0x52);
       expect(bytes[1]).toBe(0x49);
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("dashboardScreenshotPlaceholder returns data URL for PNG bytes", async () => {
+    if (!bunImageSupported()) return;
+
+    const tinyPng = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      ),
+      (c) => c.charCodeAt(0)
+    );
+    const placeholder = await dashboardScreenshotPlaceholder(tinyPng);
+    expect(placeholder).toStartWith("data:image/");
+  });
+
+  test("dashboard meta includes placeholder when screenshot cached", async () => {
+    if (!bunImageSupported()) return;
+
+    const tinyPng = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      ),
+      (c) => c.charCodeAt(0)
+    );
+    const server = startHerdrDashboardServer({
+      projectPath: REPO_ROOT,
+      port: 0,
+      sessions: false,
+    });
+    try {
+      server.setScreenshotPng(tinyPng);
+      const metaRes = (await fetch(`${server.url}api/meta`)) as unknown as {
+        body: ReadableStream<Uint8Array>;
+      };
+      const meta = JSON.parse(await readableStreamToText(metaRes.body)) as {
+        placeholder?: string;
+      };
+      expect(meta.placeholder).toStartWith("data:image/");
     } finally {
       server.stop();
     }

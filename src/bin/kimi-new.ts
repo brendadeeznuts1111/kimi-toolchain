@@ -7,10 +7,10 @@ import { makeDir, pathExists } from "../lib/bun-io.ts";
  */
 
 import { Effect } from "effect";
-import { readableStreamToText } from "../lib/bun-utils.ts";
 import { join, resolve } from "path";
 import { $ } from "bun";
 import { toolsDir } from "../lib/paths.ts";
+import { spawnBun } from "../lib/tool-runner.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -147,14 +147,10 @@ async function runScaffold(args: string[]): Promise<number> {
 
   const desktopFix = join(toolsDir(), "kimi-fix.ts");
   const fixScript = pathExists(desktopFix) ? desktopFix : join(import.meta.dir, "kimi-fix.ts");
-  const proc = Bun.spawn(["bun", "run", fixScript, projectDir], {
-    cwd: parent,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const exitCode = await proc.exited;
-  const stdout = await readableStreamToText(proc.stdout);
-  const stderr = await readableStreamToText(proc.stderr);
+  const result = await spawnBun(["run", fixScript, projectDir], { cwd: parent });
+  const exitCode = result.exitCode;
+  const stdout = result.stdout;
+  const stderr = result.stderr;
 
   for (const line of (stdout + stderr).split("\n")) {
     if (line.trim()) process.stdout.write(`${line}\n`);

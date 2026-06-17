@@ -9,6 +9,7 @@ import {
   inspectStream,
   stripANSI,
   sliceAnsi,
+  truncateTerminal,
   wrapAnsi,
 } from "../src/lib/inspect.ts";
 
@@ -170,6 +171,21 @@ describe("inspect", () => {
     test("preserves ANSI codes when slicing", () => {
       const colored = "\u001b[31mhello\u001b[0m";
       expect(sliceAnsi(colored, 1, 4)).toContain("ell");
+    });
+  });
+
+  describe("truncateTerminal", () => {
+    test("leaves short strings unchanged", () => {
+      expect(truncateTerminal("hello", 10)).toBe("hello");
+    });
+
+    test("truncates by display width with default ellipsis", () => {
+      const truncated = truncateTerminal("你好世界", 5);
+      expect(truncated.endsWith("…")).toBe(true);
+    });
+
+    test("respects custom ellipsis", () => {
+      expect(truncateTerminal("hello world", 8, "...")).toBe("hello...");
     });
   });
 

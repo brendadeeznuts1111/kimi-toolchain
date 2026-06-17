@@ -345,27 +345,27 @@ export async function discoverRemoteSessions(
             };
             const workspaces = wsParsed.result?.workspaces || [];
             workspaceCount = workspaces.length;
-            for (const ws of workspaces) {
-              const agentResult = await sshExec(resolved, [
-                "herdr",
-                "--session",
-                s.name,
-                "agent",
-                "list",
-                "--json",
-              ]);
-              if (agentResult.ok) {
-                try {
-                  const agentParsed = JSON.parse(agentResult.output) as {
-                    result?: { agents?: Array<{ workspace_id?: string; agent?: string }> };
-                  };
-                  const agents = agentParsed.result?.agents || [];
+            const agentResult = await sshExec(resolved, [
+              "herdr",
+              "--session",
+              s.name,
+              "agent",
+              "list",
+              "--json",
+            ]);
+            if (agentResult.ok) {
+              try {
+                const agentParsed = JSON.parse(agentResult.output) as {
+                  result?: { agents?: Array<{ workspace_id?: string; agent?: string }> };
+                };
+                const agents = agentParsed.result?.agents || [];
+                for (const ws of workspaces) {
                   agentCount += agents.filter(
                     (a) => a.workspace_id === ws.workspace_id && a.agent
                   ).length;
-                } catch {
-                  /* skip agent count */
                 }
+              } catch {
+                /* skip agent count */
               }
             }
           } catch {
@@ -418,32 +418,34 @@ export async function discoverRemoteWorkspaceAgents(
     };
     const workspaces = wsParsed.result?.workspaces || [];
 
-    for (const ws of workspaces) {
-      if (!ws.workspace_id) continue;
-      const agentResult = await sshExec(resolved, [
-        "herdr",
-        "--session",
-        session,
-        "agent",
-        "list",
-        "--json",
-      ]);
-      if (!agentResult.ok) continue;
+    const agentResult = await sshExec(resolved, [
+      "herdr",
+      "--session",
+      session,
+      "agent",
+      "list",
+      "--json",
+    ]);
+    if (!agentResult.ok) return agents;
 
-      try {
-        const agentParsed = JSON.parse(agentResult.output) as {
-          result?: {
-            agents?: Array<{
-              pane_id?: string;
-              agent?: string;
-              agent_status?: string;
-              workspace_id?: string;
-              tab_id?: string;
-              custom_status?: string;
-            }>;
-          };
+    try {
+      const agentParsed = JSON.parse(agentResult.output) as {
+        result?: {
+          agents?: Array<{
+            pane_id?: string;
+            agent?: string;
+            agent_status?: string;
+            workspace_id?: string;
+            tab_id?: string;
+            custom_status?: string;
+          }>;
         };
-        const rows = (agentParsed.result?.agents || []).filter(
+      };
+      const allAgents = agentParsed.result?.agents || [];
+
+      for (const ws of workspaces) {
+        if (!ws.workspace_id) continue;
+        const rows = allAgents.filter(
           (a) => a.workspace_id === ws.workspace_id && a.pane_id && a.agent
         );
         for (const row of rows) {
@@ -458,9 +460,9 @@ export async function discoverRemoteWorkspaceAgents(
             customStatus: typeof row.custom_status === "string" ? row.custom_status : undefined,
           });
         }
-      } catch {
-        /* skip agent parse */
       }
+    } catch {
+      /* skip agent parse */
     }
   } catch {
     /* skip workspace parse */

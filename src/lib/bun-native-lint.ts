@@ -91,6 +91,8 @@ const PROCESS_ARGV = /\bprocess\.argv\b/;
 
 const RESPONSE_STREAM_TEXT = /new\s+Response\s*\([^)]*\)\.text\s*\(\s*\)/;
 
+const RAW_BUN_SPAWN = /Bun\.spawn\s*\(\s*(?!\s*withBunNoOrphans\s*\()\s*\[\s*["']bun["']/;
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -303,6 +305,37 @@ export const RULE_DEFINITIONS: RuleDefinition[] = [
         "Bun.readableStreamToText",
         RESPONSE_STREAM_TEXT
       );
+    },
+  },
+  {
+    id: "spawn-no-orphans",
+    message: "Bun.spawn(['bun', ...]) must include --no-orphans",
+    replacement: "withBunNoOrphans / spawnBun",
+    defaultMode: "report",
+    scope: ["src/"],
+    detect(ctx) {
+      if (ctx.rel === "src/lib/tool-runner.ts") return [];
+      const out: Violation[] = [];
+      for (let i = 0; i < ctx.lines.length; i++) {
+        const line = ctx.lines[i] ?? "";
+        const lineNo = i + 1;
+        if (line.trim().startsWith("//") || ctx.lineHasExemption(line)) continue;
+        const code = stripStringLiterals(line);
+        if (!RAW_BUN_SPAWN.test(code)) continue;
+        RAW_BUN_SPAWN.lastIndex = 0;
+        if (code.includes("--no-orphans") || code.includes("spawnBun(")) continue;
+        out.push(
+          ...lineViolations(
+            ctx,
+            "spawn-no-orphans",
+            "raw Bun.spawn(['bun', ...]) without --no-orphans",
+            "withBunNoOrphans / spawnBun",
+            lineNo,
+            line
+          )
+        );
+      }
+      return out;
     },
   },
 ];

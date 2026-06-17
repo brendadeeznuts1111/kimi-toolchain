@@ -2,6 +2,7 @@ import { copyTree, pathExists } from "./bun-io.ts";
 
 import { join } from "path";
 import { desktopRoot, homeDir } from "./paths.ts";
+import { spawnBun } from "./tool-runner.ts";
 import { ensureDir, sha256File } from "./utils.ts";
 
 /** Captured at module load so tests can override HOME without breaking host seeding. */
@@ -59,14 +60,13 @@ export async function provisionDesktopRuntimeDeps(
     return { installed: true, reason: "seeded node_modules from host runtime" };
   }
 
-  const proc = Bun.spawn(["bun", "install", "--cwd", root], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const exitCode = await proc.exited;
-  if (exitCode !== 0) {
-    const stderr = await proc.stderr.text();
-    throw new Error(stderr.trim() || `bun install failed in ${root} (exit ${exitCode})`);
+  const install = await spawnBun(["install", "--cwd", root]);
+  if (install.exitCode !== 0) {
+    throw new Error(
+      install.stderr.trim() ||
+        install.error ||
+        `bun install failed in ${root} (exit ${install.exitCode})`
+    );
   }
 
   return {

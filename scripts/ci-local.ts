@@ -9,6 +9,9 @@
  *   bun run ci:local --job governance
  *   bun run ci:local --dry-run
  *   bun run ci:local --json
+ *
+ * If coverage governance fails after interrupted test runs, clear stale temps:
+ *   rm -f coverage/*.tmp
  */
 
 import { join } from "path";
