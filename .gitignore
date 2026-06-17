@@ -24,5 +24,14 @@ reports/
 .tmp-*/
 *.log
 
+# Agent / IDE caches
+.reasonix/
+
+# Backups (context-gen, manual)
+*.bak
+
+# Accidental path-expansion artifact (literal tilde directory)
+/~/
+
 # OS
 .DS_Store

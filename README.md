@@ -70,6 +70,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run finish-work` | (synced from package.json) |
 | `bun run install-herdr-plugin` | (synced from package.json) |
+| `bun run cleanup-root` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                           |

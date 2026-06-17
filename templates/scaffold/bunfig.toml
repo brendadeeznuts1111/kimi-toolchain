@@ -3,9 +3,8 @@
 # Run `kimi-guardian check` to auto-populate
 trustedDependencies = []
 
-[install.cache]
-# Global cache directory (shared across projects)
-dir = "~/.bun/install/cache"
+# Cache dir omitted — use Bun default (~/.bun/install/cache expanded from $HOME).
+# Do not set dir = "~/.bun/..." here; unexpanded tilde creates a literal ~/ dir in cwd.
 
 [test]
 # Unit tests run concurrently; smoke tests stay sequential

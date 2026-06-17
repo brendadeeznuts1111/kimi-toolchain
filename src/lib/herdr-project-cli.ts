@@ -41,10 +41,12 @@ export function herdrSessionArgs(_session?: string): string[] {
 export function execCli(cmd: string, args: string[] = [], options: ExecCliOptions | number = {}) {
   const opts: ExecCliOptions = typeof options === "number" ? { timeout: options } : options;
   const timeout = opts.timeout ?? 30_000;
+  const resolved = resolveHerdrSession(opts.session);
+  const sessionArgs = resolved ? ["--session", resolved] : [];
   try {
     return {
       ok: true,
-      output: execFileSync(cmd, args, {
+      output: execFileSync(cmd, [...sessionArgs, ...args], {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
         timeout,
