@@ -1613,7 +1613,11 @@ try {
       };
 
       process.on("SIGINT", () => process.exit(0));
-      refresh().catch(() => process.exit(1));
+      try {
+        await refresh();
+      } catch {
+        process.exit(1);
+      }
     } else {
       process.exit(0);
     }

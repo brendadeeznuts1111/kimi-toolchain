@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from "./utils.ts";
 import { sshExec } from "./herdr-orchestrator.ts";
 import {
   normalizeRemoteHostConfig,
@@ -250,27 +251,26 @@ export function notifyWebhook(
     metadata: event.metadata || {},
   };
 
-  const attempt = (retriesLeft: number) => {
-    fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then((res: any) => {
-        if (res.status >= 400 && retriesLeft > 0) {
-          setTimeout(() => attempt(retriesLeft - 1), retryDelayMs);
-        }
-      })
-      .catch(() => {
-        if (retriesLeft > 0) {
-          setTimeout(() => attempt(retriesLeft - 1), retryDelayMs);
-        }
+  const attempt = async (retriesLeft: number): Promise<void> => {
+    try {
+      const res = await fetchWithTimeout(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        timeoutMs: 10_000,
       });
+      const status = (res as unknown as { status: number }).status;
+      if (status >= 400 && retriesLeft > 0) {
+        await Bun.sleep(retryDelayMs);
+        return attempt(retriesLeft - 1);
+      }
+    } catch {
+      if (retriesLeft > 0) {
+        await Bun.sleep(retryDelayMs);
+        return attempt(retriesLeft - 1);
+      }
+    }
   };
 
-  try {
-    attempt(maxRetries);
-  } catch {
-    // Silent — fire and forget
-  }
+  void attempt(maxRetries);
 }
