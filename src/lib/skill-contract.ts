@@ -896,6 +896,7 @@ export async function auditSkillFrontmatter(repoRoot: string): Promise<SkillCont
         message: "SKILL.md must have YAML frontmatter with name:",
       });
     }
+    issues.push(...auditSkillLoaderFrontmatter(skillRel, text));
   }
 
   return issues;
