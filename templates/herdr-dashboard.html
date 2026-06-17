@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Herdr Orchestrator Dashboard</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f1419;
+        --panel: #161b22;
+        --border: #30363d;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --green: #3fb950;
+        --yellow: #d29922;
+        --red: #f85149;
+        --dim: #6e7681;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font:
+          14px/1.45 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+      }
+      h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+      }
+      #meta {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      nav {
+        display: flex;
+        gap: 8px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      nav button {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      nav button.active {
+        border-color: var(--green);
+        color: var(--green);
+      }
+      main {
+        padding: 12px 16px 24px;
+      }
+      .panel {
+        display: none;
+      }
+      .panel.active {
+        display: block;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      th,
+      td {
+        border-bottom: 1px solid var(--border);
+        padding: 8px 10px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .status {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-weight: 600;
+        text-transform: lowercase;
+      }
+      .status-idle {
+        background: #1a3d2e;
+        color: var(--green);
+      }
+      .status-working {
+        background: #3d3510;
+        color: #fcd34d;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      .status-blocked {
+        background: #3d1517;
+        color: var(--red);
+      }
+      .status-done {
+        background: #21262d;
+        color: var(--dim);
+      }
+      .status-unknown {
+        background: #21262d;
+        color: var(--muted);
+      }
+      .status-stale {
+        background: #3d1517;
+        color: #ff7b72;
+        font-weight: 700;
+      }
+      #stream-status {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      @keyframes pulse {
+        50% {
+          opacity: 0.65;
+        }
+      }
+      .actions {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .actions button {
+        background: #21262d;
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font: inherit;
+      }
+      .actions button:hover {
+        border-color: var(--green);
+      }
+      .error {
+        color: var(--red);
+      }
+      .scroll {
+        max-height: 420px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+      .rule-dry {
+        color: var(--yellow);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Herdr Orchestrator Dashboard</h1>
+      <div>
+        <div id="meta">loading…</div>
+        <div id="stream-status">SSE connecting…</div>
+      </div>
+    </header>
+    <nav>
+      <button class="active" data-tab="agents">Agents</button>
+      <button data-tab="handoffs">Handoff history</button>
+      <button data-tab="rules">Rules</button>
+    </nav>
+    <main>
+      <section id="agents" class="panel active">
+        <div id="agents-error" class="error"></div>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Host</th>
+                <th>Session</th>
+                <th>Workspace</th>
+                <th>Agent</th>
+                <th>Status</th>
+                <th>Pane</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="agents-body"></tbody>
+          </table>
+        </div>
+      </section>
+      <section id="handoffs" class="panel">
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Workspace</th>
+                <th>Agent</th>
+                <th>Action</th>
+                <th>Detail</th>
+                <th>OK</th>
+              </tr>
+            </thead>
+            <tbody id="handoffs-body"></tbody>
+          </table>
+        </div>
+      </section>
+      <section id="rules" class="panel">
+        <div id="rules-meta"></div>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Condition</th>
+                <th>Last fired</th>
+                <th>Last action</th>
+                <th>OK</th>
+              </tr>
+            </thead>
+            <tbody id="rules-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script>
+      let lastAgentsJson = "";
+      let lastHandoffsJson = "";
+      let lastRulesJson = "";
+      let heartbeatTimer = null;
+
+      const statusClass = (status) => {
+        const key = (status || "unknown").toLowerCase();
+        if (["idle", "working", "blocked", "done", "stale"].includes(key)) {
+          return `status-${key}`;
+        }
+        return "status-unknown";
+      };
+
+      const esc = (value) =>
+        String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+
+      function ipcCommand(command, args) {
+        const payload = { command, args };
+        const ipcTag = "__HERDR" + "_IPC__";
+        console.log(ipcTag, payload);
+        if (window.herdr?.postMessage) return window.herdr.postMessage(payload);
+        return fetch("/api/ipc", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        }).then((r) => r.json());
+      }
+
+      function attachAgent(row) {
+        ipcCommand("agent.attach", {
+          agent: row.agent,
+          host: row.host,
+          session: row.session,
+          workspaceId: row.workspaceId,
+          paneId: row.paneId,
+        });
+      }
+      function stopAgent(row) {
+        ipcCommand("agent.stop", {
+          agent: row.agent,
+          host: row.host,
+          session: row.session,
+        });
+      }
+      function restartAgent(row) {
+        ipcCommand("agent.restart", {
+          agent: row.agent,
+          host: row.host,
+          session: row.session,
+        });
+      }
+
+      async function sendHeartbeats(agents) {
+        for (const row of agents) {
+          await fetch("/api/heartbeat", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              agent: row.agent,
+              host: row.host,
+              session: row.session,
+            }),
+          });
+        }
+      }
+
+      async function loadMeta() {
+        const res = await fetch("/api/meta");
+        const data = await res.json();
+        const poll = data.pollHintMs || 5000;
+        document.getElementById("meta").textContent =
+          `${data.projectPath || "."} · SSE live · stale ${(data.staleMs || 15000) / 1000}s` +
+          (data.dryRun ? " · dry-run" : "");
+        return poll;
+      }
+
+      function renderAgents(data) {
+        const agentsJson = JSON.stringify(data.agents || []);
+        if (agentsJson === lastAgentsJson) return;
+        lastAgentsJson = agentsJson;
+
+        const err = document.getElementById("agents-error");
+        const body = document.getElementById("agents-body");
+        body.replaceChildren();
+        if (!data.ok) {
+          err.textContent = data.error || "agents unavailable";
+          return;
+        }
+        err.textContent = "";
+        for (const row of data.agents || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${esc(row.host)}</td>
+            <td>${esc(row.session)}</td>
+            <td>${esc(row.workspaceId)}</td>
+            <td>${esc(row.agent)}</td>
+            <td><span class="status ${statusClass(row.status)}">${esc(row.status)}</span></td>
+            <td>${esc(row.paneId)}</td>
+            <td class="actions">
+              <button type="button" data-action="attach">Attach</button>
+              <button type="button" data-action="stop">Stop</button>
+              <button type="button" data-action="restart">Restart</button>
+            </td>`;
+          const [attachBtn, stopBtn, restartBtn] = tr.querySelectorAll("button");
+          attachBtn.addEventListener("click", () => attachAgent(row));
+          stopBtn.addEventListener("click", () => stopAgent(row));
+          restartBtn.addEventListener("click", () => restartAgent(row));
+          body.appendChild(tr);
+        }
+        void sendHeartbeats(data.agents || []);
+        console.log("dashboard.agents", data.agentCount);
+      }
+
+      function connectAgentsLive() {
+        const status = document.getElementById("stream-status");
+        const source = new EventSource("/api/agents/live");
+        source.onmessage = (event) => {
+          status.textContent = `SSE ${new Date().toISOString()}`;
+          try {
+            renderAgents(JSON.parse(event.data));
+          } catch (e) {
+            console.error("dashboard.sse.parse", e);
+          }
+          window.__HERDR_DASHBOARD_READY__ = true;
+        };
+        source.onerror = () => {
+          status.textContent = "SSE disconnected — retrying…";
+        };
+        return source;
+      }
+
+      async function refreshHandoffs() {
+        const res = await fetch("/api/handoffs?limit=80");
+        const data = await res.json();
+        const json = JSON.stringify(data.entries || []);
+        if (json === lastHandoffsJson) return;
+        lastHandoffsJson = json;
+        const body = document.getElementById("handoffs-body");
+        body.replaceChildren();
+        for (const row of data.entries || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${esc(row.timestamp)}</td>
+            <td>${esc(row.workspace)}</td>
+            <td>${esc(row.agent)}</td>
+            <td>${esc(row.action)}</td>
+            <td>${esc(row.detail)}</td>
+            <td>${row.ok ? "✓" : "✗"}</td>`;
+          body.appendChild(tr);
+        }
+        console.log("dashboard.handoffs", (data.entries || []).length);
+      }
+
+      async function refreshRules() {
+        const res = await fetch("/api/rules");
+        const data = await res.json();
+        const json = JSON.stringify(data.rules || []);
+        if (json === lastRulesJson) return;
+        lastRulesJson = json;
+        document.getElementById("rules-meta").innerHTML = data.dryRun
+          ? '<p class="rule-dry">Handoff dry-run is ON</p>'
+          : `<p>Log: ${esc(data.logPath)}</p>`;
+        const body = document.getElementById("rules-body");
+        body.replaceChildren();
+        for (const row of data.rules || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${row.index}</td>
+            <td>${esc(row.condition)}</td>
+            <td>${esc(row.lastFired || "—")}</td>
+            <td>${esc(row.lastAction || "—")}</td>
+            <td>${row.lastOk === undefined ? "—" : row.lastOk ? "✓" : "✗"}</td>`;
+          body.appendChild(tr);
+        }
+        console.log("dashboard.rules", (data.rules || []).length);
+      }
+
+      document.querySelectorAll("nav button").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll("nav button").forEach((b) => b.classList.remove("active"));
+          document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+          btn.classList.add("active");
+          document.getElementById(btn.dataset.tab).classList.add("active");
+        });
+      });
+
+      (async () => {
+        const poll = await loadMeta();
+        connectAgentsLive();
+        await Promise.all([refreshHandoffs(), refreshRules()]);
+        heartbeatTimer = setInterval(() => {
+          void refreshHandoffs();
+          void refreshRules();
+        }, poll);
+      })();
+    </script>
+  </body>
+</html>

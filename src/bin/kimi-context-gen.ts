@@ -5,14 +5,19 @@ import { pathExists } from "../lib/bun-io.ts";
  * P1: Tech stack inference, config hash tree, freshness scoring
  *
  * Usage:
- *   kimi-context-gen [scan|freshness|update|doctor|fix|frontmatter <file> [--json]]
+ *   kimi-context-gen [scan|freshness|update|doctor|fix|frontmatter <file> [--json] [--depth N]]
  */
 
 import { $, semver, TOML } from "bun";
 import { join } from "path";
 import { CLI_OUTPUT_SCHEMA_VERSION } from "../lib/cli-contract.ts";
 import { inspectAgent } from "../lib/inspect.ts";
-import { parseFrontmatterFile } from "../lib/frontmatter.ts";
+import {
+  formatFrontmatterTable,
+  parseFrontmatterCliArgs,
+  parseFrontmatterFile,
+  parseFrontmatterText,
+} from "../lib/frontmatter.ts";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
 import { checkDocDrift } from "../lib/readme-sync.ts";
@@ -529,6 +534,17 @@ async function doctor(
     }
   }
 
+  const sample = parseFrontmatterText("---\ntitle: probe\n---\n", "probe.md");
+  checks.push({
+    name: "frontmatter",
+    status: sample.meta.format === "yaml" && sample.data.title === "probe" ? "ok" : "error",
+    message:
+      sample.meta.format === "yaml"
+        ? "YAML/TOML frontmatter via `kimi-context-gen frontmatter <file>`"
+        : "frontmatter parser failed self-check",
+    fixable: false,
+  });
+
   return checks;
 }
 
@@ -610,12 +626,13 @@ async function main(): Promise<number> {
       "Run 'kimi-context-gen fix' to regenerate CONTEXT.md"
     );
   } else if (command === "frontmatter") {
-    const file = args[1];
-    const json = args.includes("--json");
-    if (!file || file.startsWith("-")) {
-      logger.error("Usage: kimi-context-gen frontmatter <file> [--json]");
+    const cli = parseFrontmatterCliArgs(args.slice(1));
+    if ("error" in cli) {
+      logger.error(cli.error);
+      logger.error("Usage: kimi-context-gen frontmatter <file> [--json] [--depth N]");
       return 1;
     }
+    const { file, json, depth } = cli;
     try {
       const result = await parseFrontmatterFile(file);
       if (json) {
@@ -628,14 +645,19 @@ async function main(): Promise<number> {
             timestamp: result.meta.parsed,
             data: result.data,
             body: result.body,
-            meta: result.meta,
+            meta: { ...result.meta, depth },
           })}\n`
         );
       } else {
         logger.info(`format: ${result.meta.format}`);
         if (result.meta.delimiter) logger.info(`delimiter: ${result.meta.delimiter}`);
         logger.info(`body: ${result.body.length} chars`);
-        logger.line(JSON.stringify(result.data, null, 2));
+        if (result.meta.format === "none") {
+          logger.warn("No frontmatter block found");
+        } else {
+          logger.info(`inspect depth: ${depth}`);
+          logger.line(formatFrontmatterTable(result.data, { depth }));
+        }
       }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
@@ -682,7 +704,9 @@ async function main(): Promise<number> {
     logger.info("  freshness        Check freshness score");
     logger.info("  doctor           Check CONTEXT.md health");
     logger.info("  fix [threshold]  Regenerate if freshness below threshold (default 7)");
-    logger.info("  frontmatter <file> [--json]  Parse TOML (+++) or YAML (---) frontmatter");
+    logger.info(
+      "  frontmatter <file> [--json] [--depth N]  Table view of TOML (+++) or YAML (---) frontmatter (default depth 10)"
+    );
   }
   return 0;
 }

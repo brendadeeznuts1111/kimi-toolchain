@@ -5,7 +5,7 @@ import { listDir, makeDir, pathExists, pathStat } from "../lib/bun-io.ts";
  * Analyzes recent session activity + git history to suggest root cause
  *
  * Usage:
- *   kimi-debug [last|diff|trace|analyze|doctor|fix]
+ *   kimi-debug [last|diff|trace|analyze|doctor|fix|webview <url|file>|webview frontmatter <file>]
  */
 
 import { $, randomUUIDv7 } from "bun";
@@ -33,6 +33,16 @@ import {
   loadFailureCountsByTaxonomy,
 } from "../lib/taxonomy-constants.ts";
 import { readFailureLedgerSummary } from "../lib/success-metrics.ts";
+import { formatFrontmatterTable } from "../lib/frontmatter.ts";
+import {
+  defaultWebViewBackend,
+  formatWebViewConsoleEvents,
+  parseWebViewCliArgs,
+  probeWebViewConsole,
+  probeWebViewFrontmatter,
+  webViewConsoleAgentPayload,
+  webViewSupported,
+} from "../lib/webview-console.ts";
 
 const writer = createCli(Bun.argv, "kimi-debug");
 const logger = writer.logger;
@@ -500,6 +510,15 @@ async function doctor(projectDir: string) {
     fixable: false,
   });
 
+  checks.push({
+    name: "webview",
+    status: webViewSupported() ? "ok" : "warn",
+    message: webViewSupported()
+      ? `Bun.WebView available (${defaultWebViewBackend()} default backend)`
+      : "Unavailable — `kimi-debug webview` probes disabled in this runtime",
+    fixable: false,
+  });
+
   logger.runDoctor("kimi-debug", checks);
 }
 
@@ -535,6 +554,109 @@ function getDirName(projectDir: string): string {
   return projectDir.split("/").pop() || "unknown";
 }
 
+// ── WebView console probe ────────────────────────────────────────────
+
+async function runWebViewCommand(argv: string[]): Promise<number> {
+  const cli = parseWebViewCliArgs(argv);
+  if ("error" in cli) {
+    logger.error(cli.error);
+    logger.error(
+      "Usage: kimi-debug webview <url|file> [--mirror] [--json] [--depth N] [--wait MS] [--script JS]"
+    );
+    logger.error(
+      "       kimi-debug webview frontmatter <file> [--mirror] [--json] [--depth N] [--backend webkit|chrome]"
+    );
+    return 1;
+  }
+
+  if (!webViewSupported()) {
+    logger.error("Bun.WebView is not available in this runtime");
+    return 1;
+  }
+
+  const captureOpts = {
+    mirror: cli.mirror,
+    depth: cli.depth,
+    script: cli.script,
+    waitMs: cli.waitMs,
+    backend: cli.backend,
+  };
+
+  try {
+    if (cli.mode === "frontmatter") {
+      const { parsed, capture } = await probeWebViewFrontmatter(cli.target, captureOpts);
+      if (cli.json) {
+        Bun.stdout.write(
+          `${webViewConsoleAgentPayload(capture, {
+            mode: "frontmatter",
+            file: parsed.meta.file,
+            format: parsed.meta.format,
+            bodyLength: parsed.body.length,
+            depth: cli.depth,
+          })}\n`
+        );
+        return 0;
+      }
+
+      logger.section("WebView frontmatter probe");
+      logger.info(`file: ${parsed.meta.file}`);
+      logger.info(`format: ${parsed.meta.format}`);
+      logger.info(`page: ${capture.title || capture.url}`);
+      if (cli.mirror) {
+        logger.info("mirror: globalThis.console (see stdout/stderr above)");
+        return 0;
+      }
+      logger.info(`events: ${capture.events.length}`);
+      if (capture.events.length > 0) {
+        logger.line(formatWebViewConsoleEvents(capture.events, cli.depth));
+      }
+      logger.section("Parsed frontmatter (table)");
+      logger.line(formatFrontmatterTable(parsed.data, { depth: cli.depth }));
+      return 0;
+    }
+
+    const capture = await probeWebViewConsole(cli.target, captureOpts);
+    if (cli.json) {
+      Bun.stdout.write(
+        `${webViewConsoleAgentPayload(capture, {
+          mode: "open",
+          target: cli.target,
+          depth: cli.depth,
+        })}\n`
+      );
+      return 0;
+    }
+
+    logger.section("WebView console probe");
+    logger.info(`target: ${cli.target}`);
+    logger.info(`page: ${capture.title || capture.url}`);
+    if (cli.mirror) {
+      logger.info("mirror: globalThis.console (see stdout/stderr above)");
+      return 0;
+    }
+    logger.info(`events: ${capture.events.length}`);
+    if (capture.events.length === 0) {
+      logger.warn("No console events captured — try --script or frontmatter mode");
+    } else {
+      logger.line(formatWebViewConsoleEvents(capture.events, cli.depth));
+    }
+    return 0;
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (cli.json) {
+      Bun.stdout.write(
+        `${webViewConsoleAgentPayload(
+          { events: [], url: "", title: "", mirrored: cli.mirror },
+          { error: message, target: cli.target }
+        )}\n`
+      );
+    } else {
+      logger.error(message);
+    }
+    return 1;
+  }
+}
+
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main(): Promise<number> {
@@ -542,8 +664,11 @@ async function main(): Promise<number> {
   const command = args[0] || "last";
   const projectDir = await resolveProjectRoot();
   const project = getDirName(projectDir);
+  const jsonOnly = command === "webview" && args.includes("--json");
 
-  logger.banner('Kimi Debug — "What Broke?" Wizard', projectDir);
+  if (!jsonOnly) {
+    logger.banner('Kimi Debug — "What Broke?" Wizard', projectDir);
+  }
 
   if (command === "last") {
     logger.section("Recent Activity");
@@ -709,6 +834,8 @@ async function main(): Promise<number> {
       return 1;
     }
     return await parseWireLog(wirePath);
+  } else if (command === "webview") {
+    return await runWebViewCommand(args.slice(1));
   } else {
     logger.section("Commands");
     logger.line("  last                    Show recent activity + heuristic suggestion");
@@ -720,6 +847,12 @@ async function main(): Promise<number> {
     logger.line("  cluster                 Group taxonomy failures with related define constants");
     logger.line("  ledger [path] [--json]  Review failure ledger taxonomy and unknown buckets");
     logger.line("  wire [path]             Analyze a Kimi Code wire.jsonl for failures");
+    logger.line(
+      "  webview <url|file>      Capture page console via Bun.WebView (--mirror, --depth, --json)"
+    );
+    logger.line(
+      "  webview frontmatter <f> Preview + capture frontmatter console from markdown file"
+    );
     logger.line("  doctor                  Check debug wizard health");
     logger.line("  fix <error-text>        Suggest auto-fixes for error");
   }

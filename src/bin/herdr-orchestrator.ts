@@ -109,6 +109,26 @@ function parseArgs(argv: string[]) {
     takeover: args.includes("--takeover"),
     daemon: args.includes("--daemon"),
     watch: args.includes("--watch"),
+    dashboardServe: args.includes("--serve"),
+    dashboardWebview: args.includes("--webview"),
+    dashboardBackend: (() => {
+      const idx = args.indexOf("--backend");
+      const value = idx >= 0 ? args[idx + 1] : "";
+      if (value === "webkit") return "webkit" as const;
+      if (value === "chrome") return "chrome" as const;
+      return undefined;
+    })(),
+    dashboardScreenshot: (() => {
+      const idx = args.indexOf("--screenshot");
+      return idx >= 0 ? args[idx + 1] || "" : "";
+    })(),
+    dashboardPersistProfile: args.includes("--persist-profile"),
+    dashboardProbe: args.includes("--probe"),
+    port: (() => {
+      const idx = args.indexOf("--port");
+      const value = idx >= 0 ? Number(args[idx + 1]) : 18412;
+      return Number.isInteger(value) && value > 0 ? value : 18412;
+    })(),
     workspace: workspace || undefined,
     host: host || undefined,
     agentSession: agentSession || undefined,
@@ -150,6 +170,8 @@ Commands:
   check-sessions Validate session references in handoff rules
   history        Tail/filter handoff audit log [--limit 20] [--workspace wB] [--agent kimi] [--follow] [--verify] [--json]
   dashboard      Unified view of all agents across all workspaces
+                 Use --serve for http://127.0.0.1:18412 API + HTML UI
+                 Use --webview for Bun.WebView pane (--serve implied)
   readiness      Check agent integration versions for native session restore
   agent          Manage agents: start, stop, or attach remotely (herdr-orchestrator agent <subcommand> --help)
   context-sync   Force agentsTab context delivery now
@@ -167,6 +189,13 @@ Flags:
   --all               Run react across all discovered workspaces (overridden by --workspace)
   --sessions          Show agents across all sessions in dashboard
   --verbose, -v       Show detection source + restore columns in dashboard
+  --serve             Start dashboard HTTP server (default port 18412, override with --port)
+  --webview           Open Bun.WebView dashboard (implies --serve)
+  --backend <b>       WebView backend: webkit (macOS default) or chrome
+  --screenshot <path> Headless WebView PNG capture (implies --serve)
+  --probe             With --screenshot: also click first Attach button
+  --persist-profile   Reuse ~/.kimi-code/var/herdr-dashboard-webview profile
+  --port <n>          Dashboard server port (default 18412)
 `);
 }
 
@@ -185,6 +214,13 @@ const {
   domain,
   daemon: showDaemon,
   watch: dashboardWatch,
+  dashboardServe,
+  dashboardWebview,
+  dashboardBackend,
+  dashboardScreenshot,
+  dashboardPersistProfile,
+  dashboardProbe,
+  port: dashboardPort,
   workspace,
   host: cliHost,
   agentSession,
@@ -1438,6 +1474,52 @@ try {
       if (json) writeJson({ ok: false, error: "no [herdr] profile" });
       process.exit(1);
     }
+
+    if (dashboardServe || dashboardWebview || dashboardScreenshot) {
+      const serverOpts = {
+        projectPath,
+        port: dashboardPort,
+        sessions: showSessions,
+        host: cliHost,
+        domain,
+        includeDoctor,
+        verbose,
+        dryRun,
+      };
+
+      if (dashboardScreenshot) {
+        const { captureHerdrDashboardScreenshot } =
+          await import("../lib/herdr-dashboard-automation.ts");
+        const result = await captureHerdrDashboardScreenshot({
+          ...serverOpts,
+          outputPath: dashboardScreenshot,
+          backend: dashboardBackend,
+          persistProfile: dashboardPersistProfile,
+          clickAttach: dashboardProbe,
+        });
+        if (json) {
+          writeJson(result);
+        } else {
+          writeOut(
+            `[dashboard] screenshot ${result.outputPath} (${result.screenshotBytes} bytes, ready=${result.ready}, agents=${result.agentRows})`
+          );
+        }
+        process.exit(result.ok ? 0 : 1);
+      }
+
+      const { runHerdrDashboardServe, runHerdrDashboardWebView } =
+        await import("../lib/herdr-webview-dashboard.ts");
+      if (dashboardWebview) {
+        await runHerdrDashboardWebView(serverOpts, {
+          backend: dashboardBackend,
+          persistProfile: dashboardPersistProfile,
+        });
+      } else {
+        await runHerdrDashboardServe(serverOpts);
+      }
+      process.exit(0);
+    }
+
     const full = { ...config, projectPath };
     const ids = workspace ? [workspace] : findAllWorkspacesForProject(full);
     const session = config.session;
@@ -1626,6 +1708,7 @@ try {
         agentCount: rows.length,
         agents: rows.map((r) => ({
           host: r.host,
+          session: r.session,
           workspaceId: r.workspaceId,
           agent: r.agent,
           status: r.status,

@@ -103,6 +103,7 @@
     "lint:context": "bun run scripts/lint-context-bloat.ts",
     "lint:skills": "bun run scripts/lint-skill-coverage.ts",
     "skills:table": "bun run scripts/skills-table.ts",
+    "frontmatter": "bun run src/bin/kimi-context-gen.ts frontmatter",
     "lint:taxonomy-coverage": "bun run scripts/lint-taxonomy-coverage.ts",
     "lint:terms": "bun run scripts/lint-banned-terms.ts",
     "manifest:generate": "bun run scripts/generate-constants-manifest.ts",

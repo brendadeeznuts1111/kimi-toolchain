@@ -214,6 +214,11 @@ export function herdrConfigDir(home?: string): string {
   return join(home || homeDir(), ".config", "herdr");
 }
 
+/** Return ~/.kimi-code/var/herdr-dashboard-webview — persistent Bun.WebView profile */
+export function herdrDashboardWebViewStoreDir(home?: string): string {
+  return join(desktopRoot(home), "var", "herdr-dashboard-webview");
+}
+
 /** Return ~/.config/herdr/agents — LATM pane capability manifests */
 export function herdrAgentsDir(home?: string): string {
   return join(herdrConfigDir(home), "agents");
