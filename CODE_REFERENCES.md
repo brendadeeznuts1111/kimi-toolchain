@@ -229,8 +229,8 @@ Use this pattern when extending `kimi-doctor` with new agent-facing diagnostics.
 ### Probe manifest
 
 - `kimi-doctor --probe` emits `DoctorProbeManifest` from `src/lib/doctor-probe.ts`.
-- Bump `schemaVersion` only when the manifest shape changes; document the version
-  in `DEEP-QUALITY.md`.
+- Bump `schemaVersion` only when the manifest shape changes; document the bump in
+  `src/lib/doctor-probe.ts` and `CHANGELOG.md`.
 - The `checks` array must list every registered adapter, discovered plugin, and
   built-in check so agents can discover capabilities programmatically.
 

@@ -35,14 +35,17 @@ if you need the raw protocol or full api reference, read the [socket api docs](h
 
 ## kimi-toolchain integration
 
-When the `kimi-toolchain` CLI is installed, you also have access to:
+When `kimi-toolchain` is installed, prefer these over raw `herdr` for programmatic use (`--json` on all):
 
-- **`herdr-pane`** — a higher-level CLI that wraps all herdr pane operations with Effect-based error handling, JSON output (`--json`), and Bun-native spawning. Prefer `herdr-pane` over raw `herdr pane` for programmatic use — it provides typed results, consistent exit codes, and composable `split-and-run` / `split-run-and-wait` flows.
-- **`herdr-doctor`** — checks Herdr integration health, including the `herdr-pane` binary, config symlinks, agent manifests, spawn wrappers, and integration versions.
-- **`herdr-orchestrator`** — cross-workspace agent orchestration, remote session discovery, handoff escalation.
-- **`herdr-project`** — project lifecycle: bootstrap, discover, reconcile, scaffold.
+| CLI                  | Use for                                                                   |
+| -------------------- | ------------------------------------------------------------------------- |
+| `herdr-pane`         | Split/run/wait/read panes — typed Effect wrapper around socket API        |
+| `herdr-latm`         | Pane capability mesh — `list`, `sync --project .`, `invoke --tool <name>` |
+| `herdr-project`      | Apply/reconcile `[herdr]` layout from `dx.config.toml`                    |
+| `herdr-orchestrator` | Cross-pane handoffs, `watch-events`, `context-sync`, `escalate`           |
+| `herdr-doctor`       | Config symlinks, spawn wrappers, integration health                       |
 
-Run `herdr-pane --help` for the full subcommand list. All `herdr-pane` subcommands support `--json` for machine-readable output.
+Config/layout reference: [CODE_REFERENCES.md](../../CODE_REFERENCES.md) § Herdr orchestration. In-pane recipes below use raw `herdr` — swap to `herdr-pane` when you need JSON or consistent exit codes.
 
 ## key syntax
 
@@ -255,73 +258,31 @@ herdr pane close 1-3
 
 ## recipes
 
-### run a server and wait until it is ready
+### split, run, wait (server, tests, or long command)
 
 ```bash
-NEW_PANE=$(herdr pane split 1-2 --direction right --no-focus | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["pane"]["pane_id"])')
-herdr pane run "$NEW_PANE" "npm run dev"
-herdr wait output "$NEW_PANE" --match "ready" --timeout 30000
-herdr pane read "$NEW_PANE" --source recent --lines 20
-```
-
-### run tests in a separate pane and inspect the result
-
-```bash
-herdr pane split 1-2 --direction down --no-focus
-herdr pane run 1-3 "cargo test"
-herdr wait output 1-3 --match "test result" --timeout 60000
+herdr pane split 1-2 --direction right --no-focus   # note new pane id from JSON
+herdr pane run 1-3 "npm run dev"
+herdr wait output 1-3 --match "ready" --timeout 30000
 herdr pane read 1-3 --source recent --lines 30
 ```
 
-### check what another agent is working on
+Re-read pane ids after every split/close — ids compact when panes are removed.
+
+### inspect or coordinate with another pane/agent
 
 ```bash
 herdr pane list
-herdr pane read 1-1 --source recent --lines 80
-```
-
-### watch another pane robustly
-
-use this pattern when you need to coordinate with a sibling pane:
-
-```bash
-# inspect what is already there
-herdr pane read 1-3 --source recent --lines 40
-
-# wait only for the next output you expect
-herdr wait output 1-3 --match "ready" --timeout 30000
-
-# if you need to inspect the same transcript the waiter matched,
-# read the unwrapped recent text directly
+herdr pane read 1-1 --source recent --lines 80          # current output
+herdr wait output 1-3 --match "ready" --timeout 30000   # future output
 herdr pane read 1-3 --source recent-unwrapped --lines 40
-```
-
-### spawn a new agent and give it a task
-
-```bash
-herdr pane split 1-2 --direction right --no-focus
-herdr pane run 1-3 "claude"
-herdr wait output 1-3 --match ">" --timeout 15000
-herdr pane run 1-3 "review the test coverage in src/api/"
-```
-
-### coordinate with another agent
-
-```bash
 herdr wait agent-status 1-1 --status done --timeout 120000
-herdr pane read 1-1 --source recent --lines 100
 ```
 
 ## notes
 
-- `workspace list`, `workspace create`, `tab list`, `tab create`, `tab get`, `tab focus`, `tab rename`, `tab close`, `pane list`, `pane get`, `pane split`, `wait output`, and `wait agent-status` print json on success.
-- `pane read` prints text, not json.
-- `pane read --format ansi` or `pane read --ansi` returns a rendered ANSI snapshot for TUI feedback loops.
-- `pane read --source recent-unwrapped` is useful when you want to inspect the same unwrapped transcript that `wait output --source recent` matches against.
-- `pane send-text`, `pane send-keys`, and `pane run` print nothing on success.
-- parse ids from `workspace create`, `tab create`, and `pane split` responses when you need new ids. `workspace create` returns `result.workspace`, `result.tab`, and `result.root_pane`. `tab create` returns `result.tab` and `result.root_pane`. for `pane split`, the new pane id is at `result.pane.pane_id`.
-- use `pane read` for current output that already exists. use `wait output` for future output you expect next.
-- `--no-focus` on split, tab create, and workspace create keeps your current terminal context focused.
-- without `--label`, workspace create keeps cwd-based naming and tab create keeps numbered naming.
-- `--label` on tab create and workspace create applies the custom name immediately.
-- if you are running inside herdr, the `HERDR_ENV` environment variable is set to `1`.
+- JSON on success: `workspace *`, `tab *`, `pane list|get|split`, `wait *`. Text only: `pane read` (use `--source recent-unwrapped` to match `wait output`).
+- `pane run` submits text + Enter atomically; prefer it over `send-text` + `send-keys enter`.
+- Parse new ids from create/split JSON (`result.pane.pane_id`, `result.workspace`, etc.). Do not reuse stale ids.
+- `--no-focus` keeps your pane focused when splitting or creating tabs/workspaces.
+- `HERDR_ENV=1` when running inside herdr.

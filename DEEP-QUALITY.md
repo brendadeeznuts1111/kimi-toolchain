@@ -230,36 +230,7 @@ interface EffectGatesViolation {
 
 When validation fails (missing/invalid/below floor), `summary.passed` is `false` and an `error` field is included.
 
-### `kimi-doctor --probe` manifest schema
-
-Probe schema version is `1` and is defined in `src/lib/doctor-probe.ts`. The manifest lists every available check source so agents can discover capabilities programmatically.
-
-```ts
-interface DoctorProbeManifest {
-  schemaVersion: number; // 1
-  tool: "kimi-doctor";
-  version: string;
-  modes: DoctorProbeMode[];
-  flags: DoctorProbeFlag[];
-  checks: DoctorProbeCheck[];
-  supportsAutoFix: boolean;
-  supportsJson: boolean;
-  supportsPlugins: boolean;
-  supportsMcp: boolean;
-}
-
-interface DoctorProbeCheck {
-  type: "adapter" | "plugin" | "builtin";
-  name: string;
-  description?: string;
-}
-```
-
-`checks` includes:
-
-- Every registered external-tool adapter from `listExternalToolAdapters()`.
-- Every discovered doctor plugin from `discoverDoctorPlugins()` (valid and invalid entries).
-- The built-in `effect-gates` check.
+Doctor probe/adapters/plugins/MCP JSON contracts: [CODE_REFERENCES.md](CODE_REFERENCES.md) § Doctor Adapter / Plugin / MCP (`src/lib/doctor-probe.ts`, schema version `1`).
 
 ## Session-Floor Thresholds
 
@@ -281,68 +252,7 @@ Rules:
 - Values below the floor are failures.
 - Zero-tolerance fields fail only when the supplied value is negative (they are expected to stay at 0).
 
-## Example: Clean `kimi-doctor --effect-gates --json` Output
-
-This example was produced by running the command against a minimal clean project:
-
-```json
-{
-  "effectGates": {
-    "previous": null,
-    "current": {
-      "schemaVersion": 1,
-      "tool": "kimi-doctor",
-      "generatedAt": "2026-06-16T04:53:41.241Z",
-      "project": "clean-effect-project",
-      "thresholds": {
-        "maxDirectPromise": 0,
-        "layerCircularityTolerance": 0,
-        "serviceTagRequired": true,
-        "domainPurityLevel": "strict",
-        "runPromiseBoundaryEnabled": true,
-        "eventStreamsEnabled": false
-      },
-      "counts": {
-        "directPromise": 0,
-        "layerCircularity": 0,
-        "missingServiceTag": 0,
-        "domainPurity": 0,
-        "runPromiseBoundary": 0,
-        "eventStream": 0
-      },
-      "summary": {
-        "total": 0,
-        "errors": 0,
-        "warnings": 0
-      },
-      "violations": []
-    },
-    "delta": {
-      "directPromise": 0,
-      "layerCircularity": 0,
-      "missingServiceTag": 0,
-      "domainPurity": 0,
-      "runPromiseBoundary": 0,
-      "eventStream": 0
-    },
-    "regressions": []
-  },
-  "thresholds": {
-    "maxDirectPromise": 0,
-    "layerCircularityTolerance": 0,
-    "serviceTagRequired": true,
-    "domainPurityLevel": "strict",
-    "runPromiseBoundaryEnabled": true,
-    "eventStreamsEnabled": false
-  },
-  "violations": [],
-  "summary": {
-    "ok": true
-  },
-  "schemaVersion": 1,
-  "tool": "kimi-doctor"
-}
-```
+Sample envelope: run `kimi-doctor --effect-gates --json` on a clean project; `summary.ok` is `true` when all gate counts are zero and no regressions are detected.
 
 ## Taxonomy IDs
 
@@ -367,14 +277,7 @@ The `error-taxonomy.yml` entries used by the Effect gates:
 
 ## Enforcement Surface
 
-The Effect-discipline gates are enforced locally. Server-side GitHub Actions is disabled for this account due to a billing lock, so the active gates are:
-
-- **Pre-push hooks** (`kimi-githooks install`) — run `kimi-doctor --effect-gates` on every push, along with `check:fast`, guardian, constant-drift, R-Score, and mandatory desktop sync.
-- **Local CI** (`bun run ci:local`) — runs the full quality + governance + effect-gates pipeline on demand.
-
-`kimi-doctor --effect-gates` reads and writes `{projectRoot}/.kimi/var/effect-gates.ndjson` for regression detection. To bypass the gate in an emergency, set `KIMI_SKIP_EFFECT_GATES=1`; any bypass must be documented in the commit message.
-
-The archived server workflow is preserved at `.github/workflows-disabled/ci.yml` for reference.
+Enforced locally via pre-push hooks (`kimi-doctor --effect-gates`) and `bun run ci:local`. Snapshots: `{projectRoot}/.kimi/var/effect-gates.ndjson`. Escape hatch: `KIMI_SKIP_EFFECT_GATES=1` (document in commit message). Gate layers: [AGENTS.md](AGENTS.md#gate-layers).
 
 ## COMPLEXITY-NOTE: `CliContractError` / `EffectCliContractError`
 

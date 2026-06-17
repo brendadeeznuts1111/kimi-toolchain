@@ -280,65 +280,17 @@ Full runtime sync/ci.local blocks live only in the **kimi-toolchain reference** 
 
 **finish-work staging:** `git add -u` only (tracked files). Untracked files and secrets are never blanket-staged.
 
-### Migrating an existing project to the toolchain profile
+### Migrating to the toolchain profile
 
-Use when a repo was scaffolded with the default **app** profile and you want `[finishWork]`, `[herdr]`, and `scripts/finish-work.ts`.
+App → toolchain: back up custom `dx.config.toml`, remove stale scaffold files, run `kimi-fix <path> --profile toolchain`, verify `bun run finish-work --dry-run` lists `kimi-doctor --effect-gates` (not `bun run doctor --effect-gates`). Details: [CODE_REFERENCES.md](CODE_REFERENCES.md) § DX Workspace Layout.
 
-1. Confirm toolchain on PATH: `kimi-doctor --quick`
-2. Back up `dx.config.toml` if it has custom blocks you need to keep
-3. Remove stale scaffold files so `kimi-fix` can recreate them:
-   - `dx.config.toml` (or manually add `[finishWork]` + `[herdr]` from `templates/scaffold/dx.config.toolchain.toml`)
-   - `scripts/finish-work.ts` if missing or app-era (config loader: `src/lib/finish-work-config.ts`)
-4. Run `kimi-fix <path> --profile toolchain`
-5. Verify: `bun run finish-work --dry-run` (gates should include `kimi-doctor --effect-gates`)
-6. If `[finishWork]` still lists `bun run doctor --effect-gates`, replace with `kimi-doctor --effect-gates` to match the canonical gate
+### Herdr project profile (`[herdr]`)
 
-### Herdr project profile (`[herdr]`) — v1.5.4
-
-Single source of truth for Herdr workspace layout. `herdr-project` reads `[herdr]` from `dx.config.toml` (or flat `.dx/herdr.toml` in config repos). Global Herdr keys/theme use the three-layer symlink chain — see **Herdr Config Symlink Chain** in `CODE_REFERENCES.md`.
-
-**Layout model:**
-
-- Tab **agents** (default): `primaryAgent` + `shellPane` (split `shellSplit`) + `secondaryAgents`
-- Extra tabs: `[[herdr.tabs]]` (doctor, shell, reviewer, …)
-- Shell bootstrap: `bootstrap` commands run once in the shell pane on first workspace create
-
-Finish-work gates live in `[finishWork]` (falls back to `[agents].prePush`) — not in `[herdr]`.
-
-```toml
-[herdr]
-enabled = true
-workspaceLabel = "my-project"
-primaryAgent = "kimi"
-secondaryAgents = ["codex"]
-shellPane = true
-shellSplit = "right"
-bootstrap = [
-  "dx config --project .",
-  "echo 'Finish work: bun run finish-work --message \"...\"'",
-  "bun run check:fast && echo '✅ Ready to commit'",
-]
-
-[[herdr.tabs]]
-label = "doctor"
-command = "kimi-doctor --watch"
-
-[[herdr.tabs]]
-label = "shell"
-command = "git status -sb; herdr-quickref"
-```
-
-Config/dotfiles repos use the same fields in flat `.dx/herdr.toml` (`[[tabs]]` instead of `[[herdr.tabs]]`). Global machine wiring: `~/dx-config`.
-
-**Scaffold vs live finish-work:** `kimi-fix --profile toolchain` copies self-contained scripts from `templates/scaffold/scripts/` (`finish-work.ts`, `finish-work-herdr.ts`, `reviewer-pane.ts`, `finish-work-config.ts`). Live `~/kimi-toolchain` uses `src/lib/finish-work-config.ts` (Effect Schema) and `src/lib/finish-work-herdr.ts` (shared with herdr-project). dx-config owns Herdr *machine* templates (`config/dx/templates/herdr.project.toml`), not toolchain scaffold scripts.
-
-Finish-work helper (reads `dx.config.toml` only):
+Authoritative `[herdr]` blocks: `templates/scaffold/dx.config.toolchain.toml` and live `dx.config.toml`. Layout model, symlink chain, finish-work scripts, and `herdr-project` contract: [CODE_REFERENCES.md](CODE_REFERENCES.md) § Herdr orchestration / DX Workspace Layout. Production validation scope: `docs/SCOPE.md`.
 
 ```bash
 bun run finish-work --dry-run
-bun run finish-work --message "feat: workspace layout"
-bun run finish-work --message "fix: gates" --push   # gates + commit + push (daily default)
-bun run finish-work --skip-git                      # gates only
+bun run finish-work --message "feat: workspace layout" --push
 ```
 
 ## CHANGELOG.md Template
@@ -391,105 +343,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## AGENTS.md Minimal Template
 
-Scaffolded automatically by `kimi-fix` via `src/lib/scaffold-agents.ts`. Title uses `package.json` `name` (falls back to directory name). Customize the one-line project description after generation.
-
-````markdown
-# Agent Guide — {Project Name}
-
-## Project
-
-One-line description of what this does.
-
-## Runtime
-
-- **Bun** `>=1.3.14` — check `bun --version`
-- Prefer Bun-native APIs: `Bun.file`, `Bun.serve`, `Bun.hash`, `Bun.sleep`
-- No Node APIs unless Bun lacks equivalent (see `~/.kimi-code/AGENTS.md` for full table)
-
-## Global DX First
-
-- Read `~/.config/dx/AGENTS.md` before project-local setup
-- Start with `dx setup`, `dx context`, `dx config`, `dx mcp-status`, `dx cli`, and `dx package`
-- Use `dx package` after dependency changes, then rerun Kimi guardian/governance gates
-
-## Formatting & lint
-
-- **oxfmt** — `.oxfmtrc.json`, `bun run format` / `bun run format:check`
-- **oxlint** — `.oxlintrc.json`, `bun run lint`
-- Run `bun run format` before commit; CI uses `format:check:ci` + `lint`
-
-## Conventions
-
-- Zero re-export shims — import from canonical source
-- Inline single-use variables and private methods
-- `trash` > `rm`
-- Read-only checks before mutation (`--dry-run`)
-- Use `Bun.env` not `process.env`
-- Use `Bun.cwd` not `process.cwd()`
-- Use `Bun.argv` not `process.argv`
-- Use `Uint8Array` not `Buffer`
-- Prefer shared tool/logging helpers from `~/.kimi-code/AGENTS.md` over raw subprocess and console patterns
-
-## Reference Code Before Writing
-
-- Read local `./CODE_REFERENCES.md` before adding new modules or tool paths
-- If local references are incomplete, fall back to `~/.kimi-code/CODE_REFERENCES.md`
-- Match the closest existing pattern for logging, tool invocation, config parsing, and tests
-- For Effect code, use it only when the project already uses it or the workflow needs typed failures, cleanup, subprocess orchestration, or parallel aggregation
-- For config/schema work, prefer narrow interfaces, type guards, parser checks, and focused validation tests before adding schema packages
-
-## Agent Defaults
-
-- Preserve dirty worktrees; never revert user changes without explicit instruction
-- Keep destructive operations and dependency changes in manual approval mode
-- Do not use YOLO/auto-approve for mutation-heavy MCP or shell operations
-- Keep background keep-alive off unless intentionally daemonizing
-- Batch related edits, then run targeted tests before broad gates
-
-## Commands
-
-```bash
-bun run dev           # Dev server (auto-port)
-bun run test          # Tests (fail-fast)
-bun run typecheck     # tsc --noEmit
-bun run format        # oxfmt --write .
-bun run format:check  # oxfmt --check . (local)
-bun run lint          # oxlint
-kimi-fix .            # Auto-fix scaffolding
-```
-
-## Quality Gates
-
-```bash
-kimi-doctor --agent-ready
-kimi-githooks doctor
-bun run check:fast
-bun run check
-kimi-guardian check
-kimi-governance score
-kimi-context-gen scan
-kimi-githooks install
-kimi-doctor --quick
-```
-
-## Kimi Code
-
-- User MCP: `~/.kimi-code/mcp.json` (unified-shell from toolchain sync)
-- Cloudflare MCP default: `cloudflare-api` in user MCP; Cloudflare SSO/OAuth is separate from Wrangler OAuth and `kimi-cloudflare-access` API tokens
-- Project override: `.kimi-code/mcp.json` (empty stub unless you add stdio servers)
-- Skills: `.kimi-code/skills/<name>/SKILL.md`
-
-## References
-
-- `CONTEXT.md` — domain model and architecture
-- `CODE_REFERENCES.md` — local exemplars for good code patterns
-- `.env.example` — required environment variables
-- `docs/adr/` — architecture decision records
-- `~/.kimi-code/AGENTS.md` — global agent rules
-- `~/.kimi-code/CODE_REFERENCES.md` — fallback global exemplar map
-- `~/.kimi-code/UNIFIED.md` — Kimi Code vs kimi-toolchain map
-- `~/.kimi-code/TEMPLATES.md` — scaffold templates (this file)
-````
+Generated by `kimi-fix` via `buildAgentsMd()` in `src/lib/scaffold-agents.ts` (title from `package.json` `name`). Customize the one-line project description after scaffold. Tests: `test/scaffold-agents.unit.test.ts`.
 
 ## CI Workflow Template (`.github/workflows/ci.yml`)
 
@@ -573,33 +427,6 @@ Project entries override user-level servers with the same name:
 
 Scaffolded by `kimi-fix`. Only add stdio servers in trusted repos.
 
-## Zed ACP — `~/.config/zed/settings.json`
+## IDE ACP (Zed / JetBrains)
 
-```json
-{
-  "agent_servers": {
-    "Kimi Code CLI": {
-      "type": "custom",
-      "command": "/Users/you/.kimi-code/bin/kimi",
-      "args": ["acp"],
-      "env": {}
-    }
-  }
-}
-```
-
-## JetBrains ACP — Configure ACP agents
-
-```json
-{
-  "agent_servers": {
-    "Kimi Code CLI": {
-      "command": "/Users/you/.kimi-code/bin/kimi",
-      "args": ["acp"],
-      "env": {}
-    }
-  }
-}
-```
-
-Run `kimi login` in terminal before first IDE session.
+Kimi Code ACP wiring (`kimi acp`, absolute path to `~/.kimi-code/bin/kimi`): `skills/kimi-toolchain/SKILL.md` and [UNIFIED.md](UNIFIED.md) § Editor workflows. Run `kimi login` once before first IDE session.
