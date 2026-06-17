@@ -142,9 +142,10 @@ export function connectHerdrSocket(
   const switchToJsonl = () => {
     if (switched) return;
     switched = true;
+    settled = false;
     active.removeAllListeners();
     active.close();
-    active = connectJsonl(path);
+    active = attachTransportTag(connectHerdrUnixSocket(path), "websocket-fallback");
     bindSocketEvents(active, listeners);
     settleTransport("websocket-fallback");
   };
@@ -152,9 +153,6 @@ export function connectHerdrSocket(
   active = connectWebsocket(path, options.requestPath);
   bindSocketEvents(active, listeners);
 
-  active.on("open", () => {
-    settleTransport("websocket");
-  });
   active.on("data", () => {
     gotData = true;
     settleTransport("websocket");

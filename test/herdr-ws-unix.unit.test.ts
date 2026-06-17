@@ -194,7 +194,7 @@ describe("herdr-ws-unix", () => {
           const push = createJsonlLineBuffer((line) => {
             const json = parseHerdrSocketJsonLine(line);
             if (json?.result) {
-              expect(transport).toBe("websocket-fallback");
+              expect(transport || socket.transport).toBe("websocket-fallback");
               socket.end();
             }
           });

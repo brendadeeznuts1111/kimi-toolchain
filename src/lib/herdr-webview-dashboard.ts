@@ -207,8 +207,7 @@ export async function runHerdrDashboardWebView(
       if (!result.ok) new DashboardConsole().warn("ipc", result.command, result.message);
     },
   });
-  const hostname = viewOptions.hostname ?? server.hostname;
-  const url = `http://${hostname}:${server.port}/`;
+  const url = server.url;
 
   await (async () => {
     await using dashboard = new DashboardView(url, server, {
@@ -228,7 +227,14 @@ export async function runHerdrDashboardServe(
   options: HerdrDashboardServerOptions
 ): Promise<HerdrDashboardServerHandle> {
   const server = startHerdrDashboardServer(options);
-  process.stdout.write(`[dashboard] serving ${server.url} (SSE /api/agents/live)\n`);
+  const transportNote = server.transport.http3
+    ? "HTTP/3+TLS"
+    : server.transport.fallbackReason
+      ? `HTTP/1.1 (HTTP/3 fallback: ${server.transport.fallbackReason})`
+      : "HTTP/1.1";
+  process.stdout.write(
+    `[dashboard] serving ${server.url} (${transportNote}, SSE /api/agents/live)\n`
+  );
   await waitForShutdown();
   server.stop();
   return server;

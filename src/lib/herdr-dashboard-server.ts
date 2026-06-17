@@ -23,6 +23,13 @@ import {
   type DashboardIpcCommand,
 } from "./herdr-dashboard-data.ts";
 import { HerdrDashboardHub } from "./herdr-dashboard-hub.ts";
+import {
+  bunHttp3ServeSupported,
+  dashboardHttp3Requested,
+  dashboardServeScheme,
+  resolveDashboardServeTransport,
+  type DashboardServeTransport,
+} from "./herdr-dashboard-http3.ts";
 
 export interface HerdrDashboardServerOptions extends DashboardFetchOptions {
   projectPath: string;
@@ -30,6 +37,12 @@ export interface HerdrDashboardServerOptions extends DashboardFetchOptions {
   hostname?: string;
   dryRun?: boolean;
   pollHintMs?: number;
+  /** Enable HTTP/3 when TLS certs are configured (see HERDR_DASHBOARD_TLS_* env). */
+  http3?: boolean;
+  /** Override HERDR_DASHBOARD_TLS_CERT for tests or custom deployments. */
+  tlsCertPath?: string;
+  /** Override HERDR_DASHBOARD_TLS_KEY for tests or custom deployments. */
+  tlsKeyPath?: string;
   onIpc?: (result: ReturnType<typeof runDashboardIpcCommand>) => void;
   /** Optional PNG supplier for `/api/thumbnail` when no cached screenshot is set. */
   screenshotProvider?: () => Promise<Uint8Array | null>;
@@ -39,7 +52,10 @@ export interface HerdrDashboardServerHandle {
   port: number;
   hostname: string;
   url: string;
+  transport: DashboardServeTransport;
   hub: HerdrDashboardHub;
+  /** In-process request helper (avoids TLS verification for local HTTPS tests). */
+  fetch: (input: string | Request) => Response | Promise<Response>;
   /** Cache a dashboard PNG for `/api/thumbnail` encoding. */
   setScreenshotPng: (png: Uint8Array) => void;
   stop: () => void;
@@ -118,9 +134,17 @@ export function startHerdrDashboardServer(
 
   let screenshotPng: Uint8Array | null = null;
 
+  const { serveOptions, transport } = resolveDashboardServeTransport({
+    http3: options.http3,
+    certPath: options.tlsCertPath,
+    keyPath: options.tlsKeyPath,
+  });
+  const scheme = dashboardServeScheme(transport);
+
   const server = Bun.serve({
     hostname,
     port,
+    ...serveOptions,
     async fetch(req) {
       const request = req as unknown as ServeRequest;
       const url = new URL(request.url);
@@ -142,6 +166,14 @@ export function startHerdrDashboardServer(
           dryRun: options.dryRun ?? false,
           thumbnail: bunImageSupported(),
           thumbnailPath: "/api/thumbnail",
+          transport: {
+            scheme,
+            tls: transport.tls,
+            http3: transport.http3,
+            http3Supported: bunHttp3ServeSupported(),
+            http3Requested: dashboardHttp3Requested(options.http3),
+            fallbackReason: transport.fallbackReason,
+          },
         };
         if (screenshotPng) {
           const placeholder = await dashboardScreenshotPlaceholder(screenshotPng);
@@ -243,8 +275,10 @@ export function startHerdrDashboardServer(
   return {
     port: boundPort,
     hostname,
-    url: `http://${hostname}:${boundPort}/`,
+    url: `${scheme}://${hostname}:${boundPort}/`,
+    transport,
     hub,
+    fetch: server.fetch.bind(server),
     setScreenshotPng: (png: Uint8Array) => {
       screenshotPng = png;
     },

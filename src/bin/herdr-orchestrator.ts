@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { pathExists, readText, watchPath } from "../lib/bun-io.ts";
+import { handoffInheritedSpawn } from "../lib/execve-handoff.ts";
 import { TOML } from "bun";
 import { discoverHerdrProjectConfig } from "../lib/herdr-project-config.ts";
 import { syncAgentsTabContext } from "../lib/herdr-project-context.ts";
@@ -128,6 +129,7 @@ function parseArgs(argv: string[]) {
     })(),
     dashboardPersistProfile: args.includes("--persist-profile"),
     dashboardProbe: args.includes("--probe"),
+    dashboardHttp3: args.includes("--http3"),
     port: (() => {
       const idx = args.indexOf("--port");
       const value = idx >= 0 ? Number(args[idx + 1]) : 18412;
@@ -196,6 +198,8 @@ Flags:
   --sessions          Show agents across all sessions in dashboard
   --verbose, -v       Show detection source + restore columns in dashboard
   --serve             Start dashboard HTTP server (default port 18412, override with --port)
+  --http3             Enable HTTP/3 (QUIC) when TLS certs are configured
+                      Set HERDR_DASHBOARD_TLS_CERT + HERDR_DASHBOARD_TLS_KEY, or HERDR_DASHBOARD_HTTP3=1
   --webview           Open Bun.WebView dashboard (implies --serve)
   --backend <b>       WebView backend: webkit (macOS default) or chrome
   --screenshot <path> Headless WebView PNG capture (implies --serve)
@@ -228,6 +232,7 @@ const {
   dashboardThumbnail,
   dashboardPersistProfile,
   dashboardProbe,
+  dashboardHttp3,
   port: dashboardPort,
   workspace,
   host: cliHost,
@@ -1514,6 +1519,7 @@ try {
         includeDoctor,
         verbose,
         dryRun,
+        http3: dashboardHttp3 ? true : undefined,
       };
 
       if (dashboardScreenshot) {
@@ -3852,10 +3858,12 @@ try {
 
     const runSh = join(pluginRoot, "run.sh");
     const passthrough = Bun.argv.slice(3); // everything after "herdr-orchestrator bootstrap"
-    const proc = Bun.spawn(["bash", runSh, "src/actions/bootstrap.ts", ...passthrough], {
-      stdio: ["inherit", "inherit", "inherit"],
-    });
-    const code = await proc.exited;
+    const code = await handoffInheritedSpawn([
+      "bash",
+      runSh,
+      "src/actions/bootstrap.ts",
+      ...passthrough,
+    ]);
     process.exit(code);
   }
 
