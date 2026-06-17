@@ -1,7 +1,13 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { checkDocDrift, patchReadmeScripts, runReadmeSyncCli } from "../src/lib/readme-sync.ts";
+import {
+  README_SCRIPT_EXCLUSIONS,
+  buildScriptSyncBlock,
+  checkDocDrift,
+  patchReadmeScripts,
+  runReadmeSyncCli,
+} from "../src/lib/readme-sync.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 let tmpDir: string;
@@ -161,6 +167,30 @@ describe("readme-sync", () => {
     const result = await runReadmeSyncCli(["--fix", tmpDir]);
     expect(result.exitCode).toBe(0);
     expect(result.message).toContain("already in sync");
+  });
+
+  test("checkDocDrift ignores lifecycle script exclusions", async () => {
+    writeFileSync(
+      join(tmpDir, "package.json"),
+      JSON.stringify(
+        { scripts: { test: "bun test", postinstall: "echo hi", toolchain: "echo tc" } },
+        null,
+        2
+      )
+    );
+    writeFileSync(join(tmpDir, "README.md"), "Run `bun run test`.\n");
+
+    const drift = await checkDocDrift(tmpDir);
+    expect(drift).not.toBeNull();
+    expect(drift!.fresh).toBe(true);
+    expect(README_SCRIPT_EXCLUSIONS.has("postinstall")).toBe(true);
+  });
+
+  test("buildScriptSyncBlock wraps scripts in marker comments", () => {
+    const block = buildScriptSyncBlock({ alpha: "echo", beta: "echo 2" });
+    expect(block).toContain("<!-- package-scripts-sync -->");
+    expect(block).toContain("bun run alpha");
+    expect(block).toContain("bun run beta");
   });
 
   test("CLI reports failure on invalid package.json", async () => {

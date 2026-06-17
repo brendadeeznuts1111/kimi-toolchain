@@ -21,6 +21,14 @@ const NEXT_SECTION_PATTERN = /\n### /;
 const TABLE_ROW_TEMPLATE = (script: string) =>
   `| \`bun run ${script}\` | (synced from package.json) |`;
 
+/** Lifecycle/internal scripts — omitted from README drift checks. */
+export const README_SCRIPT_EXCLUSIONS = new Set(["postinstall", "toolchain"]);
+
+export const README_SCRIPT_SYNC_START = "<!-- package-scripts-sync -->";
+export const README_SCRIPT_SYNC_END = "<!-- /package-scripts-sync -->";
+const README_SCRIPT_SYNC_BLOCK_RE =
+  /<!-- package-scripts-sync -->[\s\S]*?<!-- \/package-scripts-sync -->/;
+
 // ── Types ──────────────────────────────────────────────────────────────
 
 export interface DocDrift {
@@ -73,10 +81,16 @@ function extractReadmeScripts(readme: string, pkgScripts: Record<string, string>
   return found;
 }
 
+function trackedPackageScripts(pkgScripts: Record<string, string>): string[] {
+  return Object.keys(pkgScripts).filter((name) => !README_SCRIPT_EXCLUSIONS.has(name));
+}
+
 function computeDrift(readmeScripts: string[], pkgScripts: Record<string, string>): DocDrift {
-  const pkgScriptNames = Object.keys(pkgScripts);
+  const pkgScriptNames = trackedPackageScripts(pkgScripts);
   const missingFromReadme = pkgScriptNames.filter((s) => !readmeScripts.includes(s));
-  const extraInReadme = readmeScripts.filter((s) => !pkgScriptNames.includes(s));
+  const extraInReadme = readmeScripts.filter(
+    (s) => !pkgScriptNames.includes(s) && !README_SCRIPT_EXCLUSIONS.has(s)
+  );
 
   return {
     readmeScripts,
@@ -127,6 +141,18 @@ export function buildPatchRows(missingScripts: string[]): string {
   return missingScripts.map(TABLE_ROW_TEMPLATE).join("\n");
 }
 
+/** Single markdown table block for auto-synced package.json scripts. */
+export function buildScriptSyncBlock(pkgScripts: Record<string, string>): string {
+  const rows = trackedPackageScripts(pkgScripts).sort().map(TABLE_ROW_TEMPLATE).join("\n");
+  return [
+    README_SCRIPT_SYNC_START,
+    "| Script | Description |",
+    "| --- | --- |",
+    rows,
+    README_SCRIPT_SYNC_END,
+  ].join("\n");
+}
+
 /** Append missing package.json scripts to the README Project Scripts table.
  *  Returns the number of scripts patched, or -1 on error.
  */
@@ -137,14 +163,21 @@ export async function patchReadmeScripts(projectDir: string): Promise<number> {
 
   const path = readmePath(projectDir);
   let readme = await Bun.file(path).text();
+  const pkgText = await Bun.file(packagePath(projectDir)).text();
+  const pkgRaw = safeParse(pkgText, null, isPackageJson);
+  if (pkgRaw === null) return -1;
+  const scripts = pkgRaw.scripts || {};
 
-  const rows = buildPatchRows(drift.missingFromReadme);
-
-  const sectionEnd = readme.search(NEXT_SECTION_PATTERN);
-  if (sectionEnd > 0) {
-    readme = readme.slice(0, sectionEnd) + "\n" + rows + readme.slice(sectionEnd);
+  if (README_SCRIPT_SYNC_BLOCK_RE.test(readme)) {
+    readme = readme.replace(README_SCRIPT_SYNC_BLOCK_RE, buildScriptSyncBlock(scripts));
   } else {
-    readme += "\n" + rows + "\n";
+    const rows = buildPatchRows(drift.missingFromReadme);
+    const sectionEnd = readme.search(NEXT_SECTION_PATTERN);
+    if (sectionEnd > 0) {
+      readme = readme.slice(0, sectionEnd) + "\n" + rows + readme.slice(sectionEnd);
+    } else {
+      readme += "\n" + rows + "\n";
+    }
   }
 
   await Bun.write(path, readme);

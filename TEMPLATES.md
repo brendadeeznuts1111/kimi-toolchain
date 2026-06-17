@@ -255,109 +255,15 @@ coverageThreshold = { lines = 0.35, functions = 0.25 }
 
 ## dx.config.toml Template
 
-```toml
-schemaVersion = 1
-scope = "project"
-mode = "development"
+Authoritative sources — do not duplicate stale inline blocks here:
 
-[runtime]
-containers = "none"
-packageManager = "bun"
-bunVersion = "1.3.14"
-install = "bun install --frozen-lockfile"
-globalFirst = true
+| Profile | Scaffold file | Notes |
+| ------- | ------------- | ----- |
+| **app** (default) | `templates/scaffold/dx.config.app.toml` | Standard DX/CI/quality |
+| **toolchain** | `templates/scaffold/dx.config.toolchain.toml` | Adds `[finishWork]`, `[herdr]`, finish-work scripts |
+| Live reference | `dx.config.toml` in kimi-toolchain | Full runtime sync + `ci:local` blocks |
 
-[github]
-workflow = ".github/workflows/ci.yml"
-setupAction = ".github/actions/setup/action.yml"
-protectedBranches = ["main", "master"]
-permissions = ["contents:read", "checks:write", "pull-requests:write"]
-
-[github.ci]
-bunVersion = "1.3.14"
-qualityJob = "quality"
-qualityTimeoutMinutes = 15
-governanceJob = "governance"
-governanceTimeoutMinutes = 5
-
-[github.ci.quality]
-format = "bun run format:check:ci"
-lint = "bun run lint"
-typecheck = "bun run typecheck"
-tests = "bun run test:coverage:ci"
-smoke = "bun run test:smoke"
-
-[github.ci.governance]
-rScore = "bun run governance score --min 60"
-
-[cloudflare]
-mode = "read-only"
-accountIdEnv = "CLOUDFLARE_ACCOUNT_ID"
-apiTokenEnv = "CLOUDFLARE_API_TOKEN"
-
-[cloudflare.dashboard]
-enabled = true
-title = "DX Dashboard"
-homepagePath = "/"
-source = "snapshot"
-snapshotCommand = "kimi-cloudflare-access dashboard --json"
-access = "cloudflare-sso"
-
-[cloudflare.domain]
-managed = true
-zone = ""
-hostname = ""
-accessRequired = true
-tls = "managed"
-
-[cloudflare.access]
-policyFile = ".cloudflare-access.yml"
-appLauncherVisible = true
-sessionDuration = "24h"
-
-[cloudflare.mcp]
-server = "cloudflare-api"
-url = "https://mcp.cloudflare.com/mcp"
-auth = "cloudflare-sso-oauth"
-readOnlyByDefault = true
-mutationMode = "manual-script"
-
-[quality]
-formatter = "oxfmt"
-linter = "oxlint"
-formatCheck = "bun run format:check"
-lintCheck = "bun run lint"
-lintTerms = "bun run lint:terms"
-typecheck = "bun run typecheck"
-check = "bun run check"
-checkFast = "bun run check:fast"
-checkDryRun = "bun run check:dry-run"
-testFast = "bun run test:fast"
-testCoverage = "bun run test:coverage"
-testCoverageFast = "bun run test:coverage:fast"
-testCoverageCi = "bun run test:coverage:ci"
-formatCheckCi = "bun run format:check:ci"
-docsSync = "bun run docs:sync"
-
-[agents]
-firstRead = ["/Users/nolarose/.config/dx/AGENTS.md", "AGENTS.md", "CODE_REFERENCES.md"]
-bootstrap = ["dx setup", "dx context", "dx config --project .", "dx mcp-status", "dx cli", "dx package"]
-iterate = "bun run check:fast"
-fullValidation = "bun run check"
-prePush = ["kimi-githooks doctor", "bun run check", "kimi-guardian check", "kimi-governance score"]
-handoff = ["bun run sync && bun run sync:verify", "kimi-doctor --agent-ready"]
-avoid = ["docker", "sync daemon unless actively developing runtime tooling"]
-
-[sync]
-command = "bun run sync"
-verify = "bun run sync:verify"
-managedRuntime = "~/.kimi-code"
-manifest = "~/.kimi-code/toolchain-manifest.json"
-
-[kimi]
-memoryGate = true
-preflight = true
-```
+`kimi-fix` renders `{{DX_AGENTS_PATH}}` from `$HOME/.config/dx/AGENTS.md`. Herdr symlink chain and finish-work loader: [CODE_REFERENCES.md](CODE_REFERENCES.md) § DX Workspace Layout.
 
 ### Scaffold profiles (`kimi-fix`)
 
@@ -502,7 +408,7 @@ One-line description of what this does.
 
 ## Global DX First
 
-- Read `/Users/nolarose/.config/dx/AGENTS.md` before project-local setup
+- Read `~/.config/dx/AGENTS.md` before project-local setup
 - Start with `dx setup`, `dx context`, `dx config`, `dx mcp-status`, `dx cli`, and `dx package`
 - Use `dx package` after dependency changes, then rerun Kimi guardian/governance gates
 
@@ -630,94 +536,9 @@ jobs:
 
 > **Server CI status:** For this repository, GitHub Actions is disabled because the account is locked due to a billing issue. The workflow template above is preserved for reference and for new projects, but the active enforcement surface is `bun run ci:local` and the pre-push hooks installed by `kimi-githooks install`. The disabled workflow is archived at `.github/workflows-disabled/ci.yml`.
 
-## Tool Invocation Reference (kimi-toolchain)
+## Tool invocation & Bun-native patterns
 
-This example is for kimi-toolchain internals. Other projects should use their local runner/helper first and record that path in `CODE_REFERENCES.md`.
-
-```typescript
-import { invokeTool } from "./src/lib/tool-runner.ts";
-
-interface Result {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  stdoutTruncated?: boolean;
-  stderrTruncated?: boolean;
-}
-
-export async function runToolchainCommand(
-  toolPath: string,
-  args: string[],
-  options: { cwd?: string; timeoutMs?: number } = {}
-): Promise<Result> {
-  const result = await invokeTool(toolPath, args, {
-    cwd: options.cwd ?? Bun.cwd,
-    timeoutMs: options.timeoutMs,
-    maxOutputBytes: 1_048_576,
-  });
-
-  return {
-    stdout: result.stdout,
-    stderr: result.stderr,
-    exitCode: result.exitCode,
-    stdoutTruncated: result.stdoutTruncated,
-    stderrTruncated: result.stderrTruncated,
-  };
-}
-```
-
-## SQLite + Bun Template
-
-```typescript
-import { Database } from "bun:sqlite";
-
-const db = new Database("data.sqlite", { create: true });
-db.exec("PRAGMA journal_mode = WAL;");
-db.exec(`
-  CREATE TABLE IF NOT EXISTS items (
-    id TEXT PRIMARY KEY,
-    created_at INTEGER NOT NULL
-  );
-`);
-
-db.close();
-```
-
-## File I/O Template (Bun-Native)
-
-```typescript
-const text = await Bun.file("config.json").text();
-const json = await Bun.file("config.json").json();
-await Bun.write("output.txt", "hello");
-
-import { existsSync } from "fs";
-if (existsSync("file.txt")) {
-  /* ... */
-}
-```
-
-## Hashing Template (Bun-Native)
-
-```typescript
-const hasher = new Bun.CryptoHasher("sha256");
-hasher.update("data");
-const hash = hasher.digest("hex");
-```
-
-## Spawn with Resource Limits Template
-
-```typescript
-import { governedSpawn, ParallelGovernor } from "~/.kimi-code/tools/kimi-resource-governor.ts";
-
-const result = await governedSpawn(["bun", "test"], {
-  cwd: "/project",
-  limits: { maxMemoryMB: 512, wallClockMs: 300000 },
-});
-
-const gov = new ParallelGovernor(4);
-const tasks = urls.map((url) => gov.run(() => fetch(url).then((r) => r.text())));
-await Promise.all(tasks);
-```
+Cross-tool calls, logging, SQLite, spawn limits, and Bun API choices: [CODE_REFERENCES.md](CODE_REFERENCES.md) and `~/.kimi-code/AGENTS.md` § Bun-native coding standards.
 
 ## Kimi Code MCP — user `~/.kimi-code/mcp.json`
 

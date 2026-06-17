@@ -42,40 +42,8 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 ## Commands
 
-| `bun run verify-workspace` | (synced from package.json) |
-| `bun run cleanup-legacy` | (synced from package.json) |
+Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 
-| `bun run push` | (synced from package.json) |
-
-| `bun run bench` | (synced from package.json) |
-
-| `bun run test:smoke` | (synced from package.json) |
-| `bun run check:staged` | (synced from package.json) |
-
-| `bun run manifest:generate` | (synced from package.json) |
-
-| `bun run lint:taxonomy-coverage` | (synced from package.json) |
-
-| `bun run ci:local` | (synced from package.json) |
-| `bun run pr:diff` | (synced from package.json) |
-| `bun run pr:status` | (synced from package.json) |
-
-| `bun run test:ci` | (synced from package.json) |
-| `bun run test:flake-hunt` | (synced from package.json) |
-| `bun run test:shuffle` | (synced from package.json) |
-| `bun run test:pattern` | (synced from package.json) |
-
-| `bun run finish-work` | (synced from package.json) |
-| `bun run install-herdr-plugin` | (synced from package.json) |
-| `bun run cleanup-root` | (synced from package.json) |
-| `bun run lint:context` | (synced from package.json) |
-| `bun run bun-native:check` | (synced from package.json) |
-| `bun run bun-native:report` | (synced from package.json) |
-| `bun run bun-native:rules` | (synced from package.json) |
-| `bun run bun-native:batch` | (synced from package.json) |
-| `bun run bun-native:baseline` | (synced from package.json) |
-| `bun run bun-native:migrate-imports` | (synced from package.json) |
-| `bun run bun-native:migrate-fs` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                           |
@@ -116,6 +84,38 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run install-wrappers`   | Install `~/.local/bin/kimi-*` wrappers              |
 | `bun run memory-check`       | Shell memory pressure snapshot                      |
 | `bun run memory-budget`      | Per-app RSS breakdown via kimi-doctor               |
+
+### Toolchain maintenance
+
+| Command | Description |
+| ------- | ----------- |
+| `bun run verify-workspace` | Fail if cwd folder is not `kimi-toolchain` |
+| `bun run cleanup-legacy` | Audit stale clone paths and Cursor slugs |
+| `bun run cleanup-root` | Trim repo-root clutter |
+| `bun run push` | Git push + runtime sync |
+| `bun run bench` | Run `bench/core.bench.ts` |
+| `bun run ci:local` | Local CI mirror (gates + coverage + governance) |
+| `bun run finish-work` | Gates + optional commit/push close-loop |
+| `bun run check:staged` | Fast gates on staged files only |
+| `bun run lint:context` | Agent-doc bloat lint (`scripts/lint-context-bloat.ts`) |
+| `bun run lint:taxonomy-coverage` | Error taxonomy coverage audit |
+| `bun run manifest:generate` | Regenerate constants manifest |
+| `bun run docs:sync` | README script drift check/patch |
+| `bun run pr:diff` | PR diff helper |
+| `bun run pr:status` | PR status helper |
+| `bun run test:smoke` | Smoke CLI tests only |
+| `bun run test:ci` | CI test profile |
+| `bun run test:flake-hunt` | Flaky test hunt profile |
+| `bun run test:shuffle` | Shuffled test order profile |
+| `bun run test:pattern` | Pattern-filtered test runner |
+| `bun run install-herdr-plugin` | Install Herdr kimi-toolchain plugin |
+| `bun run bun-native:check` | Bun-native lint check |
+| `bun run bun-native:report` | Bun-native migration report |
+| `bun run bun-native:rules` | Bun-native lint rules |
+| `bun run bun-native:batch` | Bun-native batch lint |
+| `bun run bun-native:baseline` | Bun-native baseline snapshot |
+| `bun run bun-native:migrate-imports` | Bun-native import codemod |
+| `bun run bun-native:migrate-fs` | Bun-native fs codemod |
 
 When tools, docs, skills, or generated runtime assets change, final handoff
 validation includes `bun run sync && bun run sync:verify`.
@@ -220,56 +220,14 @@ validation includes `bun run sync && bun run sync:verify`.
 
 ## Project Structure
 
-```
-src/
-  bin/          # CLI tools (kimi-doctor, kimi-governance, etc.)
-  lib/          # Shared utilities (utils.ts)
-  install-hooks/# postinstall.ts (bun package hook)
-  kimi-hooks/   # Kimi Code lifecycle hooks (PostToolUseFailure, etc.)
-  guardian/     # Lockfile verifier
-  drift/        # Dependency drift detector
-```
-
-Live runtime at `~/.kimi-code/` is managed by the postinstall hook and
-`scripts/sync-to-desktop.ts`. The sync writes `toolchain-manifest.json` with the
-current toolchain version, repo HEAD, timestamp, changed files, and source file
-hashes.
+Layout maps: [AGENTS.md](./AGENTS.md#architecture) and [UNIFIED.md](./UNIFIED.md).
+Live runtime at `~/.kimi-code/` is synced via `bun run sync` (`scripts/sync-to-desktop.ts` writes `toolchain-manifest.json`).
 
 ## Governance
 
-- R-Score: run `kimi-governance score`
-- License: MIT
-- [CONTRIBUTING.md](./CONTRIBUTING.md)
-
-### Success Metrics
-
-These goals define whether the toolchain is doing its job. They are checked by
-`kimi-doctor --success-metrics` and are part of `bun run check`, so CI gets a
-clear pass/fail on every commit.
-
-**Drift latency**
-: Any single documented behaviour, such as a README command, API sample, or CLI
-help example, must be verified against the live system in one `kimi doctor`
-or `kimi-doctor` run. The current automated check verifies README command
-drift against `package.json` without manual inspection.
-
-**Error coverage**
-: At least 90% of failures from managed contracts, hooks, and integrations must
-receive a taxonomy code and structured context containing stack, inputs, and
-environment details. The remaining failures stay in a monitored
-`unknown` bucket until the taxonomy is expanded.
-
-**Integration agility**
-: A new cloud provider must require only two artifacts: a contract declaration
-for shape, permissions, and error categories, plus a thin credential adapter
-that maps `getSecret(scope) -> string` into a short-lived token. The scheduler,
-contract engine, taxonomy schema, and existing providers stay provider-agnostic.
-
-The metrics are not frozen. As the toolchain learns, the taxonomy may expand,
-the definition of core logic may tighten, and new metrics may emerge from the
-failure ledger. This section is updated on the same release cadence as the
-toolchain, and any threshold change must include a justification linked to real
-data from `~/.kimi-code/var/tool-failures.jsonl`.
+- R-Score: `kimi-governance score --preflight --quick`
+- License: MIT — [CONTRIBUTING.md](./CONTRIBUTING.md)
+- Success metrics — **Drift latency**, **Error coverage**, **Integration agility**: [AGENTS.md](./AGENTS.md#success-metrics) (`kimi-doctor --success-metrics`). The metrics are not frozen; threshold changes need release cadence alignment and failure ledger evidence.
 
 ## Cloudflare API Token Setup
 
