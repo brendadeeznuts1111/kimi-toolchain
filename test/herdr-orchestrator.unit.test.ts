@@ -608,7 +608,7 @@ describe("spawn_fallback TOML parsing", () => {
   });
 });
 
-describe("Herdr app config plugins.notify", () => {
+describe("herdr_app_config plugins.notify", () => {
   test("parseHerdrAppConfig reads [plugins.notify]", () => {
     const parsed = parseHerdrAppConfig({
       plugins: {
