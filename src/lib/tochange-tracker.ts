@@ -1,16 +1,14 @@
 /**
- * tochange-tracker.ts — Registry and scanner for `.tochange` / `.implemented` markers.
+ * tochange-tracker.ts — Registry-first adoption tracker with optional `.tochange` markers.
  *
- * Marker format (line comment):
- *   // .tochange:<id> — optional note
- *   // .implemented:<id> — optional note
- *
- * Used to track Bun.peek adoption and other staged refactors without losing grep visibility.
+ * Registry `status` is authoritative for implemented/skip items (code probes verify).
+ * Pending work must set `status: "pending"` and include `// .tochange:<id>` in `file`.
  */
 
 import { join } from "path";
 
 export type TochangeTier = "required" | "tier1" | "tier2" | "skip";
+export type TochangeStatus = "implemented" | "pending" | "skip";
 
 export type TochangeMarkerKind = "tochange" | "implemented";
 
@@ -18,7 +16,10 @@ export interface TochangeRegistryEntry {
   id: string;
   file: string;
   tier: TochangeTier;
+  status: TochangeStatus;
   summary: string;
+  /** Required substring in `file` when status is implemented (unless marker present). */
+  probe?: string;
 }
 
 export interface TochangeMarker {
@@ -31,93 +32,112 @@ export interface TochangeMarker {
 
 export interface TochangeAuditReport {
   ok: boolean;
-  pending: TochangeMarker[];
-  implemented: TochangeMarker[];
+  registryPending: TochangeRegistryEntry[];
+  registryImplemented: TochangeRegistryEntry[];
   skipped: TochangeRegistryEntry[];
+  markersPending: TochangeMarker[];
+  markersImplemented: TochangeMarker[];
   orphanMarkers: TochangeMarker[];
   duplicateIds: string[];
-  missingMarkers: TochangeRegistryEntry[];
+  probeFailures: TochangeRegistryEntry[];
+  staleTochangeMarkers: TochangeMarker[];
+  missingTochangeMarkers: TochangeRegistryEntry[];
 }
 
 const MARKER_RE = /\/\/\s*\.(tochange|implemented):([a-z0-9-]+)/;
 
-/** Canonical Bun.peek adoption backlog — ids must match source markers where tier !== "skip". */
+/** Canonical Bun.peek adoption registry — single source of truth. */
 export const PEEK_ADOPTION_REGISTRY: TochangeRegistryEntry[] = [
   {
     id: "peek-wrapper",
     file: "src/lib/bun-utils.ts",
     tier: "required",
-    summary: "Export peekPromise / peekPromiseStatus wrappers over Bun.peek",
+    status: "implemented",
+    summary: "peekPromise / peekPromiseStatus / dedupInflight over Bun.peek",
+    probe: "export function peekPromise",
   },
   {
     id: "peek-tests",
     file: "test/tochange-tracker.unit.test.ts",
     tier: "required",
-    summary: "Unit tests for peek wrappers and marker audit",
+    status: "implemented",
+    summary: "Unit tests for peek wrappers, dedup, and registry audit",
+    probe: 'describe("tochange-tracker"',
   },
   {
     id: "tochange-lint",
     file: "scripts/lint-tochange.ts",
     tier: "required",
-    summary: "lint:tochange script greps markers and validates registry",
+    status: "implemented",
+    summary: "lint:tochange validates registry and optional markers",
+    probe: 'tool: "lint-tochange"',
   },
   {
     id: "tool-runner-inflight",
     file: "src/lib/tool-runner.ts",
     tier: "tier1",
-    summary: "In-flight Map<string, Promise<ToolInvocation>> dedup with peek fast path",
+    status: "implemented",
+    summary: "dedupInflight on invokeCommand",
+    probe: "dedupInflight(inflightCommands",
   },
   {
     id: "governor-cache-dedup",
     file: "src/lib/governor-cache.ts",
     tier: "tier1",
-    summary: "Dedup concurrent cachedExec/cachedDoctor calls via peek",
+    status: "implemented",
+    summary: "dedupInflight on cachedExec / cachedDoctor",
+    probe: "dedupInflight(inflightExec",
   },
   {
     id: "proc-cache-async",
     file: "src/lib/proc-cache.ts",
     tier: "tier2",
-    summary: "Optional async promise cache instead of spawnSync + sync string TTL",
+    status: "implemented",
+    summary: "getCachedPsAsync + in-flight dedup; sync path peeks fulfilled inflight",
+    probe: "export async function getCachedPsAsync",
   },
   {
     id: "memory-budget-peek",
     file: "src/lib/memory-budget.ts",
     tier: "tier2",
-    summary: "Consumer updates if proc-cache moves to promise + peek pattern",
+    status: "implemented",
+    summary: "runSystemMemoryChecks warms ps caches via getCachedPsAsync",
+    probe: "getCachedPsAsync",
   },
   {
     id: "promise-all-fanout",
     file: "(aggregate)",
     tier: "skip",
+    status: "skip",
     summary: "~30 files / ~45 Promise.all sites — parallel I/O; peek N/A",
   },
   {
     id: "effect-all-concurrency",
     file: "(aggregate)",
     tier: "skip",
+    status: "skip",
     summary: "~7 Effect.all sites — Effect scheduling; peek N/A",
   },
   {
     id: "sync-sqlite-cache",
     file: "src/lib/governor-sessions.ts",
     tier: "skip",
+    status: "skip",
     summary: "SQLite getCached returns resolved output; peek N/A unless promise cache added",
   },
 ];
 
 const REGISTRY_IDS = new Set(PEEK_ADOPTION_REGISTRY.map((e) => e.id));
-
 const SCAN_GLOBS = ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"];
 
-/** Scan tracked trees for `.tochange:` and `.implemented:` markers. */
+/** Scan tracked trees for optional `.tochange` / `.implemented` markers. */
 export async function scanTochangeMarkers(repoRoot: string): Promise<TochangeMarker[]> {
   const markers: TochangeMarker[] = [];
 
   for (const pattern of SCAN_GLOBS) {
     const glob = new Bun.Glob(pattern);
     for await (const rel of glob.scan({ cwd: repoRoot, onlyFiles: true })) {
-      const path = join(repoRoot, rel);
-      const text = await Bun.file(path).text();
+      const text = await Bun.file(join(repoRoot, rel)).text();
       const lines = text.split("\n");
       for (let i = 0; i < lines.length; i++) {
         const match = lines[i].match(MARKER_RE);
@@ -136,13 +156,19 @@ export async function scanTochangeMarkers(repoRoot: string): Promise<TochangeMar
   return markers.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 }
 
-/** Validate markers against PEEK_ADOPTION_REGISTRY and produce a tracking report. */
-export function auditTochangeMarkers(
+async function readProbeFile(repoRoot: string, rel: string): Promise<string> {
+  if (rel.startsWith("(")) return "";
+  return Bun.file(join(repoRoot, rel)).text();
+}
+
+/** Validate registry status, probes, and optional markers. */
+export async function auditTochangeRegistry(
+  repoRoot: string,
   markers: TochangeMarker[],
   registry: TochangeRegistryEntry[] = PEEK_ADOPTION_REGISTRY
-): TochangeAuditReport {
-  const pending = markers.filter((m) => m.kind === "tochange");
-  const implemented = markers.filter((m) => m.kind === "implemented");
+): Promise<TochangeAuditReport> {
+  const markersPending = markers.filter((m) => m.kind === "tochange");
+  const markersImplemented = markers.filter((m) => m.kind === "implemented");
 
   const byId = new Map<string, TochangeMarker[]>();
   for (const m of markers) {
@@ -154,69 +180,115 @@ export function auditTochangeMarkers(
   const duplicateIds = [...byId.entries()].filter(([, list]) => list.length > 1).map(([id]) => id);
   const orphanMarkers = markers.filter((m) => !REGISTRY_IDS.has(m.id));
 
-  const markedIds = new Set(markers.map((m) => m.id));
-  const missingMarkers = registry.filter((e) => e.tier !== "skip" && !markedIds.has(e.id));
+  const registryPending = registry.filter((e) => e.status === "pending");
+  const registryImplemented = registry.filter((e) => e.status === "implemented");
+  const skipped = registry.filter((e) => e.status === "skip");
 
-  const skipped = registry.filter((e) => e.tier === "skip");
+  const markerPendingIds = new Set(markersPending.map((m) => m.id));
+  const missingTochangeMarkers = registryPending.filter((e) => !markerPendingIds.has(e.id));
 
-  const ok = orphanMarkers.length === 0 && duplicateIds.length === 0 && missingMarkers.length === 0;
+  const staleTochangeMarkers = markersPending.filter((m) => {
+    const entry = registry.find((e) => e.id === m.id);
+    return entry?.status === "implemented" || entry?.status === "skip";
+  });
+
+  const probeFailures: TochangeRegistryEntry[] = [];
+  for (const entry of registryImplemented) {
+    if (!entry.probe || entry.file.startsWith("(")) continue;
+    const hasMarker = markers.some((m) => m.id === entry.id && m.kind === "implemented");
+    if (hasMarker) continue;
+    const text = await readProbeFile(repoRoot, entry.file);
+    if (!text.includes(entry.probe)) probeFailures.push(entry);
+  }
+
+  const ok =
+    orphanMarkers.length === 0 &&
+    duplicateIds.length === 0 &&
+    missingTochangeMarkers.length === 0 &&
+    staleTochangeMarkers.length === 0 &&
+    probeFailures.length === 0;
 
   return {
     ok,
-    pending,
-    implemented,
+    registryPending,
+    registryImplemented,
     skipped,
+    markersPending,
+    markersImplemented,
     orphanMarkers,
     duplicateIds,
-    missingMarkers,
+    probeFailures,
+    staleTochangeMarkers,
+    missingTochangeMarkers,
   };
 }
 
 export async function auditPeekAdoption(repoRoot: string): Promise<TochangeAuditReport> {
   const markers = await scanTochangeMarkers(repoRoot);
-  return auditTochangeMarkers(markers);
+  return auditTochangeRegistry(repoRoot, markers);
 }
 
-/** Human-readable report for lint:tochange and doctor probes. */
+/** Human-readable report for lint:tochange. */
 export function formatTochangeReport(report: TochangeAuditReport): string {
   const lines: string[] = [
-    `tochange: ${report.pending.length} pending, ${report.implemented.length} implemented, ${report.skipped.length} skip (registry)`,
+    `tochange: ${report.registryPending.length} pending (registry), ${report.registryImplemented.length} implemented (registry), ${report.skipped.length} skip`,
   ];
 
-  if (report.implemented.length > 0) {
-    lines.push("", "implemented:");
-    for (const m of report.implemented) {
-      lines.push(`  ✓ ${m.id}  ${m.file}:${m.line}`);
+  if (report.registryImplemented.length > 0) {
+    lines.push("", "implemented (registry):");
+    for (const e of report.registryImplemented) {
+      lines.push(`  ✓ ${e.id}  ${e.file}`);
     }
   }
 
-  if (report.pending.length > 0) {
-    lines.push("", "pending (.tochange):");
-    for (const m of report.pending) {
+  if (report.registryPending.length > 0) {
+    lines.push("", "pending (registry):");
+    for (const e of report.registryPending) {
+      lines.push(`  ○ ${e.id}  ${e.file}  ${e.summary}`);
+    }
+  }
+
+  if (report.markersPending.length > 0) {
+    lines.push("", "pending (.tochange markers):");
+    for (const m of report.markersPending) {
       lines.push(`  ○ ${m.id}  ${m.file}:${m.line}`);
     }
   }
 
   if (report.skipped.length > 0) {
-    lines.push("", "skip (documented, no marker required):");
+    lines.push("", "skip:");
     for (const e of report.skipped) {
-      lines.push(`  — ${e.id}  ${e.file}  ${e.summary}`);
+      lines.push(`  — ${e.id}  ${e.file}`);
     }
   }
 
-  if (report.missingMarkers.length > 0) {
-    lines.push("", "missing markers:");
-    for (const e of report.missingMarkers) {
+  if (report.probeFailures.length > 0) {
+    lines.push("", "probe failures:");
+    for (const e of report.probeFailures) {
+      lines.push(`  ✗ ${e.id}  missing probe in ${e.file}`);
+    }
+  }
+
+  if (report.missingTochangeMarkers.length > 0) {
+    lines.push("", "missing .tochange markers:");
+    for (const e of report.missingTochangeMarkers) {
       lines.push(`  ✗ ${e.id}  expected in ${e.file}`);
     }
   }
 
+  if (report.staleTochangeMarkers.length > 0) {
+    lines.push("", "stale .tochange markers (registry no longer pending):");
+    for (const m of report.staleTochangeMarkers) {
+      lines.push(`  ✗ ${m.id}  ${m.file}:${m.line}`);
+    }
+  }
+
   if (report.duplicateIds.length > 0) {
-    lines.push("", "duplicate ids:", ...report.duplicateIds.map((id) => `  ✗ ${id}`));
+    lines.push("", "duplicate marker ids:", ...report.duplicateIds.map((id) => `  ✗ ${id}`));
   }
 
   if (report.orphanMarkers.length > 0) {
-    lines.push("", "orphan markers (not in registry):");
+    lines.push("", "orphan markers:");
     for (const m of report.orphanMarkers) {
       lines.push(`  ✗ ${m.id}  ${m.file}:${m.line}`);
     }

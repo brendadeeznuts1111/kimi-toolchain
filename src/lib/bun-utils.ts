@@ -3,7 +3,7 @@
  * Docs: https://bun.com/docs/runtime/utils · https://bun.com/docs/runtime/bun-apis
  *
  * Use these helpers in feature code; keep node:* imports confined to bun-native-shim.ts.
- * For subprocess streams and inspect output, also see src/lib/inspect.ts.
+ * For inspect output, equality, and ANSI helpers see src/lib/inspect.ts.
  */
 
 import { peek } from "bun";
@@ -46,6 +46,13 @@ export function elapsedMsSince(startNanos: number): number {
 /** SHA-256 hasher (Bun.CryptoHasher). */
 export function sha256Hasher(): InstanceType<typeof Bun.CryptoHasher> {
   return new Bun.CryptoHasher("sha256");
+}
+
+/** Stable short key for in-flight dedup maps (JSON payload → hex prefix). */
+export function hashInflightPayload(payload: unknown): string {
+  const hasher = sha256Hasher();
+  hasher.update(JSON.stringify(payload));
+  return hasher.digest("hex").slice(0, 16);
 }
 
 /** Read a ReadableStream as UTF-8 text (Bun.readableStreamToText). */
@@ -135,7 +142,6 @@ export function isDirectRun(modulePath: string): boolean {
   return modulePath === Bun.main;
 }
 
-// .implemented:peek-wrapper — Bun.peek wrappers for in-flight promise fast paths
 /** Read a settled promise synchronously; pending promises pass through. */
 export function peekPromise<T>(promise: Promise<T>): T | Promise<T> {
   return peek(promise);
@@ -158,10 +164,10 @@ export async function dedupInflight<T>(
       try {
         return peekPromise(existing) as T;
       } catch {
-        return existing;
+        return await existing;
       }
     }
-    return existing;
+    return await existing;
   }
 
   const promise = (async () => {
@@ -173,16 +179,6 @@ export async function dedupInflight<T>(
   })();
   map.set(key, promise);
   return await promise;
-}
-
-/** Deep equality (Bun.deepEquals). */
-export function deepEqual<T>(a: T, b: T, strict = false): boolean {
-  return Bun.deepEquals(a, b, strict);
-}
-
-/** Strip ANSI escapes (Bun.stripANSI). */
-export function stripAnsi(text: string): string {
-  return Bun.stripANSI(text);
 }
 
 /** Terminal display width (Bun.stringWidth). */

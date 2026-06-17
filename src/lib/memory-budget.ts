@@ -158,7 +158,6 @@ export function isSyncDaemonRunning(): boolean {
 
 // countOrphanCandidates re-exported from proc-cache.ts above
 
-// .implemented:memory-budget-peek — warm ps caches via getCachedPsAsync before sync RSS reads
 export async function runSystemMemoryChecks(): Promise<MemoryCheckResult[]> {
   const results: MemoryCheckResult[] = [];
 

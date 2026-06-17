@@ -28,20 +28,24 @@ function psCacheHit(key: string, now = Date.now()): string | null {
   return null;
 }
 
-function runPsFetch(args: string[]): Promise<string> {
-  const key = args.join(" ");
-  return dedupInflight(_inflightPs, key, async () => {
-    try {
-      const output = decoder.decode(Bun.spawnSync(["ps", ...args]).stdout);
-      _procCache.set(key, { value: output, ts: Date.now() });
-      return output;
-    } catch {
-      return "";
-    }
-  });
+function readPsStdout(args: string[]): string {
+  try {
+    return decoder.decode(Bun.spawnSync(["ps", ...args]).stdout);
+  } catch {
+    return "";
+  }
 }
 
-// .implemented:proc-cache-async — async TTL + in-flight dedup; sync path peeks fulfilled inflight
+function storePsOutput(key: string, output: string): string {
+  _procCache.set(key, { value: output, ts: Date.now() });
+  return output;
+}
+
+function runPsFetch(args: string[]): Promise<string> {
+  const key = args.join(" ");
+  return dedupInflight(_inflightPs, key, async () => storePsOutput(key, readPsStdout(args)));
+}
+
 /** Run a ps command with TTL caching — avoids repeated subprocess calls. */
 export function getCachedPs(args: string[]): string {
   const key = args.join(" ");
@@ -57,13 +61,7 @@ export function getCachedPs(args: string[]): string {
     }
   }
 
-  try {
-    const output = decoder.decode(Bun.spawnSync(["ps", ...args]).stdout);
-    _procCache.set(key, { value: output, ts: Date.now() });
-    return output;
-  } catch {
-    return "";
-  }
+  return storePsOutput(key, readPsStdout(args));
 }
 
 /** Async ps cache with in-flight dedup (preferred for concurrent doctor paths). */

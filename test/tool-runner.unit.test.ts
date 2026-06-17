@@ -4,7 +4,6 @@ import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { testTempDir } from "./helpers.ts";
 import {
-  clearInvokeCommandInflight,
   invokeCommand,
   invokeTool,
   NO_TOOL_TIMEOUT_MS,
@@ -22,11 +21,6 @@ function tmpScript(content: string): string {
 }
 
 describe("tool-runner", () => {
-  test("clearInvokeCommandInflight resets dedup map", () => {
-    clearInvokeCommandInflight();
-    expect(clearInvokeCommandInflight).toBeDefined();
-  });
-
   test("toolsDir points under ~/.kimi-code/tools", () => {
     expect(toolsDir()).toContain(".kimi-code/tools");
   });

@@ -7,7 +7,7 @@
  */
 
 import { pathExists } from "./bun-io.ts";
-import { dedupInflight } from "./bun-utils.ts";
+import { dedupInflight, hashInflightPayload } from "./bun-utils.ts";
 
 import { join } from "path";
 import { desktopRoot } from "./paths.ts";
@@ -150,27 +150,15 @@ async function readStreamToLimitedText(
 
 const inflightCommands = new Map<string, Promise<ToolInvocation>>();
 
-function stableEnvKey(env?: Record<string, string | undefined>): string {
-  if (!env) return "";
-  return Object.keys(env)
-    .sort()
-    .map((key) => `${key}=${env[key] ?? ""}`)
-    .join("\n");
-}
-
 function commandInflightKey(command: string[], options: CommandInvocationOptions): string {
-  const cwd = options.cwd || Bun.cwd;
-  const timeoutMs = options.timeoutMs ?? defaultToolTimeoutMs();
-  const gracePeriodMs = options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
-  const maxOutputBytes = Math.max(0, options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES);
-  return [
-    command.join("\0"),
-    cwd,
-    timeoutMs,
-    gracePeriodMs,
-    maxOutputBytes,
-    stableEnvKey(options.env),
-  ].join("\x1e");
+  return hashInflightPayload({
+    command,
+    cwd: options.cwd || Bun.cwd,
+    timeoutMs: options.timeoutMs ?? defaultToolTimeoutMs(),
+    gracePeriodMs: options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS,
+    maxOutputBytes: Math.max(0, options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES),
+    env: options.env,
+  });
 }
 
 /** Clear in-flight invokeCommand dedup map (tests). */
@@ -178,7 +166,6 @@ export function clearInvokeCommandInflight(): void {
   inflightCommands.clear();
 }
 
-// .implemented:tool-runner-inflight — dedup concurrent invokeCommand; peekPromise on fulfilled
 /** Invoke an arbitrary command with timeout, output bounds, and graceful termination. */
 export async function invokeCommand(
   command: string[],

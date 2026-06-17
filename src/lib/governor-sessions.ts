@@ -3,7 +3,7 @@
  */
 
 import { makeDir, pathExists } from "./bun-io.ts";
-
+import { hashInflightPayload } from "./bun-utils.ts";
 import { Database } from "bun:sqlite";
 import { join } from "path";
 import { governorDir } from "./paths.ts";
@@ -124,9 +124,7 @@ export function getDb(): Database {
 }
 
 export function hashCommand(command: string, args: string[], cwd: string): string {
-  const hasher = new Bun.CryptoHasher("sha256");
-  hasher.update(JSON.stringify({ command, args, cwd }));
-  return hasher.digest("hex").slice(0, 16);
+  return hashInflightPayload({ command, args, cwd });
 }
 
 export function getCached(key: string): CacheEntry | null {

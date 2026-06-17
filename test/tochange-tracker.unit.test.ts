@@ -1,4 +1,3 @@
-// .implemented:peek-tests
 import { describe, expect, test } from "bun:test";
 import { dedupInflight, peekPromise, peekPromiseStatus } from "../src/lib/bun-utils.ts";
 import { cachedDoctor, clearGovernorCacheInflight } from "../src/lib/governor-cache.ts";
@@ -8,8 +7,8 @@ import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
 import { join } from "path";
 import { testTempDir } from "./helpers.ts";
 import {
-  auditTochangeMarkers,
   auditPeekAdoption,
+  auditTochangeRegistry,
   PEEK_ADOPTION_REGISTRY,
   scanTochangeMarkers,
 } from "../src/lib/tochange-tracker.ts";
@@ -61,29 +60,36 @@ describe("tochange-tracker", () => {
     });
   });
 
-  test("scanTochangeMarkers finds peek adoption markers", async () => {
-    const markers = await scanTochangeMarkers(REPO_ROOT);
-    const ids = new Set(markers.map((m) => m.id));
-    for (const id of [
-      "peek-wrapper",
-      "tool-runner-inflight",
-      "governor-cache-dedup",
-      "proc-cache-async",
-      "memory-budget-peek",
-    ]) {
-      expect(ids.has(id)).toBe(true);
-    }
+  test("auditPeekAdoption uses registry probes with zero pending", async () => {
+    const report = await auditPeekAdoption(REPO_ROOT);
+    expect(report.ok).toBe(true);
+    expect(report.registryPending).toHaveLength(0);
+    expect(report.registryImplemented.length).toBe(7);
+    expect(report.probeFailures).toEqual([]);
+    expect(report.orphanMarkers).toEqual([]);
+    expect(report.staleTochangeMarkers).toEqual([]);
   });
 
-  test("auditPeekAdoption registry is complete with zero pending", async () => {
-    const report = await auditPeekAdoption(REPO_ROOT);
-    expect(report.missingMarkers).toEqual([]);
-    expect(report.orphanMarkers).toEqual([]);
-    expect(report.duplicateIds).toEqual([]);
-    expect(report.ok).toBe(true);
-    expect(report.pending).toHaveLength(0);
-    expect(report.implemented.map((m) => m.id)).toContain("peek-wrapper");
-    expect(report.implemented.map((m) => m.id)).toContain("tool-runner-inflight");
+  test("auditTochangeRegistry flags probe failures", async () => {
+    const registry = [
+      {
+        id: "broken-probe",
+        file: "src/lib/bun-utils.ts",
+        tier: "required" as const,
+        status: "implemented" as const,
+        summary: "test",
+        probe: "definitely-not-in-file-xyz",
+      },
+    ];
+    const report = await auditTochangeRegistry(REPO_ROOT, [], registry);
+    expect(report.probeFailures).toHaveLength(1);
+    expect(report.ok).toBe(false);
+  });
+
+  test("scanTochangeMarkers ignores registry-only implemented items", async () => {
+    const markers = await scanTochangeMarkers(REPO_ROOT);
+    const implemented = markers.filter((m) => m.kind === "implemented");
+    expect(implemented).toHaveLength(0);
   });
 
   test("invokeCommand dedups concurrent identical spawns", async () => {
@@ -139,12 +145,7 @@ console.log("ok");`
     clearGovernorCacheInflight();
   });
 
-  test("auditTochangeMarkers flags missing registry ids", () => {
-    const report = auditTochangeMarkers(
-      [{ id: "peek-wrapper", kind: "implemented", file: "x.ts", line: 1, text: "" }],
-      PEEK_ADOPTION_REGISTRY
-    );
-    expect(report.missingMarkers.length).toBeGreaterThan(0);
-    expect(report.ok).toBe(false);
+  test("PEEK_ADOPTION_REGISTRY has no pending drift", () => {
+    expect(PEEK_ADOPTION_REGISTRY.every((e) => e.status !== "pending")).toBe(true);
   });
 });

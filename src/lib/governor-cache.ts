@@ -20,7 +20,6 @@ export function clearGovernorCacheInflight(): void {
   inflightDoctor.clear();
 }
 
-// .implemented:governor-cache-dedup — dedup concurrent calls; peekPromise when promise already fulfilled
 export async function cachedExec(
   command: string[],
   options?: { cwd?: string; ttl?: number; force?: boolean; logger?: Logger }

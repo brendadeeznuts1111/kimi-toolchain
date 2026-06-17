@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-// .implemented:tochange-lint
 /**
  * lint-tochange.ts — Grep and validate `.tochange` / `.implemented` markers.
  *
@@ -28,29 +27,31 @@ async function main(): Promise<number> {
       JSON.stringify({
         schemaVersion: 1,
         tool: "lint-tochange",
-        ok: report.ok && (!failOnPending || report.pending.length === 0),
-        pending: report.pending.length,
-        implemented: report.implemented.length,
+        ok: report.ok && (!failOnPending || report.registryPending.length === 0),
+        pending: report.registryPending.length,
+        implemented: report.registryImplemented.length,
         skipped: report.skipped.length,
         registry: PEEK_ADOPTION_REGISTRY,
         markers: {
-          pending: report.pending,
-          implemented: report.implemented,
+          pending: report.markersPending,
+          implemented: report.markersImplemented,
         },
         issues: {
-          missingMarkers: report.missingMarkers,
+          probeFailures: report.probeFailures,
+          missingTochangeMarkers: report.missingTochangeMarkers,
+          staleTochangeMarkers: report.staleTochangeMarkers,
           duplicateIds: report.duplicateIds,
           orphanMarkers: report.orphanMarkers,
         },
       })
     );
-    return report.ok && (!failOnPending || report.pending.length === 0) ? 0 : 1;
+    return report.ok && (!failOnPending || report.registryPending.length === 0) ? 0 : 1;
   }
 
   console.log(formatTochangeReport(report));
 
   if (!report.ok) return 1;
-  if (failOnPending && report.pending.length > 0) return 1;
+  if (failOnPending && report.registryPending.length > 0) return 1;
   return 0;
 }
 
