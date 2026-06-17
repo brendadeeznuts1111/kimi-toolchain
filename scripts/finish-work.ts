@@ -26,6 +26,8 @@ import {
   escalateFinishWorkToReviewer,
   emitWorkspaceUpdatedMetadata,
   finishWorkOutcome,
+  finishWorkGateKey,
+  persistFinishWorkReport,
   runDoctorPaneGate,
   shouldEscalateToReviewer as shouldEscalate,
   shouldRunGateInDoctorPane,
@@ -34,6 +36,7 @@ import {
   type FinishWorkGateSummary,
   type FinishWorkReport,
 } from "../src/lib/finish-work-herdr.ts";
+import { LATM_DONE_MARKER } from "../src/lib/herdr-latm.ts";
 import { loadFinishWorkConfig, type FinishWorkFollowUp } from "../src/lib/finish-work-config.ts";
 import { inspectAgent } from "../src/lib/inspect.ts";
 import { createLogger } from "../src/lib/logger.ts";
@@ -100,9 +103,8 @@ function parseCli(): CliOptions {
 }
 
 function gateName(command: string, index: number): string {
-  const trimmed = command.trim();
-  const first = trimmed.split(/\s+/)[0] ?? `gate-${index + 1}`;
-  return first.replace(/^bun$/, trimmed.includes("run") ? "bun-run" : "bun");
+  const key = finishWorkGateKey(command);
+  return key === "gate" ? `gate-${index + 1}` : key;
 }
 
 async function runShellGate(name: string, command: string): Promise<GateResult> {
@@ -207,7 +209,20 @@ async function runGitSteps(message: string, push: boolean, dryRun: boolean): Pro
   return result;
 }
 
+function emitLatmDoneMarker(): void {
+  process.stdout.write(`${LATM_DONE_MARKER}\n`);
+}
+
+function buildInvokedVia(options: CliOptions): string {
+  const parts = ["finish-work"];
+  if (options.message) parts.push(`--message "${options.message}"`);
+  if (options.push) parts.push("--push");
+  if (options.skipGit) parts.push("--skip-git");
+  return parts.join(" ");
+}
+
 async function main(): Promise<number> {
+  const startedAt = Date.now();
   const options = parseCli();
   const config = loadFinishWorkConfig(REPO_ROOT);
 
@@ -272,6 +287,7 @@ async function main(): Promise<number> {
       } else {
         emitGateFailure(result);
       }
+      emitLatmDoneMarker();
       return 1;
     }
   }
@@ -304,6 +320,7 @@ async function main(): Promise<number> {
       } else {
         logger.error(git.error);
       }
+      emitLatmDoneMarker();
       return 1;
     }
   }
@@ -320,7 +337,13 @@ async function main(): Promise<number> {
     gateSource: config.source,
     results: results.map(summarizeGateResult),
     git,
-    tree,
+    tree: {
+      ...tree,
+      untracked: tree.dirty.filter((line) => line.startsWith("??")).length,
+    },
+    durationMs: Date.now() - startedAt,
+    commitMessage: options.message,
+    invokedVia: buildInvokedVia(options),
   };
 
   // Escalation runs before followUp — dirty tree must not be hidden by followUp failure.
@@ -348,6 +371,8 @@ async function main(): Promise<number> {
   if ((git.committed || git.pushed) && report.outcome !== "escalated") {
     await emitWorkspaceUpdatedMetadata();
   }
+
+  await persistFinishWorkReport(REPO_ROOT, report);
 
   if (options.json) {
     process.stdout.write(`${inspectAgent(report)}\n`);
@@ -384,9 +409,14 @@ async function main(): Promise<number> {
   }
 
   if (report.outcome === "escalated") {
+    emitLatmDoneMarker();
     return report.herdr?.escalated === false ? 2 : 0;
   }
-  if (followUpSummary?.ran && followUpSummary.exitCode !== 0) return 1;
+  if (followUpSummary?.ran && followUpSummary.exitCode !== 0) {
+    emitLatmDoneMarker();
+    return 1;
+  }
+  emitLatmDoneMarker();
   return 0;
 }
 

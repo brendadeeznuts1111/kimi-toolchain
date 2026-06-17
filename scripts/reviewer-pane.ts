@@ -8,7 +8,12 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { herdrCli } from "../src/lib/herdr-socket.ts";
-import type { FinishWorkReport } from "../src/lib/finish-work-herdr.ts";
+import {
+  appendReviewerFeedback,
+  finishWorkOutcomeLabel,
+  normalizeFinishWorkReport,
+  type FinishWorkReport,
+} from "../src/lib/finish-work-herdr.ts";
 
 const ANSI = {
   purple: "\x1b[38;5;141m",
@@ -41,7 +46,7 @@ function parseArgs(): string | null {
 function loadReport(path: string | null): FinishWorkReport | null {
   if (!path) return null;
   const raw = readFileSync(resolve(path), "utf8");
-  return JSON.parse(raw) as FinishWorkReport;
+  return normalizeFinishWorkReport(JSON.parse(raw) as Record<string, unknown>);
 }
 
 function pad(value: string, width: number): string {
@@ -51,7 +56,13 @@ function pad(value: string, width: number): string {
 function renderTable(report: FinishWorkReport): void {
   const lines: string[] = [];
   lines.push(paint("purple", "finish-work reviewer"));
-  lines.push(paint("dim", `outcome: ${report.outcome}  gates: ${report.results.length}`));
+  const closeOutcome = report.outcomeLabel ?? finishWorkOutcomeLabel(report);
+  lines.push(
+    paint(
+      "dim",
+      `outcome: ${closeOutcome}  pipeline: ${report.outcome}  gates: ${report.results.length}`
+    )
+  );
   lines.push("");
 
   const header = `${pad("GATE", 18)} ${pad("EXIT", 6)} MS`;
@@ -125,6 +136,19 @@ async function main(): Promise<number> {
   }
 
   renderTable(report);
+
+  if (filePath) {
+    const projectRoot = resolve(filePath, "../..");
+    const feedbackMessage = report.tree.clean
+      ? "Post-push review complete — tree clean"
+      : `Dirty tree after push (${report.tree.dirty.length} path(s)) — review required`;
+    await appendReviewerFeedback(projectRoot, {
+      message: feedbackMessage,
+      resolved: report.tree.clean,
+      reviewerPane: process.env.HERDR_PANE_ID,
+    });
+  }
+
   await reportAgentState(report);
   return report.tree.clean ? 0 : 2;
 }

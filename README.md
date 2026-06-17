@@ -44,6 +44,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 
+| `bun run lint:skills` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                           |

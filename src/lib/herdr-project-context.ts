@@ -1,5 +1,6 @@
 import { execArgvSync, sleepSync } from "./bun-utils.ts";
 import { pathExists, writeText } from "./bun-io.ts";
+import { buildContextSyncFromReport, enrichHandoffMessage } from "./context-sync-from-report.ts";
 import type { HerdrAgentsTabPane, HerdrProjectConfig } from "./herdr-project-config.ts";
 import { herdrCliRun, resolveHerdrPanePath } from "./herdr-project-cli.ts";
 import { findWorkspaceForProject, resolveWorkspaceAgentPaneId } from "./herdr-workspace-match.ts";
@@ -91,11 +92,17 @@ export interface SyncAgentsTabContextResult {
   contextJsonFile?: string;
 }
 
+export interface SyncAgentsTabContextOptions {
+  /** Append v1.1 finish-work report brief when present (workspace.updated path). */
+  appendFinishWorkBrief?: boolean;
+}
+
 /** Deliver pane.context output to running agents via `herdr agent send`. */
 export function syncAgentsTabContext(
   config: HerdrProjectConfig,
   panes: HerdrAgentsTabPane[] | undefined = config.agentsTab?.panes,
-  workspaceId?: string | null
+  workspaceId?: string | null,
+  options: SyncAgentsTabContextOptions = {}
 ): SyncAgentsTabContextResult {
   const delivered: Array<{ agent: string; bytes: number }> = [];
   const warnings: string[] = [];
@@ -124,6 +131,12 @@ export function syncAgentsTabContext(
     if (!text) {
       warnings.push(`context command for ${pane.agent} produced no output`);
       continue;
+    }
+    if (options.appendFinishWorkBrief && projectPath) {
+      const payload = buildContextSyncFromReport(projectPath);
+      if (payload) {
+        text = enrichHandoffMessage(text, payload);
+      }
     }
     const result = deliverContextWithRetry(config, pane.agent, text, resolvedWorkspace);
     if (result.ok) {

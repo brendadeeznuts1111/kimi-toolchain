@@ -236,3 +236,113 @@ export function verifyHandoffLog(): Array<{ seq: number; expected: string; actua
 export function getHandoffLogPath(): string {
   return logPath;
 }
+
+export interface HandoffHistoryQuery {
+  limit?: number;
+  workspace?: string;
+  agent?: string;
+  trigger?: HandoffLogEntry["trigger"];
+  action?: HandoffLogEntry["action"];
+  ok?: boolean;
+  /** ISO-8601 — return entries at or after this timestamp */
+  since?: string;
+}
+
+export function entryMatchesHandoffQuery(
+  entry: HandoffLogEntry,
+  query: HandoffHistoryQuery
+): boolean {
+  if (
+    query.workspace &&
+    entry.workspace !== query.workspace &&
+    entry.fromWorkspace !== query.workspace
+  ) {
+    return false;
+  }
+  if (
+    query.agent &&
+    entry.agent !== query.agent &&
+    entry.fromAgent !== query.agent &&
+    entry.toAgent !== query.agent
+  ) {
+    return false;
+  }
+  if (query.trigger && entry.trigger !== query.trigger) return false;
+  if (query.action && entry.action !== query.action) return false;
+  if (query.ok !== undefined && entry.ok !== query.ok) return false;
+  if (query.since && entry.timestamp < query.since) return false;
+  return true;
+}
+
+/** Filter and limit handoff history (live log + rotation archives). */
+export function queryHandoffHistory(query: HandoffHistoryQuery = {}): HandoffLogEntry[] {
+  const limit = query.limit ?? 20;
+  const entries = getHandoffHistory(Number.MAX_SAFE_INTEGER).filter((entry) =>
+    entryMatchesHandoffQuery(entry, query)
+  );
+  return entries.slice(0, limit);
+}
+
+export function inferHandoffLogAction(
+  detail: string,
+  ok: boolean,
+  dryRun: boolean
+): HandoffLogEntry["action"] {
+  if (dryRun) return "dry-run";
+  if (!ok) {
+    if (
+      detail.includes("not satisfied") ||
+      detail.includes("not found") ||
+      detail.includes(" is ") ||
+      detail.includes("no prior")
+    ) {
+      return "skip";
+    }
+    return "error";
+  }
+  if (detail.includes("spawn-fallback")) return "spawn-fallback";
+  if (detail.includes("spawned")) return "spawn";
+  return "handoff";
+}
+
+export function recordHandoffRuleEvaluation(options: {
+  rule: {
+    fromWorkspace: string;
+    fromAgent: string;
+    toWorkspace: string;
+    toAgent: string;
+    condition: string;
+    fromSession?: string;
+    toSession?: string;
+  };
+  ruleIndex: number;
+  detail: string;
+  ok: boolean;
+  trigger: HandoffLogEntry["trigger"];
+  fromSession?: string;
+  toSession?: string;
+  dryRun?: boolean;
+  context?: Record<string, unknown>;
+  durationMs?: number;
+}) {
+  const fromSess = options.fromSession || options.rule.fromSession || "default";
+  const toSess = options.toSession || options.rule.toSession || fromSess;
+  logHandoff({
+    workspace: options.rule.fromWorkspace,
+    agent: options.rule.fromAgent,
+    rule: options.ruleIndex,
+    trigger: options.trigger,
+    action: inferHandoffLogAction(options.detail, options.ok, options.dryRun ?? false),
+    fromAgent: options.rule.fromAgent,
+    fromWorkspace: options.rule.fromWorkspace,
+    fromHost: fromSess,
+    toAgent: options.rule.toAgent,
+    toWorkspace: options.rule.toWorkspace,
+    toHost: toSess,
+    condition: options.rule.condition,
+    detail: options.detail,
+    ok: options.ok,
+    context: options.context,
+    durationMs: options.durationMs,
+  });
+}

@@ -7,11 +7,29 @@ import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";
 import { findWorkspaceForProject } from "./herdr-project-runner.ts";
 import { herdrCliJson, herdrCliRun } from "./herdr-project-cli.ts";
-import { escalateFinishWorkToReviewer, type FinishWorkReport } from "./finish-work-herdr.ts";
 import {
-  evaluateProbeHandoffCondition,
-  isCanonicalReferencesProbeId,
-} from "./canonical-references.ts";
+  escalateFinishWorkToReviewer,
+  normalizeFinishWorkReport,
+  type FinishWorkReport,
+} from "./finish-work-herdr.ts";
+import {
+  evaluateWhenConditions,
+  isReportWhenRule,
+  whenIncludesPaneStatus,
+  whenRuleDedupeKey,
+} from "./condition-evaluator.ts";
+import {
+  buildContextSyncFromReport,
+  enrichHandoffMessage,
+  isFinishWorkHandoffCondition,
+} from "./context-sync-from-report.ts";
+import { evaluateHandoffProbeCondition } from "./handoff-probes.ts";
+import { recordHandoffRuleEvaluation, type HandoffLogEntry } from "./handoff-log.ts";
+import { homeDir } from "./paths.ts";
+import {
+  formatHandoffSuccessDetail,
+  resolveHandoffTargetAgent,
+} from "./handoff-target-resolver.ts";
 import {
   parseCondition,
   resolveOrchestratorConfig,
@@ -60,6 +78,8 @@ export interface OrchestratorState {
   updatedAt: string;
   workspaceId: string;
   agents: Record<string, { status: AgentStatus; paneId: string }>;
+  /** Probe handoff rules that already fired successfully (prevents watch-events spam). */
+  completedProbeHandoffs?: string[];
 }
 
 export interface OrchestratorAction {
@@ -646,6 +666,8 @@ export interface CrossWorkspaceHandoffResult {
   rule: HandoffRule;
   ok: boolean;
   detail: string;
+  /** Wall-clock ms spent evaluating this rule (conditions + target resolution + send). */
+  durationMs: number;
 }
 
 export interface CrossWorkspaceHandoffOptions {
@@ -665,23 +687,19 @@ export async function evaluateCrossWorkspaceHandoffs(
 ): Promise<CrossWorkspaceHandoffResult[]> {
   const results: CrossWorkspaceHandoffResult[] = [];
 
-  const resolveAgent = (workspaceId: string, nameOrLabel: string): AgentSnapshot | undefined => {
-    // least_busy or least_busy:label
-    if (nameOrLabel === "least_busy" || nameOrLabel.startsWith("least_busy:")) {
-      const labelFilter = nameOrLabel.startsWith("least_busy:") ? nameOrLabel.slice(11) : undefined;
-      const best = findLeastBusyAgent(allAgents, undefined, labelFilter, labelMap);
-      return best?.agent;
-    }
-    // Direct agent name match
+  const resolveSourceAgent = (
+    workspaceId: string,
+    nameOrLabel: string
+  ): AgentSnapshot | undefined => {
     const direct = allAgents.find((a) => a.workspaceId === workspaceId && a.agent === nameOrLabel);
     if (direct) return direct;
-    // Label lookup
     if (labelMap) {
       const wsLabels = labelMap.get(workspaceId);
       if (wsLabels) {
         const agentName = wsLabels.get(nameOrLabel);
-        if (agentName)
+        if (agentName) {
           return allAgents.find((a) => a.workspaceId === workspaceId && a.agent === agentName);
+        }
       }
     }
     return undefined;
@@ -690,25 +708,22 @@ export async function evaluateCrossWorkspaceHandoffs(
   const remoteHosts = config.remoteHosts;
 
   for (const rule of config.handoffRules) {
-    const parsed = parseCondition(rule.condition);
-    if (!parsed) {
-      results.push({ rule, ok: false, detail: `invalid condition: ${rule.condition}` });
-      continue;
-    }
+    const evalStart = Date.now();
+    const pushResult = (entry: Omit<CrossWorkspaceHandoffResult, "durationMs">) => {
+      results.push({ ...entry, durationMs: Date.now() - evalStart });
+    };
 
-    if (parsed.kind === "probe" && !isCanonicalReferencesProbeId(parsed.probeId)) {
-      results.push({
-        rule,
-        ok: false,
-        detail: `unsupported probe condition: ${parsed.probeId}`,
-      });
+    const hasWhen = isReportWhenRule(rule.when);
+    const parsed = rule.condition === "report:when" ? null : parseCondition(rule.condition);
+    if (!hasWhen && !parsed) {
+      pushResult({ rule, ok: false, detail: `invalid condition: ${rule.condition}` });
       continue;
     }
 
     // Find the source agent (by name or label)
-    const fromAgent = resolveAgent(rule.fromWorkspace, rule.fromAgent);
+    const fromAgent = resolveSourceAgent(rule.fromWorkspace, rule.fromAgent);
     if (!fromAgent) {
-      results.push({
+      pushResult({
         rule,
         ok: false,
         detail: `from agent/label "${rule.fromAgent}" not found in ${rule.fromWorkspace}`,
@@ -716,32 +731,53 @@ export async function evaluateCrossWorkspaceHandoffs(
       continue;
     }
 
-    if (parsed.kind === "probe") {
+    if (hasWhen) {
       if (!options.projectRoot) {
-        results.push({
+        pushResult({
+          rule,
+          ok: false,
+          detail: "when condition requires project root",
+        });
+        continue;
+      }
+      const whenEval = await evaluateWhenConditions(options.projectRoot, rule.when!, fromAgent);
+      if (!whenEval.ok) {
+        pushResult({
+          rule,
+          ok: false,
+          detail: `when not satisfied: ${whenEval.message}`,
+        });
+        continue;
+      }
+    }
+
+    if (parsed?.kind === "probe") {
+      if (!options.projectRoot) {
+        pushResult({
           rule,
           ok: false,
           detail: `probe condition requires project root: ${rule.condition}`,
         });
         continue;
       }
-      const probe = await evaluateProbeHandoffCondition(
+      const probe = await evaluateHandoffProbeCondition(
         parsed.probeId,
         options.projectRoot,
         options.home
       );
       if (!probe.ok) {
-        results.push({
+        pushResult({
           rule,
           ok: false,
           detail: `probe ${parsed.probeId} not satisfied: ${probe.message}`,
         });
         continue;
       }
-    } else {
-      // Check status match
-      if (fromAgent.status !== parsed.status) {
-        results.push({
+    } else if (parsed) {
+      const paneStatusInWhen = whenIncludesPaneStatus(rule.when);
+      // Check status match (skip when pane.status is already in `when`)
+      if (!paneStatusInWhen && fromAgent.status !== parsed.status) {
+        pushResult({
           rule,
           ok: false,
           detail: `${fromAgent.agent} (label: ${rule.fromAgent}) is ${fromAgent.status}, not ${parsed.status}`,
@@ -754,7 +790,7 @@ export async function evaluateCrossWorkspaceHandoffs(
         const state = stateMap.get(rule.fromWorkspace) || null;
         const prior = state?.agents[fromAgent.agent];
         if (!prior || prior.status !== parsed.status) {
-          results.push({
+          pushResult({
             rule,
             ok: false,
             detail: `no prior ${parsed.status} state for ${fromAgent.agent}`,
@@ -763,7 +799,7 @@ export async function evaluateCrossWorkspaceHandoffs(
         }
         const elapsed = (Date.now() - new Date(state!.updatedAt).getTime()) / 1000;
         if (elapsed < parsed.minSeconds) {
-          results.push({
+          pushResult({
             rule,
             ok: false,
             detail: `${fromAgent.agent} ${parsed.status} for ${Math.round(elapsed)}s (need ${parsed.minSeconds}s)`,
@@ -773,8 +809,14 @@ export async function evaluateCrossWorkspaceHandoffs(
       }
     }
 
-    // Find the target agent (by name or label)
-    let toAgent = resolveAgent(rule.toWorkspace, rule.toAgent);
+    const targetResolved = resolveHandoffTargetAgent({
+      rule,
+      allAgents,
+      labelMap,
+      excludePaneId: fromAgent.paneId,
+      findLeastBusyAgent,
+    });
+    let toAgent = targetResolved.agent;
 
     // If target agent not found and spawn_if_missing is enabled, spawn it
     if (!toAgent && rule.spawnIfMissing) {
@@ -852,13 +894,13 @@ export async function evaluateCrossWorkspaceHandoffs(
                 }
               }
             }
-            results.push({
+            pushResult({
               rule,
               ok: true,
               detail: `spawned ${rule.toAgent}@${toParsed.host}:${toParsed.session} → ${rule.toWorkspace}`,
             });
           } else {
-            results.push({ rule, ok: false, detail: `spawn failed: ${sshStartResult.output}` });
+            pushResult({ rule, ok: false, detail: `spawn failed: ${sshStartResult.output}` });
           }
           continue;
         }
@@ -898,7 +940,7 @@ export async function evaluateCrossWorkspaceHandoffs(
           const prefix = sf.host ? `[→${sf.host}] ` : "";
 
           if (dryRun) {
-            results.push({
+            pushResult({
               rule,
               ok: true,
               detail: `[dry-run] ${prefix}spawn ${sf.agentCli} as "${label}" on ${sf.host}/${targetSession}/${targetWorkspace}`,
@@ -906,13 +948,13 @@ export async function evaluateCrossWorkspaceHandoffs(
           } else {
             const spawnResult = sshExec(resolved, startArgs);
             if (spawnResult.ok) {
-              results.push({
+              pushResult({
                 rule,
                 ok: true,
                 detail: `${prefix}spawned ${sf.agentCli} as "${label}" on ${sf.host}/${targetSession}/${targetWorkspace}`,
               });
             } else {
-              results.push({
+              pushResult({
                 rule,
                 ok: false,
                 detail: `${prefix}spawn failed: ${spawnResult.output}`,
@@ -922,15 +964,17 @@ export async function evaluateCrossWorkspaceHandoffs(
           continue;
         }
       }
-      results.push({ rule, ok: false, detail: `spawn_fallback host "${sf.host}" not configured` });
+      pushResult({ rule, ok: false, detail: `spawn_fallback host "${sf.host}" not configured` });
       continue;
     }
 
     if (!toAgent) {
-      results.push({
+      pushResult({
         rule,
         ok: false,
-        detail: `to agent/label "${rule.toAgent}" not found in ${rule.toWorkspace}`,
+        detail: `to agent/label "${rule.toAgent}" not found in ${rule.toWorkspace}${
+          targetResolved.strategy === "least_busy" ? " (least_busy)" : ""
+        }`,
       });
       continue;
     }
@@ -947,34 +991,41 @@ export async function evaluateCrossWorkspaceHandoffs(
         : "";
 
     if (dryRun) {
-      const prefix =
-        isRemoteFrom || isRemoteTo
-          ? `[${fromParsed.host || "local"}→${toParsed.host || "local"}] `
-          : "";
-      results.push({
+      pushResult({
         rule,
         ok: true,
-        detail: `[dry-run] ${prefix}${rule.fromWorkspace}/${fromAgent.agent} → ${rule.toWorkspace}/${toAgent.agent}`,
+        detail: `[dry-run] ${formatHandoffSuccessDetail({
+          routePrefix,
+          rule,
+          targetPaneId: toAgent.paneId,
+          targetAgentName: toAgent.agent,
+          strategy: targetResolved.strategy,
+        })}`,
       });
       continue;
     }
 
     // Build handoff message
     const recent = readAgentRecentText(fromAgent.paneId, session);
-    const message = [
+    const baseMessage = [
       `[cross-workspace handoff from ${rule.fromWorkspace}/${rule.fromAgent}]`,
       `Condition: ${rule.condition}`,
       recent || "(no recent output)",
       "",
       "Pick up from here.",
     ].join("\n");
+    let message = baseMessage;
+    if (options.projectRoot && (hasWhen || isFinishWorkHandoffCondition(rule.condition))) {
+      const payload = buildContextSyncFromReport(options.projectRoot);
+      message = enrichHandoffMessage(baseMessage, payload);
+    }
 
     // Send — locally or via SSH
     let sent: { ok: boolean; output: string };
     if (isRemoteTo) {
       const hostConn = remoteHosts[toParsed.host!];
       if (!hostConn) {
-        results.push({ rule, ok: false, detail: `remote host "${toParsed.host}" not configured` });
+        pushResult({ rule, ok: false, detail: `remote host "${toParsed.host}" not configured` });
         continue;
       }
       const resolvedHosts = normalizeRemoteHostConfig(
@@ -997,17 +1048,58 @@ export async function evaluateCrossWorkspaceHandoffs(
     }
 
     if (sent.ok) {
-      results.push({
+      pushResult({
         rule,
         ok: true,
-        detail: `${routePrefix}${rule.fromWorkspace}/${rule.fromAgent} → ${rule.toWorkspace}/${rule.toAgent}`,
+        detail: formatHandoffSuccessDetail({
+          routePrefix,
+          rule,
+          targetPaneId: toAgent.paneId,
+          targetAgentName: toAgent.agent,
+          strategy: targetResolved.strategy,
+        }),
       });
     } else {
-      results.push({ rule, ok: false, detail: `send failed: ${sent.output}` });
+      pushResult({ rule, ok: false, detail: `send failed: ${sent.output}` });
     }
   }
 
   return results;
+}
+
+function isOneShotHandoffRule(rule: HandoffRule): boolean {
+  return (
+    rule.condition.startsWith("probe:") ||
+    rule.condition.startsWith("finish-work:") ||
+    isReportWhenRule(rule.when)
+  );
+}
+
+function probeHandoffRuleKey(rule: HandoffRule): string {
+  const whenKey = rule.when ? whenRuleDedupeKey(rule.when) : "";
+  return `${rule.fromWorkspace}:${rule.fromAgent}:${rule.condition}:${whenKey}:${rule.toWorkspace}:${rule.toAgent}`;
+}
+
+function loadWorkspaceLabelMap(
+  workspaceId: string,
+  session: string
+): Map<string, Map<string, string>> {
+  const labelMap = new Map<string, Map<string, string>>();
+  const listed = herdrCliJson(session, ["agent", "list"]);
+  if (!listed.ok) return labelMap;
+
+  const wsLabels = new Map<string, string>();
+  for (const row of (listed.json?.result?.agents || []) as Array<{
+    workspace_id?: string;
+    name?: string;
+    agent?: string;
+  }>) {
+    if (row.workspace_id === workspaceId && row.name && row.agent && row.name !== row.agent) {
+      wsLabels.set(row.name, row.agent);
+    }
+  }
+  if (wsLabels.size > 0) labelMap.set(workspaceId, wsLabels);
+  return labelMap;
 }
 
 function resolveAgentTarget(agents: AgentSnapshot[], label: string | null): AgentSnapshot | null {
@@ -1056,7 +1148,7 @@ function loadFinishWorkReport(projectRoot: string): FinishWorkReport | null {
   const path = finishWorkReportPath(projectRoot);
   if (!pathExists(path)) return null;
   try {
-    return JSON.parse(readText(path)) as FinishWorkReport;
+    return normalizeFinishWorkReport(JSON.parse(readText(path)) as Record<string, unknown>);
   } catch {
     return null;
   }
@@ -1078,6 +1170,11 @@ export async function reactHerdrOrchestrator(
     forceContext?: boolean;
     forceHandoff?: boolean;
     workspaceId?: string;
+    /** Evaluate [[herdr.orchestrator.handoff_rules]] (watch-events only; CLI react has its own path). */
+    evaluateHandoffRules?: boolean;
+    dryRun?: boolean;
+    /** Audit log trigger for handoff rule evaluations (default: react). */
+    logTrigger?: HandoffLogEntry["trigger"];
   } = {}
 ): Promise<OrchestratorReactResult> {
   const warnings: string[] = [];
@@ -1153,7 +1250,10 @@ export async function reactHerdrOrchestrator(
       const target = resolveAgentTarget(agents, orchestrator.handoffTo);
       if (target?.paneId) {
         const recent = readAgentRecentText(agent.paneId, session);
-        const message = buildHandoffMessage(fromLabel, recent);
+        const baseMessage = buildHandoffMessage(fromLabel, recent);
+        const payload = buildContextSyncFromReport(projectRoot);
+        const message =
+          payload?.outcome === "clean" ? enrichHandoffMessage(baseMessage, payload) : baseMessage;
         const sent = sendAgentText(session, target.paneId, message);
         if (sent.ok) {
           actions.push({
@@ -1164,6 +1264,70 @@ export async function reactHerdrOrchestrator(
         } else {
           warnings.push(`handoff send failed: ${sent.output}`);
         }
+      }
+    }
+  }
+
+  const completedProbeHandoffs = new Set(previous?.completedProbeHandoffs ?? []);
+  const defaultSession = session || "default";
+  const pendingHandoffRules = orchestrator.handoffRules.filter((rule) => {
+    const fromSession = rule.fromSession || defaultSession;
+    if (fromSession !== defaultSession) return false;
+    if (!isOneShotHandoffRule(rule)) {
+      return true;
+    }
+    return !completedProbeHandoffs.has(probeHandoffRuleKey(rule));
+  });
+
+  if (options.evaluateHandoffRules && pendingHandoffRules.length > 0 && !handoffSent) {
+    const stateMap = new Map<string, OrchestratorState | null>();
+    stateMap.set(resolvedId, previous);
+    const labelMap = loadWorkspaceLabelMap(resolvedId, session);
+    const ruleDryRun = options.dryRun ?? false;
+    const xwResults = await evaluateCrossWorkspaceHandoffs(
+      { ...orchestrator, handoffRules: pendingHandoffRules },
+      agents,
+      stateMap,
+      session,
+      labelMap.size > 0 ? labelMap : undefined,
+      ruleDryRun,
+      { projectRoot, home: homeDir() }
+    );
+
+    const logTrigger = options.logTrigger ?? "react";
+    for (const [index, xw] of xwResults.entries()) {
+      recordHandoffRuleEvaluation({
+        rule: xw.rule,
+        ruleIndex: index + 1,
+        detail: xw.detail,
+        ok: xw.ok,
+        trigger: logTrigger,
+        fromSession: session || "default",
+        toSession: session || "default",
+        dryRun: ruleDryRun,
+        durationMs: xw.durationMs,
+        context: {
+          targetStrategy: xw.rule.targetStrategy ?? "fixed",
+          when: xw.rule.when?.map((row) => `${row.path}=${JSON.stringify(row.expected)}`),
+          evalDurationMs: xw.durationMs,
+        },
+      });
+    }
+
+    for (const xw of xwResults) {
+      const ruleKey = probeHandoffRuleKey(xw.rule);
+      if (xw.ok) {
+        actions.push({ type: "handoff", detail: `rule: ${xw.detail}` });
+        handoffSent = true;
+        if (!ruleDryRun && isOneShotHandoffRule(xw.rule)) {
+          completedProbeHandoffs.add(ruleKey);
+        }
+      } else if (
+        xw.detail.includes("send failed") ||
+        xw.detail.includes("spawn failed") ||
+        xw.detail.includes("invalid condition")
+      ) {
+        warnings.push(xw.detail);
       }
     }
   }
@@ -1190,6 +1354,8 @@ export async function reactHerdrOrchestrator(
     agents: Object.fromEntries(
       agents.map((row) => [row.agent, { status: row.status, paneId: row.paneId }])
     ),
+    completedProbeHandoffs:
+      completedProbeHandoffs.size > 0 ? [...completedProbeHandoffs] : undefined,
   };
   writeState(projectRoot, nextState);
 

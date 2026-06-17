@@ -23,15 +23,32 @@ import {
   type RestoreStatus,
 } from "../lib/herdr-orchestrator.ts";
 import { notifyWebhook } from "../lib/herdr-orchestrator-remote.ts";
+import { homeDir } from "../lib/paths.ts";
+import {
+  FINISH_WORK_REPORT_PREFIX,
+  PANE_PREFIX,
+  PANE_WHEN_FIELDS,
+} from "../lib/condition-evaluator.ts";
 import {
   resolveOrchestratorConfig,
   normalizeRemoteHostConfig,
   validateRemoteHostConfig,
   readHerdrAppConfig,
+  isLegacyGlobalLeastBusyTarget,
+  resolveTargetStrategy,
   type RemoteHostConfig,
   type ResolvedRemoteHost,
 } from "../lib/herdr-orchestrator-config.ts";
-import { getHandoffHistory, getHandoffLogPath, logHandoff } from "../lib/handoff-log.ts";
+import {
+  entryMatchesHandoffQuery,
+  getHandoffHistory,
+  getHandoffLogPath,
+  queryHandoffHistory,
+  recordHandoffRuleEvaluation,
+  verifyHandoffLog,
+  type HandoffHistoryQuery,
+  type HandoffLogEntry,
+} from "../lib/handoff-log.ts";
 import { Effect } from "effect";
 import { watchOrchestratorEventsEffect } from "../lib/herdr-orchestrator-events.ts";
 import {
@@ -41,7 +58,10 @@ import {
   herdrCliJson,
   herdrCliRun,
 } from "../lib/herdr-project-runner.ts";
-import { escalateFinishWorkToReviewer, type FinishWorkReport } from "../lib/finish-work-herdr.ts";
+import {
+  escalateFinishWorkToReviewer,
+  normalizeFinishWorkReport,
+} from "../lib/finish-work-herdr.ts";
 import { join } from "path";
 
 function parseArgs(argv: string[]) {
@@ -128,7 +148,7 @@ Commands:
   sessions       List all Herdr sessions with workspace and agent counts
   check-hosts    Ping all configured remote hosts and report Herdr version + channel
   check-sessions Validate session references in handoff rules
-  history        Show recent handoff + spawn activity log [--limit 20] [--json]
+  history        Tail/filter handoff audit log [--limit 20] [--workspace wB] [--agent kimi] [--follow] [--verify] [--json]
   dashboard      Unified view of all agents across all workspaces
   readiness      Check agent integration versions for native session restore
   agent          Manage agents: start, stop, or attach remotely (herdr-orchestrator agent <subcommand> --help)
@@ -669,6 +689,34 @@ try {
 
     for (const rule of orchConfig.handoffRules) {
       ri++;
+      if (rule.when?.length) {
+        const hasPaneWhen = rule.when.some((clause) => clause.path.startsWith(PANE_PREFIX));
+        for (const clause of rule.when) {
+          const reportPath = clause.path.startsWith(FINISH_WORK_REPORT_PREFIX);
+          const panePath = clause.path.startsWith(PANE_PREFIX);
+          if (!reportPath && !panePath) {
+            issues.push({
+              rule: ri,
+              severity: "warn",
+              message: `when path "${clause.path}" is unsupported — use finishWorkReport.* or pane.* fields`,
+            });
+          } else if (panePath && !PANE_WHEN_FIELDS.has(clause.path)) {
+            issues.push({
+              rule: ri,
+              severity: "warn",
+              message: `when path "${clause.path}" is unknown — supported: ${[...PANE_WHEN_FIELDS].join(", ")}`,
+            });
+          }
+        }
+        issues.push({
+          rule: ri,
+          severity: "info",
+          message: hasPaneWhen
+            ? `when rule (${rule.when.length} clause(s)) — includes pane.* (source agent status required)`
+            : `when rule (${rule.when.length} clause(s)) — report fields only`,
+        });
+      }
+
       const fromParsed = parseHostSession(rule.fromSession || defaultSession);
       const toParsed = parseHostSession(rule.toSession || rule.fromSession || defaultSession);
 
@@ -812,9 +860,44 @@ try {
         }
 
         const wsAgents = agents.filter((a) => a.workspace_id === wsId);
-        const byName = wsAgents.find((a) => a.agent === agentOrLabel);
-        const byLabel = wsAgents.find((a) => a.name === agentOrLabel);
-        const resolved = byName || byLabel;
+
+        if (role === "to" && isLegacyGlobalLeastBusyTarget(agentOrLabel)) {
+          if (wsAgents.length === 0) {
+            issues.push({
+              rule: ri,
+              severity: "warn",
+              message: `to least_busy target — no agents in ${sessLabel}/${wsId}`,
+            });
+          } else {
+            issues.push({
+              rule: ri,
+              severity: "info",
+              message: `to least_busy — ${wsAgents.length} agent(s) in ${sessLabel}/${wsId} eligible globally`,
+            });
+          }
+          continue;
+        }
+
+        const matches = wsAgents.filter((a) => a.agent === agentOrLabel || a.name === agentOrLabel);
+
+        if (role === "to" && resolveTargetStrategy(rule) === "least_busy") {
+          if (matches.length === 0) {
+            issues.push({
+              rule: ri,
+              severity: "warn",
+              message: `to "${agentOrLabel}" with target_strategy=least_busy — no matches in ${sessLabel}/${wsId}`,
+            });
+          } else {
+            issues.push({
+              rule: ri,
+              severity: "info",
+              message: `to "${agentOrLabel}" least_busy — ${matches.length} candidate pane(s) in ${sessLabel}/${wsId}`,
+            });
+          }
+          continue;
+        }
+
+        const resolved = matches[0];
 
         if (!resolved) {
           issues.push({
@@ -923,36 +1006,98 @@ try {
   }
 
   if (command === "history") {
-    const limit = (() => {
-      const idx = Bun.argv.indexOf("--limit");
-      return idx >= 0 ? parseInt(Bun.argv[idx + 1] || "0", 10) : 20;
-    })();
+    const argv = Bun.argv;
+    const flagValue = (flag: string) => {
+      const idx = argv.indexOf(flag);
+      return idx >= 0 ? argv[idx + 1] || "" : "";
+    };
+    const limit = parseInt(flagValue("--limit") || "20", 10);
+    const query: HandoffHistoryQuery = { limit };
+    const workspaceFilter = flagValue("--workspace");
+    const agentFilter = flagValue("--agent");
+    const triggerFilter = flagValue("--trigger");
+    const actionFilter = flagValue("--action");
+    const sinceFilter = flagValue("--since");
+    if (workspaceFilter) query.workspace = workspaceFilter;
+    if (agentFilter) query.agent = agentFilter;
+    if (triggerFilter) query.trigger = triggerFilter as HandoffHistoryQuery["trigger"];
+    if (actionFilter) query.action = actionFilter as HandoffHistoryQuery["action"];
+    if (sinceFilter) query.since = sinceFilter;
+    if (argv.includes("--failed")) query.ok = false;
+    if (argv.includes("--ok")) query.ok = true;
 
-    const entries = getHandoffHistory(limit);
-    if (json) {
-      writeJson({ ok: true, logPath: getHandoffLogPath(), entries });
-    } else {
-      if (!entries.length) {
-        writeOut(`No handoff history. Log path: ${getHandoffLogPath()}`);
-      } else {
-        writeOut(
-          `Handoff history (${Math.min(entries.length, limit)} entries, ${getHandoffLogPath()}):`
-        );
-        writeOut("");
-        const dim = "\x1b[2m";
-        const R = "\x1b[0m";
-        for (const e of entries) {
-          const tag = e.ok ? "✓" : "✗";
-          const ts = new Date(e.timestamp).toISOString().replace("T", " ").slice(0, 19);
-          const from = e.fromAgent ? `${e.fromHost || "(local)"}/${e.fromAgent}` : "-";
-          const to = e.toAgent ? `${e.toHost || "(local)"}/${e.toAgent}` : "-";
-          writeOut(
-            `  ${dim}${ts}${R}  ${tag}  ${e.action.padEnd(14)}  ${from.padEnd(22)} → ${to.padEnd(22)}  ${dim}${e.detail.slice(0, 60)}${R}`
-          );
-        }
+    const printHistoryEntries = (entries: ReturnType<typeof queryHandoffHistory>) => {
+      if (json) {
+        writeJson({ ok: true, logPath: getHandoffLogPath(), query, entries });
+        return;
       }
+      if (!entries.length) {
+        writeOut(`No handoff history matches filters. Log: ${getHandoffLogPath()}`);
+        return;
+      }
+      writeOut(`Handoff audit (${entries.length} entries, ${getHandoffLogPath()}):`);
+      writeOut("");
+      const dim = "\x1b[2m";
+      const R = "\x1b[0m";
+      for (const e of entries) {
+        const tag = e.ok ? "✓" : "✗";
+        const ts = new Date(e.timestamp).toISOString().replace("T", " ").slice(0, 19);
+        const from = e.fromAgent ? `${e.fromHost || "(local)"}/${e.fromAgent}` : "-";
+        const to = e.toAgent ? `${e.toHost || "(local)"}/${e.toAgent}` : "-";
+        writeOut(
+          `  ${dim}${ts}${R}  ${tag}  ${e.trigger.padEnd(12)}  ${e.action.padEnd(14)}  ${from.padEnd(22)} → ${to.padEnd(22)}  ${dim}${e.detail.slice(0, 60)}${R}`
+        );
+      }
+    };
+
+    if (argv.includes("--verify")) {
+      const failures = verifyHandoffLog();
+      if (json) writeJson({ ok: failures.length === 0, logPath: getHandoffLogPath(), failures });
+      else if (failures.length) {
+        writeOut(`Checksum failures in live log (${failures.length}):`);
+        for (const f of failures)
+          writeOut(`  seq ${f.seq}: expected ${f.expected}, got ${f.actual}`);
+      } else writeOut(`Checksum OK (${getHandoffLogPath()})`);
+      process.exit(failures.length ? 2 : 0);
     }
-    process.exit(0);
+
+    if (argv.includes("--follow")) {
+      let offset = 0;
+      const logPath = getHandoffLogPath();
+      const renderNew = () => {
+        if (!pathExists(logPath)) return;
+        const raw = readText(logPath);
+        if (raw.length <= offset) return;
+        const chunk = raw.slice(offset);
+        offset = raw.length;
+        for (const line of chunk.split("\n").filter(Boolean)) {
+          try {
+            const e = JSON.parse(line) as HandoffLogEntry;
+            if (!entryMatchesHandoffQuery(e, query)) continue;
+            const dim = "\x1b[2m";
+            const R = "\x1b[0m";
+            const tag = e.ok ? "✓" : "✗";
+            const ts = new Date(e.timestamp).toISOString().replace("T", " ").slice(0, 19);
+            writeOut(
+              `${dim}${ts}${R}  ${tag}  ${e.trigger}  ${e.action}  ${e.detail.slice(0, 80)}`
+            );
+          } catch {
+            /* skip malformed */
+          }
+        }
+      };
+      writeOut(`Following ${logPath} (Ctrl+C to stop)…`);
+      printHistoryEntries(queryHandoffHistory(query));
+      renderNew();
+      const timer = setInterval(renderNew, 1000);
+      process.on("SIGINT", () => {
+        clearInterval(timer);
+        process.exit(0);
+      });
+    } else {
+      printHistoryEntries(queryHandoffHistory(query));
+      process.exit(0);
+    }
   }
 
   if (command === "config") {
@@ -1659,7 +1804,9 @@ try {
       if (json) writeJson({ ok: false, error: "no finish-work report" });
       process.exit(1);
     }
-    const report = JSON.parse(readText(reportPath)) as FinishWorkReport;
+    const report = normalizeFinishWorkReport(
+      JSON.parse(readText(reportPath)) as Record<string, unknown>
+    );
     const result = await escalateFinishWorkToReviewer(projectPath, report);
     if (json) writeJson({ ok: Boolean(result.herdr?.escalated), herdr: result.herdr });
     else
@@ -3383,7 +3530,7 @@ try {
               toSess,
               mergedLabels.size > 0 ? mergedLabels : undefined,
               dryRun,
-              { projectRoot: projectPath, home: Bun.env.HOME }
+              { projectRoot: projectPath, home: homeDir() }
             );
 
             const prefix =
@@ -3393,26 +3540,21 @@ try {
                   ? `[${fromSess}] `
                   : "";
             for (const xw of xwResults) {
-              // Log every rule evaluation
-              logHandoff({
-                workspace: rule.fromWorkspace,
-                agent: rule.fromAgent,
-                rule: ri,
-                trigger: dryRun ? "manual" : "react",
-                action: xw.detail.includes("spawned")
-                  ? "spawn"
-                  : xw.detail.includes("spawn-fallback")
-                    ? "spawn-fallback"
-                    : "handoff",
-                fromAgent: rule.fromAgent,
-                fromWorkspace: rule.fromWorkspace,
-                fromHost: fromSess,
-                toAgent: rule.toAgent,
-                toWorkspace: rule.toWorkspace,
-                toHost: toSess,
-                condition: rule.condition,
+              recordHandoffRuleEvaluation({
+                rule,
+                ruleIndex: ri,
                 detail: xw.detail,
                 ok: xw.ok,
+                trigger: dryRun ? "manual" : "react",
+                fromSession: fromSess,
+                toSession: toSess,
+                dryRun,
+                durationMs: xw.durationMs,
+                context: {
+                  targetStrategy: rule.targetStrategy ?? "fixed",
+                  when: rule.when?.map((row) => `${row.path}=${JSON.stringify(row.expected)}`),
+                  evalDurationMs: xw.durationMs,
+                },
               });
 
               // Fire-and-forget webhook if configured

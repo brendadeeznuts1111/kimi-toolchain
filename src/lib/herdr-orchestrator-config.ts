@@ -1,6 +1,8 @@
 import { pathExists, readText } from "./bun-io.ts";
 
 import { TOML } from "bun";
+import type { ReportConditionClause } from "./condition-evaluator.ts";
+import { parseWhenTable } from "./condition-evaluator.ts";
 import type { HerdrProjectConfig } from "./herdr-project-config.ts";
 import { homeDir } from "./paths.ts";
 import { join } from "path";
@@ -9,6 +11,7 @@ import { join } from "path";
 
 export const DEFAULT_ORCHESTRATOR_EVENT_ALLOWLIST = [
   "workspace.updated",
+  "reviewer.feedback.processed",
   "pane.agent_status_changed",
   "effect.gates.changed",
   "git.ref.changed",
@@ -49,21 +52,53 @@ export interface HandoffRule {
   fromSession?: string;
   fromWorkspace: string;
   fromAgent: string;
-  /** "done" | "blocked > 5m" | "idle > 10m" | "probe:canonical-references:*" */
+  /**
+   * Legacy string condition: "done" | "blocked > 5m" | probe:/finish-work: prefixes.
+   * Optional when `when` is set (stored as `report:when` internally).
+   */
   condition: string;
+  /** Report-field AND clauses — e.g. finishWorkReport.outcome = "clean". */
+  when?: ReportConditionClause[];
   /** Target session (default: same as fromSession or current session). */
   toSession?: string;
   toWorkspace: string;
   toAgent: string;
+  /**
+   * How to pick the target pane when multiple agents match `to_agent` in `to_workspace`.
+   * - `fixed` (default): first deterministic match by pane id
+   * - `least_busy`: idle > done > working among name/label matches in `to_workspace`
+   * Legacy: `to_agent = "least_busy"` / `least_busy:<label>` implies global least-busy (ignores `to_agent` name).
+   */
+  targetStrategy?: HandoffTargetStrategy;
   /** If true, spawn the target agent on the remote host if it's not already running. */
   spawnIfMissing?: boolean;
   /** Auto-spawn config — creates an agent on a remote host when no target candidate exists. */
   spawnFallback?: SpawnFallback;
 }
 
+export type HandoffTargetStrategy = "fixed" | "least_busy";
+
 export type HandoffCondition =
   | { kind: "status"; status: string; minSeconds: number }
   | { kind: "probe"; probeId: string };
+
+export function parseTargetStrategy(raw: unknown): HandoffTargetStrategy | undefined {
+  if (raw === "least_busy" || raw === "fixed") return raw;
+  return undefined;
+}
+
+/** Resolve strategy from explicit field or legacy least_busy `to_agent` syntax. */
+export function resolveTargetStrategy(rule: HandoffRule): HandoffTargetStrategy {
+  if (rule.targetStrategy) return rule.targetStrategy;
+  if (rule.toAgent === "least_busy" || rule.toAgent.startsWith("least_busy:")) {
+    return "least_busy";
+  }
+  return "fixed";
+}
+
+export function isLegacyGlobalLeastBusyTarget(toAgent: string): boolean {
+  return toAgent === "least_busy" || toAgent.startsWith("least_busy:");
+}
 
 export function parseCondition(condition: string): HandoffCondition | null {
   const trimmed = condition.trim();
@@ -71,12 +106,69 @@ export function parseCondition(condition: string): HandoffCondition | null {
     const probeId = trimmed.slice("probe:".length).trim();
     return probeId ? { kind: "probe", probeId } : null;
   }
+  if (trimmed.startsWith("finish-work:")) {
+    return { kind: "probe", probeId: trimmed };
+  }
   if (trimmed === "done") return { kind: "status", status: "done", minSeconds: 0 };
   const match = trimmed.match(/^(blocked|idle)\s*>\s*(\d+)\s*m(in(ute)?s?)?$/);
   if (match) {
     return { kind: "status", status: match[1]!, minSeconds: parseInt(match[2]!, 10) * 60 };
   }
   return null;
+}
+
+/** Parse one `[[herdr.orchestrator.handoff_rules]]` table row. */
+export function parseHandoffRuleEntry(entry: unknown): HandoffRule | null {
+  if (!entry || typeof entry !== "object") return null;
+  const r = entry as Record<string, unknown>;
+  const fromSession = typeof r.from_session === "string" ? r.from_session : undefined;
+  const fromWorkspace = typeof r.from_workspace === "string" ? r.from_workspace : "";
+  const fromAgent = typeof r.from_agent === "string" ? r.from_agent : "";
+  const condition = typeof r.condition === "string" ? r.condition.trim() : "";
+  const when = parseWhenTable(r.when) ?? undefined;
+  const toSession = typeof r.to_session === "string" ? r.to_session : undefined;
+  const toWorkspace = typeof r.to_workspace === "string" ? r.to_workspace : "";
+  const toAgent = typeof r.to_agent === "string" ? r.to_agent : "";
+  const targetStrategy = parseTargetStrategy(r.target_strategy);
+  const spawnIfMissing = typeof r.spawn_if_missing === "boolean" ? r.spawn_if_missing : undefined;
+
+  let spawnFallback: SpawnFallback | undefined;
+  if (r.spawn_fallback && typeof r.spawn_fallback === "object") {
+    const sf = r.spawn_fallback as Record<string, unknown>;
+    const host = typeof sf.host === "string" ? sf.host : "";
+    const agentCli = typeof sf.agent_cli === "string" ? sf.agent_cli : "";
+    if (host && agentCli) {
+      spawnFallback = {
+        host,
+        agentCli,
+        session: typeof sf.session === "string" ? sf.session : undefined,
+        label: typeof sf.label === "string" ? sf.label : undefined,
+        workspace: typeof sf.workspace === "string" ? sf.workspace : undefined,
+        cwd: typeof sf.cwd === "string" ? sf.cwd : undefined,
+        split: typeof sf.split === "string" ? sf.split : undefined,
+        tab: typeof sf.tab === "string" ? sf.tab : undefined,
+      };
+    }
+  }
+
+  const resolvedCondition = condition || (when ? "report:when" : "");
+  if (!fromWorkspace || !fromAgent || !resolvedCondition || !toWorkspace || !toAgent) {
+    return null;
+  }
+
+  return {
+    fromSession,
+    fromWorkspace,
+    fromAgent,
+    condition: resolvedCondition,
+    when,
+    toSession,
+    toWorkspace,
+    toAgent,
+    targetStrategy,
+    spawnIfMissing,
+    spawnFallback,
+  };
 }
 
 // ── Remote SSH types ────────────────────────────────────────────────────
@@ -808,48 +900,8 @@ export function parseHerdrOrchestratorSection(
   const rawRules = nested.handoff_rules;
   if (Array.isArray(rawRules)) {
     for (const entry of rawRules) {
-      if (!entry || typeof entry !== "object") continue;
-      const r = entry as Record<string, unknown>;
-      const fromSession = typeof r.from_session === "string" ? r.from_session : undefined;
-      const fromWorkspace = typeof r.from_workspace === "string" ? r.from_workspace : "";
-      const fromAgent = typeof r.from_agent === "string" ? r.from_agent : "";
-      const condition = typeof r.condition === "string" ? r.condition : "";
-      const toSession = typeof r.to_session === "string" ? r.to_session : undefined;
-      const toWorkspace = typeof r.to_workspace === "string" ? r.to_workspace : "";
-      const toAgent = typeof r.to_agent === "string" ? r.to_agent : "";
-      const spawnIfMissing =
-        typeof r.spawn_if_missing === "boolean" ? r.spawn_if_missing : undefined;
-      let spawnFallback: SpawnFallback | undefined;
-      if (r.spawn_fallback && typeof r.spawn_fallback === "object") {
-        const sf = r.spawn_fallback as Record<string, unknown>;
-        const host = typeof sf.host === "string" ? sf.host : "";
-        const agentCli = typeof sf.agent_cli === "string" ? sf.agent_cli : "";
-        if (host && agentCli) {
-          spawnFallback = {
-            host,
-            agentCli,
-            session: typeof sf.session === "string" ? sf.session : undefined,
-            label: typeof sf.label === "string" ? sf.label : undefined,
-            workspace: typeof sf.workspace === "string" ? sf.workspace : undefined,
-            cwd: typeof sf.cwd === "string" ? sf.cwd : undefined,
-            split: typeof sf.split === "string" ? sf.split : undefined,
-            tab: typeof sf.tab === "string" ? sf.tab : undefined,
-          };
-        }
-      }
-      if (fromWorkspace && fromAgent && condition && toWorkspace && toAgent) {
-        rules.push({
-          fromSession,
-          fromWorkspace,
-          fromAgent,
-          condition,
-          toSession,
-          toWorkspace,
-          toAgent,
-          spawnIfMissing,
-          spawnFallback,
-        });
-      }
+      const rule = parseHandoffRuleEntry(entry);
+      if (rule) rules.push(rule);
     }
   }
 
@@ -959,26 +1011,8 @@ export function parseHerdrOrchestratorSection(
       if (Array.isArray(d.handoff_rules)) {
         const domainRules: HandoffRule[] = [];
         for (const entry of d.handoff_rules) {
-          if (!entry || typeof entry !== "object") continue;
-          const r = entry as Record<string, unknown>;
-          const fromSession = typeof r.from_session === "string" ? r.from_session : undefined;
-          const fromWorkspace = typeof r.from_workspace === "string" ? r.from_workspace : "";
-          const fromAgent = typeof r.from_agent === "string" ? r.from_agent : "";
-          const condition = typeof r.condition === "string" ? r.condition : "";
-          const toSession = typeof r.to_session === "string" ? r.to_session : undefined;
-          const toWorkspace = typeof r.to_workspace === "string" ? r.to_workspace : "";
-          const toAgent = typeof r.to_agent === "string" ? r.to_agent : "";
-          if (fromWorkspace && fromAgent && condition && toWorkspace && toAgent) {
-            domainRules.push({
-              fromSession,
-              fromWorkspace,
-              fromAgent,
-              condition,
-              toSession,
-              toWorkspace,
-              toAgent,
-            });
-          }
+          const rule = parseHandoffRuleEntry(entry);
+          if (rule) domainRules.push(rule);
         }
         if (domainRules.length > 0) domain.handoffRules = domainRules;
       }

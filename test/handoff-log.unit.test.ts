@@ -6,7 +6,10 @@ import { gunzipText } from "../src/lib/bun-utils.ts";
 import {
   configureHandoffLog,
   getHandoffHistory,
+  inferHandoffLogAction,
   logHandoff,
+  queryHandoffHistory,
+  recordHandoffRuleEvaluation,
   remoteHandoffContext,
   resetHandoffSeq,
   verifyHandoffLog,
@@ -124,5 +127,70 @@ describe("handoff-log", () => {
     expect(agents).toContain("archive-agent");
     expect(agents).toContain("live-agent");
     expect(history.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test("queryHandoffHistory filters by workspace and trigger", () => {
+    tempDir = mkdtempSync(join(tmpdir(), "handoff-log-"));
+    const logPath = join(tempDir, "handoff-log.jsonl");
+    configureHandoffLog({ path: logPath, enabled: true });
+
+    logHandoff({
+      workspace: "wB",
+      agent: "kimi",
+      rule: 1,
+      trigger: "watch-events",
+      action: "skip",
+      detail: "probe not satisfied",
+      ok: false,
+    });
+    logHandoff({
+      workspace: "w1",
+      agent: "test-agent",
+      rule: 2,
+      trigger: "react",
+      action: "handoff",
+      detail: "w1/test-agent → w1/kimi",
+      ok: true,
+    });
+
+    const filtered = queryHandoffHistory({ workspace: "wB", trigger: "watch-events", limit: 10 });
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0]?.workspace).toBe("wB");
+  });
+
+  test("inferHandoffLogAction classifies dry-run and skip", () => {
+    expect(inferHandoffLogAction("wB/kimi → wB/codex", true, true)).toBe("dry-run");
+    expect(inferHandoffLogAction("probe finish-work:pushed not satisfied", false, false)).toBe(
+      "skip"
+    );
+  });
+
+  test("recordHandoffRuleEvaluation writes audit entry", () => {
+    tempDir = mkdtempSync(join(tmpdir(), "handoff-log-"));
+    const logPath = join(tempDir, "handoff-log.jsonl");
+    configureHandoffLog({ path: logPath, enabled: true });
+
+    recordHandoffRuleEvaluation({
+      rule: {
+        fromWorkspace: "wB",
+        fromAgent: "kimi",
+        toWorkspace: "wB",
+        toAgent: "codex-primary",
+        condition: "probe:finish-work:pushed",
+      },
+      ruleIndex: 3,
+      detail: "probe not satisfied",
+      ok: false,
+      trigger: "watch-events",
+      dryRun: false,
+      durationMs: 42,
+      context: { evalDurationMs: 42 },
+    });
+
+    const entries = queryHandoffHistory({ workspace: "wB", limit: 5 });
+    expect(entries[0]?.trigger).toBe("watch-events");
+    expect(entries[0]?.action).toBe("skip");
+    expect(entries[0]?.durationMs).toBe(42);
+    expect(entries[0]?.context?.evalDurationMs).toBe(42);
   });
 });

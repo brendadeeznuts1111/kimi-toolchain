@@ -137,6 +137,8 @@ export function findBrokenInternalLinks(
 
     const clean = target.split("#")[0]?.split("?")[0]?.trim();
     if (!clean || clean.startsWith("<")) continue;
+    // Portable home paths in synced skills — not repo-relative link targets.
+    if (clean.startsWith("~/")) continue;
 
     const resolved = resolve(dir, clean);
     if (!pathExists(resolved)) {

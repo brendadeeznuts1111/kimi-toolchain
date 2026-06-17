@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, test } from "bun:test";
@@ -13,9 +13,19 @@ import {
   shouldRouteGateThroughDoctor,
   shouldRunGateInDoctorPane,
   shouldSkipFinishWorkFollowUp,
+  appendReviewerFeedback,
+  buildFinishWorkOutcomeReason,
+  buildFinishWorkSummary,
+  evaluateFinishWorkProbeCondition,
+  finishWorkGateKey,
+  finishWorkOutcomeLabel,
+  loadFinishWorkReport,
+  normalizeFinishWorkReport,
+  persistFinishWorkReport,
   type FinishWorkHerdrDeps,
   type FinishWorkReport,
 } from "../src/lib/finish-work-herdr.ts";
+import { gitRevParse } from "../src/lib/git-helpers.ts";
 
 function baseReport(overrides: Partial<FinishWorkReport> = {}): FinishWorkReport {
   return {
@@ -228,5 +238,225 @@ describe("finish-work-herdr", () => {
       if (prior === undefined) delete process.env.HERDR_DOCTOR_PANE_ID;
       else process.env.HERDR_DOCTOR_PANE_ID = prior;
     }
+  });
+
+  test("evaluateFinishWorkProbeCondition passes finish-work:pushed on clean close", async () => {
+    const root = join(tmpdir(), `fw-probe-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(root, ".kimi"), { recursive: true });
+    await persistFinishWorkReport(
+      root,
+      baseReport({ gitHead: "abc123", completedAt: new Date().toISOString() })
+    );
+
+    const result = await evaluateFinishWorkProbeCondition("finish-work:pushed", root);
+    expect(result.ok).toBe(true);
+  });
+
+  test("finishWorkGateKey maps toolchain gates to stable names", () => {
+    expect(finishWorkGateKey("bun run check:fast")).toBe("check:fast");
+    expect(finishWorkGateKey("kimi-doctor --effect-gates")).toBe("effect-gates");
+    expect(finishWorkGateKey("kimi-heal effect audit")).toBe("heal-audit");
+  });
+
+  test("serializeFinishWorkReport matches public JSON contract", async () => {
+    const root = join(tmpdir(), `fw-serialize-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(root, ".kimi"), { recursive: true });
+    await persistFinishWorkReport(
+      root,
+      baseReport({
+        paneId: "wB:p6F",
+        agent: "kimi",
+        results: [
+          { name: "check:fast", exitCode: 0, ms: 1 },
+          { name: "effect-gates", exitCode: 0, ms: 2 },
+          { name: "heal-audit", exitCode: 0, ms: 3 },
+        ],
+        gitHead: "d6bc96d1234567890abcdef1234567890abcd",
+      })
+    );
+
+    const raw = JSON.parse(
+      readFileSync(join(root, ".kimi", "finish-work-report.json"), "utf8")
+    ) as Record<string, unknown>;
+    expect(raw.schemaVersion).toBe("1.1");
+    expect(raw.timestamp).toBeTypeOf("string");
+    expect(raw.agent).toBe("kimi");
+    expect(raw.paneId).toBe("wB:p6F");
+    expect(raw.outcome).toBe("clean");
+    expect(raw.outcomeReason).toBeTypeOf("string");
+    expect(raw.summary).toBeTypeOf("string");
+    expect((raw.git as { hash?: string }).hash).toBe("d6bc96d");
+    expect((raw.gates as Record<string, { status?: string }>)["check:fast"]?.status).toBe("pass");
+    expect((raw.latm as { completionSignal?: string })?.completionSignal).toBe("__LATM_DONE__");
+    expect((raw.review as { reportPath?: string })?.reportPath).toContain(
+      "finish-work-report.json"
+    );
+
+    const loaded = await loadFinishWorkReport(root);
+    expect(loaded?.outcome).toBe("ok");
+    expect(loaded?.outcomeLabel).toBe("clean");
+    expect(loaded?.git.head).toBe("d6bc96d1234567890abcdef1234567890abcd");
+  });
+
+  test("normalizeFinishWorkReport reads public outcome labels", () => {
+    const normalized = normalizeFinishWorkReport({
+      schemaVersion: 1,
+      tool: "finish-work",
+      timestamp: "2026-06-17T02:37:00.000Z",
+      agent: "kimi",
+      paneId: "wB:p6F",
+      ok: true,
+      git: { attempted: true, committed: true, pushed: true, error: null, hash: "d6bc96d" },
+      tree: { clean: true, dirty: [] },
+      gates: { "check:fast": "pass" },
+      outcome: "clean",
+      gateSource: "finishWork",
+      results: [],
+    });
+    expect(normalized.outcome).toBe("ok");
+    expect(normalized.outcomeLabel).toBe("clean");
+    expect(normalized.completedAt).toBe("2026-06-17T02:37:00.000Z");
+  });
+
+  test("finishWorkOutcomeLabel maps close outcomes", () => {
+    expect(finishWorkOutcomeLabel(baseReport())).toBe("clean");
+    expect(
+      finishWorkOutcomeLabel(
+        baseReport({ outcome: "escalated", tree: { clean: false, dirty: ["?? x.md"] } })
+      )
+    ).toBe("escalated");
+    expect(finishWorkOutcomeLabel(baseReport({ ok: false, outcome: "failed" }))).toBe("aborted");
+  });
+
+  test("evaluateFinishWorkProbeCondition supports finish-work:clean and dirty", async () => {
+    const root = join(tmpdir(), `fw-probe-outcome-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(root, ".kimi"), { recursive: true });
+    await persistFinishWorkReport(root, baseReport({ gitHead: "abc1234" }));
+
+    const clean = await evaluateFinishWorkProbeCondition("finish-work:clean", root);
+    expect(clean.ok).toBe(true);
+
+    await persistFinishWorkReport(
+      root,
+      baseReport({
+        outcome: "escalated",
+        tree: { clean: false, dirty: ["?? marker.md"] },
+        gitHead: "abc1234",
+      })
+    );
+    const dirty = await evaluateFinishWorkProbeCondition("finish-work:dirty", root);
+    expect(dirty.ok).toBe(true);
+    expect(dirty.message).toContain("escalated");
+  });
+
+  test("evaluateFinishWorkProbeCondition rejects stale gitHead", async () => {
+    const root = import.meta.dir + "/..";
+    const head = await gitRevParse(root, "HEAD");
+    if (!head) return;
+
+    const prior = await Bun.file(join(root, ".kimi", "finish-work-report.json"))
+      .text()
+      .catch(() => null);
+    await persistFinishWorkReport(
+      root,
+      baseReport({ gitHead: "0000000000000000000000000000000000000000" })
+    );
+    const staleResult = await evaluateFinishWorkProbeCondition("finish-work:pushed", root);
+    expect(staleResult.ok).toBe(false);
+    expect(staleResult.message).toContain("stale");
+    if (prior) {
+      await Bun.write(join(root, ".kimi", "finish-work-report.json"), prior);
+    }
+  });
+
+  test("buildFinishWorkOutcomeReason and summary for clean close", () => {
+    const report = baseReport({
+      git: { attempted: true, committed: true, pushed: true, error: null },
+      commitMessage: "feat: probe schema",
+    });
+    expect(buildFinishWorkOutcomeReason(report, "clean")).toContain("clean tree");
+    expect(buildFinishWorkSummary(report, "clean")).toContain("feat: probe schema");
+  });
+
+  test("normalizeFinishWorkReport reads v1.1 rich gates and dirtyFiles", () => {
+    const normalized = normalizeFinishWorkReport({
+      schemaVersion: "1.1",
+      timestamp: "2026-06-17T02:37:00.000Z",
+      ok: true,
+      git: { committed: true, pushed: true, error: null, hash: "abc" },
+      tree: { clean: false, dirtyFiles: ["?? x.md"], untracked: 1 },
+      gates: { "check:fast": { status: "pass", durationMs: 10 } },
+      outcome: "dirty",
+      gateSource: "finishWork",
+      results: [],
+      handoffCandidate: null,
+    });
+    expect(normalized.outcomeLabel).toBe("dirty");
+    expect(normalized.tree.dirty).toEqual(["?? x.md"]);
+    expect(normalized.gates?.["check:fast"]).toBe("pass");
+  });
+
+  test("appendReviewerFeedback writes review block", async () => {
+    const root = join(tmpdir(), `fw-review-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(root, ".kimi"), { recursive: true });
+    await persistFinishWorkReport(root, baseReport());
+
+    const result = await appendReviewerFeedback(
+      root,
+      {
+        message: "looks good",
+        resolved: true,
+        reviewerPane: "wB:p99",
+      },
+      { triggerContextSync: false, emitProcessedEvent: false }
+    );
+
+    const raw = JSON.parse(
+      readFileSync(join(root, ".kimi", "finish-work-report.json"), "utf8")
+    ) as {
+      review?: { feedback?: string; resolved?: boolean; lastFeedbackAt?: string };
+    };
+    expect(raw.review?.feedback).toBe("looks good");
+    expect(raw.review?.resolved).toBe(true);
+    expect(raw.review?.lastFeedbackAt).toBeTypeOf("string");
+    expect(result.payload?.reviewNotes?.feedback).toBe("looks good");
+  });
+
+  test("evaluateFinishWorkProbeCondition supports finish-work:handoff-ready", async () => {
+    const root = join(tmpdir(), `fw-handoff-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(root, ".kimi"), { recursive: true });
+    await persistFinishWorkReport(
+      root,
+      baseReport({
+        handoffCandidate: {
+          targetPane: "wB:p6G",
+          targetAgent: "codex-primary",
+          reason: "clean finish-work close",
+          shouldHandoff: true,
+        },
+      })
+    );
+
+    const ready = await evaluateFinishWorkProbeCondition("finish-work:handoff-ready", root);
+    expect(ready.ok).toBe(true);
+    expect(ready.message).toContain("codex-primary");
+  });
+
+  test("evaluateFinishWorkProbeCondition blocks escalated outcome", async () => {
+    const root = join(tmpdir(), `fw-probe-esc-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(root, ".kimi"), { recursive: true });
+    const head = (await gitRevParse(import.meta.dir + "/..", "HEAD")) ?? "deadbeef";
+    await persistFinishWorkReport(
+      root,
+      baseReport({
+        outcome: "escalated",
+        tree: { clean: false, dirty: ["?? marker.md"] },
+        gitHead: head,
+      })
+    );
+
+    const result = await evaluateFinishWorkProbeCondition("finish-work:pushed", root);
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("escalated");
   });
 });

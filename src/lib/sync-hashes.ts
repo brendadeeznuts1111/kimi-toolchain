@@ -2,7 +2,7 @@
  * Sync hash utilities — detect repo vs desktop runtime drift.
  */
 
-import { pathExists } from "./bun-io.ts";
+import { listDir, pathExists, pathStat } from "./bun-io.ts";
 
 import { join } from "path";
 import { sha256File } from "./utils.ts";
@@ -31,7 +31,7 @@ export async function computeSyncHashes(repoRoot: string): Promise<Record<string
   const scriptsDir = join(repoRoot, "scripts");
   const kimiHooksDir = join(repoRoot, "src", "kimi-hooks");
   const templatesDir = join(repoRoot, "templates");
-  const skillDir = join(repoRoot, "skills", "kimi-toolchain");
+  const skillsSrc = join(repoRoot, "skills");
 
   await addGlobHashes(hashes, binDir, LABEL_PREFIX.TOOLS, "*.ts");
   await addGlobHashes(hashes, libDir, LABEL_PREFIX.LIB, "**/*.ts");
@@ -44,12 +44,22 @@ export async function computeSyncHashes(repoRoot: string): Promise<Record<string
     if (pathExists(path)) hashes[doc] = await sha256File(path);
   }
 
-  if (pathExists(skillDir)) {
-    const skillGlob = new Bun.Glob("**/*");
-    for await (const file of skillGlob.scan({ cwd: skillDir, onlyFiles: true })) {
-      const hash = await sha256File(join(skillDir, file));
-      hashes[`${LABEL_PREFIX.AGENTS_SKILL}${file}`] = hash;
-      hashes[`${LABEL_PREFIX.KIMI_SKILL}${file}`] = hash;
+  if (pathExists(skillsSrc)) {
+    for (const skillName of listDir(skillsSrc)) {
+      const skillSrcDir = join(skillsSrc, skillName);
+      if (!pathExists(skillSrcDir)) continue;
+      try {
+        if (!pathStat(skillSrcDir).isDirectory()) continue;
+      } catch {
+        continue;
+      }
+      const skillGlob = new Bun.Glob("**/*");
+      for await (const rel of skillGlob.scan({ cwd: skillSrcDir, onlyFiles: true })) {
+        const hash = await sha256File(join(skillSrcDir, rel));
+        const key = `${skillName}/${rel}`;
+        hashes[`${LABEL_PREFIX.AGENTS_SKILL}${key}`] = hash;
+        hashes[`${LABEL_PREFIX.KIMI_SKILL}${key}`] = hash;
+      }
     }
   }
 
@@ -64,9 +74,9 @@ function desktopPathForKey(key: string): string | null {
   if (key.startsWith("kimi-hooks/")) return join(root, "kimi-hooks", key.slice(11));
   if (key.startsWith("templates/")) return join(root, "templates", key.slice(10));
   if (key.startsWith("agents-skill/")) {
-    return join(agentsSkillsRoot(), "kimi-toolchain", key.slice(13));
+    return join(agentsSkillsRoot(), key.slice(13));
   }
-  if (key.startsWith("kimi-skill/")) return join(skillsDir(), "kimi-toolchain", key.slice(11));
+  if (key.startsWith("kimi-skill/")) return join(skillsDir(), key.slice(11));
   if ((ROOT_TEMPLATES as readonly string[]).includes(key)) return join(root, key);
   return null;
 }

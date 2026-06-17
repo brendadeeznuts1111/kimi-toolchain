@@ -734,6 +734,13 @@ describe("handoff probe conditions", () => {
     });
   });
 
+  test("parseCondition accepts bare finish-work:clean syntax", () => {
+    expect(parseCondition("finish-work:clean")).toEqual({
+      kind: "probe",
+      probeId: "finish-work:clean",
+    });
+  });
+
   test("evaluateCrossWorkspaceHandoffs fires on aligned runtime probe", async () => {
     const tmpHome = join(tmpdir(), `handoff-probe-${Bun.randomUUIDv7()}`);
     mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
@@ -793,5 +800,395 @@ describe("handoff probe conditions", () => {
     expect(results[0]?.ok).toBe(true);
     expect(results[0]?.detail).toContain("[dry-run]");
     rmSync(tmpHome, { recursive: true, force: true });
+  });
+
+  test("evaluateCrossWorkspaceHandoffs skips satisfied probe when cache missing", async () => {
+    const tmpHome = join(tmpdir(), `handoff-probe-fail-${Bun.randomUUIDv7()}`);
+    mkdirSync(tmpHome, { recursive: true });
+
+    const agents = [
+      {
+        paneId: "pane-kimi",
+        agent: "kimi",
+        status: "working" as const,
+        workspaceId: "wB",
+        tabId: "tab1",
+      },
+      {
+        paneId: "pane-codex",
+        agent: "codex",
+        status: "idle" as const,
+        workspaceId: "wB",
+        tabId: "tab1",
+      },
+    ];
+
+    const results = await evaluateCrossWorkspaceHandoffs(
+      {
+        enabled: true,
+        handoffRules: [
+          {
+            fromWorkspace: "wB",
+            fromAgent: "kimi",
+            condition: "probe:canonical-references:runtime-aligned",
+            toWorkspace: "wB",
+            toAgent: "codex",
+          },
+        ],
+        handoffFrom: "kimi",
+        handoffTo: "codex",
+        reviewerTab: "reviewer",
+        doctorTab: "doctor",
+        contextOnIdle: false,
+        events: { enabled: false, debounceMs: 2000, allowlist: [], watchGit: false },
+        remoteHosts: {},
+        remoteDefaults: {},
+        notifications: {},
+        domains: {},
+      },
+      agents,
+      new Map(),
+      "default",
+      undefined,
+      true,
+      { projectRoot: REPO_ROOT, home: tmpHome }
+    );
+
+    expect(results[0]?.ok).toBe(false);
+    expect(results[0]?.detail).toContain("runtime cache missing");
+    expect(results[0]?.detail).not.toContain("probe check missing");
+    rmSync(tmpHome, { recursive: true, force: true });
+  });
+
+  test("evaluateCrossWorkspaceHandoffs fires on finish-work:pushed probe", async () => {
+    const root = join(tmpdir(), `handoff-fw-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(root, ".kimi"), { recursive: true });
+    const head = "abc123def456";
+    writeFileSync(
+      join(root, ".kimi", "finish-work-report.json"),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          tool: "finish-work",
+          ok: true,
+          outcome: "ok",
+          gateSource: "finishWork",
+          results: [{ name: "check:fast", exitCode: 0, ms: 1 }],
+          git: { attempted: true, committed: true, pushed: true, error: null },
+          tree: { clean: true, dirty: [] },
+          gitHead: head,
+        },
+        null,
+        2
+      )
+    );
+
+    const agents = [
+      {
+        paneId: "pane-kimi",
+        agent: "kimi",
+        status: "idle" as const,
+        workspaceId: "wB",
+        tabId: "tab1",
+      },
+      {
+        paneId: "pane-codex",
+        agent: "codex-primary",
+        status: "idle" as const,
+        workspaceId: "wB",
+        tabId: "tab1",
+      },
+    ];
+
+    const labelMap = new Map<string, Map<string, string>>();
+    labelMap.set("wB", new Map([["codex-primary", "codex-primary"]]));
+
+    const results = await evaluateCrossWorkspaceHandoffs(
+      {
+        enabled: true,
+        handoffRules: [
+          {
+            fromWorkspace: "wB",
+            fromAgent: "kimi",
+            condition: "probe:finish-work:pushed",
+            toWorkspace: "wB",
+            toAgent: "codex-primary",
+          },
+        ],
+        handoffFrom: "kimi",
+        handoffTo: "codex-primary",
+        reviewerTab: "reviewer",
+        doctorTab: "doctor",
+        contextOnIdle: false,
+        events: { enabled: false, debounceMs: 2000, allowlist: [], watchGit: false },
+        remoteHosts: {},
+        remoteDefaults: {},
+        notifications: {},
+        domains: {},
+      },
+      agents,
+      new Map(),
+      "default",
+      labelMap,
+      true,
+      { projectRoot: root, home: tmpdir() }
+    );
+
+    expect(results[0]?.ok).toBe(true);
+    expect(results[0]?.detail).toContain("[dry-run]");
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  test("evaluateCrossWorkspaceHandoffs uses target_strategy least_busy in workspace", async () => {
+    const agents = [
+      {
+        paneId: "pane-kimi",
+        agent: "kimi",
+        status: "done" as const,
+        workspaceId: "wB",
+        tabId: "tab1",
+      },
+      {
+        paneId: "pane-codex-busy",
+        agent: "codex",
+        status: "working" as const,
+        workspaceId: "staging",
+        tabId: "tab1",
+      },
+      {
+        paneId: "pane-codex-idle",
+        agent: "codex",
+        status: "idle" as const,
+        workspaceId: "staging",
+        tabId: "tab1",
+      },
+    ];
+
+    const results = await evaluateCrossWorkspaceHandoffs(
+      {
+        enabled: true,
+        handoffRules: [
+          {
+            fromWorkspace: "wB",
+            fromAgent: "kimi",
+            condition: "done",
+            toWorkspace: "staging",
+            toAgent: "codex",
+            targetStrategy: "least_busy",
+          },
+        ],
+        handoffFrom: "kimi",
+        handoffTo: "codex",
+        reviewerTab: "reviewer",
+        doctorTab: "doctor",
+        contextOnIdle: false,
+        events: { enabled: false, debounceMs: 2000, allowlist: [], watchGit: false },
+        remoteHosts: {},
+        remoteDefaults: {},
+        notifications: {},
+        domains: {},
+      },
+      agents,
+      new Map(),
+      "default",
+      undefined,
+      true
+    );
+
+    expect(results[0]?.ok).toBe(true);
+    expect(results[0]?.detail).toContain("staging/codex");
+    expect(results[0]?.detail).toContain("least_busy");
+    expect(results[0]?.detail).toContain("pane-codex-idle");
+  });
+
+  test("evaluateCrossWorkspaceHandoffs fires on report when clauses", async () => {
+    const root = join(tmpdir(), `handoff-when-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(root, ".kimi"), { recursive: true });
+    writeFileSync(
+      join(root, ".kimi", "finish-work-report.json"),
+      JSON.stringify(
+        {
+          schemaVersion: "1.1",
+          timestamp: "2026-06-17T02:37:00.000Z",
+          git: { committed: true, pushed: true, hash: "d6bc96d" },
+          tree: { clean: true, dirtyFiles: [], untracked: 0 },
+          gates: { "check:fast": { status: "pass", durationMs: 1 } },
+          outcome: "clean",
+          outcomeReason: "All gates passed + clean tree after push",
+          summary: "feat: when rule — gates passed, pushed d6bc96d, tree clean.",
+          handoffCandidate: {
+            targetPane: "pane-codex",
+            targetAgent: "codex-primary",
+            reason: "clean finish-work close",
+            shouldHandoff: true,
+          },
+          review: {
+            escalated: false,
+            reviewerPane: null,
+            reportPath: ".kimi/finish-work-report.json",
+          },
+          latm: {
+            markerSeen: true,
+            completionSignal: "__LATM_DONE__",
+            invokedVia: "finish-work --push",
+          },
+        },
+        null,
+        2
+      )
+    );
+
+    const agents = [
+      {
+        paneId: "pane-kimi",
+        agent: "kimi",
+        status: "idle" as const,
+        workspaceId: "wB",
+        tabId: "tab1",
+      },
+      {
+        paneId: "pane-codex",
+        agent: "codex-primary",
+        status: "idle" as const,
+        workspaceId: "wB",
+        tabId: "tab1",
+      },
+    ];
+
+    const results = await evaluateCrossWorkspaceHandoffs(
+      {
+        enabled: true,
+        handoffRules: [
+          {
+            fromWorkspace: "wB",
+            fromAgent: "kimi",
+            condition: "report:when",
+            when: [
+              { path: "finishWorkReport.outcome", expected: "clean" },
+              { path: "finishWorkReport.handoffCandidate.shouldHandoff", expected: true },
+            ],
+            toWorkspace: "wB",
+            toAgent: "codex-primary",
+          },
+        ],
+        handoffFrom: "kimi",
+        handoffTo: "codex-primary",
+        reviewerTab: "reviewer",
+        doctorTab: "doctor",
+        contextOnIdle: false,
+        events: { enabled: false, debounceMs: 2000, allowlist: [], watchGit: false },
+        remoteHosts: {},
+        remoteDefaults: {},
+        notifications: {},
+        domains: {},
+      },
+      agents,
+      new Map(),
+      "default",
+      undefined,
+      true,
+      { projectRoot: root, home: tmpdir() }
+    );
+
+    expect(results[0]?.ok).toBe(true);
+    expect(results[0]?.detail).toContain("[dry-run]");
+    expect(results[0]?.durationMs).toBeGreaterThanOrEqual(0);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  test("evaluateCrossWorkspaceHandoffs fires on handoff-ready probe with review when + pane idle", async () => {
+    const root = join(tmpdir(), `handoff-ready-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(root, ".kimi"), { recursive: true });
+    writeFileSync(
+      join(root, ".kimi", "finish-work-report.json"),
+      JSON.stringify(
+        {
+          schemaVersion: "1.1",
+          timestamp: "2026-06-17T02:37:00.000Z",
+          git: { committed: true, pushed: true, hash: "d6bc96d" },
+          tree: { clean: true, dirtyFiles: [], untracked: 0 },
+          gates: { "check:fast": { status: "pass", durationMs: 1 } },
+          outcome: "clean",
+          outcomeReason: "All gates passed + clean tree after push",
+          summary: "feat: post-review handoff",
+          handoffCandidate: {
+            targetPane: "pane-codex",
+            targetAgent: "codex-primary",
+            reason: "clean finish-work close",
+            shouldHandoff: true,
+          },
+          review: {
+            escalated: false,
+            reviewerPane: "pane-reviewer",
+            reportPath: ".kimi/finish-work-report.json",
+            resolved: true,
+          },
+          latm: {
+            markerSeen: true,
+            completionSignal: "__LATM_DONE__",
+            invokedVia: "finish-work --push",
+          },
+        },
+        null,
+        2
+      )
+    );
+
+    const agents = [
+      {
+        paneId: "pane-kimi",
+        agent: "kimi",
+        status: "idle" as const,
+        workspaceId: "wB",
+        tabId: "tab1",
+      },
+      {
+        paneId: "pane-codex",
+        agent: "codex-primary",
+        status: "idle" as const,
+        workspaceId: "wB",
+        tabId: "tab1",
+      },
+    ];
+
+    const results = await evaluateCrossWorkspaceHandoffs(
+      {
+        enabled: true,
+        handoffRules: [
+          {
+            fromWorkspace: "wB",
+            fromAgent: "kimi",
+            condition: "finish-work:handoff-ready",
+            when: [
+              { path: "finishWorkReport.review.resolved", expected: true },
+              { path: "pane.status", expected: "idle" },
+            ],
+            toWorkspace: "wB",
+            toAgent: "codex-primary",
+          },
+        ],
+        handoffFrom: "kimi",
+        handoffTo: "codex-primary",
+        reviewerTab: "reviewer",
+        doctorTab: "doctor",
+        contextOnIdle: false,
+        events: { enabled: false, debounceMs: 2000, allowlist: [], watchGit: false },
+        remoteHosts: {},
+        remoteDefaults: {},
+        notifications: {},
+        domains: {},
+      },
+      agents,
+      new Map(),
+      "default",
+      undefined,
+      true,
+      { projectRoot: root, home: tmpdir() }
+    );
+
+    expect(results[0]?.ok).toBe(true);
+    expect(results[0]?.detail).toContain("[dry-run]");
+    expect(results[0]?.durationMs).toBeGreaterThanOrEqual(0);
+    rmSync(root, { recursive: true, force: true });
   });
 });

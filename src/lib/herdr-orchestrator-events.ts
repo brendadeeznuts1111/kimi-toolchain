@@ -43,6 +43,7 @@ export function routeOrchestratorEvent(
   let logical = event;
   if (customStatus === "effect.gates.changed") logical = "effect.gates.changed";
   if (customStatus === "workspace.updated") logical = "workspace.updated";
+  if (customStatus === "reviewer.feedback.processed") logical = "reviewer.feedback.processed";
 
   if (allowlist && !allowlist.includes(logical) && !allowlist.includes(event)) {
     return null;
@@ -50,6 +51,10 @@ export function routeOrchestratorEvent(
 
   if (logical === "workspace.updated" || event === "workspace.updated") {
     return { action: "context-sync", reason: "workspace.updated" };
+  }
+
+  if (logical === "reviewer.feedback.processed") {
+    return { action: "context-sync", reason: "reviewer.feedback.processed" };
   }
 
   if (logical === "git.ref.changed") {
@@ -158,12 +163,25 @@ async function runDispatch(
   const full = { ...config, projectPath: projectRoot };
 
   if (dispatch.action === "context-sync") {
-    syncAgentsTabContext(full, full.agentsTab?.panes, workspaceId);
+    syncAgentsTabContext(full, full.agentsTab?.panes, workspaceId, {
+      appendFinishWorkBrief:
+        dispatch.reason === "workspace.updated" ||
+        dispatch.reason === "reviewer.feedback.processed",
+    });
+    if (dispatch.reason === "workspace.updated") {
+      await reactHerdrOrchestrator(projectRoot, {
+        workspaceId,
+        evaluateHandoffRules: true,
+        logTrigger: "watch-events",
+      });
+    }
     return;
   }
 
   await reactHerdrOrchestrator(projectRoot, {
     forceContext: events.allowlist?.includes("effect.gates.changed") ?? true,
+    evaluateHandoffRules: true,
+    logTrigger: "watch-events",
   });
 }
 

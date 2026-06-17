@@ -12,7 +12,19 @@ from_agent = "test-agent"     # agent name or label (herdr agent rename)
 condition = "done"             # "done" | "blocked > 5m" | "idle > 10m" | "probe:…"
 to_session = "default"         # optional — defaults to from_session
 to_workspace = "w0"
-to_agent = "least_busy:reviewer"  # agent/label, "least_busy", or "least_busy:<label>"
+to_agent = "codex"             # agent name or label
+target_strategy = "least_busy" # optional — "fixed" (default) | "least_busy"
+```
+
+Report-native rules omit `condition` and use `when` instead:
+
+```toml
+[[herdr.orchestrator.handoff_rules]]
+from_workspace = "wB"
+from_agent = "kimi"
+to_workspace = "wB"
+to_agent = "codex-primary"
+when = { finishWorkReport.outcome = "clean", finishWorkReport.handoffCandidate.shouldHandoff = true }
 ```
 
 ## Condition syntax
@@ -25,18 +37,37 @@ to_agent = "least_busy:reviewer"  # agent/label, "least_busy", or "least_busy:<l
 | `probe:canonical-references:runtime-aligned` | `~/.kimi-code/canonical-references.json` matches repo (fix: `bun run sync`) |
 | `probe:canonical-references:repo-fresh` | Repo manifest matches `src/lib/canonical-references.ts` (fix: `bun run references:generate`) |
 | `probe:canonical-references:runtime-cache` | Runtime cache file exists at `~/.kimi-code/` |
+| `probe:finish-work:ok` / `finish-work:ok` | Report exists with `outcome: ok` and current `gitHead` |
+| `finish-work:clean` | Gates passed, `outcome: ok`, clean tree (no push required) |
+| `finish-work:pushed` / `probe:finish-work:pushed` | `ok` + `git.pushed` + clean tree |
+| `finish-work:committed` | `git.committed` after successful gates |
+| `finish-work:dirty` | Escalated or dirty post-push tree — reviewer handoff path |
+
+### Report `when` clauses (v1.1)
+
+AND all clauses against `.kimi/finish-work-report.json`. Paths must start with `finishWorkReport.`
+
+| Example path | Meaning |
+|--------------|---------|
+| `finishWorkReport.outcome` | `"clean"` \| `"dirty"` \| `"escalated"` \| … |
+| `finishWorkReport.handoffCandidate.shouldHandoff` | `true` when orchestrator should hand off |
+| `finishWorkReport.review.resolved` | Reviewer feedback loop closed |
+| `finishWorkReport.git.hash` | Pin handoff to a specific close commit |
 
 Status conditions use orchestrator state timestamps (`.kimi/herdr-orchestrator-state.json`).
-Probe conditions call `auditCanonicalReferencesHealth` — agent status is not required.
+Canonical-ref probes call `auditCanonicalReferencesHealth`. Finish-work probes read the persisted report from `bun run finish-work` — agent status is not required.
+
+Use **agent labels** (via `herdr agent rename`) when multiple panes share a name, e.g. `to_agent = "codex-primary"` instead of `"codex"`.
 
 ## Target selection
 
-| `to_agent` value | Behavior |
-|------------------|----------|
-| `"agent-name"` | Direct agent name match |
-| `"label"` | Label set via `herdr agent rename` — resolves to agent |
-| `"least_busy"` | Picks the least-busy agent across all workspaces (idle > done > working, blocked excluded) |
-| `"least_busy:label"` | Picks the least-busy agent matching the given label |
+| `to_agent` | `target_strategy` | Behavior |
+|------------|-------------------|----------|
+| `"agent-name"` | `fixed` (default) | First pane match in `to_workspace` (by pane id) |
+| `"label"` | `fixed` | Label via `herdr agent rename` |
+| `"codex"` | `least_busy` | Least-busy among `codex` matches **in `to_workspace` only** |
+| `"least_busy"` | — (legacy) | Least-busy across **all** workspaces |
+| `"least_busy:label"` | — (legacy) | Least-busy with label filter, all workspaces |
 
 ### Least-busy scoring
 
@@ -150,7 +181,32 @@ from_workspace = "wB"
 from_agent = "kimi"
 condition = "probe:canonical-references:runtime-aligned"
 to_workspace = "wB"
-to_agent = "codex"
+to_agent = "codex-primary"
 ```
+
+### Finish-work outcome (recommended for codex handoff)
+```toml
+# herdr agent rename wB:p6G codex-primary  # once per workspace
+[[herdr.orchestrator.handoff_rules]]
+from_workspace = "wB"
+from_agent = "kimi"
+to_workspace = "wB"
+to_agent = "codex-primary"
+when = { finishWorkReport.outcome = "clean", finishWorkReport.handoffCandidate.shouldHandoff = true }
+```
+
+### Cross-host staging fleet
+```toml
+[[herdr.orchestrator.handoff_rules]]
+from_workspace = "wB"
+from_agent = "kimi"
+condition = "done"
+to_session = "staging:default"
+to_workspace = "staging"
+to_agent = "codex"
+target_strategy = "least_busy"
+```
+
+Handoffs fire after `bun run finish-work` persists `.kimi/finish-work-report.json` and `watch-events` runs context-sync + rule evaluation. Reviewer feedback is appended to the report and included in enriched handoff briefs on the next sync.
 
 Dry-run: `herdr-orchestrator react --all --dry-run` evaluates probe checks against the project root.

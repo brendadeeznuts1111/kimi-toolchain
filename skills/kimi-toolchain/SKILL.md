@@ -124,7 +124,7 @@ Taxonomy lookup: `kimi-debug analyze --json` or `kimi-debug classify <text>` (`~
 
 ## R-Score
 
-Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight auto-fix: `kimi-governance score --preflight`. Details: `AGENTS.md` § R-Score.
+Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight auto-fix: `kimi-governance score --preflight`. Details: [AGENTS.md](~/.kimi-code/AGENTS.md) § R-Score.
 
 ## Security Boundaries
 
@@ -138,13 +138,13 @@ Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight a
 
 - **Memory:** `~/.kimi-code/var/sessions.db` (not Kimi `sessions/wd_*`) — `kimi-memory trends|recall|search`
 - **MCP:** `unified-shell` auto-registered in `~/.kimi-code/mcp.json` on `bun run sync`; verify with `kimi-doctor --quick` or `/mcp`
-- **Hooks:** Git (`kimi-githooks`), Bun postinstall, Kimi lifecycle (`kimi-hooks/`) — see `AGENTS.md` § Hooks taxonomy
-- **Paths:** `src/lib/paths.ts` helpers; layout in `UNIFIED.md`
+- **Hooks:** Git (`kimi-githooks`), Bun postinstall, Kimi lifecycle (`kimi-hooks/`) — see [AGENTS.md](~/.kimi-code/AGENTS.md) § Hooks taxonomy
+- **Paths:** `src/lib/paths.ts` helpers; layout in [UNIFIED.md](~/.kimi-code/UNIFIED.md)
 - **Skills sync:** `bun run sync` → `~/.kimi-code/skills/` + `~/.agents/skills/` (`kimi-toolchain`, `cloudflare-access`, `herdr`)
 
 ## Related
 
 - Cached link manifest: `~/.kimi-code/canonical-references.json` (`bun run references:generate`)
 - Repo: https://github.com/brendadeeznuts1111/kimi-toolchain
-- `CODE_REFERENCES.md` — local coding exemplars + ecosystem link table
+- [CODE_REFERENCES.md](~/.kimi-code/CODE_REFERENCES.md) — local coding exemplars + ecosystem link table
 - Kimi docs: https://moonshotai.github.io/kimi-code/

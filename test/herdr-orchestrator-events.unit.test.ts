@@ -36,6 +36,18 @@ describe("herdr-orchestrator-events", () => {
     expect(routed?.reason).toBe("effect.gates.changed");
   });
 
+  test("routeOrchestratorEvent maps reviewer.feedback.processed to context-sync", () => {
+    const routed = routeOrchestratorEvent(
+      {
+        event: "pane.agent_status_changed",
+        data: { custom_status: "reviewer.feedback.processed", pane_id: "wB:p99" },
+      },
+      [...DEFAULT_ORCHESTRATOR_EVENT_ALLOWLIST]
+    );
+    expect(routed?.action).toBe("context-sync");
+    expect(routed?.reason).toBe("reviewer.feedback.processed");
+  });
+
   test("routeOrchestratorEvent respects allowlist", () => {
     const routed = routeOrchestratorEvent({ event: "pane.agent_status_changed", data: {} }, [
       "workspace.updated",

@@ -69,7 +69,21 @@ flowchart TD
 | `escalated` | Pushed with dirty tree; reviewer notified | 0 (2 if Herdr escalation failed) |
 | `failed` | Gate, git, or followUp failure (non-escalated) | 1 |
 
-Report schema: `.kimi/finish-work-report.json` (`FinishWorkReport` in `finish-work-herdr.ts`).
+Report schema: `.kimi/finish-work-report.json` — public on-disk shape:
+
+```json
+{
+  "timestamp": "2026-06-17T02:37:00.000Z",
+  "agent": "kimi",
+  "paneId": "wB:p6F",
+  "git": { "committed": true, "pushed": true, "hash": "d6bc96d", "head": "…" },
+  "tree": { "clean": true, "dirty": [] },
+  "gates": { "check:fast": "pass", "effect-gates": "pass", "heal-audit": "pass" },
+  "outcome": "clean"
+}
+```
+
+`outcome` is the operator label (`clean` | `dirty` | `escalated` | `aborted`). Internal pipeline state is also stored as `pipelineOutcome` (`ok` | `escalated` | `failed`) for reviewer tooling. Loaders normalize both shapes via `normalizeFinishWorkReport()`.
 
 ---
 

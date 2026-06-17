@@ -58,6 +58,16 @@ describe("context-bloat-lint", () => {
     expect(issues[0]?.rule).toBe("bare-path-missing");
   });
 
+  test("findBrokenInternalLinks ignores portable home paths", () => {
+    const root = mkdtempSync(join(tmpdir(), "ctx-bloat-"));
+    const issues = findBrokenInternalLinks(
+      root,
+      "skills/herdr/SKILL.md",
+      "[refs](~/.kimi-code/CODE_REFERENCES.md) and [dx](~/.config/dx/herdr.md)"
+    );
+    expect(issues).toHaveLength(0);
+  });
+
   test("findBrokenInternalLinks ignores external URLs", () => {
     const root = mkdtempSync(join(tmpdir(), "ctx-bloat-"));
     const issues = findBrokenInternalLinks(root, "README.md", "[docs](https://example.com/foo)");

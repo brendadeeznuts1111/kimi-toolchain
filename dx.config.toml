@@ -102,7 +102,7 @@ formatCheckCi = "bun run format:check:ci"
 docsSync = "bun run docs:sync"
 
 [agents]
-firstRead = ["/Users/nolarose/.config/dx/AGENTS.md", "AGENTS.md", "CODE_REFERENCES.md"]
+firstRead = ["/Users/nolarose/.config/dx/AGENTS.md", "AGENTS.md", "CODE_REFERENCES.md", "skills/herdr/SKILL.md"]
 bootstrap = [
   "dx setup",
   "dx context",
@@ -122,6 +122,14 @@ prePush = [
 ]
 handoff = ["bun run sync && bun run sync:verify", "kimi-doctor --agent-ready"]
 avoid = ["docker", "sync daemon unless actively developing the toolchain runtime"]
+
+[agents.skills.herdr]
+pinned = true
+path = "skills/herdr/SKILL.md"
+canonical = "~/.config/agents/skills/herdr/SKILL.md"
+upstream = "https://github.com/ogulcancelik/herdr"
+commit = "d998753efe506a04c80306795efc72bff60bb0ec"
+url = "https://github.com/ogulcancelik/herdr/blob/d998753efe506a04c80306795efc72bff60bb0ec/SKILL.md"
 
 [finishWork]
 gates = [
@@ -156,6 +164,8 @@ preflight = true
 #   Extra tabs: [[herdr.tabs]] — one pane per tab (doctor, shell, reviewer, …)
 [herdr]
 enabled = true
+skillPath = "~/.config/agents/skills/herdr/SKILL.md"
+skillUpstream = "https://github.com/ogulcancelik/herdr/blob/d998753efe506a04c80306795efc72bff60bb0ec/SKILL.md"
 # Herdr server session: "" or omit = primary (~/.config/herdr/herdr.sock, live wB workspace).
 # "dev" = named session (~/.config/herdr/sessions/dev/herdr.sock). CLI + watch-events socket must match.
 session = ""
@@ -209,7 +219,8 @@ reviewerTab = "reviewer"
 # Requires matching `Host <alias>` stanzas in ~/.ssh/config (see commented scaffold there).
 # Verify: herdr-orchestrator check-hosts --versions
 #
-# [herdr.orchestrator.remote_hosts]
+[herdr.orchestrator.remote_hosts]
+staging = "staging"   # local SSH alias → localhost (testing remote bootstrap pipeline)
 # workbox = "workbox"   # shorthand when Host alias == label
 #
 # [herdr.orchestrator.remote_hosts.staging]
@@ -221,7 +232,7 @@ reviewerTab = "reviewer"
 [herdr.orchestrator.events]
 enabled = true
 debounceMs = 2000
-allowlist = ["workspace.updated", "pane.agent_status_changed", "effect.gates.changed", "git.ref.changed"]
+allowlist = ["workspace.updated", "reviewer.feedback.processed", "pane.agent_status_changed", "effect.gates.changed", "git.ref.changed"]
 watchGit = true
 
 # Cross-workspace handoff rules — labels resolve via herdr agent rename
@@ -232,13 +243,58 @@ condition = "done"
 to_workspace = "w1"
 to_agent = "kimi"
 
-# Hand off to codex once canonical refs cache is aligned (~/.kimi-code/)
+# Post-review codex handoff — reviewer marks resolved, kimi idle, handoff candidate ready.
+# Label: herdr agent rename wB:p6G codex-primary
+# Probe: finish-work:handoff-ready (shouldHandoff) + when gates review + pane status
 [[herdr.orchestrator.handoff_rules]]
 from_workspace = "wB"
 from_agent = "kimi"
-condition = "probe:canonical-references:runtime-aligned"
+condition = "finish-work:handoff-ready"
+when = { finishWorkReport.review.resolved = true, pane.status = "idle" }
 to_workspace = "wB"
-to_agent = "codex"
+to_agent = "codex-primary"
+
+# Immediate clean close (no reviewer) — enable instead of post-review rule above if desired
+# [[herdr.orchestrator.handoff_rules]]
+# from_workspace = "wB"
+# from_agent = "kimi"
+# to_workspace = "wB"
+# to_agent = "codex-primary"
+# when = { finishWorkReport.outcome = "clean", finishWorkReport.handoffCandidate.shouldHandoff = true }
+
+# Legacy probe equivalent
+# [[herdr.orchestrator.handoff_rules]]
+# from_workspace = "wB"
+# from_agent = "kimi"
+# condition = "finish-work:clean"
+# to_workspace = "wB"
+# to_agent = "codex-primary"
+
+# Dirty close → reviewer tab agent (finish-work escalates; probe gates optional handoff text)
+# [[herdr.orchestrator.handoff_rules]]
+# from_workspace = "wB"
+# from_agent = "kimi"
+# condition = "finish-work:dirty"
+# to_workspace = "wB"
+# to_agent = "reviewer"
+
+# Cross-host + workspace-scoped least-busy codex (requires staging remote + open workspace)
+# [[herdr.orchestrator.handoff_rules]]
+# from_workspace = "wB"
+# from_agent = "kimi"
+# condition = "done"
+# to_session = "staging:default"
+# to_workspace = "staging"
+# to_agent = "codex"
+# target_strategy = "least_busy"
+
+# Optional: cache alignment pre-check (diagnostic — use react --all --dry-run)
+# [[herdr.orchestrator.handoff_rules]]
+# from_workspace = "wB"
+# from_agent = "kimi"
+# condition = "probe:canonical-references:runtime-aligned"
+# to_workspace = "wB"
+# to_agent = "codex-primary"
 
 
 

@@ -52,13 +52,16 @@ Authoritative maps — do not duplicate stale trees here:
 | ---- | ------ |
 | CLI entry points (27 registered bins) | `package.json` `bin` + `src/bin/*.ts` |
 | Tool routing | [UNIFIED.md](UNIFIED.md) |
-| Shared library | `src/lib/` (flat; `src/lib/effect/` for Effect adapters) |
-| Unit vs smoke tests | `src/lib/test-gates.ts` (`UNIT_TEST_FILES`, `SMOKE_TEST_FILES`) |
+| Shared library | `src/lib/` (flat by default; `src/lib/effect/` for Effect adapters) |
+| Library domain guide | `src/lib/README.md` |
+| Unit vs smoke vs integration tests | `src/lib/test-gates.ts` (`UNIT_TEST_FILES`, `SMOKE_TEST_FILES`, `INTEGRATION_TEST_FILES`) |
 | Coding exemplars | [CODE_REFERENCES.md](CODE_REFERENCES.md) |
 | Canonical ecosystem links | `canonical-references.json` (`bun run references:generate`; cached at `~/.kimi-code/`) |
 | Scaffolding templates | [TEMPLATES.md](TEMPLATES.md) |
+| Failure taxonomy | `error-taxonomy.yml` (synced to `~/.kimi-code/`) |
+| Build-time constants | `bunfig.toml` `[define]` + `types/build-constants.d.ts` |
 
-Top-level dirs: `src/` (bins, lib, install-hooks, kimi-hooks), `test/`, `scripts/`, `skills/`, `docs/`, `bench/`.
+Top-level dirs: `src/` (bins, lib, install-hooks, kimi-hooks), `test/`, `scripts/`, `skills/`, `docs/`, `bench/`, `templates/`.
 
 ### Live runtime (managed by `postinstall`)
 
@@ -110,6 +113,8 @@ cadence. Any metric threshold change must update the threshold metadata in
 | Config          | `bunfig.toml` (Bun-native TOML)                        |
 | Package manager | `bun pm`                                               |
 | Shell           | Bun's `$` template literal (`import { $ } from "bun"`) |
+| Formatter       | `oxfmt` (config: `.oxfmtrc.json`)                      |
+| Linter          | `oxlint` (config: `.oxlintrc.json`)                    |
 
 ## Build, Test & Quality Gates
 
@@ -118,7 +123,7 @@ All commands run from the repo root.
 ```bash
 bun install
 
-# Fast iteration (~3s): format + lint + typecheck + 81 unit files
+# Fast iteration (~3s): format + lint + typecheck + 94 unit files
 bun run check:fast
 bun run test:fast
 
@@ -134,7 +139,7 @@ bun run typecheck
 # Format / lint (oxfmt / oxlint — do not add ESLint)
 bun run format           # oxfmt --write .
 bun run format:check     # oxfmt --check .
-bun run lint             # oxlint src test scripts + banned-terms
+bun run lint             # oxlint + banned-terms + pattern lints + bun-native + context-bloat + test-names + build-constants + canonical-references + constant-parity + cli-contract
 
 # Targeted test
 bun test test/lib.unit.test.ts
@@ -190,11 +195,13 @@ bun run finish-work --message "..." --push  # gates + commit + push close-loop
 ## Testing Strategy
 
 - **Test runner**: `bun:test` (built into Bun)
-- **Fast gate**: 81 unit files in `UNIT_TEST_FILES` (`test-gates.ts`); 1500ms timeout per test
+- **Fast gate**: 94 unit files in `UNIT_TEST_FILES` (`test-gates.ts`); 1,500ms timeout per test
 - **Smoke**: `test/smoke/` — full CLI invocations (`bun run test:smoke`)
 - **Integration**: `INTEGRATION_TEST_FILES` in `test-gates.ts` — full suite only
-- **Isolation**: Tests use a temporary `HOME` so they never touch the real `~/.kimi-code/`
-- **Timeout**: Default 30s per test; 120s for full `kimi-doctor` (invokes all sub-doctors)
+- **Isolation**: Unit tests use a temporary `HOME` (`Bun.env.KIMI_TEST_HOME`, default `.tmp-kimi-test-home`) so they never touch the real `~/.kimi-code/`
+- **Shared setup**: `test-setup.ts` → `test/setup.ts` runs before every test file
+- **Timeout**: Default 30s per test; 60s for smoke tests; 1,500ms for fast unit gate
+- **Config**: `bunfig.toml` `[test]` sets preload, concurrent glob, bail, randomize seed, dots reporter, and coverage ignores
 
 ## Code Organization
 
@@ -202,7 +209,7 @@ bun run finish-work --message "..." --push  # gates + commit + push close-loop
 
 All paths under `~/.kimi-code/` must use `src/lib/paths.ts` helpers. **Never hardcode `~/.kimi-code` or `~/.kimi-code/...` strings in source.**
 
-Key exports: `desktopRoot()`, `toolsDir()`, `libDir()`, `mcpPath()`, `varDir()`, `guardDir()`, `governorDir()`, `taxonomyPath()`, `toolchainManifestPath()`.
+Key exports: `homeDir`, `desktopRoot`, `toolsDir`, `libDir`, `scriptsDir`, `varDir`, `guardianDir`, `governorDir`, `memoryDir`, `skillsDir`, `kimiHooksDir`, `mcpPath`, `configTomlPath`, `manifestPath`, `canonicalReferencesPath`, `taxonomyPath`, `failureLedgerPath`, `projectKimiDir`, `contractObservationsPath`, `agentsSkillsRoot`, `localBinDir`, `herdrConfigDir`, `cursorDir`, etc.
 
 Import: `import { desktopRoot, toolsDir } from "../lib/paths.ts";` (adjust depth as needed).
 
@@ -236,7 +243,7 @@ See [CODE_REFERENCES.md](CODE_REFERENCES.md) for the exemplar map. Summary:
 | Invoke from Effect code         | `invokeToolEffect()` / `runToolEffect()`                                    | Converting every error to an untyped string               |
 | Parse common CLI flags          | `createCli(Bun.argv, toolName)` from `cli-contract.ts`                      | Ad-hoc `Bun.argv.includes("--json")` in every tool        |
 | Emit structured health results  | `logger.check()` / `logger.printHealthReport()`                             | Ad hoc JSON shapes                                        |
-| Long or noisy subprocess output | `maxOutputBytes` on `invokeTool()`                                          | Unbounded stream capture                                |
+| Long or noisy subprocess output | `maxOutputBytes` on `invokeTool()`                                          | Unbounded stream capture                                  |
 
 Runner defaults: 30s human timeout, 15s agent/CI timeout, 5s SIGTERM-to-SIGKILL grace, 1 MiB retained output per stream. JSON mode must emit `schemaVersion`, `tool`, `level`, `message`, and `timestamp`.
 
@@ -251,6 +258,7 @@ Runner defaults: 30s human timeout, 15s agent/CI timeout, 5s SIGTERM-to-SIGKILL 
 | New package/dependency behavior | `package.json`, `bunfig.toml`, `src/lib/scaffold-quality.ts`, `kimi-guardian check`                     |
 | New scaffold/agent docs         | `src/lib/scaffold-agents.ts`, `TEMPLATES.md`, `test/scaffold-agents.unit.test.ts`                       |
 | Doctor adapters/plugins/MCP     | [CODE_REFERENCES.md](CODE_REFERENCES.md) § Doctor Adapter / Plugin / MCP                                |
+| Herdr orchestration             | `src/lib/herdr-project-config.ts`, `docs/SCOPE.md`, `docs/handoff-rules.md`, `skills/herdr/SKILL.md`    |
 
 ### Bun-native coding standards
 
@@ -270,6 +278,21 @@ Runner defaults: 30s human timeout, 15s agent/CI timeout, 5s SIGTERM-to-SIGKILL 
 Use `Uint8Array` instead of `Buffer`. Use `await proc.exited` for exit codes. For resource-limited spawning, use `governedSpawn()` from `src/lib/governor-spawn.ts`.
 
 `src/lib/` is flat by default; new subdirectories need rationale in `src/lib/README.md`. Use relative imports — never path aliases.
+
+### Build-time constants
+
+Three layers must stay separate:
+
+| Layer               | Purpose                             | Format                                      | Example                                  | Where                                                  |
+| ------------------- | ----------------------------------- | ------------------------------------------- | ---------------------------------------- | ------------------------------------------------------ |
+| **define constant** | Immutable compile-time tuning       | `KIMI_{DOMAIN}_{QUALIFIER}` SCREAMING_SNAKE | `KIMI_HOOK_VERIFIER_MAX_CYCLES`          | `bunfig.toml` `[define]`, `types/build-constants.d.ts` |
+| **defineDomain**    | Group constants by functional slice | kebab-case, matches lib module              | `contract-inference`, `error-embedding`  | `# define-domain:…` in bunfig, `@defineDomain` JSDoc   |
+| **taxonomyId**      | Classify tool/runtime **failures**  | snake_case `{domain}_{reason}`              | `lockfile_issue`, `format_check_failure` | `error-taxonomy.yml`, failure JSONL                    |
+
+- Change tuning values only in `bunfig.toml` `[define]`.
+- Extend `types/build-constants.d.ts` declarations when adding a constant.
+- Regenerate and verify the manifest with `bun run manifest:generate`.
+- `bun run lint` enforces constant naming and parity via `scripts/lint-build-constants.ts` and related lints.
 
 ### Process cache
 
@@ -292,7 +315,7 @@ Use `Uint8Array` instead of `Buffer`. Use `await proc.exited` for exit codes. Fo
 
 | Instead of                                                    | Use                                                          |
 | ------------------------------------------------------------- | ------------------------------------------------------------ |
-| `bun test` (full suite incl. smoke, ~15s)                     | `bun run test:fast` (81 unit files, ~5s)                     |
+| `bun test` (full suite incl. smoke, ~15s)                     | `bun run test:fast` (94 unit files, ~5s)                     |
 | `bun run check` (~30s)                                        | `bun run check:fast` (~3s)                                   |
 | Re-running full suite after every edit                        | `bun test <specific-file>`                                   |
 | `kimi-doctor` without `--quick`                               | `kimi-doctor --quick`                                        |
@@ -358,7 +381,7 @@ On memory-constrained hosts, swap thrashing inflates load before CPU looks busy.
 ## Project docs (active)
 
 | Doc | Purpose |
-| --- | ------- |
+| --- | --- |
 | `docs/SCOPE.md` | Herdr orchestration production validation scope |
 | `docs/finish-work-close-loop.md` | Finish-work pipeline and escalation |
 | `docs/handoff-rules.md` | Cross-pane handoff contract |
@@ -371,7 +394,7 @@ On memory-constrained hosts, swap thrashing inflates load before CPU looks busy.
 
 | Tool                     | Key Commands                                                                                                      |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `kimi-toolchain`         | Unified router — `kimi-toolchain <tool> [args]` (see UNIFIED.md)                                                |
+| `kimi-toolchain`         | Unified router — `kimi-toolchain <tool> [args]` (see UNIFIED.md)                                                  |
 | `kimi-doctor`            | `doctor`, `doctor --fix`, `doctor --quick`, `doctor --memory-budget`, `--agent`, `--probe`, `--adapter`, `--all`  |
 | `kimi-orphan-kill`       | `--dry-run` (cleanup stale test/tool processes)                                                                   |
 | `kimi-fix`               | `fix <path>`, `fix <path> --profile app\|toolchain`, `fix <path> --dry-run`                                       |
@@ -385,6 +408,13 @@ On memory-constrained hosts, swap thrashing inflates load before CPU looks busy.
 | `kimi-debug`             | `last`, `diff`, `trace`, `analyze`, `classify`, `taxonomy`, `wire [path]`, `doctor`, `fix`                        |
 | `kimi-snapshot`          | `save`, `restore`, `list`, `show`, `cleanup`, `doctor`, `fix`                                                     |
 | `kimi-resource-governor` | `limits`, `parallel`, `quota`, `cache`, `spawn`, `session`, `cleanup`, `status`, `doctor`, `fix`                  |
+| `kimi-heal`              | `plan`, `apply`, `clusters`, `effect audit`                                                                       |
+| `kimi-decision`          | `graph`, `why`, `audit`                                                                                           |
+| `kimi-config`            | Kimi Code config audit/fix                                                                                        |
+| `kimi-identity`          | Identity matrix audit                                                                                             |
+| `kimi-new`               | Scaffold a new Bun project                                                                                        |
+| `kimi-cleanup-legacy`    | Clean up deprecated `~/.kimi` / Cursor slug paths                                                                 |
+| `unified-shell-bridge`   | MCP stdio bridge for `mcp__unified-shell__execute`                                                                |
 | `herdr-orchestrator`     | `status`, `react`, `context-sync`, `escalate`, `watch-events`, `dashboard` (requires Herdr workspace)             |
 | `herdr-project`          | `apply`, `reconcile`, `status` — workspace layout from `dx.config.toml` `[herdr]`                                 |
 | `herdr-pane` / `herdr-spawn` | Pane control and agent spawn helpers                                                                          |

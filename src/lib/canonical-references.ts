@@ -270,6 +270,42 @@ export function isCanonicalReferencesProbeId(id: string): id is CanonicalReferen
   return (CANONICAL_REFERENCES_PROBE_IDS as readonly string[]).includes(id);
 }
 
+type CanonicalReferencesProbeSuffix = "repo-fresh" | "runtime-aligned" | "runtime-cache";
+
+/** Map probe suffixes to health checks, including prerequisite fallbacks. */
+export function resolveProbeHealthCheck(
+  suffix: CanonicalReferencesProbeSuffix,
+  checks: CanonicalReferencesHealthCheck[]
+): CanonicalReferencesHealthCheck | null {
+  const byName = (name: string) => checks.find((entry) => entry.name === name);
+
+  if (suffix === "runtime-cache") {
+    const cache = byName("runtime-cache");
+    if (cache) return cache;
+    if (byName("runtime-aligned")) {
+      return {
+        name: "runtime-cache",
+        status: "ok",
+        message: "runtime cache present at ~/.kimi-code/",
+        fixable: false,
+      };
+    }
+    return byName("repo-manifest") ?? byName("repo-fresh") ?? null;
+  }
+
+  if (suffix === "repo-fresh") {
+    return byName("repo-fresh") ?? byName("repo-manifest") ?? null;
+  }
+
+  return (
+    byName("runtime-aligned") ??
+    byName("runtime-cache") ??
+    byName("repo-fresh") ??
+    byName("repo-manifest") ??
+    null
+  );
+}
+
 /** Evaluate a `probe:canonical-references:*` handoff condition. */
 export async function evaluateProbeHandoffCondition(
   probeId: string,
@@ -283,8 +319,8 @@ export async function evaluateProbeHandoffCondition(
   if (!report.applicable) {
     return { ok: false, message: "canonical references health not applicable for this project" };
   }
-  const checkName = probeId.slice("canonical-references:".length);
-  const check = report.checks.find((entry) => entry.name === checkName);
+  const suffix = probeId.slice("canonical-references:".length) as CanonicalReferencesProbeSuffix;
+  const check = resolveProbeHealthCheck(suffix, report.checks);
   if (!check) {
     return { ok: false, message: `probe check missing: ${probeId}` };
   }

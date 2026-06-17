@@ -16,6 +16,7 @@ export const UNIT_TEST_FILES = [
   "test/sync-drift.unit.test.ts",
   "test/readme-sync.unit.test.ts",
   "test/context-bloat-lint.unit.test.ts",
+  "test/skill-contract.unit.test.ts",
   "test/bun-native-lint.unit.test.ts",
   "test/path-alignment.unit.test.ts",
   "test/workspace-known-blockers.unit.test.ts",
@@ -91,6 +92,11 @@ export const UNIT_TEST_FILES = [
   "test/governance-preflight.unit.test.ts",
   "test/canonical-references.unit.test.ts",
   "test/doctor-probe.unit.test.ts",
+  "test/finish-work-herdr.unit.test.ts",
+  "test/finish-work-report-schema.unit.test.ts",
+  "test/context-sync-from-report.unit.test.ts",
+  "test/condition-evaluator.unit.test.ts",
+  "test/handoff-target-resolver.unit.test.ts",
 ] as const;
 
 /** Integration tests — included by full Bun discovery, not the fast unit gate. */

@@ -9,6 +9,7 @@ import {
   REPO_REFERENCES,
   auditCanonicalReferencesHealth,
   evaluateProbeHandoffCondition,
+  resolveProbeHealthCheck,
   buildCanonicalReferencesManifest,
   ecosystemReferenceById,
   formatCanonicalReferencesMarkdown,
@@ -119,6 +120,80 @@ describe("canonical-references", () => {
 
     const result = await evaluateProbeHandoffCondition(
       "canonical-references:runtime-aligned",
+      REPO_ROOT,
+      tmpHome
+    );
+    expect(result.ok).toBe(true);
+
+    rmSync(tmpHome, { recursive: true, force: true });
+  });
+
+  test("resolveProbeHealthCheck maps runtime-aligned to runtime-cache prerequisite", () => {
+    const check = resolveProbeHealthCheck("runtime-aligned", [
+      {
+        name: "runtime-cache",
+        status: "error",
+        message: "runtime cache missing at ~/.kimi-code/",
+        fixable: true,
+      },
+    ]);
+    expect(check?.name).toBe("runtime-cache");
+    expect(check?.status).toBe("error");
+  });
+
+  test("resolveProbeHealthCheck maps repo-fresh to repo-manifest prerequisite", () => {
+    const check = resolveProbeHealthCheck("repo-fresh", [
+      {
+        name: "repo-manifest",
+        status: "error",
+        message: "canonical-references.json missing — run bun run references:generate",
+        fixable: true,
+      },
+    ]);
+    expect(check?.name).toBe("repo-manifest");
+    expect(check?.status).toBe("error");
+  });
+
+  test("resolveProbeHealthCheck passes runtime-cache when only runtime-aligned exists", () => {
+    const check = resolveProbeHealthCheck("runtime-cache", [
+      {
+        name: "runtime-aligned",
+        status: "error",
+        message: "runtime cache drifted from repo manifest",
+        fixable: true,
+      },
+    ]);
+    expect(check?.status).toBe("ok");
+    expect(check?.message).toContain("present");
+  });
+
+  test("evaluateProbeHandoffCondition surfaces sync fix when runtime cache missing", async () => {
+    const tmpHome = join(tmpdir(), `probe-missing-cache-${Bun.randomUUIDv7()}`);
+    mkdirSync(tmpHome, { recursive: true });
+
+    const result = await evaluateProbeHandoffCondition(
+      "canonical-references:runtime-aligned",
+      REPO_ROOT,
+      tmpHome
+    );
+    expect(result.ok).toBe(false);
+    expect(result.message).not.toContain("probe check missing");
+    expect(result.message).toContain("runtime cache missing");
+    expect(result.message).toContain("bun run sync");
+
+    rmSync(tmpHome, { recursive: true, force: true });
+  });
+
+  test("evaluateProbeHandoffCondition passes runtime-cache when cache file exists", async () => {
+    const tmpHome = join(tmpdir(), `probe-cache-exists-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
+    writeFileSync(
+      join(tmpHome, ".kimi-code", "canonical-references.json"),
+      JSON.stringify(buildCanonicalReferencesManifest(), null, 2)
+    );
+
+    const result = await evaluateProbeHandoffCondition(
+      "canonical-references:runtime-cache",
       REPO_ROOT,
       tmpHome
     );
