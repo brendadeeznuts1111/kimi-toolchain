@@ -68,6 +68,8 @@ Avoid:
 - Catching all Effect failures and re-labeling them as `ToolNotFound`.
 - Adding `Effect` to simple pure helpers that are easier to test as plain functions.
 
+Agent runbook: `skills/effect-discipline/SKILL.md` (L1+L2). Depth: `DEEP-QUALITY.md`. Enforced by `bun run lint:skills` and pre-push `effect-gates`.
+
 ## Config and Schema Patterns
 
 This repo intentionally avoids large schema dependencies. Config boundaries should be explicit, small, and test-covered.
@@ -202,6 +204,7 @@ Use these when working inside a Herdr workspace (`HERDR_ENV=1`) or editing `[her
 | Production validation | `docs/SCOPE.md` | Acceptance checklist for orchestration |
 | Handoff contract | `docs/handoff-rules.md` | Pane roles and brief format |
 | Session routing | `src/lib/herdr-project-cli.ts` | `--session` CLI arg on Herdr 0.7.0+ |
+| Herdr env vars | `skills/herdr/SKILL.md` § environment variables | Official + plugin context vars; session CLI caveat |
 | Governed subprocess | `docs/references/shell-spawn-choice.md` | `governedSpawn()` from `src/lib/governor-spawn.ts` |
 
 ## Doctor Adapter / Plugin / MCP Golden Template

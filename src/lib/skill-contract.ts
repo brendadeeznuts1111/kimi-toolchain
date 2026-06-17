@@ -560,6 +560,44 @@ export interface SkillCoverageReport {
   } | null;
 }
 
+/** Every synced skill must have loadable frontmatter with a name field. */
+export async function auditSkillFrontmatter(repoRoot: string): Promise<SkillContractIssue[]> {
+  const issues: SkillContractIssue[] = [];
+  const skillsGlob = new Bun.Glob("*/SKILL.md");
+
+  for await (const rel of skillsGlob.scan({ cwd: join(repoRoot, "skills"), onlyFiles: true })) {
+    const skillRel = `skills/${rel}`;
+    let text: string;
+    try {
+      text = await Bun.file(join(repoRoot, skillRel)).text();
+    } catch {
+      issues.push({
+        skill: skillRel,
+        rule: "skill-load-failed",
+        message: "SKILL.md is not readable",
+      });
+      continue;
+    }
+    if (text.trim().length < 40) {
+      issues.push({
+        skill: skillRel,
+        rule: "skill-empty",
+        message: "SKILL.md is too short to be a valid skill",
+      });
+    }
+    const head = text.slice(0, 800);
+    if (!head.startsWith("---") || !/\nname:\s/.test(head)) {
+      issues.push({
+        skill: skillRel,
+        rule: "skill-frontmatter-missing",
+        message: "SKILL.md must have YAML frontmatter with name:",
+      });
+    }
+  }
+
+  return issues;
+}
+
 /** Full skill ↔ code coverage audit for repo skills + optional installed orchestrator. */
 export async function auditSkillCoverage(repoRoot: string): Promise<SkillCoverageReport> {
   const rows: SkillCoverageRow[] = [];
@@ -598,7 +636,10 @@ export async function auditSkillCoverage(repoRoot: string): Promise<SkillCoverag
 
   rows.sort((a, b) => a.skill.localeCompare(b.skill));
 
-  const codeIssues = auditSkillCodeCoverage(repoRoot);
+  const codeIssues = [
+    ...auditSkillCodeCoverage(repoRoot),
+    ...(await auditSkillFrontmatter(repoRoot)),
+  ];
   const orch = await readFirstExisting(resolveOrchestratorSkillPaths());
   const orchestrator = orch
     ? {

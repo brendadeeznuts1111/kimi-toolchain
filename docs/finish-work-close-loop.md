@@ -154,6 +154,9 @@ if (pane.agent_status === "blocked" && pane.agent === "finish-work") return; // 
 |----------|---------------|---------|
 | `HERDR_ENV=1` | Inside Herdr pane | Enable socket RPC (escalation, metadata) |
 | `HERDR_PANE_ID` | Escalation + metadata | Source pane for `report_agent` / `report_metadata` |
+| `HERDR_TAB_ID` / `HERDR_WORKSPACE_ID` | Optional | Public tab/workspace ids in pane processes |
+
+Full Herdr + plugin env reference: `skills/herdr/SKILL.md` § environment variables.
 
 Outside Herdr (`HERDR_ENV` unset): gates and git still run; escalation is skipped with `herdr.skipped: "not inside herdr"`.
 

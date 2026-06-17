@@ -84,6 +84,48 @@ herdr status
 herdr --session dev status   # when project uses named session
 ```
 
+## environment variables
+
+Official Herdr runtime vars ([integrations docs](https://herdr.dev/docs/preview/integrations/)):
+
+| Variable              | Purpose                                               |
+| --------------------- | ----------------------------------------------------- |
+| `HERDR_CONFIG_PATH`   | Override config file path                             |
+| `HERDR_SESSION`       | Named session label (see caveat below)                |
+| `HERDR_SOCKET_PATH`   | Low-level socket path override (primary session only) |
+| `HERDR_ENV`           | Set to `1` inside Herdr-managed pane processes        |
+| `HERDR_PANE_ID`       | Public pane id for the running pane process           |
+| `HERDR_TAB_ID`        | Public tab id for the running pane process            |
+| `HERDR_WORKSPACE_ID`  | Public workspace id for the running pane process      |
+| `HERDR_LOG`           | Log filter, e.g. `HERDR_LOG=herdr=debug`              |
+| `HERDR_DISABLE_SOUND` | Disable sound even when notifications are enabled     |
+
+**Session routing caveat (Herdr 0.7.0):** `HERDR_SESSION` env alone does **not** select the CLI socket. Automation must pass `herdr --session NAME` on the command line or set `HERDR_SOCKET_PATH` to the named session socket. kimi-toolchain implements this in `src/lib/herdr-project-cli.ts` (`herdrSessionArgs`, `herdrSessionEnv`).
+
+**Inside a pane** (`HERDR_ENV=1`): use `HERDR_PANE_ID` for `herdr pane report-agent` / `report-metadata`. finish-work and reviewer escalation depend on these — see `docs/finish-work-close-loop.md`.
+
+**Plugin invoke context** (Herdr injects on `herdr plugin action invoke`; not in the official table):
+
+| Variable                    | Purpose                                              |
+| --------------------------- | ---------------------------------------------------- |
+| `HERDR_PLUGIN_CONTEXT_JSON` | Workspace cwd, pane ids, invocation source           |
+| `HERDR_PLUGIN_EVENT_JSON`   | Event payload for hook-triggered actions             |
+| `HERDR_PLUGIN_CLICKED_URL`  | URL for link-handler actions (PR/issue preview)      |
+| `HERDR_PLUGIN_STATE_DIR`    | Plugin state dir (audit log, daemon pid)             |
+| `HERDR_ORCHESTRATOR_DOMAIN` | Orchestrator domain for status/daemon plugin actions |
+
+**Plugin action args:** current Herdr CLI does not forward `--` or trailing flags (`--json`, `--domain`) to action scripts. Prefer env vars above, run the action script directly for JSON, or read output from `herdr plugin log list --plugin herdr-orchestrator --limit 1` after invoke.
+
+```bash
+# named session + plugin action (orchestrator skill for status semantics)
+herdr --session staging plugin action invoke herdr-orchestrator.status
+
+# JSON + domain when CLI passthrough is unavailable
+HERDR_PLUGIN_CONTEXT_JSON='{"workspace_cwd":"/path/to/project"}' \
+HERDR_ORCHESTRATOR_DOMAIN=staging \
+  /path/to/herdr-orchestrator/run.sh src/actions/status.ts --json --domain staging
+```
+
 ## pane ids on this machine
 
 Upstream examples use **compact session ids**: workspace `1`, tab `1:2`, pane `1-3`. Herdr **≥0.7** also exposes **stable handles**: workspace `wB`, tab `wB:t1`, pane `wB:p6G`.

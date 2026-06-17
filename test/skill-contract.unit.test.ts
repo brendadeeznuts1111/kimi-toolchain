@@ -11,6 +11,7 @@ import {
   auditOrchestratorProbeContract,
   auditSkillCodeCoverage,
   auditSkillCoverage,
+  auditSkillFrontmatter,
   findSyncedSkillEscapeLinks,
   formatSkillContractReport,
   ORCHESTRATOR_EVENT_ACTIONS,
@@ -36,6 +37,10 @@ describe("skill-contract", () => {
 
   test("auditSkillCodeCoverage finds lib modules and tests on disk", () => {
     expect(auditSkillCodeCoverage(REPO_ROOT)).toEqual([]);
+  });
+
+  test("auditSkillFrontmatter passes for all repo skills", async () => {
+    expect(await auditSkillFrontmatter(REPO_ROOT)).toEqual([]);
   });
 
   test("auditSkillCoverage passes for all repo skills", async () => {

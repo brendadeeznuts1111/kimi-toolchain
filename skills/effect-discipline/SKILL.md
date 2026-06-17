@@ -93,3 +93,7 @@ Full scanner logic and thresholds: [DEEP-QUALITY.md](~/.kimi-code/DEEP-QUALITY.m
 
 - **kimi-toolchain** — project health, `bun run check`, guardian, sync
 - **herdr** / **orchestrator** — pane layout vs cross-pane coordination (separate from Effect discipline)
+
+## Bundled references
+
+Pointer index only: `references/README.md` in this skill directory (synced with `bun run sync`).
