@@ -9,8 +9,9 @@
  */
 
 import { Effect, pipe } from "effect";
-import { homeDir } from "./paths.ts";
-import { resolveHerdrSession, herdrSessionEnv } from "./herdr-project-cli.ts";
+import { resolveHerdrPanePath, resolveHerdrSession, herdrSessionEnv } from "./herdr-project-cli.ts";
+// Re-export for consumers (herdr-doctor, herdr-workspace-service)
+export { resolveHerdrPanePath };
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -84,10 +85,6 @@ export interface WaitAgentResult {
   timedOut: boolean;
 }
 
-export interface PaneListResult {
-  panes: PaneInfo[];
-}
-
 // ── CLI invocation (Bun-native) ─────────────────────────────────────────
 
 function herdrCliError(stderr: string, exitCode: number | null, context: string): HerdrCliError {
@@ -105,34 +102,6 @@ function herdrJsonError(raw: string, context: string): HerdrJsonError {
     message: `herdr ${context}: invalid JSON`,
     raw: raw.slice(0, 500),
   };
-}
-
-/**
- * Resolve the herdr binary PATH. Falls back through common install locations
- * and inherits the caller's PATH segments for Bun/Nix/homebrew coverage.
- */
-export function resolveHerdrPanePath(home = homeDir()): string {
-  const parts: string[] = [];
-  const seen = new Set<string>();
-  const add = (value: string | undefined) => {
-    for (const entry of String(value || "").split(":")) {
-      if (!entry || seen.has(entry)) continue;
-      seen.add(entry);
-      parts.push(entry);
-    }
-  };
-  add(process.env.PATH);
-  for (const segment of [
-    `${home}/.local/bin`,
-    `${home}/.kimi-code/bin`,
-    `${home}/.bun/bin`,
-    `${home}/bin`,
-    "/opt/homebrew/bin",
-    "/usr/local/bin",
-  ]) {
-    add(segment);
-  }
-  return parts.join(":");
 }
 
 /** Run the herdr CLI with given args, returning stdout as text. */
@@ -924,5 +893,158 @@ export function getPaneSync(
     };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ── Tab operations ──────────────────────────────────────────────────────
+
+export interface TabInfo {
+  tabId: string;
+  workspaceId: string;
+  label: string;
+  paneCount: number;
+  focused: boolean;
+}
+
+/** List tabs in a workspace (async Effect). */
+export function listTabs(
+  workspaceId: string,
+  session?: string
+): Effect.Effect<TabInfo[], HerdrPaneError> {
+  return pipe(
+    herdrCliJson<{ result?: { tabs?: Array<Record<string, unknown>> } }>(
+      ["tab", "list", "--workspace", workspaceId],
+      session
+    ),
+    Effect.map((json) => {
+      const raw = json.result?.tabs ?? [];
+      return raw.map((t) => ({
+        tabId: String(t.tab_id ?? ""),
+        workspaceId: String(t.workspace_id ?? workspaceId),
+        label: String(t.label ?? ""),
+        paneCount: typeof t.pane_count === "number" ? t.pane_count : 0,
+        focused: Boolean(t.focused),
+      }));
+    })
+  );
+}
+
+export interface CreateTabOptions {
+  workspaceId: string;
+  label?: string;
+  focus?: boolean;
+  session?: string;
+}
+
+/** Create a new tab (async Effect). */
+export function createTab(
+  options: CreateTabOptions
+): Effect.Effect<{ tabId: string; rootPaneId: string }, HerdrPaneError> {
+  const args: string[] = ["tab", "create", "--workspace", options.workspaceId];
+  if (options.label) args.push("--label", options.label);
+  if (options.focus === true) args.push("--focus");
+  else args.push("--no-focus");
+
+  return pipe(
+    herdrCliJson<{
+      result?: { tab?: { tab_id?: string }; root_pane?: { pane_id?: string } };
+    }>(args, options.session),
+    Effect.map((json) => ({
+      tabId: json.result?.tab?.tab_id ?? "",
+      rootPaneId: json.result?.root_pane?.pane_id ?? "",
+    }))
+  );
+}
+
+/** Close a tab (async Effect). */
+export function closeTab(tabId: string, session?: string): Effect.Effect<void, HerdrCliError> {
+  return pipe(herdrCli(["tab", "close", tabId], session), Effect.as(void 0));
+}
+
+/** Focus a tab (async Effect). */
+export function focusTab(tabId: string, session?: string): Effect.Effect<void, HerdrCliError> {
+  return pipe(herdrCli(["tab", "focus", tabId], session), Effect.as(void 0));
+}
+
+/** Rename a tab (async Effect). */
+export function renameTab(
+  tabId: string,
+  label: string,
+  session?: string
+): Effect.Effect<void, HerdrCliError> {
+  return pipe(herdrCli(["tab", "rename", tabId, label], session), Effect.as(void 0));
+}
+
+// ── Tab sync wrappers ───────────────────────────────────────────────────
+
+/** Sync wrapper for listTabs. */
+export function listTabsSync(
+  workspaceId: string,
+  session?: string
+): { ok: true; tabs: TabInfo[] } | { ok: false; error: string } {
+  try {
+    const stdout = herdrCliSync(["tab", "list", "--workspace", workspaceId], session);
+    const json = JSON.parse(stdout) as {
+      result?: { tabs?: Array<Record<string, unknown>> };
+    };
+    const raw = json.result?.tabs ?? [];
+    return {
+      ok: true,
+      tabs: raw
+        .filter((t) => typeof t.tab_id === "string")
+        .map((t) => ({
+          tabId: t.tab_id as string,
+          workspaceId: String(t.workspace_id ?? workspaceId),
+          label: String(t.label ?? ""),
+          paneCount: typeof t.pane_count === "number" ? t.pane_count : 0,
+          focused: Boolean(t.focused),
+        })),
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Sync wrapper for createTab. */
+export function createTabSync(
+  options: CreateTabOptions
+):
+  | { ok: true; tabId: string; rootPaneId: string; json: Record<string, unknown> }
+  | { ok: false; error: string } {
+  try {
+    const args: string[] = ["tab", "create", "--workspace", options.workspaceId];
+    if (options.label) args.push("--label", options.label);
+    if (options.focus === true) args.push("--focus");
+    else args.push("--no-focus");
+
+    const stdout = herdrCliSync(args, options.session);
+    const json = JSON.parse(stdout) as Record<string, unknown>;
+    const result = json.result as
+      | {
+          tab?: { tab_id?: string };
+          root_pane?: { pane_id?: string };
+        }
+      | undefined;
+    return {
+      ok: true,
+      tabId: result?.tab?.tab_id ?? "",
+      rootPaneId: result?.root_pane?.pane_id ?? "",
+      json,
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Sync wrapper for closeTab. */
+export function closeTabSync(
+  tabId: string,
+  session?: string
+): { ok: true } | { ok: false; output: string } {
+  try {
+    herdrCliSync(["tab", "close", tabId], session);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, output: err instanceof Error ? err.message : String(err) };
   }
 }

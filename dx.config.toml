@@ -203,8 +203,18 @@ handoffFrom = "kimi"
 handoffTo = "codex"
 reviewerTab = "reviewer"
 
-[herdr.orchestrator.remote_hosts]
-staging = "staging.example.com"
+# Remote fleet — alias labels used by herdr-orchestrator and `herdr --remote <alias>`.
+# Requires matching `Host <alias>` stanzas in ~/.ssh/config (see commented scaffold there).
+# Verify: herdr-orchestrator check-hosts --versions
+#
+# [herdr.orchestrator.remote_hosts]
+# workbox = "workbox"   # shorthand when Host alias == label
+#
+# [herdr.orchestrator.remote_hosts.staging]
+# host = "staging.example.com"
+# user = "deploy"
+# port = 22
+# identity_file = "~/.ssh/id_ed25519"
 
 [herdr.orchestrator.events]
 enabled = true

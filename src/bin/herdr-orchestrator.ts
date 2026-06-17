@@ -3343,8 +3343,10 @@ try {
             for (const xw of xwResults) {
               // Log every rule evaluation
               logHandoff({
-                timestamp: new Date().toISOString(),
+                workspace: rule.fromWorkspace,
+                agent: rule.fromAgent,
                 rule: ri,
+                trigger: dryRun ? "manual" : "react",
                 action: xw.detail.includes("spawned")
                   ? "spawn"
                   : xw.detail.includes("spawn-fallback")

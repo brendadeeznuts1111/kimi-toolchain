@@ -1,6 +1,6 @@
 import type { HerdrProjectConfig } from "./herdr-project-config.ts";
 import { resolveAgentArgv } from "./herdr-agents.ts";
-import { execCli, execCliJson, herdrCliJson, resolveHerdrPanePath } from "./herdr-project-cli.ts";
+import { execCli, execCliJson, resolveHerdrPanePath } from "./herdr-project-cli.ts";
 import { getPaneSync, paneRunSync } from "./herdr-pane-service.ts";
 
 function parseHerdrPaneId(

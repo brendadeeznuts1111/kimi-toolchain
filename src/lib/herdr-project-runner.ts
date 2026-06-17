@@ -9,9 +9,10 @@ import {
   resolveHerdrPanePath,
 } from "./herdr-project-cli.ts";
 import { paneRunSync, splitPaneSync } from "./herdr-pane-service.ts";
+import { createWorkspaceSync, focusWorkspaceSync } from "./herdr-workspace-service.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";
 import type { HerdrProjectConfig } from "./herdr-project-config.ts";
-import { findAllWorkspacesForProject, findWorkspaceForProject } from "./herdr-workspace-match.ts";
+import { findWorkspaceForProject } from "./herdr-workspace-match.ts";
 
 export { findAllWorkspacesForProject, findWorkspaceForProject } from "./herdr-workspace-match.ts";
 import { verifyPaneRequirements, type PaneRequirementSpec } from "./herdr-pane-requires.ts";
@@ -231,18 +232,18 @@ export function bootstrapHerdrProject(
   if (existing.workspaceId) {
     workspaceId = existing.workspaceId;
     actions.push({ action: "focus_existing", workspaceId, reason: existing.reason });
-    const focus = execCli("herdr", ["workspace", "focus", workspaceId], {
-      session: config.session,
-    });
+    const focus = focusWorkspaceSync(workspaceId, config.session);
     if (!focus.ok) warnings.push(`workspace focus failed: ${focus.output}`);
   } else {
     workspaceWasNew = true;
-    const createArgs = ["workspace", "create", "--cwd", config.projectPath || "", "--no-focus"];
-    if (config.workspaceLabel) createArgs.push("--label", config.workspaceLabel);
-    const created = execCliJson("herdr", createArgs, config.session);
+    const created = createWorkspaceSync({
+      cwd: config.projectPath || undefined,
+      label: config.workspaceLabel ?? undefined,
+      focus: false,
+      session: config.session,
+    });
     if (!created.ok) throw new Error(created.error || "workspace create failed");
-    workspaceId =
-      (created.json?.result?.workspace as { workspace_id?: string })?.workspace_id || null;
+    workspaceId = created.ok ? created.workspaceId : null;
     actions.push({ action: "workspace_created", workspaceId });
   }
 
@@ -368,7 +369,7 @@ export function bootstrapHerdrProject(
   }
 
   if (workspaceId) {
-    execCli("herdr", ["workspace", "focus", workspaceId], { session: config.session });
+    focusWorkspaceSync(workspaceId, config.session);
   }
 
   if (options.attach && process.env.HERDR_ENV !== "1") {

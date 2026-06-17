@@ -20,13 +20,19 @@ import {
 } from "./herdr-role-tab.ts";
 import {
   findWorkspaceForProject,
-  herdrCliJson,
-  herdrCliRun,
   parseHerdrPaneId,
   startHerdrAgent,
 } from "./herdr-project-runner.ts";
 import { interruptPaneAgents, panesWithAgentsOnTab } from "./herdr-tab-lifecycle.ts";
-import { closePaneSync, listPanesSync, paneRunSync, splitPaneSync } from "./herdr-pane-service.ts";
+import {
+  closePaneSync,
+  closeTabSync,
+  createTabSync,
+  listPanesSync,
+  listTabsSync,
+  paneRunSync,
+  splitPaneSync,
+} from "./herdr-pane-service.ts";
 
 export type ReconcileActionType =
   | "create_tab"
@@ -147,10 +153,6 @@ function layoutDriftActions(drifts: LayoutDrift[]): ReconcileAction[] {
   }));
 }
 
-function isAgentPane(agent: string | null | undefined): boolean {
-  return typeof agent === "string" && agent.length > 0;
-}
-
 function paneSortKey(paneId: string): number {
   const match = paneId.match(/:p(\d+)$/);
   return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
@@ -176,20 +178,13 @@ function resolvePrimaryPaneForTab(
 }
 
 export function listWorkspaceTabs(session: string, workspaceId: string): WorkspaceTabRow[] {
-  const listed = herdrCliJson(session, ["tab", "list", "--workspace", workspaceId]);
-  if (!listed.ok) return [];
-  const rows = (listed.json?.result?.tabs || []) as Array<{
-    tab_id?: string;
-    label?: string;
-    pane_count?: number;
-  }>;
-  return rows
-    .filter((row) => typeof row.tab_id === "string")
-    .map((row) => ({
-      tabId: row.tab_id!,
-      label: String(row.label || ""),
-      paneCount: typeof row.pane_count === "number" ? row.pane_count : 0,
-    }));
+  const result = listTabsSync(workspaceId, session);
+  if (!result.ok) return [];
+  return result.tabs.map((t) => ({
+    tabId: t.tabId,
+    label: t.label,
+    paneCount: t.paneCount,
+  }));
 }
 
 export function captureWorkspaceLayout(
@@ -467,15 +462,7 @@ function paneRun(config: HerdrProjectConfig, paneId: string, command: string) {
 }
 
 function createTab(config: HerdrProjectConfig, workspaceId: string, label: string) {
-  return herdrCliJson(config.session, [
-    "tab",
-    "create",
-    "--workspace",
-    workspaceId,
-    "--no-focus",
-    "--label",
-    label,
-  ]);
+  return createTabSync({ workspaceId, label, focus: false, session: config.session });
 }
 
 /** @deprecated Use closePaneSync from herdr-pane-service.ts instead. */
@@ -486,7 +473,7 @@ function closePane(config: HerdrProjectConfig, paneId: string) {
 function closeTab(config: HerdrProjectConfig, workspaceId: string, tabId: string) {
   const snapshot = captureWorkspaceLayout(config.session, workspaceId);
   interruptPaneAgents(config.session, panesWithAgentsOnTab(snapshot.panes, tabId));
-  return herdrCliRun(config.session, ["tab", "close", tabId]);
+  return closeTabSync(tabId, config.session);
 }
 
 /** @deprecated Use splitPaneSync from herdr-pane-service.ts instead. */

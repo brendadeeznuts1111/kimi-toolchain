@@ -1,4 +1,4 @@
-import { sshExec, friendlySshError } from "./herdr-orchestrator.ts";
+import { sshExec } from "./herdr-orchestrator.ts";
 import {
   resolveOrchestratorConfig,
   normalizeRemoteHostConfig,
@@ -16,11 +16,42 @@ export interface RemoteActionContext {
   env?: Record<string, string>;
 }
 
+export interface RemoteError {
+  type:
+    | "ssh-connection"
+    | "ssh-auth"
+    | "remote-not-found"
+    | "remote-timeout"
+    | "remote-parse"
+    | "unknown";
+  message: string;
+  code?: number;
+  host: string;
+}
+
 export interface RemoteActionResult {
   ok: boolean;
   output: string;
+  error?: RemoteError;
   action: string;
   hostLabel: string;
+}
+
+function classifySshError(output: string, host: string): RemoteError {
+  const lower = output.toLowerCase();
+  if (lower.includes("command not found") || lower.includes("not found")) {
+    return { type: "remote-not-found", message: `herdr not found on ${host}`, host };
+  }
+  if (lower.includes("permission denied") || lower.includes("publickey")) {
+    return { type: "ssh-auth", message: `SSH auth failed for ${host}`, host };
+  }
+  if (lower.includes("connection refused")) {
+    return { type: "ssh-connection", message: `SSH connection refused to ${host}`, host };
+  }
+  if (lower.includes("timed out")) {
+    return { type: "remote-timeout", message: `SSH timed out connecting to ${host}`, host };
+  }
+  return { type: "unknown", message: output.slice(0, 200), host };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -49,8 +80,13 @@ export function invokeRemoteAction(
 
   const result = sshExec(resolved, cmd);
   if (!result.ok) {
-    const diag = friendlySshError(result.output, resolved.host);
-    return { ok: false, output: diag, action: actionId, hostLabel: resolved.host };
+    return {
+      ok: false,
+      output: result.output,
+      error: classifySshError(result.output, resolved.host),
+      action: actionId,
+      hostLabel: resolved.host,
+    };
   }
 
   return { ok: true, output: result.output, action: actionId, hostLabel: resolved.host };
