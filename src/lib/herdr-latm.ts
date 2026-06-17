@@ -283,9 +283,12 @@ export async function writeLatmManifest(
 
 async function readLatmManifestFile(path: string): Promise<LatmManifest | null> {
   if (!(await Bun.file(path).exists())) return null;
-  const raw = await Bun.file(path)
-    .json()
-    .catch(() => null);
+  let raw: unknown;
+  try {
+    raw = await Bun.file(path).json();
+  } catch {
+    return null;
+  }
   return isLatmManifest(raw) ? raw : null;
 }
 

@@ -86,10 +86,6 @@ export function connectHerdrUnixSocket(path: string): HerdrUnixSocket {
         emit("error", error);
       },
     },
-  }).then((socket) => {
-    bunSocket = socket;
-    opened = true;
-    flushWrites();
   });
 
   return {
