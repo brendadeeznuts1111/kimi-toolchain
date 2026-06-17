@@ -46,12 +46,8 @@ export async function lockfileNeedsGuardianBaseline(projectDir: string): Promise
   const hashFile = join(guardianDir(), "lockfile.hash");
   if (!pathExists(lockPath)) return false;
   if (!pathExists(hashFile)) return true;
-  const [current, stored] = await Promise.all([
-    sha256File(lockPath),
-    Bun.file(hashFile)
-      .text()
-      .then((text) => text.trim()),
-  ]);
+  const current = await sha256File(lockPath);
+  const stored = (await Bun.file(hashFile).text()).trim();
   return current !== stored;
 }
 
