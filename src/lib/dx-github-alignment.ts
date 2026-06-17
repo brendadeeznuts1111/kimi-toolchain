@@ -4,7 +4,8 @@
  * Keeps project-local dx.config.toml in parity with package scripts and GitHub CI.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import YAML from "js-yaml";
 import { EFFECT_GATES_COMMAND } from "./finish-work-config.ts";
@@ -579,7 +580,7 @@ export async function checkDxGithubAlignment(
   projectRoot: string
 ): Promise<DxGithubAlignmentReport> {
   const dxPath = join(projectRoot, "dx.config.toml");
-  if (!existsSync(dxPath)) return { applicable: false, aligned: true, checks: [] };
+  if (!pathExists(dxPath)) return { applicable: false, aligned: true, checks: [] };
 
   const rawDx = await readToml(dxPath);
   if (!rawDx) {
@@ -597,7 +598,7 @@ export async function checkDxGithubAlignment(
 
   return evaluateDxGithubAlignment({
     dx,
-    pkg: existsSync(pkgPath) ? await readPackage(pkgPath) : null,
+    pkg: pathExists(pkgPath) ? await readPackage(pkgPath) : null,
     workflow: parseGithubWorkflow(await readYaml(join(projectRoot, workflowPath))),
     workflowPath,
     setupAction: parseGithubSetupAction(await readYaml(join(projectRoot, setupActionPath))),

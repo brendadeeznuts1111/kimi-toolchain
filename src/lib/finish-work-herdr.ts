@@ -1,5 +1,6 @@
-import { join } from "node:path";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { makeDir, pathExists, readText, writeText } from "./bun-io.ts";
+
+import { join } from "path";
 import { TOML } from "bun";
 import type { GateResult } from "./gate-runner.ts";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
@@ -141,7 +142,7 @@ type TabRow = {
 function readHerdrDoc(projectRoot: string): Record<string, unknown> | null {
   const config = discoverHerdrProjectConfig(projectRoot);
   if (!config?.sourcePath) return null;
-  return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+  return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
 }
 
 export function shouldRouteGateThroughDoctor(command: string): boolean {
@@ -287,7 +288,7 @@ export async function runDoctorPaneGate(
   const doctorPaneId = resolved.paneId;
   const nonce = Bun.randomUUIDv7().replace(/-/g, "");
   const logPath = finishWorkGateLogPath(projectRoot, name);
-  mkdirSync(join(projectRoot, ".kimi"), { recursive: true });
+  makeDir(join(projectRoot, ".kimi"), { recursive: true });
 
   const wrapped = [
     `rm -f ${shellQuote(logPath)}`,
@@ -322,7 +323,7 @@ export async function runDoctorPaneGate(
   ]);
 
   const markerExit = parseDoctorGateMarker(`${wait.stdout}\n${wait.stderr}`, nonce);
-  const log = existsSync(logPath) ? await Bun.file(logPath).text() : "";
+  const log = pathExists(logPath) ? await Bun.file(logPath).text() : "";
 
   if (!wait.ok || markerExit == null) {
     return {
@@ -378,9 +379,9 @@ export async function escalateFinishWorkToReviewer(
 
   const workspaceId = match.workspaceId;
   const reportDir = join(projectRoot, ".kimi");
-  mkdirSync(reportDir, { recursive: true });
+  makeDir(reportDir, { recursive: true });
   const reportPath = join(reportDir, "finish-work-report.json");
-  writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  writeText(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 
   const reviewerCommand = `bun run scripts/reviewer-pane.ts --report-file ${shellQuote(reportPath)}`;
 

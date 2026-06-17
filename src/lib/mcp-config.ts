@@ -3,7 +3,8 @@
  * @see https://moonshotai.github.io/kimi-code/en/customization/mcp.html
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join, resolve } from "path";
 import { logDecision } from "./decision-ledger.ts";
 import { ensureDir } from "./utils.ts";
@@ -86,7 +87,7 @@ export function projectMcpPath(projectRoot: string): string {
 }
 
 export async function readMcpJson(path: string): Promise<ReadMcpJsonResult> {
-  if (!existsSync(path)) return { data: null };
+  if (!pathExists(path)) return { data: null };
   try {
     const raw = await Bun.file(path).json();
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { data: null };
@@ -236,7 +237,7 @@ export async function provisionUserMcp(home: string = homeDir()): Promise<{
   const path = userMcpPath();
   const { data: existing } = await readMcpJson(path);
   const { config, changed } = mergeToolchainMcpServers(existing, home);
-  if (changed || !existsSync(path)) {
+  if (changed || !pathExists(path)) {
     await writeMcpJson(path, config);
     try {
       const trace = ensureProcessTrace();
@@ -269,7 +270,7 @@ export async function validateMcpConfig(
   const bridgePath = bridgeScriptPath(home);
 
   const { data: userMcp, error: userReadError } = await readMcpJson(userPath);
-  if (existsSync(userPath)) {
+  if (pathExists(userPath)) {
     checks.push({
       name: "mcp-user",
       status: userReadError ? "warn" : "ok",
@@ -342,7 +343,7 @@ export async function validateMcpConfig(
     });
   }
 
-  if (existsSync(bridgePath)) {
+  if (pathExists(bridgePath)) {
     checks.push({
       name: "bridge-script",
       status: "ok",
@@ -375,7 +376,7 @@ export async function validateMcpConfig(
     });
   }
 
-  if (projectPath && existsSync(projectPath)) {
+  if (projectPath && pathExists(projectPath)) {
     const { data: projectMcp, error: projectReadError } = await readMcpJson(projectPath);
     if (!projectMcp) {
       checks.push({
@@ -443,7 +444,7 @@ export async function fixMcpConfig(
   let projectCreated = false;
   if (projectRoot) {
     const projPath = projectMcpPath(projectRoot);
-    if (!existsSync(projPath)) {
+    if (!pathExists(projPath)) {
       ensureDir(join(projPath, ".."));
       const stub: McpJson = {
         mcpServers: {},

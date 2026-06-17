@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { gunzipSync } from "node:zlib";
+import { gunzipText } from "../src/lib/bun-utils.ts";
 import {
   configureHandoffLog,
   getHandoffHistory,
@@ -82,7 +82,7 @@ describe("handoff-log", () => {
 
     // Verify archive content integrity — decompress and check pre-rotation data survived
     const archivePath = join(tempDir, archives[0]!);
-    const decompressed = gunzipSync(readFileSync(archivePath)).toString("utf8");
+    const decompressed = gunzipText(readFileSync(archivePath));
     expect(decompressed).toContain("x".repeat(300));
     expect(decompressed).toBe(preRotationContent);
   });

@@ -2,7 +2,8 @@
  * Canonical repo → ~/.kimi-code/ sync (single source of truth).
  */
 
-import { existsSync, readdirSync, statSync } from "fs";
+import { listDir, pathExists, pathStat } from "./bun-io.ts";
+
 import { dirname, join } from "path";
 import { provisionDesktopRuntimeDeps } from "./desktop-runtime-deps.ts";
 import { ensureDir } from "./utils.ts";
@@ -195,7 +196,7 @@ export async function syncDesktop(
     result
   );
 
-  if (existsSync(paths.scriptsSrc)) {
+  if (pathExists(paths.scriptsSrc)) {
     await syncGlobDirectory(
       paths.scriptsSrc,
       paths.scriptsDst,
@@ -207,7 +208,7 @@ export async function syncDesktop(
     );
   }
 
-  if (existsSync(paths.kimiHooksSrc)) {
+  if (pathExists(paths.kimiHooksSrc)) {
     await syncGlobDirectory(
       paths.kimiHooksSrc,
       paths.kimiHooksDst,
@@ -219,7 +220,7 @@ export async function syncDesktop(
     );
   }
 
-  if (existsSync(paths.templatesSrc)) {
+  if (pathExists(paths.templatesSrc)) {
     await syncGlobDirectory(
       paths.templatesSrc,
       paths.templatesDst,
@@ -240,7 +241,7 @@ export async function syncDesktop(
     const dstPath = join(desktopRoot(), file);
     if (force) {
       await copyIfChanged(srcPath, dstPath, file, true, dryRun, result);
-    } else if (!existsSync(dstPath) && existsSync(srcPath)) {
+    } else if (!pathExists(dstPath) && pathExists(srcPath)) {
       if (!dryRun) await Bun.write(dstPath, await Bun.file(srcPath).text());
       result.updated.push(file);
     }
@@ -248,14 +249,14 @@ export async function syncDesktop(
 
   // Sync all skill directories under skills/
   const skillsSrc = join(repoRoot, "skills");
-  if (existsSync(skillsSrc)) {
+  if (pathExists(skillsSrc)) {
     const agentsRoot = agentsSkillsRoot();
     const kimiSkillsRoot = skillsDir();
-    for (const skillName of readdirSync(skillsSrc)) {
+    for (const skillName of listDir(skillsSrc)) {
       const skillSrcDir = join(skillsSrc, skillName);
-      if (!existsSync(skillSrcDir)) continue;
+      if (!pathExists(skillSrcDir)) continue;
       try {
-        if (!statSync(skillSrcDir).isDirectory()) continue;
+        if (!pathStat(skillSrcDir).isDirectory()) continue;
       } catch {
         continue;
       }

@@ -2,7 +2,8 @@
  * Agent-facing doc hygiene — broken links, stale paths, CONTEXT placeholders.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { dirname, join, resolve } from "path";
 
 export interface ContextBloatIssue {
@@ -138,7 +139,7 @@ export function findBrokenInternalLinks(
     if (!clean || clean.startsWith("<")) continue;
 
     const resolved = resolve(dir, clean);
-    if (!existsSync(resolved)) {
+    if (!pathExists(resolved)) {
       const idx = match.index ?? 0;
       issues.push({
         file: rel,
@@ -175,7 +176,7 @@ export function findBareRepoPathRefs(
 
     const pathPart = raw.split(":")[0]!;
     const candidates = [join(projectRoot, pathPart)];
-    if (existsSync(candidates[0]!)) continue;
+    if (pathExists(candidates[0]!)) continue;
 
     const idx = match.index ?? 0;
     issues.push({
@@ -328,7 +329,7 @@ export function findDuplicatePlaceholders(
 
 export async function listSrcBinFiles(projectRoot: string): Promise<string[]> {
   const binDir = join(projectRoot, "src/bin");
-  if (!existsSync(binDir)) return [];
+  if (!pathExists(binDir)) return [];
   const glob = new Bun.Glob("*.ts");
   const files: string[] = [];
   for await (const name of glob.scan({ cwd: binDir, onlyFiles: true })) {
@@ -447,7 +448,7 @@ async function readIndexDocText(projectRoot: string): Promise<string> {
   const chunks: string[] = [];
   for (const rel of DOC_INDEX_FILES) {
     const path = join(projectRoot, rel);
-    if (!existsSync(path)) continue;
+    if (!pathExists(path)) continue;
     chunks.push(await Bun.file(path).text());
   }
   return chunks.join("\n");
@@ -475,13 +476,13 @@ export async function auditContextBloat(projectRoot: string): Promise<ContextBlo
 
   const srcBinFiles = await listSrcBinFiles(projectRoot);
   const agentsPath = join(projectRoot, "AGENTS.md");
-  if (existsSync(agentsPath)) {
+  if (pathExists(agentsPath)) {
     const agentsText = await Bun.file(agentsPath).text();
     issues.push(...findBinCountDrift(agentsText, srcBinFiles.length));
   }
 
   const packagePath = join(projectRoot, "package.json");
-  if (existsSync(packagePath)) {
+  if (pathExists(packagePath)) {
     const pkg = (await Bun.file(packagePath).json()) as { bin?: Record<string, string> };
     if (pkg.bin) {
       issues.push(...findPackageBinDrift(pkg.bin, srcBinFiles));

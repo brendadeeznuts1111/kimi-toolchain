@@ -38,7 +38,7 @@ One-line description of what this does.
 - Read-only checks before mutation (\`--dry-run\`)
 - Use \`Bun.env\` for environment reads
 - Use \`Bun.cwd\` not \`process.cwd()\`
-- Use \`Bun.argv\` not \`process.argv\`
+- Use \`Bun.argv\` for CLI argument reads
 - Use \`Uint8Array\` not \`Buffer\`
 - Prefer shared tool/logging helpers from \`~/.kimi-code/AGENTS.md\` over raw subprocess and console patterns
 

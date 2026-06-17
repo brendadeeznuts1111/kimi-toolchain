@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
+import { pathExists } from "../lib/bun-io.ts";
 /**
  * postinstall.ts — Idempotent setup of ~/.kimi-code/ from repo source
  * Runs on `bun install -g` or `bun install`
  */
 
-import { existsSync } from "fs";
 import { join, resolve } from "path";
 import { Database } from "bun:sqlite";
 import { Effect } from "effect";
@@ -29,7 +29,7 @@ async function main(): Promise<number> {
   ensureDesktopLayout();
 
   const governorDefaults = join(GOVERNOR_DIR, "defaults.toml");
-  if (!existsSync(governorDefaults)) {
+  if (!pathExists(governorDefaults)) {
     await Bun.write(governorDefaults, DEFAULT_CONFIG_TEMPLATE);
   }
 
@@ -41,7 +41,7 @@ async function main(): Promise<number> {
   );
 
   const dbPath = join(VAR_DIR, "sessions.db");
-  if (!existsSync(dbPath)) {
+  if (!pathExists(dbPath)) {
     console.log("  🗄 Initializing sessions.db...");
     const db = new Database(dbPath, { create: true });
     db.exec("PRAGMA journal_mode = WAL;");
@@ -50,7 +50,7 @@ async function main(): Promise<number> {
   }
 
   const wrapperScript = join(REPO_ROOT, "scripts", "install-bin-wrappers.sh");
-  if (existsSync(wrapperScript)) {
+  if (pathExists(wrapperScript)) {
     const proc = Bun.spawn(["bash", wrapperScript], { stdout: "pipe", stderr: "pipe" });
     const exitCode = await proc.exited;
     if (exitCode === 0) {

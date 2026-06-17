@@ -2,7 +2,8 @@
  * Agent readiness checks for shell, PATH, MCP, sync, and tool dispatch.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import type { HealthCheck } from "./health-check.ts";
 import { homeDir } from "./paths.ts";
@@ -192,7 +193,7 @@ export async function auditAgentReady(projectRoot: string): Promise<AgentReadyRe
     )
   );
 
-  if (existsSync(join(projectRoot, "scripts", "sync-to-desktop.ts"))) {
+  if (pathExists(join(projectRoot, "scripts", "sync-to-desktop.ts"))) {
     const sync = await detectSyncDrift(projectRoot);
     checks.push(
       sync.synced

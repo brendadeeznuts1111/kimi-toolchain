@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { pathExists, readText } from "./bun-io.ts";
+
+import { join } from "path";
 import { TOML } from "bun";
 import { Data, Schema } from "effect";
 
@@ -110,13 +111,13 @@ export function resolveFinishWorkGatesFromUnknown(
 
 export function loadFinishWorkConfig(projectRoot: string): FinishWorkConfig {
   const path = join(projectRoot, "dx.config.toml");
-  if (!existsSync(path)) {
+  if (!pathExists(path)) {
     return { gates: DEFAULT_GATES, source: "default", followUp: null };
   }
 
   let doc: unknown;
   try {
-    doc = TOML.parse(readFileSync(path, "utf8"));
+    doc = TOML.parse(readText(path));
   } catch (cause) {
     throw new FinishWorkConfigParseError({
       path,

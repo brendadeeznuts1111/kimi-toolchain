@@ -6,8 +6,7 @@
  */
 
 import { join } from "path";
-import { removePath } from "./bun-io.ts";
-import { existsSync } from "./bun-native-shim.ts";
+import { pathExists, removePath } from "./bun-io.ts";
 import { execCli, execCliJson } from "./herdr-project-cli.ts";
 import { paneRunSync } from "./herdr-pane-service.ts";
 import { herdrAgentsDir, herdrLatmManifestPath, homeDir } from "./paths.ts";
@@ -294,7 +293,7 @@ export async function discoverTools(home: string = homeDir()): Promise<Discovere
   const tools: DiscoveredTool[] = [];
   const now = Date.now();
   const root = herdrAgentsDir(home);
-  if (!existsSync(root)) return tools;
+  if (!pathExists(root)) return tools;
 
   for await (const relative of new Bun.Glob("*/capabilities.json").scan(root)) {
     const fullPath = join(root, relative);
@@ -373,7 +372,7 @@ export async function pruneLatmManifests(options: {
   const active = new Set(options.activePaneIds);
   const removed: string[] = [];
   const root = herdrAgentsDir(home);
-  if (!existsSync(root)) return { removed };
+  if (!pathExists(root)) return { removed };
 
   for await (const relative of new Bun.Glob("*/capabilities.json").scan(root)) {
     const paneDir = relative.split("/")[0];

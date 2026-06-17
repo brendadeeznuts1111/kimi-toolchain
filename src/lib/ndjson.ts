@@ -2,20 +2,21 @@
  * Bun-native NDJSON append/read helpers for project-local ledgers.
  */
 
-import { appendFileSync, existsSync, mkdirSync } from "fs";
+import { appendText, makeDir, pathExists } from "./bun-io.ts";
+
 import { dirname } from "path";
 import { safeParse } from "./utils.ts";
 
 export async function appendNdjsonRecord<T extends object>(path: string, record: T): Promise<void> {
-  mkdirSync(dirname(path), { recursive: true });
-  appendFileSync(path, `${JSON.stringify(record)}\n`);
+  makeDir(dirname(path), { recursive: true });
+  appendText(path, `${JSON.stringify(record)}\n`);
 }
 
 export async function readNdjsonFile<T>(
   path: string,
   validator?: (value: unknown) => value is T
 ): Promise<T[]> {
-  if (!existsSync(path)) return [];
+  if (!pathExists(path)) return [];
   const text = await Bun.file(path).text();
   return parseNdjsonText(text, validator);
 }
@@ -50,7 +51,7 @@ export async function* streamNdjsonFile<T>(
   path: string,
   validator?: (value: unknown) => value is T
 ): AsyncGenerator<T> {
-  if (!existsSync(path)) return;
+  if (!pathExists(path)) return;
   const text = await Bun.file(path).text();
   for (const record of parseNdjsonText<T>(text, validator)) {
     yield record;
@@ -61,7 +62,7 @@ export async function rewriteNdjsonFile<T extends object>(
   path: string,
   records: T[]
 ): Promise<void> {
-  mkdirSync(dirname(path), { recursive: true });
+  makeDir(dirname(path), { recursive: true });
   const body = records.map((record) => JSON.stringify(record)).join("\n");
   await Bun.write(path, body.length > 0 ? `${body}\n` : "");
 }

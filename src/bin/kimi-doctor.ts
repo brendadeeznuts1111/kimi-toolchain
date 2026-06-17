@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-doctor — Comprehensive diagnostics
  * Delegates to individual tool doctor commands + runs system checks
@@ -6,7 +7,6 @@
  */
 
 import { $ } from "bun";
-import { existsSync } from "fs";
 import { basename, join } from "path";
 import { homeDir, toolsDir } from "../lib/paths.ts";
 import {
@@ -291,7 +291,7 @@ async function applySyncFix(projectRoot: string): Promise<void> {
   const syncScript = join(projectRoot, "scripts", "sync-to-desktop.ts");
   const wrapperScript = join(projectRoot, "scripts", "install-bin-wrappers.sh");
 
-  if (existsSync(syncScript)) {
+  if (pathExists(syncScript)) {
     if (!JSON_OUT) logger.line("  → Running bun run sync...");
     const proc = Bun.spawn(["bun", "run", syncScript], {
       cwd: projectRoot,
@@ -301,7 +301,7 @@ async function applySyncFix(projectRoot: string): Promise<void> {
     await proc.exited;
   }
 
-  if (existsSync(wrapperScript)) {
+  if (pathExists(wrapperScript)) {
     if (!JSON_OUT) logger.line("  → Installing PATH wrappers...");
     const proc = Bun.spawn(["bash", wrapperScript], {
       cwd: projectRoot,
@@ -336,35 +336,35 @@ async function runScript(projectRoot: string, script: string, label: string): Pr
 async function runQualityChecks(projectRoot: string): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
   const pkgPath = join(projectRoot, "package.json");
-  if (!existsSync(pkgPath)) {
+  if (!pathExists(pkgPath)) {
     return [warn("quality", "no package.json in project root")];
   }
 
   results.push(
-    existsSync(join(projectRoot, ".oxfmtrc.json"))
+    pathExists(join(projectRoot, ".oxfmtrc.json"))
       ? ok("oxfmtrc", "present")
       : warn("oxfmtrc", "missing — run kimi-fix")
   );
   results.push(
-    existsSync(join(projectRoot, ".oxlintrc.json"))
+    pathExists(join(projectRoot, ".oxlintrc.json"))
       ? ok("oxlintrc", "present")
       : warn("oxlintrc", "missing — run kimi-fix")
   );
 
   results.push(
-    existsSync(join(projectRoot, "AGENTS.md"))
+    pathExists(join(projectRoot, "AGENTS.md"))
       ? ok("project-AGENTS.md", "present")
       : warn("project-AGENTS.md", "missing — run kimi-fix")
   );
 
   results.push(
-    existsSync(join(projectRoot, ".kimi-code", "mcp.json"))
+    pathExists(join(projectRoot, ".kimi-code", "mcp.json"))
       ? ok("project-mcp.json", "present")
       : warn("project-mcp.json", "missing — run kimi-fix")
   );
 
   results.push(
-    existsSync(join(projectRoot, "scripts", "check.ts"))
+    pathExists(join(projectRoot, "scripts", "check.ts"))
       ? ok("scripts/check.ts", "present")
       : warn("scripts/check.ts", "missing — run kimi-fix")
   );
@@ -500,7 +500,7 @@ async function applyFixes(projectRoot: string): Promise<void> {
   }
 
   const govPath = join(TOOLS_DIR, "kimi-resource-governor.ts");
-  if (existsSync(govPath)) {
+  if (pathExists(govPath)) {
     if (!JSON_OUT) logger.line("  → Running kimi-resource-governor fix...");
     const proc = Bun.spawn(["bun", "run", govPath, "fix"], { stdout: "pipe", stderr: "pipe" });
     await proc.exited;
@@ -1540,17 +1540,17 @@ async function main(): Promise<number> {
   logger.section("Global Context");
 
   results.push(
-    existsSync(join(home, ".kimi-code", "AGENTS.md"))
+    pathExists(join(home, ".kimi-code", "AGENTS.md"))
       ? ok("global-AGENTS.md", "present")
       : error("global-AGENTS.md", "missing")
   );
   results.push(
-    existsSync(join(home, ".kimi-code", "UNIFIED.md"))
+    pathExists(join(home, ".kimi-code", "UNIFIED.md"))
       ? ok("UNIFIED.md", "present")
       : error("UNIFIED.md", "missing")
   );
   results.push(
-    existsSync(join(home, ".kimi-code", "TEMPLATES.md"))
+    pathExists(join(home, ".kimi-code", "TEMPLATES.md"))
       ? ok("TEMPLATES.md", "present")
       : warn("TEMPLATES.md", "missing")
   );
@@ -1572,12 +1572,12 @@ async function main(): Promise<number> {
 
   logger.section("Legacy");
   results.push(
-    existsSync(join(home, ".kimi"))
+    pathExists(join(home, ".kimi"))
       ? warn("~/.kimi", "deprecated — run: kimi migrate")
       : ok("~/.kimi", "gone")
   );
   results.push(
-    existsSync(join(home, ".kimi-code", "bin", "kimi.bak"))
+    pathExists(join(home, ".kimi-code", "bin", "kimi.bak"))
       ? warn("kimi.bak", "stale upgrade backup — safe to delete")
       : ok("kimi.bak", "gone")
   );

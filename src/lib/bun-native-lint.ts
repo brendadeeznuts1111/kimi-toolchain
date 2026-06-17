@@ -324,7 +324,7 @@ export function defaultConfig(): BunNativeLintConfig {
     schemaVersion: 1,
     gateMode: "check",
     rules,
-    exemptFiles: ["src/lib/bun-native-shim.ts"],
+    exemptFiles: ["src/lib/bun-native-shim.ts", "src/lib/bun-io.ts"],
   };
 }
 
@@ -431,9 +431,10 @@ export function buildBaselineFromViolations(
   };
 }
 
-function isImportRuleExempt(rel: string, ruleId: string, config: BunNativeLintConfig): boolean {
-  if (ruleId !== "banned-import" && ruleId !== "banned-require") return false;
-  return (config.exemptFiles ?? []).includes(rel);
+function isRuleExempt(rel: string, ruleId: string, config: BunNativeLintConfig): boolean {
+  const exempt = config.exemptFiles ?? [];
+  if (!exempt.includes(rel)) return false;
+  return ruleId === "banned-import" || ruleId === "banned-require" || ruleId === "sync-fs-api";
 }
 
 export async function scanRepo(
@@ -463,7 +464,7 @@ export async function scanRepo(
     };
 
     for (const rule of rules) {
-      if (isImportRuleExempt(rel, rule.id, config)) continue;
+      if (isRuleExempt(rel, rule.id, config)) continue;
       violations.push(...rule.detect(ctx));
     }
   }

@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { appendText, makeDir, pathExists } from "../lib/bun-io.ts";
 /**
  * Kimi Code PostToolUseFailure hook.
  *
@@ -7,7 +8,6 @@
  * ~/.kimi-code/var/tool-failures.jsonl.
  */
 
-import { appendFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { Effect } from "effect";
 import { safeParse } from "../lib/utils.ts";
@@ -55,10 +55,10 @@ async function main(): Promise<void> {
   const record = buildClassifiedFailure(toolName, output, match, { sessionId });
 
   const varDir = join(Bun.env.HOME || "/tmp", ".kimi-code", "var");
-  if (!existsSync(varDir)) mkdirSync(varDir, { recursive: true });
+  if (!pathExists(varDir)) makeDir(varDir, { recursive: true });
   const logPath = join(varDir, "tool-failures.jsonl");
 
-  appendFileSync(logPath, JSON.stringify(record) + "\n");
+  appendText(logPath, JSON.stringify(record) + "\n");
 }
 
 (async () => {

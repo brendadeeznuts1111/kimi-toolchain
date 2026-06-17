@@ -2,7 +2,8 @@
  * Cross-repo define constant parity checks for doctor / CI.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import {
   evaluateParityShared,
@@ -56,7 +57,7 @@ export async function checkConstantParity(
   for (const [repoName, repoConfig] of Object.entries(config.repos)) {
     const repoRoot = expandRepoPath(repoConfig.path, projectRoot);
     const bunfigPath = join(repoRoot, repoConfig.bunfig);
-    if (!existsSync(bunfigPath)) {
+    if (!pathExists(bunfigPath)) {
       checks.push(
         options.strict
           ? error(`repo:${repoName}`, `missing ${bunfigPath}`)

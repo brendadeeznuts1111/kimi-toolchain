@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
-import { join } from "node:path";
+import { makeDir, pathExists, readText, writeText } from "./bun-io.ts";
+
+import { execArgvSync } from "./bun-utils.ts";
+import { join } from "path";
 import { TOML } from "bun";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";
@@ -79,9 +80,9 @@ function finishWorkReportPath(projectRoot: string) {
 
 export function readState(projectRoot: string, workspaceId: string): OrchestratorState | null {
   const path = statePath(projectRoot);
-  if (!existsSync(path)) return null;
+  if (!pathExists(path)) return null;
   try {
-    const parsed = JSON.parse(readFileSync(path, "utf8")) as OrchestratorState;
+    const parsed = JSON.parse(readText(path)) as OrchestratorState;
     return parsed.workspaceId === workspaceId ? parsed : null;
   } catch {
     return null;
@@ -90,8 +91,8 @@ export function readState(projectRoot: string, workspaceId: string): Orchestrato
 
 function writeState(projectRoot: string, state: OrchestratorState) {
   const dir = join(projectRoot, ".kimi");
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(statePath(projectRoot), `${JSON.stringify(state, null, 2)}\n`, "utf8");
+  makeDir(dir, { recursive: true });
+  writeText(statePath(projectRoot), `${JSON.stringify(state, null, 2)}\n`, "utf8");
 }
 
 export function listWorkspaceAgents(workspaceId: string, session = ""): AgentSnapshot[] {
@@ -213,11 +214,7 @@ export function sshExec(resolved: ResolvedRemoteHost, command: string[]): SshExe
     try {
       return {
         ok: true,
-        output: execFileSync("ssh", args, {
-          encoding: "utf8",
-          stdio: ["ignore", "pipe", "pipe"],
-          timeout: timeoutMs,
-        }).trim(),
+        output: execArgvSync("ssh", args, { timeout: timeoutMs }),
       };
     } catch (error) {
       const err = error as { stdout?: string; stderr?: string; status?: number };
@@ -1014,9 +1011,9 @@ function buildHandoffMessage(fromAgent: string, recentText: string): string {
 
 function loadFinishWorkReport(projectRoot: string): FinishWorkReport | null {
   const path = finishWorkReportPath(projectRoot);
-  if (!existsSync(path)) return null;
+  if (!pathExists(path)) return null;
   try {
-    return JSON.parse(readFileSync(path, "utf8")) as FinishWorkReport;
+    return JSON.parse(readText(path)) as FinishWorkReport;
   } catch {
     return null;
   }
@@ -1025,7 +1022,7 @@ function loadFinishWorkReport(projectRoot: string): FinishWorkReport | null {
 function loadHerdrDoc(configPath: string | null): Record<string, unknown> | null {
   if (!configPath) return null;
   try {
-    return TOML.parse(readFileSync(configPath, "utf8")) as Record<string, unknown>;
+    return TOML.parse(readText(configPath)) as Record<string, unknown>;
   } catch {
     return null;
   }

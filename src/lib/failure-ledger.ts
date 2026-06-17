@@ -2,7 +2,8 @@
  * Failure ledger read/write with embedding pre-compute on insert.
  */
 
-import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "fs";
+import { appendText, makeDir, pathExists, writeText } from "./bun-io.ts";
+
 import { dirname } from "path";
 import { clusterMetadataPath, failureLedgerPath } from "./paths.ts";
 import {
@@ -113,7 +114,7 @@ export async function appendFailureRecord(
   record: ClassifiedFailure & Partial<FailureTraceRecord>,
   path: string = failureLedgerPath()
 ): Promise<FailureTraceRecord> {
-  mkdirSync(dirname(path), { recursive: true });
+  makeDir(dirname(path), { recursive: true });
   const traces = await readTraceEvents();
   const errorId = record.errorId || createErrorId(record);
   const traceId = record.traceId || Bun.env.KIMI_TRACE_ID;
@@ -128,7 +129,7 @@ export async function appendFailureRecord(
     parentTraceId: record.parentTraceId || Bun.env.KIMI_PARENT_TRACE_ID,
     embedding,
   };
-  appendFileSync(path, `${JSON.stringify(line)}\n`);
+  appendText(path, `${JSON.stringify(line)}\n`);
   return line;
 }
 
@@ -142,23 +143,23 @@ export async function rewriteFailureLedger(
   records: FailureTraceRecord[],
   path: string = failureLedgerPath()
 ): Promise<void> {
-  mkdirSync(dirname(path), { recursive: true });
+  makeDir(dirname(path), { recursive: true });
   const body = records.map((record) => JSON.stringify(record)).join("\n");
-  writeFileSync(path, body.length > 0 ? `${body}\n` : "");
+  writeText(path, body.length > 0 ? `${body}\n` : "");
 }
 
 export async function writeClusterMetadata(
   metadata: ClusterMetadataFile,
   path: string = clusterMetadataPath()
 ): Promise<void> {
-  mkdirSync(dirname(path), { recursive: true });
+  makeDir(dirname(path), { recursive: true });
   await Bun.write(path, `${JSON.stringify(metadata, null, 2)}\n`);
 }
 
 export async function readClusterMetadata(
   path: string = clusterMetadataPath()
 ): Promise<ClusterMetadataFile | null> {
-  if (!existsSync(path)) return null;
+  if (!pathExists(path)) return null;
   const parsed = safeParse<ClusterMetadataFile | null>(await Bun.file(path).text(), null);
   if (!parsed || parsed.schemaVersion !== CLUSTER_METADATA_SCHEMA_VERSION) return null;
   return parsed;

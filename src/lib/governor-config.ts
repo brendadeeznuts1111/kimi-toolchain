@@ -2,7 +2,8 @@
  * Load resource governor defaults from ~/.kimi-code/governor/defaults.toml
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import { getFreeMemoryMB } from "./memory-budget.ts";
 import { governorDir } from "./paths.ts";
@@ -73,7 +74,7 @@ function parseGovernorToml(text: string): Partial<GovernorDefaults> {
 export async function loadGovernorDefaults(): Promise<GovernorDefaults> {
   let merged: GovernorDefaults = { ...BUILTIN };
 
-  if (existsSync(CONFIG_PATH)) {
+  if (pathExists(CONFIG_PATH)) {
     try {
       const text = await Bun.file(CONFIG_PATH).text();
       merged = { ...merged, ...parseGovernorToml(text) };

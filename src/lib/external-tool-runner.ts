@@ -7,8 +7,9 @@
  * `invokeCommand` runner so timeouts and output bounds are enforced.
  */
 
+import { pathExists } from "./bun-io.ts";
+
 import { Effect } from "effect";
-import { existsSync } from "fs";
 import { join } from "path";
 import type { AdapterOutput, ExternalToolAdapter } from "./doctor-adapter-types.ts";
 import { invokeCommand } from "./tool-runner.ts";
@@ -22,10 +23,10 @@ function resolveExecutable(name: string, projectRoot: string): string {
   const fromPath = Bun.which(name);
   if (fromPath) return fromPath;
   const localBin = join(projectRoot, "node_modules", ".bin", name);
-  if (existsSync(localBin)) return localBin;
+  if (pathExists(localBin)) return localBin;
   if (process.platform === "win32") {
     const cmd = join(projectRoot, "node_modules", ".bin", `${name}.cmd`);
-    if (existsSync(cmd)) return cmd;
+    if (pathExists(cmd)) return cmd;
   }
   return name;
 }

@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
+import { pathExists, pathStat } from "../lib/bun-io.ts";
 /**
  * Unified Shell Bridge — Bun-native MCP shell execution
  * Derives version from src/lib/version.ts (package.json).
  */
 
-import { existsSync, statSync } from "fs";
 import { MCP_BRIDGE_VERSION } from "../lib/version.ts";
 import { defaultToolTimeoutMs, invokeCommand } from "../lib/tool-runner.ts";
 
@@ -51,7 +51,7 @@ export async function executeCommand(
     MAX_SHELL_OUTPUT_BYTES
   );
 
-  if (context.workingDir && !existsSync(context.workingDir)) {
+  if (context.workingDir && !pathExists(context.workingDir)) {
     return {
       stdout: "",
       stderr: "",
@@ -61,7 +61,7 @@ export async function executeCommand(
       error: `Working directory does not exist: ${context.workingDir}`,
     };
   }
-  if (context.workingDir && !statSync(context.workingDir).isDirectory()) {
+  if (context.workingDir && !pathStat(context.workingDir).isDirectory()) {
     return {
       stdout: "",
       stderr: "",

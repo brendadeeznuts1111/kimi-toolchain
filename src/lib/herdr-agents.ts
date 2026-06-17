@@ -1,5 +1,3 @@
-import { execFileSync } from "node:child_process";
-
 export const AGENT_COMMANDS: Record<string, string[]> = {
   codex: ["codex"],
   kimi: ["kimi"],
@@ -30,22 +28,10 @@ export const SPAWN_AGENTS = ["codex", "kimi", "hermes", "grok", "claude"] as con
 
 export const SCREEN_DETECTED_AGENTS = ["grok"] as const;
 
-function which(command: string): string | null {
-  try {
-    const output = execFileSync("which", [command], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    }).trim();
-    return output || null;
-  } catch {
-    return null;
-  }
-}
-
 export function resolveAgentArgv(agentName: string): string[] {
   const candidates = AGENT_COMMANDS[agentName] || [agentName];
   for (const candidate of candidates) {
-    const found = which(candidate);
+    const found = Bun.which(candidate);
     if (found) return [found];
   }
   return candidates;

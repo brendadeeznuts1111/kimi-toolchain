@@ -5,7 +5,8 @@
  * Bun constants cannot route live traffic, so real mutations stay behind --yes.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import { Effect } from "effect";
 import {
@@ -154,7 +155,7 @@ function issue(
 
 export async function loadBuildConstantTypes(projectRoot: string): Promise<Map<string, TypeEntry>> {
   const path = join(projectRoot, "types", "build-constants.d.ts");
-  if (!existsSync(path)) return new Map();
+  if (!pathExists(path)) return new Map();
   return parseBuildConstantsTypes(await Bun.file(path).text());
 }
 
@@ -541,7 +542,7 @@ function rewriteDefineValue(
 }
 
 async function isBunfigDirty(projectRoot: string): Promise<boolean> {
-  if (!existsSync(join(projectRoot, ".git"))) return false;
+  if (!pathExists(join(projectRoot, ".git"))) return false;
   const unstaged = Bun.spawn(["git", "diff", "--quiet", "--", "bunfig.toml"], {
     cwd: projectRoot,
     stdout: "ignore",
@@ -706,7 +707,7 @@ function isHealthSnapshot(value: unknown): value is HealthSnapshot {
 
 export async function readHealthSnapshots(projectRoot: string): Promise<HealthSnapshot[]> {
   const path = healthSnapshotsPath(projectRoot);
-  if (!existsSync(path)) return [];
+  if (!pathExists(path)) return [];
   const text = await Bun.file(path).text();
   return text
     .split("\n")

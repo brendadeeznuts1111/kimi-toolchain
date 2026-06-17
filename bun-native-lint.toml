@@ -16,13 +16,13 @@ schemaVersion = 1
 mode = "check" # check | report
 
 [rules]
-banned-import = "report"
+banned-import = "enforce"
 banned-require = "report"
-process-env = "report"
+process-env = "enforce"
 stringify-stdout = "report"
-sync-fs-api = "off"
-sleep-settimeout = "off"
-process-argv = "off"
-response-stream-text = "off"
+sync-fs-api = "enforce"
+sleep-settimeout = "enforce"
+process-argv = "enforce"
+response-stream-text = "enforce"
 
-exemptFiles = ["src/lib/bun-native-shim.ts"]
+exemptFiles = ["src/lib/bun-native-shim.ts", "src/lib/bun-io.ts"]

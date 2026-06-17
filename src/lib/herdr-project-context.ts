@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, writeFileSync } from "node:fs";
+import { execArgvSync, sleepSync } from "./bun-utils.ts";
+import { pathExists, writeText } from "./bun-io.ts";
 import type { HerdrAgentsTabPane, HerdrProjectConfig } from "./herdr-project-config.ts";
 import { herdrCliRun, resolveHerdrPanePath } from "./herdr-project-cli.ts";
 import { findWorkspaceForProject, resolveWorkspaceAgentPaneId } from "./herdr-workspace-match.ts";
@@ -15,13 +15,13 @@ export function resolveContextFilePath(): string {
 /** Write delivered context to disk for non-chat agents and manual inspection. */
 export function writeContextDrop(text: string): string {
   const path = resolveContextFilePath();
-  writeFileSync(path, text, "utf8");
+  writeText(path, text);
   return path;
 }
 
 function pauseSync(ms: number) {
   try {
-    execFileSync("sleep", [String(Math.max(0.1, ms / 1000))], { stdio: "ignore" });
+    sleepSync(ms);
   } catch {
     const deadline = Date.now() + ms;
     while (Date.now() < deadline) {}
@@ -35,12 +35,7 @@ export function runContextCommand(projectPath: string, command: string, timeout 
     ? `export PATH="${path.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"; ${command}`
     : command;
   try {
-    return execFileSync("sh", ["-lc", payload], {
-      cwd: projectPath,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      timeout,
-    }).trim();
+    return execArgvSync("sh", ["-lc", payload], { cwd: projectPath, timeout });
   } catch (error) {
     const err = error as { stdout?: string; stderr?: string };
     const output = `${err.stdout || ""}${err.stderr || ""}`.trim();
@@ -137,7 +132,7 @@ export function syncAgentsTabContext(
         contextFile = writeContextDrop(text);
         if (pane.context.includes("--write-context-files") || pane.context.includes("--json")) {
           const jsonPath = Bun.env.HERDR_CONTEXT_JSON_FILE?.trim() || "/tmp/workspace-context.json";
-          if (existsSync(jsonPath)) contextJsonFile = jsonPath;
+          if (pathExists(jsonPath)) contextJsonFile = jsonPath;
         }
       } catch (error) {
         warnings.push(

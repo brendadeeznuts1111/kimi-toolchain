@@ -2,7 +2,8 @@
  * Sync hash utilities — detect repo vs desktop runtime drift.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import { sha256File } from "./utils.ts";
 import { agentsSkillsRoot, desktopRoot, skillsDir } from "./paths.ts";
@@ -14,7 +15,7 @@ async function addGlobHashes(
   keyPrefix: string,
   pattern: string
 ): Promise<void> {
-  if (!existsSync(sourceDir)) return;
+  if (!pathExists(sourceDir)) return;
   const glob = new Bun.Glob(pattern);
   for await (const file of glob.scan({ cwd: sourceDir, onlyFiles: true })) {
     hashes[`${keyPrefix}${file}`] = await sha256File(join(sourceDir, file));
@@ -40,10 +41,10 @@ export async function computeSyncHashes(repoRoot: string): Promise<Record<string
 
   for (const doc of ROOT_TEMPLATES) {
     const path = join(repoRoot, doc);
-    if (existsSync(path)) hashes[doc] = await sha256File(path);
+    if (pathExists(path)) hashes[doc] = await sha256File(path);
   }
 
-  if (existsSync(skillDir)) {
+  if (pathExists(skillDir)) {
     const skillGlob = new Bun.Glob("**/*");
     for await (const file of skillGlob.scan({ cwd: skillDir, onlyFiles: true })) {
       const hash = await sha256File(join(skillDir, file));
@@ -84,7 +85,7 @@ export async function detectSyncDrift(repoRoot: string): Promise<SyncDriftReport
 
   for (const [key, repoHash] of Object.entries(repoHashes)) {
     const dstPath = desktopPathForKey(key);
-    if (!dstPath || !existsSync(dstPath)) {
+    if (!dstPath || !pathExists(dstPath)) {
       missing.push(key);
       continue;
     }

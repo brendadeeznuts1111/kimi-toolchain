@@ -2,7 +2,8 @@
  * Append-only causal trace ledger and graph reconstruction.
  */
 
-import { appendFileSync, existsSync, mkdirSync } from "fs";
+import { appendText, makeDir, pathExists } from "./bun-io.ts";
+
 import { dirname } from "path";
 import { failureLedgerPath, traceEventsPath } from "./paths.ts";
 import { safeParse } from "./utils.ts";
@@ -52,8 +53,8 @@ export interface FailureTraceRecord {
 }
 
 export function recordTraceEvent(event: TraceEvent, path: string = traceEventsPath()): void {
-  mkdirSync(dirname(path), { recursive: true });
-  appendFileSync(path, `${JSON.stringify(event)}\n`);
+  makeDir(dirname(path), { recursive: true });
+  appendText(path, `${JSON.stringify(event)}\n`);
 }
 
 export function buildTraceEvent(input: Omit<TraceEvent, "schemaVersion">): TraceEvent {
@@ -61,7 +62,7 @@ export function buildTraceEvent(input: Omit<TraceEvent, "schemaVersion">): Trace
 }
 
 export async function readTraceEvents(path: string = traceEventsPath()): Promise<TraceEvent[]> {
-  if (!existsSync(path)) return [];
+  if (!pathExists(path)) return [];
   const text = await Bun.file(path).text();
   return text
     .split("\n")
@@ -74,7 +75,7 @@ export async function readTraceEvents(path: string = traceEventsPath()): Promise
 export async function readFailureTraceRecords(
   path: string = failureLedgerPath()
 ): Promise<FailureTraceRecord[]> {
-  if (!existsSync(path)) return [];
+  if (!pathExists(path)) return [];
   const text = await Bun.file(path).text();
   return text
     .split("\n")

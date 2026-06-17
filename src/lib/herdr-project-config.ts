@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { pathExists, readText } from "./bun-io.ts";
+
+import { join } from "path";
 import { TOML } from "bun";
 import type { PaneRequirementSpec } from "./herdr-pane-requires.ts";
 
@@ -55,7 +56,7 @@ export interface HerdrProjectConfig {
 }
 
 function readToml(path: string): Record<string, unknown> {
-  return TOML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+  return TOML.parse(readText(path)) as Record<string, unknown>;
 }
 
 const HERDR_PANE_ROLES = new Set<HerdrPaneRole>(["primary", "secondary", "shell"]);
@@ -224,7 +225,7 @@ export function discoverHerdrProjectConfig(
 ): HerdrProjectConfig | null {
   for (const name of HERDR_PROJECT_CONFIG_NAMES) {
     const candidate = join(projectPath, name);
-    if (!existsSync(candidate)) continue;
+    if (!pathExists(candidate)) continue;
     const doc = readToml(candidate);
     const section = extractHerdrProjectSection(doc, name);
     if (!section) continue;

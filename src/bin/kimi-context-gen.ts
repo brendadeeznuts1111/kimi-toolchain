@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-context-gen — Auto-generate CONTEXT.md from project scan
  * P1: Tech stack inference, config hash tree, freshness scoring
@@ -8,7 +9,6 @@
  */
 
 import { $, semver, TOML } from "bun";
-import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
@@ -56,9 +56,9 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
   const wranglerPath = join(projectDir, "wrangler.toml");
   const dockerPath = join(projectDir, "Dockerfile");
 
-  if (existsSync(bunfigPath) || existsSync(join(projectDir, "bun.lock"))) {
+  if (pathExists(bunfigPath) || pathExists(join(projectDir, "bun.lock"))) {
     stack.runtime = "Bun >=1.3.14";
-    if (existsSync(bunfigPath)) {
+    if (pathExists(bunfigPath)) {
       try {
         const config = TOML.parse(await Bun.file(bunfigPath).text()) as any;
         if (config.install?.registry) {
@@ -68,11 +68,11 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
         /* ignore */
       }
     }
-  } else if (existsSync(pkgPath)) {
+  } else if (pathExists(pkgPath)) {
     stack.runtime = "Node.js";
   }
 
-  if (existsSync(pkgPath)) {
+  if (pathExists(pkgPath)) {
     const pkg = (await Bun.file(pkgPath).json()) as any;
     const deps = { ...pkg.dependencies, ...pkg.devDependencies };
 
@@ -101,16 +101,16 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
     }
   }
 
-  const hasPrisma = existsSync(join(projectDir, "prisma", "schema.prisma"));
-  const hasDrizzle = existsSync(join(projectDir, "drizzle.config.ts"));
+  const hasPrisma = pathExists(join(projectDir, "prisma", "schema.prisma"));
+  const hasDrizzle = pathExists(join(projectDir, "drizzle.config.ts"));
   if (hasPrisma) stack.database = "Prisma + SQLite/PostgreSQL";
   else if (hasDrizzle) stack.database = "Drizzle + SQLite";
-  else if (existsSync(join(projectDir, "migrations")))
+  else if (pathExists(join(projectDir, "migrations")))
     stack.database = "D1/SQLite (migrations found)";
 
-  if (existsSync(wranglerPath)) stack.deploy = "Cloudflare Workers";
-  else if (existsSync(dockerPath)) stack.deploy = "Docker";
-  else if (existsSync(join(projectDir, "fly.toml"))) stack.deploy = "Fly.io";
+  if (pathExists(wranglerPath)) stack.deploy = "Cloudflare Workers";
+  else if (pathExists(dockerPath)) stack.deploy = "Docker";
+  else if (pathExists(join(projectDir, "fly.toml"))) stack.deploy = "Fly.io";
 
   return stack;
 }
@@ -123,7 +123,7 @@ async function hashConfigs(projectDir: string): Promise<ConfigHash[]> {
 
   for (const cfg of configs) {
     const path = join(projectDir, cfg);
-    if (!existsSync(path)) continue;
+    if (!pathExists(path)) continue;
     const file = Bun.file(path);
     const content = await file.arrayBuffer();
     const hash = new Bun.CryptoHasher("sha256");
@@ -157,7 +157,7 @@ async function checkReadmeDrift(projectDir: string): Promise<FreshnessResult["re
 async function checkAdrStaleness(projectDir: string): Promise<FreshnessResult["adrStaleness"]> {
   const adrDir = join(projectDir, "docs", "adr");
   let count = 0;
-  if (existsSync(adrDir)) {
+  if (pathExists(adrDir)) {
     const glob = new Bun.Glob("*.md");
     for await (const _ of glob.scan({ cwd: adrDir, absolute: false })) {
       count++;
@@ -212,7 +212,7 @@ async function computeFreshness(
   ensureDir(GUARDIAN_DIR);
 
   let meta: ContextMeta | null = null;
-  if (existsSync(CONTEXT_META)) {
+  if (pathExists(CONTEXT_META)) {
     try {
       meta = (await Bun.file(CONTEXT_META).json()) as ContextMeta;
     } catch {
@@ -278,7 +278,7 @@ async function generateContext(projectDir: string): Promise<string> {
 
   const pkgPath = join(projectDir, "package.json");
   let commands = "";
-  if (existsSync(pkgPath)) {
+  if (pathExists(pkgPath)) {
     const pkg = (await Bun.file(pkgPath).json()) as any;
     const scripts = pkg.scripts || {};
     const relevant = Object.entries(scripts)
@@ -299,7 +299,7 @@ async function generateContext(projectDir: string): Promise<string> {
   const licenseFiles = ["LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING"];
   let licenseType: string | null = null;
   for (const f of licenseFiles) {
-    if (existsSync(join(projectDir, f))) {
+    if (pathExists(join(projectDir, f))) {
       const content = (await Bun.file(join(projectDir, f)).text()).slice(0, 500).toLowerCase();
       if (content.includes("mit")) licenseType = "MIT";
       else if (content.includes("apache")) licenseType = "Apache-2.0";
@@ -311,7 +311,7 @@ async function generateContext(projectDir: string): Promise<string> {
   }
   govLines.push(`| License | ${licenseType || "missing — add LICENSE"} |`);
   govLines.push(
-    `| CONTRIBUTING.md | ${existsSync(join(projectDir, "CONTRIBUTING.md")) ? "present" : "missing"} |`
+    `| CONTRIBUTING.md | ${pathExists(join(projectDir, "CONTRIBUTING.md")) ? "present" : "missing"} |`
   );
 
   const codeownersPaths = [
@@ -322,7 +322,7 @@ async function generateContext(projectDir: string): Promise<string> {
   let codeownersPresent = false;
   let codeownersList: string[] = [];
   for (const path of codeownersPaths) {
-    if (existsSync(path)) {
+    if (pathExists(path)) {
       codeownersPresent = true;
       const lines = (await Bun.file(path).text()).split("\n");
       for (const line of lines) {
@@ -341,17 +341,17 @@ async function generateContext(projectDir: string): Promise<string> {
 
   const adrDir = join(projectDir, "docs", "adr");
   const adrs: string[] = [];
-  if (existsSync(adrDir)) {
+  if (pathExists(adrDir)) {
     const glob = new Bun.Glob("*.md");
     for await (const file of glob.scan({ cwd: adrDir, absolute: false })) {
       adrs.push(file.replace(/\.md$/, ""));
     }
   }
   const agentReferenceLines = ["AGENTS.md", "CODE_REFERENCES.md", "UNIFIED.md", "TEMPLATES.md"]
-    .filter((file) => existsSync(join(projectDir, file)))
+    .filter((file) => pathExists(join(projectDir, file)))
     .map((file) => `- \`${file}\``);
 
-  const successMetricsSection = existsSync(join(projectDir, "src/lib/success-metrics.ts"))
+  const successMetricsSection = pathExists(join(projectDir, "src/lib/success-metrics.ts"))
     ? `## Success Metrics
 
 Tracked by \`kimi-doctor --success-metrics\`:
@@ -367,11 +367,11 @@ The metrics are not frozen. Threshold changes follow toolchain **release cadence
 `
     : "";
 
-  const domainBlurb = existsSync(join(projectDir, "src/bin/kimi-doctor.ts"))
+  const domainBlurb = pathExists(join(projectDir, "src/bin/kimi-doctor.ts"))
     ? "Bun-native CLI meta-toolkit: project health (`kimi-doctor`), governance (R-Score), supply-chain security (`kimi-guardian`), git hooks, session memory, and scaffolding. Runtime syncs to `~/.kimi-code/` for Kimi Code agents."
     : "[Auto-generated. Describe what this project does and who uses it.]";
 
-  const notesBlurb = existsSync(join(projectDir, "src/bin/kimi-doctor.ts"))
+  const notesBlurb = pathExists(join(projectDir, "src/bin/kimi-doctor.ts"))
     ? "Canonical clone path: `~/kimi-toolchain`. Agent entry: `kimi-toolchain <tool>`; read `AGENTS.md` before editing. Regenerate this file with `kimi-context-gen update` when layout or scripts change."
     : "[Add domain-specific notes, key decisions, gotchas]";
 
@@ -455,9 +455,9 @@ async function doctor(
   const contextPath = join(projectDir, "CONTEXT.md");
   checks.push({
     name: "CONTEXT.md",
-    status: existsSync(contextPath) ? "ok" : "warn",
-    message: existsSync(contextPath) ? "present" : "missing",
-    fixable: !existsSync(contextPath),
+    status: pathExists(contextPath) ? "ok" : "warn",
+    message: pathExists(contextPath) ? "present" : "missing",
+    fixable: !pathExists(contextPath),
   });
 
   const hashes = await hashConfigs(projectDir);
@@ -497,13 +497,13 @@ async function doctor(
 
   // Check for broken ADR links
   const adrDir = join(projectDir, "docs", "adr");
-  if (existsSync(adrDir) && existsSync(contextPath)) {
+  if (pathExists(adrDir) && pathExists(contextPath)) {
     const ctxContent = await Bun.file(contextPath).text();
     const adrMatches = ctxContent.match(/docs\/adr\/[^`\]]+/g) || [];
     let broken = 0;
     for (const adrRef of adrMatches) {
       const adrFile = adrRef.replace(/^docs\/adr\//, "").replace(/\/$/, "") + ".md";
-      if (!existsSync(join(adrDir, adrFile))) broken++;
+      if (!pathExists(join(adrDir, adrFile))) broken++;
     }
     if (broken > 0) {
       checks.push({
@@ -551,7 +551,7 @@ async function main(): Promise<number> {
     await storeMeta(projectDir, hashes, score);
 
     const contextPath = join(projectDir, "CONTEXT.md");
-    if (!existsSync(contextPath)) {
+    if (!pathExists(contextPath)) {
       logger.info("CONTEXT.md missing. Run 'kimi-context-gen update' to create.");
     }
   } else if (command === "update") {
@@ -559,7 +559,7 @@ async function main(): Promise<number> {
     const content = await generateContext(projectDir);
     const contextPath = join(projectDir, "CONTEXT.md");
 
-    if (existsSync(contextPath)) {
+    if (pathExists(contextPath)) {
       logger.warn("CONTEXT.md exists — backing up to CONTEXT.md.bak");
       await Bun.write(join(projectDir, "CONTEXT.md.bak"), await Bun.file(contextPath).text());
     }
@@ -602,7 +602,7 @@ async function main(): Promise<number> {
       logger.warn(`Freshness ${score}/10 < threshold ${threshold}/10 — regenerating`);
       const content = await generateContext(projectDir);
       const contextPath = join(projectDir, "CONTEXT.md");
-      if (existsSync(contextPath)) {
+      if (pathExists(contextPath)) {
         await Bun.write(join(projectDir, "CONTEXT.md.bak"), await Bun.file(contextPath).text());
       }
       await Bun.write(contextPath, content);

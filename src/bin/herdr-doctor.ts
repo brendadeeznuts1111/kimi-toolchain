@@ -13,7 +13,7 @@ function writeOut(line = ""): void {
   process.stdout.write(`${line}\n`);
 }
 
-const options = parseArgs(process.argv.slice(2));
+const options = parseArgs(Bun.argv.slice(2));
 if (options.help) {
   writeOut(
     "herdr-doctor [--json] [--fix]\n\nRead-only Herdr integration health for the DX config hub.\n--fix updates stale agent manifests when the server is running."

@@ -2,7 +2,8 @@
  * Append-only optimizer health trend ledger (.kimi/var/optimizer-health.ndjson).
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { appendNdjsonRecord, readNdjsonFile } from "./ndjson.ts";
 import { optimizerHealthTrendPath } from "./paths.ts";
 import { getProjectName } from "./utils.ts";
@@ -103,7 +104,7 @@ export async function appendOptimizerHealthTrend(
   };
 
   await appendNdjsonRecord(path, record);
-  if (existsSync(path)) await pruneTrendFile(path);
+  if (pathExists(path)) await pruneTrendFile(path);
   return record;
 }
 

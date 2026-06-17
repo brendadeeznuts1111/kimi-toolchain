@@ -5,8 +5,9 @@
  * provides runtime/test access without leaking overrides outside Effect.provide.
  */
 
+import { pathExists } from "./bun-io.ts";
+
 import { Context, Effect, Layer } from "effect";
-import { existsSync } from "fs";
 import { join } from "path";
 import { loadRepoDefineMap, parseBuildConstantsTypes } from "./build-constants-registry.ts";
 
@@ -90,7 +91,7 @@ export async function loadConstantSchemas(
   projectRoot: string
 ): Promise<Map<string, ConstantSchema>> {
   const typesPath = join(projectRoot, "types", "build-constants.d.ts");
-  if (!existsSync(typesPath)) return new Map();
+  if (!pathExists(typesPath)) return new Map();
 
   const types = parseBuildConstantsTypes(await Bun.file(typesPath).text());
   return new Map(

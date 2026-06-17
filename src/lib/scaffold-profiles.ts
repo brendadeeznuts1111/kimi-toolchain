@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { pathExists, readText } from "./bun-io.ts";
+
+import { join, resolve } from "path";
 import { homeDir } from "./paths.ts";
 
 export type ScaffoldProfile = "app" | "toolchain";
@@ -21,17 +22,17 @@ function resolveTemplateDir(): string {
     join(import.meta.dir, "..", "..", "templates", "scaffold"),
     join(import.meta.dir, "..", "templates", "scaffold"),
   ];
-  return candidates.find((dir) => existsSync(dir)) ?? candidates[0];
+  return candidates.find((dir) => pathExists(dir)) ?? candidates[0];
 }
 
 const TEMPLATE_DIR = resolveTemplateDir();
 
 function loadTemplate(name: string): string {
   const path = join(TEMPLATE_DIR, name);
-  if (!existsSync(path)) {
+  if (!pathExists(path)) {
     throw new Error(`Template missing: templates/scaffold/${name}`);
   }
-  return readFileSync(path, "utf8");
+  return readText(path);
 }
 
 export const DX_CONFIG_APP_TEMPLATE = loadTemplate("dx.config.app.toml");
@@ -88,15 +89,15 @@ export function dxAgentsPath(home = homeDir()): string {
 
 export function detectProfileDrift(projectRoot: string, profile: ScaffoldProfile): string | null {
   const dxConfigPath = join(projectRoot, "dx.config.toml");
-  if (!existsSync(dxConfigPath)) return null;
+  if (!pathExists(dxConfigPath)) return null;
 
-  const content = readFileSync(dxConfigPath, "utf8");
+  const content = readText(dxConfigPath);
   const hasToolchainMarkers = content.includes("[finishWork]") || content.includes("[herdr]");
 
   if (profile === "toolchain") {
     const missing: string[] = [];
     for (const script of ["scripts/finish-work.ts", "scripts/reviewer-pane.ts"]) {
-      if (!existsSync(join(projectRoot, script))) missing.push(script);
+      if (!pathExists(join(projectRoot, script))) missing.push(script);
     }
     if (missing.length > 0) {
       return (

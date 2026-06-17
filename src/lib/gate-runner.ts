@@ -2,7 +2,8 @@
  * Shared quality-gate runner — silent on success, verbose on failure, optional cache.
  */
 
-import { existsSync, mkdirSync } from "fs";
+import { makeDir, pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import { $ } from "bun";
 import { isHookSummaryMode, parseBunTestSummary } from "./quiet-mode.ts";
@@ -36,7 +37,7 @@ export async function currentGitHead(projectRoot: string): Promise<string | null
 
 export async function readGateCache(projectRoot: string): Promise<GateCacheFile | null> {
   const path = gateCachePath(projectRoot);
-  if (!existsSync(path)) return null;
+  if (!pathExists(path)) return null;
   const parsed = safeParse<GateCacheFile | null>(await Bun.file(path).text(), null);
   if (!parsed?.commit || !Array.isArray(parsed.gates)) return null;
   return parsed;
@@ -46,7 +47,7 @@ export async function writeGateCache(projectRoot: string, gates: string[]): Prom
   const head = await currentGitHead(projectRoot);
   if (!head) return;
   const path = gateCachePath(projectRoot);
-  mkdirSync(join(projectRoot, ".kimi"), { recursive: true });
+  makeDir(join(projectRoot, ".kimi"), { recursive: true });
   const payload: GateCacheFile = {
     commit: head,
     gates,

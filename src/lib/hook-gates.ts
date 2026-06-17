@@ -2,7 +2,8 @@
  * Pre-commit / pre-push gate orchestration for kimi-githooks run-gates.
  */
 
-import { existsSync, mkdirSync } from "fs";
+import { makeDir, pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import { $ } from "bun";
 import {
@@ -132,7 +133,7 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
     },
     async () => {
       const tuning = join(projectRoot, "scripts/lint-tuning-set-version.ts");
-      if (!existsSync(tuning)) return null;
+      if (!pathExists(tuning)) return null;
       if (!summary) printVerboseBanner("Tuning set version");
       return runGateVisible(projectRoot, "tuning-set", [
         "bun",
@@ -163,7 +164,7 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
 }
 
 async function runGuardianGate(projectRoot: string): Promise<GateResult> {
-  const guardian = existsSync(join(projectRoot, "src/bin/kimi-guardian.ts"))
+  const guardian = pathExists(join(projectRoot, "src/bin/kimi-guardian.ts"))
     ? join(projectRoot, "src/bin/kimi-guardian.ts")
     : null;
   if (!guardian) {
@@ -261,7 +262,7 @@ async function wrapperInputHash(projectRoot: string): Promise<string | null> {
     join(projectRoot, "src/lib/herdr-agents.ts"),
   ];
   for (const path of paths) {
-    if (!existsSync(path)) return null;
+    if (!pathExists(path)) return null;
     hasher.update(await sha256File(path));
   }
   return hasher.digest("hex");
@@ -271,14 +272,14 @@ async function shouldSkipWrapperInstall(projectRoot: string): Promise<boolean> {
   if (await shouldSkipGate(projectRoot, "install-wrappers")) return true;
   const marker = join(projectRoot, WRAPPER_HASH_PATH);
   const current = await wrapperInputHash(projectRoot);
-  if (!current || !existsSync(marker)) return false;
+  if (!current || !pathExists(marker)) return false;
   return (await Bun.file(marker).text()).trim() === current;
 }
 
 async function writeWrapperInputHash(projectRoot: string): Promise<void> {
   const current = await wrapperInputHash(projectRoot);
   if (!current) return;
-  mkdirSync(join(projectRoot, ".kimi"), { recursive: true });
+  makeDir(join(projectRoot, ".kimi"), { recursive: true });
   await Bun.write(join(projectRoot, WRAPPER_HASH_PATH), `${current}\n`);
 }
 
@@ -291,7 +292,7 @@ function mergePushGateResults(results: GateResult[], batch: GateResult[]): numbe
 }
 
 async function runRScoreGate(projectRoot: string): Promise<GateResult> {
-  const governance = existsSync(join(projectRoot, "src/bin/kimi-governance.ts"))
+  const governance = pathExists(join(projectRoot, "src/bin/kimi-governance.ts"))
     ? join(projectRoot, "src/bin/kimi-governance.ts")
     : null;
   if (!governance) {
@@ -342,7 +343,7 @@ async function runEffectGatesGate(projectRoot: string): Promise<GateResult> {
     };
   }
 
-  const doctor = existsSync(join(projectRoot, "src/bin/kimi-doctor.ts"))
+  const doctor = pathExists(join(projectRoot, "src/bin/kimi-doctor.ts"))
     ? join(projectRoot, "src/bin/kimi-doctor.ts")
     : null;
   if (!doctor) {
@@ -372,7 +373,7 @@ async function runCheckFastGate(projectRoot: string): Promise<GateResult> {
 
 async function runInstallWrappersGate(projectRoot: string): Promise<GateResult> {
   const installer = join(projectRoot, "scripts/install-bin-wrappers.sh");
-  if (!existsSync(installer)) {
+  if (!pathExists(installer)) {
     return {
       name: "install-wrappers",
       exitCode: 0,
@@ -419,7 +420,7 @@ async function runSyncGate(projectRoot: string): Promise<GateResult> {
       skipped: true,
     };
   }
-  const sync = existsSync(join(projectRoot, "scripts/sync-to-desktop.ts"))
+  const sync = pathExists(join(projectRoot, "scripts/sync-to-desktop.ts"))
     ? ["bun", "run", "scripts/sync-to-desktop.ts"]
     : ["bun", "run", "sync"];
   return runGateVisible(projectRoot, "sync", sync);
@@ -456,7 +457,7 @@ async function runWorkspaceVerifyGate(projectRoot: string): Promise<GateResult> 
       skipped: true,
     };
   }
-  const verify = existsSync(join(projectRoot, "scripts/verify-workspace.sh"))
+  const verify = pathExists(join(projectRoot, "scripts/verify-workspace.sh"))
     ? ["bash", "scripts/verify-workspace.sh"]
     : ["bun", "run", "src/bin/kimi-doctor.ts", "workspace", "verify"];
   return runGateVisible(projectRoot, "workspace-verify", verify);
@@ -717,7 +718,7 @@ export async function planPreCommitGates(projectRoot: string): Promise<PlannedGa
       skipped: await shouldSkipGate(projectRoot, "test:fast"),
     });
   }
-  if (existsSync(join(projectRoot, "scripts/lint-tuning-set-version.ts"))) {
+  if (pathExists(join(projectRoot, "scripts/lint-tuning-set-version.ts"))) {
     planned.push({
       name: "tuning-set",
       cmd: ["bun", "run", "scripts/lint-tuning-set-version.ts", "--staged"],
@@ -732,7 +733,7 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
   const planned: PlannedGate[] = [];
   const isToolchain = await isKimiToolchainRepo(projectRoot);
 
-  if (existsSync(join(projectRoot, "src/bin/kimi-guardian.ts"))) {
+  if (pathExists(join(projectRoot, "src/bin/kimi-guardian.ts"))) {
     planned.push({
       name: "guardian",
       cmd: ["bun", "run", "src/bin/kimi-guardian.ts", "check"],
@@ -748,7 +749,7 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
         (await shouldSkipGate(projectRoot, "constant-drift")),
     });
   }
-  if (existsSync(join(projectRoot, "src/bin/kimi-governance.ts"))) {
+  if (pathExists(join(projectRoot, "src/bin/kimi-governance.ts"))) {
     planned.push({
       name: "r-score",
       cmd: ["bun", "run", "src/bin/kimi-governance.ts", "score", "--quick", "--hook"],
@@ -766,7 +767,7 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
     });
   }
 
-  const doctor = existsSync(join(projectRoot, "src/bin/kimi-doctor.ts"))
+  const doctor = pathExists(join(projectRoot, "src/bin/kimi-doctor.ts"))
     ? join(projectRoot, "src/bin/kimi-doctor.ts")
     : null;
   if (doctor) {
@@ -780,14 +781,14 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
   }
 
   if (isToolchain) {
-    if (existsSync(join(projectRoot, "scripts/install-bin-wrappers.sh"))) {
+    if (pathExists(join(projectRoot, "scripts/install-bin-wrappers.sh"))) {
       planned.push({
         name: "install-wrappers",
         cmd: ["bash", "scripts/install-bin-wrappers.sh"],
         skipped: await shouldSkipWrapperInstall(projectRoot),
       });
     }
-    const verify = existsSync(join(projectRoot, "scripts/verify-workspace.sh"))
+    const verify = pathExists(join(projectRoot, "scripts/verify-workspace.sh"))
       ? ["bash", "scripts/verify-workspace.sh"]
       : ["bun", "run", "src/bin/kimi-doctor.ts", "workspace", "verify"];
     planned.push({
@@ -796,7 +797,7 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
       skipped: await shouldSkipGate(projectRoot, "workspace-verify"),
     });
 
-    const sync = existsSync(join(projectRoot, "scripts/sync-to-desktop.ts"))
+    const sync = pathExists(join(projectRoot, "scripts/sync-to-desktop.ts"))
       ? ["bun", "run", "scripts/sync-to-desktop.ts"]
       : ["bun", "run", "sync"];
     const syncSkipped =

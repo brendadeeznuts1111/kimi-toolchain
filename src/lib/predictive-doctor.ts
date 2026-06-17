@@ -2,7 +2,8 @@
  * Predictive doctor — project-local health snapshots and trend analysis.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { appendNdjsonRecord, readNdjsonFile } from "./ndjson.ts";
 import { healthSnapshotsPath } from "./paths.ts";
 import { getProjectName } from "./utils.ts";
@@ -304,7 +305,7 @@ export async function appendHealthSnapshot(
   const nowMs = input.nowMs ?? Date.now();
   if (await shouldSkipAppend(path, snapshot, nowMs)) return null;
   await appendNdjsonRecord(path, snapshot);
-  if (existsSync(path)) await pruneHealthSnapshots(path);
+  if (pathExists(path)) await pruneHealthSnapshots(path);
   return snapshot;
 }
 

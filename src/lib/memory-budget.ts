@@ -143,12 +143,7 @@ export function isDockerDesktopRunning(): boolean {
 }
 
 export function isDockerCliInstalled(): boolean {
-  try {
-    const out = decoder.decode(Bun.spawnSync(["which", "docker"]).stdout);
-    return out.trim().length > 0;
-  } catch {
-    return false;
-  }
+  return Bun.which("docker") != null;
 }
 
 export function isSyncDaemonRunning(): boolean {

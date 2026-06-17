@@ -2,7 +2,8 @@
  * Link error taxonomy categories to bunfig define constants.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import {
   generateConstantsManifest,
@@ -60,7 +61,7 @@ export async function buildTaxonomyConstantLinks(
   projectRoot: string
 ): Promise<TaxonomyConstantLink[]> {
   const taxonomyPath = join(projectRoot, "error-taxonomy.yml");
-  if (!existsSync(taxonomyPath)) return [];
+  if (!pathExists(taxonomyPath)) return [];
 
   const taxonomy = await loadTaxonomy(taxonomyPath);
   const manifest = await generateConstantsManifest(projectRoot);
@@ -108,7 +109,7 @@ export async function checkTaxonomyConstantLinks(
   projectRoot: string
 ): Promise<TaxonomyConstantReport> {
   const taxonomyPath = join(projectRoot, "error-taxonomy.yml");
-  if (!existsSync(taxonomyPath)) {
+  if (!pathExists(taxonomyPath)) {
     return { applicable: false, aligned: true, checks: [], links: [] };
   }
 
@@ -163,7 +164,7 @@ export async function loadFailureCountsByTaxonomy(
   ledgerPath: string
 ): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
-  if (!existsSync(ledgerPath)) return counts;
+  if (!pathExists(ledgerPath)) return counts;
 
   const text = await Bun.file(ledgerPath).text();
   for (const line of text.split("\n")) {
@@ -231,7 +232,7 @@ const SIX_HOURS_MS = 6 * ONE_HOUR_MS;
 
 export async function buildBoundConstantIndex(projectRoot: string): Promise<Map<string, string[]>> {
   const taxonomyPath = join(projectRoot, "error-taxonomy.yml");
-  if (!existsSync(taxonomyPath)) return new Map();
+  if (!pathExists(taxonomyPath)) return new Map();
 
   const taxonomy = await loadTaxonomy(taxonomyPath);
   const index = new Map<string, string[]>();
@@ -261,7 +262,7 @@ export async function checkRecentlyModifiedBoundConstants(
   const nowMs = options.nowMs ?? Date.now();
   const taxonomyPath = join(projectRoot, "error-taxonomy.yml");
 
-  if (!existsSync(taxonomyPath)) {
+  if (!pathExists(taxonomyPath)) {
     return { applicable: false, aligned: true, checks: [], links: [] };
   }
 

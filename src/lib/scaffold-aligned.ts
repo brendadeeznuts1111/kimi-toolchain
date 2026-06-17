@@ -2,7 +2,8 @@
  * Scaffold alignment soft gate — for projects with dx.config.toml [kimi] preflight.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 
 export interface ScaffoldCheck {
@@ -35,7 +36,7 @@ const AGENTS_MARKERS = [
 
 export async function hasKimiPreflight(projectDir: string): Promise<boolean> {
   const path = join(projectDir, "dx.config.toml");
-  if (!existsSync(path)) return false;
+  if (!pathExists(path)) return false;
   const text = await Bun.file(path).text();
   return /\[kimi\]/i.test(text) && /preflight\s*=\s*true/i.test(text);
 }
@@ -49,7 +50,7 @@ export async function checkScaffoldAligned(projectDir: string): Promise<Scaffold
   const checks: ScaffoldCheck[] = [];
   const agentsPath = join(projectDir, "AGENTS.md");
 
-  if (!existsSync(agentsPath)) {
+  if (!pathExists(agentsPath)) {
     checks.push({ name: "AGENTS.md", status: "warn", message: "missing" });
   } else {
     const text = (await Bun.file(agentsPath).text()).toLowerCase();

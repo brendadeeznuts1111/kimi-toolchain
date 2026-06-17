@@ -1,5 +1,6 @@
-import { cpSync, existsSync } from "./bun-native-shim.ts";
-import { join } from "node:path";
+import { copyTree, pathExists } from "./bun-io.ts";
+
+import { join } from "path";
 import { desktopRoot, homeDir } from "./paths.ts";
 import { ensureDir, sha256File } from "./utils.ts";
 
@@ -31,11 +32,11 @@ export async function provisionDesktopRuntimeDeps(
 
   ensureDir(root);
 
-  const destExists = existsSync(destPackage);
+  const destExists = pathExists(destPackage);
   const destHash = destExists ? await sha256File(destPackage) : "";
   const templateHash = await sha256File(RUNTIME_PACKAGE_TEMPLATE);
   const packageChanged = !destExists || destHash !== templateHash;
-  const needsInstall = packageChanged || !existsSync(typescriptModule);
+  const needsInstall = packageChanged || !pathExists(typescriptModule);
 
   if (!needsInstall) {
     return { installed: false, reason: "runtime dependencies already satisfied" };
@@ -54,7 +55,7 @@ export async function provisionDesktopRuntimeDeps(
     await Bun.write(destPackage, templateText);
   }
 
-  if (!existsSync(typescriptModule) && seedRuntimeNodeModulesFromHost(root)) {
+  if (!pathExists(typescriptModule) && seedRuntimeNodeModulesFromHost(root)) {
     return { installed: true, reason: "seeded node_modules from host runtime" };
   }
 
@@ -77,15 +78,15 @@ export async function provisionDesktopRuntimeDeps(
 /** Quick health check used by doctor/sync verify. */
 export function desktopRuntimeDepsOk(home?: string): boolean {
   const root = desktopRoot(home);
-  return existsSync(join(root, "node_modules", "typescript", "package.json"));
+  return pathExists(join(root, "node_modules", "typescript", "package.json"));
 }
 
 function seedRuntimeNodeModulesFromHost(targetRoot: string): boolean {
   const hostModules = join(desktopRoot(HOST_HOME_SNAPSHOT), "node_modules");
   const typescriptPkg = join(hostModules, "typescript", "package.json");
-  if (!existsSync(typescriptPkg)) return false;
+  if (!pathExists(typescriptPkg)) return false;
   const targetModules = join(targetRoot, "node_modules");
-  if (existsSync(join(targetModules, "typescript", "package.json"))) return true;
-  cpSync(hostModules, targetModules, { recursive: true });
-  return existsSync(join(targetModules, "typescript", "package.json"));
+  if (pathExists(join(targetModules, "typescript", "package.json"))) return true;
+  copyTree(hostModules, targetModules, { recursive: true });
+  return pathExists(join(targetModules, "typescript", "package.json"));
 }

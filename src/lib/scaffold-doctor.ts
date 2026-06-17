@@ -11,7 +11,8 @@
  * Server CI is not the enforcement layer for this project.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import { REQUIRED_PACKAGE_SCRIPTS } from "./scaffold-templates.ts";
 import type { HealthCheck as DoctorCheck } from "./health-check.ts";
@@ -33,7 +34,7 @@ interface DxCiConfig {
  */
 async function readDxCiConfig(projectDir: string): Promise<DxCiConfig> {
   const dxPath = join(projectDir, "dx.config.toml");
-  if (!existsSync(dxPath)) {
+  if (!pathExists(dxPath)) {
     return { workflowPath: DEFAULT_WORKFLOW_PATH, ciDisabled: false };
   }
   try {
@@ -72,7 +73,7 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
   ];
 
   for (const { name, rel } of fileChecks) {
-    const present = existsSync(join(projectDir, rel));
+    const present = pathExists(join(projectDir, rel));
     checks.push({
       name,
       status: present ? "ok" : "warn",
@@ -85,7 +86,7 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
   // Three states: present at configured path, disabled (intentionally moved), or missing.
   // Only "missing and not disabled" is fixable — disabled CI is a valid configuration.
 
-  const ciPresent = existsSync(join(projectDir, workflowPath));
+  const ciPresent = pathExists(join(projectDir, workflowPath));
 
   let ciStatus: DoctorCheck["status"];
   let ciMessage: string;
@@ -115,7 +116,7 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
   // --- Package scripts check ---
 
   const pkgPath = join(projectDir, "package.json");
-  if (!existsSync(pkgPath)) {
+  if (!pathExists(pkgPath)) {
     checks.push({
       name: "package.json",
       status: "error",

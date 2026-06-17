@@ -1,6 +1,7 @@
+import { makeDir, pathExists } from "./bun-io.ts";
+
 import { Database } from "bun:sqlite";
 import { randomUUIDv7 } from "bun";
-import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { getProjectName, safeParse } from "./utils.ts";
 import {
@@ -23,7 +24,7 @@ export type { SessionRecord, KnowledgeNode, KnowledgeEdge, ImpactResult };
 // ── Database ─────────────────────────────────────────────────────────
 
 export function getDb(): Database {
-  if (!existsSync(MEMORY_DIR)) mkdirSync(MEMORY_DIR, { recursive: true });
+  if (!pathExists(MEMORY_DIR)) makeDir(MEMORY_DIR, { recursive: true });
   const db = new Database(DB_PATH, { create: true });
   db.exec("PRAGMA journal_mode = WAL;");
 
@@ -190,7 +191,7 @@ export async function resumeSession(
 
   try {
     const lockPath = join(projectPath, "bun.lock");
-    if (existsSync(lockPath)) {
+    if (pathExists(lockPath)) {
       const hasher = new Bun.CryptoHasher("sha256");
       hasher.update(await Bun.file(lockPath).text());
       const currentHash = hasher.digest("hex");
@@ -426,7 +427,7 @@ export async function startAutoSave(projectPath: string, intervalMs = 120000) {
 
     try {
       const lockPath = join(projectPath, "bun.lock");
-      if (existsSync(lockPath)) {
+      if (pathExists(lockPath)) {
         const hasher = new Bun.CryptoHasher("sha256");
         hasher.update(await Bun.file(lockPath).text());
         lockfileHash = hasher.digest("hex");

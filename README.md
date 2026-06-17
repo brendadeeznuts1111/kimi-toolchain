@@ -74,6 +74,8 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run bun-native:rules` | (synced from package.json) |
 | `bun run bun-native:batch` | (synced from package.json) |
 | `bun run bun-native:baseline` | (synced from package.json) |
+| `bun run bun-native:migrate-imports` | (synced from package.json) |
+| `bun run bun-native:migrate-fs` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                           |

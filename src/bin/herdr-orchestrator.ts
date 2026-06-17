@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { pathExists, readText } from "../lib/bun-io.ts";
 import { TOML } from "bun";
 import { discoverHerdrProjectConfig } from "../lib/herdr-project-config.ts";
 import { syncAgentsTabContext } from "../lib/herdr-project-context.ts";
@@ -41,8 +42,7 @@ import {
   herdrCliRun,
 } from "../lib/herdr-project-runner.ts";
 import { escalateFinishWorkToReviewer, type FinishWorkReport } from "../lib/finish-work-herdr.ts";
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { join } from "path";
 
 function parseArgs(argv: string[]) {
   const args = [...argv];
@@ -161,7 +161,7 @@ const {
   agentTarget,
   command,
   path: rawPath,
-} = parseArgs(process.argv.slice(2));
+} = parseArgs(Bun.argv.slice(2));
 
 if (help) {
   printHelp();
@@ -239,10 +239,7 @@ try {
           const doc = (() => {
             if (!projCfg.sourcePath) return null;
             try {
-              return TOML.parse(readFileSync(projCfg.sourcePath, "utf8")) as Record<
-                string,
-                unknown
-              >;
+              return TOML.parse(readText(projCfg.sourcePath)) as Record<string, unknown>;
             } catch {
               return null;
             }
@@ -372,7 +369,7 @@ try {
       const doc = (() => {
         if (!config.sourcePath) return null;
         try {
-          return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
         } catch {
           return null;
         }
@@ -459,7 +456,7 @@ try {
     const doc = (() => {
       if (!config.sourcePath) return null;
       try {
-        return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+        return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
       } catch {
         return null;
       }
@@ -601,7 +598,7 @@ try {
     const doc = (() => {
       if (!config.sourcePath) return null;
       try {
-        return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+        return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
       } catch {
         return null;
       }
@@ -916,8 +913,8 @@ try {
 
   if (command === "history") {
     const limit = (() => {
-      const idx = process.argv.indexOf("--limit");
-      return idx >= 0 ? parseInt(process.argv[idx + 1] || "0", 10) : 20;
+      const idx = Bun.argv.indexOf("--limit");
+      return idx >= 0 ? parseInt(Bun.argv[idx + 1] || "0", 10) : 20;
     })();
 
     const entries = getHandoffHistory(limit);
@@ -949,7 +946,7 @@ try {
 
   if (command === "config") {
     // Second positional after "config" is subcommand. Parse from raw argv.
-    const rawPos = process.argv.slice(2).filter((a) => !a.startsWith("-"));
+    const rawPos = Bun.argv.slice(2).filter((a) => !a.startsWith("-"));
     const sub = rawPos[1] && rawPos[0] === "config" ? rawPos[1] : "show";
 
     const displayHerdrConfig = () => {
@@ -989,7 +986,7 @@ try {
       const doc = (() => {
         if (!config.sourcePath) return null;
         try {
-          return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
         } catch {
           return null;
         }
@@ -1052,7 +1049,7 @@ try {
     const doc = (() => {
       if (!config.sourcePath) return null;
       try {
-        return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+        return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
       } catch {
         return null;
       }
@@ -1194,7 +1191,7 @@ try {
 
   if (command === "agent-info") {
     // Target is the first positional after the command (ignore path parsing)
-    const rawPos = process.argv.slice(2).filter((a) => !a.startsWith("-") && a !== command);
+    const rawPos = Bun.argv.slice(2).filter((a) => !a.startsWith("-") && a !== command);
     const target = rawPos[0] || "";
     if (!target) {
       writeOut("usage: herdr-orchestrator agent-info <target> [path]");
@@ -1339,7 +1336,7 @@ try {
       const doc = (() => {
         if (!config.sourcePath) return null;
         try {
-          return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
         } catch {
           return null;
         }
@@ -1599,7 +1596,7 @@ try {
           const proc = Bun.spawn(
             [
               process.execPath,
-              process.argv[1],
+              Bun.argv[1],
               "dashboard",
               ...(showSessions ? ["--sessions"] : []),
               ...(cliHost ? ["--host", cliHost] : []),
@@ -1647,11 +1644,11 @@ try {
 
   if (command === "escalate") {
     const reportPath = join(projectPath, ".kimi", "finish-work-report.json");
-    if (!existsSync(reportPath)) {
+    if (!pathExists(reportPath)) {
       if (json) writeJson({ ok: false, error: "no finish-work report" });
       process.exit(1);
     }
-    const report = JSON.parse(readFileSync(reportPath, "utf8")) as FinishWorkReport;
+    const report = JSON.parse(readText(reportPath)) as FinishWorkReport;
     const result = await escalateFinishWorkToReviewer(projectPath, report);
     if (json) writeJson({ ok: Boolean(result.herdr?.escalated), herdr: result.herdr });
     else
@@ -1704,7 +1701,7 @@ try {
     const doc = (() => {
       if (!config.sourcePath) return null;
       try {
-        return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+        return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
       } catch {
         return null;
       }
@@ -1742,7 +1739,7 @@ try {
       }
       // Pass through extra flags after the agent name
       const startFlags: string[] = [];
-      const raw = process.argv.slice(2);
+      const raw = Bun.argv.slice(2);
       let foundAgent = false;
       const skipNext = new Set(["--host", "--session", "--workspace"]);
       for (let i = 0; i < raw.length; i++) {
@@ -2120,7 +2117,7 @@ try {
     }
 
     if (agentSubcommand === "rename") {
-      const rawPos = process.argv.slice(2).filter((a) => !a.startsWith("-"));
+      const rawPos = Bun.argv.slice(2).filter((a) => !a.startsWith("-"));
       const oldName = rawPos[2] || agentTarget;
       const newName = rawPos[3] || "";
       if (!oldName || !newName || oldName === newName) {
@@ -2141,12 +2138,11 @@ try {
     }
 
     if (agentSubcommand === "wait") {
-      const statusFlag = process.argv.includes("--status")
-        ? process.argv[process.argv.indexOf("--status") + 1]
+      const statusFlag = Bun.argv.includes("--status")
+        ? Bun.argv[Bun.argv.indexOf("--status") + 1]
         : "idle";
-      const timeoutIdx = process.argv.indexOf("--timeout");
-      const timeoutFlag =
-        timeoutIdx >= 0 ? parseInt(process.argv[timeoutIdx + 1] || "0", 10) : 30000;
+      const timeoutIdx = Bun.argv.indexOf("--timeout");
+      const timeoutFlag = timeoutIdx >= 0 ? parseInt(Bun.argv[timeoutIdx + 1] || "0", 10) : 30000;
 
       if (!agentTarget) {
         writeOut(
@@ -2248,7 +2244,7 @@ try {
 
     if (agentSubcommand === "send") {
       // Get the text from argv after `--`
-      const fullArgs = process.argv.slice(2);
+      const fullArgs = Bun.argv.slice(2);
       const dashIdx = fullArgs.indexOf("--");
       const text = dashIdx >= 0 ? fullArgs.slice(dashIdx + 1).join(" ") : "";
       if (!text) {
@@ -2280,7 +2276,7 @@ try {
 
     if (agentSubcommand === "exec") {
       // Get the command text from argv after `--`
-      const fullArgs = process.argv.slice(2);
+      const fullArgs = Bun.argv.slice(2);
       const dashIdx = fullArgs.indexOf("--");
       const execCmd = dashIdx >= 0 ? fullArgs.slice(dashIdx + 1).join(" ") : agentTarget;
       if (!execCmd) {
@@ -2345,7 +2341,7 @@ try {
 
   if (command === "workspace" || command === "workspaces") {
     // "workspace list --host <host>" or fall through to existing workspaces command
-    const rawPos = process.argv.slice(2).filter((a) => !a.startsWith("-"));
+    const rawPos = Bun.argv.slice(2).filter((a) => !a.startsWith("-"));
     const wsSub =
       rawPos[1] && rawPos[0] === "workspace"
         ? rawPos[1]
@@ -2400,7 +2396,7 @@ try {
       const doc = (() => {
         if (!config.sourcePath) return null;
         try {
-          return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
         } catch {
           return null;
         }
@@ -2526,14 +2522,14 @@ try {
     // pane-read: read output from a specific pane
     if (isPaneRead) {
       const paneId = rawPos[2];
-      const sourceFlag = process.argv.includes("--source")
-        ? process.argv[process.argv.indexOf("--source") + 1]
+      const sourceFlag = Bun.argv.includes("--source")
+        ? Bun.argv[Bun.argv.indexOf("--source") + 1]
         : "recent";
       const linesFlag = (() => {
-        const idx = process.argv.indexOf("--lines");
-        return idx >= 0 ? parseInt(process.argv[idx + 1] || "0", 10) : 50;
+        const idx = Bun.argv.indexOf("--lines");
+        return idx >= 0 ? parseInt(Bun.argv[idx + 1] || "0", 10) : 50;
       })();
-      const ansiFlag = process.argv.includes("--ansi");
+      const ansiFlag = Bun.argv.includes("--ansi");
 
       const config = discoverHerdrProjectConfig(projectPath);
       if (!config?.enabled) {
@@ -2545,7 +2541,7 @@ try {
       const doc = (() => {
         if (!config.sourcePath) return null;
         try {
-          return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
         } catch {
           return null;
         }
@@ -2616,7 +2612,7 @@ try {
       const doc = (() => {
         if (!config.sourcePath) return null;
         try {
-          return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
         } catch {
           return null;
         }
@@ -2664,7 +2660,7 @@ try {
       const paneId = rawPos[2];
       // Pass through all remaining flags after the pane ID
       const flagArgs: string[] = [];
-      const raw = process.argv.slice(2);
+      const raw = Bun.argv.slice(2);
       let foundPane = false;
       for (let i = 0; i < raw.length; i++) {
         if (!foundPane && raw[i] === paneId) {
@@ -2684,7 +2680,7 @@ try {
       const doc = (() => {
         if (!config.sourcePath) return null;
         try {
-          return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
         } catch {
           return null;
         }
@@ -2738,7 +2734,7 @@ try {
       const doc = (() => {
         if (!config.sourcePath) return null;
         try {
-          return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
         } catch {
           return null;
         }
@@ -2783,7 +2779,7 @@ try {
       const doc = (() => {
         if (!config.sourcePath) return null;
         try {
-          return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
         } catch {
           return null;
         }
@@ -2831,7 +2827,7 @@ try {
       const paneId = rawPos[2];
       // Pass through all flags after the pane ID
       const flagArgs: string[] = [];
-      const raw = process.argv.slice(2);
+      const raw = Bun.argv.slice(2);
       let foundPane = false;
       for (let i = 0; i < raw.length; i++) {
         if (!foundPane && raw[i] === paneId) {
@@ -2851,7 +2847,7 @@ try {
       const doc = (() => {
         if (!config.sourcePath) return null;
         try {
-          return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
         } catch {
           return null;
         }
@@ -2906,7 +2902,7 @@ try {
       const doc = (() => {
         if (!config.sourcePath) return null;
         try {
-          return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
         } catch {
           return null;
         }
@@ -2952,7 +2948,7 @@ try {
           );
           process.exit(2);
         }
-        const disabled = process.argv.includes("--disabled");
+        const disabled = Bun.argv.includes("--disabled");
         pluginCmd = disabled
           ? ["plugin", "link", target, "--disabled"]
           : ["plugin", "link", target];
@@ -2991,18 +2987,18 @@ try {
           );
           process.exit(2);
         }
-        const pluginId = process.argv.includes("--plugin")
-          ? process.argv[process.argv.indexOf("--plugin") + 1]
+        const pluginId = Bun.argv.includes("--plugin")
+          ? Bun.argv[Bun.argv.indexOf("--plugin") + 1]
           : "";
         pluginCmd = pluginId
           ? ["plugin", "action", "invoke", actionId, "--plugin", pluginId]
           : ["plugin", "action", "invoke", actionId];
       } else if (wsSub === "plugin-logs") {
-        const pluginId = process.argv.includes("--plugin")
-          ? process.argv[process.argv.indexOf("--plugin") + 1]
+        const pluginId = Bun.argv.includes("--plugin")
+          ? Bun.argv[Bun.argv.indexOf("--plugin") + 1]
           : "";
-        const limitIdx = process.argv.indexOf("--limit");
-        const limit = limitIdx >= 0 ? process.argv[limitIdx + 1] : "";
+        const limitIdx = Bun.argv.indexOf("--limit");
+        const limit = limitIdx >= 0 ? Bun.argv[limitIdx + 1] : "";
         pluginCmd = ["plugin", "log", "list"];
         if (pluginId) pluginCmd.push("--plugin", pluginId);
         if (limit) pluginCmd.push("--limit", limit);
@@ -3010,7 +3006,7 @@ try {
       } else if (wsSub === "plugin-pane-open") {
         // Pass through flags after "plugin-pane-open"
         const paneFlags: string[] = [];
-        const raw = process.argv.slice(2);
+        const raw = Bun.argv.slice(2);
         let found = false;
         for (let i = 0; i < raw.length; i++) {
           if (!found && raw[i] === "plugin-pane-open") {
@@ -3075,7 +3071,7 @@ try {
     // pane-run / pane-send / pane-send-keys: send input to a specific pane
     if (isPaneRun || isPaneSend || isPaneSendKeys) {
       const paneId = rawPos[2];
-      const fullArgs = process.argv.slice(2);
+      const fullArgs = Bun.argv.slice(2);
       const dashIdx = fullArgs.indexOf("--");
       const content = dashIdx >= 0 ? fullArgs.slice(dashIdx + 1).join(" ") : "";
       if (!content) {
@@ -3095,7 +3091,7 @@ try {
       const doc = (() => {
         if (!config.sourcePath) return null;
         try {
-          return TOML.parse(readFileSync(config.sourcePath, "utf8")) as Record<string, unknown>;
+          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
         } catch {
           return null;
         }
@@ -3231,7 +3227,7 @@ try {
         const doc = (() => {
           if (!xwConfig.sourcePath) return null;
           try {
-            return TOML.parse(readFileSync(xwConfig.sourcePath, "utf8")) as Record<string, unknown>;
+            return TOML.parse(readText(xwConfig.sourcePath)) as Record<string, unknown>;
           } catch {
             return null;
           }

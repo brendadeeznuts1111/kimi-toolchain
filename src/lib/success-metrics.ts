@@ -4,7 +4,8 @@
  * These checks turn product-level goals into CI-visible contracts.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import { checkDocDrift } from "./readme-sync.ts";
 import { failureLedgerPath } from "./paths.ts";
@@ -235,7 +236,7 @@ export async function readFailureLedgerSummary(
   path: string = failureLedgerPath()
 ): Promise<FailureLedgerSummary> {
   const reviewCommand = `kimi-debug ledger ${path}`;
-  if (!existsSync(path)) {
+  if (!pathExists(path)) {
     return {
       path,
       present: false,
@@ -386,7 +387,7 @@ async function successDocsPresent(projectRoot: string): Promise<boolean> {
   const requiredFiles = ["README.md", "CONTEXT.md", "AGENTS.md"];
   for (const file of requiredFiles) {
     const path = join(projectRoot, file);
-    if (!existsSync(path)) return false;
+    if (!pathExists(path)) return false;
     const text = await Bun.file(path).text();
     for (const term of SUCCESS_METRIC_TERMS) {
       if (!text.includes(term)) return false;

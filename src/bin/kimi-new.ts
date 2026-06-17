@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { makeDir, pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-new — Greenfield project scaffold
  * Usage: kimi-new <name> [--path <dir>] [--dry-run]
@@ -6,7 +7,6 @@
  */
 
 import { Effect } from "effect";
-import { existsSync, mkdirSync } from "fs";
 import { join, resolve } from "path";
 import { $ } from "bun";
 import { toolsDir } from "../lib/paths.ts";
@@ -55,7 +55,7 @@ async function runDoctor(parent: string): Promise<number> {
     errors++;
   }
 
-  if (existsSync(parent)) {
+  if (pathExists(parent)) {
     logger.check({ name: "parent path", status: "ok", message: parent, fixable: false });
   } else {
     logger.check({
@@ -69,9 +69,9 @@ async function runDoctor(parent: string): Promise<number> {
 
   const desktopFix = join(toolsDir(), "kimi-fix.ts");
   const repoFix = join(import.meta.dir, "kimi-fix.ts");
-  if (existsSync(desktopFix)) {
+  if (pathExists(desktopFix)) {
     logger.check({ name: "kimi-fix", status: "ok", message: desktopFix, fixable: false });
-  } else if (existsSync(repoFix)) {
+  } else if (pathExists(repoFix)) {
     logger.check({
       name: "kimi-fix",
       status: "ok",
@@ -126,7 +126,7 @@ async function runScaffold(args: string[]): Promise<number> {
   const parent = resolveParent(filtered);
   const projectDir = join(parent, name);
 
-  if (existsSync(projectDir)) {
+  if (pathExists(projectDir)) {
     throw new CliError({ message: `Directory already exists: ${projectDir}` });
   }
 
@@ -141,11 +141,11 @@ async function runScaffold(args: string[]): Promise<number> {
     return 0;
   }
 
-  mkdirSync(projectDir, { recursive: true });
+  makeDir(projectDir, { recursive: true });
   await $`bun init -y`.cwd(projectDir).quiet();
 
   const desktopFix = join(toolsDir(), "kimi-fix.ts");
-  const fixScript = existsSync(desktopFix) ? desktopFix : join(import.meta.dir, "kimi-fix.ts");
+  const fixScript = pathExists(desktopFix) ? desktopFix : join(import.meta.dir, "kimi-fix.ts");
   const proc = Bun.spawn(["bun", "run", fixScript, projectDir], {
     cwd: parent,
     stdout: "pipe",

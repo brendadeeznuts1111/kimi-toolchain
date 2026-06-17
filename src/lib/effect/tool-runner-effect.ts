@@ -2,8 +2,9 @@
  * effect/tool-runner-effect.ts — Effect-based tool invocation with typed errors.
  */
 
+import { pathExists } from "../bun-io.ts";
+
 import { Effect } from "effect";
-import { existsSync } from "fs";
 import { join } from "path";
 import {
   invokeTool,
@@ -81,7 +82,7 @@ export function runToolEffect(
   options?: ToolInvocationOptions
 ): Effect.Effect<ToolInvocationWithTaxonomy, ToolRunnerError> {
   const toolPath = join(toolsDir(), `${toolName}.ts`);
-  if (!existsSync(toolPath)) {
+  if (!pathExists(toolPath)) {
     return Effect.fail(new ToolNotFound({ tool: toolName, path: toolPath }));
   }
   return invokeToolEffect(toolPath, args, options);

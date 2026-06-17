@@ -2,7 +2,8 @@
  * Auto-healing for bunfig [define] constants via golden template diff + repair.
  */
 
-import { existsSync, readdirSync, unlinkSync } from "fs";
+import { listDir, pathExists, removeFile } from "./bun-io.ts";
+
 import { join } from "path";
 import {
   loadRepoDefineMap,
@@ -149,9 +150,9 @@ async function archiveCurrentGolden(projectRoot: string): Promise<void> {
 
 function pruneGoldenArchives(projectRoot: string): void {
   const archiveDir = constantsGoldenArchiveDir(projectRoot);
-  if (!existsSync(archiveDir)) return;
+  if (!pathExists(archiveDir)) return;
 
-  const entries = readdirSync(archiveDir)
+  const entries = listDir(archiveDir)
     .filter((name) => name.endsWith(".json"))
     .map((name) => {
       const path = join(archiveDir, name);
@@ -160,15 +161,15 @@ function pruneGoldenArchives(projectRoot: string): void {
     .sort((a, b) => b.mtime - a.mtime);
 
   for (const entry of entries.slice(MAX_GOLDEN_ARCHIVES)) {
-    unlinkSync(entry.path);
+    removeFile(entry.path);
   }
 }
 
 export async function listGoldenArchives(projectRoot: string): Promise<GoldenArchiveEntry[]> {
   const archiveDir = constantsGoldenArchiveDir(projectRoot);
-  if (!existsSync(archiveDir)) return [];
+  if (!pathExists(archiveDir)) return [];
 
-  const names = readdirSync(archiveDir).filter((name) => name.endsWith(".json"));
+  const names = listDir(archiveDir).filter((name) => name.endsWith(".json"));
   const entries: GoldenArchiveEntry[] = [];
 
   for (const name of names) {
@@ -193,7 +194,7 @@ export async function restoreGoldenFromArchive(
 ): Promise<ConstantsGolden> {
   const archiveDir = constantsGoldenArchiveDir(projectRoot);
   const archivePath = join(archiveDir, archiveName);
-  if (!existsSync(archivePath)) {
+  if (!pathExists(archivePath)) {
     throw new Error(`Golden archive not found: ${archiveName}`);
   }
 
@@ -251,7 +252,7 @@ export async function writeConstantsGolden(
 
 export async function loadConstantsGolden(projectRoot: string): Promise<ConstantsGolden | null> {
   const path = constantsGoldenPath(projectRoot);
-  if (!existsSync(path)) return null;
+  if (!pathExists(path)) return null;
   try {
     return parseConstantsGolden(await Bun.file(path).json());
   } catch {

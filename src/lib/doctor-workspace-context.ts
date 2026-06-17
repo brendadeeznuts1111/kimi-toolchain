@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { pathExists, readText, writeText } from "./bun-io.ts";
+
+import { join } from "path";
 import { TOML } from "bun";
 import {
   gitBranch,
@@ -42,9 +43,9 @@ export interface WorkspaceContextReport {
 
 function readDxAgentsNextSteps(projectRoot: string): string[] {
   const path = join(projectRoot, "dx.config.toml");
-  if (!existsSync(path)) return [];
+  if (!pathExists(path)) return [];
   try {
-    const doc = TOML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    const doc = TOML.parse(readText(path)) as Record<string, unknown>;
     const agents =
       doc.agents && typeof doc.agents === "object" ? (doc.agents as Record<string, unknown>) : null;
     if (!agents) return [];
@@ -222,6 +223,6 @@ export function workspaceContextJsonPayload(
 export function writeWorkspaceContextJsonFile(report: WorkspaceContextReport): string {
   const path = resolveContextJsonFilePath();
   const payload = workspaceContextJsonPayload(report);
-  writeFileSync(path, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  writeText(path, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   return path;
 }

@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { makeDir, pathExists } from "../lib/bun-io.ts";
 /**
  * Kimi Guardian — Bun-native supply chain security
  * v2.0: Signed lockfile manifests, Bun.secrets integration, first-commit poisoning defense
@@ -9,9 +10,8 @@
  *   kimi-guardian [check|fix|report|sign|verify|doctor]
  */
 
-import { $, TOML } from "bun";
+import { $, TOML, randomUUIDv7 } from "bun";
 import { Database } from "bun:sqlite";
-import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import {
   ensureDir,
@@ -100,7 +100,7 @@ interface PackageJson {
 // ── Database ─────────────────────────────────────────────────────────
 
 function getDb(): Database {
-  if (!existsSync(GUARDIAN_DIR)) mkdirSync(GUARDIAN_DIR, { recursive: true });
+  if (!pathExists(GUARDIAN_DIR)) makeDir(GUARDIAN_DIR, { recursive: true });
   const db = new Database(MANIFEST_DB, { create: true });
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec(`
@@ -220,7 +220,7 @@ async function getSigningKey(): Promise<string | null> {
   } catch {
     // Fallback to file-based key
     const keyPath = join(GUARDIAN_DIR, ".key");
-    if (existsSync(keyPath)) {
+    if (pathExists(keyPath)) {
       return (await Bun.file(keyPath).text()).trim();
     }
   }
@@ -228,7 +228,7 @@ async function getSigningKey(): Promise<string | null> {
 }
 
 async function createSigningKey(): Promise<string> {
-  const key = new Bun.CryptoHasher("sha256").update(crypto.randomUUID()).digest("hex");
+  const key = new Bun.CryptoHasher("sha256").update(randomUUIDv7()).digest("hex");
 
   try {
     await $`security add-generic-password -s ${KEY_NAME} -a kimi-guardian -w ${key}`
@@ -253,17 +253,17 @@ async function checkLockfile(projectDir: string): Promise<GuardianReport["lockfi
   const lockPath = join(projectDir, "bun.lock");
   const pkgPath = join(projectDir, "package.json");
 
-  if (!existsSync(lockPath)) {
+  if (!pathExists(lockPath)) {
     return { path: lockPath, hash: "", hashMatch: null, stale: false, manifestValid: null };
   }
 
   const currentHash = await sha256File(lockPath);
-  const pkgMtime = existsSync(pkgPath) ? Bun.file(pkgPath).lastModified : 0;
+  const pkgMtime = pathExists(pkgPath) ? Bun.file(pkgPath).lastModified : 0;
   const lockMtime = Bun.file(lockPath).lastModified;
   const stale = pkgMtime > lockMtime;
 
   let hashMatch: boolean | null = null;
-  if (existsSync(HASH_FILE)) {
+  if (pathExists(HASH_FILE)) {
     const stored = (await Bun.file(HASH_FILE).text()).trim();
     hashMatch = stored === currentHash;
   }
@@ -281,7 +281,7 @@ async function checkLockfile(projectDir: string): Promise<GuardianReport["lockfi
 
 async function storeLockfileHash(projectDir: string) {
   const lockPath = join(projectDir, "bun.lock");
-  if (!existsSync(lockPath)) return;
+  if (!pathExists(lockPath)) return;
   ensureDir(GUARDIAN_DIR);
   const hash = await sha256File(lockPath);
   await Bun.write(HASH_FILE, hash);
@@ -354,10 +354,10 @@ async function checkTrustedDeps(projectDir: string): Promise<string[]> {
   const bunfigPath = join(projectDir, "bunfig.toml");
   const pkgPath = join(projectDir, "package.json");
 
-  if (!existsSync(pkgPath)) return [];
+  if (!pathExists(pkgPath)) return [];
 
   let allowed = new Set<string>();
-  if (existsSync(bunfigPath)) {
+  if (pathExists(bunfigPath)) {
     try {
       const config = TOML.parse(await Bun.file(bunfigPath).text()) as BunfigInstallConfig;
       const trusted = config.install?.trustedDependencies || config.trustedDependencies || [];
@@ -385,7 +385,7 @@ async function checkTrustedDeps(projectDir: string): Promise<string[]> {
   const untrusted: string[] = [];
   for (const dep of allDeps) {
     const depPkgPath = join(projectDir, "node_modules", dep, "package.json");
-    if (!existsSync(depPkgPath)) continue;
+    if (!pathExists(depPkgPath)) continue;
 
     const depPkg = (await Bun.file(depPkgPath).json()) as PackageJson;
     const scripts = depPkg.scripts || {};
@@ -402,7 +402,7 @@ async function checkTrustedDeps(projectDir: string): Promise<string[]> {
 async function addTrustedDeps(projectDir: string, deps: string[]) {
   const bunfigPath = join(projectDir, "bunfig.toml");
   let content = "";
-  if (existsSync(bunfigPath)) {
+  if (pathExists(bunfigPath)) {
     content = await Bun.file(bunfigPath).text();
   }
 
@@ -436,7 +436,7 @@ async function checkProvenance(
 
   const glob = new Bun.Glob("**/package.json");
   const nmPath = join(projectDir, "node_modules");
-  if (!existsSync(nmPath)) return { postinstallScripts, lowBusFactor };
+  if (!pathExists(nmPath)) return { postinstallScripts, lowBusFactor };
 
   for await (const file of glob.scan({ cwd: nmPath, absolute: true })) {
     try {
@@ -500,17 +500,17 @@ async function doctor(
   const lockPath = join(projectDir, "bun.lock");
   checks.push({
     name: "lockfile",
-    status: existsSync(lockPath) ? "ok" : "warn",
-    message: existsSync(lockPath) ? "present" : "missing",
+    status: pathExists(lockPath) ? "ok" : "warn",
+    message: pathExists(lockPath) ? "present" : "missing",
     fixable: false,
   });
 
   // Hash baseline
   checks.push({
     name: "hash-baseline",
-    status: existsSync(HASH_FILE) ? "ok" : "warn",
-    message: existsSync(HASH_FILE) ? "Baselined" : "No baseline — run 'kimi-guardian fix'",
-    fixable: !existsSync(HASH_FILE),
+    status: pathExists(HASH_FILE) ? "ok" : "warn",
+    message: pathExists(HASH_FILE) ? "Baselined" : "No baseline — run 'kimi-guardian fix'",
+    fixable: !pathExists(HASH_FILE),
   });
 
   // Manifest count
@@ -544,7 +544,7 @@ async function main(): Promise<number> {
   if (command === "sign") {
     logger.section("Sign Lockfile Manifest");
     const lockPath = join(projectDir, "bun.lock");
-    if (!existsSync(lockPath)) {
+    if (!pathExists(lockPath)) {
       logger.error("No bun.lock found");
       return 1;
     }
@@ -560,7 +560,7 @@ async function main(): Promise<number> {
   if (command === "verify") {
     logger.section("Verify Signed Manifest");
     const lockPath = join(projectDir, "bun.lock");
-    if (!existsSync(lockPath)) {
+    if (!pathExists(lockPath)) {
       logger.warn("No bun.lock found");
       return 0;
     }
@@ -582,7 +582,7 @@ async function main(): Promise<number> {
 
   logger.section("Lockfile Integrity");
   const lockfile = await checkLockfile(projectDir);
-  if (!existsSync(lockfile.path)) {
+  if (!pathExists(lockfile.path)) {
     logger.warn("No bun.lock found");
   } else {
     logger.info(`Hash: ${lockfile.hash.slice(0, 16)}...`);
@@ -633,7 +633,7 @@ async function main(): Promise<number> {
 
   logger.section("Trusted Dependency Gate");
   const pkgPath = join(projectDir, "package.json");
-  if (!existsSync(pkgPath)) {
+  if (!pathExists(pkgPath)) {
     logger.warn("No package.json — skipping trusted dependency check");
   } else {
     const pkg = (await Bun.file(pkgPath).json()) as PackageJson;

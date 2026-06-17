@@ -1,8 +1,9 @@
+import { pathExists, readText } from "./bun-io.ts";
+
 import { TOML } from "bun";
 import type { HerdrProjectConfig } from "./herdr-project-config.ts";
-import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { homeDir } from "./paths.ts";
+import { join } from "path";
 
 // ── Orchestrator event allowlist ────────────────────────────────────────
 
@@ -265,11 +266,11 @@ const KNOWN_IDENTITY_FILES = ["id_ed25519", "id_rsa", "id_ecdsa", "id_dsa"] as c
  * Returns the first path that exists on disk, or undefined if none exist.
  */
 export function discoverIdentityFile(): string | undefined {
-  const home = homedir();
+  const home = homeDir();
   const sshDir = join(home, ".ssh");
   for (const name of KNOWN_IDENTITY_FILES) {
     const path = join(sshDir, name);
-    if (existsSync(path)) return path;
+    if (pathExists(path)) return path;
   }
   return undefined;
 }
@@ -595,7 +596,7 @@ export interface HerdrAppConfig {
   };
 }
 
-const HERDR_CONFIG_PATH = join(homedir(), ".config", "herdr", "config.toml");
+const HERDR_CONFIG_PATH = join(homeDir(), ".config", "herdr", "config.toml");
 
 export function parseHerdrAppConfig(doc: Record<string, unknown>): HerdrAppConfig {
   const result: HerdrAppConfig = {};
@@ -675,9 +676,9 @@ export function mergeNotifications(
  * Returns null if the file doesn't exist or can't be parsed.
  */
 export function readHerdrAppConfig(): HerdrAppConfig | null {
-  if (!existsSync(HERDR_CONFIG_PATH)) return null;
+  if (!pathExists(HERDR_CONFIG_PATH)) return null;
   try {
-    const raw = readFileSync(HERDR_CONFIG_PATH, "utf8");
+    const raw = readText(HERDR_CONFIG_PATH);
     const doc = TOML.parse(raw) as Record<string, unknown>;
     return parseHerdrAppConfig(doc);
   } catch {

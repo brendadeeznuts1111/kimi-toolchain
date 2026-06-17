@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { pathExists } from "../lib/bun-io.ts";
 /**
  * drift/check.ts — Dependency drift detector
  * Quick check for outdated/unused deps vs lockfile
@@ -8,7 +9,6 @@
  */
 
 import { $ } from "bun";
-import { existsSync } from "fs";
 import { join } from "path";
 import { Effect } from "effect";
 
@@ -27,7 +27,7 @@ async function main(): Promise<number> {
   const pkgPath = join(cwd, "package.json");
   const lockPath = join(cwd, "bun.lock");
 
-  if (!existsSync(pkgPath)) {
+  if (!pathExists(pkgPath)) {
     console.log("⚠ No package.json found — skipping drift check");
     return 0;
   }
@@ -35,7 +35,7 @@ async function main(): Promise<number> {
   const issues: DriftIssue[] = [];
 
   // Quick mode: just check if lockfile is stale vs package.json
-  if (QUICK && existsSync(lockPath)) {
+  if (QUICK && pathExists(lockPath)) {
     const pkgMtime = Bun.file(pkgPath).lastModified;
     const lockMtime = Bun.file(lockPath).lastModified;
     if (pkgMtime > lockMtime) {

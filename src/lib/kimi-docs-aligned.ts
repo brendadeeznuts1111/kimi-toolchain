@@ -2,7 +2,8 @@
  * Kimi documentation alignment — soft gate for toolchain product-matrix docs.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import { readPackageJson } from "./utils.ts";
 
@@ -51,7 +52,7 @@ export async function checkKimiDocsAligned(projectDir: string): Promise<KimiDocs
 
   for (const [relPath, markers] of Object.entries(DOC_MARKERS)) {
     const fullPath = join(projectDir, relPath);
-    if (!existsSync(fullPath)) {
+    if (!pathExists(fullPath)) {
       checks.push({
         name: relPath,
         status: "warn",
@@ -72,8 +73,8 @@ export async function checkKimiDocsAligned(projectDir: string): Promise<KimiDocs
     const fullPath = join(projectDir, relPath);
     checks.push({
       name: relPath,
-      status: existsSync(fullPath) ? "ok" : "warn",
-      message: existsSync(fullPath) ? "present" : "missing",
+      status: pathExists(fullPath) ? "ok" : "warn",
+      message: pathExists(fullPath) ? "present" : "missing",
     });
   }
 

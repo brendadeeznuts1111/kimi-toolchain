@@ -173,7 +173,7 @@ Run herdr-pane <command> --help for command-specific usage.`);
 // ── Main dispatcher ─────────────────────────────────────────────────────
 
 async function main() {
-  const argv = process.argv.slice(2);
+  const argv = Bun.argv.slice(2);
   if (argv.length === 0 || argv.includes("--help") || argv.includes("-h")) {
     showUsage(argv[0]);
     process.exit(0);

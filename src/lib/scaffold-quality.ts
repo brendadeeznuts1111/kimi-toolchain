@@ -1,4 +1,5 @@
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import { $ } from "bun";
 import {
@@ -24,7 +25,7 @@ export async function injectMissingScripts(
   profile: ScaffoldProfile = "app"
 ): Promise<void> {
   const pkgPath = join(project, "package.json");
-  if (!existsSync(pkgPath)) return;
+  if (!pathExists(pkgPath)) return;
 
   const pkg = (await Bun.file(pkgPath).json()) as PackageJsonScaffold;
   const scripts = pkg.scripts || {};
@@ -59,7 +60,7 @@ export async function installMissingDeps(
   log: (step: string, msg: string) => void
 ): Promise<void> {
   const pkgPath = join(project, "package.json");
-  if (!existsSync(pkgPath)) return;
+  if (!pathExists(pkgPath)) return;
 
   const pkg = (await Bun.file(pkgPath).json()) as PackageJsonScaffold;
   const devDeps = pkg.devDependencies || {};

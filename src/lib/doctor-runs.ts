@@ -2,8 +2,9 @@
  * Doctor run persistence — single implementation for all tools.
  */
 
+import { pathExists } from "./bun-io.ts";
+
 import { Database } from "bun:sqlite";
-import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir } from "./utils.ts";
 import { SESSIONS_SCHEMA_SQL } from "./sessions-schema.ts";
@@ -107,7 +108,7 @@ export function getPersistentWarnings(tool?: string): Array<{
   age_days: number;
   taxonomy_id: string | null;
 }> {
-  if (!existsSync(dbPath())) return [];
+  if (!pathExists(dbPath())) return [];
 
   const db = openSessionsDb();
   let rows: Array<{

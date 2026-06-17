@@ -3,7 +3,8 @@
  * Powers constants-manifest.json generation and cross-repo parity checks.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import { homeDir } from "./paths.ts";
 
@@ -224,7 +225,7 @@ export async function loadRepoDefineMap(
   bunfigRel = "bunfig.toml"
 ): Promise<Map<string, DefineEntry>> {
   const bunfigPath = join(repoRoot, bunfigRel);
-  if (!existsSync(bunfigPath)) return new Map();
+  if (!pathExists(bunfigPath)) return new Map();
 
   const defines = parseBunfigDefines(await Bun.file(bunfigPath).text());
   return new Map(defines.map((entry) => [entry.key, entry]));
@@ -254,7 +255,7 @@ export function buildManifestDomains(
 
 export async function loadParityConfig(projectRoot: string): Promise<ParityConfig | null> {
   const path = join(projectRoot, "constants-parity.toml");
-  if (!existsSync(path)) return null;
+  if (!pathExists(path)) return null;
 
   try {
     const parsed = record(Bun.TOML.parse(await Bun.file(path).text()));
@@ -312,7 +313,7 @@ export async function evaluateParityShared(
 
   for (const [repoName, repoConfig] of Object.entries(config.repos)) {
     const repoRoot = expandRepoPath(repoConfig.path, projectRoot);
-    if (!existsSync(repoRoot)) {
+    if (!pathExists(repoRoot)) {
       repoMaps.set(repoName, new Map());
       continue;
     }
@@ -419,7 +420,7 @@ export async function readConstantsManifest(
   projectRoot: string
 ): Promise<ConstantsManifest | null> {
   const path = join(projectRoot, "constants-manifest.json");
-  if (!existsSync(path)) return null;
+  if (!pathExists(path)) return null;
   try {
     return (await Bun.file(path).json()) as ConstantsManifest;
   } catch {

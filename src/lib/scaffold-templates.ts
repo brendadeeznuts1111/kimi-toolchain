@@ -5,7 +5,8 @@
  * Keep in sync with TEMPLATES.md (validated by unit test).
  */
 
-import { existsSync, readFileSync } from "fs";
+import { pathExists, readText } from "./bun-io.ts";
+
 import { join } from "path";
 
 function resolveTemplateDir(): string {
@@ -13,17 +14,17 @@ function resolveTemplateDir(): string {
     join(import.meta.dir, "..", "..", "templates", "scaffold"),
     join(import.meta.dir, "..", "templates", "scaffold"),
   ];
-  return candidates.find((dir) => existsSync(dir)) ?? candidates[0];
+  return candidates.find((dir) => pathExists(dir)) ?? candidates[0];
 }
 
 const TEMPLATE_DIR = resolveTemplateDir();
 
 function load(name: string): string {
   const path = join(TEMPLATE_DIR, name);
-  if (!existsSync(path)) {
+  if (!pathExists(path)) {
     throw new Error(`Template missing: templates/scaffold/${name}`);
   }
-  return readFileSync(path, "utf8");
+  return readText(path);
 }
 
 // ── Config templates ─────────────────────────────────────────────────

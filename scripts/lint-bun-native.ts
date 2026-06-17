@@ -3,8 +3,8 @@
  * Bun-native lint gate with phased rollout — see bun-native-lint.toml.
  */
 
-import { existsSync } from "fs";
 import { join } from "path";
+import { pathExists } from "../src/lib/bun-io.ts";
 import {
   buildBaselineFromViolations,
   defaultConfig,
@@ -63,12 +63,12 @@ function printHelp(): void {
 }
 
 async function loadConfig(): Promise<BunNativeLintConfig> {
-  if (!existsSync(CONFIG_PATH)) return defaultConfig();
+  if (!pathExists(CONFIG_PATH)) return defaultConfig();
   return parseConfigToml(await Bun.file(CONFIG_PATH).text());
 }
 
 async function loadBaseline(): Promise<BaselineFile | null> {
-  if (!existsSync(BASELINE_PATH)) return null;
+  if (!pathExists(BASELINE_PATH)) return null;
   return parseBaselineJson(await Bun.file(BASELINE_PATH).text());
 }
 

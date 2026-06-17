@@ -1,16 +1,18 @@
 import {
-  existsSync,
-  mkdirSync,
-  appendFileSync,
-  readFileSync,
-  readdirSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
-import { join } from "node:path";
-import { homedir } from "node:os";
-import { gunzipSync, gzipSync } from "node:zlib";
+  appendText,
+  listDir,
+  makeDir,
+  pathExists,
+  pathStat,
+  readBytes,
+  readText,
+  writeBytes,
+  writeText,
+} from "./bun-io.ts";
 
+import { gzipBytes, gunzipText } from "./bun-utils.ts";
+import { homeDir } from "./paths.ts";
+import { join } from "path";
 // ── Types ────────────────────────────────────────────────────────────────
 
 export interface HandoffLogEntry {
@@ -37,7 +39,7 @@ export interface HandoffLogEntry {
 
 // ── Paths ────────────────────────────────────────────────────────────────
 
-const DEFAULT_LOG_DIR = join(homedir(), ".herdr", "orchestrator");
+const DEFAULT_LOG_DIR = join(homeDir(), ".herdr", "orchestrator");
 const DEFAULT_LOG_PATH = join(DEFAULT_LOG_DIR, "handoff-log.jsonl");
 const DEFAULT_MAX_LOG_BYTES = 50 * 1024 * 1024; // 50MB
 
@@ -65,7 +67,7 @@ export function remoteHandoffContext(
 }
 
 function ensureLogDir() {
-  mkdirSync(join(logPath, ".."), { recursive: true });
+  makeDir(join(logPath, ".."), { recursive: true });
 }
 
 // ── Checksums ────────────────────────────────────────────────────────────
@@ -79,8 +81,8 @@ function sha256(data: string): string {
 // ── Rotation ─────────────────────────────────────────────────────────────
 
 function rotateIfNeeded() {
-  if (!existsSync(logPath)) return;
-  const stat = statSync(logPath);
+  if (!pathExists(logPath)) return;
+  const stat = pathStat(logPath);
   if (stat.size < maxLogBytes) return;
 
   const iso = new Date().toISOString();
@@ -89,9 +91,9 @@ function rotateIfNeeded() {
   const archiveName = `handoff-history.${date}.${time}.jsonl.gz`;
   const archivePath = join(join(logPath, ".."), archiveName);
 
-  const raw = readFileSync(logPath);
-  writeFileSync(archivePath, gzipSync(raw));
-  writeFileSync(logPath, "", "utf8");
+  const raw = readBytes(logPath);
+  writeBytes(archivePath, gzipBytes(raw));
+  writeText(logPath, "");
 }
 
 // ── Write ────────────────────────────────────────────────────────────────
@@ -132,7 +134,7 @@ export function logHandoff(entry: Omit<HandoffLogEntry, "timestamp" | "seq" | "c
     });
     line.checksum = sha256(body);
 
-    appendFileSync(logPath, JSON.stringify(line) + "\n", "utf8");
+    appendText(logPath, `${JSON.stringify(line)}\n`);
   } catch {
     // Silent failure — logging is best-effort
   }
@@ -151,14 +153,14 @@ export function getHandoffHistory(limit = 20): HandoffLogEntry[] {
   // Also check archives for older entries
   const logDir = join(logPath, "..");
   try {
-    const files = readdirSync(logDir);
+    const files = listDir(logDir);
     const archivePattern = /^handoff-history\.\d{4}-\d{2}-\d{2}\..+\.jsonl\.gz$/;
     for (const file of files) {
       if (!archivePattern.test(file)) continue;
       try {
         const archivePath = join(logDir, file);
-        const compressed = readFileSync(archivePath);
-        const raw = gunzipSync(compressed).toString("utf8");
+        const compressed = readBytes(archivePath);
+        const raw = gunzipText(compressed);
         allEntries.push(...readLogLines(raw));
       } catch {
         // Skip unreadable archives
@@ -189,9 +191,9 @@ function readLogLines(raw: string): HandoffLogEntry[] {
 
 // Update readLogFile to delegate to readLogLines
 function readLogFile(path: string): HandoffLogEntry[] {
-  if (!existsSync(path)) return [];
+  if (!pathExists(path)) return [];
   try {
-    const raw = readFileSync(path, "utf8");
+    const raw = readText(path);
     return readLogLines(raw);
   } catch {
     return [];

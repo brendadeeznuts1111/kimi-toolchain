@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { spawnQuiet } from "./bun-native-shim.ts";
 
 export interface PaneRequirement {
   bin: string;
@@ -44,15 +44,7 @@ export function parsePaneRequirements(rows: unknown): PaneRequirement[] {
 function resolveViaBunx(spec: PaneRequirement): string | null {
   if (!Bun.which("bun")) return null;
   const pkg = spec.package || spec.bin;
-  try {
-    execFileSync("bun", ["x", pkg, "--version"], {
-      stdio: "ignore",
-      timeout: 8_000,
-    });
-    return `bun x ${pkg}`;
-  } catch {
-    return null;
-  }
+  return spawnQuiet(["bun", "x", pkg, "--version"]) ? `bun x ${pkg}` : null;
 }
 
 export function checkPaneRequirement(spec: PaneRequirement): PaneRequirementCheck {

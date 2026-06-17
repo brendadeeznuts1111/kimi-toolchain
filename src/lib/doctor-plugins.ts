@@ -6,8 +6,9 @@
  * bounds, and graceful termination.
  */
 
+import { pathExists } from "./bun-io.ts";
+
 import { join, resolve } from "path";
-import { existsSync } from "fs";
 import { Effect } from "effect";
 import type { HealthCheck } from "./health-check.ts";
 import { homeDir } from "./paths.ts";
@@ -153,7 +154,7 @@ function readRawManifest(path: string, raw: unknown): RawManifest | null {
 }
 
 async function readManifest(path: string): Promise<RawManifest | null> {
-  if (!existsSync(path)) return null;
+  if (!pathExists(path)) return null;
   const text = await Bun.file(path).text();
   const parsed = safeParse<unknown>(text, null);
   if (parsed === null) return null;

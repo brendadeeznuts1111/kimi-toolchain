@@ -1,4 +1,5 @@
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import type { Commit } from "./conventional-commits.ts";
 
@@ -80,7 +81,7 @@ export async function updateChangelog(projectDir: string, section: string, _vers
 
   let content =
     "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n";
-  if (existsSync(changelogPath)) {
+  if (pathExists(changelogPath)) {
     content = await Bun.file(changelogPath).text();
   }
 

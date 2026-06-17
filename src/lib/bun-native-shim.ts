@@ -1,6 +1,6 @@
 /**
  * Centralized sync Node API boundary for gradual Bun-native migration.
- * New code should prefer Bun.file, Bun.write, Bun.spawn, and Bun.which.
+ * New code should prefer Bun.file, Bun.write, Bun.spawn, Bun.which, and src/lib/bun-utils.ts.
  * Import from here instead of fs / node:fs / node:child_process / node:zlib / node:crypto.
  */
 
@@ -23,36 +23,79 @@ import {
   watch,
   writeFileSync,
 } from "node:fs";
-// @bun-native-exempt
-import { execFileSync, spawnSync } from "node:child_process";
-// @bun-native-exempt
-import { gunzipSync, gzipSync } from "node:zlib";
-// @bun-native-exempt
-import { randomUUID } from "node:crypto";
 
 export {
   appendFileSync,
   copyFileSync,
   cpSync,
   existsSync,
-  execFileSync,
-  gunzipSync,
-  gzipSync,
   lstatSync,
   mkdirSync,
-  randomUUID,
   readFileSync,
   readlinkSync,
   readdirSync,
   realpathSync,
   renameSync,
   rmSync,
-  spawnSync,
   statSync,
   unlinkSync,
   watch,
   writeFileSync,
 };
+
+/** @deprecated Prefer gzipBytes from bun-utils.ts */
+export function gzipSync(data: string | Uint8Array): Buffer {
+  const input = typeof data === "string" ? Buffer.from(data, "utf8") : Uint8Array.from(data);
+  return Buffer.from(Bun.gzipSync(input as Uint8Array<ArrayBuffer>));
+}
+
+/** @deprecated Prefer gunzipBytes / gunzipText from bun-utils.ts */
+export function gunzipSync(data: Uint8Array): Buffer {
+  return Buffer.from(Bun.gunzipSync(Uint8Array.from(data) as Uint8Array<ArrayBuffer>));
+}
+
+export interface ExecFileSyncOptions {
+  cwd?: string;
+  encoding?: BufferEncoding | "buffer" | null;
+  stdio?: [unknown, unknown, unknown] | unknown;
+  timeout?: number;
+  env?: Record<string, string | undefined>;
+}
+
+/** @deprecated Prefer execArgvSync from bun-utils.ts */
+export function execFileSync(
+  file: string,
+  args: readonly string[],
+  options: ExecFileSyncOptions = {}
+): string {
+  const stdinMode =
+    Array.isArray(options.stdio) && options.stdio[0] === "ignore" ? "ignore" : "inherit";
+  const proc = Bun.spawnSync([file, ...args], {
+    cwd: options.cwd,
+    timeout: options.timeout,
+    env: options.env ? ({ ...Bun.env, ...options.env } as Record<string, string>) : undefined,
+    stdin: stdinMode,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const stdout = proc.stdout ? Buffer.from(proc.stdout) : Buffer.alloc(0);
+  const stderr = proc.stderr ? Buffer.from(proc.stderr) : Buffer.alloc(0);
+  if (proc.exitCode !== 0) {
+    const err = new Error(`Command failed: ${file}`) as NodeJS.ErrnoException & {
+      stdout?: string;
+      stderr?: string;
+      status?: number | null;
+    };
+    err.status = proc.exitCode;
+    err.stdout = stdout.toString("utf8");
+    err.stderr = stderr.toString("utf8");
+    throw err;
+  }
+  if (options.encoding === "buffer" || options.encoding === null) {
+    return stdout as unknown as string;
+  }
+  return stdout.toString(options.encoding ?? "utf8");
+}
 
 /** Bun.which wrapper — prefer over execFileSync("which", …). */
 export function whichCommand(command: string): string | null {

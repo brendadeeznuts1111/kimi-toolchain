@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join } from "path";
 import { bunTestArgs, FAST_TEST_TIMEOUT_MS } from "./test-gates.ts";
 
 /** Herdr report-agent states (this build: idle | working | blocked | unknown). */

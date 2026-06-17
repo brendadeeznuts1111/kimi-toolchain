@@ -1,4 +1,5 @@
-import { execFileSync } from "node:child_process";
+import { execArgvSync } from "./bun-utils.ts";
+
 import { homeDir } from "./paths.ts";
 
 export type ExecCliOptions = {
@@ -47,12 +48,10 @@ export function execCli(cmd: string, args: string[] = [], options: ExecCliOption
   try {
     return {
       ok: true,
-      output: execFileSync(cmd, [...sessionArgs, ...args], {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
+      output: execArgvSync(cmd, [...sessionArgs, ...args], {
         timeout,
         env: herdrSessionEnv(opts.session),
-      }).trim(),
+      }),
     };
   } catch (error) {
     const err = error as { stdout?: string; stderr?: string; status?: number };

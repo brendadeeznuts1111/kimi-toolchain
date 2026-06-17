@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-memory — SQLite WAL session store + knowledge graph + cross-project impact
  * v2.0: Session auto-save/resume, cross-project linking, impact analysis
@@ -44,8 +45,6 @@ const logger = writer.logger;
 import { getDb } from "../lib/memory-sessions.ts";
 import { varDir } from "../lib/paths.ts";
 import { join } from "path";
-import { existsSync } from "fs";
-
 const DB_PATH = join(varDir(), "sessions.db");
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -111,7 +110,7 @@ function doctor(): Array<{
 
   // WAL size
   const walPath = DB_PATH + "-wal";
-  if (existsSync(walPath)) {
+  if (pathExists(walPath)) {
     const walSize = Bun.file(walPath).size;
     const walMB = walSize / 1024 / 1024;
     checks.push({

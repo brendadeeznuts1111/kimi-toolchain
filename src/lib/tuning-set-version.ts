@@ -2,7 +2,8 @@
  * Semantic versioning for bunfig [define] tuning sets.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import {
   generateConstantsManifest,
@@ -116,7 +117,7 @@ export async function lintTuningSetVersion(
 
 export async function readProjectTuningSetVersion(projectRoot: string): Promise<string | null> {
   const bunfigPath = join(projectRoot, "bunfig.toml");
-  if (!existsSync(bunfigPath)) return null;
+  if (!pathExists(bunfigPath)) return null;
 
   const defines = parseBunfigDefines(await Bun.file(bunfigPath).text());
   const entry = defines.find((define) => define.key === TUNING_SET_VERSION_KEY);
@@ -135,7 +136,7 @@ export async function checkTuningSetFreshness(
   projectRoot: string
 ): Promise<TuningSetVersionReport> {
   const bunfigPath = join(projectRoot, "bunfig.toml");
-  if (!existsSync(bunfigPath)) {
+  if (!pathExists(bunfigPath)) {
     return {
       applicable: false,
       aligned: true,

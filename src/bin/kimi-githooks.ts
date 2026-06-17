@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-githooks — Install and manage git hooks
  * P0: pre-commit (env blocks, TODO checks)
@@ -9,7 +10,6 @@
  */
 
 import { $ } from "bun";
-import { existsSync } from "fs";
 import { join } from "path";
 import {
   ensureDir,
@@ -181,7 +181,7 @@ async function installHooks(projectDir: string): Promise<number> {
   }
 
   const gitDir = join(projectDir, ".git");
-  if (!existsSync(gitDir)) {
+  if (!pathExists(gitDir)) {
     logger.error("Not a git repository. Run 'git init' first.");
     return 1;
   }
@@ -243,7 +243,7 @@ async function doctorHooks(projectDir: string) {
 
   // Check git repo
   const gitDir = join(projectDir, ".git");
-  if (!existsSync(gitDir)) {
+  if (!pathExists(gitDir)) {
     checks.push({
       name: "git-repo",
       status: "error",
@@ -255,7 +255,7 @@ async function doctorHooks(projectDir: string) {
   checks.push({ name: "git-repo", status: "ok", message: "Git repository found", fixable: false });
 
   // Check hooks dir
-  if (!existsSync(hooksDir)) {
+  if (!pathExists(hooksDir)) {
     checks.push({
       name: "hooks-dir",
       status: "error",
@@ -273,7 +273,7 @@ async function doctorHooks(projectDir: string) {
 
   // Check pre-commit
   const preCommitPath = join(hooksDir, "pre-commit");
-  if (!existsSync(preCommitPath)) {
+  if (!pathExists(preCommitPath)) {
     checks.push({
       name: "pre-commit",
       status: "warn",
@@ -304,7 +304,7 @@ async function doctorHooks(projectDir: string) {
 
   // Check pre-push
   const prePushPath = join(hooksDir, "pre-push");
-  if (!existsSync(prePushPath)) {
+  if (!pathExists(prePushPath)) {
     checks.push({
       name: "pre-push",
       status: "warn",
@@ -355,7 +355,7 @@ async function doctorHooks(projectDir: string) {
 
     const repoGov = join(projectDir, "src/bin/kimi-governance.ts");
     const desktopGov = join(TOOLS_DIR, "kimi-governance.ts");
-    if (existsSync(repoGov) && existsSync(desktopGov)) {
+    if (pathExists(repoGov) && pathExists(desktopGov)) {
       const [repoHash, desktopHash] = await Promise.all([
         sha256File(repoGov),
         sha256File(desktopGov),

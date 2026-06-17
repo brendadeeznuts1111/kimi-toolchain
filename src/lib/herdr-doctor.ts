@@ -1,5 +1,6 @@
-import { existsSync, lstatSync, readFileSync, readlinkSync } from "node:fs";
-import { join } from "node:path";
+import { pathExists, pathLstat, readLink, readText } from "./bun-io.ts";
+
+import { join } from "path";
 import { TOML } from "bun";
 import { MIN_INTEGRATION_VERSIONS, REQUIRED_INTEGRATIONS, SPAWN_AGENTS } from "./herdr-agents.ts";
 import { resolveHerdrSession } from "./herdr-project-cli.ts";
@@ -80,7 +81,7 @@ function which(command: string): string | null {
 
 function readJson(path: string) {
   try {
-    return JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    return JSON.parse(readText(path)) as Record<string, unknown>;
   } catch {
     return null;
   }
@@ -88,8 +89,8 @@ function readJson(path: string) {
 
 function isSymlinkTo(path: string, expectedTarget: string): boolean {
   try {
-    if (!lstatSync(path).isSymbolicLink()) return false;
-    const target = readlinkSync(path);
+    if (!pathLstat(path).isSymbolicLink()) return false;
+    const target = readLink(path);
     const resolved = target.startsWith("/") ? target : join(path, "..", target);
     return resolved === expectedTarget;
   } catch {
@@ -104,7 +105,7 @@ function scanProjectProfiles(home = homeDir()) {
   const rows: Array<{ key: string; path: string; label: string }> = [];
   for (const project of projects?.topProjects || []) {
     const path = project?.path ? expand(project.path, home) : "";
-    if (!path || !existsSync(path)) continue;
+    if (!path || !pathExists(path)) continue;
     const result = run("herdr-project", ["has-config", path]);
     if (result.ok) {
       const discover = run("herdr-project", ["discover", path, "--json"]);
@@ -137,7 +138,7 @@ function parseIntegrationVersions(output: string) {
 function lintConfig(configPath: string) {
   const warnings: string[] = [];
   try {
-    const doc = TOML.parse(readFileSync(configPath, "utf8")) as Record<string, unknown>;
+    const doc = TOML.parse(readText(configPath)) as Record<string, unknown>;
     for (const key of Object.keys(doc)) {
       if (key === "keys.command") continue;
       if (!KNOWN_TOP_LEVEL.has(key)) {
@@ -175,7 +176,7 @@ function checkSpawnWrappers(home = homeDir()) {
   const missing: string[] = [];
   for (const agent of SPAWN_AGENTS) {
     const path = join(spawnDir, `herdr-spawn-${agent}`);
-    if (!existsSync(path)) missing.push(agent);
+    if (!pathExists(path)) missing.push(agent);
   }
   return missing;
 }
@@ -183,7 +184,7 @@ function checkSpawnWrappers(home = homeDir()) {
 function checkShellModule(home = homeDir()) {
   const zshrc = join(home, ".zshrc");
   try {
-    return readFileSync(zshrc, "utf8").includes("herdr.sh");
+    return readText(zshrc).includes("herdr.sh");
   } catch {
     return false;
   }
@@ -236,10 +237,10 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
   const terminalNotifier = which("terminal-notifier");
   const version = binary ? run("herdr", ["--version"]) : { ok: false, output: "" };
   const configSymlinkOk = isSymlinkTo(runtimeConfig, configPath);
-  const configExists = existsSync(configPath);
+  const configExists = pathExists(configPath);
   const manifest = readJson(manifestPath);
-  const skillExists = existsSync(skillPath);
-  const shellModuleExists = existsSync(join(home, ".config", "shell", "herdr.sh"));
+  const skillExists = pathExists(skillPath);
+  const shellModuleExists = pathExists(join(home, ".config", "shell", "herdr.sh"));
   const shellSourced = checkShellModule(home);
   const worktreesDir = expand(
     typeof manifest?.worktreesDir === "string" ? manifest.worktreesDir : "~/.herdr/worktrees",
@@ -257,7 +258,7 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
   if (!terminalNotifier) {
     warnings.push("terminal-notifier missing; system notifications may fall back to osascript");
   }
-  if (!existsSync(worktreesDir)) warnings.push(`worktrees directory missing: ${worktreesDir}`);
+  if (!pathExists(worktreesDir)) warnings.push(`worktrees directory missing: ${worktreesDir}`);
 
   const missingWrappers = checkSpawnWrappers(home);
   if (missingWrappers.length) {
@@ -271,7 +272,7 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
   );
   const brokenSkillLinks = skillLinks.filter((path) => {
     try {
-      return !lstatSync(path).isSymbolicLink();
+      return !pathLstat(path).isSymbolicLink();
     } catch {
       return true;
     }

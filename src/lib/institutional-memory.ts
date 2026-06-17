@@ -3,7 +3,8 @@
  * Separate from decision-ledger.jsonl (kimi-why) and sessions.db (kimi-memory trends).
  */
 
-import { appendFileSync, existsSync, mkdirSync } from "fs";
+import { appendText, makeDir, pathExists } from "./bun-io.ts";
+
 import { dirname } from "path";
 import { institutionalMemoryPath } from "./paths.ts";
 import { ensureProcessTrace } from "./effect/trace-context.ts";
@@ -112,15 +113,15 @@ export function appendMemoryRecord(
   path: string = institutionalMemoryPath()
 ): InstitutionalMemoryRecord {
   const record = buildMemoryRecord(input);
-  mkdirSync(dirname(path), { recursive: true });
-  appendFileSync(path, `${JSON.stringify(record)}\n`);
+  makeDir(dirname(path), { recursive: true });
+  appendText(path, `${JSON.stringify(record)}\n`);
   return record;
 }
 
 export async function readMemoryRecords(
   path: string = institutionalMemoryPath()
 ): Promise<InstitutionalMemoryRecord[]> {
-  if (!existsSync(path)) return [];
+  if (!pathExists(path)) return [];
   const text = await Bun.file(path).text();
   const lines = text
     .split("\n")

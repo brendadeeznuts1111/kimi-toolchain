@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-resource-governor — Resource limits, parallelism, disk quota, diagnostic cache
  * v2.0: governedSpawn() export, wall-clock enforcement, session auto-track, kimi-doctor cache
@@ -13,7 +14,6 @@
  */
 
 import { Database } from "bun:sqlite";
-import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
@@ -122,7 +122,7 @@ function doctor(): Array<{
 
   // WAL size
   const walPath = DB_PATH + "-wal";
-  if (existsSync(walPath)) {
+  if (pathExists(walPath)) {
     const walMB = Bun.file(walPath).size / 1024 / 1024;
     checks.push({
       name: "wal-size",
@@ -296,7 +296,7 @@ async function main(): Promise<number> {
     logger.section("Fixing Resource Governor");
     ensureDir(GOVERNOR_DIR);
     const configPath = getGovernorConfigPath();
-    if (!existsSync(configPath)) {
+    if (!pathExists(configPath)) {
       await Bun.write(configPath, DEFAULT_CONFIG_TEMPLATE);
       logger.info(`Wrote default config: ${configPath}`);
       await ensureDefaultsLoaded();

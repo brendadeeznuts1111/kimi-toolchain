@@ -6,7 +6,8 @@
  * stdout/stderr, and errors are handled consistently.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import { desktopRoot } from "./paths.ts";
 import { recordStep } from "./step-budget.ts";
@@ -314,7 +315,7 @@ export async function runTool(
   options?: ToolInvocationOptions
 ): Promise<ToolInvocation> {
   const toolPath = join(toolsDir(), `${toolName}.ts`);
-  if (!existsSync(toolPath)) {
+  if (!pathExists(toolPath)) {
     throw new Error(`Tool not found: ${toolPath}`);
   }
   return invokeTool(toolPath, args, options);

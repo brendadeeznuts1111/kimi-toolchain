@@ -2,7 +2,8 @@
  * Audit error-taxonomy categories for boundConstants coverage.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
+
 import { join } from "path";
 import { loadRepoDefineMap } from "./build-constants-registry.ts";
 import { loadTaxonomy, type TaxonomyCategory } from "./error-taxonomy.ts";
@@ -57,7 +58,7 @@ export async function auditTaxonomyCoverage(projectRoot: string): Promise<{
   rows: TaxonomyCoverageRow[];
 }> {
   const taxonomyPath = join(projectRoot, "error-taxonomy.yml");
-  if (!existsSync(taxonomyPath)) {
+  if (!pathExists(taxonomyPath)) {
     return { applicable: false, aligned: true, rows: [] };
   }
 

@@ -2,8 +2,9 @@
  * Resource governor sessions and diagnostic cache
  */
 
+import { makeDir, pathExists } from "./bun-io.ts";
+
 import { Database } from "bun:sqlite";
-import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { governorDir } from "./paths.ts";
 import { DEFAULTS } from "./governor-state.ts";
@@ -95,7 +96,7 @@ export function normalizeCacheEntry(row: any): CacheEntry {
 }
 
 export function getDb(): Database {
-  if (!existsSync(GOVERNOR_DIR)) mkdirSync(GOVERNOR_DIR, { recursive: true });
+  if (!pathExists(GOVERNOR_DIR)) makeDir(GOVERNOR_DIR, { recursive: true });
   const db = new Database(DB_PATH, { create: true });
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec(`
