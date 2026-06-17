@@ -96,12 +96,28 @@ export const PEEK_ADOPTION_REGISTRY: TochangeRegistryEntry[] = [
     probe: "dedupInflight(inflightExec",
   },
   {
+    id: "proc-cache-command",
+    file: "src/lib/proc-cache.ts",
+    tier: "tier1",
+    status: "implemented",
+    summary: "getCachedCommandOutput(Async) — generic TTL cache for ps/pgrep",
+    probe: "export async function getCachedCommandOutputAsync",
+  },
+  {
     id: "proc-cache-async",
     file: "src/lib/proc-cache.ts",
     tier: "tier2",
     status: "implemented",
-    summary: "getCachedPsAsync + in-flight dedup; sync path peeks fulfilled inflight",
+    summary: "getCachedPsAsync delegates to getCachedCommandOutputAsync",
     probe: "export async function getCachedPsAsync",
+  },
+  {
+    id: "governor-spawn-proc-cache",
+    file: "src/lib/governor-spawn.ts",
+    tier: "tier1",
+    status: "implemented",
+    summary: "pgrep/ps tree helpers route through proc-cache not raw spawn",
+    probe: "getCachedCommandOutputAsync",
   },
   {
     id: "memory-budget-peek",
@@ -183,6 +199,42 @@ export const STREAM_READ_REGISTRY: TochangeRegistryEntry[] = [
     summary: "pr-status local CI probe routes through bun-utils",
     probe: "readableStreamToText(proc.stdout)",
   },
+  {
+    id: "scripts-cleanup-bun-io",
+    file: "scripts/cleanup-root-bloat.ts",
+    tier: "tier2",
+    status: "implemented",
+    summary: "cleanup-root-bloat uses bun-io listDir/pathStat/removePath",
+    probe: 'from "../src/lib/bun-io.ts"',
+  },
+];
+
+/** Spawn path boundaries — intentional owners; do not collapse. */
+export const SPAWN_BOUNDARY_REGISTRY: TochangeRegistryEntry[] = [
+  {
+    id: "spawn-invoke-command",
+    file: "src/lib/tool-runner.ts",
+    tier: "required",
+    status: "implemented",
+    summary: "invokeCommand — bounded output, timeout, dedup (doctor/MCP/shell bridge)",
+    probe: "export async function invokeCommand",
+  },
+  {
+    id: "spawn-governed",
+    file: "src/lib/governor-spawn.ts",
+    tier: "required",
+    status: "implemented",
+    summary: "governedSpawn — resource limits, tree-kill, retry (governor cache/herdr)",
+    probe: "export async function governedSpawn",
+  },
+  {
+    id: "spawn-shell-bridge",
+    file: "src/bin/unified-shell-bridge.ts",
+    tier: "tier1",
+    status: "implemented",
+    summary: "MCP shell bridge maps invokeCommand → ShellResult contract",
+    probe: 'invokeCommand(["sh", "-c", command]',
+  },
 ];
 
 /** Effect boundary for subprocess invocation — invokeCommandEffect over raw invokeCommand. */
@@ -226,6 +278,7 @@ export const ADOPTION_REGISTRIES: TochangeRegistryEntry[] = [
   ...PEEK_ADOPTION_REGISTRY,
   ...STREAM_READ_REGISTRY,
   ...EFFECT_BOUNDARY_REGISTRY,
+  ...SPAWN_BOUNDARY_REGISTRY,
 ];
 
 const REGISTRY_IDS = new Set(ADOPTION_REGISTRIES.map((e) => e.id));

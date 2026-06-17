@@ -4,6 +4,7 @@
 
 import { nanoseconds } from "bun";
 import { readableStreamToText } from "./bun-utils.ts";
+import { getCachedCommandOutputAsync } from "./proc-cache.ts";
 import { DEFAULTS } from "./governor-state.ts";
 import { getSessionId, updateSessionPeak } from "./governor-sessions.ts";
 
@@ -48,13 +49,7 @@ export function checkLimits(usage: ResourceUsage, limits: ResourceLimits): strin
 /** Get all child PIDs of a given PID using pgrep (macOS/Linux) */
 async function getChildPids(pid: number): Promise<number[]> {
   try {
-    const result = await Bun.spawn({
-      cmd: ["pgrep", "-P", String(pid)],
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const output = await readableStreamToText(result.stdout);
-    await result.exited;
+    const output = await getCachedCommandOutputAsync("pgrep", ["-P", String(pid)]);
     return output
       .split("\n")
       .map((s) => parseInt(s.trim(), 10))
@@ -96,13 +91,7 @@ async function killProcessTree(rootPid: number, signal: "SIGTERM" | "SIGKILL") {
 /** Get actual subprocess memory via ps (macOS/Linux) */
 async function getSubprocessMemory(pid: number): Promise<number> {
   try {
-    const result = await Bun.spawn({
-      cmd: ["ps", "-o", "rss=", "-p", String(pid)],
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const output = await readableStreamToText(result.stdout);
-    await result.exited;
+    const output = await getCachedCommandOutputAsync("ps", ["-o", "rss=", "-p", String(pid)]);
     const kb = parseInt(output.trim(), 10);
     return isNaN(kb) ? 0 : Math.round(kb / 1024); // MB
   } catch {

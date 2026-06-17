@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { dedupInflight, peekPromise, peekPromiseStatus } from "../src/lib/bun-utils.ts";
 import { cachedDoctor, clearGovernorCacheInflight } from "../src/lib/governor-cache.ts";
-import { clearProcessCache, getCachedPsAsync } from "../src/lib/proc-cache.ts";
+import {
+  clearProcessCache,
+  getCachedCommandOutputAsync,
+  getCachedPsAsync,
+} from "../src/lib/proc-cache.ts";
 import { clearInvokeCommandInflight, invokeCommand } from "../src/lib/tool-runner.ts";
 import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
 import { join } from "path";
@@ -62,7 +66,7 @@ describe("tochange-tracker", () => {
     const report = await auditPeekAdoption(REPO_ROOT);
     expect(report.ok).toBe(true);
     expect(report.registryPending).toHaveLength(0);
-    expect(report.registryImplemented.length).toBe(16);
+    expect(report.registryImplemented.length).toBe(22);
     expect(report.probeFailures).toEqual([]);
     expect(report.orphanMarkers).toEqual([]);
     expect(report.staleTochangeMarkers).toEqual([]);
@@ -115,6 +119,17 @@ console.log("ok");`
     expect(await Bun.file(counter).text()).toBe("1");
     clearInvokeCommandInflight();
     removePath(dir, { recursive: true, force: true });
+  });
+
+  test("getCachedCommandOutputAsync dedups concurrent pgrep fetches", async () => {
+    clearProcessCache();
+    const [a, b] = await Promise.all([
+      getCachedCommandOutputAsync("ps", ["-axo", "pid="]),
+      getCachedCommandOutputAsync("ps", ["-axo", "pid="]),
+    ]);
+    expect(a).toBe(b);
+    expect(a.length).toBeGreaterThan(0);
+    clearProcessCache();
   });
 
   test("getCachedPsAsync dedups concurrent fetches", async () => {
