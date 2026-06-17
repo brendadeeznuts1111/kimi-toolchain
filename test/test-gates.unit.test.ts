@@ -48,6 +48,8 @@ describe("test-gates", () => {
       "30000",
       "--bail",
       "--coverage",
+      "--coverage-reporter=lcov",
+      "--coverage-dir=./coverage",
       "--reporter=junit",
       "--reporter-outfile=reports/junit.xml",
       "--isolate",

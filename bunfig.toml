@@ -3,32 +3,25 @@
 # BUN_CONFIG_* env overrides bunfig (higher priority) — see src/lib/bun-install-config.ts
 # Dep changes: `bun add` / `bun update` (not plain `bun install`). Lifecycle trust: package.json `trustedDependencies`.
 [install]
-# Dependency classes (Bun defaults)
+# Policy tables: src/lib/bun-install-config.ts (BUN_INSTALL_BUNFIG_POLICY)
 optional = true
 dev = true
 peer = true
 production = false
-
-# Lockfile & reproducibility
+dryRun = false
 saveTextLockfile = true
 frozenLockfile = true
-dryRun = false
-
-# Lifecycle scripts — `ignoreScripts` blocks project scripts; deps need package.json trustedDependencies
+exact = false
 ignoreScripts = false
-# concurrentScripts — Bun default: (cpu count or GOMAXPROCS) × 2; omit to use default
-
-# Linker — isolated prevents phantom deps (stricter than Bun default hoisted for single-package repos)
+concurrentScripts = 8
 linker = "isolated"
-
-# Global installs — https://bun.com/docs/pm/cli/add#global (`bun add -g`, `bun install -g`)
 globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
-# kimi-toolchain postinstall also installs ~/.local/bin/kimi-* wrappers (separate from globalBinDir)
-
-# Supply-chain age gate (new resolutions only; existing bun.lock entries unchanged)
 minimumReleaseAge = 259200
 minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
+
+[install.cache]
+dir = "~/.bun/install/cache"
 
 # v1.3.14 — reap orphan child processes when parent exits (macOS/Linux)
 [run]
@@ -82,6 +75,7 @@ timeout = 30000
 # Reduce noise in human and agent output; failures are still surfaced.
 onlyFailures = true
 # Coverage is opt-in via --coverage or test:coverage scripts.
+# Bun 1.4 canary ignores CLI --coverage while this is false; run-tests.ts flips it temporarily.
 coverage = false
 # NOTE: retry is intentionally NOT set here because Bun forbids it together with
 # --rerun-each. Apply retry explicitly in package scripts / run-tests.ts.

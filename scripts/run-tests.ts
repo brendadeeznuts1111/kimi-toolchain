@@ -25,6 +25,27 @@ import { formatTestSummaryLine } from "../src/lib/gate-runner.ts";
 import { ensureQuietEnv, isQuietMode } from "../src/lib/quiet-mode.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
+const BUNFIG_PATH = join(REPO_ROOT, "bunfig.toml");
+const COVERAGE_FALSE = /^coverage = false\s*$/m;
+
+/**
+ * Bun 1.4 canary ignores `--coverage` when bunfig sets `coverage = false`.
+ * Temporarily flip the flag for opt-in coverage runs, then restore.
+ */
+async function withCoverageBunfig<T>(enabled: boolean, fn: () => Promise<T>): Promise<T> {
+  if (!enabled) return fn();
+
+  const original = await Bun.file(BUNFIG_PATH).text();
+  const shouldPatch = COVERAGE_FALSE.test(original);
+  if (shouldPatch) {
+    await Bun.write(BUNFIG_PATH, original.replace(COVERAGE_FALSE, "coverage = true"));
+  }
+  try {
+    return await fn();
+  } finally {
+    if (shouldPatch) await Bun.write(BUNFIG_PATH, original);
+  }
+}
 
 function parseCli(): { fast: boolean; coverage: boolean; ci: boolean; smoke: boolean } {
   const argv = Bun.argv.slice(2);
@@ -46,49 +67,54 @@ async function main() {
     if (!pathExists(reportsDir)) makeDir(reportsDir, { recursive: true });
   }
 
-  const cmd = withBunNoOrphans([
-    "bun",
-    ...bunTestArgs({
-      fast,
-      coverage,
-      ci,
-      smoke,
-      bail: true,
-      retry: 2,
-      dots: quiet,
-    }),
-  ]);
+  const exitCode = await withCoverageBunfig(coverage, async () => {
+    const cmd = withBunNoOrphans([
+      "bun",
+      ...bunTestArgs({
+        fast,
+        coverage,
+        ci,
+        smoke,
+        bail: true,
+        retry: 2,
+        dots: quiet,
+      }),
+    ]);
 
-  if (!quiet) {
+    if (!quiet) {
+      const proc = Bun.spawn(cmd, {
+        cwd: REPO_ROOT,
+        env: process.env,
+        stdout: "inherit",
+        stderr: "inherit",
+      });
+      return proc.exited;
+    }
+
     const proc = Bun.spawn(cmd, {
       cwd: REPO_ROOT,
       env: process.env,
-      stdout: "inherit",
-      stderr: "inherit",
+      stdout: "pipe",
+      stderr: "pipe",
     });
-    process.exit(await proc.exited);
-  }
+    const [stdout, stderr, code] = await Promise.all([
+      readableStreamToText(proc.stdout),
+      readableStreamToText(proc.stderr),
+      proc.exited,
+    ]);
 
-  const proc = Bun.spawn(cmd, {
-    cwd: REPO_ROOT,
-    env: process.env,
-    stdout: "pipe",
-    stderr: "pipe",
+    if (code !== 0) {
+      if (stdout) process.stdout.write(stdout);
+      if (stderr) process.stderr.write(stderr);
+      return code;
+    }
+
+    const summary = formatTestSummaryLine(`${stdout}\n${stderr}`);
+    if (summary) console.log(summary);
+    return code;
   });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    readableStreamToText(proc.stdout),
-    readableStreamToText(proc.stderr),
-    proc.exited,
-  ]);
 
-  if (exitCode !== 0) {
-    if (stdout) process.stdout.write(stdout);
-    if (stderr) process.stderr.write(stderr);
-    process.exit(exitCode);
-  }
-
-  const summary = formatTestSummaryLine(`${stdout}\n${stderr}`);
-  if (summary) console.log(summary);
+  process.exit(exitCode);
 }
 
 main().catch((err) => {

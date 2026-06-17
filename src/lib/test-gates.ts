@@ -169,7 +169,9 @@ export function bunTestArgs(options: {
   if (options.retry !== undefined && options.retry > 0) {
     args.push(`--retry=${options.retry}`);
   }
-  if (options.coverage) args.push("--coverage");
+  if (options.coverage) {
+    args.push("--coverage", "--coverage-reporter=lcov", "--coverage-dir=./coverage");
+  }
   if (options.ci) {
     args.push("--reporter=junit", "--reporter-outfile=reports/junit.xml");
   }

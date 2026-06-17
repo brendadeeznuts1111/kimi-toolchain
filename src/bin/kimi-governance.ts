@@ -212,11 +212,10 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
         let totalLines = 0;
         let hitLines = 0;
         for (const line of lcov.split("\n")) {
-          if (line.startsWith("DA:")) {
-            const [, , hits] = line.split(":")[1].split(",");
-            totalLines++;
-            if (parseInt(hits, 10) > 0) hitLines++;
-          }
+          if (!line.startsWith("DA:")) continue;
+          const hits = Number(line.slice(3).split(",")[1]);
+          totalLines++;
+          if (hits > 0) hitLines++;
         }
         report.total = totalLines;
         report.covered = hitLines;
@@ -255,7 +254,7 @@ export async function loadCachedCoverage(projectDir: string): Promise<CoverageRe
     try {
       const history = (await Bun.file(COVERAGE_HISTORY).json()) as CoverageHistoryEntry[];
       const latest = [...history].reverse().find((entry) => entry.project === project);
-      if (latest && latest.total > 0) {
+      if (latest && latest.total > 0 && latest.covered > 0) {
         return {
           covered: latest.covered,
           total: latest.total,
@@ -274,11 +273,10 @@ export async function loadCachedCoverage(projectDir: string): Promise<CoverageRe
     let totalLines = 0;
     let hitLines = 0;
     for (const line of lcov.split("\n")) {
-      if (line.startsWith("DA:")) {
-        const [, , hits] = line.split(":")[1].split(",");
-        totalLines++;
-        if (parseInt(hits, 10) > 0) hitLines++;
-      }
+      if (!line.startsWith("DA:")) continue;
+      const hits = Number(line.slice(3).split(",")[1]);
+      totalLines++;
+      if (hits > 0) hitLines++;
     }
     if (totalLines > 0) {
       report.total = totalLines;

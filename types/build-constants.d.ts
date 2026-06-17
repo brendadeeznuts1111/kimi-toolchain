@@ -91,7 +91,7 @@ declare const KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD: number;
 /**
  * @defineDomain runtime
  * @type string
- * @default "1.3.14"
+ * @default "1.4.0"
  * @restrictions semver — minimum Bun runtime version required by toolchain tooling
  */
 declare const KIMI_RUNTIME_MIN_BUN_VERSION: string;
