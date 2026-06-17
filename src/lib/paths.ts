@@ -169,6 +169,11 @@ export function manifestPath(): string {
   return join(desktopRoot(), "toolchain-manifest.json");
 }
 
+/** Return ~/.kimi-code/canonical-references.json */
+export function canonicalReferencesPath(home?: string): string {
+  return join(desktopRoot(home), "canonical-references.json");
+}
+
 /** Return ~/.kimi-code/error-taxonomy.yml */
 export function taxonomyPath(): string {
   return join(desktopRoot(), "error-taxonomy.yml");

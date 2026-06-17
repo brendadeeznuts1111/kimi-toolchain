@@ -35,6 +35,7 @@ export const ROOT_TEMPLATES = [
   "UNIFIED.md",
   "TEMPLATES.md",
   "DEEP-QUALITY.md",
+  "canonical-references.json",
   "CONTRIBUTING.md",
   "dx.config.toml",
   "kimi-toolchain.code-workspace",

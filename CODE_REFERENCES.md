@@ -2,6 +2,21 @@
 
 This file points future agents at local examples that define the code style for this repo. Read the matching section before adding new code; prefer extending these patterns over inventing a parallel one.
 
+## Canonical ecosystem links
+
+**Source of truth:** `src/lib/canonical-references.ts` → `canonical-references.json` (cached at `~/.kimi-code/` after `bun run sync`). Regenerate: `bun run references:generate`. Package pointer: `package.json` → `kimi.canonicalReferences`.
+
+| Stack | Canonical docs | When to use |
+| ----- | -------------- | ----------- |
+| **Bun** | [bun.sh/docs](https://bun.sh/docs) | Runtime, test, I/O — prefer Bun APIs over Node |
+| **Effect** | [effect.website/docs](https://effect.website/docs) | `src/lib/effect/`, Herdr pane CLIs, typed CLI errors |
+| **Kimi Code** | [moonshotai.github.io/kimi-code](https://moonshotai.github.io/kimi-code/) | Official `kimi` CLI — not `kimi-doctor` |
+| **Herdr** | [herdr.dev/docs](https://herdr.dev/docs/) | `herdr-pane`, `herdr-latm`, `herdr-orchestrator` |
+| **Cloudflare** | [developers.cloudflare.com](https://developers.cloudflare.com/) | Workers/Access; API tokens via `kimi-cloudflare-access` |
+| **DX** | `~/.config/dx/AGENTS.md` | Global platform, `dx.config.toml` `[herdr]` / `[finishWork]` |
+
+Repos: [kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain) (`~/kimi-toolchain`), [Kimi Code](https://github.com/MoonshotAI/kimi-code), [Effect](https://github.com/Effect-TS/effect).
+
 ## Core Defaults
 
 | Need                            | Reference                               | Follow                                                                                      |

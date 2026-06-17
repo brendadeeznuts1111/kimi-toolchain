@@ -144,6 +144,7 @@ Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight a
 
 ## Related
 
+- Cached link manifest: `~/.kimi-code/canonical-references.json` (`bun run references:generate`)
 - Repo: https://github.com/brendadeeznuts1111/kimi-toolchain
-- `CODE_REFERENCES.md` — local coding exemplars
+- `CODE_REFERENCES.md` — local coding exemplars + ecosystem link table
 - Kimi docs: https://moonshotai.github.io/kimi-code/

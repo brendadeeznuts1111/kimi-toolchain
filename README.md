@@ -101,6 +101,7 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run lint:taxonomy-coverage` | Error taxonomy coverage audit |
 | `bun run manifest:generate` | Regenerate constants manifest |
 | `bun run docs:sync` | README script drift check/patch |
+| `bun run references:generate` | Regenerate `canonical-references.json` ecosystem link manifest |
 | `bun run pr:diff` | PR diff helper |
 | `bun run pr:status` | PR status helper |
 | `bun run test:smoke` | Smoke CLI tests only |

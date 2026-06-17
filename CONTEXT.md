@@ -13,6 +13,8 @@ DEEP-QUALITY.md
 LICENSE
 CONTEXT.md
 CHANGELOG.md
+bun-native-lint.toml
+canonical-references.json
 bunfig.toml
 test-setup.ts
 bun.lock
@@ -20,8 +22,6 @@ README.md
 kimi-toolchain.code-workspace
 UNIFIED.md
 package.json
-CONTRIBUTING.md
-error-taxonomy.yml
 ...
 ```
 
@@ -40,6 +40,7 @@ bun run test:fast  # bun run scripts/run-tests.ts --fast
 bun run test:smoke  # bun run scripts/run-tests.ts --smoke
 bun run test:ci  # bun test --coverage --retry=2 --reporter=junit --reporter-outfile=reports/junit.xml
 bun run test:flake-hunt  # bun test --rerun-each=5 --seed=0 --timeout=30000 --bail=99999
+bun run test:shuffle  # bun test --randomize --rerun-each=5 --seed=0 --timeout=30000 --bail=99999
 ```
 
 ## Governance
@@ -56,6 +57,7 @@ bun run test:flake-hunt  # bun test --rerun-each=5 --seed=0 --timeout=30000 --ba
 - `CODE_REFERENCES.md`
 - `UNIFIED.md`
 - `TEMPLATES.md`
+- `canonical-references.json`
 
 ## Decisions (1 ADRs)
 
@@ -73,6 +75,10 @@ Tracked by `kimi-doctor --success-metrics`:
 | **Integration agility** | Providers need only contract + credential adapter |
 
 The metrics are not frozen. Threshold changes follow toolchain **release cadence** and are justified with **failure ledger** evidence.
+
+## Canonical References
+
+Cached manifest: `canonical-references.json` (`bun run references:generate`; synced to `~/.kimi-code/`). Stacks: Bun, Effect, Kimi Code, Herdr, Cloudflare Platform, Cloudflare MCP, DX, Oxc (oxfmt / oxlint). Full tables: `CODE_REFERENCES.md` § Canonical ecosystem links.
 
 ## Port Policy
 

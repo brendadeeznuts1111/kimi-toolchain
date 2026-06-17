@@ -13,6 +13,7 @@ import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
 import { checkDocDrift } from "../lib/readme-sync.ts";
+import { formatCanonicalReferencesMarkdown } from "../lib/canonical-references.ts";
 import { guardianDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
@@ -347,9 +348,19 @@ async function generateContext(projectDir: string): Promise<string> {
       adrs.push(file.replace(/\.md$/, ""));
     }
   }
-  const agentReferenceLines = ["AGENTS.md", "CODE_REFERENCES.md", "UNIFIED.md", "TEMPLATES.md"]
+  const agentReferenceLines = [
+    "AGENTS.md",
+    "CODE_REFERENCES.md",
+    "UNIFIED.md",
+    "TEMPLATES.md",
+    "canonical-references.json",
+  ]
     .filter((file) => pathExists(join(projectDir, file)))
     .map((file) => `- \`${file}\``);
+
+  const canonicalRefsSection = pathExists(join(projectDir, "src/lib/canonical-references.ts"))
+    ? formatCanonicalReferencesMarkdown(true)
+    : "";
 
   const successMetricsSection = pathExists(join(projectDir, "src/lib/success-metrics.ts"))
     ? `## Success Metrics
@@ -419,7 +430,7 @@ ${adrs.map((a) => `- \`docs/adr/${a}.md\``).join("\n")}
     : "## Decisions\n\nNo ADRs yet. Create one: 'kimi-governance adr <title>'\n"
 }
 
-${successMetricsSection}## Port Policy
+${successMetricsSection}${canonicalRefsSection}## Port Policy
 
 - Default to \`0\` for auto-assignment. Log actual port on startup.
 - Never hardcode ports in source.

@@ -89,6 +89,7 @@ export const UNIT_TEST_FILES = [
   "test/herdr-workspace-service.unit.test.ts",
   "test/handoff-log.unit.test.ts",
   "test/governance-preflight.unit.test.ts",
+  "test/canonical-references.unit.test.ts",
 ] as const;
 
 /** Integration tests — included by full Bun discovery, not the fast unit gate. */

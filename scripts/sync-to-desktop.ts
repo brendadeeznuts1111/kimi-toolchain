@@ -9,6 +9,11 @@
  *   bun run scripts/sync-to-desktop.ts --daemon # starts Bun.cron (every 5 min)
  */
 
+import {
+  buildCanonicalReferencesManifest,
+  repoCanonicalReferencesPath,
+} from "../src/lib/canonical-references.ts";
+import { stableStringify } from "../src/lib/build-constants-registry.ts";
 import { syncDesktop } from "../src/lib/desktop-sync.ts";
 import { provisionUserMcp } from "../src/lib/mcp-config.ts";
 import { computeSyncHashes } from "../src/lib/sync-hashes.ts";
@@ -24,7 +29,15 @@ import { isQuietMode } from "../src/lib/quiet-mode.ts";
 const REPO_ROOT = import.meta.dir + "/..";
 const KNOWN_FLAGS = new Set(["--daemon", "--dry-run", "--force"]);
 
+async function ensureCanonicalReferencesManifest(): Promise<void> {
+  await Bun.write(
+    repoCanonicalReferencesPath(REPO_ROOT),
+    stableStringify(buildCanonicalReferencesManifest())
+  );
+}
+
 async function main() {
+  await ensureCanonicalReferencesManifest();
   const args = Bun.argv.slice(2);
   const unknown = args.filter((arg) => arg.startsWith("-") && !KNOWN_FLAGS.has(arg));
   if (unknown.length > 0) {

@@ -15,6 +15,8 @@
 
 **Do not rename** `~/.kimi-code/` — it is the official Kimi Code data directory.
 
+**Canonical links** (Bun, Effect, Kimi Code, Herdr, Cloudflare, DX): `canonical-references.json` in repo and `~/.kimi-code/` after sync. Source: `src/lib/canonical-references.ts`; `package.json` → `kimi.canonicalReferences`.
+
 ## Directory layout
 
 ```

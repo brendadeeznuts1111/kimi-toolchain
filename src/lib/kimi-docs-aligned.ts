@@ -26,6 +26,7 @@ const DOC_MARKERS: Record<string, string[]> = {
     "src/lib/tool-runner.ts",
     "src/lib/effect/cli-runtime.ts",
     "Package Policy",
+    "canonical-references.json",
   ],
   "CONTEXT.md": ["Kimi Code", "kimi-toolchain", "CODE_REFERENCES.md"],
   "TEMPLATES.md": ["config.toml", "mcp.json", "CODE_REFERENCES.md"],

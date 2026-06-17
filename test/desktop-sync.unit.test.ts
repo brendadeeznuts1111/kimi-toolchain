@@ -34,6 +34,7 @@ describe("desktop-sync", () => {
     expect(ROOT_TEMPLATES).toContain("AGENTS.md");
     expect(ROOT_TEMPLATES).toContain("CODE_REFERENCES.md");
     expect(ROOT_TEMPLATES).toContain("UNIFIED.md");
+    expect(ROOT_TEMPLATES).toContain("canonical-references.json");
   });
 
   test("ensureDesktopLayout creates desktop dirs", () => {

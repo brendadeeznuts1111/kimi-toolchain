@@ -55,6 +55,7 @@ Authoritative maps — do not duplicate stale trees here:
 | Shared library | `src/lib/` (flat; `src/lib/effect/` for Effect adapters) |
 | Unit vs smoke tests | `src/lib/test-gates.ts` (`UNIT_TEST_FILES`, `SMOKE_TEST_FILES`) |
 | Coding exemplars | [CODE_REFERENCES.md](CODE_REFERENCES.md) |
+| Canonical ecosystem links | `canonical-references.json` (`bun run references:generate`; cached at `~/.kimi-code/`) |
 | Scaffolding templates | [TEMPLATES.md](TEMPLATES.md) |
 
 Top-level dirs: `src/` (bins, lib, install-hooks, kimi-hooks), `test/`, `scripts/`, `skills/`, `docs/`, `bench/`.

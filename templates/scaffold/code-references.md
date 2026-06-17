@@ -5,9 +5,10 @@ Use this file to map good local examples before future agents add code. Replace 
 ## Read Order
 
 1. Read `CONTEXT.md` for the domain model and current architecture.
-2. Read this file for local implementation examples.
-3. If this file is incomplete, use `~/.kimi-code/CODE_REFERENCES.md` as fallback guidance.
-4. Pick the closest existing local implementation before writing a new pattern.
+2. Read `~/.kimi-code/canonical-references.json` for cached ecosystem links (Bun, Effect, Kimi Code, Herdr).
+3. Read this file for local implementation examples.
+4. If this file is incomplete, use `~/.kimi-code/CODE_REFERENCES.md` as fallback guidance.
+5. Pick the closest existing local implementation before writing a new pattern.
 
 ## Local Exemplars
 
