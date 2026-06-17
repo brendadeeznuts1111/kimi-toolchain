@@ -4,6 +4,7 @@ import {
   auditCloudflareAccessSkillContract,
   auditCodeProbeWhenExports,
   auditEffectDisciplineSkillContract,
+  auditEffectHardeningSkillContract,
   auditFinishWorkSkillContract,
   auditHerdrSkillContract,
   auditKimiToolchainSkillContract,
@@ -31,6 +32,7 @@ describe("skill-contract", () => {
       [
         "skills/cloudflare-access/SKILL.md",
         "skills/effect-discipline/SKILL.md",
+        "skills/effect-hardening/SKILL.md",
         "skills/finish-work/SKILL.md",
         "skills/herdr/SKILL.md",
         "skills/kimi-toolchain/SKILL.md",
@@ -111,6 +113,12 @@ describe("skill-contract", () => {
   test("effect-discipline skill passes contract gates", async () => {
     const text = await Bun.file(join(REPO_ROOT, "skills/effect-discipline/SKILL.md")).text();
     const issues = auditEffectDisciplineSkillContract("skills/effect-discipline/SKILL.md", text);
+    expect(formatSkillContractReport(issues)).toBe("skill-contract OK");
+  });
+
+  test("effect-hardening skill passes contract gates", async () => {
+    const text = await Bun.file(join(REPO_ROOT, "skills/effect-hardening/SKILL.md")).text();
+    const issues = auditEffectHardeningSkillContract("skills/effect-hardening/SKILL.md", text);
     expect(formatSkillContractReport(issues)).toBe("skill-contract OK");
   });
 

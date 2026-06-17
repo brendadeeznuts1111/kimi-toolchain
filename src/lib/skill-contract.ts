@@ -286,6 +286,14 @@ export const REPO_SKILL_CODE_COVERAGE: Record<
     ],
     testFiles: ["test/effect-gates.unit.test.ts", "test/effect/cli-runtime.unit.test.ts"],
   },
+  "skills/effect-hardening/SKILL.md": {
+    libModules: [
+      "src/lib/effect-gates.ts",
+      "src/lib/effect/decision-services.ts",
+      "src/lib/herdr-orchestrator-events.ts",
+    ],
+    testFiles: ["test/effect-gates.unit.test.ts", "test/herdr-orchestrator-events.unit.test.ts"],
+  },
   "skills/orchestrator/SKILL.md": {
     libModules: ["src/lib/herdr-orchestrator.ts", "src/lib/herdr-orchestrator-events.ts"],
     testFiles: [
@@ -430,6 +438,97 @@ export function auditFinishWorkSkillContract(skillRel: string, text: string): Sk
   return issues;
 }
 
+/** L3 effect-hardening — modules, templates, gate parity with effect-gates.ts. */
+export function auditEffectHardeningSkillContract(
+  skillRel: string,
+  text: string
+): SkillContractIssue[] {
+  const issues: SkillContractIssue[] = [
+    ...findSyncedSkillEscapeLinks(skillRel, text),
+    ...findBarePortableDocLinks(skillRel, text),
+  ];
+
+  const required: Array<{ re: RegExp; rule: string; message: string }> = [
+    {
+      re: /Module 1/,
+      rule: "effect-hardening-modules",
+      message: "must document Module 1–5 hardening modules",
+    },
+    {
+      re: /Data\.TaggedError|Context\.Tag/,
+      rule: "effect-hardening-tag-pattern",
+      message: "must document Data.TaggedError and Context.Tag patterns",
+    },
+    {
+      re: /kimi-doctor --effect-gates/,
+      rule: "effect-hardening-gates-command",
+      message: "must document kimi-doctor --effect-gates",
+    },
+    {
+      re: /kimi-heal effect audit/,
+      rule: "effect-hardening-heal-audit",
+      message: "must document kimi-heal effect audit",
+    },
+    {
+      re: /~\/\.kimi-code\/DEEP-QUALITY\.md/,
+      rule: "effect-hardening-deep-quality",
+      message: "must link ~/.kimi-code/DEEP-QUALITY.md",
+    },
+    {
+      re: /~\/\.kimi-code\/CODE_REFERENCES\.md/,
+      rule: "effect-hardening-code-refs",
+      message: "must link ~/.kimi-code/CODE_REFERENCES.md",
+    },
+    {
+      re: /src\/lib\/effect-gates\.ts/,
+      rule: "effect-hardening-gates-pointer",
+      message: "must point to src/lib/effect-gates.ts",
+    },
+    {
+      re: /templates\//,
+      rule: "effect-hardening-templates",
+      message: "must reference bundled templates/",
+    },
+    {
+      re: /effect-discipline/,
+      rule: "effect-hardening-discipline-pointer",
+      message: "must point to effect-discipline for L1+L2",
+    },
+    {
+      re: /does not.*use `@effect\/schema`|NOT.*@effect\/schema/i,
+      rule: "effect-hardening-no-effect-schema",
+      message: "must state repo does not use @effect/schema",
+    },
+  ];
+
+  for (const { re, rule, message } of required) {
+    if (!re.test(text)) issues.push({ skill: skillRel, rule, message });
+  }
+
+  for (const gateId of EFFECT_GATE_IDENTIFIERS) {
+    if (!text.includes(gateId)) {
+      issues.push({
+        skill: skillRel,
+        rule: "effect-hardening-gate-id-missing",
+        message: `must mention gate id ${gateId}`,
+      });
+    }
+  }
+
+  if (
+    /@effect\/schema/.test(text) &&
+    !/does not.*use `@effect\/schema`|NOT.*@effect\/schema/i.test(text)
+  ) {
+    issues.push({
+      skill: skillRel,
+      rule: "effect-hardening-effect-schema-import",
+      message: "do not recommend @effect/schema — use safeParse and narrow guards",
+    });
+  }
+
+  return issues;
+}
+
 /** Toolchain skill — decision protocols and Kimi vs toolchain boundary. */
 export function auditKimiToolchainSkillContract(
   skillRel: string,
@@ -480,6 +579,11 @@ export function auditKimiToolchainSkillContract(
       re: /effect-discipline/,
       rule: "kimi-toolchain-effect-pointer",
       message: "must point Effect work to effect-discipline skill",
+    },
+    {
+      re: /effect-hardening/,
+      rule: "kimi-toolchain-effect-hardening-pointer",
+      message: "must point L3 Effect scaffolds to effect-hardening skill",
     },
   ];
 
@@ -661,6 +765,9 @@ export function auditRepoSkill(skillRel: string, text: string): SkillContractIss
   }
   if (skillRel === "skills/effect-discipline/SKILL.md") {
     return auditEffectDisciplineSkillContract(skillRel, text);
+  }
+  if (skillRel === "skills/effect-hardening/SKILL.md") {
+    return auditEffectHardeningSkillContract(skillRel, text);
   }
   if (skillRel === "skills/orchestrator/SKILL.md") {
     return auditOrchestratorSkillContract(skillRel, text);

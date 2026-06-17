@@ -8,3 +8,4 @@ Do not duplicate content here — read these at runtime after `bun run sync`:
 | Effect exemplars (do/avoid, file map) | [CODE_REFERENCES.md](~/.kimi-code/CODE_REFERENCES.md) § Effect Patterns |
 | Gate implementation                   | `src/lib/effect-gates.ts`                                               |
 | Pre-push enforcement                  | `kimi-doctor --effect-gates`                                            |
+| L3 scaffolds (services, streams)      | `skills/effect-hardening/SKILL.md` + `templates/`                       |

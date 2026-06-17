@@ -64,7 +64,7 @@ Built-in subagents: `coder`, `explore`, `plan`. Env overrides: `KIMI_MODEL_*` (n
 
 Invoke when: project health, `package.json`/`bun.lock`/`bunfig.toml` edits, failures/loops, or scaffold requests.
 
-Effect code or a new CLI using `runCliExit` → load **effect-discipline** skill (`skills/effect-discipline/SKILL.md`) first.
+Effect code or a new CLI using `runCliExit` → load **effect-discipline** (`skills/effect-discipline/SKILL.md`) first; L3 service/stream scaffolds → **effect-hardening** (`skills/effect-hardening/SKILL.md`).
 
 ### Project Health Check
 
@@ -142,7 +142,7 @@ Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight a
 - **MCP:** `unified-shell` auto-registered in `~/.kimi-code/mcp.json` on `bun run sync`; verify with `kimi-doctor --quick` or `/mcp`
 - **Hooks:** Git (`kimi-githooks`), Bun postinstall, Kimi lifecycle (`kimi-hooks/`) — see [AGENTS.md](~/.kimi-code/AGENTS.md) § Hooks taxonomy
 - **Paths:** `src/lib/paths.ts` helpers; layout in [UNIFIED.md](~/.kimi-code/UNIFIED.md)
-- **Skills sync:** `bun run sync` → `~/.kimi-code/skills/` + `~/.agents/skills/` (`kimi-toolchain`, `cloudflare-access`, `effect-discipline`, `herdr`)
+- **Skills sync:** `bun run sync` → `~/.kimi-code/skills/` + `~/.agents/skills/` (`kimi-toolchain`, `cloudflare-access`, `effect-discipline`, `effect-hardening`, `herdr`)
 
 ## Related
 
