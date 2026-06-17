@@ -10,6 +10,8 @@ import {
   countLikelyErrors,
   filterFormatPaths,
   filterRelatedUnitTests,
+  formatChangedOnlyBanner,
+  formatChangedOnlyEmptyWarning,
   resolveChangedContext,
 } from "./check-changed.ts";
 import { shouldRunScopedLint } from "./check-lint-scoped.ts";
@@ -302,9 +304,10 @@ async function recordScopedGatePasses(
   changedFiles: string[] | null,
   baseRef: string | null,
   results: GateResult[]
-): Promise<void> {
-  if (!options.changedOnly || !baseRef || !changedFiles || changedFiles.length === 0) return;
+): Promise<number> {
+  if (!options.changedOnly || !baseRef || !changedFiles || changedFiles.length === 0) return 0;
 
+  let recorded = 0;
   for (const result of results) {
     if (result.skipped || result.exitCode !== 0) continue;
 
@@ -312,22 +315,42 @@ async function recordScopedGatePasses(
       const formatPaths = filterFormatPaths(changedFiles);
       if (formatPaths.length > 0) {
         await writeScopedGatePass(projectRoot, "format:check", formatPaths, baseRef, changedFiles);
+        recorded++;
       }
     } else if (result.name === "lint" && shouldRunScopedLint(changedFiles)) {
       await writeScopedGatePass(projectRoot, "lint", changedFiles, baseRef, changedFiles);
+      recorded++;
     } else if (result.name === "typecheck" && changedIncludesTypeScript(changedFiles)) {
       await writeScopedGatePass(projectRoot, "typecheck", [SCOPED_ANY_TS], baseRef, changedFiles);
+      recorded++;
     } else if (result.name === "test:fast" || result.name === "test") {
       await writeScopedGatePass(projectRoot, "test:fast", changedFiles, baseRef, changedFiles);
+      recorded++;
     }
   }
+  return recorded;
 }
 
 export async function runCheckPipeline(
   projectRoot: string,
   options: CheckOptions
 ): Promise<CheckRunResult> {
-  const { changedFiles, baseRef } = await resolveChangedContext(projectRoot, options);
+  const { changedFiles, baseRef, baseLabel } = await resolveChangedContext(projectRoot, options);
+
+  if (
+    options.changedOnly &&
+    changedFiles &&
+    !options.jsonSummary &&
+    !options.dryRun &&
+    !options.verbose
+  ) {
+    if (changedFiles.length === 0 && baseLabel) {
+      checkErr(formatChangedOnlyEmptyWarning(baseLabel));
+    } else if (changedFiles.length > 0 && baseLabel) {
+      checkOut(formatChangedOnlyBanner(changedFiles, baseLabel));
+    }
+  }
+
   const steps = await buildSteps(projectRoot, options, changedFiles, baseRef);
   const gateQuiet = (!options.verbose && shouldSilentOnSuccess()) || options.jsonSummary;
 
@@ -345,9 +368,15 @@ export async function runCheckPipeline(
     allResults.push(await runStepTracked(projectRoot, testStep, gateQuiet));
   }
 
-  await recordScopedGatePasses(projectRoot, options, changedFiles, baseRef, allResults);
+  const scopedGatesRecorded = await recordScopedGatePasses(
+    projectRoot,
+    options,
+    changedFiles,
+    baseRef,
+    allResults
+  );
 
-  return buildCheckResult(allResults);
+  return { ...buildCheckResult(allResults), scopedGatesRecorded };
 }
 
 export async function runTestOnlyPipeline(
@@ -355,7 +384,25 @@ export async function runTestOnlyPipeline(
   options: CheckOptions
 ): Promise<CheckRunResult> {
   const testOptions: CheckOptions = { ...options, skipTests: false };
-  const { changedFiles, baseRef } = await resolveChangedContext(projectRoot, testOptions);
+  const { changedFiles, baseRef, baseLabel } = await resolveChangedContext(
+    projectRoot,
+    testOptions
+  );
+
+  if (
+    testOptions.changedOnly &&
+    changedFiles &&
+    !testOptions.jsonSummary &&
+    !testOptions.dryRun &&
+    !testOptions.verbose
+  ) {
+    if (changedFiles.length === 0 && baseLabel) {
+      checkErr(formatChangedOnlyEmptyWarning(baseLabel));
+    } else if (changedFiles.length > 0 && baseLabel) {
+      checkOut(formatChangedOnlyBanner(changedFiles, baseLabel));
+    }
+  }
+
   const steps = await buildSteps(projectRoot, testOptions, changedFiles, baseRef);
   const testStep = steps.find((step) => step.name === "test" || step.name === "test:fast");
   if (!testStep) {
@@ -363,19 +410,26 @@ export async function runTestOnlyPipeline(
   }
   const gateQuiet = (!testOptions.verbose && shouldSilentOnSuccess()) || testOptions.jsonSummary;
   const result = await runStepTracked(projectRoot, testStep, gateQuiet);
-  await recordScopedGatePasses(projectRoot, testOptions, changedFiles, baseRef, [result]);
-  return buildCheckResult([result]);
+  const scopedGatesRecorded = await recordScopedGatePasses(
+    projectRoot,
+    testOptions,
+    changedFiles,
+    baseRef,
+    [result]
+  );
+  return { ...buildCheckResult([result]), scopedGatesRecorded };
 }
 
 export function printCheckDryRun(
   options: CheckOptions,
   steps: PipelineStep[],
-  changedFiles: string[] | null
+  changedFiles: string[] | null,
+  baseLabel: string | null = null
 ): void {
   const flags: string[] = [];
   if (options.staged) flags.push("staged");
   if (options.fast) flags.push("fast");
-  if (options.changedOnly) flags.push(`changed-only base=${options.base}`);
+  if (options.changedOnly) flags.push(`changed-only base=${baseLabel ?? options.base}`);
   if (options.failFast) flags.push("fail-fast");
   if (options.skipTests) flags.push("skip-tests");
   if (options.jsonSummary) flags.push("json-summary");
@@ -411,7 +465,12 @@ export function printCheckResult(result: CheckRunResult, options: CheckOptions):
   }
 
   if (result.passed) {
-    const suffix = result.fromCache ? " (cached)" : "";
+    const hints: string[] = [];
+    if (result.fromCache) hints.push("cached");
+    if (result.scopedGatesRecorded && result.scopedGatesRecorded > 0) {
+      hints.push(`scoped cache +${result.scopedGatesRecorded}`);
+    }
+    const suffix = hints.length > 0 ? ` (${hints.join(", ")})` : "";
     checkOut(`✓ gate passed${suffix}`);
     return;
   }
@@ -436,8 +495,12 @@ export function printCheckResult(result: CheckRunResult, options: CheckOptions):
 export async function prepareDryRunSteps(
   projectRoot: string,
   options: CheckOptions
-): Promise<{ steps: PipelineStep[]; changedFiles: string[] | null }> {
-  const { changedFiles, baseRef } = await resolveChangedContext(projectRoot, options);
+): Promise<{
+  steps: PipelineStep[];
+  changedFiles: string[] | null;
+  baseLabel: string | null;
+}> {
+  const { changedFiles, baseRef, baseLabel } = await resolveChangedContext(projectRoot, options);
   const steps = await buildSteps(projectRoot, options, changedFiles, baseRef);
-  return { steps, changedFiles };
+  return { steps, changedFiles, baseLabel };
 }

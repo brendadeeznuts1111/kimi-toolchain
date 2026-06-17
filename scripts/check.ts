@@ -54,6 +54,7 @@ function parseCli(): CheckOptions {
   let timeoutMs = DEFAULT_TEST_TIMEOUT_MS;
   let changedOnly = false;
   let base = "main";
+  let baseExplicit = false;
   let failFast = false;
   let jsonSummary = false;
   let skipTests = false;
@@ -116,10 +117,12 @@ function parseCli(): CheckOptions {
     }
     if (arg === "--base") {
       base = argv[++i] ?? base;
+      baseExplicit = true;
       continue;
     }
     if (arg.startsWith("--base=")) {
       base = arg.split("=")[1] ?? base;
+      baseExplicit = true;
       continue;
     }
     if (arg === "--timeout") {
@@ -147,6 +150,7 @@ function parseCli(): CheckOptions {
     timeoutMs,
     changedOnly,
     base,
+    baseExplicit,
     failFast,
     jsonSummary,
     skipTests,
@@ -183,14 +187,14 @@ async function main() {
   if (options.dryRun && options.watch) {
     if (options.watchTests) printWatchTestsDryRun();
     else printWatchDryRun();
-    const { steps, changedFiles } = await prepareDryRunSteps(REPO_ROOT, options);
-    printCheckDryRun(options, steps, changedFiles);
+    const { steps, changedFiles, baseLabel } = await prepareDryRunSteps(REPO_ROOT, options);
+    printCheckDryRun(options, steps, changedFiles, baseLabel);
     return;
   }
 
   if (options.dryRun) {
-    const { steps, changedFiles } = await prepareDryRunSteps(REPO_ROOT, options);
-    printCheckDryRun(options, steps, changedFiles);
+    const { steps, changedFiles, baseLabel } = await prepareDryRunSteps(REPO_ROOT, options);
+    printCheckDryRun(options, steps, changedFiles, baseLabel);
     return;
   }
 

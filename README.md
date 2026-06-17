@@ -57,6 +57,9 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run dx:config` | (synced from package.json) |
 | `bun run dx-config` | (synced from package.json) |
 | `bun run lint:doc-links` | (synced from package.json) |
+| `bun run check:fast:changed` | (synced from package.json) |
+| `bun run check:watch` | (synced from package.json) |
+| `bun run check:watch:tests` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                           |

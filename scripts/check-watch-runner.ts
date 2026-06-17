@@ -35,7 +35,12 @@ export function startCheckWatchMode(
         : mergeWatchOptions(baseOptions);
       const result = await run(merged);
       if (result.passed) {
-        const suffix = result.fromCache ? " (cached)" : "";
+        const hints: string[] = [];
+        if (result.fromCache) hints.push("cached");
+        if (result.scopedGatesRecorded && result.scopedGatesRecorded > 0) {
+          hints.push(`scoped cache +${result.scopedGatesRecorded}`);
+        }
+        const suffix = hints.length > 0 ? ` (${hints.join(", ")})` : "";
         watchOut(testOnly ? `✓ tests passed${suffix}` : `✓ gate passed${suffix}`);
       } else {
         const first = result.failures[0];

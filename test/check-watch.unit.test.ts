@@ -10,6 +10,7 @@ const base: CheckOptions = {
   timeoutMs: 1500,
   changedOnly: false,
   base: "main",
+  baseExplicit: false,
   failFast: false,
   jsonSummary: false,
   skipTests: false,

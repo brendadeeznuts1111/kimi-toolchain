@@ -8,6 +8,8 @@ export interface CheckOptions {
   timeoutMs: number;
   changedOnly: boolean;
   base: string;
+  /** User passed --base (disables auto fallback to origin/main). */
+  baseExplicit: boolean;
   failFast: boolean;
   jsonSummary: boolean;
   skipTests: boolean;
@@ -35,6 +37,8 @@ export interface CheckRunResult {
   failures: CheckFailure[];
   totalDurationMs: number;
   fromCache?: boolean;
+  /** Gates recorded to .kimi/.last-good-scoped-gates after --changed-only pass. */
+  scopedGatesRecorded?: number;
 }
 
 export function optionsFingerprint(options: CheckOptions): string {

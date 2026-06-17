@@ -133,6 +133,13 @@ bun run check
 # Preview gate steps without running them
 bun run check:dry-run
 
+# Branch-scoped iterate (~seconds): only changed files vs main (auto-fallback to origin/main on main tip)
+bun run check:fast:changed
+
+# TDD loops (debounced file watcher)
+bun run check:watch          # format + lint + typecheck + tests on changed files
+bun run check:watch:tests    # tests only (bun test --changed)
+
 # TypeScript (no emit)
 bun run typecheck
 
@@ -174,6 +181,20 @@ handoff validation must include `bun run sync && bun run sync:verify`.
 **Escape hatches:** `KIMI_SKIP_EFFECT_GATES=1` bypasses the Effect-discipline gate; `KIMI_SKIP_GOVERNANCE_PREFLIGHT=1` skips lock/README/guardian auto-fix before R-Score. Use only in emergencies and document the bypass in the commit message.
 
 Install hooks: `kimi-githooks install` or `kimi-githooks fix` to refresh outdated hooks.
+
+### `check:fast` scoped mode & hook cache bridge
+
+`bun run check:fast:changed` (`--changed-only`) runs format/lint/typecheck/tests only for files changed vs `main` (falls back to `origin/main` when on `main` tip with no local diff). Scoped lint covers oxlint, banned-terms, patterns, and test-names — not repo-wide steps (bun-native, context-bloat, manifests, etc.); full `bun run lint` still runs on pre-commit.
+
+After a green scoped run, `.kimi/.last-good-scoped-gates` records per-gate file sets at `HEAD`. Pre-commit skips gates when staged paths ⊆ cached scope (`↷fmt ↷lint ↷tsc ↷test`). Pre-push skips `check:fast` when all four gates are covered at `HEAD`.
+
+| Cache file | Used by | Purpose |
+| ---------- | ------- | ------- |
+| `.kimi/.last-good-scoped-gates` | pre-commit / pre-push | Scoped gate file sets + branch diff from `--changed-only` |
+| `.kimi/.last-good-commit` | pre-commit | Legacy full gate pass at `HEAD` |
+| `.kimi/gate-cache.json` | `check --cache-results` only | Full check JSON results (not hooks) |
+
+Clear stale hook skips: `rm .kimi/.last-good-scoped-gates .kimi/.last-good-commit .kimi/gate-cache.json`
 
 ### R-Score & governance preflight
 
