@@ -43,8 +43,8 @@ function withPreflightHome<T>(
   makeDir(join(tmpHome, ".kimi-code", "guardian"), { recursive: true });
   const projectDir = join(tmpHome, "project");
   makeDir(projectDir, { recursive: true });
-  writeText(join(projectDir, "bun.lock"), DEMO_LOCK);
   writeText(join(projectDir, "package.json"), JSON.stringify(DEMO_PKG));
+  writeText(join(projectDir, "bun.lock"), DEMO_LOCK);
   writeText(join(projectDir, "README.md"), "# demo\n");
 
   return withEnv({ HOME: tmpHome }, () => {
