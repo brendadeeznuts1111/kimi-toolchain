@@ -325,13 +325,13 @@ bun run typecheck        # TypeScript validation
 | ---------- | -------------------------------------------------------------------------------------------- |
 | Local      | `bun run check` or `bun run unify`                                                           |
 | pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`)                          |
-| pre-push   | `check:fast` + guardian + effect-gates + constant-drift + R-Score + mandatory runtime sync   |
+| pre-push   | `check:fast` + guardian + effect-gates + constant-drift + R-Score (preflight auto-fix via `--hook`) + mandatory runtime sync   |
 | Local CI   | `bun run ci:local` — format:check, lint, typecheck, test, coverage, effect-gates, governance |
 | Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)                             |
 
 **Server CI note:** GitHub Actions is disabled for this account due to a billing lock. Enforcement is local only: pre-push hooks and `bun run ci:local`. The disabled workflow is preserved at `.github/workflows-disabled/ci.yml` for reference.
 
-**Escape hatch:** `KIMI_SKIP_EFFECT_GATES=1` bypasses the Effect-discipline gate. Use only in emergencies and document the bypass in the commit message.
+**Escape hatches:** `KIMI_SKIP_EFFECT_GATES=1` bypasses the Effect-discipline gate; `KIMI_SKIP_GOVERNANCE_PREFLIGHT=1` skips lock/README/guardian auto-fix before R-Score. Use only in emergencies and document the bypass in the commit message.
 
 Install hooks: `kimi-githooks install` or `kimi-githooks fix` to refresh outdated hooks.
 
@@ -455,7 +455,7 @@ When working on this codebase, agents should:
 1. Run `kimi-doctor --agent-ready` to check shell, PATH, official Kimi Code config, MCP config, and memory readiness
 2. Run `kimi-doctor --quick` when you need the broader diagnostics view
 3. Run `kimi-orphan-kill --dry-run` if orphans detected
-4. Ensure R-Score is ≥ B (run `kimi-governance score`)
+4. Ensure R-Score is ≥ B (`kimi-governance score --preflight --quick`)
 
 **During a session (step-budget discipline):**
 
@@ -490,7 +490,7 @@ When working on this codebase, agents should:
 1. Run `kimi-githooks doctor`
 2. Run `bun run check:fast` during iteration, then `bun run check` before commit
 3. Run `kimi-doctor --agent-ready`
-4. Run `kimi-guardian check` and `kimi-governance score`
+4. Run `kimi-governance score --preflight --quick` (lock/README/guardian auto-fix + grade; pre-push runs the same preflight via `--hook`)
 5. Commit with conventional commit format
 6. If runtime-synced assets changed, run `bun run sync && bun run sync:verify` before handoff
 
@@ -637,6 +637,19 @@ Grades: A (≥90%), B (≥80%), C (≥70%), D (≥60%), F (<60%). CLI shows poin
 
 **Pre-push hooks block push if R-Score is F or D.**
 
+**Governance preflight** (`src/lib/governance-preflight.ts`) runs automatically before hook scoring and on `kimi-governance score --preflight`:
+
+| Action | When |
+| ------ | ---- |
+| `lockfile_refreshed` | `package.json` mtime newer than `bun.lock` (scripts-only edits) |
+| `readme_patched` | README missing `package.json` scripts |
+| `guardian_baselined` | Guardian hash missing or mismatched |
+
+```bash
+kimi-governance score --preflight --quick   # manual pre-push check
+bun run finish-work --message "..." --push  # gates + commit + push close-loop
+```
+
 ## Security Considerations
 
 - **No secrets in source.** Use `Bun.env` or `Bun.secrets`.
@@ -692,6 +705,7 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `src/lib/readme-sync.ts`               | README ↔ package.json drift detect + patch                                          |
 | `src/lib/paths.ts`                     | **Single source of truth for `~/.kimi-code` paths**                                 |
 | `src/lib/governance-check.ts`          | License/CONTRIBUTING/CODEOWNERS checker                                             |
+| `src/lib/governance-preflight.ts`      | Pre-score auto-fix: stale lock mtime, README drift, guardian baseline               |
 | `src/lib/r-score.ts`                   | R-Score calculation + grade formatting                                              |
 | `src/lib/conventional-commits.ts`      | Conventional commit parser + semver bump logic                                      |
 | `src/lib/changelog.ts`                 | Changelog section generation + update                                               |
@@ -728,7 +742,7 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `kimi-doctor`            | `doctor`, `doctor --fix`, `doctor --quick`, `doctor --memory-budget`                                              |
 | `kimi-orphan-kill`       | `--dry-run` (cleanup stale test/tool processes)                                                                   |
 | `kimi-fix`               | `fix <path>`, `fix <path> --profile app\|toolchain`, `fix <path> --dry-run` — gate config uses `kimi-doctor --effect-gates` (see TEMPLATES.md migration) |
-| `kimi-governance`        | `score`, `fix`, `coverage [N]`, `docs`, `adr <title>`, `doctor`                                                   |
+| `kimi-governance`        | `score`, `score --preflight`, `fix`, `coverage [N]`, `docs`, `adr <title>`, `doctor`                             |
 | `kimi-guardian`          | `check`, `sign`, `verify`, `report`, `fix`, `doctor`                                                              |
 | `kimi-memory`            | `store`, `recall`, `resume`, `autosave`, `graph`, `impact`, `search`, `prune`, `stats`, `trends`, `doctor`, `fix` |
 | `kimi-githooks`          | `install`, `doctor`, `fix`                                                                                        |
@@ -742,6 +756,7 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `herdr-project`          | `apply`, `reconcile`, `status` — workspace layout from `dx.config.toml` `[herdr]`                                 |
 | `herdr-pane` / `herdr-spawn` | Pane control and agent spawn helpers                                                                          |
 | `herdr-doctor`           | Herdr integration health checks                                                                                   |
+| `herdr-latm`             | `list`, `sync --project .`, `invoke --tool <name>` — pane capability mesh (auto-routes to shell/reviewer)        |
 
 ---
 
