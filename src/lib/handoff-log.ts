@@ -146,28 +146,53 @@ export function resetHandoffSeq(value = 0) {
 // ── Read ────────────────────────────────────────────────────────────────
 
 export function getHandoffHistory(limit = 20): HandoffLogEntry[] {
-  // Also check archives for older entries
   const allEntries = readLogFile(logPath);
+
+  // Also check archives for older entries
+  const logDir = join(logPath, "..");
+  try {
+    const files = readdirSync(logDir);
+    const archivePattern = /^handoff-history\.\d{4}-\d{2}-\d{2}\..+\.jsonl\.gz$/;
+    for (const file of files) {
+      if (!archivePattern.test(file)) continue;
+      try {
+        const archivePath = join(logDir, file);
+        const compressed = readFileSync(archivePath);
+        const raw = gunzipSync(compressed).toString("utf8");
+        allEntries.push(...readLogLines(raw));
+      } catch {
+        // Skip unreadable archives
+      }
+    }
+  } catch {
+    // Directory listing failed — skip archives
+  }
 
   // Sort by timestamp descending, return limited
   allEntries.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
   return allEntries.slice(0, limit);
 }
 
+/** Parse raw JSONL text into entries (shared by live-log and archive readers). */
+function readLogLines(raw: string): HandoffLogEntry[] {
+  const lines = raw.trim().split("\n").filter(Boolean);
+  return lines
+    .map((line) => {
+      try {
+        return JSON.parse(line) as HandoffLogEntry;
+      } catch {
+        return null;
+      }
+    })
+    .filter((e): e is HandoffLogEntry => e !== null);
+}
+
+// Update readLogFile to delegate to readLogLines
 function readLogFile(path: string): HandoffLogEntry[] {
   if (!existsSync(path)) return [];
   try {
     const raw = readFileSync(path, "utf8");
-    const lines = raw.trim().split("\n").filter(Boolean);
-    return lines
-      .map((line) => {
-        try {
-          return JSON.parse(line) as HandoffLogEntry;
-        } catch {
-          return null;
-        }
-      })
-      .filter((e): e is HandoffLogEntry => e !== null);
+    return readLogLines(raw);
   } catch {
     return [];
   }

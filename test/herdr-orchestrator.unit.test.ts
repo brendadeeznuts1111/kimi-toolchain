@@ -714,9 +714,8 @@ describe("Herdr app config plugins.notify", () => {
     expect(merged.onError).toBeUndefined();
   });
 
-  test("readHerdrNotifyDefaults: returns {} when no Herdr config exists on disk", () => {
-    // In test/CI there is no ~/.config/herdr/config.toml, so this should return {}
+  test("readHerdrNotifyDefaults: returns disabled when notify plugin is off or missing", () => {
     const defaults = readHerdrNotifyDefaults();
-    expect(defaults).toEqual({});
+    expect(defaults).toEqual({ enabled: false });
   });
 });

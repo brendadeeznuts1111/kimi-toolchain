@@ -6,16 +6,9 @@
  */
 
 import { Effect, pipe } from "effect";
-import { resolveHerdrPanePath, resolveHerdrSession, herdrSessionEnv } from "./herdr-project-cli.ts";
+import { herdrCli, herdrCliSync, herdrCliError, type HerdrCliError } from "./herdr-cli.ts";
 
 // ── Types ───────────────────────────────────────────────────────────────
-
-export interface HerdrCliError {
-  _tag: "HerdrCliError";
-  message: string;
-  stderr: string;
-  exitCode: number | null;
-}
 
 export interface WorkspaceInfo {
   workspaceId: string;
@@ -34,49 +27,6 @@ export interface WorkspaceCreateResult {
 
 // ── CLI invocation ──────────────────────────────────────────────────────
 
-function herdrCliError(stderr: string, exitCode: number | null, context: string): HerdrCliError {
-  return {
-    _tag: "HerdrCliError" as const,
-    message: `herdr ${context}: ${stderr.slice(0, 200)}`,
-    stderr,
-    exitCode,
-  };
-}
-
-/** Async herdr CLI via Bun.spawn. Returns stdout trimmed. */
-function herdrCli(args: string[], session?: string): Effect.Effect<string, HerdrCliError> {
-  return Effect.gen(function* () {
-    const resolved = resolveHerdrSession(session);
-    const binPath = resolveHerdrPanePath();
-    const baseEnv = herdrSessionEnv(session);
-    const env: Record<string, string> = { PATH: binPath };
-    for (const [key, value] of Object.entries(baseEnv)) {
-      if (value != null) env[key] = value;
-    }
-    if (!resolved) {
-      delete env.HERDR_SESSION;
-      delete env.HERDR_SOCKET_PATH;
-    }
-
-    const proc = Bun.spawn({
-      cmd: ["herdr", ...(resolved ? ["--session", resolved] : []), ...args],
-      stdout: "pipe",
-      stderr: "pipe",
-      env,
-    });
-
-    const exitCode = yield* Effect.promise(() => proc.exited);
-    const stdout = yield* Effect.promise(async () => await Bun.readableStreamToText(proc.stdout));
-    const stderr = yield* Effect.promise(async () => await Bun.readableStreamToText(proc.stderr));
-
-    if (exitCode !== 0) {
-      return yield* Effect.fail(herdrCliError(stderr, exitCode, args[0] || "cli"));
-    }
-
-    return stdout.trim();
-  });
-}
-
 /** Async herdr CLI → JSON. */
 function herdrCliJson<T>(args: string[], session?: string): Effect.Effect<T, HerdrCliError> {
   return pipe(
@@ -91,38 +41,6 @@ function herdrCliJson<T>(args: string[], session?: string): Effect.Effect<T, Her
       }
     })
   );
-}
-
-// ── Sync CLI ────────────────────────────────────────────────────────────
-
-function herdrCliSync(args: string[], session?: string): string {
-  const resolved = resolveHerdrSession(session);
-  const binPath = resolveHerdrPanePath();
-  const baseEnv = herdrSessionEnv(session);
-  const env: Record<string, string> = { PATH: binPath };
-  for (const [key, value] of Object.entries(baseEnv)) {
-    if (value != null) env[key] = value;
-  }
-  if (!resolved) {
-    delete env.HERDR_SESSION;
-    delete env.HERDR_SOCKET_PATH;
-  }
-
-  const result = Bun.spawnSync({
-    cmd: ["herdr", ...(resolved ? ["--session", resolved] : []), ...args],
-    stdout: "pipe",
-    stderr: "pipe",
-    env,
-  });
-
-  const stdout = result.stdout ? new TextDecoder().decode(result.stdout).trim() : "";
-  const stderr = result.stderr ? new TextDecoder().decode(result.stderr).trim() : "";
-
-  if (result.exitCode !== 0) {
-    throw new Error(stderr || `herdr ${args[0]}: exit ${result.exitCode}`);
-  }
-
-  return stdout;
 }
 
 // ── Effect-based operations ─────────────────────────────────────────────

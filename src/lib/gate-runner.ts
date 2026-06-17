@@ -55,6 +55,17 @@ export async function writeGateCache(projectRoot: string, gates: string[]): Prom
   await Bun.write(path, `${JSON.stringify(payload, null, 2)}\n`);
 }
 
+/** Merge newly passed gates into the cache for the current commit. */
+export async function appendGateCache(projectRoot: string, gates: string[]): Promise<void> {
+  if (gates.length === 0) return;
+  const head = await currentGitHead(projectRoot);
+  if (!head) return;
+  const existing = await readGateCache(projectRoot);
+  const merged =
+    existing?.commit === head ? [...new Set([...existing.gates, ...gates])] : [...new Set(gates)];
+  await writeGateCache(projectRoot, merged);
+}
+
 export async function shouldSkipGate(projectRoot: string, gate: string): Promise<boolean> {
   const head = await currentGitHead(projectRoot);
   if (!head) return false;
@@ -140,6 +151,7 @@ function shortGateName(name: string): string {
     check: "check",
     "check:fast": "check",
     "workspace-verify": "ws",
+    "constant-drift": "const",
     sync: "sync",
     "sync:verify": "sync-v",
   };

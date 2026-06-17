@@ -11,8 +11,8 @@ import {
   formatTestSummaryLine,
   hookUsesSummary,
   runGate,
+  appendGateCache,
   shouldSkipGate,
-  writeGateCache,
   type GateResult,
 } from "./gate-runner.ts";
 import { isQuietMode } from "./quiet-mode.ts";
@@ -25,9 +25,11 @@ import { desktopRuntimeDepsOk } from "./desktop-runtime-deps.ts";
 const PRE_COMMIT_CACHE_GATES = ["format:check", "lint", "typecheck", "test:fast"] as const;
 const PRE_PUSH_CACHE_GATES = [
   "guardian",
+  "constant-drift",
   "effect-gates",
   "r-score",
   "install-wrappers",
+  "workspace-verify",
   "sync",
   "sync:verify",
 ] as const;
@@ -154,7 +156,7 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
 
   const passed = results.filter((item) => !item.skipped).map((item) => item.name);
   const cacheable = PRE_COMMIT_CACHE_GATES.filter((gate) => passed.includes(gate));
-  if (cacheable.length > 0) await writeGateCache(projectRoot, [...cacheable]);
+  if (cacheable.length > 0) await appendGateCache(projectRoot, [...cacheable]);
 
   if (summary) emitHookSummary("pre-commit", results);
   return 0;
@@ -196,6 +198,17 @@ export async function runConstantDriftGate(projectRoot: string): Promise<GateRes
   }
 
   if (!(await isKimiToolchainRepo(projectRoot))) {
+    return {
+      name: "constant-drift",
+      exitCode: 0,
+      ms: 0,
+      stdout: "",
+      stderr: "",
+      skipped: true,
+    };
+  }
+
+  if (await shouldSkipGate(projectRoot, "constant-drift")) {
     return {
       name: "constant-drift",
       exitCode: 0,
@@ -293,6 +306,7 @@ async function runRScoreGate(projectRoot: string): Promise<GateResult> {
     governance,
     "score",
     "--quick",
+    "--hook",
   ]);
   const gradeLine = [result.stdout, result.stderr].join("\n").match(/Grade:\s*([A-F])/);
   const grade = gradeLine?.[1];
@@ -411,7 +425,20 @@ async function runSyncGate(projectRoot: string): Promise<GateResult> {
   return runGateVisible(projectRoot, "sync", sync);
 }
 
-async function runSyncVerifyGate(projectRoot: string): Promise<GateResult> {
+async function runSyncVerifyGate(
+  projectRoot: string,
+  options: { syncSkipped?: boolean } = {}
+): Promise<GateResult> {
+  if (options.syncSkipped) {
+    return {
+      name: "sync:verify",
+      exitCode: 0,
+      ms: 0,
+      stdout: "sync skipped — verify not needed",
+      stderr: "",
+      skipped: true,
+    };
+  }
   if (await shouldSkipGate(projectRoot, "sync:verify")) {
     return { name: "sync:verify", exitCode: 0, ms: 0, stdout: "", stderr: "", skipped: true };
   }
@@ -419,6 +446,16 @@ async function runSyncVerifyGate(projectRoot: string): Promise<GateResult> {
 }
 
 async function runWorkspaceVerifyGate(projectRoot: string): Promise<GateResult> {
+  if (await shouldSkipGate(projectRoot, "workspace-verify")) {
+    return {
+      name: "workspace-verify",
+      exitCode: 0,
+      ms: 0,
+      stdout: "",
+      stderr: "",
+      skipped: true,
+    };
+  }
   const verify = existsSync(join(projectRoot, "scripts/verify-workspace.sh"))
     ? ["bash", "scripts/verify-workspace.sh"]
     : ["bun", "run", "src/bin/kimi-doctor.ts", "workspace", "verify"];
@@ -483,8 +520,6 @@ async function runPrePushToolchainGates(
       () => runWorkspaceVerifyGate(projectRoot),
       () => runSyncGate(projectRoot),
     ];
-    if (!needsSyncWrite) runners.push(() => runSyncVerifyGate(projectRoot));
-
     const fail = mergePushGateResults(results, await Promise.all(runners.map((run) => run())));
     if (fail !== null) return fail;
     if (!needsSyncWrite) return null;
@@ -494,17 +529,22 @@ async function runPrePushToolchainGates(
     return syncVerify.exitCode !== 0 ? syncVerify.exitCode : null;
   }
 
-  for (const run of [
-    () => runInstallWrappersGate(projectRoot),
-    () => runWorkspaceVerifyGate(projectRoot),
-    () => runSyncGate(projectRoot),
-    () => runSyncVerifyGate(projectRoot),
-  ]) {
-    const result = await run();
-    results.push(result);
-    if (result.exitCode !== 0) return result.exitCode;
-  }
-  return null;
+  const wrapper = await runInstallWrappersGate(projectRoot);
+  results.push(wrapper);
+  if (wrapper.exitCode !== 0) return wrapper.exitCode;
+
+  const workspace = await runWorkspaceVerifyGate(projectRoot);
+  results.push(workspace);
+  if (workspace.exitCode !== 0) return workspace.exitCode;
+
+  const sync = await runSyncGate(projectRoot);
+  results.push(sync);
+  if (sync.exitCode !== 0) return sync.exitCode;
+  if (sync.skipped) return null;
+
+  const syncVerify = await runSyncVerifyGate(projectRoot);
+  results.push(syncVerify);
+  return syncVerify.exitCode !== 0 ? syncVerify.exitCode : null;
 }
 
 async function qualityGatesCached(projectRoot: string): Promise<boolean> {
@@ -551,7 +591,6 @@ export async function runPrePushGates(projectRoot: string): Promise<number> {
         () => runWorkspaceVerifyGate(projectRoot),
         () => runSyncGate(projectRoot)
       );
-      if (!needsSyncWrite) runners.push(() => runSyncVerifyGate(projectRoot));
     }
 
     if (!summary) printVerboseBanner("Pre-push gates (parallel)");
@@ -598,7 +637,7 @@ export async function runPrePushGates(projectRoot: string): Promise<number> {
     const item = results.find((entry) => entry.name === gate);
     if (item?.exitCode === 0 && !item.skipped) cacheGates.push(gate);
   }
-  if (cacheGates.length > 0) await writeGateCache(projectRoot, [...new Set(cacheGates)]);
+  if (cacheGates.length > 0) await appendGateCache(projectRoot, cacheGates);
 
   if (summary) emitHookSummary("pre-push", results);
   else gateOut("\n✓ Pre-push checks passed");
@@ -703,14 +742,16 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
   if (await isKimiToolchainRepo(projectRoot)) {
     planned.push({
       name: "constant-drift",
-      cmd: ["hook-gates", "runConstantDriftGate"],
-      skipped: Bun.env.KIMI_SKIP_CONSTANT_DRIFT_GATE === "1",
+      cmd: ["constant-drift", "(internal gate)"],
+      skipped:
+        Bun.env.KIMI_SKIP_CONSTANT_DRIFT_GATE === "1" ||
+        (await shouldSkipGate(projectRoot, "constant-drift")),
     });
   }
   if (existsSync(join(projectRoot, "src/bin/kimi-governance.ts"))) {
     planned.push({
       name: "r-score",
-      cmd: ["bun", "run", "src/bin/kimi-governance.ts", "score", "--quick"],
+      cmd: ["bun", "run", "src/bin/kimi-governance.ts", "score", "--quick", "--hook"],
       skipped: await shouldSkipGate(projectRoot, "r-score"),
     });
   }
@@ -749,21 +790,27 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
     const verify = existsSync(join(projectRoot, "scripts/verify-workspace.sh"))
       ? ["bash", "scripts/verify-workspace.sh"]
       : ["bun", "run", "src/bin/kimi-doctor.ts", "workspace", "verify"];
-    planned.push({ name: "workspace-verify", cmd: verify, skipped: false });
+    planned.push({
+      name: "workspace-verify",
+      cmd: verify,
+      skipped: await shouldSkipGate(projectRoot, "workspace-verify"),
+    });
 
     const sync = existsSync(join(projectRoot, "scripts/sync-to-desktop.ts"))
       ? ["bun", "run", "scripts/sync-to-desktop.ts"]
       : ["bun", "run", "sync"];
+    const syncSkipped =
+      (await shouldSkipGate(projectRoot, "sync")) ||
+      ((await detectSyncDrift(projectRoot)).synced && desktopRuntimeDepsOk());
     planned.push({
       name: "sync",
       cmd: sync,
-      skipped:
-        (await shouldSkipGate(projectRoot, "sync")) || (await detectSyncDrift(projectRoot)).synced,
+      skipped: syncSkipped,
     });
     planned.push({
       name: "sync:verify",
       cmd: ["bun", "run", "sync:verify"],
-      skipped: await shouldSkipGate(projectRoot, "sync:verify"),
+      skipped: syncSkipped || (await shouldSkipGate(projectRoot, "sync:verify")),
     });
   }
 

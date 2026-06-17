@@ -643,7 +643,7 @@ export function parseHerdrAppConfig(doc: Record<string, unknown>): HerdrAppConfi
 export function readHerdrNotifyDefaults(): NotificationsConfig {
   const app = readHerdrAppConfig();
   const notify = app?.plugins?.notify;
-  if (!notify || notify.enabled === false) return {};
+  if (!notify || notify.enabled === false) return { enabled: false };
 
   const defaults: NotificationsConfig = {};
   if (notify.webhookUrl) defaults.webhookUrl = notify.webhookUrl;
@@ -657,7 +657,12 @@ export function mergeNotifications(
   primary: NotificationsConfig,
   fallback: NotificationsConfig
 ): NotificationsConfig {
+  // When the fallback explicitly disabled notifications, don't use any of its fields
+  if (fallback.enabled === false) {
+    return { enabled: false, ...primary };
+  }
   return {
+    enabled: primary.enabled ?? fallback.enabled,
     webhookUrl: primary.webhookUrl ?? fallback.webhookUrl,
     onHandoff: primary.onHandoff ?? fallback.onHandoff,
     onSpawn: primary.onSpawn ?? fallback.onSpawn,
@@ -727,6 +732,8 @@ export interface HerdrOrchestratorConfig {
 }
 
 export interface NotificationsConfig {
+  /** When false, all notification fields are suppressed regardless of project overrides. */
+  enabled?: boolean;
   webhookUrl?: string;
   onHandoff?: boolean;
   onSpawn?: boolean;

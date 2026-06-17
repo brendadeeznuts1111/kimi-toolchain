@@ -33,6 +33,7 @@ import { checkKimiDocsAligned } from "../lib/kimi-docs-aligned.ts";
 import { checkScaffoldAligned } from "../lib/scaffold-aligned.ts";
 import { auditEcosystemHealth } from "../lib/ecosystem-health.ts";
 import { isKimiToolchainRepo } from "../lib/workspace-health.ts";
+import { isQuietMode } from "../lib/quiet-mode.ts";
 import { governorDir } from "../lib/paths.ts";
 import { checkGovernance } from "../lib/governance-check.ts";
 import {
@@ -834,7 +835,14 @@ async function main(): Promise<number> {
     return 1;
   } else if (command === "score") {
     const quick = args.includes("--quick");
-    logger.section(quick ? "Computing R-Score (cached coverage)" : "Computing R-Score");
+    const hook = args.includes("--hook") || (quick && isQuietMode());
+    logger.section(
+      hook
+        ? "Computing R-Score (hook)"
+        : quick
+          ? "Computing R-Score (cached coverage)"
+          : "Computing R-Score"
+    );
     const score = await computeRScore(projectDir, { quick });
 
     logger.info(
@@ -847,41 +855,43 @@ async function main(): Promise<number> {
       logger.line(`    ${indicator} ${key}: ${formatPoints(value)}/${weight}`);
     }
 
-    const kimiDocs = await checkKimiDocsAligned(projectDir);
-    if (kimiDocs.applicable) {
-      const icon = kimiDocs.aligned ? "✓" : "⚠";
-      logger.info(
-        `${icon} kimiDocsAligned (soft): ${kimiDocs.aligned ? "product matrix + MCP docs in sync" : "see kimi-governance doctor"}`
-      );
-    }
-
-    const scaffold = await checkScaffoldAligned(projectDir);
-    if (scaffold.applicable) {
-      const icon = scaffold.aligned ? "✓" : "⚠";
-      logger.info(
-        `${icon} scaffoldAligned (soft): ${scaffold.aligned ? "AGENTS.md markers present" : "see kimi-governance doctor"}`
-      );
-    }
-
-    if (await isKimiToolchainRepo(projectDir)) {
-      const ecosystem = await auditEcosystemHealth(projectDir, { quick: true });
-      const icon = ecosystem.blockers === 0 ? "✓" : "⚠";
-      logger.info(
-        `${icon} ecosystemAligned (soft): ${ecosystem.blockers === 0 ? "workspace + sync ok" : `${ecosystem.blockers} blocker(s) — kimi-toolchain doctor --ecosystem`}`
-      );
-    }
-
-    if (existsSync(SCORE_HISTORY)) {
-      const history = (await Bun.file(SCORE_HISTORY).json()) as RScore[];
-      if (history.length > 1) {
-        const prev = history[history.length - 2];
-        const delta = score.total - prev.total;
-        const arrow = delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
-        const deltaStr = formatPoints(Math.abs(delta));
-        const signedDelta = delta > 0 ? `+${deltaStr}` : delta < 0 ? `-${deltaStr}` : "0";
+    if (!hook) {
+      const kimiDocs = await checkKimiDocsAligned(projectDir);
+      if (kimiDocs.applicable) {
+        const icon = kimiDocs.aligned ? "✓" : "⚠";
         logger.info(
-          `Trend: ${arrow} ${signedDelta} from last run (${prev.grade} → ${score.grade})`
+          `${icon} kimiDocsAligned (soft): ${kimiDocs.aligned ? "product matrix + MCP docs in sync" : "see kimi-governance doctor"}`
         );
+      }
+
+      const scaffold = await checkScaffoldAligned(projectDir);
+      if (scaffold.applicable) {
+        const icon = scaffold.aligned ? "✓" : "⚠";
+        logger.info(
+          `${icon} scaffoldAligned (soft): ${scaffold.aligned ? "AGENTS.md markers present" : "see kimi-governance doctor"}`
+        );
+      }
+
+      if (await isKimiToolchainRepo(projectDir)) {
+        const ecosystem = await auditEcosystemHealth(projectDir, { quick: true });
+        const icon = ecosystem.blockers === 0 ? "✓" : "⚠";
+        logger.info(
+          `${icon} ecosystemAligned (soft): ${ecosystem.blockers === 0 ? "workspace + sync ok" : `${ecosystem.blockers} blocker(s) — kimi-toolchain doctor --ecosystem`}`
+        );
+      }
+
+      if (existsSync(SCORE_HISTORY)) {
+        const history = (await Bun.file(SCORE_HISTORY).json()) as RScore[];
+        if (history.length > 1) {
+          const prev = history[history.length - 2];
+          const delta = score.total - prev.total;
+          const arrow = delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
+          const deltaStr = formatPoints(Math.abs(delta));
+          const signedDelta = delta > 0 ? `+${deltaStr}` : delta < 0 ? `-${deltaStr}` : "0";
+          logger.info(
+            `Trend: ${arrow} ${signedDelta} from last run (${prev.grade} → ${score.grade})`
+          );
+        }
       }
     }
 

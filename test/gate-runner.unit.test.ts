@@ -10,6 +10,7 @@ import {
   okMark,
   readGateCache,
   shouldSkipGate,
+  appendGateCache,
   writeGateCache,
 } from "../src/lib/gate-runner.ts";
 
@@ -87,6 +88,36 @@ describe("gate-runner", () => {
 
     expect(await shouldSkipGate(projectDir, "format:check")).toBe(true);
     expect(await shouldSkipGate(projectDir, "typecheck")).toBe(false);
+  });
+
+  it("appendGateCache merges gates for the same commit", async () => {
+    await $`git init`.cwd(projectDir).env(gitFixtureEnv).quiet();
+    await Bun.write(join(projectDir, "README.md"), "# demo\n");
+    await $`git add README.md`
+      .cwd(projectDir)
+      .env({
+        ...gitFixtureEnv,
+        GIT_AUTHOR_NAME: "test",
+        GIT_AUTHOR_EMAIL: "test@test",
+        GIT_COMMITTER_NAME: "test",
+        GIT_COMMITTER_EMAIL: "test@test",
+      })
+      .quiet();
+    await $`git commit -m init`
+      .cwd(projectDir)
+      .env({
+        ...gitFixtureEnv,
+        GIT_AUTHOR_NAME: "test",
+        GIT_AUTHOR_EMAIL: "test@test",
+        GIT_COMMITTER_NAME: "test",
+        GIT_COMMITTER_EMAIL: "test@test",
+      })
+      .quiet();
+
+    await writeGateCache(projectDir, ["format:check", "lint"]);
+    await appendGateCache(projectDir, ["guardian", "workspace-verify"]);
+    const cache = await readGateCache(projectDir);
+    expect(cache?.gates).toEqual(["format:check", "lint", "guardian", "workspace-verify"]);
   });
 
   it("uses plain marks when NO_COLOR is set", () => {
