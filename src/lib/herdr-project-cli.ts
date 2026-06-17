@@ -2,9 +2,31 @@ import { execArgvSync } from "./bun-utils.ts";
 
 import { desktopBinDir, homeDir, localBinDir } from "./paths.ts";
 
-/** Append `--json` when absent so programmatic CLI calls always parse JSON. */
+/**
+ * Herdr 0.7+: only some subcommands accept `--json`.
+ * workspace/pane/agent list reject the flag but still emit JSON on stdout.
+ */
+export const HERDR_SUBCOMMANDS_ACCEPT_JSON = new Set([
+  "session list",
+  "plugin list",
+  "server agent-manifests",
+]);
+
+/** First two positional tokens — strips flags (pane list --workspace wB → "pane list"). */
+export function herdrSubcommandKey(args: string[]): string {
+  return args
+    .filter((arg) => !arg.startsWith("-"))
+    .slice(0, 2)
+    .join(" ");
+}
+
+/** Append `--json` only for subcommands that require it; others emit JSON natively. */
 export function ensureJsonArgs(args: string[]): string[] {
-  return args.includes("--json") ? args : [...args, "--json"];
+  if (args.includes("--json")) return args;
+  if (HERDR_SUBCOMMANDS_ACCEPT_JSON.has(herdrSubcommandKey(args))) {
+    return [...args, "--json"];
+  }
+  return args;
 }
 
 export type ExecCliOptions = {

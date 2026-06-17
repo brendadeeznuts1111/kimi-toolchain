@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
+  ensureJsonArgs,
   herdrSessionArgs,
   herdrSessionEnv,
+  herdrSubcommandKey,
   resolveHerdrSession,
 } from "../src/lib/herdr-project-cli.ts";
 import { withEnv } from "./helpers.ts";
@@ -42,5 +44,24 @@ describe("herdr-project-cli", () => {
       expect(herdrSessionArgs("staging")).toEqual(["--session", "staging"]);
       expect(herdrSessionEnv("staging").HERDR_SESSION).toBe("staging");
     });
+  });
+
+  test("herdrSubcommandKey strips flags for subcommand matching", () => {
+    expect(herdrSubcommandKey(["pane", "list", "--workspace", "wB"])).toBe("pane list");
+    expect(herdrSubcommandKey(["plugin", "list", "--json"])).toBe("plugin list");
+  });
+
+  test("ensureJsonArgs appends --json only for Herdr subcommands that accept it", () => {
+    expect(ensureJsonArgs(["session", "list"])).toEqual(["session", "list", "--json"]);
+    expect(ensureJsonArgs(["plugin", "list"])).toEqual(["plugin", "list", "--json"]);
+    expect(ensureJsonArgs(["server", "agent-manifests"])).toEqual([
+      "server",
+      "agent-manifests",
+      "--json",
+    ]);
+    expect(ensureJsonArgs(["workspace", "list"])).toEqual(["workspace", "list"]);
+    expect(ensureJsonArgs(["pane", "list"])).toEqual(["pane", "list"]);
+    expect(ensureJsonArgs(["agent", "list"])).toEqual(["agent", "list"]);
+    expect(ensureJsonArgs(["plugin", "list", "--json"])).toEqual(["plugin", "list", "--json"]);
   });
 });

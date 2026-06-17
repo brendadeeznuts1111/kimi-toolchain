@@ -114,16 +114,20 @@ export function listWorkspaceAgents(workspaceId: string, session = ""): AgentSna
   const rows = (listed.json?.result?.agents || []) as Array<{
     pane_id?: string;
     agent?: string;
+    name?: string;
     agent_status?: string;
     workspace_id?: string;
     tab_id?: string;
     custom_status?: string;
   }>;
   return rows
-    .filter((row) => row.workspace_id === workspaceId && row.pane_id && row.agent)
+    .filter((row) => {
+      const agent = row.agent ?? row.name;
+      return row.workspace_id === workspaceId && row.pane_id && agent;
+    })
     .map((row) => ({
       paneId: row.pane_id!,
-      agent: row.agent!,
+      agent: (row.agent ?? row.name)!,
       status: (row.agent_status || "unknown") as AgentStatus,
       workspaceId,
       tabId: row.tab_id,
