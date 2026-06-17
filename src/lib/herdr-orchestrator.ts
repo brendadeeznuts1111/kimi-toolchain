@@ -9,6 +9,10 @@ import { findWorkspaceForProject } from "./herdr-project-runner.ts";
 import { herdrCliJson, herdrCliRun } from "./herdr-project-cli.ts";
 import { escalateFinishWorkToReviewer, type FinishWorkReport } from "./finish-work-herdr.ts";
 import {
+  evaluateProbeHandoffCondition,
+  isCanonicalReferencesProbeId,
+} from "./canonical-references.ts";
+import {
   parseCondition,
   resolveOrchestratorConfig,
   normalizeRemoteHostConfig,
@@ -644,15 +648,21 @@ export interface CrossWorkspaceHandoffResult {
   detail: string;
 }
 
-export function evaluateCrossWorkspaceHandoffs(
+export interface CrossWorkspaceHandoffOptions {
+  projectRoot?: string;
+  home?: string;
+}
+
+export async function evaluateCrossWorkspaceHandoffs(
   config: HerdrOrchestratorConfig,
   allAgents: AgentSnapshot[],
   stateMap: Map<string, OrchestratorState | null>,
   session: string,
   /** workspaceId → label → agent name */
   labelMap?: Map<string, Map<string, string>>,
-  dryRun = false
-): CrossWorkspaceHandoffResult[] {
+  dryRun = false,
+  options: CrossWorkspaceHandoffOptions = {}
+): Promise<CrossWorkspaceHandoffResult[]> {
   const results: CrossWorkspaceHandoffResult[] = [];
 
   const resolveAgent = (workspaceId: string, nameOrLabel: string): AgentSnapshot | undefined => {
@@ -686,6 +696,15 @@ export function evaluateCrossWorkspaceHandoffs(
       continue;
     }
 
+    if (parsed.kind === "probe" && !isCanonicalReferencesProbeId(parsed.probeId)) {
+      results.push({
+        rule,
+        ok: false,
+        detail: `unsupported probe condition: ${parsed.probeId}`,
+      });
+      continue;
+    }
+
     // Find the source agent (by name or label)
     const fromAgent = resolveAgent(rule.fromWorkspace, rule.fromAgent);
     if (!fromAgent) {
@@ -697,36 +716,60 @@ export function evaluateCrossWorkspaceHandoffs(
       continue;
     }
 
-    // Check status match
-    if (fromAgent.status !== parsed.status) {
-      results.push({
-        rule,
-        ok: false,
-        detail: `${fromAgent.agent} (label: ${rule.fromAgent}) is ${fromAgent.status}, not ${parsed.status}`,
-      });
-      continue;
-    }
-
-    // Check duration if required
-    if (parsed.minSeconds > 0) {
-      const state = stateMap.get(rule.fromWorkspace) || null;
-      const prior = state?.agents[fromAgent.agent];
-      if (!prior || prior.status !== parsed.status) {
+    if (parsed.kind === "probe") {
+      if (!options.projectRoot) {
         results.push({
           rule,
           ok: false,
-          detail: `no prior ${parsed.status} state for ${fromAgent.agent}`,
+          detail: `probe condition requires project root: ${rule.condition}`,
         });
         continue;
       }
-      const elapsed = (Date.now() - new Date(state!.updatedAt).getTime()) / 1000;
-      if (elapsed < parsed.minSeconds) {
+      const probe = await evaluateProbeHandoffCondition(
+        parsed.probeId,
+        options.projectRoot,
+        options.home
+      );
+      if (!probe.ok) {
         results.push({
           rule,
           ok: false,
-          detail: `${fromAgent.agent} ${parsed.status} for ${Math.round(elapsed)}s (need ${parsed.minSeconds}s)`,
+          detail: `probe ${parsed.probeId} not satisfied: ${probe.message}`,
         });
         continue;
+      }
+    } else {
+      // Check status match
+      if (fromAgent.status !== parsed.status) {
+        results.push({
+          rule,
+          ok: false,
+          detail: `${fromAgent.agent} (label: ${rule.fromAgent}) is ${fromAgent.status}, not ${parsed.status}`,
+        });
+        continue;
+      }
+
+      // Check duration if required
+      if (parsed.minSeconds > 0) {
+        const state = stateMap.get(rule.fromWorkspace) || null;
+        const prior = state?.agents[fromAgent.agent];
+        if (!prior || prior.status !== parsed.status) {
+          results.push({
+            rule,
+            ok: false,
+            detail: `no prior ${parsed.status} state for ${fromAgent.agent}`,
+          });
+          continue;
+        }
+        const elapsed = (Date.now() - new Date(state!.updatedAt).getTime()) / 1000;
+        if (elapsed < parsed.minSeconds) {
+          results.push({
+            rule,
+            ok: false,
+            detail: `${fromAgent.agent} ${parsed.status} for ${Math.round(elapsed)}s (need ${parsed.minSeconds}s)`,
+          });
+          continue;
+        }
       }
     }
 

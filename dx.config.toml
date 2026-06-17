@@ -232,6 +232,14 @@ condition = "done"
 to_workspace = "w1"
 to_agent = "kimi"
 
+# Hand off to codex once canonical refs cache is aligned (~/.kimi-code/)
+[[herdr.orchestrator.handoff_rules]]
+from_workspace = "wB"
+from_agent = "kimi"
+condition = "probe:canonical-references:runtime-aligned"
+to_workspace = "wB"
+to_agent = "codex"
+
 
 
 [[herdr.tabs]]

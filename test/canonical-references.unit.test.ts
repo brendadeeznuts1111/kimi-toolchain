@@ -8,6 +8,7 @@ import {
   LOCAL_DOC_REFERENCES,
   REPO_REFERENCES,
   auditCanonicalReferencesHealth,
+  evaluateProbeHandoffCondition,
   buildCanonicalReferencesManifest,
   ecosystemReferenceById,
   formatCanonicalReferencesMarkdown,
@@ -106,5 +107,23 @@ describe("canonical-references", () => {
     const a = buildCanonicalReferencesManifest();
     const b = { ...a, generatedAt: "1970-01-01T00:00:00.000Z", toolchainVersion: "9.9.9" };
     expect(referencesContentEqual(a, b)).toBe(true);
+  });
+
+  test("evaluateProbeHandoffCondition passes for runtime-aligned", async () => {
+    const tmpHome = join(tmpdir(), `probe-handoff-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
+    writeFileSync(
+      join(tmpHome, ".kimi-code", "canonical-references.json"),
+      JSON.stringify(buildCanonicalReferencesManifest(), null, 2)
+    );
+
+    const result = await evaluateProbeHandoffCondition(
+      "canonical-references:runtime-aligned",
+      REPO_ROOT,
+      tmpHome
+    );
+    expect(result.ok).toBe(true);
+
+    rmSync(tmpHome, { recursive: true, force: true });
   });
 });

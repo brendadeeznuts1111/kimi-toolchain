@@ -49,7 +49,7 @@ export interface HandoffRule {
   fromSession?: string;
   fromWorkspace: string;
   fromAgent: string;
-  /** "blocked > 5m" | "idle > 10m" | "done" */
+  /** "done" | "blocked > 5m" | "idle > 10m" | "probe:canonical-references:*" */
   condition: string;
   /** Target session (default: same as fromSession or current session). */
   toSession?: string;
@@ -61,12 +61,20 @@ export interface HandoffRule {
   spawnFallback?: SpawnFallback;
 }
 
-export function parseCondition(condition: string): { status: string; minSeconds: number } | null {
+export type HandoffCondition =
+  | { kind: "status"; status: string; minSeconds: number }
+  | { kind: "probe"; probeId: string };
+
+export function parseCondition(condition: string): HandoffCondition | null {
   const trimmed = condition.trim();
-  if (trimmed === "done") return { status: "done", minSeconds: 0 };
+  if (trimmed.startsWith("probe:")) {
+    const probeId = trimmed.slice("probe:".length).trim();
+    return probeId ? { kind: "probe", probeId } : null;
+  }
+  if (trimmed === "done") return { kind: "status", status: "done", minSeconds: 0 };
   const match = trimmed.match(/^(blocked|idle)\s*>\s*(\d+)\s*m(in(ute)?s?)?$/);
   if (match) {
-    return { status: match[1]!, minSeconds: parseInt(match[2]!, 10) * 60 };
+    return { kind: "status", status: match[1]!, minSeconds: parseInt(match[2]!, 10) * 60 };
   }
   return null;
 }

@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
+  parseCondition,
   parseHerdrOrchestratorSection,
   parseHerdrAppConfig,
   resolveOrchestratorConfig,
@@ -13,7 +14,10 @@ import {
   readHerdrNotifyDefaults,
   type RemoteDefaults,
 } from "../src/lib/herdr-orchestrator-config.ts";
-import { parseHostSession } from "../src/lib/herdr-orchestrator.ts";
+import { evaluateCrossWorkspaceHandoffs, parseHostSession } from "../src/lib/herdr-orchestrator.ts";
+import { buildCanonicalReferencesManifest } from "../src/lib/canonical-references.ts";
+import { mkdirSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
 import type { HerdrProjectConfig } from "../src/lib/herdr-project-config.ts";
 
 // ── core orchestrator config ──────────────────────────────────────────────
@@ -717,5 +721,77 @@ describe("herdr_app_config plugins.notify", () => {
   test("readHerdrNotifyDefaults: returns disabled when notify plugin is off or missing", () => {
     const defaults = readHerdrNotifyDefaults();
     expect(defaults).toEqual({ enabled: false });
+  });
+});
+
+describe("handoff probe conditions", () => {
+  const REPO_ROOT = import.meta.dir + "/..";
+
+  test("parseCondition accepts probe:canonical-references:runtime-aligned", () => {
+    expect(parseCondition("probe:canonical-references:runtime-aligned")).toEqual({
+      kind: "probe",
+      probeId: "canonical-references:runtime-aligned",
+    });
+  });
+
+  test("evaluateCrossWorkspaceHandoffs fires on aligned runtime probe", async () => {
+    const tmpHome = join(tmpdir(), `handoff-probe-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
+    writeFileSync(
+      join(tmpHome, ".kimi-code", "canonical-references.json"),
+      JSON.stringify(buildCanonicalReferencesManifest(), null, 2)
+    );
+
+    const agents = [
+      {
+        paneId: "pane-kimi",
+        agent: "kimi",
+        status: "working" as const,
+        workspaceId: "wB",
+        tabId: "tab1",
+      },
+      {
+        paneId: "pane-codex",
+        agent: "codex",
+        status: "idle" as const,
+        workspaceId: "wB",
+        tabId: "tab1",
+      },
+    ];
+
+    const results = await evaluateCrossWorkspaceHandoffs(
+      {
+        enabled: true,
+        handoffRules: [
+          {
+            fromWorkspace: "wB",
+            fromAgent: "kimi",
+            condition: "probe:canonical-references:runtime-aligned",
+            toWorkspace: "wB",
+            toAgent: "codex",
+          },
+        ],
+        handoffFrom: "kimi",
+        handoffTo: "codex",
+        reviewerTab: "reviewer",
+        doctorTab: "doctor",
+        contextOnIdle: false,
+        events: { enabled: false, debounceMs: 2000, allowlist: [], watchGit: false },
+        remoteHosts: {},
+        remoteDefaults: {},
+        notifications: {},
+        domains: {},
+      },
+      agents,
+      new Map(),
+      "default",
+      undefined,
+      true,
+      { projectRoot: REPO_ROOT, home: tmpHome }
+    );
+
+    expect(results[0]?.ok).toBe(true);
+    expect(results[0]?.detail).toContain("[dry-run]");
+    rmSync(tmpHome, { recursive: true, force: true });
   });
 });

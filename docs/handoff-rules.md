@@ -9,7 +9,7 @@ Cross-workspace, cross-session agent handoff for the kimi-toolchain orchestrator
 from_session = "dev"          # optional — defaults to current session
 from_workspace = "w1"
 from_agent = "test-agent"     # agent name or label (herdr agent rename)
-condition = "done"             # "done" | "blocked > 5m" | "idle > 10m"
+condition = "done"             # "done" | "blocked > 5m" | "idle > 10m" | "probe:…"
 to_session = "default"         # optional — defaults to from_session
 to_workspace = "w0"
 to_agent = "least_busy:reviewer"  # agent/label, "least_busy", or "least_busy:<label>"
@@ -22,8 +22,12 @@ to_agent = "least_busy:reviewer"  # agent/label, "least_busy", or "least_busy:<l
 | `done` | Agent is in "done" state |
 | `blocked > Nm` | Agent has been blocked for N+ minutes |
 | `idle > Nm` | Agent has been idle for N+ minutes |
+| `probe:canonical-references:runtime-aligned` | `~/.kimi-code/canonical-references.json` matches repo (fix: `bun run sync`) |
+| `probe:canonical-references:repo-fresh` | Repo manifest matches `src/lib/canonical-references.ts` (fix: `bun run references:generate`) |
+| `probe:canonical-references:runtime-cache` | Runtime cache file exists at `~/.kimi-code/` |
 
-Duration tracking uses orchestrator state timestamps (`.kimi/herdr-orchestrator-state.json`).
+Status conditions use orchestrator state timestamps (`.kimi/herdr-orchestrator-state.json`).
+Probe conditions call `auditCanonicalReferencesHealth` — agent status is not required.
 
 ## Target selection
 
@@ -138,3 +142,15 @@ to_session = "default"
 to_workspace = "w0"
 to_agent = "least_busy:reviewer"
 ```
+
+### Probe-gated (canonical refs aligned)
+```toml
+[[herdr.orchestrator.handoff_rules]]
+from_workspace = "wB"
+from_agent = "kimi"
+condition = "probe:canonical-references:runtime-aligned"
+to_workspace = "wB"
+to_agent = "codex"
+```
+
+Dry-run: `herdr-orchestrator react --all --dry-run` evaluates probe checks against the project root.

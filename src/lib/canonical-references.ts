@@ -257,6 +257,46 @@ export interface CanonicalReferencesHealthReport {
   runtimeSynced: boolean;
 }
 
+/** Probe IDs for herdr orchestrator handoff rules (`probe:<id>`). */
+export const CANONICAL_REFERENCES_PROBE_IDS = [
+  "canonical-references:repo-fresh",
+  "canonical-references:runtime-aligned",
+  "canonical-references:runtime-cache",
+] as const;
+
+export type CanonicalReferencesProbeId = (typeof CANONICAL_REFERENCES_PROBE_IDS)[number];
+
+export function isCanonicalReferencesProbeId(id: string): id is CanonicalReferencesProbeId {
+  return (CANONICAL_REFERENCES_PROBE_IDS as readonly string[]).includes(id);
+}
+
+/** Evaluate a `probe:canonical-references:*` handoff condition. */
+export async function evaluateProbeHandoffCondition(
+  probeId: string,
+  projectRoot: string,
+  home?: string
+): Promise<{ ok: boolean; message: string }> {
+  if (!isCanonicalReferencesProbeId(probeId)) {
+    return { ok: false, message: `unknown probe condition: ${probeId}` };
+  }
+  const report = await auditCanonicalReferencesHealth(projectRoot, home);
+  if (!report.applicable) {
+    return { ok: false, message: "canonical references health not applicable for this project" };
+  }
+  const checkName = probeId.slice("canonical-references:".length);
+  const check = report.checks.find((entry) => entry.name === checkName);
+  if (!check) {
+    return { ok: false, message: `probe check missing: ${probeId}` };
+  }
+  return {
+    ok: check.status === "ok",
+    message:
+      check.status === "ok"
+        ? check.message
+        : `${check.message} — ${report.fixPlan[0] ?? "fix required"}`,
+  };
+}
+
 /** Verify repo manifest freshness and ~/.kimi-code/ cached copy alignment. */
 export async function auditCanonicalReferencesHealth(
   projectRoot: string,

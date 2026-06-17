@@ -107,11 +107,22 @@ function writeJson(value: unknown) {
   writeOut(JSON.stringify(value, null, 2));
 }
 
+function resolveOrchestratorPluginRoot(): string | null {
+  const result = herdrCliJson("", ["plugin", "list", "--json"]);
+  if (!result.ok || !result.json) return null;
+  const plugins = ((
+    result.json as { result?: { plugins?: Array<{ plugin_id?: string; plugin_root?: string }> } }
+  )?.result?.plugins || []) as Array<{ plugin_id?: string; plugin_root?: string }>;
+  const plugin = plugins.find((p) => p.plugin_id === "herdr-orchestrator");
+  return plugin?.plugin_root || null;
+}
+
 function printHelp() {
   writeOut(`herdr-orchestrator <command> [path] [flags]
 
 Commands:
   react          React to agent state transitions (context sync, handoff, reviewer)
+  bootstrap      Install/enable/start the herdr-orchestrator plugin on a remote host
   status         Show orchestrator config and live agent snapshot
   workspaces     List all discovered workspaces and their agents
   sessions       List all Herdr sessions with workspace and agent counts
@@ -3365,13 +3376,14 @@ try {
 
             const sessStateMap = new Map<string, OrchestratorState | null>();
 
-            const xwResults = evaluateCrossWorkspaceHandoffs(
+            const xwResults = await evaluateCrossWorkspaceHandoffs(
               { ...orchConfig, handoffRules: [rule] },
               allSessAgents,
               sessStateMap,
               toSess,
               mergedLabels.size > 0 ? mergedLabels : undefined,
-              dryRun
+              dryRun,
+              { projectRoot: projectPath, home: Bun.env.HOME }
             );
 
             const prefix =
@@ -3548,6 +3560,36 @@ try {
       for (const warning of result.warnings) writeOut(`warn: ${warning}`);
     }
     process.exit(result.ok ? 0 : 2);
+  }
+
+  if (command === "bootstrap") {
+    if (!cliHost) {
+      if (json) writeJson({ ok: false, error: "missing --host <ssh-label>" });
+      else
+        writeOut(
+          "Usage: herdr-orchestrator bootstrap --host <ssh-label> [--verify] [--domain <name>] [--interval <sec>] [--ref <git-ref>] [--repo <owner/repo/path>] [--no-start]"
+        );
+      process.exit(1);
+    }
+
+    const pluginRoot = resolveOrchestratorPluginRoot();
+    if (!pluginRoot) {
+      if (json) writeJson({ ok: false, error: "herdr-orchestrator plugin not installed" });
+      else {
+        writeOut("herdr-orchestrator plugin not installed.");
+        writeOut("Install it with:");
+        writeOut("  herdr plugin install brendadeeznuts1111/herdr-plugins/herdr-orchestrator");
+      }
+      process.exit(1);
+    }
+
+    const runSh = join(pluginRoot, "run.sh");
+    const passthrough = Bun.argv.slice(3); // everything after "herdr-orchestrator bootstrap"
+    const proc = Bun.spawn(["bash", runSh, "src/actions/bootstrap.ts", ...passthrough], {
+      stdio: ["inherit", "inherit", "inherit"],
+    });
+    const code = await proc.exited;
+    process.exit(code);
   }
 
   printHelp();
