@@ -208,7 +208,7 @@ async function runStepTracked(
       skipped: true,
     };
   }
-  if (step.silentOnSuccess && gateQuiet) {
+  if (gateQuiet) {
     return runGate(step.name, step.cmd, { cwd: projectRoot });
   }
   const proc = Bun.spawn(step.cmd, {
@@ -236,7 +236,7 @@ async function runStepTrackedWithActive(
       skipped: true,
     };
   }
-  if (step.silentOnSuccess && gateQuiet) {
+  if (gateQuiet) {
     return runGate(step.name, step.cmd, { cwd: projectRoot });
   }
   const start = Bun.nanoseconds();

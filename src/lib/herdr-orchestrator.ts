@@ -108,9 +108,17 @@ function writeState(projectRoot: string, state: OrchestratorState) {
   writeText(statePath(projectRoot), `${JSON.stringify(state, null, 2)}\n`, "utf8");
 }
 
-export function listWorkspaceAgents(workspaceId: string, session = ""): AgentSnapshot[] {
+export interface WorkspaceAgentsListResult {
+  ok: boolean;
+  agents: AgentSnapshot[];
+  error?: string;
+}
+
+export function listWorkspaceAgents(workspaceId: string, session = ""): WorkspaceAgentsListResult {
   const listed = herdrCliJson(session, ["agent", "list"]);
-  if (!listed.ok) return [];
+  if (!listed.ok) {
+    return { ok: false, agents: [], error: `agent list: ${listed.error}` };
+  }
   const rows = (listed.json?.result?.agents || []) as Array<{
     pane_id?: string;
     agent?: string;
@@ -120,7 +128,7 @@ export function listWorkspaceAgents(workspaceId: string, session = ""): AgentSna
     tab_id?: string;
     custom_status?: string;
   }>;
-  return rows
+  const agents = rows
     .filter((row) => {
       const agent = row.agent ?? row.name;
       return row.workspace_id === workspaceId && row.pane_id && agent;
@@ -133,14 +141,27 @@ export function listWorkspaceAgents(workspaceId: string, session = ""): AgentSna
       tabId: row.tab_id,
       customStatus: typeof row.custom_status === "string" ? row.custom_status : undefined,
     }));
+  return { ok: true, agents };
 }
 
-export function listAllWorkspaceAgents(workspaceIds: string[], session = ""): AgentSnapshot[] {
+export function listAllWorkspaceAgents(
+  workspaceIds: string[],
+  session = ""
+): WorkspaceAgentsListResult {
   const all: AgentSnapshot[] = [];
+  const errors: string[] = [];
   for (const id of workspaceIds) {
-    all.push(...listWorkspaceAgents(id, session));
+    const listed = listWorkspaceAgents(id, session);
+    if (!listed.ok) {
+      if (listed.error) errors.push(listed.error);
+      continue;
+    }
+    all.push(...listed.agents);
   }
-  return all;
+  if (errors.length > 0) {
+    return { ok: false, agents: all, error: errors.join("; ") };
+  }
+  return { ok: true, agents: all };
 }
 
 // ── Remote Session Discovery ──────────────────────────────────────────────
@@ -1195,7 +1216,8 @@ export async function reactHerdrOrchestrator(
 
   const resolvedId = match.workspaceId;
   const session = config.session || options.session || "";
-  const agents = listWorkspaceAgents(resolvedId, session);
+  const listed = listWorkspaceAgents(resolvedId, session);
+  const agents = listed.agents;
   const previous = readState(projectRoot, resolvedId);
 
   let contextSynced = false;
@@ -1364,7 +1386,7 @@ export async function orchestratorStatus(
     ? { workspaceId, reason: "explicit" }
     : findWorkspaceForProject(fullConfig);
   const resolvedId = match.workspaceId;
-  const agents = resolvedId ? listWorkspaceAgents(resolvedId, config.session) : [];
+  const agents = resolvedId ? listWorkspaceAgents(resolvedId, config.session).agents : [];
   const state = resolvedId ? readState(projectRoot, resolvedId) : null;
   return { config: orchestrator, agents, state, workspaceId: resolvedId };
 }

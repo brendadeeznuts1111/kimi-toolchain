@@ -8,6 +8,7 @@ import { join } from "path";
 import { $ } from "bun";
 import {
   emitGateFailure,
+  emitGateFailureBrief,
   emitHookSummary,
   formatTestSummaryLine,
   hookUsesSummary,
@@ -164,8 +165,14 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
     if (!result) continue;
     results.push(result);
     if (result.exitCode !== 0) {
-      if (summary) emitHookSummary("pre-commit", results);
-      else emitGateFailure(result);
+      if (summary) {
+        emitHookSummary("pre-commit", results);
+        for (const failed of results.filter((item) => item.exitCode !== 0 && !item.skipped)) {
+          emitGateFailureBrief(failed);
+        }
+      } else {
+        emitGateFailure(result);
+      }
       return result.exitCode;
     }
   }
@@ -578,7 +585,12 @@ export async function runPrePushGates(projectRoot: string): Promise<number> {
   if (!summary) gateOut("═══ Kimi Pre-Push Gate ═══");
 
   const finishFailure = (code: number): number => {
-    if (summary) emitHookSummary("pre-push", results);
+    if (summary) {
+      emitHookSummary("pre-push", results);
+      for (const failed of results.filter((item) => item.exitCode !== 0 && !item.skipped)) {
+        emitGateFailureBrief(failed);
+      }
+    }
     return code;
   };
 

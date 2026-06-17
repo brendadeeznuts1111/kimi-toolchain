@@ -170,10 +170,12 @@ describe("test-gates", () => {
   test(
     "check script dry-run changed-only uses lint-changed",
     async () => {
+      // Default base=main is empty when HEAD is on main; use a recent ancestor for a stable diff.
       const result = await runCheckScript([
         "--dry-run",
         "--fast",
         "--changed-only",
+        "--base=HEAD~3",
         "--skip-tests",
       ]);
       expect(result.exitCode).toBe(0);
@@ -206,6 +208,31 @@ describe("test-gates", () => {
       const payload = JSON.parse(result.stdout.trim());
       expect(payload.passed).toBe(true);
       expect(payload.steps["format:check"]).toBeDefined();
+    },
+    { timeout: 120000 }
+  );
+
+  test(
+    "check script json-summary keeps stdout JSON-only when KIMI_QUIET=0",
+    async () => {
+      const proc = Bun.spawn(
+        ["bun", "run", CHECK_SCRIPT, "--fast", "--json-summary", "--skip-tests"],
+        {
+          stdout: "pipe",
+          stderr: "pipe",
+          env: { ...Bun.env, KIMI_QUIET: "0" },
+        }
+      );
+      const [stdout, exitCode] = await Promise.all([
+        Bun.readableStreamToText(proc.stdout),
+        proc.exited,
+      ]);
+      expect(stdout.trim().startsWith("{")).toBe(true);
+      expect(stdout.trim().includes("\n")).toBe(false);
+      const payload = JSON.parse(stdout.trim());
+      expect(typeof payload.passed).toBe("boolean");
+      expect(payload.steps).toBeDefined();
+      expect(exitCode).toBe(payload.passed ? 0 : 1);
     },
     { timeout: 120000 }
   );

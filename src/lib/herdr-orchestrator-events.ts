@@ -234,7 +234,19 @@ async function runWatchOrchestratorEvents(
 
   const workspaceId = match.workspaceId;
   const boundSession = config.session;
-  const agents = listWorkspaceAgents(workspaceId, boundSession);
+  const listed = listWorkspaceAgents(workspaceId, boundSession);
+  if (!listed.ok) {
+    resume(
+      Effect.succeed({
+        ok: false,
+        workspaceId: null,
+        subscriptions: [],
+        error: listed.error || "agent list failed",
+      })
+    );
+    return;
+  }
+  const agents = listed.agents;
   const paneIds = [...new Set(agents.map((row) => row.paneId))];
   const subscriptions = buildSubscriptions(workspaceId, paneIds);
   const debouncer = new DebouncedOrchestratorActions();

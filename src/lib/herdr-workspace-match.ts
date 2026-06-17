@@ -28,11 +28,19 @@ function paneMatchesProject(
   return cwd === projectPath || foreground === projectPath;
 }
 
-export function findAllWorkspacesForProject(config: HerdrProjectConfig): string[] {
+export interface WorkspacesForProjectResult {
+  workspaceIds: string[];
+  errors: string[];
+}
+
+export function findAllWorkspacesForProject(
+  config: HerdrProjectConfig
+): WorkspacesForProjectResult {
   const projectPath = normalizeProjectPath(config.projectPath || "");
-  if (!projectPath) return [];
+  if (!projectPath) return { workspaceIds: [], errors: [] };
   const label = config.workspaceLabel;
   const ids = new Set<string>();
+  const errors: string[] = [];
 
   const workspaces = listWorkspaces(config.session);
   if (workspaces.ok) {
@@ -76,6 +84,8 @@ export function findAllWorkspacesForProject(config: HerdrProjectConfig): string[
         }
       }
     }
+  } else {
+    errors.push(`workspace list: ${workspaces.error}`);
   }
 
   // cwd matches via panes
@@ -91,9 +101,11 @@ export function findAllWorkspacesForProject(config: HerdrProjectConfig): string[
         ids.add(pane.workspace_id);
       }
     }
+  } else {
+    errors.push(`pane list: ${panes.error}`);
   }
 
-  return [...ids];
+  return { workspaceIds: [...ids], errors };
 }
 
 export type WorkspacePaneCountFn = (workspaceId: string, session: string) => number;
@@ -127,13 +139,16 @@ export function pickBestWorkspaceId(
 }
 
 export function findWorkspaceForProject(config: HerdrProjectConfig) {
-  const ids = findAllWorkspacesForProject(config);
+  const { workspaceIds: ids, errors } = findAllWorkspacesForProject(config);
   if (ids.length > 0) {
     const workspaceId = pickBestWorkspaceId(ids, config.session);
     return {
       workspaceId,
       reason: ids.length > 1 ? `best_match:${workspaceId}` : workspaceId,
     };
+  }
+  if (errors.length > 0) {
+    return { workspaceId: null as string | null, reason: errors.join("; ") };
   }
   // Preserve original reason strings for backward compatibility
   const projectPath = normalizeProjectPath(config.projectPath || "");

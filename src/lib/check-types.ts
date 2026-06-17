@@ -46,5 +46,6 @@ export function optionsFingerprint(options: CheckOptions): string {
     staged: options.staged,
     timeoutMs: options.timeoutMs,
     failFast: options.failFast,
+    jsonSummary: options.jsonSummary,
   });
 }

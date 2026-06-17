@@ -362,7 +362,8 @@ try {
       process.exit(1);
     }
     const full = { ...config, projectPath };
-    const ids = workspace ? [workspace] : findAllWorkspacesForProject(full);
+    const discovered = findAllWorkspacesForProject(full);
+    const ids = workspace ? [workspace] : discovered.workspaceIds;
     const session = config.session;
 
     if (json) {
@@ -371,20 +372,32 @@ try {
         agentCount: number;
         agents: Array<{ agent: string; paneId: string; status: string }>;
       }> = [];
+      const cliErrors = [...discovered.errors];
       for (const id of ids) {
-        const agents = listWorkspaceAgents(id, session);
+        const listed = listWorkspaceAgents(id, session);
+        if (!listed.ok) {
+          if (listed.error) cliErrors.push(listed.error);
+          continue;
+        }
         workspaces.push({
           workspaceId: id,
-          agentCount: agents.length,
-          agents: agents.map((a) => ({ agent: a.agent, paneId: a.paneId, status: a.status })),
+          agentCount: listed.agents.length,
+          agents: listed.agents.map((a) => ({
+            agent: a.agent,
+            paneId: a.paneId,
+            status: a.status,
+          })),
         });
       }
-      writeJson({ ok: true, projectPath, workspaces });
+      const error = cliErrors.length > 0 ? cliErrors.join("; ") : undefined;
+      const ok = cliErrors.length === 0 || workspaces.length > 0;
+      writeJson({ ok, projectPath, workspaces, ...(error ? { error } : {}) });
+      process.exit(ok ? 0 : 1);
     } else {
       for (const id of ids) {
-        const agents = listWorkspaceAgents(id, session);
-        const names = agents.map((a) => `${a.agent}:${a.status}`).join(", ");
-        writeOut(`${id}  ${agents.length} agent(s)${names ? ` — ${names}` : ""}`);
+        const listed = listWorkspaceAgents(id, session);
+        const names = listed.agents.map((a) => `${a.agent}:${a.status}`).join(", ");
+        writeOut(`${id}  ${listed.agents.length} agent(s)${names ? ` — ${names}` : ""}`);
       }
       if (!ids.length) writeOut("No workspaces discovered");
     }
@@ -428,8 +441,8 @@ try {
         : [];
       let agentCount = 0;
       for (const ws of workspaces) {
-        const agents = listWorkspaceAgents(ws.workspace_id!, s.name);
-        agentCount += agents.length;
+        const listed = listWorkspaceAgents(ws.workspace_id!, s.name);
+        agentCount += listed.agents.length;
       }
       rows.push({
         host: "(local)",
@@ -1355,7 +1368,7 @@ try {
       process.exit(1);
     }
     const full = { ...config, projectPath };
-    const _ids = workspace ? [workspace] : findAllWorkspacesForProject(full);
+    const _ids = workspace ? [workspace] : findAllWorkspacesForProject(full).workspaceIds;
     const session = config.session ?? "";
 
     // Build agent session map
@@ -1562,8 +1575,10 @@ try {
     }
 
     const full = { ...config, projectPath };
-    const ids = workspace ? [workspace] : findAllWorkspacesForProject(full);
+    const discovered = findAllWorkspacesForProject(full);
+    const ids = workspace ? [workspace] : discovered.workspaceIds;
     const session = config.session;
+    const cliErrors: string[] = [...discovered.errors];
 
     // Collect all agents + detection source across workspaces (or across sessions)
     interface DashboardRow {
@@ -1596,7 +1611,12 @@ try {
                 ?.workspaces || []
             : [];
           for (const ws of workspaces) {
-            for (const a of listWorkspaceAgents(ws.workspace_id!, s.name)) {
+            const listed = listWorkspaceAgents(ws.workspace_id!, s.name);
+            if (!listed.ok) {
+              if (listed.error) cliErrors.push(listed.error);
+              continue;
+            }
+            for (const a of listed.agents) {
               rows.push({
                 host: "(local)",
                 session: s.name,
@@ -1669,7 +1689,12 @@ try {
       // Non-session mode: local-only unless host filter
       if (!hostFilter || hostFilter === "local") {
         for (const id of ids) {
-          for (const a of listWorkspaceAgents(id, session)) {
+          const listed = listWorkspaceAgents(id, session);
+          if (!listed.ok) {
+            if (listed.error) cliErrors.push(listed.error);
+            continue;
+          }
+          for (const a of listed.agents) {
             rows.push({
               host: "(local)",
               session: "",
@@ -1743,8 +1768,10 @@ try {
     }
 
     if (json) {
+      const error = cliErrors.length > 0 ? cliErrors.join("; ") : undefined;
+      const ok = cliErrors.length === 0 || rows.length > 0;
       writeJson({
-        ok: true,
+        ok,
         projectPath,
         agentCount: rows.length,
         agents: rows.map((r) => ({
@@ -1756,8 +1783,9 @@ try {
           paneId: r.paneId,
           source: r.source,
         })),
+        ...(error ? { error } : {}),
       });
-      process.exit(0);
+      process.exit(ok ? 0 : 1);
     }
 
     if (!rows.length) {
@@ -3435,7 +3463,7 @@ try {
       if (all) {
         const config = discoverHerdrProjectConfig(projectPath);
         if (!config?.enabled) return [];
-        return findAllWorkspacesForProject({ ...config, projectPath });
+        return findAllWorkspacesForProject({ ...config, projectPath }).workspaceIds;
       }
       return [];
     };
@@ -3506,7 +3534,7 @@ try {
         }
         // Collect agents + state for cross-workspace evaluation
         const xwSession = discoverHerdrProjectConfig(projectPath)?.session ?? "";
-        allAgents.push(...listWorkspaceAgents(id, xwSession));
+        allAgents.push(...listWorkspaceAgents(id, xwSession).agents);
         stateMap.set(id, readState(projectPath, id));
       }
 
@@ -3571,7 +3599,7 @@ try {
                     ?.result?.workspaces || []
                 : [];
               for (const ws of workspaces) {
-                agents.push(...listWorkspaceAgents(ws.workspace_id!, parsed.session));
+                agents.push(...listWorkspaceAgents(ws.workspace_id!, parsed.session).agents);
               }
             }
             sessionAgents.set(sess, agents);

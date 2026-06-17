@@ -129,6 +129,20 @@ export function emitGateFailure(result: GateResult): void {
   if (detail) Bun.stderr.write(`${detail}\n`);
 }
 
+/** One-line stderr hint for hook summary mode (first non-empty output line). */
+export function emitGateFailureBrief(result: GateResult): void {
+  const detail = [result.stderr, result.stdout].filter(Boolean).join("\n").trim();
+  const firstLine = detail
+    .split("\n")
+    .map((line) => line.trim())
+    .find(Boolean);
+  if (firstLine) {
+    Bun.stderr.write(`${failMark()} ${result.name}: ${firstLine}\n`);
+    return;
+  }
+  Bun.stderr.write(`${failMark()} ${result.name}\n`);
+}
+
 export function formatHookSummary(hook: string, results: GateResult[]): string {
   const totalMs = results.reduce((sum, item) => sum + item.ms, 0);
   const parts = results.map((item) => {
