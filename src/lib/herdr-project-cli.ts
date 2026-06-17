@@ -15,7 +15,7 @@ export type ExecCliOptions = {
  * a future Herdr release restores env-based routing.
  */
 export function resolveHerdrSession(explicit?: string): string {
-  const session = (explicit !== undefined ? explicit : (process.env.HERDR_SESSION ?? "")).trim();
+  const session = (explicit !== undefined ? explicit : (Bun.env.HERDR_SESSION ?? "")).trim();
   if (!session || session === "default") return "";
   return session;
 }
@@ -23,7 +23,7 @@ export function resolveHerdrSession(explicit?: string): string {
 /** Child-process env for herdr CLI. Primary server: HERDR_SESSION unset. */
 export function herdrSessionEnv(explicit?: string): NodeJS.ProcessEnv {
   const resolved = resolveHerdrSession(explicit);
-  const env = { ...process.env };
+  const env = { ...Bun.env };
   if (!resolved) {
     delete env.HERDR_SESSION;
     delete env.HERDR_SOCKET_PATH;
@@ -98,7 +98,7 @@ export function resolveHerdrPanePath(home = homeDir()): string {
       parts.push(entry);
     }
   };
-  add(process.env.PATH);
+  add(Bun.env.PATH);
   for (const segment of [
     `${home}/.local/bin`,
     `${home}/.kimi-code/bin`,

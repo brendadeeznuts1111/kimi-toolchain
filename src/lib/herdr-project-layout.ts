@@ -9,6 +9,7 @@ import type {
   HerdrShellSplit,
 } from "./herdr-project-config.ts";
 import { resolveHerdrPanePath } from "./herdr-project-cli.ts";
+import { homeDir } from "./paths.ts";
 import { parseGrokRoleTabCommand, tabCommandStrategy } from "./herdr-role-tab.ts";
 
 export type LayoutNodeType = "pane" | "split";
@@ -271,8 +272,8 @@ export function layoutTreesEqual(
 }
 
 function resolveSocketPath(): string {
-  if (process.env.HERDR_SOCKET_PATH) return process.env.HERDR_SOCKET_PATH;
-  const home = process.env.HOME || "";
+  if (Bun.env.HERDR_SOCKET_PATH) return Bun.env.HERDR_SOCKET_PATH;
+  const home = homeDir();
   return `${home}/.config/herdr/herdr.sock`;
 }
 

@@ -45,7 +45,7 @@ function run(cmd: string, args: string[] = [], _timeoutMs = 20_000) {
       cmd: [cmd, ...args],
       stdout: "pipe",
       stderr: "pipe",
-      env: { ...process.env, PATH: resolveHerdrPanePath() },
+      env: { ...Bun.env, PATH: resolveHerdrPanePath() },
     });
     // Bun.spawnSync doesn't support per-call timeout natively,
     // but herdr commands are fast (<1s) so 20s is generous.

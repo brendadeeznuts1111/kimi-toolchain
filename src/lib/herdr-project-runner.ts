@@ -372,7 +372,7 @@ export function bootstrapHerdrProject(
     focusWorkspaceSync(workspaceId, config.session);
   }
 
-  if (options.attach && process.env.HERDR_ENV !== "1") {
+  if (options.attach && Bun.env.HERDR_ENV !== "1") {
     const attach = execCli("herdr", [], { session: config.session });
     if (!attach.ok && !attach.output.includes("nested herdr")) {
       warnings.push(`attach: ${attach.output}`);

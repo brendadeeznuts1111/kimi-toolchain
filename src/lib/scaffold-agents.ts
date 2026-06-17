@@ -36,7 +36,7 @@ One-line description of what this does.
 - Inline single-use variables and private methods
 - \`trash\` > \`rm\`
 - Read-only checks before mutation (\`--dry-run\`)
-- Use \`Bun.env\` not \`process.env\`
+- Use \`Bun.env\` for environment reads
 - Use \`Bun.cwd\` not \`process.cwd()\`
 - Use \`Bun.argv\` not \`process.argv\`
 - Use \`Uint8Array\` not \`Buffer\`

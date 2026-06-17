@@ -1606,7 +1606,7 @@ try {
               ...(domain ? ["--domain", domain] : []),
               ...(includeDoctor ? ["--include-doctor"] : []),
             ],
-            { stdio: ["ignore", "inherit", "inherit"], env: process.env }
+            { stdio: ["ignore", "inherit", "inherit"], env: Bun.env }
           );
           await proc.exited;
         }
@@ -3163,7 +3163,7 @@ try {
     };
 
     if (command === "watch") {
-      const interval = Number(process.env.HERDR_ORCHESTRATOR_INTERVAL || "15");
+      const interval = Number(Bun.env.HERDR_ORCHESTRATOR_INTERVAL || "15");
       while (true) {
         const ids = resolveTargetIds();
         if (ids.length) {

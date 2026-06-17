@@ -462,7 +462,7 @@ function scanDomainPurity(
   const violations: EffectGatesViolation[] = [];
   const text = sourceFile.text;
   const impurePatterns = [
-    { regex: /\bprocess\.env\b/g, label: "process.env access" },
+    { regex: /\bprocess\.env\b/g, label: "process environment access" }, // @bun-native-exempt gate pattern catalog
     { regex: /\bBun\.env\b/g, label: "Bun.env access" },
     {
       regex: /\bfs\b|\bchild_process\b|\bnode:fs\b|\bnode:child_process\b/g,

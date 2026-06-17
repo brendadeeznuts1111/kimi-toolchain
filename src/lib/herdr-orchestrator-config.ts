@@ -221,37 +221,37 @@ function parsePositiveIntEnv(value: string | undefined): number | undefined {
  */
 export function parseEnvOverrides(): EnvOverrides {
   const overrides: EnvOverrides = {};
-  const port = parsePositiveIntEnv(process.env.HERDR_SSH_PORT);
+  const port = parsePositiveIntEnv(Bun.env.HERDR_SSH_PORT);
   if (port !== undefined) overrides.port = port;
-  const user = process.env.HERDR_SSH_USER?.trim();
+  const user = Bun.env.HERDR_SSH_USER?.trim();
   if (user) overrides.user = user;
-  const to = parsePositiveIntEnv(process.env.HERDR_SSH_TIMEOUT);
+  const to = parsePositiveIntEnv(Bun.env.HERDR_SSH_TIMEOUT);
   if (to !== undefined) overrides.timeout = to * 1000; // seconds → ms
-  const bm = parseBoolEnv(process.env.HERDR_SSH_BATCH_MODE);
+  const bm = parseBoolEnv(Bun.env.HERDR_SSH_BATCH_MODE);
   if (bm !== undefined) overrides.batchMode = bm;
-  const ct = parsePositiveIntEnv(process.env.HERDR_SSH_CONNECT_TIMEOUT);
+  const ct = parsePositiveIntEnv(Bun.env.HERDR_SSH_CONNECT_TIMEOUT);
   if (ct !== undefined) overrides.connectTimeout = ct;
-  const id = process.env.HERDR_SSH_IDENTITY_FILE?.trim();
+  const id = Bun.env.HERDR_SSH_IDENTITY_FILE?.trim();
   if (id) overrides.identityFile = id;
-  const io = parseBoolEnv(process.env.HERDR_SSH_IDENTITIES_ONLY);
+  const io = parseBoolEnv(Bun.env.HERDR_SSH_IDENTITIES_ONLY);
   if (io !== undefined) overrides.identitiesOnly = io;
-  const shk = parseHostKeyEnv(process.env.HERDR_SSH_STRICT_HOST_KEY_CHECKING);
+  const shk = parseHostKeyEnv(Bun.env.HERDR_SSH_STRICT_HOST_KEY_CHECKING);
   if (shk) overrides.strictHostKeyChecking = shk;
-  const ukf = process.env.HERDR_SSH_USER_KNOWN_HOSTS_FILE?.trim();
+  const ukf = Bun.env.HERDR_SSH_USER_KNOWN_HOSTS_FILE?.trim();
   if (ukf) overrides.userKnownHostsFile = ukf;
-  const sai = parsePositiveIntEnv(process.env.HERDR_SSH_SERVER_ALIVE_INTERVAL);
+  const sai = parsePositiveIntEnv(Bun.env.HERDR_SSH_SERVER_ALIVE_INTERVAL);
   if (sai !== undefined) overrides.serverAliveInterval = sai;
-  const scm = parsePositiveIntEnv(process.env.HERDR_SSH_SERVER_ALIVE_COUNT_MAX);
+  const scm = parsePositiveIntEnv(Bun.env.HERDR_SSH_SERVER_ALIVE_COUNT_MAX);
   if (scm !== undefined) overrides.serverAliveCountMax = scm;
-  const cm = parseControlMasterEnv(process.env.HERDR_SSH_CONTROL_MASTER);
+  const cm = parseControlMasterEnv(Bun.env.HERDR_SSH_CONTROL_MASTER);
   if (cm) overrides.controlMaster = cm;
-  const cp = process.env.HERDR_SSH_CONTROL_PATH?.trim();
+  const cp = Bun.env.HERDR_SSH_CONTROL_PATH?.trim();
   if (cp) overrides.controlPath = cp;
-  const cpersist = parsePositiveIntEnv(process.env.HERDR_SSH_CONTROL_PERSIST);
+  const cpersist = parsePositiveIntEnv(Bun.env.HERDR_SSH_CONTROL_PERSIST);
   if (cpersist !== undefined) overrides.controlPersist = cpersist;
-  const comp = parseBoolEnv(process.env.HERDR_SSH_COMPRESSION);
+  const comp = parseBoolEnv(Bun.env.HERDR_SSH_COMPRESSION);
   if (comp !== undefined) overrides.compression = comp;
-  const pj = process.env.HERDR_SSH_PROXY_JUMP?.trim();
+  const pj = Bun.env.HERDR_SSH_PROXY_JUMP?.trim();
   if (pj) overrides.proxyJump = pj;
   return overrides;
 }

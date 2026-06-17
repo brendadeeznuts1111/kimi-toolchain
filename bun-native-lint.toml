@@ -1,0 +1,28 @@
+# Bun-native lint policy — phased enforcement for scripts/lint-bun-native.ts
+# Rule modes: off | report | enforce
+#   off      — rule is not scanned
+#   report   — violations are baselined; gate fails only on NEW violations
+#   enforce  — zero tolerance (baseline does not apply)
+#
+# Batch workflow:
+#   1. bun run bun-native:batch <rule-id>
+#   2. fix files
+#   3. bun run bun-native:baseline -- --rule <rule-id>
+#   4. when count is 0, promote rule to enforce here
+
+schemaVersion = 1
+
+[gate]
+mode = "check" # check | report
+
+[rules]
+banned-import = "report"
+banned-require = "report"
+process-env = "report"
+stringify-stdout = "report"
+sync-fs-api = "off"
+sleep-settimeout = "off"
+process-argv = "off"
+response-stream-text = "off"
+
+exemptFiles = ["src/lib/bun-native-shim.ts"]

@@ -1,11 +1,10 @@
-import { cpSync, existsSync } from "node:fs";
-import { homedir as osHomedir } from "node:os";
+import { cpSync, existsSync } from "./bun-native-shim.ts";
 import { join } from "node:path";
-import { desktopRoot } from "./paths.ts";
+import { desktopRoot, homeDir } from "./paths.ts";
 import { ensureDir, sha256File } from "./utils.ts";
 
 /** Captured at module load so tests can override HOME without breaking host seeding. */
-const HOST_HOME_SNAPSHOT = process.env.HOME || osHomedir();
+const HOST_HOME_SNAPSHOT = homeDir();
 
 const RUNTIME_PACKAGE_TEMPLATE = join(
   import.meta.dir,

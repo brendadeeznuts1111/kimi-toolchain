@@ -8,7 +8,7 @@ const DEFAULT_CONTEXT_FILE = "/tmp/workspace-context.md";
 
 /** Path for the persistent context drop (HERDR_CONTEXT_FILE overrides). */
 export function resolveContextFilePath(): string {
-  const override = process.env.HERDR_CONTEXT_FILE?.trim();
+  const override = Bun.env.HERDR_CONTEXT_FILE?.trim();
   return override || DEFAULT_CONTEXT_FILE;
 }
 
@@ -136,8 +136,7 @@ export function syncAgentsTabContext(
       try {
         contextFile = writeContextDrop(text);
         if (pane.context.includes("--write-context-files") || pane.context.includes("--json")) {
-          const jsonPath =
-            process.env.HERDR_CONTEXT_JSON_FILE?.trim() || "/tmp/workspace-context.json";
+          const jsonPath = Bun.env.HERDR_CONTEXT_JSON_FILE?.trim() || "/tmp/workspace-context.json";
           if (existsSync(jsonPath)) contextJsonFile = jsonPath;
         }
       } catch (error) {

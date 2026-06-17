@@ -1,5 +1,6 @@
 import { connect, type Socket } from "node:net";
 import { Effect } from "effect";
+import { homeDir } from "./paths.ts";
 import { herdrCliRun } from "./herdr-project-cli.ts";
 
 export interface HerdrStreamEnvelope {
@@ -14,8 +15,8 @@ export interface HerdrEventSubscription {
 }
 
 export function resolveHerdrSocketPath(): string {
-  if (process.env.HERDR_SOCKET_PATH) return process.env.HERDR_SOCKET_PATH;
-  const home = process.env.HOME || "";
+  if (Bun.env.HERDR_SOCKET_PATH) return Bun.env.HERDR_SOCKET_PATH;
+  const home = homeDir();
   return `${home}/.config/herdr/herdr.sock`;
 }
 

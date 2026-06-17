@@ -81,7 +81,7 @@ export async function runGate(
   const start = Bun.nanoseconds();
   const proc = Bun.spawn(cmd, {
     cwd: options.cwd,
-    env: { ...process.env, ...options.env },
+    env: { ...Bun.env, ...options.env },
     stdout: "pipe",
     stderr: "pipe",
   });

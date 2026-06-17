@@ -90,7 +90,7 @@ export async function reportEffectGatesChanged(
   fingerprint: string,
   options: { paneId?: string; projectRoot?: string } = {}
 ): Promise<void> {
-  const explicit = options.paneId?.trim() || process.env.HERDR_PANE_ID?.trim();
+  const explicit = options.paneId?.trim() || Bun.env.HERDR_PANE_ID?.trim();
   const resolved = resolveHerdrSession();
   const session = resolved || undefined;
   let paneId = explicit || null;

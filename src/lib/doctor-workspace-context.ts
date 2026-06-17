@@ -207,7 +207,7 @@ export async function buildWorkspaceContextReport(
 const DEFAULT_CONTEXT_JSON_FILE = "/tmp/workspace-context.json";
 
 export function resolveContextJsonFilePath(): string {
-  const override = process.env.HERDR_CONTEXT_JSON_FILE?.trim();
+  const override = Bun.env.HERDR_CONTEXT_JSON_FILE?.trim();
   return override || DEFAULT_CONTEXT_JSON_FILE;
 }
 

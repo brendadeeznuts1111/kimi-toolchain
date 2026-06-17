@@ -85,10 +85,10 @@ export function isPaneBlockedForReview(pane: {
 
 /** Signal workspace change to orchestrator event watcher via pane metadata. */
 export async function emitWorkspaceUpdatedMetadata(): Promise<void> {
-  const paneId = process.env.HERDR_PANE_ID;
+  const paneId = Bun.env.HERDR_PANE_ID;
   if (!paneId) return;
 
-  if (process.env.HERDR_ENV === "1") {
+  if (Bun.env.HERDR_ENV === "1") {
     const got = await herdrCliJson<{
       result?: {
         pane?: { agent?: string; agent_status?: string; custom_status?: string };
@@ -149,13 +149,13 @@ export function shouldRouteGateThroughDoctor(command: string): boolean {
 }
 
 export function finishWorkLocalGatesForced(): boolean {
-  const value = process.env.KIMI_FINISH_WORK_LOCAL_GATES;
+  const value = Bun.env.KIMI_FINISH_WORK_LOCAL_GATES;
   return value === "1" || value === "true";
 }
 
 export function shouldRunGateInDoctorPane(command: string): boolean {
   return (
-    process.env.HERDR_ENV === "1" &&
+    Bun.env.HERDR_ENV === "1" &&
     !finishWorkLocalGatesForced() &&
     shouldRouteGateThroughDoctor(command)
   );
@@ -215,7 +215,7 @@ export async function resolveDoctorPaneId(
   projectRoot: string,
   deps: FinishWorkHerdrDeps = {}
 ): Promise<{ paneId: string | null; doctorTab: string; error?: string }> {
-  const override = process.env.HERDR_DOCTOR_PANE_ID;
+  const override = Bun.env.HERDR_DOCTOR_PANE_ID;
   if (override) {
     return { paneId: override, doctorTab: "doctor" };
   }
@@ -355,7 +355,7 @@ export async function escalateFinishWorkToReviewer(
     return report;
   }
 
-  if (process.env.HERDR_ENV !== "1") {
+  if (Bun.env.HERDR_ENV !== "1") {
     report.herdr = { escalated: false, skipped: true, reason: "not inside herdr" };
     return report;
   }
@@ -427,7 +427,7 @@ export async function escalateFinishWorkToReviewer(
     return report;
   }
 
-  const sourcePane = process.env.HERDR_PANE_ID;
+  const sourcePane = Bun.env.HERDR_PANE_ID;
   if (sourcePane) {
     await herdrCli([
       "pane",

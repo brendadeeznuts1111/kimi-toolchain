@@ -1,144 +1,177 @@
 #!/usr/bin/env bun
 /**
- * Fail on Bun-native drift in kimi-toolchain sources:
- * - imports of Node.js APIs or npm packages that have Bun equivalents
- * - process.env usage (should be Bun.env)
- * - raw JSON.stringify used for console/stdout emission (should use inspectAgent)
- *
- * Add @bun-native-exempt on a line to suppress a specific violation.
+ * Bun-native lint gate with phased rollout — see bun-native-lint.toml.
  */
 
-import { join, relative } from "path";
+import { existsSync } from "fs";
+import { join } from "path";
+import {
+  buildBaselineFromViolations,
+  defaultConfig,
+  evaluateViolations,
+  formatRuleCatalog,
+  parseBaselineJson,
+  parseConfigToml,
+  scanRepo,
+  shouldFailCheck,
+  type BaselineFile,
+  type BunNativeLintConfig,
+  type Violation,
+} from "../src/lib/bun-native-lint.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
+const CONFIG_PATH = join(REPO_ROOT, "bun-native-lint.toml");
+const BASELINE_PATH = join(REPO_ROOT, ".bun-native-baseline.json");
 
-const SCAN_GLOB = new Bun.Glob("src/**/*.ts");
-const SKIP_DIRS = new Set(["node_modules", ".git", "coverage"]);
-
-const BANNED_IMPORTS: Record<string, string> = {
-  "node:child_process": "Bun.spawn / Bun.spawnSync",
-  "node:fs": "Bun.file / Bun.write",
-  "node:http": "Bun.serve",
-  "node:https": "Bun.serve",
-  "node:crypto": "Bun.hash / Bun.CryptoHasher",
-  "node:zlib": "Bun.deflateSync / Bun.gunzipSync",
-  "node:dns": "Bun.dns",
-  "node:events": "Effect Stream",
-  glob: "Bun.Glob",
-  "fast-glob": "Bun.Glob",
-  toml: "Bun.TOML",
-  "@iarna/toml": "Bun.TOML",
-  semver: "Bun.semver",
-  bcrypt: "Bun.password",
-  bcryptjs: "Bun.password",
-  argon2: "Bun.password",
-  which: "Bun.which",
-};
-
-interface Violation {
-  file: string;
-  line: number;
-  rule: string;
-  snippet: string;
+interface CliOptions {
+  report: boolean;
+  updateBaseline: boolean;
+  listRules: boolean;
+  json: boolean;
+  ruleFilter?: string;
+  batchRule?: string;
 }
 
-function lineHasExemption(line: string): boolean {
-  return line.includes("@bun-native-exempt");
-}
+function parseArgs(argv: string[]): CliOptions {
+  const opts: CliOptions = {
+    report: false,
+    updateBaseline: false,
+    listRules: false,
+    json: false,
+  };
 
-async function main() {
-  const violations: Violation[] = [];
-  const bannedImportRegex = new RegExp(
-    `from\\s+["'](${Object.keys(BANNED_IMPORTS).map(escapeRegExp).join("|")})["']`,
-    "g"
-  );
-  const requireRegex = /require\s*\(\s*["']([^"']+)["']\s*\)/g;
-  const processEnvRegex = /\bprocess\.env\b/g;
-  const stringifyStdoutRegex =
-    /(?:console\.(log|error|warn|info|debug)|process\.stdout\.write)\s*\([^)]*JSON\.stringify\s*\(/g;
-
-  for await (const rel of SCAN_GLOB.scan({ cwd: REPO_ROOT, onlyFiles: true })) {
-    if (rel.split("/").some((seg) => SKIP_DIRS.has(seg))) continue;
-
-    const path = join(REPO_ROOT, rel);
-    let text: string;
-    try {
-      text = await Bun.file(path).text();
-    } catch {
-      continue;
-    }
-
-    const lines = text.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      const raw = lines[i];
-      const lineNo = i + 1;
-      const line = raw ?? "";
-      if (line.trim().startsWith("//")) continue;
-      if (lineHasExemption(line)) continue;
-
-      for (const match of line.matchAll(bannedImportRegex)) {
-        const name = match[1]!;
-        violations.push({
-          file: rel,
-          line: lineNo,
-          rule: `bun-native-import (${BANNED_IMPORTS[name]})`,
-          snippet: line.trim().slice(0, 120),
-        });
-      }
-
-      for (const match of line.matchAll(requireRegex)) {
-        const name = match[1]!;
-        const replacement = BANNED_IMPORTS[name];
-        if (!replacement) continue;
-        violations.push({
-          file: rel,
-          line: lineNo,
-          rule: `bun-native-require (${replacement})`,
-          snippet: line.trim().slice(0, 120),
-        });
-      }
-
-      for (const _ of line.matchAll(processEnvRegex)) {
-        violations.push({
-          file: rel,
-          line: lineNo,
-          rule: "bun-native-env (use Bun.env)",
-          snippet: line.trim().slice(0, 120),
-        });
-      }
-
-      // The stdout-stringify rule applies only to src/lib; CLI tools may still
-      // emit formatted JSON directly when that is their explicit contract.
-      if (rel.startsWith("src/lib/")) {
-        for (const _ of line.matchAll(stringifyStdoutRegex)) {
-          violations.push({
-            file: rel,
-            line: lineNo,
-            rule: "bun-native-stringify-stdout (use inspectAgent from src/lib/inspect.ts)",
-            snippet: line.trim().slice(0, 120),
-          });
-        }
-      }
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]!;
+    if (arg === "--report" || arg === "--scan") opts.report = true;
+    else if (arg === "--check") opts.report = false;
+    else if (arg === "--update-baseline" || arg === "--baseline") opts.updateBaseline = true;
+    else if (arg === "--list-rules") opts.listRules = true;
+    else if (arg === "--json") opts.json = true;
+    else if (arg === "--rule" && argv[i + 1]) opts.ruleFilter = argv[++i];
+    else if (arg === "--batch" && argv[i + 1]) opts.batchRule = argv[++i];
+    else if (arg === "--help" || arg === "-h") {
+      printHelp();
+      process.exit(0);
     }
   }
 
-  if (violations.length > 0) {
-    console.error("✗ Bun-native violations found:\n");
-    for (const v of violations) {
-      console.error(`  ${relative(REPO_ROOT, v.file)}:${v.line} [${v.rule}]`);
-      console.error(`    ${v.snippet}\n`);
+  return opts;
+}
+
+function printHelp(): void {
+  console.log(`Bun-native lint — phased enforcement (see bun-native-lint.toml)`);
+}
+
+async function loadConfig(): Promise<BunNativeLintConfig> {
+  if (!existsSync(CONFIG_PATH)) return defaultConfig();
+  return parseConfigToml(await Bun.file(CONFIG_PATH).text());
+}
+
+async function loadBaseline(): Promise<BaselineFile | null> {
+  if (!existsSync(BASELINE_PATH)) return null;
+  return parseBaselineJson(await Bun.file(BASELINE_PATH).text());
+}
+
+function filterViolations(violations: Violation[], ruleId?: string): Violation[] {
+  if (!ruleId) return violations;
+  return violations.filter((v) => v.ruleId === ruleId);
+}
+
+function printViolations(violations: Violation[], title: string): void {
+  if (violations.length === 0) return;
+  console.error(`${title} (${violations.length}):\n`);
+  for (const v of violations) {
+    console.error(`  ${v.file}:${v.line} [${v.ruleId}] ${v.message}`);
+    console.error(`    → ${v.replacement}`);
+    console.error(`    ${v.snippet}\n`);
+  }
+}
+
+async function main(): Promise<number> {
+  const opts = parseArgs(Bun.argv.slice(2));
+  const config = await loadConfig();
+  const baseline = await loadBaseline();
+  const gateMode = opts.report ? "report" : config.gateMode;
+  const violations = await scanRepo(REPO_ROOT, config);
+  const result = evaluateViolations(violations, config, baseline);
+
+  if (opts.listRules) {
+    const catalog = formatRuleCatalog(violations, config);
+    if (opts.json) {
+      console.log(JSON.stringify({ schemaVersion: 1, rules: catalog }, null, 2));
+      return 0;
     }
+    console.log("Rule catalog:\n");
+    for (const rule of catalog) {
+      console.log(
+        `  ${rule.id.padEnd(22)} ${rule.mode.padEnd(8)} ${String(rule.count).padStart(4)}  ${rule.replacement}`
+      );
+    }
+    return 0;
+  }
+
+  if (opts.updateBaseline) {
+    const next = buildBaselineFromViolations(violations, config, baseline, opts.ruleFilter);
+    await Bun.write(BASELINE_PATH, JSON.stringify(next, null, 2) + "\n");
+    console.log(
+      `  ✓ Updated baseline${opts.ruleFilter ? ` for "${opts.ruleFilter}"` : ""} (${next.entries.length} entries)`
+    );
+    return 0;
+  }
+
+  const displayViolations = filterViolations(violations, opts.batchRule);
+
+  if (opts.json) {
+    console.log(
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          summary: {
+            total: violations.length,
+            enforce: result.enforceViolations.length,
+            new: result.newViolations.length,
+            fail: shouldFailCheck(result, config, gateMode),
+          },
+          violations: displayViolations,
+        },
+        null,
+        2
+      )
+    );
+    return shouldFailCheck(result, config, gateMode) ? 1 : 0;
+  }
+
+  if (opts.batchRule) {
+    printViolations(displayViolations, `Batch: ${opts.batchRule}`);
+    console.log(`  ${displayViolations.length} violation(s) for rule "${opts.batchRule}"`);
+    return 0;
+  }
+
+  if (opts.report) {
+    printViolations(violations, "Audit");
+    console.log(`  ${violations.length} total`);
+    return 0;
+  }
+
+  if (result.enforceViolations.length > 0) {
+    printViolations(result.enforceViolations, "Enforce-mode violations");
+  }
+  if (result.newViolations.length > 0) {
+    printViolations(result.newViolations, "New violations");
+  }
+
+  if (shouldFailCheck(result, config, gateMode)) {
+    console.error(`\n✗ Bun-native gate failed`);
+    return 1;
+  }
+
+  console.log(`  ✓ Bun-native gate ok (${result.baselinedViolations.length} baselined)`);
+  return 0;
+}
+
+main()
+  .then((code) => process.exit(code))
+  .catch((err) => {
+    console.error("lint-bun-native failed:", err instanceof Error ? err.message : String(err));
     process.exit(1);
-  }
-
-  console.log("  ✓ No Bun-native violations");
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-main().catch((err) => {
-  console.error("lint-bun-native failed:", err instanceof Error ? err.message : String(err));
-  process.exit(1);
-});
+  });
