@@ -1,8 +1,7 @@
 /**
  * Diagnostic cache: cachedExec and cachedDoctor
  */
-// .tochange:governor-cache-dedup — dedup concurrent calls; peekPromise when promise already fulfilled
-
+import { dedupInflight } from "./bun-utils.ts";
 import { DEFAULTS } from "./governor-state.ts";
 import { governedSpawn } from "./governor-spawn.ts";
 import { getCached, setCached, hashCommand } from "./governor-sessions.ts";
@@ -12,6 +11,16 @@ function resolveLogger(logger?: Logger): Logger {
   return logger ?? createLogger(Bun.argv, "resource-governor");
 }
 
+const inflightExec = new Map<string, Promise<string>>();
+const inflightDoctor = new Map<string, Promise<string>>();
+
+/** Clear in-flight governor cache dedup maps (tests). */
+export function clearGovernorCacheInflight(): void {
+  inflightExec.clear();
+  inflightDoctor.clear();
+}
+
+// .implemented:governor-cache-dedup — dedup concurrent calls; peekPromise when promise already fulfilled
 export async function cachedExec(
   command: string[],
   options?: { cwd?: string; ttl?: number; force?: boolean; logger?: Logger }
@@ -28,12 +37,13 @@ export async function cachedExec(
     }
   }
 
-  log.line(`  🔄 Cache miss: ${command.join(" ")}`);
-  const result = await governedSpawn(command, { cwd });
-  const output = result.stdout || result.stderr;
-
-  setCached(key, command.join(" "), output, options?.ttl);
-  return output;
+  return dedupInflight(inflightExec, key, async () => {
+    log.line(`  🔄 Cache miss: ${command.join(" ")}`);
+    const result = await governedSpawn(command, { cwd });
+    const output = result.stdout || result.stderr;
+    setCached(key, command.join(" "), output, options?.ttl);
+    return output;
+  });
 }
 
 export async function cachedDoctor(
@@ -52,8 +62,10 @@ export async function cachedDoctor(
     return cached.output;
   }
 
-  log.line(`  🔄 Doctor cache miss: ${checkName}`);
-  const output = await fn();
-  setCached(key, `kimi-doctor:${checkName}`, output, ttlSeconds);
-  return output;
+  return dedupInflight(inflightDoctor, key, async () => {
+    log.line(`  🔄 Doctor cache miss: ${checkName}`);
+    const output = await fn();
+    setCached(key, `kimi-doctor:${checkName}`, output, ttlSeconds);
+    return output;
+  });
 }

@@ -6,6 +6,8 @@
  * process-utils.ts.
  */
 
+import { dedupInflight, peekPromise, peekPromiseStatus } from "./bun-utils.ts";
+
 const decoder = new TextDecoder();
 
 // ── Cache ────────────────────────────────────────────────────────────
@@ -16,29 +18,66 @@ interface CacheEntry<T> {
 }
 
 const _procCache = new Map<string, CacheEntry<string>>();
+const _inflightPs = new Map<string, Promise<string>>();
 const CACHE_TTL_MS = 1000;
 const ORPHAN_MIN_AGE_SECONDS = 120;
 
-// .tochange:proc-cache-async — optional Promise-based TTL + peekPromise fast path
+function psCacheHit(key: string, now = Date.now()): string | null {
+  const entry = _procCache.get(key);
+  if (entry && now - entry.ts < CACHE_TTL_MS) return entry.value;
+  return null;
+}
+
+function runPsFetch(args: string[]): Promise<string> {
+  const key = args.join(" ");
+  return dedupInflight(_inflightPs, key, async () => {
+    try {
+      const output = decoder.decode(Bun.spawnSync(["ps", ...args]).stdout);
+      _procCache.set(key, { value: output, ts: Date.now() });
+      return output;
+    } catch {
+      return "";
+    }
+  });
+}
+
+// .implemented:proc-cache-async — async TTL + in-flight dedup; sync path peeks fulfilled inflight
 /** Run a ps command with TTL caching — avoids repeated subprocess calls. */
 export function getCachedPs(args: string[]): string {
   const key = args.join(" ");
-  const now = Date.now();
-  const entry = _procCache.get(key);
-  if (entry && now - entry.ts < CACHE_TTL_MS) return entry.value;
+  const hit = psCacheHit(key);
+  if (hit !== null) return hit;
+
+  const inflight = _inflightPs.get(key);
+  if (inflight && peekPromiseStatus(inflight) === "fulfilled") {
+    try {
+      return peekPromise(inflight) as string;
+    } catch {
+      /* spawn below */
+    }
+  }
 
   try {
     const output = decoder.decode(Bun.spawnSync(["ps", ...args]).stdout);
-    _procCache.set(key, { value: output, ts: now });
+    _procCache.set(key, { value: output, ts: Date.now() });
     return output;
   } catch {
     return "";
   }
 }
 
+/** Async ps cache with in-flight dedup (preferred for concurrent doctor paths). */
+export async function getCachedPsAsync(args: string[]): Promise<string> {
+  const key = args.join(" ");
+  const hit = psCacheHit(key);
+  if (hit !== null) return hit;
+  return runPsFetch(args);
+}
+
 /** Clear the process cache (useful between test runs or after state changes). */
 export function clearProcessCache(): void {
   _procCache.clear();
+  _inflightPs.clear();
 }
 
 // ── Orphan detection ─────────────────────────────────────────────────

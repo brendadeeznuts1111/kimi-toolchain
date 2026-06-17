@@ -4,8 +4,12 @@
 
 import { $ } from "bun";
 import { createLogger, type Logger } from "./logger.ts";
-// .tochange:memory-budget-peek — update if proc-cache moves to promise + peekPromise
-import { getCachedPs, clearProcessCache, countOrphanCandidates } from "./proc-cache.ts";
+import {
+  getCachedPs,
+  getCachedPsAsync,
+  clearProcessCache,
+  countOrphanCandidates,
+} from "./proc-cache.ts";
 
 const decoder = new TextDecoder();
 
@@ -154,8 +158,14 @@ export function isSyncDaemonRunning(): boolean {
 
 // countOrphanCandidates re-exported from proc-cache.ts above
 
+// .implemented:memory-budget-peek — warm ps caches via getCachedPsAsync before sync RSS reads
 export async function runSystemMemoryChecks(): Promise<MemoryCheckResult[]> {
   const results: MemoryCheckResult[] = [];
+
+  await Promise.all([
+    getCachedPsAsync(["-axo", "rss,command"]),
+    getCachedPsAsync(["-axo", "pid=,pcpu=,etimes=,command="]),
+  ]);
   let pressurePct: number | null = null;
 
   try {

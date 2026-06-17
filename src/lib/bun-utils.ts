@@ -146,6 +146,35 @@ export function peekPromiseStatus(value: unknown): PeekStatus {
   return peek.status(value) as PeekStatus;
 }
 
+/** Join concurrent callers on one in-flight promise; peek when already fulfilled. */
+export async function dedupInflight<T>(
+  map: Map<string, Promise<T>>,
+  key: string,
+  run: () => Promise<T>
+): Promise<T> {
+  const existing = map.get(key);
+  if (existing) {
+    if (peekPromiseStatus(existing) === "fulfilled") {
+      try {
+        return peekPromise(existing) as T;
+      } catch {
+        return existing;
+      }
+    }
+    return existing;
+  }
+
+  const promise = (async () => {
+    try {
+      return await run();
+    } finally {
+      map.delete(key);
+    }
+  })();
+  map.set(key, promise);
+  return await promise;
+}
+
 /** Deep equality (Bun.deepEquals). */
 export function deepEqual<T>(a: T, b: T, strict = false): boolean {
   return Bun.deepEquals(a, b, strict);
