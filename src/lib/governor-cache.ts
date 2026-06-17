@@ -1,6 +1,7 @@
 /**
  * Diagnostic cache: cachedExec and cachedDoctor
  */
+// .tochange:governor-cache-dedup — dedup concurrent calls; peekPromise when promise already fulfilled
 
 import { DEFAULTS } from "./governor-state.ts";
 import { governedSpawn } from "./governor-spawn.ts";

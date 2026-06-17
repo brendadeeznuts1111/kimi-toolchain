@@ -4,6 +4,7 @@
 
 import { $ } from "bun";
 import { createLogger, type Logger } from "./logger.ts";
+// .tochange:memory-budget-peek — update if proc-cache moves to promise + peekPromise
 import { getCachedPs, clearProcessCache, countOrphanCandidates } from "./proc-cache.ts";
 
 const decoder = new TextDecoder();

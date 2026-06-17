@@ -19,6 +19,7 @@ const _procCache = new Map<string, CacheEntry<string>>();
 const CACHE_TTL_MS = 1000;
 const ORPHAN_MIN_AGE_SECONDS = 120;
 
+// .tochange:proc-cache-async — optional Promise-based TTL + peekPromise fast path
 /** Run a ps command with TTL caching — avoids repeated subprocess calls. */
 export function getCachedPs(args: string[]): string {
   const key = args.join(" ");

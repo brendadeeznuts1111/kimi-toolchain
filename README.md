@@ -47,6 +47,7 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run lint:skills` | (synced from package.json) |
 | `bun run scope:run` | (synced from package.json) |
 | `bun run skills:table` | (synced from package.json) |
+| `bun run lint:tochange` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                           |

@@ -6,8 +6,12 @@
  * For subprocess streams and inspect output, also see src/lib/inspect.ts.
  */
 
+import { peek } from "bun";
+
 /** Monotonic UUID v7 — prefer for session/db ids (see Bun.randomUUIDv7). */
 export { randomUUIDv7 } from "bun";
+
+export type PeekStatus = "fulfilled" | "pending" | "rejected";
 
 /** Parse TOML text (Bun.TOML.parse). */
 export function parseToml(text: string): Record<string, unknown> {
@@ -129,6 +133,17 @@ export function entryScriptPath(): string {
 /** True when this module is the process entrypoint. */
 export function isDirectRun(modulePath: string): boolean {
   return modulePath === Bun.main;
+}
+
+// .implemented:peek-wrapper — Bun.peek wrappers for in-flight promise fast paths
+/** Read a settled promise synchronously; pending promises pass through. */
+export function peekPromise<T>(promise: Promise<T>): T | Promise<T> {
+  return peek(promise);
+}
+
+/** Non-throwing status probe for a promise (or non-promise value). */
+export function peekPromiseStatus(value: unknown): PeekStatus {
+  return peek.status(value) as PeekStatus;
 }
 
 /** Deep equality (Bun.deepEquals). */

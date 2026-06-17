@@ -147,6 +147,7 @@ async function readStreamToLimitedText(
   return { text: new TextDecoder().decode(retained), truncated };
 }
 
+// .tochange:tool-runner-inflight — Map in-flight invokeCommand keys; peekPromise on cache hit
 /** Invoke an arbitrary command with timeout, output bounds, and graceful termination. */
 export async function invokeCommand(
   command: string[],
