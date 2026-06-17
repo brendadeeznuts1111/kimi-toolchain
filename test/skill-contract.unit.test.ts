@@ -4,11 +4,13 @@ import {
   auditCloudflareAccessSkillContract,
   auditCodeProbeWhenExports,
   auditEffectDisciplineSkillContract,
+  auditFinishWorkSkillContract,
   auditHerdrSkillContract,
   auditKimiToolchainSkillContract,
   EFFECT_GATE_IDENTIFIERS,
   auditOrchestratorEventTable,
   auditOrchestratorProbeContract,
+  auditOrchestratorSkillContract,
   auditSkillCodeCoverage,
   auditSkillCoverage,
   auditSkillFrontmatter,
@@ -29,8 +31,10 @@ describe("skill-contract", () => {
       [
         "skills/cloudflare-access/SKILL.md",
         "skills/effect-discipline/SKILL.md",
+        "skills/finish-work/SKILL.md",
         "skills/herdr/SKILL.md",
         "skills/kimi-toolchain/SKILL.md",
+        "skills/orchestrator/SKILL.md",
       ].sort()
     );
   });
@@ -116,17 +120,31 @@ describe("skill-contract", () => {
     expect(formatSkillContractReport(issues)).toBe("skill-contract OK");
   });
 
-  test("orchestrator skill event table matches code when skill is installed", async () => {
-    const found = await readFirstExisting(resolveOrchestratorSkillPaths());
-    if (!found) {
-      console.warn("orchestrator SKILL.md not found — skipping installed-skill gate");
-      return;
-    }
+  test("orchestrator skill passes L3 contract gates", async () => {
+    const text = await Bun.file(join(REPO_ROOT, "skills/orchestrator/SKILL.md")).text();
+    const issues = auditOrchestratorSkillContract("skills/orchestrator/SKILL.md", text);
+    expect(formatSkillContractReport(issues)).toBe("skill-contract OK");
+  });
 
-    const eventIssues = auditOrchestratorEventTable(found.path, found.text);
+  test("finish-work skill passes L3 contract gates", async () => {
+    const text = await Bun.file(join(REPO_ROOT, "skills/finish-work/SKILL.md")).text();
+    const issues = auditFinishWorkSkillContract("skills/finish-work/SKILL.md", text);
+    expect(formatSkillContractReport(issues)).toBe("skill-contract OK");
+  });
+
+  test("resolveOrchestratorSkillPaths prefers in-repo skill", () => {
+    const paths = resolveOrchestratorSkillPaths("/tmp", REPO_ROOT);
+    expect(paths[0]).toBe(join(REPO_ROOT, "skills", "orchestrator", "SKILL.md"));
+  });
+
+  test("orchestrator skill event table matches code when installed copy exists", async () => {
+    const found = await readFirstExisting(resolveOrchestratorSkillPaths(Bun.env.HOME, REPO_ROOT));
+    expect(found).not.toBeNull();
+
+    const eventIssues = auditOrchestratorEventTable(found!.path, found!.text);
     expect(eventIssues).toEqual([]);
 
-    const probeIssues = auditOrchestratorProbeContract(found.path, found.text);
+    const probeIssues = auditOrchestratorProbeContract(found!.path, found!.text);
     expect(probeIssues).toEqual([]);
   });
 });

@@ -204,12 +204,20 @@ export function auditCodeProbeWhenExports(): SkillContractIssue[] {
 }
 
 /** Canonical orchestrator skill locations (first existing wins). */
-export function resolveOrchestratorSkillPaths(home = Bun.env.HOME || "/tmp"): string[] {
-  return [
+export function resolveOrchestratorSkillPaths(
+  home = Bun.env.HOME || "/tmp",
+  repoRoot?: string
+): string[] {
+  const paths: string[] = [];
+  if (repoRoot) {
+    paths.push(join(repoRoot, "skills", "orchestrator", "SKILL.md"));
+  }
+  paths.push(
     join(home, ".grok", "skills", "orchestrator", "SKILL.md"),
     join(home, ".config", "agents", "skills", "orchestrator", "SKILL.md"),
-    join(home, "dx-config", "config", "agents", "skills", "orchestrator", "SKILL.md"),
-  ];
+    join(home, "dx-config", "config", "agents", "skills", "orchestrator", "SKILL.md")
+  );
+  return paths;
 }
 
 export async function readFirstExisting(
@@ -278,6 +286,20 @@ export const REPO_SKILL_CODE_COVERAGE: Record<
     ],
     testFiles: ["test/effect-gates.unit.test.ts", "test/effect/cli-runtime.unit.test.ts"],
   },
+  "skills/orchestrator/SKILL.md": {
+    libModules: ["src/lib/herdr-orchestrator.ts", "src/lib/herdr-orchestrator-events.ts"],
+    testFiles: [
+      "test/herdr-orchestrator.unit.test.ts",
+      "test/herdr-orchestrator-events.unit.test.ts",
+    ],
+  },
+  "skills/finish-work/SKILL.md": {
+    libModules: ["src/lib/finish-work-herdr.ts", "src/lib/finish-work-config.ts"],
+    testFiles: [
+      "test/finish-work-herdr.unit.test.ts",
+      "test/finish-work-report-schema.unit.test.ts",
+    ],
+  },
 };
 
 /** Gate identifier strings from `EFFECT_GATES` — skill must name each id. */
@@ -300,6 +322,111 @@ function findBarePortableDocLinks(skillRel: string, text: string): SkillContract
       });
     }
   }
+  return issues;
+}
+
+/** L3 orchestrator skill — event table, probes, CLI surface. */
+export function auditOrchestratorSkillContract(
+  skillRel: string,
+  text: string
+): SkillContractIssue[] {
+  return [
+    ...findSyncedSkillEscapeLinks(skillRel, text),
+    ...findBarePortableDocLinks(skillRel, text),
+    ...auditOrchestratorEventTable(skillRel, text),
+    ...auditOrchestratorProbeContract(skillRel, text),
+    ...(text.includes("herdr-orchestrator status") &&
+    text.includes("watch-events") &&
+    text.includes("context-sync")
+      ? []
+      : [
+          {
+            skill: skillRel,
+            rule: "orchestrator-cli-surface",
+            message: "must document herdr-orchestrator status, watch-events, context-sync",
+          },
+        ]),
+    ...(text.includes("~/.kimi-code/CODE_REFERENCES.md")
+      ? []
+      : [
+          {
+            skill: skillRel,
+            rule: "orchestrator-code-refs",
+            message: "must link ~/.kimi-code/CODE_REFERENCES.md",
+          },
+        ]),
+  ];
+}
+
+/** L3 finish-work skill — pipeline order, Herdr status, orchestrator pointer. */
+export function auditFinishWorkSkillContract(skillRel: string, text: string): SkillContractIssue[] {
+  const issues: SkillContractIssue[] = [
+    ...findSyncedSkillEscapeLinks(skillRel, text),
+    ...findBarePortableDocLinks(skillRel, text),
+  ];
+
+  const required: Array<{ re: RegExp; rule: string; message: string }> = [
+    {
+      re: /bun run finish-work/,
+      rule: "finish-work-command",
+      message: "must document bun run finish-work",
+    },
+    {
+      re: /Pipeline order/i,
+      rule: "finish-work-pipeline-order",
+      message: "must document pipeline order (gates before escalation)",
+    },
+    {
+      re: /emitWorkspaceUpdatedMetadata/,
+      rule: "finish-work-metadata-emit",
+      message: "must document emitWorkspaceUpdatedMetadata guard",
+    },
+    {
+      re: /workspace\.updated/,
+      rule: "finish-work-workspace-updated",
+      message: "must mention workspace.updated orchestrator signal",
+    },
+    {
+      re: /needs-review/,
+      rule: "finish-work-needs-review",
+      message: "must document needs-review escalation status",
+    },
+    {
+      re: /HERDR_ENV/,
+      rule: "finish-work-herdr-env",
+      message: "must document HERDR_ENV requirement",
+    },
+    {
+      re: /finish-work:handoff-ready/,
+      rule: "finish-work-handoff-probe",
+      message: "must mention finish-work:handoff-ready probe",
+    },
+    {
+      re: /pane\.status/,
+      rule: "finish-work-pane-status",
+      message: "must mention pane.status when field",
+    },
+    {
+      re: /report_agent|report-agent/,
+      rule: "finish-work-report-agent",
+      message: "must document pane.report_agent semantic status",
+    },
+    {
+      re: /orchestrator/,
+      rule: "finish-work-orchestrator-pointer",
+      message: "must point to orchestrator skill for context-sync",
+    },
+    {
+      re: /src\/lib\/finish-work-herdr\.ts/,
+      rule: "finish-work-code-pointer",
+      message: "must point to src/lib/finish-work-herdr.ts",
+    },
+  ];
+
+  for (const { re, rule, message } of required) {
+    if (!re.test(text)) issues.push({ skill: skillRel, rule, message });
+  }
+
   return issues;
 }
 
@@ -535,6 +662,12 @@ export function auditRepoSkill(skillRel: string, text: string): SkillContractIss
   if (skillRel === "skills/effect-discipline/SKILL.md") {
     return auditEffectDisciplineSkillContract(skillRel, text);
   }
+  if (skillRel === "skills/orchestrator/SKILL.md") {
+    return auditOrchestratorSkillContract(skillRel, text);
+  }
+  if (skillRel === "skills/finish-work/SKILL.md") {
+    return auditFinishWorkSkillContract(skillRel, text);
+  }
   return findSyncedSkillEscapeLinks(skillRel, text);
 }
 
@@ -640,17 +773,22 @@ export async function auditSkillCoverage(repoRoot: string): Promise<SkillCoverag
     ...auditSkillCodeCoverage(repoRoot),
     ...(await auditSkillFrontmatter(repoRoot)),
   ];
-  const orch = await readFirstExisting(resolveOrchestratorSkillPaths());
+  const repoOrchestratorRel = "skills/orchestrator/SKILL.md";
+  const repoOrchestratorPath = join(repoRoot, repoOrchestratorRel);
+  const repoOrchestratorOnDisk = pathExists(repoOrchestratorPath);
+  const orch = repoOrchestratorOnDisk
+    ? { path: repoOrchestratorPath, text: await Bun.file(repoOrchestratorPath).text() }
+    : await readFirstExisting(resolveOrchestratorSkillPaths(Bun.env.HOME || "/tmp", repoRoot));
+
+  const orchestratorSkillRel = repoOrchestratorOnDisk ? repoOrchestratorRel : (orch?.path ?? "");
+  const orchestratorIssues = orch
+    ? auditOrchestratorSkillContract(orchestratorSkillRel, orch.text)
+    : [];
   const orchestrator = orch
     ? {
         path: orch.path,
-        contractOk:
-          auditOrchestratorEventTable(orch.path, orch.text).length === 0 &&
-          auditOrchestratorProbeContract(orch.path, orch.text).length === 0,
-        issues: [
-          ...auditOrchestratorEventTable(orch.path, orch.text),
-          ...auditOrchestratorProbeContract(orch.path, orch.text),
-        ],
+        contractOk: orchestratorIssues.length === 0,
+        issues: orchestratorIssues,
       }
     : null;
 
@@ -658,7 +796,8 @@ export async function auditSkillCoverage(repoRoot: string): Promise<SkillCoverag
     rows.every((r) => r.contractOk && r.testsOk && r.libModules.every((m) => m.exists)) &&
     codeIssues.length === 0 &&
     unmappedSkills.length === 0 &&
-    (orchestrator === null || orchestrator.contractOk);
+    orchestrator !== null &&
+    orchestrator.contractOk;
 
   return { ok, rows, codeIssues, unmappedSkills, orchestrator };
 }
@@ -701,7 +840,7 @@ export function formatSkillCoverageReport(report: SkillCoverageReport): string {
       lines.push(`    ✗ [${issue.rule}] ${issue.message}`);
     }
   } else {
-    lines.push("⚠ orchestrator skill not installed — skipping L3 gate");
+    lines.push("✗ orchestrator skill missing — add skills/orchestrator/SKILL.md");
   }
 
   return lines.join("\n");
