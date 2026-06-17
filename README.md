@@ -49,7 +49,6 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run bench` | (synced from package.json) |
 
-| `bun run test:unit` | (synced from package.json) |
 | `bun run test:smoke` | (synced from package.json) |
 | `bun run check:staged` | (synced from package.json) |
 
@@ -60,8 +59,6 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run ci:local` | (synced from package.json) |
 | `bun run pr:diff` | (synced from package.json) |
 | `bun run pr:status` | (synced from package.json) |
-
-| `bun run constants:verify` | (synced from package.json) |
 
 | `bun run test:ci` | (synced from package.json) |
 | `bun run test:flake-hunt` | (synced from package.json) |

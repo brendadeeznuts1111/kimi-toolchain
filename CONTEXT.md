@@ -37,7 +37,6 @@ error-taxonomy.yml
 ```bash
 bun run test  # bun test --retry=2
 bun run test:fast  # bun run scripts/run-tests.ts --fast
-bun run test:unit  # bun run scripts/run-tests.ts --fast
 bun run test:smoke  # bun run scripts/run-tests.ts --smoke
 bun run test:ci  # bun test --coverage --retry=2 --reporter=junit --reporter-outfile=reports/junit.xml
 bun run test:flake-hunt  # bun test --rerun-each=5 --seed=0 --timeout=30000 --bail=99999
