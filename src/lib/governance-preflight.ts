@@ -2,12 +2,11 @@
  * Light auto-fixes before R-Score / pre-push — lock mtime, README drift, guardian baseline.
  */
 
-import { $ } from "bun";
 import { join } from "path";
 import { pathExists } from "./bun-io.ts";
 import { guardianDir } from "./paths.ts";
 import { checkDocDrift, patchReadmeScripts } from "./readme-sync.ts";
-import { runTool } from "./tool-runner.ts";
+import { runTool, withBunNoOrphans } from "./tool-runner.ts";
 import { sha256File } from "./utils.ts";
 
 export interface GovernancePreflightReport {
@@ -33,7 +32,18 @@ export async function refreshStaleLockfile(projectDir: string): Promise<boolean>
   if (!pathExists(lockPath) || !pathExists(pkgPath)) return false;
   if (!isLockfileMtimeStale(projectDir)) return false;
 
-  await $`bun install --ignore-scripts`.cwd(projectDir).nothrow().quiet();
+  // Frozen policy: only clear mtime stale when lock still matches package.json (scripts-only edits).
+  const proc = Bun.spawn(
+    withBunNoOrphans(["bun", "install", "--frozen-lockfile", "--ignore-scripts"]),
+    {
+      cwd: projectDir,
+      stdout: "ignore",
+      stderr: "ignore",
+    }
+  );
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) return false;
+
   if (Bun.file(lockPath).lastModified <= Bun.file(pkgPath).lastModified) {
     await Bun.write(lockPath, await Bun.file(lockPath).text());
   }

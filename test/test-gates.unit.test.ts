@@ -32,6 +32,7 @@ describe("test-gates", () => {
 
   test("bunTestArgs fast mode uses the configured fast timeout and unit files", () => {
     const args = bunTestArgs({ fast: true, bail: true });
+    expect(args).toContain("--isolate");
     expect(args).toContain("--timeout");
     expect(args).toContain(String(FAST_TEST_TIMEOUT_MS));
     expect(args).toContain("--bail");

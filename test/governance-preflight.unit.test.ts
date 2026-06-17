@@ -10,6 +10,32 @@ import {
   runGovernancePreflight,
 } from "../src/lib/governance-preflight.ts";
 
+const DEMO_PKG = {
+  name: "demo",
+  dependencies: { "js-yaml": "4.2.0" },
+  scripts: {} as Record<string, string>,
+};
+
+/** Valid lock for DEMO_PKG — frozen `bun install` succeeds on scripts-only package.json edits. */
+const DEMO_LOCK = `{
+  "lockfileVersion": 2,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "demo",
+      "dependencies": {
+        "js-yaml": "4.2.0",
+      },
+    },
+  },
+  "packages": {
+    "argparse": ["argparse@2.0.1", "", {}, "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q=="],
+
+    "js-yaml": ["js-yaml@4.2.0", "", { "dependencies": { "argparse": "^2.0.1" }, "bin": { "js-yaml": "bin/js-yaml.js" } }, "sha512-ePWsvanv0DWuDRsW8dnt+R4jQ31SCRCQ7hhNcPXZPsoBZiemuZNYGf7adZdqX2D86j6rvKp3RpCxVTSb8WQlOw=="],
+  }
+}
+`;
+
 function withPreflightHome<T>(
   fn: (ctx: { tmpHome: string; projectDir: string }) => T | Promise<T>
 ) {
@@ -17,8 +43,8 @@ function withPreflightHome<T>(
   makeDir(join(tmpHome, ".kimi-code", "guardian"), { recursive: true });
   const projectDir = join(tmpHome, "project");
   makeDir(projectDir, { recursive: true });
-  writeText(join(projectDir, "bun.lock"), "# lock\n");
-  writeText(join(projectDir, "package.json"), JSON.stringify({ name: "demo", scripts: {} }));
+  writeText(join(projectDir, "bun.lock"), DEMO_LOCK);
+  writeText(join(projectDir, "package.json"), JSON.stringify(DEMO_PKG));
   writeText(join(projectDir, "README.md"), "# demo\n");
 
   return withEnv({ HOME: tmpHome }, () => {
@@ -47,7 +73,7 @@ describe("governance-preflight", () => {
       await Bun.sleep(15);
       writeText(
         join(projectDir, "package.json"),
-        JSON.stringify({ name: "demo", scripts: { lint: "oxlint ." } })
+        JSON.stringify({ ...DEMO_PKG, scripts: { lint: "oxlint ." } })
       );
       expect(isLockfileMtimeStale(projectDir)).toBe(true);
     });
@@ -58,7 +84,7 @@ describe("governance-preflight", () => {
       await Bun.sleep(15);
       writeText(
         join(projectDir, "package.json"),
-        JSON.stringify({ name: "demo", scripts: { test: "bun test" } })
+        JSON.stringify({ ...DEMO_PKG, scripts: { test: "bun test" } })
       );
       const refreshed = await refreshStaleLockfile(projectDir);
       expect(refreshed).toBe(true);

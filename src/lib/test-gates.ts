@@ -174,7 +174,7 @@ export function bunTestArgs(options: {
   if (options.dots) args.push("--dots");
   if (options.json) args.push("--json");
   if (options.fast) {
-    args.push(...UNIT_TEST_FILES);
+    args.push("--isolate", ...UNIT_TEST_FILES);
   }
   if (options.integration) {
     args.push(...INTEGRATION_TEST_FILES);

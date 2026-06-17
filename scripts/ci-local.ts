@@ -15,9 +15,23 @@
  */
 
 import { join } from "path";
+import { pathExists, removePath } from "../src/lib/bun-io.ts";
 import { emitGateFailure, runGate, type GateResult } from "../src/lib/gate-runner.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
+
+/** Remove stale Bun coverage temp files that break governance coverage reads. */
+async function cleanCoverageTmp(): Promise<number> {
+  const coverageDir = join(REPO_ROOT, "coverage");
+  if (!pathExists(coverageDir)) return 0;
+  let removed = 0;
+  const glob = new Bun.Glob("*.tmp");
+  for await (const file of glob.scan(coverageDir)) {
+    removePath(join(coverageDir, file));
+    removed++;
+  }
+  return removed;
+}
 
 type JobName = "quality" | "governance" | "all";
 
@@ -114,6 +128,11 @@ async function main(): Promise<number> {
       }
     }
     return 0;
+  }
+
+  const staleCoverage = await cleanCoverageTmp();
+  if (staleCoverage > 0 && !json) {
+    console.log(`ci:local — removed ${staleCoverage} stale coverage/*.tmp file(s)`);
   }
 
   const results = await runSteps(steps);
