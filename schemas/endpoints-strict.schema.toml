@@ -1,4 +1,5 @@
 # Stricter endpoints contract (pathname must not contain path traversal segments)
+# Gate: bun run dx:table:contract  |  Docs: schemas/README.md, docs/dx-table.md
 required = ["name", "url_pathname"]
 
 [columns.url_pathname]

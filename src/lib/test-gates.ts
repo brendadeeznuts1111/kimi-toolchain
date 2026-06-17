@@ -93,6 +93,7 @@ export const UNIT_TEST_FILES = [
   "test/doctor-pipeline.unit.test.ts",
   "test/effect/tool-runner-effect.unit.test.ts",
   "test/effect/cli-runtime.unit.test.ts",
+  "test/effect/dx-config.unit.test.ts",
   // herdr orchestration unit tests
   "test/herdr-orchestrator.unit.test.ts",
   "test/herdr-orchestrator-remote.unit.test.ts",

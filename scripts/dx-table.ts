@@ -40,6 +40,7 @@ import {
   parseInventoryRootsArg,
   runPropertyTableInventoryEffect,
 } from "../src/lib/property-table-inventory.ts";
+import { runGetMergedMeta } from "../src/lib/effect/dx-config.ts";
 import { runPropertyTableExtractEffect } from "../src/lib/property-table-run.ts";
 import { listTomlPropertyTablePaths } from "../src/lib/toml-property-table.ts";
 import type { PropertyTableOutputFormat } from "../src/lib/property-table-renderer.ts";
@@ -132,6 +133,7 @@ function parseExtractArgs(argv: string[]): {
   outDir?: string;
   projectRoot: string;
   format?: PropertyTableOutputFormat;
+  resolved?: boolean;
   help?: boolean;
 } {
   let file: string | undefined;
@@ -166,6 +168,7 @@ function parseExtractArgs(argv: string[]): {
         format = value === "markdown" ? "raw" : value;
       }
     } else if (arg === "--all") allTables = true;
+    else if (arg === "--resolved") continue;
     else if (arg === "--decompose-urls" || arg === "-u") continue;
     else if (arg === "--hide-source-url" || arg === "--no-source-url") continue;
     else if (
@@ -194,14 +197,31 @@ function parseExtractArgs(argv: string[]): {
     else if (!arg.startsWith("-")) positional.push(arg);
   }
 
-  if (!file && positional.length >= 1) file = positional[0];
-  if (!table && positional.length >= 2) table = positional[1];
+  const resolved = argv.includes("--resolved");
+  if (resolved) {
+    if (!table && positional.length >= 1) table = positional[0];
+  } else {
+    if (!file && positional.length >= 1) file = positional[0];
+    if (!table && positional.length >= 2) table = positional[1];
+  }
 
-  return { file, table, allTables, className, output, outDir, projectRoot, format, help };
+  return {
+    file,
+    table,
+    allTables,
+    className,
+    output,
+    outDir,
+    projectRoot,
+    format,
+    resolved,
+    help,
+  };
 }
 
 function printHelp(): void {
   logger.info("Core: bun run dx:table extract <config.toml> <key.path> [--format <fmt>] [flags]");
+  logger.info("      bun run dx:table extract --resolved <key.path> [--format <fmt>] [flags]");
   logger.info("      bun run dx:table extract <config.toml> --all [--format <fmt>] [flags]");
   logger.info(
     "      bun run dx:table extract --file <path.ts> --class <Name> [--format <fmt>] [flags]"
@@ -233,10 +253,16 @@ function printHelp(): void {
   logger.info("  --add-metadata [FIELDS] — repeat config scalars on every row");
   logger.info("                     default: schemaVersion,name,scope");
   logger.info("                     dot-paths ok (e.g. runtime.bunVersion); skipped with --exact");
+  logger.info(
+    "                     use TOML paths in --add-metadata; colliding fields → config.<field>"
+  );
   logger.info("");
   logger.info("Multi-repo inventory:");
   logger.info("  dx:table inventory <table.path> --roots DIR,DIR [--format csv|json]");
   logger.info("                     merges rows; requires --add-metadata; default format csv");
+  logger.info("");
+  logger.info("Config resolution:");
+  logger.info("  --resolved         — use merged project config path (global + dx.config.toml)");
   logger.info("");
   logger.info("Output: --format file (default) writes docs/table-<key-slug>.md");
   logger.info("        Override dir with --out-dir; explicit path with --output");
@@ -273,7 +299,7 @@ function printHelp(): void {
     "  dx:table extract dx.config.toml endpoints --format csv --add-metadata schemaVersion,name,runtime.bunVersion"
   );
   logger.info(
-    "  dx:table inventory endpoints --roots .,../other --add-metadata schemaVersion,config.name"
+    "  dx:table inventory endpoints --roots .,../other --add-metadata schemaVersion,name"
   );
   logger.info("");
   logger.info("  --out-dir DIR  — output directory (default: docs/)");
@@ -291,6 +317,8 @@ function printHelp(): void {
   logger.info("Schema validation (CI):");
   logger.info("  --schema FILE      — validate output rows/columns against TOML or JSON schema");
   logger.info("  --schema-warn      — print violations to stderr but do not fail");
+  logger.info("  bun run dx:table:contract — verify schemas/endpoints*.schema.toml on fixture");
+  logger.info("  See docs/dx-table.md and schemas/README.md");
   logger.info("");
   logger.info(`TOML tables: ${listTomlPropertyTablePaths().join(", ")}`);
   logger.info("TypeScript: --file PATH --class NAME (interface, class, or type literal)");
@@ -365,8 +393,32 @@ const program = Effect.gen(function* () {
     printHelp();
     return 0;
   }
-  if (!args.file) {
-    return yield* Effect.fail(new CliError({ message: "Missing file (positional or --file)" }));
+
+  let configFile = args.file;
+  if (args.resolved) {
+    const meta = yield* runGetMergedMeta(args.projectRoot).pipe(
+      Effect.mapError(
+        (err) =>
+          new CliError({
+            message: `${err._tag}: ${err._tag === "ConfigParseError" ? err.cause : err.path}`,
+          })
+      )
+    );
+    if (!meta.projectPath) {
+      return yield* Effect.fail(
+        new CliError({
+          message:
+            "No project config found for --resolved (expected dx.config.toml or .dx/config.toml)",
+        })
+      );
+    }
+    configFile = meta.projectPath;
+  }
+
+  if (!configFile) {
+    return yield* Effect.fail(
+      new CliError({ message: "Missing file (positional, --file, or --resolved)" })
+    );
   }
   if (!args.table && !args.className && !args.allTables) {
     return yield* Effect.fail(
@@ -382,7 +434,7 @@ const program = Effect.gen(function* () {
   for (const table of tables) {
     const result = yield* runPropertyTableExtractEffect({
       projectRoot: args.projectRoot,
-      file: args.file,
+      file: configFile,
       table,
       className: args.className,
       output: args.output,
@@ -396,7 +448,7 @@ const program = Effect.gen(function* () {
   if (results.length === 1) {
     logger.info(`Extracted: ${results[0].payload.sourceLabel}`);
   } else {
-    logger.info(`Extracted ${results.length} tables from ${args.file}`);
+    logger.info(`Extracted ${results.length} tables from ${configFile}`);
   }
 
   return 0;

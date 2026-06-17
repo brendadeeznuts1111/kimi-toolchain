@@ -37,8 +37,10 @@ Repos: [kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain) (`
 | Herdr ws+unix transport         | `src/lib/herdr-ws-unix.ts`              | `new WebSocket("ws+unix://…")`; env `HERDR_SOCKET_TRANSPORT=websocket\|auto`                 |
 | Bun.markdown.ansi / skill preview | `src/lib/bun-markdown.ts`, `src/lib/skill-preview.ts` | `kimi-context-gen preview [skill]` — probe via `markdownAnsiSupported()` like `bun-image.ts` |
 | Bun install policy audit          | `src/lib/bun-install-config.ts`         | `BUN_INSTALL_CLI` + `formatInstallPropertyReferenceTable()` + `kimi-guardian report` |
-| TOML property tables              | `src/lib/toml-property-table.ts`, `scripts/dx-table.ts` | `bun run dx-table extract dx.config.toml herdr.orchestrator.remote_hosts` |
-| Property table terminal render    | `src/lib/markdown-table.ts`, `property-table-renderer.ts` | Default `file` → `docs/table-*.md`; preview `bun ./docs/table-….md`; `--format raw\|table` |
+| TOML property tables (`dx:table`) | [docs/dx-table.md](docs/dx-table.md), `toml-property-table.ts`, `property-table-run.ts`, `scripts/dx-table.ts` | `bun run dx:table --help`; `bun run dx:table extract dx.config.toml endpoints -u --exact`; contract: `bun run dx:table:contract` |
+| Property table render / export    | `markdown-table.ts`, `property-table-renderer.ts`, `property-table-options.ts` | `--format file\|raw\|table\|csv\|json`; preview `bun ./docs/table-*.md` |
+| Property table modes              | `property-table-describe.ts`, `property-table-group.ts`, `property-table-metadata.ts`, `property-table-inventory.ts` | `--describe --keys name`; `--group-by`; `--add-metadata`; `inventory --roots` |
+| Table output schemas            | `table-schema.ts`, `schemas/*.schema.toml`, `scripts/dx-table-contract.ts` | `--schema schemas/endpoints.schema.toml`; gate `bun run dx:table:contract` |
 | Build-time tuning constants     | `bunfig.toml` `[define]`                | SSOT — `KIMI_*` globals grouped by `# define-domain:` (separate from taxonomyId)            |
 | Safe parsing                    | `src/lib/utils.ts`                      | Use `safeParse()` / `safeToml()` with validators at config boundaries                       |
 | Inspection / equality / ANSI    | `src/lib/inspect.ts`                    | Use `inspectAgent()` for `--json`, `inspectHuman()` for logs, `deepEqual*()` for alignment  |
@@ -85,7 +87,8 @@ Good local examples:
 - `src/lib/dx-github-alignment.ts` for DX config, package script, and GitHub Actions parity checks.
 - `src/lib/kimi-config-audit.ts` for targeted TOML extraction and validation.
 - `src/lib/mcp-config.ts` for config merge/idempotency behavior.
-- `test/cloudflare-access-policy.unit.test.ts`, `test/dx-github-alignment.unit.test.ts`, and `test/mcp-config.unit.test.ts` for parser and merge expectations.
+- `src/lib/table-schema.ts` for `dx:table --schema` row/column contracts (`schemas/endpoints.schema.toml`).
+- `test/cloudflare-access-policy.unit.test.ts`, `test/dx-github-alignment.unit.test.ts`, `test/mcp-config.unit.test.ts`, and `test/table-schema.unit.test.ts` for parser and merge expectations.
 
 Do:
 

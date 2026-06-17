@@ -55,6 +55,7 @@ handoff = ["bun run sync && bun run sync:verify"]
     expect(brief.markdown).toContain("# Workspace context:");
     expect(brief.markdown).toContain("## Effect gates");
     expect(brief.nextSteps).toContain("bun run check:fast");
+    expect(brief.configErrors).toEqual([]);
     expect(brief.effectGates?.tool).toBe("test");
     expect(brief.git.isRepo).toBe(true);
 
@@ -63,6 +64,15 @@ handoff = ["bun run sync && bun run sync:verify"]
     expect(jsonPath).toContain("workspace-context.json");
     expect("markdown" in payload).toBe(false);
     expect(payload.project).toBe(brief.project);
+  });
+
+  test("buildWorkspaceContextReport surfaces config parse errors", async () => {
+    writeText(join(projectRoot, "dx.config.toml"), "schemaVersion = [\n");
+    const report = await buildWorkspaceContextReport({ projectRoot, brief: true });
+    expect(report.nextSteps).toEqual([]);
+    expect(report.configErrors.length).toBeGreaterThan(0);
+    expect(report.configErrors[0]?.tag).toBe("ConfigParseError");
+    expect(report.markdown).toContain("## Config errors");
   });
 
   test("extractHerdrProjectSection parses agentsTab pane context", () => {

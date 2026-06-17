@@ -2,7 +2,6 @@ import { makeDir, pathExists, readText, writeText } from "./bun-io.ts";
 
 import { governedSpawn } from "./governor-spawn.ts";
 import { join } from "path";
-import { TOML } from "bun";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";
 import { findWorkspaceForProject } from "./herdr-project-runner.ts";
@@ -41,6 +40,7 @@ import {
   type RemoteDefaults,
   type ResolvedRemoteHost,
 } from "./herdr-orchestrator-config.ts";
+import { loadMergedHerdrDocument } from "./herdr-merged-config.ts";
 
 export type { AgentSnapshot, AgentStatus, LeastBusyScore } from "./herdr-agent-snapshot.ts";
 import type { AgentSnapshot, AgentStatus, LeastBusyScore } from "./herdr-agent-snapshot.ts";
@@ -1142,15 +1142,6 @@ function loadFinishWorkReport(projectRoot: string): FinishWorkReport | null {
   }
 }
 
-function loadHerdrDoc(configPath: string | null): Record<string, unknown> | null {
-  if (!configPath) return null;
-  try {
-    return TOML.parse(readText(configPath)) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
 export async function reactHerdrOrchestrator(
   projectRoot: string,
   options: {
@@ -1174,7 +1165,7 @@ export async function reactHerdrOrchestrator(
   }
 
   const fullConfig = { ...config, projectPath: projectRoot };
-  const doc = loadHerdrDoc(config.sourcePath);
+  const doc = await loadMergedHerdrDocument(projectRoot, config.sourcePath);
   const orchestrator = resolveOrchestratorConfig(fullConfig, doc);
   if (!orchestrator.enabled) {
     return {
@@ -1350,19 +1341,19 @@ export async function reactHerdrOrchestrator(
   return { ok: warnings.length === 0, workspaceId: resolvedId, actions, warnings };
 }
 
-export function orchestratorStatus(
+export async function orchestratorStatus(
   projectRoot: string,
   options: { workspaceId?: string } = {}
-): {
+): Promise<{
   config: HerdrOrchestratorConfig;
   agents: AgentSnapshot[];
   state: OrchestratorState | null;
   workspaceId: string | null;
-} | null {
+} | null> {
   const config = discoverHerdrProjectConfig(projectRoot);
   if (!config) return null;
   const fullConfig = { ...config, projectPath: projectRoot };
-  const doc = loadHerdrDoc(config.sourcePath);
+  const doc = await loadMergedHerdrDocument(projectRoot, config.sourcePath);
   const orchestrator = resolveOrchestratorConfig(fullConfig, doc);
   const workspaceId = options.workspaceId?.trim() || null;
   const match = workspaceId

@@ -1,7 +1,6 @@
-import { pathExists, readText, writeText } from "./bun-io.ts";
+import { writeText } from "./bun-io.ts";
 
-import { join } from "path";
-import { TOML } from "bun";
+import { Effect, Exit } from "effect";
 import {
   gitBranch,
   gitLastCommitMessage,
@@ -11,6 +10,13 @@ import {
   isGitRepo,
 } from "./git-helpers.ts";
 import { readEffectGatesSnapshots, type EffectGatesReport } from "./effect-gates.ts";
+import { extractAgentsNextSteps } from "./dx-config-agents.ts";
+import {
+  DxConfigLive,
+  getMergedConfig,
+  summarizeDxConfigCause,
+  type DxConfigErrorSummary,
+} from "./effect/dx-config.ts";
 import { getProjectName } from "./utils.ts";
 
 export interface WorkspaceContextOptions {
@@ -38,36 +44,28 @@ export interface WorkspaceContextReport {
   };
   effectGates: EffectGatesReport | null;
   nextSteps: string[];
+  /** Structured DX config load failures (empty when merge succeeded). */
+  configErrors: DxConfigErrorSummary[];
   markdown: string;
 }
 
-function readDxAgentsNextSteps(projectRoot: string): string[] {
-  const path = join(projectRoot, "dx.config.toml");
-  if (!pathExists(path)) return [];
-  try {
-    const doc = TOML.parse(readText(path)) as Record<string, unknown>;
-    const agents =
-      doc.agents && typeof doc.agents === "object" ? (doc.agents as Record<string, unknown>) : null;
-    if (!agents) return [];
-
-    const steps: string[] = [];
-    if (typeof agents.iterate === "string" && agents.iterate.trim()) {
-      steps.push(agents.iterate.trim());
-    }
-    if (Array.isArray(agents.handoff)) {
-      for (const row of agents.handoff) {
-        if (typeof row === "string" && row.trim()) steps.push(row.trim());
-      }
-    }
-    if (Array.isArray(agents.prePush)) {
-      for (const row of agents.prePush.slice(0, 2)) {
-        if (typeof row === "string" && row.trim()) steps.push(row.trim());
-      }
-    }
-    return [...new Set(steps)];
-  } catch {
-    return [];
+async function loadAgentsNextSteps(projectRoot: string): Promise<{
+  nextSteps: string[];
+  configErrors: DxConfigErrorSummary[];
+}> {
+  const exit = await Effect.runPromiseExit(
+    getMergedConfig(projectRoot).pipe(
+      Effect.map(extractAgentsNextSteps),
+      Effect.provide(DxConfigLive())
+    )
+  );
+  if (Exit.isSuccess(exit)) {
+    return { nextSteps: exit.value, configErrors: [] };
   }
+  return {
+    nextSteps: [],
+    configErrors: summarizeDxConfigCause(exit.cause),
+  };
 }
 
 function parseRecentCommits(
@@ -141,6 +139,14 @@ function buildMarkdown(report: Omit<WorkspaceContextReport, "markdown">, brief: 
     lines.push(brief && !row.startsWith("_") && !row.startsWith("-") ? `- ${row}` : row);
   }
 
+  if (report.configErrors.length) {
+    lines.push("");
+    lines.push("## Config errors");
+    for (const err of report.configErrors) {
+      lines.push(`- **${err.tag}:** ${err.message}`);
+    }
+  }
+
   if (report.nextSteps.length) {
     lines.push("");
     lines.push("## Suggested next steps");
@@ -176,7 +182,7 @@ export async function buildWorkspaceContextReport(
   const recentCommits = parseRecentCommits(logText, commitLimit);
 
   const [effectGates] = await readEffectGatesSnapshots(projectRoot, 1);
-  const nextSteps = readDxAgentsNextSteps(projectRoot);
+  const { nextSteps, configErrors } = await loadAgentsNextSteps(projectRoot);
 
   const base: Omit<WorkspaceContextReport, "markdown"> = {
     schemaVersion: 1,
@@ -197,6 +203,7 @@ export async function buildWorkspaceContextReport(
     },
     effectGates: effectGates ?? null,
     nextSteps,
+    configErrors,
   };
 
   return {

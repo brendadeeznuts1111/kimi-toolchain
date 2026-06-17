@@ -1,6 +1,7 @@
-import { pathExists } from "./bun-io.ts";
 import { join } from "path";
-import { safeToml } from "./utils.ts";
+import { Effect } from "effect";
+import type { DxConfigDocument } from "./dx-config-merge.ts";
+import { DxConfigLive, getMergedConfig } from "./effect/dx-config.ts";
 
 export interface PropertyTableDxConfig {
   file?: string;
@@ -25,20 +26,24 @@ function isPropertyTableDxConfig(value: unknown): value is PropertyTableDxConfig
   return true;
 }
 
-export async function readPropertyTableDxConfig(
-  projectRoot: string
-): Promise<PropertyTableDxConfig> {
-  const path = join(projectRoot, "dx.config.toml");
-  if (!pathExists(path)) return {};
-  const parsed = safeToml(
-    await Bun.file(path).text(),
-    {},
-    (value): value is Record<string, unknown> => value != null && typeof value === "object"
-  );
-  const dx = parsed.dx;
+/** Slice `[dx.propertyTable]` from a merged config document. */
+export function extractPropertyTableDxConfig(document: DxConfigDocument): PropertyTableDxConfig {
+  const dx = document.dx;
   if (dx == null || typeof dx !== "object") return {};
   const block = (dx as Record<string, unknown>).propertyTable;
   return isPropertyTableDxConfig(block) ? block : {};
+}
+
+export const readPropertyTableDxConfigEffect = (projectRoot: string) =>
+  getMergedConfig(projectRoot).pipe(
+    Effect.map(extractPropertyTableDxConfig),
+    Effect.provide(DxConfigLive())
+  );
+
+export async function readPropertyTableDxConfig(
+  projectRoot: string
+): Promise<PropertyTableDxConfig> {
+  return Effect.runPromise(readPropertyTableDxConfigEffect(projectRoot));
 }
 
 export interface PropertyTableCliArgs {

@@ -51,6 +51,7 @@ import {
   type HandoffLogEntry,
 } from "../lib/handoff-log.ts";
 import { Effect } from "effect";
+import { mergedHerdrConfigLayer } from "../lib/herdr-merged-config.ts";
 import { watchOrchestratorEventsEffect } from "../lib/herdr-orchestrator-events.ts";
 import {
   findAllWorkspacesForProject,
@@ -256,7 +257,7 @@ try {
       : resolveHerdrProjectPath(rawPath);
 
   if (command === "status") {
-    const status = orchestratorStatus(projectPath, { workspaceId: workspace });
+    const status = await orchestratorStatus(projectPath, { workspaceId: workspace });
     if (!status) {
       if (json) writeJson({ ok: false, error: "no [herdr] profile" });
       else writeOut("No [herdr] profile");
@@ -1955,7 +1956,7 @@ try {
         watchOrchestratorEventsEffect(projectPath, {
           json,
           signal: controller.signal,
-        })
+        }).pipe(Effect.provide(mergedHerdrConfigLayer()))
       );
       if (json) writeJson(result);
       process.exit(result.ok ? 0 : 2);

@@ -5,7 +5,11 @@
 import { dirname } from "path";
 import { Effect } from "effect";
 import { CliError } from "./effect/errors.ts";
-import { readPropertyTableDxConfig, resolvePropertyTableInput } from "./property-table-config.ts";
+import {
+  readPropertyTableDxConfig,
+  readPropertyTableDxConfigEffect,
+  resolvePropertyTableInput,
+} from "./property-table-config.ts";
 import {
   defaultPropertyTableMarkdownPath,
   emitPropertyTableOutput,
@@ -334,13 +338,17 @@ export function runPropertyTableExtractEffect(
 
     let className = input.className;
     if (!input.table && !className) {
-      const dx = yield* Effect.tryPromise({
-        try: () => readPropertyTableDxConfig(input.projectRoot),
-        catch: (err) =>
-          new CliError({
-            message: err instanceof Error ? err.message : String(err),
-          }),
-      });
+      const dx = yield* readPropertyTableDxConfigEffect(input.projectRoot).pipe(
+        Effect.mapError(
+          (err) =>
+            new CliError({
+              message:
+                err._tag === "ConfigParseError"
+                  ? `Config parse error (${err.path}): ${err.cause}`
+                  : `${err._tag}: ${"path" in err ? err.path : "unknown"}`,
+            })
+        )
+      );
       className = dx.class;
       if (!className) {
         return yield* Effect.fail(

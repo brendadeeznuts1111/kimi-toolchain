@@ -53,6 +53,7 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run dx:table` | (synced from package.json) |
 | `bun run artifacts:property-table` | (synced from package.json) |
 | `bun run dx-table` | (synced from package.json) |
+| `bun run dx:table:contract` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                           |

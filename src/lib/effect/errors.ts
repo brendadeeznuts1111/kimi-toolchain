@@ -44,4 +44,22 @@ export class EffectCliContractError extends Data.TaggedError("EffectCliContractE
   suggestions?: string[];
 }> {}
 
+export class ConfigNotFound extends Data.TaggedError("ConfigNotFound")<{
+  path: string;
+  kind: "global" | "project";
+}> {}
+
+export class ConfigParseError extends Data.TaggedError("ConfigParseError")<{
+  path: string;
+  cause: string;
+}> {}
+
+export class ConfigMergeConflict extends Data.TaggedError("ConfigMergeConflict")<{
+  path: string;
+  globalValue: string;
+  projectValue: string;
+}> {}
+
+export type DxConfigError = ConfigNotFound | ConfigParseError | ConfigMergeConflict;
+
 export type ToolRunnerError = ToolNotFound | ToolTimeout | ExitNonZero;

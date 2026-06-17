@@ -1,8 +1,8 @@
 import { pathExists, readText, watchPath } from "./bun-io.ts";
 
 import { join } from "path";
-import { TOML } from "bun";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
+import { loadMergedHerdrDocument } from "./herdr-merged-config.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";
 import { findWorkspaceForProject } from "./herdr-project-runner.ts";
 import { listWorkspaceAgents, reactHerdrOrchestrator } from "./herdr-orchestrator.ts";
@@ -89,15 +89,6 @@ class DebouncedOrchestratorActions {
   clear() {
     for (const timer of this.timers.values()) clearTimeout(timer);
     this.timers.clear();
-  }
-}
-
-function loadHerdrDoc(configPath: string | null): Record<string, unknown> | null {
-  if (!configPath) return null;
-  try {
-    return TOML.parse(readText(configPath)) as Record<string, unknown>;
-  } catch {
-    return null;
   }
 }
 
@@ -214,7 +205,7 @@ async function runWatchOrchestratorEvents(
   }
 
   const full = { ...config, projectPath: projectRoot };
-  const doc = loadHerdrDoc(config.sourcePath);
+  const doc = await loadMergedHerdrDocument(projectRoot, config.sourcePath);
   const orchestrator = resolveOrchestratorConfig(full, doc);
   if (!orchestrator.enabled || !orchestrator.events.enabled) {
     resume(

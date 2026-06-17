@@ -265,6 +265,7 @@ export function findOrphanAgentDocs(activeDocs: string[], indexText: string): Co
     if (rel.startsWith("docs/table-") && rel.endsWith(".md")) continue;
     if (rel.startsWith("docs/groups/table-") && rel.endsWith(".md")) continue;
     if (rel.startsWith("docs/describe/table-") && rel.endsWith(".md")) continue;
+    if (rel === "docs/dx-table.md" || rel === "schemas/README.md") continue;
     if (isDocReferencedFromIndex(rel, indexText)) continue;
     issues.push({
       file: rel,

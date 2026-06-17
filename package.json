@@ -98,7 +98,7 @@
     "format": "oxfmt --write -c .oxfmtrc.json src scripts test skills templates src/install-hooks",
     "format:check": "oxfmt --check -c .oxfmtrc.json src scripts test skills templates src/install-hooks",
     "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json src scripts test skills templates src/install-hooks",
-    "lint": "oxlint src test scripts && bun run scripts/lint-banned-terms.ts && bun run scripts/lint-patterns.ts && bun run scripts/lint-bun-native.ts && bun run scripts/lint-context-bloat.ts && bun run scripts/lint-skill-coverage.ts && bun run scripts/lint-tochange.ts && bun run scripts/lint-test-names.ts && bun run scripts/lint-test-conventions.ts && bun run scripts/lint-build-constants.ts && bun run scripts/generate-constants-manifest.ts --check && bun run scripts/generate-canonical-references.ts --check && bun run scripts/lint-constant-parity.ts && bun run scripts/lint-cli-contract.ts",
+    "lint": "oxlint src test scripts && bun run scripts/lint-banned-terms.ts && bun run scripts/lint-patterns.ts && bun run scripts/lint-bun-native.ts && bun run scripts/lint-context-bloat.ts && bun run scripts/lint-skill-coverage.ts && bun run scripts/lint-tochange.ts && bun run scripts/lint-test-names.ts && bun run scripts/lint-test-conventions.ts && bun run scripts/lint-build-constants.ts && bun run scripts/generate-constants-manifest.ts --check && bun run scripts/generate-canonical-references.ts --check && bun run scripts/lint-constant-parity.ts && bun run scripts/lint-cli-contract.ts && bun run dx:table:contract",
     "lint:tochange": "bun run scripts/lint-tochange.ts",
     "lint:context": "bun run scripts/lint-context-bloat.ts",
     "lint:skills": "bun run scripts/lint-skill-coverage.ts",
@@ -131,8 +131,11 @@
     "bench": "bun run bench/core.bench.ts",
     "memory-budget": "bun run src/bin/kimi-doctor.ts --memory-budget",
     "dx:property-table": "bun run scripts/dx-property-table.ts",
+    "dx:config": "bun run scripts/dx-config.ts",
+    "dx-config": "bun run scripts/dx-config.ts",
     "dx:table": "bun run scripts/dx-table.ts",
     "dx-table": "bun run scripts/dx-table.ts",
+    "dx:table:contract": "bun run scripts/dx-table-contract.ts",
     "artifacts:property-table": "bun run artifacts/generate-property-table.ts"
   },
   "dependencies": {
