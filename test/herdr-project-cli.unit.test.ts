@@ -16,10 +16,10 @@ afterEach(() => {
 });
 
 describe("herdr-project-cli", () => {
-  test("uses HERDR_SESSION when set (named — not socket-routed on Herdr 0.7.0)", () => {
+  test("uses --session CLI arg when HERDR_SESSION is set (Herdr 0.7.0)", () => {
     process.env.HERDR_SESSION = "dev";
     expect(resolveHerdrSession()).toBe("dev");
-    expect(herdrSessionArgs()).toEqual([]);
+    expect(herdrSessionArgs()).toEqual(["--session", "dev"]);
     expect(herdrSessionEnv().HERDR_SESSION).toBe("dev");
   });
 
@@ -45,6 +45,7 @@ describe("herdr-project-cli", () => {
   test("explicit session overrides env in child env", () => {
     process.env.HERDR_SESSION = "dev";
     expect(resolveHerdrSession("staging")).toBe("staging");
+    expect(herdrSessionArgs("staging")).toEqual(["--session", "staging"]);
     expect(herdrSessionEnv("staging").HERDR_SESSION).toBe("staging");
   });
 });
