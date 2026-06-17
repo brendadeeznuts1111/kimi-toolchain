@@ -10,10 +10,10 @@ import {
   isGitRepo,
 } from "./git-helpers.ts";
 import { readEffectGatesSnapshots, type EffectGatesReport } from "./effect-gates.ts";
-import { extractAgentsNextSteps } from "./dx-config-agents.ts";
+import { extractAgentsNextSteps, type AgentContext } from "./dx-config-agents.ts";
 import {
   DxConfigLive,
-  getMergedConfig,
+  getAgentContext,
   summarizeDxConfigCause,
   type DxConfigErrorSummary,
 } from "./effect/dx-config.ts";
@@ -43,27 +43,35 @@ export interface WorkspaceContextReport {
     recentCommits: Array<{ hash: string; subject: string }>;
   };
   effectGates: EffectGatesReport | null;
+  agentContext: AgentContext;
+  iterate?: string;
+  fullValidation?: string;
   nextSteps: string[];
   /** Structured DX config load failures (empty when merge succeeded). */
   configErrors: DxConfigErrorSummary[];
   markdown: string;
 }
 
-async function loadAgentsNextSteps(projectRoot: string): Promise<{
-  nextSteps: string[];
+const EMPTY_AGENT_CONTEXT: AgentContext = {
+  firstRead: [],
+  bootstrap: [],
+  prePush: [],
+  handoff: [],
+  avoid: [],
+};
+
+async function loadAgentContext(projectRoot: string): Promise<{
+  agentContext: AgentContext;
   configErrors: DxConfigErrorSummary[];
 }> {
   const exit = await Effect.runPromiseExit(
-    getMergedConfig(projectRoot).pipe(
-      Effect.map(extractAgentsNextSteps),
-      Effect.provide(DxConfigLive())
-    )
+    getAgentContext(projectRoot).pipe(Effect.provide(DxConfigLive()))
   );
   if (Exit.isSuccess(exit)) {
-    return { nextSteps: exit.value, configErrors: [] };
+    return { agentContext: exit.value, configErrors: [] };
   }
   return {
-    nextSteps: [],
+    agentContext: EMPTY_AGENT_CONTEXT,
     configErrors: summarizeDxConfigCause(exit.cause),
   };
 }
@@ -147,6 +155,17 @@ function buildMarkdown(report: Omit<WorkspaceContextReport, "markdown">, brief: 
     }
   }
 
+  if (report.iterate || report.fullValidation) {
+    lines.push("");
+    lines.push("## Agent commands");
+    if (report.iterate) {
+      lines.push(`- **Iterate:** \`${report.iterate}\``);
+    }
+    if (report.fullValidation) {
+      lines.push(`- **Full validation:** \`${report.fullValidation}\``);
+    }
+  }
+
   if (report.nextSteps.length) {
     lines.push("");
     lines.push("## Suggested next steps");
@@ -182,7 +201,8 @@ export async function buildWorkspaceContextReport(
   const recentCommits = parseRecentCommits(logText, commitLimit);
 
   const [effectGates] = await readEffectGatesSnapshots(projectRoot, 1);
-  const { nextSteps, configErrors } = await loadAgentsNextSteps(projectRoot);
+  const { agentContext, configErrors } = await loadAgentContext(projectRoot);
+  const nextSteps = extractAgentsNextSteps({ agents: agentContext });
 
   const base: Omit<WorkspaceContextReport, "markdown"> = {
     schemaVersion: 1,
@@ -202,6 +222,9 @@ export async function buildWorkspaceContextReport(
       recentCommits,
     },
     effectGates: effectGates ?? null,
+    agentContext,
+    iterate: agentContext.iterate,
+    fullValidation: agentContext.fullValidation,
     nextSteps,
     configErrors,
   };
