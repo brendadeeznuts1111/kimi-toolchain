@@ -8,6 +8,7 @@ import { pathExists } from "./bun-io.ts";
 
 import { join } from "path";
 import { checkDocDrift } from "./readme-sync.ts";
+import { isManagedLedgerFailure } from "./hook-failure-text.ts";
 import { failureLedgerPath } from "./paths.ts";
 import { sha256String } from "./utils.ts";
 import {
@@ -94,10 +95,16 @@ export interface FailureLedgerSummary {
   present: boolean;
   total: number;
   taxonomyCounts: Record<string, number>;
+  /** All unknown taxonomyId rows (includes agent runtime noise). */
   unclassified: number;
+  /** Unknown rows from kimi-toolchain managed tools only. */
+  managedUnclassified: number;
+  /** Unknown rows from agent runtime tools (Bash, Read, …). */
+  agentUnclassified: number;
   reviewCommand: string;
   unknownAction?: string;
   unknownBuckets: FailureLedgerUnknownBucket[];
+  managedUnknownBuckets: FailureLedgerUnknownBucket[];
 }
 
 export interface FailureLedgerUnknownBucket {
@@ -243,8 +250,11 @@ export async function readFailureLedgerSummary(
       total: 0,
       taxonomyCounts: {},
       unclassified: 0,
+      managedUnclassified: 0,
+      agentUnclassified: 0,
       reviewCommand,
       unknownBuckets: [],
+      managedUnknownBuckets: [],
     };
   }
 
@@ -259,7 +269,18 @@ export async function readFailureLedgerSummary(
       lastSeen?: string;
     }
   >();
+  const managedUnknownBuckets = new Map<
+    string,
+    {
+      count: number;
+      toolNames: Set<string>;
+      firstSeen?: string;
+      lastSeen?: string;
+    }
+  >();
   let total = 0;
+  let managedUnclassified = 0;
+  let agentUnclassified = 0;
 
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
@@ -275,16 +296,28 @@ export async function readFailureLedgerSummary(
       const taxonomyId = parsed.taxonomyId || parsed.categoryId || "unknown";
       taxonomyCounts[taxonomyId] = (taxonomyCounts[taxonomyId] || 0) + 1;
       if (taxonomyId === "unknown") {
-        recordUnknownBucket(unknownBuckets, {
+        const bucketItem = {
           fingerprint: fingerprintUnknownFailure(parsed.output || trimmed),
           toolName: parsed.toolName,
           timestamp: parsed.timestamp,
-        });
+        };
+        recordUnknownBucket(unknownBuckets, bucketItem);
+        if (isManagedLedgerFailure(parsed)) {
+          managedUnclassified++;
+          recordUnknownBucket(managedUnknownBuckets, bucketItem);
+        } else {
+          agentUnclassified++;
+        }
       }
       total++;
     } catch {
       taxonomyCounts.unknown = (taxonomyCounts.unknown || 0) + 1;
+      managedUnclassified++;
       recordUnknownBucket(unknownBuckets, {
+        fingerprint: "malformed-json",
+        toolName: "ledger-parser",
+      });
+      recordUnknownBucket(managedUnknownBuckets, {
         fingerprint: "malformed-json",
         toolName: "ledger-parser",
       });
@@ -299,12 +332,15 @@ export async function readFailureLedgerSummary(
     total,
     taxonomyCounts,
     unclassified,
+    managedUnclassified,
+    agentUnclassified,
     reviewCommand,
     unknownBuckets: formatUnknownBuckets(unknownBuckets),
-    ...(unclassified > 0
+    managedUnknownBuckets: formatUnknownBuckets(managedUnknownBuckets),
+    ...(managedUnclassified > 0
       ? {
           unknownAction:
-            "Run the review command, then add or tune error-taxonomy.yml patterns for recurring unknown failures.",
+            "Run the review command, then add or tune error-taxonomy.yml patterns for recurring managed failures.",
         }
       : {}),
   };
@@ -443,13 +479,15 @@ export async function auditSuccessMetrics(projectRoot: string): Promise<SuccessM
 
   checks.push({
     name: "failure-ledger-unknowns",
-    status: ledger.unclassified > 0 ? "warn" : "ok",
+    status: ledger.managedUnclassified > 0 ? "warn" : "ok",
     message:
-      ledger.unclassified > 0
-        ? `${ledger.unclassified} unclassified live ledger failure(s); review with ${ledger.reviewCommand}`
-        : "No unclassified live ledger failures",
-    fixable: ledger.unclassified > 0,
-    autoFix: ledger.unclassified > 0 ? ledger.reviewCommand : undefined,
+      ledger.managedUnclassified > 0
+        ? `${ledger.managedUnclassified} unclassified managed ledger failure(s); review with ${ledger.reviewCommand}`
+        : ledger.agentUnclassified > 0
+          ? `${ledger.agentUnclassified} agent-runtime unknown(s) excluded from managed metric`
+          : "failure ledger has no unclassified managed failures",
+    fixable: ledger.managedUnclassified > 0,
+    autoFix: ledger.managedUnclassified > 0 ? ledger.reviewCommand : undefined,
     category: "blocking_issue",
   });
 

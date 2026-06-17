@@ -65,6 +65,9 @@ describe("success-metrics", () => {
     expect(summary.total).toBe(4);
     expect(summary.taxonomyCounts.lockfile_issue).toBe(1);
     expect(summary.unclassified).toBe(3);
+    expect(summary.managedUnclassified).toBe(3);
+    expect(summary.agentUnclassified).toBe(0);
+    expect(summary.managedUnknownBuckets).toHaveLength(2);
     expect(summary.reviewCommand).toBe(`kimi-debug ledger ${path}`);
     expect(summary.unknownAction).toContain("error-taxonomy.yml");
     expect(summary.unknownBuckets).toHaveLength(2);

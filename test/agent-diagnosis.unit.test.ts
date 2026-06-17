@@ -32,8 +32,11 @@ function ledgerFixture(unclassified = 0, total = 10): FailureLedgerSummary {
     total,
     taxonomyCounts: { unknown: unclassified },
     unclassified,
+    managedUnclassified: unclassified,
+    agentUnclassified: 0,
     reviewCommand: "kimi-debug ledger /tmp/tool-failures.jsonl",
     unknownBuckets: [],
+    managedUnknownBuckets: [],
   };
 }
 

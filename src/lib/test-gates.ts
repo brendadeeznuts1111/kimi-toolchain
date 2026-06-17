@@ -98,6 +98,7 @@ export const UNIT_TEST_FILES = [
   "test/condition-evaluator.unit.test.ts",
   "test/handoff-target-resolver.unit.test.ts",
   "test/scope-preflight.unit.test.ts",
+  "test/hook-failure-text.unit.test.ts",
 ] as const;
 
 /** Integration tests — included by full Bun discovery, not the fast unit gate. */

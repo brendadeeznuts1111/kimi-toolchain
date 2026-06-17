@@ -11,16 +11,13 @@ import { appendText, makeDir, pathExists } from "../lib/bun-io.ts";
 import { Effect } from "effect";
 import { safeParse } from "../lib/utils.ts";
 import { buildClassifiedFailure, classifyFailure, loadTaxonomy } from "../lib/error-taxonomy.ts";
+import { extractHookFailureText, type HookFailurePayload } from "../lib/hook-failure-text.ts";
 import { failureLedgerPath, varDir } from "../lib/paths.ts";
 
-interface HookPayload {
+interface HookPayload extends HookFailurePayload {
   hook_event_name?: string;
   session_id?: string;
   cwd?: string;
-  tool_name?: string;
-  tool_input?: Record<string, unknown>;
-  tool_output?: string;
-  error?: string;
 }
 
 async function main(): Promise<void> {
@@ -42,9 +39,7 @@ async function main(): Promise<void> {
   if (!payload) return;
 
   const toolName = payload.tool_name || "unknown";
-  const error = payload.error;
-  if (!error) return;
-  const output = error.toString();
+  const output = extractHookFailureText(payload);
   if (!output) return;
 
   const sessionId =
