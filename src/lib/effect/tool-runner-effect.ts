@@ -77,36 +77,39 @@ export function invokeCommandEffect(
   }
   const gracePeriodMs = options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
   const tool = options.tool ?? command[0] ?? "";
-  return Effect.gen(function* () {
-    const result = yield* Effect.tryPromise({
-      try: () => invokeCommand(command, options),
-      catch: (e) =>
-        new ExitNonZero({
-          tool,
-          exitCode: -1,
-          stderr: e instanceof Error ? e.message : String(e),
-        }),
-    });
-    if (result.timedOut) {
-      return yield* Effect.fail(
-        new ToolTimeout({
-          tool: result.tool,
-          timeoutMs: result.timeoutMs,
-          gracePeriodMs,
-        })
-      );
-    }
-    if (result.isError && result.error) {
-      return yield* Effect.fail(
-        new ExitNonZero({
-          tool: result.tool,
-          exitCode: result.exitCode,
-          stderr: result.error,
-        })
-      );
-    }
-    return result;
-  });
+  return Effect.tryPromise({
+    try: () => invokeCommand(command, options),
+    catch: (e) =>
+      new ExitNonZero({
+        tool,
+        exitCode: -1,
+        stderr: e instanceof Error ? e.message : String(e),
+      }),
+  }).pipe(
+    Effect.flatMap(
+      (result): Effect.Effect<ToolInvocationWithTaxonomy, ToolTimeout | ExitNonZero> => {
+        if (result.timedOut) {
+          return Effect.fail(
+            new ToolTimeout({
+              tool: result.tool,
+              timeoutMs: result.timeoutMs,
+              gracePeriodMs,
+            })
+          );
+        }
+        if (result.isError && result.error) {
+          return Effect.fail(
+            new ExitNonZero({
+              tool: result.tool,
+              exitCode: result.exitCode,
+              stderr: result.error,
+            })
+          );
+        }
+        return Effect.succeed(result);
+      }
+    )
+  );
 }
 
 /** Invoke a tool by path; taxonomy enrichment happens in invokeTool(). */

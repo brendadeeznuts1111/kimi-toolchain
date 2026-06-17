@@ -13,8 +13,9 @@
  * @see https://bun.com/docs/guides/test/bail
  */
 
-import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
+import { readableStreamToText } from "../src/lib/bun-utils.ts";
+import { makeDir, pathExists } from "../src/lib/bun-io.ts";
 import { bunTestArgs } from "../src/lib/test-gates.ts";
 import { formatTestSummaryLine } from "../src/lib/gate-runner.ts";
 import { ensureQuietEnv, isQuietMode } from "../src/lib/quiet-mode.ts";
@@ -38,7 +39,7 @@ async function main() {
 
   if (ci) {
     const reportsDir = join(REPO_ROOT, "reports");
-    if (!existsSync(reportsDir)) mkdirSync(reportsDir, { recursive: true });
+    if (!pathExists(reportsDir)) makeDir(reportsDir, { recursive: true });
   }
 
   const cmd = [
@@ -71,8 +72,8 @@ async function main() {
     stderr: "pipe",
   });
   const [stdout, stderr, exitCode] = await Promise.all([
-    Bun.readableStreamToText(proc.stdout),
-    Bun.readableStreamToText(proc.stderr),
+    readableStreamToText(proc.stdout),
+    readableStreamToText(proc.stderr),
     proc.exited,
   ]);
 

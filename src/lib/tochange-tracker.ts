@@ -168,11 +168,20 @@ export const STREAM_READ_REGISTRY: TochangeRegistryEntry[] = [
     summary: "test/** may use Bun.readableStreamToText for subprocess fixtures",
   },
   {
-    id: "stream-read-scripts",
-    file: "(aggregate)",
-    tier: "skip",
-    status: "skip",
-    summary: "scripts/** subprocess helpers — migrate opportunistically",
+    id: "stream-read-run-tests",
+    file: "scripts/run-tests.ts",
+    tier: "tier2",
+    status: "implemented",
+    summary: "run-tests quiet mode routes stream reads through bun-utils",
+    probe: "readableStreamToText(proc.stdout)",
+  },
+  {
+    id: "stream-read-pr-status",
+    file: "scripts/pr-status.ts",
+    tier: "tier2",
+    status: "implemented",
+    summary: "pr-status local CI probe routes through bun-utils",
+    probe: "readableStreamToText(proc.stdout)",
   },
 ];
 

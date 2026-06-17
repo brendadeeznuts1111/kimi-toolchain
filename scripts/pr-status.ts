@@ -11,6 +11,7 @@
 
 import { $ } from "bun";
 import { join } from "path";
+import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import {
   parseGhStatusCheckRollup,
   summarizePrChecks,
@@ -99,10 +100,7 @@ async function runLocalCi(): Promise<boolean> {
     stdout: "pipe",
     stderr: "pipe",
   });
-  const [stdout, exitCode] = await Promise.all([
-    Bun.readableStreamToText(proc.stdout),
-    proc.exited,
-  ]);
+  const [stdout, exitCode] = await Promise.all([readableStreamToText(proc.stdout), proc.exited]);
   if (exitCode !== 0) return false;
   try {
     const payload = JSON.parse(stdout) as { ok?: boolean };

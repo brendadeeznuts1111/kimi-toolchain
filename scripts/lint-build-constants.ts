@@ -6,8 +6,8 @@
  *
  * @see CODE_REFERENCES.md § Build-time constants
  */
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { readText } from "../src/lib/bun-io.ts";
 
 const ROOT = join(import.meta.dir, "..");
 
@@ -120,16 +120,14 @@ function lintTypesNaming(typesText: string): string[] {
 function main(): void {
   const violations: string[] = [];
 
-  violations.push(...lintDefineNaming(readFileSync(join(ROOT, "bunfig.toml"), "utf8")));
-  violations.push(
-    ...lintTypesNaming(readFileSync(join(ROOT, "types/build-constants.d.ts"), "utf8"))
-  );
+  violations.push(...lintDefineNaming(readText(join(ROOT, "bunfig.toml"))));
+  violations.push(...lintTypesNaming(readText(join(ROOT, "types/build-constants.d.ts"))));
 
   for (const rel of TARGETS) {
     const path = join(ROOT, rel);
     let text: string;
     try {
-      text = readFileSync(path, "utf8");
+      text = readText(path);
     } catch {
       continue;
     }

@@ -2,7 +2,7 @@ import { makeDir, readText, writeText } from "../src/lib/bun-io.ts";
 
 import { join } from "path";
 import { describe, expect, test } from "bun:test";
-import { testTempDir } from "./helpers.ts";
+import { testTempDir, withEnv } from "./helpers.ts";
 import {
   finishWorkLocalGatesForced,
   finishWorkOutcome,
@@ -101,35 +101,23 @@ describe("finish-work-herdr", () => {
   });
 
   test("shouldRunGateInDoctorPane requires HERDR_ENV and no local override", () => {
-    const priorHerdr = Bun.env.HERDR_ENV;
-    const priorLocal = Bun.env.KIMI_FINISH_WORK_LOCAL_GATES;
-    try {
-      Bun.env.HERDR_ENV = "1";
-      delete Bun.env.KIMI_FINISH_WORK_LOCAL_GATES;
+    withEnv({ HERDR_ENV: "1", KIMI_FINISH_WORK_LOCAL_GATES: undefined }, () => {
       expect(shouldRunGateInDoctorPane("kimi-heal effect audit")).toBe(true);
 
-      Bun.env.KIMI_FINISH_WORK_LOCAL_GATES = "1";
-      expect(shouldRunGateInDoctorPane("kimi-heal effect audit")).toBe(false);
+      withEnv({ KIMI_FINISH_WORK_LOCAL_GATES: "1" }, () => {
+        expect(shouldRunGateInDoctorPane("kimi-heal effect audit")).toBe(false);
+      });
 
-      delete Bun.env.HERDR_ENV;
-      expect(shouldRunGateInDoctorPane("kimi-heal effect audit")).toBe(false);
-    } finally {
-      if (priorHerdr === undefined) delete Bun.env.HERDR_ENV;
-      else Bun.env.HERDR_ENV = priorHerdr;
-      if (priorLocal === undefined) delete Bun.env.KIMI_FINISH_WORK_LOCAL_GATES;
-      else Bun.env.KIMI_FINISH_WORK_LOCAL_GATES = priorLocal;
-    }
+      withEnv({ HERDR_ENV: undefined }, () => {
+        expect(shouldRunGateInDoctorPane("kimi-heal effect audit")).toBe(false);
+      });
+    });
   });
 
   test("finishWorkLocalGatesForced accepts true", () => {
-    const prior = Bun.env.KIMI_FINISH_WORK_LOCAL_GATES;
-    try {
-      Bun.env.KIMI_FINISH_WORK_LOCAL_GATES = "true";
+    withEnv({ KIMI_FINISH_WORK_LOCAL_GATES: "true" }, () => {
       expect(finishWorkLocalGatesForced()).toBe(true);
-    } finally {
-      if (prior === undefined) delete Bun.env.KIMI_FINISH_WORK_LOCAL_GATES;
-      else Bun.env.KIMI_FINISH_WORK_LOCAL_GATES = prior;
-    }
+    });
   });
 
   test("resolveTabPrimaryPane picks first pane in labeled tab", async () => {
@@ -167,19 +155,14 @@ describe("finish-work-herdr", () => {
   });
 
   test("resolveDoctorPaneId uses HERDR_DOCTOR_PANE_ID override", async () => {
-    const prior = Bun.env.HERDR_DOCTOR_PANE_ID;
-    try {
-      Bun.env.HERDR_DOCTOR_PANE_ID = "w9:p9";
+    await withEnv({ HERDR_DOCTOR_PANE_ID: "w9:p9" }, async () => {
       const resolved = await resolveDoctorPaneId("/tmp/unused", {
         herdrCliJson: async () => {
           throw new Error("should not call herdr");
         },
       });
       expect(resolved).toEqual({ paneId: "w9:p9", doctorTab: "doctor" });
-    } finally {
-      if (prior === undefined) delete Bun.env.HERDR_DOCTOR_PANE_ID;
-      else Bun.env.HERDR_DOCTOR_PANE_ID = prior;
-    }
+    });
   });
 
   test("resolveTabPrimaryPane returns error when labeled tab is missing", async () => {
@@ -203,9 +186,6 @@ describe("finish-work-herdr", () => {
     const logPath = join(root, ".kimi", "finish-work-gate-kimi-heal.log");
     writeText(logPath, "audit ok\n");
 
-    const prior = Bun.env.HERDR_DOCTOR_PANE_ID;
-    Bun.env.HERDR_DOCTOR_PANE_ID = "w1:p7";
-
     let capturedRun = "";
     let gateNonce = "";
     const deps = {
@@ -228,17 +208,14 @@ describe("finish-work-herdr", () => {
       },
     };
 
-    try {
+    await withEnv({ HERDR_DOCTOR_PANE_ID: "w1:p7" }, async () => {
       const result = await runDoctorPaneGate(root, "kimi-heal", "kimi-heal effect audit", deps);
       expect(result.exitCode).toBe(0);
       expect(result.routed).toBe(true);
       expect(result.doctorPaneId).toBe("w1:p7");
       expect(result.stdout).toContain("audit ok");
       expect(capturedRun).toContain("kimi-heal effect audit");
-    } finally {
-      if (prior === undefined) delete Bun.env.HERDR_DOCTOR_PANE_ID;
-      else Bun.env.HERDR_DOCTOR_PANE_ID = prior;
-    }
+    });
   });
 
   test("evaluateFinishWorkProbeCondition passes finish-work:pushed on clean close", async () => {
