@@ -15,6 +15,7 @@ import {
   auditSkillCodeCoverage,
   auditSkillCoverage,
   auditSkillFrontmatter,
+  auditSkillLoaderFrontmatter,
   findSyncedSkillEscapeLinks,
   formatSkillContractReport,
   ORCHESTRATOR_EVENT_ACTIONS,
@@ -47,6 +48,18 @@ describe("skill-contract", () => {
 
   test("auditSkillFrontmatter passes for all repo skills", async () => {
     expect(await auditSkillFrontmatter(REPO_ROOT)).toEqual([]);
+  });
+
+  test("every repo skill declares loader manifest fields", async () => {
+    const skillsGlob = new Bun.Glob("*/SKILL.md");
+    for await (const rel of skillsGlob.scan({
+      cwd: join(REPO_ROOT, "skills"),
+      onlyFiles: true,
+    })) {
+      const skillRel = `skills/${rel}`;
+      const text = await Bun.file(join(REPO_ROOT, skillRel)).text();
+      expect(auditSkillLoaderFrontmatter(skillRel, text)).toEqual([]);
+    }
   });
 
   test("auditSkillCoverage passes for all repo skills", async () => {

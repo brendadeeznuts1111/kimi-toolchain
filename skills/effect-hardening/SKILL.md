@@ -8,13 +8,23 @@ whenToUse: |
   Creating a new Effect service, wiring reactive streams (watch-events, handoff buses),
   composing Layer stacks, or hardening external-input boundaries. Load after
   effect-discipline when you need module templates, not just gate fixes.
+layer: L3
+trigger:
+  - new Effect service or Context.Tag
+  - event stream or watch-events wiring
+  - Layer composition for production vs test
+  - external input boundary validation
+dependencies:
+  - effect-discipline
+loaded_by: System / On-demand
+role: L3 Effect-TS scaffolds — services, errors, streams, layers, boundaries
+token_estimate: 880
 metadata:
-  layer: L3
   companionSkill: effect-discipline
   depthDoc: ~/.kimi-code/DEEP-QUALITY.md
 ---
 
-# Effect-TS codebase hardening
+# Effect Hardening (L3)
 
 Enforces Effect discipline across kimi-toolchain: event-driven orchestration, structured errors, and agent feedback loops. **L1+L2** gate fixes and CLI boundaries live in **effect-discipline**; this skill is **L3 depth** (scaffolds, streams, layers).
 

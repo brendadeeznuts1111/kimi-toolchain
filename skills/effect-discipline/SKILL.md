@@ -7,18 +7,25 @@ description: |
 whenToUse: |
   Editing src/lib/effect/, new Effect CLI mains, effect-gates or kimi-heal effect
   audit failures, or subprocess code that should use invokeToolEffect at the boundary.
+layer: L1+L2
+trigger:
+  - touching src/lib/effect/
+  - new CLI with runCliExit
+  - effect-gates failure
+  - kimi-heal effect audit
+dependencies: []
+loaded_by: System / On-demand
+role: Lean runbook for Effect-TS discipline, CLI patterns, and boundary enforcement
+token_estimate: 420
+metadata:
+  companionSkill: effect-hardening
 ---
 
-# Effect discipline (L1 + L2)
+# Effect Discipline (L1 + L2)
 
-Use this skill when you are:
+Lean runbook — load on `trigger` above. L3 scaffolds: **effect-hardening**.
 
-- Editing or creating code under `src/lib/effect/`
-- Adding a CLI that exits via `runCliExit()`
-- Fixing an `effect-gates` pre-push failure or `kimi-heal effect audit` output
-- Wrapping subprocess / tool-runner work at an Effect boundary
-
-Depth (threshold tables, JSON report shape, ADR rationale): [DEEP-QUALITY.md](~/.kimi-code/DEEP-QUALITY.md). Exemplars: [CODE_REFERENCES.md](~/.kimi-code/CODE_REFERENCES.md) § Effect Patterns.
+Depth: [DEEP-QUALITY.md](~/.kimi-code/DEEP-QUALITY.md). Exemplars: [CODE_REFERENCES.md](~/.kimi-code/CODE_REFERENCES.md) § Effect Patterns.
 
 ## When to use Effect
 
@@ -62,7 +69,8 @@ Reference mains: `src/bin/kimi-toolchain.ts`, `src/lib/effect/cli-runtime.ts`, `
 
 ```bash
 kimi-doctor --effect-gates
-kimi-heal effect audit --check-tags
+kimi-heal effect audit --check-tags --event-streams
+bun run lint:skills
 ```
 
 Pre-push enforces effect-gates. These are not suggestions.

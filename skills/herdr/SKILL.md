@@ -13,6 +13,16 @@ whenToUse: |
   "start a server over there", or "check what the other agent is doing".
   For cross-pane handoffs, finish-work close-loop, or watch-events — load the
   orchestrator skill instead (layout control vs coordination).
+layer: L1+L2
+trigger:
+  - HERDR_ENV=1 pane control
+  - split pane or run command in sibling
+  - wait for output or agent status
+  - workspace or tab management
+dependencies: []
+loaded_by: HERDR_ENV gate
+role: Herdr layout and pane I/O — socket CLI, waits, agent send
+token_estimate: 1480
 metadata:
   upstream:
     repo: https://github.com/ogulcancelik/herdr

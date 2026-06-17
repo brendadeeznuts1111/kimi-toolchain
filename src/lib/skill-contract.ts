@@ -756,26 +756,29 @@ export function auditSkillCodeCoverage(repoRoot: string): SkillContractIssue[] {
 }
 
 export function auditRepoSkill(skillRel: string, text: string): SkillContractIssue[] {
-  if (skillRel === "skills/herdr/SKILL.md") return auditHerdrSkillContract(skillRel, text);
+  const loader = auditSkillLoaderFrontmatter(skillRel, text);
+  if (skillRel === "skills/herdr/SKILL.md") {
+    return [...loader, ...auditHerdrSkillContract(skillRel, text)];
+  }
   if (skillRel === "skills/kimi-toolchain/SKILL.md") {
-    return auditKimiToolchainSkillContract(skillRel, text);
+    return [...loader, ...auditKimiToolchainSkillContract(skillRel, text)];
   }
   if (skillRel === "skills/cloudflare-access/SKILL.md") {
-    return auditCloudflareAccessSkillContract(skillRel, text);
+    return [...loader, ...auditCloudflareAccessSkillContract(skillRel, text)];
   }
   if (skillRel === "skills/effect-discipline/SKILL.md") {
-    return auditEffectDisciplineSkillContract(skillRel, text);
+    return [...loader, ...auditEffectDisciplineSkillContract(skillRel, text)];
   }
   if (skillRel === "skills/effect-hardening/SKILL.md") {
-    return auditEffectHardeningSkillContract(skillRel, text);
+    return [...loader, ...auditEffectHardeningSkillContract(skillRel, text)];
   }
   if (skillRel === "skills/orchestrator/SKILL.md") {
-    return auditOrchestratorSkillContract(skillRel, text);
+    return [...loader, ...auditOrchestratorSkillContract(skillRel, text)];
   }
   if (skillRel === "skills/finish-work/SKILL.md") {
-    return auditFinishWorkSkillContract(skillRel, text);
+    return [...loader, ...auditFinishWorkSkillContract(skillRel, text)];
   }
-  return findSyncedSkillEscapeLinks(skillRel, text);
+  return [...loader, ...findSyncedSkillEscapeLinks(skillRel, text)];
 }
 
 export interface SkillCoverageRow {
@@ -798,6 +801,66 @@ export interface SkillCoverageReport {
     contractOk: boolean;
     issues: SkillContractIssue[];
   } | null;
+}
+
+/** Loader manifest fields — layer, trigger, loaded_by, role, token_estimate. */
+export function auditSkillLoaderFrontmatter(skillRel: string, text: string): SkillContractIssue[] {
+  const issues: SkillContractIssue[] = [];
+  const head = text.slice(0, 1400);
+  if (!head.startsWith("---")) return issues;
+
+  const required: Array<{ re: RegExp; rule: string; message: string }> = [
+    {
+      re: /^layer:/m,
+      rule: "skill-layer-missing",
+      message: "frontmatter must declare layer:",
+    },
+    {
+      re: /^trigger:/m,
+      rule: "skill-trigger-missing",
+      message: "frontmatter must declare trigger:",
+    },
+    {
+      re: /^loaded_by:/m,
+      rule: "skill-loaded-by-missing",
+      message: "frontmatter must declare loaded_by:",
+    },
+    {
+      re: /^role:/m,
+      rule: "skill-role-missing",
+      message: "frontmatter must declare role:",
+    },
+    {
+      re: /^token_estimate:/m,
+      rule: "skill-token-estimate-missing",
+      message: "frontmatter must declare token_estimate:",
+    },
+  ];
+
+  for (const { re, rule, message } of required) {
+    if (!re.test(head)) issues.push({ skill: skillRel, rule, message });
+  }
+
+  if (/^trigger:/m.test(head) && !/^trigger:\s*\n\s+-\s/m.test(head)) {
+    issues.push({
+      skill: skillRel,
+      rule: "skill-trigger-format",
+      message: "trigger must be a YAML list with at least one item",
+    });
+  }
+
+  if (/^token_estimate:/m.test(head)) {
+    const match = head.match(/^token_estimate:\s*(\d+)\s*$/m);
+    if (!match || Number(match[1]) < 100) {
+      issues.push({
+        skill: skillRel,
+        rule: "skill-token-estimate-range",
+        message: "token_estimate must be a positive integer >= 100",
+      });
+    }
+  }
+
+  return issues;
 }
 
 /** Every synced skill must have loadable frontmatter with a name field. */

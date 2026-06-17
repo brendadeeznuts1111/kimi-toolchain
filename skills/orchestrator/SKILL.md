@@ -8,12 +8,22 @@ whenToUse: |
   Lead agent in a Herdr project workspace closing the loop across panes — handoffs,
   context-sync after commits, watch-events, or reviewer escalation after finish-work.
   For layout and pane I/O only, load the herdr skill instead.
+layer: L3
+trigger:
+  - handoff between Herdr panes
+  - watch-events or context-sync
+  - finish-work escalation follow-up
+  - effect.gates.changed react
+dependencies:
+  - herdr
+loaded_by: HERDR_ENV gate / On-demand
+role: Multi-pane coordination — handoffs, reactive events, context delivery
+token_estimate: 920
 metadata:
-  layer: L3
   companionSkill: herdr
 ---
 
-# orchestrator — multi-pane coordination
+# Orchestrator (L3)
 
 Use this skill when you are the **lead agent** in a Herdr project workspace and need to close the loop across panes — not just control layout (see the `herdr` skill for that).
 

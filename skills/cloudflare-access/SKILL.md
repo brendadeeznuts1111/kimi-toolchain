@@ -8,6 +8,15 @@ whenToUse: |
   Service token expiry warnings, Access app policy gaps, dx.config Cloudflare
   snapshot/dashboard, or policy-as-code plan/apply. Not for Workers deploy
   (use wrangler skill) or MCP SSO login (separate auth path).
+layer: L2
+trigger:
+  - Access token expiry or inventory
+  - policy audit or plan/apply
+  - MCP vs Wrangler auth confusion
+dependencies: []
+loaded_by: System / On-demand
+role: Cloudflare Access hygiene — tokens, policies, plan-before-apply
+token_estimate: 520
 allowed_tools:
   - read_file
   - write_file

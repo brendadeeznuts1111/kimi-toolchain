@@ -9,12 +9,23 @@ whenToUse: |
   End of an implementation chunk in a Herdr workspace — run gates, conventional commit,
   optional push, handle dirty-tree escalation, and trigger context-sync on clean closes.
   For cross-pane handoffs after idle transitions, load orchestrator instead.
+layer: L3
+trigger:
+  - close-loop commit and push with gates
+  - dirty-tree escalation to reviewer
+  - workspace.updated after clean push
+  - finish-work:handoff-ready probe
+dependencies:
+  - orchestrator
+  - effect-discipline
+loaded_by: HERDR_ENV gate / On-demand
+role: Agent close-loop — gates, git, escalation, orchestrator signals
+token_estimate: 560
 metadata:
-  layer: L3
   companionSkill: orchestrator
 ---
 
-# finish-work — agent close-loop
+# Finish-Work (L3)
 
 `finish-work` answers: _"I pushed my work — did gates pass, is the tree clean, and does the team know what happened?"_
 

@@ -9,9 +9,24 @@ whenToUse: |
   Project health, R-Score, lockfile security, scaffolding, failure healing,
   decision rationale, or Bun quality gates.
   Kimi Code slash commands (/mcp, /goal) and ACP are separate from toolchain CLIs.
+layer: L1
+trigger:
+  - kimi-doctor or project health check
+  - bun run check or pre-push gates
+  - governance score or guardian
+  - scaffold or sync runtime assets
+dependencies: []
+loaded_by: System / On-demand
+role: Toolchain meta-runbook — CLI routing, gates, Kimi vs toolchain split
+token_estimate: 760
+metadata:
+  companionSkills:
+    - effect-discipline
+    - effect-hardening
+    - herdr
 ---
 
-# kimi-toolchain
+# Kimi-Toolchain (L1)
 
 ## Kimi Code vs toolchain
 
