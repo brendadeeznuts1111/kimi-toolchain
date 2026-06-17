@@ -33,9 +33,10 @@ export function herdrSessionEnv(explicit?: string): NodeJS.ProcessEnv {
   return env;
 }
 
-/** @deprecated Session routing uses herdrSessionEnv; do not pass --session from automation. */
-export function herdrSessionArgs(_session?: string): string[] {
-  return [];
+/** Session routing: pass `--session` CLI arg for Herdr 0.7.0+ (HERDR_SESSION env is ignored). */
+export function herdrSessionArgs(session?: string): string[] {
+  const resolved = resolveHerdrSession(session);
+  return resolved ? ["--session", resolved] : [];
 }
 
 export function execCli(cmd: string, args: string[] = [], options: ExecCliOptions | number = {}) {
