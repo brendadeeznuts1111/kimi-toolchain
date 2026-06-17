@@ -102,8 +102,11 @@ export class Logger {
   }
 
   private emitEntry(entry: LogEntry): void {
+    // Buffer for telemetry even when quiet mode suppresses console output.
+    if (LEVEL_PRIORITY[entry.level] >= LEVEL_PRIORITY[this.level]) {
+      this.pushEntry(entry);
+    }
     if (!this.shouldEmit(entry.level)) return;
-    this.pushEntry(entry);
 
     if (this.bufferOnly) return;
 
@@ -332,8 +335,8 @@ export class Logger {
 export function createLogger(argv: string[], toolName?: string): Logger {
   ensureQuietEnv();
   const json = argv.includes("--json");
-  const quiet = argv.includes("--quiet") || isQuietMode();
   const debug = argv.includes("--debug");
+  const quiet = (argv.includes("--quiet") || isQuietMode()) && !debug;
   const stepBudget = argv.includes("--step-budget");
   return new Logger({
     level: debug ? "debug" : "info",

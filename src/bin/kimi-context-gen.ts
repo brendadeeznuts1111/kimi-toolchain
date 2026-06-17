@@ -351,6 +351,22 @@ async function generateContext(projectDir: string): Promise<string> {
     .filter((file) => existsSync(join(projectDir, file)))
     .map((file) => `- \`${file}\``);
 
+  const successMetricsSection = existsSync(join(projectDir, "src/lib/success-metrics.ts"))
+    ? `## Success Metrics
+
+Tracked by \`kimi-doctor --success-metrics\`:
+
+| Metric | Contract |
+|--------|----------|
+| **Drift latency** | Documented commands checkable in one doctor run |
+| **Error coverage** | >= 90% of failures classified with taxonomy context |
+| **Integration agility** | Providers need only contract + credential adapter |
+
+The metrics are not frozen. Threshold changes follow toolchain **release cadence** and are justified with **failure ledger** evidence.
+
+`
+    : "";
+
   return `# CONTEXT — ${name}
 
 ## Domain
@@ -395,7 +411,7 @@ ${adrs.map((a) => `- \`docs/adr/${a}.md\``).join("\n")}
     : "## Decisions\n\nNo ADRs yet. Create one: 'kimi-governance adr <title>'\n"
 }
 
-## Port Policy
+${successMetricsSection}## Port Policy
 
 - Default to \`0\` for auto-assignment. Log actual port on startup.
 - Never hardcode ports in source.

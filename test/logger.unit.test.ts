@@ -233,6 +233,8 @@ describe("logger", () => {
   });
 
   test("createLogger parses --debug flag", () => {
+    const prevQuiet = Bun.env.KIMI_QUIET;
+    delete Bun.env.KIMI_QUIET;
     const logs: string[] = [];
     const originalLog = console.log;
     console.log = (...args: unknown[]) => logs.push(args.join(" "));
@@ -242,6 +244,8 @@ describe("logger", () => {
 
     console.log = originalLog;
     expect(logs.length).toBe(1);
+    if (prevQuiet === undefined) delete Bun.env.KIMI_QUIET;
+    else Bun.env.KIMI_QUIET = prevQuiet;
   });
 
   test("log() backward compatibility", () => {

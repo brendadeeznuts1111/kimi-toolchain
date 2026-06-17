@@ -7,8 +7,6 @@ import { join } from "path";
 import { createLogger, type Logger } from "../logger.ts";
 import { CliError } from "./errors.ts";
 import { varDir } from "../paths.ts";
-import { isQuietMode } from "../quiet-mode.ts";
-
 export interface RunCliOptions {
   toolName: string;
   argv?: string[];
@@ -56,12 +54,12 @@ export async function runCli<A>(
     if (failure._tag === "Fail") {
       const error = failure.error;
       if (error instanceof CliError) {
-        if (!isQuietMode()) logger.error(error.message);
+        logger.error(error.message);
         return error.exitCode ?? 1;
       }
-      if (!isQuietMode()) logger.error(error instanceof Error ? error.message : String(error));
+      logger.error(error instanceof Error ? error.message : String(error));
     } else {
-      if (!isQuietMode()) logger.error("Unexpected CLI failure");
+      logger.error("Unexpected CLI failure");
     }
     return 1;
   } finally {
@@ -87,12 +85,12 @@ export async function runCliExit(
     if (failure._tag === "Fail") {
       const error = failure.error;
       if (error instanceof CliError) {
-        if (!isQuietMode()) logger.error(error.message);
+        logger.error(error.message);
         return error.exitCode ?? 1;
       }
-      if (!isQuietMode()) logger.error(error instanceof Error ? error.message : String(error));
+      logger.error(error instanceof Error ? error.message : String(error));
     } else {
-      if (!isQuietMode()) logger.error("Unexpected CLI failure");
+      logger.error("Unexpected CLI failure");
     }
     return 1;
   } finally {
