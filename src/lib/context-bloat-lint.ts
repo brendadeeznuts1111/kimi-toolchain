@@ -31,8 +31,36 @@ export const CONTEXT_PLACEHOLDER_PATTERNS: Array<{ pattern: RegExp; label: strin
   },
 ];
 
+/** Index docs that should link to active docs/ markdown (orphan detection). */
+export const DOC_INDEX_FILES = [
+  "README.md",
+  "AGENTS.md",
+  "UNIFIED.md",
+  "CODE_REFERENCES.md",
+] as const;
+
+/** Known template literals copied into agent docs — duplicates indicate unfilled bloat. */
+export const AGENT_DOC_PLACEHOLDER_STRINGS = [
+  "[High-level diagram or description of layers/data flow]",
+  "[Anything else an agent needs to know: conventions, gotchas, tribal knowledge]",
+] as const;
+
+/** Bracket placeholders that look like unfilled template instructions. */
+export const AGENT_DOC_PLACEHOLDER_RE =
+  /\[(?:Add |Auto-generated\.|High-level |Anything else |Replace )[^\]]+\]/g;
+
+/** AGENTS.md Architecture tree — claimed registered bin count. */
+export const AGENTS_BIN_COUNT_RE = /CLI entry points \((\d+) registered bins\)/;
+
+export const AGENTS_MAX_LINES = 900;
+export const CONTEXT_MAX_LINES = 120;
+
 const SKIP_DIRS = new Set(["node_modules", ".git", "coverage", ".bun"]);
 const LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g;
+/** Backtick repo paths in agent docs — must exist on disk. */
+const BARE_REPO_PATH_RE = /`((?:src|test|scripts)\/[^\s`]+)`/g;
+
+const BARE_PATH_SKIP_SUFFIXES = [".example", "…", "...", "*"];
 
 const ROOT_AGENT_DOCS = new Set([
   "README.md",
@@ -52,7 +80,14 @@ export function isAgentFacingDoc(rel: string): boolean {
   if (rel.startsWith("docs/") && rel.endsWith(".md") && !rel.startsWith("docs/plans/archive/")) {
     return true;
   }
+  if (rel.startsWith("templates/scaffold/") && rel.endsWith(".md")) return true;
   return false;
+}
+
+/** Scaffold templates cite hypothetical project paths — skip bare-path existence checks. */
+export function shouldCheckBareRepoPaths(rel: string): boolean {
+  if (rel.startsWith("templates/scaffold/")) return false;
+  return isAgentFacingDoc(rel);
 }
 
 function lineNumber(text: string, index: number): number {
@@ -118,6 +153,43 @@ export function findBrokenInternalLinks(
   return issues;
 }
 
+function isConcreteRepoPath(raw: string): boolean {
+  if (raw.includes("{") || raw.includes("}") || raw.includes("*")) return false;
+  if (raw.endsWith("/")) return false;
+  if (BARE_PATH_SKIP_SUFFIXES.some((s) => raw.includes(s))) return false;
+  const pathPart = raw.split(":")[0]!;
+  return /\.(?:ts|md|sh|toml|json)$/.test(pathPart);
+}
+
+export function findBareRepoPathRefs(
+  projectRoot: string,
+  rel: string,
+  text: string
+): ContextBloatIssue[] {
+  const issues: ContextBloatIssue[] = [];
+
+  for (const match of text.matchAll(BARE_REPO_PATH_RE)) {
+    const raw = match[1]?.trim();
+    if (!raw || !isConcreteRepoPath(raw)) continue;
+    if (raw.includes("~") || raw.startsWith("http")) continue;
+
+    const pathPart = raw.split(":")[0]!;
+    const candidates = [join(projectRoot, pathPart)];
+    if (existsSync(candidates[0]!)) continue;
+
+    const idx = match.index ?? 0;
+    issues.push({
+      file: rel,
+      line: lineNumber(text, idx),
+      rule: "bare-path-missing",
+      message: `Backtick path "${pathPart}" does not exist`,
+      severity: "error",
+    });
+  }
+
+  return issues;
+}
+
 export function findContextPlaceholders(rel: string, text: string): ContextBloatIssue[] {
   if (rel !== "CONTEXT.md") return [];
   const issues: ContextBloatIssue[] = [];
@@ -139,6 +211,200 @@ export function findContextPlaceholders(rel: string, text: string): ContextBloat
   return issues;
 }
 
+export function findOversizedAgentDocs(rel: string, text: string): ContextBloatIssue[] {
+  const lineCount = text.split("\n").length;
+  if (rel === "AGENTS.md" && lineCount > AGENTS_MAX_LINES) {
+    return [
+      {
+        file: rel,
+        line: 1,
+        rule: "oversized-agent-doc",
+        message: `AGENTS.md has ${lineCount} lines (limit ${AGENTS_MAX_LINES}) — split or archive sections`,
+        severity: "warn",
+      },
+    ];
+  }
+  if (rel === "CONTEXT.md" && lineCount > CONTEXT_MAX_LINES) {
+    return [
+      {
+        file: rel,
+        line: 1,
+        rule: "oversized-agent-doc",
+        message: `CONTEXT.md has ${lineCount} lines (limit ${CONTEXT_MAX_LINES}) — tighten domain notes`,
+        severity: "warn",
+      },
+    ];
+  }
+  return [];
+}
+
+/** Active docs/ markdown not linked from README, AGENTS, UNIFIED, or CODE_REFERENCES. */
+export function isDocReferencedFromIndex(rel: string, indexText: string): boolean {
+  if (indexText.includes(rel)) return true;
+
+  const base = rel.split("/").pop() ?? rel;
+  if (indexText.includes(`(${rel})`) || indexText.includes(`(${base})`)) return true;
+  if (indexText.includes(`\`${rel}\``) || indexText.includes(`\`${base}\``)) return true;
+
+  const parent = rel.includes("/") ? `${rel.slice(0, rel.lastIndexOf("/") + 1)}` : "";
+  // Only match nested dirs (e.g. docs/adr/), not the generic docs/ prefix.
+  if (parent && parent !== "docs/" && indexText.includes(parent)) return true;
+
+  return false;
+}
+
+export function findOrphanAgentDocs(activeDocs: string[], indexText: string): ContextBloatIssue[] {
+  const issues: ContextBloatIssue[] = [];
+  for (const rel of activeDocs) {
+    if (!rel.startsWith("docs/") || rel.startsWith("docs/plans/archive/")) continue;
+    if (isDocReferencedFromIndex(rel, indexText)) continue;
+    issues.push({
+      file: rel,
+      line: 1,
+      rule: "orphan-agent-doc",
+      message: `Not referenced from ${DOC_INDEX_FILES.join(", ")} — link or archive`,
+      severity: "error",
+    });
+  }
+  return issues;
+}
+
+function collectPlaceholderHits(
+  rel: string,
+  text: string
+): Array<{ placeholder: string; line: number }> {
+  const hits: Array<{ placeholder: string; line: number }> = [];
+  const lines = text.split("\n");
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    for (const known of AGENT_DOC_PLACEHOLDER_STRINGS) {
+      if (line.includes(known)) {
+        hits.push({ placeholder: known, line: i + 1 });
+      }
+    }
+    for (const match of line.matchAll(AGENT_DOC_PLACEHOLDER_RE)) {
+      const placeholder = match[0];
+      if (!placeholder) continue;
+      if (AGENT_DOC_PLACEHOLDER_STRINGS.some((known) => known === placeholder)) continue;
+      hits.push({ placeholder, line: i + 1 });
+    }
+  }
+
+  return hits;
+}
+
+/** Same unfilled template placeholder in 2+ agent-facing docs. */
+export function findDuplicatePlaceholders(
+  docs: Array<{ rel: string; text: string }>
+): ContextBloatIssue[] {
+  const byPlaceholder = new Map<string, Array<{ file: string; line: number }>>();
+
+  for (const { rel, text } of docs) {
+    for (const hit of collectPlaceholderHits(rel, text)) {
+      const bucket = byPlaceholder.get(hit.placeholder) ?? [];
+      bucket.push({ file: rel, line: hit.line });
+      byPlaceholder.set(hit.placeholder, bucket);
+    }
+  }
+
+  const issues: ContextBloatIssue[] = [];
+  for (const [placeholder, occurrences] of byPlaceholder) {
+    const files = new Set(occurrences.map((o) => o.file));
+    if (files.size < 2) continue;
+    for (const { file, line } of occurrences) {
+      issues.push({
+        file,
+        line,
+        rule: "duplicate-placeholder",
+        message: `Placeholder "${placeholder}" appears in ${files.size} agent docs — fill or dedupe`,
+        severity: "error",
+      });
+    }
+  }
+
+  return issues.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+}
+
+export async function listSrcBinFiles(projectRoot: string): Promise<string[]> {
+  const binDir = join(projectRoot, "src/bin");
+  if (!existsSync(binDir)) return [];
+  const glob = new Bun.Glob("*.ts");
+  const files: string[] = [];
+  for await (const name of glob.scan({ cwd: binDir, onlyFiles: true })) {
+    files.push(name);
+  }
+  return files.sort();
+}
+
+/** AGENTS.md claimed bin count vs actual src/bin/*.ts files. */
+export function findBinCountDrift(agentsText: string, actualBinCount: number): ContextBloatIssue[] {
+  const match = agentsText.match(AGENTS_BIN_COUNT_RE);
+  if (!match || match.index === undefined) {
+    return [
+      {
+        file: "AGENTS.md",
+        line: 1,
+        rule: "bin-count-drift",
+        message: 'Missing "CLI entry points (N registered bins)" claim in Architecture tree',
+        severity: "error",
+      },
+    ];
+  }
+
+  const claimed = Number.parseInt(match[1]!, 10);
+  if (!Number.isFinite(claimed) || claimed !== actualBinCount) {
+    return [
+      {
+        file: "AGENTS.md",
+        line: lineNumber(agentsText, match.index),
+        rule: "bin-count-drift",
+        message: `Claims ${claimed} registered bins but src/bin/*.ts has ${actualBinCount} — update AGENTS.md`,
+        severity: "error",
+      },
+    ];
+  }
+
+  return [];
+}
+
+/** package.json bin entries must map 1:1 to src/bin/*.ts. */
+export function findPackageBinDrift(
+  packageBins: Record<string, string>,
+  srcBinFiles: string[]
+): ContextBloatIssue[] {
+  const issues: ContextBloatIssue[] = [];
+  const actualPaths = new Set(srcBinFiles.map((f) => `src/bin/${f}`));
+  const registeredPaths = new Set(Object.values(packageBins));
+
+  for (const [name, target] of Object.entries(packageBins)) {
+    if (!actualPaths.has(target)) {
+      issues.push({
+        file: "package.json",
+        line: 1,
+        rule: "package-bin-drift",
+        message: `bin "${name}" points to missing "${target}"`,
+        severity: "error",
+      });
+    }
+  }
+
+  for (const file of srcBinFiles) {
+    const relPath = `src/bin/${file}`;
+    if (!registeredPaths.has(relPath)) {
+      issues.push({
+        file: "package.json",
+        line: 1,
+        rule: "package-bin-drift",
+        message: `"${relPath}" exists but is not registered in package.json bin`,
+        severity: "error",
+      });
+    }
+  }
+
+  return issues;
+}
+
 export async function listTrackedBackupFiles(projectRoot: string): Promise<string[]> {
   const proc = Bun.spawn(["git", "ls-files", "*.bak", "CONTEXT.md.bak"], {
     cwd: projectRoot,
@@ -154,26 +420,72 @@ export async function listTrackedBackupFiles(projectRoot: string): Promise<strin
     .filter(Boolean);
 }
 
+export function auditMarkdownText(
+  projectRoot: string,
+  rel: string,
+  text: string
+): ContextBloatIssue[] {
+  return [
+    ...findStaleDocPathRefs(rel, text),
+    ...findBrokenInternalLinks(projectRoot, rel, text),
+    ...(shouldCheckBareRepoPaths(rel) ? findBareRepoPathRefs(projectRoot, rel, text) : []),
+    ...findContextPlaceholders(rel, text),
+    ...findOversizedAgentDocs(rel, text),
+  ];
+}
+
 export async function auditMarkdownFile(
   projectRoot: string,
   rel: string
 ): Promise<ContextBloatIssue[]> {
   const path = join(projectRoot, rel);
   const text = await Bun.file(path).text();
-  return [
-    ...findStaleDocPathRefs(rel, text),
-    ...findBrokenInternalLinks(projectRoot, rel, text),
-    ...findContextPlaceholders(rel, text),
-  ];
+  return auditMarkdownText(projectRoot, rel, text);
+}
+
+async function readIndexDocText(projectRoot: string): Promise<string> {
+  const chunks: string[] = [];
+  for (const rel of DOC_INDEX_FILES) {
+    const path = join(projectRoot, rel);
+    if (!existsSync(path)) continue;
+    chunks.push(await Bun.file(path).text());
+  }
+  return chunks.join("\n");
 }
 
 export async function auditContextBloat(projectRoot: string): Promise<ContextBloatIssue[]> {
   const glob = new Bun.Glob("**/*.md");
   const issues: ContextBloatIssue[] = [];
+  const agentDocs: Array<{ rel: string; text: string }> = [];
+  const activeDocPaths: string[] = [];
 
   for await (const rel of glob.scan({ cwd: projectRoot, onlyFiles: true })) {
     if (!isAgentFacingDoc(rel)) continue;
-    issues.push(...(await auditMarkdownFile(projectRoot, rel)));
+    const text = await Bun.file(join(projectRoot, rel)).text();
+    agentDocs.push({ rel, text });
+    if (rel.startsWith("docs/") && !rel.startsWith("docs/plans/archive/")) {
+      activeDocPaths.push(rel);
+    }
+    issues.push(...auditMarkdownText(projectRoot, rel, text));
+  }
+
+  const indexText = await readIndexDocText(projectRoot);
+  issues.push(...findOrphanAgentDocs(activeDocPaths, indexText));
+  issues.push(...findDuplicatePlaceholders(agentDocs));
+
+  const srcBinFiles = await listSrcBinFiles(projectRoot);
+  const agentsPath = join(projectRoot, "AGENTS.md");
+  if (existsSync(agentsPath)) {
+    const agentsText = await Bun.file(agentsPath).text();
+    issues.push(...findBinCountDrift(agentsText, srcBinFiles.length));
+  }
+
+  const packagePath = join(projectRoot, "package.json");
+  if (existsSync(packagePath)) {
+    const pkg = (await Bun.file(packagePath).json()) as { bin?: Record<string, string> };
+    if (pkg.bin) {
+      issues.push(...findPackageBinDrift(pkg.bin, srcBinFiles));
+    }
   }
 
   for (const tracked of await listTrackedBackupFiles(projectRoot)) {

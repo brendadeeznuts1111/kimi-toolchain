@@ -3,7 +3,8 @@
  * lint-context-bloat.ts — Agent-facing doc hygiene gate.
  *
  * Catches broken internal links, stale moved doc paths, CONTEXT.md placeholders,
- * and git-tracked *.bak artifacts.
+ * orphan docs/, oversized AGENTS/CONTEXT, duplicate template placeholders,
+ * AGENTS.md / package.json bin count drift, scaffold templates, and git-tracked *.bak.
  */
 
 import { join } from "path";

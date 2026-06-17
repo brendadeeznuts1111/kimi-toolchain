@@ -121,7 +121,7 @@ Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0
 6. IF lockfile warning → RUN: kimi-guardian check
 7. IF coverage gap → RUN: bun run test:coverage:fast (local) or bun run test:coverage:ci (CI)
 8. IF governance gap → RUN: kimi-governance fix
-9. QUERY: kimi-memory trends (sessions.db warning_trends)
+9. QUERY: kimi-memory trends (~/.kimi-code/var/sessions.db warning_trends)
 10. PRESENT: current state + trend + next action
 ```
 
@@ -144,13 +144,13 @@ Built-in subagents: `coder`, `explore`, `plan`. Sub-skills stable since **0.12.0
 4. RUN: kimi-heal clusters --json
 5. RUN: kimi-heal plan --json
 6. RUN: kimi-decision audit --json
-7. QUERY: kimi-memory trends + doctor_runs in sessions.db (grouped by taxonomy_id when present)
+7. QUERY: kimi-memory trends + doctor_runs in ~/.kimi-code/var/sessions.db (grouped by taxonomy_id when present)
 8. RUN: git log --oneline -20
 9. IF CONTEXT.md stale → RUN: kimi-context-gen freshness / update
 10. PRESENT: timeline + taxonomy id + likely cause + recovery steps (use heal plan first; taxonomy autoFix only when safe)
 ```
 
-Use `kimi-debug analyze --json` or `kimi-debug classify <text>` for taxonomy ids (`max_steps_exceeded`, `lockfile_issue`, etc.) from `error-taxonomy.yml`.
+Use `kimi-debug analyze --json` or `kimi-debug classify <text>` for taxonomy ids (`max_steps_exceeded`, `lockfile_issue`, etc.) from `~/.kimi-code/error-taxonomy.yml`.
 
 ### Scaffold New Project
 
@@ -208,7 +208,7 @@ kimi-memory search <k>
 
 ## MCP (toolchain)
 
-Unified-shell bridge is auto-registered in `~/.kimi-code/mcp.json` on `bun run sync`. The sync writes `toolchain-manifest.json` with source hashes. Verify runtime-synced assets with `bun run sync && bun run sync:verify`. Verify MCP wiring with `kimi-doctor --quick` MCP section or `kimi` → `/mcp`.
+Unified-shell bridge is auto-registered in `~/.kimi-code/mcp.json` on `bun run sync`. The sync writes `~/.kimi-code/toolchain-manifest.json` with source hashes. Verify runtime-synced assets with `bun run sync && bun run sync:verify`. Verify MCP wiring with `kimi-doctor --quick` MCP section or `kimi` → `/mcp`.
 
 ## Hook taxonomy
 
@@ -220,9 +220,25 @@ Three hook systems coexist. Use the right name:
 | Bun package hook          | `src/install-hooks/postinstall.ts`                         | Runs on `bun install`                          |
 | Kimi Code lifecycle hooks | `~/.kimi-code/config.toml` `[[hooks]]` → `src/kimi-hooks/` | `kimi-doctor --fix` seeds `PostToolUseFailure` |
 
+## Synced skills
+
+`bun run sync` copies all repo `skills/` directories to `~/.kimi-code/skills/` and `~/.agents/skills/` (3 bundled: `kimi-toolchain`, `cloudflare-access`, `herdr`).
+
+## Runtime paths
+
+Canonical `~/.kimi-code/` layout is defined in `src/lib/paths.ts` (`desktopRoot()`, `skillsDir()`, `taxonomyPath()`, etc.). Key agent-facing paths:
+
+| Path                                   | Purpose                                            |
+| -------------------------------------- | -------------------------------------------------- |
+| `~/.kimi-code/UNIFIED.md`              | Kimi Code vs kimi-toolchain map (synced from repo) |
+| `~/.kimi-code/error-taxonomy.yml`      | Failure taxonomy schema                            |
+| `~/.kimi-code/var/tool-failures.jsonl` | Classified tool failure ledger                     |
+| `~/.kimi-code/var/sessions.db`         | Toolchain memory (not Kimi `sessions/wd_*`)        |
+| `~/.kimi-code/toolchain-manifest.json` | Sync metadata + source hashes                      |
+
 ## Related
 
 - Repo: https://github.com/brendadeeznuts1111/kimi-toolchain
-- UNIFIED.md: product matrix, MCP, ACP, editor workflows
+- `~/.kimi-code/UNIFIED.md`: product matrix, MCP, ACP, editor workflows
 - Kimi docs: https://moonshotai.github.io/kimi-code/
   - Kimi command reference: https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html

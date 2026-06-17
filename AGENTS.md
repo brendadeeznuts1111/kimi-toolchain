@@ -49,7 +49,7 @@ If Grep/Glob fail with a path under an old renamed clone, the editor opened the 
 ```
 kimi-toolchain/
   src/
-    bin/                    # CLI entry points (16 registered bins)
+    bin/                    # CLI entry points (26 registered bins)
       ├── kimi-doctor.ts          # Comprehensive diagnostics aggregator
       ├── kimi-fix.ts             # Auto-repair project scaffolding
       ├── kimi-governance.ts      # R-Score, coverage gate, ADR scaffold
@@ -75,7 +75,8 @@ kimi-toolchain/
     drift/
       └── check.ts          # Dependency drift detector
   test/
-    └── kimi-doctor.smoke.test.ts   # Smoke tests for all CLI tools
+    ├── smoke/*.smoke.test.ts             # CLI smoke tests (doctor, identity, config)
+    └── …                         # Unit tests (see test-gates.ts fast list)
   skills/
     └── kimi-toolchain/
       └── SKILL.md          # Agent decision protocol
@@ -160,10 +161,10 @@ All commands are run from the repo root.
 # Install dependencies
 bun install
 
-# Run the full test suite (unit + smoke; default 5s per-test timeout)
+# Run the full test suite (unit + smoke; default 30s per-test timeout — bunfig.toml)
 bun test
 
-# Fast unit-only gate (~90ms at --timeout 100)
+# Fast unit-only gate (1500ms per test — see FAST_TEST_TIMEOUT_MS in test-gates.ts)
 bun run test:fast
 bun run check:fast       # format + lint + typecheck + test:fast
 
@@ -293,7 +294,7 @@ The project uses three separate hook systems. Do not conflate them in docs or co
 ## Testing Strategy
 
 - **Test runner**: `bun:test` (built into Bun)
-- **Test files**: unit tests under `test/`, Effect tests under `test/effect/`, smoke tests in `test/smoke/kimi-doctor.smoke.test.ts`
+- **Test files**: unit tests under `test/` (76 in fast gate via `test-gates.ts`), Effect tests under `test/effect/`, smoke tests in `test/smoke/` (`bun run test:smoke` runs the `SMOKE_TEST_FILES` subset)
 - **Test style**: Unit tests for pure logic and typed errors; smoke tests spawn CLI tools and assert on stdout + exit code.
 - **Isolation**: Tests use a temporary `HOME` directory so they never touch the real `~/.kimi-code/`.
 - **Timeout**: Default 30s per test; 120s for the full `kimi-doctor` run (which invokes all sub-doctors).
@@ -433,7 +434,7 @@ Run `bun run bench` to execute `bench/core.bench.ts`. Add new benchmarks when in
 
 - `process.on("SIGINT", handler)` is acceptable.
 - `process.exit(code)` is acceptable for CLI tools.
-- For resource-limited spawning, use `governedSpawn()` from `kimi-resource-governor.ts`.
+- For resource-limited spawning, use `governedSpawn()` from `src/lib/governor-spawn.ts` (CLI: `kimi-resource-governor spawn`).
 
 ### Agent Defaults & Recommendations
 
@@ -460,8 +461,8 @@ When working on this codebase, agents should:
 
 | Instead of                                                    | Use                                                          | Why                                                            |
 | ------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------- |
-| `bun test` (all ~315 tests, ~15s)                             | `bun run test:fast` (~292 unit tests, ~2s)                   | Smoke tests are subprocess-heavy and not needed for most edits |
-| `bun run check` (4 gates, ~30s)                               | `bun run check:fast` (fast mode, ~3s)                        | Runs only unit tests with 500ms timeout                        |
+| `bun test` (full suite incl. smoke, ~15s)                     | `bun run test:fast` (76 unit files, ~5s)                     | Smoke tests are subprocess-heavy and not needed for most edits |
+| `bun run check` (4 gates, ~30s)                               | `bun run check:fast` (fast mode, ~3s)                        | Runs only unit tests with 1500ms timeout                       |
 | `bun run format` then `bun run lint` then `bun run typecheck` | `bun run check:fast`                                         | Bundles all three; agents should not run them separately       |
 | Re-running full suite after every edit                        | Target specific test files: `bun test test/lib.unit.test.ts` | 1-2 steps instead of 5-10                                      |
 | `bun run bench` (benchmarks)                                  | Only run when optimizing performance                         | Benchmarks are for regression detection, not validation        |
@@ -698,18 +699,32 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `src/lib/scaffold-quality.ts`          | package.json quality tooling injection                                              |
 | `src/lib/process-utils.ts`             | Orphan process detection + cleanup                                                  |
 | `scripts/check.ts`                     | CI gate runner with dry-run and fast modes                                          |
-| `test/kimi-doctor.smoke.test.ts`       | Smoke tests for all tools                                                           |
+| `test/smoke/`                            | CLI smoke tests (`kimi-doctor`, `kimi-identity`, `kimi-config`)                     |
 | `CONTEXT.md`                           | Auto-generated project context                                                      |
 | `CODE_REFERENCES.md`                   | Local exemplar map for agent coding patterns                                        |
 | `DEEP-QUALITY.md`                      | Effect-discipline constants, thresholds, CLI commands, and report shapes            |
 | `skills/kimi-toolchain/SKILL.md`       | Agent decision protocol                                                             |
+| `skills/herdr/SKILL.md`                | Herdr pane/workspace control from inside a pane                                       |
 | `error-taxonomy.yml`                   | Failure classification schema                                                       |
 | `~/.kimi-code/var/tool-failures.jsonl` | Canonical tool failure ledger                                                       |
+
+## Project docs (active)
+
+| Doc | Purpose |
+| --- | ------- |
+| `docs/SCOPE.md` | Herdr orchestration production validation scope |
+| `docs/finish-work-close-loop.md` | Finish-work pipeline and escalation |
+| `docs/handoff-rules.md` | Cross-pane handoff contract |
+| `docs/naming.md` | Session and pane naming conventions |
+| `docs/flake-register.md` | Known flaky tests and mitigations |
+| `docs/references/shell-spawn-choice.md` | When to use `Bun.spawn` vs `governedSpawn` |
+| `docs/references/bun-shell-companions.md` | Bun `$` template vs subprocess patterns |
 
 ## Quick Reference: All CLI Tools
 
 | Tool                     | Key Commands                                                                                                      |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `kimi-toolchain`         | Unified router — `kimi-toolchain <tool> [args]` (see UNIFIED.md)                                                |
 | `kimi-doctor`            | `doctor`, `doctor --fix`, `doctor --quick`, `doctor --memory-budget`                                              |
 | `kimi-orphan-kill`       | `--dry-run` (cleanup stale test/tool processes)                                                                   |
 | `kimi-fix`               | `fix <path>`, `fix <path> --profile app\|toolchain`, `fix <path> --dry-run` — gate config uses `kimi-doctor --effect-gates` (see TEMPLATES.md migration) |
@@ -723,6 +738,10 @@ On memory-constrained hosts, swap thrashing inflates load average and disk I/O b
 | `kimi-debug`             | `last`, `diff`, `trace`, `analyze`, `classify`, `taxonomy`, `wire [path]`, `doctor`, `fix`                        |
 | `kimi-snapshot`          | `save`, `restore`, `list`, `show`, `cleanup`, `doctor`, `fix`                                                     |
 | `kimi-resource-governor` | `limits`, `parallel`, `quota`, `cache`, `spawn`, `session`, `cleanup`, `status`, `doctor`, `fix`                  |
+| `herdr-orchestrator`     | `status`, `react`, `context-sync`, `escalate`, `watch-events`, `dashboard` (requires Herdr workspace)             |
+| `herdr-project`          | `apply`, `reconcile`, `status` — workspace layout from `dx.config.toml` `[herdr]`                                 |
+| `herdr-pane` / `herdr-spawn` | Pane control and agent spawn helpers                                                                          |
+| `herdr-doctor`           | Herdr integration health checks                                                                                   |
 
 ---
 

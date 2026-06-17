@@ -72,6 +72,11 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run install-herdr-plugin` | (synced from package.json) |
 | `bun run cleanup-root` | (synced from package.json) |
 | `bun run lint:context` | (synced from package.json) |
+| `bun run bun-native:check` | (synced from package.json) |
+| `bun run bun-native:report` | (synced from package.json) |
+| `bun run bun-native:rules` | (synced from package.json) |
+| `bun run bun-native:batch` | (synced from package.json) |
+| `bun run bun-native:baseline` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                           |
@@ -90,13 +95,13 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run fix`                | Run kimi-fix from repo                              |
 | `bun run new`                | Run kimi-new from repo                              |
 | `bun run governance`         | Run kimi-governance from repo                       |
-| `bun run test`               | Full test suite (unit + smoke; default 5s timeout)  |
-| `bun run test:fast`          | Unit tests only at `--timeout 500`                  |
+| `bun run test`               | Full test suite (unit + smoke; default 30s timeout) |
+| `bun run test:fast`          | Unit tests only at 1500ms timeout (`test-gates.ts`) |
 | `bun run test:coverage`      | Full suite with Bun coverage report                 |
-| `bun run test:coverage:fast` | Unit coverage at 500ms timeout (R-Score gate)       |
+| `bun run test:coverage:fast` | Unit coverage at 1500ms timeout (R-Score gate)    |
 | `bun run test:coverage:ci`   | Full suite + coverage (60s timeout, lcov, `--bail`) |
 | `bun run check`              | format:check + lint + typecheck + test (CI/hooks)   |
-| `bun run check:fast`         | Same gates; unit tests at `--timeout 500`           |
+| `bun run check:fast`         | Same gates; unit tests at 1500ms timeout            |
 | `bun run check:dry-run`      | List check steps without running them               |
 | `bun run docs:sync`          | Patch README script table from package.json         |
 | `bun run typecheck`          | TypeScript type check (no emit)                     |

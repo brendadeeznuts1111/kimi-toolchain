@@ -51,9 +51,7 @@ interface EffectGatesThresholds {
 Allowed paths are hardcoded in `RUN_PROMISE_ALLOWED_PATHS`:
 
 - `src/bin/`
-- `src/entry/`
 - `src/lib/effect/`
-- `src/runtime.ts`
 - `test/`
 
 Any `Effect.runPromise` call outside these locations is a `run-promise-boundary` error when the boundary is enabled.

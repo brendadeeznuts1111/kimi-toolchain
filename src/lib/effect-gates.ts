@@ -219,13 +219,7 @@ function scanDirectPromises(sourceFile: ts.SourceFile, filePath: string): Effect
  * the runtime. Library/service code should return Effects and let the CLI or
  * runtime entry unwrap them.
  */
-const RUN_PROMISE_ALLOWED_PATHS = [
-  "src/bin/",
-  "src/entry/",
-  "src/lib/effect/",
-  "src/runtime.ts",
-  "test/",
-] as const;
+const RUN_PROMISE_ALLOWED_PATHS = ["src/bin/", "src/lib/effect/", "test/"] as const;
 
 /**
  * Exact file paths that are permitted to call Effect.runPromise even though they

@@ -172,6 +172,19 @@ Use these local references before changing Cloudflare or MCP behavior:
 
 Cloudflare MCP SSO/OAuth, Wrangler OAuth, and `kimi-cloudflare-access` API tokens are separate auth paths. Do not assume one login satisfies the others.
 
+## Herdr orchestration
+
+Use these when working inside a Herdr workspace (`HERDR_ENV=1`) or editing `[herdr]` in `dx.config.toml`:
+
+| Need | Reference | Follow |
+| ---- | --------- | ------ |
+| Pane/workspace CLI | `skills/herdr/SKILL.md` | `herdr-pane`, `herdr-orchestrator` commands over unix socket |
+| Finish-work close-loop | `docs/finish-work-close-loop.md` | Pipeline order, escalation, `watch-events` |
+| Production validation | `docs/SCOPE.md` | Acceptance checklist for orchestration |
+| Handoff contract | `docs/handoff-rules.md` | Pane roles and brief format |
+| Session routing | `src/lib/herdr-project-cli.ts` | `--session` CLI arg on Herdr 0.7.0+ |
+| Governed subprocess | `docs/references/shell-spawn-choice.md` | `governedSpawn()` from `src/lib/governor-spawn.ts` |
+
 ## Doctor Adapter / Plugin / MCP Golden Template
 
 Use this pattern when extending `kimi-doctor` with new agent-facing diagnostics.

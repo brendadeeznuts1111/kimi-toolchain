@@ -17,7 +17,7 @@ This document is the decision matrix for spawning subprocesses in `kimi-toolchai
 2. **Use `Bun.$`** only for throwaway shell ergonomics (piping, globs, shell built-ins). Do not use it for toolchain tool calls.
 3. **Use `Bun.spawn()`** when you need direct control over stdio, lifecycle, or binary executables that are not toolchain tools.
 4. **Use `governedSpawn()`** when the operation must respect resource budgets or when spawning from a context that already tracks limits.
-5. **Never import `node:child_process`** or `node:events` for process work. The Bun-native lint gate (`scripts/lint-bun-native.ts`) rejects these.
+5. **Never import `node:child_process`** or `node:events` for process work. The Bun-native lint gate (`scripts/lint-bun-native.ts`, wired into `bun run lint`) rejects these with phased baseline ratchet — see `bun-native-lint.toml`.
 
 ## Environment Handling
 

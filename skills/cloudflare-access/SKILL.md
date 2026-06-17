@@ -1,6 +1,6 @@
 ---
 name: cloudflare-access
-description: Cloudflare Access / Zero Trust hygiene — service token expiry sweep, policy audit, policy-as-code
+description: Cloudflare Access / Zero Trust hygiene — service token expiry, local inventory, policy audit, policy-as-code
 allowed_tools:
   - read_file
   - write_file
@@ -17,18 +17,25 @@ Audits Cloudflare Access / Zero Trust configurations: service token expiry, appl
 
 ## Architecture
 
-This skill wraps the `kimi-cloudflare-access` CLI which was originally part of `kimi-toolchain`. The core logic lives in:
+This skill wraps the `kimi-cloudflare-access` CLI. The core logic lives in:
 
 ```
-src/lib/cloudflare-access.ts         — API client, token checks, credential management
-src/lib/cloudflare-access-policy.ts  — Policy-as-Code diff engine
-src/bin/kimi-cloudflare-access.ts    — CLI entry point (doctor/fix/plan/apply)
+src/lib/cloudflare-access.ts              — API client, token checks, credential management
+src/lib/cloudflare-access-policy.ts       — Policy-as-Code diff engine
+src/lib/cloudflare-integration-status.ts  — Read-only local inventory (status/dashboard)
+src/bin/kimi-cloudflare-access.ts         — CLI entry point
 ```
 
 ## Usage
 
 ```bash
-# Audit service tokens for expiry
+# Read-only local inventory (credentials, MCP, wrangler, project files)
+kimi-cloudflare-access status
+
+# DX homepage/dashboard snapshot
+kimi-cloudflare-access dashboard
+
+# Audit service tokens for expiry (default when no subcommand)
 kimi-cloudflare-access tokens
 
 # Audit application policies
@@ -37,11 +44,17 @@ kimi-cloudflare-access apps
 # Full doctor check
 kimi-cloudflare-access doctor
 
+# Rotate expired/expiring service tokens
+kimi-cloudflare-access fix
+
 # Policy-as-Code plan (dry-run)
 kimi-cloudflare-access plan
 
 # Policy-as-Code apply (mutates Access apps/policies)
 kimi-cloudflare-access apply
+
+# Emit MCP script for policy updates (no direct API apply)
+kimi-cloudflare-access mcp-apply
 ```
 
 Run `plan` before every `apply`. Agents must show the planned app/policy diff and get explicit user confirmation before running `apply`.
@@ -51,13 +64,17 @@ Run `plan` before every `apply`. Agents must show the planned app/policy diff an
 1. `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` env vars (CI override)
 2. OS keychain via `Bun.secrets` (set with `kimi-cloudflare-access login`)
 
-Cloudflare MCP SSO/OAuth, Wrangler OAuth, and this CLI's API token path are separate. A successful MCP or Wrangler login does not satisfy `kimi-cloudflare-access` unless the account id and API token are also available.
+Remove stored credentials with `kimi-cloudflare-access logout`.
+
+Cloudflare MCP SSO/OAuth, Wrangler OAuth, and this CLI's API token path are separate. A successful MCP or Wrangler login does not satisfy `kimi-cloudflare-access` unless the account id and API token are also available. See `~/.kimi-code/UNIFIED.md` for the auth-path matrix.
 
 Create an API token at https://dash.cloudflare.com/profile/api-tokens with:
 
 - Account → Cloudflare Access → Read
 - Account → Access: Service Tokens → Read
 
-## Future
+## Related
 
-This skill is a candidate for extraction into a standalone package or optional kimi-toolchain plugin. The 2,473 lines of Cloudflare logic (15% of the codebase) serve a niche enterprise use case.
+- `~/.kimi-code/UNIFIED.md` — Kimi Code vs kimi-toolchain map; Cloudflare auth separation
+- `skills/kimi-toolchain/SKILL.md` — toolchain decision protocol
+- `CODE_REFERENCES.md` — Cloudflare Access exemplars and tests

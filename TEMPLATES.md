@@ -382,7 +382,7 @@ Use when a repo was scaffolded with the default **app** profile and you want `[f
 2. Back up `dx.config.toml` if it has custom blocks you need to keep
 3. Remove stale scaffold files so `kimi-fix` can recreate them:
    - `dx.config.toml` (or manually add `[finishWork]` + `[herdr]` from `templates/scaffold/dx.config.toolchain.toml`)
-   - `scripts/finish-work.ts`, `scripts/finish-work-config.ts` if missing or app-era
+   - `scripts/finish-work.ts` if missing or app-era (config loader: `src/lib/finish-work-config.ts`)
 4. Run `kimi-fix <path> --profile toolchain`
 5. Verify: `bun run finish-work --dry-run` (gates should include `kimi-doctor --effect-gates`)
 6. If `[finishWork]` still lists `bun run doctor --effect-gates`, replace with `kimi-doctor --effect-gates` to match the canonical gate

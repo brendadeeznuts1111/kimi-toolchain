@@ -26,7 +26,6 @@
 ├── sessions/wd_*/                     # Kimi Code chat sessions (workDir-bound)
 ├── session_index.jsonl                # Session index (cwd binding)
 ├── mcp.json                           # User-level MCP (toolchain seeds unified-shell + cloudflare-api)
-├── config.toml                        # Agent: models, permissions, providers, [[hooks]]
 ├── plugins/                           # Kimi Code plugins
 ├── skills/                            # User skills (toolchain syncs kimi-toolchain skill)
 ├── logs/                              # Diagnostic logs
@@ -112,7 +111,7 @@ cd ~/kimi-toolchain
 #    src/bin/*.ts  src/lib/*.ts
 
 # 2. Test from repo (fastest)
-bun run check:fast          # unit tests @ 500ms (~2-3s total gate)
+bun run check:fast          # unit tests @ 1500ms (~2-3s total gate)
 bun run check:dry-run       # preview format/lint/typecheck/test steps
 bun test                    # full suite (unit + smoke)
 bun run doctor --quick

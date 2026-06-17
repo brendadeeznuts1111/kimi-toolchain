@@ -51,3 +51,25 @@ All inspection, table formatting, ANSI helpers, and inspection streaming live in
 ## Exemptions
 
 If a specific line must use a non-preferred API, add `// @bun-native-exempt` and a brief comment explaining why.
+
+## Phased enforcement
+
+The Bun-native gate (`scripts/lint-bun-native.ts`) rolls out slowly via `bun-native-lint.toml`:
+
+| Mode | Behavior |
+| ---- | -------- |
+| `off` | Rule is not scanned |
+| `report` | Violations are baselined; CI fails only on **new** violations |
+| `enforce` | Zero tolerance |
+
+Workflow:
+
+```bash
+bun run bun-native:rules                  # catalog + counts
+bun run bun-native:batch process-env      # focused fix list
+bun run bun-native:baseline -- --rule process-env  # shrink baseline after a batch
+# when count hits 0, set rules.process-env = "enforce" in bun-native-lint.toml
+bun run bun-native:check                  # gate (report mode + baseline ratchet)
+```
+
+Baseline file: `.bun-native-baseline.json` (committed). Promote rules to `enforce` only after the baseline entry count for that rule reaches zero.
