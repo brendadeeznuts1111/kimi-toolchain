@@ -102,16 +102,19 @@ function firstTopLevelDescribe(text: string): string | null {
   return match?.[1] ?? null;
 }
 
-export async function lintTestNames(root: string = REPO_ROOT): Promise<string[]> {
+export async function lintTestNames(
+  root: string = REPO_ROOT,
+  onlyFiles?: string[]
+): Promise<string[]> {
   const violations: string[] = [];
   const glob = new Bun.Glob("test/**/*.test.ts");
 
-  for await (const rel of glob.scan({ cwd: root, onlyFiles: true })) {
+  const scanRel = async (rel: string): Promise<void> => {
     if (!LEGACY_PLAIN_TEST.has(rel) && !FILENAME_PATTERN.test(rel)) {
       violations.push(
         `${rel}: filename must match {stem}.{unit|integration|smoke|db|router}.test.ts`
       );
-      continue;
+      return;
     }
 
     const stem = parseStem(rel);
@@ -124,18 +127,18 @@ export async function lintTestNames(root: string = REPO_ROOT): Promise<string[]>
 
     const text = await readTextAsync(join(root, rel));
     const describeLabel = firstTopLevelDescribe(text);
-    if (!describeLabel || LEGACY_DESCRIBE_EXEMPT.has(rel)) continue;
+    if (!describeLabel || LEGACY_DESCRIBE_EXEMPT.has(rel)) return;
 
     const stemForDescribe = stem ?? basename(rel, ".test.ts");
     const allowedPrefixes = DESCRIBE_PREFIX_ALLOW[rel];
-    if (allowedPrefixes?.some((entry) => describeLabel.startsWith(entry))) continue;
+    if (allowedPrefixes?.some((entry) => describeLabel.startsWith(entry))) return;
 
     const prefix = describeLabel.split(/\s/)[0]!;
     if (!KEBAB.test(prefix)) {
       violations.push(
         `${rel}: top-level describe "${describeLabel}" must use kebab-case (grep-friendly)`
       );
-      continue;
+      return;
     }
 
     const expectedStem = DESCRIBE_STEM_ALIAS[stemForDescribe] ?? stemForDescribe;
@@ -143,6 +146,17 @@ export async function lintTestNames(root: string = REPO_ROOT): Promise<string[]>
       violations.push(
         `${rel}: top-level describe must start with file stem "${expectedStem}" (got "${prefix}")`
       );
+    }
+  };
+
+  if (onlyFiles !== undefined) {
+    for (const rel of onlyFiles) {
+      if (!rel.startsWith("test/") || !rel.endsWith(".test.ts")) continue;
+      await scanRel(rel);
+    }
+  } else {
+    for await (const rel of glob.scan({ cwd: root, onlyFiles: true })) {
+      await scanRel(rel);
     }
   }
 

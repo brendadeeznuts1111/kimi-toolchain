@@ -1,14 +1,14 @@
 #!/usr/bin/env bun
 /**
- * Quality gate runner with --dry-run, --staged, and --timeout support.
+ * Quality gate runner with --dry-run, --staged, --timeout, and fast-gate flags.
  *
  * Usage:
- *   bun run scripts/check.ts
- *   bun run scripts/check.ts --dry-run
- *   bun run scripts/check.ts --staged
- *   bun run scripts/check.ts --fast --timeout 100
- *   bun run scripts/check.ts --dryrun --fast
- *   bun run scripts/check.ts --verbose
+ *   bun run scripts/check.ts --fast --changed-only --fail-fast --skip-tests
+ *   bun run scripts/check.ts --fast --json-summary
+ *   bun run scripts/check.ts --fast --watch
+ *   bun run scripts/check.ts --fast --watch-tests
+ *   bun run scripts/check.ts --fast --cache-results
+ *   bun run scripts/check.ts --dry-run --watch
  *
  * Gates are silent on success by default. Use --verbose or set KIMI_VERBOSE=1
  * to stream full output. Failures are always verbose.
@@ -17,22 +17,25 @@
  */
 
 import { join } from "path";
+import { FAST_TEST_TIMEOUT_MS, DEFAULT_TEST_TIMEOUT_MS } from "../src/lib/test-gates.ts";
+import type { CheckOptions, CheckRunResult } from "../src/lib/check-types.ts";
 import {
-  bunTestArgs,
-  FAST_TEST_TIMEOUT_MS,
-  DEFAULT_TEST_TIMEOUT_MS,
-} from "../src/lib/test-gates.ts";
-import { runCheckStep, shouldSilentOnSuccess } from "../src/lib/gate-runner.ts";
+  computeCheckCacheKey,
+  loadCheckCache,
+  saveCheckCache,
+} from "../src/lib/check-result-cache.ts";
+import { printWatchDryRun, printWatchTestsDryRun } from "../src/lib/check-watch.ts";
+import { startCheckWatchMode } from "./check-watch-runner.ts";
+import {
+  prepareDryRunSteps,
+  printCheckDryRun,
+  printCheckResult,
+  runCheckPipeline,
+  runTestOnlyPipeline,
+} from "../src/lib/check-pipeline.ts";
 import { ensureQuietEnv } from "../src/lib/quiet-mode.ts";
-import { isKimiToolchainRepo } from "../src/lib/workspace-health.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
-
-interface Step {
-  name: string;
-  cmd: string[];
-  silentOnSuccess?: boolean;
-}
 
 function parseTimeout(raw: string | undefined): number {
   const value = Number(raw);
@@ -42,19 +45,22 @@ function parseTimeout(raw: string | undefined): number {
   return value;
 }
 
-function parseCli(): {
-  dryRun: boolean;
-  fast: boolean;
-  staged: boolean;
-  verbose: boolean;
-  timeoutMs: number;
-} {
+function parseCli(): CheckOptions {
   const argv = Bun.argv.slice(2);
   let dryRun = false;
   let fast = false;
   let staged = false;
   let verbose = false;
   let timeoutMs = DEFAULT_TEST_TIMEOUT_MS;
+  let changedOnly = false;
+  let base = "main";
+  let failFast = false;
+  let jsonSummary = false;
+  let skipTests = false;
+  let watch = false;
+  let watchTests = false;
+  let cacheResults = false;
+  let noCache = false;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -75,9 +81,49 @@ function parseCli(): {
       verbose = true;
       continue;
     }
+    if (arg === "--changed-only") {
+      changedOnly = true;
+      continue;
+    }
+    if (arg === "--fail-fast") {
+      failFast = true;
+      continue;
+    }
+    if (arg === "--json-summary") {
+      jsonSummary = true;
+      continue;
+    }
+    if (arg === "--skip-tests") {
+      skipTests = true;
+      continue;
+    }
+    if (arg === "--watch") {
+      watch = true;
+      continue;
+    }
+    if (arg === "--watch-tests") {
+      watchTests = true;
+      watch = true;
+      continue;
+    }
+    if (arg === "--cache-results") {
+      cacheResults = true;
+      continue;
+    }
+    if (arg === "--no-cache") {
+      noCache = true;
+      continue;
+    }
+    if (arg === "--base") {
+      base = argv[++i] ?? base;
+      continue;
+    }
+    if (arg.startsWith("--base=")) {
+      base = arg.split("=")[1] ?? base;
+      continue;
+    }
     if (arg === "--timeout") {
-      const next = argv[++i];
-      timeoutMs = parseTimeout(next);
+      timeoutMs = parseTimeout(argv[++i]);
       continue;
     }
     if (arg.startsWith("--timeout=")) {
@@ -93,101 +139,77 @@ function parseCli(): {
     timeoutMs = FAST_TEST_TIMEOUT_MS;
   }
 
-  return { dryRun, fast, staged, verbose, timeoutMs };
+  return {
+    dryRun,
+    fast,
+    staged,
+    verbose,
+    timeoutMs,
+    changedOnly,
+    base,
+    failFast,
+    jsonSummary,
+    skipTests,
+    watch,
+    watchTests,
+    cacheResults,
+    noCache,
+  };
 }
 
-async function buildSteps(
-  fast: boolean,
-  staged: boolean,
-  verbose: boolean,
-  timeoutMs: number
-): Promise<Step[]> {
-  const quiet = !verbose && shouldSilentOnSuccess();
-  const steps: Step[] = [];
-  if (staged) {
-    steps.push({
-      name: "pre-commit",
-      cmd: ["bun", "run", "src/bin/kimi-githooks.ts", "run-gates", "pre-commit"],
-      silentOnSuccess: quiet,
-    });
-  }
-  if (!fast && (await isKimiToolchainRepo(REPO_ROOT))) {
-    steps.push({
-      name: "verify-workspace",
-      cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "workspace", "verify"],
-      silentOnSuccess: quiet,
-    });
-  }
-  steps.push(
-    {
-      name: "success-metrics",
-      cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "--success-metrics", "--json"],
-      silentOnSuccess: true,
-    },
-    {
-      name: "format:check",
-      cmd: ["bun", "run", "format:check"],
-      silentOnSuccess: quiet,
-    },
-    {
-      name: "lint",
-      cmd: ["bun", "run", "lint"],
-      silentOnSuccess: quiet,
-    },
-    {
-      name: "typecheck",
-      cmd: ["bun", "run", "typecheck"],
-      silentOnSuccess: quiet,
-    },
-    {
-      name: fast ? "test:fast" : "test",
-      cmd: ["bun", ...bunTestArgs({ fast, timeoutMs, bail: true, retry: 2, dots: quiet })],
-      // retry is applied here because Bun forbids [test] retry together with --rerun-each.
-      silentOnSuccess: quiet,
+async function runWithCache(options: CheckOptions): Promise<CheckRunResult> {
+  if (options.cacheResults && !options.noCache) {
+    const key = await computeCheckCacheKey(REPO_ROOT, options);
+    if (key) {
+      const cached = await loadCheckCache(REPO_ROOT, key);
+      if (cached) return cached;
     }
-  );
-  return steps;
-}
-
-async function runStep(step: Step): Promise<number> {
-  if (step.silentOnSuccess) {
-    return runCheckStep(step.name, step.cmd, REPO_ROOT);
   }
-  const proc = Bun.spawn(step.cmd, {
-    cwd: REPO_ROOT,
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  return await proc.exited;
+
+  const result = await runCheckPipeline(REPO_ROOT, options);
+
+  if (options.cacheResults && !options.dryRun) {
+    const key = await computeCheckCacheKey(REPO_ROOT, options);
+    if (key) await saveCheckCache(REPO_ROOT, key, result);
+  }
+
+  return result;
 }
 
 async function main() {
   ensureQuietEnv();
-  const { dryRun, fast, staged, verbose, timeoutMs } = parseCli();
-  const steps = await buildSteps(fast, staged, verbose, timeoutMs);
+  const options = parseCli();
 
-  if (dryRun) {
-    const mode = staged ? "(staged fast) " : fast ? "(fast) " : "";
-    const quiet = !verbose && shouldSilentOnSuccess() ? "(quiet) " : "";
-    console.log(`check ${mode}${quiet}— dry run`);
-    console.log(`  test timeout: ${timeoutMs}ms`);
-    for (const step of steps) {
-      console.log(`  → ${step.cmd.join(" ")}`);
-    }
+  if (options.dryRun && options.watch) {
+    if (options.watchTests) printWatchTestsDryRun();
+    else printWatchDryRun();
+    const { steps, changedFiles } = await prepareDryRunSteps(REPO_ROOT, options);
+    printCheckDryRun(options, steps, changedFiles);
     return;
   }
 
-  const testStep = steps.find((s) => s.name === "test" || s.name === "test:fast");
-  const independentSteps = steps.filter((s) => s !== testStep);
-
-  const independentResults = await Promise.all(independentSteps.map(runStep));
-  const firstFail = independentResults.find((c) => c !== 0);
-  if (firstFail !== undefined) process.exit(firstFail);
-
-  if (testStep) {
-    const testCode = await runStep(testStep);
-    if (testCode !== 0) process.exit(testCode);
+  if (options.dryRun) {
+    const { steps, changedFiles } = await prepareDryRunSteps(REPO_ROOT, options);
+    printCheckDryRun(options, steps, changedFiles);
+    return;
   }
+
+  if (options.watch) {
+    const run = options.watchTests
+      ? (opts: CheckOptions) => runTestOnlyPipeline(REPO_ROOT, opts)
+      : runWithCache;
+    const cleanup = startCheckWatchMode(REPO_ROOT, options, run);
+    process.on("SIGINT", () => {
+      cleanup();
+      process.exit(0);
+    });
+    await new Promise(() => {});
+    return;
+  }
+
+  const result = await runWithCache(options);
+  printCheckResult(result, options);
+  if (!result.passed) process.exit(1);
 }
 
 main().catch((err) => {

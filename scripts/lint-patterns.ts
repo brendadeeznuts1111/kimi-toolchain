@@ -7,7 +7,7 @@
  * - process.exit in src/lib/
  */
 
-import { join, relative } from "path";
+import { join } from "path";
 import { readTextAsync } from "../src/lib/bun-io.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -19,77 +19,108 @@ const LIB_CONSOLE_ALLOW = new Set([
 const SCAN_GLOB = new Bun.Glob("src/**/*.ts");
 const SKIP_DIRS = new Set(["node_modules", ".git", "coverage"]);
 
-interface Violation {
+export interface PatternViolation {
   file: string;
   line: number;
   rule: string;
   snippet: string;
 }
 
-async function main() {
-  const violations: Violation[] = [];
+function scanFile(rel: string, text: string): PatternViolation[] {
+  const violations: PatternViolation[] = [];
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineNo = i + 1;
 
-  for await (const rel of SCAN_GLOB.scan({ cwd: REPO_ROOT, onlyFiles: true })) {
-    if (rel.split("/").some((seg) => SKIP_DIRS.has(seg))) continue;
-
-    const path = join(REPO_ROOT, rel);
-    let text: string;
-    try {
-      text = await readTextAsync(path);
-    } catch {
-      continue;
-    }
-
-    const lines = text.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const lineNo = i + 1;
-
-      if (rel.startsWith("src/lib/") && !LIB_CONSOLE_ALLOW.has(rel)) {
-        if (/console\.(log|warn|error)\(/.test(line)) {
-          violations.push({
-            file: rel,
-            line: lineNo,
-            rule: "no-console-in-lib",
-            snippet: line.trim().slice(0, 120),
-          });
-        }
-        if (/process\.exit\(/.test(line)) {
-          violations.push({
-            file: rel,
-            line: lineNo,
-            rule: "no-process-exit-in-lib",
-            snippet: line.trim().slice(0, 120),
-          });
-        }
-      }
-
-      if (rel.startsWith("src/bin/")) {
-        if (/console\.(log|warn|error)\(/.test(line)) {
-          violations.push({
-            file: rel,
-            line: lineNo,
-            rule: "no-console-in-bin",
-            snippet: line.trim().slice(0, 120),
-          });
-        }
-      }
-
-      if (rel.startsWith("src/") && /\brequire\s*\(/.test(line) && !line.trim().startsWith("//")) {
+    if (rel.startsWith("src/lib/") && !LIB_CONSOLE_ALLOW.has(rel)) {
+      if (/console\.(log|warn|error)\(/.test(line)) {
         violations.push({
           file: rel,
           line: lineNo,
-          rule: "no-require-in-esm",
+          rule: "no-console-in-lib",
+          snippet: line.trim().slice(0, 120),
+        });
+      }
+      if (/process\.exit\(/.test(line)) {
+        violations.push({
+          file: rel,
+          line: lineNo,
+          rule: "no-process-exit-in-lib",
           snippet: line.trim().slice(0, 120),
         });
       }
     }
+
+    if (rel.startsWith("src/bin/")) {
+      if (/console\.(log|warn|error)\(/.test(line)) {
+        violations.push({
+          file: rel,
+          line: lineNo,
+          rule: "no-console-in-bin",
+          snippet: line.trim().slice(0, 120),
+        });
+      }
+    }
+
+    if (rel.startsWith("src/") && /\brequire\s*\(/.test(line) && !line.trim().startsWith("//")) {
+      violations.push({
+        file: rel,
+        line: lineNo,
+        rule: "no-require-in-esm",
+        snippet: line.trim().slice(0, 120),
+      });
+    }
   }
+  return violations;
+}
+
+export async function lintPatternViolations(
+  root: string = REPO_ROOT,
+  onlyFiles?: string[]
+): Promise<PatternViolation[]> {
+  const violations: PatternViolation[] = [];
+
+  if (onlyFiles !== undefined) {
+    for (const rel of onlyFiles) {
+      if (!rel.startsWith("src/") || !rel.endsWith(".ts")) continue;
+      if (rel.split("/").some((seg) => SKIP_DIRS.has(seg))) continue;
+      let text: string;
+      try {
+        text = await readTextAsync(join(root, rel));
+      } catch {
+        continue;
+      }
+      violations.push(...scanFile(rel, text));
+    }
+    return violations;
+  }
+
+  for await (const rel of SCAN_GLOB.scan({ cwd: root, onlyFiles: true })) {
+    if (rel.split("/").some((seg) => SKIP_DIRS.has(seg))) continue;
+    let text: string;
+    try {
+      text = await readTextAsync(join(root, rel));
+    } catch {
+      continue;
+    }
+    violations.push(...scanFile(rel, text));
+  }
+
+  return violations;
+}
+
+async function main() {
+  const fileArgs = Bun.argv.slice(2).filter((arg) => !arg.startsWith("-"));
+  const violations = await lintPatternViolations(
+    REPO_ROOT,
+    fileArgs.length > 0 ? fileArgs : undefined
+  );
 
   if (violations.length > 0) {
     console.error("✗ Pattern violations found:\n");
     for (const v of violations) {
-      console.error(`  ${relative(REPO_ROOT, v.file)}:${v.line} [${v.rule}]`);
+      console.error(`  ${v.file}:${v.line} [${v.rule}]`);
       console.error(`    ${v.snippet}\n`);
     }
     process.exit(1);
