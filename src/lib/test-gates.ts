@@ -15,6 +15,7 @@ export const UNIT_TEST_FILES = [
   "test/test-gates.unit.test.ts",
   "test/sync-drift.unit.test.ts",
   "test/readme-sync.unit.test.ts",
+  "test/context-bloat-lint.unit.test.ts",
   "test/path-alignment.unit.test.ts",
   "test/workspace-known-blockers.unit.test.ts",
   "test/mcp-config.unit.test.ts",

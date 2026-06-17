@@ -243,7 +243,7 @@ Pane targets for orchestrator commands must be **workspace-scoped** (e.g. `wB:p1
 ## Related docs
 
 - [Production validation scope](./SCOPE.md) — full orchestration acceptance checklist
-- [Herdr debug without session](./herdr-debug-no-session.md) — dry-run / `--skip-git` isolation
+- Finish-work gate-only — `bun run finish-work --skip-git` (see [TEMPLATES.md](../TEMPLATES.md) finish-work section)
 - [Herdr socket API](https://herdr.dev/docs/socket-api/) — `pane.get`, `report_agent`, `report_metadata`
 
 ---

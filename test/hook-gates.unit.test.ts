@@ -2,11 +2,8 @@ import { describe, expect, it, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import {
-  prePushRunsInParallel,
-  runConstantDriftGate,
-  syncWillWrite,
-} from "../src/lib/hook-gates.ts";
+import { prePushRunsInParallel, runConstantDriftGate } from "../src/lib/hook-gates.ts";
+import { detectSyncDrift } from "../src/lib/sync-hashes.ts";
 import { writeConstantsGolden } from "../src/lib/constants-heal.ts";
 
 describe("hook-gates constant drift", () => {
@@ -16,7 +13,7 @@ describe("hook-gates constant drift", () => {
   beforeEach(() => {
     previousSkip = Bun.env.KIMI_SKIP_CONSTANT_DRIFT_GATE;
     delete Bun.env.KIMI_SKIP_CONSTANT_DRIFT_GATE;
-    projectDir = join(tmpdir(), `hook-gates-drift-${Date.now()}`);
+    projectDir = join(tmpdir(), `hook-gates-drift-${Bun.randomUUIDv7()}`);
     mkdirSync(join(projectDir, ".git"), { recursive: true });
     writeFileSync(
       join(projectDir, "package.json"),
@@ -97,7 +94,7 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
     else Bun.env.KIMI_PRE_PUSH_SERIAL = previous;
   });
 
-  it("syncWillWrite is false when desktop runtime is already synced", async () => {
+  it("detectSyncDrift is clean for minimal toolchain stub (no managed sources)", async () => {
     writeFileSync(
       join(projectDir, "bunfig.toml"),
       `
@@ -106,8 +103,10 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
 `
     );
     await writeConstantsGolden(projectDir);
-    const willWrite = await syncWillWrite(projectDir);
-    expect(willWrite).toBe(false);
+    const report = await detectSyncDrift(projectDir);
+    expect(report.synced).toBe(true);
+    expect(report.drifted).toHaveLength(0);
+    expect(report.missing).toHaveLength(0);
   });
 
   it("should skip when golden is missing", async () => {
