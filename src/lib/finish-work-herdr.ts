@@ -99,11 +99,9 @@ export interface FinishWorkReport {
   };
 }
 
-export const FINISH_WORK_REPORT_FILENAME = "finish-work-report.json";
+import { FINISH_WORK_REPORT_FILENAME, finishWorkReportPath } from "./finish-work-report-schema.ts";
 
-export function finishWorkReportPath(projectRoot: string): string {
-  return join(projectRoot, ".kimi", FINISH_WORK_REPORT_FILENAME);
-}
+export { FINISH_WORK_REPORT_FILENAME, finishWorkReportPath };
 
 /** Probe IDs for orchestrator handoff rules (`probe:<id>` or bare `finish-work:<outcome>`). */
 export const FINISH_WORK_PROBE_IDS = [

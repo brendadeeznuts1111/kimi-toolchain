@@ -3,7 +3,7 @@
  */
 
 import { pathExists, readText } from "./bun-io.ts";
-import { finishWorkReportPath } from "./finish-work-herdr.ts";
+import { finishWorkReportPath } from "./finish-work-report-schema.ts";
 import {
   FINISH_WORK_REPORT_PUBLIC_SCHEMA_VERSION,
   gateStatusFromPublicEntry,

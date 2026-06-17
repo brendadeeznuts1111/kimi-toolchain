@@ -8,7 +8,7 @@
  */
 
 import { pathExists, readText } from "./bun-io.ts";
-import { finishWorkReportPath } from "./finish-work-herdr.ts";
+import { finishWorkReportPath } from "./finish-work-report-schema.ts";
 import { gitRevParse } from "./git-helpers.ts";
 
 /** Minimal agent fields required for `pane.*` when evaluation. */

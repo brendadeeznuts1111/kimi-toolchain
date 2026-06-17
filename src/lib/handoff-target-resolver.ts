@@ -8,7 +8,7 @@ import {
   type HandoffRule,
   type HandoffTargetStrategy,
 } from "./herdr-orchestrator-config.ts";
-import type { AgentSnapshot, LeastBusyScore } from "./herdr-orchestrator.ts"; // type-only — no runtime cycle
+import type { AgentSnapshot, LeastBusyScore } from "./herdr-agent-snapshot.ts";
 
 export function agentsInWorkspace(
   workspaceId: string,

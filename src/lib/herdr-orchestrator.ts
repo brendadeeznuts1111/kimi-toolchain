@@ -12,6 +12,7 @@ import {
   normalizeFinishWorkReport,
   type FinishWorkReport,
 } from "./finish-work-herdr.ts";
+import { finishWorkReportPath } from "./finish-work-report-schema.ts";
 import {
   evaluateWhenConditions,
   isReportWhenRule,
@@ -41,16 +42,8 @@ import {
   type ResolvedRemoteHost,
 } from "./herdr-orchestrator-config.ts";
 
-export type AgentStatus = "idle" | "working" | "blocked" | "done" | "unknown";
-
-export interface AgentSnapshot {
-  paneId: string;
-  agent: string;
-  status: AgentStatus;
-  workspaceId: string;
-  tabId?: string;
-  customStatus?: string;
-}
+export type { AgentSnapshot, AgentStatus, LeastBusyScore } from "./herdr-agent-snapshot.ts";
+import type { AgentSnapshot, AgentStatus, LeastBusyScore } from "./herdr-agent-snapshot.ts";
 
 /** A remote Herdr session discovered via SSH. */
 export interface RemoteSession {
@@ -96,10 +89,6 @@ export interface OrchestratorReactResult {
 
 function statePath(projectRoot: string) {
   return join(projectRoot, ".kimi", "herdr-orchestrator-state.json");
-}
-
-function finishWorkReportPath(projectRoot: string) {
-  return join(projectRoot, ".kimi", "finish-work-report.json");
 }
 
 export function readState(projectRoot: string, workspaceId: string): OrchestratorState | null {
@@ -572,12 +561,6 @@ export function getRestoreReadiness(
       detail: `integration ${name} v${integ.version} (native session restore supported)`,
     };
   };
-}
-
-export interface LeastBusyScore {
-  agent: AgentSnapshot;
-  score: number;
-  breakdown: string;
 }
 
 /** Custom-status penalty weights — higher = less desirable for handoff. */

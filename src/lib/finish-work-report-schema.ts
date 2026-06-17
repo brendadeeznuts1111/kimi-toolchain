@@ -3,7 +3,14 @@
  * Validated without Zod — matches repo minimal-deps policy.
  */
 
+import { join } from "path";
 import { LATM_DONE_MARKER } from "./herdr-latm.ts";
+
+export const FINISH_WORK_REPORT_FILENAME = "finish-work-report.json";
+
+export function finishWorkReportPath(projectRoot: string): string {
+  return join(projectRoot, ".kimi", FINISH_WORK_REPORT_FILENAME);
+}
 
 export const FINISH_WORK_REPORT_PUBLIC_SCHEMA_VERSION = "1.1";
 
