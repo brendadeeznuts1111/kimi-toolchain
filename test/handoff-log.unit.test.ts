@@ -86,4 +86,43 @@ describe("handoff-log", () => {
     expect(decompressed).toContain("x".repeat(300));
     expect(decompressed).toBe(preRotationContent);
   });
+
+  test("getHandoffHistory reads from both live log and rotation archives", () => {
+    tempDir = mkdtempSync(join(tmpdir(), "handoff-log-"));
+    const logPath = join(tempDir, "handoff-log.jsonl");
+    configureHandoffLog({ path: logPath, enabled: true, maxBytes: 256 });
+
+    // Phase 1: write a pre-rotation entry directly to the log
+    const preEntry = JSON.stringify({
+      timestamp: "2025-01-01T00:00:00.000Z",
+      seq: 99,
+      workspace: "old-workspace",
+      agent: "archive-agent",
+      rule: 1,
+      trigger: "manual",
+      action: "handoff",
+      detail: "this should be archived",
+      ok: true,
+      checksum: "abc",
+    });
+    writeFileSync(logPath, `${preEntry}\n${"y".repeat(300)}\n`, "utf8");
+
+    // Phase 2: logHandoff triggers rotation, archiving the old content
+    logHandoff({
+      workspace: "w1",
+      agent: "live-agent",
+      rule: 2,
+      trigger: "react",
+      action: "spawn",
+      detail: "post-rotation entry",
+      ok: true,
+    });
+
+    // Phase 3: getHandoffHistory should return entries from BOTH the archive AND the live log
+    const history = getHandoffHistory(50);
+    const agents = history.map((e) => e.agent);
+    expect(agents).toContain("archive-agent");
+    expect(agents).toContain("live-agent");
+    expect(history.length).toBeGreaterThanOrEqual(2);
+  });
 });
