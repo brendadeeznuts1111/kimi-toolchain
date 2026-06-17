@@ -9,6 +9,7 @@ import {
   writeBytes,
   writeText,
 } from "./bun-io.ts";
+import { parseNdjsonText } from "./ndjson.ts";
 
 import { gzipBytes, gunzipText } from "./bun-utils.ts";
 import { homeDir } from "./paths.ts";
@@ -175,18 +176,18 @@ export function getHandoffHistory(limit = 20): HandoffLogEntry[] {
   return allEntries.slice(0, limit);
 }
 
-/** Parse raw JSONL text into entries (shared by live-log and archive readers). */
+function isHandoffLogEntry(value: unknown): value is HandoffLogEntry {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as HandoffLogEntry).timestamp === "string" &&
+    typeof (value as HandoffLogEntry).seq === "number"
+  );
+}
+
+/** Parse raw JSONL text into entries (Bun.JSONL when available). */
 function readLogLines(raw: string): HandoffLogEntry[] {
-  const lines = raw.trim().split("\n").filter(Boolean);
-  return lines
-    .map((line) => {
-      try {
-        return JSON.parse(line) as HandoffLogEntry;
-      } catch {
-        return null;
-      }
-    })
-    .filter((e): e is HandoffLogEntry => e !== null);
+  return parseNdjsonText<HandoffLogEntry>(raw, isHandoffLogEntry);
 }
 
 // Update readLogFile to delegate to readLogLines

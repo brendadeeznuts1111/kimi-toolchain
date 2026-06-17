@@ -169,12 +169,19 @@ export function createDashboardConsoleMirror(): (type: string, ...args: unknown[
   return new DashboardConsole().webViewHandler();
 }
 
-function waitForShutdown(): Promise<void> {
-  return new Promise((resolve) => {
-    const onSignal = () => resolve();
-    process.on("SIGINT", onSignal);
-    process.on("SIGTERM", onSignal);
-  });
+async function waitForShutdown(): Promise<void> {
+  const controller = new AbortController();
+  const onSignal = () => controller.abort();
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
+  try {
+    while (!controller.signal.aborted) {
+      await Bun.sleep(60_000);
+    }
+  } finally {
+    process.off("SIGINT", onSignal);
+    process.off("SIGTERM", onSignal);
+  }
 }
 
 function ipcBridgeHandler(projectPath: string, onIpc?: (command: DashboardIpcCommand) => void) {

@@ -49,7 +49,13 @@ describe("test-gates", () => {
       "--coverage",
       "--reporter=junit",
       "--reporter-outfile=reports/junit.xml",
+      "--isolate",
     ]);
+  });
+
+  test("bunTestArgs smoke mode enables per-file isolation", () => {
+    const args = bunTestArgs({ smoke: true, bail: true });
+    expect(args).toContain("--isolate");
   });
 
   test("bunTestArgs retry option adds --retry", () => {

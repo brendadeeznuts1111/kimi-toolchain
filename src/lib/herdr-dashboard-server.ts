@@ -3,6 +3,12 @@
  */
 
 import { join } from "path";
+import {
+  bunImageSupported,
+  DASHBOARD_THUMB_HEIGHT,
+  DASHBOARD_THUMB_WIDTH,
+  dashboardWebpThumbnail,
+} from "./bun-image.ts";
 import { pathExists, readText } from "./bun-io.ts";
 import { inspectAgent } from "./inspect.ts";
 import {
@@ -24,6 +30,8 @@ export interface HerdrDashboardServerOptions extends DashboardFetchOptions {
   dryRun?: boolean;
   pollHintMs?: number;
   onIpc?: (result: ReturnType<typeof runDashboardIpcCommand>) => void;
+  /** Optional PNG supplier for `/api/thumbnail` when no cached screenshot is set. */
+  screenshotProvider?: () => Promise<Uint8Array | null>;
 }
 
 export interface HerdrDashboardServerHandle {
@@ -31,6 +39,8 @@ export interface HerdrDashboardServerHandle {
   hostname: string;
   url: string;
   hub: HerdrDashboardHub;
+  /** Cache a dashboard PNG for `/api/thumbnail` encoding. */
+  setScreenshotPng: (png: Uint8Array) => void;
   stop: () => void;
 }
 
@@ -100,6 +110,8 @@ export function startHerdrDashboardServer(
   });
   hub.start();
 
+  let screenshotPng: Uint8Array | null = null;
+
   const server = Bun.serve({
     hostname,
     port,
@@ -122,7 +134,38 @@ export function startHerdrDashboardServer(
           sse: true,
           staleMs: 15_000,
           dryRun: options.dryRun ?? false,
+          thumbnail: bunImageSupported(),
+          thumbnailPath: "/api/thumbnail",
         });
+      }
+
+      if (path === "/api/thumbnail") {
+        if (!bunImageSupported()) {
+          return jsonResponse({ ok: false, error: "Bun.Image unavailable" }, 503);
+        }
+        const png =
+          screenshotPng ?? (options.screenshotProvider ? await options.screenshotProvider() : null);
+        if (!png) {
+          return jsonResponse({ ok: false, error: "no screenshot available" }, 404);
+        }
+        const width = Number(url.searchParams.get("width") || String(DASHBOARD_THUMB_WIDTH));
+        const height = Number(url.searchParams.get("height") || String(DASHBOARD_THUMB_HEIGHT));
+        const quality = Number(url.searchParams.get("quality") || "80");
+        try {
+          const webp = await dashboardWebpThumbnail(png, { width, height, quality });
+          if (!webp) {
+            return jsonResponse({ ok: false, error: "thumbnail encode failed" }, 500);
+          }
+          return new Response(webp, {
+            headers: {
+              "content-type": "image/webp",
+              "cache-control": "no-store",
+            },
+          });
+        } catch (e: unknown) {
+          const message = e instanceof Error ? e.message : String(e);
+          return jsonResponse({ ok: false, error: message }, 500);
+        }
       }
 
       if (path === "/api/agents") {
@@ -191,6 +234,9 @@ export function startHerdrDashboardServer(
     hostname,
     url: `http://${hostname}:${boundPort}/`,
     hub,
+    setScreenshotPng: (png: Uint8Array) => {
+      screenshotPng = png;
+    },
     stop: () => {
       hub.stop();
       server.stop();

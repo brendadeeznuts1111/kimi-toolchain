@@ -17,6 +17,7 @@ import { join } from "path";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { makeDir, pathExists } from "../src/lib/bun-io.ts";
 import { bunTestArgs } from "../src/lib/test-gates.ts";
+import { withBunNoOrphans } from "../src/lib/tool-runner.ts";
 import { formatTestSummaryLine } from "../src/lib/gate-runner.ts";
 import { ensureQuietEnv, isQuietMode } from "../src/lib/quiet-mode.ts";
 
@@ -42,7 +43,7 @@ async function main() {
     if (!pathExists(reportsDir)) makeDir(reportsDir, { recursive: true });
   }
 
-  const cmd = [
+  const cmd = withBunNoOrphans([
     "bun",
     ...bunTestArgs({
       fast,
@@ -53,7 +54,7 @@ async function main() {
       retry: 2,
       dots: quiet,
     }),
-  ];
+  ]);
 
   if (!quiet) {
     const proc = Bun.spawn(cmd, {

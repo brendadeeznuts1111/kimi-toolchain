@@ -122,6 +122,10 @@ function parseArgs(argv: string[]) {
       const idx = args.indexOf("--screenshot");
       return idx >= 0 ? args[idx + 1] || "" : "";
     })(),
+    dashboardThumbnail: (() => {
+      const idx = args.indexOf("--thumbnail");
+      return idx >= 0 ? args[idx + 1] || "" : "";
+    })(),
     dashboardPersistProfile: args.includes("--persist-profile"),
     dashboardProbe: args.includes("--probe"),
     port: (() => {
@@ -193,6 +197,7 @@ Flags:
   --webview           Open Bun.WebView dashboard (implies --serve)
   --backend <b>       WebView backend: webkit (macOS default) or chrome
   --screenshot <path> Headless WebView PNG capture (implies --serve)
+  --thumbnail <path>  WebP thumbnail via Bun.Image (with --screenshot)
   --probe             With --screenshot: also click first Attach button
   --persist-profile   Reuse ~/.kimi-code/var/herdr-dashboard-webview profile
   --port <n>          Dashboard server port (default 18412)
@@ -218,6 +223,7 @@ const {
   dashboardWebview,
   dashboardBackend,
   dashboardScreenshot,
+  dashboardThumbnail,
   dashboardPersistProfile,
   dashboardProbe,
   port: dashboardPort,
@@ -1493,6 +1499,7 @@ try {
         const result = await captureHerdrDashboardScreenshot({
           ...serverOpts,
           outputPath: dashboardScreenshot,
+          thumbnailPath: dashboardThumbnail || undefined,
           backend: dashboardBackend,
           persistProfile: dashboardPersistProfile,
           clickAttach: dashboardProbe,
@@ -1500,8 +1507,12 @@ try {
         if (json) {
           writeJson(result);
         } else {
+          const thumb =
+            result.thumbnailPath && result.thumbnailBytes
+              ? ` thumb=${result.thumbnailPath} (${result.thumbnailBytes}b)`
+              : "";
           writeOut(
-            `[dashboard] screenshot ${result.outputPath} (${result.screenshotBytes} bytes, ready=${result.ready}, agents=${result.agentRows})`
+            `[dashboard] screenshot ${result.outputPath} (${result.screenshotBytes} bytes, ready=${result.ready}, agents=${result.agentRows})${thumb}`
           );
         }
         process.exit(result.ok ? 0 : 1);

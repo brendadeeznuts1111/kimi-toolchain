@@ -8,6 +8,7 @@ import {
   inspectHuman,
   inspectStream,
   stripANSI,
+  sliceAnsi,
   wrapAnsi,
 } from "../src/lib/inspect.ts";
 
@@ -157,6 +158,18 @@ describe("inspect", () => {
 
     test("leaves plain text unchanged", () => {
       expect(stripANSI("plain text")).toBe("plain text");
+    });
+  });
+
+  describe("sliceAnsi", () => {
+    test("truncates wide text with ellipsis at display width", () => {
+      const truncated = sliceAnsi("你好世界", 0, 5, "…");
+      expect(truncated.endsWith("…")).toBe(true);
+    });
+
+    test("preserves ANSI codes when slicing", () => {
+      const colored = "\u001b[31mhello\u001b[0m";
+      expect(sliceAnsi(colored, 1, 4)).toContain("ell");
     });
   });
 

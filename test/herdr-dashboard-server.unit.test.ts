@@ -7,6 +7,7 @@ import {
   runDashboardAgentAction,
   runDashboardIpcCommand,
 } from "../src/lib/herdr-dashboard-data.ts";
+import { bunImageSupported } from "../src/lib/bun-image.ts";
 import {
   resolveHerdrDashboardHtmlPath,
   startHerdrDashboardServer,
@@ -69,11 +70,17 @@ describe("herdr-dashboard-server", () => {
         projectPath: string;
         pollHintMs: number;
         sse?: boolean;
+        thumbnail?: boolean;
+        thumbnailPath?: string;
       };
       expect(meta.ok).toBe(true);
       expect(meta.projectPath).toBe(REPO_ROOT);
       expect(meta.pollHintMs).toBe(5000);
       expect(meta.sse).toBe(true);
+      if (bunImageSupported()) {
+        expect(meta.thumbnail).toBe(true);
+        expect(meta.thumbnailPath).toBe("/api/thumbnail");
+      }
     } finally {
       server.stop();
     }
@@ -128,5 +135,37 @@ describe("herdr-dashboard-server", () => {
     const path = resolveHerdrDashboardHtmlPath();
     expect(path).toContain("herdr-dashboard.html");
     expect(pathExists(path)).toBe(true);
+  });
+
+  test("dashboard server serves WebP thumbnail from cached PNG", async () => {
+    if (!bunImageSupported()) return;
+
+    const tinyPng = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      ),
+      (c) => c.charCodeAt(0)
+    );
+    const server = startHerdrDashboardServer({
+      projectPath: REPO_ROOT,
+      port: 0,
+      sessions: false,
+    });
+    try {
+      server.setScreenshotPng(tinyPng);
+      const res = (await fetch(`${server.url}api/thumbnail`)) as unknown as {
+        status: number;
+        headers: { get(name: string): string | null };
+        body: ReadableStream<Uint8Array>;
+      };
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/webp");
+      const bytes = new Uint8Array(await Bun.readableStreamToArrayBuffer(res.body));
+      expect(bytes.byteLength).toBeGreaterThan(10);
+      expect(bytes[0]).toBe(0x52);
+      expect(bytes[1]).toBe(0x49);
+    } finally {
+      server.stop();
+    }
   });
 });

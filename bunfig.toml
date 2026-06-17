@@ -1,6 +1,10 @@
 [install]
 saveTextLockfile = true
 
+# v1.3.14 — reap orphan child processes when parent exits (macOS/Linux)
+[run]
+noOrphans = true
+
 # Build-time constants — SSOT for contract inference, hook verification, self-healing tuning.
 # Naming: CODE_REFERENCES.md § Build-time constants (defineDomain ≠ taxonomyId)
 # Types: types/build-constants.d.ts · Lint: scripts/lint-build-constants.ts

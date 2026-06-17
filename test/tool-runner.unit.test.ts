@@ -10,6 +10,7 @@ import {
   resolveToolSpawnTimeoutMs,
   runTool,
   toolsDir,
+  withBunNoOrphans,
 } from "../src/lib/tool-runner.ts";
 
 function tmpScript(content: string): string {
@@ -23,6 +24,17 @@ function tmpScript(content: string): string {
 describe("tool-runner", () => {
   test("toolsDir points under ~/.kimi-code/tools", () => {
     expect(toolsDir()).toContain(".kimi-code/tools");
+  });
+
+  test("withBunNoOrphans prepends flag once for bun commands", () => {
+    expect(withBunNoOrphans(["bun", "test"])).toEqual(["bun", "--no-orphans", "test"]);
+    expect(withBunNoOrphans(["bun", "--no-orphans", "run", "x.ts"])).toEqual([
+      "bun",
+      "--no-orphans",
+      "run",
+      "x.ts",
+    ]);
+    expect(withBunNoOrphans(["node", "script.js"])).toEqual(["node", "script.js"]);
   });
 
   test("runTool throws when tool file is missing", async () => {

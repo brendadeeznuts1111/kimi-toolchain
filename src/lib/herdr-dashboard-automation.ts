@@ -4,6 +4,7 @@
  * @see https://bun.sh/docs/runtime/webview
  */
 
+import { bunImageSupported, dashboardWebpThumbnail } from "./bun-image.ts";
 import { makeDir } from "./bun-io.ts";
 import type { DashboardIpcCommand } from "./herdr-dashboard-data.ts";
 import {
@@ -23,7 +24,6 @@ export const DASHBOARD_TITLE_MARKER = "Herdr Orchestrator Dashboard";
 export const DASHBOARD_READY_EVAL = "Boolean(window.__HERDR_DASHBOARD_READY__)";
 export const AGENTS_BODY_SELECTOR = "#agents-body";
 export const AGENT_ATTACH_SELECTOR = `${AGENTS_BODY_SELECTOR} tr button[data-action="attach"]`;
-
 export interface HerdrDashboardAutomationOptions extends HerdrDashboardServerOptions {
   backend?: Bun.WebView.ConstructorOptions["backend"];
   dataStore?: Bun.WebView.ConstructorOptions["dataStore"];
@@ -33,6 +33,7 @@ export interface HerdrDashboardAutomationOptions extends HerdrDashboardServerOpt
   readyTimeoutMs?: number;
   clickAttach?: boolean;
   outputPath?: string;
+  thumbnailPath?: string;
   /** CDP event names to subscribe (Chrome backend only). */
   cdpEvents?: readonly string[];
   onCdp?: (method: string, params: unknown) => void;
@@ -45,6 +46,8 @@ export interface HerdrDashboardAutomationResult {
   ready: boolean;
   screenshotBytes: number;
   outputPath?: string;
+  thumbnailPath?: string;
+  thumbnailBytes?: number;
   agentRows: number;
   ipcCommands: DashboardIpcCommand[];
   clickAttachOk?: boolean;
@@ -140,6 +143,20 @@ export async function runHerdrDashboardAutomation(
       outputPath = options.outputPath;
     }
 
+    let thumbnailPath: string | undefined;
+    let thumbnailBytes: number | undefined;
+    if (bunImageSupported()) {
+      const thumb = await dashboardWebpThumbnail(png);
+      if (thumb) {
+        thumbnailBytes = thumb.byteLength;
+        server.setScreenshotPng(png);
+        if (options.thumbnailPath) {
+          await Bun.write(options.thumbnailPath, thumb);
+          thumbnailPath = options.thumbnailPath;
+        }
+      }
+    }
+
     return {
       ok: ready && title.includes(DASHBOARD_TITLE_MARKER),
       url,
@@ -147,6 +164,8 @@ export async function runHerdrDashboardAutomation(
       ready,
       screenshotBytes: png.byteLength,
       outputPath,
+      thumbnailPath,
+      thumbnailBytes,
       agentRows,
       ipcCommands,
       clickAttachOk,

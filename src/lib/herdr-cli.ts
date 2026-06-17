@@ -7,6 +7,7 @@
  */
 
 import { Effect } from "effect";
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 import {
   ensureJsonArgs,
@@ -61,7 +62,7 @@ export function herdrCli(args: string[], session?: string): Effect.Effect<string
       cmd: ["herdr", ...(resolved ? ["--session", resolved] : []), ...args],
       stdout: "pipe",
       stderr: "pipe",
-      env,
+      env: withNoOrphansEnv(env),
     });
 
     const exitCode = yield* Effect.promise(() => proc.exited);
@@ -105,7 +106,7 @@ export function herdrCliSync(args: string[], session?: string): string {
     cmd: ["herdr", ...(resolved ? ["--session", resolved] : []), ...args],
     stdout: "pipe",
     stderr: "pipe",
-    env,
+    env: withNoOrphansEnv(env),
   });
 
   const stdout = result.stdout ? new TextDecoder().decode(result.stdout).trim() : "";

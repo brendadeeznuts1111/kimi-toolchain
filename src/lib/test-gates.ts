@@ -20,6 +20,7 @@ export const UNIT_TEST_FILES = [
   "test/skill-table.unit.test.ts",
   "test/frontmatter.unit.test.ts",
   "test/webview-console.unit.test.ts",
+  "test/bun-image.unit.test.ts",
   "test/herdr-dashboard-server.unit.test.ts",
   "test/herdr-dashboard-hub.unit.test.ts",
   "test/herdr-dashboard-automation.unit.test.ts",
@@ -171,7 +172,10 @@ export function bunTestArgs(options: {
     args.push(...INTEGRATION_TEST_FILES);
   }
   if (options.smoke) {
-    args.push(...SMOKE_TEST_FILES);
+    args.push("--isolate", ...SMOKE_TEST_FILES);
+  }
+  if (options.ci && !options.fast) {
+    args.push("--isolate");
   }
   return args;
 }

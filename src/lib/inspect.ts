@@ -9,7 +9,7 @@ import { readableStreamToText } from "./bun-utils.ts";
  * - Use inspectAgent() for machine-facing / --json contracts (deterministic).
  * - Use inspectHuman() + formatTable() for human-readable doctor reports and logs.
  * - Use deepEqual() / deepEqualStrict() for config and constant alignment checks.
- * - Use stripANSI() / wrapAnsi() for plain-text logs or terminal dashboards.
+ * - Use stripANSI() / wrapAnsi() / sliceAnsi() for plain-text logs or terminal dashboards.
  * - Use customInspect when domain objects need custom inspection output.
  * - Use inspectStream() for non-blocking ReadableStream inspection.
  */
@@ -157,6 +157,12 @@ export function stripANSI(text: string): string {
 /** Wrap text at a given column width, respecting ANSI codes. */
 export function wrapAnsi(text: string, columns: number): string {
   return Bun.wrapAnsi(text, columns);
+}
+
+/** Slice or truncate text by terminal display width, preserving ANSI codes. */
+export function sliceAnsi(text: string, start?: number, end?: number, ellipsis?: string): string {
+  if (ellipsis === undefined) return Bun.sliceAnsi(text, start, end);
+  return Bun.sliceAnsi(text, start, end, ellipsis);
 }
 
 /** Symbol for custom inspection implementations. */

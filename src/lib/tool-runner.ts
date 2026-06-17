@@ -38,6 +38,15 @@ export function defaultToolTimeoutMs(): number {
 
 const LONG_RUNNING_TOOL_FLAGS = new Set(["--watch", "--mcp-server"]);
 
+/**
+ * Prepend `--no-orphans` to Bun CLI invocations so child trees die with the parent.
+ * Linux/macOS only; harmless when the flag is already present.
+ */
+export function withBunNoOrphans(command: string[]): string[] {
+  if (command[0] !== "bun" || command.includes("--no-orphans")) return command;
+  return ["bun", "--no-orphans", ...command.slice(1)];
+}
+
 /** Long-running tools (watch loops, MCP stdio servers) must not inherit the 30s router timeout. */
 export function resolveToolSpawnTimeoutMs(args: string[]): number {
   if (args.some((arg) => LONG_RUNNING_TOOL_FLAGS.has(arg) || arg.startsWith("--watch-interval"))) {
@@ -198,7 +207,7 @@ async function invokeCommandOnce(
 
   let proc: Bun.ReadableSubprocess;
   try {
-    proc = Bun.spawn(command, {
+    proc = Bun.spawn(withBunNoOrphans(command), {
       cwd,
       env: mergedEnv(options.env),
       stdout: "pipe",

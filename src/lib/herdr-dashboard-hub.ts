@@ -10,6 +10,7 @@ import {
   type DashboardFetchOptions,
 } from "./herdr-dashboard-data.ts";
 
+/** Sub-minute SSE poll — Bun.cron is minute-granularity; setInterval is intentional here. */
 export const DASHBOARD_SSE_INTERVAL_MS = 5000;
 export const DASHBOARD_STALE_MS = 15_000;
 
@@ -140,9 +141,10 @@ export class HerdrDashboardHub {
           this.enqueuePayload(controller, this.lastPayload);
           return;
         }
-        void this.refresh().then((payload) => {
+        void (async () => {
+          const payload = await this.refresh();
           this.enqueuePayload(controller, payload);
-        });
+        })();
       },
       cancel: () => {
         if (active) this.subscribers.delete(active);

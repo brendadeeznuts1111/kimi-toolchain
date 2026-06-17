@@ -3,6 +3,7 @@
  */
 
 import { join } from "path";
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
 import { readText } from "./bun-io.ts";
@@ -116,7 +117,7 @@ export async function fetchDashboardAgents(
     cwd: projectPath,
     stdout: "pipe",
     stderr: "pipe",
-    env: Bun.env,
+    env: withNoOrphansEnv(),
   });
   const [stdout, stderr, code] = await Promise.all([
     readableStreamToText(proc.stdout),

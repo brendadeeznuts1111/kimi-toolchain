@@ -4,23 +4,17 @@
 
 import { join } from "path";
 import { terminalWidth } from "./bun-utils.ts";
-import { customInspect, formatTable } from "./inspect.ts";
+import { customInspect, formatTable, sliceAnsi } from "./inspect.ts";
 import type { SkillCoverageRow } from "./skill-contract.ts";
 
 export type SkillTableSortMode = "name" | "layer" | "width";
 
 export const LOADED_BY_MAX_COLS = 28;
 
-/** Truncate text to fit a terminal column budget (Bun.stringWidth-aware). */
+/** Truncate text to fit a terminal column budget (Bun.sliceAnsi-aware). */
 export function truncateDisplay(text: string, maxCols: number): string {
   if (terminalWidth(text) <= maxCols) return text;
-  const ell = "…";
-  let out = "";
-  for (const ch of text) {
-    if (terminalWidth(out + ch + ell) > maxCols) break;
-    out += ch;
-  }
-  return out + ell;
+  return sliceAnsi(text, 0, maxCols, "…");
 }
 
 /** Sort skill table rows by name, layer, or skill display width. */
