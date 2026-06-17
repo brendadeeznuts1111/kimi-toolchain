@@ -29,6 +29,7 @@ import {
   type WorkspaceCheck,
 } from "./workspace-health.ts";
 import { auditHerdrToolHealth } from "./herdr-tool-health.ts";
+import { auditCanonicalReferencesHealth } from "./canonical-references.ts";
 
 export interface EcosystemCheck {
   name: string;
@@ -252,6 +253,22 @@ export async function auditEcosystemHealth(
     for (const step of herdrHealth.fixPlan) {
       if (!fixPlan.includes(step)) fixPlan.push(step);
     }
+
+    const refsHealth = await auditCanonicalReferencesHealth(projectRoot, home);
+    if (refsHealth.applicable) {
+      for (const check of refsHealth.checks) {
+        checks.push({
+          name: `canonical-references:${check.name}`,
+          status: check.status,
+          message: check.message,
+          source: "canonical-references",
+          fixable: check.fixable,
+        });
+      }
+      for (const step of refsHealth.fixPlan) {
+        if (!fixPlan.includes(step)) fixPlan.push(step);
+      }
+    }
   }
 
   const mcpReport = await validateMcpConfig(home, projectRoot);
@@ -423,7 +440,11 @@ export async function auditEcosystemHealth(
       if (
         check.name === "desktop-sync" ||
         check.name === "kimi-doctor-official" ||
-        check.source === "dx-github"
+        check.source === "dx-github" ||
+        (check.source === "canonical-references" &&
+          (check.name === "canonical-references:repo-fresh" ||
+            check.name === "canonical-references:runtime-aligned" ||
+            check.name === "canonical-references:runtime-cache"))
       ) {
         blockers++;
       }

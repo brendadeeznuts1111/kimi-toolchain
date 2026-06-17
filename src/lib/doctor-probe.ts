@@ -5,17 +5,37 @@
  * do without parsing help text.
  */
 
+import {
+  auditCanonicalReferencesHealth,
+  CANONICAL_REFERENCES_FILENAME,
+  type CanonicalReferencesManifest,
+} from "./canonical-references.ts";
 import { TOOLCHAIN_VERSION } from "./version.ts";
 import { listExternalToolAdapters } from "./external-tool-runner.ts";
 import { discoverDoctorPlugins, isInvalidPluginEntry } from "./doctor-plugins.ts";
-import { homeDir } from "./paths.ts";
+import { canonicalReferencesPath, homeDir } from "./paths.ts";
 
-export const DOCTOR_PROBE_SCHEMA_VERSION = 1;
+export const DOCTOR_PROBE_SCHEMA_VERSION = 2;
 
 export interface DoctorProbeCheck {
   type: "adapter" | "plugin" | "builtin";
   name: string;
   description?: string;
+}
+
+export interface DoctorProbeCanonicalReferences {
+  filename: string;
+  sourceModule: string;
+  repoPath: string;
+  runtimePath: string;
+  packagePointer: string;
+  generateCommand: string;
+  syncCommand: string;
+  ecosystemCount: number;
+  localDocsCount: number;
+  reposCount: number;
+  runtimeSynced: boolean;
+  manifest: CanonicalReferencesManifest | null;
 }
 
 export interface DoctorProbeManifest {
@@ -25,6 +45,7 @@ export interface DoctorProbeManifest {
   modes: DoctorProbeMode[];
   flags: DoctorProbeFlag[];
   checks: DoctorProbeCheck[];
+  canonicalReferences: DoctorProbeCanonicalReferences | null;
   supportsAutoFix: boolean;
   supportsJson: boolean;
   supportsPlugins: boolean;
@@ -78,6 +99,30 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
     name: "effect-gates",
     description: "Effect discipline gate scan",
   });
+  checks.push({
+    type: "builtin",
+    name: "canonical-references",
+    description: "Ecosystem link manifest freshness and ~/.kimi-code/ cache alignment",
+  });
+
+  const refsHealth = await auditCanonicalReferencesHealth(root, homeDir());
+  const manifest = refsHealth.repoManifest;
+  const canonicalReferences: DoctorProbeCanonicalReferences | null = refsHealth.applicable
+    ? {
+        filename: CANONICAL_REFERENCES_FILENAME,
+        sourceModule: "src/lib/canonical-references.ts",
+        repoPath: CANONICAL_REFERENCES_FILENAME,
+        runtimePath: canonicalReferencesPath(homeDir()),
+        packagePointer: "kimi.canonicalReferences",
+        generateCommand: "bun run references:generate",
+        syncCommand: "bun run sync",
+        ecosystemCount: manifest?.ecosystem.length ?? 0,
+        localDocsCount: manifest?.localDocs.length ?? 0,
+        reposCount: manifest?.repos.length ?? 0,
+        runtimeSynced: refsHealth.runtimeSynced,
+        manifest,
+      }
+    : null;
 
   return {
     schemaVersion: DOCTOR_PROBE_SCHEMA_VERSION,
@@ -213,6 +258,7 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
       },
     ],
     checks,
+    canonicalReferences,
     supportsAutoFix: true,
     supportsJson: true,
     supportsPlugins: true,

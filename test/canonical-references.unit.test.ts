@@ -1,15 +1,22 @@
 import { describe, expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "fs";
+import { join } from "path";
+import { tmpdir } from "os";
 import {
   CANONICAL_REFERENCES_SCHEMA_VERSION,
   ECOSYSTEM_REFERENCES,
   LOCAL_DOC_REFERENCES,
   REPO_REFERENCES,
+  auditCanonicalReferencesHealth,
   buildCanonicalReferencesManifest,
   ecosystemReferenceById,
   formatCanonicalReferencesMarkdown,
   isCanonicalReferencesManifest,
   manifestNeedsRefresh,
+  referencesContentEqual,
 } from "../src/lib/canonical-references.ts";
+
+const REPO_ROOT = import.meta.dir + "/..";
 
 describe("canonical-references", () => {
   test("ecosystem includes bun, effect, kimi-code, herdr", () => {
@@ -56,5 +63,48 @@ describe("canonical-references", () => {
     expect(md).toContain("https://effect.website/docs");
     expect(md).toContain("https://herdr.dev/docs/");
     expect(md).toContain("kimi-toolchain");
+  });
+
+  test("auditCanonicalReferencesHealth passes for aligned repo + runtime", async () => {
+    const tmpHome = join(tmpdir(), `refs-health-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
+    const manifest = buildCanonicalReferencesManifest();
+    writeFileSync(
+      join(tmpHome, ".kimi-code", "canonical-references.json"),
+      JSON.stringify(manifest, null, 2)
+    );
+
+    const report = await auditCanonicalReferencesHealth(REPO_ROOT, tmpHome);
+    expect(report.applicable).toBe(true);
+    expect(report.aligned).toBe(true);
+    expect(report.runtimeSynced).toBe(true);
+    expect(report.checks.find((c) => c.name === "repo-fresh")?.status).toBe("ok");
+    expect(report.checks.find((c) => c.name === "runtime-aligned")?.status).toBe("ok");
+
+    rmSync(tmpHome, { recursive: true, force: true });
+  });
+
+  test("auditCanonicalReferencesHealth detects runtime drift", async () => {
+    const tmpHome = join(tmpdir(), `refs-drift-${Bun.randomUUIDv7()}`);
+    mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
+    const drifted = { ...buildCanonicalReferencesManifest(), ecosystem: [] };
+    writeFileSync(
+      join(tmpHome, ".kimi-code", "canonical-references.json"),
+      JSON.stringify(drifted, null, 2)
+    );
+
+    const report = await auditCanonicalReferencesHealth(REPO_ROOT, tmpHome);
+    expect(report.aligned).toBe(false);
+    expect(report.runtimeSynced).toBe(false);
+    expect(report.checks.find((c) => c.name === "runtime-aligned")?.status).toBe("error");
+    expect(report.fixPlan).toContain("bun run sync");
+
+    rmSync(tmpHome, { recursive: true, force: true });
+  });
+
+  test("referencesContentEqual ignores generatedAt", () => {
+    const a = buildCanonicalReferencesManifest();
+    const b = { ...a, generatedAt: "1970-01-01T00:00:00.000Z", toolchainVersion: "9.9.9" };
+    expect(referencesContentEqual(a, b)).toBe(true);
   });
 });

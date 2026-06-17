@@ -4,6 +4,8 @@
  */
 
 import { join } from "path";
+import { pathExists } from "./bun-io.ts";
+import { canonicalReferencesPath } from "./paths.ts";
 import { TOOLCHAIN_VERSION } from "./version.ts";
 import { stableStringify } from "./build-constants-registry.ts";
 
@@ -220,18 +222,162 @@ export function isCanonicalReferencesManifest(val: unknown): val is CanonicalRef
   );
 }
 
-export async function readCanonicalReferencesManifest(
-  projectRoot: string
+export async function readCanonicalReferencesFile(
+  filePath: string
 ): Promise<CanonicalReferencesManifest | null> {
-  const file = Bun.file(repoCanonicalReferencesPath(projectRoot));
-  if (!(await file.exists())) return null;
-  const text = await file.text();
+  if (!pathExists(filePath)) return null;
   try {
-    const parsed: unknown = JSON.parse(text);
+    const parsed: unknown = await Bun.file(filePath).json();
     return isCanonicalReferencesManifest(parsed) ? parsed : null;
   } catch {
     return null;
   }
+}
+
+export async function readCanonicalReferencesManifest(
+  projectRoot: string
+): Promise<CanonicalReferencesManifest | null> {
+  return readCanonicalReferencesFile(repoCanonicalReferencesPath(projectRoot));
+}
+
+export interface CanonicalReferencesHealthCheck {
+  name: string;
+  status: "ok" | "warn" | "error";
+  message: string;
+  fixable: boolean;
+}
+
+export interface CanonicalReferencesHealthReport {
+  applicable: boolean;
+  aligned: boolean;
+  checks: CanonicalReferencesHealthCheck[];
+  fixPlan: string[];
+  repoManifest: CanonicalReferencesManifest | null;
+  runtimeManifest: CanonicalReferencesManifest | null;
+  runtimeSynced: boolean;
+}
+
+/** Verify repo manifest freshness and ~/.kimi-code/ cached copy alignment. */
+export async function auditCanonicalReferencesHealth(
+  projectRoot: string,
+  home?: string
+): Promise<CanonicalReferencesHealthReport> {
+  const checks: CanonicalReferencesHealthCheck[] = [];
+  const fixPlan: string[] = [];
+  const repoPath = repoCanonicalReferencesPath(projectRoot);
+  const runtimePath = canonicalReferencesPath(home);
+
+  if (!pathExists(repoPath)) {
+    return {
+      applicable: pathExists(join(projectRoot, "src/lib/canonical-references.ts")),
+      aligned: false,
+      checks: [
+        {
+          name: "repo-manifest",
+          status: "error",
+          message: `${CANONICAL_REFERENCES_FILENAME} missing — run bun run references:generate`,
+          fixable: true,
+        },
+      ],
+      fixPlan: ["bun run references:generate"],
+      repoManifest: null,
+      runtimeManifest: null,
+      runtimeSynced: false,
+    };
+  }
+
+  const generated = buildCanonicalReferencesManifest();
+  const repoManifest = await readCanonicalReferencesFile(repoPath);
+  if (!repoManifest) {
+    checks.push({
+      name: "repo-manifest",
+      status: "error",
+      message: `${CANONICAL_REFERENCES_FILENAME} invalid JSON or schema`,
+      fixable: true,
+    });
+    fixPlan.push("bun run references:generate");
+  } else if (manifestNeedsRefresh(generated, repoManifest)) {
+    checks.push({
+      name: "repo-fresh",
+      status: "error",
+      message: "repo manifest stale vs src/lib/canonical-references.ts",
+      fixable: true,
+    });
+    fixPlan.push("bun run references:generate");
+  } else {
+    checks.push({
+      name: "repo-fresh",
+      status: "ok",
+      message: "repo manifest matches source tables",
+      fixable: false,
+    });
+  }
+
+  const runtimeManifest = await readCanonicalReferencesFile(runtimePath);
+  if (!runtimeManifest) {
+    checks.push({
+      name: "runtime-cache",
+      status: "error",
+      message: "runtime cache missing at ~/.kimi-code/",
+      fixable: true,
+    });
+    fixPlan.push("bun run sync");
+  } else if (repoManifest && !referencesContentEqual(repoManifest, runtimeManifest)) {
+    checks.push({
+      name: "runtime-aligned",
+      status: "error",
+      message: "runtime cache drifted from repo manifest",
+      fixable: true,
+    });
+    fixPlan.push("bun run sync");
+  } else if (repoManifest) {
+    checks.push({
+      name: "runtime-aligned",
+      status: "ok",
+      message: "runtime cache matches repo manifest",
+      fixable: false,
+    });
+  }
+
+  const pkgPath = join(projectRoot, "package.json");
+  if (pathExists(pkgPath)) {
+    try {
+      const pkg = (await Bun.file(pkgPath).json()) as {
+        kimi?: { canonicalReferences?: string };
+      };
+      const pointer = pkg.kimi?.canonicalReferences;
+      if (pointer === CANONICAL_REFERENCES_FILENAME) {
+        checks.push({
+          name: "package-pointer",
+          status: "ok",
+          message: `package.json → kimi.canonicalReferences`,
+          fixable: false,
+        });
+      } else {
+        checks.push({
+          name: "package-pointer",
+          status: "warn",
+          message: "package.json kimi.canonicalReferences missing or mispointed",
+          fixable: true,
+        });
+      }
+    } catch {
+      // skip package parse errors
+    }
+  }
+
+  const aligned = checks.every((check) => check.status === "ok");
+  return {
+    applicable: true,
+    aligned,
+    checks,
+    fixPlan: [...new Set(fixPlan)],
+    repoManifest,
+    runtimeManifest,
+    runtimeSynced: Boolean(
+      repoManifest && runtimeManifest && referencesContentEqual(repoManifest, runtimeManifest)
+    ),
+  };
 }
 
 /** Compare link tables only — ignore generatedAt/toolchainVersion timestamps. */

@@ -244,6 +244,8 @@ Use this pattern when extending `kimi-doctor` with new agent-facing diagnostics.
 ### Probe manifest
 
 - `kimi-doctor --probe` emits `DoctorProbeManifest` from `src/lib/doctor-probe.ts`.
+- `canonicalReferences` embeds the full `canonical-references.json` manifest plus
+  `runtimeSynced` — agents discover Bun/Effect/Kimi/Herdr links without reading help text.
 - Bump `schemaVersion` only when the manifest shape changes; document the bump in
   `src/lib/doctor-probe.ts` and `CHANGELOG.md`.
 - The `checks` array must list every registered adapter, discovered plugin, and

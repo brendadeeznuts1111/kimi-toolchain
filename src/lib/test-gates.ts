@@ -90,6 +90,7 @@ export const UNIT_TEST_FILES = [
   "test/handoff-log.unit.test.ts",
   "test/governance-preflight.unit.test.ts",
   "test/canonical-references.unit.test.ts",
+  "test/doctor-probe.unit.test.ts",
 ] as const;
 
 /** Integration tests — included by full Bun discovery, not the fast unit gate. */

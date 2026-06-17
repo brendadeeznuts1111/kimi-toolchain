@@ -50,6 +50,26 @@ describe("ecosystem-health", () => {
     expect(syncCheck?.source).toBe("sync");
   }, 15_000);
 
+  test("includes canonical-references checks for toolchain repo", async () => {
+    const manifest = await Bun.file(join(REPO_ROOT, "canonical-references.json")).json();
+    mkdirSync(join(tmpHome, ".kimi-code"), { recursive: true });
+    writeFileSync(
+      join(tmpHome, ".kimi-code", "canonical-references.json"),
+      JSON.stringify(manifest, null, 2)
+    );
+
+    const report = await auditEcosystemHealth(REPO_ROOT, { home: tmpHome, quick: true });
+    const repoFresh = report.checks.find((c) => c.name === "canonical-references:repo-fresh");
+    const runtimeAligned = report.checks.find(
+      (c) => c.name === "canonical-references:runtime-aligned"
+    );
+
+    expect(repoFresh).toBeDefined();
+    expect(repoFresh?.source).toBe("canonical-references");
+    expect(runtimeAligned).toBeDefined();
+    expect(runtimeAligned?.status).toBe("ok");
+  }, 15_000);
+
   test("includes herdr tool health checks for toolchain repo", async () => {
     const report = await auditEcosystemHealth(REPO_ROOT, { home: tmpHome, quick: true });
     const herdrSync = report.checks.find((c) => c.name === "herdr-tools:desktop-sync");
