@@ -274,9 +274,18 @@ export function runDashboardAgentAction(request: DashboardActionRequest): Dashbo
 
 export interface DashboardCanvasEntry {
   id: string;
+  /** Canvas display name (e.g. "Doc links") — from CANVAS_ROUTING.page */
   page: string;
+  /** Repo-relative path (e.g. docs/canvases/doc-links-and-see-ladder.canvas.tsx) */
   path: string;
+  /** Manifest purpose string */
   purpose: string;
+  /** Canvas version (e.g. "0.1.0") — from CANVAS_ROUTING.version */
+  version?: string;
+  /** Canvas layer label (e.g. "Doc URL lint") — from CANVAS_ROUTING.layer */
+  layer?: string;
+  /** When-to-open hint (e.g. "@see ladder") — from CANVAS_ROUTING.openWhen */
+  openWhen?: string;
 }
 
 export interface DashboardCanvasesPayload {
@@ -294,9 +303,12 @@ export function fetchDashboardCanvases(): DashboardCanvasesPayload {
     if (!ref.cursorCanvas) continue;
     canvases.push({
       id: ref.id,
-      page: ref.cursorCanvas.replace(canvasPrefix, "").replace(".canvas.tsx", ""),
+      page: ref.canvasPage ?? ref.cursorCanvas.replace(canvasPrefix, "").replace(".canvas.tsx", ""),
       path: ref.cursorCanvas,
       purpose: ref.purpose ?? "",
+      version: ref.canvasVersion,
+      layer: ref.canvasLayer,
+      openWhen: ref.canvasOpenWhen,
     });
   }
 

@@ -1483,7 +1483,7 @@ async function refreshCanvases() {
 
   const canvases = payload.canvases ?? [];
   if (canvases.length === 0) {
-    body.innerHTML = '<tr><td colspan="3" class="empty-state">No canvases</td></tr>';
+    body.innerHTML = '<tr><td colspan="4" class="empty-state">No canvases</td></tr>';
     return;
   }
 
@@ -1492,7 +1492,8 @@ async function refreshCanvases() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><code>${esc(c.path)}</code></td>
-      <td>${esc(c.id)}</td>
+      <td>${esc(c.page)}</td>
+      <td>${esc(c.version || "—")}</td>
       <td class="canvas-purpose">${esc(c.purpose)}</td>
     `;
     body.appendChild(tr);

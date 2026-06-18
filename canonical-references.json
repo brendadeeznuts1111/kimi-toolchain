@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-18T14:52:24.391Z",
+  "generatedAt": "2026-06-18T15:46:50.014Z",
   "toolchainVersion": "0.1.0",
   "ecosystem": [
     {
@@ -86,14 +86,19 @@
       "repoPath": "CODE_REFERENCES.md",
       "runtimePath": "~/.kimi-code/CODE_REFERENCES.md",
       "purpose": "Local coding exemplars; doc-links lint and @see ladder",
-      "cursorCanvas": "docs/canvases/doc-links-and-see-ladder.canvas.tsx"
+      "cursorCanvas": "docs/canvases/doc-links-and-see-ladder.canvas.tsx",
+      "canvasPage": "Doc links",
+      "canvasVersion": "0.1.0",
+      "canvasLayer": "Doc URL lint",
+      "canvasOpenWhen": "@see ladder · docs/references index"
     },
     {
       "id": "unified",
       "repoPath": "UNIFIED.md",
       "runtimePath": "~/.kimi-code/UNIFIED.md",
       "purpose": "Kimi Code vs kimi-toolchain matrix",
-      "cursorCanvas": "docs/canvases/kimi-toolchain.canvas.tsx"
+      "cursorCanvas": "docs/canvases/kimi-toolchain.canvas.tsx",
+      "canvasPage": "Hub"
     },
     {
       "id": "deep-quality",
@@ -106,35 +111,40 @@
       "repoPath": "TEMPLATES.md",
       "runtimePath": "~/.kimi-code/TEMPLATES.md",
       "purpose": "Scaffold templates — profiles, snippets, bun create flow, kimi-fix usage",
-      "cursorCanvas": "docs/canvases/kimi-fix.canvas.tsx"
+      "cursorCanvas": "docs/canvases/kimi-fix.canvas.tsx",
+      "canvasPage": "Scaffold"
     },
     {
       "id": "dashboard-thumbnails",
       "repoPath": "docs/references/dashboard-thumbnails.md",
       "runtimePath": "~/.kimi-code/docs/references/dashboard-thumbnails.md",
       "purpose": "Herdr dashboard thumbnail pipeline; meta.webview; WebView dataStore vs in-memory cache",
-      "cursorCanvas": "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx"
+      "cursorCanvas": "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx",
+      "canvasPage": "Orchestrator HTTP"
     },
     {
       "id": "kimi-doctor",
       "repoPath": "docs/references/kimi-doctor.md",
       "runtimePath": "~/.kimi-code/docs/references/kimi-doctor.md",
       "purpose": "Dashboard automation gate (kimi-doctor --automation): CLI, JSON schema, exit codes, and failure modes",
-      "cursorCanvas": "docs/canvases/herdr-dashboard-automation.canvas.tsx"
+      "cursorCanvas": "docs/canvases/herdr-dashboard-automation.canvas.tsx",
+      "canvasPage": "Finish-work shell"
     },
     {
       "id": "namespace",
       "repoPath": "docs/references/namespace.md",
       "runtimePath": "~/.kimi-code/docs/references/namespace.md",
       "purpose": "Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings",
-      "cursorCanvas": "docs/canvases/namespace-boundaries.canvas.tsx"
+      "cursorCanvas": "docs/canvases/namespace-boundaries.canvas.tsx",
+      "canvasPage": "Meta / routing"
     },
     {
       "id": "configuration-layers",
       "repoPath": "docs/references/configuration-layers.md",
       "runtimePath": "~/.kimi-code/docs/references/configuration-layers.md",
       "purpose": "Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml)",
-      "cursorCanvas": "docs/canvases/configuration-layers.canvas.tsx"
+      "cursorCanvas": "docs/canvases/configuration-layers.canvas.tsx",
+      "canvasPage": "Config SSOT"
     },
     {
       "id": "shell-spawn-choice",
@@ -165,7 +175,8 @@
       "repoPath": "docs/references/herdr-plugin-architecture.md",
       "runtimePath": "~/.kimi-code/docs/references/herdr-plugin-architecture.md",
       "purpose": "Herdr unified plugin plan v0.5.0 — prefix+* actions, STATE_DIR topology; orthogonal to [finishWork].gates",
-      "cursorCanvas": "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx"
+      "cursorCanvas": "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx",
+      "canvasPage": "Herdr plugins"
     },
     {
       "id": "canonical-references",
