@@ -181,7 +181,7 @@ describe("herdr-dashboard-server", () => {
       expect(meta.discovery?.remoteHosts?.hosts[0]?.label).toBe("staging");
       expect(meta.sse).toBe(true);
       if (bunImageSupported()) {
-        expect(meta.thumbnail).toBe(true);
+        expect(meta.thumbnail).toBe(false);
         expect(meta.thumbnailPath).toBe("/api/thumbnail");
       }
     } finally {
@@ -436,6 +436,9 @@ describe("herdr-dashboard-server", () => {
         };
       };
       expect(meta.webview.shell).toBe("webview");
+      if (bunImageSupported()) {
+        expect((meta as { thumbnail?: boolean }).thumbnail).toBe(true);
+      }
       expect(meta.webview.persistProfile).toBe(true);
       if (meta.webview.mode === "persistent") {
         expect(meta.webview.directory).toContain("herdr-orchestrator-dashboard-webview");
@@ -596,6 +599,37 @@ describe("herdr-dashboard-server", () => {
       expect(bytes.byteLength).toBeGreaterThan(10);
       expect(bytes[0]).toBe(0x52);
       expect(bytes[1]).toBe(0x49);
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("dashboard server negotiates AVIF thumbnail from Accept header", async () => {
+    if (!bunImageSupported()) return;
+    const { probeBunImageAvifEncode } = await import("../src/lib/bun-image.ts");
+    if (!(await probeBunImageAvifEncode())) return;
+
+    const tinyPng = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      ),
+      (c) => c.charCodeAt(0)
+    );
+    const server = startHerdrDashboardServer({
+      projectPath: REPO_ROOT,
+      port: 0,
+      sessions: false,
+    });
+    try {
+      server.setScreenshotPng(tinyPng);
+      const res = (await fetch(`${server.url}api/thumbnail`, {
+        headers: { accept: "image/avif,image/webp,*/*" },
+      })) as unknown as {
+        status: number;
+        headers: { get(name: string): string | null };
+      };
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/avif");
     } finally {
       server.stop();
     }

@@ -5,6 +5,7 @@
  */
 
 // @bun-native-exempt — single blessed sync boundary; shrink over time via bun-native:batch
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import {
   appendFileSync,
   copyFileSync,
@@ -62,6 +63,19 @@ export interface ExecFileSyncOptions {
   env?: Record<string, string | undefined>;
 }
 
+/** Merge no-orphans spawn env with optional overrides (caller wins on collision). */
+export function mergeSpawnEnv(
+  overrides?: Record<string, string | undefined>
+): Record<string, string> {
+  const env = withNoOrphansEnv();
+  if (!overrides) return env;
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value != null) env[key] = value;
+    else delete env[key];
+  }
+  return env;
+}
+
 /** @deprecated Prefer execArgvSync from bun-utils.ts */
 export function execFileSync(
   file: string,
@@ -73,7 +87,7 @@ export function execFileSync(
   const proc = Bun.spawnSync([file, ...args], {
     cwd: options.cwd,
     timeout: options.timeout,
-    env: options.env ? ({ ...Bun.env, ...options.env } as Record<string, string>) : undefined,
+    env: mergeSpawnEnv(options.env),
     stdin: stdinMode,
     stdout: "pipe",
     stderr: "pipe",
@@ -104,7 +118,10 @@ export function whichCommand(command: string): string | null {
 
 /** Run a command inheriting stdio; throws on non-zero exit. */
 export function spawnInherit(argv: string[]): void {
-  const proc = Bun.spawnSync(argv, { stdio: ["inherit", "inherit", "inherit"] });
+  const proc = Bun.spawnSync(argv, {
+    stdio: ["inherit", "inherit", "inherit"],
+    env: mergeSpawnEnv(),
+  });
   if (proc.exitCode !== 0) {
     throw new Error(`${argv[0]} exited with code ${proc.exitCode ?? "unknown"}`);
   }
@@ -115,6 +132,7 @@ export function spawnQuiet(argv: string[], timeoutMs = 8_000): boolean {
   const proc = Bun.spawnSync(argv, {
     stdio: ["ignore", "ignore", "ignore"],
     timeout: timeoutMs,
+    env: mergeSpawnEnv(),
   });
   return proc.exitCode === 0;
 }

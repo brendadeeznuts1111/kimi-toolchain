@@ -4,7 +4,8 @@
 
 import { join } from "path";
 import { pathExists } from "./bun-io.ts";
-import { invokeTool } from "./tool-runner.ts";
+import { invokeTool, withBunNoOrphans } from "./tool-runner.ts";
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { auditSkillCoverage, ORCHESTRATOR_EVENT_ACTIONS } from "./skill-contract.ts";
 import { resolveOrchestratorConfig } from "./herdr-orchestrator-config.ts";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
@@ -183,13 +184,13 @@ export async function runScopePreflight(repoRoot: string): Promise<ScopePrefligh
     const cmd =
       "bun test test/herdr-orchestrator.unit.test.ts test/herdr-orchestrator-events.unit.test.ts";
     const proc = Bun.spawn(
-      [
+      withBunNoOrphans([
         "bun",
         "test",
         "test/herdr-orchestrator.unit.test.ts",
         "test/herdr-orchestrator-events.unit.test.ts",
-      ],
-      { cwd: repoRoot, stdout: "pipe", stderr: "pipe" }
+      ]),
+      { cwd: repoRoot, stdout: "pipe", stderr: "pipe", env: withNoOrphansEnv() }
     );
     const exitCode = await proc.exited;
     add({

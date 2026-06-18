@@ -4,6 +4,7 @@
  */
 
 import { readableStreamToText } from "./bun-utils.ts";
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { herdrSessionArgs, herdrSessionEnv } from "./herdr-project-cli.ts";
 
 export interface HerdrCliResult {
@@ -22,7 +23,7 @@ export interface HerdrCliJsonResult<T = unknown> {
 
 export async function herdrCli(args: string[], session?: string): Promise<HerdrCliResult> {
   const proc = Bun.spawn(["herdr", ...herdrSessionArgs(session), ...args], {
-    env: herdrSessionEnv(session),
+    env: withNoOrphansEnv(herdrSessionEnv(session)),
     stdout: "pipe",
     stderr: "pipe",
   });

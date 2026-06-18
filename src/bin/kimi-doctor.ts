@@ -2,6 +2,7 @@
 import { readableStreamToText } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
 import { spawnBun, withBunNoOrphans } from "../lib/tool-runner.ts";
+import { withNoOrphansEnv } from "../lib/bun-spawn-env.ts";
 /**
  * kimi-doctor — Comprehensive diagnostics
  * Delegates to individual tool doctor commands + runs system checks
@@ -320,6 +321,7 @@ async function applySyncFix(projectRoot: string): Promise<void> {
       cwd: projectRoot,
       stdout: JSON_OUT ? "pipe" : "inherit",
       stderr: JSON_OUT ? "pipe" : "inherit",
+      env: withNoOrphansEnv(),
     });
     await proc.exited;
   }

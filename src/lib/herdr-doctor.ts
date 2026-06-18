@@ -1,4 +1,5 @@
 import { pathExists, pathLstat, readLink, readText } from "./bun-io.ts";
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 
 import { join } from "path";
 import { TOML } from "bun";
@@ -170,7 +171,7 @@ function run(cmd: string, args: string[] = [], _timeoutMs = 20_000) {
       cmd: [cmd, ...args],
       stdout: "pipe",
       stderr: "pipe",
-      env: { ...Bun.env, PATH: resolveHerdrPanePath() },
+      env: withNoOrphansEnv({ ...Bun.env, PATH: resolveHerdrPanePath() }),
     });
     // Bun.spawnSync doesn't support per-call timeout natively,
     // but herdr commands are fast (<1s) so 20s is generous.

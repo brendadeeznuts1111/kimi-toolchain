@@ -35,6 +35,11 @@ describe("tool-runner", () => {
       "run",
       "x.ts",
     ]);
+    expect(withBunNoOrphans([process.execPath, "dashboard"])).toEqual([
+      process.execPath,
+      "--no-orphans",
+      "dashboard",
+    ]);
     expect(withBunNoOrphans(["node", "script.js"])).toEqual(["node", "script.js"]);
   });
 

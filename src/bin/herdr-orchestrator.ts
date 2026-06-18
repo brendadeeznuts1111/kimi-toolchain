@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 import { pathExists, readText, watchPath } from "../lib/bun-io.ts";
 import { handoffInheritedSpawn } from "../lib/execve-handoff.ts";
+import { withNoOrphansEnv } from "../lib/bun-spawn-env.ts";
+import { withBunNoOrphans } from "../lib/tool-runner.ts";
 import { TOML } from "bun";
 import { discoverHerdrProjectConfig } from "../lib/herdr-project-config.ts";
 import { syncAgentsTabContext } from "../lib/herdr-project-context.ts";
@@ -1787,7 +1789,7 @@ try {
           await Bun.sleep(3000);
           process.stdout.write("\x1b[2J\x1b[H");
           const proc = Bun.spawn(
-            [
+            withBunNoOrphans([
               process.execPath,
               Bun.argv[1],
               "dashboard",
@@ -1795,8 +1797,8 @@ try {
               ...(cliHost ? ["--host", cliHost] : []),
               ...(domain ? ["--domain", domain] : []),
               ...(includeDoctor ? ["--include-doctor"] : []),
-            ],
-            { stdio: ["ignore", "inherit", "inherit"], env: Bun.env }
+            ]),
+            { stdio: ["ignore", "inherit", "inherit"], env: withNoOrphansEnv() }
           );
           await proc.exited;
         }

@@ -18,6 +18,8 @@ import {
   fastGateTimeoutBudgetMs,
   type GateResult,
 } from "./gate-runner.ts";
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
+import { withBunNoOrphans } from "./tool-runner.ts";
 import { isQuietMode } from "./quiet-mode.ts";
 import { isKimiToolchainRepo } from "./workspace-health.ts";
 import { readPackageJson, sha256File } from "./utils.ts";
@@ -81,10 +83,11 @@ async function runGateVisible(
 ): Promise<GateResult> {
   const start = Bun.nanoseconds();
   if (!hookUsesSummary()) {
-    const proc = Bun.spawn(cmd, {
+    const proc = Bun.spawn(withBunNoOrphans(cmd), {
       cwd: projectRoot,
       stdout: "inherit",
       stderr: "inherit",
+      env: withNoOrphansEnv(),
     });
     const exitCode = await proc.exited;
     const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);

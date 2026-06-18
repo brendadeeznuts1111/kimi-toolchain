@@ -4,6 +4,8 @@
 
 import { readableStreamToText } from "./bun-utils.ts";
 import { makeDir, pathExists } from "./bun-io.ts";
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
+import { withBunNoOrphans } from "./tool-runner.ts";
 
 import { join } from "path";
 import { $ } from "bun";
@@ -75,15 +77,19 @@ export async function shouldSkipGate(projectRoot: string, gate: string): Promise
   return cache?.commit === head && cache.gates.includes(gate);
 }
 
+function gateSpawnEnv(env?: Record<string, string | undefined>): Record<string, string> {
+  return withNoOrphansEnv({ ...Bun.env, ...env });
+}
+
 export async function runGate(
   name: string,
   cmd: string[],
   options: { cwd: string; env?: Record<string, string | undefined> }
 ): Promise<GateResult> {
   const start = Bun.nanoseconds();
-  const proc = Bun.spawn(cmd, {
+  const proc = Bun.spawn(withBunNoOrphans(cmd), {
     cwd: options.cwd,
-    env: { ...Bun.env, ...options.env },
+    env: gateSpawnEnv(options.env),
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -217,7 +223,12 @@ export function shouldSilentOnSuccess(): boolean {
 export async function runCheckStep(name: string, cmd: string[], cwd: string): Promise<number> {
   const quiet = shouldSilentOnSuccess();
   if (!quiet) {
-    const proc = Bun.spawn(cmd, { cwd, stdout: "inherit", stderr: "inherit" });
+    const proc = Bun.spawn(withBunNoOrphans(cmd), {
+      cwd,
+      stdout: "inherit",
+      stderr: "inherit",
+      env: gateSpawnEnv(),
+    });
     return await proc.exited;
   }
 

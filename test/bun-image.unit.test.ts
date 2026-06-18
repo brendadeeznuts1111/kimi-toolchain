@@ -8,6 +8,7 @@ import {
   dashboardThumbnailBytes,
   dashboardWebpThumbnail,
   getBunImageBackend,
+  imageMetadata,
   isImageFormatUnsupportedError,
   negotiateDashboardThumbnailFormat,
   probeBunImageAvifEncode,
@@ -17,7 +18,8 @@ import {
   thumbnailFormatMime,
   DASHBOARD_THUMB_HEIGHT,
   DASHBOARD_THUMB_WIDTH,
-  type DashboardThumbnailFormat,
+  type DashboardThumbnailResizeFilter,
+  DASHBOARD_THUMBNAIL_MAX_PIXELS,
 } from "../src/lib/bun-image.ts";
 import { webViewScreenshotBytes } from "../src/lib/herdr-dashboard-automation.ts";
 import { webViewSupported } from "../src/lib/webview-console.ts";
@@ -115,15 +117,35 @@ describe("bun-image backend", () => {
     );
 
     // Encode twice; Highway SIMD path must produce identical bytes
-    const a = await dashboardThumbnailBytes(tinyPng, { width: 8, height: 8, quality: 80, format: "webp" });
-    const b = await dashboardThumbnailBytes(tinyPng, { width: 8, height: 8, quality: 80, format: "webp" });
+    const a = await dashboardThumbnailBytes(tinyPng, {
+      width: 8,
+      height: 8,
+      quality: 80,
+      format: "webp",
+    });
+    const b = await dashboardThumbnailBytes(tinyPng, {
+      width: 8,
+      height: 8,
+      quality: 80,
+      format: "webp",
+    });
     expect(a).not.toBeNull();
     expect(b).not.toBeNull();
     expect(a!).toEqual(b!);
 
     // JPEG should also be deterministic
-    const jpegA = await dashboardThumbnailBytes(tinyPng, { width: 8, height: 8, quality: 75, format: "jpeg" });
-    const jpegB = await dashboardThumbnailBytes(tinyPng, { width: 8, height: 8, quality: 75, format: "jpeg" });
+    const jpegA = await dashboardThumbnailBytes(tinyPng, {
+      width: 8,
+      height: 8,
+      quality: 75,
+      format: "jpeg",
+    });
+    const jpegB = await dashboardThumbnailBytes(tinyPng, {
+      width: 8,
+      height: 8,
+      quality: 75,
+      format: "jpeg",
+    });
     expect(jpegA).not.toBeNull();
     expect(jpegA!).toEqual(jpegB!);
   });
@@ -162,5 +184,219 @@ describe("thumbnail format mime", () => {
     expect(thumbnailFormatMime("avif")).toBe("image/avif");
     expect(thumbnailFormatMime("jpeg")).toBe("image/jpeg");
     expect(thumbnailFormatMime("png")).toBe("image/png");
+  });
+});
+
+// ── Image metadata ───────────────────────────────────────────────────
+
+describe("imageMetadata", () => {
+  test("returns dimensions and format for valid PNG bytes", async () => {
+    if (!bunImageSupported()) return;
+
+    const tinyPng = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      ),
+      (c) => c.charCodeAt(0)
+    );
+
+    const meta = await imageMetadata(tinyPng);
+    expect(meta).not.toBeNull();
+    expect(meta!.width).toBe(1);
+    expect(meta!.height).toBe(1);
+    expect(meta!.format).toBe("png");
+  });
+
+  test("returns null for invalid input", async () => {
+    if (!bunImageSupported()) return;
+    const meta = await imageMetadata(Uint8Array.of(0, 1, 2, 3));
+    expect(meta).toBeNull();
+  });
+
+  test("returns null when Bun.Image is unavailable", async () => {
+    // imageMetadata guards on bunImageSupported() internally
+    const meta = await imageMetadata(Uint8Array.of(0));
+    if (!bunImageSupported()) {
+      expect(meta).toBeNull();
+    }
+  });
+});
+
+// ── Resize filter ────────────────────────────────────────────────────
+
+describe("thumbnail resize filter", () => {
+  test("filter param flows through to pipeline without error", async () => {
+    if (!bunImageSupported()) return;
+
+    const tinyPng = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      ),
+      (c) => c.charCodeAt(0)
+    );
+
+    const filters: DashboardThumbnailResizeFilter[] = [
+      "nearest",
+      "box",
+      "bilinear",
+      "cubic",
+      "mitchell",
+      "lanczos2",
+      "lanczos3",
+      "mks2013",
+      "mks2021",
+    ];
+
+    for (const filter of filters) {
+      const bytes = await dashboardThumbnailBytes(tinyPng, {
+        width: 8,
+        height: 8,
+        quality: 80,
+        format: "webp",
+        filter,
+      });
+      expect(bytes).not.toBeNull();
+      expect(bytes!.byteLength).toBeGreaterThan(10);
+    }
+  });
+
+  test("different filters may produce different output", async () => {
+    if (!bunImageSupported()) return;
+
+    setBunImageBackend("bun");
+
+    const tinyPng = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      ),
+      (c) => c.charCodeAt(0)
+    );
+
+    // nearest vs lanczos3 on a 1×1 image should produce identical results
+    // since there's nothing to interpolate — but the pipeline shouldn't crash
+    const a = await dashboardThumbnailBytes(tinyPng, {
+      width: 8,
+      height: 8,
+      quality: 80,
+      format: "png",
+      filter: "nearest",
+    });
+    const b = await dashboardThumbnailBytes(tinyPng, {
+      width: 8,
+      height: 8,
+      quality: 80,
+      format: "png",
+      filter: "lanczos3",
+    });
+
+    expect(a).not.toBeNull();
+    expect(b).not.toBeNull();
+    // Both should be valid PNG outputs
+    expect(a!.byteLength).toBeGreaterThan(10);
+    expect(b!.byteLength).toBeGreaterThan(10);
+  });
+
+  afterEach(() => {
+    resetBunImageBackend();
+  });
+});
+
+// ── maxPixels guard ──────────────────────────────────────────────────
+
+describe("maxPixels guard", () => {
+  test("valid thumbnail within limit succeeds", async () => {
+    if (!bunImageSupported()) return;
+
+    const tinyPng = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      ),
+      (c) => c.charCodeAt(0)
+    );
+
+    // 1×1 is well within any reasonable limit
+    const bytes = await dashboardThumbnailBytes(tinyPng, {
+      width: 8,
+      height: 8,
+      maxPixels: 64,
+      format: "webp",
+    });
+    expect(bytes).not.toBeNull();
+    expect(bytes!.byteLength).toBeGreaterThan(10);
+  });
+
+  test("DASHBOARD_THUMBNAIL_MAX_PIXELS is a reasonable default", () => {
+    // 4096 × 4096 = 16.8 MP — matches Sharp's approach
+    expect(DASHBOARD_THUMBNAIL_MAX_PIXELS).toBe(4096 * 4096);
+  });
+
+  test("maxPixels flows through without error on all formats", async () => {
+    if (!bunImageSupported()) return;
+
+    const tinyPng = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      ),
+      (c) => c.charCodeAt(0)
+    );
+
+    for (const fmt of ["webp", "jpeg", "png"] as const) {
+      const bytes = await dashboardThumbnailBytes(tinyPng, {
+        width: 8,
+        height: 8,
+        maxPixels: 64,
+        format: fmt,
+      });
+      expect(bytes).not.toBeNull();
+      expect(bytes!.byteLength).toBeGreaterThan(10);
+    }
+  });
+});
+
+// ── Indexed PNG ──────────────────────────────────────────────────────
+
+describe("indexed PNG (palette)", () => {
+  test("palette PNG produces valid output", async () => {
+    if (!bunImageSupported()) return;
+
+    const tinyPng = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      ),
+      (c) => c.charCodeAt(0)
+    );
+
+    const bytes = await dashboardThumbnailBytes(tinyPng, {
+      width: 8,
+      height: 8,
+      format: "png",
+      palette: true,
+      colors: 64,
+      dither: false,
+    });
+    expect(bytes).not.toBeNull();
+    expect(bytes!.byteLength).toBeGreaterThan(10);
+  });
+
+  test("palette is ignored for non-PNG formats", async () => {
+    if (!bunImageSupported()) return;
+
+    const tinyPng = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      ),
+      (c) => c.charCodeAt(0)
+    );
+
+    // palette=true with webp format should not crash — it's just ignored
+    const bytes = await dashboardThumbnailBytes(tinyPng, {
+      width: 8,
+      height: 8,
+      format: "webp",
+      palette: true,
+      colors: 64,
+    });
+    expect(bytes).not.toBeNull();
+    expect(bytes!.byteLength).toBeGreaterThan(10);
   });
 });

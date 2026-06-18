@@ -3,6 +3,7 @@
  */
 
 import { nanoseconds } from "bun";
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 import { getCachedCommandOutputAsync } from "./proc-cache.ts";
 import { DEFAULTS } from "./governor-state.ts";
@@ -172,7 +173,7 @@ export async function governedSpawn(
 
       const proc = Bun.spawn(command, {
         cwd: options.cwd,
-        env: { ...Bun.env, ...options.env },
+        env: { ...withNoOrphansEnv(), ...options.env },
         stdout: "pipe",
         stderr: "pipe",
         stdin: options.stdin

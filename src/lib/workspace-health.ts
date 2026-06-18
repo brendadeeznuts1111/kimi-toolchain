@@ -6,6 +6,7 @@ import { listDir, pathExists, readText, removeFile, resolveRealPath } from "./bu
 
 import { basename, join, resolve } from "path";
 import { withBunNoOrphans } from "./tool-runner.ts";
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { readPackageJson, safeParse } from "./utils.ts";
 
 import {
@@ -633,6 +634,7 @@ export async function fixWorkspaceHealth(
         cwd: options.projectRoot,
         stdout: "inherit",
         stderr: "inherit",
+        env: withNoOrphansEnv(),
       });
       await proc.exited;
       result.wrappersInstalled = true;

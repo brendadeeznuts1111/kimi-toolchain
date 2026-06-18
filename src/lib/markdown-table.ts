@@ -3,6 +3,8 @@
  */
 
 import { readableStreamToText as streamToText } from "./bun-utils.ts";
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
+import { withBunNoOrphans } from "./tool-runner.ts";
 
 export type MarkdownColumnKind = "text" | "number" | "date" | "path";
 export type MarkdownColumnAlign = "left" | "right" | "center";
@@ -115,14 +117,13 @@ export interface BunMarkdownPreviewResult {
 
 /** Render a Markdown file with `bun ./file.md` (Bun v1.3.12+ terminal renderer). */
 export async function previewMarkdownWithBun(mdPath: string): Promise<BunMarkdownPreviewResult> {
-  const proc = Bun.spawn(["bun", mdPath], {
+  const proc = Bun.spawn(withBunNoOrphans([process.execPath, mdPath]), {
     stdout: "pipe",
     stderr: "pipe",
-    env: {
-      ...Bun.env,
+    env: withNoOrphansEnv({
       NO_COLOR: "1",
       TERM: Bun.env.TERM ?? "dumb",
-    },
+    }),
   });
   const [stdout, stderr, exitCode] = await Promise.all([
     streamToText(proc.stdout!),

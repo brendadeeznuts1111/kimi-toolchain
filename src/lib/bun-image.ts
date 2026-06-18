@@ -15,6 +15,21 @@
 export const DASHBOARD_THUMB_WIDTH = 320;
 export const DASHBOARD_THUMB_HEIGHT = 180;
 
+/** Input sources Bun.Image accepts (matches the Bun native constructor). */
+export type ImageInput = string | Uint8Array | ArrayBuffer | Blob;
+
+/** Resize filter kernels supported by Bun.Image.resize(). */
+export type DashboardThumbnailResizeFilter =
+  | "nearest"
+  | "box"
+  | "bilinear"
+  | "cubic"
+  | "mitchell"
+  | "lanczos2"
+  | "lanczos3"
+  | "mks2013"
+  | "mks2021";
+
 const TINY_PNG = Uint8Array.from(
   atob(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
@@ -109,11 +124,24 @@ export function bunImageAvifNegotiable(): boolean {
   return platform === "macos" || platform === "windows";
 }
 
+/** Default maxPixels guard (~16.8 MP) — blocks decompression bombs. */
+export const DASHBOARD_THUMBNAIL_MAX_PIXELS = 4096 * 4096;
+
 export interface DashboardThumbnailOptions {
   width?: number;
   height?: number;
   quality?: number;
   format?: DashboardThumbnailFormat;
+  /** Resize filter kernel (default: lanczos3). */
+  filter?: DashboardThumbnailResizeFilter;
+  /** Reject input if width×height > this (default: 4096×4096). */
+  maxPixels?: number;
+  /** Emit indexed (color-type 3) PNG — 3–5× smaller for screenshots. */
+  palette?: boolean;
+  /** Palette size (2–256, default 256). Only when palette is true. */
+  colors?: number;
+  /** Floyd–Steinberg dither (default true). Only when palette is true. */
+  dither?: boolean;
 }
 
 export interface DashboardThumbnailFeedOptions {
@@ -142,15 +170,48 @@ export function negotiateDashboardThumbnailFormat(
   return "webp";
 }
 
+// ── Image metadata ──────────────────────────────────────────────────
+
+/** Bun.Image metadata shape (subset — Bun returns additional fields). */
+export interface ImageMetadata {
+  width: number;
+  height: number;
+  format: string;
+}
+
+/**
+ * Read image dimensions and format without decoding pixels.
+ * Returns null when Bun.Image is unavailable or the input can't be parsed.
+ */
+export async function imageMetadata(input: ImageInput): Promise<ImageMetadata | null> {
+  if (!bunImageSupported()) return null;
+  try {
+    const meta = await new Bun.Image(input).metadata();
+    return { width: meta.width, height: meta.height, format: meta.format };
+  } catch {
+    return null;
+  }
+}
+
 function dashboardThumbnailPipeline(
   png: Uint8Array,
   options: Required<Pick<DashboardThumbnailOptions, "width" | "height" | "quality">> & {
     format: DashboardThumbnailFormat;
+    filter?: DashboardThumbnailResizeFilter;
+    maxPixels?: number;
+    palette?: boolean;
+    colors?: number;
+    dither?: boolean;
   }
 ): Bun.Image {
-  const resized = new Bun.Image(png).resize(options.width, options.height, {
+  const imageOptions: { maxPixels?: number } = {};
+  if (options.maxPixels !== undefined) {
+    imageOptions.maxPixels = options.maxPixels;
+  }
+  const resized = new Bun.Image(png, imageOptions).resize(options.width, options.height, {
     fit: "inside",
     withoutEnlargement: true,
+    filter: options.filter,
   });
   switch (options.format) {
     case "avif":
@@ -158,6 +219,13 @@ function dashboardThumbnailPipeline(
     case "jpeg":
       return resized.jpeg({ quality: options.quality });
     case "png":
+      if (options.palette) {
+        return resized.png({
+          palette: true,
+          colors: options.colors,
+          dither: options.dither,
+        });
+      }
       return resized.png();
     default:
       return resized.webp({ quality: options.quality });
@@ -168,6 +236,11 @@ async function dashboardThumbnailBlob(
   png: Uint8Array,
   options: Required<Pick<DashboardThumbnailOptions, "width" | "height" | "quality">> & {
     format: DashboardThumbnailFormat;
+    filter?: DashboardThumbnailResizeFilter;
+    maxPixels?: number;
+    palette?: boolean;
+    colors?: number;
+    dither?: boolean;
   }
 ): Promise<Blob> {
   try {
@@ -191,8 +264,23 @@ export async function dashboardThumbnailBytes(
   const height = options.height ?? DASHBOARD_THUMB_HEIGHT;
   const quality = options.quality ?? 80;
   const format = options.format ?? "webp";
+  const filter = options.filter;
+  const maxPixels = options.maxPixels;
+  const palette = options.palette;
+  const colors = options.colors;
+  const dither = options.dither;
 
-  const blob = await dashboardThumbnailBlob(png, { width, height, quality, format });
+  const blob = await dashboardThumbnailBlob(png, {
+    width,
+    height,
+    quality,
+    format,
+    filter,
+    maxPixels,
+    palette,
+    colors,
+    dither,
+  });
   return new Uint8Array(await blob.arrayBuffer());
 }
 
@@ -213,12 +301,27 @@ export async function dashboardThumbnailResponse(
   const height = options.height ?? DASHBOARD_THUMB_HEIGHT;
   const quality = options.quality ?? 80;
   const format = options.format ?? "webp";
-  const blob = await dashboardThumbnailBlob(png, { width, height, quality, format });
+  const filter = options.filter;
+  const maxPixels = options.maxPixels;
+  const palette = options.palette;
+  const colors = options.colors;
+  const dither = options.dither;
+  const blob = await dashboardThumbnailBlob(png, {
+    width,
+    height,
+    quality,
+    format,
+    filter,
+    maxPixels,
+    palette,
+    colors,
+    dither,
+  });
   return new Response(blob, { headers: { "cache-control": "no-store" } });
 }
 
-/** LQIP placeholder data URL for a raster image path or bytes (ThumbHash). */
-export async function imagePlaceholderDataUrl(input: string | Uint8Array): Promise<string | null> {
+/** LQIP placeholder data URL for an image path, bytes, or BunFile (ThumbHash). */
+export async function imagePlaceholderDataUrl(input: ImageInput): Promise<string | null> {
   if (!bunImageSupported()) return null;
   return new Bun.Image(input).placeholder();
 }

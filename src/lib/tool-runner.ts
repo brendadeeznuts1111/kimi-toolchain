@@ -71,13 +71,21 @@ export function defaultToolTimeoutMs(): number {
 
 const LONG_RUNNING_TOOL_FLAGS = new Set(["--watch", "--mcp-server"]);
 
+/** True when argv0 resolves to the Bun runtime (PATH name, full path, or process.execPath). */
+export function isBunExecutable(argv0: string): boolean {
+  if (!argv0) return false;
+  if (argv0 === "bun" || argv0.endsWith("/bun")) return true;
+  return argv0 === process.execPath;
+}
+
 /**
  * Prepend `--no-orphans` to Bun CLI invocations so child trees die with the parent.
  * Linux/macOS only; harmless when the flag is already present.
  */
 export function withBunNoOrphans(command: string[]): string[] {
-  if (command[0] !== "bun" || command.includes("--no-orphans")) return command;
-  return ["bun", "--no-orphans", ...command.slice(1)];
+  const argv0 = command[0];
+  if (!argv0 || !isBunExecutable(argv0) || command.includes("--no-orphans")) return command;
+  return [argv0, "--no-orphans", ...command.slice(1)];
 }
 
 /** Spawn `bun` with `--no-orphans` via the unified invokeCommand contract. */

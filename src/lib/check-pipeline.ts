@@ -11,6 +11,8 @@ import {
   type GateResult,
 } from "./gate-runner.ts";
 import { readableStreamToText } from "./bun-utils.ts";
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
+import { withBunNoOrphans } from "./tool-runner.ts";
 import {
   changedIncludesTypeScript,
   countLikelyErrors,
@@ -219,10 +221,11 @@ async function runStepTracked(
   if (gateQuiet) {
     return runGate(step.name, step.cmd, { cwd: projectRoot });
   }
-  const proc = Bun.spawn(step.cmd, {
+  const proc = Bun.spawn(withBunNoOrphans(step.cmd), {
     cwd: projectRoot,
     stdout: "inherit",
     stderr: "inherit",
+    env: withNoOrphansEnv(),
   });
   const exitCode = await proc.exited;
   return { name: step.name, exitCode, ms: 0, stdout: "", stderr: "" };
@@ -248,7 +251,12 @@ async function runStepTrackedWithActive(
     return runGate(step.name, step.cmd, { cwd: projectRoot });
   }
   const start = Bun.nanoseconds();
-  const proc = Bun.spawn(step.cmd, { cwd: projectRoot, stdout: "pipe", stderr: "pipe" });
+  const proc = Bun.spawn(withBunNoOrphans(step.cmd), {
+    cwd: projectRoot,
+    stdout: "pipe",
+    stderr: "pipe",
+    env: withNoOrphansEnv(),
+  });
   active.push(proc);
   const [stdout, stderr, exitCode] = await Promise.all([
     readableStreamToText(proc.stdout),

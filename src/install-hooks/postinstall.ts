@@ -18,6 +18,7 @@ import { DEFAULT_CONFIG_TEMPLATE } from "../lib/governor-config.ts";
 import { SESSIONS_SCHEMA_SQL } from "../lib/sessions-schema.ts";
 import { provisionUserMcp } from "../lib/mcp-config.ts";
 import { readableStreamToText } from "../lib/bun-utils.ts";
+import { withNoOrphansEnv } from "../lib/bun-spawn-env.ts";
 import { ensureDir } from "../lib/utils.ts";
 
 const REPO_ROOT = resolve(import.meta.dir, "../..");
@@ -52,7 +53,11 @@ async function main(): Promise<number> {
 
   const wrapperScript = join(REPO_ROOT, "scripts", "install-bin-wrappers.sh");
   if (pathExists(wrapperScript)) {
-    const proc = Bun.spawn(["bash", wrapperScript], { stdout: "pipe", stderr: "pipe" });
+    const proc = Bun.spawn(["bash", wrapperScript], {
+      stdout: "pipe",
+      stderr: "pipe",
+      env: withNoOrphansEnv(),
+    });
     const exitCode = await proc.exited;
     if (exitCode === 0) {
       console.log("   Wrappers: ~/.local/bin/kimi-*");

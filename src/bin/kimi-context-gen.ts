@@ -584,7 +584,13 @@ async function main(): Promise<number> {
 
     logger.section("Freshness Score");
     const { score, changed } = await computeFreshness(projectDir, hashes);
-    (score >= 4 ? logger.info : score >= 2 ? logger.warn : logger.error)(`Score: ${score}/10`);
+    if (score >= 4) {
+      logger.info(`Score: ${score}/10`);
+    } else if (score >= 2) {
+      logger.warn(`Score: ${score}/10`);
+    } else {
+      logger.error(`Score: ${score}/10`);
+    }
     if (changed.length > 0) {
       logger.warn(`Changed configs: ${changed.join(", ")}`);
     }
@@ -616,7 +622,13 @@ async function main(): Promise<number> {
     const hashes = await hashConfigs(projectDir);
     const { score, changed } = await computeFreshness(projectDir, hashes);
 
-    (score >= 4 ? logger.info : score >= 2 ? logger.warn : logger.error)(`Score: ${score}/10`);
+    if (score >= 4) {
+      logger.info(`Score: ${score}/10`);
+    } else if (score >= 2) {
+      logger.warn(`Score: ${score}/10`);
+    } else {
+      logger.error(`Score: ${score}/10`);
+    }
     if (changed.length > 0) {
       for (const c of changed) {
         logger.warn(`${c} changed since last CONTEXT.md update`);

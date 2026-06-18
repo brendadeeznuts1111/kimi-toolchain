@@ -491,9 +491,11 @@ async function main(): Promise<number> {
     } else if (!pathExists(join(projectDir, "package.json"))) {
       logger.warn("No package.json — skipping script comparison");
     } else {
-      (drift.fresh ? logger.info : logger.warn)(
-        `README scripts: ${drift.fresh ? "in sync" : "DRIFT DETECTED"}`
-      );
+      if (drift.fresh) {
+        logger.info("README scripts: in sync");
+      } else {
+        logger.warn("README scripts: DRIFT DETECTED");
+      }
 
       if (drift.missingFromReadme.length > 0) {
         logger.warn(`Missing from README: ${drift.missingFromReadme.join(", ")}`);

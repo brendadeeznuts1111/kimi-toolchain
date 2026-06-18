@@ -92,6 +92,8 @@ const PROCESS_ARGV = /\bprocess\.argv\b/;
 const RESPONSE_STREAM_TEXT = /new\s+Response\s*\([^)]*\)\.text\s*\(\s*\)/;
 
 const RAW_BUN_SPAWN = /Bun\.spawn\s*\(\s*(?!\s*withBunNoOrphans\s*\()\s*\[\s*["']bun["']/;
+const RAW_BUN_EXECPATH_SPAWN =
+  /Bun\.spawn(?:Sync)?\s*\(\s*(?!\s*withBunNoOrphans\s*\()[^)]*process\.execPath/;
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -309,8 +311,8 @@ export const RULE_DEFINITIONS: RuleDefinition[] = [
   },
   {
     id: "spawn-no-orphans",
-    message: "Bun.spawn(['bun', ...]) must include --no-orphans",
-    replacement: "withBunNoOrphans / spawnBun",
+    message: "Bun.spawn must use --no-orphans for bun / process.execPath invocations",
+    replacement: "withBunNoOrphans / spawnBun / withNoOrphansEnv",
     defaultMode: "report",
     scope: ["src/"],
     detect(ctx) {
@@ -321,14 +323,20 @@ export const RULE_DEFINITIONS: RuleDefinition[] = [
         const lineNo = i + 1;
         if (line.trim().startsWith("//") || ctx.lineHasExemption(line)) continue;
         const code = stripStringLiterals(line);
-        if (!RAW_BUN_SPAWN.test(code)) continue;
+        const rawBun = RAW_BUN_SPAWN.test(code);
         RAW_BUN_SPAWN.lastIndex = 0;
+        const rawExecPath = RAW_BUN_EXECPATH_SPAWN.test(code);
+        RAW_BUN_EXECPATH_SPAWN.lastIndex = 0;
+        if (!rawBun && !rawExecPath) continue;
         if (code.includes("--no-orphans") || code.includes("spawnBun(")) continue;
+        const detail = rawExecPath
+          ? "raw Bun.spawn with process.execPath without --no-orphans"
+          : "raw Bun.spawn(['bun', ...]) without --no-orphans";
         out.push(
           ...lineViolations(
             ctx,
             "spawn-no-orphans",
-            "raw Bun.spawn(['bun', ...]) without --no-orphans",
+            detail,
             "withBunNoOrphans / spawnBun",
             lineNo,
             line
