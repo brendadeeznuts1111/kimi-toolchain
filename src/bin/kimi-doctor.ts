@@ -106,6 +106,13 @@ import {
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import {
+  toolStart,
+  toolDone,
+  toolProgress,
+  loadReport,
+  healthResult,
+} from "../lib/health-channel.ts";
 
 const writer = createCli(Bun.argv, "kimi-doctor");
 const logger = writer.logger;
@@ -1454,6 +1461,9 @@ async function main(): Promise<number> {
     logger.banner("Kimi Doctor — Toolchain Diagnostics");
   }
 
+  toolStart("kimi-doctor");
+  const startTime = Date.now();
+
   const results: CheckResult[] = [];
   let syncReport: { synced: boolean; drifted: string[]; missing: string[] } | undefined;
   const home = homeDir();
@@ -1826,7 +1836,17 @@ async function main(): Promise<number> {
     }
   }
 
-  return blocking > 0 ? 1 : 0;
+  const exitCode = blocking > 0 ? 1 : 0;
+  const durationMs = Date.now() - startTime;
+  healthResult("kimi-doctor", {
+    checks: results.length,
+    errors: results.filter((r) => r.status === "error").length,
+    warnings: results.filter((r) => r.status === "warn").length,
+    durationMs,
+  });
+  toolDone("kimi-doctor", exitCode, results.filter((r) => r.status === "error").length);
+
+  return exitCode;
 }
 
 const exitCode = await runCliExit(

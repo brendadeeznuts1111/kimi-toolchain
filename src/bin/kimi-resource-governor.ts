@@ -39,6 +39,7 @@ import {
 import { governedSpawn, getCurrentUsage, checkLimits } from "../lib/governor-spawn.ts";
 import { ParallelGovernor } from "../lib/governor-parallel.ts";
 import { cachedExec } from "../lib/governor-cache.ts";
+import { subscribeTo, type HealthWarning, type HealthLoad } from "../lib/health-channel.ts";
 import { createLogger } from "../lib/logger.ts";
 
 const logger = createLogger(Bun.argv, "kimi-resource-governor");
@@ -345,6 +346,38 @@ async function main(): Promise<number> {
     logger.line(`  Max file size:     ${DEFAULTS.maxFileSizeMB}MB`);
     logger.line(`  Max open files:    ${DEFAULTS.maxOpenFiles}`);
     logger.line(`  Max parallel:      ${DEFAULTS.maxParallelJobs}`);
+  } else if (command === "health-listen") {
+    logger.section("Health Channel Listener");
+    logger.info("Subscribing to kimi:health (warning + load events)");
+
+    const unsub = subscribeTo(["warning", "load"], (event) => {
+      if (event.kind === "warning") {
+        const w = event as HealthWarning;
+        logger.line(`  ⚠ warning: ${w.tool} (pid ${w.pid}): ${w.message}`);
+        if (w.backoffFactor) {
+          logger.line(`    backoff suggested: ${(w.backoffFactor * 100).toFixed(0)}%`);
+        }
+      } else if (event.kind === "load") {
+        const l = event as HealthLoad;
+        const memMB = Math.round(l.memoryBytes / 1024 / 1024);
+        logger.line(
+          `  📊 load: ${l.tool} (pid ${l.pid}): ${memMB}MB${l.cpuRatio ? ` cpu:${(l.cpuRatio * 100).toFixed(0)}%` : ""}`
+        );
+      }
+    });
+
+    logger.info("Listening (Ctrl+C to stop)");
+    await new Promise<void>((resolve) => {
+      process.once("SIGINT", () => {
+        unsub();
+        resolve();
+      });
+      process.once("SIGTERM", () => {
+        unsub();
+        resolve();
+      });
+    });
+    logger.info("Stopped");
     logger.line(`  Disk quota:        ${DEFAULTS.diskQuotaMB}MB`);
     logger.line(`  Cache TTL:         ${DEFAULTS.cacheTTLSeconds}s`);
     logger.line(`  Wall-clock limit:  ${DEFAULTS.wallClockMs}ms`);
@@ -354,6 +387,7 @@ async function main(): Promise<number> {
     logger.line("  quota           Check disk quota");
     logger.line("  spawn <cmd>     Run command with governedSpawn (tree-kill, ps memory)");
     logger.line("  retry <cmd>     Run command with retry + exponential backoff");
+    logger.line("  health-listen   Subscribe to cross-tool health events");
     logger.line("  cache <cmd>     Cached command execution");
     logger.line("  doctor          Check governor health");
     logger.line("  fix             Clean cache, end stuck sessions, vacuum");
