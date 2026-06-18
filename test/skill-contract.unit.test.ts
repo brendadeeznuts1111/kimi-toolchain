@@ -26,18 +26,14 @@ import {
 import { routeOrchestratorEvent } from "../src/lib/herdr-orchestrator-events.ts";
 
 describe("skill-contract", () => {
-  test("every repo skill declares code coverage map", () => {
-    expect(Object.keys(REPO_SKILL_CODE_COVERAGE).sort()).toEqual(
-      [
-        "skills/cloudflare-access/SKILL.md",
-        "skills/effect-discipline/SKILL.md",
-        "skills/effect-hardening/SKILL.md",
-        "skills/finish-work/SKILL.md",
-        "skills/herdr/SKILL.md",
-        "skills/kimi-toolchain/SKILL.md",
-        "skills/orchestrator/SKILL.md",
-      ].sort()
-    );
+  test("every repo skill declares code coverage map", async () => {
+    const skillFiles = [];
+    const skillsGlob = new Bun.Glob("*/SKILL.md");
+    for await (const rel of skillsGlob.scan({ cwd: join(REPO_ROOT, "skills"), onlyFiles: true })) {
+      skillFiles.push(`skills/${rel}`);
+    }
+
+    expect(Object.keys(REPO_SKILL_CODE_COVERAGE).sort()).toEqual(skillFiles.sort());
   });
 
   test("auditSkillCodeCoverage finds lib modules and tests on disk", () => {

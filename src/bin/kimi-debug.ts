@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { listDir, makeDir, pathExists, pathStat } from "../lib/bun-io.ts";
+import { makeDir, pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-debug — "What broke?" wizard
  * Analyzes recent session activity + git history to suggest root cause
@@ -10,7 +10,7 @@ import { listDir, makeDir, pathExists, pathStat } from "../lib/bun-io.ts";
 
 import { $, randomUUIDv7 } from "bun";
 import { join } from "path";
-import { homeDir, toolsDir } from "../lib/paths.ts";
+import { toolsDir } from "../lib/paths.ts";
 import { resolveProjectRoot, safeParse } from "../lib/utils.ts";
 
 import { Effect } from "effect";
@@ -65,6 +65,15 @@ interface SessionEvent {
 
 // ── Config ───────────────────────────────────────────────────────────
 
+import {
+  discoverErrorLogSinks,
+  findLatestWireLogPath,
+  formatLogBytes,
+  resolveErrorLogSink,
+  tailErrorLogFile,
+  type ErrorLogSinkStatus,
+} from "../lib/error-log-discovery.ts";
+import { classifyLogBlob } from "../lib/herdr-log-classify.ts";
 import { failureLedgerPath, varDir, wizardDir } from "../lib/paths.ts";
 
 const MEMORY_DB = join(varDir(), "sessions.db");
@@ -113,31 +122,196 @@ async function getLastCommitMessage(projectDir: string): Promise<string> {
   return gitLastCommitMessage(projectDir);
 }
 
-// ── Wire Log Discovery ───────────────────────────────────────────────
+// ── Error log discovery ──────────────────────────────────────────────
 
-/** Find the most recent wire.jsonl across all sessions. */
-function findLatestWireLog(home: string = homeDir()): string | null {
-  const sessionsDir = join(home, ".kimi-code", "sessions");
-  if (!pathExists(sessionsDir)) return null;
+interface LogsCommandOptions {
+  id?: string;
+  path?: string;
+  tail?: number;
+  errorsOnly: boolean;
+  classify: boolean;
+}
 
-  let latestWire: string | null = null;
-  let latestMtime = 0;
-
-  for (const workspace of listDir(sessionsDir, { withFileTypes: true })) {
-    if (!workspace.isDirectory()) continue;
-    const workspacePath = join(sessionsDir, workspace.name);
-    for (const session of listDir(workspacePath, { withFileTypes: true })) {
-      if (!session.isDirectory()) continue;
-      const wirePath = join(workspacePath, session.name, "agents", "main", "wire.jsonl");
-      if (!pathExists(wirePath)) continue;
-      const mtime = pathStat(wirePath).mtimeMs;
-      if (mtime > latestMtime) {
-        latestMtime = mtime;
-        latestWire = wirePath;
-      }
+function parseLogsCommandOptions(argv: string[]): LogsCommandOptions {
+  let id: string | undefined;
+  let path: string | undefined;
+  let tail: number | undefined;
+  let errorsOnly = argv.includes("--errors");
+  const classify = argv.includes("--classify");
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--id" && argv[i + 1]) {
+      id = argv[++i];
+      continue;
+    }
+    if (arg === "--path" && argv[i + 1]) {
+      path = argv[++i];
+      continue;
+    }
+    if (arg === "--tail" && argv[i + 1]) {
+      const value = Number(argv[++i]);
+      if (Number.isFinite(value) && value > 0) tail = Math.floor(value);
     }
   }
-  return latestWire;
+  return { id, path, tail, errorsOnly, classify };
+}
+
+function formatSinkLine(sink: ErrorLogSinkStatus): string {
+  const status = sink.present ? "present" : "missing";
+  const size = sink.present ? formatLogBytes(sink.bytes) : "—";
+  return `${sink.id.padEnd(22)} ${status.padEnd(8)} ${size.padEnd(8)} ${sink.path}`;
+}
+
+async function printErrorLogs(projectDir: string, options: LogsCommandOptions): Promise<number> {
+  const report = discoverErrorLogSinks(projectDir);
+
+  if (options.path) {
+    if (!pathExists(options.path)) {
+      logger.error(`Log not found: ${options.path}`);
+      return 1;
+    }
+    const lines = await tailErrorLogFile(options.path, options.tail ?? 30, options.errorsOnly);
+    if (options.classify) {
+      const taxonomy = await loadTaxonomy();
+      const hits = classifyLogBlob(lines, taxonomy, { source: "blob" });
+      if (writer.flags.json) {
+        writer.writeJson({
+          schemaVersion: 1,
+          tool: "kimi-debug",
+          mode: "logs",
+          path: options.path,
+          lines,
+          errorsOnly: options.errorsOnly,
+          hits,
+        });
+        return 0;
+      }
+      logger.section(`Classified hits: ${options.path}`);
+      for (const hit of hits) {
+        logger.line(`${hit.taxonomyId} pid=${hit.pid ?? "none"} severity=${hit.severity}`);
+      }
+      return 0;
+    }
+    if (writer.flags.json) {
+      writer.writeJson({
+        schemaVersion: 1,
+        tool: "kimi-debug",
+        mode: "logs",
+        path: options.path,
+        lines,
+        errorsOnly: options.errorsOnly,
+      });
+      return 0;
+    }
+    logger.section(`Log tail: ${options.path}`);
+    for (const line of lines) logger.line(line);
+    return 0;
+  }
+
+  if (options.id) {
+    const sink = resolveErrorLogSink(report, options.id);
+    if (!sink) {
+      logger.error(`Unknown log id "${options.id}" — run kimi-debug logs for the registry`);
+      return 1;
+    }
+    if (!sink.present) {
+      logger.warn(`${sink.label} not found at ${sink.path}`);
+      logger.info(`When present, read with: ${sink.readCommand}`);
+      return 0;
+    }
+    if (sink.kind === "sqlite") {
+      logger.info(`${sink.label}: ${sink.path}`);
+      logger.info(`Read with: ${sink.readCommand}`);
+      return 0;
+    }
+    const lines = await tailErrorLogFile(sink.path, options.tail ?? 30, options.errorsOnly);
+    const source =
+      sink.id === "herdr-server"
+        ? "herdr-server"
+        : sink.id === "herdr-client"
+          ? "herdr-client"
+          : "blob";
+    if (options.classify) {
+      const taxonomy = await loadTaxonomy();
+      const hits = classifyLogBlob(lines, taxonomy, { source });
+      if (writer.flags.json) {
+        writer.writeJson({
+          schemaVersion: 1,
+          tool: "kimi-debug",
+          mode: "logs",
+          sink,
+          lines,
+          errorsOnly: options.errorsOnly,
+          hits,
+        });
+        return 0;
+      }
+      logger.section(`${sink.label} — classified hits`);
+      for (const hit of hits) {
+        logger.line(`${hit.taxonomyId} pid=${hit.pid ?? "none"} severity=${hit.severity}`);
+      }
+      return 0;
+    }
+    if (writer.flags.json) {
+      writer.writeJson({
+        schemaVersion: 1,
+        tool: "kimi-debug",
+        mode: "logs",
+        sink,
+        lines,
+        errorsOnly: options.errorsOnly,
+      });
+      return 0;
+    }
+    logger.section(`${sink.label} (${sink.id})`);
+    logger.info(sink.path);
+    logger.info(`Read: ${sink.readCommand}`);
+    for (const line of lines) logger.line(line);
+    return 0;
+  }
+
+  if (options.tail !== undefined) {
+    const present = report.sinks.filter((sink) => sink.present && sink.kind !== "sqlite");
+    if (writer.flags.json) {
+      const tailed: Array<{ id: string; path: string; lines: string[] }> = [];
+      for (const sink of present) {
+        const lines = await tailErrorLogFile(sink.path, options.tail, options.errorsOnly);
+        if (lines.length > 0) tailed.push({ id: sink.id, path: sink.path, lines });
+      }
+      writer.writeJson({
+        schemaVersion: 1,
+        tool: "kimi-debug",
+        mode: "logs",
+        tailed,
+        errorsOnly: options.errorsOnly,
+      });
+      return 0;
+    }
+    for (const sink of present) {
+      const lines = await tailErrorLogFile(sink.path, options.tail, options.errorsOnly);
+      if (lines.length === 0) continue;
+      logger.section(`${sink.label} (${sink.id})`);
+      for (const line of lines) logger.line(line);
+    }
+    return 0;
+  }
+
+  if (writer.flags.json) {
+    writer.writeJson(report);
+    return 0;
+  }
+
+  logger.section("Error log sinks");
+  logger.info(`Project: ${report.projectRoot}`);
+  logger.info("id                     status   size     path");
+  for (const sink of report.sinks) {
+    logger.line(formatSinkLine(sink));
+    logger.line(`  ${sink.purpose}`);
+    logger.line(`  read: ${sink.readCommand}`);
+  }
+  logger.info("Tail one: kimi-debug logs --id tool-failures --tail 20 [--errors]");
+  logger.info("Wire failures: kimi-debug wire");
+  return 0;
 }
 
 async function analyzeError(
@@ -829,8 +1003,10 @@ async function main(): Promise<number> {
       return 1;
     }
     await analyzeWithTaxonomy(errorText);
+  } else if (command === "logs") {
+    return await printErrorLogs(projectDir, parseLogsCommandOptions(args.slice(1)));
   } else if (command === "wire") {
-    const wirePath = args[1] || findLatestWireLog();
+    const wirePath = args[1] || findLatestWireLogPath();
     if (!wirePath) {
       logger.error("No wire.jsonl found — specify a path or ensure a Kimi Code session exists.");
       return 1;
@@ -848,6 +1024,13 @@ async function main(): Promise<number> {
     logger.line("  taxonomy                List error taxonomy categories");
     logger.line("  cluster                 Group taxonomy failures with related define constants");
     logger.line("  ledger [path] [--json]  Review failure ledger taxonomy and unknown buckets");
+    logger.line(
+      "  logs [--json]           List dedicated error/console log paths and read commands"
+    );
+    logger.line(
+      "  logs --id <sink> [--tail N] [--errors] [--classify]  Tail + batch classify a sink"
+    );
+    logger.line("  logs --path <file> [--tail N] [--errors]  Tail an arbitrary log file");
     logger.line("  wire [path]             Analyze a Kimi Code wire.jsonl for failures");
     logger.line(
       "  webview <url|file>      Capture page console via Bun.WebView (--mirror, --depth, --json)"

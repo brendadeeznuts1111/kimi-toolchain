@@ -21,7 +21,6 @@ import {
 } from "./herdr-dashboard-server.ts";
 import { webViewSupported } from "./webview-console.ts";
 import type { HealthCheck } from "./health-check.ts";
-import type { AdapterOutput } from "./doctor-adapter-types.ts";
 
 export type DashboardAutomationGateFailureCode =
   | "webview_unsupported"
@@ -323,18 +322,4 @@ export function dashboardAutomationChecksFromResult(
       autoFix: "kimi-doctor --automation",
     },
   ];
-}
-
-export async function runDashboardAutomationAdapter(
-  _projectRoot: string,
-  options: RunDashboardAutomationGateOptions = {}
-): Promise<AdapterOutput> {
-  const start = performance.now();
-  const result = await runDashboardAutomationGate(options);
-  return {
-    adapterName: "dashboard-automation",
-    durationMs: Math.round(performance.now() - start),
-    checks: dashboardAutomationChecksFromResult(result),
-    rawOutput: JSON.stringify({ dashboardAutomation: result, summary: { ok: result.ok } }),
-  };
 }

@@ -4,6 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Herdr Orchestrator Dashboard</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23238636'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='%23fff' font-size='14' font-family='system-ui'%3EH%3C/text%3E%3C/svg%3E"
+    />
     <link rel="stylesheet" href="/herdr-dashboard.css" />
   </head>
   <body>
@@ -118,11 +122,18 @@
       <button data-tab="rules">Rules</button>
       <button data-tab="scan">Upgrade scan</button>
       <button data-tab="canvases">Canvases</button>
+      <button data-tab="metrics">Metrics</button>
+      <button data-tab="events">Events</button>
+      <button data-tab="logs">Logs</button>
     </nav>
     <main>
       <section id="agents" class="panel active">
         <h2 id="agents-heading" class="panel-heading">Agents</h2>
         <div id="agents-error" class="error"></div>
+        <div id="gate-health" class="gate-health" hidden>
+          <span class="gate-health-icon">⚠</span>
+          <span id="gate-health-text"></span>
+        </div>
         <p id="agents-legend" class="agents-legend" hidden>
           <span class="status status-stale">stale</span> — no server or browser heartbeat within the
           header threshold (agent may still be running in Herdr).
@@ -197,11 +208,12 @@
                 <th>Rule</th>
                 <th>Message</th>
                 <th>Suggestion</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="scan-body">
               <tr>
-                <td colspan="5" class="empty-state">Click Scan project to run upgrade-advisor</td>
+                <td colspan="6" class="empty-state">Click Scan project to run upgrade-advisor</td>
               </tr>
             </tbody>
           </table>
@@ -221,12 +233,101 @@
                 <th>Manifest id</th>
                 <th>Page</th>
                 <th>Version</th>
+                <th>Layer</th>
+                <th>Open when</th>
                 <th>Purpose</th>
               </tr>
             </thead>
             <tbody id="canvases-body">
               <tr>
-                <td colspan="5" class="empty-state">Loading canvases…</td>
+                <td colspan="7" class="empty-state">Loading canvases…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section id="metrics" class="panel">
+        <h2 class="panel-heading">Runtime metrics</h2>
+        <div id="metrics-error" class="error"></div>
+        <div class="metrics-grid">
+          <div class="metrics-card">
+            <span class="metrics-label">Memory RSS</span>
+            <span id="metrics-rss" class="metrics-value">—</span>
+          </div>
+          <div class="metrics-card">
+            <span class="metrics-label">Heap used</span>
+            <span id="metrics-heap" class="metrics-value">—</span>
+          </div>
+          <div class="metrics-card">
+            <span class="metrics-label">Event loop lag</span>
+            <span id="metrics-el-lag" class="metrics-value">—</span>
+          </div>
+          <div class="metrics-card">
+            <span class="metrics-label">Uptime</span>
+            <span id="metrics-uptime" class="metrics-value">—</span>
+          </div>
+          <div class="metrics-card">
+            <span class="metrics-label">SSE connections</span>
+            <span id="metrics-sse" class="metrics-value">—</span>
+          </div>
+          <div class="metrics-card">
+            <span class="metrics-label">Agents discovered</span>
+            <span id="metrics-agents" class="metrics-value">—</span>
+          </div>
+        </div>
+      </section>
+      <section id="logs" class="panel">
+        <h2 class="panel-heading">Error logs</h2>
+        <p class="logs-legend">Curated failure traces — pair with Events when a gate fails</p>
+        <div class="logs-toolbar">
+          <label class="logs-field">
+            <span class="logs-field-label">Sink</span>
+            <select id="logs-sink-select" aria-label="Log sink"></select>
+          </label>
+          <label class="logs-field">
+            <span class="logs-field-label">Tail</span>
+            <input
+              id="logs-tail-input"
+              type="number"
+              min="1"
+              max="200"
+              value="50"
+              aria-label="Tail lines"
+            />
+          </label>
+          <span id="logs-meta" class="logs-meta"></span>
+        </div>
+        <div id="logs-error" class="error"></div>
+        <div id="logs-viewport" class="logs-viewport scroll" tabindex="0">
+          <pre id="logs-body" class="logs-pre empty-state">Select a sink…</pre>
+        </div>
+      </section>
+      <section id="events" class="panel">
+        <h2 class="panel-heading">Event audit trail</h2>
+        <div class="events-toolbar">
+          <select id="events-type-filter" aria-label="Event type">
+            <option value="">All types</option>
+          </select>
+          <button type="button" id="events-export-md" class="events-export-btn">Export MD</button>
+          <button type="button" id="events-export-json" class="events-export-btn">
+            Export JSON
+          </button>
+        </div>
+        <div id="events-error" class="error"></div>
+        <div class="scroll events-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Type</th>
+                <th>Workspace</th>
+                <th>Agent</th>
+                <th>Detail</th>
+              </tr>
+            </thead>
+            <tbody id="events-body">
+              <tr>
+                <td colspan="5" class="empty-state">Loading events…</td>
               </tr>
             </tbody>
           </table>

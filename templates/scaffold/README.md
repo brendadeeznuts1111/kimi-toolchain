@@ -14,14 +14,16 @@ bun run check:fast
 
 | Command              | What it does                                         |
 | -------------------- | ---------------------------------------------------- |
-| `bun run dev`        | Start the dev server (auto-assign port)              |
+| `bun run dev`        | Start the dev server with hot reload                 |
 | `bun run test`       | Run the full test suite                              |
-| `bun run test:fast`  | Run unit tests only (~2s)                            |
+| `bun run test:fast`  | Run unit tests only                                  |
 | `bun run check`      | Full quality gate (format + lint + typecheck + test) |
-| `bun run check:fast` | Fast quality gate (~3s)                              |
+| `bun run check:fast` | Fast quality gate                                    |
 | `bun run typecheck`  | TypeScript type checking                             |
 | `bun run format`     | Format source with oxfmt                             |
 | `bun run lint`       | Lint with oxlint + banned-terms check                |
+| `bun run scan`       | Run upgrade-advisor scan                             |
+| `bun run fix`        | Auto-repair scaffolding (kimi-fix)                   |
 
 ## Tech Stack
 

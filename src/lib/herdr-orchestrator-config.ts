@@ -17,6 +17,10 @@ export const DEFAULT_ORCHESTRATOR_EVENT_ALLOWLIST = [
   "git.ref.changed",
 ] as const;
 
+export const DEFAULT_GIT_REF_COOLDOWN_MS = 5_000;
+export const MIN_GIT_REF_COOLDOWN_MS = 1_000;
+export const MAX_GIT_REF_COOLDOWN_MS = 30_000;
+
 export interface HerdrOrchestratorEventsConfig {
   enabled: boolean;
   debounceMs: number;
@@ -24,6 +28,25 @@ export interface HerdrOrchestratorEventsConfig {
   allowlist: string[] | null;
   /** Poll .git/HEAD for commits while agents are running. */
   watchGit: boolean;
+  /** Suppress duplicate git.ref.changed for the same HEAD within this window. */
+  gitRefCooldownMs: number;
+}
+
+export function clampGitRefCooldownMs(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_GIT_REF_COOLDOWN_MS;
+  return Math.min(MAX_GIT_REF_COOLDOWN_MS, Math.max(MIN_GIT_REF_COOLDOWN_MS, value));
+}
+
+export function parseGitRefCooldownMs(section: Record<string, unknown>): number {
+  const camel = section.gitRefCooldownMs;
+  const snake = section.git_ref_cooldown_ms;
+  const raw =
+    typeof camel === "number"
+      ? camel
+      : typeof snake === "number"
+        ? snake
+        : DEFAULT_GIT_REF_COOLDOWN_MS;
+  return clampGitRefCooldownMs(raw);
 }
 
 // ── Handoff rules ───────────────────────────────────────────────────────
@@ -834,6 +857,8 @@ export interface HerdrOrchestratorDashboardConfig {
   ssePollMs: number;
   /** Handoffs/rules browser poll interval (ms). */
   pollHintMs: number;
+  /** Launch Bun.WebView shell when `herdr-orchestrator dashboard` runs without mode flags. */
+  webview?: boolean;
   /** Bun.WebView dataStore persistence (default profile under ~/.kimi-code/var/). */
   persistProfile?: boolean;
   /** Override persistent dataStore directory (implies persist unless ephemeral forced). */
@@ -865,6 +890,7 @@ export function parseOrchestratorDashboardSection(
       : typeof section?.sse_poll_ms === "number"
         ? section.sse_poll_ms
         : pollRaw;
+  const webview = section?.webview === true || section?.webview === "true";
   const persistProfile =
     section?.persistProfile === true ||
     section?.persist_profile === true ||
@@ -880,6 +906,7 @@ export function parseOrchestratorDashboardSection(
     staleMs: staleRaw > 0 ? staleRaw : DEFAULT_DASHBOARD_STALE_MS,
     ssePollMs: sseRaw > 0 ? sseRaw : DEFAULT_DASHBOARD_SSE_POLL_MS,
     pollHintMs: pollRaw > 0 ? pollRaw : DEFAULT_DASHBOARD_POLL_HINT_MS,
+    ...(webview ? { webview: true } : {}),
     ...(persistProfile ? { persistProfile: true } : {}),
     ...(profileDir ? { profileDir } : {}),
   };
@@ -1142,6 +1169,7 @@ export function parseOrchestratorEventsSection(
       debounceMs: 2_000,
       allowlist: [...DEFAULT_ORCHESTRATOR_EVENT_ALLOWLIST],
       watchGit: true,
+      gitRefCooldownMs: DEFAULT_GIT_REF_COOLDOWN_MS,
     };
   }
 
@@ -1163,6 +1191,7 @@ export function parseOrchestratorEventsSection(
     })(),
     allowlist,
     watchGit: section.watchGit !== false,
+    gitRefCooldownMs: parseGitRefCooldownMs(section),
   };
 }
 

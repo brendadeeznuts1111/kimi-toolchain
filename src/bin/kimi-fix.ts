@@ -401,6 +401,10 @@ function printHelp() {
   logger.line("Fixes missing project scaffolding:");
   logger.line("  - git init, governance files, CONTEXT.md, guardian baseline, git hooks");
   logger.line("  - AGENTS.md, .env.example, .gitignore, bunfig.toml, quality scripts, CI");
+  logger.line("");
+  logger.line("Docs:");
+  logger.line("  TEMPLATES.md                 — full template reference");
+  logger.line("  docs/references/bun-runtime-scaffold.md — bunfig.toml defaults explainer");
 }
 
 async function main(): Promise<number> {

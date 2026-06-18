@@ -4,6 +4,14 @@ let lastFilteredAgentsJson = "";
 let lastHandoffsJson = "";
 let lastScanJson = "";
 let lastCanvasesJson = "";
+let gateHealthPollTimer = null;
+let lastEventsJson = "";
+let eventsTypeFilter = "";
+let lastDebugLogsJson = "";
+let debugLogsSink = "tool-failures";
+let debugLogsTail = 50;
+let debugLogsTabTimer = null;
+const DEBUG_LOGS_POLL_MS = 10_000;
 let pollTimer = null;
 let processesPollTimer = null;
 let metaTimer = null;
@@ -1259,6 +1267,7 @@ function renderAgents(data) {
 
   for (const row of agents) {
     const tr = document.createElement("tr");
+    tr.className = `agent-row${row.status === "stale" ? " agent-row--stale" : ""}`;
     tr.innerHTML = `
       <td>${esc(row.host)}</td>
       ${sessionCellHtml(row.session)}
@@ -1453,13 +1462,49 @@ async function refreshScan() {
   body.innerHTML = "";
   for (const row of findings) {
     const tr = document.createElement("tr");
+    tr.className = row.hasAutoFix ? "finding-row finding-row--fixable" : "finding-row";
     tr.innerHTML = `
       <td class="scan-file">${esc(row.file)}</td>
       <td class="scan-line">${esc(String(row.line))}</td>
       <td class="scan-rule">${esc(row.ruleId)}</td>
       <td>${esc(row.message)}</td>
       <td class="scan-suggestion">${esc(row.suggestion)}</td>
+      <td class="scan-actions">${
+        row.hasAutoFix ? '<button type="button" class="scan-fix-btn">Apply fix</button>' : ""
+      }</td>
     `;
+    if (row.hasAutoFix) {
+      const btn = tr.querySelector(".scan-fix-btn");
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        btn.textContent = "Fixing...";
+        try {
+          const res = await fetch("/api/scan/fix", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ruleId: row.ruleId, file: row.file, line: row.line }),
+          });
+          const result = await res.json();
+          if (result.ok) {
+            tr.classList.add("finding-row--applied");
+            tr.classList.remove("finding-row--fixable");
+            btn.textContent = "Fixed ✓";
+            // Show diff preview inline
+            const diffRow = document.createElement("tr");
+            diffRow.className = "scan-diff-row";
+            diffRow.innerHTML = `<td colspan="6"><pre class="scan-diff-preview">${esc(result.diff)}</pre></td>`;
+            tr.after(diffRow);
+            setTimeout(() => diffRow.remove(), 6000);
+          } else {
+            btn.textContent = "Failed";
+            btn.disabled = false;
+          }
+        } catch {
+          btn.textContent = "Error";
+          btn.disabled = false;
+        }
+      });
+    }
     body.appendChild(tr);
   }
 }
@@ -1502,12 +1547,39 @@ async function refreshCanvases() {
 
   const canvases = payload.canvases ?? [];
   if (canvases.length === 0) {
-    body.innerHTML = '<tr><td colspan="5" class="empty-state">No canvases</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" class="empty-state">No canvases</td></tr>';
     return;
   }
 
   body.innerHTML = "";
+  let lastGroup = -1;
+  const groupLabels = {
+    1: "Hub",
+    2: "Config & Namespace",
+    4: "Cross-ref",
+    5: "Scaffold",
+    6: "Herdr — gates & HTTP",
+    8: "Herdr — plugins",
+  };
+  function canvasGroup(order) {
+    // Map readOrder to group key — adjacent orders in same group share a header
+    if (order <= 1) return 1;
+    if (order <= 3) return 2;
+    if (order <= 4) return 4;
+    if (order <= 5) return 5;
+    if (order <= 7) return 6;
+    return 8;
+  }
   for (const c of canvases) {
+    const group = canvasGroup(c.readOrder ?? 99);
+    if (group !== lastGroup) {
+      lastGroup = group;
+      const label = groupLabels[group] || `Group ${group}`;
+      const header = document.createElement("tr");
+      header.className = "canvas-group-header";
+      header.innerHTML = `<td colspan="7">${esc(label)}</td>`;
+      body.appendChild(header);
+    }
     const tr = document.createElement("tr");
     tr.className = "canvas-row";
     tr.setAttribute("role", "button");
@@ -1531,6 +1603,8 @@ async function refreshCanvases() {
       <td>${esc(c.id)}</td>
       <td>${esc(c.page)}</td>
       <td>${esc(c.version || "—")}</td>
+      <td>${esc(c.layer || "—")}</td>
+      <td>${esc(c.openWhen || "—")}</td>
       <td class="canvas-purpose">${esc(c.purpose)}</td>
     `;
     body.appendChild(tr);
@@ -1545,7 +1619,308 @@ function wireScanPanel() {
 }
 
 function wireCanvasesPanel() {
-  // canvases tab loaded on first activation via switchTab
+  // Pre-fetch canvases on boot so the tab is ready when activated
+  void refreshCanvases();
+}
+
+// ── Gate health overlay ──────────────────────────────────────────────
+
+async function refreshGateHealth() {
+  const bar = document.getElementById("gate-health");
+  const text = document.getElementById("gate-health-text");
+  if (!bar || !text) return;
+
+  try {
+    const res = await fetch("/api/doctor/gates");
+    const payload = await res.json();
+    if (!payload.ok) return;
+
+    if (payload.failed) {
+      bar.hidden = false;
+      const names = payload.failures.map((f) => f.name).join(", ");
+      text.textContent = `${payload.failures.length}/${payload.total} failing: ${names}`;
+      document.querySelectorAll(".agent-row").forEach((row) => {
+        row.classList.add("agent-row--gate-failed");
+      });
+    } else {
+      bar.hidden = true;
+      document.querySelectorAll(".agent-row--gate-failed").forEach((row) => {
+        row.classList.remove("agent-row--gate-failed");
+      });
+    }
+  } catch {
+    // gate check unavailable — hide indicator
+    bar.hidden = true;
+  }
+}
+
+function scheduleGateHealthPoll() {
+  if (gateHealthPollTimer) clearInterval(gateHealthPollTimer);
+  gateHealthPollTimer = setInterval(() => {
+    void refreshGateHealth();
+  }, 30_000);
+  void refreshGateHealth();
+}
+
+// ── Metrics tab ─────────────────────────────────────────────────────
+
+async function refreshMetrics() {
+  const body = document.getElementById("metrics");
+  if (!body || !body.classList.contains("active")) return;
+
+  const errEl = document.getElementById("metrics-error");
+  try {
+    const res = await fetch("/api/metrics");
+    const payload = await res.json();
+    if (!payload.ok) {
+      if (errEl) errEl.textContent = payload.error || "Failed to load metrics";
+      return;
+    }
+    if (errEl) errEl.textContent = "";
+    const m = payload.metrics;
+    document.getElementById("metrics-rss").textContent = `${m.memoryRssMB} MB`;
+    document.getElementById("metrics-heap").textContent = `${m.memoryHeapMB} MB`;
+    document.getElementById("metrics-el-lag").textContent = `${m.eventLoopLagMs} ms`;
+    document.getElementById("metrics-uptime").textContent = `${m.uptimeSeconds}s`;
+    document.getElementById("metrics-sse").textContent = String(m.sseConnections);
+    document.getElementById("metrics-agents").textContent = String(m.agentCount);
+  } catch (err) {
+    if (errEl) errEl.textContent = err instanceof Error ? err.message : String(err);
+  }
+}
+
+function wireMetricsPanel() {
+  // metrics tab loaded on first activation via switchTab
+}
+
+// ── Events tab ─────────────────────────────────────────────────────
+
+function eventTypeClass(type) {
+  if (type === "gate.failed") return "event-type--gate-failed";
+  if (type === "scan.fix") return "event-type--scan-fix";
+  if (type === "gate.cleared") return "event-type--gate-cleared";
+  return "";
+}
+
+function formatEventTime(at) {
+  const ms = Math.floor(at / 1000000);
+  return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
+}
+
+function formatEventDetail(payload) {
+  if (payload?.message) return esc(String(payload.message).slice(0, 100));
+  if (payload?.failures) return esc(`${payload.failures.length} failure(s)`);
+  if (payload?.ruleId) return `${esc(payload.ruleId)} · ${esc(payload.file || "")}`;
+  return esc(JSON.stringify(payload).slice(0, 80));
+}
+
+async function refreshEvents() {
+  const body = document.getElementById("events-body");
+  if (!body) return;
+  const errEl = document.getElementById("events-error");
+
+  let url = "/api/events?limit=80";
+  if (eventsTypeFilter) url += `&type=${encodeURIComponent(eventsTypeFilter)}`;
+
+  try {
+    const res = await fetch(url);
+    const payload = await res.json();
+    const json = JSON.stringify(payload);
+    if (json === lastEventsJson) return;
+    lastEventsJson = json;
+
+    if (!payload.ok) {
+      if (errEl) errEl.textContent = payload.error || "Failed to load events";
+      return;
+    }
+    if (errEl) errEl.textContent = "";
+
+    body.innerHTML = "";
+    if (payload.events.length === 0) {
+      body.innerHTML = '<tr><td colspan="5" class="empty-state">No events</td></tr>';
+      return;
+    }
+
+    for (const e of payload.events) {
+      const tr = document.createElement("tr");
+      tr.className = `event-row ${eventTypeClass(e.type)}`;
+      tr.innerHTML = `
+        <td class="event-time">${formatEventTime(e.at)}</td>
+        <td><span class="event-type-badge ${eventTypeClass(e.type)}">${esc(e.type)}</span></td>
+        <td>${esc(e.workspace || "—")}</td>
+        <td>${esc(e.agent || "—")}</td>
+        <td class="event-detail">${formatEventDetail(e.payload)}</td>
+      `;
+      body.appendChild(tr);
+    }
+
+    // Populate type filter dropdown
+    const filter = document.getElementById("events-type-filter");
+    if (filter && filter.options.length <= 1) {
+      const typesRes = await fetch("/api/events/types");
+      const typesData = await typesRes.json();
+      for (const t of typesData.types || []) {
+        const opt = document.createElement("option");
+        opt.value = t;
+        opt.textContent = t;
+        filter.appendChild(opt);
+      }
+    }
+  } catch (err) {
+    if (errEl) errEl.textContent = err instanceof Error ? err.message : String(err);
+  }
+}
+
+function logLineClass(line) {
+  if (/\b(error|fail(?:ed|ure)?|exception|panic|fatal|✗|✘)\b/i.test(line)) {
+    return "log-line--error";
+  }
+  if (/\b(warn(?:ing)?)\b/i.test(line)) return "log-line--warn";
+  return "";
+}
+
+function renderDebugLogLines(lines) {
+  const body = document.getElementById("logs-body");
+  if (!body) return;
+  body.innerHTML = "";
+  body.classList.remove("empty-state");
+  if (!lines.length) {
+    body.textContent = "No lines in tail window";
+    body.classList.add("empty-state");
+    return;
+  }
+  for (const line of lines) {
+    const row = document.createElement("div");
+    row.className = `log-line ${logLineClass(line)}`;
+    row.textContent = line;
+    row.title = "Click to copy";
+    row.addEventListener("click", () => {
+      void navigator.clipboard.writeText(line).then(() => {
+        row.classList.add("log-line--copied");
+        setTimeout(() => row.classList.remove("log-line--copied"), 700);
+      });
+    });
+    body.appendChild(row);
+  }
+}
+
+async function populateDebugLogSinks() {
+  const select = document.getElementById("logs-sink-select");
+  if (!select || select.dataset.populated === "1") return;
+  const res = await fetch("/api/debug/logs");
+  const payload = await res.json();
+  if (!payload.ok || !Array.isArray(payload.sinks)) return;
+  select.innerHTML = "";
+  for (const sink of payload.sinks) {
+    const opt = document.createElement("option");
+    opt.value = sink.id;
+    opt.textContent = `${sink.label}${sink.present ? "" : " (missing)"}`;
+    opt.disabled = !sink.present;
+    select.appendChild(opt);
+  }
+  const preferred =
+    payload.sinks.find((s) => s.id === "tool-failures" && s.present) ||
+    payload.sinks.find((s) => s.present);
+  if (preferred) {
+    debugLogsSink = preferred.id;
+    select.value = preferred.id;
+  }
+  select.dataset.populated = "1";
+}
+
+async function refreshDebugLogs() {
+  if (activeTab !== "logs") return;
+  const body = document.getElementById("logs-body");
+  const errEl = document.getElementById("logs-error");
+  const metaEl = document.getElementById("logs-meta");
+  if (!body) return;
+
+  await populateDebugLogSinks();
+
+  const url = `/api/debug/logs?sink=${encodeURIComponent(debugLogsSink)}&tail=${encodeURIComponent(String(debugLogsTail))}`;
+  try {
+    const res = await fetch(url);
+    const payload = await res.json();
+    const json = JSON.stringify(payload);
+    if (json === lastDebugLogsJson) return;
+    lastDebugLogsJson = json;
+
+    if (!payload.ok) {
+      if (errEl) errEl.textContent = payload.error || "Failed to load logs";
+      if (metaEl) metaEl.textContent = payload.path ? payload.path : "";
+      body.textContent = payload.error || "Log unavailable";
+      body.classList.add("empty-state");
+      return;
+    }
+    if (errEl) errEl.textContent = "";
+    if (metaEl) {
+      metaEl.textContent = `${payload.path} · ${payload.lines.length}/${payload.totalLines} lines (tail ${payload.tail})`;
+    }
+    renderDebugLogLines(payload.lines);
+  } catch (err) {
+    if (errEl) errEl.textContent = err instanceof Error ? err.message : String(err);
+  }
+}
+
+function scheduleDebugLogsPoll() {
+  if (debugLogsTabTimer) clearInterval(debugLogsTabTimer);
+  debugLogsTabTimer = null;
+  if (activeTab !== "logs") return;
+  debugLogsTabTimer = setInterval(() => {
+    void refreshDebugLogs();
+  }, DEBUG_LOGS_POLL_MS);
+}
+
+function wireLogsTabPanel() {
+  const select = document.getElementById("logs-sink-select");
+  if (select && select.dataset.wired !== "1") {
+    select.dataset.wired = "1";
+    select.addEventListener("change", () => {
+      debugLogsSink = select.value;
+      lastDebugLogsJson = "";
+      void refreshDebugLogs();
+    });
+  }
+  const tailInput = document.getElementById("logs-tail-input");
+  if (tailInput && tailInput.dataset.wired !== "1") {
+    tailInput.dataset.wired = "1";
+    tailInput.addEventListener("change", () => {
+      const value = Number(tailInput.value);
+      debugLogsTail = Number.isFinite(value) ? Math.min(200, Math.max(1, Math.floor(value))) : 50;
+      tailInput.value = String(debugLogsTail);
+      lastDebugLogsJson = "";
+      void refreshDebugLogs();
+    });
+  }
+}
+
+function wireEventsPanel() {
+  const filter = document.getElementById("events-type-filter");
+  if (filter && filter.dataset.wired !== "1") {
+    filter.dataset.wired = "1";
+    filter.value = eventsTypeFilter;
+    filter.addEventListener("change", () => {
+      eventsTypeFilter = filter.value;
+      lastEventsJson = "";
+      void refreshEvents();
+    });
+  }
+  const exportMd = document.getElementById("events-export-md");
+  if (exportMd && exportMd.dataset.wired !== "1") {
+    exportMd.dataset.wired = "1";
+    exportMd.addEventListener("click", () => {
+      const typeParam = eventsTypeFilter ? `&type=${encodeURIComponent(eventsTypeFilter)}` : "";
+      window.open(`/api/events/export?format=markdown${typeParam}`, "_blank");
+    });
+  }
+  const exportJson = document.getElementById("events-export-json");
+  if (exportJson && exportJson.dataset.wired !== "1") {
+    exportJson.dataset.wired = "1";
+    exportJson.addEventListener("click", () => {
+      const typeParam = eventsTypeFilter ? `&type=${encodeURIComponent(eventsTypeFilter)}` : "";
+      window.open(`/api/events/export?format=json${typeParam}`, "_blank");
+    });
+  }
 }
 
 function switchTab(tab) {
@@ -1566,6 +1941,19 @@ function switchTab(tab) {
   } else if (tab === "canvases") {
     lastCanvasesJson = "";
     void refreshCanvases();
+  } else if (tab === "metrics") {
+    void refreshMetrics();
+  } else if (tab === "events") {
+    lastEventsJson = "";
+    void refreshEvents();
+  } else if (tab === "logs") {
+    lastDebugLogsJson = "";
+    void refreshDebugLogs();
+    scheduleDebugLogsPoll();
+  }
+  if (activeTab !== "logs" && debugLogsTabTimer) {
+    clearInterval(debugLogsTabTimer);
+    debugLogsTabTimer = null;
   }
   if (window.__HERDR_DASHBOARD_POLL_MS__) {
     scheduleSecondaryPoll(window.__HERDR_DASHBOARD_POLL_MS__);
@@ -1581,6 +1969,10 @@ wireProcessesToggle();
 wireGitToggle();
 wireScanPanel();
 wireCanvasesPanel();
+wireMetricsPanel();
+wireEventsPanel();
+wireLogsTabPanel();
+scheduleGateHealthPoll();
 
 (async () => {
   const res = await fetch("/api/meta");

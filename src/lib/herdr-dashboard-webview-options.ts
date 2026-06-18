@@ -85,11 +85,26 @@ export interface DashboardWebViewSessionOptions extends HerdrDashboardWebViewSto
   onCdp?: (method: string, params: unknown) => void;
 }
 
+function isConsoleObject(value: unknown): value is typeof globalThis.console {
+  return value === globalThis.console;
+}
+
+function callConsoleMethod(
+  consoleObject: typeof globalThis.console,
+  type: string,
+  args: unknown[]
+): void {
+  const sink = consoleObject[type as keyof typeof consoleObject];
+  if (typeof sink === "function") {
+    (sink as (...args: unknown[]) => void).apply(consoleObject, args);
+  }
+}
+
 /** Resolve Bun.WebView `console` — mirror by default; custom handler only when onIpc is set.
  *  Always intercepts `{ command: "open-canvas" }` to open canvas files in the editor. */
 export function resolveDashboardWebViewConsole(
   options: Pick<DashboardWebViewSessionOptions, "console" | "onIpc">
-): Bun.WebView.ConstructorOptions["console"] {
+): (type: string, ...args: unknown[]) => void {
   const delegate =
     options.console ??
     (options.onIpc ? createDashboardWebViewConsole(options.onIpc) : webViewConsoleMirror());
@@ -102,14 +117,39 @@ export function resolveDashboardWebViewConsole(
       (args[0] as Record<string, unknown>).command === "open-canvas"
     ) {
       const { canvasId, path } = args[0] as { canvasId: string; path: string };
-      const proc = Bun.spawn(["open", path], { stdio: ["ignore", "ignore", "ignore"] });
+      const openCmd = process.platform === "darwin" ? "open" : "xdg-open";
+      const proc = Bun.spawn([openCmd, path], {
+        stdio: ["ignore", "ignore", "pipe"],
+      });
       proc.unref();
-      if (typeof delegate === "function") {
-        delegate(type, `[dashboard] opened ${canvasId} → ${path}`);
+      const label = canvasId || path;
+      if (isConsoleObject(delegate)) {
+        callConsoleMethod(delegate, type, [`[dashboard] opening ${label} → ${path}`]);
+      } else if (typeof delegate === "function") {
+        delegate(type, `[dashboard] opening ${label} → ${path}`);
       }
+      void (async () => {
+        let code = -1;
+        try {
+          code = await proc.exited;
+        } catch {
+          code = -1;
+        }
+        const msg =
+          code === 0
+            ? `[dashboard] opened ${label}`
+            : `[dashboard] open failed (exit ${code}) for ${label}`;
+        if (isConsoleObject(delegate)) {
+          callConsoleMethod(delegate, code === 0 ? "log" : "warn", [msg]);
+        } else if (typeof delegate === "function") {
+          delegate(code === 0 ? "log" : "warn", msg);
+        }
+      })();
       return;
     }
-    if (typeof delegate === "function") {
+    if (isConsoleObject(delegate)) {
+      callConsoleMethod(delegate, type, args);
+    } else if (typeof delegate === "function") {
       delegate(type, ...args);
     }
   };

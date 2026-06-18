@@ -7,7 +7,6 @@ import type { ExternalToolAdapter } from "../doctor-adapter-types.ts";
 import {
   formatDashboardMetaDiscoveryStatusLine,
   resolveRemoteHostsConfigured,
-  runDashboardMetaGate,
   type DashboardMetaGateResult,
 } from "../herdr-dashboard-meta-gate.ts";
 import { safeParse } from "../utils.ts";
@@ -63,20 +62,6 @@ export function dashboardMetaChecksFromResult(
         : "kimi-doctor --dashboard-meta",
     },
   ];
-}
-
-export async function runDashboardMetaAdapter(
-  projectRoot: string,
-  options: { url?: string; timeoutMs?: number } = {}
-): Promise<AdapterOutput> {
-  const start = performance.now();
-  const result = await runDashboardMetaGate(options);
-  return {
-    adapterName: "dashboard-meta",
-    durationMs: Math.round(performance.now() - start),
-    checks: dashboardMetaChecksFromResult(result),
-    rawOutput: JSON.stringify({ dashboardMeta: result, summary: { ok: result.ok } }),
-  };
 }
 
 export const dashboardMetaAdapter: ExternalToolAdapter = {

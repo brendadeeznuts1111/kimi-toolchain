@@ -60,14 +60,22 @@ export type HerdrSocketHealthProbe = {
 
 const SOCKET_CONNECT_PROBE_MS = 800;
 
-function socketErrorCode(error: unknown): string | undefined {
+/** Parse Bun.connect unix socket error messages (exported for tests and doctor probes). */
+export function parseSocketConnectErrorCode(error: unknown): string | undefined {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code?: unknown }).code;
     if (typeof code === "string") return code;
   }
   const message = error instanceof Error ? error.message : String(error);
-  const match = message.match(/\b(EADDRINUSE|ENOENT|ECONNREFUSED|ETIMEDOUT)\b/);
-  return match?.[1];
+  const match = message.match(/\b(EADDRINUSE|ENOENT|ECONNREFUSED|ETIMEDOUT|EAGAIN)\b/);
+  if (match?.[1]) return match[1];
+  if (/Resource temporarily unavailable|os error 35/i.test(message)) return "EAGAIN";
+  if (/os error 61|Connection refused/i.test(message)) return "ECONNREFUSED";
+  return undefined;
+}
+
+function socketErrorCode(error: unknown): string | undefined {
+  return parseSocketConnectErrorCode(error);
 }
 
 function socketErrorMessage(error: unknown): string {

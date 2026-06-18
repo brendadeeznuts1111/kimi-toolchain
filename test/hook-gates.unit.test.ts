@@ -3,6 +3,7 @@ import { describe, expect, it, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
 import { $ } from "bun";
 import {
+  planPreCommitTestArgs,
   prePushRunsInParallel,
   runConstantDriftGate,
   runPreCommitGates,
@@ -106,6 +107,25 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
         expect(prePushRunsInParallel()).toBe(false);
       });
     });
+  });
+
+  it("pre-commit runs staged test files directly before falling back to changed graph", () => {
+    const direct = planPreCommitTestArgs(["README.md", "test/foo.unit.test.ts"]);
+    expect(direct.usesChangedRef).toBe(false);
+    expect(direct.stagedTestFiles).toEqual(["test/foo.unit.test.ts"]);
+    expect(direct.args).toContain("--isolate");
+    expect(direct.args).toContain("test/foo.unit.test.ts");
+    expect(direct.args).not.toContain("--changed=HEAD");
+
+    const mixed = planPreCommitTestArgs(["src/lib/foo.ts", "test/foo.unit.test.ts"]);
+    expect(mixed.usesChangedRef).toBe(true);
+    expect(mixed.stagedTestFiles).toEqual(["test/foo.unit.test.ts"]);
+    expect(mixed.args).toContain("--changed=HEAD");
+
+    const changed = planPreCommitTestArgs(["src/lib/foo.ts"]);
+    expect(changed.usesChangedRef).toBe(true);
+    expect(changed.stagedTestFiles).toEqual([]);
+    expect(changed.args).toContain("--changed=HEAD");
   });
 
   it("detectSyncDrift is clean for minimal toolchain stub (no managed sources)", async () => {

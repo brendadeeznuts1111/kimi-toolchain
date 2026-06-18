@@ -55,6 +55,7 @@ export const README_TEMPLATE = load("README.md");
 
 /** Required package.json scripts added by kimi-fix and audited by scaffold doctor. */
 export const REQUIRED_PACKAGE_SCRIPT_ENTRIES = {
+  dev: "bun run --watch src/index.ts",
   test: "bun run scripts/run-tests.ts",
   "test:fast": "bun run scripts/run-tests.ts --fast",
   "test:coverage": "bun run scripts/run-tests.ts --coverage",
@@ -176,7 +177,7 @@ export const TEMPLATE_MARKERS: Record<string, string[]> = {
   OXFMTRC: ['"printWidth": 100'],
   CI_WORKFLOW: ["format:check:ci", "test:coverage:ci", "1.4.0"],
   TSCONFIG: ["moduleResolution", "bundler"],
-  BUNFIG: ["concurrentTestGlob", "coverageThreshold"],
+  BUNFIG: ["concurrentTestGlob", "bail = 1", "noOrphans"],
   DX_CONFIG_APP: ["dx setup", "dx cli", "dx package"],
   DX_CONFIG_TOOLCHAIN: ["[finishWork]", "[herdr]", "finish-work"],
   GITIGNORE: ["coverage/", ".bun-cache"],

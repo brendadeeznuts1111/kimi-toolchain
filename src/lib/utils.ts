@@ -172,6 +172,30 @@ export function findExecutable(bin: string): string | null {
 /** @deprecated Prefer readableStreamToText from bun-utils.ts */
 export { readableStreamToText as streamToText } from "./bun-utils.ts";
 
+// ── Process signals ──────────────────────────────────────────────────
+
+/** Block until SIGINT/SIGTERM (Bun.sleep loop — no bare Promise). */
+export async function waitForShutdownSignals(onSignal?: () => void): Promise<void> {
+  const controller = new AbortController();
+  const handler = () => {
+    onSignal?.();
+    controller.abort();
+  };
+  process.once("SIGINT", handler);
+  process.once("SIGTERM", handler);
+  controller.signal.addEventListener(
+    "abort",
+    () => {
+      process.off("SIGINT", handler);
+      process.off("SIGTERM", handler);
+    },
+    { once: true }
+  );
+  while (!controller.signal.aborted) {
+    await Bun.sleep(60_000);
+  }
+}
+
 // ── Fetch with Timeout ───────────────────────────────────────────────
 
 /** Fetch a URL with a configurable timeout (default 10s). */

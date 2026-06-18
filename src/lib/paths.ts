@@ -45,9 +45,29 @@ export function failureLedgerPath(): string {
   return join(varDir(), "tool-failures.jsonl");
 }
 
+/** Return ~/.kimi-code/var/herdr-alert-dedupe.jsonl */
+export function herdrAlertDedupeLedgerPath(): string {
+  return join(varDir(), "herdr-alert-dedupe.jsonl");
+}
+
+/** Return ~/.kimi-code/var/herdr-taxonomy-hits.jsonl */
+export function herdrTaxonomyHitsLedgerPath(): string {
+  return join(varDir(), "herdr-taxonomy-hits.jsonl");
+}
+
 /** Return ~/.kimi-code/var/trace-events.jsonl */
 export function traceEventsPath(): string {
   return join(varDir(), "trace-events.jsonl");
+}
+
+/** Return ~/.kimi-code/var/health-events.jsonl */
+export function healthEventsPath(): string {
+  return join(varDir(), "health-events.jsonl");
+}
+
+/** Return ~/.kimi-code/var/dashboard-events.db */
+export function dashboardEventsDbPath(): string {
+  return join(varDir(), "dashboard-events.db");
 }
 
 /** Return ~/.kimi-code/var/error-clusters.json */
@@ -212,6 +232,16 @@ export function globalDxConfigPath(home?: string): string {
 /** Return ~/.config/herdr */
 export function herdrConfigDir(home?: string): string {
   return join(home || homeDir(), ".config", "herdr");
+}
+
+/** Return ~/.config/herdr/herdr-server.log */
+export function herdrServerLogPath(home?: string): string {
+  return join(herdrConfigDir(home), "herdr-server.log");
+}
+
+/** Return ~/.config/herdr/herdr-client.log */
+export function herdrClientLogPath(home?: string): string {
+  return join(herdrConfigDir(home), "herdr-client.log");
 }
 
 /** Default Bun.WebView dataStore folder for herdr-orchestrator dashboard. */

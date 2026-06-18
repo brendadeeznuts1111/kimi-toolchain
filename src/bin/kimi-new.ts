@@ -24,6 +24,14 @@ function printHelp() {
   logger.info("");
   logger.info("Creates a new Bun project and runs kimi-fix:");
   logger.info("  mkdir <name> && bun init -y && kimi-fix .");
+  logger.info("");
+  logger.info("Scaffolded defaults: hardened bunfig.toml ([install], [run] noOrphans,");
+  logger.info("  [test] with bail/randomize/seed), dx.config.toml, AGENTS.md, CI workflow.");
+  logger.info("Docs: TEMPLATES.md, docs/references/bun-runtime-scaffold.md");
+  logger.info("");
+  logger.info("Zero-install alternative:");
+  logger.info("  cp -r ~/kimi-toolchain/templates/bun-create/kimi-toolchain ~/.bun-create/");
+  logger.info("  bun create kimi-toolchain my-app");
 }
 
 function resolveParent(args: string[]): string {

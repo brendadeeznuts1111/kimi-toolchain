@@ -82,6 +82,20 @@ function internalError(id: unknown, message: string) {
   });
 }
 
+function parseError(message: string) {
+  send({ jsonrpc: "2.0", id: null, error: { code: -32700, message } });
+}
+
+function invalidRequest(id: unknown, message: string) {
+  send({ jsonrpc: "2.0", id, error: { code: -32600, message } });
+}
+
+function isJsonRpcRequest(
+  value: unknown
+): value is { id?: unknown; method?: unknown; params?: unknown } {
+  return typeof value === "object" && value !== null;
+}
+
 async function* readLines(stream: ReadableStream<Uint8Array>): AsyncGenerator<string> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
@@ -274,11 +288,28 @@ async function handleRequest(req: unknown) {
 
 export async function startDoctorMcpServer(): Promise<void> {
   for await (const line of readLines(Bun.stdin.stream())) {
+    let req: unknown;
     try {
-      const req = JSON.parse(line);
+      req = JSON.parse(line);
+    } catch (e) {
+      parseError(e instanceof Error ? e.message : "Invalid JSON");
+      continue;
+    }
+
+    if (!isJsonRpcRequest(req)) {
+      invalidRequest(null, "Request must be a JSON object");
+      continue;
+    }
+
+    if (typeof req.method !== "string") {
+      invalidRequest(req.id, "Missing or invalid 'method' field");
+      continue;
+    }
+
+    try {
       await handleRequest(req);
-    } catch {
-      // Ignore malformed lines to stay resilient.
+    } catch (e) {
+      internalError(req.id, e instanceof Error ? e.message : String(e));
     }
   }
 }

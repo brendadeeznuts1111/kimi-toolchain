@@ -132,7 +132,7 @@ function parseArgs(argv: string[]) {
       const idx = args.indexOf("--thumbnail");
       return idx >= 0 ? args[idx + 1] || "" : "";
     })(),
-    dashboardPersistProfile: args.includes("--persist-profile"),
+    dashboardPersistProfile: args.includes("--persist-profile") || args.includes("--persist"),
     dashboardProfileDir: (() => {
       const idx = args.indexOf("--profile-dir");
       return idx >= 0 ? args[idx + 1] || "" : "";
@@ -218,6 +218,7 @@ Flags:
   --thumbnail <path>  WebP thumbnail via Bun.Image (with --screenshot)
   --probe             With --screenshot: also click first Attach button
   --persist-profile   Persist cookies/localStorage to ~/.kimi-code/var/herdr-orchestrator-dashboard-webview
+  --persist           Alias for --persist-profile
                       (Bun dataStore directory; not your Chrome/Safari user profile)
                       WebKit persistence requires macOS 15.2+; otherwise falls back to ephemeral
   --profile-dir <p>   Persistent dataStore directory (overrides --persist-profile default;
@@ -1566,23 +1567,29 @@ try {
       process.exit(1);
     }
 
-    if (dashboardServe || dashboardWebview || dashboardScreenshot) {
-      const full = { ...config, projectPath };
-      const doc = (() => {
-        if (!config.sourcePath) return null;
-        try {
-          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
-        } catch {
-          return null;
-        }
-      })();
-      const orchConfig = resolveOrchestratorConfig(full, doc);
+    const full = { ...config, projectPath };
+    const doc = (() => {
+      if (!config.sourcePath) return null;
+      try {
+        return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
+      } catch {
+        return null;
+      }
+    })();
+    const orchConfig = resolveOrchestratorConfig(full, doc);
+    const configDashboardWebview = orchConfig.dashboard.webview === true;
+    const launchDashboardServer =
+      dashboardServe || dashboardWebview || dashboardScreenshot || configDashboardWebview;
+
+    if (launchDashboardServer) {
+      const useWebview =
+        dashboardWebview || (configDashboardWebview && !dashboardServe && !dashboardScreenshot);
       const persistProfile =
         dashboardPersistProfile ||
         Boolean(dashboardProfileDir) ||
         orchConfig.dashboard.persistProfile === true;
       const profileDir = dashboardProfileDir || orchConfig.dashboard.profileDir || undefined;
-      const dashboardShell: "serve" | "webview" | "automation" = dashboardWebview
+      const dashboardShell: "serve" | "webview" | "automation" = useWebview
         ? "webview"
         : dashboardScreenshot
           ? "automation"
@@ -1637,7 +1644,7 @@ try {
 
       const { runHerdrDashboardServe, runHerdrDashboardWebView } =
         await import("../lib/herdr-webview-dashboard.ts");
-      if (dashboardWebview) {
+      if (useWebview) {
         await runHerdrDashboardWebView(serverOpts, {
           backend: dashboardBackend,
           persistProfile,

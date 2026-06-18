@@ -58,6 +58,8 @@ export interface LocalDocReference {
   canvasLayer?: string;
   /** When to open hint (e.g. "@see ladder · docs/references"). From CANVAS_ROUTING.openWhen. */
   canvasOpenWhen?: string;
+  /** Read-order grouping (1=Hub, 2=Config/Namespace, 3=Cross-ref, 4=Scaffold, 5-6=Herdr). */
+  canvasReadOrder?: number;
 }
 
 export interface RepoReference {
@@ -171,6 +173,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     canvasVersion: "0.1.0",
     canvasLayer: "Doc URL lint",
     canvasOpenWhen: "@see ladder · docs/references index",
+    canvasReadOrder: 4,
   },
   {
     id: "unified",
@@ -180,6 +183,10 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     cursorCanvas: "docs/canvases/kimi-toolchain.canvas.tsx",
     canvasId: "kimi-toolchain",
     canvasPage: "Hub",
+    canvasVersion: "0.1.0",
+    canvasLayer: "Project hub",
+    canvasOpenWhen: "Architecture, tools, gates — start here",
+    canvasReadOrder: 1,
   },
   {
     id: "deep-quality",
@@ -195,6 +202,10 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     cursorCanvas: "docs/canvases/kimi-fix.canvas.tsx",
     canvasId: "kimi-fix",
     canvasPage: "Scaffold",
+    canvasVersion: "0.1.0",
+    canvasLayer: "kimi-fix · bun create",
+    canvasOpenWhen: "Profiles · templates · scaffold doctor",
+    canvasReadOrder: 5,
   },
   {
     id: "dashboard-thumbnails",
@@ -205,6 +216,10 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     cursorCanvas: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx",
     canvasId: "herdr-dashboard-thumbnails",
     canvasPage: "Orchestrator HTTP",
+    canvasVersion: "0.1.0",
+    canvasLayer: "Orchestrator HTTP",
+    canvasOpenWhen: "PNG → Bun.Image → /api/thumbnail",
+    canvasReadOrder: 6,
   },
   {
     id: "kimi-doctor",
@@ -215,6 +230,17 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     cursorCanvas: "docs/canvases/herdr-dashboard-automation.canvas.tsx",
     canvasId: "herdr-dashboard-automation",
     canvasPage: "Finish-work shell",
+    canvasVersion: "1.0.0",
+    canvasLayer: "Finish-work shell",
+    canvasOpenWhen: "kimi-doctor --automation · gate JSON",
+    canvasReadOrder: 7,
+  },
+  {
+    id: "herdr-socket-saturation-protocol",
+    repoPath: "docs/references/herdr-socket-saturation-protocol.md",
+    runtimePath: "~/.kimi-code/docs/references/herdr-socket-saturation-protocol.md",
+    purpose:
+      "Herdr EAGAIN (os error 35) taxonomy, fix-socket --dry-run/--live contract, respawn protection, and Mac mini runbook",
   },
   {
     id: "namespace",
@@ -225,6 +251,10 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     cursorCanvas: "docs/canvases/namespace-boundaries.canvas.tsx",
     canvasId: "namespace-boundaries",
     canvasPage: "Meta / routing",
+    canvasVersion: "0.1.0",
+    canvasLayer: "Meta / routing",
+    canvasOpenWhen: "Doctor trinity · finish-work vs prefix+*",
+    canvasReadOrder: 2,
   },
   {
     id: "configuration-layers",
@@ -235,6 +265,10 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     cursorCanvas: "docs/canvases/configuration-layers.canvas.tsx",
     canvasId: "configuration-layers",
     canvasPage: "Config SSOT",
+    canvasVersion: "1.0.0",
+    canvasLayer: "Config SSOT",
+    canvasOpenWhen: "Discovery · define · parity · scaffold layers",
+    canvasReadOrder: 3,
   },
   {
     id: "shell-spawn-choice",
@@ -256,6 +290,13 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     purpose: "Bun $ template vs subprocess and inspect companion patterns",
   },
   {
+    id: "canvas-companions",
+    repoPath: "docs/references/canvas-companions.md",
+    runtimePath: "~/.kimi-code/docs/references/canvas-companions.md",
+    purpose:
+      "Canvas companion system: manifest registration, CANVAS_ROUTING conventions, /api/canvases, dashboard tab, click-to-open bridge, read-order groups, metadata integrity gate",
+  },
+  {
     id: "template-matrix",
     repoPath: "docs/references/template-matrix.md",
     runtimePath: "~/.kimi-code/docs/references/template-matrix.md",
@@ -271,6 +312,10 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     cursorCanvas: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx",
     canvasId: "herdr-unified-plugin-architecture",
     canvasPage: "Herdr plugins",
+    canvasVersion: "0.5.0",
+    canvasLayer: "Herdr plugins v0.5.0",
+    canvasOpenWhen: "prefix+* · orthogonal to finish-work gates",
+    canvasReadOrder: 8,
   },
   {
     id: "canonical-references",

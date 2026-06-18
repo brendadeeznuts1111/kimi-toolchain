@@ -19,7 +19,9 @@ async function run(
   path: string,
   args: string[] = []
 ): Promise<{ stdout: string; exitCode: number }> {
-  const { stdout, stderr, exitCode } = await runBunScript(path, args);
+  const { stdout, stderr, exitCode } = await runBunScript(path, args, {
+    env: { KIMI_QUIET: "0" },
+  });
   return { stdout: stdout + stderr, exitCode };
 }
 
@@ -60,7 +62,7 @@ describe("kimi-toolchain router", () => {
         const script = join(desktopRoot(), "tools", "kimi-toolchain.ts");
         const { stdout, stderr, exitCode } = await spawnCaptured(
           ["bun", script, "workspace", "verify"],
-          { cwd: REPO_ROOT, env: { HOME: tmpHome } }
+          { cwd: REPO_ROOT, env: { HOME: tmpHome, KIMI_QUIET: "0" } }
         );
         expect(stdout + stderr).toContain(`Path: ${REPO_ROOT}`);
         expect(exitCode === 0 || exitCode === 1).toBe(true);

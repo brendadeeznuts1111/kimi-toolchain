@@ -31,6 +31,8 @@ kimi login
 kimi-doctor --quick
 ```
 
+> **What gets scaffolded:** hardened `bunfig.toml` ([install], [run] noOrphans, [test]), `dx.config.toml`, `AGENTS.md`, CI workflow, and more. See [TEMPLATES.md](TEMPLATES.md) for the full reference and [docs/references/bun-runtime-scaffold.md](docs/references/bun-runtime-scaffold.md) for the rationale behind each default.
+
 **Zero-install via `bun create`** — scaffold a hardened project from anywhere:
 
 ```bash
@@ -113,6 +115,8 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run pr:status` | (synced from package.json) |
 | `bun run push` | (synced from package.json) |
 | `bun run references:generate` | (synced from package.json) |
+| `bun run scan` | (synced from package.json) |
+| `bun run scan:json` | (synced from package.json) |
 | `bun run scope:run` | (synced from package.json) |
 | `bun run skills:table` | (synced from package.json) |
 | `bun run sync` | (synced from package.json) |
@@ -125,9 +129,13 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run test:coverage:fast` | (synced from package.json) |
 | `bun run test:fast` | (synced from package.json) |
 | `bun run test:flake-hunt` | (synced from package.json) |
+| `bun run test:parallel` | (synced from package.json) |
+| `bun run test:parallel:4` | (synced from package.json) |
 | `bun run test:pattern` | (synced from package.json) |
+| `bun run test:shard` | (synced from package.json) |
 | `bun run test:shuffle` | (synced from package.json) |
 | `bun run test:smoke` | (synced from package.json) |
+| `bun run test:watch:changed` | (synced from package.json) |
 | `bun run typecheck` | (synced from package.json) |
 | `bun run unify` | (synced from package.json) |
 | `bun run verify-workspace` | (synced from package.json) |

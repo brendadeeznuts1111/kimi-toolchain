@@ -44,7 +44,7 @@ export class HerdrDashboardHub {
   private readonly logger: Logger;
   readonly discoveryCache: HerdrDashboardDiscoveryCache;
   private lastAgentsJson = "";
-  private lastPayload: DashboardAgentsPayload | null = null;
+  private lastPayloadField: DashboardAgentsPayload | null = null;
   private readonly agentSnapshot = new Map<string, DashboardAgentRow>();
   private readonly subscribers = new Set<SseController>();
   private cronJob: Disposable | null = null;
@@ -87,6 +87,16 @@ export class HerdrDashboardHub {
 
   cacheStats(): DashboardCacheStats {
     return this.discoveryCache.stats();
+  }
+
+  /** Most recent agent payload (null before first refresh). */
+  get lastPayload(): DashboardAgentsPayload | null {
+    return this.lastPayloadField;
+  }
+
+  /** Number of active SSE subscribers. */
+  sseSubscriberCount(): number {
+    return this.subscribers.size;
   }
 
   recordHeartbeat(agent: string, host = "(local)", session = ""): void {
@@ -135,7 +145,7 @@ export class HerdrDashboardHub {
 
   private async ingestDiscoveryPayload(raw: DashboardAgentsPayload): Promise<void> {
     if (!raw.ok) {
-      this.lastPayload = raw;
+      this.lastPayloadField = raw;
       this.broadcast(raw);
       return;
     }
@@ -154,7 +164,7 @@ export class HerdrDashboardHub {
       agents,
       agentCount: agents.length,
     };
-    this.lastPayload = payload;
+    this.lastPayloadField = payload;
 
     const json = JSON.stringify(agents);
     if (json !== this.lastAgentsJson) {
@@ -171,7 +181,7 @@ export class HerdrDashboardHub {
   async refresh(options: { forceRefresh?: boolean } = {}): Promise<DashboardAgentsPayload> {
     const raw = await this.discoveryCache.getAgents(options);
     await this.ingestDiscoveryPayload(raw);
-    return this.lastPayload ?? raw;
+    return this.lastPayloadField ?? raw;
   }
 
   /**
@@ -259,8 +269,8 @@ export class HerdrDashboardHub {
         if (wasEmpty) {
           this.resumePolling();
         }
-        if (this.lastPayload) {
-          this.enqueuePayload(controller, this.lastPayload);
+        if (this.lastPayloadField) {
+          this.enqueuePayload(controller, this.lastPayloadField);
           return;
         }
         void (async () => {

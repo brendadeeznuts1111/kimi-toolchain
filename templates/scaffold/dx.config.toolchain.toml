@@ -168,6 +168,7 @@ reviewerTab = "reviewer"
 [herdr.orchestrator.events]
 enabled = true
 debounceMs = 2000
+gitRefCooldownMs = 5000
 allowlist = [
   "workspace.updated",
   "pane.agent_status_changed",

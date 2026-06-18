@@ -15,7 +15,12 @@ import { pathExists } from "../lib/bun-io.ts";
 
 import { Database } from "bun:sqlite";
 import { join } from "path";
-import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import {
+  ensureDir,
+  getProjectName,
+  resolveProjectRoot,
+  waitForShutdownSignals,
+} from "../lib/utils.ts";
 
 import { Duration, Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -367,16 +372,7 @@ async function main(): Promise<number> {
     });
 
     logger.info("Listening (Ctrl+C to stop)");
-    await new Promise<void>((resolve) => {
-      process.once("SIGINT", () => {
-        unsub();
-        resolve();
-      });
-      process.once("SIGTERM", () => {
-        unsub();
-        resolve();
-      });
-    });
+    await waitForShutdownSignals(unsub);
     logger.info("Stopped");
     logger.line(`  Disk quota:        ${DEFAULTS.diskQuotaMB}MB`);
     logger.line(`  Cache TTL:         ${DEFAULTS.cacheTTLSeconds}s`);

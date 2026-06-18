@@ -9,10 +9,35 @@ import { HerdrSessionError, requireSessionRunning } from "./herdr-session-prefli
 import { homeDir } from "./paths.ts";
 import { resolveHerdrPanePath } from "./herdr-pane-service.ts";
 import {
+  buildHerdrSocketRecoveryPlan,
+  parseHerdrCliProtocolError,
+  probeHerdrServerProcesses,
+  type HerdrCliProtocolErrorCode,
+} from "./herdr-cli-error.ts";
+import {
+  buildFixSocketPlanSnapshot,
+  executeFixSocketLive,
+  type FixSocketLiveDeps,
+} from "./herdr-fix-socket-live.ts";
+import {
   probeHerdrSocketHealth,
   probeHerdrSocketTransport,
   type HerdrSocketHealthProbe,
 } from "./herdr-socket-transport.ts";
+
+export type {
+  HerdrCliProtocolErrorCode,
+  HerdrSocketRecoveryExecution,
+  HerdrSocketRecoveryStep,
+  HerdrServerProcess,
+} from "./herdr-cli-error.ts";
+export {
+  buildHerdrSocketRecoveryPlan,
+  materializeHerdrSocketRecoveryPlan,
+  parseHerdrCliProtocolError,
+  parsePgrepHerdrServerLines,
+  probeHerdrServerProcesses,
+} from "./herdr-cli-error.ts";
 
 const KNOWN_TOP_LEVEL = new Set([
   "onboarding",
@@ -39,6 +64,7 @@ export interface HerdrDoctorOptions {
 
 export type HerdrSocketDoctorHintCode =
   | "EADDRINUSE"
+  | "EAGAIN"
   | "ENOENT"
   | "ECONNREFUSED"
   | "stale_socket"
@@ -52,9 +78,12 @@ export type HerdrSocketDoctorHint = {
   action?: string;
 };
 
-/** Reference hints for unix socket bind/connect failures (taxonomy: port_conflict / network_timeout). */
+/** Taxonomy id for Herdr CLI saturation errors (error-taxonomy.yml#herdr_socket_saturation). */
+export const HERDR_SOCKET_SATURATION_TAXONOMY_ID = "herdr_socket_saturation";
+
+/** Reference hints for unix socket bind/connect failures (taxonomy: port_conflict / herdr_socket_saturation / network_timeout). */
 export const HERDR_SOCKET_ERROR_HINTS: Record<
-  "EADDRINUSE" | "ENOENT" | "ECONNREFUSED",
+  "EADDRINUSE" | "EAGAIN" | "ENOENT" | "ECONNREFUSED",
   HerdrSocketDoctorHint
 > = {
   EADDRINUSE: {
@@ -65,6 +94,15 @@ export const HERDR_SOCKET_ERROR_HINTS: Record<
       "Another herdr server or stale listener holds this socket path. Bun 1.4+ returns EADDRINUSE on bind instead of silently replacing the file.",
     action:
       "Run `herdr status` (or `herdr --session NAME status`). Stop the live server, or remove a stale socket only after confirming nothing is listening.",
+  },
+  EAGAIN: {
+    code: "EAGAIN",
+    severity: "warn",
+    summary: "Herdr IPC saturated (resource temporarily unavailable)",
+    detail:
+      "The Herdr server accepted API status checks but refused a new client attach — typical when many events.subscribe streams or long-running dashboard/orchestrator processes hold the unix socket open. `herdr server stop` may return success while the server stays running.",
+    action:
+      "Stop `herdr-orchestrator dashboard`, kill stale `bun test` processes, then `pkill -f '/opt/homebrew/opt/herdr/bin/herdr server'` (or your herdr server path) and run `herdr` again. Inspect ~/.config/herdr/herdr-server.log for stream_closed churn.",
   },
   ENOENT: {
     code: "ENOENT",
@@ -84,6 +122,20 @@ export const HERDR_SOCKET_ERROR_HINTS: Record<
       "If the file exists but connect fails, remove the stale socket and restart: `rm -f <socket> && herdr server`.",
   },
 };
+
+/** Parse Herdr CLI stderr/stdout for socket errors (taxonomy via parseHerdrCliProtocolError). */
+export function parseHerdrCliSocketError(output: string): HerdrSocketDoctorHint | null {
+  const parsed = parseHerdrCliProtocolError(output);
+  if (!parsed || parsed.code === "UNKNOWN") return null;
+  const base =
+    parsed.code === "EAGAIN"
+      ? HERDR_SOCKET_ERROR_HINTS.EAGAIN
+      : HERDR_SOCKET_ERROR_HINTS.ECONNREFUSED;
+  return {
+    ...base,
+    detail: `${base.detail} Matched: ${parsed.raw.slice(0, 200)}`,
+  };
+}
 
 /** Structured socket hints from health probe + optional server status. */
 export function buildHerdrSocketDoctorHints(
@@ -119,6 +171,11 @@ export function buildHerdrSocketDoctorHints(
       hints.push({
         ...HERDR_SOCKET_ERROR_HINTS.ENOENT,
         detail: `${HERDR_SOCKET_ERROR_HINTS.ENOENT.detail} Path: ${health.socketPath}.`,
+      });
+    } else if (connectCode === "EAGAIN") {
+      hints.push({
+        ...HERDR_SOCKET_ERROR_HINTS.EAGAIN,
+        detail: `${HERDR_SOCKET_ERROR_HINTS.EAGAIN.detail} Path: ${health.socketPath}.`,
       });
     }
   }
@@ -494,6 +551,15 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
     }
   }
 
+  const saturationHint = socketHints.find((h) => h.code === "EAGAIN");
+  const socketRecoveryPlan = saturationHint
+    ? buildHerdrSocketRecoveryPlan({
+        code: "EAGAIN",
+        serverRunning,
+        socketPath: socketHealthProbe.socketPath,
+      })
+    : undefined;
+
   return {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
@@ -544,6 +610,7 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
       socketHealthProbe,
       socketHints,
       socketErrorHints: HERDR_SOCKET_ERROR_HINTS,
+      socketRecoveryPlan,
     },
     readiness: {
       ready: blockers.length === 0,
@@ -555,9 +622,148 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
 
 export type HerdrDoctorReport = Awaited<ReturnType<typeof inspectHerdrDoctor>>;
 
+export type FixSocketOptions = {
+  dryRun?: boolean;
+  errorText?: string;
+  code?: HerdrCliProtocolErrorCode;
+  liveDeps?: FixSocketLiveDeps;
+};
+
+/** @deprecated Use runFixSocket */
+export type FixSocketDryRunOptions = FixSocketOptions;
+
+export async function runFixSocket(options: FixSocketOptions = {}, home = homeDir()) {
+  const socketTransportProbe = probeHerdrSocketTransport();
+  const socketHealthProbe = await probeHerdrSocketHealth(socketTransportProbe.socketPath);
+
+  let code: HerdrCliProtocolErrorCode = "EAGAIN";
+  if (options.errorText) {
+    const parsed = parseHerdrCliProtocolError(options.errorText);
+    if (parsed && parsed.code !== "UNKNOWN") code = parsed.code;
+  } else if (options.code) {
+    code = options.code;
+  } else if (socketHealthProbe.connectErrorCode === "ECONNREFUSED") {
+    code = "ECONNREFUSED";
+  } else if (socketHealthProbe.connectErrorCode === "EAGAIN") {
+    code = "EAGAIN";
+  }
+
+  let serverRunning = false;
+  let statusOutput = "";
+  if (which("herdr")) {
+    const status = run("herdr", ["status", "server"]);
+    statusOutput = status.output;
+    serverRunning = status.ok && /status:\s*running/.test(status.output);
+  }
+
+  const pgrep = probeHerdrServerProcesses();
+  const dryRun = options.dryRun !== false;
+  const steps = buildFixSocketPlanSnapshot({
+    code,
+    serverRunning,
+    socketPath: socketHealthProbe.socketPath,
+    serverPids: pgrep.processes,
+    dryRun,
+  });
+
+  const taxonomyId =
+    code === "EAGAIN"
+      ? HERDR_SOCKET_SATURATION_TAXONOMY_ID
+      : code === "ECONNREFUSED"
+        ? "herdr_cli_attach_refused"
+        : "unknown";
+
+  const base = {
+    schemaVersion: 1 as const,
+    mode: "fix-socket" as const,
+    generatedAt: new Date().toISOString(),
+    home,
+    code,
+    taxonomyId,
+    socketPath: socketHealthProbe.socketPath,
+    socketHealthProbe,
+    serverRunning,
+    serverStatus: statusOutput || null,
+    pgrep,
+    steps,
+  };
+
+  if (dryRun) {
+    return { ...base, dryRun: true as const, executed: false as const };
+  }
+
+  const live = await executeFixSocketLive(
+    {
+      code,
+      socketPath: socketHealthProbe.socketPath,
+      serverRunningBefore: serverRunning,
+      pgrepBefore: pgrep.processes,
+    },
+    options.liveDeps
+  );
+
+  return {
+    ...base,
+    dryRun: false as const,
+    executed: true as const,
+    live,
+  };
+}
+
+export async function runFixSocketDryRun(
+  options: FixSocketOptions = {},
+  home = homeDir()
+): Promise<FixSocketReport> {
+  return runFixSocket({ ...options, dryRun: options.dryRun ?? true }, home);
+}
+
+export type FixSocketReport = Awaited<ReturnType<typeof runFixSocket>>;
+export type FixSocketDryRunReport = FixSocketReport;
+
 function writeOut(line = ""): void {
   process.stdout.write(`${line}\n`);
 }
+
+export function printFixSocketHuman(report: FixSocketReport): void {
+  writeOut(`Herdr Doctor — fix-socket (${report.dryRun ? "dry-run" : "live"})`);
+  writeOut(`Generated: ${report.generatedAt}`);
+  writeOut(`Taxonomy: ${report.taxonomyId} (${report.code})`);
+  writeOut(`Socket: ${report.socketPath}`);
+  writeOut(`Server running: ${report.serverRunning ? "yes" : "no"}`);
+  writeOut(`pgrep: ${report.pgrep.pgrepCommand}`);
+  if (report.pgrep.processes.length) {
+    for (const proc of report.pgrep.processes) {
+      writeOut(`  pid ${proc.pid}: ${proc.command}`);
+    }
+  } else {
+    writeOut("  (no herdr server PID resolved)");
+  }
+  writeOut("");
+  writeOut("Recovery plan:");
+  for (const step of report.steps) {
+    const tag = step.destructive ? "destructive" : "safe";
+    writeOut(`  ${step.order}. [${tag}] ${step.action}`);
+    if (step.command) writeOut(`     cmd: ${step.command}`);
+    if (step.wouldRun) writeOut(`     ${step.wouldRun}`);
+    if (step.skippedReason) writeOut(`     skip: ${step.skippedReason}`);
+  }
+  if (report.executed && report.live) {
+    writeOut("");
+    writeOut("Live execution:");
+    for (const action of report.live.actions) {
+      writeOut(
+        `  [${action.outcome}] ${action.phase}${action.command ? `: ${action.command}` : ""}`
+      );
+      if (action.detail) writeOut(`    ${action.detail}`);
+    }
+    writeOut(`Final server: ${report.live.finalServerRunning ? "running" : "not running"}`);
+  } else {
+    writeOut("");
+    writeOut("No commands were executed. Re-run with --live to execute.");
+  }
+}
+
+export const printFixSocketDryRunHuman = printFixSocketHuman;
 
 export function printHerdrDoctorHuman(report: HerdrDoctorReport): void {
   writeOut("Herdr Doctor");
@@ -586,6 +792,14 @@ export function printHerdrDoctorHuman(report: HerdrDoctorReport): void {
     for (const hint of report.details.socketHints) {
       writeOut(`Socket hint [${hint.code}]: ${hint.summary}`);
       if (hint.action) writeOut(`  action: ${hint.action}`);
+    }
+  }
+  if (report.details.socketRecoveryPlan?.length) {
+    writeOut("Socket recovery plan (read-only — run steps manually):");
+    for (const step of report.details.socketRecoveryPlan) {
+      const tag = step.destructive ? "destructive" : "safe";
+      writeOut(`  ${step.order}. [${tag}] ${step.action}`);
+      if (step.command) writeOut(`     ${step.command}`);
     }
   }
   writeOut(`Config: ${report.details.configPath}`);

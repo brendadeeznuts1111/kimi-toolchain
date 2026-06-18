@@ -3,14 +3,24 @@
  */
 
 export type { DashboardFetchOptions, DashboardSessionCatalog } from "./herdr-dashboard-contract.ts";
+import { join } from "path";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
-import { readText } from "./bun-io.ts";
+import { pathExists, readText } from "./bun-io.ts";
 import { TOML } from "bun";
+import { invokeTool, toolsDir } from "./tool-runner.ts";
 import { resolveOrchestratorConfig } from "./herdr-orchestrator-config.ts";
 import { getHandoffHistory, getHandoffLogPath, type HandoffLogEntry } from "./handoff-log.ts";
 import { herdrCliRun } from "./herdr-project-cli.ts";
 import { scanUpgradeAdvisor, type UpgradeScanReport } from "./upgrade-advisor.ts";
 import { LOCAL_DOC_REFERENCES } from "./canonical-references.ts";
+import {
+  clampDashboardLogTail,
+  dashboardLogSinkPriority,
+  discoverDashboardLogSinks,
+  isDashboardCuratedLogSink,
+  readErrorLogTail,
+  type ErrorLogSinkStatus,
+} from "./error-log-discovery.ts";
 
 export const DEFAULT_DASHBOARD_PORT = 18412;
 
@@ -88,10 +98,21 @@ export interface DashboardIpcResult {
   scan?: UpgradeScanReport;
 }
 
+export interface DashboardScanFinding {
+  file: string;
+  line: number;
+  ruleId: string;
+  message: string;
+  suggestion: string;
+  snippet: string;
+  /** True when this finding has an auto-fix available. */
+  hasAutoFix: boolean;
+}
+
 export interface DashboardUpgradeScanPayload {
   ok: boolean;
   projectPath: string;
-  report: UpgradeScanReport;
+  report: Omit<UpgradeScanReport, "findings"> & { findings: DashboardScanFinding[] };
   fetchedAt: string;
 }
 
@@ -158,10 +179,23 @@ export async function fetchDashboardUpgradeScan(
   projectPath: string
 ): Promise<DashboardUpgradeScanPayload> {
   const report = await scanUpgradeAdvisor(projectPath);
+  const findings: DashboardScanFinding[] = report.findings.map((f) => ({
+    file: f.file,
+    line: f.line,
+    ruleId: f.ruleId,
+    message: f.message,
+    suggestion: f.suggestion,
+    snippet: f.snippet,
+    hasAutoFix: typeof f.autoFix === "function",
+  }));
+  const { findings: _, ...reportWithoutFindings } = report;
   return {
     ok: true,
     projectPath,
-    report,
+    report: {
+      ...reportWithoutFindings,
+      findings,
+    },
     fetchedAt: new Date().toISOString(),
   };
 }
@@ -223,7 +257,52 @@ export async function runDashboardUpgradeScan(projectPath: string): Promise<Dash
     ok: true,
     command: "scan.run",
     message: total === 0 ? "upgrade-advisor: no findings" : `upgrade-advisor: ${total} finding(s)`,
-    scan: payload.report,
+    scan: payload.report as UpgradeScanReport,
+  };
+}
+
+export interface DashboardScanFixRequest {
+  ruleId: string;
+  file: string;
+  line: number;
+}
+
+export interface DashboardScanFixResult {
+  ok: boolean;
+  ruleId: string;
+  file: string;
+  diff: string;
+  message: string;
+}
+
+/** Apply an auto-fix for a specific scan finding. */
+export async function runDashboardScanFix(
+  projectPath: string,
+  request: DashboardScanFixRequest
+): Promise<DashboardScanFixResult> {
+  // Re-scan targeting the specific rule to get the finding with its autoFix
+  const report = await scanUpgradeAdvisor(projectPath, { rules: [request.ruleId] });
+  const finding = report.findings.find(
+    (f) => f.ruleId === request.ruleId && f.file === request.file && f.line === request.line
+  );
+
+  if (!finding?.autoFix) {
+    return {
+      ok: false,
+      ruleId: request.ruleId,
+      file: request.file,
+      diff: "",
+      message: "No auto-fix available for this finding",
+    };
+  }
+
+  const result = finding.autoFix();
+  return {
+    ok: result.ok,
+    ruleId: request.ruleId,
+    file: request.file,
+    diff: result.diff,
+    message: result.ok ? "Fix applied" : "Fix could not be applied",
   };
 }
 
@@ -289,6 +368,8 @@ export interface DashboardCanvasEntry {
   layer?: string;
   /** When-to-open hint (e.g. "@see ladder") — from CANVAS_ROUTING.openWhen */
   openWhen?: string;
+  /** Read order for grouping (1=Hub, 2=Config/Namespace, 3=Cross-ref, 4=Scaffold, 5-6=Herdr) */
+  readOrder?: number;
 }
 
 export interface DashboardCanvasesPayload {
@@ -314,12 +395,333 @@ export function fetchDashboardCanvases(): DashboardCanvasesPayload {
       version: ref.canvasVersion,
       layer: ref.canvasLayer,
       openWhen: ref.canvasOpenWhen,
+      readOrder: ref.canvasReadOrder,
     });
   }
+
+  canvases.sort((a, b) => (a.readOrder ?? 99) - (b.readOrder ?? 99));
 
   return {
     ok: true,
     canvases,
     fetchedAt: new Date().toISOString(),
+  };
+}
+
+// ── Gate health ──────────────────────────────────────────────────────
+
+export interface DashboardGateCheckPayload {
+  ok: boolean;
+  /** When true, one or more gates are failing. */
+  failed: boolean;
+  failures: Array<{ name: string; message: string }>;
+  total: number;
+  fetchedAt: string;
+}
+
+interface EffectGatesJsonEnvelope {
+  effectGates?: {
+    regressions?: Array<{ gate?: string; message?: string; location?: string }>;
+    current?: { summary?: { total?: number } };
+  };
+  violations?: Array<{ gate?: string; message?: string; location?: string; severity?: string }>;
+  summary?: { ok?: boolean };
+}
+
+function resolveKimiDoctorPath(projectPath: string): string | null {
+  const local = join(projectPath, "src/bin/kimi-doctor.ts");
+  if (pathExists(local)) return local;
+  const synced = join(toolsDir(), "kimi-doctor.ts");
+  if (pathExists(synced)) return synced;
+  return null;
+}
+
+function parseEffectGatesEnvelope(stdout: string): {
+  failed: boolean;
+  failures: Array<{ name: string; message: string }>;
+  total: number;
+} | null {
+  try {
+    const parsed = JSON.parse(stdout) as EffectGatesJsonEnvelope;
+    if (parsed.summary?.ok === true) {
+      return {
+        failed: false,
+        failures: [],
+        total: parsed.effectGates?.current?.summary?.total ?? parsed.violations?.length ?? 0,
+      };
+    }
+
+    const failures: Array<{ name: string; message: string }> = [];
+    for (const violation of parsed.violations ?? []) {
+      if (violation.severity !== "error") continue;
+      const message = violation.location
+        ? `${violation.message ?? "failed"} (${violation.location})`
+        : String(violation.message ?? "failed");
+      failures.push({ name: String(violation.gate ?? "violation"), message });
+    }
+    for (const regression of parsed.effectGates?.regressions ?? []) {
+      failures.push({
+        name: String(regression.gate ?? "regression"),
+        message: String(regression.message ?? "regression detected"),
+      });
+    }
+
+    return {
+      failed: true,
+      failures,
+      total: parsed.effectGates?.current?.summary?.total ?? failures.length,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Run a lightweight doctor gate check and return structured failures. */
+export async function fetchDashboardGateHealth(
+  projectPath: string
+): Promise<DashboardGateCheckPayload> {
+  const fetchedAt = new Date().toISOString();
+  const doctorPath = resolveKimiDoctorPath(projectPath);
+  if (!doctorPath) {
+    return {
+      ok: false,
+      failed: true,
+      failures: [
+        {
+          name: "effect-gates",
+          message: "kimi-doctor not found in project src/bin or ~/.kimi-code/tools",
+        },
+      ],
+      total: 0,
+      fetchedAt,
+    };
+  }
+
+  try {
+    const result = await invokeTool(
+      doctorPath,
+      ["--effect-gates", "--json", "--project-root", projectPath],
+      { cwd: projectPath, timeoutMs: 60_000 }
+    );
+    const stdout = result.stdout.trim() || result.stderr.trim();
+
+    if (result.error) {
+      return {
+        ok: false,
+        failed: true,
+        failures: [{ name: "effect-gates", message: result.error }],
+        total: 0,
+        fetchedAt,
+      };
+    }
+
+    const parsed = parseEffectGatesEnvelope(stdout);
+    if (parsed) {
+      return {
+        ok: true,
+        failed: parsed.failed,
+        failures: parsed.failures,
+        total: parsed.total,
+        fetchedAt,
+      };
+    }
+
+    return {
+      ok: true,
+      failed: result.exitCode !== 0,
+      failures: [
+        {
+          name: "effect-gates",
+          message: stdout.slice(0, 200) || "gate check failed",
+        },
+      ],
+      total: 1,
+      fetchedAt,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      failed: true,
+      failures: [{ name: "effect-gates", message }],
+      total: 0,
+      fetchedAt,
+    };
+  }
+}
+
+// ── Metrics ──────────────────────────────────────────────────────────
+
+export interface DashboardMetricsPayload {
+  ok: boolean;
+  metrics: {
+    memoryRssMB: number;
+    memoryHeapMB: number;
+    eventLoopLagMs: number;
+    uptimeSeconds: number;
+    sseConnections: number;
+    agentCount: number;
+  };
+  fetchedAt: string;
+}
+
+async function measureEventLoopLagMs(): Promise<number> {
+  const start = performance.now();
+  await Bun.sleep(0);
+  return Math.round((performance.now() - start) * 10) / 10;
+}
+
+/** Collect runtime performance metrics for the dashboard Metrics tab. */
+export async function fetchDashboardMetrics(
+  agentCount: number,
+  sseConnections: number
+): Promise<DashboardMetricsPayload> {
+  const mem = process.memoryUsage();
+  const uptime = process.uptime();
+  const eventLoopLagMs = await measureEventLoopLagMs();
+
+  return {
+    ok: true,
+    metrics: {
+      memoryRssMB: Math.round((mem.rss / 1024 / 1024) * 10) / 10,
+      memoryHeapMB: Math.round((mem.heapUsed / 1024 / 1024) * 10) / 10,
+      eventLoopLagMs,
+      uptimeSeconds: Math.round(uptime),
+      sseConnections,
+      agentCount,
+    },
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+// ── Debug logs (curated error sinks — dashboard Logs tab) ────────────
+
+export interface DashboardDebugLogSinkSummary {
+  id: string;
+  label: string;
+  path: string;
+  present: boolean;
+  priority: "p1" | "p2";
+  bytes?: number;
+}
+
+export interface DashboardDebugLogsSinksPayload {
+  ok: boolean;
+  sinks: DashboardDebugLogSinkSummary[];
+  fetchedAt: string;
+}
+
+export interface DashboardDebugLogsTailPayload {
+  ok: boolean;
+  sink: string;
+  path: string;
+  lines: string[];
+  totalLines: number;
+  tail: number;
+  fetchedAt: string;
+  error?: string;
+}
+
+function toDebugLogSinkSummary(sink: ErrorLogSinkStatus): DashboardDebugLogSinkSummary {
+  return {
+    id: sink.id,
+    label: sink.label,
+    path: sink.path,
+    present: sink.present,
+    priority: dashboardLogSinkPriority(sink.id),
+    ...(sink.bytes !== undefined ? { bytes: sink.bytes } : {}),
+  };
+}
+
+/** Curated sink registry for the Logs tab (no wire.jsonl). */
+export function fetchDashboardDebugLogSinks(projectPath: string): DashboardDebugLogsSinksPayload {
+  const sinks = discoverDashboardLogSinks(projectPath).map(toDebugLogSinkSummary);
+  return { ok: true, sinks, fetchedAt: new Date().toISOString() };
+}
+
+/** Tail lines from a curated debug log sink. */
+export async function fetchDashboardDebugLogs(
+  projectPath: string,
+  sinkId: string,
+  tail?: number
+): Promise<DashboardDebugLogsTailPayload> {
+  const fetchedAt = new Date().toISOString();
+  const id = sinkId.trim();
+  const limit = clampDashboardLogTail(tail);
+  if (!id) {
+    return {
+      ok: false,
+      sink: "",
+      path: "",
+      lines: [],
+      totalLines: 0,
+      tail: limit,
+      fetchedAt,
+      error: "sink required",
+    };
+  }
+
+  if (!isDashboardCuratedLogSink(id)) {
+    return {
+      ok: false,
+      sink: id,
+      path: "",
+      lines: [],
+      totalLines: 0,
+      tail: limit,
+      fetchedAt,
+      error: `unknown or non-curated sink "${id}"`,
+    };
+  }
+
+  const sink = discoverDashboardLogSinks(projectPath).find((row) => row.id === id);
+  if (!sink) {
+    return {
+      ok: false,
+      sink: id,
+      path: "",
+      lines: [],
+      totalLines: 0,
+      tail: limit,
+      fetchedAt,
+      error: `unknown sink "${id}"`,
+    };
+  }
+
+  if (!sink.present) {
+    return {
+      ok: false,
+      sink: id,
+      path: sink.path,
+      lines: [],
+      totalLines: 0,
+      tail: limit,
+      fetchedAt,
+      error: "log file not found",
+    };
+  }
+
+  if (sink.kind === "sqlite") {
+    return {
+      ok: false,
+      sink: id,
+      path: sink.path,
+      lines: [],
+      totalLines: 0,
+      tail: limit,
+      fetchedAt,
+      error: "sqlite sinks are not tailable via this API",
+    };
+  }
+
+  const { lines, totalLines } = await readErrorLogTail(sink.path, limit);
+  return {
+    ok: true,
+    sink: id,
+    path: sink.path,
+    lines,
+    totalLines,
+    tail: limit,
+    fetchedAt,
   };
 }

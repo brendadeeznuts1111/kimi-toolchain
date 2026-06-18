@@ -300,6 +300,7 @@ staging = "staging"   # local SSH alias → localhost (testing remote bootstrap 
 
 # Dashboard WebView / HTTP server tuning (SSE poll + stale heartbeat overlay)
 [herdr.orchestrator.dashboard]
+webview = true          # herdr-orchestrator dashboard → Bun.WebView (no --webview flag needed)
 stale_ms = 15000
 sse_poll_ms = 5000      # server agent-discovery SSE interval
 poll_hint_ms = 5000     # browser handoffs/rules poll interval
@@ -308,6 +309,7 @@ persist_profile = true  # ~/.kimi-code/var/herdr-orchestrator-dashboard-webview
 [herdr.orchestrator.events]
 enabled = true
 debounceMs = 2000
+gitRefCooldownMs = 5000   # dedupe git.ref.changed per (repo, HEAD); min 1000, max 30000
 allowlist = ["workspace.updated", "reviewer.feedback.processed", "pane.agent_status_changed", "effect.gates.changed", "git.ref.changed"]
 watchGit = true
 
@@ -391,10 +393,15 @@ command = "grok --role test-agent --cwd . -- bun run scripts/test-agent.ts --wat
 [[herdr.tabs]]
 label = "reviewer"
 
+# Dashboard — persistent Bun.WebView shell (profile under ~/.kimi-code/var/)
+[[herdr.tabs]]
+label = "dashboard"
+command = "herdr-orchestrator dashboard . --webview --persist --sessions"
+
 # Control plane — cross-workspace observability and coordination (Phase 3)
 [[herdr.tabs]]
 label = "control"
-command = "watch -n 10 'herdr-orchestrator dashboard'"
+command = "watch -n 10 'herdr-orchestrator dashboard --sessions'"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Herdr Orchestrator — Remote Session Management Configuration Reference

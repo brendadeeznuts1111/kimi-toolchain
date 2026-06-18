@@ -22,6 +22,7 @@ import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { withBunNoOrphans } from "./tool-runner.ts";
 import { isQuietMode } from "./quiet-mode.ts";
 import { isKimiToolchainRepo } from "./workspace-health.ts";
+import { acquireTestGateLock } from "./test-run-guard.ts";
 import { readPackageJson, sha256File } from "./utils.ts";
 import { buildConstantRepairPlan } from "./constants-heal.ts";
 import { detectSyncDrift } from "./sync-hashes.ts";
@@ -32,7 +33,7 @@ import {
   shouldSkipGateFromScopedCache,
 } from "./scoped-gate-cache.ts";
 import { filterFormatPaths } from "./check-changed.ts";
-import { shouldRunScopedLint } from "./check-lint-scoped.ts";
+import { filterChangedTestPaths, shouldRunScopedLint } from "./check-lint-scoped.ts";
 import { bunTestArgs, isBunTestChangedEmptyOutput } from "./test-gates.ts";
 
 const PRE_COMMIT_CACHE_GATES = ["format:check", "lint", "typecheck", "test:fast"] as const;
@@ -57,6 +58,46 @@ export interface PlannedGate {
 export interface PreCommitPolicyAudit {
   ok: boolean;
   messages: string[];
+}
+
+export interface PreCommitTestPlan {
+  args: string[];
+  usesChangedRef: boolean;
+  stagedTestFiles: string[];
+}
+
+export function planPreCommitTestArgs(staged: string[]): PreCommitTestPlan {
+  const stagedTestFiles = filterChangedTestPaths(staged);
+  const stagedTestFileSet = new Set(stagedTestFiles);
+  const hasNonTestCode = staged.some(
+    (path) => /\.(ts|tsx|js|jsx|mjs|cjs)$/.test(path) && !stagedTestFileSet.has(path)
+  );
+  const base = {
+    timeoutMs: 1500,
+    bail: true,
+    retry: 2,
+    dots: true,
+  } as const;
+
+  if (stagedTestFiles.length > 0 && !hasNonTestCode) {
+    return {
+      args: bunTestArgs({
+        ...base,
+        files: stagedTestFiles,
+      }),
+      usesChangedRef: false,
+      stagedTestFiles,
+    };
+  }
+
+  return {
+    args: bunTestArgs({
+      ...base,
+      changedRef: "HEAD",
+    }),
+    usesChangedRef: true,
+    stagedTestFiles,
+  };
 }
 
 async function packageHasScript(projectRoot: string, script: string): Promise<boolean> {
@@ -174,16 +215,30 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
       const headResult = await $`git rev-parse HEAD`.cwd(projectRoot).nothrow().quiet();
       const head = headResult.exitCode === 0 ? headResult.stdout.toString().trim() : null;
       if (!head) return skippedGateResult("test:fast");
-      const testArgs = bunTestArgs({
-        changedRef: "HEAD",
-        timeoutMs: 1500,
-        bail: true,
-        retry: 2,
-        dots: true,
-      });
-      const result = await runGate("test:fast", ["bun", ...testArgs], { cwd: projectRoot });
+      const testPlan = planPreCommitTestArgs(staged);
+      const lockReason = testPlan.usesChangedRef
+        ? "pre-commit test:fast (--changed=HEAD)"
+        : `pre-commit test:fast (${testPlan.stagedTestFiles.length} staged test file(s))`;
+      const acquired = acquireTestGateLock(projectRoot, lockReason);
+      if (!acquired.ok) {
+        return {
+          name: "test:fast",
+          exitCode: 1,
+          ms: 0,
+          stdout: "",
+          stderr: acquired.conflict.message,
+        };
+      }
+      const result = await (async () => {
+        try {
+          return await runGate("test:fast", ["bun", ...testPlan.args], { cwd: projectRoot });
+        } finally {
+          acquired.lock.release();
+        }
+      })();
       // bun test --changed exits 1 when no test files match — treat as skip
       if (
+        testPlan.usesChangedRef &&
         result.exitCode !== 0 &&
         isBunTestChangedEmptyOutput(`${result.stdout}\n${result.stderr}`)
       ) {

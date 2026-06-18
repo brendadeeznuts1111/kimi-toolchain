@@ -171,6 +171,8 @@ export const UNIT_TEST_FILES = [
   "test/hook-failure-text.unit.test.ts",
 ] as const;
 
+export const FAST_TEST_CHUNK_SIZE = 10;
+
 /** Integration tests — included by full Bun discovery, not the fast unit gate. */
 export const INTEGRATION_TEST_FILES = [
   "test/cleanup-legacy.integration.test.ts",
@@ -207,6 +209,7 @@ export function bunTestArgs(options: {
   ci?: boolean;
   integration?: boolean;
   smoke?: boolean;
+  files?: readonly string[];
   bail?: boolean | number;
   timeoutMs?: number;
   retry?: number;
@@ -245,6 +248,8 @@ export function bunTestArgs(options: {
   if (options.json) args.push("--json");
   if (options.changedRef) {
     args.push(`--changed=${options.changedRef}`);
+  } else if (options.files?.length) {
+    args.push("--isolate", ...options.files);
   } else if (options.fast) {
     args.push("--isolate", ...UNIT_TEST_FILES);
   }
@@ -265,6 +270,48 @@ export function bunTestArgs(options: {
     args.push(`--shard=${options.shard}`, "--isolate");
   }
   return args;
+}
+
+export function chunkFastUnitTestFiles(
+  files: readonly string[] = UNIT_TEST_FILES,
+  chunkSize = FAST_TEST_CHUNK_SIZE
+): string[][] {
+  if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
+    throw new Error(`Invalid fast test chunk size: ${chunkSize}`);
+  }
+
+  const chunks: string[][] = [];
+  for (let i = 0; i < files.length; i += chunkSize) {
+    chunks.push(files.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+function shouldChunkFastTests(options: Parameters<typeof bunTestArgs>[0]): boolean {
+  return (
+    options.fast === true &&
+    !options.coverage &&
+    !options.ci &&
+    !options.integration &&
+    !options.smoke &&
+    !options.changedRef &&
+    !options.files?.length &&
+    options.parallel === undefined &&
+    !options.shard
+  );
+}
+
+export function bunTestArgBatches(options: Parameters<typeof bunTestArgs>[0]): string[][] {
+  if (!shouldChunkFastTests(options)) return [bunTestArgs(options)];
+
+  return chunkFastUnitTestFiles().map((files) =>
+    bunTestArgs({
+      ...options,
+      fast: false,
+      timeoutMs: options.timeoutMs ?? FAST_TEST_TIMEOUT_MS,
+      files,
+    })
+  );
 }
 
 export function useFastUnitCoverage(packageName: string | undefined): boolean {

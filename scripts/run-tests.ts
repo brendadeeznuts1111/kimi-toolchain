@@ -19,10 +19,11 @@
 import { join } from "path";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { makeDir, pathExists } from "../src/lib/bun-io.ts";
-import { bunTestArgs } from "../src/lib/test-gates.ts";
+import { bunTestArgBatches } from "../src/lib/test-gates.ts";
 import { withBunNoOrphans } from "../src/lib/tool-runner.ts";
 import { formatTestSummaryLine } from "../src/lib/gate-runner.ts";
 import { ensureQuietEnv, isQuietMode } from "../src/lib/quiet-mode.ts";
+import { acquireTestGateLock } from "../src/lib/test-run-guard.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 const BUNFIG_PATH = join(REPO_ROOT, "bunfig.toml");
@@ -91,9 +92,14 @@ async function main() {
   }
 
   const exitCode = await withCoverageBunfig(coverage, async () => {
-    const cmd = withBunNoOrphans([
-      "bun",
-      ...bunTestArgs({
+    const acquired = acquireTestGateLock(REPO_ROOT, "run-tests");
+    if (!acquired.ok) {
+      process.stderr.write(`${acquired.conflict.message}\n`);
+      return 1;
+    }
+
+    try {
+      const batches = bunTestArgBatches({
         fast,
         coverage,
         ci,
@@ -103,40 +109,56 @@ async function main() {
         dots: quiet,
         parallel,
         shard: shard || undefined,
-      }),
-    ]);
-
-    if (!quiet) {
-      const proc = Bun.spawn(cmd, {
-        cwd: REPO_ROOT,
-        env: process.env,
-        stdout: "inherit",
-        stderr: "inherit",
       });
-      return proc.exited;
+      const started = performance.now();
+
+      if (!quiet) {
+        for (const args of batches) {
+          const proc = Bun.spawn(withBunNoOrphans(["bun", ...args]), {
+            cwd: REPO_ROOT,
+            env: process.env,
+            stdout: "inherit",
+            stderr: "inherit",
+          });
+          const code = await proc.exited;
+          if (code !== 0) return code;
+        }
+        return 0;
+      }
+
+      const outputs: string[] = [];
+      for (const args of batches) {
+        const proc = Bun.spawn(withBunNoOrphans(["bun", ...args]), {
+          cwd: REPO_ROOT,
+          env: process.env,
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        const [stdout, stderr, code] = await Promise.all([
+          readableStreamToText(proc.stdout),
+          readableStreamToText(proc.stderr),
+          proc.exited,
+        ]);
+        outputs.push(stdout, stderr);
+
+        if (code !== 0) {
+          if (stdout) process.stdout.write(stdout);
+          if (stderr) process.stderr.write(stderr);
+          return code;
+        }
+      }
+
+      if (batches.length === 1) {
+        const summary = formatTestSummaryLine(outputs.join("\n"));
+        if (summary) console.log(summary);
+      } else {
+        const ms = Math.round(performance.now() - started);
+        console.log(`✓ tests (${batches.length} chunks passed) [${(ms / 1000).toFixed(1)}s]`);
+      }
+      return 0;
+    } finally {
+      acquired.lock.release();
     }
-
-    const proc = Bun.spawn(cmd, {
-      cwd: REPO_ROOT,
-      env: process.env,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const [stdout, stderr, code] = await Promise.all([
-      readableStreamToText(proc.stdout),
-      readableStreamToText(proc.stderr),
-      proc.exited,
-    ]);
-
-    if (code !== 0) {
-      if (stdout) process.stdout.write(stdout);
-      if (stderr) process.stderr.write(stderr);
-      return code;
-    }
-
-    const summary = formatTestSummaryLine(`${stdout}\n${stderr}`);
-    if (summary) console.log(summary);
-    return code;
   });
 
   process.exit(exitCode);

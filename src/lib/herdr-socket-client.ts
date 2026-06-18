@@ -19,14 +19,39 @@ export { resolveHerdrSocketPath };
 export type { HerdrEventSubscription, HerdrStreamEnvelope };
 export { resolveHerdrSocketTransport, type ActiveHerdrSocketTransport };
 
-function resolveReconnectDelaysMs(): readonly number[] {
+export const HERDR_SOCKET_SATURATION_RECONNECT_FLOOR_MS = 8_000;
+
+export const DEFAULT_HERDR_SOCKET_RECONNECT_DELAYS_MS = [
+  1_000, 2_000, 4_000, 8_000, 16_000,
+] as const;
+
+/** True when a connect/reconnect failure looks like Herdr socket saturation (EAGAIN / os error 35). */
+export function isHerdrSocketSaturationError(reason: string): boolean {
+  return /\bEAGAIN\b|Resource temporarily unavailable|os error 35/i.test(reason);
+}
+
+export function resolveReconnectDelaysMs(): readonly number[] {
   const testDelays = Bun.env.HERDR_SOCKET_TEST_RECONNECT_MS?.split(",").map((v) =>
     Number(v.trim())
   );
   if (testDelays?.length && testDelays.every((n) => Number.isFinite(n) && n >= 0)) {
     return testDelays;
   }
-  return [1_000, 2_000, 4_000, 8_000, 16_000];
+  return DEFAULT_HERDR_SOCKET_RECONNECT_DELAYS_MS;
+}
+
+/** Next reconnect delay for a failure reason, or null when attempts are exhausted. */
+export function resolveHerdrReconnectDelayMs(
+  reason: string,
+  attempt: number,
+  delays: readonly number[] = resolveReconnectDelaysMs()
+): number | null {
+  if (attempt >= delays.length) return null;
+  let delay = delays[attempt]!;
+  if (isHerdrSocketSaturationError(reason) && attempt === 0) {
+    delay = Math.max(delay, HERDR_SOCKET_SATURATION_RECONNECT_FLOOR_MS);
+  }
+  return delay;
 }
 
 /** Report custom pane metadata via Herdr CLI (triggers pane.agent_status_changed). */
@@ -141,7 +166,8 @@ export function herdrSocketSubscribe(
   const scheduleReconnect = (reason: string) => {
     if (shuttingDown || options.signal?.aborted || reconnectScheduled) return;
     const reconnectDelays = resolveReconnectDelaysMs();
-    if (reconnectAttempt >= reconnectDelays.length) {
+    const delay = resolveHerdrReconnectDelayMs(reason, reconnectAttempt, reconnectDelays);
+    if (delay == null) {
       shuttingDown = true;
       detachActiveSocket();
       options.onError?.(
@@ -154,7 +180,6 @@ export function herdrSocketSubscribe(
     }
 
     reconnectScheduled = true;
-    const delay = reconnectDelays[reconnectAttempt]!;
     reconnectAttempt += 1;
 
     clearReconnectTimer();

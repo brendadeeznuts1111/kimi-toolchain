@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { TOML } from "bun";
 import { join } from "path";
 import { previewMarkdownWithBun } from "../src/lib/markdown-table.ts";
 import {
@@ -100,17 +101,16 @@ describe("toml-property-table", () => {
   });
 
   test("buildTomlPropertyTable extracts herdr.orchestrator.dashboard", async () => {
+    const parsed = TOML.parse(await Bun.file(join(REPO_ROOT, "dx.config.toml")).text()) as {
+      herdr?: { orchestrator?: { dashboard?: Record<string, unknown> } };
+    };
+    const dashboardKeys = Object.keys(parsed.herdr?.orchestrator?.dashboard ?? {});
     const result = await buildTomlPropertyTable({
       projectRoot: REPO_ROOT,
       filePath: "dx.config.toml",
       tablePath: "herdr.orchestrator.dashboard",
     });
-    expect(result.rows.map((r) => r.Property)).toEqual([
-      "stale_ms",
-      "sse_poll_ms",
-      "poll_hint_ms",
-      "persist_profile",
-    ]);
+    expect(result.rows.map((r) => r.Property)).toEqual(dashboardKeys);
     expect(result.rows.find((r) => r.Property === "persist_profile")?.Value).toBe("true");
   });
 

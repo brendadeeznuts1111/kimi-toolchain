@@ -51,6 +51,9 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "decision-list-diff": "src/lib/decision-ledger.ts",
   "guardian-verify": "src/guardian/verify.ts",
   "taxonomy-coverage": "src/lib/taxonomy-coverage.ts",
+  "herdr-socket-saturation": "src/lib/herdr-socket-client.ts",
+  "herdr-socket-saturation-subscribe": "src/lib/herdr-socket-client.ts",
+  "canvas-metadata-integrity": "src/lib/canvas-metadata-integrity.gate.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */

@@ -83,6 +83,30 @@ describe("error-taxonomy", () => {
     expect(match.category.autoFix).toBe("kimi-doctor --fix");
   });
 
+  test("classifyFailure matches herdr socket saturation (EAGAIN)", async () => {
+    const taxonomy = await loadTaxonomy(join(import.meta.dir, "..", "error-taxonomy.yml"));
+    const match = classifyFailure(
+      "herdr: protocol error: I/O error: Resource temporarily unavailable (os error 35)",
+      taxonomy
+    );
+    expect(match.category.id).toBe("herdr_socket_saturation");
+    expect(match.category.autoFix).toBe("herdr-doctor fix-socket --dry-run");
+  });
+
+  test("classifyFailure separates os error 61 from saturation", async () => {
+    const taxonomy = await loadTaxonomy(join(import.meta.dir, "..", "error-taxonomy.yml"));
+    const refused = classifyFailure(
+      "herdr: protocol error: I/O error: Connection refused (os error 61)",
+      taxonomy
+    );
+    expect(refused.category.id).toBe("herdr_cli_attach_refused");
+    const saturated = classifyFailure(
+      "herdr: protocol error: I/O error: Resource temporarily unavailable (os error 35)",
+      taxonomy
+    );
+    expect(saturated.category.id).toBe("herdr_socket_saturation");
+  });
+
   test("classifyFailure returns unknown when no match", async () => {
     const taxonomy = await loadTaxonomy();
     const match = classifyFailure("totally unrecognized gibberish xyz123", taxonomy);

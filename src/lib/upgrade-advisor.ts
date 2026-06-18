@@ -9,6 +9,13 @@ import { join, relative } from "path";
 import { pathExists, readTextAsync } from "./bun-io.ts";
 import { safeToml } from "./utils.ts";
 
+/** Result of applying an auto-fix to a finding. */
+export interface AutoFixResult {
+  ok: boolean;
+  /** Unified diff of the change (empty if fix couldn't be applied). */
+  diff: string;
+}
+
 export interface UpgradeFinding {
   ruleId: string;
   file: string;
@@ -16,6 +23,8 @@ export interface UpgradeFinding {
   message: string;
   suggestion: string;
   snippet: string;
+  /** Optional auto-fix function. Present only for mechanically-fixable rules. */
+  autoFix?: () => AutoFixResult;
 }
 
 export interface UpgradeScanReport {
@@ -70,15 +79,70 @@ const UNIX_HTTP_PATTERNS = [
 
 const PARALLEL_TEST_SCRIPTS = ["test:parallel", "test:parallel:4", "test:shard"] as const;
 
+/**
+ * Build an autoFix for the bun-serve-http3 rule.
+ * Inserts `http3: true,` after the tls block in a Bun.serve() call.
+ */
+function buildHttp3AutoFix(
+  absPath: string,
+  lines: string[],
+  serveLineIdx: number
+): () => AutoFixResult {
+  return () => {
+    const result: AutoFixResult = { ok: false, diff: "" };
+    try {
+      let depth = 0;
+      let started = false;
+      let insertIdx = -1;
+
+      for (let i = serveLineIdx; i < lines.length; i++) {
+        const line = lines[i]!;
+        for (const ch of line) {
+          if (ch === "{") {
+            depth++;
+            started = true;
+          }
+          if (ch === "}") {
+            depth--;
+            if (started && depth === 0) {
+              insertIdx = i;
+              break;
+            }
+          }
+        }
+        if (insertIdx >= 0) break;
+      }
+
+      if (insertIdx < 0) return result;
+
+      const indent = lines[insertIdx]!.match(/^(\s*)/)?.[1] ?? "  ";
+      const originalLine = lines[insertIdx]!;
+      const fixedLine = `${indent}  http3: true,\n${originalLine}`;
+      const modified = [...lines];
+      modified[insertIdx] = fixedLine;
+
+      // Write the patched file
+      Bun.write(absPath, modified.join("\n"));
+
+      result.ok = true;
+      result.diff = `  ${originalLine.trim()}\n+ ${indent}  http3: true,\n  ${originalLine.trim()}`;
+      return result;
+    } catch {
+      return result;
+    }
+  };
+}
+
 function finding(
   ruleId: string,
   file: string,
   line: number,
   message: string,
   suggestion: string,
-  snippet: string
+  snippet: string,
+  autoFix?: () => AutoFixResult
 ): UpgradeFinding {
-  return { ruleId, file, line, message, suggestion, snippet: snippet.trim() };
+  return { ruleId, file, line, message, suggestion, snippet: snippet.trim(), autoFix };
 }
 
 function ruleEnabled(ruleId: string, options: UpgradeScanOptions): boolean {
@@ -88,6 +152,7 @@ function ruleEnabled(ruleId: string, options: UpgradeScanOptions): boolean {
 
 function scanSourceFile(
   rel: string,
+  absPath: string,
   lines: string[],
   out: UpgradeFinding[],
   options: UpgradeScanOptions
@@ -150,7 +215,8 @@ function scanSourceFile(
             lineIdx + 1,
             "Bun.serve with TLS but http3: true not set",
             "Add http3: true to Bun.serve({ tls: ..., http3: true }) for HTTP/3 over QUIC",
-            lines[lineIdx]!
+            lines[lineIdx]!,
+            buildHttp3AutoFix(absPath, lines, lineIdx)
           )
         );
       }
@@ -233,7 +299,7 @@ async function scanSourceTree(
         const abs = join(absDir, file);
         const rel = relative(projectRoot, abs);
         const text = await readTextAsync(abs);
-        scanSourceFile(rel, text.split("\n"), findings, options);
+        scanSourceFile(rel, abs, text.split("\n"), findings, options);
       }
     }
   }

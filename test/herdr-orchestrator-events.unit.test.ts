@@ -1,10 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import {
+  gitRefChangedThrottleKey,
+  markGitRefChangedEmitted,
   normalizeHerdrEventName,
   routeOrchestratorEvent,
+  shouldThrottleGitRefChanged,
 } from "../src/lib/herdr-orchestrator-events.ts";
 import {
+  DEFAULT_GIT_REF_COOLDOWN_MS,
   DEFAULT_ORCHESTRATOR_EVENT_ALLOWLIST,
+  MAX_GIT_REF_COOLDOWN_MS,
+  MIN_GIT_REF_COOLDOWN_MS,
+  parseGitRefCooldownMs,
   parseOrchestratorEventsSection,
   resolveOrchestratorConfig,
 } from "../src/lib/herdr-orchestrator-config.ts";
@@ -65,6 +72,45 @@ describe("herdr-orchestrator-events", () => {
     expect(parsed.debounceMs).toBe(1500);
     expect(parsed.allowlist).toEqual(["workspace.updated"]);
     expect(parsed.watchGit).toBe(false);
+    expect(parsed.gitRefCooldownMs).toBe(DEFAULT_GIT_REF_COOLDOWN_MS);
+  });
+
+  test("parseGitRefCooldownMs defaults and clamps to [1000, 30000]", () => {
+    expect(parseGitRefCooldownMs({})).toBe(DEFAULT_GIT_REF_COOLDOWN_MS);
+    expect(parseGitRefCooldownMs({ gitRefCooldownMs: 7500 })).toBe(7500);
+    expect(parseGitRefCooldownMs({ git_ref_cooldown_ms: 12_000 })).toBe(12_000);
+    expect(parseGitRefCooldownMs({ gitRefCooldownMs: 500 })).toBe(MIN_GIT_REF_COOLDOWN_MS);
+    expect(parseGitRefCooldownMs({ gitRefCooldownMs: 60_000 })).toBe(MAX_GIT_REF_COOLDOWN_MS);
+    expect(parseOrchestratorEventsSection({ gitRefCooldownMs: 9000 }).gitRefCooldownMs).toBe(9000);
+  });
+
+  test("gitRefChangedThrottleKey scopes by project and head", () => {
+    expect(gitRefChangedThrottleKey("/repo", "abc123")).toBe("/repo:abc123");
+    expect(gitRefChangedThrottleKey("/repo", "def456")).toBe("/repo:def456");
+  });
+
+  test("shouldThrottleGitRefChanged dedupes same head within cooldown", () => {
+    const map = new Map<string, number>();
+    const repo = "/Users/nolarose/kimi-toolchain";
+    const head = "deadbeef";
+    const t0 = 1_000_000;
+
+    expect(shouldThrottleGitRefChanged(repo, head, map, t0)).toBe(false);
+    markGitRefChangedEmitted(repo, head, map, t0);
+
+    expect(shouldThrottleGitRefChanged(repo, head, map, t0 + 1_000)).toBe(true);
+    expect(shouldThrottleGitRefChanged(repo, head, map, t0 + DEFAULT_GIT_REF_COOLDOWN_MS)).toBe(
+      false
+    );
+  });
+
+  test("shouldThrottleGitRefChanged allows distinct heads and repos", () => {
+    const map = new Map<string, number>();
+    const t0 = 2_000_000;
+    markGitRefChangedEmitted("/repo-a", "head1", map, t0);
+
+    expect(shouldThrottleGitRefChanged("/repo-a", "head2", map, t0 + 100)).toBe(false);
+    expect(shouldThrottleGitRefChanged("/repo-b", "head1", map, t0 + 100)).toBe(false);
   });
 
   test("resolveOrchestratorConfig includes events defaults", () => {
@@ -86,5 +132,6 @@ describe("herdr-orchestrator-events", () => {
     const resolved = resolveOrchestratorConfig(config);
     expect(resolved.events.enabled).toBe(true);
     expect(resolved.events.debounceMs).toBe(2000);
+    expect(resolved.events.gitRefCooldownMs).toBe(DEFAULT_GIT_REF_COOLDOWN_MS);
   });
 });

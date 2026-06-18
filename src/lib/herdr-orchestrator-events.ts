@@ -7,6 +7,7 @@ import { syncAgentsTabContext } from "./herdr-project-context.ts";
 import { findWorkspaceForProject } from "./herdr-project-runner.ts";
 import { listWorkspaceAgents, reactHerdrOrchestrator } from "./herdr-orchestrator.ts";
 import {
+  DEFAULT_GIT_REF_COOLDOWN_MS,
   resolveOrchestratorConfig,
   type HerdrOrchestratorEventsConfig,
 } from "./herdr-orchestrator-config.ts";
@@ -18,6 +19,13 @@ import {
   type HerdrStreamEnvelope,
 } from "./herdr-socket-client.ts";
 import { resolveHerdrSocketPath } from "./herdr-unix-socket.ts";
+import {
+  correlateAgentStatusChanged,
+  type AgentStatusCorrelation,
+} from "./herdr-alert-correlation.ts";
+
+/** @deprecated Use DEFAULT_GIT_REF_COOLDOWN_MS from herdr-orchestrator-config.ts */
+export const GIT_REF_CHANGED_COOLDOWN_MS = DEFAULT_GIT_REF_COOLDOWN_MS;
 
 export type OrchestratorEventAction = "context-sync" | "react";
 
@@ -107,6 +115,32 @@ function readGitHead(projectRoot: string): string | null {
   }
 }
 
+export function gitRefChangedThrottleKey(projectRoot: string, head: string): string {
+  return `${projectRoot}:${head}`;
+}
+
+/** True when the same (repo, ref) was emitted inside the cooldown window. */
+export function shouldThrottleGitRefChanged(
+  projectRoot: string,
+  head: string,
+  lastEmitByKey: ReadonlyMap<string, number>,
+  nowMs = Date.now(),
+  cooldownMs = GIT_REF_CHANGED_COOLDOWN_MS
+): boolean {
+  const key = gitRefChangedThrottleKey(projectRoot, head);
+  const last = lastEmitByKey.get(key) ?? 0;
+  return nowMs - last < cooldownMs;
+}
+
+export function markGitRefChangedEmitted(
+  projectRoot: string,
+  head: string,
+  lastEmitByKey: Map<string, number>,
+  nowMs = Date.now()
+): void {
+  lastEmitByKey.set(gitRefChangedThrottleKey(projectRoot, head), nowMs);
+}
+
 function resolveGitHeadWatchPath(projectRoot: string): string | null {
   const headPath = join(projectRoot, ".git", "HEAD");
   if (!pathExists(headPath)) return null;
@@ -139,6 +173,8 @@ export interface WatchOrchestratorEventsOptions {
   json?: boolean;
   signal?: AbortSignal;
   onDispatch?: (dispatch: OrchestratorEventDispatch) => void;
+  /** Read-only taxonomy correlation on pane.agent_status_changed (Wave C). */
+  correlateAgentStatus?: boolean;
 }
 
 export interface WatchOrchestratorEventsResult {
@@ -257,7 +293,7 @@ async function runWatchOrchestratorEvents(
   const debouncer = new DebouncedOrchestratorActions();
   const eventsConfig = orchestrator.events;
 
-  const emit = (dispatch: OrchestratorEventDispatch) => {
+  const emit = (dispatch: OrchestratorEventDispatch, correlation?: AgentStatusCorrelation) => {
     options.onDispatch?.(dispatch);
     if (options.json) {
       process.stdout.write(
@@ -267,22 +303,37 @@ async function runWatchOrchestratorEvents(
           mode: "watch-events",
           at: new Date().toISOString(),
           ...dispatch,
+          ...(correlation ? { correlation } : {}),
         })}\n`
       );
     } else {
-      process.stdout.write(`event → ${dispatch.action}: ${dispatch.reason}\n`);
+      const hitCount = correlation?.hits.length ?? 0;
+      const suffix =
+        correlation && hitCount > 0
+          ? ` (${hitCount} taxonomy hit${hitCount === 1 ? "" : "s"})`
+          : "";
+      process.stdout.write(`event → ${dispatch.action}: ${dispatch.reason}${suffix}\n`);
     }
   };
 
-  const queue = (dispatch: OrchestratorEventDispatch) => {
+  const queue = (dispatch: OrchestratorEventDispatch, envelope?: HerdrStreamEnvelope) => {
     debouncer.schedule(dispatch.action, eventsConfig.debounceMs, async () => {
-      emit(dispatch);
+      let correlation: AgentStatusCorrelation | undefined;
+      if (
+        options.correlateAgentStatus !== false &&
+        dispatch.reason === "pane.agent_status_changed" &&
+        envelope?.data
+      ) {
+        correlation = await correlateAgentStatusChanged(envelope.data as Record<string, unknown>);
+      }
+      emit(dispatch, correlation);
       await runDispatch(projectRoot, dispatch, eventsConfig, workspaceId);
     });
   };
 
   let gitWatcher: ReturnType<typeof watchPath> | null = null;
   let gitHead = readGitHead(projectRoot);
+  const gitRefLastEmit = new Map<string, number>();
 
   if (eventsConfig.watchGit) {
     const gitHeadPath = resolveGitHeadWatchPath(projectRoot);
@@ -290,7 +341,19 @@ async function runWatchOrchestratorEvents(
       gitWatcher = watchPath(gitHeadPath, () => {
         const next = readGitHead(projectRoot);
         if (!next || next === gitHead) return;
+        if (
+          shouldThrottleGitRefChanged(
+            projectRoot,
+            next,
+            gitRefLastEmit,
+            Date.now(),
+            eventsConfig.gitRefCooldownMs
+          )
+        ) {
+          return;
+        }
         gitHead = next;
+        markGitRefChangedEmitted(projectRoot, next, gitRefLastEmit);
         const routed = routeOrchestratorEvent(
           { event: "git.ref.changed", data: { head: next } },
           eventsConfig.allowlist
@@ -341,7 +404,7 @@ async function runWatchOrchestratorEvents(
       if (eventWorkspace && eventWorkspace !== workspaceId) return;
 
       const routed = routeOrchestratorEvent(envelope, eventsConfig.allowlist);
-      if (routed) queue(routed);
+      if (routed) queue(routed, envelope);
     },
   });
 

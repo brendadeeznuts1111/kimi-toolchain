@@ -5,12 +5,9 @@
 import type { AdapterOutput, ExternalToolAdapter } from "../doctor-adapter-types.ts";
 import {
   dashboardAutomationChecksFromResult,
-  runDashboardAutomationAdapter,
   type DashboardAutomationJsonEnvelope,
 } from "../herdr-dashboard-automation-gate.ts";
 import { safeParse } from "../utils.ts";
-
-export { dashboardAutomationChecksFromResult, runDashboardAutomationAdapter };
 
 export const dashboardAutomationAdapter: ExternalToolAdapter = {
   name: "dashboard-automation",

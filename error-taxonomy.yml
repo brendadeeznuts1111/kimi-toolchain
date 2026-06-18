@@ -204,6 +204,30 @@ categories:
       - regex: "port.*already in use"
       - regex: "EADDRINUSE"
 
+  - id: herdr_socket_saturation
+    name: Herdr socket saturation
+    description: Herdr IPC returned EAGAIN (os error 35) — the server is overloaded with stale API or events.subscribe connections, often after long-running dashboard/orchestrator or zombie bun test load.
+    severity: warn
+    expected: false
+    suggestion: "Diagnostic only — `herdr-doctor doctor` does not kill processes. Stop dashboard, audit orphans, `herdr server stop`, verify status, then SIGTERM only the server PID if stop was ignored. See buildHerdrSocketRecoveryPlan in src/lib/herdr-cli-error.ts."
+    autoFix: "herdr-doctor fix-socket --dry-run"
+    patterns:
+      - regex: "herdr: protocol error.*os error 35"
+      - regex: "herdr: protocol error.*Resource temporarily unavailable"
+      - regex: "Resource temporarily unavailable \\(os error 35\\)"
+      - regex: "\\bEAGAIN\\b"
+
+  - id: herdr_cli_attach_refused
+    name: Herdr client attach refused
+    description: Herdr CLI client attach failed with connection refused (os error 61) — stale herdr-client.sock or server not accepting new clients.
+    severity: warn
+    expected: false
+    suggestion: "Run `herdr status server`. If not running, remove stale socket and restart. Do not confuse with saturation (os error 35)."
+    autoFix: "herdr-doctor fix-socket --dry-run"
+    patterns:
+      - regex: "herdr: protocol error.*os error 61"
+      - regex: "herdr: protocol error.*Connection refused"
+
   - id: memory_limit
     name: Out of memory
     description: Process hit memory limits.

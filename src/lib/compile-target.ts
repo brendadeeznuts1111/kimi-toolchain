@@ -10,6 +10,7 @@
  */
 
 import { join } from "path";
+import { readableStreamToText } from "./bun-utils.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -76,11 +77,11 @@ async function resolveBunVersion(): Promise<{ version: string; revision: string 
   if (_bunVersion && _bunRevision) return { version: _bunVersion, revision: _bunRevision };
 
   const proc = Bun.spawn(["bun", "--version"], { stdout: "pipe", stderr: "pipe" });
-  const version = (await new Response(proc.stdout).text()).trim();
+  const version = (await readableStreamToText(proc.stdout)).trim();
   await proc.exited;
 
   const revProc = Bun.spawn(["bun", "--revision"], { stdout: "pipe", stderr: "pipe" });
-  const revision = (await new Response(revProc.stdout).text()).trim();
+  const revision = (await readableStreamToText(revProc.stdout)).trim();
   await revProc.exited;
 
   _bunVersion = version || "unknown";
@@ -189,8 +190,8 @@ export async function compileBinary(options: CompileOptions): Promise<CompileRes
   });
 
   const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
+    readableStreamToText(proc.stdout),
+    readableStreamToText(proc.stderr),
   ]);
   await proc.exited;
 

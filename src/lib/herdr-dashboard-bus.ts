@@ -49,6 +49,16 @@ export interface DashboardBusEvents extends Record<string, unknown> {
     reason: string;
     at: string;
   };
+  /** Gate check failure — emitted after agent refresh when doctor gates report failures. */
+  "gate:failed": {
+    failures: Array<{ name: string; message: string }>;
+    count: number;
+    at: string;
+  };
+  /** Gate check cleared — emitted when previously-failing gates pass. */
+  "gate:cleared": {
+    at: string;
+  };
 }
 
 export type DashboardEventBus = EventBus<DashboardBusEvents>;

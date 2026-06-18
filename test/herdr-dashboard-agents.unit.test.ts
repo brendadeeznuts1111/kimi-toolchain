@@ -36,4 +36,9 @@ describe("herdr-dashboard-agents", () => {
     expect(parsed.persistProfile).toBe(true);
     expect(parsed.profileDir).toBe("/tmp/herdr-dashboard-profile");
   });
+
+  test("parseOrchestratorDashboardSection reads webview default", () => {
+    const parsed = parseOrchestratorDashboardSection({ webview: true });
+    expect(parsed.webview).toBe(true);
+  });
 });

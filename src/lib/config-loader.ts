@@ -9,7 +9,7 @@
  * design-tokens pipeline ships a .json5 file.
  *
  * B3.1 — parked.
- * @see https://bun.sh/docs/runtime/json5
+ * @see https://bun.com/docs/runtime/json5
  */
 
 import { safeToml, safeParse } from "./utils.ts";

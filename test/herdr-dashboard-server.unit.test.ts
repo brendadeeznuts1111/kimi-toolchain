@@ -5,6 +5,7 @@ import { fetchJsonBody, readableStreamToText } from "../src/lib/bun-utils.ts";
 import {
   DEFAULT_DASHBOARD_PORT,
   fetchDashboardRules,
+  fetchDashboardCanvases,
   runDashboardAgentAction,
   runDashboardIpcCommand,
 } from "../src/lib/herdr-dashboard-data.ts";
@@ -39,6 +40,62 @@ describe("herdr-dashboard-server", () => {
     expect(payload.ok).toBe(true);
     expect(payload.logPath).toContain("handoff-log.jsonl");
     expect(Array.isArray(payload.rules)).toBe(true);
+  });
+
+  test("fetchDashboardCanvases returns all 8 cursorCanvas entries", () => {
+    const payload = fetchDashboardCanvases();
+    expect(payload.ok).toBe(true);
+    expect(payload.canvases.length).toBe(8);
+
+    const ids = payload.canvases.map((c) => c.id);
+    expect(ids).toContain("unified");
+    expect(ids).toContain("code-references");
+    expect(ids).toContain("templates");
+    expect(ids).toContain("configuration-layers");
+    expect(ids).toContain("namespace");
+    expect(ids).toContain("kimi-doctor");
+    expect(ids).toContain("dashboard-thumbnails");
+    expect(ids).toContain("herdr-plugin-architecture");
+  });
+
+  test("fetchDashboardCanvases sorts by readOrder ascending", () => {
+    const payload = fetchDashboardCanvases();
+    const orders = payload.canvases.map((c) => c.readOrder ?? 99);
+    for (let i = 1; i < orders.length; i++) {
+      expect(orders[i]).toBeGreaterThanOrEqual(orders[i - 1]);
+    }
+    // Hub (readOrder 1) must be first
+    expect(payload.canvases[0].id).toBe("unified");
+  });
+
+  test("fetchDashboardCanvases entries have required metadata", () => {
+    const payload = fetchDashboardCanvases();
+    for (const c of payload.canvases) {
+      expect(c.id).toBeTruthy();
+      expect(c.canvasId).toBeTruthy();
+      expect(c.page).toBeTruthy();
+      expect(c.path).toMatch(/^docs\/canvases\/.+\.canvas\.tsx$/);
+      expect(c.purpose).toBeTruthy();
+    }
+  });
+
+  test("fetchDashboardCanvases code-references has optional metadata", () => {
+    const payload = fetchDashboardCanvases();
+    const entry = payload.canvases.find((c) => c.id === "code-references");
+    expect(entry).toBeTruthy();
+    expect(entry!.version).toBe("0.1.0");
+    expect(entry!.layer).toBe("Doc URL lint");
+    expect(entry!.openWhen).toContain("@see ladder");
+    expect(entry!.readOrder).toBe(4);
+  });
+
+  test("fetchDashboardCanvases herdr-plugin-architecture has version 0.5.0", () => {
+    const payload = fetchDashboardCanvases();
+    const entry = payload.canvases.find((c) => c.id === "herdr-plugin-architecture");
+    expect(entry).toBeTruthy();
+    expect(entry!.version).toBe("0.5.0");
+    expect(entry!.layer).toBe("Herdr plugins v0.5.0");
+    expect(entry!.readOrder).toBe(8);
   });
 
   test("createDashboardConsoleMirror exposes webView handler", () => {
@@ -640,10 +697,19 @@ describe("herdr-dashboard-server", () => {
     expect(lines.join(" ")).toContain("3");
   });
 
-  test("buildDashboardWebViewOptions mirrors page console via globalThis.console by default", () => {
+  test("buildDashboardWebViewOptions mirrors page console via globalThis.console by default", async () => {
     const built = buildDashboardWebViewOptions("http://127.0.0.1:18412/");
-    expect(built.constructorOptions.console).toBe(webViewConsoleMirror());
-    expect(resolveDashboardWebViewConsole({})).toBe(globalThis.console);
+    expect(typeof built.constructorOptions.console).toBe("function");
+    // The dashboard wraps the mirror so it can intercept open-canvas IPC logs.
+    expect(built.constructorOptions.console).not.toBe(webViewConsoleMirror());
+
+    const handler = resolveDashboardWebViewConsole({});
+    expect(typeof handler).toBe("function");
+    const lines = await captureConsole(() => {
+      handler("log", "dashboard.test", 42);
+    });
+    expect(lines.join(" ")).toContain("dashboard.test");
+    expect(lines.join(" ")).toContain("42");
   });
 
   test("buildDashboardWebViewOptions uses custom handler when onIpc is set", () => {

@@ -3,6 +3,9 @@ import { removePath } from "../src/lib/bun-io.ts";
 import { checkCachePath } from "../src/lib/check-result-cache.ts";
 import {
   bunTestArgs,
+  bunTestArgBatches,
+  chunkFastUnitTestFiles,
+  FAST_TEST_CHUNK_SIZE,
   FAST_TEST_TIMEOUT_MS,
   isBunTestChangedEmptyOutput,
   UNIT_TEST_FILES,
@@ -53,6 +56,27 @@ describe("test-gates", () => {
     for (const file of UNIT_TEST_FILES) {
       expect(args).toContain(file);
     }
+  });
+
+  test("chunkFastUnitTestFiles preserves every fast unit file once", () => {
+    const chunks = chunkFastUnitTestFiles();
+    const flattened = chunks.flat();
+    expect(flattened).toEqual([...UNIT_TEST_FILES]);
+    expect(new Set(flattened).size).toBe(UNIT_TEST_FILES.length);
+    expect(chunks.every((chunk) => chunk.length <= FAST_TEST_CHUNK_SIZE)).toBe(true);
+  });
+
+  test("bunTestArgBatches chunks plain fast runs only", () => {
+    const batches = bunTestArgBatches({ fast: true, bail: true, retry: 2 });
+    expect(batches.length).toBeGreaterThan(1);
+    expect(batches.flatMap((args) => args.filter((arg) => arg.endsWith(".test.ts")))).toEqual([
+      ...UNIT_TEST_FILES,
+    ]);
+
+    expect(bunTestArgBatches({ fast: true, coverage: true, bail: true })).toHaveLength(1);
+    expect(bunTestArgBatches({ fast: true, changedRef: "origin/main", bail: true })).toHaveLength(
+      1
+    );
   });
 
   test("bunTestArgs ci mode uses 30s timeout and junit reporter", () => {

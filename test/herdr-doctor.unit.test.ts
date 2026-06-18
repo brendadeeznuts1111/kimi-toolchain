@@ -5,8 +5,11 @@ import { describe, expect, test } from "bun:test";
 import { REQUIRED_INTEGRATIONS } from "../src/lib/herdr-agents.ts";
 import {
   HERDR_SOCKET_ERROR_HINTS,
+  HERDR_SOCKET_SATURATION_TAXONOMY_ID,
   buildHerdrSocketDoctorHints,
   inspectHerdrDoctor,
+  parseHerdrCliSocketError,
+  runFixSocketDryRun,
 } from "../src/lib/herdr-doctor.ts";
 import type { HerdrSocketHealthProbe } from "../src/lib/herdr-socket-transport.ts";
 import { HerdrSessionError } from "../src/lib/herdr-session-preflight.ts";
@@ -42,6 +45,7 @@ describe("herdr-doctor", () => {
     });
     expect(Array.isArray(report.details.socketHints)).toBe(true);
     expect(report.details.socketErrorHints.EADDRINUSE.code).toBe("EADDRINUSE");
+    expect(report.details.socketErrorHints.EAGAIN.code).toBe("EAGAIN");
   });
 
   test("inspectHerdrDoctor flags missing config on empty home", async () => {
@@ -103,6 +107,43 @@ describe("herdr-doctor", () => {
     );
 
     expect(HERDR_SOCKET_ERROR_HINTS.EADDRINUSE.detail).toContain("Bun 1.4+");
+
+    const saturated: HerdrSocketHealthProbe = {
+      socketPath: "/tmp/herdr.sock",
+      socketFileExists: true,
+      connectable: false,
+      connectErrorCode: "EAGAIN",
+    };
+    expect(buildHerdrSocketDoctorHints(saturated).map((h) => h.code)).toContain("EAGAIN");
+  });
+
+  test("parseHerdrCliSocketError maps bare herdr EAGAIN to taxonomy hint", () => {
+    const hint = parseHerdrCliSocketError(
+      "herdr: protocol error: I/O error: Resource temporarily unavailable (os error 35)"
+    );
+    expect(hint?.code).toBe("EAGAIN");
+    expect(HERDR_SOCKET_SATURATION_TAXONOMY_ID).toBe("herdr_socket_saturation");
+    expect(parseHerdrCliSocketError("herdr status ok")).toBeNull();
+  });
+
+  test("parseHerdrCliSocketError maps os error 61 to ECONNREFUSED hint not EAGAIN", () => {
+    const hint = parseHerdrCliSocketError(
+      "herdr: protocol error: I/O error: Connection refused (os error 61)"
+    );
+    expect(hint?.code).toBe("ECONNREFUSED");
+  });
+
+  test("runFixSocketDryRun returns materialized steps without executing", async () => {
+    const report = await runFixSocketDryRun({
+      dryRun: true,
+      errorText: "herdr: protocol error: I/O error: Resource temporarily unavailable (os error 35)",
+    });
+    expect(report.mode).toBe("fix-socket");
+    expect(report.dryRun).toBe(true);
+    expect(report.executed).toBe(false);
+    expect(report.taxonomyId).toBe("herdr_socket_saturation");
+    expect(report.steps.length).toBeGreaterThan(0);
+    expect(report.steps.some((s) => s.wouldRun?.includes("[dry-run]"))).toBe(true);
   });
 
   test("--fix skips manifest update when session preflight fails", async () => {

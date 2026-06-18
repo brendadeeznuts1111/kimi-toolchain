@@ -2,7 +2,7 @@
  * Core check gate pipeline — build steps, run, and format results.
  */
 
-import { bunTestArgs } from "./test-gates.ts";
+import { bunTestArgBatches, bunTestArgs } from "./test-gates.ts";
 import {
   emitGateFailure,
   runGate,
@@ -13,6 +13,7 @@ import {
 import { readableStreamToText } from "./bun-utils.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { withBunNoOrphans } from "./tool-runner.ts";
+import { acquireTestGateLock } from "./test-run-guard.ts";
 import {
   changedIncludesTypeScript,
   countLikelyErrors,
@@ -41,6 +42,7 @@ type SpawnedProcess = ReturnType<typeof Bun.spawn>;
 export interface PipelineStep {
   name: string;
   cmd: string[];
+  cmds?: string[][];
   silentOnSuccess?: boolean;
   skipped?: boolean;
 }
@@ -185,22 +187,64 @@ export async function buildSteps(
         silentOnSuccess: quiet,
       });
     } else {
-      const testArgs = bunTestArgs({
+      const testArgBatches = bunTestArgBatches({
         fast: options.fast,
         timeoutMs: options.timeoutMs,
         bail: true,
         retry: 2,
         dots: quiet,
       });
+      const testCmds = testArgBatches.map((args) => ["bun", ...args]);
       steps.push({
         name: testName,
-        cmd: ["bun", ...testArgs],
+        cmd: testCmds[0] ?? [],
+        ...(testCmds.length > 1 ? { cmds: testCmds } : {}),
         silentOnSuccess: quiet,
       });
     }
   }
 
   return steps;
+}
+
+function stepCommands(step: PipelineStep): string[][] {
+  if (step.cmds?.length) return step.cmds;
+  return step.cmd.length ? [step.cmd] : [];
+}
+
+async function runStepCommandSequence(
+  projectRoot: string,
+  step: PipelineStep
+): Promise<GateResult> {
+  const commands = stepCommands(step);
+  const started = Bun.nanoseconds();
+  const stdoutParts: string[] = [];
+  const stderrParts: string[] = [];
+
+  for (let i = 0; i < commands.length; i++) {
+    const command = commands[i]!;
+    const chunkName = commands.length > 1 ? `${step.name}:${i + 1}/${commands.length}` : step.name;
+    const result = await runGate(chunkName, command, { cwd: projectRoot });
+    stdoutParts.push(result.stdout);
+    stderrParts.push(result.stderr);
+    if (result.exitCode !== 0) {
+      return {
+        name: step.name,
+        exitCode: result.exitCode,
+        ms: Math.round((Bun.nanoseconds() - started) / 1_000_000),
+        stdout: stdoutParts.filter(Boolean).join("\n"),
+        stderr: stderrParts.filter(Boolean).join("\n"),
+      };
+    }
+  }
+
+  return {
+    name: step.name,
+    exitCode: 0,
+    ms: Math.round((Bun.nanoseconds() - started) / 1_000_000),
+    stdout: stdoutParts.filter(Boolean).join("\n"),
+    stderr: stderrParts.filter(Boolean).join("\n"),
+  };
 }
 
 async function runStepTracked(
@@ -219,16 +263,34 @@ async function runStepTracked(
     };
   }
   if (gateQuiet) {
-    return runGate(step.name, step.cmd, { cwd: projectRoot });
+    return runStepCommandSequence(projectRoot, step);
   }
-  const proc = Bun.spawn(withBunNoOrphans(step.cmd), {
-    cwd: projectRoot,
-    stdout: "inherit",
-    stderr: "inherit",
-    env: withNoOrphansEnv(),
-  });
-  const exitCode = await proc.exited;
-  return { name: step.name, exitCode, ms: 0, stdout: "", stderr: "" };
+  const start = Bun.nanoseconds();
+  for (const command of stepCommands(step)) {
+    const proc = Bun.spawn(withBunNoOrphans(command), {
+      cwd: projectRoot,
+      stdout: "inherit",
+      stderr: "inherit",
+      env: withNoOrphansEnv(),
+    });
+    const exitCode = await proc.exited;
+    if (exitCode !== 0) {
+      return {
+        name: step.name,
+        exitCode,
+        ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
+        stdout: "",
+        stderr: "",
+      };
+    }
+  }
+  return {
+    name: step.name,
+    exitCode: 0,
+    ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
+    stdout: "",
+    stderr: "",
+  };
 }
 
 async function runStepTrackedWithActive(
@@ -248,22 +310,35 @@ async function runStepTrackedWithActive(
     };
   }
   if (gateQuiet) {
-    return runGate(step.name, step.cmd, { cwd: projectRoot });
+    return runStepCommandSequence(projectRoot, step);
   }
   const start = Bun.nanoseconds();
-  const proc = Bun.spawn(withBunNoOrphans(step.cmd), {
-    cwd: projectRoot,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: withNoOrphansEnv(),
-  });
-  active.push(proc);
-  const [stdout, stderr, exitCode] = await Promise.all([
-    readableStreamToText(proc.stdout),
-    readableStreamToText(proc.stderr),
-    proc.exited,
-  ]);
+  const stdoutParts: string[] = [];
+  const stderrParts: string[] = [];
+  let exitCode = 0;
+
+  for (const command of stepCommands(step)) {
+    const proc = Bun.spawn(withBunNoOrphans(command), {
+      cwd: projectRoot,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: withNoOrphansEnv(),
+    });
+    active.push(proc);
+    const [stdout, stderr, code] = await Promise.all([
+      readableStreamToText(proc.stdout),
+      readableStreamToText(proc.stderr),
+      proc.exited,
+    ]);
+    stdoutParts.push(stdout);
+    stderrParts.push(stderr);
+    exitCode = code;
+    if (code !== 0) break;
+  }
+
   const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+  const stdout = stdoutParts.filter(Boolean).join("\n");
+  const stderr = stderrParts.filter(Boolean).join("\n");
 
   const budget = fastGateTimeoutBudgetMs();
   if (budget > 0 && ms > budget && exitCode === 0) {
@@ -387,7 +462,22 @@ export async function runCheckPipeline(
 
   const allResults = [...independentResults];
   if (testStep) {
-    allResults.push(await runStepTracked(projectRoot, testStep, gateQuiet));
+    const acquired = acquireTestGateLock(projectRoot, testStep.name);
+    if (!acquired.ok) {
+      allResults.push({
+        name: testStep.name,
+        exitCode: 1,
+        ms: 0,
+        stdout: "",
+        stderr: acquired.conflict.message,
+      });
+    } else {
+      try {
+        allResults.push(await runStepTracked(projectRoot, testStep, gateQuiet));
+      } finally {
+        acquired.lock.release();
+      }
+    }
   }
 
   const scopedGatesRecorded = await recordScopedGatePasses(
@@ -431,7 +521,22 @@ export async function runTestOnlyPipeline(
     return { passed: true, steps: {}, failures: [], totalDurationMs: 0 };
   }
   const gateQuiet = (!testOptions.verbose && shouldSilentOnSuccess()) || testOptions.jsonSummary;
-  const result = await runStepTracked(projectRoot, testStep, gateQuiet);
+  const acquired = acquireTestGateLock(projectRoot, testStep.name);
+  const result = acquired.ok
+    ? await (async () => {
+        try {
+          return await runStepTracked(projectRoot, testStep, gateQuiet);
+        } finally {
+          acquired.lock.release();
+        }
+      })()
+    : {
+        name: testStep.name,
+        exitCode: 1,
+        ms: 0,
+        stdout: "",
+        stderr: acquired.conflict.message,
+      };
   const scopedGatesRecorded = await recordScopedGatePasses(
     projectRoot,
     testOptions,
@@ -471,7 +576,15 @@ export function printCheckDryRun(
       checkOut(`  → (skip) ${step.name}`);
       continue;
     }
-    checkOut(`  → ${step.cmd.join(" ")}`);
+    const commands = stepCommands(step);
+    if (commands.length <= 1) {
+      checkOut(`  → ${step.cmd.join(" ")}`);
+      continue;
+    }
+    checkOut(`  → ${step.name} (${commands.length} chunks)`);
+    for (const [i, command] of commands.entries()) {
+      checkOut(`    ${i + 1}. ${command.join(" ")}`);
+    }
   }
 }
 

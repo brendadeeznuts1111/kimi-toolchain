@@ -6,51 +6,83 @@ Flags, configuration, and behavior that affect `bun create`, `bun init`, and `ki
 
 `bun install`, `bun add`, and `bun remove` can be configured via `bunfig.toml` or environment variables.
 
-### `bunfig.toml` (optional)
+### `bunfig.toml` — kimi-toolchain hardened defaults
+
+`kimi-fix` deploys a hardened `bunfig.toml` that overrides Bun's defaults. These are the values scaffolded into every new project:
+
+```toml
+[install]
+# dependency scope
+optional = true
+dev = true
+peer = true
+production = false
+# lockfile
+saveTextLockfile = true
+frozenLockfile = true
+dryRun = false
+# resolution
+exact = false
+# lifecycle
+ignoreScripts = false
+concurrentScripts = 8
+# linker
+linker = "isolated"
+# Experimental (Bun ≥1.3.14): symlink packages from shared global cache
+globalStore = true
+# paths
+globalDir = "~/.bun/install/global"
+globalBinDir = "~/.bun/bin"
+# supply-chain
+minimumReleaseAge = 259200  # 3 days
+minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
+
+[install.cache]
+dir = "~/.bun/install/cache"
+
+[run]
+# Parent-death detection: child Bun processes auto-exit when the parent dies.
+# Linux: prctl(PR_SET_PDEATHSIG, SIGKILL) — kernel-delivered, no polling.
+# macOS: EVFILT_PROC/NOTE_EXIT on kqueue — event-loop integrated.
+# Flag auto-inherited by nested Bun processes.
+noOrphans = true
+
+[test]
+# Unit tests run concurrently; smoke/integration stay sequential
+concurrentTestGlob = ["test/*.unit.test.ts"]
+# Fail fast in normal/CI runs
+bail = 1
+# Randomize order with pinned seed for reproducible failures
+randomize = true
+seed = 42
+# Generous per-test ceiling; fast gate overrides via CLI
+timeout = 30000
+# Coverage is opt-in via --coverage or test:coverage scripts
+coverage = false
+coverageSkipTestFiles = true
+smol = false
+
+[test.reporter]
+dots = true
+```
+
+Key differences from Bun defaults:
+
+| Key | Bun default | kimi-toolchain | Why |
+|-----|------------|----------------|-----|
+| `saveTextLockfile` | `false` | `true` | Human-readable diffs in code review |
+| `frozenLockfile` | `false` | `true` | Reproducible installs; CI fails on drift |
+| `linker` | `hoisted` | `isolated` | No phantom dependencies; cleaner `node_modules` |
+| `concurrentScripts` | 16 | 8 | Avoid thrashing on memory-constrained hosts |
+| `minimumReleaseAge` | 0 | 259200 (3d) | Supply-chain safety — block brand-new packages |
+| `bail` | unset | 1 | Fail fast; don't waste CI on broken suites |
+| `randomize` | unset | true | Catch order-dependent test bugs |
+| `seed` | unset | 42 | Reproducible randomized runs |
+| `noOrphans` | false | true | Prevents zombie processes in Herdr panes, CI runners |
 
 Bun searches for `bunfig.toml` in these paths (merged if both exist):
 - `$XDG_CONFIG_HOME/.bunfig.toml` or `$HOME/.bunfig.toml`
 - `./bunfig.toml` (project-local)
-
-Default values shown below:
-
-```toml
-[install]
-
-# whether to install optionalDependencies
-optional = true
-
-# whether to install devDependencies
-dev = true
-
-# whether to install peerDependencies
-peer = true
-
-# equivalent to `--production` flag
-production = false
-
-# equivalent to `--save-text-lockfile` flag
-saveTextLockfile = false
-
-# equivalent to `--frozen-lockfile` flag
-frozenLockfile = false
-
-# equivalent to `--dry-run` flag
-dryRun = false
-
-# equivalent to `--concurrent-scripts` flag
-concurrentScripts = 16 # (cpu count or GOMAXPROCS) x2
-
-# installation strategy: "hoisted" or "isolated"
-# default depends on lockfile configVersion and workspaces:
-# - configVersion = 1: "isolated" if using workspaces, otherwise "hoisted"
-# - configVersion = 0: "hoisted"
-linker = "hoisted"
-
-# minimum age config
-minimumReleaseAge = 259200 # seconds
-minimumReleaseAgeExcludes = ["@types/node", "typescript"]
-```
 
 ### Environment variables (higher priority)
 
@@ -155,3 +187,22 @@ This improves runtime performance and avoids CommonJS wrapper bugs (e.g., `.cjs`
 | Configuration layers model | [configuration-layers.md](./configuration-layers.md) |
 | `bun create` template | `templates/bun-create/kimi-toolchain/` |
 | `kimi-fix` source | `src/bin/kimi-fix.ts` |
+
+## `bun create` flow
+
+The `bun create` template is a minimal skeleton — just a `package.json` with a `bun-create.postinstall` hook. When you run `bun create kimi-toolchain my-app`, Bun copies the skeleton and then executes the two-step postinstall:
+
+1. **`bun install -g github:brendadeeznuts1111/kimi-toolchain`** — ensures the toolchain is available globally (idempotent — fast no-op if already installed)
+2. **`kimi-fix .`** — runs the full scaffold: hardened `bunfig.toml`, `dx.config.toml`, `tsconfig.json`, `AGENTS.md`, `.oxfmtrc.json`, CI workflow, governance files, git hooks
+
+The `bun-create` section is auto-stripped from the destination `package.json` by Bun.
+
+```bash
+# One-time setup
+cp -r ~/kimi-toolchain/templates/bun-create/kimi-toolchain ~/.bun-create/
+
+# Then create projects from anywhere
+bun create kimi-toolchain my-app
+cd my-app
+bun run check:fast
+```
