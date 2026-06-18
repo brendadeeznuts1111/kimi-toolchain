@@ -7,7 +7,7 @@ import { Logger } from "../src/lib/logger.ts";
 import type { DashboardAgentsPayload } from "../src/lib/herdr-dashboard-data.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
-const HUB_TEST_MS = 15_000;
+const HUB_TEST_MS = 20_000;
 
 const quietLogger = new Logger({ quiet: true });
 

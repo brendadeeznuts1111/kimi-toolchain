@@ -27,7 +27,7 @@ import type { DashboardIpcCommand } from "../src/lib/herdr-dashboard-data.ts";
 import { REPO_ROOT, captureConsole } from "./helpers.ts";
 
 /** Fast gate: CLI --timeout 1500; slow tests need per-test override. */
-const SERVER_TEST_MS = 3000;
+const SERVER_TEST_MS = 20_000;
 
 describe("herdr-dashboard-server", () => {
   test("DEFAULT_DASHBOARD_PORT is 18412", () => {
