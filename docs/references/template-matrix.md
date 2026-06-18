@@ -9,6 +9,8 @@
 | **desktop-runtime** | 1 | `bun run sync` | `~/.kimi-code/` | Merge (JSON + MD overwrite) | None — separate namespace |
 | **other** | 4 | Manual / Herdr dashboard | `docs/herdr/` + `docs/mcp/` | Manual | None |
 
+**Consumed by:** `kimi-fix`, Herdr orchestrator, `LOCAL_DOC_REFERENCES`, `sync-verify.ts`, `bun create kimi-toolchain`
+
 ---
 
 ## Scaffold Breakdown (22 files)
@@ -64,8 +66,10 @@
 | Step | Tool | Files Created | Collision Files | Mitigation |
 |---|---|---|---|---|
 | 1 | `bun init -m -y` | `package.json`, `node_modules/`, `bun.lockb` | None (minimal mode) | `-m` skips `tsconfig.json`, `README.md`, `index.ts`, `.gitignore` |
-| 2 | `kimi-fix .` | All 22 scaffold files | `tsconfig.json`, `.gitignore`, `index.ts`, `README.md` | `!pathExists()` guard — non-destructive, but **field is already clear** due to `-m` |
+| 2 | `kimi-fix .` | All 22 scaffold files | `tsconfig.json`, `.gitignore`, `index.ts`, `README.md` | `!pathExists()` guard in `kimi-fix.ts` (non-destructive). Field is already clear because `-m` skipped the four files. |
 | 3 | `bun run check:fast` | Validation only | None | Confirms scaffold integrity |
+
+> **Why this order matters:** The `-m` flag is the only thing that keeps `bun init` from fighting `kimi-fix` over `tsconfig.json`, `index.ts`, `.gitignore`, and `README.md`. Without it, `bun init` creates basic versions first, and `kimi-fix`'s `!pathExists()` guard skips them — leaving the project with Bun's defaults instead of the hardened toolchain versions.
 
 ---
 
