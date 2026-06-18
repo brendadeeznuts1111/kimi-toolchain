@@ -89,8 +89,10 @@ async function resolveBunVersion(): Promise<{ version: string; revision: string 
   return { version: _bunVersion, revision: _bunRevision };
 }
 
-/** Parse "1.4.0" → { major: 1, minor: 4, patch: 0 }. */
-function parseVersion(version: string): { major: number; minor: number; patch: number } | null {
+/** Parse "1.4.0" → { major: 1, minor: 4, patch: 0 }. Exported for tests. */
+export function parseVersion(
+  version: string
+): { major: number; minor: number; patch: number } | null {
   const match = version.match(/^(\d+)\.(\d+)\.(\d+)/);
   if (!match) return null;
   return {

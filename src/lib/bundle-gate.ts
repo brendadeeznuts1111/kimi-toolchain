@@ -83,7 +83,8 @@ const DEFAULT_ENTRY_POINT = "src/bin/kimi-doctor.ts";
 
 // ── Report parsing ─────────────────────────────────────────────────
 
-function parseQuickSummary(section: string): BundleQuickSummary | null {
+// Exported for tests.
+export function parseQuickSummary(section: string): BundleQuickSummary | null {
   const lines = section.split("\n");
   const metrics: Record<string, string> = {};
 
@@ -128,7 +129,8 @@ function parseQuickSummary(section: string): BundleQuickSummary | null {
   };
 }
 
-function parseLargestModules(section: string): BundleModuleRow[] {
+// Exported for tests.
+export function parseLargestModules(section: string): BundleModuleRow[] {
   const rows: BundleModuleRow[] = [];
   const lines = section.split("\n");
   let inTable = false;
@@ -176,7 +178,8 @@ function parseLargestModules(section: string): BundleModuleRow[] {
   }
 }
 
-function extractSection(report: string, heading: string): string {
+// Exported for tests.
+export function extractSection(report: string, heading: string): string {
   const marker = `## ${heading}`;
   const idx = report.indexOf(marker);
   if (idx < 0) return "";
@@ -187,7 +190,8 @@ function extractSection(report: string, heading: string): string {
 
 // ── Rule evaluation ────────────────────────────────────────────────
 
-function evaluate(
+// Exported for tests.
+export function evaluate(
   summary: BundleQuickSummary,
   largest: BundleModuleRow[],
   options: BundleGateOptions
