@@ -226,6 +226,13 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     purpose: "Bun $ template vs subprocess and inspect companion patterns",
   },
   {
+    id: "template-matrix",
+    repoPath: "docs/references/template-matrix.md",
+    runtimePath: "~/.kimi-code/docs/references/template-matrix.md",
+    purpose:
+      "Template families matrix: scaffold breakdown (22 files), bridge pattern collision resolution, runtime sync paths, profile differentiation",
+  },
+  {
     id: "canonical-references",
     repoPath: CANONICAL_REFERENCES_FILENAME,
     runtimePath: `~/.kimi-code/${CANONICAL_REFERENCES_FILENAME}`,

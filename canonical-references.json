@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-18T12:28:38.176Z",
+  "generatedAt": "2026-06-18T12:45:32.828Z",
   "toolchainVersion": "0.1.0",
   "ecosystem": [
     {
@@ -150,6 +150,12 @@
       "repoPath": "docs/references/bun-shell-companions.md",
       "runtimePath": "~/.kimi-code/docs/references/bun-shell-companions.md",
       "purpose": "Bun $ template vs subprocess and inspect companion patterns"
+    },
+    {
+      "id": "template-matrix",
+      "repoPath": "docs/references/template-matrix.md",
+      "runtimePath": "~/.kimi-code/docs/references/template-matrix.md",
+      "purpose": "Template families matrix: scaffold breakdown (22 files), bridge pattern collision resolution, runtime sync paths, profile differentiation"
     },
     {
       "id": "canonical-references",
