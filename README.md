@@ -325,6 +325,7 @@ Live runtime at `~/.kimi-code/` is synced via `bun run sync` (`scripts/sync-to-d
 | [docs/canvases/kimi-toolchain.canvas.tsx](./docs/canvases/kimi-toolchain.canvas.tsx) | `unified` | Project hub |
 | [docs/canvases/namespace-boundaries.canvas.tsx](./docs/canvases/namespace-boundaries.canvas.tsx) | `namespace` | Name collisions and binding layers |
 | [docs/canvases/configuration-layers.canvas.tsx](./docs/canvases/configuration-layers.canvas.tsx) | `configuration-layers` | Four-layer config model |
+| [docs/canvases/kimi-fix.canvas.tsx](./docs/canvases/kimi-fix.canvas.tsx) | `templates` | Scaffold profiles and `kimi-fix` wiring |
 
 **Templates:** [TEMPLATES.md](./TEMPLATES.md) (manifest id `templates`) — scaffold profiles, CONTEXT/CHANGELOG patterns, `kimi-fix` wiring.
 

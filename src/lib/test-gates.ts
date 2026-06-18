@@ -91,6 +91,7 @@ export const UNIT_TEST_FILES = [
   "test/unified-shell-bridge.unit.test.ts",
   "test/error-taxonomy.unit.test.ts",
   "test/health-check.unit.test.ts",
+  "test/health-channel.unit.test.ts",
   "test/logger.unit.test.ts",
   "test/telemetry-schema.unit.test.ts",
   "test/build-constants.unit.test.ts",
