@@ -146,6 +146,7 @@ export const UNIT_TEST_FILES = [
   "test/governor-spawn.unit.test.ts",
   "test/governance-preflight.unit.test.ts",
   "test/canonical-references.unit.test.ts",
+  "test/config-status.unit.test.ts",
   "test/doctor-probe.unit.test.ts",
   "test/finish-work-herdr.unit.test.ts",
   "test/finish-work-report-schema.unit.test.ts",
@@ -162,6 +163,7 @@ export const INTEGRATION_TEST_FILES = [
   "test/kimi-fix.integration.test.ts",
   "test/decision-scoring.integration.test.ts",
   "test/effect-gates.integration.test.ts",
+  "test/config-status.integration.test.ts",
 ] as const;
 
 /** Smoke tests — full CLI invocations, 15-30s each */

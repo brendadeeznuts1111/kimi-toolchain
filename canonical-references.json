@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-18T10:08:40.472Z",
+  "generatedAt": "2026-06-18T10:26:23.266Z",
   "toolchainVersion": "0.1.0",
   "ecosystem": [
     {
@@ -127,7 +127,8 @@
       "id": "configuration-layers",
       "repoPath": "docs/references/configuration-layers.md",
       "runtimePath": "~/.kimi-code/docs/references/configuration-layers.md",
-      "purpose": "Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml)"
+      "purpose": "Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml)",
+      "cursorCanvas": "docs/canvases/configuration-layers.canvas.tsx"
     },
     {
       "id": "shell-spawn-choice",

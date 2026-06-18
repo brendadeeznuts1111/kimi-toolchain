@@ -69,12 +69,13 @@ flowchart TD
 
 | Gate | Command / lint label |
 | :--- | :--- |
+| **One-shot audit (all core gates)** | `bun run config:status` |
 | Canonical refs are fresh | `bun run references:generate --check` → `canonical-references` |
 | Manifest is fresh | `bun run manifest:generate --check` → `constants-manifest` |
-| Parity is aligned | `bun run lint-constant-parity` → `constant-parity` |
+| Parity is aligned | `bun run lint:constant-parity` → `constant-parity` |
 | Runtime cache is valid | `bun run sync`; handoff probes `probe:canonical-references:*` |
 
-Manifest id: `configuration-layers` · repo: `docs/references/configuration-layers.md` · runtime: `~/.kimi-code/docs/references/configuration-layers.md`
+Manifest id: `configuration-layers` · repo: `docs/references/configuration-layers.md` · runtime: `~/.kimi-code/docs/references/configuration-layers.md` · canvas: `docs/canvases/configuration-layers.canvas.tsx` (IDE pointer via `cursorCanvas`; not synced)
 
 ## Related docs
 

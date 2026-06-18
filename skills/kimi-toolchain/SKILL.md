@@ -85,16 +85,18 @@ Effect code or a new CLI using `runCliExit` → load **effect-discipline** (`ski
 ### Project Health Check
 
 ```
-0. kimi-toolchain workspace verify  → if cursor slug blocker: reopen ~/kimi-toolchain; kimi-toolchain doctor --fix --fix-cursor
-1. kimi doctor
-2. kimi-toolchain doctor --ecosystem --quick
-3. kimi-heal plan --json
-4. kimi-governance score --preflight --quick
-5. IF lockfile warn → kimi-guardian check
-6. IF coverage gap → bun run test:coverage:fast (or test:coverage:ci)
-7. IF governance gap → kimi-governance fix
-8. kimi-memory trends
-9. PRESENT state + trend + next action
+0. bun run config:status  → after clone or when touching bunfig.toml, constants-parity.toml,
+   or manifest-related files; must pass before other checks
+1. kimi-toolchain workspace verify  → if cursor slug blocker: reopen ~/kimi-toolchain; kimi-toolchain doctor --fix --fix-cursor
+2. kimi doctor
+3. kimi-toolchain doctor --ecosystem --quick
+4. kimi-heal plan --json
+5. kimi-governance score --preflight --quick
+6. IF lockfile warn → kimi-guardian check
+7. IF coverage gap → bun run test:coverage:fast (or test:coverage:ci)
+8. IF governance gap → kimi-governance fix
+9. kimi-memory trends
+10. PRESENT state + trend + next action
 ```
 
 ### Dependency Changes
@@ -161,6 +163,12 @@ Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight a
 - **Skills sync:** `bun run sync` → `~/.kimi-code/skills/` + `~/.agents/skills/` (`kimi-toolchain`, `cloudflare-access`, `effect-discipline`, `effect-hardening`, `herdr`)
 
 ## Related
+
+### Configuration layers & audit
+
+- **Hub doc**: `~/.kimi-code/docs/references/configuration-layers.md` (manifest id `configuration-layers`) — explains the four-layer model.
+- **One-shot audit**: `bun run config:status` — checks freshness of `canonical-references.json`, `constants-manifest.json`, parity alignment, and scaffold integrity (step 0 in Project Health Check).
+- **Canvas companion**: `docs/canvases/configuration-layers.canvas.tsx` (repo pointer via `cursorCanvas`; not synced).
 
 - Cached link manifest: `~/.kimi-code/canonical-references.json` (`bun run references:generate`)
 - Repo: https://github.com/brendadeeznuts1111/kimi-toolchain

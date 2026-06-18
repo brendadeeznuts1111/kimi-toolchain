@@ -60,6 +60,8 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run check:fast:changed` | (synced from package.json) |
 | `bun run check:watch` | (synced from package.json) |
 | `bun run check:watch:tests` | (synced from package.json) |
+| `bun run config:status` | (synced from package.json) |
+| `bun run lint:constant-parity` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                           |

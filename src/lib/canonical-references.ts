@@ -46,6 +46,8 @@ export interface LocalDocReference {
   repoPath: string;
   runtimePath: string;
   purpose: string;
+  /** Repo-relative Cursor Canvas path; IDE-only pointer — not synced to ~/.kimi-code/ */
+  cursorCanvas?: string;
 }
 
 export interface RepoReference {
@@ -199,6 +201,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     runtimePath: "~/.kimi-code/docs/references/configuration-layers.md",
     purpose:
       "Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml)",
+    cursorCanvas: "docs/canvases/configuration-layers.canvas.tsx",
   },
   {
     id: "shell-spawn-choice",

@@ -45,7 +45,18 @@ The Herdr unified plugin plan (`herdr-orchestrator`, `herdr-doctor`, `herdr-noti
 
 Layers above the plugin-vs-toolchain table. Sections above stay scoped to finish-work and Herdr plugins v0.5.0.
 
-**Global boundary (manifest vs doc):** This file is indexed in `canonical-references.json` as a `localDocs` row — keys are `id`, `repoPath`, `runtimePath`, and `purpose` only (no `name`, unlike `ecosystem` entries). There is **no** corresponding key in `dx.config.toml`; gates and Herdr layout stay in `[finishWork]` / `[herdr]`. The manifest row points agents here; **this doc** describes doctor trinity, finish-work shell gates, and Herdr `prefix+*` keybindings — not the manifest schema itself.
+**Global boundary (manifest vs doc):** This file is indexed in `canonical-references.json` as a `localDocs` row — keys are `id`, `repoPath`, `runtimePath`, `purpose`, and optionally `cursorCanvas` (no `name`, unlike `ecosystem` entries). There is **no** corresponding key in `dx.config.toml`; gates and Herdr layout stay in `[finishWork]` / `[herdr]`. The manifest row points agents here; **this doc** describes doctor trinity, finish-work shell gates, and Herdr `prefix+*` keybindings — not the manifest schema itself.
+
+**`cursorCanvas` (optional):** IDE-only pointer — a repo-relative path to a Cursor Canvas file. It is **not** synced to `~/.kimi-code/` (`desktop-sync` copies `docs/references/` only).
+
+Example (`configuration-layers`):
+
+| Field | Value |
+| ----- | ----- |
+| `id` | `configuration-layers` |
+| `repoPath` | `docs/references/configuration-layers.md` |
+| `runtimePath` | `~/.kimi-code/docs/references/configuration-layers.md` |
+| `cursorCanvas` | `docs/canvases/configuration-layers.canvas.tsx` |
 
 Manifest id: `namespace` · repo: `docs/references/namespace.md` · runtime: `~/.kimi-code/docs/references/namespace.md`
 

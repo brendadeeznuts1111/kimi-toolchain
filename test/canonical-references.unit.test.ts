@@ -71,6 +71,14 @@ describe("canonical-references", () => {
     }
   });
 
+  test("configuration-layers includes cursorCanvas pointer", () => {
+    const entry = LOCAL_DOC_REFERENCES.find((ref) => ref.id === "configuration-layers");
+    expect(entry?.cursorCanvas).toBe("docs/canvases/configuration-layers.canvas.tsx");
+    const manifest = buildCanonicalReferencesManifest();
+    const row = manifest.localDocs.find((ref) => ref.id === "configuration-layers");
+    expect(row?.cursorCanvas).toBe("docs/canvases/configuration-layers.canvas.tsx");
+  });
+
   test("formatCanonicalReferencesMarkdown includes key stacks", () => {
     const md = formatCanonicalReferencesMarkdown();
     expect(md).toContain("canonical-references.json");
