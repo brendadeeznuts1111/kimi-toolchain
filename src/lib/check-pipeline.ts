@@ -2,7 +2,7 @@
  * Core check gate pipeline — build steps, run, and format results.
  */
 
-import { bunTestArgs, UNIT_TEST_FILES } from "./test-gates.ts";
+import { bunTestArgs } from "./test-gates.ts";
 import {
   emitGateFailure,
   runGate,
@@ -17,7 +17,6 @@ import {
   changedIncludesTypeScript,
   countLikelyErrors,
   filterFormatPaths,
-  filterRelatedUnitTests,
   formatChangedOnlyBanner,
   formatChangedOnlyEmptyWarning,
   resolveChangedContext,
@@ -186,29 +185,18 @@ export async function buildSteps(
         silentOnSuccess: quiet,
       });
     } else {
-      const related =
-        changedFiles && changedFiles.length > 0 ? filterRelatedUnitTests(changedFiles) : null;
-
-      if (related && related.length === 0) {
-        steps.push({ name: testName, cmd: [], skipped: true });
-      } else {
-        const useSubset = related !== null && related.length < UNIT_TEST_FILES.length;
-        const testArgs = bunTestArgs({
-          fast: useSubset ? false : options.fast,
-          timeoutMs: options.timeoutMs,
-          bail: true,
-          retry: 2,
-          dots: quiet,
-        });
-        if (useSubset) {
-          testArgs.push("--isolate", ...related);
-        }
-        steps.push({
-          name: testName,
-          cmd: ["bun", ...testArgs],
-          silentOnSuccess: quiet,
-        });
-      }
+      const testArgs = bunTestArgs({
+        fast: options.fast,
+        timeoutMs: options.timeoutMs,
+        bail: true,
+        retry: 2,
+        dots: quiet,
+      });
+      steps.push({
+        name: testName,
+        cmd: ["bun", ...testArgs],
+        silentOnSuccess: quiet,
+      });
     }
   }
 

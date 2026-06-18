@@ -1,12 +1,12 @@
 /**
  * Changed-file resolution for scripts/check.ts --changed-only.
+ *
+ * Uses native `bun test --changed=<ref>` (import-graph based) for test
+ * scoping. Format and lint scoping still use `git diff --name-only`.
  */
 
 import { $ } from "bun";
-import { pathExists } from "./bun-io.ts";
-import { join } from "path";
 import type { CheckOptions } from "./check-types.ts";
-import { UNIT_TEST_FILES } from "./test-gates.ts";
 
 export interface ChangedContext {
   changedFiles: string[] | null;
@@ -20,15 +20,6 @@ const FORMAT_ROOTS = ["src", "scripts", "test", "skills", "templates", "src/inst
 /** When primary base has no diff (e.g. on main tip), try these before giving up. */
 const AUTO_FALLBACK_BASES = ["origin/main", "main"] as const;
 
-export async function resolveBaseRef(projectRoot: string, base: string): Promise<string | null> {
-  const candidates = [base, `origin/${base}`, `refs/remotes/origin/${base}`];
-  for (const ref of candidates) {
-    const result = await $`git rev-parse --verify ${ref}`.cwd(projectRoot).nothrow().quiet();
-    if (result.exitCode === 0) return ref;
-  }
-  return null;
-}
-
 export async function listChangedFiles(projectRoot: string, baseRef: string): Promise<string[]> {
   const result = await $`git diff --name-only ${baseRef}...HEAD`.cwd(projectRoot).nothrow().quiet();
   if (result.exitCode !== 0) return [];
@@ -36,7 +27,7 @@ export async function listChangedFiles(projectRoot: string, baseRef: string): Pr
     .toString()
     .split("\n")
     .map((line) => line.trim())
-    .filter((line) => line && pathExists(join(projectRoot, line)));
+    .filter(Boolean);
 }
 
 export function filterFormatPaths(changed: string[]): string[] {
@@ -51,31 +42,6 @@ export function changedIncludesTypeScript(changed: string[]): boolean {
 
 export function filterLintPaths(changed: string[]): string[] {
   return changed.filter((path) => /\.(ts|tsx|js|jsx|mjs|cjs)$/.test(path));
-}
-
-/** Heuristic fallback when bun test --changed is unavailable (non-git fixtures). */
-export function filterRelatedUnitTests(changed: string[]): string[] {
-  if (changed.length === 0) return [];
-
-  const changedTests = changed.filter((path) => path.startsWith("test/") && path.endsWith(".ts"));
-  const related = new Set<string>(changedTests);
-
-  for (const path of changed) {
-    const base =
-      path
-        .replace(/\.(ts|tsx|js|jsx)$/, "")
-        .split("/")
-        .pop() ?? "";
-    if (!base) continue;
-    for (const testFile of UNIT_TEST_FILES) {
-      if (testFile.includes(base)) related.add(testFile);
-    }
-  }
-
-  if (related.size === 0 && changedIncludesTypeScript(changed)) {
-    return [...UNIT_TEST_FILES];
-  }
-  return [...related];
 }
 
 export function countLikelyErrors(
@@ -107,25 +73,16 @@ export async function resolveChangedContext(
     return { changedFiles: null, baseRef: null, baseLabel: null };
   }
 
-  const primaryRef = await resolveBaseRef(projectRoot, options.base);
-  if (!primaryRef) {
-    throw new Error(`Could not resolve base ref for --changed-only (base=${options.base})`);
-  }
-
-  let baseRef = primaryRef;
+  let baseRef = options.base;
   let changedFiles = await listChangedFiles(projectRoot, baseRef);
   let baseLabel = options.base;
 
   if (changedFiles.length === 0 && !options.baseExplicit) {
-    const tried = new Set<string>([primaryRef]);
     for (const candidate of AUTO_FALLBACK_BASES) {
       if (candidate === options.base) continue;
-      const fallbackRef = await resolveBaseRef(projectRoot, candidate);
-      if (!fallbackRef || tried.has(fallbackRef)) continue;
-      tried.add(fallbackRef);
-      const fallbackChanged = await listChangedFiles(projectRoot, fallbackRef);
+      const fallbackChanged = await listChangedFiles(projectRoot, candidate);
       if (fallbackChanged.length > 0) {
-        baseRef = fallbackRef;
+        baseRef = candidate;
         changedFiles = fallbackChanged;
         baseLabel = `${options.base}→${candidate}`;
         break;

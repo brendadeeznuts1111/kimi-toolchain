@@ -83,6 +83,7 @@
     "test:parallel": "bun run scripts/run-tests.ts --parallel",
     "test:parallel:4": "bun run scripts/run-tests.ts --parallel=4",
     "test:shard": "bun run scripts/run-tests.ts --shard",
+    "test:watch:changed": "bun test --changed --watch",
     "scan": "bun run scripts/scan.ts",
     "scan:json": "bun run scripts/scan.ts --json",
     "test:flake-hunt": "bun test --rerun-each=5 --seed=0 --timeout=30000 --bail=99999",

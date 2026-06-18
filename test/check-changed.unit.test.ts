@@ -6,7 +6,6 @@ import {
   changedIncludesTypeScript,
   filterFormatPaths,
   filterLintPaths,
-  filterRelatedUnitTests,
   formatChangedOnlyBanner,
   formatChangedOnlyEmptyWarning,
   resolveChangedContext,
@@ -47,11 +46,6 @@ describe("check-changed", () => {
       "src/a.ts",
       "scripts/b.js",
     ]);
-  });
-
-  test("filterRelatedUnitTests maps changed module to unit test file", () => {
-    const related = filterRelatedUnitTests(["src/lib/gate-runner.ts"]);
-    expect(related.some((path) => path.includes("gate-runner"))).toBe(true);
   });
 
   test("formatChangedOnlyBanner summarizes scope", () => {
