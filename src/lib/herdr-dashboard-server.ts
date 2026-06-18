@@ -34,6 +34,11 @@ import {
   fetchDashboardUpgradeScan,
   runDashboardAgentAction,
   runDashboardIpcCommand,
+  runDashboardScanFix,
+  fetchDashboardDebugLogSinks,
+  fetchDashboardDebugLogs,
+  fetchDashboardGateHealth,
+  fetchDashboardMetrics,
   type DashboardActionRequest,
   type DashboardFetchOptions,
   type DashboardIpcCommand,
@@ -51,6 +56,12 @@ import { HerdrDashboardHub } from "./herdr-dashboard-hub.ts";
 import { HerdrDashboardDiscoveryCache } from "./herdr-dashboard-discovery-cache.ts";
 import { TtlCache } from "./cache.ts";
 import {
+  writeDashboardEvent,
+  closeAuditStore,
+  queryDashboardEvents,
+  exportEventsToMarkdown,
+} from "./dashboard-audit-store.ts";
+import {
   buildDashboardWidgetCacheKey,
   fetchDashboardWidget,
   isDashboardWidgetId,
@@ -65,6 +76,10 @@ import {
   type ProcessesActionDeps,
 } from "./herdr-dashboard-widget-processes-action.ts";
 import type { ProcessesWidgetDeps } from "./herdr-dashboard-widget-processes.ts";
+import {
+  startDashboardGateHealthWatch,
+  type DashboardGateHealthWatchHandle,
+} from "./herdr-dashboard-gate-watch.ts";
 import { startDashboardMetaWatch, type DashboardMetaWatchHandle } from "./herdr-dashboard-watch.ts";
 import {
   bunHttp3ServeSupported,
@@ -99,6 +114,8 @@ export interface HerdrDashboardServerOptions extends DashboardFetchOptions {
   discoveryCache?: HerdrDashboardDiscoveryCache;
   /** Event-driven meta gate watch on discovery:refreshed (default true). */
   metaWatch?: boolean;
+  /** Background effect-gates probe + gate:failed/gate:cleared bus (default true). */
+  gateHealthWatch?: boolean;
   /** Bun.WebView shell + persistent profile (surfaced on GET /api/meta). */
   webview?: DashboardMetaWebViewInput;
   /** Inject processes widget fetch (tests). */
@@ -118,6 +135,7 @@ export interface HerdrDashboardServerHandle {
   transport: DashboardServeTransport;
   hub: HerdrDashboardHub;
   metaWatch: DashboardMetaWatchHandle | null;
+  gateHealthWatch: DashboardGateHealthWatchHandle | null;
   herdrEventBridge: DashboardHerdrEventBridgeHandle;
   /** In-process request helper (avoids TLS verification for local HTTPS tests). */
   fetch: (input: string | Request) => Response | Promise<Response>;
@@ -233,12 +251,34 @@ export function startHerdrDashboardServer(
   hub.start();
   const metaWatchEnabled = options.metaWatch !== false;
   const metaWatch = metaWatchEnabled ? startDashboardMetaWatch(hub.eventBus) : null;
+  const gateHealthWatchEnabled = options.gateHealthWatch !== false && !Bun.env.KIMI_TEST_HOME;
+  const gateHealthWatch = gateHealthWatchEnabled
+    ? startDashboardGateHealthWatch(hub.eventBus, { projectPath: options.projectPath })
+    : null;
   void hub.refresh();
 
   const herdrEventBridge = startDashboardHerdrEventBridge({
     projectPath: options.projectPath,
     hub,
     herdrEvents: options.herdrEvents,
+  });
+
+  // Persist gate and scan events to the audit trail
+  hub.eventBus.on("gate:failed", (data) => {
+    writeDashboardEvent({
+      type: "gate.failed",
+      workspace: herdrEventBridge.status().workspaceId ?? undefined,
+      payload: data as Record<string, unknown>,
+      at: Bun.nanoseconds(),
+    });
+  });
+  hub.eventBus.on("gate:cleared", (data) => {
+    writeDashboardEvent({
+      type: "gate.cleared",
+      workspace: herdrEventBridge.status().workspaceId ?? undefined,
+      payload: data as Record<string, unknown>,
+      at: Bun.nanoseconds(),
+    });
   });
 
   let screenshotPng: Uint8Array | null = null;
@@ -261,6 +301,10 @@ export function startHerdrDashboardServer(
       const request = req as unknown as ServeRequest;
       const url = new URL(request.url);
       const path = url.pathname;
+
+      if (path === "/favicon.ico") {
+        return new Response(null, { status: 204 });
+      }
 
       if (path === "/" || path === "/index.html") {
         return new Response(dashboardHtml(), {
@@ -428,8 +472,90 @@ export function startHerdrDashboardServer(
         return jsonResponse(payload);
       }
 
+      if (path === "/api/scan/fix" && request.method === "POST") {
+        const body = await readJsonBody<{
+          ruleId?: string;
+          file?: string;
+          line?: number;
+        }>(request);
+        if (!body?.ruleId || !body.file || typeof body.line !== "number") {
+          return jsonResponse({ ok: false, error: "ruleId, file, and line required" }, 400);
+        }
+        const result = await runDashboardScanFix(options.projectPath, {
+          ruleId: body.ruleId,
+          file: body.file,
+          line: body.line,
+        });
+        if (result.ok) {
+          writeDashboardEvent({
+            type: "scan.fix",
+            workspace: herdrEventBridge.status().workspaceId ?? undefined,
+            payload: {
+              ruleId: result.ruleId,
+              file: result.file,
+              diff: result.diff,
+              message: result.message,
+            },
+            at: Bun.nanoseconds(),
+          });
+        }
+        return jsonResponse(result, result.ok ? 200 : 422);
+      }
+
+      if (path === "/api/events") {
+        const typeParam = url.searchParams.get("type") ?? undefined;
+        const workspace = url.searchParams.get("workspace") ?? undefined;
+        const sinceRaw = url.searchParams.get("since");
+        const since = sinceRaw ? Number(sinceRaw) : undefined;
+        const limitRaw = url.searchParams.get("limit");
+        const limit = limitRaw ? Number(limitRaw) : undefined;
+        return jsonResponse(queryDashboardEvents({ type: typeParam, workspace, since, limit }));
+      }
+
+      if (path === "/api/events/types") {
+        const result = queryDashboardEvents({ limit: 1 });
+        return jsonResponse({ ok: true, types: result.types });
+      }
+
+      if (path === "/api/events/export") {
+        const format = url.searchParams.get("format") ?? "markdown";
+        const typeParam = url.searchParams.get("type") ?? undefined;
+        const result = queryDashboardEvents({ type: typeParam, limit: 200 });
+        if (format === "json") {
+          return jsonResponse(result);
+        }
+        const md = exportEventsToMarkdown(result.events);
+        return new Response(md, {
+          headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "no-store" },
+        });
+      }
+
       if (path === "/api/canvases") {
         return jsonResponse(fetchDashboardCanvases());
+      }
+
+      if (path === "/api/debug/logs") {
+        const sink = url.searchParams.get("sink")?.trim() ?? "";
+        if (!sink) {
+          return jsonResponse(fetchDashboardDebugLogSinks(options.projectPath));
+        }
+        const tailRaw = url.searchParams.get("tail");
+        const tail = tailRaw ? Number(tailRaw) : undefined;
+        const payload = await fetchDashboardDebugLogs(options.projectPath, sink, tail);
+        return jsonResponse(payload, payload.ok ? 200 : 404);
+      }
+
+      if (path === "/api/doctor/gates") {
+        const payload = await fetchDashboardGateHealth(options.projectPath);
+        return jsonResponse(payload);
+      }
+
+      if (path === "/api/metrics") {
+        const payload = await fetchDashboardMetrics(
+          hub.lastPayload?.agentCount ?? 0,
+          hub.sseSubscriberCount()
+        );
+        return jsonResponse(payload);
       }
 
       if (path === "/api/widgets/processes/action" && request.method === "POST") {
@@ -528,6 +654,7 @@ export function startHerdrDashboardServer(
     transport,
     hub,
     metaWatch,
+    gateHealthWatch,
     herdrEventBridge,
     fetch: server.fetch.bind(server),
     setScreenshotPng: (png: Uint8Array) => {
@@ -535,9 +662,11 @@ export function startHerdrDashboardServer(
     },
     stop: () => {
       metaWatch?.stop();
+      gateHealthWatch?.stop();
       herdrEventBridge.stop();
       hub.stop();
       server.stop();
+      closeAuditStore();
     },
   };
 }
