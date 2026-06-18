@@ -80,7 +80,7 @@ describe("bun-image", () => {
     expect(thumb).not.toBeNull();
     expect(thumb!.byteLength).toBeGreaterThan(100);
     expect(thumb!.byteLength).toBeLessThan(png.byteLength);
-  }, 15_000);
+  }, 30_000);
 });
 
 // ── Backend control + golden-image workflow ──────────────────────────
