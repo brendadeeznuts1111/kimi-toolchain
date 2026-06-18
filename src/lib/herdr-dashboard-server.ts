@@ -206,6 +206,7 @@ export function startHerdrDashboardServer(
           ssePollMs,
           sse: true,
           staleMs,
+          cache: hub.cacheStats(),
           dryRun: options.dryRun ?? false,
           thumbnail: bunImageSupported(),
           thumbnailPath: "/api/thumbnail",

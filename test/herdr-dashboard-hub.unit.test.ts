@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { createDashboardEventBus } from "../src/lib/herdr-dashboard-bus.ts";
+import { HerdrDashboardDiscoveryCache } from "../src/lib/herdr-dashboard-discovery-cache.ts";
 import { HerdrDashboardHub, DASHBOARD_STALE_MS } from "../src/lib/herdr-dashboard-hub.ts";
+import type { DashboardAgentsPayload } from "../src/lib/herdr-dashboard-data.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
 describe("herdr-dashboard-hub", () => {
@@ -80,6 +83,53 @@ describe("herdr-dashboard-hub", () => {
       const text = new TextDecoder().decode(chunk.value);
       expect(text.startsWith("data:")).toBe(true);
     }
+  });
+
+  test("refresh emits agent:updated when status changes", async () => {
+    const bus = createDashboardEventBus();
+    const updates: string[] = [];
+    bus.on("agent:updated", (payload) => {
+      updates.push(`${payload.before.status}->${payload.after.status}`);
+    });
+
+    let status = "idle";
+    const discoveryCache = new HerdrDashboardDiscoveryCache({
+      projectPath: REPO_ROOT,
+      fetchOpts: {},
+      ttlMs: 60_000,
+      bus,
+      discover: async () =>
+        ({
+          ok: true,
+          projectPath: REPO_ROOT,
+          agentCount: 1,
+          agents: [
+            {
+              host: "(local)",
+              session: "",
+              workspaceId: "w1",
+              agent: "kimi",
+              status,
+              paneId: "p1",
+              source: "reported",
+            },
+          ],
+          fetchedAt: new Date().toISOString(),
+        }) satisfies DashboardAgentsPayload,
+    });
+
+    const hub = new HerdrDashboardHub({
+      projectPath: REPO_ROOT,
+      fetchOpts: {},
+      bus,
+      discoveryCache,
+    });
+
+    await hub.refresh({ forceRefresh: true });
+    status = "working";
+    await hub.refresh({ forceRefresh: true });
+    expect(updates).toContain("idle->working");
+    hub.stop();
   });
 
   test("SSE polling pauses without subscribers and resumes on connect", async () => {

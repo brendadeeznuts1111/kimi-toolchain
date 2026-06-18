@@ -8,7 +8,11 @@ import {
   type DashboardAgentsPayload,
   type DashboardFetchOptions,
 } from "./herdr-dashboard-data.ts";
-import { getDashboardAgents } from "./herdr-dashboard-agents.ts";
+import { createDashboardEventBus, type DashboardEventBus } from "./herdr-dashboard-bus.ts";
+import {
+  HerdrDashboardDiscoveryCache,
+  type DashboardCacheStats,
+} from "./herdr-dashboard-discovery-cache.ts";
 
 /** Sub-minute SSE poll — Bun.cron is minute-granularity; setInterval is intentional here. */
 export const DASHBOARD_SSE_INTERVAL_MS = 5000;
@@ -19,6 +23,8 @@ export interface DashboardHubOptions {
   fetchOpts: DashboardFetchOptions;
   pollMs?: number;
   staleMs?: number;
+  bus?: DashboardEventBus;
+  discoveryCache?: HerdrDashboardDiscoveryCache;
 }
 
 type SseController = ReadableStreamDefaultController<Uint8Array>;
@@ -29,48 +35,54 @@ function agentKey(row: Pick<DashboardAgentRow, "host" | "session" | "agent">): s
 
 /** In-memory agent registry with SSE broadcast and heartbeat overlays. */
 export class HerdrDashboardHub {
-  private readonly projectPath: string;
-  private readonly fetchOpts: DashboardFetchOptions;
-  private readonly pollMs: number;
   private readonly staleMs: number;
+  private readonly pollMs: number;
+  private readonly bus: DashboardEventBus;
+  readonly discoveryCache: HerdrDashboardDiscoveryCache;
   private lastAgentsJson = "";
   private lastPayload: DashboardAgentsPayload | null = null;
-  private readonly heartbeats = new Map<string, number>();
+  private readonly agentSnapshot = new Map<string, DashboardAgentRow>();
   private readonly subscribers = new Set<SseController>();
   private pollTimer: ReturnType<typeof setInterval> | null = null;
-
   constructor(options: DashboardHubOptions) {
-    this.projectPath = options.projectPath;
-    this.fetchOpts = options.fetchOpts;
     this.pollMs = options.pollMs ?? DASHBOARD_SSE_INTERVAL_MS;
     this.staleMs = options.staleMs ?? DASHBOARD_STALE_MS;
+    this.bus = options.bus ?? createDashboardEventBus();
+    this.discoveryCache =
+      options.discoveryCache ??
+      new HerdrDashboardDiscoveryCache({
+        projectPath: options.projectPath,
+        fetchOpts: options.fetchOpts,
+        ttlMs: this.pollMs,
+        bus: this.bus,
+        onDiscoveryRefreshed: (payload) => {
+          void this.ingestDiscoveryPayload(payload);
+        },
+      });
+  }
+
+  get eventBus(): DashboardEventBus {
+    return this.bus;
+  }
+
+  cacheStats(): DashboardCacheStats {
+    return this.discoveryCache.stats();
   }
 
   recordHeartbeat(agent: string, host = "(local)", session = ""): void {
-    this.heartbeats.set(agentKey({ host, session, agent }), Date.now());
+    this.discoveryCache.recordHeartbeat(agent, host, session);
   }
 
   recordHeartbeats(
     rows: ReadonlyArray<{ agent: string; host?: string; session?: string }>
   ): number {
-    const now = Date.now();
-    let recorded = 0;
-    for (const row of rows) {
-      if (!row.agent) continue;
-      this.heartbeats.set(
-        agentKey({ host: row.host ?? "(local)", session: row.session ?? "", agent: row.agent }),
-        now
-      );
-      recorded += 1;
-    }
-    return recorded;
+    return this.discoveryCache.recordHeartbeats(rows);
   }
 
   applyStaleOverlay(agents: DashboardAgentRow[]): DashboardAgentRow[] {
     const now = Date.now();
     return agents.map((row) => {
-      const key = agentKey(row);
-      const last = this.heartbeats.get(key);
+      const last = this.discoveryCache.getHeartbeatAt(row);
       if (last !== undefined && now - last > this.staleMs) {
         return { ...row, status: "stale" };
       }
@@ -78,12 +90,34 @@ export class HerdrDashboardHub {
     });
   }
 
-  async refresh(): Promise<DashboardAgentsPayload> {
-    const raw = await getDashboardAgents(this.projectPath, this.fetchOpts);
+  private emitAgentUpdates(before: DashboardAgentRow[], after: DashboardAgentRow[]): void {
+    const beforeMap = new Map(before.map((row) => [agentKey(row), row]));
+    for (const row of after) {
+      const prev = beforeMap.get(agentKey(row));
+      if (prev && prev.status !== row.status) {
+        this.bus.emit("agent:updated", {
+          before: prev,
+          after: row,
+          at: new Date().toISOString(),
+        });
+      }
+    }
+  }
+
+  private trackAgentSnapshot(agents: DashboardAgentRow[]): void {
+    const previous = [...this.agentSnapshot.values()];
+    this.agentSnapshot.clear();
+    for (const row of agents) {
+      this.agentSnapshot.set(agentKey(row), row);
+    }
+    this.emitAgentUpdates(previous, agents);
+  }
+
+  private async ingestDiscoveryPayload(raw: DashboardAgentsPayload): Promise<void> {
     if (!raw.ok) {
       this.lastPayload = raw;
       this.broadcast(raw);
-      return raw;
+      return;
     }
 
     const agents = this.applyStaleOverlay(raw.agents);
@@ -97,9 +131,15 @@ export class HerdrDashboardHub {
     const json = JSON.stringify(agents);
     if (json !== this.lastAgentsJson) {
       this.lastAgentsJson = json;
+      this.trackAgentSnapshot(agents);
       this.broadcast(payload);
     }
-    return payload;
+  }
+
+  async refresh(options: { forceRefresh?: boolean } = {}): Promise<DashboardAgentsPayload> {
+    const raw = await this.discoveryCache.getAgents(options);
+    await this.ingestDiscoveryPayload(raw);
+    return this.lastPayload ?? raw;
   }
 
   private broadcast(payload: DashboardAgentsPayload): void {

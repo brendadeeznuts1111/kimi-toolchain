@@ -107,6 +107,7 @@ describe("herdr-dashboard-server", () => {
         projectPath: string;
         pollHintMs: number;
         ssePollMs: number;
+        cache?: { discovery: { hits: number }; status: { size: number } };
         sse?: boolean;
         thumbnail?: boolean;
         thumbnailPath?: string;
@@ -115,6 +116,8 @@ describe("herdr-dashboard-server", () => {
       expect(meta.projectPath).toBe(REPO_ROOT);
       expect(meta.pollHintMs).toBe(5000);
       expect(meta.ssePollMs).toBe(5000);
+      expect(meta.cache?.discovery).toBeDefined();
+      expect(meta.cache?.status).toBeDefined();
       expect(meta.sse).toBe(true);
       if (bunImageSupported()) {
         expect(meta.thumbnail).toBe(true);
