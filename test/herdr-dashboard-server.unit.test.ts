@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { pathExists, readText } from "../src/lib/bun-io.ts";
-import { readableStreamToText } from "../src/lib/bun-utils.ts";
+import { fetchJsonBody, readableStreamToText } from "../src/lib/bun-utils.ts";
 import {
   DEFAULT_DASHBOARD_PORT,
   fetchDashboardRules,
@@ -474,20 +474,22 @@ describe("herdr-dashboard-server", () => {
       port: 0,
     });
     try {
-      const res = await fetch(`${server.url}api/heartbeats`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          agents: [
-            { agent: "kimi", host: "(local)", session: "work" },
-            { agent: "codex", host: "(local)", session: "work" },
-          ],
-        }),
-      });
-      const body = (await res.json()) as { ok: boolean; recorded: number };
+      const res = await fetchJsonBody<{ ok: boolean; recorded: number }>(
+        `${server.url}api/heartbeats`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            agents: [
+              { agent: "kimi", host: "(local)", session: "work" },
+              { agent: "codex", host: "(local)", session: "work" },
+            ],
+          }),
+        }
+      );
       expect(res.status).toBe(200);
-      expect(body.ok).toBe(true);
-      expect(body.recorded).toBe(2);
+      expect(res.data.ok).toBe(true);
+      expect(res.data.recorded).toBe(2);
     } finally {
       server.stop();
     }

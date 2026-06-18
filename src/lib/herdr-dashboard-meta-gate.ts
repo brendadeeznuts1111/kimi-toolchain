@@ -5,6 +5,7 @@
 import { DEFAULT_DASHBOARD_PORT } from "./herdr-dashboard-data.ts";
 import type { DashboardMetaDiscovery } from "./herdr-dashboard-discovery-meta.ts";
 import type { WorkspaceIdResolution } from "./herdr-workspace-match.ts";
+import { fetchHttp, readableStreamToText } from "./bun-utils.ts";
 import { safeParse } from "./utils.ts";
 
 export const DASHBOARD_META_VALID_RESOLUTIONS = [
@@ -209,7 +210,7 @@ export async function fetchDashboardMeta(
 > {
   const metaUrl = `${normalizeDashboardBaseUrl(url)}api/meta`;
   try {
-    const response = await fetch(metaUrl, { signal: AbortSignal.timeout(timeoutMs) });
+    const response = await fetchHttp(metaUrl, { signal: AbortSignal.timeout(timeoutMs) });
     if (!response.ok) {
       return {
         ok: false,
@@ -219,7 +220,7 @@ export async function fetchDashboardMeta(
         },
       };
     }
-    const text = await response.text();
+    const text = await readableStreamToText(response.body);
     const meta = safeParse<DashboardMetaApiResponse>(text, {});
     if (!meta || typeof meta !== "object") {
       return {

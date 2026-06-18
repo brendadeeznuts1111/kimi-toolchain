@@ -417,24 +417,36 @@ async function main(): Promise<number> {
     logger.section("Governance Files");
     const gov = await checkGovernance(projectDir);
 
-    (gov.hasLicense ? logger.info : logger.warn)(
-      `License: ${gov.hasLicense ? gov.licenseType || "present" : "MISSING"}`
-    );
-    (gov.hasContributing ? logger.info : logger.warn)(
-      `CONTRIBUTING.md: ${gov.hasContributing ? "present" : "MISSING"}`
-    );
-    (gov.hasCodeowners ? logger.info : logger.warn)(
-      `CODEOWNERS: ${gov.hasCodeowners ? gov.codeowners.join(", ") || "present" : "MISSING"}`
-    );
-    (gov.hasReadme ? logger.info : logger.warn)(
-      `README.md: ${gov.hasReadme ? "present" : "MISSING"}`
-    );
-    (gov.hasContext ? logger.info : logger.warn)(
-      `CONTEXT.md: ${gov.hasContext ? "present" : "MISSING"}`
-    );
-    (gov.hasChangelog ? logger.info : logger.warn)(
-      `CHANGELOG.md: ${gov.hasChangelog ? "present" : "MISSING"}`
-    );
+    if (gov.hasLicense) {
+      logger.info(`License: ${gov.licenseType || "present"}`);
+    } else {
+      logger.warn(`License: MISSING`);
+    }
+    if (gov.hasContributing) {
+      logger.info(`CONTRIBUTING.md: present`);
+    } else {
+      logger.warn(`CONTRIBUTING.md: MISSING`);
+    }
+    if (gov.hasCodeowners) {
+      logger.info(`CODEOWNERS: ${gov.codeowners.join(", ") || "present"}`);
+    } else {
+      logger.warn(`CODEOWNERS: MISSING`);
+    }
+    if (gov.hasReadme) {
+      logger.info(`README.md: present`);
+    } else {
+      logger.warn(`README.md: MISSING`);
+    }
+    if (gov.hasContext) {
+      logger.info(`CONTEXT.md: present`);
+    } else {
+      logger.warn(`CONTEXT.md: MISSING`);
+    }
+    if (gov.hasChangelog) {
+      logger.info(`CHANGELOG.md: present`);
+    } else {
+      logger.warn(`CHANGELOG.md: MISSING`);
+    }
   } else if (command === "coverage") {
     const threshold = parseInt(args[1], 10) || 70;
     logger.section(`Test Coverage Gate (threshold: ${threshold}%)`);
@@ -443,9 +455,12 @@ async function main(): Promise<number> {
     if (cov.total === 0) {
       logger.warn("No coverage data found — run tests with --coverage first");
     } else {
-      (cov.percentage >= threshold ? logger.info : logger.error)(
-        `Coverage: ${cov.percentage.toFixed(1)}% (${cov.covered}/${cov.total} statements)`
-      );
+      const label = `Coverage: ${cov.percentage.toFixed(1)}% (${cov.covered}/${cov.total} statements)`;
+      if (cov.percentage >= threshold) {
+        logger.info(label);
+      } else {
+        logger.error(label);
+      }
 
       if (cov.files.length > 0) {
         logger.info("Files:");

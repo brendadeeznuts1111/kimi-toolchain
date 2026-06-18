@@ -5,6 +5,7 @@
 
 import { join } from "path";
 import { readText } from "../src/lib/bun-io.ts";
+import { fetchHttp, fetchJsonBody, readableStreamToText } from "../src/lib/bun-utils.ts";
 import { HerdrDashboardDiscoveryCache } from "../src/lib/herdr-dashboard-discovery-cache.ts";
 import { startHerdrDashboardServer } from "../src/lib/herdr-dashboard-server.ts";
 import type { PaneInfo } from "../src/lib/herdr-pane-service.ts";
@@ -156,8 +157,10 @@ const server = startHerdrDashboardServer({
 
 try {
   const base = server.url;
-  const servedHtml = await (await fetch(base)).text();
-  const servedJs = await (await fetch(`${base}herdr-dashboard.js`)).text();
+  const htmlRes = await fetchHttp(base);
+  const jsRes = await fetchHttp(`${base}herdr-dashboard.js`);
+  const servedHtml = await readableStreamToText(htmlRes.body);
+  const servedJs = await readableStreamToText(jsRes.body);
 
   record(
     "Processes panel expand — table renders",
@@ -169,18 +172,18 @@ try {
     "DOM table rows require WebView expand click (Manual confirm)"
   );
 
-  const primary = (await (await fetch(`${base}api/widgets/processes`)).json()) as {
-    data?: { paneCount?: number };
-  };
-  const staging = (await (await fetch(`${base}api/widgets/processes?session=staging`)).json()) as {
-    data?: { paneCount?: number };
-  };
+  const primary = await fetchJsonBody<{ data?: { paneCount?: number } }>(
+    `${base}api/widgets/processes`
+  );
+  const staging = await fetchJsonBody<{ data?: { paneCount?: number } }>(
+    `${base}api/widgets/processes?session=staging`
+  );
 
   record(
     "Session switch primary → staging — count updates",
-    primary.data?.paneCount === 2 && staging.data?.paneCount === 1 ? "Pass" : "Fail",
+    primary.data.data?.paneCount === 2 && staging.data.data?.paneCount === 1 ? "Pass" : "Fail",
     "primary 2 panes; staging 1 pane",
-    `primary=${primary.data?.paneCount ?? "—"} staging=${staging.data?.paneCount ?? "—"}`
+    `primary=${primary.data.data?.paneCount ?? "—"} staging=${staging.data.data?.paneCount ?? "—"}`
   );
 
   record(
@@ -251,19 +254,21 @@ try {
     "Network polls continue; DOM updates deduped only"
   );
 
-  const logsApi = (await (await fetch(`${base}api/widgets/logs?paneId=1-1&lines=50`)).json()) as {
+  const logsApi = await fetchJsonBody<{
     widget?: string;
     available?: boolean;
     lines?: string[];
     lineCount?: number;
-  };
+  }>(`${base}api/widgets/logs?paneId=1-1&lines=50`);
   record(
     "Logs API — pane read returns 200",
-    logsApi.widget === "logs" && logsApi.available === true && Array.isArray(logsApi.lines)
+    logsApi.data.widget === "logs" &&
+      logsApi.data.available === true &&
+      Array.isArray(logsApi.data.lines)
       ? "Pass"
       : "Fail",
     "GET /api/widgets/logs?paneId=&lines=",
-    `paneId=1-1 lineCount=${logsApi.lineCount ?? "—"}`
+    `paneId=1-1 lineCount=${logsApi.data.lineCount ?? "—"}`
   );
 
   const logsUiOk =
@@ -302,18 +307,20 @@ try {
     "Poll-based tail; pane restarted badge"
   );
 
-  const gitApi = (await (await fetch(`${base}api/widgets/git`)).json()) as {
+  const gitApi = await fetchJsonBody<{
     widget?: string;
     available?: boolean;
     data?: { branch?: string; changedCount?: number };
-  };
+  }>(`${base}api/widgets/git`);
   record(
     "Git API — status + commits returns 200",
-    gitApi.widget === "git" && gitApi.available === true && gitApi.data?.branch === "main"
+    gitApi.data.widget === "git" &&
+      gitApi.data.available === true &&
+      gitApi.data.data?.branch === "main"
       ? "Pass"
       : "Fail",
     "GET /api/widgets/git?session=",
-    `branch=${gitApi.data?.branch ?? "—"} changed=${gitApi.data?.changedCount ?? "—"}`
+    `branch=${gitApi.data.data?.branch ?? "—"} changed=${gitApi.data.data?.changedCount ?? "—"}`
   );
 
   const gitUiOk =
@@ -337,23 +344,22 @@ try {
     "lastGitJson dedup + fetchGit in scheduleProcessesPoll"
   );
 
-  const actionRes = await fetch(`${base}api/widgets/processes/action`, {
+  const actionRes = await fetchJsonBody<{
+    ok?: boolean;
+    action?: string;
+    message?: string;
+  }>(`${base}api/widgets/processes/action`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ paneId: "1-1", action: "focus" }),
   });
-  const actionBody = (await actionRes.json()) as {
-    ok?: boolean;
-    action?: string;
-    message?: string;
-  };
   record(
     "Pane action API — focus returns 200",
-    actionRes.status === 200 && actionBody.ok === true && actionBody.action === "focus"
+    actionRes.status === 200 && actionRes.data.ok === true && actionRes.data.action === "focus"
       ? "Pass"
       : "Fail",
     "POST /api/widgets/processes/action",
-    `status=${actionRes.status} message=${actionBody.message ?? "—"}`
+    `status=${actionRes.status} message=${actionRes.data.message ?? "—"}`
   );
 
   const paneActionsUi =
@@ -375,7 +381,7 @@ try {
 
 let liveStatus = "down";
 try {
-  const live = await fetch("http://127.0.0.1:18412/api/meta", {
+  const live = await fetchHttp("http://127.0.0.1:18412/api/meta", {
     signal: AbortSignal.timeout(1500),
   });
   liveStatus = live.ok ? "up" : `http ${live.status}`;

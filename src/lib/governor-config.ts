@@ -7,6 +7,7 @@ import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { getFreeMemoryMB } from "./memory-budget.ts";
 import { governorDir } from "./paths.ts";
+import { loadDxDefaultsSync, type DefaultsConfig } from "./defaults-config.ts";
 
 export interface GovernorDefaults {
   maxMemoryMB: number;
@@ -86,9 +87,28 @@ function parseGovernorToml(text: string): Partial<GovernorDefaults> {
   return out;
 }
 
-export async function loadGovernorDefaults(): Promise<GovernorDefaults> {
+/** Apply dx.config.toml [defaults] governor fields to a GovernorDefaults object. */
+function applyDxDefaults(target: GovernorDefaults, dx: DefaultsConfig): void {
+  if (dx.governorMaxMemoryMB !== undefined) target.maxMemoryMB = dx.governorMaxMemoryMB;
+  if (dx.governorMaxCpuTimeMs !== undefined) target.maxCpuTimeMs = dx.governorMaxCpuTimeMs;
+  if (dx.governorMaxFileSizeMB !== undefined) target.maxFileSizeMB = dx.governorMaxFileSizeMB;
+  if (dx.governorMaxOpenFiles !== undefined) target.maxOpenFiles = dx.governorMaxOpenFiles;
+  if (dx.governorMaxParallelJobs !== undefined) target.maxParallelJobs = dx.governorMaxParallelJobs;
+  if (dx.governorDiskQuotaMB !== undefined) target.diskQuotaMB = dx.governorDiskQuotaMB;
+  if (dx.governorCacheTTLSeconds !== undefined) target.cacheTTLSeconds = dx.governorCacheTTLSeconds;
+  if (dx.governorWallClockMs !== undefined) target.wallClockMs = dx.governorWallClockMs;
+}
+
+export async function loadGovernorDefaults(projectRoot?: string): Promise<GovernorDefaults> {
   let merged: GovernorDefaults = { ...BUILTIN };
 
+  // 1. Project-level dx.config.toml [defaults] (overrides BUILTIN)
+  if (projectRoot) {
+    const dx = loadDxDefaultsSync(projectRoot);
+    if (dx) applyDxDefaults(merged, dx);
+  }
+
+  // 2. User-level governor defaults (~/.kimi-code/governor/defaults.toml)
   if (pathExists(CONFIG_PATH)) {
     try {
       const text = await Bun.file(CONFIG_PATH).text();

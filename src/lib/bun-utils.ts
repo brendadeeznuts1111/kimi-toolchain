@@ -63,6 +63,26 @@ export async function readableStreamToText(
   return Bun.readableStreamToText(stream);
 }
 
+/** Minimal fetch response shape when Bun fetch typings omit body/status helpers. */
+export interface HttpFetchBody {
+  readonly ok: boolean;
+  readonly status: number;
+  readonly body: ReadableStream<Uint8Array> | null;
+}
+
+export async function fetchHttp(url: string, init?: RequestInit): Promise<HttpFetchBody> {
+  return (await fetch(url, init)) as unknown as HttpFetchBody;
+}
+
+export async function fetchJsonBody<T>(
+  url: string,
+  init?: RequestInit
+): Promise<{ ok: boolean; status: number; data: T }> {
+  const res = await fetchHttp(url, init);
+  const text = await readableStreamToText(res.body);
+  return { ok: res.ok, status: res.status, data: JSON.parse(text) as T };
+}
+
 /** Test semver satisfaction (Bun.semver.satisfies). */
 export function semverSatisfies(version: string, range: string): boolean {
   return Bun.semver.satisfies(version, range);
