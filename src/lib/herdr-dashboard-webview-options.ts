@@ -91,10 +91,16 @@ export function resolveDashboardWebViewConsole(
   options: Pick<DashboardWebViewSessionOptions, "console" | "onIpc">
 ): Bun.WebView.ConstructorOptions["console"] {
   const delegate =
-    options.console ?? (options.onIpc ? createDashboardWebViewConsole(options.onIpc) : webViewConsoleMirror());
+    options.console ??
+    (options.onIpc ? createDashboardWebViewConsole(options.onIpc) : webViewConsoleMirror());
 
   return (type, ...args) => {
-    if (type === "log" && args[0] && typeof args[0] === "object" && (args[0] as Record<string, unknown>).command === "open-canvas") {
+    if (
+      type === "log" &&
+      args[0] &&
+      typeof args[0] === "object" &&
+      (args[0] as Record<string, unknown>).command === "open-canvas"
+    ) {
       const { canvasId, path } = args[0] as { canvasId: string; path: string };
       const proc = Bun.spawn(["open", path], { stdio: ["ignore", "ignore", "ignore"] });
       proc.unref();

@@ -306,7 +306,8 @@ export function fetchDashboardCanvases(): DashboardCanvasesPayload {
     if (!ref.cursorCanvas) continue;
     canvases.push({
       id: ref.id,
-      canvasId: ref.canvasId ?? ref.cursorCanvas.replace(canvasPrefix, "").replace(".canvas.tsx", ""),
+      canvasId:
+        ref.canvasId ?? ref.cursorCanvas.replace(canvasPrefix, "").replace(".canvas.tsx", ""),
       page: ref.canvasPage ?? ref.cursorCanvas.replace(canvasPrefix, "").replace(".canvas.tsx", ""),
       path: ref.cursorCanvas,
       purpose: ref.purpose ?? "",

@@ -114,6 +114,12 @@ process.execve("/usr/bin/echo", ["echo", "hello"], { PATH: process.env.PATH });
 
 Useful for toolchain scripts that need to swap out their own executable (e.g., after an update).
 
+The toolchain ships a typed handoff wrapper at `src/lib/execve-handoff.ts`:
+
+- `execveSupported()` — true on POSIX main thread
+- `handoffInheritedSpawn(file, args, env)` — execve when gated (via `KIMI_HANDOFF_EXECVE=1`), else falls back to `Bun.spawn` + exit code pass-through
+- Used by `herdr-orchestrator` for pane process inheritance
+
 ### Bun.Terminal on Windows (Bun ≥1.3.14)
 
 `Bun.Terminal` and `Bun.spawn({ terminal })` now work on Windows via ConPTY.

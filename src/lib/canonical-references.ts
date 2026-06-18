@@ -191,8 +191,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     id: "templates",
     repoPath: "TEMPLATES.md",
     runtimePath: "~/.kimi-code/TEMPLATES.md",
-    purpose:
-      "Scaffold templates — profiles, snippets, bun create flow, kimi-fix usage",
+    purpose: "Scaffold templates — profiles, snippets, bun create flow, kimi-fix usage",
     cursorCanvas: "docs/canvases/kimi-fix.canvas.tsx",
     canvasId: "kimi-fix",
     canvasPage: "Scaffold",

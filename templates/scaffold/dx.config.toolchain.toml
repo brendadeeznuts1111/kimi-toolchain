@@ -105,7 +105,12 @@ handoff = ["kimi-doctor --agent-ready"]
 avoid = ["docker", "sync daemon unless actively developing runtime tooling"]
 
 [finishWork]
-gates = ["bun run check:fast", "kimi-doctor --effect-gates", "kimi-heal effect audit"]
+gates = [
+  "bun run check:fast",
+  "kimi-doctor --effect-gates",
+  "kimi-doctor --automation",
+  "kimi-heal effect audit",
+]
 
 [finishWork.followUp]
 command = "kimi-doctor --effect-floor"

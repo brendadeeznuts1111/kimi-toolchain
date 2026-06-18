@@ -906,6 +906,25 @@ function auditDashboard(event, data = {}) {
   console.log(`dashboard.${event}`, data);
 }
 
+/**
+ * Send an open-canvas command through the console bridge.
+ * The IDE/WebView host intercepts this console call and opens the file.
+ *
+ * @param {object} canvas — a row from /api/canvases with id, canvasId, path, page, etc.
+ */
+function openCanvas(canvas) {
+  console.log({
+    command: "open-canvas",
+    id: canvas.id,
+    canvasId: canvas.canvasId,
+    path: canvas.path,
+    page: canvas.page,
+    version: canvas.version,
+    layer: canvas.layer,
+    purpose: canvas.purpose,
+  });
+}
+
 function isPrimarySession(session) {
   return !String(session ?? "").trim();
 }
@@ -1491,10 +1510,21 @@ async function refreshCanvases() {
   for (const c of canvases) {
     const tr = document.createElement("tr");
     tr.className = "canvas-row";
-    tr.style.cursor = "pointer";
+    tr.setAttribute("role", "button");
+    tr.setAttribute("tabindex", "0");
     tr.title = `Open ${c.canvasId || c.page}`;
     tr.addEventListener("click", () => {
-      console.log({ command: "open-canvas", canvasId: c.canvasId, path: c.path });
+      tr.classList.add("canvas-row-pulse");
+      openCanvas(c);
+      setTimeout(() => tr.classList.remove("canvas-row-pulse"), 180);
+    });
+    tr.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        tr.classList.add("canvas-row-pulse");
+        openCanvas(c);
+        setTimeout(() => tr.classList.remove("canvas-row-pulse"), 180);
+      }
     });
     tr.innerHTML = `
       <td><code>${esc(c.path)}</code></td>
