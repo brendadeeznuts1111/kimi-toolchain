@@ -139,6 +139,10 @@ async function runFullLint(): Promise<void> {
 async function main(): Promise<void> {
   const { files } = parseArgs();
 
+  if (process.env.KIMI_QUIET !== "1") {
+    console.log(`Bun ${Bun.version} (${Bun.revision})`);
+  }
+
   if (files.length > 0) {
     await runScopedLint(files);
   } else {

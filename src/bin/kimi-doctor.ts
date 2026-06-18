@@ -1697,7 +1697,7 @@ async function main(): Promise<number> {
   logger.section("Node Ecosystem");
 
   const bunPath = Bun.which("bun");
-  results.push(bunPath ? ok("bun", Bun.version) : error("bun", "not found"));
+  results.push(bunPath ? ok("bun", `${Bun.version} (${Bun.revision})`) : error("bun", "not found"));
 
   for (const cmd of ["node", "npm", "pnpm", "yarn"]) {
     const p = Bun.which(cmd);

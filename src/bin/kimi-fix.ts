@@ -165,6 +165,19 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
   logger.info(`Profile: ${profile}`);
   logger.info(`Template: templates/scaffold/${scaffoldDxConfigTemplateRel(profile)}`);
 
+  // Bun version guard — scaffolded projects need Bun >= 1.4.0
+  const minBun = { major: 1, minor: 4, patch: 0 };
+  const [major, minor, patch] = Bun.version.split(".").map(Number);
+  const tooOld =
+    major < minBun.major ||
+    (major === minBun.major && minor < minBun.minor) ||
+    (major === minBun.major && minor === minBun.minor && patch < minBun.patch);
+  if (tooOld) {
+    logger.warn(
+      `Bun ${Bun.version} is below minimum ${minBun.major}.${minBun.minor}.${minBun.patch} — scaffolded scripts may not work. Please upgrade: bun upgrade`
+    );
+  }
+
   const drift = detectProfileDrift(project, profile);
   if (drift) logger.warn(drift);
 

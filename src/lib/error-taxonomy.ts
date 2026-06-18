@@ -182,6 +182,8 @@ export interface ClassifiedFailure {
   sessionId?: string;
   suggestion?: string;
   autoFix?: string;
+  /** Bun build revision (git commit hash) at time of failure. */
+  bunRevision?: string;
   context?: {
     stack?: string;
     inputs?: Record<string, unknown>;
@@ -217,6 +219,7 @@ export function buildClassifiedFailure(
     suggestion: match.category.suggestion || match.category.description,
     autoFix: match.category.autoFix,
     sessionId: extras?.sessionId,
+    bunRevision: Bun.revision,
     context: extras?.context,
   };
 }

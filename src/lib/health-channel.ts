@@ -127,7 +127,7 @@ export function isHealthEvent(value: unknown): value is HealthEvent {
  */
 export async function publish(event: HealthEvent): Promise<void> {
   try {
-    const line = JSON.stringify(event) + "\n";
+    const line = JSON.stringify({ ...event, bunRevision: Bun.revision }) + "\n";
     appendText(filePath(), line);
   } catch {
     // Degrade gracefully — health channel is advisory, not critical
