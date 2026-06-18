@@ -185,7 +185,7 @@ describe("herdr-dashboard-automation", () => {
     });
     const screenshot = mock(async () => {
       callOrder.push("screenshot");
-      return new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...new Array(100).fill(0)]);
+      return new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...Array.from({ length: 100 }, () => 0)]);
     });
     const view = { scrollTo, click, evaluate, screenshot } as unknown as Bun.WebView;
     const setScreenshotPng = mock();
