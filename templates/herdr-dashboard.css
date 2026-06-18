@@ -473,6 +473,44 @@ tr.processes-row-active td {
   font-size: 10px;
   vertical-align: middle;
 }
+.scan-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.scan-run {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.scan-run:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.scan-summary {
+  color: var(--muted);
+  font-size: 12px;
+}
+.scan-file,
+.scan-rule {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+.scan-line {
+  text-align: right;
+  white-space: nowrap;
+}
+.scan-suggestion {
+  color: var(--green);
+  font-size: 11px;
+}
+.scan-scroll {
+  max-height: 480px;
+}
 .scroll {
   max-height: 420px;
   overflow: auto;

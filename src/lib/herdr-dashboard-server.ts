@@ -30,11 +30,13 @@ import {
   DEFAULT_DASHBOARD_PORT,
   fetchDashboardHandoffs,
   fetchDashboardRules,
+  fetchDashboardUpgradeScan,
   runDashboardAgentAction,
   runDashboardIpcCommand,
   type DashboardActionRequest,
   type DashboardFetchOptions,
   type DashboardIpcCommand,
+  type DashboardIpcResult,
 } from "./herdr-dashboard-data.ts";
 import {
   startDashboardHerdrEventBridge,
@@ -87,7 +89,7 @@ export interface HerdrDashboardServerOptions extends DashboardFetchOptions {
   tlsCertPath?: string;
   /** Override HERDR_DASHBOARD_TLS_KEY for tests or custom deployments. */
   tlsKeyPath?: string;
-  onIpc?: (result: ReturnType<typeof runDashboardIpcCommand>) => void;
+  onIpc?: (result: DashboardIpcResult) => void;
   /** Optional PNG supplier for `/api/thumbnail` when no cached screenshot is set. */
   screenshotProvider?: () => Promise<Uint8Array | null>;
   /** Bridge Herdr socket events → dashboard refresh (default true). */
@@ -420,6 +422,11 @@ export function startHerdrDashboardServer(
         return jsonResponse(fetchDashboardRules(options.projectPath, options.dryRun ?? false));
       }
 
+      if (path === "/api/scan") {
+        const payload = await fetchDashboardUpgradeScan(options.projectPath);
+        return jsonResponse(payload);
+      }
+
       if (path === "/api/widgets/processes/action" && request.method === "POST") {
         const body = await readJsonBody<DashboardPaneActionRequest>(request);
         if (!body?.paneId?.trim() || !body?.action) {
@@ -499,7 +506,7 @@ export function startHerdrDashboardServer(
         if (!body?.command) {
           return jsonResponse({ ok: false, error: "command required" }, 400);
         }
-        const result = runDashboardIpcCommand(options.projectPath, body);
+        const result = await runDashboardIpcCommand(options.projectPath, body);
         options.onIpc?.(result);
         return jsonResponse(result, result.ok ? 200 : 422);
       }

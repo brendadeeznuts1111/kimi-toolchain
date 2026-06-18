@@ -2,7 +2,7 @@ const SESSION_STORAGE_KEY = "herdr-dashboard.activeSession";
 const SESSION_ALL = "__all__";
 let lastFilteredAgentsJson = "";
 let lastHandoffsJson = "";
-let lastRulesJson = "";
+let lastScanJson = "";
 let pollTimer = null;
 let processesPollTimer = null;
 let metaTimer = null;
@@ -1399,6 +1399,75 @@ function scheduleSecondaryPoll(pollMs) {
   }, pollMs);
 }
 
+async function refreshScan() {
+  const errEl = document.getElementById("scan-error");
+  const summaryEl = document.getElementById("scan-summary");
+  const body = document.getElementById("scan-body");
+  if (!body || !summaryEl) return;
+
+  const res = await fetch("/api/scan");
+  const payload = await res.json();
+  const json = JSON.stringify(payload);
+  if (json === lastScanJson) return;
+  lastScanJson = json;
+
+  if (!payload.ok) {
+    if (errEl) errEl.textContent = payload.error || "Scan failed";
+    return;
+  }
+  if (errEl) errEl.textContent = "";
+
+  const report = payload.report;
+  const total = report?.summary?.total ?? 0;
+  summaryEl.textContent =
+    total === 0
+      ? "No findings — project matches Bun-native patterns"
+      : `${total} finding(s) · ${report.tool}`;
+
+  const findings = report?.findings ?? [];
+  if (findings.length === 0) {
+    body.innerHTML = '<tr><td colspan="5" class="empty-state">No findings</td></tr>';
+    return;
+  }
+
+  body.innerHTML = "";
+  for (const row of findings) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="scan-file">${esc(row.file)}</td>
+      <td class="scan-line">${esc(String(row.line))}</td>
+      <td class="scan-rule">${esc(row.ruleId)}</td>
+      <td>${esc(row.message)}</td>
+      <td class="scan-suggestion">${esc(row.suggestion)}</td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
+async function runScanFromPanel() {
+  const btn = document.getElementById("scan-run");
+  if (btn) btn.disabled = true;
+  lastScanJson = "";
+  try {
+    const ipc = await ipcCommand("scan.run", {});
+    if (!ipc.ok) {
+      const errEl = document.getElementById("scan-error");
+      if (errEl) errEl.textContent = ipc.message || "Scan failed";
+      return;
+    }
+    await refreshScan();
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function wireScanPanel() {
+  const btn = document.getElementById("scan-run");
+  if (!btn || btn.dataset.wired === "1") return;
+  btn.dataset.wired = "1";
+  btn.addEventListener("click", () => void runScanFromPanel());
+}
+
 function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll("nav button").forEach((b) => b.classList.remove("active"));
@@ -1411,6 +1480,9 @@ function switchTab(tab) {
   } else if (tab === "rules") {
     lastRulesJson = "";
     void refreshRules();
+  } else if (tab === "scan") {
+    lastScanJson = "";
+    void refreshScan();
   }
   if (window.__HERDR_DASHBOARD_POLL_MS__) {
     scheduleSecondaryPoll(window.__HERDR_DASHBOARD_POLL_MS__);
@@ -1424,6 +1496,7 @@ document.querySelectorAll("nav button").forEach((btn) => {
 wireSessionSelector();
 wireProcessesToggle();
 wireGitToggle();
+wireScanPanel();
 
 (async () => {
   const res = await fetch("/api/meta");

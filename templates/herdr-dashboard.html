@@ -116,6 +116,7 @@
       <button class="active" data-tab="agents">Agents</button>
       <button data-tab="handoffs">Handoff history</button>
       <button data-tab="rules">Rules</button>
+      <button data-tab="scan">Upgrade scan</button>
     </nav>
     <main>
       <section id="agents" class="panel active">
@@ -177,6 +178,31 @@
               </tr>
             </thead>
             <tbody id="rules-body"></tbody>
+          </table>
+        </div>
+      </section>
+      <section id="scan" class="panel">
+        <div class="scan-toolbar">
+          <button type="button" id="scan-run" class="scan-run">Scan project</button>
+          <span id="scan-summary" class="scan-summary">No scan yet</span>
+        </div>
+        <div id="scan-error" class="error"></div>
+        <div class="scroll scan-scroll">
+          <table class="scan-table">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Line</th>
+                <th>Rule</th>
+                <th>Message</th>
+                <th>Suggestion</th>
+              </tr>
+            </thead>
+            <tbody id="scan-body">
+              <tr>
+                <td colspan="5" class="empty-state">Click Scan project to run upgrade-advisor</td>
+              </tr>
+            </tbody>
           </table>
         </div>
       </section>

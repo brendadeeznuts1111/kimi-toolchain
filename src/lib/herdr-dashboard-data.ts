@@ -9,6 +9,7 @@ import { TOML } from "bun";
 import { resolveOrchestratorConfig } from "./herdr-orchestrator-config.ts";
 import { getHandoffHistory, getHandoffLogPath, type HandoffLogEntry } from "./handoff-log.ts";
 import { herdrCliRun } from "./herdr-project-cli.ts";
+import { scanUpgradeAdvisor, type UpgradeScanReport } from "./upgrade-advisor.ts";
 
 export const DEFAULT_DASHBOARD_PORT = 18412;
 
@@ -83,6 +84,14 @@ export interface DashboardIpcResult {
   command: string;
   message: string;
   result?: DashboardActionResult;
+  scan?: UpgradeScanReport;
+}
+
+export interface DashboardUpgradeScanPayload {
+  ok: boolean;
+  projectPath: string;
+  report: UpgradeScanReport;
+  fetchedAt: string;
 }
 
 /** Handoff rules with last-fired metadata from the audit log. */
@@ -143,11 +152,24 @@ export function fetchDashboardHandoffs(projectPath: string, limit = 50): Dashboa
   };
 }
 
+/** Run upgrade-advisor scan for dashboard / IPC consumers. */
+export async function fetchDashboardUpgradeScan(
+  projectPath: string
+): Promise<DashboardUpgradeScanPayload> {
+  const report = await scanUpgradeAdvisor(projectPath);
+  return {
+    ok: true,
+    projectPath,
+    report,
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
 /** Map WebView IPC commands to orchestrator actions. */
-export function runDashboardIpcCommand(
+export async function runDashboardIpcCommand(
   projectPath: string,
   body: DashboardIpcCommand
-): DashboardIpcResult {
+): Promise<DashboardIpcResult> {
   const { command, args = {} } = body;
   const agent = String(args.agent ?? "");
   if (!command) {
@@ -185,7 +207,23 @@ export function runDashboardIpcCommand(
     };
   }
 
+  if (command === "scan.run") {
+    return runDashboardUpgradeScan(projectPath);
+  }
+
   return { ok: false, command, message: `unknown command: ${command}` };
+}
+
+/** IPC + API entry for upgrade-advisor JSON report. */
+export async function runDashboardUpgradeScan(projectPath: string): Promise<DashboardIpcResult> {
+  const payload = await fetchDashboardUpgradeScan(projectPath);
+  const total = payload.report.summary.total;
+  return {
+    ok: true,
+    command: "scan.run",
+    message: total === 0 ? "upgrade-advisor: no findings" : `upgrade-advisor: ${total} finding(s)`,
+    scan: payload.report,
+  };
 }
 
 /** Run a local pane/agent action from the dashboard UI. */

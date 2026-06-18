@@ -24,7 +24,7 @@ import {
 } from "../src/lib/herdr-webview-dashboard.ts";
 import { webViewConsoleMirror } from "../src/lib/webview-console.ts";
 import type { DashboardIpcCommand } from "../src/lib/herdr-dashboard-data.ts";
-import { REPO_ROOT, captureConsole } from "./helpers.ts";
+import { REPO_ROOT, captureConsole, testTempDir, writeText } from "./helpers.ts";
 
 /** Fast gate: CLI --timeout 1500; slow tests need per-test override. */
 const SERVER_TEST_MS = 20_000;
@@ -121,6 +121,7 @@ describe("herdr-dashboard-server", () => {
         expect(html).toContain("session-scope");
         expect(html).toContain("agents-heading");
         expect(html).toContain("agents-legend");
+        expect(html).toContain("Upgrade scan");
 
         const cssRes = (await fetch(`${server.url}herdr-dashboard.css`)) as unknown as {
           body: ReadableStream<Uint8Array>;
@@ -572,14 +573,50 @@ describe("herdr-dashboard-server", () => {
     { timeout: SERVER_TEST_MS }
   );
 
-  test("runDashboardIpcCommand maps agent.restart", () => {
-    const result = runDashboardIpcCommand(REPO_ROOT, {
+  test("runDashboardIpcCommand maps agent.restart", async () => {
+    const result = await runDashboardIpcCommand(REPO_ROOT, {
       command: "agent.restart",
       args: { agent: "kimi", host: "remote", session: "work" },
     });
     expect(result.command).toBe("agent.restart");
     expect(result.ok).toBe(false);
     expect(result.message).toContain("herdr-orchestrator");
+  });
+
+  test("runDashboardIpcCommand scan.run returns upgrade-advisor report", async () => {
+    const dir = testTempDir("herdr-scan-ipc-");
+    writeText(join(dir, "package.json"), JSON.stringify({ name: "scan-ipc" }, null, 2));
+    const result = await runDashboardIpcCommand(dir, { command: "scan.run" });
+    expect(result.command).toBe("scan.run");
+    expect(result.ok).toBe(true);
+    expect(result.scan?.schemaVersion).toBe(1);
+    expect(result.scan?.tool).toBe("upgrade-advisor");
+    expect(Array.isArray(result.scan?.findings)).toBe(true);
+  });
+
+  test("GET /api/scan returns upgrade-advisor JSON", async () => {
+    const dir = testTempDir("herdr-scan-api-");
+    writeText(join(dir, "package.json"), JSON.stringify({ name: "scan-api" }, null, 2));
+    const server = startHerdrDashboardServer({
+      projectPath: dir,
+      port: 0,
+      sessions: false,
+    });
+    try {
+      const res = (await fetch(`${server.url}api/scan`)) as unknown as {
+        body: ReadableStream<Uint8Array>;
+      };
+      const raw = await readableStreamToText(res.body);
+      const payload = JSON.parse(raw) as {
+        ok: boolean;
+        report: { tool: string; findings: unknown[] };
+      };
+      expect(payload.ok).toBe(true);
+      expect(payload.report.tool).toBe("upgrade-advisor");
+      expect(Array.isArray(payload.report.findings)).toBe(true);
+    } finally {
+      server.stop();
+    }
   });
 
   test("createDashboardWebViewConsole intercepts IPC tag", () => {
