@@ -15,6 +15,7 @@ import {
   runGate,
   appendGateCache,
   shouldSkipGate,
+  fastGateTimeoutBudgetMs,
   type GateResult,
 } from "./gate-runner.ts";
 import { isQuietMode } from "./quiet-mode.ts";
@@ -28,6 +29,9 @@ import {
   allPreCommitGatesCoveredAtHead,
   shouldSkipGateFromScopedCache,
 } from "./scoped-gate-cache.ts";
+import { filterFormatPaths } from "./check-changed.ts";
+import { shouldRunScopedLint } from "./check-lint-scoped.ts";
+import { bunTestArgs } from "./test-gates.ts";
 
 const PRE_COMMIT_CACHE_GATES = ["format:check", "lint", "typecheck", "test:fast"] as const;
 const PRE_PUSH_CACHE_GATES = [
@@ -83,13 +87,21 @@ async function runGateVisible(
       stderr: "inherit",
     });
     const exitCode = await proc.exited;
-    return {
-      name,
-      exitCode,
-      ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
-      stdout: "",
-      stderr: "",
-    };
+    const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+    const budget = fastGateTimeoutBudgetMs();
+    if (budget > 0 && ms > budget && exitCode === 0) {
+      gateErr(
+        `TIMEOUT: ${name} took ${ms}ms, budget is ${budget}ms — set KIMI_CHECK_FAST_TIMEOUT_MS higher or optimize the step`
+      );
+      return {
+        name,
+        exitCode: 1,
+        ms,
+        stdout: "",
+        stderr: `budget exceeded: ${ms}ms > ${budget}ms`,
+      };
+    }
+    return { name, exitCode, ms, stdout: "", stderr: "" };
   }
   const result = await runGate(name, cmd, { cwd: projectRoot });
   return result;
@@ -118,6 +130,8 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
       if (await shouldSkipGateFromScopedCache(projectRoot, "format:check", staged)) {
         return skippedGateResult("format:check");
       }
+      const formatPaths = filterFormatPaths(staged);
+      if (formatPaths.length === 0) return skippedGateResult("format:check");
       return runGateVisible(projectRoot, "format:check", ["bun", "run", "format:check"]);
     },
     async () => {
@@ -127,7 +141,16 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
       if (await shouldSkipGateFromScopedCache(projectRoot, "lint", staged)) {
         return skippedGateResult("lint");
       }
-      return runGateVisible(projectRoot, "lint", ["bun", "run", "lint"]);
+      if (!shouldRunScopedLint(staged)) return skippedGateResult("lint");
+      const lintScript =
+        (await readPackageJson<{ scripts?: Record<string, string> }>(projectRoot))?.scripts?.lint ??
+        "";
+      const supportsScoped = lintScript.includes("scripts/lint.ts");
+      return runGateVisible(
+        projectRoot,
+        "lint",
+        supportsScoped ? ["bun", "run", "lint", "--files", ...staged] : ["bun", "run", "lint"]
+      );
     },
     async () => {
       if (!(await packageHasScript(projectRoot, "typecheck"))) return null;
@@ -145,7 +168,27 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
       if (await shouldSkipGateFromScopedCache(projectRoot, "test:fast", staged)) {
         return skippedGateResult("test:fast");
       }
-      return runGateVisible(projectRoot, "test:fast", ["bun", "run", "test:fast"]);
+      const headResult = await $`git rev-parse HEAD`.cwd(projectRoot).nothrow().quiet();
+      const head = headResult.exitCode === 0 ? headResult.stdout.toString().trim() : null;
+      if (!head) return skippedGateResult("test:fast");
+      const testArgs = bunTestArgs({
+        changedRef: "HEAD",
+        timeoutMs: 1500,
+        bail: true,
+        retry: 2,
+        dots: true,
+      });
+      const result = await runGate("test:fast", ["bun", ...testArgs], { cwd: projectRoot });
+      // bun test --changed exits 1 when no test files match — treat as skip
+      if (result.exitCode !== 0 && /No tests found/i.test(`${result.stdout}\n${result.stderr}`)) {
+        return skippedGateResult("test:fast");
+      }
+      // Re-emit output for visibility (runGate captures, doesn't stream)
+      if (result.exitCode !== 0) {
+        if (result.stdout) gateOut(result.stdout);
+        if (result.stderr) gateErr(result.stderr);
+      }
+      return result;
     },
     async () => {
       const tuning = join(projectRoot, "scripts/lint-tuning-set-version.ts");

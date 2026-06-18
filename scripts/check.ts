@@ -62,6 +62,7 @@ function parseCli(): CheckOptions {
   let watchTests = false;
   let cacheResults = false;
   let noCache = false;
+  let profile = false;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -115,6 +116,10 @@ function parseCli(): CheckOptions {
       noCache = true;
       continue;
     }
+    if (arg === "--profile") {
+      profile = true;
+      continue;
+    }
     if (arg === "--base") {
       base = argv[++i] ?? base;
       baseExplicit = true;
@@ -158,6 +163,7 @@ function parseCli(): CheckOptions {
     watchTests,
     cacheResults,
     noCache,
+    profile,
   };
 }
 

@@ -3,6 +3,40 @@ import { HerdrDashboardHub, DASHBOARD_STALE_MS } from "../src/lib/herdr-dashboar
 import { REPO_ROOT } from "./helpers.ts";
 
 describe("herdr-dashboard-hub", () => {
+  test("recordHeartbeats records multiple agents in one call", () => {
+    const hub = new HerdrDashboardHub({
+      projectPath: REPO_ROOT,
+      fetchOpts: {},
+    });
+    const recorded = hub.recordHeartbeats([
+      { agent: "kimi", host: "(local)", session: "work" },
+      { agent: "codex", host: "(local)", session: "work" },
+    ]);
+    expect(recorded).toBe(2);
+    const agents = hub.applyStaleOverlay([
+      {
+        host: "(local)",
+        session: "work",
+        workspaceId: "w1",
+        agent: "kimi",
+        status: "working",
+        paneId: "p1",
+        source: "reported",
+      },
+      {
+        host: "(local)",
+        session: "work",
+        workspaceId: "w1",
+        agent: "codex",
+        status: "idle",
+        paneId: "p2",
+        source: "reported",
+      },
+    ]);
+    expect(agents[0]?.status).toBe("working");
+    expect(agents[1]?.status).toBe("idle");
+  });
+
   test("applyStaleOverlay marks agents past heartbeat window", () => {
     const hub = new HerdrDashboardHub({
       projectPath: REPO_ROOT,

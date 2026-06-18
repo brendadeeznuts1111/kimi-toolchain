@@ -36,7 +36,11 @@ export interface HerdrDashboardServerOptions extends DashboardFetchOptions {
   port?: number;
   hostname?: string;
   dryRun?: boolean;
+  /** Browser handoffs/rules poll interval (ms). */
   pollHintMs?: number;
+  /** Server SSE agent-discovery poll interval (ms). */
+  ssePollMs?: number;
+  staleMs?: number;
   /** Enable HTTP/3 when TLS certs are configured (see HERDR_DASHBOARD_TLS_* env). */
   http3?: boolean;
   /** Override HERDR_DASHBOARD_TLS_CERT for tests or custom deployments. */
@@ -62,22 +66,52 @@ export interface HerdrDashboardServerHandle {
 }
 
 const DASHBOARD_HTML_NAME = "herdr-dashboard.html";
+const DASHBOARD_ASSETS = ["herdr-dashboard.css", "herdr-dashboard.js"] as const;
 
-/** Resolve dashboard HTML from repo checkout or synced ~/.kimi-code/templates. */
-export function resolveHerdrDashboardHtmlPath(): string {
+/** Canonical templates/ dir — repo checkout first, then synced ~/.kimi-code/templates. */
+export function resolveHerdrDashboardTemplatesDir(): string {
   const candidates = [
-    join(import.meta.dir, "..", "..", "templates", DASHBOARD_HTML_NAME),
-    join(import.meta.dir, "..", "templates", DASHBOARD_HTML_NAME),
+    join(import.meta.dir, "..", "..", "templates"),
+    join(import.meta.dir, "..", "templates"),
   ];
-  return candidates.find((path) => pathExists(path)) ?? candidates[0];
+  return candidates.find((dir) => pathExists(join(dir, DASHBOARD_HTML_NAME))) ?? candidates[0];
+}
+
+/** Resolve a dashboard template asset by filename. */
+export function resolveHerdrDashboardAssetPath(name: string): string {
+  return join(resolveHerdrDashboardTemplatesDir(), name);
+}
+
+/** @deprecated Use resolveHerdrDashboardAssetPath("herdr-dashboard.html") */
+export function resolveHerdrDashboardHtmlPath(): string {
+  return resolveHerdrDashboardAssetPath(DASHBOARD_HTML_NAME);
+}
+
+function readDashboardAsset(name: string, fallback: string): string {
+  const path = resolveHerdrDashboardAssetPath(name);
+  return pathExists(path) ? readText(path) : fallback;
 }
 
 function dashboardHtml(): string {
-  const path = resolveHerdrDashboardHtmlPath();
-  if (pathExists(path)) {
-    return readText(path);
-  }
-  return "<!DOCTYPE html><html><body><h1>herdr-dashboard.html missing</h1></body></html>";
+  return readDashboardAsset(
+    DASHBOARD_HTML_NAME,
+    "<!DOCTYPE html><html><body><h1>herdr-dashboard.html missing</h1></body></html>"
+  );
+}
+
+function dashboardAssetResponse(name: string): Response {
+  const allowed = DASHBOARD_ASSETS.includes(name as (typeof DASHBOARD_ASSETS)[number]);
+  if (!allowed) return new Response("Not Found", { status: 404 });
+  const path = resolveHerdrDashboardAssetPath(name);
+  if (!pathExists(path)) return new Response("Not Found", { status: 404 });
+  const type = name.endsWith(".css")
+    ? "text/css; charset=utf-8"
+    : name.endsWith(".js")
+      ? "application/javascript; charset=utf-8"
+      : "application/octet-stream";
+  return new Response(readText(path), {
+    headers: { "content-type": type, "cache-control": "no-store" },
+  });
 }
 
 /** LQIP data URL for a cached dashboard screenshot PNG. */
@@ -117,6 +151,8 @@ export function startHerdrDashboardServer(
   const port = options.port ?? DEFAULT_DASHBOARD_PORT;
   const hostname = options.hostname ?? "127.0.0.1";
   const pollHintMs = options.pollHintMs ?? 5000;
+  const ssePollMs = options.ssePollMs ?? pollHintMs;
+  const staleMs = options.staleMs ?? 15_000;
   const fetchOpts: DashboardFetchOptions = {
     sessions: options.sessions,
     host: options.host,
@@ -128,7 +164,8 @@ export function startHerdrDashboardServer(
   const hub = new HerdrDashboardHub({
     projectPath: options.projectPath,
     fetchOpts,
-    pollMs: pollHintMs,
+    pollMs: ssePollMs,
+    staleMs,
   });
   hub.start();
 
@@ -152,8 +189,13 @@ export function startHerdrDashboardServer(
 
       if (path === "/" || path === "/index.html") {
         return new Response(dashboardHtml(), {
-          headers: { "content-type": "text/html; charset=utf-8" },
+          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
         });
+      }
+
+      if (path === "/herdr-dashboard.css" || path === "/herdr-dashboard.js") {
+        const name = path.slice(1);
+        return dashboardAssetResponse(name);
       }
 
       if (path === "/api/meta") {
@@ -161,8 +203,9 @@ export function startHerdrDashboardServer(
           ok: true,
           projectPath: options.projectPath,
           pollHintMs,
+          ssePollMs,
           sse: true,
-          staleMs: 15_000,
+          staleMs,
           dryRun: options.dryRun ?? false,
           thumbnail: bunImageSupported(),
           thumbnailPath: "/api/thumbnail",
@@ -237,6 +280,25 @@ export function startHerdrDashboardServer(
         }
         hub.recordHeartbeat(body.agent, body.host, body.session);
         return jsonResponse({ ok: true, agent: body.agent });
+      }
+
+      if (path === "/api/heartbeats" && request.method === "POST") {
+        const body = await readJsonBody<{
+          agents?: Array<{ agent?: string; host?: string; session?: string }>;
+        }>(request);
+        const rows = body?.agents ?? [];
+        if (rows.length === 0) {
+          return jsonResponse({ ok: false, error: "agents array required" }, 400);
+        }
+        const recorded = hub.recordHeartbeats(
+          rows.filter((row): row is { agent: string; host?: string; session?: string } =>
+            Boolean(row?.agent)
+          )
+        );
+        if (recorded === 0) {
+          return jsonResponse({ ok: false, error: "no valid agents" }, 400);
+        }
+        return jsonResponse({ ok: true, recorded });
       }
 
       if (path === "/api/handoffs") {

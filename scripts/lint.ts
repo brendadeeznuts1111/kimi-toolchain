@@ -14,12 +14,10 @@ import {
   filterBannedTermPaths,
   filterChangedTestPaths,
   filterDocLinkPaths,
-  filterPatternPaths,
   scopedLintNoticeLine,
 } from "../src/lib/check-lint-scoped.ts";
 import { formatDocLinkViolation, lintDocLinks } from "../src/lib/doc-links-lint.ts";
 import { lintBannedTerms } from "./lint-banned-terms.ts";
-import { lintPatternViolations } from "./lint-patterns.ts";
 import { lintTestNames } from "./lint-test-names.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -57,18 +55,6 @@ async function runScopedLint(files: string[]): Promise<void> {
     process.exit(1);
   }
   if (bannedPaths.length > 0) console.log("  \u2713 No banned terms");
-
-  const patternPaths = filterPatternPaths(files);
-  const patternViolations = await lintPatternViolations(REPO_ROOT, patternPaths);
-  if (patternViolations.length > 0) {
-    console.error("\u2717 Pattern violations found:\n");
-    for (const v of patternViolations) {
-      console.error(`  ${v.file}:${v.line} [${v.rule}]`);
-      console.error(`    ${v.snippet}\n`);
-    }
-    process.exit(1);
-  }
-  if (patternPaths.length > 0) console.log("  \u2713 No pattern violations");
 
   const testPaths = filterChangedTestPaths(files);
   const testViolations = await lintTestNames(
@@ -113,14 +99,12 @@ async function runFullLint(): Promise<void> {
   const subScripts = [
     { cmd: ["oxlint", "src", "test", "scripts"], label: "oxlint" },
     { cmd: ["bun", "run", "scripts/lint-banned-terms.ts"], label: "banned-terms" },
-    { cmd: ["bun", "run", "scripts/lint-patterns.ts"], label: "patterns" },
     { cmd: ["bun", "run", "scripts/lint-bun-native.ts"], label: "bun-native" },
     { cmd: ["bun", "run", "scripts/lint-context-bloat.ts"], label: "context-bloat" },
     { cmd: ["bun", "run", "scripts/lint-skill-coverage.ts"], label: "skill-coverage" },
     { cmd: ["bun", "run", "scripts/lint-skill-frontmatter.ts"], label: "skill-frontmatter" },
     { cmd: ["bun", "run", "scripts/lint-tochange.ts"], label: "tochange" },
     { cmd: ["bun", "run", "scripts/lint-test-names.ts"], label: "test-names" },
-    { cmd: ["bun", "run", "scripts/lint-test-conventions.ts"], label: "test-conventions" },
     { cmd: ["bun", "run", "scripts/lint-build-constants.ts"], label: "build-constants" },
     {
       cmd: ["bun", "run", "scripts/generate-constants-manifest.ts", "--check"],

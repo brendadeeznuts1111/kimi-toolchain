@@ -88,6 +88,16 @@ describe("herdr-dashboard-server", () => {
       };
       const html = await readableStreamToText(htmlRes.body);
       expect(html).toContain("Herdr Orchestrator Dashboard");
+      expect(html).toContain("/herdr-dashboard.css");
+      expect(html).toContain("/herdr-dashboard.js");
+      expect(html).toContain("Loading agents");
+      expect(html).toContain("rules-meta-slot");
+
+      const cssRes = (await fetch(`${server.url}herdr-dashboard.css`)) as unknown as {
+        body: ReadableStream<Uint8Array>;
+      };
+      const css = await readableStreamToText(cssRes.body);
+      expect(css).toContain(":root");
       const metaRes = (await fetch(`${server.url}api/meta`)) as unknown as {
         body: ReadableStream<Uint8Array>;
       };
@@ -96,6 +106,7 @@ describe("herdr-dashboard-server", () => {
         ok: boolean;
         projectPath: string;
         pollHintMs: number;
+        ssePollMs: number;
         sse?: boolean;
         thumbnail?: boolean;
         thumbnailPath?: string;
@@ -103,11 +114,60 @@ describe("herdr-dashboard-server", () => {
       expect(meta.ok).toBe(true);
       expect(meta.projectPath).toBe(REPO_ROOT);
       expect(meta.pollHintMs).toBe(5000);
+      expect(meta.ssePollMs).toBe(5000);
       expect(meta.sse).toBe(true);
       if (bunImageSupported()) {
         expect(meta.thumbnail).toBe(true);
         expect(meta.thumbnailPath).toBe("/api/thumbnail");
       }
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("dashboard server splits ssePollMs from pollHintMs", async () => {
+    const server = startHerdrDashboardServer({
+      projectPath: REPO_ROOT,
+      port: 0,
+      pollHintMs: 12_000,
+      ssePollMs: 3_000,
+    });
+    try {
+      const metaRes = (await fetch(`${server.url}api/meta`)) as unknown as {
+        body: ReadableStream<Uint8Array>;
+      };
+      const meta = JSON.parse(await readableStreamToText(metaRes.body)) as {
+        pollHintMs: number;
+        ssePollMs: number;
+      };
+      expect(meta.pollHintMs).toBe(12_000);
+      expect(meta.ssePollMs).toBe(3_000);
+      expect((server.hub as unknown as { pollMs: number }).pollMs).toBe(3_000);
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("dashboard server accepts batch heartbeats", async () => {
+    const server = startHerdrDashboardServer({
+      projectPath: REPO_ROOT,
+      port: 0,
+    });
+    try {
+      const res = await fetch(`${server.url}api/heartbeats`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          agents: [
+            { agent: "kimi", host: "(local)", session: "work" },
+            { agent: "codex", host: "(local)", session: "work" },
+          ],
+        }),
+      });
+      const body = (await res.json()) as { ok: boolean; recorded: number };
+      expect(res.status).toBe(200);
+      expect(body.ok).toBe(true);
+      expect(body.recorded).toBe(2);
     } finally {
       server.stop();
     }

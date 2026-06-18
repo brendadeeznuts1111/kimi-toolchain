@@ -3,7 +3,13 @@
  */
 
 import { bunTestArgs, UNIT_TEST_FILES } from "./test-gates.ts";
-import { emitGateFailure, runGate, shouldSilentOnSuccess, type GateResult } from "./gate-runner.ts";
+import {
+  emitGateFailure,
+  runGate,
+  shouldSilentOnSuccess,
+  fastGateTimeoutBudgetMs,
+  type GateResult,
+} from "./gate-runner.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 import {
   changedIncludesTypeScript,
@@ -249,13 +255,21 @@ async function runStepTrackedWithActive(
     readableStreamToText(proc.stderr),
     proc.exited,
   ]);
-  return {
-    name: step.name,
-    exitCode,
-    ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
-    stdout,
-    stderr,
-  };
+  const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+
+  const budget = fastGateTimeoutBudgetMs();
+  if (budget > 0 && ms > budget && exitCode === 0) {
+    const budgetMsg = `TIMEOUT: ${step.name} took ${ms}ms, budget is ${budget}ms`;
+    return {
+      name: step.name,
+      exitCode: 1,
+      ms,
+      stdout,
+      stderr: [stderr, budgetMsg].filter(Boolean).join("\n"),
+    };
+  }
+
+  return { name: step.name, exitCode, ms, stdout, stderr };
 }
 
 async function runStepsParallel(
@@ -454,15 +468,40 @@ export function printCheckDryRun(
 
 export function printCheckResult(result: CheckRunResult, options: CheckOptions): void {
   if (options.jsonSummary) {
-    checkOut(
-      JSON.stringify({
-        passed: result.passed,
-        steps: result.steps,
-        totalDurationMs: result.totalDurationMs,
-      })
-    );
+    const output: Record<string, unknown> = {
+      passed: result.passed,
+      steps: result.steps,
+      totalDurationMs: result.totalDurationMs,
+    };
+    if (options.profile) {
+      output.profile = Object.entries(result.steps).map(([step, s]) => ({
+        step,
+        durationMs: s.durationMs,
+        passed: s.passed,
+        skipped: s.skipped ?? false,
+        ...(s.errors !== undefined ? { errors: s.errors } : {}),
+      }));
+    }
+    checkOut(JSON.stringify(output));
     return;
   }
+
+  const printProfile = () => {
+    if (!options.profile) return;
+    const entries = Object.entries(result.steps);
+    if (entries.length === 0) return;
+    const maxName = Math.max(...entries.map(([name]) => name.length));
+    const total = entries.reduce((sum, [, s]) => sum + s.durationMs, 0);
+    const pad = (n: number) => String(n).padStart(5);
+    checkOut("");
+    for (const [name, s] of entries) {
+      const mark = s.skipped ? "—" : s.passed ? "✓" : "✗";
+      const ms = s.durationMs > 0 ? `${pad(s.durationMs)}ms` : "     —";
+      checkOut(`  ${name.padEnd(maxName)}  ${ms}  ${mark}`);
+    }
+    checkOut(`  ${"─".repeat(maxName + 14)}`);
+    checkOut(`  ${"total".padEnd(maxName)}  ${pad(total)}ms`);
+  };
 
   if (result.passed) {
     const hints: string[] = [];
@@ -470,10 +509,15 @@ export function printCheckResult(result: CheckRunResult, options: CheckOptions):
     if (result.scopedGatesRecorded && result.scopedGatesRecorded > 0) {
       hints.push(`scoped cache +${result.scopedGatesRecorded}`);
     }
-    const suffix = hints.length > 0 ? ` (${hints.join(", ")})` : "";
+    const duration =
+      result.totalDurationMs > 0 ? ` [${(result.totalDurationMs / 1000).toFixed(2)}s]` : "";
+    const suffix = hints.length > 0 ? ` (${hints.join(", ")})${duration}` : duration;
     checkOut(`✓ gate passed${suffix}`);
+    printProfile();
     return;
   }
+
+  printProfile();
 
   if (result.failures.length > 0 && !options.watch) {
     const first = result.failures[0]!;

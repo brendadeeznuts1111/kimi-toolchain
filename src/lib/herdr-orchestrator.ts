@@ -5,7 +5,7 @@ import { join } from "path";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";
 import { findWorkspaceForProject } from "./herdr-project-runner.ts";
-import { herdrCliJson, herdrCliRun } from "./herdr-project-cli.ts";
+import { buildRemoteHerdrArgs, herdrCliJson, herdrCliRun } from "./herdr-project-cli.ts";
 import {
   escalateFinishWorkToReviewer,
   normalizeFinishWorkReport,
@@ -340,7 +340,10 @@ export async function discoverRemoteSessions(
     }
 
     // Discover sessions
-    const sessionResult = await sshExec(resolved, ["herdr", "session", "list", "--json"]);
+    const sessionResult = await sshExec(
+      resolved,
+      buildRemoteHerdrArgs(undefined, ["session", "list"])
+    );
     if (!sessionResult.ok) {
       errors.push({ host: hostLabel, message: `${hostLabel}: failed to list sessions` });
       continue;
@@ -353,14 +356,10 @@ export async function discoverRemoteSessions(
       const hostSessions = parsed.sessions || [];
       for (const s of hostSessions) {
         // Fetch workspace count for this session
-        const wsResult = await sshExec(resolved, [
-          "herdr",
-          "--session",
-          s.name,
-          "workspace",
-          "list",
-          "--json",
-        ]);
+        const wsResult = await sshExec(
+          resolved,
+          buildRemoteHerdrArgs(s.name, ["workspace", "list"])
+        );
         let workspaceCount = 0;
         let agentCount = 0;
         if (wsResult.ok) {
@@ -370,14 +369,10 @@ export async function discoverRemoteSessions(
             };
             const workspaces = wsParsed.result?.workspaces || [];
             workspaceCount = workspaces.length;
-            const agentResult = await sshExec(resolved, [
-              "herdr",
-              "--session",
-              s.name,
-              "agent",
-              "list",
-              "--json",
-            ]);
+            const agentResult = await sshExec(
+              resolved,
+              buildRemoteHerdrArgs(s.name, ["agent", "list"])
+            );
             if (agentResult.ok) {
               try {
                 const agentParsed = JSON.parse(agentResult.output) as {
@@ -427,14 +422,7 @@ export async function discoverRemoteWorkspaceAgents(
 ): Promise<RemoteAgentSnapshot[]> {
   const agents: RemoteAgentSnapshot[] = [];
 
-  const wsResult = await sshExec(resolved, [
-    "herdr",
-    "--session",
-    session,
-    "workspace",
-    "list",
-    "--json",
-  ]);
+  const wsResult = await sshExec(resolved, buildRemoteHerdrArgs(session, ["workspace", "list"]));
   if (!wsResult.ok) return agents;
 
   try {
@@ -443,14 +431,7 @@ export async function discoverRemoteWorkspaceAgents(
     };
     const workspaces = wsParsed.result?.workspaces || [];
 
-    const agentResult = await sshExec(resolved, [
-      "herdr",
-      "--session",
-      session,
-      "agent",
-      "list",
-      "--json",
-    ]);
+    const agentResult = await sshExec(resolved, buildRemoteHerdrArgs(session, ["agent", "list"]));
     if (!agentResult.ok) return agents;
 
     try {

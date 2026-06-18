@@ -25,7 +25,7 @@ mock.module("../src/lib/governor-spawn.ts", () => ({
         exitCode: 0,
       };
     }
-    if (key === "herdr --session dev workspace list --json") {
+    if (key === "herdr --session dev workspace list") {
       return {
         stdout: JSON.stringify({
           result: {
@@ -36,7 +36,7 @@ mock.module("../src/lib/governor-spawn.ts", () => ({
         exitCode: 0,
       };
     }
-    if (key === "herdr --session dev agent list --json") {
+    if (key === "herdr --session dev agent list") {
       return {
         stdout: JSON.stringify({
           result: {

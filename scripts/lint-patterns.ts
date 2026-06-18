@@ -1,5 +1,9 @@
 #!/usr/bin/env bun
 /**
+ * @deprecated Pattern checks (no-console, no-process-exit, no-require-imports) are now
+ * handled by oxlint rules in .oxlintrc.json. This file is kept for reference but is no
+ * longer invoked by the lint pipeline.
+ *
  * Fail on anti-patterns in kimi-toolchain sources:
  * - console.* in src/lib/ (except logger.ts)
  * - console.* in src/bin/

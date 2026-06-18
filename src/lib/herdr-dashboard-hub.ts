@@ -50,6 +50,22 @@ export class HerdrDashboardHub {
     this.heartbeats.set(agentKey({ host, session, agent }), Date.now());
   }
 
+  recordHeartbeats(
+    rows: ReadonlyArray<{ agent: string; host?: string; session?: string }>
+  ): number {
+    const now = Date.now();
+    let recorded = 0;
+    for (const row of rows) {
+      if (!row.agent) continue;
+      this.heartbeats.set(
+        agentKey({ host: row.host ?? "(local)", session: row.session ?? "", agent: row.agent }),
+        now
+      );
+      recorded += 1;
+    }
+    return recorded;
+  }
+
   applyStaleOverlay(agents: DashboardAgentRow[]): DashboardAgentRow[] {
     const now = Date.now();
     return agents.map((row) => {

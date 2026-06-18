@@ -53,6 +53,7 @@ import {
 import { Effect } from "effect";
 import { mergedHerdrConfigLayer } from "../lib/herdr-merged-config.ts";
 import { watchOrchestratorEventsEffect } from "../lib/herdr-orchestrator-events.ts";
+import { getDashboardAgents } from "../lib/herdr-dashboard-agents.ts";
 import { BUN_WEBVIEW_DOCS_URL } from "../lib/webview-console.ts";
 import {
   findAllWorkspacesForProject,
@@ -220,6 +221,11 @@ Flags:
   --profile-dir <p>   Persistent dataStore directory (overrides --persist-profile default;
                       also honored via HERDR_DASHBOARD_WEBVIEW_STORE)
   --port <n>          Dashboard server port (default 18412)
+
+Dashboard timing (dx.config.toml [herdr.orchestrator.dashboard]):
+  stale_ms            Heartbeat stale overlay threshold (default 15000)
+  sse_poll_ms         Server SSE agent-discovery poll interval (default 5000; falls back to poll_hint_ms)
+  poll_hint_ms        Browser handoffs/rules poll interval (default 5000)
 
 WebView storage (${webviewDocs}#persistent-storage):
   Default (no flags)  dataStore: ephemeral — in-memory; discarded when WebView closes
@@ -1551,6 +1557,16 @@ try {
     }
 
     if (dashboardServe || dashboardWebview || dashboardScreenshot) {
+      const full = { ...config, projectPath };
+      const doc = (() => {
+        if (!config.sourcePath) return null;
+        try {
+          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })();
+      const orchConfig = resolveOrchestratorConfig(full, doc);
       const serverOpts = {
         projectPath,
         port: dashboardPort,
@@ -1561,6 +1577,9 @@ try {
         verbose,
         dryRun,
         http3: dashboardHttp3 ? true : undefined,
+        pollHintMs: orchConfig.dashboard.pollHintMs,
+        ssePollMs: orchConfig.dashboard.ssePollMs,
+        staleMs: orchConfig.dashboard.staleMs,
       };
 
       if (dashboardScreenshot) {
@@ -1603,218 +1622,26 @@ try {
       process.exit(0);
     }
 
-    const full = { ...config, projectPath };
-    const discovered = findAllWorkspacesForProject(full);
-    const ids = workspace ? [workspace] : discovered.workspaceIds;
-    const session = config.session;
-    const cliErrors: string[] = [...discovered.errors];
-
-    // Collect all agents + detection source across workspaces (or across sessions)
-    interface DashboardRow {
-      host: string;
-      session: string;
-      workspaceId: string;
-      agent: string;
-      status: string;
-      paneId: string;
-      source: string;
-    }
-    const rows: DashboardRow[] = [];
-    let hasRemote = false;
-
-    const hostFilter: string | undefined = cliHost || undefined;
-
-    if (showSessions) {
-      // Local sessions — skip if filtering to a specific remote host
-      if (!hostFilter) {
-        const sessionsRaw = herdrCliJson("", ["session", "list", "--json"]);
-        const sessionList = sessionsRaw.ok
-          ? (sessionsRaw.json as { sessions?: Array<{ name: string; running: boolean }> })
-              ?.sessions || []
-          : [];
-        for (const s of sessionList) {
-          if (!s.running) continue;
-          const wsRaw = herdrCliJson(s.name, ["workspace", "list"]);
-          const workspaces = wsRaw.ok
-            ? (wsRaw.json as { result?: { workspaces?: Array<{ workspace_id: string }> } })?.result
-                ?.workspaces || []
-            : [];
-          for (const ws of workspaces) {
-            const listed = listWorkspaceAgents(ws.workspace_id!, s.name);
-            if (!listed.ok) {
-              if (listed.error) cliErrors.push(listed.error);
-              continue;
-            }
-            for (const a of listed.agents) {
-              rows.push({
-                host: "(local)",
-                session: s.name,
-                workspaceId: ws.workspace_id!,
-                agent: a.agent,
-                status: a.status,
-                paneId: a.paneId,
-                source: "",
-              });
-            }
-          }
-        }
-      }
-
-      // Remote hosts — discover sessions and collect agents
-      const doc = (() => {
-        if (!config.sourcePath) return null;
-        try {
-          return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
-        } catch {
-          return null;
-        }
-      })();
-      const orchConfig = resolveOrchestratorConfig(full, doc);
-      const remoteHosts = orchConfig.remoteHosts;
-
-      // Domain filter: only hosts in the specified domain
-      const domainMembers = domain ? new Set(orchConfig.domains[domain]?.hosts || []) : null;
-
-      const hostsToScan = hostFilter
-        ? Object.fromEntries(Object.entries(remoteHosts).filter(([k]) => k === hostFilter))
-        : domain
-          ? Object.fromEntries(Object.entries(remoteHosts).filter(([k]) => domainMembers?.has(k)))
-          : remoteHosts;
-
-      if (Object.keys(hostsToScan).length > 0) {
-        hasRemote = true;
-        const resolvedHosts = normalizeRemoteHostConfig(hostsToScan, orchConfig.remoteDefaults);
-        const discovered = await discoverRemoteSessions(hostsToScan, orchConfig.remoteDefaults);
-        for (const rs of discovered.sessions) {
-          if (rs.status !== "running") continue;
-          const resolved = resolvedHosts[rs.host];
-          if (!resolved) continue;
-          const remoteAgents = await discoverRemoteWorkspaceAgents(
-            rs.host,
-            resolved,
-            rs.sessionName
-          );
-          for (const ra of remoteAgents) {
-            rows.push({
-              host: ra.host,
-              session: ra.sessionName,
-              workspaceId: ra.workspaceId,
-              agent: ra.agent,
-              status: ra.status,
-              paneId: ra.paneId,
-              source: "",
-            });
-          }
-        }
-      } else if (hostFilter) {
-        if (json) writeJson({ ok: false, error: `host "${hostFilter}" not configured` });
-        else
-          writeOut(
-            `Unknown host "${hostFilter}". Known hosts: ${Object.keys(remoteHosts).join(", ") || "none"}`
-          );
-        process.exit(1);
-      }
-    } else {
-      // Non-session mode: local-only unless host filter
-      if (!hostFilter || hostFilter === "local") {
-        for (const id of ids) {
-          const listed = listWorkspaceAgents(id, session);
-          if (!listed.ok) {
-            if (listed.error) cliErrors.push(listed.error);
-            continue;
-          }
-          for (const a of listed.agents) {
-            rows.push({
-              host: "(local)",
-              session: "",
-              workspaceId: id,
-              agent: a.agent,
-              status: a.status,
-              paneId: a.paneId,
-              source: "",
-            });
-          }
-        }
-      }
-    }
-
-    // Enrich with agent_session info (native integrations) + restore readiness
-    const rawAgents = herdrCliJson(session, ["agent", "list"]);
-    const agentSessionMap = new Map<string, string>();
-    if (rawAgents.ok) {
-      const rawRows = (rawAgents.json?.result?.agents || []) as Array<{
-        agent?: string;
-        pane_id?: string;
-        agent_session?: { source?: string };
-      }>;
-      for (const r of rawRows) {
-        if (r.pane_id && r.agent_session?.source) {
-          agentSessionMap.set(r.pane_id, r.agent_session.source);
-        }
-      }
-    }
-    for (const row of rows) {
-      row.source = agentSessionMap.get(row.paneId) || (row.agent ? "reported" : "detected");
-    }
-
-    // Restore readiness (only computed when verbose)
-    let restoreMap = new Map<string, string>(); // paneId → "native" | "replay" | "none"
-    if (verbose) {
-      const integRaw = herdrCliRun(session, ["integration", "status"]);
-      const integVersions = integRaw.ok ? parseIntegrationStatus(integRaw.output) : new Map();
-      const getReadiness = getRestoreReadiness(agentSessionMap, integVersions);
-      for (const row of rows) {
-        const info = getReadiness(row.paneId, row.agent);
-        restoreMap.set(row.paneId, info.restore);
-      }
-    }
-
-    // Include doctor agents from server manifests if requested
-    if (includeDoctor) {
-      const doctorResult = herdrCliJson("", ["server", "agent-manifests", "--json"]);
-      if (doctorResult.ok) {
-        const manifests =
-          (
-            doctorResult.json as {
-              manifests?: Array<{ name?: string; source?: string; state?: string }>;
-            }
-          )?.manifests || [];
-        const existingNames = new Set(rows.map((r) => r.agent));
-        for (const m of manifests) {
-          if (m.name && m.source?.startsWith("herdr:") && !existingNames.has(m.name)) {
-            rows.push({
-              host: "(local)",
-              session: session || "",
-              workspaceId: "doctor",
-              agent: m.name,
-              status: "unknown",
-              paneId: "manifest",
-              source: m.source || "",
-            });
-          }
-        }
-      }
-    }
+    const payload = await getDashboardAgents(projectPath, {
+      sessions: showSessions,
+      host: cliHost,
+      domain,
+      includeDoctor,
+      verbose,
+      workspace,
+    });
+    const rows = payload.agents;
+    const hasRemote = rows.some((r) => r.host !== "(local)");
 
     if (json) {
-      const error = cliErrors.length > 0 ? cliErrors.join("; ") : undefined;
-      const ok = cliErrors.length === 0 || rows.length > 0;
       writeJson({
-        ok,
-        projectPath,
-        agentCount: rows.length,
-        agents: rows.map((r) => ({
-          host: r.host,
-          session: r.session,
-          workspaceId: r.workspaceId,
-          agent: r.agent,
-          status: r.status,
-          paneId: r.paneId,
-          source: r.source,
-        })),
-        ...(error ? { error } : {}),
+        ok: payload.ok,
+        projectPath: payload.projectPath,
+        agentCount: payload.agentCount,
+        agents: payload.agents,
+        ...(payload.error ? { error: payload.error } : {}),
       });
-      process.exit(ok ? 0 : 1);
+      process.exit(payload.ok ? 0 : 1);
     }
 
     if (!rows.length) {

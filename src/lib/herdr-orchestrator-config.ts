@@ -826,6 +826,48 @@ export function readHerdrRemoteDefaults(): RemoteDefaults {
 
 // ── Orchestrator config ─────────────────────────────────────────────────
 
+/** Dashboard WebView / HTTP server timing (SSE poll + stale heartbeat overlay). */
+export interface HerdrOrchestratorDashboardConfig {
+  /** Mark agents stale when heartbeat older than this (ms). */
+  staleMs: number;
+  /** Server SSE agent-discovery poll interval (ms). */
+  ssePollMs: number;
+  /** Handoffs/rules browser poll interval (ms). */
+  pollHintMs: number;
+}
+
+export const DEFAULT_DASHBOARD_STALE_MS = 15_000;
+export const DEFAULT_DASHBOARD_SSE_POLL_MS = 5_000;
+export const DEFAULT_DASHBOARD_POLL_HINT_MS = 5_000;
+
+export function parseOrchestratorDashboardSection(
+  section: Record<string, unknown> | undefined
+): HerdrOrchestratorDashboardConfig {
+  const staleRaw =
+    typeof section?.staleMs === "number"
+      ? section.staleMs
+      : typeof section?.stale_ms === "number"
+        ? section.stale_ms
+        : DEFAULT_DASHBOARD_STALE_MS;
+  const pollRaw =
+    typeof section?.pollHintMs === "number"
+      ? section.pollHintMs
+      : typeof section?.poll_hint_ms === "number"
+        ? section.poll_hint_ms
+        : DEFAULT_DASHBOARD_POLL_HINT_MS;
+  const sseRaw =
+    typeof section?.ssePollMs === "number"
+      ? section.ssePollMs
+      : typeof section?.sse_poll_ms === "number"
+        ? section.sse_poll_ms
+        : pollRaw;
+  return {
+    staleMs: staleRaw > 0 ? staleRaw : DEFAULT_DASHBOARD_STALE_MS,
+    ssePollMs: sseRaw > 0 ? sseRaw : DEFAULT_DASHBOARD_SSE_POLL_MS,
+    pollHintMs: pollRaw > 0 ? pollRaw : DEFAULT_DASHBOARD_POLL_HINT_MS,
+  };
+}
+
 export interface HerdrOrchestratorConfig {
   enabled: boolean;
   /** Sync agentsTab context when an agent transitions working → idle. */
@@ -849,6 +891,8 @@ export interface HerdrOrchestratorConfig {
   notifications: NotificationsConfig;
   /** Domain groups for hosts. */
   domains: Record<string, DomainConfig>;
+  /** Dashboard SSE / stale detection tuning. */
+  dashboard: HerdrOrchestratorDashboardConfig;
 }
 
 export interface NotificationsConfig {
@@ -1039,6 +1083,11 @@ export function parseHerdrOrchestratorSection(
     }
   }
 
+  const dashboardNested =
+    nested.dashboard && typeof nested.dashboard === "object"
+      ? (nested.dashboard as Record<string, unknown>)
+      : undefined;
+
   // Notifications config
   const notifications: NotificationsConfig = {};
   const rawNotifications = nested.notifications;
@@ -1063,6 +1112,7 @@ export function parseHerdrOrchestratorSection(
     remoteDefaults,
     notifications,
     domains,
+    dashboard: parseOrchestratorDashboardSection(dashboardNested),
   };
 }
 
@@ -1139,5 +1189,6 @@ export function resolveOrchestratorConfig(
       })(),
     notifications: mergeNotifications(fromDoc?.notifications ?? {}, readHerdrNotifyDefaults()),
     domains: fromDoc?.domains ?? {},
+    dashboard: fromDoc?.dashboard ?? parseOrchestratorDashboardSection(undefined),
   };
 }

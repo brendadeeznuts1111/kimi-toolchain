@@ -1,13 +1,20 @@
 #!/usr/bin/env bun
 /**
- * Enforce distinctive, grep-friendly test file and describe naming.
+ * Enforce test file naming, describe conventions, and Bun-native test practices.
  *
- * Rules:
+ * Naming rules:
  * - test files use {stem}.{unit|integration|smoke|db|router}.test.ts
  *   (legacy: ecosystem-health.test.ts, workspace-health.test.ts)
  * - *.unit.test.ts stem maps to a source module (src/lib, src/lib/effect, src/bin, types)
  * - Top-level describe("…") uses kebab-case and starts with the file stem
  *   (grandfathered files listed in LEGACY_DESCRIBE_EXEMPT)
+ *
+ * Convention rules (exempt test/helpers.ts):
+ * - No node:fs / fs sync imports
+ * - No process.env — use Bun.env or withEnv()
+ * - No console.log = / console.error = — use captureConsole helpers
+ * - No duplicate REPO_ROOT — import from test/helpers.ts
+ * - No mkdtempSync / readFileSync / writeFileSync
  */
 
 import { basename, join } from "path";
@@ -102,6 +109,121 @@ function firstTopLevelDescribe(text: string): string | null {
   return match?.[1] ?? null;
 }
 
+// ── Convention rules (ex-lint-test-conventions.ts) ───────────────────
+
+const HELPERS = "test/helpers.ts";
+
+interface ConventionViolation {
+  file: string;
+  line: number;
+  ruleId: string;
+  message: string;
+  snippet: string;
+}
+
+const CONVENTION_RULES: Array<{
+  id: string;
+  pattern: RegExp;
+  message: string;
+  exempt?: RegExp;
+}> = [
+  {
+    id: "node-fs-import",
+    pattern: /from\s+["'](?:node:)?fs["']/,
+    message: "Use Bun.file / bun-io.ts or test/helpers.ts instead of fs imports",
+  },
+  {
+    id: "process-env",
+    pattern: /\bprocess\.env\b/,
+    message: "Use Bun.env or withEnv() from test/helpers.ts",
+  },
+  {
+    id: "console-assign",
+    pattern: /\bconsole\.(log|error|warn)\s*=/,
+    message: "Use captureConsole / captureConsoleError / captureStdout from test/helpers.ts",
+    exempt: /test\/helpers\.ts$/,
+  },
+  {
+    id: "sync-fs-api",
+    pattern: /\b(readFileSync|writeFileSync|mkdirSync|rmSync|mkdtempSync|existsSync)\s*\(/,
+    message: "Use bun-io.ts helpers or test/helpers.ts",
+  },
+  {
+    id: "spawn-rm-rf",
+    pattern: /Bun\.spawnSync\(\s*\[\s*["']rm["']\s*,\s*["']-rf["']/,
+    message: "Use cleanupPath() from test/helpers.ts",
+  },
+  {
+    id: "local-repo-root",
+    pattern: /const\s+REPO_ROOT\s*=\s*join\s*\(\s*import\.meta\.dir/,
+    message: "Import { REPO_ROOT } from test/helpers.ts (or relative ./helpers.ts)",
+    exempt: /test\/helpers\.ts$/,
+  },
+];
+
+function stripStringLiterals(line: string): string {
+  return line
+    .replace(/"(?:\\.|[^"\\])*"/g, '""')
+    .replace(/'(?:\\.|[^'\\])*'/g, "''")
+    .replace(/`(?:\\.|[^`\\])*`/g, "``");
+}
+
+function scanConventions(rel: string, text: string): ConventionViolation[] {
+  if (rel === HELPERS) return [];
+  const lines = text.split("\n");
+  const violations: ConventionViolation[] = [];
+  for (const rule of CONVENTION_RULES) {
+    if (rule.exempt?.test(rel)) continue;
+    for (let i = 0; i < lines.length; i++) {
+      const raw = lines[i] ?? "";
+      if (raw.trimStart().startsWith("//")) continue;
+      const line = stripStringLiterals(raw);
+      if (!rule.pattern.test(line)) continue;
+      violations.push({
+        file: rel,
+        line: i + 1,
+        ruleId: rule.id,
+        message: rule.message,
+        snippet: raw.trim().slice(0, 120),
+      });
+    }
+  }
+  return violations;
+}
+
+export async function lintTestConventions(
+  root: string = REPO_ROOT,
+  onlyFiles?: string[]
+): Promise<string[]> {
+  const violations: string[] = [];
+  if (onlyFiles !== undefined) {
+    for (const rel of onlyFiles) {
+      if (!rel.startsWith("test/") || !rel.endsWith(".ts")) continue;
+      if (rel === HELPERS) continue;
+      let text: string;
+      try {
+        text = await readTextAsync(join(root, rel));
+      } catch {
+        continue;
+      }
+      for (const v of scanConventions(rel, text)) {
+        violations.push(`${v.file}:${v.line} [${v.ruleId}] ${v.message}\n    ${v.snippet}`);
+      }
+    }
+    return violations;
+  }
+  const convGlob = new Bun.Glob("test/**/*.ts");
+  for await (const rel of convGlob.scan({ cwd: root, onlyFiles: true })) {
+    const text = await readTextAsync(join(root, rel));
+    for (const v of scanConventions(rel, text)) {
+      violations.push(`${v.file}:${v.line} [${v.ruleId}] ${v.message}\n    ${v.snippet}`);
+    }
+  }
+  return violations;
+}
+
+// ── Test naming rules ────────────────────────────────────────────────
+
 export async function lintTestNames(
   root: string = REPO_ROOT,
   onlyFiles?: string[]
@@ -170,15 +292,30 @@ export async function lintTestNames(
 }
 
 async function main(): Promise<void> {
-  const violations = await lintTestNames();
-  if (violations.length > 0) {
+  const [nameViolations, conventionViolations] = await Promise.all([
+    lintTestNames(),
+    lintTestConventions(),
+  ]);
+
+  let exit = 0;
+
+  if (nameViolations.length > 0) {
     console.error("✗ Test naming violations:\n");
-    for (const line of violations) {
-      console.error(`  ${line}`);
-    }
-    process.exit(1);
+    for (const line of nameViolations) console.error(`  ${line}`);
+    exit = 1;
+  } else {
+    console.log("lint:test-names OK");
   }
-  console.log("lint:test-names OK");
+
+  if (conventionViolations.length > 0) {
+    console.error(`\ntest conventions: ${conventionViolations.length} violation(s)\n`);
+    for (const line of conventionViolations) console.error(`  ${line}`);
+    exit = 1;
+  } else {
+    console.log("test conventions: ok");
+  }
+
+  process.exit(exit);
 }
 
 if (import.meta.main) {

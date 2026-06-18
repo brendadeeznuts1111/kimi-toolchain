@@ -92,13 +92,29 @@ export async function runGate(
     readableStreamToText(proc.stderr),
     proc.exited,
   ]);
-  return {
-    name,
-    exitCode,
-    ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
-    stdout,
-    stderr,
-  };
+  const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+
+  const budget = fastGateTimeoutBudgetMs();
+  if (budget > 0 && ms > budget && exitCode === 0) {
+    const budgetMsg = `TIMEOUT: ${name} took ${ms}ms, budget is ${budget}ms — set KIMI_CHECK_FAST_TIMEOUT_MS higher or optimize the step`;
+    return {
+      name,
+      exitCode: 1,
+      ms,
+      stdout,
+      stderr: [stderr, budgetMsg].filter(Boolean).join("\n"),
+    };
+  }
+
+  return { name, exitCode, ms, stdout, stderr };
+}
+
+/** Read KIMI_CHECK_FAST_TIMEOUT_MS budget. Returns 0 (no limit) when unset. */
+export function fastGateTimeoutBudgetMs(): number {
+  const raw = Bun.env.KIMI_CHECK_FAST_TIMEOUT_MS;
+  if (!raw) return 0;
+  const value = Number(raw);
+  return Number.isInteger(value) && value > 0 ? value : 0;
 }
 
 export function noColorEnabled(): boolean {

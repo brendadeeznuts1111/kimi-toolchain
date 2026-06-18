@@ -14,7 +14,6 @@ export const FULL_LINT_ONLY_CHECKS = [
   "skill-coverage",
   "skill-frontmatter",
   "tochange",
-  "test-conventions",
   "build-constants",
   "constants-manifest",
   "canonical-references",
@@ -30,6 +29,7 @@ export function filterBannedTermPaths(changed: string[]): string[] {
   });
 }
 
+/** @deprecated Pattern violations (no-console, no-process-exit, no-require-imports) now checked by oxlint. */
 export function filterPatternPaths(changed: string[]): string[] {
   return changed.filter(
     (path) => path.startsWith("src/") && path.endsWith(".ts") && !path.includes("/node_modules/")
@@ -62,7 +62,7 @@ export function shouldRunScopedLint(changed: string[]): boolean {
 
 export function scopedLintNoticeLine(): string {
   const skipped = FULL_LINT_ONLY_CHECKS.join(", ");
-  return `ℹ lint (scoped): oxlint + banned-terms + patterns + test-names + doc-links on changed files; skipped full lint: ${skipped}`;
+  return `ℹ lint (scoped): oxlint (incl. patterns) + banned-terms + test-names + doc-links on changed files; skipped full lint: ${skipped}`;
 }
 
 export function printScopedLintNotice(): void {

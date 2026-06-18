@@ -1,5 +1,9 @@
 #!/usr/bin/env bun
 /**
+ * @deprecated Merged into scripts/lint-test-names.ts (lintTestConventions export).
+ * Kept for reference. Tests run via lint-test-names.ts which handles both naming
+ * and convention checks in a single pass.
+ *
  * Enforce Bun-native test conventions — see test/testing.md.
  *
  * Rules (enforce on test/*.ts files, excluding helpers.ts):

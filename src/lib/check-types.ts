@@ -17,6 +17,8 @@ export interface CheckOptions {
   watchTests: boolean;
   cacheResults: boolean;
   noCache: boolean;
+  /** Print per-step timing breakdown after gate completes. */
+  profile?: boolean;
 }
 
 export interface StepSummary {
@@ -51,5 +53,6 @@ export function optionsFingerprint(options: CheckOptions): string {
     timeoutMs: options.timeoutMs,
     failFast: options.failFast,
     jsonSummary: options.jsonSummary,
+    profile: options.profile,
   });
 }

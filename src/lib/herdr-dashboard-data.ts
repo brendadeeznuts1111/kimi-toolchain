@@ -2,16 +2,13 @@
  * herdr-dashboard-data.ts — Agent, handoff, and rule payloads for the WebView dashboard.
  */
 
-import { join } from "path";
-import { withNoOrphansEnv } from "./bun-spawn-env.ts";
-import { readableStreamToText } from "./bun-utils.ts";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
 import { readText } from "./bun-io.ts";
 import { TOML } from "bun";
 import { resolveOrchestratorConfig } from "./herdr-orchestrator-config.ts";
 import { getHandoffHistory, getHandoffLogPath, type HandoffLogEntry } from "./handoff-log.ts";
 import { herdrCliRun } from "./herdr-project-cli.ts";
-import { safeParse } from "./utils.ts";
+import { getDashboardAgents } from "./herdr-dashboard-agents.ts";
 
 export const DEFAULT_DASHBOARD_PORT = 18412;
 
@@ -97,73 +94,12 @@ export interface DashboardIpcResult {
   result?: DashboardActionResult;
 }
 
-function orchestratorScriptPath(): string {
-  return join(import.meta.dir, "../bin/herdr-orchestrator.ts");
-}
-
-/** Spawn `herdr-orchestrator dashboard --json` (keeps CLI logic single-sourced). */
+/** In-process agent discovery — same logic as `herdr-orchestrator dashboard --json`. */
 export async function fetchDashboardAgents(
   projectPath: string,
   options: DashboardFetchOptions = {}
 ): Promise<DashboardAgentsPayload> {
-  const args = [orchestratorScriptPath(), "dashboard", projectPath, "--json"];
-  if (options.sessions) args.push("--sessions");
-  if (options.host) args.push("--host", options.host);
-  if (options.domain) args.push("--domain", options.domain);
-  if (options.includeDoctor) args.push("--include-doctor");
-  if (options.verbose) args.push("--verbose");
-
-  const proc = Bun.spawn([process.execPath, ...args], {
-    cwd: projectPath,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: withNoOrphansEnv(),
-  });
-  const [stdout, stderr, code] = await Promise.all([
-    readableStreamToText(proc.stdout),
-    readableStreamToText(proc.stderr),
-    proc.exited,
-  ]);
-
-  const fetchedAt = new Date().toISOString();
-  if (code !== 0) {
-    return {
-      ok: false,
-      projectPath,
-      agentCount: 0,
-      agents: [],
-      error: (stderr || stdout || `exit ${code}`).trim(),
-      fetchedAt,
-    };
-  }
-
-  const parsed = safeParse(
-    stdout,
-    null as {
-      ok?: boolean;
-      agentCount?: number;
-      agents?: DashboardAgentRow[];
-      error?: string;
-    } | null
-  );
-  if (!parsed?.ok) {
-    return {
-      ok: false,
-      projectPath,
-      agentCount: 0,
-      agents: [],
-      error: parsed?.error || "invalid dashboard JSON",
-      fetchedAt,
-    };
-  }
-
-  return {
-    ok: true,
-    projectPath,
-    agentCount: parsed.agentCount ?? parsed.agents?.length ?? 0,
-    agents: parsed.agents ?? [],
-    fetchedAt,
-  };
+  return getDashboardAgents(projectPath, options);
 }
 
 /** Handoff rules with last-fired metadata from the audit log. */

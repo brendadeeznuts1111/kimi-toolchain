@@ -4,7 +4,39 @@
   "categories": {
     "correctness": "error"
   },
-  "rules": {},
+  "rules": {
+    "no-console": "error",
+    "unicorn/no-process-exit": "error",
+    "typescript/no-require-imports": "error"
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/logger.ts",
+        "**/scripts/**",
+        "**/test/**",
+        "**/postinstall.ts",
+        "**/guardian/**",
+        "**/drift/**",
+        "**/templates/**"
+      ],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": [
+        "**/src/bin/**",
+        "**/scripts/**",
+        "**/test/**",
+        "**/postinstall.ts"
+      ],
+      "rules": {
+        "unicorn/no-process-exit": "off",
+        "typescript/no-require-imports": "off"
+      }
+    }
+  ],
   "env": {
     "builtin": true
   }

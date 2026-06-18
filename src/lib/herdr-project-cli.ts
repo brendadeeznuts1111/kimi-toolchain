@@ -29,6 +29,15 @@ export function ensureJsonArgs(args: string[]): string[] {
   return args;
 }
 
+/** Remote SSH argv: `herdr` + optional `--session` + subcommand with correct `--json` policy. */
+export function buildRemoteHerdrArgs(
+  session: string | undefined,
+  subcommandArgs: string[]
+): string[] {
+  const jsonArgs = ensureJsonArgs(subcommandArgs);
+  return session ? ["herdr", "--session", session, ...jsonArgs] : ["herdr", ...jsonArgs];
+}
+
 export type ExecCliOptions = {
   timeout?: number;
   session?: string;

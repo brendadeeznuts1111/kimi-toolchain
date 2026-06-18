@@ -242,6 +242,12 @@ staging = "staging"   # local SSH alias → localhost (testing remote bootstrap 
 # port = 22
 # identity_file = "~/.ssh/id_ed25519"
 
+# Dashboard WebView / HTTP server tuning (SSE poll + stale heartbeat overlay)
+[herdr.orchestrator.dashboard]
+stale_ms = 15000
+sse_poll_ms = 5000      # server agent-discovery SSE interval
+poll_hint_ms = 5000     # browser handoffs/rules poll interval
+
 [herdr.orchestrator.events]
 enabled = true
 debounceMs = 2000

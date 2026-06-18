@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildRemoteHerdrArgs,
   ensureJsonArgs,
   herdrSessionArgs,
   herdrSessionEnv,
@@ -63,5 +64,28 @@ describe("herdr-project-cli", () => {
     expect(ensureJsonArgs(["pane", "list"])).toEqual(["pane", "list"]);
     expect(ensureJsonArgs(["agent", "list"])).toEqual(["agent", "list"]);
     expect(ensureJsonArgs(["plugin", "list", "--json"])).toEqual(["plugin", "list", "--json"]);
+  });
+
+  test("buildRemoteHerdrArgs applies session prefix and ensureJsonArgs policy", () => {
+    expect(buildRemoteHerdrArgs(undefined, ["session", "list"])).toEqual([
+      "herdr",
+      "session",
+      "list",
+      "--json",
+    ]);
+    expect(buildRemoteHerdrArgs("dev", ["workspace", "list"])).toEqual([
+      "herdr",
+      "--session",
+      "dev",
+      "workspace",
+      "list",
+    ]);
+    expect(buildRemoteHerdrArgs("dev", ["agent", "list"])).toEqual([
+      "herdr",
+      "--session",
+      "dev",
+      "agent",
+      "list",
+    ]);
   });
 });
