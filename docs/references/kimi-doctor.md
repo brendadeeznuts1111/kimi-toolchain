@@ -142,6 +142,60 @@ The adapter has a default timeout of 60 s. If it expires, the check shows:
 
 ---
 
+## Live dashboard gate-health
+
+When the Herdr dashboard server is running, the **gate-health overlay** (banner on
+the Agents tab) and the **Metrics** tab poll two HTTP routes. These are runtime
+probes — not finish-work gates and not the same as `--automation` or
+`--dashboard-meta`.
+
+### `GET /api/doctor/gates`
+
+Runs a lightweight effect-gates check against the dashboard's `projectPath`:
+
+```bash
+kimi-doctor --effect-gates --json --project-root <projectPath>
+```
+
+Implementation: `fetchDashboardGateHealth()` in `src/lib/herdr-dashboard-data.ts`.
+Route handler: `src/lib/herdr-dashboard-server.ts`.
+
+**Response shape** (`DashboardGateCheckPayload`):
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `ok` | boolean | Probe completed (doctor found and subprocess ran) |
+| `failed` | boolean | One or more gates are failing |
+| `failures` | `{ name, message }[]` | Failing gate names and messages |
+| `total` | number | Total gates in the effect-gates summary |
+| `fetchedAt` | string | ISO timestamp |
+
+The browser overlay (`#gate-health` in `templates/herdr-dashboard.js`) polls this
+route every **30 s**, highlights failing agent rows, and shows
+`N/total failing: <names>`.
+
+The server also runs the same probe in the background via
+`startDashboardGateHealthWatch()` (`src/lib/herdr-dashboard-gate-watch.ts`). On
+state transitions it emits typed bus events:
+
+| Bus event | When | Audit type |
+| --------- | ---- | ---------- |
+| `gate:failed` | First failure, pass→fail, or failure-set change | `gate.failed` |
+| `gate:cleared` | Fail→pass | `gate.cleared` |
+
+Disable the server watch with `gateHealthWatch: false` on
+`startHerdrDashboardServer()` (tests).
+
+### `GET /api/metrics`
+
+Returns process/runtime stats for the Metrics tab. Implementation:
+`fetchDashboardMetrics()` — RSS and heap (MB), event-loop lag (ms), process uptime,
+active SSE connections, and current agent count from the hub.
+
+Poll interval is tab-driven (on Metrics tab activation), not on a fixed cron.
+
+---
+
 ## Relationship to other endpoints
 
 - **Dashboard storage / thumbnail architecture** → [dashboard-thumbnails.md](./dashboard-thumbnails.md)
@@ -175,6 +229,26 @@ Canonical manifest id: `kimi-doctor` in `canonical-references.json`.
 
 **Canvas companion:** `docs/canvases/herdr-dashboard-automation.canvas.tsx` (manifest id `kimi-doctor` · `cursorCanvas` pointer; not synced).
 
+---
+
+## Boundary: `docs/references/` vs `src/lib/canonical-references.ts`
+
+| Layer | Role | Example |
+|-------|------|---------|
+| `docs/references/*.md` | Human-readable API docs, long-form explanations, flag tables | `kimi-doctor.md`, `namespace.md`, `dashboard-thumbnails.md` |
+| `src/lib/canonical-references.ts` | Machine-readable registry: manifest rows, ecosystem repos, canvas routing, doc-link lint gate | `CANVAS_ROUTING`, `ECOSYSTEM_REPOS`, `DOC_REFERENCES` |
+| `canonical-references.json` | Generated manifest snapshot (cache at `~/.kimi-code/`) | `bun run references:generate` |
+
+**Rule:** Add a `docs/references/*.md` doc → add a matching row in `canonical-references.ts` → run `bun run references:generate && bun run sync:verify`.
+
+The `kimi-doctor --doc-links` lint gate enforces that every entry in `DOC_REFERENCES` has a corresponding `docs/references/*.md` file on disk and vice versa. This file (`kimi-doctor.md`) has its row in the `DOC_REFERENCES` array under the `kimi-doctor` namespace.
+
+**Cross-references within `docs/references/`:**
+- `namespace.md` — doctor trinity and Herdr plugin boundaries
+- `dashboard-thumbnails.md` — screenshot → thumbnail pipeline
+- `bun-runtime-scaffold.md` — Bun install config layers
+- `herdr-socket-saturation-protocol.md` — EAGAIN recovery
+
 ## Related source files
 
 | Concern | File |
@@ -182,5 +256,7 @@ Canonical manifest id: `kimi-doctor` in `canonical-references.json`.
 | CLI entry | `src/bin/kimi-doctor.ts` |
 | Automation gate | `src/lib/herdr-dashboard-automation-gate.ts` |
 | Automation runner | `src/lib/herdr-dashboard-automation.ts` |
+| Live gate-health API + watch | `src/lib/herdr-dashboard-data.ts`, `src/lib/herdr-dashboard-gate-watch.ts` |
+| Metrics API | `src/lib/herdr-dashboard-data.ts` (`fetchDashboardMetrics`) |
 | WebP encode | `src/lib/bun-image.ts` (`dashboardWebpThumbnail`) |
 | Doctor adapter | `src/lib/doctor-adapters/dashboard-automation.ts` |
