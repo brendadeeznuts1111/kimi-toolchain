@@ -158,6 +158,9 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run test:coverage`      | Full suite with Bun coverage report                 |
 | `bun run test:coverage:fast` | Unit coverage at 1500ms timeout (R-Score gate)    |
 | `bun run test:coverage:ci`   | Full suite + coverage (60s timeout, lcov, `--bail`) |
+| `bun run test:parallel`      | Full suite across all CPU cores (`--parallel --isolate`) |
+| `bun run test:parallel:4`    | Full suite across 4 workers                           |
+| `bun run test:shard`         | CI matrix — set SHARD env (e.g. `--shard=1/3`)      |
 | `bun run check`              | format:check + lint + typecheck + test (CI/hooks)   |
 | `bun run check:fast`         | Same gates; unit tests at 1500ms timeout            |
 | `bun run check:dry-run`      | List check steps without running them               |

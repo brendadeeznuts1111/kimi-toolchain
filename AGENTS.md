@@ -127,6 +127,13 @@ bun install
 bun run check:fast
 bun run test:fast
 
+# Parallel — all CPUs, isolate per file, work-stealing (Bun ≥1.3.13)
+bun run test:parallel
+bun run test:parallel:4      # explicit 4 workers
+
+# Shard — split across CI jobs (deterministic round-robin)
+bun run test --shard=1/3
+
 # Full gate (CI / pre-push): format:check + lint + typecheck + all tests
 bun run check
 
