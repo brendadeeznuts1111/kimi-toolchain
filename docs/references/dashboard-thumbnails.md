@@ -2,6 +2,8 @@
 
 How the Herdr orchestrator dashboard turns a live `Bun.WebView` screenshot into a compressed thumbnail served by the dashboard HTTP server, and how that relates to the WebView's persistent `dataStore` profile.
 
+**Namespace:** `/api/thumbnail` is **orchestrator HTTP** (`Bun.serve`) — not a `[[endpoints]]` inventory row and not a Herdr `prefix+*` action. For collisions with `herdr-orchestrator` (CLI vs plugin) or endpoint tables, `@see namespace-boundaries` → [namespace.md § Name collision resolver](./namespace.md#name-collision-resolver).
+
 ## High-level flow
 
 ```

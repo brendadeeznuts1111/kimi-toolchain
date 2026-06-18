@@ -2,7 +2,7 @@
 
 ## Not to be confused with
 
-- **`herdr-doctor` plugin** — Herdr UI plugin (`prefix+d`), not this CLI. See [namespace.md](./namespace.md) (especially [Doctor trinity](./namespace.md#doctor-trinity--kimi-code)).
+- **`herdr-doctor` plugin** — Herdr UI plugin (`prefix+d`), not this CLI. `@see namespace-boundaries` → [Doctor trinity](./namespace.md#doctor-trinity--kimi-code) · [Name collision resolver](./namespace.md#name-collision-resolver).
 
 ## Primary command
 

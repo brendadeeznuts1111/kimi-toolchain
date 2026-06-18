@@ -103,7 +103,7 @@ Effect code or a new CLI using `runCliExit` → load **effect-discipline** (`ski
 
 ```
 1. kimi-guardian check (mandatory)
-2. IF hash mismatch → block push; ask before kimi-guardian sign
+2. IF hash mismatch → block push; ask before kimi-guardian fix (hash baseline); use kimi-guardian sign only for v2 signed manifest protection
 3. IF pass → continue
 ```
 
@@ -168,10 +168,14 @@ Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight a
 
 - **Hub doc**: `~/.kimi-code/docs/references/configuration-layers.md` (manifest id `configuration-layers`) — explains the four-layer model.
 - **One-shot audit**: `bun run config:status` — checks freshness of `canonical-references.json`, `constants-manifest.json`, parity alignment, and scaffold integrity (step 0 in Project Health Check).
-- **Canvas companion**: `docs/canvases/configuration-layers.canvas.tsx` (repo pointer via `cursorCanvas`; not synced).
+- **Canvas companions** (repo pointers via `cursorCanvas`; not synced to runtime):
+  - `docs/canvases/kimi-toolchain.canvas.tsx` — project hub (manifest id `unified`)
+  - `docs/canvases/namespace-boundaries.canvas.tsx` — doctor trinity and binding layers (manifest id `namespace`)
+  - `docs/canvases/configuration-layers.canvas.tsx` — four-layer config model (manifest id `configuration-layers`)
+- **Canvas lint**: `bun run scripts/lint-cursor-canvas.ts` — verifies each `cursorCanvas` path exists under `docs/canvases/`.
 
 - Cached link manifest: `~/.kimi-code/canonical-references.json` (`bun run references:generate`)
 - Repo: https://github.com/brendadeeznuts1111/kimi-toolchain
 - [CODE_REFERENCES.md](~/.kimi-code/CODE_REFERENCES.md) — local coding exemplars + ecosystem link table
-- **Inline doc routing (`@see`)**: [namespace.md § Practical @see ladder](~/.kimi-code/docs/references/namespace.md#practical-see-ladder) — lowest rung first; Bun URLs in `src/` via `bun run lint:doc-links`
+- **Inline doc routing (`@see`)**: [namespace.md § Practical @see ladder](~/.kimi-code/docs/references/namespace.md#practical-see-ladder) — `@see dx` · `@see namespace-boundaries` (name collision resolver + canvas) · lowest rung first; Bun URLs in `src/` via `bun run lint:doc-links`
 - Kimi docs: https://moonshotai.github.io/kimi-code/

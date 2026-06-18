@@ -76,6 +76,7 @@ export const UNIT_TEST_FILES = [
   "test/workspace-health.test.ts",
   "test/ecosystem-health.test.ts",
   "test/governance-check.unit.test.ts",
+  "test/guardian-verify.unit.test.ts",
   "test/conventional-commits.unit.test.ts",
   "test/changelog.unit.test.ts",
   "test/scaffold-quality.unit.test.ts",

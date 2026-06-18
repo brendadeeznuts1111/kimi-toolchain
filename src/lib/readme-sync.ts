@@ -171,12 +171,12 @@ export async function patchReadmeScripts(projectDir: string): Promise<number> {
   if (README_SCRIPT_SYNC_BLOCK_RE.test(readme)) {
     readme = readme.replace(README_SCRIPT_SYNC_BLOCK_RE, buildScriptSyncBlock(scripts));
   } else {
-    const rows = buildPatchRows(drift.missingFromReadme);
+    const block = `### Auto-synced scripts\n\n${buildScriptSyncBlock(scripts)}\n\n`;
     const sectionEnd = readme.search(NEXT_SECTION_PATTERN);
     if (sectionEnd > 0) {
-      readme = readme.slice(0, sectionEnd) + "\n" + rows + readme.slice(sectionEnd);
+      readme = readme.slice(0, sectionEnd) + "\n\n" + block + readme.slice(sectionEnd);
     } else {
-      readme += "\n" + rows + "\n";
+      readme += "\n\n" + block;
     }
   }
 

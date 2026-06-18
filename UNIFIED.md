@@ -118,6 +118,11 @@ bun run check:dry-run       # preview format/lint/typecheck/test steps
 bun test                    # full suite (unit + smoke)
 bun run doctor --quick
 
+# Canvas companions (IDE-only; repo pointers via cursorCanvas in canonical-references.json):
+#   docs/canvases/kimi-toolchain.canvas.tsx      — project hub (manifest id unified)
+#   docs/canvases/namespace-boundaries.canvas.tsx — name collisions (manifest id namespace)
+#   docs/canvases/configuration-layers.canvas.tsx — four-layer config model
+
 # 3. Push to live runtime
 bun run sync
 # Final handoff after tools/docs/skills/templates changed:

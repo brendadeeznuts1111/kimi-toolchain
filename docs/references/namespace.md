@@ -27,6 +27,25 @@ Agents often conflate names that share a word (`doctor`, `orchestrator`) but liv
 
 `prefix+d` in Herdr invokes the **plugin action** `herdr-doctor.status`. It does **not** run `kimi-doctor` from PATH.
 
+## Name collision resolver
+
+**Rule:** same word ≠ same executable. When a task mentions `doctor`, `orchestrator`, or `endpoints`, pick the binding layer first.
+
+| You see / task mentions | Binding layer | Actually runs | Read |
+| ----------------------- | ------------- | ------------- | ---- |
+| `kimi doctor` | Kimi Code CLI | `~/.kimi-code/bin/kimi` | [UNIFIED.md](../../UNIFIED.md) |
+| `kimi-doctor --automation` | Finish-work shell gate | `~/.kimi-code/tools/kimi-doctor.ts` | [kimi-doctor.md](./kimi-doctor.md) |
+| `kimi-doctor --effect-gates` | Finish-work shell gate | `~/.kimi-code/tools/kimi-doctor.ts` | [DEEP-QUALITY.md](../../DEEP-QUALITY.md) |
+| `kimi-heal effect audit` | Finish-work shell gate | `~/.kimi-code/tools/kimi-heal.ts` | [DEEP-QUALITY.md](../../DEEP-QUALITY.md) |
+| `herdr-doctor --json` | Toolchain bin (shell) | `herdr-doctor.ts` via PATH | [Doctor trinity](#doctor-trinity--kimi-code) |
+| `prefix+d` | Herdr plugin action | `herdr-doctor.status` — not `kimi-doctor` | This doc |
+| `herdr-orchestrator dashboard` | Toolchain bin (shell) | `herdr-orchestrator.ts` | [dashboard-thumbnails.md](./dashboard-thumbnails.md) |
+| `prefix+a/l/f/t` | Herdr plugin action | `herdr-orchestrator.*` handlers | Herdr plugin plan v0.5.0 |
+| `GET /api/thumbnail` | Orchestrator HTTP | `Bun.serve` on dashboard port | [dashboard-thumbnails.md](./dashboard-thumbnails.md) |
+| `[[endpoints]]` row | dx URL inventory | MCP/doc links — not dashboard HTTP | `schemas/endpoints-strict.schema.toml` |
+
+**Canvas companion:** `docs/canvases/namespace-boundaries.canvas.tsx` (manifest id `namespace` · `cursorCanvas` pointer; not synced).
+
 ## Toolchain integration vs Herdr plugin plan (v0.5.0)
 
 The Herdr unified plugin plan (`herdr-orchestrator`, `herdr-doctor`, `herdr-notify` plugins) is **orthogonal** to kimi-toolchain finish-work gates.
@@ -58,7 +77,16 @@ Example (`configuration-layers`):
 | `runtimePath` | `~/.kimi-code/docs/references/configuration-layers.md` |
 | `cursorCanvas` | `docs/canvases/configuration-layers.canvas.tsx` |
 
-Manifest id: `namespace` · repo: `docs/references/namespace.md` · runtime: `~/.kimi-code/docs/references/namespace.md`
+Example (`namespace`):
+
+| Field | Value |
+| ----- | ----- |
+| `id` | `namespace` |
+| `repoPath` | `docs/references/namespace.md` |
+| `runtimePath` | `~/.kimi-code/docs/references/namespace.md` |
+| `cursorCanvas` | `docs/canvases/namespace-boundaries.canvas.tsx` |
+
+Manifest id: `namespace` · repo: `docs/references/namespace.md` · runtime: `~/.kimi-code/docs/references/namespace.md` · canvas: `docs/canvases/namespace-boundaries.canvas.tsx` (IDE pointer via `cursorCanvas`; not synced)
 
 ### Platform and runtime home
 
@@ -155,9 +183,24 @@ Pick the **lowest rung that fully answers the question** — do not jump to this
 | -------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------- |
 | Global platform / project config | `@see dx`                                      | `~/.config/dx/AGENTS.md` · ecosystem id `dx` in `canonical-references.json` |
 | Gate strings in `[finishWork]`   | `@see docs/references/kimi-doctor.md`          | Shell gates only — not Herdr `prefix+d`                                     |
-| Doctor / orchestrator name clash | `@see docs/references/namespace.md`            | Trinity + binding layers (this doc)                                         |
+| Doctor / orchestrator name clash | `@see namespace-boundaries`                    | [Name collision resolver](#name-collision-resolver) · canvas below          |
 | Thumbnail encode path            | `@see docs/references/dashboard-thumbnails.md` | `Bun.Image` terminals · `/api/thumbnail`                                    |
 | Endpoint table validation        | `@see schemas/endpoints-strict.schema.toml`    | `dx:table -u --exact` · not dashboard HTTP                                  |
+
+### `@see namespace-boundaries` (shorthand)
+
+Skills and JSDoc may use **`@see namespace-boundaries`** when the task needs the **decision table** (which executable runs), not the full doc.
+
+| Shorthand | Resolves to |
+| --------- | ----------- |
+| `@see namespace-boundaries` | [Name collision resolver](#name-collision-resolver) + `docs/canvases/namespace-boundaries.canvas.tsx` |
+| Long form | `@see docs/references/namespace.md#name-collision-resolver` |
+
+**Use when:** `doctor`, `orchestrator`, or `endpoints` might name different binding layers (shell gate vs `prefix+*` vs `/api/*` vs `[[endpoints]]`).
+
+**Do not use when:** `@see dx` suffices for project config, or the task is gate-specific (`@see docs/references/kimi-doctor.md`).
+
+**Canvas:** manifest id `namespace` · `cursorCanvas`: `docs/canvases/namespace-boundaries.canvas.tsx` (IDE-only; not synced).
 
 **Doc links in `src/**/\_.ts`:** executable code must use registered `BUN\_\_\_DOC_URL` constants (`bun run lint:doc-links`). JSDoc `@see`with`bun.com`deep links is exempt from`use-doc-constant`; absolute `https://bun.sh/docs…` in comments still flags under `prefer-bun-com-docs` — migrate to `bun.com`.
 

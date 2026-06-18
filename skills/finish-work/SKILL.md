@@ -123,7 +123,7 @@ Post-review orchestrator rules use probe `finish-work:handoff-ready` with `when 
 - **orchestrator** — `watch-events`, `context-sync`, handoff after `workspace.updated`
 - **herdr** — `HERDR_PANE_ID`, `pane report-agent`, session routing
 - **effect-discipline** — effect-gates and heal audit failures
-- **Gate / namespace boundaries**: [namespace.md § Practical @see ladder](~/.kimi-code/docs/references/namespace.md#practical-see-ladder) — `[finishWork].gates` vs Herdr `prefix+*`
+- **Gate / namespace boundaries**: `@see namespace-boundaries` → [namespace.md § Name collision resolver](~/.kimi-code/docs/references/namespace.md#name-collision-resolver) — `[finishWork].gates` vs Herdr `prefix+*`
 
 ## Do not
 

@@ -161,6 +161,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     repoPath: "UNIFIED.md",
     runtimePath: "~/.kimi-code/UNIFIED.md",
     purpose: "Kimi Code vs kimi-toolchain matrix",
+    cursorCanvas: "docs/canvases/kimi-toolchain.canvas.tsx",
   },
   {
     id: "deep-quality",
@@ -194,6 +195,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     runtimePath: "~/.kimi-code/docs/references/namespace.md",
     purpose:
       "Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings",
+    cursorCanvas: "docs/canvases/namespace-boundaries.canvas.tsx",
   },
   {
     id: "configuration-layers",

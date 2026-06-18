@@ -19,7 +19,7 @@ kimi-guardian check
     Actual:   9e1d4b...
     File:     bun.lock
 
-  Run 'kimi-guardian sign' to baseline the new lockfile.
+  Run 'kimi-guardian fix' to baseline the new lockfile.
 ```
 
 🚫 **Push blocked.** The lockfile changed but wasn't re-baselined.
@@ -30,7 +30,9 @@ This is a security measure — it means someone (or something) modified
 **Did you intentionally modify dependencies?** If so:
 
 ```bash
-kimi-guardian sign
+kimi-guardian fix
+kimi-guardian check
+# optional v2: kimi-guardian sign
 ```
 
 Then re-check:

@@ -114,6 +114,7 @@ async function runFullLint(): Promise<void> {
       cmd: ["bun", "run", "scripts/generate-canonical-references.ts", "--check"],
       label: "canonical-references",
     },
+    { cmd: ["bun", "run", "scripts/lint-cursor-canvas.ts"], label: "cursor-canvas" },
     { cmd: ["bun", "run", "scripts/lint-doc-links.ts"], label: "doc-links" },
     { cmd: ["bun", "run", "scripts/lint-constant-parity.ts"], label: "constant-parity" },
     { cmd: ["bun", "run", "scripts/lint-cli-contract.ts"], label: "cli-contract" },

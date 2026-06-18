@@ -44,24 +44,84 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 
-| `bun run lint:skills` | (synced from package.json) |
-| `bun run scope:run` | (synced from package.json) |
-| `bun run skills:table` | (synced from package.json) |
-| `bun run lint:tochange` | (synced from package.json) |
-| `bun run frontmatter` | (synced from package.json) |
-| `bun run dx:property-table` | (synced from package.json) |
-| `bun run dx:table` | (synced from package.json) |
+### Auto-synced scripts
+
+<!-- package-scripts-sync -->
+| Script | Description |
+| --- | --- |
 | `bun run artifacts:property-table` | (synced from package.json) |
-| `bun run dx-table` | (synced from package.json) |
-| `bun run dx:table:contract` | (synced from package.json) |
-| `bun run dx:config` | (synced from package.json) |
-| `bun run dx-config` | (synced from package.json) |
-| `bun run lint:doc-links` | (synced from package.json) |
+| `bun run bench` | (synced from package.json) |
+| `bun run bun-native:baseline` | (synced from package.json) |
+| `bun run bun-native:batch` | (synced from package.json) |
+| `bun run bun-native:check` | (synced from package.json) |
+| `bun run bun-native:migrate-fs` | (synced from package.json) |
+| `bun run bun-native:migrate-imports` | (synced from package.json) |
+| `bun run bun-native:report` | (synced from package.json) |
+| `bun run bun-native:rules` | (synced from package.json) |
+| `bun run check` | (synced from package.json) |
+| `bun run check:dry-run` | (synced from package.json) |
+| `bun run check:fast` | (synced from package.json) |
 | `bun run check:fast:changed` | (synced from package.json) |
+| `bun run check:staged` | (synced from package.json) |
 | `bun run check:watch` | (synced from package.json) |
 | `bun run check:watch:tests` | (synced from package.json) |
+| `bun run ci:local` | (synced from package.json) |
+| `bun run cleanup-legacy` | (synced from package.json) |
+| `bun run cleanup-root` | (synced from package.json) |
 | `bun run config:status` | (synced from package.json) |
+| `bun run docs:sync` | (synced from package.json) |
+| `bun run doctor` | (synced from package.json) |
+| `bun run dx-config` | (synced from package.json) |
+| `bun run dx-table` | (synced from package.json) |
+| `bun run dx:config` | (synced from package.json) |
+| `bun run dx:property-table` | (synced from package.json) |
+| `bun run dx:table` | (synced from package.json) |
+| `bun run dx:table:contract` | (synced from package.json) |
+| `bun run finish-work` | (synced from package.json) |
+| `bun run fix` | (synced from package.json) |
+| `bun run format` | (synced from package.json) |
+| `bun run format:check` | (synced from package.json) |
+| `bun run format:check:ci` | (synced from package.json) |
+| `bun run frontmatter` | (synced from package.json) |
+| `bun run governance` | (synced from package.json) |
+| `bun run install-herdr-plugin` | (synced from package.json) |
+| `bun run install-wrappers` | (synced from package.json) |
+| `bun run lint` | (synced from package.json) |
 | `bun run lint:constant-parity` | (synced from package.json) |
+| `bun run lint:context` | (synced from package.json) |
+| `bun run lint:doc-links` | (synced from package.json) |
+| `bun run lint:skills` | (synced from package.json) |
+| `bun run lint:taxonomy-coverage` | (synced from package.json) |
+| `bun run lint:terms` | (synced from package.json) |
+| `bun run lint:tochange` | (synced from package.json) |
+| `bun run manifest:generate` | (synced from package.json) |
+| `bun run memory-budget` | (synced from package.json) |
+| `bun run memory-check` | (synced from package.json) |
+| `bun run new` | (synced from package.json) |
+| `bun run pr:diff` | (synced from package.json) |
+| `bun run pr:status` | (synced from package.json) |
+| `bun run push` | (synced from package.json) |
+| `bun run references:generate` | (synced from package.json) |
+| `bun run scope:run` | (synced from package.json) |
+| `bun run skills:table` | (synced from package.json) |
+| `bun run sync` | (synced from package.json) |
+| `bun run sync:daemon` | (synced from package.json) |
+| `bun run sync:verify` | (synced from package.json) |
+| `bun run test` | (synced from package.json) |
+| `bun run test:ci` | (synced from package.json) |
+| `bun run test:coverage` | (synced from package.json) |
+| `bun run test:coverage:ci` | (synced from package.json) |
+| `bun run test:coverage:fast` | (synced from package.json) |
+| `bun run test:fast` | (synced from package.json) |
+| `bun run test:flake-hunt` | (synced from package.json) |
+| `bun run test:pattern` | (synced from package.json) |
+| `bun run test:shuffle` | (synced from package.json) |
+| `bun run test:smoke` | (synced from package.json) |
+| `bun run typecheck` | (synced from package.json) |
+| `bun run unify` | (synced from package.json) |
+| `bun run verify-workspace` | (synced from package.json) |
+<!-- /package-scripts-sync -->
+
 ### Core
 
 | Command                        | Description                           |
@@ -118,6 +178,7 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run lint:context` | Agent-doc bloat lint (`scripts/lint-context-bloat.ts`) |
 | `bun run lint:taxonomy-coverage` | Error taxonomy coverage audit |
 | `bun run manifest:generate` | Regenerate constants manifest |
+| `bun run config:status` | Configuration layers audit — canonical refs, manifest, constant parity ([configuration-layers.md](./docs/references/configuration-layers.md)) |
 | `bun run docs:sync` | README script drift check/patch |
 | `bun run references:generate` | Regenerate `canonical-references.json` ecosystem link manifest |
 | `bun run pr:diff` | PR diff helper |
@@ -241,6 +302,26 @@ validation includes `bun run sync && bun run sync:verify`.
 
 Layout maps: [AGENTS.md](./AGENTS.md#architecture) and [UNIFIED.md](./UNIFIED.md).
 Live runtime at `~/.kimi-code/` is synced via `bun run sync` (`scripts/sync-to-desktop.ts` writes `toolchain-manifest.json`).
+
+**Namespace & boundaries:** [docs/references/namespace.md](./docs/references/namespace.md) — doctor trinity, toolchain vs Herdr plugin, finish-work gates vs `prefix+*` keybindings.
+
+**Canvas companions** (IDE-only pointers via `cursorCanvas` in `canonical-references.json`; not synced to runtime):
+
+| Canvas | Manifest id | Purpose |
+| --- | --- | --- |
+| [docs/canvases/kimi-toolchain.canvas.tsx](./docs/canvases/kimi-toolchain.canvas.tsx) | `unified` | Project hub |
+| [docs/canvases/namespace-boundaries.canvas.tsx](./docs/canvases/namespace-boundaries.canvas.tsx) | `namespace` | Name collisions and binding layers |
+| [docs/canvases/configuration-layers.canvas.tsx](./docs/canvases/configuration-layers.canvas.tsx) | `configuration-layers` | Four-layer config model |
+
+**Templates:** [TEMPLATES.md](./TEMPLATES.md) (manifest id `templates`) — scaffold profiles, CONTEXT/CHANGELOG patterns, `kimi-fix` wiring.
+
+| Path | Purpose |
+| --- | --- |
+| [templates/scaffold/](./templates/scaffold/) | `kimi-fix` / `kimi-new` app and toolchain scaffolds (`dx.config.app.toml`, `dx.config.toolchain.toml`, `bunfig.toml`, finish-work scripts) |
+| [templates/kimi-config-permissions.toml](./templates/kimi-config-permissions.toml) | Kimi Code MCP permission rules |
+| [skills/effect-hardening/templates/](./skills/effect-hardening/templates/) | Effect L3 module scaffolds (service, error-pipeline, event-stream, layers, schema boundary) |
+
+Scaffold with `kimi-new <name>` (app profile) or `kimi-fix <path> --profile toolchain` for Herdr/finish-work layout. Synced to `~/.kimi-code/` via `bun run sync`.
 
 ## Governance
 

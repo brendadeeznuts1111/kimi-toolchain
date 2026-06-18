@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-18T10:26:23.266Z",
+  "generatedAt": "2026-06-18T10:57:23.717Z",
   "toolchainVersion": "0.1.0",
   "ecosystem": [
     {
@@ -91,7 +91,8 @@
       "id": "unified",
       "repoPath": "UNIFIED.md",
       "runtimePath": "~/.kimi-code/UNIFIED.md",
-      "purpose": "Kimi Code vs kimi-toolchain matrix"
+      "purpose": "Kimi Code vs kimi-toolchain matrix",
+      "cursorCanvas": "docs/canvases/kimi-toolchain.canvas.tsx"
     },
     {
       "id": "deep-quality",
@@ -121,7 +122,8 @@
       "id": "namespace",
       "repoPath": "docs/references/namespace.md",
       "runtimePath": "~/.kimi-code/docs/references/namespace.md",
-      "purpose": "Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings"
+      "purpose": "Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings",
+      "cursorCanvas": "docs/canvases/namespace-boundaries.canvas.tsx"
     },
     {
       "id": "configuration-layers",

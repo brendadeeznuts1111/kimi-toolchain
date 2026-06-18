@@ -79,6 +79,22 @@ describe("canonical-references", () => {
     expect(row?.cursorCanvas).toBe("docs/canvases/configuration-layers.canvas.tsx");
   });
 
+  test("unified and namespace include cursorCanvas pointers", () => {
+    const unified = LOCAL_DOC_REFERENCES.find((ref) => ref.id === "unified");
+    expect(unified?.cursorCanvas).toBe("docs/canvases/kimi-toolchain.canvas.tsx");
+
+    const namespace = LOCAL_DOC_REFERENCES.find((ref) => ref.id === "namespace");
+    expect(namespace?.cursorCanvas).toBe("docs/canvases/namespace-boundaries.canvas.tsx");
+
+    const manifest = buildCanonicalReferencesManifest();
+    expect(manifest.localDocs.find((ref) => ref.id === "unified")?.cursorCanvas).toBe(
+      "docs/canvases/kimi-toolchain.canvas.tsx"
+    );
+    expect(manifest.localDocs.find((ref) => ref.id === "namespace")?.cursorCanvas).toBe(
+      "docs/canvases/namespace-boundaries.canvas.tsx"
+    );
+  });
+
   test("formatCanonicalReferencesMarkdown includes key stacks", () => {
     const md = formatCanonicalReferencesMarkdown();
     expect(md).toContain("canonical-references.json");

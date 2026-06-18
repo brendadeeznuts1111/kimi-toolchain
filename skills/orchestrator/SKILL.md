@@ -187,7 +187,7 @@ herdr plugin log list --plugin herdr-orchestrator --limit 1
 
 Code: `src/lib/herdr-orchestrator.ts`, `src/lib/herdr-orchestrator-events.ts`. Exemplars: [~/.kimi-code/CODE_REFERENCES.md](~/.kimi-code/CODE_REFERENCES.md) § Herdr orchestration.
 
-- **Doctor / plugin disambiguation**: [namespace.md § Practical @see ladder](~/.kimi-code/docs/references/namespace.md#practical-see-ladder)
+- **Doctor / plugin disambiguation**: `@see namespace-boundaries` → [namespace.md § Name collision resolver](~/.kimi-code/docs/references/namespace.md#name-collision-resolver)
 
 ## Do not
 

@@ -49,6 +49,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "constants-registry": "src/lib/constants-registry.ts",
   "optimizer-doctor": "src/lib/constant-optimizer.ts",
   "decision-list-diff": "src/lib/decision-ledger.ts",
+  "guardian-verify": "src/guardian/verify.ts",
   "taxonomy-coverage": "src/lib/taxonomy-coverage.ts",
 };
 

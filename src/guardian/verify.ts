@@ -1,49 +1,56 @@
 #!/usr/bin/env bun
 /**
- * guardian/verify.ts — Lockfile integrity verifier
- * Thin wrapper around kimi-guardian for pre-push hook usage
+ * Advisory lockfile wrapper around the synced runtime guardian.
  *
- * Usage:
- *   bun run src/guardian/verify.ts [--exit-code]  (from repo)
+ * Invokes the synced runtime copy (~/.kimi-code/tools/kimi-guardian.ts) and parses
+ * its output for hash mismatch strings. Exits 0 by default (advisory); use --exit-code
+ * to force a non-zero exit on failure.
+ *
+ * Pre-push hooks use hook-gates.ts + the repo binary instead.
  */
 
 import { $ } from "bun";
 import { join } from "path";
-import { Effect } from "effect";
 import { toolsDir } from "../lib/paths.ts";
 
-const GUARDIAN = join(toolsDir(), "kimi-guardian.ts");
-const EXIT_ON_FAIL = Bun.argv.includes("--exit-code");
+const args = process.argv.slice(2);
+const exitOnFail = args.includes("--exit-code");
+const guardianPath = join(toolsDir(), "kimi-guardian.ts");
 
-async function main(): Promise<number> {
-  const result = await $`bun run ${GUARDIAN} check`.nothrow().quiet();
-  const stdout = result.stdout.toString();
-  const stderr = result.stderr.toString();
-  const output = stdout + stderr;
+export function evaluateGuardianVerifyOutput(
+  output: string,
+  exitOnFail: boolean
+): { exitCode: number; lines: string[] } {
+  const lines = output.split("\n").filter((line) => line.trim().length > 0);
 
-  const hasMismatch = output.includes("HASH MISMATCH") || output.includes("No stored hash");
+  const hashError = lines.some((line) => /HASH MISMATCH|No stored hash/i.test(line));
+  const hasNoSignedManifest = lines.some((line) => /No signed manifest/i.test(line));
+  const success = !hashError;
 
-  if (hasMismatch) {
-    console.log("🚫 Lockfile integrity check FAILED");
-    console.log("   Run 'kimi-guardian sign' to baseline");
-    return EXIT_ON_FAIL ? 1 : 0;
+  if (success) {
+    return {
+      exitCode: 0,
+      lines: ["✓ Lockfile integrity verified"],
+    };
   }
 
-  console.log("✓ Lockfile integrity verified");
-  return 0;
+  const hints: string[] = [];
+  hints.push("Run 'kimi-guardian fix' to baseline the hash");
+  if (hasNoSignedManifest) {
+    hints.push("Run 'kimi-guardian sign' for v2 signed manifest protection");
+  }
+
+  return {
+    exitCode: exitOnFail ? 1 : 0,
+    lines: hints,
+  };
 }
 
-(async () => {
-  try {
-    const exitCode = await Effect.runPromise(
-      Effect.tryPromise({
-        try: () => main(),
-        catch: (err) => new Error(err instanceof Error ? err.message : String(err)),
-      })
-    );
-    process.exit(exitCode);
-  } catch (err) {
-    console.error("Guardian verify failed:", err instanceof Error ? err.message : String(err));
-    process.exit(EXIT_ON_FAIL ? 1 : 0);
-  }
-})();
+if (import.meta.main) {
+  const result = await $`bun run ${guardianPath} check`.nothrow().quiet();
+  const output = [result.stdout.toString(), result.stderr.toString()].join("\n");
+  const { exitCode, lines } = evaluateGuardianVerifyOutput(output, exitOnFail);
+
+  lines.forEach((line) => console.log(line));
+  process.exit(exitCode);
+}
