@@ -174,6 +174,7 @@ Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight a
 - **Bun runtime scaffold**: `~/.kimi-code/docs/references/bun-runtime-scaffold.md` (manifest id `bun-runtime-scaffold`) — Bun install config, global virtual store, `process.execve()`, `Bun.Terminal` on Windows, `using`/`await using`.
 - **One-shot audit**: `bun run config:status` — checks freshness of `canonical-references.json`, `constants-manifest.json`, parity alignment, and scaffold integrity (step 0 in Project Health Check).
 - **Canvas companions** (repo pointers via `cursorCanvas`; not synced to runtime):
+  - Conventions: `docs/canvases/README.md`
   - `docs/canvases/kimi-toolchain.canvas.tsx` — project hub (manifest id `unified`)
   - `docs/canvases/kimi-fix.canvas.tsx` — scaffold · bun create · profiles (manifest id `templates`)
   - `docs/canvases/namespace-boundaries.canvas.tsx` — doctor trinity and binding layers (manifest id `namespace`)
