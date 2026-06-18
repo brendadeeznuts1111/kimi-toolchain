@@ -56,6 +56,11 @@ const STEPS: CiStep[] = [
     crossCut: true,
   },
   {
+    job: "quality",
+    name: "config-status",
+    cmd: ["bun", "run", "config:status"],
+  },
+  {
     job: "governance",
     name: "governance-r-score",
     cmd: ["bun", "run", "governance", "score", "--min", "60"],

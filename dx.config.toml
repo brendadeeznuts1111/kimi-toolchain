@@ -92,6 +92,7 @@ lint = "bun run lint"
 typecheck = "bun run typecheck"
 tests = "bun run test:coverage:ci"
 smoke = "bun run test:smoke"
+configStatus = "bun run config:status"
 
 [github.ci.governance]
 rScore = "bun run governance score --min 60"

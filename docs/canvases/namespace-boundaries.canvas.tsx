@@ -26,21 +26,70 @@ const DOCTOR_TRINITY = [
   ["kimi doctor", "Kimi Code CLI", "Moonshot agent config — not kimi-doctor"],
   ["kimi-doctor", "Toolchain CLI", "--automation, --effect-gates, finish-work gates"],
   ["herdr-doctor", "Toolchain bin", "DX/Herdr integration health (--json, --fix)"],
-  ["herdr-doctor", "Herdr plugin v0.5.0", "prefix+d → herdr-doctor.status; no shared code with bin"],
+  [
+    "herdr-doctor",
+    "Herdr plugin v0.5.0",
+    "prefix+d → herdr-doctor.status; no shared code with bin",
+  ],
 ] as const;
 
 /** Intent → binding layer → executable → doc. Same word ≠ same executable. */
 const NAME_COLLISION_RESOLVER = [
   ["kimi doctor", "Kimi Code CLI", "~/.kimi-code/bin/kimi", "UNIFIED.md"],
-  ["kimi-doctor --automation", "Finish-work shell gate", "~/.kimi-code/tools/kimi-doctor.ts", "kimi-doctor.md"],
-  ["kimi-doctor --effect-gates", "Finish-work shell gate", "~/.kimi-code/tools/kimi-doctor.ts", "DEEP-QUALITY.md"],
-  ["kimi-heal effect audit", "Finish-work shell gate", "~/.kimi-code/tools/kimi-heal.ts", "DEEP-QUALITY.md"],
-  ["herdr-doctor --json", "Toolchain bin (shell)", "src/bin/herdr-doctor.ts via PATH", "namespace.md"],
-  ["prefix+d", "Herdr plugin action", "herdr-doctor.status — not kimi-doctor from PATH", "namespace.md"],
-  ["herdr-orchestrator dashboard", "Toolchain bin (shell)", "src/bin/herdr-orchestrator.ts", "dashboard-thumbnails.md"],
-  ["prefix+a/l/f/t", "Herdr plugin action", "herdr-orchestrator.* plugin handlers", "plugin plan v0.5.0"],
-  ["GET /api/thumbnail", "Orchestrator HTTP", "Bun.serve on dashboard port", "dashboard-thumbnails.md"],
-  ["[[endpoints]] row", "dx URL inventory", "MCP/doc links — not dashboard HTTP", "endpoints-strict.schema.toml"],
+  [
+    "kimi-doctor --automation",
+    "Finish-work shell gate",
+    "~/.kimi-code/tools/kimi-doctor.ts",
+    "kimi-doctor.md",
+  ],
+  [
+    "kimi-doctor --effect-gates",
+    "Finish-work shell gate",
+    "~/.kimi-code/tools/kimi-doctor.ts",
+    "DEEP-QUALITY.md",
+  ],
+  [
+    "kimi-heal effect audit",
+    "Finish-work shell gate",
+    "~/.kimi-code/tools/kimi-heal.ts",
+    "DEEP-QUALITY.md",
+  ],
+  [
+    "herdr-doctor --json",
+    "Toolchain bin (shell)",
+    "src/bin/herdr-doctor.ts via PATH",
+    "namespace.md",
+  ],
+  [
+    "prefix+d",
+    "Herdr plugin action",
+    "herdr-doctor.status — not kimi-doctor from PATH",
+    "namespace.md",
+  ],
+  [
+    "herdr-orchestrator dashboard",
+    "Toolchain bin (shell)",
+    "src/bin/herdr-orchestrator.ts",
+    "dashboard-thumbnails.md",
+  ],
+  [
+    "prefix+a/l/f/t",
+    "Herdr plugin action",
+    "herdr-orchestrator.* plugin handlers",
+    "plugin plan v0.5.0",
+  ],
+  [
+    "GET /api/thumbnail",
+    "Orchestrator HTTP",
+    "Bun.serve on dashboard port",
+    "dashboard-thumbnails.md",
+  ],
+  [
+    "[[endpoints]] row",
+    "dx URL inventory",
+    "MCP/doc links — not dashboard HTTP",
+    "endpoints-strict.schema.toml",
+  ],
 ] as const;
 
 const COLLISION_ROW_TONE = [
@@ -56,11 +105,49 @@ const COLLISION_ROW_TONE = [
   "neutral",
 ] as const;
 
+/** Decision-flow table — when a task mentions a loaded word, pick the binding layer first. */
+const NAME_COLLISION_DECISIONS = [
+  [
+    'Task says "run doctor"',
+    "Is it `kimi doctor` or `kimi-doctor`?",
+    "Kimi Code CLI vs finish-work shell gate",
+    "UNIFIED.md · kimi-doctor.md",
+  ],
+  [
+    'Task says "doctor in Herdr"',
+    "Is it prefix+d or a shell gate string?",
+    "Herdr plugin action vs toolchain bin",
+    "namespace.md",
+  ],
+  [
+    'Task says "endpoints"',
+    "Is it `[[endpoints]]` or `/api/*`?",
+    "dx URL inventory vs orchestrator HTTP",
+    "endpoints-strict.schema.toml · dashboard-thumbnails.md",
+  ],
+  [
+    'Task says "orchestrator"',
+    "Is it CLI dashboard or prefix+a/l/f/t?",
+    "Toolchain bin vs Herdr plugin action",
+    "dashboard-thumbnails.md · plugin plan v0.5.0",
+  ],
+  [
+    'Task says "finish-work gates"',
+    "In dx.config.toml or a Herdr keybinding?",
+    "Shell gate strings vs prefix+* actions",
+    "docs/finish-work-close-loop.md · namespace.md",
+  ],
+] as const;
+
 const BINDING_LAYERS = [
   ["Finish-work shell gates", "kimi-doctor --automation", "dx.config.toml [finishWork].gates"],
   ["Herdr plugin actions", "herdr-doctor.status", "~/.config/herdr/config.toml [[keys.command]]"],
   ["Orchestrator HTTP", "GET /api/meta, /api/thumbnail", "Co-located Bun.serve"],
-  ["dx.config URL inventory", "[[endpoints]] MCP/doc links", "schemas/endpoints-strict.schema.toml (-u --exact)"],
+  [
+    "dx.config URL inventory",
+    "[[endpoints]] MCP/doc links",
+    "schemas/endpoints-strict.schema.toml (-u --exact)",
+  ],
 ] as const;
 
 const PRIMARY_SURFACES = [
@@ -83,22 +170,45 @@ const DOCS_REFERENCES = [
 
 const MANIFEST_KEYS = [
   ["localDocs (11)", "id, repoPath, runtimePath, purpose", "Agent-indexed docs incl. namespace"],
-  ["ecosystem (8)", "id, name, kind, homepage, docs, usage", "bun, effect, kimi-code, herdr, dx, …"],
+  [
+    "ecosystem (8)",
+    "id, name, kind, homepage, docs, usage",
+    "bun, effect, kimi-code, herdr, dx, …",
+  ],
   ["dx.config.toml", "[finishWork], [herdr], [[endpoints]]", "Project gates — not manifest rows"],
 ] as const;
 
 /** Minimal @see tags — intent → pointer (JSDoc / agent cross-ref ladder). */
 const SEE_LADDER = [
   ["Global platform / project config", "@see dx", "~/.config/dx/AGENTS.md · ecosystem id dx"],
-  ["Gate strings in [finishWork]", "@see docs/references/kimi-doctor.md", "Shell gates only — not plugin prefix+d"],
-  ["Doctor / orchestrator name clash", "@see namespace-boundaries", "Name collision resolver · this canvas"],
-  ["Thumbnail encode path", "@see docs/references/dashboard-thumbnails.md", "Bun.Image terminals · /api/thumbnail"],
-  ["Endpoint table validation", "@see schemas/endpoints-strict.schema.toml", "dx:table -u --exact · not dashboard HTTP"],
+  [
+    "Gate strings in [finishWork]",
+    "@see docs/references/kimi-doctor.md",
+    "Shell gates only — not plugin prefix+d",
+  ],
+  [
+    "Doctor / orchestrator name clash",
+    "@see namespace-boundaries",
+    "Name collision resolver · this canvas",
+  ],
+  [
+    "Thumbnail encode path",
+    "@see docs/references/dashboard-thumbnails.md",
+    "Bun.Image terminals · /api/thumbnail",
+  ],
+  [
+    "Endpoint table validation",
+    "@see schemas/endpoints-strict.schema.toml",
+    "dx:table -u --exact · not dashboard HTTP",
+  ],
 ] as const;
 
 /** When @see dx alone is enough vs when to escalate. */
 const SEE_DX_VERBAGE = [
-  ["@see dx suffices", "dx config · mcp-status · [finishWork] container · [herdr] layout · [[endpoints]]"],
+  [
+    "@see dx suffices",
+    "dx config · mcp-status · [finishWork] container · [herdr] layout · [[endpoints]]",
+  ],
   ["@see dx not enough", "Same word, different executable (doctor, orchestrator)"],
   ["Escalate to namespace", "Shell gate vs prefix+d vs /api/* vs [[endpoints]] collision"],
   ["dx names where", "namespace names what runs"],
@@ -110,7 +220,11 @@ const CANVAS_ROUTING = [
   ["namespace-boundaries", "Meta / routing", "Which world am I in? (this canvas)"],
   ["herdr-dashboard-automation", "Finish-work shell", "kimi-doctor --automation · gate JSON"],
   ["herdr-dashboard-thumbnails", "Orchestrator HTTP", "PNG → Bun.Image → /api/thumbnail"],
-  ["herdr-unified-plugin-architecture", "Herdr plugins v0.5.0", "prefix+* · plugin plan · orthogonal to gates"],
+  [
+    "herdr-unified-plugin-architecture",
+    "Herdr plugins v0.5.0",
+    "prefix+* · plugin plan · orthogonal to gates",
+  ],
 ] as const;
 
 const DAG_NODES = [
@@ -154,7 +268,12 @@ function BindingLayerDag() {
 
   return (
     <div style={{ overflowX: "auto" }}>
-      <svg width={layout.width} height={layout.height} role="img" aria-label="Binding layers flow to namespace.md hub">
+      <svg
+        width={layout.width}
+        height={layout.height}
+        role="img"
+        aria-label="Binding layers flow to namespace.md hub"
+      >
         {layout.edges.map((edge, i) => {
           const midY = (edge.sourceY + edge.targetY) / 2;
           const d = `M ${edge.sourceX} ${edge.sourceY} C ${edge.sourceX} ${midY}, ${edge.targetX} ${midY}, ${edge.targetX} ${edge.targetY}`;
@@ -214,11 +333,13 @@ export default function NamespaceBoundariesCanvas() {
       <Stack gap={8}>
         <H1>Namespace boundaries — toolchain vs Herdr</H1>
         <Text tone="secondary">
-          Source: docs/references/namespace.md · manifest id namespace · kimi-toolchain session parity
+          Source: docs/references/namespace.md · manifest id namespace · kimi-toolchain session
+          parity
         </Text>
         <Row gap={8} wrap>
           <Pill>4 binding layers</Pill>
           <Pill>4 doctor surfaces</Pill>
+          <Pill>{NAME_COLLISION_DECISIONS.length} decision rows</Pill>
           <Pill>{DOCS_REF_COUNT} docs/references</Pill>
           <Pill>{LOCAL_DOCS_COUNT} localDocs</Pill>
           <Pill>{ECOSYSTEM_COUNT} ecosystem stacks</Pill>
@@ -233,8 +354,9 @@ export default function NamespaceBoundariesCanvas() {
       </Grid>
 
       <Callout tone="warning" title="Same word ≠ same executable">
-        doctor, orchestrator, and endpoints appear in Kimi Code, shell gates, Herdr prefix+* keybindings,
-        orchestrator HTTP, and dx.config [[endpoints]] — pick the row in the resolver before editing config or docs.
+        doctor, orchestrator, and endpoints appear in Kimi Code, shell gates, Herdr prefix+*
+        keybindings, orchestrator HTTP, and dx.config [[endpoints]] — pick the row in the resolver
+        before editing config or docs.
       </Callout>
 
       <Card>
@@ -246,6 +368,20 @@ export default function NamespaceBoundariesCanvas() {
             headers={["You see / task mentions", "Binding layer", "Actually runs", "Read"]}
             rows={NAME_COLLISION_RESOLVER.map((r) => [...r])}
             rowTone={[...COLLISION_ROW_TONE]}
+            striped
+          />
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader trailing={<Pill size="sm">{NAME_COLLISION_DECISIONS.length} rows</Pill>}>
+          Name collision decision table
+        </CardHeader>
+        <CardBody style={{ padding: 0 }}>
+          <Table
+            headers={["Cue", "First question", "Binding layer", "Read"]}
+            rows={NAME_COLLISION_DECISIONS.map((r) => [...r])}
+            rowTone={["info", "info", "warning", "warning", "info"]}
             striped
           />
         </CardBody>
@@ -273,8 +409,8 @@ export default function NamespaceBoundariesCanvas() {
           <H2>@see dx — when it is enough</H2>
           <Table headers={["Rule", "Meaning"]} rows={SEE_DX_VERBAGE.map((r) => [...r])} striped />
           <Text tone="tertiary" size="small">
-            dx is ecosystem id (separate codebase) — not a localDocs row. It owns config plumbing; namespace
-            owns vocabulary inside that config.
+            dx is ecosystem id (separate codebase) — not a localDocs row. It owns config plumbing;
+            namespace owns vocabulary inside that config.
           </Text>
         </Stack>
       </Grid>
@@ -287,13 +423,15 @@ export default function NamespaceBoundariesCanvas() {
           striped
         />
         <Text tone="tertiary" size="small">
-          Read order: namespace-boundaries → pick layer → automation · thumbnails · or unified-plugin.
-          automation calls into thumbnails for the /api/thumbnail gate proof.
+          Read order: namespace-boundaries → pick layer → automation · thumbnails · or
+          unified-plugin. automation calls into thumbnails for the /api/thumbnail gate proof.
         </Text>
       </CollapsibleSection>
 
       <Card>
-        <CardHeader trailing={<Pill size="sm">4 surfaces</Pill>}>Doctor trinity (+ Kimi Code)</CardHeader>
+        <CardHeader trailing={<Pill size="sm">4 surfaces</Pill>}>
+          Doctor trinity (+ Kimi Code)
+        </CardHeader>
         <CardBody style={{ padding: 0 }}>
           <Table
             headers={["Surface", "Kind", "One-line role"]}
@@ -336,7 +474,9 @@ export default function NamespaceBoundariesCanvas() {
 
       <Grid columns={2} gap={16}>
         <Card>
-          <CardHeader trailing={<Pill size="sm">{DOCS_REF_COUNT} ids</Pill>}>docs/references/ index</CardHeader>
+          <CardHeader trailing={<Pill size="sm">{DOCS_REF_COUNT} ids</Pill>}>
+            docs/references/ index
+          </CardHeader>
           <CardBody style={{ padding: 0 }}>
             <Table
               headers={["Manifest id", "Purpose"]}
@@ -349,7 +489,11 @@ export default function NamespaceBoundariesCanvas() {
 
         <Stack gap={12}>
           <H2>Manifest shape vs project config</H2>
-          <Table headers={["Artifact", "Keys / sections", "Notes"]} rows={MANIFEST_KEYS.map((r) => [...r])} striped />
+          <Table
+            headers={["Artifact", "Keys / sections", "Notes"]}
+            rows={MANIFEST_KEYS.map((r) => [...r])}
+            striped
+          />
           <H3>localDocs by location</H3>
           <UsageBar
             total={LOCAL_DOCS_COUNT}
@@ -361,13 +505,16 @@ export default function NamespaceBoundariesCanvas() {
             ]}
           />
           <Text tone="tertiary" size="small">
-            SSOT: src/lib/canonical-references.ts → bun run references:generate → ~/.kimi-code/ after sync
+            SSOT: src/lib/canonical-references.ts → bun run references:generate → ~/.kimi-code/
+            after sync
           </Text>
         </Stack>
       </Grid>
 
       <Card>
-        <CardHeader trailing={<Pill size="sm">orthogonal to plugin plan</Pill>}>[finishWork].gates (in-repo)</CardHeader>
+        <CardHeader trailing={<Pill size="sm">orthogonal to plugin plan</Pill>}>
+          [finishWork].gates (in-repo)
+        </CardHeader>
         <CardBody>
           <Row gap={8} wrap>
             <Pill>bun run check:fast</Pill>
@@ -387,7 +534,10 @@ export default function NamespaceBoundariesCanvas() {
             ["Sync runtime", "bun run sync && bun run sync:verify"],
             ["Agent discovery", "kimi-doctor --probe → canonicalReferences"],
             ["Hub doc", "docs/references/namespace.md"],
-            ["Endpoints pathname gate", "schemas/endpoints-strict.schema.toml · bun run dx:table:contract"],
+            [
+              "Endpoints pathname gate",
+              "schemas/endpoints-strict.schema.toml · bun run dx:table:contract",
+            ],
             ["Agent guide", "AGENTS.md § Project docs"],
           ]}
           striped
