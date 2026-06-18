@@ -161,15 +161,17 @@ const PRIMARY_SURFACES = [
 ] as const;
 
 const DOCS_REFERENCES = [
+  ["configuration-layers", "Four-layer config model · config:status"],
   ["namespace", "Boundaries, doctor trinity, global ecosystem"],
   ["kimi-doctor", "--automation gate CLI + JSON"],
   ["dashboard-thumbnails", "WebView → Bun.Image → /api/thumbnail"],
   ["shell-spawn-choice", "invokeTool vs Bun.spawn vs governedSpawn"],
+  ["bun-runtime-scaffold", "bunfig.toml merge · bun create install flags"],
   ["bun-shell-companions", "Bun $ template vs subprocess"],
 ] as const;
 
 const MANIFEST_KEYS = [
-  ["localDocs (11)", "id, repoPath, runtimePath, purpose", "Agent-indexed docs incl. namespace"],
+  ["localDocs (13)", "id, repoPath, runtimePath, purpose", "Agent-indexed docs incl. namespace"],
   [
     "ecosystem (8)",
     "id, name, kind, homepage, docs, usage",
@@ -218,6 +220,8 @@ const SEE_DX_VERBAGE = [
 const CANVAS_ROUTING = [
   ["kimi-toolchain", "Project hub", "Architecture, tools, gates — start here"],
   ["namespace-boundaries", "Meta / routing", "Which world am I in? (this canvas)"],
+  ["kimi-fix", "Scaffold", "bun create · kimi-fix profiles · doctor"],
+  ["configuration-layers", "Config SSOT", "Four-layer model · not dx keys"],
   ["herdr-dashboard-automation", "Finish-work shell", "kimi-doctor --automation · gate JSON"],
   ["herdr-dashboard-thumbnails", "Orchestrator HTTP", "PNG → Bun.Image → /api/thumbnail"],
   [
@@ -249,8 +253,9 @@ const DAG_EDGES = [
 ] as const;
 
 const DOCS_REF_COUNT = DOCS_REFERENCES.length;
-const LOCAL_DOCS_COUNT = 11;
+const LOCAL_DOCS_COUNT = 13;
 const ECOSYSTEM_COUNT = 8;
+const DOCS_REFS_IN_CANVAS = 7;
 
 function BindingLayerDag() {
   const theme = useHostTheme();
@@ -419,7 +424,7 @@ export default function NamespaceBoundariesCanvas() {
         <Table
           headers={["Canvas file", "Binding layer", "Open when"]}
           rows={CANVAS_ROUTING.map((r) => [...r])}
-          rowTone={["info", "info", "neutral", "neutral", "warning"]}
+          rowTone={["info", "info", "success", "neutral", "neutral", "neutral", "warning"]}
           striped
         />
         <Text tone="tertiary" size="small">
@@ -474,14 +479,16 @@ export default function NamespaceBoundariesCanvas() {
 
       <Grid columns={2} gap={16}>
         <Card>
-          <CardHeader trailing={<Pill size="sm">{DOCS_REF_COUNT} ids</Pill>}>
+          <CardHeader trailing={<Pill size="sm">{DOCS_REFS_IN_CANVAS} ids</Pill>}>
             docs/references/ index
           </CardHeader>
           <CardBody style={{ padding: 0 }}>
             <Table
               headers={["Manifest id", "Purpose"]}
               rows={DOCS_REFERENCES.map((r) => [...r])}
-              rowTone={DOCS_REFERENCES.map((r) => (r[0] === "namespace" ? "info" : "neutral"))}
+              rowTone={DOCS_REFERENCES.map((r) =>
+                r[0] === "namespace" || r[0] === "configuration-layers" ? "info" : "neutral"
+              )}
               striped
             />
           </CardBody>
@@ -497,11 +504,11 @@ export default function NamespaceBoundariesCanvas() {
           <H3>localDocs by location</H3>
           <UsageBar
             total={LOCAL_DOCS_COUNT}
-            topLeftLabel={`${DOCS_REF_COUNT} under docs/references/`}
-            topRightLabel={`${LOCAL_DOCS_COUNT - DOCS_REF_COUNT} repo root + manifest self-entry`}
+            topLeftLabel={`${DOCS_REFS_IN_CANVAS} under docs/references/`}
+            topRightLabel={`${LOCAL_DOCS_COUNT - DOCS_REFS_IN_CANVAS} repo root + manifest self-entry`}
             segments={[
-              { id: "refs", value: DOCS_REF_COUNT, color: "blue" },
-              { id: "root", value: LOCAL_DOCS_COUNT - DOCS_REF_COUNT, color: "gray" },
+              { id: "refs", value: DOCS_REFS_IN_CANVAS, color: "blue" },
+              { id: "root", value: LOCAL_DOCS_COUNT - DOCS_REFS_IN_CANVAS, color: "gray" },
             ]}
           />
           <Text tone="tertiary" size="small">

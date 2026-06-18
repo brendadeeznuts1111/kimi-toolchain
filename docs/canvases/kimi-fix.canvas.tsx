@@ -77,9 +77,16 @@ const DEBUG_WORKFLOWS = [
   ["Preview then apply", "kimi-fix . --dry-run  then  kimi-fix .", "No --verbose flag on kimi-fix"],
 ] as const;
 
+const DOCS_REFERENCES = [
+  ["configuration-layers", "docs/references/configuration-layers.md", "App Scaffold layer · four-layer model"],
+  ["bun-runtime-scaffold", "docs/references/bun-runtime-scaffold.md", "bunfig.toml merge · bun create install flags"],
+  ["templates", "TEMPLATES.md", "Scaffold template inventory (manifest id templates)"],
+] as const;
+
 const CANVAS_ROUTING = [
   ["kimi-toolchain", "Project hub", "Tools, gates, sync flow"],
   ["configuration-layers", "Config SSOT", "Scaffold layer vs define registry"],
+  ["doc-links-and-see-ladder", "Cross-ref ladder", "@see tags · docs/references index"],
   ["namespace-boundaries", "Name collisions", "When scaffold touches Herdr toolchain profile"],
 ] as const;
 
@@ -388,7 +395,7 @@ export default function KimiFixCanvas() {
           <Pill>2 profiles</Pill>
         </Row>
         <Text tone="tertiary" size="small">
-          Source: src/bin/kimi-fix.ts · TEMPLATES.md · docs/references/configuration-layers.md (App Scaffold layer)
+          Source: src/bin/kimi-fix.ts · TEMPLATES.md · docs/references/configuration-layers.md · docs/references/bun-runtime-scaffold.md
         </Text>
       </Stack>
 
@@ -469,8 +476,8 @@ export default function KimiFixCanvas() {
         <Table headers={["Command", "Purpose", "Notes"]} rows={BUN_RUNTIME_SCRIPTS.map((r) => [...r])} striped />
         <Text tone="tertiary" size="small">
           Docs: <Link href={BUN_CREATE_DOCS}>bun create</Link> ·{" "}
-          <Link href={BUN_RUNTIME_DOCS}>Bun runtime</Link> · skeleton:
-          templates/bun-create/kimi-toolchain/package.json
+          <Link href={BUN_RUNTIME_DOCS}>Bun runtime</Link> · indexed reference:
+          docs/references/bun-runtime-scaffold.md · skeleton: templates/bun-create/kimi-toolchain/package.json
         </Text>
       </CollapsibleSection>
 
@@ -591,13 +598,29 @@ export default function KimiFixCanvas() {
             ["src/lib/scaffold-doctor.ts", "checkScaffold health checks"],
             ["src/lib/scaffold-quality.ts", "package.json scripts + devDeps injection"],
             ["TEMPLATES.md", "Human-readable scaffold reference"],
+            ["docs/references/configuration-layers.md", "App Scaffold layer · manifest id configuration-layers"],
+            ["docs/references/bun-runtime-scaffold.md", "bunfig.toml merge · bun create / install flags"],
           ]}
           striped
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Related canvases" count={3} defaultOpen={false}>
-        <Table headers={["Canvas", "Topic", "Open when"]} rows={CANVAS_ROUTING.map((r) => [...r])} striped />
+      <CollapsibleSection title="docs/references (scaffold)" count={DOCS_REFERENCES.length} defaultOpen={false}>
+        <Table
+          headers={["Manifest id", "Path", "One-line"]}
+          rows={DOCS_REFERENCES.map((r) => [...r])}
+          rowTone={["info", "info", "neutral"]}
+          striped
+        />
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Related canvases" count={CANVAS_ROUTING.length} defaultOpen={false}>
+        <Table
+          headers={["Canvas", "Topic", "Open when"]}
+          rows={CANVAS_ROUTING.map((r) => [...r])}
+          rowTone={["info", "info", "neutral", "warning"]}
+          striped
+        />
       </CollapsibleSection>
     </Stack>
   );

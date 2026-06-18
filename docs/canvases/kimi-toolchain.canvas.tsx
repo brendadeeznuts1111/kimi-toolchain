@@ -86,9 +86,9 @@ const SUCCESS_METRICS = [
 
 /** Static snapshot from `bun run config:status --json` (regenerate when gates change). */
 const CONFIG_STATUS_SNAPSHOT = [
-  ["canonical-references", "Discovery", "pass", 51],
-  ["constants-manifest", "Define registry", "pass", 43],
-  ["constant-parity", "Cross-repo contract", "pass", 42],
+  ["canonical-references", "Discovery", "pass", 101],
+  ["constants-manifest", "Define registry", "pass", 88],
+  ["constant-parity", "Cross-repo contract", "pass", 83],
 ] as const;
 
 const AGENT_LOOP = [
@@ -113,6 +113,7 @@ const HOOK_TAXONOMY = [
 
 const CANVAS_ROUTING = [
   ["kimi-toolchain", "Project hub", "Architecture, tools, gates (this canvas)"],
+  ["kimi-fix", "Scaffold", "kimi-fix · bun create · profiles · doctor checks"],
   ["configuration-layers", "Config SSOT", "Four-layer model · config:status gates"],
   ["namespace-boundaries", "Name collisions", "Doctor trinity · finish-work vs prefix+*"],
   ["doc-links-and-see-ladder", "Cross-ref ladder", "@see tags · JSDoc routing"],
@@ -143,7 +144,7 @@ const BIN_COUNT = 27;
 const LIB_COUNT = 218;
 const UNIT_COUNT = 148;
 const INTEGRATION_COUNT = 5;
-const SMOKE_COUNT = 5;
+const SMOKE_COUNT = 6;
 
 function SyncFlowDag() {
   const theme = useHostTheme();
@@ -369,17 +370,15 @@ export default function KimiToolchainCanvas() {
         <CardBody style={{ padding: 0 }}>
           <Table
             headers={["Gate", "Layer", "Status", "ms"]}
-            rows={CONFIG_STATUS_SNAPSHOT.map((r) => [r[0], r[1], `✅ ${r[2]}`, String(r[3])])}
+            rows={CONFIG_STATUS_SNAPSHOT.map((r) => [r[0], r[1], r[2], String(r[3])])}
             rowTone={["info", "neutral", "success", "neutral"]}
             striped
           />
         </CardBody>
         <CardBody>
           <Text tone="tertiary" size="small">
-            Snapshot from <code>bun run config:status --json</code>. Live check:{" "}
-            <code>bun run config:status</code> · see{" "}
-            <a href="./configuration-layers.canvas.tsx">configuration-layers canvas</a> for the
-            four-layer model.
+            Snapshot: bun run config:status --json · live: bun run config:status · companion canvas:
+            docs/canvases/configuration-layers.canvas.tsx
           </Text>
         </CardBody>
       </Card>
@@ -388,7 +387,7 @@ export default function KimiToolchainCanvas() {
         <Table
           headers={["Canvas", "Topic", "Open when"]}
           rows={CANVAS_ROUTING.map((r) => [...r])}
-          rowTone={["info", "neutral", "warning", "neutral", "warning", "neutral"]}
+          rowTone={["info", "success", "neutral", "warning", "neutral", "warning", "neutral"]}
           striped
         />
         <Text tone="tertiary" size="small">
@@ -405,6 +404,7 @@ export default function KimiToolchainCanvas() {
           <Pill>CODE_REFERENCES.md</Pill>
           <Pill>docs/references/namespace.md</Pill>
           <Pill>docs/references/configuration-layers.md</Pill>
+          <Pill>docs/references/bun-runtime-scaffold.md</Pill>
         </Row>
         <Text tone="tertiary" size="small">
           Canonical clone path: ~/kimi-toolchain · verify with kimi-toolchain workspace verify ·

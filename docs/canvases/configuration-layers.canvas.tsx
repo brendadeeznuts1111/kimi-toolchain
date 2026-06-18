@@ -45,6 +45,10 @@ const ANTI_CONFUSION = [
     "Scaffold has no [define]",
     "templates/scaffold/bunfig.toml is install/test policy only — KIMI_* defines live in root bunfig.toml",
   ],
+  [
+    "App scaffold ≠ bun create",
+    "kimi-fix is add-only; bun create local templates wipe the destination — see kimi-fix canvas",
+  ],
 ] as const;
 
 const AGENT_DECISIONS = [
@@ -54,21 +58,33 @@ const AGENT_DECISIONS = [
   ["Discover defaults, domains, define inventory", "constants-manifest.json"],
   ["Verify two repos share tunable parameters", "constants-parity.toml"],
   ["Bootstrap new app install/test policy", "templates/scaffold/bunfig.toml (via kimi-fix)"],
+  ["Map bun create / runtime flags to scaffold", "docs/references/bun-runtime-scaffold.md · TEMPLATES.md"],
 ] as const;
 
 const ENFORCEMENT_GATES = [
+  ["All core gates (one shot)", "bun run config:status", "config:status"],
   ["Canonical refs fresh", "bun run references:generate --check", "canonical-references"],
   ["Manifest fresh", "bun run manifest:generate --check", "constants-manifest"],
-  ["Parity aligned", "bun run lint-constant-parity", "constant-parity"],
+  ["Parity aligned", "bun run lint:constant-parity", "constant-parity"],
   ["Runtime cache valid", "bun run sync; probe:canonical-references:*", "handoff probes"],
+  ["Canvas pointers valid", "bun run scripts/lint-cursor-canvas.ts", "cursor-canvas"],
 ] as const;
 
 const RELATED_PATHS = [
   ["Build-time constants naming", "CODE_REFERENCES.md § Build-time constants"],
   ["Ecosystem manifest + handoff probes", "docs/references/namespace.md"],
   ["Ecosystem link SSOT", "src/lib/canonical-references.ts → canonical-references.json"],
+  ["Scaffold + bun create flags", "docs/references/bun-runtime-scaffold.md · docs/canvases/kimi-fix.canvas.tsx"],
   ["Define registry generator", "src/lib/build-constants-registry.ts → constants-manifest.json"],
   ["Cross-repo parity config", "constants-parity.toml"],
+  ["Bun runtime scaffold flags and install config", "docs/references/bun-runtime-scaffold.md"],
+] as const;
+
+const CANVAS_ROUTING = [
+  ["kimi-toolchain", "Project hub", "Start here for tools and gates"],
+  ["configuration-layers", "Config SSOT", "This canvas — four-layer model"],
+  ["kimi-fix", "Scaffold", "bun create · profiles · kimi-fix doctor"],
+  ["namespace-boundaries", "Name collisions", "Doctor trinity · prefix+*"],
 ] as const;
 
 const CANONICAL_REPOS = ["kimi-toolchain", "kimi-code-upstream", "effect-upstream"] as const;
@@ -199,8 +215,8 @@ export default function ConfigurationLayersCanvas() {
         <Row gap={8} wrap>
           <Pill>4 layers</Pill>
           <Pill>3 canonical repos</Pill>
-          <Pill>4 anti-confusion rules</Pill>
-          <Pill>4 enforcement gates</Pill>
+          <Pill>5 anti-confusion rules</Pill>
+          <Pill>6 enforcement gates</Pill>
         </Row>
       </Stack>
 
@@ -234,7 +250,7 @@ export default function ConfigurationLayersCanvas() {
           <Table
             headers={["If you are trying to…", "Look at…"]}
             rows={AGENT_DECISIONS.map((r) => [...r])}
-            rowTone={["info", "info", "neutral", "neutral", "warning", "success"]}
+            rowTone={["info", "info", "neutral", "neutral", "warning", "success", "neutral"]}
             striped
           />
         </Stack>
@@ -254,7 +270,7 @@ export default function ConfigurationLayersCanvas() {
           <Table
             headers={["Rule", "Detail"]}
             rows={ANTI_CONFUSION.map((r) => [...r])}
-            rowTone={["danger", "warning", "danger", "neutral"]}
+            rowTone={["danger", "warning", "danger", "neutral", "warning"]}
             striped
           />
         </CardBody>
@@ -294,11 +310,20 @@ export default function ConfigurationLayersCanvas() {
         </Stack>
       </Grid>
 
-      <CollapsibleSection title="Lint / doctor enforcement wiring" count={4} defaultOpen>
+      <CollapsibleSection title="Related canvases" count={4} defaultOpen={false}>
+        <Table
+          headers={["Canvas", "Topic", "Open when"]}
+          rows={CANVAS_ROUTING.map((r) => [...r])}
+          rowTone={["info", "info", "success", "warning"]}
+          striped
+        />
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Lint / doctor enforcement wiring" count={6} defaultOpen>
         <Table
           headers={["Gate", "Command", "Lint label"]}
           rows={ENFORCEMENT_GATES.map((r) => [...r])}
-          rowTone={["info", "neutral", "warning", "neutral"]}
+          rowTone={["success", "info", "neutral", "warning", "neutral", "neutral"]}
           striped
         />
         <Text tone="tertiary" size="small">
@@ -306,7 +331,7 @@ export default function ConfigurationLayersCanvas() {
         </Text>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Related docs and SSOT paths" count={5} defaultOpen={false}>
+      <CollapsibleSection title="Related docs and SSOT paths" count={7} defaultOpen={false}>
         <Table headers={["Topic", "Path"]} rows={RELATED_PATHS.map((r) => [...r])} striped />
       </CollapsibleSection>
     </Stack>
