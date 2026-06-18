@@ -220,7 +220,7 @@ bun run finish-work --message "..." --push  # gates + commit + push close-loop
 - **Smoke**: `test/smoke/` — full CLI invocations (`bun run test:smoke`)
 - **Integration**: `INTEGRATION_TEST_FILES` in `test-gates.ts` — full suite only
 - **Isolation**: Unit tests use a temporary `HOME` (`Bun.env.KIMI_TEST_HOME`, default `.tmp-kimi-test-home`) so they never touch the real `~/.kimi-code/`
-- **Shared setup**: `test-setup.ts` → `test/setup.ts` runs before every test file
+- **Shared setup**: `test/setup.ts` runs before every test file (via `bunfig.toml` `[test] preload`)
 - **Helpers**: `test/helpers.ts` — Bun-native temp dirs, HOME isolation, env mocks, console capture
 - **Conventions**: `test/testing.md` — golden rules and example patterns for all test files
 - **Timeout**: Default 30s per test; 60s for smoke tests; 1,500ms for fast unit gate

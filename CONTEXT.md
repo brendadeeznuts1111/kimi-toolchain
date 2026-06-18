@@ -16,7 +16,7 @@ CHANGELOG.md
 bun-native-lint.toml
 canonical-references.json
 bunfig.toml
-test-setup.ts
+test/setup.ts
 bun.lock
 README.md
 kimi-toolchain.code-workspace

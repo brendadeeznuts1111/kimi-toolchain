@@ -62,7 +62,7 @@ KIMI_TUNING_SET_VERSION = '"1.4.1"'
 
 # Shared test defaults — see src/lib/test-gates.ts and scripts/run-tests.ts
 [test]
-preload = ["./test-setup.ts"]
+preload = ["./test/setup.ts"]
 # *.db.test.ts excluded — DB tests mutate shared state and must run sequentially
 concurrentTestGlob = ["test/*.unit.test.ts"]
 # Fail fast in normal/CI runs; flake-hunt scripts override with --bail=99999.

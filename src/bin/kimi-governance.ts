@@ -289,36 +289,44 @@ export async function loadCachedCoverage(projectDir: string): Promise<CoverageRe
 }
 
 async function storeCoverageHistory(projectDir: string, report: CoverageReport) {
-  ensureDir(GOVERNANCE_DIR);
-  let history: CoverageHistoryEntry[] = [];
-  if (pathExists(COVERAGE_HISTORY)) {
-    try {
-      history = (await Bun.file(COVERAGE_HISTORY).json()) as CoverageHistoryEntry[];
-    } catch {
-      history = [];
+  try {
+    ensureDir(GOVERNANCE_DIR);
+    let history: CoverageHistoryEntry[] = [];
+    if (pathExists(COVERAGE_HISTORY)) {
+      try {
+        history = (await Bun.file(COVERAGE_HISTORY).json()) as CoverageHistoryEntry[];
+      } catch {
+        history = [];
+      }
+    }
+
+    const project = await getProjectName(projectDir);
+    history.push({
+      project,
+      timestamp: new Date().toISOString(),
+      percentage: report.percentage,
+      covered: report.covered,
+      total: report.total,
+    });
+
+    // Keep last 100 entries per project
+    const byProject = new Map<string, CoverageHistoryEntry[]>();
+    for (const h of history) {
+      byProject.set(h.project, [...(byProject.get(h.project) || []), h]);
+    }
+    const trimmed: CoverageHistoryEntry[] = [];
+    for (const entries of byProject.values()) {
+      trimmed.push(...entries.slice(-100));
+    }
+
+    await Bun.write(COVERAGE_HISTORY, JSON.stringify(trimmed, null, 2));
+  } catch (err) {
+    if (err instanceof Error && (err.message.includes("EPERM") || err.message.includes("EACCES"))) {
+      // sandboxed — coverage data still computed
+    } else {
+      throw err;
     }
   }
-
-  const project = await getProjectName(projectDir);
-  history.push({
-    project,
-    timestamp: new Date().toISOString(),
-    percentage: report.percentage,
-    covered: report.covered,
-    total: report.total,
-  });
-
-  // Keep last 100 entries per project
-  const byProject = new Map<string, CoverageHistoryEntry[]>();
-  for (const h of history) {
-    byProject.set(h.project, [...(byProject.get(h.project) || []), h]);
-  }
-  const trimmed: CoverageHistoryEntry[] = [];
-  for (const entries of byProject.values()) {
-    trimmed.push(...entries.slice(-100));
-  }
-
-  await Bun.write(COVERAGE_HISTORY, JSON.stringify(trimmed, null, 2));
 }
 
 // ── R-Score ──────────────────────────────────────────────────────────
@@ -370,18 +378,27 @@ async function computeRScore(
     grade: computed.grade,
   };
 
-  ensureDir(GOVERNANCE_DIR);
-  let history: RScore[] = [];
-  if (pathExists(SCORE_HISTORY)) {
-    try {
-      history = (await Bun.file(SCORE_HISTORY).json()) as RScore[];
-    } catch {
-      history = [];
+  // Persist score history; tolerate sandbox EPERM (non-critical for scoring).
+  try {
+    ensureDir(GOVERNANCE_DIR);
+    let history: RScore[] = [];
+    if (pathExists(SCORE_HISTORY)) {
+      try {
+        history = (await Bun.file(SCORE_HISTORY).json()) as RScore[];
+      } catch {
+        history = [];
+      }
+    }
+    history.push(score);
+    if (history.length > 50) history = history.slice(-50);
+    await Bun.write(SCORE_HISTORY, JSON.stringify(history, null, 2));
+  } catch (err) {
+    if (err instanceof Error && (err.message.includes("EPERM") || err.message.includes("EACCES"))) {
+      // sandboxed — score is still valid
+    } else {
+      throw err;
     }
   }
-  history.push(score);
-  if (history.length > 50) history = history.slice(-50);
-  await Bun.write(SCORE_HISTORY, JSON.stringify(history, null, 2));
 
   return score;
 }

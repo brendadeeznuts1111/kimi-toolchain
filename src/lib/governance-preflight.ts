@@ -87,12 +87,25 @@ export async function runGovernancePreflight(
     if (patched > 0) actions.push(`readme_patched:${patched}`);
   }
 
-  if (guardian && (await lockfileNeedsGuardianBaseline(projectDir))) {
-    const result = await runTool("kimi-guardian", ["fix"], {
-      cwd: projectDir,
-      timeoutMs: 30_000,
-    });
-    if (result.exitCode === 0) actions.push("guardian_baselined");
+  if (guardian) {
+    try {
+      if (await lockfileNeedsGuardianBaseline(projectDir)) {
+        const result = await runTool("kimi-guardian", ["fix"], {
+          cwd: projectDir,
+          timeoutMs: 30_000,
+        });
+        if (result.exitCode === 0) actions.push("guardian_baselined");
+      }
+    } catch (err) {
+      if (
+        err instanceof Error &&
+        (err.message.includes("EPERM") || err.message.includes("EACCES"))
+      ) {
+        // sandboxed — guardian baseline not available
+      } else {
+        throw err;
+      }
+    }
   }
 
   return { actions, changed: actions.length > 0 };

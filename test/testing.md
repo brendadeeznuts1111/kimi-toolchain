@@ -6,7 +6,7 @@
 
 - **Runner**: `bun:test` (built into Bun)
 - **Entry**: `bun run test:fast` for the fast unit gate, `bun test` for full discovery
-- **Preload**: `test-setup.ts` → `test/setup.ts` runs before every test file
+- **Preload**: `test/setup.ts` runs before every test file (via `bunfig.toml` `[test] preload`)
 - **Helpers**: `test/helpers.ts` for shared, Bun-native test utilities
 
 ## Golden rules
