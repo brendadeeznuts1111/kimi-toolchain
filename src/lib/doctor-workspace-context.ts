@@ -50,6 +50,8 @@ export interface WorkspaceContextReport {
   /** Structured DX config load failures (empty when merge succeeded). */
   configErrors: DxConfigErrorSummary[];
   markdown: string;
+  /** HTML rendering of the markdown report (set when --html flag is used). */
+  html?: string;
 }
 
 const EMPTY_AGENT_CONTEXT: AgentContext = {

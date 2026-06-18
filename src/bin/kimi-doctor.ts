@@ -117,6 +117,7 @@ const QUICK = Bun.argv.includes("--quick");
 const SOFT_SYSTEM = Bun.argv.includes("--soft-system");
 const MEMORY_BUDGET = Bun.argv.includes("--memory-budget");
 const JSON_OUT = writer.flags.json;
+const HTML_OUT = Bun.argv.includes("--html");
 const WORKSPACE_ONLY = Bun.argv.includes("--workspace");
 const ECOSYSTEM = Bun.argv.includes("--ecosystem");
 const AGENT_READY = Bun.argv.includes("--agent-ready");
@@ -208,6 +209,7 @@ function semverBelow(version: string | null, floor: [number, number, number]): b
 }
 
 import { runOfficialKimiDoctor } from "../lib/kimi-doctor-wrapper.ts";
+import { renderMarkdownHtml } from "../lib/bun-markdown.ts";
 
 async function versionMatrix(): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
@@ -1151,7 +1153,12 @@ async function runWorkspaceContextMode(projectRoot: string): Promise<number> {
   }
 
   if (JSON_OUT) {
+    if (HTML_OUT) {
+      report.html = renderMarkdownHtml(report.markdown);
+    }
     emitJson(report);
+  } else if (HTML_OUT) {
+    process.stdout.write(renderMarkdownHtml(report.markdown));
   } else {
     process.stdout.write(report.markdown);
   }
