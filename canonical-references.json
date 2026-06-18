@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-18T15:46:50.014Z",
+  "generatedAt": "2026-06-18T15:49:17.675Z",
   "toolchainVersion": "0.1.0",
   "ecosystem": [
     {
@@ -87,6 +87,7 @@
       "runtimePath": "~/.kimi-code/CODE_REFERENCES.md",
       "purpose": "Local coding exemplars; doc-links lint and @see ladder",
       "cursorCanvas": "docs/canvases/doc-links-and-see-ladder.canvas.tsx",
+      "canvasId": "doc-links-and-see-ladder",
       "canvasPage": "Doc links",
       "canvasVersion": "0.1.0",
       "canvasLayer": "Doc URL lint",
@@ -98,6 +99,7 @@
       "runtimePath": "~/.kimi-code/UNIFIED.md",
       "purpose": "Kimi Code vs kimi-toolchain matrix",
       "cursorCanvas": "docs/canvases/kimi-toolchain.canvas.tsx",
+      "canvasId": "kimi-toolchain",
       "canvasPage": "Hub"
     },
     {
@@ -112,6 +114,7 @@
       "runtimePath": "~/.kimi-code/TEMPLATES.md",
       "purpose": "Scaffold templates — profiles, snippets, bun create flow, kimi-fix usage",
       "cursorCanvas": "docs/canvases/kimi-fix.canvas.tsx",
+      "canvasId": "kimi-fix",
       "canvasPage": "Scaffold"
     },
     {
@@ -120,6 +123,7 @@
       "runtimePath": "~/.kimi-code/docs/references/dashboard-thumbnails.md",
       "purpose": "Herdr dashboard thumbnail pipeline; meta.webview; WebView dataStore vs in-memory cache",
       "cursorCanvas": "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx",
+      "canvasId": "herdr-dashboard-thumbnails",
       "canvasPage": "Orchestrator HTTP"
     },
     {
@@ -128,6 +132,7 @@
       "runtimePath": "~/.kimi-code/docs/references/kimi-doctor.md",
       "purpose": "Dashboard automation gate (kimi-doctor --automation): CLI, JSON schema, exit codes, and failure modes",
       "cursorCanvas": "docs/canvases/herdr-dashboard-automation.canvas.tsx",
+      "canvasId": "herdr-dashboard-automation",
       "canvasPage": "Finish-work shell"
     },
     {
@@ -136,6 +141,7 @@
       "runtimePath": "~/.kimi-code/docs/references/namespace.md",
       "purpose": "Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings",
       "cursorCanvas": "docs/canvases/namespace-boundaries.canvas.tsx",
+      "canvasId": "namespace-boundaries",
       "canvasPage": "Meta / routing"
     },
     {
@@ -144,6 +150,7 @@
       "runtimePath": "~/.kimi-code/docs/references/configuration-layers.md",
       "purpose": "Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml)",
       "cursorCanvas": "docs/canvases/configuration-layers.canvas.tsx",
+      "canvasId": "configuration-layers",
       "canvasPage": "Config SSOT"
     },
     {
@@ -176,6 +183,7 @@
       "runtimePath": "~/.kimi-code/docs/references/herdr-plugin-architecture.md",
       "purpose": "Herdr unified plugin plan v0.5.0 — prefix+* actions, STATE_DIR topology; orthogonal to [finishWork].gates",
       "cursorCanvas": "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx",
+      "canvasId": "herdr-unified-plugin-architecture",
       "canvasPage": "Herdr plugins"
     },
     {

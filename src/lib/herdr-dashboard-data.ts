@@ -273,7 +273,10 @@ export function runDashboardAgentAction(request: DashboardActionRequest): Dashbo
 // ── Canvas navigator ─────────────────────────────────────────────────
 
 export interface DashboardCanvasEntry {
+  /** Manifest domain id (e.g. "code-references") */
   id: string;
+  /** Canvas self-identifier (e.g. "doc-links-and-see-ladder"). Matches CANVAS_ROUTING.id. */
+  canvasId: string;
   /** Canvas display name (e.g. "Doc links") — from CANVAS_ROUTING.page */
   page: string;
   /** Repo-relative path (e.g. docs/canvases/doc-links-and-see-ladder.canvas.tsx) */
@@ -303,6 +306,7 @@ export function fetchDashboardCanvases(): DashboardCanvasesPayload {
     if (!ref.cursorCanvas) continue;
     canvases.push({
       id: ref.id,
+      canvasId: ref.canvasId ?? ref.cursorCanvas.replace(canvasPrefix, "").replace(".canvas.tsx", ""),
       page: ref.canvasPage ?? ref.cursorCanvas.replace(canvasPrefix, "").replace(".canvas.tsx", ""),
       path: ref.cursorCanvas,
       purpose: ref.purpose ?? "",

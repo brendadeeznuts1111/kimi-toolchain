@@ -50,6 +50,8 @@ export interface LocalDocReference {
   cursorCanvas?: string;
   /** Canvas display page name (e.g. "Doc links"). Matches CANVAS_ROUTING.page. */
   canvasPage?: string;
+  /** Canvas self-identifier (e.g. "doc-links-and-see-ladder"). Matches CANVAS_ROUTING.id. */
+  canvasId?: string;
   /** Canvas version string (e.g. "0.1.0"). From CANVAS_ROUTING.version. */
   canvasVersion?: string;
   /** Canvas layer label (e.g. "Doc URL lint"). From CANVAS_ROUTING.layer. */
@@ -164,6 +166,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     runtimePath: "~/.kimi-code/CODE_REFERENCES.md",
     purpose: "Local coding exemplars; doc-links lint and @see ladder",
     cursorCanvas: "docs/canvases/doc-links-and-see-ladder.canvas.tsx",
+    canvasId: "doc-links-and-see-ladder",
     canvasPage: "Doc links",
     canvasVersion: "0.1.0",
     canvasLayer: "Doc URL lint",
@@ -175,6 +178,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     runtimePath: "~/.kimi-code/UNIFIED.md",
     purpose: "Kimi Code vs kimi-toolchain matrix",
     cursorCanvas: "docs/canvases/kimi-toolchain.canvas.tsx",
+    canvasId: "kimi-toolchain",
     canvasPage: "Hub",
   },
   {
@@ -190,6 +194,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     purpose:
       "Scaffold templates — profiles, snippets, bun create flow, kimi-fix usage",
     cursorCanvas: "docs/canvases/kimi-fix.canvas.tsx",
+    canvasId: "kimi-fix",
     canvasPage: "Scaffold",
   },
   {
@@ -199,6 +204,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     purpose:
       "Herdr dashboard thumbnail pipeline; meta.webview; WebView dataStore vs in-memory cache",
     cursorCanvas: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx",
+    canvasId: "herdr-dashboard-thumbnails",
     canvasPage: "Orchestrator HTTP",
   },
   {
@@ -208,6 +214,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     purpose:
       "Dashboard automation gate (kimi-doctor --automation): CLI, JSON schema, exit codes, and failure modes",
     cursorCanvas: "docs/canvases/herdr-dashboard-automation.canvas.tsx",
+    canvasId: "herdr-dashboard-automation",
     canvasPage: "Finish-work shell",
   },
   {
@@ -217,6 +224,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     purpose:
       "Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings",
     cursorCanvas: "docs/canvases/namespace-boundaries.canvas.tsx",
+    canvasId: "namespace-boundaries",
     canvasPage: "Meta / routing",
   },
   {
@@ -226,6 +234,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     purpose:
       "Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml)",
     cursorCanvas: "docs/canvases/configuration-layers.canvas.tsx",
+    canvasId: "configuration-layers",
     canvasPage: "Config SSOT",
   },
   {
@@ -261,6 +270,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     purpose:
       "Herdr unified plugin plan v0.5.0 — prefix+* actions, STATE_DIR topology; orthogonal to [finishWork].gates",
     cursorCanvas: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx",
+    canvasId: "herdr-unified-plugin-architecture",
     canvasPage: "Herdr plugins",
   },
   {
