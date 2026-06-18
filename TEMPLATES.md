@@ -442,3 +442,56 @@ Scaffolded by `kimi-fix`. Only add stdio servers in trusted repos.
 ## IDE ACP (Zed / JetBrains)
 
 Kimi Code ACP wiring (`kimi acp`, absolute path to `~/.kimi-code/bin/kimi`): `skills/kimi-toolchain/SKILL.md` and [UNIFIED.md](UNIFIED.md) § Editor workflows. Run `kimi login` once before first IDE session.
+
+## bun create Template (`templates/bun-create/kimi-toolchain/`)
+
+Minimal skeleton for `bun create kimi-toolchain <name>`. One file only:
+
+```
+templates/bun-create/kimi-toolchain/
+└── package.json    ← bun-create.postinstall: toolchain → kimi-fix
+```
+
+The template is intentionally minimal — `kimi-fix` generates everything else (tsconfig, bunfig, README, entry point, AGENTS.md, dx.config, scripts, .kimi-code/). See `templates/scaffold/` for all templates that `kimi-fix` deploys.
+
+The template delegates hardening to a two-step `bun-create.postinstall`:
+
+```json
+{
+  "name": "kimi-toolchain",
+  "bun-create": {
+    "postinstall": [
+      "bun install -g github:brendadeeznuts1111/kimi-toolchain",
+      "kimi-fix ."
+    ]
+  }
+}
+```
+
+After `bun create` copies the skeleton, `bun-create.postinstall` runs:
+1. `bun install -g` ensures toolchain is available (idempotent — fast no-op if already installed)
+2. `kimi-fix .` — injects hardened bunfig, tsconfig, oxfmt/oxlint, AGENTS.md, dx.config.toml, src/index.ts, README.md, scripts/, .kimi-code/, governance fix, guardian fix, githooks install, devDeps (@types/bun, oxfmt, oxlint, typescript)
+
+The `bun-create` section is auto-stripped from the destination `package.json` by Bun.
+
+### Install
+
+```bash
+cp -r templates/bun-create/kimi-toolchain ~/.bun-create/kimi-toolchain
+```
+
+Or set `BUN_CREATE_DIR` to point at the repo: `export BUN_CREATE_DIR="$HOME/kimi-toolchain/templates/bun-create"`
+
+### Usage
+
+```bash
+bun create kimi-toolchain my-app
+cd my-app
+bun run check:fast
+```
+
+### AI agent rules
+
+`bun init` auto-generates `CLAUDE.md` (Claude CLI) and `.cursor/rules/*.mdc` (Cursor) when those tools are detected. `kimi-fix` generates `AGENTS.md` (agent-agnostic, includes DX layer references) but does not generate Claude- or Cursor-specific files. To add them after scaffold, run `bun init -y` (non-destructive).
+
+See [bun create docs](https://bun.com/docs/runtime/templating/create) for the full local-template execution flow (destructive overwrite, `bun-create` hooks, `git init`, framework auto-detection).

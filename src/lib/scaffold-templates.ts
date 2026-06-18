@@ -46,6 +46,11 @@ export const ADR_TEMPLATE = load("adr-template.md");
 export const CODE_REFERENCES_TEMPLATE = load("code-references.md");
 export const MIT_LICENSE_TEMPLATE = load("LICENSE-MIT");
 
+// ── Source file templates ────────────────────────────────────────────
+
+export const ENTRY_POINT = load("index.ts");
+export const README_TEMPLATE = load("README.md");
+
 // ── Generator functions ──────────────────────────────────────────────
 
 /** Required package.json scripts added by kimi-fix and audited by scaffold doctor. */

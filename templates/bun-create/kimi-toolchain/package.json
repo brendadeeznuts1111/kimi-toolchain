@@ -4,7 +4,7 @@
   "description": "Greenfield Bun project pre-wired with kimi-toolchain governance, guardian, and quality gates.",
   "bun-create": {
     "postinstall": [
-      "which kimi-fix || { echo 'Installing kimi-toolchain...' && bun install -g github:brendadeeznuts1111/kimi-toolchain; }",
+      "bun install -g github:brendadeeznuts1111/kimi-toolchain",
       "kimi-fix ."
     ]
   }

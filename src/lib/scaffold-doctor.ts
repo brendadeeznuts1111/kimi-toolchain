@@ -63,10 +63,12 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
   const fileChecks: Array<{ name: string; rel: string }> = [
     { name: "AGENTS.md", rel: "AGENTS.md" },
     { name: "CODE_REFERENCES.md", rel: "CODE_REFERENCES.md" },
+    { name: "README.md", rel: "README.md" },
     { name: "tsconfig.json", rel: "tsconfig.json" },
     { name: "bunfig.toml", rel: "bunfig.toml" },
     { name: "dx.config.toml", rel: "dx.config.toml" },
     { name: "mcp.json", rel: ".kimi-code/mcp.json" },
+    { name: "index.ts", rel: "src/index.ts" },
     { name: "check.ts", rel: "scripts/check.ts" },
     { name: "oxfmtrc", rel: ".oxfmtrc.json" },
     { name: "oxlintrc", rel: ".oxlintrc.json" },

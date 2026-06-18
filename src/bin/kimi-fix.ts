@@ -24,6 +24,8 @@ import {
   BUNFIG,
   KIMI_SKILLS_README,
   CODE_REFERENCES_TEMPLATE,
+  ENTRY_POINT,
+  README_TEMPLATE,
 } from "../lib/scaffold-templates.ts";
 import {
   FINISH_WORK_CONFIG_TEMPLATE,
@@ -40,6 +42,7 @@ import {
   filterScaffoldArgv,
   detectProfileDrift,
   ScaffoldProfileError,
+  renderTemplate,
   type ScaffoldProfile,
 } from "../lib/scaffold-profiles.ts";
 import { homeDir } from "../lib/paths.ts";
@@ -169,6 +172,26 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
     stepLog("git", "repo already exists");
   }
 
+  // Write entry point + README before governance (governance fix creates its own README)
+  const projectName = await getProjectName(project);
+
+  if (!dryRun) makeDir(join(project, "src"), { recursive: true });
+  const entryPath = join(project, "src", "index.ts");
+  if (!pathExists(entryPath)) {
+    stepLog("entry", "creating src/index.ts...");
+    await writeFile(entryPath, ENTRY_POINT, dryRun);
+  }
+
+  const readmePath = join(project, "README.md");
+  if (!pathExists(readmePath)) {
+    stepLog("readme", "creating README.md...");
+    await writeFile(
+      readmePath,
+      renderTemplate(README_TEMPLATE, { PROJECT_NAME: projectName }),
+      dryRun
+    );
+  }
+
   await Promise.all([
     delegateTool("kimi-governance", ["fix"], project, dryRun),
     delegateTool("kimi-context-gen", ["update"], project, dryRun),
@@ -219,7 +242,6 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
     await writeFile(join(project, ".oxlintrc.json"), OXLINTRC, dryRun);
   }
 
-  const projectName = await getProjectName(project);
   const home = homeDir();
 
   const agentsPath = join(project, "AGENTS.md");
