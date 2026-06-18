@@ -5,10 +5,16 @@
 import { join } from "path";
 import {
   bunImageSupported,
+  dashboardThumbnailFeedsActive,
+  dashboardThumbnailBytes,
   DASHBOARD_THUMB_HEIGHT,
   DASHBOARD_THUMB_WIDTH,
-  dashboardWebpThumbnail,
+  negotiateDashboardThumbnailFormat,
+  probeBunImageAvifEncode,
   imagePlaceholderDataUrl,
+  thumbnailCacheKey,
+  thumbnailFormatMime,
+  type DashboardThumbnailFormat,
 } from "./bun-image.ts";
 import { pathExists, readText } from "./bun-io.ts";
 import { inspectAgent } from "./inspect.ts";
@@ -177,6 +183,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 interface ServeRequest {
   url: string;
   method: string;
+  headers: { get(name: string): string | null };
   text(): Promise<string>;
 }
 
@@ -226,6 +233,7 @@ export function startHerdrDashboardServer(
 
   let screenshotPng: Uint8Array | null = null;
   const widgetCache = new TtlCache<DashboardWidgetResponse>({ ttlMs: ssePollMs });
+  const thumbnailCache = new TtlCache<Uint8Array>({ ttlMs: ssePollMs * 2 });
 
   const { serveOptions, transport } = resolveDashboardServeTransport({
     http3: options.http3,
@@ -270,8 +278,20 @@ export function startHerdrDashboardServer(
           discovery: hub.discoveryCache.discoveryContext(),
           defaults: dxDefaults ?? undefined,
           dryRun: options.dryRun ?? false,
-          thumbnail: bunImageSupported(),
+          thumbnail:
+            bunImageSupported() &&
+            dashboardThumbnailFeedsActive({
+              shell: metaWebView.shell,
+              screenshotProvider: options.screenshotProvider,
+              hasScreenshot: Boolean(screenshotPng),
+            }),
           thumbnailPath: "/api/thumbnail",
+          thumbnailFormats: bunImageSupported()
+            ? {
+                webp: true,
+                avif: await probeBunImageAvifEncode(),
+              }
+            : undefined,
           transport: {
             scheme,
             tls: transport.tls,
@@ -300,15 +320,35 @@ export function startHerdrDashboardServer(
         const width = Number(url.searchParams.get("width") || String(DASHBOARD_THUMB_WIDTH));
         const height = Number(url.searchParams.get("height") || String(DASHBOARD_THUMB_HEIGHT));
         const quality = Number(url.searchParams.get("quality") || "80");
+        const formatParam = url.searchParams.get("format") as DashboardThumbnailFormat | null;
+        const format: DashboardThumbnailFormat =
+          formatParam && ["webp", "avif", "jpeg", "png"].includes(formatParam)
+            ? formatParam
+            : negotiateDashboardThumbnailFormat(request.headers.get("accept"));
+
+        const cacheKey = thumbnailCacheKey(png, width, height, quality, format);
+        const cached = thumbnailCache.get(cacheKey);
+        if (cached) {
+          return new Response(cached, {
+            headers: {
+              "content-type": thumbnailFormatMime(format),
+              "cache-control": "no-store",
+              "x-thumbnail-cache": "hit",
+            },
+          });
+        }
+
         try {
-          const webp = await dashboardWebpThumbnail(png, { width, height, quality });
-          if (!webp) {
+          const bytes = await dashboardThumbnailBytes(png, { width, height, quality, format });
+          if (!bytes) {
             return jsonResponse({ ok: false, error: "thumbnail encode failed" }, 500);
           }
-          return new Response(webp, {
+          thumbnailCache.set(cacheKey, bytes);
+          return new Response(bytes, {
             headers: {
-              "content-type": "image/webp",
+              "content-type": thumbnailFormatMime(format),
               "cache-control": "no-store",
+              "x-thumbnail-cache": "miss",
             },
           });
         } catch (e: unknown) {

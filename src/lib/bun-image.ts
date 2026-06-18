@@ -22,7 +22,7 @@ const TINY_PNG = Uint8Array.from(
   (c) => c.charCodeAt(0)
 );
 
-export type DashboardThumbnailFormat = "webp" | "avif";
+export type DashboardThumbnailFormat = "webp" | "avif" | "jpeg" | "png";
 export type DashboardWebViewShell = "serve" | "webview" | "automation";
 export type BunImageSystemPlatform = "linux" | "macos" | "windows" | "other";
 export type BunImageBackend = "bun" | "system";
@@ -34,8 +34,7 @@ export function bunImageSupported(): boolean {
 
 // ── Backend control ──────────────────────────────────────────────────
 
-const PLATFORM_DEFAULT_BACKEND: BunImageBackend =
-  process.platform === "linux" ? "bun" : "system";
+const PLATFORM_DEFAULT_BACKEND: BunImageBackend = process.platform === "linux" ? "bun" : "system";
 
 /**
  * Get the current Bun.Image geometry backend.
@@ -153,9 +152,16 @@ function dashboardThumbnailPipeline(
     fit: "inside",
     withoutEnlargement: true,
   });
-  return options.format === "avif"
-    ? resized.avif({ quality: options.quality })
-    : resized.webp({ quality: options.quality });
+  switch (options.format) {
+    case "avif":
+      return resized.avif({ quality: options.quality });
+    case "jpeg":
+      return resized.jpeg({ quality: options.quality });
+    case "png":
+      return resized.png();
+    default:
+      return resized.webp({ quality: options.quality });
+  }
 }
 
 async function dashboardThumbnailBlob(
@@ -215,4 +221,38 @@ export async function dashboardThumbnailResponse(
 export async function imagePlaceholderDataUrl(input: string | Uint8Array): Promise<string | null> {
   if (!bunImageSupported()) return null;
   return new Bun.Image(input).placeholder();
+}
+
+// ── Thumbnail cache key ──────────────────────────────────────────────
+
+/**
+ * Derive a deterministic cache key from source bytes + requested params.
+ * The source hash ensures invalidation when the screenshot changes;
+ * param encoding prevents collisions across size/format/quality combos.
+ */
+export function thumbnailCacheKey(
+  sourcePng: Uint8Array,
+  width: number,
+  height: number,
+  quality: number,
+  format: DashboardThumbnailFormat
+): string {
+  const hasher = new Bun.CryptoHasher("sha256");
+  hasher.update(sourcePng);
+  hasher.update(`:${width}x${height}:q${quality}:${format}`);
+  return hasher.digest("hex");
+}
+
+/** MIME type for a thumbnail format. */
+export function thumbnailFormatMime(format: DashboardThumbnailFormat): string {
+  switch (format) {
+    case "avif":
+      return "image/avif";
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    default:
+      return "image/webp";
+  }
 }
