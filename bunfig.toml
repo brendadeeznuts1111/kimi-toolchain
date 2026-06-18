@@ -15,6 +15,10 @@ exact = false
 ignoreScripts = false
 concurrentScripts = 8
 linker = "isolated"
+# Experimental (Bun ≥1.3.14): symlink packages from a shared global cache instead of copying.
+# Warm installs become ~7× faster on macOS. Ineligible packages fall back automatically.
+# Requires linker = "isolated". Disable by commenting out or setting to false.
+globalStore = true
 globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
 minimumReleaseAge = 259200

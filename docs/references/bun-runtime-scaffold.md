@@ -96,6 +96,50 @@ When `node_modules` exists, Bun checks the `package.json` of the installed packa
 
 If `bun.lock` is missing or `package.json` changed, tarballs are downloaded eagerly. If `bun.lock` exists and `package.json` unchanged, missing dependencies are downloaded lazily.
 
+## Bun runtime features (Bun ≥1.3.14)
+
+### `process.execve()` — replace process image
+
+Bun implements `process.execve(execPath, args, env)` (Node.js v24 API). This POSIX syscall replaces the current process in-place — it never returns on success.
+
+```ts
+process.execve("/usr/bin/echo", ["echo", "hello"], { PATH: process.env.PATH });
+// This line is never reached on success.
+```
+
+- Inherits stdio (fd 0/1/2); other fds are marked close-on-exec.
+- Resets signal mask.
+- Throws in worker threads or on Windows.
+- Emits `ExperimentalWarning` once per process.
+
+Useful for toolchain scripts that need to swap out their own executable (e.g., after an update).
+
+### Bun.Terminal on Windows (Bun ≥1.3.14)
+
+`Bun.Terminal` and `Bun.spawn({ terminal })` now work on Windows via ConPTY.
+
+```ts
+const terminal = new Bun.Terminal({
+  cols: 80,
+  rows: 24,
+  onData(data) { process.stdout.write(data); },
+});
+const proc = Bun.spawn({ cmd: ["cmd.exe", "/c", "echo", "hello"], terminal });
+await proc.exited;
+terminal.close();
+```
+
+Platform differences:
+- No termios — input/output flags are no-ops.
+- No echo without a child process (ConPTY lacks line discipline).
+- ConPTY may re-encode escape sequences (colors/text preserved, cursor sequences may be coalesced).
+
+### Explicit Resource Management (`using` / `await using`)
+
+When targeting Bun (`--target=bun`), `using` and `await using` are left as-is (no transpilation to helper functions). This applies to `bun run`, `Bun.Transpiler({ target: "bun" })`, and `bun build --target=bun`.
+
+This improves runtime performance and avoids CommonJS wrapper bugs (e.g., `.cjs` files).
+
 ## Related
 
 | Topic | Path |
