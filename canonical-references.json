@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-18T11:31:27.582Z",
+  "generatedAt": "2026-06-18T11:55:21.756Z",
   "toolchainVersion": "0.1.0",
   "ecosystem": [
     {
@@ -104,7 +104,8 @@
       "id": "templates",
       "repoPath": "TEMPLATES.md",
       "runtimePath": "~/.kimi-code/TEMPLATES.md",
-      "purpose": "Scaffold templates"
+      "purpose": "Scaffold templates",
+      "cursorCanvas": "docs/canvases/kimi-fix.canvas.tsx"
     },
     {
       "id": "dashboard-thumbnails",
@@ -137,6 +138,12 @@
       "repoPath": "docs/references/shell-spawn-choice.md",
       "runtimePath": "~/.kimi-code/docs/references/shell-spawn-choice.md",
       "purpose": "invokeTool vs Bun.spawn vs governedSpawn decision matrix"
+    },
+    {
+      "id": "bun-runtime-scaffold",
+      "repoPath": "docs/references/bun-runtime-scaffold.md",
+      "runtimePath": "~/.kimi-code/docs/references/bun-runtime-scaffold.md",
+      "purpose": "Bun install config (bunfig.toml merge order, defaults, env vars, backend, cache/lazy install)"
     },
     {
       "id": "bun-shell-companions",

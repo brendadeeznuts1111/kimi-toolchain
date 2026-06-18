@@ -174,6 +174,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     repoPath: "TEMPLATES.md",
     runtimePath: "~/.kimi-code/TEMPLATES.md",
     purpose: "Scaffold templates",
+    cursorCanvas: "docs/canvases/kimi-fix.canvas.tsx",
   },
   {
     id: "dashboard-thumbnails",
@@ -210,6 +211,13 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     repoPath: "docs/references/shell-spawn-choice.md",
     runtimePath: "~/.kimi-code/docs/references/shell-spawn-choice.md",
     purpose: "invokeTool vs Bun.spawn vs governedSpawn decision matrix",
+  },
+  {
+    id: "bun-runtime-scaffold",
+    repoPath: "docs/references/bun-runtime-scaffold.md",
+    runtimePath: "~/.kimi-code/docs/references/bun-runtime-scaffold.md",
+    purpose:
+      "Bun install config (bunfig.toml merge order, defaults, env vars, backend, cache/lazy install)",
   },
   {
     id: "bun-shell-companions",
