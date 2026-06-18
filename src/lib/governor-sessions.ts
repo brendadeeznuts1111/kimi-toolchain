@@ -13,6 +13,7 @@ const GOVERNOR_DIR = governorDir();
 const DB_PATH = join(GOVERNOR_DIR, "resource-cache.sqlite");
 
 let _sessionId: string | null = null;
+let _dbReadonly = false;
 
 export function getSessionId(): string {
   if (!_sessionId) {
@@ -45,36 +46,36 @@ export function startSession(project: string): SessionRecord {
     cpuTimeMs: 0,
     diskUsedMb: 0,
   };
-  const db = getDb();
-  db.run(
-    `INSERT INTO resource_sessions (id, project, started_at, memory_peak_mb, cpu_time_ms, disk_used_mb)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [
-      record.id,
-      record.project,
-      record.startedAt,
-      record.memoryPeakMb,
-      record.cpuTimeMs,
-      record.diskUsedMb,
-    ]
-  );
-  db.close();
+  if (_dbReadonly) return record;
+  writeSession("INSERT INTO resource_sessions (id, project, started_at, memory_peak_mb, cpu_time_ms, disk_used_mb) VALUES (?, ?, ?, ?, ?, ?)",
+    [record.id, record.project, record.startedAt, record.memoryPeakMb, record.cpuTimeMs, record.diskUsedMb]);
   return record;
 }
 
 export function endSession(id: string) {
-  const db = getDb();
-  db.run(`UPDATE resource_sessions SET ended_at = ? WHERE id = ?`, [Date.now(), id]);
-  db.close();
+  if (_dbReadonly) return;
+  writeSession(`UPDATE resource_sessions SET ended_at = ? WHERE id = ?`, [Date.now(), id]);
 }
 
 export function updateSessionPeak(id: string, memoryMb: number, cpuMs: number) {
-  const db = getDb();
-  db.run(
+  if (_dbReadonly) return;
+  writeSession(
     `UPDATE resource_sessions SET memory_peak_mb = MAX(memory_peak_mb, ?), cpu_time_ms = cpu_time_ms + ? WHERE id = ?`,
-    [memoryMb, cpuMs, id]
-  );
-  db.close();
+    [memoryMb, cpuMs, id]);
+}
+
+function writeSession(sql: string, params: any[]): void {
+  try {
+    const db = getDb();
+    db.run(sql, params);
+    db.close();
+  } catch (e: any) {
+    if (e?.code === "SQLITE_READONLY" || e?.errno === 8) {
+      _dbReadonly = true;
+    } else {
+      throw e;
+    }
+  }
 }
 
 export interface CacheEntry {
@@ -98,29 +99,42 @@ export function normalizeCacheEntry(row: any): CacheEntry {
 export function getDb(): Database {
   if (!pathExists(GOVERNOR_DIR)) makeDir(GOVERNOR_DIR, { recursive: true });
   const db = new Database(DB_PATH, { create: true });
-  db.exec("PRAGMA journal_mode = WAL;");
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS resource_sessions (
-      id TEXT PRIMARY KEY,
-      project TEXT NOT NULL,
-      started_at INTEGER NOT NULL,
-      ended_at INTEGER,
-      memory_peak_mb REAL DEFAULT 0,
-      cpu_time_ms REAL DEFAULT 0,
-      disk_used_mb REAL DEFAULT 0
-    );
-    CREATE TABLE IF NOT EXISTS diagnostic_cache (
-      key TEXT PRIMARY KEY,
-      command TEXT NOT NULL,
-      output TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      expires_at INTEGER NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_cache_expires ON diagnostic_cache(expires_at);
-    CREATE INDEX IF NOT EXISTS idx_sessions_project ON resource_sessions(project);
-    CREATE INDEX IF NOT EXISTS idx_sessions_ended ON resource_sessions(ended_at);
-  `);
+  initDbSchema(db);
   return db;
+}
+
+function initDbSchema(db: Database): void {
+  if (_dbReadonly) return;
+  try {
+    db.exec("PRAGMA journal_mode = WAL;");
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS resource_sessions (
+        id TEXT PRIMARY KEY,
+        project TEXT NOT NULL,
+        started_at INTEGER NOT NULL,
+        ended_at INTEGER,
+        memory_peak_mb REAL DEFAULT 0,
+        cpu_time_ms REAL DEFAULT 0,
+        disk_used_mb REAL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS diagnostic_cache (
+        key TEXT PRIMARY KEY,
+        command TEXT NOT NULL,
+        output TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_cache_expires ON diagnostic_cache(expires_at);
+      CREATE INDEX IF NOT EXISTS idx_sessions_project ON resource_sessions(project);
+      CREATE INDEX IF NOT EXISTS idx_sessions_ended ON resource_sessions(ended_at);
+    `);
+  } catch (e: any) {
+    if (e?.code === "SQLITE_READONLY" || e?.errno === 8) {
+      _dbReadonly = true;
+    } else {
+      throw e;
+    }
+  }
 }
 
 export function hashCommand(command: string, args: string[], cwd: string): string {
@@ -142,20 +156,27 @@ export function setCached(
   output: string,
   ttlSeconds = DEFAULTS.cacheTTLSeconds
 ) {
-  const db = getDb();
+  if (_dbReadonly) return;
   const now = Date.now();
   const expires = now + ttlSeconds * 1000;
-  db.run(
+  writeSession(
     "INSERT OR REPLACE INTO diagnostic_cache (key, command, output, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
-    [key, command, output, now, expires]
-  );
-  db.close();
+    [key, command, output, now, expires]);
 }
 
 export function cleanupCache(): number {
-  const db = getDb();
-  const result = db.run("DELETE FROM diagnostic_cache WHERE expires_at < ?", [Date.now()]);
-  const deleted = result.changes;
-  db.close();
-  return deleted;
+  if (_dbReadonly) return 0;
+  try {
+    const db = getDb();
+    const result = db.run("DELETE FROM diagnostic_cache WHERE expires_at < ?", [Date.now()]);
+    const deleted = result.changes;
+    db.close();
+    return deleted;
+  } catch (e: any) {
+    if (e?.code === "SQLITE_READONLY" || e?.errno === 8) {
+      _dbReadonly = true;
+      return 0;
+    }
+    throw e;
+  }
 }
