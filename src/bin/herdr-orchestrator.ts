@@ -1568,6 +1568,16 @@ try {
         }
       })();
       const orchConfig = resolveOrchestratorConfig(full, doc);
+      const persistProfile =
+        dashboardPersistProfile ||
+        Boolean(dashboardProfileDir) ||
+        orchConfig.dashboard.persistProfile === true;
+      const profileDir = dashboardProfileDir || orchConfig.dashboard.profileDir || undefined;
+      const dashboardShell: "serve" | "webview" | "automation" = dashboardWebview
+        ? "webview"
+        : dashboardScreenshot
+          ? "automation"
+          : "serve";
       const serverOpts = {
         projectPath,
         port: dashboardPort,
@@ -1582,6 +1592,12 @@ try {
         ssePollMs: orchConfig.dashboard.ssePollMs,
         staleMs: orchConfig.dashboard.staleMs,
         herdrEvents: orchConfig.events.enabled,
+        webview: {
+          shell: dashboardShell,
+          persistProfile,
+          profileDir,
+          backend: dashboardBackend,
+        },
       };
 
       if (dashboardScreenshot) {
@@ -1592,8 +1608,8 @@ try {
           outputPath: dashboardScreenshot,
           thumbnailPath: dashboardThumbnail || undefined,
           backend: dashboardBackend,
-          persistProfile: dashboardPersistProfile,
-          profileDir: dashboardProfileDir || undefined,
+          persistProfile,
+          profileDir,
           clickAttach: dashboardProbe,
         });
         if (json) {
@@ -1615,8 +1631,8 @@ try {
       if (dashboardWebview) {
         await runHerdrDashboardWebView(serverOpts, {
           backend: dashboardBackend,
-          persistProfile: dashboardPersistProfile,
-          profileDir: dashboardProfileDir || undefined,
+          persistProfile,
+          profileDir,
         });
       } else {
         await runHerdrDashboardServe(serverOpts);

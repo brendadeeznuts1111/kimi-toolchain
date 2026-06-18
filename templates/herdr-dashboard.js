@@ -3,8 +3,13 @@ let lastHandoffsJson = "";
 let lastRulesJson = "";
 let pollTimer = null;
 let metaTimer = null;
+let sseFallbackTimer = null;
 let activeTab = "agents";
 let metaSnapshot = null;
+
+function auditDashboard(event, data = {}) {
+  console.log(`dashboard.${event}`, data);
+}
 
 const statusClass = (status) => {
   const key = (status || "unknown").toLowerCase();
@@ -106,8 +111,14 @@ function wireAgentThumbnail(data) {
 }
 
 function formatHerdrEventsLine(herdr) {
-  if (!herdr || herdr.enabled === false) {
-    return '<span class="herdr-off">herdr events off</span>';
+  if (herdr === undefined) {
+    return '<span class="herdr-warn">control-plane API outdated — restart dashboard server (bun run sync)</span>';
+  }
+  if (herdr.enabled === false) {
+    return '<span class="herdr-off">herdr events off (dx [herdr.orchestrator.events] enabled=false)</span>';
+  }
+  if (herdr.pending) {
+    return '<span class="herdr-warn">herdr socket starting…</span>';
   }
   if (herdr.error) {
     return `<span class="herdr-warn">herdr events error: ${esc(herdr.error)}</span>`;
@@ -121,8 +132,27 @@ function formatHerdrEventsLine(herdr) {
   return '<span class="herdr-warn">herdr socket connecting…</span>';
 }
 
+function formatWebViewLine(webview) {
+  if (webview === undefined) {
+    return "webview unavailable — restart dashboard server";
+  }
+  const shell = webview.shell || "serve";
+  const backend = webview.backend ? ` · ${esc(webview.backend)}` : "";
+  if (webview.mode === "persistent") {
+    const dir = webview.directory || webview.defaultProfileDir || "profile";
+    return `<span class="herdr-ok">webview ${esc(shell)}</span> · persistent ${esc(dir)}${backend}`;
+  }
+  const configured = webview.persistProfile
+    ? " (persist configured — WebKit guard may force ephemeral)"
+    : "";
+  return `<span class="herdr-warn">webview ${esc(shell)} · ephemeral${configured}</span>${backend}`;
+}
+
 function formatCacheLine(cache) {
-  if (!cache) return "cache —";
+  if (cache === undefined) {
+    return "cache unavailable — restart dashboard server";
+  }
+  if (!cache) return "cache empty";
   const d = cache.discovery || {};
   const s = cache.status || {};
   const hits = d.hits ?? 0;
@@ -142,11 +172,22 @@ function renderMetaDisplay(data) {
     (data.dryRun ? " · dry-run" : "");
 
   const control = document.getElementById("control-plane");
-  control.innerHTML = `${formatHerdrEventsLine(data.herdrEvents)} · ${formatCacheLine(data.cache)}`;
+  control.innerHTML = `${formatHerdrEventsLine(data.herdrEvents)} · ${formatCacheLine(data.cache)} · ${formatWebViewLine(data.webview)}`;
 
   const legend = document.getElementById("agents-legend");
   legend.hidden = false;
-  legend.title = `Agents show stale when no dashboard heartbeat for more than ${staleSec}s.`;
+  legend.title = `Agents show stale when no server or browser heartbeat for more than ${staleSec}s.`;
+
+  auditDashboard("meta", {
+    projectPath: data.projectPath,
+    ssePollMs: data.ssePollMs,
+    pollHintMs: data.pollHintMs,
+    staleMs: data.staleMs,
+    dryRun: Boolean(data.dryRun),
+    herdrEvents: data.herdrEvents,
+    cache: data.cache,
+    webview: data.webview,
+  });
 }
 
 async function loadMeta() {
@@ -199,7 +240,7 @@ function renderAgents(data) {
       ? ` Partial errors: ${data.error}`
       : " Start agents in Herdr or run with --sessions to scan all sessions.";
     showAgentsEmpty(hint);
-    console.log("dashboard.agents", 0);
+    auditDashboard("agents", { ok: true, count: 0, statuses: {} });
     return;
   }
 
@@ -228,21 +269,63 @@ function renderAgents(data) {
     body.appendChild(tr);
   }
   void sendHeartbeats(agents);
-  console.log("dashboard.agents", data.agentCount);
+  const statuses = {};
+  for (const row of agents) {
+    const key = row.status || "unknown";
+    statuses[key] = (statuses[key] ?? 0) + 1;
+  }
+  auditDashboard("agents", {
+    ok: data.ok !== false,
+    count: agents.length,
+    statuses,
+    fetchedAt: data.fetchedAt,
+  });
+}
+
+function stopSseFallback() {
+  if (!sseFallbackTimer) return;
+  clearInterval(sseFallbackTimer);
+  sseFallbackTimer = null;
+}
+
+async function pollAgentsFallback() {
+  try {
+    const res = await fetch("/api/agents");
+    renderAgents(await res.json());
+  } catch (e) {
+    console.error("dashboard.agents.fallback", e);
+  }
+}
+
+function startSseFallback(intervalMs) {
+  stopSseFallback();
+  void pollAgentsFallback();
+  const interval = Math.max(intervalMs || 5000, 3000);
+  sseFallbackTimer = setInterval(() => {
+    void pollAgentsFallback();
+  }, interval);
 }
 
 function connectAgentsLive() {
   const status = document.getElementById("stream-status");
   const source = new EventSource("/api/agents/live");
-  source.onmessage = (event) => {
+
+  const streamNote = () => {
     const herdr = metaSnapshot?.herdrEvents;
-    const herdrNote =
-      herdr?.enabled && herdr.connected
-        ? " · herdr socket"
-        : herdr?.enabled
-          ? " · herdr pending"
-          : "";
-    status.textContent = `SSE live ${new Date().toISOString()}${herdrNote}`;
+    if (herdr?.enabled && herdr.connected) return " · herdr socket";
+    if (herdr?.enabled) return " · herdr connecting";
+    return "";
+  };
+
+  source.onopen = () => {
+    stopSseFallback();
+    status.textContent = `SSE live ${new Date().toISOString()}${streamNote()}`;
+    auditDashboard("stream", { state: "sse-open", herdr: metaSnapshot?.herdrEvents });
+  };
+
+  source.onmessage = (event) => {
+    stopSseFallback();
+    status.textContent = `SSE live ${new Date().toISOString()}${streamNote()}`;
     try {
       renderAgents(JSON.parse(event.data));
     } catch (e) {
@@ -250,9 +333,14 @@ function connectAgentsLive() {
     }
     window.__HERDR_DASHBOARD_READY__ = true;
   };
+
   source.onerror = () => {
-    status.textContent = "SSE disconnected — retrying…";
+    const interval = metaSnapshot?.ssePollMs || metaSnapshot?.pollHintMs || 5000;
+    status.textContent = `SSE disconnected — polling /api/agents every ${interval / 1000}s…`;
+    auditDashboard("stream", { state: "sse-fallback", intervalMs: interval });
+    startSseFallback(interval);
   };
+
   return source;
 }
 

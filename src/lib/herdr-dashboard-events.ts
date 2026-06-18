@@ -27,6 +27,7 @@ export interface DashboardHerdrEventDispatch {
 
 export interface DashboardHerdrEventBridgeStatus {
   enabled: boolean;
+  pending?: boolean;
   connected: boolean;
   workspaceId: string | null;
   subscriptionCount: number;
@@ -101,6 +102,7 @@ export function startDashboardHerdrEventBridge(
 ): DashboardHerdrEventBridgeHandle {
   const status: DashboardHerdrEventBridgeStatus = {
     enabled: options.herdrEvents !== false,
+    pending: options.herdrEvents !== false,
     connected: false,
     workspaceId: null,
     subscriptionCount: 0,
@@ -126,6 +128,7 @@ export function startDashboardHerdrEventBridge(
 
   void (async () => {
     const config = discoverHerdrProjectConfig(options.projectPath);
+    status.pending = false;
     if (!config?.enabled) {
       status.error = "no enabled [herdr] profile";
       return;

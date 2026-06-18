@@ -834,6 +834,10 @@ export interface HerdrOrchestratorDashboardConfig {
   ssePollMs: number;
   /** Handoffs/rules browser poll interval (ms). */
   pollHintMs: number;
+  /** Bun.WebView dataStore persistence (default profile under ~/.kimi-code/var/). */
+  persistProfile?: boolean;
+  /** Override persistent dataStore directory (implies persist unless ephemeral forced). */
+  profileDir?: string;
 }
 
 export const DEFAULT_DASHBOARD_STALE_MS = 15_000;
@@ -861,10 +865,23 @@ export function parseOrchestratorDashboardSection(
       : typeof section?.sse_poll_ms === "number"
         ? section.sse_poll_ms
         : pollRaw;
+  const persistProfile =
+    section?.persistProfile === true ||
+    section?.persist_profile === true ||
+    section?.persistProfile === "true" ||
+    section?.persist_profile === "true";
+  const profileDir =
+    typeof section?.profileDir === "string"
+      ? section.profileDir.trim()
+      : typeof section?.profile_dir === "string"
+        ? section.profile_dir.trim()
+        : undefined;
   return {
     staleMs: staleRaw > 0 ? staleRaw : DEFAULT_DASHBOARD_STALE_MS,
     ssePollMs: sseRaw > 0 ? sseRaw : DEFAULT_DASHBOARD_SSE_POLL_MS,
     pollHintMs: pollRaw > 0 ? pollRaw : DEFAULT_DASHBOARD_POLL_HINT_MS,
+    ...(persistProfile ? { persistProfile: true } : {}),
+    ...(profileDir ? { profileDir } : {}),
   };
 }
 

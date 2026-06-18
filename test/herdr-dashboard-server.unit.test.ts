@@ -111,6 +111,12 @@ describe("herdr-dashboard-server", () => {
         ssePollMs: number;
         cache?: { discovery: { hits: number }; status: { size: number } };
         herdrEvents?: { enabled: boolean };
+        webview?: {
+          shell: string;
+          persistProfile: boolean;
+          mode: string;
+          defaultProfileDir: string;
+        };
         sse?: boolean;
         thumbnail?: boolean;
         thumbnailPath?: string;
@@ -122,10 +128,41 @@ describe("herdr-dashboard-server", () => {
       expect(meta.cache?.discovery).toBeDefined();
       expect(meta.cache?.status).toBeDefined();
       expect(meta.herdrEvents?.enabled).toBe(true);
+      expect(meta.webview?.shell).toBe("serve");
+      expect(meta.webview?.mode).toBe("ephemeral");
+      expect(meta.webview?.defaultProfileDir).toContain("herdr-orchestrator-dashboard-webview");
       expect(meta.sse).toBe(true);
       if (bunImageSupported()) {
         expect(meta.thumbnail).toBe(true);
         expect(meta.thumbnailPath).toBe("/api/thumbnail");
+      }
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("dashboard server meta includes webview profile when configured", async () => {
+    const server = startHerdrDashboardServer({
+      projectPath: REPO_ROOT,
+      port: 0,
+      webview: { shell: "webview", persistProfile: true, backend: "webkit" },
+    });
+    try {
+      const metaRes = (await fetch(`${server.url}api/meta`)) as unknown as {
+        body: ReadableStream<Uint8Array>;
+      };
+      const meta = JSON.parse(await readableStreamToText(metaRes.body)) as {
+        webview: {
+          shell: string;
+          persistProfile: boolean;
+          mode: string;
+          directory?: string;
+        };
+      };
+      expect(meta.webview.shell).toBe("webview");
+      expect(meta.webview.persistProfile).toBe(true);
+      if (meta.webview.mode === "persistent") {
+        expect(meta.webview.directory).toContain("herdr-orchestrator-dashboard-webview");
       }
     } finally {
       server.stop();

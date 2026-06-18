@@ -247,6 +247,7 @@ staging = "staging"   # local SSH alias → localhost (testing remote bootstrap 
 stale_ms = 15000
 sse_poll_ms = 5000      # server agent-discovery SSE interval
 poll_hint_ms = 5000     # browser handoffs/rules poll interval
+persist_profile = true  # ~/.kimi-code/var/herdr-orchestrator-dashboard-webview
 
 [herdr.orchestrator.events]
 enabled = true

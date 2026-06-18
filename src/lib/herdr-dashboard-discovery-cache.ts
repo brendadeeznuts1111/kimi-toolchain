@@ -102,8 +102,10 @@ export class HerdrDashboardDiscoveryCache {
   }
 
   recordHeartbeats(
-    rows: ReadonlyArray<{ agent: string; host?: string; session?: string }>
+    rows: ReadonlyArray<{ agent: string; host?: string; session?: string }>,
+    options: { emit?: boolean } = {}
   ): number {
+    const emit = options.emit !== false;
     const now = Date.now();
     let recorded = 0;
     for (const row of rows) {
@@ -120,13 +122,15 @@ export class HerdrDashboardDiscoveryCache {
     }
     if (recorded > 0) {
       this.statusLastRecordedAt = now;
-      this.bus?.emit("heartbeats:batch", {
-        recorded,
-        agents: rows
-          .filter((r) => r.agent)
-          .map((r) => ({ agent: r.agent, host: r.host, session: r.session })),
-        at: new Date().toISOString(),
-      });
+      if (emit) {
+        this.bus?.emit("heartbeats:batch", {
+          recorded,
+          agents: rows
+            .filter((r) => r.agent)
+            .map((r) => ({ agent: r.agent, host: r.host, session: r.session })),
+          at: new Date().toISOString(),
+        });
+      }
     }
     return recorded;
   }

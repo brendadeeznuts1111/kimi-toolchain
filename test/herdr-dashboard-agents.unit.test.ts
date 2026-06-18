@@ -27,4 +27,13 @@ describe("herdr-dashboard-agents", () => {
     expect(parsed.ssePollMs).toBe(12_000);
     expect(parsed.pollHintMs).toBe(12_000);
   });
+
+  test("parseOrchestratorDashboardSection reads persist_profile and profile_dir", () => {
+    const parsed = parseOrchestratorDashboardSection({
+      persist_profile: true,
+      profile_dir: "/tmp/herdr-dashboard-profile",
+    });
+    expect(parsed.persistProfile).toBe(true);
+    expect(parsed.profileDir).toBe("/tmp/herdr-dashboard-profile");
+  });
 });

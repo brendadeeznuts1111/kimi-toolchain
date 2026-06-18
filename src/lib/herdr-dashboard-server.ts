@@ -26,6 +26,10 @@ import {
   startDashboardHerdrEventBridge,
   type DashboardHerdrEventBridgeHandle,
 } from "./herdr-dashboard-events.ts";
+import {
+  buildDashboardMetaWebView,
+  type DashboardMetaWebViewInput,
+} from "./herdr-dashboard-webview-store.ts";
 import { HerdrDashboardHub } from "./herdr-dashboard-hub.ts";
 import {
   bunHttp3ServeSupported,
@@ -56,6 +60,8 @@ export interface HerdrDashboardServerOptions extends DashboardFetchOptions {
   screenshotProvider?: () => Promise<Uint8Array | null>;
   /** Bridge Herdr socket events → dashboard refresh (default true). */
   herdrEvents?: boolean;
+  /** Bun.WebView shell + persistent profile (surfaced on GET /api/meta). */
+  webview?: DashboardMetaWebViewInput;
 }
 
 export interface HerdrDashboardServerHandle {
@@ -190,6 +196,7 @@ export function startHerdrDashboardServer(
     keyPath: options.tlsKeyPath,
   });
   const scheme = dashboardServeScheme(transport);
+  const metaWebView = buildDashboardMetaWebView(options.webview);
 
   const server = Bun.serve({
     hostname,
@@ -221,6 +228,7 @@ export function startHerdrDashboardServer(
           staleMs,
           cache: hub.cacheStats(),
           herdrEvents: herdrEventBridge.status(),
+          webview: metaWebView,
           dryRun: options.dryRun ?? false,
           thumbnail: bunImageSupported(),
           thumbnailPath: "/api/thumbnail",

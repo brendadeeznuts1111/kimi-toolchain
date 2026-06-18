@@ -132,25 +132,24 @@ describe("herdr-dashboard-hub", () => {
     hub.stop();
   });
 
-  test("SSE polling pauses without subscribers and resumes on connect", async () => {
+  test("start() keeps background polling after SSE disconnect", async () => {
     const hub = new HerdrDashboardHub({ projectPath: REPO_ROOT, fetchOpts: {}, pollMs: 50 });
     hub.start();
     expect(
       (hub as unknown as { pollTimer: ReturnType<typeof setInterval> | null }).pollTimer
-    ).toBeNull();
-
-    const stream = hub.createAgentsLiveStream();
-    expect(
-      (hub as unknown as { pollTimer: ReturnType<typeof setInterval> | null }).pollTimer
     ).not.toBeNull();
 
+    const stream = hub.createAgentsLiveStream();
     const reader = stream.getReader();
     await reader.cancel();
     await Bun.sleep(20);
     expect(
       (hub as unknown as { pollTimer: ReturnType<typeof setInterval> | null }).pollTimer
-    ).toBeNull();
+    ).not.toBeNull();
 
     hub.stop();
+    expect(
+      (hub as unknown as { pollTimer: ReturnType<typeof setInterval> | null }).pollTimer
+    ).toBeNull();
   });
 });

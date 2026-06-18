@@ -34,6 +34,62 @@ export interface ResolvedHerdrDashboardWebViewStore {
   directory?: string;
 }
 
+/** How the dashboard HTTP server was launched (for /api/meta). */
+export type DashboardMetaWebViewShell = "serve" | "webview" | "automation";
+
+export interface DashboardMetaWebViewInput {
+  shell?: DashboardMetaWebViewShell;
+  persistProfile?: boolean;
+  profileDir?: string;
+  backend?: Bun.WebView.ConstructorOptions["backend"];
+  home?: string;
+}
+
+/** Serializable WebView profile block returned by GET /api/meta. */
+export interface DashboardMetaWebView {
+  shell: DashboardMetaWebViewShell;
+  persistProfile: boolean;
+  profileDir?: string;
+  defaultProfileDir: string;
+  defaultStoreName: string;
+  mode: "ephemeral" | "persistent";
+  directory?: string;
+  backend: string;
+}
+
+function webViewBackendLabel(backend?: Bun.WebView.ConstructorOptions["backend"]): string {
+  if (!backend) return defaultWebViewBackend();
+  if (backend === "webkit" || backend === "chrome") return backend;
+  if (typeof backend === "object" && "type" in backend && backend.type) {
+    return String(backend.type);
+  }
+  return defaultWebViewBackend();
+}
+
+/** Resolve configured WebView dataStore for dashboard meta and control-plane display. */
+export function buildDashboardMetaWebView(
+  options: DashboardMetaWebViewInput = {}
+): DashboardMetaWebView {
+  const profileDir = options.profileDir?.trim() || undefined;
+  const persistProfile = options.persistProfile === true || Boolean(profileDir);
+  const store = resolveHerdrDashboardWebViewStore({
+    persistProfile: options.persistProfile,
+    profileDir,
+    backend: options.backend,
+    home: options.home,
+  });
+  return {
+    shell: options.shell ?? "serve",
+    persistProfile,
+    profileDir,
+    defaultProfileDir: herdrDashboardWebViewStoreDir(options.home),
+    defaultStoreName: defaultHerdrDashboardWebViewStoreName(),
+    mode: store.mode,
+    directory: store.directory,
+    backend: webViewBackendLabel(options.backend),
+  };
+}
+
 function resolvePersistentDirectory(options: HerdrDashboardWebViewStoreOptions): string {
   const fromEnv = (Bun.env[HERDR_DASHBOARD_WEBVIEW_STORE_ENV] ?? "").trim();
   if (options.profileDir?.trim()) return options.profileDir.trim();

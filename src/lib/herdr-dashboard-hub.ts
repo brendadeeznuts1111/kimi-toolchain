@@ -129,6 +129,14 @@ export class HerdrDashboardHub {
       return;
     }
 
+    this.discoveryCache.recordHeartbeats(
+      raw.agents.map((row) => ({
+        agent: row.agent,
+        host: row.host,
+        session: row.session,
+      })),
+      { emit: false }
+    );
     const agents = this.applyStaleOverlay(raw.agents);
     const payload: DashboardAgentsPayload = {
       ...raw,
@@ -141,6 +149,10 @@ export class HerdrDashboardHub {
     if (json !== this.lastAgentsJson) {
       this.lastAgentsJson = json;
       this.trackAgentSnapshot(agents);
+      this.broadcast(payload);
+      return;
+    }
+    if (this.subscribers.size > 0) {
       this.broadcast(payload);
     }
   }
@@ -163,15 +175,14 @@ export class HerdrDashboardHub {
     }
   }
 
-  /** Resume sub-minute polling when at least one SSE subscriber is connected. */
+  /** Background discovery poll — runs while the dashboard server is up (not only during SSE). */
   private resumePolling(): void {
-    if (this.pollTimer || this.subscribers.size === 0) return;
+    if (this.pollTimer) return;
     this.pollTimer = setInterval(() => {
       void this.refresh();
     }, this.pollMs);
   }
 
-  /** Pause polling when no SSE subscribers remain. */
   private pausePolling(): void {
     if (!this.pollTimer) return;
     clearInterval(this.pollTimer);
@@ -179,7 +190,7 @@ export class HerdrDashboardHub {
   }
 
   start(): void {
-    if (this.subscribers.size > 0) this.resumePolling();
+    this.resumePolling();
   }
 
   stop(): void {
@@ -228,9 +239,6 @@ export class HerdrDashboardHub {
       cancel: () => {
         if (!active) return;
         this.subscribers.delete(active);
-        if (this.subscribers.size === 0) {
-          this.pausePolling();
-        }
       },
     });
   }

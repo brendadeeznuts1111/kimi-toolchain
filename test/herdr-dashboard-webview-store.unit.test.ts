@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildDashboardMetaWebView,
   HERDR_DASHBOARD_WEBVIEW_STORE_ENV,
   resolveHerdrDashboardWebViewStore,
 } from "../src/lib/herdr-dashboard-webview-store.ts";
@@ -74,5 +75,26 @@ describe("herdr-dashboard-webview-store", () => {
   test("herdrDashboardWebViewStoreDir uses new default folder name", () => {
     const path = herdrDashboardWebViewStoreDir("/tmp/home");
     expect(path).toBe(`/tmp/home/.kimi-code/var/${HERDR_DASHBOARD_WEBVIEW_STORE_NAME}`);
+  });
+
+  test("buildDashboardMetaWebView serializes shell and persist profile", async () => {
+    await withTempDir("herdr-meta-webview", async (dir) => {
+      const custom = `${dir}/profile`;
+      const meta = buildDashboardMetaWebView({
+        shell: "webview",
+        persistProfile: true,
+        profileDir: custom,
+        backend: "webkit",
+        home: "/tmp/home",
+      });
+      expect(meta.shell).toBe("webview");
+      expect(meta.persistProfile).toBe(true);
+      expect(meta.profileDir).toBe(custom);
+      expect(meta.directory).toBe(custom);
+      expect(meta.defaultProfileDir).toBe(
+        `/tmp/home/.kimi-code/var/${HERDR_DASHBOARD_WEBVIEW_STORE_NAME}`
+      );
+      expect(meta.backend).toBe("webkit");
+    });
   });
 });
