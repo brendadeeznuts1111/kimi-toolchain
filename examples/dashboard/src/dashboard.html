@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>kimi-toolchain Dashboard</title>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --text: #c9d1d9; --muted: #8b949e;
+    --green: #3fb950; --red: #f85149; --yellow: #d29922; --blue: #58a6ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text);
+    padding: 24px; max-width: 1200px; margin: 0 auto;
+  }
+  h1 { font-size: 24px; margin-bottom: 8px; }
+  .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 14px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px;
+  }
+  .card h2 { font-size: 16px; margin-bottom: 12px; color: var(--blue); }
+  .status { font-size: 13px; margin-bottom: 4px; }
+  .status.ok { color: var(--green); } .status.warn { color: var(--yellow); } .status.err { color: var(--red); }
+  .loading { color: var(--muted); font-style: italic; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-ok { background: #1a3a2a; color: var(--green); }
+  .badge-warn { background: #3a2e1a; color: var(--yellow); }
+  .badge-err { background: #3a1a1a; color: var(--red); }
+  .badge-info { background: #1a2a3a; color: var(--blue); }
+  .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<h1>kimi-toolchain</h1>
+<p class="subtitle">Demo dashboard — B3.x features in one page</p>
+<div class="grid">
+  <div class="card" id="card-bundle"><h2>Bundle Analysis</h2><div class="loading">Loading…</div></div>
+  <div class="card" id="card-compile"><h2>Compile Check</h2><div class="loading">Loading…</div></div>
+  <div class="card" id="card-gates"><h2>Gate Health</h2><div class="loading">Loading…</div></div>
+  <div class="card" id="card-markdown"><h2>Markdown Rendering</h2><div class="loading">Loading…</div></div>
+</div>
+<script>
+async function fetchJson(url) { const res = await fetch(url); return res.json(); }
+// Bundle
+(async () => {
+  const c = document.getElementById("card-bundle");
+  try {
+    const d = await fetchJson("/api/bundle"), bg = d.bundleGate || d, s = bg.summary;
+    if (!s) { c.innerHTML += "<p class='status err'>No data</p>"; return; }
+    const nmPct = s.totalBytes > 0 ? (s.nodeModulesBytes / s.totalBytes * 100).toFixed(0) : 0;
+    let h = `<div class="row"><span>Total</span><strong>${(s.totalBytes/1048576).toFixed(1)} MB</strong></div>`;
+    h += `<div class="row"><span>node_modules</span><strong>${nmPct}% (${s.nodeModulesFiles} files)</strong></div>`;
+    if (bg.largestModules) {
+      h += "<table><tr><th>Module</th><th>Size</th><th>%</th></tr>";
+      for (const m of bg.largestModules.slice(0,5)) {
+        const n = m.module.length > 50 ? "…"+m.module.slice(-47) : m.module;
+        h += `<tr><td>${n}</td><td>${(m.outputBytes/1048576).toFixed(2)} MB</td><td>${m.pctOfTotal.toFixed(1)}%</td></tr>`;
+      }
+      h += "</table>";
+    }
+    if (bg.findings) for (const f of bg.findings) h += `<p class="status ${f.severity==='error'?'err':f.severity==='warn'?'warn':'ok'}">${f.severity.toUpperCase()}: ${f.message}</p>`;
+    c.innerHTML += h;
+  } catch(e) { c.innerHTML += `<p class="status err">${e.message}</p>`; }
+})();
+// Compile
+(async () => {
+  const c = document.getElementById("card-compile");
+  try {
+    const d = await fetchJson("/api/compile"), cc = d.compileCheck, caps = cc.capabilities;
+    let h = `<div class="row"><span>Bun</span><strong>${caps.bunVersion}</strong></div>`;
+    h += `<div class="row"><span>ESM+bytecode</span><span class="badge ${caps.esmBytecode?'badge-ok':'badge-err'}">${caps.esmBytecode?'SUPPORTED':'NO'}</span></div>`;
+    h += `<div class="row"><span>Format</span><span class="badge badge-info">${caps.recommendedFormat}</span></div>`;
+    h += `<div class="row"><span>cpu-prof-md</span><span class="badge ${caps.cpuProfMd?'badge-ok':'badge-err'}">${caps.cpuProfMd?'✓':'✗'}</span></div>`;
+    h += `<div class="row"><span>Gate</span><span class="badge ${cc.gate.status==='ok'?'badge-ok':'badge-err'}">${cc.gate.status.toUpperCase()}</span></div>`;
+    c.innerHTML += h;
+  } catch(e) { c.innerHTML += `<p class="status err">${e.message}</p>`; }
+})();
+// Gates
+(async () => {
+  const c = document.getElementById("card-gates");
+  try {
+    const d = await fetchJson("/api/gates"), eg = d.effectGates || d, s = eg.summary || {};
+    let h = `<div class="row"><span>Status</span><span class="badge ${s.errors?'badge-err':'badge-ok'}">${s.errors?'FAILING':'PASSING'}</span></div>`;
+    h += `<div class="row"><span>Gates</span><strong>${s.total||0}</strong></div>`;
+    h += `<div class="row"><span>Errors</span><strong style="color:${s.errors?'var(--red)':'var(--green)'}">${s.errors||0}</strong></div>`;
+    if (eg.violations) for (const v of eg.violations.slice(0,3)) h += `<p class="status err">${v.message}</p>`;
+    c.innerHTML += h;
+  } catch(e) { c.innerHTML += `<p class="status err">${e.message}</p>`; }
+})();
+// Markdown — inline sample, no API call needed
+(() => {
+  document.getElementById("card-markdown").innerHTML += `
+    <div style="font-size:13px;line-height:1.5">
+      <p><strong>Bun.markdown.html()</strong> renders Markdown at ~1M lines/sec.</p>
+      <p>Features: <strong>bold</strong>, <em>italic</em>, <code>inline code</code>, <a href="#">links</a></p>
+      <table><tr><th>Feature</th><th>Status</th></tr>
+      <tr><td>HTML output</td><td><span class="badge badge-ok">✓</span></td></tr>
+      <tr><td>ANSI terminal</td><td><span class="badge badge-ok">✓</span></td></tr>
+      <tr><td>React elements</td><td><span class="badge badge-ok">✓</span></td></tr>
+      <tr><td>Structured extract</td><td><span class="badge badge-ok">✓</span></td></tr>
+      </table>
+    </div>`;
+})();
+</script>
+</body>
+</html>
