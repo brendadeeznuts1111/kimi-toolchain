@@ -24,6 +24,7 @@ token_estimate: 760
 run_as: inline
 metadata:
   companionSkills:
+    - create-template
     - effect-discipline
     - effect-hardening
     - herdr
