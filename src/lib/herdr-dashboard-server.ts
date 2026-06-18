@@ -28,6 +28,7 @@ import { inspectAgent } from "./inspect.ts";
 import { loadDxDefaults } from "./defaults-config.ts";
 import {
   DEFAULT_DASHBOARD_PORT,
+  fetchDashboardCanvases,
   fetchDashboardHandoffs,
   fetchDashboardRules,
   fetchDashboardUpgradeScan,
@@ -425,6 +426,10 @@ export function startHerdrDashboardServer(
       if (path === "/api/scan") {
         const payload = await fetchDashboardUpgradeScan(options.projectPath);
         return jsonResponse(payload);
+      }
+
+      if (path === "/api/canvases") {
+        return jsonResponse(fetchDashboardCanvases());
       }
 
       if (path === "/api/widgets/processes/action" && request.method === "POST") {

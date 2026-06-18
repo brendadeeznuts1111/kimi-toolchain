@@ -10,6 +10,7 @@ import { resolveOrchestratorConfig } from "./herdr-orchestrator-config.ts";
 import { getHandoffHistory, getHandoffLogPath, type HandoffLogEntry } from "./handoff-log.ts";
 import { herdrCliRun } from "./herdr-project-cli.ts";
 import { scanUpgradeAdvisor, type UpgradeScanReport } from "./upgrade-advisor.ts";
+import { LOCAL_DOC_REFERENCES } from "./canonical-references.ts";
 
 export const DEFAULT_DASHBOARD_PORT = 18412;
 
@@ -266,5 +267,42 @@ export function runDashboardAgentAction(request: DashboardActionRequest): Dashbo
     ok: result.ok,
     action: request.action,
     message: result.ok ? `${request.action} ${request.agent}` : result.output,
+  };
+}
+
+// ── Canvas navigator ─────────────────────────────────────────────────
+
+export interface DashboardCanvasEntry {
+  id: string;
+  page: string;
+  path: string;
+  purpose: string;
+}
+
+export interface DashboardCanvasesPayload {
+  ok: boolean;
+  canvases: DashboardCanvasEntry[];
+  fetchedAt: string;
+}
+
+/** All manifest-backed cursorCanvas companions for the dashboard navigator. */
+export function fetchDashboardCanvases(): DashboardCanvasesPayload {
+  const canvases: DashboardCanvasEntry[] = [];
+  const canvasPrefix = "docs/canvases/";
+
+  for (const ref of LOCAL_DOC_REFERENCES) {
+    if (!ref.cursorCanvas) continue;
+    canvases.push({
+      id: ref.id,
+      page: ref.cursorCanvas.replace(canvasPrefix, "").replace(".canvas.tsx", ""),
+      path: ref.cursorCanvas,
+      purpose: ref.purpose ?? "",
+    });
+  }
+
+  return {
+    ok: true,
+    canvases,
+    fetchedAt: new Date().toISOString(),
   };
 }

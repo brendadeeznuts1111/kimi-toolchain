@@ -3,6 +3,7 @@ const SESSION_ALL = "__all__";
 let lastFilteredAgentsJson = "";
 let lastHandoffsJson = "";
 let lastScanJson = "";
+let lastCanvasesJson = "";
 let pollTimer = null;
 let processesPollTimer = null;
 let metaTimer = null;
@@ -1461,11 +1462,52 @@ async function runScanFromPanel() {
   }
 }
 
+// ── Canvases tab ─────────────────────────────────────────────────────
+
+async function refreshCanvases() {
+  const body = document.getElementById("canvases-body");
+  const errEl = document.getElementById("canvases-error");
+  if (!body) return;
+
+  const res = await fetch("/api/canvases");
+  const payload = await res.json();
+  const json = JSON.stringify(payload);
+  if (json === lastCanvasesJson) return;
+  lastCanvasesJson = json;
+
+  if (!payload.ok) {
+    if (errEl) errEl.textContent = payload.error || "Failed to load canvases";
+    return;
+  }
+  if (errEl) errEl.textContent = "";
+
+  const canvases = payload.canvases ?? [];
+  if (canvases.length === 0) {
+    body.innerHTML = '<tr><td colspan="3" class="empty-state">No canvases</td></tr>';
+    return;
+  }
+
+  body.innerHTML = "";
+  for (const c of canvases) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><code>${esc(c.path)}</code></td>
+      <td>${esc(c.id)}</td>
+      <td class="canvas-purpose">${esc(c.purpose)}</td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
 function wireScanPanel() {
   const btn = document.getElementById("scan-run");
   if (!btn || btn.dataset.wired === "1") return;
   btn.dataset.wired = "1";
   btn.addEventListener("click", () => void runScanFromPanel());
+}
+
+function wireCanvasesPanel() {
+  // canvases tab loaded on first activation via switchTab
 }
 
 function switchTab(tab) {
@@ -1483,6 +1525,9 @@ function switchTab(tab) {
   } else if (tab === "scan") {
     lastScanJson = "";
     void refreshScan();
+  } else if (tab === "canvases") {
+    lastCanvasesJson = "";
+    void refreshCanvases();
   }
   if (window.__HERDR_DASHBOARD_POLL_MS__) {
     scheduleSecondaryPoll(window.__HERDR_DASHBOARD_POLL_MS__);
@@ -1497,6 +1542,7 @@ wireSessionSelector();
 wireProcessesToggle();
 wireGitToggle();
 wireScanPanel();
+wireCanvasesPanel();
 
 (async () => {
   const res = await fetch("/api/meta");
