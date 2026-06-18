@@ -6,7 +6,7 @@
 |---|---|---|---|---|---|
 | **bun-create** | 1 | `bun create kimi-toolchain` | `~/.bun-create/kimi-toolchain/` | N/A (template source) | Low — postinstall orchestrates |
 | **scaffold** | 22 | `kimi-fix <path>` | Project root (`./`) | Non-destructive (`!pathExists`) | **High** with `bun init` — mitigated by `-m` |
-| **desktop-runtime** | 1 | `bun run sync` | `~/.kimi-code/` | Merge (JSON + MD overwrite) | None — separate namespace |
+| **desktop-runtime** | 1 | `bun run sync` | `~/.kimi-code/package.json` + `node_modules/` (from `templates/desktop-runtime/package.json` via `provisionDesktopRuntimeDeps`; **not** under `~/.kimi-code/templates/`) | Merge (JSON overwrite; `bun install` if deps missing) | None — separate namespace |
 | **other** | 4 | Manual / Herdr dashboard | `docs/herdr/` + `docs/mcp/` | Manual | None |
 
 **Consumed by:** `kimi-fix`, Herdr orchestrator, `LOCAL_DOC_REFERENCES`, `sync-verify.ts`, `bun create kimi-toolchain`
@@ -139,7 +139,8 @@ flowchart TD
 | Harden existing repo | `kimi-fix .` | scaffold |
 | Add missing scripts to project | `kimi-fix . --profile app` | scaffold |
 | Create toolchain workspace | `kimi-fix . --profile toolchain` | scaffold |
-| Sync docs to agent runtime | `bun run sync` | desktop-runtime |
+| Install runtime deps for synced tools | `bun run sync` | desktop-runtime (`~/.kimi-code/package.json`) |
+| Sync template bodies to agent cache | `bun run sync` | scaffold mirror (`~/.kimi-code/templates/`, whole `templates/` tree) |
 | Bun upgrade / migration audit | `bun run scan` | scaffold · advisory or `--exit-code` |
 
 ---

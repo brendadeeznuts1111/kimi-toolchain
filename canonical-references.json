@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-18T13:57:58.196Z",
+  "generatedAt": "2026-06-18T14:52:24.391Z",
   "toolchainVersion": "0.1.0",
   "ecosystem": [
     {
@@ -105,7 +105,7 @@
       "id": "templates",
       "repoPath": "TEMPLATES.md",
       "runtimePath": "~/.kimi-code/TEMPLATES.md",
-      "purpose": "Scaffold templates",
+      "purpose": "Scaffold templates — profiles, snippets, bun create flow, kimi-fix usage",
       "cursorCanvas": "docs/canvases/kimi-fix.canvas.tsx"
     },
     {

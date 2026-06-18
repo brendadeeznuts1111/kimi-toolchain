@@ -1,5 +1,6 @@
 import {
   BarChart,
+  Button,
   Callout,
   Card,
   CardBody,
@@ -18,6 +19,7 @@ import {
   Table,
   Text,
   UsageBar,
+  useCanvasAction,
   useHostTheme,
 } from "cursor/canvas";
 
@@ -122,14 +124,14 @@ const HOOK_TAXONOMY = [
 ] as const;
 
 const CANVAS_ROUTING = [
-  ["kimi-toolchain", "Project hub", "docs/canvases/kimi-toolchain.canvas.tsx · manifest id unified"],
-  ["kimi-fix", "Scaffold", "docs/canvases/kimi-fix.canvas.tsx · manifest id templates"],
-  ["configuration-layers", "Config SSOT", "docs/canvases/configuration-layers.canvas.tsx"],
-  ["namespace-boundaries", "Name collisions", "docs/canvases/namespace-boundaries.canvas.tsx"],
-  ["doc-links-and-see-ladder", "Cross-ref ladder", "docs/canvases/doc-links-and-see-ladder.canvas.tsx · code-references"],
-  ["herdr-dashboard-automation", "Finish-work shell", "docs/canvases/herdr-dashboard-automation.canvas.tsx · kimi-doctor"],
-  ["herdr-dashboard-thumbnails", "Orchestrator HTTP", "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx · dashboard-thumbnails"],
-  ["herdr-unified-plugin-architecture", "Herdr plugins", "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx · herdr-plugin-architecture"],
+  { id: "kimi-toolchain", page: "Hub", path: "docs/canvases/kimi-toolchain.canvas.tsx", detail: "manifest id unified (this canvas)" },
+  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx", detail: "manifest id templates" },
+  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "four-layer model" },
+  { id: "namespace-boundaries", page: "Name collisions", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "doctor trinity" },
+  { id: "doc-links-and-see-ladder", page: "Cross-ref ladder", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx", detail: "code-references" },
+  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor" },
+  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "dashboard-thumbnails" },
+  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "herdr-plugin-architecture" },
 ] as const;
 
 const DAG_NODES = [
@@ -230,6 +232,34 @@ function SyncFlowDag() {
         Source: UNIFIED.md · accent node = ~/.kimi-code/ runtime (never hand-edit tools/)
       </Text>
     </div>
+  );
+}
+
+function CanvasLink({ label, path, dispatch }: { label: string; path: string; dispatch: ReturnType<typeof useCanvasAction> }) {
+  const theme = useHostTheme();
+  return (
+    <Button variant="ghost" onClick={() => dispatch({ type: "openFile", path })} style={{ padding: 0, minHeight: "auto", height: "auto", color: theme.accent.primary, textDecoration: "underline", textUnderlineOffset: 2 }}>
+      {label}
+    </Button>
+  );
+}
+
+function RelatedCanvasesTable() {
+  const dispatch = useCanvasAction();
+  return (
+    <Stack gap={8}>
+      <Table
+        headers={["Canvas", "Page", "Detail"]}
+        rows={CANVAS_ROUTING.map((c) => [
+          <CanvasLink key={`${c.id}-file`} label={`${c.id}.canvas.tsx`} path={c.path} dispatch={dispatch} />,
+          <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
+          c.detail,
+        ])}
+        rowTone={["info", "success", "neutral", "warning", "neutral", "info", "neutral", "warning"]}
+        striped
+      />
+      <Text tone="tertiary" size="small">Click Canvas or Page to open · read order: Hub → Config or Namespace → Scaffold → Herdr</Text>
+    </Stack>
   );
 }
 
@@ -414,16 +444,7 @@ export default function KimiToolchainCanvas() {
       </Card>
 
       <CollapsibleSection title={`Related canvases (${CURSOR_CANVAS_COUNT} manifest-backed)`} defaultOpen>
-        <Table
-          headers={["Canvas", "Topic", "Repo path · manifest id"]}
-          rows={CANVAS_ROUTING.map((r) => [...r])}
-          rowTone={["info", "success", "neutral", "warning", "neutral", "info", "neutral", "warning"]}
-          striped
-        />
-        <Text tone="tertiary" size="small">
-          Read order: kimi-toolchain (this) → configuration-layers or namespace-boundaries depending
-          on task · scaffold/template work → kimi-fix + template-matrix.md · Herdr → herdr-unified-plugin-architecture
-        </Text>
+        <RelatedCanvasesTable />
       </CollapsibleSection>
 
       <Stack gap={4}>

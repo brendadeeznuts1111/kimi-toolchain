@@ -2,7 +2,7 @@
  * Canonical scaffold templates — single source of truth for kimi-fix.
  * Template bodies live in templates/scaffold/ (diffable, editable as plain files).
  * This module reads them at import time and re-exports as constants.
- * Keep in sync with TEMPLATES.md (validated by unit test).
+ * Keep in sync with TEMPLATES.md (prose mirror; marker drift guarded by test/scaffold-templates.unit.test.ts).
  */
 
 import { pathExists, readText } from "./bun-io.ts";

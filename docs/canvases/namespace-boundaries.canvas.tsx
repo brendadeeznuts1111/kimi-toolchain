@@ -1,4 +1,5 @@
 import {
+  Button,
   Callout,
   Card,
   CardBody,
@@ -16,6 +17,7 @@ import {
   Table,
   Text,
   UsageBar,
+  useCanvasAction,
   useHostTheme,
 } from "cursor/canvas";
 
@@ -221,14 +223,14 @@ const SEE_DX_VERBAGE = [
 
 /** Specialist canvases — read after namespace when binding layer is known. */
 const CANVAS_ROUTING = [
-  ["kimi-toolchain", "Project hub", "docs/canvases/kimi-toolchain.canvas.tsx"],
-  ["namespace-boundaries", "Meta / routing", "docs/canvases/namespace-boundaries.canvas.tsx (this canvas)"],
-  ["kimi-fix", "Scaffold", "docs/canvases/kimi-fix.canvas.tsx"],
-  ["configuration-layers", "Config SSOT", "docs/canvases/configuration-layers.canvas.tsx"],
-  ["doc-links-and-see-ladder", "Cross-ref ladder", "docs/canvases/doc-links-and-see-ladder.canvas.tsx"],
-  ["herdr-dashboard-automation", "Finish-work shell", "docs/canvases/herdr-dashboard-automation.canvas.tsx"],
-  ["herdr-dashboard-thumbnails", "Orchestrator HTTP", "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx"],
-  ["herdr-unified-plugin-architecture", "Herdr plugins v0.5.0", "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx"],
+  { id: "kimi-toolchain", page: "Project hub", path: "docs/canvases/kimi-toolchain.canvas.tsx" },
+  { id: "namespace-boundaries", page: "Meta / routing", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "(this canvas)" },
+  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx" },
+  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx" },
+  { id: "doc-links-and-see-ladder", page: "Cross-ref ladder", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx" },
+  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx" },
+  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx" },
+  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins v0.5.0", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx" },
 ] as const;
 
 const DAG_NODES = [
@@ -333,6 +335,34 @@ function BindingLayerDag() {
   );
 }
 
+function CanvasLink({ label, path, dispatch }: { label: string; path: string; dispatch: ReturnType<typeof useCanvasAction> }) {
+  const theme = useHostTheme();
+  return (
+    <Button variant="ghost" onClick={() => dispatch({ type: "openFile", path })} style={{ padding: 0, minHeight: "auto", height: "auto", color: theme.accent.primary, textDecoration: "underline", textUnderlineOffset: 2 }}>
+      {label}
+    </Button>
+  );
+}
+
+function RelatedCanvasesTable() {
+  const dispatch = useCanvasAction();
+  return (
+    <Stack gap={8}>
+      <Table
+        headers={["Canvas file", "Binding layer", "Repo path"]}
+        rows={CANVAS_ROUTING.map((c) => [
+          <CanvasLink key={`${c.id}-file`} label={`${c.id}.canvas.tsx`} path={c.path} dispatch={dispatch} />,
+          <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
+          c.detail ?? c.path,
+        ])}
+        rowTone={["info", "info", "success", "neutral", "neutral", "neutral", "neutral", "warning"]}
+        striped
+      />
+      <Text tone="tertiary" size="small">Click Canvas file or Binding layer to open · read order: namespace-boundaries → pick layer</Text>
+    </Stack>
+  );
+}
+
 export default function NamespaceBoundariesCanvas() {
   return (
     <Stack gap={20} style={{ padding: 24, maxWidth: 960 }}>
@@ -422,16 +452,7 @@ export default function NamespaceBoundariesCanvas() {
       </Grid>
 
       <CollapsibleSection title={`Related canvases (${CURSOR_CANVAS_COUNT} manifest-backed)`} defaultOpen>
-        <Table
-          headers={["Canvas file", "Binding layer", "Repo path"]}
-          rows={CANVAS_ROUTING.map((r) => [...r])}
-          rowTone={["info", "info", "success", "neutral", "neutral", "neutral", "neutral", "warning"]}
-          striped
-        />
-        <Text tone="tertiary" size="small">
-          Read order: namespace-boundaries → pick layer → automation · thumbnails · or
-          unified-plugin. automation calls into thumbnails for the /api/thumbnail gate proof.
-        </Text>
+        <RelatedCanvasesTable />
       </CollapsibleSection>
 
       <Card>

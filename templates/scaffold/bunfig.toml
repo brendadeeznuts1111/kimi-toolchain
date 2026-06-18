@@ -1,3 +1,5 @@
+# Rule 4 (configuration-layers): install/test policy only — no [define], no KIMI_*.
+# See docs/references/configuration-layers.md · Bun flags: docs/references/bun-runtime-scaffold.md
 # Hardened install policy — src/lib/bun-install-config.ts (BUN_INSTALL_POLICY_MATRIX)
 [install]
 optional = true

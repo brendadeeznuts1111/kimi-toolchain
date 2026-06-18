@@ -1,4 +1,5 @@
 import {
+  Button,
   Callout,
   Card,
   CardBody,
@@ -15,6 +16,7 @@ import {
   Stat,
   Table,
   Text,
+  useCanvasAction,
   useHostTheme,
 } from "cursor/canvas";
 
@@ -83,14 +85,14 @@ const RELATED_PATHS = [
 ] as const;
 
 const CANVAS_ROUTING = [
-  ["kimi-toolchain", "Project hub", "docs/canvases/kimi-toolchain.canvas.tsx"],
-  ["configuration-layers", "Config SSOT", "docs/canvases/configuration-layers.canvas.tsx (this canvas)"],
-  ["kimi-fix", "Scaffold", "docs/canvases/kimi-fix.canvas.tsx"],
-  ["namespace-boundaries", "Name collisions", "docs/canvases/namespace-boundaries.canvas.tsx"],
-  ["doc-links-and-see-ladder", "Cross-ref ladder", "docs/canvases/doc-links-and-see-ladder.canvas.tsx"],
-  ["herdr-dashboard-automation", "Finish-work shell", "docs/canvases/herdr-dashboard-automation.canvas.tsx"],
-  ["herdr-dashboard-thumbnails", "Orchestrator HTTP", "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx"],
-  ["herdr-unified-plugin-architecture", "Herdr plugins", "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx"],
+  { id: "kimi-toolchain", page: "Project hub", path: "docs/canvases/kimi-toolchain.canvas.tsx" },
+  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "(this canvas)" },
+  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx" },
+  { id: "namespace-boundaries", page: "Name collisions", path: "docs/canvases/namespace-boundaries.canvas.tsx" },
+  { id: "doc-links-and-see-ladder", page: "Cross-ref ladder", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx" },
+  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx" },
+  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx" },
+  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx" },
 ] as const;
 
 const CANONICAL_REPOS = ["kimi-toolchain", "kimi-code-upstream", "effect-upstream"] as const;
@@ -209,6 +211,34 @@ function TaskRoutingDag() {
   );
 }
 
+function CanvasLink({ label, path, dispatch }: { label: string; path: string; dispatch: ReturnType<typeof useCanvasAction> }) {
+  const theme = useHostTheme();
+  return (
+    <Button variant="ghost" onClick={() => dispatch({ type: "openFile", path })} style={{ padding: 0, minHeight: "auto", height: "auto", color: theme.accent.primary, textDecoration: "underline", textUnderlineOffset: 2 }}>
+      {label}
+    </Button>
+  );
+}
+
+function RelatedCanvasesTable() {
+  const dispatch = useCanvasAction();
+  return (
+    <Stack gap={8}>
+      <Table
+        headers={["Canvas", "Topic", "Open when"]}
+        rows={CANVAS_ROUTING.map((c) => [
+          <CanvasLink key={`${c.id}-file`} label={`${c.id}.canvas.tsx`} path={c.path} dispatch={dispatch} />,
+          <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
+          c.detail ?? c.path,
+        ])}
+        rowTone={["info", "info", "success", "warning", "neutral", "info", "neutral", "warning"]}
+        striped
+      />
+      <Text tone="tertiary" size="small">Click Canvas or Topic to open · config SSOT and 4-layer model</Text>
+    </Stack>
+  );
+}
+
 export default function ConfigurationLayersCanvas() {
   return (
     <Stack gap={20} style={{ padding: 24, maxWidth: 960 }}>
@@ -318,12 +348,7 @@ export default function ConfigurationLayersCanvas() {
       </Grid>
 
       <CollapsibleSection title="Related canvases (8 manifest-backed)" count={8} defaultOpen={false}>
-        <Table
-          headers={["Canvas", "Topic", "Open when"]}
-          rows={CANVAS_ROUTING.map((r) => [...r])}
-          rowTone={["info", "info", "success", "warning", "neutral", "info", "neutral", "warning"]}
-          striped
-        />
+        <RelatedCanvasesTable />
       </CollapsibleSection>
 
       <CollapsibleSection title="Lint / doctor enforcement wiring" count={6} defaultOpen>

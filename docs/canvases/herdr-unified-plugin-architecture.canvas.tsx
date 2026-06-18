@@ -1,4 +1,5 @@
 import {
+  Button,
   Callout,
   Card,
   CardBody,
@@ -17,11 +18,23 @@ import {
   Text,
   TodoListCard,
   UsageBar,
+  useCanvasAction,
   useHostTheme,
 } from "cursor/canvas";
 
 const PLAN_VERSION = "0.5.0-unified";
 const MIN_HERDR = "0.7.0";
+
+const CANVAS_ROUTING = [
+  { id: "kimi-toolchain", page: "Project hub", path: "docs/canvases/kimi-toolchain.canvas.tsx" },
+  { id: "doc-links-and-see-ladder", page: "Cross-ref ladder", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx" },
+  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx" },
+  { id: "namespace-boundaries", page: "Name collisions", path: "docs/canvases/namespace-boundaries.canvas.tsx" },
+  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx" },
+  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx" },
+  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx" },
+  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "(this canvas)" },
+] as const;
 
 const ARCHITECTURE_MATRIX = [
   [
@@ -345,6 +358,34 @@ function PluginArchitectureDiagram() {
   );
 }
 
+function CanvasLink({ label, path, dispatch }: { label: string; path: string; dispatch: ReturnType<typeof useCanvasAction> }) {
+  const theme = useHostTheme();
+  return (
+    <Button variant="ghost" onClick={() => dispatch({ type: "openFile", path })} style={{ padding: 0, minHeight: "auto", height: "auto", color: theme.accent.primary, textDecoration: "underline", textUnderlineOffset: 2 }}>
+      {label}
+    </Button>
+  );
+}
+
+function RelatedCanvasesTable() {
+  const dispatch = useCanvasAction();
+  return (
+    <Stack gap={8}>
+      <Table
+        headers={["Canvas", "Page", "Detail"]}
+        rows={CANVAS_ROUTING.map((c) => [
+          <CanvasLink key={`${c.id}-file`} label={`${c.id}.canvas.tsx`} path={c.path} dispatch={dispatch} />,
+          <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
+          c.detail ?? c.path,
+        ])}
+        rowTone={["info", "neutral", "neutral", "warning", "success", "info", "neutral", "info"]}
+        striped
+      />
+      <Text tone="tertiary" size="small">Click Canvas or Page to open · Herdr plugin architecture plan</Text>
+    </Stack>
+  );
+}
+
 export default function HerdrUnifiedPluginArchitecturePlan() {
   const theme = useHostTheme();
 
@@ -544,6 +585,10 @@ export default function HerdrUnifiedPluginArchitecturePlan() {
           </Stack>
         </CardBody>
       </Card>
+
+      <CollapsibleSection title="Related canvases (8 manifest-backed)" defaultOpen={false}>
+        <RelatedCanvasesTable />
+      </CollapsibleSection>
 
       <Text tone="tertiary" size="small">
         Plan source: ~/Downloads/herdr-unified-plan-v0.5.0.md · replaces scattered specs (3:1

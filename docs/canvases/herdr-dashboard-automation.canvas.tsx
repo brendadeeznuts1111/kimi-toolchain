@@ -1,4 +1,5 @@
 import {
+  Button,
   Callout,
   Card,
   CardBody,
@@ -15,6 +16,7 @@ import {
   Stat,
   Table,
   Text,
+  useCanvasAction,
   useHostTheme,
 } from "cursor/canvas";
 
@@ -118,10 +120,10 @@ const RELATED_SURFACES = [
 ] as const;
 
 const CANVAS_ROUTING = [
-  ["namespace-boundaries", "Meta / routing", "Which doctor surface? finish-work vs prefix+d vs /api/*"],
-  ["herdr-dashboard-automation", "Finish-work shell", "kimi-doctor --automation · gate JSON (this canvas)"],
-  ["herdr-dashboard-thumbnails", "Orchestrator HTTP", "PNG → Bun.Image → /api/thumbnail encode path"],
-  ["configuration-layers", "Config layers", "Discovery localDocs vs bunfig define registry"],
+  { id: "namespace-boundaries", page: "Meta / routing", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "Which doctor surface?" },
+  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor --automation (this canvas)" },
+  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "PNG → Bun.Image → /api/thumbnail" },
+  { id: "configuration-layers", page: "Config layers", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "Discovery localDocs vs bunfig define" },
 ] as const;
 
 const LIFECYCLE_MODES = [
@@ -254,6 +256,34 @@ function AutomationFlowDiagram() {
   );
 }
 
+function CanvasLink({ label, path, dispatch }: { label: string; path: string; dispatch: ReturnType<typeof useCanvasAction> }) {
+  const theme = useHostTheme();
+  return (
+    <Button variant="ghost" onClick={() => dispatch({ type: "openFile", path })} style={{ padding: 0, minHeight: "auto", height: "auto", color: theme.accent.primary, textDecoration: "underline", textUnderlineOffset: 2 }}>
+      {label}
+    </Button>
+  );
+}
+
+function RelatedCanvasesTable() {
+  const dispatch = useCanvasAction();
+  return (
+    <Stack gap={8}>
+      <Table
+        headers={["Canvas file", "Binding layer", "Open when"]}
+        rows={CANVAS_ROUTING.map((c) => [
+          <CanvasLink key={`${c.id}-file`} label={`${c.id}.canvas.tsx`} path={c.path} dispatch={dispatch} />,
+          <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
+          c.detail ?? c.path,
+        ])}
+        rowTone={["info", "success", "neutral", "neutral"]}
+        striped
+      />
+      <Text tone="tertiary" size="small">Click Canvas file or Binding layer to open · read order: namespace → automation → thumbnails</Text>
+    </Stack>
+  );
+}
+
 export default function HerdrDashboardAutomationSpec() {
   return (
     <Stack gap={24} style={{ padding: 24, maxWidth: 960 }}>
@@ -284,16 +314,7 @@ export default function HerdrDashboardAutomationSpec() {
       </Callout>
 
       <CollapsibleSection title="Related canvases (read order)" count={4} defaultOpen>
-        <Table
-          headers={["Canvas file", "Binding layer", "Open when"]}
-          rows={CANVAS_ROUTING.map((r) => [...r])}
-          rowTone={["info", "success", "neutral", "neutral"]}
-          striped
-        />
-        <Text tone="tertiary" size="small">
-          Read order: namespace-boundaries → this canvas (gate) → herdr-dashboard-thumbnails (encode
-          DAG). configuration-layers explains localDocs discovery for kimi-doctor.md.
-        </Text>
+        <RelatedCanvasesTable />
       </CollapsibleSection>
 
       <Stack gap={12}>
