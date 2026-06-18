@@ -79,6 +79,11 @@ describe("canonical-references", () => {
     expect(row?.cursorCanvas).toBe("docs/canvases/configuration-layers.canvas.tsx");
   });
 
+  test("templates includes kimi-fix cursorCanvas pointer", () => {
+    const entry = LOCAL_DOC_REFERENCES.find((ref) => ref.id === "templates");
+    expect(entry?.cursorCanvas).toBe("docs/canvases/kimi-fix.canvas.tsx");
+  });
+
   test("unified and namespace include cursorCanvas pointers", () => {
     const unified = LOCAL_DOC_REFERENCES.find((ref) => ref.id === "unified");
     expect(unified?.cursorCanvas).toBe("docs/canvases/kimi-toolchain.canvas.tsx");
