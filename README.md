@@ -161,6 +161,8 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run test:parallel`      | Full suite across all CPU cores (`--parallel --isolate`) |
 | `bun run test:parallel:4`    | Full suite across 4 workers                           |
 | `bun run test:shard`         | CI matrix — set SHARD env (e.g. `--shard=1/3`)      |
+| `bun run scan`               | Bun upgrade advisor — detects gaps vs toolchain patterns |
+| `bun run scan:json`          | Structured JSON scan output                           |
 | `bun run check`              | format:check + lint + typecheck + test (CI/hooks)   |
 | `bun run check:fast`         | Same gates; unit tests at 1500ms timeout            |
 | `bun run check:dry-run`      | List check steps without running them               |
@@ -329,6 +331,10 @@ Live runtime at `~/.kimi-code/` is synced via `bun run sync` (`scripts/sync-to-d
 | [docs/canvases/namespace-boundaries.canvas.tsx](./docs/canvases/namespace-boundaries.canvas.tsx) | `namespace` | Name collisions and binding layers |
 | [docs/canvases/configuration-layers.canvas.tsx](./docs/canvases/configuration-layers.canvas.tsx) | `configuration-layers` | Four-layer config model |
 | [docs/canvases/kimi-fix.canvas.tsx](./docs/canvases/kimi-fix.canvas.tsx) | `templates` | Scaffold profiles and `kimi-fix` wiring |
+| [docs/canvases/doc-links-and-see-ladder.canvas.tsx](./docs/canvases/doc-links-and-see-ladder.canvas.tsx) | `code-references` | Doc-links lint and `@see` ladder |
+| [docs/canvases/herdr-dashboard-automation.canvas.tsx](./docs/canvases/herdr-dashboard-automation.canvas.tsx) | `kimi-doctor` | `kimi-doctor --automation` gate |
+| [docs/canvases/herdr-dashboard-thumbnails.canvas.tsx](./docs/canvases/herdr-dashboard-thumbnails.canvas.tsx) | `dashboard-thumbnails` | PNG → Bun.Image → `/api/thumbnail` |
+| [docs/canvases/herdr-unified-plugin-architecture.canvas.tsx](./docs/canvases/herdr-unified-plugin-architecture.canvas.tsx) | `herdr-plugin-architecture` | Herdr plugin plan v0.5.0 |
 
 **Templates:** [TEMPLATES.md](./TEMPLATES.md) (manifest id `templates`) — scaffold profiles, CONTEXT/CHANGELOG patterns, `kimi-fix` wiring.
 

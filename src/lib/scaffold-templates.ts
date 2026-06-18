@@ -62,6 +62,8 @@ export const REQUIRED_PACKAGE_SCRIPT_ENTRIES = {
   "test:parallel": "bun run scripts/run-tests.ts --parallel",
   "test:parallel:4": "bun run scripts/run-tests.ts --parallel=4",
   "test:shard": "bun run scripts/run-tests.ts --shard",
+  scan: "bun run scripts/scan.ts",
+  "scan:json": "bun run scripts/scan.ts --json",
   check: "bun run scripts/check.ts",
   "check:fast": "bun run scripts/check.ts --fast",
   "check:dry-run": "bun run scripts/check.ts --dry-run",
@@ -72,6 +74,7 @@ export const REQUIRED_PACKAGE_SCRIPT_ENTRIES = {
   "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json src scripts test",
   lint: "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
   "lint:terms": "bun run scripts/lint-banned-terms.ts",
+  scan: "bun run scripts/scan.ts",
   fix: "kimi-fix .",
 } as const;
 

@@ -1,0 +1,353 @@
+/**
+ * upgrade-advisor.ts — Bun upgrade / codebase scanner.
+ * Detects legacy patterns and suggests Bun-native replacements.
+ *
+ * CLI: scripts/scan.ts · scaffold family per template-matrix.md
+ */
+
+import { join, relative } from "path";
+import { pathExists, readTextAsync } from "./bun-io.ts";
+import { safeToml } from "./utils.ts";
+
+export interface UpgradeFinding {
+  ruleId: string;
+  file: string;
+  line: number;
+  message: string;
+  suggestion: string;
+  snippet: string;
+}
+
+export interface UpgradeScanReport {
+  schemaVersion: 1;
+  tool: "upgrade-advisor";
+  projectRoot: string;
+  findings: UpgradeFinding[];
+  summary: {
+    total: number;
+    byRule: Record<string, number>;
+  };
+}
+
+export interface UpgradeScanOptions {
+  /** Limit to specific rule ids */
+  rules?: string[];
+}
+
+const SOURCE_GLOBS = ["**/*.{ts,tsx,js,jsx,mjs,cjs}"] as const;
+const SCAN_DIRS = ["src", "scripts"] as const;
+
+const SHARP_PATTERNS = [
+  /require\s*\(\s*['"]sharp['"]\s*\)/,
+  /import\s+sharp\s+from\s+['"]sharp['"]/,
+  /from\s+['"]sharp['"]/,
+] as const;
+
+const WATCHER_PATTERNS = [
+  /require\s*\(\s*['"]chokidar['"]\s*\)/,
+  /from\s+['"]chokidar['"]/,
+  /require\s*\(\s*['"]node-watch['"]\s*\)/,
+  /from\s+['"]node-watch['"]/,
+  /setInterval\s*\([^)]*watch/i,
+] as const;
+
+const PARALLEL_TEST_SCRIPTS = ["test:parallel", "test:parallel:4", "test:shard"] as const;
+
+function finding(
+  ruleId: string,
+  file: string,
+  line: number,
+  message: string,
+  suggestion: string,
+  snippet: string
+): UpgradeFinding {
+  return { ruleId, file, line, message, suggestion, snippet: snippet.trim() };
+}
+
+function ruleEnabled(ruleId: string, options: UpgradeScanOptions): boolean {
+  if (!options.rules?.length) return true;
+  return options.rules.includes(ruleId);
+}
+
+function scanSourceFile(
+  rel: string,
+  lines: string[],
+  out: UpgradeFinding[],
+  options: UpgradeScanOptions
+): void {
+  if (ruleEnabled("sharp-to-bun-image", options)) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
+      if (SHARP_PATTERNS.some((re) => re.test(line))) {
+        out.push(
+          finding(
+            "sharp-to-bun-image",
+            rel,
+            i + 1,
+            "sharp import detected",
+            "Use Bun.Image: await Bun.file(path).arrayBuffer() then new Bun.Image(bytes) or Bun.file(path).image()",
+            line
+          )
+        );
+      }
+    }
+  }
+
+  if (ruleEnabled("fetch-http2-multiplex", options)) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
+      if (!/Promise\.all\s*\(/.test(line)) continue;
+      let fetchCount = 0;
+      for (let j = i; j < Math.min(lines.length, i + 20); j++) {
+        const block = lines[j]!;
+        fetchCount += (block.match(/\bfetch\s*\(/g) ?? []).length;
+      }
+      if (fetchCount >= 2) {
+        out.push(
+          finding(
+            "fetch-http2-multiplex",
+            rel,
+            i + 1,
+            "Multiple fetch() calls near Promise.all — same-origin requests may not multiplex",
+            'Enable BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT=1 or pass protocol: "http2" on fetch options',
+            line
+          )
+        );
+      }
+    }
+  }
+
+  if (ruleEnabled("bun-serve-http3", options)) {
+    const text = lines.join("\n");
+    if (
+      /Bun\.serve\s*\(/.test(text) &&
+      /\btls\s*:/.test(text) &&
+      !/\bhttp3\s*:\s*true/.test(text)
+    ) {
+      const lineIdx = lines.findIndex((l) => /Bun\.serve\s*\(/.test(l));
+      if (lineIdx >= 0) {
+        out.push(
+          finding(
+            "bun-serve-http3",
+            rel,
+            lineIdx + 1,
+            "Bun.serve with TLS but http3: true not set",
+            "Add http3: true to Bun.serve({ tls: ..., http3: true }) for HTTP/3 over QUIC",
+            lines[lineIdx]!
+          )
+        );
+      }
+    }
+  }
+
+  if (ruleEnabled("legacy-file-watchers", options)) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
+      if (WATCHER_PATTERNS.some((re) => re.test(line))) {
+        out.push(
+          finding(
+            "legacy-file-watchers",
+            rel,
+            i + 1,
+            "Legacy file watcher or polling pattern",
+            "Prefer fs.watch(path, { recursive: true }) or Bun's native watch APIs",
+            line
+          )
+        );
+      }
+    }
+  }
+}
+
+async function scanSourceTree(
+  projectRoot: string,
+  options: UpgradeScanOptions
+): Promise<UpgradeFinding[]> {
+  const findings: UpgradeFinding[] = [];
+  for (const dir of SCAN_DIRS) {
+    const absDir = join(projectRoot, dir);
+    if (!pathExists(absDir)) continue;
+    for (const pattern of SOURCE_GLOBS) {
+      const glob = new Bun.Glob(pattern);
+      for await (const file of glob.scan({ cwd: absDir, absolute: false })) {
+        if (file.includes("node_modules")) continue;
+        const abs = join(absDir, file);
+        const rel = relative(projectRoot, abs);
+        const text = await readTextAsync(abs);
+        scanSourceFile(rel, text.split("\n"), findings, options);
+      }
+    }
+  }
+  return filterByRules(findings, options);
+}
+
+async function scanBunfig(
+  projectRoot: string,
+  options: UpgradeScanOptions
+): Promise<UpgradeFinding[]> {
+  if (!ruleEnabled("global-store-disabled", options)) return [];
+  const bunfigPath = join(projectRoot, "bunfig.toml");
+  if (!pathExists(bunfigPath)) return [];
+
+  const text = await readTextAsync(bunfigPath);
+  const parsed = safeToml<{ install?: { linker?: string; globalStore?: boolean } }>(text, {});
+  const install = parsed?.install;
+  if (!install) return [];
+
+  const linker = String(install.linker ?? "").toLowerCase();
+  const usesIsolated = linker.includes("isolated");
+  const globalStore = install.globalStore === true;
+
+  if (usesIsolated && !globalStore) {
+    const lineIdx = text.split("\n").findIndex((l) => /^\s*linker\s*=/.test(l));
+    return [
+      finding(
+        "global-store-disabled",
+        "bunfig.toml",
+        lineIdx >= 0 ? lineIdx + 1 : 1,
+        'linker = "isolated" without globalStore = true',
+        "Add globalStore = true under [install] (Bun ≥1.3.14) for ~7× faster warm installs",
+        lineIdx >= 0 ? text.split("\n")[lineIdx]! : "[install]"
+      ),
+    ];
+  }
+  return [];
+}
+
+async function scanPackageJson(
+  projectRoot: string,
+  options: UpgradeScanOptions
+): Promise<UpgradeFinding[]> {
+  const pkgPath = join(projectRoot, "package.json");
+  if (!pathExists(pkgPath)) return [];
+
+  const findings: UpgradeFinding[] = [];
+  const text = await readTextAsync(pkgPath);
+  const pkg = JSON.parse(text) as {
+    scripts?: Record<string, string>;
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+  const scripts = pkg.scripts ?? {};
+  const lines = text.split("\n");
+
+  if (ruleEnabled("missing-no-orphans", options)) {
+    for (const [name, cmd] of Object.entries(scripts)) {
+      if (!/\bbun\b/.test(cmd)) continue;
+      if (/^check:/.test(name)) continue;
+      const longRunning =
+        /^(dev|start|serve|watch)$/.test(name) ||
+        /\bBun\.serve\s*\(/.test(cmd) ||
+        (/\b(dev|start|serve)\b/.test(cmd) && /\bsrc\/index\.(ts|js)/.test(cmd));
+      if (!longRunning) continue;
+      if (/--no-orphans\b/.test(cmd)) continue;
+      const lineIdx = lines.findIndex((l) => l.includes(`"${name}"`));
+      findings.push(
+        finding(
+          "missing-no-orphans",
+          "package.json",
+          lineIdx >= 0 ? lineIdx + 1 : 1,
+          `Script "${name}" runs Bun without --no-orphans`,
+          "Add --no-orphans to long-running server scripts: bun --no-orphans run …",
+          `"${name}": "${cmd}"`
+        )
+      );
+    }
+  }
+
+  if (ruleEnabled("missing-parallel-test-scripts", options)) {
+    const missing = PARALLEL_TEST_SCRIPTS.filter((key) => !scripts[key]);
+    if (missing.length > 0 && scripts.test) {
+      const lineIdx = lines.findIndex((l) => l.includes('"test"'));
+      findings.push(
+        finding(
+          "missing-parallel-test-scripts",
+          "package.json",
+          lineIdx >= 0 ? lineIdx + 1 : 1,
+          `Missing parallel/shard test scripts: ${missing.join(", ")}`,
+          'Add: "test:parallel": "bun run scripts/run-tests.ts --parallel", "test:parallel:4": "… --parallel=4", "test:shard": "… --shard"',
+          missing.map((k) => `"${k}"`).join(", ")
+        )
+      );
+    }
+  }
+
+  if (ruleEnabled("electron-to-bun-webview", options)) {
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+    for (const pkgName of ["electron", "nw", "nwjs"]) {
+      if (!(pkgName in deps)) continue;
+      const lineIdx = lines.findIndex((l) => l.includes(`"${pkgName}"`));
+      findings.push(
+        finding(
+          "electron-to-bun-webview",
+          "package.json",
+          lineIdx >= 0 ? lineIdx + 1 : 1,
+          `Dependency "${pkgName}" detected`,
+          "Consider Bun.WebView + Bun.serve for desktop UI instead of Electron/nw.js",
+          `"${pkgName}": "${deps[pkgName] ?? ""}"`
+        )
+      );
+    }
+  }
+
+  return findings;
+}
+
+function filterByRules(findings: UpgradeFinding[], options: UpgradeScanOptions): UpgradeFinding[] {
+  if (!options.rules?.length) return findings;
+  return findings.filter((f) => options.rules!.includes(f.ruleId));
+}
+
+function summarize(findings: UpgradeFinding[]): UpgradeScanReport["summary"] {
+  const byRule: Record<string, number> = {};
+  for (const f of findings) {
+    byRule[f.ruleId] = (byRule[f.ruleId] ?? 0) + 1;
+  }
+  return { total: findings.length, byRule };
+}
+
+/** Scan project for Bun upgrade opportunities. Advisory by default (exit 0). */
+export async function scanUpgradeAdvisor(
+  projectRoot: string,
+  options: UpgradeScanOptions = {}
+): Promise<UpgradeScanReport> {
+  const [source, bunfig, pkg] = await Promise.all([
+    scanSourceTree(projectRoot, options),
+    scanBunfig(projectRoot, options),
+    scanPackageJson(projectRoot, options),
+  ]);
+  const findings = [...source, ...bunfig, ...pkg];
+  return {
+    schemaVersion: 1,
+    tool: "upgrade-advisor",
+    projectRoot,
+    findings,
+    summary: summarize(findings),
+  };
+}
+
+export function formatUpgradeReportHuman(report: UpgradeScanReport): string {
+  if (report.findings.length === 0) {
+    return "upgrade-advisor: no findings\n";
+  }
+  const lines: string[] = [`upgrade-advisor: ${report.summary.total} finding(s)\n`];
+  for (const f of report.findings) {
+    lines.push(`${f.file}:${f.line} [${f.ruleId}] ${f.message}`);
+    lines.push(`  → ${f.suggestion}`);
+    lines.push(`  ${f.snippet}\n`);
+  }
+  return lines.join("\n");
+}
+
+export const UPGRADE_ADVISOR_RULE_IDS = [
+  "sharp-to-bun-image",
+  "fetch-http2-multiplex",
+  "bun-serve-http3",
+  "legacy-file-watchers",
+  "global-store-disabled",
+  "missing-no-orphans",
+  "missing-parallel-test-scripts",
+  "electron-to-bun-webview",
+] as const;
+
+export type UpgradeAdvisorRuleId = (typeof UPGRADE_ADVISOR_RULE_IDS)[number];
