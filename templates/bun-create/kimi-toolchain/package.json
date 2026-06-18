@@ -1,11 +1,16 @@
 {
-  "name": "kimi-toolchain",
+  "name": "{{name}}",
   "version": "0.0.1",
   "description": "Greenfield Bun project pre-wired with kimi-toolchain governance, guardian, and quality gates.",
   "bun-create": {
     "postinstall": [
       "bun install -g github:brendadeeznuts1111/kimi-toolchain",
-      "kimi-fix ."
-    ]
+      "kimi-fix . {{extraArgs}}"
+    ],
+    "start": {
+      "dev": "bun run --watch src/index.ts",
+      "test": "bun test",
+      "check": "bun run scripts/check.ts --fast"
+    }
   }
 }
