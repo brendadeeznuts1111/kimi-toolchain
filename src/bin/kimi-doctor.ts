@@ -132,6 +132,7 @@ const VELOCITY = Bun.argv.includes("--velocity");
 const PREDICT = Bun.argv.includes("--predict");
 const CORRELATE = Bun.argv.includes("--correlate");
 const EFFECT_GATES = Bun.argv.includes("--effect-gates");
+const BUNDLE_GATE = Bun.argv.includes("--bundle");
 const DASHBOARD_META = Bun.argv.includes("--dashboard-meta");
 const DASHBOARD_META_STRICT = DASHBOARD_META && Bun.argv.includes("--strict");
 const DASHBOARD_AUTOMATION = Bun.argv.includes("--automation");
@@ -210,6 +211,7 @@ function semverBelow(version: string | null, floor: [number, number, number]): b
 
 import { runOfficialKimiDoctor } from "../lib/kimi-doctor-wrapper.ts";
 import { renderMarkdownHtml } from "../lib/bun-markdown.ts";
+import { runBundleGate } from "../lib/bundle-gate.ts";
 
 async function versionMatrix(): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
@@ -979,6 +981,55 @@ async function runEffectGatesMode(projectRoot: string): Promise<number> {
   return ok ? 0 : 1;
 }
 
+async function runBundleGateMode(projectRoot: string): Promise<number> {
+  const report = await runBundleGate({ projectRoot });
+
+  if (JSON_OUT) {
+    emitJson({ bundleGate: report });
+  } else {
+    logger.section("Bundle Analysis");
+    if (report.error) {
+      logger.line(`  ✗ ${report.error}`);
+      return 1;
+    }
+
+    const summary = report.summary;
+    if (summary) {
+      const totalMB = (summary.totalBytes / (1024 * 1024)).toFixed(1);
+      logger.line(
+        `  Total: ${totalMB} MB | ${summary.inputModules} modules | ${summary.entryPoints} entry point(s)`
+      );
+      logger.line(
+        `  node_modules: ${summary.nodeModulesFiles} files (${(summary.nodeModulesBytes / (1024 * 1024)).toFixed(1)} MB)`
+      );
+    }
+
+    if (report.largestModules.length > 0) {
+      logger.line("");
+      logger.line("  Largest modules:");
+      for (const m of report.largestModules.slice(0, 5)) {
+        const mb = (m.outputBytes / (1024 * 1024)).toFixed(2);
+        const shortPath = m.module.length > 60 ? "…" + m.module.slice(-56) : m.module;
+        logger.line(`    ${m.pctOfTotal.toFixed(1)}%  ${mb} MB  ${shortPath}`);
+      }
+    }
+
+    if (report.findings.length > 0) {
+      logger.line("");
+      logger.line("  Findings:");
+      for (const f of report.findings) {
+        const icon = f.severity === "error" ? "✗" : f.severity === "warn" ? "⚠" : "ℹ";
+        logger.line(`    ${icon} [${f.rule}] ${f.message}`);
+      }
+    }
+
+    logger.line("");
+    logger.line(report.ok ? "  ✓ Bundle gate passed" : "  ✗ Bundle gate failed");
+  }
+
+  return report.ok ? 0 : 1;
+}
+
 async function runDashboardMetaMode(): Promise<number> {
   const urlOverride = argValue("--dashboard-url");
   const result = await runDashboardMetaGate({ url: urlOverride, strict: DASHBOARD_META_STRICT });
@@ -1413,6 +1464,10 @@ async function main(): Promise<number> {
 
   if (EFFECT_GATES) {
     return runEffectGatesMode(projectRoot);
+  }
+
+  if (BUNDLE_GATE) {
+    return runBundleGateMode(projectRoot);
   }
 
   if (DASHBOARD_META) {
