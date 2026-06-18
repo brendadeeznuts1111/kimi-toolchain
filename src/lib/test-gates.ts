@@ -40,6 +40,7 @@ export const UNIT_TEST_FILES = [
   "test/cache.unit.test.ts",
   "test/herdr-dashboard-agents.unit.test.ts",
   "test/herdr-dashboard-discovery-cache.unit.test.ts",
+  "test/herdr-dashboard-events.unit.test.ts",
   "test/herdr-dashboard-server.unit.test.ts",
   "test/herdr-dashboard-webview-store.unit.test.ts",
   "test/doc-links-lint.unit.test.ts",

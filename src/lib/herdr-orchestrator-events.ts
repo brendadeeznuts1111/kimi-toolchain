@@ -122,7 +122,12 @@ function resolveGitHeadWatchPath(projectRoot: string): string | null {
   }
 }
 
-function buildSubscriptions(workspaceId: string, paneIds: string[]): HerdrEventSubscription[] {
+/** Herdr socket subscriptions for a workspace (shared by watch-events and dashboard bridge). */
+export function buildHerdrWorkspaceEventSubscriptions(
+  workspaceId: string,
+  paneIds: string[]
+): HerdrEventSubscription[] {
+  void workspaceId;
   const subs: HerdrEventSubscription[] = [{ type: "workspace.updated" }];
   for (const paneId of paneIds) {
     subs.push({ type: "pane.agent_status_changed", pane_id: paneId });
@@ -248,7 +253,7 @@ async function runWatchOrchestratorEvents(
   }
   const agents = listed.agents;
   const paneIds = [...new Set(agents.map((row) => row.paneId))];
-  const subscriptions = buildSubscriptions(workspaceId, paneIds);
+  const subscriptions = buildHerdrWorkspaceEventSubscriptions(workspaceId, paneIds);
   const debouncer = new DebouncedOrchestratorActions();
   const eventsConfig = orchestrator.events;
 

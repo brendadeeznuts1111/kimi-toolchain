@@ -226,6 +226,7 @@ Dashboard timing (dx.config.toml [herdr.orchestrator.dashboard]):
   stale_ms            Heartbeat stale overlay threshold (default 15000)
   sse_poll_ms         Server SSE agent-discovery poll interval (default 5000; falls back to poll_hint_ms)
   poll_hint_ms        Browser handoffs/rules poll interval (default 5000)
+  (events.enabled)    When true, dashboard --serve bridges Herdr socket → agent refresh
 
 WebView storage (${webviewDocs}#persistent-storage):
   Default (no flags)  dataStore: ephemeral — in-memory; discarded when WebView closes
@@ -1580,6 +1581,7 @@ try {
         pollHintMs: orchConfig.dashboard.pollHintMs,
         ssePollMs: orchConfig.dashboard.ssePollMs,
         staleMs: orchConfig.dashboard.staleMs,
+        herdrEvents: orchConfig.events.enabled,
       };
 
       if (dashboardScreenshot) {

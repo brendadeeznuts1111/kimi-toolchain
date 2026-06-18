@@ -45,7 +45,7 @@ export class EventBus<TEvents extends Record<string, unknown>> {
   emit<K extends keyof TEvents>(event: K, payload: TEvents[K]): void {
     const set = this.listeners.get(event);
     if (!set || set.size === 0) return;
-    for (const handler of [...set]) {
+    for (const handler of set) {
       try {
         handler(payload);
       } catch {

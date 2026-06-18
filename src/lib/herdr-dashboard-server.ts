@@ -22,6 +22,10 @@ import {
   type DashboardFetchOptions,
   type DashboardIpcCommand,
 } from "./herdr-dashboard-data.ts";
+import {
+  startDashboardHerdrEventBridge,
+  type DashboardHerdrEventBridgeHandle,
+} from "./herdr-dashboard-events.ts";
 import { HerdrDashboardHub } from "./herdr-dashboard-hub.ts";
 import {
   bunHttp3ServeSupported,
@@ -50,6 +54,8 @@ export interface HerdrDashboardServerOptions extends DashboardFetchOptions {
   onIpc?: (result: ReturnType<typeof runDashboardIpcCommand>) => void;
   /** Optional PNG supplier for `/api/thumbnail` when no cached screenshot is set. */
   screenshotProvider?: () => Promise<Uint8Array | null>;
+  /** Bridge Herdr socket events → dashboard refresh (default true). */
+  herdrEvents?: boolean;
 }
 
 export interface HerdrDashboardServerHandle {
@@ -58,6 +64,7 @@ export interface HerdrDashboardServerHandle {
   url: string;
   transport: DashboardServeTransport;
   hub: HerdrDashboardHub;
+  herdrEventBridge: DashboardHerdrEventBridgeHandle;
   /** In-process request helper (avoids TLS verification for local HTTPS tests). */
   fetch: (input: string | Request) => Response | Promise<Response>;
   /** Cache a dashboard PNG for `/api/thumbnail` encoding. */
@@ -169,6 +176,12 @@ export function startHerdrDashboardServer(
   });
   hub.start();
 
+  const herdrEventBridge = startDashboardHerdrEventBridge({
+    projectPath: options.projectPath,
+    hub,
+    herdrEvents: options.herdrEvents,
+  });
+
   let screenshotPng: Uint8Array | null = null;
 
   const { serveOptions, transport } = resolveDashboardServeTransport({
@@ -207,6 +220,7 @@ export function startHerdrDashboardServer(
           sse: true,
           staleMs,
           cache: hub.cacheStats(),
+          herdrEvents: herdrEventBridge.status(),
           dryRun: options.dryRun ?? false,
           thumbnail: bunImageSupported(),
           thumbnailPath: "/api/thumbnail",
@@ -341,11 +355,13 @@ export function startHerdrDashboardServer(
     url: `${scheme}://${hostname}:${boundPort}/`,
     transport,
     hub,
+    herdrEventBridge,
     fetch: server.fetch.bind(server),
     setScreenshotPng: (png: Uint8Array) => {
       screenshotPng = png;
     },
     stop: () => {
+      herdrEventBridge.stop();
       hub.stop();
       server.stop();
     },

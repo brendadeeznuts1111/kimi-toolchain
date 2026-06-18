@@ -108,6 +108,7 @@ describe("herdr-dashboard-server", () => {
         pollHintMs: number;
         ssePollMs: number;
         cache?: { discovery: { hits: number }; status: { size: number } };
+        herdrEvents?: { enabled: boolean };
         sse?: boolean;
         thumbnail?: boolean;
         thumbnailPath?: string;
@@ -118,6 +119,7 @@ describe("herdr-dashboard-server", () => {
       expect(meta.ssePollMs).toBe(5000);
       expect(meta.cache?.discovery).toBeDefined();
       expect(meta.cache?.status).toBeDefined();
+      expect(meta.herdrEvents?.enabled).toBe(true);
       expect(meta.sse).toBe(true);
       if (bunImageSupported()) {
         expect(meta.thumbnail).toBe(true);

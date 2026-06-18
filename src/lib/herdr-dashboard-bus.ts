@@ -41,6 +41,12 @@ export interface DashboardBusEvents extends Record<string, unknown> {
     fetchOpts: DashboardFetchOptions;
     at: string;
   };
+  /** Herdr unix-socket event routed to dashboard refresh (DX [herdr.orchestrator.events]). */
+  "herdr:event": {
+    event: string;
+    reason: string;
+    at: string;
+  };
 }
 
 export type DashboardEventBus = EventBus<DashboardBusEvents>;

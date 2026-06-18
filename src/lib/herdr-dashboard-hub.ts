@@ -44,6 +44,8 @@ export class HerdrDashboardHub {
   private readonly agentSnapshot = new Map<string, DashboardAgentRow>();
   private readonly subscribers = new Set<SseController>();
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly busUnsubs: Array<() => void> = [];
+
   constructor(options: DashboardHubOptions) {
     this.pollMs = options.pollMs ?? DASHBOARD_SSE_INTERVAL_MS;
     this.staleMs = options.staleMs ?? DASHBOARD_STALE_MS;
@@ -59,6 +61,13 @@ export class HerdrDashboardHub {
           void this.ingestDiscoveryPayload(payload);
         },
       });
+
+    this.busUnsubs.push(
+      this.bus.on("herdr:event", () => {
+        this.discoveryCache.invalidateDiscovery();
+        void this.refresh({ forceRefresh: true });
+      })
+    );
   }
 
   get eventBus(): DashboardEventBus {
@@ -175,6 +184,8 @@ export class HerdrDashboardHub {
 
   stop(): void {
     this.pausePolling();
+    for (const off of this.busUnsubs) off();
+    this.busUnsubs.length = 0;
     for (const controller of this.subscribers) {
       try {
         controller.close();
