@@ -92,6 +92,8 @@ describe("herdr-dashboard-server", () => {
       expect(html).toContain("/herdr-dashboard.js");
       expect(html).toContain("Loading agents");
       expect(html).toContain("rules-meta-slot");
+      expect(html).toContain("control-plane");
+      expect(html).toContain("agents-legend");
 
       const cssRes = (await fetch(`${server.url}herdr-dashboard.css`)) as unknown as {
         body: ReadableStream<Uint8Array>;

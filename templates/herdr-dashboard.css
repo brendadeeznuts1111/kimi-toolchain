@@ -161,6 +161,33 @@ th {
   align-items: center;
   min-height: 90px;
 }
+.header-copy {
+  min-width: 0;
+}
+.control-plane {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.control-plane .herdr-ok {
+  color: var(--green);
+}
+.control-plane .herdr-warn {
+  color: var(--yellow);
+}
+.control-plane .herdr-off {
+  color: var(--dim);
+}
+.agents-legend {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 0 0 8px;
+}
+.agents-legend .status {
+  font-size: 10px;
+  vertical-align: middle;
+}
 .scroll {
   max-height: 420px;
   overflow: auto;

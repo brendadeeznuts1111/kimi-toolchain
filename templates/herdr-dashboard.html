@@ -13,8 +13,9 @@
         <div id="agent-thumb-wrap" class="thumb-slot" aria-hidden="true">
           <img id="agent-thumb" alt="Agent preview" width="160" height="90" decoding="async" />
         </div>
-        <div>
+        <div class="header-copy">
           <div id="meta">loading…</div>
+          <div id="control-plane" class="control-plane">control plane loading…</div>
           <div id="stream-status">SSE connecting…</div>
         </div>
       </div>
@@ -27,6 +28,10 @@
     <main>
       <section id="agents" class="panel active">
         <div id="agents-error" class="error"></div>
+        <p id="agents-legend" class="agents-legend" hidden>
+          <span class="status status-stale">stale</span> — no dashboard heartbeat within the header
+          threshold (not necessarily stopped in Herdr).
+        </p>
         <div class="scroll agents-scroll">
           <table>
             <thead>

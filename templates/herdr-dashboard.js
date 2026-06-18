@@ -2,7 +2,9 @@ let lastAgentsJson = "";
 let lastHandoffsJson = "";
 let lastRulesJson = "";
 let pollTimer = null;
+let metaTimer = null;
 let activeTab = "agents";
+let metaSnapshot = null;
 
 const statusClass = (status) => {
   const key = (status || "unknown").toLowerCase();
@@ -103,15 +105,64 @@ function wireAgentThumbnail(data) {
   full.src = thumbUrl;
 }
 
+function formatHerdrEventsLine(herdr) {
+  if (!herdr || herdr.enabled === false) {
+    return '<span class="herdr-off">herdr events off</span>';
+  }
+  if (herdr.error) {
+    return `<span class="herdr-warn">herdr events error: ${esc(herdr.error)}</span>`;
+  }
+  if (herdr.connected) {
+    const ws = herdr.workspaceId ? ` · ${esc(herdr.workspaceId)}` : "";
+    const subs = herdr.subscriptionCount ?? 0;
+    const debounce = herdr.debounceMs ? ` · ${herdr.debounceMs}ms debounce` : "";
+    return `<span class="herdr-ok">herdr socket connected</span> · ${subs} subscription(s)${ws}${debounce}`;
+  }
+  return '<span class="herdr-warn">herdr socket connecting…</span>';
+}
+
+function formatCacheLine(cache) {
+  if (!cache) return "cache —";
+  const d = cache.discovery || {};
+  const s = cache.status || {};
+  const hits = d.hits ?? 0;
+  const misses = d.misses ?? 0;
+  const size = d.size ?? 0;
+  const heartbeats = s.size ?? 0;
+  return `cache ${hits}h/${misses}m · ${size} discovery · ${heartbeats} heartbeat(s)`;
+}
+
+function renderMetaDisplay(data) {
+  metaSnapshot = data;
+  const staleSec = (data.staleMs || 15000) / 1000;
+  const sseSec = (data.ssePollMs || 5000) / 1000;
+  const pollSec = (data.pollHintMs || 5000) / 1000;
+  document.getElementById("meta").textContent =
+    `${data.projectPath || "."} · SSE ${sseSec}s · poll ${pollSec}s · stale threshold ${staleSec}s` +
+    (data.dryRun ? " · dry-run" : "");
+
+  const control = document.getElementById("control-plane");
+  control.innerHTML = `${formatHerdrEventsLine(data.herdrEvents)} · ${formatCacheLine(data.cache)}`;
+
+  const legend = document.getElementById("agents-legend");
+  legend.hidden = false;
+  legend.title = `Agents show stale when no dashboard heartbeat for more than ${staleSec}s.`;
+}
+
 async function loadMeta() {
   const res = await fetch("/api/meta");
   const data = await res.json();
-  const poll = data.pollHintMs || 5000;
-  document.getElementById("meta").textContent =
-    `${data.projectPath || "."} · SSE live · stale ${(data.staleMs || 15000) / 1000}s` +
-    (data.dryRun ? " · dry-run" : "");
+  renderMetaDisplay(data);
   wireAgentThumbnail(data);
-  return poll;
+  return data.pollHintMs || 5000;
+}
+
+function scheduleMetaRefresh(ssePollMs) {
+  if (metaTimer) clearInterval(metaTimer);
+  const interval = Math.max(ssePollMs || 5000, 3000);
+  metaTimer = setInterval(() => {
+    void loadMeta();
+  }, interval);
 }
 
 function showAgentsEmpty(message) {
@@ -159,7 +210,11 @@ function renderAgents(data) {
       <td>${esc(row.session)}</td>
       <td>${esc(row.workspaceId)}</td>
       <td>${esc(row.agent)}</td>
-      <td><span class="status ${statusClass(row.status)}">${esc(row.status)}</span></td>
+      <td><span class="status ${statusClass(row.status)}"${
+        row.status === "stale" && metaSnapshot
+          ? ` title="No dashboard heartbeat for more than ${(metaSnapshot.staleMs || 15000) / 1000}s"`
+          : ""
+      }>${esc(row.status)}</span></td>
       <td>${esc(row.paneId)}</td>
       <td class="actions">
         <button type="button" data-action="attach">Attach</button>
@@ -180,7 +235,14 @@ function connectAgentsLive() {
   const status = document.getElementById("stream-status");
   const source = new EventSource("/api/agents/live");
   source.onmessage = (event) => {
-    status.textContent = `SSE ${new Date().toISOString()}`;
+    const herdr = metaSnapshot?.herdrEvents;
+    const herdrNote =
+      herdr?.enabled && herdr.connected
+        ? " · herdr socket"
+        : herdr?.enabled
+          ? " · herdr pending"
+          : "";
+    status.textContent = `SSE live ${new Date().toISOString()}${herdrNote}`;
     try {
       renderAgents(JSON.parse(event.data));
     } catch (e) {
@@ -277,8 +339,13 @@ document.querySelectorAll("nav button").forEach((btn) => {
 });
 
 (async () => {
-  const poll = await loadMeta();
+  const res = await fetch("/api/meta");
+  const meta = await res.json();
+  renderMetaDisplay(meta);
+  wireAgentThumbnail(meta);
+  const poll = meta.pollHintMs || 5000;
   window.__HERDR_DASHBOARD_POLL_MS__ = poll;
+  scheduleMetaRefresh(meta.ssePollMs);
   connectAgentsLive();
   scheduleSecondaryPoll(poll);
 })();
