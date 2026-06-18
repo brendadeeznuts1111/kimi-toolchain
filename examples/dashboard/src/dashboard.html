@@ -53,12 +53,17 @@
 </div>
 <script>
 async function fetchJson(url) { const res = await fetch(url); return res.json(); }
+
+function card(id, body) {
+  const el = document.getElementById(id);
+  el.innerHTML = el.querySelector("h2").outerHTML + body;
+}
+
 // Bundle
 (async () => {
-  const c = document.getElementById("card-bundle");
   try {
     const d = await fetchJson("/api/bundle"), bg = d.bundleGate || d, s = bg.summary;
-    if (!s) { c.innerHTML += "<p class='status err'>No data</p>"; return; }
+    if (!s) { card("card-bundle","<p class='status err'>No data</p>"); return; }
     const nmPct = s.totalBytes > 0 ? (s.nodeModulesBytes / s.totalBytes * 100).toFixed(0) : 0;
     let h = `<div class="row"><span>Total</span><strong>${(s.totalBytes/1048576).toFixed(1)} MB</strong></div>`;
     h += `<div class="row"><span>node_modules</span><strong>${nmPct}% (${s.nodeModulesFiles} files)</strong></div>`;
@@ -71,12 +76,12 @@ async function fetchJson(url) { const res = await fetch(url); return res.json();
       h += "</table>";
     }
     if (bg.findings) for (const f of bg.findings) h += `<p class="status ${f.severity==='error'?'err':f.severity==='warn'?'warn':'ok'}">${f.severity.toUpperCase()}: ${f.message}</p>`;
-    c.innerHTML += h;
-  } catch(e) { c.innerHTML += `<p class="status err">${e.message}</p>`; }
+    card("card-bundle", h);
+  } catch(e) { card("card-bundle", `<p class="status err">${e.message}</p>`); }
 })();
+
 // Compile
 (async () => {
-  const c = document.getElementById("card-compile");
   try {
     const d = await fetchJson("/api/compile"), cc = d.compileCheck, caps = cc.capabilities;
     let h = `<div class="row"><span>Bun</span><strong>${caps.bunVersion}</strong></div>`;
@@ -84,35 +89,35 @@ async function fetchJson(url) { const res = await fetch(url); return res.json();
     h += `<div class="row"><span>Format</span><span class="badge badge-info">${caps.recommendedFormat}</span></div>`;
     h += `<div class="row"><span>cpu-prof-md</span><span class="badge ${caps.cpuProfMd?'badge-ok':'badge-err'}">${caps.cpuProfMd?'✓':'✗'}</span></div>`;
     h += `<div class="row"><span>Gate</span><span class="badge ${cc.gate.status==='ok'?'badge-ok':'badge-err'}">${cc.gate.status.toUpperCase()}</span></div>`;
-    c.innerHTML += h;
-  } catch(e) { c.innerHTML += `<p class="status err">${e.message}</p>`; }
+    if (cc.gate.messages) for (const m of cc.gate.messages.slice(0,2)) h += `<p class="status ok">${m}</p>`;
+    card("card-compile", h);
+  } catch(e) { card("card-compile", `<p class="status err">${e.message}</p>`); }
 })();
+
 // Gates
 (async () => {
-  const c = document.getElementById("card-gates");
   try {
     const d = await fetchJson("/api/gates"), eg = d.effectGates || d, s = eg.summary || {};
     let h = `<div class="row"><span>Status</span><span class="badge ${s.errors?'badge-err':'badge-ok'}">${s.errors?'FAILING':'PASSING'}</span></div>`;
     h += `<div class="row"><span>Gates</span><strong>${s.total||0}</strong></div>`;
     h += `<div class="row"><span>Errors</span><strong style="color:${s.errors?'var(--red)':'var(--green)'}">${s.errors||0}</strong></div>`;
     if (eg.violations) for (const v of eg.violations.slice(0,3)) h += `<p class="status err">${v.message}</p>`;
-    c.innerHTML += h;
-  } catch(e) { c.innerHTML += `<p class="status err">${e.message}</p>`; }
+    card("card-gates", h);
+  } catch(e) { card("card-gates", `<p class="status err">${e.message}</p>`); }
 })();
-// Markdown — inline sample, no API call needed
-(() => {
-  document.getElementById("card-markdown").innerHTML += `
-    <div style="font-size:13px;line-height:1.5">
-      <p><strong>Bun.markdown.html()</strong> renders Markdown at ~1M lines/sec.</p>
-      <p>Features: <strong>bold</strong>, <em>italic</em>, <code>inline code</code>, <a href="#">links</a></p>
-      <table><tr><th>Feature</th><th>Status</th></tr>
-      <tr><td>HTML output</td><td><span class="badge badge-ok">✓</span></td></tr>
-      <tr><td>ANSI terminal</td><td><span class="badge badge-ok">✓</span></td></tr>
-      <tr><td>React elements</td><td><span class="badge badge-ok">✓</span></td></tr>
-      <tr><td>Structured extract</td><td><span class="badge badge-ok">✓</span></td></tr>
-      </table>
-    </div>`;
-})();
+
+// Markdown
+card("card-markdown", `
+  <div style="font-size:13px;line-height:1.5">
+    <p><strong>Bun.markdown.html()</strong> renders Markdown at ~1M lines/sec.</p>
+    <p>Features: <strong>bold</strong>, <em>italic</em>, <code>inline code</code>, <a href="#">links</a></p>
+    <table><tr><th>Feature</th><th>Status</th></tr>
+    <tr><td>HTML output</td><td><span class="badge badge-ok">✓</span></td></tr>
+    <tr><td>ANSI terminal</td><td><span class="badge badge-ok">✓</span></td></tr>
+    <tr><td>React elements</td><td><span class="badge badge-ok">✓</span></td></tr>
+    <tr><td>Structured extract</td><td><span class="badge badge-ok">✓</span></td></tr>
+    </table>
+  </div>`);
 </script>
 </body>
 </html>
