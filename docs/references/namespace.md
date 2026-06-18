@@ -67,7 +67,8 @@ Authoritative link table for agents — **8 stacks** in `ecosystem`: `bun`, `eff
 - Runtime copy: `~/.kimi-code/canonical-references.json`
 - Source: `src/lib/canonical-references.ts`
 - Probe embed: `kimi-doctor --probe` → `canonicalReferences`
-- **11 `localDocs`** ids (including this file) in the same manifest under `localDocs`
+- **12 `localDocs`** ids (including this file) in the same manifest under `localDocs`
+- For all configuration layers (Discovery, Build, Parity, Scaffold), see [Configuration & Reference Layers](./configuration-layers.md)
 
 ### Herdr config symlink chain
 
@@ -153,12 +154,13 @@ Related commands: `bun run dx:table -u`, `bun run dx:table:contract`, `bun run r
 
 ## Related docs
 
-### `docs/references/` index (5 `localDocs`)
+### `docs/references/` index (6 `localDocs`)
 
 Agent-indexed reference docs in this directory — synced to `~/.kimi-code/docs/references/` after `bun run sync`. SSOT rows: `src/lib/canonical-references.ts` → `canonical-references.json`.
 
 | Manifest id            | File                                                 | One-line                                                                          |
 | ---------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `configuration-layers` | [configuration-layers.md](./configuration-layers.md) | Four-layer model: discovery, define registry, parity contract, app scaffold       |
 | `namespace`            | [namespace.md](./namespace.md)                       | Toolchain vs Herdr plugin boundaries; doctor trinity; global ecosystem (this doc) |
 | `kimi-doctor`          | [kimi-doctor.md](./kimi-doctor.md)                   | `kimi-doctor --automation` gate — CLI, JSON schema, exit codes                    |
 | `dashboard-thumbnails` | [dashboard-thumbnails.md](./dashboard-thumbnails.md) | WebView screenshot → `Bun.Image` terminals → `/api/thumbnail`                     |

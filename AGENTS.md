@@ -411,7 +411,8 @@ On memory-constrained hosts, swap thrashing inflates load before CPU looks busy.
 | `docs/handoff-rules.md` | Cross-pane handoff contract |
 | `docs/naming.md` | Session and pane naming conventions |
 | `docs/flake-register.md` | Known flaky tests and mitigations |
-| `docs/references/namespace.md` | Toolchain vs Herdr plugin boundaries; doctor trinity; global ecosystem (hub — 5 refs indexed in `canonical-references.json`) |
+| `docs/references/configuration-layers.md` | Four-layer config model: discovery, define registry, parity contract, app scaffold |
+| `docs/references/namespace.md` | Toolchain vs Herdr plugin boundaries; doctor trinity; global ecosystem (hub — 6 refs indexed in `canonical-references.json`) |
 | `docs/references/kimi-doctor.md` | `kimi-doctor --automation` gate — CLI, JSON schema, exit codes |
 | `docs/references/dashboard-thumbnails.md` | WebView screenshot → `Bun.Image` terminals → `/api/thumbnail` |
 | `docs/references/shell-spawn-choice.md` | When to use `invokeTool` vs `Bun.spawn` vs `governedSpawn` |

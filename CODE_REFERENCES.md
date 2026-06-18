@@ -105,6 +105,8 @@ Avoid:
 
 ## Build-time constants
 
+For the authoritative distinction between the define registry, parity contract, discovery manifest, and app scaffold, see [Configuration & Reference Layers](docs/references/configuration-layers.md).
+
 Three **separate naming layers** — do not reuse one vocabulary for another:
 
 | Layer               | Purpose                             | Format                                      | Example                                  | Where                                                  |

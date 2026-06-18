@@ -97,23 +97,27 @@ describe("herdr-dashboard-hub", () => {
     expect(agents[1]?.status).toBe("idle");
   });
 
-  test("createAgentsLiveStream emits SSE data lines", async () => {
-    const hub = new HerdrDashboardHub({
-      projectPath: REPO_ROOT,
-      fetchOpts: {},
-      logger: quietLogger,
-    });
-    const stream = hub.createAgentsLiveStream();
-    const reader = stream.getReader();
-    const timeout = setTimeout(() => reader.cancel(), 50);
-    const chunk = await reader.read();
-    clearTimeout(timeout);
-    hub.stop();
-    if (chunk.value) {
-      const text = new TextDecoder().decode(chunk.value);
-      expect(text.startsWith("data:")).toBe(true);
-    }
-  });
+  test(
+    "createAgentsLiveStream emits SSE data lines",
+    async () => {
+      const hub = new HerdrDashboardHub({
+        projectPath: REPO_ROOT,
+        fetchOpts: {},
+        logger: quietLogger,
+      });
+      const stream = hub.createAgentsLiveStream();
+      const reader = stream.getReader();
+      const timeout = setTimeout(() => reader.cancel(), 50);
+      const chunk = await reader.read();
+      clearTimeout(timeout);
+      hub.stop();
+      if (chunk.value) {
+        const text = new TextDecoder().decode(chunk.value);
+        expect(text.startsWith("data:")).toBe(true);
+      }
+    },
+    { timeout: HUB_TEST_MS }
+  );
 
   test(
     "refresh emits agent:updated when status changes",

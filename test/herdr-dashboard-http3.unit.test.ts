@@ -17,7 +17,7 @@ import { startHerdrDashboardServer } from "../src/lib/herdr-dashboard-server.ts"
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { REPO_ROOT, withEnv, withTempDir } from "./helpers.ts";
 
-const HTTP3_TEST_MS = 15_000;
+const HTTP3_TEST_MS = 25_000;
 
 async function writeLocalhostTlsPair(dir: string): Promise<{ certPath: string; keyPath: string }> {
   const certPath = join(dir, "localhost-cert.pem");

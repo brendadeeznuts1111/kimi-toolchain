@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-18T09:10:43.069Z",
+  "generatedAt": "2026-06-18T10:08:40.472Z",
   "toolchainVersion": "0.1.0",
   "ecosystem": [
     {
@@ -122,6 +122,12 @@
       "repoPath": "docs/references/namespace.md",
       "runtimePath": "~/.kimi-code/docs/references/namespace.md",
       "purpose": "Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings"
+    },
+    {
+      "id": "configuration-layers",
+      "repoPath": "docs/references/configuration-layers.md",
+      "runtimePath": "~/.kimi-code/docs/references/configuration-layers.md",
+      "purpose": "Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml)"
     },
     {
       "id": "shell-spawn-choice",

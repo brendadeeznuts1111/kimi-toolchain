@@ -194,6 +194,13 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
       "Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings",
   },
   {
+    id: "configuration-layers",
+    repoPath: "docs/references/configuration-layers.md",
+    runtimePath: "~/.kimi-code/docs/references/configuration-layers.md",
+    purpose:
+      "Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml)",
+  },
+  {
     id: "shell-spawn-choice",
     repoPath: "docs/references/shell-spawn-choice.md",
     runtimePath: "~/.kimi-code/docs/references/shell-spawn-choice.md",
