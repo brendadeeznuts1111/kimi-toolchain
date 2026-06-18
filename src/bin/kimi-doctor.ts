@@ -133,6 +133,7 @@ const PREDICT = Bun.argv.includes("--predict");
 const CORRELATE = Bun.argv.includes("--correlate");
 const EFFECT_GATES = Bun.argv.includes("--effect-gates");
 const BUNDLE_GATE = Bun.argv.includes("--bundle");
+const COMPILE_CHECK = Bun.argv.includes("--compile-check");
 const DASHBOARD_META = Bun.argv.includes("--dashboard-meta");
 const DASHBOARD_META_STRICT = DASHBOARD_META && Bun.argv.includes("--strict");
 const DASHBOARD_AUTOMATION = Bun.argv.includes("--automation");
@@ -212,6 +213,7 @@ function semverBelow(version: string | null, floor: [number, number, number]): b
 import { runOfficialKimiDoctor } from "../lib/kimi-doctor-wrapper.ts";
 import { renderMarkdownHtml } from "../lib/bun-markdown.ts";
 import { runBundleGate } from "../lib/bundle-gate.ts";
+import { probeCompileCapabilities, runCompileGate } from "../lib/compile-target.ts";
 
 async function versionMatrix(): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
@@ -1030,6 +1032,33 @@ async function runBundleGateMode(projectRoot: string): Promise<number> {
   return report.ok ? 0 : 1;
 }
 
+async function runCompileCheckMode(projectRoot: string): Promise<number> {
+  const caps = await probeCompileCapabilities();
+  const gate = await runCompileGate(projectRoot);
+
+  if (JSON_OUT) {
+    emitJson({ compileCheck: { capabilities: caps, gate } });
+  } else {
+    logger.section("Compile Check");
+    logger.line(`  Bun: ${caps.bunVersion} (${caps.bunRevision})`);
+    logger.line(
+      `  ESM + bytecode: ${caps.esmBytecode ? "✓ supported" : "✗ not supported (Bun < 1.3.9)"}`
+    );
+    logger.line(`  Recommended format: ${caps.recommendedFormat}`);
+
+    if (gate.status !== "ok") {
+      logger.line("");
+      for (const m of gate.messages) {
+        logger.line(`  ${gate.status === "error" ? "✗" : "⚠"} ${m}`);
+      }
+    } else {
+      for (const m of gate.messages) logger.line(`  ✓ ${m}`);
+    }
+  }
+
+  return gate.status === "error" ? 1 : 0;
+}
+
 async function runDashboardMetaMode(): Promise<number> {
   const urlOverride = argValue("--dashboard-url");
   const result = await runDashboardMetaGate({ url: urlOverride, strict: DASHBOARD_META_STRICT });
@@ -1468,6 +1497,10 @@ async function main(): Promise<number> {
 
   if (BUNDLE_GATE) {
     return runBundleGateMode(projectRoot);
+  }
+
+  if (COMPILE_CHECK) {
+    return runCompileCheckMode(projectRoot);
   }
 
   if (DASHBOARD_META) {
