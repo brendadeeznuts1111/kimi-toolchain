@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-18T07:43:00.779Z",
+  "generatedAt": "2026-06-18T09:10:43.069Z",
   "toolchainVersion": "0.1.0",
   "ecosystem": [
     {
@@ -116,6 +116,12 @@
       "repoPath": "docs/references/kimi-doctor.md",
       "runtimePath": "~/.kimi-code/docs/references/kimi-doctor.md",
       "purpose": "Dashboard automation gate (kimi-doctor --automation): CLI, JSON schema, exit codes, and failure modes"
+    },
+    {
+      "id": "namespace",
+      "repoPath": "docs/references/namespace.md",
+      "runtimePath": "~/.kimi-code/docs/references/namespace.md",
+      "purpose": "Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings"
     },
     {
       "id": "shell-spawn-choice",

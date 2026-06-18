@@ -35,6 +35,12 @@ export interface EcosystemReference {
   install?: string;
 }
 
+/**
+ * Manifest index row for a local documentation file.
+ * These are path pointers and human-readable purposes —
+ * NOT `dx.config.toml` keys. Boundary semantics (toolchain vs Herdr,
+ * global vs project) live in the doc content at id `namespace`.
+ */
 export interface LocalDocReference {
   id: string;
   repoPath: string;
@@ -179,6 +185,13 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     runtimePath: "~/.kimi-code/docs/references/kimi-doctor.md",
     purpose:
       "Dashboard automation gate (kimi-doctor --automation): CLI, JSON schema, exit codes, and failure modes",
+  },
+  {
+    id: "namespace",
+    repoPath: "docs/references/namespace.md",
+    runtimePath: "~/.kimi-code/docs/references/namespace.md",
+    purpose:
+      "Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings",
   },
   {
     id: "shell-spawn-choice",
@@ -505,6 +518,10 @@ export function manifestNeedsRefresh(
 
 export function ecosystemReferenceById(id: string): EcosystemReference | undefined {
   return ECOSYSTEM_REFERENCES.find((ref) => ref.id === id);
+}
+
+export function localDocReferenceById(id: string): LocalDocReference | undefined {
+  return LOCAL_DOC_REFERENCES.find((r) => r.id === id);
 }
 
 function docsLink(ref: EcosystemReference): string {
