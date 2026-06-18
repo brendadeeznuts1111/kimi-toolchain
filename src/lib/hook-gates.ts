@@ -18,8 +18,6 @@ import {
   fastGateTimeoutBudgetMs,
   type GateResult,
 } from "./gate-runner.ts";
-import { withNoOrphansEnv } from "./bun-spawn-env.ts";
-import { withBunNoOrphans } from "./tool-runner.ts";
 import { isQuietMode } from "./quiet-mode.ts";
 import { isKimiToolchainRepo } from "./workspace-health.ts";
 import { acquireTestGateLock } from "./test-run-guard.ts";
@@ -124,16 +122,12 @@ async function runGateVisible(
 ): Promise<GateResult> {
   const start = Bun.nanoseconds();
   if (!hookUsesSummary()) {
-    const proc = Bun.spawn(withBunNoOrphans(cmd), {
-      cwd: projectRoot,
-      stdout: "inherit",
-      stderr: "inherit",
-      env: withNoOrphansEnv(),
-    });
-    const exitCode = await proc.exited;
+    const result = await runGate(name, cmd, { cwd: projectRoot });
+    if (result.stdout) gateOut(result.stdout);
+    if (result.stderr) gateErr(result.stderr);
     const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
     const budget = fastGateTimeoutBudgetMs();
-    if (budget > 0 && ms > budget && exitCode === 0) {
+    if (budget > 0 && ms > budget && result.exitCode === 0) {
       gateErr(
         `TIMEOUT: ${name} took ${ms}ms, budget is ${budget}ms — set KIMI_CHECK_FAST_TIMEOUT_MS higher or optimize the step`
       );
@@ -145,7 +139,7 @@ async function runGateVisible(
         stderr: `budget exceeded: ${ms}ms > ${budget}ms`,
       };
     }
-    return { name, exitCode, ms, stdout: "", stderr: "" };
+    return { name, exitCode: result.exitCode, ms, stdout: result.stdout, stderr: result.stderr };
   }
   const result = await runGate(name, cmd, { cwd: projectRoot });
   return result;
@@ -513,11 +507,12 @@ async function runCheckFastGate(projectRoot: string): Promise<GateResult> {
       skipped: true,
     };
   }
-  const result = await runGateVisible(projectRoot, full ? "check" : "check:fast", [
-    "bun",
-    "run",
-    script,
-  ]);
+  // Skip tests in pre-push unless KIMI_PRE_PUSH_FULL=1 — pre-commit already ran them.
+  // Set KIMI_PRE_PUSH_TESTS=1 to re-enable test execution in pre-push check:fast.
+  const skipTests = !full && Bun.env.KIMI_PRE_PUSH_TESTS !== "1";
+  const cmd = ["bun", "run", script];
+  if (skipTests) cmd.push("--skip-tests");
+  const result = await runGateVisible(projectRoot, full ? "check" : "check:fast", cmd);
   if (result.exitCode !== 0 && Bun.env.KIMI_SKIP_FLAKY_TESTS === "1") {
     const combined = `${result.stdout}\n${result.stderr}`;
     if (/EPERM|EACCES|sandbox/i.test(combined)) {
