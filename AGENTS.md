@@ -449,3 +449,7 @@ Further reading: [CODE_REFERENCES.md](CODE_REFERENCES.md), [DEEP-QUALITY.md](DEE
 ---
 
 _Update when adding new tools or changing conventions._
+
+## Notes
+
+- lint

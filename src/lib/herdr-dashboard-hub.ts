@@ -4,11 +4,11 @@
 
 import { inspectAgent } from "./inspect.ts";
 import {
-  fetchDashboardAgents,
   type DashboardAgentRow,
   type DashboardAgentsPayload,
   type DashboardFetchOptions,
 } from "./herdr-dashboard-data.ts";
+import { getDashboardAgents } from "./herdr-dashboard-agents.ts";
 
 /** Sub-minute SSE poll — Bun.cron is minute-granularity; setInterval is intentional here. */
 export const DASHBOARD_SSE_INTERVAL_MS = 5000;
@@ -79,7 +79,7 @@ export class HerdrDashboardHub {
   }
 
   async refresh(): Promise<DashboardAgentsPayload> {
-    const raw = await fetchDashboardAgents(this.projectPath, this.fetchOpts);
+    const raw = await getDashboardAgents(this.projectPath, this.fetchOpts);
     if (!raw.ok) {
       this.lastPayload = raw;
       this.broadcast(raw);

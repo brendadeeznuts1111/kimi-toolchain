@@ -8,7 +8,6 @@ import { TOML } from "bun";
 import { resolveOrchestratorConfig } from "./herdr-orchestrator-config.ts";
 import { getHandoffHistory, getHandoffLogPath, type HandoffLogEntry } from "./handoff-log.ts";
 import { herdrCliRun } from "./herdr-project-cli.ts";
-import { getDashboardAgents } from "./herdr-dashboard-agents.ts";
 
 export const DEFAULT_DASHBOARD_PORT = 18412;
 
@@ -92,14 +91,6 @@ export interface DashboardIpcResult {
   command: string;
   message: string;
   result?: DashboardActionResult;
-}
-
-/** In-process agent discovery — same logic as `herdr-orchestrator dashboard --json`. */
-export async function fetchDashboardAgents(
-  projectPath: string,
-  options: DashboardFetchOptions = {}
-): Promise<DashboardAgentsPayload> {
-  return getDashboardAgents(projectPath, options);
 }
 
 /** Handoff rules with last-fired metadata from the audit log. */
