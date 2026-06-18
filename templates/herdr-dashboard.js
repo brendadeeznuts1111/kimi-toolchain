@@ -1490,6 +1490,12 @@ async function refreshCanvases() {
   body.innerHTML = "";
   for (const c of canvases) {
     const tr = document.createElement("tr");
+    tr.className = "canvas-row";
+    tr.style.cursor = "pointer";
+    tr.title = `Open ${c.canvasId || c.page}`;
+    tr.addEventListener("click", () => {
+      console.log({ command: "open-canvas", canvasId: c.canvasId, path: c.path });
+    });
     tr.innerHTML = `
       <td><code>${esc(c.path)}</code></td>
       <td>${esc(c.id)}</td>

@@ -85,13 +85,28 @@ export interface DashboardWebViewSessionOptions extends HerdrDashboardWebViewSto
   onCdp?: (method: string, params: unknown) => void;
 }
 
-/** Resolve Bun.WebView `console` — mirror by default; custom handler only when onIpc is set. */
+/** Resolve Bun.WebView `console` — mirror by default; custom handler only when onIpc is set.
+ *  Always intercepts `{ command: "open-canvas" }` to open canvas files in the editor. */
 export function resolveDashboardWebViewConsole(
   options: Pick<DashboardWebViewSessionOptions, "console" | "onIpc">
 ): Bun.WebView.ConstructorOptions["console"] {
-  if (options.console !== undefined) return options.console;
-  if (options.onIpc) return createDashboardWebViewConsole(options.onIpc);
-  return webViewConsoleMirror();
+  const delegate =
+    options.console ?? (options.onIpc ? createDashboardWebViewConsole(options.onIpc) : webViewConsoleMirror());
+
+  return (type, ...args) => {
+    if (type === "log" && args[0] && typeof args[0] === "object" && (args[0] as Record<string, unknown>).command === "open-canvas") {
+      const { canvasId, path } = args[0] as { canvasId: string; path: string };
+      const proc = Bun.spawn(["open", path], { stdio: ["ignore", "ignore", "ignore"] });
+      proc.unref();
+      if (typeof delegate === "function") {
+        delegate(type, `[dashboard] opened ${canvasId} → ${path}`);
+      }
+      return;
+    }
+    if (typeof delegate === "function") {
+      delegate(type, ...args);
+    }
+  };
 }
 
 /**
