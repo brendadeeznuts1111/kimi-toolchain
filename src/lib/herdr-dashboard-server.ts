@@ -169,7 +169,7 @@ function dashboardAssetResponse(name: string): Response {
     : name.endsWith(".js")
       ? "application/javascript; charset=utf-8"
       : "application/octet-stream";
-  return new Response(readText(path), {
+  return new Response(Bun.file(path), {
     headers: { "content-type": type, "cache-control": "no-store" },
   });
 }

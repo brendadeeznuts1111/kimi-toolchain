@@ -52,7 +52,7 @@ function parseCli(): {
   coverage: boolean;
   ci: boolean;
   smoke: boolean;
-  parallel: number | boolean;
+  parallel: number | boolean | undefined;
   shard: string | null;
 } {
   const argv = Bun.argv.slice(2);
