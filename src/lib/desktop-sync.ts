@@ -52,6 +52,7 @@ export const LABEL_PREFIX = {
   SCRIPTS: "scripts/",
   KIMI_HOOKS: "kimi-hooks/",
   TEMPLATES: "templates/",
+  DOCS_REFERENCES: "docs/references/",
   AGENTS_SKILL: "agents-skill/",
   KIMI_SKILL: "kimi-skill/",
 } as const;
@@ -241,6 +242,19 @@ export async function syncDesktop(
       paths.templatesDst,
       LABEL_PREFIX.TEMPLATES,
       "**/*",
+      force,
+      dryRun,
+      result
+    );
+  }
+
+  const docsReferencesSrc = join(repoRoot, "docs", "references");
+  if (pathExists(docsReferencesSrc)) {
+    await syncGlobDirectory(
+      docsReferencesSrc,
+      join(desktopRoot(), "docs", "references"),
+      LABEL_PREFIX.DOCS_REFERENCES,
+      "*.md",
       force,
       dryRun,
       result
