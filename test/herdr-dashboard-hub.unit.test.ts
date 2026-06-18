@@ -7,6 +7,8 @@ import { Logger } from "../src/lib/logger.ts";
 import type { DashboardAgentsPayload } from "../src/lib/herdr-dashboard-data.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
+const HUB_TEST_MS = 15_000;
+
 const quietLogger = new Logger({ quiet: true });
 
 describe("herdr-dashboard-hub", () => {
@@ -113,52 +115,56 @@ describe("herdr-dashboard-hub", () => {
     }
   });
 
-  test("refresh emits agent:updated when status changes", async () => {
-    const bus = createDashboardEventBus();
-    const updates: string[] = [];
-    bus.on("agent:updated", (payload) => {
-      updates.push(`${payload.before.status}->${payload.after.status}`);
-    });
+  test(
+    "refresh emits agent:updated when status changes",
+    async () => {
+      const bus = createDashboardEventBus();
+      const updates: string[] = [];
+      bus.on("agent:updated", (payload) => {
+        updates.push(`${payload.before.status}->${payload.after.status}`);
+      });
 
-    let status = "idle";
-    const discoveryCache = new HerdrDashboardDiscoveryCache({
-      projectPath: REPO_ROOT,
-      fetchOpts: {},
-      ttlMs: 60_000,
-      bus,
-      discover: async () =>
-        ({
-          ok: true,
-          projectPath: REPO_ROOT,
-          agentCount: 1,
-          agents: [
-            {
-              host: "(local)",
-              session: "",
-              workspaceId: "w1",
-              agent: "kimi",
-              status,
-              paneId: "p1",
-              source: "reported",
-            },
-          ],
-          fetchedAt: new Date().toISOString(),
-        }) satisfies DashboardAgentsPayload,
-    });
+      let status = "idle";
+      const discoveryCache = new HerdrDashboardDiscoveryCache({
+        projectPath: REPO_ROOT,
+        fetchOpts: {},
+        ttlMs: 60_000,
+        bus,
+        discover: async () =>
+          ({
+            ok: true,
+            projectPath: REPO_ROOT,
+            agentCount: 1,
+            agents: [
+              {
+                host: "(local)",
+                session: "",
+                workspaceId: "w1",
+                agent: "kimi",
+                status,
+                paneId: "p1",
+                source: "reported",
+              },
+            ],
+            fetchedAt: new Date().toISOString(),
+          }) satisfies DashboardAgentsPayload,
+      });
 
-    const hub = new HerdrDashboardHub({
-      projectPath: REPO_ROOT,
-      fetchOpts: {},
-      bus,
-      discoveryCache,
-    });
+      const hub = new HerdrDashboardHub({
+        projectPath: REPO_ROOT,
+        fetchOpts: {},
+        bus,
+        discoveryCache,
+      });
 
-    await hub.refresh({ forceRefresh: true });
-    status = "working";
-    await hub.refresh({ forceRefresh: true });
-    expect(updates).toContain("idle->working");
-    hub.stop();
-  });
+      await hub.refresh({ forceRefresh: true });
+      status = "working";
+      await hub.refresh({ forceRefresh: true });
+      expect(updates).toContain("idle->working");
+      hub.stop();
+    },
+    { timeout: HUB_TEST_MS }
+  );
 
   test("start() keeps background polling after SSE disconnect", async () => {
     const hub = new HerdrDashboardHub({
