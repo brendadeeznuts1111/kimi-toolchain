@@ -19,6 +19,7 @@ dependencies: []
 loaded_by: System / On-demand
 role: Toolchain meta-runbook — CLI routing, gates, Kimi vs toolchain split
 token_estimate: 760
+run_as: inline
 metadata:
   companionSkills:
     - effect-discipline

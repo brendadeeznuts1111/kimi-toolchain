@@ -16,11 +16,13 @@ trigger:
   - effect.gates.changed react
 dependencies:
   - herdr
-loaded_by: HERDR_ENV gate / On-demand
+loaded_by: HERDR_ENV gate
 role: Multi-pane coordination — handoffs, reactive events, context delivery
 token_estimate: 920
+run_as: inline
 metadata:
-  companionSkill: herdr
+  companionSkills:
+    - herdr
 ---
 
 # Orchestrator (L3)

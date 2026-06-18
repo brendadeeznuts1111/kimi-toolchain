@@ -168,7 +168,7 @@ describe("test-gates", () => {
   );
 
   test(
-    "check script dry-run changed-only uses lint-changed",
+    "check script dry-run changed-only uses lint --files",
     async () => {
       // Default base=main is empty when HEAD is on main; use a recent ancestor for a stable diff.
       const result = await runCheckScript([
@@ -179,7 +179,7 @@ describe("test-gates", () => {
         "--skip-tests",
       ]);
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("lint-changed.ts");
+      expect(result.stdout).toContain("bun run lint --files");
     },
     { timeout: 5000 }
   );

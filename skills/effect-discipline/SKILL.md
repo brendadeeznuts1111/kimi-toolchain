@@ -17,11 +17,13 @@ dependencies: []
 loaded_by: System / On-demand
 role: Lean runbook for Effect-TS discipline, CLI patterns, and boundary enforcement
 token_estimate: 420
+run_as: inline
 metadata:
-  companionSkill: effect-hardening
+  companionSkills:
+    - effect-hardening
 ---
 
-# Effect Discipline (L1 + L2)
+# Effect Discipline (L1+L2)
 
 Lean runbook — load on `trigger` above. L3 scaffolds: **effect-hardening**.
 

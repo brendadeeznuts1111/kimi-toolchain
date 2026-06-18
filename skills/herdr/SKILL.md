@@ -23,6 +23,7 @@ dependencies: []
 loaded_by: HERDR_ENV gate
 role: Herdr layout and pane I/O — socket CLI, waits, agent send
 token_estimate: 1480
+run_as: inline
 metadata:
   upstream:
     repo: https://github.com/ogulcancelik/herdr
@@ -30,10 +31,11 @@ metadata:
     skillUrl: https://github.com/ogulcancelik/herdr/blob/d998753efe506a04c80306795efc72bff60bb0ec/SKILL.md
   canonical: ~/.config/agents/skills/herdr/SKILL.md
   pinned: true
-  companionSkill: orchestrator
+  companionSkills:
+    - orchestrator
 ---
 
-# herdr — agent skill
+# Herdr (L1+L2)
 
 before using this skill, check that `HERDR_ENV=1`. if it is not set to `1`, say you are not running inside a herdr-managed pane and stop. do not inspect or control the focused herdr pane from outside herdr.
 

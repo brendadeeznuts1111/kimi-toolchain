@@ -19,8 +19,10 @@ dependencies:
 loaded_by: System / On-demand
 role: L3 Effect-TS scaffolds — services, errors, streams, layers, boundaries
 token_estimate: 880
+run_as: inline
 metadata:
-  companionSkill: effect-discipline
+  companionSkills:
+    - effect-discipline
   depthDoc: ~/.kimi-code/DEEP-QUALITY.md
 ---
 

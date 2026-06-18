@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   filterBannedTermPaths,
   filterChangedTestPaths,
+  filterDocLinkPaths,
   filterPatternPaths,
   scopedLintNoticeLine,
   shouldRunScopedLint,
@@ -24,10 +25,21 @@ describe("check-lint-scoped", () => {
     ]);
     expect(filterPatternPaths(changed)).toEqual(["src/a.ts"]);
     expect(filterChangedTestPaths(changed)).toEqual(["test/c.unit.test.ts"]);
+    expect(filterDocLinkPaths(changed)).toEqual(["src/a.ts"]);
   });
 
-  test("scopedLintNoticeLine mentions skipped full lint checks", () => {
+  test("filterDocLinkPaths keeps src ts only", () => {
+    expect(filterDocLinkPaths(["src/a.ts", "test/b.ts", "README.md"])).toEqual(["src/a.ts"]);
+    expect(filterDocLinkPaths(["src/node_modules/pkg/index.ts"])).toEqual([]);
+  });
+
+  test("shouldRunScopedLint true for src-only doc-link paths", () => {
+    expect(shouldRunScopedLint(["src/lib/foo.ts"])).toBe(true);
+  });
+
+  test("scopedLintNoticeLine mentions doc-links and skipped full lint checks", () => {
     expect(scopedLintNoticeLine()).toContain("scoped");
+    expect(scopedLintNoticeLine()).toContain("doc-links");
     expect(scopedLintNoticeLine()).toContain("bun-native-lint");
   });
 });

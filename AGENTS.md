@@ -184,7 +184,7 @@ Install hooks: `kimi-githooks install` or `kimi-githooks fix` to refresh outdate
 
 ### `check:fast` scoped mode & hook cache bridge
 
-`bun run check:fast:changed` (`--changed-only`) runs format/lint/typecheck/tests only for files changed vs `main` (falls back to `origin/main` when on `main` tip with no local diff). Scoped lint covers oxlint, banned-terms, patterns, and test-names — not repo-wide steps (bun-native, context-bloat, manifests, etc.); full `bun run lint` still runs on pre-commit.
+`bun run check:fast:changed` (`--changed-only`) runs format/lint/typecheck/tests only for files changed vs `main` (falls back to `origin/main` when on `main` tip with no local diff). Scoped lint covers oxlint, banned-terms, patterns, test-names, and doc-links — not repo-wide steps (bun-native, context-bloat, manifests, etc.); full `bun run lint` still runs on pre-commit.
 
 After a green scoped run, `.kimi/.last-good-scoped-gates` records per-gate file sets at `HEAD`. Pre-commit skips gates when staged paths ⊆ cached scope (`↷fmt ↷lint ↷tsc ↷test`). Pre-push skips `check:fast` when all four gates are covered at `HEAD`.
 

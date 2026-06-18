@@ -27,7 +27,7 @@ run_as: subagent
 model: deepseek-v4-flash
 ---
 
-# Cloudflare Access — Zero Trust hygiene
+# Cloudflare Access (L2)
 
 Before API calls, confirm credentials exist:
 

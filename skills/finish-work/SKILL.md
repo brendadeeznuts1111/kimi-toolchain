@@ -18,11 +18,13 @@ trigger:
 dependencies:
   - orchestrator
   - effect-discipline
-loaded_by: HERDR_ENV gate / On-demand
+loaded_by: HERDR_ENV gate
 role: Agent close-loop — gates, git, escalation, orchestrator signals
 token_estimate: 560
+run_as: inline
 metadata:
-  companionSkill: orchestrator
+  companionSkills:
+    - orchestrator
 ---
 
 # Finish-Work (L3)

@@ -125,7 +125,7 @@ export async function buildSteps(
   } else if (changedFiles) {
     steps.push({
       name: "lint",
-      cmd: ["bun", "run", "scripts/lint-changed.ts", ...changedFiles],
+      cmd: ["bun", "run", "lint", "--files", ...changedFiles],
       silentOnSuccess: quiet,
     });
   } else {

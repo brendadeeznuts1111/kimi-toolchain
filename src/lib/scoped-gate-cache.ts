@@ -6,7 +6,7 @@
 import { join } from "path";
 import { makeDir, pathExists } from "./bun-io.ts";
 import { safeParse } from "./utils.ts";
-import { currentGitHead, shouldSkipGate } from "./gate-runner.ts";
+import { currentGitHead } from "./gate-runner.ts";
 
 const CACHE_RELATIVE = ".kimi/.last-good-scoped-gates";
 
@@ -115,9 +115,8 @@ export async function shouldSkipGateFromScopedCache(
   return isFileSetSubset(stagedPaths, entry.files);
 }
 
-/** Pre-push / coverage check: full legacy pass or scoped pass recorded at HEAD. */
+/** Pre-push / coverage check: scoped pass recorded at HEAD (does not consult .last-good-commit). */
 export async function isGateCoveredAtHead(projectRoot: string, gateName: string): Promise<boolean> {
-  if (await shouldSkipGate(projectRoot, gateName)) return true;
   const head = await currentGitHead(projectRoot);
   if (!head) return false;
   const cache = await readScopedGateCache(projectRoot);
