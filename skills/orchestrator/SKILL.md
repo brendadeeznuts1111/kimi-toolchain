@@ -187,6 +187,8 @@ herdr plugin log list --plugin herdr-orchestrator --limit 1
 
 Code: `src/lib/herdr-orchestrator.ts`, `src/lib/herdr-orchestrator-events.ts`. Exemplars: [~/.kimi-code/CODE_REFERENCES.md](~/.kimi-code/CODE_REFERENCES.md) § Herdr orchestration.
 
+- **Doctor / plugin disambiguation**: [namespace.md § Practical @see ladder](~/.kimi-code/docs/references/namespace.md#practical-see-ladder)
+
 ## Do not
 
 - Run orchestrator from outside Herdr expecting pane side effects — `escalate`, `agent send`, and `watch-events` need a live server.

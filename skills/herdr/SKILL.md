@@ -57,11 +57,12 @@ if you need the raw protocol or full api reference, read the [socket api docs](h
 
 ## documentation layers
 
-| Layer           | Source of truth                                  | Agent doc                                                                      |
-| --------------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |
-| L1+L2           | `herdr` CLI, `herdr-pane`, socket API            | **this skill** — layout, pane I/O, waits                                       |
-| L3              | `herdr-orchestrator`, finish-work, handoff rules | **orchestrator** + **finish-work** skills                                      |
-| Troubleshooting | dx machine policy                                | [~/.config/dx/herdr.md](~/.config/dx/herdr.md) — sessions, remote, persistence |
+| Layer                      | Source of truth                                  | Agent doc                                                                                                               |
+| -------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| L1+L2                      | `herdr` CLI, `herdr-pane`, socket API            | **this skill** — layout, pane I/O, waits                                                                                |
+| L3                         | `herdr-orchestrator`, finish-work, handoff rules | **orchestrator** + **finish-work** skills                                                                               |
+| Namespace / `@see` routing | Toolchain reference docs                         | [namespace.md](~/.kimi-code/docs/references/namespace.md#practical-see-ladder) — doctor trinity, finish-work vs plugins |
+| Troubleshooting            | dx machine policy                                | [~/.config/dx/herdr.md](~/.config/dx/herdr.md) — sessions, remote, persistence                                          |
 
 Do not duplicate L3 event tables or finish-work probe lists here.
 
