@@ -72,6 +72,22 @@ Bun always tries the fastest available method:
 
 You can override with the `--backend` flag. On error, Bun falls back to copying files.
 
+### Global virtual store (experimental, Bun ≥1.3.14)
+
+When using `linker = "isolated"`, you can enable a shared global store to dramatically speed up warm installs:
+
+```toml
+[install]
+linker = "isolated"
+globalStore = true
+```
+
+This materialises each package only once in `~/.bun/install/cache/links/`, and projects symlink to it. Warm installs (lockfile present, cache warm, `node_modules` wiped) become ~7× faster on macOS (115 ms vs 823 ms for a 1,400-package fixture). Ineligible packages fall back to per-project copies automatically.
+
+Environment variable override: `BUN_INSTALL_GLOBAL_STORE=1 bun install`
+
+**Important:** The feature is still experimental and off by default. It requires `linker = "isolated"` and will not work with `hoisted`. We recommend testing it in your environment before enabling globally.
+
 ### Cache and lazy installation
 
 Packages are stored in `~/.bun/install/cache/${name}@${version}` (build/pre tags are hashed).

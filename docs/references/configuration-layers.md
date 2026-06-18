@@ -13,7 +13,7 @@ This repository uses **four distinct configuration layers**. They are not interc
 | **Discovery** | `canonical-references.json` | `src/lib/canonical-references.ts` | **Yes** (`bun run references:generate`) | **Yes** (agents read from the synced copy) |
 | **Define Registry** | `constants-manifest.json` | `bunfig.toml` (`[define]`) + `types/build-constants.d.ts` | **Yes** (`bun run manifest:generate`) | **No** (repo-only) |
 | **Cross-Repo Contract** | `constants-parity.toml` | Hand-edited TOML (maintained manually) | **No** | **No** (repo-only) |
-| **App Scaffold** | `templates/scaffold/bunfig.toml` | Template file (copied by `kimi-fix`) | **No** | N/A (installed per new project). For details on `bun create` flags and Bun install configuration, see [Bun runtime scaffold flags](./bun-runtime-scaffold.md). |
+| **App Scaffold** | `templates/scaffold/bunfig.toml` | Template file (copied by `kimi-fix`) | **No** | N/A (installed per new project). For details on `bun create` flags and Bun install configuration (including the experimental global store), see [Bun runtime scaffold flags](./bun-runtime-scaffold.md). |
 
 ---
 
