@@ -58,6 +58,8 @@ export interface CompileCapabilities {
   bytecode: boolean;
   /** Recommended format for current Bun version. */
   recommendedFormat: CompileFormat;
+  /** True when --cpu-prof-interval is supported (Bun >= 1.3.7). */
+  cpuProfInterval: boolean;
 }
 
 // ── Version helpers ────────────────────────────────────────────────
@@ -125,6 +127,7 @@ export async function probeCompileCapabilities(): Promise<CompileCapabilities> {
     ESM_BYTECODE_MIN.minor,
     ESM_BYTECODE_MIN.patch
   );
+  const cpuProfInterval = versionGte(version, 1, 3, 7);
 
   _capabilities = {
     bunVersion: version,
@@ -133,6 +136,7 @@ export async function probeCompileCapabilities(): Promise<CompileCapabilities> {
     compile: hasCompile,
     bytecode: hasBytecode,
     recommendedFormat: esmBytecode ? "esm" : "cjs",
+    cpuProfInterval,
   };
   return _capabilities;
 }

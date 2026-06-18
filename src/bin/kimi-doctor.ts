@@ -1045,6 +1045,9 @@ async function runCompileCheckMode(projectRoot: string): Promise<number> {
       `  ESM + bytecode: ${caps.esmBytecode ? "✓ supported" : "✗ not supported (Bun < 1.3.9)"}`
     );
     logger.line(`  Recommended format: ${caps.recommendedFormat}`);
+    logger.line(
+      `  CPU prof interval: ${caps.cpuProfInterval ? "✓ supported (--cpu-prof-interval=N)" : "✗ not supported (Bun < 1.3.7)"}`
+    );
 
     if (gate.status !== "ok") {
       logger.line("");
