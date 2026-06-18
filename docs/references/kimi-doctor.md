@@ -144,7 +144,7 @@ The adapter has a default timeout of 60 s. If it expires, the check shows:
 - **Orchestrator probe** (`herdr-orchestrator dashboard --probe`) → returns the
   lower-level `ready` / `agentRows` / `screenshotBytes` / … shape — not the same as
   the doctor gate.
-- **Dashboard meta gate** → `kimi-doctor --dashboard-meta` (`GET /api/meta` discovery contract)
+- **Dashboard meta gate** → `kimi-doctor --dashboard-meta` (`GET /api/meta` discovery contract) — runtime gate, not in `[finishWork].gates`; invoked by Herdr orchestrator when a dashboard is live
 
 ---
 
@@ -161,6 +161,10 @@ running dashboard's `/api/meta` endpoint (`kimi-doctor --dashboard-meta`).
 
 `dx.config.toml` `[finishWork].gates` includes `kimi-doctor --automation`.
 Gate key: `dashboard-automation` (`src/lib/finish-work-herdr.ts`).
+
+`--dashboard-meta` is intentionally **not** in `[finishWork].gates` — it probes a
+live Herdr dashboard (needs `HERDR_DASHBOARD_URL`), so it belongs in the Herdr
+orchestrator bootstrap / `doctor` tab cron, not in the toolchain close-loop.
 
 Canonical manifest id: `kimi-doctor` in `canonical-references.json`.
 

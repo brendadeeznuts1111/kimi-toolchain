@@ -202,10 +202,10 @@ url = "https://github.com/ogulcancelik/herdr/blob/d998753efe506a04c80306795efc72
 gates = [
   "bun run check:fast",
   "kimi-doctor --effect-gates",
-  "kimi-doctor --dashboard-meta",
-  "kimi-doctor --automation",
+  "kimi-doctor --automation",   # self-contained — no 18412
   "kimi-heal effect audit",
 ]
+# --dashboard-meta moved out of default finish-work; Herdr orchestrator bootstrap
 
 [finishWork.followUp]
 command = "kimi-doctor --effect-floor"
