@@ -31,6 +31,17 @@ kimi login
 kimi-doctor --quick
 ```
 
+**Zero-install via `bun create`** — scaffold a hardened project from anywhere:
+
+```bash
+bun create kimi-toolchain my-app   # downloads template, runs kimi-fix
+cd my-app
+bun run check:fast
+```
+
+> Requires one-time template install: `cp -r ~/kimi-toolchain/templates/bun-create/kimi-toolchain ~/.bun-create/`
+> See [bun create docs](https://bun.com/docs/runtime/templating/create) for local template usage.
+
 **Zero-install alternative** — run any command without installing:
 
 ```bash
@@ -129,8 +140,10 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `kimi-toolchain <tool> [...]`  | Unified router for toolchain commands |
 | `kimi-doctor`                  | Full toolchain diagnostics            |
 | `kimi-new <name> [--path dir]` | Create and scaffold a new Bun project |
+| `bun create kimi-toolchain <name>` | Scaffold via Bun's local template system |
 | `kimi-fix <path> [--dry-run]`  | Auto-repair project scaffolding       |
 | `kimi-fix doctor [path]`       | Check scaffold completeness           |
+| `kimi-resource-governor health-listen` | Subscribe to cross-tool health events |
 
 ### Project Scripts
 
@@ -317,11 +330,16 @@ Live runtime at `~/.kimi-code/` is synced via `bun run sync` (`scripts/sync-to-d
 
 | Path | Purpose |
 | --- | --- |
-| [templates/scaffold/](./templates/scaffold/) | `kimi-fix` / `kimi-new` app and toolchain scaffolds (`dx.config.app.toml`, `dx.config.toolchain.toml`, `bunfig.toml`, finish-work scripts) |
+| [templates/scaffold/](./templates/scaffold/) | `kimi-fix` / `kimi-new` app and toolchain scaffolds (`dx.config.app.toml`, `dx.config.toolchain.toml`, `bunfig.toml`, `index.ts`, `README.md`, finish-work scripts) |
+| [templates/bun-create/](./templates/bun-create/) | `bun create` local template (`kimi-toolchain` — delegates to `kimi-fix` via `bun-create.postinstall`) |
 | [templates/kimi-config-permissions.toml](./templates/kimi-config-permissions.toml) | Kimi Code MCP permission rules |
 | [skills/effect-hardening/templates/](./skills/effect-hardening/templates/) | Effect L3 module scaffolds (service, error-pipeline, event-stream, layers, schema boundary) |
 
-Scaffold with `kimi-new <name>` (app profile) or `kimi-fix <path> --profile toolchain` for Herdr/finish-work layout. Synced to `~/.kimi-code/` via `bun run sync`.
+Scaffold with `kimi-new <name>` (app profile), `bun create kimi-toolchain <name>` (anywhere), or `kimi-fix <path> --profile toolchain` for Herdr/finish-work layout. Synced to `~/.kimi-code/` via `bun run sync`.
+
+**Runtime scaffold reference:** [docs/references/bun-runtime-scaffold.md](./docs/references/bun-runtime-scaffold.md) — Bun install config, global virtual store, process.execve, Bun.Terminal on Windows, using/await using.
+
+**Health channel:** [src/lib/health-channel.ts](./src/lib/health-channel.ts) — cross-tool telemetry via JSONL (`kimi:health`). Publish from `kimi-doctor`, subscribe from `kimi-resource-governor health-listen`.
 
 ## Governance
 

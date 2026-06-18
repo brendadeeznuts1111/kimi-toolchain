@@ -7,14 +7,16 @@ description: |
   For Kimi Code config/MCP/sessions use `kimi` and `kimi doctor` (official).
 whenToUse: |
   Project health, R-Score, lockfile security, scaffolding, failure healing,
-  decision rationale, or Bun quality gates.
+  decision rationale, Bun quality gates, cross-tool health telemetry.
   Kimi Code slash commands (/mcp, /goal) and ACP are separate from toolchain CLIs.
 layer: L1
 trigger:
   - kimi-doctor or project health check
   - bun run check or pre-push gates
   - governance score or guardian
-  - scaffold or sync runtime assets
+  - scaffold (bun create kimi-toolchain, kimi-new, kimi-fix)
+  - sync runtime assets
+  - cross-tool health events (kimi-resource-governor health-listen)
 dependencies: []
 loaded_by: System / On-demand
 role: Toolchain meta-runbook — CLI routing, gates, Kimi vs toolchain split
@@ -125,7 +127,7 @@ Taxonomy lookup: `kimi-debug analyze --json` or `kimi-debug classify <text>` (`~
 ### Scaffold New Project
 
 ```
-1. kimi-new <name>  OR  mkdir + bun init + kimi-fix .
+1. bun create kimi-toolchain <name>  OR  kimi-new <name>  OR  mkdir + bun init + kimi-fix .
 2. kimi-fix doctor .
 3. kimi-governance score (target ≥ C)
 4. kimi login
@@ -161,15 +163,18 @@ Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight a
 - **Hooks:** Git (`kimi-githooks`), Bun postinstall, Kimi lifecycle (`kimi-hooks/`) — see [AGENTS.md](~/.kimi-code/AGENTS.md) § Hooks taxonomy
 - **Paths:** `src/lib/paths.ts` helpers; layout in [UNIFIED.md](~/.kimi-code/UNIFIED.md)
 - **Skills sync:** `bun run sync` → `~/.kimi-code/skills/` + `~/.agents/skills/` (`kimi-toolchain`, `cloudflare-access`, `effect-discipline`, `effect-hardening`, `herdr`)
+- **Health channel:** `~/.kimi-code/var/health-events.jsonl` — cross-tool telemetry. `kimi-doctor` publishes, `kimi-resource-governor health-listen` subscribes. See `src/lib/health-channel.ts`.
 
 ## Related
 
 ### Configuration layers & audit
 
 - **Hub doc**: `~/.kimi-code/docs/references/configuration-layers.md` (manifest id `configuration-layers`) — explains the four-layer model.
+- **Bun runtime scaffold**: `~/.kimi-code/docs/references/bun-runtime-scaffold.md` (manifest id `bun-runtime-scaffold`) — Bun install config, global virtual store, `process.execve()`, `Bun.Terminal` on Windows, `using`/`await using`.
 - **One-shot audit**: `bun run config:status` — checks freshness of `canonical-references.json`, `constants-manifest.json`, parity alignment, and scaffold integrity (step 0 in Project Health Check).
 - **Canvas companions** (repo pointers via `cursorCanvas`; not synced to runtime):
   - `docs/canvases/kimi-toolchain.canvas.tsx` — project hub (manifest id `unified`)
+  - `docs/canvases/kimi-fix.canvas.tsx` — scaffold · bun create · profiles (manifest id `templates`)
   - `docs/canvases/namespace-boundaries.canvas.tsx` — doctor trinity and binding layers (manifest id `namespace`)
   - `docs/canvases/configuration-layers.canvas.tsx` — four-layer config model (manifest id `configuration-layers`)
 - **Canvas lint**: `bun run scripts/lint-cursor-canvas.ts` — verifies each `cursorCanvas` path exists under `docs/canvases/`.

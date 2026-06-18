@@ -27,6 +27,7 @@ For agent-facing examples of the preferred patterns, see `../../CODE_REFERENCES.
 | **Sync**            | `desktop-sync.ts`, `sync-hashes.ts`                                                                                                                                       | Desktop sync, hash verification                                                            |
 | **Registry**        | `tool-registry.ts`                                                                                                                                                        | Tool registry                                                                              |
 | **Taxonomy**        | `error-taxonomy.ts`                                                                                                                                                       | Error taxonomy                                                                             |
+| **Health**          | `health-channel.ts`                                                                                                                                                       | Cross-tool telemetry via JSONL (tool:start/progress/done, load, warning, result)           |
 
 ## Import Rules
 

@@ -279,6 +279,8 @@ Runner defaults: 30s human timeout, 15s agent/CI timeout, 5s SIGTERM-to-SIGKILL 
 | New doctor/check output         | `src/lib/cli-contract.ts`, `src/lib/logger.ts`, `src/lib/health-check.ts`, `src/lib/doctor-pipeline.ts` |
 | New config or schema parser     | `src/lib/cloudflare-access-policy.ts`, `src/lib/mcp-config.ts`, `src/lib/kimi-config-audit.ts`          |
 | New package/dependency behavior | `package.json`, `bunfig.toml`, `src/lib/scaffold-quality.ts`, `kimi-guardian check`                     |
+| New cross-tool health event     | `src/lib/health-channel.ts` (publish/subscribe via JSONL file)                                          |
+| New scaffold template           | `TEMPLATES.md`, `templates/scaffold/`, `templates/bun-create/`, `src/lib/scaffold-templates.ts`         |
 | New scaffold/agent docs         | `src/lib/scaffold-agents.ts`, `TEMPLATES.md`, `test/scaffold-agents.unit.test.ts`                       |
 | Doctor adapters/plugins/MCP     | [CODE_REFERENCES.md](CODE_REFERENCES.md) § Doctor Adapter / Plugin / MCP                                |
 | Herdr orchestration             | `src/lib/herdr-project-config.ts`, `docs/SCOPE.md`, `docs/handoff-rules.md`, `skills/herdr/SKILL.md`    |
@@ -412,6 +414,7 @@ On memory-constrained hosts, swap thrashing inflates load before CPU looks busy.
 | `docs/naming.md` | Session and pane naming conventions |
 | `docs/flake-register.md` | Known flaky tests and mitigations |
 | `docs/references/configuration-layers.md` | Four-layer config model: discovery, define registry, parity contract, app scaffold |
+| `docs/references/bun-runtime-scaffold.md` | Bun install config (bunfig.toml merge, env vars, globalStore, process.execve, Bun.Terminal, using) |
 | `docs/canvases/*.canvas.tsx` | IDE canvas companions (via `cursorCanvas` in manifest; not synced) |
 | `docs/references/namespace.md` | Toolchain vs Herdr plugin boundaries; doctor trinity; global ecosystem (hub — 6 refs indexed in `canonical-references.json`) |
 | `docs/references/kimi-doctor.md` | `kimi-doctor --automation` gate — CLI, JSON schema, exit codes |
