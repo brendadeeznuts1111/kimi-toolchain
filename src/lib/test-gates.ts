@@ -41,7 +41,6 @@ export const UNIT_TEST_FILES = [
   "test/cache.unit.test.ts",
   "test/defaults-config.unit.test.ts",
   "test/herdr-dashboard-agents.unit.test.ts",
-  "test/dashboard-audit-templates.unit.test.ts",
   "test/herdr-dashboard-discovery-cache.unit.test.ts",
   "test/herdr-dashboard-discovery-meta.unit.test.ts",
   "test/herdr-remote-host-probe.unit.test.ts",

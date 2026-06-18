@@ -78,7 +78,7 @@ describe("compile-target", () => {
 
   test("runCompileGate cleans up temp files", async () => {
     // Run twice — second run should not fail from stale temp files
-    const gate1 = await runCompileGate();
+    await runCompileGate();
     const gate2 = await runCompileGate();
     expect(gate2.status).toBe("ok");
   });

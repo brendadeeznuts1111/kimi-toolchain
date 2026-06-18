@@ -5,7 +5,6 @@ import {
   parseLargestModules,
   parseQuickSummary,
   runBundleGate,
-  type BundleGateReport,
   type BundleModuleRow,
   type BundleQuickSummary,
 } from "../src/lib/bundle-gate.ts";
