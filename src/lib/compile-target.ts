@@ -10,7 +10,6 @@
  */
 
 import { join } from "path";
-import { pathExists } from "./bun-io.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -60,6 +59,12 @@ export interface CompileCapabilities {
   recommendedFormat: CompileFormat;
   /** True when --cpu-prof-interval is supported (Bun >= 1.3.7). */
   cpuProfInterval: boolean;
+  /** True when --cpu-prof-md is supported (Bun >= 1.3.7). */
+  cpuProfMd: boolean;
+  /** True when --heap-prof is supported. */
+  heapProf: boolean;
+  /** True when --heap-prof-md is supported (Bun >= 1.3.7). */
+  heapProfMd: boolean;
 }
 
 // ── Version helpers ────────────────────────────────────────────────
@@ -128,6 +133,9 @@ export async function probeCompileCapabilities(): Promise<CompileCapabilities> {
     ESM_BYTECODE_MIN.patch
   );
   const cpuProfInterval = versionGte(version, 1, 3, 7);
+  const cpuProfMd = versionGte(version, 1, 3, 7);
+  const heapProf = versionGte(version, 1, 2, 0);
+  const heapProfMd = versionGte(version, 1, 3, 7);
 
   _capabilities = {
     bunVersion: version,
@@ -137,6 +145,9 @@ export async function probeCompileCapabilities(): Promise<CompileCapabilities> {
     bytecode: hasBytecode,
     recommendedFormat: esmBytecode ? "esm" : "cjs",
     cpuProfInterval,
+    cpuProfMd,
+    heapProf,
+    heapProfMd,
   };
   return _capabilities;
 }

@@ -1048,6 +1048,9 @@ async function runCompileCheckMode(projectRoot: string): Promise<number> {
     logger.line(
       `  CPU prof interval: ${caps.cpuProfInterval ? "✓ supported (--cpu-prof-interval=N)" : "✗ not supported (Bun < 1.3.7)"}`
     );
+    logger.line(
+      `  Profiling: cpu-prof-md ${caps.cpuProfMd ? "✓" : "✗"} | heap-prof ${caps.heapProf ? "✓" : "✗"} | heap-prof-md ${caps.heapProfMd ? "✓" : "✗"}`
+    );
 
     if (gate.status !== "ok") {
       logger.line("");
