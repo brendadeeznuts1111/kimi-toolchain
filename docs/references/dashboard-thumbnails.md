@@ -130,6 +130,11 @@ The `serve` shell (headless HTTP server only) has no screenshot feed unless a pr
 - `Bun.WebView.screenshot()` — https://bun.com/docs/runtime/webview#screenshots
 - `Bun.serve` — https://bun.com/docs/api/http
 
+## Validation
+
+For automated end-to-end validation of the thumbnail pipeline, see
+`kimi-doctor --automation` (documented in [kimi-doctor.md](./kimi-doctor.md)).
+
 ## Related files
 
 | Concern | File |
@@ -142,4 +147,5 @@ The `serve` shell (headless HTTP server only) has no screenshot feed unless a pr
 | Dashboard config parser | `src/lib/herdr-orchestrator-config.ts` |
 | Frontend thumbnail display | `templates/herdr-dashboard.js` |
 | Config table | `docs/table-herdr-orchestrator-dashboard.md` |
+| Automation gate / CLI | `docs/references/kimi-doctor.md` |
 | Canonical link manifest | `canonical-references.json` (`id: dashboard-thumbnails`) |

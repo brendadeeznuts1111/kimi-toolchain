@@ -74,7 +74,7 @@ export function resolveDashboardMetaUrl(options: ResolveDashboardMetaUrlOptions 
   return `http://${hostname}:${port}/`;
 }
 
-function normalizeDashboardBaseUrl(raw: string): string {
+export function normalizeDashboardBaseUrl(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return resolveDashboardMetaUrl();
   return trimmed.endsWith("/") ? trimmed : `${trimmed}/`;

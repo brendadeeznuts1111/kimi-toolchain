@@ -233,6 +233,8 @@ describe("finish-work-herdr", () => {
   test("finishWorkGateKey maps toolchain gates to stable names", () => {
     expect(finishWorkGateKey("bun run check:fast")).toBe("check:fast");
     expect(finishWorkGateKey("kimi-doctor --effect-gates")).toBe("effect-gates");
+    expect(finishWorkGateKey("kimi-doctor --dashboard-automation")).toBe("dashboard-automation");
+    expect(finishWorkGateKey("kimi-doctor --dashboard-meta")).toBe("dashboard-meta");
     expect(finishWorkGateKey("kimi-heal effect audit")).toBe("heal-audit");
   });
 

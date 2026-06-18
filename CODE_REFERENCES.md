@@ -216,6 +216,8 @@ Use these when working inside a Herdr workspace (`HERDR_ENV=1`) or editing `[her
 | Dashboard server / HTTP API | `src/lib/herdr-dashboard-server.ts` | `Bun.serve` + SSE; `/api/meta`, `/api/thumbnail`, widget routes |
 | Dashboard WebView shell | `src/lib/herdr-webview-dashboard.ts` | `Bun.WebView`, persistent `dataStore` profile, screenshot feed |
 | Dashboard screenshot → thumbnail | `src/lib/bun-image.ts`, `src/lib/herdr-dashboard-automation.ts` | `Bun.Image` resize/encode of `view.screenshot()` PNGs; AVIF fallback; ThumbHash LQIP |
+| Dashboard automation runner | `src/lib/herdr-dashboard-automation.ts` | `runDashboardAutomation({ view, actions })` — declarative `DashboardAutomationAction` steps; `DASHBOARD_SMOKE_ACTIONS` recipe for serve-shell smoke |
+| Dashboard automation gate | `src/lib/herdr-dashboard-automation-gate.ts` | `kimi-doctor --automation` — see [docs/references/kimi-doctor.md](docs/references/kimi-doctor.md) |
 | Dashboard profile persistence | `src/lib/herdr-dashboard-webview-store.ts` | Resolve `dataStore` (ephemeral vs persistent); `HERDR_DASHBOARD_WEBVIEW_STORE_ENV` |
 | Dashboard config tuning | `dx.config.toml` `[herdr.orchestrator.dashboard]`, `src/lib/herdr-orchestrator-config.ts` | `stale_ms`, `sse_poll_ms`, `poll_hint_ms`, `persist_profile`, `profile_dir` |
 | Dashboard thumbnail architecture | `docs/references/dashboard-thumbnails.md` | Bun.Image pipeline, WebView profile boundaries, cache behavior |

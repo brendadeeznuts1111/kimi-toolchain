@@ -99,6 +99,21 @@ describe("toml-property-table", () => {
     ).rejects.toThrow(/Top-level keys/);
   });
 
+  test("buildTomlPropertyTable extracts herdr.orchestrator.dashboard", async () => {
+    const result = await buildTomlPropertyTable({
+      projectRoot: REPO_ROOT,
+      filePath: "dx.config.toml",
+      tablePath: "herdr.orchestrator.dashboard",
+    });
+    expect(result.rows.map((r) => r.Property)).toEqual([
+      "stale_ms",
+      "sse_poll_ms",
+      "poll_hint_ms",
+      "persist_profile",
+    ]);
+    expect(result.rows.find((r) => r.Property === "persist_profile")?.Value).toBe("true");
+  });
+
   test("bun ./table.md renders remote_hosts content in terminal", async () => {
     const result = await buildTomlPropertyTable({
       projectRoot: REPO_ROOT,

@@ -75,6 +75,11 @@ import {
   resolveRemoteHostsConfigured,
   runDashboardMetaGate,
 } from "../lib/herdr-dashboard-meta-gate.ts";
+import {
+  formatDashboardAutomationGateStatusLine,
+  resolveDashboardAutomationUrl,
+  runDashboardAutomationGate,
+} from "../lib/herdr-dashboard-automation-gate.ts";
 import { DOCTOR_WATCH_DEFAULT_INTERVAL_SECONDS, runDoctorWatchLoop } from "../lib/doctor-watch.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
 import { recordDoctorRun } from "../lib/doctor-runs.ts";
@@ -127,6 +132,7 @@ const CORRELATE = Bun.argv.includes("--correlate");
 const EFFECT_GATES = Bun.argv.includes("--effect-gates");
 const DASHBOARD_META = Bun.argv.includes("--dashboard-meta");
 const DASHBOARD_META_STRICT = DASHBOARD_META && Bun.argv.includes("--strict");
+const DASHBOARD_AUTOMATION = Bun.argv.includes("--automation");
 const HAS_EFFECT_FLOOR = Bun.argv.includes("--effect-floor");
 const HAS_LEGACY_SESSION_REPORT = Bun.argv.includes("--session-report");
 if (HAS_LEGACY_SESSION_REPORT && !HAS_EFFECT_FLOOR) {
@@ -1004,6 +1010,39 @@ async function runDashboardMetaMode(): Promise<number> {
   return ok ? 0 : 1;
 }
 
+async function runDashboardAutomationMode(projectRoot: string): Promise<number> {
+  const urlOverride = argValue("--url") ?? argValue("--dashboard-url");
+  const result = await runDashboardAutomationGate({
+    url: urlOverride,
+    projectPath: projectRoot,
+  });
+  const ok = result.ok;
+
+  if (JSON_OUT) {
+    emitJson({
+      dashboardAutomation: result,
+      summary: { ok },
+    });
+  } else {
+    logger.section("Dashboard Automation");
+    if (ok) {
+      logger.info(formatDashboardAutomationGateStatusLine(result));
+    } else if (result.failure?.detail) {
+      logger.error(result.failure.message);
+      logger.error(`  ${result.failure.detail}`);
+    } else {
+      logger.error(result.failure?.message ?? "dashboard automation gate failed");
+    }
+    if (result.ownedServer) {
+      logger.info("mode: self-contained (ephemeral server + WebView smoke + thumbnail feed)");
+    } else if (urlOverride ?? resolveDashboardAutomationUrl()) {
+      logger.info(`mode: external (${result.url})`);
+    }
+  }
+
+  return ok ? 0 : 1;
+}
+
 function parseSessionReportFlag(flag: string): number | undefined {
   const raw = argValue(flag);
   if (raw === undefined) return undefined;
@@ -1370,6 +1409,10 @@ async function main(): Promise<number> {
 
   if (DASHBOARD_META) {
     return runDashboardMetaMode();
+  }
+
+  if (DASHBOARD_AUTOMATION) {
+    return runDashboardAutomationMode(projectRoot);
   }
 
   if (EFFECT_FLOOR) {

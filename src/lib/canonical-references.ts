@@ -167,6 +167,32 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     purpose: "Scaffold templates",
   },
   {
+    id: "dashboard-thumbnails",
+    repoPath: "docs/references/dashboard-thumbnails.md",
+    runtimePath: "~/.kimi-code/docs/references/dashboard-thumbnails.md",
+    purpose:
+      "Herdr dashboard thumbnail pipeline; meta.webview; WebView dataStore vs in-memory cache",
+  },
+  {
+    id: "kimi-doctor",
+    repoPath: "docs/references/kimi-doctor.md",
+    runtimePath: "~/.kimi-code/docs/references/kimi-doctor.md",
+    purpose:
+      "Dashboard automation gate (kimi-doctor --automation): CLI, JSON schema, exit codes, and failure modes",
+  },
+  {
+    id: "shell-spawn-choice",
+    repoPath: "docs/references/shell-spawn-choice.md",
+    runtimePath: "~/.kimi-code/docs/references/shell-spawn-choice.md",
+    purpose: "invokeTool vs Bun.spawn vs governedSpawn decision matrix",
+  },
+  {
+    id: "bun-shell-companions",
+    repoPath: "docs/references/bun-shell-companions.md",
+    runtimePath: "~/.kimi-code/docs/references/bun-shell-companions.md",
+    purpose: "Bun $ template vs subprocess and inspect companion patterns",
+  },
+  {
     id: "canonical-references",
     repoPath: CANONICAL_REFERENCES_FILENAME,
     runtimePath: `~/.kimi-code/${CANONICAL_REFERENCES_FILENAME}`,

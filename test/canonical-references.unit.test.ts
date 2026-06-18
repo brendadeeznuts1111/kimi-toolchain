@@ -57,6 +57,19 @@ describe("canonical-references", () => {
     ).toBe(true);
   });
 
+  test("localDocs includes docs/references entries", () => {
+    for (const id of [
+      "dashboard-thumbnails",
+      "kimi-doctor",
+      "shell-spawn-choice",
+      "bun-shell-companions",
+    ]) {
+      const entry = LOCAL_DOC_REFERENCES.find((ref) => ref.id === id);
+      expect(entry?.repoPath).toStartWith("docs/references/");
+      expect(entry?.runtimePath).toStartWith("~/.kimi-code/docs/references/");
+    }
+  });
+
   test("formatCanonicalReferencesMarkdown includes key stacks", () => {
     const md = formatCanonicalReferencesMarkdown();
     expect(md).toContain("canonical-references.json");

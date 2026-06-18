@@ -60,6 +60,7 @@ export const UNIT_TEST_FILES = [
   "test/herdr-dashboard-session-selector.unit.test.ts",
   "test/herdr-dashboard-watch.unit.test.ts",
   "test/herdr-dashboard-automation.unit.test.ts",
+  "test/herdr-dashboard-automation-gate.unit.test.ts",
   "test/tochange-tracker.unit.test.ts",
   "test/bun-native-lint.unit.test.ts",
   "test/bun-spawn-env.unit.test.ts",

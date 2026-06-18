@@ -19,6 +19,7 @@ import { effectGatesAdapter } from "./doctor-adapters/effect-gates.ts";
 import { guardianAdapter } from "./doctor-adapters/guardian.ts";
 import { governanceAdapter } from "./doctor-adapters/governance.ts";
 import { dashboardMetaAdapter } from "./doctor-adapters/dashboard-meta.ts";
+import { dashboardAutomationAdapter } from "./doctor-adapters/dashboard-automation.ts";
 
 function resolveExecutable(name: string, projectRoot: string): string {
   const fromPath = Bun.which(name);
@@ -39,6 +40,7 @@ const ADAPTERS: Record<string, ExternalToolAdapter> = {
   guardian: guardianAdapter,
   governance: governanceAdapter,
   "dashboard-meta": dashboardMetaAdapter,
+  "dashboard-automation": dashboardAutomationAdapter,
 };
 
 export function listExternalToolAdapters(): string[] {
@@ -57,6 +59,7 @@ export interface RunExternalToolAdapterOptions {
 }
 
 const DEFAULT_ADAPTER_TIMEOUT_MS = 30_000;
+const AUTOMATION_ADAPTER_TIMEOUT_MS = 60_000;
 
 /** Run an external-tool adapter inside an Effect. */
 export function runExternalToolAdapterEffect(
@@ -80,7 +83,9 @@ export function runExternalToolAdapterEffect(
       ],
     });
   }
-  const timeoutMs = options.timeoutMs ?? DEFAULT_ADAPTER_TIMEOUT_MS;
+  const timeoutMs =
+    options.timeoutMs ??
+    (name === "dashboard-automation" ? AUTOMATION_ADAPTER_TIMEOUT_MS : DEFAULT_ADAPTER_TIMEOUT_MS);
   const resolvedCommand = [
     resolveExecutable(adapter.command[0]!, projectRoot),
     ...adapter.command.slice(1),

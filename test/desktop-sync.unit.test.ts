@@ -143,15 +143,40 @@ describe("desktop-sync", () => {
   );
 
   test(
-    "syncDesktop copies scaffold templates",
+    "syncDesktop copies docs/references markdown with expected content",
     async () => {
-      const tmpHome = join(REPO_ROOT, `.tmp-desktop-templates-${Date.now()}`);
+      const tmpHome = join(REPO_ROOT, `.tmp-desktop-docs-refs-${Date.now()}`);
       makeDir(tmpHome, { recursive: true });
       Bun.env.HOME = tmpHome;
+      const expectedDocs = [
+        {
+          rel: "docs/references/dashboard-thumbnails.md",
+          markers: ["meta.webview", "buildDashboardMetaWebView"],
+        },
+        {
+          rel: "docs/references/kimi-doctor.md",
+          markers: ["--automation", "webViewScreenshotBytes", "dashboardWebpThumbnail"],
+        },
+        {
+          rel: "docs/references/shell-spawn-choice.md",
+          markers: ["invokeTool()", "governedSpawn()"],
+        },
+        {
+          rel: "docs/references/bun-shell-companions.md",
+          markers: ["inspectHuman()", "formatTable()"],
+        },
+      ] as const;
       try {
         const result = await syncDesktop(REPO_ROOT, { force: true });
-        expect(result.updated).toContain("templates/scaffold/oxfmtrc.json");
-        expect(pathExists(join(desktopRoot(), "templates", "scaffold", "oxfmtrc.json"))).toBe(true);
+        for (const doc of expectedDocs) {
+          expect(result.updated).toContain(doc.rel);
+          const runtimePath = join(desktopRoot(), doc.rel);
+          expect(pathExists(runtimePath)).toBe(true);
+          const text = await Bun.file(runtimePath).text();
+          for (const marker of doc.markers) {
+            expect(text).toContain(marker);
+          }
+        }
       } finally {
         removePath(tmpHome, { recursive: true, force: true });
       }

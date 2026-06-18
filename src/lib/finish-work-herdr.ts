@@ -119,6 +119,8 @@ export type FinishWorkOutcomeLabel = FinishWorkPublicOutcome;
 export function finishWorkGateKey(command: string): string {
   const trimmed = command.trim();
   if (/kimi-doctor\s+--effect-gates\b/.test(trimmed)) return "effect-gates";
+  if (/kimi-doctor\s+--dashboard-automation\b/.test(trimmed)) return "dashboard-automation";
+  if (/kimi-doctor\s+--dashboard-meta\b/.test(trimmed)) return "dashboard-meta";
   if (/kimi-heal\s+effect\s+audit\b/.test(trimmed)) return "heal-audit";
   const bunRun = trimmed.match(/^bun\s+run\s+(\S+)/);
   if (bunRun?.[1]) return bunRun[1];

@@ -315,6 +315,50 @@ function buildOrchestratorSummaryTable(
   });
 }
 
+/**
+ * Build the `[herdr.orchestrator.dashboard]` property table.
+ *
+ * @see docs/references/dashboard-thumbnails.md Dashboard thumbnail architecture
+ */
+function buildOrchestratorDashboardTable(
+  ctx: TomlPropertyTableContext
+): Promise<TomlPropertyTableResult> {
+  const herdr = ctx.parsed.herdr;
+  if (!herdr || typeof herdr !== "object") {
+    throw new Error("Missing [herdr] section in TOML");
+  }
+  const orchestrator = (herdr as Record<string, unknown>).orchestrator;
+  if (!orchestrator || typeof orchestrator !== "object") {
+    throw new Error("Missing [herdr.orchestrator] section in TOML");
+  }
+  const dashboard = (orchestrator as Record<string, unknown>).dashboard;
+  if (!dashboard || typeof dashboard !== "object") {
+    throw new Error("Missing [herdr.orchestrator.dashboard] section in TOML");
+  }
+
+  const columns = ["Property", "Value"] as const;
+  const rows: Record<string, string>[] = [];
+
+  for (const [key, value] of Object.entries(dashboard as Record<string, unknown>)) {
+    if (value == null) {
+      rows.push({ Property: key, Value: EMPTY });
+    } else if (Array.isArray(value)) {
+      rows.push({ Property: key, Value: `(array: ${value.length} items)` });
+    } else if (typeof value === "object") {
+      rows.push({ Property: key, Value: "(table)" });
+    } else {
+      rows.push({ Property: key, Value: String(value) });
+    }
+  }
+
+  return Promise.resolve({
+    tablePath: ctx.tablePath,
+    filePath: ctx.filePath,
+    columns,
+    rows,
+  });
+}
+
 async function buildEndpointsTable(
   ctx: TomlPropertyTableContext
 ): Promise<TomlPropertyTableResult> {
@@ -364,6 +408,12 @@ export const TOML_PROPERTY_TABLE_REGISTRY: Record<string, TomlPropertyTableRegis
     columns: HANDOFF_RULES_TABLE_COLUMNS,
     columnSpecs: HANDOFF_RULES_COLUMN_SPECS,
     build: buildHandoffRulesTable,
+  },
+  "herdr.orchestrator.dashboard": {
+    title: "herdr.orchestrator.dashboard",
+    columns: ["Property", "Value"],
+    columnSpecs: ORCHESTRATOR_SUMMARY_COLUMN_SPECS,
+    build: buildOrchestratorDashboardTable,
   },
 };
 

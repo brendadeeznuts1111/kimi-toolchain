@@ -203,6 +203,7 @@ gates = [
   "bun run check:fast",
   "kimi-doctor --effect-gates",
   "kimi-doctor --dashboard-meta",
+  "kimi-doctor --automation",
   "kimi-heal effect audit",
 ]
 

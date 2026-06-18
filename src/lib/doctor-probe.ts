@@ -161,6 +161,16 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
         flags: ["--effect-gates", "--json"],
       },
       {
+        name: "dashboard-meta",
+        description: "Herdr dashboard /api/meta discovery contract",
+        flags: ["--dashboard-meta", "--dashboard-url", "--json"],
+      },
+      {
+        name: "dashboard-automation",
+        description: "WebView smoke actions + /api/thumbnail end-to-end probe",
+        flags: ["--automation", "--url", "--json"],
+      },
+      {
         name: "effect-floor",
         description:
           "Effect-floor evaluation (auto from effect-gates snapshots when flags omitted)",

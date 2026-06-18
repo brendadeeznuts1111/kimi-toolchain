@@ -25,6 +25,12 @@ export const EFFECT_GATES_COMMAND = "kimi-doctor --effect-gates";
  */
 export const DASHBOARD_META_COMMAND = "kimi-doctor --dashboard-meta";
 
+/**
+ * Self-contained Herdr dashboard WebView smoke + /api/thumbnail probe.
+ * Custom URL: `kimi-doctor --automation --url http://127.0.0.1:18412/`
+ */
+export const DASHBOARD_AUTOMATION_COMMAND = "kimi-doctor --automation";
+
 const DEFAULT_GATES = ["bun run check:fast", EFFECT_GATES_COMMAND];
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1));

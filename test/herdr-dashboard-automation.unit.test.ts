@@ -8,10 +8,14 @@ import {
   DASHBOARD_SCROLL_SETTLE_MS,
   DASHBOARD_SCREENSHOT_SCROLL_EVERY_N,
   feedDashboardScreenshotPng,
+  PROCESSES_TOGGLE_SELECTOR,
+  runDashboardAutomation,
+  runDashboardAutomationSmoke,
   runHerdrDashboardAutomation,
   scrollToDashboardAgentsBody,
   waitForDashboardReady,
   waitForDashboardView,
+  waitForSelectorCount,
   webViewScreenshotBytes,
 } from "../src/lib/herdr-dashboard-automation.ts";
 import { startHerdrDashboardServer } from "../src/lib/herdr-dashboard-server.ts";
@@ -148,6 +152,91 @@ describe("herdr-dashboard-automation", () => {
       server.stop();
     }
   }, 15_000);
+
+  test("waitForSelectorCount resolves when minCount met", async () => {
+    let calls = 0;
+    const evaluate = mock(async () => {
+      calls += 1;
+      return calls >= 2 ? 1 : 0;
+    });
+    const view = { evaluate } as unknown as Bun.WebView;
+    const count = await waitForSelectorCount(view, "#processes-body tr", {
+      minCount: 1,
+      pollMs: 1,
+      timeoutMs: 500,
+    });
+    expect(count).toBe(1);
+    expect(calls).toBeGreaterThanOrEqual(2);
+  });
+
+  test("runDashboardAutomation dispatches click waitForSelector screenshot in order", async () => {
+    const callOrder: string[] = [];
+    const scrollTo = mock(async () => {
+      callOrder.push("scrollTo");
+    });
+    const click = mock(async () => {
+      callOrder.push("click");
+    });
+    let evalCalls = 0;
+    const evaluate = mock(async () => {
+      evalCalls += 1;
+      if (evalCalls === 1) return 1;
+      return 0;
+    });
+    const screenshot = mock(async () => {
+      callOrder.push("screenshot");
+      return new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...new Array(100).fill(0)]);
+    });
+    const view = { scrollTo, click, evaluate, screenshot } as unknown as Bun.WebView;
+    const setScreenshotPng = mock();
+
+    const result = await runDashboardAutomation({
+      view,
+      server: { setScreenshotPng },
+      waitReady: false,
+      actions: [
+        { type: "click", selector: PROCESSES_TOGGLE_SELECTOR },
+        { type: "waitForSelector", selector: "#processes-body tr", minCount: 1, timeoutMs: 500 },
+        { type: "screenshot", feed: true },
+      ],
+    });
+
+    expect(callOrder).toEqual(["scrollTo", "click", "screenshot"]);
+    expect(result.screenshots).toHaveLength(1);
+    expect(result.evaluations).toEqual([1]);
+    expect(setScreenshotPng).toHaveBeenCalledTimes(1);
+  });
+
+  test("runDashboardAutomationSmoke feeds /api/thumbnail on serve shell", async () => {
+    if (!webViewSupported()) return;
+    if (!bunImageSupported()) return;
+
+    const server = startHerdrDashboardServer({
+      projectPath: REPO_ROOT,
+      port: 0,
+      sessions: false,
+      dryRun: true,
+      webview: { shell: "serve" },
+    });
+    try {
+      await using view = new Bun.WebView({ width: 1280, height: 800, url: server.url });
+      const result = await runDashboardAutomationSmoke({ server, view });
+      expect(result.pngBytes).toBeGreaterThan(1_000);
+      expect(result.bodyRowCount).toBeGreaterThan(0);
+
+      const res = (await fetch(
+        `${server.url}api/thumbnail?width=160&height=90&quality=75`
+      )) as unknown as {
+        status: number;
+        headers: { get(name: string): string | null };
+      };
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/webp");
+      expect(res.headers.get("x-thumbnail-cache")).toMatch(/hit|miss/);
+    } finally {
+      server.stop();
+    }
+  }, 20_000);
 
   test("runHerdrDashboardAutomation captures dashboard PNG", async () => {
     if (!webViewSupported()) return;
