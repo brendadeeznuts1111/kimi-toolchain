@@ -210,10 +210,13 @@ export async function compileBinary(options: CompileOptions): Promise<CompileRes
     };
   }
 
-  const stat = await Bun.file(options.outfile)
-    .stat()
-    .catch(() => null);
-  const sizeBytes = stat?.size ?? 0;
+  let sizeBytes = 0;
+  try {
+    const stat = await Bun.file(options.outfile).stat();
+    sizeBytes = stat.size;
+  } catch {
+    // file may not exist if compilation failed to produce output
+  }
 
   return {
     ok: true,
