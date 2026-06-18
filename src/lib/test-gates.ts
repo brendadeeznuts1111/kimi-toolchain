@@ -201,6 +201,10 @@ export function bunTestArgs(options: {
   dots?: boolean;
   /** Bun test --changed=<ref> — import-graph related tests vs a git ref */
   changedRef?: string;
+  /** Bun test --parallel[=N] — run test files across N workers */
+  parallel?: number | boolean;
+  /** Bun test --shard=M/N — split test files across CI jobs */
+  shard?: string;
 }): string[] {
   const timeout = String(
     options.timeoutMs ??
@@ -240,6 +244,13 @@ export function bunTestArgs(options: {
   }
   if (options.ci && !options.fast) {
     args.push("--isolate");
+  }
+  if (options.parallel !== undefined) {
+    const n = options.parallel === true ? "" : `=${options.parallel}`;
+    args.push(`--parallel${n}`, "--isolate");
+  }
+  if (options.shard) {
+    args.push(`--shard=${options.shard}`, "--isolate");
   }
   return args;
 }

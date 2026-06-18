@@ -47,19 +47,42 @@ async function withCoverageBunfig<T>(enabled: boolean, fn: () => Promise<T>): Pr
   }
 }
 
-function parseCli(): { fast: boolean; coverage: boolean; ci: boolean; smoke: boolean } {
+function parseCli(): {
+  fast: boolean;
+  coverage: boolean;
+  ci: boolean;
+  smoke: boolean;
+  parallel: number | boolean;
+  shard: string | null;
+} {
   const argv = Bun.argv.slice(2);
+  let parallel: number | boolean = false;
+  let shard: string | null = null;
+
+  for (const arg of argv) {
+    if (arg.startsWith("--parallel")) {
+      const eq = arg.indexOf("=");
+      parallel = eq > -1 ? Number(arg.slice(eq + 1)) : true;
+    }
+    if (arg.startsWith("--shard")) {
+      const eq = arg.indexOf("=");
+      shard = eq > -1 ? arg.slice(eq + 1) : null;
+    }
+  }
+
   return {
     fast: argv.includes("--fast"),
     coverage: argv.includes("--coverage"),
     ci: argv.includes("--ci"),
     smoke: argv.includes("--smoke"),
+    parallel,
+    shard,
   };
 }
 
 async function main() {
   ensureQuietEnv();
-  const { fast, coverage, ci, smoke } = parseCli();
+  const { fast, coverage, ci, smoke, parallel, shard } = parseCli();
   const quiet = isQuietMode() && !ci;
 
   if (ci) {
@@ -78,6 +101,8 @@ async function main() {
         bail: true,
         retry: 2,
         dots: quiet,
+        parallel,
+        shard: shard || undefined,
       }),
     ]);
 
