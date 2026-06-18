@@ -302,7 +302,7 @@ export async function enrichFinishWorkReport(
   const agent = report.agent ?? (await resolveFinishWorkAgent(paneId));
   const outcomeLabel = report.outcomeLabel ?? finishWorkOutcomeLabel(report);
   const handoffCandidate =
-    report.handoffCandidate === undefined
+    report.handoffCandidate == null
       ? await resolveHandoffCandidate(projectRoot, report, outcomeLabel)
       : report.handoffCandidate;
 
