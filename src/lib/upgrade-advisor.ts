@@ -51,6 +51,23 @@ const WATCHER_PATTERNS = [
   /setInterval\s*\([^)]*watch/i,
 ] as const;
 
+const SOURCE_MAP_PATTERNS = [
+  /from\s+['"]source-map['"]/,
+  /from\s+['"]source-map-js['"]/,
+  /from\s+['"]@jridgewell\/trace-mapping['"]/,
+  /from\s+['"]@jridgewell\/sourcemap-codec['"]/,
+  /require\s*\(\s*['"]source-map['"]\s*\)/,
+  /new\s+SourceMapConsumer\s*\(/,
+  /decode\s*\(\s*[^)]*mappings/i,
+  /JSON\.parse\s*\([^)]*mappings/i,
+] as const;
+
+const UNIX_HTTP_PATTERNS = [
+  /Bun\.connect\s*\(\s*\{[^}]*\bunix\s*:/,
+  /from\s+['"]node:net['"]/,
+  /net\.connect\s*\(\s*['"][^'"]+\.sock['"]/,
+] as const;
+
 const PARALLEL_TEST_SCRIPTS = ["test:parallel", "test:parallel:4", "test:shard"] as const;
 
 function finding(
@@ -157,6 +174,48 @@ function scanSourceFile(
       }
     }
   }
+
+  if (ruleEnabled("manual-source-map-decode", options)) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
+      if (!SOURCE_MAP_PATTERNS.some((re) => re.test(line))) continue;
+      out.push(
+        finding(
+          "manual-source-map-decode",
+          rel,
+          i + 1,
+          "Manual source map decode in application code",
+          "Prefer Bun stack traces / built-in source map handling; avoid decoding mappings in hot paths (high memory use)",
+          line
+        )
+      );
+    }
+  }
+
+  if (ruleEnabled("unix-socket-ws-upgrade", options)) {
+    const text = lines.join("\n");
+    const alreadyWs =
+      /ws\+unix:\/\//.test(text) ||
+      /wss\+unix:\/\//.test(text) ||
+      /resolveHerdrWsUnixUrl/.test(text) ||
+      /connectHerdrWebSocket/.test(text);
+    if (alreadyWs) return;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
+      if (!UNIX_HTTP_PATTERNS.some((re) => re.test(line))) continue;
+      if (/herdr-unix-socket\.ts/.test(rel)) continue;
+      out.push(
+        finding(
+          "unix-socket-ws-upgrade",
+          rel,
+          i + 1,
+          "Raw unix socket client for service IPC",
+          'Consider WebSocket over unix: new WebSocket("ws+unix:///path/to.sock:/") (Bun ≥1.3.13)',
+          line
+        )
+      );
+    }
+  }
 }
 
 async function scanSourceTree(
@@ -234,7 +293,7 @@ async function scanPackageJson(
   if (ruleEnabled("missing-no-orphans", options)) {
     for (const [name, cmd] of Object.entries(scripts)) {
       if (!/\bbun\b/.test(cmd)) continue;
-      if (/^check:/.test(name)) continue;
+      if (name.startsWith("check:")) continue;
       const longRunning =
         /^(dev|start|serve|watch)$/.test(name) ||
         /\bBun\.serve\s*\(/.test(cmd) ||
@@ -348,6 +407,8 @@ export const UPGRADE_ADVISOR_RULE_IDS = [
   "missing-no-orphans",
   "missing-parallel-test-scripts",
   "electron-to-bun-webview",
+  "manual-source-map-decode",
+  "unix-socket-ws-upgrade",
 ] as const;
 
 export type UpgradeAdvisorRuleId = (typeof UPGRADE_ADVISOR_RULE_IDS)[number];
