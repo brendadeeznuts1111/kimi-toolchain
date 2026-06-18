@@ -14,6 +14,7 @@ import { spawnBun } from "../lib/tool-runner.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import { resolveScaffoldProfile, type ScaffoldProfile } from "../lib/scaffold-profiles.ts";
 
 const logger = createLogger(Bun.argv, "kimi-new");
 const NAME_RE = /^[a-z0-9][a-z0-9._-]*$/i;
@@ -27,6 +28,8 @@ function printHelp() {
   logger.info("");
   logger.info("Scaffolded defaults: hardened bunfig.toml ([install], [run] noOrphans,");
   logger.info("  [test] with bail/randomize/seed), dx.config.toml, AGENTS.md, CI workflow.");
+  logger.info("  --profile app|toolchain   Scaffold profile (default: app)");
+  logger.info("                            toolchain adds finish-work, reviewer-pane, bun-io libs");
   logger.info("Docs: TEMPLATES.md, docs/references/bun-runtime-scaffold.md");
   logger.info("");
   logger.info("Zero-install alternative:");
@@ -125,7 +128,16 @@ async function runDoctor(parent: string): Promise<number> {
 
 async function runScaffold(args: string[]): Promise<number> {
   const dryRun = args.includes("--dry-run");
-  const filtered = args.filter((a) => a !== "--dry-run");
+  const profile: ScaffoldProfile = (() => {
+    try {
+      return resolveScaffoldProfile(args);
+    } catch {
+      return "app";
+    }
+  })();
+  const filtered = args.filter(
+    (a) => a !== "--dry-run" && a !== "--profile" && !a.startsWith("--profile=")
+  );
 
   const name = filtered[0];
   if (!NAME_RE.test(name)) {
@@ -145,7 +157,7 @@ async function runScaffold(args: string[]): Promise<number> {
   if (dryRun) {
     logger.info(`  [dry-run] mkdir ${projectDir}`);
     logger.info(`  [dry-run] bun init -y (cwd=${projectDir})`);
-    logger.info(`  [dry-run] kimi-fix ${projectDir}`);
+    logger.info(`  [dry-run] kimi-fix ${projectDir} --profile ${profile}`);
     logger.info("Dry run complete. Remove --dry-run to create.");
     return 0;
   }
@@ -157,7 +169,9 @@ async function runScaffold(args: string[]): Promise<number> {
   const repoFix = join(import.meta.dir, "kimi-fix.ts");
   // Prefer repo version when running from source (has latest fixes)
   const fixScript = pathExists(repoFix) ? repoFix : desktopFix;
-  const result = await spawnBun(["run", fixScript, projectDir], { cwd: parent });
+  const result = await spawnBun(["run", fixScript, projectDir, "--profile", profile], {
+    cwd: parent,
+  });
   const exitCode = result.exitCode;
   const stdout = result.stdout;
   const stderr = result.stderr;
