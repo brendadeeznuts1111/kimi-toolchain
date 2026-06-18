@@ -246,7 +246,7 @@ export function bunTestArgs(options: {
   if (options.ci && !options.fast) {
     args.push("--isolate");
   }
-  if (options.parallel !== undefined) {
+  if (options.parallel !== undefined && options.parallel !== false) {
     const n = options.parallel === true ? "" : `=${options.parallel}`;
     args.push(`--parallel${n}`, "--isolate");
   }

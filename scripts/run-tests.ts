@@ -56,7 +56,7 @@ function parseCli(): {
   shard: string | null;
 } {
   const argv = Bun.argv.slice(2);
-  let parallel: number | boolean = false;
+  let parallel: number | boolean | undefined;
   let shard: string | null = null;
 
   for (const arg of argv) {
