@@ -45,7 +45,7 @@ import {
   renderTemplate,
   type ScaffoldProfile,
 } from "../lib/scaffold-profiles.ts";
-import { homeDir } from "../lib/paths.ts";
+import { desktopRoot, homeDir } from "../lib/paths.ts";
 import { Effect } from "effect";
 import { getProjectName } from "../lib/utils.ts";
 import { runTool } from "../lib/tool-runner.ts";
@@ -57,10 +57,21 @@ import { CliError } from "../lib/effect/errors.ts";
 
 const writer = createCli(Bun.argv, "kimi-fix");
 const logger = writer.logger;
-const TOOLCHAIN_ROOT = join(import.meta.dir, "..", "..");
+
+/** Resolve toolchain root — works from both repo (src/bin/) and runtime (~/.kimi-code/tools/). */
+const REPO_ROOT = join(import.meta.dir, "..", "..");
+const DESKTOP_ROOT = desktopRoot();
+function resolveToolchainRoot(): string {
+  // Prefer repo layout when scripts/ exists at repo-relative path
+  if (pathExists(join(REPO_ROOT, "scripts"))) return REPO_ROOT;
+  // Fall back to synced runtime layout (~/.kimi-code/)
+  if (pathExists(join(DESKTOP_ROOT, "scripts"))) return DESKTOP_ROOT;
+  // Last resort: assume repo layout
+  return REPO_ROOT;
+}
 
 async function readToolchainScript(name: string): Promise<string> {
-  const templatePath = join(TOOLCHAIN_ROOT, "scripts", name);
+  const templatePath = join(resolveToolchainRoot(), "scripts", name);
   if (!pathExists(templatePath)) {
     throw new Error(`Missing toolchain template: ${templatePath}`);
   }
@@ -82,11 +93,11 @@ async function readScaffoldRunTestsScript(): Promise<string> {
 }
 
 async function readScaffoldTestGatesScript(): Promise<string> {
-  return Bun.file(join(TOOLCHAIN_ROOT, "src", "lib", "test-gates.ts")).text();
+  return Bun.file(join(resolveToolchainRoot(), "src", "lib", "test-gates.ts")).text();
 }
 
 async function readScaffoldReadmeSyncScript(): Promise<string> {
-  return Bun.file(join(TOOLCHAIN_ROOT, "src", "lib", "readme-sync.ts")).text();
+  return Bun.file(join(resolveToolchainRoot(), "src", "lib", "readme-sync.ts")).text();
 }
 
 async function readScaffoldScanScript(): Promise<string> {
@@ -95,7 +106,7 @@ async function readScaffoldScanScript(): Promise<string> {
 }
 
 async function readScaffoldUpgradeAdvisorLib(): Promise<string> {
-  return Bun.file(join(TOOLCHAIN_ROOT, "src", "lib", "upgrade-advisor.ts")).text();
+  return Bun.file(join(resolveToolchainRoot(), "src", "lib", "upgrade-advisor.ts")).text();
 }
 
 function stepLog(step: string, msg: string) {

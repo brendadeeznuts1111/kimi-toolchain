@@ -154,7 +154,9 @@ async function runScaffold(args: string[]): Promise<number> {
   await $`bun init -y`.cwd(projectDir).quiet();
 
   const desktopFix = join(toolsDir(), "kimi-fix.ts");
-  const fixScript = pathExists(desktopFix) ? desktopFix : join(import.meta.dir, "kimi-fix.ts");
+  const repoFix = join(import.meta.dir, "kimi-fix.ts");
+  // Prefer repo version when running from source (has latest fixes)
+  const fixScript = pathExists(repoFix) ? repoFix : desktopFix;
   const result = await spawnBun(["run", fixScript, projectDir], { cwd: parent });
   const exitCode = result.exitCode;
   const stdout = result.stdout;
