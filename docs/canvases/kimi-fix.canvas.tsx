@@ -77,9 +77,23 @@ const DEBUG_WORKFLOWS = [
   ["Preview then apply", "kimi-fix . --dry-run  then  kimi-fix .", "No --verbose flag on kimi-fix"],
 ] as const;
 
+const BUN_INSTALL_OPTS = [
+  ["linker = \"isolated\"", "Per-package isolation — required for globalStore"],
+  ["globalStore = true", "Experimental (Bun ≥1.3.14) · ~7× faster warm installs · auto-fallback"],
+  ["frozenLockfile = true", "Hardened install policy via bun-install-config.ts"],
+  ["minimumReleaseAge", "259200s supply-chain gate — excludes @types/* and typescript"],
+] as const;
+
+const BUN_RUNTIME_FEATURES = [
+  ["Global virtual store", "linker=isolated + globalStore=true", "~/.bun/install/cache/links/"],
+  ["process.execve()", "Replace process image in-place", "Bun ≥1.3.14 · throws in workers/Windows"],
+  ["Bun.Terminal", "ConPTY on Windows", "Bun.spawn({ terminal }) now cross-platform"],
+  ["using / await using", "No transpile when --target=bun", "Explicit resource management preserved"],
+] as const;
+
 const DOCS_REFERENCES = [
   ["configuration-layers", "docs/references/configuration-layers.md", "App Scaffold layer · four-layer model"],
-  ["bun-runtime-scaffold", "docs/references/bun-runtime-scaffold.md", "bunfig.toml merge · bun create install flags"],
+  ["bun-runtime-scaffold", "docs/references/bun-runtime-scaffold.md", "globalStore · execve · Bun.Terminal · using/await using"],
   ["templates", "TEMPLATES.md", "Scaffold template inventory (manifest id templates)"],
 ] as const;
 
@@ -139,7 +153,7 @@ const BASE_SCRIPTS = [
 ] as const;
 
 const CONFIG_FILES = [
-  ["bunfig.toml", "Bun install + test preload"],
+  ["bunfig.toml", "Bun install + test preload · linker=isolated · globalStore=true (Bun ≥1.3.14)"],
   ["tsconfig.json", "Strict ESNext, bundler resolution"],
   [".oxfmtrc.json", "oxfmt formatter config"],
   [".oxlintrc.json", "oxlint linter config"],
@@ -473,6 +487,9 @@ export default function KimiFixCanvas() {
         </Grid>
         <Table headers={["Aspect", "kimi-fix", "bun create (local)"]} rows={SCAFFOLD_CONTRAST.map((r) => [...r])} rowTone={["neutral", "success", "warning", "info"]} striped />
         <Table headers={["Step", "Phase", "Behavior"]} rows={BUN_CREATE_LOCAL_FLOW.map((r) => [...r])} striped />
+        <H3>Scaffold bunfig.toml install policy</H3>
+        <Table headers={["Option", "Effect"]} rows={BUN_INSTALL_OPTS.map((r) => [...r])} rowTone={["info", "success", "warning", "neutral"]} striped />
+        <Table headers={["Feature", "API / config", "Notes"]} rows={BUN_RUNTIME_FEATURES.map((r) => [...r])} striped />
         <Table headers={["Command", "Purpose", "Notes"]} rows={BUN_RUNTIME_SCRIPTS.map((r) => [...r])} striped />
         <Text tone="tertiary" size="small">
           Docs: <Link href={BUN_CREATE_DOCS}>bun create</Link> ·{" "}
@@ -599,7 +616,7 @@ export default function KimiFixCanvas() {
             ["src/lib/scaffold-quality.ts", "package.json scripts + devDeps injection"],
             ["TEMPLATES.md", "Human-readable scaffold reference"],
             ["docs/references/configuration-layers.md", "App Scaffold layer · manifest id configuration-layers"],
-            ["docs/references/bun-runtime-scaffold.md", "bunfig.toml merge · bun create / install flags"],
+            ["docs/references/bun-runtime-scaffold.md", "globalStore · execve · Bun.Terminal · using/await using"],
           ]}
           striped
         />

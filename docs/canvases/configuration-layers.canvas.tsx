@@ -25,7 +25,7 @@ const FOUR_LAYERS = [
   ["Discovery", "canonical-references.json", "src/lib/canonical-references.ts", "Yes", "Yes"],
   ["Define Registry", "constants-manifest.json", "bunfig.toml [define] + build-constants.d.ts", "Yes", "No"],
   ["Cross-Repo Contract", "constants-parity.toml", "Hand-edited TOML", "No", "No"],
-  ["App Scaffold", "templates/scaffold/bunfig.toml", "Template (kimi-fix copy)", "No", "N/A"],
+  ["App Scaffold", "templates/scaffold/bunfig.toml", "Template (kimi-fix copy · globalStore=true)", "No", "N/A"],
 ] as const;
 
 const ANTI_CONFUSION = [
@@ -58,7 +58,7 @@ const AGENT_DECISIONS = [
   ["Discover defaults, domains, define inventory", "constants-manifest.json"],
   ["Verify two repos share tunable parameters", "constants-parity.toml"],
   ["Bootstrap new app install/test policy", "templates/scaffold/bunfig.toml (via kimi-fix)"],
-  ["Map bun create / runtime flags to scaffold", "docs/references/bun-runtime-scaffold.md · TEMPLATES.md"],
+  ["Map bun create / runtime flags to scaffold", "docs/references/bun-runtime-scaffold.md · globalStore · TEMPLATES.md"],
 ] as const;
 
 const ENFORCEMENT_GATES = [
@@ -77,7 +77,7 @@ const RELATED_PATHS = [
   ["Scaffold + bun create flags", "docs/references/bun-runtime-scaffold.md · docs/canvases/kimi-fix.canvas.tsx"],
   ["Define registry generator", "src/lib/build-constants-registry.ts → constants-manifest.json"],
   ["Cross-repo parity config", "constants-parity.toml"],
-  ["Bun runtime scaffold flags and install config", "docs/references/bun-runtime-scaffold.md"],
+  ["Bun runtime scaffold flags and install config", "docs/references/bun-runtime-scaffold.md · globalStore · execve · Bun.Terminal"],
 ] as const;
 
 const CANVAS_ROUTING = [
@@ -301,6 +301,7 @@ export default function ConfigurationLayersCanvas() {
               ["Regenerate inventory", "bun run manifest:generate"],
               ["Check freshness", "bun run manifest:generate --check"],
               ["Read-only discovery", "constants-manifest.json"],
+              ["Scaffold install policy", "templates/scaffold/bunfig.toml — linker=isolated · globalStore=true (Bun ≥1.3.14)"],
             ]}
             striped
           />

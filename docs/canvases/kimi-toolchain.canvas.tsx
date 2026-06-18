@@ -47,14 +47,17 @@ const TOOL_INVENTORY = [
     "Governance / Security",
     "kimi-governance, kimi-guardian, kimi-githooks, kimi-cloudflare-access",
   ],
-  ["Heal / Memory", "kimi-heal, kimi-memory, kimi-snapshot, kimi-decision, kimi-resource-governor"],
+  [
+    "Heal / Memory",
+    "kimi-heal, kimi-memory, kimi-snapshot, kimi-decision, kimi-resource-governor (health-listen)",
+  ],
   ["Scaffold / Release", "kimi-fix, kimi-new, kimi-context-gen, kimi-cleanup-legacy, kimi-release"],
   ["Herdr", "herdr-doctor, herdr-orchestrator, herdr-project, herdr-pane, herdr-spawn, herdr-latm"],
   ["Infrastructure", "kimi-toolchain (router), unified-shell-bridge (MCP stdio)"],
 ] as const;
 
 const GATE_LAYERS = [
-  ["Fast iterate", "bun run check:fast", "~3s · 148 unit files @ 1500ms", "Local TDD"],
+  ["Fast iterate", "bun run check:fast", "~3s · 149 unit files @ 1500ms", "Local TDD"],
   ["Pre-commit", "format:check + lint + typecheck", "kimi-githooks install", "git commit"],
   [
     "Pre-push",
@@ -86,9 +89,16 @@ const SUCCESS_METRICS = [
 
 /** Static snapshot from `bun run config:status --json` (regenerate when gates change). */
 const CONFIG_STATUS_SNAPSHOT = [
-  ["canonical-references", "Discovery", "pass", 101],
-  ["constants-manifest", "Define registry", "pass", 88],
-  ["constant-parity", "Cross-repo contract", "pass", 83],
+  ["canonical-references", "Discovery", "pass", 125],
+  ["constants-manifest", "Define registry", "pass", 114],
+  ["constant-parity", "Cross-repo contract", "pass", 118],
+] as const;
+
+const HEALTH_CHANNEL = [
+  ["Publisher", "kimi-doctor", "tool:start · tool:progress · tool:done · result at entry/exit"],
+  ["Subscriber", "kimi-resource-governor health-listen", "warning + load events from other tools"],
+  ["Transport", "~/.kimi-code/var/health-events.jsonl", "Append-only JSONL — same pattern as tool-failures.jsonl"],
+  ["Module", "src/lib/health-channel.ts", "Cross-process telemetry; advisory, not critical path"],
 ] as const;
 
 const AGENT_LOOP = [
@@ -124,7 +134,7 @@ const CANVAS_ROUTING = [
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
-  { id: "test", label: "bun run check:fast", sub: "148 unit gates" },
+  { id: "test", label: "bun run check:fast", sub: "149 unit gates" },
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -141,8 +151,8 @@ const DAG_EDGES = [
 ] as const;
 
 const BIN_COUNT = 27;
-const LIB_COUNT = 218;
-const UNIT_COUNT = 148;
+const LIB_COUNT = 237;
+const UNIT_COUNT = 149;
 const INTEGRATION_COUNT = 5;
 const SMOKE_COUNT = 6;
 
@@ -360,6 +370,24 @@ export default function KimiToolchainCanvas() {
         <CardHeader trailing={<Pill size="sm">agent loop</Pill>}>Agent workflow</CardHeader>
         <CardBody style={{ padding: 0 }}>
           <Table headers={["Phase", "Commands"]} rows={AGENT_LOOP.map((r) => [...r])} striped />
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader trailing={<Pill size="sm">JSONL</Pill>}>Health channel (cross-tool telemetry)</CardHeader>
+        <CardBody style={{ padding: 0 }}>
+          <Table
+            headers={["Role", "Tool / path", "Behavior"]}
+            rows={HEALTH_CHANNEL.map((r) => [...r])}
+            rowTone={["info", "success", "neutral", "neutral"]}
+            striped
+          />
+        </CardBody>
+        <CardBody>
+          <Text tone="tertiary" size="small">
+            Added 2026-06-18 · subscribe: kimi-resource-governor health-listen · publish: kimi-doctor
+            diagnostic runs
+          </Text>
         </CardBody>
       </Card>
 

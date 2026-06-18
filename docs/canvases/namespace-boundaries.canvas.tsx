@@ -158,6 +158,7 @@ const PRIMARY_SURFACES = [
   ["herdr-orchestrator (plugin)", "Remote agents", "prefix+a/l/f/t", "plugin plan v0.5.0"],
   ["herdr-notify", "Webhooks", "Event hooks", "plugin plan v0.5.0"],
   ["kimi-heal", "Effect audit", "Shell gate", "DEEP-QUALITY.md"],
+  ["kimi-resource-governor", "Health channel subscribe", "health-listen", "health-events.jsonl"],
 ] as const;
 
 const DOCS_REFERENCES = [
@@ -166,7 +167,7 @@ const DOCS_REFERENCES = [
   ["kimi-doctor", "--automation gate CLI + JSON"],
   ["dashboard-thumbnails", "WebView → Bun.Image → /api/thumbnail"],
   ["shell-spawn-choice", "invokeTool vs Bun.spawn vs governedSpawn"],
-  ["bun-runtime-scaffold", "bunfig.toml merge · bun create install flags"],
+  ["bun-runtime-scaffold", "Bun install config · globalStore · execve · Bun.Terminal · using/await using"],
   ["bun-shell-companions", "Bun $ template vs subprocess"],
 ] as const;
 
@@ -353,7 +354,7 @@ export default function NamespaceBoundariesCanvas() {
 
       <Grid columns={4} gap={12}>
         <Stat label="Doctor trinity" value="4" tone="info" />
-        <Stat label="Primary surfaces" value="7" />
+        <Stat label="Primary surfaces" value="8" />
         <Stat label="Finish-work gates" value="4" />
         <Stat label="Plugin-plan gaps" value="8" tone="warning" />
       </Grid>
@@ -469,7 +470,7 @@ export default function NamespaceBoundariesCanvas() {
         </Stack>
       </Grid>
 
-      <CollapsibleSection title="Primary disambiguation table (7 rows)" defaultOpen={false}>
+      <CollapsibleSection title="Primary disambiguation table (8 rows)" defaultOpen={false}>
         <Table
           headers={["Namespace", "What", "Binding", "Documented in"]}
           rows={PRIMARY_SURFACES.map((r) => [...r])}
