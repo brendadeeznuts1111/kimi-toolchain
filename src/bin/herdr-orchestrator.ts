@@ -234,6 +234,13 @@ WebView storage (${webviewDocs}#persistent-storage):
   --profile-dir <p>   dataStore: { directory: <p> }
   Legacy directory    ~/.kimi-code/var/herdr-dashboard-webview (pre-rename; not auto-migrated)
 
+Bun.WebView constructor (${webviewDocs}#new-bun-webview-options):
+  width/height        Viewport in CSS pixels (defaults 1280×800 in dashboard shell)
+  url                 Eager navigation — equivalent to navigate() on next line
+  backend             webkit (macOS default) or chrome
+  dataStore           ephemeral (default) or { directory } — see storage section below
+  console             globalThis.console mirror or custom IPC handler
+
 Bun.WebView capabilities (${webviewDocs}):
   • Real OS-level input (isTrusted: true) — indistinguishable from human clicks
   • click / scrollTo auto-wait for actionability (attached, visible, stable, unobscured)

@@ -13,8 +13,10 @@ import {
   HerdrDashboardDiscoveryCache,
   type DashboardCacheStats,
 } from "./herdr-dashboard-discovery-cache.ts";
+import { startDashboardCron } from "./herdr-dashboard-cron.ts";
+import { Logger } from "./logger.ts";
 
-/** Sub-minute SSE poll — Bun.cron is minute-granularity; setInterval is intentional here. */
+/** Default SSE poll interval in milliseconds. Bun.cron rounds to whole minutes; sub-minute intervals use setInterval. */
 export const DASHBOARD_SSE_INTERVAL_MS = 5000;
 export const DASHBOARD_STALE_MS = 15_000;
 
@@ -25,6 +27,7 @@ export interface DashboardHubOptions {
   staleMs?: number;
   bus?: DashboardEventBus;
   discoveryCache?: HerdrDashboardDiscoveryCache;
+  logger?: Logger;
 }
 
 type SseController = ReadableStreamDefaultController<Uint8Array>;
@@ -38,18 +41,21 @@ export class HerdrDashboardHub {
   private readonly staleMs: number;
   private readonly pollMs: number;
   private readonly bus: DashboardEventBus;
+  private readonly logger: Logger;
   readonly discoveryCache: HerdrDashboardDiscoveryCache;
   private lastAgentsJson = "";
   private lastPayload: DashboardAgentsPayload | null = null;
   private readonly agentSnapshot = new Map<string, DashboardAgentRow>();
   private readonly subscribers = new Set<SseController>();
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private cronJob: Disposable | null = null;
   private readonly busUnsubs: Array<() => void> = [];
+  private discovering = false;
 
   constructor(options: DashboardHubOptions) {
     this.pollMs = options.pollMs ?? DASHBOARD_SSE_INTERVAL_MS;
     this.staleMs = options.staleMs ?? DASHBOARD_STALE_MS;
     this.bus = options.bus ?? createDashboardEventBus();
+    this.logger = options.logger ?? new Logger({ tool: "herdr-dashboard-hub" });
     this.discoveryCache =
       options.discoveryCache ??
       new HerdrDashboardDiscoveryCache({
@@ -72,6 +78,11 @@ export class HerdrDashboardHub {
 
   get eventBus(): DashboardEventBus {
     return this.bus;
+  }
+
+  /** Poll interval exposed for cron schedule construction. */
+  get ssePollMs(): number {
+    return this.pollMs;
   }
 
   cacheStats(): DashboardCacheStats {
@@ -163,6 +174,25 @@ export class HerdrDashboardHub {
     return this.lastPayload ?? raw;
   }
 
+  /**
+   * Background discovery refresh used by the cron scheduler.
+   *
+   * Skips overlapping invocations: if a previous refresh is still in flight,
+   * this is a no-op and logged at debug level.
+   */
+  async refreshDiscovery(): Promise<void> {
+    if (this.discovering) {
+      this.logger.debug("Discovery refresh skipped — previous run still in flight");
+      return;
+    }
+    this.discovering = true;
+    try {
+      await this.refresh();
+    } finally {
+      this.discovering = false;
+    }
+  }
+
   private broadcast(payload: DashboardAgentsPayload): void {
     const chunk = `data: ${inspectAgent(payload)}\n\n`;
     const bytes = new TextEncoder().encode(chunk);
@@ -177,16 +207,18 @@ export class HerdrDashboardHub {
 
   /** Background discovery poll — runs while the dashboard server is up (not only during SSE). */
   private resumePolling(): void {
-    if (this.pollTimer) return;
-    this.pollTimer = setInterval(() => {
-      void this.refresh();
-    }, this.pollMs);
+    if (this.cronJob) return;
+    this.cronJob = startDashboardCron({
+      ssePollMs: this.pollMs,
+      refresh: () => this.refreshDiscovery(),
+      logger: this.logger,
+    });
   }
 
   private pausePolling(): void {
-    if (!this.pollTimer) return;
-    clearInterval(this.pollTimer);
-    this.pollTimer = null;
+    if (!this.cronJob) return;
+    this.cronJob[Symbol.dispose]();
+    this.cronJob = null;
   }
 
   start(): void {

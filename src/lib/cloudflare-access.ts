@@ -12,11 +12,25 @@ import { fetchWithTimeout } from "./utils.ts";
 import { join } from "path";
 import { homeDir, projectMappingsPath } from "./paths.ts";
 import { parsePolicyConfig } from "./cloudflare-access-policy.ts";
+import { loadDxDefaultsSync } from "./defaults-config.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
 const API_BASE = "https://api.cloudflare.com/client/v4";
-const DEFAULT_WARN_DAYS = 30;
+const HARDCODED_WARN_DAYS = 30;
+let DEFAULT_WARN_DAYS = HARDCODED_WARN_DAYS;
+
+/** Load cloudflare-access defaults from dx.config.toml [defaults]. Call once during bootstrap. */
+export function loadCloudflareAccessDefaults(projectRoot?: string): void {
+  if (!projectRoot) return;
+  const dx = loadDxDefaultsSync(projectRoot);
+  if (!dx) return;
+  if (dx.cloudflareTokenWarnDays !== undefined) DEFAULT_WARN_DAYS = dx.cloudflareTokenWarnDays;
+}
+
+export function resetCloudflareAccessDefaults(): void {
+  DEFAULT_WARN_DAYS = HARDCODED_WARN_DAYS;
+}
 
 export const CREDENTIAL_SERVICE = "kimi-toolchain";
 const ACCOUNT_SECRET = "cloudflare-account-id";

@@ -164,7 +164,7 @@ export async function scaffoldAdr(
 /** Key markers that must exist in scaffold-templates (drift guard). */
 export const TEMPLATE_MARKERS: Record<string, string[]> = {
   OXFMTRC: ['"printWidth": 100'],
-  CI_WORKFLOW: ["format:check:ci", "test:coverage:ci", "1.3.14"],
+  CI_WORKFLOW: ["format:check:ci", "test:coverage:ci", "1.4.0"],
   TSCONFIG: ["moduleResolution", "bundler"],
   BUNFIG: ["concurrentTestGlob", "coverageThreshold"],
   DX_CONFIG_APP: ["dx setup", "dx cli", "dx package"],

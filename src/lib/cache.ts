@@ -97,18 +97,17 @@ export class TtlCache<T> {
     const pending = this.inflight.get(key);
     if (pending) return pending;
 
-    const promise = Promise.resolve(compute())
-      .then((value) => {
+    const task = (async () => {
+      try {
+        const value = await compute();
         this.set(key, value);
-        this.inflight.delete(key);
         return value;
-      })
-      .catch((error: unknown) => {
+      } finally {
         this.inflight.delete(key);
-        throw error;
-      });
-    this.inflight.set(key, promise);
-    return promise;
+      }
+    })();
+    this.inflight.set(key, task);
+    return task;
   }
 
   stats(): CacheStats {

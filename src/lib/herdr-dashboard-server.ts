@@ -12,6 +12,7 @@ import {
 } from "./bun-image.ts";
 import { pathExists, readText } from "./bun-io.ts";
 import { inspectAgent } from "./inspect.ts";
+import { loadDxDefaults } from "./defaults-config.ts";
 import {
   DEFAULT_DASHBOARD_PORT,
   fetchDashboardHandoffs,
@@ -31,6 +32,24 @@ import {
   type DashboardMetaWebViewInput,
 } from "./herdr-dashboard-webview-store.ts";
 import { HerdrDashboardHub } from "./herdr-dashboard-hub.ts";
+import { HerdrDashboardDiscoveryCache } from "./herdr-dashboard-discovery-cache.ts";
+import { TtlCache } from "./cache.ts";
+import {
+  buildDashboardWidgetCacheKey,
+  fetchDashboardWidget,
+  isDashboardWidgetId,
+  PROCESSES_WIDGET_WORKSPACE_SCOPE,
+  type DashboardWidgetResponse,
+} from "./herdr-dashboard-widgets.ts";
+import type { GitWidgetDeps } from "./herdr-dashboard-widget-git.ts";
+import type { LogsWidgetDeps } from "./herdr-dashboard-widget-logs.ts";
+import {
+  runDashboardPaneAction,
+  type DashboardPaneActionRequest,
+  type ProcessesActionDeps,
+} from "./herdr-dashboard-widget-processes-action.ts";
+import type { ProcessesWidgetDeps } from "./herdr-dashboard-widget-processes.ts";
+import { startDashboardMetaWatch, type DashboardMetaWatchHandle } from "./herdr-dashboard-watch.ts";
 import {
   bunHttp3ServeSupported,
   dashboardHttp3Requested,
@@ -60,8 +79,20 @@ export interface HerdrDashboardServerOptions extends DashboardFetchOptions {
   screenshotProvider?: () => Promise<Uint8Array | null>;
   /** Bridge Herdr socket events → dashboard refresh (default true). */
   herdrEvents?: boolean;
+  /** Inject discovery cache (tests) — skips default hub cache construction. */
+  discoveryCache?: HerdrDashboardDiscoveryCache;
+  /** Event-driven meta gate watch on discovery:refreshed (default true). */
+  metaWatch?: boolean;
   /** Bun.WebView shell + persistent profile (surfaced on GET /api/meta). */
   webview?: DashboardMetaWebViewInput;
+  /** Inject processes widget fetch (tests). */
+  widgetProcessesDeps?: Partial<ProcessesWidgetDeps>;
+  /** Inject logs widget fetch (tests). */
+  widgetLogsDeps?: Partial<LogsWidgetDeps>;
+  /** Inject git widget fetch (tests). */
+  widgetGitDeps?: Partial<GitWidgetDeps>;
+  /** Inject processes pane actions (tests). */
+  widgetProcessesActionDeps?: Partial<ProcessesActionDeps>;
 }
 
 export interface HerdrDashboardServerHandle {
@@ -70,6 +101,7 @@ export interface HerdrDashboardServerHandle {
   url: string;
   transport: DashboardServeTransport;
   hub: HerdrDashboardHub;
+  metaWatch: DashboardMetaWatchHandle | null;
   herdrEventBridge: DashboardHerdrEventBridgeHandle;
   /** In-process request helper (avoids TLS verification for local HTTPS tests). */
   fetch: (input: string | Request) => Response | Promise<Response>;
@@ -179,8 +211,12 @@ export function startHerdrDashboardServer(
     fetchOpts,
     pollMs: ssePollMs,
     staleMs,
+    discoveryCache: options.discoveryCache,
   });
   hub.start();
+  const metaWatchEnabled = options.metaWatch !== false;
+  const metaWatch = metaWatchEnabled ? startDashboardMetaWatch(hub.eventBus) : null;
+  void hub.refresh();
 
   const herdrEventBridge = startDashboardHerdrEventBridge({
     projectPath: options.projectPath,
@@ -189,6 +225,7 @@ export function startHerdrDashboardServer(
   });
 
   let screenshotPng: Uint8Array | null = null;
+  const widgetCache = new TtlCache<DashboardWidgetResponse>({ ttlMs: ssePollMs });
 
   const { serveOptions, transport } = resolveDashboardServeTransport({
     http3: options.http3,
@@ -219,6 +256,7 @@ export function startHerdrDashboardServer(
       }
 
       if (path === "/api/meta") {
+        const dxDefaults = await loadDxDefaults(options.projectPath);
         const meta: Record<string, unknown> = {
           ok: true,
           projectPath: options.projectPath,
@@ -229,6 +267,8 @@ export function startHerdrDashboardServer(
           cache: hub.cacheStats(),
           herdrEvents: herdrEventBridge.status(),
           webview: metaWebView,
+          discovery: hub.discoveryCache.discoveryContext(),
+          defaults: dxDefaults ?? undefined,
           dryRun: options.dryRun ?? false,
           thumbnail: bunImageSupported(),
           thumbnailPath: "/api/thumbnail",
@@ -333,6 +373,71 @@ export function startHerdrDashboardServer(
         return jsonResponse(fetchDashboardRules(options.projectPath, options.dryRun ?? false));
       }
 
+      if (path === "/api/widgets/processes/action" && request.method === "POST") {
+        const body = await readJsonBody<DashboardPaneActionRequest>(request);
+        if (!body?.paneId?.trim() || !body?.action) {
+          return jsonResponse({ ok: false, error: "paneId and action required" }, 400);
+        }
+        const session = body.session?.trim() ?? "";
+        const result = await runDashboardPaneAction(
+          options.projectPath,
+          {
+            paneId: body.paneId,
+            session,
+            action: body.action,
+            catalog: hub.discoveryCache.discoveryContext().sessionCatalog,
+          },
+          options.widgetProcessesActionDeps
+        );
+        if (result.ok) {
+          widgetCache.invalidate(
+            buildDashboardWidgetCacheKey(
+              "processes",
+              options.projectPath,
+              session,
+              PROCESSES_WIDGET_WORKSPACE_SCOPE
+            )
+          );
+        }
+        return jsonResponse(result, result.ok ? 200 : 422);
+      }
+
+      if (path.startsWith("/api/widgets/")) {
+        const widgetSegment = path.slice("/api/widgets/".length).split("/")[0] ?? "";
+        if (!isDashboardWidgetId(widgetSegment)) {
+          return new Response("Not Found", { status: 404 });
+        }
+        const session = url.searchParams.get("session")?.trim() ?? "";
+        const paneId = url.searchParams.get("paneId")?.trim() ?? "";
+        const linesRaw = url.searchParams.get("lines");
+        const lines = linesRaw ? Number(linesRaw) : undefined;
+        const commitsRaw = url.searchParams.get("commits");
+        const commits = commitsRaw ? Number(commitsRaw) : undefined;
+        const sinceRaw = url.searchParams.get("since");
+        const since = sinceRaw ? Number(sinceRaw) : undefined;
+        const payload = await fetchDashboardWidget(
+          widgetSegment,
+          options.projectPath,
+          {
+            session,
+            paneId,
+            lines: Number.isFinite(lines) ? lines : undefined,
+            since: Number.isFinite(since) ? since : undefined,
+            commits: Number.isFinite(commits) ? commits : undefined,
+            catalog: hub.discoveryCache.discoveryContext().sessionCatalog,
+          },
+          {
+            discovery: hub.discoveryCache.discoveryContext(),
+            ttlMs: ssePollMs,
+            cache: widgetCache,
+            processesDeps: options.widgetProcessesDeps,
+            logsDeps: options.widgetLogsDeps,
+            gitDeps: options.widgetGitDeps,
+          }
+        );
+        return jsonResponse(payload, 200);
+      }
+
       if (path === "/api/actions" && request.method === "POST") {
         const body = await readJsonBody<DashboardActionRequest>(request);
         if (!body?.action || !body.agent) {
@@ -363,12 +468,14 @@ export function startHerdrDashboardServer(
     url: `${scheme}://${hostname}:${boundPort}/`,
     transport,
     hub,
+    metaWatch,
     herdrEventBridge,
     fetch: server.fetch.bind(server),
     setScreenshotPng: (png: Uint8Array) => {
       screenshotPng = png;
     },
     stop: () => {
+      metaWatch?.stop();
       herdrEventBridge.stop();
       hub.stop();
       server.stop();

@@ -20,7 +20,12 @@ import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 import { Duration, Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
-import { getGovernorConfigPath, DEFAULT_CONFIG_TEMPLATE } from "../lib/governor-config.ts";
+import {
+  getGovernorConfigPath,
+  DEFAULT_CONFIG_TEMPLATE,
+  bunAvailableParallelism,
+  resolveHardwareParallelism,
+} from "../lib/governor-config.ts";
 import { governorDir } from "../lib/paths.ts";
 import { DEFAULTS, ensureDefaultsLoaded } from "../lib/governor-state.ts";
 import {
@@ -329,6 +334,12 @@ async function main(): Promise<number> {
   } else if (command === "status") {
     logger.section("Defaults");
     logger.line(`  Config file:       ${getGovernorConfigPath()}`);
+    const availableParallelism = bunAvailableParallelism();
+    logger.line(
+      `  Available parallelism: ${availableParallelism ?? "n/a"} (cgroup-aware, Bun 1.4+)`
+    );
+    logger.line(`  Hardware concurrency:  ${navigator.hardwareConcurrency ?? "unknown"}`);
+    logger.line(`  Resolved parallelism:  ${resolveHardwareParallelism()}`);
     logger.line(`  Max memory:        ${DEFAULTS.maxMemoryMB}MB`);
     logger.line(`  Max CPU time:      ${DEFAULTS.maxCpuTimeMs}ms`);
     logger.line(`  Max file size:     ${DEFAULTS.maxFileSizeMB}MB`);

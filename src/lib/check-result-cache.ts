@@ -9,6 +9,11 @@ import { makeDir, pathExists } from "./bun-io.ts";
 import { safeParse } from "./utils.ts";
 import { type CheckOptions, type CheckRunResult, optionsFingerprint } from "./check-types.ts";
 
+/** Only cache successful runs — failed results would poison later cache hits on the same key. */
+export function shouldPersistCheckCache(result: CheckRunResult): boolean {
+  return result.passed;
+}
+
 const CACHE_RELATIVE = ".kimi/gate-cache.json";
 const CACHE_VERSION = 2;
 

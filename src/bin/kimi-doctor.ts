@@ -69,6 +69,11 @@ import {
   readEffectGatesSnapshots,
   type SessionFloorCounts,
 } from "../lib/effect-gates.ts";
+import {
+  formatDashboardMetaDiscoveryStatusLine,
+  resolveRemoteHostsConfigured,
+  runDashboardMetaGate,
+} from "../lib/herdr-dashboard-meta-gate.ts";
 import { DOCTOR_WATCH_DEFAULT_INTERVAL_SECONDS, runDoctorWatchLoop } from "../lib/doctor-watch.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
 import { recordDoctorRun } from "../lib/doctor-runs.ts";
@@ -119,6 +124,8 @@ const VELOCITY = Bun.argv.includes("--velocity");
 const PREDICT = Bun.argv.includes("--predict");
 const CORRELATE = Bun.argv.includes("--correlate");
 const EFFECT_GATES = Bun.argv.includes("--effect-gates");
+const DASHBOARD_META = Bun.argv.includes("--dashboard-meta");
+const DASHBOARD_META_STRICT = DASHBOARD_META && Bun.argv.includes("--strict");
 const HAS_EFFECT_FLOOR = Bun.argv.includes("--effect-floor");
 const HAS_LEGACY_SESSION_REPORT = Bun.argv.includes("--session-report");
 if (HAS_LEGACY_SESSION_REPORT && !HAS_EFFECT_FLOOR) {
@@ -961,6 +968,40 @@ async function runEffectGatesMode(projectRoot: string): Promise<number> {
   return ok ? 0 : 1;
 }
 
+async function runDashboardMetaMode(): Promise<number> {
+  const urlOverride = argValue("--dashboard-url");
+  const result = await runDashboardMetaGate({ url: urlOverride, strict: DASHBOARD_META_STRICT });
+  const ok = result.ok;
+
+  if (JSON_OUT) {
+    emitJson({
+      dashboardMeta: result,
+      summary: { ok, strict: DASHBOARD_META_STRICT },
+    });
+  } else {
+    logger.section("Dashboard Meta");
+    if (ok && result.discovery) {
+      const d = result.discovery;
+      const remoteSuffix = DASHBOARD_META_STRICT
+        ? ` · remoteHosts ${d.remoteHosts?.reachable ?? 0}/${resolveRemoteHostsConfigured(d)} reachable`
+        : "";
+      logger.info(`${result.url} · ${formatDashboardMetaDiscoveryStatusLine(d)}${remoteSuffix}`);
+    } else if (result.discovery && result.failure?.detail) {
+      logger.error(`${result.url} · ${formatDashboardMetaDiscoveryStatusLine(result.discovery)}`);
+      logger.error(`  ${result.failure.detail}`);
+    } else {
+      logger.error(result.failure?.message ?? "dashboard meta gate failed");
+      if (result.discovery) {
+        logger.info(
+          `partial discovery: resolution=${String(result.discovery.workspaceIdResolution)} count=${String(result.discovery.workspaceCandidateCount)}`
+        );
+      }
+    }
+  }
+
+  return ok ? 0 : 1;
+}
+
 function parseSessionReportFlag(flag: string): number | undefined {
   const raw = argValue(flag);
   if (raw === undefined) return undefined;
@@ -1323,6 +1364,10 @@ async function main(): Promise<number> {
 
   if (EFFECT_GATES) {
     return runEffectGatesMode(projectRoot);
+  }
+
+  if (DASHBOARD_META) {
+    return runDashboardMetaMode();
   }
 
   if (EFFECT_FLOOR) {

@@ -26,11 +26,11 @@ describe("property-table-metadata", () => {
     const doc = {
       schemaVersion: 1,
       name: "kimi-toolchain",
-      runtime: { bunVersion: "1.3.14", containers: "none" },
+      runtime: { bunVersion: "1.4.0", containers: "none" },
       endpoints: [{ name: "x" }],
     };
     expect(resolveTomlScalarPath(doc, "schemaVersion")).toBe(1);
-    expect(resolveTomlScalarPath(doc, "runtime.bunVersion")).toBe("1.3.14");
+    expect(resolveTomlScalarPath(doc, "runtime.bunVersion")).toBe("1.4.0");
     expect(resolveTomlScalarPath(doc, "runtime.containers")).toBe("none");
     expect(resolveTomlScalarPath(doc, "endpoints")).toBeUndefined();
     expect(resolveTomlScalarPath(doc, "missing.path")).toBeUndefined();
@@ -93,7 +93,7 @@ describe("property-table-metadata", () => {
     expect(csv).toContain("schemaVersion");
     expect(csv).toContain("runtime.bunVersion");
     expect(csv).toContain("kimi-toolchain");
-    expect(csv).toContain("1.3.14");
+    expect(csv).toContain("1.4.0");
     expect(csv).toContain("cloudflare-mcp");
   });
 

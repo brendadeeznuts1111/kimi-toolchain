@@ -79,6 +79,13 @@ td {
   text-align: left;
   vertical-align: top;
 }
+.session-cell {
+  font-size: 11px;
+}
+.session-primary {
+  color: var(--dim);
+  font-style: italic;
+}
 th {
   color: var(--muted);
   font-weight: 600;
@@ -169,6 +176,13 @@ th {
   font-size: 11px;
   margin-top: 4px;
   line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.control-plane .discovery-ws {
+  cursor: help;
+  color: var(--text);
 }
 .control-plane .herdr-ok {
   color: var(--green);
@@ -176,8 +190,279 @@ th {
 .control-plane .herdr-warn {
   color: var(--yellow);
 }
+.control-plane .herdr-bad {
+  color: var(--red);
+}
 .control-plane .herdr-off {
   color: var(--dim);
+}
+.control-plane .session-scope option.session-unreachable {
+  color: var(--yellow);
+}
+.control-plane .session-scope {
+  margin-right: 8px;
+  font-size: 11px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  max-width: 10rem;
+}
+.processes-panel {
+  margin-top: 6px;
+}
+.processes-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+.processes-toggle:hover,
+.processes-toggle[aria-expanded="true"] {
+  border-color: var(--green);
+  color: var(--text);
+}
+.processes-toggle-label {
+  font-weight: 600;
+}
+.processes-summary {
+  color: var(--dim);
+}
+.processes-content {
+  margin-top: 6px;
+}
+.processes-error:empty {
+  display: none;
+}
+.processes-scroll {
+  max-height: 180px;
+}
+.processes-scroll .empty-state {
+  padding: 12px 10px;
+  font-size: 12px;
+}
+tr.processes-focused td {
+  font-weight: 600;
+}
+tr.processes-focused td:first-child {
+  color: var(--green);
+}
+.processes-cwd {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+tr.processes-row {
+  cursor: pointer;
+}
+.processes-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+.processes-action {
+  background: #21262d;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.3;
+  margin-left: 4px;
+}
+.processes-action:hover {
+  border-color: var(--green);
+  color: var(--text);
+}
+.processes-action-kill:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+tr.processes-row:hover td {
+  background: #1c2128;
+}
+tr.processes-row-active td {
+  background: #1f2937;
+}
+.processes-logs-row td {
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+  background: #0d1117;
+}
+.processes-logs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.processes-logs-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.processes-logs-tail,
+.processes-logs-resume {
+  background: #21262d;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+.processes-logs-tail:hover,
+.processes-logs-resume:hover {
+  border-color: var(--green);
+}
+.processes-logs-tail-active {
+  border-color: var(--green);
+  color: var(--green);
+}
+.processes-logs-restarted {
+  color: var(--yellow);
+  font-size: 10px;
+}
+.processes-logs-more {
+  background: #21262d;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+.processes-logs-more:hover {
+  border-color: var(--green);
+}
+.processes-logs-pre {
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 200px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+.processes-logs-error {
+  padding: 8px 10px;
+  color: var(--red);
+  font-size: 11px;
+}
+.git-panel {
+  margin-top: 6px;
+}
+.git-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+.git-toggle:hover,
+.git-toggle[aria-expanded="true"] {
+  border-color: var(--green);
+  color: var(--text);
+}
+.git-toggle-label {
+  font-weight: 600;
+}
+.git-summary {
+  color: var(--dim);
+}
+.git-content {
+  margin-top: 6px;
+}
+.git-error:empty {
+  display: none;
+}
+.git-scroll {
+  max-height: 220px;
+}
+.git-section {
+  padding: 8px 10px 4px;
+}
+.git-section + .git-section {
+  border-top: 1px solid var(--border);
+}
+.git-section-title {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.git-status-table,
+.git-commits-table {
+  width: 100%;
+  font-size: 11px;
+}
+.git-status-table td:last-child,
+.git-commits-table td:nth-child(2) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+}
+.git-xy {
+  display: inline-block;
+  min-width: 1.6rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+}
+.git-xy-modified {
+  color: var(--yellow);
+}
+.git-xy-added {
+  color: var(--green);
+}
+.git-xy-deleted {
+  color: var(--red);
+}
+.git-xy-untracked {
+  color: var(--dim);
+}
+.git-sha {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--green);
+}
+.git-date {
+  color: var(--dim);
+  white-space: nowrap;
+}
+.panel-heading {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.panel-heading .session-scope-label {
+  color: var(--text);
+  font-weight: 500;
 }
 .agents-legend {
   color: var(--muted);

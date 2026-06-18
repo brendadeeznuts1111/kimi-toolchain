@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
-import { makeDir } from "../src/lib/bun-io.ts";
+import { makeDir, pathExists } from "../src/lib/bun-io.ts";
 import {
   createJsonlLineBuffer,
   handleHerdrSubscribeFrame,
@@ -206,6 +206,60 @@ describe("herdr-ws-unix", () => {
         });
       });
     });
+  });
+
+  test("Bun.listen unix EADDRINUSE on double bind; stop unlinks socket", async () => {
+    const dir = testTempDir("kimi-herdr-unix-bind-");
+    const socketPath = join(dir, "herdr.sock");
+    makeDir(dir, { recursive: true });
+
+    const server = Bun.listen({
+      unix: socketPath,
+      socket: {
+        data() {},
+      },
+    });
+
+    await Bun.sleep(50);
+    expect(pathExists(socketPath)).toBe(true);
+
+    let secondBindError: unknown;
+    try {
+      Bun.listen({
+        unix: socketPath,
+        socket: {
+          data() {},
+        },
+      });
+    } catch (error) {
+      secondBindError = error;
+    }
+
+    expect(secondBindError).toBeDefined();
+    const message =
+      secondBindError instanceof Error ? secondBindError.message : String(secondBindError);
+    const code =
+      secondBindError &&
+      typeof secondBindError === "object" &&
+      "code" in secondBindError &&
+      typeof (secondBindError as { code?: unknown }).code === "string"
+        ? (secondBindError as { code: string }).code
+        : "";
+    expect(message.includes("EADDRINUSE") || code === "EADDRINUSE").toBe(true);
+
+    server.stop();
+    await Bun.sleep(50);
+    expect(pathExists(socketPath)).toBe(false);
+
+    const rebound = Bun.listen({
+      unix: socketPath,
+      socket: {
+        data() {},
+      },
+    });
+    expect(pathExists(socketPath)).toBe(true);
+    rebound.stop();
+    cleanupPath(dir);
   });
 
   test("jsonl connect still works for RPC-style responses", async () => {

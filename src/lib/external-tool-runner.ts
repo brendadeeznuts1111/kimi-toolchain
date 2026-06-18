@@ -18,6 +18,7 @@ import { tscAdapter } from "./doctor-adapters/tsc.ts";
 import { effectGatesAdapter } from "./doctor-adapters/effect-gates.ts";
 import { guardianAdapter } from "./doctor-adapters/guardian.ts";
 import { governanceAdapter } from "./doctor-adapters/governance.ts";
+import { dashboardMetaAdapter } from "./doctor-adapters/dashboard-meta.ts";
 
 function resolveExecutable(name: string, projectRoot: string): string {
   const fromPath = Bun.which(name);
@@ -37,6 +38,7 @@ const ADAPTERS: Record<string, ExternalToolAdapter> = {
   "effect-gates": effectGatesAdapter,
   guardian: guardianAdapter,
   governance: governanceAdapter,
+  "dashboard-meta": dashboardMetaAdapter,
 };
 
 export function listExternalToolAdapters(): string[] {

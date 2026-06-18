@@ -196,10 +196,10 @@ categories:
 
   - id: port_conflict
     name: Port already in use
-    description: A network port is already bound by another process.
+    description: A network port or unix socket path is already bound by another process.
     severity: warn
     expected: false
-    suggestion: "Port conflict — use PORT=0 for auto-assignment or kill existing process."
+    suggestion: "Port or unix socket conflict — use PORT=0 for auto-assignment, stop the bound process, or remove a stale herdr.sock after confirming no listener (Bun 1.4+ EADDRINUSE on double bind)."
     patterns:
       - regex: "port.*already in use"
       - regex: "EADDRINUSE"

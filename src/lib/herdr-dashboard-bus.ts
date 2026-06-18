@@ -3,6 +3,7 @@
  */
 
 import { EventBus } from "./event-bus.ts";
+import type { DashboardMetaDiscovery } from "./herdr-dashboard-discovery-meta.ts";
 import type {
   DashboardAgentRow,
   DashboardAgentsPayload,
@@ -29,6 +30,7 @@ export interface DashboardBusEvents extends Record<string, unknown> {
   "discovery:refreshed": {
     payload: DashboardAgentsPayload;
     fromCache: boolean;
+    discovery: DashboardMetaDiscovery;
     at: string;
   };
   "discovery:failed": {

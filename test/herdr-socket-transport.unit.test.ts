@@ -4,7 +4,9 @@ import { makeDir } from "../src/lib/bun-io.ts";
 import {
   describeHerdrSocketTransport,
   formatHerdrSocketPayload,
+  probeHerdrSocketHealth,
   probeHerdrSocketTransport,
+  probeSocketConnectable,
   resolveHerdrSocketTransport,
 } from "../src/lib/herdr-socket-transport.ts";
 import { resolveHerdrWsUnixUrl } from "../src/lib/herdr-ws-unix.ts";
@@ -75,5 +77,56 @@ describe("herdr-socket-transport", () => {
       expect(probe.transport).toBe("jsonl");
       expect(probe.socketPath).toBe("/tmp/custom.sock");
     });
+  });
+
+  test("probeHerdrSocketHealth reports missing socket file", async () => {
+    const dir = testTempDir("kimi-herdr-health-missing-");
+    const socketPath = join(dir, "missing.sock");
+    try {
+      const health = await probeHerdrSocketHealth(socketPath);
+      expect(health).toEqual({
+        socketPath,
+        socketFileExists: false,
+        connectable: false,
+      });
+    } finally {
+      cleanupPath(dir);
+    }
+  });
+
+  test("probeHerdrSocketHealth reports live listener", async () => {
+    const dir = testTempDir("kimi-herdr-health-live-");
+    const socketPath = join(dir, "herdr.sock");
+    makeDir(dir, { recursive: true });
+    const server = Bun.listen({
+      unix: socketPath,
+      socket: {
+        data() {},
+      },
+    });
+    await Bun.sleep(50);
+    try {
+      const health = await probeHerdrSocketHealth(socketPath);
+      expect(health.socketPath).toBe(socketPath);
+      expect(health.socketFileExists).toBe(true);
+      expect(health.connectable).toBe(true);
+    } finally {
+      server.stop();
+      cleanupPath(dir);
+    }
+  });
+
+  test("probeSocketConnectable fails on stale socket file", async () => {
+    const dir = testTempDir("kimi-herdr-health-stale-");
+    const socketPath = join(dir, "stale.sock");
+    makeDir(dir, { recursive: true });
+    await Bun.write(socketPath, "");
+    try {
+      const probe = await probeSocketConnectable(socketPath, 400);
+      expect(probe.connectable).toBe(false);
+      expect(probe.connectErrorCode).toBeDefined();
+    } finally {
+      cleanupPath(dir);
+    }
   });
 });

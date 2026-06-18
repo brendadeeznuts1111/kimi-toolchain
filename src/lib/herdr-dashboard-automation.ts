@@ -1,7 +1,8 @@
 /**
  * herdr-dashboard-automation.ts — Bun.WebView screenshot, click, and CDP probes for the dashboard.
  *
- * @see https://bun.com/docs/runtime/webview#console-capture
+ * @see https://bun.com/docs/runtime/webview#new-bun-webview-options
+ * @see https://bun.com/docs/runtime/webview#screenshots
  */
 
 import { bunImageSupported, dashboardWebpThumbnail } from "./bun-image.ts";
@@ -9,9 +10,10 @@ import { bunImageSupported, dashboardWebpThumbnail } from "./bun-image.ts";
 import type { DashboardIpcCommand } from "./herdr-dashboard-data.ts";
 import {
   startHerdrDashboardServer,
+  type HerdrDashboardServerHandle,
   type HerdrDashboardServerOptions,
 } from "./herdr-dashboard-server.ts";
-import { buildDashboardWebViewOptions } from "./herdr-webview-dashboard.ts";
+import { buildDashboardWebViewOptions } from "./herdr-dashboard-webview-options.ts";
 import {
   chromeWebViewBackend,
   formatWebViewExperimentalNotice,
@@ -25,6 +27,10 @@ export const AGENTS_BODY_SELECTOR = "#agents-body";
 export const AGENT_ATTACH_SELECTOR = `${AGENTS_BODY_SELECTOR} tr button[data-action="attach"]`;
 /** Settle time after scrollTo before screenshot (Bun scrollIntoView is instant). */
 export const DASHBOARD_SCROLL_SETTLE_MS = 120;
+/** Interval between interactive WebView screenshot refreshes for `/api/thumbnail`. */
+export const DASHBOARD_SCREENSHOT_POLL_MS = 2_000;
+/** Scroll agents table into view before every Nth screenshot in `feedDashboardScreenshotPng` (1 = each capture). */
+export const DASHBOARD_SCREENSHOT_SCROLL_EVERY_N = 1;
 export interface HerdrDashboardAutomationOptions extends HerdrDashboardServerOptions {
   backend?: Bun.WebView.ConstructorOptions["backend"];
   dataStore?: Bun.WebView.ConstructorOptions["dataStore"];
@@ -130,6 +136,46 @@ export async function waitForDashboardView(
   return waitForDashboardReady(view, { timeoutMs, pollMs: opts?.pollMs });
 }
 
+export interface FeedDashboardScreenshotOptions {
+  pollMs?: number;
+  signal?: AbortSignal;
+  readyTimeoutMs?: number;
+}
+
+/** Periodically capture WebView PNGs into the dashboard server cache until aborted. */
+export async function feedDashboardScreenshotPng(
+  view: Bun.WebView,
+  server: Pick<HerdrDashboardServerHandle, "setScreenshotPng">,
+  opts: FeedDashboardScreenshotOptions = {}
+): Promise<void> {
+  const pollMs = opts.pollMs ?? DASHBOARD_SCREENSHOT_POLL_MS;
+  const signal = opts.signal;
+
+  await waitForDashboardView(view, { timeoutMs: opts.readyTimeoutMs ?? 10_000 });
+
+  let captureIndex = 0;
+  while (!signal?.aborted) {
+    try {
+      if (captureIndex % DASHBOARD_SCREENSHOT_SCROLL_EVERY_N === 0) {
+        try {
+          await scrollToDashboardAgentsBody(view, { timeoutMs: 3_000 });
+        } catch {
+          // Ignore transient scroll failures (navigation, resize, etc.)
+        }
+      }
+      const png = await webViewScreenshotBytes(view);
+      if (png.byteLength > 0) {
+        server.setScreenshotPng(png);
+      }
+    } catch {
+      // Ignore transient screenshot failures (navigation, resize, etc.)
+    }
+    captureIndex += 1;
+    if (signal?.aborted) break;
+    await Bun.sleep(pollMs);
+  }
+}
+
 /** Headless probe: serve dashboard, wait for SSE render, screenshot, optional attach click. */
 export async function runHerdrDashboardAutomation(
   options: HerdrDashboardAutomationOptions
@@ -145,15 +191,19 @@ export async function runHerdrDashboardAutomation(
     onIpc: (result) => ipcCommands.push({ command: result.command }),
   });
   const url = server.url;
-  const { backend, constructorOptions } = buildDashboardWebViewOptions(url, {
-    backend: options.backend,
-    dataStore: options.dataStore,
-    persistProfile: options.persistProfile,
-    profileDir: options.profileDir,
-    width: options.width,
-    height: options.height,
-    onIpc: (command) => ipcCommands.push(command),
-  });
+  const { backend, constructorOptions } = buildDashboardWebViewOptions(
+    url,
+    {
+      backend: options.backend,
+      dataStore: options.dataStore,
+      persistProfile: options.persistProfile,
+      profileDir: options.profileDir,
+      width: options.width,
+      height: options.height,
+      onIpc: (command) => ipcCommands.push(command),
+    },
+    (message) => process.stderr.write(`[dashboard] warn: ${message}\n`)
+  );
   process.stderr.write(`${formatWebViewExperimentalNotice()}\n`);
   let detachCdp: (() => void) | undefined;
 

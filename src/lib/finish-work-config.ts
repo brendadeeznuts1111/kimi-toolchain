@@ -19,6 +19,12 @@ export interface FinishWorkConfig {
 /** Canonical Effect discipline gate — same in scaffold templates and live dx.config.toml. */
 export const EFFECT_GATES_COMMAND = "kimi-doctor --effect-gates";
 
+/**
+ * Herdr dashboard /api/meta discovery contract (requires dashboard server up).
+ * Opt-in hard remote-host reachability: `kimi-doctor --dashboard-meta --strict`
+ */
+export const DASHBOARD_META_COMMAND = "kimi-doctor --dashboard-meta";
+
 const DEFAULT_GATES = ["bun run check:fast", EFFECT_GATES_COMMAND];
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1));

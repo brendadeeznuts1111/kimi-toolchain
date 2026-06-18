@@ -39,7 +39,7 @@ If Grep/Glob fail with a path under an old renamed clone, the editor opened the 
 - **Repository**: `https://github.com/brendadeeznuts1111/kimi-toolchain`
 - **License**: MIT
 - **Language**: TypeScript (ESNext, strict mode)
-- **Runtime**: Bun >= 1.3.14
+- **Runtime**: Bun >= 1.4.0
 - **Minimal runtime dependencies** — `effect` and `js-yaml`; everything else uses Bun built-ins (`bun:sqlite`, `Bun.file`, `Bun.spawn`, etc.)
 
 ## Architecture
@@ -106,7 +106,7 @@ cadence. Any metric threshold change must update the threshold metadata in
 
 | Layer           | Choice                                                 |
 | --------------- | ------------------------------------------------------ |
-| Runtime         | Bun >= 1.3.14                                          |
+| Runtime         | Bun >= 1.4.0                                           |
 | Language        | TypeScript (strict, ESNext, bundler resolution)        |
 | Test runner     | `bun:test` (Bun's built-in test runner)                |
 | Database        | SQLite via `bun:sqlite` (WAL mode)                     |

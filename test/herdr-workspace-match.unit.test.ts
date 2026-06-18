@@ -12,8 +12,9 @@ describe("herdr-workspace-match", () => {
     expect(picked).toBe("w2");
   });
 
-  test("pickBestWorkspaceId breaks ties by first max in input order", () => {
+  test("pickBestWorkspaceId breaks ties lexicographically regardless of input order", () => {
     const counts: Record<string, number> = { w1: 5, w2: 5 };
-    expect(pickBestWorkspaceId(["w1", "w2"], "", (id) => counts[id] ?? 0)).toBe("w1");
+    expect(pickBestWorkspaceId(["w2", "w1"], "", (id) => counts[id] ?? 0)).toBe("w1");
+    expect(pickBestWorkspaceId(["wB", "wC"], "", (id) => counts[id] ?? 0)).toBe("wB");
   });
 });

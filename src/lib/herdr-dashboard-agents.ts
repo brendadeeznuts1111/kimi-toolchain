@@ -7,17 +7,18 @@
 import { TOML } from "bun";
 import { readText } from "./bun-io.ts";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
-import {
-  discoverRemoteSessions,
-  discoverRemoteWorkspaceAgents,
-  listWorkspaceAgents,
-} from "./herdr-orchestrator.ts";
+import { discoverRemoteWorkspaceAgents, listWorkspaceAgents } from "./herdr-orchestrator.ts";
 import {
   normalizeRemoteHostConfig,
   resolveOrchestratorConfig,
 } from "./herdr-orchestrator-config.ts";
 import { findAllWorkspacesForProject } from "./herdr-workspace-match.ts";
 import { herdrCliJson } from "./herdr-project-cli.ts";
+import {
+  discoverAllSessions,
+  withDashboardSessionTimeout,
+  type DashboardSessionCatalogEntry,
+} from "./herdr-dashboard-sessions.ts";
 import type {
   DashboardAgentRow,
   DashboardAgentsPayload,
@@ -26,6 +27,106 @@ import type {
 
 export interface GetDashboardAgentsOptions extends DashboardFetchOptions {
   workspace?: string;
+}
+
+function loadOrchestratorDocument(sourcePath: string | null): Record<string, unknown> | null {
+  if (!sourcePath) return null;
+  try {
+    return TOML.parse(readText(sourcePath)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+async function collectLocalSessionAgents(
+  entry: DashboardSessionCatalogEntry,
+  workspaceIds: string[]
+): Promise<{ rows: DashboardAgentRow[]; errors: string[] }> {
+  const rows: DashboardAgentRow[] = [];
+  const errors: string[] = [];
+  const session = entry.session;
+
+  if (session.trim()) {
+    const wsRaw = herdrCliJson(session, ["workspace", "list"]);
+    const workspaces = wsRaw.ok
+      ? (wsRaw.json as { result?: { workspaces?: Array<{ workspace_id: string }> } })?.result
+          ?.workspaces || []
+      : [];
+    if (!wsRaw.ok && wsRaw.error) errors.push(wsRaw.error);
+    for (const ws of workspaces) {
+      const listed = listWorkspaceAgents(ws.workspace_id!, session);
+      if (!listed.ok) {
+        if (listed.error) errors.push(listed.error);
+        continue;
+      }
+      for (const a of listed.agents) {
+        rows.push({
+          host: "(local)",
+          session,
+          workspaceId: ws.workspace_id!,
+          agent: a.agent,
+          status: a.status,
+          paneId: a.paneId,
+          source: "",
+        });
+      }
+    }
+    return { rows, errors };
+  }
+
+  for (const id of workspaceIds) {
+    const listed = listWorkspaceAgents(id, "");
+    if (!listed.ok) {
+      if (listed.error) errors.push(listed.error);
+      continue;
+    }
+    for (const a of listed.agents) {
+      rows.push({
+        host: "(local)",
+        session: "",
+        workspaceId: id,
+        agent: a.agent,
+        status: a.status,
+        paneId: a.paneId,
+        source: "",
+      });
+    }
+  }
+  return { rows, errors };
+}
+
+async function collectRemoteSessionAgents(
+  entry: DashboardSessionCatalogEntry,
+  resolvedHosts: ReturnType<typeof normalizeRemoteHostConfig>
+): Promise<{ rows: DashboardAgentRow[]; errors: string[] }> {
+  const resolved = resolvedHosts[entry.host];
+  if (!resolved) {
+    return { rows: [], errors: [`remote host "${entry.host}" not configured`] };
+  }
+  const remoteAgents = await discoverRemoteWorkspaceAgents(entry.host, resolved, entry.session);
+  return {
+    rows: remoteAgents.map((ra) => ({
+      host: ra.host,
+      session: ra.sessionName,
+      workspaceId: ra.workspaceId,
+      agent: ra.agent,
+      status: ra.status,
+      paneId: ra.paneId,
+      source: "",
+    })),
+    errors: [],
+  };
+}
+
+async function collectSessionAgentRows(
+  entry: DashboardSessionCatalogEntry,
+  workspaceIds: string[],
+  resolvedHosts: ReturnType<typeof normalizeRemoteHostConfig>
+): Promise<{ rows: DashboardAgentRow[]; errors: string[] }> {
+  if (entry.host === "(local)") {
+    return collectLocalSessionAgents(entry, workspaceIds);
+  }
+  return collectRemoteSessionAgents(entry, resolvedHosts);
 }
 
 /** Collect dashboard agent rows without spawning herdr-orchestrator. */
@@ -55,91 +156,58 @@ export async function getDashboardAgents(
 
   const hostFilter = options.host?.trim() || undefined;
   const showSessions = options.sessions === true;
-  const domain = options.domain?.trim() || undefined;
   const includeDoctor = options.includeDoctor === true;
 
   if (showSessions) {
-    if (!hostFilter) {
-      const sessionsRaw = herdrCliJson("", ["session", "list"]);
-      const sessionList = sessionsRaw.ok
-        ? (sessionsRaw.json as { sessions?: Array<{ name: string; running: boolean }> })
-            ?.sessions || []
-        : [];
-      for (const s of sessionList) {
-        if (!s.running) continue;
-        const wsRaw = herdrCliJson(s.name, ["workspace", "list"]);
-        const workspaces = wsRaw.ok
-          ? (wsRaw.json as { result?: { workspaces?: Array<{ workspace_id: string }> } })?.result
-              ?.workspaces || []
-          : [];
-        for (const ws of workspaces) {
-          const listed = listWorkspaceAgents(ws.workspace_id!, s.name);
-          if (!listed.ok) {
-            if (listed.error) cliErrors.push(listed.error);
-            continue;
-          }
-          for (const a of listed.agents) {
-            rows.push({
-              host: "(local)",
-              session: s.name,
-              workspaceId: ws.workspace_id!,
-              agent: a.agent,
-              status: a.status,
-              paneId: a.paneId,
-              source: "",
-            });
-          }
-        }
+    const catalog = options.sessionCatalog ?? (await discoverAllSessions(projectPath, options));
+    cliErrors.push(...catalog.errors);
+
+    const doc = loadOrchestratorDocument(config.sourcePath ?? null);
+    const orchConfig = resolveOrchestratorConfig(full, doc);
+    const resolvedHosts = normalizeRemoteHostConfig(
+      orchConfig.remoteHosts,
+      orchConfig.remoteDefaults
+    );
+
+    let targets = catalog.entries.filter((entry) => entry.reachable);
+    if (hostFilter) {
+      targets = targets.filter(
+        (entry) => entry.host === hostFilter || (hostFilter === "local" && entry.host === "(local)")
+      );
+      if (targets.length === 0 && hostFilter !== "local") {
+        return {
+          ok: false,
+          projectPath,
+          agentCount: 0,
+          agents: [],
+          error: `host "${hostFilter}" not configured`,
+          fetchedAt,
+        };
       }
     }
 
-    const doc = (() => {
-      if (!config.sourcePath) return null;
-      try {
-        return TOML.parse(readText(config.sourcePath)) as Record<string, unknown>;
-      } catch {
-        return null;
-      }
-    })();
-    const orchConfig = resolveOrchestratorConfig(full, doc);
-    const remoteHosts = orchConfig.remoteHosts;
-    const domainMembers = domain ? new Set(orchConfig.domains[domain]?.hosts || []) : null;
-
-    const hostsToScan = hostFilter
-      ? Object.fromEntries(Object.entries(remoteHosts).filter(([k]) => k === hostFilter))
-      : domain
-        ? Object.fromEntries(Object.entries(remoteHosts).filter(([k]) => domainMembers?.has(k)))
-        : remoteHosts;
-
-    if (Object.keys(hostsToScan).length > 0) {
-      const resolvedHosts = normalizeRemoteHostConfig(hostsToScan, orchConfig.remoteDefaults);
-      const remoteDiscovered = await discoverRemoteSessions(hostsToScan, orchConfig.remoteDefaults);
-      for (const rs of remoteDiscovered.sessions) {
-        if (rs.status !== "running") continue;
-        const resolved = resolvedHosts[rs.host];
-        if (!resolved) continue;
-        const remoteAgents = await discoverRemoteWorkspaceAgents(rs.host, resolved, rs.sessionName);
-        for (const ra of remoteAgents) {
-          rows.push({
-            host: ra.host,
-            session: ra.sessionName,
-            workspaceId: ra.workspaceId,
-            agent: ra.agent,
-            status: ra.status,
-            paneId: ra.paneId,
-            source: "",
-          });
+    const settled = await Promise.allSettled(
+      targets.map(async (entry) => {
+        const timed = await withDashboardSessionTimeout(
+          `session:${entry.label}@${entry.host}`,
+          () => collectSessionAgentRows(entry, ids, resolvedHosts)
+        );
+        if (!timed.ok) {
+          return { rows: [] as DashboardAgentRow[], errors: [timed.error] };
         }
+        return timed.value;
+      })
+    );
+
+    for (const result of settled) {
+      if (result.status === "fulfilled") {
+        rows.push(...result.value.rows);
+        cliErrors.push(...result.value.errors);
+      } else {
+        const message =
+          result.reason instanceof Error ? result.reason.message : String(result.reason);
+        cliErrors.push(message);
       }
-    } else if (hostFilter) {
-      return {
-        ok: false,
-        projectPath,
-        agentCount: 0,
-        agents: [],
-        error: `host "${hostFilter}" not configured`,
-        fetchedAt,
-      };
     }
   } else if (!hostFilter || hostFilter === "local") {
     for (const id of ids) {

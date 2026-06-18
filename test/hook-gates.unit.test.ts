@@ -206,7 +206,8 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
       await $`git add src/other.ts`.cwd(scopedDir).nothrow().quiet();
 
       // src/other.ts is not in scoped cache, so cache skip won't trigger.
-      // bun test --changed=HEAD finds 0 test files → gate skips (not fails).
+      // bun test --changed=HEAD with 0 matching test files must skip (not fail).
+      // Matcher: isBunTestChangedEmptyOutput — Bun message strings drift across versions.
       expect(await shouldSkipTestFastFromScopedCache(scopedDir, ["src/other.ts"])).toBe(false);
 
       const code = await runPreCommitGates(scopedDir);

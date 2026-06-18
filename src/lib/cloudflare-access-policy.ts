@@ -6,13 +6,36 @@
  */
 
 import { fetchWithTimeout } from "./utils.ts";
+import { loadDxDefaultsSync } from "./defaults-config.ts";
 
 const API_BASE = "https://api.cloudflare.com/client/v4";
-const DEFAULT_RETRIES = 2;
-const DEFAULT_BASE_DELAY_MS = 500;
-const DEFAULT_TIMEOUT_MS = 30_000;
+
+const HARDCODED_RETRIES = 2;
+const HARDCODED_BASE_DELAY_MS = 500;
+const HARDCODED_TIMEOUT_MS = 30_000;
+
+let DEFAULT_RETRIES = HARDCODED_RETRIES;
+let DEFAULT_BASE_DELAY_MS = HARDCODED_BASE_DELAY_MS;
+let DEFAULT_TIMEOUT_MS = HARDCODED_TIMEOUT_MS;
 const DEFAULT_SESSION_DURATION = "24h";
 const DEFAULT_APP_TYPE = "self_hosted";
+
+/** Load cloudflare defaults from dx.config.toml [defaults]. Call once during bootstrap. */
+export function loadCloudflareDefaults(projectRoot?: string): void {
+  if (!projectRoot) return;
+  const dx = loadDxDefaultsSync(projectRoot);
+  if (!dx) return;
+  if (dx.cloudflareRetries !== undefined) DEFAULT_RETRIES = dx.cloudflareRetries;
+  if (dx.cloudflareBaseDelayMs !== undefined) DEFAULT_BASE_DELAY_MS = dx.cloudflareBaseDelayMs;
+  if (dx.cloudflareTimeoutMs !== undefined) DEFAULT_TIMEOUT_MS = dx.cloudflareTimeoutMs;
+}
+
+/** Reset to hardcoded values (for tests). */
+export function resetCloudflareDefaults(): void {
+  DEFAULT_RETRIES = HARDCODED_RETRIES;
+  DEFAULT_BASE_DELAY_MS = HARDCODED_BASE_DELAY_MS;
+  DEFAULT_TIMEOUT_MS = HARDCODED_TIMEOUT_MS;
+}
 
 // ── Config Schema ────────────────────────────────────────────────────
 

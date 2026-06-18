@@ -80,6 +80,34 @@ describe("herdr-dashboard-discovery-cache", () => {
     expect(cache.stats().status.size).toBe(2);
   });
 
+  test("fetchAndStore refreshes remote host probe status", async () => {
+    let probeCalls = 0;
+    const cache = new HerdrDashboardDiscoveryCache({
+      projectPath: "/tmp/project",
+      fetchOpts: {},
+      ttlMs: 60_000,
+      discover: async () => samplePayload([]),
+      probeRemoteHosts: async () => {
+        probeCalls += 1;
+        return {
+          configured: 2,
+          reachable: 1,
+          hosts: [
+            { label: "staging", reachable: true, version: "0.9.4" },
+            { label: "workbox", reachable: false, error: "timed out" },
+          ],
+        };
+      },
+    });
+
+    await cache.getAgents();
+    expect(probeCalls).toBe(1);
+    const discovery = cache.discoveryContext();
+    expect(discovery.remoteHosts.configured).toBe(2);
+    expect(discovery.remoteHosts.reachable).toBe(1);
+    expect(discovery.remoteHosts.hosts).toHaveLength(2);
+  });
+
   test("background refresh notifies onDiscoveryRefreshed", async () => {
     let calls = 0;
     let releaseDiscover: (() => void) | undefined;
@@ -96,6 +124,7 @@ describe("herdr-dashboard-discovery-cache", () => {
         if (calls >= 2) await discoverGate;
         return samplePayload([]);
       },
+      probeRemoteHosts: async () => ({ configured: 0, reachable: 0, hosts: [] }),
       onDiscoveryRefreshed: (payload) => {
         refreshed.push(payload.agentCount);
       },
@@ -106,6 +135,7 @@ describe("herdr-dashboard-discovery-cache", () => {
     await Bun.sleep(30);
     const stale = await cache.getAgents();
     expect(stale.agentCount).toBe(0);
+    await Bun.sleep(5);
     expect(calls).toBe(2);
     expect(refreshed).toEqual([]);
     releaseDiscover?.();

@@ -6,7 +6,7 @@ mode = "development"
 [runtime]
 containers = "none"
 packageManager = "bun"
-bunVersion = "1.3.14"
+bunVersion = "1.4.0"
 install = "bun install --frozen-lockfile"
 globalFirst = true
 
@@ -17,7 +17,7 @@ protectedBranches = ["main", "master"]
 permissions = ["contents:read", "checks:write", "pull-requests:write"]
 
 [github.ci]
-bunVersion = "1.3.14"
+bunVersion = "1.4.0"
 qualityJob = "quality"
 qualityTimeoutMinutes = 15
 governanceJob = "governance"

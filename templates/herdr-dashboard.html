@@ -15,7 +15,99 @@
         </div>
         <div class="header-copy">
           <div id="meta">loading…</div>
-          <div id="control-plane" class="control-plane">control plane loading…</div>
+          <div id="control-plane" class="control-plane">
+            <select
+              id="session-scope"
+              class="session-scope"
+              hidden
+              aria-label="Herdr session scope"
+            ></select>
+            <span id="control-plane-status">control plane loading…</span>
+          </div>
+          <div id="processes-panel" class="processes-panel">
+            <button
+              type="button"
+              id="processes-toggle"
+              class="processes-toggle"
+              aria-expanded="false"
+              aria-controls="processes-content"
+            >
+              <span class="processes-toggle-label">Processes</span>
+              <span id="processes-summary" class="processes-summary">· — panes</span>
+            </button>
+            <div id="processes-content" class="processes-content" hidden>
+              <div id="processes-error" class="error processes-error"></div>
+              <div class="scroll processes-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Pane</th>
+                      <th>Title</th>
+                      <th>Agent</th>
+                      <th>Status</th>
+                      <th>Cwd</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="processes-body">
+                    <tr>
+                      <td colspan="6" class="empty-state">Loading processes…</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div id="git-panel" class="git-panel">
+            <button
+              type="button"
+              id="git-toggle"
+              class="git-toggle"
+              aria-expanded="false"
+              aria-controls="git-content"
+            >
+              <span class="git-toggle-label">Git</span>
+              <span id="git-summary" class="git-summary">· —</span>
+            </button>
+            <div id="git-content" class="git-content" hidden>
+              <div id="git-error" class="error git-error"></div>
+              <div class="scroll git-scroll">
+                <div class="git-section">
+                  <h3 class="git-section-title">Status</h3>
+                  <table class="git-status-table">
+                    <thead>
+                      <tr>
+                        <th>XY</th>
+                        <th>Path</th>
+                      </tr>
+                    </thead>
+                    <tbody id="git-status-body">
+                      <tr>
+                        <td colspan="2" class="empty-state">Loading git status…</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="git-section">
+                  <h3 class="git-section-title">Recent commits</h3>
+                  <table class="git-commits-table">
+                    <thead>
+                      <tr>
+                        <th>SHA</th>
+                        <th>Subject</th>
+                        <th>Date</th>
+                      </tr>
+                    </thead>
+                    <tbody id="git-commits-body">
+                      <tr>
+                        <td colspan="3" class="empty-state">Loading commits…</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
           <div id="stream-status">SSE connecting…</div>
         </div>
       </div>
@@ -27,6 +119,7 @@
     </nav>
     <main>
       <section id="agents" class="panel active">
+        <h2 id="agents-heading" class="panel-heading">Agents</h2>
         <div id="agents-error" class="error"></div>
         <p id="agents-legend" class="agents-legend" hidden>
           <span class="status status-stale">stale</span> — no server or browser heartbeat within the

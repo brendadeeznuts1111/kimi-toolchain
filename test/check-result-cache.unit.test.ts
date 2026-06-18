@@ -8,6 +8,7 @@ import {
   saveCheckCache,
   checkCachePath,
   projectScopeKey,
+  shouldPersistCheckCache,
 } from "../src/lib/check-result-cache.ts";
 import type { CheckOptions, CheckRunResult } from "../src/lib/check-types.ts";
 
@@ -69,6 +70,18 @@ describe("check-result-cache", () => {
     expect(await loadCheckCache(projectDir, "wrong-key")).toBeNull();
   });
 
+  test("load still returns persisted failed entries for explicit reads", async () => {
+    const key = await computeCheckCacheKey(projectDir, baseOptions);
+    const failed: CheckRunResult = {
+      ...sampleResult,
+      passed: false,
+      failures: [{ step: "lint", message: "lint failed" }],
+    };
+    await saveCheckCache(projectDir, key!, failed);
+    const loaded = await loadCheckCache(projectDir, key!);
+    expect(loaded?.passed).toBe(false);
+  });
+
   test("key changes when file content changes", async () => {
     const key1 = await computeCheckCacheKey(projectDir, baseOptions);
     await Bun.write(join(projectDir, "src/foo.ts"), "export const x = 2;\n");
@@ -98,5 +111,16 @@ describe("check-result-cache", () => {
     ensureTestDir(join(projectDir, ".kimi"));
     await Bun.write(checkCachePath(projectDir), "{not json");
     expect(await loadCheckCache(projectDir, "any")).toBeNull();
+  });
+
+  test("shouldPersistCheckCache skips failed gate runs", () => {
+    expect(shouldPersistCheckCache(sampleResult)).toBe(true);
+    expect(
+      shouldPersistCheckCache({
+        ...sampleResult,
+        passed: false,
+        failures: [{ step: "typecheck", message: "typecheck failed" }],
+      })
+    ).toBe(false);
   });
 });

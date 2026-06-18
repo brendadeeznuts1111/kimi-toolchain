@@ -31,7 +31,7 @@ import {
 } from "./scoped-gate-cache.ts";
 import { filterFormatPaths } from "./check-changed.ts";
 import { shouldRunScopedLint } from "./check-lint-scoped.ts";
-import { bunTestArgs } from "./test-gates.ts";
+import { bunTestArgs, isBunTestChangedEmptyOutput } from "./test-gates.ts";
 
 const PRE_COMMIT_CACHE_GATES = ["format:check", "lint", "typecheck", "test:fast"] as const;
 const PRE_PUSH_CACHE_GATES = [
@@ -180,7 +180,10 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
       });
       const result = await runGate("test:fast", ["bun", ...testArgs], { cwd: projectRoot });
       // bun test --changed exits 1 when no test files match — treat as skip
-      if (result.exitCode !== 0 && /No tests found/i.test(`${result.stdout}\n${result.stderr}`)) {
+      if (
+        result.exitCode !== 0 &&
+        isBunTestChangedEmptyOutput(`${result.stdout}\n${result.stderr}`)
+      ) {
         return skippedGateResult("test:fast");
       }
       // Re-emit output for visibility (runGate captures, doesn't stream)

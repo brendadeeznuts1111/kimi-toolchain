@@ -68,7 +68,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     docs: "https://bun.sh/docs",
     package: "bun",
     usage: "Runtime, test runner, package manager, and native I/O for kimi-toolchain",
-    minVersion: "1.3.14",
+    minVersion: "1.4.0",
   },
   {
     id: "effect",

@@ -3,13 +3,26 @@
  */
 
 import { TtlCache, type CacheStats } from "./cache.ts";
+import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
+import { buildDashboardMetaDiscovery } from "./herdr-dashboard-discovery-meta.ts";
 import { getDashboardAgents } from "./herdr-dashboard-agents.ts";
+import {
+  buildEmptySessionCatalog,
+  buildSingleSessionCatalog,
+  discoverAllSessions,
+  type DashboardSessionCatalog,
+} from "./herdr-dashboard-sessions.ts";
 import type { DashboardEventBus } from "./herdr-dashboard-bus.ts";
 import type {
   DashboardAgentRow,
   DashboardAgentsPayload,
   DashboardFetchOptions,
 } from "./herdr-dashboard-data.ts";
+import {
+  buildEmptyRemoteHostsStatus,
+  probeProjectRemoteHosts,
+  type DashboardRemoteHostsStatus,
+} from "./herdr-remote-host-probe.ts";
 
 export interface DashboardStatusSnapshot {
   agent: string;
@@ -35,10 +48,16 @@ export interface HerdrDashboardDiscoveryCacheOptions {
     projectPath: string,
     fetchOpts: DashboardFetchOptions
   ) => Promise<DashboardAgentsPayload>;
+  probeRemoteHosts?: (projectPath: string) => Promise<DashboardRemoteHostsStatus>;
+  enumerateSessions?: (
+    projectPath: string,
+    fetchOpts: DashboardFetchOptions
+  ) => Promise<DashboardSessionCatalog>;
 }
 
 function cacheKey(projectPath: string, fetchOpts: DashboardFetchOptions): string {
-  return `${projectPath}|${JSON.stringify(fetchOpts)}`;
+  const { reachableRemoteHosts: _reachable, sessionCatalog: _catalog, ...rest } = fetchOpts;
+  return `${projectPath}|${JSON.stringify(rest)}`;
 }
 
 function agentKey(row: Pick<DashboardAgentRow, "host" | "session" | "agent">): string {
@@ -55,10 +74,20 @@ export class HerdrDashboardDiscoveryCache {
     projectPath: string,
     fetchOpts: DashboardFetchOptions
   ) => Promise<DashboardAgentsPayload>;
+  private readonly probeRemoteHosts: (projectPath: string) => Promise<DashboardRemoteHostsStatus>;
+  private readonly enumerateSessions: (
+    projectPath: string,
+    fetchOpts: DashboardFetchOptions
+  ) => Promise<DashboardSessionCatalog>;
   private readonly discoveryCache: TtlCache<DashboardAgentsPayload>;
   private readonly statusCache = new Map<string, DashboardStatusSnapshot>();
   private statusLastRecordedAt: number | undefined;
   private refreshInFlight: Promise<DashboardAgentsPayload> | null = null;
+  private probeInFlight: Promise<DashboardRemoteHostsStatus> | null = null;
+  private sessionsInFlight: Promise<DashboardSessionCatalog> | null = null;
+  private remoteHostsStatus: DashboardRemoteHostsStatus = buildEmptyRemoteHostsStatus();
+  private sessionCatalog: DashboardSessionCatalog = buildEmptySessionCatalog();
+  private discoveryMeta: ReturnType<typeof buildDashboardMetaDiscovery>;
 
   constructor(options: HerdrDashboardDiscoveryCacheOptions) {
     this.projectPath = options.projectPath;
@@ -66,11 +95,102 @@ export class HerdrDashboardDiscoveryCache {
     this.bus = options.bus;
     this.onDiscoveryRefreshed = options.onDiscoveryRefreshed;
     this.discover = options.discover ?? getDashboardAgents;
+    this.probeRemoteHosts = options.probeRemoteHosts ?? probeProjectRemoteHosts;
+    this.enumerateSessions = options.enumerateSessions ?? discoverAllSessions;
     this.discoveryCache = new TtlCache<DashboardAgentsPayload>({ ttlMs: options.ttlMs });
+    const config = discoverHerdrProjectConfig(this.projectPath);
+    this.sessionCatalog = buildSingleSessionCatalog(config?.session ?? "");
+    this.discoveryMeta = buildDashboardMetaDiscovery(
+      this.projectPath,
+      this.fetchOpts,
+      this.remoteHostsStatus,
+      this.sessionCatalog
+    );
+  }
+
+  discoveryContext(): ReturnType<typeof buildDashboardMetaDiscovery> {
+    return this.discoveryMeta;
+  }
+
+  remoteHostsStatusSnapshot(): DashboardRemoteHostsStatus {
+    return this.remoteHostsStatus;
   }
 
   private key(): string {
     return cacheKey(this.projectPath, this.fetchOpts);
+  }
+
+  private rebuildDiscoveryMeta(): void {
+    this.discoveryMeta = buildDashboardMetaDiscovery(
+      this.projectPath,
+      this.fetchOpts,
+      this.remoteHostsStatus,
+      this.sessionCatalog
+    );
+  }
+
+  private reachableRemoteHostLabels(): string[] {
+    return this.remoteHostsStatus.hosts.filter((host) => host.reachable).map((host) => host.label);
+  }
+
+  private discoverFetchOptsBase(): DashboardFetchOptions {
+    const reachable = this.reachableRemoteHostLabels();
+    if (reachable.length === 0 && this.remoteHostsStatus.configured === 0) {
+      return this.fetchOpts;
+    }
+    return {
+      ...this.fetchOpts,
+      reachableRemoteHosts: reachable,
+    };
+  }
+
+  private discoverFetchOpts(): DashboardFetchOptions {
+    return {
+      ...this.discoverFetchOptsBase(),
+      sessionCatalog: this.sessionCatalog,
+    };
+  }
+
+  private async refreshRemoteHostStatus(): Promise<DashboardRemoteHostsStatus> {
+    if (this.probeInFlight) return this.probeInFlight;
+
+    const run = async (): Promise<DashboardRemoteHostsStatus> => {
+      try {
+        this.remoteHostsStatus = await this.probeRemoteHosts(this.projectPath);
+        this.rebuildDiscoveryMeta();
+        return this.remoteHostsStatus;
+      } finally {
+        this.probeInFlight = null;
+      }
+    };
+
+    this.probeInFlight = run();
+    return this.probeInFlight;
+  }
+
+  private async refreshSessionCatalog(): Promise<DashboardSessionCatalog> {
+    if (this.sessionsInFlight) return this.sessionsInFlight;
+
+    const run = async (): Promise<DashboardSessionCatalog> => {
+      try {
+        if (!this.fetchOpts.sessions) {
+          const config = discoverHerdrProjectConfig(this.projectPath);
+          this.sessionCatalog = buildSingleSessionCatalog(config?.session ?? "");
+        } else {
+          this.sessionCatalog = await this.enumerateSessions(
+            this.projectPath,
+            this.discoverFetchOptsBase()
+          );
+        }
+        this.rebuildDiscoveryMeta();
+        return this.sessionCatalog;
+      } finally {
+        this.sessionsInFlight = null;
+      }
+    };
+
+    this.sessionsInFlight = run();
+    return this.sessionsInFlight;
   }
 
   stats(): DashboardCacheStats {
@@ -90,6 +210,8 @@ export class HerdrDashboardDiscoveryCache {
   reloadConfig(fetchOpts: DashboardFetchOptions): void {
     this.fetchOpts = fetchOpts;
     this.discoveryCache.invalidateAll();
+    void this.refreshRemoteHostStatus();
+    void this.refreshSessionCatalog();
     this.bus?.emit("config:reloaded", {
       projectPath: this.projectPath,
       fetchOpts,
@@ -164,7 +286,9 @@ export class HerdrDashboardDiscoveryCache {
 
     const run = async (): Promise<DashboardAgentsPayload> => {
       try {
-        const payload = await this.discover(this.projectPath, this.fetchOpts);
+        await this.refreshRemoteHostStatus();
+        await this.refreshSessionCatalog();
+        const payload = await this.discover(this.projectPath, this.discoverFetchOpts());
         this.discoveryCache.set(this.key(), payload);
         if (!payload.ok) {
           this.bus?.emit("discovery:failed", {
@@ -172,13 +296,16 @@ export class HerdrDashboardDiscoveryCache {
             projectPath: this.projectPath,
             at: new Date().toISOString(),
           });
-        } else if (options.notify) {
+        } else {
           this.bus?.emit("discovery:refreshed", {
             payload,
             fromCache: false,
+            discovery: this.discoveryMeta,
             at: new Date().toISOString(),
           });
-          this.onDiscoveryRefreshed?.(payload);
+          if (options.notify) {
+            this.onDiscoveryRefreshed?.(payload);
+          }
         }
         return payload;
       } catch (error: unknown) {

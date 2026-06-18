@@ -117,6 +117,7 @@ async function runFullLint(): Promise<void> {
     { cmd: ["bun", "run", "scripts/lint-doc-links.ts"], label: "doc-links" },
     { cmd: ["bun", "run", "scripts/lint-constant-parity.ts"], label: "constant-parity" },
     { cmd: ["bun", "run", "scripts/lint-cli-contract.ts"], label: "cli-contract" },
+    { cmd: ["bun", "run", "scripts/lint-defaults-consts.ts"], label: "defaults-consts" },
     { cmd: ["bun", "run", "dx:table:contract"], label: "dx:table:contract" },
   ];
 

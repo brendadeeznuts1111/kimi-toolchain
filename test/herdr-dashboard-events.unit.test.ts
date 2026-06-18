@@ -49,6 +49,12 @@ describe("herdr-dashboard-events", () => {
           fetchedAt: new Date().toISOString(),
         } satisfies DashboardAgentsPayload;
       },
+      probeRemoteHosts: async () => ({ configured: 0, reachable: 0, hosts: [] }),
+      enumerateSessions: async () => ({
+        sessionsAvailable: [""],
+        entries: [{ session: "", label: "primary", host: "(local)", reachable: true }],
+        errors: [],
+      }),
     });
 
     const hub = new HerdrDashboardHub({
@@ -66,7 +72,7 @@ describe("herdr-dashboard-events", () => {
       reason: "pane.agent_status_changed",
       at: new Date().toISOString(),
     });
-    await Bun.sleep(5);
+    await Bun.sleep(20);
     expect(calls).toBe(2);
     hub.stop();
   });

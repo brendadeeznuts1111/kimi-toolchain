@@ -13,13 +13,46 @@ import { join } from "path";
 import { desktopRoot } from "./paths.ts";
 import { recordStep } from "./step-budget.ts";
 import { classifyAndSuggest } from "./error-taxonomy.ts";
+import { loadDxDefaultsSync, invalidateDefaultsCache } from "./defaults-config.ts";
 
-const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
-const AGENT_TOOL_TIMEOUT_MS = 15_000;
-const DEFAULT_GRACE_PERIOD_MS = 5_000;
+// ── Effective defaults — initialized from hardcoded values, overridable from dx.config.toml ──
+
+const HARDCODED_TOOL_TIMEOUT_MS = 30_000;
+const HARDCODED_AGENT_TOOL_TIMEOUT_MS = 15_000;
+const HARDCODED_GRACE_PERIOD_MS = 5_000;
+const HARDCODED_MAX_OUTPUT_BYTES = 1_048_576;
+
+let DEFAULT_TOOL_TIMEOUT_MS = HARDCODED_TOOL_TIMEOUT_MS;
+let AGENT_TOOL_TIMEOUT_MS = HARDCODED_AGENT_TOOL_TIMEOUT_MS;
+let DEFAULT_GRACE_PERIOD_MS = HARDCODED_GRACE_PERIOD_MS;
 /** Pass as timeoutMs to invokeCommand/invokeTool to disable the watchdog. */
 export const NO_TOOL_TIMEOUT_MS = 0;
-const DEFAULT_MAX_OUTPUT_BYTES = 1_048_576;
+let DEFAULT_MAX_OUTPUT_BYTES = HARDCODED_MAX_OUTPUT_BYTES;
+
+/**
+ * Load tool-runner defaults from dx.config.toml [defaults].
+ * Call once during bootstrap (e.g. kimi-doctor, kimi-resource-governor).
+ * When projectRoot is omitted or dx.config.toml is missing, hardcoded values are kept.
+ */
+export function loadToolDefaults(projectRoot?: string): void {
+  if (!projectRoot) return;
+  const dx = loadDxDefaultsSync(projectRoot);
+  if (!dx) return;
+
+  if (dx.toolTimeoutMs !== undefined) DEFAULT_TOOL_TIMEOUT_MS = dx.toolTimeoutMs;
+  if (dx.agentToolTimeoutMs !== undefined) AGENT_TOOL_TIMEOUT_MS = dx.agentToolTimeoutMs;
+  if (dx.toolGracePeriodMs !== undefined) DEFAULT_GRACE_PERIOD_MS = dx.toolGracePeriodMs;
+  if (dx.toolMaxOutputBytes !== undefined) DEFAULT_MAX_OUTPUT_BYTES = dx.toolMaxOutputBytes;
+}
+
+/** Reset tool-runner defaults to hardcoded values (for tests). */
+export function resetToolDefaults(): void {
+  DEFAULT_TOOL_TIMEOUT_MS = HARDCODED_TOOL_TIMEOUT_MS;
+  AGENT_TOOL_TIMEOUT_MS = HARDCODED_AGENT_TOOL_TIMEOUT_MS;
+  DEFAULT_GRACE_PERIOD_MS = HARDCODED_GRACE_PERIOD_MS;
+  DEFAULT_MAX_OUTPUT_BYTES = HARDCODED_MAX_OUTPUT_BYTES;
+  invalidateDefaultsCache();
+}
 
 /** Detect if running inside an agent session (Kimi Code loop, CI, etc.). */
 export function isAgentContext(): boolean {

@@ -1,14 +1,919 @@
-let lastAgentsJson = "";
+const SESSION_STORAGE_KEY = "herdr-dashboard.activeSession";
+const SESSION_ALL = "__all__";
+let lastFilteredAgentsJson = "";
 let lastHandoffsJson = "";
 let lastRulesJson = "";
 let pollTimer = null;
+let processesPollTimer = null;
 let metaTimer = null;
 let sseFallbackTimer = null;
+let lastProcessesJson = "";
+let lastGitJson = "";
+let processesExpanded = false;
+let gitExpanded = false;
+const LOGS_DEFAULT_LINES = 50;
+const LOGS_MAX_LINES = 200;
+const LOGS_LINE_STEP = 50;
+const LOGS_TAIL_POLL_MS = 1500;
+let activeLogsPaneId = null;
+let activeLogsLineLimit = LOGS_DEFAULT_LINES;
+let lastLogsPayload = null;
+let logsTailEnabled = false;
+let logsTailPaused = false;
+let logsTotalLines = 0;
+let logsDisplayedLines = [];
+let logsTailTimer = null;
 let activeTab = "agents";
 let metaSnapshot = null;
+let lastAgentsPayload = null;
+let activeSession = loadActiveSession();
+let thumbLive = false;
+
+function loadActiveSession() {
+  try {
+    const stored = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (stored === null) return "";
+    return stored === SESSION_ALL ? SESSION_ALL : String(stored);
+  } catch {
+    return "";
+  }
+}
+
+function saveActiveSession(value) {
+  try {
+    sessionStorage.setItem(SESSION_STORAGE_KEY, value);
+  } catch {
+    /* sessionStorage unavailable */
+  }
+}
+
+function normalizeSessionValue(session) {
+  return String(session ?? "").trim();
+}
+
+function sessionDisplayLabel(session, primaryLabel = "primary") {
+  return normalizeSessionValue(session) ? session : primaryLabel;
+}
+
+function distinctSessionsFromAgents(agents) {
+  const seen = new Set();
+  for (const row of agents || []) {
+    seen.add(normalizeSessionValue(row.session));
+  }
+  return [...seen].sort((a, b) => {
+    if (a === "") return -1;
+    if (b === "") return 1;
+    return a.localeCompare(b);
+  });
+}
+
+function sessionIdsFromDiscovery(discovery, agents) {
+  const fromMeta = discovery?.sessionsAvailable;
+  if (Array.isArray(fromMeta) && fromMeta.length > 0)
+    return fromMeta.map((id) => normalizeSessionValue(id));
+  return distinctSessionsFromAgents(agents);
+}
+
+function sessionCatalogById(discovery) {
+  const catalog = discovery?.sessionCatalog;
+  if (!Array.isArray(catalog)) return new Map();
+  return new Map(catalog.map((row) => [normalizeSessionValue(row.session), row]));
+}
+
+function shouldShowSessionSelector(discovery, agents) {
+  if (discovery?.multiSessionEnabled) return true;
+  const sessions = sessionIdsFromDiscovery(discovery, agents);
+  return sessions.length > 1 || (sessions.length === 1 && sessions[0] !== "");
+}
+
+function filterAgentsBySession(agents, session) {
+  const rows = agents || [];
+  if (session === SESSION_ALL) return rows;
+  const target = normalizeSessionValue(session);
+  return rows.filter((row) => normalizeSessionValue(row.session) === target);
+}
+
+function processesSessionParam() {
+  if (activeSession === SESSION_ALL) return null;
+  return normalizeSessionValue(activeSession);
+}
+
+function gitSessionParam() {
+  return processesSessionParam();
+}
+
+function truncateCwd(cwd, max = 48) {
+  const text = String(cwd ?? "").trim();
+  if (text.length <= max) return text;
+  return `…${text.slice(-(max - 1))}`;
+}
+
+function updateProcessesSummary(count, label) {
+  const summary = document.getElementById("processes-summary");
+  if (!summary) return;
+  const suffix = label ? ` · ${label}` : "";
+  summary.textContent = `· ${count} pane${count === 1 ? "" : "s"}${suffix}`;
+}
+
+function updateGitSummary(branch, changedCount, label) {
+  const summary = document.getElementById("git-summary");
+  if (!summary) return;
+  const suffix = label ? ` · ${label}` : "";
+  const branchLabel = branch || "—";
+  const dirtyLabel =
+    typeof changedCount === "number"
+      ? changedCount === 0
+        ? "clean"
+        : `${changedCount} changed`
+      : "—";
+  summary.textContent = `· ${branchLabel} · ${dirtyLabel}${suffix}`;
+}
+
+function gitStatusClass(xy) {
+  const code = String(xy ?? "").trim();
+  if (code.includes("?")) return "git-xy-untracked";
+  if (code.includes("D")) return "git-xy-deleted";
+  if (code.includes("A")) return "git-xy-added";
+  if (code.includes("M")) return "git-xy-modified";
+  return "git-xy-untracked";
+}
+
+function wireGitToggle() {
+  const toggle = document.getElementById("git-toggle");
+  const content = document.getElementById("git-content");
+  if (!toggle || !content || toggle.dataset.wired === "1") return;
+  toggle.dataset.wired = "1";
+  toggle.addEventListener("click", () => {
+    gitExpanded = !gitExpanded;
+    toggle.setAttribute("aria-expanded", gitExpanded ? "true" : "false");
+    content.hidden = !gitExpanded;
+    if (gitExpanded) {
+      lastGitJson = "";
+      void fetchGit();
+    }
+  });
+}
+
+function renderGitEmpty(tbodyId, message, colSpan) {
+  const body = document.getElementById(tbodyId);
+  if (!body) return;
+  body.replaceChildren();
+  const tr = document.createElement("tr");
+  const td = document.createElement("td");
+  td.colSpan = colSpan;
+  td.className = "empty-state";
+  td.textContent = message;
+  tr.appendChild(td);
+  body.appendChild(tr);
+}
+
+function renderGit(data) {
+  const primaryLabel = metaSnapshot?.discovery?.herdrSessionLabel || "primary";
+  const sessionLabel = data.sessionLabel || sessionDisplayLabel(data.session, primaryLabel);
+  const err = document.getElementById("git-error");
+  if (err) err.textContent = "";
+
+  if (!data.available) {
+    updateGitSummary("—", null, sessionLabel);
+    const message = data.error || data.message || "git unavailable";
+    if (err) err.textContent = message;
+    if (gitExpanded) {
+      renderGitEmpty("git-status-body", message, 2);
+      renderGitEmpty("git-commits-body", message, 3);
+    }
+    auditDashboard("git", {
+      available: false,
+      session: data.session,
+      error: data.error || data.message,
+    });
+    return;
+  }
+
+  const payload = data.data || {};
+  const branch = payload.branch || "unknown";
+  const changedCount = payload.changedCount ?? payload.status?.length ?? 0;
+  updateGitSummary(branch, changedCount, sessionLabel);
+
+  const json = JSON.stringify(payload);
+  if (json === lastGitJson) return;
+  lastGitJson = json;
+
+  if (!gitExpanded) {
+    auditDashboard("git", {
+      available: true,
+      branch,
+      changedCount,
+      session: data.session,
+      collapsed: true,
+    });
+    return;
+  }
+
+  const statusRows = payload.status || [];
+  const statusBody = document.getElementById("git-status-body");
+  if (statusBody) {
+    statusBody.replaceChildren();
+    if (statusRows.length === 0) {
+      renderGitEmpty("git-status-body", "Working tree clean", 2);
+    } else {
+      for (const row of statusRows) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><span class="git-xy ${gitStatusClass(row.xy)}">${esc(row.xy)}</span></td>
+          <td>${esc(row.path)}</td>`;
+        statusBody.appendChild(tr);
+      }
+    }
+  }
+
+  const commits = payload.commits || [];
+  const commitsBody = document.getElementById("git-commits-body");
+  if (commitsBody) {
+    commitsBody.replaceChildren();
+    if (commits.length === 0) {
+      renderGitEmpty("git-commits-body", "No commits", 3);
+    } else {
+      for (const row of commits) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><span class="git-sha">${esc(row.sha)}</span></td>
+          <td>${esc(row.subject)}</td>
+          <td class="git-date">${esc(row.date)}</td>`;
+        commitsBody.appendChild(tr);
+      }
+    }
+  }
+
+  auditDashboard("git", {
+    available: true,
+    branch,
+    changedCount,
+    commitCount: commits.length,
+    session: data.session,
+    fetchedAt: data.fetchedAt,
+  });
+}
+
+async function fetchGit() {
+  const session = gitSessionParam();
+  if (session === null) {
+    lastGitJson = "";
+    updateGitSummary("—", null, "all sessions");
+    const err = document.getElementById("git-error");
+    if (err) err.textContent = "";
+    if (gitExpanded) {
+      renderGitEmpty("git-status-body", "Select a single session to view git status", 2);
+      renderGitEmpty("git-commits-body", "Select a single session to view git status", 3);
+    }
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/widgets/git?session=${encodeURIComponent(session)}`);
+    const data = await res.json();
+    renderGit(data);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const err = document.getElementById("git-error");
+    if (err) err.textContent = message;
+    updateGitSummary("—", null);
+    if (gitExpanded) {
+      renderGitEmpty("git-status-body", message, 2);
+      renderGitEmpty("git-commits-body", message, 3);
+    }
+    console.error("dashboard.git", error);
+  }
+}
+
+function wireProcessesToggle() {
+  const toggle = document.getElementById("processes-toggle");
+  const content = document.getElementById("processes-content");
+  if (!toggle || !content || toggle.dataset.wired === "1") return;
+  toggle.dataset.wired = "1";
+  toggle.addEventListener("click", () => {
+    processesExpanded = !processesExpanded;
+    toggle.setAttribute("aria-expanded", processesExpanded ? "true" : "false");
+    content.hidden = !processesExpanded;
+    if (processesExpanded) {
+      lastProcessesJson = "";
+      void fetchProcesses();
+    }
+  });
+}
+
+function renderProcessesEmpty(message) {
+  const body = document.getElementById("processes-body");
+  if (!body) return;
+  body.replaceChildren();
+  const tr = document.createElement("tr");
+  const td = document.createElement("td");
+  td.colSpan = 6;
+  td.className = "empty-state";
+  td.textContent = message;
+  tr.appendChild(td);
+  body.appendChild(tr);
+}
+
+const PANE_ACTION_LABELS = {
+  focus: "Focus pane",
+  zoom: "Zoom pane",
+  kill: "Close pane",
+};
+
+function appendPaneActionButtons(tr, paneId) {
+  const td = document.createElement("td");
+  td.className = "processes-actions";
+  for (const action of ["focus", "zoom", "kill"]) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `processes-action${action === "kill" ? " processes-action-kill" : ""}`;
+    btn.dataset.action = action;
+    btn.title = PANE_ACTION_LABELS[action];
+    btn.setAttribute("aria-label", PANE_ACTION_LABELS[action]);
+    btn.textContent = action === "kill" ? "✕" : action === "focus" ? "⌖" : "⤢";
+    btn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      void runPaneAction(paneId, action);
+    });
+    td.appendChild(btn);
+  }
+  tr.appendChild(td);
+}
+
+async function runPaneAction(paneId, action) {
+  const session = processesSessionParam();
+  if (!session) {
+    const err = document.getElementById("processes-error");
+    if (err) err.textContent = "Select a single session to run pane actions";
+    return;
+  }
+  if (action === "kill") {
+    const ok = confirm(`Close pane ${paneId}?`);
+    if (!ok) return;
+  }
+
+  const err = document.getElementById("processes-error");
+  if (err) err.textContent = "";
+
+  try {
+    const res = await fetch("/api/widgets/processes/action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paneId, session, action }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      throw new Error(data.error || data.message || `${action} failed`);
+    }
+    if (action === "kill" && activeLogsPaneId === paneId) {
+      resetLogsPanelState();
+      removeLogsRows();
+    }
+    lastProcessesJson = "";
+    void fetchProcesses();
+    auditDashboard("processes.action", {
+      ok: true,
+      action,
+      paneId,
+      session: data.session,
+      message: data.message,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (err) err.textContent = message;
+    console.error("dashboard.processes.action", error);
+    auditDashboard("processes.action", { ok: false, action, paneId, error: message });
+  }
+}
+
+function renderProcesses(data) {
+  const primaryLabel = metaSnapshot?.discovery?.herdrSessionLabel || "primary";
+  const sessionLabel = data.sessionLabel || sessionDisplayLabel(data.session, primaryLabel);
+  const err = document.getElementById("processes-error");
+  if (err) err.textContent = "";
+
+  if (!data.available) {
+    updateProcessesSummary(0, sessionLabel);
+    const message = data.error || data.message || "processes unavailable";
+    if (err) err.textContent = message;
+    if (processesExpanded) {
+      renderProcessesEmpty(message);
+    }
+    auditDashboard("processes", {
+      available: false,
+      session: data.session,
+      error: data.error || data.message,
+    });
+    return;
+  }
+
+  const panes = data.data?.panes || [];
+  const count = data.data?.paneCount ?? panes.length;
+  updateProcessesSummary(count, sessionLabel);
+
+  const json = JSON.stringify(panes);
+  if (json === lastProcessesJson) return;
+  lastProcessesJson = json;
+
+  if (!processesExpanded) {
+    auditDashboard("processes", { available: true, count, session: data.session, collapsed: true });
+    return;
+  }
+
+  const body = document.getElementById("processes-body");
+  if (!body) return;
+  body.replaceChildren();
+
+  if (panes.length === 0) {
+    renderProcessesEmpty("No panes in this session");
+    auditDashboard("processes", { available: true, count: 0, session: data.session });
+    return;
+  }
+
+  for (const row of panes) {
+    const tr = document.createElement("tr");
+    tr.className = "processes-row";
+    tr.dataset.paneId = row.paneId;
+    if (row.focused) tr.classList.add("processes-focused");
+    if (activeLogsPaneId === row.paneId) tr.classList.add("processes-row-active");
+    const agent = row.agent ? esc(row.agent) : "—";
+    const agentStatus = row.agentStatus
+      ? `<span class="status ${statusClass(row.agentStatus)}">${esc(row.agentStatus)}</span>`
+      : "—";
+    tr.innerHTML = `
+      <td>${esc(row.paneId)}</td>
+      <td>${esc(row.title || "—")}</td>
+      <td>${agent}</td>
+      <td>${agentStatus}</td>
+      <td class="processes-cwd" title="${esc(row.cwd)}">${esc(truncateCwd(row.cwd))}</td>`;
+    appendPaneActionButtons(tr, row.paneId);
+    tr.addEventListener("click", () => onProcessesPaneClick(row.paneId));
+    body.appendChild(tr);
+  }
+
+  if (activeLogsPaneId && !panes.some((row) => row.paneId === activeLogsPaneId)) {
+    resetLogsPanelState();
+  } else if (activeLogsPaneId) {
+    if (lastLogsPayload?.paneId === activeLogsPaneId) {
+      attachLogsRow(lastLogsPayload);
+    } else {
+      void fetchPaneLogs(activeLogsPaneId);
+    }
+  }
+
+  auditDashboard("processes", {
+    available: true,
+    count: panes.length,
+    session: data.session,
+    focused: panes.filter((row) => row.focused).map((row) => row.paneId),
+    fetchedAt: data.fetchedAt,
+  });
+}
+
+async function fetchProcesses() {
+  const session = processesSessionParam();
+  if (session === null) {
+    lastProcessesJson = "";
+    updateProcessesSummary(0, "all sessions");
+    const err = document.getElementById("processes-error");
+    if (err) err.textContent = "";
+    if (processesExpanded) {
+      renderProcessesEmpty("Select a single session to view processes");
+    }
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/widgets/processes?session=${encodeURIComponent(session)}`);
+    const data = await res.json();
+    renderProcesses(data);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const err = document.getElementById("processes-error");
+    if (err) err.textContent = message;
+    updateProcessesSummary(0);
+    if (processesExpanded) renderProcessesEmpty("No panes in this session");
+    console.error("dashboard.processes", error);
+  }
+}
+
+function resetLogsPanelState() {
+  stopLogsTailPoll();
+  activeLogsPaneId = null;
+  lastLogsPayload = null;
+  activeLogsLineLimit = LOGS_DEFAULT_LINES;
+  logsTailEnabled = false;
+  logsTailPaused = false;
+  logsTotalLines = 0;
+  logsDisplayedLines = [];
+}
+
+function stopLogsTailPoll() {
+  if (logsTailTimer) {
+    clearInterval(logsTailTimer);
+    logsTailTimer = null;
+  }
+}
+
+function startLogsTailPoll() {
+  stopLogsTailPoll();
+  if (!activeLogsPaneId || !logsTailEnabled) return;
+  logsTailTimer = setInterval(() => {
+    if (!activeLogsPaneId || logsTailPaused || !logsTailEnabled) return;
+    void fetchPaneLogs(activeLogsPaneId, { since: logsTotalLines, append: true });
+  }, LOGS_TAIL_POLL_MS);
+}
+
+function removeLogsRows() {
+  document.querySelectorAll(".processes-logs-row").forEach((row) => row.remove());
+}
+
+function getLogsPre() {
+  return document.querySelector(".processes-logs-pre");
+}
+
+function isLogsPreAtBottom(pre) {
+  if (!pre) return true;
+  return pre.scrollHeight - pre.scrollTop - pre.clientHeight < 8;
+}
+
+function scrollLogsToBottom() {
+  const pre = getLogsPre();
+  if (pre) pre.scrollTop = pre.scrollHeight;
+}
+
+function logsLineCountLabel(count) {
+  return `${count} line${count === 1 ? "" : "s"}`;
+}
+
+function setLogsRestartedVisible(visible) {
+  const badge = document.querySelector(".processes-logs-restarted");
+  if (badge) badge.hidden = !visible;
+}
+
+function setLogsResumeVisible(visible) {
+  const btn = document.querySelector(".processes-logs-resume");
+  if (btn) btn.hidden = !visible;
+}
+
+function updateLogsHeaderMeta(paneId, lineCount) {
+  const title = document.querySelector(".processes-logs-title");
+  if (title) {
+    title.textContent = `Logs · ${paneId} · ${logsLineCountLabel(lineCount)}`;
+  }
+}
+
+function renderLogsPreContent(lines) {
+  const pre = getLogsPre();
+  if (!pre) return;
+  const text = lines.length ? lines.join("\n") : "(empty)";
+  pre.textContent = text;
+}
+
+function wireLogsPreScroll(pre) {
+  if (!pre || pre.dataset.wired === "1") return;
+  pre.dataset.wired = "1";
+  pre.addEventListener("scroll", () => {
+    if (!logsTailEnabled) return;
+    const atBottom = isLogsPreAtBottom(pre);
+    if (!atBottom && !logsTailPaused) {
+      logsTailPaused = true;
+      setLogsResumeVisible(true);
+    } else if (atBottom && logsTailPaused) {
+      logsTailPaused = false;
+      setLogsResumeVisible(false);
+    }
+  });
+}
+
+function wireLogsControls(tr, paneId) {
+  const tailBtn = tr.querySelector(".processes-logs-tail");
+  if (tailBtn) {
+    tailBtn.setAttribute("aria-pressed", logsTailEnabled ? "true" : "false");
+    tailBtn.classList.toggle("processes-logs-tail-active", logsTailEnabled);
+    tailBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      logsTailEnabled = !logsTailEnabled;
+      logsTailPaused = false;
+      setLogsResumeVisible(false);
+      tailBtn.setAttribute("aria-pressed", logsTailEnabled ? "true" : "false");
+      tailBtn.classList.toggle("processes-logs-tail-active", logsTailEnabled);
+      if (logsTailEnabled) {
+        startLogsTailPoll();
+      } else {
+        stopLogsTailPoll();
+      }
+      auditDashboard("logs.tail", { enabled: logsTailEnabled, paneId });
+    });
+  }
+
+  const resumeBtn = tr.querySelector(".processes-logs-resume");
+  if (resumeBtn) {
+    resumeBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      logsTailPaused = false;
+      setLogsResumeVisible(false);
+      scrollLogsToBottom();
+    });
+  }
+
+  const moreBtn = tr.querySelector(".processes-logs-more");
+  if (moreBtn) {
+    moreBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      logsTailEnabled = false;
+      logsTailPaused = false;
+      stopLogsTailPoll();
+      const next = Math.min(LOGS_MAX_LINES, activeLogsLineLimit + LOGS_LINE_STEP);
+      activeLogsLineLimit = next;
+      void fetchPaneLogs(paneId, { lines: next, scrollBottom: true });
+    });
+  }
+
+  wireLogsPreScroll(tr.querySelector(".processes-logs-pre"));
+}
+
+function attachLogsRow(payload, options = {}) {
+  if (!options.append) removeLogsRows();
+  if (!payload?.paneId || !processesExpanded) return;
+  const paneRow = document.querySelector(
+    `tr.processes-row[data-pane-id="${CSS.escape(payload.paneId)}"]`
+  );
+  if (!paneRow) return;
+
+  let tr = document.querySelector(".processes-logs-row");
+  if (!tr) {
+    tr = document.createElement("tr");
+    tr.className = "processes-logs-row";
+    const td = document.createElement("td");
+    td.colSpan = 6;
+    tr.appendChild(td);
+    paneRow.insertAdjacentElement("afterend", tr);
+  }
+
+  const td = tr.querySelector("td");
+  if (!td) return;
+
+  if (!payload.available) {
+    td.innerHTML = `<div class="processes-logs-error">${esc(payload.error || "logs unavailable")}</div>`;
+    return;
+  }
+
+  const lines = payload.lines || [];
+  logsDisplayedLines = lines;
+  logsTotalLines = payload.totalLines ?? lines.length;
+  const canLoadMore =
+    (payload.hasMore ?? (payload.requestedLines ?? activeLogsLineLimit) < LOGS_MAX_LINES) &&
+    !logsTailEnabled;
+  const loadMore = canLoadMore
+    ? `<button type="button" class="processes-logs-more" data-pane-id="${esc(payload.paneId)}">Load more</button>`
+    : "";
+  const restarted = payload.paneRestarted
+    ? `<span class="processes-logs-restarted">Pane restarted</span>`
+    : `<span class="processes-logs-restarted" hidden>Pane restarted</span>`;
+
+  td.innerHTML = `
+    <div class="processes-logs-header">
+      <span class="processes-logs-title">Logs · ${esc(payload.paneId)} · ${logsLineCountLabel(lines.length)}</span>
+      <div class="processes-logs-controls">
+        ${restarted}
+        <button type="button" class="processes-logs-tail" aria-pressed="${logsTailEnabled ? "true" : "false"}" aria-label="Tail logs">Tail</button>
+        <button type="button" class="processes-logs-resume" hidden aria-label="Resume tail">Resume tail</button>
+        ${loadMore}
+      </div>
+    </div>
+    <pre class="processes-logs-pre">${esc(lines.length ? lines.join("\n") : "(empty)")}</pre>`;
+
+  wireLogsControls(tr, payload.paneId);
+  setLogsRestartedVisible(Boolean(payload.paneRestarted));
+  if (options.scrollBottom !== false && !logsTailPaused) scrollLogsToBottom();
+}
+
+function appendLogsTail(payload) {
+  const tr = document.querySelector(".processes-logs-row");
+  if (!tr || !payload?.available) return;
+
+  if (payload.paneRestarted) {
+    logsDisplayedLines = payload.lines || [];
+    logsTotalLines = payload.totalLines ?? logsDisplayedLines.length;
+    renderLogsPreContent(logsDisplayedLines);
+    updateLogsHeaderMeta(payload.paneId, logsDisplayedLines.length);
+    setLogsRestartedVisible(true);
+    if (!logsTailPaused) scrollLogsToBottom();
+    return;
+  }
+
+  logsTotalLines = payload.totalLines ?? logsTotalLines;
+  const newLines = payload.lines || [];
+  if (newLines.length === 0) return;
+
+  const pre = getLogsPre();
+  const atBottom = isLogsPreAtBottom(pre);
+  logsDisplayedLines = logsDisplayedLines.concat(newLines);
+  renderLogsPreContent(logsDisplayedLines);
+  updateLogsHeaderMeta(payload.paneId, logsDisplayedLines.length);
+  setLogsRestartedVisible(false);
+  if (!logsTailPaused && atBottom) scrollLogsToBottom();
+}
+
+function onProcessesPaneClick(paneId) {
+  if (activeLogsPaneId === paneId) {
+    resetLogsPanelState();
+    removeLogsRows();
+    document.querySelectorAll(".processes-row-active").forEach((row) => {
+      row.classList.remove("processes-row-active");
+    });
+    return;
+  }
+  resetLogsPanelState();
+  activeLogsPaneId = paneId;
+  activeLogsLineLimit = LOGS_DEFAULT_LINES;
+  document.querySelectorAll(".processes-row").forEach((row) => {
+    row.classList.toggle("processes-row-active", row.dataset.paneId === paneId);
+  });
+  void fetchPaneLogs(paneId);
+}
+
+async function fetchPaneLogs(paneId, options = {}) {
+  const session = processesSessionParam();
+  if (!session || !paneId) return;
+
+  const lines = options.lines ?? activeLogsLineLimit;
+  activeLogsLineLimit = lines;
+
+  let url = `/api/widgets/logs?session=${encodeURIComponent(session)}&paneId=${encodeURIComponent(paneId)}&lines=${lines}`;
+  if (options.since !== undefined && Number.isFinite(options.since)) {
+    url += `&since=${Math.max(0, Math.floor(options.since))}`;
+  }
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    lastLogsPayload = data;
+
+    if (options.append && data.available) {
+      appendLogsTail(data);
+    } else {
+      attachLogsRow(data, { scrollBottom: options.scrollBottom !== false });
+      if (logsTailEnabled) startLogsTailPoll();
+    }
+
+    auditDashboard("logs", {
+      available: data.available,
+      paneId: data.paneId,
+      lineCount: data.lineCount,
+      totalLines: data.totalLines,
+      since: options.since,
+      tail: logsTailEnabled,
+      paneRestarted: data.paneRestarted,
+      session: data.session,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const failure = {
+      available: false,
+      paneId,
+      error: message,
+      lines: [],
+    };
+    lastLogsPayload = failure;
+    if (!options.append) attachLogsRow(failure);
+    console.error("dashboard.logs", error);
+  }
+}
+
+function scheduleProcessesPoll(pollMs) {
+  if (processesPollTimer) clearInterval(processesPollTimer);
+  void fetchProcesses();
+  void fetchGit();
+  const interval = Math.max(pollMs || 5000, 3000);
+  processesPollTimer = setInterval(() => {
+    void fetchProcesses();
+    void fetchGit();
+    if (activeLogsPaneId && !logsTailEnabled) {
+      void fetchPaneLogs(activeLogsPaneId, { scrollBottom: false });
+    }
+  }, interval);
+}
+
+function updatePanelHeadings() {
+  const heading = document.getElementById("agents-heading");
+  if (!heading) return;
+  const primaryLabel = metaSnapshot?.discovery?.herdrSessionLabel || "primary";
+  if (activeSession === SESSION_ALL) {
+    heading.innerHTML = `Agents · <span class="session-scope-label">all sessions</span>`;
+    return;
+  }
+  const label = sessionDisplayLabel(activeSession, primaryLabel);
+  if (normalizeSessionValue(activeSession)) {
+    heading.innerHTML = `Agents · <span class="session-scope-label">${esc(label)}</span>`;
+  } else {
+    heading.textContent = "Agents";
+  }
+}
+
+function syncSessionSelector(agents, discovery) {
+  const select = document.getElementById("session-scope");
+  if (!select) return;
+
+  const visible = shouldShowSessionSelector(discovery, agents);
+  select.hidden = !visible;
+  if (!visible) {
+    if (activeSession !== "") {
+      activeSession = "";
+      saveActiveSession(activeSession);
+      lastFilteredAgentsJson = "";
+      lastProcessesJson = "";
+      lastGitJson = "";
+      updatePanelHeadings();
+      void fetchProcesses();
+      void fetchGit();
+    }
+    return;
+  }
+
+  const primaryLabel = discovery?.herdrSessionLabel || "primary";
+  const sessions = sessionIdsFromDiscovery(discovery, agents);
+  const catalog = sessionCatalogById(discovery);
+  const options = [];
+
+  if (discovery?.multiSessionEnabled) {
+    options.push({ value: SESSION_ALL, label: "all sessions" });
+  }
+  for (const session of sessions) {
+    const meta = catalog.get(session);
+    const label = meta?.label || sessionDisplayLabel(session, primaryLabel);
+    const warn = meta && meta.reachable === false ? ` (${meta.error || "unreachable"})` : "";
+    options.push({
+      value: session,
+      label: `${label}${warn}`,
+      title: meta?.error,
+      unreachable: Boolean(meta && meta.reachable === false),
+    });
+  }
+
+  const allowed = new Set(options.map((opt) => opt.value));
+  if (!allowed.has(activeSession)) {
+    activeSession = sessions.includes("") ? "" : (options[0]?.value ?? "");
+    saveActiveSession(activeSession);
+  }
+
+  const previous = select.value;
+  select.replaceChildren();
+  for (const opt of options) {
+    const el = document.createElement("option");
+    el.value = opt.value;
+    el.textContent = opt.label;
+    if (opt.title) el.title = opt.title;
+    if (opt.unreachable) el.className = "session-unreachable";
+    select.appendChild(el);
+  }
+  select.value = allowed.has(activeSession) ? activeSession : (options[0]?.value ?? "");
+  activeSession = select.value;
+  saveActiveSession(activeSession);
+  if (previous !== select.value) {
+    lastFilteredAgentsJson = "";
+    lastProcessesJson = "";
+    lastGitJson = "";
+    void fetchProcesses();
+    void fetchGit();
+  }
+  updatePanelHeadings();
+}
+
+function wireSessionSelector() {
+  const select = document.getElementById("session-scope");
+  if (!select || select.dataset.wired === "1") return;
+  select.dataset.wired = "1";
+  select.addEventListener("change", () => {
+    activeSession = select.value;
+    saveActiveSession(activeSession);
+    lastFilteredAgentsJson = "";
+    lastProcessesJson = "";
+    lastGitJson = "";
+    resetLogsPanelState();
+    removeLogsRows();
+    updatePanelHeadings();
+    if (lastAgentsPayload) renderAgents(lastAgentsPayload);
+    void fetchProcesses();
+    void fetchGit();
+    auditDashboard("session.scope", { activeSession });
+  });
+}
 
 function auditDashboard(event, data = {}) {
   console.log(`dashboard.${event}`, data);
+}
+
+function isPrimarySession(session) {
+  return !String(session ?? "").trim();
+}
+
+function sessionCellHtml(session) {
+  const primary = isPrimarySession(session);
+  const label = primary ? "(primary)" : esc(session);
+  const klass = primary ? "session-cell session-primary" : "session-cell";
+  return `<td class="${klass}">${label}</td>`;
 }
 
 const statusClass = (status) => {
@@ -81,13 +986,18 @@ function wireAgentThumbnail(data) {
   const wrap = document.getElementById("agent-thumb-wrap");
   const img = document.getElementById("agent-thumb");
   if (!data.thumbnail || !data.thumbnailPath) {
+    thumbLive = false;
     wrap.classList.remove("visible");
     wrap.setAttribute("aria-hidden", "true");
     return;
   }
   wrap.classList.add("visible");
   wrap.setAttribute("aria-hidden", "false");
-  const thumbUrl = `${data.thumbnailPath}?width=160&height=90&quality=75`;
+  const thumbUrl = `${data.thumbnailPath}?width=160&height=90&quality=75&t=${Date.now()}`;
+  if (thumbLive) {
+    img.src = thumbUrl;
+    return;
+  }
   if (data.placeholder) {
     img.src = data.placeholder;
     img.classList.add("lqip");
@@ -100,6 +1010,7 @@ function wireAgentThumbnail(data) {
   full.onload = () => {
     img.src = thumbUrl;
     img.classList.remove("lqip");
+    thumbLive = true;
   };
   full.onerror = () => {
     if (!data.placeholder) {
@@ -148,6 +1059,63 @@ function formatWebViewLine(webview) {
   return `<span class="herdr-warn">webview ${esc(shell)} · ephemeral${configured}</span>${backend}`;
 }
 
+function formatDiscoveryWorkspace(discovery) {
+  if (!discovery?.workspaceId) return "";
+  const id = esc(discovery.workspaceId);
+  const resolution = discovery.workspaceIdResolution || "none";
+  const resolved = resolution !== "single" && resolution !== "none";
+  const suffix = resolved ? "*" : "";
+  const parts = [`workspace ${id}`];
+  if (resolved) parts.push(`resolved via ${resolution}`);
+  if (discovery.workspaceCandidateCount > 1) {
+    parts.push(`${discovery.workspaceCandidateCount} candidates`);
+  }
+  const title = esc(parts.join(" · "));
+  return ` · <span class="discovery-ws" title="${title}">${id}${suffix}</span>`;
+}
+
+function formatDiscoveryRemoteHosts(discovery) {
+  const remote = discovery.remoteHosts;
+  const configured = remote?.configured ?? discovery.remoteHostsConfigured ?? 0;
+  if (configured <= 0) return "";
+
+  const reachable = remote?.reachable ?? 0;
+  const ratio = `${reachable}/${configured} remote`;
+  const hosts = remote?.hosts ?? [];
+  const details = hosts
+    .map((host) => {
+      const label = esc(host.label);
+      if (host.reachable) {
+        const version = host.version ? ` · ${esc(host.version)}` : "";
+        return `${label}: reachable${version}`;
+      }
+      const error = host.error ? ` — ${esc(host.error)}` : "";
+      return `${label}: unreachable${error}`;
+    })
+    .join(" · ");
+  const title = esc(details || `${reachable} of ${configured} remote host(s) reachable`);
+
+  if (reachable >= configured) {
+    return ` · <span class="herdr-ok" title="${title}">${ratio}</span>`;
+  }
+  if (hosts.length === 0 && configured > 0) {
+    return ` · <span class="herdr-warn" title="${title}">?/${configured} remote</span>`;
+  }
+  return ` · <span class="herdr-bad" title="${title}">${ratio}</span>`;
+}
+
+function formatDiscoveryLine(discovery) {
+  if (discovery === undefined) {
+    return "discovery unavailable — restart dashboard server";
+  }
+  const session = esc(discovery.herdrSessionLabel || "primary");
+  const mode = esc(discovery.mode || "workspace");
+  const ws = formatDiscoveryWorkspace(discovery);
+  const multi = discovery.multiSessionEnabled ? " · multi-session" : "";
+  const remote = formatDiscoveryRemoteHosts(discovery);
+  return `discovery ${session} · ${mode}${ws}${multi}${remote}`;
+}
+
 function formatCacheLine(cache) {
   if (cache === undefined) {
     return "cache unavailable — restart dashboard server";
@@ -171,8 +1139,17 @@ function renderMetaDisplay(data) {
     `${data.projectPath || "."} · SSE ${sseSec}s · poll ${pollSec}s · stale threshold ${staleSec}s` +
     (data.dryRun ? " · dry-run" : "");
 
-  const control = document.getElementById("control-plane");
-  control.innerHTML = `${formatHerdrEventsLine(data.herdrEvents)} · ${formatCacheLine(data.cache)} · ${formatWebViewLine(data.webview)}`;
+  const status = document.getElementById("control-plane-status");
+  const statusLine = `${formatHerdrEventsLine(data.herdrEvents)} · ${formatCacheLine(data.cache)} · ${formatDiscoveryLine(data.discovery)} · ${formatWebViewLine(data.webview)}`;
+  if (status) {
+    status.innerHTML = statusLine;
+  } else {
+    const control = document.getElementById("control-plane");
+    control.innerHTML = statusLine;
+  }
+  syncSessionSelector(lastAgentsPayload?.agents, data.discovery);
+  wireSessionSelector();
+  updatePanelHeadings();
 
   const legend = document.getElementById("agents-legend");
   legend.hidden = false;
@@ -187,6 +1164,7 @@ function renderMetaDisplay(data) {
     herdrEvents: data.herdrEvents,
     cache: data.cache,
     webview: data.webview,
+    discovery: data.discovery,
   });
 }
 
@@ -219,9 +1197,14 @@ function showAgentsEmpty(message) {
 }
 
 function renderAgents(data) {
-  const agentsJson = JSON.stringify(data.agents || []);
-  if (agentsJson === lastAgentsJson) return;
-  lastAgentsJson = agentsJson;
+  lastAgentsPayload = data;
+  syncSessionSelector(data.agents, metaSnapshot?.discovery);
+  wireSessionSelector();
+
+  const agents = filterAgentsBySession(data.agents || [], activeSession);
+  const filteredJson = JSON.stringify(agents);
+  if (filteredJson === lastFilteredAgentsJson) return;
+  lastFilteredAgentsJson = filteredJson;
 
   const err = document.getElementById("agents-error");
   const body = document.getElementById("agents-body");
@@ -234,13 +1217,23 @@ function renderAgents(data) {
   }
   err.textContent = "";
 
-  const agents = data.agents || [];
   if (agents.length === 0) {
-    const hint = data.error
-      ? ` Partial errors: ${data.error}`
-      : " Start agents in Herdr or run with --sessions to scan all sessions.";
+    const total = (data.agents || []).length;
+    const scoped =
+      activeSession === SESSION_ALL || (normalizeSessionValue(activeSession) !== "" && total > 0);
+    const hint = scoped
+      ? " No agents in the selected session — pick another scope in the control-plane selector."
+      : data.error
+        ? ` Partial errors: ${data.error}`
+        : " Start agents in Herdr or run with --sessions to scan all sessions.";
     showAgentsEmpty(hint);
-    auditDashboard("agents", { ok: true, count: 0, statuses: {} });
+    auditDashboard("agents", {
+      ok: true,
+      count: 0,
+      total,
+      activeSession,
+      statuses: {},
+    });
     return;
   }
 
@@ -248,7 +1241,7 @@ function renderAgents(data) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${esc(row.host)}</td>
-      <td>${esc(row.session)}</td>
+      ${sessionCellHtml(row.session)}
       <td>${esc(row.workspaceId)}</td>
       <td>${esc(row.agent)}</td>
       <td><span class="status ${statusClass(row.status)}"${
@@ -277,6 +1270,8 @@ function renderAgents(data) {
   auditDashboard("agents", {
     ok: data.ok !== false,
     count: agents.length,
+    total: (data.agents || []).length,
+    activeSession,
     statuses,
     fetchedAt: data.fetchedAt,
   });
@@ -426,6 +1421,10 @@ document.querySelectorAll("nav button").forEach((btn) => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
 });
 
+wireSessionSelector();
+wireProcessesToggle();
+wireGitToggle();
+
 (async () => {
   const res = await fetch("/api/meta");
   const meta = await res.json();
@@ -436,4 +1435,6 @@ document.querySelectorAll("nav button").forEach((btn) => {
   scheduleMetaRefresh(meta.ssePollMs);
   connectAgentsLive();
   scheduleSecondaryPoll(poll);
+  scheduleProcessesPoll(poll);
+  void fetchGit();
 })();

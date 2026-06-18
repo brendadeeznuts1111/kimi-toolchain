@@ -4,10 +4,63 @@ name = "kimi-toolchain"
 scope = "project"
 mode = "development"
 
+# ── Version pins ─────────────────────────────────────────────────────────
+# Consolidates all version references so `dx table extract dx.config.toml version`
+# surfaces every toolchain version in one place.
+[version]
+configSchema = 1          # dx.config.toml schema version (top-level schemaVersion)
+package = "0.1.0"         # package.json version
+bunMinimum = "1.4.0"      # engines.bun / KIMI_RUNTIME_MIN_BUN_VERSION
+bunRuntime = "1.3.14"     # runtime.bunVersion (actual dev default)
+effect = "3.21.3"         # dependency
+typescript = "5.9.3"      # devDependency
+oxfmt = "0.53.0"          # devDependency (formatter)
+oxlint = "1.69.0"         # devDependency (linter)
+tuningSet = "1.4.1"       # bunfig KIMI_TUNING_SET_VERSION
+contractSchema = "1.0.0"  # bunfig KIMI_CONTRACT_SCHEMA_VERSION
+
+# ── Operational defaults ─────────────────────────────────────────────────
+# Runtime defaults surfaced from source code so dx table can audit drift
+# without grep.  Values are the canonical defaults; governor overrides in
+# ~/.kimi-code/governor/defaults.toml take precedence at runtime.
+[defaults]
+# tool-runner.ts
+toolTimeoutMs = 30000
+agentToolTimeoutMs = 15000
+toolGracePeriodMs = 5000
+toolMaxOutputBytes = 1048576
+
+# process-utils.ts / memory-budget.ts
+processCacheTtlMs = 1000
+
+# governor-config.ts BUILTIN_DEFAULTS
+governorMaxMemoryMB = 512
+governorMaxCpuTimeMs = 30000
+governorMaxParallelJobs = 2
+governorCacheTTLSeconds = 300
+governorWallClockMs = 300000
+governorMaxFileSizeMB = 100
+governorMaxOpenFiles = 256
+governorDiskQuotaMB = 1024
+
+# cloudflare-access.ts / cloudflare-access-policy.ts
+cloudflareTimeoutMs = 30000
+cloudflareRetries = 2
+cloudflareBaseDelayMs = 500
+cloudflareTokenWarnDays = 30
+
+# context-bloat-lint.ts
+agentsMaxLines = 900
+contextMaxLines = 120
+
+# herdr orchestrator dashboard (dx.config.toml herdr.orchestrator.dashboard mirrors these)
+discoveryCacheTtlMs = 5000
+dashboardStaleMs = 15000
+
 [runtime]
 containers = "none"
 packageManager = "bun"
-bunVersion = "1.3.14"
+bunVersion = "1.4.0"
 install = "bun install --frozen-lockfile"
 globalFirst = true
 
@@ -27,7 +80,7 @@ permissions = ["contents:read", "checks:write", "pull-requests:write"]
 
 [github.ci]
 disabled = true
-bunVersion = "1.3.14"
+bunVersion = "1.4.0"
 qualityJob = "quality"
 qualityTimeoutMinutes = 15
 governanceJob = "governance"
@@ -149,6 +202,7 @@ url = "https://github.com/ogulcancelik/herdr/blob/d998753efe506a04c80306795efc72
 gates = [
   "bun run check:fast",
   "kimi-doctor --effect-gates",
+  "kimi-doctor --dashboard-meta",
   "kimi-heal effect audit",
 ]
 

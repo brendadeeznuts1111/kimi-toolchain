@@ -38,14 +38,27 @@ export const UNIT_TEST_FILES = [
   "test/skill-preview.unit.test.ts",
   "test/event-bus.unit.test.ts",
   "test/cache.unit.test.ts",
+  "test/defaults-config.unit.test.ts",
   "test/herdr-dashboard-agents.unit.test.ts",
   "test/herdr-dashboard-discovery-cache.unit.test.ts",
+  "test/herdr-dashboard-discovery-meta.unit.test.ts",
+  "test/herdr-remote-host-probe.unit.test.ts",
+  "test/herdr-dashboard-meta-gate.unit.test.ts",
   "test/herdr-dashboard-events.unit.test.ts",
   "test/herdr-dashboard-server.unit.test.ts",
   "test/herdr-dashboard-webview-store.unit.test.ts",
   "test/doc-links-lint.unit.test.ts",
   "test/herdr-dashboard-http3.unit.test.ts",
+  "test/herdr-dashboard-cron.unit.test.ts",
   "test/herdr-dashboard-hub.unit.test.ts",
+  "test/herdr-dashboard-widgets.unit.test.ts",
+  "test/herdr-dashboard-widget-processes.unit.test.ts",
+  "test/herdr-dashboard-widget-logs.unit.test.ts",
+  "test/herdr-dashboard-widget-git.unit.test.ts",
+  "test/herdr-dashboard-widget-processes-action.unit.test.ts",
+  "test/herdr-dashboard-sessions.unit.test.ts",
+  "test/herdr-dashboard-session-selector.unit.test.ts",
+  "test/herdr-dashboard-watch.unit.test.ts",
   "test/herdr-dashboard-automation.unit.test.ts",
   "test/tochange-tracker.unit.test.ts",
   "test/bun-native-lint.unit.test.ts",
@@ -126,6 +139,7 @@ export const UNIT_TEST_FILES = [
   "test/herdr-workspace-match.unit.test.ts",
   "test/herdr-workspace-service.unit.test.ts",
   "test/handoff-log.unit.test.ts",
+  "test/governor-config.unit.test.ts",
   "test/governance-preflight.unit.test.ts",
   "test/canonical-references.unit.test.ts",
   "test/doctor-probe.unit.test.ts",
@@ -159,6 +173,11 @@ export const FAST_TEST_TIMEOUT_MS = 1_500;
 export const DEFAULT_TEST_TIMEOUT_MS = 30_000;
 export const CI_TEST_TIMEOUT_MS = 30_000;
 export const SMOKE_TEST_TIMEOUT_MS = 60_000;
+
+/** True when `bun test --changed` failed only because no test files matched the glob. */
+export function isBunTestChangedEmptyOutput(output: string): boolean {
+  return /No tests found/i.test(output) || /0 test files matching/i.test(output);
+}
 
 export function bunTestArgs(options: {
   coverage?: boolean;

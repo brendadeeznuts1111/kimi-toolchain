@@ -2,6 +2,7 @@
  * herdr-dashboard-data.ts — Agent, handoff, and rule payloads for the WebView dashboard.
  */
 
+export type { DashboardFetchOptions, DashboardSessionCatalog } from "./herdr-dashboard-contract.ts";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
 import { readText } from "./bun-io.ts";
 import { TOML } from "bun";
@@ -54,15 +55,6 @@ export interface DashboardHandoffsPayload {
   projectPath: string;
   entries: HandoffLogEntry[];
   fetchedAt: string;
-}
-
-export interface DashboardFetchOptions {
-  sessions?: boolean;
-  host?: string;
-  domain?: string;
-  includeDoctor?: boolean;
-  verbose?: boolean;
-  dryRun?: boolean;
 }
 
 export interface DashboardActionRequest {

@@ -1,10 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import { removePath } from "../src/lib/bun-io.ts";
+import { checkCachePath } from "../src/lib/check-result-cache.ts";
 import {
   bunTestArgs,
   FAST_TEST_TIMEOUT_MS,
+  isBunTestChangedEmptyOutput,
   UNIT_TEST_FILES,
   useFastUnitCoverage,
 } from "../src/lib/test-gates.ts";
+import { REPO_ROOT } from "./helpers.ts";
 
 const CHECK_SCRIPT = new URL("../scripts/check.ts", import.meta.url).pathname;
 
@@ -26,6 +30,16 @@ async function runCheckScript(args: string[]): Promise<{
 }
 
 describe("test-gates", () => {
+  test("isBunTestChangedEmptyOutput recognizes Bun empty --changed messages", () => {
+    expect(isBunTestChangedEmptyOutput("No tests found")).toBe(true);
+    expect(
+      isBunTestChangedEmptyOutput(
+        'error: 0 test files matching **{.test,.spec} in --cwd="/tmp/proj"'
+      )
+    ).toBe(true);
+    expect(isBunTestChangedEmptyOutput("1 fail\n3 pass")).toBe(false);
+  });
+
   test("bunTestArgs defaults include bail and 30s timeout", () => {
     expect(bunTestArgs({ bail: true })).toEqual(["test", "--timeout", "30000", "--bail"]);
   });
@@ -240,6 +254,9 @@ describe("test-gates", () => {
   test(
     "check script cache-results json-summary uses cache on second run",
     async () => {
+      // Isolate from developer .kimi/gate-cache.json — stale failed entries can match the
+      // current cache key and short-circuit the subprocess (not a scoped-gate race).
+      removePath(checkCachePath(REPO_ROOT), { force: true });
       const args = ["--fast", "--cache-results", "--json-summary", "--skip-tests"];
       const first = await runCheckScript(args);
       expect(first.exitCode).toBe(0);

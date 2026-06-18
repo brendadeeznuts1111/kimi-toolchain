@@ -19,12 +19,27 @@ export interface GovernorDefaults {
   wallClockMs: number;
 }
 
+/** Bun 1.4+ cgroup-aware parallelism — not yet in @types/bun 1.3.14. */
+export function bunAvailableParallelism(): number | undefined {
+  const fn = (Bun as { availableParallelism?: () => number }).availableParallelism;
+  if (typeof fn !== "function") return undefined;
+  const value = fn();
+  return value > 0 ? value : undefined;
+}
+
+/** Cgroup-aware CPU parallelism (Bun 1.4+), else hardware concurrency. */
+export function resolveHardwareParallelism(): number {
+  const cgroupAware = bunAvailableParallelism();
+  if (cgroupAware !== undefined) return cgroupAware;
+  return navigator.hardwareConcurrency || 4;
+}
+
 const BUILTIN: GovernorDefaults = {
   maxMemoryMB: 512,
   maxCpuTimeMs: 30000,
   maxFileSizeMB: 100,
   maxOpenFiles: 256,
-  maxParallelJobs: Math.max(2, Math.floor((navigator.hardwareConcurrency || 4) * 0.75)),
+  maxParallelJobs: Math.max(2, Math.floor(resolveHardwareParallelism() * 0.75)),
   diskQuotaMB: 1024,
   cacheTTLSeconds: 300,
   wallClockMs: 300000,
@@ -79,10 +94,11 @@ export async function loadGovernorDefaults(): Promise<GovernorDefaults> {
       const text = await Bun.file(CONFIG_PATH).text();
       merged = { ...merged, ...parseGovernorToml(text) };
     } catch {
-      /* use builtin */
+      /* use previous */
     }
   }
 
+  // 3. Runtime detection (memory-based parallel cap)
   try {
     const freeMB = await getFreeMemoryMB();
     if (freeMB < 2048) {

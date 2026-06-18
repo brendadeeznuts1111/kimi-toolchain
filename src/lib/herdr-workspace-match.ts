@@ -115,7 +115,12 @@ function defaultWorkspacePaneCount(workspaceId: string, session: string): number
   return listed.ok ? ((listed.json?.result?.panes || []) as unknown[]).length : 0;
 }
 
-/** When several workspaces match, prefer the one with the most panes in this session. */
+/**
+ * When several workspaces match, prefer the one with the most panes in this session.
+ * Candidates are sorted lexicographically before comparison so ties are stable across
+ * restarts — stable does not imply user intent (equal pane counts may still pick wA
+ * over wB only because of id ordering, which can correlate with creation order).
+ */
 export function pickBestWorkspaceId(
   workspaceIds: string[],
   session = "",
@@ -124,11 +129,12 @@ export function pickBestWorkspaceId(
   if (workspaceIds.length === 0) {
     throw new Error("pickBestWorkspaceId requires at least one workspace id");
   }
-  if (workspaceIds.length === 1) return workspaceIds[0]!;
+  const ordered = [...workspaceIds].sort((a, b) => a.localeCompare(b));
+  if (ordered.length === 1) return ordered[0]!;
 
-  let bestId = workspaceIds[0]!;
+  let bestId = ordered[0]!;
   let bestCount = -1;
-  for (const workspaceId of workspaceIds) {
+  for (const workspaceId of ordered) {
     const count = paneCount(workspaceId, session);
     if (count > bestCount) {
       bestCount = count;
@@ -138,13 +144,106 @@ export function pickBestWorkspaceId(
   return bestId;
 }
 
+export type WorkspaceIdResolution =
+  | "none"
+  | "single"
+  | "focused_cwd"
+  | "cwd"
+  | "pane_count"
+  | "lexicographic";
+
+export interface ResolvedPrimaryWorkspace {
+  workspaceId: string | null;
+  resolution: WorkspaceIdResolution;
+  candidateIds: string[];
+}
+
+function sortedWorkspaceCandidates(workspaceIds: string[]): string[] {
+  return [...workspaceIds].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Pick the primary workspace for dashboard meta and discovery.
+ * Priority: focused+cwd match → cwd match → most panes → lexicographic id.
+ * The lexicographic fallback is deterministic but not semantically meaningful — see
+ * pickBestWorkspaceId.
+ */
+export function resolvePrimaryWorkspaceId(config: HerdrProjectConfig): ResolvedPrimaryWorkspace {
+  const { workspaceIds } = findAllWorkspacesForProject(config);
+  const candidates = sortedWorkspaceCandidates(workspaceIds);
+  if (candidates.length === 0) {
+    return { workspaceId: null, resolution: "none", candidateIds: [] };
+  }
+  if (candidates.length === 1) {
+    return { workspaceId: candidates[0]!, resolution: "single", candidateIds: candidates };
+  }
+
+  const projectPath = normalizeProjectPath(config.projectPath || "");
+  const workspaces = listWorkspaces(config.session);
+  if (workspaces.ok && projectPath) {
+    const rows = (workspaces.json?.result?.workspaces || []) as Array<{
+      workspace_id?: string;
+      cwd?: string;
+      focused?: boolean;
+    }>;
+
+    const focusedCwd = rows.find(
+      (ws) =>
+        ws.workspace_id &&
+        candidates.includes(ws.workspace_id) &&
+        ws.focused &&
+        ws.cwd &&
+        normalizeProjectPath(ws.cwd) === projectPath
+    );
+    if (focusedCwd?.workspace_id) {
+      return {
+        workspaceId: focusedCwd.workspace_id,
+        resolution: "focused_cwd",
+        candidateIds: candidates,
+      };
+    }
+
+    const cwdMatch = rows.find(
+      (ws) =>
+        ws.workspace_id &&
+        candidates.includes(ws.workspace_id) &&
+        ws.cwd &&
+        normalizeProjectPath(ws.cwd) === projectPath
+    );
+    if (cwdMatch?.workspace_id) {
+      return {
+        workspaceId: cwdMatch.workspace_id,
+        resolution: "cwd",
+        candidateIds: candidates,
+      };
+    }
+  }
+
+  const paneCounts = candidates.map((id) => defaultWorkspacePaneCount(id, config.session));
+  const maxCount = Math.max(...paneCounts);
+  if (maxCount > 0) {
+    return {
+      workspaceId: pickBestWorkspaceId(candidates, config.session),
+      resolution: "pane_count",
+      candidateIds: candidates,
+    };
+  }
+
+  return {
+    workspaceId: candidates[0]!,
+    resolution: "lexicographic",
+    candidateIds: candidates,
+  };
+}
+
 export function findWorkspaceForProject(config: HerdrProjectConfig) {
   const { workspaceIds: ids, errors } = findAllWorkspacesForProject(config);
   if (ids.length > 0) {
-    const workspaceId = pickBestWorkspaceId(ids, config.session);
+    const resolved = resolvePrimaryWorkspaceId(config);
     return {
-      workspaceId,
-      reason: ids.length > 1 ? `best_match:${workspaceId}` : workspaceId,
+      workspaceId: resolved.workspaceId,
+      reason:
+        ids.length > 1 ? `${resolved.resolution}:${resolved.workspaceId}` : resolved.workspaceId,
     };
   }
   if (errors.length > 0) {

@@ -7,7 +7,11 @@ import { resolveHerdrSession } from "./herdr-project-cli.ts";
 import { HerdrSessionError, requireSessionRunning } from "./herdr-session-preflight.ts";
 import { homeDir } from "./paths.ts";
 import { resolveHerdrPanePath } from "./herdr-pane-service.ts";
-import { probeHerdrSocketTransport } from "./herdr-socket-transport.ts";
+import {
+  probeHerdrSocketHealth,
+  probeHerdrSocketTransport,
+  type HerdrSocketHealthProbe,
+} from "./herdr-socket-transport.ts";
 
 const KNOWN_TOP_LEVEL = new Set([
   "onboarding",
@@ -30,6 +34,125 @@ const DEPRECATED_SECTIONS: Record<string, string> = {
 export interface HerdrDoctorOptions {
   fix?: boolean;
   requireSessionRunning?: (sessionName?: string) => Promise<void>;
+}
+
+export type HerdrSocketDoctorHintCode =
+  | "EADDRINUSE"
+  | "ENOENT"
+  | "ECONNREFUSED"
+  | "stale_socket"
+  | "healthy";
+
+export type HerdrSocketDoctorHint = {
+  code: HerdrSocketDoctorHintCode;
+  severity: "info" | "warn" | "error";
+  summary: string;
+  detail: string;
+  action?: string;
+};
+
+/** Reference hints for unix socket bind/connect failures (taxonomy: port_conflict / network_timeout). */
+export const HERDR_SOCKET_ERROR_HINTS: Record<
+  "EADDRINUSE" | "ENOENT" | "ECONNREFUSED",
+  HerdrSocketDoctorHint
+> = {
+  EADDRINUSE: {
+    code: "EADDRINUSE",
+    severity: "warn",
+    summary: "Unix socket path already bound",
+    detail:
+      "Another herdr server or stale listener holds this socket path. Bun 1.4+ returns EADDRINUSE on bind instead of silently replacing the file.",
+    action:
+      "Run `herdr status` (or `herdr --session NAME status`). Stop the live server, or remove a stale socket only after confirming nothing is listening.",
+  },
+  ENOENT: {
+    code: "ENOENT",
+    severity: "warn",
+    summary: "Unix socket file missing",
+    detail:
+      "The expected herdr.sock path does not exist — the server is not running or a different session/path is in use.",
+    action: "Start the server: `herdr server` or `herdr --session NAME server`.",
+  },
+  ECONNREFUSED: {
+    code: "ECONNREFUSED",
+    severity: "warn",
+    summary: "Unix socket not accepting connections",
+    detail:
+      "Connect to the socket path was refused. The file may be stale (crashed server) or the listener is not ready yet.",
+    action:
+      "If the file exists but connect fails, remove the stale socket and restart: `rm -f <socket> && herdr server`.",
+  },
+};
+
+/** Structured socket hints from health probe + optional server status. */
+export function buildHerdrSocketDoctorHints(
+  health: HerdrSocketHealthProbe,
+  options: { serverRunning?: boolean } = {}
+): HerdrSocketDoctorHint[] {
+  const hints: HerdrSocketDoctorHint[] = [];
+  const serverRunning = options.serverRunning ?? false;
+
+  if (!health.socketFileExists && !serverRunning) {
+    hints.push({
+      ...HERDR_SOCKET_ERROR_HINTS.ENOENT,
+      detail: `${HERDR_SOCKET_ERROR_HINTS.ENOENT.detail} Path: ${health.socketPath}.`,
+    });
+  }
+
+  if (health.socketFileExists && !health.connectable) {
+    const stale: HerdrSocketDoctorHint = {
+      code: "stale_socket",
+      severity: "warn",
+      summary: "Stale unix socket file",
+      detail: `${health.socketPath} exists but Bun.connect could not reach a live listener.`,
+      action: `Confirm no server is running, then: rm -f ${health.socketPath} && herdr server`,
+    };
+    hints.push(stale);
+    const connectCode = health.connectErrorCode?.toUpperCase();
+    if (connectCode === "ECONNREFUSED") {
+      hints.push({
+        ...HERDR_SOCKET_ERROR_HINTS.ECONNREFUSED,
+        detail: `${HERDR_SOCKET_ERROR_HINTS.ECONNREFUSED.detail} Path: ${health.socketPath}.`,
+      });
+    } else if (connectCode === "ENOENT") {
+      hints.push({
+        ...HERDR_SOCKET_ERROR_HINTS.ENOENT,
+        detail: `${HERDR_SOCKET_ERROR_HINTS.ENOENT.detail} Path: ${health.socketPath}.`,
+      });
+    }
+  }
+
+  if (health.socketFileExists && health.connectable && serverRunning) {
+    hints.push({
+      code: "healthy",
+      severity: "info",
+      summary: "Unix socket healthy",
+      detail: `${health.socketPath} exists and accepts connections.`,
+    });
+  }
+
+  if (health.socketFileExists && health.connectable && !serverRunning) {
+    hints.push({
+      code: "healthy",
+      severity: "info",
+      summary: "Socket connectable but herdr status is not running",
+      detail:
+        "The socket accepts connections but `herdr status` did not report running — verify session routing (`--session` / HERDR_SOCKET_PATH).",
+      action: "Use `herdr --session NAME status` when the project uses a named session.",
+    });
+  }
+
+  if (!health.socketFileExists && serverRunning) {
+    hints.push({
+      code: "ENOENT",
+      severity: "warn",
+      summary: "Server reports running but socket file missing",
+      detail: `herdr status says running but ${health.socketPath} was not found — session/path mismatch likely.`,
+      action: "Align `herdr --session`, HERDR_SOCKET_PATH, and project `[herdr].session`.",
+    });
+  }
+
+  return hints;
 }
 
 function dxDir(home = homeDir()): string {
@@ -249,6 +372,7 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
   );
   const parsedVersion = parseVersion(version.output);
   const socketTransportProbe = probeHerdrSocketTransport();
+  const socketHealthProbe = await probeHerdrSocketHealth(socketTransportProbe.socketPath);
 
   if (!binary) blockers.push("herdr binary missing from PATH");
   if (!configExists) blockers.push(`missing config: ${configPath}`);
@@ -313,6 +437,7 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
   const outdated: string[] = [];
   let manifestStatus = { ok: false, stale: [] as string[], result: null as unknown };
   let serverRunning = false;
+  let socketHints = buildHerdrSocketDoctorHints(socketHealthProbe);
 
   if (blockers.length === 0) {
     try {
@@ -321,6 +446,7 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
 
       status = run("herdr", ["status"]);
       serverRunning = /status:\s*running/.test(status.output);
+      socketHints = buildHerdrSocketDoctorHints(socketHealthProbe, { serverRunning });
       if (!serverRunning) warnings.push("herdr server is not running");
 
       const integrationStatus = run("herdr", ["integration", "status"]);
@@ -361,6 +487,12 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
     }
   }
 
+  for (const hint of socketHints) {
+    if (hint.severity === "warn" || hint.severity === "error") {
+      warnings.push(`${hint.summary}: ${hint.detail}`);
+    }
+  }
+
   return {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
@@ -388,6 +520,9 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
       paneService: Boolean(paneBinary),
       socketTransport:
         socketTransportProbe.transport === "jsonl" || socketTransportProbe.wsSupported,
+      socketHealth: socketHealthProbe.socketFileExists
+        ? socketHealthProbe.connectable
+        : !serverRunning,
     },
     details: {
       binary,
@@ -405,6 +540,9 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
       projectProfiles,
       fixes,
       socketTransportProbe,
+      socketHealthProbe,
+      socketHints,
+      socketErrorHints: HERDR_SOCKET_ERROR_HINTS,
     },
     readiness: {
       ready: blockers.length === 0,
@@ -436,6 +574,18 @@ export function printHerdrDoctorHuman(report: HerdrDoctorReport): void {
     writeOut(
       `Socket transport: ${probe.transport} (ws+unix: ${probe.wsSupported ? "yes" : "no"}, path: ${probe.socketPath})`
     );
+  }
+  if (report.details.socketHealthProbe) {
+    const health = report.details.socketHealthProbe;
+    writeOut(
+      `Socket health: file=${health.socketFileExists ? "yes" : "no"}, connectable=${health.connectable ? "yes" : "no"} (${health.socketPath})`
+    );
+  }
+  if (report.details.socketHints?.length) {
+    for (const hint of report.details.socketHints) {
+      writeOut(`Socket hint [${hint.code}]: ${hint.summary}`);
+      if (hint.action) writeOut(`  action: ${hint.action}`);
+    }
   }
   writeOut(`Config: ${report.details.configPath}`);
   if (report.details.fixes?.length) writeOut(`Fixes: ${report.details.fixes.join("; ")}`);

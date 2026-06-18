@@ -2,6 +2,7 @@
  * Herdr socket transport selection — JSONL over Bun.connect vs ws+unix:// WebSocket.
  */
 
+import { pathExists } from "./bun-io.ts";
 import {
   connectHerdrUnixSocket,
   resolveHerdrSocketPath,
@@ -48,6 +49,101 @@ export type HerdrSocketTransportProbe = {
   wsSupported: boolean;
   socketPath: string;
 };
+
+export type HerdrSocketHealthProbe = {
+  socketPath: string;
+  socketFileExists: boolean;
+  connectable: boolean;
+  connectErrorCode?: string;
+  connectErrorMessage?: string;
+};
+
+const SOCKET_CONNECT_PROBE_MS = 800;
+
+function socketErrorCode(error: unknown): string | undefined {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === "string") return code;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  const match = message.match(/\b(EADDRINUSE|ENOENT|ECONNREFUSED|ETIMEDOUT)\b/);
+  return match?.[1];
+}
+
+function socketErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Quick Bun.connect probe — resolves when open fires or connectError/timeout. */
+export async function probeSocketConnectable(
+  socketPath: string,
+  timeoutMs = SOCKET_CONNECT_PROBE_MS
+): Promise<
+  Pick<HerdrSocketHealthProbe, "connectable" | "connectErrorCode" | "connectErrorMessage">
+> {
+  let settled = false;
+  let result: Pick<
+    HerdrSocketHealthProbe,
+    "connectable" | "connectErrorCode" | "connectErrorMessage"
+  > = {
+    connectable: false,
+    connectErrorCode: "ETIMEDOUT",
+    connectErrorMessage: `connect probe timed out after ${timeoutMs}ms`,
+  };
+
+  const finish = (
+    next: Pick<HerdrSocketHealthProbe, "connectable" | "connectErrorCode" | "connectErrorMessage">
+  ) => {
+    if (settled) return;
+    settled = true;
+    result = next;
+  };
+
+  void Bun.connect({
+    unix: socketPath,
+    socket: {
+      open(socket) {
+        socket.end();
+        finish({ connectable: true });
+      },
+      connectError(_socket, error) {
+        finish({
+          connectable: false,
+          connectErrorCode: socketErrorCode(error),
+          connectErrorMessage: socketErrorMessage(error),
+        });
+      },
+      error(_socket, error) {
+        finish({
+          connectable: false,
+          connectErrorCode: socketErrorCode(error),
+          connectErrorMessage: socketErrorMessage(error),
+        });
+      },
+      data() {},
+      close() {},
+      end() {},
+    },
+  });
+
+  const deadline = Date.now() + timeoutMs;
+  while (!settled && Date.now() < deadline) {
+    await Bun.sleep(25);
+  }
+
+  return result;
+}
+
+/** Doctor probe: socket path, on-disk file, and live connectability. */
+export async function probeHerdrSocketHealth(socketPath?: string): Promise<HerdrSocketHealthProbe> {
+  const path = socketPath ?? resolveHerdrSocketPath();
+  const socketFileExists = pathExists(path);
+  if (!socketFileExists) {
+    return { socketPath: path, socketFileExists, connectable: false };
+  }
+  const connect = await probeSocketConnectable(path);
+  return { socketPath: path, socketFileExists, ...connect };
+}
 
 /** Doctor probe: env transport mode, ws+unix URL support, resolved socket path. */
 export function probeHerdrSocketTransport(socketPath?: string): HerdrSocketTransportProbe {

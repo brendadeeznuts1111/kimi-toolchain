@@ -114,6 +114,25 @@ Official Herdr runtime vars ([integrations docs](https://herdr.dev/docs/preview/
 
 **Session routing caveat (Herdr 0.7.0):** `HERDR_SESSION` env alone does **not** select the CLI socket. Automation must pass `herdr --session NAME` on the command line or set `HERDR_SOCKET_PATH` to the named session socket. kimi-toolchain implements this in `src/lib/herdr-project-cli.ts` (`herdrSessionArgs`, `herdrSessionEnv`).
 
+### unix socket lifecycle (Bun 1.4+)
+
+Herdr listens on a filesystem unix socket (`herdr.sock`). Bun **1.4+** changed bind behavior:
+
+| Phase           | Behavior                                                                                                                      |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Start**       | `Bun.listen({ unix: path })` creates `herdr.sock` and accepts connections                                                     |
+| **Double bind** | Second bind on the same path throws **`EADDRINUSE`** (no silent socket replacement)                                           |
+| **Stop**        | `server.stop()` closes the listener and **unlinks** the socket file                                                           |
+| **Stale file**  | If `herdr.sock` exists but connect fails (`ECONNREFUSED`), the file is stale — remove it only after confirming no live server |
+
+**Diagnostics:** `herdr-doctor` probes `socketFileExists` + `connectable` and emits structured hints for `ENOENT` (missing server), `EADDRINUSE` (path already bound), and `ECONNREFUSED` (stale or not ready). Taxonomy: `port_conflict` / `network_timeout` in `error-taxonomy.yml`.
+
+```bash
+herdr status
+herdr-doctor                    # socket health + session alignment
+rm -f ~/.config/herdr/herdr.sock && herdr server   # only when socket is stale
+```
+
 **Inside a pane** (`HERDR_ENV=1`): use `HERDR_PANE_ID` for `herdr pane report-agent` / `report-metadata`. finish-work and reviewer escalation depend on these — see `skills/finish-work/SKILL.md`.
 
 Plugin invoke context vars (`HERDR_PLUGIN_CONTEXT_JSON`, `HERDR_ORCHESTRATOR_DOMAIN`, …): see `skills/orchestrator/SKILL.md`.

@@ -23,6 +23,7 @@ import {
   computeCheckCacheKey,
   loadCheckCache,
   saveCheckCache,
+  shouldPersistCheckCache,
 } from "../src/lib/check-result-cache.ts";
 import { printWatchDryRun, printWatchTestsDryRun } from "../src/lib/check-watch.ts";
 import { startCheckWatchMode } from "./check-watch-runner.ts";
@@ -172,13 +173,13 @@ async function runWithCache(options: CheckOptions): Promise<CheckRunResult> {
     const key = await computeCheckCacheKey(REPO_ROOT, options);
     if (key) {
       const cached = await loadCheckCache(REPO_ROOT, key);
-      if (cached) return cached;
+      if (cached?.passed) return cached;
     }
   }
 
   const result = await runCheckPipeline(REPO_ROOT, options);
 
-  if (options.cacheResults && !options.dryRun) {
+  if (options.cacheResults && !options.dryRun && shouldPersistCheckCache(result)) {
     const key = await computeCheckCacheKey(REPO_ROOT, options);
     if (key) await saveCheckCache(REPO_ROOT, key, result);
   }

@@ -1,10 +1,13 @@
 import { describe, expect, mock, test } from "bun:test";
 import { join } from "path";
+import { bunImageSupported } from "../src/lib/bun-image.ts";
 import {
   AGENT_ATTACH_SELECTOR,
   AGENTS_BODY_SELECTOR,
   DASHBOARD_READY_EVAL,
   DASHBOARD_SCROLL_SETTLE_MS,
+  DASHBOARD_SCREENSHOT_SCROLL_EVERY_N,
+  feedDashboardScreenshotPng,
   runHerdrDashboardAutomation,
   scrollToDashboardAgentsBody,
   waitForDashboardReady,
@@ -67,6 +70,84 @@ describe("herdr-dashboard-automation", () => {
     expect(await scrollToDashboardAgentsBody(view, { timeoutMs: 2_000 })).toBe(true);
     expect(AGENTS_BODY_SELECTOR).toBe("#agents-body");
   }, 10_000);
+
+  test("feedDashboardScreenshotPng scrolls agents body before each screenshot capture", async () => {
+    expect(DASHBOARD_SCREENSHOT_SCROLL_EVERY_N).toBe(1);
+
+    const callOrder: string[] = [];
+    const scrollTo = mock(async () => {
+      callOrder.push("scrollTo");
+    });
+    const screenshot = mock(async () => {
+      callOrder.push("screenshot");
+      return new Uint8Array(128);
+    });
+    const evaluate = mock(async () => true);
+    const view = { scrollTo, screenshot, evaluate } as unknown as Bun.WebView;
+    const setScreenshotPng = mock();
+
+    const controller = new AbortController();
+    const feed = feedDashboardScreenshotPng(
+      view,
+      { setScreenshotPng },
+      {
+        signal: controller.signal,
+        pollMs: 1,
+        readyTimeoutMs: 100,
+      }
+    );
+
+    await Bun.sleep(DASHBOARD_SCROLL_SETTLE_MS + 50);
+    controller.abort();
+    await feed;
+
+    expect(screenshot).toHaveBeenCalled();
+    const screenshotIdx = callOrder.indexOf("screenshot");
+    expect(screenshotIdx).toBeGreaterThan(0);
+    expect(callOrder[screenshotIdx - 1]).toBe("scrollTo");
+    expect(setScreenshotPng).toHaveBeenCalled();
+  });
+
+  test("feedDashboardScreenshotPng populates /api/thumbnail cache", async () => {
+    if (!webViewSupported()) return;
+    if (!bunImageSupported()) return;
+
+    const server = startHerdrDashboardServer({
+      projectPath: REPO_ROOT,
+      port: 0,
+      sessions: false,
+    });
+    const controller = new AbortController();
+    try {
+      await using view = new Bun.WebView({ width: 960, height: 720, url: server.url });
+      const feed = feedDashboardScreenshotPng(view, server, {
+        signal: controller.signal,
+        pollMs: 300,
+      });
+
+      const deadline = Date.now() + 12_000;
+      let thumbnailOk = false;
+      while (Date.now() < deadline) {
+        const res = (await fetch(`${server.url}api/thumbnail`)) as unknown as {
+          ok: boolean;
+          status: number;
+          headers: { get(name: string): string | null };
+        };
+        if (res.ok && res.headers.get("content-type") === "image/webp") {
+          thumbnailOk = true;
+          break;
+        }
+        await Bun.sleep(300);
+      }
+
+      controller.abort();
+      await feed;
+      expect(thumbnailOk).toBe(true);
+    } finally {
+      controller.abort();
+      server.stop();
+    }
+  }, 15_000);
 
   test("runHerdrDashboardAutomation captures dashboard PNG", async () => {
     if (!webViewSupported()) return;
