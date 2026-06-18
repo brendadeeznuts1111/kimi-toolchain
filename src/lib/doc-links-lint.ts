@@ -76,6 +76,14 @@ export const BUN_DOC_LINK_CONSTANTS = [
       pathnamePrefix: "/docs/pm/cli/install",
     } satisfies BunDocLinkMatchSpec,
   },
+  {
+    constant: "BUN_IMAGE_DOCS_URL",
+    definingFile: "src/lib/bun-image.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathnamePrefix: "/docs/runtime/image",
+    } satisfies BunDocLinkMatchSpec,
+  },
 ] as const;
 
 const DEFAULT_DOC_PROTOCOLS = ["http:", "https:"] as const;
@@ -194,13 +202,13 @@ export function scanDocLinkFile(rel: string, text: string): DocLinkViolation[] {
       const isBareHostReference = !/^https?:\/\//i.test(raw);
       if (isBareHostReference && isComment) continue;
       violations.push({
-          file: rel,
-          line: lineNo,
-          rule: "prefer-bun-com-docs",
-          message:
-            "legacy Bun docs host → prefer bun.com/docs for deep links (allowlist: canonical-references.ts ecosystem root)",
-          snippet: trimmed.slice(0, 120) || raw.slice(0, 120),
-        });
+        file: rel,
+        line: lineNo,
+        rule: "prefer-bun-com-docs",
+        message:
+          "legacy Bun docs host → prefer bun.com/docs for deep links (allowlist: canonical-references.ts ecosystem root)",
+        snippet: trimmed.slice(0, 120) || raw.slice(0, 120),
+      });
     }
 
     if (isComment) continue;

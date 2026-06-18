@@ -40,7 +40,7 @@ describe("doc-links-lint", () => {
   });
 
   test("extractDocLinkUrls finds bare bun.sh/docs without protocol", () => {
-    const urls = extractDocLinkUrls('see bun.sh/docs/runtime/webview for details');
+    const urls = extractDocLinkUrls("see bun.sh/docs/runtime/webview for details");
     expect(urls).toHaveLength(1);
     expect(urls[0]?.parts.hostname).toBe("bun.sh");
     expect(urls[0]?.parts.pathname).toBe("/docs/runtime/webview");
@@ -76,6 +76,38 @@ describe("doc-links-lint", () => {
       'export const BUN_WEBVIEW_DOCS_URL = "https://bun.com/docs/runtime/webview";\n'
     );
     expect(violations).toHaveLength(0);
+  });
+
+  test("allows BUN_INSTALL_DOC_URL definition in bun-install-config.ts", () => {
+    const violations = scanDocLinkFile(
+      "src/lib/bun-install-config.ts",
+      'export const BUN_INSTALL_DOC_URL = "https://bun.com/docs/pm/cli/install";\n'
+    );
+    expect(violations).toHaveLength(0);
+  });
+
+  test("flags raw install doc URL in consumer modules", () => {
+    const violations = scanDocLinkFile(
+      "src/lib/example.ts",
+      '  console.log("see https://bun.com/docs/pm/cli/install");\n'
+    );
+    expect(violations.some((v) => v.rule === "use-doc-constant")).toBe(true);
+  });
+
+  test("allows BUN_IMAGE_DOCS_URL definition in bun-image.ts", () => {
+    const violations = scanDocLinkFile(
+      "src/lib/bun-image.ts",
+      'export const BUN_IMAGE_DOCS_URL = "https://bun.com/docs/runtime/image";\n'
+    );
+    expect(violations).toHaveLength(0);
+  });
+
+  test("flags raw image doc URL in consumer modules", () => {
+    const violations = scanDocLinkFile(
+      "src/lib/herdr-dashboard-server.ts",
+      '  writeOut("see https://bun.com/docs/runtime/image#terminals");\n'
+    );
+    expect(violations.some((v) => v.rule === "use-doc-constant")).toBe(true);
   });
 
   test("flags raw webview URL in consumer modules", () => {

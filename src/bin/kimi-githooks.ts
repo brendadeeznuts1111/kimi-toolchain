@@ -21,6 +21,7 @@ import {
 } from "../lib/utils.ts";
 
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
+import { ensureWorktreeClean } from "../lib/git-helpers.ts";
 import { toolsDir } from "../lib/paths.ts";
 import { logDecision } from "../lib/decision-ledger.ts";
 import { ensureProcessTrace } from "../lib/effect/trace-context.ts";
@@ -143,7 +144,22 @@ fi
 `;
 
 /** Bump when hook shell template changes — doctor/fix use this to detect stale installs. */
-const HOOK_TEMPLATE_REV = "2026-06-17";
+const HOOK_TEMPLATE_REV = "2026-06-18";
+
+const HOOK_WORKTREE_GUARD = `# Repair stale core.worktree left by test repos or concurrent hook runs
+WT_STALE=$(git config --local core.worktree 2>/dev/null || true)
+if [ -n "$WT_STALE" ]; then
+  WT_REAL=$(GIT_WORK_TREE='' git rev-parse --show-toplevel 2>/dev/null || true)
+  WT_STALE_REAL=$(realpath "$WT_STALE" 2>/dev/null || echo "$WT_STALE")
+  WT_ACTUAL_REAL=$(realpath "$WT_REAL" 2>/dev/null || echo "$WT_REAL")
+  if [ "$WT_STALE_REAL" != "$WT_ACTUAL_REAL" ]; then
+    git config --local --unset core.worktree 2>/dev/null || true
+    echo "⚠ kimi-githooks: repaired stale core.worktree → $WT_STALE" >&2
+    echo "  Actual repo root: $WT_REAL" >&2
+  fi
+fi
+unset WT_STALE WT_REAL WT_STALE_REAL WT_ACTUAL_REAL
+`;
 
 const PRE_COMMIT_HOOK = `#!/bin/sh
 # Auto-installed by kimi-githooks
@@ -151,6 +167,7 @@ const PRE_COMMIT_HOOK = `#!/bin/sh
 # P0: Block secrets; P1: quality gates (quiet when KIMI_QUIET=1 or KIMI_AGENT_SESSION)
 
 if [ -n "$KIMI_AGENT_SESSION" ]; then export KIMI_QUIET=1; fi
+${HOOK_WORKTREE_GUARD}
 ${HOOK_GITHOOKS_RESOLVER}
 $GITHOOKS run-gates pre-commit || exit 1
 exit 0
@@ -164,6 +181,7 @@ const PRE_PUSH_HOOK = `#!/bin/sh
 
 if [ -z "$KIMI_QUIET" ]; then export KIMI_QUIET=1; fi
 if [ -n "$KIMI_AGENT_SESSION" ]; then export KIMI_QUIET=1; fi
+${HOOK_WORKTREE_GUARD}
 ${HOOK_GITHOOKS_RESOLVER}
 $GITHOOKS run-gates pre-push || exit 1
 exit 0
@@ -467,6 +485,13 @@ async function main(): Promise<number> {
   }
   if (command === "run-gates") {
     ensureQuietEnv();
+    const wtGuard = await ensureWorktreeClean(projectDir);
+    if (wtGuard.wasStale) {
+      Bun.stderr.write(
+        `⚠ kimi-githooks: repaired stale core.worktree → ${wtGuard.stalePath}\n` +
+          `  Actual repo root: ${wtGuard.actualRoot}\n`
+      );
+    }
     const hook = cmdArgs[1];
     if (hook === "pre-commit") {
       if (dryRun) return runPreCommitDryRun(projectDir);

@@ -104,6 +104,7 @@ export const UNIT_TEST_FILES = [
   "test/taxonomy-coverage.unit.test.ts",
   "test/quiet-mode.unit.test.ts",
   "test/gate-runner.unit.test.ts",
+  "test/git-helpers.unit.test.ts",
   "test/kimi-githooks.unit.test.ts",
   "test/identity-matrix.unit.test.ts",
   "test/lint-test-names.unit.test.ts",
