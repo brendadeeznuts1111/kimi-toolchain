@@ -69,6 +69,38 @@
 | 2 | `kimi-fix .` | All 22 scaffold files | `tsconfig.json`, `.gitignore`, `index.ts`, `README.md` | `!pathExists()` guard in `kimi-fix.ts` (non-destructive). Field is already clear because `-m` skipped the four files. |
 | 3 | `bun run check:fast` | Validation only | None | Confirms scaffold integrity |
 
+```mermaid
+flowchart TD
+    A[bun create kimi-toolchain my-app] --> B{Copy template}
+    B --> C[package.json only]
+    C --> D[bun-create.postinstall]
+    D --> E[bun install -g kimi-toolchain]
+    E --> F[kimi-fix .]
+    F --> G{!pathExists?}
+
+    G -- tsconfig.json missing --> H1[write hardened tsconfig]
+    G -- .gitignore missing --> H2[write hardened .gitignore]
+    G -- index.ts missing --> H3[write entry point]
+    G -- README.md missing --> H4[write project README]
+    G -- other 18 files --> H5[write remaining scaffold]
+    G -- files exist --> SKIP[skip — non-destructive]
+
+    H1 --> I[bunfig.toml + oxfmt/oxlint + dx.config]
+    H2 --> I
+    H3 --> I
+    H4 --> I
+    H5 --> I
+    SKIP --> I
+
+    I --> J[governance fix + guardian fix + githooks]
+    J --> K[bun run check:fast]
+    K --> L[✓ hardened project]
+
+    style A fill:#1a1a2e,stroke:#e94560,color:#fff
+    style L fill:#1a1a2e,stroke:#00ff88,color:#fff
+    style SKIP fill:#333,stroke:#ffaa00,color:#ffaa00
+```
+
 > **Why this order matters:** The `-m` flag is the only thing that keeps `bun init` from fighting `kimi-fix` over `tsconfig.json`, `index.ts`, `.gitignore`, and `README.md`. Without it, `bun init` creates basic versions first, and `kimi-fix`'s `!pathExists()` guard skips them — leaving the project with Bun's defaults instead of the hardened toolchain versions.
 
 ---
