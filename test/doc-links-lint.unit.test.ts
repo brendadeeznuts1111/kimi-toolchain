@@ -1,7 +1,51 @@
 import { describe, expect, test } from "bun:test";
-import { scanDocLinkFile } from "../src/lib/doc-links-lint.ts";
+import {
+  docLinkUrlMatchesSpec,
+  extractDocLinkUrls,
+  parseDocLinkUrl,
+  scanDocLinkFile,
+} from "../src/lib/doc-links-lint.ts";
 
 describe("doc-links-lint", () => {
+  test("parseDocLinkUrl decomposes URLPattern component fields", () => {
+    const parts = parseDocLinkUrl(
+      "https://user:pass@bun.com:443/docs/runtime/webview?q=1#console-capture"
+    );
+    expect(parts).toEqual({
+      protocol: "https:",
+      username: "user",
+      password: "pass",
+      hostname: "bun.com",
+      port: "",
+      pathname: "/docs/runtime/webview",
+      search: "?q=1",
+      hash: "#console-capture",
+    });
+  });
+
+  test("docLinkUrlMatchesSpec matches pathnamePrefix and hash independently", () => {
+    const parts = parseDocLinkUrl("http://bun.com/docs/runtime/webview#cdp")!;
+    expect(
+      docLinkUrlMatchesSpec(parts, {
+        hostnames: ["bun.com"],
+        pathnamePrefix: "/docs/runtime/webview",
+      })
+    ).toBe(true);
+    expect(
+      docLinkUrlMatchesSpec(parts, {
+        hostnames: ["bun.com"],
+        pathnamePrefix: "/docs/pm/cli/install",
+      })
+    ).toBe(false);
+  });
+
+  test("extractDocLinkUrls finds bare bun.sh/docs without protocol", () => {
+    const urls = extractDocLinkUrls('see bun.sh/docs/runtime/webview for details');
+    expect(urls).toHaveLength(1);
+    expect(urls[0]?.parts.hostname).toBe("bun.sh");
+    expect(urls[0]?.parts.pathname).toBe("/docs/runtime/webview");
+  });
+
   test("allows bun.sh/docs root in canonical-references.ts", () => {
     const violations = scanDocLinkFile(
       "src/lib/canonical-references.ts",
@@ -18,6 +62,14 @@ describe("doc-links-lint", () => {
     expect(violations.some((v) => v.rule === "prefer-bun-com-docs")).toBe(true);
   });
 
+  test("allows bare bun.sh/docs prose in comments", () => {
+    const violations = scanDocLinkFile(
+      "src/lib/doc-links-lint.ts",
+      "/** Extract absolute and bare bun.sh/docs URLs from a source line. */\n"
+    );
+    expect(violations.filter((v) => v.rule === "prefer-bun-com-docs")).toHaveLength(0);
+  });
+
   test("allows constant definition in defining module", () => {
     const violations = scanDocLinkFile(
       "src/lib/webview-console.ts",
@@ -30,6 +82,14 @@ describe("doc-links-lint", () => {
     const violations = scanDocLinkFile(
       "src/bin/herdr-orchestrator.ts",
       '  writeOut("see https://bun.com/docs/runtime/webview");\n'
+    );
+    expect(violations.some((v) => v.rule === "use-doc-constant")).toBe(true);
+  });
+
+  test("flags http webview URL in consumer modules (protocol-agnostic match)", () => {
+    const violations = scanDocLinkFile(
+      "src/bin/herdr-orchestrator.ts",
+      '  writeOut("see http://bun.com/docs/runtime/webview");\n'
     );
     expect(violations.some((v) => v.rule === "use-doc-constant")).toBe(true);
   });
