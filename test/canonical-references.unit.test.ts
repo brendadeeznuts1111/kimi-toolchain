@@ -62,12 +62,37 @@ describe("canonical-references", () => {
       "dashboard-thumbnails",
       "kimi-doctor",
       "namespace",
+      "configuration-layers",
       "shell-spawn-choice",
+      "bun-runtime-scaffold",
       "bun-shell-companions",
+      "template-matrix",
+      "herdr-plugin-architecture",
     ]) {
       const entry = LOCAL_DOC_REFERENCES.find((ref) => ref.id === id);
       expect(entry?.repoPath).toStartWith("docs/references/");
       expect(entry?.runtimePath).toStartWith("~/.kimi-code/docs/references/");
+    }
+  });
+
+  test("all cursorCanvas pointers resolve to docs/canvases/", () => {
+    const expected: Record<string, string> = {
+      unified: "docs/canvases/kimi-toolchain.canvas.tsx",
+      templates: "docs/canvases/kimi-fix.canvas.tsx",
+      namespace: "docs/canvases/namespace-boundaries.canvas.tsx",
+      "configuration-layers": "docs/canvases/configuration-layers.canvas.tsx",
+      "code-references": "docs/canvases/doc-links-and-see-ladder.canvas.tsx",
+      "kimi-doctor": "docs/canvases/herdr-dashboard-automation.canvas.tsx",
+      "dashboard-thumbnails": "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx",
+      "herdr-plugin-architecture": "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx",
+    };
+    const withCanvas = LOCAL_DOC_REFERENCES.filter((ref) => ref.cursorCanvas);
+    expect(withCanvas.length).toBe(Object.keys(expected).length);
+    for (const [id, path] of Object.entries(expected)) {
+      const entry = LOCAL_DOC_REFERENCES.find((ref) => ref.id === id);
+      expect(entry?.cursorCanvas).toBe(path);
+      const row = buildCanonicalReferencesManifest().localDocs.find((ref) => ref.id === id);
+      expect(row?.cursorCanvas).toBe(path);
     }
   });
 

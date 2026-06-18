@@ -126,8 +126,6 @@ flowchart TD
 | `dx.config.toml` | 12 gates | 18 gates | +Herdr, +effect-gates, +finish-work |
 | `scripts/finish-work.ts` | ❌ | ✅ | Runtime close-loop only |
 | `scripts/reviewer-pane.ts` | ❌ | ✅ | Cross-pane review |
-| `scripts/lib/bun-io.ts` | ❌ | ✅ | Bun-native I/O utilities |
-| `scripts/lib/bun-utils.ts` | ❌ | ✅ | Bun API facade |
 | `skills-readme.md` | ❌ | ✅ | Agent runbook index |
 | `index.ts` | Basic HTTP | +WebSocket +metrics | Dashboard hooks |
 
@@ -142,6 +140,7 @@ flowchart TD
 | Add missing scripts to project | `kimi-fix . --profile app` | scaffold |
 | Create toolchain workspace | `kimi-fix . --profile toolchain` | scaffold |
 | Sync docs to agent runtime | `bun run sync` | desktop-runtime |
+| Bun upgrade / migration audit | `bun run scan` | scaffold · advisory or `--exit-code` |
 
 ---
 
@@ -151,9 +150,9 @@ flowchart TD
 |---|---|---|
 | `bun init` without `-m` | `tsconfig.json` is basic (`module: "Preserve"`), not hardened (`module: "ESNext"`) | `rm tsconfig.json && kimi-fix .` |
 | `kimi-fix` after full `bun init` | `!pathExists()` skips `tsconfig.json`, `.gitignore`, `index.ts`, `README.md` | `rm tsconfig.json .gitignore src/index.ts README.md && kimi-fix .` |
-| Missing `bun run sync` | `kimi-doctor --probe` shows 13 localDocs, not 14 | `bun run sync && bun run sync:verify` |
+| Missing `bun run sync` | `kimi-doctor --probe` shows 14 localDocs, not 15 | `bun run sync && bun run sync:verify` |
 | `bun create` template has deps | npm client (pnpm/yarn) runs install, not Bun | Remove `dependencies` from template `package.json` |
-| Canvases not synced | Hover info stale in IDE | `bun run scripts/lint-cursor-canvas.ts` |
+| Canvases stale in IDE | Routing tables point to missing files | Repo SSOT: `docs/canvases/` · copy to `~/.cursor/projects/.../canvases/` |
 
 ---
 
@@ -168,7 +167,7 @@ bun run sync:verify       # Runtime paths match repo paths
 
 | Check | Expected | Failure Mode |
 |---|---|---|
-| `localDocsCount` | 14 | Missing `template-matrix` in `LOCAL_DOC_REFERENCES` |
+| `localDocsCount` | 15 | Missing `herdr-plugin-architecture` or `template-matrix` in `LOCAL_DOC_REFERENCES` |
 | `scaffoldFiles` | 22 | `kimi-fix` skipped due to `pathExists` |
 | `collisionRisk` | 0 | `bun init` ran without `-m` |
 | `bunfig.toml` | `linker = "isolated"`, `globalStore = true` | Template stale or overwritten |
@@ -181,7 +180,7 @@ bun run sync:verify       # Runtime paths match repo paths
 |---|---|---|
 | `kimi-toolchain` | scaffold, bun-create | Project bootstrap and health |
 | `create-template` | scaffold, bun-create | Template authoring and registration |
-| `herdr` | scaffold (`dx.config.*.toml`) | Workspace orchestration |
+| `herdr` | scaffold, herdr-plugin-architecture | Workspace orchestration · plugin plan v0.5.0 |
 | `orchestrator` | desktop-runtime, other | Dashboard + MCP bridge |
 | `finish-work` | scaffold (scripts) | Gate execution |
 | `effect-discipline` | scaffold (`check.ts`) | Effect audit in `check:fast` |
@@ -195,7 +194,7 @@ bun run sync:verify       # Runtime paths match repo paths
 | 2026-06-18 | Added `template-matrix.md` | No — new doc |
 | 2026-06-18 | `bun-runtime-scaffold.md` added | No — new doc |
 | 2026-06-18 | `bun create kimi-toolchain` template | No — new scaffold path |
-| 2026-06-18 | `health-channel.ts` cross-tool telemetry | No — new module |
+| 2026-06-18 | `scripts/scan.ts` upgrade advisor (scaffold family) | No — advisory Bun-native migration scanner |
 | 2026-06-17 | `bun init -m` bridge pattern documented | No — template postinstall only |
 
 ---

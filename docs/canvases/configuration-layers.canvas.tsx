@@ -58,6 +58,7 @@ const AGENT_DECISIONS = [
   ["Discover defaults, domains, define inventory", "constants-manifest.json"],
   ["Verify two repos share tunable parameters", "constants-parity.toml"],
   ["Bootstrap new app install/test policy", "templates/scaffold/bunfig.toml (via kimi-fix)"],
+  ["Map template families or bridge pattern", "docs/references/template-matrix.md · create-template skill"],
   ["Map bun create / runtime flags to scaffold", "docs/references/bun-runtime-scaffold.md · globalStore · TEMPLATES.md"],
 ] as const;
 
@@ -75,16 +76,21 @@ const RELATED_PATHS = [
   ["Ecosystem manifest + handoff probes", "docs/references/namespace.md"],
   ["Ecosystem link SSOT", "src/lib/canonical-references.ts → canonical-references.json"],
   ["Scaffold + bun create flags", "docs/references/bun-runtime-scaffold.md · docs/canvases/kimi-fix.canvas.tsx"],
+  ["Template families matrix", "docs/references/template-matrix.md · 22-file scaffold breakdown"],
   ["Define registry generator", "src/lib/build-constants-registry.ts → constants-manifest.json"],
   ["Cross-repo parity config", "constants-parity.toml"],
   ["Bun runtime scaffold flags and install config", "docs/references/bun-runtime-scaffold.md · globalStore · execve · Bun.Terminal"],
 ] as const;
 
 const CANVAS_ROUTING = [
-  ["kimi-toolchain", "Project hub", "Start here for tools and gates"],
-  ["configuration-layers", "Config SSOT", "This canvas — four-layer model"],
-  ["kimi-fix", "Scaffold", "bun create · profiles · kimi-fix doctor"],
-  ["namespace-boundaries", "Name collisions", "Doctor trinity · prefix+*"],
+  ["kimi-toolchain", "Project hub", "docs/canvases/kimi-toolchain.canvas.tsx"],
+  ["configuration-layers", "Config SSOT", "docs/canvases/configuration-layers.canvas.tsx (this canvas)"],
+  ["kimi-fix", "Scaffold", "docs/canvases/kimi-fix.canvas.tsx"],
+  ["namespace-boundaries", "Name collisions", "docs/canvases/namespace-boundaries.canvas.tsx"],
+  ["doc-links-and-see-ladder", "Cross-ref ladder", "docs/canvases/doc-links-and-see-ladder.canvas.tsx"],
+  ["herdr-dashboard-automation", "Finish-work shell", "docs/canvases/herdr-dashboard-automation.canvas.tsx"],
+  ["herdr-dashboard-thumbnails", "Orchestrator HTTP", "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx"],
+  ["herdr-unified-plugin-architecture", "Herdr plugins", "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx"],
 ] as const;
 
 const CANONICAL_REPOS = ["kimi-toolchain", "kimi-code-upstream", "effect-upstream"] as const;
@@ -250,7 +256,7 @@ export default function ConfigurationLayersCanvas() {
           <Table
             headers={["If you are trying to…", "Look at…"]}
             rows={AGENT_DECISIONS.map((r) => [...r])}
-            rowTone={["info", "info", "neutral", "neutral", "warning", "success", "neutral"]}
+            rowTone={["info", "info", "neutral", "neutral", "warning", "success", "neutral", "neutral"]}
             striped
           />
         </Stack>
@@ -311,11 +317,11 @@ export default function ConfigurationLayersCanvas() {
         </Stack>
       </Grid>
 
-      <CollapsibleSection title="Related canvases" count={4} defaultOpen={false}>
+      <CollapsibleSection title="Related canvases (8 manifest-backed)" count={8} defaultOpen={false}>
         <Table
           headers={["Canvas", "Topic", "Open when"]}
           rows={CANVAS_ROUTING.map((r) => [...r])}
-          rowTone={["info", "info", "success", "warning"]}
+          rowTone={["info", "info", "success", "warning", "neutral", "info", "neutral", "warning"]}
           striped
         />
       </CollapsibleSection>
@@ -332,7 +338,7 @@ export default function ConfigurationLayersCanvas() {
         </Text>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Related docs and SSOT paths" count={7} defaultOpen={false}>
+      <CollapsibleSection title="Related docs and SSOT paths" count={8} defaultOpen={false}>
         <Table headers={["Topic", "Path"]} rows={RELATED_PATHS.map((r) => [...r])} striped />
       </CollapsibleSection>
     </Stack>

@@ -89,6 +89,15 @@ async function readScaffoldReadmeSyncScript(): Promise<string> {
   return Bun.file(join(TOOLCHAIN_ROOT, "src", "lib", "readme-sync.ts")).text();
 }
 
+async function readScaffoldScanScript(): Promise<string> {
+  const raw = await readToolchainScript("scan.ts");
+  return raw.replace('from "../src/lib/upgrade-advisor.ts"', 'from "./lib/upgrade-advisor.ts"');
+}
+
+async function readScaffoldUpgradeAdvisorLib(): Promise<string> {
+  return Bun.file(join(TOOLCHAIN_ROOT, "src", "lib", "upgrade-advisor.ts")).text();
+}
+
 function stepLog(step: string, msg: string) {
   logger.info(`  → ${step}: ${msg}`);
 }
@@ -296,6 +305,7 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
     { name: "check.ts", content: readScaffoldCheckScript },
     { name: "run-tests.ts", content: readScaffoldRunTestsScript },
     { name: "readme-sync.ts", content: readScaffoldReadmeSyncScript },
+    { name: "scan.ts", content: readScaffoldScanScript },
   ];
   for (const { name, content } of scriptFiles) {
     const scriptPath = join(project, "scripts", name);
@@ -304,6 +314,13 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
       if (!dryRun) makeDir(join(project, "scripts"), { recursive: true });
       await writeFile(scriptPath, await content(), dryRun);
     }
+  }
+
+  const upgradeAdvisorLib = join(project, "scripts", "lib", "upgrade-advisor.ts");
+  if (!pathExists(upgradeAdvisorLib)) {
+    stepLog("scripts", "creating scripts/lib/upgrade-advisor.ts...");
+    if (!dryRun) makeDir(join(project, "scripts", "lib"), { recursive: true });
+    await writeFile(upgradeAdvisorLib, await readScaffoldUpgradeAdvisorLib(), dryRun);
   }
 
   if (profile === "toolchain") {

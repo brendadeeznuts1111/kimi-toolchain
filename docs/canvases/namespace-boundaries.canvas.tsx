@@ -169,10 +169,12 @@ const DOCS_REFERENCES = [
   ["shell-spawn-choice", "invokeTool vs Bun.spawn vs governedSpawn"],
   ["bun-runtime-scaffold", "Bun install config · globalStore · execve · Bun.Terminal · using/await using"],
   ["bun-shell-companions", "Bun $ template vs subprocess"],
+  ["template-matrix", "22-file scaffold · bridge pattern · template families"],
+  ["herdr-plugin-architecture", "Herdr plugins v0.5.0 · prefix+* · orthogonal to gates"],
 ] as const;
 
 const MANIFEST_KEYS = [
-  ["localDocs (13)", "id, repoPath, runtimePath, purpose", "Agent-indexed docs incl. namespace"],
+  ["localDocs (15)", "id, repoPath, runtimePath, purpose", "Agent-indexed docs · 8 cursorCanvas pointers"],
   [
     "ecosystem (8)",
     "id, name, kind, homepage, docs, usage",
@@ -219,17 +221,14 @@ const SEE_DX_VERBAGE = [
 
 /** Specialist canvases — read after namespace when binding layer is known. */
 const CANVAS_ROUTING = [
-  ["kimi-toolchain", "Project hub", "Architecture, tools, gates — start here"],
-  ["namespace-boundaries", "Meta / routing", "Which world am I in? (this canvas)"],
-  ["kimi-fix", "Scaffold", "bun create · kimi-fix profiles · doctor"],
-  ["configuration-layers", "Config SSOT", "Four-layer model · not dx keys"],
-  ["herdr-dashboard-automation", "Finish-work shell", "kimi-doctor --automation · gate JSON"],
-  ["herdr-dashboard-thumbnails", "Orchestrator HTTP", "PNG → Bun.Image → /api/thumbnail"],
-  [
-    "herdr-unified-plugin-architecture",
-    "Herdr plugins v0.5.0",
-    "prefix+* · plugin plan · orthogonal to gates",
-  ],
+  ["kimi-toolchain", "Project hub", "docs/canvases/kimi-toolchain.canvas.tsx"],
+  ["namespace-boundaries", "Meta / routing", "docs/canvases/namespace-boundaries.canvas.tsx (this canvas)"],
+  ["kimi-fix", "Scaffold", "docs/canvases/kimi-fix.canvas.tsx"],
+  ["configuration-layers", "Config SSOT", "docs/canvases/configuration-layers.canvas.tsx"],
+  ["doc-links-and-see-ladder", "Cross-ref ladder", "docs/canvases/doc-links-and-see-ladder.canvas.tsx"],
+  ["herdr-dashboard-automation", "Finish-work shell", "docs/canvases/herdr-dashboard-automation.canvas.tsx"],
+  ["herdr-dashboard-thumbnails", "Orchestrator HTTP", "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx"],
+  ["herdr-unified-plugin-architecture", "Herdr plugins v0.5.0", "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx"],
 ] as const;
 
 const DAG_NODES = [
@@ -254,9 +253,10 @@ const DAG_EDGES = [
 ] as const;
 
 const DOCS_REF_COUNT = DOCS_REFERENCES.length;
-const LOCAL_DOCS_COUNT = 13;
+const LOCAL_DOCS_COUNT = 15;
 const ECOSYSTEM_COUNT = 8;
-const DOCS_REFS_IN_CANVAS = 7;
+const DOCS_REFS_IN_CANVAS = 9;
+const CURSOR_CANVAS_COUNT = 8;
 
 function BindingLayerDag() {
   const theme = useHostTheme();
@@ -421,11 +421,11 @@ export default function NamespaceBoundariesCanvas() {
         </Stack>
       </Grid>
 
-      <CollapsibleSection title="Related canvases (specialist deep-dives)" defaultOpen>
+      <CollapsibleSection title={`Related canvases (${CURSOR_CANVAS_COUNT} manifest-backed)`} defaultOpen>
         <Table
-          headers={["Canvas file", "Binding layer", "Open when"]}
+          headers={["Canvas file", "Binding layer", "Repo path"]}
           rows={CANVAS_ROUTING.map((r) => [...r])}
-          rowTone={["info", "info", "success", "neutral", "neutral", "neutral", "warning"]}
+          rowTone={["info", "info", "success", "neutral", "neutral", "neutral", "neutral", "warning"]}
           striped
         />
         <Text tone="tertiary" size="small">
@@ -488,7 +488,11 @@ export default function NamespaceBoundariesCanvas() {
               headers={["Manifest id", "Purpose"]}
               rows={DOCS_REFERENCES.map((r) => [...r])}
               rowTone={DOCS_REFERENCES.map((r) =>
-                r[0] === "namespace" || r[0] === "configuration-layers" ? "info" : "neutral"
+                r[0] === "namespace" ||
+                r[0] === "configuration-layers" ||
+                r[0] === "template-matrix"
+                  ? "info"
+                  : "neutral"
               )}
               striped
             />

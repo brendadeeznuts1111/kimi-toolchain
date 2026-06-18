@@ -57,7 +57,7 @@ const TOOL_INVENTORY = [
 ] as const;
 
 const GATE_LAYERS = [
-  ["Fast iterate", "bun run check:fast", "~3s · 149 unit files @ 1500ms", "Local TDD"],
+  ["Fast iterate", "bun run check:fast", "~3s · 150 unit files @ 1500ms", "Local TDD"],
   ["Pre-commit", "format:check + lint + typecheck", "kimi-githooks install", "git commit"],
   [
     "Pre-push",
@@ -89,9 +89,9 @@ const SUCCESS_METRICS = [
 
 /** Static snapshot from `bun run config:status --json` (regenerate when gates change). */
 const CONFIG_STATUS_SNAPSHOT = [
-  ["canonical-references", "Discovery", "pass", 125],
-  ["constants-manifest", "Define registry", "pass", 114],
-  ["constant-parity", "Cross-repo contract", "pass", 118],
+  ["canonical-references", "Discovery", "pass", 73],
+  ["constants-manifest", "Define registry", "pass", 68],
+  ["constant-parity", "Cross-repo contract", "pass", 65],
 ] as const;
 
 const HEALTH_CHANNEL = [
@@ -122,19 +122,20 @@ const HOOK_TAXONOMY = [
 ] as const;
 
 const CANVAS_ROUTING = [
-  ["kimi-toolchain", "Project hub", "Architecture, tools, gates (this canvas)"],
-  ["kimi-fix", "Scaffold", "kimi-fix · bun create · profiles · doctor checks"],
-  ["configuration-layers", "Config SSOT", "Four-layer model · config:status gates"],
-  ["namespace-boundaries", "Name collisions", "Doctor trinity · finish-work vs prefix+*"],
-  ["doc-links-and-see-ladder", "Cross-ref ladder", "@see tags · JSDoc routing"],
-  ["herdr-unified-plugin-architecture", "Herdr plugins", "prefix+* · v0.5.0 plan"],
-  ["herdr-dashboard-automation", "Finish-work shell", "kimi-doctor --automation JSON"],
+  ["kimi-toolchain", "Project hub", "docs/canvases/kimi-toolchain.canvas.tsx · manifest id unified"],
+  ["kimi-fix", "Scaffold", "docs/canvases/kimi-fix.canvas.tsx · manifest id templates"],
+  ["configuration-layers", "Config SSOT", "docs/canvases/configuration-layers.canvas.tsx"],
+  ["namespace-boundaries", "Name collisions", "docs/canvases/namespace-boundaries.canvas.tsx"],
+  ["doc-links-and-see-ladder", "Cross-ref ladder", "docs/canvases/doc-links-and-see-ladder.canvas.tsx · code-references"],
+  ["herdr-dashboard-automation", "Finish-work shell", "docs/canvases/herdr-dashboard-automation.canvas.tsx · kimi-doctor"],
+  ["herdr-dashboard-thumbnails", "Orchestrator HTTP", "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx · dashboard-thumbnails"],
+  ["herdr-unified-plugin-architecture", "Herdr plugins", "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx · herdr-plugin-architecture"],
 ] as const;
 
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
-  { id: "test", label: "bun run check:fast", sub: "149 unit gates" },
+  { id: "test", label: "bun run check:fast", sub: "150 unit gates" },
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -152,9 +153,10 @@ const DAG_EDGES = [
 
 const BIN_COUNT = 27;
 const LIB_COUNT = 237;
-const UNIT_COUNT = 149;
+const UNIT_COUNT = 150;
 const INTEGRATION_COUNT = 5;
 const SMOKE_COUNT = 6;
+const CURSOR_CANVAS_COUNT = 8;
 
 function SyncFlowDag() {
   const theme = useHostTheme();
@@ -411,16 +413,16 @@ export default function KimiToolchainCanvas() {
         </CardBody>
       </Card>
 
-      <CollapsibleSection title="Related canvases (specialist deep-dives)" defaultOpen>
+      <CollapsibleSection title={`Related canvases (${CURSOR_CANVAS_COUNT} manifest-backed)`} defaultOpen>
         <Table
-          headers={["Canvas", "Topic", "Open when"]}
+          headers={["Canvas", "Topic", "Repo path · manifest id"]}
           rows={CANVAS_ROUTING.map((r) => [...r])}
-          rowTone={["info", "success", "neutral", "warning", "neutral", "warning", "neutral"]}
+          rowTone={["info", "success", "neutral", "warning", "neutral", "info", "neutral", "warning"]}
           striped
         />
         <Text tone="tertiary" size="small">
           Read order: kimi-toolchain (this) → configuration-layers or namespace-boundaries depending
-          on task · Herdr work → herdr-unified-plugin-architecture
+          on task · scaffold/template work → kimi-fix + template-matrix.md · Herdr → herdr-unified-plugin-architecture
         </Text>
       </CollapsibleSection>
 
@@ -433,6 +435,8 @@ export default function KimiToolchainCanvas() {
           <Pill>docs/references/namespace.md</Pill>
           <Pill>docs/references/configuration-layers.md</Pill>
           <Pill>docs/references/bun-runtime-scaffold.md</Pill>
+          <Pill>docs/references/template-matrix.md</Pill>
+          <Pill>docs/references/herdr-plugin-architecture.md</Pill>
         </Row>
         <Text tone="tertiary" size="small">
           Canonical clone path: ~/kimi-toolchain · verify with kimi-toolchain workspace verify ·

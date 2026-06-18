@@ -46,6 +46,8 @@ Agents often conflate names that share a word (`doctor`, `orchestrator`) but liv
 
 **Canvas companion:** `docs/canvases/namespace-boundaries.canvas.tsx` (manifest id `namespace` · `cursorCanvas` pointer; not synced).
 
+**Plugin architecture hub:** [herdr-plugin-architecture.md](./herdr-plugin-architecture.md) · canvas: `docs/canvases/herdr-unified-plugin-architecture.canvas.tsx` (manifest id `herdr-plugin-architecture`).
+
 ## Toolchain integration vs Herdr plugin plan (v0.5.0)
 
 The Herdr unified plugin plan (`herdr-orchestrator`, `herdr-doctor`, `herdr-notify` plugins) is **orthogonal** to kimi-toolchain finish-work gates.

@@ -17,7 +17,7 @@ trigger:
   - update TEMPLATES.md with new template docs
 dependencies:
   - kimi-toolchain
-loaded_by: On-demand (when editing templates/)
+loaded_by: System / On-demand
 role: Template authoring runbook — two families, collision avoidance, registration
 token_estimate: 620
 run_as: inline

@@ -173,6 +173,8 @@ orchestrator bootstrap / `doctor` tab cron, not in the toolchain close-loop.
 
 Canonical manifest id: `kimi-doctor` in `canonical-references.json`.
 
+**Canvas companion:** `docs/canvases/herdr-dashboard-automation.canvas.tsx` (manifest id `kimi-doctor` · `cursorCanvas` pointer; not synced).
+
 ## Related source files
 
 | Concern | File |

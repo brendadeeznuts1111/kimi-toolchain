@@ -106,13 +106,7 @@ import {
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
-import {
-  toolStart,
-  toolDone,
-  toolProgress,
-  loadReport,
-  healthResult,
-} from "../lib/health-channel.ts";
+import { toolStart, toolDone, healthResult } from "../lib/health-channel.ts";
 
 const writer = createCli(Bun.argv, "kimi-doctor");
 const logger = writer.logger;

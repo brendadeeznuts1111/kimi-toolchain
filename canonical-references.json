@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-18T12:45:32.828Z",
+  "generatedAt": "2026-06-18T13:21:22.505Z",
   "toolchainVersion": "0.1.0",
   "ecosystem": [
     {
@@ -85,7 +85,8 @@
       "id": "code-references",
       "repoPath": "CODE_REFERENCES.md",
       "runtimePath": "~/.kimi-code/CODE_REFERENCES.md",
-      "purpose": "Local coding exemplars"
+      "purpose": "Local coding exemplars; doc-links lint and @see ladder",
+      "cursorCanvas": "docs/canvases/doc-links-and-see-ladder.canvas.tsx"
     },
     {
       "id": "unified",
@@ -111,13 +112,15 @@
       "id": "dashboard-thumbnails",
       "repoPath": "docs/references/dashboard-thumbnails.md",
       "runtimePath": "~/.kimi-code/docs/references/dashboard-thumbnails.md",
-      "purpose": "Herdr dashboard thumbnail pipeline; meta.webview; WebView dataStore vs in-memory cache"
+      "purpose": "Herdr dashboard thumbnail pipeline; meta.webview; WebView dataStore vs in-memory cache",
+      "cursorCanvas": "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx"
     },
     {
       "id": "kimi-doctor",
       "repoPath": "docs/references/kimi-doctor.md",
       "runtimePath": "~/.kimi-code/docs/references/kimi-doctor.md",
-      "purpose": "Dashboard automation gate (kimi-doctor --automation): CLI, JSON schema, exit codes, and failure modes"
+      "purpose": "Dashboard automation gate (kimi-doctor --automation): CLI, JSON schema, exit codes, and failure modes",
+      "cursorCanvas": "docs/canvases/herdr-dashboard-automation.canvas.tsx"
     },
     {
       "id": "namespace",
@@ -156,6 +159,13 @@
       "repoPath": "docs/references/template-matrix.md",
       "runtimePath": "~/.kimi-code/docs/references/template-matrix.md",
       "purpose": "Template families matrix: scaffold breakdown (22 files), bridge pattern collision resolution, runtime sync paths, profile differentiation"
+    },
+    {
+      "id": "herdr-plugin-architecture",
+      "repoPath": "docs/references/herdr-plugin-architecture.md",
+      "runtimePath": "~/.kimi-code/docs/references/herdr-plugin-architecture.md",
+      "purpose": "Herdr unified plugin plan v0.5.0 — prefix+* actions, STATE_DIR topology; orthogonal to [finishWork].gates",
+      "cursorCanvas": "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx"
     },
     {
       "id": "canonical-references",

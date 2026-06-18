@@ -178,7 +178,11 @@ Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight a
   - `docs/canvases/kimi-fix.canvas.tsx` — scaffold · bun create · profiles (manifest id `templates`)
   - `docs/canvases/namespace-boundaries.canvas.tsx` — doctor trinity and binding layers (manifest id `namespace`)
   - `docs/canvases/configuration-layers.canvas.tsx` — four-layer config model (manifest id `configuration-layers`)
-- **Canvas lint**: `bun run scripts/lint-cursor-canvas.ts` — verifies each `cursorCanvas` path exists under `docs/canvases/`.
+  - `docs/canvases/doc-links-and-see-ladder.canvas.tsx` — doc-links lint and `@see` ladder (manifest id `code-references`)
+  - `docs/canvases/herdr-dashboard-automation.canvas.tsx` — `--automation` gate (manifest id `kimi-doctor`)
+  - `docs/canvases/herdr-dashboard-thumbnails.canvas.tsx` — thumbnail pipeline (manifest id `dashboard-thumbnails`)
+  - `docs/canvases/herdr-unified-plugin-architecture.canvas.tsx` — Herdr plugin plan (manifest id `herdr-plugin-architecture`)
+- **Canvas lint**: `bun run scripts/lint-cursor-canvas.ts` — verifies each `cursorCanvas` path exists under `docs/canvases/` (8 pointers).
 
 - Cached link manifest: `~/.kimi-code/canonical-references.json` (`bun run references:generate`)
 - Repo: https://github.com/brendadeeznuts1111/kimi-toolchain

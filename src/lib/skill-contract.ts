@@ -308,6 +308,10 @@ export const REPO_SKILL_CODE_COVERAGE: Record<
       "test/finish-work-report-schema.unit.test.ts",
     ],
   },
+  "skills/create-template/SKILL.md": {
+    libModules: ["src/lib/scaffold-templates.ts", "src/bin/kimi-fix.ts"],
+    testFiles: ["test/scaffold-templates.unit.test.ts"],
+  },
 };
 
 /** Gate identifier strings from `EFFECT_GATES` — skill must name each id. */

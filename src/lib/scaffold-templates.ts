@@ -74,7 +74,6 @@ export const REQUIRED_PACKAGE_SCRIPT_ENTRIES = {
   "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json src scripts test",
   lint: "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
   "lint:terms": "bun run scripts/lint-banned-terms.ts",
-  scan: "bun run scripts/scan.ts",
   fix: "kimi-fix .",
 } as const;
 

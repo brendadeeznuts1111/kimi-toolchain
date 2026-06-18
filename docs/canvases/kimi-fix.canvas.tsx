@@ -35,7 +35,7 @@ const CLI_COMMANDS = [
 
 const ENTRY_POINTS = [
   ["kimi-fix .", "Repair existing project", "Adds only missing files — never overwrites"],
-  ["kimi-new <name>", "Greenfield scaffold", "mkdir → bun init -y → kimi-fix"],
+  ["kimi-new <name>", "Greenfield scaffold", "mkdir → bun init -m -y → kimi-fix (bridge pattern)"],
   ["bun create kimi-toolchain", "Local template", "postinstall: global toolchain → kimi-fix"],
 ] as const;
 
@@ -94,14 +94,18 @@ const BUN_RUNTIME_FEATURES = [
 const DOCS_REFERENCES = [
   ["configuration-layers", "docs/references/configuration-layers.md", "App Scaffold layer · four-layer model"],
   ["bun-runtime-scaffold", "docs/references/bun-runtime-scaffold.md", "globalStore · execve · Bun.Terminal · using/await using"],
+  ["template-matrix", "docs/references/template-matrix.md", "22-file breakdown · bridge pattern · families matrix"],
   ["templates", "TEMPLATES.md", "Scaffold template inventory (manifest id templates)"],
 ] as const;
 
 const CANVAS_ROUTING = [
-  ["kimi-toolchain", "Project hub", "Tools, gates, sync flow"],
-  ["configuration-layers", "Config SSOT", "Scaffold layer vs define registry"],
-  ["doc-links-and-see-ladder", "Cross-ref ladder", "@see tags · docs/references index"],
-  ["namespace-boundaries", "Name collisions", "When scaffold touches Herdr toolchain profile"],
+  ["kimi-toolchain", "Project hub", "docs/canvases/kimi-toolchain.canvas.tsx"],
+  ["configuration-layers", "Config SSOT", "docs/canvases/configuration-layers.canvas.tsx"],
+  ["doc-links-and-see-ladder", "Cross-ref ladder", "docs/canvases/doc-links-and-see-ladder.canvas.tsx"],
+  ["namespace-boundaries", "Name collisions", "docs/canvases/namespace-boundaries.canvas.tsx"],
+  ["herdr-dashboard-automation", "Finish-work shell", "docs/canvases/herdr-dashboard-automation.canvas.tsx"],
+  ["herdr-dashboard-thumbnails", "Orchestrator HTTP", "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx"],
+  ["herdr-unified-plugin-architecture", "Herdr plugins", "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx"],
 ] as const;
 
 const BUN_RUNTIME_SCRIPTS = [
@@ -113,8 +117,9 @@ const BUN_RUNTIME_SCRIPTS = [
 ] as const;
 
 const PROFILE_COMPARE = [
+  ["dx.config gates", "12 gates", "18 gates (+Herdr · effect-gates · finish-work)"],
   ["dx.config.toml", "dx.config.app.toml", "dx.config.toolchain.toml + [finishWork] [herdr]"],
-  ["Scripts", "5 quality scripts", "+ finish-work · reviewer-pane · lib/ helpers"],
+  ["Scripts", "5 quality (runtime)", "+ 6 toolchain scaffold scripts"],
   ["package.json", "15 required scripts", "+ finish-work script entry"],
   ["Use when", "Apps, libraries, services", "Meta-tools, agent orchestration repos"],
 ] as const;
@@ -126,14 +131,49 @@ const DELEGATED_TOOLS = [
   ["kimi-githooks", "install", "pre-commit + pre-push policy gates"],
 ] as const;
 
-const FILE_ARTIFACTS = [
-  { category: "Config", count: 7, id: "cfg" },
-  { category: "Scripts", count: 5, id: "scr" },
-  { category: "Agent docs", count: 3, id: "doc" },
-  { category: "Kimi Code", count: 2, id: "kimi" },
-  { category: "Source", count: 2, id: "src" },
-  { category: "CI", count: 1, id: "ci" },
+const TEMPLATE_FAMILIES = [
+  ["bun-create", "1", "bun create kimi-toolchain", "~/.bun-create/", "Low — postinstall orchestrates"],
+  ["scaffold", "22", "kimi-fix <path>", "Project root", "High with bun init — mitigated by -m"],
+  ["desktop-runtime", "1", "bun run sync", "~/.kimi-code/", "None — separate namespace"],
+  ["other", "4", "Manual / Herdr dashboard", "docs/herdr/ · docs/mcp/", "None"],
 ] as const;
+
+const BRIDGE_PATTERN = [
+  ["1", "bun init -m -y", "Minimal mode skips tsconfig · README · index · .gitignore"],
+  ["2", "kimi-fix .", "Writes 22 scaffold files where !pathExists()"],
+  ["3", "bun run check:fast", "Validates scaffold integrity"],
+] as const;
+
+const TOOL_SELECTOR = [
+  ["New project from template", "bun create kimi-toolchain", "bun-create"],
+  ["Harden existing repo", "kimi-fix .", "scaffold"],
+  ["Create toolchain workspace", "kimi-fix . --profile toolchain", "scaffold"],
+  ["Sync docs to agent runtime", "bun run sync", "desktop-runtime"],
+  ["Bun upgrade / migration audit", "bun run scan", "scaffold · --exit-code for gates"],
+  ["Author or register templates", "create-template skill", "scaffold + bun-create"],
+] as const;
+
+const ERROR_SCENARIOS = [
+  ["bun init without -m", "Basic tsconfig/README/index left in place", "rm collision files && kimi-fix ."],
+  ["kimi-fix after full bun init", "!pathExists skips hardened versions", "Delete tsconfig · README · index · .gitignore first"],
+  ["Missing bun run sync", "kimi-doctor --probe shows 14 localDocs, not 15", "bun run sync && bun run sync:verify"],
+] as const;
+
+const SKILL_MAPPING = [
+  ["kimi-toolchain", "scaffold · bun-create", "Project bootstrap and health"],
+  ["create-template", "scaffold · bun-create", "Template authoring and registration"],
+  ["finish-work", "scaffold scripts", "Gate execution close-loop"],
+  ["herdr", "dx.config.*.toml", "Workspace orchestration"],
+] as const;
+
+const SCAFFOLD_LAYERS = [
+  { category: "Config", count: 7, id: "cfg" },
+  { category: "Docs", count: 5, id: "doc" },
+  { category: "Source", count: 4, id: "src" },
+  { category: "Scripts", count: 6, id: "scr" },
+] as const;
+
+const SCAFFOLD_TOTAL = 22;
 
 const TOOLCHAIN_EXTRAS = [
   ["scripts/finish-work.ts", "Close-loop gates + commit/push"],
@@ -174,14 +214,15 @@ const DOCTOR_CHECKS = [
   ["scripts/check.ts", "warn if missing", "fixable"],
   ["oxfmtrc / oxlintrc", "warn if missing", "fixable"],
   ["ci.yml", "warn or ok (disabled)", "fixable unless CI disabled"],
-  ["package-scripts", "15 required scripts", "fixable via ensureQualityTooling"],
+  ["package-scripts", "19 required scripts", "fixable via ensureQualityTooling"],
 ] as const;
 
 const REQUIRED_SCRIPTS = [
   "test", "test:fast", "test:coverage", "test:coverage:ci",
+  "test:parallel", "test:parallel:4", "test:shard",
   "check", "check:fast", "check:dry-run", "docs:sync",
   "typecheck", "format", "format:check", "format:check:ci",
-  "lint", "lint:terms", "fix",
+  "lint", "lint:terms", "scan", "fix",
 ] as const;
 
 const DEV_DEPS = ["oxfmt", "oxlint", "typescript", "@types/bun"] as const;
@@ -404,18 +445,20 @@ export default function KimiFixCanvas() {
         </Text>
         <Row gap={8} wrap>
           <Pill tone="info">manifest: templates</Pill>
+          <Pill>{SCAFFOLD_TOTAL} scaffold files</Pill>
+          <Pill>{TEMPLATE_FAMILIES.length} template families</Pill>
           <Pill>{REQUIRED_SCRIPTS.length} required scripts</Pill>
-          <Pill>{DELEGATED_TOOLS.length} delegated tools</Pill>
           <Pill>2 profiles</Pill>
         </Row>
         <Text tone="tertiary" size="small">
-          Source: src/bin/kimi-fix.ts · TEMPLATES.md · docs/references/configuration-layers.md · docs/references/bun-runtime-scaffold.md
+          Source: src/bin/kimi-fix.ts · docs/references/template-matrix.md · TEMPLATES.md ·
+          docs/references/bun-runtime-scaffold.md
         </Text>
       </Stack>
 
       <Grid columns={4} gap={12}>
-        <Stat label="Config files" value="7" />
-        <Stat label="Base scripts" value="5" tone="info" />
+        <Stat label="Scaffold files" value={String(SCAFFOLD_TOTAL)} tone="info" />
+        <Stat label="Config layer" value="7" />
         <Stat label="Toolchain extras" value="6" tone="warning" />
         <Stat label="Doctor checks" value={String(DOCTOR_CHECKS.length)} />
       </Grid>
@@ -460,7 +503,7 @@ export default function KimiFixCanvas() {
           <Table
             headers={["Aspect", "app (default)", "toolchain"]}
             rows={PROFILE_COMPARE.map((r) => [...r])}
-            rowTone={["neutral", "info", "warning", "success"]}
+            rowTone={["neutral", "info", "warning", "info", "success"]}
             striped
           />
           <Text tone="tertiary" size="small">
@@ -468,6 +511,32 @@ export default function KimiFixCanvas() {
           </Text>
         </Stack>
       </Grid>
+
+      <CollapsibleSection title="Template families matrix" count={TEMPLATE_FAMILIES.length} defaultOpen>
+        <Table
+          headers={["Family", "Files", "Generated by", "Sync target", "Collision risk"]}
+          rows={TEMPLATE_FAMILIES.map((r) => [...r])}
+          rowTone={["neutral", "info", "success", "neutral"]}
+          striped
+        />
+        <Table
+          headers={["Scenario", "Command", "Family"]}
+          rows={TOOL_SELECTOR.map((r) => [...r])}
+          striped
+        />
+        <Text tone="tertiary" size="small">
+          SSOT: docs/references/template-matrix.md · consumed by kimi-fix · create-template skill · sync-verify
+        </Text>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Bridge pattern (bun init -m)" count={BRIDGE_PATTERN.length} defaultOpen={false}>
+        <Callout tone="warning" title="Why -m matters">
+          Without minimal mode, bun init creates basic tsconfig/README/index/.gitignore first — kimi-fix
+          skips them via !pathExists(), leaving Bun defaults instead of hardened toolchain versions.
+        </Callout>
+        <Table headers={["Step", "Command", "Effect"]} rows={BRIDGE_PATTERN.map((r) => [...r])} striped />
+        <Table headers={["Mistake", "Symptom", "Fix"]} rows={ERROR_SCENARIOS.map((r) => [...r])} rowTone={["danger", "warning", "info"]} striped />
+      </CollapsibleSection>
 
       <CollapsibleSection title="bun create entry path" defaultOpen={false}>
         <Grid columns={2} gap={16}>
@@ -517,26 +586,27 @@ export default function KimiFixCanvas() {
         </Card>
 
         <Stack gap={12}>
-          <H3>Artifacts by category (app profile)</H3>
+          <H3>Scaffold layers ({SCAFFOLD_TOTAL} files)</H3>
           <BarChart
-            categories={FILE_ARTIFACTS.map((f) => f.category)}
+            categories={SCAFFOLD_LAYERS.map((f) => f.category)}
             series={[
               {
-                name: "Files created when missing",
-                data: FILE_ARTIFACTS.map((f) => f.count),
+                name: "templates/scaffold/ files",
+                data: SCAFFOLD_LAYERS.map((f) => f.count),
                 tone: "info",
               },
             ]}
             height={180}
           />
           <Text tone="tertiary" size="small">
-            Source: src/bin/kimi-fix.ts runFix · Y-axis: file count · X-axis: category · toolchain adds 6 scripts
+            Source: docs/references/template-matrix.md · quality scripts (check.ts etc.) copied from runtime
+            toolchain, not templates/scaffold/
           </Text>
           <UsageBar
-            total={FILE_ARTIFACTS.reduce((s, f) => s + f.count, 0)}
-            topLeftLabel="Scaffold artifact mix"
-            topRightLabel={`${FILE_ARTIFACTS.reduce((s, f) => s + f.count, 0)} base files`}
-            segments={FILE_ARTIFACTS.map((f) => ({ id: f.id, value: f.count }))}
+            total={SCAFFOLD_TOTAL}
+            topLeftLabel="Scaffold layer mix"
+            topRightLabel={`${SCAFFOLD_TOTAL} / ${SCAFFOLD_TOTAL} files`}
+            segments={SCAFFOLD_LAYERS.map((f) => ({ id: f.id, value: f.count }))}
           />
         </Stack>
       </Grid>
@@ -616,22 +686,24 @@ export default function KimiFixCanvas() {
             ["src/lib/scaffold-quality.ts", "package.json scripts + devDeps injection"],
             ["TEMPLATES.md", "Human-readable scaffold reference"],
             ["docs/references/configuration-layers.md", "App Scaffold layer · manifest id configuration-layers"],
+            ["docs/references/template-matrix.md", "22-file breakdown · bridge pattern · verification gate"],
             ["docs/references/bun-runtime-scaffold.md", "globalStore · execve · Bun.Terminal · using/await using"],
           ]}
           striped
         />
+        <Table headers={["Skill", "Consumes", "Why"]} rows={SKILL_MAPPING.map((r) => [...r])} striped />
       </CollapsibleSection>
 
       <CollapsibleSection title="docs/references (scaffold)" count={DOCS_REFERENCES.length} defaultOpen={false}>
         <Table
           headers={["Manifest id", "Path", "One-line"]}
           rows={DOCS_REFERENCES.map((r) => [...r])}
-          rowTone={["info", "info", "neutral"]}
+          rowTone={["info", "info", "success", "neutral"]}
           striped
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Related canvases" count={CANVAS_ROUTING.length} defaultOpen={false}>
+      <CollapsibleSection title="Related canvases (8 manifest-backed)" count={CANVAS_ROUTING.length} defaultOpen={false}>
         <Table
           headers={["Canvas", "Topic", "Open when"]}
           rows={CANVAS_ROUTING.map((r) => [...r])}
