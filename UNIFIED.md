@@ -120,8 +120,13 @@ bun run doctor --quick
 
 # Canvas companions (IDE-only; repo pointers via cursorCanvas in canonical-references.json):
 #   docs/canvases/kimi-toolchain.canvas.tsx      — project hub (manifest id unified)
+#   docs/canvases/kimi-fix.canvas.tsx            — scaffold (manifest id templates)
 #   docs/canvases/namespace-boundaries.canvas.tsx — name collisions (manifest id namespace)
 #   docs/canvases/configuration-layers.canvas.tsx — four-layer config model
+#   docs/canvases/doc-links-and-see-ladder.canvas.tsx — doc-links lint (manifest id code-references)
+#   docs/canvases/herdr-dashboard-automation.canvas.tsx — --automation gate (manifest id kimi-doctor)
+#   docs/canvases/herdr-dashboard-thumbnails.canvas.tsx — thumbnails (manifest id dashboard-thumbnails)
+#   docs/canvases/herdr-unified-plugin-architecture.canvas.tsx — Herdr plugins (manifest id herdr-plugin-architecture)
 
 # 3. Push to live runtime
 bun run sync

@@ -12,7 +12,7 @@
  * appends on local filesystems.
  */
 
-import { appendFileSync } from "node:fs";
+import { appendText } from "./bun-io.ts";
 import { varDir } from "./paths.ts";
 import { join } from "path";
 
@@ -128,7 +128,7 @@ export function isHealthEvent(value: unknown): value is HealthEvent {
 export async function publish(event: HealthEvent): Promise<void> {
   try {
     const line = JSON.stringify(event) + "\n";
-    appendFileSync(filePath(), line, "utf-8");
+    appendText(filePath(), line);
   } catch {
     // Degrade gracefully — health channel is advisory, not critical
   }

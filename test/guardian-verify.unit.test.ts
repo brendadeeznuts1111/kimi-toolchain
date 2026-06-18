@@ -34,7 +34,7 @@ describe("guardian-verify", () => {
 
   it("exits non-zero when exitOnFail is true", () => {
     const result = evaluateGuardianVerifyOutput("✗ HASH MISMATCH\n", true);
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.lines).toEqual(["Run 'kimi-guardian fix' to baseline the hash"]);
   });
 });

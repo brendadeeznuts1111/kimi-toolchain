@@ -19,6 +19,8 @@ export interface CheckOptions {
   noCache: boolean;
   /** Print per-step timing breakdown after gate completes. */
   profile?: boolean;
+  /** Fail check:fast when upgrade-advisor reports findings (scan --exit-code). */
+  scanStrict?: boolean;
 }
 
 export interface StepSummary {
@@ -54,5 +56,6 @@ export function optionsFingerprint(options: CheckOptions): string {
     failFast: options.failFast,
     jsonSummary: options.jsonSummary,
     profile: options.profile,
+    scanStrict: options.scanStrict,
   });
 }

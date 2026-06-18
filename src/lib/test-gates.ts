@@ -149,6 +149,7 @@ export const UNIT_TEST_FILES = [
   "test/governance-preflight.unit.test.ts",
   "test/canonical-references.unit.test.ts",
   "test/config-status.unit.test.ts",
+  "test/upgrade-advisor.unit.test.ts",
   "test/doctor-probe.unit.test.ts",
   "test/finish-work-herdr.unit.test.ts",
   "test/finish-work-report-schema.unit.test.ts",

@@ -107,6 +107,8 @@ export function evaluateGuardianVerifyOutput(
   if (hashError) issues.push("hash");
   if (hasNoSignedManifest) issues.push("unsigned");
 
+  const hintLines = buildHintLines(issues);
+
   if (success && issues.length === 0) {
     return {
       exitCode: EXIT_OK,
@@ -124,9 +126,20 @@ export function evaluateGuardianVerifyOutput(
 
   return {
     exitCode,
-    lines: [],
+    lines: hintLines,
     issues,
   };
+}
+
+function buildHintLines(issues: string[]): string[] {
+  const lines: string[] = [];
+  if (issues.includes("hash")) {
+    lines.push("Run 'kimi-guardian fix' to baseline the hash");
+  }
+  if (issues.includes("unsigned")) {
+    lines.push("Run 'kimi-guardian sign' for v2 signed manifest protection");
+  }
+  return lines;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────

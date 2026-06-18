@@ -25,7 +25,9 @@ import {
 import { shouldRunScopedLint } from "./check-lint-scoped.ts";
 import { SCOPED_ANY_TS, writeScopedGatePass } from "./scoped-gate-cache.ts";
 import { isKimiToolchainRepo } from "./workspace-health.ts";
+import { pathExists } from "./bun-io.ts";
 import type { CheckFailure, CheckOptions, CheckRunResult, StepSummary } from "./check-types.ts";
+import { join } from "path";
 
 function checkOut(message: string): void {
   Bun.stdout.write(`${message}\n`);
@@ -110,6 +112,16 @@ export async function buildSteps(
     cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "--success-metrics", "--json"],
     silentOnSuccess: true,
   });
+
+  if (options.fast && pathExists(join(projectRoot, "scripts", "scan.ts"))) {
+    const scanCmd = ["bun", "run", "scripts/scan.ts", "--brief"];
+    if (options.scanStrict) scanCmd.push("--exit-code");
+    steps.push({
+      name: "scan",
+      cmd: scanCmd,
+      silentOnSuccess: false,
+    });
+  }
 
   const formatPaths = changedFiles ? filterFormatPaths(changedFiles) : null;
   if (changedFiles && formatPaths?.length === 0) {
@@ -459,6 +471,7 @@ export function printCheckDryRun(
   if (options.noCache) flags.push("no-cache");
   if (options.watch) flags.push("watch");
   if (options.watchTests) flags.push("watch-tests");
+  if (options.scanStrict) flags.push("scan-strict");
   const quiet = !options.verbose && shouldSilentOnSuccess() ? "(quiet) " : "";
   checkOut(`check (${flags.join(" ")}) ${quiet}— dry run`);
   checkOut(`  test timeout: ${options.timeoutMs}ms`);
