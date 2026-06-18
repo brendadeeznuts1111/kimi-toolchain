@@ -61,6 +61,7 @@ describe("canonical-references", () => {
     for (const id of [
       "dashboard-thumbnails",
       "kimi-doctor",
+      "namespace",
       "shell-spawn-choice",
       "bun-shell-companions",
     ]) {

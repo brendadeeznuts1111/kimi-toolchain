@@ -215,12 +215,12 @@ Use these when working inside a Herdr workspace (`HERDR_ENV=1`) or editing `[her
 | Herdr env vars | `skills/herdr/SKILL.md` § environment variables | Official + plugin context vars; session CLI caveat |
 | Dashboard server / HTTP API | `src/lib/herdr-dashboard-server.ts` | `Bun.serve` + SSE; `/api/meta`, `/api/thumbnail`, widget routes |
 | Dashboard WebView shell | `src/lib/herdr-webview-dashboard.ts` | `Bun.WebView`, persistent `dataStore` profile, screenshot feed |
-| Dashboard screenshot → thumbnail | `src/lib/bun-image.ts`, `src/lib/herdr-dashboard-automation.ts` | `Bun.Image` resize/encode of `view.screenshot()` PNGs; AVIF fallback; ThumbHash LQIP |
+| Dashboard screenshot → thumbnail | `src/lib/bun-image.ts`, `src/lib/herdr-dashboard-automation.ts`, `src/lib/herdr-dashboard-server.ts` | `Bun.Image` terminals ([`#terminals`](https://bun.com/docs/runtime/image#terminals)): `await .blob()` on `/api/thumbnail` miss; `.placeholder()` on `/api/meta`; `.bytes()` AVIF probe; `.write()` documented but CLI uses bytes + `Bun.write` (see [dashboard-thumbnails.md](docs/references/dashboard-thumbnails.md) Terminals). PNG from `Bun.WebView.screenshot()`; feed paths defer encode to GET. |
 | Dashboard automation runner | `src/lib/herdr-dashboard-automation.ts` | `runDashboardAutomation({ view, actions })` — declarative `DashboardAutomationAction` steps; `DASHBOARD_SMOKE_ACTIONS` recipe for serve-shell smoke |
-| Dashboard automation gate | `src/lib/herdr-dashboard-automation-gate.ts` | `kimi-doctor --automation` — see [docs/references/kimi-doctor.md](docs/references/kimi-doctor.md) |
+| Dashboard automation gate | `src/lib/herdr-dashboard-automation-gate.ts` | `kimi-doctor --automation` — smoke `setScreenshotPng` + `fetch /api/thumbnail`; see [kimi-doctor.md](docs/references/kimi-doctor.md) |
 | Dashboard profile persistence | `src/lib/herdr-dashboard-webview-store.ts` | Resolve `dataStore` (ephemeral vs persistent); `HERDR_DASHBOARD_WEBVIEW_STORE_ENV` |
 | Dashboard config tuning | `dx.config.toml` `[herdr.orchestrator.dashboard]`, `src/lib/herdr-orchestrator-config.ts` | `stale_ms`, `sse_poll_ms`, `poll_hint_ms`, `persist_profile`, `profile_dir` |
-| Dashboard thumbnail architecture | `docs/references/dashboard-thumbnails.md` | Bun.Image pipeline, WebView profile boundaries, cache behavior |
+| Dashboard thumbnail architecture | `docs/references/dashboard-thumbnails.md` | Terminals, call-site map, Bun API pairing, WebView profile boundaries, cache behavior |
 | Governed subprocess | `docs/references/shell-spawn-choice.md` | `governedSpawn()` from `src/lib/governor-spawn.ts` |
 
 ## Doctor Adapter / Plugin / MCP Golden Template

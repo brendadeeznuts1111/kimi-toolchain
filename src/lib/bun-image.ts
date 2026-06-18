@@ -9,8 +9,22 @@
  * "bun" (Highway SIMD) on Linux. Force "bun" for byte-identical output
  * across platforms (golden-image tests).
  *
- * @see https://bun.com/docs/runtime/image#platform-backends
+ * Terminals: pipelines are lazy until `.bytes()`, `.blob()`, etc. are awaited.
+ * Dashboard encode uses `await … .blob()` then caches `Uint8Array` for `/api/thumbnail`.
+ * `.write()` terminal accepts path / Bun.file() / Bun.s3() / fd — see dashboard-thumbnails.md Terminals
+ * CLI uses .blob() + standalone Bun.write instead.
+ *
+ * @see {@link BUN_IMAGE_DOCS_URL}
+ * @see {@link BUN_IMAGE_TERMINALS_URL}
+ * @see {@link BUN_IMAGE_PLACEHOLDERS_URL}
+ * @see {@link BUN_IMAGE_BACKENDS_URL}
  */
+
+export const BUN_IMAGE_DOCS_URL = "https://bun.com/docs/runtime/image";
+export const BUN_IMAGE_TERMINALS_URL = `${BUN_IMAGE_DOCS_URL}#terminals`;
+export const BUN_IMAGE_PLACEHOLDERS_URL = `${BUN_IMAGE_DOCS_URL}#placeholders`;
+export const BUN_IMAGE_BACKENDS_URL = `${BUN_IMAGE_DOCS_URL}#platform-backends`;
+export const BUN_IMAGE_METADATA_URL = `${BUN_IMAGE_DOCS_URL}#metadata`;
 
 export const DASHBOARD_THUMB_WIDTH = 320;
 export const DASHBOARD_THUMB_HEIGHT = 180;
@@ -101,6 +115,9 @@ let avifEncodeCached: boolean | undefined;
 /**
  * Probe AVIF encode once — macOS M3+ or Windows with AV1 extensions.
  * Intel Mac and M1/M2 decode AVIF but reject encode.
+ *
+ * @see {@link BUN_IMAGE_TERMINALS_URL} — uses `await … .bytes()` terminal
+ * Consumer: `GET /api/meta` → `meta.thumbnailFormats.avif` in herdr-dashboard-server.ts
  */
 export async function probeBunImageAvifEncode(): Promise<boolean> {
   if (avifEncodeCached !== undefined) return avifEncodeCached;
@@ -182,6 +199,8 @@ export interface ImageMetadata {
 /**
  * Read image dimensions and format without decoding pixels.
  * Returns null when Bun.Image is unavailable or the input can't be parsed.
+ *
+ * @see {@link BUN_IMAGE_METADATA_URL}
  */
 export async function imageMetadata(input: ImageInput): Promise<ImageMetadata | null> {
   if (!bunImageSupported()) return null;
@@ -193,6 +212,7 @@ export async function imageMetadata(input: ImageInput): Promise<ImageMetadata | 
   }
 }
 
+/** Build resize + encode chain; pass `maxPixels` via constructor options (Input guard). */
 function dashboardThumbnailPipeline(
   png: Uint8Array,
   options: Required<Pick<DashboardThumbnailOptions, "width" | "height" | "quality">> & {
@@ -232,6 +252,7 @@ function dashboardThumbnailPipeline(
   }
 }
 
+/** Primary encode path — awaits `.blob()` terminal (off JS thread). Used by `/api/thumbnail` miss path. */
 async function dashboardThumbnailBlob(
   png: Uint8Array,
   options: Required<Pick<DashboardThumbnailOptions, "width" | "height" | "quality">> & {
@@ -253,7 +274,12 @@ async function dashboardThumbnailBlob(
   }
 }
 
-/** Resize a dashboard PNG capture to encoded thumbnail bytes (`fit: inside`). */
+/**
+ * Resize a dashboard PNG capture to encoded thumbnail bytes (`fit: inside`).
+ *
+ * @see {@link BUN_IMAGE_TERMINALS_URL} — `dashboardThumbnailBlob()` → `.blob()`
+ * Consumer: herdr-dashboard-server.ts `GET /api/thumbnail` (TtlCache miss)
+ */
 export async function dashboardThumbnailBytes(
   png: Uint8Array,
   options: DashboardThumbnailOptions = {}
@@ -284,7 +310,7 @@ export async function dashboardThumbnailBytes(
   return new Uint8Array(await blob.arrayBuffer());
 }
 
-/** Resize a dashboard PNG capture to a WebP thumbnail (`fit: inside`). */
+/** WebP shorthand — CLI `--thumbnail` and runHerdrDashboardAutomation disk output. */
 export async function dashboardWebpThumbnail(
   png: Uint8Array,
   options: DashboardThumbnailOptions = {}
@@ -292,7 +318,13 @@ export async function dashboardWebpThumbnail(
   return dashboardThumbnailBytes(png, { ...options, format: "webp" });
 }
 
-/** Encoded thumbnail as HTTP response (await .blob() keeps encode off the JS thread). */
+/**
+ * Encoded thumbnail as HTTP response (await `.blob()` keeps encode off the JS thread).
+ *
+ * @see {@link BUN_IMAGE_TERMINALS_URL}
+ * @see {@link BUN_IMAGE_DOCS_URL} — Bun.serve integration (prefer pre-awaited bytes in routes)
+ * Available helper; server uses `dashboardThumbnailBytes` + cache for hit/miss headers.
+ */
 export async function dashboardThumbnailResponse(
   png: Uint8Array,
   options: DashboardThumbnailOptions = {}
@@ -320,7 +352,12 @@ export async function dashboardThumbnailResponse(
   return new Response(blob, { headers: { "cache-control": "no-store" } });
 }
 
-/** LQIP placeholder data URL for an image path, bytes, or BunFile (ThumbHash). */
+/**
+ * LQIP placeholder data URL for an image path, bytes, or BunFile (ThumbHash).
+ *
+ * @see {@link BUN_IMAGE_PLACEHOLDERS_URL}
+ * Consumer: herdr-dashboard-server.ts `GET /api/meta` → `meta.placeholder`
+ */
 export async function imagePlaceholderDataUrl(input: ImageInput): Promise<string | null> {
   if (!bunImageSupported()) return null;
   return new Bun.Image(input).placeholder();

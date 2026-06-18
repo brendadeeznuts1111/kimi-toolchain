@@ -1,5 +1,12 @@
 /**
  * herdr-dashboard-server.ts — Bun.serve API + static dashboard for orchestrator WebView.
+ *
+ * Thumbnail encode: `GET /api/thumbnail` awaits {@link dashboardThumbnailBytes} (Bun.Image `.blob()` terminal)
+ * then returns cached `Uint8Array` — not a live pipeline in `Response`.
+ *
+ * @see https://bun.com/docs/runtime/image#terminals
+ * @see https://bun.com/docs/runtime/image#placeholders — `GET /api/meta` → `meta.placeholder`
+ * @see https://bun.com/docs/api/http
  */
 
 import { join } from "path";

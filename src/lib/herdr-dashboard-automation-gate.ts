@@ -1,5 +1,10 @@
 /**
  * herdr-dashboard-automation-gate.ts — WebView smoke + /api/thumbnail probe for kimi-doctor --automation.
+ *
+ * Indirect terminal: smoke `setScreenshotPng` then `fetch` `/api/thumbnail` (encode in server on GET).
+ *
+ * @see https://bun.com/docs/runtime/image#terminals
+ * @see docs/references/dashboard-thumbnails.md — Terminals + call-site map
  */
 
 import { bunImageSupported } from "./bun-image.ts";
@@ -268,9 +273,9 @@ export async function runDashboardAutomationGate(
   const partial = await runOwnedAutomationGate(projectPath, options);
   return {
     ok: !partial.failure,
-    url: partial.url ?? resolveDashboardMetaUrl(),
     ownedServer: true,
     ...partial,
+    url: partial.url ?? resolveDashboardMetaUrl(),
   };
 }
 

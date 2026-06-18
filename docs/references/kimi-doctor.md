@@ -1,5 +1,9 @@
 # kimi-doctor dashboard-automation gate
 
+## Not to be confused with
+
+- **`herdr-doctor` plugin** — Herdr UI plugin (`prefix+d`), not this CLI. See [namespace.md](./namespace.md) (especially [Doctor trinity](./namespace.md#doctor-trinity--kimi-code)).
+
 ## Primary command
 
 ```bash
@@ -14,7 +18,8 @@ This runs the self-contained end-to-end dashboard automation gate. It:
 - Runs the processes-panel smoke recipe (toggle `#processes-toggle`, wait for rows)
 - Captures a screenshot using `Bun.WebView.screenshot()` via `webViewScreenshotBytes()`
 - Feeds the PNG into `setScreenshotPng` and probes `GET /api/thumbnail` to verify the
-  `dashboardWebpThumbnail` pipeline returns `image/webp`
+  `dashboardWebpThumbnail` pipeline returns `image/webp` (encode runs via awaited
+  `.blob()` terminal on the server — see [dashboard-thumbnails.md Terminals](./dashboard-thumbnails.md#terminals))
 - Reports a pass/fail result
 
 The gate is the canonical fast check for the dashboard's screenshot-to-thumbnail

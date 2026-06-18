@@ -158,6 +158,10 @@ describe("desktop-sync", () => {
           markers: ["--automation", "webViewScreenshotBytes", "dashboardWebpThumbnail"],
         },
         {
+          rel: "docs/references/namespace.md",
+          markers: ["Doctor trinity", "localDocs", "herdr-doctor"],
+        },
+        {
           rel: "docs/references/shell-spawn-choice.md",
           markers: ["invokeTool()", "governedSpawn()"],
         },

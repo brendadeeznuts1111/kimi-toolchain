@@ -47,8 +47,17 @@ export function startSession(project: string): SessionRecord {
     diskUsedMb: 0,
   };
   if (_dbReadonly) return record;
-  writeSession("INSERT INTO resource_sessions (id, project, started_at, memory_peak_mb, cpu_time_ms, disk_used_mb) VALUES (?, ?, ?, ?, ?, ?)",
-    [record.id, record.project, record.startedAt, record.memoryPeakMb, record.cpuTimeMs, record.diskUsedMb]);
+  writeSession(
+    "INSERT INTO resource_sessions (id, project, started_at, memory_peak_mb, cpu_time_ms, disk_used_mb) VALUES (?, ?, ?, ?, ?, ?)",
+    [
+      record.id,
+      record.project,
+      record.startedAt,
+      record.memoryPeakMb,
+      record.cpuTimeMs,
+      record.diskUsedMb,
+    ]
+  );
   return record;
 }
 
@@ -61,7 +70,8 @@ export function updateSessionPeak(id: string, memoryMb: number, cpuMs: number) {
   if (_dbReadonly) return;
   writeSession(
     `UPDATE resource_sessions SET memory_peak_mb = MAX(memory_peak_mb, ?), cpu_time_ms = cpu_time_ms + ? WHERE id = ?`,
-    [memoryMb, cpuMs, id]);
+    [memoryMb, cpuMs, id]
+  );
 }
 
 function writeSession(sql: string, params: any[]): void {
@@ -161,7 +171,8 @@ export function setCached(
   const expires = now + ttlSeconds * 1000;
   writeSession(
     "INSERT OR REPLACE INTO diagnostic_cache (key, command, output, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
-    [key, command, output, now, expires]);
+    [key, command, output, now, expires]
+  );
 }
 
 export function cleanupCache(): number {

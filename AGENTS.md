@@ -282,6 +282,7 @@ Runner defaults: 30s human timeout, 15s agent/CI timeout, 5s SIGTERM-to-SIGKILL 
 | New scaffold/agent docs         | `src/lib/scaffold-agents.ts`, `TEMPLATES.md`, `test/scaffold-agents.unit.test.ts`                       |
 | Doctor adapters/plugins/MCP     | [CODE_REFERENCES.md](CODE_REFERENCES.md) § Doctor Adapter / Plugin / MCP                                |
 | Herdr orchestration             | `src/lib/herdr-project-config.ts`, `docs/SCOPE.md`, `docs/handoff-rules.md`, `skills/herdr/SKILL.md`    |
+| Toolchain vs Herdr naming       | `docs/references/namespace.md` — doctor trinity, finish-work gates vs `prefix+*` keybindings            |
 
 ### Bun-native coding standards
 
@@ -410,8 +411,13 @@ On memory-constrained hosts, swap thrashing inflates load before CPU looks busy.
 | `docs/handoff-rules.md` | Cross-pane handoff contract |
 | `docs/naming.md` | Session and pane naming conventions |
 | `docs/flake-register.md` | Known flaky tests and mitigations |
-| `docs/references/shell-spawn-choice.md` | When to use `Bun.spawn` vs `governedSpawn` |
+| `docs/references/namespace.md` | Toolchain vs Herdr plugin boundaries; doctor trinity; global ecosystem (hub — 5 refs indexed in `canonical-references.json`) |
+| `docs/references/kimi-doctor.md` | `kimi-doctor --automation` gate — CLI, JSON schema, exit codes |
+| `docs/references/dashboard-thumbnails.md` | WebView screenshot → `Bun.Image` terminals → `/api/thumbnail` |
+| `docs/references/shell-spawn-choice.md` | When to use `invokeTool` vs `Bun.spawn` vs `governedSpawn` |
 | `docs/references/bun-shell-companions.md` | Bun `$` template vs subprocess patterns |
+| `docs/dx-table.md` | `dx:table` TOML property tables, `--schema` validation, inventory |
+| `schemas/endpoints-strict.schema.toml` | Pathname safety for `[[endpoints]]` rows (`-u --exact`; gate: `bun run dx:table:contract`) |
 
 ## Quick Reference: All CLI Tools
 

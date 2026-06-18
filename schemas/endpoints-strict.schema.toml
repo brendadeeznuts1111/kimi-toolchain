@@ -1,4 +1,7 @@
-# Stricter endpoints contract (pathname must not contain path traversal segments)
+
+# Stricter endpoints contract for dx.config.toml [[endpoints]] URL inventory
+# (external MCP/docs links — not Herdr dashboard /api/* routes; see docs/references/namespace.md)
+# Requires: dx:table extract … endpoints -u --exact --schema schemas/endpoints-strict.schema.toml
 # Gate: bun run dx:table:contract  |  Docs: schemas/README.md, docs/dx-table.md
 required = ["name", "url_pathname"]
 
