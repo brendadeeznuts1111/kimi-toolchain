@@ -12,7 +12,7 @@ Agents often conflate names that share a word (`doctor`, `orchestrator`) but liv
 | `herdr-orchestrator` (CLI)    | Toolchain bin — dashboard server, `--probe`, context-sync                        | Shell: `herdr-orchestrator dashboard …`                 | `src/bin/herdr-orchestrator.ts`, [dashboard-thumbnails.md](./dashboard-thumbnails.md) |
 | `herdr-orchestrator` (plugin) | **Herdr plugin** — remote agents, audit, GitHub link previews                    | Herdr UI: `prefix+a/l/f/t` + Control+click URLs         | Herdr plugin plan v0.5.0 (outside repo)                                               |
 | `herdr-notify`                | **Herdr plugin** — Slack/Discord webhooks on agent events                        | Event hooks only (no finish-work gate)                  | Herdr plugin plan v0.5.0 (outside repo)                                               |
-| `kimi-heal`                   | Toolchain CLI — Effect audit                                                     | Shell: `kimi-heal effect audit` in `[finishWork].gates` | `DEEP-QUALITY.md`, skills/effect-discipline                                           |
+| `kimi-heal`                   | Toolchain CLI — Effect audit + **`--fix` repairs**                               | Shell: `kimi-heal effect audit`, `kimi-heal --fix`      | `DEEP-QUALITY.md`, skills/effect-discipline                                           |
 
 **Rule:** If the doc is under `docs/references/` in **this repo**, it describes **kimi-toolchain** behavior — not Herdr marketplace plugins unless explicitly labeled.
 
@@ -37,6 +37,7 @@ Agents often conflate names that share a word (`doctor`, `orchestrator`) but liv
 | `kimi-doctor --automation` | Finish-work shell gate | `~/.kimi-code/tools/kimi-doctor.ts` | [kimi-doctor.md](./kimi-doctor.md) |
 | `kimi-doctor --effect-gates` | Finish-work shell gate | `~/.kimi-code/tools/kimi-doctor.ts` | [DEEP-QUALITY.md](../../DEEP-QUALITY.md) |
 | `kimi-heal effect audit` | Finish-work shell gate | `~/.kimi-code/tools/kimi-heal.ts` | [DEEP-QUALITY.md](../../DEEP-QUALITY.md) |
+| `kimi-heal --fix` | Advanced repair (bare promises, domain imports) | `~/.kimi-code/tools/kimi-heal.ts` | `src/lib/effect-heal-fix.ts` |
 | `herdr-doctor --json` | Toolchain bin (shell) | `herdr-doctor.ts` via PATH | [Doctor trinity](#doctor-trinity--kimi-code) |
 | `prefix+d` | Herdr plugin action | `herdr-doctor.status` — not `kimi-doctor` | This doc |
 | `herdr-orchestrator dashboard` | Toolchain bin (shell) | `herdr-orchestrator.ts` | [dashboard-thumbnails.md](./dashboard-thumbnails.md) |
@@ -134,7 +135,7 @@ Four different “doctor” surfaces — same word, different products:
 | Surface            | Kind                                      | One-line role                                                                     |
 | ------------------ | ----------------------------------------- | --------------------------------------------------------------------------------- |
 | **`kimi doctor`**  | Kimi Code official CLI                    | Moonshot agent config check — **not** `kimi-doctor`                               |
-| **`kimi-doctor`**  | Toolchain CLI (`src/bin/kimi-doctor.ts`)  | Aggregator: `--automation`, `--effect-gates`, adapters, finish-work gates         |
+| **`kimi-doctor`**  | Toolchain CLI (`src/bin/kimi-doctor.ts`)  | Aggregator: `--automation`, `--effect-gates`, `--perf-gates`, `--train`, `--report`, adapters, finish-work gates |
 | **`herdr-doctor`** | Toolchain bin (`src/bin/herdr-doctor.ts`) | DX/Herdr **integration health** for the config hub (`--json`, `--fix`)            |
 | **`herdr-doctor`** | Herdr plugin (v0.5.0, outside repo)       | UI sidebar + `prefix+d` → `herdr-doctor.status` — **no shared code** with the bin |
 
@@ -210,18 +211,22 @@ Related commands: `bun run dx:table -u`, `bun run dx:table:contract`, `bun run r
 
 ## Related docs
 
-### `docs/references/` index (6 `localDocs`)
+### `docs/references/` index (10 `localDocs`)
 
 Agent-indexed reference docs in this directory — synced to `~/.kimi-code/docs/references/` after `bun run sync`. SSOT rows: `src/lib/canonical-references.ts` → `canonical-references.json`.
 
-| Manifest id            | File                                                 | One-line                                                                          |
-| ---------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `configuration-layers` | [configuration-layers.md](./configuration-layers.md) | Four-layer model: discovery, define registry, parity contract, app scaffold       |
-| `namespace`            | [namespace.md](./namespace.md)                       | Toolchain vs Herdr plugin boundaries; doctor trinity; global ecosystem (this doc) |
-| `kimi-doctor`          | [kimi-doctor.md](./kimi-doctor.md)                   | `kimi-doctor --automation` gate — CLI, JSON schema, exit codes                    |
-| `dashboard-thumbnails` | [dashboard-thumbnails.md](./dashboard-thumbnails.md) | WebView screenshot → `Bun.Image` terminals → `/api/thumbnail`                     |
-| `shell-spawn-choice`   | [shell-spawn-choice.md](./shell-spawn-choice.md)     | `invokeTool` vs `Bun.spawn` vs `governedSpawn`                                    |
-| `bun-shell-companions` | [bun-shell-companions.md](./bun-shell-companions.md) | Bun `$` template vs subprocess; inspect companions                                |
+| Manifest id                     | File                                                           | One-line                                                                          |
+| ------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `configuration-layers`          | [configuration-layers.md](./configuration-layers.md)           | Four-layer model: discovery, define registry, parity contract, app scaffold       |
+| `namespace`                     | [namespace.md](./namespace.md)                                 | Toolchain vs Herdr plugin boundaries; doctor trinity; global ecosystem (this doc) |
+| `kimi-doctor`                   | [kimi-doctor.md](./kimi-doctor.md)                             | `--automation`, `--effect-gates`, `--perf-gates`, `--train`, `--report` — CLI, JSON schema, exit codes |
+| `dashboard-thumbnails`          | [dashboard-thumbnails.md](./dashboard-thumbnails.md)           | WebView screenshot → `Bun.Image` terminals → `/api/thumbnail`                     |
+| `shell-spawn-choice`            | [shell-spawn-choice.md](./shell-spawn-choice.md)               | `invokeTool` vs `Bun.spawn` vs `governedSpawn`                                    |
+| `bun-shell-companions`          | [bun-shell-companions.md](./bun-shell-companions.md)           | Bun `$` template vs subprocess; inspect companions                                |
+| `bun-runtime-scaffold`          | [bun-runtime-scaffold.md](./bun-runtime-scaffold.md)           | Bun install config defaults, global store, `--no-orphans`                          |
+| `template-matrix`               | [template-matrix.md](./template-matrix.md)                     | Scaffold template families, collision resolution, profile diff                     |
+| `herdr-socket-saturation-protocol` | [herdr-socket-saturation-protocol.md](./herdr-socket-saturation-protocol.md) | EAGAIN taxonomy, socket recovery protocol                            |
+| `herdr-plugin-architecture`     | [herdr-plugin-architecture.md](./herdr-plugin-architecture.md) | Herdr plugin boundaries and architecture                                           |
 
 | Topic                                 | Path                                                           |
 | ------------------------------------- | -------------------------------------------------------------- |

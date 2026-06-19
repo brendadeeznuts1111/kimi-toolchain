@@ -8,6 +8,7 @@
 | **scaffold** | 22 | `kimi-fix <path>` | Project root (`./`) | Non-destructive (`!pathExists`) | **High** with `bun init` — mitigated by `-m` |
 | **desktop-runtime** | 1 | `bun run sync` | `~/.kimi-code/package.json` + `node_modules/` (from `templates/desktop-runtime/package.json` via `provisionDesktopRuntimeDeps`; **not** under `~/.kimi-code/templates/`) | Merge (JSON overwrite; `bun install` if deps missing) | None — separate namespace |
 | **other** | 4 | Manual / Herdr dashboard | `docs/herdr/` + `docs/mcp/` | Manual | None |
+| **domain-effects** | 5 | `kimi-fix` (when `KIMI_MODULES` set) | `src/{module}/processor.ts` (per project) | Non-destructive (`!pathExists`) | Low — opt-in per module |
 
 **Consumed by:** `kimi-fix`, Herdr orchestrator, `LOCAL_DOC_REFERENCES`, `sync-verify.ts`, `bun create kimi-toolchain`
 
@@ -145,6 +146,31 @@ flowchart TD
 
 ---
 
+## Domain Effect Modules
+
+Domain effect handlers are scaffolded per-module during `kimi-fix`. **`KIMI_MODULES` defaults to `doctor`** when unset (copies `examples/dashboard` perf harness + `perf-doctor.ts`). Override with `KIMI_MODULES=image,trace` etc.
+
+| Module | Source | Effect Symbol | Key Bun API |
+|--------|--------|---------------|-------------|
+| **`doctor`** (default) | `examples/dashboard/src/harness` + `perf-doctor.ts` | `kimi.effect.*` registry keys | `Bun.nanoseconds()`, fetch protocol benchmarks |
+| `image` | `templates/modules/image/src/processor.ts` | `kimi.effect.image` | `Bun.Image` |
+| `db` | `templates/modules/db/src/processor.ts` | `kimi.effect.db` | `bun:sqlite` |
+| `uuid` | `templates/modules/uuid/src/processor.ts` | `kimi.effect.uuid` | `Bun.randomUUIDv7` |
+| `terminal` | `templates/modules/terminal/src/processor.ts` | `kimi.effect.terminal` | `Bun.Terminal` |
+| `perf` | alias of doctor harness | `kimi.effect.perf` | `Bun.nanoseconds()` |
+
+Registration (generated in `src/init.ts` when modules include `image`):
+```ts
+import * as image from './image/processor';
+globalThis[Symbol.for('kimi.effect.image')] = image;
+```
+
+The harness discovers handlers via `Object.getOwnPropertySymbols(globalThis)`, benchmarks each method with `Bun.nanoseconds()`, and feeds results into `--train` / `--perf-gates` / `--report`.
+
+See: `skills/kimi-toolchain/examples/image-effect.md`, `skills/kimi-toolchain/examples/platform-absorption.md`.
+
+---
+
 ## Error Scenarios
 
 | Mistake | Symptom | Fix |
@@ -212,7 +238,8 @@ bun run sync:verify       # Runtime paths match repo paths
 | bun-create template | 1 | — |
 | desktop-runtime | 1 | — |
 | Herdr dashboard + MCP | 4 | — |
-| **Grand Total** | **28** | — |
+| Domain effect modules | 5 | — |
+| **Grand Total** | **33** | — |
 
 ## Related
 
