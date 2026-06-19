@@ -116,12 +116,28 @@ async function apiConsoleDepth(): Promise<Response> {
 }
 
 async function apiBuildInfo(): Promise<Response> {
-  // Simulates compile-time constants from manifest.toml [artifact.defines]
-  const compileTime = {
+  // Compile-time constants from manifest.toml [artifact.defines]
+  const compileTime: Record<string, string> = {
     PLATFORM: "darwin",
     TARGET: "bun-darwin-arm64",
     VERSION: "0.1.0",
   };
+
+  // Git-derived build metadata (simulates --define BUILD_VERSION="$(git describe)")
+  try {
+    const gitDesc = Bun.spawn(["git", "describe", "--tags", "--always"], { cwd: process.cwd(), stdout: "pipe", stderr: "pipe" });
+    compileTime.BUILD_VERSION = (await new Response(gitDesc.stdout).text()).trim() || "unknown";
+    await gitDesc.exited;
+
+    const gitRev = Bun.spawn(["git", "rev-parse", "HEAD"], { cwd: process.cwd(), stdout: "pipe", stderr: "pipe" });
+    compileTime.GIT_COMMIT = (await new Response(gitRev.stdout).text()).trim().slice(0, 8) || "unknown";
+    await gitRev.exited;
+  } catch {
+    compileTime.BUILD_VERSION = "unknown";
+    compileTime.GIT_COMMIT = "unknown";
+  }
+  compileTime.BUILD_TIME = new Date().toISOString();
+
   const runtime = {
     platform: process.platform,
     arch: process.arch,
@@ -129,7 +145,7 @@ async function apiBuildInfo(): Promise<Response> {
     bunRevision: Bun.revision,
     pid: process.pid,
   };
-  return jsonResponse({ compileTime, runtime, note: "compile-time via manifest defines, runtime via process.*" });
+  return jsonResponse({ compileTime, runtime, note: "compile-time via manifest defines + git, runtime via process.*" });
 }
 
 // ── Server ──────────────────────────────────────────────────────────
