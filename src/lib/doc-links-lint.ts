@@ -175,7 +175,11 @@ function isAllowlistedBunShRoot(rel: string, line: string): boolean {
   );
 }
 
-function isExportedConstantDefinition(lines: string[], lineIndex: number, constant: string): boolean {
+function isExportedConstantDefinition(
+  lines: string[],
+  lineIndex: number,
+  constant: string
+): boolean {
   const exportRe = new RegExp(`export const ${constant}\\s*=`);
   for (let i = lineIndex; i >= Math.max(0, lineIndex - 1); i--) {
     if (exportRe.test(lines[i]!)) return true;
@@ -244,10 +248,7 @@ export function scanDocLinkFile(rel: string, text: string): DocLinkViolation[] {
     for (const { parts } of urls) {
       for (const entry of BUN_DOC_LINK_CONSTANTS) {
         if (!docLinkUrlMatchesSpec(parts, entry.match)) continue;
-        if (
-          rel === entry.definingFile &&
-          isExportedConstantDefinition(lines, i, entry.constant)
-        ) {
+        if (rel === entry.definingFile && isExportedConstantDefinition(lines, i, entry.constant)) {
           continue;
         }
         if (lineUsesConstant(line, entry.constant)) continue;
