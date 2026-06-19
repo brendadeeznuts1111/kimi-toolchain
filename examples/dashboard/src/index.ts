@@ -269,13 +269,31 @@ async function apiInspectSimple(): Promise<Response> {
   let errorStr = "";
   try { throw new Error("Something went wrong"); } catch (err) { errorStr = Bun.inspect(err); }
 
-  // Options demo: same object at different depths
+  // Options demo
   const nested = { a: { b: { c: { d: "deep" } } } };
   const depth2 = Bun.inspect(nested, { depth: 2 });
   const depth4 = Bun.inspect(nested, { depth: 4 });
   const compact = Bun.inspect(nested, { depth: 4, compact: true });
 
+  // Defaults table
+  const options = [
+    { option: "depth", default: 2, value: 4, flag: "--console-depth", source: "bunfig.toml console.depth = 4" },
+    { option: "colors", default: false, value: true, flag: "bun --no-color", source: "terminal" },
+    { option: "showHidden", default: false, value: false, flag: "—", source: "default" },
+    { option: "sorted", default: false, value: false, flag: "—", source: "default" },
+    { option: "compact", default: 3, value: 3, flag: "—", source: "default" },
+    { option: "breakLength", default: 80, value: 80, flag: "—", source: "default" },
+    { option: "maxArrayLength", default: 100, value: 100, flag: "—", source: "default" },
+    { option: "customInspect", default: true, value: true, flag: "—", source: "default" },
+  ];
+  const table = [
+    "option          default  current  flag",
+    "──────────────  ───────  ───────  ────────────────",
+    ...options.map(o => `${o.option.padEnd(15)} ${String(o.default).padEnd(8)} ${String(o.value).padEnd(8)} ${o.flag}`),
+  ].join("\n");
+
   return new Response(
+    `// ${table}\n\n` +
     `// Bun.inspect({ foo: "bar" })\n${Bun.inspect(obj)}\n\n` +
     `// Bun.inspect(new Uint8Array([1, 2, 3]))\n${Bun.inspect(arr)}\n\n` +
     `// as const — TypeScript only, no runtime effect\n${Bun.inspect(constObj)}\n\n` +
