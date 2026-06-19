@@ -1,5 +1,5 @@
 {
-  "name": "kimi-dashboard",
+  "name": "{{name}}",
   "version": "0.0.1",
   "description": "Bun-native HTTP dashboard scaffolded from kimi-toolchain examples",
   "bun-create": {
