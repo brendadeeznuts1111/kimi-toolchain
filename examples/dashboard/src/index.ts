@@ -225,6 +225,24 @@ async function apiRuntimeInfo(): Promise<Response> {
   });
 }
 
+async function apiToolchainHealth(): Promise<Response> {
+  // Use shared resolver from toolchain-paths module
+  const { resolveBin } = await import("./lib/toolchain-paths.ts");
+  const names = ["kimi-fix", "kimi-new", "kimi-doctor", "kimi-heal", "kimi-bake"];
+  const bins = names.map((n) => resolveBin(n));
+  const missing = bins.filter((b) => b.resolved === null).map((b) => b.name);
+  const shadowed = bins.filter((b) => b.shadowed);
+  return jsonResponse({
+    ok: missing.length === 0,
+    total: names.length,
+    found: names.length - missing.length,
+    missing,
+    shadowed: shadowed.map((b) => b.name),
+    all: bins.map((b) => ({ name: b.name, source: b.source, path: b.resolved, shadowed: b.shadowed })),
+    hint: missing.length > 0 ? "Install: bun install -g github:brendadeeznuts1111/kimi-toolchain" : null,
+  });
+}
+
 async function apiInspect(): Promise<Response> {
   // Sample object demonstrating Bun.inspect() with typed values
   const typedArray = new Uint8Array([1, 2, 3]);
@@ -307,6 +325,8 @@ const server = Bun.serve({
         return apiBuildInfo();
       case "/api/runtime-info":
         return apiRuntimeInfo();
+      case "/api/toolchain/health":
+        return apiToolchainHealth();
       case "/api/inspect":
         return apiInspect();
       case "/api/uuid":
