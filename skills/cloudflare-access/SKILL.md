@@ -1,6 +1,22 @@
 ---
 name: cloudflare-access
-description: Cloudflare Access / Zero Trust hygiene — service token expiry sweep, policy audit, policy-as-code
+description: |
+  Cloudflare Access / Zero Trust hygiene — service token expiry, local inventory,
+  policy audit, and policy-as-code. Use when Access tokens, app policies, or
+  `.cloudflare-access.yml` drift need inspection or controlled apply.
+whenToUse: |
+  Access token expiry, app policy gaps, `.cloudflare-access.yml` drift, or
+  `kimi-cloudflare-access doctor` / plan-before-apply workflows.
+layer: L2
+trigger:
+  - Cloudflare Access token or policy audit
+  - kimi-cloudflare-access doctor or fix
+  - policy-as-code plan/apply
+dependencies:
+  - kimi-toolchain
+loaded_by: On-demand / cloudflare-access topic
+role: Zero Trust hygiene runbook — CLI surface, auth separation, plan-before-apply
+token_estimate: 680
 allowed_tools:
   - read_file
   - write_file
@@ -15,49 +31,71 @@ model: deepseek-v4-flash
 
 Audits Cloudflare Access / Zero Trust configurations: service token expiry, application policy gaps, and policy-as-code drift detection.
 
+Exemplars: [CODE_REFERENCES.md](~/.kimi-code/CODE_REFERENCES.md) § Cloudflare Access.
+
 ## Architecture
 
-This skill wraps the `kimi-cloudflare-access` CLI which was originally part of `kimi-toolchain`. The core logic lives in:
+This skill wraps the `kimi-cloudflare-access` CLI. Core logic:
 
-```
-src/lib/cloudflare-access.ts         — API client, token checks, credential management
-src/lib/cloudflare-access-policy.ts  — Policy-as-Code diff engine
-src/bin/kimi-cloudflare-access.ts    — CLI entry point (doctor/fix/plan/apply)
-```
+- `src/lib/cloudflare-access.ts` — API client, token checks, credential management
+- `src/lib/cloudflare-access-policy.ts` — Policy-as-Code diff engine
+- `src/bin/kimi-cloudflare-access.ts` — CLI entry point
 
-## Usage
+## CLI surface
 
 ```bash
-# Audit service tokens for expiry
+kimi-cloudflare-access status
+kimi-cloudflare-access dashboard
 kimi-cloudflare-access tokens
-
-# Audit application policies
 kimi-cloudflare-access apps
-
-# Full doctor check
 kimi-cloudflare-access doctor
-
-# Policy-as-Code plan (dry-run)
+kimi-cloudflare-access fix
 kimi-cloudflare-access plan
-
-# Policy-as-Code apply (mutates Access apps/policies)
 kimi-cloudflare-access apply
+kimi-cloudflare-access mcp-apply
+kimi-cloudflare-access login
+kimi-cloudflare-access logout
 ```
 
-Run `plan` before every `apply`. Agents must show the planned app/policy diff and get explicit user confirmation before running `apply`.
+Run `plan` before every `apply`. Show the planned app/policy diff and get explicit user confirmation before `apply`.
 
 ## Auth
 
 1. `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` env vars (CI override)
-2. OS keychain via `Bun.secrets` (set with `kimi-cloudflare-access login`)
+2. OS keychain via `Bun.secrets` (`kimi-cloudflare-access login`)
 
-Cloudflare MCP SSO/OAuth, Wrangler OAuth, and this CLI's API token path are separate. A successful MCP or Wrangler login does not satisfy `kimi-cloudflare-access` unless the account id and API token are also available.
+Cloudflare MCP SSO/OAuth and Wrangler OAuth are separate from this CLI's API token path. A successful MCP or Wrangler login does not satisfy `kimi-cloudflare-access` unless account id and API token are also available.
 
-Create an API token at https://dash.cloudflare.com/profile/api-tokens with:
+## Recipes
 
-- Account → Cloudflare Access → Read
-- Account → Access: Service Tokens → Read
+### Token expiry sweep
 
-## Future
+```bash
+kimi-cloudflare-access status
+kimi-cloudflare-access tokens
+kimi-cloudflare-access doctor
+```
 
-This skill is a candidate for extraction into a standalone package or optional kimi-toolchain plugin. The 2,473 lines of Cloudflare logic (15% of the codebase) serve a niche enterprise use case.
+### Policy drift plan/apply
+
+```bash
+kimi-cloudflare-access apps
+kimi-cloudflare-access plan
+# user confirms diff
+kimi-cloudflare-access apply
+```
+
+### Dashboard + MCP policy sync
+
+```bash
+kimi-cloudflare-access dashboard
+kimi-cloudflare-access mcp-apply
+```
+
+### Credential reset
+
+```bash
+kimi-cloudflare-access logout
+kimi-cloudflare-access login
+kimi-cloudflare-access fix
+```

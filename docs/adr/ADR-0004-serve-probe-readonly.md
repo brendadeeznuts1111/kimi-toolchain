@@ -19,12 +19,12 @@ A design question arose: should serve-probe accept
 
 The serve-probe artifact API is **read-only**. Gate execution stays CLI-bound.
 
-| Method | Path | Behavior |
-| ------ | ---- | -------- |
-| `GET` | `/api/artifacts` | List gates with saved artifacts |
-| `GET` | `/api/artifacts/:gate` | List artifacts (`?limit=N&since=ISO`) |
-| `GET` | `/api/artifacts/:gate/latest` | Newest unwrapped payload |
-| `POST` | `/api/artifacts/:gate/refresh` | **403** — read-only API |
+| Method | Path                           | Behavior                              |
+| ------ | ------------------------------ | ------------------------------------- |
+| `GET`  | `/api/artifacts`               | List gates with saved artifacts       |
+| `GET`  | `/api/artifacts/:gate`         | List artifacts (`?limit=N&since=ISO`) |
+| `GET`  | `/api/artifacts/:gate/latest`  | Newest unwrapped payload              |
+| `POST` | `/api/artifacts/:gate/refresh` | **403** — read-only API               |
 
 Card freshness is separate: `GET|POST /api/refresh` re-probes dashboard cards only.
 

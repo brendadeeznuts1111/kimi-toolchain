@@ -1,0 +1,18 @@
+{
+  "name": "@templates/bun-create",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Packable bundle of kimi-toolchain bun-create templates.",
+  "files": [
+    "kimi-toolchain",
+    "kimi-dashboard",
+    "kimi-gates",
+    "templates.json"
+  ],
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "test:changed": "bun test --changed --pass-with-no-tests",
+    "pack": "bun pm pack"
+  }
+}

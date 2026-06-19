@@ -31,7 +31,11 @@ import {
 
 /** Bun.Image anchors — SSOT constants in src/lib/bun-image.ts (bun.com, not bun.sh). */
 const BUN_IMAGE_DOC_ANCHORS = [
-  ["#terminals", "dashboardThumbnailBlob() · probeBunImageAvifEncode()", "Primary /api/thumbnail encode"],
+  [
+    "#terminals",
+    "dashboardThumbnailBlob() · probeBunImageAvifEncode()",
+    "Primary /api/thumbnail encode",
+  ],
   ["#placeholders", "imagePlaceholderDataUrl()", "GET /api/meta LQIP"],
   ["#metadata", "imageMetadata()", "Probe-only dimensions — secondary to encode path"],
   ["#platform-backends", "setBunImageBackend()", "AVIF negotiation · golden-image tests"],
@@ -39,9 +43,21 @@ const BUN_IMAGE_DOC_ANCHORS = [
 
 /** External API docs vs internal manifest ids — never interchange. */
 const DOC_LINK_BOUNDARY = [
-  ["External Bun API", "bun.com/docs/runtime/image#terminals", "BUN_IMAGE_* in src/lib/bun-image.ts · @see in JSDoc"],
-  ["Internal manifest id", "dashboard-thumbnails", "LOCAL_DOC_REFERENCES → docs/references/dashboard-thumbnails.md"],
-  ["Canvas localDocs table", "MANIFEST_LOCAL_DOCS_ALL (17 ids)", "herdr-dashboard-thumbnails canvas only — not Bun anchor URLs"],
+  [
+    "External Bun API",
+    "bun.com/docs/runtime/image#terminals",
+    "BUN_IMAGE_* in src/lib/bun-image.ts · @see in JSDoc",
+  ],
+  [
+    "Internal manifest id",
+    "dashboard-thumbnails",
+    "LOCAL_DOC_REFERENCES → docs/references/dashboard-thumbnails.md",
+  ],
+  [
+    "Canvas localDocs table",
+    "MANIFEST_LOCAL_DOCS_ALL (17 ids)",
+    "herdr-dashboard-thumbnails canvas only — not Bun anchor URLs",
+  ],
 ] as const;
 
 const COMMITS = [
@@ -131,6 +147,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
   { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "manifest id deep-quality (this canvas)" },
   { id: "dashboard-card-registry", page: "Card registry", path: "docs/canvases/dashboard-card-registry.canvas.tsx", detail: "canvasInfluences · /api/cards · lint gate" },
+  { id: "artifact-lineage", page: "Artifacts & Runs", path: "docs/canvases/artifact-lineage.canvas.tsx", detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns" },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -146,6 +163,7 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "warning",
   "success",
+  "neutral",
   "neutral"
 ] as const;
 function CanvasLink({
@@ -183,7 +201,12 @@ function RelatedCanvasesTable() {
       <Table
         headers={["Canvas", "Topic", "Open when"]}
         rows={CANVAS_ROUTING.map((c) => [
-          <CanvasLink key={`${c.id}-file`} label={`${c.id}.canvas.tsx`} path={c.path} dispatch={dispatch} />,
+          <CanvasLink
+            key={`${c.id}-file`}
+            label={`${c.id}.canvas.tsx`}
+            path={c.path}
+            dispatch={dispatch}
+          />,
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
@@ -291,8 +314,9 @@ export default function KimiHealDoctorScaffoldCanvas() {
       <CollapsibleSection title="Doc link boundaries (bun.com vs manifest ids)" defaultOpen={false}>
         <Stack gap={12}>
           <Callout tone="info" title="No mixing">
-            External Bun API anchors (bun.com/docs/…#metadata) belong in source `@see` and BUN_* constants.
-            Internal localDocs tables index LOCAL_DOC_REFERENCES ids only — see herdr-dashboard-thumbnails canvas.
+            External Bun API anchors (bun.com/docs/…#metadata) belong in source `@see` and BUN_*
+            constants. Internal localDocs tables index LOCAL_DOC_REFERENCES ids only — see
+            herdr-dashboard-thumbnails canvas.
           </Callout>
           <Table
             headers={["Kind", "Example", "Belongs in"]}
@@ -307,7 +331,8 @@ export default function KimiHealDoctorScaffoldCanvas() {
             striped
           />
           <Text tone="tertiary" size="small">
-            SSOT: src/lib/bun-image.ts (BUN_IMAGE_DOCS_URL = https://bun.com/docs/runtime/image) · lint: bun run lint (doc-links prefer bun.com over bun.sh)
+            SSOT: src/lib/bun-image.ts (BUN_IMAGE_DOCS_URL = https://bun.com/docs/runtime/image) ·
+            lint: bun run lint (doc-links prefer bun.com over bun.sh)
           </Text>
         </Stack>
       </CollapsibleSection>

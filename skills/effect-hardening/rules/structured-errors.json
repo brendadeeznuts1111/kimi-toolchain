@@ -1,0 +1,16 @@
+{
+  "gate": "structured-errors",
+  "scanner": "manual review + error-taxonomy.yml",
+  "description": "Failures cross boundaries as Data.TaggedError or Effect.fail — never bare throw in Effect.gen paths.",
+  "requiredPatterns": [
+    "Data.TaggedError(\"Name\")<{ fields }> in src/lib/effect/errors.ts style",
+    "Effect.fail(new TaggedError({ ... })) instead of throw",
+    "taxonomyId on CLI/subprocess boundaries via tool-runner-effect"
+  ],
+  "forbiddenPatterns": [
+    "throw new Error in Effect.gen without Effect.fail",
+    "catch (e) { return default } without tapError or taxonomy",
+    "untyped string errors across service interfaces"
+  ],
+  "verify": ["kimi-doctor --effect-gates", "code review against templates/error-pipeline.ts"]
+}

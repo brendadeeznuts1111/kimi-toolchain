@@ -34,9 +34,9 @@ const BUN_INSPECT_DEPTH_DOC =
 const BUN_HTTPS_AGENT_OPTIONS_DOC =
   "https://bun.sh/reference/node/https/AgentOptions#node:https.AgentOptions";
 
-const TOTAL_CARDS = 65;
-const CANVAS_ROWS = 10;
-const INFLUENCED_CARDS = 21;
+const TOTAL_CARDS = 67;
+const CANVAS_ROWS = 11;
+const INFLUENCED_CARDS = 23;
 const ORPHAN_CARDS = 44;
 
 const MANIFEST_CANVAS_ROWS = [
@@ -99,7 +99,8 @@ const MANIFEST_CANVAS_ROWS = [
   {
     manifestId: "deep-quality",
     canvasId: "kimi-heal-doctor-scaffold",
-    influences: "card-gates, card-effect-image, card-perf-harness, card-kimi-doctor, card-transpiler-scan",
+    influences:
+      "card-gates, card-effect-image, card-perf-harness, card-kimi-doctor, card-transpiler-scan",
     count: 5,
     readOrder: 9,
   },
@@ -110,6 +111,14 @@ const MANIFEST_CANVAS_ROWS = [
       "card-gates, card-kimi-doctor, card-scaffold, card-perf-harness, card-symbols, card-perf-registry",
     count: 6,
     readOrder: 10,
+  },
+  {
+    manifestId: "artifact-lineage",
+    canvasId: "artifact-lineage",
+    influences:
+      "card-artifacts, card-gates, card-metrics-schema, card-kimi-doctor, card-trace-verify, card-bunfig-policy",
+    count: 6,
+    readOrder: 11,
   },
 ] as const;
 
@@ -123,8 +132,8 @@ const CARD_GATES_MANIFESTS: ReadonlyArray<{ manifestId: string; canvasId: string
 ];
 
 const HUB_CARDS = [
-  ["card-gates", "Gate Health", "/api/gates", 6],
-  ["card-kimi-doctor", "kimi-doctor CLI", "/api/kimi-doctor", 5],
+  ["card-gates", "Gate Health", "/api/gates", 7],
+  ["card-kimi-doctor", "kimi-doctor CLI", "/api/kimi-doctor", 6],
   ["card-perf-harness", "Perf Harness", "/api/perf-harness", 4],
   ["card-scaffold", "Scaffold", "/api/scaffold", 3],
   ["card-symbols", "Symbol Registry", "/api/symbols", 3],
@@ -206,7 +215,11 @@ const ORPHAN_GROUPS = [
 const PIPELINE = [
   ["1", "canonical-references.json", "cursorCanvas + canvasInfluences[] per doc row"],
   ["2", "dashboard.html", "card-* panels parsed by regex (id + h2 title + fetch route)"],
-  ["3", "dashboard-card-registry.ts", "buildDashboardCardRegistry() — reverse map influences → cards"],
+  [
+    "3",
+    "dashboard-card-registry.ts",
+    "buildDashboardCardRegistry() — reverse map influences → cards",
+  ],
   ["4", "lint-canvas-influences.ts", "Gate: every influence id must exist in dashboard.html"],
   ["5", "/api/cards?canvas=<id>", "Filter registry to cards influenced by that manifest row"],
 ] as const;
@@ -231,6 +244,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
   { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
   { id: "dashboard-card-registry", page: "Card registry", path: "docs/canvases/dashboard-card-registry.canvas.tsx", detail: "manifest id v53-architecture (this canvas)" },
+  { id: "artifact-lineage", page: "Artifacts & Runs", path: "docs/canvases/artifact-lineage.canvas.tsx", detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns" },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -246,7 +260,8 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "warning",
   "neutral",
-  "success"
+  "success",
+  "neutral"
 ] as const;
 function CanvasNavButton({
   label,
@@ -285,7 +300,11 @@ function RelatedCanvasesTable() {
         headers={["Canvas file", "Binding layer", "Open when"]}
         rows={CANVAS_ROUTING.map((canvas) => [
           <span key={`${canvas.id}-file`}>
-            <CanvasNavButton label={`${canvas.id}.canvas.tsx`} path={canvas.path} dispatch={dispatch} />
+            <CanvasNavButton
+              label={`${canvas.id}.canvas.tsx`}
+              path={canvas.path}
+              dispatch={dispatch}
+            />
           </span>,
           <span key={`${canvas.id}-page`}>
             <CanvasNavButton label={canvas.page} path={canvas.path} dispatch={dispatch} />
@@ -331,9 +350,9 @@ export default function DashboardCardRegistryCanvas() {
       <Stack gap={6}>
         <H1>Dashboard card registry</H1>
         <Text tone="secondary" size="small">
-          Manifest: {THIS_MANIFEST_ID} · SSOT: src/lib/dashboard-card-registry.ts · lint-canvas-influences.ts ·
-          2026-06-19 · {CANVAS_ROWS} canvas rows · {TOTAL_CARDS} cards · regen counts via bun run
-          scripts/lint-canvas-influences.ts
+          Manifest: {THIS_MANIFEST_ID} · SSOT: src/lib/dashboard-card-registry.ts ·
+          lint-canvas-influences.ts · 2026-06-19 · {CANVAS_ROWS} canvas rows · {TOTAL_CARDS} cards ·
+          regen counts via bun run scripts/lint-canvas-influences.ts
         </Text>
       </Stack>
 
@@ -359,8 +378,8 @@ export default function DashboardCardRegistryCanvas() {
               ]}
             />
             <Text tone="tertiary" size="small" style={{ marginTop: 8 }}>
-              Source: buildDashboardCardRegistry() · {INFLUENCED_CARDS} of {TOTAL_CARDS} cards have ≥1
-              canvasInfluences entry
+              Source: buildDashboardCardRegistry() · {INFLUENCED_CARDS} of {TOTAL_CARDS} cards have
+              ≥1 canvasInfluences entry
             </Text>
           </CardBody>
         </Card>
@@ -393,7 +412,9 @@ export default function DashboardCardRegistryCanvas() {
         framed
         stickyHeader
         headers={["Card id", "Title", "API route", "Influence count", "Manifest canvases"]}
-        rowTone={HUB_CARDS.map((row) => (row[3] >= 4 ? "success" : row[3] >= 2 ? "info" : "neutral"))}
+        rowTone={HUB_CARDS.map((row) =>
+          row[3] >= 4 ? "success" : row[3] >= 2 ? "info" : "neutral"
+        )}
         rows={HUB_CARDS.map(([id, title, api, count]) => [
           id,
           title,
@@ -419,24 +440,36 @@ export default function DashboardCardRegistryCanvas() {
 
       <Callout tone="info" title="BunInspectOptions.depth (card-depth)">
         Unlinked panel <code>card-depth</code> probes{" "}
-        <CanvasNavButton label="/api/console-depth" path="examples/dashboard/src/index.ts" dispatch={dispatch} /> —{" "}
-        <code>Bun.inspect(obj, {"{ depth }"})</code> and global <code>console.depth</code> from bunfig.toml /
-        <code>--console-depth</code>. Doc: {BUN_INSPECT_DEPTH_DOC}
+        <CanvasNavButton
+          label="/api/console-depth"
+          path="examples/dashboard/src/index.ts"
+          dispatch={dispatch}
+        />{" "}
+        — <code>Bun.inspect(obj, {"{ depth }"})</code> and global <code>console.depth</code> from
+        bunfig.toml /<code>--console-depth</code>. Doc: {BUN_INSPECT_DEPTH_DOC}
       </Callout>
 
       <Callout tone="info" title="https.AgentOptions (http-client)">
         Production TLS floor in{" "}
-        <CanvasNavButton label="src/lib/http-client.ts" path="src/lib/http-client.ts" dispatch={dispatch} /> —{" "}
-        <code>makeHttpClient({"{ minTLS }"})</code> passes <code>minVersion</code> to{" "}
-        <code>new https.Agent({"{ minVersion }"})</code> for <code>fetch(..., {"{ agent }"})</code>. Pair with{" "}
-        <code>maxVersion</code>, <code>rejectUnauthorized</code>, <code>ca</code> per Node compat. Doc:{" "}
-        {BUN_HTTPS_AGENT_OPTIONS_DOC}
+        <CanvasNavButton
+          label="src/lib/http-client.ts"
+          path="src/lib/http-client.ts"
+          dispatch={dispatch}
+        />{" "}
+        — <code>makeHttpClient({"{ minTLS }"})</code> passes <code>minVersion</code> to{" "}
+        <code>new https.Agent({"{ minVersion }"})</code> for <code>fetch(..., {"{ agent }"})</code>.
+        Pair with <code>maxVersion</code>, <code>rejectUnauthorized</code>, <code>ca</code> per Node
+        compat. Doc: {BUN_HTTPS_AGENT_OPTIONS_DOC}
       </Callout>
 
-      <CollapsibleSection title={`Unlinked cards (${ORPHAN_CARDS})`} count={ORPHAN_CARDS} defaultOpen={false}>
+      <CollapsibleSection
+        title={`Unlinked cards (${ORPHAN_CARDS})`}
+        count={ORPHAN_CARDS}
+        defaultOpen={false}
+      >
         <Callout tone="info" title="No lint violation">
-          Unlinked cards are valid dashboard panels without a doc-canvas companion. Lint only checks that declared
-          canvasInfluences ids exist in dashboard.html.
+          Unlinked cards are valid dashboard panels without a doc-canvas companion. Lint only checks
+          that declared canvasInfluences ids exist in dashboard.html.
         </Callout>
         <Table
           framed
@@ -457,21 +490,25 @@ export default function DashboardCardRegistryCanvas() {
       />
 
       <Callout tone="info" title="Lint contract">
-        Every LOCAL_DOC_REFERENCES row with cursorCanvas must declare canvasInfluences[]. Each influence id must
-        resolve to an id="card-*" panel in examples/dashboard/src/dashboard.html. Run: bun run
-        scripts/lint-canvas-influences.ts
+        Every LOCAL_DOC_REFERENCES row with cursorCanvas must declare canvasInfluences[]. Each
+        influence id must resolve to an id="card-*" panel in examples/dashboard/src/dashboard.html.
+        Run: bun run scripts/lint-canvas-influences.ts
       </Callout>
 
       <Callout tone="warning" title="v5.5 follow-ups (out of scope)">
-        Live status probes for all cards, Herdr bridge (examples/dashboard?canvas=v53-architecture), and unified
-        Herdr+examples surface — see docs/references/v53-architecture.md v5.5 table.
+        Live status probes for all cards, Herdr bridge (examples/dashboard?canvas=v53-architecture),
+        and unified Herdr+examples surface — see docs/references/v53-architecture.md v5.5 table.
       </Callout>
 
       <Grid columns={2} gap={16}>
         <Card>
           <CardHeader>API surface</CardHeader>
           <CardBody>
-            <Table headers={["Endpoint", "Method", "Behavior"]} rows={API_SURFACE.map((r) => [...r])} striped />
+            <Table
+              headers={["Endpoint", "Method", "Behavior"]}
+              rows={API_SURFACE.map((r) => [...r])}
+              striped
+            />
           </CardBody>
         </Card>
 
@@ -485,8 +522,9 @@ export default function DashboardCardRegistryCanvas() {
                 <Pill>lint-canvas-influences.ts</Pill>
               </Row>
               <Text tone="secondary" size="small">
-                SSOT for parseDashboardCardsFromHtml, buildInfluenceReverseMap, fetchDashboardCardsPayload, and
-                lintCanvasInfluences. Wired into bun run lint and /api/cards handler.
+                SSOT for parseDashboardCardsFromHtml, buildInfluenceReverseMap,
+                fetchDashboardCardsPayload, and lintCanvasInfluences. Wired into bun run lint and
+                /api/cards handler.
               </Text>
               <Divider />
               <Text tone="secondary" size="small">

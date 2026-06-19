@@ -41,11 +41,11 @@ const TOOL_INVENTORY = [
   ["Heal / Memory", "kimi-decision, kimi-error, kimi-heal, kimi-memory, kimi-resource-governor (health-listen), kimi-snapshot, kimi-why"],
   ["Scaffold / Release", "kimi-cleanup-legacy, kimi-context-gen, kimi-fix, kimi-new, kimi-release"],
   ["Herdr", ""],
-  ["Infrastructure", "kimi-toolchain (router), unified-shell-bridge (MCP stdio)"],
+  ["Infrastructure", "kimi-dashboard-mcp (MCP stdio), kimi-mcp (MCP stdio), kimi-toolchain (router), unified-shell-bridge (MCP stdio)"],
 ] as const;
 
 const GATE_LAYERS = [
-  ["Fast iterate", "bun run check:fast", "~3s · 188 unit files @ 1500ms", "Local TDD"],
+  ["Fast iterate", "bun run check:fast", "~3s · 191 unit files @ 1500ms", "Local TDD"],
   ["Pre-commit", "format:check + lint + typecheck", "kimi-githooks install", "git commit"],
   [
     "Pre-push",
@@ -147,7 +147,7 @@ const CANVAS_ROUTING_ROW_TONE = [
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
-  { id: "test", label: "bun run check:fast", sub: "188 unit gates" },
+  { id: "test", label: "bun run check:fast", sub: "191 unit gates" },
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -170,12 +170,12 @@ const TOOL_CATEGORIES = [
   { id: "heal", label: "Heal / Memory", count: 7 },
   { id: "scaffold", label: "Scaffold", count: 5 },
   { id: "herdr", label: "Herdr", count: 0 },
-  { id: "infra", label: "Router / Bridge", count: 2 }
+  { id: "infra", label: "Router / Bridge", count: 4 }
 ] as const;
 
-const BIN_COUNT = 24;
-const LIB_COUNT = 290;
-const UNIT_COUNT = 188;
+const BIN_COUNT = 26;
+const LIB_COUNT = 298;
+const UNIT_COUNT = 191;
 const INTEGRATION_COUNT = 5;
 const SMOKE_COUNT = 6;
 const CURSOR_CANVAS_COUNT = 11;

@@ -48,18 +48,18 @@ If Grep/Glob fail with a path under an old renamed clone, the editor opened the 
 
 Authoritative maps — do not duplicate stale trees here:
 
-| Need | Source |
-| ---- | ------ |
-| CLI entry points (29 registered bins) | `package.json` `bin` + `src/bin/*.ts` |
-| Tool routing | [UNIFIED.md](UNIFIED.md) |
-| Shared library | `src/lib/` (flat by default; `src/lib/effect/` for Effect adapters) |
-| Library domain guide | `src/lib/README.md` |
-| Unit vs smoke vs integration tests | `src/lib/test-gates.ts` (`UNIT_TEST_FILES`, `SMOKE_TEST_FILES`, `INTEGRATION_TEST_FILES`) |
-| Coding exemplars | [CODE_REFERENCES.md](CODE_REFERENCES.md) |
-| Canonical ecosystem links | `canonical-references.json` (`bun run references:generate`; cached at `~/.kimi-code/`) |
-| Scaffolding templates | [TEMPLATES.md](TEMPLATES.md) |
-| Failure taxonomy | `error-taxonomy.yml` (synced to `~/.kimi-code/`) |
-| Build-time constants | `bunfig.toml` `[define]` + `types/build-constants.d.ts` |
+| Need                                                                                  | Source                                                                                    |
+| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| CLI entry points (24 registered in `package.json` bin + 10 source-only in `src/bin/`) | `package.json` `bin` + `src/bin/*.ts`                                                     |
+| Tool routing                                                                          | [UNIFIED.md](UNIFIED.md)                                                                  |
+| Shared library                                                                        | `src/lib/` (flat by default; `src/lib/effect/` for Effect adapters)                       |
+| Library domain guide                                                                  | `src/lib/README.md`                                                                       |
+| Unit vs smoke vs integration tests                                                    | `src/lib/test-gates.ts` (`UNIT_TEST_FILES`, `SMOKE_TEST_FILES`, `INTEGRATION_TEST_FILES`) |
+| Coding exemplars                                                                      | [CODE_REFERENCES.md](CODE_REFERENCES.md)                                                  |
+| Canonical ecosystem links                                                             | `canonical-references.json` (`bun run references:generate`; cached at `~/.kimi-code/`)    |
+| Scaffolding templates                                                                 | [TEMPLATES.md](TEMPLATES.md)                                                              |
+| Failure taxonomy                                                                      | `error-taxonomy.yml` (synced to `~/.kimi-code/`)                                          |
+| Build-time constants                                                                  | `bunfig.toml` `[define]` + `types/build-constants.d.ts`                                   |
 
 Top-level dirs: `src/` (bins, lib, install-hooks, kimi-hooks), `test/`, `scripts/`, `skills/`, `docs/`, `bench/`, `templates/`.
 
@@ -175,13 +175,13 @@ handoff validation must include `bun run sync && bun run sync:verify`.
 
 ### Gate layers
 
-| Layer      | Command / hook                                                                               |
-| ---------- | -------------------------------------------------------------------------------------------- |
-| Local      | `bun run check` or `bun run unify`                                                           |
-| pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`)                          |
-| pre-push   | `check:fast` + guardian + effect-gates + constant-drift + R-Score (preflight auto-fix via `--hook`) + mandatory runtime sync   |
-| Local CI   | `bun run ci:local` — format:check, lint, typecheck, test, coverage, effect-gates, governance |
-| Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)                             |
+| Layer      | Command / hook                                                                                                               |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Local      | `bun run check` or `bun run unify`                                                                                           |
+| pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`)                                                          |
+| pre-push   | `check:fast` + guardian + effect-gates + constant-drift + R-Score (preflight auto-fix via `--hook`) + mandatory runtime sync |
+| Local CI   | `bun run ci:local` — format:check, lint, typecheck, test, coverage, effect-gates, governance                                 |
+| Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)                                                             |
 
 **Server CI note:** GitHub Actions is disabled for this account due to a billing lock. Enforcement is local only: pre-push hooks and `bun run ci:local`. The disabled workflow is preserved at `.github/workflows-disabled/ci.yml` for reference.
 
@@ -195,11 +195,11 @@ Install hooks: `kimi-githooks install` or `kimi-githooks fix` to refresh outdate
 
 After a green scoped run, `.kimi/.last-good-scoped-gates` records per-gate file sets at `HEAD`. Pre-commit skips gates when staged paths ⊆ cached scope (`↷fmt ↷lint ↷tsc ↷test`). Pre-push skips `check:fast` when all four gates are covered at `HEAD`.
 
-| Cache file | Used by | Purpose |
-| ---------- | ------- | ------- |
-| `.kimi/.last-good-scoped-gates` | pre-commit / pre-push | Scoped gate file sets + branch diff from `--changed-only` |
-| `.kimi/.last-good-commit` | pre-commit | Legacy full gate pass at `HEAD` |
-| `.kimi/gate-cache.json` | `check --cache-results` only | Full check JSON results (not hooks) |
+| Cache file                      | Used by                      | Purpose                                                   |
+| ------------------------------- | ---------------------------- | --------------------------------------------------------- |
+| `.kimi/.last-good-scoped-gates` | pre-commit / pre-push        | Scoped gate file sets + branch diff from `--changed-only` |
+| `.kimi/.last-good-commit`       | pre-commit                   | Legacy full gate pass at `HEAD`                           |
+| `.kimi/gate-cache.json`         | `check --cache-results` only | Full check JSON results (not hooks)                       |
 
 Clear stale hook skips: `rm .kimi/.last-good-scoped-gates .kimi/.last-good-commit .kimi/gate-cache.json`
 
@@ -209,11 +209,11 @@ Clear stale hook skips: `rm .kimi/.last-good-scoped-gates .kimi/.last-good-commi
 
 **Governance preflight** (`src/lib/governance-preflight.ts`) runs automatically before hook scoring and on `kimi-governance score --preflight`:
 
-| Action | When |
-| ------ | ---- |
+| Action               | When                                                            |
+| -------------------- | --------------------------------------------------------------- |
 | `lockfile_refreshed` | `package.json` mtime newer than `bun.lock` (scripts-only edits) |
-| `readme_patched` | README missing `package.json` scripts |
-| `guardian_baselined` | Guardian hash missing or mismatched |
+| `readme_patched`     | README missing `package.json` scripts                           |
+| `guardian_baselined` | Guardian hash missing or mismatched                             |
 
 ```bash
 kimi-governance score --preflight --quick   # manual pre-push check
@@ -267,13 +267,13 @@ Canonical failure ledger: `~/.kimi-code/var/tool-failures.jsonl` (classified by 
 
 See [CODE_REFERENCES.md](CODE_REFERENCES.md) for the exemplar map. Summary:
 
-| Need                            | Use                                                                         | Avoid                                                     |
-| ------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Invoke another toolchain CLI    | `invokeTool()` / `runTool()` from `tool-runner.ts`                          | Raw `Bun.spawn(["bun", "run", ...])` in feature code      |
-| Invoke from Effect code         | `invokeToolEffect()` / `runToolEffect()`                                    | Converting every error to an untyped string               |
-| Parse common CLI flags          | `createCli(Bun.argv, toolName)` from `cli-contract.ts`                      | Ad-hoc `Bun.argv.includes("--json")` in every tool        |
-| Emit structured health results  | `logger.check()` / `logger.printHealthReport()`                             | Ad hoc JSON shapes                                        |
-| Long or noisy subprocess output | `maxOutputBytes` on `invokeTool()`                                          | Unbounded stream capture                                  |
+| Need                            | Use                                                    | Avoid                                                |
+| ------------------------------- | ------------------------------------------------------ | ---------------------------------------------------- |
+| Invoke another toolchain CLI    | `invokeTool()` / `runTool()` from `tool-runner.ts`     | Raw `Bun.spawn(["bun", "run", ...])` in feature code |
+| Invoke from Effect code         | `invokeToolEffect()` / `runToolEffect()`               | Converting every error to an untyped string          |
+| Parse common CLI flags          | `createCli(Bun.argv, toolName)` from `cli-contract.ts` | Ad-hoc `Bun.argv.includes("--json")` in every tool   |
+| Emit structured health results  | `logger.check()` / `logger.printHealthReport()`        | Ad hoc JSON shapes                                   |
+| Long or noisy subprocess output | `maxOutputBytes` on `invokeTool()`                     | Unbounded stream capture                             |
 
 Runner defaults: 30s human timeout, 15s agent/CI timeout, 5s SIGTERM-to-SIGKILL grace, 1 MiB retained output per stream. JSON mode must emit `schemaVersion`, `tool`, `level`, `message`, and `timestamp`.
 
@@ -320,7 +320,7 @@ Three layers must stay separate:
 | ------------------- | ----------------------------------- | ------------------------------------------- | ---------------------------------------- | ------------------------------------------------------ |
 | **define constant** | Immutable compile-time tuning       | `KIMI_{DOMAIN}_{QUALIFIER}` SCREAMING_SNAKE | `KIMI_HOOK_VERIFIER_MAX_CYCLES`          | `bunfig.toml` `[define]`, `types/build-constants.d.ts` |
 | **defineDomain**    | Group constants by functional slice | kebab-case, matches lib module              | `contract-inference`, `error-embedding`  | `# define-domain:…` in bunfig, `@defineDomain` JSDoc   |
-| **taxonomyId**      | Classify tool/runtime **failures**  | snake_case `{domain}_{reason}`              | `lockfile_issue`, `format_check_failure` | `error-taxonomy.yml`, failure JSONL                    |
+| **taxonomyId**      | Classify tool/runtime **failures**  | snake*case `{domain}*{reason}`              | `lockfile_issue`, `format_check_failure` | `error-taxonomy.yml`, failure JSONL                    |
 
 - Change tuning values only in `bunfig.toml` `[define]`.
 - Extend `types/build-constants.d.ts` declarations when adding a constant.
@@ -335,23 +335,23 @@ Three layers must stay separate:
 
 ### Defaults
 
-| Setting              | Recommendation                                                           |
-| -------------------- | ------------------------------------------------------------------------ |
-| **Permission mode**  | `auto` for safe paths (tests, docs), `manual` for destructive ops        |
-| **Background tasks** | Keep `keep_alive_on_exit = false` unless explicitly daemonizing          |
-| **Loop control**     | `max_steps_per_turn` unset in `config.toml` (unlimited)                  |
-| **Session memory**   | Use `kimi-memory store` for cross-session context, not file hacks        |
+| Setting              | Recommendation                                                    |
+| -------------------- | ----------------------------------------------------------------- |
+| **Permission mode**  | `auto` for safe paths (tests, docs), `manual` for destructive ops |
+| **Background tasks** | Keep `keep_alive_on_exit = false` unless explicitly daemonizing   |
+| **Loop control**     | `max_steps_per_turn` unset in `config.toml` (unlimited)           |
+| **Session memory**   | Use `kimi-memory store` for cross-session context, not file hacks |
 
 **Before a long session:** `kimi-doctor --agent-ready` → `kimi-doctor --quick` → `kimi-orphan-kill --dry-run` if needed → `kimi-governance score --preflight --quick`.
 
 **During iteration (step-budget discipline):**
 
-| Instead of                                                    | Use                                                          |
-| ------------------------------------------------------------- | ------------------------------------------------------------ |
-| `bun test` (full suite incl. smoke, ~15s)                     | `bun run test:fast` (`UNIT_TEST_FILES` in test-gates.ts, ~5s) |
-| `bun run check` (~30s)                                        | `bun run check:fast` (~3s)                                   |
-| Re-running full suite after every edit                        | `bun test <specific-file>`                                   |
-| `kimi-doctor` without `--quick`                               | `kimi-doctor --quick`                                        |
+| Instead of                                | Use                                                           |
+| ----------------------------------------- | ------------------------------------------------------------- |
+| `bun test` (full suite incl. smoke, ~15s) | `bun run test:fast` (`UNIT_TEST_FILES` in test-gates.ts, ~5s) |
+| `bun run check` (~30s)                    | `bun run check:fast` (~3s)                                    |
+| Re-running full suite after every edit    | `bun test <specific-file>`                                    |
+| `kimi-doctor` without `--quick`           | `kimi-doctor --quick`                                         |
 
 Batch edits (up to 5–8 files) → `bun run check:fast` → fix failures → repeat → `bun run check` before commit.
 
@@ -381,9 +381,9 @@ Adapters, plugins, MCP tools, and JSON contracts: [CODE_REFERENCES.md](CODE_REFE
 
 Use graphs instead of inferring order from code or logs. Two types — do not conflate:
 
-| Graph | Question it answers | Primary surfaces |
-| ----- | ------------------- | ---------------- |
-| **Execution DAG** | What runs before what? | `kimi-doctor --gate-graph`, Herdr dashboard **Lineage** tab (`GET /api/gates/graph`) |
+| Graph                | Question it answers                  | Primary surfaces                                                                                                   |
+| -------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| **Execution DAG**    | What runs before what?               | `kimi-doctor --gate-graph`, Herdr dashboard **Lineage** tab (`GET /api/gates/graph`)                               |
 | **Artifact lineage** | What data did this artifact consume? | `kimi-doctor --artifacts-lineage <gate>`, `artifacts lineage <gate>`, dashboard `GET /api/artifacts/:gate/lineage` |
 
 ```bash
@@ -439,55 +439,60 @@ On memory-constrained hosts, swap thrashing inflates load before CPU looks busy.
 
 ## Project docs (active)
 
-| Doc | Purpose |
-| --- | --- |
-| `docs/SCOPE.md` | Herdr orchestration production validation scope |
-| `docs/finish-work-close-loop.md` | Finish-work pipeline and escalation |
-| `docs/handoff-rules.md` | Cross-pane handoff contract |
-| `docs/naming.md` | Session and pane naming conventions |
-| `docs/flake-register.md` | Known flaky tests and mitigations |
-| `docs/references/configuration-layers.md` | Four-layer config model: discovery, define registry, parity contract, app scaffold |
-| `docs/references/bun-runtime-scaffold.md` | Bun install config (bunfig.toml merge, env vars, globalStore, process.execve, Bun.Terminal, using) |
-| `docs/canvases/*.canvas.tsx` | IDE canvas companions (via `cursorCanvas` in manifest; not synced) |
-| `docs/references/namespace.md` | Toolchain vs Herdr plugin boundaries; doctor trinity; global ecosystem (hub — 6 refs indexed in `canonical-references.json`) |
-| `docs/references/kimi-doctor.md` | `kimi-doctor` CLI — automation gate, gate/artifact lineage graphs, JSON contracts |
-| `examples/artifact-dependency-graphs.md` | Execution DAG vs artifact lineage; `dependsOn`, `metadata.lineage`, Mermaid export |
-| `docs/references/dashboard-thumbnails.md` | WebView screenshot → `Bun.Image` terminals → `/api/thumbnail` |
-| `docs/references/shell-spawn-choice.md` | When to use `invokeTool` vs `Bun.spawn` vs `governedSpawn` |
-| `docs/references/bun-shell-companions.md` | Bun `$` template vs subprocess patterns |
-| `docs/dx-table.md` | `dx:table` TOML property tables, `--schema` validation, inventory |
-| `schemas/endpoints-strict.schema.toml` | Pathname safety for `[[endpoints]]` rows (`-u --exact`; gate: `bun run dx:table:contract`) |
+| Doc                                       | Purpose                                                                                                                      |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `docs/SCOPE.md`                           | Herdr orchestration production validation scope                                                                              |
+| `docs/finish-work-close-loop.md`          | Finish-work pipeline and escalation                                                                                          |
+| `docs/handoff-rules.md`                   | Cross-pane handoff contract                                                                                                  |
+| `docs/naming.md`                          | Session and pane naming conventions                                                                                          |
+| `docs/flake-register.md`                  | Known flaky tests and mitigations                                                                                            |
+| `docs/references/configuration-layers.md` | Four-layer config model: discovery, define registry, parity contract, app scaffold                                           |
+| `docs/references/bun-runtime-scaffold.md` | Bun install config (bunfig.toml merge, env vars, globalStore, process.execve, Bun.Terminal, using)                           |
+| `docs/canvases/*.canvas.tsx`              | IDE canvas companions (via `cursorCanvas` in manifest; not synced)                                                           |
+| `docs/references/namespace.md`            | Toolchain vs Herdr plugin boundaries; doctor trinity; global ecosystem (hub — 6 refs indexed in `canonical-references.json`) |
+| `docs/references/kimi-doctor.md`          | `kimi-doctor` CLI — automation gate, gate/artifact lineage graphs, JSON contracts                                            |
+| `examples/artifact-dependency-graphs.md`  | Execution DAG vs artifact lineage; `dependsOn`, `metadata.lineage`, Mermaid export                                           |
+| `docs/references/dashboard-thumbnails.md` | WebView screenshot → `Bun.Image` terminals → `/api/thumbnail`                                                                |
+| `docs/references/shell-spawn-choice.md`   | When to use `invokeTool` vs `Bun.spawn` vs `governedSpawn`                                                                   |
+| `docs/references/bun-shell-companions.md` | Bun `$` template vs subprocess patterns                                                                                      |
+| `docs/dx-table.md`                        | `dx:table` TOML property tables, `--schema` validation, inventory                                                            |
+| `schemas/endpoints-strict.schema.toml`    | Pathname safety for `[[endpoints]]` rows (`-u --exact`; gate: `bun run dx:table:contract`)                                   |
 
 ## Quick Reference: All CLI Tools
 
-| Tool                     | Key Commands                                                                                                      |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `kimi-toolchain`         | Unified router — `kimi-toolchain <tool> [args]` (see UNIFIED.md)                                                  |
-| `kimi-doctor`            | `doctor`, `doctor --fix`, `doctor --quick`, `doctor --memory-budget`, `--agent`, `--probe`, `--adapter`, `--all`  |
-| `kimi-orphan-kill`       | `--dry-run` (cleanup stale test/tool processes)                                                                   |
-| `kimi-fix`               | `fix <path>`, `fix <path> --profile app\|toolchain`, `fix <path> --dry-run`                                       |
-| `kimi-governance`        | `score`, `score --preflight`, `fix`, `coverage [N]`, `docs`, `adr <title>`, `doctor`                             |
-| `kimi-guardian`          | `check`, `sign`, `verify`, `report`, `fix`, `doctor`                                                              |
-| `kimi-memory`            | `store`, `recall`, `resume`, `autosave`, `graph`, `impact`, `search`, `prune`, `stats`, `trends`, `doctor`, `fix` |
-| `kimi-githooks`          | `install`, `doctor`, `fix`                                                                                        |
-| `kimi-cloudflare-access` | `login`, `logout`, `tokens`, `apps`, `doctor`, `fix` (token expiry, app policy audit)                             |
-| `kimi-context-gen`       | `scan`, `update`, `freshness`, `doctor`, `fix [threshold]`                                                        |
-| `kimi-release`           | `changelog`, `semver`, `validate`, `doctor`, `fix`                                                                |
-| `kimi-debug`             | `last`, `diff`, `trace`, `analyze`, `classify`, `taxonomy`, `wire [path]`, `doctor`, `fix`                        |
-| `kimi-snapshot`          | `save`, `restore`, `list`, `show`, `cleanup`, `doctor`, `fix`                                                     |
-| `kimi-resource-governor` | `limits`, `parallel`, `quota`, `cache`, `spawn`, `session`, `cleanup`, `status`, `doctor`, `fix`                  |
-| `kimi-heal`              | `plan`, `apply`, `clusters`, `effect audit`, `--fix` (bare-promise / import repair)                               |
-| `kimi-decision`          | `graph`, `why`, `audit`                                                                                           |
-| `kimi-config`            | Kimi Code config audit/fix                                                                                        |
-| `kimi-identity`          | Identity matrix audit                                                                                             |
-| `kimi-new`               | Scaffold a new Bun project                                                                                        |
-| `kimi-cleanup-legacy`    | Clean up deprecated `~/.kimi` / Cursor slug paths                                                                 |
-| `unified-shell-bridge`   | MCP stdio bridge for `mcp__unified-shell__execute`                                                                |
-| `herdr-orchestrator`     | `status`, `react`, `context-sync`, `escalate`, `watch-events`, `dashboard` (requires Herdr workspace)             |
-| `herdr-project`          | `apply`, `reconcile`, `status` — workspace layout from `dx.config.toml` `[herdr]`                                 |
-| `herdr-pane` / `herdr-spawn` | Pane control and agent spawn helpers                                                                          |
-| `herdr-doctor`           | Herdr integration health checks                                                                                   |
-| `herdr-latm`             | `list`, `sync --project .`, `invoke --tool <name>` — pane capability mesh (auto-routes to shell/reviewer)        |
+_Tools marked `†` are source-only (exist in `src/bin/` but not registered in `package.json` `bin`). They must be run via `bun run src/bin/<tool>.ts` or the unified `kimi-toolchain` router._
+
+| Tool                           | Key Commands                                                                                                      |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `kimi-toolchain`               | Unified router — `kimi-toolchain <tool> [args]` (see UNIFIED.md)                                                  |
+| `kimi-doctor`                  | `doctor`, `doctor --fix`, `doctor --quick`, `doctor --memory-budget`, `--agent`, `--probe`, `--adapter`, `--all`  |
+| `kimi-error`                   | Format, classify, and emit structured tool errors                                                                 |
+| `kimi-orphan-kill`             | `--dry-run` (cleanup stale test/tool processes)                                                                   |
+| `kimi-fix`                     | `fix <path>`, `fix <path> --profile app\|toolchain`, `fix <path> --dry-run`                                       |
+| `kimi-governance`              | `score`, `score --preflight`, `fix`, `coverage [N]`, `docs`, `adr <title>`, `doctor`                              |
+| `kimi-guardian`                | `check`, `sign`, `verify`, `report`, `fix`, `doctor`                                                              |
+| `kimi-memory`                  | `store`, `recall`, `resume`, `autosave`, `graph`, `impact`, `search`, `prune`, `stats`, `trends`, `doctor`, `fix` |
+| `kimi-githooks`                | `install`, `doctor`, `fix`                                                                                        |
+| `kimi-cloudflare-access`       | `login`, `logout`, `tokens`, `apps`, `doctor`, `fix` (token expiry, app policy audit)                             |
+| `kimi-context-gen`             | `scan`, `update`, `freshness`, `doctor`, `fix [threshold]`                                                        |
+| `kimi-release`                 | `changelog`, `semver`, `validate`, `doctor`, `fix`                                                                |
+| `kimi-trace`                   | Trace, log, and diagnose toolchain behaviour                                                                      |
+| `kimi-debug`                   | `last`, `diff`, `trace`, `analyze`, `classify`, `taxonomy`, `wire [path]`, `doctor`, `fix`                        |
+| `kimi-snapshot`                | `save`, `restore`, `list`, `show`, `cleanup`, `doctor`, `fix`                                                     |
+| `kimi-why`                     | Explain why a tool or gate behaved as it did                                                                      |
+| `kimi-resource-governor`       | `limits`, `parallel`, `quota`, `cache`, `spawn`, `session`, `cleanup`, `status`, `doctor`, `fix`                  |
+| `kimi-heal`                    | `plan`, `apply`, `clusters`, `effect audit`, `--fix` (bare-promise / import repair)                               |
+| `kimi-decision`                | `graph`, `why`, `audit`                                                                                           |
+| `kimi-config` †                | Kimi Code config audit/fix                                                                                        |
+| `kimi-identity` †              | Identity matrix audit                                                                                             |
+| `kimi-new`                     | Scaffold a new Bun project                                                                                        |
+| `kimi-cleanup-legacy`          | Clean up deprecated `~/.kimi` / Cursor slug paths                                                                 |
+| `unified-shell-bridge`         | MCP stdio bridge for `mcp__unified-shell__execute`                                                                |
+| `herdr-orchestrator` †         | `status`, `react`, `context-sync`, `escalate`, `watch-events`, `dashboard` (requires Herdr workspace)             |
+| `herdr-project` †              | `apply`, `reconcile`, `status` — workspace layout from `dx.config.toml` `[herdr]`                                 |
+| `herdr-pane` / `herdr-spawn` † | Pane control and agent spawn helpers                                                                              |
+| `herdr-doctor` †               | Herdr integration health checks                                                                                   |
+| `herdr-latm` †                 | `list`, `sync --project .`, `invoke --tool <name>` — pane capability mesh (auto-routes to shell/reviewer)         |
 
 Further reading: [CODE_REFERENCES.md](CODE_REFERENCES.md), [DEEP-QUALITY.md](DEEP-QUALITY.md), `skills/kimi-toolchain/SKILL.md` (Kimi Code config/MCP/sessions).
 

@@ -1,0 +1,11 @@
+{
+  "name": "kimi-code-runtime",
+  "private": true,
+  "description": "Runtime dependencies for synced ~/.kimi-code tools (managed by kimi-toolchain sync)",
+  "type": "module",
+  "dependencies": {
+    "effect": "^3.21.3",
+    "js-yaml": "^4.1.0",
+    "typescript": "^5.8.0"
+  }
+}

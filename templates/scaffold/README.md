@@ -41,7 +41,7 @@ bun run doctor:probe:serve           # cache server — port from [doctor.probe]
 kimi-doctor --serve-probe            # Herdr [doctor].tabs probe pane command
 ```
 
-Configure port and refresh interval in `dx.config.toml` `[doctor.probe]` (scaffold default port **5678**, interval **15000** ms). Env `PROBE_SERVER_PORT` overrides TOML. Set `EXAMPLES_DASHBOARD_URL` / `HERDR_DASHBOARD_URL` in `.env` when auto-discovery on ports 3000 / 18412 is not enough. See `env.example` and [serve-probe.md](../../docs/references/serve-probe.md).
+Configure port and refresh interval in `dx.config.toml` `[doctor.probe]` (scaffold default port **5678**, interval **15000** ms). Env `PROBE_SERVER_PORT` overrides TOML. Set `EXAMPLES_DASHBOARD_URL` / `HERDR_DASHBOARD_URL` in `.env` when auto-discovery on ports 5678 / 18412 is not enough. See `env.example` and [serve-probe.md](../../docs/references/serve-probe.md).
 
 ## Tech Stack
 

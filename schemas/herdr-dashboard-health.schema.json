@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/brendadeeznuts1111/kimi-toolchain/schemas/herdr-dashboard-health.schema.json",
+  "title": "Herdr Dashboard Health Payload",
+  "description": "Lightweight subsystem health snapshot returned by GET /api/health.",
+  "type": "object",
+  "required": ["ok", "checks", "fetchedAt"],
+  "properties": {
+    "ok": {
+      "type": "boolean",
+      "description": "True when the dashboard considers the orchestrator usable (core agents/discovery healthy)."
+    },
+    "checks": {
+      "type": "object",
+      "required": ["agents", "sse", "herdr", "gate", "probe", "discovery"],
+      "properties": {
+        "agents": {
+          "$ref": "#/definitions/healthCheck",
+          "required": ["status", "count"],
+          "properties": {
+            "count": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "sse": {
+          "$ref": "#/definitions/healthCheck",
+          "required": ["status", "subscribers"],
+          "properties": {
+            "subscribers": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "herdr": {
+          "$ref": "#/definitions/healthCheck",
+          "required": ["status", "connected", "workspaceId"],
+          "properties": {
+            "connected": { "type": "boolean" },
+            "workspaceId": { "type": ["string", "null"] }
+          }
+        },
+        "gate": {
+          "$ref": "#/definitions/healthCheck",
+          "required": ["status", "failed"],
+          "properties": {
+            "failed": { "type": ["boolean", "null"] }
+          }
+        },
+        "discovery": {
+          "$ref": "#/definitions/healthCheck",
+          "required": ["status", "workspaceId"],
+          "properties": {
+            "workspaceId": { "type": ["string", "null"] }
+          }
+        },
+        "probe": {
+          "$ref": "#/definitions/healthCheck",
+          "required": ["status", "url", "reachable", "pass", "fail", "unknown"],
+          "properties": {
+            "url": { "type": "string" },
+            "reachable": { "type": "boolean" },
+            "pass": { "type": "integer", "minimum": 0 },
+            "fail": { "type": "integer", "minimum": 0 },
+            "unknown": { "type": "integer", "minimum": 0 }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "fetchedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "healthCheck": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["ok", "warn", "error", "unknown"]
+        },
+        "message": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

@@ -44,6 +44,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
   { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
   { id: "dashboard-card-registry", page: "Card registry", path: "docs/canvases/dashboard-card-registry.canvas.tsx", detail: "canvasInfluences · /api/cards · lint gate" },
+  { id: "artifact-lineage", page: "Artifacts & Runs", path: "docs/canvases/artifact-lineage.canvas.tsx", detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns" },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -58,6 +59,7 @@ const CANVAS_ROUTING_ROW_TONE = [
   "success",
   "neutral",
   "warning",
+  "neutral",
   "neutral",
   "neutral"
 ] as const;
@@ -80,6 +82,7 @@ const MANIFEST_LOCAL_DOCS_ALL = [
   { id: "template-matrix", location: "docs/references", purpose: "Template families matrix: scaffold breakdown (22 files), bridge pattern collision resolution, runtime sync paths, profile differentiation" },
   { id: "herdr-plugin-architecture", location: "docs/references", purpose: "Herdr unified plugin plan v0.5.0 — prefix+* actions, STATE_DIR topology; orthogonal to [finishWork].gates" },
   { id: "v53-architecture", location: "docs/references", purpose: "v5.3 architecture consolidated reference: 9-file map, awk splitter, profile registry, DEFAULT_MODULES, MODULE_REGISTRY, 42-card dashboard, Herdr integration" },
+  { id: "artifact-lineage", location: "repo root", purpose: "Run manifests, artifact lineage (dependsOn vs gate-graph), and session-scoped identity queries" },
   { id: "canonical-references", location: "repo root", purpose: "Cached canonical ecosystem links (this manifest)" },
 ] as const;
 
@@ -108,12 +111,26 @@ const DOCTOR_THUMBNAIL_JSON = [
 ] as const;
 
 const GATE_LAYERS = [
-  ["--automation", "Toolchain", "[finishWork].gates", "Ephemeral WebView + setScreenshotPng one-shot · no 18412"],
-  ["--dashboard-meta", "Runtime", "Herdr orchestrator bootstrap", "Probes /api/meta · needs live server"],
+  [
+    "--automation",
+    "Toolchain",
+    "[finishWork].gates",
+    "Ephemeral WebView + setScreenshotPng one-shot · no 18412",
+  ],
+  [
+    "--dashboard-meta",
+    "Runtime",
+    "Herdr orchestrator bootstrap",
+    "Probes /api/meta · needs live server",
+  ],
 ] as const;
 
 const TEMPLATE_VS_PROFILE = [
-  ["templates/herdr-dashboard.html", "UI shell", "#agents-body · #processes-toggle · #meta (not #meta-header)"],
+  [
+    "templates/herdr-dashboard.html",
+    "UI shell",
+    "#agents-body · #processes-toggle · #meta (not #meta-header)",
+  ],
   ["templates/herdr-dashboard.js", "Runtime", "__HERDR_DASHBOARD_READY__ · .processes-row · SSE"],
   ["dataStore profile dir", "Browser state only", "cookies · localStorage — not PNG/WebP"],
   ["screenshotPng + TtlCache", "Server memory", "PNG cache + encoded WebP — discarded on stop"],
@@ -146,9 +163,24 @@ const TERMINAL_CALL_SITES = [
   ["bun-image.ts", "dashboardThumbnailBlob", "await .blob()", "/api/thumbnail miss"],
   ["bun-image.ts", "probeBunImageAvifEncode", "await .bytes()", "meta.thumbnailFormats.avif"],
   ["bun-image.ts", "imagePlaceholderDataUrl", "await .placeholder()", "/api/meta LQIP"],
-  ["herdr-dashboard-automation.ts", "runHerdrDashboardAutomation", "dashboardWebpThumbnail", "CLI --thumbnail"],
-  ["herdr-dashboard-automation-gate.ts", "runDashboardAutomationGate", "indirect", "smoke feed + fetch /api/thumbnail"],
-  ["bun-image.ts", "(alternative)", "await .write(path)", "not used — CLI uses .blob() + Bun.write"],
+  [
+    "herdr-dashboard-automation.ts",
+    "runHerdrDashboardAutomation",
+    "dashboardWebpThumbnail",
+    "CLI --thumbnail",
+  ],
+  [
+    "herdr-dashboard-automation-gate.ts",
+    "runDashboardAutomationGate",
+    "indirect",
+    "smoke feed + fetch /api/thumbnail",
+  ],
+  [
+    "bun-image.ts",
+    "(alternative)",
+    "await .write(path)",
+    "not used — CLI uses .blob() + Bun.write",
+  ],
 ] as const;
 
 const SERVER_BROWSER_SPLIT = [
@@ -200,40 +232,16 @@ const BUN_API_PAIRING = [
     "dashboardWebpThumbnail → Bun.write",
     "current CLI --thumbnail path",
   ],
-  [
-    "Bun.write(path, bytes)",
-    "Image terminal",
-    "await img.write(path)",
-    "alternative (not used)",
-  ],
-  [
-    "Bun.CryptoHasher(sha256)",
-    "runtime/hashing",
-    "thumbnailCacheKey()",
-    "source + encode params",
-  ],
-  [
-    "fetch + AbortSignal.timeout",
-    "runtime/fetch",
-    "probeDashboardThumbnail()",
-    "automation gate",
-  ],
+  ["Bun.write(path, bytes)", "Image terminal", "await img.write(path)", "alternative (not used)"],
+  ["Bun.CryptoHasher(sha256)", "runtime/hashing", "thumbnailCacheKey()", "source + encode params"],
+  ["fetch + AbortSignal.timeout", "runtime/fetch", "probeDashboardThumbnail()", "automation gate"],
   ["Bun.sleep", "bun-apis#bun-sleep", "WebView settle", "before screenshot"],
-  [
-    "new Response(Uint8Array | Blob)",
-    "—",
-    "/api/thumbnail hit and miss",
-    "post-terminal bytes",
-  ],
+  ["new Response(Uint8Array | Blob)", "—", "/api/thumbnail hit and miss", "post-terminal bytes"],
   ["TtlCache (project-local)", "src/lib/cache.ts", "terminal output", "TTL 2× sse_poll_ms"],
 ] as const;
 
 const PATTERNS_WE_AVOID = [
-  [
-    "new Response(imgPipeline)",
-    "/api/thumbnail",
-    "Encode may run synchronously on body init",
-  ],
+  ["new Response(imgPipeline)", "/api/thumbnail", "Encode may run synchronously on body init"],
   [
     "Could use .write() terminal",
     "CLI --thumbnail",
@@ -244,11 +252,7 @@ const PATTERNS_WE_AVOID = [
     "CLI --thumbnail",
     "dashboardWebpThumbnail → Uint8Array → Bun.write — bytes for cache + tests",
   ],
-  [
-    ".toBase64() / .dataurl()",
-    "LQIP",
-    ".placeholder() yields smaller ThumbHash (~400–700 B)",
-  ],
+  [".toBase64() / .dataurl()", "LQIP", ".placeholder() yields smaller ThumbHash (~400–700 B)"],
 ] as const;
 
 function PipelineDiagram() {
@@ -347,10 +351,29 @@ function PipelineDiagram() {
   );
 }
 
-function CanvasLink({ label, path, dispatch }: { label: string; path: string; dispatch: ReturnType<typeof useCanvasAction> }) {
+function CanvasLink({
+  label,
+  path,
+  dispatch,
+}: {
+  label: string;
+  path: string;
+  dispatch: ReturnType<typeof useCanvasAction>;
+}) {
   const theme = useHostTheme();
   return (
-    <Button variant="ghost" onClick={() => dispatch({ type: "openFile", path })} style={{ padding: 0, minHeight: "auto", height: "auto", color: theme.accent.primary, textDecoration: "underline", textUnderlineOffset: 2 }}>
+    <Button
+      variant="ghost"
+      onClick={() => dispatch({ type: "openFile", path })}
+      style={{
+        padding: 0,
+        minHeight: "auto",
+        height: "auto",
+        color: theme.accent.primary,
+        textDecoration: "underline",
+        textUnderlineOffset: 2,
+      }}
+    >
       {label}
     </Button>
   );
@@ -363,14 +386,21 @@ function RelatedCanvasesTable() {
       <Table
         headers={["Canvas", "Page", "Detail"]}
         rows={CANVAS_ROUTING.map((c) => [
-          <CanvasLink key={`${c.id}-file`} label={`${c.id}.canvas.tsx`} path={c.path} dispatch={dispatch} />,
+          <CanvasLink
+            key={`${c.id}-file`}
+            label={`${c.id}.canvas.tsx`}
+            path={c.path}
+            dispatch={dispatch}
+          />,
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
         rowTone={[...CANVAS_ROUTING_ROW_TONE]}
         striped
       />
-      <Text tone="tertiary" size="small">Click Canvas or Page to open · thumbnail pipeline + Bun.Image encode path</Text>
+      <Text tone="tertiary" size="small">
+        Click Canvas or Page to open · thumbnail pipeline + Bun.Image encode path
+      </Text>
     </Stack>
   );
 }
@@ -446,8 +476,8 @@ export default function HerdrDashboardThumbnails() {
           striped
         />
         <Text tone="tertiary" size="small">
-          Automation gate serves templates/herdr-dashboard.* over ephemeral server — selectors target
-          template HTML/JS, not profile disk.
+          Automation gate serves templates/herdr-dashboard.* over ephemeral server — selectors
+          target template HTML/JS, not profile disk.
         </Text>
       </Stack>
 
@@ -460,8 +490,9 @@ export default function HerdrDashboardThumbnails() {
           striped
         />
         <Callout tone="success" title="E2E thumbnail validation">
-          kimi-doctor --automation ([finishWork].gates) spins ephemeral server, runs smoke on template
-          UI, feeds setScreenshotPng, probes GET /api/thumbnail for image/webp. See kimi-doctor.md.
+          kimi-doctor --automation ([finishWork].gates) spins ephemeral server, runs smoke on
+          template UI, feeds setScreenshotPng, probes GET /api/thumbnail for image/webp. See
+          kimi-doctor.md.
         </Callout>
         <Table
           headers={["JSON field", "Thumbnail meaning"]}
@@ -470,8 +501,8 @@ export default function HerdrDashboardThumbnails() {
           striped
         />
         <Text tone="tertiary" size="small">
-          Gate JSON uses dashboardAutomation object — not HerdrDashboardAutomationResult / orchestrator
-          --probe fields. Cross-link: herdr-dashboard-automation canvas.
+          Gate JSON uses dashboardAutomation object — not HerdrDashboardAutomationResult /
+          orchestrator --probe fields. Cross-link: herdr-dashboard-automation canvas.
         </Text>
       </Stack>
 
@@ -492,8 +523,8 @@ export default function HerdrDashboardThumbnails() {
         <Stack gap={8}>
           <Text>
             <Text weight="semibold">Disk (WebView dataStore):</Text> when{" "}
-            <Text weight="semibold">persist_profile</Text> is true, Bun.WebView writes browser
-            state — cookies, localStorage, session data — under{" "}
+            <Text weight="semibold">persist_profile</Text> is true, Bun.WebView writes browser state
+            — cookies, localStorage, session data — under{" "}
             <Text weight="semibold">~/.kimi-code/var/herdr-orchestrator-dashboard-webview/</Text>.
             Bun/WebKit manage the subdirectories; kimi-toolchain only sets the root path.
           </Text>
@@ -505,8 +536,8 @@ export default function HerdrDashboardThumbnails() {
             (TTL ≈ 2× sse_poll_ms). Both are discarded when the server stops.
           </Text>
           <Text tone="tertiary" size="small">
-            Indexed in canonical-references.json — synced to ~/.kimi-code/docs/references/ after
-            bun run sync.
+            Indexed in canonical-references.json — synced to ~/.kimi-code/docs/references/ after bun
+            run sync.
           </Text>
         </Stack>
       </Callout>
@@ -600,13 +631,15 @@ export default function HerdrDashboardThumbnails() {
           striped
         />
         <Text tone="tertiary" size="small">
-          Source: src/lib/herdr-dashboard-server.ts · /api/thumbnail also returns 404 (no screenshot),
-          503 (Bun.Image unavailable), 500 (encode failed)
+          Source: src/lib/herdr-dashboard-server.ts · /api/thumbnail also returns 404 (no
+          screenshot), 503 (Bun.Image unavailable), 500 (encode failed)
         </Text>
       </Stack>
 
       <Card>
-        <CardHeader trailing={<Pill tone="info">Bun.Image #terminals</Pill>}>Encode pipeline</CardHeader>
+        <CardHeader trailing={<Pill tone="info">Bun.Image #terminals</Pill>}>
+          Encode pipeline
+        </CardHeader>
         <CardBody>
           <Grid columns={3} gap={16}>
             <Stack gap={4}>
@@ -744,9 +777,9 @@ export default function HerdrDashboardThumbnails() {
       <Stack gap={12}>
         <H2>When thumbnails are available</H2>
         <Text tone="secondary" size="small">
-          Default launch is <Text weight="semibold">serve</Text> (headless HTTP) — no screenshot feed
-          unless you add --webview, inject a screenshotProvider, call setScreenshotPng(), or run{" "}
-          <Text weight="semibold">kimi-doctor --automation</Text> in CI/finish-work.
+          Default launch is <Text weight="semibold">serve</Text> (headless HTTP) — no screenshot
+          feed unless you add --webview, inject a screenshotProvider, call setScreenshotPng(), or
+          run <Text weight="semibold">kimi-doctor --automation</Text> in CI/finish-work.
         </Text>
         <Table
           headers={["Shell mode", "Screenshot feed", "Thumbnail served", "Default?"]}
@@ -759,12 +792,7 @@ export default function HerdrDashboardThumbnails() {
               "CI gate",
             ],
             ["serve (headless HTTP)", "Only if screenshotProvider injected", "Conditional", "yes"],
-            [
-              "any (explicit cache)",
-              "setScreenshotPng() called regardless of shell",
-              "Yes",
-              "—",
-            ],
+            ["any (explicit cache)", "setScreenshotPng() called regardless of shell", "Yes", "—"],
           ]}
           rowTone={["success", "success", "warning", "info"]}
           striped
@@ -793,9 +821,9 @@ export default function HerdrDashboardThumbnails() {
           canonical-references.json lists{" "}
           <Text weight="semibold">{MANIFEST_LOCAL_DOCS_ALL.length} localDocs</Text> ids total. The
           table below shows all of them — only{" "}
-          <Text weight="semibold">{MANIFEST_DOCS_REFERENCES_COUNT}</Text> live under docs/references/;
-          the other <Text weight="semibold">{MANIFEST_REPO_ROOT_COUNT}</Text> are repo-root files
-          synced to ~/.kimi-code/.
+          <Text weight="semibold">{MANIFEST_DOCS_REFERENCES_COUNT}</Text> live under
+          docs/references/; the other <Text weight="semibold">{MANIFEST_REPO_ROOT_COUNT}</Text> are
+          repo-root files synced to ~/.kimi-code/.
         </Text>
 
         <Grid columns={2} gap={20}>
@@ -818,10 +846,7 @@ export default function HerdrDashboardThumbnails() {
 
           <Stack gap={8}>
             <Row gap={8} align="center" wrap>
-              <Stat
-                value={String(MANIFEST_LOCAL_DOCS_ALL.length)}
-                label="total localDocs ids"
-              />
+              <Stat value={String(MANIFEST_LOCAL_DOCS_ALL.length)} label="total localDocs ids" />
               <Stat
                 value={String(MANIFEST_DOCS_REFERENCES_COUNT)}
                 label="under docs/references/"
@@ -862,12 +887,15 @@ export default function HerdrDashboardThumbnails() {
         </CollapsibleSection>
 
         <Callout tone="success" title="Manifest indexed">
-          All {MANIFEST_DOCS_REFERENCES_COUNT} docs/references ids are in LOCAL_DOC_REFERENCES
-          (part of {MANIFEST_LOCAL_DOCS_ALL.length} total localDocs). Regenerate with bun run
+          All {MANIFEST_DOCS_REFERENCES_COUNT} docs/references ids are in LOCAL_DOC_REFERENCES (part
+          of {MANIFEST_LOCAL_DOCS_ALL.length} total localDocs). Regenerate with bun run
           references:generate; runtime copy updates on bun run sync.
         </Callout>
 
-        <CollapsibleSection title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`} defaultOpen={false}>
+        <CollapsibleSection
+          title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`}
+          defaultOpen={false}
+        >
           <RelatedCanvasesTable />
         </CollapsibleSection>
       </Stack>

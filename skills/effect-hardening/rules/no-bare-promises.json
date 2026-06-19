@@ -1,0 +1,16 @@
+{
+  "gate": "direct-promise",
+  "scanner": "src/lib/effect-gates.ts:scanDirectPromises",
+  "description": "Async work must be expressed as Effect at service boundaries; bare Promise in src/ is a violation when KIMI_EFFECT_MAX_DIRECT_PROMISE is 0.",
+  "allowedPatterns": [
+    "Effect.tryPromise at infrastructure edge",
+    "Effect.gen with yield* for orchestration",
+    "test/ and comment/string literals (excluded by scanner)"
+  ],
+  "forbiddenPatterns": [
+    "async function in src/lib/ domain code",
+    "Promise<T> return type on exported helpers",
+    "new Promise((resolve) => ...) in feature code"
+  ],
+  "verify": ["kimi-doctor --effect-gates", "kimi-heal effect audit"]
+}

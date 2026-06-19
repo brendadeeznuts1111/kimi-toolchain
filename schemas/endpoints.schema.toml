@@ -1,0 +1,24 @@
+# Row/column contract for: dx:table extract <config> endpoints -u --exact
+# Gate: bun run dx:table:contract  |  Docs: schemas/README.md, docs/dx-table.md
+required = ["name", "url", "url_protocol", "url_hostname"]
+
+[columns.name]
+type = "string"
+minLength = 1
+maxLength = 128
+
+[columns.url]
+pattern = "^https?://"
+
+[columns.url_protocol]
+enum = ["https:", "http:"]
+
+[columns.url_hostname]
+type = "string"
+minLength = 1
+maxLength = 253
+
+[columns.url_port]
+type = "integer"
+min = 1
+max = 65535

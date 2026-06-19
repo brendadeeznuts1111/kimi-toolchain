@@ -220,8 +220,11 @@ Workflow: `examples/dependency-graphs-developer-workflow.md`. API tables: `docs/
   - `docs/canvases/herdr-dashboard-thumbnails.canvas.tsx` — thumbnail pipeline (manifest id `dashboard-thumbnails`)
   - `docs/canvases/herdr-unified-plugin-architecture.canvas.tsx` — Herdr plugin plan (manifest id `herdr-plugin-architecture`)
   - `docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx` — Effect heal + doctor scaffold (manifest id `deep-quality`)
+  - `docs/canvases/dashboard-card-registry.canvas.tsx` — card registry · v5.4 wiring (manifest id `v53-architecture`)
+  - `docs/canvases/artifact-lineage.canvas.tsx` — run manifests · lineage APIs (manifest id `artifact-lineage`)
+- **IDE pickup**: `~/.cursor/projects/Users-nolarose-kimi-toolchain/canvases/*.canvas.tsx` — open beside chat; sync with `bun run sync:cursor-canvases`
 - **Canvas generate**: `bun run canvas:generate` — regenerates `CANVAS_ROUTING` + hub stats/inventory from `canonical-references.ts` and `package.json` (also runs after `bun run references:generate`)
-- **Canvas lint**: `bun run scripts/lint-cursor-canvas.ts` — manifest `cursorCanvas` pointers + generated blocks fresh (9 canvases)
+- **Canvas lint**: `bun run scripts/lint-cursor-canvas.ts` — manifest `cursorCanvas` pointers + generated blocks fresh (11 canvases)
 
 - Cached link manifest: `~/.kimi-code/canonical-references.json` (`bun run references:generate`)
 - Repo: https://github.com/brendadeeznuts1111/kimi-toolchain

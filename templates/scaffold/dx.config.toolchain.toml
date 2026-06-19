@@ -1,0 +1,221 @@
+# Project DX + kimi runtime policy (toolchain profile — opt-in via kimi-fix --profile toolchain)
+# For sync/ci.local runtime parity see the kimi-toolchain reference dx.config.toml.
+schemaVersion = 1
+scope = "project"
+mode = "development"
+
+[runtime]
+containers = "none"
+packageManager = "bun"
+bunVersion = "1.4.0"
+install = "bun install --frozen-lockfile"
+globalFirst = true
+
+[github]
+workflow = ".github/workflows/ci.yml"
+setupAction = ".github/actions/setup/action.yml"
+protectedBranches = ["main", "master"]
+permissions = ["contents:read", "checks:write", "pull-requests:write"]
+
+[github.ci]
+bunVersion = "1.4.0"
+qualityJob = "quality"
+qualityTimeoutMinutes = 15
+governanceJob = "governance"
+governanceTimeoutMinutes = 5
+
+[github.ci.quality]
+format = "bun run format:check:ci"
+lint = "bun run lint"
+typecheck = "bun run typecheck"
+tests = "bun run test:coverage:ci"
+
+[github.ci.governance]
+rScore = "bun run governance score --min 60"
+
+[cloudflare]
+mode = "read-only"
+accountIdEnv = "CLOUDFLARE_ACCOUNT_ID"
+apiTokenEnv = "CLOUDFLARE_API_TOKEN"
+
+[cloudflare.dashboard]
+enabled = true
+title = "DX Dashboard"
+homepagePath = "/"
+source = "snapshot"
+snapshotCommand = "kimi-cloudflare-access dashboard --json"
+access = "cloudflare-sso"
+
+[cloudflare.domain]
+managed = true
+zone = ""
+hostname = ""
+accessRequired = true
+tls = "managed"
+
+[cloudflare.access]
+policyFile = ".cloudflare-access.yml"
+appLauncherVisible = true
+sessionDuration = "24h"
+
+[cloudflare.mcp]
+server = "cloudflare-api"
+url = "https://mcp.cloudflare.com/mcp"
+auth = "cloudflare-sso-oauth"
+readOnlyByDefault = true
+mutationMode = "manual-script"
+
+[quality]
+formatter = "oxfmt"
+linter = "oxlint"
+formatCheck = "bun run format:check"
+lintCheck = "bun run lint"
+lintTerms = "bun run lint:terms"
+typecheck = "bun run typecheck"
+check = "bun run check"
+checkFast = "bun run check:fast"
+checkDryRun = "bun run check:dry-run"
+testFast = "bun run test:fast"
+testCoverage = "bun run test:coverage"
+testCoverageFast = "bun run test:coverage:fast"
+testCoverageCi = "bun run test:coverage:ci"
+formatCheckCi = "bun run format:check:ci"
+docsSync = "bun run docs:sync"
+
+[doctor]
+gates = ["bunfig-policy"]
+tabs = [
+  { name = "probe", command = "kimi-doctor --serve-probe" },
+  { name = "bunfig", command = "kimi-doctor --gate bunfig-policy" },
+]
+
+[dashboard]
+port = 5678
+
+[doctor.probe]
+port = 5678
+interval = 15000
+
+[agents]
+firstRead = ["{{DX_AGENTS_PATH}}", "AGENTS.md", "CODE_REFERENCES.md"]
+bootstrap = [
+  "dx setup",
+  "dx context",
+  "dx config --project .",
+  "dx mcp-status",
+  "dx cli",
+  "dx package",
+]
+iterate = "bun run check:fast"
+fullValidation = "bun run check"
+prePush = [
+  "kimi-githooks doctor",
+  "bun run check:fast",
+  "kimi-guardian check",
+  "kimi-doctor --effect-gates",
+  "kimi-governance score",
+]
+handoff = ["kimi-doctor --agent-ready"]
+avoid = ["docker", "sync daemon unless actively developing runtime tooling"]
+
+[finishWork]
+gates = [
+  "bun run check:fast",
+  "kimi-doctor --gate bunfig-policy",
+  "kimi-doctor --effect-gates",
+  "kimi-doctor --automation",
+  "kimi-heal effect audit",
+]
+
+[finishWork.followUp]
+command = "kimi-doctor --effect-floor"
+
+[kimi]
+memoryGate = true
+preflight = true
+
+# Herdr workspace layout — single source of truth (herdr-project reads [herdr] only):
+#   agents tab: [herdr.agentsTab] + [[herdr.agentsTab.panes]] (canonical pane layout spec)
+#   Legacy shorthand: primaryAgent, shellPane, shellSplit, secondaryAgents (runner uses these today)
+#   Extra tabs: [[herdr.tabs]] — one pane per tab (doctor, shell, reviewer, …)
+[herdr]
+enabled = true
+workspaceLabel = "{{PROJECT_NAME}}"
+primaryAgent = "kimi"
+secondaryAgents = ["codex"]
+shellPane = true
+shellSplit = "right"
+bootstrap = [
+  "dx config --project .",
+  "echo 'Finish work: bun run finish-work --message \"...\"'",
+  "bun run check:fast && echo '✅ Ready to commit'",
+]
+
+[herdr.agentsTab]
+label = "agents"
+
+[[herdr.agentsTab.panes]]
+role = "primary"
+agent = "kimi"
+context = "kimi-doctor --workspace-context --brief --write-context-files"
+requires = ["git", "kimi-doctor"]
+# ratio = 0.6  # advisory — runner does not pass --ratio yet
+
+[[herdr.agentsTab.panes]]
+role = "shell"
+split = "right"
+# bootstrap commands run in the shell pane
+
+[[herdr.agentsTab.panes]]
+role = "secondary"
+agent = "codex"
+split = "right"
+context = "kimi-doctor --workspace-context --brief --write-context-files"
+requires = ["git", "kimi-doctor"]
+
+[herdr.orchestrator]
+enabled = true
+contextOnIdle = true
+handoffFrom = "kimi"
+handoffTo = "codex"
+reviewerTab = "reviewer"
+
+[herdr.orchestrator.events]
+enabled = true
+debounceMs = 2000
+gitRefCooldownMs = 5000
+allowlist = [
+  "workspace.updated",
+  "pane.agent_status_changed",
+  "effect.gates.changed",
+  "git.ref.changed",
+]
+watchGit = true
+
+[[herdr.tabs]]
+label = "doctor"
+command = "kimi-doctor --watch"
+
+[[herdr.tabs]]
+label = "bunfig"
+command = "kimi-doctor --gate bunfig-policy"
+
+[[herdr.tabs]]
+label = "probe"
+command = "kimi-doctor --serve-probe --save-artifact --project-root ."
+
+[[herdr.tabs]]
+label = "shell"
+command = "git status -sb; herdr-quickref"
+
+# Scaffold v2 — grok --role for first-class agent semantics (see ~/.config/dx/herdr.md).
+# Grok = screen manifest only; no native session restore. After server restart:
+#   herdr-project reconcile . --apply --force-layout
+# Requires scripts/test-agent.ts (copy from kimi-toolchain or add your own watcher).
+[[herdr.tabs]]
+label = "test"
+command = "grok --role test-agent --cwd . -- bun run scripts/test-agent.ts --watch"
+
+# Created on demand by finish-work when post-push tree is dirty (no static command).
+[[herdr.tabs]]
+label = "reviewer"

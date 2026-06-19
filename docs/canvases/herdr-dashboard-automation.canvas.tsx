@@ -1,4 +1,5 @@
 import {
+  BarChart,
   Button,
   Callout,
   Card,
@@ -24,22 +25,51 @@ const DECISIONS = [
   ["WebView backend", "WebKit / Chrome", "WebKit", "Zero deps; matches macOS dev"],
   ["Lifecycle", "One-shot / loop / cron", "One-shot (tests)", "Loop reserved for monitoring"],
   ["Screenshot format", "PNG / JPEG / WebP", "PNG", "Lossless; Bun.WebView.screenshot() native"],
-  ["Assertion style", "DOM / screenshot diff / both", "DOM + screenshot", "evaluate for state; PNG for visual"],
+  [
+    "Assertion style",
+    "DOM / screenshot diff / both",
+    "DOM + screenshot",
+    "evaluate for state; PNG for visual",
+  ],
   ["Error handling", "Throw / log+exit1 / retry", "Throw (tests)", "log+exit1 for ops runner"],
 ] as const;
 
 const EXISTING_API = [
-  ["feedDashboardScreenshotPng", "herdr-dashboard-automation.ts", "2s poll loop → setScreenshotPng"],
-  ["runDashboardAutomation", "herdr-dashboard-automation.ts", "Declarative DashboardAutomationAction runner"],
-  ["runHerdrDashboardAutomation", "herdr-dashboard-automation.ts", "One-shot probe + optional attach click"],
+  [
+    "feedDashboardScreenshotPng",
+    "herdr-dashboard-automation.ts",
+    "2s poll loop → setScreenshotPng",
+  ],
+  [
+    "runDashboardAutomation",
+    "herdr-dashboard-automation.ts",
+    "Declarative DashboardAutomationAction runner",
+  ],
+  [
+    "runHerdrDashboardAutomation",
+    "herdr-dashboard-automation.ts",
+    "One-shot probe + optional attach click",
+  ],
   ["captureHerdrDashboardScreenshot", "herdr-dashboard-automation.ts", "CLI --screenshot entry"],
   ["waitForDashboardView", "herdr-dashboard-automation.ts", "#agents-body scroll + ready flag"],
   ["waitForSelectorCount", "herdr-dashboard-automation.ts", "Poll querySelectorAll until minCount"],
   ["waitForProcessesPanelRows", "herdr-dashboard-automation.ts", "#processes-body tr after toggle"],
-  ["runDashboardAutomationSmoke", "herdr-dashboard-automation.ts", "DASHBOARD_SMOKE_ACTIONS recipe wrapper"],
-  ["runDashboardAutomationGate", "herdr-dashboard-automation-gate.ts", "kimi-doctor --automation orchestration"],
+  [
+    "runDashboardAutomationSmoke",
+    "herdr-dashboard-automation.ts",
+    "DASHBOARD_SMOKE_ACTIONS recipe wrapper",
+  ],
+  [
+    "runDashboardAutomationGate",
+    "herdr-dashboard-automation-gate.ts",
+    "kimi-doctor --automation orchestration",
+  ],
   ["setScreenshotPng", "herdr-dashboard-server.ts", "In-memory cache for /api/thumbnail"],
-  ["kimi-doctor --automation", "docs/references/kimi-doctor.md", "Canonical CI / finish-work gate doc"],
+  [
+    "kimi-doctor --automation",
+    "docs/references/kimi-doctor.md",
+    "Canonical CI / finish-work gate doc",
+  ],
 ] as const;
 
 const AUTOMATION_ACTIONS = [
@@ -61,6 +91,17 @@ const FIRST_SLICE = [
   ["8", "CI / finish-work", "kimi-doctor --automation → exit 0 + dashboardAutomation JSON"],
 ] as const;
 
+const SMOKE_STEP_DEPTH = [
+  ["Start server", 2],
+  ["Wait ready", 1],
+  ["Run recipe", 3],
+  ["Click panel", 1],
+  ["Wait rows", 1],
+  ["Screenshot", 2],
+  ["Thumbnail probe", 2],
+  ["Doctor gate", 4],
+] as const;
+
 const FINISH_WORK_GATES = [
   ["check:fast", "Toolchain", "Format · lint · typecheck · unit tests"],
   ["kimi-doctor --effect-gates", "Toolchain", "Effect discipline scan"],
@@ -69,15 +110,37 @@ const FINISH_WORK_GATES = [
 ] as const;
 
 const GATE_LAYERS = [
-  ["--automation", "Toolchain", "[finishWork].gates", "WebView smoke + PNG→WebP · spins ephemeral server"],
-  ["--dashboard-meta", "Runtime", "Herdr orchestrator bootstrap", "Probes live /api/meta · needs 18412 or HERDR_DASHBOARD_URL"],
+  [
+    "--automation",
+    "Toolchain",
+    "[finishWork].gates",
+    "WebView smoke + PNG→WebP · spins ephemeral server",
+  ],
+  [
+    "--dashboard-meta",
+    "Runtime",
+    "Herdr orchestrator bootstrap",
+    "Probes live /api/meta · needs 18412 or HERDR_DASHBOARD_URL",
+  ],
 ] as const;
 
 const DOCTOR_GATE = [
   ["Primary", "kimi-doctor --automation", "Self-contained ephemeral server + WebView smoke"],
-  ["JSON", "kimi-doctor --automation --json", "schemaVersion + tool + dashboardAutomation + summary.ok"],
-  ["External URL", "--url · --dashboard-url · HERDR_DASHBOARD_URL", "UI smoke; thumbnail needs existing feed on serve shell"],
-  ["Adapter (secondary)", "--adapter dashboard-automation", "Subprocess → HealthCheck[] for --all; 60s timeout"],
+  [
+    "JSON",
+    "kimi-doctor --automation --json",
+    "schemaVersion + tool + dashboardAutomation + summary.ok",
+  ],
+  [
+    "External URL",
+    "--url · --dashboard-url · HERDR_DASHBOARD_URL",
+    "UI smoke; thumbnail needs existing feed on serve shell",
+  ],
+  [
+    "Adapter (secondary)",
+    "--adapter dashboard-automation",
+    "Subprocess → HealthCheck[] for --all; 60s timeout",
+  ],
   ["Finish-work key", "dashboard-automation", "In [finishWork].gates — meta removed (5fce0cb)"],
 ] as const;
 
@@ -131,6 +194,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
   { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
   { id: "dashboard-card-registry", page: "Card registry", path: "docs/canvases/dashboard-card-registry.canvas.tsx", detail: "canvasInfluences · /api/cards · lint gate" },
+  { id: "artifact-lineage", page: "Artifacts & Runs", path: "docs/canvases/artifact-lineage.canvas.tsx", detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns" },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -146,10 +210,15 @@ const CANVAS_ROUTING_ROW_TONE = [
   "success",
   "warning",
   "neutral",
+  "neutral",
   "neutral"
 ] as const;
 const LIFECYCLE_MODES = [
-  ["Doctor gate (shipped)", "kimi-doctor --automation", "One-shot · ephemeral server · finish-work"],
+  [
+    "Doctor gate (shipped)",
+    "kimi-doctor --automation",
+    "One-shot · ephemeral server · finish-work",
+  ],
   ["Monitor loop", "feedDashboardScreenshotPng", "2s poll · AbortSignal · --webview mode"],
   ["Cron / ops", "External runner", "log+exit1 on failure — reserved for monitoring"],
 ] as const;
@@ -203,7 +272,12 @@ function AutomationFlowDiagram() {
 
   return (
     <div style={{ overflowX: "auto" }}>
-      <svg width={layout.width} height={layout.height} role="img" aria-label="Dashboard automation flow">
+      <svg
+        width={layout.width}
+        height={layout.height}
+        role="img"
+        aria-label="Dashboard automation flow"
+      >
         {layout.edges.map((edge, i) => {
           const midY = (edge.sourceY + edge.targetY) / 2;
           const d = `M ${edge.sourceX} ${edge.sourceY} C ${edge.sourceX} ${midY}, ${edge.targetX} ${midY}, ${edge.targetX} ${edge.targetY}`;
@@ -271,17 +345,36 @@ function AutomationFlowDiagram() {
         })}
       </svg>
       <Text tone="tertiary" size="small">
-        Source: automation spec · setScreenshotPng bridges --serve (no native screenshot feed) · encode
-        at GET /api/thumbnail uses await .blob() — see dashboard-thumbnails.md Terminals
+        Source: automation spec · setScreenshotPng bridges --serve (no native screenshot feed) ·
+        encode at GET /api/thumbnail uses await .blob() — see dashboard-thumbnails.md Terminals
       </Text>
     </div>
   );
 }
 
-function CanvasLink({ label, path, dispatch }: { label: string; path: string; dispatch: ReturnType<typeof useCanvasAction> }) {
+function CanvasLink({
+  label,
+  path,
+  dispatch,
+}: {
+  label: string;
+  path: string;
+  dispatch: ReturnType<typeof useCanvasAction>;
+}) {
   const theme = useHostTheme();
   return (
-    <Button variant="ghost" onClick={() => dispatch({ type: "openFile", path })} style={{ padding: 0, minHeight: "auto", height: "auto", color: theme.accent.primary, textDecoration: "underline", textUnderlineOffset: 2 }}>
+    <Button
+      variant="ghost"
+      onClick={() => dispatch({ type: "openFile", path })}
+      style={{
+        padding: 0,
+        minHeight: "auto",
+        height: "auto",
+        color: theme.accent.primary,
+        textDecoration: "underline",
+        textUnderlineOffset: 2,
+      }}
+    >
       {label}
     </Button>
   );
@@ -294,14 +387,21 @@ function RelatedCanvasesTable() {
       <Table
         headers={["Canvas file", "Binding layer", "Open when"]}
         rows={CANVAS_ROUTING.map((c) => [
-          <CanvasLink key={`${c.id}-file`} label={`${c.id}.canvas.tsx`} path={c.path} dispatch={dispatch} />,
+          <CanvasLink
+            key={`${c.id}-file`}
+            label={`${c.id}.canvas.tsx`}
+            path={c.path}
+            dispatch={dispatch}
+          />,
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
         rowTone={[...CANVAS_ROUTING_ROW_TONE]}
         striped
       />
-      <Text tone="tertiary" size="small">Click Canvas file or Binding layer to open · {CANVAS_ROUTING_COUNT} manifest-backed canvases</Text>
+      <Text tone="tertiary" size="small">
+        Click Canvas file or Binding layer to open · {CANVAS_ROUTING_COUNT} manifest-backed canvases
+      </Text>
     </Stack>
   );
 }
@@ -335,7 +435,11 @@ export default function HerdrDashboardAutomationSpec() {
         after Herdr orchestrator bootstrap — not required for cold-machine finish-work.
       </Callout>
 
-      <CollapsibleSection title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`} count={CANVAS_ROUTING_COUNT} defaultOpen>
+      <CollapsibleSection
+        title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`}
+        count={CANVAS_ROUTING_COUNT}
+        defaultOpen
+      >
         <RelatedCanvasesTable />
       </CollapsibleSection>
 
@@ -387,7 +491,19 @@ export default function HerdrDashboardAutomationSpec() {
           <Table
             headers={["Export", "Module", "Role"]}
             rows={EXISTING_API.map((row) => [...row])}
-            rowTone={["info", "info", undefined, undefined, undefined, undefined, undefined, "info", "info", "success", "success"]}
+            rowTone={[
+              "info",
+              "info",
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              "info",
+              "info",
+              "success",
+              "success",
+            ]}
             striped
           />
           <Text tone="tertiary" size="small">
@@ -398,7 +514,9 @@ export default function HerdrDashboardAutomationSpec() {
         <Stack gap={12}>
           <H2>DashboardAutomationAction union</H2>
           <Card>
-            <CardHeader trailing={<Pill tone="success">implemented</Pill>}>runDashboardAutomation</CardHeader>
+            <CardHeader trailing={<Pill tone="success">implemented</Pill>}>
+              runDashboardAutomation
+            </CardHeader>
             <CardBody>
               <Table
                 headers={["type", "fields", "Maps to"]}
@@ -408,7 +526,8 @@ export default function HerdrDashboardAutomationSpec() {
             </CardBody>
           </Card>
           <Text tone="tertiary" size="small">
-            executeDashboardAutomationStep dispatches each action; runDashboardAutomationSmoke uses DASHBOARD_SMOKE_ACTIONS
+            executeDashboardAutomationStep dispatches each action; runDashboardAutomationSmoke uses
+            DASHBOARD_SMOKE_ACTIONS
           </Text>
         </Stack>
       </Grid>
@@ -417,8 +536,8 @@ export default function HerdrDashboardAutomationSpec() {
         <H2>kimi-doctor gate (shipped)</H2>
         <Callout tone="info" title="Canonical entry point">
           kimi-doctor --automation is primary. --adapter dashboard-automation is a secondary
-          subprocess wrapper for --all — same gate, different JSON envelope (mode: adapter, checks[]).
-          Exit codes: 0 pass, 1 fail only.
+          subprocess wrapper for --all — same gate, different JSON envelope (mode: adapter,
+          checks[]). Exit codes: 0 pass, 1 fail only.
         </Callout>
         <Table
           headers={["Surface", "Command", "Role"]}
@@ -466,7 +585,8 @@ export default function HerdrDashboardAutomationSpec() {
           </Stack>
         </Grid>
         <Text tone="tertiary" size="small">
-          Authoritative reference: docs/references/kimi-doctor.md · canonical-references id: kimi-doctor
+          Authoritative reference: docs/references/kimi-doctor.md · canonical-references id:
+          kimi-doctor
         </Text>
       </Stack>
 
@@ -488,13 +608,30 @@ export default function HerdrDashboardAutomationSpec() {
           striped
         />
         <Text tone="tertiary" size="small">
-          Source: test/herdr-dashboard-automation.unit.test.ts · test/herdr-dashboard-automation-gate.unit.test.ts
+          Source: test/herdr-dashboard-automation.unit.test.ts ·
+          test/herdr-dashboard-automation-gate.unit.test.ts
+        </Text>
+        <BarChart
+          categories={SMOKE_STEP_DEPTH.map((row) => row[0])}
+          series={[
+            {
+              name: "Implementation depth (ordinal 1–4)",
+              data: SMOKE_STEP_DEPTH.map((row) => row[1]),
+              tone: "info",
+            },
+          ]}
+          height={200}
+        />
+        <Text tone="tertiary" size="small">
+          Source: DASHBOARD_SMOKE_ACTIONS · Y-axis: ordinal depth · X-axis: smoke step · not
+          wall-clock latency
         </Text>
       </Stack>
 
       <Callout tone="success" title="Shipped: runner, smoke, doctor gate">
         kimi-doctor --automation — finish-work toolchain gate (~4s), ephemeral WebView, exit 0/1.
-        --dashboard-meta is runtime-only (Herdr bootstrap). Profile/backend: /api/meta via meta gate.
+        --dashboard-meta is runtime-only (Herdr bootstrap). Profile/backend: /api/meta via meta
+        gate.
       </Callout>
 
       <Card>

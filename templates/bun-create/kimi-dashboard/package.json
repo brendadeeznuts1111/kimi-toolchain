@@ -1,0 +1,37 @@
+{
+  "name": "{{name}}",
+  "version": "0.0.1",
+  "description": "Bun-native HTTP dashboard scaffolded from kimi-toolchain examples",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "artifact:save": "bun run src/bin/save-artifacts.ts",
+    "artifact:list": "ls -1 var/artifacts 2>/dev/null || echo 'No artifacts yet. Run artifact:save first.'"
+  },
+  "bun-create": {
+    "postinstall": [
+      "bun install",
+      "echo '✅ Dashboard ready. Start: bun run dev'",
+      "echo '   Docs: docs/extend.md'",
+      "echo '   Copy handlers from: examples/dashboard/src/handlers/'"
+    ],
+    "start": {
+      "dev": "bun run --watch src/index.ts",
+      "start": "bun run src/index.ts"
+    }
+  },
+  "kimi": {
+    "showcase": {
+      "id": "kimi-dashboard",
+      "lane": "runtime",
+      "accent": "#58a6ff",
+      "cards": [
+        "card-kimi-doctor",
+        "card-scaffold",
+        "card-perf-harness"
+      ]
+    }
+  }
+}

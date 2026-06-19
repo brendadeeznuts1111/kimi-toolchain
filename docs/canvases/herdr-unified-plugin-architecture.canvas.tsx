@@ -37,6 +37,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "manifest id herdr-plugin-architecture (this canvas)" },
   { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
   { id: "dashboard-card-registry", page: "Card registry", path: "docs/canvases/dashboard-card-registry.canvas.tsx", detail: "canvasInfluences · /api/cards · lint gate" },
+  { id: "artifact-lineage", page: "Artifacts & Runs", path: "docs/canvases/artifact-lineage.canvas.tsx", detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns" },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -52,37 +53,14 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "success",
   "neutral",
+  "neutral",
   "neutral"
 ] as const;
 const ARCHITECTURE_MATRIX = [
-  [
-    "Remote Agent Lifecycle",
-    "herdr-orchestrator",
-    "[[actions]] x4",
-    "HERDR_PLUGIN_STATE_DIR",
-    "—",
-  ],
-  [
-    "Handoff Audit Trail",
-    "herdr-orchestrator",
-    "[[events]] x2",
-    "HERDR_PLUGIN_STATE_DIR",
-    "—",
-  ],
-  [
-    "Fleet Dashboard",
-    "herdr-orchestrator",
-    "[[panes]] x1",
-    "HERDR_PLUGIN_STATE_DIR",
-    "—",
-  ],
-  [
-    "GitHub Link Previews",
-    "herdr-orchestrator",
-    "[[link_handlers]] x3",
-    "—",
-    "—",
-  ],
+  ["Remote Agent Lifecycle", "herdr-orchestrator", "[[actions]] x4", "HERDR_PLUGIN_STATE_DIR", "—"],
+  ["Handoff Audit Trail", "herdr-orchestrator", "[[events]] x2", "HERDR_PLUGIN_STATE_DIR", "—"],
+  ["Fleet Dashboard", "herdr-orchestrator", "[[panes]] x1", "HERDR_PLUGIN_STATE_DIR", "—"],
+  ["GitHub Link Previews", "herdr-orchestrator", "[[link_handlers]] x3", "—", "—"],
   [
     "Doctor Diagnostics",
     "herdr-doctor",
@@ -90,27 +68,9 @@ const ARCHITECTURE_MATRIX = [
     "HERDR_PLUGIN_STATE_DIR",
     "—",
   ],
-  [
-    "Webhook Notifications",
-    "herdr-notify",
-    "[[events]] x3",
-    "—",
-    "HERDR_PLUGIN_CONFIG_DIR",
-  ],
-  [
-    "Keybindings",
-    "Core Herdr",
-    "[[keys.command]] x6",
-    "—",
-    "~/.config/herdr/config.toml",
-  ],
-  [
-    "SSH Bridge",
-    "Core Herdr",
-    "[remote]",
-    "—",
-    "~/.ssh/config + dx.config.toml",
-  ],
+  ["Webhook Notifications", "herdr-notify", "[[events]] x3", "—", "HERDR_PLUGIN_CONFIG_DIR"],
+  ["Keybindings", "Core Herdr", "[[keys.command]] x6", "—", "~/.config/herdr/config.toml"],
+  ["SSH Bridge", "Core Herdr", "[remote]", "—", "~/.ssh/config + dx.config.toml"],
 ] as const;
 
 const PLUGIN_VERSIONS = [
@@ -195,7 +155,11 @@ const MARKETPLACE = [
     "brendadeeznuts1111/herdr-orchestrator",
     "herdr plugin install brendadeeznuts1111/herdr-orchestrator",
   ],
-  ["herdr-doctor", "brendadeeznuts1111/herdr-doctor", "herdr plugin install brendadeeznuts1111/herdr-doctor"],
+  [
+    "herdr-doctor",
+    "brendadeeznuts1111/herdr-doctor",
+    "herdr plugin install brendadeeznuts1111/herdr-doctor",
+  ],
   [
     "herdr-notify",
     "brendadeeznuts1111/herdr-notify",
@@ -228,14 +192,26 @@ const ACTIVATION_STEPS = [
 ] as const;
 
 const GAP_ITEMS = [
-  { id: "gap-1", content: "Plugin directory scaffold (~/dev/herdr-plugins/)", status: "pending" as const },
-  { id: "gap-2", content: "Manifest files written (herdr.plugin.toml x3)", status: "pending" as const },
+  {
+    id: "gap-1",
+    content: "Plugin directory scaffold (~/dev/herdr-plugins/)",
+    status: "pending" as const,
+  },
+  {
+    id: "gap-2",
+    content: "Manifest files written (herdr.plugin.toml x3)",
+    status: "pending" as const,
+  },
   { id: "gap-3", content: "Core .ts implementations (src/**/*.ts)", status: "pending" as const },
   { id: "gap-4", content: "herdr plugin link executed", status: "pending" as const },
   { id: "gap-5", content: "notify.json written to config dir", status: "pending" as const },
   { id: "gap-6", content: "Keybindings appended to config.toml", status: "pending" as const },
   { id: "gap-7", content: "SSH host uncommented + filled", status: "pending" as const },
-  { id: "gap-8", content: "herdr-plugin GitHub topic added (x3 repos)", status: "pending" as const },
+  {
+    id: "gap-8",
+    content: "herdr-plugin GitHub topic added (x3 repos)",
+    status: "pending" as const,
+  },
   { id: "gap-9", content: "Dashboard pane implementation (stub)", status: "in_progress" as const },
   { id: "gap-10", content: "Doctor pane implementation (stub)", status: "in_progress" as const },
   { id: "gap-11", content: "Live handoff test (--handoff remote)", status: "in_progress" as const },
@@ -331,8 +307,7 @@ function PluginArchitectureDiagram() {
         {layout.nodes.map((pos) => {
           const node = nodeById[pos.id];
           if (!node) return null;
-          const accent =
-            pos.id === "orchestrator" || pos.id === "doctor" || pos.id === "notify";
+          const accent = pos.id === "orchestrator" || pos.id === "doctor" || pos.id === "notify";
           return (
             <g key={pos.id}>
               <rect
@@ -369,17 +344,36 @@ function PluginArchitectureDiagram() {
         })}
       </svg>
       <Text tone="tertiary" size="small">
-        Source: herdr-unified-plan-v0.5.0.md Section 1 · state in HERDR_PLUGIN_STATE_DIR ·
-        notify config in HERDR_PLUGIN_CONFIG_DIR
+        Source: herdr-unified-plan-v0.5.0.md Section 1 · state in HERDR_PLUGIN_STATE_DIR · notify
+        config in HERDR_PLUGIN_CONFIG_DIR
       </Text>
     </div>
   );
 }
 
-function CanvasLink({ label, path, dispatch }: { label: string; path: string; dispatch: ReturnType<typeof useCanvasAction> }) {
+function CanvasLink({
+  label,
+  path,
+  dispatch,
+}: {
+  label: string;
+  path: string;
+  dispatch: ReturnType<typeof useCanvasAction>;
+}) {
   const theme = useHostTheme();
   return (
-    <Button variant="ghost" onClick={() => dispatch({ type: "openFile", path })} style={{ padding: 0, minHeight: "auto", height: "auto", color: theme.accent.primary, textDecoration: "underline", textUnderlineOffset: 2 }}>
+    <Button
+      variant="ghost"
+      onClick={() => dispatch({ type: "openFile", path })}
+      style={{
+        padding: 0,
+        minHeight: "auto",
+        height: "auto",
+        color: theme.accent.primary,
+        textDecoration: "underline",
+        textUnderlineOffset: 2,
+      }}
+    >
       {label}
     </Button>
   );
@@ -392,14 +386,21 @@ function RelatedCanvasesTable() {
       <Table
         headers={["Canvas", "Page", "Detail"]}
         rows={CANVAS_ROUTING.map((c) => [
-          <CanvasLink key={`${c.id}-file`} label={`${c.id}.canvas.tsx`} path={c.path} dispatch={dispatch} />,
+          <CanvasLink
+            key={`${c.id}-file`}
+            label={`${c.id}.canvas.tsx`}
+            path={c.path}
+            dispatch={dispatch}
+          />,
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
         rowTone={[...CANVAS_ROUTING_ROW_TONE]}
         striped
       />
-      <Text tone="tertiary" size="small">Click Canvas or Page to open · Herdr plugin architecture plan</Text>
+      <Text tone="tertiary" size="small">
+        Click Canvas or Page to open · Herdr plugin architecture plan
+      </Text>
     </Stack>
   );
 }
@@ -431,9 +432,9 @@ export default function HerdrUnifiedPluginArchitecturePlan() {
 
       <Callout tone="info" title="TL;DR">
         Remote lifecycle + audit in orchestrator (orange lane). Doctor diagnostics (teal). Webhook
-        notify (purple). All mutable plugin state under HERDR_PLUGIN_STATE_DIR; notify webhooks under
-        HERDR_PLUGIN_CONFIG_DIR. prefix+a/l/f/t/d bind core actions; Control+click intercepts GitHub
-        URLs.
+        notify (purple). All mutable plugin state under HERDR_PLUGIN_STATE_DIR; notify webhooks
+        under HERDR_PLUGIN_CONFIG_DIR. prefix+a/l/f/t/d bind core actions; Control+click intercepts
+        GitHub URLs.
       </Callout>
 
       <Stack gap={12}>
@@ -441,16 +442,7 @@ export default function HerdrUnifiedPluginArchitecturePlan() {
         <Table
           headers={["Capability", "Plugin", "Manifest", "State", "Config"]}
           rows={ARCHITECTURE_MATRIX.map((row) => [...row])}
-          rowTone={[
-            "info",
-            "info",
-            "info",
-            "info",
-            undefined,
-            "success",
-            undefined,
-            undefined,
-          ]}
+          rowTone={["info", "info", "info", "info", undefined, "success", undefined, undefined]}
           striped
         />
         <Text tone="tertiary" size="small">
@@ -565,7 +557,17 @@ export default function HerdrUnifiedPluginArchitecturePlan() {
         <Table
           headers={["Step", "Phase", "Action"]}
           rows={ACTIVATION_STEPS.map((row) => [...row])}
-          rowTone={["info", undefined, undefined, undefined, undefined, undefined, undefined, "success", undefined]}
+          rowTone={[
+            "info",
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            "success",
+            undefined,
+          ]}
           striped
         />
       </CollapsibleSection>
@@ -592,7 +594,9 @@ export default function HerdrUnifiedPluginArchitecturePlan() {
       </Stack>
 
       <Card>
-        <CardHeader trailing={<Pill tone="success">design rules</Pill>}>Enforced constraints</CardHeader>
+        <CardHeader trailing={<Pill tone="success">design rules</Pill>}>
+          Enforced constraints
+        </CardHeader>
         <CardBody>
           <Stack gap={6}>
             {DESIGN_RULES.map((rule) => (
@@ -604,7 +608,10 @@ export default function HerdrUnifiedPluginArchitecturePlan() {
         </CardBody>
       </Card>
 
-      <CollapsibleSection title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`} defaultOpen={false}>
+      <CollapsibleSection
+        title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`}
+        defaultOpen={false}
+      >
         <RelatedCanvasesTable />
       </CollapsibleSection>
 

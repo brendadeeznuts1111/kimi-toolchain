@@ -169,14 +169,21 @@ const DOCS_REFERENCES = [
   ["kimi-doctor", "--automation gate CLI + JSON"],
   ["dashboard-thumbnails", "WebView → Bun.Image → /api/thumbnail"],
   ["shell-spawn-choice", "invokeTool vs Bun.spawn vs governedSpawn"],
-  ["bun-runtime-scaffold", "Bun install config · globalStore · execve · Bun.Terminal · using/await using"],
+  [
+    "bun-runtime-scaffold",
+    "Bun install config · globalStore · execve · Bun.Terminal · using/await using",
+  ],
   ["bun-shell-companions", "Bun $ template vs subprocess"],
   ["template-matrix", "22-file scaffold · bridge pattern · template families"],
   ["herdr-plugin-architecture", "Herdr plugins v0.5.0 · prefix+* · orthogonal to gates"],
 ] as const;
 
 const MANIFEST_KEYS = [
-  ["localDocs (15)", "id, repoPath, runtimePath, purpose", "Agent-indexed docs · 9 cursorCanvas pointers"],
+  [
+    "localDocs (15)",
+    "id, repoPath, runtimePath, purpose",
+    "Agent-indexed docs · 11 cursorCanvas pointers",
+  ],
   [
     "ecosystem (8)",
     "id, name, kind, homepage, docs, usage",
@@ -234,6 +241,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
   { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
   { id: "dashboard-card-registry", page: "Card registry", path: "docs/canvases/dashboard-card-registry.canvas.tsx", detail: "canvasInfluences · /api/cards · lint gate" },
+  { id: "artifact-lineage", page: "Artifacts & Runs", path: "docs/canvases/artifact-lineage.canvas.tsx", detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns" },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -248,6 +256,7 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "neutral",
   "warning",
+  "neutral",
   "neutral",
   "neutral"
 ] as const;
@@ -352,10 +361,29 @@ function BindingLayerDag() {
   );
 }
 
-function CanvasLink({ label, path, dispatch }: { label: string; path: string; dispatch: ReturnType<typeof useCanvasAction> }) {
+function CanvasLink({
+  label,
+  path,
+  dispatch,
+}: {
+  label: string;
+  path: string;
+  dispatch: ReturnType<typeof useCanvasAction>;
+}) {
   const theme = useHostTheme();
   return (
-    <Button variant="ghost" onClick={() => dispatch({ type: "openFile", path })} style={{ padding: 0, minHeight: "auto", height: "auto", color: theme.accent.primary, textDecoration: "underline", textUnderlineOffset: 2 }}>
+    <Button
+      variant="ghost"
+      onClick={() => dispatch({ type: "openFile", path })}
+      style={{
+        padding: 0,
+        minHeight: "auto",
+        height: "auto",
+        color: theme.accent.primary,
+        textDecoration: "underline",
+        textUnderlineOffset: 2,
+      }}
+    >
       {label}
     </Button>
   );
@@ -368,14 +396,21 @@ function RelatedCanvasesTable() {
       <Table
         headers={["Canvas file", "Binding layer", "Repo path"]}
         rows={CANVAS_ROUTING.map((c) => [
-          <CanvasLink key={`${c.id}-file`} label={`${c.id}.canvas.tsx`} path={c.path} dispatch={dispatch} />,
+          <CanvasLink
+            key={`${c.id}-file`}
+            label={`${c.id}.canvas.tsx`}
+            path={c.path}
+            dispatch={dispatch}
+          />,
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
         rowTone={[...CANVAS_ROUTING_ROW_TONE]}
         striped
       />
-      <Text tone="tertiary" size="small">Click Canvas file or Binding layer to open · read order: namespace-boundaries → pick layer</Text>
+      <Text tone="tertiary" size="small">
+        Click Canvas file or Binding layer to open · read order: namespace-boundaries → pick layer
+      </Text>
     </Stack>
   );
 }
@@ -468,7 +503,10 @@ export default function NamespaceBoundariesCanvas() {
         </Stack>
       </Grid>
 
-      <CollapsibleSection title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`} defaultOpen>
+      <CollapsibleSection
+        title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`}
+        defaultOpen
+      >
         <RelatedCanvasesTable />
       </CollapsibleSection>
 

@@ -1,0 +1,41 @@
+{
+  "name": "{{name}}",
+  "version": "0.0.1",
+  "description": "L1→L2 gate tree with artifact persistence and lineage — scaffolded from kimi-toolchain",
+  "type": "module",
+  "scripts": {
+    "gate:all": "bun run src/bin/gate-doctor.ts --all --save-artifact",
+    "gate:graph": "bun run src/bin/gate-doctor.ts --all --gate-graph",
+    "gate:status": "bun run src/bin/gate-doctor.ts --status --json",
+    "gate:plan": "bun run src/bin/gate-doctor.ts --all --dry-run",
+    "dev": "bun run --watch src/bin/gate-doctor.ts --all",
+    "typecheck": "tsc --noEmit"
+  },
+  "bun-create": {
+    "postinstall": [
+      "bun install",
+      "echo '✅ Gate loop ready. Add gates to src/gates/'",
+      "echo '   Run: bun run gate:all'",
+      "echo '   Plan: bun run gate:plan'",
+      "echo '   Graph: bun run gate:graph'"
+    ],
+    "start": {
+      "all": "bun run src/bin/gate-doctor.ts --all --save-artifact",
+      "graph": "bun run src/bin/gate-doctor.ts --all --gate-graph",
+      "status": "bun run src/bin/gate-doctor.ts --status --json",
+      "plan": "bun run src/bin/gate-doctor.ts --all --dry-run"
+    }
+  },
+  "kimi": {
+    "showcase": {
+      "id": "kimi-gates",
+      "lane": "runtime",
+      "accent": "#3fb950",
+      "cards": [
+        "card-artifacts",
+        "card-gates",
+        "card-metrics-schema"
+      ]
+    }
+  }
+}

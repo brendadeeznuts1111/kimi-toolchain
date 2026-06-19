@@ -65,40 +65,66 @@ const REGISTERED_CONSTANTS = [
     "bun.sh · bun.com",
     "/docs/runtime/webview",
   ],
-  [
-    "BUN_INSTALL_DOC_URL",
-    "src/lib/bun-install-config.ts",
-    "bun.com",
-    "/docs/pm/cli/install",
-  ],
-  [
-    "BUN_IMAGE_DOCS_URL",
-    "src/lib/bun-image.ts",
-    "bun.com",
-    "/docs/runtime/image",
-  ],
+  ["BUN_INSTALL_DOC_URL", "src/lib/bun-install-config.ts", "bun.com", "/docs/pm/cli/install"],
+  ["BUN_IMAGE_DOCS_URL", "src/lib/bun-image.ts", "bun.com", "/docs/runtime/image"],
 ] as const;
 
 const SEE_LADDER = [
   ["Global platform / project config", "@see dx", "~/.config/dx/AGENTS.md · ecosystem id dx"],
-  ["Four-layer config model", "@see docs/references/configuration-layers.md", "Discovery · define · parity · scaffold"],
-  ["Gate strings in [finishWork]", "@see docs/references/kimi-doctor.md", "Shell gates only — not plugin prefix+d"],
-  ["Doctor / orchestrator name clash", "@see namespace-boundaries", "Name collision resolver · namespace canvas"],
-  ["Bun install / bun create flags", "@see docs/references/bun-runtime-scaffold.md", "bunfig.toml merge · lazy install · backend"],
-  ["Thumbnail encode path", "@see docs/references/dashboard-thumbnails.md", "Bun.Image terminals · /api/thumbnail"],
-  ["Endpoint table validation", "@see schemas/endpoints-strict.schema.toml", "dx:table -u --exact · not dashboard HTTP"],
+  [
+    "Four-layer config model",
+    "@see docs/references/configuration-layers.md",
+    "Discovery · define · parity · scaffold",
+  ],
+  [
+    "Gate strings in [finishWork]",
+    "@see docs/references/kimi-doctor.md",
+    "Shell gates only — not plugin prefix+d",
+  ],
+  [
+    "Doctor / orchestrator name clash",
+    "@see namespace-boundaries",
+    "Name collision resolver · namespace canvas",
+  ],
+  [
+    "Bun install / bun create flags",
+    "@see docs/references/bun-runtime-scaffold.md",
+    "bunfig.toml merge · lazy install · backend",
+  ],
+  [
+    "Thumbnail encode path",
+    "@see docs/references/dashboard-thumbnails.md",
+    "Bun.Image terminals · /api/thumbnail",
+  ],
+  [
+    "Endpoint table validation",
+    "@see schemas/endpoints-strict.schema.toml",
+    "dx:table -u --exact · not dashboard HTTP",
+  ],
 ] as const;
 
 const DOC_LINKS_SEE = [
-  ["Bun docs in executable code", "Use BUN_*_DOC_URL", "lint:doc-links enforces via use-doc-constant"],
-  ["Bun docs in JSDoc @see (bun.com)", "Raw #fragment URLs OK", "use-doc-constant comment exemption"],
+  [
+    "Bun docs in executable code",
+    "Use BUN_*_DOC_URL",
+    "lint:doc-links enforces via use-doc-constant",
+  ],
+  [
+    "Bun docs in JSDoc @see (bun.com)",
+    "Raw #fragment URLs OK",
+    "use-doc-constant comment exemption",
+  ],
   [
     "Legacy bun.sh in JSDoc @see",
     "Absolute https://bun.sh/… still flags",
     "prefer-bun-com-docs — migrate to bun.com",
   ],
   ["Ecosystem manifest root", 'docs: "https://bun.sh/docs"', "canonical-references.ts only"],
-  ["dx URL inventory rows", "[[endpoints]] in dx.config.toml", "schemas/endpoints-strict.schema.toml gate"],
+  [
+    "dx URL inventory rows",
+    "[[endpoints]] in dx.config.toml",
+    "schemas/endpoints-strict.schema.toml gate",
+  ],
 ] as const;
 
 const SEE_DX_VERBAGE = [
@@ -109,15 +135,39 @@ const SEE_DX_VERBAGE = [
 ] as const;
 
 const DOCS_REFERENCES = [
-  ["configuration-layers", "docs/references/configuration-layers.md", "Four-layer model · config:status"],
+  [
+    "configuration-layers",
+    "docs/references/configuration-layers.md",
+    "Four-layer model · config:status",
+  ],
   ["namespace", "docs/references/namespace.md", "Toolchain vs Herdr · doctor trinity · @see hub"],
   ["kimi-doctor", "docs/references/kimi-doctor.md", "--automation gate · finish-work shell gates"],
   ["dashboard-thumbnails", "docs/references/dashboard-thumbnails.md", "Bun.Image · /api/thumbnail"],
-  ["shell-spawn-choice", "docs/references/shell-spawn-choice.md", "invokeTool vs Bun.spawn vs governedSpawn"],
-  ["bun-runtime-scaffold", "docs/references/bun-runtime-scaffold.md", "globalStore · execve · Bun.Terminal · using/await using"],
-  ["bun-shell-companions", "docs/references/bun-shell-companions.md", "Bun $ template vs subprocess"],
-  ["template-matrix", "docs/references/template-matrix.md", "22-file scaffold · bridge pattern · families"],
-  ["herdr-plugin-architecture", "docs/references/herdr-plugin-architecture.md", "Herdr plugins v0.5.0 · prefix+* · orthogonal to gates"],
+  [
+    "shell-spawn-choice",
+    "docs/references/shell-spawn-choice.md",
+    "invokeTool vs Bun.spawn vs governedSpawn",
+  ],
+  [
+    "bun-runtime-scaffold",
+    "docs/references/bun-runtime-scaffold.md",
+    "globalStore · execve · Bun.Terminal · using/await using",
+  ],
+  [
+    "bun-shell-companions",
+    "docs/references/bun-shell-companions.md",
+    "Bun $ template vs subprocess",
+  ],
+  [
+    "template-matrix",
+    "docs/references/template-matrix.md",
+    "22-file scaffold · bridge pattern · families",
+  ],
+  [
+    "herdr-plugin-architecture",
+    "docs/references/herdr-plugin-architecture.md",
+    "Herdr plugins v0.5.0 · prefix+* · orthogonal to gates",
+  ],
 ] as const;
 
 const DOCS_REFERENCES_COUNT = DOCS_REFERENCES.length;
@@ -157,7 +207,11 @@ const CLI_DOC_LINKS = [
   ["package.json", "bun run lint:doc-links", "Full src/**/*.ts scan"],
   ["package.json", "bun run lint:doc-links -- src/lib/foo.ts", "Single-file scan"],
   ["Unified lint (full)", "bun run lint", "Sub-step doc-links in scripts/lint.ts runFullLint"],
-  ["Unified lint (scoped)", "bun run lint --files …", "filterDocLinkPaths → lintDocLinks(onlyFiles)"],
+  [
+    "Unified lint (scoped)",
+    "bun run lint --files …",
+    "filterDocLinkPaths → lintDocLinks(onlyFiles)",
+  ],
   ["Fast check (full)", "bun run check:fast", "check-pipeline → bun run lint"],
   ["Fast check (changed)", "bun run check:fast:changed", "bun run lint --files <changed>"],
   ["Pre-commit hook", "kimi-githooks pre-commit", "format:check + lint (full) + typecheck"],
@@ -165,7 +219,11 @@ const CLI_DOC_LINKS = [
 ] as const;
 
 const CLI_SEE_LADDER = [
-  ["URL table decompose", "bun run dx:table -u", "src/lib/url-decomposer.ts · dx.config.toml [[endpoints]]"],
+  [
+    "URL table decompose",
+    "bun run dx:table -u",
+    "src/lib/url-decomposer.ts · dx.config.toml [[endpoints]]",
+  ],
   ["Endpoints schema gate", "bun run dx:table:contract", "schemas/endpoints-strict.schema.toml"],
   ["Manifest regenerate", "bun run references:generate", "canonical-references.json from SSOT"],
   ["Agent discovery", "kimi-doctor --probe", "canonicalReferences embed"],
@@ -263,6 +321,15 @@ const CANVAS_ROUTING = [
     path: `${CANVAS_PREFIX}dashboard-card-registry.canvas.tsx`,
     repoPath: `${CANVAS_PREFIX}dashboard-card-registry.canvas.tsx`,
   },
+  {
+    id: "artifact-lineage",
+    page: "Artifacts & Runs",
+    version: "1.0.0",
+    layer: "Artifact nervous system",
+    openWhen: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns",
+    path: `${CANVAS_PREFIX}artifact-lineage.canvas.tsx`,
+    repoPath: `${CANVAS_PREFIX}artifact-lineage.canvas.tsx`,
+  },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -277,6 +344,7 @@ const CANVAS_ROW_TONE = [
   "neutral",
   "neutral",
   "warning",
+  "neutral",
   "neutral",
   "neutral"
 ] as const;
@@ -337,7 +405,8 @@ function RelatedCanvasesTable() {
       <Text tone="tertiary" size="small">
         Click <Text weight="semibold">Canvas</Text> or <Text weight="semibold">Page</Text> to open
         the target canvas in the IDE · repo mirrors under docs/canvases/ for manifest{" "}
-        <Text weight="semibold">cursorCanvas</Text> ids · source: canonical-references.json localDocs
+        <Text weight="semibold">cursorCanvas</Text> ids · source: canonical-references.json
+        localDocs
       </Text>
     </Stack>
   );
@@ -351,21 +420,21 @@ function PipelineSteps() {
         <div key={step}>
           <Row gap={12} style={{ alignItems: "flex-start" }}>
             <div
-            style={{
-              minWidth: 28,
-              height: 28,
-              borderRadius: 4,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: step.startsWith("4") ? theme.fill.secondary : theme.fill.tertiary,
-              border: `1px solid ${step.startsWith("4") ? theme.accent.primary : theme.stroke.primary}`,
-              color: theme.text.primary,
-              fontSize: 11,
-              fontWeight: 600,
-            }}
-          >
-            {step}
+              style={{
+                minWidth: 28,
+                height: 28,
+                borderRadius: 4,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: step.startsWith("4") ? theme.fill.secondary : theme.fill.tertiary,
+                border: `1px solid ${step.startsWith("4") ? theme.accent.primary : theme.stroke.primary}`,
+                color: theme.text.primary,
+                fontSize: 11,
+                fontWeight: 600,
+              }}
+            >
+              {step}
             </div>
             <Stack gap={2} style={{ flex: 1 }}>
               <Text weight="semibold">{title}</Text>
@@ -446,7 +515,9 @@ export default function DocLinksAndSeeLadderCanvas() {
 
       <Grid columns={2} gap={16}>
         <Card>
-          <CardHeader trailing={<Pill size="sm">scan pipeline</Pill>}>Line → parts → rules</CardHeader>
+          <CardHeader trailing={<Pill size="sm">scan pipeline</Pill>}>
+            Line → parts → rules
+          </CardHeader>
           <CardBody>
             <PipelineSteps />
           </CardBody>
@@ -484,7 +555,9 @@ export default function DocLinksAndSeeLadderCanvas() {
         </Card>
 
         <Card>
-          <CardHeader trailing={<Pill size="sm">{CONSTANT_COUNT} ids</Pill>}>BUN_DOC_LINK_CONSTANTS</CardHeader>
+          <CardHeader trailing={<Pill size="sm">{CONSTANT_COUNT} ids</Pill>}>
+            BUN_DOC_LINK_CONSTANTS
+          </CardHeader>
           <CardBody style={{ padding: 0 }}>
             <Table
               headers={["Constant", "Defining file", "Hostnames", "pathnamePrefix"]}
@@ -492,7 +565,8 @@ export default function DocLinksAndSeeLadderCanvas() {
               striped
             />
             <Text tone="tertiary" size="small" style={{ padding: 12 }}>
-              Default protocols: http: + https:. SSOT: src/lib/doc-links-lint.ts BUN_DOC_LINK_CONSTANTS.
+              Default protocols: http: + https:. SSOT: src/lib/doc-links-lint.ts
+              BUN_DOC_LINK_CONSTANTS.
             </Text>
           </CardBody>
         </Card>
@@ -513,7 +587,11 @@ export default function DocLinksAndSeeLadderCanvas() {
 
         <Stack gap={12}>
           <H2>Doc-links vs @see</H2>
-          <Table headers={["Surface", "Pattern", "Lint"]} rows={DOC_LINKS_SEE.map((r) => [...r])} striped />
+          <Table
+            headers={["Surface", "Pattern", "Lint"]}
+            rows={DOC_LINKS_SEE.map((r) => [...r])}
+            striped
+          />
           <H3>@see dx — when it is enough</H3>
           <Table headers={["Rule", "Meaning"]} rows={SEE_DX_VERBAGE.map((r) => [...r])} striped />
         </Stack>
@@ -521,7 +599,9 @@ export default function DocLinksAndSeeLadderCanvas() {
 
       <Grid columns={2} gap={16}>
         <Card>
-          <CardHeader trailing={<Pill size="sm">{DOCS_REFERENCES_COUNT} ids</Pill>}>docs/references/</CardHeader>
+          <CardHeader trailing={<Pill size="sm">{DOCS_REFERENCES_COUNT} ids</Pill>}>
+            docs/references/
+          </CardHeader>
           <CardBody style={{ padding: 0 }}>
             <Table
               headers={["Manifest id", "Path", "One-line"]}
@@ -541,9 +621,14 @@ export default function DocLinksAndSeeLadderCanvas() {
         <Card>
           <CardHeader trailing={<Pill size="sm">3 files</Pill>}>schemas/</CardHeader>
           <CardBody style={{ padding: 0 }}>
-            <Table headers={["Artifact", "Path", "Role"]} rows={SCHEMAS.map((r) => [...r])} striped />
+            <Table
+              headers={["Artifact", "Path", "Role"]}
+              rows={SCHEMAS.map((r) => [...r])}
+              striped
+            />
             <Text tone="tertiary" size="small" style={{ padding: 12 }}>
-              Gate: bun run dx:table:contract · @see schemas/endpoints-strict.schema.toml in @see ladder row 7
+              Gate: bun run dx:table:contract · @see schemas/endpoints-strict.schema.toml in @see
+              ladder row 7
             </Text>
           </CardBody>
         </Card>
@@ -556,7 +641,8 @@ export default function DocLinksAndSeeLadderCanvas() {
       <CollapsibleSection title={`Test lock-in (${TEST_COUNT} cases)`} defaultOpen={false}>
         <Table headers={["Test name", "Mechanism"]} rows={TEST_LOCKIN.map((r) => [...r])} striped />
         <Text tone="tertiary" size="small" style={{ marginTop: 8 }}>
-          bun test test/doc-links-lint.unit.test.ts · bun run lint:doc-links · scoped lint in check-lint-scoped.ts
+          bun test test/doc-links-lint.unit.test.ts · bun run lint:doc-links · scoped lint in
+          check-lint-scoped.ts
         </Text>
       </CollapsibleSection>
 

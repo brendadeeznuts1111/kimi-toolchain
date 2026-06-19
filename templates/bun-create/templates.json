@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "templates": [
+    {
+      "name": "kimi-toolchain",
+      "description": "Greenfield Bun project with governance, guardian, and quality gates",
+      "type": "scaffold",
+      "complexity": "minimal",
+      "path": "kimi-toolchain",
+      "postinstall": ["kimi-fix"]
+    },
+    {
+      "name": "kimi-dashboard",
+      "description": "Bun-native HTTP dashboard with handler directory pattern and artifact awareness",
+      "type": "server",
+      "complexity": "minimal",
+      "path": "kimi-dashboard",
+      "sourceExample": "examples/dashboard",
+      "cards": ["card-kimi-doctor", "card-scaffold", "card-perf-harness"]
+    },
+    {
+      "name": "kimi-gates",
+      "description": "L1→L2 gate tree with artifact persistence, lineage, and Mermaid DAG",
+      "type": "cli",
+      "complexity": "medium",
+      "path": "kimi-gates",
+      "sourceExample": "examples/trading-workspace",
+      "cards": ["card-artifacts", "card-gates", "card-metrics-schema"]
+    }
+  ]
+}

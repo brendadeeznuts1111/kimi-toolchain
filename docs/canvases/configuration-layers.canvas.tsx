@@ -16,6 +16,7 @@ import {
   Stat,
   Table,
   Text,
+  UsageBar,
   useCanvasAction,
   useHostTheme,
 } from "cursor/canvas";
@@ -25,9 +26,21 @@ const NODE_H = 48;
 
 const FOUR_LAYERS = [
   ["Discovery", "canonical-references.json", "src/lib/canonical-references.ts", "Yes", "Yes"],
-  ["Define Registry", "constants-manifest.json", "bunfig.toml [define] + build-constants.d.ts", "Yes", "No"],
+  [
+    "Define Registry",
+    "constants-manifest.json",
+    "bunfig.toml [define] + build-constants.d.ts",
+    "Yes",
+    "No",
+  ],
   ["Cross-Repo Contract", "constants-parity.toml", "Hand-edited TOML", "No", "No"],
-  ["App Scaffold", "templates/scaffold/bunfig.toml", "Template (kimi-fix copy · globalStore=true)", "No", "N/A"],
+  [
+    "App Scaffold",
+    "templates/scaffold/bunfig.toml",
+    "Template (kimi-fix copy · globalStore=true)",
+    "No",
+    "N/A",
+  ],
 ] as const;
 
 const ANTI_CONFUSION = [
@@ -54,14 +67,23 @@ const ANTI_CONFUSION = [
 ] as const;
 
 const AGENT_DECISIONS = [
-  ["Find external stack links or indexed local docs", "canonical-references.json → ecosystem / localDocs"],
+  [
+    "Find external stack links or indexed local docs",
+    "canonical-references.json → ecosystem / localDocs",
+  ],
   ["Find GitHub URL for a major upstream", "canonical-references.json → repos (3 entries)"],
   ["Read or change a KIMI_* value", "Root bunfig.toml [define] + types/build-constants.d.ts"],
   ["Discover defaults, domains, define inventory", "constants-manifest.json"],
   ["Verify two repos share tunable parameters", "constants-parity.toml"],
   ["Bootstrap new app install/test policy", "templates/scaffold/bunfig.toml (via kimi-fix)"],
-  ["Map template families or bridge pattern", "docs/references/template-matrix.md · create-template skill"],
-  ["Map bun create / runtime flags to scaffold", "docs/references/bun-runtime-scaffold.md · globalStore · TEMPLATES.md"],
+  [
+    "Map template families or bridge pattern",
+    "docs/references/template-matrix.md · create-template skill",
+  ],
+  [
+    "Map bun create / runtime flags to scaffold",
+    "docs/references/bun-runtime-scaffold.md · globalStore · TEMPLATES.md",
+  ],
 ] as const;
 
 const ENFORCEMENT_GATES = [
@@ -78,11 +100,17 @@ const RELATED_PATHS = [
   ["Build-time constants naming", "CODE_REFERENCES.md § Build-time constants"],
   ["Ecosystem manifest + handoff probes", "docs/references/namespace.md"],
   ["Ecosystem link SSOT", "src/lib/canonical-references.ts → canonical-references.json"],
-  ["Scaffold + bun create flags", "docs/references/bun-runtime-scaffold.md · docs/canvases/kimi-fix.canvas.tsx"],
+  [
+    "Scaffold + bun create flags",
+    "docs/references/bun-runtime-scaffold.md · docs/canvases/kimi-fix.canvas.tsx",
+  ],
   ["Template families matrix", "docs/references/template-matrix.md · 22-file scaffold breakdown"],
   ["Define registry generator", "src/lib/build-constants-registry.ts → constants-manifest.json"],
   ["Cross-repo parity config", "constants-parity.toml"],
-  ["Bun runtime scaffold flags and install config", "docs/references/bun-runtime-scaffold.md · globalStore · execve · Bun.Terminal"],
+  [
+    "Bun runtime scaffold flags and install config",
+    "docs/references/bun-runtime-scaffold.md · globalStore · execve · Bun.Terminal",
+  ],
 ] as const;
 
 /** @generated canvas-routing — bun run canvas:generate; do not edit */
@@ -97,6 +125,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
   { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
   { id: "dashboard-card-registry", page: "Card registry", path: "docs/canvases/dashboard-card-registry.canvas.tsx", detail: "canvasInfluences · /api/cards · lint gate" },
+  { id: "artifact-lineage", page: "Artifacts & Runs", path: "docs/canvases/artifact-lineage.canvas.tsx", detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns" },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -111,6 +140,7 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "neutral",
   "warning",
+  "neutral",
   "neutral",
   "neutral"
 ] as const;
@@ -195,8 +225,12 @@ function TaskRoutingDag() {
                 width={NODE_W}
                 height={NODE_H}
                 rx={6}
-                fill={sync ? theme.fill.secondary : hub ? theme.fill.secondary : theme.fill.tertiary}
-                stroke={hub ? theme.accent.primary : sync ? theme.stroke.primary : theme.stroke.primary}
+                fill={
+                  sync ? theme.fill.secondary : hub ? theme.fill.secondary : theme.fill.tertiary
+                }
+                stroke={
+                  hub ? theme.accent.primary : sync ? theme.stroke.primary : theme.stroke.primary
+                }
                 strokeWidth={hub ? 1.5 : 1}
               />
               <text
@@ -223,17 +257,36 @@ function TaskRoutingDag() {
         })}
       </svg>
       <Text tone="tertiary" size="small">
-        Source: docs/references/configuration-layers.md · dashed edge = bunfig generates manifest; canonical syncs to
-        ~/.kimi-code/
+        Source: docs/references/configuration-layers.md · dashed edge = bunfig generates manifest;
+        canonical syncs to ~/.kimi-code/
       </Text>
     </div>
   );
 }
 
-function CanvasLink({ label, path, dispatch }: { label: string; path: string; dispatch: ReturnType<typeof useCanvasAction> }) {
+function CanvasLink({
+  label,
+  path,
+  dispatch,
+}: {
+  label: string;
+  path: string;
+  dispatch: ReturnType<typeof useCanvasAction>;
+}) {
   const theme = useHostTheme();
   return (
-    <Button variant="ghost" onClick={() => dispatch({ type: "openFile", path })} style={{ padding: 0, minHeight: "auto", height: "auto", color: theme.accent.primary, textDecoration: "underline", textUnderlineOffset: 2 }}>
+    <Button
+      variant="ghost"
+      onClick={() => dispatch({ type: "openFile", path })}
+      style={{
+        padding: 0,
+        minHeight: "auto",
+        height: "auto",
+        color: theme.accent.primary,
+        textDecoration: "underline",
+        textUnderlineOffset: 2,
+      }}
+    >
       {label}
     </Button>
   );
@@ -246,14 +299,21 @@ function RelatedCanvasesTable() {
       <Table
         headers={["Canvas", "Topic", "Open when"]}
         rows={CANVAS_ROUTING.map((c) => [
-          <CanvasLink key={`${c.id}-file`} label={`${c.id}.canvas.tsx`} path={c.path} dispatch={dispatch} />,
+          <CanvasLink
+            key={`${c.id}-file`}
+            label={`${c.id}.canvas.tsx`}
+            path={c.path}
+            dispatch={dispatch}
+          />,
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
         rowTone={[...CANVAS_ROUTING_ROW_TONE]}
         striped
       />
-      <Text tone="tertiary" size="small">Click Canvas or Topic to open · config SSOT and 4-layer model</Text>
+      <Text tone="tertiary" size="small">
+        Click Canvas or Topic to open · config SSOT and 4-layer model
+      </Text>
     </Stack>
   );
 }
@@ -264,8 +324,8 @@ export default function ConfigurationLayersCanvas() {
       <Stack gap={8}>
         <H1>Configuration layers — discovery, build, parity, scaffold</H1>
         <Text tone="secondary">
-          Source: docs/references/configuration-layers.md · manifest id configuration-layers · four distinct layers, not
-          interchangeable
+          Source: docs/references/configuration-layers.md · manifest id configuration-layers · four
+          distinct layers, not interchangeable
         </Text>
         <Row gap={8} wrap>
           <Pill>4 layers</Pill>
@@ -276,9 +336,9 @@ export default function ConfigurationLayersCanvas() {
       </Stack>
 
       <Callout tone="warning" title="Gold rule for agents">
-        Do not treat these files as aliases. Always consult the correct layer for the task — repos in
-        canonical-references.json is not the parity repo list, and constants-manifest.json is never the SSOT for
-        KIMI_* values.
+        Do not treat these files as aliases. Always consult the correct layer for the task — repos
+        in canonical-references.json is not the parity repo list, and constants-manifest.json is
+        never the SSOT for KIMI_* values.
       </Callout>
 
       <Grid columns={4} gap={12}>
@@ -305,7 +365,16 @@ export default function ConfigurationLayersCanvas() {
           <Table
             headers={["If you are trying to…", "Look at…"]}
             rows={AGENT_DECISIONS.map((r) => [...r])}
-            rowTone={["info", "info", "neutral", "neutral", "warning", "success", "neutral", "neutral"]}
+            rowTone={[
+              "info",
+              "info",
+              "neutral",
+              "neutral",
+              "warning",
+              "success",
+              "neutral",
+              "neutral",
+            ]}
             striped
           />
         </Stack>
@@ -335,7 +404,8 @@ export default function ConfigurationLayersCanvas() {
         <Stack gap={12}>
           <H3>canonical-references.json → repos</H3>
           <Text tone="secondary" size="small">
-            Exactly three major upstream GitHub pointers — not local working trees or parity-only repos.
+            Exactly three major upstream GitHub pointers — not local working trees or parity-only
+            repos.
           </Text>
           <Row gap={8} wrap>
             <Pill>{CANONICAL_REPOS[0]}</Pill>
@@ -343,7 +413,8 @@ export default function ConfigurationLayersCanvas() {
             <Pill>{CANONICAL_REPOS[2]}</Pill>
           </Row>
           <Text tone="tertiary" size="small">
-            accounting-telegram appears in constants-parity.toml only — intentionally omitted from repos.
+            accounting-telegram appears in constants-parity.toml only — intentionally omitted from
+            repos.
           </Text>
         </Stack>
 
@@ -356,7 +427,10 @@ export default function ConfigurationLayersCanvas() {
               ["Regenerate inventory", "bun run manifest:generate"],
               ["Check freshness", "bun run manifest:generate --check"],
               ["Read-only discovery", "constants-manifest.json"],
-              ["Scaffold install policy", "templates/scaffold/bunfig.toml — linker=isolated · globalStore=true (Bun ≥1.3.14)"],
+              [
+                "Scaffold install policy",
+                "templates/scaffold/bunfig.toml — linker=isolated · globalStore=true (Bun ≥1.3.14)",
+              ],
             ]}
             striped
           />
@@ -366,11 +440,21 @@ export default function ConfigurationLayersCanvas() {
         </Stack>
       </Grid>
 
-      <CollapsibleSection title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`} count={CANVAS_ROUTING_COUNT} defaultOpen={false}>
+      <CollapsibleSection
+        title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`}
+        count={CANVAS_ROUTING_COUNT}
+        defaultOpen={false}
+      >
         <RelatedCanvasesTable />
       </CollapsibleSection>
 
       <CollapsibleSection title="Lint / doctor enforcement wiring" count={6} defaultOpen>
+        <UsageBar
+          total={ENFORCEMENT_GATES.length}
+          topLeftLabel="Config-layer lint gates"
+          topRightLabel={`${ENFORCEMENT_GATES.length} / ${ENFORCEMENT_GATES.length} wired`}
+          segments={ENFORCEMENT_GATES.map((row) => ({ id: row[2], value: 1 }))}
+        />
         <Table
           headers={["Gate", "Command", "Lint label"]}
           rows={ENFORCEMENT_GATES.map((r) => [...r])}

@@ -30,7 +30,11 @@ const NODE_W = 160;
 const NODE_H = 44;
 
 const CLI_COMMANDS = [
-  ["kimi-fix <path>", "Scaffold missing files (default profile: app)", "—profile app|toolchain · —dry-run"],
+  [
+    "kimi-fix <path>",
+    "Scaffold missing files (default profile: app)",
+    "—profile app|toolchain · —dry-run",
+  ],
   ["kimi-fix fix <path>", "Explicit fix subcommand", "Same flags as above"],
   ["kimi-fix doctor [path]", "Audit scaffold completeness", "Exit 1 on warn/error"],
 ] as const;
@@ -55,7 +59,11 @@ const BUN_CREATE_HOOKS = [
 ] as const;
 
 const BUN_CREATE_LOCAL_FLOW = [
-  ["1", "Resolve template", "~/.bun-create/kimi-toolchain or ./.bun-create/ (BUN_CREATE_DIR override)"],
+  [
+    "1",
+    "Resolve template",
+    "~/.bun-create/kimi-toolchain or ./.bun-create/ (BUN_CREATE_DIR override)",
+  ],
   ["2", "Delete destination", "Local templates recursively wipe existing dest dir"],
   ["3", "Copy files", "Fast copy; skips node_modules if present in template"],
   ["4", "Rewrite package.json", "Set name to dest basename; strip bun-create section"],
@@ -68,19 +76,35 @@ const BUN_CREATE_LOCAL_FLOW = [
 const SCAFFOLD_CONTRAST = [
   ["Overwrite policy", "kimi-fix: skip existing files", "bun create local: delete dest first"],
   ["git init", "kimi-fix: only if no .git", "bun create: always (unless --no-git)"],
-  ["package.json", "kimi-fix: inject missing scripts only", "bun create: rewrite name, strip hooks"],
-  ["Entry artifact", "templates/scaffold/ via kimi-fix", "templates/bun-create/kimi-toolchain/ skeleton"],
+  [
+    "package.json",
+    "kimi-fix: inject missing scripts only",
+    "bun create: rewrite name, strip hooks",
+  ],
+  [
+    "Entry artifact",
+    "templates/scaffold/ via kimi-fix",
+    "templates/bun-create/kimi-toolchain/ skeleton",
+  ],
 ] as const;
 
 const DEBUG_WORKFLOWS = [
-  ["Inspect skeleton only", "bun create kimi-toolchain my-app --no-install", "Skips postinstall; run kimi-fix manually"],
+  [
+    "Inspect skeleton only",
+    "bun create kimi-toolchain my-app --no-install",
+    "Skips postinstall; run kimi-fix manually",
+  ],
   ["Low memory create", "bun --smol create kimi-toolchain my-app", "Bun flags before create"],
-  ["Re-scaffold in place", "kimi-fix .  or  bun run fix", "Add-only; does not re-run bun-create postinstall"],
+  [
+    "Re-scaffold in place",
+    "kimi-fix .  or  bun run fix",
+    "Add-only; does not re-run bun-create postinstall",
+  ],
   ["Preview then apply", "kimi-fix . --dry-run  then  kimi-fix .", "No --verbose flag on kimi-fix"],
 ] as const;
 
 const BUN_INSTALL_OPTS = [
-  ["linker = \"isolated\"", "Per-package isolation — required for globalStore"],
+  ['linker = "isolated"', "Per-package isolation — required for globalStore"],
   ["globalStore = true", "Experimental (Bun ≥1.3.14) · ~7× faster warm installs · auto-fallback"],
   ["frozenLockfile = true", "Hardened install policy via bun-install-config.ts"],
   ["minimumReleaseAge", "259200s supply-chain gate — excludes @types/* and typescript"],
@@ -90,13 +114,29 @@ const BUN_RUNTIME_FEATURES = [
   ["Global virtual store", "linker=isolated + globalStore=true", "~/.bun/install/cache/links/"],
   ["process.execve()", "Replace process image in-place", "Bun ≥1.3.14 · throws in workers/Windows"],
   ["Bun.Terminal", "ConPTY on Windows", "Bun.spawn({ terminal }) now cross-platform"],
-  ["using / await using", "No transpile when --target=bun", "Explicit resource management preserved"],
+  [
+    "using / await using",
+    "No transpile when --target=bun",
+    "Explicit resource management preserved",
+  ],
 ] as const;
 
 const DOCS_REFERENCES = [
-  ["configuration-layers", "docs/references/configuration-layers.md", "App Scaffold layer · four-layer model"],
-  ["bun-runtime-scaffold", "docs/references/bun-runtime-scaffold.md", "globalStore · execve · Bun.Terminal · using/await using"],
-  ["template-matrix", "docs/references/template-matrix.md", "22-file breakdown · bridge pattern · families matrix"],
+  [
+    "configuration-layers",
+    "docs/references/configuration-layers.md",
+    "App Scaffold layer · four-layer model",
+  ],
+  [
+    "bun-runtime-scaffold",
+    "docs/references/bun-runtime-scaffold.md",
+    "globalStore · execve · Bun.Terminal · using/await using",
+  ],
+  [
+    "template-matrix",
+    "docs/references/template-matrix.md",
+    "22-file breakdown · bridge pattern · families matrix",
+  ],
   ["templates", "TEMPLATES.md", "Scaffold template inventory (manifest id templates)"],
 ] as const;
 
@@ -112,6 +152,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
   { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
   { id: "dashboard-card-registry", page: "Card registry", path: "docs/canvases/dashboard-card-registry.canvas.tsx", detail: "canvasInfluences · /api/cards · lint gate" },
+  { id: "artifact-lineage", page: "Artifacts & Runs", path: "docs/canvases/artifact-lineage.canvas.tsx", detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns" },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -126,6 +167,7 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "neutral",
   "warning",
+  "neutral",
   "neutral",
   "neutral"
 ] as const;
@@ -153,7 +195,13 @@ const DELEGATED_TOOLS = [
 ] as const;
 
 const TEMPLATE_FAMILIES = [
-  ["bun-create", "1", "bun create kimi-toolchain", "~/.bun-create/", "Low — postinstall orchestrates"],
+  [
+    "bun-create",
+    "1",
+    "bun create kimi-toolchain",
+    "~/.bun-create/",
+    "Low — postinstall orchestrates",
+  ],
   ["scaffold", "22", "kimi-fix <path>", "Project root", "High with bun init — mitigated by -m"],
   ["desktop-runtime", "1", "bun run sync", "~/.kimi-code/", "None — separate namespace"],
   ["other", "4", "Manual / Herdr dashboard", "docs/herdr/ · docs/mcp/", "None"],
@@ -175,9 +223,21 @@ const TOOL_SELECTOR = [
 ] as const;
 
 const ERROR_SCENARIOS = [
-  ["bun init without -m", "Basic tsconfig/README/index left in place", "rm collision files && kimi-fix ."],
-  ["kimi-fix after full bun init", "!pathExists skips hardened versions", "Delete tsconfig · README · index · .gitignore first"],
-  ["Missing bun run sync", "kimi-doctor --probe shows 14 localDocs, not 15", "bun run sync && bun run sync:verify"],
+  [
+    "bun init without -m",
+    "Basic tsconfig/README/index left in place",
+    "rm collision files && kimi-fix .",
+  ],
+  [
+    "kimi-fix after full bun init",
+    "!pathExists skips hardened versions",
+    "Delete tsconfig · README · index · .gitignore first",
+  ],
+  [
+    "Missing bun run sync",
+    "kimi-doctor --probe shows 14 localDocs, not 15",
+    "bun run sync && bun run sync:verify",
+  ],
 ] as const;
 
 const SKILL_MAPPING = [
@@ -239,11 +299,25 @@ const DOCTOR_CHECKS = [
 ] as const;
 
 const REQUIRED_SCRIPTS = [
-  "test", "test:fast", "test:coverage", "test:coverage:ci",
-  "test:parallel", "test:parallel:4", "test:shard",
-  "check", "check:fast", "check:dry-run", "docs:sync",
-  "typecheck", "format", "format:check", "format:check:ci",
-  "lint", "lint:terms", "scan", "fix",
+  "test",
+  "test:fast",
+  "test:coverage",
+  "test:coverage:ci",
+  "test:parallel",
+  "test:parallel:4",
+  "test:shard",
+  "check",
+  "check:fast",
+  "check:dry-run",
+  "docs:sync",
+  "typecheck",
+  "format",
+  "format:check",
+  "format:check:ci",
+  "lint",
+  "lint:terms",
+  "scan",
+  "fix",
 ] as const;
 
 const DEV_DEPS = ["oxfmt", "oxlint", "typescript", "@types/bun"] as const;
@@ -260,7 +334,10 @@ const NEXT_STEPS = [
 ] as const;
 
 const DRIFT_WARNINGS = [
-  ["app → toolchain", "Delete stale dx.config.toml + finish-work scripts, re-run with —profile toolchain"],
+  [
+    "app → toolchain",
+    "Delete stale dx.config.toml + finish-work scripts, re-run with —profile toolchain",
+  ],
   ["toolchain → app", "kimi-fix will not downgrade existing [finishWork]/[herdr] sections"],
   ["Existing files", "kimi-fix never overwrites — delete target file to regenerate"],
 ] as const;
@@ -326,7 +403,12 @@ function FixPipelineDag() {
 
   return (
     <div style={{ overflowX: "auto" }}>
-      <svg width={layout.width} height={layout.height} role="img" aria-label="kimi-fix execution pipeline">
+      <svg
+        width={layout.width}
+        height={layout.height}
+        role="img"
+        aria-label="kimi-fix execution pipeline"
+      >
         {layout.edges.map((edge, i) => {
           const midY = (edge.sourceY + edge.targetY) / 2;
           const d = `M ${edge.sourceX} ${edge.sourceY} C ${edge.sourceX} ${midY}, ${edge.targetX} ${midY}, ${edge.targetX} ${edge.targetY}`;
@@ -397,7 +479,12 @@ function BunCreateFlowDag() {
 
   return (
     <div style={{ overflowX: "auto" }}>
-      <svg width={layout.width} height={layout.height} role="img" aria-label="bun create local template flow">
+      <svg
+        width={layout.width}
+        height={layout.height}
+        role="img"
+        aria-label="bun create local template flow"
+      >
         {layout.edges.map((edge, i) => {
           const midY = (edge.sourceY + edge.targetY) / 2;
           const d = `M ${edge.sourceX} ${edge.sourceY} C ${edge.sourceX} ${midY}, ${edge.targetX} ${midY}, ${edge.targetX} ${edge.targetY}`;
@@ -446,17 +533,36 @@ function BunCreateFlowDag() {
       </svg>
       <Text tone="tertiary" size="small">
         Source:{" "}
-        <Link href={`${BUN_CREATE_DOCS}#cli-flags`}>bun.com/docs/runtime/templating/create</Link> · accent =
-        destructive wipe and kimi-fix handoff
+        <Link href={`${BUN_CREATE_DOCS}#cli-flags`}>bun.com/docs/runtime/templating/create</Link> ·
+        accent = destructive wipe and kimi-fix handoff
       </Text>
     </div>
   );
 }
 
-function CanvasLink({ label, path, dispatch }: { label: string; path: string; dispatch: ReturnType<typeof useCanvasAction> }) {
+function CanvasLink({
+  label,
+  path,
+  dispatch,
+}: {
+  label: string;
+  path: string;
+  dispatch: ReturnType<typeof useCanvasAction>;
+}) {
   const theme = useHostTheme();
   return (
-    <Button variant="ghost" onClick={() => dispatch({ type: "openFile", path })} style={{ padding: 0, minHeight: "auto", height: "auto", color: theme.accent.primary, textDecoration: "underline", textUnderlineOffset: 2 }}>
+    <Button
+      variant="ghost"
+      onClick={() => dispatch({ type: "openFile", path })}
+      style={{
+        padding: 0,
+        minHeight: "auto",
+        height: "auto",
+        color: theme.accent.primary,
+        textDecoration: "underline",
+        textUnderlineOffset: 2,
+      }}
+    >
       {label}
     </Button>
   );
@@ -469,14 +575,21 @@ function RelatedCanvasesTable() {
       <Table
         headers={["Canvas", "Topic", "Open when"]}
         rows={CANVAS_ROUTING.map((c) => [
-          <CanvasLink key={`${c.id}-file`} label={`${c.id}.canvas.tsx`} path={c.path} dispatch={dispatch} />,
+          <CanvasLink
+            key={`${c.id}-file`}
+            label={`${c.id}.canvas.tsx`}
+            path={c.path}
+            dispatch={dispatch}
+          />,
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
         rowTone={[...CANVAS_ROUTING_ROW_TONE]}
         striped
       />
-      <Text tone="tertiary" size="small">Click Canvas or Topic to open · profiles · templates · scaffold doctor</Text>
+      <Text tone="tertiary" size="small">
+        Click Canvas or Topic to open · profiles · templates · scaffold doctor
+      </Text>
     </Stack>
   );
 }
@@ -489,8 +602,8 @@ export default function KimiFixCanvas() {
       <Stack gap={8}>
         <H1>kimi-fix — project scaffold</H1>
         <Text tone="secondary">
-          Auto-initialize missing Bun project files: governance, quality gates, agent docs, DX config, and CI.
-          Add-only — never overwrites existing files.
+          Auto-initialize missing Bun project files: governance, quality gates, agent docs, DX
+          config, and CI. Add-only — never overwrites existing files.
         </Text>
         <Row gap={8} wrap>
           <Pill tone="info">manifest: templates</Pill>
@@ -513,10 +626,10 @@ export default function KimiFixCanvas() {
       </Grid>
 
       <Callout tone="info" title="Non-destructive by design">
-        kimi-fix skips existing dx.config.toml, finish-work scripts, and all other present files. Profile drift
-        emits warnings instead of overwriting. Use —dry-run to preview writes and delegated tool invocations.
-        By contrast,{" "}
-        <Link href={BUN_CREATE_DOCS}>bun create</Link> local templates delete the destination folder before copying.
+        kimi-fix skips existing dx.config.toml, finish-work scripts, and all other present files.
+        Profile drift emits warnings instead of overwriting. Use —dry-run to preview writes and
+        delegated tool invocations. By contrast, <Link href={BUN_CREATE_DOCS}>bun create</Link>{" "}
+        local templates delete the destination folder before copying.
       </Callout>
 
       <Grid columns={2} gap={16}>
@@ -561,7 +674,11 @@ export default function KimiFixCanvas() {
         </Stack>
       </Grid>
 
-      <CollapsibleSection title="Template families matrix" count={TEMPLATE_FAMILIES.length} defaultOpen>
+      <CollapsibleSection
+        title="Template families matrix"
+        count={TEMPLATE_FAMILIES.length}
+        defaultOpen
+      >
         <Table
           headers={["Family", "Files", "Generated by", "Sync target", "Collision risk"]}
           rows={TEMPLATE_FAMILIES.map((r) => [...r])}
@@ -574,17 +691,32 @@ export default function KimiFixCanvas() {
           striped
         />
         <Text tone="tertiary" size="small">
-          SSOT: docs/references/template-matrix.md · consumed by kimi-fix · create-template skill · sync-verify
+          SSOT: docs/references/template-matrix.md · consumed by kimi-fix · create-template skill ·
+          sync-verify
         </Text>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Bridge pattern (bun init -m)" count={BRIDGE_PATTERN.length} defaultOpen={false}>
+      <CollapsibleSection
+        title="Bridge pattern (bun init -m)"
+        count={BRIDGE_PATTERN.length}
+        defaultOpen={false}
+      >
         <Callout tone="warning" title="Why -m matters">
-          Without minimal mode, bun init creates basic tsconfig/README/index/.gitignore first — kimi-fix
-          skips them via !pathExists(), leaving Bun defaults instead of hardened toolchain versions.
+          Without minimal mode, bun init creates basic tsconfig/README/index/.gitignore first —
+          kimi-fix skips them via !pathExists(), leaving Bun defaults instead of hardened toolchain
+          versions.
         </Callout>
-        <Table headers={["Step", "Command", "Effect"]} rows={BRIDGE_PATTERN.map((r) => [...r])} striped />
-        <Table headers={["Mistake", "Symptom", "Fix"]} rows={ERROR_SCENARIOS.map((r) => [...r])} rowTone={["danger", "warning", "info"]} striped />
+        <Table
+          headers={["Step", "Command", "Effect"]}
+          rows={BRIDGE_PATTERN.map((r) => [...r])}
+          striped
+        />
+        <Table
+          headers={["Mistake", "Symptom", "Fix"]}
+          rows={ERROR_SCENARIOS.map((r) => [...r])}
+          rowTone={["danger", "warning", "info"]}
+          striped
+        />
       </CollapsibleSection>
 
       <CollapsibleSection title="bun create entry path" defaultOpen={false}>
@@ -595,7 +727,11 @@ export default function KimiFixCanvas() {
           </Stack>
           <Stack gap={12}>
             <H3>CLI flags</H3>
-            <Table headers={["Flag", "Effect"]} rows={BUN_CREATE_FLAGS.map((r) => [...r])} striped />
+            <Table
+              headers={["Flag", "Effect"]}
+              rows={BUN_CREATE_FLAGS.map((r) => [...r])}
+              striped
+            />
             <Table
               headers={["Field", "When", "Format"]}
               rows={BUN_CREATE_HOOKS.map((r) => [...r])}
@@ -603,21 +739,48 @@ export default function KimiFixCanvas() {
             />
           </Stack>
         </Grid>
-        <Table headers={["Aspect", "kimi-fix", "bun create (local)"]} rows={SCAFFOLD_CONTRAST.map((r) => [...r])} rowTone={["neutral", "success", "warning", "info"]} striped />
-        <Table headers={["Step", "Phase", "Behavior"]} rows={BUN_CREATE_LOCAL_FLOW.map((r) => [...r])} striped />
+        <Table
+          headers={["Aspect", "kimi-fix", "bun create (local)"]}
+          rows={SCAFFOLD_CONTRAST.map((r) => [...r])}
+          rowTone={["neutral", "success", "warning", "info"]}
+          striped
+        />
+        <Table
+          headers={["Step", "Phase", "Behavior"]}
+          rows={BUN_CREATE_LOCAL_FLOW.map((r) => [...r])}
+          striped
+        />
         <H3>Scaffold bunfig.toml install policy</H3>
-        <Table headers={["Option", "Effect"]} rows={BUN_INSTALL_OPTS.map((r) => [...r])} rowTone={["info", "success", "warning", "neutral"]} striped />
-        <Table headers={["Feature", "API / config", "Notes"]} rows={BUN_RUNTIME_FEATURES.map((r) => [...r])} striped />
-        <Table headers={["Command", "Purpose", "Notes"]} rows={BUN_RUNTIME_SCRIPTS.map((r) => [...r])} striped />
+        <Table
+          headers={["Option", "Effect"]}
+          rows={BUN_INSTALL_OPTS.map((r) => [...r])}
+          rowTone={["info", "success", "warning", "neutral"]}
+          striped
+        />
+        <Table
+          headers={["Feature", "API / config", "Notes"]}
+          rows={BUN_RUNTIME_FEATURES.map((r) => [...r])}
+          striped
+        />
+        <Table
+          headers={["Command", "Purpose", "Notes"]}
+          rows={BUN_RUNTIME_SCRIPTS.map((r) => [...r])}
+          striped
+        />
         <Text tone="tertiary" size="small">
           Docs: <Link href={BUN_CREATE_DOCS}>bun create</Link> ·{" "}
           <Link href={BUN_RUNTIME_DOCS}>Bun runtime</Link> · indexed reference:
-          docs/references/bun-runtime-scaffold.md · skeleton: templates/bun-create/kimi-toolchain/package.json
+          docs/references/bun-runtime-scaffold.md · skeleton:
+          templates/bun-create/kimi-toolchain/package.json
         </Text>
       </CollapsibleSection>
 
       <CollapsibleSection title="Common debugging workflows" count={4} defaultOpen={false}>
-        <Table headers={["Goal", "Command", "Notes"]} rows={DEBUG_WORKFLOWS.map((r) => [...r])} striped />
+        <Table
+          headers={["Goal", "Command", "Notes"]}
+          rows={DEBUG_WORKFLOWS.map((r) => [...r])}
+          striped
+        />
       </CollapsibleSection>
 
       <Grid columns={2} gap={16}>
@@ -648,8 +811,8 @@ export default function KimiFixCanvas() {
             height={180}
           />
           <Text tone="tertiary" size="small">
-            Source: docs/references/template-matrix.md · quality scripts (check.ts etc.) copied from runtime
-            toolchain, not templates/scaffold/
+            Source: docs/references/template-matrix.md · quality scripts (check.ts etc.) copied from
+            runtime toolchain, not templates/scaffold/
           </Text>
           <UsageBar
             total={SCAFFOLD_TOTAL}
@@ -662,14 +825,18 @@ export default function KimiFixCanvas() {
 
       <Grid columns={2} gap={16}>
         <Card>
-          <CardHeader trailing={<Pill size="sm">{CONFIG_FILES.length} files</Pill>}>Config layer</CardHeader>
+          <CardHeader trailing={<Pill size="sm">{CONFIG_FILES.length} files</Pill>}>
+            Config layer
+          </CardHeader>
           <CardBody style={{ padding: 0 }}>
             <Table headers={["File", "Purpose"]} rows={CONFIG_FILES.map((r) => [...r])} striped />
           </CardBody>
         </Card>
 
         <Card>
-          <CardHeader trailing={<Pill size="sm">{BASE_SCRIPTS.length} scripts</Pill>}>Quality scripts (both profiles)</CardHeader>
+          <CardHeader trailing={<Pill size="sm">{BASE_SCRIPTS.length} scripts</Pill>}>
+            Quality scripts (both profiles)
+          </CardHeader>
           <CardBody style={{ padding: 0 }}>
             <Table headers={["Script", "Role"]} rows={BASE_SCRIPTS.map((r) => [...r])} striped />
           </CardBody>
@@ -684,14 +851,16 @@ export default function KimiFixCanvas() {
           striped
         />
         <Text tone="tertiary" size="small" style={{ marginTop: 8 }}>
-          Total scripts when profile=toolchain: {toolchainScriptTotal} · adds finish-work close-loop and Herdr
-          handoff
+          Total scripts when profile=toolchain: {toolchainScriptTotal} · adds finish-work close-loop
+          and Herdr handoff
         </Text>
       </CollapsibleSection>
 
       <Grid columns={2} gap={16}>
         <Card>
-          <CardHeader trailing={<Pill size="sm">kimi-fix doctor</Pill>}>Scaffold doctor checks</CardHeader>
+          <CardHeader trailing={<Pill size="sm">kimi-fix doctor</Pill>}>
+            Scaffold doctor checks
+          </CardHeader>
           <CardBody style={{ padding: 0 }}>
             <Table
               headers={["Check", "Status rule", "Repair"]}
@@ -723,7 +892,12 @@ export default function KimiFixCanvas() {
       </Grid>
 
       <CollapsibleSection title="Migration, next steps, source map" defaultOpen={false}>
-        <Table headers={["Scenario", "Resolution"]} rows={DRIFT_WARNINGS.map((r) => [...r])} rowTone={["warning", "neutral", "info"]} striped />
+        <Table
+          headers={["Scenario", "Resolution"]}
+          rows={DRIFT_WARNINGS.map((r) => [...r])}
+          rowTone={["warning", "neutral", "info"]}
+          striped
+        />
         <Table headers={["Step", "Action"]} rows={NEXT_STEPS.map((r) => [...r])} striped />
         <Table
           headers={["Module", "Role"]}
@@ -734,16 +908,33 @@ export default function KimiFixCanvas() {
             ["src/lib/scaffold-doctor.ts", "checkScaffold health checks"],
             ["src/lib/scaffold-quality.ts", "package.json scripts + devDeps injection"],
             ["TEMPLATES.md", "Human-readable scaffold reference"],
-            ["docs/references/configuration-layers.md", "App Scaffold layer · manifest id configuration-layers"],
-            ["docs/references/template-matrix.md", "22-file breakdown · bridge pattern · verification gate"],
-            ["docs/references/bun-runtime-scaffold.md", "globalStore · execve · Bun.Terminal · using/await using"],
+            [
+              "docs/references/configuration-layers.md",
+              "App Scaffold layer · manifest id configuration-layers",
+            ],
+            [
+              "docs/references/template-matrix.md",
+              "22-file breakdown · bridge pattern · verification gate",
+            ],
+            [
+              "docs/references/bun-runtime-scaffold.md",
+              "globalStore · execve · Bun.Terminal · using/await using",
+            ],
           ]}
           striped
         />
-        <Table headers={["Skill", "Consumes", "Why"]} rows={SKILL_MAPPING.map((r) => [...r])} striped />
+        <Table
+          headers={["Skill", "Consumes", "Why"]}
+          rows={SKILL_MAPPING.map((r) => [...r])}
+          striped
+        />
       </CollapsibleSection>
 
-      <CollapsibleSection title="docs/references (scaffold)" count={DOCS_REFERENCES.length} defaultOpen={false}>
+      <CollapsibleSection
+        title="docs/references (scaffold)"
+        count={DOCS_REFERENCES.length}
+        defaultOpen={false}
+      >
         <Table
           headers={["Manifest id", "Path", "One-line"]}
           rows={DOCS_REFERENCES.map((r) => [...r])}
@@ -752,7 +943,11 @@ export default function KimiFixCanvas() {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`} count={CANVAS_ROUTING_COUNT} defaultOpen={false}>
+      <CollapsibleSection
+        title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`}
+        count={CANVAS_ROUTING_COUNT}
+        defaultOpen={false}
+      >
         <RelatedCanvasesTable />
       </CollapsibleSection>
     </Stack>

@@ -380,8 +380,10 @@
           Saved gate and probe payloads from .kimi/artifacts — live cards via serve-probe when
           running. Toggle <strong>lineage</strong> (per-gate upstreams),
           <strong>context</strong> (all artifacts with metadata), or
-          <strong>aggregates</strong> (per-gate counts).
+          <strong>aggregates</strong> (per-gate counts). Subscribe via
+          <a href="/api/artifacts/feed.xml" class="artifacts-feed-link">RSS feed</a>.
         </p>
+        <div id="artifacts-index-stats" class="artifacts-index-stats" aria-live="polite"></div>
         <div id="artifacts-probe-hint" class="artifacts-probe-hint"></div>
         <div class="artifacts-filter-bar" role="search" aria-label="Artifact filters">
           <div class="artifacts-filter-chips-wrap">
@@ -635,9 +637,12 @@
               aria-label="Tail lines"
             />
           </label>
-          <div class="logs-filter-placeholders" hidden>
+          <div class="logs-filter-placeholders">
             <select id="logs-severity-filter" aria-label="Log severity">
               <option value="">All severities</option>
+              <option value="error">error</option>
+              <option value="warn">warn</option>
+              <option value="info">info</option>
             </select>
             <input
               id="logs-workspace-filter"
