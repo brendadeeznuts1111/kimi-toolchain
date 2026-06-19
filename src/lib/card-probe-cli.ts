@@ -2,6 +2,7 @@
  * Card probe CLI orchestration — shared by kimi-doctor flags.
  */
 
+import { runCardProbeGate, type CardProbeGateResult } from "../gates/card-probe.ts";
 import {
   type CardProbeConfig,
   type CardStatus,
@@ -27,6 +28,7 @@ export interface CardProbeCliOptions {
   mode: "probe-cards" | "serve-probe" | "serve-probe-once";
   json?: boolean;
   strict?: boolean;
+  saveArtifact?: boolean;
   probeConfig?: CardProbeConfig;
   log?: (line: string) => void;
 }
@@ -144,9 +146,15 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
     return { exitCode: 0, statuses, url: handle.url, summary, payload: json ? payload : undefined };
   }
 
-  const statuses = await probeAllCards(probeConfig);
-  const summary = summarizeCardStatuses(statuses);
-  const payload = buildCardProbeJsonPayload("probe-cards", statuses);
+  const gateResult = (await runCardProbeGate({
+    probeConfig,
+    saveArtifact: options.saveArtifact,
+  })) as CardProbeGateResult;
+  const statuses = gateResult.statuses;
+  const summary = gateResult.summary;
+  const payload = buildCardProbeJsonPayload("probe-cards", statuses, {
+    artifactPath: gateResult.artifactPath,
+  });
 
   if (json) {
     /* caller emits payload */

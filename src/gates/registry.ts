@@ -1,11 +1,19 @@
 import type { Gate } from "./types.ts";
 import { bunfigPolicyGateDefinition } from "./bunfig-policy.ts";
+import { cardProbeGateDefinition } from "./card-probe.ts";
+import { perfGateDefinition } from "./perf-gate.ts";
+import { tlsComplianceGateDefinition } from "./tls-compliance.ts";
 
 const gates = new Map<string, Gate>();
 
-/** Built-in gate definitions — extended by importing additional gate modules. */
+/** Built-in gate definitions — extend by adding modules and entries here. */
 export function listBuiltinGateDefinitions(): Gate[] {
-  return [bunfigPolicyGateDefinition];
+  return [
+    bunfigPolicyGateDefinition,
+    perfGateDefinition,
+    tlsComplianceGateDefinition,
+    cardProbeGateDefinition,
+  ];
 }
 
 export function registerGate(gate: Gate): void {
