@@ -10,6 +10,10 @@ export interface Metric {
   pass: boolean;
   /** Registry key (e.g. crypto.sha256) for train output. */
   registryKey?: string;
+  /** Source file that owns or registers the measured operation. */
+  sourceFile?: string;
+  lineNumber?: number;
+  sourceDescription?: string;
   /** Runtime unavailable — does not fail the gate. */
   skipped?: boolean;
   skipReason?: string;

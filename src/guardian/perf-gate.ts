@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { pathExists, readText } from "../lib/bun-io.ts";
+import { formatPerfGateFailure } from "../lib/perf-gate-format.ts";
 import type { Metric } from "../harness/html-reporter.ts";
 
 export interface PerfGateResult {
@@ -36,6 +37,14 @@ function effectiveThreshold(metric: Metric, trained: Record<string, number>): nu
   return trained[metricKey(metric)] ?? metric.thresholdMs;
 }
 
+function trainedThresholdLastModified(): string | undefined {
+  if (!pathExists(thresholdsPath)) return undefined;
+  const lastModified = Bun.file(thresholdsPath).lastModified;
+  return Number.isFinite(lastModified) && lastModified > 0
+    ? new Date(lastModified).toISOString()
+    : undefined;
+}
+
 function metricPasses(metric: Metric, trained: Record<string, number>): boolean {
   const threshold = effectiveThreshold(metric, trained);
   return !Number.isNaN(metric.actualMs) && metric.actualMs <= threshold;
@@ -43,12 +52,18 @@ function metricPasses(metric: Metric, trained: Record<string, number>): boolean 
 
 export function perfGate(metrics: readonly Metric[]): PerfGateResult {
   const trained = loadTrainedThresholds();
+  const lastTrainedAt = trainedThresholdLastModified();
   const failures: string[] = [];
 
   for (const metric of metrics) {
     if (metricPasses(metric, trained)) continue;
     const threshold = effectiveThreshold(metric, trained);
-    failures.push(`${metricKey(metric)}: ${metric.actualMs}ms > ${threshold}ms`);
+    failures.push(
+      formatPerfGateFailure(metric, threshold, {
+        thresholdSourceFile: trained[metricKey(metric)] === undefined ? undefined : thresholdsPath,
+        lastTrainedAt: trained[metricKey(metric)] === undefined ? undefined : lastTrainedAt,
+      })
+    );
   }
 
   return { pass: failures.length === 0, failures };

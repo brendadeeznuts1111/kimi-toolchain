@@ -10,6 +10,7 @@
  */
 
 import { join } from "path";
+import { formatPerfGateFailure } from "./perf-gate-format.ts";
 import { effectBenchmarkSnapshotsPath } from "./paths.ts";
 import { getProjectName, safeParse } from "./utils.ts";
 import type { Metric, ReportMeta } from "../harness/html-reporter.ts";
@@ -24,6 +25,10 @@ export interface EffectBenchmarkEntry {
   operation?: string;
   /** Default threshold in ms — falls back to KIMI_EFFECT_BENCHMARK_DEFAULT_THRESHOLD_MS. */
   thresholdMs?: number;
+  /** Source file that owns or registers the measured operation. */
+  sourceFile?: string;
+  lineNumber?: number;
+  sourceDescription?: string;
   /** Workload to benchmark. May be sync or async. */
   workload: () => unknown | Promise<unknown>;
   /** When true, the benchmark is skipped and recorded as passing. */
@@ -88,9 +93,16 @@ function getRegistry(): EffectBenchmarkEntry[] {
 /** Register an effect handler for automatic benchmarking. Idempotent by registryKey. */
 export function registerEffectBenchmark(entry: EffectBenchmarkEntry): void {
   const registry = getRegistry();
+  const registrationSource = captureRegistrationSource();
+  const nextEntry = {
+    ...entry,
+    sourceFile: entry.sourceFile ?? registrationSource?.sourceFile,
+    lineNumber: entry.lineNumber ?? registrationSource?.lineNumber,
+    sourceDescription: entry.sourceDescription ?? "registered benchmark",
+  };
   const index = registry.findIndex((e) => e.registryKey === entry.registryKey);
-  if (index >= 0) registry[index] = entry;
-  else registry.push(entry);
+  if (index >= 0) registry[index] = nextEntry;
+  else registry.push(nextEntry);
 }
 
 /** Discover all registered effect benchmarks. */
@@ -127,6 +139,30 @@ async function loadTrainedThresholds(path: string): Promise<Record<string, numbe
   return {};
 }
 
+function trainedThresholdLastModified(path: string): string | undefined {
+  const lastModified = Bun.file(path).lastModified;
+  return Number.isFinite(lastModified) && lastModified > 0
+    ? new Date(lastModified).toISOString()
+    : undefined;
+}
+
+function captureRegistrationSource():
+  | Pick<EffectBenchmarkEntry, "sourceFile" | "lineNumber">
+  | undefined {
+  const stack = new Error().stack;
+  if (!stack) return undefined;
+
+  for (const line of stack.split("\n")) {
+    if (line.includes("effect-benchmark.ts")) continue;
+    const match = line.match(/\(?((?:file:\/\/)?[^():]+\.ts):(\d+):(\d+)\)?/);
+    if (!match) continue;
+    const sourceFile = match[1]!.replace(/^file:\/\//, "");
+    return { sourceFile, lineNumber: Number(match[2]) };
+  }
+
+  return undefined;
+}
+
 function median(values: number[]): number {
   if (values.length === 0) return NaN;
   const sorted = [...values].sort((a, b) => a - b);
@@ -152,6 +188,9 @@ async function runEntry(
       skipped: true,
       skipReason: entry.skipReason ?? "skipped",
       registryKey: entry.registryKey,
+      sourceFile: entry.sourceFile,
+      lineNumber: entry.lineNumber,
+      sourceDescription: entry.sourceDescription,
     };
   }
 
@@ -177,6 +216,9 @@ async function runEntry(
         thresholdMs: trained[entry.registryKey] ?? entry.thresholdMs ?? defaultThreshold(),
         pass: false,
         registryKey: entry.registryKey,
+        sourceFile: entry.sourceFile,
+        lineNumber: entry.lineNumber,
+        sourceDescription: entry.sourceDescription,
       };
     }
   }
@@ -191,6 +233,9 @@ async function runEntry(
     thresholdMs,
     pass: !Number.isNaN(actualMs) && actualMs <= thresholdMs,
     registryKey: entry.registryKey,
+    sourceFile: entry.sourceFile,
+    lineNumber: entry.lineNumber,
+    sourceDescription: entry.sourceDescription,
   };
 }
 
@@ -249,6 +294,7 @@ export async function evaluateEffectBenchmarkGate(
 ): Promise<PerfGateResult> {
   const path = thresholdsPath ?? join(process.cwd(), "thresholds.json");
   const trained = await loadTrainedThresholds(path);
+  const lastTrainedAt = trainedThresholdLastModified(path);
   const failures: string[] = [];
 
   for (const m of metrics) {
@@ -256,7 +302,12 @@ export async function evaluateEffectBenchmarkGate(
     const threshold = trained[m.registryKey ?? m.operation] ?? m.thresholdMs;
     if (Number.isNaN(m.actualMs) || m.actualMs > threshold) {
       failures.push(
-        `${m.registryKey ?? m.operation}: ${m.actualMs}ms > ${threshold}ms (${m.symbol})`
+        formatPerfGateFailure(m, threshold, {
+          thresholdSourceFile:
+            trained[m.registryKey ?? m.operation] === undefined ? undefined : path,
+          lastTrainedAt:
+            trained[m.registryKey ?? m.operation] === undefined ? undefined : lastTrainedAt,
+        })
       );
     }
   }

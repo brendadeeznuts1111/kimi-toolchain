@@ -23,6 +23,22 @@ export const HUB_CARD_PROBE_IDS = [
 
 export type HubCardProbeId = (typeof HUB_CARD_PROBE_IDS)[number];
 
+/** HTTP route probe envelope stored in probes[cardId] for non-hub cards. */
+export interface RouteProbeEnvelope {
+  statusCode: number;
+  body: unknown;
+}
+
+export function isRouteProbeEnvelope(value: unknown): value is RouteProbeEnvelope {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "statusCode" in value &&
+    typeof (value as RouteProbeEnvelope).statusCode === "number" &&
+    "body" in value
+  );
+}
+
 export interface DashboardCardEntry {
   id: string;
   title: string;
@@ -208,7 +224,71 @@ function gateStatusFromJson(data: unknown): DashboardCardStatus {
   return "unknown";
 }
 
-/** Derive card status from a probed API JSON payload (hub cards only). */
+/** Derive status from a lightweight GET to a card's /api/* route. */
+export function cardStatusFromRouteResponse(
+  statusCode: number,
+  body: unknown
+): DashboardCardStatus {
+  if (statusCode === 0) return "unknown";
+  if (statusCode >= 400) return "error";
+  if (typeof body === "object" && body !== null) {
+    const record = body as { ok?: boolean; error?: unknown; allPass?: boolean };
+    if (record.ok === false || record.error) return "error";
+    if (record.allPass === false) return "error";
+    if (record.allPass === true || record.ok === true) return "ok";
+  }
+  return statusCode >= 200 && statusCode < 300 ? "ok" : "warn";
+}
+
+async function fetchCardRoute(
+  origin: string,
+  apiRoute: string,
+  timeoutMs: number
+): Promise<RouteProbeEnvelope> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${origin}${apiRoute}`, { signal: controller.signal });
+    const contentType = res.headers.get("content-type") ?? "";
+    let body: unknown;
+    if (contentType.includes("application/json")) {
+      try {
+        body = await res.json();
+      } catch {
+        body = undefined;
+      }
+    } else {
+      body = await res.text();
+    }
+    return { statusCode: res.status, body };
+  } catch {
+    return { statusCode: 0, body: undefined };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Parallel GET probes for every registry card with an apiRoute (skips hub ids when provided). */
+export async function probeAllRegistryRoutes(
+  origin: string,
+  repoRoot: string,
+  options: { timeoutMs?: number; skipCardIds?: ReadonlySet<string> } = {}
+): Promise<Record<string, RouteProbeEnvelope>> {
+  const registry = buildDashboardCardRegistry(repoRoot);
+  const skip = options.skipCardIds ?? new Set<string>();
+  const timeoutMs = options.timeoutMs ?? 5000;
+  const entries = await Promise.all(
+    registry
+      .filter((card) => card.apiRoute && !skip.has(card.id))
+      .map(async (card) => {
+        const envelope = await fetchCardRoute(origin, card.apiRoute!, timeoutMs);
+        return [card.id, envelope] as const;
+      })
+  );
+  return Object.fromEntries(entries);
+}
+
+/** Derive card status from a probed API JSON payload (hub cards). */
 export function cardStatusFromProbe(cardId: string, data: unknown): DashboardCardStatus {
   if (data === undefined) return "unknown";
 
@@ -235,6 +315,12 @@ export function cardStatusFromProbe(cardId: string, data: unknown): DashboardCar
       const domain = (data as { symbols?: { domain?: unknown[] } }).symbols?.domain;
       return Array.isArray(domain) && domain.length > 0 ? "ok" : "warn";
     }
+    case "card-tls-compliance": {
+      const status = (data as { status?: string }).status;
+      if (status === "pass") return "ok";
+      if (status === "fail") return "error";
+      return "unknown";
+    }
     default:
       return "unknown";
   }
@@ -245,8 +331,19 @@ function resolveCardStatus(
   probes: Record<string, unknown> | undefined
 ): DashboardCardStatus {
   if (!probes || !(cardId in probes)) return "unknown";
-  if (!HUB_CARD_PROBE_IDS.includes(cardId as HubCardProbeId)) return "unknown";
-  return cardStatusFromProbe(cardId, probes[cardId]);
+  const data = probes[cardId];
+  if (data === undefined) return "unknown";
+  if (isRouteProbeEnvelope(data)) {
+    if (HUB_CARD_PROBE_IDS.includes(cardId as HubCardProbeId)) {
+      const fromBody = cardStatusFromProbe(cardId, data.body);
+      if (fromBody !== "unknown") return fromBody;
+    }
+    return cardStatusFromRouteResponse(data.statusCode, data.body);
+  }
+  if (HUB_CARD_PROBE_IDS.includes(cardId as HubCardProbeId)) {
+    return cardStatusFromProbe(cardId, data);
+  }
+  return "unknown";
 }
 
 /** Build /api/cards payload; optional `canvas` query filters to influenced cards only. */
@@ -257,8 +354,10 @@ export async function fetchDashboardCardsPayload(
     /** @deprecated use probes.card-gates */
     gateJson?: unknown;
     probes?: Record<string, unknown>;
+    /** When true, include per-card probe counts in payload metadata. */
+    probed?: boolean;
   } = {}
-): Promise<DashboardCardsPayload> {
+): Promise<DashboardCardsPayload & { probedCount?: number }> {
   const filter = resolveCanvasFilter(options.canvas ?? null);
   const registry = buildDashboardCardRegistry(repoRoot);
   const influenceSet =
@@ -284,6 +383,11 @@ export async function fetchDashboardCardsPayload(
       canvasId: filter.canvasId,
     },
     fetchedAt: new Date().toISOString(),
+    ...(options.probed
+      ? {
+          probedCount: Object.keys(probes).length,
+        }
+      : {}),
   };
 }
 

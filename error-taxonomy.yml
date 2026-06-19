@@ -414,6 +414,28 @@ categories:
     patterns:
       - regex: "doctor_mcp_internal"
 
+  - id: dashboard_health_failure
+    name: Dashboard health check failed
+    description: The Herdr dashboard /api/health probe reported a warn or error status for a subsystem.
+    severity: warn
+    expected: false
+    suggestion: "Check the Herdr dashboard health summary for agents, SSE, herdr socket, gate health, or discovery."
+    autoFix: "kimi-doctor --quick"
+    patterns:
+      - regex: "dashboard health"
+      - regex: "/api/health"
+      - regex: "health check failed"
+
+  - id: build_constant_undefined
+    name: Build-time constant undefined
+    description: A bunfig.toml [define] constant was referenced but not defined in the current project or runtime.
+    severity: error
+    expected: false
+    suggestion: "Add the missing [define] entry to bunfig.toml or provide a runtime fallback."
+    patterns:
+      - regex: "ReferenceError: KIMI_.*is not defined"
+      - regex: "KIMI_.*is not defined"
+
   - id: unknown
     name: Unknown
     description: No known pattern matched.

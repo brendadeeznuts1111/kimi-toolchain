@@ -62,6 +62,22 @@ describe("effect-benchmark", () => {
     expect(metrics[0]!.actualMs).toBeGreaterThan(0);
   });
 
+  it("carries registry source metadata into metrics", async () => {
+    registerEffectBenchmark({
+      registryKey: "source.demo",
+      symbol: "kimi.effect.source",
+      thresholdMs: 50,
+      sourceFile: "src/lib/source-demo.ts",
+      lineNumber: 12,
+      sourceDescription: "demo workload",
+      workload: () => {},
+    });
+    const metrics = await runEffectBenchmarks({ iterations: 1, warmup: 0 });
+    expect(metrics[0]!.sourceFile).toBe("src/lib/source-demo.ts");
+    expect(metrics[0]!.lineNumber).toBe(12);
+    expect(metrics[0]!.sourceDescription).toBe("demo workload");
+  });
+
   it("filters by registryKeys", async () => {
     registerEffectBenchmark({ registryKey: "a.a", symbol: "s", workload: () => {} });
     registerEffectBenchmark({ registryKey: "b.b", symbol: "s", workload: () => {} });
@@ -124,6 +140,34 @@ describe("effect-benchmark", () => {
       await trainEffectThresholds(metrics, dir, 1.0);
       const gate = await evaluateEffectBenchmarkGate(metrics, join(dir, "thresholds.json"));
       expect(gate.pass).toBe(true);
+    });
+  });
+
+  it("formats gate failures with per-source context", async () => {
+    await withTempDir("effect-benchmark-source-gate", async (dir) => {
+      const thresholdsPath = join(dir, "thresholds.json");
+      await Bun.write(thresholdsPath, JSON.stringify({ "source.fail": 1 }));
+      const gate = await evaluateEffectBenchmarkGate(
+        [
+          {
+            registryKey: "source.fail",
+            symbol: "kimi.effect.source",
+            operation: "fail",
+            actualMs: 2,
+            thresholdMs: 10,
+            pass: false,
+            sourceFile: "src/lib/source-demo.ts",
+            lineNumber: 12,
+            sourceDescription: "demo workload",
+          },
+        ],
+        thresholdsPath
+      );
+      expect(gate.pass).toBe(false);
+      expect(gate.failures[0]).toContain("fail: source.fail exceeded threshold (2ms > 1ms)");
+      expect(gate.failures[0]).toContain("source: src/lib/source-demo.ts:12 (demo workload)");
+      expect(gate.failures[0]).toContain(`threshold: 1ms (set in ${thresholdsPath})`);
+      expect(gate.failures[0]).toContain("last trained:");
     });
   });
 

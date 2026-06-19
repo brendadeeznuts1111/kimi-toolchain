@@ -76,6 +76,10 @@ export const REQUIRED_PACKAGE_SCRIPT_ENTRIES = {
   lint: "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
   "lint:terms": "bun run scripts/lint-banned-terms.ts",
   fix: "kimi-fix .",
+  doctor: "kimi-doctor",
+  "doctor:probe": "kimi-doctor --probe-cards",
+  "doctor:probe:strict": "kimi-doctor --probe-cards --strict-probe",
+  "doctor:probe:serve": "kimi-doctor --serve-probe",
 } as const;
 
 export const TOOLCHAIN_PACKAGE_SCRIPT_ENTRIES = {
@@ -179,8 +183,8 @@ export const TEMPLATE_MARKERS: Record<string, string[]> = {
   TSCONFIG: ["moduleResolution", "bundler"],
   BUNFIG: ["concurrentTestGlob", "bail = 1", "noOrphans"],
   DX_CONFIG_APP: ["dx setup", "dx cli", "dx package"],
-  DX_CONFIG_TOOLCHAIN: ["[finishWork]", "[herdr]", "finish-work"],
+  DX_CONFIG_TOOLCHAIN: ["[finishWork]", "[herdr]", "finish-work", "--serve-probe"],
   GITIGNORE: ["coverage/", ".bun-cache"],
-  ENV_EXAMPLE: ["DATABASE_URL", "PORT=0"],
+  ENV_EXAMPLE: ["DATABASE_URL", "PORT=0", "EXAMPLES_DASHBOARD_URL", "PROBE_SERVER_PORT"],
   MIT_LICENSE_TEMPLATE: ["Permission is hereby granted, free of charge", "WITHOUT WARRANTY"],
 };

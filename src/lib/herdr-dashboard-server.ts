@@ -38,7 +38,9 @@ import {
   fetchDashboardDebugLogSinks,
   fetchDashboardDebugLogs,
   fetchDashboardGateHealth,
+  fetchDashboardHealth,
   fetchDashboardMetrics,
+  fetchDashboardTlsCompliance,
   type DashboardActionRequest,
   type DashboardFetchOptions,
   type DashboardIpcCommand,
@@ -317,6 +319,8 @@ export function startHerdrDashboardServer(
         return dashboardAssetResponse(name);
       }
 
+      const examplesDashboardUrl = Bun.env.HERDR_EXAMPLES_DASHBOARD_URL || "http://localhost:5678/";
+
       if (path === "/api/meta") {
         const dxDefaults = await loadDxDefaults(options.projectPath);
         const meta: Record<string, unknown> = {
@@ -326,6 +330,7 @@ export function startHerdrDashboardServer(
           ssePollMs,
           sse: true,
           staleMs,
+          examplesDashboardUrl,
           cache: hub.cacheStats(),
           herdrEvents: herdrEventBridge.status(),
           webview: metaWebView,
@@ -353,6 +358,13 @@ export function startHerdrDashboardServer(
             http3Supported: bunHttp3ServeSupported(),
             http3Requested: dashboardHttp3Requested(options.http3),
             fallbackReason: transport.fallbackReason,
+          },
+          runtime: {
+            bunVersion: Bun.version,
+            bunRevision: Bun.revision,
+            platform: process.platform,
+            arch: process.arch,
+            pid: process.pid,
           },
         };
         if (screenshotPng) {
@@ -550,11 +562,29 @@ export function startHerdrDashboardServer(
         return jsonResponse(payload);
       }
 
+      if (path === "/api/tls-compliance") {
+        const payload = await fetchDashboardTlsCompliance();
+        return jsonResponse(payload);
+      }
+
       if (path === "/api/metrics") {
         const payload = await fetchDashboardMetrics(
           hub.lastPayload?.agentCount ?? 0,
           hub.sseSubscriberCount()
         );
+        return jsonResponse(payload);
+      }
+
+      if (path === "/api/health") {
+        const payload = fetchDashboardHealth({
+          agentCount: hub.lastPayload?.agentCount ?? 0,
+          sseSubscribers: hub.sseSubscriberCount(),
+          herdrConnected: herdrEventBridge.status().connected,
+          herdrWorkspaceId: herdrEventBridge.status().workspaceId,
+          herdrEnabled: herdrEventBridge.status().enabled,
+          gateFailed: gateHealthWatch?.state.lastFailed ?? null,
+          discoveryWorkspaceId: hub.discoveryCache.discoveryContext().workspaceId,
+        });
         return jsonResponse(payload);
       }
 

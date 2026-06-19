@@ -170,10 +170,10 @@ export async function apiEnv(): Promise<Response> {
     shadowWarnings,
     keyVars: {
       HOME: Bun.env.HOME || "unset",
-      KIMI_PROFILE: Bun.env.KIMI_PROFILE || "unset",
-      BUN_CREATE_DIR: Bun.env.BUN_CREATE_DIR || "unset",
-      HERDR_ENV: Bun.env.HERDR_ENV || "unset",
-      PORT: Bun.env.PORT || "unset",
+      KIMI_PROFILE: Bun.env.KIMI_PROFILE || "toolchain",
+      BUN_CREATE_DIR: Bun.env.BUN_CREATE_DIR || `${resolveRoot()}/.bun-create`,
+      HERDR_ENV: Bun.env.HERDR_ENV || "0",
+      PORT: Bun.env.PORT || "3000",
     },
   });
 }

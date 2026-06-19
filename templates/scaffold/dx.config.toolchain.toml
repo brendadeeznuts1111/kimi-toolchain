@@ -182,6 +182,10 @@ label = "doctor"
 command = "kimi-doctor --watch"
 
 [[herdr.tabs]]
+label = "probe"
+command = "kimi-doctor --serve-probe"
+
+[[herdr.tabs]]
 label = "shell"
 command = "git status -sb; herdr-quickref"
 

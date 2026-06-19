@@ -157,6 +157,9 @@ const WORKSPACE_CONTEXT_BRIEF = Bun.argv.includes("--brief");
 const WRITE_CONTEXT_FILES = Bun.argv.includes("--write-context-files");
 const WATCH = Bun.argv.includes("--watch");
 const PROBE = Bun.argv.includes("--probe");
+const PROBE_CARDS = Bun.argv.includes("--probe-cards");
+const SERVE_PROBE = Bun.argv.includes("--serve-probe");
+const STRICT_PROBE = Bun.argv.includes("--strict-probe");
 const MCP_SERVER = Bun.argv.includes("--mcp-server");
 const ALL = Bun.argv.includes("--all");
 const EFFECT_SCAN = Bun.argv.includes("--effect-scan");
@@ -164,6 +167,7 @@ const PERF_GATES = Bun.argv.includes("--perf-gates");
 const TRAIN = Bun.argv.includes("--train");
 const REPORT = Bun.argv.includes("--report");
 const REGRESSION = Bun.argv.includes("--regression");
+const PERF_AUTO_TRAIN = Bun.argv.includes("--perf-auto-train");
 const OPEN = Bun.argv.includes("--open");
 const AGENT_ID = argValue("--agent-id");
 const ADAPTER = argValue("--adapter");
@@ -1416,6 +1420,20 @@ async function main(): Promise<number> {
     return 0;
   }
 
+  if (SERVE_PROBE || PROBE_CARDS) {
+    const { runCardProbeCli } = await import("../lib/card-probe-cli.ts");
+    const mode =
+      SERVE_PROBE && PROBE_CARDS ? "serve-probe-once" : SERVE_PROBE ? "serve-probe" : "probe-cards";
+    const result = await runCardProbeCli({
+      mode,
+      json: JSON_OUT,
+      strict: STRICT_PROBE,
+      log: (line) => logger.info(line),
+    });
+    if (JSON_OUT && result.payload) emitJson(result.payload);
+    return result.exitCode;
+  }
+
   if (MCP_SERVER) {
     const { startDoctorMcpServer } = await import("../lib/doctor-mcp-server.ts");
     await startDoctorMcpServer();
@@ -1585,6 +1603,22 @@ async function main(): Promise<number> {
       return 1;
     }
     return 0;
+  }
+
+  if (PERF_AUTO_TRAIN) {
+    const extraArgs: string[] = [];
+    if (Bun.argv.includes("--push")) extraArgs.push("--push");
+    if (Bun.argv.includes("--dry-run")) extraArgs.push("--dry-run");
+    const proc = Bun.spawn(
+      ["bun", "run", join(import.meta.dir, "../../scripts/perf-auto-train.ts"), ...extraArgs],
+      {
+        cwd: process.cwd(),
+        stdout: "inherit",
+        stderr: "inherit",
+      }
+    );
+    await proc.exited;
+    return proc.exitCode ?? 1;
   }
 
   if (PERF_GATES || TRAIN || REPORT || REGRESSION) {

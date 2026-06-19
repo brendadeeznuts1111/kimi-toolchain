@@ -83,4 +83,17 @@ describe("dashboard-card-registry", () => {
     expect(perf?.status).toBe("error");
     expect(orphan?.status).toBe("unknown");
   });
+
+  test("fetchDashboardCardsPayload applies route probe envelopes", async () => {
+    const payload = await fetchDashboardCardsPayload(REPO_ROOT, {
+      probes: {
+        "card-color": { statusCode: 200, body: { note: "ok" } },
+        "card-console": { statusCode: 503, body: { error: "down" } },
+      },
+    });
+    const color = payload.cards.find((c) => c.id === "card-color");
+    const consoleCard = payload.cards.find((c) => c.id === "card-console");
+    expect(color?.status).toBe("ok");
+    expect(consoleCard?.status).toBe("error");
+  });
 });

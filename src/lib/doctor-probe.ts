@@ -187,6 +187,11 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
         flags: ["--watch", "--watch-interval"],
       },
       { name: "probe", description: "Capability discovery manifest", flags: ["--probe"] },
+      {
+        name: "serve-probe",
+        description: "Start HTTP server that serves live card probe snapshots",
+        flags: ["--serve-probe", "--probe-cards", "--strict-probe"],
+      },
       { name: "mcp-server", description: "Start MCP stdio server", flags: ["--mcp-server"] },
       {
         name: "all",
@@ -248,6 +253,25 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
       },
       { name: "--mcp-server", type: "boolean", description: "Start MCP stdio server" },
       { name: "--probe", type: "boolean", description: "Emit capability manifest" },
+      {
+        name: "--probe-cards",
+        type: "boolean",
+        description: "Probe example and Herdr dashboard cards once and exit",
+        agentFacing: true,
+      },
+      {
+        name: "--serve-probe",
+        type: "boolean",
+        description:
+          "Start HTTP server on 127.0.0.1:9239 — GET|HEAD /api/health, GET /api/cards, GET|POST /api/refresh",
+        agentFacing: true,
+      },
+      {
+        name: "--strict-probe",
+        type: "boolean",
+        description: "With --probe-cards or --serve-probe, fail if any card is not passing",
+        agentFacing: true,
+      },
       {
         name: "--all",
         type: "boolean",

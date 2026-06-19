@@ -35,8 +35,104 @@ let logsTailTimer = null;
 let activeTab = "agents";
 let metaSnapshot = null;
 let lastAgentsPayload = null;
+let lastHealthPayload = null;
+let healthPollTimer = null;
+const HEALTH_POLL_MS = 10_000;
 let activeSession = loadActiveSession();
 let thumbLive = false;
+let examplesDashboardUrl = null;
+
+/**
+ * Panel registry — central place for adding/removing dashboard tabs.
+ *
+ * Each entry maps a tab id (matching the HTML `id="<id>"` and `data-tab="<id>"`)
+ * to lifecycle hooks. `activate` runs when the tab becomes visible; `deactivate`
+ * runs when the user leaves it. Keep panel-specific timers in these hooks so
+ * unused tabs do not poll the server.
+ *
+ * To add a new tab:
+ *   1. Add a `<button data-tab="my-tab">Label</button>` in `<nav>`.
+ *   2. Add a `<section id="my-tab" class="panel">...</section>` in `<main>`.
+ *   3. Register it here: PANELS["my-tab"] = { label: "Label", activate() {...} }.
+ */
+const PANELS = {
+  agents: {
+    label: "Agents",
+    activate() {
+      if (lastAgentsPayload) renderAgents(lastAgentsPayload);
+      if (lastHealthPayload) renderSummaryCards(lastHealthPayload);
+    },
+  },
+  handoffs: {
+    label: "Handoff history",
+    activate() {
+      lastHandoffsJson = "";
+      void refreshHandoffs();
+    },
+  },
+  rules: {
+    label: "Rules",
+    activate() {
+      lastRulesJson = "";
+      void refreshRules();
+    },
+  },
+  scan: {
+    label: "Upgrade scan",
+    activate() {
+      lastScanJson = "";
+      void refreshScan();
+    },
+  },
+  canvases: {
+    label: "Canvases",
+    activate() {
+      lastCanvasesJson = "";
+      void refreshCanvases();
+    },
+  },
+  metrics: {
+    label: "Metrics",
+    activate() {
+      void refreshMetrics();
+    },
+  },
+  events: {
+    label: "Events",
+    activate() {
+      lastEventsJson = "";
+      void refreshEvents();
+    },
+  },
+  logs: {
+    label: "Logs",
+    activate() {
+      lastDebugLogsJson = "";
+      void refreshDebugLogs();
+      scheduleDebugLogsPoll();
+    },
+    deactivate() {
+      if (debugLogsTabTimer) {
+        clearInterval(debugLogsTabTimer);
+        debugLogsTabTimer = null;
+      }
+    },
+  },
+  examples: {
+    label: "Examples",
+    activate() {
+      const frame = document.getElementById("examples-frame");
+      if (examplesDashboardUrl && frame && !frame.src.includes(examplesDashboardUrl)) {
+        loadExamplesDashboard(examplesDashboardUrl);
+      }
+    },
+  },
+};
+
+/** Register a new panel at runtime (useful for plugin-style extensions). */
+globalThis.__herdrRegisterPanel = function registerPanel(id, panel) {
+  PANELS[id] = panel;
+};
 
 function loadActiveSession() {
   try {
@@ -1929,37 +2025,33 @@ function wireEventsPanel() {
 }
 
 function switchTab(tab) {
+  const previous = activeTab;
   activeTab = tab;
   document.querySelectorAll("nav button").forEach((b) => b.classList.remove("active"));
   document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
   document.querySelector(`nav button[data-tab="${tab}"]`)?.classList.add("active");
   document.getElementById(tab)?.classList.add("active");
-  if (tab === "handoffs") {
-    lastHandoffsJson = "";
-    void refreshHandoffs();
-  } else if (tab === "rules") {
-    lastRulesJson = "";
-    void refreshRules();
-  } else if (tab === "scan") {
-    lastScanJson = "";
-    void refreshScan();
-  } else if (tab === "canvases") {
-    lastCanvasesJson = "";
-    void refreshCanvases();
-  } else if (tab === "metrics") {
-    void refreshMetrics();
-  } else if (tab === "events") {
-    lastEventsJson = "";
-    void refreshEvents();
-  } else if (tab === "logs") {
-    lastDebugLogsJson = "";
-    void refreshDebugLogs();
-    scheduleDebugLogsPoll();
+
+  // Deactivate previous panel (clean up timers, etc.)
+  const prevPanel = PANELS[previous];
+  if (prevPanel?.deactivate) {
+    try {
+      prevPanel.deactivate();
+    } catch (err) {
+      console.error(`dashboard.deactivate(${previous})`, err);
+    }
   }
-  if (activeTab !== "logs" && debugLogsTabTimer) {
-    clearInterval(debugLogsTabTimer);
-    debugLogsTabTimer = null;
+
+  // Activate new panel
+  const nextPanel = PANELS[tab];
+  if (nextPanel?.activate) {
+    try {
+      nextPanel.activate();
+    } catch (err) {
+      console.error(`dashboard.activate(${tab})`, err);
+    }
   }
+
   if (window.__HERDR_DASHBOARD_POLL_MS__) {
     scheduleSecondaryPoll(window.__HERDR_DASHBOARD_POLL_MS__);
   }
@@ -1968,6 +2060,171 @@ function switchTab(tab) {
 document.querySelectorAll("nav button").forEach((btn) => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
 });
+
+// ── Examples dashboard panel ─────────────────────────────────────────
+
+function setExamplesError(message) {
+  const err = document.getElementById("examples-error");
+  if (!err) return;
+  err.textContent = message;
+  err.hidden = !message;
+}
+
+function setExamplesLoading(loading) {
+  const loader = document.getElementById("examples-loader");
+  const frame = document.getElementById("examples-frame");
+  if (loader) loader.hidden = !loading;
+  if (frame) frame.style.display = loading ? "none" : "block";
+}
+
+function updateExamplesUrlDisplay(url) {
+  const el = document.getElementById("examples-url");
+  const popout = document.getElementById("examples-popout");
+  if (el) el.textContent = url || "—";
+  if (popout) popout.href = url || "#";
+}
+
+function loadExamplesDashboard(url) {
+  const frame = document.getElementById("examples-frame");
+  if (!frame) return;
+  if (!url) {
+    setExamplesError("Examples dashboard URL not configured.");
+    setExamplesLoading(false);
+    return;
+  }
+  setExamplesError("");
+  setExamplesLoading(true);
+  frame.src = url;
+}
+
+function wireExamplesPanel() {
+  const frame = document.getElementById("examples-frame");
+  const reload = document.getElementById("examples-reload");
+  if (!frame) return;
+
+  frame.addEventListener("load", () => {
+    setExamplesLoading(false);
+    setExamplesError("");
+  });
+  frame.addEventListener("error", () => {
+    setExamplesLoading(false);
+    setExamplesError(`Failed to load examples dashboard at ${examplesDashboardUrl || "(unknown)"}`);
+  });
+
+  if (reload) {
+    reload.addEventListener("click", () => {
+      if (examplesDashboardUrl) loadExamplesDashboard(examplesDashboardUrl);
+    });
+  }
+}
+
+function applyExamplesMeta(meta) {
+  const url = meta?.examplesDashboardUrl || null;
+  examplesDashboardUrl = url;
+  updateExamplesUrlDisplay(url);
+  if (activeTab === "examples" && url) {
+    loadExamplesDashboard(url);
+  }
+}
+
+// ── Health summary (header badges + summary cards) ────────────────────
+
+function healthStatusClass(status) {
+  if (status === "ok") return "badge-ok";
+  if (status === "warn") return "badge-warn";
+  if (status === "error") return "badge-err";
+  return "badge-info";
+}
+
+function healthLiveClass(status) {
+  if (status === "ok") return "live-ok";
+  if (status === "warn") return "live-warn";
+  if (status === "error") return "live-error";
+  return "";
+}
+
+function renderHeaderBadges(health) {
+  const el = document.getElementById("header-badges");
+  if (!el) return;
+  const runtime = metaSnapshot?.runtime;
+  const bunText = runtime?.bunVersion ? `bun ${runtime.bunVersion}` : "bun";
+  const checks = health?.checks ?? {};
+  const agents = checks.agents;
+  const discovery = checks.discovery;
+  const sse = checks.sse;
+  const herdr = checks.herdr;
+  const gate = checks.gate;
+  el.innerHTML = [
+    `<span class="badge ${healthStatusClass("info")}" title="Bun version">${esc(bunText)}</span>`,
+    `<span class="badge ${healthStatusClass(agents?.status)}" title="Agents">agents ${agents?.count ?? "—"}</span>`,
+    `<span class="badge ${healthStatusClass(discovery?.status)}" title="Workspace">${esc(discovery?.workspaceId ? `workspace ${discovery.workspaceId.slice(0, 8)}` : "workspace —")}</span>`,
+    `<span class="badge ${healthStatusClass(sse?.status)}" title="SSE subscribers">sse ${sse?.subscribers ?? "—"}</span>`,
+    `<span class="badge ${healthStatusClass(herdr?.status)}" title="Herdr socket">herdr ${herdr?.connected ? "✓" : herdr?.status === "unknown" ? "off" : "✗"}</span>`,
+    `<span class="badge ${healthStatusClass(gate?.status)}" title="Gate health">gates ${gate?.failed === false ? "✓" : gate?.failed === true ? "✗" : "—"}</span>`,
+  ].join("");
+}
+
+function renderSummaryCards(health) {
+  const checks = health?.checks ?? {};
+  for (const key of ["agents", "sse", "herdr", "gate", "discovery"]) {
+    const check = checks[key];
+    const el = document.getElementById(`health-${key}`);
+    if (!el || !check) continue;
+    const body = el.querySelector(".summary-body");
+    if (body) body.textContent = check.message || check.status;
+    el.classList.remove("live-ok", "live-warn", "live-error");
+    const live = healthLiveClass(check.status);
+    if (live) el.classList.add(live);
+  }
+}
+
+async function refreshTlsCompliance() {
+  try {
+    const res = await fetch("/api/tls-compliance");
+    const payload = await res.json();
+    const el = document.getElementById("health-tls");
+    if (!el) return;
+    const body = el.querySelector(".summary-body");
+    if (body)
+      body.textContent =
+        payload.status === "pass" ? `✓ ${payload.floor}` : payload.reason || payload.status;
+    el.classList.remove("live-ok", "live-warn", "live-error");
+    const live = healthLiveClass(
+      payload.status === "pass" ? "ok" : payload.status === "fail" ? "error" : "unknown"
+    );
+    if (live) el.classList.add(live);
+  } catch (err) {
+    console.error("dashboard.tls-compliance", err);
+  }
+}
+
+function renderHealth(health) {
+  lastHealthPayload = health;
+  renderHeaderBadges(health);
+  if (activeTab === "agents") {
+    renderSummaryCards(health);
+  }
+}
+
+async function refreshHealth() {
+  try {
+    const res = await fetch("/api/health");
+    const payload = await res.json();
+    renderHealth(payload);
+  } catch (err) {
+    console.error("dashboard.health", err);
+  }
+}
+
+function scheduleHealthPoll() {
+  if (healthPollTimer) return;
+  healthPollTimer = setInterval(() => {
+    void refreshHealth();
+    void refreshTlsCompliance();
+  }, HEALTH_POLL_MS);
+}
+
+wireExamplesPanel();
 
 wireSessionSelector();
 wireProcessesToggle();
@@ -1979,11 +2236,19 @@ wireEventsPanel();
 wireLogsTabPanel();
 scheduleGateHealthPoll();
 
+// Activate the initial tab so panels can run their setup logic.
+PANELS[activeTab]?.activate?.();
+
 (async () => {
   const res = await fetch("/api/meta");
   const meta = await res.json();
   renderMetaDisplay(meta);
   wireAgentThumbnail(meta);
+  applyExamplesMeta(meta);
+  renderHeaderBadges(null);
+  void refreshHealth();
+  void refreshTlsCompliance();
+  scheduleHealthPoll();
   const poll = meta.pollHintMs || 5000;
   window.__HERDR_DASHBOARD_POLL_MS__ = poll;
   scheduleMetaRefresh(meta.ssePollMs);

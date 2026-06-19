@@ -12,18 +12,35 @@ bun run check:fast
 
 ## Scripts
 
-| Command              | What it does                                         |
-| -------------------- | ---------------------------------------------------- |
-| `bun run dev`        | Start the dev server with hot reload                 |
-| `bun run test`       | Run the full test suite                              |
-| `bun run test:fast`  | Run unit tests only                                  |
-| `bun run check`      | Full quality gate (format + lint + typecheck + test) |
-| `bun run check:fast` | Fast quality gate                                    |
-| `bun run typecheck`  | TypeScript type checking                             |
-| `bun run format`     | Format source with oxfmt                             |
-| `bun run lint`       | Lint with oxlint + banned-terms check                |
-| `bun run scan`       | Run upgrade-advisor scan                             |
-| `bun run fix`        | Auto-repair scaffolding (kimi-fix)                   |
+| Command                       | What it does                                         |
+| ----------------------------- | ---------------------------------------------------- |
+| `bun run dev`                 | Start the dev server with hot reload                 |
+| `bun run test`                | Run the full test suite                              |
+| `bun run test:fast`           | Run unit tests only                                  |
+| `bun run check`               | Full quality gate (format + lint + typecheck + test) |
+| `bun run check:fast`          | Fast quality gate                                    |
+| `bun run typecheck`           | TypeScript type checking                             |
+| `bun run format`              | Format source with oxfmt                             |
+| `bun run lint`                | Lint with oxlint + banned-terms check                |
+| `bun run scan`                | Run upgrade-advisor scan                             |
+| `bun run fix`                 | Auto-repair scaffolding (kimi-fix)                   |
+| `bun run doctor`              | Full toolchain diagnostics (kimi-doctor)             |
+| `bun run doctor:probe`        | Probe dashboard cards once (report only)             |
+| `bun run doctor:probe:strict` | Probe cards; exit 1 if any not passing               |
+| `bun run doctor:probe:serve`  | Start card probe cache server on :9239               |
+
+## Card probes
+
+When a dashboard is running, card probes report live route health:
+
+```bash
+bun run dev                          # start app (optional)
+bun run doctor:probe                 # one-shot table
+kimi-doctor --probe-cards --json       # structured JSON
+bun run doctor:probe:serve           # cache server at http://127.0.0.1:9239
+```
+
+Set `EXAMPLES_DASHBOARD_URL` / `HERDR_DASHBOARD_URL` in `.env` when auto-discovery on ports 3000 / 18412 is not enough. See `env.example`.
 
 ## Tech Stack
 

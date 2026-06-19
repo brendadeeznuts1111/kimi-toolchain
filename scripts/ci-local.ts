@@ -63,6 +63,18 @@ const STEPS: CiStep[] = [
   },
   {
     job: "quality",
+    name: "effect-benchmark-auto-train",
+    cmd: ["bun", "run", "perf:auto-train"],
+    crossCut: true,
+  },
+  {
+    job: "quality",
+    name: "probe-cards",
+    cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "--probe-cards", "--strict-probe"],
+    crossCut: true,
+  },
+  {
+    job: "quality",
     name: "config-status",
     cmd: ["bun", "run", "config:status"],
   },

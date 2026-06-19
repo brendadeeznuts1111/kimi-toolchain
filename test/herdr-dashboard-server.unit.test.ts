@@ -42,10 +42,10 @@ describe("herdr-dashboard-server", () => {
     expect(Array.isArray(payload.rules)).toBe(true);
   });
 
-  test("fetchDashboardCanvases returns all 9 cursorCanvas entries", () => {
+  test("fetchDashboardCanvases returns all 10 cursorCanvas entries", () => {
     const payload = fetchDashboardCanvases();
     expect(payload.ok).toBe(true);
-    expect(payload.canvases.length).toBe(9);
+    expect(payload.canvases.length).toBe(10);
 
     const ids = payload.canvases.map((c) => c.id);
     expect(ids).toContain("unified");
@@ -256,6 +256,86 @@ describe("herdr-dashboard-server", () => {
           expect(meta.thumbnail).toBe(false);
           expect(meta.thumbnailPath).toBe("/api/thumbnail");
         }
+      } finally {
+        server.stop();
+      }
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
+    "dashboard server health API returns subsystem statuses",
+    async () => {
+      const discoveryCache = new HerdrDashboardDiscoveryCache({
+        projectPath: REPO_ROOT,
+        fetchOpts: { sessions: false },
+        ttlMs: 60_000,
+        discover: async () => ({
+          ok: true,
+          projectPath: REPO_ROOT,
+          agentCount: 2,
+          agents: [
+            {
+              agent: "kimi",
+              host: "local",
+              session: "",
+              workspaceId: "w1",
+              status: "idle",
+              paneId: "1-1",
+              source: "local",
+            },
+            {
+              agent: "kimi",
+              host: "local",
+              session: "",
+              workspaceId: "w1",
+              status: "working",
+              paneId: "1-2",
+              source: "local",
+            },
+          ],
+          fetchedAt: new Date().toISOString(),
+        }),
+        probeRemoteHosts: async () => ({
+          configured: 0,
+          reachable: 0,
+          hosts: [],
+        }),
+      });
+      const server = startHerdrDashboardServer({
+        projectPath: REPO_ROOT,
+        port: 0,
+        sessions: false,
+        discoveryCache,
+      });
+      try {
+        await server.hub.refresh();
+        const res = (await fetch(`${server.url}api/health`)) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        expect(res.status).toBe(200);
+        const body = JSON.parse(await readableStreamToText(res.body)) as {
+          ok: boolean;
+          checks: {
+            agents: { status: string; count: number };
+            sse: { status: string; subscribers: number };
+            herdr: { status: string; connected: boolean; workspaceId: string | null };
+            gate: { status: string; failed: boolean | null };
+            discovery: { status: string; workspaceId: string | null };
+          };
+          fetchedAt: string;
+        };
+        expect(body.ok).toBe(true);
+        expect(body.checks.agents.status).toBe("ok");
+        expect(body.checks.agents.count).toBe(2);
+        expect(body.checks.sse.status).toBe("warn");
+        expect(["ok", "warn", "unknown"]).toContain(body.checks.herdr.status);
+        expect(
+          body.checks.gate.failed === null || typeof body.checks.gate.failed === "boolean"
+        ).toBe(true);
+        expect(body.checks.discovery.status).toBe("ok");
+        expect(body.fetchedAt).toBeTruthy();
       } finally {
         server.stop();
       }

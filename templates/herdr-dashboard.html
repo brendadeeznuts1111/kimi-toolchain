@@ -12,7 +12,17 @@
   </head>
   <body>
     <header>
-      <h1>Herdr Orchestrator Dashboard</h1>
+      <div class="header-brand">
+        <h1>Herdr Orchestrator Dashboard</h1>
+        <div id="header-badges" class="header-badges" aria-label="System summary">
+          <span class="badge badge-info" title="Bun version">bun …</span>
+          <span class="badge badge-ok" title="Agents">agents —</span>
+          <span class="badge badge-ok" title="Workspace">workspace —</span>
+          <span class="badge badge-ok" title="SSE">sse —</span>
+          <span class="badge badge-ok" title="Herdr socket">herdr —</span>
+          <span class="badge badge-ok" title="Gate health">gates —</span>
+        </div>
+      </div>
       <div class="header-meta">
         <div id="agent-thumb-wrap" class="thumb-slot" aria-hidden="true">
           <img id="agent-thumb" alt="Agent preview" width="160" height="90" decoding="async" />
@@ -125,10 +135,37 @@
       <button data-tab="metrics">Metrics</button>
       <button data-tab="events">Events</button>
       <button data-tab="logs">Logs</button>
+      <button data-tab="examples">Examples</button>
     </nav>
     <main>
       <section id="agents" class="panel active">
         <h2 id="agents-heading" class="panel-heading">Agents</h2>
+        <div id="health-summary" class="health-summary" aria-label="Subsystem health">
+          <div class="summary-card" id="health-agents">
+            <h3>Agents</h3>
+            <div class="summary-body">—</div>
+          </div>
+          <div class="summary-card" id="health-sse">
+            <h3>SSE</h3>
+            <div class="summary-body">—</div>
+          </div>
+          <div class="summary-card" id="health-herdr">
+            <h3>Herdr</h3>
+            <div class="summary-body">—</div>
+          </div>
+          <div class="summary-card" id="health-gate">
+            <h3>Gates</h3>
+            <div class="summary-body">—</div>
+          </div>
+          <div class="summary-card" id="health-discovery">
+            <h3>Discovery</h3>
+            <div class="summary-body">—</div>
+          </div>
+          <div class="summary-card" id="health-tls">
+            <h3>TLS</h3>
+            <div class="summary-body">—</div>
+          </div>
+        </div>
         <div id="agents-error" class="error"></div>
         <div id="gate-health" class="gate-health" hidden>
           <span class="gate-health-icon">⚠</span>
@@ -333,6 +370,40 @@
             </tbody>
           </table>
         </div>
+      </section>
+      <section id="examples" class="panel">
+        <div class="examples-toolbar">
+          <h2 class="panel-heading">Examples dashboard</h2>
+          <span id="examples-url" class="examples-url">—</span>
+          <div class="examples-actions">
+            <button
+              type="button"
+              id="examples-reload"
+              class="examples-reload"
+              title="Reload examples dashboard"
+            >
+              ↻ Reload
+            </button>
+            <a
+              id="examples-popout"
+              href="http://localhost:5678/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="examples-popout"
+              >Open ↗</a
+            >
+          </div>
+        </div>
+        <div id="examples-error" class="error" hidden></div>
+        <div id="examples-loader" class="examples-loader">Loading examples dashboard…</div>
+        <iframe
+          id="examples-frame"
+          title="kimi-toolchain examples dashboard"
+          class="examples-frame"
+          src="about:blank"
+          loading="lazy"
+          sandbox="allow-scripts allow-same-origin allow-forms"
+        ></iframe>
       </section>
     </main>
     <script src="/herdr-dashboard.js" defer></script>

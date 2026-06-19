@@ -55,6 +55,11 @@
   .canvas-pill.active { border-color: var(--blue); color: var(--blue); background: #1a2a3a; }
   .card.canvas-dimmed { opacity: 0.2; filter: grayscale(0.35); }
   .card.canvas-highlight { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+  .card.live-ok { border-color: var(--green); }
+  .card.live-warn { border-color: var(--yellow); }
+  .card.live-error { border-color: var(--red); }
+  .live-pulse { animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{ opacity: 1; } 50%{ opacity: 0.6; } }
 </style>
 </head>
 <body>
@@ -1431,6 +1436,41 @@ function card(id, body) {
   } catch (e) {
     bar.innerHTML = `<span style="font-size:11px;color:var(--red)">Canvas filter unavailable: ${e.message}</span>`;
   }
+})();
+
+// Live card status probes — update borders every 10s (full route probe)
+(function pollCardStatus() {
+  const REFRESH_MS = 10_000;
+
+  function applyStatus(payload) {
+    const cards = payload?.cards ?? [];
+    for (const c of cards) {
+      const el = document.getElementById(c.id);
+      if (!el) continue;
+      el.classList.remove("live-ok", "live-warn", "live-error");
+      if (c.status === "ok") el.classList.add("live-ok");
+      else if (c.status === "warn") el.classList.add("live-warn");
+      else if (c.status === "error") el.classList.add("live-error");
+      const statusEl = el.querySelector(".card-live-status");
+      if (statusEl) statusEl.textContent = c.status;
+    }
+  }
+
+  async function refreshStatuses() {
+    try {
+      const active = new URLSearchParams(location.search).get("canvas");
+      const url = active
+        ? `/api/cards?probe=true&canvas=${encodeURIComponent(active)}`
+        : "/api/cards?probe=true";
+      const payload = await fetch(url).then((r) => r.json());
+      applyStatus(payload);
+    } catch {
+      /* dashboard may still be starting */
+    }
+  }
+
+  refreshStatuses();
+  setInterval(refreshStatuses, REFRESH_MS);
 })();
 </script>
 </body>
