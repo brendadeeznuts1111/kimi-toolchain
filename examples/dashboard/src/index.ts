@@ -12,7 +12,6 @@
  */
 
 import { resolveBin, USER_TOOLCHAIN_BIN } from "./lib/toolchain-paths.ts";
-import { configureInspect } from "../../../src/lib/inspect.ts";
 
 const port = Number(Bun.env.PORT) || 3000;
 
