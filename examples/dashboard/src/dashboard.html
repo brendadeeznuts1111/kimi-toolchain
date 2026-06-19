@@ -234,6 +234,14 @@ card("card-markdown", `
     // Add canonical examples from docs
     const simpleRes = await fetch("/api/inspect-simple");
     const simpleText = await simpleRes.text();
+    // Config summary
+    const cfg = await fetchJson("/api/inspect-config");
+    h += `<details style="margin-top:8px"><summary style="color:var(--blue);cursor:pointer;font-size:11px">Config (preset: ${cfg.preset})</summary>`;
+    h += `<table class="tbl"><tr><th>#</th><th>Option</th><th>Value</th></tr>`;
+    Object.entries(cfg.config).forEach((kv, i) => {
+      h += `<tr><td class="num">${i + 1}.</td><td>${kv[0]}</td><td><code>${kv[1]}</code></td></tr>`;
+    });
+    h += `</table><p style="font-size:10px;color:var(--muted);margin-top:4px">${cfg.detected.isTTY ? 'TTY' : 'pipe'} | NODE_ENV=${cfg.detected.NODE_ENV} | DEBUG_INSPECT=${cfg.detected.DEBUG_INSPECT}</p></details>`;
     h += `<div style="margin-top:8px;font-size:12px;background:var(--border);padding:8px;border-radius:4px;overflow-x:auto">`;
     h += `<code style="white-space:pre;color:var(--muted)">${simpleText.replace(/</g,'&lt;')}</code>`;
     h += `</div>`;

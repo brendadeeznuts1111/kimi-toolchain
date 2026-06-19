@@ -361,6 +361,29 @@ async function apiUuid(): Promise<Response> {
   });
 }
 
+async function apiInspectConfig(): Promise<Response> {
+  const debug = Bun.env.DEBUG_INSPECT === "true";
+  const preset = debug ? "debug" : "auto";
+
+  return jsonResponse({
+    preset,
+    config: {
+      depth: debug ? Infinity : 4,
+      colors: process.stdout.isTTY,
+      compact: false,
+      sorted: false,
+      maxArrayLength: null,
+      showHidden: debug,
+    },
+    detected: {
+      isTTY: process.stdout.isTTY,
+      NODE_ENV: Bun.env.NODE_ENV || "unset",
+      DEBUG_INSPECT: Bun.env.DEBUG_INSPECT || "unset",
+    },
+    note: debug ? "DEBUG_INSPECT=true → depth=Infinity, showHidden=true" : "Default preset. Set DEBUG_INSPECT=true for full depth.",
+  });
+}
+
 // ── Server ──────────────────────────────────────────────────────────
 
 const server = Bun.serve({
@@ -396,6 +419,8 @@ const server = Bun.serve({
         return apiInspect();
       case "/api/inspect-simple":
         return apiInspectSimple();
+      case "/api/inspect-config":
+        return apiInspectConfig();
       case "/api/uuid":
         return apiUuid();
       case "/health":
