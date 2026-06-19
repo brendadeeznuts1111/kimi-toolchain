@@ -30,7 +30,7 @@ Global canvas skills are **not** updated from this repo. Repo conventions live h
 2. Self-contained — one `.canvas.tsx` per companion, no shared imports
 3. Registered with a `cursorCanvas` pointer in `src/lib/canonical-references.ts`
 
-## Canonical 8
+## Canonical 9
 
 | Manifest id | Canvas file |
 |-------------|-------------|
@@ -42,3 +42,8 @@ Global canvas skills are **not** updated from this repo. Repo conventions live h
 | `kimi-doctor` | `herdr-dashboard-automation.canvas.tsx` |
 | `dashboard-thumbnails` | `herdr-dashboard-thumbnails.canvas.tsx` |
 | `herdr-plugin-architecture` | `herdr-unified-plugin-architecture.canvas.tsx` |
+| `deep-quality` | `kimi-heal-doctor-scaffold.canvas.tsx` |
+
+Manifest id matches the indexed doc (`DEEP-QUALITY.md`). The canvas filename
+uses the topic stem (`kimi-heal-doctor-scaffold`); dashboard `?canvas=` filters
+accept either `deep-quality` or `kimi-heal-doctor-scaffold`.

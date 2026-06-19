@@ -115,6 +115,11 @@ export function effectGatesPath(projectRoot: string): string {
   return join(projectKimiDir(projectRoot), "var", "effect-gates.ndjson");
 }
 
+/** Return {projectRoot}/.kimi/var/effect-benchmark.ndjson */
+export function effectBenchmarkSnapshotsPath(projectRoot: string): string {
+  return join(projectKimiDir(projectRoot), "var", "effect-benchmark.ndjson");
+}
+
 /** Return {projectRoot}/.kimi/identity.ndjson */
 export function identityAuditPath(projectRoot: string): string {
   return join(projectKimiDir(projectRoot), "identity.ndjson");

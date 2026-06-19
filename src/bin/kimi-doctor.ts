@@ -106,6 +106,15 @@ import {
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import {
+  appendBenchmarkSnapshot,
+  detectBenchmarkRegressions,
+  evaluateEffectBenchmarkGate,
+  generateBenchmarkHTML,
+  readBenchmarkSnapshots,
+  trainEffectThresholds,
+  type BenchmarkRegression,
+} from "../lib/effect-benchmark.ts";
 import { toolStart, toolDone, healthResult } from "../lib/health-channel.ts";
 
 const writer = createCli(Bun.argv, "kimi-doctor");
@@ -154,6 +163,7 @@ const EFFECT_SCAN = Bun.argv.includes("--effect-scan");
 const PERF_GATES = Bun.argv.includes("--perf-gates");
 const TRAIN = Bun.argv.includes("--train");
 const REPORT = Bun.argv.includes("--report");
+const REGRESSION = Bun.argv.includes("--regression");
 const OPEN = Bun.argv.includes("--open");
 const AGENT_ID = argValue("--agent-id");
 const ADAPTER = argValue("--adapter");
@@ -1577,44 +1587,62 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  if (PERF_GATES || TRAIN || REPORT) {
+  if (PERF_GATES || TRAIN || REPORT || REGRESSION) {
     try {
       const { runEffectBenchmarks } = await import("../harness/perf-monitor.ts");
-      const { perfGate } = await import("../guardian/perf-gate.ts");
-      const { generatePerfHTML } = await import("../harness/html-reporter.ts");
       const outDir = argValue("--out-dir") ?? process.cwd();
+      const thresholdsPath = join(outDir, "thresholds.json");
+      const reportPath = join(outDir, "effect-benchmark.html");
+      const projectRoot = process.cwd();
+      const gitHead = await resolveGitHead(projectRoot);
 
-      const metrics = await runEffectBenchmarks();
+      const metrics = await runEffectBenchmarks({ thresholdsPath });
 
       if (TRAIN) {
         if (metrics.length === 0) {
           logger.error("No benchmark metrics to train on. Register an effect handler first.");
           return 1;
         }
-        const { pass } = perfGate(metrics);
-        if (!pass) {
+        const gate = await evaluateEffectBenchmarkGate(metrics, thresholdsPath);
+        if (!gate.pass) {
           logger.error("Cannot train with failing benchmarks. Fix gates first:");
-          const { failures } = perfGate(metrics);
-          for (const f of failures) logger.error(`  - ${f}`);
+          for (const f of gate.failures) logger.error(`  - ${f}`);
           return 1;
         }
-        const newThresholds: Record<string, number> = {};
-        for (const m of metrics) {
-          const key = `${m.symbol}.${m.operation}`;
-          newThresholds[key] = Math.max(0.1, Math.ceil(m.actualMs * 1.2 * 10) / 10);
+        const result = await trainEffectThresholds(metrics, outDir);
+        if (result.written) {
+          logger.info(`Thresholds written to ${result.path}`);
+        } else {
+          logger.error("Training failed — all measured handlers must pass before training.");
+          return 1;
         }
-        const thresholdsPath = join(outDir, "thresholds.json");
-        await Bun.write(thresholdsPath, JSON.stringify(newThresholds, null, 2));
-        logger.info(`Thresholds written to ${thresholdsPath}`);
         return 0;
       }
 
-      if (REPORT) {
-        if (metrics.length === 0) {
-          logger.warn("No benchmark metrics — generating empty report.");
+      let regressions: BenchmarkRegression[] = [];
+      if (REGRESSION) {
+        const previous = (await readBenchmarkSnapshots(projectRoot, 1))[0];
+        if (previous) {
+          regressions = detectBenchmarkRegressions(metrics, previous.metrics);
         }
-        const html = generatePerfHTML(metrics);
-        const reportPath = join(outDir, "perf-report.html");
+      }
+
+      const gate = await evaluateEffectBenchmarkGate(metrics, thresholdsPath);
+      const passCount = metrics.filter((m) => m.pass && !m.skipped).length;
+      const measuredCount = metrics.filter((m) => !m.skipped).length;
+
+      if (REPORT) {
+        const snapshot = await appendBenchmarkSnapshot(projectRoot, metrics, { gitHead });
+        const history = await readBenchmarkSnapshots(projectRoot, 10);
+        const html = generateBenchmarkHTML(metrics, {
+          title: "Effect Handler Benchmarks",
+          meta: {
+            generatedAt: snapshot.generatedAt,
+            gitHead,
+            regressionCount: regressions.length,
+            snapshotCount: history.length,
+          },
+        });
         await Bun.write(reportPath, html);
         logger.info(`Report: ${reportPath}`);
         if (OPEN) {
@@ -1628,19 +1656,23 @@ async function main(): Promise<number> {
         }
       }
 
-      if (PERF_GATES) {
+      if (PERF_GATES || REGRESSION) {
         if (metrics.length === 0) {
           logger.warn("No benchmark metrics — nothing to gate.");
           return 0;
         }
-        const { pass, failures } = perfGate(metrics);
-        if (!pass) {
+        if (REGRESSION && regressions.length > 0) {
+          logger.error(`${regressions.length} benchmark regression(s) detected:`);
+          for (const r of regressions) logger.error(`  - ${r.message}`);
+        }
+        if (!gate.pass) {
           logger.error("Performance gates failed:");
-          for (const f of failures) logger.error(`  - ${f}`);
+          for (const f of gate.failures) logger.error(`  - ${f}`);
+        }
+        if (!gate.pass || regressions.length > 0) {
           return 1;
         }
-        const passCount = metrics.filter((m) => m.pass).length;
-        logger.info(`${passCount}/${metrics.length} operations within threshold`);
+        logger.info(`${passCount}/${measuredCount} operations within threshold`);
       }
 
       return 0;

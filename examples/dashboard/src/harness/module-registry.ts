@@ -34,6 +34,8 @@ export const DEFAULT_THRESHOLDS: Record<string, number> = {
   "kimi.effect.isolation.roundtrip": 100,
   "kimi.effect.isolation.realm.run": 10,
   "kimi.effect.isolation.worker.run": 100,
+  "kimi.effect.clock": 0.01,
+  "kimi.effect.uuid": 0.1,
 };
 
 /** Symbol-keyed workloads — threshold lookup uses `kimi.effect.${registryKey}`. */
@@ -129,6 +131,20 @@ export const MODULE_REGISTRY: Record<string, ModuleRegistryEntry> = {
     skipIf: async () => !(installBenchEnabled() && (await installBenchAvailable())),
     workload: async () => {
       await benchMinimalInstall();
+    },
+  },
+  clock: {
+    symbol: "kimi.effect.clock",
+    thresholdMs: 0.01,
+    workload: () => {
+      Bun.nanoseconds();
+    },
+  },
+  uuid: {
+    symbol: "kimi.effect.uuid",
+    thresholdMs: 0.1,
+    workload: () => {
+      Bun.randomUUIDv7();
     },
   },
 };

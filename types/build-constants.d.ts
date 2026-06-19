@@ -158,6 +158,51 @@ declare const KIMI_SERVICE_TAG_REQUIRED: boolean;
 declare const KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED: boolean;
 
 /**
+ * @defineDomain effect-benchmark
+ * @type number
+ * @default 5
+ * @restrictions positive integer — measured iterations per effect handler
+ * @see src/lib/effect-benchmark.ts
+ */
+declare const KIMI_EFFECT_BENCHMARK_ITERATIONS: number;
+
+/**
+ * @defineDomain effect-benchmark
+ * @type number
+ * @default 2
+ * @restrictions non-negative integer — warmup iterations discarded before measurement
+ * @see src/lib/effect-benchmark.ts
+ */
+declare const KIMI_EFFECT_BENCHMARK_WARMUP: number;
+
+/**
+ * @defineDomain effect-benchmark
+ * @type number
+ * @default 1.1
+ * @restrictions multiplier >= 1.0 — trained threshold margin over measured median
+ * @see src/lib/effect-benchmark.ts
+ */
+declare const KIMI_EFFECT_BENCHMARK_TRAIN_MARGIN: number;
+
+/**
+ * @defineDomain effect-benchmark
+ * @type number
+ * @default 1.05
+ * @restrictions multiplier >= 1.0 — regression tolerance when comparing to previous snapshot
+ * @see src/lib/effect-benchmark.ts
+ */
+declare const KIMI_EFFECT_BENCHMARK_REGRESSION_TOLERANCE: number;
+
+/**
+ * @defineDomain effect-benchmark
+ * @type number
+ * @default 100
+ * @restrictions positive number — fallback threshold (ms) for handlers without a default
+ * @see src/lib/effect-benchmark.ts
+ */
+declare const KIMI_EFFECT_BENCHMARK_DEFAULT_THRESHOLD_MS: number;
+
+/**
  * @defineDomain governance
  * @type string
  * @default "1.2.0"

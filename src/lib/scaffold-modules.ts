@@ -10,7 +10,7 @@ import { makeDir, pathExists } from "./bun-io.ts";
 /** Modules scaffolded when KIMI_MODULES is unset. */
 export const DEFAULT_KIMI_MODULES = ["doctor"] as const;
 
-export type KimiModuleName = "doctor" | "image" | "trace" | "perf";
+export type KimiModuleName = "doctor" | "image" | "trace" | "perf" | "clock" | "uuid";
 
 export function parseKimiModules(
   env: Record<string, string | undefined> = Bun.env
@@ -50,6 +50,8 @@ const DOCTOR_PACKAGE_SCRIPTS: Record<string, string> = {
 };
 
 const IMAGE_TEMPLATE = join("templates", "modules", "image", "src", "processor.ts");
+const CLOCK_TEMPLATE = join("templates", "modules", "clock", "src", "processor.ts");
+const UUID_TEMPLATE = join("templates", "modules", "uuid", "src", "processor.ts");
 
 export interface ScaffoldModulesResult {
   modules: string[];
@@ -101,6 +103,16 @@ function initTsContent(modules: string[]): string {
     lines.push("globalThis[Symbol.for('kimi.effect.image')] = image;");
     lines.push("");
   }
+  if (modules.includes("clock")) {
+    lines.push("import * as clock from './effect/clock/processor.ts';");
+    lines.push("globalThis[Symbol.for('kimi.effect.clock')] = clock;");
+    lines.push("");
+  }
+  if (modules.includes("uuid")) {
+    lines.push("import * as uuid from './effect/uuid/processor.ts';");
+    lines.push("globalThis[Symbol.for('kimi.effect.uuid')] = uuid;");
+    lines.push("");
+  }
   if (modules.includes("doctor")) {
     lines.push("// doctor module: perf harness in src/harness — run `bun run perf:gates`");
     lines.push("");
@@ -136,6 +148,34 @@ export async function scaffoldKimiModules(
       const dest = join(project, "src/effect/image/processor.ts");
       if (pathExists(dest)) {
         skipped.push("image:processor.ts");
+      } else if (pathExists(src)) {
+        if (!dryRun) {
+          makeDir(join(dest, ".."), { recursive: true });
+          await Bun.write(dest, Bun.file(src));
+        }
+        written.push(dest);
+      }
+    }
+
+    if (mod === "clock") {
+      const src = join(root, CLOCK_TEMPLATE);
+      const dest = join(project, "src/effect/clock/processor.ts");
+      if (pathExists(dest)) {
+        skipped.push("clock:processor.ts");
+      } else if (pathExists(src)) {
+        if (!dryRun) {
+          makeDir(join(dest, ".."), { recursive: true });
+          await Bun.write(dest, Bun.file(src));
+        }
+        written.push(dest);
+      }
+    }
+
+    if (mod === "uuid") {
+      const src = join(root, UUID_TEMPLATE);
+      const dest = join(project, "src/effect/uuid/processor.ts");
+      if (pathExists(dest)) {
+        skipped.push("uuid:processor.ts");
       } else if (pathExists(src)) {
         if (!dryRun) {
           makeDir(join(dest, ".."), { recursive: true });

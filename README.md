@@ -112,8 +112,11 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run memory-budget` | (synced from package.json) |
 | `bun run memory-check` | (synced from package.json) |
 | `bun run new` | (synced from package.json) |
+| `bun run perf:effect-handlers` | (synced from package.json) |
 | `bun run perf:gates:changed` | (synced from package.json) |
 | `bun run perf:nightly` | (synced from package.json) |
+| `bun run perf:report` | (synced from package.json) |
+| `bun run perf:train` | (synced from package.json) |
 | `bun run pr:diff` | (synced from package.json) |
 | `bun run pr:status` | (synced from package.json) |
 | `bun run push` | (synced from package.json) |

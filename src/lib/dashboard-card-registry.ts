@@ -18,6 +18,7 @@ export const HUB_CARD_PROBE_IDS = [
   "card-perf-harness",
   "card-symbols",
   "card-perf-registry",
+  "card-effect-benchmark",
 ] as const;
 
 export type HubCardProbeId = (typeof HUB_CARD_PROBE_IDS)[number];
@@ -97,6 +98,7 @@ function inferApiRoute(cardId: string): string | null {
     "card-kimi-doctor": "/api/kimi-doctor",
     "card-perf-harness": "/api/perf-harness",
     "card-perf-registry": "/api/perf-registry",
+    "card-effect-benchmark": "/api/effect-benchmark",
     "card-perf-auto-discover": "/api/perf-auto-discover",
     "card-threshold-overrides": "/api/threshold-overrides",
     "card-kimi-publish": "/api/kimi-publish",
@@ -214,7 +216,8 @@ export function cardStatusFromProbe(cardId: string, data: unknown): DashboardCar
     case "card-gates":
       return gateStatusFromJson(data);
     case "card-perf-harness":
-    case "card-perf-registry": {
+    case "card-perf-registry":
+    case "card-effect-benchmark": {
       const allPass = (data as { allPass?: boolean }).allPass;
       if (allPass === true) return "ok";
       if (allPass === false) return "error";

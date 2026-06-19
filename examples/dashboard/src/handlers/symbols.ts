@@ -14,8 +14,8 @@ export async function apiSymbols(): Promise<Response> {
       { key: "kimi.effect.performance", interface: "{ mark, measure }", module: "src/performance/marks.ts" },
       { key: "kimi.effect.scaffoldFiles", interface: "ScaffoldEffect", module: "src/effect.ts" },
       { key: "kimi.effect.isolation", interface: "IsolationEffect (3 backends)", module: "examples/dashboard/src/lib/isolation/" },
-      { key: "kimi.effect.uuid", interface: "{ generate }", module: "placeholder" },
-      { key: "kimi.effect.clock", interface: "{ now }", module: "placeholder" },
+      { key: "kimi.effect.uuid", interface: "{ generate }", module: "templates/modules/uuid/src/processor.ts" },
+      { key: "kimi.effect.clock", interface: "{ now }", module: "templates/modules/clock/src/processor.ts" },
     ],
     harness: [
       { key: "kimi.perfGate", interface: "naming convention", module: "internal pipeline" },

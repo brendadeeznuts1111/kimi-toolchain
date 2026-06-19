@@ -57,6 +57,12 @@ const STEPS: CiStep[] = [
   },
   {
     job: "quality",
+    name: "effect-benchmark",
+    cmd: ["bun", "run", "perf:effect-handlers"],
+    crossCut: true,
+  },
+  {
+    job: "quality",
     name: "config-status",
     cmd: ["bun", "run", "config:status"],
   },

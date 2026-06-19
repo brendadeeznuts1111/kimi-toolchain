@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-17T21:38:39.724Z",
+  "generatedAt": "2026-06-19T09:15:17.689Z",
   "repo": "kimi-toolchain",
-  "tuningSetVersion": "1.4.1",
+  "tuningSetVersion": "1.4.2",
   "domains": {
     "contract-inference": {
       "KIMI_CONTRACT_OBSERVATIONS_PATH": {
@@ -135,10 +135,52 @@
         ]
       }
     },
+    "effect-benchmark": {
+      "KIMI_EFFECT_BENCHMARK_ITERATIONS": {
+        "type": "number",
+        "default": 5,
+        "restrictions": "positive integer — measured iterations per effect handler",
+        "see": [
+          "src/lib/effect-benchmark.ts"
+        ]
+      },
+      "KIMI_EFFECT_BENCHMARK_WARMUP": {
+        "type": "number",
+        "default": 2,
+        "restrictions": "non-negative integer — warmup iterations discarded before measurement",
+        "see": [
+          "src/lib/effect-benchmark.ts"
+        ]
+      },
+      "KIMI_EFFECT_BENCHMARK_TRAIN_MARGIN": {
+        "type": "number",
+        "default": 1.1,
+        "restrictions": "multiplier >= 1.0 — trained threshold margin over measured median",
+        "see": [
+          "src/lib/effect-benchmark.ts"
+        ]
+      },
+      "KIMI_EFFECT_BENCHMARK_REGRESSION_TOLERANCE": {
+        "type": "number",
+        "default": 1.05,
+        "restrictions": "multiplier >= 1.0 — regression tolerance when comparing to previous snapshot",
+        "see": [
+          "src/lib/effect-benchmark.ts"
+        ]
+      },
+      "KIMI_EFFECT_BENCHMARK_DEFAULT_THRESHOLD_MS": {
+        "type": "number",
+        "default": 100,
+        "restrictions": "positive number — fallback threshold (ms) for handlers without a default",
+        "see": [
+          "src/lib/effect-benchmark.ts"
+        ]
+      }
+    },
     "governance": {
       "KIMI_TUNING_SET_VERSION": {
         "type": "string",
-        "default": "1.4.1",
+        "default": "1.4.2",
         "restrictions": "semver — bump when any other KIMI_* define is added, changed, or removed",
         "see": [
           "scripts/lint-tuning-set-version.ts"

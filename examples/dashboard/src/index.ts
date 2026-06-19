@@ -20,6 +20,7 @@ import {
 import { generatePerfHTML, perfGate, runEffectBenchmarks, resolveThresholdSources, trainThresholds } from "./harness/index.ts";
 import { MessageChannel } from "node:worker_threads";
 import http2 from "node:http2";
+import { apiEffectBenchmark } from "./handlers/effect-benchmark.ts";
 
 const port = Number(Bun.env.PORT) || 3000;
 
@@ -1541,11 +1542,17 @@ export const version = "realm-v1";
   const multiply = await realm.importValue("/tmp/_realm_module.js", "multiply");
   const version = await realm.importValue("/tmp/_realm_module.js", "version");
 
-  await Bun.write("/tmp/_realm_bridge.js", `
+  let bridged: unknown = null;
+  let bridgeError: string | null = null;
+  try {
+    await Bun.write("/tmp/_realm_bridge.js", `
 export function applyCallback(cb, x) { return cb(x) * 2; }
 `);
-  const applyCallback = await realm.importValue("/tmp/_realm_bridge.js", "applyCallback");
-  const bridged = applyCallback((x: number) => x ** 3, 2);
+    const applyCallback = await realm.importValue("/tmp/_realm_bridge.js", "applyCallback");
+    bridged = applyCallback((x: number) => x ** 3, 2);
+  } catch (err) {
+    bridgeError = err instanceof Error ? err.message : String(err);
+  }
 
   return jsonResponse({
     factory: {
@@ -1566,6 +1573,7 @@ export function applyCallback(cb, x) { return cb(x) * 2; }
       expression: "applyCallback(x => x**3, 2)",
       expected: 16,
       result: bridged,
+      error: bridgeError,
     },
     note: "ShadowRealm — TC39 proposal. Factory evaluateScript() for code strings; importValue() for module bridging (direct ShadowRealm only).",
   });
@@ -1986,17 +1994,12 @@ export async function apiPerfHarness(): Promise<Response> {
 // ── Image ──────────────────────────────────────────────────────────
 
 export async function apiImage(): Promise<Response> {
-  // Create a test PNG (2x2 red pixel, valid PNG)
-  const png = new Uint8Array([
-    0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00,0x00,0x00,0x0d,0x49,0x48,0x44,0x52,
-    0x00,0x00,0x00,0x02,0x00,0x00,0x00,0x02,0x08,0x02,0x00,0x00,0x00,0xfd,0xd4,0x9a,
-    0x73,0x00,0x00,0x00,0x12,0x49,0x44,0x41,0x54,0x08,0xd7,0x63,0xf8,0xcf,0xc0,0x00,
-    0x02,0x0c,0x00,0x00,0x09,0x00,0x01,0x35,0x8b,0x5a,0xc0,0x00,0x00,0x00,0x00,0x49,
-    0x45,0x4e,0x44,0xae,0x42,0x60,0x82,
-  ]);
+  // Valid 2x2 red PNG served as a data URL (Bun.Image accepts path, URL, TypedArray, or data: URL)
+  const pngDataUrl =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAE0lEQVR4nGP4z8DwnwGM/zMwAAAf7gP9NRsAMwAAAABJRU5ErkJggg==";
+  const inputBytes = Math.ceil(pngDataUrl.length * 0.75); // rough base64 byte count
 
-  const img = Bun.file(png).image();
-  const metadata = { width: img.width, height: img.height };
+  const img = new Bun.Image(pngDataUrl);
 
   // Resize + convert
   const thumb = img.resize(1);
@@ -2007,7 +2010,7 @@ export async function apiImage(): Promise<Response> {
   const meta = await img.metadata();
 
   return jsonResponse({
-    input: { bytes: png.byteLength, width: metadata.width, height: metadata.height },
+    input: { bytes: inputBytes, width: meta.width, height: meta.height },
     metadata: meta,
     pipeline: [".image()", ".metadata()", ".resize(1)", ".webp().bytes()", ".png().bytes()"],
     output: {
@@ -2025,7 +2028,7 @@ export async function apiImage(): Promise<Response> {
 export async function apiSpawnSync(): Promise<Response> {
   const proc = Bun.spawnSync(["echo", "hello from spawnSync"]);
   const stdout = proc.stdout?.toString().trim() ?? "";
-  const usage = proc.resourceUsage();
+  const usage = proc.resourceUsage;
 
   return jsonResponse({
     stdout,
@@ -2182,29 +2185,42 @@ export async function apiCron(): Promise<Response> {
   return new Promise((resolve) => {
     let fired = false;
     let firedAt = 0;
+    let job: { stop(): void } | undefined;
 
-    const job = Bun.cron("* * * * * *", () => {
-      if (!fired) {
-        fired = true;
-        firedAt = Date.now();
-        job.stop();
-        resolve(jsonResponse({
-          pattern: "* * * * * * (every second)",
-          fired: true,
-          latencyMs: firedAt - started,
-          note: "Bun.cron(cronExpression, callback) — native cron scheduler. job.stop() to cancel. Supports 6-field expressions with seconds.",
-        }));
-      }
-    });
+    try {
+      // Bun.cron uses 5 fields: minute hour day month weekday
+      job = Bun.cron("* * * * *", () => {
+        if (!fired) {
+          fired = true;
+          firedAt = Date.now();
+          job?.stop();
+          resolve(jsonResponse({
+            pattern: "* * * * * (every minute)",
+            fired: true,
+            latencyMs: firedAt - started,
+            note: "Bun.cron(cronExpression, callback) — native cron scheduler. job.stop() to cancel. Uses 5 fields (minute hour day month weekday).",
+          }));
+        }
+      });
+    } catch (err) {
+      resolve(jsonResponse({
+        pattern: "* * * * *",
+        fired: false,
+        error: err instanceof Error ? err.message : String(err),
+        note: "Bun.cron may not be supported in this environment.",
+      }));
+      return;
+    }
 
     // Timeout safety: resolve after 2s if cron doesn't fire
     setTimeout(() => {
       if (!fired) {
+        job?.stop();
         resolve(jsonResponse({
-          pattern: "* * * * * *",
+          pattern: "* * * * *",
           fired: false,
           error: "Cron did not fire within 2s",
-          note: "Bun.cron may not be supported in this environment.",
+          note: "Bun.cron schedules at minute granularity; the demo timeout fired first.",
         }));
       }
     }, 2000);
@@ -2925,6 +2941,8 @@ const server = Bun.serve({
         return apiKimiDoctor();
       case "/api/perf-threaded":
         return apiPerfThreaded();
+      case "/api/effect-benchmark":
+        return apiEffectBenchmark();
       case "/api/global-store":
         return apiGlobalStore();
       case "/api/trace-verify":

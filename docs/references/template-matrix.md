@@ -154,6 +154,7 @@ Domain effect handlers are scaffolded per-module during `kimi-fix`. **`KIMI_MODU
 |--------|--------|---------------|-------------|
 | **`doctor`** (default) | `examples/dashboard/src/harness` + `perf-doctor.ts` | `kimi.effect.*` registry keys | `Bun.nanoseconds()`, fetch protocol benchmarks |
 | `image` | `templates/modules/image/src/processor.ts` | `kimi.effect.image` | `Bun.Image` |
+| `clock` | `templates/modules/clock/src/processor.ts` | `kimi.effect.clock` | `Bun.nanoseconds()` |
 | `db` | `templates/modules/db/src/processor.ts` | `kimi.effect.db` | `bun:sqlite` |
 | `uuid` | `templates/modules/uuid/src/processor.ts` | `kimi.effect.uuid` | `Bun.randomUUIDv7` |
 | `terminal` | `templates/modules/terminal/src/processor.ts` | `kimi.effect.terminal` | `Bun.Terminal` |

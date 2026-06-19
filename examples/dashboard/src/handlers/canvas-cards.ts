@@ -10,6 +10,7 @@ import { apiKimiDoctor } from "./kimi-doctor.ts";
 import { apiScaffold } from "./scaffold.ts";
 import { apiPerfHarness, apiPerfRegistry } from "./perf-registry.ts";
 import { apiSymbols } from "./symbols.ts";
+import { apiEffectBenchmark } from "./effect-benchmark.ts";
 
 const REPO_ROOT = join(import.meta.dir, "../../../..");
 
@@ -19,6 +20,7 @@ const HUB_PROBE_HANDLERS: Record<HubCardProbeId, () => Promise<Response>> = {
   "card-scaffold": apiScaffold,
   "card-perf-harness": apiPerfHarness,
   "card-perf-registry": apiPerfRegistry,
+  "card-effect-benchmark": apiEffectBenchmark,
   "card-symbols": apiSymbols,
 };
 

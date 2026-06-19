@@ -102,6 +102,7 @@
   <div class="card" id="card-image"><h2>Bun.Image</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-perf-harness"><h2>Perf Harness</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-perf-registry"><h2>Perf Registry</h2><div class="loading">Loading…</div></div>
+  <div class="card" id="card-effect-benchmark"><h2>Effect Benchmarks</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-perf-auto-discover"><h2>Auto-Discover</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-threshold-overrides"><h2>Threshold Overrides</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-kimi-publish"><h2>kimi publish</h2><div class="loading">Loading…</div></div>
@@ -797,6 +798,26 @@ function card(id, body) {
   } catch(e) { card("card-perf-registry", `<p class="status err">${e.message}</p>`); }
 })();
 
+// Effect Benchmarks (toolchain closed-loop harness)
+(async () => {
+  try {
+    const d = await fetchJson("/api/effect-benchmark");
+    let h = `<div class="row"><span>Handlers</span><strong>${d.registrySize}</strong></div>`;
+    h += `<div class="row"><span>Status</span><span class="badge badge-${d.allPass?'ok':'err'}">${d.allPass?'ALL PASS':'FAIL'}</span></div>`;
+    if (d.failures?.length) {
+      h += `<p class="status err" style="margin-top:4px">${d.failures.slice(0,2).join("<br>")}</p>`;
+    }
+    h += `<table class="tbl" style="margin-top:4px"><tr><th>#</th><th>Handler</th><th>Symbol</th><th>Time</th><th>≤Thr</th></tr>`;
+    d.metrics.forEach((m, i) => {
+      const time = m.skipped ? '—' : `${m.actualMs.toFixed(3)}ms`;
+      h += `<tr><td class="num">${i+1}.</td><td><code style="font-size:9px">${m.name}</code></td><td style="font-size:9px">${m.symbol}</td><td style="font-size:10px">${time}</td><td><span class="badge badge-${m.pass?'ok':'err'}">${m.pass?'✓':'✗'}</span></td></tr>`;
+    });
+    h += `</table>`;
+    h += `<p class="status ok" style="margin-top:4px;font-size:10px">${d.philosophy}</p>`;
+    card("card-effect-benchmark", h);
+  } catch(e) { card("card-effect-benchmark", `<p class="status err">${e.message}</p>`); }
+})();
+
 // Perf Auto-Discover
 (async () => {
   try {
@@ -805,7 +826,7 @@ function card(id, body) {
     h += `<table class="tbl" style="margin-top:4px"><tr><th>#</th><th>File</th><th>Export</th><th>Time</th></tr>`;
     d.discovered.forEach((f) => {
       f.exports.forEach((exp) => {
-        const m = d.metrics.find((m: any) => m.operation === exp);
+        const m = d.metrics.find((m) => m.operation === exp);
         h += `<tr><td class="num">—</td><td style="font-size:9px">${f.file}</td><td><code style="font-size:9px">${exp}</code></td><td style="font-size:10px">${m?.actualMs > 0 ? m.actualMs.toFixed(3)+'ms' : '—'}</td></tr>`;
       });
     });
@@ -869,7 +890,7 @@ function card(id, body) {
     const d = await fetchJson("/api/scaffold");
     let h = `<p style="font-size:11px;color:var(--blue);margin-bottom:2px">Architecture</p>`;
     Object.entries(d.architecture).forEach(([k, v]) => {
-      h += `<div class="row"><span style="font-size:9px">${k}</span><code style="font-size:9px">${(v as any).file}</code></div>`;
+      h += `<div class="row"><span style="font-size:9px">${k}</span><code style="font-size:9px">${v.file}</code></div>`;
     });
     h += `<p style="font-size:11px;color:var(--blue);margin:6px 0 2px">Generated scripts</p>`;
     h += `<table class="tbl"><tr><th>Script</th><th>Command</th></tr>`;
@@ -1076,7 +1097,7 @@ function card(id, body) {
       h += `<details style="margin-top:4px"><summary style="font-size:11px;cursor:pointer;color:var(--blue)">Exposure layers</summary>`;
       Object.entries(d.exposure).forEach(([k, v]) => {
         h += `<p style="font-size:10px;color:var(--blue);margin:4px 0 0">${k}</p>`;
-        (v as string[]).forEach(item => {
+        (Array.isArray(v) ? v : []).forEach(item => {
           h += `<code style="font-size:9px;display:block;margin-left:8px;color:var(--muted)">${item}</code>`;
         });
       });

@@ -1,5 +1,8 @@
 // ── Perf Registry ──────────────────────────────────────────────────
 
+import { generatePerfHTML, perfGate, runEffectBenchmarks, trainThresholds } from "../harness/index.ts";
+import { jsonResponse } from "./api-handlers.ts";
+
 export async function apiPerfRegistry(): Promise<Response> {
   const metrics = await runEffectBenchmarks();
   const gate = perfGate(metrics);

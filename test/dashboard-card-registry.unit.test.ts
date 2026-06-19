@@ -30,7 +30,7 @@ describe("dashboard-card-registry", () => {
 
   test("loadDashboardCardRegistry matches dashboard.html card count", () => {
     const registry = buildDashboardCardRegistry(REPO_ROOT);
-    expect(registry.length).toBe(64);
+    expect(registry.length).toBe(65);
     expect(registry.some((c) => c.id === "card-kimi-doctor")).toBe(true);
   });
 
@@ -58,6 +58,9 @@ describe("dashboard-card-registry", () => {
     expect(cardStatusFromProbe("card-gates", { summary: { ok: false } })).toBe("error");
     expect(cardStatusFromProbe("card-perf-harness", { allPass: true })).toBe("ok");
     expect(cardStatusFromProbe("card-perf-harness", { allPass: false })).toBe("error");
+    expect(cardStatusFromProbe("card-effect-benchmark", { allPass: true })).toBe("ok");
+    expect(cardStatusFromProbe("card-effect-benchmark", { allPass: false })).toBe("error");
+    expect(cardStatusFromProbe("card-effect-benchmark", {})).toBe("unknown");
     expect(cardStatusFromProbe("card-kimi-doctor", { commands: [{ flag: "--train" }] })).toBe("ok");
     expect(cardStatusFromProbe("card-scaffold", { architecture: {}, scripts: {} })).toBe("ok");
     expect(
