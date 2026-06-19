@@ -49,6 +49,8 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "constants-registry": "src/lib/constants-registry.ts",
   "optimizer-doctor": "src/lib/constant-optimizer.ts",
   "decision-list-diff": "src/lib/decision-ledger.ts",
+  "audit-effects": "src/bin/kimi-heal.ts",
+  "html-reporter": "src/harness/html-reporter.ts",
   "guardian-verify": "src/guardian/verify.ts",
   "taxonomy-coverage": "src/lib/taxonomy-coverage.ts",
   "herdr-socket-saturation": "src/lib/herdr-socket-client.ts",

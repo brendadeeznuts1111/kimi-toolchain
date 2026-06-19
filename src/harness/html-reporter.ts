@@ -1,5 +1,7 @@
 /** Shared harness metric types — monitor, perf gate, and HTML reporter. */
 
+import { escapeHtml } from "../lib/bun-utils.ts";
+
 export interface Metric {
   symbol: string;
   operation: string;
@@ -28,9 +30,9 @@ export function generatePerfHTML(
   const rows = metrics
     .map((m) => {
       const status = m.skipped ? "↷" : m.pass ? "✓" : "✗";
-      const actual = m.skipped ? "—" : m.actualMs.toFixed(3);
-      const note = m.skipReason ? ` title="${m.skipReason}"` : "";
-      return `<tr${note}><td><code>${m.registryKey ?? m.operation}</code></td><td>${m.symbol}</td><td>${actual}</td><td>${m.thresholdMs}</td><td>${status}</td></tr>`;
+      const actual = m.skipped ? "—" : escapeHtml(m.actualMs.toFixed(3));
+      const note = m.skipReason ? ` title="${escapeHtml(m.skipReason)}"` : "";
+      return `<tr${note}><td><code>${escapeHtml(m.registryKey ?? m.operation)}</code></td><td>${escapeHtml(m.symbol)}</td><td>${actual}</td><td>${m.thresholdMs}</td><td>${status}</td></tr>`;
     })
     .join("\n");
 
@@ -39,20 +41,22 @@ export function generatePerfHTML(
   const measuredCount = metrics.length - skippedCount;
 
   const metaLines: string[] = [];
-  if (meta?.generatedAt) metaLines.push(`<li>Generated: ${meta.generatedAt}</li>`);
-  if (meta?.gitHead) metaLines.push(`<li>Git HEAD: <code>${meta.gitHead.slice(0, 7)}</code></li>`);
+  if (meta?.generatedAt) metaLines.push(`<li>Generated: ${escapeHtml(meta.generatedAt)}</li>`);
+  if (meta?.gitHead) {
+    metaLines.push(`<li>Git HEAD: <code>${escapeHtml(meta.gitHead.slice(0, 7))}</code></li>`);
+  }
   if (meta?.snapshotCount !== undefined) {
-    metaLines.push(`<li>History snapshots: ${meta.snapshotCount}</li>`);
+    metaLines.push(`<li>History snapshots: ${escapeHtml(meta.snapshotCount)}</li>`);
   }
   if (meta?.regressionCount !== undefined) {
-    metaLines.push(`<li>Regressions: ${meta.regressionCount}</li>`);
+    metaLines.push(`<li>Regressions: ${escapeHtml(meta.regressionCount)}</li>`);
   }
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
   <style>
     body { font-family: system-ui, sans-serif; margin: 2rem; background: #0d1117; color: #e6edf3; }
     table { border-collapse: collapse; width: 100%; }
@@ -64,7 +68,7 @@ export function generatePerfHTML(
   </style>
 </head>
 <body>
-  <h1>${title}</h1>
+  <h1>${escapeHtml(title)}</h1>
   <p class="summary">${passCount}/${measuredCount} within threshold${skippedCount ? ` · ${skippedCount} skipped` : ""}</p>
   ${metaLines.length > 0 ? `<ul class="meta">${metaLines.join("")}</ul>` : ""}
   <table>
