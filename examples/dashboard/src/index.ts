@@ -219,6 +219,7 @@ async function apiRuntimeInfo(): Promise<Response> {
     bunRevision: isBun ? Bun.revision : null,
     activeBunfig,
     main: isBun ? Bun.main : null,
+    isEntrypoint: (import.meta as any).main === true,
     whichBun: isBun ? Bun.which("bun") : null,
     note: "Bun.main = entrypoint path. Bun.which('bun') = resolved binary. --config overrides bunfig.toml.",
   });
