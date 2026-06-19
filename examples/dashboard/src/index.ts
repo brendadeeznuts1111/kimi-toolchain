@@ -185,6 +185,20 @@ async function apiRuntimeInfo(): Promise<Response> {
   });
 }
 
+async function apiInspect(): Promise<Response> {
+  const sample = {
+    name: "kimi-toolchain-dashboard",
+    version: "0.1.0",
+    features: ["bundle", "compile", "gates", "markdown"],
+    config: { port: 5678, debug: false },
+    nested: { a: { b: { c: "deep" } } },
+  };
+  const serialized = Bun.inspect(sample);
+  return new Response(serialized, {
+    headers: { "content-type": "text/plain; charset=utf-8" },
+  });
+}
+
 // ── Server ──────────────────────────────────────────────────────────
 
 const server = Bun.serve({
@@ -212,6 +226,8 @@ const server = Bun.serve({
         return apiBuildInfo();
       case "/api/runtime-info":
         return apiRuntimeInfo();
+      case "/api/inspect":
+        return apiInspect();
       case "/health":
         return new Response("ok");
       default:

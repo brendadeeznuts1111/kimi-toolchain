@@ -52,7 +52,7 @@
   <div class="card" id="card-compile"><h2>Compile Check</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-gates"><h2>Gate Health</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-markdown"><h2>Markdown Rendering</h2><div class="loading">Loading…</div></div>
-  <div class="card" id="card-depth"><h2>Console Depth</h2><div class="loading">Loading…</div></div>
+  <div class="card" id="card-depth"><h2>Bun.inspect()</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-build"><h2>Build Info</h2><div class="loading">Loading…</div></div>
 </div>
 <script>
@@ -172,12 +172,13 @@ card("card-markdown", `
 (async () => {
   try {
     const d = await fetchJson("/api/console-depth");
+    const inspectRes = await fetch("/api/inspect");
+    const inspectText = await inspectRes.text();
     let h = `<div class="row"><span>Depth</span><span class="badge badge-info">${d.configuredDepth}</span></div>`;
-    h += `<div class="row"><span>Source</span><span style="font-size:11px">bunfig.toml console.depth</span></div>`;
     h += `<div style="margin-top:8px;font-size:12px;background:var(--border);padding:8px;border-radius:4px;overflow-x:auto">`;
-    h += `<code style="white-space:pre">${JSON.stringify(d.sample._raw, null, 2)}</code>`;
+    h += `<code style="white-space:pre">${inspectText.replace(/</g,'&lt;')}</code>`;
     h += `</div>`;
-    h += `<p class="status ok" style="margin-top:4px">${d.note}</p>`;
+    h += `<p class="status ok" style="margin-top:4px">Bun.inspect() serializes like console.log</p>`;
     card("card-depth", h);
   } catch(e) { card("card-depth", `<p class="status err">${e.message}</p>`); }
 })();
