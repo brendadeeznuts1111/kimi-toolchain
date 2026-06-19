@@ -60,21 +60,25 @@ export class ConfigMergeConflict extends Data.TaggedError("ConfigMergeConflict")
   projectValue: string;
 }> {}
 
+/** Thrown when an Effect symbol is referenced but has no registered globalThis handler. */
 export class EffectNotRegisteredError extends Data.TaggedError("EffectNotRegisteredError")<{
   symbol: string;
   label: string;
 }> {}
 
+/** Thrown when a benchmark or perf gate exceeds its threshold. */
 export class ThresholdExceededError extends Data.TaggedError("ThresholdExceededError")<{
   operation: string;
   actualMs: number;
   thresholdMs: number;
 }> {}
 
+/** Thrown by `kimi-heal constants repair` when the golden template is missing. */
 export class HealGoldenMissingError extends Data.TaggedError("HealGoldenMissingError")<{
   command: string;
 }> {}
 
+/** Thrown by `kimi-heal` when a CLI flag has an invalid value. */
 export class HealInvalidArgumentError extends Data.TaggedError("HealInvalidArgumentError")<{
   flag: string;
   message: string;
