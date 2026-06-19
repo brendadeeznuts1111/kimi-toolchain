@@ -1,0 +1,7 @@
+* text=auto eol=lf
+
+# Bun / lockfiles
+bun.lock linguist-generated=false
+
+# Canvas companions are TSX but not app source
+docs/canvases/*.canvas.tsx linguist-documentation

@@ -1,3 +1,8 @@
+# Secrets (pre-commit also blocks; .env.example is tracked)
+.env
+.env.local
+.env.*.local
+
 # Project-level Kimi Code config (scaffolded by kimi-fix, not source)
 .kimi-code/
 
@@ -21,6 +26,7 @@ reports/
 .tmp-drift-*/
 .tmp-test-*/
 .tmp-path-align-*/
+.tmp/
 .tmp-*/
 *.log
 *.bun-build
@@ -29,6 +35,8 @@ reports/
 .kimi/
 .reasonix/
 .bun-create
+.bun-native-baseline.json
+.cursor/
 test-define-tmp.ts
 
 # OS

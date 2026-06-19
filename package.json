@@ -104,7 +104,7 @@
     "lint": "oxlint src test scripts && bun run scripts/lint-banned-terms.ts && bun run scripts/lint-patterns.ts",
     "quality:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json . && oxlint src test scripts && bun run scripts/lint-banned-terms.ts && bun run scripts/lint-patterns.ts",
     "lint:terms": "bun run scripts/lint-banned-terms.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit",
     "sync": "bun run scripts/sync-to-desktop.ts",
     "sync:manifest": "bun run scripts/sync-manifest.ts",
     "sync:verify": "bun run scripts/sync-manifest.ts --verify",
@@ -120,7 +120,8 @@
     "dx:table": "bun run scripts/dx-table.ts",
     "dx:table:contract": "bun run scripts/dx-table-contract.ts",
     "canvas:generate": "bun run scripts/generate-canvas-companions.ts",
-    "sync:cursor-canvases": "bun run scripts/sync-cursor-canvases.ts"
+    "sync:cursor-canvases": "bun run scripts/sync-cursor-canvases.ts",
+    "finish-work": "bun run scripts/finish-work.ts"
   },
   "dependencies": {
     "effect": "^3.21.3",
@@ -136,5 +137,8 @@
   "engines": {
     "bun": ">=1.3.14"
   },
-  "packageManager": "bun@1.3.14"
+  "packageManager": "bun@1.3.14",
+  "kimi": {
+    "canonicalReferences": "canonical-references.json"
+  }
 }
