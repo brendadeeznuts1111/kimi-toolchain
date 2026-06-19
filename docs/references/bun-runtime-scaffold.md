@@ -163,7 +163,7 @@ The toolchain ships a typed handoff wrapper at `src/lib/execve-handoff.ts`:
 
 ### Scaffolded perf harness (`KIMI_MODULES=doctor`)
 
-`kimi-fix` copies the dashboard perf harness (`src/harness/`, `src/bin/perf-doctor.ts`) when `KIMI_MODULES` is unset (default `doctor`). See [template-matrix.md](./template-matrix.md) and [kimi-doctor.md](./kimi-doctor.md) § Effects pipeline.
+`kimi-fix` copies the dashboard perf harness (`examples/dashboard/src/harness/`, `examples/dashboard/src/bin/perf-doctor.ts`) when `KIMI_MODULES` is unset (default `doctor`). See [template-matrix.md](./template-matrix.md) and [kimi-doctor.md](./kimi-doctor.md) § Effects pipeline.
 - Used by `herdr-orchestrator` for pane process inheritance
 
 ### Bun.Terminal on Windows (Bun ≥1.3.14)

@@ -50,7 +50,7 @@ Authoritative maps — do not duplicate stale trees here:
 
 | Need | Source |
 | ---- | ------ |
-| CLI entry points (27 registered bins) | `package.json` `bin` + `src/bin/*.ts` |
+| CLI entry points (29 registered bins) | `package.json` `bin` + `src/bin/*.ts` |
 | Tool routing | [UNIFIED.md](UNIFIED.md) |
 | Shared library | `src/lib/` (flat by default; `src/lib/effect/` for Effect adapters) |
 | Library domain guide | `src/lib/README.md` |

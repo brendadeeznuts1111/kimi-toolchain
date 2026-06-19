@@ -17,6 +17,7 @@
     "canonicalReferences": "canonical-references.json"
   },
   "bin": {
+    "kimi-dashboard": "src/bin/kimi-dashboard.ts",
     "kimi-cleanup-legacy": "src/bin/kimi-cleanup-legacy.ts",
     "kimi-cloudflare-access": "src/bin/kimi-cloudflare-access.ts",
     "kimi-config": "src/bin/kimi-config.ts",

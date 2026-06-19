@@ -150,6 +150,11 @@ const WATCH = Bun.argv.includes("--watch");
 const PROBE = Bun.argv.includes("--probe");
 const MCP_SERVER = Bun.argv.includes("--mcp-server");
 const ALL = Bun.argv.includes("--all");
+const EFFECT_SCAN = Bun.argv.includes("--effect-scan");
+const PERF_GATES = Bun.argv.includes("--perf-gates");
+const TRAIN = Bun.argv.includes("--train");
+const REPORT = Bun.argv.includes("--report");
+const OPEN = Bun.argv.includes("--open");
 const AGENT_ID = argValue("--agent-id");
 const ADAPTER = argValue("--adapter");
 const PLUGIN = argValue("--plugin");
@@ -1550,6 +1555,99 @@ async function main(): Promise<number> {
       process.off("SIGTERM", onSignal);
     }
     return 0;
+  }
+
+  if (EFFECT_SCAN) {
+    try {
+      const { scanEffectMethods } = await import("../harness/transpiler-scan.ts");
+      const methods = scanEffectMethods("src/effect/**/*.ts");
+      if (methods.length === 0) {
+        logger.info("No effect methods found in src/effect/.");
+        return 0;
+      }
+      const table = Bun.inspect.table(
+        methods.map((m) => ({ method: m.methodName, file: m.sourceFile })),
+        { colors: true }
+      );
+      console.log(table);
+    } catch (e) {
+      logger.error(e instanceof Error ? e.message : String(e));
+      return 1;
+    }
+    return 0;
+  }
+
+  if (PERF_GATES || TRAIN || REPORT) {
+    try {
+      const { runEffectBenchmarks } = await import("../harness/perf-monitor.ts");
+      const { perfGate } = await import("../guardian/perf-gate.ts");
+      const { generatePerfHTML } = await import("../harness/html-reporter.ts");
+      const outDir = argValue("--out-dir") ?? process.cwd();
+
+      const metrics = await runEffectBenchmarks();
+
+      if (TRAIN) {
+        if (metrics.length === 0) {
+          logger.error("No benchmark metrics to train on. Register an effect handler first.");
+          return 1;
+        }
+        const { pass } = perfGate(metrics);
+        if (!pass) {
+          logger.error("Cannot train with failing benchmarks. Fix gates first:");
+          const { failures } = perfGate(metrics);
+          for (const f of failures) logger.error(`  - ${f}`);
+          return 1;
+        }
+        const newThresholds: Record<string, number> = {};
+        for (const m of metrics) {
+          const key = `${m.symbol}.${m.operation}`;
+          newThresholds[key] = Math.max(0.1, Math.ceil(m.actualMs * 1.2 * 10) / 10);
+        }
+        const thresholdsPath = join(outDir, "thresholds.json");
+        await Bun.write(thresholdsPath, JSON.stringify(newThresholds, null, 2));
+        logger.info(`Thresholds written to ${thresholdsPath}`);
+        return 0;
+      }
+
+      if (REPORT) {
+        if (metrics.length === 0) {
+          logger.warn("No benchmark metrics — generating empty report.");
+        }
+        const html = generatePerfHTML(metrics);
+        const reportPath = join(outDir, "perf-report.html");
+        await Bun.write(reportPath, html);
+        logger.info(`Report: ${reportPath}`);
+        if (OPEN) {
+          const cmd =
+            process.platform === "darwin"
+              ? "open"
+              : process.platform === "win32"
+                ? "start"
+                : "xdg-open";
+          Bun.spawn([cmd, reportPath]);
+        }
+      }
+
+      if (PERF_GATES) {
+        if (metrics.length === 0) {
+          logger.warn("No benchmark metrics — nothing to gate.");
+          return 0;
+        }
+        const { pass, failures } = perfGate(metrics);
+        if (!pass) {
+          logger.error("Performance gates failed:");
+          for (const f of failures) logger.error(`  - ${f}`);
+          return 1;
+        }
+        const passCount = metrics.filter((m) => m.pass).length;
+        logger.info(`${passCount}/${metrics.length} operations within threshold`);
+      }
+
+      return 0;
+    } catch (e) {
+      logger.error(`Benchmark run failed: ${e instanceof Error ? e.message : String(e)}`);
+      return 1;
+    }
   }
 
   if (!JSON_OUT) {

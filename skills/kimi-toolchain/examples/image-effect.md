@@ -14,7 +14,7 @@ Three pure methods, zero dependencies, Bun-native only:
 
 ## Registration
 
-When scaffolded (`KIMI_MODULES=image`), the generated `src/init.ts` registers it:
+When scaffolded (`KIMI_MODULES=image`), the generated init module registers it:
 
 ```ts
 import * as image from "./image/processor";

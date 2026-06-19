@@ -12,7 +12,7 @@ import { homedir } from "os";
 import { join } from "path";
 
 export const USER_TOOLCHAIN_BIN = join(homedir(), ".kimi-code", "bin");
-export const SYSTEM_PATH = process.env.PATH ?? "";
+export const SYSTEM_PATH = Bun.env.PATH ?? "";
 
 // ── Types ──────────────────────────────────────────────────────────
 

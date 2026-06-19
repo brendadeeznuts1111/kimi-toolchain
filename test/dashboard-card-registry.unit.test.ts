@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { join } from "path";
 import {
   buildDashboardCardRegistry,
   influencesForManifest,
@@ -9,8 +8,7 @@ import {
 } from "../src/lib/dashboard-card-registry.ts";
 import { fetchDashboardCanvases } from "../src/lib/herdr-dashboard-data.ts";
 import { LOCAL_DOC_REFERENCES } from "../src/lib/canonical-references.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
+import { REPO_ROOT } from "./helpers.ts";
 
 describe("dashboard-card-registry", () => {
   test("parseDashboardCardsFromHtml extracts card ids and api routes", () => {
@@ -45,6 +43,13 @@ describe("dashboard-card-registry", () => {
     expect(resolveCanvasFilter("deep-quality").manifestId).toBe("deep-quality");
     expect(resolveCanvasFilter("kimi-heal-doctor-scaffold").manifestId).toBe("deep-quality");
     expect(influencesForManifest("templates")).toContain("card-scaffold");
+  });
+
+  test("v53-architecture includes dashboard-card-registry cursorCanvas pointer", () => {
+    const entry = LOCAL_DOC_REFERENCES.find((ref) => ref.id === "v53-architecture");
+    expect(entry?.cursorCanvas).toBe("docs/canvases/dashboard-card-registry.canvas.tsx");
+    expect(entry?.canvasInfluences).toContain("card-gates");
+    expect(influencesForManifest("v53-architecture")).toContain("card-kimi-doctor");
   });
 
   test("fetchDashboardCanvases exposes influences", () => {

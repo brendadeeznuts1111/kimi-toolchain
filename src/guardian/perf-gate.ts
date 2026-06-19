@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathExists, readText } from "../lib/bun-io.ts";
 import type { Metric } from "../harness/html-reporter.ts";
 
 export interface PerfGateResult {
@@ -24,9 +24,9 @@ function metricKey(metric: Metric): string {
 }
 
 function loadTrainedThresholds(): Record<string, number> {
-  if (!existsSync(thresholdsPath)) return {};
+  if (!pathExists(thresholdsPath)) return {};
   try {
-    return JSON.parse(readFileSync(thresholdsPath, "utf8")) as Record<string, number>;
+    return JSON.parse(readText(thresholdsPath)) as Record<string, number>;
   } catch {
     return {};
   }

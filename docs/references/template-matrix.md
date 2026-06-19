@@ -159,7 +159,7 @@ Domain effect handlers are scaffolded per-module during `kimi-fix`. **`KIMI_MODU
 | `terminal` | `templates/modules/terminal/src/processor.ts` | `kimi.effect.terminal` | `Bun.Terminal` |
 | `perf` | alias of doctor harness | `kimi.effect.perf` | `Bun.nanoseconds()` |
 
-Registration (generated in `src/init.ts` when modules include `image`):
+Registration (generated in the project init module when modules include `image`):
 ```ts
 import * as image from './image/processor';
 globalThis[Symbol.for('kimi.effect.image')] = image;
