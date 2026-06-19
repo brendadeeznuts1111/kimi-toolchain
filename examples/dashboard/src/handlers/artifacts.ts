@@ -4,6 +4,7 @@
  */
 import {
   ArtifactStore,
+  artifactFilterFromSessionRoute,
   extractArtifactTimestampMs,
   parseArtifactListQuery,
 } from "../../../../src/lib/artifact-store.ts";
@@ -13,6 +14,8 @@ import {
   DASHBOARD_ARTIFACT_INDEX_STATS,
   DASHBOARD_ARTIFACT_LINEAGE,
   DASHBOARD_RUN_MANIFEST,
+  DASHBOARD_SESSION_ARTIFACTS,
+  DASHBOARD_SESSION_RUNS,
   isDashboardArtifactNamespace,
   pathnameGroup,
 } from "../../../../src/lib/dashboard-route-patterns.ts";
@@ -23,6 +26,7 @@ import {
   fetchDashboardArtifactIndexStats,
   fetchDashboardArtifactLineage,
   fetchDashboardGateGraph,
+  fetchDashboardSessionsIndex,
 } from "../../../../src/lib/herdr-dashboard-data.ts";
 import { resolveDashboardProjectRoot } from "../../../../src/lib/dashboard-settings.ts";
 
@@ -168,6 +172,8 @@ async function fetchArtifacts(
     ok: true,
     projectPath,
     artifacts,
+    count: artifacts.length,
+    gates: artifacts.map((row) => row.gate),
     ...(hasFilter ? { filter } : {}),
     ...(options.includeLineage ? { includeLineage: true } : {}),
     fetchedAt: new Date().toISOString(),
@@ -219,6 +225,30 @@ export async function handleArtifactsRequest(req: Request): Promise<Response | n
 
   if (path === "/api/runs" && req.method === "GET") {
     return jsonResponse(await fetchRunsList(root, filter));
+  }
+
+  if (path === "/api/sessions" && req.method === "GET") {
+    return jsonResponse(await fetchDashboardSessionsIndex(root));
+  }
+
+  const sessionRunsMatch = DASHBOARD_SESSION_RUNS.exec(url);
+  if (sessionRunsMatch && req.method === "GET") {
+    const scope = pathnameGroup(sessionRunsMatch, "scope");
+    if (!scope) {
+      return jsonResponse({ ok: false, error: "session scope required" }, 400);
+    }
+    const sessionFilter = artifactFilterFromSessionRoute(scope);
+    return jsonResponse(await fetchRunsList(root, sessionFilter));
+  }
+
+  const sessionArtifactsMatch = DASHBOARD_SESSION_ARTIFACTS.exec(url);
+  if (sessionArtifactsMatch && req.method === "GET") {
+    const scope = pathnameGroup(sessionArtifactsMatch, "scope");
+    if (!scope) {
+      return jsonResponse({ ok: false, error: "session scope required" }, 400);
+    }
+    const sessionFilter = artifactFilterFromSessionRoute(scope);
+    return jsonResponse(await fetchArtifacts(root, sessionFilter));
   }
 
   if (DASHBOARD_ARTIFACT_FEED.test(url) && req.method === "GET") {

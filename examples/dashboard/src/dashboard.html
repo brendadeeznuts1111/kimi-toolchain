@@ -875,8 +875,12 @@
     <script>
       async function fetchJson(url) {
         const res = await fetch(url);
+        if (!res.ok) throw new Error(`${url} → ${res.status}`);
         return res.json();
       }
+
+      /** Canonical port fallback when /api/settings is unavailable. */
+      const CANONICAL_DASHBOARD_PORT = 5678;
 
       /** ASCII lineage badges (not Unicode icons, not punycode). */
       const LINEAGE_BADGE = {
@@ -998,9 +1002,17 @@
           }
           return;
         }
-        if (!params.get("canvas")) return;
+        const hasCanvasDeepLink =
+          params.get("canvas") ||
+          params.get("runId") ||
+          params.get("sessionId") ||
+          params.get("diff");
+        if (!hasCanvasDeepLink) return;
+        if (!params.get("canvas") && (params.get("runId") || params.get("sessionId") || params.get("diff"))) {
+          params.set("canvas", ARTIFACT_LINEAGE_CANVAS);
+        }
         try {
-          const payload = await fetchJson(`/api/canvas-filter${location.search}`);
+          const payload = await fetchJson(`/api/canvas-filter?${params.toString()}`);
           const action = payload.action;
           if (!action) return;
 
@@ -1222,7 +1234,10 @@
                 `<span style="margin:0 6px;color:var(--muted)">${k}=</span><span style="color:var(--text)">${v}</span>`
             )
             .join("");
-          const listenUrl = d.dashboardUrl ?? settings?.dashboardUrl ?? `http://127.0.0.1:${d.listenPort ?? settings?.port ?? 5678}/`;
+          const listenUrl =
+            settings?.dashboardUrl ??
+            d.dashboardUrl ??
+            `http://127.0.0.1:${settings?.port ?? d.listenPort ?? CANONICAL_DASHBOARD_PORT}/`;
           const shadows =
             d.shadowWarnings.length > 0
               ? `<span class="badge badge-warn" style="margin:0 4px">shadow:${d.shadowWarnings.join(",")}</span>`
@@ -1281,10 +1296,10 @@
         try { settings = await fetchJson("/api/settings"); } catch { /* optional */ }
 
         function resolveProbeBase() {
-          if (settings?.probeHost && settings?.probePort) {
-            return `http://${settings.probeHost}:${settings.probePort}`;
-          }
-          return `http://127.0.0.1:${settings?.port ?? 5678}`;
+          const host = settings?.probeHost ?? "127.0.0.1";
+          const port =
+            settings?.probePort ?? settings?.port ?? settings?.canonicalPort ?? CANONICAL_DASHBOARD_PORT;
+          return `http://${host}:${port}`;
         }
 
         function colorForRatio(ok, total) {
@@ -1320,6 +1335,11 @@
         // Refresher
         async function refreshLanding() {
           const now = new Date().toLocaleTimeString();
+          try {
+            settings = await fetchJson("/api/settings");
+          } catch {
+            /* keep prior settings snapshot */
+          }
 
           // Cards: dashboard
           try {
@@ -1340,8 +1360,15 @@
           // Artifact gates
           try {
             const arts = await fetchJson("/api/artifacts");
-            setStat("artifacts", arts.count ?? "—", "artifact gates",
-              arts.gates?.join(", ")?.slice(0, 40) ?? "", `refreshed ${now}`);
+            const withSaved = (arts.artifacts || []).filter((r) => (r.count ?? 0) > 0);
+            const gateNames = withSaved.map((r) => r.gate).join(", ");
+            setStat(
+              "artifacts",
+              withSaved.length,
+              "artifact gates",
+              gateNames.length > 40 ? `${gateNames.slice(0, 40)}…` : gateNames,
+              `refreshed ${now}`
+            );
           } catch { setStat("artifacts", "—", "artifacts", "unavailable", `refreshed ${now}`); }
 
           // Dual health: dashboard + probe server
@@ -1360,9 +1387,7 @@
             const sub = dashOk ? (probeOk ? "both healthy" : "dashboard up · probe unreachable")
               : (probeOk ? "dashboard down · probe up" : "both down");
             const dashLabel = settings ? `dashboard :${settings.port}` : "dashboard";
-            const probeLabel = settings?.probeHost
-              ? `${settings.probeHost}:${settings.probePort}`
-              : `127.0.0.1:${settings?.port ?? 5678}`;
+            const probeLabel = `${settings?.probeHost ?? "127.0.0.1"}:${settings?.probePort ?? settings?.port ?? CANONICAL_DASHBOARD_PORT}`;
             setStat("probe", summary, sub,
               `${dashLabel} · probe ${probeLabel}`, `refreshed ${now}`,
               dashOk && probeOk ? "var(--green)" : dashOk || probeOk ? "var(--yellow)" : "var(--red)");
@@ -3447,6 +3472,13 @@
             if (input) input.value = "";
           }
           syncUrlFromFields();
+          void refresh();
+        });
+
+        window.addEventListener("popstate", () => {
+          hydrateFromUrl();
+          selectedGate = new URLSearchParams(location.search).get("lineageGate") || selectedGate;
+          void renderDiffFromUrl();
           void refresh();
         });
 

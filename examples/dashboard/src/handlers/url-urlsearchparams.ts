@@ -1,5 +1,7 @@
 // ── URL / URLSearchParams ──────────────────────────────────────────
 
+import { jsonResponse } from "./api-handlers.ts";
+
 export async function apiUrl(): Promise<Response> {
   const url = new URL(
     "https://user:pass@example.com:8080/path/to/page?q=bun&lang=en&q=again#section"
@@ -39,6 +41,11 @@ export async function apiUrl(): Promise<Response> {
   // Relative resolution
   const relative = new URL("../../api", "https://example.com/a/b/c/page");
 
+  const { auditUrlI18n } = await import("../../../../src/lib/url-i18n.ts");
+  const { auditEmailI18n } = await import("../../../../src/lib/email-i18n.ts");
+  const i18n = auditUrlI18n();
+  const emailI18n = auditEmailI18n();
+
   return jsonResponse({
     properties,
     searchParams: params,
@@ -54,6 +61,26 @@ export async function apiUrl(): Promise<Response> {
       base: "https://example.com/a/b/c/page",
       result: relative.href,
     },
-    note: "URL.parse() returns null on invalid input (no throw). URL.canParse() is a fast boolean check. URLSearchParams: get, getAll, has, size, sort, entries.",
+    i18n: {
+      ok: i18n.ok,
+      idempotent: i18n.idempotent,
+      roundtrip: i18n.roundtrip,
+      punycodePrefixCorrect: i18n.punycodePrefixCorrect,
+      domains: i18n.probes,
+      labels: i18n.labelProbes,
+      urls: i18n.urlProbes,
+      gate: "url-i18n",
+      docs: i18n.docs,
+    },
+    emailI18n: {
+      ok: emailI18n.ok,
+      summary: emailI18n.summary,
+      lengthValid: emailI18n.lengthValid,
+      domainIdempotent: emailI18n.domainIdempotent,
+      emails: emailI18n.probes,
+      limitations: emailI18n.limitations,
+      gates: ["url-i18n", "email-i18n"],
+    },
+    note: "URL.parse() returns null on invalid input (no throw). URL.canParse() is a fast boolean check. URLSearchParams: get, getAll, has, size, sort, entries. i18n: node:punycode via src/lib/url-decomposer.ts. email-i18n: @ split + UTF-8 octet limits + IDN domain (gates: url-i18n, email-i18n).",
   });
 }

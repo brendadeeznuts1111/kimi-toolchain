@@ -3604,6 +3604,16 @@ const server = Bun.serve({
         const { apiDashboardSettings } = await import("./handlers/dashboard-settings.ts");
         return apiDashboardSettings(req);
       }
+      case "/api/health": {
+        const headers = { "cache-control": "no-store" };
+        if (req.method === "HEAD") {
+          return new Response(null, { status: 200, headers });
+        }
+        if (req.method === "GET") {
+          return new Response("ok", { status: 200, headers });
+        }
+        return new Response("Method Not Allowed", { status: 405 });
+      }
       case "/health":
         return new Response("ok");
       default:
