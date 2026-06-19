@@ -239,6 +239,7 @@ async function apiToolchainHealth(): Promise<Response> {
     missing,
     shadowed: shadowed.map((b) => b.name),
     all: bins.map((b) => ({ name: b.name, source: b.source, path: b.resolved, shadowed: b.shadowed })),
+    inspect: Bun.inspect({ ok: missing.length === 0, missing, found: names.length - missing.length }),
     hint: missing.length > 0 ? "Install: bun install -g github:brendadeeznuts1111/kimi-toolchain" : null,
   });
 }
@@ -264,10 +265,15 @@ async function apiInspectSimple(): Promise<Response> {
   const obj = { foo: "bar" };
   const arr = new Uint8Array([1, 2, 3]);
   const constObj = { method: "GET", status: 200, debug: true };
+  const buffer = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
+  let errorStr = "";
+  try { throw new Error("Something went wrong"); } catch (err) { errorStr = Bun.inspect(err); }
   return new Response(
     `// Bun.inspect({ foo: "bar" })\n${Bun.inspect(obj)}\n\n` +
     `// Bun.inspect(new Uint8Array([1, 2, 3]))\n${Bun.inspect(arr)}\n\n` +
-    `// as const — TypeScript only, no runtime effect\n${Bun.inspect(constObj)}`,
+    `// as const — TypeScript only, no runtime effect\n${Bun.inspect(constObj)}\n\n` +
+    `// Binary data\n${Bun.inspect(buffer)}\n\n` +
+    `// Error inspection\n${errorStr}`,
     { headers: { "content-type": "text/plain; charset=utf-8" } }
   );
 }
