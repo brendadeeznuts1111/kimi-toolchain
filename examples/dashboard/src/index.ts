@@ -179,7 +179,9 @@ async function apiRuntimeInfo(): Promise<Response> {
     bunVersion: isBun ? Bun.version : null,
     bunRevision: isBun ? Bun.revision : null,
     activeBunfig,
-    note: "--config <path> overrides bunfig.toml lookup. Runtime: typeof Bun !== 'undefined'",
+    main: isBun ? Bun.main : null,
+    whichBun: isBun ? Bun.which("bun") : null,
+    note: "Bun.main = entrypoint path. Bun.which('bun') = resolved binary. --config overrides bunfig.toml.",
   });
 }
 
