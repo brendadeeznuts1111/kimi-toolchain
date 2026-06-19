@@ -8,7 +8,7 @@ Manifest id: `herdr-plugin-architecture` · repo: `docs/references/herdr-plugin-
 
 | Layer | Examples | Config |
 | ----- | -------- | ------ |
-| Finish-work shell gates | `kimi-doctor --automation`, `kimi-heal effect audit` | `dx.config.toml` `[finishWork].gates` |
+| Finish-work shell gates | `kimi-doctor --automation`, `kimi-heal effect audit`, `kimi-heal --fix` | `dx.config.toml` `[finishWork].gates` |
 | Herdr plugin actions | `herdr-orchestrator.agent-start`, `herdr-doctor.status` | `~/.config/herdr/config.toml` `[[keys.command]]` |
 | Orchestrator HTTP | `GET /api/meta`, `GET /api/thumbnail` | Co-located `Bun.serve` — see [dashboard-thumbnails.md](./dashboard-thumbnails.md) |
 

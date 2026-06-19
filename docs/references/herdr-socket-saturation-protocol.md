@@ -222,6 +222,8 @@ kimi-debug classify "herdr: protocol error: I/O error: Resource temporarily unav
 
 **Key source files:** `src/lib/herdr-cli-error.ts`, `src/lib/herdr-fix-socket-live.ts`, `src/lib/herdr-doctor.ts`, `src/bin/herdr-doctor.ts`.
 
+**Orthogonal toolchain gates:** Finish-work `[finishWork].gates` may include `kimi-heal effect audit` and `kimi-heal --fix` for Effect discipline — separate from socket saturation recovery. See [namespace.md](./namespace.md).
+
 ## 8. Next Wave (Pending Ground Truth)
 
 Scoped but not implemented until `--live` is validated on a real EAGAIN recurrence:

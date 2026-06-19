@@ -449,7 +449,7 @@ On memory-constrained hosts, swap thrashing inflates load before CPU looks busy.
 | `kimi-debug`             | `last`, `diff`, `trace`, `analyze`, `classify`, `taxonomy`, `wire [path]`, `doctor`, `fix`                        |
 | `kimi-snapshot`          | `save`, `restore`, `list`, `show`, `cleanup`, `doctor`, `fix`                                                     |
 | `kimi-resource-governor` | `limits`, `parallel`, `quota`, `cache`, `spawn`, `session`, `cleanup`, `status`, `doctor`, `fix`                  |
-| `kimi-heal`              | `plan`, `apply`, `clusters`, `effect audit`                                                                       |
+| `kimi-heal`              | `plan`, `apply`, `clusters`, `effect audit`, `--fix` (bare-promise / import repair)                               |
 | `kimi-decision`          | `graph`, `why`, `audit`                                                                                           |
 | `kimi-config`            | Kimi Code config audit/fix                                                                                        |
 | `kimi-identity`          | Identity matrix audit                                                                                             |

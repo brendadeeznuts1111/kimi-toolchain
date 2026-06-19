@@ -11,15 +11,33 @@ interface ToolEntry {
 
 type WhichFn = (name: string, opts?: { PATH?: string }) => string | null;
 
-function resolveTools(which: WhichFn, toolchainBin: string): { tools: ToolEntry[]; shadowWarnings: string[] } {
+function resolveTools(
+  which: WhichFn,
+  toolchainBin: string
+): { tools: ToolEntry[]; shadowWarnings: string[] } {
   const resolveToolchain = (name: string) => which(name, { PATH: toolchainBin });
   const resolveDefault = (name: string) => which(name);
 
   const tools: ToolEntry[] = [
     { bin: "bun", path: resolveDefault("bun"), resolution: "system", flags: "--version" },
-    { bin: "kimi-fix", path: resolveToolchain("kimi-fix"), resolution: "toolchain", flags: "--profile" },
-    { bin: "kimi-doctor", path: resolveToolchain("kimi-doctor"), resolution: "toolchain", flags: "--effect-gates" },
-    { bin: "oxlint", path: resolveDefault("oxlint"), resolution: "project", flags: "--deny-warnings" },
+    {
+      bin: "kimi-fix",
+      path: resolveToolchain("kimi-fix"),
+      resolution: "toolchain",
+      flags: "--profile",
+    },
+    {
+      bin: "kimi-doctor",
+      path: resolveToolchain("kimi-doctor"),
+      resolution: "toolchain",
+      flags: "--effect-gates",
+    },
+    {
+      bin: "oxlint",
+      path: resolveDefault("oxlint"),
+      resolution: "project",
+      flags: "--deny-warnings",
+    },
     { bin: "git", path: resolveDefault("git"), resolution: "system", flags: "rev-parse" },
   ];
 

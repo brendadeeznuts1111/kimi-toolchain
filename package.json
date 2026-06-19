@@ -96,6 +96,8 @@
     "check": "bun run scripts/check.ts",
     "check:fast": "bun run scripts/check.ts --fast",
     "check:fast:changed": "bun run scripts/check.ts --fast --changed-only",
+    "perf:gates:changed": "bun run --cwd examples/dashboard perf:gates:changed",
+    "perf:nightly": "bun run --cwd examples/dashboard perf:nightly",
     "check:watch": "bun run scripts/check.ts --fast --watch",
     "check:watch:tests": "bun run scripts/check.ts --fast --watch-tests",
     "check:dry-run": "bun run scripts/check.ts --dry-run",

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  configureInspect,
   customInspect,
   deepEqual,
   deepEqualStrict,
@@ -14,6 +15,111 @@ import {
 } from "../src/lib/inspect.ts";
 
 describe("inspect", () => {
+  describe("configureInspect", () => {
+    function currentInspectOptions(): Record<string, unknown> | undefined {
+      return (Bun.inspect as unknown as { options?: Record<string, unknown> }).options;
+    }
+
+    function withInspectOptions<T>(fn: () => T): T {
+      const original = currentInspectOptions();
+      try {
+        return fn();
+      } finally {
+        const inspect = Bun.inspect as unknown as { options?: Record<string, unknown> };
+        if (original) inspect.options = { ...original };
+        else delete inspect.options;
+      }
+    }
+
+    test("auto preset uses TTY development defaults", () => {
+      withInspectOptions(() => {
+        const config = configureInspect("auto", { env: { NODE_ENV: "development" }, isTTY: true });
+        expect(config).toMatchObject({
+          preset: "auto",
+          depth: 5,
+          colors: true,
+          compact: false,
+          sorted: true,
+          maxArrayLength: Infinity,
+          showHidden: false,
+        });
+        expect(currentInspectOptions()?.depth).toBe(5);
+      });
+    });
+
+    test("auto preset uses non-TTY defaults", () => {
+      withInspectOptions(() => {
+        const config = configureInspect("auto", { env: {}, isTTY: false });
+        expect(config).toMatchObject({
+          depth: 4,
+          colors: false,
+          compact: true,
+          sorted: true,
+          maxArrayLength: 100,
+          showHidden: false,
+        });
+      });
+    });
+
+    test("auto preset uses production defaults before TTY defaults", () => {
+      withInspectOptions(() => {
+        const config = configureInspect("auto", { env: { NODE_ENV: "production" }, isTTY: true });
+        expect(config).toMatchObject({
+          depth: 2,
+          colors: false,
+          compact: true,
+          sorted: false,
+          maxArrayLength: 30,
+          showHidden: false,
+        });
+      });
+    });
+
+    test("DEBUG_INSPECT forces debug preset", () => {
+      withInspectOptions(() => {
+        const config = configureInspect("production", {
+          env: { NODE_ENV: "production", DEBUG_INSPECT: "yes" },
+          isTTY: true,
+        });
+        expect(config).toMatchObject({
+          preset: "debug",
+          forcedDebug: true,
+          depth: Infinity,
+          colors: true,
+          compact: false,
+          sorted: true,
+          maxArrayLength: Infinity,
+          showHidden: true,
+        });
+      });
+    });
+
+    test("caller overrides win last", () => {
+      withInspectOptions(() => {
+        const config = configureInspect("production", {
+          env: { NODE_ENV: "production" },
+          isTTY: false,
+          depth: 3,
+          sorted: true,
+        });
+        expect(config.depth).toBe(3);
+        expect(config.sorted).toBe(true);
+        expect(currentInspectOptions()?.depth).toBe(3);
+        expect(currentInspectOptions()?.sorted).toBe(true);
+      });
+    });
+
+    test("configures bare Bun.inspect calls while preserving per-call overrides", () => {
+      withInspectOptions(() => {
+        const nested = { a: { b: { c: { d: true } } } };
+        configureInspect("production", { env: { NODE_ENV: "production" }, isTTY: false });
+
+        expect(Bun.inspect(nested)).toMatch(/c:\s+\[Object/);
+        expect(Bun.inspect(nested, { depth: 3 })).toContain("d: true");
+      });
+    });
+  });
+
   describe("inspectAgent", () => {
     test("returns deterministic output for the same object", () => {
       const obj = { b: 2, a: 1, c: [3, 2, 1] };

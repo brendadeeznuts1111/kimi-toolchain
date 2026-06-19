@@ -36,6 +36,29 @@ export interface InspectHumanOptions {
   compact?: boolean;
 }
 
+export type InspectPreset = "auto" | "debug" | "development" | "production" | "compact";
+
+export interface InspectPresetOptions {
+  depth?: number;
+  colors?: boolean;
+  compact?: boolean;
+  sorted?: boolean;
+  maxArrayLength?: number;
+  showHidden?: boolean;
+}
+
+export interface ConfigureInspectOptions extends InspectPresetOptions {
+  /** Environment map used for detection. Defaults to Bun.env. */
+  env?: Record<string, string | undefined>;
+  /** TTY probe used for detection. Defaults to process.stdout.isTTY. */
+  isTTY?: boolean;
+}
+
+export interface InspectPresetConfig extends Required<InspectPresetOptions> {
+  preset: InspectPreset;
+  forcedDebug: boolean;
+}
+
 const DEFAULT_AGENT_OPTIONS: Required<InspectAgentOptions> = {
   depth: 8,
   sorted: true,
@@ -49,6 +72,139 @@ const DEFAULT_HUMAN_OPTIONS: Required<InspectHumanOptions> = {
   colors: true,
   compact: false,
 };
+
+const DEBUG_INSPECT_VALUES = new Set(["1", "true", "yes", "on"]);
+
+type BunInspectWithOptions = typeof Bun.inspect & { options?: InspectPresetOptions };
+
+const ORIGINAL_BUN_INSPECT = Bun.inspect;
+let inspectWrapperInstalled = false;
+
+function installInspectPresetWrapper(): void {
+  if (inspectWrapperInstalled) return;
+
+  const current = Bun.inspect as BunInspectWithOptions;
+  const wrapped = ((value: unknown, options?: Parameters<typeof Bun.inspect>[1]) => {
+    const defaults = (wrapped as BunInspectWithOptions).options ?? {};
+    return ORIGINAL_BUN_INSPECT(value, { ...defaults, ...options });
+  }) as BunInspectWithOptions;
+
+  Object.defineProperties(wrapped, {
+    custom: {
+      value: ORIGINAL_BUN_INSPECT.custom,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    },
+    table: {
+      value: ORIGINAL_BUN_INSPECT.table,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    },
+  });
+  wrapped.options = current.options ?? {};
+  (Bun as unknown as { inspect: typeof Bun.inspect }).inspect = wrapped;
+  inspectWrapperInstalled = true;
+}
+
+function bunInspectOptions(): InspectPresetOptions {
+  installInspectPresetWrapper();
+  const inspect = Bun.inspect as BunInspectWithOptions;
+  if (!inspect.options) inspect.options = {};
+  return inspect.options;
+}
+
+function inspectPresetConfig(
+  preset: InspectPreset,
+  isTTY: boolean,
+  env: Record<string, string | undefined>
+): Required<InspectPresetOptions> {
+  const production = env.NODE_ENV === "production";
+  if (preset === "debug") {
+    return {
+      depth: Infinity,
+      colors: isTTY,
+      compact: false,
+      sorted: true,
+      maxArrayLength: Infinity,
+      showHidden: true,
+    };
+  }
+  if (preset === "production" || (preset === "auto" && production)) {
+    return {
+      depth: 2,
+      colors: false,
+      compact: true,
+      sorted: false,
+      maxArrayLength: 30,
+      showHidden: false,
+    };
+  }
+  if (preset === "compact") {
+    return {
+      depth: 3,
+      colors: false,
+      compact: true,
+      sorted: false,
+      maxArrayLength: 50,
+      showHidden: false,
+    };
+  }
+  if (preset === "development" || isTTY) {
+    return {
+      depth: 5,
+      colors: isTTY,
+      compact: false,
+      sorted: true,
+      maxArrayLength: Infinity,
+      showHidden: false,
+    };
+  }
+  return {
+    depth: 4,
+    colors: false,
+    compact: true,
+    sorted: true,
+    maxArrayLength: 100,
+    showHidden: false,
+  };
+}
+
+function debugInspectForced(env: Record<string, string | undefined>): boolean {
+  const raw = env.DEBUG_INSPECT;
+  return raw != null && DEBUG_INSPECT_VALUES.has(String(raw).toLowerCase());
+}
+
+/**
+ * Configure Bun.inspect with runtime-aware presets.
+ *
+ * DEBUG_INSPECT=1|true|yes|on forces the debug preset before caller overrides.
+ * Caller overrides are applied last and returned with the effective preset.
+ */
+export function configureInspect(
+  preset: InspectPreset = "auto",
+  options: ConfigureInspectOptions = {}
+): InspectPresetConfig {
+  const { env = Bun.env, isTTY = process.stdout?.isTTY ?? false, ...overrides } = options;
+  const forcedDebug = debugInspectForced(env);
+  const effectivePreset: InspectPreset = forcedDebug ? "debug" : preset;
+  const config: Required<InspectPresetOptions> = {
+    ...inspectPresetConfig(effectivePreset, isTTY, env),
+    ...overrides,
+  };
+
+  Object.assign(bunInspectOptions(), {
+    depth: config.depth,
+    colors: config.colors,
+    compact: config.compact,
+    sorted: config.sorted,
+    maxArrayLength: config.maxArrayLength,
+    showHidden: config.showHidden,
+  });
+
+  return { preset: effectivePreset, forcedDebug, ...config };
+}
 
 function serializeForAgent(
   value: unknown,

@@ -11,7 +11,7 @@
  *   kimi-bake doctor                        # validate manifest + PATH
  */
 
-import { join, resolve } from "path";
+import { join } from "path";
 import { pathExists, readText } from "../lib/bun-io.ts";
 import { loadTomlConfig } from "../lib/toml-config.ts";
 
@@ -60,7 +60,8 @@ function printHelp() {
 // ── Manifest schema ────────────────────────────────────────────────
 
 const manifestSchema = (v: unknown): v is Manifest =>
-  typeof v === "object" && v !== null &&
+  typeof v === "object" &&
+  v !== null &&
   (typeof (v as Manifest).artifact === "undefined" ||
     (typeof (v as Manifest).artifact === "object" && (v as Manifest).artifact !== null));
 

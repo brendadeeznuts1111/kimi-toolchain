@@ -118,6 +118,16 @@ This materialises each package only once in `~/.bun/install/cache/links/`, and p
 
 Environment variable override: `BUN_INSTALL_GLOBAL_STORE=1 bun install`
 
+**Eligibility** (Bun v1.3.14): a package is stored in the global store only when all of the following hold:
+
+- Source is an **immutable cache source** — npm registry, git, or tarball — and the package is **unpatched**.
+- The package has **no trusted lifecycle scripts** (packages listed in `trustedDependencies` with install scripts are ineligible).
+- **Every transitive dependency** in the resolved closure meets the same criteria.
+
+If any package in the tree is ineligible, Bun **falls back to per-project copies** for that package (and its subtree as needed). No manual toggle required.
+
+**Entry hash:** Bun hashes the package's **resolved dependency closure**. Two projects that resolve a package to the exact same transitive versions share a single on-disk entry; different resolutions get separate entries.
+
 **Important:** The feature is still experimental and off by default. It requires `linker = "isolated"` and will not work with `hoisted`. We recommend testing it in your environment before enabling globally.
 
 ### Cache and lazy installation
@@ -150,6 +160,10 @@ The toolchain ships a typed handoff wrapper at `src/lib/execve-handoff.ts`:
 
 - `execveSupported()` — true on POSIX main thread
 - `handoffInheritedSpawn(file, args, env)` — execve when gated (via `KIMI_HANDOFF_EXECVE=1`), else falls back to `Bun.spawn` + exit code pass-through
+
+### Scaffolded perf harness (`KIMI_MODULES=doctor`)
+
+`kimi-fix` copies the dashboard perf harness (`src/harness/`, `src/bin/perf-doctor.ts`) when `KIMI_MODULES` is unset (default `doctor`). See [template-matrix.md](./template-matrix.md) and [kimi-doctor.md](./kimi-doctor.md) § Effects pipeline.
 - Used by `herdr-orchestrator` for pane process inheritance
 
 ### Bun.Terminal on Windows (Bun ≥1.3.14)

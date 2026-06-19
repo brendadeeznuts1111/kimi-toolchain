@@ -23,6 +23,7 @@ export const UNIT_TEST_FILES = [
   "test/webview-console.unit.test.ts",
   "test/bun-image.unit.test.ts",
   "test/execve-handoff.unit.test.ts",
+  "test/effect-heal-fix.unit.test.ts",
   "test/bun-markdown.unit.test.ts",
   "test/bun-install-config.unit.test.ts",
   "test/markdown-table.unit.test.ts",

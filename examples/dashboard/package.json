@@ -5,7 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/index.ts",
-    "start": "bun run src/index.ts"
+    "start": "bun run src/index.ts",
+    "test": "bun test src/lib/isolation/__tests__ src/harness/__tests__",
+    "perf": "bun run src/bin/perf-doctor.ts --perf-gates --report",
+    "perf:gates:changed": "bun run src/bin/perf-doctor.ts --perf-gates --changed-only --base=origin/main",
+    "perf:nightly": "bun run src/bin/perf-doctor.ts --perf-gates --train --report --out=.",
+    "perf:train": "bun run src/bin/perf-doctor.ts --perf-gates --train --out=.",
+    "perf:watch": "bun run src/bin/perf-doctor.ts --watch --perf-gates --report"
   },
   "devDependencies": {
     "@types/bun": "latest"

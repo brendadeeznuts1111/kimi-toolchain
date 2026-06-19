@@ -77,6 +77,7 @@ categories:
     expected: false
     suggestion: "Test failure — run 'bun test' to see details."
     autoFix: "bun test"
+    docLink: "skills/kimi-toolchain/examples/what-broke.md"
     patterns:
       - regex: "\\d+ fail"
       - regex: 'error: script "test" exited with code 1'
@@ -260,7 +261,6 @@ categories:
     expected: false
     suggestion: "Agent hit step limit — break work into smaller chunks. Use `bun run check:fast` instead of full suite, batch edits before testing, and avoid long-running subprocesses in a single turn."
     autoFix: "bun run check:fast"
-    docLink: "skills/kimi-toolchain/examples/doctor-smell.md"
     patterns:
       - regex: "max_steps_exceeded"
       - regex: "max steps exceeded"

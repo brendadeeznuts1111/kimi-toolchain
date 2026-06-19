@@ -89,7 +89,7 @@ export function resolveBinInDir(
   dir: string,
   fallbackToPath = true
 ): string | null {
-  const local = Bun.which(bin, { cwd: dir, PATH: "" });
+  const local = Bun.which(bin, { PATH: dir });
   if (local) return local;
 
   if (fallbackToPath) {

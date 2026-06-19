@@ -82,6 +82,7 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run cleanup-legacy` | (synced from package.json) |
 | `bun run cleanup-root` | (synced from package.json) |
 | `bun run config:status` | (synced from package.json) |
+| `bun run dashboard` | (synced from package.json) |
 | `bun run docs:sync` | (synced from package.json) |
 | `bun run doctor` | (synced from package.json) |
 | `bun run dx-config` | (synced from package.json) |
@@ -111,6 +112,8 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run memory-budget` | (synced from package.json) |
 | `bun run memory-check` | (synced from package.json) |
 | `bun run new` | (synced from package.json) |
+| `bun run perf:gates:changed` | (synced from package.json) |
+| `bun run perf:nightly` | (synced from package.json) |
 | `bun run pr:diff` | (synced from package.json) |
 | `bun run pr:status` | (synced from package.json) |
 | `bun run push` | (synced from package.json) |
@@ -310,9 +313,33 @@ validation includes `bun run sync && bun run sync:verify`.
 | `kimi-heal plan [--json]`       | Propose safe repair actions            |
 | `kimi-heal apply --action <id>` | Apply a selected repair action         |
 | `kimi-heal clusters [--json]`   | Summarize failure clusters             |
+| `kimi-heal effect audit`        | Effect discipline audit                |
+| `kimi-heal --fix`               | Auto-wrap bare promises / rewrite domain imports |
+| `kimi-heal effect audit --check-pipeline --profile toolchain` | Full pipeline-aware audit |
 | `kimi-decision graph <traceId>` | Show the decision graph for a trace    |
 | `kimi-decision why <id>`        | Explain recorded rationale + evidence  |
 | `kimi-decision audit [--json]`  | Find low-quality or unverified entries |
+
+#### Effect Audit Profiles
+
+`kimi-heal effect audit --profile <name>` selects a preconfigured check set:
+
+| Profile | Pipeline Check | Bare Promise | Domain Purity | Scan Scope |
+|---------|:---:|:---:|:---:|------------|
+| `toolchain` | ✓ | ✓ | ✓ | `src/effect/`, `src/domain/`, `src/guardian/` |
+| `minimal` | — | — | — | (no extra scan) |
+| `ci` | ✓ | ✓ | — | `src/effect/` |
+
+Pipeline check verifies every `EFFECT_PIPELINE` symbol has a `globalThis` handler
+registered. Bare-promise and domain-purity are supplementary regex checks that
+complement the main TypeScript AST audit in `src/lib/effect-gates.ts`.
+
+**Advanced repair:** `kimi-heal --fix` (or `effect audit --fix`) applies automated
+repairs via `src/lib/effect-heal-fix.ts` — wraps `.then`/`.catch` chains in
+`Effect.tryPromise`, rewrites domain `getEffect` imports. Always `--dry-run` first.
+
+Use `--check-pipeline` without `--profile` to run pipeline checks with
+`toolchain` defaults.
 
 ### Snapshot
 

@@ -84,11 +84,7 @@ export function toolchainHealth(): ToolchainHealth {
  * Find a binary within a specific directory using cwd.
  * Falls back to system PATH if not found in the directory.
  */
-export function resolveBinInDir(
-  bin: string,
-  dir: string,
-  fallbackToPath = true
-): string | null {
+export function resolveBinInDir(bin: string, dir: string, fallbackToPath = true): string | null {
   const local = Bun.which(bin, { cwd: dir, PATH: "" });
   if (local) return local;
 

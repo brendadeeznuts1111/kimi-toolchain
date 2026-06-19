@@ -85,6 +85,14 @@ Invoke when: project health, `package.json`/`bun.lock`/`bunfig.toml` edits, fail
 
 Effect code or a new CLI using `runCliExit` → load **effect-discipline** (`skills/effect-discipline/SKILL.md`) first; L3 service/stream scaffolds → **effect-hardening** (`skills/effect-hardening/SKILL.md`).
 
+### Examples
+
+Conversation playbooks (also linked from `error-taxonomy.yml` `docLink` where noted):
+
+- [Dependency push blocked](examples/guardian-failure.md) — `lockfile_issue`
+- [Project feels off](examples/project-health-check.md)
+- [What broke?](examples/what-broke.md) — `test_failure`
+
 ### Project Health Check
 
 ```
@@ -129,10 +137,22 @@ Taxonomy lookup: `kimi-debug analyze --json` or `kimi-debug classify <text>` (`~
 
 ```
 1. bun create kimi-toolchain <name>  OR  kimi-new <name>  OR  mkdir + bun init + kimi-fix .
-2. kimi-fix doctor .
-3. kimi-governance score (target ≥ C)
-4. kimi login
-5. Customize AGENTS.md one-liner, CODE_REFERENCES.md, CODEOWNERS
+2. Default KIMI_MODULES=doctor → perf-doctor harness + isolation factory (override with KIMI_MODULES=image,trace)
+3. kimi-fix --profile toolchain when finish-work / Herdr layout needed
+4. bun run perf:gates  → verify perf harness after scaffold
+5. kimi-fix doctor .
+6. kimi-governance score (target ≥ C)
+7. kimi login
+8. Customize AGENTS.md one-liner, CODE_REFERENCES.md, CODEOWNERS
+```
+
+### Effect Discipline Repair
+
+```
+1. kimi-heal effect audit --check-tags --event-streams --json
+2. kimi-heal --fix --dry-run   → preview bare-promise / import rewrites
+3. kimi-heal --fix --yes       → apply repairs (src/lib/effect-heal-fix.ts)
+4. kimi-doctor --effect-gates  → confirm clean
 ```
 
 ### Before Commit or Push

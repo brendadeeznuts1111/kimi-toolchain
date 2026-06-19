@@ -291,6 +291,8 @@ Full runtime sync/ci.local blocks live only in the **kimi-toolchain reference** 
 
 **Effect gates (canonical):** Use `kimi-doctor --effect-gates` in `[agents].prePush` and `[finishWork].gates` everywhere — scaffold templates and live `dx.config.toml` match. `bun run doctor` in `package.json` is an in-tree dev alias only; do not put it in gate config.
 
+**Optional modules (`KIMI_MODULES`):** When unset, `kimi-fix` scaffolds the **`doctor`** module (perf harness from `examples/dashboard/` — `perf-doctor`, `src/harness/`, isolation factory). Override with `KIMI_MODULES=image,trace` etc. See [template-matrix.md](docs/references/template-matrix.md).
+
 **Profile drift:** `kimi-fix` never overwrites existing `dx.config.toml` or finish-work scripts. Re-scaffolding with a different `--profile` logs a warning; delete the stale files and re-run, or scaffold into a fresh tree.
 
 **finish-work staging:** `git add -u` only (tracked files). Untracked files and secrets are never blanket-staged.
@@ -498,3 +500,37 @@ bun run check:fast
 `bun init` auto-generates `CLAUDE.md` (Claude CLI) and `.cursor/rules/*.mdc` (Cursor) when those tools are detected. `kimi-fix` generates `AGENTS.md` (agent-agnostic, includes DX layer references) but does not generate Claude- or Cursor-specific files. To add them after scaffold, run `bun init -y` (non-destructive).
 
 See [bun create docs](https://bun.com/docs/runtime/templating/create) for the full local-template execution flow (destructive overwrite, `bun-create` hooks, `git init`, framework auto-detection).
+
+## bun create Dashboard Template (`templates/bun-create/kimi-dashboard/`)
+
+Minimal Bun HTTP dashboard skeleton for `bun create kimi-dashboard <name>`.
+
+```
+templates/bun-create/kimi-dashboard/
+├── package.json    ← bun-create.postinstall + start scripts
+├── README.md       ← quickstart + API route docs
+└── src/
+    └── index.ts    ← Bun.serve with /health, /inspect, /env, /crypto
+```
+
+### Install & scaffold
+
+```bash
+cp -r ~/kimi-toolchain/templates/bun-create/kimi-dashboard ~/.bun-create/
+bun create kimi-dashboard my-dashboard
+cd my-dashboard
+bun run dev
+```
+
+### Included endpoints
+
+| Route | Bun APIs demonstrated |
+|-------|----------------------|
+| `/health` | `Bun.version`, `Bun.revision`, `process.uptime`, `process.memoryUsage` |
+| `/inspect` | `Bun.inspect(obj)`, `Bun.inspect(obj, opts)`, `Bun.stringWidth` |
+| `/env` | `Bun.env`, `Bun.TOML.parse`, `Bun.file` |
+| `/crypto` | `Bun.CryptoHasher`, `Bun.randomUUIDv7`, `Bun.nanoseconds` |
+
+### Extend with more APIs
+
+Copy from `examples/dashboard/` in kimi-toolchain — 40+ additional Bun API demos ready to wire in.

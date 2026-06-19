@@ -18,7 +18,9 @@
         "**/postinstall.ts",
         "**/guardian/**",
         "**/drift/**",
-        "**/templates/**"
+        "**/templates/**",
+        "**/src/bin/**",
+        "examples/dashboard/**"
       ],
       "rules": {
         "no-console": "off"

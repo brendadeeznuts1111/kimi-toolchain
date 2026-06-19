@@ -88,11 +88,7 @@ export async function loadTomlConfig<T>(
  * Synchronous version for module-load-time config (bunfig, constants, etc.).
  * Throws on parse/validation errors — use only when failure should be fatal.
  */
-export function loadTomlConfigSync<T>(
-  path: string,
-  schema: TomlSchema<T>,
-  defaults: T
-): T {
+export function loadTomlConfigSync<T>(path: string, schema: TomlSchema<T>, defaults: T): T {
   if (!pathExists(path)) return defaults;
 
   const raw = readText(path);

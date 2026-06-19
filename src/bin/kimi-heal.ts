@@ -10,6 +10,8 @@
  *   kimi-heal constants snapshot [--json]
  *   kimi-heal constants optimize [--apply <keys|all>] [--min-confidence 0.7] [--dry-run|--yes] [--json]
  *   kimi-heal effect audit [--check-tags] [--event-streams] [--json]
+ *   kimi-heal --fix [--dry-run] [--yes] [--json]   Advanced Effect repairs
+ *   kimi-heal effect audit --fix [--dry-run] [--yes] [--json]
  */
 
 import { Effect } from "effect";
@@ -44,8 +46,133 @@ import {
   printConstantOptimizerRecommendationsBlock,
 } from "../lib/constant-optimizer.ts";
 import { buildEffectGatesReport } from "../lib/effect-gates.ts";
+import { applyEffectHealFix } from "../lib/effect-heal-fix.ts";
+import { EFFECT_PIPELINE, EFFECT_PIPELINE_NAMES } from "../lib/symbols.ts";
+import { scanEffectMethods, type EffectMethod } from "../harness/transpiler-scan.ts";
 
 const logger = createLogger(Bun.argv, "kimi-heal");
+
+// ── Effect Audit (profile-aware) ──────────────────────────────────────────
+
+interface AuditIssue {
+  type: "missing-symbol" | "unused-effect" | "circular-import" | "bare-promise" | "no-tag-service";
+  file: string;
+  line?: number;
+  message: string;
+  severity: "error" | "warning";
+}
+
+/** Profile-scoped audit configuration. */
+interface AuditProfile {
+  checkPipeline: boolean;
+  checkBarePromises: boolean;
+  checkDomainPurity: boolean;
+  scanPatterns: string[];
+}
+
+const AUDIT_PROFILES: Record<string, AuditProfile> = {
+  toolchain: {
+    checkPipeline: true,
+    checkBarePromises: true,
+    checkDomainPurity: true,
+    scanPatterns: ["src/effect/**/*.ts", "src/domain/**/*.ts", "src/guardian/**/*.ts"],
+  },
+  minimal: {
+    checkPipeline: false,
+    checkBarePromises: false,
+    checkDomainPurity: false,
+    scanPatterns: [],
+  },
+  ci: {
+    checkPipeline: true,
+    checkBarePromises: true,
+    checkDomainPurity: false,
+    scanPatterns: ["src/effect/**/*.ts"],
+  },
+};
+
+/**
+ * Run profile-aware effect discipline checks.
+ *
+ * Checks:
+ *   1. missing-symbol — EFFECT_PIPELINE symbol has no globalThis handler
+ *   2. bare-promise — Promise.resolve() without Effect wrapper (regex scan)
+ *   3. no-tag-service — domain/ imports effect directly (regex scan)
+ */
+function auditEffects(profile?: string): AuditIssue[] {
+  const cfg = profile
+    ? (AUDIT_PROFILES[profile] ?? AUDIT_PROFILES.toolchain)
+    : AUDIT_PROFILES.toolchain;
+  const issues: AuditIssue[] = [];
+
+  // 1. Missing symbols — every EFFECT_PIPELINE stage must have a handler
+  if (cfg.checkPipeline) {
+    for (const sym of EFFECT_PIPELINE) {
+      const handler = (globalThis as Record<string | symbol, unknown>)[sym];
+      if (!handler) {
+        const key = sym.toString();
+        const label = EFFECT_PIPELINE_NAMES[key] ?? key;
+        issues.push({
+          type: "missing-symbol",
+          file: "globalThis",
+          message: `EFFECT_PIPELINE stage "${label}" (${key}) has no registered handler`,
+          severity: "error",
+        });
+      }
+    }
+  }
+
+  // 2-3. Bare promises + domain purity — scan source files
+  if (cfg.checkBarePromises || cfg.checkDomainPurity) {
+    for (const pattern of cfg.scanPatterns) {
+      let methods: EffectMethod[];
+      try {
+        methods = scanEffectMethods(pattern);
+      } catch {
+        continue;
+      }
+
+      for (const m of methods) {
+        let source: string;
+        try {
+          source = Bun.file(m.sourceFile).textSync?.() ?? "";
+        } catch {
+          continue;
+        }
+        if (!source) continue;
+
+        // 2. Bare promises: Promise.resolve / new Promise without Effect wrapper
+        if (cfg.checkBarePromises) {
+          if (
+            (source.includes("Promise.resolve") || source.includes("new Promise")) &&
+            !source.includes("Effect.")
+          ) {
+            issues.push({
+              type: "bare-promise",
+              file: m.sourceFile,
+              message: `${m.methodName}: bare Promise detected — wrap in Effect`,
+              severity: "error",
+            });
+          }
+        }
+
+        // 3. Domain purity: domain/ files importing getEffect directly
+        if (cfg.checkDomainPurity) {
+          if (m.sourceFile.includes("domain/") && source.includes("getEffect")) {
+            issues.push({
+              type: "no-tag-service",
+              file: m.sourceFile,
+              message: `${m.methodName}: domain imports effect directly — pass as arg`,
+              severity: "error",
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return issues;
+}
 
 function hasFlag(flag: string): boolean {
   return Bun.argv.includes(flag);
@@ -112,12 +239,38 @@ function renderRepairPreview(result: Awaited<ReturnType<typeof repairConstants>>
   return lines;
 }
 
+async function runEffectHealFixMode(projectRoot: string, jsonMode: boolean): Promise<number> {
+  const dryRun = hasFlag("--dry-run") || !hasFlag("--yes");
+  const result = await applyEffectHealFix({ projectRoot, dryRun });
+  if (jsonMode) {
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return result.remainingViolations > 0 ? 1 : 0;
+  }
+  logger.section("Effect Heal Fix");
+  logger.info(dryRun ? "dry-run — pass --yes to write files" : "repairs applied");
+  logger.info(`${result.filesTouched} file(s) touched, ${result.changes.length} change(s)`);
+  for (const change of result.changes.slice(0, 20)) {
+    logger.line(`  [${change.kind}] ${change.file}: ${change.detail}`);
+  }
+  if (result.changes.length > 20) {
+    logger.line(`  … +${result.changes.length - 20} more`);
+  }
+  logger.info(
+    `${result.remainingViolations} direct-promise/domain violation(s) remain — review manually`
+  );
+  return result.remainingViolations > 0 && !dryRun ? 1 : 0;
+}
+
 async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
   const command = args[0] ?? "plan";
   const jsonMode = hasFlag("--json");
   const projectRoot = await resolveDecisionsRoot();
   const trace = ensureProcessTrace();
+
+  if (hasFlag("--fix") && command !== "effect" && command !== "apply") {
+    return runEffectHealFixMode(projectRoot, jsonMode);
+  }
 
   if (command === "plan") {
     const plan = await Effect.runPromise(
@@ -457,7 +610,7 @@ async function main(): Promise<number> {
     const sub = args[1];
     if (sub !== "audit") {
       logger.error(
-        "Usage: effect audit [--check-tags] [--event-streams] [--json] [--project-root <path>]"
+        "Usage: effect audit [--check-tags] [--event-streams] [--json] [--project-root <path>] [--check-pipeline] [--profile <name>]"
       );
       return 1;
     }
@@ -465,7 +618,9 @@ async function main(): Promise<number> {
     const writer = createCli(Bun.argv, "kimi-heal", { humanStderr: true });
     const checkTags = hasFlag("--check-tags");
     const eventStreams = hasFlag("--event-streams");
+    const checkPipeline = hasFlag("--check-pipeline");
     const auditProjectRoot = argValue("--project-root") || projectRoot;
+    const profile = argValue("--profile");
 
     const report = await buildEffectGatesReport({
       projectRoot: auditProjectRoot,
@@ -476,12 +631,31 @@ async function main(): Promise<number> {
       },
     });
 
+    // Run supplementary pipeline-aware audit when requested
+    let pipelineIssues: AuditIssue[] = [];
+    if (checkPipeline || profile) {
+      pipelineIssues = auditEffects(profile);
+    }
+
+    const totalViolations = report.violations.length + pipelineIssues.length;
+    const totalErrors =
+      report.summary.errors + pipelineIssues.filter((i) => i.severity === "error").length;
+
     if (writer.flags.json) {
-      writer.writeJsonSchema("effect-gates-report", report);
+      writer.writeJsonSchema("effect-gates-report", {
+        ...report,
+        pipelineIssues: pipelineIssues.length > 0 ? pipelineIssues : undefined,
+        summary: {
+          ...report.summary,
+          total: totalViolations,
+          errors: totalErrors,
+        },
+      });
     } else {
       writer.info("── Effect Audit ──────────────────────────────────────────────");
+      if (profile) writer.info(`Profile: ${profile}`);
       writer.info(
-        `${report.summary.total} violation(s), ${report.summary.errors} error(s), ${report.summary.warnings} warning(s)`
+        `${totalViolations} violation(s), ${totalErrors} error(s), ${report.summary.warnings} warning(s)`
       );
       for (const violation of report.violations) {
         const message = violation.location
@@ -490,8 +664,37 @@ async function main(): Promise<number> {
         if (violation.severity === "error") writer.error(message);
         else writer.warn(message);
       }
+      if (pipelineIssues.length > 0) {
+        writer.info("── Pipeline Audit ───────────────────────────────────────────");
+        for (const issue of pipelineIssues) {
+          const message = issue.line
+            ? `${issue.file}:${issue.line}: ${issue.message}`
+            : `${issue.file}: ${issue.message}`;
+          if (issue.severity === "error") writer.error(message);
+          else writer.warn(message);
+        }
+      }
     }
-    return report.violations.length > 0 ? 1 : 0;
+
+    if (hasFlag("--fix")) {
+      const fixResult = await applyEffectHealFix({
+        projectRoot: auditProjectRoot,
+        dryRun: hasFlag("--dry-run") || !hasFlag("--yes"),
+      });
+      if (writer.flags.json) {
+        process.stdout.write(`${JSON.stringify({ fix: fixResult }, null, 2)}\n`);
+      } else {
+        writer.info("── Effect Heal Fix ──────────────────────────────────────────");
+        writer.info(
+          `${fixResult.filesTouched} file(s) touched · ${fixResult.remainingViolations} violation(s) remain`
+        );
+      }
+      if (fixResult.remainingViolations > 0 && !hasFlag("--dry-run") && hasFlag("--yes")) {
+        return 1;
+      }
+    }
+
+    return totalViolations > 0 ? 1 : 0;
   }
 
   logger.section("kimi-heal commands");
@@ -506,7 +709,17 @@ async function main(): Promise<number> {
   logger.line(
     "  constants optimize [--apply <keys|all>] [--min-confidence 0.7] [--dry-run|--yes] [--json]"
   );
-  logger.line("  effect audit [--check-tags] [--event-streams] [--json]  Effect discipline audit");
+  logger.line(
+    "  effect audit [--check-tags] [--event-streams] [--json] [--check-pipeline] [--profile <name>] [--fix]"
+  );
+  logger.line(
+    "                                              Effect discipline audit + optional --fix repairs"
+  );
+  logger.line(
+    "  --fix [--dry-run|--yes] [--json]          Auto-wrap bare promises / rewrite domain imports"
+  );
+  logger.line("    --profile toolchain|minimal|ci             Profile-scoped pipeline checks");
+  logger.line("    --check-pipeline                           Run EFFECT_PIPELINE symbol audit");
   return command === "help" ? 0 : 1;
 }
 

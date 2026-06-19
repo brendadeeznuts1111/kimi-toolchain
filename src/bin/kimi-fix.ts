@@ -51,6 +51,7 @@ import { getProjectName } from "../lib/utils.ts";
 import { runTool } from "../lib/tool-runner.ts";
 import { ensureQualityTooling } from "../lib/scaffold-quality.ts";
 import { aggregateChecks } from "../lib/health-check.ts";
+import { parseKimiModules, scaffoldKimiModules } from "../lib/scaffold-modules.ts";
 import { createCli } from "../lib/cli-contract.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -378,6 +379,21 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
   }
 
   await ensureQualityTooling(project, dryRun, stepLog, profile);
+
+  const modules = parseKimiModules();
+  if (modules.length > 0) {
+    stepLog("modules", `scaffolding KIMI_MODULES=${modules.join(",")}...`);
+    const modResult = await scaffoldKimiModules(project, modules, dryRun);
+    if (modResult.filesWritten.length > 0) {
+      stepLog(
+        "modules",
+        `${modResult.filesWritten.length} file(s) from [${modResult.modules.join(", ")}]`
+      );
+    }
+    for (const skip of modResult.skipped) {
+      stepLog("modules", `skip ${skip}`);
+    }
+  }
 
   if (!pathExists(join(project, ".github", "workflows", "ci.yml"))) {
     stepLog("ci", "creating CI template...");

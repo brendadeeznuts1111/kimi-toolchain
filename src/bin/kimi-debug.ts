@@ -316,7 +316,7 @@ async function printErrorLogs(projectDir: string, options: LogsCommandOptions): 
 
 async function analyzeError(
   errorText: string
-): Promise<Array<{ suggestion: string; autoFix?: string; categoryId?: string }>> {
+): Promise<Array<{ suggestion: string; autoFix?: string; categoryId?: string; docLink?: string }>> {
   const taxonomy = await loadTaxonomy();
   const suggestions = getSuggestions(errorText, taxonomy);
   if (suggestions.length === 0) {
@@ -326,6 +326,7 @@ async function analyzeError(
     suggestion: s.suggestion,
     autoFix: s.autoFix,
     categoryId: s.categoryId,
+    docLink: s.docLink,
   }));
 }
 
@@ -708,6 +709,7 @@ async function fixError(projectDir: string, errorText: string) {
   for (const r of results) {
     if (r.categoryId) {
       logger.suggest(r.categoryId, r.suggestion, r.autoFix);
+      if (r.docLink) logger.info(`See: ${r.docLink}`);
     } else {
       logger.info(r.suggestion);
     }
@@ -952,6 +954,7 @@ async function main(): Promise<number> {
     for (const r of results) {
       if (r.categoryId) {
         logger.suggest(r.categoryId, r.suggestion, r.autoFix);
+        if (r.docLink) logger.info(`See: ${r.docLink}`);
       } else {
         logger.info(r.suggestion);
       }

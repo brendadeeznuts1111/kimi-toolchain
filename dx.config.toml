@@ -381,6 +381,10 @@ label = "doctor"
 command = "kimi-doctor --watch"
 
 [[herdr.tabs]]
+label = "heal"
+command = "kimi-heal effect audit --check-pipeline --profile toolchain"
+
+[[herdr.tabs]]
 label = "shell"
 command = "git status -sb; herdr-quickref"
 

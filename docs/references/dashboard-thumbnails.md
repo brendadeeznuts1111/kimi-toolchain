@@ -6,6 +6,8 @@ How the Herdr orchestrator dashboard turns a live `Bun.WebView` screenshot into 
 
 **Canvas companion:** `docs/canvases/herdr-dashboard-thumbnails.canvas.tsx` (manifest id `dashboard-thumbnails` · `cursorCanvas` pointer; not synced).
 
+**Related perf loop:** The reference dashboard (`examples/dashboard`) also hosts the **perf-doctor** harness (`/api/perf-registry`, HTTP protocol benchmarks). Scaffolded via default `KIMI_MODULES=doctor` — see [kimi-doctor.md](./kimi-doctor.md) § Effects pipeline.
+
 ## High-level flow
 
 ```

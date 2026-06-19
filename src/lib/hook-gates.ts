@@ -30,7 +30,7 @@ import {
   allPreCommitGatesCoveredAtHead,
   shouldSkipGateFromScopedCache,
 } from "./scoped-gate-cache.ts";
-import { filterFormatPaths } from "./check-changed.ts";
+import { filterFormatPaths, listChangedFiles } from "./check-changed.ts";
 import { filterChangedTestPaths, shouldRunScopedLint } from "./check-lint-scoped.ts";
 import { bunTestArgs, isBunTestChangedEmptyOutput } from "./test-gates.ts";
 
@@ -491,6 +491,52 @@ async function runEffectGatesGate(projectRoot: string): Promise<GateResult> {
   return runGateVisible(projectRoot, "effect-gates", ["bun", "run", doctor, "--effect-gates"]);
 }
 
+function changedTouchesDashboardHarness(changed: readonly string[]): boolean {
+  return changed.some((path) => path.startsWith("examples/dashboard/"));
+}
+
+async function shouldRunPerfChangedGate(projectRoot: string): Promise<boolean> {
+  if (Bun.env.KIMI_SKIP_PERF_GATES === "1") return false;
+  if (!pathExists(join(projectRoot, "examples/dashboard/src/bin/perf-doctor.ts"))) {
+    return false;
+  }
+  let changed = await listChangedFiles(projectRoot, "origin/main");
+  if (changed.length === 0) {
+    changed = await listChangedFiles(projectRoot, "main");
+  }
+  return changedTouchesDashboardHarness(changed);
+}
+
+async function runPerfChangedGate(projectRoot: string): Promise<GateResult> {
+  if (!(await shouldRunPerfChangedGate(projectRoot))) {
+    return {
+      name: "perf:gates:changed",
+      exitCode: 0,
+      ms: 0,
+      stdout: "",
+      stderr: "",
+      skipped: true,
+    };
+  }
+  if (await shouldSkipGate(projectRoot, "perf:gates:changed")) {
+    return {
+      name: "perf:gates:changed",
+      exitCode: 0,
+      ms: 0,
+      stdout: "",
+      stderr: "",
+      skipped: true,
+    };
+  }
+  return runGateVisible(projectRoot, "perf:gates:changed", [
+    "bun",
+    "run",
+    "--cwd",
+    "examples/dashboard",
+    "perf:gates:changed",
+  ]);
+}
+
 async function runCheckFastGate(projectRoot: string): Promise<GateResult> {
   const full = Bun.env.KIMI_PRE_PUSH_FULL === "1";
   const script = full ? "check" : "check:fast";
@@ -646,6 +692,7 @@ async function runPrePushGatesSerial(
       runGuardianGate(projectRoot),
       runConstantDriftGate(projectRoot),
       runEffectGatesGate(projectRoot),
+      runPerfChangedGate(projectRoot),
     ])
   );
   if (fail !== null) return { results, fail };
@@ -737,6 +784,7 @@ export async function runPrePushGates(projectRoot: string): Promise<number> {
       () => runGuardianGate(projectRoot),
       () => runConstantDriftGate(projectRoot),
       () => runEffectGatesGate(projectRoot),
+      () => runPerfChangedGate(projectRoot),
       () => runRScoreGate(projectRoot),
       () => runCheckFastGate(projectRoot),
     ];
@@ -931,6 +979,16 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
       skipped:
         Bun.env.KIMI_SKIP_EFFECT_GATES === "1" ||
         (await shouldSkipGate(projectRoot, "effect-gates")),
+    });
+  }
+
+  if (isToolchain && (await shouldRunPerfChangedGate(projectRoot))) {
+    planned.push({
+      name: "perf:gates:changed",
+      cmd: ["bun", "run", "--cwd", "examples/dashboard", "perf:gates:changed"],
+      skipped:
+        Bun.env.KIMI_SKIP_PERF_GATES === "1" ||
+        (await shouldSkipGate(projectRoot, "perf:gates:changed")),
     });
   }
 
