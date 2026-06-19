@@ -73,6 +73,7 @@ async function fetchJson(url) { const res = await fetch(url); return res.json();
     ).join("");
     // Also fetch runtime info
     const rt = await fetchJson("/api/runtime-info");
+    const uuid = await fetchJson("/api/uuid");
     const shadows = d.shadowWarnings.length > 0
       ? `<span class="badge badge-warn" style="margin:0 4px">shadow:${d.shadowWarnings.join(",")}</span>`
       : '';
