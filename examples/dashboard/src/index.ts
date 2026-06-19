@@ -268,11 +268,21 @@ async function apiInspectSimple(): Promise<Response> {
   const buffer = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
   let errorStr = "";
   try { throw new Error("Something went wrong"); } catch (err) { errorStr = Bun.inspect(err); }
+
+  // Options demo: same object at different depths
+  const nested = { a: { b: { c: { d: "deep" } } } };
+  const depth2 = Bun.inspect(nested, { depth: 2 });
+  const depth4 = Bun.inspect(nested, { depth: 4 });
+  const compact = Bun.inspect(nested, { depth: 4, compact: true });
+
   return new Response(
     `// Bun.inspect({ foo: "bar" })\n${Bun.inspect(obj)}\n\n` +
     `// Bun.inspect(new Uint8Array([1, 2, 3]))\n${Bun.inspect(arr)}\n\n` +
     `// as const — TypeScript only, no runtime effect\n${Bun.inspect(constObj)}\n\n` +
     `// Binary data\n${Bun.inspect(buffer)}\n\n` +
+    `// Options: depth=2\n${depth2}\n\n` +
+    `// Options: depth=4\n${depth4}\n\n` +
+    `// Options: depth=4, compact=true\n${compact}\n\n` +
     `// Error inspection\n${errorStr}`,
     { headers: { "content-type": "text/plain; charset=utf-8" } }
   );
