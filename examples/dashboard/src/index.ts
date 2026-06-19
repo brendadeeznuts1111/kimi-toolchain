@@ -14,14 +14,25 @@
 const port = Number(Bun.env.PORT) || 3000;
 
 function resolveRoot(): string {
+  // When running from the toolchain repo (examples/dashboard/), use repo root.
+  // When deployed standalone, use the dashboard project directory.
   const dir = import.meta.dir;
-  return dir.replace("/examples/dashboard/src", "");
+  if (dir.includes("kimi-toolchain")) {
+    return dir.split("kimi-toolchain")[0] + "kimi-toolchain";
+  }
+  // Standalone deployment — use current working directory
+  return process.cwd();
+}
+
+function doctorBin(): string {
+  // Prefer global install, fall back to repo source
+  return Bun.which("kimi-doctor") || "src/bin/kimi-doctor.ts";
 }
 
 // ── API handlers ────────────────────────────────────────────────────
 
 async function apiBundle(): Promise<Response> {
-  const proc = Bun.spawn(["bun", "run", "src/bin/kimi-doctor.ts", "--bundle", "--json"], {
+  const proc = Bun.spawn(["bun", "run", doctorBin(), "--bundle", "--json"], {
     cwd: resolveRoot(),
     stdout: "pipe",
     stderr: "pipe",
@@ -33,7 +44,7 @@ async function apiBundle(): Promise<Response> {
 
 async function apiCompile(): Promise<Response> {
   const proc = Bun.spawn(
-    ["bun", "run", "src/bin/kimi-doctor.ts", "--compile-check", "--json"],
+    ["bun", "run", doctorBin(), "--compile-check", "--json"],
     { cwd: resolveRoot(), stdout: "pipe", stderr: "pipe" }
   );
   const stdout = await new Response(proc.stdout).text();
@@ -43,7 +54,7 @@ async function apiCompile(): Promise<Response> {
 
 async function apiGates(): Promise<Response> {
   const proc = Bun.spawn(
-    ["bun", "run", "src/bin/kimi-doctor.ts", "--effect-gates", "--json"],
+    ["bun", "run", doctorBin(), "--effect-gates", "--json"],
     { cwd: resolveRoot(), stdout: "pipe", stderr: "pipe" }
   );
   const stdout = await new Response(proc.stdout).text();
