@@ -33,6 +33,18 @@ describe("artifact-store", () => {
     });
   });
 
+  test("listGates returns gate directories with saved artifacts", async () => {
+    await withTempDir("artifact-store-gates-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      expect(await store.listGates()).toEqual([]);
+
+      await store.save("bunfig-policy", { n: 1 });
+      await store.save("card-probe", { n: 2 });
+
+      expect(await store.listGates()).toEqual(["bunfig-policy", "card-probe"]);
+    });
+  });
+
   test("getLatest returns newest payload", async () => {
     await withTempDir("artifact-store-latest-", async (dir) => {
       const store = new ArtifactStore(dir);

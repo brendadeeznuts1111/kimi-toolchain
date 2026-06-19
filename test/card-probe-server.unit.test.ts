@@ -1,7 +1,10 @@
 /** @description Probe cache server routes and lifecycle. */
 
 import { describe, expect, test } from "bun:test";
+import { join } from "path";
+import { pathExists } from "../src/lib/bun-io.ts";
 import { startProbeServer } from "../src/lib/card-probe-server.ts";
+import { withTempDir } from "./helpers.ts";
 
 describe("card-probe-server", () => {
   test("serves /api/health, /api/cards, and /api/refresh", async () => {
@@ -45,6 +48,99 @@ describe("card-probe-server", () => {
     } finally {
       handle.stop();
     }
+  });
+
+  test("serves artifact inspection routes", async () => {
+    await withTempDir("card-probe-server-artifacts-", async (dir) => {
+      const handle = await startProbeServer({
+        port: 0,
+        probeConfig: { timeoutMs: 100 },
+        projectRoot: dir,
+        saveArtifact: true,
+      });
+      try {
+        const gates = await fetch(`${handle.url}/api/artifacts`);
+        expect(gates.status).toBe(200);
+        const gatesBody = (await gates.json()) as {
+          ok: boolean;
+          gates: string[];
+          count: number;
+          projectRoot: string;
+        };
+        expect(gatesBody.ok).toBe(true);
+        expect(gatesBody.projectRoot).toBe(dir);
+        expect(gatesBody.gates).toContain("card-probe");
+        expect(gatesBody.count).toBe(gatesBody.gates.length);
+
+        const list = await fetch(`${handle.url}/api/artifacts/card-probe`);
+        expect(list.status).toBe(200);
+        const listBody = (await list.json()) as {
+          ok: boolean;
+          gate: string;
+          files: Array<{ path: string; timestamp: string | null; size: number }>;
+        };
+        expect(listBody.ok).toBe(true);
+        expect(listBody.gate).toBe("card-probe");
+        expect(listBody.files.length).toBeGreaterThan(0);
+        expect(listBody.files[0]?.path).toMatch(/^\.kimi\/artifacts\/card-probe\//);
+        expect(typeof listBody.files[0]?.size).toBe("number");
+
+        const latest = await fetch(`${handle.url}/api/artifacts/card-probe/latest`);
+        expect(latest.status).toBe(200);
+        const latestBody = (await latest.json()) as {
+          ok: boolean;
+          gate: string;
+          path: string;
+          payload: { source: string; statuses: unknown[] };
+        };
+        expect(latestBody.ok).toBe(true);
+        expect(latestBody.gate).toBe("card-probe");
+        expect(latestBody.payload.source).toBe("serve-probe");
+        expect(Array.isArray(latestBody.payload.statuses)).toBe(true);
+        expect(pathExists(join(dir, latestBody.path))).toBe(true);
+
+        const missing = await fetch(`${handle.url}/api/artifacts/missing-gate/latest`);
+        expect(missing.status).toBe(404);
+
+        const refreshPost = await fetch(`${handle.url}/api/artifacts/card-probe/refresh`, {
+          method: "POST",
+        });
+        expect(refreshPost.status).toBe(403);
+        const refreshBody = (await refreshPost.json()) as {
+          error: string;
+          reason: string;
+          docs: string;
+          futureOptIn: { flag: string; env: string };
+        };
+        expect(refreshBody.error).toBe("Gate refresh disabled");
+        expect(refreshBody.reason).toContain("read-only");
+        expect(refreshBody.docs).toContain("ADR-0004-serve-probe-readonly");
+        expect(refreshBody.futureOptIn.flag).toBe("--allow-gate-refresh");
+      } finally {
+        handle.stop();
+      }
+    });
+  });
+
+  test("refresh response includes artifactPath when saveArtifact is enabled", async () => {
+    await withTempDir("card-probe-server-refresh-artifact-", async (dir) => {
+      const handle = await startProbeServer({
+        port: 0,
+        probeConfig: { timeoutMs: 100 },
+        projectRoot: dir,
+        saveArtifact: true,
+      });
+      try {
+        const refresh = await fetch(`${handle.url}/api/refresh`, { method: "POST" });
+        expect(refresh.status).toBe(200);
+        const body = (await refresh.json()) as { ok: boolean; artifactPath?: string };
+        expect(body.ok).toBe(true);
+        expect(body.artifactPath).toContain(join(dir, ".kimi", "artifacts", "card-probe"));
+        expect(handle.getLastArtifactPath()).toBe(body.artifactPath);
+      } finally {
+        handle.stop();
+      }
+    });
   });
 
   test("returns JSON 405 with allowed methods", async () => {

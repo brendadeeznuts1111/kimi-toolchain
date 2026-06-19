@@ -117,7 +117,18 @@ import {
 } from "../lib/effect-benchmark.ts";
 import { toolStart, toolDone, healthResult } from "../lib/health-channel.ts";
 import { ArtifactStore } from "../lib/artifact-store.ts";
-import { getGate, listGates } from "../gates/registry.ts";
+import {
+  detectCycle,
+  formatGateResults,
+  generateGateGraph,
+  runGatesWithDependencies,
+} from "../gates/runner.ts";
+import {
+  getGate,
+  listBuiltinGateDefinitions,
+  listGates,
+  resolveGateClosure,
+} from "../gates/registry.ts";
 
 const writer = createCli(Bun.argv, "kimi-doctor");
 const logger = writer.logger;
@@ -172,6 +183,8 @@ const REGRESSION = Bun.argv.includes("--regression");
 const PERF_AUTO_TRAIN = Bun.argv.includes("--perf-auto-train");
 const OPEN = Bun.argv.includes("--open");
 const GATE = argValue("--gate");
+const RUN_GATES = Bun.argv.includes("--run-gates");
+const GATE_GRAPH = Bun.argv.includes("--gate-graph") || Bun.argv.includes("--graph");
 const SAVE_ARTIFACT = Bun.argv.includes("--save-artifact");
 const ARTIFACTS_LIST = argValue("--artifacts-list");
 const ARTIFACTS_LATEST = argValue("--artifacts-latest");
@@ -1495,6 +1508,69 @@ async function main(): Promise<number> {
 
   const argv = Bun.argv.slice(2);
 
+  if (GATE_GRAPH) {
+    let gates = listBuiltinGateDefinitions();
+    if (GATE) {
+      if (!getGate(GATE)) {
+        logger.error(`Unknown gate: ${GATE}`);
+        logger.info(`Available: ${listGates().join(", ")}`);
+        return 1;
+      }
+      const closure = resolveGateClosure(GATE);
+      if (closure.missing.length > 0) {
+        logger.error(`Unknown gate dependencies: ${closure.missing.join(", ")}`);
+        return 1;
+      }
+      gates = closure.gates;
+    }
+    const mermaid = generateGateGraph(gates);
+    if (JSON_OUT) {
+      emitJson({
+        schemaVersion: 1,
+        tool: "kimi-doctor",
+        mode: "gate-graph",
+        gate: GATE,
+        projectRoot,
+        gates: gates.map((g) => ({ name: g.name, dependsOn: g.dependsOn ?? [] })),
+        mermaid,
+      });
+    } else {
+      logger.line(mermaid);
+    }
+    return 0;
+  }
+
+  if (RUN_GATES) {
+    const gates = listBuiltinGateDefinitions();
+    const cycle = detectCycle(gates);
+    if (cycle.length > 0) {
+      logger.error(`Gate dependency cycle: ${cycle.join(" → ")}`);
+      return 1;
+    }
+
+    const { results, order } = await runGatesWithDependencies(gates, {
+      projectRoot,
+      saveArtifact: SAVE_ARTIFACT,
+    });
+
+    if (JSON_OUT) {
+      emitJson({ mode: "run-gates", projectRoot, order, results });
+    } else {
+      const icon = (s: string) =>
+        s === "pass" ? "✓" : s === "warn" ? "!" : s === "blocked" ? "⊘" : "✗";
+      for (const row of results) {
+        const label = `${icon(row.status)} ${row.gate}: ${row.status}`;
+        if (row.status === "fail") logger.error(label);
+        else if (row.status === "warn" || row.status === "blocked") logger.warn(label);
+        else logger.info(label);
+        if (row.reason) logger.line(`  ${row.reason}`);
+      }
+    }
+
+    const failed = results.filter((r) => r.status === "fail" || r.status === "blocked");
+    return failed.length > 0 ? 1 : 0;
+  }
+
   if (GATE) {
     const gate = getGate(GATE);
     if (!gate) {
@@ -1503,7 +1579,24 @@ async function main(): Promise<number> {
       return 1;
     }
 
-    const result = await gate.run({ projectRoot, saveArtifact: SAVE_ARTIFACT });
+    const closure = resolveGateClosure(GATE);
+    if (closure.missing.length > 0) {
+      logger.error(`Unknown gate dependencies: ${closure.missing.join(", ")}`);
+      return 1;
+    }
+
+    const cycle = detectCycle(closure.gates);
+    if (cycle.length > 0) {
+      logger.error(`Gate dependency cycle: ${cycle.join(" → ")}`);
+      return 1;
+    }
+
+    const { results, order, graphArtifactPath } = await runGatesWithDependencies(closure.gates, {
+      projectRoot,
+      saveArtifact: SAVE_ARTIFACT,
+    });
+    const target = results.find((row) => row.gate === GATE);
+
     if (JSON_OUT) {
       emitJson({
         agentId: AGENT_ID,
@@ -1511,28 +1604,52 @@ async function main(): Promise<number> {
         gate: GATE,
         projectRoot,
         saveArtifact: SAVE_ARTIFACT,
-        result,
+        order,
+        results,
+        graphArtifactPath,
+        result: target?.detail ?? target,
       });
     } else {
-      const lines = gate.format?.(result) ?? [
-        `${result.status}: ${GATE}${result.reason ? ` — ${result.reason}` : ""}`,
-      ];
-      const [first, ...rest] = lines;
-      if (result.status === "fail") logger.error(first ?? `fail: ${GATE}`);
-      else if (result.status === "warn") logger.warn(first ?? `warn: ${GATE}`);
-      else logger.info(first ?? `pass: ${GATE}`);
-      for (const line of rest) logger.line(line);
-      if ("failures" in result && Array.isArray(result.failures)) {
-        for (const failure of result.failures) logger.error(`  - ${failure}`);
+      for (const row of results) {
+        const rowGate = getGate(row.gate);
+        const formatInput =
+          row.detail ??
+          ({
+            status: row.status === "blocked" ? "fail" : row.status,
+            reason: row.reason,
+            artifactPath: row.artifactPath,
+          } as const);
+        const lines = rowGate?.format?.(formatInput) ?? [
+          `${row.status}: ${row.gate}${row.reason ? ` — ${row.reason}` : ""}`,
+        ];
+        const [first, ...rest] = lines;
+        if (row.status === "fail" || row.status === "blocked") {
+          logger.error(first ?? `${row.status}: ${row.gate}`);
+        } else if (row.status === "warn") {
+          logger.warn(first ?? `warn: ${row.gate}`);
+        } else {
+          logger.info(first ?? `pass: ${row.gate}`);
+        }
+        for (const line of rest) logger.line(line);
+        if ("failures" in formatInput && Array.isArray(formatInput.failures)) {
+          for (const failure of formatInput.failures) logger.error(`  - ${failure}`);
+        }
+        if ("warnings" in formatInput && Array.isArray(formatInput.warnings)) {
+          for (const warning of formatInput.warnings) logger.warn(`  - ${warning}`);
+        }
+        if (SAVE_ARTIFACT && row.artifactPath) {
+          logger.info(`  Artifact: ${row.artifactPath}`);
+        }
       }
-      if ("warnings" in result && Array.isArray(result.warnings)) {
-        for (const warning of result.warnings) logger.warn(`  - ${warning}`);
+      if (results.length > 1) {
+        logger.line(formatGateResults(results));
       }
-      if (SAVE_ARTIFACT && result.artifactPath) {
-        logger.info(`  Artifact: ${result.artifactPath}`);
+      if (graphArtifactPath) {
+        logger.info(`  Graph artifact: ${graphArtifactPath}`);
       }
     }
-    return result.status === "fail" ? 1 : 0;
+
+    return results.some((row) => row.status === "fail" || row.status === "blocked") ? 1 : 0;
   }
 
   if (ADAPTER) {

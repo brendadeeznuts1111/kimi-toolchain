@@ -61,6 +61,8 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "artifact-store": "src/lib/artifact-store.ts",
   "bunfig-policy-gate": "src/gates/bunfig-policy.ts",
   "gate-registry": "src/gates/registry.ts",
+  "doctor-gates-runner": "src/gates/runner.ts",
+  "kimi-doctor-gate": "src/bin/kimi-doctor.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */

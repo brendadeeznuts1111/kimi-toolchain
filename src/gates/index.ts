@@ -29,4 +29,18 @@ export {
   listBuiltinGateDefinitions,
   listGates,
   registerGate,
+  resolveGateClosure,
 } from "./registry.ts";
+
+export {
+  detectCycle,
+  formatGateResults,
+  generateGateGraph,
+  runGatesWithDependencies,
+  topologicalSort,
+  type DependencyRunOutcome,
+  type DependencyRunnerOptions,
+  type GateRunResult,
+} from "./runner.ts";
+
+export type { GateArtifact } from "./types.ts";

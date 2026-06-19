@@ -7,7 +7,6 @@ import {
   type CardProbeConfig,
   type CardStatus,
   formatCardProbeTable,
-  probeAllCards,
   summarizeCardStatuses,
 } from "./card-probe.ts";
 import {
@@ -99,16 +98,30 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
   const log = options.log;
   const json = options.json === true;
 
+  const serverOptions = {
+    probeConfig,
+    projectRoot: options.projectRoot ?? process.cwd(),
+    saveArtifact: options.saveArtifact,
+    strict,
+  };
+
   if (options.mode === "serve-probe-once") {
-    const handle = await startProbeServer({ probeConfig });
+    const handle = await startProbeServer(serverOptions);
     const statuses = handle.getCached();
     const summary = summarizeCardStatuses(statuses);
-    const payload = buildCardProbeJsonPayload("serve-probe", statuses, { url: handle.url });
+    const payload = buildCardProbeJsonPayload("serve-probe", statuses, {
+      url: handle.url,
+      saveArtifact: options.saveArtifact === true,
+      artifactPath: handle.getLastArtifactPath(),
+    });
 
     if (json) {
       /* caller emits payload */
     } else {
       log?.(`Probe server warmed at ${handle.url}`);
+      if (options.saveArtifact && handle.getLastArtifactPath()) {
+        log?.(`  Artifact: ${handle.getLastArtifactPath()}`);
+      }
       log?.(formatCardProbeTable(statuses));
       logProbeSummary(log, summary, strict);
     }
@@ -124,11 +137,13 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
   }
 
   if (options.mode === "serve-probe") {
-    const handle = await startProbeServer({ probeConfig });
+    const handle = await startProbeServer(serverOptions);
     const statuses = handle.getCached();
     const summary = summarizeCardStatuses(statuses);
     const payload = buildCardProbeJsonPayload("serve-probe", statuses, {
       url: handle.url,
+      saveArtifact: options.saveArtifact === true,
+      artifactPath: handle.getLastArtifactPath(),
       routes: PROBE_SERVER_ROUTES.map((route) => ({
         path: route.path,
         methods: [...route.methods],
@@ -137,7 +152,12 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
 
     if (!json) {
       log?.(`Card probe server listening at ${handle.url}`);
-      log?.("Routes: GET|HEAD /api/health · GET /api/cards · GET|POST /api/refresh");
+      log?.(
+        "Routes: GET|HEAD /api/health · GET /api/cards · GET|POST /api/refresh · GET /api/artifacts[/{gate}[/latest]]"
+      );
+      if (options.saveArtifact && handle.getLastArtifactPath()) {
+        log?.(`  Artifact: ${handle.getLastArtifactPath()}`);
+      }
       logProbeSummary(log, summary, false);
     }
 

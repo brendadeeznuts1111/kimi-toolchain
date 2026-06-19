@@ -37,6 +37,7 @@ export async function runPerfGate(opts: GateRunOptions = {}): Promise<GateResult
 export const perfGateDefinition: Gate = {
   name: "perf-gate",
   description: "Benchmark performance thresholds",
+  dependsOn: ["bunfig-policy"],
   run: runPerfGate,
   format: (result) => {
     const row = result as PerfGateDoctorResult;

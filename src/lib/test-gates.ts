@@ -32,6 +32,8 @@ export const UNIT_TEST_FILES = [
   "test/artifact-store.unit.test.ts",
   "test/bunfig-policy-gate.unit.test.ts",
   "test/gate-registry.unit.test.ts",
+  "test/doctor-gates-runner.unit.test.ts",
+  "test/kimi-doctor-gate.unit.test.ts",
   "test/markdown-table.unit.test.ts",
   "test/table-schema.unit.test.ts",
   "test/url-decomposer.unit.test.ts",

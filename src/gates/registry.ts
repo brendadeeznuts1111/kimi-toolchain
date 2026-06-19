@@ -30,6 +30,31 @@ export function listGates(): string[] {
   return [...gates.keys()].sort();
 }
 
+/** Collect a gate and its transitive dependencies (dependency-first order). */
+export function resolveGateClosure(name: string): { gates: Gate[]; missing: string[] } {
+  ensureDiscovered();
+  const missing: string[] = [];
+  const order: Gate[] = [];
+  const seen = new Set<string>();
+
+  function visit(gateName: string): void {
+    if (seen.has(gateName)) return;
+    const gate = gates.get(gateName);
+    if (!gate) {
+      if (!missing.includes(gateName)) missing.push(gateName);
+      return;
+    }
+    for (const dep of gate.dependsOn ?? []) {
+      visit(dep);
+    }
+    seen.add(gateName);
+    order.push(gate);
+  }
+
+  visit(name);
+  return { gates: order, missing };
+}
+
 export const gateRegistry = {
   get: getGate,
   list: listGates,

@@ -254,8 +254,20 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
       {
         name: "--gate",
         type: "string",
-        description: "Run a single static gate such as bunfig-policy",
+        description: "Run a static gate and its dependsOn closure in topological order",
         agentFacing: true,
+      },
+      {
+        name: "--gate-graph",
+        type: "boolean",
+        description: "Emit Mermaid dependency graph for --gate closure or all built-in gates",
+        agentFacing: true,
+      },
+      {
+        name: "--graph",
+        type: "boolean",
+        description: "Alias for --gate-graph",
+        agentFacing: false,
       },
       {
         name: "--save-artifact",
@@ -287,7 +299,7 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
         name: "--serve-probe",
         type: "boolean",
         description:
-          "Start HTTP server on 127.0.0.1:9239 — GET|HEAD /api/health, GET /api/cards, GET|POST /api/refresh",
+          "Start HTTP server on 127.0.0.1:9239 — GET|HEAD /api/health, GET /api/cards, GET|POST /api/refresh (cards only), GET /api/artifacts[/{gate}[/latest]] (read-only)",
         agentFacing: true,
       },
       {

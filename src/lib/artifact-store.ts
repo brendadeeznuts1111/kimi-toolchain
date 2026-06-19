@@ -13,8 +13,22 @@ export interface ArtifactRecord {
 export class ArtifactStore {
   constructor(private readonly projectRoot: string = process.cwd()) {}
 
+  private rootArtifactsDir(): string {
+    return join(projectKimiDir(this.projectRoot), "artifacts");
+  }
+
   artifactsDir(gateName: string): string {
-    return join(projectKimiDir(this.projectRoot), "artifacts", gateName);
+    return join(this.rootArtifactsDir(), gateName);
+  }
+
+  /** Gate names with at least one saved artifact, sorted alphabetically. */
+  async listGates(): Promise<string[]> {
+    const dir = this.rootArtifactsDir();
+    if (!pathExists(dir)) return [];
+    return listDir(dir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
   }
 
   /** Write JSON artifact; returns absolute path. */
