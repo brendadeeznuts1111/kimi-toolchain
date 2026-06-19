@@ -58,6 +58,9 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "canvas-metadata-integrity": "src/lib/canvas-metadata-integrity.gate.ts",
   "perf-gate": "src/guardian/perf-gate.ts",
   "tls-compliance": "src/guardian/tls-compliance.ts",
+  "artifact-store": "src/lib/artifact-store.ts",
+  "bunfig-policy-gate": "src/gates/bunfig-policy.ts",
+  "gate-registry": "src/gates/registry.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */

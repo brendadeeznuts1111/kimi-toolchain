@@ -35,6 +35,36 @@ export function cleanupPath(path: string): void {
   removePath(path, { recursive: true, force: true });
 }
 
+export interface TempProjectHandle {
+  dir: string;
+  cleanup: () => Promise<void>;
+}
+
+/**
+ * Create a temp project tree and optionally chdir into it for the test body.
+ * Restores cwd on cleanup.
+ */
+export async function createTempProject(
+  files: Record<string, string>,
+  options?: { chdir?: boolean }
+): Promise<TempProjectHandle> {
+  const dir = testTempDir("kimi-temp-project-");
+  const originalCwd = process.cwd();
+  for (const [name, content] of Object.entries(files)) {
+    const path = join(dir, name);
+    makeDir(join(dir, ...name.split("/").slice(0, -1)), { recursive: true });
+    await Bun.write(path, content);
+  }
+  if (options?.chdir !== false) process.chdir(dir);
+  return {
+    dir,
+    cleanup: async () => {
+      if (process.cwd() === dir) process.chdir(originalCwd);
+      cleanupPath(dir);
+    },
+  };
+}
+
 /**
  * Run a function with a fresh temp directory that is cleaned up afterwards.
  * Supports sync and async callbacks.
