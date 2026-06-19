@@ -11,6 +11,8 @@
 
 import {
   buildCanonicalReferencesManifest,
+  finalizeCanonicalReferencesManifest,
+  readCanonicalReferencesManifest,
   repoCanonicalReferencesPath,
 } from "../src/lib/canonical-references.ts";
 import { stableStringify } from "../src/lib/build-constants-registry.ts";
@@ -31,9 +33,11 @@ const REPO_ROOT = import.meta.dir + "/..";
 const KNOWN_FLAGS = new Set(["--daemon", "--dry-run", "--force"]);
 
 async function ensureCanonicalReferencesManifest(): Promise<void> {
+  const existing = await readCanonicalReferencesManifest(REPO_ROOT);
+  const generated = buildCanonicalReferencesManifest();
   await writeTextAsync(
     repoCanonicalReferencesPath(REPO_ROOT),
-    stableStringify(buildCanonicalReferencesManifest())
+    stableStringify(finalizeCanonicalReferencesManifest(generated, existing))
   );
 }
 

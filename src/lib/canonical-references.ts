@@ -620,6 +620,17 @@ export function referencesContentEqual(
   );
 }
 
+/** Preserve generatedAt when link tables are unchanged — avoids timestamp-only git drift on sync. */
+export function finalizeCanonicalReferencesManifest(
+  generated: CanonicalReferencesManifest,
+  existing: CanonicalReferencesManifest | null
+): CanonicalReferencesManifest {
+  if (existing && referencesContentEqual(generated, existing)) {
+    return { ...generated, generatedAt: existing.generatedAt };
+  }
+  return generated;
+}
+
 export function manifestNeedsRefresh(
   generated: CanonicalReferencesManifest,
   existing: CanonicalReferencesManifest | null

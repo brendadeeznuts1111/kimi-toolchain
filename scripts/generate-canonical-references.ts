@@ -12,6 +12,7 @@ import { join } from "path";
 import { writeTextAsync } from "../src/lib/bun-io.ts";
 import {
   buildCanonicalReferencesManifest,
+  finalizeCanonicalReferencesManifest,
   repoCanonicalReferencesPath,
   manifestNeedsRefresh,
   readCanonicalReferencesManifest,
@@ -24,6 +25,7 @@ const MANIFEST_PATH = repoCanonicalReferencesPath(ROOT);
 async function main(): Promise<void> {
   const check = Bun.argv.includes("--check");
   const jsonOnly = Bun.argv.includes("--json");
+  const existing = await readCanonicalReferencesManifest(ROOT);
   const generated = buildCanonicalReferencesManifest();
 
   if (jsonOnly) {
@@ -32,7 +34,6 @@ async function main(): Promise<void> {
   }
 
   if (check) {
-    const existing = await readCanonicalReferencesManifest(ROOT);
     if (manifestNeedsRefresh(generated, existing)) {
       console.error("canonical-references.json is stale — run: bun run references:generate");
       process.exit(1);
@@ -41,7 +42,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  await writeTextAsync(MANIFEST_PATH, stableStringify(generated));
+  await writeTextAsync(
+    MANIFEST_PATH,
+    stableStringify(finalizeCanonicalReferencesManifest(generated, existing))
+  );
   console.log(
     `wrote canonical-references.json (${generated.ecosystem.length} ecosystem, ${generated.localDocs.length} local docs, ${generated.repos.length} repos)`
   );
