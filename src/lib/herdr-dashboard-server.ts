@@ -138,6 +138,8 @@ export interface HerdrDashboardServerOptions extends DashboardFetchOptions {
   /** Server SSE agent-discovery poll interval (ms). */
   ssePollMs?: number;
   staleMs?: number;
+  /** Start dashboard discovery polling immediately (default true unless sessions are disabled). */
+  autoRefresh?: boolean;
   /** Enable HTTP/3 when TLS certs are configured (see HERDR_DASHBOARD_TLS_* env). */
   http3?: boolean;
   /** Override HERDR_DASHBOARD_TLS_CERT for tests or custom deployments. */
@@ -356,6 +358,7 @@ export function startHerdrDashboardServer(
   const server = Bun.serve({
     hostname,
     port,
+    idleTimeout: 120,
     ...serveOptions,
     async fetch(req) {
       const request = req as unknown as ServeRequest;
@@ -688,6 +691,16 @@ export function startHerdrDashboardServer(
 
       if (path === "/api/canvases") {
         return jsonResponse(fetchDashboardCanvases());
+      }
+
+      if (path === "/api/canvas-filter" && request.method === "GET") {
+        const { applyCanvasFilter } = await import("./dashboard-canvas-filter.ts");
+        const result = await applyCanvasFilter(options.projectPath, url);
+        return jsonResponse({
+          ok: true,
+          ...result,
+          fetchedAt: new Date().toISOString(),
+        });
       }
 
       // Read-only by design: the dashboard observes saved artifacts but never executes gates.

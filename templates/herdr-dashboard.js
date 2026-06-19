@@ -25,6 +25,7 @@ let artifactsViewMode = "artifacts";
 const ARTIFACT_FILTER_DEBOUNCE_MS = 250;
 let lastArtifactsAggregatesJson = "";
 let lastArtifactsContextJson = "";
+let lastArtifactsIndexStatsJson = "";
 let lastLineageGateGraph = "";
 let lastLineageArtifactKey = "";
 let mermaidReady = false;
@@ -39,6 +40,10 @@ let lastDebugLogsJson = "";
 let debugLogsSink = "tool-failures";
 let debugLogsTail = 50;
 let debugLogsTabTimer = null;
+let debugLogsSeverityFilter = "";
+let debugLogsWorkspaceFilter = "";
+let debugLogsAgentFilter = "";
+let debugLogsQueryFilter = "";
 const DEBUG_LOGS_POLL_MS = 10_000;
 let pollTimer = null;
 let processesPollTimer = null;
@@ -64,6 +69,8 @@ let activeTab = "agents";
 let metaSnapshot = null;
 let lastAgentsPayload = null;
 let lastHealthPayload = null;
+/** @type {"connecting" | "live" | "fallback"} */
+let sseStreamState = "connecting";
 let healthPollTimer = null;
 const HEALTH_POLL_MS = 10_000;
 let activeSession = loadActiveSession();
@@ -999,6 +1006,19 @@ function updateLogsHeaderMeta(paneId, lineCount) {
   }
 }
 
+function normalizeLogPreviewEntry(entry) {
+  if (typeof entry === "string") {
+    return { raw: entry, preview: entry, tags: [], payloadKeys: [] };
+  }
+  const raw = entry.raw ?? entry.message ?? String(entry);
+  return {
+    raw,
+    preview: entry.preview ?? raw,
+    tags: Array.isArray(entry.tags) ? entry.tags : [],
+    payloadKeys: Array.isArray(entry.payloadKeys) ? entry.payloadKeys : [],
+  };
+}
+
 function renderLogsPreContent(lines) {
   const pre = getLogsPre();
   if (!pre) return;
@@ -1007,10 +1027,14 @@ function renderLogsPreContent(lines) {
     pre.textContent = "(empty)";
     return;
   }
-  lines.forEach((line, index) => {
+  lines.forEach((entry, index) => {
+    const { raw, preview } = normalizeLogPreviewEntry(entry);
     const row = document.createElement("div");
     row.className = "process-log-line";
-    row.innerHTML = `<span class="log-number">${index + 1}</span><span>${esc(line)}</span>`;
+    row.title = raw;
+    row.innerHTML = `<span class="log-number">${index + 1}</span><span class="log-message">${esc(
+      preview
+    )}</span>`;
     pre.appendChild(row);
   });
 }
@@ -1104,7 +1128,7 @@ function attachLogsRow(payload, options = {}) {
     return;
   }
 
-  const lines = payload.lines || [];
+  const lines = payload.lineEntries?.length ? payload.lineEntries : payload.lines || [];
   logsDisplayedLines = lines;
   logsTotalLines = payload.totalLines ?? lines.length;
   const canLoadMore =
@@ -1140,7 +1164,7 @@ function appendLogsTail(payload) {
   if (!tr || !payload?.available) return;
 
   if (payload.paneRestarted) {
-    logsDisplayedLines = payload.lines || [];
+    logsDisplayedLines = payload.lineEntries?.length ? payload.lineEntries : payload.lines || [];
     logsTotalLines = payload.totalLines ?? logsDisplayedLines.length;
     renderLogsPreContent(logsDisplayedLines);
     updateLogsHeaderMeta(payload.paneId, logsDisplayedLines.length);
@@ -1150,7 +1174,7 @@ function appendLogsTail(payload) {
   }
 
   logsTotalLines = payload.totalLines ?? logsTotalLines;
-  const newLines = payload.lines || [];
+  const newLines = payload.lineEntries?.length ? payload.lineEntries : payload.lines || [];
   if (newLines.length === 0) return;
 
   const pre = getLogsPre();
@@ -1894,6 +1918,7 @@ function renderMetaDisplay(data) {
     webview: data.webview,
     discovery: data.discovery,
   });
+  renderStreamStatus();
 }
 
 async function loadMeta() {
@@ -2033,26 +2058,88 @@ function startSseFallback(intervalMs) {
   }, interval);
 }
 
-function connectAgentsLive() {
-  const status = document.getElementById("stream-status");
-  const source = new EventSource(apiUrl("/api/agents/live"));
-
-  const streamNote = () => {
-    const herdr = metaSnapshot?.herdrEvents;
-    if (herdr?.enabled && herdr.connected) return " · herdr socket";
-    if (herdr?.enabled) return " · herdr connecting";
-    return "";
+/** Herdr bridge status — prefer /api/health (polled) over stale /api/meta snapshot. */
+function resolveHerdrBridgeStatus() {
+  const healthHerdr = lastHealthPayload?.checks?.herdr;
+  if (healthHerdr) {
+    return {
+      enabled: healthHerdr.status !== "unknown",
+      connected: healthHerdr.connected === true,
+      workspaceId: healthHerdr.workspaceId ?? null,
+    };
+  }
+  const metaHerdr = metaSnapshot?.herdrEvents;
+  if (metaHerdr === undefined) return null;
+  return {
+    enabled: metaHerdr.enabled !== false,
+    connected: metaHerdr.connected === true,
+    pending: metaHerdr.pending === true,
+    workspaceId: metaHerdr.workspaceId ?? null,
+    error: metaHerdr.error,
   };
+}
+
+function formatStreamHerdrSuffix(herdr) {
+  if (!herdr) return "";
+  if (!herdr.enabled) return " · herdr off";
+  if (herdr.connected) {
+    const ws = herdr.workspaceId ? ` (${herdr.workspaceId})` : "";
+    return ` · herdr ✓${ws}`;
+  }
+  if (herdr.pending) return " · herdr …";
+  return " · herdr ✗";
+}
+
+/** Composite browser SSE + server Herdr bridge indicator (distinct failure domains, one glance). */
+function renderStreamStatus(at = new Date()) {
+  const el = document.getElementById("stream-status");
+  if (!el) return;
+
+  const herdr = resolveHerdrBridgeStatus();
+  const herdrSuffix = formatStreamHerdrSuffix(herdr);
+  const herdrWarn =
+    sseStreamState === "live" &&
+    herdr?.enabled === true &&
+    herdr.connected !== true &&
+    !herdr.pending;
+
+  el.classList.remove(
+    "stream-status--live",
+    "stream-status--fallback",
+    "stream-status--herdr-warn"
+  );
+
+  if (sseStreamState === "live") {
+    el.classList.add("stream-status--live");
+    if (herdrWarn) el.classList.add("stream-status--herdr-warn");
+    el.textContent = `SSE live ${at.toISOString()}${herdrSuffix}`;
+    return;
+  }
+
+  if (sseStreamState === "fallback") {
+    el.classList.add("stream-status--fallback");
+    const interval = metaSnapshot?.ssePollMs || metaSnapshot?.pollHintMs || 5000;
+    el.textContent = `SSE disconnected — polling /api/agents every ${interval / 1000}s…${herdrSuffix}`;
+    return;
+  }
+
+  el.textContent = `SSE connecting…${herdrSuffix}`;
+}
+
+function connectAgentsLive() {
+  const source = new EventSource(apiUrl("/api/agents/live"));
 
   source.onopen = () => {
     stopSseFallback();
-    status.textContent = `SSE live ${new Date().toISOString()}${streamNote()}`;
-    auditDashboard("stream", { state: "sse-open", herdr: metaSnapshot?.herdrEvents });
+    sseStreamState = "live";
+    renderStreamStatus();
+    auditDashboard("stream", { state: "sse-open", herdr: resolveHerdrBridgeStatus() });
   };
 
   source.onmessage = (event) => {
     stopSseFallback();
-    status.textContent = `SSE live ${new Date().toISOString()}${streamNote()}`;
+    sseStreamState = "live";
+    renderStreamStatus();
     try {
       renderAgents(JSON.parse(event.data));
     } catch (e) {
@@ -2062,8 +2149,9 @@ function connectAgentsLive() {
   };
 
   source.onerror = () => {
+    sseStreamState = "fallback";
     const interval = metaSnapshot?.ssePollMs || metaSnapshot?.pollHintMs || 5000;
-    status.textContent = `SSE disconnected — polling /api/agents every ${interval / 1000}s…`;
+    renderStreamStatus();
     auditDashboard("stream", { state: "sse-fallback", intervalMs: interval });
     startSseFallback(interval);
   };
@@ -2863,8 +2951,40 @@ function clearArtifactsFilters() {
   lastArtifactsAggregatesJson = "";
 }
 
+function artifactDiffResultHtml(payload) {
+  if (!payload?.ok) {
+    return `<div class="artifact-diff-result artifact-diff-result--diff">${esc(
+      payload?.error || "Diff failed"
+    )}</div>`;
+  }
+  const tone = payload.equal ? "equal" : "diff";
+  const statusLine = [payload.statusA, payload.statusB].filter(Boolean).join(" → ");
+  return `<div class="artifact-diff-result artifact-diff-result--${tone}">
+    <strong>${payload.equal ? "Hashes match" : "Hashes differ"}</strong>
+    ${statusLine ? ` · status ${esc(statusLine)}` : ""}
+    <span class="artifact-diff-hash">A: ${esc(payload.hashA || "—")}</span>
+    <span class="artifact-diff-hash">B: ${esc(payload.hashB || "—")}</span>
+  </div>`;
+}
+
+async function runArtifactDiff(gate, pathA, pathB, resultEl) {
+  if (!gate || !pathA || !pathB || !resultEl) return;
+  resultEl.textContent = "Comparing…";
+  resultEl.className = "artifact-diff-result";
+  try {
+    const url = `/api/artifacts/${encodeURIComponent(gate)}/diff?a=${encodeURIComponent(pathA)}&b=${encodeURIComponent(pathB)}`;
+    const res = await fetch(url);
+    const payload = await res.json();
+    resultEl.outerHTML = artifactDiffResultHtml(payload);
+  } catch (err) {
+    resultEl.textContent = err instanceof Error ? err.message : String(err);
+    resultEl.className = "artifact-diff-result artifact-diff-result--diff";
+  }
+}
+
 function artifactDetailHtml(row) {
   const latestPath = row.latestPath || "";
+  const previousPath = row.previousPath || "";
   const preview = row.preview || JSON.stringify(row, null, 2);
   const contextTags = [
     row.sessionId ? tagHtml(`session:${row.sessionId}`, "neutral") : "",
@@ -2887,6 +3007,19 @@ function artifactDetailHtml(row) {
             ${contextTags}
           </div>
           <div class="artifact-detail-path"><code>${esc(latestPath || "No latest path")}</code></div>
+          <div class="artifact-diff-toolbar">
+            <button
+              type="button"
+              class="artifact-diff-btn"
+              data-gate="${esc(row.gate)}"
+              data-path-a="${esc(previousPath)}"
+              data-path-b="${esc(latestPath)}"
+              ${previousPath && latestPath ? "" : "disabled"}
+            >
+              Compare latest vs previous
+            </button>
+          </div>
+          <div class="artifact-diff-result" data-diff-for="${esc(row.gate)}"></div>
           <pre class="artifact-preview">${esc(preview)}</pre>
         </div>
       </td>
@@ -2909,17 +3042,150 @@ function toggleArtifactDetail(row, tr) {
   tr.insertAdjacentHTML("afterend", artifactDetailHtml(row));
 }
 
-function applyArtifactsRunFilter(runId) {
-  const run = document.getElementById("artifacts-run-filter");
-  if (run) run.value = runId;
-  artifactsRunFilter = runId;
-  renderArtifactsFilterChips();
-  pushArtifactsFilterToUrl();
+function invalidateArtifactsCache() {
   lastArtifactsJson = "";
   lastArtifactsContextJson = "";
   lastArtifactsGraphKey = "";
   lastArtifactsAggregatesJson = "";
+  lastRunsJson = "";
+}
+
+function applyArtifactsIdentityFilters(identity = {}) {
+  if (identity.sessionId !== undefined) artifactsSessionFilter = identity.sessionId || "";
+  if (identity.workspaceId !== undefined) artifactsWorkspaceFilter = identity.workspaceId || "";
+  if (identity.paneId !== undefined) artifactsPaneFilter = identity.paneId || "";
+  if (identity.agentId !== undefined) artifactsAgentFilter = identity.agentId || "";
+  if (identity.runId !== undefined) artifactsRunFilter = identity.runId || "";
+  writeArtifactsFiltersToInputs();
+  renderArtifactsFilterChips();
+  pushArtifactsFilterToUrl();
+  invalidateArtifactsCache();
+}
+
+function showRunManifestDiffHint(runA, runB, gateRows) {
+  const hintEl = document.querySelector(".artifacts-runs-hint");
+  if (!hintEl) return;
+  const rows = gateRows || [];
+  const changed = rows.filter((g) => g.match === "diff").length;
+  const equal = rows.filter((g) => g.match === "equal").length;
+  const missing = rows.filter((g) => g.match === "missing").length;
+  hintEl.textContent = `Run diff ${runA} vs ${runB}: ${equal} equal · ${changed} changed · ${missing} missing`;
+}
+
+async function fetchAndApplyCanvasDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.get("canvas")) return;
+  try {
+    const res = await fetch(`/api/canvas-filter${window.location.search}`);
+    const payload = await res.json();
+    if (!payload.ok || !payload.action) return;
+
+    const { action, params: deepParams } = payload;
+    window.dispatchEvent(
+      new CustomEvent("canvas-filter-applied", {
+        detail: { canvasId: action.canvas, cardIds: action.cardIds || [] },
+      })
+    );
+
+    if (action.canvas === "artifact-lineage") {
+      switchTab("artifacts");
+    }
+
+    if (action.kind === "run-manifest") {
+      const runId = action.payload?.runId?.trim();
+      if (runId) {
+        applyArtifactsIdentityFilters({ runId });
+        void refreshArtifacts();
+        void refreshArtifactsRuns();
+      }
+      return;
+    }
+
+    if (action.kind === "session-runs") {
+      applyArtifactsIdentityFilters({
+        sessionId: deepParams?.sessionId || "",
+        workspaceId: deepParams?.workspaceId || "",
+        paneId: deepParams?.paneId || "",
+        agentId: deepParams?.agentId || "",
+      });
+      void refreshArtifacts();
+      void refreshArtifactsRuns();
+      return;
+    }
+
+    if (action.kind === "diff-manifest") {
+      const diff = action.diff;
+      if (diff?.runA && diff?.runB) {
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          urlParams.set("diff", `${diff.runA}..${diff.runB}`);
+          const query = urlParams.toString();
+          window.history.replaceState({}, "", query ? `?${query}` : window.location.pathname);
+        } catch {
+          /* static preview */
+        }
+        applyArtifactsIdentityFilters({ runId: diff.runA });
+        showRunManifestDiffHint(diff.runA, diff.runB, diff.gates);
+        void refreshArtifacts();
+        void refreshArtifactsRuns();
+      }
+    }
+  } catch {
+    /* canvas filter optional when dashboard is still starting */
+  }
+}
+
+function wireCanvasDeepLink() {
+  window.addEventListener("popstate", () => {
+    readArtifactsFiltersFromUrl();
+    writeArtifactsFiltersToInputs();
+    renderArtifactsFilterChips();
+    void fetchAndApplyCanvasDeepLink();
+  });
+}
+
+function applyArtifactsRunFilter(runId) {
+  const run = document.getElementById("artifacts-run-filter");
+  if (run) run.value = runId;
+  applyArtifactsIdentityFilters({ runId });
   void refreshArtifacts();
+}
+
+async function refreshArtifactsIndexStats() {
+  if (activeTab !== "artifacts") return;
+  const el = document.getElementById("artifacts-index-stats");
+  if (!el) return;
+
+  try {
+    const res = await fetch("/api/artifacts/index/stats");
+    const payload = await res.json();
+    const json = JSON.stringify(payload);
+    if (json === lastArtifactsIndexStatsJson) return;
+    lastArtifactsIndexStatsJson = json;
+
+    if (!payload.ok) {
+      el.textContent = payload.error || "Index stats unavailable";
+      el.className = "artifacts-index-stats artifacts-index-stats--warn";
+      return;
+    }
+
+    const stats = payload.stats || {};
+    const synced = payload.synced || {};
+    const drifted = synced.fsCount !== synced.indexCount;
+    const rebuilt = synced.rebuilt === true;
+    el.className = `artifacts-index-stats${drifted || rebuilt ? " artifacts-index-stats--warn" : ""}`;
+    el.innerHTML = `
+      <span class="ops-pill ops-pill--info">index <strong>${esc(String(stats.totalArtifacts ?? 0))}</strong></span>
+      <span class="ops-pill ops-pill--info">gates <strong>${esc(String(stats.gates ?? 0))}</strong></span>
+      <span class="ops-pill ops-pill--info">filesystem <strong>${esc(String(stats.fsArtifactCount ?? synced.fsCount ?? 0))}</strong></span>
+      <span class="ops-pill ${drifted ? "ops-pill--warn" : "ops-pill--ok"}">drift <strong>${drifted ? "yes" : "no"}</strong></span>
+      ${rebuilt ? '<span class="ops-pill ops-pill--warn">rebuilt <strong>yes</strong></span>' : ""}
+      <a class="artifacts-feed-link" href="/api/artifacts/feed.xml">RSS</a>
+    `;
+  } catch (err) {
+    el.textContent = err instanceof Error ? err.message : String(err);
+    el.className = "artifacts-index-stats artifacts-index-stats--warn";
+  }
 }
 
 async function refreshArtifactsRuns() {
@@ -2993,6 +3259,7 @@ async function refreshArtifactsRuns() {
 async function refreshArtifacts() {
   if (activeTab !== "artifacts") return;
   updateArtifactsViewModeUI();
+  void refreshArtifactsIndexStats();
   if (artifactsViewMode === "aggregates") {
     await refreshArtifactsAggregates();
     return;
@@ -3378,6 +3645,19 @@ function wireArtifactsPanel() {
     });
   });
 
+  const body = document.getElementById("artifacts-body");
+  body?.addEventListener("click", (event) => {
+    const btn = event.target.closest?.(".artifact-diff-btn");
+    if (!btn || btn.disabled) return;
+    const gate = btn.dataset.gate || "";
+    const pathA = btn.dataset.pathA || "";
+    const pathB = btn.dataset.pathB || "";
+    const detail = btn.closest(".artifact-detail");
+    const resultEl = detail?.querySelector(".artifact-diff-result");
+    if (!resultEl) return;
+    void runArtifactDiff(gate, pathA, pathB, resultEl);
+  });
+
   updateArtifactsGraphModeUI();
   updateArtifactsViewModeUI();
 }
@@ -3522,33 +3802,67 @@ function logLineClass(line, severity) {
 function renderDebugLogLines(entries) {
   const body = document.getElementById("logs-body");
   if (!body) return;
+  const filtered = filterDebugLogEntries(entries);
+  const displayEntries = filtered.slice().reverse();
   body.innerHTML = "";
   body.classList.remove("empty-state");
-  if (!entries.length) {
-    body.textContent = "No lines in tail window";
+  if (!displayEntries.length) {
+    body.textContent = entries.length
+      ? "No log lines match the active filters"
+      : "No lines in tail window";
     body.classList.add("empty-state");
     return;
   }
-  for (const [index, entry] of entries.entries()) {
-    const line = typeof entry === "string" ? entry : entry.raw || entry.message || "";
+  for (const [index, entry] of displayEntries.entries()) {
+    const { raw, preview, tags, payloadKeys } = normalizeLogPreviewEntry(entry);
     const lineNumber = typeof entry === "string" ? index + 1 : entry.lineNumber;
     const row = document.createElement("div");
-    const severity = typeof entry === "string" ? logLineSeverity(line) : entry.severity;
-    row.className = `log-line ${logLineClass(line, severity)}`;
+    const severity = typeof entry === "string" ? logLineSeverity(raw) : entry.severity;
+    row.className = `log-line ${logLineClass(raw, severity)}`;
+    const metaTags = [
+      ...(Array.isArray(tags) ? tags.slice(0, 5) : []),
+      ...(Array.isArray(payloadKeys) ? payloadKeys.slice(0, 3).map((key) => `key:${key}`) : []),
+    ];
     row.innerHTML = `<span class="log-severity tag tag-${tagTone(severity)}">${esc(
       severity
-    )}</span><span class="log-number">${esc(String(lineNumber))}</span><span class="log-message">${esc(
-      line
-    )}</span>`;
-    row.title = "Click to copy";
+    )}</span><span class="log-number">${esc(String(lineNumber))}</span><span class="log-tags">${metaTags
+      .map((tag) => tagHtml(tag, "neutral"))
+      .join("")}</span><span class="log-message">${esc(preview)}</span>`;
+    row.title = raw;
     row.addEventListener("click", () => {
-      void navigator.clipboard.writeText(line).then(() => {
+      void navigator.clipboard.writeText(raw).then(() => {
         row.classList.add("log-line--copied");
         setTimeout(() => row.classList.remove("log-line--copied"), 700);
       });
     });
     body.appendChild(row);
   }
+}
+
+function filterDebugLogEntries(entries) {
+  const q = debugLogsQueryFilter.trim().toLowerCase();
+  const workspace = debugLogsWorkspaceFilter.trim().toLowerCase();
+  const agent = debugLogsAgentFilter.trim().toLowerCase();
+  return (entries || []).filter((entry) => {
+    const raw = typeof entry === "string" ? entry : entry.raw || entry.message || "";
+    const text = [
+      raw,
+      typeof entry === "string" ? "" : entry.message || "",
+      typeof entry === "string" ? "" : entry.tool || "",
+      typeof entry === "string" ? "" : entry.taxonomyId || "",
+      typeof entry === "string" ? "" : entry.category || "",
+      ...(typeof entry === "string" || !Array.isArray(entry.tags) ? [] : entry.tags),
+      ...(typeof entry === "string" || !Array.isArray(entry.payloadKeys) ? [] : entry.payloadKeys),
+    ]
+      .join(" ")
+      .toLowerCase();
+    const severity = typeof entry === "string" ? logLineSeverity(raw) : entry.severity || "";
+    if (debugLogsSeverityFilter && severity !== debugLogsSeverityFilter) return false;
+    if (q && !text.includes(q)) return false;
+    if (workspace && !text.includes(workspace)) return false;
+    if (agent && !text.includes(agent)) return false;
+    return true;
+  });
 }
 
 async function populateDebugLogSinks() {
@@ -3645,6 +3959,51 @@ function wireLogsTabPanel() {
       lastDebugLogsJson = "";
       void refreshDebugLogs();
     });
+  }
+  const severity = document.getElementById("logs-severity-filter");
+  if (severity && severity.dataset.wired !== "1") {
+    severity.dataset.wired = "1";
+    severity.addEventListener("change", () => {
+      debugLogsSeverityFilter = severity.value;
+      lastDebugLogsJson = "";
+      void refreshDebugLogs();
+    });
+  }
+  const workspace = document.getElementById("logs-workspace-filter");
+  if (workspace && workspace.dataset.wired !== "1") {
+    workspace.dataset.wired = "1";
+    workspace.addEventListener(
+      "input",
+      debounce(() => {
+        debugLogsWorkspaceFilter = workspace.value;
+        lastDebugLogsJson = "";
+        void refreshDebugLogs();
+      }, 200)
+    );
+  }
+  const agent = document.getElementById("logs-agent-filter");
+  if (agent && agent.dataset.wired !== "1") {
+    agent.dataset.wired = "1";
+    agent.addEventListener(
+      "input",
+      debounce(() => {
+        debugLogsAgentFilter = agent.value;
+        lastDebugLogsJson = "";
+        void refreshDebugLogs();
+      }, 200)
+    );
+  }
+  const query = document.getElementById("logs-query-filter");
+  if (query && query.dataset.wired !== "1") {
+    query.dataset.wired = "1";
+    query.addEventListener(
+      "input",
+      debounce(() => {
+        debugLogsQueryFilter = query.value;
+        lastDebugLogsJson = "";
+        void refreshDebugLogs();
+      }, 200)
+    );
   }
 }
 
@@ -3954,6 +4313,7 @@ async function refreshTlsCompliance() {
 function renderHealth(health) {
   lastHealthPayload = health;
   renderHeaderBadges(health);
+  renderStreamStatus();
   if (activeTab === "agents") {
     renderSummaryCards(health);
   }
@@ -3987,6 +4347,7 @@ wireScanPanel();
 wireCanvasesPanel();
 wireMetricsPanel();
 wireLineagePanel();
+wireCanvasDeepLink();
 
 readArtifactsFiltersFromUrl();
 writeArtifactsFiltersToInputs();
@@ -4006,6 +4367,7 @@ PANELS[activeTab]?.activate?.();
 
 (async () => {
   try {
+    void fetchAndApplyCanvasDeepLink();
     const res = await fetch("/api/meta");
     if (!res.ok) throw new Error(`dashboard API returned ${res.status}`);
     const meta = await res.json();

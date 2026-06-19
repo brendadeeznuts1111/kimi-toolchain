@@ -17,10 +17,17 @@ import {
   getIsolationCapabilities,
   isMessagePortIsolationAvailable,
 } from "./lib/isolation/index.ts";
-import { generatePerfHTML, perfGate, runEffectBenchmarks, resolveThresholdSources, trainThresholds } from "./harness/index.ts";
+import {
+  generatePerfHTML,
+  perfGate,
+  runEffectBenchmarks,
+  resolveThresholdSources,
+  trainThresholds,
+} from "./harness/index.ts";
 import { MessageChannel } from "node:worker_threads";
 import http2 from "node:http2";
 import { apiEffectBenchmark } from "./handlers/effect-benchmark.ts";
+import { handleArtifactsRequest } from "./handlers/artifacts.ts";
 
 const port = Number(Bun.env.PORT) || 3000;
 
@@ -273,12 +280,14 @@ export async function apiBuildInfo(): Promise<Response> {
     bunfigPath,
     compileTime,
     defines: hasDefines ? bunfigDefines : null,
-    definesSource: hasDefines ? `bunfig.toml [define]` : "none (add [define] entries to bunfig.toml)",
+    definesSource: hasDefines
+      ? `bunfig.toml [define]`
+      : "none (add [define] entries to bunfig.toml)",
     consoleWriteRewritten: "console.write" in bunfigDefines,
     runtime,
     note: hasDefines
       ? "--define rewrites identifiers at AST level. Read from bunfig.toml [define]."
-      : "No [define] section in bunfig.toml. Add entries like: [define] \"console.write\" = \"console.log\"",
+      : 'No [define] section in bunfig.toml. Add entries like: [define] "console.write" = "console.log"',
   });
 }
 
@@ -390,7 +399,13 @@ export async function apiInspectSimple(): Promise<Response> {
       flag: "--console-depth",
       source: "bunfig.toml console.depth = 4",
     },
-    { option: "colors", default: "TTY&!CI", value: true, flag: "bun --no-color", source: "terminal" },
+    {
+      option: "colors",
+      default: "TTY&!CI",
+      value: true,
+      flag: "bun --no-color",
+      source: "terminal",
+    },
     { option: "compact", default: true, value: true, flag: "—", source: "default" },
     { option: "sorted", default: false, value: false, flag: "—", source: "default" },
     { option: "showHidden", default: false, value: false, flag: "—", source: "Node compat" },
@@ -485,14 +500,21 @@ export async function apiInspectConfig(): Promise<Response> {
 
   const preset = debug ? "debug" : isProd ? "production" : isTTY ? "local" : "non-tty";
   const depth = debug ? "Infinity" : isProd ? 2 : isTTY ? 5 : 4;
-  const colors = debug ? "inherit" : (isTTY && !isCI);
+  const colors = debug ? "inherit" : isTTY && !isCI;
   const compact = !isTTY || isProd;
   const showHidden = debug;
 
   return jsonResponse({
     preset,
     environment: isProd ? "production" : isTTY ? "local" : "non-tty",
-    config: { depth, colors, compact, sorted: false, maxArrayLength: isProd ? 30 : 100, showHidden },
+    config: {
+      depth,
+      colors,
+      compact,
+      sorted: false,
+      maxArrayLength: isProd ? 30 : 100,
+      showHidden,
+    },
     detected: {
       isTTY,
       CI: Bun.env.CI || "unset",
@@ -500,12 +522,46 @@ export async function apiInspectConfig(): Promise<Response> {
       DEBUG_INSPECT: Bun.env.DEBUG_INSPECT || "unset",
     },
     presets: [
-      { environment: "Local terminal (dev)", debug: "—", colors: "true (TTY)", depth: 5, compact: false, showHidden: false, useCase: "Best developer experience" },
-      { environment: "CI / GitHub Actions / pipe", debug: "—", colors: "false (pipe)", depth: 4, compact: true, showHidden: false, useCase: "Clean, safe logs" },
-      { environment: "Production", debug: "—", colors: "false", depth: 2, compact: true, showHidden: false, useCase: "Minimal output" },
-      { environment: "Any (local/CI/prod)", debug: "1 / true", colors: "true (if TTY)", depth: "Infinity", compact: false, showHidden: true, useCase: "Maximum visibility for debugging" },
+      {
+        environment: "Local terminal (dev)",
+        debug: "—",
+        colors: "true (TTY)",
+        depth: 5,
+        compact: false,
+        showHidden: false,
+        useCase: "Best developer experience",
+      },
+      {
+        environment: "CI / GitHub Actions / pipe",
+        debug: "—",
+        colors: "false (pipe)",
+        depth: 4,
+        compact: true,
+        showHidden: false,
+        useCase: "Clean, safe logs",
+      },
+      {
+        environment: "Production",
+        debug: "—",
+        colors: "false",
+        depth: 2,
+        compact: true,
+        showHidden: false,
+        useCase: "Minimal output",
+      },
+      {
+        environment: "Any (local/CI/prod)",
+        debug: "1 / true",
+        colors: "true (if TTY)",
+        depth: "Infinity",
+        compact: false,
+        showHidden: true,
+        useCase: "Maximum visibility for debugging",
+      },
     ],
-    note: debug ? "DEBUG_INSPECT=true — depth=Infinity, showHidden=true" : `Auto preset (${preset}). console.depth=4 from bunfig.toml`,
+    note: debug
+      ? "DEBUG_INSPECT=true — depth=Infinity, showHidden=true"
+      : `Auto preset (${preset}). console.depth=4 from bunfig.toml`,
   });
 }
 
@@ -547,7 +603,8 @@ export async function apiBunfig(): Promise<Response> {
     return jsonResponse({
       path: "./bunfig.toml",
       sections: parsed,
-      mergeRule: "global (~/.bunfig.toml) → project (./bunfig.toml) shallow merge → CLI flags override",
+      mergeRule:
+        "global (~/.bunfig.toml) → project (./bunfig.toml) shallow merge → CLI flags override",
       import: 'import bunfig from "./bunfig.toml" with { type: "toml" };',
     });
   } catch (e) {
@@ -643,15 +700,21 @@ export async function apiSemver(): Promise<Response> {
     ["1.2.3", "1.2.3-alpha.1"],
   ];
   const orderResults = pairs.map(([a, b]) => ({
-    a, b,
+    a,
+    b,
     result: Bun.semver.order(a, b),
-    meaning: Bun.semver.order(a, b) === 0 ? "equal" : Bun.semver.order(a, b) === 1 ? "a > b" : "a < b",
+    meaning:
+      Bun.semver.order(a, b) === 0 ? "equal" : Bun.semver.order(a, b) === 1 ? "a > b" : "a < b",
   }));
 
   const satisfiesResults = [
     { version: "1.5.0", range: "^1.0.0", satisfies: Bun.semver.satisfies("1.5.0", "^1.0.0") },
     { version: "2.0.0", range: "^1.0.0", satisfies: Bun.semver.satisfies("2.0.0", "^1.0.0") },
-    { version: "1.2.3", range: ">=1.0.0 <2.0.0", satisfies: Bun.semver.satisfies("1.2.3", ">=1.0.0 <2.0.0") },
+    {
+      version: "1.2.3",
+      range: ">=1.0.0 <2.0.0",
+      satisfies: Bun.semver.satisfies("1.2.3", ">=1.0.0 <2.0.0"),
+    },
   ];
 
   return jsonResponse({
@@ -665,10 +728,18 @@ export async function apiSemver(): Promise<Response> {
 
 export async function apiDeepEquals(): Promise<Response> {
   const cases = [
-    { a: { x: 1, y: [2, 3] }, b: { x: 1, y: [2, 3] }, equal: Bun.deepEquals({ x: 1, y: [2, 3] }, { x: 1, y: [2, 3] }) },
+    {
+      a: { x: 1, y: [2, 3] },
+      b: { x: 1, y: [2, 3] },
+      equal: Bun.deepEquals({ x: 1, y: [2, 3] }, { x: 1, y: [2, 3] }),
+    },
     { a: { x: 1 }, b: { x: 1, y: 2 }, equal: Bun.deepEquals({ x: 1 }, { x: 1, y: 2 }) },
     { a: [1, 2, 3], b: [1, 2, 3], equal: Bun.deepEquals([1, 2, 3], [1, 2, 3]) },
-    { a: new Uint8Array([1, 2]), b: new Uint8Array([1, 2]), equal: Bun.deepEquals(new Uint8Array([1, 2]), new Uint8Array([1, 2])) },
+    {
+      a: new Uint8Array([1, 2]),
+      b: new Uint8Array([1, 2]),
+      equal: Bun.deepEquals(new Uint8Array([1, 2]), new Uint8Array([1, 2])),
+    },
     { a: new Date(0), b: new Date(0), equal: Bun.deepEquals(new Date(0), new Date(0)) },
     { a: NaN, b: NaN, equal: Bun.deepEquals(NaN, NaN) },
   ];
@@ -896,8 +967,8 @@ export async function apiInspectTable(): Promise<Response> {
 
   return new Response(
     `// Bun.inspect.table(users)\n${full}\n\n` +
-    `// Bun.inspect.table(users, ["name", "role"])\n${filtered}\n\n` +
-    `// Bun.inspect.table(users, { colors: false })\n${plain}`,
+      `// Bun.inspect.table(users, ["name", "role"])\n${filtered}\n\n` +
+      `// Bun.inspect.table(users, { colors: false })\n${plain}`,
     { headers: { "content-type": "text/plain; charset=utf-8" } }
   );
 }
@@ -905,7 +976,9 @@ export async function apiInspectTable(): Promise<Response> {
 // ── URL / URLSearchParams ──────────────────────────────────────────
 
 export async function apiUrl(): Promise<Response> {
-  const url = new URL("https://user:pass@example.com:8080/path/to/page?q=bun&lang=en&q=again#section");
+  const url = new URL(
+    "https://user:pass@example.com:8080/path/to/page?q=bun&lang=en&q=again#section"
+  );
 
   // All parsed properties
   const properties = {
@@ -941,6 +1014,11 @@ export async function apiUrl(): Promise<Response> {
   // Relative resolution
   const relative = new URL("../../api", "https://example.com/a/b/c/page");
 
+  const { auditUrlI18n } = await import("../../../src/lib/url-i18n.ts");
+  const { auditEmailI18n } = await import("../../../src/lib/email-i18n.ts");
+  const i18n = auditUrlI18n();
+  const emailI18n = auditEmailI18n();
+
   return jsonResponse({
     properties,
     searchParams: params,
@@ -951,8 +1029,32 @@ export async function apiUrl(): Promise<Response> {
         invalid: parsedInvalid,
       },
     },
-    relativeResolution: { input: "../../api", base: "https://example.com/a/b/c/page", result: relative.href },
-    note: "URL.parse() returns null on invalid input (no throw). URL.canParse() is a fast boolean check. URLSearchParams: get, getAll, has, size, sort, entries.",
+    relativeResolution: {
+      input: "../../api",
+      base: "https://example.com/a/b/c/page",
+      result: relative.href,
+    },
+    i18n: {
+      ok: i18n.ok,
+      idempotent: i18n.idempotent,
+      roundtrip: i18n.roundtrip,
+      punycodePrefixCorrect: i18n.punycodePrefixCorrect,
+      domains: i18n.probes,
+      labels: i18n.labelProbes,
+      urls: i18n.urlProbes,
+      gate: "url-i18n",
+      docs: i18n.docs,
+    },
+    emailI18n: {
+      ok: emailI18n.ok,
+      summary: emailI18n.summary,
+      lengthValid: emailI18n.lengthValid,
+      domainIdempotent: emailI18n.domainIdempotent,
+      emails: emailI18n.probes,
+      limitations: emailI18n.limitations,
+      gates: ["url-i18n", "email-i18n"],
+    },
+    note: "URL.parse() returns null on invalid input (no throw). URL.canParse() is a fast boolean check. URLSearchParams: get, getAll, has, size, sort, entries. i18n: node:punycode via src/lib/url-decomposer.ts. email-i18n: @ split + UTF-8 octet limits + IDN domain (gates: url-i18n, email-i18n).",
   });
 }
 
@@ -964,9 +1066,21 @@ export async function apiUrlNode(): Promise<Response> {
 
   // IDN: domainToASCII / domainToUnicode
   const idn = [
-    { input: "日本語.jp", ascii: nodeUrl.domainToASCII("日本語.jp"), unicode: nodeUrl.domainToUnicode("xn--wgv71a119e.jp") },
-    { input: "español.com", ascii: nodeUrl.domainToASCII("español.com"), unicode: nodeUrl.domainToUnicode("xn--espaol-zwa.com") },
-    { input: "中文.com", ascii: nodeUrl.domainToASCII("中文.com"), unicode: nodeUrl.domainToUnicode("xn--fiq228c.com") },
+    {
+      input: "日本語.jp",
+      ascii: nodeUrl.domainToASCII("日本語.jp"),
+      unicode: nodeUrl.domainToUnicode("xn--wgv71a119e.jp"),
+    },
+    {
+      input: "español.com",
+      ascii: nodeUrl.domainToASCII("español.com"),
+      unicode: nodeUrl.domainToUnicode("xn--espaol-zwa.com"),
+    },
+    {
+      input: "中文.com",
+      ascii: nodeUrl.domainToASCII("中文.com"),
+      unicode: nodeUrl.domainToUnicode("xn--fiq228c.com"),
+    },
   ];
 
   // fileURLToPath / pathToFileURL roundtrip
@@ -990,7 +1104,11 @@ export async function apiUrlNode(): Promise<Response> {
   return jsonResponse({
     idn,
     fileRoundtrip: { path: filePath, url: fileUrl, backToPath },
-    format: { input: "{ protocol:'https', hostname:'bun.sh', port:'443', pathname:'/docs/runtime', search:'?q=bun' }", result: formatted },
+    format: {
+      input:
+        "{ protocol:'https', hostname:'bun.sh', port:'443', pathname:'/docs/runtime', search:'?q=bun' }",
+      result: formatted,
+    },
     urlToHttpOptions: httpOpts,
     note: "node:url — domainToASCII/domainToUnicode (IDN/Punycode), fileURLToPath/pathToFileURL (roundtrip), format (build URL), urlToHttpOptions (URL→http.request options).",
   });
@@ -1003,7 +1121,10 @@ let h2Server: http2.Http2Server | null = null;
 
 export async function apiHttp2(): Promise<Response> {
   if (!h2Server || h2Port === 0) {
-    return jsonResponse({ error: "HTTP/2 server not running", note: "h2c server may have failed to start" });
+    return jsonResponse({
+      error: "HTTP/2 server not running",
+      note: "h2c server may have failed to start",
+    });
   }
 
   return new Promise((resolve) => {
@@ -1021,16 +1142,20 @@ export async function apiHttp2(): Promise<Response> {
 
     const req = client.request({ ":path": "/", ":method": "GET" });
     let body = "";
-    req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+    req.on("data", (chunk: Buffer) => {
+      body += chunk.toString();
+    });
     req.on("end", () => {
       sessionInfo.responseBody = body;
       client.close();
-      resolve(jsonResponse({
-        h2Port,
-        session: sessionInfo,
-        origins: ["https://example.com", "https://example.org"],
-        note: "node:http2 h2c server + client. No TLS needed for local demo. origins whitelist set on server.",
-      }));
+      resolve(
+        jsonResponse({
+          h2Port,
+          session: sessionInfo,
+          origins: ["https://example.com", "https://example.org"],
+          note: "node:http2 h2c server + client. No TLS needed for local demo. origins whitelist set on server.",
+        })
+      );
     });
     req.on("error", (err: Error) => {
       client.close();
@@ -1059,7 +1184,10 @@ export async function apiDotenv(): Promise<Response> {
         if (eq > 0) {
           const key = trimmed.slice(0, eq).trim();
           let val = trimmed.slice(eq + 1).trim();
-          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          if (
+            (val.startsWith('"') && val.endsWith('"')) ||
+            (val.startsWith("'") && val.endsWith("'"))
+          ) {
             val = val.slice(1, -1);
           }
           dotenvParsed[key] = val;
@@ -1075,16 +1203,66 @@ export async function apiDotenv(): Promise<Response> {
 
   // Bun-specific environment variables (from official docs)
   const bunSpecialVars: { name: string; description: string; value: string; set: boolean }[] = [
-    { name: "NODE_TLS_REJECT_UNAUTHORIZED", description: "Disables SSL cert validation", value: Bun.env.NODE_TLS_REJECT_UNAUTHORIZED ?? "unset", set: "NODE_TLS_REJECT_UNAUTHORIZED" in Bun.env },
-    { name: "BUN_CONFIG_VERBOSE_FETCH", description: "Log fetch requests/responses as curl", value: Bun.env.BUN_CONFIG_VERBOSE_FETCH ?? "unset", set: "BUN_CONFIG_VERBOSE_FETCH" in Bun.env },
-    { name: "BUN_RUNTIME_TRANSPILER_CACHE_PATH", description: "Transpiler cache dir (files >50KB)", value: Bun.env.BUN_RUNTIME_TRANSPILER_CACHE_PATH ?? "unset", set: "BUN_RUNTIME_TRANSPILER_CACHE_PATH" in Bun.env },
-    { name: "TMPDIR", description: "Intermediate assets during bundling", value: Bun.env.TMPDIR ?? "unset", set: "TMPDIR" in Bun.env },
-    { name: "NO_COLOR", description: "Disable ANSI color output", value: Bun.env.NO_COLOR ?? "unset", set: "NO_COLOR" in Bun.env },
-    { name: "FORCE_COLOR", description: "Force-enable ANSI colors", value: Bun.env.FORCE_COLOR ?? "unset", set: "FORCE_COLOR" in Bun.env },
-    { name: "BUN_CONFIG_MAX_HTTP_REQUESTS", description: "Max concurrent fetch/install requests (default 256)", value: Bun.env.BUN_CONFIG_MAX_HTTP_REQUESTS ?? "unset", set: "BUN_CONFIG_MAX_HTTP_REQUESTS" in Bun.env },
-    { name: "BUN_CONFIG_NO_CLEAR_TERMINAL_ON_RELOAD", description: "Don't clear console on --watch reload", value: Bun.env.BUN_CONFIG_NO_CLEAR_TERMINAL_ON_RELOAD ?? "unset", set: "BUN_CONFIG_NO_CLEAR_TERMINAL_ON_RELOAD" in Bun.env },
-    { name: "DO_NOT_TRACK", description: "Disable crash reports & telemetry", value: Bun.env.DO_NOT_TRACK ?? "unset", set: "DO_NOT_TRACK" in Bun.env },
-    { name: "BUN_OPTIONS", description: "Prepend CLI args to any Bun execution", value: Bun.env.BUN_OPTIONS ?? "unset", set: "BUN_OPTIONS" in Bun.env },
+    {
+      name: "NODE_TLS_REJECT_UNAUTHORIZED",
+      description: "Disables SSL cert validation",
+      value: Bun.env.NODE_TLS_REJECT_UNAUTHORIZED ?? "unset",
+      set: "NODE_TLS_REJECT_UNAUTHORIZED" in Bun.env,
+    },
+    {
+      name: "BUN_CONFIG_VERBOSE_FETCH",
+      description: "Log fetch requests/responses as curl",
+      value: Bun.env.BUN_CONFIG_VERBOSE_FETCH ?? "unset",
+      set: "BUN_CONFIG_VERBOSE_FETCH" in Bun.env,
+    },
+    {
+      name: "BUN_RUNTIME_TRANSPILER_CACHE_PATH",
+      description: "Transpiler cache dir (files >50KB)",
+      value: Bun.env.BUN_RUNTIME_TRANSPILER_CACHE_PATH ?? "unset",
+      set: "BUN_RUNTIME_TRANSPILER_CACHE_PATH" in Bun.env,
+    },
+    {
+      name: "TMPDIR",
+      description: "Intermediate assets during bundling",
+      value: Bun.env.TMPDIR ?? "unset",
+      set: "TMPDIR" in Bun.env,
+    },
+    {
+      name: "NO_COLOR",
+      description: "Disable ANSI color output",
+      value: Bun.env.NO_COLOR ?? "unset",
+      set: "NO_COLOR" in Bun.env,
+    },
+    {
+      name: "FORCE_COLOR",
+      description: "Force-enable ANSI colors",
+      value: Bun.env.FORCE_COLOR ?? "unset",
+      set: "FORCE_COLOR" in Bun.env,
+    },
+    {
+      name: "BUN_CONFIG_MAX_HTTP_REQUESTS",
+      description: "Max concurrent fetch/install requests (default 256)",
+      value: Bun.env.BUN_CONFIG_MAX_HTTP_REQUESTS ?? "unset",
+      set: "BUN_CONFIG_MAX_HTTP_REQUESTS" in Bun.env,
+    },
+    {
+      name: "BUN_CONFIG_NO_CLEAR_TERMINAL_ON_RELOAD",
+      description: "Don't clear console on --watch reload",
+      value: Bun.env.BUN_CONFIG_NO_CLEAR_TERMINAL_ON_RELOAD ?? "unset",
+      set: "BUN_CONFIG_NO_CLEAR_TERMINAL_ON_RELOAD" in Bun.env,
+    },
+    {
+      name: "DO_NOT_TRACK",
+      description: "Disable crash reports & telemetry",
+      value: Bun.env.DO_NOT_TRACK ?? "unset",
+      set: "DO_NOT_TRACK" in Bun.env,
+    },
+    {
+      name: "BUN_OPTIONS",
+      description: "Prepend CLI args to any Bun execution",
+      value: Bun.env.BUN_OPTIONS ?? "unset",
+      set: "BUN_OPTIONS" in Bun.env,
+    },
   ];
 
   return jsonResponse({
@@ -1109,26 +1287,66 @@ export async function apiUtilTypes(): Promise<Response> {
   const { types } = await import("node:util");
 
   const checks: { name: string; value: unknown; result: boolean }[] = [
-    { name: "isAnyArrayBuffer", value: new ArrayBuffer(4), result: types.isAnyArrayBuffer(new ArrayBuffer(4)) },
-    { name: "isArrayBuffer", value: "ArrayBuffer", result: types.isArrayBuffer(new ArrayBuffer(4)) },
-    { name: "isSharedArrayBuffer", value: "SharedArrayBuffer", result: types.isSharedArrayBuffer(new SharedArrayBuffer(4)) },
-    { name: "isArrayBufferView", value: "Uint8Array", result: types.isArrayBufferView(new Uint8Array(4)) },
+    {
+      name: "isAnyArrayBuffer",
+      value: new ArrayBuffer(4),
+      result: types.isAnyArrayBuffer(new ArrayBuffer(4)),
+    },
+    {
+      name: "isArrayBuffer",
+      value: "ArrayBuffer",
+      result: types.isArrayBuffer(new ArrayBuffer(4)),
+    },
+    {
+      name: "isSharedArrayBuffer",
+      value: "SharedArrayBuffer",
+      result: types.isSharedArrayBuffer(new SharedArrayBuffer(4)),
+    },
+    {
+      name: "isArrayBufferView",
+      value: "Uint8Array",
+      result: types.isArrayBufferView(new Uint8Array(4)),
+    },
     { name: "isTypedArray", value: "Uint8Array", result: types.isTypedArray(new Uint8Array(4)) },
     { name: "isUint8Array", value: "Uint8Array", result: types.isUint8Array(new Uint8Array(4)) },
-    { name: "isDataView", value: "DataView", result: types.isDataView(new DataView(new ArrayBuffer(4))) },
+    {
+      name: "isDataView",
+      value: "DataView",
+      result: types.isDataView(new DataView(new ArrayBuffer(4))),
+    },
     { name: "isDate", value: "Date", result: types.isDate(new Date()) },
     { name: "isRegExp", value: "/regex/", result: types.isRegExp(/regex/) },
     { name: "isMap", value: "Map", result: types.isMap(new Map()) },
     { name: "isSet", value: "Set", result: types.isSet(new Set()) },
     { name: "isMapIterator", value: "map.keys()", result: types.isMapIterator(new Map().keys()) },
-    { name: "isSetIterator", value: "set.values()", result: types.isSetIterator(new Set().values()) },
-    { name: "isGeneratorObject", value: "function*(){}", result: types.isGeneratorObject((function* () {})()) },
+    {
+      name: "isSetIterator",
+      value: "set.values()",
+      result: types.isSetIterator(new Set().values()),
+    },
+    {
+      name: "isGeneratorObject",
+      value: "function*(){}",
+      result: types.isGeneratorObject((function* () {})()),
+    },
     { name: "isPromise", value: "Promise", result: types.isPromise(Promise.resolve()) },
     { name: "isWeakMap", value: "WeakMap", result: types.isWeakMap(new WeakMap()) },
     { name: "isNativeError", value: "Error", result: types.isNativeError(new Error()) },
-    { name: "isAsyncFunction", value: "async () => {}", result: types.isAsyncFunction(async () => {}) },
-    { name: "isGeneratorFunction", value: "function*(){}", result: types.isGeneratorFunction(function* () {}) },
-    { name: "isBoxedPrimitive", value: "new Boolean(true)", result: types.isBoxedPrimitive(new Boolean(true)) },
+    {
+      name: "isAsyncFunction",
+      value: "async () => {}",
+      result: types.isAsyncFunction(async () => {}),
+    },
+    {
+      name: "isGeneratorFunction",
+      value: "function*(){}",
+      result: types.isGeneratorFunction(function* () {}),
+    },
+    {
+      name: "isBoxedPrimitive",
+      value: "new Boolean(true)",
+      result: types.isBoxedPrimitive(new Boolean(true)),
+    },
     { name: "isKeyObject", value: "null", result: types.isKeyObject(null) },
   ];
 
@@ -1224,8 +1442,14 @@ self.onmessage = async (e: MessageEvent) => {
   const promises = modules.map((name) => {
     return new Promise<{ name: string; actualMs: number }>((resolve, reject) => {
       const worker = new Worker(new URL("file:///tmp/_perf_worker.ts"));
-      worker.onmessage = (e) => { resolve(e.data); worker.terminate(); };
-      worker.onerror = (err) => { reject(err); worker.terminate(); };
+      worker.onmessage = (e) => {
+        resolve(e.data);
+        worker.terminate();
+      };
+      worker.onerror = (err) => {
+        reject(err);
+        worker.terminate();
+      };
       worker.postMessage({ moduleName: name });
     });
   });
@@ -1244,7 +1468,8 @@ self.onmessage = async (e: MessageEvent) => {
     concurrent: modules.length,
     speedup: `${(metrics.reduce((s, m) => s + m.actualMs, 0) / totalMs).toFixed(1)}x vs sequential`,
     allPass,
-    architecture: "Worker per module → Symbol-keyed handler → postMessage metric → Promise.all collect → pure HTML generation. No shared mutable state (like --isolate).",
+    architecture:
+      "Worker per module → Symbol-keyed handler → postMessage metric → Promise.all collect → pure HTML generation. No shared mutable state (like --isolate).",
   });
 }
 
@@ -1298,8 +1523,18 @@ export async function apiKimiDoctor(): Promise<Response> {
     },
     httpBenchmarks: [
       { key: "http.fetch-h1", protocol: "http1.1", thresholdMs: 50 },
-      { key: "http.fetch-h2", protocol: "http2", thresholdMs: 40, note: "skipped when fetch client unavailable" },
-      { key: "http.fetch-h3", protocol: "http3", thresholdMs: 35, note: "skipped when Bun.serve http3 unavailable" },
+      {
+        key: "http.fetch-h2",
+        protocol: "http2",
+        thresholdMs: 40,
+        note: "skipped when fetch client unavailable",
+      },
+      {
+        key: "http.fetch-h3",
+        protocol: "http3",
+        thresholdMs: 35,
+        note: "skipped when Bun.serve http3 unavailable",
+      },
     ],
     allAtOnce: "bun run src/bin/perf-doctor.ts --perf-gates --report --watch --out=.",
     note: "Performance loop lives in perf-doctor (this example). Main kimi-doctor --watch polls effect-gates; use perf-doctor --watch for file-triggered benchmark re-runs.",
@@ -1313,27 +1548,66 @@ export async function apiMetricsSchema(): Promise<Response> {
     Metric: {
       purpose: "Universal harness metric — drives perf-monitor, html-reporter, perf-gate",
       fields: {
-        symbol: { type: "string", example: "Symbol(kimi.effect.image)", note: "Derived from sym.toString(), used for grouping" },
-        operation: { type: "string", example: "thumbnail", note: "Method name from auto-discovery" },
-        actualMs: { type: "number", example: 2.1, note: "Bun.nanoseconds() → ms, rounded 3 decimal places" },
-        thresholdMs: { type: "number", example: 5.0, note: "From THRESHOLDS map or MODULE_REGISTRY" },
-        pass: { type: "boolean", example: true, note: "actualMs ≤ thresholdMs, NaN-safe (NaN → false)" },
+        symbol: {
+          type: "string",
+          example: "Symbol(kimi.effect.image)",
+          note: "Derived from sym.toString(), used for grouping",
+        },
+        operation: {
+          type: "string",
+          example: "thumbnail",
+          note: "Method name from auto-discovery",
+        },
+        actualMs: {
+          type: "number",
+          example: 2.1,
+          note: "Bun.nanoseconds() → ms, rounded 3 decimal places",
+        },
+        thresholdMs: {
+          type: "number",
+          example: 5.0,
+          note: "From THRESHOLDS map or MODULE_REGISTRY",
+        },
+        pass: {
+          type: "boolean",
+          example: true,
+          note: "actualMs ≤ thresholdMs, NaN-safe (NaN → false)",
+        },
       },
     },
     ModuleMetrics: {
-      purpose: "Lightweight control-plan metric — used in domain/control-plan.ts and training runner",
+      purpose:
+        "Lightweight control-plan metric — used in domain/control-plan.ts and training runner",
       fields: {
-        name: { type: "string", example: "image", note: "Module name from registry, not symbol key" },
+        name: {
+          type: "string",
+          example: "image",
+          note: "Module name from registry, not symbol key",
+        },
         actualMs: { type: "number", note: "Measured duration, threshold looked up separately" },
       },
     },
-    pipeline: "auto-discovery → per-method benchmark → Metric[] → perfGate() | generatePerfHTML() | snapshot tests",
+    pipeline:
+      "auto-discovery → per-method benchmark → Metric[] → perfGate() | generatePerfHTML() | snapshot tests",
     exposure: {
-      ephemeral: ["Metric[] from runEffectBenchmarks() — in-memory, lifetime of benchmark run", "ModuleMetrics[] from training runner → control-plan generator", "perfGate() → { pass, failures[] } — CI exit code logic"],
-      artifacts: ["perf-report.html — generatePerfHTML(metrics) → Bun.write()", "__snapshots__/*.snap — expect(html).toMatchSnapshot()", "performance-plan.html — control-plan generator → file effect"],
-      ci: ["stdout: human-readable summary", "stderr: failure lines from perfGate()", "process.exit(1) when thresholds violated"],
+      ephemeral: [
+        "Metric[] from runEffectBenchmarks() — in-memory, lifetime of benchmark run",
+        "ModuleMetrics[] from training runner → control-plan generator",
+        "perfGate() → { pass, failures[] } — CI exit code logic",
+      ],
+      artifacts: [
+        "perf-report.html — generatePerfHTML(metrics) → Bun.write()",
+        "__snapshots__/*.snap — expect(html).toMatchSnapshot()",
+        "performance-plan.html — control-plan generator → file effect",
+      ],
+      ci: [
+        "stdout: human-readable summary",
+        "stderr: failure lines from perfGate()",
+        "process.exit(1) when thresholds violated",
+      ],
     },
-    notOnGlobalThis: "Metrics are NOT on globalThis. Effects are registered via Symbol.for(), but Metric objects are return values — computed on demand, passed through pure transformations, optionally serialized. Domain-level data never hidden behind side effects.",
+    notOnGlobalThis:
+      "Metrics are NOT on globalThis. Effects are registered via Symbol.for(), but Metric objects are return values — computed on demand, passed through pure transformations, optionally serialized. Domain-level data never hidden behind side effects.",
     note: "Metric[] is the single source of truth. Bun.deepEquals compares arrays across runs for drift detection (including NaN equality). All harness/reporter/gate components expect exactly these shapes.",
   });
 }
@@ -1381,23 +1655,52 @@ export async function apiSetHeaders(): Promise<Response> {
 export async function apiSymbols(): Promise<Response> {
   const symbols = {
     domain: [
-      { key: "kimi.trace", interface: "validateAndFormat(traces): string", module: "src/trace/format.ts" },
-      { key: "kimi.snapshot", interface: "snapshot(label, data, opts?): void", module: "src/snapshots/snapshot-helper.ts" },
+      {
+        key: "kimi.trace",
+        interface: "validateAndFormat(traces): string",
+        module: "src/trace/format.ts",
+      },
+      {
+        key: "kimi.snapshot",
+        interface: "snapshot(label, data, opts?): void",
+        module: "src/snapshots/snapshot-helper.ts",
+      },
     ],
     effect: [
-      { key: "kimi.effect.image", interface: "ImageEffect", module: "src/image/processor.ts", methods: ["metadata", "placeholder", "thumbnail", "resize"] },
-      { key: "kimi.effect.trace", interface: "same as kimi.trace", module: "overlapped with domain" },
+      {
+        key: "kimi.effect.image",
+        interface: "ImageEffect",
+        module: "src/image/processor.ts",
+        methods: ["metadata", "placeholder", "thumbnail", "resize"],
+      },
+      {
+        key: "kimi.effect.trace",
+        interface: "same as kimi.trace",
+        module: "overlapped with domain",
+      },
       { key: "kimi.effect.snapshot", interface: "SnapshotEffect", module: "src/snapshots/" },
       { key: "kimi.effect.logger", interface: "LoggerEffect", module: "src/logging/logger.ts" },
-      { key: "kimi.effect.performance", interface: "{ mark, measure }", module: "src/performance/marks.ts" },
+      {
+        key: "kimi.effect.performance",
+        interface: "{ mark, measure }",
+        module: "src/performance/marks.ts",
+      },
       { key: "kimi.effect.scaffoldFiles", interface: "ScaffoldEffect", module: "src/effect.ts" },
-      { key: "kimi.effect.isolation", interface: "IsolationEffect (3 backends)", module: "examples/dashboard/src/lib/isolation/" },
+      {
+        key: "kimi.effect.isolation",
+        interface: "IsolationEffect (3 backends)",
+        module: "examples/dashboard/src/lib/isolation/",
+      },
       { key: "kimi.effect.uuid", interface: "{ generate }", module: "placeholder" },
       { key: "kimi.effect.clock", interface: "{ now }", module: "placeholder" },
     ],
     harness: [
       { key: "kimi.perfGate", interface: "naming convention", module: "internal pipeline" },
-      { key: "kimi.effect.perf", interface: "overlaps with kimi.effect.performance", module: "future expansion" },
+      {
+        key: "kimi.effect.perf",
+        interface: "overlaps with kimi.effect.performance",
+        module: "future expansion",
+      },
       { key: "kimi.effect.db", interface: "placeholder", module: "not implemented" },
     ],
   };
@@ -1405,8 +1708,12 @@ export async function apiSymbols(): Promise<Response> {
   return jsonResponse({
     symbols,
     pipeline: [
-      "kimi.effect.image", "kimi.effect.trace", "kimi.effect.snapshot",
-      "kimi.effect.logger", "kimi.effect.performance", "kimi.effect.isolation",
+      "kimi.effect.image",
+      "kimi.effect.trace",
+      "kimi.effect.snapshot",
+      "kimi.effect.logger",
+      "kimi.effect.performance",
+      "kimi.effect.isolation",
     ],
     properties: {
       jitMonomorphic: "globalThis[Symbol.for(key)] is stable shape → inlineable",
@@ -1430,7 +1737,13 @@ export async function apiIpcMatrix(): Promise<Response> {
   const messagePort = isMessagePortIsolationAvailable();
   return jsonResponse({
     mechanisms: [
-      { mechanism: "MessagePort (same thread)", isolation: "vm.Context", thread: "Same", useCase: "Sandboxed plugins", status: "vm.runInContext ✅" },
+      {
+        mechanism: "MessagePort (same thread)",
+        isolation: "vm.Context",
+        thread: "Same",
+        useCase: "Sandboxed plugins",
+        status: "vm.runInContext ✅",
+      },
       {
         mechanism: "moveMessagePortToContext",
         isolation: "vm.Context",
@@ -1438,11 +1751,30 @@ export async function apiIpcMatrix(): Promise<Response> {
         useCase: "Bridge vm ↔ main",
         status: messagePort ? "✅" : "not yet implemented",
       },
-      { mechanism: "Worker + postMessage", isolation: "Full process", thread: "Separate", useCase: "CPU-intensive tasks", status: "✅" },
-      { mechanism: "ShadowRealm + wrapped fn", isolation: "Distinct globals", thread: "Same", useCase: "Pure computation", status: "✅ evaluate() + importValue()" },
-      { mechanism: "Bun.spawn + IPC (ipc handler)", isolation: "Full process", thread: "Separate", useCase: "Untrusted code", status: "✅" },
+      {
+        mechanism: "Worker + postMessage",
+        isolation: "Full process",
+        thread: "Separate",
+        useCase: "CPU-intensive tasks",
+        status: "✅",
+      },
+      {
+        mechanism: "ShadowRealm + wrapped fn",
+        isolation: "Distinct globals",
+        thread: "Same",
+        useCase: "Pure computation",
+        status: "✅ evaluate() + importValue()",
+      },
+      {
+        mechanism: "Bun.spawn + IPC (ipc handler)",
+        isolation: "Full process",
+        thread: "Separate",
+        useCase: "Untrusted code",
+        status: "✅",
+      },
     ],
-    shadowRealmNote: "ShadowRealm does NOT support MessagePort transfer — only wrapped functions from importValue(). Use vm.createContext() + moveMessagePortToContext for port-based sandbox comms.",
+    shadowRealmNote:
+      "ShadowRealm does NOT support MessagePort transfer — only wrapped functions from importValue(). Use vm.createContext() + moveMessagePortToContext for port-based sandbox comms.",
     isolationFactory: getIsolationCapabilities(),
     note: "IPC isolation spectrum: same-thread (ShadowRealm, vm.Context) → separate thread (Worker) → separate process (Bun.spawn IPC). Choose by risk profile. Toggle via KIMI_ISOLATION=worker|realm|messageport.",
   });
@@ -1510,7 +1842,9 @@ export async function apiVmContext(): Promise<Response> {
     },
     moveMessagePortToContext: moveStatus,
     isolationStack: {
-      shadowRealm: caps.shadowRealm ? "✅ Available — evaluate() + importValue()" : "❌ unavailable",
+      shadowRealm: caps.shadowRealm
+        ? "✅ Available — evaluate() + importValue()"
+        : "❌ unavailable",
       worker: caps.worker ? "✅ Available — new Worker() + postMessage" : "❌ unavailable",
       vmContext: "✅ Available — vm.createContext() + runInContext()",
       movePort: caps.messagePort ? "✅ success" : `❌ ${moveStatus}`,
@@ -1524,11 +1858,14 @@ export async function apiVmContext(): Promise<Response> {
 export async function apiShadowRealm(): Promise<Response> {
   const realmIso = createIsolation("realm");
 
-  await Bun.write("/tmp/_realm_module.js", `
+  await Bun.write(
+    "/tmp/_realm_module.js",
+    `
 export function add(a, b) { return a + b; }
 export function multiply(a, b) { return a * b; }
 export const version = "realm-v1";
-`);
+`
+  );
 
   const realm = new ShadowRealm();
 
@@ -1545,9 +1882,12 @@ export const version = "realm-v1";
   let bridged: unknown = null;
   let bridgeError: string | null = null;
   try {
-    await Bun.write("/tmp/_realm_bridge.js", `
+    await Bun.write(
+      "/tmp/_realm_bridge.js",
+      `
 export function applyCallback(cb, x) { return cb(x) * 2; }
-`);
+`
+    );
     const applyCallback = await realm.importValue("/tmp/_realm_bridge.js", "applyCallback");
     bridged = applyCallback((x: number) => x ** 3, 2);
   } catch (err) {
@@ -1635,20 +1975,41 @@ export function extractEffectMethods(source: string): MethodDescriptor[] {
   const fnRegex = /export\s+async\s+function\s+(\w+)\s*\(([^)]*)\)/g;
   let match;
   while ((match = fnRegex.exec(source)) !== null) {
-    methods.push({ name: match[1], async: true, params: match[2].split(",").map((p) => p.trim()).filter(Boolean) });
+    methods.push({
+      name: match[1],
+      async: true,
+      params: match[2]
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean),
+    });
   }
 
   // export const name = async (...) =>
   const arrowRegex = /export\s+const\s+(\w+)\s*=\s*async\s*\(([^)]*)\)\s*=>/g;
   while ((match = arrowRegex.exec(source)) !== null) {
-    methods.push({ name: match[1], async: true, params: match[2].split(",").map((p) => p.trim()).filter(Boolean) });
+    methods.push({
+      name: match[1],
+      async: true,
+      params: match[2]
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean),
+    });
   }
 
   // export function name(params) (sync, skip if already captured)
   const syncFnRegex = /export\s+function\s+(\w+)\s*\(([^)]*)\)/g;
   while ((match = syncFnRegex.exec(source)) !== null) {
     if (!methods.some((m) => m.name === match![1])) {
-      methods.push({ name: match[1], async: false, params: match[2].split(",").map((p) => p.trim()).filter(Boolean) });
+      methods.push({
+        name: match[1],
+        async: false,
+        params: match[2]
+          .split(",")
+          .map((p) => p.trim())
+          .filter(Boolean),
+      });
     }
   }
 
@@ -1670,15 +2031,20 @@ export async function apiExtractMethods(): Promise<Response> {
     }
   }
 
-  const exportedFromIndex = results.find((r) => r.file === "src/index.ts")?.methods.filter(
-    (m) => m.name.startsWith("api") || m.name.startsWith("format") || m.name.startsWith("verify")
-  ) ?? [];
+  const exportedFromIndex =
+    results
+      .find((r) => r.file === "src/index.ts")
+      ?.methods.filter(
+        (m) =>
+          m.name.startsWith("api") || m.name.startsWith("format") || m.name.startsWith("verify")
+      ) ?? [];
 
   return jsonResponse({
     scanned: results,
     summary: `${results.reduce((s, r) => s + r.methods.length, 0)} methods across ${results.length} files`,
     exportedFromIndex: exportedFromIndex.slice(0, 10),
-    philosophy: "Static analysis before runtime. extractEffectMethods(source) is pure — no globals, no runtime reflection. Bun.Transpiler can parse; regex for lightweight extraction. Same output → same method list.",
+    philosophy:
+      "Static analysis before runtime. extractEffectMethods(source) is pure — no globals, no runtime reflection. Bun.Transpiler can parse; regex for lightweight extraction. Same output → same method list.",
   });
 }
 
@@ -1687,8 +2053,14 @@ export async function apiExtractMethods(): Promise<Response> {
 export async function apiScaffold(): Promise<Response> {
   return jsonResponse({
     architecture: {
-      scriptGenerator: { file: "src/domain/scaffold-plan.ts", exports: ["generatePackageScripts()", "generatePackageJson()"] },
-      fileMappings: { file: "src/domain/scaffold-plan.ts", role: "computeFileMappings() generates package.json + init.ts" },
+      scriptGenerator: {
+        file: "src/domain/scaffold-plan.ts",
+        exports: ["generatePackageScripts()", "generatePackageJson()"],
+      },
+      fileMappings: {
+        file: "src/domain/scaffold-plan.ts",
+        role: "computeFileMappings() generates package.json + init.ts",
+      },
       cli: { file: "src/bin/kimi-scaffold.ts", role: "reads KIMI_MODULES, writes all files" },
     },
     example: {
@@ -1767,11 +2139,20 @@ async function apiEffectImage(): Promise<Response> {
   // Stage 5: Report — generate HTML table
   const passCount = metrics.filter((m) => m.pass).length;
   const report = `📊 ${passCount}/${metrics.length} operations within thresholds\n${metrics
-    .map((m) => `  ${m.operation}: ${m.actualMs > 0 ? m.actualMs + "ms" : "ERR"} ≤ ${m.thresholdMs}ms ${m.pass ? "✅" : "❌"}`)
+    .map(
+      (m) =>
+        `  ${m.operation}: ${m.actualMs > 0 ? m.actualMs + "ms" : "ERR"} ≤ ${m.thresholdMs}ms ${m.pass ? "✅" : "❌"}`
+    )
     .join("\n")}`;
 
   return jsonResponse({
-    pipeline: ["1. Transpiler.scan(source) → 7 exports", "2. Dynamic import → real effect handler", "3. Benchmark each → Metric[]", "4. Train → thresholds with 10% margin", "5. Report → human-readable summary"],
+    pipeline: [
+      "1. Transpiler.scan(source) → 7 exports",
+      "2. Dynamic import → real effect handler",
+      "3. Benchmark each → Metric[]",
+      "4. Train → thresholds with 10% margin",
+      "5. Report → human-readable summary",
+    ],
     scan: { file: "effect/image/processor.ts", exports: scan.exports },
     metrics,
     trained,
@@ -1814,7 +2195,10 @@ export async function apiCrypto() {
       if (currentContent.trim()) {
         sections.push({ name: currentName, content: currentContent.trim() });
       }
-      currentName = match[1].replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+      currentName = match[1]
+        .replace(/[^a-zA-Z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .toLowerCase();
       currentContent = "";
     } else {
       currentContent += line + "\n";
@@ -1850,7 +2234,8 @@ export async function apiKimiPublish(): Promise<Response> {
       { flag: "--no-perf-gates", description: "Skip performance gates before publish" },
       { flag: "--dry-run", description: "Print what would happen without publishing" },
     ],
-    tomlOverridesNote: "bunfig.toml [doctor.thresholds] overrides: probes Bun.TOML.parse, silently skips if unavailable. Human overrides take highest precedence over thresholds.json and defaults.",
+    tomlOverridesNote:
+      "bunfig.toml [doctor.thresholds] overrides: probes Bun.TOML.parse, silently skips if unavailable. Human overrides take highest precedence over thresholds.json and defaults.",
     note: "kimi publish ensures every published package has a README, a readme field in package.json, and passes performance gates. Artifact-quality gate before npm registry push.",
   });
 }
@@ -1921,7 +2306,12 @@ export async function apiPerfAutoDiscover(): Promise<Response> {
         } else {
           fn();
         }
-        metrics.push({ symbol: d.symbol, operation: exp, actualMs: performance.now() - start, pass: true });
+        metrics.push({
+          symbol: d.symbol,
+          operation: exp,
+          actualMs: performance.now() - start,
+          pass: true,
+        });
       } catch {
         metrics.push({ symbol: d.symbol, operation: exp, actualMs: -1, pass: false });
       }
@@ -1933,7 +2323,8 @@ export async function apiPerfAutoDiscover(): Promise<Response> {
     metrics,
     totalExports: discovered.reduce((s, d) => s + d.exports.length, 0),
     pipeline: "Transpiler.scan(source) → exports[] → dynamic import → benchmark each → Metric[]",
-    philosophy: "No manual workload definitions. Source code IS the contract. Works for any effect module — just add its file path.",
+    philosophy:
+      "No manual workload definitions. Source code IS the contract. Works for any effect module — just add its file path.",
   });
 }
 
@@ -2017,8 +2408,24 @@ export async function apiImage(): Promise<Response> {
       webp: { bytes: webpBytes?.byteLength ?? 0 },
       png: { bytes: pngBytes?.byteLength ?? 0 },
     },
-    availableMethods: ["metadata()", "placeholder()", "resize(w)", "jpeg()", "webp()", "png()", "avif()", "flip()", "flop()", "rotate(deg)", "modulate({hue,saturation,brightness})", "toBase64()", "blob()", "write(path)"],
-    globalStore: "install.globalStore = true in bunfig.toml — immutable content-addressed cache, warm installs ~1 symlink/pkg",
+    availableMethods: [
+      "metadata()",
+      "placeholder()",
+      "resize(w)",
+      "jpeg()",
+      "webp()",
+      "png()",
+      "avif()",
+      "flip()",
+      "flop()",
+      "rotate(deg)",
+      "modulate({hue,saturation,brightness})",
+      "toBase64()",
+      "blob()",
+      "write(path)",
+    ],
+    globalStore:
+      "install.globalStore = true in bunfig.toml — immutable content-addressed cache, warm installs ~1 symlink/pkg",
     note: "Bun.Image — built-in image pipeline. metadata() reads dimensions without decoding. placeholder() generates thumbhash data URL for blur-up. Chain transforms, zero-copy. AsyncLocalStorage.snapshot() not yet available in v1.4.0-canary.",
   });
 }
@@ -2035,13 +2442,15 @@ export async function apiSpawnSync(): Promise<Response> {
     exitCode: proc.exitCode,
     success: proc.success,
     pid: proc.pid,
-    resourceUsage: usage ? {
-      maxRSS: `${(usage.maxRSS / 1024 / 1024).toFixed(1)} MB`,
-      cpuUser: `${usage.cpuTime.user} µs`,
-      cpuSystem: `${usage.cpuTime.system} µs`,
-      messages: usage.messages,
-      contextSwitches: usage.contextSwitches,
-    } : null,
+    resourceUsage: usage
+      ? {
+          maxRSS: `${(usage.maxRSS / 1024 / 1024).toFixed(1)} MB`,
+          cpuUser: `${usage.cpuTime.user} µs`,
+          cpuSystem: `${usage.cpuTime.system} µs`,
+          messages: usage.messages,
+          contextSwitches: usage.contextSwitches,
+        }
+      : null,
     note: "Bun.spawnSync — blocking, returns Buffer stdout/stderr. 60% faster than Node.js child_process. resourceUsage() gives CPU, memory, context switches.",
   });
 }
@@ -2075,16 +2484,20 @@ process.send({ ready: true, pid: process.pid });
 
     // Safety timeout
     setTimeout(async () => {
-      try { child.kill(); } catch {}
+      try {
+        child.kill();
+      } catch {}
       await child.exited.catch(() => {});
-      resolve(jsonResponse({
-        childPid: child.pid,
-        messages,
-        parentApi: "child.send(msg) + ipc(handler)",
-        childApi: "process.send(msg) + process.on('message', handler)",
-        serialization: "json (cross-engine compat)",
-        note: "Bun.spawn IPC: native message passing. serialization: 'advanced' (default, JSC) or 'json' (Node.js compat). Bun↔Node IPC works with 'json'.",
-      }));
+      resolve(
+        jsonResponse({
+          childPid: child.pid,
+          messages,
+          parentApi: "child.send(msg) + ipc(handler)",
+          childApi: "process.send(msg) + process.on('message', handler)",
+          serialization: "json (cross-engine compat)",
+          note: "Bun.spawn IPC: native message passing. serialization: 'advanced' (default, JSC) or 'json' (Node.js compat). Bun↔Node IPC works with 'json'.",
+        })
+      );
     }, 3000);
   });
 }
@@ -2100,10 +2513,12 @@ export async function apiExec(): Promise<Response> {
 
     const done = () => {
       if (--pending === 0) {
-        resolve(jsonResponse({
-          results,
-          note: "node:child_process.exec() — runs command string through a shell. Use quotes for paths with spaces. \\$ escapes variables. Bun mirrors Node.js exec exactly.",
-        }));
+        resolve(
+          jsonResponse({
+            results,
+            note: "node:child_process.exec() — runs command string through a shell. Use quotes for paths with spaces. \\$ escapes variables. Bun mirrors Node.js exec exactly.",
+          })
+        );
       }
     };
 
@@ -2154,25 +2569,28 @@ export async function apiGlobOrphan(): Promise<Response> {
     perPackage: (() => {
       const pkgs = [...new Glob("packages/*").scanSync({ cwd: process.cwd(), onlyFiles: false })];
       return pkgs.slice(0, 3).map((pkg) => {
-        const pkgSnaps = [...new Glob(`${pkg}/**/__snapshots__/**/*.snap`).scanSync({ cwd: process.cwd() })];
+        const pkgSnaps = [
+          ...new Glob(`${pkg}/**/__snapshots__/**/*.snap`).scanSync({ cwd: process.cwd() }),
+        ];
         return { package: pkg, snapshots: pkgSnaps.length };
       });
     })(),
-    oneLiner: 'bun -e \'\n' +
+    oneLiner:
+      "bun -e '\n" +
       'const { Glob } = require("bun");\n' +
       'const snaps = [...new Glob("**/__snapshots__/*.snap").scanSync()];\n' +
       'const tests = [...new Glob("**/*.test.ts").scanSync()];\n' +
-      'for (const s of snaps) {\n' +
+      "for (const s of snaps) {\n" +
       '  const base = s.replace(/__snapshots__\\/(.+)\\.snap$/, "$1");\n' +
       '  const expected = base + ".test.ts";\n' +
       '  if (!tests.some(t => t === expected || t.endsWith("/" + expected)))\n' +
       '    console.log("ORPHAN:", s);\n' +
-      '}\'\n' +
-      '// Monorepo per-package variant:\n' +
+      "}'\n" +
+      "// Monorepo per-package variant:\n" +
       '// const packages = [...new Glob("packages/*").scanSync()];\n' +
-      '// for (const pkg of packages) {\n' +
-      '//   const snaps = [...new Glob(`${pkg}/**/__snapshots__/**/*.snap`).scanSync()];\n' +
-      '//   ...',
+      "// for (const pkg of packages) {\n" +
+      "//   const snaps = [...new Glob(`${pkg}/**/__snapshots__/**/*.snap`).scanSync()];\n" +
+      "//   ...",
     note: "Autophagy scan: Bun.Glob.scanSync() cross-references __snapshots__ against test files. Regex handles nested dirs. Per-package variant for monorepos. Live-recomputed every request — no cached badges.",
   });
 }
@@ -2194,21 +2612,25 @@ export async function apiCron(): Promise<Response> {
           fired = true;
           firedAt = Date.now();
           job?.stop();
-          resolve(jsonResponse({
-            pattern: "* * * * * (every minute)",
-            fired: true,
-            latencyMs: firedAt - started,
-            note: "Bun.cron(cronExpression, callback) — native cron scheduler. job.stop() to cancel. Uses 5 fields (minute hour day month weekday).",
-          }));
+          resolve(
+            jsonResponse({
+              pattern: "* * * * * (every minute)",
+              fired: true,
+              latencyMs: firedAt - started,
+              note: "Bun.cron(cronExpression, callback) — native cron scheduler. job.stop() to cancel. Uses 5 fields (minute hour day month weekday).",
+            })
+          );
         }
       });
     } catch (err) {
-      resolve(jsonResponse({
-        pattern: "* * * * *",
-        fired: false,
-        error: err instanceof Error ? err.message : String(err),
-        note: "Bun.cron may not be supported in this environment.",
-      }));
+      resolve(
+        jsonResponse({
+          pattern: "* * * * *",
+          fired: false,
+          error: err instanceof Error ? err.message : String(err),
+          note: "Bun.cron may not be supported in this environment.",
+        })
+      );
       return;
     }
 
@@ -2216,12 +2638,14 @@ export async function apiCron(): Promise<Response> {
     setTimeout(() => {
       if (!fired) {
         job?.stop();
-        resolve(jsonResponse({
-          pattern: "* * * * *",
-          fired: false,
-          error: "Cron did not fire within 2s",
-          note: "Bun.cron schedules at minute granularity; the demo timeout fired first.",
-        }));
+        resolve(
+          jsonResponse({
+            pattern: "* * * * *",
+            fired: false,
+            error: "Cron did not fire within 2s",
+            note: "Bun.cron schedules at minute granularity; the demo timeout fired first.",
+          })
+        );
       }
     }, 2000);
   });
@@ -2257,7 +2681,12 @@ serve({
     outputBytes: js.length,
     ratio: (js.length / tsCode.length).toFixed(2),
     output: js.slice(0, 400) + (js.length > 400 ? "\n// ..." : ""),
-    features: ["type annotations stripped", "interfaces removed", "return types removed", "parameter types removed"],
+    features: [
+      "type annotations stripped",
+      "interfaces removed",
+      "return types removed",
+      "parameter types removed",
+    ],
     note: "Bun.Transpiler — fast TS/JSX → JS. loader: 'ts'|'tsx'|'jsx'. transformSync() or transform() for async.",
   });
 }
@@ -2278,7 +2707,9 @@ export async function apiOsInfo(): Promise<Response> {
       totalGB: (os.totalmem() / 1024 / 1024 / 1024).toFixed(1),
     },
     uptime: { seconds: os.uptime(), hours: (os.uptime() / 3600).toFixed(1) },
-    network: Object.fromEntries(Object.entries(os.networkInterfaces()).map(([k, v]) => [k, v?.length ?? 0])),
+    network: Object.fromEntries(
+      Object.entries(os.networkInterfaces()).map(([k, v]) => [k, v?.length ?? 0])
+    ),
     userInfo: { username: os.userInfo().username, shell: os.userInfo().shell },
     note: "node:os — cross-platform OS info. Bun mirrors Node.js os module exactly.",
   });
@@ -2333,7 +2764,20 @@ export async function apiShell(): Promise<Response> {
     pkgFields: { name, version },
     shellError,
     stdout,
-    methods: ["text()", "json()", "lines()", "arrayBuffer()", "bytes()", "blob()", "quiet()", "nothrow()", "throws(bool)", "cwd(dir)", "env(obj)", "run()"],
+    methods: [
+      "text()",
+      "json()",
+      "lines()",
+      "arrayBuffer()",
+      "bytes()",
+      "blob()",
+      "quiet()",
+      "nothrow()",
+      "throws(bool)",
+      "cwd(dir)",
+      "env(obj)",
+      "run()",
+    ],
     note: "Bun Shell: $`cmd` template literals. ShellError.exitCode for branching. .quiet() suppresses echo. .nothrow() prevents throw on non-zero.",
   });
 }
@@ -2342,9 +2786,18 @@ export async function apiShell(): Promise<Response> {
 
 export async function apiStripAnsi(): Promise<Response> {
   const samples = [
-    { input: "\x1b[31mHello\x1b[0m \x1b[32mWorld\x1b[0m", stripped: Bun.stripANSI("\x1b[31mHello\x1b[0m \x1b[32mWorld\x1b[0m") },
-    { input: "\x1b[1m\x1b[4mBold and underlined\x1b[0m", stripped: Bun.stripANSI("\x1b[1m\x1b[4mBold and underlined\x1b[0m") },
-    { input: "\x1b[33m\x1b[44mYellow on blue\x1b[0m", stripped: Bun.stripANSI("\x1b[33m\x1b[44mYellow on blue\x1b[0m") },
+    {
+      input: "\x1b[31mHello\x1b[0m \x1b[32mWorld\x1b[0m",
+      stripped: Bun.stripANSI("\x1b[31mHello\x1b[0m \x1b[32mWorld\x1b[0m"),
+    },
+    {
+      input: "\x1b[1m\x1b[4mBold and underlined\x1b[0m",
+      stripped: Bun.stripANSI("\x1b[1m\x1b[4mBold and underlined\x1b[0m"),
+    },
+    {
+      input: "\x1b[33m\x1b[44mYellow on blue\x1b[0m",
+      stripped: Bun.stripANSI("\x1b[33m\x1b[44mYellow on blue\x1b[0m"),
+    },
     { input: "Plain text", stripped: Bun.stripANSI("Plain text") },
   ];
 
@@ -2355,7 +2808,11 @@ export async function apiStripAnsi(): Promise<Response> {
 
   return jsonResponse({
     samples,
-    stringWidth: { raw: widthRaw, stripped: widthStripped, note: "stringWidth correctly ignores ANSI codes" },
+    stringWidth: {
+      raw: widthRaw,
+      stripped: widthStripped,
+      note: "stringWidth correctly ignores ANSI codes",
+    },
     note: "Bun.stripANSI() — SIMD-accelerated, 6x-57x faster than strip-ansi npm. Removes all ANSI escape sequences.",
   });
 }
@@ -2366,11 +2823,17 @@ export async function apiBuildCompile(): Promise<Response> {
   return jsonResponse({
     cliFlags: [
       { flag: "--compile", description: "Generate standalone executable" },
-      { flag: "--target", description: "bun|bun-darwin-arm64|bun-linux-x64|bun-windows-x64|bun-linux-x64-musl|node" },
+      {
+        flag: "--target",
+        description: "bun|bun-darwin-arm64|bun-linux-x64|bun-windows-x64|bun-linux-x64-musl|node",
+      },
       { flag: "--outfile", description: "Output path (.exe on Windows)" },
       { flag: "--minify", description: "Minify output" },
       { flag: "--sourcemap", description: "Generate sourcemap (inline|external|none)" },
-      { flag: "--compile-exec-argv", description: "Embed runtime args into executable (process.execArgv)" },
+      {
+        flag: "--compile-exec-argv",
+        description: "Embed runtime args into executable (process.execArgv)",
+      },
       { flag: "--user-agent", description: "Override User-Agent header for fetch()" },
       { flag: "--windows-title", description: "Windows EXE: application title" },
       { flag: "--windows-publisher", description: "Windows EXE: publisher name" },
@@ -2405,8 +2868,9 @@ export async function apiBuildCompile(): Promise<Response> {
 // process.execArgv = ["--smol", "--user-agent=MyApp/1.0"]`,
       },
     ],
-    bunxPackage: 'bunx --package renovate renovate-config-validator  # binary ≠ package name',
-    sideEffectsGlob: 'package.json: { "sideEffects": ["**/*.css", "./src/components/*.js"] } — supports *, ?, **, [], {}',
+    bunxPackage: "bunx --package renovate renovate-config-validator  # binary ≠ package name",
+    sideEffectsGlob:
+      'package.json: { "sideEffects": ["**/*.css", "./src/components/*.js"] } — supports *, ?, **, [], {}',
     note: "Bun.build() now supports compile as string (shorthand) or object. bundler plugins supported. --compile-exec-argv embeds runtime args. bunx --package handles name≠binary.",
   });
 }
@@ -2415,7 +2879,17 @@ export async function apiBuildCompile(): Promise<Response> {
 
 export async function apiBunTest(): Promise<Response> {
   return jsonResponse({
-    imports: ['test', 'expect', 'describe', 'beforeEach', 'afterEach', 'beforeAll', 'afterAll', 'mock', 'spyOn'],
+    imports: [
+      "test",
+      "expect",
+      "describe",
+      "beforeEach",
+      "afterEach",
+      "beforeAll",
+      "afterAll",
+      "mock",
+      "spyOn",
+    ],
     sampleTest: `import { test, expect } from "bun:test";
 
 test("trace formatting", () => {
@@ -2439,26 +2913,52 @@ const snapshot = (label, data, opts) => {
 snapshot("HTTP trace table", traces, { depth: 2 });
 snapshot("Deep error stack", error, { depth: 6, showHidden: true });`,
     expectMatchers: [
-      "toBe(value)", "toEqual(value)", "toStrictEqual(value)",
-      "toBeNull()", "toBeUndefined()", "toBeTruthy()", "toBeFalsy()",
-      "toMatch(regex)", "toMatchSnapshot()",
-      "toBeArray()", "toContain(item)", "toContainEqual(item)",
-      "toThrow()", "toThrowErrorLike(obj)",
-      "toBeInstanceOf(cls)", "toBeNaN()", "toBeFinite()",
-      "toBeGreaterThan(n)", "toBeLessThan(n)",
-      "toHaveProperty(key)", "toHaveLength(n)",
+      "toBe(value)",
+      "toEqual(value)",
+      "toStrictEqual(value)",
+      "toBeNull()",
+      "toBeUndefined()",
+      "toBeTruthy()",
+      "toBeFalsy()",
+      "toMatch(regex)",
+      "toMatchSnapshot()",
+      "toBeArray()",
+      "toContain(item)",
+      "toContainEqual(item)",
+      "toThrow()",
+      "toThrowErrorLike(obj)",
+      "toBeInstanceOf(cls)",
+      "toBeNaN()",
+      "toBeFinite()",
+      "toBeGreaterThan(n)",
+      "toBeLessThan(n)",
+      "toHaveProperty(key)",
+      "toHaveLength(n)",
     ],
-    mockFunctions: [
-      "mock(() => value)", "mock((arg) => result)",
-      "spyOn(obj, 'method')",
-    ],
+    mockFunctions: ["mock(() => value)", "mock((arg) => result)", "spyOn(obj, 'method')"],
     runCommand: "bun test",
     cliFlags: [
-      { flag: "--filter", value: '"@myorg/*"', description: "Run tests in matching workspace packages" },
-      { flag: "--shard", value: "1/4", description: "Split tests across CI jobs (deterministic round-robin)" },
-      { flag: "--parallel", value: "4", description: "Run N test files concurrently (work-stealing)" },
+      {
+        flag: "--filter",
+        value: '"@myorg/*"',
+        description: "Run tests in matching workspace packages",
+      },
+      {
+        flag: "--shard",
+        value: "1/4",
+        description: "Split tests across CI jobs (deterministic round-robin)",
+      },
+      {
+        flag: "--parallel",
+        value: "4",
+        description: "Run N test files concurrently (work-stealing)",
+      },
       { flag: "--isolate", description: "Run each test file in a separate subprocess" },
-      { flag: "--rerun-each", value: "3", description: "Re-run each test file N times for flake hunting" },
+      {
+        flag: "--rerun-each",
+        value: "3",
+        description: "Re-run each test file N times for flake hunting",
+      },
       { flag: "--bail", value: "5", description: "Exit after N test failures" },
       { flag: "--timeout", value: "10000", description: "Per-test timeout in ms" },
     ],
@@ -2480,7 +2980,11 @@ export async function apiDeepMatch(): Promise<Response> {
     const prodCheck = typeof t.traceId === "string" && typeof t.status === "number";
 
     // Exact structural match
-    const exactMatch = Bun.deepMatch(t, { traceId: "abc-123", status: 200, contentType: "application/json" });
+    const exactMatch = Bun.deepMatch(t, {
+      traceId: "abc-123",
+      status: 200,
+      contentType: "application/json",
+    });
 
     return {
       trace: JSON.stringify(t),
@@ -2518,7 +3022,10 @@ export function formatTraceTable(traces: TraceSummary[]): string {
   return Bun.inspect.table(rows, ["traceId", "status", "type", "hash"], { colors: false });
 }
 
-export function verifyTraceHash(trace: TraceSummary, expectedHex: string): { valid: boolean; checks: Record<string, boolean> } {
+export function verifyTraceHash(
+  trace: TraceSummary,
+  expectedHex: string
+): { valid: boolean; checks: Record<string, boolean> } {
   const checks: Record<string, boolean> = {};
   checks.byteLength32 = trace.bodyHash.byteLength === 32;
   checks.hexLength64 = expectedHex.length === 64;
@@ -2528,9 +3035,24 @@ export function verifyTraceHash(trace: TraceSummary, expectedHex: string): { val
 
 export async function apiTraceVerify(): Promise<Response> {
   const traces: TraceSummary[] = [
-    { traceId: "req-abc123", status: 200, contentType: "application/json", bodyHash: new Uint8Array(32).fill(0xab) },
-    { traceId: "req-def456", status: 404, contentType: "text/html", bodyHash: new Uint8Array(32).fill(0xcd) },
-    { traceId: "req-ghi789", status: 201, contentType: "application/octet-stream", bodyHash: new Uint8Array(32).fill(0xef) },
+    {
+      traceId: "req-abc123",
+      status: 200,
+      contentType: "application/json",
+      bodyHash: new Uint8Array(32).fill(0xab),
+    },
+    {
+      traceId: "req-def456",
+      status: 404,
+      contentType: "text/html",
+      bodyHash: new Uint8Array(32).fill(0xcd),
+    },
+    {
+      traceId: "req-ghi789",
+      status: 201,
+      contentType: "application/octet-stream",
+      bodyHash: new Uint8Array(32).fill(0xef),
+    },
   ];
 
   const table = formatTraceTable(traces);
@@ -2631,15 +3153,23 @@ export async function apiStreamHash(): Promise<Response> {
   const bunHash = Bun.SHA256.hash(await Bun.file(tmpPath).arrayBuffer());
   const bunHex = Buffer.from(bunHash).toString("hex");
 
-  try { await import("node:fs/promises").then(fs => fs.unlink(tmpPath)); } catch { /* ok */ }
+  try {
+    await import("node:fs/promises").then((fs) => fs.unlink(tmpPath));
+  } catch {
+    /* ok */
+  }
 
   return jsonResponse({
     fileSize: 1200,
     stream: { chunks: chunkCount, totalBytes, digest: streamDigest.slice(0, 24) + "..." },
     whole: { digest: wholeDigest.slice(0, 24) + "..." },
     string: { digest: stringDigest.slice(0, 24) + "..." },
-    bunNative: { digest: bunHex.slice(0, 24) + "...", approach: "Bun.SHA256.hash(arrayBuffer()) — one-liner" },
-    allMatch: streamDigest === wholeDigest && wholeDigest === stringDigest && stringDigest === bunHex,
+    bunNative: {
+      digest: bunHex.slice(0, 24) + "...",
+      approach: "Bun.SHA256.hash(arrayBuffer()) — one-liner",
+    },
+    allMatch:
+      streamDigest === wholeDigest && wholeDigest === stringDigest && stringDigest === bunHex,
     note: "Stream: Bun.file().stream() + node:crypto. One-liner: Bun.SHA256.hash(await file.arrayBuffer()). Bun.hex() not yet available; use Buffer.from(hash).toString('hex').",
   });
 }
@@ -2666,21 +3196,39 @@ export async function apiWriteSmart(): Promise<Response> {
       if (tc.value instanceof Blob) {
         branch = "Blob";
         await Bun.write(tmpPath, tc.value);
-      } else if (typeof tc.value === "string" || types.isArrayBufferView(tc.value) || types.isAnyArrayBuffer(tc.value)) {
-        branch = typeof tc.value === "string" ? "string" : types.isArrayBufferView(tc.value) ? "ArrayBufferView" : "ArrayBuffer";
+      } else if (
+        typeof tc.value === "string" ||
+        types.isArrayBufferView(tc.value) ||
+        types.isAnyArrayBuffer(tc.value)
+      ) {
+        branch =
+          typeof tc.value === "string"
+            ? "string"
+            : types.isArrayBufferView(tc.value)
+              ? "ArrayBufferView"
+              : "ArrayBuffer";
         await Bun.write(tmpPath, tc.value);
       } else {
         branch = "String(value)";
         await Bun.write(tmpPath, String(tc.value));
       }
       const content = await Bun.file(tmpPath).text();
-      results.push({ label: tc.label, branch, wrote: String(tc.value).slice(0, 30), read: content });
+      results.push({
+        label: tc.label,
+        branch,
+        wrote: String(tc.value).slice(0, 30),
+        read: content,
+      });
     } catch (err) {
       results.push({ label: tc.label, branch, wrote: "—", read: `ERROR: ${err}` });
     }
   }
 
-  try { await import("node:fs/promises").then(fs => fs.unlink(tmpPath)); } catch { /* ok */ }
+  try {
+    await import("node:fs/promises").then((fs) => fs.unlink(tmpPath));
+  } catch {
+    /* ok */
+  }
 
   return jsonResponse({
     results,
@@ -2803,7 +3351,11 @@ export async function apiFileIO(): Promise<Response> {
   const exists = await file.exists();
 
   // Cleanup (best-effort)
-  try { await import("node:fs/promises").then(fs => fs.unlink(tmpPath)); } catch { /* ok */ }
+  try {
+    await import("node:fs/promises").then((fs) => fs.unlink(tmpPath));
+  } catch {
+    /* ok */
+  }
 
   return jsonResponse({
     path: tmpPath,
@@ -2841,6 +3393,9 @@ export async function apiGlob(): Promise<Response> {
 const server = Bun.serve({
   port,
   async fetch(req) {
+    const artifactResponse = await handleArtifactsRequest(req);
+    if (artifactResponse) return artifactResponse;
+
     const url = new URL(req.url);
     switch (url.pathname) {
       case "/":
@@ -3015,6 +3570,22 @@ const server = Bun.serve({
         const { apiCards } = await import("./handlers/canvas-cards.ts");
         return apiCards(req);
       }
+      case "/api/canvas-filter": {
+        const { apiCanvasFilter } = await import("./handlers/canvas-cards.ts");
+        return apiCanvasFilter(req);
+      }
+      case "/api/examples": {
+        const { apiExamples } = await import("./handlers/examples-showcase.ts");
+        return apiExamples(req);
+      }
+      case "/api/examples/trading": {
+        const { apiExamplesTrading } = await import("./handlers/examples-showcase.ts");
+        return apiExamplesTrading();
+      }
+      case "/api/settings": {
+        const { apiDashboardSettings } = await import("./handlers/dashboard-settings.ts");
+        return apiDashboardSettings(req);
+      }
       case "/health":
         return new Response("ok");
       default:
@@ -3042,4 +3613,3 @@ try {
 } catch (e) {
   Bun.stdout.write(`HTTP/2 server failed: ${e}\n`);
 }
-

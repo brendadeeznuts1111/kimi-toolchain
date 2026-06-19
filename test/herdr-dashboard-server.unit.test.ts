@@ -30,6 +30,7 @@ import { webViewConsoleMirror } from "../src/lib/webview-console.ts";
 import type { DashboardIpcCommand } from "../src/lib/herdr-dashboard-data.ts";
 import { writeDashboardEvent } from "../src/lib/dashboard-audit-store.ts";
 import { failureLedgerPath } from "../src/lib/paths.ts";
+import { recordDoctorRun } from "../src/lib/utils.ts";
 import {
   REPO_ROOT,
   captureConsole,
@@ -54,10 +55,10 @@ describe("herdr-dashboard-server", () => {
     expect(Array.isArray(payload.rules)).toBe(true);
   });
 
-  test("fetchDashboardCanvases returns all 10 cursorCanvas entries", () => {
+  test("fetchDashboardCanvases returns all 11 cursorCanvas entries", () => {
     const payload = fetchDashboardCanvases();
     expect(payload.ok).toBe(true);
-    expect(payload.canvases.length).toBe(10);
+    expect(payload.canvases.length).toBe(11);
 
     const ids = payload.canvases.map((c) => c.id);
     expect(ids).toContain("unified");
@@ -91,6 +92,37 @@ describe("herdr-dashboard-server", () => {
       expect(c.purpose).toBeTruthy();
     }
   });
+
+  test(
+    "GET /api/canvas-filter returns highlight action for artifact-lineage deep link",
+    async () => {
+      const server = startHerdrDashboardServer({
+        projectPath: REPO_ROOT,
+        port: 0,
+        sessions: false,
+        herdrEvents: false,
+        gateHealthWatch: false,
+        metaWatch: false,
+      });
+      try {
+        const res = await server.fetch(
+          new Request(`${server.url}api/canvas-filter?canvas=artifact-lineage`)
+        );
+        expect(res.status).toBe(200);
+        const payload = (await res.json()) as {
+          ok?: boolean;
+          action?: { kind?: string; canvas?: string; cardIds?: string[] };
+        };
+        expect(payload.ok).toBe(true);
+        expect(payload.action?.kind).toBe("highlight");
+        expect(payload.action?.canvas).toBe("artifact-lineage");
+        expect(payload.action?.cardIds).toContain("card-artifacts");
+      } finally {
+        server.stop();
+      }
+    },
+    { timeout: SERVER_TEST_MS }
+  );
 
   test("fetchDashboardCanvases code-references has optional metadata", () => {
     const payload = fetchDashboardCanvases();
@@ -183,14 +215,13 @@ describe("herdr-dashboard-server", () => {
         projectPath: REPO_ROOT,
         port: 0,
         sessions: false,
+        metaWatch: false,
+        gateHealthWatch: false,
         discoveryCache,
       });
       try {
-        const htmlRes = (await fetch(server.url)) as unknown as {
-          body: ReadableStream<Uint8Array>;
-          headers: { get(name: string): string | null };
-        };
-        const html = await readableStreamToText(htmlRes.body);
+        const htmlRes = await server.fetch(new Request(server.url));
+        const html = await htmlRes.text();
         expect(html).toContain("Herdr Orchestrator Dashboard");
         expect(html).toContain('href="herdr-dashboard.css"');
         expect(html).toContain('src="herdr-dashboard.js"');
@@ -211,24 +242,17 @@ describe("herdr-dashboard-server", () => {
         expect(html).toContain("Artifacts");
         expect(htmlRes.headers.get("access-control-allow-origin")).toBe("*");
 
-        const cssRes = (await fetch(`${server.url}herdr-dashboard.css`)) as unknown as {
-          body: ReadableStream<Uint8Array>;
-        };
-        const css = await readableStreamToText(cssRes.body);
+        const cssRes = await server.fetch(new Request(`${server.url}herdr-dashboard.css`));
+        const css = await cssRes.text();
         expect(css).toContain(":root");
-        const jsRes = (await fetch(`${server.url}herdr-dashboard.js`)) as unknown as {
-          body: ReadableStream<Uint8Array>;
-        };
-        const js = await readableStreamToText(jsRes.body);
+        const jsRes = await server.fetch(new Request(`${server.url}herdr-dashboard.js`));
+        const js = await jsRes.text();
         expect(js).toContain("STATIC_API_ORIGIN");
         expect(js).toContain("apiUrl");
         await server.hub.refresh();
-        const metaRes = (await fetch(`${server.url}api/meta`)) as unknown as {
-          body: ReadableStream<Uint8Array>;
-          headers: { get(name: string): string | null };
-        };
+        const metaRes = await server.fetch(new Request(`${server.url}api/meta`));
         expect(metaRes.headers.get("access-control-allow-origin")).toBe("*");
-        const metaRaw = await readableStreamToText(metaRes.body);
+        const metaRaw = await metaRes.text();
         const meta = JSON.parse(metaRaw) as {
           ok: boolean;
           projectPath: string;
@@ -680,6 +704,94 @@ describe("herdr-dashboard-server", () => {
   );
 
   test(
+    "dashboard server index stats and artifact diff APIs",
+    async () => {
+      const dir = testTempDir("herdr-dashboard-index-diff-");
+      const store = new ArtifactStore(dir);
+      const pathA = await store.save("model-drift", { ok: true, n: 1 });
+      await Bun.sleep(2);
+      const pathB = await store.save("model-drift", { ok: true, n: 2 });
+      const relA = pathA.slice(dir.length + 1);
+      const relB = pathB.slice(dir.length + 1);
+
+      const server = startHerdrDashboardServer({
+        projectPath: dir,
+        port: 0,
+        sessions: false,
+      });
+      try {
+        const statsRes = (await fetch(`${server.url}api/artifacts/index/stats`)) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        expect(statsRes.status).toBe(200);
+        const statsBody = JSON.parse(await readableStreamToText(statsRes.body)) as {
+          ok: boolean;
+          stats: { totalArtifacts: number; fsArtifactCount: number };
+        };
+        expect(statsBody.ok).toBe(true);
+        expect(statsBody.stats.totalArtifacts).toBe(2);
+        expect(statsBody.stats.fsArtifactCount).toBe(2);
+
+        const diffRes = (await fetch(
+          `${server.url}api/artifacts/model-drift/diff?a=${encodeURIComponent(relA)}&b=${encodeURIComponent(relB)}`
+        )) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        expect(diffRes.status).toBe(200);
+        const diffBody = JSON.parse(await readableStreamToText(diffRes.body)) as {
+          ok: boolean;
+          equal: boolean;
+          indexSource: string;
+        };
+        expect(diffBody.ok).toBe(true);
+        expect(diffBody.equal).toBe(false);
+        expect(diffBody.indexSource).toBe("sqlite");
+      } finally {
+        server.stop();
+      }
+      cleanupPath(dir);
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
+    "dashboard server serves artifact RSS feed",
+    async () => {
+      const dir = testTempDir("herdr-dashboard-feed-");
+      const store = new ArtifactStore(dir);
+      await store.save("model-drift", { ok: true, note: "feed-a" });
+      await Bun.sleep(2);
+      await store.save("bunfig-policy", { ok: false, note: "feed-b" });
+
+      const server = startHerdrDashboardServer({
+        projectPath: dir,
+        port: 0,
+        sessions: false,
+      });
+      try {
+        const res = (await fetch(`${server.url}api/artifacts/feed.xml?limit=5`)) as unknown as {
+          status: number;
+          headers: Headers;
+          body: ReadableStream<Uint8Array>;
+        };
+        expect(res.status).toBe(200);
+        expect(res.headers.get("content-type")).toContain("application/rss+xml");
+        const xml = await readableStreamToText(res.body);
+        expect(xml).toContain('<rss version="2.0">');
+        expect(xml).toContain("<item>");
+        expect(xml).toContain("model-drift");
+        expect(xml).toContain("bunfig-policy");
+      } finally {
+        server.stop();
+      }
+      cleanupPath(dir);
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
     "dashboard server runs API filters by run identity",
     async () => {
       const dir = testTempDir("herdr-dashboard-runs-");
@@ -761,6 +873,70 @@ describe("herdr-dashboard-server", () => {
         server.stop();
       }
       cleanupPath(dir);
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
+    "dashboard server run manifest links recorded doctor runs",
+    async () => {
+      const dir = testTempDir("herdr-dashboard-run-doctor-");
+      const home = testTempDir("herdr-dashboard-run-doctor-home-");
+      const store = new ArtifactStore(dir);
+      await store.saveRunManifest({
+        schemaVersion: 1,
+        runId: "run_doctor_linked",
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        gates: ["bunfig-policy"],
+        artifacts: {},
+        status: "pass",
+        sessionId: "wd_doctor_linked",
+      });
+
+      await withEnv({ HOME: home }, async () => {
+        recordDoctorRun(
+          "kimi-toolchain",
+          "kimi-doctor",
+          [{ check: "mock-check", message: "mock warning", severity: "warn" }],
+          undefined,
+          undefined,
+          "wd_doctor_linked",
+          "run_doctor_linked"
+        );
+
+        const server = startHerdrDashboardServer({
+          projectPath: dir,
+          port: 0,
+          sessions: false,
+        });
+        try {
+          const res = (await fetch(`${server.url}api/runs/run_doctor_linked`)) as unknown as {
+            status: number;
+            body: ReadableStream<Uint8Array>;
+          };
+          expect(res.status).toBe(200);
+          const detail = JSON.parse(await readableStreamToText(res.body)) as {
+            ok: boolean;
+            runId: string;
+            doctorRuns: Array<{ tool: string; runId: string | null; sessionId: string | null }>;
+          };
+          expect(detail.ok).toBe(true);
+          expect(detail.runId).toBe("run_doctor_linked");
+          expect(detail.doctorRuns.length).toBeGreaterThanOrEqual(1);
+          expect(detail.doctorRuns[0]).toEqual(
+            expect.objectContaining({
+              tool: "kimi-doctor",
+              runId: "run_doctor_linked",
+              sessionId: "wd_doctor_linked",
+            })
+          );
+        } finally {
+          server.stop();
+        }
+      });
+      cleanupPath(dir);
+      cleanupPath(home);
     },
     { timeout: SERVER_TEST_MS }
   );
@@ -1105,7 +1281,11 @@ describe("herdr-dashboard-server", () => {
                 lineNumber: number;
                 severity: string;
                 message: string;
+                preview: string;
                 raw: string;
+                source: string;
+                tags: string[];
+                payloadKeys: string[];
               }>;
               totalLines: number;
               tail: number;
@@ -1118,13 +1298,21 @@ describe("herdr-dashboard-server", () => {
               lineNumber: 2,
               severity: "warn",
               message: "second warning line",
+              preview: "second warning line",
               raw: "second warning line",
+              source: "tool-failures",
+              tags: ["sink:tool-failures", "severity:warn"],
+              payloadKeys: [],
             });
             expect(body.entries[1]).toEqual({
               lineNumber: 3,
               severity: "error",
               message: "third fatal error line",
+              preview: "third fatal error line",
               raw: "third fatal error line",
+              source: "tool-failures",
+              tags: ["sink:tool-failures", "severity:error"],
+              payloadKeys: [],
             });
             expect(body.totalLines).toBe(3);
             expect(body.tail).toBe(2);
@@ -1892,6 +2080,15 @@ describe("herdr-dashboard-server", () => {
     expect(js).toContain("let thumbLive = false");
     expect(js).toContain("if (thumbLive)");
     expect(js).toMatch(/thumbLive = false[\s\S]*wrap\?\.classList\.remove\("visible"\)/);
+  });
+
+  test("herdr-dashboard.js wires canvas deep-link filter via /api/canvas-filter", () => {
+    const js = readText(join(REPO_ROOT, "templates/herdr-dashboard.js"));
+    expect(js).toContain("function fetchAndApplyCanvasDeepLink");
+    expect(js).toContain("function wireCanvasDeepLink");
+    expect(js).toContain("/api/canvas-filter");
+    expect(js).toContain('addEventListener("popstate"');
+    expect(js).toContain("canvas-filter-applied");
   });
 
   test(

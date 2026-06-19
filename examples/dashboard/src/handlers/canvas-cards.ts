@@ -1,4 +1,5 @@
 import { join } from "path";
+import { applyCanvasFilter } from "../../../../src/lib/dashboard-canvas-filter.ts";
 import { fetchDashboardCanvases } from "../../../../src/lib/herdr-dashboard-data.ts";
 import {
   fetchDashboardCardsPayload,
@@ -71,6 +72,16 @@ export async function collectAllCardProbes(request: Request): Promise<Record<str
 
 export function apiCanvases(): Response {
   return jsonResponse(fetchDashboardCanvases());
+}
+
+export async function apiCanvasFilter(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const result = await applyCanvasFilter(REPO_ROOT, url);
+  return jsonResponse({
+    ok: true,
+    ...result,
+    fetchedAt: new Date().toISOString(),
+  });
 }
 
 export async function apiCards(request: Request): Promise<Response> {

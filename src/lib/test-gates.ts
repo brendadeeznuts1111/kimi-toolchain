@@ -33,10 +33,15 @@ export const UNIT_TEST_FILES = [
   "test/artifact-store.unit.test.ts",
   "test/graph-to-mermaid.unit.test.ts",
   "test/bunfig-policy-gate.unit.test.ts",
+  "test/url-i18n-gate.unit.test.ts",
+  "test/email-i18n-gate.unit.test.ts",
   "test/gate-registry.unit.test.ts",
   "test/doctor-gates-runner.unit.test.ts",
   "test/gates-trading.unit.test.ts",
   "test/dashboard-audit-store.unit.test.ts",
+  "test/dashboard-route-patterns.unit.test.ts",
+  "test/dashboard-canvas-filter.unit.test.ts",
+  "test/log-preview.unit.test.ts",
   "test/herdr-dashboard-data.unit.test.ts",
   "test/kimi-doctor-gate.unit.test.ts",
   "test/markdown-table.unit.test.ts",
@@ -182,6 +187,8 @@ export const UNIT_TEST_FILES = [
   "test/canonical-references.unit.test.ts",
   "test/cursor-canvas-lint.unit.test.ts",
   "test/dashboard-card-registry.unit.test.ts",
+  "test/kimi-dashboard-daemon.unit.test.ts",
+  "test/examples-showcase.unit.test.ts",
   "test/config-status.unit.test.ts",
   "test/upgrade-advisor.unit.test.ts",
   "test/doctor-probe.unit.test.ts",
@@ -243,6 +250,8 @@ export function bunTestArgs(options: {
   parallel?: number | boolean;
   /** Bun test --shard=M/N — split test files across CI jobs */
   shard?: string;
+  /** Bun test --reporter-outfile=<path> — JUnit report destination. */
+  reporterOutfile?: string;
 }): string[] {
   const timeout = String(
     options.timeoutMs ??
@@ -265,7 +274,10 @@ export function bunTestArgs(options: {
     args.push("--coverage", "--coverage-reporter=lcov", "--coverage-dir=./coverage");
   }
   if (options.ci) {
-    args.push("--reporter=junit", "--reporter-outfile=reports/junit.xml");
+    args.push(
+      "--reporter=junit",
+      `--reporter-outfile=${options.reporterOutfile ?? "reports/junit.xml"}`
+    );
   }
   if (options.dots) args.push("--dots");
   if (options.json) args.push("--json");
@@ -274,7 +286,7 @@ export function bunTestArgs(options: {
   } else if (options.files?.length) {
     args.push("--isolate", ...options.files);
   } else if (options.fast) {
-    args.push("--isolate", ...UNIT_TEST_FILES);
+    args.push("--concurrency", "4", "--isolate", ...UNIT_TEST_FILES);
   }
   if (options.integration) {
     args.push(...INTEGRATION_TEST_FILES);
