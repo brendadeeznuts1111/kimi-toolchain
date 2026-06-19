@@ -1,0 +1,24 @@
+# bunfig.toml — Hardened install policy for kimi-toolchain-dashboard.
+# Merged with $HOME/.bunfig.toml if present. Env vars (BUN_CONFIG_*) override.
+# See: https://bun.sh/docs/cli/install#configuring-bun-install-with-bunfig-toml
+
+[install]
+optional = true
+dev = true
+peer = true
+production = false
+dryRun = false
+saveTextLockfile = true
+frozenLockfile = true
+exact = false
+ignoreScripts = false
+concurrentScripts = 8
+linker = "isolated"
+globalStore = true
+globalDir = "~/.bun/install/global"
+globalBinDir = "~/.bun/bin"
+minimumReleaseAge = 259200
+minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
+
+[install.cache]
+dir = "~/.bun/install/cache"
