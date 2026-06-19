@@ -3,13 +3,20 @@ import { join } from "path";
 import { REPO_ROOT } from "./helpers.ts";
 
 const DASHBOARD_ENTRY = join(REPO_ROOT, "examples/dashboard/src/index.ts");
+const DISPATCH = join(REPO_ROOT, "examples/dashboard/src/handlers/dispatch.ts");
 
 describe("examples-dashboard-routes", () => {
-  test("index.ts wires /api/health and artifact preflight before switch", async () => {
+  test("index.ts delegates to artifacts preflight and dispatch router", async () => {
     const source = await Bun.file(DASHBOARD_ENTRY).text();
+    expect(source).toContain("handleArtifactsRequest(req)");
+    expect(source).toContain("dispatchDashboardRoute(req)");
+    expect(source).not.toContain('case "/api/bundle"');
+  });
+
+  test("dispatch.ts wires core card and contract routes", async () => {
+    const source = await Bun.file(DISPATCH).text();
     expect(source).toContain('case "/api/health"');
     expect(source).toContain('method === "HEAD"');
-    expect(source).toContain("handleArtifactsRequest(req)");
     expect(source).toContain('case "/api/file-split"');
     expect(source).toContain('case "/api/effect-benchmark"');
     expect(source).toContain('case "/api/canvases"');

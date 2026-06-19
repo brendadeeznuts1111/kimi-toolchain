@@ -265,10 +265,18 @@ export const FAST_TEST_CHUNK_SIZE = 10;
 /** Integration tests — included by full Bun discovery, not the fast unit gate. */
 export const INTEGRATION_TEST_FILES = [
   "test/cleanup-legacy.integration.test.ts",
-  "test/kimi-fix.integration.test.ts",
+  "test/config-status.integration.test.ts",
   "test/decision-scoring.integration.test.ts",
   "test/effect-gates.integration.test.ts",
-  "test/config-status.integration.test.ts",
+  "test/error-clustering.integration.test.ts",
+  "test/herdr-project.integration.test.ts",
+  "test/kimi-decision.integration.test.ts",
+  "test/kimi-docs-aligned.integration.test.ts",
+  "test/kimi-fix.integration.test.ts",
+  "test/kimi-fix-profiles.integration.test.ts",
+  "test/sync-manifest.integration.test.ts",
+  "test/trace-ledger.integration.test.ts",
+  "test/unified-shell-bridge.integration.test.ts",
 ] as const;
 
 /** Smoke tests — full CLI invocations, 15-30s each */

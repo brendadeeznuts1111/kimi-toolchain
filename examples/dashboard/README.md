@@ -29,7 +29,7 @@ cd examples/dashboard && bun run src/index.ts
 - **86** static `switch` API paths
 - **12** URLPattern artifact/run routes (handled before the switch; not duplicated in `switch`)
 
-Routing order: `handleArtifactsRequest()` (URLPattern) → `switch (url.pathname)` → `404`. Non-`GET`/`HEAD` on `/api/artifacts`, `/api/runs`, `/api/sessions` namespaces → **405** JSON.
+Routing order: `handleArtifactsRequest()` (URLPattern) → `dispatchDashboardRoute()` (`handlers/dispatch.ts`) → `404`. Handler implementations are SSOT in `src/handlers/*.ts` (shared helpers in `handlers/shared.ts`). Non-`GET`/`HEAD` on `/api/artifacts`, `/api/runs`, `/api/sessions` namespaces → **405** JSON.
 
 Full URL inventory: [dashboard-urls.md](../dashboard-urls.md). Pattern SSOT: `src/lib/dashboard-route-patterns.ts`.
 
