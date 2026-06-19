@@ -34,8 +34,8 @@ function printHelp() {
   logger.info("");
   logger.info("Zero-install alternative:");
   logger.info("  cp -r ~/kimi-toolchain/templates/bun-create/kimi-toolchain ~/.bun-create/");
-  logger.info("  bun create kimi-toolchain my-app [-- --profile toolchain]");
-  logger.info("  (bun create substitutes {{name}}, postinstall runs kimi-fix . {{extraArgs}})");
+  logger.info("  bun create kimi-toolchain my-app");
+  logger.info("  KIMI_PROFILE=toolchain bun create kimi-toolchain my-app  # toolchain profile");
 }
 
 function resolveParent(args: string[]): string {

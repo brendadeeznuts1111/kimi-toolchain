@@ -5,7 +5,7 @@
   "bun-create": {
     "postinstall": [
       "bun install -g github:brendadeeznuts1111/kimi-toolchain",
-      "kimi-fix . {{extraArgs}}"
+      "kimi-fix . ${KIMI_PROFILE:+--profile $KIMI_PROFILE}"
     ],
     "start": {
       "dev": "bun run --watch src/index.ts",
