@@ -517,18 +517,25 @@ async function apiInspectConfig(): Promise<Response> {
 async function apiDeps(): Promise<Response> {
   const ls = Bun.spawn(["bun", "pm", "ls", "--all"], { stdout: "pipe", stderr: "pipe" });
   const bin = Bun.spawn(["bun", "pm", "bin"], { stdout: "pipe", stderr: "pipe" });
-  const [lsOut, binOut] = await Promise.all([
+  const bunx = Bun.spawn(["bunx", "--help"], { stdout: "pipe", stderr: "pipe" });
+  const [lsOut, binOut, bunxOut] = await Promise.all([
     new Response(ls.stdout).text(),
     new Response(bin.stdout).text(),
+    new Response(bunx.stdout).text(),
   ]);
-  await Promise.all([ls.exited, bin.exited]);
+  await Promise.all([ls.exited, bin.exited, bunx.exited]);
 
   const packages = lsOut.split("\n").filter((l) => l.includes("@")).length;
   return jsonResponse({
     binDir: binOut.trim(),
     totalPackages: packages,
     tree: lsOut.trim(),
-    note: "bun pm ls --all + bun pm bin. CI: git diff --exit-code dependencies.txt",
+    bunx: {
+      available: Bun.which("bunx") !== null,
+      usage: "bunx <package>[@version] [args]",
+      example: "bunx oxlint@latest --version",
+    },
+    note: "bun pm ls --all + bun pm bin + bunx. CI: git diff --exit-code dependencies.txt",
   });
 }
 
