@@ -90,7 +90,7 @@ async function fetchJson(url) { const res = await fetch(url); return res.json();
     </div>
     <details style="margin-top:8px"><summary style="color:var(--blue);cursor:pointer;font-size:11px">PATH entries (${d.path.length})</summary>
     <table class="tbl" style="margin-top:4px"><tr><th>#</th><th>Path</th><th>Type</th></tr>
-    ${d.path.map((p: string, i: number) => {
+    ${d.path.map((p, i) => {
       const isToolchain = p.includes(".kimi-code");
       const isBun = p.includes(".bun");
       const type = isToolchain ? "toolchain" : isBun ? "bun" : "system";
