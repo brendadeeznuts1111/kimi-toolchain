@@ -284,7 +284,7 @@ describe("kimi-doctor-gate", () => {
       };
       expect(payload.gate).toBe("perf-gate");
       expect(payload.order).toEqual(["bunfig-policy", "perf-gate"]);
-      expect(payload.autoResolved).toBeUndefined();
+      expect(payload.autoResolved).toEqual(["bunfig-policy"]);
     },
     GATE_TEST_MS
   );

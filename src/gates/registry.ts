@@ -2,10 +2,9 @@
  * Built-in doctor gate registry and dependency closure resolution.
  *
  * `resolveGateClosure(name)` returns transitive `dependsOn` in execution order.
- * CLI passes `closure.gates` to `runGatesWithDependencies` — no GraphNode adapter.
+ * CLI may pass seed gates to `runGatesWithDependencies` (auto-resolves deps) — no GraphNode adapter.
  */
 import type { Gate } from "./types.ts";
-import { topologicalSort } from "./runner.ts";
 import { bunfigPolicyGateDefinition } from "./bunfig-policy.ts";
 import { cardProbeGateDefinition } from "./card-probe.ts";
 import { modelDriftGateDefinition } from "./model-drift.ts";
@@ -70,43 +69,56 @@ export function resolveGateClosure(name: string): { gates: Gate[]; missing: stri
   return { gates: order, missing };
 }
 
-/**
- * Expand an input gate array with registry definitions for missing `dependsOn` targets.
- * Input gates take precedence over built-ins with the same name.
- */
-export function autoResolveGateDependencies(inputGates: Gate[]): {
+export interface AutoResolveGateDependenciesResult {
   gates: Gate[];
+  missing: string[];
   autoResolved: string[];
-} {
+}
+
+/**
+ * Expand seed gates with missing `dependsOn` targets from `lookup` (default `getGate`).
+ * Seed gate objects are preserved when names match registry entries.
+ */
+export function autoResolveGateDependencies(
+  seeds: Gate[],
+  lookup: (name: string) => Gate | undefined = getGate
+): AutoResolveGateDependenciesResult {
   ensureDiscovered();
-  const inputByName = new Map(inputGates.map((gate) => [gate.name, gate]));
+  const byName = new Map<string, Gate>();
+  const seedNames = new Set(seeds.map((g) => g.name));
+  const missing: string[] = [];
   const autoResolved: string[] = [];
-  const order: Gate[] = [];
-  const seen = new Set<string>();
+  const queue: string[] = [];
 
-  function visit(gateName: string): void {
-    if (seen.has(gateName)) return;
+  for (const gate of seeds) {
+    byName.set(gate.name, gate);
+    queue.push(gate.name);
+  }
 
-    const gate = inputByName.get(gateName) ?? gates.get(gateName);
-    if (!gate) return;
-
+  while (queue.length > 0) {
+    const name = queue.shift()!;
+    const gate = byName.get(name);
+    if (!gate) continue;
     for (const dep of gate.dependsOn ?? []) {
-      visit(dep);
-    }
-
-    seen.add(gateName);
-    order.push(gate);
-
-    if (!inputByName.has(gateName)) {
-      autoResolved.push(gateName);
+      if (byName.has(dep)) continue;
+      const resolved = lookup(dep);
+      if (!resolved) {
+        if (!missing.includes(dep)) missing.push(dep);
+        continue;
+      }
+      byName.set(dep, resolved);
+      if (!seedNames.has(dep) && !autoResolved.includes(dep)) {
+        autoResolved.push(dep);
+      }
+      queue.push(dep);
     }
   }
 
-  for (const inputGate of inputGates) {
-    visit(inputGate.name);
-  }
-
-  return { gates: order, autoResolved };
+  return {
+    gates: topologicalSort([...byName.values()]),
+    missing,
+    autoResolved,
+  };
 }
 
 export const gateRegistry = {

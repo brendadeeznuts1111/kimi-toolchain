@@ -3,7 +3,6 @@
  *
  * Distinct from `src/lib/gate-runner.ts` (CI shell gates: format, lint, tsc).
  */
-import { autoResolveGateDependencies } from "./registry.ts";
 import {
   type ArtifactDependencyQuery,
   type ArtifactRunManifest,
@@ -387,19 +386,24 @@ export async function runGatesWithDependencies(
 ): Promise<DependencyRunOutcome> {
   const autoResolve = opts.autoResolveDependencies !== false;
   let resolvedGates = gates;
-  let autoResolved: string[] = [];
+  let autoResolved: string[] | undefined;
 
   if (autoResolve) {
     const resolved = autoResolveGateDependencies(gates);
     resolvedGates = resolved.gates;
-    autoResolved = resolved.autoResolved;
+    if (resolved.autoResolved.length > 0) autoResolved = resolved.autoResolved;
+    if (resolved.missing.length > 0) {
+      throw new Error(`Unknown gate dependencies: ${resolved.missing.join(", ")}`);
+    }
   }
 
   const missingDeps = findMissingGateDependencies(resolvedGates);
   if (missingDeps.length > 0) {
     throw new Error(
-      `Gate closure incomplete (missing dependencies in array): ${missingDeps.join(", ")}. ` +
-        "Use resolveGateClosure(gateName).gates from registry.ts before calling runGatesWithDependencies."
+      autoResolve
+        ? `Gate closure incomplete after auto-resolve (missing dependencies): ${missingDeps.join(", ")}`
+        : `Gate closure incomplete (missing dependencies in array): ${missingDeps.join(", ")}. ` +
+            "Use resolveGateClosure(gateName).gates from registry.ts or enable autoResolveDependencies."
     );
   }
 
@@ -551,7 +555,7 @@ export async function runGatesWithDependencies(
     return {
       results: output,
       order: order.map((g) => g.name),
-      ...(autoResolved.length > 0 ? { autoResolved } : {}),
+      ...(autoResolved ? { autoResolved } : {}),
       graphArtifactPath,
       ...(opts.saveArtifact ? { runId, runManifestPath } : {}),
     };

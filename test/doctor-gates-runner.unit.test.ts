@@ -4,11 +4,8 @@ import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { pathExists } from "../src/lib/bun-io.ts";
 import { ArtifactStore } from "../src/lib/artifact-store.ts";
-import {
-  autoResolveGateDependencies,
-  registerGate,
-  resolveGateClosure,
-} from "../src/gates/registry.ts";
+import { autoResolveGateDependencies, resolveGateClosure } from "../src/gates/registry.ts";
+import { perfGateDefinition } from "../src/gates/perf-gate.ts";
 import {
   detectCycle,
   findMissingGateDependencies,
@@ -116,28 +113,53 @@ describe("doctor-gates-runner", () => {
     ).rejects.toThrow(/Gate closure incomplete/);
   });
 
-  test("autoResolveGateDependencies expands registry deps and preserves seed objects", () => {
-    const seed = mockGate("child", { dependsOn: ["parent"] });
-    const parent = mockGate("parent");
-    const lookup = (name: string) => (name === "parent" ? parent : undefined);
-    const resolved = autoResolveGateDependencies([seed], lookup);
-    expect(resolved.missing).toEqual([]);
-    expect(resolved.autoResolved).toEqual(["parent"]);
-    expect(resolved.gates.map((g) => g.name)).toEqual(["parent", "child"]);
-    expect(resolved.gates.find((g) => g.name === "child")).toBe(seed);
+  test("autoResolveGateDependencies pulls bunfig-policy when seed is perf-gate", () => {
+    const { gates, autoResolved, missing } = autoResolveGateDependencies([perfGateDefinition]);
+    expect(missing).toEqual([]);
+    expect(gates.map((g) => g.name)).toEqual(["bunfig-policy", "perf-gate"]);
+    expect(autoResolved).toEqual(["bunfig-policy"]);
+    expect(gates.find((g) => g.name === "perf-gate")).toBe(perfGateDefinition);
   });
 
-  test("runGatesWithDependencies auto-resolves registry dependencies by default", async () => {
-    const parentName = `auto-resolve-parent-${Bun.randomUUIDv7()}`;
-    registerGate(mockGate(parentName));
-    const child = mockGate(`auto-resolve-child-${Bun.randomUUIDv7()}`, {
-      dependsOn: [parentName],
-    });
+  test("runGatesWithDependencies auto-resolves mock perf-gate closure in dependency order", async () => {
+    const runOrder: string[] = [];
+    const gates = [
+      mockGate("perf-gate", {
+        dependsOn: ["bunfig-policy"],
+        run: async () => {
+          runOrder.push("perf-gate");
+          return { status: "pass" };
+        },
+      }),
+    ];
 
-    const { results, order, autoResolved } = await runGatesWithDependencies([child]);
-    expect(autoResolved).toEqual([parentName]);
-    expect(order).toEqual([parentName, child.name]);
-    expect(results.map((r) => r.status)).toEqual(["pass", "pass"]);
+    const { order, autoResolved } = await runGatesWithDependencies(gates);
+    expect(order).toEqual(["bunfig-policy", "perf-gate"]);
+    expect(autoResolved).toEqual(["bunfig-policy"]);
+    expect(runOrder).toEqual(["perf-gate"]);
+  });
+
+  test("runGatesWithDependencies with perfGateDefinition auto-resolves bunfig-policy first", async () => {
+    await withTempDir("doctor-gates-auto-resolve-perf-", async (dir) => {
+      writeSecureProject(dir);
+
+      const { order, autoResolved, results } = await runGatesWithDependencies(
+        [perfGateDefinition],
+        {
+          projectRoot: dir,
+        }
+      );
+
+      expect(order).toEqual(["bunfig-policy", "perf-gate"]);
+      expect(autoResolved).toEqual(["bunfig-policy"]);
+      expect(results[0]?.gate).toBe("bunfig-policy");
+      expect(results[0]?.status).toBe("pass");
+    });
+  });
+
+  test("unknown dependency still throws after auto-resolve attempt", async () => {
+    const gates = [mockGate("broken-gate", { dependsOn: ["nonexistent-gate"] })];
+    await expect(runGatesWithDependencies(gates)).rejects.toThrow(/nonexistent-gate/);
   });
 
   test("resolveGateClosure collects transitive dependencies", () => {

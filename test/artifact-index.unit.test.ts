@@ -196,6 +196,38 @@ describe("artifact-index", () => {
     });
   });
 
+  test("findMetadataCollection parses metadata_json in one query", async () => {
+    await withTempDir("artifact-index-metadata-", async (dir) => {
+      const index = new ArtifactIndex(dir);
+      const relativePath = ".kimi/artifacts/model-drift/2026-01-01T00-00-00-0Z.json";
+      const envelope = makeEnvelope("model-drift", {
+        metadata: {
+          hostname: "test-host",
+          pid: 4242,
+          dependsOn: [{ gate: "strategy-performance", limit: 1 }],
+          lineage: {
+            dependencies: ["strategy-performance"],
+            upstreamArtifacts: [".kimi/artifacts/strategy-performance/up.json"],
+          },
+          lineageMermaid: "graph TD",
+        },
+      });
+      index.indexEnvelope(envelope, relativePath, join(dir, relativePath));
+
+      const rows = index.findMetadataCollection({ gates: ["model-drift"] });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.metadata.hostname).toBe("test-host");
+      expect(rows[0]?.metadata.pid).toBe(4242);
+      expect(rows[0]?.metadata.dependsOn).toHaveLength(1);
+      expect(rows[0]?.metadata.lineage).toMatchObject({
+        dependencies: ["strategy-performance"],
+      });
+      expect(rows[0]?.metadata.lineageMermaid).toContain("graph TD");
+
+      index.close();
+    });
+  });
+
   test("reset removes sqlite wal and shm sidecars", async () => {
     await withTempDir("artifact-index-reset-wal-", async (dir) => {
       const artifactRoot = join(dir, ".kimi", "artifacts");

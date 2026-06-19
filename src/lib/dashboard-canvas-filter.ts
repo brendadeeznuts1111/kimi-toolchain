@@ -130,7 +130,7 @@ export async function applyCanvasFilter(
     const diff =
       "computeRunManifestDiff" in manifest && typeof manifest.computeRunManifestDiff === "function"
         ? manifest.computeRunManifestDiff(left, right)
-        : [];
+        : ({ runA: params.diff.left, runB: params.diff.right, gates: [] } as RunManifestDiff);
     return {
       params,
       action: {

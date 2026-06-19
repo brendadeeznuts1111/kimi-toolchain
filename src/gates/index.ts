@@ -51,6 +51,7 @@ export { computeNormalizedDrift, readPerformanceValue } from "./trading-metrics.
  * CLI: `getGate(name)` or `gateRegistry.get(name)`.
  */
 export {
+  autoResolveGateDependencies,
   discoverGates,
   gateRegistry,
   getGate,
@@ -58,7 +59,7 @@ export {
   listGates,
   registerGate,
   resolveGateClosure,
-  autoResolveGateDependencies,
+  type AutoResolveGateDependenciesResult,
 } from "./registry.ts";
 
 export {

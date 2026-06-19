@@ -108,6 +108,7 @@ describe("examples-dashboard-artifacts", () => {
     Bun.env.KIMI_ARTIFACT_PROJECT_ROOT = dir;
     try {
       const store = new ArtifactStore(dir);
+      const upstreamPath = await store.save("strategy-performance", { pnl: 1 });
       await store.save(
         "model-drift",
         { drift: 0.2 },
@@ -115,6 +116,10 @@ describe("examples-dashboard-artifacts", () => {
           dependsOn: [{ gate: "strategy-performance", limit: 1 }],
           runId: "run_test_meta",
           level: 2,
+          lineage: {
+            dependencies: ["strategy-performance"],
+            upstreamArtifacts: [store.relativePath(upstreamPath)],
+          },
         }
       );
 
@@ -127,7 +132,14 @@ describe("examples-dashboard-artifacts", () => {
         indexSource: string;
         entries: Array<{
           gate: string;
-          metadata: { runId?: string; level?: number; dependsOn?: unknown[] };
+          metadata: {
+            runId?: string;
+            level?: number;
+            dependsOn?: unknown[];
+            hostname?: string;
+            pid?: number;
+            lineage?: { upstreamArtifacts: string[] };
+          };
         }>;
       };
       expect(body.ok).toBe(true);
@@ -137,6 +149,98 @@ describe("examples-dashboard-artifacts", () => {
       expect(body.entries[0]?.metadata.runId).toBe("run_test_meta");
       expect(body.entries[0]?.metadata.level).toBe(2);
       expect(body.entries[0]?.metadata.dependsOn?.length).toBe(1);
+      expect(body.entries[0]?.metadata.hostname).toBeTruthy();
+      expect(body.entries[0]?.metadata.pid).toBe(process.pid);
+      expect(body.entries[0]?.metadata.lineage?.upstreamArtifacts?.length).toBe(1);
+    } finally {
+      if (prev === undefined) delete Bun.env.KIMI_ARTIFACT_PROJECT_ROOT;
+      else Bun.env.KIMI_ARTIFACT_PROJECT_ROOT = prev;
+      cleanupPath(dir);
+    }
+  });
+
+  test("GET /api/runs/:runId returns provenance metadata on artifacts", async () => {
+    const dir = testTempDir("ex-dash-run-meta-");
+    const prev = Bun.env.KIMI_ARTIFACT_PROJECT_ROOT;
+    Bun.env.KIMI_ARTIFACT_PROJECT_ROOT = dir;
+    try {
+      const store = new ArtifactStore(dir);
+      const runId = "run_dashboard_meta";
+      const artifactPath = await store.save(
+        "model-drift",
+        { drift: 0.2 },
+        {
+          runId,
+          dependsOn: [{ gate: "strategy-performance", limit: 1 }],
+          lineage: { dependencies: ["strategy-performance"], upstreamArtifacts: [] },
+        }
+      );
+      const relativePath = store.relativePath(artifactPath);
+      await store.saveRunManifest({
+        schemaVersion: 1,
+        runId,
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        gates: ["model-drift"],
+        artifacts: { "model-drift": relativePath },
+        status: "pass",
+      });
+
+      const res = await handleArtifactsRequest(
+        new Request(`http://127.0.0.1/api/runs/${runId}`)
+      );
+      expect(res?.status).toBe(200);
+      const body = (await res!.json()) as {
+        ok: boolean;
+        artifacts: Array<{
+          gate: string;
+          hostname?: string;
+          pid?: number;
+          dependsOn?: unknown[];
+          lineage?: { dependencies: string[] };
+        }>;
+      };
+      expect(body.ok).toBe(true);
+      expect(body.artifacts[0]?.gate).toBe("model-drift");
+      expect(body.artifacts[0]?.hostname).toBeTruthy();
+      expect(body.artifacts[0]?.pid).toBe(process.pid);
+      expect(body.artifacts[0]?.dependsOn?.length).toBe(1);
+      expect(body.artifacts[0]?.lineage?.dependencies).toEqual(["strategy-performance"]);
+    } finally {
+      if (prev === undefined) delete Bun.env.KIMI_ARTIFACT_PROJECT_ROOT;
+      else Bun.env.KIMI_ARTIFACT_PROJECT_ROOT = prev;
+      cleanupPath(dir);
+    }
+  });
+
+  test("GET /api/artifacts/context includes declarative dependsOn edges", async () => {
+    const dir = testTempDir("ex-dash-context-deps-");
+    const prev = Bun.env.KIMI_ARTIFACT_PROJECT_ROOT;
+    Bun.env.KIMI_ARTIFACT_PROJECT_ROOT = dir;
+    try {
+      const store = new ArtifactStore(dir);
+      await store.save("strategy-performance", { pnl: 1 });
+      await store.save(
+        "model-drift",
+        { drift: 0.2 },
+        { dependsOn: [{ gate: "strategy-performance", limit: 1 }] }
+      );
+
+      const res = await handleArtifactsRequest(
+        new Request("http://127.0.0.1/api/artifacts/context")
+      );
+      expect(res?.status).toBe(200);
+      const body = (await res!.json()) as {
+        ok: boolean;
+        edges: Array<{ from: string; to: string }>;
+        nodes: Array<{ gate: string; dependsOn?: unknown[]; hostname?: string; pid?: number }>;
+      };
+      expect(body.ok).toBe(true);
+      expect(body.edges.length).toBeGreaterThan(0);
+      const drift = body.nodes.find((node) => node.gate === "model-drift");
+      expect(drift?.dependsOn?.length).toBe(1);
+      expect(drift?.hostname).toBeTruthy();
+      expect(drift?.pid).toBe(process.pid);
     } finally {
       if (prev === undefined) delete Bun.env.KIMI_ARTIFACT_PROJECT_ROOT;
       else Bun.env.KIMI_ARTIFACT_PROJECT_ROOT = prev;
