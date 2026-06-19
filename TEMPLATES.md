@@ -272,20 +272,20 @@ coverageThreshold = { lines = 0.35, functions = 0.25 }
 
 Authoritative sources — do not duplicate stale inline blocks here:
 
-| Profile | Scaffold file | Notes |
-| ------- | ------------- | ----- |
-| **app** (default) | `templates/scaffold/dx.config.app.toml` | Standard DX/CI/quality |
-| **toolchain** | `templates/scaffold/dx.config.toolchain.toml` | Adds `[finishWork]`, `[herdr]`, finish-work scripts |
-| Live reference | `dx.config.toml` in kimi-toolchain | Full runtime sync + `ci:local` blocks |
+| Profile           | Scaffold file                                 | Notes                                               |
+| ----------------- | --------------------------------------------- | --------------------------------------------------- |
+| **app** (default) | `templates/scaffold/dx.config.app.toml`       | Standard DX/CI/quality                              |
+| **toolchain**     | `templates/scaffold/dx.config.toolchain.toml` | Adds `[finishWork]`, `[herdr]`, finish-work scripts |
+| Live reference    | `dx.config.toml` in kimi-toolchain            | Full runtime sync + `ci:local` blocks               |
 
 `kimi-fix` renders `{{DX_AGENTS_PATH}}` from `$HOME/.config/dx/AGENTS.md`. Herdr symlink chain and finish-work loader: [CODE_REFERENCES.md](CODE_REFERENCES.md) § DX Workspace Layout.
 
 ### Scaffold profiles (`kimi-fix`)
 
-| Profile | Command | `dx.config` source | Extras |
-|---------|---------|-------------------|--------|
-| **app** (default) | `kimi-fix <path>` | `templates/scaffold/dx.config.app.toml` | Standard DX/CI/quality — no `[sync]`, `ci:local`, `[finishWork]`, or `[herdr]` |
-| **toolchain** | `kimi-fix <path> --profile toolchain` | `templates/scaffold/dx.config.toolchain.toml` | `[finishWork]`, `[herdr]`, `scripts/finish-work.ts` |
+| Profile           | Command                               | `dx.config` source                            | Extras                                                                         |
+| ----------------- | ------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------ |
+| **app** (default) | `kimi-fix <path>`                     | `templates/scaffold/dx.config.app.toml`       | Standard DX/CI/quality — no `[sync]`, `ci:local`, `[finishWork]`, or `[herdr]` |
+| **toolchain**     | `kimi-fix <path> --profile toolchain` | `templates/scaffold/dx.config.toolchain.toml` | `[finishWork]`, `[herdr]`, `scripts/finish-work.ts`                            |
 
 Full runtime sync/ci.local blocks live only in the **kimi-toolchain reference** `dx.config.toml`, not in scaffold templates.
 
@@ -466,18 +466,21 @@ The template delegates hardening to a two-step `bun-create.postinstall`:
   "name": "kimi-toolchain",
   "bun-create": {
     "postinstall": [
-      "bun install -g github:brendadeeznuts1111/kimi-toolchain",
-      "kimi-fix ."
+      "HOME=\"${KIMI_SCAFFOLD_HOME:-$HOME}\" bun install -g github:brendadeeznuts1111/kimi-toolchain",
+      "HOME=\"${KIMI_SCAFFOLD_HOME:-$HOME}\" PATH=\"${KIMI_SCAFFOLD_HOME:+$KIMI_SCAFFOLD_HOME/.bun/bin:}$PATH\" kimi-fix ."
     ]
   }
 }
 ```
 
 After `bun create` copies the skeleton, `bun-create.postinstall` runs:
-1. `bun install -g` ensures toolchain is available (idempotent — fast no-op if already installed)
-2. `kimi-fix .` — injects hardened bunfig, tsconfig, oxfmt/oxlint, AGENTS.md, dx.config.toml, src/index.ts, README.md, scripts/, .kimi-code/, governance fix, guardian fix, githooks install, devDeps (@types/bun, oxfmt, oxlint, typescript)
+
+1. `bun install -g` under `HOME="${KIMI_SCAFFOLD_HOME:-$HOME}"` ensures toolchain is available in the selected Bun home (idempotent — fast no-op if already installed)
+2. `kimi-fix .` under the same `HOME` — injects hardened bunfig, tsconfig, oxfmt/oxlint, AGENTS.md, dx.config.toml, src/index.ts, README.md, scripts/, .kimi-code/, governance fix, guardian fix, githooks install, devDeps (@types/bun, oxfmt, oxlint, typescript)
 
 The `bun-create` section is auto-stripped from the destination `package.json` by Bun.
+
+Set `KIMI_SCAFFOLD_HOME="$HOME/.kimi-code/bun-home"` when the create flow should use a toolchain-owned home. Bun then resolves global config from `$KIMI_SCAFFOLD_HOME/.bunfig.toml` before merging the generated project `./bunfig.toml`; environment variables such as `BUN_CONFIG_SKIP_INSTALL_PACKAGES` still override both.
 
 ### Install
 
@@ -490,6 +493,7 @@ Or set `BUN_CREATE_DIR` to point at the repo: `export BUN_CREATE_DIR="$HOME/kimi
 ### Usage
 
 ```bash
+export KIMI_SCAFFOLD_HOME="$HOME/.kimi-code/bun-home"
 bun create kimi-toolchain my-app
 cd my-app
 bun run check:fast
@@ -524,12 +528,12 @@ bun run dev
 
 ### Included endpoints
 
-| Route | Bun APIs demonstrated |
-|-------|----------------------|
-| `/health` | `Bun.version`, `Bun.revision`, `process.uptime`, `process.memoryUsage` |
-| `/inspect` | `Bun.inspect(obj)`, `Bun.inspect(obj, opts)`, `Bun.stringWidth` |
-| `/env` | `Bun.env`, `Bun.TOML.parse`, `Bun.file` |
-| `/crypto` | `Bun.CryptoHasher`, `Bun.randomUUIDv7`, `Bun.nanoseconds` |
+| Route      | Bun APIs demonstrated                                                  |
+| ---------- | ---------------------------------------------------------------------- |
+| `/health`  | `Bun.version`, `Bun.revision`, `process.uptime`, `process.memoryUsage` |
+| `/inspect` | `Bun.inspect(obj)`, `Bun.inspect(obj, opts)`, `Bun.stringWidth`        |
+| `/env`     | `Bun.env`, `Bun.TOML.parse`, `Bun.file`                                |
+| `/crypto`  | `Bun.CryptoHasher`, `Bun.randomUUIDv7`, `Bun.nanoseconds`              |
 
 ### Extend with more APIs
 

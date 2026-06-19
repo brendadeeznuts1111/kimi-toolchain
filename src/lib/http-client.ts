@@ -13,6 +13,9 @@ import https from "node:https";
 /** @see {@link BUN_HTTPS_AGENT_OPTIONS_DOC_URL} */
 export const BUN_HTTPS_AGENT_OPTIONS_DOC_URL = "https://bun.sh/reference/node/https/AgentOptions";
 
+/** @see {@link BUN_HTTPS_AGENT_MIN_VERSION_DOC_URL} */
+export const BUN_HTTPS_AGENT_MIN_VERSION_DOC_URL = "https://bun.sh/reference/node/https/AgentOptions/minVersion";
+
 export const TLS_VERSIONS = ["TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"] as const;
 export type TLSVersion = (typeof TLS_VERSIONS)[number];
 

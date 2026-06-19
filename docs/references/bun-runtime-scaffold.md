@@ -68,37 +68,51 @@ dots = true
 
 Key differences from Bun defaults:
 
-| Key | Bun default | kimi-toolchain | Why |
-|-----|------------|----------------|-----|
-| `saveTextLockfile` | `false` | `true` | Human-readable diffs in code review |
-| `frozenLockfile` | `false` | `true` | Reproducible installs; CI fails on drift |
-| `linker` | `hoisted` | `isolated` | No phantom dependencies; cleaner `node_modules` |
-| `concurrentScripts` | 16 | 8 | Avoid thrashing on memory-constrained hosts |
-| `minimumReleaseAge` | 0 | 259200 (3d) | Supply-chain safety — block brand-new packages |
-| `bail` | unset | 1 | Fail fast; don't waste CI on broken suites |
-| `randomize` | unset | true | Catch order-dependent test bugs |
-| `seed` | unset | 42 | Reproducible randomized runs |
-| `noOrphans` | false | true | Prevents zombie processes in Herdr panes, CI runners |
+| Key                 | Bun default                           | kimi-toolchain | Why                                                  |
+| ------------------- | ------------------------------------- | -------------- | ---------------------------------------------------- |
+| `saveTextLockfile`  | `false`                               | `true`         | Human-readable diffs in code review                  |
+| `frozenLockfile`    | `false`                               | `true`         | Reproducible installs; CI fails on drift             |
+| `linker`            | `configVersion` / workspace dependent | `isolated`     | No phantom dependencies; cleaner `node_modules`      |
+| `concurrentScripts` | 16                                    | 8              | Avoid thrashing on memory-constrained hosts          |
+| `minimumReleaseAge` | 0                                     | 259200 (3d)    | Supply-chain safety — block brand-new packages       |
+| `bail`              | unset                                 | 1              | Fail fast; don't waste CI on broken suites           |
+| `randomize`         | unset                                 | true           | Catch order-dependent test bugs                      |
+| `seed`              | unset                                 | 42             | Reproducible randomized runs                         |
+| `noOrphans`         | false                                 | true           | Prevents zombie processes in Herdr panes, CI runners |
 
 Bun searches for `bunfig.toml` in these paths (merged if both exist):
+
 - `$XDG_CONFIG_HOME/.bunfig.toml` or `$HOME/.bunfig.toml`
 - `./bunfig.toml` (project-local)
 
+Bun's official `linker` default is conditional: `configVersion = 1` uses `isolated` for workspaces and `hoisted` otherwise; `configVersion = 0` uses `hoisted`. `kimi-toolchain` pins `linker = "isolated"` in scaffolded projects so the install strategy is explicit regardless of Bun's inferred defaults.
+
+For deterministic bootstrap, run `bun create` and template postinstall hooks with a toolchain-controlled `HOME`. This makes Bun's global config lookup read `$KIMI_SCAFFOLD_HOME/.bunfig.toml` instead of an arbitrary user shell home:
+
+```bash
+export KIMI_SCAFFOLD_HOME="$HOME/.kimi-code/bun-home"
+mkdir -p "$KIMI_SCAFFOLD_HOME"
+bun create kimi-toolchain my-app
+```
+
+The `templates/bun-create/kimi-toolchain` postinstall honors `KIMI_SCAFFOLD_HOME` for both `bun install -g` and `kimi-fix`, and temporarily prepends `$KIMI_SCAFFOLD_HOME/.bun/bin` to `PATH` when that controlled home is set.
+
 ### Environment variables (higher priority)
 
-| Variable | Description |
-|----------|-------------|
-| `BUN_CONFIG_REGISTRY` | npm registry URL (default: `https://registry.npmjs.org`) |
-| `BUN_CONFIG_TOKEN` | auth token (currently does nothing) |
-| `BUN_CONFIG_YARN_LOCKFILE` | save a Yarn v1-style `yarn.lock` |
-| `BUN_CONFIG_LINK_NATIVE_BINS` | point `bin` in `package.json` to a platform-specific dependency |
-| `BUN_CONFIG_SKIP_SAVE_LOCKFILE` | don't save a lockfile |
-| `BUN_CONFIG_SKIP_LOAD_LOCKFILE` | don't load a lockfile |
-| `BUN_CONFIG_SKIP_INSTALL_PACKAGES` | don't install any packages |
+| Variable                           | Description                                                     |
+| ---------------------------------- | --------------------------------------------------------------- |
+| `BUN_CONFIG_REGISTRY`              | npm registry URL (default: `https://registry.npmjs.org`)        |
+| `BUN_CONFIG_TOKEN`                 | auth token (currently does nothing)                             |
+| `BUN_CONFIG_YARN_LOCKFILE`         | save a Yarn v1-style `yarn.lock`                                |
+| `BUN_CONFIG_LINK_NATIVE_BINS`      | point `bin` in `package.json` to a platform-specific dependency |
+| `BUN_CONFIG_SKIP_SAVE_LOCKFILE`    | don't save a lockfile                                           |
+| `BUN_CONFIG_SKIP_LOAD_LOCKFILE`    | don't load a lockfile                                           |
+| `BUN_CONFIG_SKIP_INSTALL_PACKAGES` | don't install any packages; useful for dry bootstrap probes     |
 
 ### Installation backend
 
 Bun always tries the fastest available method:
+
 - **macOS:** `clonefile`
 - **Linux:** `hardlink`
 
@@ -164,6 +178,7 @@ The toolchain ships a typed handoff wrapper at `src/lib/execve-handoff.ts`:
 ### Scaffolded perf harness (`KIMI_MODULES=doctor`)
 
 `kimi-fix` copies the dashboard perf harness (`examples/dashboard/src/harness/`, `examples/dashboard/src/bin/perf-doctor.ts`) when `KIMI_MODULES` is unset (default `doctor`). See [template-matrix.md](./template-matrix.md) and [kimi-doctor.md](./kimi-doctor.md) § Effects pipeline.
+
 - Used by `herdr-orchestrator` for pane process inheritance
 
 ### Bun.Terminal on Windows (Bun ≥1.3.14)
@@ -174,7 +189,9 @@ The toolchain ships a typed handoff wrapper at `src/lib/execve-handoff.ts`:
 const terminal = new Bun.Terminal({
   cols: 80,
   rows: 24,
-  onData(data) { process.stdout.write(data); },
+  onData(data) {
+    process.stdout.write(data);
+  },
 });
 const proc = Bun.spawn({ cmd: ["cmd.exe", "/c", "echo", "hello"], terminal });
 await proc.exited;
@@ -182,6 +199,7 @@ terminal.close();
 ```
 
 Platform differences:
+
 - No termios — input/output flags are no-ops.
 - No echo without a child process (ConPTY lacks line discipline).
 - ConPTY may re-encode escape sequences (colors/text preserved, cursor sequences may be coalesced).
@@ -194,26 +212,27 @@ This improves runtime performance and avoids CommonJS wrapper bugs (e.g., `.cjs`
 
 ## Related
 
-| Topic | Path |
-|-------|------|
-| Toolchain hardened install policy | `src/lib/bun-install-config.ts` |
-| Scaffold `bunfig.toml` template | `templates/scaffold/bunfig.toml` |
-| Configuration layers model | [configuration-layers.md](./configuration-layers.md) |
-| `bun create` template | `templates/bun-create/kimi-toolchain/` |
-| `kimi-fix` source | `src/bin/kimi-fix.ts` |
+| Topic                             | Path                                                 |
+| --------------------------------- | ---------------------------------------------------- |
+| Toolchain hardened install policy | `src/lib/bun-install-config.ts`                      |
+| Scaffold `bunfig.toml` template   | `templates/scaffold/bunfig.toml`                     |
+| Configuration layers model        | [configuration-layers.md](./configuration-layers.md) |
+| `bun create` template             | `templates/bun-create/kimi-toolchain/`               |
+| `kimi-fix` source                 | `src/bin/kimi-fix.ts`                                |
 
 ## `bun create` flow
 
 The `bun create` template is a minimal skeleton — just a `package.json` with a `bun-create.postinstall` hook. When you run `bun create kimi-toolchain my-app`, Bun copies the skeleton and then executes the two-step postinstall:
 
-1. **`bun install -g github:brendadeeznuts1111/kimi-toolchain`** — ensures the toolchain is available globally (idempotent — fast no-op if already installed)
-2. **`kimi-fix .`** — runs the full scaffold: hardened `bunfig.toml`, `dx.config.toml`, `tsconfig.json`, `AGENTS.md`, `.oxfmtrc.json`, CI workflow, governance files, git hooks
+1. **`HOME="${KIMI_SCAFFOLD_HOME:-$HOME}" bun install -g github:brendadeeznuts1111/kimi-toolchain`** — ensures the toolchain is available in the selected Bun home (idempotent — fast no-op if already installed)
+2. **`HOME="${KIMI_SCAFFOLD_HOME:-$HOME}" PATH="..." kimi-fix .`** — runs the full scaffold: hardened `bunfig.toml`, `dx.config.toml`, `tsconfig.json`, `AGENTS.md`, `.oxfmtrc.json`, CI workflow, governance files, git hooks
 
 The `bun-create` section is auto-stripped from the destination `package.json` by Bun.
 
 ```bash
 # One-time setup
 cp -r ~/kimi-toolchain/templates/bun-create/kimi-toolchain ~/.bun-create/
+export KIMI_SCAFFOLD_HOME="$HOME/.kimi-code/bun-home"
 
 # Then create projects from anywhere
 bun create kimi-toolchain my-app

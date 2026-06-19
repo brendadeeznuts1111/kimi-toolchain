@@ -263,13 +263,14 @@ export const BUN_INSTALL_BUNFIG_POLICY: readonly BunInstallPolicyRowDef[] = [
     group: "linker",
     key: "linker",
     type: "string",
-    officialDefault: "hoisted",
+    officialDefault: "configVersion-dependent",
     hardenedDefault: "isolated",
     bunfigKey: "[install].linker",
     cliFlag: "--linker=isolated",
     sinceBun: "1.3.2",
     docsAnchor: "installation-strategies",
-    notes: "isolated prevents phantom dependencies",
+    notes:
+      'Bun defaults to "isolated" for configVersion=1 workspaces, otherwise "hoisted"; hardened policy pins isolated to prevent phantom dependencies',
   },
   {
     group: "global",
@@ -578,7 +579,8 @@ export const BUN_INSTALL_ENV_VARS: readonly {
   },
   {
     name: "BUN_CONFIG_SKIP_INSTALL_PACKAGES",
-    description: "resolve only — no node_modules writes",
+    description:
+      "resolve only — no node_modules writes; useful for bun-create dry bootstrap probes",
     risky: true,
   },
 ] as const;

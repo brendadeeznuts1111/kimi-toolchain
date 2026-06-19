@@ -110,6 +110,14 @@ describe("doc-links-lint", () => {
     expect(violations).toHaveLength(0);
   });
 
+  test("allows multiline BUN_HTTPS_AGENT_MIN_VERSION_DOC_URL definition in http-client.ts", () => {
+    const violations = scanDocLinkFile(
+      "src/lib/http-client.ts",
+      'export const BUN_HTTPS_AGENT_MIN_VERSION_DOC_URL =\n  "https://bun.sh/reference/node/https/AgentOptions/minVersion";\n'
+    );
+    expect(violations).toHaveLength(0);
+  });
+
   test("flags raw https AgentOptions URL in consumer modules", () => {
     const violations = scanDocLinkFile(
       "src/lib/example.ts",

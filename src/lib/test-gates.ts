@@ -24,6 +24,7 @@ export const UNIT_TEST_FILES = [
   "test/bun-image.unit.test.ts",
   "test/execve-handoff.unit.test.ts",
   "test/effect-heal-fix.unit.test.ts",
+  "test/audit-effects.unit.test.ts",
   "test/bun-markdown.unit.test.ts",
   "test/html-reporter.unit.test.ts",
   "test/http-client.unit.test.ts",

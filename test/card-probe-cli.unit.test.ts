@@ -40,7 +40,12 @@ describe("card-probe-cli", () => {
   });
 
   test("probe-cards returns payload in json mode without strict exit", async () => {
-    const result = await runCardProbeCli({ mode: "probe-cards", json: true, strict: false });
+    const result = await runCardProbeCli({
+      mode: "probe-cards",
+      json: true,
+      strict: false,
+      probeConfig: { timeoutMs: 100 },
+    });
     expect(result.payload?.schemaVersion).toBe(1);
     expect(result.payload?.mode).toBe("probe-cards");
     expect(Array.isArray(result.statuses)).toBe(true);
@@ -51,7 +56,11 @@ describe("card-probe-cli", () => {
     const prevPort = Bun.env.PROBE_SERVER_PORT;
     Bun.env.PROBE_SERVER_PORT = "0";
     try {
-      const result = await runCardProbeCli({ mode: "serve-probe-once", json: true });
+      const result = await runCardProbeCli({
+        mode: "serve-probe-once",
+        json: true,
+        probeConfig: { timeoutMs: 100 },
+      });
       expect(result.url).toMatch(/^http:\/\//);
       expect(result.payload?.url).toBe(result.url);
       expect(Array.isArray(result.statuses)).toBe(true);
