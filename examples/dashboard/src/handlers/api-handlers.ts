@@ -4,19 +4,9 @@ import {
   resolveDashboardSettings,
 } from "../../../../src/lib/dashboard-settings.ts";
 import { resolveBin, USER_TOOLCHAIN_BIN } from "../lib/toolchain-paths.ts";
+import { doctorBin, jsonResponse, resolveRoot } from "./shared.ts";
 
-function resolveRoot(): string {
-  const dir = import.meta.dir;
-  if (dir.includes("kimi-toolchain")) {
-    return dir.split("kimi-toolchain")[0] + "kimi-toolchain";
-  }
-  return process.cwd();
-}
-
-function doctorBin(): string {
-  const root = resolveRoot();
-  return Bun.which("kimi-doctor") || `${root}/src/bin/kimi-doctor.ts`;
-}
+export { jsonResponse } from "./shared.ts";
 
 // ── API handlers ────────────────────────────────────────────────────
 
@@ -51,12 +41,6 @@ export async function apiGates(): Promise<Response> {
   const stdout = await new Response(proc.stdout).text();
   await proc.exited;
   return jsonResponse(JSON.parse(stdout));
-}
-
-export function jsonResponse(data: unknown): Response {
-  return new Response(JSON.stringify(data, null, 2), {
-    headers: { "content-type": "application/json; charset=utf-8" },
-  });
 }
 
 export async function apiSecrets(): Promise<Response> {
@@ -303,7 +287,7 @@ export async function apiRuntimeInfo(): Promise<Response> {
 
 export async function apiToolchainHealth(): Promise<Response> {
   // Use shared resolver from toolchain-paths module
-  const { resolveBin } = await import("./lib/toolchain-paths.ts");
+  const { resolveBin } = await import("../lib/toolchain-paths.ts");
   const names = ["kimi-fix", "kimi-new", "kimi-doctor", "kimi-heal", "kimi-bake"];
   const bins = names.map((n) => resolveBin(n));
   const missing = bins.filter((b) => b.resolved === null).map((b) => b.name);

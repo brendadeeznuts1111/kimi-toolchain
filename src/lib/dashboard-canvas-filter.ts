@@ -6,11 +6,9 @@ import {
   artifactLineageManifest,
   ARTIFACT_LINEAGE_MANIFEST_ID,
   type RunManifestDiff,
+  type RunManifestGateDiffRow,
 } from "../canvases/artifact-lineage.manifest.ts";
-import {
-  gateHealthManifest,
-  GATE_HEALTH_MANIFEST_ID,
-} from "../canvases/gate-health.manifest.ts";
+import { gateHealthManifest, GATE_HEALTH_MANIFEST_ID } from "../canvases/gate-health.manifest.ts";
 import {
   fetchDashboardRunManifest,
   fetchDashboardRunsList,
@@ -127,10 +125,14 @@ export async function applyCanvasFilter(
       fetchDashboardRunManifest(projectPath, params.diff.left),
       fetchDashboardRunManifest(projectPath, params.diff.right),
     ]);
-    const diff =
+    const diff: RunManifestDiff =
       "computeRunManifestDiff" in manifest && typeof manifest.computeRunManifestDiff === "function"
         ? manifest.computeRunManifestDiff(left, right)
-        : ({ runA: params.diff.left, runB: params.diff.right, gates: [] } as RunManifestDiff);
+        : {
+            runA: params.diff.left,
+            runB: params.diff.right,
+            gates: [] as RunManifestGateDiffRow[],
+          };
     return {
       params,
       action: {

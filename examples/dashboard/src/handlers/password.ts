@@ -1,4 +1,5 @@
 // ── Password ──────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiPassword(): Promise<Response> {
   const password = "hunter2";

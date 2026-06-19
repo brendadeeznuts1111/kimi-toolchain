@@ -114,8 +114,29 @@ export function autoResolveGateDependencies(
     }
   }
 
+  const order: Gate[] = [];
+  const seen = new Set<string>();
+
+  function visit(gateName: string): void {
+    if (seen.has(gateName)) return;
+    const gate = byName.get(gateName);
+    if (!gate) return;
+    for (const dep of gate.dependsOn ?? []) {
+      if (byName.has(dep)) visit(dep);
+    }
+    seen.add(gateName);
+    order.push(gate);
+  }
+
+  for (const gate of seeds) {
+    visit(gate.name);
+  }
+  for (const gateName of byName.keys()) {
+    visit(gateName);
+  }
+
   return {
-    gates: topologicalSort([...byName.values()]),
+    gates: order,
     missing,
     autoResolved,
   };

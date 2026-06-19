@@ -1,4 +1,5 @@
 // ── Smart Write ────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiWriteSmart(): Promise<Response> {
   const { types } = await import("node:util");

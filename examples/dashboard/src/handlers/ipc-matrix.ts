@@ -1,4 +1,9 @@
 // ── IPC Matrix ─────────────────────────────────────────────────────
+import {
+  getIsolationCapabilities,
+  isMessagePortIsolationAvailable,
+} from "../lib/isolation/index.ts";
+import { jsonResponse } from "./shared.ts";
 
 export async function apiIpcMatrix(): Promise<Response> {
   const messagePort = isMessagePortIsolationAvailable();

@@ -1,4 +1,5 @@
 // ── Glob ───────────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiGlob(): Promise<Response> {
   const patterns = ["*.ts", "**/*.html", "*.{json,toml}"];

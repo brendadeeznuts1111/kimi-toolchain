@@ -26,6 +26,8 @@ export function getDb(): Database {
   if (!existsSync(MEMORY_DIR)) mkdirSync(MEMORY_DIR, { recursive: true });
   const db = new Database(DB_PATH, { create: true });
   db.exec("PRAGMA journal_mode = WAL;");
+  db.exec("PRAGMA trusted_schema = OFF;");
+  db.exec("PRAGMA parser_depth = 1000;");
 
   db.exec(SESSIONS_SCHEMA_SQL);
   return db;

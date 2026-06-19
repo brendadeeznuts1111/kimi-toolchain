@@ -1,4 +1,5 @@
 // ── OS Info ────────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiOsInfo(): Promise<Response> {
   const os = await import("node:os");

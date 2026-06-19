@@ -19,6 +19,7 @@ describe("dashboard-card-registry", () => {
       <script>
       (async () => {
         const d = await fetchJson("/api/gates");
+        const art = await fetchJson("/api/artifacts?includeLineage=1");
         card("card-gates", "ok");
       })();
       </script>`;
@@ -26,6 +27,30 @@ describe("dashboard-card-registry", () => {
     expect(cards.length).toBe(1);
     expect(cards[0].id).toBe("card-gates");
     expect(cards[0].apiRoute).toBe("/api/gates");
+  });
+
+  test("parseDashboardCardsFromHtml scopes fetches to enclosing IIFE", () => {
+    const html = `
+      <div class="card" id="card-build"><h2>Build</h2></div>
+      <div class="card" id="card-depth"><h2>Depth</h2></div>
+      <script>
+      (async () => {
+        await fetch("/api/markdown/html");
+        card("card-markdown", "x");
+      })();
+      (async () => {
+        const d = await fetchJson("/api/build-info");
+        card("card-build", "ok");
+      })();
+      (async () => {
+        const d = await fetchJson("/api/console-depth");
+        await fetch("/api/inspect-simple");
+        card("card-depth", "ok");
+      })();
+      </script>`;
+    const cards = parseDashboardCardsFromHtml(html);
+    expect(cards.find((c) => c.id === "card-build")?.apiRoute).toBe("/api/build-info");
+    expect(cards.find((c) => c.id === "card-depth")?.apiRoute).toBe("/api/console-depth");
   });
 
   test("loadDashboardCardRegistry matches dashboard.html card count", () => {
@@ -43,7 +68,11 @@ describe("dashboard-card-registry", () => {
 
   test("resolveCanvasFilter accepts manifest id and canvasId", () => {
     expect(resolveCanvasFilter("deep-quality").manifestId).toBe("deep-quality");
+    expect(resolveCanvasFilter("deep-quality").recognized).toBe(true);
     expect(resolveCanvasFilter("kimi-heal-doctor-scaffold").manifestId).toBe("deep-quality");
+    expect(resolveCanvasFilter("kimi-heal-doctor-scaffold").recognized).toBe(true);
+    expect(resolveCanvasFilter("not-a-canvas").recognized).toBe(false);
+    expect(resolveCanvasFilter("not-a-canvas").manifestId).toBeNull();
     expect(influencesForManifest("templates")).toContain("card-scaffold");
     expect(influencesForManifest("artifact-lineage")).toContain("card-artifacts");
     expect(influencesForManifest("artifact-lineage")).toContain("card-bunfig-policy");
@@ -55,6 +84,23 @@ describe("dashboard-card-registry", () => {
     const artifacts = registry.find((c) => c.id === "card-artifacts");
     expect(artifacts?.apiRoute).toBe("/api/artifacts");
     expect(artifacts?.influencedBy).toContain("artifact-lineage");
+  });
+
+  test("buildDashboardCardRegistry resolves primary routes for hub and depth cards", () => {
+    const registry = buildDashboardCardRegistry(REPO_ROOT);
+    expect(registry.find((c) => c.id === "card-gates")?.apiRoute).toBe("/api/gates");
+    expect(registry.find((c) => c.id === "card-build")?.apiRoute).toBe("/api/build-info");
+    expect(registry.find((c) => c.id === "card-depth")?.apiRoute).toBe("/api/console-depth");
+    expect(registry.find((c) => c.id === "card-semver")?.apiRoute).toBe("/api/semver");
+  });
+
+  test("fetchDashboardCardsPayload ignores unrecognized canvas query", async () => {
+    const all = await fetchDashboardCardsPayload(REPO_ROOT, {});
+    const unknown = await fetchDashboardCardsPayload(REPO_ROOT, { canvas: "nonexistent-canvas" });
+    expect(unknown.total).toBe(67);
+    expect(unknown.filter.recognized).toBe(false);
+    expect(unknown.filter.manifestId).toBeNull();
+    expect(unknown.cards.map((c) => c.id).sort()).toEqual(all.cards.map((c) => c.id).sort());
   });
 
   test("fetchDashboardCanvases exposes influences", () => {

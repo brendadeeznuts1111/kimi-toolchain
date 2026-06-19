@@ -11,7 +11,6 @@ import {
   generateRunId,
   resolveArtifactSessionContext,
 } from "../lib/artifact-store.ts";
-import { autoResolveGateDependencies } from "./registry.ts";
 import type {
   Gate,
   GateArtifact,
@@ -389,6 +388,7 @@ export async function runGatesWithDependencies(
   let autoResolved: string[] | undefined;
 
   if (autoResolve) {
+    const { autoResolveGateDependencies } = await import("./registry.ts");
     const resolved = autoResolveGateDependencies(gates);
     resolvedGates = resolved.gates;
     if (resolved.autoResolved.length > 0) autoResolved = resolved.autoResolved;
@@ -555,7 +555,7 @@ export async function runGatesWithDependencies(
     return {
       results: output,
       order: order.map((g) => g.name),
-      ...(autoResolved ? { autoResolved } : {}),
+      ...(autoResolved?.length ? { autoResolved } : {}),
       graphArtifactPath,
       ...(opts.saveArtifact ? { runId, runManifestPath } : {}),
     };

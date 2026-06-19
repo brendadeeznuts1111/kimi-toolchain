@@ -1,4 +1,5 @@
 // ── Kimi Publish ───────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiKimiPublish(): Promise<Response> {
   return jsonResponse({

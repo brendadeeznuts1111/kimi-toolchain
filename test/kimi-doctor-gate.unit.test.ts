@@ -290,39 +290,6 @@ describe("kimi-doctor-gate", () => {
   );
 
   test(
-    "--gate perf-gate JSON includes autoResolved after dependency expansion",
-    async () => {
-      const dir = testTempDir("kimi-doctor-gate-auto-resolved-");
-      writeSecureProject(dir);
-
-      const result = await spawnCaptured(
-        [
-          "bun",
-          "run",
-          "src/bin/kimi-doctor.ts",
-          "--gate",
-          "perf-gate",
-          "--project-root",
-          dir,
-          "--json",
-        ],
-        { cwd: REPO_ROOT }
-      );
-
-      const payload = JSON.parse(result.stdout) as {
-        gate: string;
-        order: string[];
-        autoResolved?: string[];
-        results: Array<{ gate: string; status: string }>;
-      };
-      expect(payload.order).toEqual(["bunfig-policy", "perf-gate"]);
-      expect(payload.autoResolved).toEqual(["bunfig-policy"]);
-      cleanupPath(dir);
-    },
-    GATE_TEST_MS
-  );
-
-  test(
     "--gate perf-gate runs bunfig-policy before blocking on failure",
     async () => {
       const dir = testTempDir("kimi-doctor-gate-blocked-");

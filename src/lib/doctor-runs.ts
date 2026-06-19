@@ -24,6 +24,8 @@ function openSessionsDb(): Database {
   ensureDir(varDir());
   const db = new Database(dbPath(), { create: true });
   db.exec("PRAGMA journal_mode = WAL;");
+  db.exec("PRAGMA trusted_schema = OFF;");
+  db.exec("PRAGMA parser_depth = 1000;");
   db.exec(SESSIONS_SCHEMA_SQL);
   try {
     db.exec("ALTER TABLE warning_trends ADD COLUMN taxonomy_id TEXT");

@@ -1,4 +1,5 @@
 // ── Strip ANSI ─────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiStripAnsi(): Promise<Response> {
   const samples = [

@@ -1,4 +1,5 @@
 // ── Extract Methods ────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 interface MethodDescriptor {
   name: string;

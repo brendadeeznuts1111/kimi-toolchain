@@ -113,6 +113,7 @@ describe("config-lifecycle", () => {
       {
         action: "config-change",
         trigger: { traceId: "trace-test" },
+        outcome: "success",
         metadata: {
           type: "constant-repair",
           constantKey: "KIMI_HOOK_VERIFIER_MAX_CYCLES",

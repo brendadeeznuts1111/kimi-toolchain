@@ -1,4 +1,5 @@
 // ── File I/O ───────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiFileIO(): Promise<Response> {
   const tmpPath = `/tmp/dashboard-demo-${Date.now()}.txt`;

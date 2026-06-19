@@ -1,4 +1,5 @@
 // ── SQLite ─────────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiSqlite(): Promise<Response> {
   const db = new (await import("bun:sqlite")).Database(":memory:");

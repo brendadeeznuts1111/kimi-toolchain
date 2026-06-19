@@ -1,4 +1,5 @@
 // ── Terminal ───────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiTerminal(): Promise<Response> {
   let ptyOutput = "";

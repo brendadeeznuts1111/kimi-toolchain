@@ -1,4 +1,5 @@
 // ── Spawn Sync ─────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiSpawnSync(): Promise<Response> {
   const proc = Bun.spawnSync(["echo", "hello from spawnSync"]);

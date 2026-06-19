@@ -1,4 +1,5 @@
 // ── Cron ──────────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiCron(): Promise<Response> {
   const started = Date.now();

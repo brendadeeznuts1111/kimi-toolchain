@@ -1,4 +1,5 @@
 // ── Peek ───────────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiPeek(): Promise<Response> {
   const pending = new Promise<string>((resolve) => setTimeout(() => resolve("done"), 5000));

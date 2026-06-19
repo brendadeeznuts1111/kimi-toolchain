@@ -1,4 +1,5 @@
 // ── Nanoseconds ────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiNanoseconds(): Promise<Response> {
   const start = Bun.nanoseconds();

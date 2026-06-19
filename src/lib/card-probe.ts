@@ -21,6 +21,7 @@ export interface CardStatus {
 }
 
 const DEFAULT_TIMEOUT_MS = 5000;
+/** Examples dashboard ports — canonical 5678 first, 3000/8080 retained as legacy fallback. */
 const EXAMPLES_PORTS = [5678, 3000, 8080] as const;
 const HERDR_PORTS = [18412] as const;
 

@@ -1,4 +1,6 @@
 // ── ShadowRealm ────────────────────────────────────────────────────
+import { createIsolation } from "../lib/isolation/index.ts";
+import { jsonResponse } from "./shared.ts";
 
 export async function apiShadowRealm(): Promise<Response> {
   const realmIso = createIsolation("realm");

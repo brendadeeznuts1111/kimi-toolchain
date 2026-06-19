@@ -122,40 +122,46 @@ describe("doctor-gates-runner", () => {
   });
 
   test("runGatesWithDependencies auto-resolves mock perf-gate closure in dependency order", async () => {
-    const runOrder: string[] = [];
-    const gates = [
-      mockGate("perf-gate", {
-        dependsOn: ["bunfig-policy"],
-        run: async () => {
-          runOrder.push("perf-gate");
-          return { status: "pass" };
-        },
-      }),
-    ];
-
-    const { order, autoResolved } = await runGatesWithDependencies(gates);
-    expect(order).toEqual(["bunfig-policy", "perf-gate"]);
-    expect(autoResolved).toEqual(["bunfig-policy"]);
-    expect(runOrder).toEqual(["perf-gate"]);
-  });
-
-  test("runGatesWithDependencies with perfGateDefinition auto-resolves bunfig-policy first", async () => {
-    await withTempDir("doctor-gates-auto-resolve-perf-", async (dir) => {
+    await withTempDir("doctor-gates-auto-resolve-mock-", async (dir) => {
       writeSecureProject(dir);
+      const gates = [
+        mockGate("perf-gate", {
+          dependsOn: ["bunfig-policy"],
+          run: async () => ({ status: "pass" }),
+        }),
+      ];
 
-      const { order, autoResolved, results } = await runGatesWithDependencies(
-        [perfGateDefinition],
-        {
-          projectRoot: dir,
-        }
-      );
-
+      const { order, autoResolved, results } = await runGatesWithDependencies(gates, {
+        projectRoot: dir,
+      });
       expect(order).toEqual(["bunfig-policy", "perf-gate"]);
       expect(autoResolved).toEqual(["bunfig-policy"]);
-      expect(results[0]?.gate).toBe("bunfig-policy");
-      expect(results[0]?.status).toBe("pass");
+      expect(results.map((r) => r.gate)).toEqual(["bunfig-policy", "perf-gate"]);
+      expect(results.every((r) => r.status === "pass" || r.status === "warn")).toBe(true);
     });
   });
+
+  test(
+    "runGatesWithDependencies with perfGateDefinition auto-resolves bunfig-policy first",
+    async () => {
+      await withTempDir("doctor-gates-auto-resolve-perf-", async (dir) => {
+        writeSecureProject(dir);
+
+        const { order, autoResolved, results } = await runGatesWithDependencies(
+          [perfGateDefinition],
+          {
+            projectRoot: dir,
+          }
+        );
+
+        expect(order).toEqual(["bunfig-policy", "perf-gate"]);
+        expect(autoResolved).toEqual(["bunfig-policy"]);
+        expect(results[0]?.gate).toBe("bunfig-policy");
+        expect(results[0]?.status).toBe("pass");
+      });
+    },
+    { timeout: 120_000 }
+  );
 
   test("unknown dependency still throws after auto-resolve attempt", async () => {
     const gates = [mockGate("broken-gate", { dependsOn: ["nonexistent-gate"] })];

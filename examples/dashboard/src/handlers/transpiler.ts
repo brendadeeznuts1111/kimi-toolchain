@@ -1,4 +1,5 @@
 // ── Transpiler ─────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiTranspiler(): Promise<Response> {
   const tsCode = `import { serve } from "bun";

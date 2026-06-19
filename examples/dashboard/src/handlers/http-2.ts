@@ -1,7 +1,29 @@
-// ── HTTP/2 ────────────────────────────────────────────────────────
+import http2 from "node:http2";
+import { jsonResponse } from "./shared.ts";
 
 let h2Port = 0;
 let h2Server: http2.Http2Server | null = null;
+
+/** Start optional h2c demo server (called once from index.ts). */
+export function startHttp2DemoServer(): void {
+  if (h2Server) return;
+  try {
+    h2Server = http2.createServer({
+      origins: ["https://example.com", "https://example.org"],
+      remoteCustomSettings: [0x1, 0x2, 0x3, 0x4, 0x5, 0x6],
+    });
+    h2Server.on("stream", (stream, _headers) => {
+      stream.respond({ ":status": 200, "content-type": "text/plain" });
+      stream.end("ok");
+    });
+    h2Server.listen(0, () => {
+      h2Port = (h2Server!.address() as { port: number })?.port ?? 0;
+      Bun.stdout.write(`HTTP/2 h2c demo at http://localhost:${h2Port}\n`);
+    });
+  } catch (e) {
+    Bun.stdout.write(`HTTP/2 server failed: ${e}\n`);
+  }
+}
 
 export async function apiHttp2(): Promise<Response> {
   if (!h2Server || h2Port === 0) {
@@ -13,7 +35,7 @@ export async function apiHttp2(): Promise<Response> {
 
   return new Promise((resolve) => {
     const client = http2.connect(`http://localhost:${h2Port}`);
-    let sessionInfo: Record<string, unknown> = {};
+    const sessionInfo: Record<string, unknown> = {};
 
     client.on("remoteSettings", (settings) => {
       sessionInfo.remoteSettings = settings;
@@ -21,7 +43,7 @@ export async function apiHttp2(): Promise<Response> {
 
     client.on("connect", () => {
       sessionInfo.connected = true;
-      sessionInfo.alpnProtocol = (client as any).alpnProtocol ?? "h2c";
+      sessionInfo.alpnProtocol = (client as { alpnProtocol?: string }).alpnProtocol ?? "h2c";
     });
 
     const req = client.request({ ":path": "/", ":method": "GET" });
@@ -37,7 +59,7 @@ export async function apiHttp2(): Promise<Response> {
           h2Port,
           session: sessionInfo,
           origins: ["https://example.com", "https://example.org"],
-          note: "node:http2 h2c server + client. No TLS needed for local demo. origins whitelist set on server.",
+          note: "node:http2 h2c server + client. No TLS needed for local demo.",
         })
       );
     });

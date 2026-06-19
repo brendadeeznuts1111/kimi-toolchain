@@ -62,10 +62,10 @@ Host: `PROBE_SERVER_HOST` env → `[doctor.probe].host` → `127.0.0.1`.
 
 When no explicit base URL env is set, `src/lib/card-probe.ts` probes loopback ports:
 
-| Surface            | Ports tried            | Health `url_pathname` |
-| ------------------ | ---------------------- | --------------------- |
-| Examples           | `3000`, `5678`, `8080` | `/health`             |
-| Herdr orchestrator | `18412`                | `/api/health`         |
+| Surface            | Ports tried                              | Health `url_pathname` |
+| ------------------ | ---------------------------------------- | --------------------- |
+| Examples           | `5678` (legacy fallback: `3000`, `8080`) | `/health`             |
+| Herdr orchestrator | `18412`                                  | `/api/health`         |
 
 `EXAMPLES_DASHBOARD_URL` / `HERDR_DASHBOARD_URL` **skip** port scanning when set.
 
@@ -90,7 +90,7 @@ When no explicit base URL env is set, `src/lib/card-probe.ts` probes loopback po
 | `PROBE_SERVER_PORT`            | `5678` (no TOML)       | `http:`  | `/api/health`     | Overrides TOML port when set              |
 | `HERDR_DASHBOARD_URL`          | port `18412`           | `http:`  | `/api/health`     | Herdr orchestrator dashboard              |
 | `HERDR_EXAMPLES_DASHBOARD_URL` | port `5678`            | `http:`  | `/health`         | Herdr **Examples** tab iframe base        |
-| Auto-discovery                 | `3000`, `5678`, `8080` | `http:`  | `/health`         | `src/lib/card-probe.ts` examples scan     |
+| Auto-discovery                 | `5678` (legacy: `3000`, `8080`) | `http:`  | `/health`         | `src/lib/card-probe.ts` examples scan     |
 | Auto-discovery                 | `18412`                | `http:`  | `/api/health`     | Herdr scan                                |
 
 Parser: `readDoctorProbeConfig()` in `src/lib/doctor-probe-config.ts`. Scaffold sample:
@@ -152,36 +152,105 @@ Bun’s `URLPattern` engine was optimized in the 1.3.x line (~**2.3× faster** `
 bun test test/dashboard-route-patterns.unit.test.ts
 ```
 
-| Pattern constant                 | Pathname pattern                 | Capture groups | Methods                     |
-| -------------------------------- | -------------------------------- | -------------- | --------------------------- |
-| `DASHBOARD_RUN_MANIFEST`         | `/api/runs/:runId`               | `runId`        | `GET`                       |
-| `DASHBOARD_SESSION_RUNS`         | `/api/sessions/:scope/runs`      | `scope`        | `GET`                       |
-| `DASHBOARD_SESSION_ARTIFACTS`    | `/api/sessions/:scope/artifacts` | `scope`        | `GET`                       |
-| `DASHBOARD_ARTIFACT_INDEX_STATS` | `/api/artifacts/index/stats`     | —              | `GET`                       |
-| `DASHBOARD_ARTIFACT_LINEAGE`     | `/api/artifacts/:gate/lineage`   | `gate`         | `GET`                       |
-| `DASHBOARD_ARTIFACT_DIFF`        | `/api/artifacts/:gate/diff`      | `gate`         | `GET` (+ `?a=` `?b=`)       |
-| `PROBE_ARTIFACTS_ROOT`           | `/api/artifacts`                 | —              | `GET`                       |
-| `PROBE_ARTIFACTS_GATE`           | `/api/artifacts/:gate`           | `gate`         | `GET`                       |
-| `PROBE_ARTIFACTS_LATEST`         | `/api/artifacts/:gate/latest`    | `gate`         | `GET`                       |
-| `PROBE_ARTIFACTS_REFRESH`        | `/api/artifacts/:gate/refresh`   | `gate`         | `POST` → **403** (ADR-0004) |
+| Pattern constant                 | Pathname pattern                 | Capture groups | Methods | Examples dashboard                        |
+| -------------------------------- | -------------------------------- | -------------- | ------- | ----------------------------------------- |
+| `DASHBOARD_RUN_MANIFEST`         | `/api/runs/:runId`               | `runId`        | `GET`   | **yes** (`artifacts.ts`)                  |
+| `DASHBOARD_SESSION_RUNS`         | `/api/sessions/:scope/runs`      | `scope`        | `GET`   | **yes** (`artifacts.ts`)                  |
+| `DASHBOARD_SESSION_ARTIFACTS`    | `/api/sessions/:scope/artifacts` | `scope`        | `GET`   | **yes** (`artifacts.ts`)                  |
+| `DASHBOARD_ARTIFACT_INDEX_STATS` | `/api/artifacts/index/stats`     | —              | `GET`   | **yes**                                   |
+| `DASHBOARD_ARTIFACT_FEED`        | `/api/artifacts/feed.xml`        | —              | `GET`   | **yes** (`?limit=`)                       |
+| `DASHBOARD_ARTIFACT_LINEAGE`     | `/api/artifacts/:gate/lineage`   | `gate`         | `GET`   | **yes** (`?path=`)                        |
+| `DASHBOARD_ARTIFACT_DIFF`        | `/api/artifacts/:gate/diff`      | `gate`         | `GET`   | **yes** (`?a=` `?b=`)                     |
+| `PROBE_ARTIFACTS_ROOT`           | `/api/artifacts`                 | —              | `GET`   | **yes** (examples) + serve-probe          |
+| `PROBE_ARTIFACTS_GATE`           | `/api/artifacts/:gate`           | `gate`         | `GET`   | **serve-probe only**                      |
+| `PROBE_ARTIFACTS_LATEST`         | `/api/artifacts/:gate/latest`    | `gate`         | `GET`   | **serve-probe only**                      |
+| `PROBE_ARTIFACTS_REFRESH`        | `/api/artifacts/:gate/refresh`   | `gate`         | `POST`  | **serve-probe only** → **403** (ADR-0004) |
 
-`isDashboardArtifactNamespace(pathname)` returns true for `/api/artifacts`, `/api/runs`, `/api/sessions`, and subpaths — non-`GET`/`HEAD` mutating calls receive **405** on the examples dashboard.
+**Examples dashboard** also serves these artifact paths via exact match in `handlers/artifacts.ts` (not separate URLPattern constants): `/api/gates/graph`, `/api/artifacts/list`, `/api/artifacts/filter-options`, `/api/artifacts/metadata`, `/api/artifacts/context`, `/api/runs` (list), `/api/sessions` (index).
+
+`isDashboardArtifactNamespace(pathname)` returns true for `/api/artifacts`, `/api/runs`, `/api/sessions`, and subpaths — non-`GET`/`HEAD` mutating calls receive **405** on the examples dashboard. Session routes: `GET /api/sessions`, `GET /api/sessions/:scope/runs`, `GET /api/sessions/:scope/artifacts` (wired in `handlers/artifacts.ts`; scope encodes `workspaceId` / `paneId` / `agentId`).
 
 ## Static showcase & card routes
 
-Examples dashboard (`index.ts`) — selected high-traffic paths:
+Examples dashboard (`index.ts`) — **101** routes total (see [dashboard/README.md](dashboard/README.md)).
 
-| `url_pathname`          | Query properties                                                             | Payload                                                         |
-| ----------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `/api/examples`         | `id` — filter single showcase entry                                          | `buildExamplesShowcasePayload()`                                |
-| `/api/examples/trading` | —                                                                            | Trading artifact probe                                          |
-| `/api/cards`            | `canvas` — manifest filter; `probe=false` — skip deep GET                    | Card registry + `showcaseEntries`                               |
-| `/api/canvases`         | —                                                                            | Manifest companions + `influences`                              |
-| `/api/artifacts`        | `sessionId`, `workspaceId`, `paneId`, `agentId`, `runId`, `includeLineage=1` | Identity-filtered artifact list                                 |
-| `/api/settings`         | —                                                                            | Dashboard Contract v1.0 SSOT (`port`, `probePort`, `cardCount`) |
-| `/api/runs`             | identity query params (same as artifacts)                                    | Run manifest list                                               |
-| `/api/gates/graph`      | `gate` — optional closure root                                               | Execution DAG metadata + Mermaid                                |
-| `/health`               | —                                                                            | `ok` (text)                                                     |
+### Contract, showcase & cards
+
+| Method       | `url_pathname`          | Query                                                           | Response                                         |
+| ------------ | ----------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
+| `GET`        | `/`                     | `example` `canvas` `runId` `diff` `lineageGate` identity params | `dashboard.html`                                 |
+| `GET`        | `/health`               | —                                                               | `ok` — examples auto-discovery (`card-probe.ts`) |
+| `GET` `HEAD` | `/api/health`           | —                                                               | `ok` + `cache-control: no-store`                 |
+| `GET`        | `/api/settings`         | —                                                               | Dashboard Contract v1.0 SSOT                     |
+| `GET`        | `/api/examples`         | `id`                                                            | `buildExamplesShowcasePayload()`                 |
+| `GET`        | `/api/examples/trading` | —                                                               | Trading workspace probe                          |
+| `GET`        | `/api/cards`            | `canvas` `orphans=true` `probe=false`                           | Card registry + probes + `showcaseEntries`       |
+| `GET`        | `/api/canvases`         | —                                                               | Manifest companions + `influences`               |
+| `GET`        | `/api/canvas-filter`    | `canvas` `runId` `diff` identity params                         | `applyCanvasFilter()` actions                    |
+
+### Artifact & run tree (`handlers/artifacts.ts`)
+
+| Method | `url_pathname`                  | Query                         | Response                          |
+| ------ | ------------------------------- | ----------------------------- | --------------------------------- |
+| `GET`  | `/api/artifacts`                | identity + `includeLineage=1` | Gate summary list                 |
+| `GET`  | `/api/artifacts/list`           | `gate` identity               | Per-gate file entries             |
+| `GET`  | `/api/artifacts/filter-options` | —                             | Distinct identity fields          |
+| `GET`  | `/api/artifacts/metadata`       | `gate` identity               | Metadata rows                     |
+| `GET`  | `/api/artifacts/context`        | —                             | Probe + lineage graph context     |
+| `GET`  | `/api/artifacts/index/stats`    | —                             | Index stats + sync status         |
+| `GET`  | `/api/artifacts/feed.xml`       | `limit`                       | RSS feed                          |
+| `GET`  | `/api/artifacts/:gate/lineage`  | `path`                        | Lineage graph + Mermaid           |
+| `GET`  | `/api/artifacts/:gate/diff`     | `a` `b`                       | Content hash diff                 |
+| `GET`  | `/api/runs`                     | identity                      | Run manifest list                 |
+| `GET`  | `/api/runs/:runId`              | —                             | Run manifest + per-gate artifacts |
+| `GET`  | `/api/gates/graph`              | `gate`                        | Execution DAG + Mermaid           |
+
+Identity query params (artifacts + runs): `sessionId`, `workspaceId`, `paneId`, `agentId`, `runId`, `session` (→ `workspaceId`), `since`, `until`, `limit`.
+
+### URL / email-i18n probes
+
+| Method | `url_pathname`  | Response highlights                                                         |
+| ------ | --------------- | --------------------------------------------------------------------------- |
+| `GET`  | `/api/url`      | URL properties + `i18n` (`url-i18n` gate) + `emailI18n` (`email-i18n` gate) |
+| `GET`  | `/api/url-node` | `node:url` IDN, `fileURLToPath`, `format`, `urlToHttpOptions`               |
+
+### Perf harness (static `switch`)
+
+| Method | `url_pathname`             | Response                                  |
+| ------ | -------------------------- | ----------------------------------------- |
+| `GET`  | `/api/perf-harness`        | Legacy inline module timings              |
+| `GET`  | `/api/perf-registry`       | `MODULE_REGISTRY` benchmarks + thresholds |
+| `GET`  | `/api/perf-train`          | Train `thresholds.json`                   |
+| `GET`  | `/api/perf-report`         | HTML perf report                          |
+| `GET`  | `/api/perf-auto-discover`  | Auto-discovered benches                   |
+| `GET`  | `/api/threshold-overrides` | Override layers                           |
+| `GET`  | `/api/perf-threaded`       | Worker-thread comparison                  |
+| `GET`  | `/api/effect-benchmark`    | Symbol effect suite                       |
+
+### All static card API paths (`switch` in `index.ts`)
+
+`GET` unless noted. Grouped by prefix:
+
+| Path                   | Path                    | Path                  | Path                    |
+| ---------------------- | ----------------------- | --------------------- | ----------------------- |
+| `/api/bundle`          | `/api/compile`          | `/api/gates`          | `/api/kimi-doctor`      |
+| `/api/kimi-publish`    | `/api/toolchain/health` | `/api/toolchain/heal` | `/api/env`              |
+| `/api/deps`            | `/api/secrets`          | `/api/scaffold`       | `/api/file-split`       |
+| `/api/bunfig`          | `/api/build-info`       | `/api/runtime-info`   | `/api/build-compile`    |
+| `/api/dotenv`          | `/api/console`          | `/api/console-depth`  | `/api/inspect`          |
+| `/api/inspect-simple`  | `/api/inspect-config`   | `/api/inspect-table`  | `/api/inspect-defaults` |
+| `/api/string-utils`    | `/api/uuid`             | `/api/markdown/html`  | `/api/markdown/ansi`    |
+| `/api/semver`          | `/api/deep-equals`      | `/api/deep-match`     | `/api/nanoseconds`      |
+| `/api/sleep`           | `/api/color`            | `/api/peek`           | `/api/strip-ansi`       |
+| `/api/random-bytes`    | `/api/file-io`          | `/api/write-smart`    | `/api/stream-hash`      |
+| `/api/glob`            | `/api/glob-orphan`      | `/api/sqlite`         | `/api/password`         |
+| `/api/crypto-hash`     | `/api/image`            | `/api/effect-image`   | `/api/shell`            |
+| `/api/exec`            | `/api/spawn-sync`       | `/api/ipc`            | `/api/ipc-matrix`       |
+| `/api/cron`            | `/api/os`               | `/api/node-http`      | `/api/http2`            |
+| `/api/set-headers`     | `/api/util-types`       | `/api/tty`            | `/api/terminal`         |
+| `/api/vm-context`      | `/api/shadow-realm`     | `/api/transpiler`     | `/api/transpiler-scan`  |
+| `/api/extract-methods` | `/api/symbols`          | `/api/global-store`   | `/api/metrics-schema`   |
+| `/api/trace-verify`    | `/api/bun-test`         |                       |                         |
 
 ## Browser query properties (dashboard UI)
 
@@ -218,16 +287,28 @@ url_pathname = /
 
 ## Decomposed endpoint inventory (examples stack)
 
-| name                      | url                                                       | url_protocol | url_hostname | url_port | url_pathname                         | url_search         |
-| ------------------------- | --------------------------------------------------------- | ------------ | ------------ | -------- | ------------------------------------ | ------------------ |
-| examples-dashboard        | `http://127.0.0.1:5678/`                                  | `http:`      | `127.0.0.1`  | `5678`   | `/`                                  | —                  |
-| examples-health           | `http://127.0.0.1:5678/health`                            | `http:`      | `127.0.0.1`  | `5678`   | `/health`                            | —                  |
-| examples-showcase         | `http://127.0.0.1:5678/api/examples`                      | `http:`      | `127.0.0.1`  | `5678`   | `/api/examples`                      | `id=<entry>`       |
-| examples-cards            | `http://127.0.0.1:5678/api/cards`                         | `http:`      | `127.0.0.1`  | `5678`   | `/api/cards`                         | `canvas=` `probe=` |
-| examples-artifact-lineage | `http://127.0.0.1:5678/api/artifacts/model-drift/lineage` | `http:`      | `127.0.0.1`  | `5678`   | `/api/artifacts/model-drift/lineage` | —                  |
-| serve-probe-cards         | `http://127.0.0.1:5678/api/cards`                         | `http:`      | `127.0.0.1`  | `5678`   | `/api/cards`                         | —                  |
-| herdr-meta                | `http://127.0.0.1:18412/api/meta`                         | `http:`      | `127.0.0.1`  | `18412`  | `/api/meta`                          | —                  |
-| herdr-examples-health     | `http://127.0.0.1:18412/api/examples/health`              | `http:`      | `127.0.0.1`  | `18412`  | `/api/examples/health`               | —                  |
+**101** examples-dashboard routes. Representative rows (full table in [dashboard/README.md](dashboard/README.md)):
+
+| name                      | url                                                       | url_protocol | url_hostname | url_port | url_pathname                         | url_search                    |
+| ------------------------- | --------------------------------------------------------- | ------------ | ------------ | -------- | ------------------------------------ | ----------------------------- |
+| examples-dashboard        | `http://127.0.0.1:5678/`                                  | `http:`      | `127.0.0.1`  | `5678`   | `/`                                  | `example=` `canvas=`          |
+| examples-health           | `http://127.0.0.1:5678/health`                            | `http:`      | `127.0.0.1`  | `5678`   | `/health`                            | —                             |
+| examples-api-health       | `http://127.0.0.1:5678/api/health`                        | `http:`      | `127.0.0.1`  | `5678`   | `/api/health`                        | —                             |
+| examples-settings         | `http://127.0.0.1:5678/api/settings`                      | `http:`      | `127.0.0.1`  | `5678`   | `/api/settings`                      | —                             |
+| examples-showcase         | `http://127.0.0.1:5678/api/examples`                      | `http:`      | `127.0.0.1`  | `5678`   | `/api/examples`                      | `id=<entry>`                  |
+| examples-cards            | `http://127.0.0.1:5678/api/cards`                         | `http:`      | `127.0.0.1`  | `5678`   | `/api/cards`                         | `canvas=` `probe=` `orphans=` |
+| examples-canvas-filter    | `http://127.0.0.1:5678/api/canvas-filter`                 | `http:`      | `127.0.0.1`  | `5678`   | `/api/canvas-filter`                 | `canvas=` `diff=`             |
+| examples-url-i18n         | `http://127.0.0.1:5678/api/url`                           | `http:`      | `127.0.0.1`  | `5678`   | `/api/url`                           | —                             |
+| examples-artifacts        | `http://127.0.0.1:5678/api/artifacts`                     | `http:`      | `127.0.0.1`  | `5678`   | `/api/artifacts`                     | identity filters              |
+| examples-artifact-meta    | `http://127.0.0.1:5678/api/artifacts/metadata`            | `http:`      | `127.0.0.1`  | `5678`   | `/api/artifacts/metadata`            | `gate=`                       |
+| examples-artifact-lineage | `http://127.0.0.1:5678/api/artifacts/model-drift/lineage` | `http:`      | `127.0.0.1`  | `5678`   | `/api/artifacts/model-drift/lineage` | `path=`                       |
+| examples-artifact-diff    | `http://127.0.0.1:5678/api/artifacts/model-drift/diff`    | `http:`      | `127.0.0.1`  | `5678`   | `/api/artifacts/model-drift/diff`    | `a=` `b=`                     |
+| examples-runs             | `http://127.0.0.1:5678/api/runs`                          | `http:`      | `127.0.0.1`  | `5678`   | `/api/runs`                          | identity filters              |
+| examples-perf-registry    | `http://127.0.0.1:5678/api/perf-registry`                 | `http:`      | `127.0.0.1`  | `5678`   | `/api/perf-registry`                 | —                             |
+| serve-probe-cards         | `http://127.0.0.1:5678/api/cards`                         | `http:`      | `127.0.0.1`  | `5678`   | `/api/cards`                         | —                             |
+| herdr-meta                | `http://127.0.0.1:18412/api/meta`                         | `http:`      | `127.0.0.1`  | `18412`  | `/api/meta`                          | —                             |
+| herdr-examples-health     | `http://127.0.0.1:18412/api/examples/health`              | `http:`      | `127.0.0.1`  | `18412`  | `/api/examples/health`               | —                             |
+| herdr-session-runs        | `http://127.0.0.1:18412/api/sessions/:scope/runs`         | `http:`      | `127.0.0.1`  | `18412`  | `/api/sessions/:scope/runs`          | —                             |
 
 ### Schema validation (`endpoints.schema.toml`)
 

@@ -19,8 +19,8 @@ import { readDoctorProbeConfig } from "./doctor-probe-config.ts";
 /** Herdr / kimi-dashboard canonical listen port (Dashboard Contract v1.0). */
 export const CANONICAL_DASHBOARD_PORT = 5678;
 
-/** Bare `bun run src/index.ts` fallback when PORT is unset. */
-export const LEGACY_DIRECT_DASHBOARD_PORT = 3000;
+/** Direct `bun run src/index.ts` fallback — converged to canonical 5678 (Dashboard Contract v1.0). */
+export const LEGACY_DIRECT_DASHBOARD_PORT = 5678;
 
 export const DASHBOARD_SETTINGS_SCHEMA_VERSION = 1 as const;
 

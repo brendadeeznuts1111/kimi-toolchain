@@ -1,4 +1,5 @@
 // ── Console ────────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiConsole(): Promise<Response> {
   const obj = {

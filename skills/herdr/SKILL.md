@@ -248,7 +248,7 @@ herdr pane split 1-2 --direction down --no-focus
 block until specific text appears in a pane. for `--source recent`, matching uses unwrapped recent terminal text.
 
 ```bash
-herdr wait output 1-3 --match "ready on port 3000" --timeout 30000
+herdr wait output 1-3 --match "ready on port 5678" --timeout 30000
 herdr wait output 1-3 --match "server.*ready" --regex --timeout 30000
 ```
 

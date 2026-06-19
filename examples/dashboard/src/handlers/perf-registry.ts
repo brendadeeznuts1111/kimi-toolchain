@@ -6,7 +6,7 @@ import {
   runEffectBenchmarks,
   trainThresholds,
 } from "../harness/index.ts";
-import { jsonResponse } from "./api-handlers.ts";
+import { jsonResponse } from "./shared.ts";
 
 export async function apiPerfRegistry(): Promise<Response> {
   const metrics = await runEffectBenchmarks();

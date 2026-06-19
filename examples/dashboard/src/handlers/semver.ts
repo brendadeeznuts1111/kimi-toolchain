@@ -1,4 +1,5 @@
 // ── Semver ────────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiSemver(): Promise<Response> {
   const pairs: [string, string][] = [

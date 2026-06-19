@@ -548,7 +548,9 @@ export function dashboardEnvelopeMetadataFields(
     ...(typeof metadata.hostname === "string" && metadata.hostname.length > 0
       ? { hostname: metadata.hostname }
       : {}),
-    ...(typeof metadata.pid === "number" && Number.isFinite(metadata.pid) ? { pid: metadata.pid } : {}),
+    ...(typeof metadata.pid === "number" && Number.isFinite(metadata.pid)
+      ? { pid: metadata.pid }
+      : {}),
     ...(typeof metadata.bunVersion === "string" && metadata.bunVersion.length > 0
       ? { bunVersion: metadata.bunVersion }
       : {}),

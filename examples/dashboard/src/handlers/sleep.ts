@@ -1,4 +1,5 @@
 // ── Sleep ──────────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiSleep(): Promise<Response> {
   const start = Bun.nanoseconds();

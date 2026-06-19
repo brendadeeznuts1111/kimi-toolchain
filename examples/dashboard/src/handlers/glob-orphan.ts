@@ -1,4 +1,5 @@
 // ── Glob Orphan ────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiGlobOrphan(): Promise<Response> {
   const { Glob } = await import("bun");

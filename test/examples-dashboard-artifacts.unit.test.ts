@@ -186,9 +186,7 @@ describe("examples-dashboard-artifacts", () => {
         status: "pass",
       });
 
-      const res = await handleArtifactsRequest(
-        new Request(`http://127.0.0.1/api/runs/${runId}`)
-      );
+      const res = await handleArtifactsRequest(new Request(`http://127.0.0.1/api/runs/${runId}`));
       expect(res?.status).toBe(200);
       const body = (await res!.json()) as {
         ok: boolean;
@@ -298,7 +296,7 @@ describe("examples-dashboard-artifacts", () => {
       await store.saveRunManifest({
         schemaVersion: 1,
         runId: "run_scope_a",
-        status: "completed",
+        status: "pass",
         startedAt: new Date().toISOString(),
         completedAt: new Date().toISOString(),
         gates: ["model-drift"],

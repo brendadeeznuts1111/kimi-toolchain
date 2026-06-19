@@ -377,6 +377,17 @@ kimi-doctor --all             # every adapter + plugins + effect-gates
 
 Adapters, plugins, MCP tools, and JSON contracts: [CODE_REFERENCES.md](CODE_REFERENCES.md) § Doctor Adapter / Plugin / MCP. Register MCP via `kimi-doctor --fix`.
 
+Structured introspection (prefer before deep debugging):
+
+```bash
+kimi-capabilities --json
+kimi-trace <trace-id> --json
+kimi-contract validate --json
+kimi-why <topic> --json
+```
+
+Effect-native equivalent: `KimiIntrospectionLive` in `src/lib/effect/kimi-introspection-services.ts`.
+
 ### Gate dependency and artifact lineage graphs
 
 Use graphs instead of inferring order from code or logs. Two types — do not conflate:
@@ -481,7 +492,7 @@ _Tools marked `†` are source-only (exist in `src/bin/` but not registered in `
 | `kimi-snapshot`                | `save`, `restore`, `list`, `show`, `cleanup`, `doctor`, `fix`                                                     |
 | `kimi-why`                     | Explain why a tool or gate behaved as it did                                                                      |
 | `kimi-resource-governor`       | `limits`, `parallel`, `quota`, `cache`, `spawn`, `session`, `cleanup`, `status`, `doctor`, `fix`                  |
-| `kimi-heal`                    | `plan`, `apply`, `clusters`, `effect audit`, `--fix` (bare-promise / import repair)                               |
+| `kimi-heal`                    | `plan`, `apply`, `clusters`, `effect audit`, `--fix` (bare-promise / import repair); plans in `self-healing.ts`   |
 | `kimi-decision`                | `graph`, `why`, `audit`                                                                                           |
 | `kimi-config` †                | Kimi Code config audit/fix                                                                                        |
 | `kimi-identity` †              | Identity matrix audit                                                                                             |

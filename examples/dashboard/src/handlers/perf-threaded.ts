@@ -1,4 +1,5 @@
 // ── Perf Threaded ──────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiPerfThreaded(): Promise<Response> {
   // Worker code: self-contained, Symbol-keyed, no imports from scaffold

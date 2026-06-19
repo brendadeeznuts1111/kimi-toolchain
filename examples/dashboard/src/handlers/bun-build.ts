@@ -1,4 +1,5 @@
 // ── Bun Build ──────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiBuildCompile(): Promise<Response> {
   return jsonResponse({

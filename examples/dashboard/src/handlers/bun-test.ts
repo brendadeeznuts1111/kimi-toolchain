@@ -1,4 +1,5 @@
 // ── Bun Test ───────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiBunTest(): Promise<Response> {
   return jsonResponse({

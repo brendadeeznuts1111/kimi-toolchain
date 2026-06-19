@@ -1,4 +1,5 @@
 // ── Set Headers ────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiSetHeaders(): Promise<Response> {
   const http = await import("node:http");

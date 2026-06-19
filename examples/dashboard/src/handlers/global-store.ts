@@ -1,4 +1,5 @@
 // ── Global Store ───────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiGlobalStore(): Promise<Response> {
   // Resolve the global store paths

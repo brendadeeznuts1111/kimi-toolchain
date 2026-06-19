@@ -1,4 +1,5 @@
 // ── Transpiler Scan ────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 interface EffectMethod {
   file: string;

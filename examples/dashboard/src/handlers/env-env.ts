@@ -1,4 +1,5 @@
 // ── Env / .env ────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiDotenv(): Promise<Response> {
   // Read .env file if it exists

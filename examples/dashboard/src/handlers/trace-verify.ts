@@ -1,4 +1,5 @@
 // ── Trace Verify ───────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 interface TraceSummary {
   traceId: string;

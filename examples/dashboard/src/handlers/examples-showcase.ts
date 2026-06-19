@@ -23,7 +23,7 @@ function toShowcaseSettings(
 
 export async function apiExamples(request?: Request): Promise<Response> {
   const url = request ? new URL(request.url) : null;
-  const id = url?.searchParams.get("id");
+  const id = url?.searchParams.get("id") ?? url?.searchParams.get("example");
   const resolved = await resolveDashboardSettings(REPO_ROOT, {
     requestUrl: url ?? undefined,
   });

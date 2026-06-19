@@ -134,7 +134,7 @@ See `templates/scaffold/env.example`:
 # PROBE_SERVER_PORT=5678   # overrides [doctor.probe].port when set
 ```
 
-Card auto-discovery also probes ports `5678`, `3000`, `8080` (examples) and `18412` (Herdr).
+Card auto-discovery probes the canonical examples port `5678` first, then legacy fallback ports `3000` and `8080`; Herdr is probed on `18412`.
 
 ## Related source files
 

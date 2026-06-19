@@ -1,4 +1,5 @@
 // ── Inspect Defaults ───────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiInspectDefaults(): Promise<Response> {
   const { inspect } = await import("node:util");

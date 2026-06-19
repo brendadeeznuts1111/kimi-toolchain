@@ -1,4 +1,5 @@
 // ── Node HTTP ──────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiNodeHttp(): Promise<Response> {
   const http = await import("node:http");

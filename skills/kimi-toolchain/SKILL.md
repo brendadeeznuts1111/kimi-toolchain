@@ -185,6 +185,9 @@ Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight a
 
 - **Memory:** `~/.kimi-code/var/sessions.db` (not Kimi `sessions/wd_*`) — `kimi-memory trends|recall|search`
 - **MCP:** `unified-shell` auto-registered in `~/.kimi-code/mcp.json` on `bun run sync`; verify with `kimi-doctor --quick` or `/mcp`
+- **Capabilities:** `kimi-capabilities --json` — structured capability manifest; pair with `kimi-doctor --probe` for agent automation
+- **Introspection:** `kimi-trace <trace-id> --json`, `kimi-contract validate --json`, `kimi-why <topic> --json`; compose via `KimiIntrospectionLive` (`src/lib/effect/kimi-introspection-services.ts`)
+- **Decision ledger:** `kimi-decision log --json` — prior rationale for handoffs and audits
 - **Hooks:** Git (`kimi-githooks`), Bun postinstall, Kimi lifecycle (`kimi-hooks/`) — see [AGENTS.md](~/.kimi-code/AGENTS.md) § Hooks taxonomy
 - **Paths:** `src/lib/paths.ts` helpers; layout in [UNIFIED.md](~/.kimi-code/UNIFIED.md)
 - **Skills sync:** `bun run sync` → `~/.kimi-code/skills/` + `~/.agents/skills/` (`kimi-toolchain`, `cloudflare-access`, `effect-discipline`, `effect-hardening`, `herdr`)

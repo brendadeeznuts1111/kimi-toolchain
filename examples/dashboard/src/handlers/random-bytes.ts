@@ -1,4 +1,5 @@
 // ── Random Bytes ───────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiRandomBytes(): Promise<Response> {
   const { randomBytes, randomFillSync } = await import("node:crypto");

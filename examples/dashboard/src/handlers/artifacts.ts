@@ -212,7 +212,7 @@ async function fetchRunsList(
 export async function handleArtifactsRequest(req: Request): Promise<Response | null> {
   const url = new URL(req.url);
   const path = url.pathname;
-  const root = resolveDashboardProjectRoot();
+  const root = resolveDashboardProjectRoot(import.meta.dir);
   const filter = parseArtifactListQuery(url.searchParams);
 
   if (path === "/api/artifacts" && req.method === "GET") {

@@ -1,4 +1,5 @@
 // ── IPC ────────────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiIpc(): Promise<Response> {
   const childCode = `

@@ -1,4 +1,5 @@
 // ── Util Types ─────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiUtilTypes(): Promise<Response> {
   const { types } = await import("node:util");

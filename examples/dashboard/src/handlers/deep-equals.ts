@@ -1,4 +1,5 @@
 // ── Deep Equals ────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiDeepEquals(): Promise<Response> {
   const cases = [

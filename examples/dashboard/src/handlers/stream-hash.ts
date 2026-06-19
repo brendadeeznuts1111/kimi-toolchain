@@ -1,4 +1,5 @@
 // ── Stream Hash ────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiStreamHash(): Promise<Response> {
   // Write a test file

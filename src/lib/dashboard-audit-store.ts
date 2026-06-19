@@ -188,6 +188,8 @@ function openDb(): Database {
   _db = new Database(path, { create: true });
   _db.exec("PRAGMA journal_mode = WAL");
   _db.exec("PRAGMA busy_timeout = 3000");
+  _db.exec("PRAGMA trusted_schema = OFF");
+  _db.exec("PRAGMA parser_depth = 1000");
   initSchema();
   return _db;
 }

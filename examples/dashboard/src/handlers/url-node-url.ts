@@ -1,4 +1,5 @@
 // ── URL (node:url) ─────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiUrlNode(): Promise<Response> {
   // We need the import at runtime to avoid static import issues

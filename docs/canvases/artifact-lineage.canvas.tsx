@@ -59,6 +59,8 @@ const API_SURFACE = [
   ["/api/gates/graph", "GET", "Execution DAG Mermaid · ?gate= closure filter"],
   ["/api/artifacts/filter-options", "GET", "Datalist values for identity filters"],
   ["/api/artifacts/list", "GET", "?gate=<name> — entry list with identity fields"],
+  ["/api/artifacts/metadata", "GET", "?gate=<name>&limit=N — indexed metadata_json collection"],
+  ["/api/artifacts/context", "GET", "Artifact context graph · nodes include hostname/pid/lineage"],
   ["/api/runs", "GET", "Run manifest index · same identity query params"],
   ["/api/runs/:runId", "GET", "Single run manifest + per-gate artifact envelopes"],
   ["/api/artifacts/:gate/lineage", "GET", "Declarative dependsOn resolution for a gate"],

@@ -23,43 +23,166 @@ cd examples/dashboard && bun run src/index.ts
 
 ## API Routes
 
-| Route                          | Feature                       | Backend                                                                                          |
-| ------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------ |
-| `/api/bundle`                  | Bundle analysis               | `kimi-doctor --bundle --json`                                                                    |
-| `/api/compile`                 | Compile check                 | `kimi-doctor --compile-check --json`                                                             |
-| `/api/gates`                   | Gate health                   | `kimi-doctor --effect-gates --json`                                                              |
-| `/api/inspect-table`           | Pretty-print table            | `Bun.inspect.table()` / column filter / colors                                                   |
-| `/api/bunfig`                  | bunfig.toml inspection        | `Bun.TOML.parse()`                                                                               |
-| `/api/markdown/html`           | Markdown → HTML               | `Bun.markdown.html()`                                                                            |
-| `/api/markdown/ansi`           | Markdown → ANSI text          | `Bun.markdown.ansi()`                                                                            |
-| `/api/semver`                  | Version comparison            | `Bun.semver.order()` / `satisfies()`                                                             |
-| `/api/deep-equals`             | Structural equality           | `Bun.deepEquals()`                                                                               |
-| `/api/nanoseconds`             | Monotonic timer               | `Bun.nanoseconds()`                                                                              |
-| `/api/sleep`                   | Non-blocking sleep            | `Bun.sleep()`                                                                                    |
-| `/api/console`                 | Custom Console inspect        | `new Console({ inspectOptions })`                                                                |
-| `/api/tty`                     | TTY & terminal detection      | `process.stdout.isTTY`, dimensions, TERM                                                         |
-| `/api/terminal`                | PTY & termios flags           | `new Bun.Terminal()`, `setRawMode()`                                                             |
-| `/api/color`                   | ANSI color conversion         | `Bun.color()`                                                                                    |
-| `/api/peek`                    | Promise inspection            | `Bun.peek()` / `Bun.peek.status()`                                                               |
-| `/api/http2`                   | HTTP/2 h2c demo               | `node:http2.createServer()` + `connect()`                                                        |
-| `/api/url`                     | URL parsing & search params   | `URL`, `URL.canParse()`, `URL.parse()`, `URLSearchParams`                                        |
-| `/api/url-node`                | node:url compat               | `domainToASCII`, `domainToUnicode`, `fileURLToPath`, `format`, `urlToHttpOptions`                |
-| `/api/password`                | Password hashing              | `Bun.password.hash()` / `verify()`                                                               |
-| `/api/crypto-hash`             | Crypto hashing                | `Bun.CryptoHasher` SHA-256/SHA-512                                                               |
-| `/api/sqlite`                  | In-memory SQL                 | `bun:sqlite` Database, query, prepared statements                                                |
-| `/api/file-io`                 | File read/write               | `Bun.write()` + `Bun.file()`                                                                     |
-| `/api/glob`                    | File globbing                 | `Bun.Glob` pattern scanning                                                                      |
-| `/api/util-types`              | Node type checks              | `node:util/types` 18 is\* functions                                                              |
-| `/api/dotenv`                  | .env auto-loading             | `.env` file loading order, precedence                                                            |
-| `/api/settings`                | Dashboard Contract SSOT       | `port`, `probePort`, `artifactRoot`, `cardCount` (67)                                            |
-| `/api/examples`                | Examples showcase registry    | `?id=` filter; probes + `settings` + `cardIndex`                                                 |
-| `/api/examples/trading`        | Trading artifact probe        | Gate counts from `var/trading-artifacts/`                                                        |
-| `/api/cards`                   | Card probe aggregation        | 67 cards; `?canvas=` manifest filter; `?probe=false`; `showcaseEntries`                          |
-| `/api/artifacts/:gate/diff`    | Artifact path diff            | `?a=` `?b=` relative paths                                                                       |
-| `/api/canvases`                | Manifest companions           | IDE canvas rows with `influences` card ids                                                       |
-| `/api/artifacts/:gate/lineage` | Artifact lineage (URLPattern) | `DASHBOARD_ARTIFACT_LINEAGE` in `dashboard-route-patterns.ts`                                    |
-| `/health`                      | Liveness                      | Plain `ok` — used by port auto-discovery (`card-probe.ts`)                                       |
-| `/`                            | Dashboard UI                  | Query: `?example=` `?canvas=` `?runId=` `?diff=` (see [dashboard-urls.md](../dashboard-urls.md)) |
+**Endpoint count:** **101** routes on the examples dashboard (`examples/dashboard/src/index.ts` + `handlers/artifacts.ts`).
+
+- **3** page/health routes (`/`, `/health`, `/api/health`)
+- **86** static `switch` API paths
+- **12** URLPattern artifact/run routes (handled before the switch; not duplicated in `switch`)
+
+Routing order: `handleArtifactsRequest()` (URLPattern) → `switch (url.pathname)` → `404`. Non-`GET`/`HEAD` on `/api/artifacts`, `/api/runs`, `/api/sessions` namespaces → **405** JSON.
+
+Full URL inventory: [dashboard-urls.md](../dashboard-urls.md). Pattern SSOT: `src/lib/dashboard-route-patterns.ts`.
+
+### Core & contract
+
+| Method       | Path            | Query                                                                     | Response shape                                                                                                                                                                                                          |
+| ------------ | --------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`        | `/`             | `?example=` `?canvas=` `?runId=` `?diff=` `?lineageGate=` identity params | `text/html` — `dashboard.html`                                                                                                                                                                                          |
+| `GET`        | `/health`       | —                                                                         | `text/plain` — `ok` (card-probe auto-discovery)                                                                                                                                                                         |
+| `GET` `HEAD` | `/api/health`   | —                                                                         | `ok` with `cache-control: no-store`; other methods → **405**                                                                                                                                                            |
+| `GET`        | `/api/settings` | —                                                                         | `{ schemaVersion, port, dashboardUrl, probeHost, probePort, artifactRoot, defaultCanvas, retentionMs, identityFieldMaxLen, cardCount, canvasLinkedCount, canvasOrphanCount, canonicalPort, legacyDirectPort, sources }` |
+
+### Showcase, cards & canvases
+
+| Method | Path                    | Query                                                                                       | Response shape                                                                                             |
+| ------ | ----------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/examples`         | `id` — single showcase entry                                                                | `{ schemaVersion, lanes, entries[], projects, guides, cardIndex, settings, fetchedAt }`                    |
+| `GET`  | `/api/examples/trading` | —                                                                                           | `{ ok, schemaVersion, project, gateCounts, …probeTradingWorkspace }`                                       |
+| `GET`  | `/api/cards`            | `canvas` — manifest filter; `orphans=true` — unlinked only; `probe=false` — hub probes only | `{ ok, cards[{ id, title, apiRoute, influencedBy, status, showcaseEntries? }], total, filter, fetchedAt }` |
+| `GET`  | `/api/canvases`         | —                                                                                           | Manifest companion rows with `influences` card ids                                                         |
+| `GET`  | `/api/canvas-filter`    | `canvas` `runId` `sessionId` `workspaceId` `paneId` `agentId` `diff=left..right`            | `{ ok, params, action?, fetchedAt }` — deep-link filter actions                                            |
+
+### Artifacts, runs & gates (URLPattern)
+
+Identity filters on list endpoints: `sessionId`, `workspaceId`, `paneId`, `agentId`, `runId`, `session` (maps to `workspaceId`), `since`, `until`, `limit`.
+
+| Method | Path                             | Query                                              | Response shape                                                                                                        |
+| ------ | -------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/artifacts`                 | identity filters; `includeLineage=1`               | `{ ok, projectPath, artifacts[{ gate, count, latestPath, status, summary, lineageSource?, … }], filter?, fetchedAt }` |
+| `GET`  | `/api/artifacts/list`            | `gate` (default `bunfig-policy`); identity filters | `{ ok, gate, files[], entries[], filter }`                                                                            |
+| `GET`  | `/api/artifacts/filter-options`  | —                                                  | `{ ok, filterOptions }` — distinct identity fields                                                                    |
+| `GET`  | `/api/artifacts/metadata`        | `gate`; identity filters                           | `{ ok, rows[], projectPath, filter, fetchedAt }`                                                                      |
+| `GET`  | `/api/artifacts/context`         | —                                                  | `{ ok, projectPath, probeHealth, nodes[], edges[], fetchedAt }`                                                       |
+| `GET`  | `/api/artifacts/index/stats`     | —                                                  | `{ ok, projectPath, stats, synced, fetchedAt }`                                                                       |
+| `GET`  | `/api/artifacts/feed.xml`        | `limit` (default 50, max 200)                      | `application/rss+xml`                                                                                                 |
+| `GET`  | `/api/artifacts/:gate/lineage`   | `path` — relative artifact path                    | `{ ok, gate, path, graph, mermaid?, lineageSource, fetchedAt }`                                                       |
+| `GET`  | `/api/artifacts/:gate/diff`      | `a` `b` — relative paths (**required**)            | `{ ok, gate, pathA, pathB, same, hashA, hashB, … }`                                                                   |
+| `GET`  | `/api/runs`                      | identity filters                                   | `{ ok, projectPath, runs[{ runId, status, gates, … }], fetchedAt }`                                                   |
+| `GET`  | `/api/runs/:runId`               | —                                                  | `{ ok, runId, manifest, artifacts[{ gate, path, status, metadata… }], fetchedAt }`                                    |
+| `GET`  | `/api/sessions`                  | —                                                  | `{ ok, projectPath, sessions: { kimi, herdr }, fetchedAt }`                                                           |
+| `GET`  | `/api/sessions/:scope/runs`      | —                                                  | Same shape as `/api/runs` filtered by session scope                                                                   |
+| `GET`  | `/api/sessions/:scope/artifacts` | —                                                  | Same shape as `/api/artifacts` filtered by session scope                                                              |
+| `GET`  | `/api/gates/graph`               | `gate` — optional closure root                     | `{ ok, gate?, mermaid, gates[], fetchedAt }`                                                                          |
+
+### kimi-doctor & toolchain
+
+| Method | Path                    | Query | Response shape                                                                  |
+| ------ | ----------------------- | ----- | ------------------------------------------------------------------------------- |
+| `GET`  | `/api/bundle`           | —     | `kimi-doctor --bundle --json` output                                            |
+| `GET`  | `/api/compile`          | —     | `kimi-doctor --compile-check --json` output                                     |
+| `GET`  | `/api/gates`            | —     | `kimi-doctor --effect-gates --json` output                                      |
+| `GET`  | `/api/kimi-doctor`      | —     | Doctor automation summary + gate snapshot                                       |
+| `GET`  | `/api/kimi-publish`     | —     | Publish workflow demo payload                                                   |
+| `GET`  | `/api/toolchain/health` | —     | `{ ok, total, found, missing[], shadowed[], all[] }`                            |
+| `GET`  | `/api/toolchain/heal`   | —     | `{ action, missing[], command, note }` — read-only install hint                 |
+| `GET`  | `/api/env`              | —     | `{ path[], tools[], keyVars, dashboardUrl, listenPort, probePort, portSource }` |
+| `GET`  | `/api/deps`             | —     | `{ binDir, totalPackages, tree, bunx }`                                         |
+| `GET`  | `/api/secrets`          | —     | `{ available, methods, note }` — Bun.secrets probe                              |
+| `GET`  | `/api/scaffold`         | —     | `bun create kimi-toolchain` scaffold demo                                       |
+| `GET`  | `/api/file-split`       | —     | `{ sections[{ name, content }], note }` — handler split demo                    |
+
+### Perf harness
+
+| Method | Path                       | Query | Response shape                                                                                  |
+| ------ | -------------------------- | ----- | ----------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/perf-harness`        | —     | `{ metrics[{ name, actualMs, thresholdMs, pass }], allPass, summary }` — legacy inline bench    |
+| `GET`  | `/api/perf-registry`       | —     | `{ metrics[{ name, symbol, actualMs, thresholdMs, pass }], allPass, registrySize, failures[] }` |
+| `GET`  | `/api/perf-train`          | —     | `{ metrics, train }` — writes `thresholds.json` when all pass                                   |
+| `GET`  | `/api/perf-report`         | —     | `text/html` — `generatePerfHTML()` report                                                       |
+| `GET`  | `/api/perf-auto-discover`  | —     | Auto-discovered module benchmarks                                                               |
+| `GET`  | `/api/threshold-overrides` | —     | Active threshold override layers                                                                |
+| `GET`  | `/api/perf-threaded`       | —     | Worker-thread perf comparison                                                                   |
+| `GET`  | `/api/effect-benchmark`    | —     | Symbol-keyed effect benchmark suite                                                             |
+
+### URL, email-i18n & node:url probes
+
+| Method | Path            | Query | Response shape                                                                                                                                                                                             |
+| ------ | --------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/url`      | —     | `{ properties, searchParams, staticMethods, relativeResolution, i18n{ ok, domains[], labels[], urls[], gate }, emailI18n{ ok, summary, emails[], limitations[] }, note }` — gates `url-i18n`, `email-i18n` |
+| `GET`  | `/api/url-node` | —     | `{ idn[], fileRoundtrip, format, urlToHttpOptions, note }` — `node:url` compat                                                                                                                             |
+
+### Bun runtime & inspect
+
+| Method | Path                    | Response summary                               |
+| ------ | ----------------------- | ---------------------------------------------- |
+| `GET`  | `/api/bunfig`           | Parsed `bunfig.toml` sections                  |
+| `GET`  | `/api/build-info`       | `[define]` compile-time metadata + runtime     |
+| `GET`  | `/api/runtime-info`     | `Bun.main`, `Bun.which`, active bunfig path    |
+| `GET`  | `/api/build-compile`    | `bun build --compile` demo                     |
+| `GET`  | `/api/dotenv`           | `.env` load order and precedence               |
+| `GET`  | `/api/console`          | Custom `Console({ inspectOptions })`           |
+| `GET`  | `/api/console-depth`    | `bunfig.toml` `console.depth` demo             |
+| `GET`  | `/api/inspect`          | `Bun.inspect()` typed sample (`text/plain`)    |
+| `GET`  | `/api/inspect-simple`   | `text/plain` — inspect options table + samples |
+| `GET`  | `/api/inspect-config`   | Environment-based inspect presets              |
+| `GET`  | `/api/inspect-table`    | `Bun.inspect.table()` demos                    |
+| `GET`  | `/api/inspect-defaults` | `BunInspectOptions` defaults                   |
+| `GET`  | `/api/string-utils`     | `Bun.stringWidth`, `Bun.escapeHTML`            |
+| `GET`  | `/api/uuid`             | `Bun.randomUUIDv7()` encodings                 |
+| `GET`  | `/api/markdown/html`    | `Bun.markdown.html()`                          |
+| `GET`  | `/api/markdown/ansi`    | `Bun.markdown.ansi()`                          |
+| `GET`  | `/api/semver`           | `Bun.semver.order` / `satisfies`               |
+| `GET`  | `/api/deep-equals`      | `Bun.deepEquals()` edge cases                  |
+| `GET`  | `/api/deep-match`       | `Bun.deepMatch()` patterns                     |
+| `GET`  | `/api/nanoseconds`      | `Bun.nanoseconds()` timing                     |
+| `GET`  | `/api/sleep`            | `Bun.sleep()` elapsed demo                     |
+| `GET`  | `/api/color`            | `Bun.color()` conversions                      |
+| `GET`  | `/api/peek`             | `Bun.peek()` promise status                    |
+| `GET`  | `/api/strip-ansi`       | ANSI strip utilities                           |
+| `GET`  | `/api/random-bytes`     | `Bun.randomBytes()`                            |
+
+### I/O, crypto, shell & process
+
+| Method | Path                | Response summary                         |
+| ------ | ------------------- | ---------------------------------------- |
+| `GET`  | `/api/file-io`      | `Bun.write` + `Bun.file`                 |
+| `GET`  | `/api/write-smart`  | Smart write helper                       |
+| `GET`  | `/api/stream-hash`  | Streaming hash                           |
+| `GET`  | `/api/glob`         | `Bun.Glob` scan results                  |
+| `GET`  | `/api/glob-orphan`  | Orphan glob lint                         |
+| `GET`  | `/api/sqlite`       | In-memory `bun:sqlite`                   |
+| `GET`  | `/api/password`     | `Bun.password` hash/verify               |
+| `GET`  | `/api/crypto-hash`  | `Bun.CryptoHasher`                       |
+| `GET`  | `/api/image`        | `Bun.Image` metadata                     |
+| `GET`  | `/api/effect-image` | Transpiler scan + effect image benchmark |
+| `GET`  | `/api/shell`        | Bun shell demo                           |
+| `GET`  | `/api/exec`         | `Bun.spawn` exec                         |
+| `GET`  | `/api/spawn-sync`   | Sync spawn                               |
+| `GET`  | `/api/ipc`          | IPC channel demo                         |
+| `GET`  | `/api/ipc-matrix`   | IPC capability matrix                    |
+| `GET`  | `/api/cron`         | `Bun.cron` scheduler                     |
+| `GET`  | `/api/os`           | `node:os` info                           |
+| `GET`  | `/api/node-http`    | `node:http` server demo                  |
+| `GET`  | `/api/http2`        | HTTP/2 h2c client/server                 |
+| `GET`  | `/api/set-headers`  | Response header helpers                  |
+| `GET`  | `/api/util-types`   | `node:util/types` `is*` checks           |
+| `GET`  | `/api/tty`          | TTY detection                            |
+| `GET`  | `/api/terminal`     | `Bun.Terminal` PTY                       |
+
+### Isolation, transpiler & symbols
+
+| Method | Path                   | Response summary                           |
+| ------ | ---------------------- | ------------------------------------------ |
+| `GET`  | `/api/vm-context`      | Isolation factory + `vm.Context` roundtrip |
+| `GET`  | `/api/shadow-realm`    | `ShadowRealm` eval                         |
+| `GET`  | `/api/transpiler`      | `Bun.Transpiler` transform                 |
+| `GET`  | `/api/transpiler-scan` | Export scan                                |
+| `GET`  | `/api/extract-methods` | Method extraction                          |
+| `GET`  | `/api/symbols`         | Symbol registry                            |
+| `GET`  | `/api/global-store`    | Global store effect                        |
+| `GET`  | `/api/metrics-schema`  | Metrics schema validation                  |
+| `GET`  | `/api/trace-verify`    | Trace verification                         |
+| `GET`  | `/api/bun-test`        | `bun test` integration demo                |
 
 ### Artifact lineage & diff (`#card-artifacts`)
 

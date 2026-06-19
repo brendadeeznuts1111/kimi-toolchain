@@ -1,4 +1,5 @@
 // ── Shell ─────────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiShell(): Promise<Response> {
   const { $ } = await import("bun");

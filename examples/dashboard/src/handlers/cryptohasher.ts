@@ -1,4 +1,5 @@
 // ── CryptoHasher ───────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiCryptoHash(): Promise<Response> {
   // SHA-256 incremental

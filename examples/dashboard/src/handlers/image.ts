@@ -1,4 +1,5 @@
 // ── Image ──────────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiImage(): Promise<Response> {
   // Create a test PNG (2x2 red pixel, valid PNG)

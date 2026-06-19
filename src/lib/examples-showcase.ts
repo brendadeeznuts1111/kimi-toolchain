@@ -353,7 +353,7 @@ export interface ExamplesShowcasePayload {
   /** Reverse map: card id → showcase entry ids. */
   cardIndex: Record<string, string[]>;
   totals: { projects: number; guides: number; cardsMapped: number };
-  filter: { id: string | null };
+  filter: { id: string | null; example: string | null };
   /** Dashboard Contract v1.0 — resolved listen/probe ports for deep links. */
   settings: ExamplesShowcaseSettings;
   fetchedAt: string;
@@ -545,7 +545,7 @@ export function buildExamplesShowcasePayload(
       guides,
       cardsMapped: uniqueCardIds(SHOWCASE_ENTRIES),
     },
-    filter: { id: filterId },
+    filter: { id: filterId, example: filterId },
     settings,
     fetchedAt: new Date().toISOString(),
   };

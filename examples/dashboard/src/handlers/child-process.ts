@@ -1,4 +1,5 @@
 // ── Child Process ──────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiExec(): Promise<Response> {
   const { exec } = await import("node:child_process");

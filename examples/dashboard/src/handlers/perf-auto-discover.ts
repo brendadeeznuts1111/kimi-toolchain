@@ -1,4 +1,5 @@
 // ── Perf Auto-Discover ─────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiPerfAutoDiscover(): Promise<Response> {
   const files = [

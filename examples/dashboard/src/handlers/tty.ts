@@ -1,4 +1,5 @@
 // ── TTY ───────────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiTty(): Promise<Response> {
   const isTTY = process.stdout?.isTTY ?? false;

@@ -1,4 +1,5 @@
 // ── Color ──────────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiColor(): Promise<Response> {
   const conversions = [

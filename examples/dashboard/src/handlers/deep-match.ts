@@ -1,4 +1,5 @@
 // ── Deep Match ─────────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiDeepMatch(): Promise<Response> {
   const traces = [

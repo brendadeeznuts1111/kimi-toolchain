@@ -1,4 +1,5 @@
 // ── Metrics Schema ─────────────────────────────────────────────────
+import { jsonResponse } from "./shared.ts";
 
 export async function apiMetricsSchema(): Promise<Response> {
   return jsonResponse({

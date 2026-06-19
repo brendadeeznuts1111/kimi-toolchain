@@ -95,6 +95,7 @@ describe("examples-showcase", () => {
     const payload = buildExamplesShowcasePayload(REPO_ROOT, { id: "image-effect" });
     expect(payload.entries.length).toBe(1);
     expect(payload.filter.id).toBe("image-effect");
+    expect(payload.filter.example).toBe("image-effect");
   });
 
   test("probeTradingWorkspace reads var/trading-artifacts", () => {
