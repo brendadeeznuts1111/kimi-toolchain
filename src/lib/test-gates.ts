@@ -281,12 +281,13 @@ export const INTEGRATION_TEST_FILES = [
 
 /** Smoke tests — full CLI invocations, 15-30s each */
 export const SMOKE_TEST_FILES = [
+  "test/smoke/config-status.smoke.test.ts",
+  "test/smoke/dx-table.smoke.test.ts",
+  "test/smoke/finish-work-status.smoke.test.ts",
+  "test/smoke/herdr-orchestrator.smoke.test.ts",
+  "test/smoke/kimi-config.smoke.test.ts",
   "test/smoke/kimi-doctor.smoke.test.ts",
   "test/smoke/kimi-identity.smoke.test.ts",
-  "test/smoke/herdr-orchestrator.smoke.test.ts",
-  "test/smoke/finish-work-status.smoke.test.ts",
-  "test/smoke/dx-table.smoke.test.ts",
-  "test/smoke/config-status.smoke.test.ts",
 ] as const;
 
 export const FAST_TEST_TIMEOUT_MS = 1_500;

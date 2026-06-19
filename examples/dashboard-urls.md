@@ -82,16 +82,16 @@ When no explicit base URL env is set, `src/lib/card-probe.ts` probes loopback po
 
 ### Surface table
 
-| Property / env                 | Default                | Protocol | Pathname (health) | Role                                      |
-| ------------------------------ | ---------------------- | -------- | ----------------- | ----------------------------------------- |
-| `PORT`                         | `5678`                 | `http:`  | `/health`         | Examples dashboard (`examples/dashboard`) |
-| `[dashboard].port`             | `5678` (scaffold)      | `http:`  | `/health`         | TOML fallback when `PORT` / CLI unset     |
-| `[doctor.probe].port`          | `5678` (scaffold)      | `http:`  | `/api/health`     | `kimi-doctor --serve-probe` card cache    |
-| `PROBE_SERVER_PORT`            | `5678` (no TOML)       | `http:`  | `/api/health`     | Overrides TOML port when set              |
-| `HERDR_DASHBOARD_URL`          | port `18412`           | `http:`  | `/api/health`     | Herdr orchestrator dashboard              |
-| `HERDR_EXAMPLES_DASHBOARD_URL` | port `5678`            | `http:`  | `/health`         | Herdr **Examples** tab iframe base        |
+| Property / env                 | Default                         | Protocol | Pathname (health) | Role                                      |
+| ------------------------------ | ------------------------------- | -------- | ----------------- | ----------------------------------------- |
+| `PORT`                         | `5678`                          | `http:`  | `/health`         | Examples dashboard (`examples/dashboard`) |
+| `[dashboard].port`             | `5678` (scaffold)               | `http:`  | `/health`         | TOML fallback when `PORT` / CLI unset     |
+| `[doctor.probe].port`          | `5678` (scaffold)               | `http:`  | `/api/health`     | `kimi-doctor --serve-probe` card cache    |
+| `PROBE_SERVER_PORT`            | `5678` (no TOML)                | `http:`  | `/api/health`     | Overrides TOML port when set              |
+| `HERDR_DASHBOARD_URL`          | port `18412`                    | `http:`  | `/api/health`     | Herdr orchestrator dashboard              |
+| `HERDR_EXAMPLES_DASHBOARD_URL` | port `5678`                     | `http:`  | `/health`         | Herdr **Examples** tab iframe base        |
 | Auto-discovery                 | `5678` (legacy: `3000`, `8080`) | `http:`  | `/health`         | `src/lib/card-probe.ts` examples scan     |
-| Auto-discovery                 | `18412`                | `http:`  | `/api/health`     | Herdr scan                                |
+| Auto-discovery                 | `18412`                         | `http:`  | `/api/health`     | Herdr scan                                |
 
 Parser: `readDoctorProbeConfig()` in `src/lib/doctor-probe-config.ts`. Scaffold sample:
 

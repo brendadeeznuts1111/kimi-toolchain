@@ -1,9 +1,6 @@
 // ── VM Context ─────────────────────────────────────────────────────
 import { MessageChannel } from "node:worker_threads";
-import {
-  createIsolation,
-  getIsolationCapabilities,
-} from "../lib/isolation/index.ts";
+import { createIsolation, getIsolationCapabilities } from "../lib/isolation/index.ts";
 import { jsonResponse } from "./shared.ts";
 
 export async function apiVmContext(): Promise<Response> {

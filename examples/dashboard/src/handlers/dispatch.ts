@@ -1,6 +1,24 @@
 /** Dashboard static route dispatch — handlers are SSOT in ./handlers/*.ts */
 
-import { apiBundle, apiCompile, apiGates, apiSecrets, apiConsoleDepth, apiEnv, apiBuildInfo, apiRuntimeInfo, apiToolchainHealth, apiToolchainHeal, apiDeps, apiInspect, apiInspectSimple, apiInspectConfig, apiBunfig, apiStringUtils, apiUuid } from "./api-handlers.ts";
+import {
+  apiBundle,
+  apiCompile,
+  apiGates,
+  apiSecrets,
+  apiConsoleDepth,
+  apiEnv,
+  apiBuildInfo,
+  apiRuntimeInfo,
+  apiToolchainHealth,
+  apiToolchainHeal,
+  apiDeps,
+  apiInspect,
+  apiInspectSimple,
+  apiInspectConfig,
+  apiBunfig,
+  apiStringUtils,
+  apiUuid,
+} from "./api-handlers.ts";
 import { apiBuildCompile } from "./bun-build.ts";
 import { apiBunTest } from "./bun-test.ts";
 import { apiCanvases, apiCards, apiCanvasFilter } from "./canvas-cards.ts";
