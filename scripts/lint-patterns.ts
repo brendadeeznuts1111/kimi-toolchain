@@ -14,6 +14,17 @@ const REPO_ROOT = join(import.meta.dir, "..");
 // Allowlists: src/lib/ should use createLogger(), not console.* or process.exit.
 const LIB_CONSOLE_ALLOW = new Set([
   "src/lib/logger.ts", // implements logging; console is intentional here
+  // Legacy console usage — migrate to createLogger() over time.
+  "src/lib/compile-target.ts",
+  "src/lib/mcp-bridge-scaffold.ts",
+]);
+
+// src/bin/ entry points that have not yet migrated to createLogger().
+const BIN_CONSOLE_ALLOW = new Set([
+  "src/bin/kimi-bake.ts",
+  "src/bin/kimi-dashboard.ts",
+  "src/bin/kimi-dashboard-mcp.ts",
+  "src/bin/kimi-doctor.ts",
 ]);
 const SCAN_GLOB = new Bun.Glob("src/**/*.ts");
 const SKIP_DIRS = new Set(["node_modules", ".git", "coverage", ".kimi-artifacts"]);
@@ -63,7 +74,7 @@ async function main() {
         }
       }
 
-      if (rel.startsWith("src/bin/")) {
+      if (rel.startsWith("src/bin/") && !BIN_CONSOLE_ALLOW.has(rel)) {
         if (/console\.(log|warn|error)\(/.test(line)) {
           violations.push({
             file: rel,

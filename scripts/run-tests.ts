@@ -17,6 +17,7 @@
 
 import { existsSync, mkdirSync } from "fs";
 import { dirname, isAbsolute, join } from "path";
+import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { artifactPath } from "../src/lib/artifacts.ts";
 import { bunTestArgs } from "../src/lib/test-gates.ts";
 
@@ -87,13 +88,21 @@ async function main() {
       bail: ci ? 10 : true,
     }),
   ];
+  const quiet = Bun.argv.includes("--quiet");
   const proc = Bun.spawn(cmd, {
     cwd: REPO_ROOT,
     env: process.env,
-    stdout: "inherit",
-    stderr: "inherit",
+    stdout: quiet ? "pipe" : "inherit",
+    stderr: quiet ? "pipe" : "inherit",
   });
-  process.exit(await proc.exited);
+  const exitCode = await proc.exited;
+  if (quiet) {
+    const out = await readableStreamToText(proc.stdout);
+    if (out) process.stdout.write(out);
+    const err = await readableStreamToText(proc.stderr);
+    if (err) process.stderr.write(err);
+  }
+  process.exit(exitCode);
 }
 
 main().catch((err) => {

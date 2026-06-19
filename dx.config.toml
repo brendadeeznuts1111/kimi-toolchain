@@ -1,9 +1,11 @@
 # Project DX + kimi runtime policy (discovered by dx config / kimi-doctor)
 schemaVersion = 1
+name = "kimi-toolchain"
 
 [runtime]
 containers = "none"
 packageManager = "bun"
+bunVersion = "1.4.0"
 
 [quality]
 formatter = "oxfmt"
@@ -25,6 +27,36 @@ docsSync = "bun run docs:sync"
 [kimi]
 memoryGate = true
 preflight = true
+
+[cloudflare]
+mode = "read-only"
+accountIdEnv = "CLOUDFLARE_ACCOUNT_ID"
+apiTokenEnv = "CLOUDFLARE_API_TOKEN"
+
+[cloudflare.dashboard]
+enabled = true
+title = "DX Dashboard"
+homepagePath = "/"
+source = "snapshot"
+snapshotCommand = "kimi-cloudflare-access dashboard --json"
+access = "cloudflare-sso"
+
+[cloudflare.domain]
+managed = true
+accessRequired = true
+tls = "managed"
+
+[cloudflare.access]
+policyFile = ".cloudflare-access.yml"
+appLauncherVisible = true
+sessionDuration = "24h"
+
+[cloudflare.mcp]
+server = "cloudflare-api"
+url = "https://mcp.cloudflare.com/mcp"
+auth = "cloudflare-sso-oauth"
+readOnlyByDefault = true
+mutationMode = "manual-script"
 
 [[endpoints]]
 name = "cloudflare-mcp"
@@ -57,7 +89,7 @@ url = "http://127.0.0.1:5678/api/artifacts/model-drift/lineage"
 
 [[endpoints]]
 name = "serve-probe-cards"
-url = "http://127.0.0.1:9239/api/cards"
+url = "http://127.0.0.1:5678/api/cards"
 
 [[endpoints]]
 name = "herdr-meta"
@@ -66,6 +98,14 @@ url = "http://127.0.0.1:18412/api/meta"
 [[endpoints]]
 name = "herdr-examples-health"
 url = "http://127.0.0.1:18412/api/examples/health"
+
+[dashboard]
+port = 5678
+
+[doctor.probe]
+port = 5678
+interval = 15000
+host = "127.0.0.1"
 
 [finishWork]
 gates = [
