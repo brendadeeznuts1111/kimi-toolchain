@@ -506,7 +506,8 @@ async function apiDeps(): Promise<Response> {
 
 async function apiBunfig(): Promise<Response> {
   try {
-    const raw = await Bun.file("./bunfig.toml").text();
+    const path = import.meta.dir + "/../bunfig.toml";
+    const raw = await Bun.file(path).text();
     // Parse sections from the raw TOML (lightweight, no parser needed for display)
     const sections: Record<string, Record<string, string>> = {};
     let currentSection = "";
