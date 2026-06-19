@@ -56,3 +56,37 @@ export async function isGitRepo(projectDir: string): Promise<boolean> {
   const result = await $`git rev-parse --is-inside-work-tree`.cwd(projectDir).nothrow().quiet();
   return result.exitCode === 0 && result.stdout.toString().trim() === "true";
 }
+
+export interface WorktreeCleanResult {
+  wasStale: boolean;
+  actualRoot: string;
+  stalePath?: string;
+}
+
+function normalizePathForCompare(path: string): string {
+  return path.replace(/\/$/, "");
+}
+
+/** Unset stale local core.worktree when it does not match the repo root. */
+export async function ensureWorktreeClean(projectDir: string): Promise<WorktreeCleanResult> {
+  const actualRoot = (await gitRevParse(projectDir, "--show-toplevel")) ?? projectDir;
+  const worktree = await $`git config --local core.worktree`.cwd(projectDir).nothrow().quiet();
+  if (worktree.exitCode !== 0) {
+    return { wasStale: false, actualRoot };
+  }
+
+  const configured = worktree.stdout.toString().trim();
+  if (!configured) {
+    return { wasStale: false, actualRoot };
+  }
+
+  const normalizedConfigured = normalizePathForCompare(configured);
+  const normalizedActual = normalizePathForCompare(actualRoot);
+  const normalizedProject = normalizePathForCompare(projectDir);
+  if (normalizedConfigured === normalizedActual || normalizedConfigured === normalizedProject) {
+    return { wasStale: false, actualRoot };
+  }
+
+  await $`git config --local --unset core.worktree`.cwd(projectDir).nothrow().quiet();
+  return { wasStale: true, actualRoot, stalePath: configured };
+}

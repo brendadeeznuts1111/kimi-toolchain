@@ -2,6 +2,8 @@
  * Kimi doctor wrapper — shared helper to run the official `kimi doctor` command.
  */
 
+import { invokeCommand } from "./tool-runner.ts";
+
 export interface KimiDoctorResult {
   name: string;
   status: "ok" | "warn" | "error";
@@ -14,10 +16,10 @@ export async function runOfficialKimiDoctor(): Promise<KimiDoctorResult> {
     return { name: "kimi doctor", status: "error", message: "kimi not installed" };
   }
   try {
-    const proc = Bun.spawn(["kimi", "doctor"], { stdout: "pipe", stderr: "pipe" });
-    const exitCode = await proc.exited;
-    const stdout = await Bun.readableStreamToText(proc.stdout);
-    const stderr = await Bun.readableStreamToText(proc.stderr);
+    const result = await invokeCommand(["kimi", "doctor"], { timeoutMs: 30_000 });
+    const exitCode = result.exitCode;
+    const stdout = result.stdout;
+    const stderr = result.stderr;
     if (exitCode === 0) {
       const line = stdout
         .split("\n")

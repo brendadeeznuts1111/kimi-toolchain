@@ -4,7 +4,13 @@
 
 import { $ } from "bun";
 import { createLogger, type Logger } from "./logger.ts";
-import { getCachedPs, clearProcessCache, countOrphanCandidates } from "./proc-cache.ts";
+import {
+  getCachedCommandOutput,
+  getCachedPs,
+  getCachedPsAsync,
+  clearProcessCache,
+  countOrphanCandidates,
+} from "./proc-cache.ts";
 
 const decoder = new TextDecoder();
 
@@ -138,7 +144,7 @@ function getRssByPattern(pattern: RegExp): number {
 }
 
 export function isDockerDesktopRunning(): boolean {
-  const output = decoder.decode(Bun.spawnSync(["pgrep", "-lf", "Docker|com.docker"]).stdout);
+  const output = getCachedCommandOutput("pgrep", ["-lf", "Docker|com.docker"]);
   return output.trim().length > 0;
 }
 
@@ -152,7 +158,7 @@ export function isDockerCliInstalled(): boolean {
 }
 
 export function isSyncDaemonRunning(): boolean {
-  const output = decoder.decode(Bun.spawnSync(["pgrep", "-lf", "sync-to-desktop"]).stdout);
+  const output = getCachedCommandOutput("pgrep", ["-lf", "sync-to-desktop"]);
   return output.trim().length > 0;
 }
 
@@ -161,6 +167,8 @@ export function isSyncDaemonRunning(): boolean {
 export async function runSystemMemoryChecks(): Promise<MemoryCheckResult[]> {
   const results: MemoryCheckResult[] = [];
   let pressurePct: number | null = null;
+
+  await getCachedPsAsync(["-axo", "rss,command"]);
 
   try {
     pressurePct = await getMemoryPressureFreePct();

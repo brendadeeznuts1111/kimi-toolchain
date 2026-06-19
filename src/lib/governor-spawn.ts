@@ -5,6 +5,9 @@
 import { nanoseconds } from "bun";
 import { DEFAULTS } from "./governor-state.ts";
 import { getSessionId, updateSessionPeak } from "./governor-sessions.ts";
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
+import { readableStreamToText } from "./bun-utils.ts";
+import { getCachedCommandOutputAsync } from "./proc-cache.ts";
 
 export interface ResourceLimits {
   maxMemoryMB?: number;
@@ -47,13 +50,7 @@ export function checkLimits(usage: ResourceUsage, limits: ResourceLimits): strin
 /** Get all child PIDs of a given PID using pgrep (macOS/Linux) */
 async function getChildPids(pid: number): Promise<number[]> {
   try {
-    const result = await Bun.spawn({
-      cmd: ["pgrep", "-P", String(pid)],
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const output = await Bun.readableStreamToText(result.stdout);
-    await result.exited;
+    const output = await getCachedCommandOutputAsync("pgrep", ["-P", String(pid)]);
     return output
       .split("\n")
       .map((s) => parseInt(s.trim(), 10))
@@ -100,7 +97,7 @@ async function getSubprocessMemory(pid: number): Promise<number> {
       stdout: "pipe",
       stderr: "pipe",
     });
-    const output = await Bun.readableStreamToText(result.stdout);
+    const output = await readableStreamToText(result.stdout);
     await result.exited;
     const kb = parseInt(output.trim(), 10);
     return isNaN(kb) ? 0 : Math.round(kb / 1024); // MB
@@ -182,7 +179,7 @@ export async function governedSpawn(
 
       const proc = Bun.spawn(command, {
         cwd: options.cwd,
-        env: { ...Bun.env, ...options.env },
+        env: { ...withNoOrphansEnv(), ...options.env },
         stdout: "pipe",
         stderr: "pipe",
         stdin: options.stdin
@@ -234,8 +231,8 @@ export async function governedSpawn(
 
       const exitCode = await proc.exited;
       const [stdout, stderr] = await Promise.all([
-        Bun.readableStreamToText(proc.stdout),
-        Bun.readableStreamToText(proc.stderr),
+        readableStreamToText(proc.stdout),
+        readableStreamToText(proc.stderr),
       ]);
 
       clearTimeout(timeoutId);

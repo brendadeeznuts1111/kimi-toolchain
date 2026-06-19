@@ -7,6 +7,7 @@
 import { guardDir } from "./paths.ts";
 import { join } from "path";
 import { clearProcessCache, countOrphanCandidates, getOrphanCandidates } from "./proc-cache.ts";
+import { removePath } from "./bun-io.ts";
 
 export interface ProcessInfo {
   pid: number;
@@ -37,7 +38,7 @@ export async function clearStaleLocks(): Promise<string[]> {
     try {
       const file = Bun.file(lock);
       if (await file.exists()) {
-        Bun.spawnSync(["rm", "-f", lock]);
+        removePath(lock, { recursive: true, force: true });
         cleared.push(lock);
       }
     } catch {

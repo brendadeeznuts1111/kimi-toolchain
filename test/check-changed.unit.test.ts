@@ -80,31 +80,31 @@ describe("check-changed", () => {
   test(
     "resolveChangedContext falls back to origin/main when main has no diff",
     async () => {
-    const projectDir = testTempDir("check-changed-fallback-");
-    try {
-      await gitOk(projectDir, "init", "-b", "main");
-      await gitOk(projectDir, "config", "user.email", "test@example.com");
-      await gitOk(projectDir, "config", "user.name", "Test");
-      ensureTestDir(join(projectDir, "src"));
-      await Bun.write(join(projectDir, "src/initial.ts"), "export const a = 1;\n");
-      await gitOk(projectDir, "add", "src/initial.ts");
-      await gitOk(projectDir, "commit", "--no-verify", "-m", "init");
-      await gitOk(projectDir, "update-ref", "refs/remotes/origin/main", "HEAD");
+      const projectDir = testTempDir("check-changed-fallback-");
+      try {
+        await gitOk(projectDir, "init", "-b", "main");
+        await gitOk(projectDir, "config", "user.email", "test@example.com");
+        await gitOk(projectDir, "config", "user.name", "Test");
+        ensureTestDir(join(projectDir, "src"));
+        await Bun.write(join(projectDir, "src/initial.ts"), "export const a = 1;\n");
+        await gitOk(projectDir, "add", "src/initial.ts");
+        await gitOk(projectDir, "commit", "--no-verify", "-m", "init");
+        await gitOk(projectDir, "update-ref", "refs/remotes/origin/main", "HEAD");
 
-      await Bun.write(join(projectDir, "src/next.ts"), "export const b = 2;\n");
-      await gitOk(projectDir, "add", "src/next.ts");
-      await gitOk(projectDir, "commit", "--no-verify", "-m", "second");
+        await Bun.write(join(projectDir, "src/next.ts"), "export const b = 2;\n");
+        await gitOk(projectDir, "add", "src/next.ts");
+        await gitOk(projectDir, "commit", "--no-verify", "-m", "second");
 
-      const ctx = await resolveChangedContext(projectDir, {
-        ...changedOnlyBase,
-        changedOnly: true,
-      });
-      expect(ctx.changedFiles?.length).toBe(1);
-      expect(ctx.changedFiles?.[0]).toBe("src/next.ts");
-      expect(ctx.baseLabel).toContain("origin/main");
-    } finally {
-      cleanupPath(projectDir);
-    }
+        const ctx = await resolveChangedContext(projectDir, {
+          ...changedOnlyBase,
+          changedOnly: true,
+        });
+        expect(ctx.changedFiles?.length).toBe(1);
+        expect(ctx.changedFiles?.[0]).toBe("src/next.ts");
+        expect(ctx.baseLabel).toContain("origin/main");
+      } finally {
+        cleanupPath(projectDir);
+      }
     },
     { timeout: 15_000 }
   );
@@ -112,31 +112,31 @@ describe("check-changed", () => {
   test(
     "resolveChangedContext respects baseExplicit and skips fallback",
     async () => {
-    const projectDir = testTempDir("check-changed-explicit-");
-    try {
-      await gitOk(projectDir, "init", "-b", "main");
-      await gitOk(projectDir, "config", "user.email", "test@example.com");
-      await gitOk(projectDir, "config", "user.name", "Test");
-      ensureTestDir(join(projectDir, "src"));
-      await Bun.write(join(projectDir, "src/initial.ts"), "export const a = 1;\n");
-      await gitOk(projectDir, "add", "src/initial.ts");
-      await gitOk(projectDir, "commit", "--no-verify", "-m", "init");
-      await gitOk(projectDir, "update-ref", "refs/remotes/origin/main", "HEAD");
+      const projectDir = testTempDir("check-changed-explicit-");
+      try {
+        await gitOk(projectDir, "init", "-b", "main");
+        await gitOk(projectDir, "config", "user.email", "test@example.com");
+        await gitOk(projectDir, "config", "user.name", "Test");
+        ensureTestDir(join(projectDir, "src"));
+        await Bun.write(join(projectDir, "src/initial.ts"), "export const a = 1;\n");
+        await gitOk(projectDir, "add", "src/initial.ts");
+        await gitOk(projectDir, "commit", "--no-verify", "-m", "init");
+        await gitOk(projectDir, "update-ref", "refs/remotes/origin/main", "HEAD");
 
-      await Bun.write(join(projectDir, "src/next.ts"), "export const b = 2;\n");
-      await gitOk(projectDir, "add", "src/next.ts");
-      await gitOk(projectDir, "commit", "--no-verify", "-m", "second");
+        await Bun.write(join(projectDir, "src/next.ts"), "export const b = 2;\n");
+        await gitOk(projectDir, "add", "src/next.ts");
+        await gitOk(projectDir, "commit", "--no-verify", "-m", "second");
 
-      const ctx = await resolveChangedContext(projectDir, {
-        ...changedOnlyBase,
-        changedOnly: true,
-        baseExplicit: true,
-      });
-      expect(ctx.changedFiles).toEqual([]);
-      expect(ctx.baseLabel).toBe("main");
-    } finally {
-      cleanupPath(projectDir);
-    }
+        const ctx = await resolveChangedContext(projectDir, {
+          ...changedOnlyBase,
+          changedOnly: true,
+          baseExplicit: true,
+        });
+        expect(ctx.changedFiles).toEqual([]);
+        expect(ctx.baseLabel).toBe("main");
+      } finally {
+        cleanupPath(projectDir);
+      }
     },
     { timeout: 15_000 }
   );

@@ -29,6 +29,16 @@ const BUILTIN: GovernorDefaults = {
   wallClockMs: 300000,
 };
 
+export function resolveHardwareParallelism(): number {
+  const bun = Bun as typeof Bun & { availableParallelism?: () => number };
+  if (typeof bun.availableParallelism === "function") {
+    const value = bun.availableParallelism();
+    if (value > 0) return value;
+  }
+  const concurrency = navigator.hardwareConcurrency || 4;
+  return concurrency > 0 ? concurrency : 4;
+}
+
 const CONFIG_PATH = join(governorDir(), "defaults.toml");
 
 export const DEFAULT_CONFIG_TEMPLATE = `# kimi-resource-governor defaults

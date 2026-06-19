@@ -2,10 +2,18 @@
  * Diagnostic cache: cachedExec and cachedDoctor
  */
 
+import { dedupInflight } from "./bun-utils.ts";
 import { DEFAULTS } from "./governor-state.ts";
 import { governedSpawn } from "./governor-spawn.ts";
 import { getCached, setCached, hashCommand } from "./governor-sessions.ts";
 import { createLogger, type Logger } from "./logger.ts";
+
+const inflightExec = new Map<string, Promise<string>>();
+
+/** Clear in-flight cachedExec / cachedDoctor dedup map (tests). */
+export function clearGovernorCacheInflight(): void {
+  inflightExec.clear();
+}
 
 function resolveLogger(logger?: Logger): Logger {
   return logger ?? createLogger(Bun.argv, "resource-governor");
@@ -27,12 +35,14 @@ export async function cachedExec(
     }
   }
 
-  log.line(`  🔄 Cache miss: ${command.join(" ")}`);
-  const result = await governedSpawn(command, { cwd });
-  const output = result.stdout || result.stderr;
+  return dedupInflight(inflightExec, key, async () => {
+    log.line(`  🔄 Cache miss: ${command.join(" ")}`);
+    const result = await governedSpawn(command, { cwd });
+    const output = result.stdout || result.stderr;
 
-  setCached(key, command.join(" "), output, options?.ttl);
-  return output;
+    setCached(key, command.join(" "), output, options?.ttl);
+    return output;
+  });
 }
 
 export async function cachedDoctor(
@@ -51,8 +61,10 @@ export async function cachedDoctor(
     return cached.output;
   }
 
-  log.line(`  🔄 Doctor cache miss: ${checkName}`);
-  const output = await fn();
-  setCached(key, `kimi-doctor:${checkName}`, output, ttlSeconds);
-  return output;
+  return dedupInflight(inflightExec, key, async () => {
+    log.line(`  🔄 Doctor cache miss: ${checkName}`);
+    const output = await fn();
+    setCached(key, `kimi-doctor:${checkName}`, output, ttlSeconds);
+    return output;
+  });
 }

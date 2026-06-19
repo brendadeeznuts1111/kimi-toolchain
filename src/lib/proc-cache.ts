@@ -6,7 +6,10 @@
  * process-utils.ts.
  */
 
+import { dedupInflight, hashInflightPayload } from "./bun-utils.ts";
+
 const decoder = new TextDecoder();
+const inflightCommands = new Map<string, Promise<string>>();
 
 // ── Cache ────────────────────────────────────────────────────────────
 
@@ -19,15 +22,19 @@ const _procCache = new Map<string, CacheEntry<string>>();
 const CACHE_TTL_MS = 1000;
 const ORPHAN_MIN_AGE_SECONDS = 120;
 
-/** Run a ps command with TTL caching — avoids repeated subprocess calls. */
-export function getCachedPs(args: string[]): string {
-  const key = args.join(" ");
+function commandCacheKey(command: string, args: readonly string[]): string {
+  return hashInflightPayload({ command, args });
+}
+
+/** Run a command with TTL caching — avoids repeated subprocess calls. */
+export function getCachedCommandOutput(command: string, args: readonly string[] = []): string {
+  const key = commandCacheKey(command, args);
   const now = Date.now();
   const entry = _procCache.get(key);
   if (entry && now - entry.ts < CACHE_TTL_MS) return entry.value;
 
   try {
-    const output = decoder.decode(Bun.spawnSync(["ps", ...args]).stdout);
+    const output = decoder.decode(Bun.spawnSync([command, ...args]).stdout);
     _procCache.set(key, { value: output, ts: now });
     return output;
   } catch {
@@ -35,9 +42,40 @@ export function getCachedPs(args: string[]): string {
   }
 }
 
+/** Async command cache with in-flight dedup for concurrent callers. */
+export async function getCachedCommandOutputAsync(
+  command: string,
+  args?: readonly string[]
+): Promise<string> {
+  const resolved = args ?? [];
+  const key = commandCacheKey(command, resolved);
+  const now = Date.now();
+  const entry = _procCache.get(key);
+  if (entry && now - entry.ts < CACHE_TTL_MS) return entry.value;
+
+  return dedupInflight(inflightCommands, key, async () => {
+    const proc = Bun.spawn([command, ...resolved], { stdout: "pipe", stderr: "pipe" });
+    const output = decoder.decode(await new Response(proc.stdout).arrayBuffer());
+    await proc.exited;
+    _procCache.set(key, { value: output, ts: Date.now() });
+    return output;
+  });
+}
+
+/** Run a ps command with TTL caching — avoids repeated subprocess calls. */
+export function getCachedPs(args: string[]): string {
+  return getCachedCommandOutput("ps", args);
+}
+
+/** Async ps cache — delegates to getCachedCommandOutputAsync. */
+export async function getCachedPsAsync(args: readonly string[]): Promise<string> {
+  return getCachedCommandOutputAsync("ps", args);
+}
+
 /** Clear the process cache (useful between test runs or after state changes). */
 export function clearProcessCache(): void {
   _procCache.clear();
+  inflightCommands.clear();
 }
 
 // ── Orphan detection ─────────────────────────────────────────────────

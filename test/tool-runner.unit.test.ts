@@ -2,7 +2,16 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { invokeTool, runTool, toolsDir } from "../src/lib/tool-runner.ts";
+import {
+  invokeCommand,
+  invokeTool,
+  NO_TOOL_TIMEOUT_MS,
+  resolveToolSpawnTimeoutMs,
+  runTool,
+  spawnBun,
+  toolsDir,
+  withBunNoOrphans,
+} from "../src/lib/tool-runner.ts";
 
 function tmpScript(content: string): string {
   const dir = join(tmpdir(), `kimi-tool-runner-${Bun.randomUUIDv7()}`);
@@ -16,6 +25,33 @@ describe("tool-runner", () => {
   test("toolsDir points under ~/.kimi-code/tools", () => {
     expect(toolsDir()).toContain(".kimi-code/tools");
   });
+
+  test("withBunNoOrphans prepends flag once for bun commands", () => {
+    expect(withBunNoOrphans(["bun", "test"])).toEqual(["bun", "--no-orphans", "test"]);
+    expect(withBunNoOrphans(["bun", "--no-orphans", "run", "x.ts"])).toEqual([
+      "bun",
+      "--no-orphans",
+      "run",
+      "x.ts",
+    ]);
+    expect(withBunNoOrphans([process.execPath, "dashboard"])).toEqual([
+      process.execPath,
+      "--no-orphans",
+      "dashboard",
+    ]);
+    expect(withBunNoOrphans(["node", "script.js"])).toEqual(["node", "script.js"]);
+  });
+
+  test(
+    "spawnBun runs bun with --no-orphans via invokeCommand",
+    async () => {
+      const result = await spawnBun(["--version"]);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
+      expect(result.isError).toBe(false);
+    },
+    { timeout: 3000 }
+  );
 
   test("runTool throws when tool file is missing", async () => {
     await expect(runTool("definitely-missing-tool-xyz", [])).rejects.toThrow("Tool not found");
@@ -78,6 +114,32 @@ describe("tool-runner", () => {
     rmSync(join(script, ".."), { recursive: true, force: true });
   });
 
+  test(
+    "invokeCommand normalizes negative output limits to zero bytes",
+    async () => {
+      const result = await invokeCommand(["bun", "--version"], { maxOutputBytes: -1 });
+      expect(result.maxOutputBytes).toBe(0);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("");
+    },
+    { timeout: 3000 }
+  );
+
+  test(
+    "invokeCommand returns a structured error when spawn fails",
+    async () => {
+      const missingCommand = join(tmpdir(), `missing-command-${Bun.randomUUIDv7()}`);
+      const result = await invokeCommand([missingCommand], { timeoutMs: 1000 });
+      expect(result.tool).toBe(missingCommand);
+      expect(result.exitCode).toBe(-1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("");
+      expect(result.error).toContain("Failed to spawn command");
+      expect(result.isError).toBe(true);
+    },
+    { timeout: 3000 }
+  );
+
   test("invokeTool truncates retained stdout and stderr", async () => {
     const script = tmpScript(`
       console.log("stdout-" + "x".repeat(128));
@@ -107,12 +169,33 @@ describe("tool-runner", () => {
     rmSync(join(script, ".."), { recursive: true, force: true });
   });
 
+  test("resolveToolSpawnTimeoutMs disables timeout for watch and MCP server", () => {
+    expect(resolveToolSpawnTimeoutMs(["--watch"])).toBe(NO_TOOL_TIMEOUT_MS);
+    expect(resolveToolSpawnTimeoutMs(["--mcp-server"])).toBe(NO_TOOL_TIMEOUT_MS);
+    expect(resolveToolSpawnTimeoutMs(["--watch-interval", "10"])).toBe(NO_TOOL_TIMEOUT_MS);
+    expect(resolveToolSpawnTimeoutMs(["--effect-gates"])).toBeGreaterThan(0);
+  });
+
+  test(
+    "invokeTool with NO_TOOL_TIMEOUT_MS does not kill a long-running child",
+    async () => {
+      const script = tmpScript(`await Bun.sleep(400);`);
+      const result = await invokeTool(script, [], { timeoutMs: NO_TOOL_TIMEOUT_MS });
+      expect(result.timedOut).toBeUndefined();
+      expect(result.isError).toBe(false);
+      expect(result.exitCode).toBe(0);
+      rmSync(join(script, ".."), { recursive: true, force: true });
+    },
+    { timeout: 5000 }
+  );
+
   test(
     "invokeTool reports timeout",
     async () => {
       const script = tmpScript(`setTimeout(() => {}, 60000);`);
       const result = await invokeTool(script, [], { timeoutMs: 100, gracePeriodMs: 50 });
       expect(result.isError).toBe(true);
+      expect(result.timedOut).toBe(true);
       expect(result.error).toContain("timed out");
       rmSync(join(script, ".."), { recursive: true, force: true });
     },
