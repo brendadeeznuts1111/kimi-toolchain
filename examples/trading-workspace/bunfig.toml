@@ -1,0 +1,7 @@
+[install]
+frozenLockfile = true
+linker = "isolated"
+
+[run]
+# Trading gates are short-lived CLI runs — no orphan children.
+noOrphans = true

@@ -20,4 +20,3 @@ export async function apiGlob(): Promise<Response> {
     note: "Bun.Glob(pattern).scan() — async iterable. Supports **, *, {a,b} braces. Faster than fs.readdir + regex.",
   });
 }
-

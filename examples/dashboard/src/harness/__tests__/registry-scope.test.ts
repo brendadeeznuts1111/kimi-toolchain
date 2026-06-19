@@ -8,7 +8,7 @@ import {
 describe("registry-scope", () => {
   test("normalizeDashboardPath strips examples/dashboard prefix", () => {
     expect(normalizeDashboardPath("examples/dashboard/src/harness/file-bench.ts")).toBe(
-      "src/harness/file-bench.ts",
+      "src/harness/file-bench.ts"
     );
   });
 
@@ -20,9 +20,7 @@ describe("registry-scope", () => {
   });
 
   test("perf infra change runs full registry", () => {
-    expect(
-      registryKeysForChanged(["examples/dashboard/src/harness/perf-monitor.ts"]),
-    ).toBeNull();
+    expect(registryKeysForChanged(["examples/dashboard/src/harness/perf-monitor.ts"])).toBeNull();
   });
 
   test("unrelated repo paths yield empty scope", () => {

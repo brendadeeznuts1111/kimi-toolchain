@@ -73,16 +73,12 @@ export function pathTouchesDep(changedPath: string, dep: string): boolean {
 }
 
 export function changedTouchesPerfInfra(changedFiles: readonly string[]): boolean {
-  return changedFiles.some((file) =>
-    PERF_INFRA_PATHS.some((dep) => pathTouchesDep(file, dep)),
-  );
+  return changedFiles.some((file) => PERF_INFRA_PATHS.some((dep) => pathTouchesDep(file, dep)));
 }
 
 export function changedTouchesDashboardHarness(changedFiles: readonly string[]): boolean {
   return changedFiles.some(
-    (file) =>
-      file.startsWith(DASHBOARD_PREFIX) ||
-      file.startsWith("examples/dashboard/"),
+    (file) => file.startsWith(DASHBOARD_PREFIX) || file.startsWith("examples/dashboard/")
   );
 }
 
@@ -106,7 +102,7 @@ export function registryKeysForChanged(changedFiles: readonly string[]): string[
     changedFiles.some(
       (file) =>
         pathTouchesDep(file, "thresholds.json") ||
-        normalizeDashboardPath(file).endsWith("/thresholds.json"),
+        normalizeDashboardPath(file).endsWith("/thresholds.json")
     )
   ) {
     return null;

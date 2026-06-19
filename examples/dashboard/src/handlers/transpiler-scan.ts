@@ -38,4 +38,3 @@ export async function apiTranspilerScan(): Promise<Response> {
     note: "Bun.Transpiler.scan() discovers exported names without executing code. Pure function, same source → same exports. Use for static manifests, auto-registration, CI gating.",
   });
 }
-

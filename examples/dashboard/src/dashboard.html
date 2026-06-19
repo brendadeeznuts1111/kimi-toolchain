@@ -395,6 +395,11 @@
         border-radius: 8px;
         padding: 12px 14px;
         text-align: center;
+        cursor: pointer;
+        transition: border-color 150ms;
+      }
+      .landing-stat:hover {
+        border-color: var(--blue);
       }
       .landing-stat .value {
         font-size: 28px;
@@ -410,6 +415,12 @@
         font-size: 10px;
         color: var(--muted);
         margin-top: 2px;
+      }
+      .landing-stat .detail {
+        font-size: 9px;
+        color: var(--muted);
+        margin-top: 1px;
+        font-style: italic;
       }
       @media (max-width: 640px) {
         #landing-zone {
@@ -977,6 +988,16 @@
       /** Server-side canvas deep link — runId / sessionId / diff via applyCanvasFilter. */
       async function fetchAndApplyCanvasDeepLink() {
         const params = new URLSearchParams(location.search);
+        if (params.get("orphans") === "true") {
+          try {
+            const payload = await fetchJson("/api/cards?orphans=true&probe=false");
+            const ids = new Set((payload.cards || []).map((c) => c.id));
+            setCanvasFilterIds(ids, "orphans");
+          } catch {
+            /* optional debug filter */
+          }
+          return;
+        }
         if (!params.get("canvas")) return;
         try {
           const payload = await fetchJson(`/api/canvas-filter${location.search}`);
@@ -1201,7 +1222,7 @@
                 `<span style="margin:0 6px;color:var(--muted)">${k}=</span><span style="color:var(--text)">${v}</span>`
             )
             .join("");
-          const listenUrl = settings?.dashboardUrl ?? `http://127.0.0.1:${settings?.port ?? 5678}/`;
+          const listenUrl = d.dashboardUrl ?? settings?.dashboardUrl ?? `http://127.0.0.1:${d.listenPort ?? settings?.port ?? 5678}/`;
           const shadows =
             d.shadowWarnings.length > 0
               ? `<span class="badge badge-warn" style="margin:0 4px">shadow:${d.shadowWarnings.join(",")}</span>`
@@ -1253,69 +1274,105 @@
         }
       })();
 
-      // Landing zone — system overview stats (Dashboard Contract v1.0 via /api/settings)
+      // Landing zone — system overview stats with auto-refresh + probe server dual health
       (async () => {
-        function setStat(statId, value, label, sub) {
+        const REFRESH_MS = 30000;
+        let settings = null;
+        try { settings = await fetchJson("/api/settings"); } catch { /* optional */ }
+
+        function resolveProbeBase() {
+          if (settings?.probeHost && settings?.probePort) {
+            return `http://${settings.probeHost}:${settings.probePort}`;
+          }
+          return `http://127.0.0.1:${settings?.port ?? 5678}`;
+        }
+
+        function colorForRatio(ok, total) {
+          if (total === 0) return "var(--muted)";
+          const ratio = ok / total;
+          if (ratio >= 0.95) return "var(--green)";
+          if (ratio >= 0.7) return "var(--yellow)";
+          return "var(--red)";
+        }
+
+        function setStat(statId, value, label, sub, detail, valueColor) {
           const el = document.querySelector(`[data-stat="${statId}"]`);
           if (!el) return;
-          el.innerHTML = `<div class="value" style="color:${typeof value === "number" && value > 0 ? "var(--green)" : "var(--text)"}">${value}</div>
-            <div class="label">${label}</div>${sub ? `<div class="sub">${sub}</div>` : ""}`;
+          const color = valueColor || (typeof value === "number" && value > 0 ? "var(--green)" : "var(--text)");
+          el.innerHTML = `<div class="value" style="color:${color}">${value}</div>
+            <div class="label">${label}</div>${sub ? `<div class="sub">${sub}</div>` : ""}${detail ? `<div class="detail">${detail}</div>` : ""}`;
         }
 
-        let settings = null;
-        try {
-          settings = await fetchJson("/api/settings");
-        } catch {
-          /* optional SSOT */
+        // Click-to-scroll
+        document.getElementById("landing-zone").addEventListener("click", (e) => {
+          const stat = e.target.closest("[data-stat]");
+          if (!stat) return;
+          const id = stat.getAttribute("data-stat");
+          if (id === "cards" || id === "runtime") {
+            document.getElementById("card-grid")?.scrollIntoView({ behavior: "smooth" });
+          } else if (id === "artifacts") {
+            document.getElementById("card-artifacts")?.scrollIntoView({ behavior: "smooth" });
+          } else if (id === "probe") {
+            document.getElementById("card-artifacts")?.scrollIntoView({ behavior: "smooth" });
+          }
+        });
+
+        // Refresher
+        async function refreshLanding() {
+          const now = new Date().toLocaleTimeString();
+
+          // Cards: dashboard
+          try {
+            const cards = await fetchJson("/api/cards?probe=true");
+            const ok = cards.cards.filter((c) => c.status === "ok").length;
+            const total = settings?.cardCount ?? cards.total;
+            setStat("cards", `${ok}/${total}`, "cards passing",
+              `${total - ok} failing or unknown`, `dashboard · refreshed ${now}`,
+              colorForRatio(ok, total));
+          } catch { setStat("cards", "—", "cards", "unavailable", `refreshed ${now}`); }
+
+          // Runtime
+          try {
+            const rt = await fetchJson("/api/runtime-info");
+            setStat("runtime", rt.runtime, `${rt.version.split("-")[0]}`, rt.bunVersion, `refreshed ${now}`);
+          } catch { setStat("runtime", "—", "runtime", "unavailable", `refreshed ${now}`); }
+
+          // Artifact gates
+          try {
+            const arts = await fetchJson("/api/artifacts");
+            setStat("artifacts", arts.count ?? "—", "artifact gates",
+              arts.gates?.join(", ")?.slice(0, 40) ?? "", `refreshed ${now}`);
+          } catch { setStat("artifacts", "—", "artifacts", "unavailable", `refreshed ${now}`); }
+
+          // Dual health: dashboard + probe server
+          try {
+            const dashHealth = await fetch("/api/health", { method: "HEAD" });
+            const dashOk = dashHealth.ok;
+
+            let probeOk = false;
+            const probeBase = resolveProbeBase();
+            try {
+              const probeRes = await fetch(`${probeBase}/api/health`, { method: "HEAD" });
+              probeOk = probeRes.ok;
+            } catch { /* probe unreachable */ }
+
+            const summary = dashOk && probeOk ? "✓ ✓" : dashOk ? "✓ ✗" : probeOk ? "✗ ✓" : "✗ ✗";
+            const sub = dashOk ? (probeOk ? "both healthy" : "dashboard up · probe unreachable")
+              : (probeOk ? "dashboard down · probe up" : "both down");
+            const dashLabel = settings ? `dashboard :${settings.port}` : "dashboard";
+            const probeLabel = settings?.probeHost
+              ? `${settings.probeHost}:${settings.probePort}`
+              : `127.0.0.1:${settings?.port ?? 5678}`;
+            setStat("probe", summary, sub,
+              `${dashLabel} · probe ${probeLabel}`, `refreshed ${now}`,
+              dashOk && probeOk ? "var(--green)" : dashOk || probeOk ? "var(--yellow)" : "var(--red)");
+          } catch {
+            setStat("probe", "✗ ✗", "both down", "unreachable", `refreshed ${now}`, "var(--red)");
+          }
         }
 
-        // Card summary from /api/cards
-        try {
-          const cardsPayload = await fetchJson("/api/cards?probe=true");
-          const ok = cardsPayload.cards.filter((c) => c.status === "ok").length;
-          const total = settings?.cardCount ?? cardsPayload.total;
-          setStat("cards", `${ok}/${total}`, "cards passing", `${total - ok} failing or unknown`);
-        } catch {
-          setStat("cards", "—", "cards", "unavailable");
-        }
-
-        // Runtime info
-        try {
-          const rt = await fetchJson("/api/runtime-info");
-          setStat("runtime", rt.runtime, `v${rt.version.split("-")[0]}`, rt.bunVersion);
-        } catch {
-          setStat("runtime", "—", "runtime", "unavailable");
-        }
-
-        // Artifact count from /api/artifacts
-        try {
-          const arts = await fetchJson("/api/artifacts");
-          setStat("artifacts", arts.count ?? "—", "artifact gates", arts.gates?.join(", ") ?? "");
-        } catch {
-          setStat("artifacts", "—", "artifacts", "unavailable");
-        }
-
-        // Dashboard health + resolved probe bind from settings SSOT
-        try {
-          const probeHealth = await fetch("/api/health", { method: "HEAD" });
-          const probeLabel = settings
-            ? `${settings.probeHost}:${settings.probePort}`
-            : "probe bind unknown";
-          const dashLabel = settings ? `dashboard :${settings.port}` : "dashboard";
-          setStat(
-            "probe",
-            probeHealth.ok ? "✓" : "✗",
-            probeHealth.ok ? "dashboard up" : "dashboard down",
-            probeHealth.ok ? `${dashLabel} · probe ${probeLabel}` : ""
-          );
-        } catch {
-          setStat(
-            "probe",
-            "✗",
-            "dashboard down",
-            settings ? `probe ${settings.probeHost}:${settings.probePort}` : "unreachable"
-          );
-        }
+        await refreshLanding();
+        setInterval(refreshLanding, REFRESH_MS);
       })();
 
       function card(id, body) {

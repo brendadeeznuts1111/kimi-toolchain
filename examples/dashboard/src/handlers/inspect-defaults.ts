@@ -27,4 +27,3 @@ export async function apiInspectDefaults(): Promise<Response> {
     note: "node:util.inspect.defaultOptions — configure global inspect behavior. Set depth/colors/compact/sorted. Bun.inspect.defaultOptions not yet available (use node:util).",
   });
 }
-

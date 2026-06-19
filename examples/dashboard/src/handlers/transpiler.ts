@@ -28,8 +28,12 @@ serve({
     outputBytes: js.length,
     ratio: (js.length / tsCode.length).toFixed(2),
     output: js.slice(0, 400) + (js.length > 400 ? "\n// ..." : ""),
-    features: ["type annotations stripped", "interfaces removed", "return types removed", "parameter types removed"],
+    features: [
+      "type annotations stripped",
+      "interfaces removed",
+      "return types removed",
+      "parameter types removed",
+    ],
     note: "Bun.Transpiler — fast TS/JSX → JS. loader: 'ts'|'tsx'|'jsx'. transformSync() or transform() for async.",
   });
 }
-

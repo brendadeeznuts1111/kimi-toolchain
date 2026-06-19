@@ -21,11 +21,7 @@ export { resolvePerfChangedFiles } from "./changed-context.ts";
 export { perfGate } from "./perf-gate.ts";
 export { generatePerfHTML } from "./html-reporter.ts";
 export { trainThresholds } from "./train.ts";
-export {
-  getHttpBenchServers,
-  stopHttpBenchServers,
-  fetchHttp2Supported,
-} from "./http-bench.ts";
+export { getHttpBenchServers, stopHttpBenchServers, fetchHttp2Supported } from "./http-bench.ts";
 export {
   getFileBenchServer,
   stopFileBenchServers,

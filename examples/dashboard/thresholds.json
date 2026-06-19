@@ -1,0 +1,17 @@
+{
+  "kimi.effect.isolation.realmEvaluate": 0.843,
+  "kimi.effect.isolation.createChannel": 1.999,
+  "kimi.effect.isolation.roundtrip": 7.203,
+  "kimi.effect.isolation.realm.run": 0.79,
+  "kimi.effect.isolation.worker.run": 4.827,
+  "kimi.effect.crypto.sha256": 0.097,
+  "kimi.effect.util.inspect": 0.063,
+  "kimi.effect.util.deepEquals": 0.014,
+  "kimi.effect.image.metadata": 0.185,
+  "kimi.effect.http.fetch-h1": 25.219,
+  "kimi.effect.http.fetch-h3": 23.296,
+  "kimi.effect.file.serve-full": 3.356,
+  "kimi.effect.file.serve-range": 0.191,
+  "kimi.effect.clock": 0.007,
+  "kimi.effect.uuid": 0.008
+}

@@ -28,26 +28,28 @@ export async function apiGlobOrphan(): Promise<Response> {
     perPackage: (() => {
       const pkgs = [...new Glob("packages/*").scanSync({ cwd: process.cwd(), onlyFiles: false })];
       return pkgs.slice(0, 3).map((pkg) => {
-        const pkgSnaps = [...new Glob(`${pkg}/**/__snapshots__/**/*.snap`).scanSync({ cwd: process.cwd() })];
+        const pkgSnaps = [
+          ...new Glob(`${pkg}/**/__snapshots__/**/*.snap`).scanSync({ cwd: process.cwd() }),
+        ];
         return { package: pkg, snapshots: pkgSnaps.length };
       });
     })(),
-    oneLiner: 'bun -e \'\n' +
+    oneLiner:
+      "bun -e '\n" +
       'const { Glob } = require("bun");\n' +
       'const snaps = [...new Glob("**/__snapshots__/*.snap").scanSync()];\n' +
       'const tests = [...new Glob("**/*.test.ts").scanSync()];\n' +
-      'for (const s of snaps) {\n' +
+      "for (const s of snaps) {\n" +
       '  const base = s.replace(/__snapshots__\\/(.+)\\.snap$/, "$1");\n' +
       '  const expected = base + ".test.ts";\n' +
       '  if (!tests.some(t => t === expected || t.endsWith("/" + expected)))\n' +
       '    console.log("ORPHAN:", s);\n' +
-      '}\'\n' +
-      '// Monorepo per-package variant:\n' +
+      "}'\n" +
+      "// Monorepo per-package variant:\n" +
       '// const packages = [...new Glob("packages/*").scanSync()];\n' +
-      '// for (const pkg of packages) {\n' +
-      '//   const snaps = [...new Glob(`${pkg}/**/__snapshots__/**/*.snap`).scanSync()];\n' +
-      '//   ...',
+      "// for (const pkg of packages) {\n" +
+      "//   const snaps = [...new Glob(`${pkg}/**/__snapshots__/**/*.snap`).scanSync()];\n" +
+      "//   ...",
     note: "Autophagy scan: Bun.Glob.scanSync() cross-references __snapshots__ against test files. Regex handles nested dirs. Per-package variant for monorepos. Live-recomputed every request — no cached badges.",
   });
 }
-

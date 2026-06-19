@@ -10,14 +10,15 @@ export async function apiSpawnSync(): Promise<Response> {
     exitCode: proc.exitCode,
     success: proc.success,
     pid: proc.pid,
-    resourceUsage: usage ? {
-      maxRSS: `${(usage.maxRSS / 1024 / 1024).toFixed(1)} MB`,
-      cpuUser: `${usage.cpuTime.user} µs`,
-      cpuSystem: `${usage.cpuTime.system} µs`,
-      messages: usage.messages,
-      contextSwitches: usage.contextSwitches,
-    } : null,
+    resourceUsage: usage
+      ? {
+          maxRSS: `${(usage.maxRSS / 1024 / 1024).toFixed(1)} MB`,
+          cpuUser: `${usage.cpuTime.user} µs`,
+          cpuSystem: `${usage.cpuTime.system} µs`,
+          messages: usage.messages,
+          contextSwitches: usage.contextSwitches,
+        }
+      : null,
     note: "Bun.spawnSync — blocking, returns Buffer stdout/stderr. 60% faster than Node.js child_process. resourceUsage() gives CPU, memory, context switches.",
   });
 }
-

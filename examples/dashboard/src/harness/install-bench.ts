@@ -49,7 +49,7 @@ export async function benchMinimalInstall(): Promise<void> {
   const result = await $`bun install --frozen-lockfile`.cwd(dir).nothrow().quiet();
   if (result.exitCode !== 0) {
     throw new Error(
-      `package.install-minimal: bun install failed (${result.stderr.toString().trim()})`,
+      `package.install-minimal: bun install failed (${result.stderr.toString().trim()})`
     );
   }
 }

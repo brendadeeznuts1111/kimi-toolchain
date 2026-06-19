@@ -1,4 +1,1 @@
-export {
-  benchmarkWorkerCreateChannel,
-  benchmarkWorkerRoundtrip,
-} from "./worker.ts";
+export { benchmarkWorkerCreateChannel, benchmarkWorkerRoundtrip } from "./worker.ts";

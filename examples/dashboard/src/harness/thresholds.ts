@@ -54,9 +54,7 @@ async function loadTrainedThresholdsFile(): Promise<Record<string, number>> {
 
 /** Layer 2 — bunfig.toml [doctor.thresholds] (human overrides). */
 export async function loadBunfigThresholds(root?: string): Promise<Record<string, number>> {
-  const candidates = [
-    join(root ?? projectRoot ?? process.cwd(), "bunfig.toml"),
-  ];
+  const candidates = [join(root ?? projectRoot ?? process.cwd(), "bunfig.toml")];
 
   for (const path of candidates) {
     try {

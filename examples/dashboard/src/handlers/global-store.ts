@@ -43,4 +43,3 @@ export async function apiGlobalStore(): Promise<Response> {
     note: "install.globalStore = true in bunfig.toml. Entry hash includes full transitive closure. Two projects with same tree share single on-disk entry — structural sharing, no duplication.",
   });
 }
-

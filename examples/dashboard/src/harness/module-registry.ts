@@ -1,16 +1,7 @@
 import type { ModuleRegistryEntry } from "./types.ts";
 import { ISOLATION_PERF_WORKLOADS } from "../lib/isolation/index.ts";
-import {
-  benchFileServeFull,
-  benchFileServeRange,
-  getFileBenchServer,
-} from "./file-bench.ts";
-import {
-  benchFetchH1,
-  benchFetchH2,
-  benchFetchH3,
-  getHttpBenchServers,
-} from "./http-bench.ts";
+import { benchFileServeFull, benchFileServeRange, getFileBenchServer } from "./file-bench.ts";
+import { benchFetchH1, benchFetchH2, benchFetchH3, getHttpBenchServers } from "./http-bench.ts";
 import {
   benchMinimalInstall,
   installBenchAvailable,

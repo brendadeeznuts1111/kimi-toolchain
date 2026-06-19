@@ -36,8 +36,14 @@ self.onmessage = async (e: MessageEvent) => {
   const promises = modules.map((name) => {
     return new Promise<{ name: string; actualMs: number }>((resolve, reject) => {
       const worker = new Worker(new URL("file:///tmp/_perf_worker.ts"));
-      worker.onmessage = (e) => { resolve(e.data); worker.terminate(); };
-      worker.onerror = (err) => { reject(err); worker.terminate(); };
+      worker.onmessage = (e) => {
+        resolve(e.data);
+        worker.terminate();
+      };
+      worker.onerror = (err) => {
+        reject(err);
+        worker.terminate();
+      };
       worker.postMessage({ moduleName: name });
     });
   });
@@ -56,7 +62,7 @@ self.onmessage = async (e: MessageEvent) => {
     concurrent: modules.length,
     speedup: `${(metrics.reduce((s, m) => s + m.actualMs, 0) / totalMs).toFixed(1)}x vs sequential`,
     allPass,
-    architecture: "Worker per module → Symbol-keyed handler → postMessage metric → Promise.all collect → pure HTML generation. No shared mutable state (like --isolate).",
+    architecture:
+      "Worker per module → Symbol-keyed handler → postMessage metric → Promise.all collect → pure HTML generation. No shared mutable state (like --isolate).",
   });
 }
-

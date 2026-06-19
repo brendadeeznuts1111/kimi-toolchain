@@ -9,10 +9,12 @@ export async function apiExec(): Promise<Response> {
 
     const done = () => {
       if (--pending === 0) {
-        resolve(jsonResponse({
-          results,
-          note: "node:child_process.exec() — runs command string through a shell. Use quotes for paths with spaces. \\$ escapes variables. Bun mirrors Node.js exec exactly.",
-        }));
+        resolve(
+          jsonResponse({
+            results,
+            note: "node:child_process.exec() — runs command string through a shell. Use quotes for paths with spaces. \\$ escapes variables. Bun mirrors Node.js exec exactly.",
+          })
+        );
       }
     };
 
@@ -32,4 +34,3 @@ export async function apiExec(): Promise<Response> {
     });
   });
 }
-

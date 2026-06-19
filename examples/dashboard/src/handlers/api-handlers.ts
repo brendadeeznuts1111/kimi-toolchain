@@ -1,3 +1,23 @@
+import {
+  CANONICAL_DASHBOARD_PORT,
+  resolveDashboardProjectRoot,
+  resolveDashboardSettings,
+} from "../../../../src/lib/dashboard-settings.ts";
+import { resolveBin, USER_TOOLCHAIN_BIN } from "../lib/toolchain-paths.ts";
+
+function resolveRoot(): string {
+  const dir = import.meta.dir;
+  if (dir.includes("kimi-toolchain")) {
+    return dir.split("kimi-toolchain")[0] + "kimi-toolchain";
+  }
+  return process.cwd();
+}
+
+function doctorBin(): string {
+  const root = resolveRoot();
+  return Bun.which("kimi-doctor") || `${root}/src/bin/kimi-doctor.ts`;
+}
+
 // ── API handlers ────────────────────────────────────────────────────
 
 export async function apiBundle(): Promise<Response> {
@@ -53,7 +73,10 @@ export async function apiSecrets(): Promise<Response> {
   });
 }
 
-export async function apiEnv(): Promise<Response> {
+export async function apiEnv(request?: Request): Promise<Response> {
+  const projectRoot = resolveDashboardProjectRoot(import.meta.dir);
+  const requestUrl = request ? new URL(request.url) : undefined;
+  const settings = await resolveDashboardSettings(projectRoot, { requestUrl });
   const pathDirs = (Bun.env.PATH || "").split(":").filter(Boolean);
 
   interface ToolEntry {
@@ -130,8 +153,13 @@ export async function apiEnv(): Promise<Response> {
       KIMI_PROFILE: Bun.env.KIMI_PROFILE || "unset",
       BUN_CREATE_DIR: Bun.env.BUN_CREATE_DIR || "unset",
       HERDR_ENV: Bun.env.HERDR_ENV || "unset",
-      PORT: Bun.env.PORT || "unset",
+      PORT: Bun.env.PORT || String(settings.port),
+      PROBE_SERVER_PORT: Bun.env.PROBE_SERVER_PORT || String(settings.probePort),
     },
+    dashboardUrl: settings.dashboardUrl,
+    listenPort: settings.port,
+    probePort: settings.probePort,
+    portSource: settings.sources.port,
   });
 }
 
@@ -230,12 +258,14 @@ export async function apiBuildInfo(): Promise<Response> {
     bunfigPath,
     compileTime,
     defines: hasDefines ? bunfigDefines : null,
-    definesSource: hasDefines ? `bunfig.toml [define]` : "none (add [define] entries to bunfig.toml)",
+    definesSource: hasDefines
+      ? `bunfig.toml [define]`
+      : "none (add [define] entries to bunfig.toml)",
     consoleWriteRewritten: "console.write" in bunfigDefines,
     runtime,
     note: hasDefines
       ? "--define rewrites identifiers at AST level. Read from bunfig.toml [define]."
-      : "No [define] section in bunfig.toml. Add entries like: [define] \"console.write\" = \"console.log\"",
+      : 'No [define] section in bunfig.toml. Add entries like: [define] "console.write" = "console.log"',
   });
 }
 
@@ -347,7 +377,13 @@ export async function apiInspectSimple(): Promise<Response> {
       flag: "--console-depth",
       source: "bunfig.toml console.depth = 4",
     },
-    { option: "colors", default: "TTY&!CI", value: true, flag: "bun --no-color", source: "terminal" },
+    {
+      option: "colors",
+      default: "TTY&!CI",
+      value: true,
+      flag: "bun --no-color",
+      source: "terminal",
+    },
     { option: "compact", default: true, value: true, flag: "—", source: "default" },
     { option: "sorted", default: false, value: false, flag: "—", source: "default" },
     { option: "showHidden", default: false, value: false, flag: "—", source: "Node compat" },
@@ -384,7 +420,7 @@ export async function apiInspect(): Promise<Response> {
     port: number;
     host: string;
     constructor() {
-      this.port = 5678;
+      this.port = CANONICAL_DASHBOARD_PORT;
       this.host = "localhost";
     }
   }
@@ -392,7 +428,7 @@ export async function apiInspect(): Promise<Response> {
   const sample = {
     "path.root": "kimi-toolchain-dashboard",
     "path.version": "0.1.0",
-    "path.config.port": 5678,
+    "path.config.port": CANONICAL_DASHBOARD_PORT,
     "path.config.host": "localhost",
     "path.config.debug": false,
     "path.config.env": null as null | string,
@@ -442,14 +478,21 @@ export async function apiInspectConfig(): Promise<Response> {
 
   const preset = debug ? "debug" : isProd ? "production" : isTTY ? "local" : "non-tty";
   const depth = debug ? "Infinity" : isProd ? 2 : isTTY ? 5 : 4;
-  const colors = debug ? "inherit" : (isTTY && !isCI);
+  const colors = debug ? "inherit" : isTTY && !isCI;
   const compact = !isTTY || isProd;
   const showHidden = debug;
 
   return jsonResponse({
     preset,
     environment: isProd ? "production" : isTTY ? "local" : "non-tty",
-    config: { depth, colors, compact, sorted: false, maxArrayLength: isProd ? 30 : 100, showHidden },
+    config: {
+      depth,
+      colors,
+      compact,
+      sorted: false,
+      maxArrayLength: isProd ? 30 : 100,
+      showHidden,
+    },
     detected: {
       isTTY,
       CI: Bun.env.CI || "unset",
@@ -457,12 +500,46 @@ export async function apiInspectConfig(): Promise<Response> {
       DEBUG_INSPECT: Bun.env.DEBUG_INSPECT || "unset",
     },
     presets: [
-      { environment: "Local terminal (dev)", debug: "—", colors: "true (TTY)", depth: 5, compact: false, showHidden: false, useCase: "Best developer experience" },
-      { environment: "CI / GitHub Actions / pipe", debug: "—", colors: "false (pipe)", depth: 4, compact: true, showHidden: false, useCase: "Clean, safe logs" },
-      { environment: "Production", debug: "—", colors: "false", depth: 2, compact: true, showHidden: false, useCase: "Minimal output" },
-      { environment: "Any (local/CI/prod)", debug: "1 / true", colors: "true (if TTY)", depth: "Infinity", compact: false, showHidden: true, useCase: "Maximum visibility for debugging" },
+      {
+        environment: "Local terminal (dev)",
+        debug: "—",
+        colors: "true (TTY)",
+        depth: 5,
+        compact: false,
+        showHidden: false,
+        useCase: "Best developer experience",
+      },
+      {
+        environment: "CI / GitHub Actions / pipe",
+        debug: "—",
+        colors: "false (pipe)",
+        depth: 4,
+        compact: true,
+        showHidden: false,
+        useCase: "Clean, safe logs",
+      },
+      {
+        environment: "Production",
+        debug: "—",
+        colors: "false",
+        depth: 2,
+        compact: true,
+        showHidden: false,
+        useCase: "Minimal output",
+      },
+      {
+        environment: "Any (local/CI/prod)",
+        debug: "1 / true",
+        colors: "true (if TTY)",
+        depth: "Infinity",
+        compact: false,
+        showHidden: true,
+        useCase: "Maximum visibility for debugging",
+      },
     ],
-    note: debug ? "DEBUG_INSPECT=true — depth=Infinity, showHidden=true" : `Auto preset (${preset}). console.depth=4 from bunfig.toml`,
+    note: debug
+      ? "DEBUG_INSPECT=true — depth=Infinity, showHidden=true"
+      : `Auto preset (${preset}). console.depth=4 from bunfig.toml`,
   });
 }
 
@@ -504,7 +581,8 @@ export async function apiBunfig(): Promise<Response> {
     return jsonResponse({
       path: "./bunfig.toml",
       sections: parsed,
-      mergeRule: "global (~/.bunfig.toml) → project (./bunfig.toml) shallow merge → CLI flags override",
+      mergeRule:
+        "global (~/.bunfig.toml) → project (./bunfig.toml) shallow merge → CLI flags override",
       import: 'import bunfig from "./bunfig.toml" with { type: "toml" };',
     });
   } catch (e) {
@@ -534,4 +612,3 @@ export async function apiStringUtils(): Promise<Response> {
     },
   });
 }
-

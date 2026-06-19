@@ -34,7 +34,12 @@ export async function apiPerfAutoDiscover(): Promise<Response> {
         } else {
           fn();
         }
-        metrics.push({ symbol: d.symbol, operation: exp, actualMs: performance.now() - start, pass: true });
+        metrics.push({
+          symbol: d.symbol,
+          operation: exp,
+          actualMs: performance.now() - start,
+          pass: true,
+        });
       } catch {
         metrics.push({ symbol: d.symbol, operation: exp, actualMs: -1, pass: false });
       }
@@ -46,7 +51,7 @@ export async function apiPerfAutoDiscover(): Promise<Response> {
     metrics,
     totalExports: discovered.reduce((s, d) => s + d.exports.length, 0),
     pipeline: "Transpiler.scan(source) → exports[] → dynamic import → benchmark each → Metric[]",
-    philosophy: "No manual workload definitions. Source code IS the contract. Works for any effect module — just add its file path.",
+    philosophy:
+      "No manual workload definitions. Source code IS the contract. Works for any effect module — just add its file path.",
   });
 }
-

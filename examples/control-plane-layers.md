@@ -54,14 +54,14 @@ Ages come from `GATE_LEVEL_PRUNE_MS` in `src/gates/types.ts`. Override with
 
 ## Toolchain Gate Mapping (today)
 
-| Gate             | Level | Cadence          |
-| ---------------- | ----- | ---------------- |
-| `card-probe`            | L1    | Minutes          |
-| `tls-compliance`        | L1    | On demand        |
-| `strategy-performance`  | L2    | Daily (demo)     |
-| `model-drift`           | L2    | After strategy-performance |
-| `perf-gate`             | L2    | Hours / daily    |
-| `bunfig-policy`         | L3    | On config change |
+| Gate                   | Level | Cadence                    |
+| ---------------------- | ----- | -------------------------- |
+| `card-probe`           | L1    | Minutes                    |
+| `tls-compliance`       | L1    | On demand                  |
+| `strategy-performance` | L2    | Daily (demo)               |
+| `model-drift`          | L2    | After strategy-performance |
+| `perf-gate`            | L2    | Hours / daily              |
+| `bunfig-policy`        | L3    | On config change           |
 
 ## Two Dependency Rules (Do Not Conflate)
 

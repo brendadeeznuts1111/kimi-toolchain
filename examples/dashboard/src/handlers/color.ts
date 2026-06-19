@@ -22,4 +22,3 @@ export async function apiColor(): Promise<Response> {
     note: "Bun.color(input, format) converts hex/named colors to ANSI escape code parameters. Use with \\x1b[38;5;{n}m.",
   });
 }
-

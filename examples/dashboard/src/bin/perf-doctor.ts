@@ -76,13 +76,13 @@ async function resolveBenchmarkOptions(): Promise<BenchmarkOptions | undefined> 
   }
 
   if (keys === null) {
-    console.log(`perf: running full MODULE_REGISTRY (${changed.length} changed file(s) vs ${base})`);
+    console.log(
+      `perf: running full MODULE_REGISTRY (${changed.length} changed file(s) vs ${base})`
+    );
     return undefined;
   }
 
-  console.log(
-    `perf: scoped to ${keys.length} registry key(s) vs ${base}: ${keys.join(", ")}`,
-  );
+  console.log(`perf: scoped to ${keys.length} registry key(s) vs ${base}: ${keys.join(", ")}`);
   return { registryKeys: keys };
 }
 

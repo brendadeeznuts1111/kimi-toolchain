@@ -22,4 +22,3 @@ export async function apiConsole(): Promise<Response> {
     note: "Bun.inspect(obj, { depth, colors, compact, sorted }). Compare with new Console({ inspectOptions }) when available.",
   });
 }
-

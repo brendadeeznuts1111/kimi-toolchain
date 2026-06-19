@@ -5,13 +5,12 @@ import type { Metric, TrainResult } from "./types.ts";
 const TRAIN_MARGIN = 1.1;
 
 /** If all metrics pass, write thresholds.json with actualMs × 1.1 margin. */
-export async function trainThresholds(
-  metrics: Metric[],
-  outDir?: string
-): Promise<TrainResult> {
+export async function trainThresholds(metrics: Metric[], outDir?: string): Promise<TrainResult> {
   const measured = metrics.filter((m) => !m.skipped);
   const allPass = measured.every((m) => m.pass && !Number.isNaN(m.actualMs));
-  const path = outDir ? `${outDir.replace(/\/$/, "")}/thresholds.json` : `${process.cwd()}/thresholds.json`;
+  const path = outDir
+    ? `${outDir.replace(/\/$/, "")}/thresholds.json`
+    : `${process.cwd()}/thresholds.json`;
 
   if (!allPass) {
     return { written: false, path, thresholds: {} };

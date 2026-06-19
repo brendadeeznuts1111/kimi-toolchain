@@ -5,8 +5,14 @@ import { jsonResponse } from "./api-handlers.ts";
 export async function apiScaffold(): Promise<Response> {
   return jsonResponse({
     architecture: {
-      scriptGenerator: { file: "src/domain/scaffold-plan.ts", exports: ["generatePackageScripts()", "generatePackageJson()"] },
-      fileMappings: { file: "src/domain/scaffold-plan.ts", role: "computeFileMappings() generates package.json + init.ts" },
+      scriptGenerator: {
+        file: "src/domain/scaffold-plan.ts",
+        exports: ["generatePackageScripts()", "generatePackageJson()"],
+      },
+      fileMappings: {
+        file: "src/domain/scaffold-plan.ts",
+        role: "computeFileMappings() generates package.json + init.ts",
+      },
       cli: { file: "src/bin/kimi-scaffold.ts", role: "reads KIMI_MODULES, writes all files" },
     },
     example: {

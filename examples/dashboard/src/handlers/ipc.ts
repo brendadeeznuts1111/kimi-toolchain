@@ -27,17 +27,20 @@ process.send({ ready: true, pid: process.pid });
 
     // Safety timeout
     setTimeout(async () => {
-      try { child.kill(); } catch {}
+      try {
+        child.kill();
+      } catch {}
       await child.exited.catch(() => {});
-      resolve(jsonResponse({
-        childPid: child.pid,
-        messages,
-        parentApi: "child.send(msg) + ipc(handler)",
-        childApi: "process.send(msg) + process.on('message', handler)",
-        serialization: "json (cross-engine compat)",
-        note: "Bun.spawn IPC: native message passing. serialization: 'advanced' (default, JSC) or 'json' (Node.js compat). Bun↔Node IPC works with 'json'.",
-      }));
+      resolve(
+        jsonResponse({
+          childPid: child.pid,
+          messages,
+          parentApi: "child.send(msg) + ipc(handler)",
+          childApi: "process.send(msg) + process.on('message', handler)",
+          serialization: "json (cross-engine compat)",
+          note: "Bun.spawn IPC: native message passing. serialization: 'advanced' (default, JSC) or 'json' (Node.js compat). Bun↔Node IPC works with 'json'.",
+        })
+      );
     }, 3000);
   });
 }
-

@@ -20,9 +20,8 @@ export async function apiInspectTable(): Promise<Response> {
 
   return new Response(
     `// Bun.inspect.table(users)\n${full}\n\n` +
-    `// Bun.inspect.table(users, ["name", "role"])\n${filtered}\n\n` +
-    `// Bun.inspect.table(users, { colors: false })\n${plain}`,
+      `// Bun.inspect.table(users, ["name", "role"])\n${filtered}\n\n` +
+      `// Bun.inspect.table(users, { colors: false })\n${plain}`,
     { headers: { "content-type": "text/plain; charset=utf-8" } }
   );
 }
-

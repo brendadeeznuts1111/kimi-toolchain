@@ -13,7 +13,11 @@ export async function apiFileIO(): Promise<Response> {
   const exists = await file.exists();
 
   // Cleanup (best-effort)
-  try { await import("node:fs/promises").then(fs => fs.unlink(tmpPath)); } catch { /* ok */ }
+  try {
+    await import("node:fs/promises").then((fs) => fs.unlink(tmpPath));
+  } catch {
+    /* ok */
+  }
 
   return jsonResponse({
     path: tmpPath,
@@ -22,4 +26,3 @@ export async function apiFileIO(): Promise<Response> {
     note: "Bun.write(path, data) — atomic write. Bun.file(path) — lazy file handle with .text(), .json(), .arrayBuffer(), .exists().",
   });
 }
-

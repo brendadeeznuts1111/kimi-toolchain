@@ -52,4 +52,3 @@ export async function apiMarkdownAnsi(): Promise<Response> {
     headers: { "content-type": "text/plain; charset=utf-8" },
   });
 }
-

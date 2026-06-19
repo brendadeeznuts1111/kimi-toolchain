@@ -22,4 +22,3 @@ export async function apiCryptoHash(): Promise<Response> {
     note: "Bun.CryptoHasher — incremental hashing. update() multiple times, digest('hex'|'base64'|buffer) to finalize.",
   });
 }
-

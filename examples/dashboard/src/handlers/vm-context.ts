@@ -60,7 +60,9 @@ export async function apiVmContext(): Promise<Response> {
     },
     moveMessagePortToContext: moveStatus,
     isolationStack: {
-      shadowRealm: caps.shadowRealm ? "✅ Available — evaluate() + importValue()" : "❌ unavailable",
+      shadowRealm: caps.shadowRealm
+        ? "✅ Available — evaluate() + importValue()"
+        : "❌ unavailable",
       worker: caps.worker ? "✅ Available — new Worker() + postMessage" : "❌ unavailable",
       vmContext: "✅ Available — vm.createContext() + runInContext()",
       movePort: caps.messagePort ? "✅ success" : `❌ ${moveStatus}`,
@@ -68,4 +70,3 @@ export async function apiVmContext(): Promise<Response> {
     note: "Isolation factory (KIMI_ISOLATION) selects worker / realm / messageport. messageport uses moveMessagePortToContext when the runtime probe passes; otherwise falls back to realm.",
   });
 }
-

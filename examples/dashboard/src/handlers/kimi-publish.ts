@@ -12,8 +12,8 @@ export async function apiKimiPublish(): Promise<Response> {
       { flag: "--no-perf-gates", description: "Skip performance gates before publish" },
       { flag: "--dry-run", description: "Print what would happen without publishing" },
     ],
-    tomlOverridesNote: "bunfig.toml [doctor.thresholds] overrides: probes Bun.TOML.parse, silently skips if unavailable. Human overrides take highest precedence over thresholds.json and defaults.",
+    tomlOverridesNote:
+      "bunfig.toml [doctor.thresholds] overrides: probes Bun.TOML.parse, silently skips if unavailable. Human overrides take highest precedence over thresholds.json and defaults.",
     note: "kimi publish ensures every published package has a README, a readme field in package.json, and passes performance gates. Artifact-quality gate before npm registry push.",
   });
 }
-

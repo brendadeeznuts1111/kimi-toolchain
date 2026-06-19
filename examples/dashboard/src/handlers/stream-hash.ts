@@ -35,16 +35,23 @@ export async function apiStreamHash(): Promise<Response> {
   const bunHash = Bun.SHA256.hash(await Bun.file(tmpPath).arrayBuffer());
   const bunHex = Buffer.from(bunHash).toString("hex");
 
-  try { await import("node:fs/promises").then(fs => fs.unlink(tmpPath)); } catch { /* ok */ }
+  try {
+    await import("node:fs/promises").then((fs) => fs.unlink(tmpPath));
+  } catch {
+    /* ok */
+  }
 
   return jsonResponse({
     fileSize: 1200,
     stream: { chunks: chunkCount, totalBytes, digest: streamDigest.slice(0, 24) + "..." },
     whole: { digest: wholeDigest.slice(0, 24) + "..." },
     string: { digest: stringDigest.slice(0, 24) + "..." },
-    bunNative: { digest: bunHex.slice(0, 24) + "...", approach: "Bun.SHA256.hash(arrayBuffer()) — one-liner" },
-    allMatch: streamDigest === wholeDigest && wholeDigest === stringDigest && stringDigest === bunHex,
+    bunNative: {
+      digest: bunHex.slice(0, 24) + "...",
+      approach: "Bun.SHA256.hash(arrayBuffer()) — one-liner",
+    },
+    allMatch:
+      streamDigest === wholeDigest && wholeDigest === stringDigest && stringDigest === bunHex,
     note: "Stream: Bun.file().stream() + node:crypto. One-liner: Bun.SHA256.hash(await file.arrayBuffer()). Bun.hex() not yet available; use Buffer.from(hash).toString('hex').",
   });
 }
-

@@ -35,4 +35,3 @@ export async function apiSetHeaders(): Promise<Response> {
     });
   });
 }
-

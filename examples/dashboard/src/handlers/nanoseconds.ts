@@ -14,4 +14,3 @@ export async function apiNanoseconds(): Promise<Response> {
     note: `Bun.nanoseconds() → bigint. Elapsed: ${end - start}ns for 1000 Math.sqrt() calls.`,
   });
 }
-

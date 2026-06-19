@@ -2,6 +2,7 @@
   "name": "kimi-toolchain-dashboard",
   "version": "0.1.0",
   "private": true,
+  "description": "65-card Bun API showcase with canvas filters and examples hub",
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/index.ts",
@@ -15,5 +16,22 @@
   },
   "devDependencies": {
     "@types/bun": "latest"
+  },
+  "kimi": {
+    "showcase": {
+      "id": "dashboard",
+      "lane": "runtime",
+      "accent": "#58a6ff",
+      "cards": [
+        "card-gates",
+        "card-kimi-doctor",
+        "card-scaffold",
+        "card-perf-harness",
+        "card-perf-registry",
+        "card-effect-benchmark",
+        "card-symbols",
+        "card-artifacts"
+      ]
+    }
   }
 }

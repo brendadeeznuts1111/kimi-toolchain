@@ -24,13 +24,7 @@ minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 dir = "~/.bun/install/cache"
 
 [test]
-pathIgnorePatterns = [
-  "vendor/**",
-  "submodules/**",
-  "fixtures/**",
-  "**/test-data/**",
-  "examples/**",
-]
+pathIgnorePatterns = ["vendor/**", "submodules/**", "fixtures/**", "**/test-data/**", "examples/**"]
 
 # Console inspection depth — cli flag --console-depth overrides.
 # Default 2 truncates deeply nested objects. Increase for debug sessions.

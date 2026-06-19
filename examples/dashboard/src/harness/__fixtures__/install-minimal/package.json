@@ -1,1 +1,5 @@
-{"name":"kimi-perf-install-fixture","private":true,"dependencies":{}}
+{
+  "name": "kimi-perf-install-fixture",
+  "private": true,
+  "dependencies": {}
+}

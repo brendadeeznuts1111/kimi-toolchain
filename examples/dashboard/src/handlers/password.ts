@@ -20,4 +20,3 @@ export async function apiPassword(): Promise<Response> {
     note: "Bun.password.hash uses argon2id with random salt. Bun.password.verify is constant-time. Async (non-blocking).",
   });
 }
-

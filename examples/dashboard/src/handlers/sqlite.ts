@@ -19,4 +19,3 @@ export async function apiSqlite(): Promise<Response> {
     note: "bun:sqlite Database(':memory:') — zero-config embedded SQL. WAL mode by default. Supports prepared statements, transactions.",
   });
 }
-

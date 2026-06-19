@@ -1,0 +1,354 @@
+/**
+ * Artifact identity APIs for the local examples dashboard.
+ * Lightweight read-only endpoints aligned with Herdr dashboard filters.
+ */
+import {
+  ArtifactStore,
+  extractArtifactTimestampMs,
+  parseArtifactListQuery,
+} from "../../../../src/lib/artifact-store.ts";
+import {
+  DASHBOARD_ARTIFACT_DIFF,
+  DASHBOARD_ARTIFACT_FEED,
+  DASHBOARD_ARTIFACT_INDEX_STATS,
+  DASHBOARD_ARTIFACT_LINEAGE,
+  DASHBOARD_RUN_MANIFEST,
+  isDashboardArtifactNamespace,
+  pathnameGroup,
+} from "../../../../src/lib/dashboard-route-patterns.ts";
+import {
+  fetchDashboardArtifactContext,
+  fetchDashboardArtifactDiff,
+  fetchDashboardArtifactFeed,
+  fetchDashboardArtifactIndexStats,
+  fetchDashboardArtifactLineage,
+  fetchDashboardGateGraph,
+} from "../../../../src/lib/herdr-dashboard-data.ts";
+import { resolveDashboardProjectRoot } from "../../../../src/lib/dashboard-settings.ts";
+
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data, null, 2), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
+}
+
+const ARTIFACT_READONLY_ERROR =
+  "artifact API is read-only; run kimi-doctor --gate <name> --save-artifact to refresh gate artifacts";
+
+export { resolveDashboardProjectRoot };
+
+function artifactPayloadStatus(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "unknown";
+  const row = payload as Record<string, unknown>;
+  if (typeof row.status === "string") return row.status;
+  if (typeof row.ok === "boolean") return row.ok ? "pass" : "fail";
+  return "unknown";
+}
+
+function artifactPayloadSummary(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "No payload summary";
+  const row = payload as Record<string, unknown>;
+  if (typeof row.message === "string") return row.message.slice(0, 160);
+  if (typeof row.reason === "string") return row.reason.slice(0, 160);
+  return JSON.stringify(payload).slice(0, 160);
+}
+
+async function fetchFilterOptions(projectPath: string) {
+  const store = new ArtifactStore(projectPath);
+  await store.syncIndexIfDrifted();
+  return store.distinctIdentityFields();
+}
+
+type ArtifactRow = {
+  gate: string;
+  count: number;
+  latestPath: string | null;
+  latestAgeMs?: number;
+  sessionId?: string;
+  workspaceId?: string;
+  paneId?: string;
+  agentId?: string;
+  runId?: string;
+  status: string;
+  summary: string;
+  lineageSource?: "stored" | "declarative" | "runtime" | "none";
+  dependencyCount?: number;
+  upstreamArtifacts?: string[];
+};
+
+async function attachLineageSummaries(
+  store: ArtifactStore,
+  artifacts: ArtifactRow[]
+): Promise<void> {
+  for (const row of artifacts) {
+    if (!row.latestPath || row.count === 0) {
+      row.lineageSource = "none";
+      row.dependencyCount = 0;
+      row.upstreamArtifacts = [];
+      continue;
+    }
+    const graph = await store.buildLineageGraph(row.latestPath);
+    if (!graph) {
+      row.lineageSource = "none";
+      row.dependencyCount = 0;
+      row.upstreamArtifacts = [];
+      continue;
+    }
+    const declarativeCount = graph.resolved.reduce((sum, block) => sum + block.paths.length, 0);
+    const runtimeCount = graph.runLineage?.upstreamArtifacts.length ?? 0;
+    row.lineageSource = graph.lineageSource;
+    row.dependencyCount = declarativeCount > 0 ? declarativeCount : runtimeCount;
+    row.upstreamArtifacts = graph.runLineage?.upstreamArtifacts ?? [];
+  }
+}
+
+async function fetchArtifacts(
+  projectPath: string,
+  filter = parseArtifactListQuery(new URLSearchParams()),
+  options: { includeLineage?: boolean } = {}
+) {
+  const store = new ArtifactStore(projectPath);
+  const gates = await store.listGates();
+  const hasFilter = Boolean(
+    filter.sessionId || filter.workspaceId || filter.paneId || filter.agentId || filter.runId
+  );
+  const artifacts: ArtifactRow[] = [];
+
+  for (const gate of gates) {
+    if (hasFilter) {
+      const listed = await store.listEntries(gate, filter);
+      if (listed.entries.length === 0) continue;
+      const latestEntry = listed.entries.at(-1)!;
+      const envelope = await store.readEnvelope(latestEntry.path);
+      const latestTimestamp = extractArtifactTimestampMs(latestEntry.path);
+      artifacts.push({
+        gate,
+        count: listed.entries.length,
+        latestPath: latestEntry.path,
+        ...(latestTimestamp !== null ? { latestAgeMs: Date.now() - latestTimestamp } : {}),
+        ...(latestEntry.sessionId ? { sessionId: latestEntry.sessionId } : {}),
+        ...(latestEntry.workspaceId ? { workspaceId: latestEntry.workspaceId } : {}),
+        ...(latestEntry.paneId ? { paneId: latestEntry.paneId } : {}),
+        ...(latestEntry.agentId ? { agentId: latestEntry.agentId } : {}),
+        ...(latestEntry.runId ? { runId: latestEntry.runId } : {}),
+        status: artifactPayloadStatus(envelope?.payload),
+        summary: artifactPayloadSummary(envelope?.payload),
+      });
+      continue;
+    }
+
+    const paths = await store.list(gate);
+    const latest = await store.getLatest(gate);
+    const listed = await store.listEntries(gate, { limit: 1 });
+    const latestEntry = listed.entries.at(-1);
+    const latestTimestamp = latest?.relativePath
+      ? extractArtifactTimestampMs(latest.relativePath)
+      : null;
+    artifacts.push({
+      gate,
+      count: paths.length,
+      latestPath: latest?.relativePath ?? null,
+      ...(latestTimestamp !== null ? { latestAgeMs: Date.now() - latestTimestamp } : {}),
+      ...(latestEntry?.sessionId ? { sessionId: latestEntry.sessionId } : {}),
+      ...(latestEntry?.workspaceId ? { workspaceId: latestEntry.workspaceId } : {}),
+      ...(latestEntry?.paneId ? { paneId: latestEntry.paneId } : {}),
+      ...(latestEntry?.agentId ? { agentId: latestEntry.agentId } : {}),
+      ...(latestEntry?.runId ? { runId: latestEntry.runId } : {}),
+      status: artifactPayloadStatus(latest?.payload),
+      summary: artifactPayloadSummary(latest?.payload),
+    });
+  }
+
+  if (options.includeLineage) {
+    await attachLineageSummaries(store, artifacts);
+  }
+
+  return {
+    ok: true,
+    projectPath,
+    artifacts,
+    ...(hasFilter ? { filter } : {}),
+    ...(options.includeLineage ? { includeLineage: true } : {}),
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+async function fetchRunsList(
+  projectPath: string,
+  filter = parseArtifactListQuery(new URLSearchParams())
+) {
+  const store = new ArtifactStore(projectPath);
+  const runs = [];
+  for (const manifest of await store.listRunManifests(filter)) {
+    runs.push({
+      runId: manifest.runId,
+      status: manifest.status,
+      startedAt: manifest.startedAt,
+      completedAt: manifest.completedAt,
+      gates: manifest.gates,
+      ...(manifest.sessionId ? { sessionId: manifest.sessionId } : {}),
+      ...(manifest.workspaceId ? { workspaceId: manifest.workspaceId } : {}),
+      ...(manifest.paneId ? { paneId: manifest.paneId } : {}),
+      ...(manifest.agentId ? { agentId: manifest.agentId } : {}),
+    });
+  }
+  return {
+    ok: true,
+    projectPath,
+    runs,
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+export async function handleArtifactsRequest(req: Request): Promise<Response | null> {
+  const url = new URL(req.url);
+  const path = url.pathname;
+  const root = resolveDashboardProjectRoot();
+  const filter = parseArtifactListQuery(url.searchParams);
+
+  if (path === "/api/artifacts" && req.method === "GET") {
+    const includeLineage = url.searchParams.get("includeLineage") === "1";
+    return jsonResponse(await fetchArtifacts(root, filter, { includeLineage }));
+  }
+
+  if (path === "/api/gates/graph" && req.method === "GET") {
+    const gate = url.searchParams.get("gate")?.trim() || undefined;
+    return jsonResponse(await fetchDashboardGateGraph(gate));
+  }
+
+  if (path === "/api/runs" && req.method === "GET") {
+    return jsonResponse(await fetchRunsList(root, filter));
+  }
+
+  if (DASHBOARD_ARTIFACT_FEED.test(url) && req.method === "GET") {
+    const limit = Number(url.searchParams.get("limit") ?? "50");
+    const xml = await fetchDashboardArtifactFeed(root, {
+      baseUrl: url.origin,
+      limit: Number.isFinite(limit) ? limit : 50,
+    });
+    return new Response(xml, {
+      status: 200,
+      headers: {
+        "content-type": "application/rss+xml; charset=utf-8",
+        "cache-control": "no-store",
+      },
+    });
+  }
+
+  if (DASHBOARD_ARTIFACT_INDEX_STATS.test(url) && req.method === "GET") {
+    return jsonResponse(await fetchDashboardArtifactIndexStats(root));
+  }
+
+  const diffMatch = DASHBOARD_ARTIFACT_DIFF.exec(url);
+  if (diffMatch && req.method === "GET") {
+    const gateName = pathnameGroup(diffMatch, "gate");
+    const pathA = url.searchParams.get("a")?.trim() ?? "";
+    const pathB = url.searchParams.get("b")?.trim() ?? "";
+    if (!gateName || !pathA || !pathB) {
+      return jsonResponse({ ok: false, error: "gate, a, and b query params required" }, 400);
+    }
+    const payload = await fetchDashboardArtifactDiff(root, gateName, pathA, pathB);
+    return jsonResponse(payload, payload.ok ? 200 : 404);
+  }
+
+  const runMatch = DASHBOARD_RUN_MANIFEST.exec(url);
+  if (runMatch && req.method === "GET") {
+    const runId = pathnameGroup(runMatch, "runId");
+    if (!runId) {
+      return jsonResponse({ ok: false, error: "runId required" }, 400);
+    }
+    const store = new ArtifactStore(root);
+    const manifest = await store.readRunManifest(runId);
+    if (!manifest) {
+      return jsonResponse({ ok: false, runId, error: "Run not found" }, 404);
+    }
+    const artifacts = [];
+    for (const gate of manifest.gates) {
+      const relativePath = manifest.artifacts[gate];
+      if (!relativePath) continue;
+      const envelope = await store.readEnvelope(relativePath);
+      const metadata = envelope?.metadata;
+      artifacts.push({
+        gate,
+        path: relativePath,
+        status: artifactPayloadStatus(envelope?.payload),
+        summary: artifactPayloadSummary(envelope?.payload),
+        savedAt: envelope?.savedAt ?? null,
+        ...(envelope?.size !== undefined ? { size: envelope.size } : {}),
+        ...(metadata?.resultSize !== undefined ? { resultSize: metadata.resultSize } : {}),
+        ...(metadata?.sessionId ? { sessionId: metadata.sessionId } : {}),
+        ...(metadata?.workspaceId ? { workspaceId: metadata.workspaceId } : {}),
+        ...(metadata?.paneId ? { paneId: metadata.paneId } : {}),
+        ...(metadata?.agentId ? { agentId: metadata.agentId } : {}),
+        ...(metadata?.runId ? { runId: metadata.runId } : {}),
+        ...(metadata?.parentRunId ? { parentRunId: metadata.parentRunId } : {}),
+        ...(metadata?.hostname ? { hostname: metadata.hostname } : {}),
+        ...(metadata?.bunVersion ? { bunVersion: metadata.bunVersion } : {}),
+        ...(metadata?.level !== undefined ? { level: metadata.level } : {}),
+        ...(metadata?.dependsOn ? { dependsOn: metadata.dependsOn } : {}),
+        ...(metadata?.lineage ? { lineage: metadata.lineage } : {}),
+        ...(metadata?.lineageMermaid ? { hasLineageMermaid: true } : {}),
+      });
+    }
+    return jsonResponse({
+      ok: true,
+      projectPath: root,
+      runId,
+      manifest,
+      artifacts,
+      fetchedAt: new Date().toISOString(),
+    });
+  }
+
+  if (path === "/api/artifacts/list" && req.method === "GET") {
+    const gate = url.searchParams.get("gate") ?? "bunfig-policy";
+    const store = new ArtifactStore(root);
+    const listed = await store.listEntries(gate, filter);
+    return jsonResponse({
+      ok: true,
+      gate,
+      files: listed.files,
+      entries: listed.entries,
+      filter,
+    });
+  }
+
+  if (path === "/api/artifacts/filter-options" && req.method === "GET") {
+    return jsonResponse({ ok: true, filterOptions: await fetchFilterOptions(root) });
+  }
+
+  if (path === "/api/artifacts/metadata" && req.method === "GET") {
+    const gate = url.searchParams.get("gate")?.trim() || undefined;
+    const store = new ArtifactStore(root);
+    const payload = await store.collectMetadata(filter, { gate });
+    return jsonResponse({
+      ...payload,
+      projectPath: root,
+      filter,
+      ...(gate ? { gate } : {}),
+      fetchedAt: new Date().toISOString(),
+    });
+  }
+
+  if (path === "/api/artifacts/context" && req.method === "GET") {
+    return jsonResponse(await fetchDashboardArtifactContext(root));
+  }
+
+  const lineageMatch = DASHBOARD_ARTIFACT_LINEAGE.exec(url);
+  if (lineageMatch && req.method === "GET") {
+    const gateName = pathnameGroup(lineageMatch, "gate");
+    if (!gateName) {
+      return jsonResponse({ ok: false, error: "gate required" }, 400);
+    }
+    const artifactPath = url.searchParams.get("path")?.trim() || undefined;
+    const payload = await fetchDashboardArtifactLineage(root, gateName, artifactPath);
+    return jsonResponse(payload, payload.ok ? 200 : 404);
+  }
+
+  if (isDashboardArtifactNamespace(path) && req.method !== "GET" && req.method !== "HEAD") {
+    return jsonResponse({ ok: false, error: ARTIFACT_READONLY_ERROR }, 405);
+  }
+
+  return null;
+}

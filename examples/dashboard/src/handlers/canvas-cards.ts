@@ -87,10 +87,12 @@ export async function apiCanvasFilter(request: Request): Promise<Response> {
 export async function apiCards(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const canvas = url.searchParams.get("canvas");
+  const orphans = url.searchParams.get("orphans") === "true";
   const deepProbe = url.searchParams.get("probe") !== "false";
   const probes = deepProbe ? await collectAllCardProbes(request) : await collectHubCardProbes();
   const payload = await fetchDashboardCardsPayload(REPO_ROOT, {
-    canvas,
+    canvas: orphans ? null : canvas,
+    orphans,
     probes,
     probed: deepProbe,
   });

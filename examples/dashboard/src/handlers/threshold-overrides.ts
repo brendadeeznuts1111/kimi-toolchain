@@ -15,7 +15,9 @@ export async function apiThresholdOverrides(): Promise<Response> {
         bunfigOverrides = doctor.thresholds as Record<string, number>;
       }
     }
-  } catch { /* no file */ }
+  } catch {
+    /* no file */
+  }
 
   // Default thresholds (what perf-monitor uses as fallback)
   const defaults: Record<string, number> = {
@@ -36,12 +38,21 @@ export async function apiThresholdOverrides(): Promise<Response> {
     merged,
     precedence: [
       { layer: 1, source: "overrideThresholds() API", method: "Programmatic" },
-      { layer: 2, source: "bunfig.toml", method: "Human config ([doctor.thresholds] or [test.kimi-doctor.thresholds])" },
+      {
+        layer: 2,
+        source: "bunfig.toml",
+        method: "Human config ([doctor.thresholds] or [test.kimi-doctor.thresholds])",
+      },
       { layer: 3, source: "thresholds.json", method: "Machine-trained (kimi-doctor --train)" },
       { layer: 4, source: "DEFAULT_THRESHOLDS", method: "Built-in fallback" },
     ],
-    tomlFormats: ["[doctor.thresholds]", "[test.kimi-doctor.thresholds]", "[kimi-doctor.thresholds]"],
-    fallback: "Manual regex parser for older Bun versions without Bun.TOML.parse(). Gracefully degrades.",
+    tomlFormats: [
+      "[doctor.thresholds]",
+      "[test.kimi-doctor.thresholds]",
+      "[kimi-doctor.thresholds]",
+    ],
+    fallback:
+      "Manual regex parser for older Bun versions without Bun.TOML.parse(). Gracefully degrades.",
     exampleConfig: `# bunfig.toml
 [doctor.thresholds]
 "kimi.effect.image.metadata" = 3.5
@@ -49,4 +60,3 @@ export async function apiThresholdOverrides(): Promise<Response> {
     note: "Dual TOML format + regex fallback. 4-layer precedence: overrideThresholds() > bunfig.toml > thresholds.json > DEFAULT_THRESHOLDS. kimi-publish wraps bun publish with README check + perf gates.",
   });
 }
-

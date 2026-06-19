@@ -8,9 +8,16 @@
  * - Markdown rendering (Bun.markdown.html)
  *
  * Start: bun run src/index.ts
- * Open:  http://localhost:3000
+ * Open:  http://localhost:5678  (Dashboard Contract v1.0; override with PORT)
  */
 
+import {
+  CANONICAL_DASHBOARD_PORT,
+  parseDashboardCliPort,
+  resolveDashboardProjectRoot,
+  resolveDashboardSettings,
+  resolveDashboardStartupPort,
+} from "../../../src/lib/dashboard-settings.ts";
 import { resolveBin, USER_TOOLCHAIN_BIN } from "./lib/toolchain-paths.ts";
 import {
   createIsolation,
@@ -29,7 +36,10 @@ import http2 from "node:http2";
 import { apiEffectBenchmark } from "./handlers/effect-benchmark.ts";
 import { handleArtifactsRequest } from "./handlers/artifacts.ts";
 
-const port = Number(Bun.env.PORT) || 3000;
+const projectRoot = resolveDashboardProjectRoot(import.meta.dir);
+const { port: listenPort } = await resolveDashboardStartupPort(projectRoot, {
+  cliPort: parseDashboardCliPort(Bun.argv),
+});
 
 function resolveRoot(): string {
   // When running from the toolchain repo (examples/dashboard/), use repo root.
@@ -103,7 +113,10 @@ export async function apiSecrets(): Promise<Response> {
   });
 }
 
-export async function apiEnv(): Promise<Response> {
+export async function apiEnv(request?: Request): Promise<Response> {
+  const projectRoot = resolveDashboardProjectRoot(import.meta.dir);
+  const requestUrl = request ? new URL(request.url) : undefined;
+  const settings = await resolveDashboardSettings(projectRoot, { requestUrl });
   const pathDirs = (Bun.env.PATH || "").split(":").filter(Boolean);
 
   interface ToolEntry {
@@ -180,8 +193,13 @@ export async function apiEnv(): Promise<Response> {
       KIMI_PROFILE: Bun.env.KIMI_PROFILE || "toolchain",
       BUN_CREATE_DIR: Bun.env.BUN_CREATE_DIR || `${resolveRoot()}/.bun-create`,
       HERDR_ENV: Bun.env.HERDR_ENV || "0",
-      PORT: Bun.env.PORT || "3000",
+      PORT: Bun.env.PORT || String(settings.port),
+      PROBE_SERVER_PORT: Bun.env.PROBE_SERVER_PORT || String(settings.probePort),
     },
+    dashboardUrl: settings.dashboardUrl,
+    listenPort: settings.port,
+    probePort: settings.probePort,
+    portSource: settings.sources.port,
   });
 }
 
@@ -442,7 +460,7 @@ export async function apiInspect(): Promise<Response> {
     port: number;
     host: string;
     constructor() {
-      this.port = 5678;
+      this.port = CANONICAL_DASHBOARD_PORT;
       this.host = "localhost";
     }
   }
@@ -450,7 +468,7 @@ export async function apiInspect(): Promise<Response> {
   const sample = {
     "path.root": "kimi-toolchain-dashboard",
     "path.version": "0.1.0",
-    "path.config.port": 5678,
+    "path.config.port": CANONICAL_DASHBOARD_PORT,
     "path.config.host": "localhost",
     "path.config.debug": false,
     "path.config.env": null as null | string,
@@ -3391,7 +3409,7 @@ export async function apiGlob(): Promise<Response> {
 // ── Server ──────────────────────────────────────────────────────────
 
 const server = Bun.serve({
-  port,
+  port: listenPort,
   async fetch(req) {
     const artifactResponse = await handleArtifactsRequest(req);
     if (artifactResponse) return artifactResponse;
@@ -3525,7 +3543,7 @@ const server = Bun.serve({
       case "/api/dotenv":
         return apiDotenv();
       case "/api/env":
-        return apiEnv();
+        return apiEnv(req);
       case "/api/build-info":
         return apiBuildInfo();
       case "/api/runtime-info":

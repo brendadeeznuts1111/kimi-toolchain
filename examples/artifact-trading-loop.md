@@ -72,14 +72,58 @@ Improvement Loop
 
 ## Optimization Strategies
 
-| Goal                  | Trader's approach                        | Our equivalent            |
-| --------------------- | ---------------------------------------- | ------------------------- |
-| Prevent storage bloat | Auto-prune >30-90 days per gate          | `ArtifactStore.prune()`   |
-| Fast querying         | `?since=` and `?limit=` params           | Artifact list API         |
-| Avoid stat() overhead | Store `resultSize` at save time          | `metadata.resultSize`     |
-| Detect problems early | Lightweight frequent gates + heavy daily | Card probes + full gates  |
-| Agent automation      | Probe server + dashboard                 | `--serve-probe` + Herdr   |
-| Audit trail           | Checksum on every artifact               | `ArtifactEnvelope` schema |
+| Goal                  | Trader's approach                        | Our equivalent                                                                 |
+| --------------------- | ---------------------------------------- | ------------------------------------------------------------------------------ |
+| Prevent storage bloat | Auto-prune >30-90 days per gate          | `ArtifactStore.prune()`                                                        |
+| Fast querying         | `?since=` and `?limit=` params           | Artifact list API                                                              |
+| Avoid stat() overhead | Store `resultSize` at save time          | `metadata.resultSize`                                                          |
+| Detect problems early | Lightweight frequent gates + heavy daily | Card probes + full gates                                                       |
+| Agent automation      | Probe server + dashboard                 | `--serve-probe` + Herdr                                                        |
+| Audit trail           | Checksum on every artifact               | `ArtifactEnvelope` schema                                                      |
+| Session correlation   | Tie artifacts to Kimi/Herdr context      | `metadata.sessionId`, `workspaceId`, `paneId`, `runId` (auto-injected on save) |
+
+## Identity and run correlation (phased model)
+
+Artifacts are temporally grouped by gate name and filename; identity fields add
+**who** and **which invocation** produced each envelope. Implementation is
+intentionally phased — correlation first, narrative manifests second.
+
+| Phase                                      | Shipped                      | Purpose                                                                                                       |
+| ------------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **1 — Identity on every save**             | Yes                          | `runId`, `sessionId`, `workspaceId`, `paneId`, `agentId`, `parentRunId` in `metadata`                         |
+| **2 — Run manifest per doctor invocation** | Yes (with `--save-artifact`) | `.kimi/artifacts/runs/{runId}.json` groups all gates from one closure                                         |
+| **3 — Query + dashboard narrative**        | Partial                      | Filter APIs + Herdr Artifacts tab; wire `/api/runs` where the dashboard server delegates to artifact handlers |
+
+Gates do not pass identity fields manually. `ArtifactStore.save()` resolves
+context from the environment and always stamps a `runId`:
+
+| Field         | Source env                                                            |
+| ------------- | --------------------------------------------------------------------- |
+| `sessionId`   | `KIMI_CODE_SESSION` or `KIMI_AGENT_SESSION`                           |
+| `workspaceId` | `HERDR_WORKSPACE_ID`, `HERDR_SESSION_ID`, or `HERDR_SESSION`          |
+| `paneId`      | `HERDR_PANE_ID`                                                       |
+| `agentId`     | `KIMI_AGENT_ID` (falls back to `paneId`)                              |
+| `runId`       | `KIMI_RUN_ID` during gate-runner closure, else auto-generated `run_*` |
+| `parentRunId` | `KIMI_PARENT_RUN_ID` or outer `KIMI_RUN_ID` for nested runs           |
+
+```bash
+# Phase 1 — filter artifacts by identity
+GET /api/artifacts?sessionId=wd_abc&limit=10
+GET /api/artifacts?workspaceId=my-workspace
+GET /api/artifacts?runId=run_20260619_120000_ab12cd
+
+# Phase 2 — one doctor invocation, many gates, one manifest
+kimi-doctor --gate model-drift --save-artifact
+# → shared runId on all closure artifacts + .kimi/artifacts/runs/run_*.json
+
+# Phase 3 — run narrative
+GET /api/runs
+GET /api/runs/run_20260619_120000_ab12cd
+```
+
+Modules: `src/lib/artifact-store.ts`, `src/lib/artifact-identity.ts` (`resolveIdentityContext`),
+`src/gates/runner.ts` (`KIMI_RUN_ID`, `saveRunManifest`). Correlates with
+`doctor_runs.run_id` in `~/.kimi-code/var/sessions.db`.
 
 ## Key Insight
 
@@ -95,10 +139,10 @@ This is the same architecture powering `bunfig-policy`, `perf-gate`,
 Two gates are registered in `src/gates/registry.ts` for agents to exercise the
 loop without a full trading stack:
 
-| Gate                   | Level | `dependsOn`              | Reads via `GateContext`                          |
-| ---------------------- | ----- | ------------------------ | ------------------------------------------------ |
-| `strategy-performance` | L2    | _(none — L1 optional)_   | `getArtifacts("data-freshness")`, `getArtifact("risk-limits")` |
-| `model-drift`          | L2    | `strategy-performance`   | `getArtifacts("strategy-performance", { since, limit: 30 })` |
+| Gate                   | Level | `dependsOn`            | Reads via `GateContext`                                        |
+| ---------------------- | ----- | ---------------------- | -------------------------------------------------------------- |
+| `strategy-performance` | L2    | _(none — L1 optional)_ | `getArtifacts("data-freshness")`, `getArtifact("risk-limits")` |
+| `model-drift`          | L2    | `strategy-performance` | `getArtifacts("strategy-performance", { since, limit: 30 })`   |
 
 ```bash
 # Resolve closure + run in topological order (deps first)
@@ -120,12 +164,13 @@ See [control-plane-layers.md](control-plane-layers.md) for level semantics.
 
 ## References (toolchain)
 
-| Module | Path | Role |
-| ------ | ---- | ---- |
-| Artifact storage | `src/lib/artifact-store.ts` | Envelope schema, `dependsOn`, prune, lineage Mermaid |
-| Gate runner | `src/gates/runner.ts` | `topologicalSort(Gate[])`, parallel levels, `GateContext` |
-| Gate registry | `src/gates/registry.ts` | `resolveGateClosure`, built-in gate list |
-| Trading gates | `src/gates/strategy-performance.ts`, `src/gates/model-drift.ts` | L2 demo slice |
-| Lineage graphs | `src/lib/graph-to-mermaid.ts` | Execution DAG + artifact lineage export |
-| Probe server | `src/lib/card-probe-server.ts` | HTTP observation for dashboard cards |
-| Doctor CLI | `src/bin/kimi-doctor.ts` | `--gate`, `--gate-graph`, `--artifacts-lineage` |
+| Module           | Path                                                            | Role                                                                       |
+| ---------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Artifact storage | `src/lib/artifact-store.ts`                                     | Envelope schema, identity injection, run manifests, prune, lineage Mermaid |
+| Identity helper  | `src/lib/artifact-identity.ts`                                  | `resolveIdentityContext`, Herdr pane env exports                           |
+| Gate runner      | `src/gates/runner.ts`                                           | `topologicalSort(Gate[])`, parallel levels, `GateContext`                  |
+| Gate registry    | `src/gates/registry.ts`                                         | `resolveGateClosure`, built-in gate list                                   |
+| Trading gates    | `src/gates/strategy-performance.ts`, `src/gates/model-drift.ts` | L2 demo slice                                                              |
+| Lineage graphs   | `src/lib/graph-to-mermaid.ts`                                   | Execution DAG + artifact lineage export                                    |
+| Probe server     | `src/lib/card-probe-server.ts`                                  | HTTP observation for dashboard cards                                       |
+| Doctor CLI       | `src/bin/kimi-doctor.ts`                                        | `--gate`, `--gate-graph`, `--artifacts-lineage`                            |

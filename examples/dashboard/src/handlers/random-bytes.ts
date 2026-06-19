@@ -15,4 +15,3 @@ export async function apiRandomBytes(): Promise<Response> {
     note: "node:crypto.randomBytes(n) and randomFillSync(buf) — CSPRNG. Bun mirrors Node.js crypto.randomBytes exactly.",
   });
 }
-

@@ -21,4 +21,3 @@ export async function apiPeek(): Promise<Response> {
     note: "Bun.peek.status(p) → 'pending'|'fulfilled'|'rejected'. Bun.peek(p) extracts value if fulfilled (sync, same tick).",
   });
 }
-

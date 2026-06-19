@@ -8,7 +8,7 @@
  * - Markdown rendering (Bun.markdown.html)
  *
  * Start: bun run src/index.ts
- * Open:  http://localhost:3000
+ * Open:  http://localhost:5678
  */
 
 import { resolveBin, USER_TOOLCHAIN_BIN } from "./lib/toolchain-paths.ts";

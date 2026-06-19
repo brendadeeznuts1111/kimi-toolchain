@@ -12,7 +12,11 @@ export async function apiDeepMatch(): Promise<Response> {
     const prodCheck = typeof t.traceId === "string" && typeof t.status === "number";
 
     // Exact structural match
-    const exactMatch = Bun.deepMatch(t, { traceId: "abc-123", status: 200, contentType: "application/json" });
+    const exactMatch = Bun.deepMatch(t, {
+      traceId: "abc-123",
+      status: 200,
+      contentType: "application/json",
+    });
 
     return {
       trace: JSON.stringify(t),
@@ -28,4 +32,3 @@ export async function apiDeepMatch(): Promise<Response> {
     note: "Bun.deepMatch(a, b) — exact structural match (not subset). Manual type checks (typeof) for shape validation. expect.any() matchers with deepMatch not yet available in Bun v1.4.0-canary.",
   });
 }
-

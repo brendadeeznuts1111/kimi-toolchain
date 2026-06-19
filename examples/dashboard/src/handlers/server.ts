@@ -126,7 +126,7 @@ const server = Bun.serve({
       case "/api/dotenv":
         return apiDotenv();
       case "/api/env":
-        return apiEnv();
+        return apiEnv(req);
       case "/api/build-info":
         return apiBuildInfo();
       case "/api/runtime-info":
@@ -172,4 +172,3 @@ const server = Bun.serve({
 });
 
 Bun.stdout.write(`Dashboard running at http://localhost:${server.port}\n`);
-

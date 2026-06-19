@@ -29,8 +29,20 @@ export async function apiShell(): Promise<Response> {
     pkgFields: { name, version },
     shellError,
     stdout,
-    methods: ["text()", "json()", "lines()", "arrayBuffer()", "bytes()", "blob()", "quiet()", "nothrow()", "throws(bool)", "cwd(dir)", "env(obj)", "run()"],
+    methods: [
+      "text()",
+      "json()",
+      "lines()",
+      "arrayBuffer()",
+      "bytes()",
+      "blob()",
+      "quiet()",
+      "nothrow()",
+      "throws(bool)",
+      "cwd(dir)",
+      "env(obj)",
+      "run()",
+    ],
     note: "Bun Shell: $`cmd` template literals. ShellError.exitCode for branching. .quiet() suppresses echo. .nothrow() prevents throw on non-zero.",
   });
 }
-

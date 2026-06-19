@@ -31,4 +31,3 @@ export async function apiTty(): Promise<Response> {
     },
   });
 }
-

@@ -50,8 +50,18 @@ export async function apiKimiDoctor(): Promise<Response> {
     },
     httpBenchmarks: [
       { key: "http.fetch-h1", protocol: "http1.1", thresholdMs: 50 },
-      { key: "http.fetch-h2", protocol: "http2", thresholdMs: 40, note: "skipped when fetch client unavailable" },
-      { key: "http.fetch-h3", protocol: "http3", thresholdMs: 35, note: "skipped when Bun.serve http3 unavailable" },
+      {
+        key: "http.fetch-h2",
+        protocol: "http2",
+        thresholdMs: 40,
+        note: "skipped when fetch client unavailable",
+      },
+      {
+        key: "http.fetch-h3",
+        protocol: "http3",
+        thresholdMs: 35,
+        note: "skipped when Bun.serve http3 unavailable",
+      },
     ],
     allAtOnce: "bun run src/bin/perf-doctor.ts --perf-gates --report --watch --out=.",
     note: "Performance loop lives in perf-doctor (this example). Main kimi-doctor --watch polls effect-gates; use perf-doctor --watch for file-triggered benchmark re-runs.",

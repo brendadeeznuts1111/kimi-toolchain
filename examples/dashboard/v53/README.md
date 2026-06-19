@@ -26,17 +26,17 @@ Threshold layers (lowest wins last): `DEFAULT_THRESHOLDS` → `thresholds.json` 
 
 ## Nine consolidated files
 
-| # | File | Contents |
-|---|------|----------|
-| 1 | `kimi-toolchain-core.ts` | Symbols, validation, gates |
-| 2 | `kimi-toolchain-harness.ts` | Transpiler scanner, HTML reporter |
-| 3 | `kimi-toolchain-metrics.ts` | Types, thresholds, monitor, CLI |
-| 4 | `kimi-toolchain-trained.ts` | Threshold loading, bunfig, `--train` |
-| 5 | `kimi-toolchain-scaffold.ts` | Package.json generator, script wiring |
-| 6 | `kimi-toolchain-final.ts` | `Bun.TOML.parse`, `kimi-publish` |
-| 7 | `kimi-toolchain-herdr.ts` | Watch mode, heal, Herdr `dx.config.toml` |
-| 8 | `kimi-toolchain-profile.ts` | `kimi-fix --profile toolchain`, v5.3 spec |
-| 9 | `kimi-toolchain-card40.ts` | `DEFAULT_MODULES`, Card #40, dashboard |
+| #   | File                         | Contents                                  |
+| --- | ---------------------------- | ----------------------------------------- |
+| 1   | `kimi-toolchain-core.ts`     | Symbols, validation, gates                |
+| 2   | `kimi-toolchain-harness.ts`  | Transpiler scanner, HTML reporter         |
+| 3   | `kimi-toolchain-metrics.ts`  | Types, thresholds, monitor, CLI           |
+| 4   | `kimi-toolchain-trained.ts`  | Threshold loading, bunfig, `--train`      |
+| 5   | `kimi-toolchain-scaffold.ts` | Package.json generator, script wiring     |
+| 6   | `kimi-toolchain-final.ts`    | `Bun.TOML.parse`, `kimi-publish`          |
+| 7   | `kimi-toolchain-herdr.ts`    | Watch mode, heal, Herdr `dx.config.toml`  |
+| 8   | `kimi-toolchain-profile.ts`  | `kimi-fix --profile toolchain`, v5.3 spec |
+| 9   | `kimi-toolchain-card40.ts`   | `DEFAULT_MODULES`, Card #40, dashboard    |
 
 ### Awk splitter
 
@@ -58,11 +58,11 @@ Each section begins with a 60-character `=` separator line followed by the filen
 
 ## Profile registry
 
-| Profile | Gates | Follow-up | Watch patterns |
-|---------|-------|-----------|----------------|
+| Profile     | Gates                                              | Follow-up                  | Watch patterns                   |
+| ----------- | -------------------------------------------------- | -------------------------- | -------------------------------- |
 | `toolchain` | check:fast, effect-gates, perf-gates, effect-audit | Domain drift, method count | `src/effect/**`, `src/domain/**` |
-| `minimal` | check:fast | — | — |
-| `ci` | check:fast, test, perf-gates, publish:dry | — | — |
+| `minimal`   | check:fast                                         | —                          | —                                |
+| `ci`        | check:fast, test, perf-gates, publish:dry          | —                          | —                                |
 
 ```bash
 bun run src/bin/kimi-fix.ts --profile toolchain          # full validation
@@ -95,45 +95,45 @@ export const DEFAULT_MODULES = ["trace", "perf"];
 
 ## MODULE_REGISTRY (8 entries)
 
-| Module | initSymbol | default | thresholdMs |
-|--------|------------|---------|-------------|
-| trace | `kimi.trace` | yes | — |
-| perf | `kimi.perf` | yes | — |
-| snapshots | `kimi.snapshot` | — | — |
-| logging | `kimi.logger` | — | — |
-| performance | `kimi.perfMark` | — | — |
-| image | `kimi.effect.image` | — | 200 |
-| clock | `kimi.effect.clock` | — | 0.01 |
-| uuid | `kimi.effect.uuid` | — | 0.1 |
+| Module      | initSymbol          | default | thresholdMs |
+| ----------- | ------------------- | ------- | ----------- |
+| trace       | `kimi.trace`        | yes     | —           |
+| perf        | `kimi.perf`         | yes     | —           |
+| snapshots   | `kimi.snapshot`     | —       | —           |
+| logging     | `kimi.logger`       | —       | —           |
+| performance | `kimi.perfMark`     | —       | —           |
+| image       | `kimi.effect.image` | —       | 200         |
+| clock       | `kimi.effect.clock` | —       | 0.01        |
+| uuid        | `kimi.effect.uuid`  | —       | 0.1         |
 
 ## Card dashboard (#34–#42)
 
-| # | Card | Status |
-|---|------|--------|
-| 34 | snapshot helper | ✓ |
-| 35 | coverage gate | ✓ |
-| 36 | isolate verify | ◌ |
-| 37 | diff reporter | ◐ |
-| 39 | table status | ✓ |
-| 40 | kimi-doctor CLI | ✓ |
-| 41 | clock module | ✓ |
-| 42 | uuid module | ✓ |
+| #   | Card            | Status |
+| --- | --------------- | ------ |
+| 34  | snapshot helper | ✓      |
+| 35  | coverage gate   | ✓      |
+| 36  | isolate verify  | ◌      |
+| 37  | diff reporter   | ◐      |
+| 39  | table status    | ✓      |
+| 40  | kimi-doctor CLI | ✓      |
+| 41  | clock module    | ✓      |
+| 42  | uuid module     | ✓      |
 
-Live demo: `cd examples/dashboard && bun run src/index.ts` → http://localhost:3000
+Live demo: `cd examples/dashboard && bun run src/index.ts` → http://localhost:5678
 
 ## Manifest canvases (9 companions)
 
-| readOrder | Canvas | Manifest id |
-|-----------|--------|-------------|
-| 1 | `kimi-toolchain` | `unified` |
-| 2 | `namespace-boundaries` | `namespace` |
-| 3 | `configuration-layers` | `configuration-layers` |
-| 4 | `doc-links-and-see-ladder` | `code-references` |
-| 5 | `kimi-fix` | `templates` |
-| 6 | `herdr-dashboard-thumbnails` | `dashboard-thumbnails` |
-| 7 | `herdr-dashboard-automation` | `kimi-doctor` |
-| 8 | `herdr-unified-plugin-architecture` | `herdr-plugin-architecture` |
-| 9 | `kimi-heal-doctor-scaffold` | `deep-quality` |
+| readOrder | Canvas                              | Manifest id                 |
+| --------- | ----------------------------------- | --------------------------- |
+| 1         | `kimi-toolchain`                    | `unified`                   |
+| 2         | `namespace-boundaries`              | `namespace`                 |
+| 3         | `configuration-layers`              | `configuration-layers`      |
+| 4         | `doc-links-and-see-ladder`          | `code-references`           |
+| 5         | `kimi-fix`                          | `templates`                 |
+| 6         | `herdr-dashboard-thumbnails`        | `dashboard-thumbnails`      |
+| 7         | `herdr-dashboard-automation`        | `kimi-doctor`               |
+| 8         | `herdr-unified-plugin-architecture` | `herdr-plugin-architecture` |
+| 9         | `kimi-heal-doctor-scaffold`         | `deep-quality`              |
 
 IDE paths: `docs/canvases/<name>.canvas.tsx` · regenerate: `bun run references:generate`
 

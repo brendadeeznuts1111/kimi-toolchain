@@ -6,9 +6,21 @@ export async function apiUrlNode(): Promise<Response> {
 
   // IDN: domainToASCII / domainToUnicode
   const idn = [
-    { input: "日本語.jp", ascii: nodeUrl.domainToASCII("日本語.jp"), unicode: nodeUrl.domainToUnicode("xn--wgv71a119e.jp") },
-    { input: "español.com", ascii: nodeUrl.domainToASCII("español.com"), unicode: nodeUrl.domainToUnicode("xn--espaol-zwa.com") },
-    { input: "中文.com", ascii: nodeUrl.domainToASCII("中文.com"), unicode: nodeUrl.domainToUnicode("xn--fiq228c.com") },
+    {
+      input: "日本語.jp",
+      ascii: nodeUrl.domainToASCII("日本語.jp"),
+      unicode: nodeUrl.domainToUnicode("xn--wgv71a119e.jp"),
+    },
+    {
+      input: "español.com",
+      ascii: nodeUrl.domainToASCII("español.com"),
+      unicode: nodeUrl.domainToUnicode("xn--espaol-zwa.com"),
+    },
+    {
+      input: "中文.com",
+      ascii: nodeUrl.domainToASCII("中文.com"),
+      unicode: nodeUrl.domainToUnicode("xn--fiq228c.com"),
+    },
   ];
 
   // fileURLToPath / pathToFileURL roundtrip
@@ -32,9 +44,12 @@ export async function apiUrlNode(): Promise<Response> {
   return jsonResponse({
     idn,
     fileRoundtrip: { path: filePath, url: fileUrl, backToPath },
-    format: { input: "{ protocol:'https', hostname:'bun.sh', port:'443', pathname:'/docs/runtime', search:'?q=bun' }", result: formatted },
+    format: {
+      input:
+        "{ protocol:'https', hostname:'bun.sh', port:'443', pathname:'/docs/runtime', search:'?q=bun' }",
+      result: formatted,
+    },
     urlToHttpOptions: httpOpts,
     note: "node:url — domainToASCII/domainToUnicode (IDN/Punycode), fileURLToPath/pathToFileURL (roundtrip), format (build URL), urlToHttpOptions (URL→http.request options).",
   });
 }
-

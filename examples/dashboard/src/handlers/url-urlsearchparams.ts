@@ -1,7 +1,9 @@
 // ── URL / URLSearchParams ──────────────────────────────────────────
 
 export async function apiUrl(): Promise<Response> {
-  const url = new URL("https://user:pass@example.com:8080/path/to/page?q=bun&lang=en&q=again#section");
+  const url = new URL(
+    "https://user:pass@example.com:8080/path/to/page?q=bun&lang=en&q=again#section"
+  );
 
   // All parsed properties
   const properties = {
@@ -47,8 +49,11 @@ export async function apiUrl(): Promise<Response> {
         invalid: parsedInvalid,
       },
     },
-    relativeResolution: { input: "../../api", base: "https://example.com/a/b/c/page", result: relative.href },
+    relativeResolution: {
+      input: "../../api",
+      base: "https://example.com/a/b/c/page",
+      result: relative.href,
+    },
     note: "URL.parse() returns null on invalid input (no throw). URL.canParse() is a fast boolean check. URLSearchParams: get, getAll, has, size, sort, entries.",
   });
 }
-

@@ -15,4 +15,3 @@ try {
 } catch (e) {
   Bun.stdout.write(`HTTP/2 server failed: ${e}\n`);
 }
-
