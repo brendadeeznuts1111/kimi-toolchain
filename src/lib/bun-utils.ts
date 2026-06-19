@@ -11,6 +11,9 @@ import { peek } from "bun";
 /** Monotonic UUID v7 — prefer for session/db ids (see Bun.randomUUIDv7). */
 export { randomUUIDv7 } from "bun";
 
+/** @see https://bun.sh/reference/bun/randomUUIDv7#bun.randomUUIDv7 */
+export const BUN_RANDOM_UUIDV7_DOC_URL = "https://bun.sh/reference/bun/randomUUIDv7";
+
 export type PeekStatus = "fulfilled" | "pending" | "rejected";
 
 /** Parse TOML text (Bun.TOML.parse). */

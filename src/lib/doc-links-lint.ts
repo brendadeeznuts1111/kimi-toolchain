@@ -84,6 +84,14 @@ export const BUN_DOC_LINK_CONSTANTS = [
       pathnamePrefix: "/docs/runtime/image",
     } satisfies BunDocLinkMatchSpec,
   },
+  {
+    constant: "BUN_RANDOM_UUIDV7_DOC_URL",
+    definingFile: "src/lib/bun-utils.ts",
+    match: {
+      hostnames: ["bun.sh"],
+      pathnamePrefix: "/reference/bun/randomUUIDv7",
+    } satisfies BunDocLinkMatchSpec,
+  },
 ] as const;
 
 const DEFAULT_DOC_PROTOCOLS = ["http:", "https:"] as const;
