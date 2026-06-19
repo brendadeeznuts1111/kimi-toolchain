@@ -25,7 +25,9 @@ import {
   fetchDashboardArtifactFeed,
   fetchDashboardArtifactIndexStats,
   fetchDashboardArtifactLineage,
+  fetchDashboardArtifactMetadata,
   fetchDashboardGateGraph,
+  fetchDashboardRunManifest,
   fetchDashboardSessionsIndex,
 } from "../../../../src/lib/herdr-dashboard-data.ts";
 import { resolveDashboardProjectRoot } from "../../../../src/lib/dashboard-settings.ts";
@@ -288,47 +290,8 @@ export async function handleArtifactsRequest(req: Request): Promise<Response | n
     if (!runId) {
       return jsonResponse({ ok: false, error: "runId required" }, 400);
     }
-    const store = new ArtifactStore(root);
-    const manifest = await store.readRunManifest(runId);
-    if (!manifest) {
-      return jsonResponse({ ok: false, runId, error: "Run not found" }, 404);
-    }
-    const artifacts = [];
-    for (const gate of manifest.gates) {
-      const relativePath = manifest.artifacts[gate];
-      if (!relativePath) continue;
-      const envelope = await store.readEnvelope(relativePath);
-      const metadata = envelope?.metadata;
-      artifacts.push({
-        gate,
-        path: relativePath,
-        status: artifactPayloadStatus(envelope?.payload),
-        summary: artifactPayloadSummary(envelope?.payload),
-        savedAt: envelope?.savedAt ?? null,
-        ...(envelope?.size !== undefined ? { size: envelope.size } : {}),
-        ...(metadata?.resultSize !== undefined ? { resultSize: metadata.resultSize } : {}),
-        ...(metadata?.sessionId ? { sessionId: metadata.sessionId } : {}),
-        ...(metadata?.workspaceId ? { workspaceId: metadata.workspaceId } : {}),
-        ...(metadata?.paneId ? { paneId: metadata.paneId } : {}),
-        ...(metadata?.agentId ? { agentId: metadata.agentId } : {}),
-        ...(metadata?.runId ? { runId: metadata.runId } : {}),
-        ...(metadata?.parentRunId ? { parentRunId: metadata.parentRunId } : {}),
-        ...(metadata?.hostname ? { hostname: metadata.hostname } : {}),
-        ...(metadata?.bunVersion ? { bunVersion: metadata.bunVersion } : {}),
-        ...(metadata?.level !== undefined ? { level: metadata.level } : {}),
-        ...(metadata?.dependsOn ? { dependsOn: metadata.dependsOn } : {}),
-        ...(metadata?.lineage ? { lineage: metadata.lineage } : {}),
-        ...(metadata?.lineageMermaid ? { hasLineageMermaid: true } : {}),
-      });
-    }
-    return jsonResponse({
-      ok: true,
-      projectPath: root,
-      runId,
-      manifest,
-      artifacts,
-      fetchedAt: new Date().toISOString(),
-    });
+    const payload = await fetchDashboardRunManifest(root, runId);
+    return jsonResponse(payload, payload.ok ? 200 : 404);
   }
 
   if (path === "/api/artifacts/list" && req.method === "GET") {
@@ -350,15 +313,7 @@ export async function handleArtifactsRequest(req: Request): Promise<Response | n
 
   if (path === "/api/artifacts/metadata" && req.method === "GET") {
     const gate = url.searchParams.get("gate")?.trim() || undefined;
-    const store = new ArtifactStore(root);
-    const payload = await store.collectMetadata(filter, { gate });
-    return jsonResponse({
-      ...payload,
-      projectPath: root,
-      filter,
-      ...(gate ? { gate } : {}),
-      fetchedAt: new Date().toISOString(),
-    });
+    return jsonResponse(await fetchDashboardArtifactMetadata(root, filter, { gate }));
   }
 
   if (path === "/api/artifacts/context" && req.method === "GET") {

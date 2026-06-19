@@ -126,10 +126,10 @@ import {
   type GateExecutionPlan,
 } from "../gates/runner.ts";
 import {
+  autoResolveGateDependencies,
   getGate,
   listBuiltinGateDefinitions,
   listGates,
-  resolveGateClosure,
 } from "../gates/registry.ts";
 
 const writer = createCli(Bun.argv, "kimi-doctor");
@@ -1623,12 +1623,12 @@ async function main(): Promise<number> {
         logger.info(`Available: ${listGates().join(", ")}`);
         return 1;
       }
-      const closure = resolveGateClosure(GATE);
-      if (closure.missing.length > 0) {
-        logger.error(`Unknown gate dependencies: ${closure.missing.join(", ")}`);
+      const resolved = autoResolveGateDependencies([getGate(GATE)!]);
+      if (resolved.missing.length > 0) {
+        logger.error(`Unknown gate dependencies: ${resolved.missing.join(", ")}`);
         return 1;
       }
-      gates = closure.gates;
+      gates = resolved.gates;
     }
     const mermaid = generateGateGraph(gates);
     if (JSON_OUT) {
@@ -1691,27 +1691,33 @@ async function main(): Promise<number> {
       return 1;
     }
 
-    const closure = resolveGateClosure(GATE);
-    if (closure.missing.length > 0) {
-      logger.error(`Unknown gate dependencies: ${closure.missing.join(", ")}`);
+    const resolved = autoResolveGateDependencies([gate]);
+    if (resolved.missing.length > 0) {
+      logger.error(`Unknown gate dependencies: ${resolved.missing.join(", ")}`);
       return 1;
     }
 
-    const cycle = detectCycle(closure.gates);
+    const cycle = detectCycle(resolved.gates);
     if (cycle.length > 0) {
       logger.error(`Gate dependency cycle: ${cycle.join(" → ")}`);
       return 1;
     }
 
     if (DRYRUN) {
-      emitGateDryRun(planGateExecution(closure.gates), "gate", projectRoot, { gate: GATE });
+      emitGateDryRun(planGateExecution(resolved.gates), "gate", projectRoot, {
+        gate: GATE,
+        ...(resolved.autoResolved.length > 0 ? { autoResolved: resolved.autoResolved } : {}),
+      });
       return 0;
     }
 
-    const { results, order, graphArtifactPath } = await runGatesWithDependencies(closure.gates, {
-      projectRoot,
-      saveArtifact: SAVE_ARTIFACT,
-    });
+    const { results, order, graphArtifactPath, autoResolved } = await runGatesWithDependencies(
+      [gate],
+      {
+        projectRoot,
+        saveArtifact: SAVE_ARTIFACT,
+      }
+    );
     const target = results.find((row) => row.gate === GATE);
 
     if (JSON_OUT) {
@@ -1724,6 +1730,7 @@ async function main(): Promise<number> {
         order,
         results,
         graphArtifactPath,
+        ...(autoResolved ? { autoResolved } : {}),
         result: target?.detail ?? target,
       });
     } else {

@@ -4,7 +4,11 @@ import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { pathExists } from "../src/lib/bun-io.ts";
 import { ArtifactStore } from "../src/lib/artifact-store.ts";
-import { resolveGateClosure } from "../src/gates/registry.ts";
+import {
+  autoResolveGateDependencies,
+  registerGate,
+  resolveGateClosure,
+} from "../src/gates/registry.ts";
 import {
   detectCycle,
   findMissingGateDependencies,
@@ -16,7 +20,47 @@ import {
 } from "../src/gates/runner.ts";
 import { DEFAULT_GATE_ARTIFACT_LIMIT } from "../src/gates/types.ts";
 import type { Gate, GateArtifact, GateRunOptions, GateResult } from "../src/gates/types.ts";
+import { writeText } from "../src/lib/bun-io.ts";
 import { withTempDir } from "./helpers.ts";
+
+const SECURE_BUNFIG = `[install]
+optional = true
+dev = true
+peer = true
+production = false
+dryRun = false
+saveTextLockfile = true
+frozenLockfile = true
+exact = false
+ignoreScripts = false
+concurrentScripts = 8
+linker = "isolated"
+globalDir = "~/.bun/install/global"
+globalBinDir = "~/.bun/bin"
+minimumReleaseAge = 259200
+minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
+
+[install.cache]
+dir = "~/.bun/install/cache"
+`;
+
+function writeSecureProject(dir: string): void {
+  writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+  writeText(
+    join(dir, "package.json"),
+    JSON.stringify(
+      {
+        name: "demo",
+        version: "1.0.0",
+        packageManager: "bun@1.4.0",
+        engines: { bun: ">=1.4.0" },
+        trustedDependencies: [] as string[],
+      },
+      null,
+      2
+    )
+  );
+}
 
 function mockGate(
   name: string,
@@ -65,9 +109,35 @@ describe("doctor-gates-runner", () => {
     expect(findMissingGateDependencies(gates)).toEqual(["perf-gate → bunfig-policy"]);
   });
 
-  test("runGatesWithDependencies rejects incomplete gate closure", async () => {
+  test("runGatesWithDependencies rejects incomplete gate closure when auto-resolve disabled", async () => {
     const gates = [mockGate("perf-gate", { dependsOn: ["bunfig-policy"] })];
-    await expect(runGatesWithDependencies(gates)).rejects.toThrow(/Gate closure incomplete/);
+    await expect(
+      runGatesWithDependencies(gates, { autoResolveDependencies: false })
+    ).rejects.toThrow(/Gate closure incomplete/);
+  });
+
+  test("autoResolveGateDependencies expands registry deps and preserves seed objects", () => {
+    const seed = mockGate("child", { dependsOn: ["parent"] });
+    const parent = mockGate("parent");
+    const lookup = (name: string) => (name === "parent" ? parent : undefined);
+    const resolved = autoResolveGateDependencies([seed], lookup);
+    expect(resolved.missing).toEqual([]);
+    expect(resolved.autoResolved).toEqual(["parent"]);
+    expect(resolved.gates.map((g) => g.name)).toEqual(["parent", "child"]);
+    expect(resolved.gates.find((g) => g.name === "child")).toBe(seed);
+  });
+
+  test("runGatesWithDependencies auto-resolves registry dependencies by default", async () => {
+    const parentName = `auto-resolve-parent-${Bun.randomUUIDv7()}`;
+    registerGate(mockGate(parentName));
+    const child = mockGate(`auto-resolve-child-${Bun.randomUUIDv7()}`, {
+      dependsOn: [parentName],
+    });
+
+    const { results, order, autoResolved } = await runGatesWithDependencies([child]);
+    expect(autoResolved).toEqual([parentName]);
+    expect(order).toEqual([parentName, child.name]);
+    expect(results.map((r) => r.status)).toEqual(["pass", "pass"]);
   });
 
   test("resolveGateClosure collects transitive dependencies", () => {

@@ -3140,6 +3140,7 @@
           const row = metadata;
           const parts = [];
           if (row.hostname) parts.push(String(row.hostname));
+          if (typeof row.pid === "number" && Number.isFinite(row.pid)) parts.push(`pid:${row.pid}`);
           if (row.bunVersion) parts.push(`bun ${row.bunVersion}`);
           if (row.level !== undefined) parts.push(`L${row.level}`);
           if (Array.isArray(row.dependsOn) && row.dependsOn.length > 0) {
