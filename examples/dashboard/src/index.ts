@@ -80,13 +80,45 @@ async function apiSecrets(): Promise<Response> {
 
 async function apiEnv(): Promise<Response> {
   const pathDirs = (Bun.env.PATH || "").split(":").filter(Boolean);
-  const toolBins = ["kimi-fix", "kimi-doctor", "bun", "herdr", "kimi-bake"];
-  const found: Record<string, string | null> = {};
-  for (const bin of toolBins) found[bin] = Bun.which(bin);
+  const toolchainBin = `${Bun.env.HOME}/.kimi-code/bin`;
+
+  // Resolution rules
+  const resolveToolchain = (name: string) => Bun.which(name, { PATH: toolchainBin });
+  const resolveDefault = (name: string) => Bun.which(name);
+
+  interface ToolEntry {
+    bin: string;
+    path: string | null;
+    resolution: "toolchain" | "project" | "system";
+    flags: string;
+  }
+
+  const tools: ToolEntry[] = [
+    { bin: "bun", path: resolveDefault("bun"), resolution: "system", flags: "--version, --hot, --compile" },
+    { bin: "kimi-fix", path: resolveToolchain("kimi-fix"), resolution: "toolchain", flags: "--profile app|toolchain, --dry-run" },
+    { bin: "kimi-new", path: resolveToolchain("kimi-new"), resolution: "toolchain", flags: "--profile, --name" },
+    { bin: "kimi-doctor", path: resolveToolchain("kimi-doctor"), resolution: "toolchain", flags: "--automation, --effect-gates, --watch" },
+    { bin: "kimi-heal", path: resolveToolchain("kimi-heal"), resolution: "toolchain", flags: "--profile toolchain, --fix" },
+    { bin: "kimi-bake", path: resolveDefault("kimi-bake") ?? Bun.which("kimi-bake", { PATH: toolchainBin }), resolution: "toolchain", flags: "list, doctor, bake <name>" },
+    { bin: "oxlint", path: resolveDefault("oxlint"), resolution: "project", flags: "--deny-warnings, --import-plugin" },
+    { bin: "oxfmt", path: resolveDefault("oxfmt"), resolution: "project", flags: "--write, --check" },
+    { bin: "git", path: resolveDefault("git"), resolution: "system", flags: "rev-parse, describe, diff" },
+  ];
+
+  // Shadow detection
+  const shadowWarnings: string[] = [];
+  for (const t of tools) {
+    if (t.resolution === "toolchain" && t.path) {
+      const sysPath = Bun.which(t.bin);
+      if (sysPath && sysPath !== t.path) shadowWarnings.push(t.bin);
+    }
+  }
 
   return jsonResponse({
     path: pathDirs,
-    tools: found,
+    toolchainBinDir: toolchainBin,
+    tools,
+    shadowWarnings,
     keyVars: {
       HOME: Bun.env.HOME || "unset",
       KIMI_PROFILE: Bun.env.KIMI_PROFILE || "unset",
