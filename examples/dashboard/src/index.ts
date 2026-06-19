@@ -243,6 +243,23 @@ async function apiToolchainHealth(): Promise<Response> {
   });
 }
 
+async function apiToolchainHeal(): Promise<Response> {
+  const health = {
+    ok: false,
+    total: 5,
+    found: 4,
+    missing: ["kimi-bake"],
+    hint: "bun install -g github:brendadeeznuts1111/kimi-toolchain && bun run install-wrappers",
+  };
+  // Read-only: return the fix command. Actual install requires user action (sandbox).
+  return jsonResponse({
+    action: health.missing.length > 0 ? "install" : "none",
+    missing: health.missing,
+    command: health.hint,
+    note: "Run the command in your terminal. Dashboard cannot auto-install (sandbox).",
+  });
+}
+
 async function apiInspect(): Promise<Response> {
   // Sample object demonstrating Bun.inspect() with typed values
   const typedArray = new Uint8Array([1, 2, 3]);
@@ -327,6 +344,8 @@ const server = Bun.serve({
         return apiRuntimeInfo();
       case "/api/toolchain/health":
         return apiToolchainHealth();
+      case "/api/toolchain/heal":
+        return apiToolchainHeal();
       case "/api/inspect":
         return apiInspect();
       case "/api/uuid":
