@@ -23,6 +23,13 @@ reports/
 .tmp-path-align-*/
 .tmp-*/
 *.log
+*.bun-build
+
+# Local toolchain / editor runtime (repo root only)
+.kimi/
+.reasonix/
+.bun-create
+test-define-tmp.ts
 
 # OS
 .DS_Store
