@@ -11,7 +11,7 @@
  * Open:  http://localhost:3000
  */
 
-import { resolveBin, USER_TOOLCHAIN_BIN } from "../../src/lib/toolchain-paths.ts";
+import { resolveBin, USER_TOOLCHAIN_BIN } from "./lib/toolchain-paths.ts";
 
 const port = Number(Bun.env.PORT) || 3000;
 
