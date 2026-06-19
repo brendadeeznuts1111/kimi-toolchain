@@ -3,7 +3,14 @@
  *
  * Distinct from `src/lib/gate-runner.ts` (CI shell gates: format, lint, tsc).
  */
-import { type ArtifactDependencyQuery, ArtifactStore } from "../lib/artifact-store.ts";
+import {
+  type ArtifactDependencyQuery,
+  type ArtifactRunManifest,
+  type ArtifactRunStatus,
+  ArtifactStore,
+  generateRunId,
+  resolveArtifactSessionContext,
+} from "../lib/artifact-store.ts";
 import type {
   Gate,
   GateArtifact,
@@ -28,6 +35,8 @@ export interface DependencyRunOutcome {
   results: GateRunResult[];
   order: string[];
   graphArtifactPath?: string;
+  runId?: string;
+  runManifestPath?: string;
 }
 
 export interface GatePlanEntry {
@@ -190,6 +199,16 @@ export interface DependencyRunnerOptions extends GateRunOptions {
   failFast?: boolean;
   /** Invoked when a gate fails or is blocked by a failed dependency. */
   onFailure?: (result: GateRunResult) => void | Promise<void>;
+  /** Reuse an existing run id (default: generate per invocation). */
+  runId?: string;
+  /** Human-readable trigger for run manifest (`kimi-doctor --gate …`). */
+  triggeredBy?: string;
+}
+
+function aggregateRunStatus(results: GateRunResult[]): ArtifactRunStatus {
+  if (results.some((row) => row.status === "fail" || row.status === "blocked")) return "fail";
+  if (results.some((row) => row.status === "warn")) return "warn";
+  return "pass";
 }
 
 async function applyGateRetention(store: ArtifactStore, gate: Gate): Promise<void> {
@@ -213,7 +232,12 @@ function artifactPayload(result: GateResult): unknown {
 function buildGateContext(
   runResults: Map<string, GateResult>,
   store: ArtifactStore | null
-): Required<Pick<GateRunOptions, "getArtifact" | "getArtifacts" | "readArtifact">> {
+): Required<Pick<GateRunOptions, "getArtifact" | "getArtifacts" | "readArtifact">> & {
+  getArtifactsForDependency: (
+    gateName: string,
+    opts?: GateArtifactListOptions
+  ) => Promise<unknown[]>;
+} {
   const getArtifact = async (gateName: string): Promise<GateArtifact | null> => {
     const inRun = runResults.get(gateName);
     if (inRun) {
@@ -244,9 +268,15 @@ function buildGateContext(
       opts.limit !== undefined && Number.isFinite(opts.limit) && opts.limit > 0
         ? Math.floor(opts.limit)
         : DEFAULT_GATE_ARTIFACT_LIMIT;
+    const statusFilter = opts.status ?? null;
     const payloads: unknown[] = [];
     const inRun = runResults.get(gateName);
-    if (inRun) payloads.push(artifactPayload(inRun));
+    if (inRun) {
+      const payload = artifactPayload(inRun);
+      if (!statusFilter || payloadHasStatus(payload, statusFilter)) {
+        payloads.push(payload);
+      }
+    }
     if (payloads.length >= limit) return payloads.slice(0, limit);
     if (!store) return payloads.slice(0, limit);
 
@@ -254,12 +284,15 @@ function buildGateContext(
       inRun?.artifactPath && store ? store.relativePath(inRun.artifactPath) : undefined;
     const listed = await store.listFiltered(gateName, {
       since: opts.since,
-      limit,
+      limit: statusFilter ? undefined : limit,
     });
-    for (const relativePath of listed.files.toReversed()) {
+    const files = opts.order === "oldest" ? listed.files : listed.files.toReversed();
+    for (const relativePath of files) {
       if (relativePath === inRunRelative) continue;
       const envelope = await store.readEnvelope(relativePath);
-      if (envelope) payloads.push(envelope.payload);
+      if (!envelope) continue;
+      if (statusFilter && !payloadHasStatus(envelope.payload, statusFilter)) continue;
+      payloads.push(envelope.payload);
       if (payloads.length >= limit) break;
     }
     return payloads.slice(0, limit);
@@ -274,7 +307,20 @@ function buildGateContext(
     return envelope?.payload ?? null;
   };
 
-  return { getArtifact, getArtifacts, readArtifact };
+  const getArtifactsForDependency = async (
+    gateName: string,
+    opts?: GateArtifactListOptions
+  ): Promise<unknown[]> => {
+    return getArtifacts(gateName, opts);
+  };
+
+  return { getArtifact, getArtifacts, readArtifact, getArtifactsForDependency };
+}
+
+/** Check if a payload object carries a matching `status` field. */
+function payloadHasStatus(payload: unknown, status: GateStatus): boolean {
+  if (!payload || typeof payload !== "object") return false;
+  return (payload as Record<string, unknown>).status === status;
 }
 
 async function resolveUpstreamArtifacts(
@@ -314,11 +360,14 @@ export async function persistGateArtifact(
   result: GateResult,
   deps: string[],
   upstreamArtifacts: string[],
-  store: ArtifactStore
+  store: ArtifactStore,
+  runIdentity: { runId: string; parentRunId?: string } = { runId: generateRunId() }
 ): Promise<GateResult> {
   const dependsOn = declarativeDependsOn(deps, upstreamArtifacts);
   const artifactPath = await store.save(gate.name, artifactPayload(result), {
     level: gate.level,
+    runId: runIdentity.runId,
+    ...(runIdentity.parentRunId ? { parentRunId: runIdentity.parentRunId } : {}),
     ...(dependsOn.length > 0 ? { dependsOn } : {}),
     ...(result.lineage ? { lineage: result.lineage } : {}),
   });
@@ -343,6 +392,14 @@ export async function runGatesWithDependencies(
   const runResults = new Map<string, GateResult>();
   const output: GateRunResult[] = [];
   const store = opts.projectRoot ? new ArtifactStore(opts.projectRoot) : null;
+  const startedAt = new Date().toISOString();
+  const prevRunId = Bun.env.KIMI_RUN_ID?.trim();
+  const runId = opts.runId ?? generateRunId(new Date(startedAt));
+  const parentRunId =
+    Bun.env.KIMI_PARENT_RUN_ID?.trim() ||
+    (prevRunId && prevRunId !== runId ? prevRunId : undefined);
+  const runIdentity = { runId, ...(parentRunId ? { parentRunId } : {}) };
+  Bun.env.KIMI_RUN_ID = runId;
   const context = buildGateContext(runResults, store);
   let stopEarly = false;
 
@@ -372,6 +429,8 @@ export async function runGatesWithDependencies(
     let result = await gate.run({
       projectRoot: opts.projectRoot,
       saveArtifact: false,
+      ...resolveArtifactSessionContext(),
+      ...runIdentity,
       getArtifact: context.getArtifact,
       getArtifacts: context.getArtifacts,
       readArtifact: context.readArtifact,
@@ -383,7 +442,7 @@ export async function runGatesWithDependencies(
     }
 
     if (opts.saveArtifact && store) {
-      result = await persistGateArtifact(gate, result, deps, upstreamArtifacts, store);
+      result = await persistGateArtifact(gate, result, deps, upstreamArtifacts, store, runIdentity);
       await applyGateRetention(store, gate);
     }
 
@@ -403,41 +462,86 @@ export async function runGatesWithDependencies(
     if (opts.failFast && result.status === "fail") stopEarly = true;
   }
 
-  for (const level of levels) {
-    if (stopEarly) break;
-
-    const sequential = level.filter((gate) => gate.parallel !== true);
-    const parallel = level.filter((gate) => gate.parallel === true);
-
-    for (const gate of sequential) {
-      await executeGate(gate);
+  try {
+    for (const level of levels) {
       if (stopEarly) break;
-    }
-    if (stopEarly) break;
 
-    if (parallel.length > 0) {
-      await Promise.all(parallel.map((gate) => executeGate(gate)));
-    }
-  }
+      const sequential = level.filter((gate) => gate.parallel !== true);
+      const parallel = level.filter((gate) => gate.parallel === true);
 
-  let graphArtifactPath: string | undefined;
-  if (opts.saveArtifact && store && gates.length > 1) {
-    const mermaid = generateGateGraph(gates);
-    graphArtifactPath = await store.save("gate-graph", {
-      schemaVersion: 1,
-      mode: "gate-graph",
-      order: order.map((g) => g.name),
+      for (const gate of sequential) {
+        await executeGate(gate);
+        if (stopEarly) break;
+      }
+      if (stopEarly) break;
+
+      if (parallel.length > 0) {
+        await Promise.all(parallel.map((gate) => executeGate(gate)));
+      }
+    }
+
+    let graphArtifactPath: string | undefined;
+    if (opts.saveArtifact && store && gates.length > 1) {
+      const mermaid = generateGateGraph(gates);
+      graphArtifactPath = await store.save(
+        "gate-graph",
+        {
+          schemaVersion: 1,
+          mode: "gate-graph",
+          order: order.map((g) => g.name),
+          results: output,
+          mermaid,
+          timestamp: new Date().toISOString(),
+        },
+        runIdentity
+      );
+    }
+
+    let runManifestPath: string | undefined;
+    if (opts.saveArtifact && store) {
+      const artifacts: Record<string, string> = {};
+      for (const row of output) {
+        if (!row.artifactPath) continue;
+        artifacts[row.gate] = store.relativePath(row.artifactPath);
+      }
+      if (graphArtifactPath) {
+        artifacts["gate-graph"] = store.relativePath(graphArtifactPath);
+      }
+      if (Object.keys(artifacts).length > 0) {
+        const {
+          runId: _ambientRun,
+          parentRunId: _ambientParent,
+          ...identity
+        } = resolveArtifactSessionContext();
+        const manifest: ArtifactRunManifest = {
+          schemaVersion: 1,
+          runId,
+          startedAt,
+          completedAt: new Date().toISOString(),
+          gates: output.map((row) => row.gate),
+          artifacts,
+          status: aggregateRunStatus(output),
+          ...(opts.triggeredBy ? { triggeredBy: opts.triggeredBy } : {}),
+          ...(graphArtifactPath
+            ? { graphArtifactPath: store.relativePath(graphArtifactPath) }
+            : {}),
+          ...identity,
+          ...(parentRunId ? { parentRunId } : {}),
+        };
+        runManifestPath = await store.saveRunManifest(manifest);
+      }
+    }
+
+    return {
       results: output,
-      mermaid,
-      timestamp: new Date().toISOString(),
-    });
+      order: order.map((g) => g.name),
+      graphArtifactPath,
+      ...(opts.saveArtifact ? { runId, runManifestPath } : {}),
+    };
+  } finally {
+    if (prevRunId === undefined) delete Bun.env.KIMI_RUN_ID;
+    else Bun.env.KIMI_RUN_ID = prevRunId;
   }
-
-  return {
-    results: output,
-    order: order.map((g) => g.name),
-    graphArtifactPath,
-  };
 }
 
 /** Generate a Mermaid graph from gate definitions. */

@@ -11,6 +11,7 @@ import {
 } from "../src/lib/herdr-dashboard-data.ts";
 import { bunImageSupported } from "../src/lib/bun-image.ts";
 import { HerdrDashboardDiscoveryCache } from "../src/lib/herdr-dashboard-discovery-cache.ts";
+
 import { ArtifactStore } from "../src/lib/artifact-store.ts";
 import { startProbeServer } from "../src/lib/card-probe-server.ts";
 import {
@@ -196,7 +197,14 @@ describe("herdr-dashboard-server", () => {
         expect(html).toContain("Loading agents");
         expect(html).toContain("rules-meta-slot");
         expect(html).toContain("control-plane");
+        expect(html).toContain("session-switcher-bar");
         expect(html).toContain("session-scope");
+        expect(html).toContain("session-add-input");
+        expect(html).toContain("session-remove-btn");
+        expect(html).toContain("session-bun-mark");
+        expect(html).toContain("artifacts-session-filter");
+        expect(html).toContain("artifacts-runs-body");
+        expect(html).toContain("artifacts-run-filter");
         expect(html).toContain("agents-heading");
         expect(html).toContain("agents-legend");
         expect(html).toContain("Upgrade scan");
@@ -325,6 +333,49 @@ describe("herdr-dashboard-server", () => {
         expect(js).toContain("function apiUrl");
         expect(js).toContain('input.pathname.startsWith("/api/")');
         expect(js).toContain("PANELS[activeTab]?.activate?.()");
+        expect(js).toContain("refreshArtifactsRuns");
+        expect(js).toContain("wireSessionBunMark");
+      } finally {
+        server.stop();
+      }
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
+    "dashboard server serves bun-mark WebP",
+    async () => {
+      const server = startHerdrDashboardServer({
+        projectPath: REPO_ROOT,
+        port: 0,
+        sessions: false,
+        herdrEvents: false,
+        gateHealthWatch: false,
+        metaWatch: false,
+      });
+      try {
+        const res = await server.fetch(
+          new Request(`${server.url}api/bun-mark?width=32&height=32&quality=82`)
+        );
+        expect(res.status).toBe(200);
+        expect(res.headers.get("access-control-allow-origin")).toBe("*");
+        expect(res.headers.get("content-type")).toContain("image/webp");
+        const bytes = await res.arrayBuffer();
+        expect(bytes.byteLength).toBeGreaterThan(0);
+        if (bunImageSupported()) {
+          expect(bytes.byteLength).toBeGreaterThan(10);
+        }
+
+        const metaRes = await server.fetch(new Request(`${server.url}api/meta`));
+        const meta = (await metaRes.json()) as {
+          bunMarkPath?: string;
+          effectImage?: { available?: boolean; markPath?: string };
+        };
+        expect(meta.bunMarkPath).toBe("/api/bun-mark");
+        if (bunImageSupported()) {
+          expect(meta.effectImage?.available).toBe(true);
+          expect(meta.effectImage?.markPath).toBe("/api/bun-mark");
+        }
       } finally {
         server.stop();
       }
@@ -470,6 +521,223 @@ describe("herdr-dashboard-server", () => {
           server.stop();
         }
       });
+      cleanupPath(dir);
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
+    "dashboard server artifacts API filters by sessionId",
+    async () => {
+      const dir = testTempDir("herdr-dashboard-artifacts-session-");
+      const prev = Bun.env.KIMI_CODE_SESSION;
+      const store = new ArtifactStore(dir);
+      Bun.env.KIMI_CODE_SESSION = "wd_filter_a";
+      await store.save("model-drift", { status: "pass", n: 1 });
+      Bun.env.KIMI_CODE_SESSION = "wd_filter_b";
+      await store.save("model-drift", { status: "warn", n: 2 });
+
+      const server = startHerdrDashboardServer({
+        projectPath: dir,
+        port: 0,
+        sessions: false,
+      });
+      try {
+        const res = (await fetch(
+          `${server.url}api/artifacts?sessionId=wd_filter_a`
+        )) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        expect(res.status).toBe(200);
+        const body = JSON.parse(await readableStreamToText(res.body)) as {
+          ok: boolean;
+          artifacts: Array<{ gate: string; count: number; sessionId?: string }>;
+          filter?: { sessionId?: string };
+          filterOptions?: { sessionIds: string[] };
+        };
+        expect(body.ok).toBe(true);
+        expect(body.filter?.sessionId).toBe("wd_filter_a");
+        expect(body.artifacts).toHaveLength(1);
+        expect(body.artifacts[0]?.gate).toBe("model-drift");
+        expect(body.artifacts[0]?.count).toBe(1);
+        expect(body.artifacts[0]?.sessionId).toBe("wd_filter_a");
+        expect(body.filterOptions?.sessionIds).toContain("wd_filter_a");
+        expect(body.filterOptions?.sessionIds).toContain("wd_filter_b");
+      } finally {
+        server.stop();
+        if (prev === undefined) delete Bun.env.KIMI_CODE_SESSION;
+        else Bun.env.KIMI_CODE_SESSION = prev;
+      }
+      cleanupPath(dir);
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
+    "dashboard server sessions API lists kimi and herdr scopes",
+    async () => {
+      const dir = testTempDir("herdr-dashboard-sessions-index-");
+      const store = new ArtifactStore(dir);
+      await store.save(
+        "perf-gate",
+        { ok: true },
+        { sessionId: "wd_index_a", workspaceId: "staging" }
+      );
+      await store.saveRunManifest({
+        schemaVersion: 1,
+        runId: "run_index_b",
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        gates: ["perf-gate"],
+        artifacts: {},
+        status: "pass",
+        workspaceId: "staging",
+      });
+
+      const server = startHerdrDashboardServer({
+        projectPath: dir,
+        port: 0,
+        sessions: true,
+      });
+      try {
+        const res = (await fetch(`${server.url}api/sessions`)) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        expect(res.status).toBe(200);
+        const body = JSON.parse(await readableStreamToText(res.body)) as {
+          ok: boolean;
+          sessions: { kimi: string[]; herdr: string[] };
+        };
+        expect(body.sessions.kimi).toContain("wd_index_a");
+        expect(body.sessions.herdr).toContain("staging");
+
+        const scoped = (await fetch(`${server.url}api/sessions/staging/runs`)) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        const scopedBody = JSON.parse(await readableStreamToText(scoped.body)) as {
+          runs: Array<{ runId: string }>;
+        };
+        expect(scopedBody.runs.map((row) => row.runId)).toEqual(["run_index_b"]);
+      } finally {
+        server.stop();
+      }
+      cleanupPath(dir);
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
+    "dashboard server aggregates API returns per-gate counts",
+    async () => {
+      const dir = testTempDir("herdr-dashboard-aggregates-");
+      const store = new ArtifactStore(dir);
+      await store.save("bunfig-policy", { ok: true }, { sessionId: "wd_agg" });
+      await store.save("bunfig-policy", { ok: false }, { sessionId: "wd_agg" });
+      await store.save("card-probe", { ok: true }, { sessionId: "wd_agg" });
+
+      const server = startHerdrDashboardServer({
+        projectPath: dir,
+        port: 0,
+        sessions: false,
+      });
+      try {
+        const res = (await fetch(`${server.url}api/artifacts/aggregates`)) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        expect(res.status).toBe(200);
+        const body = JSON.parse(await readableStreamToText(res.body)) as {
+          ok: boolean;
+          aggregates: Array<{ gate: string; count: number; latestMs: number }>;
+        };
+        expect(body.ok).toBe(true);
+        expect(body.aggregates).toHaveLength(2);
+        expect(body.aggregates.find((row) => row.gate === "bunfig-policy")?.count).toBe(2);
+        expect(body.aggregates.find((row) => row.gate === "card-probe")?.count).toBe(1);
+
+        const filtered = (await fetch(
+          `${server.url}api/artifacts/aggregates?statuses=fail`
+        )) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        const filteredBody = JSON.parse(await readableStreamToText(filtered.body)) as {
+          ok: boolean;
+          aggregates: Array<{ gate: string; count: number }>;
+        };
+        expect(filteredBody.aggregates).toHaveLength(1);
+        expect(filteredBody.aggregates[0]?.gate).toBe("bunfig-policy");
+        expect(filteredBody.aggregates[0]?.count).toBe(1);
+      } finally {
+        server.stop();
+      }
+      cleanupPath(dir);
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
+    "dashboard server runs API filters by run identity",
+    async () => {
+      const dir = testTempDir("herdr-dashboard-runs-");
+      const store = new ArtifactStore(dir);
+      await store.saveRunManifest({
+        schemaVersion: 1,
+        runId: "run_dashboard_a",
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        gates: ["model-drift"],
+        artifacts: { "model-drift": ".kimi/artifacts/model-drift/a.json" },
+        status: "pass",
+        sessionId: "wd_dashboard_a",
+        paneId: "pane_dashboard",
+      });
+      await store.saveRunManifest({
+        schemaVersion: 1,
+        runId: "run_dashboard_b",
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        gates: ["model-drift"],
+        artifacts: { "model-drift": ".kimi/artifacts/model-drift/b.json" },
+        status: "warn",
+        sessionId: "wd_dashboard_b",
+      });
+
+      const server = startHerdrDashboardServer({
+        projectPath: dir,
+        port: 0,
+        sessions: false,
+      });
+      try {
+        const res = (await fetch(`${server.url}api/runs?sessionId=wd_dashboard_a`)) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        expect(res.status).toBe(200);
+        const body = JSON.parse(await readableStreamToText(res.body)) as {
+          ok: boolean;
+          runs: Array<{ runId: string; sessionId?: string; paneId?: string }>;
+        };
+        expect(body.ok).toBe(true);
+        expect(body.runs).toEqual([
+          expect.objectContaining({
+            runId: "run_dashboard_a",
+            sessionId: "wd_dashboard_a",
+            paneId: "pane_dashboard",
+          }),
+        ]);
+
+        const one = (await fetch(`${server.url}api/runs/run_dashboard_a`)) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        expect(one.status).toBe(200);
+      } finally {
+        server.stop();
+      }
       cleanupPath(dir);
     },
     { timeout: SERVER_TEST_MS }
@@ -1330,6 +1598,9 @@ describe("herdr-dashboard-server", () => {
         port: 0,
         pollHintMs: 12_000,
         ssePollMs: 3_000,
+        autoRefresh: false,
+        gateHealthWatch: false,
+        herdrEvents: false,
       });
       try {
         const metaRes = (await fetch(`${server.url}api/meta`)) as unknown as {
@@ -1594,10 +1865,11 @@ describe("herdr-dashboard-server", () => {
   test("wireAgentThumbnail cache-busts thumbnail URL on meta refresh", () => {
     const js = readText(join(REPO_ROOT, "templates/herdr-dashboard.js"));
     expect(js).toContain("function wireAgentThumbnail");
+    expect(js).toContain("function wireSessionBunMark");
     expect(js).toContain("&t=${Date.now()}");
     expect(js).toContain("let thumbLive = false");
     expect(js).toContain("if (thumbLive)");
-    expect(js).toMatch(/thumbLive = false[\s\S]*wrap\.classList\.remove\("visible"\)/);
+    expect(js).toMatch(/thumbLive = false[\s\S]*wrap\?\.classList\.remove\("visible"\)/);
   });
 
   test(

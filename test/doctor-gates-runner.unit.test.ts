@@ -162,6 +162,53 @@ describe("doctor-gates-runner", () => {
     });
   });
 
+  test("saveArtifact writes run manifest grouping gate artifacts", async () => {
+    await withTempDir("doctor-gates-run-manifest-", async (dir) => {
+      const gates = [mockGate("alpha"), mockGate("beta", { dependsOn: ["alpha"] })];
+      const { runId, runManifestPath } = await runGatesWithDependencies(gates, {
+        projectRoot: dir,
+        saveArtifact: true,
+        triggeredBy: "test --save-artifact",
+      });
+      expect(runId).toMatch(/^run_/);
+      expect(runManifestPath).toContain(join(dir, ".kimi", "artifacts", "runs"));
+
+      const store = new ArtifactStore(dir);
+      const manifest = await store.readRunManifest(runId!);
+      expect(manifest?.gates).toEqual(["alpha", "beta"]);
+      expect(manifest?.status).toBe("pass");
+      expect(manifest?.triggeredBy).toBe("test --save-artifact");
+      expect(Object.keys(manifest?.artifacts ?? {})).toEqual(
+        expect.arrayContaining(["alpha", "beta", "gate-graph"])
+      );
+
+      const alphaEnvelope = await store.readEnvelope(manifest!.artifacts.alpha!);
+      expect(alphaEnvelope?.metadata?.runId).toBe(runId);
+    });
+  });
+
+  test("nested gate run inherits parentRunId from ambient KIMI_RUN_ID", async () => {
+    await withTempDir("doctor-gates-nested-run-", async (dir) => {
+      const prevRun = Bun.env.KIMI_RUN_ID;
+      Bun.env.KIMI_RUN_ID = "run_outer_parent";
+      try {
+        const gates = [mockGate("nested-alpha")];
+        const { runId, runManifestPath } = await runGatesWithDependencies(gates, {
+          projectRoot: dir,
+          saveArtifact: true,
+        });
+        expect(runId).not.toBe("run_outer_parent");
+        const store = new ArtifactStore(dir);
+        const manifest = await store.readRunManifest(runId!);
+        expect(manifest?.parentRunId).toBe("run_outer_parent");
+        expect(runManifestPath).toContain(runId!);
+      } finally {
+        if (prevRun === undefined) delete Bun.env.KIMI_RUN_ID;
+        else Bun.env.KIMI_RUN_ID = prevRun;
+      }
+    });
+  });
+
   test("saveArtifact writes gate-graph composite when closure has multiple gates", async () => {
     await withTempDir("doctor-gates-graph-artifact-", async (dir) => {
       const gates = [mockGate("alpha"), mockGate("beta", { dependsOn: ["alpha"] })];

@@ -95,7 +95,8 @@ export const SESSIONS_SCHEMA_SQL = `
     r_score REAL,
     git_head TEXT,
     project TEXT NOT NULL,
-    session_id TEXT
+    session_id TEXT,
+    run_id TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_doctor_runs_project ON doctor_runs(project);
   CREATE INDEX IF NOT EXISTS idx_doctor_runs_tool ON doctor_runs(tool);

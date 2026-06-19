@@ -1,4 +1,6 @@
 const SESSION_STORAGE_KEY = "herdr-dashboard.activeSession";
+const SESSION_LIST_STORAGE_KEY = "herdr-dashboard.knownSessions";
+const SESSION_LIST_MAX = 32;
 const SESSION_ALL = "__all__";
 const STATIC_PREVIEW = window.location.protocol === "file:";
 const STATIC_API_ORIGIN = globalThis.__HERDR_DASHBOARD_API_ORIGIN__ || "http://127.0.0.1:18412";
@@ -9,9 +11,19 @@ let lastRulesJson = "";
 let lastScanJson = "";
 let lastCanvasesJson = "";
 let lastArtifactsJson = "";
+let lastRunsJson = "";
+const ARTIFACT_TABLE_COLS = 8;
+let artifactsSessionFilter = "";
+let artifactsWorkspaceFilter = "";
+let artifactsPaneFilter = "";
+let artifactsAgentFilter = "";
+let artifactsRunFilter = "";
 let selectedArtifactsGate = "";
 let lastArtifactsGraphKey = "";
 let artifactsGraphMode = "lineage";
+let artifactsViewMode = "artifacts";
+const ARTIFACT_FILTER_DEBOUNCE_MS = 250;
+let lastArtifactsAggregatesJson = "";
 let lastArtifactsContextJson = "";
 let lastLineageGateGraph = "";
 let lastLineageArtifactKey = "";
@@ -58,6 +70,27 @@ let activeSession = loadActiveSession();
 let thumbLive = false;
 let examplesDashboardUrl = null;
 let examplesLoadTimer = null;
+const opsSnapshot = {
+  agents: null,
+  panes: null,
+  shells: null,
+  focusedPane: "",
+  probePass: null,
+  probeFail: null,
+  probeUnknown: null,
+  probeReachable: null,
+  branch: "",
+  changed: null,
+  events: null,
+  eventErrors: null,
+  artifacts: null,
+  artifactFailures: null,
+  logs: null,
+  logErrors: null,
+  logWarns: null,
+  stale: null,
+  updatedAt: null,
+};
 
 function apiUrl(path) {
   if (!STATIC_PREVIEW || typeof path !== "string" || !path.startsWith("/api/")) {
@@ -189,7 +222,7 @@ function loadActiveSession() {
   try {
     const stored = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (stored === null) return "";
-    return stored === SESSION_ALL ? SESSION_ALL : String(stored);
+    return stored === SESSION_ALL ? SESSION_ALL : normalizeSessionValue(stored);
   } catch {
     return "";
   }
@@ -197,10 +230,83 @@ function loadActiveSession() {
 
 function saveActiveSession(value) {
   try {
-    sessionStorage.setItem(SESSION_STORAGE_KEY, value);
+    sessionStorage.setItem(
+      SESSION_STORAGE_KEY,
+      value === SESSION_ALL ? SESSION_ALL : normalizeSessionValue(value)
+    );
   } catch {
     /* sessionStorage unavailable */
   }
+}
+
+function loadKnownSessions() {
+  try {
+    const raw = localStorage.getItem(SESSION_LIST_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return [...new Set(parsed.map((row) => normalizeSessionValue(row)).filter(Boolean))].sort(
+      (a, b) => a.localeCompare(b)
+    );
+  } catch {
+    return [];
+  }
+}
+
+function saveKnownSessions(ids) {
+  try {
+    const unique = [...new Set(ids.map((row) => normalizeSessionValue(row)))];
+    const primary = unique.includes("") ? [""] : [];
+    const named = unique.filter(Boolean).sort((a, b) => a.localeCompare(b));
+    localStorage.setItem(
+      SESSION_LIST_STORAGE_KEY,
+      JSON.stringify([...primary, ...named].slice(0, SESSION_LIST_MAX))
+    );
+  } catch {
+    /* localStorage unavailable */
+  }
+}
+
+function rememberSession(session) {
+  const id = normalizeSessionValue(session);
+  const known = loadKnownSessions();
+  const next = [id, ...known.filter((row) => row !== id)].slice(0, SESSION_LIST_MAX);
+  saveKnownSessions(next);
+  return next;
+}
+
+function removeKnownSession(session) {
+  const id = normalizeSessionValue(session);
+  if (!id) return loadKnownSessions();
+  const next = loadKnownSessions().filter((row) => row !== id);
+  saveKnownSessions(next);
+  return next;
+}
+
+function canRemoveActiveSession(discovery) {
+  const id = normalizeSessionValue(activeSession);
+  if (!id || activeSession === SESSION_ALL) return false;
+  const catalog = sessionCatalogById(discovery);
+  return !catalog.has(id) && loadKnownSessions().includes(id);
+}
+
+function updateSessionRemoveButton(discovery) {
+  const btn = document.getElementById("session-remove-btn");
+  if (!btn) return;
+  const removable = canRemoveActiveSession(discovery);
+  btn.disabled = !removable;
+  btn.title = removable
+    ? `Remove saved session "${activeSession}" from this browser`
+    : "Only manually saved sessions can be removed";
+}
+
+function mergeKnownSessions(discovery, agents) {
+  const merged = new Set(loadKnownSessions());
+  for (const id of sessionIdsFromDiscovery(discovery, agents)) merged.add(id);
+  const primary = merged.has("") ? [""] : [];
+  const named = [...merged].filter(Boolean).sort((a, b) => a.localeCompare(b));
+  saveKnownSessions([...primary, ...named]);
+  return [...primary, ...named];
 }
 
 function showStaticPanelNotice(tab = activeTab) {
@@ -214,7 +320,8 @@ function showStaticPanelNotice(tab = activeTab) {
 }
 
 function normalizeSessionValue(session) {
-  return String(session ?? "").trim();
+  const value = String(session ?? "").trim();
+  return value.toLowerCase() === "primary" ? "" : value;
 }
 
 function sessionDisplayLabel(session, primaryLabel = "primary") {
@@ -246,12 +353,6 @@ function sessionCatalogById(discovery) {
   return new Map(catalog.map((row) => [normalizeSessionValue(row.session), row]));
 }
 
-function shouldShowSessionSelector(discovery, agents) {
-  if (discovery?.multiSessionEnabled) return true;
-  const sessions = sessionIdsFromDiscovery(discovery, agents);
-  return sessions.length > 1 || (sessions.length === 1 && sessions[0] !== "");
-}
-
 function filterAgentsBySession(agents, session) {
   const rows = agents || [];
   if (session === SESSION_ALL) return rows;
@@ -276,7 +377,6 @@ function truncateCwd(cwd, max = 48) {
 
 function updateProcessesSummary(count, label, details = {}) {
   const summary = document.getElementById("processes-summary");
-  if (!summary) return;
   const suffix = label ? ` · ${label}` : "";
   const agentCount = typeof details.agentCount === "number" ? details.agentCount : null;
   const shellCount = typeof details.shellCount === "number" ? details.shellCount : null;
@@ -285,12 +385,19 @@ function updateProcessesSummary(count, label, details = {}) {
     agentCount === null || shellCount === null
       ? ""
       : ` · ${agentCount} agent · ${shellCount} shell`;
-  summary.textContent = `· ${count} pane${count === 1 ? "" : "s"}${composition}${focusedPane}${suffix}`;
+  if (summary) {
+    summary.textContent = `· ${count} pane${count === 1 ? "" : "s"}${composition}${focusedPane}${suffix}`;
+  }
+  updateOpsSnapshot({
+    panes: count,
+    agents: agentCount,
+    shells: shellCount,
+    focusedPane: details.focusedPane || "",
+  });
 }
 
 function updateGitSummary(branch, changedCount, label) {
   const summary = document.getElementById("git-summary");
-  if (!summary) return;
   const suffix = label ? ` · ${label}` : "";
   const branchLabel = branch || "—";
   const dirtyLabel =
@@ -299,7 +406,135 @@ function updateGitSummary(branch, changedCount, label) {
         ? "clean"
         : `${changedCount} changed`
       : "—";
-  summary.textContent = `· ${branchLabel} · ${dirtyLabel}${suffix}`;
+  if (summary) summary.textContent = `· ${branchLabel} · ${dirtyLabel}${suffix}`;
+  updateOpsSnapshot({ branch: branch || "", changed: changedCount });
+}
+
+function opsValue(value) {
+  return value === null || value === undefined || value === "" ? "—" : String(value);
+}
+
+function opsTone(metric) {
+  if (metric === "git") {
+    if (typeof opsSnapshot.changed !== "number") return "info";
+    return opsSnapshot.changed === 0 ? "ok" : "warn";
+  }
+  if (metric === "events") {
+    if ((opsSnapshot.eventErrors ?? 0) > 0) return "error";
+    return typeof opsSnapshot.events === "number" ? "ok" : "info";
+  }
+  if (metric === "artifacts") {
+    if ((opsSnapshot.artifactFailures ?? 0) > 0) return "error";
+    return (opsSnapshot.artifacts ?? 0) > 0 ? "ok" : "warn";
+  }
+  if (metric === "logs") {
+    if ((opsSnapshot.logErrors ?? 0) > 0) return "error";
+    if ((opsSnapshot.logWarns ?? 0) > 0) return "warn";
+    return typeof opsSnapshot.logs === "number" ? "ok" : "info";
+  }
+  if (metric === "agents") return (opsSnapshot.agents ?? 0) > 0 ? "ok" : "warn";
+  if (metric === "probe") {
+    if (opsSnapshot.probeReachable === false) return "warn";
+    if ((opsSnapshot.probeFail ?? 0) > 0) return "error";
+    if ((opsSnapshot.probeUnknown ?? 0) > 0) return "warn";
+    return typeof opsSnapshot.probePass === "number" ? "ok" : "info";
+  }
+  if (metric === "panes") return (opsSnapshot.panes ?? 0) > 0 ? "ok" : "warn";
+  return "info";
+}
+
+function renderOpsStrip() {
+  const el = document.getElementById("ops-strip");
+  if (!el) return;
+  const branch = opsSnapshot.branch ? `${opsSnapshot.branch} · ` : "";
+  const eventsDetail =
+    (opsSnapshot.eventErrors ?? 0) > 0 ? ` · ${opsSnapshot.eventErrors} err` : "";
+  const artifactsDetail =
+    (opsSnapshot.artifactFailures ?? 0) > 0 ? ` · ${opsSnapshot.artifactFailures} fail` : "";
+  const logsDetail =
+    (opsSnapshot.logErrors ?? 0) > 0
+      ? ` · ${opsSnapshot.logErrors} err`
+      : (opsSnapshot.logWarns ?? 0) > 0
+        ? ` · ${opsSnapshot.logWarns} warn`
+        : "";
+  const panesDetail = opsSnapshot.focusedPane ? ` · ${opsSnapshot.focusedPane}` : "";
+  const probeText =
+    typeof opsSnapshot.probePass === "number"
+      ? `${opsSnapshot.probePass}/${opsSnapshot.probeFail ?? 0}/${opsSnapshot.probeUnknown ?? 0}`
+      : opsSnapshot.probeReachable === false
+        ? "off"
+        : "—";
+  el.innerHTML = [
+    `<span class="ops-pill ops-pill--${opsTone("agents")}" title="Discovered agents">agents <strong>${esc(opsValue(opsSnapshot.agents))}</strong></span>`,
+    `<span class="ops-pill ops-pill--${opsTone("panes")}" title="Live Herdr panes">panes <strong>${esc(opsValue(opsSnapshot.panes))}</strong>${esc(panesDetail)}</span>`,
+    `<span class="ops-pill ops-pill--${opsTone("git")}" title="Git branch and dirty files">git <strong>${esc(branch)}${esc(opsValue(opsSnapshot.changed))}</strong></span>`,
+    `<span class="ops-pill ops-pill--${opsTone("probe")}" title="Serve-probe pass/fail/unknown">probe <strong>${esc(probeText)}</strong></span>`,
+    `<span class="ops-pill ops-pill--${opsTone("events")}" title="Filtered or latest events">events <strong>${esc(opsValue(opsSnapshot.events))}</strong>${esc(eventsDetail)}</span>`,
+    `<span class="ops-pill ops-pill--${opsTone("artifacts")}" title="Saved gate/probe artifacts">artifacts <strong>${esc(opsValue(opsSnapshot.artifacts))}</strong>${esc(artifactsDetail)}</span>`,
+    `<span class="ops-pill ops-pill--${opsTone("logs")}" title="Structured debug log tail">logs <strong>${esc(opsValue(opsSnapshot.logs))}</strong>${esc(logsDetail)}</span>`,
+  ].join("");
+}
+
+function updateOpsSnapshot(patch) {
+  Object.assign(opsSnapshot, patch, { updatedAt: new Date().toISOString() });
+  renderOpsStrip();
+}
+
+function artifactIsFailure(row) {
+  const status = String(row?.status ?? "").toLowerCase();
+  return status === "fail" || status === "failed" || status === "error";
+}
+
+function eventIsError(row) {
+  const severity = String(row?.severity ?? row?.level ?? "").toLowerCase();
+  const type = String(row?.type ?? "").toLowerCase();
+  return severity === "error" || type.includes("failed") || type.includes("error");
+}
+
+function summarizeLogEntries(entries) {
+  const counts = { error: 0, warn: 0, info: 0 };
+  for (const entry of entries || []) {
+    const line = typeof entry === "string" ? entry : entry.raw || entry.message || "";
+    const severity = typeof entry === "string" ? logLineSeverity(line) : entry.severity || "";
+    counts[
+      tagTone(severity) === "error" ? "error" : tagTone(severity) === "warn" ? "warn" : "info"
+    ] += 1;
+  }
+  return counts;
+}
+
+async function refreshOpsSnapshot() {
+  const [eventsResult, artifactsResult, logsResult] = await Promise.allSettled([
+    fetch("/api/events?limit=1").then((res) => res.json()),
+    fetch("/api/artifacts").then((res) => res.json()),
+    fetch("/api/debug/logs?sink=tool-failures&tail=1").then((res) => res.json()),
+  ]);
+
+  if (eventsResult.status === "fulfilled" && eventsResult.value?.ok) {
+    const events = eventsResult.value.events || [];
+    updateOpsSnapshot({
+      events: eventsResult.value.count ?? events.length,
+      eventErrors: events.filter(eventIsError).length,
+    });
+  }
+
+  if (artifactsResult.status === "fulfilled" && artifactsResult.value?.ok) {
+    const artifacts = artifactsResult.value.artifacts || [];
+    updateOpsSnapshot({
+      artifacts: artifacts.length,
+      artifactFailures: artifacts.filter(artifactIsFailure).length,
+    });
+  }
+
+  if (logsResult.status === "fulfilled" && logsResult.value?.ok) {
+    const entries = logsResult.value.entries || logsResult.value.lines || [];
+    const counts = summarizeLogEntries(entries);
+    updateOpsSnapshot({
+      logs: logsResult.value.totalLines ?? entries.length,
+      logErrors: counts.error,
+      logWarns: counts.warn,
+    });
+  }
 }
 
 function gitStatusClass(xy) {
@@ -1023,53 +1258,117 @@ function updatePanelHeadings() {
   }
 }
 
-function syncSessionSelector(agents, discovery) {
-  const select = document.getElementById("session-scope");
-  if (!select) return;
+function artifactFilterFromScope() {
+  if (activeSession === SESSION_ALL) return { sessionId: "", workspaceId: "" };
+  const scope = normalizeSessionValue(activeSession);
+  if (!scope) return { sessionId: "", workspaceId: "" };
+  if (scope.startsWith("wd_") || scope.startsWith("kimi_")) {
+    return { sessionId: scope, workspaceId: "" };
+  }
+  return { sessionId: "", workspaceId: scope };
+}
 
-  const visible = shouldShowSessionSelector(discovery, agents);
-  select.hidden = !visible;
-  if (!visible) {
-    if (activeSession !== "") {
-      activeSession = "";
-      saveActiveSession(activeSession);
-      lastFilteredAgentsJson = "";
-      lastProcessesJson = "";
-      lastGitJson = "";
-      updatePanelHeadings();
-      void fetchProcesses();
-      void fetchGit();
-    }
+function artifactSessionIdFromScope() {
+  return artifactFilterFromScope().sessionId;
+}
+
+function artifactWorkspaceIdFromScope() {
+  return artifactFilterFromScope().workspaceId;
+}
+
+function syncArtifactsFilterFromSessionScope({ refresh = true } = {}) {
+  const sessionInput = document.getElementById("artifacts-session-filter");
+  const workspaceInput = document.getElementById("artifacts-workspace-filter");
+  if (!sessionInput || !workspaceInput) return false;
+  const { sessionId, workspaceId } = artifactFilterFromScope();
+  if (
+    sessionInput.value === sessionId &&
+    workspaceInput.value === workspaceId &&
+    artifactsSessionFilter === sessionId &&
+    artifactsWorkspaceFilter === workspaceId
+  ) {
+    return false;
+  }
+  sessionInput.value = sessionId;
+  workspaceInput.value = workspaceId;
+  artifactsSessionFilter = sessionId;
+  artifactsWorkspaceFilter = workspaceId;
+  renderArtifactsFilterChips();
+  pushArtifactsFilterToUrl();
+  lastArtifactsJson = "";
+  lastArtifactsContextJson = "";
+  lastArtifactsGraphKey = "";
+  lastRunsJson = "";
+  lastArtifactsAggregatesJson = "";
+  if (refresh && (activeTab === "artifacts" || activeTab === "lineage")) {
+    void refreshArtifacts();
+  }
+  return true;
+}
+
+function updateSessionSwitcherHint(discovery) {
+  const hint = document.getElementById("session-switcher-hint");
+  if (!hint) return;
+  if (!discovery) {
+    hint.textContent = "Loading sessions…";
     return;
   }
+  const stored = loadKnownSessions().filter(Boolean).length;
+  const primaryLabel = discovery.herdrSessionLabel || "primary";
+  if (activeSession === SESSION_ALL) {
+    hint.textContent =
+      stored > 0
+        ? `${stored} saved session(s) · all scopes · artifacts unfiltered`
+        : "Viewing all Herdr sessions · artifacts unfiltered";
+    return;
+  }
+  const label = sessionDisplayLabel(activeSession, primaryLabel);
+  const scopeFilter = artifactFilterFromScope();
+  const artifactNote = scopeFilter.workspaceId
+    ? " · artifacts filtered by Herdr session"
+    : scopeFilter.sessionId
+      ? " · artifacts filtered by Kimi session"
+      : "";
+  hint.textContent =
+    stored > 0
+      ? `${stored} saved · scoped to ${label}${artifactNote}`
+      : `Scoped to ${label}${artifactNote} — add names to remember custom sessions`;
+  updateSessionRemoveButton(discovery);
+}
 
+function buildSessionSelectorOptions(discovery, agents) {
   const primaryLabel = discovery?.herdrSessionLabel || "primary";
-  const sessions = sessionIdsFromDiscovery(discovery, agents);
   const catalog = sessionCatalogById(discovery);
+  const sessionIds = mergeKnownSessions(discovery, agents);
+  const knownOnly = new Set(loadKnownSessions());
   const options = [];
 
-  if (discovery?.multiSessionEnabled) {
+  const showAll =
+    Boolean(discovery?.multiSessionEnabled) ||
+    sessionIds.filter((id) => id !== "").length > 0 ||
+    knownOnly.size > 1;
+  if (showAll) {
     options.push({ value: SESSION_ALL, label: "all sessions" });
   }
-  for (const session of sessions) {
+
+  for (const session of sessionIds) {
     const meta = catalog.get(session);
-    const label = meta?.label || sessionDisplayLabel(session, primaryLabel);
+    const baseLabel = meta?.label || sessionDisplayLabel(session, primaryLabel);
+    const storedOnly = !meta && knownOnly.has(session) && session !== "";
     const warn = meta && meta.reachable === false ? ` (${meta.error || "unreachable"})` : "";
+    const storedTag = storedOnly ? " · saved" : "";
     options.push({
       value: session,
-      label: `${label}${warn}`,
-      title: meta?.error,
+      label: `${baseLabel}${warn}${storedTag}`,
+      title: meta?.error || (storedOnly ? "Saved in this browser" : undefined),
       unreachable: Boolean(meta && meta.reachable === false),
+      stored: storedOnly,
     });
   }
+  return options;
+}
 
-  const allowed = new Set(options.map((opt) => opt.value));
-  if (!allowed.has(activeSession)) {
-    activeSession = sessions.includes("") ? "" : (options[0]?.value ?? "");
-    saveActiveSession(activeSession);
-  }
-
-  const previous = select.value;
+function renderSessionSelectorOptions(select, options) {
   select.replaceChildren();
   for (const opt of options) {
     const el = document.createElement("option");
@@ -1077,8 +1376,51 @@ function syncSessionSelector(agents, discovery) {
     el.textContent = opt.label;
     if (opt.title) el.title = opt.title;
     if (opt.unreachable) el.className = "session-unreachable";
+    else if (opt.stored) el.className = "session-stored";
     select.appendChild(el);
   }
+}
+
+function applySessionScopeChange({ refreshWidgets = true } = {}) {
+  const select = document.getElementById("session-scope");
+  if (select) activeSession = select.value;
+  saveActiveSession(activeSession);
+  if (activeSession !== SESSION_ALL) rememberSession(activeSession);
+  lastFilteredAgentsJson = "";
+  lastProcessesJson = "";
+  lastGitJson = "";
+  resetLogsPanelState();
+  removeLogsRows();
+  updatePanelHeadings();
+  updateSessionSwitcherHint(metaSnapshot?.discovery);
+  syncArtifactsFilterFromSessionScope();
+  renderHeaderBadges(lastHealthPayload);
+  if (lastAgentsPayload) renderAgents(lastAgentsPayload);
+  if (refreshWidgets) {
+    void fetchProcesses();
+    void fetchGit();
+  }
+  auditDashboard("session.scope", { activeSession, known: loadKnownSessions() });
+}
+
+function syncSessionSelector(agents, discovery) {
+  const select = document.getElementById("session-scope");
+  if (!select) return;
+
+  if (!discovery) {
+    updateSessionSwitcherHint(null);
+    return;
+  }
+
+  const options = buildSessionSelectorOptions(discovery, agents);
+  const allowed = new Set(options.map((opt) => opt.value));
+  if (!allowed.has(activeSession)) {
+    activeSession = options.some((opt) => opt.value === "") ? "" : (options[0]?.value ?? "");
+    saveActiveSession(activeSession);
+  }
+
+  const previous = select.value;
+  renderSessionSelectorOptions(select, options);
   select.value = allowed.has(activeSession) ? activeSession : (options[0]?.value ?? "");
   activeSession = select.value;
   saveActiveSession(activeSession);
@@ -1086,30 +1428,64 @@ function syncSessionSelector(agents, discovery) {
     lastFilteredAgentsJson = "";
     lastProcessesJson = "";
     lastGitJson = "";
+    syncArtifactsFilterFromSessionScope();
     void fetchProcesses();
     void fetchGit();
   }
   updatePanelHeadings();
+  updateSessionSwitcherHint(discovery);
+  updateSessionRemoveButton(discovery);
+  renderHeaderBadges(lastHealthPayload);
+}
+
+function addSessionFromInput() {
+  const input = document.getElementById("session-add-input");
+  if (!input) return;
+  const name = normalizeSessionValue(input.value);
+  input.value = "";
+  if (!name) return;
+  rememberSession(name);
+  activeSession = name;
+  saveActiveSession(activeSession);
+  syncSessionSelector(lastAgentsPayload?.agents, metaSnapshot?.discovery);
+  applySessionScopeChange();
+}
+
+function removeSessionFromInput() {
+  if (!canRemoveActiveSession(metaSnapshot?.discovery)) return;
+  removeKnownSession(activeSession);
+  activeSession = loadKnownSessions().includes("") ? "" : (loadKnownSessions()[0] ?? "");
+  saveActiveSession(activeSession);
+  syncSessionSelector(lastAgentsPayload?.agents, metaSnapshot?.discovery);
+  applySessionScopeChange();
 }
 
 function wireSessionSelector() {
   const select = document.getElementById("session-scope");
   if (!select || select.dataset.wired === "1") return;
   select.dataset.wired = "1";
-  select.addEventListener("change", () => {
-    activeSession = select.value;
-    saveActiveSession(activeSession);
-    lastFilteredAgentsJson = "";
-    lastProcessesJson = "";
-    lastGitJson = "";
-    resetLogsPanelState();
-    removeLogsRows();
-    updatePanelHeadings();
-    if (lastAgentsPayload) renderAgents(lastAgentsPayload);
-    void fetchProcesses();
-    void fetchGit();
-    auditDashboard("session.scope", { activeSession });
-  });
+  select.addEventListener("change", () => applySessionScopeChange());
+
+  const addBtn = document.getElementById("session-add-btn");
+  const addInput = document.getElementById("session-add-input");
+  const removeBtn = document.getElementById("session-remove-btn");
+  if (addBtn && addBtn.dataset.wired !== "1") {
+    addBtn.dataset.wired = "1";
+    addBtn.addEventListener("click", () => addSessionFromInput());
+  }
+  if (addInput && addInput.dataset.wired !== "1") {
+    addInput.dataset.wired = "1";
+    addInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        addSessionFromInput();
+      }
+    });
+  }
+  if (removeBtn && removeBtn.dataset.wired !== "1") {
+    removeBtn.dataset.wired = "1";
+    removeBtn.addEventListener("click", () => removeSessionFromInput());
+  }
 }
 
 function auditDashboard(event, data = {}) {
@@ -1274,24 +1650,10 @@ async function sendHeartbeats(agents) {
   });
 }
 
-function wireAgentThumbnail(data) {
-  const wrap = document.getElementById("agent-thumb-wrap");
-  const img = document.getElementById("agent-thumb");
-  if (!data.thumbnail || !data.thumbnailPath) {
-    thumbLive = false;
-    wrap.classList.remove("visible");
-    wrap.setAttribute("aria-hidden", "true");
-    return;
-  }
-  wrap.classList.add("visible");
-  wrap.setAttribute("aria-hidden", "false");
-  const thumbUrl = apiUrl(`${data.thumbnailPath}?width=160&height=90&quality=75&t=${Date.now()}`);
-  if (thumbLive) {
-    img.src = thumbUrl;
-    return;
-  }
-  if (data.placeholder) {
-    img.src = data.placeholder;
+function loadDashboardImageTarget(img, url, placeholder) {
+  if (!img) return;
+  if (placeholder) {
+    img.src = placeholder;
     img.classList.add("lqip");
   } else {
     img.removeAttribute("src");
@@ -1300,14 +1662,87 @@ function wireAgentThumbnail(data) {
   const full = new Image();
   full.decoding = "async";
   full.onload = () => {
-    img.src = thumbUrl;
+    img.src = url;
     img.classList.remove("lqip");
+  };
+  full.onerror = () => {
+    if (!placeholder) img.removeAttribute("src");
+  };
+  full.src = url;
+}
+
+function wireSessionBunMark(data) {
+  const img = document.getElementById("session-bun-mark");
+  if (!img) return;
+  const effect = data.effectImage;
+  const markPath = effect?.markPath || data.bunMarkPath || "/api/bun-mark";
+  if (!effect?.available && !data.bunMarkPath) {
+    img.hidden = true;
+    return;
+  }
+  img.hidden = false;
+  const markUrl = apiUrl(`${markPath}?width=32&height=32&quality=82&t=${Date.now()}`);
+  const placeholder = effect?.placeholder || null;
+  loadDashboardImageTarget(img, markUrl, placeholder);
+}
+
+function wireSessionLiveThumbnail(data) {
+  const wrap = document.getElementById("session-switcher-thumb-wrap");
+  const img = document.getElementById("session-switcher-thumb");
+  if (!wrap || !img) return;
+  if (!data.thumbnail || !data.thumbnailPath) {
+    wrap.hidden = true;
+    wrap.setAttribute("aria-hidden", "true");
+    return;
+  }
+  wrap.hidden = false;
+  wrap.setAttribute("aria-hidden", "false");
+  const thumbUrl = apiUrl(`${data.thumbnailPath}?width=72&height=40&quality=75&t=${Date.now()}`);
+  const placeholder = data.placeholder || data.effectImage?.placeholder || null;
+  loadDashboardImageTarget(img, thumbUrl, placeholder);
+}
+
+function wireAgentThumbnail(data) {
+  wireSessionBunMark(data);
+  wireSessionLiveThumbnail(data);
+
+  const wrap = document.getElementById("agent-thumb-wrap");
+  const img = document.getElementById("agent-thumb");
+  if (!data.thumbnail || !data.thumbnailPath) {
+    thumbLive = false;
+    wrap?.classList.remove("visible");
+    wrap?.setAttribute("aria-hidden", "true");
+    return;
+  }
+  wrap?.classList.add("visible");
+  wrap?.setAttribute("aria-hidden", "false");
+  const thumbUrl = apiUrl(`${data.thumbnailPath}?width=160&height=90&quality=75&t=${Date.now()}`);
+  if (thumbLive) {
+    if (img) img.src = thumbUrl;
+    return;
+  }
+  if (data.placeholder) {
+    if (img) {
+      img.src = data.placeholder;
+      img.classList.add("lqip");
+    }
+  } else if (img) {
+    img.removeAttribute("src");
+    img.classList.remove("lqip");
+  }
+  const full = new Image();
+  full.decoding = "async";
+  full.onload = () => {
+    if (img) {
+      img.src = thumbUrl;
+      img.classList.remove("lqip");
+    }
     thumbLive = true;
   };
   full.onerror = () => {
     if (!data.placeholder) {
-      wrap.classList.remove("visible");
-      wrap.setAttribute("aria-hidden", "true");
+      wrap?.classList.remove("visible");
+      wrap?.setAttribute("aria-hidden", "true");
     }
   };
   full.src = thumbUrl;
@@ -1441,6 +1876,7 @@ function renderMetaDisplay(data) {
   }
   syncSessionSelector(lastAgentsPayload?.agents, data.discovery);
   wireSessionSelector();
+  syncArtifactsFilterFromSessionScope({ refresh: false });
   updatePanelHeadings();
 
   const legend = document.getElementById("agents-legend");
@@ -1514,7 +1950,7 @@ function renderAgents(data) {
     const scoped =
       activeSession === SESSION_ALL || (normalizeSessionValue(activeSession) !== "" && total > 0);
     const hint = scoped
-      ? " No agents in the selected session — pick another scope in the control-plane selector."
+      ? " No agents in the selected session — pick another scope in the session dropdown."
       : data.error
         ? ` Partial errors: ${data.error}`
         : " Start agents in Herdr or run with --sessions to scan all sessions.";
@@ -2225,6 +2661,17 @@ function formatArtifactAge(ms) {
   return `${Math.round(ms / 86_400_000)}d ago`;
 }
 
+function debounce(fn, ms) {
+  let timer = null;
+  return (...args) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      fn(...args);
+    }, ms);
+  };
+}
+
 function compactArtifactPath(path) {
   const text = String(path ?? "").trim();
   if (!text) return "—";
@@ -2232,18 +2679,212 @@ function compactArtifactPath(path) {
   return text.startsWith(prefix) ? text.slice(prefix.length) : text;
 }
 
+function compactArtifactContextLabel(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "—";
+  return text.length > 18 ? `${text.slice(0, 8)}…${text.slice(-6)}` : text;
+}
+
+function artifactsFilterQuery() {
+  const params = new URLSearchParams();
+  if (artifactsSessionFilter) params.set("sessionId", artifactsSessionFilter);
+  if (artifactsWorkspaceFilter) {
+    params.set("workspaceId", artifactsWorkspaceFilter);
+    if (!artifactsSessionFilter) params.set("session", artifactsWorkspaceFilter);
+  }
+  if (artifactsPaneFilter) params.set("paneId", artifactsPaneFilter);
+  if (artifactsAgentFilter) params.set("agentId", artifactsAgentFilter);
+  if (artifactsRunFilter) params.set("runId", artifactsRunFilter);
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+function pushArtifactsFilterToUrl() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const setOrDelete = (key, value) => {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    };
+    setOrDelete("sessionId", artifactsSessionFilter);
+    setOrDelete("workspaceId", artifactsWorkspaceFilter);
+    setOrDelete("paneId", artifactsPaneFilter);
+    setOrDelete("agentId", artifactsAgentFilter);
+    setOrDelete("runId", artifactsRunFilter);
+    if (artifactsViewMode !== "artifacts") params.set("view", artifactsViewMode);
+    else params.delete("view");
+    const query = params.toString();
+    const next = query ? `?${query}` : window.location.pathname;
+    const current = window.location.pathname + window.location.search;
+    if (next !== current) {
+      window.history.replaceState({}, "", next);
+    }
+  } catch {
+    /* URL/history may be restricted in static file previews */
+  }
+}
+
+function readArtifactsFiltersFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  artifactsSessionFilter = params.get("sessionId")?.trim() || "";
+  artifactsWorkspaceFilter = params.get("workspaceId")?.trim() || "";
+  artifactsPaneFilter = params.get("paneId")?.trim() || "";
+  artifactsAgentFilter = params.get("agentId")?.trim() || "";
+  artifactsRunFilter = params.get("runId")?.trim() || "";
+  const view = params.get("view");
+  artifactsViewMode = view === "aggregates" ? "aggregates" : "artifacts";
+}
+
+function writeArtifactsFiltersToInputs() {
+  const set = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.value = value;
+  };
+  set("artifacts-session-filter", artifactsSessionFilter);
+  set("artifacts-workspace-filter", artifactsWorkspaceFilter);
+  set("artifacts-pane-filter", artifactsPaneFilter);
+  set("artifacts-agent-filter", artifactsAgentFilter);
+  set("artifacts-run-filter", artifactsRunFilter);
+}
+
+function activeArtifactsFilters() {
+  return [
+    { key: "sessionId", label: "Session", value: artifactsSessionFilter },
+    { key: "workspaceId", label: "Workspace", value: artifactsWorkspaceFilter },
+    { key: "paneId", label: "Pane", value: artifactsPaneFilter },
+    { key: "agentId", label: "Agent", value: artifactsAgentFilter },
+    { key: "runId", label: "Run", value: artifactsRunFilter },
+  ].filter((f) => f.value);
+}
+
+function renderArtifactsFilterChips() {
+  const chipsEl = document.getElementById("artifacts-filter-chips");
+  const badgeEl = document.getElementById("artifacts-filter-badge");
+  const filters = activeArtifactsFilters();
+  if (badgeEl) badgeEl.textContent = `Filters: ${filters.length}`;
+  if (!chipsEl) return;
+  chipsEl.innerHTML = "";
+  if (filters.length === 0) {
+    const span = document.createElement("span");
+    span.className = "artifacts-filter-empty";
+    span.textContent = "No active filters";
+    chipsEl.appendChild(span);
+    return;
+  }
+  for (const f of filters) {
+    const chip = document.createElement("span");
+    chip.className = "artifacts-filter-chip";
+    chip.title = `${f.label}: ${f.value}`;
+    chip.innerHTML = `<span class="artifacts-filter-chip-label">${esc(f.label)}</span><code>${esc(
+      compactArtifactContextLabel(f.value)
+    )}</code><button type="button" data-filter-key="${esc(f.key)}" aria-label="Remove ${esc(
+      f.label
+    )} filter">×</button>`;
+    chip.querySelector("button")?.addEventListener("click", () => {
+      removeArtifactsFilter(f.key);
+    });
+    chipsEl.appendChild(chip);
+  }
+}
+
+function removeArtifactsFilter(key) {
+  if (key === "sessionId") artifactsSessionFilter = "";
+  if (key === "workspaceId") artifactsWorkspaceFilter = "";
+  if (key === "paneId") artifactsPaneFilter = "";
+  if (key === "agentId") artifactsAgentFilter = "";
+  if (key === "runId") artifactsRunFilter = "";
+  writeArtifactsFiltersToInputs();
+  renderArtifactsFilterChips();
+  pushArtifactsFilterToUrl();
+  lastArtifactsJson = "";
+  lastArtifactsContextJson = "";
+  lastArtifactsGraphKey = "";
+  lastRunsJson = "";
+  lastArtifactsAggregatesJson = "";
+  void refreshArtifacts();
+}
+
+function populateArtifactsFilterOptions(filterOptions) {
+  const fill = (id, values) => {
+    const list = document.getElementById(id);
+    if (!list) return;
+    list.innerHTML = "";
+    const merged = [...new Set([...(values || []), ...loadKnownSessions().filter(Boolean)])].sort(
+      (a, b) => a.localeCompare(b)
+    );
+    for (const value of merged) {
+      const opt = document.createElement("option");
+      opt.value = value;
+      list.appendChild(opt);
+    }
+  };
+  fill("artifacts-session-options", filterOptions?.sessionIds);
+  const herdrSessions = [
+    ...(filterOptions?.workspaceIds || []),
+    ...loadKnownSessions().filter((id) => id && !id.startsWith("wd_") && !id.startsWith("kimi_")),
+  ];
+  fill("artifacts-workspace-options", herdrSessions);
+  fill("artifacts-pane-options", filterOptions?.paneIds);
+  fill("artifacts-agent-options", filterOptions?.agentIds);
+  fill("artifacts-run-options", filterOptions?.runIds);
+}
+
+function readArtifactsFiltersFromInputs() {
+  artifactsSessionFilter = document.getElementById("artifacts-session-filter")?.value.trim() || "";
+  artifactsWorkspaceFilter =
+    document.getElementById("artifacts-workspace-filter")?.value.trim() || "";
+  artifactsPaneFilter = document.getElementById("artifacts-pane-filter")?.value.trim() || "";
+  artifactsAgentFilter = document.getElementById("artifacts-agent-filter")?.value.trim() || "";
+  artifactsRunFilter = document.getElementById("artifacts-run-filter")?.value.trim() || "";
+}
+
+function clearArtifactsFilters() {
+  artifactsSessionFilter = "";
+  artifactsWorkspaceFilter = "";
+  artifactsPaneFilter = "";
+  artifactsAgentFilter = "";
+  artifactsRunFilter = "";
+  const session = document.getElementById("artifacts-session-filter");
+  const workspace = document.getElementById("artifacts-workspace-filter");
+  const pane = document.getElementById("artifacts-pane-filter");
+  const agent = document.getElementById("artifacts-agent-filter");
+  const run = document.getElementById("artifacts-run-filter");
+  if (session) session.value = "";
+  if (workspace) workspace.value = "";
+  if (pane) pane.value = "";
+  if (agent) agent.value = "";
+  if (run) run.value = "";
+  renderArtifactsFilterChips();
+  pushArtifactsFilterToUrl();
+  lastArtifactsJson = "";
+  lastArtifactsContextJson = "";
+  lastArtifactsGraphKey = "";
+  lastRunsJson = "";
+  lastArtifactsAggregatesJson = "";
+}
+
 function artifactDetailHtml(row) {
   const latestPath = row.latestPath || "";
   const preview = row.preview || JSON.stringify(row, null, 2);
+  const contextTags = [
+    row.sessionId ? tagHtml(`session:${row.sessionId}`, "neutral") : "",
+    row.workspaceId ? tagHtml(`workspace:${row.workspaceId}`, "neutral") : "",
+    row.paneId ? tagHtml(`pane:${row.paneId}`, "neutral") : "",
+    row.agentId ? tagHtml(`agent:${row.agentId}`, "neutral") : "",
+    row.runId ? tagHtml(`run:${compactArtifactContextLabel(row.runId)}`, "neutral") : "",
+  ]
+    .filter(Boolean)
+    .join("");
   return `
     <tr class="artifact-detail-row" data-detail-for="${esc(row.gate)}">
-      <td colspan="7">
+      <td colspan="${ARTIFACT_TABLE_COLS}">
         <div class="artifact-detail">
           <div class="artifact-detail-meta">
             ${tagHtml(`source:${row.source || "artifact-store"}`, "neutral")}
             ${tagHtml(`age:${formatArtifactAge(row.latestAgeMs)}`, "neutral")}
             ${tagHtml(`payload:${formatArtifactBytes(row.latestSize)}`, "neutral")}
             ${tagHtml(`result:${formatArtifactBytes(row.latestResultSize)}`, "neutral")}
+            ${contextTags}
           </div>
           <div class="artifact-detail-path"><code>${esc(latestPath || "No latest path")}</code></div>
           <pre class="artifact-preview">${esc(preview)}</pre>
@@ -2268,20 +2909,119 @@ function toggleArtifactDetail(row, tr) {
   tr.insertAdjacentHTML("afterend", artifactDetailHtml(row));
 }
 
+function applyArtifactsRunFilter(runId) {
+  const run = document.getElementById("artifacts-run-filter");
+  if (run) run.value = runId;
+  artifactsRunFilter = runId;
+  renderArtifactsFilterChips();
+  pushArtifactsFilterToUrl();
+  lastArtifactsJson = "";
+  lastArtifactsContextJson = "";
+  lastArtifactsGraphKey = "";
+  lastArtifactsAggregatesJson = "";
+  void refreshArtifacts();
+}
+
+async function refreshArtifactsRuns() {
+  if (activeTab !== "artifacts") return;
+  const body = document.getElementById("artifacts-runs-body");
+  const errEl = document.getElementById("artifacts-runs-error");
+  if (!body) return;
+
+  try {
+    const scope = artifactWorkspaceIdFromScope() || artifactSessionIdFromScope();
+    const scopedPath =
+      scope && !artifactsPaneFilter && !artifactsAgentFilter && !artifactsRunFilter
+        ? `/api/sessions/${encodeURIComponent(scope)}/runs`
+        : `/api/runs${artifactsFilterQuery()}`;
+    const res = await fetch(scopedPath);
+    const payload = await res.json();
+    const runs = [...(payload.runs || [])].sort((a, b) =>
+      String(b.completedAt ?? b.startedAt ?? "").localeCompare(
+        String(a.completedAt ?? a.startedAt ?? "")
+      )
+    );
+    const json = JSON.stringify(runs);
+    if (json === lastRunsJson) return;
+    lastRunsJson = json;
+
+    if (!payload.ok) {
+      if (errEl) errEl.textContent = payload.error || "Failed to load runs";
+      return;
+    }
+    if (errEl) errEl.textContent = "";
+    if (payload.filterOptions) populateArtifactsFilterOptions(payload.filterOptions);
+
+    body.innerHTML = "";
+    if (runs.length === 0) {
+      const filtered =
+        artifactsSessionFilter ||
+        artifactsWorkspaceFilter ||
+        artifactsPaneFilter ||
+        artifactsAgentFilter ||
+        artifactsRunFilter;
+      body.innerHTML = filtered
+        ? `<tr><td colspan="5" class="empty-state">No run manifests match the current identity filters.</td></tr>`
+        : `<tr><td colspan="5" class="empty-state">No saved runs yet. Create one with: kimi-doctor --gate &lt;name&gt; --save-artifact</td></tr>`;
+      return;
+    }
+
+    for (const row of runs.slice(0, 12)) {
+      const tr = document.createElement("tr");
+      tr.className = `artifacts-run-row artifact-status--${row.status || "unknown"}`;
+      tr.dataset.runId = row.runId;
+      const gates = Array.isArray(row.gates) ? row.gates.join(", ") : "—";
+      const sessionLabel = compactArtifactContextLabel(row.sessionId);
+      const when = row.completedAt || row.startedAt || "—";
+      tr.innerHTML = `
+        <td class="artifacts-run-id"><code title="${esc(row.runId)}">${esc(
+          compactArtifactContextLabel(row.runId)
+        )}</code></td>
+        <td>${tagHtml(row.status || "unknown")}</td>
+        <td class="artifacts-run-gates"><code>${esc(gates)}</code></td>
+        <td class="artifacts-run-session"><code>${esc(sessionLabel)}</code></td>
+        <td class="artifacts-run-when">${esc(when)}</td>
+      `;
+      tr.addEventListener("click", () => applyArtifactsRunFilter(row.runId));
+      body.appendChild(tr);
+    }
+  } catch (err) {
+    if (errEl) errEl.textContent = err instanceof Error ? err.message : String(err);
+  }
+}
+
 async function refreshArtifacts() {
   if (activeTab !== "artifacts") return;
+  updateArtifactsViewModeUI();
+  if (artifactsViewMode === "aggregates") {
+    await refreshArtifactsAggregates();
+    return;
+  }
+
   const body = document.getElementById("artifacts-body");
   const errEl = document.getElementById("artifacts-error");
   const hintEl = document.getElementById("artifacts-probe-hint");
   if (!body) return;
 
+  void refreshArtifactsRuns();
+
   try {
-    const res = await fetch("/api/artifacts");
+    const scope = artifactWorkspaceIdFromScope() || artifactSessionIdFromScope();
+    const scopedPath =
+      scope && !artifactsPaneFilter && !artifactsAgentFilter && !artifactsRunFilter
+        ? `/api/sessions/${encodeURIComponent(scope)}/artifacts`
+        : `/api/artifacts${artifactsFilterQuery()}`;
+    const res = await fetch(scopedPath);
     const payload = await res.json();
+    populateArtifactsFilterOptions(payload.filterOptions);
     const artifacts = [...(payload.artifacts || [])].sort((a, b) => {
       const byLatest = String(b.latestPath ?? "").localeCompare(String(a.latestPath ?? ""));
       if (byLatest !== 0) return byLatest;
       return String(a.gate ?? "").localeCompare(String(b.gate ?? ""));
+    });
+    updateOpsSnapshot({
+      artifacts: artifacts.length,
+      artifactFailures: artifacts.filter(artifactIsFailure).length,
     });
     const json = JSON.stringify(artifacts);
     if (json === lastArtifactsJson) return;
@@ -2305,8 +3045,10 @@ async function refreshArtifacts() {
 
     body.innerHTML = "";
     if (artifacts.length === 0) {
-      body.innerHTML =
-        '<tr><td colspan="7" class="empty-state">No saved artifacts under .kimi/artifacts. Create one with: kimi-doctor --gate &lt;name&gt; --save-artifact</td></tr>';
+      const filtered = activeArtifactsFilters().length > 0;
+      body.innerHTML = filtered
+        ? `<tr><td colspan="${ARTIFACT_TABLE_COLS}" class="empty-state">No artifacts match the current identity filters.</td></tr>`
+        : `<tr><td colspan="${ARTIFACT_TABLE_COLS}" class="empty-state">No saved artifacts under .kimi/artifacts. Create one with: kimi-doctor --gate &lt;name&gt; --save-artifact</td></tr>`;
       populateArtifactsGateSelect([], "");
       selectedArtifactsGate = "";
       lastArtifactsGraphKey = "";
@@ -2329,6 +3071,7 @@ async function refreshArtifacts() {
       const latestMeta = `<span class="artifact-time">${esc(
         [row.updatedAt, formatArtifactAge(row.latestAgeMs)].filter(Boolean).join(" · ")
       )}</span>`;
+      const sessionLabel = compactArtifactContextLabel(row.sessionId);
       tr.innerHTML = `
         <td class="artifact-gate"><code>${esc(row.gate)}</code></td>
         <td>${tagHtml(row.status || "unknown")}</td>
@@ -2336,6 +3079,11 @@ async function refreshArtifacts() {
         <td class="artifact-latest"><code title="${esc(latestPath)}">${esc(
           compactArtifactPath(latestPath)
         )}</code>${latestMeta}</td>
+        <td class="artifact-session" title="${esc(
+          [row.sessionId, row.workspaceId, row.paneId, row.agentId, row.runId]
+            .filter(Boolean)
+            .join(" · ")
+        )}"><code>${esc(sessionLabel)}</code>${row.runId ? `<span class="artifact-run-id">${esc(compactArtifactContextLabel(row.runId))}</span>` : ""}</td>
         <td class="artifact-size"><code>${esc(formatArtifactBytes(row.latestSize))}</code></td>
         <td class="artifact-size"><code>${esc(formatArtifactBytes(row.latestResultSize))}</code></td>
         <td class="artifact-summary">${esc(row.summary || "—")}</td>
@@ -2398,7 +3146,7 @@ async function refreshArtifactsContextGraph() {
   if (!graphEl) return;
 
   try {
-    const res = await fetch("/api/artifacts/context");
+    const res = await fetch(`/api/artifacts/context${artifactsFilterQuery()}`);
     const payload = await res.json();
     if (!payload.ok) {
       graphEl.textContent = payload.error || "Failed to load artifact context";
@@ -2484,13 +3232,133 @@ function setArtifactsGraphMode(mode) {
   auditDashboard("artifacts.graphMode", { mode });
 }
 
+function updateArtifactsViewModeUI() {
+  const listView = document.getElementById("artifacts-list-view");
+  const aggregatesView = document.getElementById("artifacts-aggregates-view");
+  if (listView) listView.hidden = artifactsViewMode !== "artifacts";
+  if (aggregatesView) aggregatesView.hidden = artifactsViewMode !== "aggregates";
+
+  document.querySelectorAll(".artifacts-view-mode-btn").forEach((btn) => {
+    const selected = btn.dataset.view === artifactsViewMode;
+    btn.classList.toggle("active", selected);
+    btn.setAttribute("aria-selected", String(selected));
+  });
+}
+
+function setArtifactsViewMode(view) {
+  const next = view === "aggregates" ? "aggregates" : "artifacts";
+  if (artifactsViewMode === next) return;
+  artifactsViewMode = next;
+  updateArtifactsViewModeUI();
+  pushArtifactsFilterToUrl();
+  lastArtifactsJson = "";
+  lastArtifactsContextJson = "";
+  lastArtifactsGraphKey = "";
+  lastArtifactsAggregatesJson = "";
+  void refreshArtifacts();
+  auditDashboard("artifacts.viewMode", { view: next });
+}
+
+async function refreshArtifactsAggregates() {
+  if (activeTab !== "artifacts") return;
+  const body = document.getElementById("artifacts-aggregates-body");
+  const errEl = document.getElementById("artifacts-aggregates-error");
+  if (!body) return;
+
+  try {
+    const res = await fetch(`/api/artifacts/aggregates${artifactsFilterQuery()}`);
+    const payload = await res.json();
+    populateArtifactsFilterOptions(payload.filterOptions);
+    const aggregates = [...(payload.aggregates || [])].sort((a, b) =>
+      String(a.gate ?? "").localeCompare(String(b.gate ?? ""))
+    );
+    updateOpsSnapshot({
+      artifacts: aggregates.reduce((sum, row) => sum + (row.count ?? 0), 0),
+      artifactFailures: 0,
+    });
+    const json = JSON.stringify(aggregates);
+    if (json === lastArtifactsAggregatesJson) return;
+    lastArtifactsAggregatesJson = json;
+
+    if (!payload.ok) {
+      if (errEl) errEl.textContent = payload.error || "Failed to load aggregates";
+      return;
+    }
+    if (errEl) errEl.textContent = "";
+
+    body.innerHTML = "";
+    if (aggregates.length === 0) {
+      const filtered = activeArtifactsFilters().length > 0;
+      body.innerHTML = `<tr><td colspan="3" class="empty-state">${
+        filtered
+          ? "No aggregates match the current identity filters."
+          : "No saved artifacts under .kimi/artifacts. Create one with: kimi-doctor --gate <name> --save-artifact"
+      }</td></tr>`;
+      return;
+    }
+
+    for (const row of aggregates) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="artifact-gate"><code>${esc(row.gate)}</code></td>
+        <td class="artifact-count">${esc(String(row.count ?? 0))}</td>
+        <td class="artifact-latest">${esc(row.latestTimestamp || "—")}</td>
+      `;
+      body.appendChild(tr);
+    }
+  } catch (err) {
+    if (errEl) errEl.textContent = err instanceof Error ? err.message : String(err);
+  }
+}
+
 function wireArtifactsPanel() {
   const select = document.getElementById("artifacts-gate-select");
   select?.addEventListener("change", () => {
     void selectArtifactsGate(select.value);
   });
 
+  const applyArtifactsFilters = () => {
+    readArtifactsFiltersFromInputs();
+    renderArtifactsFilterChips();
+    pushArtifactsFilterToUrl();
+    lastArtifactsJson = "";
+    lastArtifactsContextJson = "";
+    lastArtifactsGraphKey = "";
+    lastArtifactsAggregatesJson = "";
+    void refreshArtifacts();
+  };
+
+  const debouncedApplyArtifactsFilters = debounce(
+    applyArtifactsFilters,
+    ARTIFACT_FILTER_DEBOUNCE_MS
+  );
+
+  for (const id of [
+    "artifacts-session-filter",
+    "artifacts-workspace-filter",
+    "artifacts-pane-filter",
+    "artifacts-agent-filter",
+    "artifacts-run-filter",
+  ]) {
+    const input = document.getElementById(id);
+    if (input && input.dataset.wired !== "1") {
+      input.dataset.wired = "1";
+      input.addEventListener("input", debouncedApplyArtifactsFilters);
+    }
+  }
+
+  const clearBtn = document.getElementById("artifacts-filter-clear");
+  if (clearBtn && clearBtn.dataset.wired !== "1") {
+    clearBtn.dataset.wired = "1";
+    clearBtn.addEventListener("click", () => {
+      clearArtifactsFilters();
+      void refreshArtifacts();
+    });
+  }
+
   document.querySelectorAll(".artifacts-graph-mode-btn").forEach((btn) => {
+    if (btn.dataset.wired === "1") return;
+    btn.dataset.wired = "1";
     btn.addEventListener("click", () => {
       const mode = btn.dataset.mode;
       if (mode === "lineage" || mode === "context") {
@@ -2499,7 +3367,19 @@ function wireArtifactsPanel() {
     });
   });
 
+  document.querySelectorAll(".artifacts-view-mode-btn").forEach((btn) => {
+    if (btn.dataset.wired === "1") return;
+    btn.dataset.wired = "1";
+    btn.addEventListener("click", () => {
+      const view = btn.dataset.view;
+      if (view === "artifacts" || view === "aggregates") {
+        setArtifactsViewMode(view);
+      }
+    });
+  });
+
   updateArtifactsGraphModeUI();
+  updateArtifactsViewModeUI();
 }
 
 // ── Events tab ─────────────────────────────────────────────────────
@@ -2574,6 +3454,10 @@ async function refreshEvents() {
     const events = [...(payload.events || [])].sort(
       (a, b) => timestampMs(b.at) - timestampMs(a.at)
     );
+    updateOpsSnapshot({
+      events: payload.count ?? events.length,
+      eventErrors: events.filter(eventIsError).length,
+    });
     body.innerHTML = "";
     if (events.length === 0) {
       body.innerHTML =
@@ -2633,12 +3517,6 @@ function logLineSeverity(line) {
 function logLineClass(line, severity) {
   const level = severity || logLineSeverity(line);
   return `log-line--${level}`;
-}
-
-function summarizeLogLines(lines) {
-  const counts = { error: 0, warn: 0, info: 0 };
-  for (const line of lines || []) counts[logLineSeverity(line)] += 1;
-  return counts;
 }
 
 function renderDebugLogLines(entries) {
@@ -2724,7 +3602,12 @@ async function refreshDebugLogs() {
     if (errEl) errEl.textContent = "";
     if (metaEl) {
       const entries = payload.entries || payload.lines || [];
-      const counts = summarizeLogLines(entries.map((entry) => entry.raw || entry.message || entry));
+      const counts = summarizeLogEntries(entries);
+      updateOpsSnapshot({
+        logs: payload.totalLines ?? entries.length,
+        logErrors: counts.error,
+        logWarns: counts.warn,
+      });
       metaEl.textContent = `${payload.path} · ${entries.length}/${payload.totalLines} lines (tail ${payload.tail}) · ${counts.error} error · ${counts.warn} warn`;
     }
     renderDebugLogLines(payload.entries || payload.lines);
@@ -2995,6 +3878,12 @@ function healthLiveClass(status) {
   return "";
 }
 
+function activeSessionBadgeLabel() {
+  const primaryLabel = metaSnapshot?.discovery?.herdrSessionLabel || "primary";
+  if (activeSession === SESSION_ALL) return "all";
+  return sessionDisplayLabel(activeSession, primaryLabel);
+}
+
 function renderHeaderBadges(health) {
   const el = document.getElementById("header-badges");
   if (!el) return;
@@ -3006,15 +3895,26 @@ function renderHeaderBadges(health) {
   const sse = checks.sse;
   const herdr = checks.herdr;
   const gate = checks.gate;
+  const probe = checks.probe;
+  const sessionLabel = activeSessionBadgeLabel();
   el.innerHTML = [
     `<span class="badge ${healthStatusClass("info")}" title="Bun version">${esc(bunText)}</span>`,
+    `<span class="badge ${healthStatusClass("info")}" title="Active Herdr session scope">session ${esc(sessionLabel)}</span>`,
     `<span class="badge ${healthStatusClass(agents?.status)}" title="Agents">agents ${agents?.count ?? "—"}</span>`,
     `<span class="badge ${healthStatusClass(discovery?.status)}" title="Workspace">${esc(discovery?.workspaceId ? `workspace ${discovery.workspaceId.slice(0, 8)}` : "workspace —")}</span>`,
     `<span class="badge ${healthStatusClass(sse?.status)}" title="SSE subscribers">sse ${sse?.subscribers ?? "—"}</span>`,
     `<span class="badge ${healthStatusClass(herdr?.status)}" title="Herdr socket">herdr ${herdr?.connected ? "✓" : herdr?.status === "unknown" ? "off" : "✗"}</span>`,
     `<span class="badge ${healthStatusClass(gate?.status)}" title="Gate health">gates ${gate?.failed === false ? "✓" : gate?.failed === true ? "✗" : "—"}</span>`,
-    `<span class="badge ${healthStatusClass(checks.probe?.status)}" title="Serve-probe cards">probe ${checks.probe?.reachable ? (checks.probe?.fail > 0 ? "✗" : checks.probe?.unknown > 0 ? "?" : "✓") : "off"}</span>`,
+    `<span class="badge ${healthStatusClass(probe?.status)}" title="Serve-probe cards">probe ${probe?.reachable ? (probe?.fail > 0 ? "✗" : probe?.unknown > 0 ? "?" : "✓") : "off"}</span>`,
   ].join("");
+  updateOpsSnapshot({
+    agents: typeof agents?.count === "number" ? agents.count : opsSnapshot.agents,
+    probePass: typeof probe?.pass === "number" ? probe.pass : opsSnapshot.probePass,
+    probeFail: typeof probe?.fail === "number" ? probe.fail : opsSnapshot.probeFail,
+    probeUnknown: typeof probe?.unknown === "number" ? probe.unknown : opsSnapshot.probeUnknown,
+    probeReachable:
+      typeof probe?.reachable === "boolean" ? probe.reachable : opsSnapshot.probeReachable,
+  });
 }
 
 function renderSummaryCards(health) {
@@ -3074,6 +3974,7 @@ function scheduleHealthPoll() {
   healthPollTimer = setInterval(() => {
     void refreshHealth();
     void refreshTlsCompliance();
+    void refreshOpsSnapshot();
   }, HEALTH_POLL_MS);
 }
 
@@ -3086,6 +3987,12 @@ wireScanPanel();
 wireCanvasesPanel();
 wireMetricsPanel();
 wireLineagePanel();
+
+readArtifactsFiltersFromUrl();
+writeArtifactsFiltersToInputs();
+renderArtifactsFilterChips();
+updateArtifactsViewModeUI();
+
 wireArtifactsPanel();
 wireEventsPanel();
 wireLogsTabPanel();
@@ -3106,8 +4013,10 @@ PANELS[activeTab]?.activate?.();
     wireAgentThumbnail(meta);
     applyExamplesMeta(meta);
     renderHeaderBadges(null);
+    renderOpsStrip();
     void refreshHealth();
     void refreshTlsCompliance();
+    void refreshOpsSnapshot();
     scheduleHealthPoll();
     const poll = meta.pollHintMs || 5000;
     window.__HERDR_DASHBOARD_POLL_MS__ = poll;
@@ -3119,6 +4028,7 @@ PANELS[activeTab]?.activate?.();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     renderHeaderBadges(null);
+    renderOpsStrip();
     renderSummaryCards(null);
     const meta = document.getElementById("meta");
     if (meta) {

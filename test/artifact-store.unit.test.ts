@@ -3,9 +3,19 @@ import { join } from "path";
 import { makeDir, pathExists } from "../src/lib/bun-io.ts";
 import {
   ARTIFACT_SCHEMA_VERSION,
+  ArtifactRunManifest,
   ArtifactStore,
+  artifactIdentityEnv,
+  artifactScopeKey,
+  computeArtifactContentHash,
   extractArtifactTimestamp,
   extractArtifactTimestampMs,
+  artifactFilterFromSessionRoute,
+  generateRunId,
+  matchesArtifactSessionContext,
+  normalizeArtifactIdentityValue,
+  normalizeArtifactSessionContext,
+  resolveArtifactSessionContext,
 } from "../src/lib/artifact-store.ts";
 import { withTempDir } from "./helpers.ts";
 
@@ -243,6 +253,171 @@ describe("artifact-store", () => {
     });
   });
 
+  test("save injects session context from environment", async () => {
+    await withTempDir("artifact-store-session-", async (dir) => {
+      const prev = {
+        KIMI_CODE_SESSION: Bun.env.KIMI_CODE_SESSION,
+        HERDR_WORKSPACE_ID: Bun.env.HERDR_WORKSPACE_ID,
+        HERDR_SESSION_ID: Bun.env.HERDR_SESSION_ID,
+        HERDR_PANE_ID: Bun.env.HERDR_PANE_ID,
+        KIMI_RUN_ID: Bun.env.KIMI_RUN_ID,
+        KIMI_PARENT_RUN_ID: Bun.env.KIMI_PARENT_RUN_ID,
+      };
+      Bun.env.KIMI_CODE_SESSION = "wd_test_session";
+      delete Bun.env.HERDR_WORKSPACE_ID;
+      Bun.env.HERDR_SESSION_ID = "ws_trading";
+      Bun.env.HERDR_PANE_ID = "pane_reviewer";
+      delete Bun.env.KIMI_RUN_ID;
+      delete Bun.env.KIMI_PARENT_RUN_ID;
+      try {
+        expect(resolveArtifactSessionContext()).toEqual({
+          sessionId: "wd_test_session",
+          workspaceId: "ws_trading",
+          paneId: "pane_reviewer",
+          agentId: "pane_reviewer",
+        });
+
+        const store = new ArtifactStore(dir);
+        const path = await store.save("model-drift", { status: "pass" });
+        const envelope = await store.readEnvelope(store.relativePath(path));
+        expect(envelope?.metadata?.sessionId).toBe("wd_test_session");
+        expect(envelope?.metadata?.workspaceId).toBe("ws_trading");
+        expect(envelope?.metadata?.paneId).toBe("pane_reviewer");
+        expect(envelope?.metadata?.agentId).toBe("pane_reviewer");
+        expect(envelope?.metadata?.runId).toMatch(/^run_/);
+      } finally {
+        for (const [key, value] of Object.entries(prev)) {
+          if (value === undefined) delete Bun.env[key];
+          else Bun.env[key] = value;
+        }
+      }
+    });
+  });
+
+  test("listEntries filters by runId", async () => {
+    await withTempDir("artifact-store-run-filter-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      const pathA = await store.save("perf-gate", { n: 1 }, { runId: "run_test_a" });
+      await Bun.sleep(2);
+      await store.save("perf-gate", { n: 2 }, { runId: "run_test_b" });
+
+      const onlyA = await store.listEntries("perf-gate", { runId: "run_test_a" });
+      expect(onlyA.entries).toHaveLength(1);
+      expect(onlyA.entries[0]?.runId).toBe("run_test_a");
+      expect(onlyA.entries[0]?.path).toBe(store.relativePath(pathA));
+    });
+  });
+
+  test("listEntries filters by sessionId", async () => {
+    await withTempDir("artifact-store-session-filter-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      const prev = Bun.env.KIMI_CODE_SESSION;
+      Bun.env.KIMI_CODE_SESSION = "session_a";
+      await store.save("perf-gate", { n: 1 });
+      Bun.env.KIMI_CODE_SESSION = "session_b";
+      await Bun.sleep(2);
+      await store.save("perf-gate", { n: 2 });
+      if (prev === undefined) delete Bun.env.KIMI_CODE_SESSION;
+      else Bun.env.KIMI_CODE_SESSION = prev;
+
+      const onlyA = await store.listEntries("perf-gate", { sessionId: "session_a" });
+      expect(onlyA.entries).toHaveLength(1);
+      expect(onlyA.entries[0]?.sessionId).toBe("session_a");
+
+      expect(matchesArtifactSessionContext({ sessionId: "session_a" } as never, {})).toBe(true);
+      expect(
+        matchesArtifactSessionContext({ sessionId: "session_a" } as never, {
+          sessionId: "session_b",
+        })
+      ).toBe(false);
+    });
+  });
+
+  test("save stamps runId from meta and filters listEntries by runId", async () => {
+    await withTempDir("artifact-store-run-id-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      const runA = generateRunId();
+      const runB = generateRunId();
+      await store.save("model-drift", { n: 1 }, { runId: runA });
+      await Bun.sleep(2);
+      await store.save("model-drift", { n: 2 }, { runId: runB });
+
+      const onlyA = await store.listEntries("model-drift", { runId: runA });
+      expect(onlyA.entries).toHaveLength(1);
+      expect(onlyA.entries[0]?.runId).toBe(runA);
+
+      const manifest: ArtifactRunManifest = {
+        schemaVersion: ARTIFACT_SCHEMA_VERSION,
+        runId: runA,
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        gates: ["model-drift"],
+        artifacts: { "model-drift": ".kimi/artifacts/model-drift/example.json" },
+        status: "pass",
+      };
+      await store.saveRunManifest(manifest);
+      expect(await store.readRunManifest(runA)).toMatchObject({ runId: runA, status: "pass" });
+      expect(await store.listRunIds()).toContain(runA);
+      expect(await store.listRunManifests({ runId: runA })).toMatchObject([{ runId: runA }]);
+    });
+  });
+
+  test("artifactFilterFromSessionRoute maps Kimi vs Herdr session paths", () => {
+    expect(artifactFilterFromSessionRoute("wd_abc123")).toEqual({ sessionId: "wd_abc123" });
+    expect(artifactFilterFromSessionRoute("staging")).toEqual({ workspaceId: "staging" });
+    expect(artifactFilterFromSessionRoute("primary")).toEqual({});
+  });
+
+  test("generateRunId uses run_ prefix and timestamp segment", () => {
+    const id = generateRunId(new Date("2026-06-19T16:01:09.000Z"));
+    expect(id).toMatch(/^run_20260619_160109_/);
+  });
+
+  test("buildPaneIdentityExports includes pane id for pane run prefix", async () => {
+    const { buildPaneIdentityExports } = await import("../src/lib/artifact-identity.ts");
+    const prev = Bun.env.KIMI_CODE_SESSION;
+    Bun.env.KIMI_CODE_SESSION = "wd_pane_export";
+    try {
+      expect(buildPaneIdentityExports("pane_alpha")).toContain('HERDR_PANE_ID="pane_alpha"');
+      expect(buildPaneIdentityExports("pane_alpha")).toContain(
+        'KIMI_CODE_SESSION="wd_pane_export"'
+      );
+    } finally {
+      if (prev === undefined) delete Bun.env.KIMI_CODE_SESSION;
+      else Bun.env.KIMI_CODE_SESSION = prev;
+    }
+  });
+
+  test("artifactIdentityEnv propagates Kimi session and Herdr session (not workspace as session id)", async () => {
+    const prev = {
+      KIMI_CODE_SESSION: Bun.env.KIMI_CODE_SESSION,
+      HERDR_PANE_ID: Bun.env.HERDR_PANE_ID,
+      KIMI_RUN_ID: Bun.env.KIMI_RUN_ID,
+    };
+    Bun.env.KIMI_CODE_SESSION = "wd_propagate_test";
+    Bun.env.HERDR_PANE_ID = "pane_orchestrator";
+    Bun.env.KIMI_RUN_ID = "run_parent_abc";
+    try {
+      expect(artifactIdentityEnv("ws_trading", "herdr-main")).toEqual({
+        HERDR_WORKSPACE_ID: "ws_trading",
+        HERDR_SESSION: "herdr-main",
+        HERDR_SESSION_ID: "herdr-main",
+        KIMI_CODE_SESSION: "wd_propagate_test",
+        HERDR_PANE_ID: "pane_orchestrator",
+        KIMI_PARENT_RUN_ID: "run_parent_abc",
+      });
+      expect(artifactIdentityEnv({ paneId: "pane_child" })).toMatchObject({
+        HERDR_PANE_ID: "pane_child",
+        KIMI_PARENT_RUN_ID: "run_parent_abc",
+      });
+    } finally {
+      for (const [key, value] of Object.entries(prev)) {
+        if (value === undefined) delete Bun.env[key];
+        else Bun.env[key] = value;
+      }
+    }
+  });
+
   test("KIMI_ARTIFACTS_DIR overrides default artifact root", async () => {
     await withTempDir("artifact-store-env-dir-", async (dir) => {
       const prev = Bun.env.KIMI_ARTIFACTS_DIR;
@@ -256,6 +431,80 @@ describe("artifact-store", () => {
         if (prev === undefined) delete Bun.env.KIMI_ARTIFACTS_DIR;
         else Bun.env.KIMI_ARTIFACTS_DIR = prev;
       }
+    });
+  });
+
+  test("normalizeArtifactIdentityValue validates allowed characters and length", () => {
+    expect(normalizeArtifactIdentityValue("  wd_a-1  ")).toBe("wd_a-1");
+    expect(normalizeArtifactIdentityValue("with space")).toBeUndefined();
+    expect(normalizeArtifactIdentityValue("a".repeat(129))).toBeUndefined();
+    expect(normalizeArtifactIdentityValue("")).toBeUndefined();
+    expect(normalizeArtifactIdentityValue(undefined)).toBeUndefined();
+  });
+
+  test("normalizeArtifactSessionContext drops invalid identity values", () => {
+    const ctx = normalizeArtifactSessionContext({
+      sessionId: "  valid-1  ",
+      workspaceId: "invalid space",
+      paneId: "pane-1",
+      agentId: "",
+      runId: "run_123",
+      parentRunId: "x".repeat(200),
+    });
+    expect(ctx).toEqual({
+      sessionId: "valid-1",
+      paneId: "pane-1",
+      runId: "run_123",
+    });
+  });
+
+  test("artifactScopeKey falls back through identity fields", () => {
+    expect(artifactScopeKey({ sessionId: "s1" })).toBe("s1");
+    expect(artifactScopeKey({ workspaceId: "w1" })).toBe("w1");
+    expect(artifactScopeKey({ runId: "r1" })).toBe("r1");
+    expect(artifactScopeKey({})).toBe("default");
+  });
+
+  test("save indexes artifact and writes content hash", async () => {
+    await withTempDir("artifact-store-index-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      await store.save("model-drift", { ok: true, n: 1 }, { sessionId: "s1", runId: "r1" });
+      const rows = store.getIndex().find({ sessionIds: ["s1"] });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.status).toBe("pass");
+      expect(rows[0]?.contentHash).toBe(computeArtifactContentHash({ ok: true, n: 1 }));
+
+      const distinct = store.getIndex().distinct();
+      expect(distinct.sessionIds).toContain("s1");
+      expect(distinct.runIds).toContain("r1");
+    });
+  });
+
+  test("listEntries uses SQLite index for identity filters", async () => {
+    await withTempDir("artifact-store-index-list-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      await store.save("model-drift", { ok: true }, { sessionId: "s1" });
+      await Bun.sleep(2);
+      await store.save("model-drift", { ok: false }, { sessionId: "s2" });
+
+      const filtered = await store.listEntries("model-drift", { sessionId: "s1" });
+      expect(filtered.entries).toHaveLength(1);
+      expect(filtered.entries[0]?.sessionId).toBe("s1");
+
+      const byStatus = await store.listEntries("model-drift", { statuses: ["fail"] });
+      expect(byStatus.entries).toHaveLength(1);
+      expect(byStatus.entries[0]?.sessionId).toBe("s2");
+    });
+  });
+
+  test("prune removes artifacts from index", async () => {
+    await withTempDir("artifact-store-prune-index-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      const path = await store.save("old-gate", { ok: true }, { sessionId: "s1" });
+      expect(store.getIndex().find({})).toHaveLength(1);
+      await store.prune("old-gate", { maxAgeMs: -1 });
+      expect(pathExists(path)).toBe(false);
+      expect(store.getIndex().find({})).toHaveLength(0);
     });
   });
 });

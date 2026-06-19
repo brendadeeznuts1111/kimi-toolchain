@@ -22,6 +22,15 @@
           <span class="badge badge-ok" title="Herdr socket">herdr —</span>
           <span class="badge badge-ok" title="Gate health">gates —</span>
         </div>
+        <div id="ops-strip" class="ops-strip" aria-label="Operational counters">
+          <span class="ops-pill ops-pill--info">agents <strong>—</strong></span>
+          <span class="ops-pill ops-pill--info">panes <strong>—</strong></span>
+          <span class="ops-pill ops-pill--info">git <strong>—</strong></span>
+          <span class="ops-pill ops-pill--info">probe <strong>—</strong></span>
+          <span class="ops-pill ops-pill--info">events <strong>—</strong></span>
+          <span class="ops-pill ops-pill--info">artifacts <strong>—</strong></span>
+          <span class="ops-pill ops-pill--info">logs <strong>—</strong></span>
+        </div>
       </div>
       <div class="header-meta">
         <div id="agent-thumb-wrap" class="thumb-slot" aria-hidden="true">
@@ -30,12 +39,6 @@
         <div class="header-copy">
           <div id="meta">loading…</div>
           <div id="control-plane" class="control-plane">
-            <select
-              id="session-scope"
-              class="session-scope"
-              hidden
-              aria-label="Herdr session scope"
-            ></select>
             <span id="control-plane-status">control plane loading…</span>
           </div>
           <div id="processes-panel" class="processes-panel">
@@ -130,6 +133,52 @@
         </div>
       </div>
     </header>
+    <div id="session-switcher-bar" class="session-switcher-bar" aria-label="Session scope">
+      <div class="session-switcher-visual" aria-label="Bun.Image preview">
+        <img
+          id="session-bun-mark"
+          class="session-bun-mark"
+          alt="Bun.Image mark"
+          width="32"
+          height="32"
+          decoding="async"
+        />
+        <div id="session-switcher-thumb-wrap" class="session-switcher-thumb-wrap" hidden>
+          <img
+            id="session-switcher-thumb"
+            class="session-switcher-thumb"
+            alt="Live dashboard preview"
+            width="72"
+            height="40"
+            decoding="async"
+          />
+        </div>
+      </div>
+      <label class="session-switcher-label" for="session-scope">Session</label>
+      <select id="session-scope" class="session-scope" aria-label="Herdr session scope"></select>
+      <div class="session-switcher-add">
+        <input
+          id="session-add-input"
+          class="session-add-input"
+          type="text"
+          placeholder="Add session…"
+          aria-label="Add session name"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button type="button" id="session-add-btn" class="session-add-btn">Add</button>
+        <button
+          type="button"
+          id="session-remove-btn"
+          class="session-remove-btn"
+          disabled
+          title="Remove saved session from this browser"
+        >
+          Remove
+        </button>
+      </div>
+      <span id="session-switcher-hint" class="session-switcher-hint">Loading sessions…</span>
+    </div>
     <nav>
       <button class="active" data-tab="agents">Agents</button>
       <button data-tab="handoffs">Handoff history</button>
@@ -329,64 +378,208 @@
         <h2 class="panel-heading">Artifacts</h2>
         <p class="artifacts-legend">
           Saved gate and probe payloads from .kimi/artifacts — live cards via serve-probe when
-          running. Toggle <strong>lineage</strong> (per-gate upstreams) or <strong>context</strong>
-          (all artifacts with metadata).
+          running. Toggle <strong>lineage</strong> (per-gate upstreams),
+          <strong>context</strong> (all artifacts with metadata), or
+          <strong>aggregates</strong> (per-gate counts).
         </p>
         <div id="artifacts-probe-hint" class="artifacts-probe-hint"></div>
-        <div id="artifacts-error" class="error"></div>
-        <div class="scroll artifacts-scroll">
-          <table class="artifacts-table">
-            <thead>
-              <tr>
-                <th>Gate</th>
-                <th>Status</th>
-                <th>Artifacts</th>
-                <th>Latest</th>
-                <th>Size</th>
-                <th>Result</th>
-                <th>Summary</th>
-              </tr>
-            </thead>
-            <tbody id="artifacts-body">
-              <tr>
-                <td colspan="7" class="empty-state">Loading artifacts…</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="artifacts-graph-section">
-          <div class="artifacts-graph-toolbar">
-            <h3 class="artifacts-graph-title" id="artifacts-graph-title">Artifact graph</h3>
-            <div class="artifacts-graph-mode" role="tablist" aria-label="Artifact graph mode">
-              <button
-                type="button"
-                class="artifacts-graph-mode-btn active"
-                data-mode="lineage"
-                role="tab"
-                aria-selected="true"
-              >
-                Lineage
-              </button>
-              <button
-                type="button"
-                class="artifacts-graph-mode-btn"
-                data-mode="context"
-                role="tab"
-                aria-selected="false"
-              >
-                Context
-              </button>
-            </div>
-            <label class="lineage-field" id="artifacts-gate-field">
-              <span class="lineage-field-label">Gate</span>
-              <select id="artifacts-gate-select" aria-label="Artifact gate for lineage graph">
-                <option value="">— select gate —</option>
-              </select>
+        <div class="artifacts-filter-bar" role="search" aria-label="Artifact filters">
+          <div class="artifacts-filter-chips-wrap">
+            <span id="artifacts-filter-badge" class="artifacts-filter-badge">Filters: 0</span>
+            <span id="artifacts-filter-chips" class="artifacts-filter-chips"></span>
+            <button type="button" id="artifacts-filter-clear" class="events-export-btn">
+              Clear
+            </button>
+          </div>
+          <div class="artifacts-filter-toolbar lineage-toolbar">
+            <label class="lineage-field">
+              <span class="lineage-field-label">Session</span>
+              <input
+                id="artifacts-session-filter"
+                class="events-filter-input"
+                type="search"
+                list="artifacts-session-options"
+                placeholder="sessionId"
+                aria-label="Artifact session filter"
+              />
+            </label>
+            <label class="lineage-field">
+              <span class="lineage-field-label">Workspace</span>
+              <input
+                id="artifacts-workspace-filter"
+                class="events-filter-input"
+                type="search"
+                list="artifacts-workspace-options"
+                placeholder="workspaceId"
+                aria-label="Artifact workspace filter"
+              />
+            </label>
+            <label class="lineage-field">
+              <span class="lineage-field-label">Pane</span>
+              <input
+                id="artifacts-pane-filter"
+                class="events-filter-input"
+                type="search"
+                list="artifacts-pane-options"
+                placeholder="paneId"
+                aria-label="Artifact pane filter"
+              />
+            </label>
+            <label class="lineage-field">
+              <span class="lineage-field-label">Agent</span>
+              <input
+                id="artifacts-agent-filter"
+                class="events-filter-input"
+                type="search"
+                list="artifacts-agent-options"
+                placeholder="agentId"
+                aria-label="Artifact agent filter"
+              />
+            </label>
+            <label class="lineage-field">
+              <span class="lineage-field-label">Run</span>
+              <input
+                id="artifacts-run-filter"
+                class="events-filter-input"
+                type="search"
+                list="artifacts-run-options"
+                placeholder="runId"
+                aria-label="Artifact run filter"
+              />
             </label>
           </div>
-          <p id="artifacts-graph-meta" class="lineage-card-hint">Select a gate from the dropdown</p>
-          <div id="artifacts-graph-error" class="error"></div>
-          <div id="artifacts-graph" class="mermaid-wrap lineage-empty">No gate selected</div>
+          <div class="artifacts-view-mode" role="tablist" aria-label="Artifact view mode">
+            <button
+              type="button"
+              class="artifacts-view-mode-btn active"
+              data-view="artifacts"
+              role="tab"
+              aria-selected="true"
+            >
+              Artifacts
+            </button>
+            <button
+              type="button"
+              class="artifacts-view-mode-btn"
+              data-view="aggregates"
+              role="tab"
+              aria-selected="false"
+            >
+              Aggregates
+            </button>
+          </div>
+        </div>
+        <datalist id="artifacts-session-options"></datalist>
+        <datalist id="artifacts-workspace-options"></datalist>
+        <datalist id="artifacts-pane-options"></datalist>
+        <datalist id="artifacts-agent-options"></datalist>
+        <datalist id="artifacts-run-options"></datalist>
+        <div id="artifacts-list-view">
+          <div class="artifacts-runs-section">
+            <h3 class="artifacts-runs-title">Recent runs</h3>
+            <p class="artifacts-runs-hint">
+              Logical groupings from gate-runner invocations — click a run to filter artifacts
+              below.
+            </p>
+            <div id="artifacts-runs-error" class="error"></div>
+            <div class="scroll artifacts-runs-scroll">
+              <table class="artifacts-runs-table">
+                <thead>
+                  <tr>
+                    <th>Run</th>
+                    <th>Status</th>
+                    <th>Gates</th>
+                    <th>Session</th>
+                    <th>Completed</th>
+                  </tr>
+                </thead>
+                <tbody id="artifacts-runs-body">
+                  <tr>
+                    <td colspan="5" class="empty-state">Loading runs…</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div id="artifacts-error" class="error"></div>
+          <div class="scroll artifacts-scroll">
+            <table class="artifacts-table">
+              <thead>
+                <tr>
+                  <th>Gate</th>
+                  <th>Status</th>
+                  <th>Artifacts</th>
+                  <th>Latest</th>
+                  <th>Session</th>
+                  <th>Size</th>
+                  <th>Result</th>
+                  <th>Summary</th>
+                </tr>
+              </thead>
+              <tbody id="artifacts-body">
+                <tr>
+                  <td colspan="8" class="empty-state">Loading artifacts…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="artifacts-graph-section">
+            <div class="artifacts-graph-toolbar">
+              <h3 class="artifacts-graph-title" id="artifacts-graph-title">Artifact graph</h3>
+              <div class="artifacts-graph-mode" role="tablist" aria-label="Artifact graph mode">
+                <button
+                  type="button"
+                  class="artifacts-graph-mode-btn active"
+                  data-mode="lineage"
+                  role="tab"
+                  aria-selected="true"
+                >
+                  Lineage
+                </button>
+                <button
+                  type="button"
+                  class="artifacts-graph-mode-btn"
+                  data-mode="context"
+                  role="tab"
+                  aria-selected="false"
+                >
+                  Context
+                </button>
+              </div>
+              <label class="lineage-field" id="artifacts-gate-field">
+                <span class="lineage-field-label">Gate</span>
+                <select id="artifacts-gate-select" aria-label="Artifact gate for lineage graph">
+                  <option value="">— select gate —</option>
+                </select>
+              </label>
+            </div>
+            <p id="artifacts-graph-meta" class="lineage-card-hint">
+              Select a gate from the dropdown
+            </p>
+            <div id="artifacts-graph-error" class="error"></div>
+            <div id="artifacts-graph" class="mermaid-wrap lineage-empty">No gate selected</div>
+          </div>
+        </div>
+        <div id="artifacts-aggregates-view" class="artifacts-aggregates-section" hidden>
+          <h3 class="artifacts-runs-title">Aggregates</h3>
+          <p class="artifacts-runs-hint">Per-gate artifact counts from the current filter scope.</p>
+          <div id="artifacts-aggregates-error" class="error"></div>
+          <div class="scroll artifacts-aggregates-scroll">
+            <table class="artifacts-aggregates-table">
+              <thead>
+                <tr>
+                  <th>Gate</th>
+                  <th>Count</th>
+                  <th>Latest timestamp</th>
+                </tr>
+              </thead>
+              <tbody id="artifacts-aggregates-body">
+                <tr>
+                  <td colspan="3" class="empty-state">Loading aggregates…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
       <section id="lineage" class="panel">
