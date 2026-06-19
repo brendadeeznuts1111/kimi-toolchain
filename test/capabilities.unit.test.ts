@@ -35,7 +35,7 @@ describe("capabilities", () => {
         ledger.some(
           (entry) =>
             entry.key === "capability-degrade:credential-provider-env" &&
-            entry.rationale.evidence.some(
+            (entry.rationale.evidence ?? []).some(
               (evidence) => evidence.capabilityItem === "credential-provider-env"
             )
         )

@@ -1,0 +1,24 @@
+id = "dummy-agent-manager"
+name = "Dummy Agent Manager"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+
+[[actions]]
+id = "agent-manager.start"
+command = "echo 'Starting agent $AGENT_NAME'"
+
+[[actions]]
+id = "agent-manager.stop"
+command = "echo 'Stopping agent $AGENT_NAME'"
+
+[[actions]]
+id = "agent-manager.attach"
+command = "echo 'Attaching to agent $AGENT_NAME'"
+
+[[actions]]
+id = "plugin.install"
+command = "echo 'Installing plugin $1'"
+
+[[actions]]
+id = "plugin.enable"
+command = "echo 'Enabling plugin $1'"

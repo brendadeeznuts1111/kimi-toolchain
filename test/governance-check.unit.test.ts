@@ -518,10 +518,21 @@ describe("updateChangelog", () => {
 
 /* ─────────────────────── scaffold-quality ─────────────────────── */
 
+const STUB_DEV_DEPS = {
+  oxfmt: "0.0.0",
+  oxlint: "0.0.0",
+  typescript: "0.0.0",
+  "@types/bun": "0.0.0",
+};
+
 describe("ensureQualityTooling", () => {
   test("adds missing scripts to package.json", async () => {
     const dir = tmpDir("quality-add");
-    const pkg = { name: "test", scripts: { test: "bun test" } };
+    const pkg = {
+      name: "test",
+      scripts: { test: "bun test" },
+      devDependencies: { ...STUB_DEV_DEPS },
+    };
     await writeFile(join(dir, "package.json"), JSON.stringify(pkg, null, 2));
     const logs: string[] = [];
     const log = (_step: string, msg: string) => logs.push(msg);
@@ -541,6 +552,7 @@ describe("ensureQualityTooling", () => {
     const dir = tmpDir("quality-idempotent");
     const pkg = {
       name: "test",
+      devDependencies: { ...STUB_DEV_DEPS },
       scripts: {
         test: "bun test",
         "test:fast": "bun test --fast",

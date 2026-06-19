@@ -142,6 +142,53 @@ describe("card-probe-server", () => {
     });
   });
 
+  test("serves /api/runs/:runId from SQLite index when available", async () => {
+    await withTempDir("card-probe-server-runs-", async (dir) => {
+      const { ArtifactStore } = await import("../src/lib/artifact-store.ts");
+      const store = new ArtifactStore(dir);
+      const runId = "run_probe_a";
+      const artifactPath = await store.save("bunfig-policy", { status: "pass" }, { runId });
+      const relativePath = artifactPath.slice(dir.length + 1);
+      await store.saveRunManifest({
+        schemaVersion: 1,
+        runId,
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        gates: ["bunfig-policy"],
+        artifacts: { "bunfig-policy": relativePath },
+        status: "pass",
+      });
+
+      const handle = await startProbeServer({
+        port: 0,
+        probeConfig: { timeoutMs: 100 },
+        projectRoot: dir,
+      });
+      try {
+        const res = await fetch(`${handle.url}/api/runs/${runId}`);
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as {
+          ok: boolean;
+          runId: string;
+          indexSource: string;
+          artifacts: Array<{ gate: string; path: string; runId?: string | null }>;
+        };
+        expect(body.ok).toBe(true);
+        expect(body.runId).toBe(runId);
+        expect(body.indexSource).toBe("sqlite");
+        expect(body.artifacts).toHaveLength(1);
+        expect(body.artifacts[0]?.gate).toBe("bunfig-policy");
+        expect(body.artifacts[0]?.path).toBe(relativePath);
+        expect(body.artifacts[0]?.runId).toBe(runId);
+
+        const missing = await fetch(`${handle.url}/api/runs/run_missing`);
+        expect(missing.status).toBe(404);
+      } finally {
+        handle.stop();
+      }
+    });
+  });
+
   test("refresh response includes artifactPath when saveArtifact is enabled", async () => {
     await withTempDir("card-probe-server-refresh-artifact-", async (dir) => {
       const handle = await startProbeServer({
@@ -157,6 +204,66 @@ describe("card-probe-server", () => {
         expect(body.ok).toBe(true);
         expect(body.artifactPath).toContain(join(dir, ".kimi", "artifacts", "card-probe"));
         expect(handle.getLastArtifactPath()).toBe(body.artifactPath);
+      } finally {
+        handle.stop();
+      }
+    });
+  });
+
+  test("serves index stats and artifact diff routes", async () => {
+    await withTempDir("card-probe-server-index-diff-", async (dir) => {
+      const { ArtifactStore } = await import("../src/lib/artifact-store.ts");
+      const store = new ArtifactStore(dir);
+      const pathA = await store.save("lint", { ok: true, n: 1 });
+      await Bun.sleep(2);
+      const pathB = await store.save("lint", { ok: true, n: 2 });
+      const relA = pathA.slice(dir.length + 1);
+      const relB = pathB.slice(dir.length + 1);
+
+      const handle = await startProbeServer({
+        port: 0,
+        probeConfig: { timeoutMs: 100 },
+        projectRoot: dir,
+      });
+      try {
+        const statsRes = await fetch(`${handle.url}/api/artifacts/index/stats`);
+        expect(statsRes.status).toBe(200);
+        const statsBody = (await statsRes.json()) as {
+          ok: boolean;
+          stats: { totalArtifacts: number; fsArtifactCount: number };
+          synced: { rebuilt: boolean; fsCount: number; indexCount: number };
+        };
+        expect(statsBody.ok).toBe(true);
+        expect(statsBody.stats.totalArtifacts).toBe(2);
+        expect(statsBody.stats.fsArtifactCount).toBe(2);
+        expect(statsBody.synced.indexCount).toBe(2);
+
+        const diffRes = await fetch(
+          `${handle.url}/api/artifacts/lint/diff?a=${encodeURIComponent(relA)}&b=${encodeURIComponent(relB)}`
+        );
+        expect(diffRes.status).toBe(200);
+        const diffBody = (await diffRes.json()) as {
+          ok: boolean;
+          equal: boolean;
+          hashA: string;
+          hashB: string;
+          indexSource: string;
+        };
+        expect(diffBody.ok).toBe(true);
+        expect(diffBody.equal).toBe(false);
+        expect(diffBody.indexSource).toBe("sqlite");
+        expect(diffBody.hashA).toMatch(/^[a-f0-9]{64}$/);
+        expect(diffBody.hashB).toMatch(/^[a-f0-9]{64}$/);
+
+        const badDiff = await fetch(`${handle.url}/api/artifacts/lint/diff?a=${relA}`);
+        expect(badDiff.status).toBe(400);
+
+        const feedRes = await fetch(`${handle.url}/api/artifacts/feed.xml`);
+        expect(feedRes.status).toBe(200);
+        expect(feedRes.headers.get("content-type")).toContain("application/rss+xml");
+        const xml = await feedRes.text();
+        expect(xml).toContain('<rss version="2.0">');
+        expect(xml).toContain("lint");
       } finally {
         handle.stop();
       }

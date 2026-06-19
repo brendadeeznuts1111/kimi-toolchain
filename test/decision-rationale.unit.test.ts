@@ -18,8 +18,8 @@ describe("decision-rationale", () => {
     expect(rationale.fullReasoning).toContain("lockfile_issue");
     expect(rationale.fullReasoning).toContain("trace-abc123");
     expect(rationale.fullReasoning).toContain("decision-45");
-    expect(rationale.evidence.some((item) => item.type === "cluster")).toBe(true);
-    expect(rationale.evidence.some((item) => item.type === "playbook")).toBe(true);
+    expect((rationale.evidence ?? []).some((item) => item.type === "cluster")).toBe(true);
+    expect((rationale.evidence ?? []).some((item) => item.type === "playbook")).toBe(true);
   });
 
   test("builds contract rationale with drift hashes", () => {
@@ -33,8 +33,8 @@ describe("decision-rationale", () => {
 
     expect(rationale.summary).toContain("typeserver.contract.json");
     expect(rationale.fullReasoning).toContain("cacheHit");
-    expect(rationale.evidence[0]?.type).toBe("contractDiff");
-    expect(rationale.evidence[0]?.oldHash).toBe("abc123deadbeef");
+    expect(rationale.evidence?.[0]?.type).toBe("contractDiff");
+    expect(rationale.evidence?.[0]?.oldHash).toBe("abc123deadbeef");
   });
 
   test("builds capability degradation rationale", () => {
@@ -47,7 +47,7 @@ describe("decision-rationale", () => {
 
     expect(rationale.summary).toContain("typeserver");
     expect(rationale.fullReasoning).toContain("credential expires in 2 days");
-    expect(rationale.evidence[0]?.type).toBe("capability");
+    expect(rationale.evidence?.[0]?.type).toBe("capability");
   });
 
   test("builds generic rationale fallback", () => {

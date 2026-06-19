@@ -35,11 +35,24 @@ describe("dashboard-canvas-filter", () => {
     expect(matchesCanvasDeepLink("?canvas=gate-health", "artifact-lineage")).toBe(false);
   });
 
+  test("matchesCanvasDeepLink uses URLPattern for gate-health", () => {
+    expect(matchesCanvasDeepLink("?canvas=gate-health", "gate-health")).toBe(true);
+    expect(matchesCanvasDeepLink("?canvas=artifact-lineage", "gate-health")).toBe(false);
+  });
+
   test("applyCanvasFilter highlight-only when canvas has no identity params", async () => {
     const result = await applyCanvasFilter(REPO_ROOT, "?canvas=artifact-lineage");
     expect(result.action?.kind).toBe("highlight");
     if (result.action?.kind === "highlight") {
       expect(result.action.cardIds).toEqual(ARTIFACT_LINEAGE_CARD_IDS);
+    }
+  });
+
+  test("applyCanvasFilter highlights gate-health cards", async () => {
+    const result = await applyCanvasFilter(REPO_ROOT, "?canvas=gate-health");
+    expect(result.action?.kind).toBe("highlight");
+    if (result.action?.kind === "highlight") {
+      expect(result.action.cardIds).toEqual(GATE_HEALTH_CARD_IDS);
     }
   });
 

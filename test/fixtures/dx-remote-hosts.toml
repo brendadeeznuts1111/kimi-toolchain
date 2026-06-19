@@ -1,0 +1,13 @@
+[herdr.orchestrator.remote_defaults]
+timeout = 10
+connect_timeout = 5
+identity_file = "~/.ssh/staging_key"
+
+[herdr.orchestrator.remote_hosts]
+workbox = "workbox.local"
+
+[herdr.orchestrator.remote_hosts.staging]
+host = "staging.example.com"
+port = 2222
+user = "deploy"
+identity_file = "~/.ssh/staging_key"
