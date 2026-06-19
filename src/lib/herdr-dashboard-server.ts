@@ -42,6 +42,10 @@ import {
   fetchDashboardMetrics,
   fetchDashboardTlsCompliance,
   fetchDashboardArtifacts,
+  fetchDashboardArtifactAggregates,
+  fetchDashboardRunsList,
+  fetchDashboardRunManifest,
+  fetchDashboardSessionsIndex,
   fetchDashboardArtifactLineage,
   fetchDashboardArtifactContext,
   fetchDashboardGateGraph,
@@ -62,6 +66,7 @@ import {
 } from "./herdr-dashboard-webview-store.ts";
 import { HerdrDashboardHub } from "./herdr-dashboard-hub.ts";
 import { HerdrDashboardDiscoveryCache } from "./herdr-dashboard-discovery-cache.ts";
+import { artifactFilterFromSessionRoute, parseArtifactListQuery } from "./artifact-store.ts";
 import { TtlCache } from "./cache.ts";
 import {
   dashboardEventTimestamp,
@@ -653,9 +658,50 @@ export function startHerdrDashboardServer(
 
       // Read-only by design: the dashboard observes saved artifacts but never executes gates.
       // Fresh gate artifacts must come from explicit CLI runs with --save-artifact.
-      if (path === "/api/artifacts" && request.method === "GET") {
-        const payload = await fetchDashboardArtifacts(options.projectPath);
+      if (path === "/api/sessions" && request.method === "GET") {
+        const payload = await fetchDashboardSessionsIndex(options.projectPath);
         return jsonResponse(payload);
+      }
+
+      const sessionRunsMatch = path.match(/^\/api\/sessions\/([^/]+)\/runs$/);
+      if (sessionRunsMatch && request.method === "GET") {
+        const scope = decodeURIComponent(sessionRunsMatch[1]!);
+        const filter = artifactFilterFromSessionRoute(scope);
+        const payload = await fetchDashboardRunsList(options.projectPath, filter);
+        return jsonResponse(payload);
+      }
+
+      const sessionArtifactsMatch = path.match(/^\/api\/sessions\/([^/]+)\/artifacts$/);
+      if (sessionArtifactsMatch && request.method === "GET") {
+        const scope = decodeURIComponent(sessionArtifactsMatch[1]!);
+        const filter = artifactFilterFromSessionRoute(scope);
+        const payload = await fetchDashboardArtifacts(options.projectPath, filter);
+        return jsonResponse(payload);
+      }
+
+      if (path === "/api/artifacts/aggregates" && request.method === "GET") {
+        const filter = parseArtifactListQuery(url.searchParams);
+        const payload = await fetchDashboardArtifactAggregates(options.projectPath, filter);
+        return jsonResponse(payload);
+      }
+
+      if (path === "/api/artifacts" && request.method === "GET") {
+        const filter = parseArtifactListQuery(url.searchParams);
+        const payload = await fetchDashboardArtifacts(options.projectPath, filter);
+        return jsonResponse(payload);
+      }
+
+      if (path === "/api/runs" && request.method === "GET") {
+        const filter = parseArtifactListQuery(url.searchParams);
+        const payload = await fetchDashboardRunsList(options.projectPath, filter);
+        return jsonResponse(payload);
+      }
+
+      const runManifestMatch = path.match(/^\/api\/runs\/([^/]+)$/);
+      if (runManifestMatch && request.method === "GET") {
+        const runId = decodeURIComponent(runManifestMatch[1]!);
+        const payload = await fetchDashboardRunManifest(options.projectPath, runId);
+        return jsonResponse(payload, payload.ok ? 200 : 404);
       }
 
       const artifactLineageMatch = path.match(/^\/api\/artifacts\/([^/]+)\/lineage$/);
@@ -681,7 +727,14 @@ export function startHerdrDashboardServer(
         return jsonResponse(payload, payload.ok ? 200 : 500);
       }
 
-      if (path === "/api/artifacts" || path.startsWith("/api/artifacts/")) {
+      if (
+        path === "/api/artifacts" ||
+        path.startsWith("/api/artifacts/") ||
+        path === "/api/runs" ||
+        path.startsWith("/api/runs/") ||
+        path === "/api/sessions" ||
+        path.startsWith("/api/sessions/")
+      ) {
         return jsonResponse(
           {
             ok: false,

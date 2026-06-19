@@ -22,7 +22,13 @@ import {
   type ErrorLogSinkStatus,
 } from "./error-log-discovery.ts";
 import { tlsComplianceGate } from "../guardian/tls-compliance.ts";
-import { ArtifactStore, extractArtifactTimestampMs } from "./artifact-store.ts";
+import {
+  ArtifactStore,
+  extractArtifactTimestampMs,
+  parseArtifactListQuery,
+  type ArtifactListOptions,
+  type ArtifactRunManifest,
+} from "./artifact-store.ts";
 
 export const DEFAULT_DASHBOARD_PORT = 18412;
 
@@ -422,20 +428,97 @@ export interface DashboardArtifactEntry {
   latestSize?: number;
   latestResultSize?: number;
   latestAgeMs?: number;
-  source: string;
+  source?: string;
   status: string;
   summary: string;
-  preview: string;
-  updatedAt: string | null;
+  preview?: string;
+  updatedAt?: string | null;
+  sessionId?: string;
+  workspaceId?: string;
+  paneId?: string;
+  agentId?: string;
+  runId?: string;
+}
+
+export interface DashboardArtifactFilterOptions {
+  sessionIds: string[];
+  workspaceIds: string[];
+  paneIds: string[];
+  agentIds: string[];
+  runIds: string[];
 }
 
 export interface DashboardArtifactsPayload {
   ok: boolean;
   projectPath: string;
-  probeServerUrl: string;
-  probeReachable: boolean;
+  probeServerUrl?: string;
+  probeReachable?: boolean;
   artifacts: DashboardArtifactEntry[];
+  filterOptions?: DashboardArtifactFilterOptions;
+  filter?: ArtifactListOptions;
   fetchedAt: string;
+}
+
+export interface DashboardSessionsPayload {
+  ok: boolean;
+  projectPath: string;
+  sessions: { kimi: string[]; herdr: string[] };
+  fetchedAt: string;
+}
+
+export interface DashboardArtifactAggregatesPayload {
+  ok: boolean;
+  projectPath: string;
+  aggregates: Array<{ gate: string; count: number; latestMs: number }>;
+  filter?: ArtifactListOptions;
+  fetchedAt: string;
+}
+
+export interface DashboardRunSummary {
+  runId: string;
+  status: ArtifactRunManifest["status"];
+  startedAt: string;
+  completedAt: string;
+  gates: string[];
+  sessionId?: string;
+  workspaceId?: string;
+  paneId?: string;
+  agentId?: string;
+  parentRunId?: string;
+}
+
+export interface DashboardRunsListPayload {
+  ok: boolean;
+  projectPath: string;
+  runs: DashboardRunSummary[];
+  filter?: ArtifactListOptions;
+  fetchedAt: string;
+}
+
+export interface DashboardRunArtifactEntry {
+  gate: string;
+  path: string;
+  status: string;
+  summary: string;
+  savedAt: string | null;
+  size?: number;
+  resultSize?: number;
+  sessionId?: string;
+  workspaceId?: string;
+  paneId?: string;
+  agentId?: string;
+  runId?: string;
+  parentRunId?: string;
+}
+
+export interface DashboardRunManifestPayload {
+  ok: boolean;
+  projectPath: string;
+  runId: string;
+  manifest: ArtifactRunManifest;
+  artifacts: DashboardRunArtifactEntry[];
+  fetchedAt: string;
+  error?: string;
 }
 
 export interface DashboardProbeCardsPayload {
@@ -540,9 +623,61 @@ export async function fetchDashboardProbeCards(
   };
 }
 
+function hasArtifactListFilter(filter: ArtifactListOptions): boolean {
+  return Boolean(
+    filter.sessionId ||
+    filter.workspaceId ||
+    filter.paneId ||
+    filter.agentId ||
+    filter.runId ||
+    filter.parentRunId ||
+    filter.since ||
+    filter.until ||
+    filter.limit ||
+    filter.sessionIds?.length ||
+    filter.workspaceIds?.length ||
+    filter.paneIds?.length ||
+    filter.agentIds?.length ||
+    filter.runIds?.length ||
+    filter.parentRunIds?.length ||
+    filter.statuses?.length
+  );
+}
+
+function artifactEntryIdentityFields(entry: {
+  sessionId?: string;
+  workspaceId?: string;
+  paneId?: string;
+  agentId?: string;
+  runId?: string;
+}): Pick<DashboardArtifactEntry, "sessionId" | "workspaceId" | "paneId" | "agentId" | "runId"> {
+  return {
+    ...(entry.sessionId ? { sessionId: entry.sessionId } : {}),
+    ...(entry.workspaceId ? { workspaceId: entry.workspaceId } : {}),
+    ...(entry.paneId ? { paneId: entry.paneId } : {}),
+    ...(entry.agentId ? { agentId: entry.agentId } : {}),
+    ...(entry.runId ? { runId: entry.runId } : {}),
+  };
+}
+
+/** Distinct identity values for artifact/run filter dropdowns. */
+export async function fetchDashboardArtifactFilterOptions(
+  projectPath: string
+): Promise<DashboardArtifactFilterOptions> {
+  const distinct = await new ArtifactStore(projectPath).distinctIdentityFields();
+  return {
+    sessionIds: distinct.sessionIds,
+    workspaceIds: distinct.workspaceIds,
+    paneIds: distinct.paneIds,
+    agentIds: distinct.agentIds,
+    runIds: distinct.runIds,
+  };
+}
+
 /** Saved gate artifacts for the dashboard Artifacts tab. */
 export async function fetchDashboardArtifacts(
-  projectPath: string
+  projectPath: string,
+  filter: ArtifactListOptions = parseArtifactListQuery(new URLSearchParams())
 ): Promise<DashboardArtifactsPayload> {
   const { resolveProbeServerUrl } = await import("./doctor-probe-config.ts");
   const store = new ArtifactStore(projectPath);
@@ -550,8 +685,31 @@ export async function fetchDashboardArtifacts(
   const probeHealth = await fetchServeProbeJson(probeServerUrl, "/api/health");
   const gates = await store.listGates();
   const artifacts: DashboardArtifactEntry[] = [];
+  const hasFilter = hasArtifactListFilter(filter);
 
   for (const gate of gates) {
+    if (hasFilter) {
+      const listed = await store.listEntries(gate, filter);
+      if (listed.entries.length === 0) continue;
+      const latestEntry = listed.entries.at(-1)!;
+      const envelope = await store.readEnvelope(latestEntry.path);
+      const latestTimestamp = extractArtifactTimestampMs(latestEntry.path);
+      artifacts.push({
+        gate,
+        count: listed.entries.length,
+        latestPath: latestEntry.path,
+        ...(latestEntry.size !== undefined ? { latestSize: latestEntry.size } : {}),
+        ...(latestEntry.resultSize !== undefined
+          ? { latestResultSize: latestEntry.resultSize }
+          : {}),
+        ...(latestTimestamp !== null ? { latestAgeMs: Date.now() - latestTimestamp } : {}),
+        ...artifactEntryIdentityFields(latestEntry),
+        status: artifactPayloadStatus(envelope?.payload),
+        summary: artifactPayloadSummary(envelope?.payload),
+      });
+      continue;
+    }
+
     const paths = await store.list(gate);
     const latest = await store.getLatest(gate);
     const listed = await store.listEntries(gate, { limit: 1 });
@@ -568,6 +726,7 @@ export async function fetchDashboardArtifacts(
         ? { latestResultSize: latestEntry.resultSize }
         : {}),
       ...(latestTimestamp !== null ? { latestAgeMs: Date.now() - latestTimestamp } : {}),
+      ...(latestEntry ? artifactEntryIdentityFields(latestEntry) : {}),
       source: "artifact-store",
       status: artifactPayloadStatus(latest?.payload),
       summary: artifactPayloadSummary(latest?.payload),
@@ -588,7 +747,197 @@ export async function fetchDashboardArtifacts(
     probeServerUrl,
     probeReachable: probeHealth.ok,
     artifacts,
+    filterOptions: await fetchDashboardArtifactFilterOptions(projectPath),
+    ...(hasFilter ? { filter } : {}),
     fetchedAt: new Date().toISOString(),
+  };
+}
+
+/** Kimi session ids and Herdr workspace ids discovered from saved artifacts. */
+export async function fetchDashboardSessionsIndex(
+  projectPath: string
+): Promise<DashboardSessionsPayload> {
+  const distinct = await new ArtifactStore(projectPath).distinctIdentityFields();
+  return {
+    ok: true,
+    projectPath,
+    sessions: {
+      kimi: distinct.sessionIds,
+      herdr: distinct.workspaceIds,
+    },
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+function artifactListOptionsToIndexQuery(
+  options: ArtifactListOptions
+): import("./artifact-index.ts").ArtifactIndexQuery {
+  const query: import("./artifact-index.ts").ArtifactIndexQuery = {};
+  if (options.since) query.since = options.since;
+  if (options.until) query.until = options.until;
+
+  const addSingle = (
+    key: keyof import("./artifact-index.ts").ArtifactIndexQuery,
+    value: string | undefined
+  ): void => {
+    if (!value) return;
+    const arr = (query[key] as string[] | undefined) ?? [];
+    if (!arr.includes(value)) arr.push(value);
+    (query as Record<string, unknown>)[key] = arr;
+  };
+
+  addSingle("sessionIds", options.sessionId);
+  addSingle("workspaceIds", options.workspaceId);
+  addSingle("paneIds", options.paneId);
+  addSingle("agentIds", options.agentId);
+  addSingle("runIds", options.runId);
+  addSingle("parentRunIds", options.parentRunId);
+
+  const merge = (
+    key: keyof import("./artifact-index.ts").ArtifactIndexQuery,
+    values: string[] | undefined
+  ): void => {
+    if (!values || values.length === 0) return;
+    const arr = ((query[key] as string[] | undefined) ?? []).slice();
+    for (const value of values) {
+      if (!arr.includes(value)) arr.push(value);
+    }
+    (query as Record<string, unknown>)[key] = arr;
+  };
+
+  merge("sessionIds", options.sessionIds);
+  merge("workspaceIds", options.workspaceIds);
+  merge("paneIds", options.paneIds);
+  merge("agentIds", options.agentIds);
+  merge("runIds", options.runIds);
+  merge("parentRunIds", options.parentRunIds);
+  merge("statuses", options.statuses);
+
+  return query;
+}
+
+/** Per-gate artifact counts from the SQLite index (supports identity/status filters). */
+export async function fetchDashboardArtifactAggregates(
+  projectPath: string,
+  filter: ArtifactListOptions = parseArtifactListQuery(new URLSearchParams())
+): Promise<DashboardArtifactAggregatesPayload> {
+  const store = new ArtifactStore(projectPath);
+  const aggregates = store.getIndex().countByGate(artifactListOptionsToIndexQuery(filter));
+  const hasFilter = hasArtifactListFilter(filter);
+  return {
+    ok: true,
+    projectPath,
+    aggregates,
+    ...(hasFilter ? { filter } : {}),
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+function summarizeRunManifest(manifest: ArtifactRunManifest): DashboardRunSummary {
+  return {
+    runId: manifest.runId,
+    status: manifest.status,
+    startedAt: manifest.startedAt,
+    completedAt: manifest.completedAt,
+    gates: manifest.gates,
+    ...(manifest.sessionId ? { sessionId: manifest.sessionId } : {}),
+    ...(manifest.workspaceId ? { workspaceId: manifest.workspaceId } : {}),
+    ...(manifest.paneId ? { paneId: manifest.paneId } : {}),
+    ...(manifest.agentId ? { agentId: manifest.agentId } : {}),
+    ...(manifest.parentRunId ? { parentRunId: manifest.parentRunId } : {}),
+  };
+}
+
+async function hydrateRunArtifacts(
+  store: ArtifactStore,
+  manifest: ArtifactRunManifest
+): Promise<DashboardRunArtifactEntry[]> {
+  const artifacts: DashboardRunArtifactEntry[] = [];
+  for (const gate of manifest.gates) {
+    const relativePath = manifest.artifacts[gate];
+    if (!relativePath) continue;
+    const envelope = await store.readEnvelope(relativePath);
+    const metadata = envelope?.metadata;
+    artifacts.push({
+      gate,
+      path: relativePath,
+      status: artifactPayloadStatus(envelope?.payload),
+      summary: artifactPayloadSummary(envelope?.payload),
+      savedAt: envelope?.savedAt ?? null,
+      ...(envelope?.size !== undefined ? { size: envelope.size } : {}),
+      ...(metadata?.resultSize !== undefined ? { resultSize: metadata.resultSize } : {}),
+      ...(metadata?.sessionId ? { sessionId: metadata.sessionId } : {}),
+      ...(metadata?.workspaceId ? { workspaceId: metadata.workspaceId } : {}),
+      ...(metadata?.paneId ? { paneId: metadata.paneId } : {}),
+      ...(metadata?.agentId ? { agentId: metadata.agentId } : {}),
+      ...(metadata?.runId ? { runId: metadata.runId } : {}),
+      ...(metadata?.parentRunId ? { parentRunId: metadata.parentRunId } : {}),
+    });
+  }
+  return artifacts;
+}
+
+/** Saved run manifests for the dashboard Runs tab (newest first). */
+export async function fetchDashboardRunsList(
+  projectPath: string,
+  filter: ArtifactListOptions = {}
+): Promise<DashboardRunsListPayload> {
+  const store = new ArtifactStore(projectPath);
+  const runs: DashboardRunSummary[] = [];
+  for (const manifest of await store.listRunManifests(filter)) {
+    runs.push(summarizeRunManifest(manifest));
+  }
+  const hasFilter = Boolean(
+    filter.sessionId ||
+    filter.workspaceId ||
+    filter.paneId ||
+    filter.agentId ||
+    filter.runId ||
+    filter.parentRunId
+  );
+  return {
+    ok: true,
+    projectPath,
+    runs,
+    ...(hasFilter ? { filter } : {}),
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+/** Full run narrative: manifest plus hydrated artifact entries per gate. */
+export async function fetchDashboardRunManifest(
+  projectPath: string,
+  runId: string
+): Promise<DashboardRunManifestPayload> {
+  const fetchedAt = new Date().toISOString();
+  const store = new ArtifactStore(projectPath);
+  const manifest = await store.readRunManifest(runId);
+  if (!manifest) {
+    return {
+      ok: false,
+      projectPath,
+      runId,
+      manifest: {
+        schemaVersion: 1,
+        runId,
+        startedAt: "",
+        completedAt: "",
+        gates: [],
+        artifacts: {},
+        status: "fail",
+      },
+      artifacts: [],
+      fetchedAt,
+      error: "Run not found",
+    };
+  }
+  return {
+    ok: true,
+    projectPath,
+    runId,
+    manifest,
+    artifacts: await hydrateRunArtifacts(store, manifest),
+    fetchedAt,
   };
 }
 

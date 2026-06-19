@@ -735,6 +735,28 @@ describe("herdr-dashboard-server", () => {
           body: ReadableStream<Uint8Array>;
         };
         expect(one.status).toBe(200);
+        const detail = JSON.parse(await readableStreamToText(one.body)) as {
+          ok: boolean;
+          runId: string;
+          manifest: { gates: string[]; status: string; sessionId?: string };
+          artifacts: Array<{ gate: string; path: string }>;
+        };
+        expect(detail.ok).toBe(true);
+        expect(detail.runId).toBe("run_dashboard_a");
+        expect(detail.manifest.status).toBe("pass");
+        expect(detail.manifest.sessionId).toBe("wd_dashboard_a");
+        expect(detail.manifest.gates).toEqual(["model-drift"]);
+        expect(detail.artifacts).toEqual([
+          expect.objectContaining({
+            gate: "model-drift",
+            path: ".kimi/artifacts/model-drift/a.json",
+          }),
+        ]);
+
+        const missing = (await fetch(`${server.url}api/runs/run_missing`)) as unknown as {
+          status: number;
+        };
+        expect(missing.status).toBe(404);
       } finally {
         server.stop();
       }
