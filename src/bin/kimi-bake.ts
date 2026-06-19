@@ -13,7 +13,7 @@
 
 import { join, resolve } from "path";
 import { pathExists, readText } from "../lib/bun-io.ts";
-import { safeToml } from "../lib/utils.ts";
+import { loadTomlConfig } from "../lib/toml-config.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -57,6 +57,13 @@ function printHelp() {
   console.log("template + example sources into a target directory.");
 }
 
+// ── Manifest schema ────────────────────────────────────────────────
+
+const manifestSchema = (v: unknown): v is Manifest =>
+  typeof v === "object" && v !== null &&
+  (typeof (v as Manifest).artifact === "undefined" ||
+    (typeof (v as Manifest).artifact === "object" && (v as Manifest).artifact !== null));
+
 // ── Manifest loading ───────────────────────────────────────────────
 
 function resolveManifestPath(): string {
@@ -68,14 +75,14 @@ function resolveManifestPath(): string {
   return found ?? candidates[0];
 }
 
-function loadManifest(): Manifest {
+async function loadManifest(): Promise<Manifest> {
   const path = resolveManifestPath();
-  if (!pathExists(path)) {
-    throw new Error(`manifest.toml not found (checked: ${path})`);
+  const result = await loadTomlConfig(path, manifestSchema, {});
+  if (!result.ok) {
+    console.error(`manifest.toml: ${result.error} (${result.code})`);
+    process.exit(1);
   }
-  const text = readText(path);
-  const parsed = safeToml<Manifest>(text, {});
-  return parsed;
+  return result.config;
 }
 
 // ── PATH validation ────────────────────────────────────────────────
@@ -103,8 +110,8 @@ function probeSecrets(): { ok: boolean; methods: string[] } {
 
 // ── Commands ───────────────────────────────────────────────────────
 
-function cmdList(): number {
-  const manifest = loadManifest();
+async function cmdList(): Promise<number> {
+  const manifest = await loadManifest();
   const artifacts = manifest.artifact || {};
   const names = Object.keys(artifacts);
   if (names.length === 0) {
@@ -119,8 +126,8 @@ function cmdList(): number {
   return 0;
 }
 
-function cmdDoctor(): number {
-  const manifest = loadManifest();
+async function cmdDoctor(): Promise<number> {
+  const manifest = await loadManifest();
   const artifacts = manifest.artifact || {};
   let errors = 0;
 
@@ -146,7 +153,9 @@ function cmdDoctor(): number {
       if (secrets.ok) {
         console.log(`  ✓ ${name}: Bun.secrets (${secrets.methods.join(", ")})`);
       } else {
-        console.log(`  ✗ ${name}: Bun.secrets unavailable (${secrets.methods.join(", ") || "none"})`);
+        console.log(
+          `  ✗ ${name}: Bun.secrets unavailable (${secrets.methods.join(", ") || "none"})`
+        );
         errors++;
       }
     }
@@ -154,7 +163,7 @@ function cmdDoctor(): number {
 
   if (errors > 0) {
     console.log(`\n${errors} artifact(s) have missing dependencies.`);
-    console.log("Run: dx setup   or   export PATH=\"$HOME/.kimi-code/bin:$PATH\"");
+    console.log('Run: dx setup   or   export PATH="$HOME/.kimi-code/bin:$PATH"');
   } else {
     console.log("\n✓ All artifact dependencies satisfied.");
   }
@@ -163,7 +172,7 @@ function cmdDoctor(): number {
 }
 
 async function cmdBake(name: string, outputDir?: string, dryRun = false): Promise<number> {
-  const manifest = loadManifest();
+  const manifest = await loadManifest();
   const artifact = manifest.artifact?.[name];
   if (!artifact) {
     console.error(`Unknown artifact: ${name}`);
@@ -199,7 +208,8 @@ async function cmdBake(name: string, outputDir?: string, dryRun = false): Promis
     console.log("[dry-run] would assemble artifact files here");
     if (artifact.bunfig) {
       console.log("[dry-run] would merge bunfig sections:");
-      if (artifact.bunfig.install) console.log("  [install]", JSON.stringify(artifact.bunfig.install));
+      if (artifact.bunfig.install)
+        console.log("  [install]", JSON.stringify(artifact.bunfig.install));
       if (artifact.bunfig.test) console.log("  [test]", JSON.stringify(artifact.bunfig.test));
     }
     return 0;
@@ -263,9 +273,9 @@ async function cmdBake(name: string, outputDir?: string, dryRun = false): Promis
 const result = await (async (): Promise<number> => {
   switch (command) {
     case "list":
-      return cmdList();
+      return await cmdList();
     case "doctor":
-      return cmdDoctor();
+      return await cmdDoctor();
     case undefined:
     case "--help":
     case "-h":
