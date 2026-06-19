@@ -5,6 +5,7 @@
  * CLI passes `closure.gates` to `runGatesWithDependencies` — no GraphNode adapter.
  */
 import type { Gate } from "./types.ts";
+import { topologicalSort } from "./runner.ts";
 import { bunfigPolicyGateDefinition } from "./bunfig-policy.ts";
 import { cardProbeGateDefinition } from "./card-probe.ts";
 import { modelDriftGateDefinition } from "./model-drift.ts";
@@ -67,6 +68,45 @@ export function resolveGateClosure(name: string): { gates: Gate[]; missing: stri
 
   visit(name);
   return { gates: order, missing };
+}
+
+/**
+ * Expand an input gate array with registry definitions for missing `dependsOn` targets.
+ * Input gates take precedence over built-ins with the same name.
+ */
+export function autoResolveGateDependencies(inputGates: Gate[]): {
+  gates: Gate[];
+  autoResolved: string[];
+} {
+  ensureDiscovered();
+  const inputByName = new Map(inputGates.map((gate) => [gate.name, gate]));
+  const autoResolved: string[] = [];
+  const order: Gate[] = [];
+  const seen = new Set<string>();
+
+  function visit(gateName: string): void {
+    if (seen.has(gateName)) return;
+
+    const gate = inputByName.get(gateName) ?? gates.get(gateName);
+    if (!gate) return;
+
+    for (const dep of gate.dependsOn ?? []) {
+      visit(dep);
+    }
+
+    seen.add(gateName);
+    order.push(gate);
+
+    if (!inputByName.has(gateName)) {
+      autoResolved.push(gateName);
+    }
+  }
+
+  for (const inputGate of inputGates) {
+    visit(inputGate.name);
+  }
+
+  return { gates: order, autoResolved };
 }
 
 export const gateRegistry = {

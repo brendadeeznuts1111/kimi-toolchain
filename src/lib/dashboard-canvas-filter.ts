@@ -128,7 +128,7 @@ export async function applyCanvasFilter(
       fetchDashboardRunManifest(projectPath, params.diff.right),
     ]);
     const diff =
-      "computeRunManifestDiff" in manifest
+      "computeRunManifestDiff" in manifest && typeof manifest.computeRunManifestDiff === "function"
         ? manifest.computeRunManifestDiff(left, right)
         : [];
     return {

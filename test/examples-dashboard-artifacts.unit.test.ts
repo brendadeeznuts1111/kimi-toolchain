@@ -156,4 +156,86 @@ describe("examples-dashboard-artifacts", () => {
     expect(body.gates.length).toBeGreaterThan(0);
     expect(body.mermaid).toContain("graph");
   });
+
+  test("GET /api/artifacts exposes count and gates aliases", async () => {
+    const dir = testTempDir("ex-dash-count-");
+    const prev = Bun.env.KIMI_ARTIFACT_PROJECT_ROOT;
+    Bun.env.KIMI_ARTIFACT_PROJECT_ROOT = dir;
+    try {
+      const store = new ArtifactStore(dir);
+      await store.save("strategy-performance", { pnl: 1 });
+      await store.save("model-drift", { drift: 0.2 });
+
+      const res = await handleArtifactsRequest(new Request("http://127.0.0.1/api/artifacts"));
+      expect(res?.status).toBe(200);
+      const body = (await res!.json()) as {
+        count: number;
+        gates: string[];
+        artifacts: Array<{ gate: string }>;
+      };
+      expect(body.count).toBe(2);
+      expect(body.gates.sort()).toEqual(["model-drift", "strategy-performance"]);
+      expect(body.artifacts.map((row) => row.gate).sort()).toEqual(body.gates.sort());
+    } finally {
+      if (prev === undefined) delete Bun.env.KIMI_ARTIFACT_PROJECT_ROOT;
+      else Bun.env.KIMI_ARTIFACT_PROJECT_ROOT = prev;
+      cleanupPath(dir);
+    }
+  });
+
+  test("GET /api/sessions and scoped session routes filter artifacts and runs", async () => {
+    const dir = testTempDir("ex-dash-sessions-");
+    const prev = Bun.env.KIMI_ARTIFACT_PROJECT_ROOT;
+    Bun.env.KIMI_ARTIFACT_PROJECT_ROOT = dir;
+    try {
+      const store = new ArtifactStore(dir);
+      await store.save("model-drift", { drift: 0.1 }, { workspaceId: "herdr_scope_a" });
+      await store.save("model-drift", { drift: 0.2 }, { workspaceId: "herdr_scope_b" });
+      await store.saveRunManifest({
+        schemaVersion: 1,
+        runId: "run_scope_a",
+        status: "completed",
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        gates: ["model-drift"],
+        artifacts: {},
+        workspaceId: "herdr_scope_a",
+      });
+
+      const indexRes = await handleArtifactsRequest(new Request("http://127.0.0.1/api/sessions"));
+      expect(indexRes?.status).toBe(200);
+      const indexBody = (await indexRes!.json()) as {
+        sessions: { kimi: string[]; herdr: string[] };
+      };
+      expect(indexBody.sessions.herdr).toContain("herdr_scope_a");
+      expect(indexBody.sessions.herdr).toContain("herdr_scope_b");
+
+      const artifactsRes = await handleArtifactsRequest(
+        new Request("http://127.0.0.1/api/sessions/herdr_scope_a/artifacts")
+      );
+      expect(artifactsRes?.status).toBe(200);
+      const artifactsBody = (await artifactsRes!.json()) as {
+        artifacts: Array<{ workspaceId?: string }>;
+        filter: { workspaceId?: string };
+      };
+      expect(artifactsBody.filter.workspaceId).toBe("herdr_scope_a");
+      expect(artifactsBody.artifacts.every((row) => row.workspaceId === "herdr_scope_a")).toBe(
+        true
+      );
+
+      const runsRes = await handleArtifactsRequest(
+        new Request("http://127.0.0.1/api/sessions/herdr_scope_a/runs")
+      );
+      expect(runsRes?.status).toBe(200);
+      const runsBody = (await runsRes!.json()) as {
+        runs: Array<{ runId: string; workspaceId?: string }>;
+      };
+      expect(runsBody.runs.some((row) => row.runId === "run_scope_a")).toBe(true);
+      expect(runsBody.runs.every((row) => row.workspaceId === "herdr_scope_a")).toBe(true);
+    } finally {
+      if (prev === undefined) delete Bun.env.KIMI_ARTIFACT_PROJECT_ROOT;
+      else Bun.env.KIMI_ARTIFACT_PROJECT_ROOT = prev;
+      cleanupPath(dir);
+    }
+  });
 });

@@ -51,6 +51,7 @@ import {
   fetchDashboardSessionsIndex,
   fetchDashboardArtifactLineage,
   fetchDashboardArtifactContext,
+  fetchDashboardArtifactMetadata,
   fetchDashboardGateGraph,
   fetchDashboardProbeCards,
   fetchDashboardProbeHealthInput,
@@ -821,6 +822,15 @@ export function startHerdrDashboardServer(
       if (path === "/api/artifacts/context" && request.method === "GET") {
         const payload = await fetchDashboardArtifactContext(options.projectPath);
         return jsonResponse(payload, payload.ok ? 200 : 500);
+      }
+
+      if (path === "/api/artifacts/metadata" && request.method === "GET") {
+        const filter = parseArtifactListQuery(url.searchParams);
+        const gate = url.searchParams.get("gate")?.trim() || undefined;
+        const payload = await fetchDashboardArtifactMetadata(options.projectPath, filter, {
+          gate,
+        });
+        return jsonResponse(payload);
       }
 
       if (isDashboardArtifactNamespace(path)) {

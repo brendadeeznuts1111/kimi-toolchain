@@ -57,7 +57,11 @@ class McpSession {
     }
   }
 
-  async request(method: string, params?: Record<string, unknown>, id?: number | string): Promise<unknown> {
+  async request(
+    method: string,
+    params?: Record<string, unknown>,
+    id?: number | string
+  ): Promise<unknown> {
     const request: Record<string, unknown> = { jsonrpc: "2.0", method };
     if (id !== undefined) request.id = id;
     if (params !== undefined) request.params = params;

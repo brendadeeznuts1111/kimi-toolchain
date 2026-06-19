@@ -26,9 +26,14 @@ import { formatLogPreviewText } from "./log-preview.ts";
 import {
   ArtifactStore,
   extractArtifactTimestampMs,
+  parseArtifactDependencies,
   parseArtifactListQuery,
+  type ArtifactDependencyQuery,
   type ArtifactListOptions,
+  type ArtifactMetadata,
+  type ArtifactRunLineage,
   type ArtifactRunManifest,
+  type ArtifactMetadataCollectionEntry,
 } from "./artifact-store.ts";
 import {
   getDoctorRunsByRunId,
@@ -505,7 +510,18 @@ export interface DashboardRunsListPayload {
   fetchedAt: string;
 }
 
-export interface DashboardRunArtifactEntry {
+/** Provenance fields shared across run detail, context graph, and metadata APIs. */
+export interface DashboardArtifactMetadataFields {
+  hostname?: string;
+  pid?: number;
+  bunVersion?: string;
+  level?: 1 | 2 | 3;
+  dependsOn?: ArtifactDependencyQuery[];
+  lineage?: ArtifactRunLineage;
+  hasLineageMermaid?: boolean;
+}
+
+export interface DashboardRunArtifactEntry extends DashboardArtifactMetadataFields {
   gate: string;
   path: string;
   /** True when path resolved via SQLite index rather than manifest map. */
@@ -521,6 +537,61 @@ export interface DashboardRunArtifactEntry {
   agentId?: string;
   runId?: string;
   parentRunId?: string;
+}
+
+/** Normalize envelope metadata for dashboard JSON responses. */
+export function dashboardEnvelopeMetadataFields(
+  metadata: ArtifactMetadata | undefined
+): DashboardArtifactMetadataFields {
+  if (!metadata) return {};
+  return {
+    ...(typeof metadata.hostname === "string" && metadata.hostname.length > 0
+      ? { hostname: metadata.hostname }
+      : {}),
+    ...(typeof metadata.pid === "number" && Number.isFinite(metadata.pid) ? { pid: metadata.pid } : {}),
+    ...(typeof metadata.bunVersion === "string" && metadata.bunVersion.length > 0
+      ? { bunVersion: metadata.bunVersion }
+      : {}),
+    ...(metadata.level !== undefined ? { level: metadata.level } : {}),
+    ...(Array.isArray(metadata.dependsOn) && metadata.dependsOn.length > 0
+      ? { dependsOn: metadata.dependsOn }
+      : {}),
+    ...(metadata.lineage &&
+    (metadata.lineage.dependencies.length > 0 || metadata.lineage.upstreamArtifacts.length > 0)
+      ? { lineage: metadata.lineage }
+      : {}),
+    ...(typeof metadata.lineageMermaid === "string" && metadata.lineageMermaid.length > 0
+      ? { hasLineageMermaid: true }
+      : {}),
+  };
+}
+
+export interface DashboardArtifactMetadataPayload {
+  ok: true;
+  projectPath: string;
+  entries: ArtifactMetadataCollectionEntry[];
+  total: number;
+  indexSource: "sqlite";
+  filter: ArtifactListOptions;
+  gate?: string;
+  fetchedAt: string;
+}
+
+/** Indexed metadata collection for dashboard metadata panels. */
+export async function fetchDashboardArtifactMetadata(
+  projectPath: string,
+  filter: ArtifactListOptions = parseArtifactListQuery(new URLSearchParams()),
+  options: { gate?: string } = {}
+): Promise<DashboardArtifactMetadataPayload> {
+  const store = new ArtifactStore(projectPath);
+  const payload = await store.collectMetadata(filter, options);
+  return {
+    ...payload,
+    projectPath,
+    filter,
+    ...(options.gate ? { gate: options.gate } : {}),
+    fetchedAt: new Date().toISOString(),
+  };
 }
 
 export interface DashboardRunManifestPayload {
@@ -1034,6 +1105,7 @@ async function hydrateRunArtifacts(
       ...(metadata?.agentId ? { agentId: metadata.agentId } : {}),
       ...(metadata?.runId ? { runId: metadata.runId } : {}),
       ...(metadata?.parentRunId ? { parentRunId: metadata.parentRunId } : {}),
+      ...dashboardEnvelopeMetadataFields(metadata),
     });
   }
   return artifacts;
@@ -1185,7 +1257,7 @@ export async function fetchDashboardArtifactLineage(
   };
 }
 
-export interface DashboardArtifactContextNode {
+export interface DashboardArtifactContextNode extends DashboardArtifactMetadataFields {
   id: string;
   gate: string;
   path: string;
@@ -1193,8 +1265,6 @@ export interface DashboardArtifactContextNode {
   status: string;
   size?: number;
   resultSize?: number;
-  hostname?: string;
-  bunVersion?: string;
   upstream: string[];
 }
 
@@ -1250,9 +1320,16 @@ export async function fetchDashboardArtifactContext(
       const payload = envelope?.payload;
       const metadata = envelope?.metadata;
       const status = artifactPayloadStatus(payload);
-      const upstream: string[] = [];
+      const upstream = new Set<string>();
       if (metadata?.lineage && Array.isArray(metadata.lineage.upstreamArtifacts)) {
-        upstream.push(...metadata.lineage.upstreamArtifacts);
+        for (const path of metadata.lineage.upstreamArtifacts) upstream.add(path);
+      }
+      const dependsOn = parseArtifactDependencies(metadata);
+      if (dependsOn.length > 0) {
+        const resolved = await store.resolveDependsOn(dependsOn);
+        for (const block of resolved) {
+          for (const path of block.paths) upstream.add(path);
+        }
       }
       const node: DashboardArtifactContextNode = {
         id: mermaidNodeId(entry.path),
@@ -1262,9 +1339,8 @@ export async function fetchDashboardArtifactContext(
         status,
         ...(entry.size !== undefined ? { size: entry.size } : {}),
         ...(entry.resultSize !== undefined ? { resultSize: entry.resultSize } : {}),
-        ...(typeof metadata?.hostname === "string" ? { hostname: metadata.hostname } : {}),
-        ...(typeof metadata?.bunVersion === "string" ? { bunVersion: metadata.bunVersion } : {}),
-        upstream,
+        ...dashboardEnvelopeMetadataFields(metadata),
+        upstream: [...upstream],
       };
       nodes.push(node);
       pathToId.set(entry.path, node.id);

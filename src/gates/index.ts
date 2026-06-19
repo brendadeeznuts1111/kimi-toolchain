@@ -58,6 +58,7 @@ export {
   listGates,
   registerGate,
   resolveGateClosure,
+  autoResolveGateDependencies,
 } from "./registry.ts";
 
 export {

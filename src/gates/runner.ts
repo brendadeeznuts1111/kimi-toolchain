@@ -3,6 +3,7 @@
  *
  * Distinct from `src/lib/gate-runner.ts` (CI shell gates: format, lint, tsc).
  */
+import { autoResolveGateDependencies } from "./registry.ts";
 import {
   type ArtifactDependencyQuery,
   type ArtifactRunManifest,
@@ -11,6 +12,7 @@ import {
   generateRunId,
   resolveArtifactSessionContext,
 } from "../lib/artifact-store.ts";
+import { autoResolveGateDependencies } from "./registry.ts";
 import type {
   Gate,
   GateArtifact,
@@ -34,6 +36,8 @@ export interface GateRunResult {
 export interface DependencyRunOutcome {
   results: GateRunResult[];
   order: string[];
+  /** Gate names pulled from the registry because they were missing from the input array. */
+  autoResolved?: string[];
   graphArtifactPath?: string;
   runId?: string;
   runManifestPath?: string;
@@ -195,6 +199,8 @@ export function detectCycle(gates: Gate[]): string[] {
 }
 
 export interface DependencyRunnerOptions extends GateRunOptions {
+  /** Expand missing `dependsOn` targets from the built-in registry (default: true). */
+  autoResolveDependencies?: boolean;
   /** Stop after the first blocked or failed gate. */
   failFast?: boolean;
   /** Invoked when a gate fails or is blocked by a failed dependency. */
@@ -379,7 +385,17 @@ export async function runGatesWithDependencies(
   gates: Gate[],
   opts: DependencyRunnerOptions = {}
 ): Promise<DependencyRunOutcome> {
-  const missingDeps = findMissingGateDependencies(gates);
+  const autoResolve = opts.autoResolveDependencies !== false;
+  let resolvedGates = gates;
+  let autoResolved: string[] = [];
+
+  if (autoResolve) {
+    const resolved = autoResolveGateDependencies(gates);
+    resolvedGates = resolved.gates;
+    autoResolved = resolved.autoResolved;
+  }
+
+  const missingDeps = findMissingGateDependencies(resolvedGates);
   if (missingDeps.length > 0) {
     throw new Error(
       `Gate closure incomplete (missing dependencies in array): ${missingDeps.join(", ")}. ` +
@@ -387,8 +403,8 @@ export async function runGatesWithDependencies(
     );
   }
 
-  const order = topologicalSort(gates);
-  const levels = groupGatesIntoExecutionLevels(gates);
+  const order = topologicalSort(resolvedGates);
+  const levels = groupGatesIntoExecutionLevels(resolvedGates);
   const runResults = new Map<string, GateResult>();
   const output: GateRunResult[] = [];
   const store = opts.projectRoot ? new ArtifactStore(opts.projectRoot) : null;
@@ -481,8 +497,8 @@ export async function runGatesWithDependencies(
     }
 
     let graphArtifactPath: string | undefined;
-    if (opts.saveArtifact && store && gates.length > 1) {
-      const mermaid = generateGateGraph(gates);
+    if (opts.saveArtifact && store && resolvedGates.length > 1) {
+      const mermaid = generateGateGraph(resolvedGates);
       graphArtifactPath = await store.save(
         "gate-graph",
         {
@@ -535,6 +551,7 @@ export async function runGatesWithDependencies(
     return {
       results: output,
       order: order.map((g) => g.name),
+      ...(autoResolved.length > 0 ? { autoResolved } : {}),
       graphArtifactPath,
       ...(opts.saveArtifact ? { runId, runManifestPath } : {}),
     };

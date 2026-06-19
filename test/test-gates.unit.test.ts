@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import {
   bunTestArgs,
+  DEFAULT_TEST_TIMEOUT_MS,
   FAST_TEST_TIMEOUT_MS,
   INTEGRATION_TEST_FILES,
   SMOKE_TEST_FILES,
@@ -12,8 +13,13 @@ import {
 const REPO_ROOT = join(import.meta.dir, "..");
 
 describe("test-gates", () => {
-  test("bunTestArgs defaults include bail and 5s timeout", () => {
-    expect(bunTestArgs({ bail: true })).toEqual(["test", "--timeout", "5000", "--bail"]);
+  test("bunTestArgs defaults include bail and default timeout", () => {
+    expect(bunTestArgs({ bail: true })).toEqual([
+      "test",
+      "--timeout",
+      String(DEFAULT_TEST_TIMEOUT_MS),
+      "--bail",
+    ]);
   });
 
   test("bunTestArgs fast mode uses the configured timeout and unit files", () => {

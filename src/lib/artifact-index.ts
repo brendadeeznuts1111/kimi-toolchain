@@ -300,27 +300,27 @@ export class ArtifactIndex {
 
   /** Query artifacts with composite filters and parsed `metadata_json` blobs. */
   findMetadataCollection(query: ArtifactIndexQuery = {}): ArtifactMetadataCollectionEntry[] {
-    const rows = this.find(query);
-    if (rows.length === 0) return [];
-    const db = this.open();
-    const stmt = db.prepare("SELECT metadata_json FROM artifacts WHERE relative_path = ?");
+    const rows = this.queryArtifactRows(query);
     return rows.map((row) => {
-      const hit = stmt.get(row.relativePath) as { metadata_json: string } | null;
       let metadata: Record<string, unknown> = {};
-      if (hit?.metadata_json) {
+      if (row.metadata_json != null) {
         try {
-          const parsed = JSON.parse(hit.metadata_json) as unknown;
+          const parsed = JSON.parse(String(row.metadata_json)) as unknown;
           if (parsed && typeof parsed === "object") metadata = parsed as Record<string, unknown>;
         } catch {
           metadata = {};
         }
       }
-      return { ...row, metadata };
+      return { ...rowToIndexRow(row), metadata };
     });
   }
 
   /** Query artifacts with composite filters. */
   find(query: ArtifactIndexQuery = {}): ArtifactIndexRow[] {
+    return this.queryArtifactRows(query).map(rowToIndexRow);
+  }
+
+  private queryArtifactRows(query: ArtifactIndexQuery = {}): Array<Record<string, unknown>> {
     const db = this.open();
     const conditions: string[] = [];
     const params: (string | number)[] = [];
@@ -379,8 +379,7 @@ export class ArtifactIndex {
       params.push(offset);
     }
 
-    const rows = db.query(sql).all(...(params as never)) as Array<Record<string, unknown>>;
-    return rows.map(rowToIndexRow);
+    return db.query(sql).all(...(params as never)) as Array<Record<string, unknown>>;
   }
 
   /** Distinct identity values across indexed artifacts. */
