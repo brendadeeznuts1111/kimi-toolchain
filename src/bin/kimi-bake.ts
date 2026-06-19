@@ -31,6 +31,7 @@ interface ManifestArtifact {
   description?: string;
   requires?: string[];
   path_check?: boolean;
+  secrets_check?: boolean;
   sources?: ManifestArtifactSource;
   bunfig?: ManifestArtifactBunfig;
 }
@@ -87,6 +88,19 @@ function validatePath(requires: string[]): { ok: boolean; missing: string[] } {
   return { ok: missing.length === 0, missing };
 }
 
+// ── Secrets probe ──────────────────────────────────────────────────
+
+function probeSecrets(): { ok: boolean; methods: string[] } {
+  if (typeof Bun.secrets !== "object" || Bun.secrets === null) {
+    return { ok: false, methods: [] };
+  }
+  const methods: string[] = [];
+  if (typeof Bun.secrets.get === "function") methods.push("get");
+  if (typeof Bun.secrets.set === "function") methods.push("set");
+  if (typeof Bun.secrets.delete === "function") methods.push("delete");
+  return { ok: methods.length === 3, methods };
+}
+
 // ── Commands ───────────────────────────────────────────────────────
 
 function cmdList(): number {
@@ -116,14 +130,25 @@ function cmdDoctor(): number {
 
   for (const [name, artifact] of Object.entries(artifacts)) {
     const requires = artifact.requires || [];
-    if (requires.length === 0) continue;
 
-    const { ok, missing } = validatePath(requires);
-    if (ok) {
-      console.log(`  ✓ ${name}: ${requires.join(", ")} on PATH`);
-    } else {
-      console.log(`  ✗ ${name}: missing ${missing.join(", ")}`);
-      errors++;
+    if (requires.length > 0) {
+      const { ok, missing } = validatePath(requires);
+      if (ok) {
+        console.log(`  ✓ ${name}: ${requires.join(", ")} on PATH`);
+      } else {
+        console.log(`  ✗ ${name}: missing ${missing.join(", ")}`);
+        errors++;
+      }
+    }
+
+    if (artifact.secrets_check) {
+      const secrets = probeSecrets();
+      if (secrets.ok) {
+        console.log(`  ✓ ${name}: Bun.secrets (${secrets.methods.join(", ")})`);
+      } else {
+        console.log(`  ✗ ${name}: Bun.secrets unavailable (${secrets.methods.join(", ") || "none"})`);
+        errors++;
+      }
     }
   }
 
@@ -154,6 +179,16 @@ async function cmdBake(name: string, outputDir?: string, dryRun = false): Promis
       return 1;
     }
     console.log(`✓ PATH: ${artifact.requires.join(", ")}`);
+  }
+
+  // Secrets check
+  if (artifact.secrets_check) {
+    const secrets = probeSecrets();
+    if (!secrets.ok) {
+      console.error("Secrets check failed: Bun.secrets unavailable");
+      return 1;
+    }
+    console.log(`✓ Secrets: ${secrets.methods.join(", ")}`);
   }
 
   const target = outputDir ?? join(process.cwd(), name);

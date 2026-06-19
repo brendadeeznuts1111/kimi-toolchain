@@ -57,6 +57,16 @@ function jsonResponse(data: unknown): Response {
   });
 }
 
+async function apiSecrets(): Promise<Response> {
+  const available = typeof Bun.secrets === "object" && Bun.secrets !== null;
+  const methods = {
+    get: typeof Bun.secrets?.get === "function",
+    set: typeof Bun.secrets?.set === "function",
+    delete: typeof Bun.secrets?.delete === "function",
+  };
+  return jsonResponse({ available, methods, note: "scoped per user namespace (macOS Keychain / Windows Credential Manager)" });
+}
+
 // ── Server ──────────────────────────────────────────────────────────
 
 const server = Bun.serve({
@@ -74,6 +84,8 @@ const server = Bun.serve({
         return apiCompile();
       case "/api/gates":
         return apiGates();
+      case "/api/secrets":
+        return apiSecrets();
       case "/health":
         return new Response("ok");
       default:

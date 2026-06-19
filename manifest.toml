@@ -8,6 +8,7 @@
 description = "kimi-toolchain demo dashboard — bundle analysis, compile check, gate health, markdown rendering"
 requires = ["kimi-fix", "bun"]
 path_check = true
+secrets_check = true
 
 # Source directories merged into the artifact
 [artifact.dashboard.sources]
