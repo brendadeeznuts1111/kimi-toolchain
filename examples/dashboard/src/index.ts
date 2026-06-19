@@ -260,6 +260,16 @@ async function apiToolchainHeal(): Promise<Response> {
   });
 }
 
+async function apiInspectSimple(): Promise<Response> {
+  const obj = { foo: "bar" };
+  const arr = new Uint8Array([1, 2, 3]);
+  return new Response(
+    `// Bun.inspect({ foo: "bar" })\n${Bun.inspect(obj)}\n\n` +
+    `// Bun.inspect(new Uint8Array([1, 2, 3]))\n${Bun.inspect(arr)}`,
+    { headers: { "content-type": "text/plain; charset=utf-8" } }
+  );
+}
+
 async function apiInspect(): Promise<Response> {
   // Sample object demonstrating Bun.inspect() with typed values
   const typedArray = new Uint8Array([1, 2, 3]);
@@ -348,6 +358,8 @@ const server = Bun.serve({
         return apiToolchainHeal();
       case "/api/inspect":
         return apiInspect();
+      case "/api/inspect-simple":
+        return apiInspectSimple();
       case "/api/uuid":
         return apiUuid();
       case "/health":
