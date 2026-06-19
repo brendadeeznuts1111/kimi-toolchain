@@ -130,6 +130,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "manifest id kimi-doctor (this canvas)" },
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
   { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
+  { id: "dashboard-card-registry", page: "Card registry", path: "docs/canvases/dashboard-card-registry.canvas.tsx", detail: "canvasInfluences · /api/cards · lint gate" },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -144,7 +145,8 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "success",
   "warning",
-  "warning"
+  "neutral",
+  "neutral"
 ] as const;
 const LIFECYCLE_MODES = [
   ["Doctor gate (shipped)", "kimi-doctor --automation", "One-shot · ephemeral server · finish-work"],

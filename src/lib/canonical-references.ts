@@ -348,6 +348,21 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     runtimePath: "~/.kimi-code/docs/references/v53-architecture.md",
     purpose:
       "v5.3 architecture consolidated reference: 9-file map, awk splitter, profile registry, DEFAULT_MODULES, MODULE_REGISTRY, 42-card dashboard, Herdr integration",
+    cursorCanvas: "docs/canvases/dashboard-card-registry.canvas.tsx",
+    canvasId: "dashboard-card-registry",
+    canvasPage: "Card registry",
+    canvasVersion: "1.0.0",
+    canvasLayer: "v5.4 wiring",
+    canvasOpenWhen: "canvasInfluences · /api/cards · lint gate",
+    canvasReadOrder: 10,
+    canvasInfluences: [
+      "card-gates",
+      "card-kimi-doctor",
+      "card-scaffold",
+      "card-perf-harness",
+      "card-symbols",
+      "card-perf-registry",
+    ],
   },
   {
     id: "canonical-references",

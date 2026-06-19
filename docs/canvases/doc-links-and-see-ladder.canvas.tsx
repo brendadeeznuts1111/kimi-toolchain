@@ -254,6 +254,15 @@ const CANVAS_ROUTING = [
     path: `${CANVAS_PREFIX}kimi-heal-doctor-scaffold.canvas.tsx`,
     repoPath: `${CANVAS_PREFIX}kimi-heal-doctor-scaffold.canvas.tsx`,
   },
+  {
+    id: "dashboard-card-registry",
+    page: "Card registry",
+    version: "1.0.0",
+    layer: "v5.4 wiring",
+    openWhen: "canvasInfluences · /api/cards · lint gate",
+    path: `${CANVAS_PREFIX}dashboard-card-registry.canvas.tsx`,
+    repoPath: `${CANVAS_PREFIX}dashboard-card-registry.canvas.tsx`,
+  },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -268,7 +277,8 @@ const CANVAS_ROW_TONE = [
   "neutral",
   "neutral",
   "warning",
-  "warning"
+  "neutral",
+  "neutral"
 ] as const;
 function CanvasNavButton({
   label,

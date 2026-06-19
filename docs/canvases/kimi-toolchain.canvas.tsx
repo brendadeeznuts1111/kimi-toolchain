@@ -120,6 +120,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor --automation · gate JSON" },
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
   { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
+  { id: "dashboard-card-registry", page: "Card registry", path: "docs/canvases/dashboard-card-registry.canvas.tsx", detail: "canvasInfluences · /api/cards · lint gate" },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -134,7 +135,8 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "neutral",
   "warning",
-  "warning"
+  "warning",
+  "neutral"
 ] as const;
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
@@ -170,7 +172,7 @@ const LIB_COUNT = 261;
 const UNIT_COUNT = 167;
 const INTEGRATION_COUNT = 5;
 const SMOKE_COUNT = 6;
-const CURSOR_CANVAS_COUNT = 9;
+const CURSOR_CANVAS_COUNT = 10;
 
 function SyncFlowDag() {
   const theme = useHostTheme();

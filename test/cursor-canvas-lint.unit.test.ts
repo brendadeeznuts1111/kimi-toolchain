@@ -16,9 +16,9 @@ import { UNIT_TEST_FILES } from "../src/lib/test-gates.ts";
 import { REPO_ROOT, readText } from "./helpers.ts";
 
 describe("cursor-canvas-lint", () => {
-  test("manifestCanvasRoutes lists nine manifest-backed canvases", () => {
+  test("manifestCanvasRoutes lists ten manifest-backed canvases", () => {
     const routes = manifestCanvasRoutes();
-    expect(routes).toHaveLength(9);
+    expect(routes).toHaveLength(10);
     expect(routes.map((r) => r.canvasId)).toContain("herdr-dashboard-automation");
   });
 
@@ -71,7 +71,7 @@ describe("cursor-canvas-lint", () => {
     const automation = await readText(
       join(REPO_ROOT, "docs/canvases/herdr-dashboard-automation.canvas.tsx")
     );
-    expect(extractCanvasRoutingIds(automation)).toHaveLength(9);
+    expect(extractCanvasRoutingIds(automation)).toHaveLength(10);
   });
 
   test("canvasCompanionsStale is clean after sync", async () => {
