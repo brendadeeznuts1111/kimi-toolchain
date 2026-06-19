@@ -50,6 +50,7 @@
   <div class="card" id="card-compile"><h2>Compile Check</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-gates"><h2>Gate Health</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-markdown"><h2>Markdown Rendering</h2><div class="loading">Loading…</div></div>
+  <div class="card" id="card-depth"><h2>Console Depth</h2><div class="loading">Loading…</div></div>
 </div>
 <script>
 async function fetchJson(url) { const res = await fetch(url); return res.json(); }
@@ -118,6 +119,20 @@ card("card-markdown", `
     <tr><td>Structured extract</td><td><span class="badge badge-ok">✓</span></td></tr>
     </table>
   </div>`);
+
+// Console Depth
+(async () => {
+  try {
+    const d = await fetchJson("/api/console-depth");
+    let h = `<div class="row"><span>Depth</span><span class="badge badge-info">${d.configuredDepth}</span></div>`;
+    h += `<div class="row"><span>Source</span><span style="font-size:11px">bunfig.toml console.depth</span></div>`;
+    h += `<div style="margin-top:8px;font-size:12px;background:var(--border);padding:8px;border-radius:4px;overflow-x:auto">`;
+    h += `<code style="white-space:pre">${JSON.stringify(d.sample._raw, null, 2)}</code>`;
+    h += `</div>`;
+    h += `<p class="status ok" style="margin-top:4px">${d.note}</p>`;
+    card("card-depth", h);
+  } catch(e) { card("card-depth", `<p class="status err">${e.message}</p>`); }
+})();
 </script>
 </body>
 </html>

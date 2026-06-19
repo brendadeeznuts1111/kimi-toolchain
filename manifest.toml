@@ -32,3 +32,6 @@ pathIgnorePatterns = [
   "**/test-data/**",
   "examples/**",
 ]
+
+# Console inspection depth — cli flag --console-depth overrides
+console.depth = 4

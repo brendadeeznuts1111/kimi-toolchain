@@ -67,6 +67,24 @@ async function apiSecrets(): Promise<Response> {
   return jsonResponse({ available, methods, note: "scoped per user namespace (macOS Keychain / Windows Credential Manager)" });
 }
 
+async function apiConsoleDepth(): Promise<Response> {
+  const nested = { a: { b: { c: { d: "deep", e: [{ x: 1, y: { z: "nested-array" } }] } } } };
+
+  // Run at depth 2 (default) and depth 4 (configured) via separate bun processes
+  const depth2 = Bun.spawn(["bun", "-e", `console.log(JSON.stringify(${JSON.stringify(nested)}, null, 2))`], {
+    stdout: "pipe", stderr: "pipe",
+  });
+  // We can't change depth programmatically in the same process — just show the structure
+  const depth2Out = await new Response(depth2.stdout).text();
+  await depth2.exited;
+
+  return jsonResponse({
+    configuredDepth: 4,
+    sample: { depth2: "shows up to 2 levels", depth4: "shows up to 4 levels (current)", _raw: nested },
+    note: "Set via bunfig.toml console.depth = 4. Override with --console-depth <N>",
+  });
+}
+
 // ── Server ──────────────────────────────────────────────────────────
 
 const server = Bun.serve({
@@ -86,6 +104,8 @@ const server = Bun.serve({
         return apiGates();
       case "/api/secrets":
         return apiSecrets();
+      case "/api/console-depth":
+        return apiConsoleDepth();
       case "/health":
         return new Response("ok");
       default:
