@@ -22,6 +22,12 @@ globalBinDir = "~/.bun/bin"
 minimumReleaseAge = 259200
 minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 
+# Future: kimi-guardian as an [install.security] scanner.
+# When guardian is published as a Bun security scanner package,
+# uncomment the block below to scan every install for CVEs + supply-chain risks.
+# [install.security]
+# scanner = "kimi-guardian-scanner"
+
 [install.cache]
 dir = "~/.bun/install/cache"
 

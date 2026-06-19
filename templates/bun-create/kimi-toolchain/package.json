@@ -1,5 +1,5 @@
 {
-  "name": "{{name}}",
+  "name": "kimi-toolchain",
   "version": "0.0.1",
   "description": "Greenfield Bun project pre-wired with kimi-toolchain governance, guardian, and quality gates.",
   "bun-create": {

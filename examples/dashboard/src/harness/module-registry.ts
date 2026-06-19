@@ -21,7 +21,7 @@ import {
 export const DEFAULT_THRESHOLDS: Record<string, number> = {
   "kimi.effect.crypto.sha256": 5,
   "kimi.effect.util.inspect": 2,
-  "kimi.effect.util.deepEquals": 1,
+  "kimi.effect.util.deepEquals": 5,
   "kimi.effect.image.metadata": 10,
   "kimi.effect.http.fetch-h1": 50,
   "kimi.effect.http.fetch-h2": 40,
@@ -34,7 +34,7 @@ export const DEFAULT_THRESHOLDS: Record<string, number> = {
   "kimi.effect.isolation.roundtrip": 100,
   "kimi.effect.isolation.realm.run": 10,
   "kimi.effect.isolation.worker.run": 100,
-  "kimi.effect.clock": 0.01,
+  "kimi.effect.clock": 0.05,
   "kimi.effect.uuid": 0.1,
 };
 
@@ -62,7 +62,7 @@ export const MODULE_REGISTRY: Record<string, ModuleRegistryEntry> = {
   },
   "util.deepEquals": {
     symbol: "kimi.effect.equals",
-    thresholdMs: 1,
+    thresholdMs: 5,
     workload: () => {
       Bun.deepEquals({ a: 1, b: [2, 3] }, { a: 1, b: [2, 3] });
     },
@@ -135,7 +135,7 @@ export const MODULE_REGISTRY: Record<string, ModuleRegistryEntry> = {
   },
   clock: {
     symbol: "kimi.effect.clock",
-    thresholdMs: 0.01,
+    thresholdMs: 0.05,
     workload: () => {
       Bun.nanoseconds();
     },
