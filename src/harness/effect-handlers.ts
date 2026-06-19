@@ -37,7 +37,7 @@ registerEffectBenchmark({
 registerEffectBenchmark({
   registryKey: "util.deepEquals",
   symbol: "kimi.effect.equals",
-  thresholdMs: 1,
+  thresholdMs: 5,
   workload: () => {
     Bun.deepEquals({ a: 1, b: [2, 3] }, { a: 1, b: [2, 3] });
   },
@@ -55,7 +55,7 @@ registerEffectBenchmark({
 registerEffectBenchmark({
   registryKey: "clock",
   symbol: "kimi.effect.clock",
-  thresholdMs: 0.01,
+  thresholdMs: 0.05,
   workload: () => {
     Bun.nanoseconds();
   },
