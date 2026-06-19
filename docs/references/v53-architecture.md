@@ -178,12 +178,69 @@ no-tag-service    src/domain/order.ts     validate: domain imports effect direct
 | Clock, uuid, trace, snapshots modules | | ✗ |
 | 42-card dashboard UI | | ✗ |
 | Herdr dx.config.toml integration | | ✗ |
+| Canvas ↔ card wiring (unified UI) | partial (steps 1–5 on examples/dashboard) | combined Herdr+examples UI |
+
+### Canvas ↔ card wiring (v5.4)
+
+**Current state (v5.3):**
+
+- **Canvases** — 9 manifest-backed companions in `docs/canvases/`, registered via `cursorCanvas` in `canonical-references.ts`. Served by `GET /api/canvases` on the Herdr orchestrator dashboard. Static design docs with `CANVAS_ROUTING` cross-links; clicking a row opens the canvas file in the IDE (`open-canvas` IPC), not a runtime filter.
+- **Cards** — ~64 independent `<div class="card" id="card-*">` panels in `examples/dashboard/src/dashboard.html`, each fetching its own `/api/*` route. No unified `/api/cards` endpoint, no single pass/fail status table, no manifest field mapping `canvasId` → `cardId`.
+- **Gates** — `kimi-doctor --effect-gates`, `perf-doctor --perf-gates`, etc. emit CLI/JSON separately from both layers.
+
+Canvases document **what/why**; cards probe **runtime behavior**. The relationship is conceptual in v5.3, not machine-enforced.
+
+**Target (v5.4):** one traceable chain — canvas (design) → manifest id → code/gate → card (live status) — with click-to-filter in a combined or bridged dashboard.
+
+| Step | Deliverable |
+| ---- | ----------- |
+| 1 | `cardId` registry derived from `dashboard.html` `id="card-*"` (lint or generate script) |
+| 2 | `canvasInfluences?: string[]` on `LOCAL_DOC_REFERENCES` rows (manifest SSOT) |
+| 3 | `GET /api/cards` returning aggregated card states (examples/dashboard or unified server) |
+| 4 | Extend `GET /api/canvases` payload with `influences` per entry |
+| 5 | Dashboard UI: `?canvas=deep-quality` (or click) highlights matching card panels |
+
+**Prerequisite:** step 1 before step 2 — influences must reference real card ids, not hand-guessed labels.
+
+**Shipped (v5.4 slice):**
+
+| Step | Status | Artifact |
+| ---- | ------ | -------- |
+| 1 | ✓ | `src/lib/dashboard-card-registry.ts` parses `dashboard.html` `card-*` ids |
+| 2 | ✓ | `canvasInfluences` on all 9 `LOCAL_DOC_REFERENCES` canvas rows |
+| 3 | ✓ | `GET /api/cards` on `examples/dashboard` |
+| 4 | ✓ | `influences` on `GET /api/canvases` (Herdr + examples) |
+| 5 | ✓ | Canvas filter bar + `?canvas=` highlight on `examples/dashboard` |
+| — | ✗ | Single combined dashboard (Herdr agents + examples cards) |
+
+Lint: `bun run scripts/lint-canvas-influences.ts` (gate: `canvas-influences` in `bun run lint`).
+
+**Example mapping (in manifest via `canvasInfluences`):**
+
+| Canvas | Manifest id | Candidate `canvasInfluences` |
+| ------ | ----------- | ---------------------------- |
+| `kimi-fix` | `templates` | `card-scaffold`, `card-kimi-doctor`, `card-gates` |
+| `kimi-heal-doctor-scaffold` | `deep-quality` | `card-gates`, `card-effect-image` |
+| `herdr-dashboard-automation` | `kimi-doctor` | `card-kimi-doctor` |
+
+### v5.5 planning (not started)
+
+Builds on v5.4 registry + `/api/cards`. Deep links use manifest ids: `?canvas=deep-quality`.
+
+| Priority | Deliverable | Notes |
+| -------- | ----------- | ----- |
+| 1 | **Card status probes** | Extend `/api/cards` to run lightweight checks per card `apiRoute` (or explicit probe map); today only `card-gates` reads effect-gates JSON |
+| 2 | **Herdr bridge** | Canvas row links to `examples/dashboard?canvas=<manifestId>` (or embedded filtered card strip) |
+| 3 | **Unified surface** | Single tab: Herdr agents + filtered examples cards, or shared `card-status.json` both dashboards consume |
+
+Out of scope until v5.5: live status for all 64 cards, combined Herdr+examples layout.
 
 ## Related
 
 | Topic | Path |
 |-------|------|
 | Memory (canonical spec) | `kimi-fix-profile-v53-spec` |
+| v5.3 README (9 files · awk · profiles) | `examples/dashboard/v53/README.md` |
 | Doctor CLI + effects pipeline | [kimi-doctor.md](./kimi-doctor.md) |
 | Template families | [template-matrix.md](./template-matrix.md) |
 | Configuration layers | [configuration-layers.md](./configuration-layers.md) |

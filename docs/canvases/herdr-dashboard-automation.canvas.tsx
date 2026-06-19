@@ -124,6 +124,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor --automation (this canvas)" },
   { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "PNG → Bun.Image → /api/thumbnail" },
   { id: "configuration-layers", page: "Config layers", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "Discovery localDocs vs bunfig define" },
+  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "kimi-heal --fix · KIMI_MODULES=doctor" },
 ] as const;
 
 const LIFECYCLE_MODES = [
@@ -276,7 +277,7 @@ function RelatedCanvasesTable() {
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
-        rowTone={["info", "success", "neutral", "neutral"]}
+        rowTone={["info", "success", "neutral", "neutral", "info"]}
         striped
       />
       <Text tone="tertiary" size="small">Click Canvas file or Binding layer to open · read order: namespace → automation → thumbnails</Text>
@@ -313,7 +314,7 @@ export default function HerdrDashboardAutomationSpec() {
         after Herdr orchestrator bootstrap — not required for cold-machine finish-work.
       </Callout>
 
-      <CollapsibleSection title="Related canvases (read order)" count={4} defaultOpen>
+      <CollapsibleSection title="Related canvases (read order)" count={5} defaultOpen>
         <RelatedCanvasesTable />
       </CollapsibleSection>
 

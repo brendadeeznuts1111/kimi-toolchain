@@ -132,6 +132,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor" },
   { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "dashboard-thumbnails" },
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "herdr-plugin-architecture" },
+  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "manifest id deep-quality" },
 ] as const;
 
 const DAG_NODES = [
@@ -158,7 +159,7 @@ const LIB_COUNT = 237;
 const UNIT_COUNT = 150;
 const INTEGRATION_COUNT = 5;
 const SMOKE_COUNT = 6;
-const CURSOR_CANVAS_COUNT = 8;
+const CURSOR_CANVAS_COUNT = 9;
 
 function SyncFlowDag() {
   const theme = useHostTheme();
@@ -255,7 +256,7 @@ function RelatedCanvasesTable() {
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail,
         ])}
-        rowTone={["info", "success", "neutral", "warning", "neutral", "info", "neutral", "warning"]}
+        rowTone={["info", "success", "neutral", "warning", "neutral", "info", "neutral", "warning", "info"]}
         striped
       />
       <Text tone="tertiary" size="small">Click Canvas or Page to open · read order: Hub → Config or Namespace → Scaffold → Herdr</Text>

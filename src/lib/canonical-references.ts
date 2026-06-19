@@ -60,6 +60,8 @@ export interface LocalDocReference {
   canvasOpenWhen?: string;
   /** Read-order grouping (1=Hub, 2=Config/Namespace, 3=Cross-ref, 4=Scaffold, 5-6=Herdr). */
   canvasReadOrder?: number;
+  /** examples/dashboard card ids (`card-*`) this canvas influences — v5.4 wiring SSOT */
+  canvasInfluences?: readonly string[];
 }
 
 export interface RepoReference {
@@ -174,6 +176,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     canvasLayer: "Doc URL lint",
     canvasOpenWhen: "@see ladder · docs/references index",
     canvasReadOrder: 4,
+    canvasInfluences: ["card-inspect-table", "card-file-split", "card-transpiler-scan"],
   },
   {
     id: "unified",
@@ -187,12 +190,35 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     canvasLayer: "Project hub",
     canvasOpenWhen: "Architecture, tools, gates — start here",
     canvasReadOrder: 1,
+    canvasInfluences: [
+      "card-symbols",
+      "card-gates",
+      "card-bundle",
+      "card-compile",
+      "card-build",
+      "card-scaffold",
+    ],
   },
   {
     id: "deep-quality",
     repoPath: "DEEP-QUALITY.md",
     runtimePath: "~/.kimi-code/DEEP-QUALITY.md",
-    purpose: "Effect-discipline floor and gate JSON shapes",
+    purpose:
+      "Effect-discipline floor and gate JSON shapes; kimi-heal --fix bare-promise repair and KIMI_MODULES=doctor scaffold",
+    cursorCanvas: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx",
+    canvasId: "kimi-heal-doctor-scaffold",
+    canvasPage: "Effect heal + doctor",
+    canvasVersion: "0.1.0",
+    canvasLayer: "kimi-heal --fix · doctor scaffold",
+    canvasOpenWhen: "Effect repair · KIMI_MODULES=doctor · perf gates",
+    canvasReadOrder: 9,
+    canvasInfluences: [
+      "card-gates",
+      "card-effect-image",
+      "card-transpiler-scan",
+      "card-kimi-doctor",
+      "card-perf-harness",
+    ],
   },
   {
     id: "templates",
@@ -206,6 +232,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     canvasLayer: "kimi-fix · bun create",
     canvasOpenWhen: "Profiles · templates · scaffold doctor",
     canvasReadOrder: 5,
+    canvasInfluences: ["card-scaffold", "card-kimi-doctor", "card-gates", "card-kimi-publish"],
   },
   {
     id: "dashboard-thumbnails",
@@ -220,6 +247,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     canvasLayer: "Orchestrator HTTP",
     canvasOpenWhen: "PNG → Bun.Image → /api/thumbnail",
     canvasReadOrder: 6,
+    canvasInfluences: ["card-image", "card-perf-harness"],
   },
   {
     id: "kimi-doctor",
@@ -234,6 +262,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     canvasLayer: "Finish-work shell",
     canvasOpenWhen: "kimi-doctor --automation · gate JSON",
     canvasReadOrder: 7,
+    canvasInfluences: ["card-kimi-doctor", "card-gates", "card-perf-harness", "card-perf-registry"],
   },
   {
     id: "herdr-socket-saturation-protocol",
@@ -255,6 +284,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     canvasLayer: "Meta / routing",
     canvasOpenWhen: "Doctor trinity · finish-work vs prefix+*",
     canvasReadOrder: 2,
+    canvasInfluences: ["card-gates", "card-symbols", "card-kimi-doctor"],
   },
   {
     id: "configuration-layers",
@@ -269,6 +299,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     canvasLayer: "Config SSOT",
     canvasOpenWhen: "Discovery · define · parity · scaffold layers",
     canvasReadOrder: 3,
+    canvasInfluences: ["card-threshold-overrides", "card-metrics-schema", "card-global-store"],
   },
   {
     id: "shell-spawn-choice",
@@ -309,6 +340,7 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     canvasLayer: "Herdr plugins v0.5.0",
     canvasOpenWhen: "prefix+* · orthogonal to finish-work gates",
     canvasReadOrder: 8,
+    canvasInfluences: ["card-ipc-matrix", "card-vm-context", "card-ipc"],
   },
   {
     id: "v53-architecture",

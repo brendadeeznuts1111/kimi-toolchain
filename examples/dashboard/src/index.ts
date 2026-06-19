@@ -2989,6 +2989,14 @@ const server = Bun.serve({
         return apiNanoseconds();
       case "/api/sleep":
         return apiSleep();
+      case "/api/canvases": {
+        const { apiCanvases } = await import("./handlers/canvas-cards.ts");
+        return apiCanvases();
+      }
+      case "/api/cards": {
+        const { apiCards } = await import("./handlers/canvas-cards.ts");
+        return apiCards(req);
+      }
       case "/health":
         return new Response("ok");
       default:

@@ -34,6 +34,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx" },
   { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx" },
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "(this canvas)" },
+  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "manifest id deep-quality" },
 ] as const;
 
 const ARCHITECTURE_MATRIX = [
@@ -378,7 +379,7 @@ function RelatedCanvasesTable() {
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
-        rowTone={["info", "neutral", "neutral", "warning", "success", "info", "neutral", "info"]}
+        rowTone={["info", "neutral", "neutral", "warning", "success", "info", "neutral", "info", "info"]}
         striped
       />
       <Text tone="tertiary" size="small">Click Canvas or Page to open · Herdr plugin architecture plan</Text>
@@ -586,7 +587,7 @@ export default function HerdrUnifiedPluginArchitecturePlan() {
         </CardBody>
       </Card>
 
-      <CollapsibleSection title="Related canvases (8 manifest-backed)" defaultOpen={false}>
+      <CollapsibleSection title="Related canvases (9 manifest-backed)" defaultOpen={false}>
         <RelatedCanvasesTable />
       </CollapsibleSection>
 

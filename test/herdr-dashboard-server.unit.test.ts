@@ -42,10 +42,10 @@ describe("herdr-dashboard-server", () => {
     expect(Array.isArray(payload.rules)).toBe(true);
   });
 
-  test("fetchDashboardCanvases returns all 8 cursorCanvas entries", () => {
+  test("fetchDashboardCanvases returns all 9 cursorCanvas entries", () => {
     const payload = fetchDashboardCanvases();
     expect(payload.ok).toBe(true);
-    expect(payload.canvases.length).toBe(8);
+    expect(payload.canvases.length).toBe(9);
 
     const ids = payload.canvases.map((c) => c.id);
     expect(ids).toContain("unified");
@@ -56,6 +56,7 @@ describe("herdr-dashboard-server", () => {
     expect(ids).toContain("kimi-doctor");
     expect(ids).toContain("dashboard-thumbnails");
     expect(ids).toContain("herdr-plugin-architecture");
+    expect(ids).toContain("deep-quality");
   });
 
   test("fetchDashboardCanvases sorts by readOrder ascending", () => {
@@ -96,6 +97,14 @@ describe("herdr-dashboard-server", () => {
     expect(entry!.version).toBe("0.5.0");
     expect(entry!.layer).toBe("Herdr plugins v0.5.0");
     expect(entry!.readOrder).toBe(8);
+  });
+
+  test("fetchDashboardCanvases exposes canvasInfluences as influences", () => {
+    const payload = fetchDashboardCanvases();
+    const deepQuality = payload.canvases.find((c) => c.id === "deep-quality");
+    expect(deepQuality?.influences).toContain("card-gates");
+    const templates = payload.canvases.find((c) => c.id === "templates");
+    expect(templates?.influences).toContain("card-scaffold");
   });
 
   test("createDashboardConsoleMirror exposes webView handler", () => {

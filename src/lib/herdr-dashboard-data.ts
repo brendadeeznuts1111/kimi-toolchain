@@ -370,6 +370,8 @@ export interface DashboardCanvasEntry {
   openWhen?: string;
   /** Read order for grouping (1=Hub, 2=Config/Namespace, 3=Cross-ref, 4=Scaffold, 5-6=Herdr) */
   readOrder?: number;
+  /** examples/dashboard card ids influenced by this canvas (v5.4) */
+  influences?: string[];
 }
 
 export interface DashboardCanvasesPayload {
@@ -396,6 +398,7 @@ export function fetchDashboardCanvases(): DashboardCanvasesPayload {
       layer: ref.canvasLayer,
       openWhen: ref.canvasOpenWhen,
       readOrder: ref.canvasReadOrder,
+      influences: ref.canvasInfluences ? [...ref.canvasInfluences] : undefined,
     });
   }
 

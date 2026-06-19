@@ -93,6 +93,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx" },
   { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx" },
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx" },
+  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "manifest id deep-quality" },
 ] as const;
 
 const CANONICAL_REPOS = ["kimi-toolchain", "kimi-code-upstream", "effect-upstream"] as const;
@@ -231,7 +232,7 @@ function RelatedCanvasesTable() {
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
-        rowTone={["info", "info", "success", "warning", "neutral", "info", "neutral", "warning"]}
+        rowTone={["info", "info", "success", "warning", "neutral", "info", "neutral", "warning", "info"]}
         striped
       />
       <Text tone="tertiary" size="small">Click Canvas or Topic to open · config SSOT and 4-layer model</Text>
@@ -347,7 +348,7 @@ export default function ConfigurationLayersCanvas() {
         </Stack>
       </Grid>
 
-      <CollapsibleSection title="Related canvases (8 manifest-backed)" count={8} defaultOpen={false}>
+      <CollapsibleSection title="Related canvases (9 manifest-backed)" count={9} defaultOpen={false}>
         <RelatedCanvasesTable />
       </CollapsibleSection>
 

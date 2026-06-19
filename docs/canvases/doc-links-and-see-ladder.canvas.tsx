@@ -245,6 +245,15 @@ const CANVAS_ROUTING = [
     path: `${CANVAS_PREFIX}herdr-unified-plugin-architecture.canvas.tsx`,
     repoPath: `${CANVAS_PREFIX}herdr-unified-plugin-architecture.canvas.tsx`,
   },
+  {
+    id: "kimi-heal-doctor-scaffold",
+    page: "Effect heal + doctor",
+    version: TOOLCHAIN_VERSION,
+    layer: "kimi-heal --fix · doctor scaffold",
+    openWhen: "Effect repair · KIMI_MODULES=doctor · perf gates",
+    path: `${CANVAS_PREFIX}kimi-heal-doctor-scaffold.canvas.tsx`,
+    repoPath: `${CANVAS_PREFIX}kimi-heal-doctor-scaffold.canvas.tsx`,
+  },
 ] as const;
 
 const CANVAS_ROUTING_COUNT = CANVAS_ROUTING.length;
@@ -258,6 +267,7 @@ const CANVAS_ROW_TONE = [
   "neutral",
   "neutral",
   "warning",
+  "info",
 ] as const;
 
 function CanvasNavButton({

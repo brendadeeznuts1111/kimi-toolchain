@@ -86,7 +86,13 @@ export async function probeDashboardThumbnail(
 
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(thumbnailUrl, { signal: AbortSignal.timeout(5_000) });
+      const res = (await fetch(thumbnailUrl, {
+        signal: AbortSignal.timeout(5_000),
+      })) as unknown as {
+        ok: boolean;
+        status: number;
+        headers: { get(name: string): string | null };
+      };
       const contentType = res.headers.get("content-type") ?? undefined;
       const cache = res.headers.get("x-thumbnail-cache") ?? undefined;
       if (res.ok && contentType === "image/webp") {

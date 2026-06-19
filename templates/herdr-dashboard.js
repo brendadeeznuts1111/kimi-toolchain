@@ -1547,7 +1547,7 @@ async function refreshCanvases() {
 
   const canvases = payload.canvases ?? [];
   if (canvases.length === 0) {
-    body.innerHTML = '<tr><td colspan="7" class="empty-state">No canvases</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="empty-state">No canvases</td></tr>';
     return;
   }
 
@@ -1577,7 +1577,7 @@ async function refreshCanvases() {
       const label = groupLabels[group] || `Group ${group}`;
       const header = document.createElement("tr");
       header.className = "canvas-group-header";
-      header.innerHTML = `<td colspan="7">${esc(label)}</td>`;
+      header.innerHTML = `<td colspan="8">${esc(label)}</td>`;
       body.appendChild(header);
     }
     const tr = document.createElement("tr");
@@ -1598,6 +1598,10 @@ async function refreshCanvases() {
         setTimeout(() => tr.classList.remove("canvas-row-pulse"), 180);
       }
     });
+    const influences =
+      Array.isArray(c.influences) && c.influences.length > 0
+        ? c.influences.map((id) => `<code>${esc(id)}</code>`).join(" ")
+        : "—";
     tr.innerHTML = `
       <td><code>${esc(c.path)}</code></td>
       <td>${esc(c.id)}</td>
@@ -1606,6 +1610,7 @@ async function refreshCanvases() {
       <td>${esc(c.layer || "—")}</td>
       <td>${esc(c.openWhen || "—")}</td>
       <td class="canvas-purpose">${esc(c.purpose)}</td>
+      <td class="canvas-influences">${influences}</td>
     `;
     body.appendChild(tr);
   }

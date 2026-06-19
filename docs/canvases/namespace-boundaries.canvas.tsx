@@ -176,7 +176,7 @@ const DOCS_REFERENCES = [
 ] as const;
 
 const MANIFEST_KEYS = [
-  ["localDocs (15)", "id, repoPath, runtimePath, purpose", "Agent-indexed docs · 8 cursorCanvas pointers"],
+  ["localDocs (15)", "id, repoPath, runtimePath, purpose", "Agent-indexed docs · 9 cursorCanvas pointers"],
   [
     "ecosystem (8)",
     "id, name, kind, homepage, docs, usage",
@@ -231,6 +231,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx" },
   { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx" },
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins v0.5.0", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx" },
+  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "manifest id deep-quality" },
 ] as const;
 
 const DAG_NODES = [
@@ -258,7 +259,7 @@ const DOCS_REF_COUNT = DOCS_REFERENCES.length;
 const LOCAL_DOCS_COUNT = 15;
 const ECOSYSTEM_COUNT = 8;
 const DOCS_REFS_IN_CANVAS = 9;
-const CURSOR_CANVAS_COUNT = 8;
+const CURSOR_CANVAS_COUNT = 9;
 
 function BindingLayerDag() {
   const theme = useHostTheme();
@@ -355,7 +356,7 @@ function RelatedCanvasesTable() {
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
-        rowTone={["info", "info", "success", "neutral", "neutral", "neutral", "neutral", "warning"]}
+        rowTone={["info", "info", "success", "neutral", "neutral", "neutral", "neutral", "warning", "info"]}
         striped
       />
       <Text tone="tertiary" size="small">Click Canvas file or Binding layer to open · read order: namespace-boundaries → pick layer</Text>

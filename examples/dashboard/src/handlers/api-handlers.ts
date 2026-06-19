@@ -33,7 +33,7 @@ export async function apiGates(): Promise<Response> {
   return jsonResponse(JSON.parse(stdout));
 }
 
-function jsonResponse(data: unknown): Response {
+export function jsonResponse(data: unknown): Response {
   return new Response(JSON.stringify(data, null, 2), {
     headers: { "content-type": "application/json; charset=utf-8" },
   });

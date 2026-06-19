@@ -58,11 +58,14 @@ describe("bun-image", () => {
       ),
       (c) => c.charCodeAt(0)
     );
-    const res = await dashboardThumbnailResponse(tinyPng, {
+    const res = (await dashboardThumbnailResponse(tinyPng, {
       width: 160,
       height: 90,
       quality: 75,
-    });
+    })) as unknown as {
+      headers: { get(name: string): string | null };
+      arrayBuffer(): Promise<ArrayBuffer>;
+    };
     expect(res.headers.get("content-type")).toBe("image/webp");
     const bytes = new Uint8Array(await res.arrayBuffer());
     expect(bytes.byteLength).toBeGreaterThan(10);

@@ -109,6 +109,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx" },
   { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx" },
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx" },
+  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "manifest id deep-quality · KIMI_MODULES=doctor" },
 ] as const;
 
 const BUN_RUNTIME_SCRIPTS = [
@@ -455,7 +456,7 @@ function RelatedCanvasesTable() {
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
-        rowTone={["info", "success", "neutral", "neutral", "warning", "info", "neutral", "warning"]}
+        rowTone={["info", "success", "neutral", "neutral", "warning", "info", "neutral", "warning", "info"]}
         striped
       />
       <Text tone="tertiary" size="small">Click Canvas or Topic to open · profiles · templates · scaffold doctor</Text>
@@ -734,7 +735,7 @@ export default function KimiFixCanvas() {
         />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Related canvases (8 manifest-backed)" count={CANVAS_ROUTING.length} defaultOpen={false}>
+      <CollapsibleSection title="Related canvases (9 manifest-backed)" count={CANVAS_ROUTING.length} defaultOpen={false}>
         <RelatedCanvasesTable />
       </CollapsibleSection>
     </Stack>

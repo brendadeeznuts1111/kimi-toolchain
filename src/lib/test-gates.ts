@@ -162,6 +162,7 @@ export const UNIT_TEST_FILES = [
   "test/governor-spawn.unit.test.ts",
   "test/governance-preflight.unit.test.ts",
   "test/canonical-references.unit.test.ts",
+  "test/dashboard-card-registry.unit.test.ts",
   "test/config-status.unit.test.ts",
   "test/upgrade-advisor.unit.test.ts",
   "test/doctor-probe.unit.test.ts",

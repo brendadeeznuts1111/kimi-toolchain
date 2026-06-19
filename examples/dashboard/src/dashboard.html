@@ -44,6 +44,17 @@
   .tbl th { text-align: left; padding: 2px 8px; border-bottom: 1px solid var(--border); color: var(--blue); font-size: 11px; }
   .tbl td { padding: 2px 8px; border-bottom: 1px solid var(--border); }
   .tbl .num { color: var(--muted); width: 20px; text-align: right; }
+  .canvas-filter-bar {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  }
+  .canvas-pill {
+    font-size: 11px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border);
+    background: transparent; color: var(--text); cursor: pointer;
+  }
+  .canvas-pill.active { border-color: var(--blue); color: var(--blue); background: #1a2a3a; }
+  .card.canvas-dimmed { opacity: 0.2; filter: grayscale(0.35); }
+  .card.canvas-highlight { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
 </style>
 </head>
 <body>
@@ -51,7 +62,11 @@
 <div id="path-header" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:12px">
   <span class="loading">Loading PATH…</span>
 </div>
-<div class="grid">
+<div id="canvas-filter-bar" class="canvas-filter-bar" aria-label="Manifest canvas filter">
+  <span style="font-size:11px;color:var(--muted);margin-right:4px">Canvas filter:</span>
+  <span class="loading" style="font-size:11px">Loading canvases…</span>
+</div>
+<div class="grid" id="card-grid">
   <div class="card" id="card-depth"><h2>Bun.inspect()</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-inspect-table"><h2>Bun.inspect.table()</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-build"><h2>Build Info</h2><div class="loading">Loading…</div></div>
@@ -1326,6 +1341,75 @@ function card(id, body) {
     h += `<p class="status ok" style="margin-top:4px;font-size:10px">${d.note}</p>`;
     card("card-dotenv", h);
   } catch(e) { card("card-dotenv", `<p class="status err">${e.message}</p>`); }
+})();
+
+// Canvas ↔ card filter (v5.4) — ?canvas=<manifestId|canvasId>
+(async function wireCanvasFilter() {
+  const bar = document.getElementById("canvas-filter-bar");
+  if (!bar) return;
+
+  function applyFilter(cardIds, activeId) {
+    for (const el of document.querySelectorAll(".grid .card")) {
+      el.classList.remove("canvas-dimmed", "canvas-highlight");
+      if (!activeId) continue;
+      if (cardIds.has(el.id)) el.classList.add("canvas-highlight");
+      else el.classList.add("canvas-dimmed");
+    }
+  }
+
+  function setQuery(canvasId) {
+    const url = new URL(location.href);
+    if (canvasId) url.searchParams.set("canvas", canvasId);
+    else url.searchParams.delete("canvas");
+    history.replaceState(null, "", url);
+  }
+
+  try {
+    const params = new URLSearchParams(location.search);
+    const active = params.get("canvas");
+    const [canvasesRes, cardsRes] = await Promise.all([
+      fetch("/api/canvases"),
+      fetch(active ? `/api/cards?canvas=${encodeURIComponent(active)}` : "/api/cards"),
+    ]);
+    const canvasesPayload = await canvasesRes.json();
+    const cardsPayload = await cardsRes.json();
+    const canvases = canvasesPayload.canvases ?? [];
+    const highlightIds = new Set((cardsPayload.cards ?? []).map((c) => c.id));
+
+    const pills = [`<button type="button" class="canvas-pill${active ? "" : " active"}" data-canvas="">All cards</button>`];
+    for (const c of canvases) {
+      const key = c.id;
+      const label = c.page || c.canvasId;
+      const isActive = active === key || active === c.canvasId;
+      pills.push(
+        `<button type="button" class="canvas-pill${isActive ? " active" : ""}" data-canvas="${key}" title="${c.path}">${label}</button>`
+      );
+    }
+    bar.innerHTML = `<span style="font-size:11px;color:var(--muted);margin-right:4px">Canvas filter:</span>${pills.join("")}`;
+
+    if (active && highlightIds.size > 0) applyFilter(highlightIds, active);
+
+    bar.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-canvas]");
+      if (!btn) return;
+      const id = btn.getAttribute("data-canvas") || "";
+      setQuery(id || null);
+      if (!id) {
+        applyFilter(new Set(), null);
+        bar.querySelectorAll(".canvas-pill").forEach((p) => p.classList.toggle("active", p === btn));
+        return;
+      }
+      fetch(`/api/cards?canvas=${encodeURIComponent(id)}`)
+        .then((r) => r.json())
+        .then((payload) => {
+          const ids = new Set((payload.cards ?? []).map((c) => c.id));
+          applyFilter(ids, id);
+          bar.querySelectorAll(".canvas-pill").forEach((p) => p.classList.toggle("active", p === btn));
+        });
+    });
+  } catch (e) {
+    bar.innerHTML = `<span style="font-size:11px;color:var(--red)">Canvas filter unavailable: ${e.message}</span>`;
+  }
 })();
 </script>
 </body>

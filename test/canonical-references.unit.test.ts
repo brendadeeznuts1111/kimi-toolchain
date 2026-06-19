@@ -85,6 +85,7 @@ describe("canonical-references", () => {
       "kimi-doctor": "docs/canvases/herdr-dashboard-automation.canvas.tsx",
       "dashboard-thumbnails": "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx",
       "herdr-plugin-architecture": "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx",
+      "deep-quality": "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx",
     };
     const withCanvas = LOCAL_DOC_REFERENCES.filter((ref) => ref.cursorCanvas);
     expect(withCanvas.length).toBe(Object.keys(expected).length);
