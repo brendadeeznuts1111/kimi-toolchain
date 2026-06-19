@@ -71,8 +71,7 @@ export async function buildTaxonomyConstantLinks(
 
   return taxonomy.categories
     .filter(
-      (category) =>
-        (category.boundConstants?.length ?? category.relatedConstants?.length ?? 0) > 0
+      (category) => (category.boundConstants?.length ?? category.relatedConstants?.length ?? 0) > 0
     )
     .map((category) => {
       const boundConstants = category.boundConstants ?? category.relatedConstants ?? [];

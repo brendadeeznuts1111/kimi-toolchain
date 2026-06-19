@@ -5,6 +5,7 @@
  */
 
 import { existsSync } from "fs";
+import { readableStreamToText } from "../lib/bun-utils.ts";
 import { join, resolve } from "path";
 import { Database } from "bun:sqlite";
 import {
@@ -55,7 +56,7 @@ async function main() {
     if (exitCode === 0) {
       console.log("   Wrappers: ~/.local/bin/kimi-*");
     } else {
-      const err = await Bun.readableStreamToText(proc.stderr);
+      const err = await readableStreamToText(proc.stderr);
       console.warn(`  ⚠ Wrapper install failed: ${err.trim()}`);
     }
   }

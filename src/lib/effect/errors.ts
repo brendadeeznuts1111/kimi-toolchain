@@ -31,4 +31,28 @@ export class CliError extends Data.TaggedError("CliError")<{
   exitCode?: number;
 }> {}
 
+export class EffectCliContractError extends Data.TaggedError("EffectCliContractError")<{
+  message: string;
+  toolName: string;
+  taxonomyId: string;
+  unknownFlag?: string;
+  suggestions?: string[];
+}> {}
+
 export type ToolRunnerError = ToolNotFound | ToolTimeout | ExitNonZero;
+
+export class ConfigNotFound extends Data.TaggedError("ConfigNotFound")<{
+  kind: string;
+  path: string;
+}> {}
+
+export class ConfigParseError extends Data.TaggedError("ConfigParseError")<{
+  path: string;
+  cause: string;
+}> {}
+
+export class ConfigMergeConflict extends Data.TaggedError("ConfigMergeConflict")<{
+  path: string;
+}> {}
+
+export type DxConfigError = ConfigNotFound | ConfigParseError | ConfigMergeConflict;

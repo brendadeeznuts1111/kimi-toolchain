@@ -26,7 +26,7 @@ import { errorClustersPath, failureLedgerPath, traceEventsPath } from "./paths.t
 import { readTraceEvents, type TraceEvent } from "./trace-ledger.ts";
 import { sha256String } from "./utils.ts";
 
-export const DEFAULT_CLUSTER_THRESHOLD = 0.55;
+export const DEFAULT_CLUSTER_THRESHOLD = KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD;
 
 export interface FailureClusterInput {
   failurePath?: string;
@@ -68,6 +68,9 @@ export interface ClusterSummary {
   };
   topTaxonomy: string | null;
   hasPlaybook: boolean;
+  confidence?: number;
+  suggestedFix?: string;
+  autoFix?: string;
 }
 
 export interface ErrorClusterReport {
@@ -258,6 +261,50 @@ export function suggestForError(
   return Effect.runPromise(suggestForErrorEffect(errorId, options));
 }
 
+export interface ErrorIdSuggestion {
+  errorId: string;
+  confidence: number;
+  cluster?: {
+    clusterId: string;
+    count: number;
+    topTaxonomy: string | null;
+  };
+  record?: FailureTraceRecord;
+  playbook?: {
+    suggestedFix?: string;
+    autoFix?: string;
+  };
+}
+
+export function suggestForErrorIdEffect(
+  errorId: string,
+  options: FailureClusterInput = {}
+): Effect.Effect<ErrorIdSuggestion | null, never> {
+  return Effect.gen(function* () {
+    const suggestion = yield* suggestForErrorEffect(errorId, options);
+    if (!suggestion) return null;
+    const cluster = suggestion.cluster;
+    const failurePath = options.failurePath ?? failureLedgerPath();
+    const failures = yield* Effect.tryPromise({
+      try: () => readFailureRecords(failurePath),
+      catch: () => new Error("failure-read"),
+    }).pipe(Effect.catchAll(() => Effect.succeed([] as FailureTraceRecord[])));
+    const record = failures.find((item) => item.errorId === errorId);
+    const topTaxonomy = cluster
+      ? (Object.entries(cluster.taxonomyCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null)
+      : null;
+    return {
+      errorId,
+      confidence: suggestion.confidence,
+      cluster: cluster ? { clusterId: cluster.id, count: cluster.size, topTaxonomy } : undefined,
+      record,
+      playbook: cluster
+        ? { suggestedFix: cluster.suggestedFix, autoFix: cluster.autoFix }
+        : undefined,
+    };
+  });
+}
+
 export function matchErrorToClusters(
   errorText: string,
   clusters: ErrorCluster[]
@@ -405,6 +452,9 @@ function toSummary(cluster: ErrorCluster): ClusterSummary {
     },
     topTaxonomy: topTaxonomy === "unknown" ? null : topTaxonomy,
     hasPlaybook: cluster.hasPlaybook,
+    confidence: cluster.confidence,
+    suggestedFix: cluster.suggestedFix,
+    autoFix: cluster.autoFix,
   };
 }
 

@@ -35,8 +35,65 @@ import {
   renderPreCommitHook,
   renderPrePushHook,
 } from "../lib/githook-templates.ts";
+import { profileMatchesGitIdentity, type GitIdentity } from "../lib/identity-matrix.ts";
 
 const logger = createLogger(Bun.argv, "kimi-githooks");
+
+export interface HookHealthCheck {
+  name: string;
+  status: "ok" | "warn" | "error";
+  message: string;
+  fixable: boolean;
+}
+
+export function buildGlobalHooksPathCheck(
+  globalHooksPath: string | null | undefined
+): HookHealthCheck {
+  const hooksPath = globalHooksPath?.trim();
+  if (!hooksPath) {
+    return {
+      name: "global-hooks-path",
+      status: "ok",
+      message: "global core.hooksPath unset",
+      fixable: false,
+    };
+  }
+
+  return {
+    name: "global-hooks-path",
+    status: "warn",
+    message: `global core.hooksPath set to ${hooksPath}; prefer repo-local hooks for worktree safety`,
+    fixable: true,
+  };
+}
+
+export function buildIdentityProfileCheck(input: {
+  expectedProfile?: { name: string; userName: string; userEmail: string };
+  identity: GitIdentity;
+}): HookHealthCheck {
+  if (!input.expectedProfile) {
+    return {
+      name: "identity-profile",
+      status: "ok",
+      message: "no identity profile matched this repository",
+      fixable: false,
+    };
+  }
+  if (profileMatchesGitIdentity(input.expectedProfile, input.identity)) {
+    return {
+      name: "identity-profile",
+      status: "ok",
+      message: `identity matches ${input.expectedProfile.name}`,
+      fixable: false,
+    };
+  }
+  return {
+    name: "identity-profile",
+    status: "warn",
+    message: `expected ${input.expectedProfile.name} (${input.expectedProfile.userName} <${input.expectedProfile.userEmail}>)`,
+    fixable: true,
+  };
+}
 
 const TOOLS_DIR = toolsDir();
 

@@ -93,6 +93,18 @@ export interface FailureLedgerSummary {
   total: number;
   taxonomyCounts: Record<string, number>;
   unclassified: number;
+  /** Command hint for reviewing unclassified failures. */
+  reviewCommand: string;
+  /** Optional action label for the unknown bucket. */
+  unknownAction?: string;
+  /** Taxonomy bucket names contributing to the unclassified count. */
+  unknownBuckets: string[];
+  /** Unclassified failures originating from managed/toolchain contexts. */
+  managedUnclassified?: number;
+  /** Unclassified failures originating from agent contexts. */
+  agentUnclassified?: number;
+  /** Bucket names for managed unclassified failures. */
+  managedUnknownBuckets?: string[];
 }
 
 export interface SuccessMetricsAudit {
@@ -223,7 +235,18 @@ export async function readFailureLedgerSummary(
   path: string = join(homeDir(), ".kimi-code", "var", "tool-failures.jsonl")
 ): Promise<FailureLedgerSummary> {
   if (!existsSync(path)) {
-    return { path, present: false, total: 0, taxonomyCounts: {}, unclassified: 0 };
+    return {
+      path,
+      present: false,
+      total: 0,
+      taxonomyCounts: {},
+      unclassified: 0,
+      reviewCommand: `kimi-debug ledger ${path}`,
+      unknownBuckets: [],
+      managedUnclassified: 0,
+      agentUnclassified: 0,
+      managedUnknownBuckets: [],
+    };
   }
 
   const taxonomyCounts: Record<string, number> = {};
@@ -237,12 +260,19 @@ export async function readFailureLedgerSummary(
     total++;
   }
 
+  const unclassified = taxonomyCounts.unknown || 0;
   return {
     path,
     present: true,
     total,
     taxonomyCounts,
-    unclassified: taxonomyCounts.unknown || 0,
+    unclassified,
+    reviewCommand: `kimi-debug ledger ${path}`,
+    unknownAction: unclassified > 0 ? "classify unknown failures" : undefined,
+    unknownBuckets: unclassified > 0 ? ["unknown"] : [],
+    managedUnclassified: unclassified,
+    agentUnclassified: 0,
+    managedUnknownBuckets: unclassified > 0 ? ["unknown"] : [],
   };
 }
 

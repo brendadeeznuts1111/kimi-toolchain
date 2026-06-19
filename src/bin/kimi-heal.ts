@@ -4,6 +4,8 @@
  */
 
 import { Effect } from "effect";
+import { readFileSync } from "fs";
+import { join } from "path";
 import { createLogger } from "../lib/logger.ts";
 import { clusterFailureLedger, matchErrorToClusters } from "../lib/error-clustering.ts";
 import {
@@ -17,6 +19,84 @@ import { CliError } from "../lib/effect/errors.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
 
 const logger = createLogger(Bun.argv, "kimi-heal");
+
+export interface AuditIssue {
+  file: string;
+  message: string;
+  severity: "error" | "warn";
+  type?: string;
+  line?: number;
+  column?: number;
+  rule?: string;
+}
+
+function scanFunctionBodies(text: string): Array<{ name: string; body: string }> {
+  const functions: Array<{ name: string; body: string }> = [];
+  const functionRegex = /^(?:export\s+)?(?:async\s+)?function\s+(\w+)[^{]*\{/gm;
+  let match: RegExpExecArray | null;
+  const matches: Array<{ name: string; start: number }> = [];
+  while ((match = functionRegex.exec(text)) !== null) {
+    matches.push({ name: match[1]!, start: match.index });
+  }
+  for (let i = 0; i < matches.length; i++) {
+    const start = matches[i]!.start;
+    const end = i < matches.length - 1 ? matches[i + 1]!.start : text.length;
+    functions.push({ name: matches[i]!.name, body: text.slice(start, end) });
+  }
+  return functions;
+}
+
+export function auditEffects(
+  _entryPath?: string,
+  options: {
+    checkPipeline?: boolean;
+    checkBarePromises?: boolean;
+    checkDomainPurity?: boolean;
+    scanDir?: string;
+  } = {}
+): AuditIssue[] {
+  const scanDir = options.scanDir ?? "src";
+  const checkBare = options.checkBarePromises !== false;
+  const checkPurity = options.checkDomainPurity !== false;
+
+  const issues: AuditIssue[] = [];
+  const glob = new Bun.Glob("**/*.ts");
+
+  for (const file of glob.scanSync({ cwd: scanDir, absolute: false })) {
+    if (file.endsWith(".test.ts")) continue;
+    const fullPath = join(scanDir, file);
+    let text: string;
+    try {
+      text = readFileSync(fullPath, "utf8");
+    } catch {
+      continue;
+    }
+
+    for (const { name, body } of scanFunctionBodies(text)) {
+      if (
+        checkBare &&
+        /Promise\.resolve|Promise\.reject|new\s+Promise[<(]|\.then\s*\(/.test(body)
+      ) {
+        issues.push({
+          file: fullPath,
+          message: `${name}: bare Promise detected — wrap in Effect`,
+          severity: "error",
+          type: "bare-promise",
+        });
+      }
+      if (checkPurity && /getEffect\s*\(\s*["']kimi\.effect\./.test(body)) {
+        issues.push({
+          file: fullPath,
+          message: `${name}: domain imports effect directly — pass as arg`,
+          severity: "error",
+          type: "no-tag-service",
+        });
+      }
+    }
+  }
+
+  return issues;
+}
 
 async function emitJson(value: unknown): Promise<void> {
   await Bun.write(Bun.stdout, `${JSON.stringify(value, null, 2)}\n`);
@@ -156,14 +236,16 @@ function printApplyReport(report: HealApplyReport): void {
   }
 }
 
-const exitCode = await runCliExit(
-  Effect.tryPromise({
-    try: () => main(),
-    catch: (e) =>
-      e instanceof CliError
-        ? e
-        : new CliError({ message: e instanceof Error ? e.message : String(e) }),
-  }),
-  { toolName: "kimi-heal", logger }
-);
-process.exit(exitCode);
+if (import.meta.main) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        e instanceof CliError
+          ? e
+          : new CliError({ message: e instanceof Error ? e.message : String(e) }),
+    }),
+    { toolName: "kimi-heal", logger }
+  );
+  process.exit(exitCode);
+}

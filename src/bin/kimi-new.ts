@@ -9,6 +9,7 @@ import { Effect } from "effect";
 import { existsSync, mkdirSync } from "fs";
 import { join, resolve } from "path";
 import { $ } from "bun";
+import { readableStreamToText } from "../lib/bun-utils.ts";
 import { toolsDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -152,8 +153,8 @@ async function runScaffold(args: string[]): Promise<number> {
     stderr: "pipe",
   });
   const exitCode = await proc.exited;
-  const stdout = await Bun.readableStreamToText(proc.stdout);
-  const stderr = await Bun.readableStreamToText(proc.stderr);
+  const stdout = await readableStreamToText(proc.stdout);
+  const stderr = await readableStreamToText(proc.stderr);
 
   for (const line of (stdout + stderr).split("\n")) {
     if (line.trim()) process.stdout.write(`${line}\n`);

@@ -6,6 +6,78 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { REQUIRED_PACKAGE_SCRIPTS } from "./scaffold-templates.ts";
 import type { HealthCheck as DoctorCheck } from "./health-check.ts";
+import { safeToml } from "./utils.ts";
+
+const DEFAULT_WORKFLOW_PATH = ".github/workflows/ci.yml";
+const CI_DISABLED_MESSAGE =
+  "disabled (server CI unavailable) — enforcement via pre-push hooks + ci:local";
+
+interface DxCiConfig {
+  workflowPath: string;
+  explicitlyDisabled: boolean;
+  pathImpliesDisabled: boolean;
+}
+
+async function readDxCiConfig(projectDir: string): Promise<DxCiConfig> {
+  const dxPath = join(projectDir, "dx.config.toml");
+  let workflowPath = DEFAULT_WORKFLOW_PATH;
+  let explicitlyDisabled = false;
+
+  if (existsSync(dxPath)) {
+    const parsed = safeToml<Record<string, unknown> | null>(await Bun.file(dxPath).text(), null);
+    if (parsed) {
+      const github = parsed.github;
+      if (github && typeof github === "object") {
+        const g = github as Record<string, unknown>;
+        if (typeof g.workflow === "string" && g.workflow.length > 0) {
+          workflowPath = g.workflow;
+        }
+        const ci = g.ci;
+        if (ci && typeof ci === "object" && (ci as Record<string, unknown>).disabled === true) {
+          explicitlyDisabled = true;
+        }
+      }
+    }
+  }
+
+  return {
+    workflowPath,
+    explicitlyDisabled,
+    pathImpliesDisabled: workflowPath.includes("workflows-disabled"),
+  };
+}
+
+async function checkCiWorkflow(projectDir: string): Promise<DoctorCheck> {
+  const { workflowPath, explicitlyDisabled, pathImpliesDisabled } =
+    await readDxCiConfig(projectDir);
+  const present = existsSync(join(projectDir, workflowPath));
+  const ciDisabled = pathImpliesDisabled || explicitlyDisabled;
+
+  if (present) {
+    return {
+      name: "ci.yml",
+      status: "ok",
+      message: `present at ${workflowPath}`,
+      fixable: false,
+    };
+  }
+
+  if (ciDisabled) {
+    return {
+      name: "ci.yml",
+      status: "ok",
+      message: CI_DISABLED_MESSAGE,
+      fixable: false,
+    };
+  }
+
+  return {
+    name: "ci.yml",
+    status: "warn",
+    message: "missing — run kimi-fix",
+    fixable: true,
+  };
+}
 
 export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [];
@@ -20,7 +92,6 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
     { name: "dx.config.toml", rel: "dx.config.toml" },
     { name: "mcp.json", rel: ".kimi-code/mcp.json" },
     { name: "check.ts", rel: "scripts/check.ts" },
-    { name: "ci.yml", rel: ".github/workflows/ci.yml" },
     { name: "oxfmtrc", rel: ".oxfmtrc.json" },
     { name: "oxlintrc", rel: ".oxlintrc.json" },
   ];
@@ -34,6 +105,8 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
       fixable: !present,
     });
   }
+
+  checks.push(await checkCiWorkflow(projectDir));
 
   const pkgPath = join(projectDir, "package.json");
   if (!existsSync(pkgPath)) {

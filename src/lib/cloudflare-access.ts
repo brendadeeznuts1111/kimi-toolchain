@@ -5,6 +5,7 @@
  * Moved from src/bin/kimi-cloudflare-access.ts
  */
 
+import { readableStreamToText } from "./bun-utils.ts";
 import { fetchWithTimeout } from "./utils.ts";
 import { existsSync } from "fs";
 import { join } from "path";
@@ -505,7 +506,7 @@ export async function discoverLocalProject(app: AccessApplication): Promise<{
           });
           const exit = await proc.exited;
           if (exit === 0) {
-            repoUrl = (await Bun.readableStreamToText(proc.stdout)).trim() || undefined;
+            repoUrl = (await readableStreamToText(proc.stdout)).trim() || undefined;
           }
         } catch {
           /* ignore */
@@ -603,7 +604,7 @@ export async function discoverLocalProject(app: AccessApplication): Promise<{
         });
         const exit = await proc.exited;
         if (exit === 0) {
-          repoUrl = (await Bun.readableStreamToText(proc.stdout)).trim() || undefined;
+          repoUrl = (await readableStreamToText(proc.stdout)).trim() || undefined;
         }
       } catch {
         /* ignore */

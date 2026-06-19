@@ -52,6 +52,8 @@ export interface LoggerOptions {
   stepBudget?: boolean;
   /** Session id from env for correlation. */
   sessionId?: string;
+  /** When true, route human-readable lines to stderr instead of stdout. */
+  humanStderr?: boolean;
 }
 
 function resolveSessionId(): string | undefined {
@@ -65,6 +67,7 @@ export class Logger {
   private tool: string;
   private stepBudget: boolean;
   private sessionId: string | undefined;
+  private humanStderr: boolean;
   private logs: LogEntry[] = [];
 
   constructor(options: LoggerOptions = {}) {
@@ -74,6 +77,7 @@ export class Logger {
     this.tool = options.tool ?? "kimi-toolchain";
     this.stepBudget = options.stepBudget ?? false;
     this.sessionId = options.sessionId ?? resolveSessionId();
+    this.humanStderr = options.humanStderr ?? false;
   }
 
   private shouldEmit(level: LogLevel): boolean {

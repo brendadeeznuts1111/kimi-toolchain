@@ -5,7 +5,7 @@
 import { Data, Effect } from "effect";
 import type { FailureTraceRecord } from "./failure-ledger.ts";
 import { readFailureRecords } from "./failure-ledger.ts";
-import type { DecisionRecord } from "./decision-ledger.ts";
+import { readDecisions, type DecisionRecord } from "./decision-ledger.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HEAL_RECURS_WITHIN_24H_SCORE = 0.2;
@@ -186,4 +186,39 @@ function clamp01(value: number): number {
   if (value < 0) return 0;
   if (value > 1) return 1;
   return Math.round(value * 1000) / 1000;
+}
+
+export function filterLowQualityDecisions(records: readonly DecisionRecord[]): DecisionRecord[] {
+  return records.filter((record) => (record.qualityScore ?? 0) < 0.5);
+}
+
+export function filterUnverifiedDecisions(records: readonly DecisionRecord[]): DecisionRecord[] {
+  return records.filter(
+    (record) => record.outcome.result === "unknown" || record.outcome.result === "pending"
+  );
+}
+
+export interface ScoringReport {
+  scores: Record<string, number>;
+  total: number;
+}
+
+export function scoreAllDecisionsEffect(
+  options: { projectRoot?: string; failurePath?: string } = {}
+): Effect.Effect<ScoringReport, DecisionScoringError> {
+  return Effect.tryPromise({
+    try: async () => {
+      const decisions = await readDecisions(options.projectRoot);
+      const scores = await scoreDecisions(decisions, { failurePath: options.failurePath });
+      return {
+        scores: Object.fromEntries(scores),
+        total: decisions.length,
+      };
+    },
+    catch: (error) =>
+      new DecisionScoringError({
+        message: error instanceof Error ? error.message : String(error),
+        failurePath: options.failurePath,
+      }),
+  });
 }

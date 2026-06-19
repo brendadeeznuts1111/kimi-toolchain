@@ -161,9 +161,7 @@ export function findExecutable(bin: string): string | null {
 // ── Stream Helpers ───────────────────────────────────────────────────
 
 /** Convert a ReadableStream to a text string. */
-export async function streamToText(stream: ReadableStream): Promise<string> {
-  return Bun.readableStreamToText(stream);
-}
+export { readableStreamToText as streamToText } from "./bun-utils.ts";
 
 // ── Fetch with Timeout ───────────────────────────────────────────────
 
@@ -214,4 +212,12 @@ export function safeToml<T>(text: string, fallback: T, validate?: (val: unknown)
 }
 
 // Re-export doctor persistence (canonical impl in doctor-runs.ts)
-export { recordDoctorRun, getPersistentWarnings, type DoctorWarning } from "./doctor-runs.ts";
+export {
+  recordDoctorRun,
+  getPersistentWarnings,
+  getDoctorRunsByRunId,
+  getDoctorRunsBySession,
+  getDoctorRunsByProject,
+  type DoctorWarning,
+  type DoctorRunRecord,
+} from "./doctor-runs.ts";

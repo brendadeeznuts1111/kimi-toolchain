@@ -5,7 +5,7 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "fs";
 import { join } from "path";
-import { ensureDir } from "./utils.ts";
+import { ensureDir, safeParse } from "./utils.ts";
 import { SESSIONS_SCHEMA_SQL } from "./sessions-schema.ts";
 import { varDir } from "./paths.ts";
 
@@ -37,27 +37,42 @@ function resolveSessionId(): string | undefined {
   return Bun.env.KIMI_CODE_SESSION || Bun.env.KIMI_AGENT_SESSION || undefined;
 }
 
+export interface DoctorRunRecord {
+  timestamp: number;
+  tool: string;
+  warnings: DoctorWarning[];
+  rScore: number | null;
+  gitHead: string | null;
+  project: string;
+  sessionId: string | null;
+  runId: string | null;
+}
+
 export function recordDoctorRun(
   project: string,
   tool: string,
   warnings: DoctorWarning[],
   rScore?: number,
   gitHead?: string,
-  sessionId?: string
+  sessionId?: string,
+  runId?: string
 ): void {
   const db = openSessionsDb();
   const now = Date.now();
-  try {
-    db.exec("ALTER TABLE doctor_runs ADD COLUMN session_id TEXT");
-  } catch {
-    // Column already exists.
+  for (const column of ["session_id TEXT", "run_id TEXT"]) {
+    try {
+      db.exec(`ALTER TABLE doctor_runs ADD COLUMN ${column}`);
+    } catch {
+      // Column already exists.
+    }
   }
 
   const sid = sessionId ?? resolveSessionId() ?? null;
+  const rid = runId ?? Bun.env.KIMI_RUN_ID ?? null;
   db.run(
-    `INSERT INTO doctor_runs (timestamp, tool, warnings_json, r_score, git_head, project, session_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [now, tool, JSON.stringify(warnings), rScore ?? null, gitHead ?? null, project, sid]
+    `INSERT INTO doctor_runs (timestamp, tool, warnings_json, r_score, git_head, project, session_id, run_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [now, tool, JSON.stringify(warnings), rScore ?? null, gitHead ?? null, project, sid, rid]
   );
 
   for (const w of warnings) {
@@ -149,4 +164,98 @@ export function getPersistentWarnings(tool?: string): Array<{
     taxonomy_id: r.taxonomy_id,
     age_days: Math.round((now - r.first_seen) / (24 * 60 * 60 * 1000)),
   }));
+}
+
+function rowToDoctorRunRecord(row: {
+  timestamp: number;
+  tool: string;
+  warnings_json: string;
+  r_score: number | null;
+  git_head: string | null;
+  project: string;
+  session_id: string | null;
+  run_id: string | null;
+}): DoctorRunRecord {
+  return {
+    timestamp: row.timestamp,
+    tool: row.tool,
+    warnings: safeParse(row.warnings_json, []) as DoctorWarning[],
+    rScore: row.r_score ?? null,
+    gitHead: row.git_head ?? null,
+    project: row.project,
+    sessionId: row.session_id ?? null,
+    runId: row.run_id ?? null,
+  };
+}
+
+/** Query doctor runs by exact run id (newest first). */
+export function getDoctorRunsByRunId(runId: string): DoctorRunRecord[] {
+  if (!runId) return [];
+  if (!existsSync(dbPath())) return [];
+  const db = openSessionsDb();
+  const rows = db
+    .query(
+      `SELECT timestamp, tool, warnings_json, r_score, git_head, project, session_id, run_id
+       FROM doctor_runs WHERE run_id = ? ORDER BY timestamp DESC`
+    )
+    .all(runId) as Array<{
+    timestamp: number;
+    tool: string;
+    warnings_json: string;
+    r_score: number | null;
+    git_head: string | null;
+    project: string;
+    session_id: string | null;
+    run_id: string | null;
+  }>;
+  db.close();
+  return rows.map(rowToDoctorRunRecord);
+}
+
+/** Query doctor runs by session id (newest first). */
+export function getDoctorRunsBySession(sessionId: string): DoctorRunRecord[] {
+  if (!sessionId) return [];
+  if (!existsSync(dbPath())) return [];
+  const db = openSessionsDb();
+  const rows = db
+    .query(
+      `SELECT timestamp, tool, warnings_json, r_score, git_head, project, session_id, run_id
+       FROM doctor_runs WHERE session_id = ? ORDER BY timestamp DESC`
+    )
+    .all(sessionId) as Array<{
+    timestamp: number;
+    tool: string;
+    warnings_json: string;
+    r_score: number | null;
+    git_head: string | null;
+    project: string;
+    session_id: string | null;
+    run_id: string | null;
+  }>;
+  db.close();
+  return rows.map(rowToDoctorRunRecord);
+}
+
+/** Query doctor runs by project name (newest first). */
+export function getDoctorRunsByProject(project: string): DoctorRunRecord[] {
+  if (!project) return [];
+  if (!existsSync(dbPath())) return [];
+  const db = openSessionsDb();
+  const rows = db
+    .query(
+      `SELECT timestamp, tool, warnings_json, r_score, git_head, project, session_id, run_id
+       FROM doctor_runs WHERE project = ? ORDER BY timestamp DESC`
+    )
+    .all(project) as Array<{
+    timestamp: number;
+    tool: string;
+    warnings_json: string;
+    r_score: number | null;
+    git_head: string | null;
+    project: string;
+    session_id: string | null;
+    run_id: string | null;
+  }>;
+  db.close();
+  return rows.map(rowToDoctorRunRecord);
 }

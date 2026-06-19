@@ -11,6 +11,34 @@
 import { appendFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { dirname, join } from "path";
 import { tmpdir } from "os";
+import { safeParse } from "./utils.ts";
+
+/** Parse newline-delimited JSON text into validated records. */
+export function parseNdjsonText<T>(text: string, validator?: (value: unknown) => value is T): T[] {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (typeof Bun.JSONL?.parse === "function") {
+    try {
+      const parsed = Bun.JSONL.parse(text) as unknown[];
+      if (validator) return parsed.filter(validator);
+      return parsed as T[];
+    } catch {
+      // fall through to line-by-line parse
+    }
+  }
+
+  const out: T[] = [];
+  for (const line of lines) {
+    const parsed = safeParse<unknown | null>(line, null);
+    if (parsed === null) continue;
+    if (validator && !validator(parsed)) continue;
+    out.push(parsed as T);
+  }
+  return out;
+}
 
 type BunWriteAppendOptions = {
   create?: boolean;
@@ -104,6 +132,9 @@ export async function writeNdjsonFile(path: string, records: unknown[]): Promise
     records.length > 0 ? records.map((record) => JSON.stringify(record)).join("\n") + "\n" : "";
   await Bun.write(path, body);
 }
+
+/** Alias for callers that emphasize full-file replacement. */
+export const rewriteNdjsonFile = writeNdjsonFile;
 
 async function resolveAppendMode(): Promise<AppendMode> {
   if (appendMode) return appendMode;

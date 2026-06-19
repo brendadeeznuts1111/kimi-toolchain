@@ -4,6 +4,11 @@
 
 import { existsSync } from "fs";
 import { join } from "path";
+import { auditCanonicalReferencesHealth } from "./canonical-references.ts";
+import { buildOptimizerDoctorMachineChecks } from "./constant-optimizer.ts";
+import { checkDxCloudflareConfig } from "./dx-cloudflare-config.ts";
+import { checkDxGithubAlignment } from "./dx-github-alignment.ts";
+import { auditHerdrToolHealth } from "./herdr-tool-health.ts";
 import { detectSyncDrift } from "./sync-hashes.ts";
 import { validateMcpConfig } from "./mcp-config.ts";
 import { auditKimiConfig } from "./kimi-config-audit.ts";
@@ -21,6 +26,8 @@ export interface EcosystemCheck {
   message: string;
   source: string;
   fixable: boolean;
+  decisionIds?: string[];
+  confidence?: number;
 }
 
 export interface EcosystemHealthReport {
@@ -179,6 +186,62 @@ export async function auditEcosystemHealth(
 
     const qualityChecks = await checkQualityScripts(projectRoot);
     checks.push(...qualityChecks);
+
+    const refs = await auditCanonicalReferencesHealth(projectRoot, home);
+    if (refs.applicable) {
+      for (const check of refs.checks) {
+        checks.push({
+          name: `canonical-references:${check.name}`,
+          status: check.status,
+          message: check.message,
+          source: "canonical-references",
+          fixable: check.fixable,
+        });
+      }
+      fixPlan.push(...refs.fixPlan);
+    }
+
+    const herdr = await auditHerdrToolHealth(projectRoot, home);
+    checks.push(...herdr.checks);
+    fixPlan.push(...herdr.fixPlan);
+
+    for (const check of await buildOptimizerDoctorMachineChecks(projectRoot)) {
+      checks.push({
+        name: check.name,
+        status: check.status,
+        message: check.message,
+        source: check.source,
+        fixable: check.status !== "ok",
+        decisionIds: check.decisionIds,
+        confidence: check.confidence,
+      });
+    }
+
+    const dxCloudflare = await checkDxCloudflareConfig(projectRoot);
+    if (dxCloudflare.applicable) {
+      for (const check of dxCloudflare.checks) {
+        checks.push({
+          name: `dx-cloudflare:${check.name}`,
+          status: check.status,
+          message: check.message,
+          source: "dx-cloudflare",
+          fixable: check.fixable,
+        });
+      }
+    }
+
+    const dxGithub = await checkDxGithubAlignment(projectRoot);
+    if (dxGithub.applicable) {
+      for (const check of dxGithub.checks) {
+        checks.push({
+          name: `dx-github:${check.name}`,
+          status: check.status,
+          message: check.message,
+          source: "dx-github",
+          fixable: check.fixable,
+        });
+      }
+    }
   }
 
   if (!options.quick) {
@@ -201,7 +264,11 @@ export async function auditEcosystemHealth(
     if (check.status === "warn") warnings++;
     if (check.status === "error") {
       errors++;
-      if (check.name === "desktop-sync" || check.name === "kimi-doctor-official") {
+      if (
+        check.name === "desktop-sync" ||
+        check.name === "kimi-doctor-official" ||
+        check.source === "dx-github"
+      ) {
         blockers++;
       }
     }

@@ -16,6 +16,7 @@ import {
   type ImpactResult,
   normalizePath,
 } from "../ci-impact.ts";
+import { readableStreamToText } from "../bun-utils.ts";
 import { ARTIFACTS_REPORTS_DIR, artifactPath } from "../artifacts.ts";
 import { safeParse } from "../utils.ts";
 import { childTraceEnv, ensureProcessTrace, TRACE_ID_ENV } from "./trace-context.ts";
@@ -673,8 +674,8 @@ function capture(command: string[], cwd: string): Effect.Effect<string, Pipeline
     try: async () => {
       const proc = Bun.spawn(command, { cwd, stdout: "pipe", stderr: "pipe" });
       const [stdout, stderr, exitCode] = await Promise.all([
-        Bun.readableStreamToText(proc.stdout),
-        Bun.readableStreamToText(proc.stderr),
+        readableStreamToText(proc.stdout),
+        readableStreamToText(proc.stderr),
         proc.exited,
       ]);
       if (exitCode !== 0) {
@@ -700,7 +701,7 @@ function runQuiet(command: string[], cwd: string): Effect.Effect<void, PipelineR
     try: async () => {
       const proc = Bun.spawn(command, { cwd, stdout: "ignore", stderr: "pipe" });
       const [stderr, exitCode] = await Promise.all([
-        Bun.readableStreamToText(proc.stderr),
+        readableStreamToText(proc.stderr),
         proc.exited,
       ]);
       if (exitCode !== 0) {

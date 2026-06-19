@@ -224,7 +224,7 @@ export function makeDecisionLogger(options: DecisionLedgerOptions = {}) {
 }
 
 export function decisionTriggerSummary(record: DecisionRecord): string {
-  return record.trigger.summary;
+  return record.trigger.summary ?? "";
 }
 
 export function decisionRationaleSummary(record: DecisionRecord): string {
@@ -406,11 +406,7 @@ function resolveOutcome(input: DecisionInput): DecisionOutcomeBlock {
 function normalizeOutcomeResult(value: DecisionInput["outcome"]): DecisionOutcome | undefined {
   if (!value) return undefined;
   if (value === "success" || value === "failure" || value === "unknown") return value;
-  if (value.toLowerCase().includes("fail")) return "failure";
-  if (value.toLowerCase().includes("success") || value.toLowerCase().includes("applied")) {
-    return "success";
-  }
-  return "unknown";
+  return value;
 }
 
 function firstSentence(text: string): string {
@@ -861,8 +857,10 @@ export async function resolveDecisionsRoot(fallback?: string): Promise<string> {
 }
 
 /** Legacy input shape accepted by logDecision/logDecisionEffect. */
-export interface LegacyDecisionInput
-  extends Omit<DecisionInput, "key" | "trigger" | "outcome" | "alternatives"> {
+export interface LegacyDecisionInput extends Omit<
+  DecisionInput,
+  "key" | "trigger" | "outcome" | "alternatives"
+> {
   /** Derived from action/trigger when omitted. */
   key?: string;
   /** Old name for rationaleBlock. */
@@ -887,8 +885,7 @@ function normalizeLegacyDecisionInput(input: LegacyDecisionInput): DecisionInput
   if (input.rationaleOverride) {
     normalized.rationaleBlock = {
       summary: input.rationaleOverride.summary ?? "",
-      fullReasoning:
-        input.rationaleOverride.fullReasoning ?? input.rationaleOverride.summary ?? "",
+      fullReasoning: input.rationaleOverride.fullReasoning ?? input.rationaleOverride.summary ?? "",
       evidence: input.rationaleOverride.evidence ?? [],
     };
     delete raw.rationaleOverride;
@@ -897,10 +894,7 @@ function normalizeLegacyDecisionInput(input: LegacyDecisionInput): DecisionInput
     normalized.triggerContext = {
       ...input.trigger,
       summary:
-        input.trigger.summary ||
-        input.trigger.capabilityItem ||
-        input.action ||
-        "legacy trigger",
+        input.trigger.summary || input.trigger.capabilityItem || input.action || "legacy trigger",
     };
     delete raw.trigger;
   }
@@ -1018,7 +1012,9 @@ function metadataType(decision: DecisionRecord): string | undefined {
   return meta && typeof meta.type === "string" ? meta.type : undefined;
 }
 
-function constantKeyFromMetadata(metadata: Record<string, unknown> | undefined): string | undefined {
+function constantKeyFromMetadata(
+  metadata: Record<string, unknown> | undefined
+): string | undefined {
   if (!metadata) return undefined;
   if (typeof metadata.constantKey === "string") return metadata.constantKey;
   const restored = metadata.restoredKeys;
@@ -1083,7 +1079,12 @@ function collectDecisionDiffFields(
     const rightObj = right as Record<string, unknown>;
     const keys = new Set([...Object.keys(leftObj), ...Object.keys(rightObj)]);
     for (const key of keys) {
-      collectDecisionDiffFields(leftObj[key], rightObj[key], prefix ? `${prefix}.${key}` : key, fields);
+      collectDecisionDiffFields(
+        leftObj[key],
+        rightObj[key],
+        prefix ? `${prefix}.${key}` : key,
+        fields
+      );
     }
     return;
   }

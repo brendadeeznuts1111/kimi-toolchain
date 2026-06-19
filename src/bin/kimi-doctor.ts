@@ -1489,13 +1489,15 @@ async function main(): Promise<number> {
     return 0;
   }
 
+  const explicitProjectRoot = argValue("--project-root");
+
   if (PROBE) {
-    const probeRoot = await resolveProjectRoot(argValue("--project-root"));
+    const probeRoot = explicitProjectRoot ?? (await resolveProjectRoot(Bun.cwd));
     emitJson(await buildDoctorProbeManifest(probeRoot));
     return 0;
   }
 
-  const projectRoot = await resolveProjectRoot(argValue("--project-root"));
+  const projectRoot = explicitProjectRoot ?? (await resolveProjectRoot(Bun.cwd));
 
   if (ARTIFACTS_LIST) {
     const store = new ArtifactStore(projectRoot);
@@ -2325,7 +2327,9 @@ async function main(): Promise<number> {
     "kimi-doctor",
     doctorWarnings,
     undefined,
-    gitHead
+    gitHead,
+    undefined,
+    Bun.env.KIMI_RUN_ID
   );
   await appendHealthSnapshot(projectRoot, {
     checks: results.map((result) => ({

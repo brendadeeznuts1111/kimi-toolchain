@@ -8,6 +8,7 @@ import { existsSync } from "fs";
 import { MCP_BRIDGE_VERSION } from "../lib/version.ts";
 import { childTraceEnv, ensureProcessTrace, TRACE_ID_ENV } from "../lib/effect/trace-context.ts";
 import { buildTraceEvent, recordTraceEvent } from "../lib/trace-ledger.ts";
+import { invokeCommand } from "../lib/tool-runner.ts";
 
 interface ShellResult {
   stdout: string;
@@ -34,15 +35,14 @@ export async function executeCommand(
   const startedAt = new Date(started).toISOString();
   const parentTraceId = Bun.env[TRACE_ID_ENV] || ensureProcessTrace().traceId;
   const traceOverlay = childTraceEnv(parentTraceId);
-  const proc = Bun.spawn(["sh", "-c", command], {
+  const invoked = await invokeCommand(["sh", "-c", command], {
     cwd,
     env: { ...Bun.env, ...traceOverlay },
-    stdout: "pipe",
-    stderr: "pipe",
+    timeoutMs: 120_000,
   });
-  const exitCode = await proc.exited;
-  const stdout = await Bun.readableStreamToText(proc.stdout);
-  const stderr = await Bun.readableStreamToText(proc.stderr);
+  const exitCode = invoked.exitCode;
+  const stdout = invoked.stdout;
+  const stderr = invoked.stderr;
   try {
     await recordTraceEvent(
       buildTraceEvent({

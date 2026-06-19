@@ -3,6 +3,7 @@
  */
 
 import { existsSync } from "fs";
+import { readableStreamToText } from "./bun-utils.ts";
 import { join } from "path";
 import type { HealthCheck } from "./health-check.ts";
 import { homeDir } from "./paths.ts";
@@ -62,8 +63,8 @@ async function runShellStartupCheck(): Promise<HealthCheck> {
     });
     const [exitCode, stdout, stderr] = await Promise.all([
       proc.exited,
-      Bun.readableStreamToText(proc.stdout),
-      Bun.readableStreamToText(proc.stderr),
+      readableStreamToText(proc.stdout),
+      readableStreamToText(proc.stderr),
     ]);
     const err = stderr.trim();
     if (exitCode !== 0) {

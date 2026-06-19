@@ -332,7 +332,7 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
         name: "--serve-probe",
         type: "boolean",
         description:
-          "Start HTTP card cache (127.0.0.1; port from [doctor.probe] or PROBE_SERVER_PORT, else 9239) — GET|HEAD /api/health, GET /api/cards, GET|POST /api/refresh, GET /api/artifacts[/{gate}[/latest]]?limit=N&since=ISO (read-only)",
+          "Start HTTP card cache (127.0.0.1; port from [doctor.probe] or PROBE_SERVER_PORT, else 5678) — GET|HEAD /api/health, GET /api/cards, GET|POST /api/refresh, GET /api/artifacts[/{gate}[/latest]]?limit=N&since=ISO (read-only)",
         agentFacing: true,
       },
       {

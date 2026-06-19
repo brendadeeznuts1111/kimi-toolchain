@@ -17,6 +17,20 @@ import {
   probeAllCards,
   summarizeCardStatuses,
 } from "./card-probe.ts";
+import {
+  DASHBOARD_ARTIFACT_DIFF,
+  DASHBOARD_ARTIFACT_FEED,
+  DASHBOARD_ARTIFACT_INDEX_STATS,
+  DASHBOARD_RUN_MANIFEST,
+  matchProbeArtifactsRoute,
+  pathnameGroup,
+} from "./dashboard-route-patterns.ts";
+import {
+  fetchDashboardArtifactDiff,
+  fetchDashboardArtifactFeed,
+  fetchDashboardArtifactIndexStats,
+  fetchDashboardRunsList,
+} from "./herdr-dashboard-data.ts";
 
 export { extractArtifactTimestamp };
 
@@ -25,7 +39,7 @@ export const PROBE_SERVER_PORT_ENV = "PROBE_SERVER_PORT";
 /** Future opt-in gate refresh — not wired; reserved for `--allow-gate-refresh`. */
 export const ALLOW_GATE_REFRESH_ENV = "ALLOW_GATE_REFRESH";
 export const DEFAULT_PROBE_SERVER_HOST = "127.0.0.1";
-export const DEFAULT_PROBE_SERVER_PORT = 9239;
+export const DEFAULT_PROBE_SERVER_PORT = 5678;
 
 export const PROBE_SERVER_ROUTES = [
   { path: "/api/health", methods: ["GET", "HEAD"] as const },
@@ -34,6 +48,11 @@ export const PROBE_SERVER_ROUTES = [
   { path: "/api/artifacts", methods: ["GET"] as const },
   { path: "/api/artifacts/:gate", methods: ["GET"] as const },
   { path: "/api/artifacts/:gate/latest", methods: ["GET"] as const },
+  { path: "/api/artifacts/feed.xml", methods: ["GET"] as const },
+  { path: "/api/artifacts/index/stats", methods: ["GET"] as const },
+  { path: "/api/artifacts/:gate/diff", methods: ["GET"] as const },
+  { path: "/api/runs", methods: ["GET"] as const },
+  { path: "/api/runs/:runId", methods: ["GET"] as const },
 ] as const;
 
 /** Reserved route — returns 403 until opt-in gate refresh is implemented (ADR-0004). */
@@ -63,8 +82,6 @@ export interface ProbeServerHandle {
   getLastArtifactPath: () => string | undefined;
   stop: () => void;
 }
-
-const ARTIFACTS_ROUTE = /^\/api\/artifacts(?:\/([^/]+)(?:\/(latest|refresh))?)?$/;
 
 function artifactRefreshDisabled(gateName: string): Response {
   return jsonResponse(
@@ -145,7 +162,7 @@ function artifactStoreFor(options: ProbeServerOptions): ArtifactStore | null {
   return root ? new ArtifactStore(root) : null;
 }
 
-/** Start probe cache server (default 127.0.0.1:9239; override via [doctor.probe] or env). */
+/** Start probe cache server (default 127.0.0.1:5678; override via [doctor.probe] or env). */
 export async function startProbeServer(
   options: ProbeServerOptions = {}
 ): Promise<ProbeServerHandle> {
@@ -197,16 +214,13 @@ export async function startProbeServer(
     return refreshInFlight;
   }
 
-  async function handleArtifactsRoute(
-    path: string,
-    method: string,
-    searchParams: URLSearchParams
-  ): Promise<Response | null> {
-    const match = path.match(ARTIFACTS_ROUTE);
+  async function handleArtifactsRoute(url: URL, method: string): Promise<Response | null> {
+    const path = url.pathname;
+    const match = matchProbeArtifactsRoute(url);
     if (!match) return null;
 
-    const gateName = match[1];
-    const segment = match[2];
+    const gateName = match.gateName;
+    const segment = match.segment;
 
     if (segment === "refresh") {
       if (!gateName) return notFound(path);
@@ -244,7 +258,7 @@ export async function startProbeServer(
       });
     }
 
-    const query = parseArtifactListQuery(searchParams);
+    const query = parseArtifactListQuery(url.searchParams);
     const listed = await artifactStore.listEntries(gateName, {
       ...query,
       limit: query.limit ?? DEFAULT_GATE_ARTIFACT_LIMIT,
@@ -301,7 +315,89 @@ export async function startProbeServer(
         });
       }
 
-      const artifactsResponse = await handleArtifactsRoute(path, method, url.searchParams);
+      if (path === "/api/runs" && method === "GET") {
+        if (!artifactStore) {
+          return jsonResponse({ ok: false, error: "Artifact store unavailable" }, 500);
+        }
+        const filter = parseArtifactListQuery(url.searchParams);
+        const payload = await fetchDashboardRunsList(projectRoot, filter);
+        return jsonResponse(payload);
+      }
+
+      if (DASHBOARD_ARTIFACT_FEED.test(url) && method === "GET") {
+        const limit = Number(url.searchParams.get("limit") ?? "50");
+        const xml = await fetchDashboardArtifactFeed(projectRoot, {
+          baseUrl: url.origin,
+          limit: Number.isFinite(limit) ? limit : 50,
+        });
+        return new Response(xml, {
+          status: 200,
+          headers: {
+            "content-type": "application/rss+xml; charset=utf-8",
+            "cache-control": "no-store",
+          },
+        });
+      }
+
+      if (DASHBOARD_ARTIFACT_INDEX_STATS.test(url) && method === "GET") {
+        const payload = await fetchDashboardArtifactIndexStats(projectRoot);
+        return jsonResponse(payload);
+      }
+
+      const artifactDiffMatch = DASHBOARD_ARTIFACT_DIFF.exec(url);
+      if (artifactDiffMatch && method === "GET") {
+        const gateName = pathnameGroup(artifactDiffMatch, "gate");
+        const pathA = url.searchParams.get("a")?.trim() ?? "";
+        const pathB = url.searchParams.get("b")?.trim() ?? "";
+        if (!gateName || !pathA || !pathB) {
+          return jsonResponse({ ok: false, error: "gate, a, and b required" }, 400);
+        }
+        const payload = await fetchDashboardArtifactDiff(projectRoot, gateName, pathA, pathB);
+        return jsonResponse(payload, payload.ok ? 200 : 404);
+      }
+
+      const runManifestMatch = DASHBOARD_RUN_MANIFEST.exec(url);
+      if (runManifestMatch && method === "GET") {
+        if (!artifactStore) {
+          return jsonResponse({ ok: false, error: "Artifact store unavailable" }, 500);
+        }
+        const runId = pathnameGroup(runManifestMatch, "runId");
+        if (!runId) {
+          return jsonResponse({ ok: false, error: "runId required" }, 400);
+        }
+        const manifest = await artifactStore.readRunManifest(runId);
+        if (!manifest) {
+          return jsonResponse({ ok: false, error: "Run not found", runId }, 404);
+        }
+        const refs = await artifactStore.listRunArtifactRefs(runId, manifest);
+        const indexRows = artifactStore.getIndex().findByRunId(runId, { order: "asc" });
+        return jsonResponse({
+          ok: true,
+          projectRoot,
+          runId,
+          manifest,
+          indexSource: refs.some((ref) => ref.indexSource) ? "sqlite" : "manifest",
+          artifacts:
+            indexRows.length > 0
+              ? indexRows.map((row) => ({
+                  gate: row.gate,
+                  path: row.relativePath,
+                  savedAt: row.savedAt,
+                  status: row.status ?? null,
+                  sessionId: row.sessionId ?? null,
+                  runId: row.runId ?? null,
+                  contentHash: row.contentHash ?? null,
+                }))
+              : refs.map((ref) => ({
+                  gate: ref.gate,
+                  path: ref.relativePath,
+                  indexSource: ref.indexSource,
+                })),
+          fetchedAt: new Date().toISOString(),
+        });
+      }
+
+      const artifactsResponse = await handleArtifactsRoute(url, method);
       if (artifactsResponse) return artifactsResponse;
 
       return notFound(path);

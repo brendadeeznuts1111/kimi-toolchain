@@ -35,9 +35,10 @@ export const WORKSPACE_SOFT_NAMES = new Set([
   "snapshots",
 ]);
 
-import type { HealthCheck } from "./health-check.ts";
+import type { HealthCheck, WorkspaceKnownContext } from "./health-check.ts";
 
 export type WorkspaceCheck = HealthCheck;
+export type { WorkspaceKnownContext };
 
 export interface WorkspaceHealthReport {
   checks: WorkspaceCheck[];

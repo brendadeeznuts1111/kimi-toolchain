@@ -93,7 +93,7 @@ function logProbeSummary(
     log("Strict mode: exiting 1 because at least one card is not pass");
   } else if (summary.unknown > 0) {
     log(
-      "Hint: set EXAMPLES_DASHBOARD_URL / HERDR_DASHBOARD_URL or start dashboards on ports 3000 / 18412"
+      "Hint: set EXAMPLES_DASHBOARD_URL / HERDR_DASHBOARD_URL or start dashboards on ports 5678 / 18412"
     );
   }
 }

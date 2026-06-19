@@ -4,6 +4,14 @@
 
 export type CheckStatus = "ok" | "warn" | "error";
 
+export interface WorkspaceKnownContext {
+  clusterId: string;
+  decisionIds: string[];
+  seenCount: number;
+  lastSeenAt: string;
+  summary: string;
+}
+
 export interface HealthCheck {
   name: string;
   status: CheckStatus;
@@ -13,6 +21,8 @@ export interface HealthCheck {
   category?: string;
   /** Shell command hint for automated recovery */
   autoFix?: string;
+  /** Known-blocker context from the decision ledger. */
+  known?: WorkspaceKnownContext;
 }
 
 export interface HealthReport {

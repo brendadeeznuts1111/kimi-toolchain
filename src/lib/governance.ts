@@ -8,6 +8,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import { $ } from "bun";
+import { readableStreamToText } from "./bun-utils.ts";
 import { ensureDir, getProjectName } from "./utils.ts";
 import { bunTestArgs, useFastUnitCoverage } from "./test-gates.ts";
 import { governorDir } from "./paths.ts";
@@ -16,8 +17,13 @@ import { ARTIFACTS_COVERAGE_DIR } from "./artifacts.ts";
 
 export { checkGovernance, type GovernanceCheck };
 
-const GOVERNANCE_DIR = governorDir();
-const COVERAGE_HISTORY = join(GOVERNANCE_DIR, "coverage-history.json");
+function governanceDir(): string {
+  return governorDir();
+}
+
+function coverageHistoryPath(): string {
+  return join(governanceDir(), "coverage-history.json");
+}
 
 export interface RScore {
   project: string;
@@ -68,8 +74,8 @@ export async function checkCoverage(projectDir: string, _threshold = 70): Promis
       stderr: "pipe",
     });
     const exitCode = await proc.exited;
-    const stdout = await Bun.readableStreamToText(proc.stdout);
-    const stderr = await Bun.readableStreamToText(proc.stderr);
+    const stdout = await readableStreamToText(proc.stdout);
+    const stderr = await readableStreamToText(proc.stderr);
     return { exitCode, stdout, stderr };
   }
 
@@ -202,11 +208,12 @@ export async function checkCoverage(projectDir: string, _threshold = 70): Promis
 // ── Coverage History ───────────────────────────────────────────────────
 
 export async function storeCoverageHistory(projectDir: string, report: CoverageReport) {
-  ensureDir(GOVERNANCE_DIR);
+  const historyPath = coverageHistoryPath();
+  ensureDir(governanceDir());
   let history: CoverageHistoryEntry[] = [];
-  if (existsSync(COVERAGE_HISTORY)) {
+  if (existsSync(historyPath)) {
     try {
-      history = (await Bun.file(COVERAGE_HISTORY).json()) as CoverageHistoryEntry[];
+      history = (await Bun.file(historyPath).json()) as CoverageHistoryEntry[];
     } catch {
       history = [];
     }
@@ -231,7 +238,30 @@ export async function storeCoverageHistory(projectDir: string, report: CoverageR
     trimmed.push(...entries.slice(-100));
   }
 
-  await Bun.write(COVERAGE_HISTORY, JSON.stringify(trimmed, null, 2));
+  await Bun.write(historyPath, JSON.stringify(trimmed, null, 2));
+}
+
+/** Latest cached coverage entry for a project (no test subprocess). */
+export async function loadCachedCoverage(projectDir: string): Promise<CoverageReport | null> {
+  const historyPath = coverageHistoryPath();
+  if (!existsSync(historyPath)) return null;
+  let history: CoverageHistoryEntry[];
+  try {
+    history = (await Bun.file(historyPath).json()) as CoverageHistoryEntry[];
+  } catch {
+    return null;
+  }
+  const project = await getProjectName(projectDir);
+  const latest = history
+    .filter((entry) => entry.project === project)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0];
+  if (!latest) return null;
+  return {
+    covered: latest.covered,
+    total: latest.total,
+    percentage: latest.percentage,
+    files: [],
+  };
 }
 
 // ── Stale Lockfile Refresh ───────────────────────────────────────────

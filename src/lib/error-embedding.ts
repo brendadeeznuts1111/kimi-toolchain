@@ -8,7 +8,7 @@
 
 import type { FailureTraceRecord, TraceEvent } from "./trace-ledger.ts";
 
-export const EMBEDDING_DIM = 384;
+export const EMBEDDING_DIM = KIMI_ERROR_EMBEDDING_DIM;
 
 const STOP_WORDS = new Set([
   "a",

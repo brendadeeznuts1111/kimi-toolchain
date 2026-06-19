@@ -60,3 +60,30 @@ export async function ensureQualityTooling(
     }
   }
 }
+
+export async function injectMissingScripts(
+  project: string,
+  dryRun: boolean,
+  log?: (...args: unknown[]) => void,
+  profile?: string
+) {
+  const logger = log
+    ? (step: string, msg: string) => log(`${step}: ${msg}`)
+    : (_step: string, _msg: string) => {};
+  await ensureQualityTooling(project, dryRun, logger);
+
+  if (profile === "toolchain") {
+    const pkgPath = join(project, "package.json");
+    if (!existsSync(pkgPath)) return;
+    const pkg = (await Bun.file(pkgPath).json()) as {
+      scripts?: Record<string, string>;
+    };
+    if (!pkg.scripts?.["finish-work"]) {
+      logger("package.json", "adding finish-work script...");
+      if (!dryRun) {
+        pkg.scripts = { ...pkg.scripts, "finish-work": "bun run scripts/finish-work.ts" };
+        await Bun.write(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+      }
+    }
+  }
+}

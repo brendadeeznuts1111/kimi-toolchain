@@ -9,6 +9,7 @@
  */
 
 import { $ } from "bun";
+import { readableStreamToText } from "../lib/bun-utils.ts";
 import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
@@ -106,8 +107,8 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
       stderr: "pipe",
     });
     const exitCode = await proc.exited;
-    const stdout = await Bun.readableStreamToText(proc.stdout);
-    const stderr = await Bun.readableStreamToText(proc.stderr);
+    const stdout = await readableStreamToText(proc.stdout);
+    const stderr = await readableStreamToText(proc.stderr);
     return { exitCode, stdout, stderr };
   }
 
@@ -269,6 +270,8 @@ async function latestCoverageHistory(projectDir: string): Promise<CoverageReport
     files: [],
   };
 }
+
+export { loadCachedCoverage } from "../lib/governance.ts";
 
 async function storeCoverageHistory(projectDir: string, report: CoverageReport) {
   ensureDir(GOVERNANCE_DIR);
@@ -896,14 +899,16 @@ async function main(): Promise<number> {
   return 0;
 }
 
-const exitCode = await runCliExit(
-  Effect.tryPromise({
-    try: () => main(),
-    catch: (e) =>
-      new CliError({
-        message: e instanceof Error ? e.message : String(e),
-      }),
-  }),
-  { toolName: "kimi-governance", logger }
-);
-process.exit(exitCode);
+if (import.meta.main) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        new CliError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    }),
+    { toolName: "kimi-governance", logger }
+  );
+  process.exit(exitCode);
+}

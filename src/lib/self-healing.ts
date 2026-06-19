@@ -7,6 +7,7 @@
  */
 
 import { Effect } from "effect";
+import { readableStreamToText } from "./bun-utils.ts";
 import { capabilityReport, type CapabilityReport, type CapabilityResult } from "./capabilities.ts";
 import {
   clusterFailureLedger,
@@ -593,7 +594,7 @@ async function readLimited(
   maxBytes: number
 ): Promise<string> {
   if (!stream) return "";
-  const text = await Bun.readableStreamToText(stream);
+  const text = await readableStreamToText(stream);
   if (text.length <= maxBytes) return text;
   return `${text.slice(0, maxBytes)}\n[truncated ${text.length - maxBytes} chars]`;
 }

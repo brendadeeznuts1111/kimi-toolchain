@@ -37,6 +37,27 @@ export const KIMI_SKILLS_README = load("skills-readme.md");
 export const ADR_TEMPLATE = load("adr-template.md");
 export const CODE_REFERENCES_TEMPLATE = load("code-references.md");
 
+export const REQUIRED_PACKAGE_SCRIPT_ENTRIES: Record<string, string> = {
+  test: "bun run scripts/run-tests.ts",
+  "test:fast": "bun run scripts/run-tests.ts --fast",
+  "test:coverage": "bun run scripts/run-tests.ts --coverage",
+  "test:coverage:ci": "bun run scripts/run-tests.ts --ci --coverage",
+  check: "bun run scripts/check.ts",
+  "check:fast": "bun run scripts/check.ts --fast",
+  "check:dry-run": "bun run scripts/check.ts --dry-run",
+  "docs:sync": "bun run scripts/readme-sync.ts --fix",
+  typecheck: "tsc --noEmit",
+  format: "oxfmt --write .",
+  "format:check": "oxfmt --check -c .oxfmtrc.json .",
+  "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
+  lint: "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
+  "lint:terms": "bun run scripts/lint-banned-terms.ts",
+  fix: "kimi-fix .",
+};
+
+export const DX_CONFIG_APP: string = load("dx.config.app.toml");
+export const DX_CONFIG_TOOLCHAIN: string = load("dx.config.toolchain.toml");
+
 // ── Generator functions ──────────────────────────────────────────────
 
 /** Required package.json scripts added by kimi-fix. */
