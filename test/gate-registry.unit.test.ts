@@ -8,6 +8,8 @@ describe("gate-registry", () => {
     expect(names).toContain("bunfig-policy");
     expect(names).toContain("perf-gate");
     expect(names).toContain("tls-compliance");
+    expect(names).toContain("url-i18n");
+    expect(names).toContain("email-i18n");
     expect(names).toContain("card-probe");
     expect(names).toContain("strategy-performance");
     expect(names).toContain("model-drift");

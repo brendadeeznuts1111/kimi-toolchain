@@ -23,6 +23,12 @@ export {
   tlsComplianceGateDefinition,
   type TlsComplianceDoctorResult,
 } from "./tls-compliance.ts";
+export { runUrlI18nGate, urlI18nGateDefinition, type UrlI18nGateResult } from "./url-i18n.ts";
+export {
+  runEmailI18nGate,
+  emailI18nGateDefinition,
+  type EmailI18nGateResult,
+} from "./email-i18n.ts";
 export {
   runCardProbeGate,
   cardProbeGateDefinition,

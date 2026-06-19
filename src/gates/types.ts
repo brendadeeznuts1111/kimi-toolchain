@@ -38,21 +38,45 @@ export interface GateArtifactListOptions {
   since?: string;
   /** Newest N artifacts when reading from disk. */
   limit?: number;
+  /** Filter to artifacts whose payload carries this status. Requires reading envelopes. */
+  status?: GateStatus;
+  /** Sort order (default: newest first). */
+  order?: "newest" | "oldest";
 }
 
 /** Gate run context — populated by the dependency runner. */
 export interface GateContext {
   /** Single newest in-run or saved artifact for a dependency gate. */
   getArtifact: (gateName: string) => Promise<GateArtifact | null>;
-  /** Multiple saved artifacts (in-run result first, then disk). */
+  /** Multiple saved artifacts (in-run result first, then disk), with optional status/order filters. */
   getArtifacts: (gateName: string, opts?: GateArtifactListOptions) => Promise<unknown[]>;
   /** Read payload from a relative or absolute artifact path. */
   readArtifact: (path: string) => Promise<unknown>;
+  /**
+   * Convenience alias for getArtifacts — semantically scoped to a declared dependency.
+   * Future: may validate the dependency against the calling gate's `dependsOn` list.
+   */
+  getArtifactsForDependency?: (
+    gateName: string,
+    opts?: GateArtifactListOptions
+  ) => Promise<unknown[]>;
 }
 
 export interface GateRunOptions {
   projectRoot?: string;
   saveArtifact?: boolean;
+  /** Shared id for every artifact produced by one gate-runner invocation. */
+  runId?: string;
+  /** Parent run id for nested gate/tool invocations. */
+  parentRunId?: string;
+  /** Conversation/session identity propagated into saved artifacts. */
+  sessionId?: string;
+  /** Herdr workspace/session identity propagated into saved artifacts. */
+  workspaceId?: string;
+  /** Herdr pane identity propagated into saved artifacts. */
+  paneId?: string;
+  /** Agent identity propagated into saved artifacts. */
+  agentId?: string;
   /** @deprecated Use context fields directly when present. */
   getArtifact?: (gateName: string) => Promise<GateArtifact | null>;
   getArtifacts?: (gateName: string, opts?: GateArtifactListOptions) => Promise<unknown[]>;

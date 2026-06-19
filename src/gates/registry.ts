@@ -11,6 +11,8 @@ import { modelDriftGateDefinition } from "./model-drift.ts";
 import { perfGateDefinition } from "./perf-gate.ts";
 import { strategyPerformanceGateDefinition } from "./strategy-performance.ts";
 import { tlsComplianceGateDefinition } from "./tls-compliance.ts";
+import { emailI18nGateDefinition } from "./email-i18n.ts";
+import { urlI18nGateDefinition } from "./url-i18n.ts";
 
 const gates = new Map<string, Gate>();
 
@@ -20,6 +22,8 @@ export function listBuiltinGateDefinitions(): Gate[] {
     bunfigPolicyGateDefinition,
     perfGateDefinition,
     tlsComplianceGateDefinition,
+    urlI18nGateDefinition,
+    emailI18nGateDefinition,
     cardProbeGateDefinition,
     strategyPerformanceGateDefinition,
     modelDriftGateDefinition,
