@@ -16,7 +16,7 @@ effect = "3.21.3"         # dependency
 typescript = "5.9.3"      # devDependency
 oxfmt = "0.53.0"          # devDependency (formatter)
 oxlint = "1.69.0"         # devDependency (linter)
-tuningSet = "1.4.1"       # bunfig KIMI_TUNING_SET_VERSION
+tuningSet = "1.4.2"       # bunfig KIMI_TUNING_SET_VERSION
 contractSchema = "1.0.0"  # bunfig KIMI_CONTRACT_SCHEMA_VERSION
 
 # ── Operational defaults ─────────────────────────────────────────────────
