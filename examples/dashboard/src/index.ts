@@ -258,7 +258,7 @@ const server = Bun.serve({
     switch (url.pathname) {
       case "/":
         return new Response(Bun.file(import.meta.dir + "/dashboard.html"), {
-          headers: { "content-type": "text/html; charset=utf-8" },
+          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
         });
       case "/api/bundle":
         return apiBundle();
