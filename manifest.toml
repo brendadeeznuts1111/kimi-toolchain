@@ -1,0 +1,33 @@
+# manifest.toml — Artifact assembly manifest for kimi-bake.
+#
+# Declares what kimi-bake produces: templates, examples, configs.
+# Each [artifact.<name>] block defines one bake-able artifact.
+# kimi-bake reads this file, validates PATH, and assembles the output.
+
+[artifact.dashboard]
+description = "kimi-toolchain demo dashboard — bundle analysis, compile check, gate health, markdown rendering"
+requires = ["kimi-fix", "bun"]
+path_check = true
+
+# Source directories merged into the artifact
+[artifact.dashboard.sources]
+template = "templates/bun-create/kimi-toolchain"
+example = "examples/dashboard"
+
+# bunfig.toml sections merged into the artifact bunfig
+[artifact.dashboard.bunfig.install]
+saveTextLockfile = true
+linker = "isolated"
+frozenLockfile = true
+concurrentScripts = 8
+minimumReleaseAge = 259200
+minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
+
+[artifact.dashboard.bunfig.test]
+pathIgnorePatterns = [
+  "vendor/**",
+  "submodules/**",
+  "fixtures/**",
+  "**/test-data/**",
+  "examples/**",
+]
