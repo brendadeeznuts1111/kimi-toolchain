@@ -74,6 +74,7 @@ async function fetchJson(url) { const res = await fetch(url); return res.json();
     el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
       <span style="color:var(--muted)">PATH:</span>${tools}
       <span class="badge badge-ok" style="margin:0 4px">${rt.runtime} ${rt.version}</span>
+      ${rt.activeBunfig ? `<span style="color:var(--muted);font-size:11px">config:${rt.activeBunfig}</span>` : ''}
       <span style="margin-left:auto">${vars}</span>
     </div>`;
   } catch(e) { el.innerHTML = `<span class="status err">${e.message}</span>`; }

@@ -164,14 +164,22 @@ async function apiBuildInfo(): Promise<Response> {
 async function apiRuntimeInfo(): Promise<Response> {
   const isBun = typeof Bun !== "undefined";
   const runtime = isBun ? "bun" : (typeof process !== "undefined" && process.versions?.node ? "node" : "unknown");
+
+  // Resolve active bunfig.toml path (--config flag or default lookup)
+  const bunfigCandidates = ["./bunfig.toml", `${Bun.env.HOME}/.bunfig.toml`];
+  let activeBunfig: string | null = null;
+  for (const candidate of bunfigCandidates) {
+    if (await Bun.file(candidate).exists()) { activeBunfig = candidate; break; }
+  }
+
   return jsonResponse({
     runtime,
     version: isBun ? Bun.version : (process.versions?.node || "unknown"),
     isBun,
     bunVersion: isBun ? Bun.version : null,
     bunRevision: isBun ? Bun.revision : null,
-    detection: 'typeof Bun !== "undefined"',
-    note: "Runtime detection pattern — no type-definition overhead",
+    activeBunfig,
+    note: "--config <path> overrides bunfig.toml lookup. Runtime: typeof Bun !== 'undefined'",
   });
 }
 
