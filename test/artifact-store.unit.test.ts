@@ -507,4 +507,68 @@ describe("artifact-store", () => {
       expect(store.getIndex().find({})).toHaveLength(0);
     });
   });
+
+  test("listRunArtifactRefs prefers SQLite index over manifest map", async () => {
+    await withTempDir("artifact-store-run-refs-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      const runId = "run_hybrid_a";
+      const path = await store.save("model-drift", { ok: true }, { runId });
+      const relativePath = path.slice(dir.length + 1);
+      const manifest = {
+        schemaVersion: 1 as const,
+        runId,
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        gates: ["model-drift"],
+        artifacts: { "model-drift": "stale/path.json" },
+        status: "pass" as const,
+      };
+      await store.saveRunManifest(manifest);
+
+      const refs = await store.listRunArtifactRefs(runId, manifest);
+      expect(refs).toHaveLength(1);
+      expect(refs[0]?.indexSource).toBe(true);
+      expect(refs[0]?.relativePath).toBe(relativePath);
+    });
+  });
+
+  test("syncIndexIfDrifted rebuilds when filesystem and index counts diverge", async () => {
+    await withTempDir("artifact-store-sync-drift-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      await store.save("lint", { ok: true });
+      store.getIndex().reset();
+      const sync = await store.syncIndexIfDrifted();
+      expect(sync.rebuilt).toBe(true);
+      expect(sync.fsCount).toBe(1);
+      expect(sync.indexCount).toBe(1);
+    });
+  });
+
+  test("diffArtifactPaths compares content hashes", async () => {
+    await withTempDir("artifact-store-diff-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      const pathA = await store.save("lint", { ok: true, n: 1 });
+      await Bun.sleep(2);
+      const pathB = await store.save("lint", { ok: true, n: 2 });
+      const relA = pathA.slice(dir.length + 1);
+      const relB = pathB.slice(dir.length + 1);
+      const diff = await store.diffArtifactPaths(relA, relB);
+      expect(diff.ok).toBe(true);
+      expect(diff.equal).toBe(false);
+      expect(diff.hashA).toMatch(/^[a-f0-9]{64}$/);
+      expect(diff.hashB).toMatch(/^[a-f0-9]{64}$/);
+    });
+  });
+
+  test("rebuildIndex restores index from filesystem", async () => {
+    await withTempDir("artifact-store-rebuild-index-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      await store.save("lint", { ok: true }, { sessionId: "s_rebuild", runId: "run_rebuild" });
+      store.getIndex().reset();
+
+      const rebuilt = await store.rebuildIndex();
+      expect(rebuilt).toBe(1);
+      expect(store.getIndex().findByRunId("run_rebuild")).toHaveLength(1);
+    });
+  });
 });

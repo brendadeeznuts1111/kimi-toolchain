@@ -11,7 +11,6 @@ import { hostname } from "node:os";
 import { join } from "path";
 import { listDir, makeDir, pathExists, removePath } from "./bun-io.ts";
 import { GATE_LEVEL_PRUNE_MS } from "../gates/types.ts";
-import { resolveIdentityContext } from "./artifact-identity.ts";
 import { generateArtifactLineageMermaid, generateRunLineageMermaid } from "./graph-to-mermaid.ts";
 import { safeParse } from "./utils.ts";
 import {
@@ -21,9 +20,16 @@ import {
   type ArtifactIndexQuery,
   type ArtifactIndexRow,
   type ArtifactIndexStats,
+  type ArtifactMetadataCollectionEntry,
 } from "./artifact-index.ts";
 
-export type { ArtifactIndexDistinct, ArtifactIndexQuery, ArtifactIndexRow, ArtifactIndexStats };
+export type {
+  ArtifactIndexDistinct,
+  ArtifactIndexQuery,
+  ArtifactIndexRow,
+  ArtifactIndexStats,
+  ArtifactMetadataCollectionEntry,
+};
 export { computeArtifactContentHash };
 
 export const ARTIFACT_SCHEMA_VERSION = 1;
@@ -416,6 +422,14 @@ export function resolveArtifactSessionContext(): ArtifactSessionContext {
   };
 }
 
+function resolveArtifactIdentityContext(options?: { runId?: string }): ArtifactSessionContext & {
+  runId: string;
+} {
+  const base = resolveArtifactSessionContext();
+  const runId = normalizeArtifactIdentityValue(options?.runId) || base.runId || generateRunId();
+  return { ...base, runId };
+}
+
 function readArtifactSessionFields(metadata: ArtifactMetadata | undefined): ArtifactSessionContext {
   if (!metadata) return {};
   const sessionId =
@@ -528,6 +542,42 @@ export function parseArtifactListQuery(searchParams: URLSearchParams): ArtifactL
   return options;
 }
 
+function artifactListOptionsToIndexQuery(
+  filter: ArtifactListOptions,
+  gate?: string
+): ArtifactIndexQuery {
+  const sessionIds = [
+    ...(filter.sessionIds ?? []),
+    ...(filter.sessionId ? [filter.sessionId] : []),
+  ];
+  const workspaceIds = [
+    ...(filter.workspaceIds ?? []),
+    ...(filter.workspaceId ? [filter.workspaceId] : []),
+  ];
+  const paneIds = [...(filter.paneIds ?? []), ...(filter.paneId ? [filter.paneId] : [])];
+  const agentIds = [...(filter.agentIds ?? []), ...(filter.agentId ? [filter.agentId] : [])];
+  const runIds = [...(filter.runIds ?? []), ...(filter.runId ? [filter.runId] : [])];
+  const parentRunIds = [
+    ...(filter.parentRunIds ?? []),
+    ...(filter.parentRunId ? [filter.parentRunId] : []),
+  ];
+
+  return {
+    ...(gate ? { gates: [gate] } : {}),
+    ...(sessionIds.length > 0 ? { sessionIds } : {}),
+    ...(workspaceIds.length > 0 ? { workspaceIds } : {}),
+    ...(paneIds.length > 0 ? { paneIds } : {}),
+    ...(agentIds.length > 0 ? { agentIds } : {}),
+    ...(runIds.length > 0 ? { runIds } : {}),
+    ...(parentRunIds.length > 0 ? { parentRunIds } : {}),
+    ...(filter.statuses && filter.statuses.length > 0 ? { statuses: filter.statuses } : {}),
+    ...(filter.since ? { since: filter.since } : {}),
+    ...(filter.until ? { until: filter.until } : {}),
+    ...(filter.limit !== undefined ? { limit: filter.limit } : {}),
+    order: "desc",
+  };
+}
+
 function resolveArtifactsRelativeDir(override?: string): string {
   const env = Bun.env.KIMI_ARTIFACTS_DIR?.trim();
   const raw = override ?? env ?? join(".kimi", "artifacts");
@@ -552,6 +602,167 @@ export class ArtifactStore {
     return this.index;
   }
 
+  /** Rebuild the read-only SQLite index from filesystem envelopes (idempotent). */
+  async rebuildIndex(): Promise<number> {
+    return this.index.rebuild(async (gateRelativePath) => {
+      const relativePath = join(this.artifactsRelativeDir, gateRelativePath);
+      const envelope = await this.readEnvelope(relativePath);
+      if (!envelope) return null;
+      return { envelope, relativePath };
+    });
+  }
+
+  /** Count envelope JSON files on disk (excludes `runs/` manifests). */
+  async countFilesystemArtifacts(): Promise<number> {
+    const dir = this.rootArtifactsDir();
+    if (!pathExists(dir)) return 0;
+    let count = 0;
+    for (const entry of listDir(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.name === "runs") continue;
+      count += listDir(join(dir, entry.name)).filter((name) => name.endsWith(".json")).length;
+    }
+    return count;
+  }
+
+  /** Warm the index when artifact files exist but `.index.sqlite` is missing. */
+  async ensureIndex(): Promise<boolean> {
+    if (this.index.exists()) return false;
+    const dir = this.rootArtifactsDir();
+    if (!pathExists(dir)) return false;
+    for (const entry of listDir(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.name === "runs") continue;
+      const gateDir = join(dir, entry.name);
+      if (listDir(gateDir).some((name) => name.endsWith(".json"))) {
+        await this.rebuildIndex();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Rebuild the SQLite index when filesystem and index row counts diverge.
+   * Returns whether a rebuild ran.
+   */
+  async syncIndexIfDrifted(): Promise<{ rebuilt: boolean; fsCount: number; indexCount: number }> {
+    let rebuilt = await this.ensureIndex();
+    const fsCount = await this.countFilesystemArtifacts();
+    if (fsCount === 0) {
+      return {
+        rebuilt,
+        fsCount: 0,
+        indexCount: this.index.exists() ? this.index.stats().totalArtifacts : 0,
+      };
+    }
+    if (!this.index.exists()) {
+      const indexed = await this.rebuildIndex();
+      return { rebuilt: true, fsCount, indexCount: indexed };
+    }
+    const indexCount = this.index.stats().totalArtifacts;
+    if (fsCount !== indexCount) {
+      const indexed = await this.rebuildIndex();
+      return { rebuilt: true, fsCount, indexCount: indexed };
+    }
+    return { rebuilt, fsCount, indexCount };
+  }
+
+  /** SQLite index summary (read-only layer). */
+  async getIndexStats(): Promise<ArtifactIndexStats & { fsArtifactCount: number }> {
+    const sync = await this.syncIndexIfDrifted();
+    return { ...this.index.stats(), fsArtifactCount: sync.fsCount };
+  }
+
+  /** Indexed metadata collection — reads `metadata_json` from `.index.sqlite`. */
+  async collectMetadata(
+    filter: ArtifactListOptions = {},
+    options: { gate?: string } = {}
+  ): Promise<{
+    ok: true;
+    entries: ArtifactMetadataCollectionEntry[];
+    total: number;
+    indexSource: "sqlite";
+  }> {
+    await this.syncIndexIfDrifted();
+    const query = artifactListOptionsToIndexQuery(filter, options.gate);
+    const entries = this.index.findMetadataCollection(query);
+    return { ok: true, entries, total: entries.length, indexSource: "sqlite" };
+  }
+
+  /** Compare two artifact envelopes by content hash and indexed metadata. */
+  async diffArtifactPaths(
+    pathA: string,
+    pathB: string
+  ): Promise<{
+    ok: boolean;
+    pathA: string;
+    pathB: string;
+    hashA: string | null;
+    hashB: string | null;
+    equal: boolean;
+    statusA?: string;
+    statusB?: string;
+    runIdA?: string;
+    runIdB?: string;
+    error?: string;
+  }> {
+    await this.syncIndexIfDrifted();
+    const envelopeA = await this.readEnvelope(pathA);
+    const envelopeB = await this.readEnvelope(pathB);
+    if (!envelopeA || !envelopeB) {
+      return {
+        ok: false,
+        pathA,
+        pathB,
+        hashA: null,
+        hashB: null,
+        equal: false,
+        error: !envelopeA ? `Artifact not found: ${pathA}` : `Artifact not found: ${pathB}`,
+      };
+    }
+    const hashA = computeArtifactContentHash(envelopeA.payload);
+    const hashB = computeArtifactContentHash(envelopeB.payload);
+    const rowA = this.index.findByRelativePath(pathA);
+    const rowB = this.index.findByRelativePath(pathB);
+    return {
+      ok: true,
+      pathA,
+      pathB,
+      hashA: rowA?.contentHash ?? hashA,
+      hashB: rowB?.contentHash ?? hashB,
+      equal: hashA === hashB,
+      ...(rowA?.status ? { statusA: rowA.status } : {}),
+      ...(rowB?.status ? { statusB: rowB.status } : {}),
+      ...(rowA?.runId ? { runIdA: rowA.runId } : {}),
+      ...(rowB?.runId ? { runIdB: rowB.runId } : {}),
+    };
+  }
+
+  /**
+   * Resolve artifact paths for a run — prefers SQLite index, falls back to manifest map.
+   * Files remain authoritative; the index is the fast read path.
+   */
+  async listRunArtifactRefs(
+    runId: string,
+    manifest: ArtifactRunManifest
+  ): Promise<Array<{ gate: string; relativePath: string; indexSource: boolean }>> {
+    await this.syncIndexIfDrifted();
+    const indexed = this.index.findByRunId(runId, { order: "asc" });
+    if (indexed.length > 0) {
+      return indexed.map((row) => ({
+        gate: row.gate,
+        relativePath: row.relativePath,
+        indexSource: true,
+      }));
+    }
+    return manifest.gates
+      .map((gate) => ({
+        gate,
+        relativePath: manifest.artifacts[gate] ?? "",
+        indexSource: false,
+      }))
+      .filter((row) => row.relativePath.length > 0);
+  }
+
   private rootArtifactsDir(): string {
     return join(this.projectRoot, this.artifactsRelativeDir);
   }
@@ -562,6 +773,7 @@ export class ArtifactStore {
 
   /** Gate names with at least one saved artifact, sorted alphabetically. */
   async listGates(): Promise<string[]> {
+    await this.syncIndexIfDrifted();
     if (this.index.exists()) {
       return this.index.listGates();
     }
@@ -691,7 +903,7 @@ export class ArtifactStore {
     }
 
     const identity = normalizeArtifactSessionContext(
-      resolveIdentityContext({ runId: meta?.runId?.trim() })
+      resolveArtifactIdentityContext({ runId: meta?.runId?.trim() })
     );
     const parentRunId = normalizeArtifactIdentityValue(meta?.parentRunId) || identity.parentRunId;
     const metadata: ArtifactMetadata = {
@@ -872,6 +1084,7 @@ export class ArtifactStore {
     gateName: string,
     options: ArtifactListOptions = {}
   ): Promise<ArtifactListEntriesResult> {
+    await this.syncIndexIfDrifted();
     const useIndex = this.index.exists() && this.hasAdvancedFilter(options);
 
     if (useIndex) {
