@@ -3,8 +3,15 @@
  *
  * Distinct from `src/lib/gate-runner.ts` (CI shell gates: format, lint, tsc).
  */
-import { ArtifactStore } from "../lib/artifact-store.ts";
-import type { Gate, GateArtifact, GateResult, GateRunOptions, GateStatus } from "./types.ts";
+import { type ArtifactDependencyQuery, ArtifactStore } from "../lib/artifact-store.ts";
+import type {
+  Gate,
+  GateArtifact,
+  GateArtifactListOptions,
+  GateResult,
+  GateRunOptions,
+  GateStatus,
+} from "./types.ts";
 
 export interface GateRunResult {
   gate: string;
@@ -44,6 +51,21 @@ export function planGateExecution(gates: Gate[]): GateExecutionPlan {
       dependsOn: g.dependsOn ?? [],
     })),
   };
+}
+
+/**
+ * Find `dependsOn` edges whose target gate is missing from the input array.
+ * Callers should pass `resolveGateClosure(name).gates` (see `kimi-doctor --gate`).
+ */
+export function findMissingGateDependencies(gates: Gate[]): string[] {
+  const names = new Set(gates.map((g) => g.name));
+  const missing: string[] = [];
+  for (const gate of gates) {
+    for (const dep of gate.dependsOn ?? []) {
+      if (!names.has(dep)) missing.push(`${gate.name} → ${dep}`);
+    }
+  }
+  return missing;
 }
 
 /** Topological sort (Kahn's algorithm). Returns gates in execution order. */
@@ -137,11 +159,20 @@ export interface DependencyRunnerOptions extends GateRunOptions {
   failFast?: boolean;
 }
 
-function buildGetArtifact(
+function artifactPayload(result: GateResult): unknown {
+  if (result.lineage) {
+    const { artifactPath: _path, lineage, ...rest } = result;
+    return { ...rest, lineage };
+  }
+  const { artifactPath: _path, ...rest } = result;
+  return rest;
+}
+
+function buildGateContext(
   runResults: Map<string, GateResult>,
   store: ArtifactStore | null
-): (gateName: string) => Promise<GateArtifact | null> {
-  return async (gateName: string): Promise<GateArtifact | null> => {
+): Required<Pick<GateRunOptions, "getArtifact" | "getArtifacts" | "readArtifact">> {
+  const getArtifact = async (gateName: string): Promise<GateArtifact | null> => {
     const inRun = runResults.get(gateName);
     if (inRun) {
       return {
@@ -149,7 +180,7 @@ function buildGetArtifact(
         path: inRun.artifactPath,
         relativePath:
           inRun.artifactPath && store ? store.relativePath(inRun.artifactPath) : undefined,
-        payload: inRun,
+        payload: artifactPayload(inRun),
       };
     }
     if (!store) return null;
@@ -162,6 +193,94 @@ function buildGetArtifact(
       payload: latest.payload,
     };
   };
+
+  const getArtifacts = async (
+    gateName: string,
+    opts: GateArtifactListOptions = {}
+  ): Promise<unknown[]> => {
+    const limit =
+      opts.limit !== undefined && Number.isFinite(opts.limit) && opts.limit > 0
+        ? Math.floor(opts.limit)
+        : undefined;
+    const payloads: unknown[] = [];
+    const inRun = runResults.get(gateName);
+    if (inRun) payloads.push(artifactPayload(inRun));
+    if (limit !== undefined && payloads.length >= limit) return payloads.slice(0, limit);
+    if (!store) return limit === undefined ? payloads : payloads.slice(0, limit);
+
+    const inRunRelative =
+      inRun?.artifactPath && store ? store.relativePath(inRun.artifactPath) : undefined;
+    const listed = await store.listFiltered(gateName, {
+      since: opts.since,
+      ...(limit !== undefined ? { limit } : {}),
+    });
+    for (const relativePath of listed.files) {
+      if (relativePath === inRunRelative) continue;
+      const envelope = await store.readEnvelope(relativePath);
+      if (envelope) payloads.push(envelope.payload);
+      if (limit !== undefined && payloads.length >= limit) break;
+    }
+    return limit === undefined ? payloads : payloads.slice(0, limit);
+  };
+
+  const readArtifact = async (artifactPath: string): Promise<unknown> => {
+    if (!store) return null;
+    const relativePath = artifactPath.startsWith(".kimi/")
+      ? artifactPath
+      : store.relativePath(artifactPath);
+    const envelope = await store.readEnvelope(relativePath);
+    return envelope?.payload ?? null;
+  };
+
+  return { getArtifact, getArtifacts, readArtifact };
+}
+
+async function resolveUpstreamArtifacts(
+  deps: string[],
+  runResults: Map<string, GateResult>,
+  store: ArtifactStore | null
+): Promise<string[]> {
+  const upstreamArtifacts: string[] = [];
+  for (const dep of deps) {
+    const depResult = runResults.get(dep);
+    if (depResult?.artifactPath) {
+      upstreamArtifacts.push(
+        store ? store.relativePath(depResult.artifactPath) : depResult.artifactPath
+      );
+      continue;
+    }
+    if (!store) continue;
+    const latest = await store.getLatest(dep);
+    if (latest?.relativePath) upstreamArtifacts.push(latest.relativePath);
+  }
+  return upstreamArtifacts;
+}
+
+function declarativeDependsOn(
+  deps: string[],
+  upstreamArtifacts: string[]
+): ArtifactDependencyQuery[] {
+  return deps.map((dep, index) => ({
+    gate: dep,
+    ...(upstreamArtifacts[index] ? { paths: [upstreamArtifacts[index]!] } : {}),
+  }));
+}
+
+/** Persist gate output and attach traceable upstream paths for downstream gates. */
+export async function persistGateArtifact(
+  gate: Gate,
+  result: GateResult,
+  deps: string[],
+  upstreamArtifacts: string[],
+  store: ArtifactStore
+): Promise<GateResult> {
+  const dependsOn = declarativeDependsOn(deps, upstreamArtifacts);
+  const artifactPath = await store.save(gate.name, artifactPayload(result), {
+    level: gate.level,
+    ...(dependsOn.length > 0 ? { dependsOn } : {}),
+    ...(result.lineage ? { lineage: result.lineage } : {}),
+  });
+  return { ...result, artifactPath };
 }
 
 /** Run gates in dependency order, propagating failures. */
@@ -169,11 +288,19 @@ export async function runGatesWithDependencies(
   gates: Gate[],
   opts: DependencyRunnerOptions = {}
 ): Promise<DependencyRunOutcome> {
+  const missingDeps = findMissingGateDependencies(gates);
+  if (missingDeps.length > 0) {
+    throw new Error(
+      `Gate closure incomplete (missing dependencies in array): ${missingDeps.join(", ")}. ` +
+        "Use resolveGateClosure(gateName).gates from registry.ts before calling runGatesWithDependencies."
+    );
+  }
+
   const order = topologicalSort(gates);
   const runResults = new Map<string, GateResult>();
   const output: GateRunResult[] = [];
   const store = opts.projectRoot ? new ArtifactStore(opts.projectRoot) : null;
-  const getArtifact = buildGetArtifact(runResults, store);
+  const context = buildGateContext(runResults, store);
 
   for (const gate of order) {
     const deps = gate.dependsOn ?? [];
@@ -190,11 +317,23 @@ export async function runGatesWithDependencies(
       continue;
     }
 
-    const result = await gate.run({
+    let result = await gate.run({
       projectRoot: opts.projectRoot,
-      saveArtifact: opts.saveArtifact,
-      getArtifact,
+      saveArtifact: false,
+      getArtifact: context.getArtifact,
+      getArtifacts: context.getArtifacts,
+      readArtifact: context.readArtifact,
     });
+
+    const upstreamArtifacts = await resolveUpstreamArtifacts(deps, runResults, store);
+    if (deps.length > 0) {
+      result.lineage = { dependencies: deps, upstreamArtifacts };
+    }
+
+    if (opts.saveArtifact && store) {
+      result = await persistGateArtifact(gate, result, deps, upstreamArtifacts, store);
+    }
+
     runResults.set(gate.name, result);
 
     output.push({

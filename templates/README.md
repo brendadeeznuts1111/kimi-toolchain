@@ -179,22 +179,24 @@ Most dashboard data flows through three layers:
 
 ## Existing API routes (reference)
 
-| Route                  | Purpose                                                                                                                           |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/meta`        | Runtime config, discovery context, and WebView metadata.                                                                          |
-| `GET /api/agents`      | Current agent snapshot.                                                                                                           |
-| `GET /api/agents/live` | SSE live stream of agent updates.                                                                                                 |
-| `GET /api/health`      | Lightweight subsystem health (agents, SSE, herdr socket, gates, **probe**, discovery). Schema: `schemas/herdr-dashboard-health.schema.json`. |
-| `GET /api/artifacts`   | Saved gate artifacts (disk) with `latestSize` / `latestResultSize` and serve-probe reachability hint. |
-| `GET /api/probe/cards` | Proxy to serve-probe `/api/cards` (live dashboard card snapshot). |
-| `GET /api/handoffs`    | Handoff history.                                                                                                                  |
-| `GET /api/rules`       | Handoff rules with last-fired metadata.                                                                                           |
-| `GET /api/scan`        | Upgrade scan findings.                                                                                                            |
-| `GET /api/events`      | Audit events query.                                                                                                               |
-| `GET /api/canvases`    | Cursor canvas manifest.                                                                                                           |
-| `GET /api/metrics`     | Runtime metrics.                                                                                                                  |
-| `GET /api/debug/logs`  | Curated debug log tail.                                                                                                           |
-| `GET /api/thumbnail`   | Dashboard screenshot thumbnail.                                                                                                   |
+| Route                              | Purpose                                                                                                                                      |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/meta`                    | Runtime config, discovery context, and WebView metadata.                                                                                     |
+| `GET /api/agents`                  | Current agent snapshot.                                                                                                                      |
+| `GET /api/agents/live`             | SSE live stream of agent updates.                                                                                                            |
+| `GET /api/health`                  | Lightweight subsystem health (agents, SSE, herdr socket, gates, **probe**, discovery). Schema: `schemas/herdr-dashboard-health.schema.json`. |
+| `GET /api/artifacts`               | Saved gate artifacts (disk) with `latestSize` / `latestResultSize` and serve-probe reachability hint.                                        |
+| `GET /api/gates/graph`             | Static gate execution DAG as Mermaid (`?gate=` optional closure filter).                                                                     |
+| `GET /api/artifacts/:gate/lineage` | Artifact lineage Mermaid — runtime `metadata.lineage` or declarative `dependsOn` (`?path=` optional).                                        |
+| `GET /api/probe/cards`             | Proxy to serve-probe `/api/cards` (live dashboard card snapshot).                                                                            |
+| `GET /api/handoffs`                | Handoff history.                                                                                                                             |
+| `GET /api/rules`                   | Handoff rules with last-fired metadata.                                                                                                      |
+| `GET /api/scan`                    | Upgrade scan findings.                                                                                                                       |
+| `GET /api/events`                  | Audit events query.                                                                                                                          |
+| `GET /api/canvases`                | Cursor canvas manifest.                                                                                                                      |
+| `GET /api/metrics`                 | Runtime metrics.                                                                                                                             |
+| `GET /api/debug/logs`              | Curated debug log tail.                                                                                                                      |
+| `GET /api/thumbnail`               | Dashboard screenshot thumbnail.                                                                                                              |
 
 ## Environment variables
 
@@ -206,6 +208,12 @@ The server reads these variables to configure the dashboard at runtime:
 
 Other tuning values (`pollHintMs`, `ssePollMs`, `staleMs`, etc.) are passed from
 the server caller in `src/lib/herdr-dashboard-server.ts`.
+
+## Lineage tab (Mermaid)
+
+The **Lineage** tab loads Mermaid.js from jsDelivr (`mermaid@11`). When offline, graphs
+fall back to raw Mermaid source text in the panel. Gate execution DAG is static; artifact
+lineage prefers runtime `metadata.lineage`, then declarative `dependsOn`.
 
 ## Styling conventions
 

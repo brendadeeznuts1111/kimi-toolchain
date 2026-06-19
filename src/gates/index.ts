@@ -8,7 +8,14 @@ export {
   type BunfigPolicyGateSummary,
 } from "./bunfig-policy.ts";
 
-export type { Gate, GateResult, GateRunOptions, GateStatus } from "./types.ts";
+export type {
+  Gate,
+  GateArtifactListOptions,
+  GateContext,
+  GateResult,
+  GateRunOptions,
+  GateStatus,
+} from "./types.ts";
 
 export { runPerfGate, perfGateDefinition, type PerfGateDoctorResult } from "./perf-gate.ts";
 export {
@@ -22,6 +29,10 @@ export {
   type CardProbeGateResult,
 } from "./card-probe.ts";
 
+/**
+ * Gate lookup uses the dynamic registry in `registry.ts` — not keyed exports here.
+ * CLI: `getGate(name)` or `gateRegistry.get(name)`.
+ */
 export {
   discoverGates,
   gateRegistry,
@@ -34,9 +45,11 @@ export {
 
 export {
   detectCycle,
+  findMissingGateDependencies,
   formatGateResults,
   generateGateGraph,
   planGateExecution,
+  persistGateArtifact,
   runGatesWithDependencies,
   topologicalSort,
   type DependencyRunOutcome,

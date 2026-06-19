@@ -42,6 +42,8 @@ import {
   fetchDashboardMetrics,
   fetchDashboardTlsCompliance,
   fetchDashboardArtifacts,
+  fetchDashboardArtifactLineage,
+  fetchDashboardGateGraph,
   fetchDashboardProbeCards,
   fetchDashboardProbeHealthInput,
   type DashboardActionRequest,
@@ -194,8 +196,17 @@ function dashboardAssetResponse(name: string): Response {
       ? "application/javascript; charset=utf-8"
       : "application/octet-stream";
   return new Response(Bun.file(path), {
-    headers: { "content-type": type, "cache-control": "no-store" },
+    headers: withCorsHeaders({ "content-type": type, "cache-control": "no-store" }),
   });
+}
+
+function withCorsHeaders(headers: Record<string, string> = {}): Record<string, string> {
+  return {
+    ...headers,
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-allow-headers": "content-type",
+  };
 }
 
 /** LQIP data URL for a cached dashboard screenshot PNG. */
@@ -206,10 +217,10 @@ export async function dashboardScreenshotPlaceholder(png: Uint8Array): Promise<s
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(`${inspectAgent(body)}\n`, {
     status,
-    headers: {
+    headers: withCorsHeaders({
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
-    },
+    }),
   });
 }
 
@@ -346,13 +357,23 @@ export function startHerdrDashboardServer(
       const url = new URL(request.url);
       const path = url.pathname;
 
+      if (request.method === "OPTIONS" && path.startsWith("/api/")) {
+        return new Response(null, {
+          status: 204,
+          headers: withCorsHeaders({ "cache-control": "no-store" }),
+        });
+      }
+
       if (path === "/favicon.ico") {
         return new Response(null, { status: 204 });
       }
 
       if (path === "/" || path === "/index.html") {
         return new Response(dashboardHtml(), {
-          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+          headers: withCorsHeaders({
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-store",
+          }),
         });
       }
 
@@ -451,11 +472,11 @@ export function startHerdrDashboardServer(
         const cached = thumbnailCache.get(cacheKey);
         if (cached) {
           return new Response(cached, {
-            headers: {
+            headers: withCorsHeaders({
               "content-type": thumbnailFormatMime(format),
               "cache-control": "no-store",
               "x-thumbnail-cache": "hit",
-            },
+            }),
           });
         }
 
@@ -466,11 +487,11 @@ export function startHerdrDashboardServer(
           }
           thumbnailCache.set(cacheKey, bytes);
           return new Response(bytes, {
-            headers: {
+            headers: withCorsHeaders({
               "content-type": thumbnailFormatMime(format),
               "cache-control": "no-store",
               "x-thumbnail-cache": "miss",
-            },
+            }),
           });
         } catch (e: unknown) {
           const message = e instanceof Error ? e.message : String(e);
@@ -485,11 +506,11 @@ export function startHerdrDashboardServer(
 
       if (path === "/api/agents/live") {
         return new Response(hub.createAgentsLiveStream(), {
-          headers: {
+          headers: withCorsHeaders({
             "content-type": "text/event-stream; charset=utf-8",
             "cache-control": "no-cache",
             connection: "keep-alive",
-          },
+          }),
         });
       }
 
@@ -593,7 +614,10 @@ export function startHerdrDashboardServer(
         }
         const md = exportEventsToMarkdown(result.events);
         return new Response(md, {
-          headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "no-store" },
+          headers: withCorsHeaders({
+            "content-type": "text/markdown; charset=utf-8",
+            "cache-control": "no-store",
+          }),
         });
       }
 
@@ -606,6 +630,24 @@ export function startHerdrDashboardServer(
       if (path === "/api/artifacts" && request.method === "GET") {
         const payload = await fetchDashboardArtifacts(options.projectPath);
         return jsonResponse(payload);
+      }
+
+      const artifactLineageMatch = path.match(/^\/api\/artifacts\/([^/]+)\/lineage$/);
+      if (artifactLineageMatch && request.method === "GET") {
+        const gateName = decodeURIComponent(artifactLineageMatch[1]!);
+        const artifactPath = url.searchParams.get("path")?.trim() || undefined;
+        const payload = await fetchDashboardArtifactLineage(
+          options.projectPath,
+          gateName,
+          artifactPath
+        );
+        return jsonResponse(payload, payload.ok ? 200 : 404);
+      }
+
+      if (path === "/api/gates/graph" && request.method === "GET") {
+        const gate = url.searchParams.get("gate")?.trim() || undefined;
+        const payload = await fetchDashboardGateGraph(gate);
+        return jsonResponse(payload, payload.ok ? 200 : 404);
       }
 
       if (path === "/api/artifacts" || path.startsWith("/api/artifacts/")) {

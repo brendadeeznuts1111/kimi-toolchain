@@ -3,7 +3,7 @@ import {
   type BunInstallConfigAudit,
   type BunInstallPolicyRow,
 } from "../lib/bun-install-config.ts";
-import { ArtifactStore } from "../lib/artifact-store.ts";
+
 import type { Gate, GateResult, GateRunOptions } from "./types.ts";
 
 export type BunfigPolicyGateStatus = "pass" | "warn" | "fail";
@@ -140,17 +140,13 @@ export async function bunfigPolicyGate(
 /** Registry-facing runner with optional artifact persistence. */
 export async function runBunfigPolicyGate(opts: GateRunOptions = {}): Promise<GateResult> {
   const projectRoot = opts.projectRoot ?? process.cwd();
-  const result = await bunfigPolicyGate(projectRoot);
-  if (!opts.saveArtifact) return result;
-
-  const store = new ArtifactStore(projectRoot);
-  const artifactPath = await store.save("bunfig-policy", result);
-  return { ...result, artifactPath };
+  return bunfigPolicyGate(projectRoot);
 }
 
 export const bunfigPolicyGateDefinition: Gate = {
   name: "bunfig-policy",
   description: "Audit bunfig.toml install policy",
+  level: 3,
   run: runBunfigPolicyGate,
   format: (result) => formatBunfigPolicyGate(result as BunfigPolicyGateResult),
 };

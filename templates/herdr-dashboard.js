@@ -1,12 +1,17 @@
 const SESSION_STORAGE_KEY = "herdr-dashboard.activeSession";
 const SESSION_ALL = "__all__";
 const STATIC_PREVIEW = window.location.protocol === "file:";
+const STATIC_API_ORIGIN = globalThis.__HERDR_DASHBOARD_API_ORIGIN__ || "http://127.0.0.1:18412";
+const nativeFetch = globalThis.fetch.bind(globalThis);
 let lastFilteredAgentsJson = "";
 let lastHandoffsJson = "";
 let lastRulesJson = "";
 let lastScanJson = "";
 let lastCanvasesJson = "";
 let lastArtifactsJson = "";
+let lastLineageGateGraph = "";
+let lastLineageArtifactKey = "";
+let mermaidReady = false;
 let gateHealthPollTimer = null;
 let lastEventsJson = "";
 let eventsTypeFilter = "";
@@ -45,6 +50,21 @@ let activeSession = loadActiveSession();
 let thumbLive = false;
 let examplesDashboardUrl = null;
 let examplesLoadTimer = null;
+
+function apiUrl(path) {
+  if (!STATIC_PREVIEW || typeof path !== "string" || !path.startsWith("/api/")) {
+    return path;
+  }
+  return new URL(path, STATIC_API_ORIGIN).toString();
+}
+
+function resolveFetchInput(input) {
+  if (typeof input === "string") return apiUrl(input);
+  if (input instanceof URL) return new URL(apiUrl(`${input.pathname}${input.search}${input.hash}`));
+  return input;
+}
+
+globalThis.fetch = (input, init) => nativeFetch(resolveFetchInput(input), init);
 
 /**
  * Panel registry — central place for adding/removing dashboard tabs.
@@ -106,6 +126,14 @@ const PANELS = {
     activate() {
       lastArtifactsJson = "";
       void refreshArtifacts();
+    },
+  },
+  lineage: {
+    label: "Lineage",
+    activate() {
+      lastLineageGateGraph = "";
+      lastLineageArtifactKey = "";
+      void refreshLineage();
     },
   },
   events: {
@@ -170,8 +198,7 @@ function showStaticPanelNotice(tab = activeTab) {
     panel?.querySelector(".empty-state") ||
     document.getElementById("agents-error");
   if (!target) return;
-  target.innerHTML =
-    'Static preview only. Open <a href="http://127.0.0.1:18412/">the live dashboard server</a> for data and controls.';
+  target.innerHTML = `Waiting for the local dashboard API at <a href="${STATIC_API_ORIGIN}/">${STATIC_API_ORIGIN}</a>.`;
 }
 
 function normalizeSessionValue(session) {
@@ -235,11 +262,18 @@ function truncateCwd(cwd, max = 48) {
   return `…${text.slice(-(max - 1))}`;
 }
 
-function updateProcessesSummary(count, label) {
+function updateProcessesSummary(count, label, details = {}) {
   const summary = document.getElementById("processes-summary");
   if (!summary) return;
   const suffix = label ? ` · ${label}` : "";
-  summary.textContent = `· ${count} pane${count === 1 ? "" : "s"}${suffix}`;
+  const agentCount = typeof details.agentCount === "number" ? details.agentCount : null;
+  const shellCount = typeof details.shellCount === "number" ? details.shellCount : null;
+  const focusedPane = details.focusedPane ? ` · focus ${details.focusedPane}` : "";
+  const composition =
+    agentCount === null || shellCount === null
+      ? ""
+      : ` · ${agentCount} agent · ${shellCount} shell`;
+  summary.textContent = `· ${count} pane${count === 1 ? "" : "s"}${composition}${focusedPane}${suffix}`;
 }
 
 function updateGitSummary(branch, changedCount, label) {
@@ -263,6 +297,25 @@ function gitStatusClass(xy) {
   if (code.includes("A")) return "git-xy-added";
   if (code.includes("M")) return "git-xy-modified";
   return "git-xy-untracked";
+}
+
+function gitStatusLabel(xy) {
+  const code = String(xy ?? "");
+  if (code.includes("?")) return "untracked";
+  if (code.includes("R")) return "renamed";
+  if (code.includes("D")) return "deleted";
+  if (code.includes("A")) return "added";
+  if (code.includes("M")) return "modified";
+  return code.trim() ? "changed" : "clean";
+}
+
+function gitStatusTone(xy) {
+  const label = gitStatusLabel(xy);
+  if (label === "deleted") return "error";
+  if (label === "added") return "ok";
+  if (label === "modified" || label === "renamed") return "warn";
+  if (label === "untracked") return "neutral";
+  return "info";
 }
 
 function wireGitToggle() {
@@ -305,7 +358,7 @@ function renderGit(data) {
     const message = data.error || data.message || "git unavailable";
     if (err) err.textContent = message;
     if (gitExpanded) {
-      renderGitEmpty("git-status-body", message, 2);
+      renderGitEmpty("git-status-body", message, 3);
       renderGitEmpty("git-commits-body", message, 3);
     }
     auditDashboard("git", {
@@ -341,12 +394,14 @@ function renderGit(data) {
   if (statusBody) {
     statusBody.replaceChildren();
     if (statusRows.length === 0) {
-      renderGitEmpty("git-status-body", "Working tree clean", 2);
+      renderGitEmpty("git-status-body", "Working tree clean", 3);
     } else {
       for (const row of statusRows) {
         const tr = document.createElement("tr");
+        const kind = gitStatusLabel(row.xy);
         tr.innerHTML = `
           <td><span class="git-xy ${gitStatusClass(row.xy)}">${esc(row.xy)}</span></td>
+          <td>${tagHtml(kind, gitStatusTone(row.xy))}</td>
           <td>${esc(row.path)}</td>`;
         statusBody.appendChild(tr);
       }
@@ -389,7 +444,7 @@ async function fetchGit() {
     const err = document.getElementById("git-error");
     if (err) err.textContent = "";
     if (gitExpanded) {
-      renderGitEmpty("git-status-body", "Select a single session to view git status", 2);
+      renderGitEmpty("git-status-body", "Select a single session to view git status", 3);
       renderGitEmpty("git-commits-body", "Select a single session to view git status", 3);
     }
     return;
@@ -405,7 +460,7 @@ async function fetchGit() {
     if (err) err.textContent = message;
     updateGitSummary("—", null);
     if (gitExpanded) {
-      renderGitEmpty("git-status-body", message, 2);
+      renderGitEmpty("git-status-body", message, 3);
       renderGitEmpty("git-commits-body", message, 3);
     }
     console.error("dashboard.git", error);
@@ -434,7 +489,7 @@ function renderProcessesEmpty(message) {
   body.replaceChildren();
   const tr = document.createElement("tr");
   const td = document.createElement("td");
-  td.colSpan = 6;
+  td.colSpan = 9;
   td.className = "empty-state";
   td.textContent = message;
   tr.appendChild(td);
@@ -536,7 +591,10 @@ function renderProcesses(data) {
 
   const panes = data.data?.panes || [];
   const count = data.data?.paneCount ?? panes.length;
-  updateProcessesSummary(count, sessionLabel);
+  const agentCount = panes.filter((pane) => pane.agent).length;
+  const shellCount = Math.max(0, panes.length - agentCount);
+  const focusedPane = panes.find((pane) => pane.focused)?.paneId || "";
+  updateProcessesSummary(count, sessionLabel, { agentCount, shellCount, focusedPane });
 
   const json = JSON.stringify(panes);
   if (json === lastProcessesJson) return;
@@ -564,12 +622,16 @@ function renderProcesses(data) {
     if (row.focused) tr.classList.add("processes-focused");
     if (activeLogsPaneId === row.paneId) tr.classList.add("processes-row-active");
     const agent = row.agent ? esc(row.agent) : "—";
+    const kind = row.agent ? "agent" : "shell";
     const agentStatus = row.agentStatus
       ? `<span class="status ${statusClass(row.agentStatus)}">${esc(row.agentStatus)}</span>`
       : "—";
     tr.innerHTML = `
       <td>${esc(row.paneId)}</td>
-      <td>${esc(row.title || "—")}</td>
+      <td title="${esc(row.title || "")}">${esc(row.tabId || "—")}</td>
+      <td>${esc(row.workspaceId || "—")}</td>
+      <td>${tagHtml(row.focused ? "focused" : "background", row.focused ? "ok" : "neutral")}</td>
+      <td>${tagHtml(kind, kind === "agent" ? "info" : "neutral")}</td>
       <td>${agent}</td>
       <td>${agentStatus}</td>
       <td class="processes-cwd" title="${esc(row.cwd)}">${esc(truncateCwd(row.cwd))}</td>`;
@@ -693,8 +755,17 @@ function updateLogsHeaderMeta(paneId, lineCount) {
 function renderLogsPreContent(lines) {
   const pre = getLogsPre();
   if (!pre) return;
-  const text = lines.length ? lines.join("\n") : "(empty)";
-  pre.textContent = text;
+  pre.replaceChildren();
+  if (!lines.length) {
+    pre.textContent = "(empty)";
+    return;
+  }
+  lines.forEach((line, index) => {
+    const row = document.createElement("div");
+    row.className = "process-log-line";
+    row.innerHTML = `<span class="log-number">${index + 1}</span><span>${esc(line)}</span>`;
+    pre.appendChild(row);
+  });
 }
 
 function wireLogsPreScroll(pre) {
@@ -773,7 +844,7 @@ function attachLogsRow(payload, options = {}) {
     tr = document.createElement("tr");
     tr.className = "processes-logs-row";
     const td = document.createElement("td");
-    td.colSpan = 6;
+    td.colSpan = 9;
     tr.appendChild(td);
     paneRow.insertAdjacentElement("afterend", tr);
   }
@@ -809,7 +880,8 @@ function attachLogsRow(payload, options = {}) {
         ${loadMore}
       </div>
     </div>
-    <pre class="processes-logs-pre">${esc(lines.length ? lines.join("\n") : "(empty)")}</pre>`;
+    <pre class="processes-logs-pre"></pre>`;
+  renderLogsPreContent(lines);
 
   wireLogsControls(tr, payload.paneId);
   setLogsRestartedVisible(Boolean(payload.paneRestarted));
@@ -1201,7 +1273,7 @@ function wireAgentThumbnail(data) {
   }
   wrap.classList.add("visible");
   wrap.setAttribute("aria-hidden", "false");
-  const thumbUrl = `${data.thumbnailPath}?width=160&height=90&quality=75&t=${Date.now()}`;
+  const thumbUrl = apiUrl(`${data.thumbnailPath}?width=160&height=90&quality=75&t=${Date.now()}`);
   if (thumbLive) {
     img.src = thumbUrl;
     return;
@@ -1397,7 +1469,7 @@ function showAgentsEmpty(message) {
   body.replaceChildren();
   const tr = document.createElement("tr");
   const td = document.createElement("td");
-  td.colSpan = 7;
+  td.colSpan = 8;
   td.className = "empty-state";
   td.innerHTML = `<strong>No agents discovered</strong>${esc(message)}`;
   tr.appendChild(td);
@@ -1455,6 +1527,7 @@ function renderAgents(data) {
       ${sessionCellHtml(row.session)}
       <td>${esc(row.workspaceId)}</td>
       <td>${esc(row.agent)}</td>
+      <td>${tagHtml(row.source || "local", row.source === "remote" ? "info" : "neutral")}</td>
       <td><span class="status ${statusClass(row.status)}"${
         row.status === "stale" && metaSnapshot
           ? ` title="No dashboard heartbeat for more than ${(metaSnapshot.staleMs || 15000) / 1000}s"`
@@ -1514,7 +1587,7 @@ function startSseFallback(intervalMs) {
 
 function connectAgentsLive() {
   const status = document.getElementById("stream-status");
-  const source = new EventSource("/api/agents/live");
+  const source = new EventSource(apiUrl("/api/agents/live"));
 
   const streamNote = () => {
     const herdr = metaSnapshot?.herdrEvents;
@@ -1905,6 +1978,167 @@ function wireMetricsPanel() {
   // metrics tab loaded on first activation via switchTab
 }
 
+// ── Lineage tab ──────────────────────────────────────────────────────
+
+async function ensureMermaid() {
+  if (mermaidReady) return true;
+  const m = globalThis.mermaid;
+  if (!m || typeof m.initialize !== "function") return false;
+  m.initialize({ startOnLoad: false, theme: "dark", securityLevel: "strict" });
+  mermaidReady = true;
+  return true;
+}
+
+async function renderMermaidInto(el, source, cacheKey) {
+  if (!el || !source) return;
+  if (!(await ensureMermaid())) {
+    el.textContent = source;
+    el.classList.remove("lineage-empty");
+    return;
+  }
+  const id = `mmd-${cacheKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  el.classList.remove("lineage-empty");
+  el.replaceChildren();
+  const pre = document.createElement("pre");
+  pre.className = "mermaid";
+  pre.id = id;
+  pre.textContent = source;
+  el.appendChild(pre);
+  try {
+    await globalThis.mermaid.run({ nodes: [pre] });
+  } catch (err) {
+    el.textContent = err instanceof Error ? err.message : String(err);
+  }
+}
+
+async function refreshLineageGateGraph() {
+  const el = document.getElementById("lineage-gate-graph");
+  const errEl = document.getElementById("lineage-error");
+  if (!el) return;
+
+  try {
+    const res = await fetch("/api/gates/graph");
+    const payload = await res.json();
+    if (!payload.ok) {
+      if (errEl) errEl.textContent = payload.error || "Failed to load gate graph";
+      return;
+    }
+    const mermaid = String(payload.mermaid ?? "");
+    if (mermaid === lastLineageGateGraph) return;
+    lastLineageGateGraph = mermaid;
+    if (errEl) errEl.textContent = "";
+    await renderMermaidInto(el, mermaid, "gate-graph");
+  } catch (err) {
+    if (errEl) errEl.textContent = err instanceof Error ? err.message : String(err);
+  }
+}
+
+async function refreshLineageArtifactGraph(gateName) {
+  const el = document.getElementById("lineage-artifact-graph");
+  const metaEl = document.getElementById("lineage-artifact-meta");
+  const errEl = document.getElementById("lineage-error");
+  if (!el) return;
+
+  if (!gateName) {
+    el.textContent = "No artifact selected";
+    el.classList.add("lineage-empty");
+    if (metaEl) metaEl.textContent = "Select a gate with saved artifacts";
+    return;
+  }
+
+  const cacheKey = gateName;
+  if (cacheKey === lastLineageArtifactKey) return;
+
+  try {
+    const res = await fetch(`/api/artifacts/${encodeURIComponent(gateName)}/lineage`);
+    const payload = await res.json();
+
+    if (!payload.ok) {
+      el.textContent = payload.error || "No lineage for this gate";
+      el.classList.add("lineage-empty");
+      if (metaEl) metaEl.textContent = `Gate: ${gateName}`;
+      return;
+    }
+
+    if (errEl) errEl.textContent = "";
+    const path = payload.path || "";
+    const deps = payload.dependencyCount ?? 0;
+    const source = payload.lineageSource || "none";
+    const sourceLabel =
+      source === "runtime"
+        ? "runtime (gate run)"
+        : source === "declarative"
+          ? "declarative (dependsOn)"
+          : source === "stored"
+            ? "stored mermaid"
+            : "none";
+    if (metaEl) {
+      metaEl.textContent = `${path} — ${deps} upstream · ${sourceLabel}`;
+    }
+
+    const mermaid = String(payload.mermaid ?? "");
+    if (!mermaid || source === "none") {
+      el.textContent =
+        "No lineage on latest artifact — run kimi-doctor --gate <name> --save-artifact";
+      el.classList.add("lineage-empty");
+      return;
+    }
+
+    await renderMermaidInto(el, mermaid, `artifact-${gateName}`);
+    lastLineageArtifactKey = cacheKey;
+  } catch (err) {
+    if (errEl) errEl.textContent = err instanceof Error ? err.message : String(err);
+  }
+}
+
+async function populateLineageGateSelect() {
+  const select = document.getElementById("lineage-gate-select");
+  if (!select) return;
+
+  const previous = select.value;
+  try {
+    const res = await fetch("/api/artifacts");
+    const payload = await res.json();
+    const gates = [...(payload.artifacts || [])]
+      .map((row) => row.gate)
+      .filter(Boolean)
+      .sort();
+
+    select.innerHTML = '<option value="">— select gate —</option>';
+    for (const gate of gates) {
+      const opt = document.createElement("option");
+      opt.value = gate;
+      opt.textContent = gate;
+      select.appendChild(opt);
+    }
+
+    if (previous && gates.includes(previous)) {
+      select.value = previous;
+    } else if (!select.value && gates.length > 0) {
+      select.value = gates[0];
+    }
+  } catch {
+    // gate select is best-effort; graph panels show their own errors
+  }
+}
+
+async function refreshLineage() {
+  if (activeTab !== "lineage") return;
+  await populateLineageGateSelect();
+  await refreshLineageGateGraph();
+  const select = document.getElementById("lineage-gate-select");
+  await refreshLineageArtifactGraph(select?.value || "");
+}
+
+function wireLineagePanel() {
+  const select = document.getElementById("lineage-gate-select");
+  if (!select) return;
+  select.addEventListener("change", () => {
+    lastLineageArtifactKey = "";
+    void refreshLineageArtifactGraph(select.value);
+  });
+}
+
 // ── Artifacts tab ────────────────────────────────────────────────────
 
 function artifactStatusClass(status) {
@@ -2024,6 +2258,11 @@ function formatEventDetail(payload) {
   return esc(JSON.stringify(payload).slice(0, 80));
 }
 
+function eventPayloadKeys(payload) {
+  if (!payload || typeof payload !== "object") return [];
+  return Object.keys(payload).slice(0, 5);
+}
+
 async function refreshEvents() {
   const body = document.getElementById("events-body");
   if (!body) return;
@@ -2050,18 +2289,22 @@ async function refreshEvents() {
     );
     body.innerHTML = "";
     if (events.length === 0) {
-      body.innerHTML = '<tr><td colspan="5" class="empty-state">No events</td></tr>';
+      body.innerHTML = '<tr><td colspan="6" class="empty-state">No events</td></tr>';
       return;
     }
 
     for (const e of events) {
       const tr = document.createElement("tr");
       tr.className = `event-row ${eventTypeClass(e.type)}`;
+      const payloadTags = eventPayloadKeys(e.payload)
+        .map((key) => tagHtml(key, "neutral"))
+        .join("");
       tr.innerHTML = `
         <td class="event-time">${formatEventTime(e.at)}</td>
         <td><span class="event-type-badge ${eventTypeClass(e.type)}">${esc(e.type)}</span></td>
         <td>${esc(e.workspace || "—")}</td>
         <td>${esc(e.agent || "—")}</td>
+        <td><div class="event-payload-tags">${payloadTags || "—"}</div></td>
         <td class="event-detail">${formatEventDetail(e.payload)}</td>
       `;
       body.appendChild(tr);
@@ -2112,13 +2355,15 @@ function renderDebugLogLines(lines) {
     body.classList.add("empty-state");
     return;
   }
-  for (const line of lines) {
+  for (const [index, line] of lines.entries()) {
     const row = document.createElement("div");
     const severity = logLineSeverity(line);
     row.className = `log-line ${logLineClass(line)}`;
     row.innerHTML = `<span class="log-severity tag tag-${tagTone(severity)}">${esc(
       severity
-    )}</span><span class="log-message">${esc(line)}</span>`;
+    )}</span><span class="log-number">${index + 1}</span><span class="log-message">${esc(
+      line
+    )}</span>`;
     row.title = "Click to copy";
     row.addEventListener("click", () => {
       void navigator.clipboard.writeText(line).then(() => {
@@ -2237,7 +2482,7 @@ function wireEventsPanel() {
     exportMd.dataset.wired = "1";
     exportMd.addEventListener("click", () => {
       const typeParam = eventsTypeFilter ? `&type=${encodeURIComponent(eventsTypeFilter)}` : "";
-      window.open(`/api/events/export?format=markdown${typeParam}`, "_blank");
+      window.open(apiUrl(`/api/events/export?format=markdown${typeParam}`), "_blank");
     });
   }
   const exportJson = document.getElementById("events-export-json");
@@ -2245,7 +2490,7 @@ function wireEventsPanel() {
     exportJson.dataset.wired = "1";
     exportJson.addEventListener("click", () => {
       const typeParam = eventsTypeFilter ? `&type=${encodeURIComponent(eventsTypeFilter)}` : "";
-      window.open(`/api/events/export?format=json${typeParam}`, "_blank");
+      window.open(apiUrl(`/api/events/export?format=json${typeParam}`), "_blank");
     });
   }
 }
@@ -2502,35 +2747,21 @@ wireGitToggle();
 wireScanPanel();
 wireCanvasesPanel();
 wireMetricsPanel();
+wireLineagePanel();
 wireEventsPanel();
 wireLogsTabPanel();
-if (!STATIC_PREVIEW) scheduleGateHealthPoll();
-
-// Activate the initial tab so panels can run their setup logic.
-if (!STATIC_PREVIEW) PANELS[activeTab]?.activate?.();
-
 if (STATIC_PREVIEW) {
   document.body.dataset.mode = "static-preview";
-  renderHeaderBadges(null);
-  renderSummaryCards(null);
-  const meta = document.getElementById("meta");
-  if (meta) {
-    meta.textContent = "Static file preview";
-  }
-  const control = document.getElementById("control-plane-status");
-  if (control) {
-    control.innerHTML =
-      'Live controls require the dashboard server at <a href="http://127.0.0.1:18412/">127.0.0.1:18412</a>.';
-  }
-  const error = document.getElementById("agents-error");
-  if (error) {
-    error.innerHTML =
-      "<strong>Static preview mode.</strong> Start the dashboard server for live agent data, control actions, events, and metrics.";
-  }
-  showStaticPanelNotice(activeTab);
-} else {
-  (async () => {
+}
+scheduleGateHealthPoll();
+
+// Activate the initial tab so panels can run their setup logic.
+PANELS[activeTab]?.activate?.();
+
+(async () => {
+  try {
     const res = await fetch("/api/meta");
+    if (!res.ok) throw new Error(`dashboard API returned ${res.status}`);
     const meta = await res.json();
     renderMetaDisplay(meta);
     wireAgentThumbnail(meta);
@@ -2546,5 +2777,22 @@ if (STATIC_PREVIEW) {
     scheduleSecondaryPoll(poll);
     scheduleProcessesPoll(poll);
     void fetchGit();
-  })();
-}
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    renderHeaderBadges(null);
+    renderSummaryCards(null);
+    const meta = document.getElementById("meta");
+    if (meta) {
+      meta.textContent = STATIC_PREVIEW ? "Static file preview" : "Dashboard unavailable";
+    }
+    const control = document.getElementById("control-plane-status");
+    if (control) {
+      control.innerHTML = `Could not reach dashboard API at <a href="${STATIC_API_ORIGIN}/">${STATIC_API_ORIGIN}</a>: ${esc(message)}`;
+    }
+    const errorEl = document.getElementById("agents-error");
+    if (errorEl) {
+      errorEl.innerHTML = `<strong>No dashboard data.</strong> Start or reload the dashboard server at <a href="${STATIC_API_ORIGIN}/">${STATIC_API_ORIGIN}</a>.`;
+    }
+    showStaticPanelNotice(activeTab);
+  }
+})();

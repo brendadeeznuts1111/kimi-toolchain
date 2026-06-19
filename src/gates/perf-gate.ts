@@ -1,5 +1,4 @@
 import { join } from "path";
-import { ArtifactStore } from "../lib/artifact-store.ts";
 import { evaluateEffectBenchmarkGate } from "../lib/effect-benchmark.ts";
 import type { Metric } from "../harness/html-reporter.ts";
 import type { Gate, GateResult, GateRunOptions } from "./types.ts";
@@ -26,17 +25,13 @@ export async function runPerfGate(opts: GateRunOptions = {}): Promise<GateResult
     timestamp: new Date().toISOString(),
   };
 
-  if (opts.saveArtifact) {
-    const store = new ArtifactStore(projectRoot);
-    result.artifactPath = await store.save("perf-gate", result);
-  }
-
   return result;
 }
 
 export const perfGateDefinition: Gate = {
   name: "perf-gate",
   description: "Benchmark performance thresholds",
+  level: 2,
   dependsOn: ["bunfig-policy"],
   run: runPerfGate,
   format: (result) => {

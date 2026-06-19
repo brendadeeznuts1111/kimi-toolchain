@@ -185,6 +185,7 @@ describe("herdr-dashboard-server", () => {
       try {
         const htmlRes = (await fetch(server.url)) as unknown as {
           body: ReadableStream<Uint8Array>;
+          headers: { get(name: string): string | null };
         };
         const html = await readableStreamToText(htmlRes.body);
         expect(html).toContain("Herdr Orchestrator Dashboard");
@@ -198,16 +199,25 @@ describe("herdr-dashboard-server", () => {
         expect(html).toContain("agents-legend");
         expect(html).toContain("Upgrade scan");
         expect(html).toContain("Artifacts");
+        expect(htmlRes.headers.get("access-control-allow-origin")).toBe("*");
 
         const cssRes = (await fetch(`${server.url}herdr-dashboard.css`)) as unknown as {
           body: ReadableStream<Uint8Array>;
         };
         const css = await readableStreamToText(cssRes.body);
         expect(css).toContain(":root");
+        const jsRes = (await fetch(`${server.url}herdr-dashboard.js`)) as unknown as {
+          body: ReadableStream<Uint8Array>;
+        };
+        const js = await readableStreamToText(jsRes.body);
+        expect(js).toContain("STATIC_API_ORIGIN");
+        expect(js).toContain("apiUrl");
         await server.hub.refresh();
         const metaRes = (await fetch(`${server.url}api/meta`)) as unknown as {
           body: ReadableStream<Uint8Array>;
+          headers: { get(name: string): string | null };
         };
+        expect(metaRes.headers.get("access-control-allow-origin")).toBe("*");
         const metaRaw = await readableStreamToText(metaRes.body);
         const meta = JSON.parse(metaRaw) as {
           ok: boolean;
@@ -266,6 +276,15 @@ describe("herdr-dashboard-server", () => {
           expect(meta.thumbnail).toBe(false);
           expect(meta.thumbnailPath).toBe("/api/thumbnail");
         }
+
+        const preflightRes = (await fetch(`${server.url}api/heartbeats`, {
+          method: "OPTIONS",
+        })) as unknown as {
+          status: number;
+          headers: { get(name: string): string | null };
+        };
+        expect(preflightRes.status).toBe(204);
+        expect(preflightRes.headers.get("access-control-allow-methods")).toContain("POST");
       } finally {
         server.stop();
       }
@@ -327,6 +346,92 @@ describe("herdr-dashboard-server", () => {
           server.stop();
         }
       });
+      cleanupPath(dir);
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
+    "dashboard server lineage API returns Mermaid for artifact dependsOn",
+    async () => {
+      const dir = testTempDir("herdr-dashboard-lineage-");
+      const store = new ArtifactStore(dir);
+      await store.save("strategy-performance", { pnl: 1 });
+      await store.save(
+        "model-drift",
+        { drift: 0.2 },
+        { dependsOn: [{ gate: "strategy-performance", limit: 1 }] }
+      );
+
+      const server = startHerdrDashboardServer({
+        projectPath: dir,
+        port: 0,
+        sessions: false,
+      });
+      try {
+        const lineageRes = (await fetch(
+          `${server.url}api/artifacts/model-drift/lineage`
+        )) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        expect(lineageRes.status).toBe(200);
+        const lineage = JSON.parse(await readableStreamToText(lineageRes.body)) as {
+          ok: boolean;
+          gate: string;
+          mermaid: string;
+          dependencyCount: number;
+          stored: boolean;
+          lineageSource: string;
+        };
+        expect(lineage.ok).toBe(true);
+        expect(lineage.gate).toBe("model-drift");
+        expect(lineage.dependencyCount).toBe(1);
+        expect(lineage.stored).toBe(true);
+        expect(lineage.lineageSource).toBe("stored");
+        expect(lineage.mermaid).toContain("strategy-performance");
+
+        const upstreamPath = await store.save("bunfig-policy", { status: "pass" });
+        await store.save(
+          "perf-gate",
+          { status: "pass" },
+          {
+            lineage: {
+              dependencies: ["bunfig-policy"],
+              upstreamArtifacts: [store.relativePath(upstreamPath)],
+            },
+          }
+        );
+        const runtimeRes = (await fetch(
+          `${server.url}api/artifacts/perf-gate/lineage`
+        )) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        expect(runtimeRes.status).toBe(200);
+        const runtimeLineage = JSON.parse(await readableStreamToText(runtimeRes.body)) as {
+          lineageSource: string;
+          mermaid: string;
+        };
+        expect(runtimeLineage.lineageSource).toBe("runtime");
+        expect(runtimeLineage.mermaid).toContain("bunfig-policy");
+
+        const graphRes = (await fetch(`${server.url}api/gates/graph`)) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        expect(graphRes.status).toBe(200);
+        const graph = JSON.parse(await readableStreamToText(graphRes.body)) as {
+          ok: boolean;
+          mermaid: string;
+          gates: Array<{ name: string }>;
+        };
+        expect(graph.ok).toBe(true);
+        expect(graph.mermaid).toContain("graph TD");
+        expect(graph.gates.length).toBeGreaterThan(0);
+      } finally {
+        server.stop();
+      }
       cleanupPath(dir);
     },
     { timeout: SERVER_TEST_MS }
@@ -442,6 +547,8 @@ describe("herdr-dashboard-server", () => {
           port: 0,
           sessions: false,
           discoveryCache,
+          herdrEvents: false,
+          gateHealthWatch: false,
         });
         try {
           await server.hub.refresh();

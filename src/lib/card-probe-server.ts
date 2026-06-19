@@ -149,9 +149,7 @@ export async function startProbeServer(
   options: ProbeServerOptions = {}
 ): Promise<ProbeServerHandle> {
   const host = Bun.env[PROBE_SERVER_HOST_ENV] ?? options.host ?? DEFAULT_PROBE_SERVER_HOST;
-  const port = Number(
-    Bun.env[PROBE_SERVER_PORT_ENV] ?? options.port ?? DEFAULT_PROBE_SERVER_PORT
-  );
+  const port = Number(Bun.env[PROBE_SERVER_PORT_ENV] ?? options.port ?? DEFAULT_PROBE_SERVER_PORT);
   const refreshIntervalMs = Math.max(0, Number(options.refreshIntervalMs ?? 0));
   const probeConfig = probeConfigFromEnv(options.probeConfig);
   const projectRoot = options.projectRoot ?? process.cwd();

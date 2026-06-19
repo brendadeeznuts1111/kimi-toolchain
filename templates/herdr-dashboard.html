@@ -52,11 +52,14 @@
             <div id="processes-content" class="processes-content" hidden>
               <div id="processes-error" class="error processes-error"></div>
               <div class="scroll processes-scroll">
-                <table>
+                <table class="processes-table">
                   <thead>
                     <tr>
                       <th>Pane</th>
-                      <th>Title</th>
+                      <th>Tab</th>
+                      <th>Workspace</th>
+                      <th>Focus</th>
+                      <th>Kind</th>
                       <th>Agent</th>
                       <th>Status</th>
                       <th>Cwd</th>
@@ -65,7 +68,7 @@
                   </thead>
                   <tbody id="processes-body">
                     <tr>
-                      <td colspan="6" class="empty-state">Loading processes…</td>
+                      <td colspan="9" class="empty-state">Loading processes…</td>
                     </tr>
                   </tbody>
                 </table>
@@ -92,12 +95,13 @@
                     <thead>
                       <tr>
                         <th>XY</th>
+                        <th>Kind</th>
                         <th>Path</th>
                       </tr>
                     </thead>
                     <tbody id="git-status-body">
                       <tr>
-                        <td colspan="2" class="empty-state">Loading git status…</td>
+                        <td colspan="3" class="empty-state">Loading git status…</td>
                       </tr>
                     </tbody>
                   </table>
@@ -134,6 +138,7 @@
       <button data-tab="canvases">Canvases</button>
       <button data-tab="metrics">Metrics</button>
       <button data-tab="artifacts">Artifacts</button>
+      <button data-tab="lineage">Lineage</button>
       <button data-tab="events">Events</button>
       <button data-tab="logs">Logs</button>
       <button data-tab="examples">Examples</button>
@@ -181,13 +186,14 @@
           header threshold (agent may still be running in Herdr).
         </p>
         <div class="scroll agents-scroll">
-          <table class="artifacts-table">
+          <table class="agents-table">
             <thead>
               <tr>
                 <th>Host</th>
                 <th>Session</th>
                 <th>Workspace</th>
                 <th>Agent</th>
+                <th>Source</th>
                 <th>Status</th>
                 <th>Pane</th>
                 <th>Actions</th>
@@ -195,7 +201,7 @@
             </thead>
             <tbody id="agents-body">
               <tr class="skeleton-row">
-                <td colspan="7" class="empty-state">Loading agents…</td>
+                <td colspan="8" class="empty-state">Loading agents…</td>
               </tr>
             </tbody>
           </table>
@@ -328,7 +334,7 @@
         <div id="artifacts-probe-hint" class="artifacts-probe-hint"></div>
         <div id="artifacts-error" class="error"></div>
         <div class="scroll artifacts-scroll">
-          <table>
+          <table class="artifacts-table">
             <thead>
               <tr>
                 <th>Gate</th>
@@ -346,6 +352,38 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+      <section id="lineage" class="panel">
+        <h2 class="panel-heading">Lineage</h2>
+        <p class="lineage-legend">
+          Gate execution DAG (orchestration) and artifact lineage — runtime provenance from gate
+          runs (<code>metadata.lineage</code>) or declarative audit trails (<code>dependsOn</code>)
+        </p>
+        <div class="lineage-toolbar">
+          <label class="lineage-field">
+            <span class="lineage-field-label">Artifact gate</span>
+            <select id="lineage-gate-select" aria-label="Artifact gate for lineage graph">
+              <option value="">— select gate —</option>
+            </select>
+          </label>
+        </div>
+        <div id="lineage-error" class="error"></div>
+        <div class="lineage-grid">
+          <div class="lineage-card">
+            <h3>Gate execution DAG</h3>
+            <p class="lineage-card-hint">Static dependsOn closure from built-in gates</p>
+            <div id="lineage-gate-graph" class="mermaid-wrap">Loading gate graph…</div>
+          </div>
+          <div class="lineage-card">
+            <h3>Artifact data lineage</h3>
+            <p id="lineage-artifact-meta" class="lineage-card-hint">
+              Select a gate — shows runtime upstream artifacts or declarative dependsOn
+            </p>
+            <div id="lineage-artifact-graph" class="mermaid-wrap lineage-empty">
+              No artifact selected
+            </div>
+          </div>
         </div>
       </section>
       <section id="logs" class="panel">
@@ -387,19 +425,20 @@
         </div>
         <div id="events-error" class="error"></div>
         <div class="scroll events-scroll">
-          <table>
+          <table class="events-table">
             <thead>
               <tr>
                 <th>Time</th>
                 <th>Type</th>
                 <th>Workspace</th>
                 <th>Agent</th>
+                <th>Payload</th>
                 <th>Detail</th>
               </tr>
             </thead>
             <tbody id="events-body">
               <tr>
-                <td colspan="5" class="empty-state">Loading events…</td>
+                <td colspan="6" class="empty-state">Loading events…</td>
               </tr>
             </tbody>
           </table>
@@ -440,6 +479,7 @@
         ></iframe>
       </section>
     </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" defer></script>
     <script src="herdr-dashboard.js" defer></script>
   </body>
 </html>

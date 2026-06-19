@@ -293,6 +293,26 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
         description: "Print the newest saved artifact JSON for a gate",
         agentFacing: true,
       },
+      {
+        name: "--artifact-graph",
+        type: "string",
+        description:
+          "Emit Mermaid data-lineage graph for the newest artifact of a gate (or --artifact-path)",
+        agentFacing: true,
+      },
+      {
+        name: "--artifacts-lineage",
+        type: "string",
+        description:
+          "Trace artifact lineage tree for a gate (alias: artifacts lineage <gate> --latest)",
+        agentFacing: true,
+      },
+      {
+        name: "--artifact-path",
+        type: "string",
+        description: "Specific .kimi/artifacts/... path for --artifact-graph",
+        agentFacing: false,
+      },
       { name: "--mcp-server", type: "boolean", description: "Start MCP stdio server" },
       { name: "--probe", type: "boolean", description: "Emit capability manifest" },
       {

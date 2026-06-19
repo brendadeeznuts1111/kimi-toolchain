@@ -137,6 +137,65 @@ h1 {
 .artifacts-probe-hint--warn {
   color: var(--yellow);
 }
+.lineage-legend {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.lineage-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.lineage-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+.lineage-field-label {
+  color: var(--muted);
+}
+.lineage-field select {
+  min-width: 220px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.lineage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+.lineage-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--panel);
+}
+.lineage-card h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+.lineage-card-hint {
+  margin: 0 0 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.mermaid-wrap {
+  min-height: 120px;
+  overflow-x: auto;
+  padding: 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg) 92%, var(--text));
+}
+.mermaid-wrap.lineage-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
 nav {
   display: flex;
   gap: 8px;
@@ -1549,7 +1608,7 @@ tbody tr:hover td {
 
 .log-line {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-columns: 56px 48px minmax(0, 1fr);
   align-items: start;
   gap: 8px;
   min-height: 24px;
@@ -1573,6 +1632,197 @@ tbody tr:hover td {
 .log-message {
   min-width: 0;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Dense dashboard polish: explicit data tables and balanced header. */
+header {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.9fr) minmax(560px, 1.1fr);
+  align-items: start;
+  gap: 18px;
+  min-height: auto;
+}
+
+.header-brand {
+  min-width: 0;
+}
+
+.header-meta {
+  justify-content: flex-start;
+  align-items: flex-start;
+  min-width: 0;
+  min-height: auto;
+}
+
+.header-copy {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+#meta,
+.control-plane,
+#stream-status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.processes-content,
+.git-content {
+  width: min(960px, calc(100vw - 40px));
+}
+
+.processes-table {
+  table-layout: fixed;
+  min-width: 1120px;
+}
+
+.processes-table th:nth-child(1),
+.processes-table td:nth-child(1) {
+  width: 90px;
+}
+
+.processes-table th:nth-child(2),
+.processes-table td:nth-child(2),
+.processes-table th:nth-child(3),
+.processes-table td:nth-child(3) {
+  width: 110px;
+}
+
+.processes-table th:nth-child(4),
+.processes-table td:nth-child(4),
+.processes-table th:nth-child(5),
+.processes-table td:nth-child(5),
+.processes-table th:nth-child(7),
+.processes-table td:nth-child(7) {
+  width: 112px;
+}
+
+.processes-table th:nth-child(6),
+.processes-table td:nth-child(6) {
+  width: 150px;
+}
+
+.processes-table th:nth-child(9),
+.processes-table td:nth-child(9) {
+  width: 128px;
+}
+
+.processes-cwd {
+  font-family: var(--mono);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.processes-logs-pre {
+  display: grid;
+  gap: 1px;
+  white-space: normal;
+}
+
+.process-log-line {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+}
+
+.log-number {
+  color: var(--dim);
+  font-family: var(--mono);
+  user-select: none;
+  text-align: right;
+}
+
+.agents-table {
+  table-layout: fixed;
+  min-width: 1140px;
+}
+
+.agents-table th:nth-child(1),
+.agents-table td:nth-child(1),
+.agents-table th:nth-child(3),
+.agents-table td:nth-child(3),
+.agents-table th:nth-child(5),
+.agents-table td:nth-child(5),
+.agents-table th:nth-child(6),
+.agents-table td:nth-child(6),
+.agents-table th:nth-child(7),
+.agents-table td:nth-child(7) {
+  width: 128px;
+}
+
+.agents-table th:nth-child(2),
+.agents-table td:nth-child(2),
+.agents-table th:nth-child(4),
+.agents-table td:nth-child(4) {
+  width: 160px;
+}
+
+.agents-table th:nth-child(8),
+.agents-table td:nth-child(8) {
+  width: 260px;
+}
+
+.git-status-table {
+  table-layout: fixed;
+  min-width: 760px;
+}
+
+.git-status-table th:nth-child(1),
+.git-status-table td:nth-child(1) {
+  width: 70px;
+}
+
+.git-status-table th:nth-child(2),
+.git-status-table td:nth-child(2) {
+  width: 130px;
+}
+
+.git-status-table td:nth-child(3) {
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.events-table {
+  table-layout: fixed;
+  min-width: 1180px;
+}
+
+.events-table th:nth-child(1),
+.events-table td:nth-child(1) {
+  width: 180px;
+}
+
+.events-table th:nth-child(2),
+.events-table td:nth-child(2) {
+  width: 210px;
+}
+
+.events-table th:nth-child(3),
+.events-table td:nth-child(3),
+.events-table th:nth-child(4),
+.events-table td:nth-child(4) {
+  width: 130px;
+}
+
+.events-table th:nth-child(5),
+.events-table td:nth-child(5) {
+  width: 260px;
+}
+
+.event-payload-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.event-detail {
+  white-space: normal;
   overflow-wrap: anywhere;
 }
 

@@ -377,6 +377,25 @@ kimi-doctor --all             # every adapter + plugins + effect-gates
 
 Adapters, plugins, MCP tools, and JSON contracts: [CODE_REFERENCES.md](CODE_REFERENCES.md) § Doctor Adapter / Plugin / MCP. Register MCP via `kimi-doctor --fix`.
 
+### Gate dependency and artifact lineage graphs
+
+Use graphs instead of inferring order from code or logs. Two types — do not conflate:
+
+| Graph | Question it answers | Primary surfaces |
+| ----- | ------------------- | ---------------- |
+| **Execution DAG** | What runs before what? | `kimi-doctor --gate-graph`, Herdr dashboard **Lineage** tab (`GET /api/gates/graph`) |
+| **Artifact lineage** | What data did this artifact consume? | `kimi-doctor --artifacts-lineage <gate>`, `artifacts lineage <gate>`, dashboard `GET /api/artifacts/:gate/lineage` |
+
+```bash
+kimi-doctor --gate perf-gate --gate-graph          # orchestration Mermaid
+kimi-doctor --gate perf-gate --save-artifact       # writes metadata.lineage (upstream paths)
+kimi-doctor --artifacts-lineage perf-gate --json   # trace runtime + declarative lineage
+```
+
+When implementing gates that read upstream results, use runner-provided context on `GateRunOptions`: `getArtifact`, `getArtifacts({ limit, since })`, `readArtifact(path)`. Runtime provenance is stored in `metadata.lineage`; declarative audit queries use `metadata.dependsOn` at save time.
+
+Deep dive: `examples/artifact-dependency-graphs.md`, [docs/references/kimi-doctor.md](docs/references/kimi-doctor.md#gate-dependency-and-artifact-lineage-graphs).
+
 ### Commit convention
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`.
@@ -424,7 +443,8 @@ On memory-constrained hosts, swap thrashing inflates load before CPU looks busy.
 | `docs/references/bun-runtime-scaffold.md` | Bun install config (bunfig.toml merge, env vars, globalStore, process.execve, Bun.Terminal, using) |
 | `docs/canvases/*.canvas.tsx` | IDE canvas companions (via `cursorCanvas` in manifest; not synced) |
 | `docs/references/namespace.md` | Toolchain vs Herdr plugin boundaries; doctor trinity; global ecosystem (hub — 6 refs indexed in `canonical-references.json`) |
-| `docs/references/kimi-doctor.md` | `kimi-doctor --automation` gate — CLI, JSON schema, exit codes |
+| `docs/references/kimi-doctor.md` | `kimi-doctor` CLI — automation gate, gate/artifact lineage graphs, JSON contracts |
+| `examples/artifact-dependency-graphs.md` | Execution DAG vs artifact lineage; `dependsOn`, `metadata.lineage`, Mermaid export |
 | `docs/references/dashboard-thumbnails.md` | WebView screenshot → `Bun.Image` terminals → `/api/thumbnail` |
 | `docs/references/shell-spawn-choice.md` | When to use `invokeTool` vs `Bun.spawn` vs `governedSpawn` |
 | `docs/references/bun-shell-companions.md` | Bun `$` template vs subprocess patterns |

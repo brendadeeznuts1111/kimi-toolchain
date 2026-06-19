@@ -3,9 +3,11 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { pathExists } from "../src/lib/bun-io.ts";
+import { ArtifactStore } from "../src/lib/artifact-store.ts";
 import { resolveGateClosure } from "../src/gates/registry.ts";
 import {
   detectCycle,
+  findMissingGateDependencies,
   generateGateGraph,
   planGateExecution,
   runGatesWithDependencies,
@@ -25,6 +27,7 @@ function mockGate(
   return {
     name,
     description: `mock ${name}`,
+    level: 2,
     dependsOn: options.dependsOn,
     run:
       options.run ??
@@ -49,6 +52,16 @@ describe("doctor-gates-runner", () => {
   test("detectCycle reports circular dependsOn chains", () => {
     const gates = [mockGate("a", { dependsOn: ["b"] }), mockGate("b", { dependsOn: ["a"] })];
     expect(detectCycle(gates).sort()).toEqual(["a", "b"]);
+  });
+
+  test("findMissingGateDependencies flags dependsOn not present in gate array", () => {
+    const gates = [mockGate("perf-gate", { dependsOn: ["bunfig-policy"] })];
+    expect(findMissingGateDependencies(gates)).toEqual(["perf-gate → bunfig-policy"]);
+  });
+
+  test("runGatesWithDependencies rejects incomplete gate closure", async () => {
+    const gates = [mockGate("perf-gate", { dependsOn: ["bunfig-policy"] })];
+    await expect(runGatesWithDependencies(gates)).rejects.toThrow(/Gate closure incomplete/);
   });
 
   test("resolveGateClosure collects transitive dependencies", () => {
@@ -109,6 +122,40 @@ describe("doctor-gates-runner", () => {
     expect(results.map((r) => r.status)).toEqual(["pass", "pass"]);
   });
 
+  test("getArtifacts exposes in-run result before saved history", async () => {
+    await withTempDir("doctor-gates-context-history-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      await store.save("upstream", { status: "pass", reason: "historical" });
+      await Bun.sleep(2);
+
+      const gates = [
+        mockGate("upstream", {
+          run: async () => ({ status: "pass", reason: "current" }),
+        }),
+        mockGate("downstream", {
+          dependsOn: ["upstream"],
+          run: async (opts) => {
+            const latest = await opts?.getArtifacts?.("upstream", { limit: 1 });
+            expect(latest).toEqual([{ status: "pass", reason: "current" }]);
+
+            const artifacts = await opts?.getArtifacts?.("upstream", { limit: 2 });
+            expect(artifacts).toEqual([
+              { status: "pass", reason: "current" },
+              { status: "pass", reason: "historical" },
+            ]);
+            return { status: "pass" };
+          },
+        }),
+      ];
+
+      const { results } = await runGatesWithDependencies(gates, {
+        projectRoot: dir,
+        saveArtifact: true,
+      });
+      expect(results.map((r) => r.status)).toEqual(["pass", "pass"]);
+    });
+  });
+
   test("saveArtifact writes gate-graph composite when closure has multiple gates", async () => {
     await withTempDir("doctor-gates-graph-artifact-", async (dir) => {
       const gates = [mockGate("alpha"), mockGate("beta", { dependsOn: ["alpha"] })];
@@ -118,11 +165,10 @@ describe("doctor-gates-runner", () => {
       });
       expect(graphArtifactPath).toContain(join(dir, ".kimi", "artifacts", "gate-graph"));
       expect(pathExists(graphArtifactPath!)).toBe(true);
-      const payload = (await Bun.file(graphArtifactPath!).json()) as {
-        mode: string;
-        order: string[];
-        mermaid: string;
+      const envelope = (await Bun.file(graphArtifactPath!).json()) as {
+        payload: { mode: string; order: string[]; mermaid: string };
       };
+      const payload = envelope.payload;
       expect(payload.mode).toBe("gate-graph");
       expect(payload.order).toEqual(["alpha", "beta"]);
       expect(payload.mermaid).toContain("alpha");
@@ -140,6 +186,48 @@ describe("doctor-gates-runner", () => {
       { name: "parent", description: "mock parent", dependsOn: [] },
       { name: "child", description: "mock child", dependsOn: ["parent"] },
     ]);
+  });
+
+  test("runGatesWithDependencies persists upstream lineage on saved artifacts", async () => {
+    await withTempDir("doctor-gates-lineage-", async (dir) => {
+      const gates = [
+        mockGate("bunfig-policy", {
+          run: async () => ({ status: "pass" }),
+        }),
+        mockGate("perf-gate", {
+          dependsOn: ["bunfig-policy"],
+          run: async (opts) => {
+            const upstream = await opts?.getArtifact?.("bunfig-policy");
+            expect(upstream?.relativePath).toMatch(/^\.kimi\/artifacts\/bunfig-policy\//);
+            const artifacts = await opts?.getArtifacts?.("bunfig-policy", { limit: 1 });
+            expect(artifacts).toHaveLength(1);
+            return { status: "pass", reason: "seen-upstream" };
+          },
+        }),
+      ];
+
+      const { results } = await runGatesWithDependencies(gates, {
+        projectRoot: dir,
+        saveArtifact: true,
+      });
+
+      const perf = results.find((row) => row.gate === "perf-gate");
+      expect(perf?.detail?.lineage).toMatchObject({
+        dependencies: ["bunfig-policy"],
+        upstreamArtifacts: [expect.stringMatching(/^\.kimi\/artifacts\/bunfig-policy\//)],
+      });
+
+      const store = new ArtifactStore(dir);
+      const perfRelative = store.relativePath(perf!.artifactPath!);
+      const envelope = await store.readEnvelope(perfRelative);
+      expect(envelope?.metadata?.lineage).toMatchObject({
+        dependencies: ["bunfig-policy"],
+        upstreamArtifacts: [expect.stringMatching(/^\.kimi\/artifacts\/bunfig-policy\//)],
+      });
+      const dependsOn = envelope?.metadata?.dependsOn as Array<{ gate: string; paths?: string[] }>;
+      expect(dependsOn?.[0]?.gate).toBe("bunfig-policy");
+      expect(dependsOn?.[0]?.paths?.[0]).toMatch(/^\.kimi\/artifacts\/bunfig-policy\//);
+    });
   });
 
   test("generateGateGraph emits Mermaid edges for dependsOn", () => {

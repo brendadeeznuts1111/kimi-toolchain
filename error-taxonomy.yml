@@ -77,7 +77,7 @@ categories:
     expected: false
     suggestion: "Test failure — run 'bun test' to see details."
     autoFix: "bun test"
-    docLink: "skills/kimi-toolchain/examples/what-broke.md"
+    docLink: "examples/what-broke.md"
     patterns:
       - regex: "\\d+ fail"
       - regex: 'error: script "test" exited with code 1'
@@ -246,7 +246,7 @@ categories:
     expected: false
     suggestion: "Lockfile drift — dep change: bun add / bun update (not plain bun install); baseline: kimi-guardian fix."
     autoFix: "kimi-guardian fix"
-    docLink: "skills/kimi-toolchain/examples/guardian-failure.md"
+    docLink: "examples/guardian-failure.md"
     boundConstants:
       - KIMI_HOOK_VERIFIER_MAX_CYCLES
     patterns:

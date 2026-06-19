@@ -4,7 +4,8 @@ import { writeText } from "../src/lib/bun-io.ts";
 import { bunfigPolicyGate, formatBunfigPolicyGate } from "../src/gates/index.ts";
 import { createTempProject, spawnCaptured, testTempDir, withEnv } from "./helpers.ts";
 import { pathExists } from "../src/lib/bun-io.ts";
-import { runBunfigPolicyGate } from "../src/gates/bunfig-policy.ts";
+import { bunfigPolicyGateDefinition, runBunfigPolicyGate } from "../src/gates/bunfig-policy.ts";
+import { runGatesWithDependencies } from "../src/gates/runner.ts";
 
 const SECURE_BUNFIG = `[install]
 optional = true
@@ -159,16 +160,20 @@ describe("bunfig-policy-gate", () => {
     }
   });
 
-  test("runBunfigPolicyGate saves artifact when saveArtifact is true", async () => {
+  test("runGatesWithDependencies saves bunfig-policy artifact when saveArtifact is true", async () => {
     const dir = testTempDir("bunfig-policy-artifact-");
     writeSecureProject(dir);
 
     await withEnv(CLEAN_ENV, async () => {
-      const result = await runBunfigPolicyGate({ projectRoot: dir, saveArtifact: true });
-      expect(result.status).toBe("pass");
-      expect(result.artifactPath).toBeTruthy();
-      expect(pathExists(result.artifactPath!)).toBe(true);
-      expect(result.artifactPath).toContain(join(dir, ".kimi", "artifacts", "bunfig-policy"));
+      const { results } = await runGatesWithDependencies([bunfigPolicyGateDefinition], {
+        projectRoot: dir,
+        saveArtifact: true,
+      });
+      const result = results[0];
+      expect(result?.status).toBe("pass");
+      expect(result?.artifactPath).toBeTruthy();
+      expect(pathExists(result!.artifactPath!)).toBe(true);
+      expect(result!.artifactPath).toContain(join(dir, ".kimi", "artifacts", "bunfig-policy"));
     });
   });
 

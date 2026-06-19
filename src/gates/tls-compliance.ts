@@ -1,5 +1,4 @@
 import { tlsComplianceGate } from "../guardian/tls-compliance.ts";
-import { ArtifactStore } from "../lib/artifact-store.ts";
 import type { Gate, GateResult, GateRunOptions } from "./types.ts";
 
 export interface TlsComplianceDoctorResult extends GateResult {
@@ -8,8 +7,7 @@ export interface TlsComplianceDoctorResult extends GateResult {
   timestamp: string;
 }
 
-export async function runTlsComplianceGate(opts: GateRunOptions = {}): Promise<GateResult> {
-  const projectRoot = opts.projectRoot ?? process.cwd();
+export async function runTlsComplianceGate(_opts: GateRunOptions = {}): Promise<GateResult> {
   const floor = "TLSv1.2";
   const gate = await tlsComplianceGate({ floor });
 
@@ -20,17 +18,13 @@ export async function runTlsComplianceGate(opts: GateRunOptions = {}): Promise<G
     timestamp: new Date().toISOString(),
   };
 
-  if (opts.saveArtifact) {
-    const store = new ArtifactStore(projectRoot);
-    result.artifactPath = await store.save("tls-compliance", result);
-  }
-
   return result;
 }
 
 export const tlsComplianceGateDefinition: Gate = {
   name: "tls-compliance",
   description: "Verify TLS minimum version policy",
+  level: 1,
   run: runTlsComplianceGate,
   format: (result) => [
     `${result.status}: tls-compliance${result.reason ? ` — ${result.reason}` : ""}`,

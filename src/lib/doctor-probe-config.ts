@@ -105,9 +105,7 @@ export function resolveProbeServerBind(probe: DoctorProbeConfig = {}): {
   port: number;
 } {
   const host = Bun.env[PROBE_SERVER_HOST_ENV] ?? probe.host ?? DEFAULT_PROBE_SERVER_HOST;
-  const port = Number(
-    Bun.env[PROBE_SERVER_PORT_ENV] ?? probe.port ?? DEFAULT_PROBE_SERVER_PORT
-  );
+  const port = Number(Bun.env[PROBE_SERVER_PORT_ENV] ?? probe.port ?? DEFAULT_PROBE_SERVER_PORT);
   return { host, port };
 }
 

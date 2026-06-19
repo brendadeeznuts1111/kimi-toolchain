@@ -19,6 +19,7 @@ describe("gate-registry", () => {
     const custom: Gate = {
       name: "test-gate-registry-custom",
       description: "test",
+      level: 2,
       run: async () => ({ status: "pass" }),
     };
     registerGate(custom);

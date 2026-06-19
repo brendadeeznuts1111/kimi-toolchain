@@ -87,11 +87,15 @@ Effect code or a new CLI using `runCliExit` → load **effect-discipline** (`ski
 
 ### Examples
 
-Conversation playbooks (also linked from `error-taxonomy.yml` `docLink` where noted):
+Repo-root playbooks in `examples/` (also linked from `error-taxonomy.yml` `docLink` where noted):
 
 - [Dependency push blocked](examples/guardian-failure.md) — `lockfile_issue`
 - [Project feels off](examples/project-health-check.md)
 - [What broke?](examples/what-broke.md) — `test_failure`
+- [Artifact trading loop](examples/artifact-trading-loop.md) — L1→L2 feedback loop
+- [Control plane layers](examples/control-plane-layers.md) — L0–L3 artifact model
+- [Artifact dependency graphs](examples/artifact-dependency-graphs.md) — data lineage vs gate order
+- [Dependency graphs dev workflow](examples/dependency-graphs-developer-workflow.md) — CLI, debugging, dashboard
 
 ### Project Health Check
 

@@ -95,6 +95,25 @@ describe("artifact-store", () => {
     });
   });
 
+  test("prune uses GATE_LEVEL_PRUNE_MS when level is set", async () => {
+    await withTempDir("artifact-store-prune-level-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      const gateDir = join(dir, ".kimi", "artifacts", "perf-gate");
+      makeDir(gateDir, { recursive: true });
+
+      const oldStamp = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .replace(/[:.]/g, "-");
+      const recentStamp = new Date().toISOString().replace(/[:.]/g, "-");
+      await Bun.write(join(gateDir, `${oldStamp}.json`), '{"legacy":true}');
+      await Bun.write(join(gateDir, `${recentStamp}.json`), '{"legacy":true}');
+
+      const removed = await store.prune("perf-gate", { level: 2 });
+      expect(removed.removed).toBe(1);
+      expect(await store.list("perf-gate")).toHaveLength(1);
+    });
+  });
+
   test("prune removes artifacts older than maxAgeMs", async () => {
     await withTempDir("artifact-store-prune-", async (dir) => {
       const store = new ArtifactStore(dir);
@@ -124,6 +143,72 @@ describe("artifact-store", () => {
       expect(listed.entries[0]?.size).toBeGreaterThan(0);
       expect(listed.entries[0]?.resultSize).toBeGreaterThan(0);
       expect(listed.entries[0]?.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    });
+  });
+
+  test("save stores dependsOn metadata and getDependencies retrieves it", async () => {
+    await withTempDir("artifact-store-deps-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      await store.save("strategy-performance", { pnl: 1 });
+      await Bun.sleep(2);
+      await store.save("strategy-performance", { pnl: 2 });
+      const perfFiles = await store.list("strategy-performance");
+      expect(perfFiles).toHaveLength(2);
+
+      const driftPath = await store.save(
+        "model-drift",
+        { drift: 0.12 },
+        {
+          dependsOn: [
+            { gate: "strategy-performance", limit: 2 },
+            {
+              gate: "strategy-performance",
+              paths: [perfFiles[0]!],
+            },
+          ],
+        }
+      );
+
+      const relativePath = store.relativePath(driftPath);
+      const queries = await store.getDependencies(relativePath);
+      expect(queries).toHaveLength(2);
+      expect(queries[0]?.gate).toBe("strategy-performance");
+      expect(queries[0]?.limit).toBe(2);
+      expect(queries[1]?.paths).toEqual([perfFiles[0]]);
+
+      const resolved = await store.resolveDependsOn(queries);
+      expect(resolved[0]?.paths).toHaveLength(2);
+      expect(resolved[1]?.paths).toEqual([perfFiles[0]]);
+
+      const envelope = await store.readEnvelope(relativePath);
+      expect(envelope?.metadata?.lineageMermaid).toContain("graph TD");
+      expect(envelope?.metadata?.lineageMermaid).toContain("strategy-performance");
+
+      const graph = await store.buildLineageGraph(relativePath);
+      expect(graph?.stored).toBe(true);
+      expect(graph?.mermaid).toContain("model-drift");
+    });
+  });
+
+  test("buildLineageGraph falls back to runtime metadata.lineage", async () => {
+    await withTempDir("artifact-store-run-lineage-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      const upstreamPath = await store.save("bunfig-policy", { status: "pass" });
+      const perfPath = await store.save(
+        "perf-gate",
+        { status: "pass" },
+        {
+          lineage: {
+            dependencies: ["bunfig-policy"],
+            upstreamArtifacts: [store.relativePath(upstreamPath)],
+          },
+        }
+      );
+
+      const graph = await store.buildLineageGraph(store.relativePath(perfPath));
+      expect(graph?.lineageSource).toBe("runtime");
+      expect(graph?.mermaid).toContain("bunfig-policy");
+      expect(graph?.mermaid).toContain("perf-gate");
     });
   });
 

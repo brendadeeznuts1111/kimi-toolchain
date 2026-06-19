@@ -578,6 +578,124 @@ export async function fetchDashboardArtifacts(
   };
 }
 
+export interface DashboardArtifactLineagePayload {
+  ok: boolean;
+  projectPath: string;
+  gate: string;
+  path: string | null;
+  mermaid: string | null;
+  dependencyCount: number;
+  stored: boolean;
+  lineageSource: "stored" | "declarative" | "runtime" | "none";
+  runLineage: { dependencies: string[]; upstreamArtifacts: string[] } | null;
+  error?: string;
+  fetchedAt: string;
+}
+
+/** Mermaid data-lineage for the newest artifact of a gate (or a specific path). */
+export async function fetchDashboardArtifactLineage(
+  projectPath: string,
+  gateName: string,
+  artifactPath?: string
+): Promise<DashboardArtifactLineagePayload> {
+  const fetchedAt = new Date().toISOString();
+  const store = new ArtifactStore(projectPath);
+  const relativePath =
+    artifactPath?.trim() || (await store.getLatest(gateName))?.relativePath || null;
+
+  if (!relativePath) {
+    return {
+      ok: false,
+      projectPath,
+      gate: gateName,
+      path: null,
+      mermaid: null,
+      dependencyCount: 0,
+      stored: false,
+      lineageSource: "none",
+      runLineage: null,
+      error: `No artifacts found for gate: ${gateName}`,
+      fetchedAt,
+    };
+  }
+
+  const graph = await store.buildLineageGraph(relativePath);
+  if (!graph) {
+    return {
+      ok: false,
+      projectPath,
+      gate: gateName,
+      path: relativePath,
+      mermaid: null,
+      dependencyCount: 0,
+      stored: false,
+      lineageSource: "none",
+      runLineage: null,
+      error: `Artifact not found: ${relativePath}`,
+      fetchedAt,
+    };
+  }
+
+  const declarativeCount = graph.resolved.reduce((sum, block) => sum + block.paths.length, 0);
+  const runtimeCount = graph.runLineage?.upstreamArtifacts.length ?? 0;
+  const dependencyCount = declarativeCount > 0 ? declarativeCount : runtimeCount;
+  return {
+    ok: true,
+    projectPath,
+    gate: graph.gate,
+    path: graph.relativePath,
+    mermaid: graph.mermaid,
+    dependencyCount,
+    stored: graph.stored,
+    lineageSource: graph.lineageSource,
+    runLineage: graph.runLineage,
+    fetchedAt,
+  };
+}
+
+export interface DashboardGateGraphPayload {
+  ok: boolean;
+  gate: string | null;
+  mermaid: string;
+  gates: Array<{ name: string; dependsOn: string[] }>;
+  fetchedAt: string;
+}
+
+/** Static gate execution DAG as Mermaid (no subprocess). */
+export async function fetchDashboardGateGraph(
+  gateName?: string
+): Promise<DashboardGateGraphPayload> {
+  const { generateGateGraph } = await import("../gates/runner.ts");
+  const { getGate, listBuiltinGateDefinitions, resolveGateClosure } =
+    await import("../gates/registry.ts");
+
+  let gates = listBuiltinGateDefinitions();
+  let gate: string | null = null;
+
+  if (gateName) {
+    if (!getGate(gateName)) {
+      return {
+        ok: false,
+        gate: gateName,
+        mermaid: `graph TD\n  missing["unknown gate: ${gateName}"]`,
+        gates: [],
+        fetchedAt: new Date().toISOString(),
+      };
+    }
+    const closure = resolveGateClosure(gateName);
+    gates = closure.gates;
+    gate = gateName;
+  }
+
+  return {
+    ok: true,
+    gate,
+    mermaid: generateGateGraph(gates),
+    gates: gates.map((g) => ({ name: g.name, dependsOn: g.dependsOn ?? [] })),
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
 // ── Gate health ──────────────────────────────────────────────────────
 
 export interface DashboardGateCheckPayload {

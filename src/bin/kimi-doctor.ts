@@ -191,9 +191,24 @@ const DRYRUN = Bun.argv.includes("--dryrun") || Bun.argv.includes("--dry-run");
 const SAVE_ARTIFACT = Bun.argv.includes("--save-artifact") && !DRYRUN;
 const ARTIFACTS_LIST = argValue("--artifacts-list");
 const ARTIFACTS_LATEST = argValue("--artifacts-latest");
+const ARTIFACTS_LINEAGE = argValue("--artifacts-lineage");
+const ARTIFACT_GRAPH = argValue("--artifact-graph");
+const ARTIFACT_PATH = argValue("--artifact-path");
 const AGENT_ID = argValue("--agent-id");
 const ADAPTER = argValue("--adapter");
 const PLUGIN = argValue("--plugin");
+
+function parseArtifactsLineageGate(): string | undefined {
+  if (ARTIFACTS_LINEAGE) return ARTIFACTS_LINEAGE;
+  if (ARTIFACT_GRAPH) return ARTIFACT_GRAPH;
+  const args = Bun.argv.slice(2);
+  const artifactsIdx = args.indexOf("artifacts");
+  if (artifactsIdx === -1) return undefined;
+  if (args[artifactsIdx + 1] === "lineage" && args[artifactsIdx + 2]) {
+    return args[artifactsIdx + 2];
+  }
+  return undefined;
+}
 
 function argValue(flag: string): string | undefined {
   const prefix = `${flag}=`;
@@ -1512,6 +1527,64 @@ async function main(): Promise<number> {
       });
     } else {
       emitJson(latest.payload);
+    }
+    return 0;
+  }
+
+  const lineageGate = parseArtifactsLineageGate();
+  if (lineageGate) {
+    const store = new ArtifactStore(projectRoot);
+    const relativePath =
+      ARTIFACT_PATH ?? (await store.getLatest(lineageGate))?.relativePath ?? null;
+    if (!relativePath) {
+      logger.error(`No artifacts found for gate: ${lineageGate}`);
+      return 1;
+    }
+
+    const graph = await store.buildLineageGraph(relativePath);
+    if (!graph) {
+      logger.error(`Artifact not found: ${relativePath}`);
+      return 1;
+    }
+
+    const runLineage = graph.runLineage;
+    const graphOnly = ARTIFACT_GRAPH !== undefined && !ARTIFACTS_LINEAGE;
+
+    if (JSON_OUT) {
+      emitJson({
+        schemaVersion: 1,
+        tool: "kimi-doctor",
+        mode: graphOnly ? "artifact-graph" : "artifacts-lineage",
+        gate: graph.gate,
+        projectRoot,
+        path: graph.relativePath,
+        lineage: runLineage,
+        lineageSource: graph.lineageSource,
+        dependsOn: graph.queries,
+        resolved: graph.resolved,
+        stored: graph.stored,
+        mermaid: graph.mermaid,
+      });
+    } else if (graphOnly) {
+      logger.line(graph.mermaid);
+    } else {
+      logger.info(`gate: ${graph.gate}`);
+      logger.info(`path: ${graph.relativePath}`);
+      if (runLineage) {
+        logger.info(`dependencies: ${runLineage.dependencies.join(", ") || "—"}`);
+        for (const upstream of runLineage.upstreamArtifacts) {
+          logger.line(`  ↑ ${upstream}`);
+        }
+      }
+      if (graph.lineageSource !== "none") {
+        logger.info(`lineage source: ${graph.lineageSource}`);
+      }
+      if (graph.queries.length > 0) {
+        logger.info(
+          `declared dependsOn: ${graph.queries.length} quer${graph.queries.length === 1 ? "y" : "ies"}`
+        );
+      }
+      if (graph.mermaid) logger.line(graph.mermaid);
     }
     return 0;
   }

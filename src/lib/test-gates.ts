@@ -30,6 +30,7 @@ export const UNIT_TEST_FILES = [
   "test/http-client.unit.test.ts",
   "test/bun-install-config.unit.test.ts",
   "test/artifact-store.unit.test.ts",
+  "test/graph-to-mermaid.unit.test.ts",
   "test/bunfig-policy-gate.unit.test.ts",
   "test/gate-registry.unit.test.ts",
   "test/doctor-gates-runner.unit.test.ts",

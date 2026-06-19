@@ -2,7 +2,13 @@
  * Card probe CLI orchestration — shared by kimi-doctor flags.
  */
 
-import { runCardProbeGate, type CardProbeGateResult } from "../gates/card-probe.ts";
+import {
+  cardProbeGateDefinition,
+  runCardProbeGate,
+  type CardProbeGateResult,
+} from "../gates/card-probe.ts";
+import { persistGateArtifact } from "../gates/runner.ts";
+import { ArtifactStore } from "./artifact-store.ts";
 import {
   type CardProbeConfig,
   type CardStatus,
@@ -173,12 +179,22 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
     return { exitCode: 0, statuses, url: handle.url, summary, payload: json ? payload : undefined };
   }
 
-  const gateResult = (await runCardProbeGate({
-    projectRoot: options.projectRoot ?? process.cwd(),
+  let gateResult = await runCardProbeGate({
+    projectRoot,
     probeConfig,
-    saveArtifact: options.saveArtifact,
     strict,
-  })) as CardProbeGateResult;
+    saveArtifact: false,
+  });
+  if (options.saveArtifact) {
+    const store = new ArtifactStore(projectRoot);
+    gateResult = (await persistGateArtifact(
+      cardProbeGateDefinition,
+      gateResult,
+      [],
+      [],
+      store
+    )) as CardProbeGateResult;
+  }
   const statuses = gateResult.statuses;
   const summary = gateResult.summary;
   const payload = buildCardProbeJsonPayload("probe-cards", statuses, {
