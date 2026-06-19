@@ -107,9 +107,23 @@ async function apiEnv(): Promise<Response> {
 
   const shadowWarnings = tcResolved.filter((r) => r.shadowed).map((r) => r.name);
 
+  // Read [run] section from local bunfig.toml
+  let bunfigRun: Record<string, unknown> = {};
+  try {
+    const bunfigText = await Bun.file("./bunfig.toml").text();
+    const runMatch = bunfigText.match(/\[run\]([\s\S]*?)(?=\[|$)/);
+    if (runMatch) {
+      for (const line of runMatch[1].split("\n")) {
+        const kv = line.trim().match(/^(\w+)\s*=\s*(.+)$/);
+        if (kv) bunfigRun[kv[1]] = kv[2].replace(/#.*$/, "").trim();
+      }
+    }
+  } catch { /* no bunfig.toml */ }
+
   return jsonResponse({
     path: pathDirs,
     toolchainBinDir: USER_TOOLCHAIN_BIN,
+    bunfigRun,
     tools,
     shadowWarnings,
     keyVars: {
