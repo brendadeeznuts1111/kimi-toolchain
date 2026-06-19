@@ -385,7 +385,7 @@ async function apiInspectConfig(): Promise<Response> {
       { environment: "Local terminal (dev)", colors: true, depth: 5, compact: false, showHidden: false, useCase: "Best developer experience" },
       { environment: "CI / GitHub Actions", colors: false, depth: 4, compact: true, showHidden: false, useCase: "Clean, safe logs" },
       { environment: "Production", colors: false, depth: 2, compact: true, showHidden: false, useCase: "Minimal output" },
-      { environment: "Debug (DEBUG_INSPECT=1)", colors: isTTY, depth: "Infinity", compact: false, showHidden: true, useCase: "Maximum visibility for debugging" },
+      { environment: "Debug (DEBUG_INSPECT=1)", colors: "inherit", depth: "Infinity", compact: false, showHidden: true, useCase: "Maximum visibility for debugging" },
     ],
     note: debug ? "DEBUG_INSPECT=true — depth=Infinity, showHidden=true" : `Auto preset (${preset}). Set DEBUG_INSPECT=true to override.`,
   });
