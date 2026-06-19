@@ -44,7 +44,9 @@
 </head>
 <body>
 <h1>kimi-toolchain</h1>
-<p class="subtitle">Demo dashboard — B3.x features in one page</p>
+<div id="path-header" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:12px">
+  <span class="loading">Loading PATH…</span>
+</div>
 <div class="grid">
   <div class="card" id="card-bundle"><h2>Bundle Analysis</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-compile"><h2>Compile Check</h2><div class="loading">Loading…</div></div>
@@ -54,6 +56,24 @@
 </div>
 <script>
 async function fetchJson(url) { const res = await fetch(url); return res.json(); }
+
+// PATH header
+(async () => {
+  const el = document.getElementById("path-header");
+  try {
+    const d = await fetchJson("/api/env");
+    const tools = Object.entries(d.tools).map(([k,v]) =>
+      `<span class="badge ${v ? 'badge-ok' : 'badge-err'}" style="margin:0 2px">${k}${v ? ' ✓' : ' ✗'}</span>`
+    ).join("");
+    const vars = Object.entries(d.keyVars).map(([k,v]) =>
+      `<span style="margin:0 6px;color:var(--muted)">${k}=</span><span style="color:var(--text)">${v}</span>`
+    ).join("");
+    el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
+      <span style="color:var(--muted)">PATH:</span>${tools}
+      <span style="margin-left:auto">${vars}</span>
+    </div>`;
+  } catch(e) { el.innerHTML = `<span class="status err">${e.message}</span>`; }
+})();
 
 function card(id, body) {
   const el = document.getElementById(id);

@@ -78,6 +78,25 @@ async function apiSecrets(): Promise<Response> {
   return jsonResponse({ available, methods, note: "scoped per user namespace (macOS Keychain / Windows Credential Manager)" });
 }
 
+async function apiEnv(): Promise<Response> {
+  const pathDirs = (Bun.env.PATH || "").split(":").filter(Boolean);
+  const toolBins = ["kimi-fix", "kimi-doctor", "bun", "herdr", "kimi-bake"];
+  const found: Record<string, string | null> = {};
+  for (const bin of toolBins) found[bin] = Bun.which(bin);
+
+  return jsonResponse({
+    path: pathDirs,
+    tools: found,
+    keyVars: {
+      HOME: Bun.env.HOME || "unset",
+      KIMI_PROFILE: Bun.env.KIMI_PROFILE || "unset",
+      BUN_CREATE_DIR: Bun.env.BUN_CREATE_DIR || "unset",
+      HERDR_ENV: Bun.env.HERDR_ENV || "unset",
+      PORT: Bun.env.PORT || "unset",
+    },
+  });
+}
+
 async function apiConsoleDepth(): Promise<Response> {
   const nested = { a: { b: { c: { d: "deep", e: [{ x: 1, y: { z: "nested-array" } }] } } } };
 
@@ -117,6 +136,8 @@ const server = Bun.serve({
         return apiSecrets();
       case "/api/console-depth":
         return apiConsoleDepth();
+      case "/api/env":
+        return apiEnv();
       case "/health":
         return new Response("ok");
       default:
