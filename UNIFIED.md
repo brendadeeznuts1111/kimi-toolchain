@@ -15,8 +15,6 @@
 
 **Do not rename** `~/.kimi-code/` — it is the official Kimi Code data directory.
 
-**Canonical links** (Bun, Effect, Kimi Code, Herdr, Cloudflare, DX): `canonical-references.json` in repo and `~/.kimi-code/` after sync. Source: `src/lib/canonical-references.ts`; `package.json` → `kimi.canonicalReferences`.
-
 ## Directory layout
 
 ```
@@ -28,6 +26,7 @@
 ├── sessions/wd_*/                     # Kimi Code chat sessions (workDir-bound)
 ├── session_index.jsonl                # Session index (cwd binding)
 ├── mcp.json                           # User-level MCP (toolchain seeds unified-shell + cloudflare-api)
+├── config.toml                        # Agent: models, permissions, providers, [[hooks]]
 ├── plugins/                           # Kimi Code plugins
 ├── skills/                            # User skills (toolchain syncs kimi-toolchain skill)
 ├── logs/                              # Diagnostic logs
@@ -38,6 +37,9 @@
 ├── scripts/*.ts                       # EXTENSION: synced gate scripts
 ├── var/sessions.db                    # EXTENSION: toolchain memory (not Kimi sessions)
 ├── var/tool-failures.jsonl            # EXTENSION: classified tool failure ledger
+├── var/trace-events.jsonl             # EXTENSION: causal trace event ledger
+├── var/decision-ledger.jsonl          # EXTENSION: recorded toolchain decisions
+├── var/capabilities/*.json            # EXTENSION: capability health snapshots
 ├── error-taxonomy.yml                 # EXTENSION: failure classification schema
 ├── governor/                          # EXTENSION: resource governor
 ├── guardian/                          # EXTENSION: lockfile security
@@ -60,11 +62,11 @@
 
 Three independent hook systems are used. Do not conflate naming in docs or code.
 
-| System                        | Config / location                                                         | Trigger                  | Examples                                                                        |
-| ----------------------------- | ------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------- |
-| **Git hooks**                 | `.git/hooks/` (installed by `kimi-githooks`)                              | `git commit`, `git push` | `pre-commit` (format/lint/typecheck), `pre-push` (guardian + R-Score + sync)    |
-| **Bun package hook**          | `package.json` `scripts.postinstall` → `src/install-hooks/postinstall.ts` | `bun install`            | Set up `~/.kimi-code/` layout, sync tools, init `sessions.db`                   |
-| **Kimi Code lifecycle hooks** | `~/.kimi-code/config.toml` `[[hooks]]` → scripts in `src/kimi-hooks/`     | Agent tool lifecycle     | `PostToolUseFailure` → classify + log to `~/.kimi-code/var/tool-failures.jsonl` |
+| System                        | Config / location                                                         | Trigger                  | Examples                                                                                            |
+| ----------------------------- | ------------------------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------- |
+| **Git hooks**                 | `.git/hooks/` (installed by `kimi-githooks`)                              | `git commit`, `git push` | `pre-commit` (format/lint/typecheck), `pre-push` (guardian + R-Score + sync + sync manifest verify) |
+| **Bun package hook**          | `package.json` `scripts.postinstall` → `src/install-hooks/postinstall.ts` | `bun install`            | Set up `~/.kimi-code/` layout, sync tools, init `sessions.db`                                       |
+| **Kimi Code lifecycle hooks** | `~/.kimi-code/config.toml` `[[hooks]]` → scripts in `src/kimi-hooks/`     | Agent tool lifecycle     | `PostToolUseFailure` → classify + log to `~/.kimi-code/var/tool-failures.jsonl` with trace context  |
 
 See official docs: https://moonshotai.github.io/kimi-code/en/customization/hooks.html
 
@@ -113,34 +115,41 @@ cd ~/kimi-toolchain
 #    src/bin/*.ts  src/lib/*.ts
 
 # 2. Test from repo (fastest)
-bun run check:fast          # unit tests @ 1500ms (~2-3s total gate)
+bun run check:fast          # unit tests @ 100ms (~1s total gate)
 bun run check:dry-run       # preview format/lint/typecheck/test steps
 bun test                    # full suite (unit + smoke)
 bun run doctor --quick
 
-# Canvas companions (IDE-only; repo pointers via cursorCanvas in canonical-references.json):
-#   docs/canvases/kimi-toolchain.canvas.tsx      — project hub (manifest id unified)
-#   docs/canvases/kimi-fix.canvas.tsx            — scaffold (manifest id templates)
-#   docs/canvases/namespace-boundaries.canvas.tsx — name collisions (manifest id namespace)
-#   docs/canvases/configuration-layers.canvas.tsx — four-layer config model
-#   docs/canvases/doc-links-and-see-ladder.canvas.tsx — doc-links lint (manifest id code-references)
-#   docs/canvases/herdr-dashboard-automation.canvas.tsx — --automation gate (manifest id kimi-doctor)
-#   docs/canvases/herdr-dashboard-thumbnails.canvas.tsx — thumbnails (manifest id dashboard-thumbnails)
-#   docs/canvases/herdr-unified-plugin-architecture.canvas.tsx — Herdr plugins (manifest id herdr-plugin-architecture)
-
 # 3. Push to live runtime
 bun run sync
-# Final handoff after tools/docs/skills/templates changed:
-bun run sync && bun run sync:verify
+bun run sync:verify
 
 # 4. Verify PATH commands match
 kimi-doctor --quick
 ```
 
-Optional during active toolchain work: `bun run sync:daemon` (every 5 min).
+`bun run sync` writes `~/.kimi-code/toolchain-manifest.json` with sha256 hashes for sync-managed files. `bun run sync:verify` recomputes those hashes and checks the live desktop copy; the managed pre-push hook runs both. Optional during active toolchain work: `bun run sync:daemon` (every 5 min).
 
-**Rule:** never hand-edit `~/.kimi-code/tools/` — always sync from repo, then
-verify with `bun run sync:verify`.
+**Rule:** never hand-edit `~/.kimi-code/tools/` — always sync from repo.
+
+## Introspection and self-healing
+
+The toolchain keeps local, append-only telemetry so agent failures can be
+traced, clustered, and converted into guarded repair plans.
+
+| Surface            | Command / path                                 | Notes                                                               |
+| ------------------ | ---------------------------------------------- | ------------------------------------------------------------------- |
+| Causal traces      | `kimi-trace <trace-id> --json`                 | Reads `var/trace-events.jsonl` plus failure records                 |
+| Capability probing | `kimi-capabilities --json`, `--trend`          | Saves snapshots under `var/capabilities/`                           |
+| Signed contracts   | `kimi-contract sign`, `kimi-contract validate` | Uses sibling `<contract>.sig` files and project `trusted-keys.json` |
+| Failure clustering | `kimi-heal clusters --json`                    | Groups `tool-failures.jsonl` records with trace evidence            |
+| Self-healing plans | `kimi-heal plan --json`                        | Produces safe/manual/blocked actions                                |
+| Guarded apply      | `kimi-heal apply --dry-run`, `--yes`           | Dry-run by default; `--yes` only runs `safeToAutoApply` actions     |
+| Decision ledger    | `kimi-decision log`, `kimi-why <topic> --json` | Reads `var/decision-ledger.jsonl` with trace/cluster links          |
+
+Agents should prefer `kimi-heal plan --json` after a failure has surfaced.
+Manual or blocked actions are evidence, not permission to mutate. Use
+`kimi-heal apply --dry-run` before any `--yes` invocation.
 
 ## Command routing
 
@@ -166,7 +175,7 @@ verify with `bun run sync:verify`.
 | --------------------------- | -------------------------------------------- |
 | `~/.kimi/`                  | Deprecated — run `kimi migrate`, then remove |
 | `~/.kimi-code/bin/kimi.bak` | Safe to delete after upgrade                 |
-| Old clone folder names      | Done — clone path is `~/kimi-toolchain`      |
+| `kimicode-cli` folder name  | Done — clone path is `~/kimi-toolchain`      |
 
 ## Unify checklist
 
@@ -183,19 +192,13 @@ Or step-by-step:
 cd ~/kimi-toolchain
 kimi migrate                          # if ~/.kimi exists
 bun run sync                          # repo → ~/.kimi-code/ (+ scripts/)
-bun run sync:verify                   # verify runtime manifest + source hashes
 bash scripts/install-bin-wrappers.sh
 kimi doctor                           # Kimi Code config
 kimi-doctor --quick                   # toolchain + sync drift + memory
 bun run memory-check                  # pre-session gate
 ```
 
-`scripts/sync-to-desktop.ts` writes `toolchain-manifest.json` with the
-toolchain version, repo HEAD, sync timestamp, changed files, and source hashes.
-`bun run sync:verify` checks repo-managed runtime files against the synced
-hashes. `kimi-doctor --json` emits structured output for agents.
-`kimi-doctor --fix` runs `sync`, MCP provisioning, and wrapper install when
-drift is detected.
+`kimi-doctor --json` emits structured output for agents. `kimi-doctor --fix` runs `sync`, MCP provisioning, and wrapper install when drift is detected.
 
 ## MCP (Model Context Protocol)
 
@@ -227,9 +230,9 @@ kimi --continue   # resume previous session for this directory
 
 ### Cursor
 
-- Open folder: `~/kimi-toolchain`
+- Open folder: `~/kimi-toolchain` (not legacy `kimicode-cli`)
 - Or open workspace file: `~/kimi-toolchain/kimi-toolchain.code-workspace`
-- If tools fail with a path under an old renamed clone, you opened the wrong path — see `AGENTS.md` Workspace section
+- If tools fail with `Path does not exist: .../kimicode-cli`, you opened the wrong path — see `AGENTS.md` Workspace section
 - **Composer** uses Cursor's agent (separate from Kimi MCP)
 - Integrated terminal `kimi` shares `~/.kimi-code/mcp.json`
 - Toolchain: `kimi-doctor`, `bun run check`
@@ -255,12 +258,12 @@ Run `kimi login` once in terminal before IDE ACP sessions.
 
 ## Agent session health
 
-Cursor binds the workspace root at folder-open time. If the editor still points at an old renamed clone, agent Grep/Glob fail even when shell `pwd` is `~/kimi-toolchain`.
+Cursor binds the workspace root at folder-open time. If the editor still points at `~/kimicode-cli` (removed/renamed), agent Grep/Glob fail even when shell `pwd` is `~/kimi-toolchain`.
 
 ```mermaid
 flowchart LR
   disk["~/kimi-toolchain"] --> shell["verify-workspace passes"]
-  slug["stale Cursor project slug"] --> agent["Agent tools use wrong root"]
+  slug["~/.cursor/projects/*kimicode*"] --> agent["Agent tools use wrong root"]
 ```
 
 **Recovery:**
@@ -271,10 +274,122 @@ flowchart LR
 
 **CLI:** `kimi-toolchain workspace verify` (blockers), `kimi-toolchain doctor --ecosystem` (full map), `kimi-toolchain doctor --fix --fix-cursor` (opt-in slug removal). Legacy `kimi-doctor` etc. dispatch through `kimi-toolchain`.
 
-## Kimi Code reference
+## Kimi Code features (0.11.0)
 
-CLI flags, slash commands, subcommands, config defaults, non-standard field audit, and official doc URLs: **`skills/kimi-toolchain/SKILL.md`**.
+| Feature                 | How                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| Official config check   | `kimi doctor`                                                                  |
+| Config only             | `kimi doctor config [path]`                                                    |
+| TUI only                | `kimi doctor tui [path]`                                                       |
+| Goal queue              | `/goal next`, `/goal next manage`                                              |
+| MCP                     | `/mcp`, `/mcp-config`                                                          |
+| Subagents               | built-in `coder`, `explore`, `plan`                                            |
+| Experimental sub-skills | `KIMI_CODE_EXPERIMENTAL_SUB_SKILL=1`                                           |
+| Reload config           | `/reload`, `/reload-tui`                                                       |
+| CLI flags               | `--continue`, `--session`, `--model`, `--yolo`, `--auto`, `--plan`, `--prompt` |
 
-Default MCP inventory (`unified-shell`, `cloudflare-api`, optional Cloudflare endpoints) and auth separation (SSO vs Wrangler vs `kimi-cloudflare-access` tokens): see the MCP section above and [CODE_REFERENCES.md](CODE_REFERENCES.md).
+## Official Kimi Code Documentation
 
-**Rule:** Never add toolchain-specific keys to `config.toml`. Use `~/.kimi-code/toolchain-manifest.json`, `~/.kimi-code/governor/defaults.toml`, or project files under `~/.kimi-code/` instead.
+The following URLs are the authoritative source for Kimi Code CLI behavior. Cache or reference them when making toolchain decisions that depend on Kimi Code internals.
+
+| Topic                                                           | Official URL                                                                        | Cached locally?        |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------- |
+| Config files (incl. `loop_control`, `permission`, `background`) | `https://moonshotai.github.io/kimi-code/en/configuration/config-files.html`         | No — fetch when needed |
+| Providers & models                                              | `https://moonshotai.github.io/kimi-code/en/configuration/providers-and-models.html` | No                     |
+| MCP servers                                                     | `https://moonshotai.github.io/kimi-code/en/customization/mcp.html`                  | No                     |
+| ACP (IDE integration)                                           | `https://moonshotai.github.io/kimi-code/en/reference/kimi-acp.html`                 | No                     |
+| `kimi` command reference                                        | `https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html`             | No                     |
+| GitHub repo (source)                                            | `https://github.com/MoonshotAI/kimi-code`                                           | No                     |
+
+**Environment overrides** (take priority over `config.toml`):
+
+| Variable                                  | Overrides                       | Example               |
+| ----------------------------------------- | ------------------------------- | --------------------- |
+| `KIMI_CODE_BACKGROUND_KEEP_ALIVE_ON_EXIT` | `background.keep_alive_on_exit` | `true`                |
+| `KIMI_MODEL_PROVIDER`                     | Temporary model provider        | `anthropic`           |
+| `KIMI_MODEL_MODEL`                        | Temporary model identifier      | `claude-4-7-20251014` |
+| `KIMI_CODE_EXPERIMENTAL_SUB_SKILL`        | Experimental sub-skills         | `1`                   |
+
+**Key config tables for agents** (from official docs, as of 2026-06-12):
+
+### `loop_control`
+
+| Field                   | Type      | Default | Description                                                                                   |
+| ----------------------- | --------- | ------- | --------------------------------------------------------------------------------------------- |
+| `max_steps_per_turn`    | `integer` | —       | Maximum steps per turn; unset or `0` means unlimited                                          |
+| `max_retries_per_step`  | `integer` | `3`     | Maximum retries after a step failure                                                          |
+| `reserved_context_size` | `integer` | —       | Tokens reserved for model output; compaction triggers when remaining context falls below this |
+
+### `permission`
+
+Rules are matched in order — first match wins. `scope` defaults to `user`.
+
+```toml
+[[permission.rules]]
+decision = "allow"
+pattern = "Read"
+
+[[permission.rules]]
+decision = "deny"
+pattern = "Bash(rm -rf*)"
+```
+
+### `background`
+
+| Field                | Type      | Default | Description                             |
+| -------------------- | --------- | ------- | --------------------------------------- |
+| `max_running_tasks`  | `integer` | —       | Max concurrent background tasks         |
+| `keep_alive_on_exit` | `boolean` | `false` | Keep tasks running after session closes |
+
+**Environment override:** `KIMI_CODE_BACKGROUND_KEEP_ALIVE_ON_EXIT` takes priority over `config.toml`.
+
+**Note:** MCP server declarations belong in `~/.kimi-code/mcp.json` (or project-local `.kimi-code/mcp.json`), NOT in `config.toml`. The `[mcp]` section in some configs may be legacy or non-standard.
+
+### Non-standard fields in our config (audit 2026-06-12)
+
+Our `~/.kimi-code/config.toml` previously contained fields not documented in the official Kimi Code docs. They have been commented out and replaced with standard equivalents where possible:
+
+| Non-standard field                  | Location         | Standard replacement                                                  | Risk                                      |
+| ----------------------------------- | ---------------- | --------------------------------------------------------------------- | ----------------------------------------- |
+| `[mcp] allow`                       | `config.toml`    | `[[permission.rules]]` with `pattern = "mcp__unified-shell__execute"` | Silently ignored; permissions don't apply |
+| `[mcp.client] tool_call_timeout_ms` | `config.toml`    | None — use `permission.rules` + manual approval                       | Silently ignored                          |
+| `[safety] auto_approve_destructive` | `config.toml`    | `default_permission_mode = "manual"` + `permission.rules`             | Silently ignored                          |
+| `max_ralph_iterations`              | `[loop_control]` | None — remove if not used by toolchain code                           | May be ignored or cause warnings          |
+
+**Rule:** When adding toolchain-specific config, prefer a separate file (e.g., `~/.kimi-code/governor/defaults.toml`, `~/.kimi-code/toolchain-manifest.json`) rather than polluting `config.toml` which Kimi Code owns.
+
+### MCP servers (toolchain)
+
+Our default `~/.kimi-code/mcp.json` registers `unified-shell` plus `cloudflare-api`. Other official Cloudflare MCP endpoints can be added explicitly when a project needs docs, bindings, builds, or observability tools. Per the official docs:
+
+> "Only connect to servers from trusted sources."
+
+| Server           | Type  | URL                              | Provisioned by default | Trust basis                         |
+| ---------------- | ----- | -------------------------------- | ---------------------- | ----------------------------------- |
+| `unified-shell`  | stdio | Local Bun script                 | Yes                    | First-party toolchain code          |
+| `cloudflare-api` | HTTP  | `https://mcp.cloudflare.com/mcp` | Yes                    | Official Cloudflare MCP (Code Mode) |
+
+Optional Cloudflare MCP endpoints, all under Cloudflare-controlled domains:
+
+| Server                     | Type | URL                                            | Use when                                  |
+| -------------------------- | ---- | ---------------------------------------------- | ----------------------------------------- |
+| `cloudflare`               | HTTP | `https://mcp.cloudflare.com/mcp`               | General Cloudflare account/resource tools |
+| `cloudflare-docs`          | HTTP | `https://docs.mcp.cloudflare.com/mcp`          | Current Cloudflare documentation          |
+| `cloudflare-bindings`      | HTTP | `https://bindings.mcp.cloudflare.com/mcp`      | Worker binding discovery                  |
+| `cloudflare-builds`        | HTTP | `https://builds.mcp.cloudflare.com/mcp`        | Build/deploy workflows                    |
+| `cloudflare-observability` | HTTP | `https://observability.mcp.cloudflare.com/mcp` | Logs, traces, and runtime observability   |
+
+Cloudflare MCP SSO/OAuth, Wrangler OAuth, and `kimi-cloudflare-access` API tokens are separate auth paths. Do not assume one login satisfies the others.
+
+### `thinking`
+
+| Field    | Type     | Default | Description                                              |
+| -------- | -------- | ------- | -------------------------------------------------------- |
+| `mode`   | `string` | —       | `auto` (model decides), `on` (always), `off` (force off) |
+| `effort` | `string` | `high`  | `low`, `medium`, `high`, `xhigh`, `max`                  |
+
+### `experimental`
+
+| Field              | Type      | Default | Description                                           |
+| ------------------ | --------- | ------- | ----------------------------------------------------- |
+| `micro_compaction` | `boolean` | `true`  | Trim older large tool results while preserving recent |

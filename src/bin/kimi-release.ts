@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-release — Conventional commit parser + changelog auto-generator + semver validator
  *
@@ -7,6 +6,7 @@ import { pathExists } from "../lib/bun-io.ts";
  *   kimi-release [changelog|semver|validate|doctor|fix]
  */
 
+import { existsSync } from "fs";
 import { join } from "path";
 import { getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 import { runTool } from "../lib/tool-runner.ts";
@@ -40,7 +40,7 @@ async function doctor(
   }> = [];
 
   // Git repo
-  const hasGit = pathExists(join(projectDir, ".git"));
+  const hasGit = existsSync(join(projectDir, ".git"));
   checks.push({
     name: "git-repo",
     status: hasGit ? "ok" : "error",
@@ -63,9 +63,9 @@ async function doctor(
   const changelogPath = join(projectDir, "CHANGELOG.md");
   checks.push({
     name: "CHANGELOG.md",
-    status: pathExists(changelogPath) ? "ok" : "warn",
-    message: pathExists(changelogPath) ? "present" : "missing",
-    fixable: !pathExists(changelogPath),
+    status: existsSync(changelogPath) ? "ok" : "warn",
+    message: existsSync(changelogPath) ? "present" : "missing",
+    fixable: !existsSync(changelogPath),
   });
 
   // Tag consistency
@@ -153,7 +153,7 @@ async function main(): Promise<number> {
 
     const pkgPath = join(projectDir, "package.json");
     let currentVersion = "0.0.0";
-    if (pathExists(pkgPath)) {
+    if (existsSync(pkgPath)) {
       const pkg = (await Bun.file(pkgPath).json()) as any;
       currentVersion = pkg.version || "0.0.0";
     }

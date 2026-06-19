@@ -2,34 +2,18 @@
  * Ecosystem health — cross-product checks for Kimi Code + kimi-toolchain.
  */
 
-import { pathExists } from "./bun-io.ts";
-
+import { existsSync } from "fs";
 import { join } from "path";
 import { detectSyncDrift } from "./sync-hashes.ts";
 import { validateMcpConfig } from "./mcp-config.ts";
 import { auditKimiConfig } from "./kimi-config-audit.ts";
 import { checkScaffoldAligned } from "./scaffold-aligned.ts";
-import { checkDxGithubAlignment } from "./dx-github-alignment.ts";
-import { checkDxCloudflareConfig } from "./dx-cloudflare-config.ts";
-import { checkConstantParity } from "./constant-parity.ts";
-import {
-  checkTaxonomyConstantLinks,
-  checkRecentlyModifiedBoundConstants,
-} from "./taxonomy-constants.ts";
-import { checkTuningSetFreshness } from "./tuning-set-version.ts";
-import {
-  buildOptimizerDoctorMachineChecks,
-  type OptimizerDoctorSeverity,
-} from "./constant-optimizer.ts";
-import { appendOptimizerHealthTrend } from "./optimizer-health-trend.ts";
 import {
   auditWorkspaceHealth,
   countWorkspaceBlockers,
   isKimiToolchainRepo,
   type WorkspaceCheck,
 } from "./workspace-health.ts";
-import { auditHerdrToolHealth } from "./herdr-tool-health.ts";
-import { auditCanonicalReferencesHealth } from "./canonical-references.ts";
 
 export interface EcosystemCheck {
   name: string;
@@ -37,14 +21,6 @@ export interface EcosystemCheck {
   message: string;
   source: string;
   fixable: boolean;
-  severity?: OptimizerDoctorSeverity;
-  confidence?: number;
-  driftPercent?: number | null;
-  action?: string;
-  decisionIds?: string[];
-  candidateId?: string;
-  candidateValue?: unknown;
-  constant?: string;
 }
 
 export interface EcosystemHealthReport {
@@ -61,92 +37,6 @@ export interface AuditEcosystemOptions {
   quick?: boolean;
 }
 
-interface ConstantOptimizerHealthCheck {
-  name: string;
-  status: "ok" | "warn" | "error";
-  message: string;
-  fixable: boolean;
-  autoFix?: string;
-  severity?: OptimizerDoctorSeverity;
-  confidence?: number;
-  driftPercent?: number | null;
-  action?: string;
-  decisionIds?: string[];
-  candidateId?: string;
-  candidateValue?: unknown;
-  constant?: string;
-}
-
-function optimizerCheckToEcosystem(check: ConstantOptimizerHealthCheck): EcosystemCheck {
-  return {
-    name: `constant-optimizer:${check.name}`,
-    status: check.status,
-    message: check.message,
-    source: "constant-optimizer",
-    fixable: check.fixable,
-    severity: check.severity,
-    confidence: check.confidence,
-    driftPercent: check.driftPercent,
-    action: check.autoFix ?? check.action,
-    decisionIds: check.decisionIds,
-    candidateId: check.candidateId,
-    candidateValue: check.candidateValue,
-    constant: check.constant ?? check.name,
-  };
-}
-
-export async function checkConstantOptimizerHealth(
-  projectRoot: string
-): Promise<{ applicable: boolean; aligned: boolean; checks: ConstantOptimizerHealthCheck[] }> {
-  const taxonomyPath = join(projectRoot, "error-taxonomy.yml");
-  if (!pathExists(taxonomyPath)) {
-    return { applicable: false, aligned: true, checks: [] };
-  }
-
-  const machineChecks = await buildOptimizerDoctorMachineChecks(projectRoot);
-  await appendOptimizerHealthTrend(projectRoot, machineChecks);
-
-  const actionable = machineChecks.filter((check) => check.constant !== "summary");
-
-  if (actionable.length === 0) {
-    const summary = machineChecks.find((check) => check.constant === "summary");
-    return {
-      applicable: true,
-      aligned: true,
-      checks: [
-        {
-          name: "summary",
-          status: "ok",
-          message: summary?.message ?? "no optimizer recommendations",
-          fixable: false,
-        },
-      ],
-    };
-  }
-
-  const checks: ConstantOptimizerHealthCheck[] = actionable.map((machine) => ({
-    name: machine.constant,
-    status: machine.status,
-    message: machine.message,
-    fixable: false,
-    autoFix: machine.action,
-    severity: machine.severity,
-    confidence: machine.confidence,
-    driftPercent: machine.driftPercent,
-    action: machine.action,
-    decisionIds: machine.decisionIds,
-    candidateId: machine.candidateId,
-    candidateValue: machine.candidateValue,
-    constant: machine.constant,
-  }));
-
-  return {
-    applicable: true,
-    aligned: checks.every((check) => check.status === "ok"),
-    checks,
-  };
-}
-
 function toEcosystem(check: WorkspaceCheck): EcosystemCheck {
   return {
     name: check.name,
@@ -161,7 +51,7 @@ import { runOfficialKimiDoctor } from "./kimi-doctor-wrapper.ts";
 
 async function checkQualityScripts(projectRoot: string): Promise<EcosystemCheck[]> {
   const pkgPath = join(projectRoot, "package.json");
-  if (!pathExists(pkgPath)) return [];
+  if (!existsSync(pkgPath)) return [];
 
   const checks: EcosystemCheck[] = [];
   const required = ["format:check", "lint", "typecheck", "check", "test"] as const;
@@ -245,30 +135,6 @@ export async function auditEcosystemHealth(
       });
       fixPlan.push("bun run sync");
     }
-
-    const herdrHealth = await auditHerdrToolHealth(projectRoot, home);
-    for (const check of herdrHealth.checks) {
-      checks.push(check);
-    }
-    for (const step of herdrHealth.fixPlan) {
-      if (!fixPlan.includes(step)) fixPlan.push(step);
-    }
-
-    const refsHealth = await auditCanonicalReferencesHealth(projectRoot, home);
-    if (refsHealth.applicable) {
-      for (const check of refsHealth.checks) {
-        checks.push({
-          name: `canonical-references:${check.name}`,
-          status: check.status,
-          message: check.message,
-          source: "canonical-references",
-          fixable: check.fixable,
-        });
-      }
-      for (const step of refsHealth.fixPlan) {
-        if (!fixPlan.includes(step)) fixPlan.push(step);
-      }
-    }
   }
 
   const mcpReport = await validateMcpConfig(home, projectRoot);
@@ -297,38 +163,6 @@ export async function auditEcosystemHealth(
   }
 
   if (isToolchain) {
-    const dxGithub = await checkDxGithubAlignment(projectRoot);
-    if (dxGithub.applicable) {
-      for (const check of dxGithub.checks) {
-        checks.push({
-          name: `dx-github:${check.name}`,
-          status: check.status,
-          message: check.message,
-          source: "dx-github",
-          fixable: check.fixable,
-        });
-      }
-      if (!dxGithub.aligned) {
-        fixPlan.push("align dx.config.toml with package.json and the configured GitHub workflow");
-      }
-    }
-
-    const dxCloudflare = await checkDxCloudflareConfig(projectRoot);
-    if (dxCloudflare.applicable) {
-      for (const check of dxCloudflare.checks) {
-        checks.push({
-          name: `dx-cloudflare:${check.name}`,
-          status: check.status,
-          message: check.message,
-          source: "dx-cloudflare",
-          fixable: check.fixable,
-        });
-      }
-      if (!dxCloudflare.aligned) {
-        fixPlan.push("align dx.config.toml Cloudflare dashboard defaults");
-      }
-    }
-
     const scaffold = await checkScaffoldAligned(projectRoot);
     if (scaffold.applicable) {
       for (const check of scaffold.checks) {
@@ -345,76 +179,6 @@ export async function auditEcosystemHealth(
 
     const qualityChecks = await checkQualityScripts(projectRoot);
     checks.push(...qualityChecks);
-
-    const constantParity = await checkConstantParity(projectRoot);
-    if (constantParity.applicable) {
-      for (const check of constantParity.checks) {
-        checks.push({
-          name: `constant-parity:${check.name}`,
-          status: check.status,
-          message: check.message,
-          source: "constant-parity",
-          fixable: check.fixable,
-        });
-      }
-      if (!constantParity.aligned) {
-        fixPlan.push("align shared define constants — see constants-parity.toml");
-      }
-    }
-
-    const taxonomyConstants = await checkTaxonomyConstantLinks(projectRoot);
-    if (taxonomyConstants.applicable) {
-      for (const check of taxonomyConstants.checks) {
-        checks.push({
-          name: `taxonomy-constants:${check.name}`,
-          status: check.status,
-          message: check.message,
-          source: "taxonomy-constants",
-          fixable: check.fixable,
-        });
-      }
-      if (!taxonomyConstants.aligned) {
-        fixPlan.push("fix error-taxonomy.yml boundConstants — unknown keys in bunfig/manifest");
-      }
-    }
-
-    const boundRecent = await checkRecentlyModifiedBoundConstants(projectRoot);
-    if (boundRecent.applicable) {
-      for (const check of boundRecent.checks) {
-        checks.push({
-          name: `bound-constants:${check.name}`,
-          status: check.status,
-          message: check.message,
-          source: "bound-constants",
-          fixable: check.fixable,
-        });
-      }
-    }
-
-    const optimizer = await checkConstantOptimizerHealth(projectRoot);
-    if (optimizer.applicable) {
-      for (const check of optimizer.checks) {
-        checks.push(optimizerCheckToEcosystem(check));
-      }
-    }
-
-    const tuningSet = await checkTuningSetFreshness(projectRoot);
-    if (tuningSet.applicable) {
-      for (const check of tuningSet.checks) {
-        checks.push({
-          name: `tuning-set:${check.name}`,
-          status: check.status,
-          message: check.message,
-          source: "tuning-set",
-          fixable: check.fixable,
-        });
-      }
-      if (!tuningSet.aligned) {
-        fixPlan.push(
-          "bump KIMI_TUNING_SET_VERSION in bunfig.toml and run bun run manifest:generate"
-        );
-      }
-    }
   }
 
   if (!options.quick) {
@@ -437,15 +201,7 @@ export async function auditEcosystemHealth(
     if (check.status === "warn") warnings++;
     if (check.status === "error") {
       errors++;
-      if (
-        check.name === "desktop-sync" ||
-        check.name === "kimi-doctor-official" ||
-        check.source === "dx-github" ||
-        (check.source === "canonical-references" &&
-          (check.name === "canonical-references:repo-fresh" ||
-            check.name === "canonical-references:runtime-aligned" ||
-            check.name === "canonical-references:runtime-cache"))
-      ) {
+      if (check.name === "desktop-sync" || check.name === "kimi-doctor-official") {
         blockers++;
       }
     }

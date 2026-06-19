@@ -6,52 +6,38 @@
  * stdout/stderr, and errors are handled consistently.
  */
 
-import { pathExists } from "./bun-io.ts";
-import { dedupInflight, hashInflightPayload } from "./bun-utils.ts";
-
+import { existsSync } from "fs";
 import { join } from "path";
 import { desktopRoot } from "./paths.ts";
 import { recordStep } from "./step-budget.ts";
 import { classifyAndSuggest } from "./error-taxonomy.ts";
-import { loadDxDefaultsSync, invalidateDefaultsCache } from "./defaults-config.ts";
+import { childTraceEnv, ensureProcessTrace, TRACE_ID_ENV } from "./effect/trace-context.ts";
+import { buildTraceEvent, recordTraceEvent } from "./trace-ledger.ts";
 
-// ── Effective defaults — initialized from hardcoded values, overridable from dx.config.toml ──
+const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
+const AGENT_TOOL_TIMEOUT_MS = 15_000;
+const DEFAULT_GRACE_PERIOD_MS = 5_000;
+const DEFAULT_MAX_OUTPUT_BYTES = 1_048_576;
+export const GIT_LOCAL_ENV_KEYS = [
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+  "GIT_CONFIG_COUNT",
+  "GIT_CONFIG_PARAMETERS",
+  "GIT_DIR",
+  "GIT_INDEX_FILE",
+  "GIT_INTERNAL_SUPER_PREFIX",
+  "GIT_NAMESPACE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_OPTIONAL_LOCKS",
+  "GIT_PREFIX",
+  "GIT_QUARANTINE_PATH",
+  "GIT_WORK_TREE",
+] as const;
 
-const HARDCODED_TOOL_TIMEOUT_MS = 30_000;
-const HARDCODED_AGENT_TOOL_TIMEOUT_MS = 15_000;
-const HARDCODED_GRACE_PERIOD_MS = 5_000;
-const HARDCODED_MAX_OUTPUT_BYTES = 1_048_576;
-
-let DEFAULT_TOOL_TIMEOUT_MS = HARDCODED_TOOL_TIMEOUT_MS;
-let AGENT_TOOL_TIMEOUT_MS = HARDCODED_AGENT_TOOL_TIMEOUT_MS;
-let DEFAULT_GRACE_PERIOD_MS = HARDCODED_GRACE_PERIOD_MS;
-/** Pass as timeoutMs to invokeCommand/invokeTool to disable the watchdog. */
-export const NO_TOOL_TIMEOUT_MS = 0;
-let DEFAULT_MAX_OUTPUT_BYTES = HARDCODED_MAX_OUTPUT_BYTES;
-
-/**
- * Load tool-runner defaults from dx.config.toml [defaults].
- * Call once during bootstrap (e.g. kimi-doctor, kimi-resource-governor).
- * When projectRoot is omitted or dx.config.toml is missing, hardcoded values are kept.
- */
-export function loadToolDefaults(projectRoot?: string): void {
-  if (!projectRoot) return;
-  const dx = loadDxDefaultsSync(projectRoot);
-  if (!dx) return;
-
-  if (dx.toolTimeoutMs !== undefined) DEFAULT_TOOL_TIMEOUT_MS = dx.toolTimeoutMs;
-  if (dx.agentToolTimeoutMs !== undefined) AGENT_TOOL_TIMEOUT_MS = dx.agentToolTimeoutMs;
-  if (dx.toolGracePeriodMs !== undefined) DEFAULT_GRACE_PERIOD_MS = dx.toolGracePeriodMs;
-  if (dx.toolMaxOutputBytes !== undefined) DEFAULT_MAX_OUTPUT_BYTES = dx.toolMaxOutputBytes;
-}
-
-/** Reset tool-runner defaults to hardcoded values (for tests). */
-export function resetToolDefaults(): void {
-  DEFAULT_TOOL_TIMEOUT_MS = HARDCODED_TOOL_TIMEOUT_MS;
-  AGENT_TOOL_TIMEOUT_MS = HARDCODED_AGENT_TOOL_TIMEOUT_MS;
-  DEFAULT_GRACE_PERIOD_MS = HARDCODED_GRACE_PERIOD_MS;
-  DEFAULT_MAX_OUTPUT_BYTES = HARDCODED_MAX_OUTPUT_BYTES;
-  invalidateDefaultsCache();
+export function scrubProcessGitEnv(): void {
+  for (const key of GIT_LOCAL_ENV_KEYS) {
+    delete Bun.env[key];
+  }
 }
 
 /** Detect if running inside an agent session (Kimi Code loop, CI, etc.). */
@@ -69,41 +55,6 @@ export function defaultToolTimeoutMs(): number {
   return isAgentContext() ? AGENT_TOOL_TIMEOUT_MS : DEFAULT_TOOL_TIMEOUT_MS;
 }
 
-const LONG_RUNNING_TOOL_FLAGS = new Set(["--watch", "--mcp-server"]);
-
-/** True when argv0 resolves to the Bun runtime (PATH name, full path, or process.execPath). */
-export function isBunExecutable(argv0: string): boolean {
-  if (!argv0) return false;
-  if (argv0 === "bun" || argv0.endsWith("/bun")) return true;
-  return argv0 === process.execPath;
-}
-
-/**
- * Prepend `--no-orphans` to Bun CLI invocations so child trees die with the parent.
- * Linux/macOS only; harmless when the flag is already present.
- */
-export function withBunNoOrphans(command: string[]): string[] {
-  const argv0 = command[0];
-  if (!argv0 || !isBunExecutable(argv0) || command.includes("--no-orphans")) return command;
-  return [argv0, "--no-orphans", ...command.slice(1)];
-}
-
-/** Spawn `bun` with `--no-orphans` via the unified invokeCommand contract. */
-export async function spawnBun(
-  args: string[],
-  options?: ToolInvocationOptions
-): Promise<ToolInvocation> {
-  return invokeCommand(withBunNoOrphans(["bun", ...args]), options);
-}
-
-/** Long-running tools (watch loops, MCP stdio servers) must not inherit the 30s router timeout. */
-export function resolveToolSpawnTimeoutMs(args: string[]): number {
-  if (args.some((arg) => LONG_RUNNING_TOOL_FLAGS.has(arg) || arg.startsWith("--watch-interval"))) {
-    return NO_TOOL_TIMEOUT_MS;
-  }
-  return defaultToolTimeoutMs();
-}
-
 export interface ToolInvocationOptions {
   cwd?: string;
   timeoutMs?: number;
@@ -113,17 +64,6 @@ export interface ToolInvocationOptions {
   maxOutputBytes?: number;
   /** Milliseconds to wait after SIGTERM before SIGKILL. Default 5000. */
   gracePeriodMs?: number;
-}
-
-export interface CommandInvocationOptions extends ToolInvocationOptions {
-  /** Label exposed in the returned invocation; defaults to command[0]. */
-  tool?: string;
-  /** Args exposed in the returned invocation; defaults to command.slice(1). */
-  args?: string[];
-  /** Step-budget key to record, or undefined to skip budget recording. */
-  recordStepName?: string;
-  /** Custom timeout message for adapters with user-facing terminology. */
-  timeoutError?: (timeoutMs: number, gracePeriodMs: number) => string;
 }
 
 export interface ToolInvocation {
@@ -137,13 +77,14 @@ export interface ToolInvocation {
   maxOutputBytes: number;
   stdoutTruncated?: boolean;
   stderrTruncated?: boolean;
-  timedOut?: boolean;
   error?: string;
   durationMs: number;
   isError: boolean;
   taxonomyId?: string;
   suggestion?: string;
   autoFix?: string;
+  traceId?: string;
+  parentTraceId?: string;
 }
 
 /** Return the canonical tools directory path (~/.kimi-code/tools). */
@@ -151,20 +92,24 @@ export function toolsDir(): string {
   return join(desktopRoot(), "tools");
 }
 
-function mergedEnv(env?: Record<string, string | undefined>): Record<string, string> | undefined {
-  if (!env) return undefined;
+function mergedEnv(env?: Record<string, string | undefined>): Record<string, string> {
   const merged: Record<string, string> = {};
   for (const [key, value] of Object.entries(Bun.env)) {
     if (value !== undefined) merged[key] = value;
   }
-  for (const [key, value] of Object.entries(env)) {
+
+  for (const key of GIT_LOCAL_ENV_KEYS) {
+    delete merged[key];
+  }
+
+  for (const [key, value] of Object.entries(env ?? {})) {
     if (value === undefined) delete merged[key];
     else merged[key] = value;
   }
   return merged;
 }
 
-async function readStreamToLimitedText(
+async function streamToLimitedText(
   stream: ReadableStream<Uint8Array> | null,
   maxBytes: number
 ): Promise<{ text: string; truncated: boolean }> {
@@ -206,101 +151,43 @@ async function readStreamToLimitedText(
   return { text: new TextDecoder().decode(retained), truncated };
 }
 
-const inflightCommands = new Map<string, Promise<ToolInvocation>>();
-
-function commandInflightKey(command: string[], options: CommandInvocationOptions): string {
-  return hashInflightPayload({
-    command,
-    cwd: options.cwd || Bun.cwd,
-    timeoutMs: options.timeoutMs ?? defaultToolTimeoutMs(),
-    gracePeriodMs: options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS,
-    maxOutputBytes: Math.max(0, options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES),
-    env: options.env,
-  });
-}
-
-/** Clear in-flight invokeCommand dedup map (tests). */
-export function clearInvokeCommandInflight(): void {
-  inflightCommands.clear();
-}
-
-/** Invoke an arbitrary command with timeout, output bounds, and graceful termination. */
-export async function invokeCommand(
-  command: string[],
-  options: CommandInvocationOptions = {}
-): Promise<ToolInvocation> {
-  if (command.length === 0) {
-    throw new Error("Cannot invoke empty command");
-  }
-
-  const key = commandInflightKey(command, options);
-  const result = await dedupInflight(inflightCommands, key, () =>
-    invokeCommandOnce(command, options)
-  );
-  return {
-    ...result,
-    tool: options.tool ?? result.tool,
-    args: options.args ?? result.args,
-  };
-}
-
-async function invokeCommandOnce(
-  command: string[],
-  options: CommandInvocationOptions = {}
+/** Invoke a tool script directly by path with timeout and graceful termination. */
+export async function invokeTool(
+  toolPath: string,
+  args: string[],
+  options: ToolInvocationOptions = {}
 ): Promise<ToolInvocation> {
   const cwd = options.cwd || Bun.cwd;
   const timeoutMs = options.timeoutMs ?? defaultToolTimeoutMs();
   const gracePeriodMs = options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
-  const maxOutputBytes = Math.max(0, options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES);
+  const maxOutputBytes = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
   const start = performance.now();
+  const startedAt = new Date().toISOString();
+  const parentTraceId = options.env?.[TRACE_ID_ENV] || ensureProcessTrace().traceId;
+  const traceOverlay = childTraceEnv(parentTraceId);
 
-  let proc: Bun.ReadableSubprocess;
-  try {
-    proc = Bun.spawn(withBunNoOrphans(command), {
-      cwd,
-      env: mergedEnv(options.env),
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-  } catch (e: unknown) {
-    const durationMs = Math.round(performance.now() - start);
-    const error = e instanceof Error ? e.message : String(e);
-    if (options.recordStepName) {
-      recordStep(options.recordStepName, durationMs, true);
-    }
-    return {
-      tool: options.tool ?? command[0] ?? "",
-      args: options.args ?? command.slice(1),
-      cwd,
-      timeoutMs,
-      exitCode: -1,
-      stdout: "",
-      stderr: "",
-      maxOutputBytes,
-      error: `Failed to spawn command: ${error}`,
-      durationMs,
-      isError: true,
-    };
-  }
-  const stdoutPromise = readStreamToLimitedText(proc.stdout, maxOutputBytes);
-  const stderrPromise = readStreamToLimitedText(proc.stderr, maxOutputBytes);
+  const proc = Bun.spawn(["bun", "run", toolPath, ...args], {
+    cwd,
+    env: mergedEnv({ ...options.env, ...traceOverlay }),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const stdoutPromise = streamToLimitedText(proc.stdout, maxOutputBytes);
+  const stderrPromise = streamToLimitedText(proc.stderr, maxOutputBytes);
 
   let timedOut = false;
   let sigkillTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const termTimer =
-    timeoutMs > 0
-      ? setTimeout(() => {
-          timedOut = true;
-          proc.kill("SIGTERM");
-          sigkillTimer = setTimeout(() => {
-            proc.kill("SIGKILL");
-          }, gracePeriodMs);
-        }, timeoutMs)
-      : null;
+  const termTimer = setTimeout(() => {
+    timedOut = true;
+    proc.kill("SIGTERM");
+    sigkillTimer = setTimeout(() => {
+      proc.kill("SIGKILL");
+    }, gracePeriodMs);
+  }, timeoutMs);
 
   const cleanup = () => {
-    if (termTimer) clearTimeout(termTimer);
+    clearTimeout(termTimer);
     if (sigkillTimer) clearTimeout(sigkillTimer);
   };
 
@@ -330,20 +217,16 @@ async function invokeCommandOnce(
   }
 
   if (timedOut && !error) {
-    error =
-      options.timeoutError?.(timeoutMs, gracePeriodMs) ??
-      `Command timed out after ${timeoutMs}ms (SIGTERM sent, SIGKILL after ${gracePeriodMs}ms)`;
+    error = `Tool timed out after ${timeoutMs}ms (SIGTERM sent, SIGKILL after ${gracePeriodMs}ms)`;
   }
 
   const durationMs = Math.round(performance.now() - start);
 
-  if (options.recordStepName) {
-    recordStep(options.recordStepName, durationMs, exitCode !== 0 || !!error);
-  }
+  recordStep(toolPath, durationMs, exitCode !== 0 || !!error);
 
-  return {
-    tool: options.tool ?? command[0] ?? "",
-    args: options.args ?? command.slice(1),
+  const base: ToolInvocation = {
+    tool: toolPath,
+    args,
     cwd,
     timeoutMs,
     exitCode,
@@ -352,34 +235,41 @@ async function invokeCommandOnce(
     maxOutputBytes,
     ...(stdoutTruncated ? { stdoutTruncated } : {}),
     ...(stderrTruncated ? { stderrTruncated } : {}),
-    ...(timedOut ? { timedOut } : {}),
     error,
     durationMs,
     isError: exitCode !== 0 || !!error,
+    traceId: traceOverlay.KIMI_TRACE_ID,
+    parentTraceId,
   };
-}
 
-/** Invoke a tool script directly by path with timeout and graceful termination. */
-export async function invokeTool(
-  toolPath: string,
-  args: string[],
-  options: ToolInvocationOptions = {}
-): Promise<ToolInvocation> {
-  const base = await invokeCommand(["bun", "run", toolPath, ...args], {
-    ...options,
-    tool: toolPath,
-    args,
-    recordStepName: toolPath,
-    timeoutError: (timeoutMs, gracePeriodMs) =>
-      `Tool timed out after ${timeoutMs}ms (SIGTERM sent, SIGKILL after ${gracePeriodMs}ms)`,
-  });
+  try {
+    await recordTraceEvent(
+      buildTraceEvent({
+        traceId: parentTraceId,
+        childTraceIds: [traceOverlay.KIMI_TRACE_ID],
+        eventType: "subprocess",
+        tool: toolPath,
+        command: ["bun", "run", toolPath, ...args],
+        cwd,
+        status: base.isError ? "error" : "ok",
+        startedAt,
+        endedAt: new Date().toISOString(),
+        durationMs,
+        ...(base.isError
+          ? { error: [error, stderr, stdout].filter(Boolean).join("\n").slice(0, 500) }
+          : {}),
+      })
+    );
+  } catch {
+    // Trace collection is best-effort and must not affect tool execution.
+  }
 
   if (!base.isError) {
     return base;
   }
 
   try {
-    const output = [base.error, base.stderr, base.stdout].filter(Boolean).join("\n");
+    const output = [error, stderr, stdout].filter(Boolean).join("\n");
     const { match, suggestions } = await classifyAndSuggest(output);
     const primary = suggestions[0];
     const suggestion =
@@ -407,7 +297,7 @@ export async function runTool(
   options?: ToolInvocationOptions
 ): Promise<ToolInvocation> {
   const toolPath = join(toolsDir(), `${toolName}.ts`);
-  if (!pathExists(toolPath)) {
+  if (!existsSync(toolPath)) {
     throw new Error(`Tool not found: ${toolPath}`);
   }
   return invokeTool(toolPath, args, options);

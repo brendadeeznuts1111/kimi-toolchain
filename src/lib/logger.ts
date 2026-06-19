@@ -10,14 +10,10 @@
  *   - Health check and taxonomy suggestion emission
  */
 
-import { appendText, makeDir } from "./bun-io.ts";
-
 import type { HealthCheck, HealthReport } from "./health-check.ts";
 import { statusIcon as healthStatusIcon, aggregateChecks } from "./health-check.ts";
 import { isAgentContext } from "./tool-runner.ts";
-import { ensureQuietEnv, isQuietMode } from "./quiet-mode.ts";
 import { getStepBudgetStatus } from "./step-budget.ts";
-import { inspectAgent } from "./inspect.ts";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -56,16 +52,6 @@ export interface LoggerOptions {
   stepBudget?: boolean;
   /** Session id from env for correlation. */
   sessionId?: string;
-  /**
-   * Buffer entries without writing to console.
-   * Useful when another writer (e.g. cli-contract) owns stdout/stderr.
-   */
-  bufferOnly?: boolean;
-  /**
-   * Route human-readable output to stderr instead of stdout.
-   * JSON output still goes to stdout when json is true.
-   */
-  humanStderr?: boolean;
 }
 
 function resolveSessionId(): string | undefined {
@@ -79,8 +65,6 @@ export class Logger {
   private tool: string;
   private stepBudget: boolean;
   private sessionId: string | undefined;
-  private bufferOnly: boolean;
-  private humanStderr: boolean;
   private logs: LogEntry[] = [];
 
   constructor(options: LoggerOptions = {}) {
@@ -90,8 +74,6 @@ export class Logger {
     this.tool = options.tool ?? "kimi-toolchain";
     this.stepBudget = options.stepBudget ?? false;
     this.sessionId = options.sessionId ?? resolveSessionId();
-    this.bufferOnly = options.bufferOnly ?? false;
-    this.humanStderr = options.humanStderr ?? false;
   }
 
   private shouldEmit(level: LogLevel): boolean {
@@ -104,16 +86,11 @@ export class Logger {
   }
 
   private emitEntry(entry: LogEntry): void {
-    // Buffer for telemetry even when quiet mode suppresses console output.
-    if (LEVEL_PRIORITY[entry.level] >= LEVEL_PRIORITY[this.level]) {
-      this.pushEntry(entry);
-    }
     if (!this.shouldEmit(entry.level)) return;
-
-    if (this.bufferOnly) return;
+    this.pushEntry(entry);
 
     if (this.json) {
-      console.log(inspectAgent(entry));
+      console.log(JSON.stringify(entry));
       return;
     }
 
@@ -132,14 +109,7 @@ export class Logger {
             ? "✓"
             : "◦";
     const prefix = entry.level === "error" ? "  ✗" : `  ${icon}`;
-    const line = `${prefix} ${entry.message}`;
-
-    if (this.humanStderr) {
-      if (entry.level === "warn") console.warn(line);
-      else console.error(line);
-    } else {
-      console.log(line);
-    }
+    console.log(`${prefix} ${entry.message}`);
 
     if (this.stepBudget) this.emitStepBudgetWarning();
   }
@@ -157,12 +127,6 @@ export class Logger {
 
   private emit(level: LogLevel, message: string): void {
     this.emitEntry(this.baseEntry(level, message));
-  }
-
-  /** Emit a human-only line to stdout or stderr depending on configuration. */
-  private out(line: string): void {
-    if (this.humanStderr) console.error(line);
-    else console.log(line);
   }
 
   /** Emit step-budget warning through logger instead of raw console. */
@@ -203,7 +167,7 @@ export class Logger {
     this.pushEntry(entry);
 
     if (this.json) {
-      if (this.shouldEmit(level)) console.log(inspectAgent(entry));
+      if (this.shouldEmit(level)) console.log(JSON.stringify(entry));
       return;
     }
 
@@ -219,7 +183,7 @@ export class Logger {
     if (!this.shouldEmit(level)) return;
 
     const icon = healthStatusIcon(result.status);
-    this.out(`  ${icon} ${message}`);
+    console.log(`  ${icon} ${message}`);
   }
 
   /** Log a taxonomy-linked suggestion with optional autoFix command. */
@@ -234,7 +198,7 @@ export class Logger {
     this.pushEntry(entry);
 
     if (this.json) {
-      console.log(inspectAgent(entry));
+      console.log(JSON.stringify(entry));
       return;
     }
 
@@ -243,8 +207,8 @@ export class Logger {
       return;
     }
 
-    this.out(`  💡 ${suggestion}`);
-    if (autoFix) this.out(`     autoFix: ${autoFix}`);
+    console.log(`  💡 ${suggestion}`);
+    if (autoFix) console.log(`     autoFix: ${autoFix}`);
   }
 
   /** Log a structured result from a sub-tool invocation. */
@@ -256,14 +220,14 @@ export class Logger {
   section(title: string): void {
     if (isAgentContext() || this.quiet || this.json) return;
     const width = 60;
-    this.out("");
-    this.out(`── ${title} ${"─".repeat(Math.max(0, width - title.length))}`);
+    console.log("");
+    console.log(`── ${title} ${"─".repeat(Math.max(0, width - title.length))}`);
   }
 
   /** Raw stdout line (help text, tables). Suppressed in agent/quiet/json modes. */
   line(msg: string): void {
     if (isAgentContext() || this.quiet || this.json) return;
-    this.out(msg);
+    console.log(msg);
   }
 
   /** Print a full doctor/health report with section, checks, and summary counts. */
@@ -305,15 +269,15 @@ export class Logger {
     const left = Math.floor(pad / 2);
     const right = pad - left;
     const bar = "═".repeat(innerWidth + 2);
-    this.out(`╔${bar}╗`);
-    this.out(`║ ${" ".repeat(left)}${title}${" ".repeat(right)} ║`);
+    console.log(`╔${bar}╗`);
+    console.log(`║ ${" ".repeat(left)}${title}${" ".repeat(right)} ║`);
     if (subtitle) {
       const subPad = Math.max(0, innerWidth - subtitle.length);
       const subLeft = Math.floor(subPad / 2);
       const subRight = subPad - subLeft;
-      this.out(`║ ${" ".repeat(subLeft)}${subtitle}${" ".repeat(subRight)} ║`);
+      console.log(`║ ${" ".repeat(subLeft)}${subtitle}${" ".repeat(subRight)} ║`);
     }
-    this.out(`╚${bar}╝`);
+    console.log(`╚${bar}╝`);
   }
 
   /** Get all logged entries for testing/telemetry. */
@@ -324,20 +288,20 @@ export class Logger {
   /** Append logs as JSONL for persistent telemetry (matches tool-failures.jsonl semantics). */
   async flushToFile(path: string): Promise<void> {
     if (this.logs.length === 0) return;
+    const { appendFileSync, mkdirSync } = await import("fs");
     const { dirname } = await import("path");
     const dir = dirname(path);
-    makeDir(dir, { recursive: true });
+    mkdirSync(dir, { recursive: true });
     const lines = this.logs.map((l) => JSON.stringify(l)).join("\n") + "\n";
-    appendText(path, lines);
+    appendFileSync(path, lines);
   }
 }
 
 /** Create a logger instance from CLI argv flags. */
 export function createLogger(argv: string[], toolName?: string): Logger {
-  ensureQuietEnv();
   const json = argv.includes("--json");
+  const quiet = argv.includes("--quiet");
   const debug = argv.includes("--debug");
-  const quiet = (argv.includes("--quiet") || isQuietMode()) && !debug;
   const stepBudget = argv.includes("--step-budget");
   return new Logger({
     level: debug ? "debug" : "info",

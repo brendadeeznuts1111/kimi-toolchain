@@ -5,7 +5,8 @@
  * version information. Derives toolchain version from package.json.
  */
 
-import { join } from "path";
+import { mkdirSync } from "fs";
+import { dirname, join } from "path";
 import { $ } from "bun";
 import { manifestPath } from "./paths.ts";
 import { safeParse } from "./utils.ts";
@@ -118,7 +119,7 @@ function isToolchainManifest(val: unknown): val is ToolchainManifest {
 /** Read the desktop install manifest if it exists */
 export async function readManifest(): Promise<ToolchainManifest | null> {
   try {
-    const text = await Bun.file(MANIFEST_PATH).text();
+    const text = await Bun.file(manifestPath()).text();
     return safeParse(text, null, isToolchainManifest);
   } catch {
     return null;
@@ -127,5 +128,7 @@ export async function readManifest(): Promise<ToolchainManifest | null> {
 
 /** Write the desktop install manifest */
 export async function writeManifest(manifest: ToolchainManifest): Promise<void> {
-  await Bun.write(MANIFEST_PATH, JSON.stringify(manifest, null, 2) + "\n");
+  const path = manifestPath();
+  mkdirSync(dirname(path), { recursive: true });
+  await Bun.write(path, JSON.stringify(manifest, null, 2) + "\n");
 }

@@ -4,12 +4,12 @@
  * Categories are defined in YAML so agents and hooks can share a single schema.
  */
 
-import { pathExists } from "./bun-io.ts";
-
+import { existsSync } from "fs";
 import { join } from "path";
 import yaml from "js-yaml";
 
 import { homeDir } from "./paths.ts";
+import { sha256String } from "./utils.ts";
 
 export interface TaxonomyPattern {
   regex: string;
@@ -25,10 +25,6 @@ export interface TaxonomyCategory {
   suggestion?: string;
   autoFix?: string;
   docLink?: string;
-  /** Define constants that contractually govern detection or remediation for this failure class. */
-  boundConstants?: string[];
-  /** @deprecated Use boundConstants — kept for one release for YAML readers. */
-  relatedConstants?: string[];
 }
 
 export interface Taxonomy {
@@ -56,7 +52,7 @@ export function taxonomyPath(home: string = homeDir()): string {
 
 export async function loadTaxonomy(path?: string): Promise<Taxonomy> {
   const p = path || taxonomyPath();
-  if (!pathExists(p)) {
+  if (!existsSync(p)) {
     return { version: 1, categories: [unknownCategory()] };
   }
 
@@ -68,23 +64,12 @@ export async function loadTaxonomy(path?: string): Promise<Taxonomy> {
 
   const categories = (parsed.categories || [])
     .filter((c): c is TaxonomyCategory => !!c && typeof c === "object" && typeof c.id === "string")
-    .map((c) => {
-      const raw = c as TaxonomyCategory & { relatedConstants?: string[] };
-      const boundConstants = Array.isArray(raw.boundConstants)
-        ? raw.boundConstants.filter((key): key is string => typeof key === "string")
-        : Array.isArray(raw.relatedConstants)
-          ? raw.relatedConstants.filter((key): key is string => typeof key === "string")
-          : undefined;
-
-      return {
-        ...raw,
-        patterns: (raw.patterns || []).filter(
-          (p): p is TaxonomyPattern => !!p && typeof p.regex === "string"
-        ),
-        boundConstants,
-        relatedConstants: boundConstants,
-      };
-    });
+    .map((c) => ({
+      ...c,
+      patterns: (c.patterns || []).filter(
+        (p): p is TaxonomyPattern => !!p && typeof p.regex === "string"
+      ),
+    }));
 
   return { version: parsed.version || 1, categories };
 }
@@ -171,6 +156,10 @@ export interface ClassifiedFailure {
   timestamp: string;
   toolName: string;
   output: string;
+  /** Stable id for clustering and suggest lookups. */
+  errorId?: string;
+  /** Assigned by semantic clustering; optional for backward compatibility. */
+  clusterId?: string;
   /** Canonical taxonomy category id (preferred). */
   taxonomyId: string;
   /** @deprecated Use taxonomyId — kept for one release for JSONL readers. */
@@ -180,15 +169,26 @@ export interface ClassifiedFailure {
   expected: boolean;
   matchedPattern?: string;
   sessionId?: string;
+  traceId?: string;
+  parentTraceId?: string;
+  childTraceIds?: string[];
   suggestion?: string;
   autoFix?: string;
-  /** Bun build revision (git commit hash) at time of failure. */
-  bunRevision?: string;
+  /** Base64-encoded Float32 embedding (384-dim). */
+  embedding?: string;
   context?: {
     stack?: string;
     inputs?: Record<string, unknown>;
     environment?: Record<string, string>;
   };
+}
+
+export function formatFailureOutput(error: unknown, fallback?: unknown): string {
+  for (const value of [error, fallback]) {
+    const formatted = formatFailureValue(value);
+    if (formatted) return formatted.slice(0, 4000);
+  }
+  return "";
 }
 
 export function buildClassifiedFailure(
@@ -197,6 +197,9 @@ export function buildClassifiedFailure(
   match: TaxonomyMatch,
   extras?: {
     sessionId?: string;
+    traceId?: string;
+    parentTraceId?: string;
+    childTraceIds?: string[];
     context?: {
       stack?: string;
       inputs?: Record<string, unknown>;
@@ -205,9 +208,10 @@ export function buildClassifiedFailure(
   }
 ): ClassifiedFailure {
   const taxonomyId = match.category.id;
-  return {
+  const timestamp = new Date().toISOString();
+  const record: ClassifiedFailure = {
     schemaVersion: FAILURE_SCHEMA_VERSION,
-    timestamp: new Date().toISOString(),
+    timestamp,
     toolName,
     output: output.slice(0, 2000),
     taxonomyId,
@@ -219,7 +223,32 @@ export function buildClassifiedFailure(
     suggestion: match.category.suggestion || match.category.description,
     autoFix: match.category.autoFix,
     sessionId: extras?.sessionId,
-    bunRevision: Bun.revision,
+    traceId: extras?.traceId,
+    parentTraceId: extras?.parentTraceId,
+    childTraceIds: extras?.childTraceIds,
     context: extras?.context,
   };
+  record.errorId = `error-${sha256String(`${timestamp}|${toolName}|${output.slice(0, 512)}`).slice(0, 12)}`;
+  return record;
+}
+
+function formatFailureValue(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value.trim();
+  if (value instanceof Error) return (value.stack || value.message).trim();
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["message", "error", "stderr", "stdout", "reason"]) {
+      if (typeof record[key] === "string" && record[key].trim()) return record[key].trim();
+    }
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return Object.prototype.toString.call(value);
+    }
+  }
+  return String(value);
 }

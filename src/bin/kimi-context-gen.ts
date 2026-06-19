@@ -1,35 +1,20 @@
 #!/usr/bin/env bun
-import { pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-context-gen — Auto-generate CONTEXT.md from project scan
  * P1: Tech stack inference, config hash tree, freshness scoring
  *
  * Usage:
- *   kimi-context-gen [scan|freshness|update|doctor|fix|frontmatter <file> [--json] [--depth N]|preview [skill-name] [--all] [--json] [--no-color] [--columns N]]
+ *   kimi-context-gen [scan|freshness|update|doctor|fix]
  */
 
 import { $, semver, TOML } from "bun";
+import { existsSync } from "fs";
 import { join } from "path";
-import { CLI_OUTPUT_SCHEMA_VERSION } from "../lib/cli-contract.ts";
-import { inspectAgent } from "../lib/inspect.ts";
-import {
-  formatFrontmatterTable,
-  parseFrontmatterCliArgs,
-  parseFrontmatterFile,
-  parseFrontmatterText,
-} from "../lib/frontmatter.ts";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
 import { checkDocDrift } from "../lib/readme-sync.ts";
-import { formatCanonicalReferencesMarkdown } from "../lib/canonical-references.ts";
 import { guardianDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
-import {
-  buildSkillPreviewJsonSkills,
-  formatSkillPreviewHuman,
-  parsePreviewCliArgs,
-  resolveSkillPreviews,
-} from "../lib/skill-preview.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -71,9 +56,9 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
   const wranglerPath = join(projectDir, "wrangler.toml");
   const dockerPath = join(projectDir, "Dockerfile");
 
-  if (pathExists(bunfigPath) || pathExists(join(projectDir, "bun.lock"))) {
+  if (existsSync(bunfigPath) || existsSync(join(projectDir, "bun.lock"))) {
     stack.runtime = "Bun >=1.3.14";
-    if (pathExists(bunfigPath)) {
+    if (existsSync(bunfigPath)) {
       try {
         const config = TOML.parse(await Bun.file(bunfigPath).text()) as any;
         if (config.install?.registry) {
@@ -83,11 +68,11 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
         /* ignore */
       }
     }
-  } else if (pathExists(pkgPath)) {
+  } else if (existsSync(pkgPath)) {
     stack.runtime = "Node.js";
   }
 
-  if (pathExists(pkgPath)) {
+  if (existsSync(pkgPath)) {
     const pkg = (await Bun.file(pkgPath).json()) as any;
     const deps = { ...pkg.dependencies, ...pkg.devDependencies };
 
@@ -116,16 +101,16 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
     }
   }
 
-  const hasPrisma = pathExists(join(projectDir, "prisma", "schema.prisma"));
-  const hasDrizzle = pathExists(join(projectDir, "drizzle.config.ts"));
+  const hasPrisma = existsSync(join(projectDir, "prisma", "schema.prisma"));
+  const hasDrizzle = existsSync(join(projectDir, "drizzle.config.ts"));
   if (hasPrisma) stack.database = "Prisma + SQLite/PostgreSQL";
   else if (hasDrizzle) stack.database = "Drizzle + SQLite";
-  else if (pathExists(join(projectDir, "migrations")))
+  else if (existsSync(join(projectDir, "migrations")))
     stack.database = "D1/SQLite (migrations found)";
 
-  if (pathExists(wranglerPath)) stack.deploy = "Cloudflare Workers";
-  else if (pathExists(dockerPath)) stack.deploy = "Docker";
-  else if (pathExists(join(projectDir, "fly.toml"))) stack.deploy = "Fly.io";
+  if (existsSync(wranglerPath)) stack.deploy = "Cloudflare Workers";
+  else if (existsSync(dockerPath)) stack.deploy = "Docker";
+  else if (existsSync(join(projectDir, "fly.toml"))) stack.deploy = "Fly.io";
 
   return stack;
 }
@@ -138,7 +123,7 @@ async function hashConfigs(projectDir: string): Promise<ConfigHash[]> {
 
   for (const cfg of configs) {
     const path = join(projectDir, cfg);
-    if (!pathExists(path)) continue;
+    if (!existsSync(path)) continue;
     const file = Bun.file(path);
     const content = await file.arrayBuffer();
     const hash = new Bun.CryptoHasher("sha256");
@@ -172,7 +157,7 @@ async function checkReadmeDrift(projectDir: string): Promise<FreshnessResult["re
 async function checkAdrStaleness(projectDir: string): Promise<FreshnessResult["adrStaleness"]> {
   const adrDir = join(projectDir, "docs", "adr");
   let count = 0;
-  if (pathExists(adrDir)) {
+  if (existsSync(adrDir)) {
     const glob = new Bun.Glob("*.md");
     for await (const _ of glob.scan({ cwd: adrDir, absolute: false })) {
       count++;
@@ -227,7 +212,7 @@ async function computeFreshness(
   ensureDir(GUARDIAN_DIR);
 
   let meta: ContextMeta | null = null;
-  if (pathExists(CONTEXT_META)) {
+  if (existsSync(CONTEXT_META)) {
     try {
       meta = (await Bun.file(CONTEXT_META).json()) as ContextMeta;
     } catch {
@@ -293,7 +278,7 @@ async function generateContext(projectDir: string): Promise<string> {
 
   const pkgPath = join(projectDir, "package.json");
   let commands = "";
-  if (pathExists(pkgPath)) {
+  if (existsSync(pkgPath)) {
     const pkg = (await Bun.file(pkgPath).json()) as any;
     const scripts = pkg.scripts || {};
     const relevant = Object.entries(scripts)
@@ -314,7 +299,7 @@ async function generateContext(projectDir: string): Promise<string> {
   const licenseFiles = ["LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING"];
   let licenseType: string | null = null;
   for (const f of licenseFiles) {
-    if (pathExists(join(projectDir, f))) {
+    if (existsSync(join(projectDir, f))) {
       const content = (await Bun.file(join(projectDir, f)).text()).slice(0, 500).toLowerCase();
       if (content.includes("mit")) licenseType = "MIT";
       else if (content.includes("apache")) licenseType = "Apache-2.0";
@@ -326,7 +311,7 @@ async function generateContext(projectDir: string): Promise<string> {
   }
   govLines.push(`| License | ${licenseType || "missing — add LICENSE"} |`);
   govLines.push(
-    `| CONTRIBUTING.md | ${pathExists(join(projectDir, "CONTRIBUTING.md")) ? "present" : "missing"} |`
+    `| CONTRIBUTING.md | ${existsSync(join(projectDir, "CONTRIBUTING.md")) ? "present" : "missing"} |`
   );
 
   const codeownersPaths = [
@@ -337,7 +322,7 @@ async function generateContext(projectDir: string): Promise<string> {
   let codeownersPresent = false;
   let codeownersList: string[] = [];
   for (const path of codeownersPaths) {
-    if (pathExists(path)) {
+    if (existsSync(path)) {
       codeownersPresent = true;
       const lines = (await Bun.file(path).text()).split("\n");
       for (const line of lines) {
@@ -356,55 +341,21 @@ async function generateContext(projectDir: string): Promise<string> {
 
   const adrDir = join(projectDir, "docs", "adr");
   const adrs: string[] = [];
-  if (pathExists(adrDir)) {
+  if (existsSync(adrDir)) {
     const glob = new Bun.Glob("*.md");
     for await (const file of glob.scan({ cwd: adrDir, absolute: false })) {
       adrs.push(file.replace(/\.md$/, ""));
     }
   }
-  const agentReferenceLines = [
-    "AGENTS.md",
-    "CODE_REFERENCES.md",
-    "UNIFIED.md",
-    "TEMPLATES.md",
-    "canonical-references.json",
-  ]
-    .filter((file) => pathExists(join(projectDir, file)))
+  const agentReferenceLines = ["AGENTS.md", "CODE_REFERENCES.md", "UNIFIED.md", "TEMPLATES.md"]
+    .filter((file) => existsSync(join(projectDir, file)))
     .map((file) => `- \`${file}\``);
-
-  const canonicalRefsSection = pathExists(join(projectDir, "src/lib/canonical-references.ts"))
-    ? formatCanonicalReferencesMarkdown(true)
-    : "";
-
-  const successMetricsSection = pathExists(join(projectDir, "src/lib/success-metrics.ts"))
-    ? `## Success Metrics
-
-Tracked by \`kimi-doctor --success-metrics\`:
-
-| Metric | Contract |
-|--------|----------|
-| **Drift latency** | Documented commands checkable in one doctor run |
-| **Error coverage** | >= 90% of failures classified with taxonomy context |
-| **Integration agility** | Providers need only contract + credential adapter |
-
-The metrics are not frozen. Threshold changes follow toolchain **release cadence** and are justified with **failure ledger** evidence.
-
-`
-    : "";
-
-  const domainBlurb = pathExists(join(projectDir, "src/bin/kimi-doctor.ts"))
-    ? "Bun-native CLI meta-toolkit: project health (`kimi-doctor`), governance (R-Score), supply-chain security (`kimi-guardian`), git hooks, session memory, and scaffolding. Runtime syncs to `~/.kimi-code/` for Kimi Code agents."
-    : "[Auto-generated. Describe what this project does and who uses it.]";
-
-  const notesBlurb = pathExists(join(projectDir, "src/bin/kimi-doctor.ts"))
-    ? "Canonical clone path: `~/kimi-toolchain`. Agent entry: `kimi-toolchain <tool>`; read `AGENTS.md` before editing. Regenerate this file with `kimi-context-gen update` when layout or scripts change."
-    : "[Add domain-specific notes, key decisions, gotchas]";
 
   return `# CONTEXT — ${name}
 
 ## Domain
 
-${domainBlurb}
+[Auto-generated. Describe what this project does and who uses it.]
 
 ## Architecture
 
@@ -444,7 +395,7 @@ ${adrs.map((a) => `- \`docs/adr/${a}.md\``).join("\n")}
     : "## Decisions\n\nNo ADRs yet. Create one: 'kimi-governance adr <title>'\n"
 }
 
-${successMetricsSection}${canonicalRefsSection}## Port Policy
+## Port Policy
 
 - Default to \`0\` for auto-assignment. Log actual port on startup.
 - Never hardcode ports in source.
@@ -456,7 +407,7 @@ ${successMetricsSection}${canonicalRefsSection}## Port Policy
 
 ## Notes
 
-${notesBlurb}
+[Add domain-specific notes, key decisions, gotchas]
 
 ---
 *Auto-generated by kimi-context-gen. Update manually as project evolves.*
@@ -480,9 +431,9 @@ async function doctor(
   const contextPath = join(projectDir, "CONTEXT.md");
   checks.push({
     name: "CONTEXT.md",
-    status: pathExists(contextPath) ? "ok" : "warn",
-    message: pathExists(contextPath) ? "present" : "missing",
-    fixable: !pathExists(contextPath),
+    status: existsSync(contextPath) ? "ok" : "warn",
+    message: existsSync(contextPath) ? "present" : "missing",
+    fixable: !existsSync(contextPath),
   });
 
   const hashes = await hashConfigs(projectDir);
@@ -522,13 +473,13 @@ async function doctor(
 
   // Check for broken ADR links
   const adrDir = join(projectDir, "docs", "adr");
-  if (pathExists(adrDir) && pathExists(contextPath)) {
+  if (existsSync(adrDir) && existsSync(contextPath)) {
     const ctxContent = await Bun.file(contextPath).text();
     const adrMatches = ctxContent.match(/docs\/adr\/[^`\]]+/g) || [];
     let broken = 0;
     for (const adrRef of adrMatches) {
       const adrFile = adrRef.replace(/^docs\/adr\//, "").replace(/\/$/, "") + ".md";
-      if (!pathExists(join(adrDir, adrFile))) broken++;
+      if (!existsSync(join(adrDir, adrFile))) broken++;
     }
     if (broken > 0) {
       checks.push({
@@ -540,17 +491,6 @@ async function doctor(
     }
   }
 
-  const sample = parseFrontmatterText("---\ntitle: probe\n---\n", "probe.md");
-  checks.push({
-    name: "frontmatter",
-    status: sample.meta.format === "yaml" && sample.data.title === "probe" ? "ok" : "error",
-    message:
-      sample.meta.format === "yaml"
-        ? "YAML/TOML frontmatter via `kimi-context-gen frontmatter <file>`"
-        : "frontmatter parser failed self-check",
-    fixable: false,
-  });
-
   return checks;
 }
 
@@ -561,13 +501,8 @@ async function main(): Promise<number> {
   const command = args[0] || "scan";
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const name = await getProjectName(projectDir);
-  const jsonOnly =
-    (command === "frontmatter" && args.includes("--json")) ||
-    (command === "preview" && args.includes("--json"));
 
-  if (!jsonOnly) {
-    logger.projectBanner("Kimi Context Generator", name);
-  }
+  logger.projectBanner("Kimi Context Generator", name);
 
   if (command === "scan") {
     logger.section("Tech Stack Inference");
@@ -584,13 +519,7 @@ async function main(): Promise<number> {
 
     logger.section("Freshness Score");
     const { score, changed } = await computeFreshness(projectDir, hashes);
-    if (score >= 4) {
-      logger.info(`Score: ${score}/10`);
-    } else if (score >= 2) {
-      logger.warn(`Score: ${score}/10`);
-    } else {
-      logger.error(`Score: ${score}/10`);
-    }
+    (score >= 4 ? logger.info : score >= 2 ? logger.warn : logger.error)(`Score: ${score}/10`);
     if (changed.length > 0) {
       logger.warn(`Changed configs: ${changed.join(", ")}`);
     }
@@ -598,7 +527,7 @@ async function main(): Promise<number> {
     await storeMeta(projectDir, hashes, score);
 
     const contextPath = join(projectDir, "CONTEXT.md");
-    if (!pathExists(contextPath)) {
+    if (!existsSync(contextPath)) {
       logger.info("CONTEXT.md missing. Run 'kimi-context-gen update' to create.");
     }
   } else if (command === "update") {
@@ -606,7 +535,7 @@ async function main(): Promise<number> {
     const content = await generateContext(projectDir);
     const contextPath = join(projectDir, "CONTEXT.md");
 
-    if (pathExists(contextPath)) {
+    if (existsSync(contextPath)) {
       logger.warn("CONTEXT.md exists — backing up to CONTEXT.md.bak");
       await Bun.write(join(projectDir, "CONTEXT.md.bak"), await Bun.file(contextPath).text());
     }
@@ -622,13 +551,7 @@ async function main(): Promise<number> {
     const hashes = await hashConfigs(projectDir);
     const { score, changed } = await computeFreshness(projectDir, hashes);
 
-    if (score >= 4) {
-      logger.info(`Score: ${score}/10`);
-    } else if (score >= 2) {
-      logger.warn(`Score: ${score}/10`);
-    } else {
-      logger.error(`Score: ${score}/10`);
-    }
+    (score >= 4 ? logger.info : score >= 2 ? logger.warn : logger.error)(`Score: ${score}/10`);
     if (changed.length > 0) {
       for (const c of changed) {
         logger.warn(`${c} changed since last CONTEXT.md update`);
@@ -645,119 +568,6 @@ async function main(): Promise<number> {
       "Context Doctor",
       "Run 'kimi-context-gen fix' to regenerate CONTEXT.md"
     );
-  } else if (command === "frontmatter") {
-    const cli = parseFrontmatterCliArgs(args.slice(1));
-    if ("error" in cli) {
-      logger.error(cli.error);
-      logger.error("Usage: kimi-context-gen frontmatter <file> [--json] [--depth N]");
-      return 1;
-    }
-    const { file, json, depth } = cli;
-    try {
-      const result = await parseFrontmatterFile(file);
-      if (json) {
-        Bun.stdout.write(
-          `${inspectAgent({
-            schemaVersion: CLI_OUTPUT_SCHEMA_VERSION,
-            tool: "kimi-context-gen",
-            command: "frontmatter",
-            level: "info",
-            timestamp: result.meta.parsed,
-            data: result.data,
-            body: result.body,
-            meta: { ...result.meta, depth },
-          })}\n`
-        );
-      } else {
-        logger.info(`format: ${result.meta.format}`);
-        if (result.meta.delimiter) logger.info(`delimiter: ${result.meta.delimiter}`);
-        logger.info(`body: ${result.body.length} chars`);
-        if (result.meta.format === "none") {
-          logger.warn("No frontmatter block found");
-        } else {
-          logger.info(`inspect depth: ${depth}`);
-          logger.line(formatFrontmatterTable(result.data, { depth }));
-        }
-      }
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : String(e);
-      if (json) {
-        Bun.stdout.write(
-          `${inspectAgent({
-            schemaVersion: CLI_OUTPUT_SCHEMA_VERSION,
-            tool: "kimi-context-gen",
-            command: "frontmatter",
-            level: "error",
-            timestamp: new Date().toISOString(),
-            error: message,
-            file,
-          })}\n`
-        );
-      } else {
-        logger.error(message);
-      }
-      return 1;
-    }
-  } else if (command === "preview") {
-    const cli = parsePreviewCliArgs(args.slice(1));
-    if ("error" in cli) {
-      logger.error(cli.error);
-      logger.error(
-        "Usage: kimi-context-gen preview [skill-name] [--all] [--json] [--no-color] [--columns N]"
-      );
-      return 1;
-    }
-
-    const targets = await resolveSkillPreviews({
-      repoRoot: projectDir,
-      skillName: cli.skillName,
-      includeAgents: cli.all,
-    });
-
-    if (targets.length === 0) {
-      const hint = cli.skillName
-        ? `No skill named "${cli.skillName}" found`
-        : "No skills found under skills/";
-      if (cli.json) {
-        Bun.stdout.write(
-          `${inspectAgent({
-            schemaVersion: CLI_OUTPUT_SCHEMA_VERSION,
-            tool: "kimi-context-gen",
-            command: "preview",
-            level: "error",
-            timestamp: new Date().toISOString(),
-            error: hint,
-            skills: [],
-          })}\n`
-        );
-      } else {
-        logger.error(hint);
-      }
-      return 1;
-    }
-
-    const colors = !cli.noColor;
-    if (cli.json) {
-      const skills = buildSkillPreviewJsonSkills(targets, {
-        colors,
-        columns: cli.columns,
-        includeAnsi: colors,
-      });
-      Bun.stdout.write(
-        `${inspectAgent({
-          schemaVersion: CLI_OUTPUT_SCHEMA_VERSION,
-          tool: "kimi-context-gen",
-          command: "preview",
-          level: "info",
-          timestamp: new Date().toISOString(),
-          skills,
-        })}\n`
-      );
-    } else {
-      process.stdout.write(
-        `${formatSkillPreviewHuman(targets, { colors, columns: cli.columns })}\n`
-      );
-    }
   } else if (command === "fix") {
     logger.section("Fixing CONTEXT.md");
     const hashes = await hashConfigs(projectDir);
@@ -768,7 +578,7 @@ async function main(): Promise<number> {
       logger.warn(`Freshness ${score}/10 < threshold ${threshold}/10 — regenerating`);
       const content = await generateContext(projectDir);
       const contextPath = join(projectDir, "CONTEXT.md");
-      if (pathExists(contextPath)) {
+      if (existsSync(contextPath)) {
         await Bun.write(join(projectDir, "CONTEXT.md.bak"), await Bun.file(contextPath).text());
       }
       await Bun.write(contextPath, content);
@@ -784,12 +594,6 @@ async function main(): Promise<number> {
     logger.info("  freshness        Check freshness score");
     logger.info("  doctor           Check CONTEXT.md health");
     logger.info("  fix [threshold]  Regenerate if freshness below threshold (default 7)");
-    logger.info(
-      "  frontmatter <file> [--json] [--depth N]  Table view of TOML (+++) or YAML (---) frontmatter (default depth 10)"
-    );
-    logger.info(
-      "  preview [skill-name] [--all] [--json] [--no-color] [--columns N]  ANSI terminal preview of SKILL.md"
-    );
   }
   return 0;
 }

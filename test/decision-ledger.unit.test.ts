@@ -1,164 +1,130 @@
-import { makeDir, removePath } from "../src/lib/bun-io.ts";
-
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test } from "bun:test";
+import { mkdirSync, readFileSync, rmSync } from "fs";
+import { tmpdir } from "os";
 import { join } from "path";
-import { testTempDir } from "./helpers.ts";
 import {
-  generateRationale,
-  logDecision,
-  readDecisions,
-  buildDecisionGraph,
-  suggestDecisions,
-  findDecisionById,
-  updateDecisionOutcome,
-  type DecisionInput,
+  createDecisionRecord,
+  explainDecision,
+  normalizeDecisionRecord,
+  readDecisionLedger,
+  recordDecision,
 } from "../src/lib/decision-ledger.ts";
-import { decisionsNdjsonPath } from "../src/lib/paths.ts";
 
 describe("decision-ledger", () => {
-  let tmpRoot: string;
-  let decisionsPath: string;
+  test("records and explains a decision by topic", async () => {
+    const dir = join(tmpdir(), `kimi-why-${Bun.randomUUIDv7()}`);
+    const path = join(dir, "decision-ledger.jsonl");
+    mkdirSync(dir, { recursive: true });
+    try {
+      const record = await recordDecision(
+        {
+          key: "typecheck-strict",
+          action: "enable strict typecheck",
+          trigger: "recurring type drift in CI",
+          reasoning: "Strict typecheck catches shared-contract breakage before runtime.",
+          alternatives: ["run only oxlint", "skip typecheck on docs changes"],
+          outcome: "success",
+          traceId: "trace-1",
+        },
+        path
+      );
 
-  beforeEach(() => {
-    tmpRoot = testTempDir("kimi-decision-");
-    makeDir(join(tmpRoot, ".kimi"), { recursive: true });
-    decisionsPath = decisionsNdjsonPath(tmpRoot);
-    Bun.env.KIMI_TRACE_ID = "trace-ledger-test";
+      const explanation = await explainDecision("typecheck", path);
+
+      expect(record.id.startsWith("decision-")).toBe(true);
+      expect(record.schemaVersion).toBe(2);
+      expect(explanation.matches).toHaveLength(1);
+      expect(explanation.latest?.reasoning).toContain("shared-contract");
+      expect(explanation.latest?.alternativesConsidered).toContain("run only oxlint");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
-  afterEach(() => {
-    delete Bun.env.KIMI_TRACE_ID;
-    if (tmpRoot) removePath(tmpRoot, { recursive: true, force: true });
-  });
-
-  test("generateRationale builds heal playbook text from cluster context", async () => {
-    const input: DecisionInput = {
-      action: "heal",
-      trigger: { traceId: "trace-abc", clusterId: "cluster-lock-01", errorId: "err-1" },
-    };
-    const rationale = await generateRationale(input, {
-      projectRoot: tmpRoot,
-      playbookId: "regenerate-bun-lockfile",
-      clusterCount: 3,
-      priorSuccessDecisionIds: ["dec-prior-45", "dec-prior-72"],
+  test("normalizes legacy v1 ledger lines", () => {
+    const record = normalizeDecisionRecord({
+      schemaVersion: 1,
+      decisionId: "decision-legacy",
+      id: "decision-legacy",
+      key: "legacy",
+      timestamp: "2026-06-15T00:00:00.000Z",
+      actor: "user",
+      action: "manual fix",
+      trigger: "lint failure",
+      rationale: "Fixed formatting before commit.",
+      alternatives: ["skip hook"],
+      outcome: "success",
+      traceId: "trace-old",
     });
 
-    expect(rationale.summary).toContain("regenerate-bun-lockfile");
-    expect(rationale.fullReasoning).toContain("cluster-lock-01");
-    expect(rationale.fullReasoning).toContain("dec-prior-45");
-    expect(rationale.evidence.some((e) => e.type === "cluster")).toBe(true);
+    expect(record?.schemaVersion).toBe(1);
+    expect(record?.trigger.summary).toBe("lint failure");
+    expect(record?.rationale.fullReasoning).toContain("formatting");
+    expect(record?.outcome.result).toBe("success");
+    expect(record?.alternatives[0]?.action).toBe("skip hook");
   });
 
-  test("logDecision appends v2 record to .kimi/decisions.ndjson", async () => {
-    const decision = await logDecision(
-      {
-        action: "contract-sign",
-        trigger: { traceId: "trace-contract", contractFile: "typeserver" },
-        metadata: { surface: "typeserver" },
-        outcome: { result: "success", verifiedAt: new Date().toISOString() },
-      },
-      { projectRoot: tmpRoot }
-    );
+  test("records structured v2 rationale from template context", async () => {
+    const dir = join(tmpdir(), `kimi-decision-${Bun.randomUUIDv7()}`);
+    const path = join(dir, "decision-ledger.jsonl");
+    mkdirSync(dir, { recursive: true });
+    try {
+      const record = await recordDecision(
+        {
+          key: "self-heal:lockfile",
+          action: "bun install",
+          trigger: "cluster lockfile_issue exceeded threshold",
+          triggerContext: {
+            summary: "cluster lockfile_issue exceeded threshold",
+            traceId: "trace-heal-1",
+            clusterId: "cluster-lockfile",
+          },
+          rationaleContext: {
+            kind: "heal",
+            playbookTitle: "regenerate-bun-lockfile",
+            clusterId: "cluster-lockfile",
+            clusterSize: 3,
+            topTaxonomy: "lockfile_issue",
+            traceId: "trace-heal-1",
+          },
+          alternativeOptions: [
+            { action: "manual-fix", feasibility: "low" },
+            { action: "rollback-contract", feasibility: "medium" },
+          ],
+          outcomeDetail: { result: "unknown" },
+        },
+        path
+      );
 
-    expect(decision.schemaVersion).toBe(2);
-    expect(decision.decisionId.startsWith("dec-")).toBe(true);
-    expect(decision.rationale.summary).toContain("typeserver");
+      expect(record.schemaVersion).toBe(2);
+      expect(record.rationale.fullReasoning).toContain("regenerate-bun-lockfile");
+      expect(record.alternatives[0]?.feasibility).toBe("low");
 
-    const records = await readDecisions(tmpRoot);
-    expect(records).toHaveLength(1);
-    expect(records[0]?.decisionId).toBe(decision.decisionId);
+      const raw = readFileSync(path, "utf8").trim();
+      const parsed = JSON.parse(raw) as {
+        schemaVersion: number;
+        rationale: { evidence: unknown[] };
+      };
+      expect(parsed.schemaVersion).toBe(2);
+      expect(parsed.rationale.evidence.length).toBeGreaterThan(0);
 
-    const file = await Bun.file(decisionsPath).text();
-    expect(file.trim().split("\n")).toHaveLength(1);
+      const [loaded] = await readDecisionLedger(path);
+      expect(loaded?.decisionId).toBe(record.decisionId);
+      expect(loaded?.trigger.traceId).toBe("trace-heal-1");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
-  test("buildDecisionGraph links parent and child decisions", async () => {
-    const parent = await logDecision(
-      {
-        action: "heal",
-        trigger: { traceId: "trace-graph-1", clusterId: "c1" },
-        outcome: { result: "success" },
-      },
-      { projectRoot: tmpRoot }
-    );
-    await logDecision(
-      {
-        action: "config-change",
-        trigger: { traceId: "trace-graph-1" },
-        parentDecisionId: parent.decisionId,
-        outcome: { result: "success" },
-      },
-      { projectRoot: tmpRoot }
-    );
-
-    const graph = buildDecisionGraph(await readDecisions(tmpRoot), "trace-graph-1");
-    expect(graph.nodes.length).toBe(2);
-    expect(graph.edges).toEqual([{ from: parent.decisionId, to: expect.any(String) }]);
-    expect(graph.roots.length).toBeGreaterThan(0);
-  });
-
-  test("updateDecisionOutcome mutates ndjson record", async () => {
-    const decision = await logDecision(
-      {
-        action: "heal",
-        trigger: { traceId: "trace-update", clusterId: "c-update" },
-        outcome: { result: "pending" },
-      },
-      { projectRoot: tmpRoot }
-    );
-
-    const updated = await updateDecisionOutcome(
-      decision.decisionId,
-      {
-        result: "success",
-        verifiedAt: new Date().toISOString(),
-        proof: { type: "cluster-dissolved", detail: "No recurrence" },
-      },
-      { projectRoot: tmpRoot, qualityScore: 0.95 }
-    );
-
-    expect(updated?.outcome.result).toBe("success");
-    expect(updated?.qualityScore).toBe(0.95);
-
-    const reloaded = await findDecisionById(decision.decisionId, tmpRoot);
-    expect(reloaded?.outcome.proof?.type).toBe("cluster-dissolved");
-  });
-
-  test("suggestDecisions ranks by quality and confidence", async () => {
-    await logDecision(
-      {
-        action: "heal",
-        trigger: { traceId: "t1", clusterId: "cluster-x" },
-        outcome: { result: "success" },
-        metadata: { playbookId: "sync-runtime" },
-      },
-      { projectRoot: tmpRoot }
-    );
-    const high = await logDecision(
-      {
-        action: "heal",
-        trigger: { traceId: "t2", clusterId: "cluster-x" },
-        outcome: { result: "success" },
-        metadata: { playbookId: "guardian-sign" },
-      },
-      { projectRoot: tmpRoot }
-    );
-    await updateDecisionOutcome(
-      high.decisionId,
-      { result: "success" },
-      {
-        projectRoot: tmpRoot,
-        qualityScore: 0.95,
-      }
-    );
-
-    const suggestions = await suggestDecisions({
-      clusterId: "cluster-x",
-      projectRoot: tmpRoot,
+  test("createDecisionRecord stays pure without writing", () => {
+    const record = createDecisionRecord({
+      key: "preview",
+      action: "noop",
+      trigger: "unit test",
+      rationale: "Preview only.",
+      outcome: "unknown",
     });
-
-    expect(suggestions.length).toBeGreaterThan(0);
-    expect(suggestions[0]?.decisionId).toBe(high.decisionId);
-    expect(suggestions[0]?.confidence).toBeGreaterThan(0.5);
+    expect(record.decisionId.startsWith("decision-")).toBe(true);
+    expect(record.rationale.summary).toBe("Preview only.");
   });
 });

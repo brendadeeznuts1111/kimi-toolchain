@@ -1,8 +1,5 @@
-import { makeDir, pathExists } from "../src/lib/bun-io.ts";
-
 import { describe, expect, test } from "bun:test";
 import { checkGovernance } from "../src/lib/governance-check.ts";
-import { REPO_ROOT } from "./helpers.ts";
 import {
   generateReadme,
   generateLicense,
@@ -11,11 +8,17 @@ import {
 } from "../src/lib/scaffold-templates.ts";
 import { parseCommit, determineBump, bumpVersion } from "../src/lib/conventional-commits.ts";
 import { commitsToSection, formatSection, updateChangelog } from "../src/lib/changelog.ts";
+import { ensureQualityTooling } from "../src/lib/scaffold-quality.ts";
 import { join } from "path";
+import { existsSync, mkdirSync } from "fs";
+import { artifactPath } from "../src/lib/artifacts.ts";
+
+const REPO_ROOT = import.meta.dir + "/..";
+
 function tmpDir(name: string): string {
   const ts = Date.now();
-  const dir = join(REPO_ROOT, `.tmp-test-${name}-${ts}`);
-  makeDir(dir, { recursive: true });
+  const dir = artifactPath(REPO_ROOT, "tmp", `${name}-${ts}`);
+  mkdirSync(dir, { recursive: true });
   return dir;
 }
 
@@ -108,7 +111,7 @@ describe("checkGovernance", () => {
 
   test("CODEOWNERS parsing from .github/CODEOWNERS", async () => {
     const dir = tmpDir("gov-gh-codeowners");
-    makeDir(join(dir, ".github"), { recursive: true });
+    mkdirSync(join(dir, ".github"), { recursive: true });
     await writeFile(
       join(dir, ".github", "CODEOWNERS"),
       "# Comment\n* @alice @bob\n/src @carol-doe\n"
@@ -121,7 +124,7 @@ describe("checkGovernance", () => {
 
   test("CODEOWNERS parsing from docs/CODEOWNERS", async () => {
     const dir = tmpDir("gov-docs-codeowners");
-    makeDir(join(dir, "docs"), { recursive: true });
+    mkdirSync(join(dir, "docs"), { recursive: true });
     await writeFile(join(dir, "docs", "CODEOWNERS"), "* @team-lead\n");
     const result = await checkGovernance(dir);
     expect(result.hasCodeowners).toBe(true);
@@ -155,9 +158,7 @@ describe("generateLicense", () => {
     const content = await Bun.file(path).text();
     expect(content).toContain("MIT License");
     expect(content).toContain("Copyright (c)");
-    expect(content).toContain("Permission is hereby granted, free of charge");
-    expect(content).toContain("WITHOUT WARRANTY OF ANY KIND");
-    expect(content).not.toContain("...");
+    expect(content).toContain("Permission is hereby granted...");
     await cleanup(dir);
   });
 
@@ -174,10 +175,10 @@ describe("generateLicense", () => {
 describe("scaffoldAdr", () => {
   test("creates file with correct naming pattern", async () => {
     const dir = tmpDir("adr");
-    const ensureDir = (d: string) => makeDir(d, { recursive: true });
+    const ensureDir = (d: string) => mkdirSync(d, { recursive: true });
     const path = await scaffoldAdr(dir, "Use Bun Runtime", ensureDir);
     expect(path).toMatch(/0001-use-bun-runtime\.md$/);
-    expect(pathExists(path)).toBe(true);
+    expect(existsSync(path)).toBe(true);
     const content = await Bun.file(path).text();
     expect(content).toContain("# Use Bun Runtime");
     expect(content).toContain("status: proposed");
@@ -186,7 +187,7 @@ describe("scaffoldAdr", () => {
 
   test("increments number for existing ADRs", async () => {
     const dir = tmpDir("adr-multi");
-    const ensureDir = (d: string) => makeDir(d, { recursive: true });
+    const ensureDir = (d: string) => mkdirSync(d, { recursive: true });
     await scaffoldAdr(dir, "First Decision", ensureDir);
     const path = await scaffoldAdr(dir, "Second Decision", ensureDir);
     expect(path).toMatch(/0002-second-decision\.md$/);
@@ -515,4 +516,79 @@ describe("updateChangelog", () => {
   });
 });
 
-/* ensureQualityTooling tests live in test/scaffold-quality.unit.test.ts */
+/* ─────────────────────── scaffold-quality ─────────────────────── */
+
+describe("ensureQualityTooling", () => {
+  test("adds missing scripts to package.json", async () => {
+    const dir = tmpDir("quality-add");
+    const pkg = { name: "test", scripts: { test: "bun test" } };
+    await writeFile(join(dir, "package.json"), JSON.stringify(pkg, null, 2));
+    const logs: string[] = [];
+    const log = (_step: string, msg: string) => logs.push(msg);
+    await ensureQualityTooling(dir, false, log);
+    const updated = await Bun.file(join(dir, "package.json")).json();
+    expect(updated.scripts.typecheck).toBe("tsc --noEmit");
+    expect(updated.scripts.format).toBe("oxfmt --write .");
+    expect(updated.scripts.lint).toBe(
+      "oxlint src test scripts && bun run scripts/lint-banned-terms.ts"
+    );
+    expect(updated.scripts.check).toBe("bun run scripts/check.ts");
+    expect(logs.some((l) => l.includes("adding format/lint/test scripts"))).toBe(true);
+    await cleanup(dir);
+  });
+
+  test("is idempotent — does not duplicate existing scripts", async () => {
+    const dir = tmpDir("quality-idempotent");
+    const pkg = {
+      name: "test",
+      scripts: {
+        test: "bun test",
+        "test:fast": "bun test --fast",
+        "test:coverage": "bun test --coverage",
+        "test:coverage:ci": "bun test --ci --coverage",
+        check: "bun run check",
+        "check:fast": "bun run check --fast",
+        "check:dry-run": "bun run check --dry-run",
+        "docs:sync": "bun run docs:sync",
+        typecheck: "tsc --noEmit",
+        format: "oxfmt --write .",
+        "format:check": "oxfmt --check .",
+        "format:check:ci": "oxfmt --check --threads=4 .",
+        lint: "oxlint src",
+        "lint:terms": "bun run lint:terms",
+        fix: "kimi-fix .",
+      },
+    };
+    await writeFile(join(dir, "package.json"), JSON.stringify(pkg, null, 2));
+    const logs: string[] = [];
+    const log = (_step: string, msg: string) => logs.push(msg);
+    await ensureQualityTooling(dir, false, log);
+    const updated = await Bun.file(join(dir, "package.json")).json();
+    expect(updated.scripts.typecheck).toBe("tsc --noEmit");
+    expect(updated.scripts.format).toBe("oxfmt --write .");
+    expect(logs.some((l) => l.includes("adding format/lint/test scripts"))).toBe(false);
+    await cleanup(dir);
+  });
+
+  test("dryRun does not write file", async () => {
+    const dir = tmpDir("quality-dryrun");
+    const pkg = { name: "test", scripts: {} };
+    await writeFile(join(dir, "package.json"), JSON.stringify(pkg, null, 2));
+    const logs: string[] = [];
+    const log = (_step: string, msg: string) => logs.push(msg);
+    await ensureQualityTooling(dir, true, log);
+    const updated = await Bun.file(join(dir, "package.json")).json();
+    expect(updated.scripts.typecheck).toBeUndefined();
+    expect(logs.some((l) => l.includes("adding format/lint/test scripts"))).toBe(true);
+    await cleanup(dir);
+  });
+
+  test("returns early if no package.json", async () => {
+    const dir = tmpDir("quality-nopkg");
+    const logs: string[] = [];
+    const log = (_step: string, msg: string) => logs.push(msg);
+    await ensureQualityTooling(dir, false, log);
+    expect(logs.length).toBe(0);
+    await cleanup(dir);
+  });
+});

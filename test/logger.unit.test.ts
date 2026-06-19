@@ -1,145 +1,212 @@
-import { describe, expect, test, beforeEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { aggregateChecks } from "../src/lib/health-check.ts";
 import { Logger, createLogger, log, statusIcon } from "../src/lib/logger.ts";
-import { inspectAgent } from "../src/lib/inspect.ts";
-import { captureConsole, captureConsoleError, clearSessionEnv, withEnv } from "./helpers.ts";
 
 describe("logger", () => {
+  let originalEnv: Record<string, string | undefined>;
+
   beforeEach(() => {
-    clearSessionEnv();
+    originalEnv = {
+      KIMI_AGENT_SESSION: Bun.env.KIMI_AGENT_SESSION,
+      KIMI_CODE_SESSION: Bun.env.KIMI_CODE_SESSION,
+    };
+    delete Bun.env.KIMI_AGENT_SESSION;
+    delete Bun.env.KIMI_CODE_SESSION;
   });
 
-  test("Logger.info emits with checkmark icon", async () => {
-    const logs = await captureConsole(() => {
-      const logger = new Logger({ level: "info" });
-      logger.info("test message");
-    });
+  afterEach(() => {
+    Bun.env.KIMI_AGENT_SESSION = originalEnv.KIMI_AGENT_SESSION;
+    Bun.env.KIMI_CODE_SESSION = originalEnv.KIMI_CODE_SESSION;
+  });
+
+  test("Logger.info emits with checkmark icon", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ level: "info" });
+    logger.info("test message");
+
+    console.log = originalLog;
     expect(logs.length).toBe(1);
     expect(logs[0]).toContain("test message");
   });
 
-  test("Logger.error emits with x icon", async () => {
-    const logs = await captureConsole(() => {
-      const logger = new Logger({ level: "info" });
-      logger.error("test error");
-    });
+  test("Logger.error emits with x icon", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ level: "info" });
+    logger.error("test error");
+
+    console.log = originalLog;
     expect(logs.length).toBe(1);
     expect(logs[0]).toContain("test error");
   });
 
-  test("Logger.warn emits with warning icon", async () => {
-    const logs = await captureConsole(() => {
-      const logger = new Logger({ level: "info" });
-      logger.warn("test warning");
-    });
+  test("Logger.warn emits with warning icon", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ level: "info" });
+    logger.warn("test warning");
+
+    console.log = originalLog;
     expect(logs.length).toBe(1);
     expect(logs[0]).toContain("test warning");
   });
 
-  test("Logger.debug is suppressed at info level", async () => {
-    const logs = await captureConsole(() => {
-      const logger = new Logger({ level: "info" });
-      logger.debug("test debug");
-    });
+  test("Logger.debug is suppressed at info level", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ level: "info" });
+    logger.debug("test debug");
+
+    console.log = originalLog;
     expect(logs.length).toBe(0);
   });
 
-  test("Logger.debug emits at debug level", async () => {
-    const logs = await captureConsole(() => {
-      const logger = new Logger({ level: "debug" });
-      logger.debug("test debug");
-    });
+  test("Logger.debug emits at debug level", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ level: "debug" });
+    logger.debug("test debug");
+
+    console.log = originalLog;
     expect(logs.length).toBe(1);
     expect(logs[0]).toContain("test debug");
   });
 
-  test("quiet mode suppresses info and warn", async () => {
-    const logs = await captureConsole(() => {
-      const logger = new Logger({ quiet: true });
-      logger.info("test info");
-      logger.warn("test warn");
-    });
+  test("quiet mode suppresses info and warn", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ quiet: true });
+    logger.info("test info");
+    logger.warn("test warn");
+
+    console.log = originalLog;
     expect(logs.length).toBe(0);
   });
 
-  test("quiet mode allows errors", async () => {
-    const logs = await captureConsole(() => {
-      const logger = new Logger({ quiet: true });
-      logger.error("test error");
-    });
+  test("quiet mode allows errors", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ quiet: true });
+    logger.error("test error");
+
+    console.log = originalLog;
     expect(logs.length).toBe(1);
     expect(logs[0]).toContain("test error");
   });
 
-  test("json mode outputs structured agent format", async () => {
-    const logs = await captureConsole(() => {
-      const logger = new Logger({ json: true, tool: "test-tool" });
-      logger.info("test message");
-    });
+  test("json mode outputs structured JSON", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ json: true, tool: "test-tool" });
+    logger.info("test message");
+
+    console.log = originalLog;
     expect(logs.length).toBe(1);
-    expect(logs[0]).toContain("test-tool");
-    expect(logs[0]).toContain("info");
-    expect(logs[0]).toContain("test message");
-    expect(logs[0]).toContain("timestamp");
+    const parsed = JSON.parse(logs[0]);
+    expect(parsed.tool).toBe("test-tool");
+    expect(parsed.level).toBe("info");
+    expect(parsed.message).toBe("test message");
+    expect(parsed.timestamp).toBeGreaterThan(0);
   });
 
-  test("agent context suppresses info output", async () => {
-    await withEnv({ KIMI_AGENT_SESSION: "1" }, async () => {
-      const logs = await captureConsole(() => {
-        const logger = new Logger({ level: "info" });
-        logger.info("test info");
-      });
-      expect(logs.length).toBe(0);
-    });
+  test("agent context suppresses info output", () => {
+    Bun.env.KIMI_AGENT_SESSION = "1";
+
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ level: "info" });
+    logger.info("test info");
+
+    console.log = originalLog;
+    expect(logs.length).toBe(0);
   });
 
-  test("agent context allows errors", async () => {
-    await withEnv({ KIMI_AGENT_SESSION: "1" }, async () => {
-      const logs = await captureConsoleError(() => {
-        const logger = new Logger({ level: "info" });
-        logger.error("test error");
-      });
-      expect(logs.length).toBe(1);
-      expect(logs[0]).toContain("test error");
-    });
+  test("agent context allows errors", () => {
+    Bun.env.KIMI_AGENT_SESSION = "1";
+
+    const logs: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ level: "info" });
+    logger.error("test error");
+
+    console.error = originalError;
+    expect(logs.length).toBe(1);
+    expect(logs[0]).toContain("test error");
   });
 
-  test("result() logs ok status", async () => {
-    const logs = await captureConsole(() => {
-      const logger = new Logger({ level: "info" });
-      logger.result("test-tool", "ok", "passed");
-    });
+  test("result() logs ok status", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ level: "info" });
+    logger.result("test-tool", "ok", "passed");
+
+    console.log = originalLog;
     expect(logs.length).toBe(1);
     expect(logs[0]).toContain("passed");
   });
 
-  test("result() suppresses ok in agent context", async () => {
-    await withEnv({ KIMI_AGENT_SESSION: "1" }, async () => {
-      const logs = await captureConsole(() => {
-        const logger = new Logger({ level: "info" });
-        logger.result("test-tool", "ok", "passed");
-      });
-      expect(logs.length).toBe(0);
-    });
+  test("result() suppresses ok in agent context", () => {
+    Bun.env.KIMI_AGENT_SESSION = "1";
+
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ level: "info" });
+    logger.result("test-tool", "ok", "passed");
+
+    console.log = originalLog;
+    expect(logs.length).toBe(0);
   });
 
-  test("section() prints header in human mode", async () => {
-    const logs = await captureConsole(() => {
-      const logger = new Logger();
-      logger.section("Test Section");
-    });
-    expect(logs.length).toBe(2);
+  test("section() prints header in human mode", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger();
+    logger.section("Test Section");
+
+    console.log = originalLog;
+    expect(logs.length).toBe(2); // empty line + header
     expect(logs[1]).toContain("Test Section");
   });
 
-  test("section() suppressed in agent context", async () => {
-    await withEnv({ KIMI_AGENT_SESSION: "1" }, async () => {
-      const logs = await captureConsole(() => {
-        const logger = new Logger();
-        logger.section("Test Section");
-      });
-      expect(logs.length).toBe(0);
-    });
+  test("section() suppressed in agent context", () => {
+    Bun.env.KIMI_AGENT_SESSION = "1";
+
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger();
+    logger.section("Test Section");
+
+    console.log = originalLog;
+    expect(logs.length).toBe(0);
   });
 
   test("createLogger parses --json flag", () => {
@@ -149,29 +216,29 @@ describe("logger", () => {
 
   test("createLogger parses --quiet flag", () => {
     const logger = createLogger(["--quiet"], "test");
-    expect(logger.getLogs()).toEqual([]);
+    expect(logger.getLogs().length).toBe(0);
   });
 
-  test("createLogger enables quiet from KIMI_QUIET env", async () => {
-    await withEnv({ KIMI_QUIET: "1" }, async () => {
-      const logger = createLogger([], "test");
-      const logs = await captureConsole(() => logger.info("hidden"));
-      expect(logs.length).toBe(0);
-    });
+  test("createLogger parses --debug flag", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = createLogger(["--debug"], "test");
+    logger.debug("test debug");
+
+    console.log = originalLog;
+    expect(logs.length).toBe(1);
   });
 
-  test("createLogger parses --debug flag", async () => {
-    await withEnv({ KIMI_QUIET: undefined }, async () => {
-      const logs = await captureConsole(() => {
-        const logger = createLogger(["--debug"], "test");
-        logger.debug("test debug");
-      });
-      expect(logs.length).toBe(1);
-    });
-  });
+  test("log() backward compatibility", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
 
-  test("log() backward compatibility", async () => {
-    const logs = await captureConsole(() => log("info", "backward compat"));
+    log("info", "backward compat");
+
+    console.log = originalLog;
     expect(logs.length).toBe(1);
     expect(logs[0]).toContain("backward compat");
   });
@@ -195,35 +262,49 @@ describe("logger", () => {
     expect(logs[2].message).toBe("third");
   });
 
-  test("check() emits structured agent format with schemaVersion", async () => {
-    const logs = await captureConsole(() => {
-      const logger = new Logger({ json: true, tool: "test-tool" });
-      logger.check({ name: "disk", status: "warn", message: "85%", fixable: false });
-    });
+  test("check() emits structured JSON with schemaVersion", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ json: true, tool: "test-tool" });
+    logger.check({ name: "disk", status: "warn", message: "85%", fixable: false });
+
+    console.log = originalLog;
     expect(logs.length).toBe(1);
-    expect(logs[0]).toContain("schemaVersion");
-    expect(logs[0]).toContain("disk");
-    expect(logs[0]).toContain("85%");
+    const parsed = JSON.parse(logs[0]);
+    expect(parsed.schemaVersion).toBe(1);
+    expect(parsed.check.name).toBe("disk");
   });
 
-  test("check() buffers ok checks in agent context for telemetry", async () => {
-    await withEnv({ KIMI_CODE_SESSION: "agent-test" }, async () => {
+  test("check() buffers ok checks in agent context for telemetry", () => {
+    const prev = Bun.env.KIMI_CODE_SESSION;
+    Bun.env.KIMI_CODE_SESSION = "agent-test";
+    try {
       const logger = new Logger({ tool: "kimi-doctor" });
       logger.check({ name: "bun", status: "ok", message: "1.3.14", fixable: false });
       logger.check({ name: "disk", status: "error", message: "critical", fixable: false });
       expect(logger.getLogs().length).toBe(2);
       expect(logger.getLogs()[0].check?.name).toBe("bun");
       expect(logger.getLogs()[1].level).toBe("error");
-    });
+    } finally {
+      Bun.env.KIMI_CODE_SESSION = prev;
+    }
   });
 
-  test("printHealthReport prints section, checks, and summary", async () => {
+  test("printHealthReport prints section, checks, and summary", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
     const report = aggregateChecks("kimi-doctor", [
       { name: "bun", status: "ok", message: "1.3.14", fixable: false },
       { name: "disk", status: "warn", message: "85%", fixable: true },
     ]);
     const logger = new Logger({ level: "info", tool: "kimi-doctor" });
-    const logs = await captureConsole(() => logger.printHealthReport(report));
+    logger.printHealthReport(report);
+
+    console.log = originalLog;
     expect(logs.some((l) => l.includes("kimi-doctor Doctor"))).toBe(true);
     expect(logs.some((l) => l.includes("bun: 1.3.14"))).toBe(true);
     expect(logs.some((l) => l.includes("disk: 85%"))).toBe(true);
@@ -231,52 +312,61 @@ describe("logger", () => {
     expect(logger.getLogs().length).toBeGreaterThanOrEqual(3);
   });
 
-  test("printHealthReport accepts custom section title", async () => {
+  test("printHealthReport accepts custom section title", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
     const report = aggregateChecks("kimi-fix", [
       { name: "lockfile", status: "ok", message: "present", fixable: false },
     ]);
     const logger = new Logger();
-    const logs = await captureConsole(() => logger.printHealthReport(report, "Custom Section"));
+    logger.printHealthReport(report, "Custom Section");
+
+    console.log = originalLog;
     expect(logs.some((l) => l.includes("Custom Section"))).toBe(true);
     expect(logs.some((l) => l.includes("kimi-fix Doctor"))).toBe(false);
   });
 
-  test("projectBanner prints banner, project line, and blank line", async () => {
-    const logs = await captureConsole(() => {
-      const logger = new Logger({ level: "info" });
-      logger.projectBanner("Kimi Doctor", "my-project", "Health checks");
-    });
+  test("projectBanner prints banner, project line, and blank line", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ level: "info" });
+    logger.projectBanner("Kimi Doctor", "my-project", "Health checks");
+
+    console.log = originalLog;
     expect(logs.some((l) => l.includes("Kimi Doctor"))).toBe(true);
     expect(logs.some((l) => l.includes("Health checks"))).toBe(true);
     expect(logs.some((l) => l.includes("Project: my-project"))).toBe(true);
     expect(logs.some((l) => l === "")).toBe(true);
   });
 
-  test("projectBanner omits project line when project is omitted", async () => {
-    const logs = await captureConsole(() => {
-      const logger = new Logger({ level: "info" });
-      logger.projectBanner("Kimi Doctor");
-    });
+  test("projectBanner omits project line when project is omitted", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
+    const logger = new Logger({ level: "info" });
+    logger.projectBanner("Kimi Doctor");
+
+    console.log = originalLog;
     expect(logs.some((l) => l.includes("Project:"))).toBe(false);
     expect(logs.some((l) => l.includes("Kimi Doctor"))).toBe(true);
   });
 
-  test("suggest() includes taxonomyId and autoFix in JSON mode", async () => {
+  test("suggest() includes taxonomyId and autoFix in JSON mode", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+
     const logger = new Logger({ json: true, tool: "kimi-debug" });
-    const logs = await captureConsole(() =>
-      logger.suggest("lockfile_issue", "Run kimi-guardian fix", "kimi-guardian fix")
-    );
-    expect(logs[0]).toBe(
-      inspectAgent({
-        schemaVersion: 1,
-        tool: "kimi-debug",
-        level: "info",
-        message: "Run kimi-guardian fix",
-        timestamp: logger.getLogs()[0]?.timestamp,
-        taxonomyId: "lockfile_issue",
-        suggestion: "Run kimi-guardian fix",
-        autoFix: "kimi-guardian fix",
-      })
-    );
+    logger.suggest("lockfile_issue", "Run bun install", "bun install");
+
+    console.log = originalLog;
+    const parsed = JSON.parse(logs[0]);
+    expect(parsed.taxonomyId).toBe("lockfile_issue");
+    expect(parsed.autoFix).toBe("bun install");
   });
 });

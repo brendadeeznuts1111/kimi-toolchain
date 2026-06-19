@@ -1,116 +1,20 @@
-# Install policy — https://bun.com/docs/pm/cli/install#configuring-bun-install-with-bunfig-toml
-# Search order (merged): $XDG_CONFIG_HOME/.bunfig.toml → $HOME/.bunfig.toml → ./bunfig.toml
-# BUN_CONFIG_* env overrides bunfig (higher priority) — see src/lib/bun-install-config.ts
-# Dep changes: `bun add` / `bun update` (not plain `bun install`). Lifecycle trust: package.json `trustedDependencies`.
 [install]
-# Policy tables: src/lib/bun-install-config.ts (BUN_INSTALL_BUNFIG_POLICY)
-optional = true
-dev = true
-peer = true
-production = false
-dryRun = false
 saveTextLockfile = true
-frozenLockfile = true
-exact = false
-ignoreScripts = false
-concurrentScripts = 8
-linker = "isolated"
-# Experimental (Bun ≥1.3.14): symlink packages from a shared global cache instead of copying.
-# Warm installs become ~7× faster on macOS. Ineligible packages fall back automatically.
-# Requires linker = "isolated". Disable by commenting out or setting to false.
-globalStore = true
-globalDir = "~/.bun/install/global"
-globalBinDir = "~/.bun/bin"
-minimumReleaseAge = 259200
-minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
-
-[install.cache]
-dir = "~/.bun/install/cache"
-
-# v1.3.14 — reap orphan child processes when parent exits (macOS/Linux)
-[run]
-noOrphans = true
-
-# Build-time constants — SSOT for contract inference, hook verification, self-healing tuning.
-# Naming: CODE_REFERENCES.md § Build-time constants (defineDomain ≠ taxonomyId)
-# Types: types/build-constants.d.ts · Lint: scripts/lint-build-constants.ts
-# https://bun.com/docs/guides/runtime/build-time-constants
-[define]
-# define-domain:contract-inference
-KIMI_CONTRACT_OBSERVATIONS_PATH = '".kimi/var/contract-observations.ndjson"'
-KIMI_CONTRACT_SCHEMA_VERSION = '"1.0.0"'
-KIMI_CONTRACT_INFERENCE_ENABLED = "true"
-# define-domain:hook-verifier
-KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
-# define-domain:error-embedding (Phase 2)
-KIMI_ERROR_EMBEDDING_DIM = "384"
-# define-domain:decision-scoring (Phase 2)
-KIMI_DECISION_SCORE_WINDOW_DAYS = "7"
-# define-domain:optimizer (Phase 3.2)
-KIMI_OPTIMIZER_CONFIDENCE_DECAY_DAYS = "30"
-# define-domain:error-clustering (Phase 2)
-KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD = "0.55"
-# define-domain:runtime
-KIMI_RUNTIME_MIN_BUN_VERSION = '"1.4.0"'
-KIMI_RUNTIME_CLI_BUILD_CHANNEL = '"source"'
-# define-domain:dashboard
-KIMI_DASHBOARD_LIVE_REFRESH_ENABLED = "true"
-# define-domain:effect-discipline
-KIMI_EFFECT_MAX_DIRECT_PROMISE = "0"
-KIMI_DOMAIN_PURITY_LEVEL = '"strict"'
-KIMI_LAYER_CIRCULARITY_TOLERANCE = "0"
-KIMI_SERVICE_TAG_REQUIRED = "true"
-KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED = "true"
-# define-domain:effect-benchmark
-KIMI_EFFECT_BENCHMARK_ITERATIONS = "5"
-KIMI_EFFECT_BENCHMARK_WARMUP = "2"
-KIMI_EFFECT_BENCHMARK_TRAIN_MARGIN = "1.1"
-KIMI_EFFECT_BENCHMARK_REGRESSION_TOLERANCE = "1.05"
-KIMI_EFFECT_BENCHMARK_DEFAULT_THRESHOLD_MS = "100"
-# define-domain:governance
-KIMI_TUNING_SET_VERSION = '"1.4.2"'
 
 # Shared test defaults — see src/lib/test-gates.ts and scripts/run-tests.ts
 [test]
 preload = ["./test/setup.ts"]
 # *.db.test.ts excluded — DB tests mutate shared state and must run sequentially
 concurrentTestGlob = ["test/*.unit.test.ts"]
-# Fail fast in normal/CI runs; flake-hunt scripts override with --bail=99999.
-bail = 1
-# Randomize test order, but pin the seed so failures are reproducible.
-randomize = true
-seed = 42
-# Generous per-test ceiling; fast gate overrides per-test timeout via CLI.
-timeout = 30000
-# Reduce noise in human and agent output; failures are still surfaced.
-onlyFailures = true
-# Coverage is opt-in via --coverage or test:coverage scripts.
-# Bun 1.4 canary ignores CLI --coverage while this is false; run-tests.ts flips it temporarily.
-coverage = false
-# NOTE: retry is intentionally NOT set here because Bun forbids it together with
-# --rerun-each. Apply retry explicitly in package scripts / run-tests.ts.
-# Compact dot reporter instead of verbose spec output.
-[test.reporter]
-dots = true
 coverageSkipTestFiles = true
 coveragePathIgnorePatterns = [
   "scripts/**",
   "src/bin/**",
   "src/lib/version.ts",
   "src/lib/memory-budget.ts",
-  # Subprocess / platform / telemetry — covered indirectly via smoke tests
-  "src/lib/kimi-doctor-wrapper.ts",
-  "src/lib/institutional-memory.ts",
-  "src/lib/proc-cache.ts",
-  "src/lib/step-budget.ts",
-  "src/lib/effect/errors.ts",
-  # Shared test utilities — covered indirectly by every test file
-  "test/helpers.ts",
-  "test/effect-helpers.ts",
 ]
 coverageReporter = ["text", "lcov"]
-coverageDir = "./coverage"
-# Coverage thresholds disabled — Bun 1.3.14 enforces per-file minimums, which
-# conflicts with aggregate targets. Policy gate: kimi-governance coverage (70%).
-# https://bun.com/docs/test/configuration#coverage-thresholds
+coverageDir = "./.kimi-artifacts/coverage"
+# Enforced when --coverage is passed (CI uses test:coverage:ci)
+coverageThreshold = { lines = 0.70, functions = 0.85 }
 smol = false

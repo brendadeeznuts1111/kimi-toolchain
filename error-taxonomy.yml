@@ -31,21 +31,6 @@ categories:
       - regex: "Format issues found in above"
       - regex: 'error: script "format:check" exited with code 1'
 
-  - id: constants_drift
-    name: Define constants drift
-    description: Build-time tuning constants manifest, parity, or tuning set version is stale or misaligned.
-    severity: warn
-    expected: false
-    suggestion: "Regenerate constants-manifest.json and align bunfig.toml [define] with constants-parity.toml."
-    autoFix: "bun run manifest:generate"
-    boundConstants:
-      - KIMI_TUNING_SET_VERSION
-    patterns:
-      - regex: "constants-manifest.json is stale"
-      - regex: "lint:constant-parity failed"
-      - regex: "lint:build-constants failed"
-      - regex: "tuning set version"
-
   - id: lint_failure
     name: Lint check failed
     description: oxlint or banned-terms check failed.
@@ -53,8 +38,6 @@ categories:
     expected: false
     suggestion: "Fix lint errors reported by oxlint or banned-terms check."
     autoFix: "bun run lint"
-    boundConstants:
-      - KIMI_TUNING_SET_VERSION
     patterns:
       - regex: "Found\\s+\\d+\\s+warning.*error"
       - regex: 'error: script "lint" exited with code 1'
@@ -77,7 +60,6 @@ categories:
     expected: false
     suggestion: "Test failure — run 'bun test' to see details."
     autoFix: "bun test"
-    docLink: "examples/what-broke.md"
     patterns:
       - regex: "\\d+ fail"
       - regex: 'error: script "test" exited with code 1'
@@ -197,37 +179,13 @@ categories:
 
   - id: port_conflict
     name: Port already in use
-    description: A network port or unix socket path is already bound by another process.
+    description: A network port is already bound by another process.
     severity: warn
     expected: false
-    suggestion: "Port or unix socket conflict — use PORT=0 for auto-assignment, stop the bound process, or remove a stale herdr.sock after confirming no listener (Bun 1.4+ EADDRINUSE on double bind)."
+    suggestion: "Port conflict — use PORT=0 for auto-assignment or kill existing process."
     patterns:
       - regex: "port.*already in use"
       - regex: "EADDRINUSE"
-
-  - id: herdr_socket_saturation
-    name: Herdr socket saturation
-    description: Herdr IPC returned EAGAIN (os error 35) — the server is overloaded with stale API or events.subscribe connections, often after long-running dashboard/orchestrator or zombie bun test load.
-    severity: warn
-    expected: false
-    suggestion: "Diagnostic only — `herdr-doctor doctor` does not kill processes. Stop dashboard, audit orphans, `herdr server stop`, verify status, then SIGTERM only the server PID if stop was ignored. See buildHerdrSocketRecoveryPlan in src/lib/herdr-cli-error.ts."
-    autoFix: "herdr-doctor fix-socket --dry-run"
-    patterns:
-      - regex: "herdr: protocol error.*os error 35"
-      - regex: "herdr: protocol error.*Resource temporarily unavailable"
-      - regex: "Resource temporarily unavailable \\(os error 35\\)"
-      - regex: "\\bEAGAIN\\b"
-
-  - id: herdr_cli_attach_refused
-    name: Herdr client attach refused
-    description: Herdr CLI client attach failed with connection refused (os error 61) — stale herdr-client.sock or server not accepting new clients.
-    severity: warn
-    expected: false
-    suggestion: "Run `herdr status server`. If not running, remove stale socket and restart. Do not confuse with saturation (os error 35)."
-    autoFix: "herdr-doctor fix-socket --dry-run"
-    patterns:
-      - regex: "herdr: protocol error.*os error 61"
-      - regex: "herdr: protocol error.*Connection refused"
 
   - id: memory_limit
     name: Out of memory
@@ -244,11 +202,9 @@ categories:
     description: Guardian detected lockfile hash mismatch or unsigned manifest.
     severity: error
     expected: false
-    suggestion: "Lockfile drift — dep change: bun add / bun update (not plain bun install); baseline: kimi-guardian fix."
-    autoFix: "kimi-guardian fix"
-    docLink: "examples/guardian-failure.md"
-    boundConstants:
-      - KIMI_HOOK_VERIFIER_MAX_CYCLES
+    suggestion: "Lockfile issue — run 'bun install' or 'kimi-guardian fix'."
+    autoFix: "bun install"
+    docLink: "skills/kimi-toolchain/examples/guardian-failure.md"
     patterns:
       - regex: "HASH MISMATCH"
       - regex: "lockfile"
@@ -261,6 +217,7 @@ categories:
     expected: false
     suggestion: "Agent hit step limit — break work into smaller chunks. Use `bun run check:fast` instead of full suite, batch edits before testing, and avoid long-running subprocesses in a single turn."
     autoFix: "bun run check:fast"
+    docLink: "skills/kimi-toolchain/examples/doctor-smell.md"
     patterns:
       - regex: "max_steps_exceeded"
       - regex: "max steps exceeded"
@@ -290,151 +247,6 @@ categories:
       - regex: "Tool timed out after"
       - regex: "SIGTERM sent"
       - regex: "SIGKILL after"
-
-  - id: mcp_config_missing
-    name: MCP config missing
-    description: Kimi Code MCP configuration is missing a required toolchain server registration.
-    severity: warn
-    expected: false
-    suggestion: "Provision MCP defaults with kimi-doctor --fix or bun run sync."
-    autoFix: "kimi-doctor --fix"
-    patterns:
-      - regex: "MCP config missing unified-shell registration"
-      - regex: "unified-shell.*not configured in user MCP servers"
-      - regex: "cloudflare-api.*not configured in user MCP servers"
-
-  - id: cli_invalid_flag
-    name: CLI invalid flag
-    description: A tool received an unrecognized or malformed command-line flag.
-    severity: error
-    expected: false
-    suggestion: "Check the tool help or use a supported flag."
-    patterns:
-      - regex: "Unknown flag"
-
-  - id: effect_gates_threshold_exceeded
-    name: Effect gates threshold exceeded
-    description: An Effect gate count exceeds its constant-derived threshold.
-    severity: error
-    expected: false
-    suggestion: "Review the gate report and reduce the flagged pattern."
-    patterns:
-      - regex: "effect.gates.*threshold"
-
-  - id: effect_gates_regression_detected
-    name: Effect gates regression detected
-    description: A gate metric regressed compared to the previous snapshot.
-    severity: error
-    expected: false
-    suggestion: "Compare the current report with the prior snapshot in .kimi/var/effect-gates.ndjson."
-    patterns:
-      - regex: "effect.gates.*regression"
-
-  - id: effect_gates_manifest_invalid
-    name: Effect gates manifest invalid
-    description: The constants manifest is missing, stale, or lacks required Effect discipline constants.
-    severity: error
-    expected: false
-    suggestion: "Run bun run manifest:generate && bun run format."
-    patterns:
-      - regex: "effect.gates.*manifest"
-
-  - id: effect_gates_session_floor_failed
-    name: Effect gates session floor failed
-    description: Session floor counts are missing or below required thresholds.
-    severity: error
-    expected: false
-    suggestion: "Review session-level Effect usage and run kimi-doctor --effect-gates."
-    patterns:
-      - regex: "effect.gates.*session.floor"
-
-  - id: effect_gates_run_promise_boundary_violation
-    name: Effect.runPromise boundary violation
-    description: Effect.runPromise was called outside src/cli, src/entry, src/runtime.ts, or test files.
-    severity: error
-    expected: false
-    suggestion: "Move the Effect.runPromise call to a CLI entry, runtime file, or test; library code should return Effects."
-    boundConstants:
-      - KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED
-    patterns:
-      - regex: "run-promise-boundary"
-
-  - id: effect_gates_event_stream_violation
-    name: Effect event stream violation
-    description: Service code used Node.js EventEmitter-style patterns instead of Effect streams.
-    severity: error
-    expected: false
-    suggestion: "Replace EventEmitter usage with Effect streams in src/services code."
-    patterns:
-      - regex: "event-stream"
-
-  - id: doctor_adapter_failed
-    name: Doctor adapter failed
-    description: An external tool adapter failed to execute or returned a non-zero exit code.
-    severity: error
-    expected: false
-    suggestion: "Check the adapter output and rerun with --adapter <name> --json."
-    autoFix: "kimi-doctor --adapter <name>"
-    patterns:
-      - regex: "adapter .* failed"
-
-  - id: doctor_adapter_timeout
-    name: Doctor adapter timeout
-    description: An external tool adapter exceeded its execution timeout.
-    severity: error
-    expected: false
-    suggestion: "Increase timeout with --timeout or reduce scope."
-    patterns:
-      - regex: "adapter .* timed out"
-
-  - id: doctor_plugin_invalid
-    name: Doctor plugin invalid
-    description: A doctor plugin entry failed schema validation or its command is not executable.
-    severity: warning
-    expected: false
-    suggestion: "Fix the plugin entry in doctor-plugins.json."
-    patterns:
-      - regex: "invalid plugin"
-
-  - id: doctor_plugin_failed
-    name: Doctor plugin failed
-    description: A doctor plugin command failed to execute.
-    severity: error
-    expected: false
-    suggestion: "Check the plugin output and fix the plugin script."
-    patterns:
-      - regex: "plugin failed"
-
-  - id: doctor_mcp_internal
-    name: Doctor MCP internal error
-    description: The kimi-doctor MCP server encountered an internal error handling a request.
-    severity: error
-    expected: false
-    suggestion: "Restart the MCP server and check stderr."
-    patterns:
-      - regex: "doctor_mcp_internal"
-
-  - id: dashboard_health_failure
-    name: Dashboard health check failed
-    description: The Herdr dashboard /api/health probe reported a warn or error status for a subsystem.
-    severity: warn
-    expected: false
-    suggestion: "Check the Herdr dashboard health summary for agents, SSE, herdr socket, gate health, or discovery."
-    autoFix: "kimi-doctor --quick"
-    patterns:
-      - regex: "dashboard health"
-      - regex: "/api/health"
-      - regex: "health check failed"
-
-  - id: build_constant_undefined
-    name: Build-time constant undefined
-    description: A bunfig.toml [define] constant was referenced but not defined in the current project or runtime.
-    severity: error
-    expected: false
-    suggestion: "Add the missing [define] entry to bunfig.toml or provide a runtime fallback."
-    patterns:
-      - regex: "ReferenceError: KIMI_.*is not defined"
-      - regex: "KIMI_.*is not defined"
 
   - id: unknown
     name: Unknown

@@ -1,59 +1,15 @@
-# Rule 4 (configuration-layers): install/test policy only — no [define], no KIMI_*.
-# See docs/references/configuration-layers.md · Bun flags: docs/references/bun-runtime-scaffold.md
-# Hardened install policy — src/lib/bun-install-config.ts (BUN_INSTALL_POLICY_MATRIX)
 [install]
-optional = true
-dev = true
-peer = true
-production = false
-dryRun = false
-saveTextLockfile = true
-frozenLockfile = true
-exact = false
-ignoreScripts = false
-concurrentScripts = 8
-linker = "isolated"
-# Experimental (Bun ≥1.3.14): symlink packages from a shared global cache instead of copying.
-# Warm installs become ~7× faster on macOS. Ineligible packages fall back automatically.
-# Requires linker = "isolated". Disable by commenting out or setting to false.
-globalStore = true
-globalDir = "~/.bun/install/global"
-globalBinDir = "~/.bun/bin"
-minimumReleaseAge = 259200
-minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
-
-# Future: kimi-guardian as an [install.security] scanner.
-# When guardian is published as a Bun security scanner package,
-# uncomment the block below to scan every install for CVEs + supply-chain risks.
-# [install.security]
-# scanner = "kimi-guardian-scanner"
+# Trusted dependencies with postinstall scripts
+# Run `kimi-guardian check` to auto-populate
+trustedDependencies = []
 
 [install.cache]
+# Global cache directory (shared across projects)
 dir = "~/.bun/install/cache"
 
 [test]
-# Unit tests run concurrently; smoke/integration tests stay sequential
+# Unit tests run concurrently; smoke tests stay sequential
 concurrentTestGlob = ["test/*.unit.test.ts"]
-# Fail fast in normal/CI runs; flake-hunt scripts override with --bail=99999
-bail = 1
-# Randomize test order, but pin the seed so failures are reproducible
-randomize = true
-seed = 42
-# Generous per-test ceiling; fast gate overrides via CLI
-timeout = 30000
-# Coverage is opt-in via --coverage or test:coverage scripts
-coverage = false
 coverageSkipTestFiles = true
-# Bun ≥1.3.14 per-file coverage thresholds conflict with aggregate policy.
-# Use kimi-governance score instead (70% aggregate line/function target).
-smol = false
 
-[test.reporter]
-# Compact dot reporter instead of verbose spec output
-dots = true
-
-[run]
-# Parent-death detection — child processes auto-exit when the parent dies.
-# Bun >= 1.3.14: prctl(PR_SET_PDEATHSIG, SIGKILL) on Linux, EVFILT_PROC/NOTE_EXIT on macOS.
-# Flag auto-inherited by nested Bun processes.
-noOrphans = true
+coverageThreshold = { lines = 0.35, functions = 0.25 }

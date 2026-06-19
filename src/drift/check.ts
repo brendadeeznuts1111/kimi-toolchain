@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { pathExists } from "../lib/bun-io.ts";
 /**
  * drift/check.ts — Dependency drift detector
  * Quick check for outdated/unused deps vs lockfile
@@ -9,9 +8,8 @@ import { pathExists } from "../lib/bun-io.ts";
  */
 
 import { $ } from "bun";
+import { existsSync } from "fs";
 import { join } from "path";
-import { Effect } from "effect";
-import { BUN_LOCKFILE_DRIFT_HINT } from "../lib/bun-install-config.ts";
 
 const QUICK = Bun.argv.includes("--quick");
 const EXIT_ON_FAIL = Bun.argv.includes("--exit-code");
@@ -23,20 +21,20 @@ interface DriftIssue {
   latest?: string;
 }
 
-async function main(): Promise<number> {
+async function main() {
   const cwd = Bun.cwd;
   const pkgPath = join(cwd, "package.json");
   const lockPath = join(cwd, "bun.lock");
 
-  if (!pathExists(pkgPath)) {
+  if (!existsSync(pkgPath)) {
     console.log("⚠ No package.json found — skipping drift check");
-    return 0;
+    process.exit(0);
   }
 
   const issues: DriftIssue[] = [];
 
   // Quick mode: just check if lockfile is stale vs package.json
-  if (QUICK && pathExists(lockPath)) {
+  if (QUICK && existsSync(lockPath)) {
     const pkgMtime = Bun.file(pkgPath).lastModified;
     const lockMtime = Bun.file(lockPath).lastModified;
     if (pkgMtime > lockMtime) {
@@ -63,25 +61,15 @@ async function main(): Promise<number> {
     for (const i of issues) {
       console.log(`  ${i.type}: ${i.package}${i.current ? ` (${i.current})` : ""}`);
     }
-    console.log(`   ${BUN_LOCKFILE_DRIFT_HINT}`);
-    return EXIT_ON_FAIL ? 1 : 0;
+    console.log("   Run 'bun install' to update lockfile");
+    if (EXIT_ON_FAIL) process.exit(1);
+  } else {
+    console.log("✓ No dependency drift");
+    process.exit(0);
   }
-
-  console.log("✓ No dependency drift");
-  return 0;
 }
 
-(async () => {
-  try {
-    const exitCode = await Effect.runPromise(
-      Effect.tryPromise({
-        try: () => main(),
-        catch: (err) => new Error(err instanceof Error ? err.message : String(err)),
-      })
-    );
-    process.exit(exitCode);
-  } catch (err) {
-    console.error("Drift check failed:", err instanceof Error ? err.message : String(err));
-    process.exit(EXIT_ON_FAIL ? 1 : 0);
-  }
-})();
+main().catch((err) => {
+  console.error("Drift check failed:", err.message);
+  if (EXIT_ON_FAIL) process.exit(1);
+});

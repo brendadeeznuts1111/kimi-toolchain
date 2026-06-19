@@ -2,10 +2,7 @@
  * AGENTS.md scaffold for new projects — mirrors TEMPLATES.md minimal template.
  */
 
-import { homeDir } from "./paths.ts";
-
-export function buildAgentsMd(projectName: string, home = homeDir()): string {
-  const dxAgentsPath = `${home}/.config/dx/AGENTS.md`;
+export function buildAgentsMd(projectName: string): string {
   return `# Agent Guide — ${projectName}
 
 ## Project
@@ -20,8 +17,8 @@ One-line description of what this does.
 
 ## Global DX First
 
-- Read \`${dxAgentsPath}\` before project-local setup
-- Start with \`dx setup\`, \`dx context\`, \`dx config\`, \`dx mcp-status\`, \`dx cli\`, and \`dx package\`
+- Read \`/Users/nolarose/.config/dx/AGENTS.md\` before project-local setup
+- Start with \`dx context\`, \`dx config\`, \`dx mcp-status\`, and \`dx mcp-doctor\`
 - Use \`dx package\` after dependency changes, then rerun Kimi guardian/governance gates
 
 ## Formatting & lint
@@ -36,9 +33,9 @@ One-line description of what this does.
 - Inline single-use variables and private methods
 - \`trash\` > \`rm\`
 - Read-only checks before mutation (\`--dry-run\`)
-- Use \`Bun.env\` for environment reads
+- Use \`Bun.env\` not \`process.env\`
 - Use \`Bun.cwd\` not \`process.cwd()\`
-- Use \`Bun.argv\` for CLI argument reads
+- Use \`Bun.argv\` not \`process.argv\`
 - Use \`Uint8Array\` not \`Buffer\`
 - Prefer shared tool/logging helpers from \`~/.kimi-code/AGENTS.md\` over raw subprocess and console patterns
 
@@ -58,6 +55,16 @@ One-line description of what this does.
 - Keep background keep-alive off unless intentionally daemonizing
 - Batch related edits, then run targeted tests before broad gates
 
+## Agent Operating Loop
+
+| Step | Action |
+| ---- | ------ |
+| Scope | Read \`./CODE_REFERENCES.md\`, identify the closest existing pattern, and name the smallest change slice. |
+| Implement | Keep parsing, mutation, subprocess, and telemetry boundaries typed and local to established modules. |
+| Guard | Do not leave root-cause fixes as one-off patches; add a detector, regression test, or stale-pattern scan. |
+| Validate | Run targeted tests first, then \`bun run check:fast\`; reserve full checks for handoff or high-risk changes. |
+| Handoff | Check \`git diff --cached --stat\` after index-touching commands and sync generated runtime files when needed. |
+
 ## Commands
 
 \`\`\`bash
@@ -69,6 +76,23 @@ bun run format:check  # oxfmt --check . (local)
 bun run lint          # oxlint
 kimi-fix .            # Auto-fix scaffolding
 \`\`\`
+
+## Diagnostics & Recovery
+
+\`\`\`bash
+kimi-capabilities --json       # Live MCP/hook/credential/contract readiness
+kimi-heal plan --json          # Safe/manual/blocked repair plan
+kimi-heal apply --dry-run      # Preview safe repairs; default is non-mutating
+kimi-trace <trace-id> --json   # Causal graph for nested failures
+kimi-contract validate --json  # Contract trust audit
+kimi-decision log --json       # Recent decision rationale
+kimi-why <topic> --json        # Decision ledger lookup
+\`\`\`
+
+- Treat \`kimi-heal apply --yes\` as an explicit mutation. It only runs \`safeToAutoApply\` actions; manual and blocked items require human review.
+- Failure ledgers live under \`~/.kimi-code/var/tool-failures.jsonl\`; trace events live under \`~/.kimi-code/var/trace-events.jsonl\`.
+- Agent defaults: use \`kimi-capabilities --json\` to check live readiness, \`kimi-trace <trace-id> --json\` to inspect root-cause chains, \`kimi-contract validate --json\` before trusting changed contracts, and \`kimi-decision log --json\` when prior rationale matters.
+- Contract trust roots live in project-root \`trusted-keys.json\`; signatures are sibling \`<contract>.sig\` files and embedded \`x-kimi-signature\` fields are ignored during normalization.
 
 ## Quality Gates
 
@@ -90,6 +114,7 @@ kimi-doctor --quick
 - Cloudflare MCP default: \`cloudflare-api\` in user MCP; Cloudflare SSO/OAuth is separate from Wrangler OAuth and \`kimi-cloudflare-access\` API tokens
 - Project override: \`.kimi-code/mcp.json\` (empty stub unless you add stdio servers)
 - Skills: \`.kimi-code/skills/<name>/SKILL.md\`
+- Runtime telemetry: \`~/.kimi-code/var/tool-failures.jsonl\`, \`trace-events.jsonl\`, \`decision-ledger.jsonl\`, and \`capabilities/*.json\`
 
 ## References
 

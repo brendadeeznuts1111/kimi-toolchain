@@ -1,21 +1,16 @@
-import { makeDir, removePath, writeText } from "../../src/lib/bun-io.ts";
-
 import { describe, expect, test } from "bun:test";
 import { Effect, Exit } from "effect";
+import { mkdirSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
 import { join } from "path";
-import {
-  invokeCommandEffect,
-  invokeToolEffect,
-  runToolEffect,
-} from "../../src/lib/effect/tool-runner-effect.ts";
+import { invokeToolEffect, runToolEffect } from "../../src/lib/effect/tool-runner-effect.ts";
 import { ExitNonZero, ToolNotFound, ToolTimeout } from "../../src/lib/effect/errors.ts";
 
-import { testTempDir } from "../helpers.ts";
 function tmpScript(content: string): string {
-  const dir = testTempDir("kimi-tool-effect-");
-  makeDir(dir, { recursive: true });
+  const dir = join(tmpdir(), `kimi-tool-effect-${Bun.randomUUIDv7()}`);
+  mkdirSync(dir, { recursive: true });
   const path = join(dir, "script.ts");
-  writeText(path, content);
+  writeFileSync(path, content);
   return path;
 }
 
@@ -25,7 +20,7 @@ describe("tool-runner-effect", () => {
     const result = await Effect.runPromise(invokeToolEffect(script, []));
     expect(result.exitCode).toBe(0);
     expect(result.isError).toBe(false);
-    removePath(join(script, ".."), { recursive: true, force: true });
+    rmSync(join(script, ".."), { recursive: true, force: true });
   });
 
   test("invokeToolEffect fails with ExitNonZero on non-zero exit", async () => {
@@ -36,69 +31,7 @@ describe("tool-runner-effect", () => {
       expect(exit.cause.error).toBeInstanceOf(ExitNonZero);
       expect((exit.cause.error as ExitNonZero).exitCode).toBe(3);
     }
-    removePath(join(script, ".."), { recursive: true, force: true });
-  });
-
-  test("invokeToolEffect does not treat ordinary output text as a timeout", async () => {
-    const script = tmpScript(
-      `console.error("timed out while waiting for fixture"); process.exit(7);`
-    );
-    const exit = await Effect.runPromiseExit(invokeToolEffect(script, []));
-    expect(Exit.isFailure(exit)).toBe(true);
-    if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
-      expect(exit.cause.error).toBeInstanceOf(ExitNonZero);
-      expect(exit.cause.error).not.toBeInstanceOf(ToolTimeout);
-      expect((exit.cause.error as ExitNonZero).exitCode).toBe(7);
-    }
-    removePath(join(script, ".."), { recursive: true, force: true });
-  });
-
-  test("invokeToolEffect preserves taxonomy and truncation details on ExitNonZero", async () => {
-    const tmpHome = testTempDir("kimi-tool-effect-taxonomy-");
-    const taxonomyDir = join(tmpHome, ".kimi-code");
-    makeDir(taxonomyDir, { recursive: true });
-    writeText(
-      join(taxonomyDir, "error-taxonomy.yml"),
-      [
-        "version: 1",
-        "categories:",
-        "  - id: synthetic_failure",
-        "    name: Synthetic Failure",
-        "    description: Synthetic taxonomy fixture.",
-        "    severity: error",
-        "    expected: false",
-        "    suggestion: Use the fixture recovery path.",
-        "    autoFix: fixture-fix",
-        "    patterns:",
-        "      - regex: synthetic-taxonomy-marker",
-      ].join("\n")
-    );
-    const script = tmpScript(`
-      console.error("synthetic-taxonomy-marker-" + "x".repeat(128));
-      process.exit(9);
-    `);
-    const prevHome = Bun.env.HOME;
-    Bun.env.HOME = tmpHome;
-
-    try {
-      const exit = await Effect.runPromiseExit(
-        invokeToolEffect(script, [], { maxOutputBytes: 32 })
-      );
-      expect(Exit.isFailure(exit)).toBe(true);
-      if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
-        const error = exit.cause.error as ExitNonZero;
-        expect(error).toBeInstanceOf(ExitNonZero);
-        expect(error.exitCode).toBe(9);
-        expect(error.taxonomyId).toBe("synthetic_failure");
-        expect(error.suggestion).toContain("fixture recovery");
-        expect(error.autoFix).toBe("fixture-fix");
-        expect(error.stderrTruncated).toBe(true);
-      }
-    } finally {
-      Bun.env.HOME = prevHome;
-      removePath(tmpHome, { recursive: true, force: true });
-      removePath(join(script, ".."), { recursive: true, force: true });
-    }
+    rmSync(join(script, ".."), { recursive: true, force: true });
   });
 
   test(
@@ -113,34 +46,14 @@ describe("tool-runner-effect", () => {
         expect(exit.cause.error).toBeInstanceOf(ToolTimeout);
         expect((exit.cause.error as ToolTimeout).timeoutMs).toBe(100);
       }
-      removePath(join(script, ".."), { recursive: true, force: true });
+      rmSync(join(script, ".."), { recursive: true, force: true });
     },
     { timeout: 5000 }
   );
 
-  test("invokeCommandEffect succeeds on exit 0", async () => {
-    const script = tmpScript(`console.log("cmd-ok");`);
-    const result = await Effect.runPromise(
-      invokeCommandEffect(["bun", "run", script], { tool: "test-cmd" })
-    );
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.trim()).toBe("cmd-ok");
-    removePath(join(script, ".."), { recursive: true, force: true });
-  });
-
-  test("invokeCommandEffect preserves non-zero exit as success for parsing", async () => {
-    const script = tmpScript(`console.error("fail"); process.exit(4);`);
-    const result = await Effect.runPromise(
-      invokeCommandEffect(["bun", "run", script], { tool: "test-cmd" })
-    );
-    expect(result.exitCode).toBe(4);
-    expect(result.isError).toBe(true);
-    removePath(join(script, ".."), { recursive: true, force: true });
-  });
-
   test("runToolEffect fails with ToolNotFound when tool missing", async () => {
-    const tmpHome = testTempDir("kimi-tool-effect-home-");
-    makeDir(tmpHome, { recursive: true });
+    const tmpHome = join(tmpdir(), `kimi-tool-effect-home-${Bun.randomUUIDv7()}`);
+    mkdirSync(tmpHome, { recursive: true });
     const prevHome = Bun.env.HOME;
     Bun.env.HOME = tmpHome;
 
@@ -153,7 +66,7 @@ describe("tool-runner-effect", () => {
       }
     } finally {
       Bun.env.HOME = prevHome;
-      removePath(tmpHome, { recursive: true, force: true });
+      rmSync(tmpHome, { recursive: true, force: true });
     }
   });
 });

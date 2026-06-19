@@ -1,35 +1,38 @@
 /**
- * Semantic failure clustering via local 384-dim embeddings + DBSCAN.
+ * Semantic error clustering pipeline (Effect-TS).
+ *
+ * Embeds failure records, clusters by cosine similarity, persists clusterId
+ * assignments to the ledger and metadata to error-clusters.json.
  */
 
 import { Effect } from "effect";
+import { mkdirSync, writeFileSync } from "fs";
+import { dirname } from "path";
 import {
-  causalChainForRecord,
-  ensureRecordEmbedding,
-  readClusterMetadata,
-  rewriteFailureLedger,
-  stepDescriptionForTrace,
-  writeClusterMetadata,
-  type ClusterMetadataEntry,
-  type ClusterMetadataFile,
-} from "./failure-ledger.ts";
-import { cosineSimilarity, getEmbedder, hashEmbed384, type Embedder } from "./error-embedding.ts";
-import { appendMemoryRecord } from "./institutional-memory.ts";
-import { failureLedgerPath, traceEventsPath } from "./paths.ts";
-import { ensureProcessTrace } from "./effect/trace-context.ts";
-import { sha256String } from "./utils.ts";
+  cosineSimilarity,
+  decodeEmbedding,
+  embedFailure,
+  embedText,
+  encodeEmbedding,
+} from "./error-embedding.ts";
 import {
-  readFailureTraceRecords,
-  readTraceEvents,
+  applyClusterAssignments,
+  readFailureRecords,
+  writeFailureRecords,
   type FailureTraceRecord,
-  type TraceEvent,
-} from "./trace-ledger.ts";
+} from "./failure-ledger.ts";
+import { getClusterPlaybook, readClusterPlaybooks } from "./cluster-playbooks.ts";
+import { errorClustersPath, failureLedgerPath, traceEventsPath } from "./paths.ts";
+import { readTraceEvents, type TraceEvent } from "./trace-ledger.ts";
+import { sha256String } from "./utils.ts";
+
+export const DEFAULT_CLUSTER_THRESHOLD = 0.55;
 
 export interface FailureClusterInput {
   failurePath?: string;
   tracePath?: string;
+  clustersPath?: string;
   threshold?: number;
-  minClusterSize?: number;
   persist?: boolean;
 }
 
@@ -43,6 +46,19 @@ export interface ClusterMember {
 }
 
 export interface ErrorCluster {
+  id: string;
+  label: string;
+  size: number;
+  confidence: number;
+  taxonomyCounts: Record<string, number>;
+  tools: string[];
+  suggestedFix?: string;
+  autoFix?: string;
+  hasPlaybook: boolean;
+  members: ClusterMember[];
+}
+
+export interface ClusterSummary {
   clusterId: string;
   count: number;
   representativeError: {
@@ -50,24 +66,17 @@ export interface ErrorCluster {
     traceId?: string;
     errorId?: string;
   };
-  topTaxonomy: string;
+  topTaxonomy: string | null;
   hasPlaybook: boolean;
-  confidence: number;
-  taxonomyCounts: Record<string, number>;
-  tools: string[];
-  suggestedFix?: string;
-  autoFix?: string;
-  playbookId?: string;
-  members: ClusterMember[];
 }
 
 export interface ErrorClusterReport {
-  schemaVersion: 2;
+  schemaVersion: 1;
   generatedAt: string;
   threshold: number;
-  embedder: string;
   totalFailures: number;
   clusters: ErrorCluster[];
+  summaries: ClusterSummary[];
 }
 
 export interface ClusterMatch {
@@ -75,266 +84,283 @@ export interface ClusterMatch {
   confidence: number;
 }
 
-interface EmbeddedFailure {
-  record: FailureTraceRecord;
-  vector: Float32Array;
-  similarities: number[];
+export interface ErrorSuggestion {
+  errorId: string;
+  clusterId: string | null;
+  confidence: number;
+  cluster?: ErrorCluster;
+  playbook?: {
+    title: string;
+    command?: string[];
+    confidence: number;
+  };
+  similarErrors: ClusterMember[];
+  recommendation: string;
 }
 
-const DEFAULT_MIN_CLUSTER_SIZE = 1;
-const KNOWN_PLAYBOOK_TAXONOMIES = new Set([
-  "format_check_failure",
-  "timeout_hang",
-  "orphan_process",
-  "lockfile_issue",
-  "command_not_found",
-  "typecheck_failure",
-  "lint_failure",
-  "test_failure",
-  "max_steps_exceeded",
-]);
+interface EmbeddedFailure {
+  record: FailureTraceRecord;
+  text: string;
+  vector: Float32Array;
+}
+
+interface MutableCluster {
+  id: string;
+  members: EmbeddedFailure[];
+  centroid: Float32Array;
+  similarities: number[];
+}
 
 export function clusterFailureLedgerEffect(
   options: FailureClusterInput = {}
 ): Effect.Effect<ErrorClusterReport, never> {
   return Effect.gen(function* () {
-    const threshold = options.threshold ?? KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD;
+    const threshold = options.threshold ?? DEFAULT_CLUSTER_THRESHOLD;
     const failurePath = options.failurePath ?? failureLedgerPath();
     const tracePath = options.tracePath ?? traceEventsPath();
+    const clustersPath = options.clustersPath ?? errorClustersPath();
     const persist = options.persist ?? true;
 
-    const [failures, traces, embedder] = yield* Effect.all(
+    const [failures, traces, playbooks] = yield* Effect.all(
       [
         Effect.tryPromise({
-          try: () => readFailureTraceRecords(failurePath),
-          catch: () => "read-failures-failed",
+          try: () => readFailureRecords(failurePath),
+          catch: () => new Error("failure-read"),
         }).pipe(Effect.catchAll(() => Effect.succeed([] as FailureTraceRecord[]))),
         Effect.tryPromise({
           try: () => readTraceEvents(tracePath),
-          catch: () => "read-traces-failed",
+          catch: () => new Error("trace-read"),
         }).pipe(Effect.catchAll(() => Effect.succeed([] as TraceEvent[]))),
         Effect.tryPromise({
-          try: () => getEmbedder(),
-          catch: () => "embedder-failed",
+          try: () => readClusterPlaybooks(),
+          catch: () => new Error("playbook-read"),
         }).pipe(
           Effect.catchAll(() =>
-            Effect.sync(() => ({
-              name: "hash" as const,
-              embed: async (text: string) => hashEmbed384(text),
-              embedBatch: async (texts: string[]) => texts.map((text) => hashEmbed384(text)),
-            }))
+            Effect.succeed({ schemaVersion: 1 as const, updatedAt: "", playbooks: {} })
           )
         ),
       ],
-      { concurrency: 3 }
+      { concurrency: "unbounded" }
     );
 
-    const embedded = yield* embedFailures(failures, traces, embedder).pipe(
-      Effect.catchAll(() => Effect.succeed([] as EmbeddedFailure[]))
+    const embedded = yield* Effect.sync(() =>
+      failures
+        .filter((failure) => (failure.output || "").trim().length > 0)
+        .map((failure) => embedRecord(failure, traces))
     );
 
-    const labels = dbscan(
-      embedded.map((item) => item.vector),
-      1 - threshold,
-      options.minClusterSize ?? DEFAULT_MIN_CLUSTER_SIZE
+    const { clusters, assignments, encodings } = yield* Effect.sync(() =>
+      buildClusters(embedded, threshold)
     );
-    const grouped = groupByLabel(embedded, labels);
-    const clusters = grouped.map((group) => formatCluster(group));
 
-    if (persist && options.failurePath === undefined) {
-      yield* persistClusterResults(failures, traces, clusters, {
-        threshold,
-        embedder: embedder.name,
-      });
+    if (persist && failures.length > 0) {
+      yield* Effect.tryPromise({
+        try: () =>
+          writeFailureRecords(
+            applyClusterAssignments(failures, assignments, encodings),
+            failurePath
+          ),
+        catch: () => new Error("failure-write"),
+      }).pipe(Effect.catchAll(() => Effect.void));
     }
 
-    clusters.sort((a, b) => b.count - a.count || a.clusterId.localeCompare(b.clusterId));
-    return {
-      schemaVersion: 2,
+    const formatted = yield* Effect.sync(() =>
+      clusters.map((cluster) => formatCluster(cluster, playbooks.playbooks))
+    );
+    formatted.sort((a, b) => b.size - a.size || a.id.localeCompare(b.id));
+
+    const report: ErrorClusterReport = {
+      schemaVersion: 1,
       generatedAt: new Date().toISOString(),
       threshold,
-      embedder: embedder.name,
       totalFailures: embedded.length,
-      clusters,
+      clusters: formatted,
+      summaries: formatted.map(toSummary),
+    };
+
+    if (persist) {
+      yield* Effect.sync(() => writeClusterMetadata(report, clustersPath));
+    }
+
+    return report;
+  });
+}
+
+export function clusterFailureLedger(
+  options: FailureClusterInput = {}
+): Promise<ErrorClusterReport> {
+  return Effect.runPromise(clusterFailureLedgerEffect(options));
+}
+
+export function suggestForErrorEffect(
+  errorId: string,
+  options: FailureClusterInput = {}
+): Effect.Effect<ErrorSuggestion | null, never> {
+  return Effect.gen(function* () {
+    const report = yield* clusterFailureLedgerEffect({ ...options, persist: false });
+    const failurePath = options.failurePath ?? failureLedgerPath();
+    const failures = yield* Effect.tryPromise({
+      try: () => readFailureRecords(failurePath),
+      catch: () => new Error("failure-read"),
+    }).pipe(Effect.catchAll(() => Effect.succeed([] as FailureTraceRecord[])));
+    const record = failures.find((item) => item.errorId === errorId);
+    if (!record) return null;
+
+    const cluster =
+      report.clusters.find((item) => item.members.some((member) => member.errorId === errorId)) ??
+      matchByEmbedding(record, report.clusters);
+
+    if (!cluster) {
+      return {
+        errorId,
+        clusterId: null,
+        confidence: 0,
+        similarErrors: [],
+        recommendation: "No cluster match — run manual triage and add taxonomy coverage.",
+      };
+    }
+
+    const playbooks = yield* Effect.tryPromise({
+      try: () => readClusterPlaybooks(),
+      catch: () => new Error("playbook-read"),
+    }).pipe(
+      Effect.catchAll(() =>
+        Effect.succeed({ schemaVersion: 1 as const, updatedAt: "", playbooks: {} })
+      )
+    );
+    const playbook = getClusterPlaybook(cluster.id, playbooks);
+
+    return {
+      errorId,
+      clusterId: cluster.id,
+      confidence: cluster.confidence,
+      cluster,
+      playbook: playbook
+        ? {
+            title: playbook.title,
+            command: playbook.command,
+            confidence: playbook.confidence,
+          }
+        : undefined,
+      similarErrors: cluster.members.filter((member) => member.errorId !== errorId).slice(0, 5),
+      recommendation: playbook
+        ? `Apply known playbook: ${playbook.title}`
+        : (cluster.suggestedFix ??
+          "Review similar past errors and add a healing playbook for this cluster."),
     };
   });
 }
 
+export function suggestForError(
+  errorId: string,
+  options: FailureClusterInput = {}
+): Promise<ErrorSuggestion | null> {
+  return Effect.runPromise(suggestForErrorEffect(errorId, options));
+}
+
 export function matchErrorToClusters(
   errorText: string,
-  clusters: ErrorCluster[],
-  vector?: Float32Array
+  clusters: ErrorCluster[]
 ): ClusterMatch | null {
-  const query = vector ?? hashEmbed384(errorText);
+  const vector = embedText(errorText);
   let best: ClusterMatch | null = null;
   for (const cluster of clusters) {
-    const medoid = cluster.members[0];
-    if (!medoid) continue;
-    const clusterVector = hashEmbed384(medoid.output);
-    const confidence = cosineSimilarity(query, clusterVector);
+    const clusterText = cluster.members.map((member) => member.output).join("\n");
+    const clusterVector = embedText(clusterText);
+    const confidence = cosineSimilarity(vector, clusterVector);
     if (!best || confidence > best.confidence) best = { cluster, confidence };
   }
   return best && best.confidence > 0 ? best : null;
 }
 
-export function suggestForErrorIdEffect(
-  errorId: string,
-  options: FailureClusterInput = {}
-): Effect.Effect<
-  {
-    errorId: string;
-    record?: FailureTraceRecord;
-    cluster?: ErrorCluster;
-    confidence: number;
-    similarErrors: ClusterMember[];
-    playbook?: { suggestedFix?: string; autoFix?: string; playbookId?: string };
-  },
-  never
-> {
-  return Effect.gen(function* () {
-    const report = yield* clusterFailureLedgerEffect(options);
-    const records = yield* Effect.tryPromise({
-      try: () => readFailureTraceRecords(options.failurePath),
-      catch: () => [] as FailureTraceRecord[],
-    }).pipe(Effect.catchAll(() => Effect.succeed([] as FailureTraceRecord[])));
-    const record = records.find((entry) => entry.errorId === errorId);
-    if (!record) {
-      return { errorId, confidence: 0, similarErrors: [] };
+function embedRecord(record: FailureTraceRecord, traces: TraceEvent[]): EmbeddedFailure {
+  if (record.embedding) {
+    try {
+      return {
+        record,
+        text: "",
+        vector: decodeEmbedding(record.embedding),
+      };
+    } catch {
+      // Re-embed below.
     }
-    const traces = yield* Effect.tryPromise({
-      try: () => readTraceEvents(options.tracePath),
-      catch: () => [] as TraceEvent[],
-    }).pipe(Effect.catchAll(() => Effect.succeed([] as TraceEvent[])));
-    const vector = yield* Effect.tryPromise({
-      try: () => ensureRecordEmbedding(record, traces),
-      catch: () => null as Float32Array | null,
-    }).pipe(Effect.catchAll(() => Effect.succeed(null)));
-    const match = matchErrorToClusters(record.output || "", report.clusters, vector ?? undefined);
-    const cluster = match?.cluster;
-    const similarErrors = cluster
-      ? cluster.members.filter((member) => member.errorId !== errorId).slice(0, 5)
-      : [];
-    return {
-      errorId,
-      record,
-      cluster,
-      confidence: match?.confidence ?? 0,
-      similarErrors,
-      playbook: cluster?.hasPlaybook
-        ? {
-            suggestedFix: cluster.suggestedFix,
-            autoFix: cluster.autoFix,
-            playbookId: cluster.playbookId,
-          }
-        : undefined,
-    };
-  });
-}
-
-function embedFailures(
-  failures: FailureTraceRecord[],
-  traces: TraceEvent[],
-  embedder: Embedder
-): Effect.Effect<EmbeddedFailure[], never> {
-  return Effect.all(
-    failures
-      .filter((failure) => (failure.output || "").trim().length > 0)
-      .map((record) =>
-        Effect.tryPromise({
-          try: async () => ({
-            record,
-            vector: await ensureRecordEmbedding(record, traces, embedder),
-            similarities: [1],
-          }),
-          catch: () => "embed-record-failed",
-        }).pipe(Effect.catchAll(() => Effect.succeed(null)))
-      ),
-    { concurrency: 8 }
-  ).pipe(Effect.map((items) => items.filter((item): item is EmbeddedFailure => item !== null)));
-}
-
-function dbscan(vectors: Float32Array[], eps: number, minPts: number): number[] {
-  const labels = Array.from<number>({ length: vectors.length }).fill(-1);
-  let clusterId = 0;
-
-  for (let index = 0; index < vectors.length; index++) {
-    if (labels[index] !== -1) continue;
-    const neighbors = regionQuery(vectors, index, eps);
-    if (neighbors.length < minPts) continue;
-    expandCluster(vectors, labels, index, neighbors, clusterId, eps, minPts);
-    clusterId++;
   }
-
-  let noiseCluster = clusterId;
-  for (let index = 0; index < labels.length; index++) {
-    if (labels[index] !== -1) continue;
-    labels[index] = noiseCluster++;
-  }
-  return labels;
+  const { text, vector } = embedFailure(record, traces);
+  return { record, text, vector };
 }
 
-function regionQuery(vectors: Float32Array[], pointIndex: number, eps: number): number[] {
-  const neighbors: number[] = [];
-  for (let index = 0; index < vectors.length; index++) {
-    if (cosineDistance(vectors[pointIndex], vectors[index]) <= eps) neighbors.push(index);
-  }
-  return neighbors;
-}
+function buildClusters(
+  records: EmbeddedFailure[],
+  threshold: number
+): {
+  clusters: MutableCluster[];
+  assignments: Map<string, string>;
+  encodings: Map<string, string>;
+} {
+  const clusters: MutableCluster[] = [];
+  const assignments = new Map<string, string>();
+  const encodings = new Map<string, string>();
 
-function expandCluster(
-  vectors: Float32Array[],
-  labels: number[],
-  pointIndex: number,
-  neighbors: number[],
-  clusterId: number,
-  eps: number,
-  minPts: number
-): void {
-  labels[pointIndex] = clusterId;
-  const queue = [...neighbors];
-  for (let queueIndex = 0; queueIndex < queue.length; queueIndex++) {
-    const current = queue[queueIndex];
-    if (labels[current] === -1) labels[current] = clusterId;
-    if (labels[current] !== -1 && labels[current] !== clusterId) continue;
-    labels[current] = clusterId;
-    const currentNeighbors = regionQuery(vectors, current, eps);
-    if (currentNeighbors.length >= minPts) {
-      for (const neighbor of currentNeighbors) {
-        if (!queue.includes(neighbor)) queue.push(neighbor);
+  for (const record of records) {
+    let bestIndex = -1;
+    let bestSimilarity = 0;
+    for (let index = 0; index < clusters.length; index++) {
+      const similarity = cosineSimilarity(record.vector, clusters[index].centroid);
+      if (similarity > bestSimilarity) {
+        bestSimilarity = similarity;
+        bestIndex = index;
+      }
+    }
+
+    if (bestIndex >= 0 && bestSimilarity >= threshold) {
+      const cluster = clusters[bestIndex];
+      cluster.members.push(record);
+      cluster.similarities.push(bestSimilarity);
+      cluster.centroid = mergeCentroid(cluster.members);
+      if (record.record.errorId) {
+        assignments.set(record.record.errorId, cluster.id);
+        encodings.set(record.record.errorId, encodeEmbedding(record.vector));
+      }
+    } else {
+      const id = `cluster-${sha256String(record.text || record.record.output || "").slice(0, 12)}`;
+      const cluster: MutableCluster = {
+        id,
+        members: [record],
+        centroid: new Float32Array(record.vector),
+        similarities: [1],
+      };
+      clusters.push(cluster);
+      if (record.record.errorId) {
+        assignments.set(record.record.errorId, id);
+        encodings.set(record.record.errorId, encodeEmbedding(record.vector));
       }
     }
   }
+
+  return { clusters, assignments, encodings };
 }
 
-function cosineDistance(a: Float32Array, b: Float32Array): number {
-  return 1 - cosineSimilarity(a, b);
-}
-
-function groupByLabel(items: EmbeddedFailure[], labels: number[]): EmbeddedFailure[][] {
-  const groups = new Map<number, EmbeddedFailure[]>();
-  for (let index = 0; index < items.length; index++) {
-    const label = labels[index];
-    const group = groups.get(label) || [];
-    group.push(items[index]);
-    groups.set(label, group);
+function mergeCentroid(members: EmbeddedFailure[]): Float32Array {
+  const centroid = new Float32Array(members[0].vector.length);
+  for (const member of members) {
+    for (let i = 0; i < centroid.length; i++) {
+      centroid[i] += member.vector[i] / members.length;
+    }
   }
-  return [...groups.values()];
+  const norm = Math.sqrt(centroid.reduce((sum, value) => sum + value * value, 0));
+  if (norm > 0) {
+    for (let i = 0; i < centroid.length; i++) centroid[i] /= norm;
+  }
+  return centroid;
 }
 
-function formatCluster(group: EmbeddedFailure[]): ErrorCluster {
-  const medoid = findMedoid(group);
-  for (const member of group) {
-    member.similarities = [cosineSimilarity(member.vector, medoid.vector)];
-  }
-  group.sort(
-    (a, b) =>
-      (b.similarities[0] ?? 0) - (a.similarities[0] ?? 0) ||
-      stableRecordKey(a.record).localeCompare(stableRecordKey(b.record))
-  );
-
+function formatCluster(
+  cluster: MutableCluster,
+  playbooks: Record<string, { outcome: string }>
+): ErrorCluster {
   const taxonomyCounts: Record<string, number> = {};
   const tools = new Set<string>();
-  const members: ClusterMember[] = group.map((member) => {
+  const members = cluster.members.map((member, index) => {
     const taxonomyId = member.record.taxonomyId || member.record.categoryId || "unknown";
     taxonomyCounts[taxonomyId] = (taxonomyCounts[taxonomyId] || 0) + 1;
     if (member.record.toolName) tools.add(member.record.toolName);
@@ -344,152 +370,109 @@ function formatCluster(group: EmbeddedFailure[]): ErrorCluster {
       toolName: member.record.toolName || "unknown",
       taxonomyId,
       output: (member.record.output || "").slice(0, 240),
-      similarity: round(member.similarities[0] ?? 1),
+      similarity: round(cluster.similarities[index] ?? 1),
     };
   });
 
-  const topTaxonomy = dominantTaxonomy(taxonomyCounts);
-  const suggestion = deriveSuggestion(group, topTaxonomy);
-  const clusterSeed = group.map((member) => stableRecordKey(member.record)).join("\n");
-  const clusterId = `cluster-${sha256String(clusterSeed).slice(0, 12)}`;
-  const hasPlaybook = KNOWN_PLAYBOOK_TAXONOMIES.has(topTaxonomy) || !!suggestion.autoFix;
+  const suggestion = deriveSuggestion(cluster.members);
+  const playbookRecord = playbooks[cluster.id];
+  const hasPlaybook = playbookRecord?.outcome === "success";
 
   return {
-    clusterId,
-    count: group.length,
-    representativeError: {
-      summary: summarizeOutput(medoid.record.output || ""),
-      traceId: medoid.record.traceId,
-      errorId: medoid.record.errorId,
-    },
-    topTaxonomy,
-    hasPlaybook,
-    confidence: round(average(group.map((member) => member.similarities[0] ?? 1))),
+    id: cluster.id,
+    label: deriveLabel(cluster.members),
+    size: cluster.members.length,
+    confidence: round(average(cluster.similarities)),
     taxonomyCounts,
     tools: [...tools].sort(),
+    hasPlaybook,
     ...(suggestion.suggestedFix ? { suggestedFix: suggestion.suggestedFix } : {}),
     ...(suggestion.autoFix ? { autoFix: suggestion.autoFix } : {}),
-    ...(hasPlaybook ? { playbookId: topTaxonomy } : {}),
     members,
   };
 }
 
-function findMedoid(group: EmbeddedFailure[]): EmbeddedFailure {
-  let best = group[0];
-  let bestScore = -1;
-  for (const candidate of group) {
-    const score = average(group.map((member) => cosineSimilarity(candidate.vector, member.vector)));
-    if (score > bestScore) {
-      bestScore = score;
-      best = candidate;
-    }
-  }
-  return best;
+function toSummary(cluster: ErrorCluster): ClusterSummary {
+  const representative = cluster.members[cluster.members.length - 1] ?? cluster.members[0] ?? null;
+  const topTaxonomy = dominantTaxonomy(cluster.taxonomyCounts);
+  return {
+    clusterId: cluster.id,
+    count: cluster.size,
+    representativeError: {
+      summary: representative?.output ?? cluster.label,
+      traceId: representative?.traceId,
+      errorId: representative?.errorId,
+    },
+    topTaxonomy: topTaxonomy === "unknown" ? null : topTaxonomy,
+    hasPlaybook: cluster.hasPlaybook,
+  };
 }
 
-function deriveSuggestion(
-  group: EmbeddedFailure[],
-  topTaxonomy: string
-): { suggestedFix?: string; autoFix?: string } {
-  const known = group
-    .map((member) => member.record)
-    .find((record) => record.suggestion || record.autoFix || record.healedPlaybookId);
+function matchByEmbedding(
+  record: FailureTraceRecord,
+  clusters: ErrorCluster[]
+): ErrorCluster | undefined {
+  const match = matchErrorToClusters(record.output || "", clusters);
+  return match?.cluster;
+}
+
+function deriveLabel(members: EmbeddedFailure[]): string {
+  const text = members.map((member) => member.text).join(" ");
+  const tokens = text
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((token) => token.length >= 4);
+  const counts = new Map<string, number>();
+  for (const token of tokens) counts.set(token, (counts.get(token) || 0) + 1);
+  const top = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 4)
+    .map(([token]) => token);
+  return top.length > 0 ? top.join(" ") : "unclassified failure";
+}
+
+function deriveSuggestion(members: EmbeddedFailure[]): {
+  suggestedFix?: string;
+  autoFix?: string;
+} {
+  const known = members.find((member) => member.record.suggestion || member.record.autoFix)?.record;
   if (known?.suggestion || known?.autoFix) {
     return { suggestedFix: known.suggestion, autoFix: known.autoFix };
   }
-  if (topTaxonomy === "unknown") {
+  const taxonomyIds = members.map(
+    (member) => member.record.taxonomyId || member.record.categoryId || "unknown"
+  );
+  if (taxonomyIds.every((id) => id === "unknown")) {
     return {
-      suggestedFix: "Review this cluster and add taxonomy coverage or a healing playbook.",
+      suggestedFix: "Review this cluster and add a taxonomy rule or healing playbook.",
     };
   }
   return {};
-}
-
-function persistClusterResults(
-  failures: FailureTraceRecord[],
-  traces: TraceEvent[],
-  clusters: ErrorCluster[],
-  meta: { threshold: number; embedder: string }
-): Effect.Effect<void, never> {
-  return Effect.tryPromise({
-    try: async () => {
-      const byErrorId = new Map<string, string>();
-      for (const cluster of clusters) {
-        for (const member of cluster.members) {
-          if (member.errorId) byErrorId.set(member.errorId, cluster.clusterId);
-        }
-      }
-      const updated = failures.map((record) => ({
-        ...record,
-        clusterId: record.errorId ? byErrorId.get(record.errorId) : record.clusterId,
-      }));
-      await rewriteFailureLedger(updated);
-      const metadata: ClusterMetadataFile = {
-        schemaVersion: 2,
-        generatedAt: new Date().toISOString(),
-        threshold: meta.threshold,
-        embedder: meta.embedder,
-        totalFailures: failures.length,
-        clusters: clusters.map(toMetadataEntry),
-      };
-      await writeClusterMetadata(metadata);
-      const trace = ensureProcessTrace();
-      for (const cluster of clusters) {
-        for (const member of cluster.members) {
-          if (!member.errorId) continue;
-          try {
-            appendMemoryRecord({
-              actionType: "cluster_assignment",
-              rationale: `Assigned error ${member.errorId} to cluster ${cluster.clusterId} (${cluster.topTaxonomy})`,
-              outcome: "success",
-              actor: "auto",
-              traceId: member.traceId ?? trace.traceId,
-              errorId: member.errorId,
-              clusterId: cluster.clusterId,
-              clusterConfidence: cluster.confidence,
-              payloadSummary: `count=${cluster.count} playbook=${cluster.hasPlaybook}`,
-            });
-          } catch {
-            // best-effort memory
-          }
-        }
-      }
-      void traces;
-    },
-    catch: () => "persist-failed",
-  }).pipe(Effect.catchAll(() => Effect.void));
-}
-
-function toMetadataEntry(cluster: ErrorCluster): ClusterMetadataEntry {
-  return {
-    clusterId: cluster.clusterId,
-    count: cluster.count,
-    representativeError: cluster.representativeError,
-    topTaxonomy: cluster.topTaxonomy,
-    hasPlaybook: cluster.hasPlaybook,
-    medoidErrorId: cluster.representativeError.errorId,
-    confidence: cluster.confidence,
-    taxonomyCounts: cluster.taxonomyCounts,
-    tools: cluster.tools,
-    suggestedFix: cluster.suggestedFix,
-    autoFix: cluster.autoFix,
-    playbookId: cluster.playbookId,
-  };
 }
 
 function dominantTaxonomy(counts: Record<string, number>): string {
   const entries = Object.entries(counts);
   if (entries.length === 0) return "unknown";
   entries.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  return entries[0][0] || "unknown";
+  return entries[0][0];
 }
 
-function summarizeOutput(output: string): string {
-  return output.replace(/\s+/g, " ").trim().slice(0, 160);
-}
-
-function stableRecordKey(record: FailureTraceRecord): string {
-  return `${record.errorId || ""}:${record.timestamp || ""}:${record.output || ""}`;
+function writeClusterMetadata(report: ErrorClusterReport, path: string): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(
+    path,
+    `${JSON.stringify(
+      {
+        schemaVersion: 1,
+        generatedAt: report.generatedAt,
+        threshold: report.threshold,
+        totalFailures: report.totalFailures,
+        summaries: report.summaries,
+      },
+      null,
+      2
+    )}\n`
+  );
 }
 
 function average(values: number[]): number {
@@ -499,19 +482,4 @@ function average(values: number[]): number {
 
 function round(value: number): number {
   return Math.round(value * 1000) / 1000;
-}
-
-export async function loadCachedClusters(): Promise<ClusterMetadataFile | null> {
-  return readClusterMetadata();
-}
-
-export function buildEmbeddablePreview(record: FailureTraceRecord, traces: TraceEvent[]): string {
-  return [
-    (record.output || "").slice(0, 512),
-    stepDescriptionForTrace(record.traceId, traces),
-    record.taxonomyId ? `taxonomy:${record.taxonomyId}` : "",
-    ...causalChainForRecord(record, traces).map((step) => `cause:${step}`),
-  ]
-    .filter(Boolean)
-    .join("\n");
 }

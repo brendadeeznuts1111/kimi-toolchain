@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { appendText, makeDir, pathExists } from "../lib/bun-io.ts";
 /**
  * Kimi Code PostToolUseFailure hook.
  *
@@ -8,19 +7,36 @@ import { appendText, makeDir, pathExists } from "../lib/bun-io.ts";
  * ~/.kimi-code/var/tool-failures.jsonl.
  */
 
-import { Effect } from "effect";
+import { existsSync, mkdirSync } from "fs";
 import { safeParse } from "../lib/utils.ts";
-import { buildClassifiedFailure, classifyFailure, loadTaxonomy } from "../lib/error-taxonomy.ts";
-import { extractHookFailureText, type HookFailurePayload } from "../lib/hook-failure-text.ts";
-import { failureLedgerPath, varDir } from "../lib/paths.ts";
+import {
+  buildClassifiedFailure,
+  classifyFailure,
+  formatFailureOutput,
+  loadTaxonomy,
+} from "../lib/error-taxonomy.ts";
+import { failureLedgerPath } from "../lib/paths.ts";
+import {
+  PARENT_TRACE_ID_ENV,
+  TRACE_ID_ENV,
+  TRACE_STARTED_AT_ENV,
+} from "../lib/effect/trace-context.ts";
+import { buildTraceEvent, recordTraceEvent } from "../lib/trace-ledger.ts";
+import { appendFailureRecord } from "../lib/failure-ledger.ts";
+import { embedFailure, encodeEmbedding } from "../lib/error-embedding.ts";
+import { readTraceEvents } from "../lib/trace-ledger.ts";
 
-interface HookPayload extends HookFailurePayload {
+interface HookPayload {
   hook_event_name?: string;
   session_id?: string;
   cwd?: string;
+  tool_name?: string;
+  tool_input?: Record<string, unknown>;
+  tool_output?: unknown;
+  error?: unknown;
 }
 
-async function main(): Promise<void> {
+async function main() {
   const chunks: Uint8Array[] = [];
   for await (const chunk of Bun.stdin.stream()) {
     chunks.push(chunk);
@@ -35,37 +51,65 @@ async function main(): Promise<void> {
   const text = new TextDecoder().decode(combined).trim();
   if (!text) return;
 
-  const payload = safeParse<HookPayload | null>(text, null);
+  const payload = safeParse(text, null as HookPayload | null);
   if (!payload) return;
 
   const toolName = payload.tool_name || "unknown";
-  const output = extractHookFailureText(payload);
+  const output = formatFailureOutput(payload.error, payload.tool_output);
   if (!output) return;
 
   const sessionId =
     payload.session_id || Bun.env.KIMI_CODE_SESSION || Bun.env.KIMI_AGENT_SESSION || undefined;
+  const traceId = Bun.env[TRACE_ID_ENV];
+  const parentTraceId = Bun.env[PARENT_TRACE_ID_ENV];
 
   const taxonomy = await loadTaxonomy();
   const match = classifyFailure(output, taxonomy);
-  const record = buildClassifiedFailure(toolName, output, match, { sessionId });
+  const record = buildClassifiedFailure(toolName, output, match, {
+    sessionId,
+    traceId,
+    parentTraceId,
+    childTraceIds: [],
+    context: {
+      inputs: payload.tool_input,
+      environment: payload.cwd ? { cwd: payload.cwd } : {},
+    },
+  });
 
-  const varRoot = varDir();
-  if (!pathExists(varRoot)) makeDir(varRoot, { recursive: true });
+  const traces = await readTraceEvents();
+  const { vector } = embedFailure(record, traces);
+  record.embedding = encodeEmbedding(vector);
+
   const logPath = failureLedgerPath();
+  const varDir = logPath.slice(0, logPath.lastIndexOf("/"));
+  if (!existsSync(varDir)) mkdirSync(varDir, { recursive: true });
 
-  appendText(logPath, JSON.stringify(record) + "\n");
-}
+  await appendFailureRecord(record, logPath);
 
-(async () => {
-  try {
-    await Effect.runPromise(
-      Effect.tryPromise({
-        try: () => main(),
-        catch: () => "hook-failed" as const,
+  if (traceId) {
+    const startedAt = Bun.env[TRACE_STARTED_AT_ENV] || record.timestamp;
+    await recordTraceEvent(
+      buildTraceEvent({
+        traceId,
+        parentTraceId,
+        childTraceIds: [],
+        eventType: "hook",
+        tool: toolName,
+        status: "error",
+        startedAt,
+        endedAt: record.timestamp,
+        durationMs: Math.max(0, Date.parse(record.timestamp) - Date.parse(startedAt)),
+        error: output.slice(0, 500),
+        metadata: {
+          taxonomyId: record.taxonomyId,
+          hookEventName: payload.hook_event_name,
+          errorId: record.errorId,
+        },
       })
     );
-  } catch {
-    // Silent fail — hook recording is best-effort.
   }
+}
+
+main().catch(() => {
   process.exit(0);
-})();
+});

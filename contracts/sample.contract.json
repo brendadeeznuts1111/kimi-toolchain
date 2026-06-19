@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "kind": "sample-provider-contract",
+  "name": "sample",
+  "provider": "local",
+  "capabilities": ["health-check", "contract-validation"],
+  "metadata": {
+    "purpose": "Smoke-test target for unsigned contract validation"
+  }
+}

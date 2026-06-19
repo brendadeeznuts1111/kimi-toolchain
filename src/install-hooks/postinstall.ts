@@ -1,13 +1,12 @@
 #!/usr/bin/env bun
-import { pathExists } from "../lib/bun-io.ts";
 /**
  * postinstall.ts — Idempotent setup of ~/.kimi-code/ from repo source
  * Runs on `bun install -g` or `bun install`
  */
 
+import { existsSync } from "fs";
 import { join, resolve } from "path";
 import { Database } from "bun:sqlite";
-import { Effect } from "effect";
 import {
   desktopRoot,
   AGENTS_SKILLS_ROOT,
@@ -17,21 +16,19 @@ import {
 import { DEFAULT_CONFIG_TEMPLATE } from "../lib/governor-config.ts";
 import { SESSIONS_SCHEMA_SQL } from "../lib/sessions-schema.ts";
 import { provisionUserMcp } from "../lib/mcp-config.ts";
-import { readableStreamToText } from "../lib/bun-utils.ts";
-import { withNoOrphansEnv } from "../lib/bun-spawn-env.ts";
 import { ensureDir } from "../lib/utils.ts";
 
 const REPO_ROOT = resolve(import.meta.dir, "../..");
 const VAR_DIR = join(desktopRoot(), "var");
 const GOVERNOR_DIR = join(desktopRoot(), "governor");
 
-async function main(): Promise<number> {
+async function main() {
   console.log("🔧 Setting up kimi-toolchain...");
 
   ensureDesktopLayout();
 
   const governorDefaults = join(GOVERNOR_DIR, "defaults.toml");
-  if (!pathExists(governorDefaults)) {
+  if (!existsSync(governorDefaults)) {
     await Bun.write(governorDefaults, DEFAULT_CONFIG_TEMPLATE);
   }
 
@@ -43,7 +40,7 @@ async function main(): Promise<number> {
   );
 
   const dbPath = join(VAR_DIR, "sessions.db");
-  if (!pathExists(dbPath)) {
+  if (!existsSync(dbPath)) {
     console.log("  🗄 Initializing sessions.db...");
     const db = new Database(dbPath, { create: true });
     db.exec("PRAGMA journal_mode = WAL;");
@@ -52,17 +49,13 @@ async function main(): Promise<number> {
   }
 
   const wrapperScript = join(REPO_ROOT, "scripts", "install-bin-wrappers.sh");
-  if (pathExists(wrapperScript)) {
-    const proc = Bun.spawn(["bash", wrapperScript], {
-      stdout: "pipe",
-      stderr: "pipe",
-      env: withNoOrphansEnv(),
-    });
+  if (existsSync(wrapperScript)) {
+    const proc = Bun.spawn(["bash", wrapperScript], { stdout: "pipe", stderr: "pipe" });
     const exitCode = await proc.exited;
     if (exitCode === 0) {
       console.log("   Wrappers: ~/.local/bin/kimi-*");
     } else {
-      const err = await readableStreamToText(proc.stderr);
+      const err = await Bun.readableStreamToText(proc.stderr);
       console.warn(`  ⚠ Wrapper install failed: ${err.trim()}`);
     }
   }
@@ -74,20 +67,9 @@ async function main(): Promise<number> {
   console.log(`   Tools: ${join(desktopRoot(), "tools")}`);
   console.log(`   State: ${VAR_DIR}`);
   console.log(`   Docs:  ${join(desktopRoot())}/{AGENTS,UNIFIED,TEMPLATES}.md`);
-  return 0;
 }
 
-(async () => {
-  try {
-    const exitCode = await Effect.runPromise(
-      Effect.tryPromise({
-        try: () => main(),
-        catch: (err) => new Error(err instanceof Error ? err.message : String(err)),
-      })
-    );
-    process.exit(exitCode);
-  } catch (err) {
-    console.error("❌ Setup failed:", err instanceof Error ? err.message : String(err));
-    process.exit(1);
-  }
-})();
+main().catch((err) => {
+  console.error("❌ Setup failed:", err.message);
+  process.exit(1);
+});

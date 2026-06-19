@@ -2,62 +2,29 @@
 
 This file points future agents at local examples that define the code style for this repo. Read the matching section before adding new code; prefer extending these patterns over inventing a parallel one.
 
-## Canonical ecosystem links
-
-**Source of truth:** `src/lib/canonical-references.ts` → `canonical-references.json` (cached at `~/.kimi-code/` after `bun run sync`). Regenerate: `bun run references:generate`. Package pointer: `package.json` → `kimi.canonicalReferences`.
-
-| Stack          | Canonical docs                                                            | When to use                                                  |
-| -------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| **Bun**        | [bun.sh/docs](https://bun.sh/docs)                                        | Runtime, test, I/O — prefer Bun APIs over Node               |
-| **Effect**     | [effect.website/docs](https://effect.website/docs)                        | `src/lib/effect/`, Herdr pane CLIs, typed CLI errors         |
-| **Kimi Code**  | [moonshotai.github.io/kimi-code](https://moonshotai.github.io/kimi-code/) | Official `kimi` CLI — not `kimi-doctor`                      |
-| **Herdr**      | [herdr.dev/docs](https://herdr.dev/docs/)                                 | `herdr-pane`, `herdr-latm`, `herdr-orchestrator`             |
-| **Cloudflare** | [developers.cloudflare.com](https://developers.cloudflare.com/)           | Workers/Access; API tokens via `kimi-cloudflare-access`      |
-| **DX**         | `~/.config/dx/AGENTS.md`                                                  | Global platform, `dx.config.toml` `[herdr]` / `[finishWork]` |
-
-Repos: [kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain) (`~/kimi-toolchain`), [Kimi Code](https://github.com/MoonshotAI/kimi-code), [Effect](https://github.com/Effect-TS/effect).
-
 ## Core Defaults
 
-| Need                              | Reference                                                                                                            | Follow                                                                                                                           |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Cross-tool subprocess calls       | `src/lib/tool-runner.ts`                                                                                             | Use `invokeTool()` / `runTool()`, bounded output, timeout, env overlay, taxonomy enrichment                                      |
-| Effect wrapper for tool calls     | `src/lib/effect/tool-runner-effect.ts`                                                                               | Convert runner results to typed Effect failures at the boundary                                                                  |
-| Effect wrapper for CLI contract   | `src/lib/effect/cli-contract-effect.ts`                                                                              | Parse flags and route output as typed Effects without throwing                                                                   |
-| CLI exit handling                 | `src/lib/effect/cli-runtime.ts`                                                                                      | Wrap CLI mains in `runCliExit()` and map failures to exit codes centrally                                                        |
-| Tagged errors                     | `src/lib/effect/errors.ts`                                                                                           | Use `Data.TaggedError` for typed, inspectable failures                                                                           |
-| CLI argument/output contract      | `src/lib/cli-contract.ts`                                                                                            | Parse common flags with env fallbacks; write JSON to stdout and human text to stderr                                             |
-| Structured logging                | `src/lib/logger.ts`                                                                                                  | Use `createCli(Bun.argv, toolName).logger` or `logger.check()` for health reports                                                |
-| Health report shape               | `src/lib/health-check.ts`                                                                                            | Return `{ name, status, message, fixable }` checks and aggregate once                                                            |
-| Path ownership                    | `src/lib/paths.ts`                                                                                                   | Use helpers for `~/.kimi-code`, `~/.agents`, and runtime paths                                                                   |
-| Bun-native I/O (sync boundary)    | `src/lib/bun-io.ts`                                                                                                  | Use `pathExists`, `readText`, `writeText`, etc. — not raw `*Sync` fs names                                                       |
-| Bun APIs / utils facade           | `src/lib/bun-utils.ts`                                                                                               | Gzip, exec, UUID v7 (`BUN_RANDOM_UUIDV7_DOC_URL`), semver, streams — [Bun APIs](https://bun.com/docs/runtime/bun-apis)                                         |
-| Node sync escape hatch            | `src/lib/bun-native-shim.ts`                                                                                         | Only blessed `node:fs` re-exports; shrink via `bun-native:batch`                                                                 |
-| Herdr unix IPC                    | `src/lib/herdr-unix-socket.ts`                                                                                       | `Bun.connect({ unix })` — not `node:net`                                                                                         |
-| Herdr socket saturation recovery  | [docs/references/herdr-socket-saturation-protocol.md](docs/references/herdr-socket-saturation-protocol.md), `src/lib/herdr-cli-error.ts`, `src/lib/herdr-fix-socket-live.ts` | EAGAIN taxonomy; `herdr-doctor fix-socket --dry-run` then `--live`; pre-stop PID snapshot + respawn abort                      |
-| Herdr log classification          | `src/lib/herdr-log-classify.ts`                                                                                     | Batch classify Herdr log tails against `error-taxonomy.yml`; `classifyHerdrLogBlob()` with dedupe buckets                      |
-| Herdr alert correlation           | `src/lib/herdr-alert-correlation.ts`, `src/lib/herdr-alert-dedupe.ts`                                               | Correlate `pane.agent_status_changed` with taxonomy hits; `(taxonomyId, pid, hour)` dedupe buckets; read-only v1               |
-| Error log discovery               | `src/lib/error-log-discovery.ts`                                                                                     | Canonical log sink registry; powers `kimi-debug logs` — maps where dedicated error logs live                                   |
-| Herdr ws+unix transport           | `src/lib/herdr-ws-unix.ts`                                                                                           | `new WebSocket("ws+unix://…")`; env `HERDR_SOCKET_TRANSPORT=websocket\|auto`                                                     |
-| Bun.markdown.ansi / skill preview | `src/lib/bun-markdown.ts`, `src/lib/skill-preview.ts`                                                                | `kimi-context-gen preview [skill]` — probe via `markdownAnsiSupported()` like `bun-image.ts`; also `.html()`, `.render()`, `.react()`, `.structured()` for doc generation + dashboard |
-| Bun bundle analysis               | `src/lib/bundle-gate.ts`                                                                                             | `kimi-doctor --bundle` — `bun build --metafile-md` parsed into bloat rules (single-module, node-modules, bundle-size)           |
-| Bun compile capabilities           | `src/lib/compile-target.ts`                                                                                          | `kimi-doctor --compile-check` — `compileBinary()`, `probeCompileCapabilities()`, smoke-test ESM+bytecode, cpu-prof-md, heap-prof |
-| Config format loader              | `src/lib/config-loader.ts`                                                                                           | `detectConfigFormat()` + `loadConfig()` — delegates TOML/JSON5/JSON; `json5Supported()` probe; JSON5 path parked                 |
-| Bun install policy audit          | `src/lib/bun-install-config.ts`                                                                                      | `BUN_INSTALL_CLI` + `formatInstallPropertyReferenceTable()` + `kimi-guardian report`                                             |
-| Scaffold project defaults         | `templates/scaffold/bunfig.toml`, `src/lib/scaffold-templates.ts`, `src/lib/scaffold-quality.ts`                     | Hardened [install], [run], [test]; `renderTemplate()` + `REQUIRED_PACKAGE_SCRIPT_ENTRIES`; `injectMissingScripts()`               |
-| Scaffold templates reference      | [TEMPLATES.md](TEMPLATES.md), `templates/scaffold/`, `templates/bun-create/kimi-toolchain/`                          | Full template catalog with inline code blocks; `bun create` flow; `kimi-fix --profile` profiles                                   |
-| Bun defaults explainer            | [docs/references/bun-runtime-scaffold.md](docs/references/bun-runtime-scaffold.md)                                   | Why each default deviates from Bun — comparison table; `[run] noOrphans`, `[test]` hardened settings                             |
-| TOML property tables (`dx:table`) | [docs/dx-table.md](docs/dx-table.md), `toml-property-table.ts`, `property-table-run.ts`, `scripts/dx-table.ts`       | `bun run dx:table --help`; `bun run dx:table extract dx.config.toml endpoints -u --exact`; contract: `bun run dx:table:contract` |
-| Property table render / export    | `markdown-table.ts`, `property-table-renderer.ts`, `property-table-options.ts`                                       | `--format file\|raw\|table\|csv\|json`; preview `bun ./docs/table-*.md`                                                          |
-| Property table modes              | `property-table-describe.ts`, `property-table-group.ts`, `property-table-metadata.ts`, `property-table-inventory.ts` | `--describe --keys name`; `--group-by`; `--add-metadata`; `inventory --roots`                                                    |
-| Table output schemas              | `table-schema.ts`, `schemas/*.schema.toml`, `scripts/dx-table-contract.ts`                                           | `--schema schemas/endpoints.schema.toml`; gate `bun run dx:table:contract`                                                       |
-| Build-time tuning constants       | `bunfig.toml` `[define]`                                                                                             | SSOT — `KIMI_*` globals grouped by `# define-domain:` (separate from taxonomyId)                                                 |
-| Safe parsing                      | `src/lib/utils.ts`                                                                                                   | Use `safeParse()` / `safeToml()` with validators at config boundaries                                                            |
-| Inspection / equality / ANSI      | `src/lib/inspect.ts`                                                                                                 | Use `inspectAgent()` for `--json`, `inspectHuman()` for logs, `deepEqual*()` for alignment                                       |
-| Success metric gates              | `src/lib/success-metrics.ts`                                                                                         | Keep drift, taxonomy coverage, and provider agility measurable in CI                                                             |
-| Provider contracts                | `src/lib/provider-contract.ts`                                                                                       | Add providers with a contract declaration plus a thin credential adapter only                                                    |
-| Inline Bun doc URLs in `src/`     | `src/lib/doc-links-lint.ts`                                                                                          | Register `BUN_*_DOC_URL` in `BUN_DOC_LINK_CONSTANTS`; gate: `bun run lint:doc-links`                                             |
-| Cross-ref by intent (`@see`)      | [docs/references/namespace.md](docs/references/namespace.md#practical-see-ladder) § Practical `@see` ladder · canvas: [doc-links-and-see-ladder.canvas.tsx](docs/canvases/doc-links-and-see-ladder.canvas.tsx) | Lowest rung first — `@see dx` · `@see namespace-boundaries` · reference docs · schemas; Bun URLs in `src/` via `bun run lint:doc-links` |
+| Need                          | Reference                                       | Follow                                                                                                                    |
+| ----------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Cross-tool subprocess calls   | `src/lib/tool-runner.ts`                        | Use `invokeTool()` / `runTool()`, bounded output, timeout, env overlay, taxonomy enrichment                               |
+| Effect wrapper for tool calls | `src/lib/effect/tool-runner-effect.ts`          | Convert runner results to typed Effect failures at the boundary                                                           |
+| Effect service descriptors    | `src/lib/effect/kimi-introspection-services.ts` | Use Context services for capabilities, trace, and contracts inside Effect programs                                        |
+| CLI exit handling             | `src/lib/effect/cli-runtime.ts`                 | Wrap CLI mains in `runCliExit()` and map failures to exit codes centrally                                                 |
+| Tagged errors                 | `src/lib/effect/errors.ts`                      | Use `Data.TaggedError` for typed, inspectable failures                                                                    |
+| Structured logging            | `src/lib/logger.ts`                             | Use `createLogger(Bun.argv, toolName)`, `logger.check()`, and `logger.printHealthReport()`                                |
+| Health report shape           | `src/lib/health-check.ts`                       | Return `{ name, status, message, fixable }` checks and aggregate once                                                     |
+| Path ownership                | `src/lib/paths.ts`                              | Use helpers for `~/.kimi-code`, `~/.agents`, and runtime paths                                                            |
+| Generated artifacts           | `src/lib/artifacts.ts`                          | Put reports, coverage, temp HOME, and disposable files under `.kimi-artifacts/`                                           |
+| Safe parsing                  | `src/lib/utils.ts`                              | Use `safeParse()` / `safeToml()` with validators at config boundaries                                                     |
+| Success metric gates          | `src/lib/success-metrics.ts`                    | Keep drift, taxonomy coverage, and provider agility measurable in CI                                                      |
+| Provider contracts            | `src/lib/provider-contract.ts`                  | Add providers with a contract declaration plus a thin credential adapter only                                             |
+| Causal traces                 | `src/lib/trace-ledger.ts`                       | Use append-only `TraceEvent` records and `KIMI_TRACE_ID` propagation                                                      |
+| Capability checks             | `src/lib/capabilities.ts`                       | Model integration health as parallel Effect checks with snapshots                                                         |
+| Signed contracts              | `src/lib/contract-signing.ts`                   | Normalize payloads, use Ed25519 envelopes, and keep unsigned contracts untrusted                                          |
+| Healing plans                 | `src/lib/self-healing.ts`                       | Surface actions with confidence and `safeToAutoApply`; apply is dry-run by default                                        |
+| Decision explanations         | `src/lib/decision-ledger.ts`                    | Use `DecisionLoggerLive` and append durable `kimi-decision` / `kimi-why` records instead of burying rationale in comments |
+| Sync manifests                | `src/lib/sync-manifest.ts`                      | Generate and verify `toolchain-manifest.json` hashes before pre-push                                                      |
+| Agent context quality         | `src/lib/agent-context-quality.ts`              | Keep AGENTS, skills, scaffolds, and guardrails above the 15% quality lift target                                          |
 
 Success metrics are expected to evolve. If a threshold changes, update the
 release cadence, justification, and failure-ledger evidence in
@@ -71,8 +38,10 @@ Good local examples:
 
 - `src/lib/effect/cli-runtime.ts` for CLI main lifecycle and telemetry `ensuring`.
 - `src/lib/effect/tool-runner-effect.ts` for adapting Promise-based subprocess work to typed failures.
-- `src/lib/effect/cli-contract-effect.ts` for CLI flag parsing and output routing in Effect pipelines.
+- `src/lib/effect/kimi-introspection-services.ts` for Effect Context services over capabilities, trace, and contract validation.
 - `src/lib/doctor-pipeline.ts` for `Effect.all` parallel doctor aggregation.
+- `src/lib/capabilities.ts` for parallel readiness checks that never throw defects into CLI output.
+- `src/lib/self-healing.ts` for converting multiple signal sources into one Effect-built plan.
 - `src/bin/kimi-toolchain.ts` for a thin CLI main that delegates to `runCliExit()`.
 
 Do:
@@ -87,8 +56,6 @@ Avoid:
 - Catching all Effect failures and re-labeling them as `ToolNotFound`.
 - Adding `Effect` to simple pure helpers that are easier to test as plain functions.
 
-Agent runbook: `skills/effect-discipline/SKILL.md` (L1+L2). Depth: `DEEP-QUALITY.md`. Enforced by `bun run lint:skills` and pre-push `effect-gates`.
-
 ## Config and Schema Patterns
 
 This repo intentionally avoids large schema dependencies. Config boundaries should be explicit, small, and test-covered.
@@ -96,81 +63,30 @@ This repo intentionally avoids large schema dependencies. Config boundaries shou
 Good local examples:
 
 - `src/lib/cloudflare-access-policy.ts` for a narrow policy config interface plus parser.
-- `src/lib/dx-github-alignment.ts` for DX config, package script, and GitHub Actions parity checks.
 - `src/lib/kimi-config-audit.ts` for targeted TOML extraction and validation.
 - `src/lib/mcp-config.ts` for config merge/idempotency behavior.
-- `src/lib/table-schema.ts` for `dx:table --schema` row/column contracts (`schemas/endpoints.schema.toml`).
-- `test/cloudflare-access-policy.unit.test.ts`, `test/dx-github-alignment.unit.test.ts`, `test/mcp-config.unit.test.ts`, and `test/table-schema.unit.test.ts` for parser and merge expectations.
+- `src/lib/error-taxonomy.ts` for the `ClassifiedFailure` ledger schema and object error normalization.
+- `src/lib/trace-ledger.ts` for the trace event and trace graph schemas.
+- `src/lib/capabilities.ts` for `CapabilityReport` and time-series snapshot schemas.
+- `src/lib/contract-signing.ts` for `ContractSignatureEnvelope` and trust audit schemas.
+- `src/lib/self-healing.ts` for `HealPlan` and `HealApplyReport` schemas.
+- `src/lib/decision-ledger.ts` for append-only `DecisionRecord` schema and the `DecisionLogger` Effect service.
+- `test/cloudflare-access-policy.unit.test.ts` and `test/mcp-config.unit.test.ts` for parser and merge expectations.
+- `test/telemetry-schema.unit.test.ts`, `test/contract-signing.unit.test.ts`, and `test/self-healing.unit.test.ts` for schema regression expectations.
+- `test/introspection-docs.unit.test.ts` for README, skill, context, and generated AGENTS snippet expectations.
 
 Do:
 
 - Define TypeScript interfaces near the config loader.
 - Validate untrusted JSON/TOML/YAML with small type guards or parser checks.
 - Make merge functions idempotent and add tests for repeated runs.
+- Preserve `schemaVersion` and legacy aliases such as `categoryId` when changing JSONL records.
+- Store local telemetry as append-only JSONL under `~/.kimi-code/var/` through `src/lib/paths.ts`.
 
 Avoid:
 
 - Casting parsed config to broad `any` and using it across module boundaries.
 - Adding a schema package for one config file. New runtime dependencies must earn their cost and pass guardian.
-
-## Build-time constants
-
-For the authoritative distinction between the define registry, parity contract, discovery manifest, and app scaffold, see [Configuration & Reference Layers](docs/references/configuration-layers.md).
-
-Three **separate naming layers** — do not reuse one vocabulary for another:
-
-| Layer               | Purpose                             | Format                                      | Example                                  | Where                                                  |
-| ------------------- | ----------------------------------- | ------------------------------------------- | ---------------------------------------- | ------------------------------------------------------ |
-| **define constant** | Immutable compile-time tuning       | `KIMI_{DOMAIN}_{QUALIFIER}` SCREAMING_SNAKE | `KIMI_HOOK_VERIFIER_MAX_CYCLES`          | `bunfig.toml` `[define]`, `types/build-constants.d.ts` |
-| **defineDomain**    | Group constants by functional slice | kebab-case, matches lib module              | `contract-inference`, `error-embedding`  | `# define-domain:…` in bunfig, `@defineDomain` JSDoc   |
-| **taxonomyId**      | Classify tool/runtime **failures**  | snake*case `{domain}*{reason}`              | `lockfile_issue`, `format_check_failure` | `error-taxonomy.yml`, failure JSONL                    |
-
-**Cross-repo parity (accounting-telegram):** same layers; app repo uses domain prefixes instead of `KIMI_` — `DRIFT_*`, `CI_*`, `SCRIPTS_*` map to defineDomains `drift-predict`, `ci-pipeline`, `governance`. Tags optional in bunfig comments there; prefix is the domain key.
-
-### define constant rules (kimi-toolchain)
-
-1. Every `[define]` key starts with `KIMI_`.
-2. Booleans end with `_ENABLED` (`KIMI_CONTRACT_INFERENCE_ENABLED`), never `ENABLE_*`.
-3. Paths/versions include domain: `KIMI_CONTRACT_OBSERVATIONS_PATH`, `KIMI_CONTRACT_SCHEMA_VERSION`.
-4. Numeric tuning includes domain: `KIMI_ERROR_EMBEDDING_DIM`, `KIMI_DECISION_SCORE_WINDOW_DAYS`.
-5. Change values in `bunfig.toml` only — no duplicated literals in lib code.
-
-### defineDomain rules
-
-1. One `# define-domain:{name}` comment immediately before each constant group in bunfig.
-2. `{name}` is kebab-case and aligns with the owning lib file or Phase 2 module (`error-clustering`, not umbrella `self-healing`).
-3. JSDoc uses `@defineDomain {name}` — **never** `@tag` (collides mentally with failure taxonomy).
-
-### taxonomyId rules (unchanged)
-
-1. Loaded from `error-taxonomy.yml`; used in tool failures, doctor checks, JSONL — **not** for bunfig tuning.
-2. snake_case only; never used as a defineDomain or define constant prefix.
-
-| defineDomain         | Constants                                                                                            | Source modules                      |
-| -------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| `contract-inference` | `KIMI_CONTRACT_OBSERVATIONS_PATH`, `KIMI_CONTRACT_SCHEMA_VERSION`, `KIMI_CONTRACT_INFERENCE_ENABLED` | `paths.ts`, `contract-inference.ts` |
-| `hook-verifier`      | `KIMI_HOOK_VERIFIER_MAX_CYCLES`                                                                      | `hook-verifier.ts`                  |
-| `error-embedding`    | `KIMI_ERROR_EMBEDDING_DIM`                                                                           | Phase 2: `error-embedding.ts`       |
-| `decision-scoring`   | `KIMI_DECISION_SCORE_WINDOW_DAYS`                                                                    | Phase 2: `decision-scoring.ts`      |
-| `error-clustering`   | `KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD`                                                            | Phase 2: `error-clustering.ts`      |
-
-Good local examples:
-
-- `bunfig.toml` — SSOT values grouped by `# define-domain:…`
-- `types/build-constants.d.ts` — `declare const` + `@defineDomain` JSDoc
-- `scripts/lint-build-constants.ts` — literal regression + naming-rule enforcement
-- `test/build-constants.unit.test.ts` — asserts define globals load with expected types/values
-
-Do:
-
-- Change tuning in `bunfig.toml` only; extend `types/build-constants.d.ts` and lint forbidden patterns when adding constants.
-- Use path helpers (`contractObservationsPath`) instead of hard-coded `.kimi/…` segments.
-
-Avoid:
-
-- Duplicating define values as `export const` or string literals in lib code.
-- Using `[define]` for secrets, deploy toggles, or per-user runtime config — keep those on `Bun.env` / `Bun.secrets`.
-- Using `@tag`, `# tag:`, or taxonomyId strings as defineDomain labels.
 
 ## Package Policy
 
@@ -191,17 +107,26 @@ Do not import packages that are not declared in `package.json`. In this repo tha
 
 ## Testing References
 
-| Need                     | Reference                                                |
-| ------------------------ | -------------------------------------------------------- |
-| Tool runner behavior     | `test/tool-runner.unit.test.ts`                          |
-| Effect CLI lifecycle     | `test/effect/cli-runtime.unit.test.ts`                   |
-| Effect tool failures     | `test/effect/tool-runner-effect.unit.test.ts`            |
-| Effect CLI contract      | `test/effect/cli-contract-effect.unit.test.ts`           |
-| Config merge/idempotency | `test/mcp-config.unit.test.ts`                           |
-| Policy parser/diff       | `test/cloudflare-access-policy.unit.test.ts`             |
-| Test-gate lock guard     | `src/lib/test-run-guard.ts`                              |
-| Scaffold agent output    | `test/scaffold-agents.unit.test.ts`                      |
-| Desktop sync drift       | `test/sync.unit.test.ts`, `test/sync-drift.unit.test.ts` |
+| Need                          | Reference                                                |
+| ----------------------------- | -------------------------------------------------------- |
+| Tool runner behavior          | `test/tool-runner.unit.test.ts`                          |
+| Effect CLI lifecycle          | `test/effect/cli-runtime.unit.test.ts`                   |
+| Effect tool failures          | `test/effect/tool-runner-effect.unit.test.ts`            |
+| Effect introspection services | `test/effect/kimi-introspection-services.unit.test.ts`   |
+| Trace graph reconstruction    | `test/trace-ledger.integration.test.ts`                  |
+| Capability aggregation        | `test/capabilities.unit.test.ts`                         |
+| Contract signing/trust        | `test/contract-signing.unit.test.ts`                     |
+| Failure clustering            | `test/error-clustering.unit.test.ts`                     |
+| Self-healing plan/apply       | `test/self-healing.unit.test.ts`                         |
+| Decision ledger               | `test/decision-ledger.unit.test.ts`                      |
+| Decision CLI                  | `test/kimi-decision.integration.test.ts`                 |
+| Agent context quality         | `test/agent-context-quality.unit.test.ts`                |
+| Config merge/idempotency      | `test/mcp-config.unit.test.ts`                           |
+| Sync manifest verification    | `test/sync-manifest.integration.test.ts`                 |
+| Policy parser/diff            | `test/cloudflare-access-policy.unit.test.ts`             |
+| Scaffold agent output         | `test/scaffold-agents.unit.test.ts`                      |
+| Introspection docs            | `test/introspection-docs.unit.test.ts`                   |
+| Desktop sync drift            | `test/sync.unit.test.ts`, `test/sync-drift.unit.test.ts` |
 
 ## Cloudflare and MCP Boundaries
 
@@ -215,128 +140,6 @@ Use these local references before changing Cloudflare or MCP behavior:
 - `skills/cloudflare-access/SKILL.md` for plan-before-apply rules.
 
 Cloudflare MCP SSO/OAuth, Wrangler OAuth, and `kimi-cloudflare-access` API tokens are separate auth paths. Do not assume one login satisfies the others.
-
-## Herdr orchestration
-
-Use these when working inside a Herdr workspace (`HERDR_ENV=1`) or editing `[herdr]` in `dx.config.toml`:
-
-| Need                             | Reference                                                                                            | Follow                                                                                                                                                                                                                                                                                                                                                                                                  |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pane/workspace CLI               | `skills/herdr/SKILL.md`                                                                              | `herdr-pane`, `herdr-orchestrator` commands over unix socket                                                                                                                                                                                                                                                                                                                                            |
-| Finish-work close-loop           | `docs/finish-work-close-loop.md`                                                                     | Pipeline order, escalation, `watch-events`                                                                                                                                                                                                                                                                                                                                                              |
-| Production validation            | `docs/SCOPE.md`                                                                                      | Acceptance checklist for orchestration                                                                                                                                                                                                                                                                                                                                                                  |
-| Handoff contract                 | `docs/handoff-rules.md`                                                                              | Pane roles and brief format                                                                                                                                                                                                                                                                                                                                                                             |
-| Session routing                  | `src/lib/herdr-project-cli.ts`                                                                       | `--session` CLI arg on Herdr 0.7.0+                                                                                                                                                                                                                                                                                                                                                                     |
-| Herdr env vars                   | `skills/herdr/SKILL.md` § environment variables                                                      | Official + plugin context vars; session CLI caveat                                                                                                                                                                                                                                                                                                                                                      |
-| Dashboard server / HTTP API      | `src/lib/herdr-dashboard-server.ts`                                                                  | `Bun.serve` + SSE; `/api/meta`, `/api/thumbnail`, `/api/doctor/gates`, `/api/gates/graph`, `/api/artifacts/:gate/lineage`, `/api/metrics`, `/api/artifacts`, `/api/probe/cards`, widget routes                                                                                                                                                                                                          |
-| Serve-probe HTTP cache           | `src/lib/card-probe-server.ts`, `src/lib/card-probe-cli.ts`                                          | `kimi-doctor --serve-probe` — `/api/cards`, `/api/refresh`, read-only `/api/artifacts[/{gate}[/latest]]`; see [serve-probe.md](docs/references/serve-probe.md)                                                                                                                                                                                                                                           |
-| Gate artifact store              | `src/lib/artifact-store.ts`                                                                          | `.kimi/artifacts/{gate}/` envelopes; `metadata.lineage` (runtime), `metadata.dependsOn` + `lineageMermaid` (declarative); `buildLineageGraph()`, `attachRunLineage()`                                                                                                                                                                                                                                 |
-| Lineage Mermaid export           | `src/lib/graph-to-mermaid.ts`                                                                        | `generateGateGraph()` (re-export via runner), `generateArtifactLineageMermaid()`, `generateRunLineageMermaid()`                                                                                                                                                                                                                                                                                        |
-| Gate system (dep graph)          | `src/gates/` (types, registry, runner, bunfig-policy, perf-gate, tls-compliance, card-probe)         | `dependsOn` DAG, `GateContext` (`getArtifact` / `getArtifacts` / `readArtifact`), `--run-gates` / `--gate` / `--gate-graph` / `--artifacts-lineage` in `kimi-doctor`; `runGatesWithDependencies()`, `generateGateGraph()`                                                                                                                                                                              |
-| Effect benchmark harness         | `src/lib/effect-benchmark.ts`, `src/harness/effect-handlers.ts`, `src/harness/perf-monitor.ts`       | `registerEffectBenchmark()` + `runEffectBenchmarks()` + `evaluateEffectBenchmarkGate()`; built-in handlers (crypto, inspect, deepEquals, image); `kimi-doctor --effect-scan --perf-gates --train --report --regression`                                                                                     |
-| Doctor probe dx.config           | `src/lib/doctor-probe-config.ts`                                                                     | `[doctor].tabs` inline array + `[doctor.probe]` port/host/interval → `readDoctorConfig()`                                                                                                                                                                                                                                                                                                                |
-| Dashboard gate-health probe      | `src/lib/herdr-dashboard-data.ts` (`fetchDashboardGateHealth`), `src/lib/herdr-dashboard-gate-watch.ts` | `GET /api/doctor/gates` runs `kimi-doctor --effect-gates --json`; server watch emits `gate:failed` / `gate:cleared` on 30s poll (audit trail); browser overlay polls same route — see [kimi-doctor.md](docs/references/kimi-doctor.md#live-dashboard-gate-health)                                                                                                                                        |
-| Dashboard deferred watch         | `src/lib/deferred-watch.ts`                                                                          | `runDeferredWatch()` — lazy subscriber-aware polling; patches `EventBus.on` to start/stop `onStart`/`onStop` only when listeners exist; grace timer resets on re-subscribe                                                                                                 |
-| Dashboard metrics endpoint       | `src/lib/herdr-dashboard-data.ts` (`fetchDashboardMetrics`)                                          | `GET /api/metrics` — RSS/heap, event-loop lag, uptime, SSE subscriber count, agent count (Metrics tab)                                                                                                                                                                                                                                                                                                  |
-| Dashboard audit trail            | `src/lib/dashboard-audit-store.ts`                                                                    | SQLite WAL `~/.kimi-code/var/dashboard-events.db`; schema (events + indexes); `writeDashboardEvent()` / `queryDashboardEvents()` / `exportEventsToMarkdown()`; 30-day auto-prune; Bun.nanoseconds() precision                                                                                                                                                                                            |
-| Dashboard events API             | `src/lib/herdr-dashboard-server.ts`                                                                  | `GET /api/events?type=&workspace=&since=&limit=` — audit trail query; `GET /api/events/types` — distinct types for filter dropdown; `GET /api/events/export?format=markdown|json` — export                                                                                                                                                                                                              |
-| Dashboard scan-fix API           | `src/lib/herdr-dashboard-data.ts` (`runDashboardScanFix`), `src/lib/upgrade-advisor.ts`              | `POST /api/scan/fix { ruleId, file, line }` — re-scans rule, calls `finding.autoFix()`, writes file, returns `{ ok, diff }`; fix event persisted to audit trail                                                                                                                                                                                                                                         |
-| Dashboard template assets        | `templates/herdr-dashboard.html`, `templates/herdr-dashboard.js`, `templates/herdr-dashboard.css`    | HTML shell, JS (agents/canvases/handoffs/rules/scan/metrics/events tabs + gate-health overlay + canvas click-to-open bridge + SSE live + event timeline + scan fix buttons + metrics cards), CSS (dark theme, canvas-row-pulse, `.gate-health`, `.event-type-badge`, `.metrics-grid`, `.scan-fix-btn`)                                                                                                  |
-| Dashboard WebView shell          | `src/lib/herdr-webview-dashboard.ts`                                                                 | `Bun.WebView`, persistent `dataStore` profile, screenshot feed                                                                                                                                                                                                                                                                                                                                          |
-| Dashboard screenshot → thumbnail | `src/lib/bun-image.ts`, `src/lib/herdr-dashboard-automation.ts`, `src/lib/herdr-dashboard-server.ts` | `Bun.Image` terminals ([`#terminals`](https://bun.com/docs/runtime/image#terminals)): `await .blob()` on `/api/thumbnail` miss; `.placeholder()` on `/api/meta`; `.bytes()` AVIF probe; `.write()` documented but CLI uses bytes + `Bun.write` (see [dashboard-thumbnails.md](docs/references/dashboard-thumbnails.md) Terminals). PNG from `Bun.WebView.screenshot()`; feed paths defer encode to GET. |
-| Dashboard automation runner      | `src/lib/herdr-dashboard-automation.ts`                                                              | `runDashboardAutomation({ view, actions })` — declarative `DashboardAutomationAction` steps; `DASHBOARD_SMOKE_ACTIONS` recipe for serve-shell smoke                                                                                                                                                                                                                                                     |
-| Dashboard automation gate        | `src/lib/herdr-dashboard-automation-gate.ts`                                                         | `kimi-doctor --automation` — smoke `setScreenshotPng` + `fetch /api/thumbnail`; see [kimi-doctor.md](docs/references/kimi-doctor.md)                                                                                                                                                                                                                                                                    |
-| Dashboard profile persistence    | `src/lib/herdr-dashboard-webview-store.ts`                                                           | Resolve `dataStore` (ephemeral vs persistent); `HERDR_DASHBOARD_WEBVIEW_STORE_ENV`                                                                                                                                                                                                                                                                                                                      |
-| Dashboard config tuning          | `dx.config.toml` `[herdr.orchestrator.dashboard]`, `src/lib/herdr-orchestrator-config.ts`            | `stale_ms`, `sse_poll_ms`, `poll_hint_ms`, `persist_profile`, `profile_dir`                                                                                                                                                                                                                                                                                                                             |
-| Dashboard thumbnail architecture | `docs/references/dashboard-thumbnails.md`                                                            | Terminals, call-site map, Bun API pairing, WebView profile boundaries, cache behavior                                                                                                                                                                                                                                                                                                                   |
-| Governed subprocess              | `docs/references/shell-spawn-choice.md`                                                              | `governedSpawn()` from `src/lib/governor-spawn.ts`                                                                                                                                                                                                                                                                                                                                                      |
-
-## Doctor Adapter / Plugin / MCP Golden Template
-
-Use this pattern when extending `kimi-doctor` with new agent-facing diagnostics.
-
-### External-tool adapters
-
-- Define the adapter in `src/lib/doctor-adapters/{name}.ts`.
-- Implement `ExternalToolAdapter` from `src/lib/doctor-adapter-types.ts`:
-  - `name`: stable kebab-case identifier.
-  - `command`: `["executable", ...args]`; the runner resolves the executable
-    from `PATH` or `{projectRoot}/node_modules/.bin` automatically.
-  - `parse(result)`: return `AdapterOutput` (`adapterName`, `durationMs`, `checks`).
-- Check `result.timedOut` before `result.error` to emit `doctor_adapter_timeout`.
-- Register the adapter in `src/lib/external-tool-runner.ts` `ADAPTERS`.
-- Add a focused unit test in `test/external-tool-runner.unit.test.ts` (or a new
-  `test/{source-module}.unit.test.ts` that matches the source stem).
-
-### Doctor plugins
-
-- Plugins are declared in `.kimi/doctor-plugins.json` (project-local) or
-  `~/.kimi-code/doctor-plugins.json` (user-global).
-- Project-local plugins override user-global plugins by `name`; collisions are logged.
-- Each plugin entry requires `name` and `command`; optional `args`, `cwd`,
-  `timeoutMs`, `maxOutputBytes`.
-- The executable must be on `PATH` or resolvable via `cwd`.
-- Plugin executables must print JSON to stdout:
-  `{ "checks": [{ "name": "...", "status": "ok|warn|error", "message": "...", "fixable": false }] }`.
-- Invalid entries emit a `doctor_plugin_invalid` check and are skipped.
-
-### MCP server tools
-
-- The stdio MCP server lives in `src/lib/doctor-mcp-server.ts`.
-- Add a new tool name constant (e.g., `DOCTOR_MCP_TOOL_*`) in `src/lib/mcp-config.ts`.
-- Expose the tool in `doctor-mcp-server.ts` `TOOLS` and route it in the handler.
-- Register/validate the server entry in `src/lib/mcp-config.ts` so `kimi-doctor --fix`
-  keeps `~/.kimi-code/mcp.json` in sync.
-
-### Probe manifest
-
-- `kimi-doctor --probe` emits `DoctorProbeManifest` from `src/lib/doctor-probe.ts`.
-- `canonicalReferences` embeds the full `canonical-references.json` manifest plus
-  `runtimeSynced` — agents discover Bun/Effect/Kimi/Herdr links without reading help text.
-- Bump `schemaVersion` only when the manifest shape changes; document the bump in
-  `src/lib/doctor-probe.ts` and `CHANGELOG.md`.
-- The `checks` array must list every registered adapter, discovered plugin, and
-  built-in check so agents can discover capabilities programmatically.
-
-## DX Workspace Layout (v1.5.4)
-
-| File                            | Role                                                               | Type          | Tests                                    |
-| ------------------------------- | ------------------------------------------------------------------ | ------------- | ---------------------------------------- |
-| `dx.config.toml` `[herdr]`      | Herdr workspace layout + bootstrap (what `herdr-project` executes) | —             | `test/herdr-project-config.unit.test.ts` |
-| `dx.config.toml` `[doctor]`     | Doctor pane commands (`tabs = [{ name, command }]`) + `[doctor.probe]` port/interval | — | `test/doctor-probe-config.unit.test.ts`  |
-| `dx.config.toml` `[finishWork]` | Finish-work gate list                                              | —             | —                                        |
-| `scripts/finish-work.ts`        | Gates + optional git commit/push                                   | CLI           | `test/finish-work-config.unit.test.ts`   |
-| `src/lib/finish-work-config.ts` | Read `[finishWork]` / `[agents].prePush` from `dx.config.toml`     | Config loader | `test/finish-work-config.unit.test.ts`   |
-
-**Scaffold profiles:** `kimi-fix` defaults to **app** (`templates/scaffold/dx.config.app.toml`). Use `--profile toolchain` for `[finishWork]` and `[herdr]`. See `src/lib/scaffold-profiles.ts`.
-
-**Single source of truth:** `[herdr]` owns tab/pane layout (`primaryAgent`, `shellPane`, `[[herdr.tabs]]`, `bootstrap`). Config/dotfiles repos use flat `.dx/herdr.toml` with the same fields (`[[tabs]]`). Gates belong only in `dx.config.toml` (`[finishWork]` → `[agents].prePush` fallback).
-
-## Herdr Config Symlink Chain
-
-```
-~/.config/herdr/config.toml  →  ~/.config/dx/herdr.toml  →  ~/dx-config/config/dx/herdr.toml
-```
-
-| Layer | Path                               | Responsibility                                                                                |
-| ----- | ---------------------------------- | --------------------------------------------------------------------------------------------- |
-| Herdr | `~/.config/herdr/config.toml`      | What Herdr reads at startup (`herdr server reload-config`)                                    |
-| DX    | `~/.config/dx/herdr.toml`          | What DX tooling reads (`global-config.json`, `herdr-doctor`, spawn wrappers, `herdr-project`) |
-| Git   | `~/dx-config/config/dx/herdr.toml` | Version-controlled source of truth; deployed by `~/dx-config/scripts/install.sh`              |
-
-**Indirection reason:** DX tooling owns the DX layer (`~/.config/dx/`) independently of Herdr's canonical path. This separation prevents DX config changes from colliding with Herdr's file ownership expectations and allows either system to evolve without forcing rewrites in the other.
-
-**Do not flatten** this chain by pointing `~/.config/herdr/config.toml` directly at the repo or by collapsing DX and Herdr onto one path. The middle hop is intentional — not needless indirection.
-
-Runtime state (`~/.config/herdr/session.json`, sockets, logs) and integration hooks (`herdr integration install`) stay outside `~/dx-config`. See `~/.config/dx/herdr.md` and `~/dx-config/README.md`.
-
-## dx-config vs kimi-toolchain
-
-Keep separate git repos. `~/dx-config` is dotfiles (config + install); `kimi-toolchain` is code (semver, releases).
-
-Herdr executables (`herdr-doctor`, `herdr-project`, `herdr-spawn`, `herdr-agents.ts`) are authored in `kimi-toolchain` and deployed via `bun run sync` + `install-wrappers` — not duplicated in `dx-config`. `dx-config` references them in `herdr.json`, keybindings, `install.sh`, and `bootstrap-machine.sh`.
-
-Herdr CLIs live in `src/bin/herdr-doctor.ts`, `src/bin/herdr-project.ts`, `src/bin/herdr-spawn.ts` with shared libs `src/lib/herdr-agents.ts`, `src/lib/herdr-doctor.ts`, `src/lib/herdr-project-runner.ts`, and `src/lib/herdr-project-config.ts`. Deploy via `bun run sync` + `bun run install-wrappers` (also installs `herdr-spawn-*` keybinding stubs from `SPAWN_AGENTS`). Fresh machine entry: `~/dx-config/scripts/bootstrap-machine.sh`. Regression tests: `test/herdr-doctor.unit.test.ts`, `test/herdr-project-config.unit.test.ts`, `test/herdr-project.integration.test.ts`.
 
 ## New Code Checklist
 

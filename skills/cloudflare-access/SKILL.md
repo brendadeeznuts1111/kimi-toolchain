@@ -1,22 +1,6 @@
 ---
 name: cloudflare-access
-description: |
-  Cloudflare Access / Zero Trust hygiene — service token expiry, local inventory,
-  policy audit, policy-as-code. Use when Access tokens, app policies, or
-  `.cloudflare-access.yml` drift need inspection or controlled apply.
-whenToUse: |
-  Service token expiry warnings, Access app policy gaps, dx.config Cloudflare
-  snapshot/dashboard, or policy-as-code plan/apply. Not for Workers deploy
-  (use wrangler skill) or MCP SSO login (separate auth path).
-layer: L2
-trigger:
-  - Access token expiry or inventory
-  - policy audit or plan/apply
-  - MCP vs Wrangler auth confusion
-dependencies: []
-loaded_by: System / On-demand
-role: Cloudflare Access hygiene — tokens, policies, plan-before-apply
-token_estimate: 520
+description: Cloudflare Access / Zero Trust hygiene — service token expiry sweep, policy audit, policy-as-code
 allowed_tools:
   - read_file
   - write_file
@@ -27,82 +11,53 @@ run_as: subagent
 model: deepseek-v4-flash
 ---
 
-# Cloudflare Access (L2)
+# Cloudflare Access — Zero Trust Hygiene Skill
 
-Before API calls, confirm credentials exist:
+Audits Cloudflare Access / Zero Trust configurations: service token expiry, application policy gaps, and policy-as-code drift detection.
 
-```bash
-kimi-cloudflare-access status    # read-only inventory — no token required for local scan
-kimi-cloudflare-access doctor    # fails fast when account id / API token missing
+## Architecture
+
+This skill wraps the `kimi-cloudflare-access` CLI which was originally part of `kimi-toolchain`. The core logic lives in:
+
+```
+src/lib/cloudflare-access.ts         — API client, token checks, credential management
+src/lib/cloudflare-access-policy.ts  — Policy-as-Code diff engine
+src/bin/kimi-cloudflare-access.ts    — CLI entry point (doctor/fix/plan/apply)
 ```
 
-If `doctor` reports missing credentials, run `kimi-cloudflare-access login` or set `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` for CI.
-
-**Auth separation:** Cloudflare MCP SSO/OAuth, Wrangler OAuth, and this CLI's API token are independent. A successful MCP or Wrangler login does not satisfy `kimi-cloudflare-access` unless the account id and API token are also available. See [UNIFIED.md](~/.kimi-code/UNIFIED.md).
-
-Implementation: `src/lib/cloudflare-access.ts`, `src/lib/cloudflare-access-policy.ts`, `src/lib/cloudflare-integration-status.ts`, `src/bin/kimi-cloudflare-access.ts`. Exemplars: [CODE_REFERENCES.md](~/.kimi-code/CODE_REFERENCES.md) § Cloudflare Access.
-
-## Commands
+## Usage
 
 ```bash
-kimi-cloudflare-access status       # local inventory (credentials, MCP, wrangler, project files)
-kimi-cloudflare-access dashboard    # DX homepage/dashboard snapshot (--json for machines)
-kimi-cloudflare-access tokens       # service token expiry audit (default subcommand)
-kimi-cloudflare-access apps         # Access application policy audit
-kimi-cloudflare-access doctor       # full hygiene check
-kimi-cloudflare-access fix          # rotate expired/expiring service tokens
-kimi-cloudflare-access plan         # policy-as-code dry-run (.cloudflare-access.yml)
-kimi-cloudflare-access apply        # mutates Access apps/policies — user confirmation required
-kimi-cloudflare-access mcp-apply    # emit MCP script for policy updates (no direct API apply)
-kimi-cloudflare-access login        # store credentials in OS keychain (Bun.secrets)
-kimi-cloudflare-access logout       # remove stored credentials
+# Audit service tokens for expiry
+kimi-cloudflare-access tokens
+
+# Audit application policies
+kimi-cloudflare-access apps
+
+# Full doctor check
+kimi-cloudflare-access doctor
+
+# Policy-as-Code plan (dry-run)
+kimi-cloudflare-access plan
+
+# Policy-as-Code apply (mutates Access apps/policies)
+kimi-cloudflare-access apply
 ```
 
-**Always** run `plan` before `apply`. Show the planned app/policy diff and get explicit user confirmation before `apply`.
+Run `plan` before every `apply`. Agents must show the planned app/policy diff and get explicit user confirmation before running `apply`.
 
-API token permissions (https://dash.cloudflare.com/profile/api-tokens):
+## Auth
+
+1. `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` env vars (CI override)
+2. OS keychain via `Bun.secrets` (set with `kimi-cloudflare-access login`)
+
+Cloudflare MCP SSO/OAuth, Wrangler OAuth, and this CLI's API token path are separate. A successful MCP or Wrangler login does not satisfy `kimi-cloudflare-access` unless the account id and API token are also available.
+
+Create an API token at https://dash.cloudflare.com/profile/api-tokens with:
 
 - Account → Cloudflare Access → Read
 - Account → Access: Service Tokens → Read
 
-## Recipes
+## Future
 
-### weekly token expiry sweep
-
-```bash
-kimi-cloudflare-access doctor --json
-kimi-cloudflare-access tokens --json
-# IF expiring within policy window → show user list, then:
-# discuss with user before mutating tokens:
-kimi-cloudflare-access fix
-```
-
-### policy-as-code change (safe path)
-
-```bash
-# 1. Edit .cloudflare-access.yml in project root (see dx.config.toml [cloudflare] policyFile)
-kimi-cloudflare-access plan
-# 2. Present diff to user; stop if unexpected mutations
-kimi-cloudflare-access apply          # only after explicit approval
-```
-
-### local inventory before touching production
-
-```bash
-kimi-cloudflare-access status
-kimi-cloudflare-access dashboard --json
-```
-
-Use this when Wrangler/MCP auth works but Access CLI fails — usually missing dedicated API token.
-
-## Related
-
-- [UNIFIED.md](~/.kimi-code/UNIFIED.md) — Kimi Code vs kimi-toolchain; Cloudflare auth matrix
-- [skills/kimi-toolchain/SKILL.md](~/.kimi-code/skills/kimi-toolchain/SKILL.md) — toolchain decision protocol
-- [CODE_REFERENCES.md](~/.kimi-code/CODE_REFERENCES.md) — parser/diff exemplars and test pointers
-
-## Do not
-
-- Run `apply` without a prior `plan` and user confirmation.
-- Assume Wrangler or MCP login satisfies this CLI.
-- Commit API tokens or `.env` files with Cloudflare secrets.
+This skill is a candidate for extraction into a standalone package or optional kimi-toolchain plugin. The 2,473 lines of Cloudflare logic (15% of the codebase) serve a niche enterprise use case.

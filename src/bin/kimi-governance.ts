@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-governance — Project governance & quality gates
  * P1: Test coverage gate, R-Score formula
@@ -10,15 +9,17 @@ import { pathExists } from "../lib/bun-io.ts";
  */
 
 import { $ } from "bun";
+import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
-import { runTool, spawnBun } from "../lib/tool-runner.ts";
+import { runTool } from "../lib/tool-runner.ts";
 import { aggregateChecks } from "../lib/health-check.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { recordDoctorRun, getPersistentWarnings, type DoctorWarning } from "../lib/doctor-runs.ts";
-import { createCli } from "../lib/cli-contract.ts";
+import { createLogger } from "../lib/logger.ts";
+import { ARTIFACTS_COVERAGE_DIR } from "../lib/artifacts.ts";
 import {
   R_SCORE_WEIGHTS as WEIGHTS,
   computeBreakdown,
@@ -33,10 +34,8 @@ import { checkKimiDocsAligned } from "../lib/kimi-docs-aligned.ts";
 import { checkScaffoldAligned } from "../lib/scaffold-aligned.ts";
 import { auditEcosystemHealth } from "../lib/ecosystem-health.ts";
 import { isKimiToolchainRepo } from "../lib/workspace-health.ts";
-import { isQuietMode } from "../lib/quiet-mode.ts";
 import { governorDir } from "../lib/paths.ts";
 import { checkGovernance } from "../lib/governance-check.ts";
-import { refreshStaleLockfile, runGovernancePreflight } from "../lib/governance-preflight.ts";
 import {
   generateReadme,
   generateContributing,
@@ -46,8 +45,7 @@ import {
   scaffoldAdr,
 } from "../lib/scaffold-templates.ts";
 
-const writer = createCli(Bun.argv, "kimi-governance");
-const logger = writer.logger;
+const logger = createLogger(Bun.argv, "kimi-governance");
 
 /** Map governance check names to error-taxonomy.yml category ids when known. */
 const GOVERNANCE_TAXONOMY: Record<string, string> = {
@@ -89,23 +87,28 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
   const report: CoverageReport = { covered: 0, total: 0, percentage: 0, files: [] };
 
   const pkgPath = join(projectDir, "package.json");
-  if (!pathExists(pkgPath)) return report;
+  if (!existsSync(pkgPath)) return report;
 
   const pkg = (await Bun.file(pkgPath).json()) as any;
   const hasTests =
     pkg.scripts?.test ||
-    pathExists(join(projectDir, "test")) ||
-    pathExists(join(projectDir, "tests"));
+    existsSync(join(projectDir, "test")) ||
+    existsSync(join(projectDir, "tests"));
   if (!hasTests) return report;
 
   const fastCoverage = useFastUnitCoverage(pkg.name);
 
   async function spawnCoverage(json: boolean) {
-    const result = await spawnBun(bunTestArgs({ coverage: true, json, fast: fastCoverage }), {
+    const proc = Bun.spawn(["bun", ...bunTestArgs({ coverage: true, json, fast: fastCoverage })], {
       cwd: projectDir,
       env: { ...Bun.env, KIMI_COVERAGE_SCAN: "1" },
+      stdout: "pipe",
+      stderr: "pipe",
     });
-    return { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr };
+    const exitCode = await proc.exited;
+    const stdout = await Bun.readableStreamToText(proc.stdout);
+    const stderr = await Bun.readableStreamToText(proc.stderr);
+    return { exitCode, stdout, stderr };
   }
 
   // Try --json output first (Bun test runner may support this)
@@ -206,16 +209,17 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
     }
 
     if (report.total === 0) {
-      const lcovPath = join(projectDir, "coverage", "lcov.info");
-      if (pathExists(lcovPath)) {
+      const lcovPath = join(projectDir, ARTIFACTS_COVERAGE_DIR, "lcov.info");
+      if (existsSync(lcovPath)) {
         const lcov = await Bun.file(lcovPath).text();
         let totalLines = 0;
         let hitLines = 0;
         for (const line of lcov.split("\n")) {
-          if (!line.startsWith("DA:")) continue;
-          const hits = Number(line.slice(3).split(",")[1]);
-          totalLines++;
-          if (hits > 0) hitLines++;
+          if (line.startsWith("DA:")) {
+            const [, , hits] = line.split(":")[1].split(",");
+            totalLines++;
+            if (parseInt(hits, 10) > 0) hitLines++;
+          }
         }
         report.total = totalLines;
         report.covered = hitLines;
@@ -245,101 +249,91 @@ interface CoverageHistoryEntry {
   total: number;
 }
 
-/** Reuse last coverage snapshot — avoids re-running tests during pre-push R-Score. */
-export async function loadCachedCoverage(projectDir: string): Promise<CoverageReport> {
-  const report: CoverageReport = { covered: 0, total: 0, percentage: 0, files: [] };
+async function latestCoverageHistory(projectDir: string): Promise<CoverageReport | null> {
+  if (!existsSync(COVERAGE_HISTORY)) return null;
+  let history: CoverageHistoryEntry[];
+  try {
+    history = (await Bun.file(COVERAGE_HISTORY).json()) as CoverageHistoryEntry[];
+  } catch {
+    return null;
+  }
   const project = await getProjectName(projectDir);
-
-  if (pathExists(COVERAGE_HISTORY)) {
-    try {
-      const history = (await Bun.file(COVERAGE_HISTORY).json()) as CoverageHistoryEntry[];
-      const latest = [...history].reverse().find((entry) => entry.project === project);
-      if (latest && latest.total > 0 && latest.covered > 0) {
-        return {
-          covered: latest.covered,
-          total: latest.total,
-          percentage: latest.percentage,
-          files: [],
-        };
-      }
-    } catch {
-      // fall through
-    }
-  }
-
-  const lcovPath = join(projectDir, "coverage", "lcov.info");
-  if (pathExists(lcovPath)) {
-    const lcov = await Bun.file(lcovPath).text();
-    let totalLines = 0;
-    let hitLines = 0;
-    for (const line of lcov.split("\n")) {
-      if (!line.startsWith("DA:")) continue;
-      const hits = Number(line.slice(3).split(",")[1]);
-      totalLines++;
-      if (hits > 0) hitLines++;
-    }
-    if (totalLines > 0) {
-      report.total = totalLines;
-      report.covered = hitLines;
-      report.percentage = (hitLines / totalLines) * 100;
-    }
-  }
-
-  return report;
+  const latest = history
+    .filter((entry) => entry.project === project)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0];
+  if (!latest) return null;
+  return {
+    covered: latest.covered,
+    total: latest.total,
+    percentage: latest.percentage,
+    files: [],
+  };
 }
 
 async function storeCoverageHistory(projectDir: string, report: CoverageReport) {
-  try {
-    ensureDir(GOVERNANCE_DIR);
-    let history: CoverageHistoryEntry[] = [];
-    if (pathExists(COVERAGE_HISTORY)) {
-      try {
-        history = (await Bun.file(COVERAGE_HISTORY).json()) as CoverageHistoryEntry[];
-      } catch {
-        history = [];
-      }
-    }
-
-    const project = await getProjectName(projectDir);
-    history.push({
-      project,
-      timestamp: new Date().toISOString(),
-      percentage: report.percentage,
-      covered: report.covered,
-      total: report.total,
-    });
-
-    // Keep last 100 entries per project
-    const byProject = new Map<string, CoverageHistoryEntry[]>();
-    for (const h of history) {
-      byProject.set(h.project, [...(byProject.get(h.project) || []), h]);
-    }
-    const trimmed: CoverageHistoryEntry[] = [];
-    for (const entries of byProject.values()) {
-      trimmed.push(...entries.slice(-100));
-    }
-
-    await Bun.write(COVERAGE_HISTORY, JSON.stringify(trimmed, null, 2));
-  } catch (err) {
-    if (err instanceof Error && (err.message.includes("EPERM") || err.message.includes("EACCES"))) {
-      // sandboxed — coverage data still computed
-    } else {
-      throw err;
+  ensureDir(GOVERNANCE_DIR);
+  let history: CoverageHistoryEntry[] = [];
+  if (existsSync(COVERAGE_HISTORY)) {
+    try {
+      history = (await Bun.file(COVERAGE_HISTORY).json()) as CoverageHistoryEntry[];
+    } catch {
+      history = [];
     }
   }
+
+  const project = await getProjectName(projectDir);
+  history.push({
+    project,
+    timestamp: new Date().toISOString(),
+    percentage: report.percentage,
+    covered: report.covered,
+    total: report.total,
+  });
+
+  // Keep last 100 entries per project
+  const byProject = new Map<string, CoverageHistoryEntry[]>();
+  for (const h of history) {
+    byProject.set(h.project, [...(byProject.get(h.project) || []), h]);
+  }
+  const trimmed: CoverageHistoryEntry[] = [];
+  for (const entries of byProject.values()) {
+    trimmed.push(...entries.slice(-100));
+  }
+
+  await Bun.write(COVERAGE_HISTORY, JSON.stringify(trimmed, null, 2));
+}
+
+async function refreshStaleLockfile(projectDir: string): Promise<boolean> {
+  const lockPath = join(projectDir, "bun.lock");
+  const pkgPath = join(projectDir, "package.json");
+  if (!existsSync(lockPath) || !existsSync(pkgPath)) return false;
+
+  const pkgMtime = Bun.file(pkgPath).lastModified;
+  const lockMtime = Bun.file(lockPath).lastModified;
+  if (pkgMtime <= lockMtime) return false;
+
+  await $`bun install --ignore-scripts`.cwd(projectDir).nothrow().quiet();
+  if (Bun.file(lockPath).lastModified <= pkgMtime) {
+    await Bun.write(lockPath, await Bun.file(lockPath).text());
+  }
+  return true;
 }
 
 // ── R-Score ──────────────────────────────────────────────────────────
 
 async function computeRScore(
   projectDir: string,
-  options: { quick?: boolean } = {}
+  options: { fast?: boolean } = {}
 ): Promise<RScore> {
   const project = await getProjectName(projectDir);
 
   const [gov, coverage, drift] = await Promise.all([
     checkGovernance(projectDir),
-    options.quick ? loadCachedCoverage(projectDir) : checkCoverage(projectDir),
+    options.fast
+      ? latestCoverageHistory(projectDir).then(
+          (latest) => latest ?? { covered: 0, total: 0, percentage: 0, files: [] }
+        )
+      : checkCoverage(projectDir),
     checkDocDrift(projectDir),
   ]);
   if (!drift) {
@@ -349,7 +343,7 @@ async function computeRScore(
   const lockPath = join(projectDir, "bun.lock");
   const pkgPath = join(projectDir, "package.json");
   let staleLockfile = false;
-  if (pathExists(lockPath) && pathExists(pkgPath)) {
+  if (existsSync(lockPath) && existsSync(pkgPath)) {
     const pkgMtime = Bun.file(pkgPath).lastModified;
     const lockMtime = Bun.file(lockPath).lastModified;
     staleLockfile = pkgMtime > lockMtime;
@@ -378,27 +372,18 @@ async function computeRScore(
     grade: computed.grade,
   };
 
-  // Persist score history; tolerate sandbox EPERM (non-critical for scoring).
-  try {
-    ensureDir(GOVERNANCE_DIR);
-    let history: RScore[] = [];
-    if (pathExists(SCORE_HISTORY)) {
-      try {
-        history = (await Bun.file(SCORE_HISTORY).json()) as RScore[];
-      } catch {
-        history = [];
-      }
-    }
-    history.push(score);
-    if (history.length > 50) history = history.slice(-50);
-    await Bun.write(SCORE_HISTORY, JSON.stringify(history, null, 2));
-  } catch (err) {
-    if (err instanceof Error && (err.message.includes("EPERM") || err.message.includes("EACCES"))) {
-      // sandboxed — score is still valid
-    } else {
-      throw err;
+  ensureDir(GOVERNANCE_DIR);
+  let history: RScore[] = [];
+  if (existsSync(SCORE_HISTORY)) {
+    try {
+      history = (await Bun.file(SCORE_HISTORY).json()) as RScore[];
+    } catch {
+      history = [];
     }
   }
+  history.push(score);
+  if (history.length > 50) history = history.slice(-50);
+  await Bun.write(SCORE_HISTORY, JSON.stringify(history, null, 2));
 
   return score;
 }
@@ -417,36 +402,24 @@ async function main(): Promise<number> {
     logger.section("Governance Files");
     const gov = await checkGovernance(projectDir);
 
-    if (gov.hasLicense) {
-      logger.info(`License: ${gov.licenseType || "present"}`);
-    } else {
-      logger.warn(`License: MISSING`);
-    }
-    if (gov.hasContributing) {
-      logger.info(`CONTRIBUTING.md: present`);
-    } else {
-      logger.warn(`CONTRIBUTING.md: MISSING`);
-    }
-    if (gov.hasCodeowners) {
-      logger.info(`CODEOWNERS: ${gov.codeowners.join(", ") || "present"}`);
-    } else {
-      logger.warn(`CODEOWNERS: MISSING`);
-    }
-    if (gov.hasReadme) {
-      logger.info(`README.md: present`);
-    } else {
-      logger.warn(`README.md: MISSING`);
-    }
-    if (gov.hasContext) {
-      logger.info(`CONTEXT.md: present`);
-    } else {
-      logger.warn(`CONTEXT.md: MISSING`);
-    }
-    if (gov.hasChangelog) {
-      logger.info(`CHANGELOG.md: present`);
-    } else {
-      logger.warn(`CHANGELOG.md: MISSING`);
-    }
+    (gov.hasLicense ? logger.info : logger.warn)(
+      `License: ${gov.hasLicense ? gov.licenseType || "present" : "MISSING"}`
+    );
+    (gov.hasContributing ? logger.info : logger.warn)(
+      `CONTRIBUTING.md: ${gov.hasContributing ? "present" : "MISSING"}`
+    );
+    (gov.hasCodeowners ? logger.info : logger.warn)(
+      `CODEOWNERS: ${gov.hasCodeowners ? gov.codeowners.join(", ") || "present" : "MISSING"}`
+    );
+    (gov.hasReadme ? logger.info : logger.warn)(
+      `README.md: ${gov.hasReadme ? "present" : "MISSING"}`
+    );
+    (gov.hasContext ? logger.info : logger.warn)(
+      `CONTEXT.md: ${gov.hasContext ? "present" : "MISSING"}`
+    );
+    (gov.hasChangelog ? logger.info : logger.warn)(
+      `CHANGELOG.md: ${gov.hasChangelog ? "present" : "MISSING"}`
+    );
   } else if (command === "coverage") {
     const threshold = parseInt(args[1], 10) || 70;
     logger.section(`Test Coverage Gate (threshold: ${threshold}%)`);
@@ -455,12 +428,9 @@ async function main(): Promise<number> {
     if (cov.total === 0) {
       logger.warn("No coverage data found — run tests with --coverage first");
     } else {
-      const label = `Coverage: ${cov.percentage.toFixed(1)}% (${cov.covered}/${cov.total} statements)`;
-      if (cov.percentage >= threshold) {
-        logger.info(label);
-      } else {
-        logger.error(label);
-      }
+      (cov.percentage >= threshold ? logger.info : logger.error)(
+        `Coverage: ${cov.percentage.toFixed(1)}% (${cov.covered}/${cov.total} statements)`
+      );
 
       if (cov.files.length > 0) {
         logger.info("Files:");
@@ -486,16 +456,14 @@ async function main(): Promise<number> {
       return 1;
     }
 
-    if (!pathExists(join(projectDir, "README.md"))) {
+    if (!existsSync(join(projectDir, "README.md"))) {
       logger.error("README.md not found");
-    } else if (!pathExists(join(projectDir, "package.json"))) {
+    } else if (!existsSync(join(projectDir, "package.json"))) {
       logger.warn("No package.json — skipping script comparison");
     } else {
-      if (drift.fresh) {
-        logger.info("README scripts: in sync");
-      } else {
-        logger.warn("README scripts: DRIFT DETECTED");
-      }
+      (drift.fresh ? logger.info : logger.warn)(
+        `README scripts: ${drift.fresh ? "in sync" : "DRIFT DETECTED"}`
+      );
 
       if (drift.missingFromReadme.length > 0) {
         logger.warn(`Missing from README: ${drift.missingFromReadme.join(", ")}`);
@@ -846,27 +814,19 @@ async function main(): Promise<number> {
     logger.info("Use: kimi-toolchain doctor --ecosystem [--quick] [--json]");
     return 1;
   } else if (command === "score") {
-    const quick = args.includes("--quick");
-    const hook = args.includes("--hook") || (quick && isQuietMode());
-    const preflight =
-      (args.includes("--preflight") || hook) && Bun.env.KIMI_SKIP_GOVERNANCE_PREFLIGHT !== "1";
-    const preflightReport = preflight ? await runGovernancePreflight(projectDir) : null;
-    if (preflightReport?.changed && !hook) {
-      logger.section("Preflight");
-      for (const action of preflightReport.actions) logger.info(`Applied: ${action}`);
-    }
-    logger.section(
-      hook
-        ? "Computing R-Score (hook)"
-        : quick
-          ? "Computing R-Score (cached coverage)"
-          : "Computing R-Score"
-    );
-    const score = await computeRScore(projectDir, { quick });
+    const fastScore = args.includes("--fast");
+    const minIndex = args.findIndex((arg) => arg === "--min");
+    const minScore =
+      minIndex >= 0 && args[minIndex + 1] ? parseFloat(args[minIndex + 1]) : undefined;
+    logger.section(fastScore ? "Computing Fast R-Score" : "Computing R-Score");
+    const score = await computeRScore(projectDir, { fast: fastScore });
 
     logger.info(
       `Grade: ${score.grade} (${formatPoints(score.total)}/${score.max}, ${formatPct(score.total, score.max)})`
     );
+    if (fastScore) {
+      logger.info("Fast mode: coverage uses latest stored history and does not run tests");
+    }
     logger.info("Breakdown:");
     for (const [key, value] of Object.entries(score.breakdown)) {
       const weight = WEIGHTS[key as keyof typeof WEIGHTS];
@@ -874,60 +834,50 @@ async function main(): Promise<number> {
       logger.line(`    ${indicator} ${key}: ${formatPoints(value)}/${weight}`);
     }
 
-    if (!hook) {
-      const kimiDocs = await checkKimiDocsAligned(projectDir);
-      if (kimiDocs.applicable) {
-        const icon = kimiDocs.aligned ? "✓" : "⚠";
-        logger.info(
-          `${icon} kimiDocsAligned (soft): ${kimiDocs.aligned ? "product matrix + MCP docs in sync" : "see kimi-governance doctor"}`
-        );
-      }
+    const kimiDocs = await checkKimiDocsAligned(projectDir);
+    if (kimiDocs.applicable) {
+      const icon = kimiDocs.aligned ? "✓" : "⚠";
+      logger.info(
+        `${icon} kimiDocsAligned (soft): ${kimiDocs.aligned ? "product matrix + MCP docs in sync" : "see kimi-governance doctor"}`
+      );
+    }
 
-      const scaffold = await checkScaffoldAligned(projectDir);
-      if (scaffold.applicable) {
-        const icon = scaffold.aligned ? "✓" : "⚠";
-        logger.info(
-          `${icon} scaffoldAligned (soft): ${scaffold.aligned ? "AGENTS.md markers present" : "see kimi-governance doctor"}`
-        );
-      }
+    const scaffold = await checkScaffoldAligned(projectDir);
+    if (scaffold.applicable) {
+      const icon = scaffold.aligned ? "✓" : "⚠";
+      logger.info(
+        `${icon} scaffoldAligned (soft): ${scaffold.aligned ? "AGENTS.md markers present" : "see kimi-governance doctor"}`
+      );
+    }
 
-      if (await isKimiToolchainRepo(projectDir)) {
-        const ecosystem = await auditEcosystemHealth(projectDir, { quick: true });
-        const icon = ecosystem.blockers === 0 ? "✓" : "⚠";
-        logger.info(
-          `${icon} ecosystemAligned (soft): ${ecosystem.blockers === 0 ? "workspace + sync ok" : `${ecosystem.blockers} blocker(s) — kimi-toolchain doctor --ecosystem`}`
-        );
-      }
+    if (await isKimiToolchainRepo(projectDir)) {
+      const ecosystem = await auditEcosystemHealth(projectDir, { quick: true });
+      const icon = ecosystem.blockers === 0 ? "✓" : "⚠";
+      logger.info(
+        `${icon} ecosystemAligned (soft): ${ecosystem.blockers === 0 ? "workspace + sync ok" : `${ecosystem.blockers} blocker(s) — kimi-toolchain doctor --ecosystem`}`
+      );
+    }
 
-      if (pathExists(SCORE_HISTORY)) {
-        const history = (await Bun.file(SCORE_HISTORY).json()) as RScore[];
-        if (history.length > 1) {
-          const prev = history[history.length - 2];
-          const delta = score.total - prev.total;
-          const arrow = delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
-          const deltaStr = formatPoints(Math.abs(delta));
-          const signedDelta = delta > 0 ? `+${deltaStr}` : delta < 0 ? `-${deltaStr}` : "0";
-          logger.info(
-            `Trend: ${arrow} ${signedDelta} from last run (${prev.grade} → ${score.grade})`
-          );
-        }
+    if (existsSync(SCORE_HISTORY)) {
+      const history = (await Bun.file(SCORE_HISTORY).json()) as RScore[];
+      if (history.length > 1) {
+        const prev = history[history.length - 2];
+        const delta = score.total - prev.total;
+        const arrow = delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
+        const deltaStr = formatPoints(Math.abs(delta));
+        const signedDelta = delta > 0 ? `+${deltaStr}` : delta < 0 ? `-${deltaStr}` : "0";
+        logger.info(
+          `Trend: ${arrow} ${signedDelta} from last run (${prev.grade} → ${score.grade})`
+        );
       }
     }
 
-    const ok = score.grade !== "F" && score.grade !== "D";
-
-    if (writer.flags.json) {
-      writer.writeJson({
-        mode: "score",
-        score,
-        summary: { ok, grade: score.grade },
-        ...(preflightReport ? { preflight: preflightReport } : {}),
-      });
-      return ok ? 0 : 1;
-    }
-
-    if (!ok) {
+    if (score.grade === "F" || score.grade === "D") {
       logger.error("R-Score below C — address governance gaps before release");
+      return 1;
+    }
+    if (minScore !== undefined && score.total < minScore) {
+      logger.error(`R-Score below minimum — ${formatPoints(score.total)} < ${minScore}`);
       return 1;
     }
   } else {
@@ -939,7 +889,7 @@ async function main(): Promise<number> {
     logger.line("  doctor         Diagnose governance health with actionable fixes");
     logger.line("  adr <title>    Scaffold a new ADR in docs/adr/");
     logger.line("  score          Compute full R-Score with trend");
-    logger.line("  score --preflight   Auto-fix lock/README/guardian then score");
+    logger.line("  score --fast   Compute R-Score without recomputing coverage");
     logger.line("  ecosystem      → use kimi-toolchain doctor --ecosystem");
   }
 

@@ -1,8 +1,7 @@
-import { makeDir, pathExists, removePath } from "../src/lib/bun-io.ts";
-
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { existsSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
-import { REPO_ROOT } from "./helpers.ts";
+import { artifactPath } from "../src/lib/artifacts.ts";
 import {
   desktopRoot,
   ensureDesktopLayout,
@@ -10,6 +9,8 @@ import {
   ROOT_TEMPLATES,
   syncDesktop,
 } from "../src/lib/desktop-sync.ts";
+
+const REPO_ROOT = import.meta.dir + "/..";
 
 describe("desktop-sync", () => {
   let prevHome: string | undefined;
@@ -34,159 +35,84 @@ describe("desktop-sync", () => {
     expect(ROOT_TEMPLATES).toContain("AGENTS.md");
     expect(ROOT_TEMPLATES).toContain("CODE_REFERENCES.md");
     expect(ROOT_TEMPLATES).toContain("UNIFIED.md");
-    expect(ROOT_TEMPLATES).toContain("canonical-references.json");
   });
 
   test("ensureDesktopLayout creates desktop dirs", () => {
     ensureDesktopLayout();
     const paths = resolveDesktopPaths(REPO_ROOT);
-    expect(pathExists(paths.binDst)).toBe(true);
-    expect(pathExists(paths.libDst)).toBe(true);
-    expect(pathExists(paths.scriptsDst)).toBe(true);
+    expect(existsSync(paths.binDst)).toBe(true);
+    expect(existsSync(paths.libDst)).toBe(true);
+    expect(existsSync(paths.scriptsDst)).toBe(true);
   });
 
-  test(
-    "syncDesktop is idempotent on second run",
-    async () => {
-      try {
-        await syncDesktop(REPO_ROOT, { force: true });
-        const second = await syncDesktop(REPO_ROOT);
-        expect(second.updated.length).toBe(0);
-        expect(pathExists(join(pathsToolchain(REPO_ROOT), "tools", "kimi-doctor.ts"))).toBe(true);
-      } catch (e: unknown) {
-        // Sandbox may block writes to ~/.kimi-code/
-        if (e instanceof Error && e.message?.includes("EPERM")) return;
-        throw e;
-      }
-    },
-    { timeout: 15_000 }
-  );
+  test("syncDesktop is idempotent on second run", async () => {
+    await syncDesktop(REPO_ROOT, { force: true });
+    const second = await syncDesktop(REPO_ROOT);
+    expect(second.updated.length).toBe(0);
+    expect(existsSync(join(pathsToolchain(REPO_ROOT), "tools", "kimi-doctor.ts"))).toBe(true);
+  });
 
-  test(
-    "syncDesktop force overwrites stale optional config",
-    async () => {
-      const tmpHome = join(REPO_ROOT, `.tmp-desktop-force-${Date.now()}`);
-      makeDir(tmpHome, { recursive: true });
-      Bun.env.HOME = tmpHome;
-      try {
-        await syncDesktop(REPO_ROOT);
-        await Bun.write(join(desktopRoot(), "bunfig.toml"), "# stale copy\n");
-        const result = await syncDesktop(REPO_ROOT, { force: true });
-        expect(result.updated).toContain("bunfig.toml");
-        const text = await Bun.file(join(desktopRoot(), "bunfig.toml")).text();
-        expect(text).not.toBe("# stale copy\n");
-      } finally {
-        removePath(tmpHome, { recursive: true, force: true });
-      }
-    },
-    { timeout: 15_000 }
-  );
+  test("syncDesktop force overwrites stale optional config", async () => {
+    const tmpHome = artifactPath(REPO_ROOT, "tmp", `desktop-force-${Date.now()}`);
+    mkdirSync(tmpHome, { recursive: true });
+    Bun.env.HOME = tmpHome;
+    try {
+      await syncDesktop(REPO_ROOT);
+      await Bun.write(join(desktopRoot(), "bunfig.toml"), "# stale copy\n");
+      const result = await syncDesktop(REPO_ROOT, { force: true });
+      expect(result.updated).toContain("bunfig.toml");
+      const text = await Bun.file(join(desktopRoot(), "bunfig.toml")).text();
+      expect(text).not.toBe("# stale copy\n");
+    } finally {
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
 
-  test(
-    "syncDesktop dry-run reports changes without writing",
-    async () => {
-      const tmpHome = join(REPO_ROOT, `.tmp-desktop-dry-run-${Date.now()}`);
-      makeDir(tmpHome, { recursive: true });
-      Bun.env.HOME = tmpHome;
-      try {
-        await syncDesktop(REPO_ROOT, { force: true });
-        const target = join(desktopRoot(), "lib", "r-score.ts");
-        const stale = "// stale runtime copy\n";
-        await Bun.write(target, stale);
-
-        const result = await syncDesktop(REPO_ROOT, { dryRun: true });
-
-        expect(result.updated).toContain("lib/r-score.ts");
-        expect(await Bun.file(target).text()).toBe(stale);
-      } finally {
-        removePath(tmpHome, { recursive: true, force: true });
-      }
-    },
-    { timeout: 15_000 }
-  );
-
-  test(
-    "syncDesktop removes orphaned tool files",
-    async () => {
-      const tmpHome = join(REPO_ROOT, `.tmp-desktop-orphan-${Date.now()}`);
-      makeDir(tmpHome, { recursive: true });
-      Bun.env.HOME = tmpHome;
-      try {
-        await syncDesktop(REPO_ROOT, { force: true });
-        const orphanPath = join(desktopRoot(), "tools", "kimi-utils.ts");
-        await Bun.write(orphanPath, "// legacy orphan\n");
-        const result = await syncDesktop(REPO_ROOT, { force: true });
-        expect(result.removed).toContain("tools/kimi-utils.ts");
-        expect(pathExists(orphanPath)).toBe(false);
-      } finally {
-        removePath(tmpHome, { recursive: true, force: true });
-      }
-    },
-    { timeout: 15_000 }
-  );
+  test("syncDesktop removes orphaned tool files", async () => {
+    const tmpHome = artifactPath(REPO_ROOT, "tmp", `desktop-orphan-${Date.now()}`);
+    mkdirSync(tmpHome, { recursive: true });
+    Bun.env.HOME = tmpHome;
+    try {
+      await syncDesktop(REPO_ROOT, { force: true });
+      const orphanPath = join(desktopRoot(), "tools", "kimi-utils.ts");
+      await Bun.write(orphanPath, "// legacy orphan\n");
+      const result = await syncDesktop(REPO_ROOT, { force: true });
+      expect(result.removed).toContain("tools/kimi-utils.ts");
+      expect(existsSync(orphanPath)).toBe(false);
+    } finally {
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
 
   test(
     "syncDesktop copies optional config when desktop copy missing",
     async () => {
-      const tmpHome = join(REPO_ROOT, `.tmp-desktop-${Date.now()}`);
-      makeDir(tmpHome, { recursive: true });
+      const tmpHome = artifactPath(REPO_ROOT, "tmp", `desktop-${Date.now()}`);
+      mkdirSync(tmpHome, { recursive: true });
       Bun.env.HOME = tmpHome;
       try {
         const result = await syncDesktop(REPO_ROOT);
         expect(result.updated.some((u) => u === "bunfig.toml" || u.includes("bunfig"))).toBe(true);
-        expect(pathExists(join(desktopRoot(), "bunfig.toml"))).toBe(true);
+        expect(existsSync(join(desktopRoot(), "bunfig.toml"))).toBe(true);
       } finally {
-        removePath(tmpHome, { recursive: true, force: true });
+        rmSync(tmpHome, { recursive: true, force: true });
       }
     },
-    { timeout: 15_000 }
+    { timeout: 5000 }
   );
 
-  test(
-    "syncDesktop copies docs/references markdown with expected content",
-    async () => {
-      const tmpHome = join(REPO_ROOT, `.tmp-desktop-docs-refs-${Date.now()}`);
-      makeDir(tmpHome, { recursive: true });
-      Bun.env.HOME = tmpHome;
-      const expectedDocs = [
-        {
-          rel: "docs/references/dashboard-thumbnails.md",
-          markers: ["meta.webview", "buildDashboardMetaWebView"],
-        },
-        {
-          rel: "docs/references/kimi-doctor.md",
-          markers: ["--automation", "webViewScreenshotBytes", "dashboardWebpThumbnail"],
-        },
-        {
-          rel: "docs/references/namespace.md",
-          markers: ["Doctor trinity", "localDocs", "herdr-doctor"],
-        },
-        {
-          rel: "docs/references/shell-spawn-choice.md",
-          markers: ["invokeTool()", "governedSpawn()"],
-        },
-        {
-          rel: "docs/references/bun-shell-companions.md",
-          markers: ["inspectHuman()", "formatTable()"],
-        },
-      ] as const;
-      try {
-        const result = await syncDesktop(REPO_ROOT, { force: true });
-        for (const doc of expectedDocs) {
-          expect(result.updated).toContain(doc.rel);
-          const runtimePath = join(desktopRoot(), doc.rel);
-          expect(pathExists(runtimePath)).toBe(true);
-          const text = await Bun.file(runtimePath).text();
-          for (const marker of doc.markers) {
-            expect(text).toContain(marker);
-          }
-        }
-      } finally {
-        removePath(tmpHome, { recursive: true, force: true });
-      }
-    },
-    { timeout: 15_000 }
-  );
+  test("syncDesktop copies scaffold templates", async () => {
+    const tmpHome = artifactPath(REPO_ROOT, "tmp", `desktop-templates-${Date.now()}`);
+    mkdirSync(tmpHome, { recursive: true });
+    Bun.env.HOME = tmpHome;
+    try {
+      const result = await syncDesktop(REPO_ROOT, { force: true });
+      expect(result.updated).toContain("templates/scaffold/oxfmtrc.json");
+      expect(existsSync(join(desktopRoot(), "templates", "scaffold", "oxfmtrc.json"))).toBe(true);
+    } finally {
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
 });
 
 function pathsToolchain(repoRoot: string) {

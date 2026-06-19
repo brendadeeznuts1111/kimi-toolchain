@@ -151,11 +151,8 @@ No ADRs yet. Create one: `bun run ~/.kimi-code/tools/kimi-governance.ts adr "<ti
     "test:fast": "bun run scripts/run-tests.ts --fast",
     "test:coverage": "bun run scripts/run-tests.ts --coverage",
     "test:coverage:ci": "bun run scripts/run-tests.ts --ci --coverage",
-    "test:parallel": "bun run scripts/run-tests.ts --parallel",
-    "test:parallel:4": "bun run scripts/run-tests.ts --parallel=4",
-    "test:shard": "bun run scripts/run-tests.ts --shard",
     "check": "bun run scripts/check.ts",
-    "check:fast": "bun run scripts/check.ts --fast",
+    "check:fast": "bun run scripts/check.ts --fast --timeout 100",
     "check:dry-run": "bun run scripts/check.ts --dry-run",
     "docs:sync": "bun run scripts/readme-sync.ts --fix",
     "typecheck": "tsc --noEmit",
@@ -240,24 +237,12 @@ API_KEY=replace_me_in_dot_env
 
 ```toml
 [install]
-# Policy tables (official | hardened | current): src/lib/bun-install-config.ts
-optional = true
-dev = true
-peer = true
-production = false
-dryRun = false
-saveTextLockfile = true
-frozenLockfile = true
-exact = false
-ignoreScripts = false
-concurrentScripts = 8
-linker = "isolated"
-globalDir = "~/.bun/install/global"
-globalBinDir = "~/.bun/bin"
-minimumReleaseAge = 259200
-minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
+# Trusted dependencies with postinstall scripts
+# Run `kimi-guardian check` to auto-populate
+trustedDependencies = []
 
 [install.cache]
+# Global cache directory (shared across projects)
 dir = "~/.bun/install/cache"
 
 [test]
@@ -270,44 +255,20 @@ coverageThreshold = { lines = 0.35, functions = 0.25 }
 
 ## dx.config.toml Template
 
-Authoritative sources — do not duplicate stale inline blocks here:
+```toml
+schemaVersion = 1
 
-| Profile           | Scaffold file                                 | Notes                                               |
-| ----------------- | --------------------------------------------- | --------------------------------------------------- |
-| **app** (default) | `templates/scaffold/dx.config.app.toml`       | Standard DX/CI/quality                              |
-| **toolchain**     | `templates/scaffold/dx.config.toolchain.toml` | Adds `[finishWork]`, `[herdr]`, finish-work scripts |
-| Live reference    | `dx.config.toml` in kimi-toolchain            | Full runtime sync + `ci:local` blocks               |
+[runtime]
+packageManager = "bun"
+containers = "none"
 
-`kimi-fix` renders `{{DX_AGENTS_PATH}}` from `$HOME/.config/dx/AGENTS.md`. Herdr symlink chain and finish-work loader: [CODE_REFERENCES.md](CODE_REFERENCES.md) § DX Workspace Layout.
+[quality]
+formatter = "oxfmt"
+linter = "oxlint"
+typecheck = "bun run typecheck"
 
-### Scaffold profiles (`kimi-fix`)
-
-| Profile           | Command                               | `dx.config` source                            | Extras                                                                         |
-| ----------------- | ------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------ |
-| **app** (default) | `kimi-fix <path>`                     | `templates/scaffold/dx.config.app.toml`       | Standard DX/CI/quality — no `[sync]`, `ci:local`, `[finishWork]`, or `[herdr]` |
-| **toolchain**     | `kimi-fix <path> --profile toolchain` | `templates/scaffold/dx.config.toolchain.toml` | `[finishWork]`, `[herdr]`, `scripts/finish-work.ts`                            |
-
-Full runtime sync/ci.local blocks live only in the **kimi-toolchain reference** `dx.config.toml`, not in scaffold templates.
-
-**Effect gates (canonical):** Use `kimi-doctor --effect-gates` in `[agents].prePush` and `[finishWork].gates` everywhere — scaffold templates and live `dx.config.toml` match. `bun run doctor` in `package.json` is an in-tree dev alias only; do not put it in gate config.
-
-**Optional modules (`KIMI_MODULES`):** When unset, `kimi-fix` scaffolds the **`doctor`** module (perf harness from `examples/dashboard/` — `perf-doctor`, `src/harness/`, isolation factory). Override with `KIMI_MODULES=image,trace` etc. See [template-matrix.md](docs/references/template-matrix.md).
-
-**Profile drift:** `kimi-fix` never overwrites existing `dx.config.toml` or finish-work scripts. Re-scaffolding with a different `--profile` logs a warning; delete the stale files and re-run, or scaffold into a fresh tree.
-
-**finish-work staging:** `git add -u` only (tracked files). Untracked files and secrets are never blanket-staged.
-
-### Migrating to the toolchain profile
-
-App → toolchain: back up custom `dx.config.toml`, remove stale scaffold files, run `kimi-fix <path> --profile toolchain`, verify `bun run finish-work --dry-run` lists `kimi-doctor --effect-gates` (not `bun run doctor --effect-gates`). Details: [CODE_REFERENCES.md](CODE_REFERENCES.md) § DX Workspace Layout.
-
-### Herdr project profile (`[herdr]`)
-
-Authoritative `[herdr]` and `[doctor]` blocks: `templates/scaffold/dx.config.toolchain.toml` and live `dx.config.toml`. `[doctor].tabs` declares probe/bunfig pane commands; `[doctor.probe]` sets serve-probe port and refresh interval — see [serve-probe.md](docs/references/serve-probe.md). Layout model, symlink chain, finish-work scripts, and `herdr-project` contract: [CODE_REFERENCES.md](CODE_REFERENCES.md) § Herdr orchestration / DX Workspace Layout. Production validation scope: `docs/SCOPE.md`.
-
-```bash
-bun run finish-work --dry-run
-bun run finish-work --message "feat: workspace layout" --push
+[kimi]
+preflight = true
 ```
 
 ## CHANGELOG.md Template
@@ -360,7 +321,123 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## AGENTS.md Minimal Template
 
-Generated by `kimi-fix` via `buildAgentsMd()` in `src/lib/scaffold-agents.ts` (title from `package.json` `name`). Customize the one-line project description after scaffold. Tests: `test/scaffold-agents.unit.test.ts`.
+Scaffolded automatically by `kimi-fix` via `src/lib/scaffold-agents.ts`. Title uses `package.json` `name` (falls back to directory name). Customize the one-line project description after generation.
+
+````markdown
+# Agent Guide — {Project Name}
+
+## Project
+
+One-line description of what this does.
+
+## Runtime
+
+- **Bun** `>=1.3.14` — check `bun --version`
+- Prefer Bun-native APIs: `Bun.file`, `Bun.serve`, `Bun.hash`, `Bun.sleep`
+- No Node APIs unless Bun lacks equivalent (see `~/.kimi-code/AGENTS.md` for full table)
+
+## Global DX First
+
+- Read `/Users/nolarose/.config/dx/AGENTS.md` before project-local setup
+- Start with `dx context`, `dx config`, `dx mcp-status`, and `dx mcp-doctor`
+- Use `dx package` after dependency changes, then rerun Kimi guardian/governance gates
+
+## Formatting & lint
+
+- **oxfmt** — `.oxfmtrc.json`, `bun run format` / `bun run format:check`
+- **oxlint** — `.oxlintrc.json`, `bun run lint`
+- Run `bun run format` before commit; CI uses `format:check:ci` + `lint`
+
+## Conventions
+
+- Zero re-export shims — import from canonical source
+- Inline single-use variables and private methods
+- `trash` > `rm`
+- Read-only checks before mutation (`--dry-run`)
+- Use `Bun.env` not `process.env`
+- Use `Bun.cwd` not `process.cwd()`
+- Use `Bun.argv` not `process.argv`
+- Use `Uint8Array` not `Buffer`
+- Prefer shared tool/logging helpers from `~/.kimi-code/AGENTS.md` over raw subprocess and console patterns
+
+## Reference Code Before Writing
+
+- Read local `./CODE_REFERENCES.md` before adding new modules or tool paths
+- If local references are incomplete, fall back to `~/.kimi-code/CODE_REFERENCES.md`
+- Match the closest existing pattern for logging, tool invocation, config parsing, and tests
+- For Effect code, use it only when the project already uses it or the workflow needs typed failures, cleanup, subprocess orchestration, or parallel aggregation
+- For config/schema work, prefer narrow interfaces, type guards, parser checks, and focused validation tests before adding schema packages
+
+## Agent Defaults
+
+- Preserve dirty worktrees; never revert user changes without explicit instruction
+- Keep destructive operations and dependency changes in manual approval mode
+- Do not use YOLO/auto-approve for mutation-heavy MCP or shell operations
+- Keep background keep-alive off unless intentionally daemonizing
+- Batch related edits, then run targeted tests before broad gates
+
+## Commands
+
+```bash
+bun run dev           # Dev server (auto-port)
+bun run test          # Tests (fail-fast)
+bun run typecheck     # tsc --noEmit
+bun run format        # oxfmt --write .
+bun run format:check  # oxfmt --check . (local)
+bun run lint          # oxlint
+kimi-fix .            # Auto-fix scaffolding
+```
+
+## Diagnostics & Recovery
+
+```bash
+kimi-capabilities --json       # Live MCP/hook/credential/contract readiness
+kimi-heal plan --json          # Safe/manual/blocked repair plan
+kimi-heal apply --dry-run      # Preview safe repairs; default is non-mutating
+kimi-trace <trace-id> --json   # Causal graph for nested failures
+kimi-contract validate --json  # Contract trust audit
+kimi-decision log --json       # Recent decision rationale
+kimi-why <topic> --json        # Decision ledger lookup
+```
+
+- Treat `kimi-heal apply --yes` as an explicit mutation. It only runs `safeToAutoApply` actions; manual and blocked items require human review.
+- Failure ledgers live under `~/.kimi-code/var/tool-failures.jsonl`; trace events live under `~/.kimi-code/var/trace-events.jsonl`.
+- Agent defaults: use `kimi-capabilities --json` to check live readiness, `kimi-trace <trace-id> --json` to inspect root-cause chains, `kimi-contract validate --json` before trusting changed contracts, and `kimi-decision log --json` when prior rationale matters.
+- Contract trust roots live in project-root `trusted-keys.json`; signatures are sibling `<contract>.sig` files and embedded `x-kimi-signature` fields are ignored during normalization.
+
+## Quality Gates
+
+```bash
+kimi-doctor --agent-ready
+kimi-githooks doctor
+bun run check:fast
+bun run check
+kimi-guardian check
+kimi-governance score
+kimi-context-gen scan
+kimi-githooks install
+kimi-doctor --quick
+```
+
+## Kimi Code
+
+- User MCP: `~/.kimi-code/mcp.json` (unified-shell from toolchain sync)
+- Cloudflare MCP default: `cloudflare-api` in user MCP; Cloudflare SSO/OAuth is separate from Wrangler OAuth and `kimi-cloudflare-access` API tokens
+- Project override: `.kimi-code/mcp.json` (empty stub unless you add stdio servers)
+- Skills: `.kimi-code/skills/<name>/SKILL.md`
+- Runtime telemetry: `~/.kimi-code/var/tool-failures.jsonl`, `trace-events.jsonl`, `decision-ledger.jsonl`, and `capabilities/*.json`
+
+## References
+
+- `CONTEXT.md` — domain model and architecture
+- `CODE_REFERENCES.md` — local exemplars for good code patterns
+- `.env.example` — required environment variables
+- `docs/adr/` — architecture decision records
+- `~/.kimi-code/AGENTS.md` — global agent rules
+- `~/.kimi-code/CODE_REFERENCES.md` — fallback global exemplar map
+- `~/.kimi-code/UNIFIED.md` — Kimi Code vs kimi-toolchain map
+- `~/.kimi-code/TEMPLATES.md` — scaffold templates (this file)
+````
 
 ## CI Workflow Template (`.github/workflows/ci.yml`)
 
@@ -405,11 +482,94 @@ jobs:
         run: bun run test:coverage:ci
 ```
 
-> **Server CI status:** For this repository, GitHub Actions is disabled because the account is locked due to a billing issue. The workflow template above is preserved for reference and for new projects, but the active enforcement surface is `bun run ci:local` and the pre-push hooks installed by `kimi-githooks install`. The disabled workflow is archived at `.github/workflows-disabled/ci.yml`.
+## Tool Invocation Reference (kimi-toolchain)
 
-## Tool invocation & Bun-native patterns
+This example is for kimi-toolchain internals. Other projects should use their local runner/helper first and record that path in `CODE_REFERENCES.md`.
 
-Cross-tool calls, logging, SQLite, spawn limits, and Bun API choices: [CODE_REFERENCES.md](CODE_REFERENCES.md) and `~/.kimi-code/AGENTS.md` § Bun-native coding standards.
+```typescript
+import { invokeTool } from "./src/lib/tool-runner.ts";
+
+interface Result {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  stdoutTruncated?: boolean;
+  stderrTruncated?: boolean;
+}
+
+export async function runToolchainCommand(
+  toolPath: string,
+  args: string[],
+  options: { cwd?: string; timeoutMs?: number } = {}
+): Promise<Result> {
+  const result = await invokeTool(toolPath, args, {
+    cwd: options.cwd ?? Bun.cwd,
+    timeoutMs: options.timeoutMs,
+    maxOutputBytes: 1_048_576,
+  });
+
+  return {
+    stdout: result.stdout,
+    stderr: result.stderr,
+    exitCode: result.exitCode,
+    stdoutTruncated: result.stdoutTruncated,
+    stderrTruncated: result.stderrTruncated,
+  };
+}
+```
+
+## SQLite + Bun Template
+
+```typescript
+import { Database } from "bun:sqlite";
+
+const db = new Database("data.sqlite", { create: true });
+db.exec("PRAGMA journal_mode = WAL;");
+db.exec(`
+  CREATE TABLE IF NOT EXISTS items (
+    id TEXT PRIMARY KEY,
+    created_at INTEGER NOT NULL
+  );
+`);
+
+db.close();
+```
+
+## File I/O Template (Bun-Native)
+
+```typescript
+const text = await Bun.file("config.json").text();
+const json = await Bun.file("config.json").json();
+await Bun.write("output.txt", "hello");
+
+import { existsSync } from "fs";
+if (existsSync("file.txt")) {
+  /* ... */
+}
+```
+
+## Hashing Template (Bun-Native)
+
+```typescript
+const hasher = new Bun.CryptoHasher("sha256");
+hasher.update("data");
+const hash = hasher.digest("hex");
+```
+
+## Spawn with Resource Limits Template
+
+```typescript
+import { governedSpawn, ParallelGovernor } from "~/.kimi-code/tools/kimi-resource-governor.ts";
+
+const result = await governedSpawn(["bun", "test"], {
+  cwd: "/project",
+  limits: { maxMemoryMB: 512, wallClockMs: 300000 },
+});
+
+const gov = new ParallelGovernor(4);
+const tasks = urls.map((url) => gov.run(() => fetch(url).then((r) => r.text())));
+await Promise.all(tasks);
+```
 
 ## Kimi Code MCP — user `~/.kimi-code/mcp.json`
 
@@ -444,97 +604,33 @@ Project entries override user-level servers with the same name:
 
 Scaffolded by `kimi-fix`. Only add stdio servers in trusted repos.
 
-## IDE ACP (Zed / JetBrains)
-
-Kimi Code ACP wiring (`kimi acp`, absolute path to `~/.kimi-code/bin/kimi`): `skills/kimi-toolchain/SKILL.md` and [UNIFIED.md](UNIFIED.md) § Editor workflows. Run `kimi login` once before first IDE session.
-
-## bun create Template (`templates/bun-create/kimi-toolchain/`)
-
-Minimal skeleton for `bun create kimi-toolchain <name>`. One file only:
-
-```
-templates/bun-create/kimi-toolchain/
-└── package.json    ← bun-create.postinstall: toolchain → kimi-fix
-```
-
-The template is intentionally minimal — `kimi-fix` generates everything else (tsconfig, bunfig, README, entry point, AGENTS.md, dx.config, scripts, .kimi-code/). See `templates/scaffold/` for all templates that `kimi-fix` deploys.
-
-The template delegates hardening to a two-step `bun-create.postinstall`:
+## Zed ACP — `~/.config/zed/settings.json`
 
 ```json
 {
-  "name": "kimi-toolchain",
-  "bun-create": {
-    "postinstall": [
-      "HOME=\"${KIMI_SCAFFOLD_HOME:-$HOME}\" bun install -g github:brendadeeznuts1111/kimi-toolchain",
-      "HOME=\"${KIMI_SCAFFOLD_HOME:-$HOME}\" PATH=\"${KIMI_SCAFFOLD_HOME:+$KIMI_SCAFFOLD_HOME/.bun/bin:}$PATH\" kimi-fix ."
-    ]
+  "agent_servers": {
+    "Kimi Code CLI": {
+      "type": "custom",
+      "command": "/Users/you/.kimi-code/bin/kimi",
+      "args": ["acp"],
+      "env": {}
+    }
   }
 }
 ```
 
-After `bun create` copies the skeleton, `bun-create.postinstall` runs:
+## JetBrains ACP — Configure ACP agents
 
-1. `bun install -g` under `HOME="${KIMI_SCAFFOLD_HOME:-$HOME}"` ensures toolchain is available in the selected Bun home (idempotent — fast no-op if already installed)
-2. `kimi-fix .` under the same `HOME` — injects hardened bunfig, tsconfig, oxfmt/oxlint, AGENTS.md, dx.config.toml, src/index.ts, README.md, scripts/, .kimi-code/, governance fix, guardian fix, githooks install, devDeps (@types/bun, oxfmt, oxlint, typescript)
-
-The `bun-create` section is auto-stripped from the destination `package.json` by Bun.
-
-Set `KIMI_SCAFFOLD_HOME="$HOME/.kimi-code/bun-home"` when the create flow should use a toolchain-owned home. Bun then resolves global config from `$KIMI_SCAFFOLD_HOME/.bunfig.toml` before merging the generated project `./bunfig.toml`; environment variables such as `BUN_CONFIG_SKIP_INSTALL_PACKAGES` still override both.
-
-### Install
-
-```bash
-cp -r templates/bun-create/kimi-toolchain ~/.bun-create/kimi-toolchain
+```json
+{
+  "agent_servers": {
+    "Kimi Code CLI": {
+      "command": "/Users/you/.kimi-code/bin/kimi",
+      "args": ["acp"],
+      "env": {}
+    }
+  }
+}
 ```
 
-Or set `BUN_CREATE_DIR` to point at the repo: `export BUN_CREATE_DIR="$HOME/kimi-toolchain/templates/bun-create"`
-
-### Usage
-
-```bash
-export KIMI_SCAFFOLD_HOME="$HOME/.kimi-code/bun-home"
-bun create kimi-toolchain my-app
-cd my-app
-bun run check:fast
-```
-
-### AI agent rules
-
-`bun init` auto-generates `CLAUDE.md` (Claude CLI) and `.cursor/rules/*.mdc` (Cursor) when those tools are detected. `kimi-fix` generates `AGENTS.md` (agent-agnostic, includes DX layer references) but does not generate Claude- or Cursor-specific files. To add them after scaffold, run `bun init -y` (non-destructive).
-
-See [bun create docs](https://bun.com/docs/runtime/templating/create) for the full local-template execution flow (destructive overwrite, `bun-create` hooks, `git init`, framework auto-detection).
-
-## bun create Dashboard Template (`templates/bun-create/kimi-dashboard/`)
-
-Minimal Bun HTTP dashboard skeleton for `bun create kimi-dashboard <name>`.
-
-```
-templates/bun-create/kimi-dashboard/
-├── package.json    ← bun-create.postinstall + start scripts
-├── README.md       ← quickstart + API route docs
-└── src/
-    └── index.ts    ← Bun.serve with /health, /inspect, /env, /crypto
-```
-
-### Install & scaffold
-
-```bash
-cp -r ~/kimi-toolchain/templates/bun-create/kimi-dashboard ~/.bun-create/
-bun create kimi-dashboard my-dashboard
-cd my-dashboard
-bun run dev
-```
-
-### Included endpoints
-
-| Route      | Bun APIs demonstrated                                                  |
-| ---------- | ---------------------------------------------------------------------- |
-| `/health`  | `Bun.version`, `Bun.revision`, `process.uptime`, `process.memoryUsage` |
-| `/inspect` | `Bun.inspect(obj)`, `Bun.inspect(obj, opts)`, `Bun.stringWidth`        |
-| `/env`     | `Bun.env`, `Bun.TOML.parse`, `Bun.file`                                |
-| `/crypto`  | `Bun.CryptoHasher`, `Bun.randomUUIDv7`, `Bun.nanoseconds`              |
-
-### Extend with more APIs
-
-Copy from `examples/dashboard/` in kimi-toolchain — 40+ additional Bun API demos ready to wire in.
+Run `kimi login` in terminal before first IDE session.

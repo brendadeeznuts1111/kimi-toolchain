@@ -1,0 +1,235 @@
+{
+  "version": 1,
+  "description": "Change-based CI impact map. Unknown risky source changes intentionally run the full suite.",
+  "notes": [
+    "docsOnly changes plan only governance and success-metrics.",
+    "configOnly changes cover CI metadata and env examples; runtime-impacting config remains in fullRun.",
+    "targets map source ownership to the cheapest tests that prove the affected behavior."
+  ],
+  "docsOnly": [
+    "**/*.md",
+    "CHANGELOG.md",
+    "README.md",
+    "CONTRIBUTING.md",
+    "TEMPLATES.md",
+    "UNIFIED.md",
+    "CONTEXT.md",
+    "AGENTS.md",
+    "CODE_REFERENCES.md",
+    "LICENSE"
+  ],
+  "configOnly": [".github/**", "ci/impact.config.json", ".env.example", ".env.*.example"],
+  "fullRun": [
+    "package.json",
+    "bun.lock",
+    "bunfig.toml",
+    "tsconfig.json",
+    "scripts/check.ts",
+    "scripts/run-tests.ts",
+    "scripts/ci-impact.ts",
+    "scripts/ci-pipeline.ts",
+    "src/lib/ci-impact.ts",
+    "src/lib/effect/ci-pipeline.ts",
+    "src/lib/test-gates.ts",
+    "test/setup.ts"
+  ],
+  "risky": ["src/**", "scripts/**", "test/**", "bench/**", "templates/**", "error-taxonomy.yml"],
+  "security": [
+    "package.json",
+    "bun.lock",
+    "bunfig.toml",
+    "src/bin/kimi-guardian.ts",
+    "src/drift/check.ts"
+  ],
+  "benchmarks": [
+    {
+      "id": "core",
+      "paths": [
+        "bench/**",
+        "src/lib/utils.ts",
+        "src/lib/r-score.ts",
+        "src/lib/process-utils.ts",
+        "src/lib/memory-budget.ts",
+        "src/lib/proc-cache.ts"
+      ]
+    }
+  ],
+  "targets": [
+    {
+      "id": "core-utils",
+      "paths": ["src/lib/utils.ts"],
+      "tests": ["test/lib.unit.test.ts"]
+    },
+    {
+      "id": "r-score",
+      "paths": ["src/lib/r-score.ts", "src/bin/kimi-governance.ts"],
+      "tests": ["test/r-score.unit.test.ts", "test/governance-check.unit.test.ts"]
+    },
+    {
+      "id": "sync",
+      "paths": ["src/lib/desktop-sync.ts", "src/lib/sync-hashes.ts", "scripts/sync-to-desktop.ts"],
+      "tests": [
+        "test/sync.unit.test.ts",
+        "test/desktop-sync.unit.test.ts",
+        "test/sync-drift.unit.test.ts"
+      ]
+    },
+    {
+      "id": "workspace",
+      "paths": [
+        "src/lib/workspace-health.ts",
+        "src/lib/workspace-commands.ts",
+        "src/bin/kimi-cleanup-legacy.ts",
+        "scripts/cleanup-legacy-workspace.sh",
+        "scripts/install-bin-wrappers.sh",
+        "scripts/verify-workspace.sh"
+      ],
+      "tests": ["test/workspace-health.unit.test.ts", "test/path-alignment.unit.test.ts"],
+      "integrationTests": ["test/cleanup-legacy.integration.test.ts"]
+    },
+    {
+      "id": "doctor",
+      "paths": [
+        "src/bin/kimi-doctor.ts",
+        "src/lib/doctor-pipeline.ts",
+        "src/lib/health-check.ts",
+        "src/lib/agent-ready.ts",
+        "src/lib/ecosystem-health.ts",
+        "src/lib/system-checks.ts",
+        "src/lib/success-metrics.ts",
+        "src/lib/kimi-doctor-wrapper.ts"
+      ],
+      "tests": [
+        "test/doctor-pipeline.unit.test.ts",
+        "test/health-check.unit.test.ts",
+        "test/ecosystem-health.unit.test.ts",
+        "test/success-metrics.unit.test.ts"
+      ],
+      "smoke": true
+    },
+    {
+      "id": "tool-runner",
+      "paths": [
+        "src/lib/tool-runner.ts",
+        "src/lib/effect/tool-runner-effect.ts",
+        "src/lib/effect/cli-runtime.ts",
+        "src/lib/effect/errors.ts",
+        "src/lib/effect/config.ts",
+        "src/lib/effect/index.ts"
+      ],
+      "tests": [
+        "test/tool-runner.unit.test.ts",
+        "test/effect/tool-runner-effect.unit.test.ts",
+        "test/effect/cli-runtime.unit.test.ts"
+      ]
+    },
+    {
+      "id": "tool-registry",
+      "paths": ["src/bin/kimi-toolchain.ts", "src/lib/tool-registry.ts"],
+      "tests": ["test/kimi-toolchain.router.unit.test.ts", "test/tool-registry.unit.test.ts"]
+    },
+    {
+      "id": "mcp",
+      "paths": ["src/lib/mcp-config.ts", "src/bin/unified-shell-bridge.ts"],
+      "tests": ["test/mcp-config.unit.test.ts", "test/unified-shell-bridge.unit.test.ts"]
+    },
+    {
+      "id": "kimi-config",
+      "paths": ["src/lib/kimi-config-audit.ts", "src/lib/kimi-docs-aligned.ts"],
+      "tests": ["test/kimi-config-audit.unit.test.ts", "test/kimi-docs-aligned.integration.test.ts"]
+    },
+    {
+      "id": "scaffold",
+      "paths": [
+        "src/bin/kimi-fix.ts",
+        "src/bin/kimi-new.ts",
+        "src/lib/scaffold-agents.ts",
+        "src/lib/scaffold-aligned.ts",
+        "src/lib/scaffold-doctor.ts",
+        "src/lib/scaffold-quality.ts",
+        "src/lib/scaffold-templates.ts",
+        "templates/**"
+      ],
+      "tests": [
+        "test/scaffold-agents.unit.test.ts",
+        "test/scaffold-aligned.unit.test.ts",
+        "test/scaffold-quality.unit.test.ts",
+        "test/scaffold-templates.unit.test.ts"
+      ],
+      "integrationTests": ["test/kimi-fix.integration.test.ts"]
+    },
+    {
+      "id": "cloudflare-access",
+      "paths": [
+        "src/bin/kimi-cloudflare-access.ts",
+        "src/lib/cloudflare-access.ts",
+        "src/lib/cloudflare-access-policy.ts"
+      ],
+      "tests": [
+        "test/cloudflare-access.unit.test.ts",
+        "test/cloudflare-access-dashboard.unit.test.ts",
+        "test/cloudflare-access-policy.unit.test.ts"
+      ]
+    },
+    {
+      "id": "provider-contracts",
+      "paths": ["src/lib/provider-contract.ts"],
+      "tests": ["test/provider-contract.unit.test.ts", "test/success-metrics.unit.test.ts"]
+    },
+    {
+      "id": "logging-telemetry",
+      "paths": [
+        "src/lib/logger.ts",
+        "src/lib/error-taxonomy.ts",
+        "src/kimi-hooks/log-tool-failure.ts",
+        "error-taxonomy.yml"
+      ],
+      "tests": [
+        "test/logger.unit.test.ts",
+        "test/error-taxonomy.unit.test.ts",
+        "test/telemetry-schema.unit.test.ts"
+      ]
+    },
+    {
+      "id": "memory",
+      "paths": [
+        "src/bin/kimi-memory.ts",
+        "src/lib/memory-sessions.ts",
+        "src/lib/sessions-schema.ts"
+      ],
+      "tests": ["test/doctor-runs.unit.test.ts"]
+    },
+    {
+      "id": "docs-sync",
+      "paths": ["src/lib/readme-sync.ts", "scripts/readme-sync.ts"],
+      "tests": ["test/readme-sync.unit.test.ts"]
+    },
+    {
+      "id": "release",
+      "paths": [
+        "src/bin/kimi-release.ts",
+        "src/lib/changelog.ts",
+        "src/lib/conventional-commits.ts"
+      ],
+      "tests": ["test/changelog.unit.test.ts", "test/conventional-commits.unit.test.ts"]
+    },
+    {
+      "id": "process-budget",
+      "paths": [
+        "src/bin/kimi-orphan-kill.ts",
+        "src/bin/kimi-resource-governor.ts",
+        "src/lib/governor-cache.ts",
+        "src/lib/governor-config.ts",
+        "src/lib/governor-parallel.ts",
+        "src/lib/governor-sessions.ts",
+        "src/lib/governor-spawn.ts",
+        "src/lib/governor-state.ts",
+        "src/lib/memory-budget.ts",
+        "src/lib/process-utils.ts",
+        "src/lib/proc-cache.ts",
+        "src/lib/step-budget.ts"
+      ],
+      "smoke": true
+    }
+  ]
+}

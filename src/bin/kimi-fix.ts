@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { makeDir, pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-fix — Auto-initialize missing project files
  * Usage:
@@ -8,6 +7,7 @@ import { makeDir, pathExists } from "../lib/bun-io.ts";
  *   kimi-fix doctor [project-path]
  */
 
+import { existsSync, mkdirSync } from "fs";
 import { join, basename, resolve } from "path";
 import { $ } from "bun";
 import { projectMcpStub } from "../lib/mcp-config.ts";
@@ -19,61 +19,30 @@ import {
   CI_WORKFLOW,
   TSCONFIG,
   BUN_GLOBALS,
+  DX_CONFIG,
   GITIGNORE,
   ENV_EXAMPLE,
   BUNFIG,
   KIMI_SKILLS_README,
   CODE_REFERENCES_TEMPLATE,
-  ENTRY_POINT,
-  README_TEMPLATE,
+  generateReadme,
+  generateContext,
 } from "../lib/scaffold-templates.ts";
-import {
-  FINISH_WORK_CONFIG_TEMPLATE,
-  FINISH_WORK_HERDR_TEMPLATE,
-  FINISH_WORK_TEMPLATE,
-  REVIEWER_PANE_TEMPLATE,
-  SCAFFOLD_BUN_IO_TEMPLATE,
-  SCAFFOLD_BUN_UTILS_TEMPLATE,
-  TOOLCHAIN_SCAFFOLD_LIB_NAMES,
-  TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES,
-  renderDxConfig,
-  scaffoldDxConfigTemplateRel,
-  resolveScaffoldProfile,
-  filterScaffoldArgv,
-  detectProfileDrift,
-  ScaffoldProfileError,
-  renderTemplate,
-  type ScaffoldProfile,
-} from "../lib/scaffold-profiles.ts";
-import { desktopRoot, homeDir } from "../lib/paths.ts";
 import { Effect } from "effect";
 import { getProjectName } from "../lib/utils.ts";
-import { runTool } from "../lib/tool-runner.ts";
+import { runTool, scrubProcessGitEnv } from "../lib/tool-runner.ts";
 import { ensureQualityTooling } from "../lib/scaffold-quality.ts";
 import { aggregateChecks } from "../lib/health-check.ts";
-import { parseKimiModules, scaffoldKimiModules } from "../lib/scaffold-modules.ts";
-import { createCli } from "../lib/cli-contract.ts";
+import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 
-const writer = createCli(Bun.argv, "kimi-fix");
-const logger = writer.logger;
-
-/** Resolve toolchain root — works from both repo (src/bin/) and runtime (~/.kimi-code/tools/). */
-const REPO_ROOT = join(import.meta.dir, "..", "..");
-const DESKTOP_ROOT = desktopRoot();
-function resolveToolchainRoot(): string {
-  // Prefer repo layout when scripts/ exists at repo-relative path
-  if (pathExists(join(REPO_ROOT, "scripts"))) return REPO_ROOT;
-  // Fall back to synced runtime layout (~/.kimi-code/)
-  if (pathExists(join(DESKTOP_ROOT, "scripts"))) return DESKTOP_ROOT;
-  // Last resort: assume repo layout
-  return REPO_ROOT;
-}
+const logger = createLogger(Bun.argv, "kimi-fix");
+const TOOLCHAIN_ROOT = join(import.meta.dir, "..", "..");
 
 async function readToolchainScript(name: string): Promise<string> {
-  const templatePath = join(resolveToolchainRoot(), "scripts", name);
-  if (!pathExists(templatePath)) {
+  const templatePath = join(TOOLCHAIN_ROOT, "scripts", name);
+  if (!existsSync(templatePath)) {
     throw new Error(`Missing toolchain template: ${templatePath}`);
   }
   return Bun.file(templatePath).text();
@@ -94,20 +63,11 @@ async function readScaffoldRunTestsScript(): Promise<string> {
 }
 
 async function readScaffoldTestGatesScript(): Promise<string> {
-  return Bun.file(join(resolveToolchainRoot(), "src", "lib", "test-gates.ts")).text();
+  return Bun.file(join(TOOLCHAIN_ROOT, "src", "lib", "test-gates.ts")).text();
 }
 
 async function readScaffoldReadmeSyncScript(): Promise<string> {
-  return Bun.file(join(resolveToolchainRoot(), "src", "lib", "readme-sync.ts")).text();
-}
-
-async function readScaffoldScanScript(): Promise<string> {
-  const raw = await readToolchainScript("scan.ts");
-  return raw.replace('from "../src/lib/upgrade-advisor.ts"', 'from "./lib/upgrade-advisor.ts"');
-}
-
-async function readScaffoldUpgradeAdvisorLib(): Promise<string> {
-  return Bun.file(join(resolveToolchainRoot(), "src", "lib", "upgrade-advisor.ts")).text();
+  return Bun.file(join(TOOLCHAIN_ROOT, "src", "lib", "readme-sync.ts")).text();
 }
 
 function stepLog(step: string, msg: string) {
@@ -171,29 +131,11 @@ async function runDoctor(projectDir: string): Promise<number> {
   return 0;
 }
 
-async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile): Promise<void> {
-  logger.section(`Fixing ${basename(project)} (${profile} profile)`);
+async function runFix(project: string, dryRun: boolean): Promise<void> {
+  logger.section(`Fixing ${basename(project)}`);
   logger.info(`Path: ${project}`);
-  logger.info(`Profile: ${profile}`);
-  logger.info(`Template: templates/scaffold/${scaffoldDxConfigTemplateRel(profile)}`);
 
-  // Bun version guard — scaffolded projects need Bun >= 1.4.0
-  const minBun = { major: 1, minor: 4, patch: 0 };
-  const [major, minor, patch] = Bun.version.split(".").map(Number);
-  const tooOld =
-    major < minBun.major ||
-    (major === minBun.major && minor < minBun.minor) ||
-    (major === minBun.major && minor === minBun.minor && patch < minBun.patch);
-  if (tooOld) {
-    logger.warn(
-      `Bun ${Bun.version} is below minimum ${minBun.major}.${minBun.minor}.${minBun.patch} — scaffolded scripts may not work. Please upgrade: bun upgrade`
-    );
-  }
-
-  const drift = detectProfileDrift(project, profile);
-  if (drift) logger.warn(drift);
-
-  if (!pathExists(join(project, ".git"))) {
+  if (!existsSync(join(project, ".git"))) {
     stepLog("git", "initializing repo...");
     if (!dryRun) {
       await $`git -C ${project} init`.quiet();
@@ -206,26 +148,6 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
     stepLog("git", "repo already exists");
   }
 
-  // Write entry point + README before governance (governance fix creates its own README)
-  const projectName = await getProjectName(project);
-
-  if (!dryRun) makeDir(join(project, "src"), { recursive: true });
-  const entryPath = join(project, "src", "index.ts");
-  if (!pathExists(entryPath)) {
-    stepLog("entry", "creating src/index.ts...");
-    await writeFile(entryPath, ENTRY_POINT, dryRun);
-  }
-
-  const readmePath = join(project, "README.md");
-  if (!pathExists(readmePath)) {
-    stepLog("readme", "creating README.md...");
-    await writeFile(
-      readmePath,
-      renderTemplate(README_TEMPLATE, { PROJECT_NAME: projectName }),
-      dryRun
-    );
-  }
-
   await Promise.all([
     delegateTool("kimi-governance", ["fix"], project, dryRun),
     delegateTool("kimi-context-gen", ["update"], project, dryRun),
@@ -233,9 +155,29 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
     delegateTool("kimi-githooks", ["install"], project, dryRun),
   ]);
 
+  const readmePath = join(project, "README.md");
+  if (!existsSync(readmePath)) {
+    stepLog("readme", "creating README.md...");
+    if (dryRun) {
+      dryLog("write", readmePath);
+    } else {
+      await generateReadme(project, getProjectName);
+    }
+  }
+
+  const contextPath = join(project, "CONTEXT.md");
+  if (!existsSync(contextPath)) {
+    stepLog("context", "creating CONTEXT.md...");
+    if (dryRun) {
+      dryLog("write", contextPath);
+    } else {
+      await generateContext(project, getProjectName);
+    }
+  }
+
   const envExample = join(project, ".env.example");
-  if (!pathExists(envExample)) {
-    if (pathExists(join(project, ".env"))) {
+  if (!existsSync(envExample)) {
+    if (existsSync(join(project, ".env"))) {
       stepLog("env", "creating .env.example from .env...");
       if (!dryRun) {
         const envContent = await Bun.file(join(project, ".env")).text();
@@ -257,70 +199,64 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
     }
   }
 
-  if (!pathExists(join(project, ".gitignore"))) {
+  if (!existsSync(join(project, ".gitignore"))) {
     stepLog("gitignore", "creating...");
     await writeFile(join(project, ".gitignore"), GITIGNORE, dryRun);
   }
 
-  if (!pathExists(join(project, "bunfig.toml"))) {
+  if (!existsSync(join(project, "bunfig.toml"))) {
     stepLog("bunfig", "creating...");
     await writeFile(join(project, "bunfig.toml"), BUNFIG, dryRun);
   }
 
-  if (!pathExists(join(project, ".oxfmtrc.json"))) {
+  if (!existsSync(join(project, ".oxfmtrc.json"))) {
     stepLog("oxfmt", "creating .oxfmtrc.json...");
     await writeFile(join(project, ".oxfmtrc.json"), OXFMTRC, dryRun);
   }
-  if (!pathExists(join(project, ".oxlintrc.json"))) {
+  if (!existsSync(join(project, ".oxlintrc.json"))) {
     stepLog("oxlint", "creating .oxlintrc.json...");
     await writeFile(join(project, ".oxlintrc.json"), OXLINTRC, dryRun);
   }
 
-  const home = homeDir();
-
   const agentsPath = join(project, "AGENTS.md");
-  if (!pathExists(agentsPath)) {
+  if (!existsSync(agentsPath)) {
     stepLog("agents", "creating AGENTS.md...");
-    await writeFile(agentsPath, buildAgentsMd(projectName, home), dryRun);
+    await writeFile(agentsPath, buildAgentsMd(await getProjectName(project)), dryRun);
   }
   const codeRefsPath = join(project, "CODE_REFERENCES.md");
-  if (!pathExists(codeRefsPath)) {
+  if (!existsSync(codeRefsPath)) {
     stepLog("agents", "creating CODE_REFERENCES.md...");
     await writeFile(codeRefsPath, CODE_REFERENCES_TEMPLATE, dryRun);
   }
 
   const kimiCodeDir = join(project, ".kimi-code");
   const projectMcp = join(kimiCodeDir, "mcp.json");
-  if (!pathExists(projectMcp)) {
+  if (!existsSync(projectMcp)) {
     stepLog("kimi-code", "creating .kimi-code/mcp.json...");
-    if (!dryRun) makeDir(kimiCodeDir, { recursive: true });
+    if (!dryRun) mkdirSync(kimiCodeDir, { recursive: true });
     await writeFile(projectMcp, projectMcpStub(), dryRun);
   }
   const kimiSkillsReadme = join(kimiCodeDir, "skills", "README.md");
-  if (!pathExists(kimiSkillsReadme)) {
+  if (!existsSync(kimiSkillsReadme)) {
     stepLog("kimi-code", "creating .kimi-code/skills/README.md...");
-    if (!dryRun) makeDir(join(kimiCodeDir, "skills"), { recursive: true });
+    if (!dryRun) mkdirSync(join(kimiCodeDir, "skills"), { recursive: true });
     await writeFile(kimiSkillsReadme, KIMI_SKILLS_README, dryRun);
   }
 
-  if (!pathExists(join(project, "dx.config.toml"))) {
-    stepLog("dx", `creating dx.config.toml (${profile})...`);
-    await writeFile(
-      join(project, "dx.config.toml"),
-      renderDxConfig(profile, projectName, home),
-      dryRun
-    );
+  if (!existsSync(join(project, "dx.config.toml"))) {
+    stepLog("dx", "creating dx.config.toml...");
+    await writeFile(join(project, "dx.config.toml"), DX_CONFIG, dryRun);
   }
 
-  if (!pathExists(join(project, "tsconfig.json"))) {
+  if (!existsSync(join(project, "tsconfig.json"))) {
     stepLog("tsconfig", "creating tsconfig.json...");
     await writeFile(join(project, "tsconfig.json"), TSCONFIG, dryRun);
   }
 
   const globalsPath = join(project, "src", "bun-globals.d.ts");
-  if (!pathExists(globalsPath)) {
+  if (!existsSync(globalsPath)) {
     stepLog("types", "creating src/bun-globals.d.ts...");
-    if (!dryRun) makeDir(join(project, "src"), { recursive: true });
+    if (!dryRun) mkdirSync(join(project, "src"), { recursive: true });
     await writeFile(globalsPath, BUN_GLOBALS, dryRun);
   }
 
@@ -330,74 +266,21 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
     { name: "check.ts", content: readScaffoldCheckScript },
     { name: "run-tests.ts", content: readScaffoldRunTestsScript },
     { name: "readme-sync.ts", content: readScaffoldReadmeSyncScript },
-    { name: "scan.ts", content: readScaffoldScanScript },
   ];
   for (const { name, content } of scriptFiles) {
     const scriptPath = join(project, "scripts", name);
-    if (!pathExists(scriptPath)) {
+    if (!existsSync(scriptPath)) {
       stepLog("scripts", `creating scripts/${name}...`);
-      if (!dryRun) makeDir(join(project, "scripts"), { recursive: true });
+      if (!dryRun) mkdirSync(join(project, "scripts"), { recursive: true });
       await writeFile(scriptPath, await content(), dryRun);
     }
   }
 
-  const upgradeAdvisorLib = join(project, "scripts", "lib", "upgrade-advisor.ts");
-  if (!pathExists(upgradeAdvisorLib)) {
-    stepLog("scripts", "creating scripts/lib/upgrade-advisor.ts...");
-    if (!dryRun) makeDir(join(project, "scripts", "lib"), { recursive: true });
-    await writeFile(upgradeAdvisorLib, await readScaffoldUpgradeAdvisorLib(), dryRun);
-  }
+  await ensureQualityTooling(project, dryRun, stepLog);
 
-  if (profile === "toolchain") {
-    const toolchainLibs: Record<string, string> = {
-      "lib/bun-io.ts": SCAFFOLD_BUN_IO_TEMPLATE,
-      "lib/bun-utils.ts": SCAFFOLD_BUN_UTILS_TEMPLATE,
-    };
-    for (const name of TOOLCHAIN_SCAFFOLD_LIB_NAMES) {
-      const libPath = join(project, "scripts", name);
-      if (!pathExists(libPath)) {
-        stepLog("scripts", `creating scripts/${name}...`);
-        if (!dryRun) makeDir(join(project, "scripts", "lib"), { recursive: true });
-        await writeFile(libPath, toolchainLibs[name], dryRun);
-      }
-    }
-
-    const toolchainScripts: Record<string, string> = {
-      "finish-work-config.ts": FINISH_WORK_CONFIG_TEMPLATE,
-      "finish-work-herdr.ts": FINISH_WORK_HERDR_TEMPLATE,
-      "finish-work.ts": FINISH_WORK_TEMPLATE,
-      "reviewer-pane.ts": REVIEWER_PANE_TEMPLATE,
-    };
-    for (const name of TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES) {
-      const scriptPath = join(project, "scripts", name);
-      if (!pathExists(scriptPath)) {
-        stepLog("scripts", `creating scripts/${name}...`);
-        if (!dryRun) makeDir(join(project, "scripts"), { recursive: true });
-        await writeFile(scriptPath, toolchainScripts[name], dryRun);
-      }
-    }
-  }
-
-  await ensureQualityTooling(project, dryRun, stepLog, profile);
-
-  const modules = parseKimiModules();
-  if (modules.length > 0) {
-    stepLog("modules", `scaffolding KIMI_MODULES=${modules.join(",")}...`);
-    const modResult = await scaffoldKimiModules(project, modules, dryRun);
-    if (modResult.filesWritten.length > 0) {
-      stepLog(
-        "modules",
-        `${modResult.filesWritten.length} file(s) from [${modResult.modules.join(", ")}]`
-      );
-    }
-    for (const skip of modResult.skipped) {
-      stepLog("modules", `skip ${skip}`);
-    }
-  }
-
-  if (!pathExists(join(project, ".github", "workflows", "ci.yml"))) {
+  if (!existsSync(join(project, ".github", "workflows", "ci.yml"))) {
     stepLog("ci", "creating CI template...");
-    if (!dryRun) makeDir(join(project, ".github", "workflows"), { recursive: true });
+    if (!dryRun) mkdirSync(join(project, ".github", "workflows"), { recursive: true });
     await writeFile(join(project, ".github", "workflows", "ci.yml"), CI_WORKFLOW, dryRun);
   }
 
@@ -409,9 +292,6 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
   logger.line("  5. Run 'bun run check' (or 'bun run check:fast' for unit-only gate)");
   logger.line("  6. Run 'kimi-governance score' to check project health");
   logger.line("  7. Run 'kimi-doctor --quick' to verify everything");
-  if (profile === "toolchain") {
-    logger.line("  8. Run 'bun run finish-work --dry-run' to preview finish-work gates");
-  }
   if (dryRun) {
     logger.info("Dry run complete. Remove --dry-run to apply.");
   } else {
@@ -421,33 +301,21 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
 
 function printHelp() {
   logger.line("Usage:");
-  logger.line("  kimi-fix <project-path> [--profile app|toolchain] [--dry-run]");
-  logger.line("  kimi-fix fix <project-path> [--profile app|toolchain] [--dry-run]");
+  logger.line("  kimi-fix <project-path> [--dry-run]");
+  logger.line("  kimi-fix fix <project-path> [--dry-run]");
   logger.line("  kimi-fix doctor [project-path]");
   logger.line("");
   logger.line("Fixes missing project scaffolding:");
   logger.line("  - git init, governance files, CONTEXT.md, guardian baseline, git hooks");
   logger.line("  - AGENTS.md, .env.example, .gitignore, bunfig.toml, quality scripts, CI");
-  logger.line("");
-  logger.line("Docs:");
-  logger.line("  TEMPLATES.md                 — full template reference");
-  logger.line("  docs/references/bun-runtime-scaffold.md — bunfig.toml defaults explainer");
 }
 
 async function main(): Promise<number> {
-  const positional = writer.flags.positional;
-  let profile: ScaffoldProfile;
-  try {
-    profile = resolveScaffoldProfile(positional);
-  } catch (e) {
-    if (e instanceof ScaffoldProfileError) {
-      logger.error(e.message);
-      return 1;
-    }
-    throw e;
-  }
-  const dryRun = positional.includes("--dry-run");
-  const filtered = filterScaffoldArgv(positional).filter((a: string) => a !== "--dry-run");
+  scrubProcessGitEnv();
+
+  const args = Bun.argv.slice(2);
+  const dryRun = args.includes("--dry-run");
+  const filtered = args.filter((a) => a !== "--dry-run");
 
   if (filtered.length === 0 || filtered[0] === "--help" || filtered[0] === "-h") {
     printHelp();
@@ -458,7 +326,7 @@ async function main(): Promise<number> {
 
   if (command === "doctor") {
     const project = resolve(filtered[1] || Bun.cwd);
-    if (!pathExists(project)) {
+    if (!existsSync(project)) {
       logger.error(`Directory does not exist: ${project}`);
       return 1;
     }
@@ -473,12 +341,12 @@ async function main(): Promise<number> {
   }
 
   const project = resolve(projectPath.replace(/\/$/, ""));
-  if (!pathExists(project)) {
+  if (!existsSync(project)) {
     logger.error(`Directory does not exist: ${project}`);
     return 1;
   }
 
-  await runFix(project, dryRun, profile);
+  await runFix(project, dryRun);
   return 0;
 }
 

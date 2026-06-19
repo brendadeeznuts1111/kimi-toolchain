@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-memory — SQLite WAL session store + knowledge graph + cross-project impact
  * v2.0: Session auto-save/resume, cross-project linking, impact analysis
@@ -12,7 +11,7 @@ import { pathExists } from "../lib/bun-io.ts";
  */
 
 import { randomUUIDv7 } from "bun";
-import { createCli } from "../lib/cli-contract.ts";
+import { createLogger } from "../lib/logger.ts";
 import { getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
 import { Effect } from "effect";
@@ -35,16 +34,16 @@ import {
   startAutoSave,
   stopAutoSave,
 } from "../lib/memory-sessions.ts";
-import { formatDecisionChainHuman, reconstructDecisionChain } from "../lib/decision-chain.ts";
 
-const writer = createCli(Bun.argv, "kimi-memory");
-const logger = writer.logger;
+const logger = createLogger(Bun.argv, "kimi-memory");
 
 // ── Doctor ───────────────────────────────────────────────────────────
 
 import { getDb } from "../lib/memory-sessions.ts";
 import { varDir } from "../lib/paths.ts";
 import { join } from "path";
+import { existsSync } from "fs";
+
 const DB_PATH = join(varDir(), "sessions.db");
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -110,7 +109,7 @@ function doctor(): Array<{
 
   // WAL size
   const walPath = DB_PATH + "-wal";
-  if (pathExists(walPath)) {
+  if (existsSync(walPath)) {
     const walSize = Bun.file(walPath).size;
     const walMB = walSize / 1024 / 1024;
     checks.push({
@@ -181,23 +180,23 @@ function fixDb() {
 // ── Main CLI ─────────────────────────────────────────────────────────
 
 async function main(): Promise<number> {
-  const positional = writer.flags.positional;
-  const command = positional[0] || "stats";
+  const args = Bun.argv.slice(2);
+  const command = args[0] || "stats";
   const projectPath = await resolveProjectRoot(Bun.cwd);
   const project = await getProjectName(projectPath);
 
   logger.banner("Kimi Memory — Session Store & Knowledge Graph");
 
   if (command === "store") {
-    const sessionId = positional[1] || randomUUIDv7();
-    const decisions = positional.slice(2);
+    const sessionId = args[1] || randomUUIDv7();
+    const decisions = args.slice(2);
     saveSession({
       id: sessionId,
       project,
       cwd: projectPath,
       startedAt: new Date().toISOString(),
-      lastCmd: positional.join(" "),
-      cmdHistory: [positional.join(" ")],
+      lastCmd: args.join(" "),
+      cmdHistory: [args.join(" ")],
       envSnapshot: {},
       gitHead: "",
       lockfileHash: "",
@@ -206,7 +205,7 @@ async function main(): Promise<number> {
     });
     logger.info(`Stored session: ${sessionId}`);
   } else if (command === "recall") {
-    const limit = parseInt(positional[1], 10) || 5;
+    const limit = parseInt(args[1], 10) || 5;
     const sessions = recallSessions(project, limit);
     logger.section(`Recent sessions for ${project}`);
     for (const s of sessions) {
@@ -242,7 +241,7 @@ async function main(): Promise<number> {
       }
     }
   } else if (command === "autosave") {
-    const action = positional[1] || "start";
+    const action = args[1] || "start";
     if (action === "start") {
       const id = await startAutoSave(projectPath);
       logger.info(`Auto-save started: ${id} (every 30s)`);
@@ -251,9 +250,9 @@ async function main(): Promise<number> {
       logger.info("Auto-save stopped");
     }
   } else if (command === "link") {
-    const fromNode = positional[1];
-    const toNode = positional[2];
-    const relation = positional[3] || "depends_on";
+    const fromNode = args[1];
+    const toNode = args[2];
+    const relation = args[3] || "depends_on";
     if (!fromNode || !toNode) {
       logger.error("Usage: link <from> <to> [relation]");
       return 1;
@@ -286,7 +285,7 @@ async function main(): Promise<number> {
       logger.line(`    ${e.from} →[${e.relation}]→ ${e.to}`);
     }
   } else if (command === "impact") {
-    const nodeId = positional[1];
+    const nodeId = args[1];
     if (!nodeId) {
       logger.error("Usage: impact <node-id>");
       logger.info("Shows cross-project impact of changing a node");
@@ -301,7 +300,7 @@ async function main(): Promise<number> {
       logger.line(`    [${n.project}] ${n.label} (${n.type})`);
     }
   } else if (command === "search") {
-    const query = positional[1];
+    const query = args[1];
     if (!query) {
       logger.error("Usage: search <query>");
       return 1;
@@ -312,7 +311,7 @@ async function main(): Promise<number> {
       logger.line(`  [${r.type}] ${r.label} (${r.project})`);
     }
   } else if (command === "prune") {
-    const days = parseInt(positional[1], 10) || 30;
+    const days = parseInt(args[1], 10) || 30;
     const deleted = pruneOldSessions(days);
     logger.info(`Pruned ${deleted} sessions older than ${days} days`);
   } else if (command === "stats") {
@@ -323,7 +322,7 @@ async function main(): Promise<number> {
     logger.info(`Edges:    ${stats.edges}`);
     logger.info(`DB size:  ${stats.dbSize}`);
   } else if (command === "trends") {
-    const toolFilter = positional[1];
+    const toolFilter = args[1];
     const persistent = getPersistentWarnings(toolFilter);
     logger.section(`Warning Trends ${toolFilter ? `(${toolFilter})` : "(all tools)"}`);
     if (persistent.length === 0) {
@@ -334,27 +333,6 @@ async function main(): Promise<number> {
         const freq = p.occurrence_count === 1 ? "1×" : `${p.occurrence_count}×`;
         const label = p.taxonomy_id ? `${p.taxonomy_id} (${p.check_name})` : p.check_name;
         logger.warn(`${label} [${p.tool}]: ${freq} since ${age}`);
-      }
-    }
-  } else if (command === "trace" || command === "chain") {
-    const id = positional[1];
-    const errorFlagIndex = positional.indexOf("--error-id");
-    const errorId = errorFlagIndex >= 0 ? positional[errorFlagIndex + 1] : undefined;
-    if (!id && !errorId) {
-      logger.error(`Usage: ${command} <trace-id> [--json]`);
-      logger.error(`       ${command} --error-id <error-id> [--json]`);
-      return 1;
-    }
-    const chain = await reconstructDecisionChain({
-      traceId: errorId ? undefined : id,
-      errorId,
-    });
-    if (writer.flags.json) {
-      writer.writeJson(chain);
-    } else {
-      logger.section(command === "trace" ? "Trace Decision Chain" : "Decision Chain");
-      for (const line of formatDecisionChainHuman(chain).trim().split("\n")) {
-        logger.line(line);
       }
     }
   } else if (command === "doctor") {
@@ -404,9 +382,6 @@ async function main(): Promise<number> {
     logger.line("  fix                      Prune orphans, reset stuck sessions, vacuum");
     logger.line("  stats                    Show database stats");
     logger.line("  trends [tool]            Show persistent warnings across sessions");
-    logger.line("  trace <trace-id> [--json] Reconstruct decision chain for a trace");
-    logger.line("  chain <trace-id> [--json] Alias for trace / full decision chain");
-    logger.line("  chain --error-id <id>     Reconstruct chain starting from an error id");
   }
 
   return 0;

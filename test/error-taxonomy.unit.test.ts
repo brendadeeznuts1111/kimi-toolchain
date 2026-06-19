@@ -1,11 +1,10 @@
-import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
-
 import { describe, expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { testTempDir } from "./helpers.ts";
 import {
   classifyFailure,
+  formatFailureOutput,
   getSuggestions,
   loadTaxonomy,
   taxonomyPath,
@@ -26,85 +25,27 @@ describe("error-taxonomy", () => {
     expect(taxonomy.categories[0].id).toBe("unknown");
   });
 
-  test("loadTaxonomy parses boundConstants", async () => {
-    const dir = testTempDir("kimi-taxonomy-bound-");
-    makeDir(dir, { recursive: true });
-    const path = join(dir, "taxonomy.yml");
-    writeText(
-      path,
-      `version: 2\ncategories:\n  - id: lint_failure\n    name: Lint\n    description: lint\n    severity: warn\n    expected: false\n    boundConstants:\n      - KIMI_TUNING_SET_VERSION\n    patterns: []\n`
-    );
-    const taxonomy = await loadTaxonomy(path);
-    expect(taxonomy.categories[0].boundConstants).toEqual(["KIMI_TUNING_SET_VERSION"]);
-    removePath(dir, { recursive: true, force: true });
-  });
-
-  test("loadTaxonomy back-compat parses relatedConstants", async () => {
-    const dir = testTempDir("kimi-taxonomy-related-");
-    makeDir(dir, { recursive: true });
-    const path = join(dir, "taxonomy.yml");
-    writeText(
-      path,
-      `version: 2\ncategories:\n  - id: lint_failure\n    name: Lint\n    description: lint\n    severity: warn\n    expected: false\n    relatedConstants:\n      - KIMI_TUNING_SET_VERSION\n    patterns: []\n`
-    );
-    const taxonomy = await loadTaxonomy(path);
-    expect(taxonomy.categories[0].boundConstants).toEqual(["KIMI_TUNING_SET_VERSION"]);
-    expect(taxonomy.categories[0].relatedConstants).toEqual(["KIMI_TUNING_SET_VERSION"]);
-    removePath(dir, { recursive: true, force: true });
-  });
-
   test("loadTaxonomy parses yaml categories", async () => {
-    const dir = testTempDir("kimi-taxonomy-");
-    makeDir(dir, { recursive: true });
+    const dir = join(tmpdir(), `kimi-taxonomy-${Bun.randomUUIDv7()}`);
+    mkdirSync(dir, { recursive: true });
     const path = join(dir, "taxonomy.yml");
-    writeText(
+    writeFileSync(
       path,
       `version: 2\ncategories:\n  - id: test_cat\n    name: Test Category\n    description: A test category\n    severity: warn\n    expected: false\n    patterns:\n      - regex: "test error"\n`
     );
     const taxonomy = await loadTaxonomy(path);
     expect(taxonomy.version).toBe(2);
     expect(taxonomy.categories[0].id).toBe("test_cat");
-    removePath(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
   });
 
   test("classifyFailure matches known pattern", async () => {
-    const taxonomy = await loadTaxonomy(join(import.meta.dir, "..", "error-taxonomy.yml"));
+    const taxonomy = await loadTaxonomy();
     const match = classifyFailure(
       "old_string not found in foo.ts, the file contents may be out of date. Please use the Read Tool to reload the content.",
       taxonomy
     );
     expect(match.category.id).toBe("edit_stale");
-  });
-
-  test("classifyFailure matches missing MCP registration", async () => {
-    const taxonomy = await loadTaxonomy(join(import.meta.dir, "..", "error-taxonomy.yml"));
-    const match = classifyFailure("MCP config missing unified-shell registration", taxonomy);
-    expect(match.category.id).toBe("mcp_config_missing");
-    expect(match.category.autoFix).toBe("kimi-doctor --fix");
-  });
-
-  test("classifyFailure matches herdr socket saturation (EAGAIN)", async () => {
-    const taxonomy = await loadTaxonomy(join(import.meta.dir, "..", "error-taxonomy.yml"));
-    const match = classifyFailure(
-      "herdr: protocol error: I/O error: Resource temporarily unavailable (os error 35)",
-      taxonomy
-    );
-    expect(match.category.id).toBe("herdr_socket_saturation");
-    expect(match.category.autoFix).toBe("herdr-doctor fix-socket --dry-run");
-  });
-
-  test("classifyFailure separates os error 61 from saturation", async () => {
-    const taxonomy = await loadTaxonomy(join(import.meta.dir, "..", "error-taxonomy.yml"));
-    const refused = classifyFailure(
-      "herdr: protocol error: I/O error: Connection refused (os error 61)",
-      taxonomy
-    );
-    expect(refused.category.id).toBe("herdr_cli_attach_refused");
-    const saturated = classifyFailure(
-      "herdr: protocol error: I/O error: Resource temporarily unavailable (os error 35)",
-      taxonomy
-    );
-    expect(saturated.category.id).toBe("herdr_socket_saturation");
   });
 
   test("classifyFailure returns unknown when no match", async () => {
@@ -117,6 +58,16 @@ describe("error-taxonomy", () => {
     const cat = unknownCategory();
     expect(cat.id).toBe("unknown");
     expect(cat.severity).toBe("info");
+  });
+
+  test("formatFailureOutput preserves object error evidence", () => {
+    expect(formatFailureOutput({ message: "old_string not found in src/file.ts" })).toBe(
+      "old_string not found in src/file.ts"
+    );
+    expect(formatFailureOutput({ code: "E_FAIL", details: { file: "src/file.ts" } })).toContain(
+      '"code": "E_FAIL"'
+    );
+    expect(formatFailureOutput({ code: "E_FAIL" })).not.toBe("[object Object]");
   });
 });
 

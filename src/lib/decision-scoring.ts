@@ -1,216 +1,189 @@
 /**
- * Decision quality scoring — self-evaluating past toolchain decisions.
+ * Decision quality scoring based on follow-up failure outcomes.
  */
 
-import { Effect } from "effect";
-import {
-  readDecisions,
-  resolveDecisionsPath,
-  resolveDecisionsRoot,
-  type Decision,
-  type DecisionOutcomeResult,
-} from "./decision-ledger.ts";
-import { readFailureTraceRecords } from "./trace-ledger.ts";
-import { rewriteNdjsonFile } from "./ndjson.ts";
+import { Data, Effect } from "effect";
+import type { FailureTraceRecord } from "./failure-ledger.ts";
+import { readFailureRecords } from "./failure-ledger.ts";
+import type { DecisionRecord } from "./decision-ledger.ts";
 
-const MS_DAY = 24 * 60 * 60 * 1000;
-const RECURRENCE_WINDOW_MS = MS_DAY;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const HEAL_RECURS_WITHIN_24H_SCORE = 0.2;
+const HEAL_STABLE_7D_SCORE = 1.0;
 
-export interface ScoringInput {
-  projectRoot?: string;
+export interface DecisionScoringContext {
+  now?: Date;
+  decisions?: readonly DecisionRecord[];
+  failures?: readonly FailureTraceRecord[];
+  failureTimestampsByCluster?: ReadonlyMap<string, readonly number[]>;
+  decisionById?: ReadonlyMap<string, DecisionRecord>;
+}
+
+export interface ScoreDecisionsOptions {
+  failurePath?: string;
   now?: Date;
 }
 
-export interface DecisionScoreResult {
-  decisionId: string;
-  qualityScore: number;
-  factors: string[];
-}
-
-export interface ScoringReport {
-  scoredAt: string;
-  total: number;
-  results: DecisionScoreResult[];
-  durationMs: number;
-}
+export class DecisionScoringError extends Data.TaggedError("DecisionScoringError")<{
+  message: string;
+  failurePath?: string;
+}> {}
 
 export function scoreDecision(
-  decision: Decision,
-  allDecisions: Decision[],
-  failures: Array<{ clusterId?: string; timestamp?: string; traceId?: string }>,
-  now: Date = new Date()
-): DecisionScoreResult {
-  const factors: string[] = [];
-  let score = 0.5;
+  record: DecisionRecord,
+  context: DecisionScoringContext = {}
+): number {
+  const decisionAtMs = Date.parse(record.timestamp);
+  if (!Number.isFinite(decisionAtMs)) return 0;
 
-  const outcome = decision.outcome.result;
-  if (outcome === "pending" || outcome === "unknown") {
-    factors.push("outcome-not-verified");
-    return { decisionId: decision.decisionId, qualityScore: 0.5, factors };
-  }
-  if (outcome === "skipped") {
-    factors.push("skipped-action");
-    return { decisionId: decision.decisionId, qualityScore: 0.6, factors };
-  }
-  if (outcome === "failure") {
-    factors.push("explicit-failure");
-    return { decisionId: decision.decisionId, qualityScore: 0.15, factors };
+  const nowMs = context.now ? context.now.getTime() : Date.now();
+  const decisionById = context.decisionById ?? buildDecisionById(context.decisions ?? []);
+  const failuresByCluster =
+    context.failureTimestampsByCluster ?? buildFailureTimestampsByCluster(context.failures ?? []);
+
+  let score = baseOutcomeScore(record);
+  const clusterId = record.clusterId ?? record.trigger.clusterId;
+  if (clusterId && isHealOrClusterAction(record.action) && record.outcome.result === "success") {
+    score = applyClusterStabilityRule(score, clusterId, decisionAtMs, nowMs, failuresByCluster);
   }
 
-  const decisionTime = new Date(decision.outcome.verifiedAt ?? decision.timestamp).getTime();
-  const clusterId = decision.trigger.clusterId;
-
-  const rollbacks = allDecisions.filter(
-    (other) =>
-      other.parentDecisionId === decision.decisionId &&
-      (other.metadata?.rollback === true ||
-        other.rationale.summary.toLowerCase().includes("rollback"))
-  );
-  if (rollbacks.length > 0) {
-    factors.push(`rollback-within-chain:${rollbacks.length}`);
-    score = Math.min(score, 0.25);
+  const parent = record.parentDecisionId ? decisionById.get(record.parentDecisionId) : undefined;
+  if (parent) {
+    score = applyParentPatternRule(score, record, parent);
   }
 
-  if (clusterId) {
-    const recurrence = failures.filter((failure) => {
-      if (failure.clusterId !== clusterId) return false;
-      const ts = failure.timestamp ? new Date(failure.timestamp).getTime() : 0;
-      return ts > decisionTime && ts - decisionTime <= RECURRENCE_WINDOW_MS;
-    });
-    if (recurrence.length > 0) {
-      factors.push(`cluster-recurred-24h:${recurrence.length}`);
-      score = 0.2;
-    } else {
-      const later = failures.filter((failure) => {
-        if (failure.clusterId !== clusterId) return false;
-        const ts = failure.timestamp ? new Date(failure.timestamp).getTime() : 0;
-        return ts > decisionTime;
-      });
-      const holdMs = KIMI_DECISION_SCORE_WINDOW_DAYS * MS_DAY;
-      if (later.length === 0 && now.getTime() - decisionTime >= holdMs) {
-        factors.push("cluster-hold-7d");
-        score = 1.0;
-      } else if (later.length === 0) {
-        factors.push("cluster-quiet-so-far");
-        score = 0.85;
-      } else {
-        factors.push(`cluster-recurred-after-24h:${later.length}`);
-        score = 0.55;
-      }
-    }
-  } else if (decision.action === "capability-degrade") {
-    const restored = allDecisions.some(
-      (other) =>
-        other.timestamp > decision.timestamp &&
-        other.action === "config-change" &&
-        other.trigger.capabilityItem === decision.trigger.capabilityItem &&
-        other.outcome.result === "success"
-    );
-    score = restored ? 0.9 : 0.65;
-    factors.push(restored ? "capability-restored" : "degradation-unverified");
-  } else if (decision.action === "contract-sign") {
-    score = decision.outcome.proof?.type === "drift-resolved" ? 0.95 : 0.8;
-    factors.push("contract-signed");
-  } else {
-    score = outcome === "success" ? 0.75 : 0.4;
-    factors.push(`outcome-${outcome}`);
-  }
+  return clamp01(score);
+}
 
-  if (decision.outcome.proof?.type === "health-probe") {
-    score = Math.min(1, score + 0.05);
-    factors.push("health-probe-proof");
-  }
-
-  return {
-    decisionId: decision.decisionId,
-    qualityScore: Math.round(score * 1000) / 1000,
-    factors,
+export async function scoreDecisions(
+  records: readonly DecisionRecord[],
+  options: ScoreDecisionsOptions = {}
+): Promise<Map<string, number>> {
+  const failures = await readFailureRecords(options.failurePath);
+  const decisionById = buildDecisionById(records);
+  const failureTimestampsByCluster = buildFailureTimestampsByCluster(failures);
+  const context: DecisionScoringContext = {
+    now: options.now,
+    decisions: records,
+    failures,
+    decisionById,
+    failureTimestampsByCluster,
   };
-}
 
-export function scoreAllDecisionsEffect(
-  input: ScoringInput = {}
-): Effect.Effect<ScoringReport, never> {
-  return Effect.gen(function* () {
-    const started = performance.now();
-    const now = input.now ?? new Date();
-    const projectRoot = input.projectRoot;
-
-    const [decisions, failures] = yield* Effect.all(
-      [
-        Effect.tryPromise({
-          try: () => readDecisions(projectRoot),
-          catch: () => "read-decisions-failed",
-        }).pipe(Effect.catchAll(() => Effect.succeed([] as Decision[]))),
-        Effect.tryPromise({
-          try: () => readFailureTraceRecords(),
-          catch: () => "read-failures-failed",
-        }).pipe(Effect.catchAll(() => Effect.succeed([]))),
-      ],
-      { concurrency: 2 }
-    );
-
-    const results: DecisionScoreResult[] = [];
-    let changed = false;
-    for (const decision of decisions) {
-      const scored = scoreDecision(decision, decisions, failures, now);
-      results.push(scored);
-      if (decision.qualityScore !== scored.qualityScore) {
-        decision.qualityScore = scored.qualityScore;
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      const root =
-        projectRoot ??
-        (yield* Effect.tryPromise({
-          try: () => resolveDecisionsRoot(),
-          catch: () => "resolve-root-failed",
-        }).pipe(Effect.catchAll(() => Effect.succeed(Bun.cwd))));
-      yield* Effect.tryPromise({
-        try: async () => rewriteNdjsonFile(await resolveDecisionsPath(root), decisions),
-        catch: () => "rewrite-scores-failed",
-      }).pipe(Effect.catchAll(() => Effect.void));
-    }
-
-    return {
-      scoredAt: now.toISOString(),
-      total: results.length,
-      results,
-      durationMs: Math.round(performance.now() - started),
-    };
-  });
-}
-
-export function filterLowQualityDecisions(decisions: Decision[], threshold = 0.4): Decision[] {
-  return decisions.filter((decision) => {
-    const score = decision.qualityScore;
-    if (score !== undefined) return score < threshold;
-    return decision.outcome.result === "failure" || decision.outcome.result === "pending";
-  });
-}
-
-export function filterUnverifiedDecisions(decisions: Decision[]): Decision[] {
-  return decisions.filter(
-    (decision) =>
-      decision.outcome.result === "pending" ||
-      decision.outcome.result === "unknown" ||
-      decision.qualityScore === undefined
-  );
-}
-
-export function mapOutcomeToScoreHint(result: DecisionOutcomeResult): number {
-  switch (result) {
-    case "success":
-      return 0.75;
-    case "failure":
-      return 0.15;
-    case "skipped":
-      return 0.6;
-    case "pending":
-    case "unknown":
-    default:
-      return 0.5;
+  const updates = new Map<string, number>();
+  for (const record of records) {
+    updates.set(record.decisionId, scoreDecision(record, context));
   }
+  return updates;
+}
+
+export function scoreDecisionsEffect(
+  records: readonly DecisionRecord[],
+  options: ScoreDecisionsOptions = {}
+): Effect.Effect<Map<string, number>, DecisionScoringError> {
+  return Effect.tryPromise({
+    try: () => scoreDecisions(records, options),
+    catch: (error) =>
+      new DecisionScoringError({
+        message: error instanceof Error ? error.message : String(error),
+        failurePath: options.failurePath,
+      }),
+  });
+}
+
+function applyClusterStabilityRule(
+  currentScore: number,
+  clusterId: string,
+  decisionAtMs: number,
+  nowMs: number,
+  failuresByCluster: ReadonlyMap<string, readonly number[]>
+): number {
+  const clusterFailures = failuresByCluster.get(clusterId) ?? [];
+  const horizonEndMs = Math.min(nowMs, decisionAtMs + 7 * DAY_MS);
+  const relevant = clusterFailures.filter(
+    (timestamp) => timestamp > decisionAtMs && timestamp <= nowMs
+  );
+
+  const hasRecurrenceWithin24h = relevant.some((timestamp) => timestamp <= decisionAtMs + DAY_MS);
+  if (hasRecurrenceWithin24h) return HEAL_RECURS_WITHIN_24H_SCORE;
+
+  const hasRecurrenceWithin7d = relevant.some(
+    (timestamp) => timestamp <= decisionAtMs + 7 * DAY_MS
+  );
+  const observedFullWindow = horizonEndMs >= decisionAtMs + 7 * DAY_MS;
+  if (!hasRecurrenceWithin7d && observedFullWindow) {
+    return Math.max(currentScore, HEAL_STABLE_7D_SCORE);
+  }
+
+  return Math.max(currentScore, 0.7);
+}
+
+function applyParentPatternRule(
+  currentScore: number,
+  record: DecisionRecord,
+  parent: DecisionRecord
+): number {
+  const action = record.action.toLowerCase();
+  const corrective =
+    action.includes("rollback") ||
+    action.includes("revert") ||
+    action.includes("correct") ||
+    action.includes("fix") ||
+    action.includes("heal");
+
+  if (!corrective) return currentScore;
+  if (record.outcome.result === "success" && parent.outcome.result === "failure") {
+    return Math.max(currentScore, 0.85);
+  }
+  if (record.outcome.result === "failure" && parent.outcome.result === "success") {
+    return Math.min(currentScore, 0.3);
+  }
+  if (
+    record.outcome.result === "success" &&
+    parent.qualityScore !== undefined &&
+    parent.qualityScore < 0.4
+  ) {
+    return Math.max(currentScore, 0.8);
+  }
+  return currentScore;
+}
+
+function baseOutcomeScore(record: DecisionRecord): number {
+  if (record.outcome.result === "success") return 0.6;
+  if (record.outcome.result === "failure") return 0.2;
+  return 0.4;
+}
+
+function isHealOrClusterAction(action: string): boolean {
+  const value = action.toLowerCase();
+  return value.includes("heal") || value.includes("cluster");
+}
+
+function buildDecisionById(records: readonly DecisionRecord[]): Map<string, DecisionRecord> {
+  return new Map(records.map((record) => [record.decisionId, record]));
+}
+
+function buildFailureTimestampsByCluster(
+  failures: readonly FailureTraceRecord[]
+): Map<string, readonly number[]> {
+  const index = new Map<string, number[]>();
+  for (const failure of failures) {
+    if (!failure.clusterId || !failure.timestamp) continue;
+    const timestamp = Date.parse(failure.timestamp);
+    if (!Number.isFinite(timestamp)) continue;
+    const items = index.get(failure.clusterId) ?? [];
+    items.push(timestamp);
+    index.set(failure.clusterId, items);
+  }
+  for (const [clusterId, timestamps] of index.entries()) {
+    timestamps.sort((a, b) => a - b);
+    index.set(clusterId, timestamps);
+  }
+  return index;
+}
+
+function clamp01(value: number): number {
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return Math.round(value * 1000) / 1000;
 }

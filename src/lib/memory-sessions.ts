@@ -1,7 +1,6 @@
-import { makeDir, pathExists, pathStat } from "./bun-io.ts";
-
 import { Database } from "bun:sqlite";
-import { $, randomUUIDv7 } from "bun";
+import { randomUUIDv7 } from "bun";
+import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { getProjectName, safeParse } from "./utils.ts";
 import {
@@ -24,7 +23,7 @@ export type { SessionRecord, KnowledgeNode, KnowledgeEdge, ImpactResult };
 // ── Database ─────────────────────────────────────────────────────────
 
 export function getDb(): Database {
-  if (!pathExists(MEMORY_DIR)) makeDir(MEMORY_DIR, { recursive: true });
+  if (!existsSync(MEMORY_DIR)) mkdirSync(MEMORY_DIR, { recursive: true });
   const db = new Database(DB_PATH, { create: true });
   db.exec("PRAGMA journal_mode = WAL;");
 
@@ -148,33 +147,6 @@ function parseSessionRow(r: any): SessionRecord {
   };
 }
 
-// ── Lockfile hash (mtime-cached) ─────────────────────────────────────
-
-let _lockfileHashCache: { path: string; mtimeMs: number; hash: string } | null = null;
-
-async function lockfileHashFor(projectPath: string): Promise<string> {
-  const lockPath = join(projectPath, "bun.lock");
-  if (!pathExists(lockPath)) return "";
-  try {
-    const mtimeMs = pathStat(lockPath).mtimeMs;
-    if (_lockfileHashCache?.path === lockPath && _lockfileHashCache.mtimeMs === mtimeMs) {
-      return _lockfileHashCache.hash;
-    }
-    const hasher = new Bun.CryptoHasher("sha256");
-    hasher.update(await Bun.file(lockPath).arrayBuffer());
-    const hash = hasher.digest("hex");
-    _lockfileHashCache = { path: lockPath, mtimeMs, hash };
-    return hash;
-  } catch {
-    return "";
-  }
-}
-
-/** Clear lockfile hash cache (tests). */
-export function clearLockfileHashCache(): void {
-  _lockfileHashCache = null;
-}
-
 // ── Session Resume ───────────────────────────────────────────────────
 
 export async function resumeSession(
@@ -203,6 +175,7 @@ export async function resumeSession(
   }
 
   try {
+    const { $ } = await import("bun");
     const result = await $`git rev-parse HEAD`.cwd(projectPath).nothrow().quiet();
     const currentHead = result.stdout.toString().trim();
     if (currentHead && currentHead !== session.gitHead) {
@@ -215,10 +188,19 @@ export async function resumeSession(
     /* ignore */
   }
 
-  const currentHash = await lockfileHashFor(projectPath);
-  if (currentHash && currentHash !== session.lockfileHash) {
-    stale = true;
-    changes.push("Lockfile changed since last session");
+  try {
+    const lockPath = join(projectPath, "bun.lock");
+    if (existsSync(lockPath)) {
+      const hasher = new Bun.CryptoHasher("sha256");
+      hasher.update(await Bun.file(lockPath).text());
+      const currentHash = hasher.digest("hex");
+      if (currentHash !== session.lockfileHash) {
+        stale = true;
+        changes.push("Lockfile changed since last session");
+      }
+    }
+  } catch {
+    /* ignore */
   }
 
   return { session, stale, changes };
@@ -431,7 +413,9 @@ export async function startAutoSave(projectPath: string, intervalMs = 120000) {
   const id = randomUUIDv7();
 
   _autoSaveInterval = setInterval(async () => {
+    const { $ } = await import("bun");
     let gitHead = "";
+    let lockfileHash = "";
 
     try {
       const result = await $`git rev-parse HEAD`.cwd(projectPath).nothrow().quiet();
@@ -440,7 +424,16 @@ export async function startAutoSave(projectPath: string, intervalMs = 120000) {
       /* ignore */
     }
 
-    const lockfileHash = await lockfileHashFor(projectPath);
+    try {
+      const lockPath = join(projectPath, "bun.lock");
+      if (existsSync(lockPath)) {
+        const hasher = new Bun.CryptoHasher("sha256");
+        hasher.update(await Bun.file(lockPath).text());
+        lockfileHash = hasher.digest("hex");
+      }
+    } catch {
+      /* ignore */
+    }
 
     saveSession({
       id,

@@ -4,13 +4,9 @@
 
 import { $ } from "bun";
 import { createLogger, type Logger } from "./logger.ts";
-import {
-  getCachedCommandOutput,
-  getCachedPs,
-  getCachedPsAsync,
-  clearProcessCache,
-  countOrphanCandidates,
-} from "./proc-cache.ts";
+import { getCachedPs, clearProcessCache, countOrphanCandidates } from "./proc-cache.ts";
+
+const decoder = new TextDecoder();
 
 // Re-export for consumers that imported clearProcessCache from here
 export { clearProcessCache };
@@ -142,26 +138,28 @@ function getRssByPattern(pattern: RegExp): number {
 }
 
 export function isDockerDesktopRunning(): boolean {
-  return getCachedCommandOutput("pgrep", ["-lf", "Docker|com.docker"]).trim().length > 0;
+  const output = decoder.decode(Bun.spawnSync(["pgrep", "-lf", "Docker|com.docker"]).stdout);
+  return output.trim().length > 0;
 }
 
 export function isDockerCliInstalled(): boolean {
-  return Bun.which("docker") != null;
+  try {
+    const out = decoder.decode(Bun.spawnSync(["which", "docker"]).stdout);
+    return out.trim().length > 0;
+  } catch {
+    return false;
+  }
 }
 
 export function isSyncDaemonRunning(): boolean {
-  return getCachedCommandOutput("pgrep", ["-lf", "sync-to-desktop"]).trim().length > 0;
+  const output = decoder.decode(Bun.spawnSync(["pgrep", "-lf", "sync-to-desktop"]).stdout);
+  return output.trim().length > 0;
 }
 
 // countOrphanCandidates re-exported from proc-cache.ts above
 
 export async function runSystemMemoryChecks(): Promise<MemoryCheckResult[]> {
   const results: MemoryCheckResult[] = [];
-
-  await Promise.all([
-    getCachedPsAsync(["-axo", "rss,command"]),
-    getCachedPsAsync(["-axo", "pid=,pcpu=,etimes=,command="]),
-  ]);
   let pressurePct: number | null = null;
 
   try {

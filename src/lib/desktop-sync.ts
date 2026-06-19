@@ -2,11 +2,9 @@
  * Canonical repo → ~/.kimi-code/ sync (single source of truth).
  */
 
-import { listDir, pathExists, pathStat } from "./bun-io.ts";
-
+import { existsSync } from "fs";
 import { dirname, join } from "path";
-import { provisionDesktopRuntimeDeps } from "./desktop-runtime-deps.ts";
-import { ensureDir, sha256File } from "./utils.ts";
+import { ensureDir } from "./utils.ts";
 import {
   desktopRoot as _desktopRoot,
   agentsSkillsRoot,
@@ -22,6 +20,8 @@ import {
 } from "./paths.ts";
 
 export const desktopRoot = _desktopRoot;
+
+/** @deprecated Resolve dynamically with agentsSkillsRoot() instead. */
 export const AGENTS_SKILLS_ROOT = agentsSkillsRoot();
 
 /** @deprecated Use skillsDir() from paths.ts instead. */
@@ -34,8 +34,6 @@ export const ROOT_TEMPLATES = [
   "CODE_REFERENCES.md",
   "UNIFIED.md",
   "TEMPLATES.md",
-  "DEEP-QUALITY.md",
-  "canonical-references.json",
   "CONTRIBUTING.md",
   "dx.config.toml",
   "kimi-toolchain.code-workspace",
@@ -52,7 +50,6 @@ export const LABEL_PREFIX = {
   SCRIPTS: "scripts/",
   KIMI_HOOKS: "kimi-hooks/",
   TEMPLATES: "templates/",
-  DOCS_REFERENCES: "docs/references/",
   AGENTS_SKILL: "agents-skill/",
   KIMI_SKILL: "kimi-skill/",
 } as const;
@@ -70,6 +67,9 @@ export interface DesktopPaths {
   kimiHooksDst: string;
   templatesSrc: string;
   templatesDst: string;
+  skillSrc: string;
+  skillDst: string;
+  kimiSkillDst: string;
 }
 
 export function resolveDesktopPaths(repoRoot: string): DesktopPaths {
@@ -87,6 +87,9 @@ export function resolveDesktopPaths(repoRoot: string): DesktopPaths {
     kimiHooksDst: kimiHooksDir(),
     templatesSrc: join(repoRoot, "templates"),
     templatesDst: join(dRoot, "templates"),
+    skillSrc: join(repoRoot, "skills", "kimi-toolchain"),
+    skillDst: join(agentsSkillsRoot(), "kimi-toolchain"),
+    kimiSkillDst: join(skillsDir(), "kimi-toolchain"),
   };
 }
 
@@ -112,18 +115,12 @@ export interface SyncFileResult {
   skipped: number;
 }
 
-function sha256Bytes(bytes: ArrayBuffer): string {
-  const hasher = new Bun.CryptoHasher("sha256");
-  hasher.update(bytes);
-  return hasher.digest("hex");
-}
-
-async function sha256FileOrNull(path: string): Promise<string | null> {
+async function readTextOrNull(path: string): Promise<string | null> {
   try {
-    if (!pathExists(path)) return null;
-    return await sha256File(path);
+    return await Bun.file(path).text();
   } catch {
-    // File unreadable — treat as missing for sync idempotency.
+    // File not found or unreadable — expected when destination does not exist yet.
+    // Permission errors are intentionally treated as "missing" for sync idempotency.
     return null;
   }
 }
@@ -133,30 +130,19 @@ async function copyIfChanged(
   dstPath: string,
   label: string,
   force: boolean,
-  dryRun: boolean,
   result: SyncFileResult
 ): Promise<void> {
-  let srcBytes: ArrayBuffer;
-  try {
-    srcBytes = await Bun.file(srcPath).arrayBuffer();
-  } catch {
-    return;
-  }
+  const srcText = await readTextOrNull(srcPath);
+  if (srcText === null) return;
 
-  const srcHash = sha256Bytes(srcBytes);
-  if (!force) {
-    const dstHash = await sha256FileOrNull(dstPath);
-    if (dstHash === srcHash) {
-      result.skipped++;
-      return;
-    }
-  }
-
-  if (!dryRun) {
+  const dstText = await readTextOrNull(dstPath);
+  if (force || srcText !== dstText) {
     ensureDir(dirname(dstPath));
-    await Bun.write(dstPath, srcBytes);
+    await Bun.write(dstPath, srcText);
+    result.updated.push(label);
+  } else {
+    result.skipped++;
   }
-  result.updated.push(label);
 }
 
 async function syncGlobDirectory(
@@ -165,7 +151,6 @@ async function syncGlobDirectory(
   labelPrefix: string,
   globPattern: string,
   force: boolean,
-  dryRun: boolean,
   result: SyncFileResult
 ): Promise<void> {
   const glob = new Bun.Glob(globPattern);
@@ -175,7 +160,6 @@ async function syncGlobDirectory(
       join(dstDir, file),
       `${labelPrefix}${file}`,
       force,
-      dryRun,
       result
     );
   }
@@ -184,154 +168,94 @@ async function syncGlobDirectory(
 /** Sync managed sources from repo to desktop install. */
 export async function syncDesktop(
   repoRoot: string,
-  options: { force?: boolean; dryRun?: boolean } = {}
+  options: { force?: boolean } = {}
 ): Promise<SyncFileResult> {
   const force = options.force ?? false;
-  const dryRun = options.dryRun ?? false;
   const paths = resolveDesktopPaths(repoRoot);
   const result: SyncFileResult = { updated: [], removed: [], skipped: 0 };
 
-  if (!dryRun) ensureDesktopLayout();
+  ensureDesktopLayout();
 
-  await syncGlobDirectory(
-    paths.binSrc,
-    paths.binDst,
-    LABEL_PREFIX.TOOLS,
-    "*.ts",
-    force,
-    dryRun,
-    result
-  );
-  await syncGlobDirectory(
-    paths.libSrc,
-    paths.libDst,
-    LABEL_PREFIX.LIB,
-    "**/*.ts",
-    force,
-    dryRun,
-    result
-  );
+  await syncGlobDirectory(paths.binSrc, paths.binDst, LABEL_PREFIX.TOOLS, "*.ts", force, result);
+  await syncGlobDirectory(paths.libSrc, paths.libDst, LABEL_PREFIX.LIB, "**/*.ts", force, result);
 
-  if (pathExists(paths.scriptsSrc)) {
+  if (existsSync(paths.scriptsSrc)) {
     await syncGlobDirectory(
       paths.scriptsSrc,
       paths.scriptsDst,
       LABEL_PREFIX.SCRIPTS,
       "*.ts",
       force,
-      dryRun,
       result
     );
   }
 
-  if (pathExists(paths.kimiHooksSrc)) {
+  if (existsSync(paths.kimiHooksSrc)) {
     await syncGlobDirectory(
       paths.kimiHooksSrc,
       paths.kimiHooksDst,
       LABEL_PREFIX.KIMI_HOOKS,
       "*.ts",
       force,
-      dryRun,
       result
     );
   }
 
-  if (pathExists(paths.templatesSrc)) {
+  if (existsSync(paths.templatesSrc)) {
     await syncGlobDirectory(
       paths.templatesSrc,
       paths.templatesDst,
       LABEL_PREFIX.TEMPLATES,
       "**/*",
       force,
-      dryRun,
-      result
-    );
-  }
-
-  const docsReferencesSrc = join(repoRoot, "docs", "references");
-  if (pathExists(docsReferencesSrc)) {
-    await syncGlobDirectory(
-      docsReferencesSrc,
-      join(desktopRoot(), "docs", "references"),
-      LABEL_PREFIX.DOCS_REFERENCES,
-      "*.md",
-      force,
-      dryRun,
       result
     );
   }
 
   for (const doc of ROOT_TEMPLATES) {
-    await copyIfChanged(join(repoRoot, doc), join(desktopRoot(), doc), doc, force, dryRun, result);
+    await copyIfChanged(join(repoRoot, doc), join(desktopRoot(), doc), doc, force, result);
   }
 
   for (const file of OPTIONAL_CONFIG_FILES) {
     const srcPath = join(repoRoot, file);
     const dstPath = join(desktopRoot(), file);
     if (force) {
-      await copyIfChanged(srcPath, dstPath, file, true, dryRun, result);
-    } else if (!pathExists(dstPath) && pathExists(srcPath)) {
-      if (!dryRun) await Bun.write(dstPath, await Bun.file(srcPath).text());
+      await copyIfChanged(srcPath, dstPath, file, true, result);
+    } else if (!existsSync(dstPath) && existsSync(srcPath)) {
+      await Bun.write(dstPath, await Bun.file(srcPath).text());
       result.updated.push(file);
     }
   }
 
-  // Sync all skill directories under skills/
-  const skillsSrc = join(repoRoot, "skills");
-  if (pathExists(skillsSrc)) {
-    const agentsRoot = agentsSkillsRoot();
-    const kimiSkillsRoot = skillsDir();
-    for (const skillName of listDir(skillsSrc)) {
-      const skillSrcDir = join(skillsSrc, skillName);
-      if (!pathExists(skillSrcDir)) continue;
-      try {
-        if (!pathStat(skillSrcDir).isDirectory()) continue;
-      } catch {
-        continue;
-      }
-      const agentsDst = join(agentsRoot, skillName);
-      const kimiDst = join(kimiSkillsRoot, skillName);
-      const skillGlob = new Bun.Glob("**/*");
-      for await (const rel of skillGlob.scan({ cwd: skillSrcDir, onlyFiles: true })) {
-        await copyIfChanged(
-          join(skillSrcDir, rel),
-          join(agentsDst, rel),
-          `${LABEL_PREFIX.AGENTS_SKILL}${skillName}/${rel}`,
-          force,
-          dryRun,
-          result
-        );
-        await copyIfChanged(
-          join(skillSrcDir, rel),
-          join(kimiDst, rel),
-          `${LABEL_PREFIX.KIMI_SKILL}${skillName}/${rel}`,
-          force,
-          dryRun,
-          result
-        );
-      }
+  if (existsSync(paths.skillSrc)) {
+    const skillGlob = new Bun.Glob("**/*");
+    for await (const rel of skillGlob.scan({ cwd: paths.skillSrc, onlyFiles: true })) {
+      await copyIfChanged(
+        join(paths.skillSrc, rel),
+        join(paths.skillDst, rel),
+        `${LABEL_PREFIX.AGENTS_SKILL}${rel}`,
+        force,
+        result
+      );
+      await copyIfChanged(
+        join(paths.skillSrc, rel),
+        join(paths.kimiSkillDst, rel),
+        `${LABEL_PREFIX.KIMI_SKILL}${rel}`,
+        force,
+        result
+      );
     }
   }
 
   for (const orphan of TOOL_ORPHANS) {
     const orphanPath = join(paths.binDst, orphan);
-    if (pathExists(orphanPath)) {
-      if (!dryRun) {
-        try {
-          await Bun.file(orphanPath).delete();
-        } catch {
-          // Ignore deletion failures (e.g., permission denied).
-        }
+    if ((await readTextOrNull(orphanPath)) !== null) {
+      try {
+        await Bun.file(orphanPath).delete();
+      } catch {
+        // Ignore deletion failures (e.g., permission denied).
       }
       result.removed.push(`${LABEL_PREFIX.TOOLS}${orphan}`);
-    }
-  }
-
-  if (!dryRun) {
-    const deps = await provisionDesktopRuntimeDeps();
-    if (deps.installed) {
-      result.updated.push("package.json");
-      result.updated.push("node_modules/");
     }
   }
 

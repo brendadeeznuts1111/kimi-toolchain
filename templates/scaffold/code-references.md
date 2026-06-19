@@ -5,22 +5,20 @@ Use this file to map good local examples before future agents add code. Replace 
 ## Read Order
 
 1. Read `CONTEXT.md` for the domain model and current architecture.
-2. Read `~/.kimi-code/canonical-references.json` for cached ecosystem links (Bun, Effect, Kimi Code, Herdr).
-3. Read this file for local implementation examples.
-4. If this file is incomplete, use `~/.kimi-code/CODE_REFERENCES.md` as fallback guidance.
-5. Pick the closest existing local implementation before writing a new pattern.
+2. Read this file for local implementation examples.
+3. If this file is incomplete, use `~/.kimi-code/CODE_REFERENCES.md` as fallback guidance.
+4. Pick the closest existing local implementation before writing a new pattern.
 
 ## Local Exemplars
 
-| Need                    | Local reference          | Notes                                                     |
-| ----------------------- | ------------------------ | --------------------------------------------------------- |
-| App entrypoint          | `src/index.ts`           | Replace with the real entrypoint                          |
-| Quality gate scripts    | `scripts/check.ts`       | Gate runner pattern for format/lint/test                  |
-| Finish-work (toolchain) | `scripts/finish-work.ts` | Toolchain profile only — gates + optional git             |
-| Config parsing          | `dx.config.toml`         | Prefer narrow interfaces and parser checks                |
-| Logging/status output   | `scripts/check.ts`       | Scripts use gate-runner; CLIs: see global CODE_REFERENCES |
-| External API client     | `src/api.ts`             | Keep retries/timeouts explicit                            |
-| Tests                   | `test/`                  | Match local test style and fixtures                       |
+| Need                   | Local reference    | Notes                                                   |
+| ---------------------- | ------------------ | ------------------------------------------------------- |
+| App entrypoint         | `src/index.ts`     | Replace with the real entrypoint                        |
+| CLI or script boundary | `scripts/check.ts` | Replace with the real script pattern                    |
+| Config parsing         | `src/config.ts`    | Prefer narrow interfaces and parser checks              |
+| Logging/status output  | `src/logger.ts`    | Prefer existing logger/helper before raw console output |
+| External API client    | `src/api.ts`       | Keep retries/timeouts explicit                          |
+| Tests                  | `test/`            | Match local test style and fixtures                     |
 
 ## Effect and Schema Guidance
 

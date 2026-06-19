@@ -2,16 +2,12 @@
  * effect/tool-runner-effect.ts — Effect-based tool invocation with typed errors.
  */
 
-import { pathExists } from "../bun-io.ts";
-
 import { Effect } from "effect";
+import { existsSync } from "fs";
 import { join } from "path";
 import {
-  invokeCommand,
   invokeTool,
-  spawnBun,
   toolsDir,
-  type CommandInvocationOptions,
   type ToolInvocation,
   type ToolInvocationOptions,
 } from "../tool-runner.ts";
@@ -25,7 +21,7 @@ function mapInvocationResult(
   result: ToolInvocation,
   gracePeriodMs: number
 ): Effect.Effect<ToolInvocationWithTaxonomy, ToolTimeout | ExitNonZero> {
-  if (result.timedOut) {
+  if (result.error?.includes("timed out")) {
     return Effect.fail(
       new ToolTimeout({
         tool: result.tool,
@@ -40,11 +36,6 @@ function mapInvocationResult(
         tool: result.tool,
         exitCode: result.exitCode,
         stderr: result.stderr || result.error || "",
-        ...(result.taxonomyId ? { taxonomyId: result.taxonomyId } : {}),
-        ...(result.suggestion ? { suggestion: result.suggestion } : {}),
-        ...(result.autoFix ? { autoFix: result.autoFix } : {}),
-        ...(result.stdoutTruncated ? { stdoutTruncated: result.stdoutTruncated } : {}),
-        ...(result.stderrTruncated ? { stderrTruncated: result.stderrTruncated } : {}),
       })
     );
   }
@@ -54,63 +45,10 @@ function mapInvocationResult(
         tool: result.tool,
         exitCode: result.exitCode,
         stderr: result.error,
-        ...(result.taxonomyId ? { taxonomyId: result.taxonomyId } : {}),
-        ...(result.suggestion ? { suggestion: result.suggestion } : {}),
-        ...(result.autoFix ? { autoFix: result.autoFix } : {}),
-        ...(result.stdoutTruncated ? { stdoutTruncated: result.stdoutTruncated } : {}),
-        ...(result.stderrTruncated ? { stderrTruncated: result.stderrTruncated } : {}),
       })
     );
   }
   return Effect.succeed(result);
-}
-
-/**
- * Invoke an arbitrary command through the Effect boundary.
- * Non-zero exit codes remain success so callers can parse stdout/stderr (plugins, MCP).
- */
-export function invokeCommandEffect(
-  command: string[],
-  options: CommandInvocationOptions = {}
-): Effect.Effect<ToolInvocationWithTaxonomy, ToolTimeout | ToolNotFound | ExitNonZero> {
-  if (command.length === 0) {
-    return Effect.fail(new ToolNotFound({ tool: "(empty)", path: "" }));
-  }
-  const gracePeriodMs = options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
-  const tool = options.tool ?? command[0] ?? "";
-  return Effect.tryPromise({
-    try: () => invokeCommand(command, options),
-    catch: (e) =>
-      new ExitNonZero({
-        tool,
-        exitCode: -1,
-        stderr: e instanceof Error ? e.message : String(e),
-      }),
-  }).pipe(
-    Effect.flatMap(
-      (result): Effect.Effect<ToolInvocationWithTaxonomy, ToolTimeout | ExitNonZero> => {
-        if (result.timedOut) {
-          return Effect.fail(
-            new ToolTimeout({
-              tool: result.tool,
-              timeoutMs: result.timeoutMs,
-              gracePeriodMs,
-            })
-          );
-        }
-        if (result.isError && result.error) {
-          return Effect.fail(
-            new ExitNonZero({
-              tool: result.tool,
-              exitCode: result.exitCode,
-              stderr: result.error,
-            })
-          );
-        }
-        return Effect.succeed(result);
-      }
-    )
-  );
 }
 
 /** Invoke a tool by path; taxonomy enrichment happens in invokeTool(). */
@@ -126,18 +64,6 @@ export function invokeToolEffect(
   }).pipe(Effect.flatMap((result) => mapInvocationResult(result, gracePeriodMs)));
 }
 
-/** Spawn `bun` with `--no-orphans` through the Effect boundary. */
-export function spawnBunEffect(
-  args: string[],
-  options: ToolInvocationOptions = {}
-): Effect.Effect<ToolInvocationWithTaxonomy, ToolRunnerError> {
-  const gracePeriodMs = options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
-  return Effect.tryPromise({
-    try: () => spawnBun(args, options),
-    catch: () => new ToolNotFound({ tool: "bun", path: "bun" }),
-  }).pipe(Effect.flatMap((result) => mapInvocationResult(result, gracePeriodMs)));
-}
-
 /** Run a toolchain tool by short name with typed not-found errors. */
 export function runToolEffect(
   toolName: string,
@@ -145,7 +71,7 @@ export function runToolEffect(
   options?: ToolInvocationOptions
 ): Effect.Effect<ToolInvocationWithTaxonomy, ToolRunnerError> {
   const toolPath = join(toolsDir(), `${toolName}.ts`);
-  if (!pathExists(toolPath)) {
+  if (!existsSync(toolPath)) {
     return Effect.fail(new ToolNotFound({ tool: toolName, path: toolPath }));
   }
   return invokeToolEffect(toolPath, args, options);

@@ -1,841 +1,838 @@
 /**
- * Decision Ledger — active justification engine with linked evidence and rationale generation.
- * Persists to {projectRoot}/.kimi/decisions.ndjson (v2). Reads legacy v1 JSONL for compat.
+ * Append-only decision ledger for `kimi-decision` and `kimi-why`.
  */
 
-import { Effect } from "effect";
-import { appendNdjsonRecord, readNdjsonFile, rewriteNdjsonFile } from "./ndjson.ts";
-import { decisionLedgerPath, decisionsNdjsonPath } from "./paths.ts";
+import { Context, Data, Effect, Layer } from "effect";
+import { decisionLedgerPath } from "./paths.ts";
+import { sha256String } from "./utils.ts";
 import { ensureProcessTrace } from "./effect/trace-context.ts";
-import { readFailureTraceRecords, readTraceEvents } from "./trace-ledger.ts";
-import { readClusterMetadata } from "./failure-ledger.ts";
-import { resolveProjectRoot, safeParse, sha256String } from "./utils.ts";
+import { buildTraceGraph, type TraceGraph } from "./trace-ledger.ts";
+import { appendNdjsonRecord, readNdjsonFile } from "./ndjson.ts";
+import {
+  buildDecisionRationale,
+  buildDecisionRationaleEffect,
+  type RationaleBuildContext,
+} from "./decision-rationale.ts";
 
-export const DECISION_SCHEMA_VERSION = 2;
+export type { RationaleBuildContext } from "./decision-rationale.ts";
+export { buildDecisionRationale, buildDecisionRationaleEffect } from "./decision-rationale.ts";
 
-export type DecisionActor = "kimi" | "user" | "ci";
-
-export type DecisionAction =
-  | "heal"
-  | "contract-sign"
-  | "hook-register"
-  | "config-change"
-  | "capability-degrade";
-
-export type DecisionOutcomeResult = "success" | "failure" | "unknown" | "pending" | "skipped";
-
-export type DecisionEvidenceType = "traceStep" | "error" | "contractDiff" | "cluster" | "decision";
+export type DecisionSchemaVersion = 1 | 2;
+export type DecisionActor = "kimi" | "user" | "ci" | (string & {});
+export type DecisionOutcome = "success" | "failure" | "unknown" | (string & {});
+export type AlternativeFeasibility = "low" | "medium" | "high";
 
 export interface DecisionEvidence {
-  type: DecisionEvidenceType;
+  type: "traceStep" | "error" | "contractDiff" | "cluster" | "playbook" | "capability";
   traceId?: string;
   stepIndex?: number;
   errorId?: string;
   oldHash?: string;
   newHash?: string;
   clusterId?: string;
-  decisionId?: string;
+  playbookTitle?: string;
+  contractFile?: string;
+  capabilityItem?: string;
   detail?: string;
 }
 
-export interface DecisionAlternative {
-  action: string;
-  feasibility: "low" | "medium" | "high";
-  reason?: string;
-}
-
-export interface DecisionOutcomeProof {
-  type: "cluster-dissolved" | "capability-restored" | "drift-resolved" | "health-probe" | "manual";
-  detail: string;
-}
-
-export interface DecisionOutcome {
-  result: DecisionOutcomeResult;
-  verifiedAt?: string;
-  proof?: DecisionOutcomeProof;
-}
-
-export interface DecisionTrigger {
-  traceId: string;
-  clusterId?: string;
-  contractFile?: string;
-  hookName?: string;
-  capabilityItem?: string;
-  errorId?: string;
-}
-
-export interface DecisionRationale {
+export interface DecisionRationaleBlock {
   summary: string;
   fullReasoning: string;
   evidence: DecisionEvidence[];
 }
 
-export interface Decision {
-  schemaVersion: typeof DECISION_SCHEMA_VERSION;
+export interface DecisionTriggerContext {
+  summary: string;
+  traceId?: string;
+  clusterId?: string;
+  contractFile?: string;
+  hookName?: string;
+  capabilityItem?: string;
+}
+
+export interface DecisionAlternativeOption {
+  action: string;
+  feasibility: AlternativeFeasibility;
+  reason?: string;
+}
+
+export interface DecisionOutcomeProof {
+  type: string;
+  detail?: string;
+}
+
+export interface DecisionOutcomeBlock {
+  result: DecisionOutcome;
+  verifiedAt?: string;
+  proof?: DecisionOutcomeProof;
+}
+
+export interface DecisionRecord {
+  schemaVersion: DecisionSchemaVersion;
   decisionId: string;
+  id: string;
+  key: string;
   timestamp: string;
   actor: DecisionActor;
-  action: DecisionAction;
-  trigger: DecisionTrigger;
-  rationale: DecisionRationale;
-  alternatives: DecisionAlternative[];
-  outcome: DecisionOutcome;
+  action: string;
+  trigger: DecisionTriggerContext;
+  clusterId?: string;
+  rationale: DecisionRationaleBlock;
+  alternatives: DecisionAlternativeOption[];
+  outcome: DecisionOutcomeBlock;
+  traceId?: string;
+  parentTraceId?: string;
   parentDecisionId?: string;
+  childDecisionIds: string[];
+  capabilitySnapshotId?: string;
+  qualityScore?: number;
+  metadata?: Record<string, unknown>;
+  /** Legacy alias for rationale.fullReasoning. */
+  reasoning: string;
+  /** Legacy alias for alternatives[].action. */
+  alternativesConsidered: string[];
+}
+
+export interface DecisionInput {
+  decisionId?: string;
+  key: string;
+  actor?: DecisionActor;
+  action: string;
+  trigger?: string;
+  triggerContext?: Partial<DecisionTriggerContext>;
+  clusterId?: string;
+  rationale?: string;
+  reasoning?: string;
+  rationaleContext?: RationaleBuildContext;
+  rationaleBlock?: DecisionRationaleBlock;
+  alternativesConsidered?: string[];
+  alternatives?: string[];
+  alternativeOptions?: DecisionAlternativeOption[];
+  outcome?: DecisionOutcome | string;
+  outcomeDetail?: DecisionOutcomeBlock;
+  traceId?: string;
+  parentTraceId?: string;
+  parentDecisionId?: string;
+  capabilitySnapshotId?: string;
   qualityScore?: number;
   metadata?: Record<string, unknown>;
 }
 
-/** Legacy v1 shape — read-only compat from ~/.kimi-code/var/decision-ledger.jsonl */
-export interface LegacyDecisionRecord {
-  schemaVersion: 1;
-  id: string;
-  key: string;
-  action: string;
-  trigger: string;
-  reasoning: string;
-  alternatives: string[];
-  outcome: string;
-  timestamp: string;
-  traceId?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface DecisionInput {
-  action: DecisionAction;
-  trigger: DecisionTrigger;
-  actor?: DecisionActor;
-  parentDecisionId?: string;
-  alternatives?: DecisionAlternative[];
-  outcome?: DecisionOutcome;
-  metadata?: Record<string, unknown>;
-  /** Override auto-generated rationale */
-  rationaleOverride?: Partial<DecisionRationale>;
-}
-
-export interface DecisionGraphNode {
-  decision: Decision;
-  children: DecisionGraphNode[];
-}
-
-export interface DecisionGraph {
-  traceId: string;
-  roots: DecisionGraphNode[];
-  nodes: Decision[];
-  edges: Array<{ from: string; to: string }>;
-}
-
-export interface DecisionSuggestion {
-  decisionId: string;
-  action: DecisionAction;
-  confidence: number;
-  qualityScore: number;
-  summary: string;
-  playbookId?: string;
-  clusterId?: string;
-}
-
-export interface RationaleContext {
-  projectRoot: string;
-  playbookId?: string;
-  clusterCount?: number;
-  priorSuccessDecisionIds?: string[];
-  contractDiff?: { file: string; oldHash: string; newHash: string };
-  capabilityDetail?: string;
-}
-
-export interface RecentDecisionFilter {
-  sinceMs?: number;
-  nowMs?: number;
-  type?: string;
-  constantKey?: string;
+export interface DecisionQueryFilters {
   limit?: number;
+  action?: string;
+  cluster?: string;
+  since?: string;
+  actor?: string;
+  outcome?: string;
 }
 
-function isDecision(value: unknown): value is Decision {
-  return (
-    !!value &&
-    typeof value === "object" &&
-    (value as Decision).schemaVersion === DECISION_SCHEMA_VERSION &&
-    typeof (value as Decision).decisionId === "string"
-  );
+export interface DecisionExplanation {
+  query: string;
+  matches: DecisionRecord[];
+  latest?: DecisionRecord;
+  trace?: TraceGraph;
+  rootCauseChain: string[];
+  followUps: DecisionRecord[];
 }
 
-function isLegacyDecision(value: unknown): value is LegacyDecisionRecord {
-  return (
-    !!value &&
-    typeof value === "object" &&
-    (value as LegacyDecisionRecord).schemaVersion === 1 &&
-    typeof (value as LegacyDecisionRecord).id === "string"
-  );
+export interface DecisionLedgerOptions {
+  path?: string;
 }
 
-export function resolveDecisionActor(): DecisionActor {
-  if (Bun.env.CI || Bun.env.GITHUB_ACTIONS || Bun.env.GITLAB_CI) return "ci";
-  if (Bun.env.KIMI_USER_DECISION === "1") return "user";
-  return "kimi";
-}
+export class DecisionLedgerReadError extends Data.TaggedError("DecisionLedgerReadError")<{
+  path: string;
+  message: string;
+}> {}
 
-export async function resolveDecisionsPath(projectRoot?: string): Promise<string> {
-  if (projectRoot) return decisionsNdjsonPath(projectRoot);
-  const cwdPath = decisionsNdjsonPath(Bun.cwd);
-  if (await Bun.file(cwdPath).exists()) return cwdPath;
-  const root = await resolveProjectRoot(Bun.cwd);
-  return decisionsNdjsonPath(root);
-}
+export class DecisionLedgerWriteError extends Data.TaggedError("DecisionLedgerWriteError")<{
+  path: string;
+  message: string;
+}> {}
 
-export async function resolveDecisionsRoot(projectRoot?: string): Promise<string> {
-  if (projectRoot) return projectRoot;
-  const cwdPath = decisionsNdjsonPath(Bun.cwd);
-  if (await Bun.file(cwdPath).exists()) return Bun.cwd;
-  return resolveProjectRoot(Bun.cwd);
-}
-
-function createDecisionId(input: {
-  action: DecisionAction;
-  traceId: string;
-  timestamp: string;
-}): string {
-  return `dec-${sha256String(JSON.stringify(input)).slice(0, 16)}`;
-}
-
-export function defaultAlternativesForAction(action: DecisionAction): DecisionAlternative[] {
-  switch (action) {
-    case "heal":
-      return [
-        { action: "manual-fix", feasibility: "low", reason: "Operator handles root cause" },
-        { action: "rollback-contract", feasibility: "medium", reason: "Revert signed baseline" },
-        { action: "defer", feasibility: "high", reason: "Wait for more cluster evidence" },
-      ];
-    case "contract-sign":
-      return [
-        { action: "drift-heal", feasibility: "medium", reason: "Regenerate without signing" },
-        { action: "ignore-drift", feasibility: "low", reason: "Accept temporary mismatch" },
-      ];
-    case "hook-register":
-      return [{ action: "skip-hooks", feasibility: "medium", reason: "Install later manually" }];
-    case "config-change":
-      return [{ action: "keep-current", feasibility: "high", reason: "No config mutation" }];
-    case "capability-degrade":
-      return [
-        { action: "force-retry", feasibility: "medium", reason: "Retry capability probe" },
-        { action: "disable-service", feasibility: "low", reason: "Remove from manifest" },
-      ];
-    default:
-      return [];
+export class DecisionLogger extends Context.Tag("DecisionLogger")<
+  DecisionLogger,
+  {
+    readonly buildRationale: (
+      context: RationaleBuildContext
+    ) => Effect.Effect<DecisionRationaleBlock>;
+    readonly logDecision: (
+      decision: DecisionInput
+    ) => Effect.Effect<DecisionRecord, DecisionLedgerWriteError>;
+    readonly recordAction: (
+      decision: Omit<DecisionInput, "traceId" | "parentTraceId">
+    ) => Effect.Effect<DecisionRecord, DecisionLedgerWriteError>;
+    readonly list: (
+      filters?: DecisionQueryFilters
+    ) => Effect.Effect<DecisionRecord[], DecisionLedgerReadError>;
+    readonly why: (query: string) => Effect.Effect<DecisionExplanation, DecisionLedgerReadError>;
   }
+>() {}
+
+export function DecisionLoggerLive(options: DecisionLedgerOptions = {}) {
+  return Layer.succeed(DecisionLogger, makeDecisionLogger(options));
 }
 
-export function generateRationaleEffect(
-  input: DecisionInput,
-  context: RationaleContext
-): Effect.Effect<DecisionRationale, never> {
-  return Effect.tryPromise({
-    try: () => generateRationale(input, context),
-    catch: () => "rationale-failed",
-  }).pipe(
-    Effect.catchAll(() =>
-      Effect.succeed({
-        summary: `${input.action} on trace ${input.trigger.traceId}`,
-        fullReasoning: `Automated ${input.action} for trace ${input.trigger.traceId}.`,
-        evidence: [{ type: "traceStep" as const, traceId: input.trigger.traceId }],
-      })
-    )
-  );
-}
-
-export async function generateRationale(
-  input: DecisionInput,
-  context: RationaleContext
-): Promise<DecisionRationale> {
-  if (input.rationaleOverride?.summary && input.rationaleOverride.fullReasoning) {
-    return {
-      summary: input.rationaleOverride.summary,
-      fullReasoning: input.rationaleOverride.fullReasoning,
-      evidence: input.rationaleOverride.evidence ?? [],
-    };
-  }
-
-  const evidence: DecisionEvidence[] = [{ type: "traceStep", traceId: input.trigger.traceId }];
-  if (input.trigger.errorId) evidence.push({ type: "error", errorId: input.trigger.errorId });
-  if (input.trigger.clusterId) {
-    evidence.push({ type: "cluster", clusterId: input.trigger.clusterId });
-  }
-  if (context.contractDiff) {
-    evidence.push({
-      type: "contractDiff",
-      oldHash: context.contractDiff.oldHash,
-      newHash: context.contractDiff.newHash,
-      detail: context.contractDiff.file,
-    });
-  }
-  for (const priorId of context.priorSuccessDecisionIds ?? []) {
-    evidence.push({ type: "decision", decisionId: priorId });
-  }
-
-  let summary = "";
-  let fullReasoning = "";
-
-  switch (input.action) {
-    case "heal": {
-      const playbook = context.playbookId ?? "auto-heal";
-      const cluster = input.trigger.clusterId ?? "unclustered";
-      const count = context.clusterCount ?? 0;
-      const priors = context.priorSuccessDecisionIds ?? [];
-      const priorText =
-        priors.length > 0
-          ? ` This playbook resolved the same cluster successfully ${priors.length} time(s) before (${priors.slice(0, 3).join(", ")}).`
-          : "";
-      summary = `Applied playbook ${playbook} for cluster ${cluster}`;
-      fullReasoning =
-        `Applied playbook \`${playbook}\` because error cluster \`${cluster}\` had ${count} occurrence(s) in trace \`${input.trigger.traceId}\`, and automated heal was deemed safe.${priorText}`.trim();
-      break;
-    }
-    case "contract-sign": {
-      const file = input.trigger.contractFile ?? context.contractDiff?.file ?? "contract";
-      summary = `Re-signed contract ${file} after drift detection`;
-      fullReasoning = context.contractDiff
-        ? `Contract \`${file}\` was re-signed because drift was detected (hash ${context.contractDiff.oldHash.slice(0, 8)} → ${context.contractDiff.newHash.slice(0, 8)}). No breaking changes assumed for consumers.`
-        : `Contract \`${file}\` was re-signed to baseline intentional drift on trace \`${input.trigger.traceId}\`.`;
-      break;
-    }
-    case "hook-register": {
-      const hook = input.trigger.hookName ?? "git-hooks";
-      summary = `Registered hook ${hook}`;
-      fullReasoning = `Registered \`${hook}\` to enforce local quality gates before commit/push (trace \`${input.trigger.traceId}\`).`;
-      break;
-    }
-    case "config-change": {
-      summary = `Updated toolchain configuration`;
-      fullReasoning = `Configuration change recorded on trace \`${input.trigger.traceId}\`${input.trigger.capabilityItem ? ` affecting \`${input.trigger.capabilityItem}\`` : ""}.`;
-      break;
-    }
-    case "capability-degrade": {
-      const item = input.trigger.capabilityItem ?? "service";
-      summary = `Degraded capability ${item}`;
-      fullReasoning =
-        context.capabilityDetail ??
-        `Service \`${item}\` downgraded to degraded because probe failed or credential is expiring. Full validation deferred (trace \`${input.trigger.traceId}\`).`;
-      break;
-    }
-    default:
-      summary = `${input.action} recorded`;
-      fullReasoning = `Recorded ${input.action} for trace ${input.trigger.traceId}.`;
-  }
-
+export function makeDecisionLogger(options: DecisionLedgerOptions = {}) {
+  const path = options.path ?? decisionLedgerPath();
   return {
-    summary: input.rationaleOverride?.summary ?? summary,
-    fullReasoning: input.rationaleOverride?.fullReasoning ?? fullReasoning,
-    evidence: input.rationaleOverride?.evidence ?? evidence,
+    buildRationale: (context: RationaleBuildContext) => buildDecisionRationaleEffect(context),
+    logDecision: (decision: DecisionInput) =>
+      Effect.tryPromise({
+        try: () => recordDecision(decision, path),
+        catch: (cause) =>
+          new DecisionLedgerWriteError({
+            path,
+            message: cause instanceof Error ? cause.message : String(cause),
+          }),
+      }),
+    recordAction: (decision: Omit<DecisionInput, "traceId" | "parentTraceId">) =>
+      Effect.tryPromise({
+        try: () => recordDecision(decision, path),
+        catch: (cause) =>
+          new DecisionLedgerWriteError({
+            path,
+            message: cause instanceof Error ? cause.message : String(cause),
+          }),
+      }),
+    list: (filters: DecisionQueryFilters = {}) =>
+      Effect.tryPromise({
+        try: () => queryDecisionLedger(filters, path),
+        catch: (cause) =>
+          new DecisionLedgerReadError({
+            path,
+            message: cause instanceof Error ? cause.message : String(cause),
+          }),
+      }),
+    why: (query: string) =>
+      Effect.tryPromise({
+        try: () => explainDecision(query, path),
+        catch: (cause) =>
+          new DecisionLedgerReadError({
+            path,
+            message: cause instanceof Error ? cause.message : String(cause),
+          }),
+      }),
   };
 }
 
-export async function logDecision(
-  input: DecisionInput,
-  options: { projectRoot?: string; context?: RationaleContext } = {}
-): Promise<Decision> {
-  const projectRoot = options.projectRoot ?? (await resolveDecisionsRoot());
-  const path = await resolveDecisionsPath(projectRoot);
-  const trace = ensureProcessTrace();
+export function decisionTriggerSummary(record: DecisionRecord): string {
+  return record.trigger.summary;
+}
+
+export function decisionRationaleSummary(record: DecisionRecord): string {
+  return record.rationale.summary;
+}
+
+export function decisionRationaleText(record: DecisionRecord): string {
+  return record.rationale.fullReasoning;
+}
+
+export function decisionOutcomeResult(record: DecisionRecord): string {
+  return record.outcome.result;
+}
+
+export function decisionAlternativeActions(record: DecisionRecord): string[] {
+  return record.alternatives.map((option) => option.action);
+}
+
+export function previewDecisionId(
+  input: Pick<DecisionInput, "key" | "action" | "trigger" | "triggerContext">
+): string {
+  const triggerSummary = input.trigger ?? input.triggerContext?.summary ?? "";
+  return `decision-${sha256String(JSON.stringify({ key: input.key, action: input.action, trigger: triggerSummary })).slice(0, 16)}`;
+}
+
+export function createDecisionRecord(input: DecisionInput): DecisionRecord {
   const timestamp = new Date().toISOString();
-  const trigger: DecisionTrigger = {
-    ...input.trigger,
-    traceId: input.trigger.traceId || trace.traceId,
-  };
-
-  const priorSuccess = input.trigger.clusterId
-    ? (await readDecisions(projectRoot))
-        .filter(
-          (d) =>
-            d.trigger.clusterId === input.trigger.clusterId &&
-            d.outcome.result === "success" &&
-            (d.qualityScore ?? 0) >= 0.7
-        )
-        .map((d) => d.decisionId)
-        .slice(0, 5)
-    : [];
-
-  const context: RationaleContext = {
-    projectRoot,
-    playbookId: (input.metadata?.playbookId as string | undefined) ?? undefined,
-    clusterCount: (input.metadata?.clusterCount as number | undefined) ?? undefined,
-    priorSuccessDecisionIds: priorSuccess,
-    ...options.context,
-  };
-
-  const rationale = await generateRationale(input, context);
-  const decision: Decision = {
-    schemaVersion: DECISION_SCHEMA_VERSION,
-    decisionId: createDecisionId({ action: input.action, traceId: trigger.traceId, timestamp }),
+  const trace = ensureProcessTrace();
+  const trigger = resolveTrigger(input, trace.traceId);
+  const rationale = resolveRationale(input);
+  const alternatives = resolveAlternatives(input);
+  const outcome = resolveOutcome(input);
+  const clusterId = input.clusterId ?? trigger.clusterId;
+  const body = {
+    key: input.key,
+    actor: input.actor ?? "kimi",
+    action: input.action,
+    trigger: trigger.summary,
+    clusterId,
+    rationale: rationale.summary,
+    outcome: outcome.result,
     timestamp,
-    actor: input.actor ?? resolveDecisionActor(),
+  };
+  const decisionId =
+    input.decisionId ?? `decision-${sha256String(JSON.stringify(body)).slice(0, 16)}`;
+  return withLegacyAliases({
+    schemaVersion: 2,
+    decisionId,
+    id: decisionId,
+    key: input.key,
+    timestamp,
+    actor: input.actor ?? "kimi",
     action: input.action,
     trigger,
+    clusterId,
     rationale,
-    alternatives: input.alternatives ?? defaultAlternativesForAction(input.action),
-    outcome: input.outcome ?? { result: "pending" },
+    alternatives,
+    outcome,
+    traceId: input.traceId ?? trigger.traceId ?? trace.traceId,
+    parentTraceId: input.parentTraceId ?? trace.parentTraceId,
     parentDecisionId: input.parentDecisionId,
+    childDecisionIds: [],
+    capabilitySnapshotId: input.capabilitySnapshotId,
+    qualityScore: input.qualityScore,
     metadata: input.metadata,
-  };
-
-  await appendNdjsonRecord(path, decision);
-  return decision;
+  });
 }
 
-export function logDecisionEffect(
+export async function recordDecision(
   input: DecisionInput,
-  options: { projectRoot?: string; context?: RationaleContext } = {}
-): Effect.Effect<Decision, never> {
-  return Effect.tryPromise({
-    try: () => logDecision(input, options),
-    catch: () => "log-decision-failed",
-  }).pipe(
-    Effect.catchAll(() =>
-      Effect.sync(() => {
-        const timestamp = new Date().toISOString();
-        const traceId = input.trigger.traceId || ensureProcessTrace().traceId;
-        return {
-          schemaVersion: DECISION_SCHEMA_VERSION,
-          decisionId: createDecisionId({ action: input.action, traceId, timestamp }),
-          timestamp,
-          actor: input.actor ?? resolveDecisionActor(),
-          action: input.action,
-          trigger: { ...input.trigger, traceId },
-          rationale: {
-            summary: `${input.action} (fallback)`,
-            fullReasoning: "Decision logging failed; fallback record returned.",
-            evidence: [],
-          },
-          alternatives: [],
-          outcome: { result: "unknown" as const },
-        } satisfies Decision;
-      })
-    )
-  );
+  path: string = decisionLedgerPath()
+): Promise<DecisionRecord> {
+  const record = createDecisionRecord(input);
+  await appendNdjsonRecord(path, serializeDecisionRecord(record));
+  return record;
 }
 
-export async function updateDecisionOutcome(
-  decisionId: string,
-  outcome: DecisionOutcome,
-  options: { projectRoot?: string; qualityScore?: number } = {}
-): Promise<Decision | null> {
-  const projectRoot = options.projectRoot ?? (await resolveDecisionsRoot());
-  const path = await resolveDecisionsPath(projectRoot);
-  const records = await readDecisions(projectRoot);
-  const index = records.findIndex((record) => record.decisionId === decisionId);
-  if (index < 0) return null;
-
-  const updated: Decision = {
-    ...records[index],
-    outcome: {
-      ...outcome,
-      verifiedAt: outcome.verifiedAt ?? new Date().toISOString(),
-    },
-    ...(options.qualityScore !== undefined ? { qualityScore: options.qualityScore } : {}),
-  };
-  records[index] = updated;
-  await rewriteNdjsonFile(path, records);
-  return updated;
+export async function readDecisionLedger(
+  path: string = decisionLedgerPath()
+): Promise<DecisionRecord[]> {
+  const records = (await readNdjsonFile<unknown>(path))
+    .map(normalizeDecisionRecord)
+    .filter((record): record is DecisionRecord => !!record)
+    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  return withChildDecisionIds(applyQualityScoreUpdates(records));
 }
 
-export async function updateDecisionQualityScore(
-  decisionId: string,
-  qualityScore: number,
-  projectRoot?: string
-): Promise<Decision | null> {
-  const root = projectRoot ?? (await resolveDecisionsRoot());
-  const path = await resolveDecisionsPath(root);
-  const records = await readDecisions(root);
-  const index = records.findIndex((record) => record.decisionId === decisionId);
-  if (index < 0) return null;
-  records[index] = { ...records[index], qualityScore };
-  await rewriteNdjsonFile(path, records);
-  return records[index];
+export async function queryDecisionLedger(
+  filters: DecisionQueryFilters = {},
+  path: string = decisionLedgerPath()
+): Promise<DecisionRecord[]> {
+  const since = filters.since ? Date.parse(filters.since) : NaN;
+  const records = (await readDecisionLedger(path)).filter((record) => {
+    if (filters.action && record.action !== filters.action) return false;
+    if (filters.cluster && record.clusterId !== filters.cluster) return false;
+    if (filters.actor && record.actor !== filters.actor) return false;
+    if (filters.outcome && record.outcome.result !== filters.outcome) return false;
+    if (Number.isFinite(since) && Date.parse(record.timestamp) < since) return false;
+    return true;
+  });
+  const descending = records.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  return typeof filters.limit === "number" && filters.limit > 0
+    ? descending.slice(0, filters.limit)
+    : descending;
 }
 
-export async function readDecisions(projectRoot?: string): Promise<Decision[]> {
-  const root = projectRoot ?? (await resolveDecisionsRoot());
-  const path = await resolveDecisionsPath(root);
-  const v2 = await readNdjsonFile(path, isDecision);
-  if (v2.length > 0) return v2.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-
-  const legacy = await readLegacyDecisions();
-  return legacy.map(convertLegacyDecision);
-}
-
-async function readLegacyDecisions(): Promise<LegacyDecisionRecord[]> {
-  const path = decisionLedgerPath();
-  const file = Bun.file(path);
-  if (!(await file.exists())) return [];
-  const text = await file.text();
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => safeParse<LegacyDecisionRecord | null>(line, null))
-    .filter((record): record is LegacyDecisionRecord => isLegacyDecision(record));
-}
-
-function convertLegacyDecision(record: LegacyDecisionRecord): Decision {
-  const action = mapLegacyAction(record.action);
+export async function explainDecision(
+  query: string,
+  path: string = decisionLedgerPath()
+): Promise<DecisionExplanation> {
+  const records = await readDecisionLedger(path);
+  const needle = query.toLowerCase();
+  const matches = records
+    .filter((record) => matchesDecision(record, needle))
+    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  const latest = matches[matches.length - 1];
+  const trace = latest ? await traceForDecision(latest) : undefined;
+  const followUps = latest
+    ? records
+        .filter((record) => record.parentDecisionId === latest.decisionId)
+        .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+    : [];
   return {
-    schemaVersion: DECISION_SCHEMA_VERSION,
-    decisionId: record.id,
-    timestamp: record.timestamp,
-    actor: record.metadata?.actor === "user" ? "user" : "kimi",
-    action,
-    trigger: {
-      traceId: record.traceId ?? "legacy-unknown",
-    },
-    rationale: {
-      summary: record.reasoning.slice(0, 120),
-      fullReasoning: record.reasoning,
-      evidence: record.traceId ? [{ type: "traceStep", traceId: record.traceId }] : [],
-    },
-    alternatives: record.alternatives.map((alt) => ({
-      action: alt,
-      feasibility: "medium" as const,
-    })),
-    outcome: {
-      result: mapLegacyOutcome(record.outcome),
-      verifiedAt: record.timestamp,
-    },
-    metadata: { legacy: true, key: record.key, trigger: record.trigger, ...record.metadata },
+    query,
+    matches,
+    latest,
+    trace,
+    rootCauseChain: trace?.rootCauseChain ?? [],
+    followUps,
   };
 }
 
-function mapLegacyAction(action: string): DecisionAction {
-  if (action.includes("heal")) return "heal";
-  if (action.includes("hook")) return "hook-register";
-  if (action.includes("contract")) return "contract-sign";
-  if (action.includes("config") || action.includes("mcp")) return "config-change";
-  if (action.includes("capability")) return "capability-degrade";
-  return "heal";
+function resolveTrigger(input: DecisionInput, fallbackTraceId: string): DecisionTriggerContext {
+  const summary = input.triggerContext?.summary ?? input.trigger ?? "";
+  if (!summary) {
+    throw new Error("DecisionInput requires trigger or triggerContext.summary");
+  }
+  return {
+    summary,
+    traceId: input.triggerContext?.traceId ?? input.traceId ?? fallbackTraceId,
+    clusterId: input.triggerContext?.clusterId ?? input.clusterId,
+    contractFile: input.triggerContext?.contractFile,
+    hookName: input.triggerContext?.hookName,
+    capabilityItem: input.triggerContext?.capabilityItem,
+  };
 }
 
-function mapLegacyOutcome(outcome: string): DecisionOutcomeResult {
-  if (outcome === "success") return "success";
-  if (outcome === "skipped") return "skipped";
-  if (outcome === "failure") return "failure";
-  if (outcome === "pending") return "pending";
+function resolveRationale(input: DecisionInput): DecisionRationaleBlock {
+  if (input.rationaleBlock) return input.rationaleBlock;
+  if (input.rationaleContext) return buildDecisionRationale(input.rationaleContext);
+  const text = input.rationale ?? input.reasoning ?? "";
+  if (!text) {
+    throw new Error(
+      "DecisionInput requires rationale, reasoning, rationaleContext, or rationaleBlock"
+    );
+  }
+  return {
+    summary: firstSentence(text),
+    fullReasoning: text,
+    evidence: [],
+  };
+}
+
+function resolveAlternatives(input: DecisionInput): DecisionAlternativeOption[] {
+  if (input.alternativeOptions?.length) return input.alternativeOptions;
+  const labels = input.alternativesConsidered ?? input.alternatives ?? [];
+  return labels.map((action) => ({ action, feasibility: "medium" as const }));
+}
+
+function resolveOutcome(input: DecisionInput): DecisionOutcomeBlock {
+  if (input.outcomeDetail) return input.outcomeDetail;
+  const result = normalizeOutcomeResult(input.outcome);
+  if (!result) {
+    throw new Error("DecisionInput requires outcome or outcomeDetail");
+  }
+  return { result };
+}
+
+function normalizeOutcomeResult(value: DecisionInput["outcome"]): DecisionOutcome | undefined {
+  if (!value) return undefined;
+  if (value === "success" || value === "failure" || value === "unknown") return value;
+  if (value.toLowerCase().includes("fail")) return "failure";
+  if (value.toLowerCase().includes("success") || value.toLowerCase().includes("applied")) {
+    return "success";
+  }
   return "unknown";
 }
 
-export async function findDecisionById(
-  decisionId: string,
-  projectRoot?: string
-): Promise<Decision | null> {
-  const records = await readDecisions(projectRoot);
-  return records.find((record) => record.decisionId === decisionId) ?? null;
+function firstSentence(text: string): string {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^[^.!?]+[.!?]?/);
+  return (match?.[0] ?? trimmed).trim();
 }
 
-export function buildDecisionGraph(decisions: Decision[], traceId: string): DecisionGraph {
-  const related = decisions.filter(
-    (decision) =>
-      decision.trigger.traceId === traceId ||
-      decision.parentDecisionId !== undefined ||
-      decision.rationale.evidence.some((item) => item.traceId === traceId)
+function withLegacyAliases(
+  record: Omit<DecisionRecord, "reasoning" | "alternativesConsidered">
+): DecisionRecord {
+  return {
+    ...record,
+    reasoning: record.rationale.fullReasoning,
+    alternativesConsidered: record.alternatives.map((option) => option.action),
+  };
+}
+
+function serializeDecisionRecord(record: DecisionRecord): Record<string, unknown> {
+  return {
+    schemaVersion: record.schemaVersion,
+    decisionId: record.decisionId,
+    id: record.id,
+    key: record.key,
+    timestamp: record.timestamp,
+    actor: record.actor,
+    action: record.action,
+    trigger: record.trigger,
+    clusterId: record.clusterId,
+    rationale: record.rationale,
+    alternatives: record.alternatives,
+    outcome: record.outcome,
+    traceId: record.traceId,
+    parentTraceId: record.parentTraceId,
+    parentDecisionId: record.parentDecisionId,
+    childDecisionIds: record.childDecisionIds,
+    capabilitySnapshotId: record.capabilitySnapshotId,
+    qualityScore: record.qualityScore,
+    metadata: record.metadata,
+    reasoning: record.reasoning,
+    alternativesConsidered: record.alternativesConsidered,
+  };
+}
+
+function matchesDecision(record: DecisionRecord, needle: string): boolean {
+  return [
+    record.decisionId,
+    record.id,
+    record.key,
+    record.actor,
+    record.action,
+    record.trigger.summary,
+    record.trigger.traceId,
+    record.trigger.clusterId,
+    record.clusterId,
+    record.rationale.summary,
+    record.rationale.fullReasoning,
+    record.outcome.result,
+    ...record.alternatives.map((option) => option.action),
+  ]
+    .filter(Boolean)
+    .join("\n")
+    .toLowerCase()
+    .includes(needle);
+}
+
+async function traceForDecision(record: DecisionRecord): Promise<TraceGraph | undefined> {
+  const candidates = [record.trigger.traceId, record.trigger.summary, record.traceId].filter(
+    (traceId): traceId is string => typeof traceId === "string" && traceId.length > 0
   );
-
-  const byParent = new Map<string | undefined, Decision[]>();
-  for (const decision of related) {
-    const parent = decision.parentDecisionId;
-    const group = byParent.get(parent) ?? [];
-    group.push(decision);
-    byParent.set(parent, group);
-  }
-
-  const buildNode = (decision: Decision): DecisionGraphNode => ({
-    decision,
-    children: (byParent.get(decision.decisionId) ?? []).map(buildNode),
-  });
-
-  const roots = (byParent.get(undefined) ?? [])
-    .filter((decision) => decision.trigger.traceId === traceId || !decision.parentDecisionId)
-    .map(buildNode);
-
-  const edges: Array<{ from: string; to: string }> = [];
-  for (const decision of related) {
-    if (decision.parentDecisionId) {
-      edges.push({ from: decision.parentDecisionId, to: decision.decisionId });
+  for (const traceId of candidates) {
+    try {
+      const graph = await buildTraceGraph(traceId);
+      if (graph.found) return graph;
+    } catch {
+      // Trace lookup is best-effort for decision explanations.
     }
   }
-
-  return { traceId, roots, nodes: related, edges };
+  return undefined;
 }
 
-export function renderDecisionGraphAscii(graph: DecisionGraph): string {
-  const lines: string[] = [`Decision graph for trace ${graph.traceId}`, ""];
-
-  const walk = (node: DecisionGraphNode, depth: number) => {
-    const indent = "  ".repeat(depth);
-    const score =
-      node.decision.qualityScore !== undefined
-        ? ` score=${node.decision.qualityScore.toFixed(2)}`
-        : "";
-    lines.push(
-      `${indent}• ${node.decision.decisionId} [${node.decision.action}] ${node.decision.rationale.summary}${score}`
-    );
-    for (const child of node.children) walk(child, depth + 1);
-  };
-
-  if (graph.roots.length === 0) {
-    lines.push("(no decisions linked to this trace)");
-  } else {
-    for (const root of graph.roots) walk(root, 0);
+function withChildDecisionIds(records: DecisionRecord[]): DecisionRecord[] {
+  const childIds = new Map<string, string[]>();
+  for (const record of records) {
+    if (!record.parentDecisionId) continue;
+    const existing = childIds.get(record.parentDecisionId) ?? [];
+    existing.push(record.decisionId);
+    childIds.set(record.parentDecisionId, existing);
   }
-  return lines.join("\n");
+  return records.map((record) => ({
+    ...record,
+    childDecisionIds: childIds.get(record.decisionId) ?? [],
+  }));
 }
 
-export async function suggestDecisions(input: {
+export function normalizeDecisionRecord(value: unknown): DecisionRecord | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  if (raw.schemaVersion !== 1 && raw.schemaVersion !== 2) return null;
+
+  const decisionId = stringValue(raw.decisionId) ?? stringValue(raw.id);
+  const key = stringValue(raw.key) ?? decisionId;
+  const action = stringValue(raw.action);
+  const timestamp = stringValue(raw.timestamp);
+  if (!decisionId || !key || !action || !timestamp) return null;
+
+  if (raw.schemaVersion === 2) {
+    return normalizeDecisionRecordV2(raw, decisionId, key, action, timestamp);
+  }
+  return normalizeDecisionRecordV1(raw, decisionId, key, action, timestamp);
+}
+
+function normalizeDecisionRecordV2(
+  raw: Record<string, unknown>,
+  decisionId: string,
+  key: string,
+  action: string,
+  timestamp: string
+): DecisionRecord | null {
+  const trigger = parseTriggerContext(raw.trigger);
+  const rationale = parseRationaleBlock(raw.rationale, raw.reasoning);
+  const alternatives = parseAlternativeOptions(raw.alternatives, raw.alternativesConsidered);
+  const outcome = parseOutcomeBlock(raw.outcome);
+  if (!trigger || !rationale || !outcome) return null;
+
+  return withLegacyAliases({
+    schemaVersion: 2,
+    decisionId,
+    id: decisionId,
+    key,
+    timestamp,
+    actor: stringValue(raw.actor) ?? "kimi",
+    action,
+    trigger,
+    clusterId: stringValue(raw.clusterId) ?? trigger.clusterId,
+    rationale,
+    alternatives,
+    outcome,
+    traceId: stringValue(raw.traceId) ?? trigger.traceId,
+    parentTraceId: stringValue(raw.parentTraceId),
+    parentDecisionId: stringValue(raw.parentDecisionId),
+    childDecisionIds: stringArray(raw.childDecisionIds) ?? [],
+    capabilitySnapshotId: stringValue(raw.capabilitySnapshotId),
+    qualityScore: numberValue(raw.qualityScore),
+    metadata:
+      raw.metadata && typeof raw.metadata === "object"
+        ? (raw.metadata as Record<string, unknown>)
+        : undefined,
+  });
+}
+
+function normalizeDecisionRecordV1(
+  raw: Record<string, unknown>,
+  decisionId: string,
+  key: string,
+  action: string,
+  timestamp: string
+): DecisionRecord | null {
+  const triggerSummary = stringValue(raw.trigger);
+  const rationaleText = stringValue(raw.rationale) ?? stringValue(raw.reasoning);
+  const outcomeResult = normalizeOutcomeResult(stringValue(raw.outcome));
+  if (!triggerSummary || !rationaleText || !outcomeResult) return null;
+
+  const alternatives = (
+    stringArray(raw.alternativesConsidered) ??
+    stringArray(raw.alternatives) ??
+    []
+  ).map((actionLabel) => ({ action: actionLabel, feasibility: "medium" as const }));
+
+  return withLegacyAliases({
+    schemaVersion: 1,
+    decisionId,
+    id: decisionId,
+    key,
+    timestamp,
+    actor: stringValue(raw.actor) ?? "kimi",
+    action,
+    trigger: {
+      summary: triggerSummary,
+      traceId: stringValue(raw.traceId),
+      clusterId: stringValue(raw.clusterId),
+    },
+    clusterId: stringValue(raw.clusterId),
+    rationale: {
+      summary: firstSentence(rationaleText),
+      fullReasoning: rationaleText,
+      evidence: [],
+    },
+    alternatives,
+    outcome: { result: outcomeResult },
+    traceId: stringValue(raw.traceId),
+    parentTraceId: stringValue(raw.parentTraceId),
+    parentDecisionId: stringValue(raw.parentDecisionId),
+    childDecisionIds: stringArray(raw.childDecisionIds) ?? [],
+    capabilitySnapshotId: stringValue(raw.capabilitySnapshotId),
+    qualityScore: numberValue(raw.qualityScore),
+    metadata:
+      raw.metadata && typeof raw.metadata === "object"
+        ? (raw.metadata as Record<string, unknown>)
+        : undefined,
+  });
+}
+
+function parseTriggerContext(value: unknown): DecisionTriggerContext | null {
+  if (typeof value === "string" && value.length > 0) {
+    return { summary: value };
+  }
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  const summary = stringValue(raw.summary);
+  if (!summary) return null;
+  return {
+    summary,
+    traceId: stringValue(raw.traceId),
+    clusterId: stringValue(raw.clusterId),
+    contractFile: stringValue(raw.contractFile),
+    hookName: stringValue(raw.hookName),
+    capabilityItem: stringValue(raw.capabilityItem),
+  };
+}
+
+function parseRationaleBlock(
+  value: unknown,
+  legacyReasoning: unknown
+): DecisionRationaleBlock | null {
+  if (typeof value === "string" && value.length > 0) {
+    return { summary: firstSentence(value), fullReasoning: value, evidence: [] };
+  }
+  if (!value || typeof value !== "object") {
+    const fallback = stringValue(legacyReasoning);
+    return fallback
+      ? { summary: firstSentence(fallback), fullReasoning: fallback, evidence: [] }
+      : null;
+  }
+  const raw = value as Record<string, unknown>;
+  const summary = stringValue(raw.summary);
+  const fullReasoning = stringValue(raw.fullReasoning) ?? summary;
+  if (!summary || !fullReasoning) return null;
+  return {
+    summary,
+    fullReasoning,
+    evidence: parseEvidenceArray(raw.evidence),
+  };
+}
+
+function parseAlternativeOptions(value: unknown, legacy: unknown): DecisionAlternativeOption[] {
+  if (Array.isArray(value)) {
+    const parsed = value
+      .map(parseAlternativeOption)
+      .filter((option): option is DecisionAlternativeOption => !!option);
+    if (parsed.length > 0) return parsed;
+  }
+  return (stringArray(legacy) ?? []).map((action) => ({ action, feasibility: "medium" as const }));
+}
+
+function parseAlternativeOption(value: unknown): DecisionAlternativeOption | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  const action = stringValue(raw.action);
+  if (!action) return null;
+  const feasibility = parseFeasibility(raw.feasibility);
+  return {
+    action,
+    feasibility,
+    reason: stringValue(raw.reason),
+  };
+}
+
+function parseFeasibility(value: unknown): AlternativeFeasibility {
+  if (value === "low" || value === "high") return value;
+  return "medium";
+}
+
+function parseOutcomeBlock(value: unknown): DecisionOutcomeBlock | null {
+  if (typeof value === "string" && value.length > 0) {
+    const result = normalizeOutcomeResult(value);
+    return result ? { result } : null;
+  }
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  const result = normalizeOutcomeResult(stringValue(raw.result));
+  if (!result) return null;
+  const proofRaw = raw.proof;
+  const proof =
+    proofRaw && typeof proofRaw === "object"
+      ? {
+          type: stringValue((proofRaw as Record<string, unknown>).type) ?? "unknown",
+          detail: stringValue((proofRaw as Record<string, unknown>).detail),
+        }
+      : undefined;
+  return {
+    result,
+    verifiedAt: stringValue(raw.verifiedAt),
+    proof,
+  };
+}
+
+function parseEvidenceArray(value: unknown): DecisionEvidence[] {
+  if (!Array.isArray(value)) return [];
+  const evidence: DecisionEvidence[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const raw = item as Record<string, unknown>;
+    const type = stringValue(raw.type);
+    if (
+      type !== "traceStep" &&
+      type !== "error" &&
+      type !== "contractDiff" &&
+      type !== "cluster" &&
+      type !== "playbook" &&
+      type !== "capability"
+    ) {
+      continue;
+    }
+    evidence.push({
+      type,
+      traceId: stringValue(raw.traceId),
+      stepIndex: numberValue(raw.stepIndex),
+      errorId: stringValue(raw.errorId),
+      oldHash: stringValue(raw.oldHash),
+      newHash: stringValue(raw.newHash),
+      clusterId: stringValue(raw.clusterId),
+      playbookTitle: stringValue(raw.playbookTitle),
+      contractFile: stringValue(raw.contractFile),
+      capabilityItem: stringValue(raw.capabilityItem),
+      detail: stringValue(raw.detail),
+    });
+  }
+  return evidence;
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function stringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function numberValue(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+export interface DecisionSuggestionInput {
   clusterId?: string;
-  action?: DecisionAction;
-  projectRoot?: string;
+  action?: string;
   limit?: number;
-}): Promise<DecisionSuggestion[]> {
-  const root = input.projectRoot ?? (await resolveProjectRoot(Bun.cwd));
-  const decisions = await readDecisions(root);
-  const filtered = decisions.filter((decision) => {
-    if (input.clusterId && decision.trigger.clusterId !== input.clusterId) return false;
-    if (input.action && decision.action !== input.action) return false;
-    return decision.outcome.result === "success" || (decision.qualityScore ?? 0) >= 0.5;
-  });
+}
 
-  const suggestions: DecisionSuggestion[] = filtered.map((decision) => {
-    const quality = decision.qualityScore ?? 0.5;
-    const confidence = Math.min(
-      1,
-      quality * 0.7 + (decision.outcome.result === "success" ? 0.3 : 0)
+export async function suggestDecisions(
+  input: DecisionSuggestionInput,
+  path: string = decisionLedgerPath()
+): Promise<DecisionRecord[]> {
+  const records = await readDecisionLedger(path);
+  const limit = typeof input.limit === "number" && input.limit > 0 ? input.limit : 5;
+  const actionNeedle = input.action?.trim().toLowerCase();
+
+  return records
+    .filter((record) => (record.qualityScore ?? 0) >= 0.7)
+    .filter((record) => {
+      if (input.clusterId && record.clusterId !== input.clusterId) return false;
+      if (!actionNeedle) return true;
+      const haystack = [record.action, ...record.alternatives.map((option) => option.action)]
+        .join("\n")
+        .toLowerCase();
+      return haystack.includes(actionNeedle);
+    })
+    .sort((a, b) => {
+      const scoreDelta = (b.qualityScore ?? 0) - (a.qualityScore ?? 0);
+      if (scoreDelta !== 0) return scoreDelta;
+      return b.timestamp.localeCompare(a.timestamp);
+    })
+    .slice(0, limit);
+}
+
+export async function persistDecisionQualityScores(
+  updates: Map<string, number>,
+  path: string = decisionLedgerPath()
+): Promise<{ updated: number; total: number }> {
+  if (updates.size === 0) return { updated: 0, total: 0 };
+
+  const records = await readDecisionLedger(path);
+  const byId = new Map(records.map((record) => [record.decisionId, record]));
+  let updated = 0;
+  for (const [decisionId, score] of updates.entries()) {
+    const record = byId.get(decisionId);
+    if (!record || record.qualityScore === score) continue;
+    await recordDecision(
+      {
+        key: `decision-score:${decisionId}`,
+        actor: "kimi",
+        action: "score decision quality",
+        trigger: `quality score recomputed for ${decisionId}`,
+        rationale: `Quality score set to ${score} based on current decision and failure evidence.`,
+        outcome: "success",
+        parentDecisionId: decisionId,
+        metadata: {
+          phase: "quality-score",
+          scoreUpdateFor: decisionId,
+          qualityScore: score,
+        },
+      },
+      path
     );
-    return {
-      decisionId: decision.decisionId,
-      action: decision.action,
-      confidence: Math.round(confidence * 1000) / 1000,
-      qualityScore: quality,
-      summary: decision.rationale.summary,
-      playbookId: decision.metadata?.playbookId as string | undefined,
-      clusterId: decision.trigger.clusterId,
-    };
-  });
-
-  suggestions.sort((a, b) => b.confidence - a.confidence || b.qualityScore - a.qualityScore);
-  return suggestions.slice(0, input.limit ?? 5);
+    updated++;
+  }
+  return { updated, total: records.length };
 }
 
-export async function buildWhyReport(decisionId: string, projectRoot?: string) {
-  const root = projectRoot ?? (await resolveDecisionsRoot());
-  const decision = await findDecisionById(decisionId, root);
-  if (!decision) return null;
+function applyQualityScoreUpdates(records: DecisionRecord[]): DecisionRecord[] {
+  const scores = new Map<string, number>();
+  for (const record of records) {
+    const target = scoreUpdateTarget(record);
+    if (target && typeof record.metadata?.qualityScore === "number") {
+      scores.set(target, record.metadata.qualityScore);
+    }
+  }
+  return records
+    .filter((record) => !scoreUpdateTarget(record))
+    .map((record) => {
+      const score = scores.get(record.decisionId);
+      return score === undefined ? record : { ...record, qualityScore: score };
+    });
+}
 
-  const [traces, failures, clusters, allDecisions] = await Promise.all([
-    readTraceEvents(),
-    readFailureTraceRecords(),
-    readClusterMetadata(),
-    readDecisions(root),
-  ]);
-
-  const traceTree = traces.filter(
-    (event) =>
-      event.traceId === decision.trigger.traceId || event.parentTraceId === decision.trigger.traceId
-  );
-
-  const cluster = clusters?.clusters.find((c) => c.clusterId === decision.trigger.clusterId);
-  const childDecisions = allDecisions.filter((d) => d.parentDecisionId === decisionId);
-  const parentDecision = decision.parentDecisionId
-    ? allDecisions.find((d) => d.decisionId === decision.parentDecisionId)
+function scoreUpdateTarget(record: DecisionRecord): string | undefined {
+  return typeof record.metadata?.scoreUpdateFor === "string"
+    ? record.metadata.scoreUpdateFor
     : undefined;
-
-  return {
-    decision,
-    traceTree,
-    cluster,
-    failures: failures.filter(
-      (f) => f.traceId === decision.trigger.traceId || f.errorId === decision.trigger.errorId
-    ),
-    parentDecision,
-    childDecisions,
-    qualityFactors: {
-      qualityScore: decision.qualityScore,
-      outcome: decision.outcome,
-      alternatives: decision.alternatives,
-    },
-  };
-}
-
-/** @deprecated Use logDecision — kept for one release */
-export function recordDecision(input: {
-  key: string;
-  action: string;
-  trigger: string;
-  reasoning: string;
-  alternatives?: string[];
-  outcome: string;
-  traceId?: string;
-  metadata?: Record<string, unknown>;
-}): Promise<Decision> {
-  return logDecision({
-    action: mapLegacyAction(input.action),
-    trigger: { traceId: input.traceId ?? ensureProcessTrace().traceId },
-    rationaleOverride: {
-      summary: input.reasoning.slice(0, 120),
-      fullReasoning: input.reasoning,
-    },
-    alternatives: (input.alternatives ?? []).map((alt) => ({
-      action: alt,
-      feasibility: "medium" as const,
-    })),
-    outcome: { result: mapLegacyOutcome(input.outcome), verifiedAt: new Date().toISOString() },
-    metadata: { key: input.key, legacyTrigger: input.trigger, ...input.metadata },
-  });
-}
-
-export { globalFallbackDecisionsPath } from "./paths.ts";
-
-const WINDOW_MS: Record<"d" | "h" | "m", number> = {
-  d: 24 * 60 * 60 * 1000,
-  h: 60 * 60 * 1000,
-  m: 60 * 1000,
-};
-
-export function parseDecisionWindow(last: string): number {
-  const match = last.trim().match(/^(\d+)(d|h|m)$/i);
-  if (!match) {
-    throw new Error(`Invalid --last window "${last}" — use 7d, 24h, or 30m`);
-  }
-  const amount = Number(match[1]);
-  const unit = match[2]!.toLowerCase() as "d" | "h" | "m";
-  return amount * WINDOW_MS[unit];
-}
-
-export function decisionTouchesConstant(decision: Decision, constantKey: string): boolean {
-  if (decision.metadata?.constantKey === constantKey) return true;
-  const restored = decision.metadata?.restoredKeys;
-  return Array.isArray(restored) && restored.includes(constantKey);
-}
-
-export function filterRecentDecisions(
-  decisions: Decision[],
-  options: RecentDecisionFilter = {}
-): Decision[] {
-  const nowMs = options.nowMs ?? Date.now();
-  const sinceMs = options.sinceMs ?? 0;
-  const matches = decisions
-    .filter((decision) => {
-      const ts = new Date(decision.timestamp).getTime();
-      if (ts < sinceMs || ts > nowMs) return false;
-      if (options.type && decision.metadata?.type !== options.type) return false;
-      if (options.constantKey && !decisionTouchesConstant(decision, options.constantKey)) {
-        return false;
-      }
-      return true;
-    })
-    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  return matches.slice(0, options.limit ?? matches.length);
-}
-
-export function filterDecisionsByConstant(
-  decisions: Decision[],
-  constantKey: string,
-  options: { sinceMs?: number; nowMs?: number } = {}
-): Decision[] {
-  return filterRecentDecisions(decisions, { ...options, constantKey });
-}
-
-function compactValue(value: unknown): string {
-  if (value === undefined || value === null) return "";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  return JSON.stringify(value);
-}
-
-function compactRepairPath(decision: Decision): string | undefined {
-  const diff = decision.metadata?.diff;
-  if (!diff || typeof diff !== "object") return undefined;
-  const invalidKeys = (diff as { invalidKeys?: unknown }).invalidKeys;
-  if (!Array.isArray(invalidKeys) || invalidKeys.length === 0) return undefined;
-
-  const parts = invalidKeys
-    .filter(
-      (item): item is { key?: unknown; expected?: unknown; actual?: unknown } =>
-        !!item && typeof item === "object"
-    )
-    .map((item) => {
-      const expected = compactValue(item.expected);
-      const actual = compactValue(item.actual);
-      if (!expected && !actual) return "";
-      return expected && actual ? `${expected}->${actual}->${expected}` : `${actual}->${expected}`;
-    })
-    .filter(Boolean);
-  return parts.length > 0 ? parts.join(", ") : undefined;
-}
-
-function compactDecisionTarget(decision: Decision): string {
-  const workspaceCheckName = decision.metadata?.workspaceCheckName;
-  if (typeof workspaceCheckName === "string") return workspaceCheckName;
-  const constantKey = decision.metadata?.constantKey;
-  if (typeof constantKey === "string") return constantKey;
-  const restored = decision.metadata?.restoredKeys;
-  if (Array.isArray(restored)) {
-    return restored.filter((key): key is string => typeof key === "string").join(",");
-  }
-  return decision.trigger.capabilityItem ?? decision.trigger.clusterId ?? decision.trigger.traceId;
-}
-
-export function formatDecisionCompact(decision: Decision): string {
-  const type = String(decision.metadata?.type ?? decision.action);
-  const target = compactDecisionTarget(decision);
-  const repair = compactRepairPath(decision);
-  const golden = decision.metadata?.goldenVersion
-    ? `golden v${String(decision.metadata.goldenVersion)}`
-    : undefined;
-  return [decision.decisionId, decision.timestamp.slice(0, 10), type, target, repair, golden]
-    .filter((part) => part !== undefined && part !== "")
-    .join(" | ");
-}
-
-export interface DecisionDiffField {
-  field: string;
-  left: unknown;
-  right: unknown;
-}
-
-export interface DecisionDiffReport {
-  leftId: string;
-  rightId: string;
-  fields: DecisionDiffField[];
-}
-
-function metadataRestoredKeys(metadata: Record<string, unknown> | undefined): string[] {
-  const restored = metadata?.restoredKeys;
-  return Array.isArray(restored)
-    ? restored.filter((key): key is string => typeof key === "string")
-    : [];
-}
-
-export function diffDecisions(left: Decision, right: Decision): DecisionDiffReport {
-  const fields: DecisionDiffField[] = [];
-
-  const pairs: Array<[string, unknown, unknown]> = [
-    ["action", left.action, right.action],
-    ["actor", left.actor, right.actor],
-    ["outcome", left.outcome.result, right.outcome.result],
-    ["metadata.type", left.metadata?.type, right.metadata?.type],
-    ["metadata.constantKey", left.metadata?.constantKey, right.metadata?.constantKey],
-    ["metadata.candidateValue", left.metadata?.candidateValue, right.metadata?.candidateValue],
-    ["metadata.goldenVersion", left.metadata?.goldenVersion, right.metadata?.goldenVersion],
-    ["restoredKeys", metadataRestoredKeys(left.metadata), metadataRestoredKeys(right.metadata)],
-    ["rationale.summary", left.rationale.summary, right.rationale.summary],
-    ["timestamp", left.timestamp, right.timestamp],
-  ];
-
-  for (const [field, leftValue, rightValue] of pairs) {
-    const same = JSON.stringify(leftValue ?? null) === JSON.stringify(rightValue ?? null);
-    if (!same) fields.push({ field, left: leftValue, right: rightValue });
-  }
-
-  return {
-    leftId: left.decisionId,
-    rightId: right.decisionId,
-    fields,
-  };
 }

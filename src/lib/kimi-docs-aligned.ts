@@ -2,8 +2,7 @@
  * Kimi documentation alignment — soft gate for toolchain product-matrix docs.
  */
 
-import { pathExists } from "./bun-io.ts";
-
+import { existsSync } from "fs";
 import { join } from "path";
 import { readPackageJson } from "./utils.ts";
 
@@ -20,17 +19,18 @@ export interface KimiDocsAlignmentReport {
 }
 
 const DOC_MARKERS: Record<string, string[]> = {
-  "UNIFIED.md": ["Kimi Work", "Kimi Code", "kimi-toolchain"],
-  "AGENTS.md": ["kimi-toolchain", "Kimi Code", "CODE_REFERENCES.md"],
+  "README.md": ["CapabilityReport", "rootCauseChain", "trusted-keys.json", "x-kimi-signature"],
+  "UNIFIED.md": ["Kimi Work", "Kimi Code", "kimi-toolchain", "kimi-heal plan"],
+  "AGENTS.md": ["kimi-toolchain", "Kimi Code", "CODE_REFERENCES.md", "self-healing.ts"],
   "CODE_REFERENCES.md": [
     "src/lib/tool-runner.ts",
     "src/lib/effect/cli-runtime.ts",
+    "src/lib/self-healing.ts",
     "Package Policy",
-    "canonical-references.json",
   ],
-  "CONTEXT.md": ["Kimi Code", "kimi-toolchain", "CODE_REFERENCES.md"],
-  "TEMPLATES.md": ["config.toml", "mcp.json", "CODE_REFERENCES.md"],
-  "skills/kimi-toolchain/SKILL.md": ["/mcp", "unified-shell"],
+  "CONTEXT.md": ["Kimi Code", "kimi-toolchain", "CODE_REFERENCES.md", "HealPlan"],
+  "TEMPLATES.md": ["config.toml", "mcp.json", "CODE_REFERENCES.md", "kimi-heal plan"],
+  "skills/kimi-toolchain/SKILL.md": ["/mcp", "unified-shell", "kimi-capabilities"],
 };
 
 const REQUIRED_FILES = ["templates/kimi-config-permissions.toml"] as const;
@@ -53,7 +53,7 @@ export async function checkKimiDocsAligned(projectDir: string): Promise<KimiDocs
 
   for (const [relPath, markers] of Object.entries(DOC_MARKERS)) {
     const fullPath = join(projectDir, relPath);
-    if (!pathExists(fullPath)) {
+    if (!existsSync(fullPath)) {
       checks.push({
         name: relPath,
         status: "warn",
@@ -74,8 +74,8 @@ export async function checkKimiDocsAligned(projectDir: string): Promise<KimiDocs
     const fullPath = join(projectDir, relPath);
     checks.push({
       name: relPath,
-      status: pathExists(fullPath) ? "ok" : "warn",
-      message: pathExists(fullPath) ? "present" : "missing",
+      status: existsSync(fullPath) ? "ok" : "warn",
+      message: existsSync(fullPath) ? "present" : "missing",
     });
   }
 

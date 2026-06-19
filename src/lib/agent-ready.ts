@@ -2,9 +2,7 @@
  * Agent readiness checks for shell, PATH, MCP, sync, and tool dispatch.
  */
 
-import { readableStreamToText } from "./bun-utils.ts";
-import { pathExists } from "./bun-io.ts";
-
+import { existsSync } from "fs";
 import { join } from "path";
 import type { HealthCheck } from "./health-check.ts";
 import { homeDir } from "./paths.ts";
@@ -64,8 +62,8 @@ async function runShellStartupCheck(): Promise<HealthCheck> {
     });
     const [exitCode, stdout, stderr] = await Promise.all([
       proc.exited,
-      readableStreamToText(proc.stdout),
-      readableStreamToText(proc.stderr),
+      Bun.readableStreamToText(proc.stdout),
+      Bun.readableStreamToText(proc.stderr),
     ]);
     const err = stderr.trim();
     if (exitCode !== 0) {
@@ -194,7 +192,7 @@ export async function auditAgentReady(projectRoot: string): Promise<AgentReadyRe
     )
   );
 
-  if (pathExists(join(projectRoot, "scripts", "sync-to-desktop.ts"))) {
+  if (existsSync(join(projectRoot, "scripts", "sync-to-desktop.ts"))) {
     const sync = await detectSyncDrift(projectRoot);
     checks.push(
       sync.synced

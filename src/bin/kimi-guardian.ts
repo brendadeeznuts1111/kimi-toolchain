@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { makeDir, pathExists } from "../lib/bun-io.ts";
 /**
  * Kimi Guardian — Bun-native supply chain security
  * v2.0: Signed lockfile manifests, Bun.secrets integration, first-commit poisoning defense
@@ -10,8 +9,9 @@ import { makeDir, pathExists } from "../lib/bun-io.ts";
  *   kimi-guardian [check|fix|report|sign|verify|doctor]
  */
 
-import { $, randomUUIDv7 } from "bun";
+import { $, TOML } from "bun";
 import { Database } from "bun:sqlite";
+import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import {
   ensureDir,
@@ -22,11 +22,6 @@ import {
 } from "../lib/utils.ts";
 
 import { guardianDir } from "../lib/paths.ts";
-import {
-  addTrustedDependencies,
-  scanUntrustedInstallScripts,
-  trustedDependenciesFixHint,
-} from "../lib/trusted-dependencies.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -81,6 +76,13 @@ interface DbCountRow {
   c: number;
 }
 
+interface BunfigInstallConfig {
+  install?: {
+    trustedDependencies?: string[];
+  };
+  trustedDependencies?: string[];
+}
+
 interface PackageJson {
   name?: string;
   version?: string;
@@ -98,7 +100,7 @@ interface PackageJson {
 // ── Database ─────────────────────────────────────────────────────────
 
 function getDb(): Database {
-  if (!pathExists(GUARDIAN_DIR)) makeDir(GUARDIAN_DIR, { recursive: true });
+  if (!existsSync(GUARDIAN_DIR)) mkdirSync(GUARDIAN_DIR, { recursive: true });
   const db = new Database(MANIFEST_DB, { create: true });
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec(`
@@ -218,7 +220,7 @@ async function getSigningKey(): Promise<string | null> {
   } catch {
     // Fallback to file-based key
     const keyPath = join(GUARDIAN_DIR, ".key");
-    if (pathExists(keyPath)) {
+    if (existsSync(keyPath)) {
       return (await Bun.file(keyPath).text()).trim();
     }
   }
@@ -226,7 +228,7 @@ async function getSigningKey(): Promise<string | null> {
 }
 
 async function createSigningKey(): Promise<string> {
-  const key = new Bun.CryptoHasher("sha256").update(randomUUIDv7()).digest("hex");
+  const key = new Bun.CryptoHasher("sha256").update(crypto.randomUUID()).digest("hex");
 
   try {
     await $`security add-generic-password -s ${KEY_NAME} -a kimi-guardian -w ${key}`
@@ -251,17 +253,17 @@ async function checkLockfile(projectDir: string): Promise<GuardianReport["lockfi
   const lockPath = join(projectDir, "bun.lock");
   const pkgPath = join(projectDir, "package.json");
 
-  if (!pathExists(lockPath)) {
+  if (!existsSync(lockPath)) {
     return { path: lockPath, hash: "", hashMatch: null, stale: false, manifestValid: null };
   }
 
   const currentHash = await sha256File(lockPath);
-  const pkgMtime = pathExists(pkgPath) ? Bun.file(pkgPath).lastModified : 0;
+  const pkgMtime = existsSync(pkgPath) ? Bun.file(pkgPath).lastModified : 0;
   const lockMtime = Bun.file(lockPath).lastModified;
   const stale = pkgMtime > lockMtime;
 
   let hashMatch: boolean | null = null;
-  if (pathExists(HASH_FILE)) {
+  if (existsSync(HASH_FILE)) {
     const stored = (await Bun.file(HASH_FILE).text()).trim();
     hashMatch = stored === currentHash;
   }
@@ -279,7 +281,7 @@ async function checkLockfile(projectDir: string): Promise<GuardianReport["lockfi
 
 async function storeLockfileHash(projectDir: string) {
   const lockPath = join(projectDir, "bun.lock");
-  if (!pathExists(lockPath)) return;
+  if (!existsSync(lockPath)) return;
   ensureDir(GUARDIAN_DIR);
   const hash = await sha256File(lockPath);
   await Bun.write(HASH_FILE, hash);
@@ -346,6 +348,84 @@ async function checkCVEs(
   return cves;
 }
 
+// ── Trusted Dependency Gate ──────────────────────────────────────────
+
+async function checkTrustedDeps(projectDir: string): Promise<string[]> {
+  const bunfigPath = join(projectDir, "bunfig.toml");
+  const pkgPath = join(projectDir, "package.json");
+
+  if (!existsSync(pkgPath)) return [];
+
+  let allowed = new Set<string>();
+  if (existsSync(bunfigPath)) {
+    try {
+      const config = TOML.parse(await Bun.file(bunfigPath).text()) as BunfigInstallConfig;
+      const trusted = config.install?.trustedDependencies || config.trustedDependencies || [];
+      allowed = new Set(Array.isArray(trusted) ? trusted : []);
+    } catch {
+      const content = await Bun.file(bunfigPath).text();
+      const match = content.match(/trustedDependencies\s*=\s*\[([^\]]*)\]/);
+      if (match) {
+        const deps = match[1]
+          .split(",")
+          .map((d) => d.trim().replace(/["']/g, ""))
+          .filter(Boolean);
+        allowed = new Set(deps);
+      }
+    }
+  }
+
+  const pkg = (await Bun.file(pkgPath).json()) as PackageJson;
+  const allDeps = [
+    ...Object.keys(pkg.dependencies || {}),
+    ...Object.keys(pkg.devDependencies || {}),
+    ...Object.keys(pkg.optionalDependencies || {}),
+  ];
+
+  const untrusted: string[] = [];
+  for (const dep of allDeps) {
+    const depPkgPath = join(projectDir, "node_modules", dep, "package.json");
+    if (!existsSync(depPkgPath)) continue;
+
+    const depPkg = (await Bun.file(depPkgPath).json()) as PackageJson;
+    const scripts = depPkg.scripts || {};
+    if (scripts.postinstall || scripts.preinstall || scripts.install) {
+      if (!allowed.has(dep)) {
+        untrusted.push(dep);
+      }
+    }
+  }
+
+  return untrusted;
+}
+
+async function addTrustedDeps(projectDir: string, deps: string[]) {
+  const bunfigPath = join(projectDir, "bunfig.toml");
+  let content = "";
+  if (existsSync(bunfigPath)) {
+    content = await Bun.file(bunfigPath).text();
+  }
+
+  const trustedMatch = content.match(/trustedDependencies\s*=\s*\[([^\]]*)\]/);
+  if (trustedMatch) {
+    const existing = trustedMatch[1]
+      .split(",")
+      .map((d) => d.trim().replace(/["']/g, ""))
+      .filter(Boolean);
+    const combined = [...new Set([...existing, ...deps])];
+    const newList = combined.map((d) => `"${d}"`).join(", ");
+    content = content.replace(
+      /trustedDependencies\s*=\s*\[[^\]]*\]/,
+      `trustedDependencies = [${newList}]`
+    );
+  } else {
+    const trustedList = deps.map((d) => `"${d}"`).join(", ");
+    content += `\n[install]\ntrustedDependencies = [${trustedList}]\n`;
+  }
+
+  await Bun.write(bunfigPath, content);
+}
+
 // ── Provenance (P1) ──────────────────────────────────────────────────
 
 async function checkProvenance(
@@ -356,7 +436,7 @@ async function checkProvenance(
 
   const glob = new Bun.Glob("**/package.json");
   const nmPath = join(projectDir, "node_modules");
-  if (!pathExists(nmPath)) return { postinstallScripts, lowBusFactor };
+  if (!existsSync(nmPath)) return { postinstallScripts, lowBusFactor };
 
   for await (const file of glob.scan({ cwd: nmPath, absolute: true })) {
     try {
@@ -420,17 +500,17 @@ async function doctor(
   const lockPath = join(projectDir, "bun.lock");
   checks.push({
     name: "lockfile",
-    status: pathExists(lockPath) ? "ok" : "warn",
-    message: pathExists(lockPath) ? "present" : "missing",
+    status: existsSync(lockPath) ? "ok" : "warn",
+    message: existsSync(lockPath) ? "present" : "missing",
     fixable: false,
   });
 
   // Hash baseline
   checks.push({
     name: "hash-baseline",
-    status: pathExists(HASH_FILE) ? "ok" : "warn",
-    message: pathExists(HASH_FILE) ? "Baselined" : "No baseline — run 'kimi-guardian fix'",
-    fixable: !pathExists(HASH_FILE),
+    status: existsSync(HASH_FILE) ? "ok" : "warn",
+    message: existsSync(HASH_FILE) ? "Baselined" : "No baseline — run 'kimi-guardian fix'",
+    fixable: !existsSync(HASH_FILE),
   });
 
   // Manifest count
@@ -464,7 +544,7 @@ async function main(): Promise<number> {
   if (command === "sign") {
     logger.section("Sign Lockfile Manifest");
     const lockPath = join(projectDir, "bun.lock");
-    if (!pathExists(lockPath)) {
+    if (!existsSync(lockPath)) {
       logger.error("No bun.lock found");
       return 1;
     }
@@ -480,7 +560,7 @@ async function main(): Promise<number> {
   if (command === "verify") {
     logger.section("Verify Signed Manifest");
     const lockPath = join(projectDir, "bun.lock");
-    if (!pathExists(lockPath)) {
+    if (!existsSync(lockPath)) {
       logger.warn("No bun.lock found");
       return 0;
     }
@@ -502,7 +582,7 @@ async function main(): Promise<number> {
 
   logger.section("Lockfile Integrity");
   const lockfile = await checkLockfile(projectDir);
-  if (!pathExists(lockfile.path)) {
+  if (!existsSync(lockfile.path)) {
     logger.warn("No bun.lock found");
   } else {
     logger.info(`Hash: ${lockfile.hash.slice(0, 16)}...`);
@@ -551,38 +631,9 @@ async function main(): Promise<number> {
     }
   }
 
-  logger.section("Install Policy (bunfig + env)");
-  const { auditBunInstallConfig, BUN_DEP_CHANGE_HINT, formatInstallPolicyReport } =
-    await import("../lib/bun-install-config.ts");
-  const installAudit = await auditBunInstallConfig(projectDir);
-  const versionLine = `runtime=${installAudit.versions.runtimeBun} policy≥${installAudit.versions.policyMinBun} packageManager=${installAudit.versions.packageManager ?? "unset"}`;
-  logger.info(versionLine);
-  if (installAudit.envOverrides.length === 0) {
-    logger.info("No BUN_CONFIG_* install overrides in environment");
-  } else {
-    for (const row of installAudit.envOverrides) {
-      const level = row.risky ? "error" : "warn";
-      logger[level](`${row.name}=${row.value}`);
-    }
-  }
-  for (const warning of installAudit.warnings) {
-    logger.warn(warning);
-  }
-  if (command === "report") {
-    for (const line of formatInstallPolicyReport(installAudit)) {
-      logger.info(line);
-    }
-  }
-  if (installAudit.ok && installAudit.bunfigPath) {
-    logger.info(`bunfig install policy OK (${installAudit.bunfigPath})`);
-    logger.info(BUN_DEP_CHANGE_HINT);
-  } else if (!installAudit.ok) {
-    logger.warn(`Install policy drift — see ${installAudit.docsUrl}`);
-  }
-
   logger.section("Trusted Dependency Gate");
   const pkgPath = join(projectDir, "package.json");
-  if (!pathExists(pkgPath)) {
+  if (!existsSync(pkgPath)) {
     logger.warn("No package.json — skipping trusted dependency check");
   } else {
     const pkg = (await Bun.file(pkgPath).json()) as PackageJson;
@@ -591,19 +642,18 @@ async function main(): Promise<number> {
     if (depCount === 0) {
       logger.info("No dependencies — nothing to check");
     } else {
-      const { untrusted, legacyBunfigTrusted } = await scanUntrustedInstallScripts(projectDir);
+      const untrusted = await checkTrustedDeps(projectDir);
       if (untrusted.length === 0) {
         logger.info("All install scripts trusted");
-        if (legacyBunfigTrusted.length > 0) {
-          logger.warn(
-            "Legacy bunfig.toml trustedDependencies detected — run 'kimi-guardian fix' to migrate to package.json"
-          );
-        }
       } else {
         for (const dep of untrusted) {
           logger.error(`${dep}: postinstall script NOT in trustedDependencies`);
         }
-        logger.warn(trustedDependenciesFixHint(untrusted));
+        logger.warn(
+          "Add to bunfig.toml: trustedDependencies = [" +
+            untrusted.map((d) => `"${d}"`).join(", ") +
+            "]"
+        );
       }
     }
   }
@@ -625,13 +675,11 @@ async function main(): Promise<number> {
     logger.section("Fix");
     await storeLockfileHash(projectDir);
 
-    const { untrusted } = await scanUntrustedInstallScripts(projectDir);
+    // Auto-add untrusted deps to bunfig.toml
+    const untrusted = await checkTrustedDeps(projectDir);
     if (untrusted.length > 0) {
-      const result = await addTrustedDependencies(projectDir, untrusted);
-      logger.info(`Added to package.json trustedDependencies: ${result.added.join(", ")}`);
-      if (result.migratedFromBunfig) {
-        logger.info("Migrated legacy bunfig.toml trustedDependencies to package.json");
-      }
+      await addTrustedDeps(projectDir, untrusted);
+      logger.info(`Added to trustedDependencies: ${untrusted.join(", ")}`);
     }
 
     logger.info("Baselined lockfile hash");

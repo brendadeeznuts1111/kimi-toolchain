@@ -1,0 +1,7 @@
+interface:
+  display_name: "Kimi Toolchain"
+  short_description: "Operate Kimi diagnostics and quality gates"
+  default_prompt: "Use $kimi-toolchain to diagnose toolchain health and choose the safest next action."
+
+policy:
+  allow_implicit_invocation: true

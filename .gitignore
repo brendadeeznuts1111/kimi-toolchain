@@ -1,12 +1,11 @@
 # Project-level Kimi Code config (scaffolded by kimi-fix, not source)
 .kimi-code/
-.kimi/
 
 # Live runtime state (not tracked)
 tools/
 var/
 memory/
-/guardian/
+guardian/
 governor/
 node_modules/
 *.sqlite
@@ -15,6 +14,7 @@ node_modules/
 
 # Build artifacts
 dist/
+.kimi-artifacts/
 coverage/
 reports/
 .tmp-kimi-test-home/
@@ -23,16 +23,6 @@ reports/
 .tmp-path-align-*/
 .tmp-*/
 *.log
-
-# Agent / IDE caches
-.reasonix/
-reasonix.toml
-
-# Backups (context-gen, manual)
-*.bak
-
-# Accidental path-expansion artifact (literal tilde directory)
-/~/
 
 # OS
 .DS_Store

@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: "17 8 * * *"
+  workflow_dispatch:
+    inputs:
+      full:
+        description: Run the full Effect graph
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  effect-pipeline:
+    name: Effect fail-fast pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup
+
+      - name: Run affected Effect graph
+        if: github.event_name != 'schedule' && inputs.full != true
+        run: bun run ci:pipeline --affected --concurrency=4 --fast-min=60 --full-min=60
+
+      - name: Run full Effect graph
+        if: github.event_name == 'schedule' || inputs.full == true
+        run: bun run ci:pipeline --full --concurrency=4 --full-min=60
+
+      - name: Publish test reports
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Bun Tests
+          path: .kimi-artifacts/reports/*.xml
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Upload JUnit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-reports
+          path: .kimi-artifacts/reports/*.xml
+          if-no-files-found: ignore
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: .kimi-artifacts/coverage/lcov.info
+          if-no-files-found: ignore

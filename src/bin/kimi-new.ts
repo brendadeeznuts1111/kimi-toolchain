@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { makeDir, pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-new — Greenfield project scaffold
  * Usage: kimi-new <name> [--path <dir>] [--dry-run]
@@ -7,14 +6,13 @@ import { makeDir, pathExists } from "../lib/bun-io.ts";
  */
 
 import { Effect } from "effect";
+import { existsSync, mkdirSync } from "fs";
 import { join, resolve } from "path";
 import { $ } from "bun";
 import { toolsDir } from "../lib/paths.ts";
-import { spawnBun } from "../lib/tool-runner.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
-import { resolveScaffoldProfile, type ScaffoldProfile } from "../lib/scaffold-profiles.ts";
 
 const logger = createLogger(Bun.argv, "kimi-new");
 const NAME_RE = /^[a-z0-9][a-z0-9._-]*$/i;
@@ -25,17 +23,6 @@ function printHelp() {
   logger.info("");
   logger.info("Creates a new Bun project and runs kimi-fix:");
   logger.info("  mkdir <name> && bun init -y && kimi-fix .");
-  logger.info("");
-  logger.info("Scaffolded defaults: hardened bunfig.toml ([install], [run] noOrphans,");
-  logger.info("  [test] with bail/randomize/seed), dx.config.toml, AGENTS.md, CI workflow.");
-  logger.info("  --profile app|toolchain   Scaffold profile (default: app)");
-  logger.info("                            toolchain adds finish-work, reviewer-pane, bun-io libs");
-  logger.info("Docs: TEMPLATES.md, docs/references/bun-runtime-scaffold.md");
-  logger.info("");
-  logger.info("Zero-install alternative:");
-  logger.info("  cp -r ~/kimi-toolchain/templates/bun-create/kimi-toolchain ~/.bun-create/");
-  logger.info("  bun create kimi-toolchain my-app");
-  logger.info("  KIMI_PROFILE=toolchain bun create kimi-toolchain my-app  # toolchain profile");
 }
 
 function resolveParent(args: string[]): string {
@@ -68,7 +55,7 @@ async function runDoctor(parent: string): Promise<number> {
     errors++;
   }
 
-  if (pathExists(parent)) {
+  if (existsSync(parent)) {
     logger.check({ name: "parent path", status: "ok", message: parent, fixable: false });
   } else {
     logger.check({
@@ -82,9 +69,9 @@ async function runDoctor(parent: string): Promise<number> {
 
   const desktopFix = join(toolsDir(), "kimi-fix.ts");
   const repoFix = join(import.meta.dir, "kimi-fix.ts");
-  if (pathExists(desktopFix)) {
+  if (existsSync(desktopFix)) {
     logger.check({ name: "kimi-fix", status: "ok", message: desktopFix, fixable: false });
-  } else if (pathExists(repoFix)) {
+  } else if (existsSync(repoFix)) {
     logger.check({
       name: "kimi-fix",
       status: "ok",
@@ -129,16 +116,7 @@ async function runDoctor(parent: string): Promise<number> {
 
 async function runScaffold(args: string[]): Promise<number> {
   const dryRun = args.includes("--dry-run");
-  const profile: ScaffoldProfile = (() => {
-    try {
-      return resolveScaffoldProfile(args);
-    } catch {
-      return "app";
-    }
-  })();
-  const filtered = args.filter(
-    (a) => a !== "--dry-run" && a !== "--profile" && !a.startsWith("--profile=")
-  );
+  const filtered = args.filter((a) => a !== "--dry-run");
 
   const name = filtered[0];
   if (!NAME_RE.test(name)) {
@@ -148,7 +126,7 @@ async function runScaffold(args: string[]): Promise<number> {
   const parent = resolveParent(filtered);
   const projectDir = join(parent, name);
 
-  if (pathExists(projectDir)) {
+  if (existsSync(projectDir)) {
     throw new CliError({ message: `Directory already exists: ${projectDir}` });
   }
 
@@ -158,24 +136,24 @@ async function runScaffold(args: string[]): Promise<number> {
   if (dryRun) {
     logger.info(`  [dry-run] mkdir ${projectDir}`);
     logger.info(`  [dry-run] bun init -y (cwd=${projectDir})`);
-    logger.info(`  [dry-run] kimi-fix ${projectDir} --profile ${profile}`);
+    logger.info(`  [dry-run] kimi-fix ${projectDir}`);
     logger.info("Dry run complete. Remove --dry-run to create.");
     return 0;
   }
 
-  makeDir(projectDir, { recursive: true });
+  mkdirSync(projectDir, { recursive: true });
   await $`bun init -y`.cwd(projectDir).quiet();
 
   const desktopFix = join(toolsDir(), "kimi-fix.ts");
-  const repoFix = join(import.meta.dir, "kimi-fix.ts");
-  // Prefer repo version when running from source (has latest fixes)
-  const fixScript = pathExists(repoFix) ? repoFix : desktopFix;
-  const result = await spawnBun(["run", fixScript, projectDir, "--profile", profile], {
+  const fixScript = existsSync(desktopFix) ? desktopFix : join(import.meta.dir, "kimi-fix.ts");
+  const proc = Bun.spawn(["bun", "run", fixScript, projectDir], {
     cwd: parent,
+    stdout: "pipe",
+    stderr: "pipe",
   });
-  const exitCode = result.exitCode;
-  const stdout = result.stdout;
-  const stderr = result.stderr;
+  const exitCode = await proc.exited;
+  const stdout = await Bun.readableStreamToText(proc.stdout);
+  const stderr = await Bun.readableStreamToText(proc.stderr);
 
   for (const line of (stdout + stderr).split("\n")) {
     if (line.trim()) process.stdout.write(`${line}\n`);

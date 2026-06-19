@@ -23,24 +23,35 @@ export {
 export { runCli, runCliExit, type RunCliOptions } from "./cli-runtime.ts";
 
 export {
-  InstitutionalMemoryLive,
-  InstitutionalMemoryServiceLive,
-  type InstitutionalMemoryService,
-} from "./institutional-memory-services.ts";
-
-export {
   DecisionLogger,
-  DecisionQuery,
-  DecisionLayer,
-  type DecisionLoggerService,
-  type DecisionQueryService,
-} from "./decision-services.ts";
+  DecisionLoggerLive,
+  makeDecisionLogger,
+  type DecisionExplanation,
+  type DecisionInput,
+  type DecisionQueryFilters,
+  type DecisionRecord,
+} from "../decision-ledger.ts";
 
 export {
-  ConstantsRegistry,
-  ConstantsRegistryLive,
-  TestConstants,
-  getConstant,
-  type ConstantsRegistryService,
-  type ConstantValue,
-} from "../constants-registry.ts";
+  KimiCapabilities,
+  KimiContract,
+  KimiIntrospectionConfig,
+  KimiIntrospectionConfigLive,
+  KimiIntrospectionLive,
+  KimiIntrospectionLiveFor,
+  KimiTrace,
+  MissingSigningKey,
+  TraceNotFound,
+  TraceReadError,
+  ContractValidationError,
+  makeKimiCapabilitiesLive,
+  makeKimiContractLive,
+  makeKimiTraceLive,
+  type CapabilityItem,
+  type CapabilityProbeResult,
+  type ContractServiceValidationResult,
+  type KimiIntrospectionConfigValue,
+  type KimiIntrospectionOptions,
+  type TraceServiceResult,
+  type TraceStep,
+} from "./kimi-introspection-services.ts";

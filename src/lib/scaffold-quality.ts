@@ -1,40 +1,39 @@
-import { pathExists } from "./bun-io.ts";
-
+import { existsSync } from "fs";
 import { join } from "path";
 import { $ } from "bun";
-import {
-  REQUIRED_PACKAGE_SCRIPT_ENTRIES,
-  TOOLCHAIN_PACKAGE_SCRIPT_ENTRIES,
-} from "./scaffold-templates.ts";
-import type { ScaffoldProfile } from "./scaffold-profiles.ts";
 
-export interface PackageJsonScaffold {
-  scripts?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-}
-
-/**
- * Inject missing required scripts into package.json.
- * Pure filesystem read/write — no network, no side-effects outside the file.
- * Fast and safe to call in tests without fake devDependencies.
- */
-export async function injectMissingScripts(
+export async function ensureQualityTooling(
   project: string,
   dryRun: boolean,
-  log: (step: string, msg: string) => void,
-  profile: ScaffoldProfile = "app"
-): Promise<void> {
+  log: (step: string, msg: string) => void
+) {
   const pkgPath = join(project, "package.json");
-  if (!pathExists(pkgPath)) return;
+  if (!existsSync(pkgPath)) return;
 
-  const pkg = (await Bun.file(pkgPath).json()) as PackageJsonScaffold;
-  const scripts = pkg.scripts || {};
-  let scriptsChanged = false;
-  const entries = {
-    ...REQUIRED_PACKAGE_SCRIPT_ENTRIES,
-    ...(profile === "toolchain" ? TOOLCHAIN_PACKAGE_SCRIPT_ENTRIES : {}),
+  const pkg = (await Bun.file(pkgPath).json()) as {
+    scripts?: Record<string, string>;
+    devDependencies?: Record<string, string>;
   };
-  for (const [key, value] of Object.entries(entries)) {
+  const scripts = pkg.scripts || {};
+  const additions: Record<string, string> = {
+    test: "bun run scripts/run-tests.ts",
+    "test:fast": "bun run scripts/run-tests.ts --fast",
+    "test:coverage": "bun run scripts/run-tests.ts --coverage",
+    "test:coverage:ci": "bun run scripts/run-tests.ts --ci --coverage",
+    check: "bun run scripts/check.ts",
+    "check:fast": "bun run scripts/check.ts --fast",
+    "check:dry-run": "bun run scripts/check.ts --dry-run",
+    "docs:sync": "bun run scripts/readme-sync.ts --fix",
+    typecheck: "tsc --noEmit",
+    format: "oxfmt --write .",
+    "format:check": "oxfmt --check -c .oxfmtrc.json .",
+    "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
+    lint: "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
+    "lint:terms": "bun run scripts/lint-banned-terms.ts",
+    fix: "kimi-fix .",
+  };
+  let scriptsChanged = false;
+  for (const [key, value] of Object.entries(additions)) {
     if (!scripts[key]) {
       scripts[key] = value;
       scriptsChanged = true;
@@ -47,22 +46,7 @@ export async function injectMissingScripts(
       await Bun.write(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
     }
   }
-}
 
-/**
- * Install missing devDependencies via `bun add`.
- * Side-effect: spawns a network process. Skip in tests by providing
- * devDependencies in the fixture, use dryRun, or call injectMissingScripts directly.
- */
-export async function installMissingDeps(
-  project: string,
-  dryRun: boolean,
-  log: (step: string, msg: string) => void
-): Promise<void> {
-  const pkgPath = join(project, "package.json");
-  if (!pathExists(pkgPath)) return;
-
-  const pkg = (await Bun.file(pkgPath).json()) as PackageJsonScaffold;
   const devDeps = pkg.devDependencies || {};
   const missingDeps: string[] = [];
   if (!devDeps.oxfmt) missingDeps.push("oxfmt");
@@ -75,19 +59,4 @@ export async function installMissingDeps(
       await $`bun add -d ${missingDeps}`.cwd(project).quiet();
     }
   }
-}
-
-/**
- * Full quality tooling setup: inject missing scripts + install missing deps.
- * Kept for backward compatibility — new callers should consider calling
- * injectMissingScripts and installMissingDeps separately.
- */
-export async function ensureQualityTooling(
-  project: string,
-  dryRun: boolean,
-  log: (step: string, msg: string) => void,
-  profile: ScaffoldProfile = "app"
-): Promise<void> {
-  await injectMissingScripts(project, dryRun, log, profile);
-  await installMissingDeps(project, dryRun, log);
 }

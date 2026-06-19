@@ -1,12 +1,10 @@
 /**
  * proc-cache.ts — Shared TTL cache for process/system queries.
  *
- * Single source of truth for ps/pgrep caching, orphan detection, and process
- * lookup helpers. Previously duplicated between memory-budget.ts,
- * process-utils.ts, and governor-spawn.ts.
+ * Single source of truth for ps caching, orphan detection, and process
+ * lookup helpers. Previously duplicated between memory-budget.ts and
+ * process-utils.ts.
  */
-
-import { dedupInflight, peekPromise, peekPromiseStatus } from "./bun-utils.ts";
 
 const decoder = new TextDecoder();
 
@@ -17,82 +15,29 @@ interface CacheEntry<T> {
   ts: number;
 }
 
-const _execCache = new Map<string, CacheEntry<string>>();
-const _inflightExec = new Map<string, Promise<string>>();
+const _procCache = new Map<string, CacheEntry<string>>();
 const CACHE_TTL_MS = 1000;
 const ORPHAN_MIN_AGE_SECONDS = 120;
 
-function execCacheKey(cmd: string, args: string[]): string {
-  return `${cmd}\0${args.join("\0")}`;
-}
-
-function cacheHit(key: string, now = Date.now()): string | null {
-  const entry = _execCache.get(key);
+/** Run a ps command with TTL caching — avoids repeated subprocess calls. */
+export function getCachedPs(args: string[]): string {
+  const key = args.join(" ");
+  const now = Date.now();
+  const entry = _procCache.get(key);
   if (entry && now - entry.ts < CACHE_TTL_MS) return entry.value;
-  return null;
-}
 
-function storeOutput(key: string, output: string): string {
-  _execCache.set(key, { value: output, ts: Date.now() });
-  return output;
-}
-
-function readExecStdoutSync(cmd: string, args: string[]): string {
   try {
-    const proc = Bun.spawnSync([cmd, ...args], { stdout: "pipe", stderr: "pipe" });
-    return decoder.decode(proc.stdout);
+    const output = decoder.decode(Bun.spawnSync(["ps", ...args]).stdout);
+    _procCache.set(key, { value: output, ts: now });
+    return output;
   } catch {
     return "";
   }
 }
 
-function runExecFetch(cmd: string, args: string[]): Promise<string> {
-  const key = execCacheKey(cmd, args);
-  return dedupInflight(_inflightExec, key, async () =>
-    storeOutput(key, readExecStdoutSync(cmd, args))
-  );
-}
-
-/** Run a short diagnostic command with TTL caching and in-flight dedup. */
-export function getCachedCommandOutput(cmd: string, args: string[]): string {
-  const key = execCacheKey(cmd, args);
-  const hit = cacheHit(key);
-  if (hit !== null) return hit;
-
-  const inflight = _inflightExec.get(key);
-  if (inflight && peekPromiseStatus(inflight) === "fulfilled") {
-    try {
-      return peekPromise(inflight) as string;
-    } catch {
-      /* spawn below */
-    }
-  }
-
-  return storeOutput(key, readExecStdoutSync(cmd, args));
-}
-
-/** Async variant — preferred for concurrent doctor / governor paths. */
-export async function getCachedCommandOutputAsync(cmd: string, args: string[]): Promise<string> {
-  const key = execCacheKey(cmd, args);
-  const hit = cacheHit(key);
-  if (hit !== null) return hit;
-  return runExecFetch(cmd, args);
-}
-
-/** Run `ps` with TTL caching — alias over getCachedCommandOutput. */
-export function getCachedPs(args: string[]): string {
-  return getCachedCommandOutput("ps", args);
-}
-
-/** Async `ps` cache with in-flight dedup. */
-export async function getCachedPsAsync(args: string[]): Promise<string> {
-  return getCachedCommandOutputAsync("ps", args);
-}
-
-/** Clear exec/ps caches (tests and between doctor runs). */
+/** Clear the process cache (useful between test runs or after state changes). */
 export function clearProcessCache(): void {
-  _execCache.clear();
-  _inflightExec.clear();
+  _procCache.clear();
 }
 
 // ── Orphan detection ─────────────────────────────────────────────────

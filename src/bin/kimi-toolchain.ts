@@ -15,9 +15,8 @@ import {
   printToolHelp,
 } from "../lib/tool-registry.ts";
 import { runWorkspaceCommand, printWorkspaceHelp } from "../lib/workspace-commands.ts";
-import { invokeTool, resolveToolSpawnTimeoutMs } from "../lib/tool-runner.ts";
+import { invokeTool, defaultToolTimeoutMs } from "../lib/tool-runner.ts";
 import { toolsDir } from "../lib/paths.ts";
-import { resolveProjectRoot } from "../lib/utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { createLogger } from "../lib/logger.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -30,7 +29,7 @@ const TOOLS_DIR = toolsDir();
 async function spawnTool(script: string, args: string[], timeoutMs?: number): Promise<number> {
   const result = await invokeTool(script, args, {
     cwd: Bun.cwd,
-    timeoutMs: timeoutMs ?? resolveToolSpawnTimeoutMs(args),
+    timeoutMs: timeoutMs ?? defaultToolTimeoutMs(),
   });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
@@ -47,7 +46,7 @@ async function dispatchTool(shortName: string, args: string[]): Promise<number> 
       printWorkspaceHelp();
       return sub ? 0 : 1;
     }
-    return runWorkspaceCommand(sub, args.slice(1), await resolveProjectRoot());
+    return runWorkspaceCommand(sub, args.slice(1));
   }
 
   const repoScript = resolveRepoToolScript(shortName, REPO_BIN);

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
-import { REPO_ROOT } from "./helpers.ts";
 import {
   DIRECT_BIN,
   META_BIN,
@@ -11,6 +10,7 @@ import {
   shortNameToScript,
 } from "../src/lib/tool-registry.ts";
 
+const REPO_ROOT = import.meta.dir + "/..";
 const BIN_DIR = join(REPO_ROOT, "src", "bin");
 
 describe("tool-registry", () => {

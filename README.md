@@ -14,10 +14,10 @@ bun install -g github:brendadeeznuts1111/kimi-toolchain
 git clone https://github.com/brendadeeznuts1111/kimi-toolchain.git ~/kimi-toolchain
 cd ~/kimi-toolchain
 bun install -g .
-bun run unify    # sync to ~/.kimi-code/, install PATH wrappers, validate
+bun run unify    # sync → ~/.kimi-code/, install PATH wrappers, validate
 ```
 
-**Cursor:** open `~/kimi-toolchain` or `kimi-toolchain.code-workspace`.
+**Cursor:** open `~/kimi-toolchain` or `kimi-toolchain.code-workspace` — not legacy `~/kimicode-cli`.
 
 See **UNIFIED.md** for how Kimi Code (`kimi`), kimi-toolchain (`kimi-doctor`), and `~/.kimi-code/` relate.
 
@@ -31,19 +31,6 @@ kimi login
 kimi-doctor --quick
 ```
 
-> **What gets scaffolded:** hardened `bunfig.toml` ([install], [run] noOrphans, [test]), `dx.config.toml`, `AGENTS.md`, CI workflow, and more. See [TEMPLATES.md](TEMPLATES.md) for the full reference and [docs/references/bun-runtime-scaffold.md](docs/references/bun-runtime-scaffold.md) for the rationale behind each default.
-
-**Zero-install via `bun create`** — scaffold a hardened project from anywhere:
-
-```bash
-bun create kimi-toolchain my-app   # downloads template, runs kimi-fix
-cd my-app
-bun run check:fast
-```
-
-> Requires one-time template install: `cp -r ~/kimi-toolchain/templates/bun-create/kimi-toolchain ~/.bun-create/`
-> See [bun create docs](https://bun.com/docs/runtime/templating/create) for local template usage.
-
 **Zero-install alternative** — run any command without installing:
 
 ```bash
@@ -55,135 +42,58 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 ## Commands
 
-Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
-
-### Auto-synced scripts
-
-<!-- package-scripts-sync -->
-| Script | Description |
-| --- | --- |
-| `bun run artifacts:property-table` | (synced from package.json) |
-| `bun run bench` | (synced from package.json) |
-| `bun run bun-native:baseline` | (synced from package.json) |
-| `bun run bun-native:batch` | (synced from package.json) |
-| `bun run bun-native:check` | (synced from package.json) |
-| `bun run bun-native:migrate-fs` | (synced from package.json) |
-| `bun run bun-native:migrate-imports` | (synced from package.json) |
-| `bun run bun-native:report` | (synced from package.json) |
-| `bun run bun-native:rules` | (synced from package.json) |
-| `bun run canvas:generate` | (synced from package.json) |
-| `bun run check` | (synced from package.json) |
-| `bun run check:dry-run` | (synced from package.json) |
-| `bun run check:fast` | (synced from package.json) |
-| `bun run check:fast:changed` | (synced from package.json) |
-| `bun run check:staged` | (synced from package.json) |
-| `bun run check:watch` | (synced from package.json) |
-| `bun run check:watch:tests` | (synced from package.json) |
-| `bun run ci:local` | (synced from package.json) |
-| `bun run cleanup-legacy` | (synced from package.json) |
-| `bun run cleanup-root` | (synced from package.json) |
-| `bun run config:status` | (synced from package.json) |
-| `bun run dashboard` | (synced from package.json) |
-| `bun run docs:sync` | (synced from package.json) |
-| `bun run doctor` | (synced from package.json) |
-| `bun run doctor:probe` | (synced from package.json) |
-| `bun run doctor:train` | (synced from package.json) |
-| `bun run doctor:watch` | (synced from package.json) |
-| `bun run dx-config` | (synced from package.json) |
-| `bun run dx-table` | (synced from package.json) |
-| `bun run dx:config` | (synced from package.json) |
-| `bun run dx:property-table` | (synced from package.json) |
-| `bun run dx:table` | (synced from package.json) |
-| `bun run dx:table:contract` | (synced from package.json) |
-| `bun run finish-work` | (synced from package.json) |
-| `bun run fix` | (synced from package.json) |
-| `bun run format` | (synced from package.json) |
-| `bun run format:check` | (synced from package.json) |
-| `bun run format:check:ci` | (synced from package.json) |
-| `bun run frontmatter` | (synced from package.json) |
-| `bun run governance` | (synced from package.json) |
-| `bun run install-herdr-plugin` | (synced from package.json) |
-| `bun run install-wrappers` | (synced from package.json) |
-| `bun run lint` | (synced from package.json) |
-| `bun run lint:constant-parity` | (synced from package.json) |
-| `bun run lint:context` | (synced from package.json) |
-| `bun run lint:doc-links` | (synced from package.json) |
-| `bun run lint:skills` | (synced from package.json) |
-| `bun run lint:taxonomy-coverage` | (synced from package.json) |
-| `bun run lint:terms` | (synced from package.json) |
-| `bun run lint:tochange` | (synced from package.json) |
-| `bun run manifest:generate` | (synced from package.json) |
-| `bun run memory-budget` | (synced from package.json) |
-| `bun run memory-check` | (synced from package.json) |
-| `bun run new` | (synced from package.json) |
-| `bun run perf:auto-train` | (synced from package.json) |
-| `bun run perf:effect-handlers` | (synced from package.json) |
-| `bun run perf:gates:changed` | (synced from package.json) |
-| `bun run perf:nightly` | (synced from package.json) |
-| `bun run perf:report` | (synced from package.json) |
-| `bun run perf:train` | (synced from package.json) |
-| `bun run pr:diff` | (synced from package.json) |
-| `bun run pr:status` | (synced from package.json) |
-| `bun run push` | (synced from package.json) |
-| `bun run references:generate` | (synced from package.json) |
-| `bun run scan` | (synced from package.json) |
-| `bun run scan:json` | (synced from package.json) |
-| `bun run scope:run` | (synced from package.json) |
-| `bun run skills:table` | (synced from package.json) |
-| `bun run sync` | (synced from package.json) |
-| `bun run sync:daemon` | (synced from package.json) |
-| `bun run sync:verify` | (synced from package.json) |
-| `bun run test` | (synced from package.json) |
-| `bun run test:ci` | (synced from package.json) |
-| `bun run test:coverage` | (synced from package.json) |
-| `bun run test:coverage:ci` | (synced from package.json) |
-| `bun run test:coverage:fast` | (synced from package.json) |
-| `bun run test:fast` | (synced from package.json) |
-| `bun run test:flake-hunt` | (synced from package.json) |
-| `bun run test:parallel` | (synced from package.json) |
-| `bun run test:parallel:4` | (synced from package.json) |
-| `bun run test:pattern` | (synced from package.json) |
-| `bun run test:shard` | (synced from package.json) |
-| `bun run test:shuffle` | (synced from package.json) |
-| `bun run test:smoke` | (synced from package.json) |
-| `bun run test:watch:changed` | (synced from package.json) |
-| `bun run typecheck` | (synced from package.json) |
-| `bun run unify` | (synced from package.json) |
 | `bun run verify-workspace` | (synced from package.json) |
-<!-- /package-scripts-sync -->
+| `bun run cleanup-legacy` | (synced from package.json) |
+
+| `bun run push` | (synced from package.json) |
+
+| `bun run bench` | (synced from package.json) |
+
+| `bun run test:unit` | (synced from package.json) |
+| `bun run test:smoke` | (synced from package.json) |
+| `bun run check:staged` | (synced from package.json) |
+
+| `bun run test:integration` | (synced from package.json) |
+| `bun run ci:pipeline` | (synced from package.json) |
+| `bun run ci:impact` | (synced from package.json) |
+
+| `bun run quality:check:ci` | (synced from package.json) |
+
+| `bun run capabilities` | (synced from package.json) |
+| `bun run contract` | (synced from package.json) |
+| `bun run kimi` | (synced from package.json) |
+| `bun run trace` | (synced from package.json) |
+
+| `bun run heal` | (synced from package.json) |
+| `bun run why` | (synced from package.json) |
+
+| `bun run decision` | (synced from package.json) |
 
 ### Core
 
 | Command                        | Description                           |
 | ------------------------------ | ------------------------------------- |
-| `kimi-toolchain <tool> [...]`  | Unified router for toolchain commands |
 | `kimi-doctor`                  | Full toolchain diagnostics            |
 | `kimi-new <name> [--path dir]` | Create and scaffold a new Bun project |
-| `bun create kimi-toolchain <name>` | Scaffold via Bun's local template system |
 | `kimi-fix <path> [--dry-run]`  | Auto-repair project scaffolding       |
 | `kimi-fix doctor [path]`       | Check scaffold completeness           |
-| `kimi-resource-governor health-listen` | Subscribe to cross-tool health events |
 
 ### Project Scripts
 
 | Command                      | Description                                         |
 | ---------------------------- | --------------------------------------------------- |
 | `bun run doctor`             | Run kimi-doctor from repo                           |
+| `bun run kimi`               | Run the local kimi-toolchain router from repo       |
 | `bun run fix`                | Run kimi-fix from repo                              |
 | `bun run new`                | Run kimi-new from repo                              |
 | `bun run governance`         | Run kimi-governance from repo                       |
-| `bun run test`               | Full test suite (unit + smoke; default 30s timeout) |
-| `bun run test:fast`          | Unit tests only at 1500ms timeout (`test-gates.ts`) |
+| `bun run test`               | Full test suite (unit + smoke; default 5s timeout)  |
+| `bun run test:fast`          | Unit tests only at the fast timeout                 |
 | `bun run test:coverage`      | Full suite with Bun coverage report                 |
-| `bun run test:coverage:fast` | Unit coverage at 1500ms timeout (R-Score gate)    |
+| `bun run test:coverage:fast` | Unit coverage at the fast timeout (R-Score gate)    |
 | `bun run test:coverage:ci`   | Full suite + coverage (60s timeout, lcov, `--bail`) |
-| `bun run test:parallel`      | Full suite across all CPU cores (`--parallel --isolate`) |
-| `bun run test:parallel:4`    | Full suite across 4 workers                           |
-| `bun run test:shard`         | CI matrix — set SHARD env (e.g. `--shard=1/3`)      |
-| `bun run scan`               | Bun upgrade advisor — detects gaps vs toolchain patterns |
-| `bun run scan:json`          | Structured JSON scan output                           |
-| `bun run check`              | format:check + lint + typecheck + test (CI/hooks)   |
-| `bun run check:fast`         | Same gates; unit tests at 1500ms timeout            |
+| `bun run check`              | format:check + lint + typecheck + test (CI/full)    |
+| `bun run check:fast`         | Same gates; unit tests at the fast timeout          |
 | `bun run check:dry-run`      | List check steps without running them               |
 | `bun run docs:sync`          | Patch README script table from package.json         |
 | `bun run typecheck`          | TypeScript type check (no emit)                     |
@@ -192,51 +102,145 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run format:check:ci`    | Format check with `--threads=4` (GitHub Actions)    |
 | `bun run lint`               | Lint with oxlint + banned-terms scan                |
 | `bun run lint:terms`         | Scan docs for banned internal branding tags         |
-| `bun run sync`               | Sync repo assets and manifest to `~/.kimi-code/`    |
-| `bun run sync:verify`        | Verify runtime files match the repo sync manifest   |
+| `bun run sync`               | Sync repo to `~/.kimi-code/`                        |
+| `bun run sync:manifest`      | Generate `~/.kimi-code/toolchain-manifest.json`     |
+| `bun run sync:verify`        | Verify sync manifest hashes and desktop drift       |
 | `bun run sync:daemon`        | Sync on cron (every 5 min)                          |
 | `bun run unify`              | Sync runtime, wrappers, validate                    |
 | `bun run install-wrappers`   | Install `~/.local/bin/kimi-*` wrappers              |
 | `bun run memory-check`       | Shell memory pressure snapshot                      |
 | `bun run memory-budget`      | Per-app RSS breakdown via kimi-doctor               |
 
-### Toolchain maintenance
+### Effect CI impact rules
 
-| Command | Description |
-| ------- | ----------- |
-| `bun run verify-workspace` | Fail if cwd folder is not `kimi-toolchain` |
-| `bun run cleanup-legacy` | Audit stale clone paths and Cursor slugs |
-| `bun run cleanup-root` | Trim repo-root clutter |
-| `bun run push` | Git push + runtime sync |
-| `bun run bench` | Run `bench/core.bench.ts` |
-| `bun run ci:local` | Local CI mirror (gates + coverage + governance) |
-| `bun run finish-work` | Gates + optional commit/push close-loop |
-| `bun run check:staged` | Fast gates on staged files only |
-| `bun run lint:context` | Agent-doc bloat lint (`scripts/lint-context-bloat.ts`) |
-| `bun run lint:taxonomy-coverage` | Error taxonomy coverage audit |
-| `bun run manifest:generate` | Regenerate constants manifest |
-| `bun run config:status` | Configuration layers audit — canonical refs, manifest, constant parity ([configuration-layers.md](./docs/references/configuration-layers.md)) |
-| `bun run docs:sync` | README script drift check/patch |
-| `bun run references:generate` | Regenerate `canonical-references.json` ecosystem link manifest (+ canvas companions) |
-| `bun run canvas:generate` | Regenerate canvas `CANVAS_ROUTING` + hub stats/inventory (`--check` for CI) |
-| `bun run pr:diff` | PR diff helper |
-| `bun run pr:status` | PR status helper |
-| `bun run test:smoke` | Smoke CLI tests only |
-| `bun run test:ci` | CI test profile |
-| `bun run test:flake-hunt` | Flaky test hunt profile |
-| `bun run test:shuffle` | Shuffled test order profile |
-| `bun run test:pattern` | Pattern-filtered test runner |
-| `bun run install-herdr-plugin` | Install Herdr kimi-toolchain plugin |
-| `bun run bun-native:check` | Bun-native lint check |
-| `bun run bun-native:report` | Bun-native migration report |
-| `bun run bun-native:rules` | Bun-native lint rules |
-| `bun run bun-native:batch` | Bun-native batch lint |
-| `bun run bun-native:baseline` | Bun-native baseline snapshot |
-| `bun run bun-native:migrate-imports` | Bun-native import codemod |
-| `bun run bun-native:migrate-fs` | Bun-native fs codemod |
+`bun run ci:pipeline --affected` builds an Effect graph from `ci/impact.config.json` and the import dependency graph. `docsOnly` changes run only `success-metrics` and fast governance. `configOnly` changes are for CI metadata and env examples and also use the minimal graph. Source changes run the combined `quality` gate, typecheck, and only the tests, smoke checks, benchmarks, and security scan affected by the changed files. Unknown risky source files intentionally fall back to the full graph.
 
-When tools, docs, skills, or generated runtime assets change, final handoff
-validation includes `bun run sync && bun run sync:verify`.
+When updating `ci/impact.config.json`, put runtime-impacting files in `fullRun`, pure CI metadata in `configOnly`, and source ownership in `targets`. JSON does not allow comments, so policy notes live in the top-level `notes` field.
+
+Generated test, report, coverage, and temp-home outputs are written under `.kimi-artifacts/`. That directory is ignored and is the only supported local artifact root for CI/test outputs.
+
+### Sync Manifest
+
+`bun run sync` copies managed files to `~/.kimi-code/` and regenerates `~/.kimi-code/toolchain-manifest.json` with sha256 hashes for every sync-managed source. `bun run sync:verify` recomputes those hashes and compares them with both the manifest and the live desktop copy. The managed pre-push hook skips no-op/delete-only pushes, otherwise runs the fast local gate by default, then runs `sync` followed by `sync:verify`; set `KIMI_PRE_PUSH_FULL=1` when a push should run the full local gate.
+
+### Introspection & Self-Healing
+
+The toolchain stores local causal telemetry under `~/.kimi-code/var/` and keeps apply behavior guarded.
+When an agent needs to understand a failure chain, run `kimi-trace <trace-id> --json`.
+When it needs to know whether integrations are alive, run `kimi-capabilities --json`.
+When contracts or provider declarations change, run `kimi-contract validate --json` before trusting them.
+
+Smoke-check the introspection surface from a working tree:
+
+```bash
+bun run capabilities --json | grep '"readiness"'
+bun run kimi contract validate ./contracts/sample.contract.json --json | grep '"trusted"'
+```
+
+| Command                         | Description                                                   |
+| ------------------------------- | ------------------------------------------------------------- |
+| `kimi-capabilities --json`      | Run live MCP, hook, credential, and contract readiness probes |
+| `kimi-capabilities --trend`     | Show saved capability snapshots over time                     |
+| `kimi-trace <trace-id> --json`  | Reconstruct a causal graph and root-cause chain               |
+| `kimi-contract validate --json` | Audit signed/unsigned/unknown/invalid contracts               |
+| `kimi-contract sign <file>`     | Sign a normalized JSON/YAML contract with an Ed25519 key      |
+| `kimi-heal plan --json`         | Convert capabilities and failure clusters into an action plan |
+| `kimi-heal apply --dry-run`     | Preview safe healing actions without mutating state           |
+| `kimi-heal apply --yes`         | Apply only actions marked `safeToAutoApply`                   |
+| `kimi-decision log --json`      | List recorded decisions from the decision ledger              |
+| `kimi-why <topic> --json`       | Explain recorded decisions; alias for `kimi-decision why`     |
+
+Effect-native agents can skip subprocesses and compose the same surface through
+`KimiIntrospectionLive`; see [docs/agent-api.md](docs/agent-api.md).
+
+`kimi-heal apply` is dry-run by default. Manual or blocked actions, including lockfile trust baselines, dependency installs, signing keys, and source edits, are surfaced but not applied automatically.
+
+#### Local Schemas
+
+| File / object                            | Purpose                                                                |
+| ---------------------------------------- | ---------------------------------------------------------------------- |
+| `~/.kimi-code/var/tool-failures.jsonl`   | Classified failures with `taxonomyId`, trace fields, and context       |
+| `~/.kimi-code/var/trace-events.jsonl`    | `TraceEvent` records for CLI, subprocess, hook, and MCP activity       |
+| `~/.kimi-code/var/capabilities/*.json`   | `CapabilityReport` snapshots with readiness score and per-check status |
+| `<contract>.sig`                         | Ed25519 `ContractSignatureEnvelope` for a normalized contract          |
+| `trusted-keys.json`                      | Project trusted public keys and optional roles                         |
+| `~/.kimi-code/var/decision-ledger.jsonl` | `DecisionRecord` entries for `kimi-decision` and `kimi-why`            |
+| `HealPlan` / `HealApplyReport`           | `kimi-heal` planning/apply output schemas                              |
+
+#### JSON Shapes
+
+`kimi-capabilities --json` writes a `CapabilityReport` and saves the same shape under `~/.kimi-code/var/capabilities/`:
+
+```json
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-15T00:00:00.000Z",
+  "readiness": 75,
+  "readinessScore": 75,
+  "healthy": 3,
+  "degraded": 1,
+  "unavailable": 0,
+  "checks": [
+    {
+      "id": "contract-trust",
+      "type": "contract",
+      "status": "degraded",
+      "summary": "0 trusted, 2 unsigned, 0 unknown-key, 0 invalid",
+      "latencyMs": 4,
+      "lastSuccessfulContact": "2026-06-15T00:00:00.000Z",
+      "details": { "unsigned": 2 }
+    }
+  ]
+}
+```
+
+`kimi-trace <trace-id> --json` returns a trace graph:
+
+```json
+{
+  "rootTraceId": "root-123",
+  "requestedTraceId": "child-456",
+  "found": true,
+  "rootCauseChain": ["root-123", "child-456"],
+  "nodes": [
+    {
+      "traceId": "child-456",
+      "parentTraceId": "root-123",
+      "childTraceIds": [],
+      "status": "error",
+      "durationMs": 128,
+      "events": [],
+      "failures": [{ "taxonomyId": "lockfile_issue" }]
+    }
+  ]
+}
+```
+
+Contracts are normalized before signing. Sibling signatures are preferred; embedded `x-kimi-signature` fields are ignored during normalization so a future embedded form can be validated against the same payload.
+
+```json
+{
+  "schemaVersion": 1,
+  "algorithm": "ed25519",
+  "keyId": "schema-team",
+  "signatureHex": "0123abcd",
+  "payloadSha256": "64-character-sha256-hex",
+  "signedAt": "2026-06-15T00:00:00.000Z"
+}
+```
+
+`trusted-keys.json` may be either a direct key map or a `{ "keys": { ... } }` wrapper:
+
+```json
+{
+  "keys": {
+    "schema-team": {
+      "publicKey": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n",
+      "roles": ["schema", "provider-contracts"]
+    }
+  }
+}
+```
 
 ### Governance
 
@@ -255,7 +259,6 @@ validation includes `bun run sync && bun run sync:verify`.
 | `kimi-guardian check`           | Lockfile integrity & CVE scan               |
 | `kimi-guardian sign`            | Baseline lockfile hash                      |
 | `kimi-guardian verify`          | Verify lockfile against stored hash         |
-| `kimi-cloudflare-access status` | Read-only Cloudflare/DX/MCP local inventory |
 | `kimi-cloudflare-access login`  | Store Cloudflare credentials in OS keychain |
 | `kimi-cloudflare-access logout` | Remove stored Cloudflare credentials        |
 | `kimi-cloudflare-access`        | Service token expiry sweep                  |
@@ -315,41 +318,6 @@ validation includes `bun run sync && bun run sync:verify`.
 | `kimi-debug trace`   | Trace execution path      |
 | `kimi-debug analyze` | Analyze failure pattern   |
 
-### Introspection & Self-Healing
-
-| Command                         | Description                            |
-| ------------------------------- | -------------------------------------- |
-| `kimi-heal plan [--json]`       | Propose safe repair actions            |
-| `kimi-heal apply --action <id>` | Apply a selected repair action         |
-| `kimi-heal clusters [--json]`   | Summarize failure clusters             |
-| `kimi-heal effect audit`        | Effect discipline audit                |
-| `kimi-heal --fix`               | Auto-wrap bare promises / rewrite domain imports |
-| `kimi-heal effect audit --check-pipeline --profile toolchain` | Full pipeline-aware audit |
-| `kimi-decision graph <traceId>` | Show the decision graph for a trace    |
-| `kimi-decision why <id>`        | Explain recorded rationale + evidence  |
-| `kimi-decision audit [--json]`  | Find low-quality or unverified entries |
-
-#### Effect Audit Profiles
-
-`kimi-heal effect audit --profile <name>` selects a preconfigured check set:
-
-| Profile | Pipeline Check | Bare Promise | Domain Purity | Scan Scope |
-|---------|:---:|:---:|:---:|------------|
-| `toolchain` | ✓ | ✓ | ✓ | `src/effect/`, `src/domain/`, `src/guardian/` |
-| `minimal` | — | — | — | (no extra scan) |
-| `ci` | ✓ | ✓ | — | `src/effect/` |
-
-Pipeline check verifies every `EFFECT_PIPELINE` symbol has a `globalThis` handler
-registered. Bare-promise and domain-purity are supplementary regex checks that
-complement the main TypeScript AST audit in `src/lib/effect-gates.ts`.
-
-**Advanced repair:** `kimi-heal --fix` (or `effect audit --fix`) applies automated
-repairs via `src/lib/effect-heal-fix.ts` — wraps `.then`/`.catch` chains in
-`Effect.tryPromise`, rewrites domain `getEffect` imports. Always `--dry-run` first.
-
-Use `--check-pipeline` without `--profile` to run pipeline checks with
-`toolchain` defaults.
-
 ### Snapshot
 
 | Command                        | Description               |
@@ -362,63 +330,66 @@ Use `--check-pipeline` without `--profile` to run pipeline checks with
 
 ## Project Structure
 
-Layout maps: [AGENTS.md](./AGENTS.md#architecture) and [UNIFIED.md](./UNIFIED.md).
-Live runtime at `~/.kimi-code/` is synced via `bun run sync` (`scripts/sync-to-desktop.ts` writes `toolchain-manifest.json`).
+```
+src/
+  bin/          # CLI tools (kimi-doctor, kimi-governance, etc.)
+  lib/          # Shared utilities (utils.ts)
+  install-hooks/# postinstall.ts (bun package hook)
+  kimi-hooks/   # Kimi Code lifecycle hooks (PostToolUseFailure, etc.)
+  guardian/     # Lockfile verifier
+  drift/        # Dependency drift detector
+```
 
-**Namespace & boundaries:** [docs/references/namespace.md](./docs/references/namespace.md) — doctor trinity, toolchain vs Herdr plugin, finish-work gates vs `prefix+*` keybindings.
-
-**Canvas companions** (IDE-only pointers via `cursorCanvas` in `canonical-references.json`; not synced to runtime):
-
-| Canvas | Manifest id | Purpose |
-| --- | --- | --- |
-| [docs/canvases/kimi-toolchain.canvas.tsx](./docs/canvases/kimi-toolchain.canvas.tsx) | `unified` | Project hub |
-| [docs/canvases/namespace-boundaries.canvas.tsx](./docs/canvases/namespace-boundaries.canvas.tsx) | `namespace` | Name collisions and binding layers |
-| [docs/canvases/configuration-layers.canvas.tsx](./docs/canvases/configuration-layers.canvas.tsx) | `configuration-layers` | Four-layer config model |
-| [docs/canvases/kimi-fix.canvas.tsx](./docs/canvases/kimi-fix.canvas.tsx) | `templates` | Scaffold profiles and `kimi-fix` wiring |
-| [docs/canvases/doc-links-and-see-ladder.canvas.tsx](./docs/canvases/doc-links-and-see-ladder.canvas.tsx) | `code-references` | Doc-links lint and `@see` ladder |
-| [docs/canvases/herdr-dashboard-automation.canvas.tsx](./docs/canvases/herdr-dashboard-automation.canvas.tsx) | `kimi-doctor` | `kimi-doctor --automation` gate |
-| [docs/canvases/herdr-dashboard-thumbnails.canvas.tsx](./docs/canvases/herdr-dashboard-thumbnails.canvas.tsx) | `dashboard-thumbnails` | PNG → Bun.Image → `/api/thumbnail` |
-| [docs/canvases/herdr-unified-plugin-architecture.canvas.tsx](./docs/canvases/herdr-unified-plugin-architecture.canvas.tsx) | `herdr-plugin-architecture` | Herdr plugin plan v0.5.0 |
-| [docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx](./docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx) | `deep-quality` | Effect heal + `KIMI_MODULES=doctor` scaffold |
-
-Regenerate routing/stats/inventory: `bun run canvas:generate` (also runs after `bun run references:generate`). See [docs/canvases/README.md](./docs/canvases/README.md).
-
-**Templates:** [TEMPLATES.md](./TEMPLATES.md) (manifest id `templates`) — scaffold profiles, CONTEXT/CHANGELOG patterns, `kimi-fix` wiring.
-
-| Path | Purpose |
-| --- | --- |
-| [templates/scaffold/](./templates/scaffold/) | `kimi-fix` / `kimi-new` app and toolchain scaffolds (`dx.config.app.toml`, `dx.config.toolchain.toml`, `bunfig.toml`, `index.ts`, `README.md`, finish-work scripts) |
-| [templates/bun-create/](./templates/bun-create/) | `bun create` local template (`kimi-toolchain` — delegates to `kimi-fix` via `bun-create.postinstall`) |
-| [templates/kimi-config-permissions.toml](./templates/kimi-config-permissions.toml) | Kimi Code MCP permission rules |
-| [skills/effect-hardening/templates/](./skills/effect-hardening/templates/) | Effect L3 module scaffolds (service, error-pipeline, event-stream, layers, schema boundary) |
-
-Scaffold with `kimi-new <name>` (app profile), `bun create kimi-toolchain <name>` (anywhere), or `kimi-fix <path> --profile toolchain` for Herdr/finish-work layout. Synced to `~/.kimi-code/` via `bun run sync`.
-
-**Runtime scaffold reference:** [docs/references/bun-runtime-scaffold.md](./docs/references/bun-runtime-scaffold.md) — Bun install config, global virtual store, process.execve, Bun.Terminal on Windows, using/await using.
-
-**Health channel:** [src/lib/health-channel.ts](./src/lib/health-channel.ts) — cross-tool telemetry via JSONL (`kimi:health`). Publish from `kimi-doctor`, subscribe from `kimi-resource-governor health-listen`.
+Live runtime at `~/.kimi-code/` (managed by postinstall hook).
 
 ## Governance
 
-- R-Score: `kimi-governance score --preflight --quick`
-- License: MIT — [CONTRIBUTING.md](./CONTRIBUTING.md)
-- Success metrics — **Drift latency**, **Error coverage**, **Integration agility**: [AGENTS.md](./AGENTS.md#success-metrics) (`kimi-doctor --success-metrics`). The metrics are not frozen; threshold changes need release cadence alignment and failure ledger evidence.
+- R-Score: run `kimi-governance score`
+- License: MIT
+- [CONTRIBUTING.md](./CONTRIBUTING.md)
+
+### Success Metrics
+
+These goals define whether the toolchain is doing its job. They are checked by
+`kimi-doctor --success-metrics` and are part of `bun run check`, so CI gets a
+clear pass/fail on every commit.
+
+**Drift latency**
+: Any single documented behaviour, such as a README command, API sample, or CLI
+help example, must be verified against the live system in one `kimi doctor`
+or `kimi-doctor` run. The current automated check verifies README command
+drift against `package.json` without manual inspection.
+
+**Error coverage**
+: At least 90% of failures from managed contracts, hooks, and integrations must
+receive a taxonomy code and structured context containing stack, inputs, and
+environment details. The remaining failures stay in a monitored
+`unknown` bucket until the taxonomy is expanded.
+
+**Integration agility**
+: A new cloud provider must require only two artifacts: a contract declaration
+for shape, permissions, and error categories, plus a thin credential adapter
+that maps `getSecret(scope) -> string` into a short-lived token. The scheduler,
+contract engine, taxonomy schema, and existing providers stay provider-agnostic.
+
+The metrics are not frozen. As the toolchain learns, the taxonomy may expand,
+the definition of core logic may tighten, and new metrics may emerge from the
+failure ledger. This section is updated on the same release cadence as the
+toolchain, and any threshold change must include a justification linked to real
+data from `~/.kimi-code/var/tool-failures.jsonl`.
 
 ## Cloudflare API Token Setup
 
 The `kimi-cloudflare-access` tool reads credentials from `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` environment variables, or from the OS keychain via `kimi-cloudflare-access login`.
 
-`kimi-cloudflare-access status --json` is the read-only local inventory path for the DX homepage/dashboard. It reports credential presence, MCP wiring, Wrangler availability, identity profile coverage, project config files, diagnostics, and the DX Cloudflare contract without calling the Cloudflare API. The default path checks whether `wrangler` is available without spawning it; add `--versions` when version details are needed.
-
 ### Required token permissions
 
 Create a dedicated API token at https://dash.cloudflare.com/profile/api-tokens with these permissions:
 
-| Permission             | Commands                                |
-| ---------------------- | --------------------------------------- |
-| None                   | `status`                                |
-| Account > Access: Read | `tokens`, `apps`, `doctor`, `dashboard` |
-| Account > Access: Edit | `fix` (rotate service tokens)           |
+| Permission             | Commands                      |
+| ---------------------- | ----------------------------- |
+| Account > Access: Read | `tokens`, `apps`, `doctor`    |
+| Account > Access: Edit | `fix` (rotate service tokens) |
 
 ### Login / logout
 

@@ -2,8 +2,7 @@
  * kimi-toolchain meta-binary — tool name → script mapping.
  */
 
-import { pathExists } from "./bun-io.ts";
-
+import { existsSync } from "fs";
 import { join } from "path";
 import { readPackageJson } from "./utils.ts";
 import { createLogger, type Logger } from "./logger.ts";
@@ -19,22 +18,23 @@ export const TOOL_SHORT_NAMES = [
   "governance",
   "guardian",
   "memory",
-  "heal",
-  "decision",
   "githooks",
   "context-gen",
-  "config",
-  "identity",
   "cleanup-legacy",
   "cloudflare-access",
+  "decision",
   "debug",
   "release",
   "snapshot",
   "resource-governor",
   "orphan-kill",
+  "error",
+  "trace",
+  "capabilities",
+  "contract",
+  "heal",
+  "why",
   "workspace",
-  "bake",
-  "dashboard",
 ] as const;
 
 export type ToolShortName = (typeof TOOL_SHORT_NAMES)[number];
@@ -45,13 +45,9 @@ const SHORT_TO_SCRIPT: Record<string, string> = {
   new: "kimi-new.ts",
   governance: "kimi-governance.ts",
   guardian: "kimi-guardian.ts",
-  heal: "kimi-heal.ts",
-  decision: "kimi-decision.ts",
   memory: "kimi-memory.ts",
   githooks: "kimi-githooks.ts",
   "context-gen": "kimi-context-gen.ts",
-  config: "kimi-config.ts",
-  identity: "kimi-identity.ts",
   "cleanup-legacy": "kimi-cleanup-legacy.ts",
   "cloudflare-access": "kimi-cloudflare-access.ts",
   debug: "kimi-debug.ts",
@@ -59,8 +55,13 @@ const SHORT_TO_SCRIPT: Record<string, string> = {
   snapshot: "kimi-snapshot.ts",
   "resource-governor": "kimi-resource-governor.ts",
   "orphan-kill": "kimi-orphan-kill.ts",
-  bake: "kimi-bake.ts",
-  dashboard: "kimi-dashboard.ts",
+  error: "kimi-error.ts",
+  trace: "kimi-trace.ts",
+  capabilities: "kimi-capabilities.ts",
+  contract: "kimi-contract.ts",
+  decision: "kimi-decision.ts",
+  heal: "kimi-heal.ts",
+  why: "kimi-decision.ts",
 };
 
 /** package.json bin name → short tool name for meta dispatch. */
@@ -80,14 +81,14 @@ export function resolveToolScript(shortName: string, toolsDir: string): string |
   const script = shortNameToScript(shortName);
   if (!script) return null;
   const path = join(toolsDir, script);
-  return pathExists(path) ? path : null;
+  return existsSync(path) ? path : null;
 }
 
 export function resolveRepoToolScript(shortName: string, repoBinDir: string): string | null {
   const script = shortNameToScript(shortName);
   if (!script) return null;
   const path = join(repoBinDir, script);
-  return pathExists(path) ? path : null;
+  return existsSync(path) ? path : null;
 }
 
 export async function listPackageBinNames(repoRoot: string): Promise<string[]> {

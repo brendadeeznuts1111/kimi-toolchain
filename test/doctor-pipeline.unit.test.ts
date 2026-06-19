@@ -1,12 +1,11 @@
-import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
-
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
+import { mkdirSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
 import { join } from "path";
 import { buildSubDoctorReport, runSubDoctorsEffect } from "../src/lib/doctor-pipeline.ts";
 import { ToolNotFound, ToolTimeout } from "../src/lib/effect/errors.ts";
 
-import { testTempDir } from "./helpers.ts";
 describe("doctor-pipeline", () => {
   test("buildSubDoctorReport aggregates checks via aggregateChecks", () => {
     const report = buildSubDoctorReport("kimi-doctor", [
@@ -19,8 +18,8 @@ describe("doctor-pipeline", () => {
   });
 
   test("runSubDoctorsEffect catchAll uses tool name for ToolNotFound", async () => {
-    const tmpHome = testTempDir("kimi-doctor-pipeline-");
-    makeDir(tmpHome, { recursive: true });
+    const tmpHome = join(tmpdir(), `kimi-doctor-pipeline-${Bun.randomUUIDv7()}`);
+    mkdirSync(tmpHome, { recursive: true });
     const prevHome = Bun.env.HOME;
     Bun.env.HOME = tmpHome;
 
@@ -36,7 +35,7 @@ describe("doctor-pipeline", () => {
       expect(checks[0].message).toBe("failed: missing-sub-doctor-tool");
     } finally {
       Bun.env.HOME = prevHome;
-      removePath(tmpHome, { recursive: true, force: true });
+      rmSync(tmpHome, { recursive: true, force: true });
     }
   });
 
@@ -47,11 +46,11 @@ describe("doctor-pipeline", () => {
   });
 
   test("runSubDoctorsEffect runs passing sub-tool", async () => {
-    const tmpHome = testTempDir("kimi-doctor-pipeline-ok-");
-    makeDir(tmpHome, { recursive: true });
+    const tmpHome = join(tmpdir(), `kimi-doctor-pipeline-ok-${Bun.randomUUIDv7()}`);
+    mkdirSync(tmpHome, { recursive: true });
     const toolsDirPath = join(tmpHome, ".kimi-code", "tools");
-    makeDir(toolsDirPath, { recursive: true });
-    writeText(
+    mkdirSync(toolsDirPath, { recursive: true });
+    writeFileSync(
       join(toolsDirPath, "kimi-governance.ts"),
       "#!/usr/bin/env bun\nconsole.log('sub-doctor-ok');\n"
     );
@@ -71,7 +70,7 @@ describe("doctor-pipeline", () => {
       expect(checks[0].message).toContain("passed");
     } finally {
       Bun.env.HOME = prevHome;
-      removePath(tmpHome, { recursive: true, force: true });
+      rmSync(tmpHome, { recursive: true, force: true });
     }
   });
 });

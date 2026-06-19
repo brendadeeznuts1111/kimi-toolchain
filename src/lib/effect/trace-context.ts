@@ -1,10 +1,9 @@
-import { randomUUIDv7 } from "bun";
-
 /**
  * Effect trace context for causal toolchain runs.
  */
 
 import { Context, Layer } from "effect";
+import { randomUUID } from "node:crypto";
 
 export const TRACE_ID_ENV = "KIMI_TRACE_ID";
 export const PARENT_TRACE_ID_ENV = "KIMI_PARENT_TRACE_ID";
@@ -19,7 +18,7 @@ export interface TraceRuntime {
 export class TraceContext extends Context.Tag("TraceContext")<TraceContext, TraceRuntime>() {}
 
 export function createTraceId(): string {
-  return randomUUIDv7();
+  return randomUUID();
 }
 
 export function readTraceFromEnv(): TraceRuntime | null {
@@ -49,4 +48,24 @@ export function ensureProcessTrace(): TraceRuntime {
 
 export function TraceContextLive(trace: TraceRuntime = ensureProcessTrace()) {
   return Layer.succeed(TraceContext, trace);
+}
+
+export function childTraceEnv(
+  parentTraceId: string = ensureProcessTrace().traceId,
+  traceId: string = createTraceId()
+): Record<string, string> {
+  return {
+    [TRACE_ID_ENV]: traceId,
+    [PARENT_TRACE_ID_ENV]: parentTraceId,
+    [TRACE_STARTED_AT_ENV]: new Date().toISOString(),
+  };
+}
+
+export function currentTraceEnv(): Record<string, string> {
+  const trace = ensureProcessTrace();
+  return {
+    [TRACE_ID_ENV]: trace.traceId,
+    ...(trace.parentTraceId ? { [PARENT_TRACE_ID_ENV]: trace.parentTraceId } : {}),
+    [TRACE_STARTED_AT_ENV]: trace.startedAt,
+  };
 }

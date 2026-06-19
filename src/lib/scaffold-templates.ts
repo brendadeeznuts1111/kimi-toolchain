@@ -2,11 +2,10 @@
  * Canonical scaffold templates — single source of truth for kimi-fix.
  * Template bodies live in templates/scaffold/ (diffable, editable as plain files).
  * This module reads them at import time and re-exports as constants.
- * Keep in sync with TEMPLATES.md (prose mirror; marker drift guarded by test/scaffold-templates.unit.test.ts).
+ * Keep in sync with TEMPLATES.md (validated by unit test).
  */
 
-import { pathExists, readText } from "./bun-io.ts";
-
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 
 function resolveTemplateDir(): string {
@@ -14,17 +13,13 @@ function resolveTemplateDir(): string {
     join(import.meta.dir, "..", "..", "templates", "scaffold"),
     join(import.meta.dir, "..", "templates", "scaffold"),
   ];
-  return candidates.find((dir) => pathExists(dir)) ?? candidates[0];
+  return candidates.find((dir) => existsSync(dir)) ?? candidates[0];
 }
 
 const TEMPLATE_DIR = resolveTemplateDir();
 
 function load(name: string): string {
-  const path = join(TEMPLATE_DIR, name);
-  if (!pathExists(path)) {
-    throw new Error(`Template missing: templates/scaffold/${name}`);
-  }
-  return readText(path);
+  return readFileSync(join(TEMPLATE_DIR, name), "utf8");
 }
 
 // ── Config templates ─────────────────────────────────────────────────
@@ -34,62 +29,29 @@ export const OXLINTRC = load("oxlintrc.json");
 export const CI_WORKFLOW = load("ci.yml");
 export const TSCONFIG = load("tsconfig.json");
 export const BUN_GLOBALS = load("bun-globals.d.ts");
-export const DX_CONFIG_APP = load("dx.config.app.toml");
-export const DX_CONFIG_TOOLCHAIN = load("dx.config.toolchain.toml");
-/** Default scaffold profile (app). */
-export const DX_CONFIG = DX_CONFIG_APP;
+export const DX_CONFIG = load("dx.config.toml");
 export const GITIGNORE = load("gitignore");
 export const ENV_EXAMPLE = load("env.example");
 export const BUNFIG = load("bunfig.toml");
 export const KIMI_SKILLS_README = load("skills-readme.md");
 export const ADR_TEMPLATE = load("adr-template.md");
 export const CODE_REFERENCES_TEMPLATE = load("code-references.md");
-export const MIT_LICENSE_TEMPLATE = load("LICENSE-MIT");
-
-// ── Source file templates ────────────────────────────────────────────
-
-export const ENTRY_POINT = load("index.ts");
-export const README_TEMPLATE = load("README.md");
 
 // ── Generator functions ──────────────────────────────────────────────
 
-/** Required package.json scripts added by kimi-fix and audited by scaffold doctor. */
-export const REQUIRED_PACKAGE_SCRIPT_ENTRIES = {
-  dev: "bun run --watch src/index.ts",
-  test: "bun run scripts/run-tests.ts",
-  "test:fast": "bun run scripts/run-tests.ts --fast",
-  "test:coverage": "bun run scripts/run-tests.ts --coverage",
-  "test:coverage:ci": "bun run scripts/run-tests.ts --ci --coverage",
-  "test:parallel": "bun run scripts/run-tests.ts --parallel",
-  "test:parallel:4": "bun run scripts/run-tests.ts --parallel=4",
-  "test:shard": "bun run scripts/run-tests.ts --shard",
-  scan: "bun run scripts/scan.ts",
-  "scan:json": "bun run scripts/scan.ts --json",
-  check: "bun run scripts/check.ts",
-  "check:fast": "bun run scripts/check.ts --fast",
-  "check:dry-run": "bun run scripts/check.ts --dry-run",
-  "docs:sync": "bun run scripts/readme-sync.ts --fix",
-  typecheck: "tsc --noEmit",
-  format: "oxfmt --write -c .oxfmtrc.json src scripts test",
-  "format:check": "oxfmt --check -c .oxfmtrc.json src scripts test",
-  "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json src scripts test",
-  lint: "oxlint src test scripts && bun run scripts/lint-banned-terms.ts",
-  "lint:terms": "bun run scripts/lint-banned-terms.ts",
-  fix: "kimi-fix .",
-  doctor: "kimi-doctor",
-  "doctor:bunfig": "kimi-doctor --gate bunfig-policy",
-  "doctor:probe": "kimi-doctor --probe-cards",
-  "doctor:probe:strict": "kimi-doctor --probe-cards --strict-probe",
-  "doctor:probe:serve": "kimi-doctor --serve-probe --save-artifact --project-root .",
-} as const;
-
-export const TOOLCHAIN_PACKAGE_SCRIPT_ENTRIES = {
-  "finish-work": "bun run scripts/finish-work.ts",
-} as const;
-
-export const REQUIRED_PACKAGE_SCRIPTS = Object.keys(REQUIRED_PACKAGE_SCRIPT_ENTRIES) as Array<
-  keyof typeof REQUIRED_PACKAGE_SCRIPT_ENTRIES
->;
+/** Required package.json scripts added by kimi-fix. */
+export const REQUIRED_PACKAGE_SCRIPTS = [
+  "test",
+  "test:fast",
+  "check",
+  "check:fast",
+  "typecheck",
+  "format",
+  "format:check",
+  "format:check:ci",
+  "lint",
+  "fix",
+] as const;
 
 /** Generate README.md with project name and basic structure. */
 export async function generateReadme(
@@ -98,6 +60,34 @@ export async function generateReadme(
 ): Promise<string> {
   const filepath = join(projectDir, "README.md");
   const content = `# ${await getProjectName(projectDir)}\n\n## Getting Started\n\n\`\`\`bash\nbun install\nbun run dev\n\`\`\`\n\n## Scripts\n\nSee \`package.json\` for available scripts.\n`;
+  await Bun.write(filepath, content);
+  return filepath;
+}
+
+/** Generate CONTEXT.md with a minimal agent-readable project map. */
+export async function generateContext(
+  projectDir: string,
+  getProjectName: (dir: string) => Promise<string>
+): Promise<string> {
+  const filepath = join(projectDir, "CONTEXT.md");
+  const content = `# CONTEXT - ${await getProjectName(projectDir)}
+
+## Domain
+
+[Auto-generated. Describe what this project does and who uses it.]
+
+## Commands
+
+\`\`\`bash
+bun install
+bun run check
+\`\`\`
+
+## Agent References
+
+- \`AGENTS.md\`
+- \`CODE_REFERENCES.md\`
+`;
   await Bun.write(filepath, content);
   return filepath;
 }
@@ -116,7 +106,7 @@ export async function generateLicense(projectDir: string, type: string): Promise
   const year = new Date().getFullYear();
   let content = "";
   if (type === "MIT") {
-    content = MIT_LICENSE_TEMPLATE.replace("{{YEAR}}", String(year));
+    content = `MIT License\n\nCopyright (c) ${year}\n\nPermission is hereby granted...`;
   } else {
     content = `${type} License\n\nCopyright (c) ${year}\n`;
   }
@@ -180,19 +170,9 @@ export async function scaffoldAdr(
 /** Key markers that must exist in scaffold-templates (drift guard). */
 export const TEMPLATE_MARKERS: Record<string, string[]> = {
   OXFMTRC: ['"printWidth": 100'],
-  CI_WORKFLOW: ["format:check:ci", "test:coverage:ci", "1.4.0"],
+  CI_WORKFLOW: ["format:check:ci", "test:coverage:ci", "1.3.14"],
   TSCONFIG: ["moduleResolution", "bundler"],
-  BUNFIG: ["concurrentTestGlob", "bail = 1", "noOrphans"],
-  DX_CONFIG_APP: ["dx setup", "dx cli", "dx package"],
-  DX_CONFIG_TOOLCHAIN: [
-    "[finishWork]",
-    "[herdr]",
-    "[doctor.probe]",
-    'name = "probe"',
-    "finish-work",
-    "--serve-probe",
-  ],
+  BUNFIG: ["concurrentTestGlob", "coverageThreshold"],
   GITIGNORE: ["coverage/", ".bun-cache"],
-  ENV_EXAMPLE: ["DATABASE_URL", "PORT=0", "EXAMPLES_DASHBOARD_URL", "PROBE_SERVER_PORT"],
-  MIT_LICENSE_TEMPLATE: ["Permission is hereby granted, free of charge", "WITHOUT WARRANTY"],
+  ENV_EXAMPLE: ["DATABASE_URL", "PORT=0"],
 };

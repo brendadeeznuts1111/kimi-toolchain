@@ -4,13 +4,11 @@
  * These checks turn product-level goals into CI-visible contracts.
  */
 
-import { pathExists } from "./bun-io.ts";
-
+import { existsSync } from "fs";
 import { join } from "path";
 import { checkDocDrift } from "./readme-sync.ts";
-import { isManagedLedgerFailure } from "./hook-failure-text.ts";
-import { failureLedgerPath } from "./paths.ts";
-import { sha256String } from "./utils.ts";
+import { homeDir } from "./paths.ts";
+import { streamNdjsonRecords } from "./ndjson.ts";
 import {
   buildClassifiedFailure,
   classifyFailure,
@@ -19,7 +17,6 @@ import {
   type Taxonomy,
 } from "./error-taxonomy.ts";
 import {
-  createCredentialAdapter,
   defineProviderIntegration,
   isTwoArtifactProviderIntegration,
   type ProviderIntegration,
@@ -95,24 +92,7 @@ export interface FailureLedgerSummary {
   present: boolean;
   total: number;
   taxonomyCounts: Record<string, number>;
-  /** All unknown taxonomyId rows (includes agent runtime noise). */
   unclassified: number;
-  /** Unknown rows from kimi-toolchain managed tools only. */
-  managedUnclassified: number;
-  /** Unknown rows from agent runtime tools (Bash, Read, …). */
-  agentUnclassified: number;
-  reviewCommand: string;
-  unknownAction?: string;
-  unknownBuckets: FailureLedgerUnknownBucket[];
-  managedUnknownBuckets: FailureLedgerUnknownBucket[];
-}
-
-export interface FailureLedgerUnknownBucket {
-  fingerprint: string;
-  count: number;
-  toolNames: string[];
-  firstSeen?: string;
-  lastSeen?: string;
 }
 
 export interface SuccessMetricsAudit {
@@ -240,167 +220,30 @@ export function metricThresholdEvidenceComplete(
 }
 
 export async function readFailureLedgerSummary(
-  path: string = failureLedgerPath()
+  path: string = join(homeDir(), ".kimi-code", "var", "tool-failures.jsonl")
 ): Promise<FailureLedgerSummary> {
-  const reviewCommand = `kimi-debug ledger ${path}`;
-  if (!pathExists(path)) {
-    return {
-      path,
-      present: false,
-      total: 0,
-      taxonomyCounts: {},
-      unclassified: 0,
-      managedUnclassified: 0,
-      agentUnclassified: 0,
-      reviewCommand,
-      unknownBuckets: [],
-      managedUnknownBuckets: [],
-    };
+  if (!existsSync(path)) {
+    return { path, present: false, total: 0, taxonomyCounts: {}, unclassified: 0 };
   }
 
-  const text = await Bun.file(path).text();
   const taxonomyCounts: Record<string, number> = {};
-  const unknownBuckets = new Map<
-    string,
-    {
-      count: number;
-      toolNames: Set<string>;
-      firstSeen?: string;
-      lastSeen?: string;
-    }
-  >();
-  const managedUnknownBuckets = new Map<
-    string,
-    {
-      count: number;
-      toolNames: Set<string>;
-      firstSeen?: string;
-      lastSeen?: string;
-    }
-  >();
   let total = 0;
-  let managedUnclassified = 0;
-  let agentUnclassified = 0;
 
-  for (const line of text.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      const parsed = JSON.parse(trimmed) as {
-        taxonomyId?: string;
-        categoryId?: string;
-        toolName?: string;
-        output?: string;
-        timestamp?: string;
-      };
-      const taxonomyId = parsed.taxonomyId || parsed.categoryId || "unknown";
-      taxonomyCounts[taxonomyId] = (taxonomyCounts[taxonomyId] || 0) + 1;
-      if (taxonomyId === "unknown") {
-        const bucketItem = {
-          fingerprint: fingerprintUnknownFailure(parsed.output || trimmed),
-          toolName: parsed.toolName,
-          timestamp: parsed.timestamp,
-        };
-        recordUnknownBucket(unknownBuckets, bucketItem);
-        if (isManagedLedgerFailure(parsed)) {
-          managedUnclassified++;
-          recordUnknownBucket(managedUnknownBuckets, bucketItem);
-        } else {
-          agentUnclassified++;
-        }
-      }
-      total++;
-    } catch {
-      taxonomyCounts.unknown = (taxonomyCounts.unknown || 0) + 1;
-      managedUnclassified++;
-      recordUnknownBucket(unknownBuckets, {
-        fingerprint: "malformed-json",
-        toolName: "ledger-parser",
-      });
-      recordUnknownBucket(managedUnknownBuckets, {
-        fingerprint: "malformed-json",
-        toolName: "ledger-parser",
-      });
-      total++;
-    }
+  for await (const { value } of streamNdjsonRecords<{ taxonomyId?: string; categoryId?: string }>(
+    path
+  )) {
+    const taxonomyId = value.taxonomyId || value.categoryId || "unknown";
+    taxonomyCounts[taxonomyId] = (taxonomyCounts[taxonomyId] || 0) + 1;
+    total++;
   }
 
-  const unclassified = taxonomyCounts.unknown || 0;
   return {
     path,
     present: true,
     total,
     taxonomyCounts,
-    unclassified,
-    managedUnclassified,
-    agentUnclassified,
-    reviewCommand,
-    unknownBuckets: formatUnknownBuckets(unknownBuckets),
-    managedUnknownBuckets: formatUnknownBuckets(managedUnknownBuckets),
-    ...(managedUnclassified > 0
-      ? {
-          unknownAction:
-            "Run the review command, then add or tune error-taxonomy.yml patterns for recurring managed failures.",
-        }
-      : {}),
+    unclassified: taxonomyCounts.unknown || 0,
   };
-}
-
-function fingerprintUnknownFailure(output: string): string {
-  const normalized = output.replace(/\s+/g, " ").trim().slice(0, 1_000);
-  return `sha256:${sha256String(normalized || "unknown-output").slice(0, 16)}`;
-}
-
-function recordUnknownBucket(
-  buckets: Map<
-    string,
-    {
-      count: number;
-      toolNames: Set<string>;
-      firstSeen?: string;
-      lastSeen?: string;
-    }
-  >,
-  item: { fingerprint: string; toolName?: string; timestamp?: string }
-): void {
-  const existing =
-    buckets.get(item.fingerprint) ??
-    buckets
-      .set(item.fingerprint, {
-        count: 0,
-        toolNames: new Set<string>(),
-      })
-      .get(item.fingerprint)!;
-  existing.count++;
-  existing.toolNames.add(item.toolName || "unknown");
-  if (item.timestamp) {
-    if (!existing.firstSeen || item.timestamp < existing.firstSeen)
-      existing.firstSeen = item.timestamp;
-    if (!existing.lastSeen || item.timestamp > existing.lastSeen)
-      existing.lastSeen = item.timestamp;
-  }
-}
-
-function formatUnknownBuckets(
-  buckets: Map<
-    string,
-    {
-      count: number;
-      toolNames: Set<string>;
-      firstSeen?: string;
-      lastSeen?: string;
-    }
-  >
-): FailureLedgerUnknownBucket[] {
-  return [...buckets.entries()]
-    .map(([fingerprint, bucket]) => ({
-      fingerprint,
-      count: bucket.count,
-      toolNames: [...bucket.toolNames].sort(),
-      ...(bucket.firstSeen ? { firstSeen: bucket.firstSeen } : {}),
-      ...(bucket.lastSeen ? { lastSeen: bucket.lastSeen } : {}),
-    }))
-    .sort((a, b) => b.count - a.count || a.fingerprint.localeCompare(b.fingerprint));
 }
 
 export function buildProviderAgilityFixture(): ProviderIntegration {
@@ -415,7 +258,13 @@ export function buildProviderAgilityFixture(): ProviderIntegration {
       permissions: ["Account > Access: Read", "Account > Access: Edit"],
       errorCategories: ["http_error", "permission_denied", "network_timeout"],
     },
-    createCredentialAdapter("cloudflare", "cloudflare-access")
+    {
+      provider: "cloudflare",
+      secretScope: "cloudflare-access",
+      async getToken(getSecret) {
+        return { value: await getSecret("cloudflare-access") };
+      },
+    }
   );
 }
 
@@ -423,7 +272,7 @@ async function successDocsPresent(projectRoot: string): Promise<boolean> {
   const requiredFiles = ["README.md", "CONTEXT.md", "AGENTS.md"];
   for (const file of requiredFiles) {
     const path = join(projectRoot, file);
-    if (!pathExists(path)) return false;
+    if (!existsSync(path)) return false;
     const text = await Bun.file(path).text();
     for (const term of SUCCESS_METRIC_TERMS) {
       if (!text.includes(term)) return false;
@@ -474,20 +323,6 @@ export async function auditSuccessMetrics(projectRoot: string): Promise<SuccessM
     status: errorCoverage.coverage >= ERROR_COVERAGE_TARGET ? "ok" : "error",
     message: `${Math.round(errorCoverage.coverage * 100)}% classified (${errorCoverage.classified}/${errorCoverage.total}); target ${Math.round(ERROR_COVERAGE_TARGET * 100)}%`,
     fixable: false,
-    category: "blocking_issue",
-  });
-
-  checks.push({
-    name: "failure-ledger-unknowns",
-    status: ledger.managedUnclassified > 0 ? "warn" : "ok",
-    message:
-      ledger.managedUnclassified > 0
-        ? `${ledger.managedUnclassified} unclassified managed ledger failure(s); review with ${ledger.reviewCommand}`
-        : ledger.agentUnclassified > 0
-          ? `${ledger.agentUnclassified} agent-runtime unknown(s) excluded from managed metric`
-          : "failure ledger has no unclassified managed failures",
-    fixable: ledger.managedUnclassified > 0,
-    autoFix: ledger.managedUnclassified > 0 ? ledger.reviewCommand : undefined,
     category: "blocking_issue",
   });
 

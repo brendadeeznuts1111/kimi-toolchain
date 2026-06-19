@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { makeDir, pathExists } from "./bun-io.ts";
 /**
  * kimi-utils — Shared utilities for all kimi tools
  * Bun-native only. Zero dependencies.
@@ -10,6 +9,7 @@ import { makeDir, pathExists } from "./bun-io.ts";
  * For paths: import { toolsDir, homeDir } from "./paths.ts"
  */
 
+import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { $ } from "bun";
 import { isAgentContext, runTool, invokeTool, toolsDir } from "./tool-runner.ts";
@@ -26,7 +26,7 @@ const DEFAULT_BANNER_INNER_WIDTH = 62;
 
 /** Ensure a directory exists, creating it recursively if needed. */
 export function ensureDir(dir: string) {
-  if (!pathExists(dir)) makeDir(dir, { recursive: true });
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 }
 
 // ── Logging ──────────────────────────────────────────────────────────
@@ -113,7 +113,7 @@ export async function readPackageJson<T extends Record<string, unknown>>(
   validator?: (pkg: unknown) => pkg is T
 ): Promise<T | null> {
   const pkgPath = join(projectDir, "package.json");
-  if (!pathExists(pkgPath)) return null;
+  if (!existsSync(pkgPath)) return null;
   try {
     const pkg: unknown = await Bun.file(pkgPath).json();
     if (validator && !validator(pkg)) return null;
@@ -140,17 +140,8 @@ export async function getProjectName(projectDir: string = Bun.cwd): Promise<stri
 
 // ── Project Root ─────────────────────────────────────────────────────
 
-/**
- * Resolve the project root.
- *
- * If `explicit` is provided, it is returned directly. Otherwise git is queried
- * for the top-level directory, falling back to `fallback`.
- */
-export async function resolveProjectRoot(
-  explicit?: string,
-  fallback: string = Bun.cwd
-): Promise<string> {
-  if (explicit) return explicit;
+/** Resolve the project root via git, falling back to the provided path. */
+export async function resolveProjectRoot(fallback: string = Bun.cwd): Promise<string> {
   try {
     const result = await $`git rev-parse --show-toplevel`.quiet().nothrow();
     const root = result.stdout?.toString().trim();
@@ -169,31 +160,9 @@ export function findExecutable(bin: string): string | null {
 
 // ── Stream Helpers ───────────────────────────────────────────────────
 
-/** @deprecated Prefer readableStreamToText from bun-utils.ts */
-export { readableStreamToText as streamToText } from "./bun-utils.ts";
-
-// ── Process signals ──────────────────────────────────────────────────
-
-/** Block until SIGINT/SIGTERM (Bun.sleep loop — no bare Promise). */
-export async function waitForShutdownSignals(onSignal?: () => void): Promise<void> {
-  const controller = new AbortController();
-  const handler = () => {
-    onSignal?.();
-    controller.abort();
-  };
-  process.once("SIGINT", handler);
-  process.once("SIGTERM", handler);
-  controller.signal.addEventListener(
-    "abort",
-    () => {
-      process.off("SIGINT", handler);
-      process.off("SIGTERM", handler);
-    },
-    { once: true }
-  );
-  while (!controller.signal.aborted) {
-    await Bun.sleep(60_000);
-  }
+/** Convert a ReadableStream to a text string. */
+export async function streamToText(stream: ReadableStream): Promise<string> {
+  return Bun.readableStreamToText(stream);
 }
 
 // ── Fetch with Timeout ───────────────────────────────────────────────

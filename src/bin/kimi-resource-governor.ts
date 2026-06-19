@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-resource-governor — Resource limits, parallelism, disk quota, diagnostic cache
  * v2.0: governedSpawn() export, wall-clock enforcement, session auto-track, kimi-doctor cache
@@ -14,23 +13,14 @@ import { pathExists } from "../lib/bun-io.ts";
  */
 
 import { Database } from "bun:sqlite";
+import { existsSync } from "fs";
 import { join } from "path";
-import {
-  ensureDir,
-  getProjectName,
-  resolveProjectRoot,
-  waitForShutdownSignals,
-} from "../lib/utils.ts";
+import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
-import { Duration, Effect } from "effect";
+import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
-import {
-  getGovernorConfigPath,
-  DEFAULT_CONFIG_TEMPLATE,
-  bunAvailableParallelism,
-  resolveHardwareParallelism,
-} from "../lib/governor-config.ts";
+import { getGovernorConfigPath, DEFAULT_CONFIG_TEMPLATE } from "../lib/governor-config.ts";
 import { governorDir } from "../lib/paths.ts";
 import { DEFAULTS, ensureDefaultsLoaded } from "../lib/governor-state.ts";
 import {
@@ -44,7 +34,6 @@ import {
 import { governedSpawn, getCurrentUsage, checkLimits } from "../lib/governor-spawn.ts";
 import { ParallelGovernor } from "../lib/governor-parallel.ts";
 import { cachedExec } from "../lib/governor-cache.ts";
-import { subscribeTo, type HealthWarning, type HealthLoad } from "../lib/health-channel.ts";
 import { createLogger } from "../lib/logger.ts";
 
 const logger = createLogger(Bun.argv, "kimi-resource-governor");
@@ -133,7 +122,7 @@ function doctor(): Array<{
 
   // WAL size
   const walPath = DB_PATH + "-wal";
-  if (pathExists(walPath)) {
+  if (existsSync(walPath)) {
     const walMB = Bun.file(walPath).size / 1024 / 1024;
     checks.push({
       name: "wal-size",
@@ -206,17 +195,15 @@ async function main(): Promise<number> {
     logger.line(`  Available slots:      ${gov.available}`);
 
     const tasks = [1, 2, 3, 4].map((i) =>
-      gov.run(() =>
-        Effect.gen(function* () {
-          logger.line(`    Task ${i} starting (slots: ${gov.available}, queued: ${gov.queued})...`);
-          yield* Effect.sleep(Duration.millis(500));
-          logger.line(`    Task ${i} done`);
-          return i;
-        })
-      )
+      gov.run(async () => {
+        logger.line(`    Task ${i} starting (slots: ${gov.available}, queued: ${gov.queued})...`);
+        await Bun.sleep(500);
+        logger.line(`    Task ${i} done`);
+        return i;
+      })
     );
 
-    await Effect.runPromise(Effect.all(tasks));
+    await Promise.all(tasks);
     logger.info("All tasks completed");
   } else if (command === "quota") {
     logger.section(`Disk Quota: ${project}`);
@@ -307,7 +294,7 @@ async function main(): Promise<number> {
     logger.section("Fixing Resource Governor");
     ensureDir(GOVERNOR_DIR);
     const configPath = getGovernorConfigPath();
-    if (!pathExists(configPath)) {
+    if (!existsSync(configPath)) {
       await Bun.write(configPath, DEFAULT_CONFIG_TEMPLATE);
       logger.info(`Wrote default config: ${configPath}`);
       await ensureDefaultsLoaded();
@@ -340,40 +327,11 @@ async function main(): Promise<number> {
   } else if (command === "status") {
     logger.section("Defaults");
     logger.line(`  Config file:       ${getGovernorConfigPath()}`);
-    const availableParallelism = bunAvailableParallelism();
-    logger.line(
-      `  Available parallelism: ${availableParallelism ?? "n/a"} (cgroup-aware, Bun 1.4+)`
-    );
-    logger.line(`  Hardware concurrency:  ${navigator.hardwareConcurrency ?? "unknown"}`);
-    logger.line(`  Resolved parallelism:  ${resolveHardwareParallelism()}`);
     logger.line(`  Max memory:        ${DEFAULTS.maxMemoryMB}MB`);
     logger.line(`  Max CPU time:      ${DEFAULTS.maxCpuTimeMs}ms`);
     logger.line(`  Max file size:     ${DEFAULTS.maxFileSizeMB}MB`);
     logger.line(`  Max open files:    ${DEFAULTS.maxOpenFiles}`);
     logger.line(`  Max parallel:      ${DEFAULTS.maxParallelJobs}`);
-  } else if (command === "health-listen") {
-    logger.section("Health Channel Listener");
-    logger.info("Subscribing to kimi:health (warning + load events)");
-
-    const unsub = subscribeTo(["warning", "load"], (event) => {
-      if (event.kind === "warning") {
-        const w = event as HealthWarning;
-        logger.line(`  ⚠ warning: ${w.tool} (pid ${w.pid}): ${w.message}`);
-        if (w.backoffFactor) {
-          logger.line(`    backoff suggested: ${(w.backoffFactor * 100).toFixed(0)}%`);
-        }
-      } else if (event.kind === "load") {
-        const l = event as HealthLoad;
-        const memMB = Math.round(l.memoryBytes / 1024 / 1024);
-        logger.line(
-          `  📊 load: ${l.tool} (pid ${l.pid}): ${memMB}MB${l.cpuRatio ? ` cpu:${(l.cpuRatio * 100).toFixed(0)}%` : ""}`
-        );
-      }
-    });
-
-    logger.info("Listening (Ctrl+C to stop)");
-    await waitForShutdownSignals(unsub);
-    logger.info("Stopped");
     logger.line(`  Disk quota:        ${DEFAULTS.diskQuotaMB}MB`);
     logger.line(`  Cache TTL:         ${DEFAULTS.cacheTTLSeconds}s`);
     logger.line(`  Wall-clock limit:  ${DEFAULTS.wallClockMs}ms`);
@@ -383,7 +341,6 @@ async function main(): Promise<number> {
     logger.line("  quota           Check disk quota");
     logger.line("  spawn <cmd>     Run command with governedSpawn (tree-kill, ps memory)");
     logger.line("  retry <cmd>     Run command with retry + exponential backoff");
-    logger.line("  health-listen   Subscribe to cross-tool health events");
     logger.line("  cache <cmd>     Cached command execution");
     logger.line("  doctor          Check governor health");
     logger.line("  fix             Clean cache, end stuck sessions, vacuum");

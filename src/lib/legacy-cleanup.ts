@@ -4,17 +4,16 @@
  */
 
 import {
-  listDir,
-  makeDir,
-  movePath,
-  pathExists,
-  pathLstat,
-  readText,
-  removeFile,
-  removePath,
-  writeText,
-} from "./bun-io.ts";
-
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from "fs";
 import { join } from "path";
 import { safeParse } from "./utils.ts";
 import { homeDir, desktopRoot } from "./paths.ts";
@@ -61,9 +60,9 @@ function sessionPathHasLegacyName(name: string): boolean {
 }
 
 export function listLegacySessionWorkspaces(sessionsDir: string): string[] {
-  if (!pathExists(sessionsDir)) return [];
+  if (!existsSync(sessionsDir)) return [];
   const hits: string[] = [];
-  for (const entry of listDir(sessionsDir)) {
+  for (const entry of readdirSync(sessionsDir)) {
     if (sessionPathHasLegacyName(entry)) {
       hits.push(entry);
     }
@@ -73,9 +72,9 @@ export function listLegacySessionWorkspaces(sessionsDir: string): string[] {
 
 function countLegacyIndexLines(): number {
   const indexPath = join(desktopRoot(), "sessions", SESSION_INDEX_FILE);
-  if (!pathExists(indexPath)) return 0;
+  if (!existsSync(indexPath)) return 0;
   let count = 0;
-  for (const line of readText(indexPath).split("\n").filter(Boolean)) {
+  for (const line of readFileSync(indexPath, "utf8").split("\n").filter(Boolean)) {
     const entry = parseIndexEntry(line);
     if (entry && isLegacyCwd(getIndexCwd(entry))) count++;
   }
@@ -84,8 +83,8 @@ function countLegacyIndexLines(): number {
 
 export function listLegacyCursorSlugs(home?: string): string[] {
   const cursorProjects = join(home || homeDir(), ".cursor", CURSOR_PROJECTS_DIR);
-  if (!pathExists(cursorProjects)) return [];
-  return listDir(cursorProjects).filter((name) =>
+  if (!existsSync(cursorProjects)) return [];
+  return readdirSync(cursorProjects).filter((name) =>
     LEGACY_REPO_NAMES.some((legacy) => name.includes(legacy))
   );
 }
@@ -96,19 +95,19 @@ export function isCursorSlugActive(
   home?: string
 ): boolean {
   const slugPath = join(home || homeDir(), ".cursor", CURSOR_PROJECTS_DIR, slug);
-  if (!pathExists(slugPath)) return false;
+  if (!existsSync(slugPath)) return false;
   const cutoff = Date.now() - maxAgeMs;
   try {
-    if (pathLstat(slugPath).mtimeMs >= cutoff) return true;
+    if (lstatSync(slugPath).mtimeMs >= cutoff) return true;
   } catch {
     /* continue */
   }
   const transcripts = join(slugPath, AGENT_TRANSCRIPTS_DIR);
-  if (!pathExists(transcripts)) return false;
-  for (const name of listDir(transcripts)) {
+  if (!existsSync(transcripts)) return false;
+  for (const name of readdirSync(transcripts)) {
     try {
       const path = join(transcripts, name);
-      if (pathLstat(path).mtimeMs >= cutoff) return true;
+      if (lstatSync(path).mtimeMs >= cutoff) return true;
     } catch {
       /* skip */
     }
@@ -135,9 +134,9 @@ export function getLegacyStatus(): LegacyStatus {
   const legacyIndexLines = countLegacyIndexLines();
   const legacyCursorSlugs = listLegacyCursorSlugs();
   const activeCursorSlugs = legacyCursorSlugs.filter((slug) => isCursorSlugActive(slug));
-  const legacySymlinkExists = pathExists(legacyClonePath());
+  const legacySymlinkExists = existsSync(legacyClonePath());
   const legacyCloneExists =
-    pathExists(legacyClonePath()) && pathLstat(legacyClonePath()).isDirectory();
+    existsSync(legacyClonePath()) && lstatSync(legacyClonePath()).isDirectory();
 
   return {
     legacySessions,
@@ -153,22 +152,22 @@ export function getLegacyStatus(): LegacyStatus {
 
 export function archiveLegacyKimiSessions(home?: string): string[] {
   const sessionsDir = join(home ? join(home, ".kimi-code") : desktopRoot(), "sessions");
-  if (!pathExists(sessionsDir)) return [];
+  if (!existsSync(sessionsDir)) return [];
   const archiveRoot = join(sessionsDir, ARCHIVE_SUBDIR);
   const archived: string[] = [];
   const stamp = new Date().toISOString().slice(0, DATE_STAMP_LENGTH);
 
-  for (const name of listDir(sessionsDir)) {
+  for (const name of readdirSync(sessionsDir)) {
     if (!sessionPathHasLegacyName(name)) continue;
     const src = join(sessionsDir, name);
     try {
-      if (!pathLstat(src).isDirectory()) continue;
+      if (!lstatSync(src).isDirectory()) continue;
     } catch {
       continue;
     }
-    makeDir(archiveRoot, { recursive: true });
+    mkdirSync(archiveRoot, { recursive: true });
     const dest = join(archiveRoot, `${name}-${stamp}`);
-    movePath(src, dest);
+    renameSync(src, dest);
     archived.push(name);
   }
   return archived;
@@ -180,8 +179,8 @@ export function pruneLegacySessionIndex(home?: string): number {
     "sessions",
     SESSION_INDEX_FILE
   );
-  if (!pathExists(indexPath)) return 0;
-  const lines = readText(indexPath).split("\n");
+  if (!existsSync(indexPath)) return 0;
+  const lines = readFileSync(indexPath, "utf8").split("\n");
   const kept: string[] = [];
   let pruned = 0;
 
@@ -195,7 +194,7 @@ export function pruneLegacySessionIndex(home?: string): number {
     kept.push(line);
   }
 
-  writeText(indexPath, kept.length > 0 ? `${kept.join("\n")}\n` : "");
+  writeFileSync(indexPath, kept.length > 0 ? `${kept.join("\n")}\n` : "");
   return pruned;
 }
 
@@ -204,8 +203,8 @@ export function removeLegacyCursorSlugs(home?: string): string[] {
   const cursorProjects = join(home || homeDir(), ".cursor", CURSOR_PROJECTS_DIR);
   for (const slug of listLegacyCursorSlugs(home)) {
     const path = join(cursorProjects, slug);
-    if (pathExists(path)) {
-      removePath(path, { recursive: true, force: true });
+    if (existsSync(path)) {
+      rmSync(path, { recursive: true, force: true });
       removed.push(slug);
     }
   }
@@ -214,10 +213,10 @@ export function removeLegacyCursorSlugs(home?: string): string[] {
 
 export function removeLegacySymlink(): boolean {
   const legacyPath = legacyClonePath();
-  if (pathExists(legacyPath)) {
+  if (existsSync(legacyPath)) {
     try {
-      if (pathLstat(legacyPath).isSymbolicLink()) {
-        removeFile(legacyPath);
+      if (lstatSync(legacyPath).isSymbolicLink()) {
+        unlinkSync(legacyPath);
         return true;
       }
     } catch {

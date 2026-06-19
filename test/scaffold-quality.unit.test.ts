@@ -1,21 +1,10 @@
-import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
-
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
-import { REPO_ROOT } from "./helpers.ts";
-import {
-  ensureQualityTooling,
-  injectMissingScripts,
-  installMissingDeps,
-} from "../src/lib/scaffold-quality.ts";
-import { REQUIRED_PACKAGE_SCRIPT_ENTRIES } from "../src/lib/scaffold-templates.ts";
+import { artifactPath } from "../src/lib/artifacts.ts";
+import { ensureQualityTooling } from "../src/lib/scaffold-quality.ts";
 
-const INSTALLED_DEV_DEPS = {
-  "@types/bun": "*",
-  oxfmt: "*",
-  oxlint: "*",
-  typescript: "*",
-};
+const REPO_ROOT = import.meta.dir + "/..";
 
 describe("scaffold-quality", () => {
   let tmpDir: string;
@@ -23,160 +12,106 @@ describe("scaffold-quality", () => {
   const log = (step: string, msg: string) => logs.push([step, msg]);
 
   beforeEach(() => {
-    tmpDir = join(REPO_ROOT, `.tmp-test-scaffold-quality-${Date.now()}`);
-    makeDir(tmpDir, { recursive: true });
+    tmpDir = artifactPath(REPO_ROOT, "tmp", `scaffold-quality-${Date.now()}`);
+    mkdirSync(tmpDir, { recursive: true });
     logs.length = 0;
   });
 
   afterEach(() => {
-    if (pathExists(tmpDir)) removePath(tmpDir, { recursive: true, force: true });
+    if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  // ── Pure function: injectMissingScripts (no network, no devDeps needed) ──
-
-  describe("injectMissingScripts", () => {
-    test("adds missing scripts — no devDeps required", async () => {
-      writeText(
+  test(
+    "adds missing scripts to package.json",
+    async () => {
+      writeFileSync(
         join(tmpDir, "package.json"),
-        JSON.stringify({ name: "test-project", scripts: {} }, null, 2)
+        JSON.stringify({ name: "test-project", scripts: {}, devDependencies: {} }, null, 2)
       );
 
-      await injectMissingScripts(tmpDir, false, log);
+      await ensureQualityTooling(tmpDir, false, log);
 
       const pkg = await Bun.file(join(tmpDir, "package.json")).json();
-      expect(pkg.scripts).toEqual(REQUIRED_PACKAGE_SCRIPT_ENTRIES);
-    });
+      expect(pkg.scripts.test).toBeDefined();
+      expect(pkg.scripts["test:fast"]).toBeDefined();
+      expect(pkg.scripts.check).toBeDefined();
+      expect(pkg.scripts["check:fast"]).toBeDefined();
+      expect(pkg.scripts.typecheck).toBeDefined();
+      expect(pkg.scripts.format).toBeDefined();
+      expect(pkg.scripts["format:check"]).toBeDefined();
+      expect(pkg.scripts["format:check:ci"]).toBeDefined();
+      expect(pkg.scripts.lint).toBeDefined();
+      expect(pkg.scripts.fix).toBeDefined();
+    },
+    { timeout: 5000 }
+  );
 
-    test("preserves existing scripts", async () => {
-      writeText(
+  test(
+    "is idempotent - does not duplicate existing scripts",
+    async () => {
+      const existingScripts = {
+        test: "bun test",
+        check: "bun run check",
+        typecheck: "tsc --noEmit",
+        format: "prettier --write .",
+      };
+      writeFileSync(
         join(tmpDir, "package.json"),
         JSON.stringify(
-          { name: "test-project", scripts: { test: "bun test", start: "bun run index.ts" } },
+          { name: "test-project", scripts: existingScripts, devDependencies: {} },
           null,
           2
         )
       );
 
-      await injectMissingScripts(tmpDir, false, log);
+      await ensureQualityTooling(tmpDir, false, log);
 
       const pkg = await Bun.file(join(tmpDir, "package.json")).json();
       expect(pkg.scripts.test).toBe("bun test");
-      expect(pkg.scripts.start).toBe("bun run index.ts");
-      // Required scripts should also be present
+      expect(pkg.scripts.check).toBe("bun run check");
       expect(pkg.scripts.typecheck).toBe("tsc --noEmit");
-    });
+      expect(pkg.scripts.format).toBe("prettier --write .");
+    },
+    { timeout: 5000 }
+  );
 
-    test("dryRun does not write", async () => {
-      writeText(
+  test(
+    "does not modify package.json when all scripts exist",
+    async () => {
+      const allScripts: Record<string, string> = {
+        test: "bun test",
+        "test:fast": "bun test --fast",
+        "test:coverage": "bun test --coverage",
+        "test:coverage:ci": "bun test --ci --coverage",
+        check: "bun run check",
+        "check:fast": "bun run check --fast",
+        "check:dry-run": "bun run check --dry-run",
+        "docs:sync": "bun run docs:sync",
+        typecheck: "tsc --noEmit",
+        format: "oxfmt --write .",
+        "format:check": "oxfmt --check .",
+        "format:check:ci": "oxfmt --check --threads=4 .",
+        lint: "oxlint src",
+        "lint:terms": "bun run lint:terms",
+        fix: "kimi-fix .",
+      };
+      writeFileSync(
         join(tmpDir, "package.json"),
-        JSON.stringify({ name: "test-project", scripts: {} }, null, 2)
+        JSON.stringify({ name: "test-project", scripts: allScripts, devDependencies: {} }, null, 2)
       );
 
-      await injectMissingScripts(tmpDir, true, log);
+      await ensureQualityTooling(tmpDir, false, log);
 
       const pkg = await Bun.file(join(tmpDir, "package.json")).json();
-      expect(pkg.scripts.test).toBeUndefined();
-      expect(logs.some(([_, m]) => m.includes("adding format/lint/test scripts"))).toBe(true);
-    });
-  });
-
-  // ── Pure function: installMissingDeps (dryRun only — avoids real `bun add`) ──
-
-  describe("installMissingDeps", () => {
-    test("logs missing deps without installing (dryRun)", async () => {
-      writeText(
-        join(tmpDir, "package.json"),
-        JSON.stringify({ name: "test-project", devDependencies: {} }, null, 2)
-      );
-
-      await installMissingDeps(tmpDir, true, log);
-
-      expect(
-        logs.some(([_, m]) => m.includes("installing oxfmt, oxlint, typescript, @types/bun"))
-      ).toBe(true);
-      // dryRun should not mutate the file
-      const pkg = await Bun.file(join(tmpDir, "package.json")).json();
-      expect(pkg.devDependencies).toEqual({});
-    });
-
-    test("skips when all deps present", async () => {
-      writeText(
-        join(tmpDir, "package.json"),
-        JSON.stringify({ name: "test-project", devDependencies: INSTALLED_DEV_DEPS }, null, 2)
-      );
-
-      await installMissingDeps(tmpDir, true, log);
-
-      expect(logs.length).toBe(0);
-    });
-  });
-
-  // ── Integration: ensureQualityTooling (scripts + dep check) ──
-
-  test("adds missing scripts to package.json", async () => {
-    writeText(
-      join(tmpDir, "package.json"),
-      JSON.stringify(
-        { name: "test-project", scripts: {}, devDependencies: INSTALLED_DEV_DEPS },
-        null,
-        2
-      )
-    );
-
-    await ensureQualityTooling(tmpDir, false, log);
-
-    const pkg = await Bun.file(join(tmpDir, "package.json")).json();
-    expect(pkg.scripts).toEqual(REQUIRED_PACKAGE_SCRIPT_ENTRIES);
-  });
-
-  test("is idempotent - does not duplicate existing scripts", async () => {
-    const existingScripts = {
-      test: "bun test",
-      check: "bun run check",
-      typecheck: "tsc --noEmit",
-      format: "prettier --write .",
-    };
-    writeText(
-      join(tmpDir, "package.json"),
-      JSON.stringify(
-        { name: "test-project", scripts: existingScripts, devDependencies: INSTALLED_DEV_DEPS },
-        null,
-        2
-      )
-    );
-
-    await ensureQualityTooling(tmpDir, false, log);
-
-    const pkg = await Bun.file(join(tmpDir, "package.json")).json();
-    expect(pkg.scripts.test).toBe("bun test");
-    expect(pkg.scripts.check).toBe("bun run check");
-    expect(pkg.scripts.typecheck).toBe("tsc --noEmit");
-    expect(pkg.scripts.format).toBe("prettier --write .");
-  });
-
-  test("does not modify package.json when all scripts exist", async () => {
-    const allScripts: Record<string, string> = Object.fromEntries(
-      Object.keys(REQUIRED_PACKAGE_SCRIPT_ENTRIES).map((key) => [key, `custom ${key}`])
-    );
-    writeText(
-      join(tmpDir, "package.json"),
-      JSON.stringify(
-        { name: "test-project", scripts: allScripts, devDependencies: INSTALLED_DEV_DEPS },
-        null,
-        2
-      )
-    );
-
-    await ensureQualityTooling(tmpDir, false, log);
-
-    const pkg = await Bun.file(join(tmpDir, "package.json")).json();
-    for (const [key, value] of Object.entries(allScripts)) {
-      expect(pkg.scripts[key]).toBe(value);
-    }
-  });
+      for (const [key, value] of Object.entries(allScripts)) {
+        expect(pkg.scripts[key]).toBe(value);
+      }
+    },
+    { timeout: 5000 }
+  );
 
   test("dryRun does not write changes", async () => {
-    writeText(
+    writeFileSync(
       join(tmpDir, "package.json"),
       JSON.stringify({ name: "test-project", scripts: {}, devDependencies: {} }, null, 2)
     );
@@ -186,28 +121,6 @@ describe("scaffold-quality", () => {
     const pkg = await Bun.file(join(tmpDir, "package.json")).json();
     expect(pkg.scripts.test).toBeUndefined();
     expect(pkg.scripts.check).toBeUndefined();
-  });
-
-  test("dryRun logs missing deps without installing (integration)", async () => {
-    writeText(
-      join(tmpDir, "package.json"),
-      JSON.stringify(
-        { name: "test-project", scripts: {}, devDependencies: { typescript: "*" } },
-        null,
-        2
-      )
-    );
-
-    await ensureQualityTooling(tmpDir, true, log);
-
-    // Scripts log
-    expect(logs.some(([_, m]) => m.includes("adding format/lint/test scripts"))).toBe(true);
-    // Deps log — should report the 3 missing deps
-    expect(logs.some(([_, m]) => m.includes("installing oxfmt, oxlint, @types/bun"))).toBe(true);
-    // dryRun should not mutate the file
-    const pkg = await Bun.file(join(tmpDir, "package.json")).json();
-    expect(pkg.scripts.test).toBeUndefined();
-    expect(pkg.devDependencies).toEqual({ typescript: "*" });
   });
 
   test("handles missing package.json gracefully", async () => {

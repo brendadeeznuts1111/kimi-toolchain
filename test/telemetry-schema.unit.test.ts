@@ -1,8 +1,7 @@
-import { makeDir, readText, removePath } from "../src/lib/bun-io.ts";
-
 import { describe, expect, test } from "bun:test";
+import { mkdirSync, readFileSync, rmSync } from "fs";
+import { tmpdir } from "os";
 import { join } from "path";
-import { testTempDir } from "./helpers.ts";
 import {
   buildClassifiedFailure,
   classifyFailure,
@@ -40,16 +39,28 @@ describe("telemetry schema", () => {
     const match = classifyFailure("lockfile hash mismatch", sampleTaxonomy);
     const record = buildClassifiedFailure("Shell", "lockfile hash mismatch", match, {
       sessionId: "sess-1",
+      traceId: "trace-1",
+      parentTraceId: "trace-parent",
+      childTraceIds: ["trace-child"],
+      context: {
+        inputs: { command: "kimi-guardian check" },
+        environment: { cwd: "/tmp/project" },
+      },
     });
     expect(record.schemaVersion).toBe(FAILURE_SCHEMA_VERSION);
     expect(record.taxonomyId).toBe("lockfile_issue");
     expect(record.categoryId).toBe("lockfile_issue");
     expect(record.sessionId).toBe("sess-1");
+    expect(record.traceId).toBe("trace-1");
+    expect(record.parentTraceId).toBe("trace-parent");
+    expect(record.childTraceIds).toEqual(["trace-child"]);
+    expect(record.context?.inputs?.command).toBe("kimi-guardian check");
+    expect(record.context?.environment?.cwd).toBe("/tmp/project");
   });
 
   test("flushToFile appends JSONL without overwriting prior content", async () => {
-    const dir = testTempDir("kimi-telemetry-");
-    makeDir(dir, { recursive: true });
+    const dir = join(tmpdir(), `kimi-telemetry-${Bun.randomUUIDv7()}`);
+    mkdirSync(dir, { recursive: true });
     const path = join(dir, "cli-telemetry.jsonl");
 
     const logger1 = createLogger([], "test-tool");
@@ -60,12 +71,12 @@ describe("telemetry schema", () => {
     logger2.info("second run");
     await logger2.flushToFile(path);
 
-    const content = readText(path);
+    const content = readFileSync(path, "utf8");
     const lines = content.trim().split("\n");
     expect(lines.length).toBe(2);
     expect(JSON.parse(lines[0]).message).toBe("first run");
     expect(JSON.parse(lines[1]).message).toBe("second run");
 
-    removePath(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
   });
 });

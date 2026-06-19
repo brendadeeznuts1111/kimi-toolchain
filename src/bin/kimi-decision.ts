@@ -1,350 +1,279 @@
 #!/usr/bin/env bun
 /**
- * kimi-decision — Decision ledger CLI: log, graph, why, suggest
- *
- * Usage:
- *   kimi-decision graph <traceId> [--json]
- *   kimi-decision why <decisionId> [--compact|--json]
- *   kimi-decision list [--constant <key>] [--type <type>] [--last 7d] [--json]
- *   kimi-decision tail [--last 24h] [--limit 20] [--json]
- *   kimi-decision diff <decisionIdA> <decisionIdB> [--json]
- *   kimi-decision suggest [--cluster-id <id>] [--json]
- *   kimi-decision log --action heal --trace-id <id> [--json]
- *   kimi-decision score [--json]
+ * kimi-decision — query and record toolchain decision rationale.
  */
 
 import { Effect } from "effect";
 import { createLogger } from "../lib/logger.ts";
+import {
+  decisionAlternativeActions,
+  decisionOutcomeResult,
+  decisionRationaleText,
+  decisionTriggerSummary,
+  explainDecision,
+  persistDecisionQualityScores,
+  queryDecisionLedger,
+  recordDecision,
+  suggestDecisions,
+  type DecisionQueryFilters,
+  type DecisionRecord,
+} from "../lib/decision-ledger.ts";
+import { buildDecisionGraph, renderDecisionGraphAscii } from "../lib/decision-graph.ts";
+import { scoreDecisions } from "../lib/decision-scoring.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
-import { resolveDecisionsRoot } from "../lib/decision-ledger.ts";
-import {
-  buildDecisionGraph,
-  logDecision,
-  readDecisions,
-  renderDecisionGraphAscii,
-  suggestDecisions,
-  buildWhyReport,
-  filterDecisionsByConstant,
-  filterRecentDecisions,
-  diffDecisions,
-  parseDecisionWindow,
-  findDecisionById,
-  formatDecisionCompact,
-  type DecisionAction,
-} from "../lib/decision-ledger.ts";
-import {
-  scoreAllDecisionsEffect,
-  filterLowQualityDecisions,
-  filterUnverifiedDecisions,
-} from "../lib/decision-scoring.ts";
 
 const logger = createLogger(Bun.argv, "kimi-decision");
 
-function hasFlag(flag: string): boolean {
-  return Bun.argv.includes(flag);
+async function emitJson(value: unknown): Promise<void> {
+  await Bun.write(Bun.stdout, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-function argValue(flag: string): string | undefined {
-  const index = Bun.argv.indexOf(flag);
-  if (index < 0) return undefined;
-  return Bun.argv[index + 1];
+function printHelp(): void {
+  logger.line("Usage: kimi-decision <log|why|record|graph|suggest|score> [options]");
+  logger.line("       kimi-why <decision-id|topic> [--json]");
+  logger.line("");
+  logger.line("Commands:");
+  logger.line("  log                      List recent decisions");
+  logger.line("  why <decision-id|topic>  Explain one decision with trace/root-cause context");
+  logger.line("  record <key>             Append a decision record");
+  logger.line("  graph <trace|decision>   Render decision DAG");
+  logger.line("  suggest                  Recommend high-quality prior decisions");
+  logger.line("  score                    Recompute quality scores");
+  logger.line("");
+  logger.line("Options:");
+  logger.line("  --json                   Machine-readable output");
+  logger.line("  --limit <n>              Limit log output");
+  logger.line("  --action <name>          Filter log output by action");
+  logger.line("  --cluster <id>           Filter log output by error cluster");
+  logger.line("  --since <iso-date>       Filter log output by timestamp");
 }
 
-async function main(): Promise<number> {
-  const args = Bun.argv.slice(2);
-  const command = args[0] ?? "help";
-  const jsonMode = hasFlag("--json");
-  const projectRoot = await resolveDecisionsRoot();
+function argValue(args: string[], flag: string): string | null {
+  const index = args.indexOf(flag);
+  if (index < 0) return null;
+  return args[index + 1] ?? null;
+}
 
-  if (command === "graph") {
-    const traceId = args[1];
-    if (!traceId || traceId.startsWith("--")) {
-      logger.error("Usage: graph <traceId> [--json]");
-      return 1;
+function argValues(args: string[], flag: string): string[] {
+  const values: string[] = [];
+  for (let index = 0; index < args.length; index++) {
+    if (args[index] === flag && args[index + 1]) values.push(args[index + 1]);
+  }
+  return values;
+}
+
+function nonFlagArgs(args: string[]): string[] {
+  const values: string[] = [];
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    if (arg.startsWith("--")) {
+      if (args[index + 1] && !args[index + 1].startsWith("--")) index++;
+      continue;
     }
-    const decisions = await readDecisions(projectRoot);
-    const graph = buildDecisionGraph(decisions, traceId);
-    if (jsonMode) {
-      process.stdout.write(`${JSON.stringify(graph, null, 2)}\n`);
+    values.push(arg);
+  }
+  return values;
+}
+
+function filtersFromArgs(args: string[]): DecisionQueryFilters {
+  const limitRaw = argValue(args, "--limit");
+  const limit = limitRaw ? Number(limitRaw) : undefined;
+  const action = argValue(args, "--action");
+  const cluster = argValue(args, "--cluster");
+  const since = argValue(args, "--since");
+  return {
+    ...(Number.isFinite(limit) && limit! > 0 ? { limit } : {}),
+    ...(action ? { action } : {}),
+    ...(cluster ? { cluster } : {}),
+    ...(since ? { since } : {}),
+  };
+}
+
+export async function runDecisionCli(args: string[] = Bun.argv.slice(2)): Promise<number> {
+  const json = args.includes("--json");
+  if (args.includes("--help") || args.includes("-h")) {
+    printHelp();
+    return 0;
+  }
+  const positional = nonFlagArgs(args);
+  const command = positional[0];
+
+  if (!command || command === "help") {
+    printHelp();
+    return command ? 0 : 1;
+  }
+
+  if (command === "log" || command === "list") {
+    const records = await queryDecisionLedger(filtersFromArgs(args));
+    if (json) {
+      await emitJson({ schemaVersion: 1, decisions: records });
     } else {
-      logger.section("Decision Graph");
-      for (const line of renderDecisionGraphAscii(graph).split("\n")) logger.line(line);
+      printDecisionLog(records);
     }
     return 0;
   }
 
-  if (command === "why") {
-    const decisionId = args[1];
-    if (!decisionId || decisionId.startsWith("--")) {
-      logger.error("Usage: why <decisionId> [--compact|--json]");
-      return 1;
+  if (command === "record") {
+    const key = positional[1];
+    if (!key) throw new CliError({ message: "Usage: kimi-decision record <key> ..." });
+    const action = argValue(args, "--action");
+    const trigger = argValue(args, "--trigger");
+    const rationale = argValue(args, "--rationale") ?? argValue(args, "--reason");
+    const outcome = argValue(args, "--outcome");
+    if (!action || !trigger || !rationale || !outcome) {
+      throw new CliError({
+        message: "record requires --action, --trigger, --rationale/--reason, and --outcome",
+      });
     }
-    const report = await buildWhyReport(decisionId, projectRoot);
-    if (!report) {
-      logger.error(`Decision not found: ${decisionId}`);
-      return 1;
-    }
-    if (jsonMode) {
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-    } else if (hasFlag("--compact")) {
-      logger.line(formatDecisionCompact(report.decision));
-    } else {
-      const { decision } = report;
-      logger.section(`Why ${decision.decisionId}`);
-      logger.info(`Action: ${decision.action} (${decision.actor})`);
-      logger.info(`Summary: ${decision.rationale.summary}`);
-      logger.line("");
-      logger.line(decision.rationale.fullReasoning);
-      if (decision.qualityScore !== undefined) {
-        logger.info(`Quality score: ${decision.qualityScore.toFixed(3)}`);
-      }
-      if (decision.alternatives.length > 0) {
-        logger.info("Alternatives considered:");
-        for (const alt of decision.alternatives) {
-          logger.line(
-            `  • ${alt.action} (${alt.feasibility})${alt.reason ? ` — ${alt.reason}` : ""}`
-          );
-        }
-      }
-      if (report.traceTree.length > 0) {
-        logger.info("Triggering trace steps:");
-        for (const event of report.traceTree.slice(0, 8)) {
-          const cmd = event.command?.join(" ") ?? event.tool;
-          logger.line(`  ${event.startedAt.slice(0, 19)} ${event.status} ${cmd}`);
-        }
-      }
-    }
+    const record = await recordDecision({
+      key,
+      actor: argValue(args, "--actor") ?? "kimi",
+      action,
+      trigger,
+      clusterId: argValue(args, "--cluster") ?? undefined,
+      rationale,
+      alternativesConsidered: argValues(args, "--alternative"),
+      outcome,
+      parentDecisionId: argValue(args, "--parent-decision") ?? undefined,
+    });
+    if (json) await emitJson(record);
+    else logger.info(`recorded ${record.decisionId} for ${key}`);
     return 0;
+  }
+
+  if (command === "graph") {
+    const target = positional[1];
+    if (!target)
+      throw new CliError({ message: "Usage: kimi-decision graph <trace-id|decision-id>" });
+    const graph = await buildDecisionGraph(target);
+    if (json) {
+      await emitJson(graph);
+    } else {
+      logger.line(renderDecisionGraphAscii(graph));
+    }
+    return graph.found ? 0 : 1;
   }
 
   if (command === "suggest") {
-    const clusterId = argValue("--cluster-id");
-    const suggestions = await suggestDecisions({ clusterId, projectRoot });
-    if (jsonMode) {
-      process.stdout.write(`${JSON.stringify({ suggestions }, null, 2)}\n`);
+    const suggestions = await suggestDecisions({
+      clusterId: argValue(args, "--cluster") ?? undefined,
+      action: argValue(args, "--action") ?? undefined,
+      limit: Number(argValue(args, "--limit") ?? "5"),
+    });
+    if (json) {
+      await emitJson({ schemaVersion: 1, suggestions });
     } else {
-      logger.section("Decision Suggestions");
-      if (suggestions.length === 0) {
-        logger.info("No high-quality past decisions matched");
-      } else {
-        for (const item of suggestions) {
-          logger.line(
-            `  ${item.decisionId} confidence=${item.confidence.toFixed(2)} quality=${item.qualityScore.toFixed(2)} — ${item.summary}`
-          );
-        }
-      }
+      printSuggestedDecisions(suggestions);
     }
-    return 0;
+    return suggestions.length > 0 ? 0 : 1;
   }
 
   if (command === "score") {
-    const report = await Effect.runPromise(scoreAllDecisionsEffect({ projectRoot }));
-    if (jsonMode) {
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-    } else {
-      logger.section("Decision Quality Scoring");
-      logger.info(`Scored ${report.total} decisions in ${report.durationMs}ms`);
-      for (const result of report.results.slice(-10)) {
-        logger.line(
-          `  ${result.decisionId} → ${result.qualityScore} (${result.factors.join(", ")})`
-        );
-      }
-    }
-    return 0;
-  }
-
-  if (command === "log") {
-    const action = (argValue("--action") ?? "heal") as DecisionAction;
-    const traceId = argValue("--trace-id") ?? argValue("--traceId");
-    const clusterId = argValue("--cluster-id");
-    const errorId = argValue("--error-id");
-    const reasoning = argValue("--reasoning") ?? argValue("--summary");
-    if (!traceId) {
-      logger.error("Usage: log --action <action> --trace-id <traceId> [--cluster-id] [--json]");
-      return 1;
-    }
-    const decision = await logDecision(
-      {
-        action,
-        trigger: { traceId, clusterId, errorId },
-        rationaleOverride: reasoning
-          ? { summary: reasoning.slice(0, 120), fullReasoning: reasoning, evidence: [] }
-          : undefined,
-        outcome: { result: "success", verifiedAt: new Date().toISOString() },
-      },
-      { projectRoot }
-    );
-    if (jsonMode) {
-      process.stdout.write(`${JSON.stringify(decision, null, 2)}\n`);
-    } else {
-      logger.info(`Logged decision ${decision.decisionId}`);
-      logger.info(decision.rationale.summary);
-    }
-    return 0;
-  }
-
-  if (command === "list") {
-    const constantKey = argValue("--constant");
-    const last = argValue("--last") ?? "7d";
-    const type = argValue("--type");
-
-    let windowMs: number;
-    try {
-      windowMs = parseDecisionWindow(last);
-    } catch (error) {
-      logger.error(error instanceof Error ? error.message : String(error));
-      return 1;
-    }
-
-    const decisions = await readDecisions(projectRoot);
-    const nowMs = Date.now();
-    const matches = constantKey
-      ? filterDecisionsByConstant(decisions, constantKey, {
-          sinceMs: nowMs - windowMs,
-          nowMs,
-        }).filter((decision) => !type || decision.metadata?.type === type)
-      : filterRecentDecisions(decisions, {
-          sinceMs: nowMs - windowMs,
-          nowMs,
-          type,
-        });
-
-    if (jsonMode) {
-      process.stdout.write(
-        `${JSON.stringify({ constantKey, type, last, count: matches.length, decisions: matches }, null, 2)}\n`
-      );
-      return 0;
-    }
-
-    const target = constantKey ? ` for ${constantKey}` : "";
-    const typePart = type ? ` type=${type}` : "";
-    logger.section(`Decisions${target}${typePart} (${last})`);
-    if (matches.length === 0) {
-      logger.info("No matching decisions in window");
-      return 0;
-    }
-    for (const decision of matches) {
-      logger.line(`  ${formatDecisionCompact(decision)}`);
-    }
-    return 0;
-  }
-
-  if (command === "tail") {
-    const last = argValue("--last") ?? "24h";
-    let windowMs: number;
-    try {
-      windowMs = parseDecisionWindow(last);
-    } catch (error) {
-      logger.error(error instanceof Error ? error.message : String(error));
-      return 1;
-    }
-
-    const decisions = await readDecisions(projectRoot);
-    const nowMs = Date.now();
-    const matches = filterRecentDecisions(decisions, {
-      sinceMs: nowMs - windowMs,
-      nowMs,
-      limit: Number(argValue("--limit") ?? 20),
-    });
-
-    if (jsonMode) {
-      process.stdout.write(
-        `${JSON.stringify({ last, count: matches.length, decisions: matches }, null, 2)}\n`
-      );
-      return 0;
-    }
-
-    for (const decision of matches) logger.line(formatDecisionCompact(decision));
-    return 0;
-  }
-
-  if (command === "diff") {
-    const leftId = args[1];
-    const rightId = args[2];
-    if (!leftId || !rightId || leftId.startsWith("--") || rightId.startsWith("--")) {
-      logger.error("Usage: diff <decisionIdA> <decisionIdB> [--json]");
-      return 1;
-    }
-
-    const [left, right] = await Promise.all([
-      findDecisionById(leftId, projectRoot),
-      findDecisionById(rightId, projectRoot),
-    ]);
-    if (!left || !right) {
-      logger.error(`Decision not found: ${!left ? leftId : rightId}`);
-      return 1;
-    }
-
-    const report = diffDecisions(left, right);
-    if (jsonMode) {
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-      return 0;
-    }
-
-    logger.section(`Diff ${leftId} ↔ ${rightId}`);
-    if (report.fields.length === 0) {
-      logger.info("No field differences");
-      return 0;
-    }
-    for (const field of report.fields) {
-      logger.line(`  ${field.field}`);
-      logger.line(`    left:  ${JSON.stringify(field.left)}`);
-      logger.line(`    right: ${JSON.stringify(field.right)}`);
-    }
-    return 0;
-  }
-
-  if (command === "audit") {
-    const decisions = await readDecisions(projectRoot);
-    const low = filterLowQualityDecisions(decisions);
-    const unverified = filterUnverifiedDecisions(decisions);
+    const since = argValue(args, "--since");
+    const all = await queryDecisionLedger();
+    const candidates =
+      since && Number.isFinite(Date.parse(since))
+        ? all.filter((record) => Date.parse(record.timestamp) >= Date.parse(since))
+        : all;
+    const updates = await scoreDecisions(candidates);
+    const persisted = await persistDecisionQualityScores(updates);
     const payload = {
-      total: decisions.length,
-      lowQuality: low.map((d) => ({
-        decisionId: d.decisionId,
-        qualityScore: d.qualityScore,
-        summary: d.rationale.summary,
-      })),
-      unverified: unverified.map((d) => ({
-        decisionId: d.decisionId,
-        outcome: d.outcome.result,
-        summary: d.rationale.summary,
-      })),
+      schemaVersion: 1,
+      scored: updates.size,
+      updated: persisted.updated,
+      total: persisted.total,
+      since: since ?? null,
     };
-    if (jsonMode) {
-      process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+    if (json) {
+      await emitJson(payload);
     } else {
-      logger.section("Decision Audit");
-      logger.warn(`Low quality: ${low.length}`);
-      for (const item of low.slice(0, 5)) {
-        logger.line(
-          `  ${item.decisionId} (${item.qualityScore ?? "n/a"}) ${item.rationale.summary}`
-        );
-      }
-      logger.info(`Unverified: ${unverified.length}`);
+      logger.info(
+        `scored ${payload.scored} decisions (updated ${payload.updated}/${payload.total})${since ? ` since ${since}` : ""}`
+      );
     }
     return 0;
   }
 
-  logger.section("kimi-decision commands");
-  logger.line("  graph <traceId> [--json]       Decision DAG for a trace");
-  logger.line("  why <decisionId> [--compact|--json] Full rationale + evidence");
-  logger.line("  list [--constant <key>] [--type <type>] [--last 7d] [--json]");
-  logger.line("  tail [--last 24h] [--limit 20] Compact recent decisions");
-  logger.line("  diff <idA> <idB> [--json]      Compare two decisions");
-  logger.line("  suggest [--cluster-id] [--json] Past high-quality actions");
-  logger.line("  score [--json]                 Re-score all decisions");
-  logger.line("  log --action --trace-id [...]  Manual decision entry");
-  logger.line("  audit [--json]                 Low-quality + unverified summary");
-  return command === "help" ? 0 : 1;
+  const query = command === "why" ? positional.slice(1).join(" ") : positional.join(" ");
+  if (!query.trim()) throw new CliError({ message: "Usage: kimi-decision why <decision-id>" });
+  const explanation = await explainDecision(query.trim());
+  if (json) {
+    await emitJson(explanation);
+    return explanation.matches.length > 0 ? 0 : 1;
+  }
+
+  printDecisionWhy(query.trim(), explanation.latest, explanation.rootCauseChain);
+  return explanation.latest ? 0 : 1;
+}
+
+function printDecisionLog(records: DecisionRecord[]): void {
+  logger.banner("Kimi Decision Log");
+  if (records.length === 0) {
+    logger.info("No decisions recorded.");
+    return;
+  }
+  for (const record of records) {
+    const cluster = record.clusterId ? ` cluster=${record.clusterId}` : "";
+    logger.line(
+      `  ${record.timestamp} ${record.decisionId} [${record.actor}] ${record.action}${cluster}`
+    );
+    logger.line(`      ${decisionRationaleText(record)}`);
+  }
+}
+
+function printSuggestedDecisions(records: DecisionRecord[]): void {
+  logger.banner("Kimi Decision Suggestions");
+  if (records.length === 0) {
+    logger.info("No high-quality suggestions found.");
+    return;
+  }
+  for (const record of records) {
+    const score = record.qualityScore === undefined ? "n/a" : record.qualityScore.toFixed(2);
+    logger.line(`  ${record.decisionId} score=${score} action=${record.action}`);
+    logger.line(`      trigger: ${decisionTriggerSummary(record)}`);
+    logger.line(`      rationale: ${decisionRationaleText(record)}`);
+    const alternatives = decisionAlternativeActions(record);
+    if (alternatives.length > 0) {
+      logger.line(`      alternatives: ${alternatives.join("; ")}`);
+    }
+  }
+}
+
+function printDecisionWhy(
+  query: string,
+  record: DecisionRecord | undefined,
+  rootCauseChain: readonly string[]
+): void {
+  logger.banner("Kimi Why");
+  if (!record) {
+    logger.warn(`No decision found for ${query}`);
+    return;
+  }
+  logger.info(`${record.decisionId}: ${record.action}`);
+  logger.info(`actor: ${record.actor}`);
+  logger.info(`trigger: ${decisionTriggerSummary(record)}`);
+  if (record.clusterId) logger.info(`cluster: ${record.clusterId}`);
+  logger.info(`rationale: ${decisionRationaleText(record)}`);
+  logger.info(`outcome: ${decisionOutcomeResult(record)}`);
+  if (record.alternativesConsidered.length > 0) {
+    logger.info(`alternatives: ${record.alternativesConsidered.join("; ")}`);
+  }
+  if (record.traceId) logger.info(`trace: ${record.traceId}`);
+  if (rootCauseChain.length > 0) logger.info(`root cause chain: ${rootCauseChain.join(" -> ")}`);
+  if (record.childDecisionIds.length > 0) {
+    logger.info(`follow-ups: ${record.childDecisionIds.join(", ")}`);
+  }
 }
 
 if (import.meta.main) {
   const exitCode = await runCliExit(
     Effect.tryPromise({
-      try: () => main(),
-      catch: (e) => new CliError({ message: e instanceof Error ? e.message : String(e) }),
+      try: () => runDecisionCli(),
+      catch: (e) =>
+        e instanceof CliError
+          ? e
+          : new CliError({ message: e instanceof Error ? e.message : String(e) }),
     }),
     { toolName: "kimi-decision", logger }
   );

@@ -2,12 +2,10 @@
  * Load resource governor defaults from ~/.kimi-code/governor/defaults.toml
  */
 
-import { pathExists } from "./bun-io.ts";
-
+import { existsSync } from "fs";
 import { join } from "path";
 import { getFreeMemoryMB } from "./memory-budget.ts";
 import { governorDir } from "./paths.ts";
-import { loadDxDefaultsSync, type DefaultsConfig } from "./defaults-config.ts";
 
 export interface GovernorDefaults {
   maxMemoryMB: number;
@@ -20,27 +18,12 @@ export interface GovernorDefaults {
   wallClockMs: number;
 }
 
-/** Bun 1.4+ cgroup-aware parallelism — not yet in @types/bun 1.3.14. */
-export function bunAvailableParallelism(): number | undefined {
-  const fn = (Bun as { availableParallelism?: () => number }).availableParallelism;
-  if (typeof fn !== "function") return undefined;
-  const value = fn();
-  return value > 0 ? value : undefined;
-}
-
-/** Cgroup-aware CPU parallelism (Bun 1.4+), else hardware concurrency. */
-export function resolveHardwareParallelism(): number {
-  const cgroupAware = bunAvailableParallelism();
-  if (cgroupAware !== undefined) return cgroupAware;
-  return navigator.hardwareConcurrency || 4;
-}
-
 const BUILTIN: GovernorDefaults = {
   maxMemoryMB: 512,
   maxCpuTimeMs: 30000,
   maxFileSizeMB: 100,
   maxOpenFiles: 256,
-  maxParallelJobs: Math.max(2, Math.floor(resolveHardwareParallelism() * 0.75)),
+  maxParallelJobs: Math.max(2, Math.floor((navigator.hardwareConcurrency || 4) * 0.75)),
   diskQuotaMB: 1024,
   cacheTTLSeconds: 300,
   wallClockMs: 300000,
@@ -87,38 +70,18 @@ function parseGovernorToml(text: string): Partial<GovernorDefaults> {
   return out;
 }
 
-/** Apply dx.config.toml [defaults] governor fields to a GovernorDefaults object. */
-function applyDxDefaults(target: GovernorDefaults, dx: DefaultsConfig): void {
-  if (dx.governorMaxMemoryMB !== undefined) target.maxMemoryMB = dx.governorMaxMemoryMB;
-  if (dx.governorMaxCpuTimeMs !== undefined) target.maxCpuTimeMs = dx.governorMaxCpuTimeMs;
-  if (dx.governorMaxFileSizeMB !== undefined) target.maxFileSizeMB = dx.governorMaxFileSizeMB;
-  if (dx.governorMaxOpenFiles !== undefined) target.maxOpenFiles = dx.governorMaxOpenFiles;
-  if (dx.governorMaxParallelJobs !== undefined) target.maxParallelJobs = dx.governorMaxParallelJobs;
-  if (dx.governorDiskQuotaMB !== undefined) target.diskQuotaMB = dx.governorDiskQuotaMB;
-  if (dx.governorCacheTTLSeconds !== undefined) target.cacheTTLSeconds = dx.governorCacheTTLSeconds;
-  if (dx.governorWallClockMs !== undefined) target.wallClockMs = dx.governorWallClockMs;
-}
-
-export async function loadGovernorDefaults(projectRoot?: string): Promise<GovernorDefaults> {
+export async function loadGovernorDefaults(): Promise<GovernorDefaults> {
   let merged: GovernorDefaults = { ...BUILTIN };
 
-  // 1. Project-level dx.config.toml [defaults] (overrides BUILTIN)
-  if (projectRoot) {
-    const dx = loadDxDefaultsSync(projectRoot);
-    if (dx) applyDxDefaults(merged, dx);
-  }
-
-  // 2. User-level governor defaults (~/.kimi-code/governor/defaults.toml)
-  if (pathExists(CONFIG_PATH)) {
+  if (existsSync(CONFIG_PATH)) {
     try {
       const text = await Bun.file(CONFIG_PATH).text();
       merged = { ...merged, ...parseGovernorToml(text) };
     } catch {
-      /* use previous */
+      /* use builtin */
     }
   }
 
-  // 3. Runtime detection (memory-based parallel cap)
   try {
     const freeMB = await getFreeMemoryMB();
     if (freeMB < 2048) {

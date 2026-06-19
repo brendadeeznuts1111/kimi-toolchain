@@ -5,32 +5,16 @@
  * Moved from src/bin/kimi-cloudflare-access.ts
  */
 
-import { readableStreamToText } from "./bun-utils.ts";
-import { pathExists } from "./bun-io.ts";
-
 import { fetchWithTimeout } from "./utils.ts";
+import { existsSync } from "fs";
 import { join } from "path";
-import { homeDir, projectMappingsPath } from "./paths.ts";
+import { homeDir } from "./paths.ts";
 import { parsePolicyConfig } from "./cloudflare-access-policy.ts";
-import { loadDxDefaultsSync } from "./defaults-config.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
 const API_BASE = "https://api.cloudflare.com/client/v4";
-const HARDCODED_WARN_DAYS = 30;
-let DEFAULT_WARN_DAYS = HARDCODED_WARN_DAYS;
-
-/** Load cloudflare-access defaults from dx.config.toml [defaults]. Call once during bootstrap. */
-export function loadCloudflareAccessDefaults(projectRoot?: string): void {
-  if (!projectRoot) return;
-  const dx = loadDxDefaultsSync(projectRoot);
-  if (!dx) return;
-  if (dx.cloudflareTokenWarnDays !== undefined) DEFAULT_WARN_DAYS = dx.cloudflareTokenWarnDays;
-}
-
-export function resetCloudflareAccessDefaults(): void {
-  DEFAULT_WARN_DAYS = HARDCODED_WARN_DAYS;
-}
+const DEFAULT_WARN_DAYS = 30;
 
 export const CREDENTIAL_SERVICE = "kimi-toolchain";
 const ACCOUNT_SECRET = "cloudflare-account-id";
@@ -297,7 +281,8 @@ export function checkTokenExpiry(
       continue;
     }
 
-    const daysRemaining = Math.floor((expiry - now) / (1000 * 60 * 60 * 24));
+    const dayDelta = (expiry - now) / (1000 * 60 * 60 * 24);
+    const daysRemaining = dayDelta >= 0 ? Math.ceil(dayDelta) : Math.floor(dayDelta);
 
     if (daysRemaining < 0) {
       violations.push({ token, reason: "expired", daysRemaining });
@@ -439,8 +424,8 @@ export function domainToProjectName(domain?: string): string {
 function loadProjectRoots(): string[] {
   const defaults = [join(homeDir(), "kimi-toolchain"), join(homeDir(), "Projects")];
   try {
-    const userConfigPath = projectMappingsPath();
-    if (pathExists(userConfigPath)) {
+    const userConfigPath = join(homeDir(), ".kimi-code", "project-mappings.yml");
+    if (existsSync(userConfigPath)) {
       const text = Bun.file(userConfigPath).textSync?.() || "";
       const parsed = parsePolicyConfig(text);
       const roots = parsed?.roots;
@@ -457,8 +442,8 @@ const KNOWN_PROJECT_ROOTS = loadProjectRoots();
 function loadAppOverrides(): Record<string, string> {
   const defaults: Record<string, string> = {};
   try {
-    const userConfigPath = projectMappingsPath();
-    if (pathExists(userConfigPath)) {
+    const userConfigPath = join(homeDir(), ".kimi-code", "project-mappings.yml");
+    if (existsSync(userConfigPath)) {
       const text = Bun.file(userConfigPath).textSync?.() || "";
       const parsed = parsePolicyConfig(text);
       const overrides = parsed?.appOverrides;
@@ -520,7 +505,7 @@ export async function discoverLocalProject(app: AccessApplication): Promise<{
           });
           const exit = await proc.exited;
           if (exit === 0) {
-            repoUrl = (await readableStreamToText(proc.stdout)).trim() || undefined;
+            repoUrl = (await Bun.readableStreamToText(proc.stdout)).trim() || undefined;
           }
         } catch {
           /* ignore */
@@ -618,7 +603,7 @@ export async function discoverLocalProject(app: AccessApplication): Promise<{
         });
         const exit = await proc.exited;
         if (exit === 0) {
-          repoUrl = (await readableStreamToText(proc.stdout)).trim() || undefined;
+          repoUrl = (await Bun.readableStreamToText(proc.stdout)).trim() || undefined;
         }
       } catch {
         /* ignore */
@@ -669,8 +654,8 @@ function loadInfraMap(): Record<
     }
   > = {};
   try {
-    const userConfigPath = projectMappingsPath();
-    if (pathExists(userConfigPath)) {
+    const userConfigPath = join(homeDir(), ".kimi-code", "project-mappings.yml");
+    if (existsSync(userConfigPath)) {
       const text = Bun.file(userConfigPath).textSync?.() || "";
       const parsed = parsePolicyConfig(text);
       const infra = parsed?.infrastructure;

@@ -1,8 +1,0 @@
-{
-  "crypto.sha256": 0.01,
-  "util.inspect": 0.01,
-  "util.deepEquals": 0.01,
-  "image.metadata": 0.01,
-  "clock": 0.01,
-  "uuid": 0.01
-}

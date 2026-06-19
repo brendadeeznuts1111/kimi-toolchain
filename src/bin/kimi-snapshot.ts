@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-snapshot — Environment snapshot: save/restore project state
  * Captures git state, untracked files, env vars for rollback
@@ -9,6 +8,7 @@ import { pathExists } from "../lib/bun-io.ts";
  */
 
 import { $ } from "bun";
+import { existsSync } from "fs";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 import { snapshotDir } from "../lib/paths.ts";
@@ -25,7 +25,7 @@ const SNAPSHOT_DIR = snapshotDir();
 
 async function restoreSnapshot(id: string, projectDir: string) {
   const path = snapshotPath(id);
-  if (!pathExists(path)) {
+  if (!existsSync(path)) {
     throw new Error(`Snapshot not found: ${id}`);
   }
 
@@ -86,7 +86,7 @@ async function doctor(): Promise<
       if (!snap.id || !snap.project || !snap.commit) {
         corrupted++;
       }
-      if (snap.projectPath && !pathExists(snap.projectPath)) {
+      if (snap.projectPath && !existsSync(snap.projectPath)) {
         orphaned++;
       }
       if (snap.projectPath) projectPaths.add(snap.projectPath);
@@ -159,7 +159,7 @@ async function fixSnapshots() {
       if (!snap.id || !snap.project || !snap.commit) {
         isCorrupted = true;
       }
-      if (snap.projectPath && !pathExists(snap.projectPath)) {
+      if (snap.projectPath && !existsSync(snap.projectPath)) {
         isOrphaned = true;
       }
     } catch {
@@ -190,7 +190,7 @@ async function main(): Promise<number> {
     const description = args.slice(1).join(" ") || undefined;
     logger.section("Saving snapshot");
 
-    if (!pathExists(join(projectDir, ".git"))) {
+    if (!existsSync(join(projectDir, ".git"))) {
       logger.error("Not a git repository — snapshots require git");
       return 1;
     }
@@ -224,7 +224,7 @@ async function main(): Promise<number> {
       return 1;
     }
     const path = snapshotPath(id);
-    if (!pathExists(path)) {
+    if (!existsSync(path)) {
       logger.error(`Snapshot not found: ${id}`);
       return 1;
     }

@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { pathExists } from "../lib/bun-io.ts";
 /**
  * kimi-githooks — Install and manage git hooks
  * P0: pre-commit (env blocks, TODO checks)
@@ -10,7 +9,7 @@ import { pathExists } from "../lib/bun-io.ts";
  */
 
 import { $ } from "bun";
-import { readableStreamToText } from "../lib/bun-utils.ts";
+import { existsSync } from "fs";
 import { join } from "path";
 import {
   ensureDir,
@@ -21,173 +20,35 @@ import {
 } from "../lib/utils.ts";
 
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
-import { ensureWorktreeClean } from "../lib/git-helpers.ts";
+import { verifySyncManifest } from "../lib/sync-manifest.ts";
 import { toolsDir } from "../lib/paths.ts";
-import { logDecision } from "../lib/decision-ledger.ts";
-import { ensureProcessTrace } from "../lib/effect/trace-context.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
-import { ensureQuietEnv } from "../lib/quiet-mode.ts";
 import {
-  runPreCommitDryRun,
-  runPreCommitGates,
-  runPreCommitPolicy,
-  runPrePushDryRun,
-  runPrePushGates,
-} from "../lib/hook-gates.ts";
-import { TOOLCHAIN_VERSION } from "../lib/version.ts";
-import {
-  detectIdentityProfile,
-  loadIdentityMatrix,
-  profileMatchesGitIdentity,
-  type GitIdentity,
-} from "../lib/identity-matrix.ts";
+  GIT_HOOK_NAMES,
+  type GitHookName,
+  analyzePreCommitHook,
+  analyzePrePushHook,
+  describeMissingHookMarkers,
+  renderPreCommitHook,
+  renderPrePushHook,
+} from "../lib/githook-templates.ts";
 
 const logger = createLogger(Bun.argv, "kimi-githooks");
 
-const HOOKS = ["pre-commit", "pre-push"] as const;
 const TOOLS_DIR = toolsDir();
 
-interface HookCheck {
-  name: string;
-  status: "ok" | "warn" | "error";
-  message: string;
-  fixable: boolean;
-}
-
-export function buildGlobalHooksPathCheck(globalHooksPath: string | null | undefined): HookCheck {
-  const hooksPath = globalHooksPath?.trim();
-  if (!hooksPath) {
-    return {
-      name: "global-hooks-path",
-      status: "ok",
-      message: "global core.hooksPath unset",
-      fixable: false,
-    };
-  }
-
-  return {
-    name: "global-hooks-path",
-    status: "warn",
-    message: `global core.hooksPath set to ${hooksPath}; prefer repo-local hooks for worktree safety`,
-    fixable: true,
-  };
-}
-
-async function gitOutput(projectDir: string, args: string[]): Promise<string | undefined> {
-  const proc = Bun.spawn(["git", ...args], {
-    cwd: projectDir,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const [exitCode, stdout] = await Promise.all([proc.exited, readableStreamToText(proc.stdout)]);
-  await readableStreamToText(proc.stderr);
-  const text = stdout.trim();
-  return exitCode === 0 && text ? text : undefined;
-}
-
-export function buildIdentityProfileCheck(input: {
-  expectedProfile?: { name: string; userName: string; userEmail: string };
-  identity: GitIdentity;
-}): HookCheck {
-  if (!input.expectedProfile) {
-    return {
-      name: "identity-profile",
-      status: "ok",
-      message: "no identity profile matched this repository",
-      fixable: false,
-    };
-  }
-  if (profileMatchesGitIdentity(input.expectedProfile, input.identity)) {
-    return {
-      name: "identity-profile",
-      status: "ok",
-      message: `identity matches ${input.expectedProfile.name}`,
-      fixable: false,
-    };
-  }
-  return {
-    name: "identity-profile",
-    status: "warn",
-    message: `expected ${input.expectedProfile.name} (${input.expectedProfile.userName} <${input.expectedProfile.userEmail}>)`,
-    fixable: true,
-  };
-}
-
-async function resolveHooksDir(projectDir: string): Promise<string> {
-  const result = await $`git rev-parse --git-path hooks`.cwd(projectDir).nothrow().quiet();
-  const resolved = result.stdout.toString().trim();
-  return result.exitCode === 0 && resolved ? resolved : join(projectDir, ".git", "hooks");
-}
-
-const HOOK_GITHOOKS_RESOLVER = `
-GITHOOKS=""
-if [ -f "src/bin/kimi-githooks.ts" ]; then
-  GITHOOKS="bun src/bin/kimi-githooks.ts"
-elif [ -f "${TOOLS_DIR}/kimi-githooks.ts" ]; then
-  GITHOOKS="bun ${TOOLS_DIR}/kimi-githooks.ts"
-elif command -v kimi-githooks >/dev/null 2>&1; then
-  GITHOOKS="kimi-githooks"
-fi
-
-if [ -z "$GITHOOKS" ]; then
-  echo "✗ kimi-githooks not found"
-  echo "  Checked: src/bin/kimi-githooks.ts"
-  echo "           ${TOOLS_DIR}/kimi-githooks.ts"
-  echo "           PATH (kimi-githooks)"
-  echo "  Fix: kimi-githooks install"
-  echo "       bun run sync && kimi-githooks fix"
-  exit 1
-fi
-`;
-
-/** Bump when hook shell template changes — doctor/fix use this to detect stale installs. */
-const HOOK_TEMPLATE_REV = "2026-06-18";
-
-const HOOK_WORKTREE_GUARD = `# Repair stale core.worktree left by test repos or concurrent hook runs
-WT_STALE=$(git config --local core.worktree 2>/dev/null || true)
-if [ -n "$WT_STALE" ]; then
-  WT_REAL=$(GIT_WORK_TREE='' git rev-parse --show-toplevel 2>/dev/null || true)
-  WT_STALE_REAL=$(realpath "$WT_STALE" 2>/dev/null || echo "$WT_STALE")
-  WT_ACTUAL_REAL=$(realpath "$WT_REAL" 2>/dev/null || echo "$WT_REAL")
-  if [ "$WT_STALE_REAL" != "$WT_ACTUAL_REAL" ]; then
-    git config --local --unset core.worktree 2>/dev/null || true
-    echo "⚠ kimi-githooks: repaired stale core.worktree → $WT_STALE" >&2
-    echo "  Actual repo root: $WT_REAL" >&2
-  fi
-fi
-unset WT_STALE WT_REAL WT_STALE_REAL WT_ACTUAL_REAL
-`;
-
-const PRE_COMMIT_HOOK = `#!/bin/sh
-# Auto-installed by kimi-githooks
-# template-rev: ${HOOK_TEMPLATE_REV}
-# P0: Block secrets; P1: quality gates (quiet when KIMI_QUIET=1 or KIMI_AGENT_SESSION)
-
-if [ -n "$KIMI_AGENT_SESSION" ]; then export KIMI_QUIET=1; fi
-${HOOK_WORKTREE_GUARD}
-${HOOK_GITHOOKS_RESOLVER}
-$GITHOOKS run-gates pre-commit || exit 1
-exit 0
-`;
-
-const PRE_PUSH_HOOK = `#!/bin/sh
-# Auto-installed by kimi-githooks
-# template-rev: ${HOOK_TEMPLATE_REV}
-# P1: parallel guardian/drift/effect + quick R-Score + check:fast (cached after pre-commit)
-#     KIMI_PRE_PUSH_FULL=1 — full check suite; KIMI_SKIP_EFFECT_GATES=1 — skip effect scan
-
-if [ -z "$KIMI_QUIET" ]; then export KIMI_QUIET=1; fi
-if [ -n "$KIMI_AGENT_SESSION" ]; then export KIMI_QUIET=1; fi
-${HOOK_WORKTREE_GUARD}
-${HOOK_GITHOOKS_RESOLVER}
-$GITHOOKS run-gates pre-push || exit 1
-exit 0
-`;
-
 // ── Hook Installation ────────────────────────────────────────────────
+
+async function resolveGitPath(projectDir: string, path: string): Promise<string | null> {
+  const result = await $`git rev-parse --git-path ${path}`.cwd(projectDir).nothrow().quiet();
+  if (result.exitCode !== 0) return null;
+  const resolved = result.stdout.toString().trim();
+  if (!resolved) return null;
+  return resolved.startsWith("/") ? resolved : join(projectDir, resolved);
+}
 
 async function installHooks(projectDir: string): Promise<number> {
   const gitPath = findExecutable("git");
@@ -196,21 +57,20 @@ async function installHooks(projectDir: string): Promise<number> {
     return 1;
   }
 
-  const gitDir = join(projectDir, ".git");
-  if (!pathExists(gitDir)) {
+  const hooksDir = await resolveGitPath(projectDir, "hooks");
+  if (!hooksDir) {
     logger.error("Not a git repository. Run 'git init' first.");
     return 1;
   }
 
-  const hooksDir = await resolveHooksDir(projectDir);
   ensureDir(hooksDir);
 
-  const hookContent: Record<string, string> = {
-    "pre-commit": PRE_COMMIT_HOOK,
-    "pre-push": PRE_PUSH_HOOK,
+  const hookContent: Record<GitHookName, string> = {
+    "pre-commit": renderPreCommitHook(),
+    "pre-push": renderPrePushHook(TOOLS_DIR),
   };
 
-  for (const hook of HOOKS) {
+  for (const hook of GIT_HOOK_NAMES) {
     const hookPath = join(hooksDir, hook);
     await Bun.write(hookPath, hookContent[hook]);
     await $`chmod +x ${hookPath}`;
@@ -229,37 +89,25 @@ async function installHooks(projectDir: string): Promise<number> {
     "  pre-commit: blocks .env, format:check + lint + typecheck, warns on TODO/console.log"
   );
   logger.info(
-    "  pre-push:   concurrent gates (KIMI_PRE_PUSH_SERIAL=1 to disable), score --quick, cached check:fast (KIMI_PRE_PUSH_FULL=1 for full)"
+    "  pre-push:   no-op skip, guardian/R-Score, fast quality gate by default, mandatory sync + sync:verify"
   );
-
-  try {
-    const trace = ensureProcessTrace();
-    await logDecision({
-      action: "hook-register",
-      trigger: { traceId: trace.traceId, hookName: HOOKS.join(",") },
-      outcome: {
-        result: "success",
-        verifiedAt: new Date().toISOString(),
-        proof: { type: "health-probe", detail: `Installed hooks in ${hooksDir}` },
-      },
-      metadata: { projectDir, hooksDir },
-    });
-  } catch {
-    // best-effort decision logging
-  }
-
+  logger.info("              Set KIMI_PRE_PUSH_FULL=1 to run the full local gate before push.");
   return 0;
 }
 
 // ── Doctor ───────────────────────────────────────────────────────────
 
 async function doctorHooks(projectDir: string) {
-  const hooksDir = await resolveHooksDir(projectDir);
-  const checks: HookCheck[] = [];
+  const checks: Array<{
+    name: string;
+    status: "ok" | "warn" | "error";
+    message: string;
+    fixable: boolean;
+  }> = [];
 
   // Check git repo
-  const gitDir = join(projectDir, ".git");
-  if (!pathExists(gitDir)) {
+  const hooksDir = await resolveGitPath(projectDir, "hooks");
+  if (!hooksDir) {
     checks.push({
       name: "git-repo",
       status: "error",
@@ -271,7 +119,7 @@ async function doctorHooks(projectDir: string) {
   checks.push({ name: "git-repo", status: "ok", message: "Git repository found", fixable: false });
 
   // Check hooks dir
-  if (!pathExists(hooksDir)) {
+  if (!existsSync(hooksDir)) {
     checks.push({
       name: "hooks-dir",
       status: "error",
@@ -289,7 +137,7 @@ async function doctorHooks(projectDir: string) {
 
   // Check pre-commit
   const preCommitPath = join(hooksDir, "pre-commit");
-  if (!pathExists(preCommitPath)) {
+  if (!existsSync(preCommitPath)) {
     checks.push({
       name: "pre-commit",
       status: "warn",
@@ -298,29 +146,23 @@ async function doctorHooks(projectDir: string) {
     });
   } else {
     const content = await Bun.file(preCommitPath).text();
-    const hasKimi = content.includes("kimi-githooks");
-    const hasTemplateRev = content.includes(`template-rev: ${HOOK_TEMPLATE_REV}`);
-    const hasQuality =
-      content.includes("run-gates pre-commit") ||
-      (content.includes("format:check") && content.includes("typecheck"));
-    const preCommitOk = hasKimi && hasQuality && hasTemplateRev;
+    const analysis = analyzePreCommitHook(content);
+    const missing = describeMissingHookMarkers(analysis);
     checks.push({
       name: "pre-commit",
-      status: preCommitOk ? "ok" : hasKimi ? "warn" : "warn",
-      message: hasKimi
-        ? preCommitOk
+      status: analysis.ok ? "ok" : "warn",
+      message: analysis.managed
+        ? analysis.ok
           ? "Installed with format/lint/typecheck gates"
-          : hasTemplateRev
-            ? "Installed but missing quality gates"
-            : "Stale hook template — run kimi-githooks fix"
+          : `Installed but stale template — missing ${missing}; run kimi-githooks fix`
         : "Custom pre-commit (not managed)",
-      fixable: !preCommitOk,
+      fixable: !analysis.ok,
     });
   }
 
   // Check pre-push
   const prePushPath = join(hooksDir, "pre-push");
-  if (!pathExists(prePushPath)) {
+  if (!existsSync(prePushPath)) {
     checks.push({
       name: "pre-push",
       status: "warn",
@@ -329,19 +171,17 @@ async function doctorHooks(projectDir: string) {
     });
   } else {
     const content = await Bun.file(prePushPath).text();
-    const hasKimi = content.includes("kimi-githooks");
-    const hasTemplateRev = content.includes(`template-rev: ${HOOK_TEMPLATE_REV}`);
-    const delegatesToRunner = content.includes("run-gates pre-push");
-    const prePushOk = hasKimi && hasTemplateRev && delegatesToRunner;
+    const analysis = analyzePrePushHook(content);
+    const missing = describeMissingHookMarkers(analysis);
     checks.push({
       name: "pre-push",
-      status: prePushOk ? "ok" : hasKimi ? "warn" : "warn",
-      message: hasKimi
-        ? prePushOk
-          ? "Installed with fast parallel pre-push gates + conditional desktop sync"
-          : "Stale hook template — run kimi-githooks fix"
+      status: analysis.ok ? "ok" : "warn",
+      message: analysis.managed
+        ? analysis.ok
+          ? "Installed with no-op skip, repo-first tools, fast default gate, mandatory desktop sync, sync manifest verify, snapshot guard"
+          : `Installed but stale template — missing ${missing}; run kimi-githooks fix`
         : "Custom pre-push (not managed)",
-      fixable: !prePushOk,
+      fixable: !analysis.ok,
     });
   }
 
@@ -369,9 +209,19 @@ async function doctorHooks(projectDir: string) {
       });
     }
 
+    const manifest = await verifySyncManifest(projectDir);
+    checks.push({
+      name: "sync-manifest",
+      status: manifest.ok ? "ok" : "warn",
+      message: manifest.ok
+        ? "Sync manifest hashes match repo and desktop runtime"
+        : `Manifest needs regeneration (${manifest.changedHashes.length} changed hash(es), ${manifest.missingHashes.length} missing hash(es), ${manifest.drift.drifted.length + manifest.drift.missing.length} desktop drift item(s))`,
+      fixable: !manifest.ok,
+    });
+
     const repoGov = join(projectDir, "src/bin/kimi-governance.ts");
     const desktopGov = join(TOOLS_DIR, "kimi-governance.ts");
-    if (pathExists(repoGov) && pathExists(desktopGov)) {
+    if (existsSync(repoGov) && existsSync(desktopGov)) {
       const [repoHash, desktopHash] = await Promise.all([
         sha256File(repoGov),
         sha256File(desktopGov),
@@ -416,27 +266,6 @@ async function doctorHooks(projectDir: string) {
     });
   }
 
-  const globalHooksPath = await $`git config --global --get core.hooksPath`.nothrow().quiet();
-  checks.push(
-    buildGlobalHooksPathCheck(
-      globalHooksPath.exitCode === 0 ? globalHooksPath.stdout.toString() : null
-    )
-  );
-
-  const [matrix, remoteUrl, userName, userEmail] = await Promise.all([
-    loadIdentityMatrix({ projectRoot: projectDir }),
-    gitOutput(projectDir, ["remote", "get-url", "origin"]),
-    gitOutput(projectDir, ["config", "--get", "user.name"]),
-    gitOutput(projectDir, ["config", "--get", "user.email"]),
-  ]);
-  const detection = detectIdentityProfile({ matrix, repoPath: projectDir, remoteUrl });
-  checks.push(
-    buildIdentityProfileCheck({
-      expectedProfile: detection.profile,
-      identity: { userName, userEmail },
-    })
-  );
-
   return checks;
 }
 
@@ -444,17 +273,10 @@ async function doctorHooks(projectDir: string) {
 
 async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
-  if (args.includes("--version") || args.includes("-V")) {
-    Bun.stdout.write(`kimi-githooks ${TOOLCHAIN_VERSION}\n`);
-    return 0;
-  }
-
-  const dryRun = args.includes("--dry-run");
-  const cmdArgs = args.filter((arg) => arg !== "--dry-run");
-  const command = cmdArgs[0] || "install";
+  const command = args[0] || "install";
   const projectDir = await resolveProjectRoot(Bun.cwd);
 
-  if (!dryRun) logger.banner("Kimi Git Hooks");
+  logger.banner("Kimi Git Hooks");
 
   if (command === "install") {
     return installHooks(projectDir);
@@ -477,34 +299,20 @@ async function main(): Promise<number> {
     return 0;
   }
   if (command === "pre-commit") {
-    if (dryRun) return runPreCommitDryRun(projectDir);
     logger.section("Pre-commit checks");
-    const policy = await runPreCommitPolicy(projectDir);
-    if (policy !== 0) return policy;
-    return runPreCommitGates(projectDir);
-  }
-  if (command === "run-gates") {
-    ensureQuietEnv();
-    const wtGuard = await ensureWorktreeClean(projectDir);
-    if (wtGuard.wasStale) {
-      Bun.stderr.write(
-        `⚠ kimi-githooks: repaired stale core.worktree → ${wtGuard.stalePath}\n` +
-          `  Actual repo root: ${wtGuard.actualRoot}\n`
-      );
+    const result = await $`git diff --cached --name-only`.cwd(projectDir).nothrow().quiet();
+    const files = result.stdout.toString().trim().split("\n").filter(Boolean);
+    if (files.length === 0) {
+      logger.warn("No staged files");
+    } else {
+      logger.info(`${files.length} staged file(s)`);
+      const envFiles = files.filter((f) => /^\.env($|\.)/.test(f) && f !== ".env.example");
+      if (envFiles.length > 0) {
+        logger.error(`.env files in staged changes: ${envFiles.join(", ")}`);
+        return 1;
+      }
     }
-    const hook = cmdArgs[1];
-    if (hook === "pre-commit") {
-      if (dryRun) return runPreCommitDryRun(projectDir);
-      const policy = await runPreCommitPolicy(projectDir);
-      if (policy !== 0) return policy;
-      return runPreCommitGates(projectDir);
-    }
-    if (hook === "pre-push") {
-      if (dryRun) return runPrePushDryRun(projectDir);
-      return runPrePushGates(projectDir);
-    }
-    logger.error("Usage: run-gates <pre-commit|pre-push> [--dry-run]");
-    return 1;
+    return 0;
   }
   if (command === "pre-push") {
     logger.section("Pre-push checks (manual run)");
@@ -516,10 +324,8 @@ async function main(): Promise<number> {
   logger.info("  install        Install pre-commit and pre-push hooks");
   logger.info("  doctor         Check hook installation health");
   logger.info("  fix            Re-install missing/outdated hooks");
-  logger.info("  pre-commit     Run pre-commit gates manually [--dry-run]");
+  logger.info("  pre-commit     Run pre-commit checks manually");
   logger.info("  pre-push       Info about pre-push checks");
-  logger.info("  run-gates      Hook gate runner (pre-commit | pre-push) [--dry-run]");
-  logger.info("  Env: KIMI_QUIET=1 silences success; KIMI_PRE_PUSH_FULL=1 runs full check on push");
   return 0;
 }
 

@@ -1,11 +1,11 @@
-import { pathExists } from "../src/lib/bun-io.ts";
-
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "fs";
 import { join } from "path";
 import { computeSyncHashes } from "../src/lib/sync-hashes.ts";
 import { sha256File } from "../src/lib/utils.ts";
 
-import { REPO_ROOT } from "./helpers.ts";
+const REPO_ROOT = import.meta.dir + "/..";
+
 describe("sync-hashes", () => {
   test("computeSyncHashes includes all sync-managed asset classes", async () => {
     const hashes = await computeSyncHashes(REPO_ROOT);
@@ -13,17 +13,12 @@ describe("sync-hashes", () => {
     expect(hashes["lib/utils.ts"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["scripts/lint-banned-terms.ts"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["kimi-hooks/log-tool-failure.ts"]).toMatch(/^[a-f0-9]{64}$/);
-    expect(hashes["templates/scaffold/dx.config.app.toml"]).toMatch(/^[a-f0-9]{64}$/);
-    expect(hashes["templates/scaffold/dx.config.toolchain.toml"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["templates/scaffold/dx.config.toml"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["templates/scaffold/code-references.md"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["AGENTS.md"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["CODE_REFERENCES.md"]).toMatch(/^[a-f0-9]{64}$/);
-    expect(hashes["agents-skill/kimi-toolchain/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
-    expect(hashes["agents-skill/herdr/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
-    expect(hashes["agents-skill/effect-discipline/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
-    expect(hashes["kimi-skill/kimi-toolchain/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
-    expect(hashes["kimi-skill/herdr/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
-    expect(hashes["kimi-skill/effect-discipline/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["agents-skill/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["kimi-skill/SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
   });
 
   test("computeSyncHashes is stable for unchanged files", async () => {
@@ -35,7 +30,7 @@ describe("sync-hashes", () => {
   test("hash matches sha256File for a known tool", async () => {
     const hashes = await computeSyncHashes(REPO_ROOT);
     const path = join(REPO_ROOT, "src/lib/r-score.ts");
-    expect(pathExists(path)).toBe(true);
+    expect(existsSync(path)).toBe(true);
     expect(hashes["lib/r-score.ts"]).toBe(await sha256File(path));
   });
 });

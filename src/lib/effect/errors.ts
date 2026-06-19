@@ -19,11 +19,6 @@ export class ExitNonZero extends Data.TaggedError("ExitNonZero")<{
   tool: string;
   exitCode: number;
   stderr: string;
-  taxonomyId?: string;
-  suggestion?: string;
-  autoFix?: string;
-  stdoutTruncated?: boolean;
-  stderrTruncated?: boolean;
 }> {}
 
 export class TaxonomyLoadFailed extends Data.TaggedError("TaxonomyLoadFailed")<{
@@ -36,59 +31,4 @@ export class CliError extends Data.TaggedError("CliError")<{
   exitCode?: number;
 }> {}
 
-export class EffectCliContractError extends Data.TaggedError("EffectCliContractError")<{
-  message: string;
-  toolName: string;
-  taxonomyId: string;
-  unknownFlag?: string;
-  suggestions?: string[];
-}> {}
-
-export class ConfigNotFound extends Data.TaggedError("ConfigNotFound")<{
-  path: string;
-  kind: "global" | "project";
-}> {}
-
-export class ConfigParseError extends Data.TaggedError("ConfigParseError")<{
-  path: string;
-  cause: string;
-}> {}
-
-export class ConfigMergeConflict extends Data.TaggedError("ConfigMergeConflict")<{
-  path: string;
-  globalValue: string;
-  projectValue: string;
-}> {}
-
-/** Thrown when an Effect symbol is referenced but has no registered globalThis handler. */
-export class EffectNotRegisteredError extends Data.TaggedError("EffectNotRegisteredError")<{
-  symbol: string;
-  label: string;
-}> {}
-
-/** Thrown when a benchmark or perf gate exceeds its threshold. */
-export class ThresholdExceededError extends Data.TaggedError("ThresholdExceededError")<{
-  operation: string;
-  actualMs: number;
-  thresholdMs: number;
-}> {}
-
-/** Thrown by `kimi-heal constants repair` when the golden template is missing. */
-export class HealGoldenMissingError extends Data.TaggedError("HealGoldenMissingError")<{
-  command: string;
-}> {}
-
-/** Thrown by `kimi-heal` when a CLI flag has an invalid value. */
-export class HealInvalidArgumentError extends Data.TaggedError("HealInvalidArgumentError")<{
-  flag: string;
-  message: string;
-}> {}
-
-export type DxConfigError = ConfigNotFound | ConfigParseError | ConfigMergeConflict;
-
 export type ToolRunnerError = ToolNotFound | ToolTimeout | ExitNonZero;
-
-export type HealError =
-  | HealGoldenMissingError
-  | HealInvalidArgumentError
-  | EffectNotRegisteredError;

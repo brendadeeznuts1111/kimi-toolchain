@@ -2,8 +2,7 @@
  * Workspace subcommands — verify | audit | fix | cleanup
  */
 
-import { pathExists, pathLstat } from "./bun-io.ts";
-
+import { existsSync, lstatSync } from "fs";
 import { join, resolve } from "path";
 import {
   auditWorkspaceHealth,
@@ -12,7 +11,6 @@ import {
   CANONICAL_REPO_NAME,
   LEGACY_REPO_NAMES,
   listActiveLegacyCursorSlugs,
-  isWorkspaceBlocker,
   canonicalClonePath,
   legacyClonePath,
 } from "./workspace-health.ts";
@@ -23,11 +21,6 @@ import {
 } from "./legacy-cleanup.ts";
 import { createLogger, type Logger } from "./logger.ts";
 import { homeDir } from "./paths.ts";
-import {
-  enrichWorkspaceReportWithDecisions,
-  formatKnownWorkspaceSuffix,
-  recordWorkspaceKnownBlockers,
-} from "./workspace-known-blockers.ts";
 
 export interface WorkspaceCommandFlags {
   json: boolean;
@@ -76,9 +69,7 @@ export function printWorkspaceHelp(logger?: Logger): void {
 
 async function runVerify(projectRoot: string, strict: boolean, logger: Logger): Promise<number> {
   const home = homeDir();
-  let report = await auditWorkspaceHealth(projectRoot, { strictWorkspace: strict, home });
-  await recordWorkspaceKnownBlockers(projectRoot, report.checks);
-  report = await enrichWorkspaceReportWithDecisions(report, projectRoot);
+  const report = await auditWorkspaceHealth(projectRoot, { strictWorkspace: strict, home });
 
   logger.section("Workspace verify");
   logger.line(`  Path: ${projectRoot}`);
@@ -94,16 +85,6 @@ async function runVerify(projectRoot: string, strict: boolean, logger: Logger): 
 
   const { blocking } = countWorkspaceBlockers(report, { strictWorkspace: strict });
   if (blocking > 0) {
-    for (const check of report.checks) {
-      if (
-        isWorkspaceBlocker(check, {
-          isToolchainRepo: report.isToolchainRepo,
-          strictWorkspace: strict,
-        })
-      ) {
-        logger.error(`${check.name}: ${check.message}${formatKnownWorkspaceSuffix(check)}`);
-      }
-    }
     logger.error(`${blocking} workspace blocker(s)`);
     return 1;
   }
@@ -121,9 +102,7 @@ async function runAudit(
   logger: Logger
 ): Promise<number> {
   const home = homeDir();
-  let report = await auditWorkspaceHealth(projectRoot, { strictWorkspace: strict, home });
-  await recordWorkspaceKnownBlockers(projectRoot, report.checks);
-  report = await enrichWorkspaceReportWithDecisions(report, projectRoot);
+  const report = await auditWorkspaceHealth(projectRoot, { strictWorkspace: strict, home });
   const summary = countWorkspaceBlockers(report, { strictWorkspace: strict });
 
   if (json) {
@@ -150,7 +129,7 @@ async function runAudit(
 
   logger.section("Workspace health audit");
   for (const check of report.checks) {
-    const label = `${check.name}: ${check.message}${formatKnownWorkspaceSuffix(check)}`;
+    const label = `${check.name}: ${check.message}`;
     if (check.status === "error") logger.error(label);
     else if (check.status === "warn") logger.warn(label);
     else logger.info(label);
@@ -225,9 +204,9 @@ async function runCleanup(
   logger.section("Legacy workspace cleanup");
 
   const legacyPath = legacyClonePath(home);
-  if (pathExists(legacyPath)) {
+  if (existsSync(legacyPath)) {
     try {
-      const stat = pathLstat(legacyPath);
+      const stat = lstatSync(legacyPath);
       if (stat.isSymbolicLink()) {
         logger.warn(`~/${LEGACY_REPO_NAMES[0]} symlink exists`);
         if (removeLegacyPath && removeLegacySymlink()) {
@@ -244,7 +223,7 @@ async function runCleanup(
   }
 
   const canonical = canonicalClonePath(home);
-  if (pathExists(join(canonical, "package.json"))) {
+  if (existsSync(join(canonical, "package.json"))) {
     logger.info(`~/${CANONICAL_REPO_NAME} present`);
   } else {
     logger.error(`~/${CANONICAL_REPO_NAME}/package.json missing`);

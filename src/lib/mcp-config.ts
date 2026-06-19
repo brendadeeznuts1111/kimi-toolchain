@@ -3,13 +3,10 @@
  * @see https://moonshotai.github.io/kimi-code/en/customization/mcp.html
  */
 
-import { pathExists } from "./bun-io.ts";
-
+import { existsSync } from "fs";
 import { join, resolve } from "path";
-import { logDecision } from "./decision-ledger.ts";
 import { ensureDir } from "./utils.ts";
 import { homeDir, mcpPath, toolsDir } from "./paths.ts";
-import { ensureProcessTrace } from "./effect/trace-context.ts";
 
 export const UNIFIED_SHELL_SERVER = "unified-shell";
 export const UNIFIED_SHELL_TOOL = "mcp__unified-shell__execute";
@@ -17,18 +14,6 @@ export const CLOUDFLARE_API_SERVER = "cloudflare-api";
 export const CLOUDFLARE_API_TOOL_SEARCH = "mcp__cloudflare__search";
 export const CLOUDFLARE_API_TOOL_EXECUTE = "mcp__cloudflare__execute";
 export const CLOUDFLARE_MCP_URL = "https://mcp.cloudflare.com/mcp";
-
-export const DOCTOR_MCP_SERVER = "kimi-doctor";
-export const DOCTOR_MCP_TOOL_PROBE = "kimi_doctor_probe";
-export const DOCTOR_MCP_TOOL_RUN = "kimi_doctor_run";
-export const DOCTOR_MCP_TOOL_FIX = "kimi_doctor_fix";
-export const DOCTOR_MCP_TOOL_RUN_ALL = "kimi_doctor_run_all";
-export const DOCTOR_MCP_TOOLS = [
-  DOCTOR_MCP_TOOL_PROBE,
-  DOCTOR_MCP_TOOL_RUN,
-  DOCTOR_MCP_TOOL_FIX,
-  DOCTOR_MCP_TOOL_RUN_ALL,
-];
 
 const KIMI_CODE_DIR = ".kimi-code";
 const BUN_BINARY = "bun";
@@ -87,7 +72,7 @@ export function projectMcpPath(projectRoot: string): string {
 }
 
 export async function readMcpJson(path: string): Promise<ReadMcpJsonResult> {
-  if (!pathExists(path)) return { data: null };
+  if (!existsSync(path)) return { data: null };
   try {
     const raw = await Bun.file(path).json();
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { data: null };
@@ -119,10 +104,6 @@ export function bridgeScriptPath(home: string = homeDir()): string {
   return join(toolsDir(home), UNIFIED_SHELL_BRIDGE);
 }
 
-export function doctorMcpScriptPath(home: string = homeDir()): string {
-  return join(toolsDir(home), "kimi-doctor.ts");
-}
-
 /** Canonical stdio entry for unified-shell MCP server. */
 export function buildUnifiedShellEntry(home: string = homeDir()): McpServerEntry {
   return {
@@ -133,15 +114,6 @@ export function buildUnifiedShellEntry(home: string = homeDir()): McpServerEntry
       KIMI_SHELL_MODE: "unified",
     },
     description: "Unified Shell Bridge: Bun-native shell execution with signal handling",
-  };
-}
-
-/** Canonical stdio entry for the kimi-doctor MCP server. */
-export function buildDoctorMcpEntry(home: string = homeDir()): McpServerEntry {
-  return {
-    command: resolveBunPath(),
-    args: ["run", doctorMcpScriptPath(home), "--mcp-server"],
-    description: "kimi-doctor MCP server: structured diagnostics and health checks",
   };
 }
 
@@ -176,21 +148,6 @@ function cloudflareApiNeedsRefresh(
   return false;
 }
 
-function doctorMcpNeedsRefresh(
-  existing: McpServerEntry | undefined,
-  expected: McpServerEntry
-): boolean {
-  if (!existing) return true;
-  const expectedArgs = expected.args?.join(" ") ?? "";
-  const existingArgs = existing.args?.join(" ") ?? "";
-  if (!existingArgs.includes("kimi-doctor.ts")) return true;
-  if (!existingArgs.includes("--mcp-server")) return true;
-  if (existing.command !== expected.command) return true;
-  const scriptPath = expected.args?.[1] ?? "";
-  if (!existingArgs.includes(scriptPath) && existingArgs !== expectedArgs) return true;
-  return false;
-}
-
 /** Merge toolchain MCP servers into mcpServers without removing other servers. */
 export function mergeToolchainMcpServers(
   existing: McpJson | null,
@@ -213,12 +170,6 @@ export function mergeToolchainMcpServers(
     changed = true;
   }
 
-  const doctorMcp = buildDoctorMcpEntry(home);
-  if (doctorMcpNeedsRefresh(config.mcpServers[DOCTOR_MCP_SERVER], doctorMcp)) {
-    config.mcpServers[DOCTOR_MCP_SERVER] = doctorMcp;
-    changed = true;
-  }
-
   return { config, changed };
 }
 
@@ -237,24 +188,8 @@ export async function provisionUserMcp(home: string = homeDir()): Promise<{
   const path = userMcpPath();
   const { data: existing } = await readMcpJson(path);
   const { config, changed } = mergeToolchainMcpServers(existing, home);
-  if (changed || !pathExists(path)) {
+  if (changed || !existsSync(path)) {
     await writeMcpJson(path, config);
-    try {
-      const trace = ensureProcessTrace();
-      const servers = Object.keys(config.mcpServers).sort().join(", ");
-      await logDecision({
-        action: "config-change",
-        trigger: { traceId: trace.traceId, capabilityItem: "mcp.json" },
-        outcome: {
-          result: "success",
-          verifiedAt: new Date().toISOString(),
-          proof: { type: "health-probe", detail: `Provisioned MCP servers: ${servers}` },
-        },
-        metadata: { path, changed: true },
-      });
-    } catch {
-      // best-effort decision logging
-    }
     return { path, changed: true };
   }
   return { path, changed: false };
@@ -270,7 +205,7 @@ export async function validateMcpConfig(
   const bridgePath = bridgeScriptPath(home);
 
   const { data: userMcp, error: userReadError } = await readMcpJson(userPath);
-  if (pathExists(userPath)) {
+  if (existsSync(userPath)) {
     checks.push({
       name: "mcp-user",
       status: userReadError ? "warn" : "ok",
@@ -325,25 +260,7 @@ export async function validateMcpConfig(
     });
   }
 
-  if (userMcp?.mcpServers[DOCTOR_MCP_SERVER]) {
-    checks.push({
-      name: "kimi-doctor-mcp",
-      status: "ok",
-      message: `registered (tools: ${DOCTOR_MCP_TOOLS.join(", ")})`,
-      fixable: false,
-    });
-  } else {
-    checks.push({
-      name: "kimi-doctor-mcp",
-      status: "warn",
-      message: userReadError
-        ? `cannot verify — mcp.json unreadable: ${userReadError}`
-        : "not in mcpServers — run kimi-doctor --fix to enable agent diagnostics",
-      fixable: true,
-    });
-  }
-
-  if (pathExists(bridgePath)) {
+  if (existsSync(bridgePath)) {
     checks.push({
       name: "bridge-script",
       status: "ok",
@@ -376,7 +293,7 @@ export async function validateMcpConfig(
     });
   }
 
-  if (projectPath && pathExists(projectPath)) {
+  if (projectPath && existsSync(projectPath)) {
     const { data: projectMcp, error: projectReadError } = await readMcpJson(projectPath);
     if (!projectMcp) {
       checks.push({
@@ -444,7 +361,7 @@ export async function fixMcpConfig(
   let projectCreated = false;
   if (projectRoot) {
     const projPath = projectMcpPath(projectRoot);
-    if (!pathExists(projPath)) {
+    if (!existsSync(projPath)) {
       ensureDir(join(projPath, ".."));
       const stub: McpJson = {
         mcpServers: {},
