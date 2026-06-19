@@ -12,6 +12,7 @@
  */
 
 import { resolveBin, USER_TOOLCHAIN_BIN } from "./lib/toolchain-paths.ts";
+import { configureInspect } from "../../../src/lib/inspect.ts";
 
 const port = Number(Bun.env.PORT) || 3000;
 
@@ -45,20 +46,22 @@ async function apiBundle(): Promise<Response> {
 }
 
 async function apiCompile(): Promise<Response> {
-  const proc = Bun.spawn(
-    ["bun", "run", doctorBin(), "--compile-check", "--json"],
-    { cwd: resolveRoot(), stdout: "pipe", stderr: "pipe" }
-  );
+  const proc = Bun.spawn(["bun", "run", doctorBin(), "--compile-check", "--json"], {
+    cwd: resolveRoot(),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
   const stdout = await new Response(proc.stdout).text();
   await proc.exited;
   return jsonResponse(JSON.parse(stdout));
 }
 
 async function apiGates(): Promise<Response> {
-  const proc = Bun.spawn(
-    ["bun", "run", doctorBin(), "--effect-gates", "--json"],
-    { cwd: resolveRoot(), stdout: "pipe", stderr: "pipe" }
-  );
+  const proc = Bun.spawn(["bun", "run", doctorBin(), "--effect-gates", "--json"], {
+    cwd: resolveRoot(),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
   const stdout = await new Response(proc.stdout).text();
   await proc.exited;
   return jsonResponse(JSON.parse(stdout));
@@ -77,7 +80,11 @@ async function apiSecrets(): Promise<Response> {
     set: typeof Bun.secrets?.set === "function",
     delete: typeof Bun.secrets?.delete === "function",
   };
-  return jsonResponse({ available, methods, note: "scoped per user namespace (macOS Keychain / Windows Credential Manager)" });
+  return jsonResponse({
+    available,
+    methods,
+    note: "scoped per user namespace (macOS Keychain / Windows Credential Manager)",
+  });
 }
 
 async function apiEnv(): Promise<Response> {
@@ -94,15 +101,42 @@ async function apiEnv(): Promise<Response> {
   const tcBins = ["kimi-fix", "kimi-new", "kimi-doctor", "kimi-heal", "kimi-bake"];
   const tcResolved = tcBins.map((name) => ({
     ...resolveBin(name),
-    flags: { "kimi-fix": "--profile app|toolchain, --dry-run", "kimi-new": "--profile, --name", "kimi-doctor": "--automation, --effect-gates, --watch", "kimi-heal": "--profile toolchain, --fix", "kimi-bake": "list, doctor, bake <name>" }[name] || "",
+    flags:
+      {
+        "kimi-fix": "--profile app|toolchain, --dry-run",
+        "kimi-new": "--profile, --name",
+        "kimi-doctor": "--automation, --effect-gates, --watch",
+        "kimi-heal": "--profile toolchain, --fix",
+        "kimi-bake": "list, doctor, bake <name>",
+      }[name] || "",
   }));
 
   const tools: ToolEntry[] = [
-    { bin: "bun", path: Bun.which("bun"), resolution: "system", flags: "--version, --hot, --compile" },
-    ...tcResolved.map((r) => ({ bin: r.name, path: r.resolved, resolution: r.source as ToolEntry["resolution"], flags: r.flags })),
-    { bin: "oxlint", path: Bun.which("oxlint"), resolution: "project", flags: "--deny-warnings, --import-plugin" },
+    {
+      bin: "bun",
+      path: Bun.which("bun"),
+      resolution: "system",
+      flags: "--version, --hot, --compile",
+    },
+    ...tcResolved.map((r) => ({
+      bin: r.name,
+      path: r.resolved,
+      resolution: r.source as ToolEntry["resolution"],
+      flags: r.flags,
+    })),
+    {
+      bin: "oxlint",
+      path: Bun.which("oxlint"),
+      resolution: "project",
+      flags: "--deny-warnings, --import-plugin",
+    },
     { bin: "oxfmt", path: Bun.which("oxfmt"), resolution: "project", flags: "--write, --check" },
-    { bin: "git", path: Bun.which("git"), resolution: "system", flags: "rev-parse, describe, diff" },
+    {
+      bin: "git",
+      path: Bun.which("git"),
+      resolution: "system",
+      flags: "rev-parse, describe, diff",
+    },
   ];
 
   const shadowWarnings = tcResolved.filter((r) => r.shadowed).map((r) => r.name);
@@ -118,7 +152,9 @@ async function apiEnv(): Promise<Response> {
         if (kv) bunfigRun[kv[1]] = kv[2].replace(/#.*$/, "").trim();
       }
     }
-  } catch { /* no bunfig.toml */ }
+  } catch {
+    /* no bunfig.toml */
+  }
 
   return jsonResponse({
     path: pathDirs,
@@ -140,16 +176,24 @@ async function apiConsoleDepth(): Promise<Response> {
   const nested = { a: { b: { c: { d: "deep", e: [{ x: 1, y: { z: "nested-array" } }] } } } };
 
   // Run at depth 2 (default) and depth 4 (configured) via separate bun processes
-  const depth2 = Bun.spawn(["bun", "-e", `console.log(JSON.stringify(${JSON.stringify(nested)}, null, 2))`], {
-    stdout: "pipe", stderr: "pipe",
-  });
+  const depth2 = Bun.spawn(
+    ["bun", "-e", `console.log(JSON.stringify(${JSON.stringify(nested)}, null, 2))`],
+    {
+      stdout: "pipe",
+      stderr: "pipe",
+    }
+  );
   // We can't change depth programmatically in the same process — just show the structure
-  const depth2Out = await new Response(depth2.stdout).text();
+  await new Response(depth2.stdout).text();
   await depth2.exited;
 
   return jsonResponse({
     configuredDepth: 4,
-    sample: { depth2: "shows up to 2 levels", depth4: "shows up to 4 levels (current)", _raw: nested },
+    sample: {
+      depth2: "shows up to 2 levels",
+      depth4: "shows up to 4 levels (current)",
+      _raw: nested,
+    },
     note: "Set via bunfig.toml console.depth = 4. Override with --console-depth <N>",
   });
 }
@@ -164,12 +208,21 @@ async function apiBuildInfo(): Promise<Response> {
 
   // Git-derived build metadata (simulates --define BUILD_VERSION="$(git describe)")
   try {
-    const gitDesc = Bun.spawn(["git", "describe", "--tags", "--always"], { cwd: process.cwd(), stdout: "pipe", stderr: "pipe" });
+    const gitDesc = Bun.spawn(["git", "describe", "--tags", "--always"], {
+      cwd: process.cwd(),
+      stdout: "pipe",
+      stderr: "pipe",
+    });
     compileTime.BUILD_VERSION = (await new Response(gitDesc.stdout).text()).trim() || "unknown";
     await gitDesc.exited;
 
-    const gitRev = Bun.spawn(["git", "rev-parse", "HEAD"], { cwd: process.cwd(), stdout: "pipe", stderr: "pipe" });
-    compileTime.GIT_COMMIT = (await new Response(gitRev.stdout).text()).trim().slice(0, 8) || "unknown";
+    const gitRev = Bun.spawn(["git", "rev-parse", "HEAD"], {
+      cwd: process.cwd(),
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    compileTime.GIT_COMMIT =
+      (await new Response(gitRev.stdout).text()).trim().slice(0, 8) || "unknown";
     await gitRev.exited;
   } catch {
     compileTime.BUILD_VERSION = "unknown";
@@ -179,8 +232,8 @@ async function apiBuildInfo(): Promise<Response> {
 
   // Active defines (from manifest.toml [artifact.defines])
   const defines: Record<string, string> = {
-    "PLATFORM": "\"darwin\"",
-    "TARGET": "\"bun-darwin-arm64\"",
+    PLATFORM: '"darwin"',
+    TARGET: '"bun-darwin-arm64"',
     "console.write": "console.log",
   };
 
@@ -202,18 +255,25 @@ async function apiBuildInfo(): Promise<Response> {
 
 async function apiRuntimeInfo(): Promise<Response> {
   const isBun = typeof Bun !== "undefined";
-  const runtime = isBun ? "bun" : (typeof process !== "undefined" && process.versions?.node ? "node" : "unknown");
+  const runtime = isBun
+    ? "bun"
+    : typeof process !== "undefined" && process.versions?.node
+      ? "node"
+      : "unknown";
 
   // Resolve active bunfig.toml path (--config flag or default lookup)
   const bunfigCandidates = ["./bunfig.toml", `${Bun.env.HOME}/.bunfig.toml`];
   let activeBunfig: string | null = null;
   for (const candidate of bunfigCandidates) {
-    if (await Bun.file(candidate).exists()) { activeBunfig = candidate; break; }
+    if (await Bun.file(candidate).exists()) {
+      activeBunfig = candidate;
+      break;
+    }
   }
 
   return jsonResponse({
     runtime,
-    version: isBun ? Bun.version : (process.versions?.node || "unknown"),
+    version: isBun ? Bun.version : process.versions?.node || "unknown",
     isBun,
     bunVersion: isBun ? Bun.version : null,
     bunRevision: isBun ? Bun.revision : null,
@@ -238,9 +298,21 @@ async function apiToolchainHealth(): Promise<Response> {
     found: names.length - missing.length,
     missing,
     shadowed: shadowed.map((b) => b.name),
-    all: bins.map((b) => ({ name: b.name, source: b.source, path: b.resolved, shadowed: b.shadowed })),
-    inspect: Bun.inspect({ ok: missing.length === 0, missing, found: names.length - missing.length }),
-    hint: missing.length > 0 ? "Install: bun install -g github:brendadeeznuts1111/kimi-toolchain" : null,
+    all: bins.map((b) => ({
+      name: b.name,
+      source: b.source,
+      path: b.resolved,
+      shadowed: b.shadowed,
+    })),
+    inspect: Bun.inspect({
+      ok: missing.length === 0,
+      missing,
+      found: names.length - missing.length,
+    }),
+    hint:
+      missing.length > 0
+        ? "Install: bun install -g github:brendadeeznuts1111/kimi-toolchain"
+        : null,
   });
 }
 
@@ -267,7 +339,11 @@ async function apiInspectSimple(): Promise<Response> {
   const constObj = { method: "GET", status: 200, debug: true };
   const buffer = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
   let errorStr = "";
-  try { throw new Error("Something went wrong"); } catch (err) { errorStr = Bun.inspect(err); }
+  try {
+    throw new Error("Something went wrong");
+  } catch (err) {
+    errorStr = Bun.inspect(err);
+  }
 
   // Options demo
   const nested = { a: { b: { c: { d: "deep" } } } };
@@ -277,7 +353,13 @@ async function apiInspectSimple(): Promise<Response> {
 
   // Defaults table
   const options = [
-    { option: "depth", default: 2, value: 4, flag: "--console-depth", source: "bunfig.toml console.depth = 4" },
+    {
+      option: "depth",
+      default: 2,
+      value: 4,
+      flag: "--console-depth",
+      source: "bunfig.toml console.depth = 4",
+    },
     { option: "colors", default: false, value: true, flag: "bun --no-color", source: "terminal" },
     { option: "showHidden", default: false, value: false, flag: "—", source: "default" },
     { option: "sorted", default: false, value: false, flag: "—", source: "default" },
@@ -289,19 +371,22 @@ async function apiInspectSimple(): Promise<Response> {
   const table = [
     "option          default  current  flag",
     "──────────────  ───────  ───────  ────────────────",
-    ...options.map(o => `${o.option.padEnd(15)} ${String(o.default).padEnd(8)} ${String(o.value).padEnd(8)} ${o.flag}`),
+    ...options.map(
+      (o) =>
+        `${o.option.padEnd(15)} ${String(o.default).padEnd(8)} ${String(o.value).padEnd(8)} ${o.flag}`
+    ),
   ].join("\n");
 
   return new Response(
     `// ${table}\n\n` +
-    `// Bun.inspect({ foo: "bar" })\n${Bun.inspect(obj)}\n\n` +
-    `// Bun.inspect(new Uint8Array([1, 2, 3]))\n${Bun.inspect(arr)}\n\n` +
-    `// as const — TypeScript only, no runtime effect\n${Bun.inspect(constObj)}\n\n` +
-    `// Binary data\n${Bun.inspect(buffer)}\n\n` +
-    `// Options: depth=2\n${depth2}\n\n` +
-    `// Options: depth=4\n${depth4}\n\n` +
-    `// Options: depth=4, compact=true\n${compact}\n\n` +
-    `// Error inspection\n${errorStr}`,
+      `// Bun.inspect({ foo: "bar" })\n${Bun.inspect(obj)}\n\n` +
+      `// Bun.inspect(new Uint8Array([1, 2, 3]))\n${Bun.inspect(arr)}\n\n` +
+      `// as const — TypeScript only, no runtime effect\n${Bun.inspect(constObj)}\n\n` +
+      `// Binary data\n${Bun.inspect(buffer)}\n\n` +
+      `// Options: depth=2\n${depth2}\n\n` +
+      `// Options: depth=4\n${depth4}\n\n` +
+      `// Options: depth=4, compact=true\n${compact}\n\n` +
+      `// Error inspection\n${errorStr}`,
     { headers: { "content-type": "text/plain; charset=utf-8" } }
   );
 }
@@ -312,7 +397,10 @@ async function apiInspect(): Promise<Response> {
   class Config {
     port: number;
     host: string;
-    constructor() { this.port = 5678; this.host = "localhost"; }
+    constructor() {
+      this.port = 5678;
+      this.host = "localhost";
+    }
   }
 
   const sample = {
@@ -339,7 +427,6 @@ async function apiInspect(): Promise<Response> {
 }
 
 async function apiUuid(): Promise<Response> {
-  const now = Date.now();
   const hex = Bun.randomUUIDv7();
   const b64 = Bun.randomUUIDv7("base64");
   const b64url = Bun.randomUUIDv7("base64url");
@@ -362,32 +449,87 @@ async function apiUuid(): Promise<Response> {
 }
 
 async function apiInspectConfig(): Promise<Response> {
-  const debug = Bun.env.DEBUG_INSPECT === "true";
-  const isTTY = process.stdout.isTTY;
-  const isCI = !!Bun.env.CI;
-  const isProd = Bun.env.NODE_ENV === "production";
-
-  const preset = debug ? "debug" : isCI ? "ci" : isProd ? "production" : "local";
+  const isTTY = process.stdout?.isTTY ?? false;
+  const current = configureInspect("auto");
 
   return jsonResponse({
-    preset,
-    environment: isCI ? "CI" : isProd ? "production" : "local",
-    config: {
-      depth: debug ? Infinity : isCI ? 4 : isProd ? 2 : 5,
-      colors: isTTY,
-      compact: isCI || isProd,
-      sorted: false,
-      maxArrayLength: null,
-      showHidden: debug,
+    preset: current.preset,
+    environment: Bun.env.NODE_ENV === "production" ? "production" : isTTY ? "local" : "non-tty",
+    config: current,
+    detected: {
+      isTTY,
+      NODE_ENV: Bun.env.NODE_ENV || "development",
+      DEBUG_INSPECT: Bun.env.DEBUG_INSPECT || "unset",
+      debugForced: current.forcedDebug,
     },
-    detected: { isTTY, CI: Bun.env.CI || "unset", NODE_ENV: Bun.env.NODE_ENV || "unset", DEBUG_INSPECT: Bun.env.DEBUG_INSPECT || "unset" },
     presets: [
-      { environment: "Local terminal (dev)", colors: true, depth: 5, compact: false, showHidden: false, useCase: "Best developer experience" },
-      { environment: "CI / GitHub Actions", colors: false, depth: 4, compact: true, showHidden: false, useCase: "Clean, safe logs" },
-      { environment: "Production", colors: false, depth: 2, compact: true, showHidden: false, useCase: "Minimal output" },
-      { environment: "Debug (DEBUG_INSPECT=1)", colors: "inherit", depth: "Infinity", compact: false, showHidden: true, useCase: "Maximum visibility for debugging" },
+      {
+        preset: "auto (TTY dev)",
+        colors: true,
+        depth: 5,
+        compact: false,
+        sorted: true,
+        maxArrayLength: "Infinity",
+        showHidden: false,
+      },
+      {
+        preset: "auto (non-TTY)",
+        colors: false,
+        depth: 4,
+        compact: true,
+        sorted: true,
+        maxArrayLength: 100,
+        showHidden: false,
+      },
+      {
+        preset: "auto (production)",
+        colors: false,
+        depth: 2,
+        compact: true,
+        sorted: false,
+        maxArrayLength: 30,
+        showHidden: false,
+      },
+      {
+        preset: "debug",
+        colors: "inherit",
+        depth: "Infinity",
+        compact: false,
+        sorted: true,
+        maxArrayLength: "Infinity",
+        showHidden: true,
+      },
+      {
+        preset: "compact",
+        colors: false,
+        depth: 3,
+        compact: true,
+        sorted: false,
+        maxArrayLength: 50,
+        showHidden: false,
+      },
     ],
-    note: debug ? "DEBUG_INSPECT=true — depth=Infinity, showHidden=true" : `Auto preset (${preset}). Set DEBUG_INSPECT=true to override.`,
+    note: current.forcedDebug
+      ? "DEBUG_INSPECT forced the debug preset"
+      : `Auto preset resolved to ${current.preset}`,
+  });
+}
+
+async function apiDeps(): Promise<Response> {
+  const ls = Bun.spawn(["bun", "pm", "ls", "--all"], { stdout: "pipe", stderr: "pipe" });
+  const bin = Bun.spawn(["bun", "pm", "bin"], { stdout: "pipe", stderr: "pipe" });
+  const [lsOut, binOut] = await Promise.all([
+    new Response(ls.stdout).text(),
+    new Response(bin.stdout).text(),
+  ]);
+  await Promise.all([ls.exited, bin.exited]);
+
+  const packages = lsOut.split("\n").filter((l) => l.includes("@")).length;
+  return jsonResponse({
+    binDir: binOut.trim(),
+    totalPackages: packages,
+    tree: lsOut.trim(),
+    note: "bun pm ls --all + bun pm bin. CI: git diff --exit-code dependencies.txt",
   });
 }
 
@@ -422,6 +564,8 @@ const server = Bun.serve({
         return apiToolchainHealth();
       case "/api/toolchain/heal":
         return apiToolchainHeal();
+      case "/api/deps":
+        return apiDeps();
       case "/api/inspect":
         return apiInspect();
       case "/api/inspect-simple":
@@ -438,4 +582,4 @@ const server = Bun.serve({
   },
 });
 
-console.log(`Dashboard running at http://localhost:${server.port}`);
+Bun.stdout.write(`Dashboard running at http://localhost:${server.port}\n`);
