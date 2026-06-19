@@ -87,7 +87,16 @@ async function fetchJson(url) { const res = await fetch(url); return res.json();
       <span style="margin:0 4px;color:var(--muted);font-size:10px">uuid7:${uuid.formats.hex.slice(0,13)}…</span>
       <span style="margin:0 4px;color:var(--muted);font-size:10px">tc:${d.toolchainBinDir}</span>
       <span style="margin-left:auto">${vars}</span>
-    </div>`;
+    </div>
+    <details style="margin-top:8px"><summary style="color:var(--blue);cursor:pointer;font-size:11px">PATH entries (${d.path.length})</summary>
+    <table class="tbl" style="margin-top:4px"><tr><th>#</th><th>Path</th><th>Type</th></tr>
+    ${d.path.map((p: string, i: number) => {
+      const isToolchain = p.includes(".kimi-code");
+      const isBun = p.includes(".bun");
+      const type = isToolchain ? "toolchain" : isBun ? "bun" : "system";
+      return `<tr><td class="num">${i + 1}.</td><td style="font-size:10px">${p}</td><td><span class="badge badge-${type==='toolchain'?'ok':type==='bun'?'info':'warn'}">${type}</span></td></tr>`;
+    }).join("")}
+    </table></details>`;
   } catch(e) { el.innerHTML = `<span class="status err">${e.message}</span>`; }
 })();
 
