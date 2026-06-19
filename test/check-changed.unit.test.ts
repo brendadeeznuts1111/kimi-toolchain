@@ -11,9 +11,17 @@ import {
 } from "../src/lib/check-changed.ts";
 import type { CheckOptions } from "../src/lib/check-types.ts";
 
+function gitSpawnEnv(): Record<string, string> {
+  const env = { ...Bun.env } as Record<string, string>;
+  delete env.GIT_DIR;
+  delete env.GIT_WORK_TREE;
+  return env;
+}
+
 async function gitOk(projectDir: string, ...args: string[]): Promise<void> {
   const proc = Bun.spawn(["git", "-c", "core.hooksPath=/dev/null", "-C", projectDir, ...args], {
     cwd: projectDir,
+    env: gitSpawnEnv(),
     stdout: "pipe",
     stderr: "pipe",
   });
