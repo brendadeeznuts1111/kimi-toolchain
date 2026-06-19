@@ -35,3 +35,7 @@ pathIgnorePatterns = [
 # Console inspection depth — cli flag --console-depth overrides.
 # Default 2 truncates deeply nested objects. Increase for debug sessions.
 console.depth = 4
+
+[run]
+# Parent-death detection — child processes auto-exit when the parent dies.
+noOrphans = true
