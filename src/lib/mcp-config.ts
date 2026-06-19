@@ -7,6 +7,8 @@ import { existsSync } from "fs";
 import { join, resolve } from "path";
 import { ensureDir } from "./utils.ts";
 import { homeDir, mcpPath, toolsDir } from "./paths.ts";
+import { type McpServerDefinition, loadMcpRegistry } from "./mcp-registry.ts";
+import { probeMcpServer } from "./mcp-probe.ts";
 
 export const UNIFIED_SHELL_SERVER = "unified-shell";
 export const UNIFIED_SHELL_TOOL = "mcp__unified-shell__execute";
@@ -19,30 +21,22 @@ const KIMI_CODE_DIR = ".kimi-code";
 const BUN_BINARY = "bun";
 const UNIFIED_SHELL_BRIDGE = "unified-shell-bridge.ts";
 
-export interface McpServerEntry {
-  command?: string;
-  args?: string[];
-  url?: string;
-  env?: Record<string, string>;
-  cwd?: string;
-  enabled?: boolean;
-  description?: string;
-  /** Connection timeout in milliseconds; default 30000. */
-  startupTimeoutMs?: number;
-  /** Timeout for a single tool call in milliseconds. */
-  toolTimeoutMs?: number;
-  /** Tool allowlist; only these tools are exposed. */
+/** mcp.json server row — Record key is canonical name when `name` is omitted. */
+export interface McpServerEntry extends Omit<McpServerDefinition, "name"> {
+  name?: string;
+}
+
+export interface McpProfile {
+  enabledServers?: string[];
+  disabledServers?: string[];
   enabledTools?: string[];
-  /** Tool blocklist; these tools are hidden. */
   disabledTools?: string[];
-  /** Static request headers for HTTP servers. */
-  headers?: Record<string, string>;
-  /** OAuth bearer token env var for HTTP servers. */
-  bearerTokenEnvVar?: string;
+  description?: string;
 }
 
 export interface McpJson {
   mcpServers: Record<string, McpServerEntry>;
+  profiles?: Record<string, McpProfile>;
 }
 
 export interface McpCheck {
@@ -50,12 +44,18 @@ export interface McpCheck {
   status: "ok" | "warn" | "error";
   message: string;
   fixable: boolean;
+  server?: string;
+  tool?: string;
+  profile?: string;
 }
 
 export interface McpValidationReport {
   checks: McpCheck[];
   userPath: string;
   projectPath: string | null;
+  activeProfile?: string;
+  discoveredTools: Record<string, string[]>;
+  blockedTools: Record<string, string[]>;
 }
 
 export interface ReadMcpJsonResult {
@@ -107,6 +107,7 @@ export function bridgeScriptPath(home: string = homeDir()): string {
 /** Canonical stdio entry for unified-shell MCP server. */
 export function buildUnifiedShellEntry(home: string = homeDir()): McpServerEntry {
   return {
+    name: UNIFIED_SHELL_SERVER,
     command: resolveBunPath(),
     args: ["run", bridgeScriptPath(home)],
     env: {
@@ -120,6 +121,7 @@ export function buildUnifiedShellEntry(home: string = homeDir()): McpServerEntry
 /** Canonical remote entry for Cloudflare API MCP server (Code Mode). */
 export function buildCloudflareApiEntry(): McpServerEntry {
   return {
+    name: CLOUDFLARE_API_SERVER,
     url: CLOUDFLARE_MCP_URL,
     description: "Cloudflare API: search and execute against the full Cloudflare API via Code Mode",
   };
@@ -173,6 +175,28 @@ export function mergeToolchainMcpServers(
   return { config, changed };
 }
 
+/** Registry-aware merge that also includes user-defined ~/.kimi-code/mcp-servers/*.toml. */
+export async function mergeRegistryMcpServers(
+  existing: McpJson | null,
+  home: string = homeDir()
+): Promise<{ config: McpJson; changed: boolean }> {
+  const config: McpJson = {
+    mcpServers: existing?.mcpServers ? { ...existing.mcpServers } : {},
+    profiles: existing?.profiles ? { ...existing.profiles } : {},
+  };
+  let changed = false;
+
+  const registry = await loadMcpRegistry(home);
+  for (const [name, def] of Object.entries(registry.servers)) {
+    if (def.default === false) continue;
+    if (config.mcpServers[name]) continue;
+    config.mcpServers[name] = def;
+    changed = true;
+  }
+
+  return { config, changed };
+}
+
 /** @deprecated Use mergeToolchainMcpServers instead. */
 export function mergeUnifiedShellServer(
   existing: McpJson | null,
@@ -187,7 +211,7 @@ export async function provisionUserMcp(home: string = homeDir()): Promise<{
 }> {
   const path = userMcpPath();
   const { data: existing } = await readMcpJson(path);
-  const { config, changed } = mergeToolchainMcpServers(existing, home);
+  const { config, changed } = await mergeRegistryMcpServers(existing, home);
   if (changed || !existsSync(path)) {
     await writeMcpJson(path, config);
     return { path, changed: true };
@@ -197,12 +221,18 @@ export async function provisionUserMcp(home: string = homeDir()): Promise<{
 
 export async function validateMcpConfig(
   home: string = homeDir(),
-  projectRoot?: string
+  projectRoot?: string,
+  options: { probe?: boolean; profile?: string } = {}
 ): Promise<McpValidationReport> {
   const checks: McpCheck[] = [];
+  const discoveredTools: Record<string, string[]> = {};
+  const blockedTools: Record<string, string[]> = {};
   const userPath = userMcpPath();
   const projectPath = projectRoot ? projectMcpPath(projectRoot) : null;
   const bridgePath = bridgeScriptPath(home);
+  const activeProfile = options.profile;
+
+  const registry = await loadMcpRegistry(home);
 
   const { data: userMcp, error: userReadError } = await readMcpJson(userPath);
   if (existsSync(userPath)) {
@@ -221,43 +251,142 @@ export async function validateMcpConfig(
     });
   }
 
-  if (userMcp?.mcpServers[UNIFIED_SHELL_SERVER]) {
-    checks.push({
-      name: "unified-shell",
-      status: "ok",
-      message: `registered (tool: ${UNIFIED_SHELL_TOOL})`,
-      fixable: false,
-    });
-  } else {
-    checks.push({
-      name: "unified-shell",
-      status: "error",
-      message: userReadError
-        ? `cannot verify — mcp.json unreadable: ${userReadError}`
-        : "not in mcpServers — run kimi-doctor --fix",
-      fixable: true,
-    });
+  // Validate each configured server.
+  const configuredServers = userMcp?.mcpServers ?? {};
+  for (const [name, entry] of Object.entries(configuredServers)) {
+    const checkName =
+      name === UNIFIED_SHELL_SERVER
+        ? "unified-shell"
+        : name === CLOUDFLARE_API_SERVER
+          ? "cloudflare-api-mcp"
+          : `mcp-server-${name}`;
+
+    if (entry.enabled === false) {
+      checks.push({
+        name: checkName,
+        server: name,
+        status: "ok",
+        message: "disabled",
+        fixable: false,
+      });
+      continue;
+    }
+
+    const registered = registry.servers[name];
+    if (!registered && !entry.command && !entry.url) {
+      checks.push({
+        name: checkName,
+        server: name,
+        status: "warn",
+        message: "custom server not in registry and missing command/url",
+        fixable: false,
+      });
+      continue;
+    }
+
+    const requiredEnv = registered?.requiredEnv ?? [];
+    const missingEnv = requiredEnv.filter((envName) => !Bun.env[envName]);
+    if (missingEnv.length > 0) {
+      checks.push({
+        name: checkName,
+        server: name,
+        status: "warn",
+        message: `missing env: ${missingEnv.join(", ")}`,
+        fixable: false,
+      });
+      continue;
+    }
+
+    if (options.probe && (entry.command || entry.url)) {
+      const merged: McpServerDefinition = { ...(registered ?? { name }), ...entry };
+      const probe = await probeMcpServer(
+        merged,
+        entry.startupTimeoutMs ?? registered?.startupTimeoutMs
+      );
+      if (probe.ok) {
+        discoveredTools[name] = probe.tools ?? [];
+        checks.push({
+          name: checkName,
+          server: name,
+          status: "ok",
+          message: `probed (${probe.tools?.length ?? 0} tool(s))`,
+          fixable: false,
+        });
+      } else {
+        checks.push({
+          name: checkName,
+          server: name,
+          status: "warn",
+          message: `probe failed: ${probe.error}`,
+          fixable: false,
+        });
+      }
+    } else {
+      checks.push({
+        name: checkName,
+        server: name,
+        status: "ok",
+        message: registered
+          ? `registered${registered.description ? ` — ${registered.description}` : ""}`
+          : "registered (custom)",
+        fixable: false,
+      });
+    }
+
+    // Tool-level governance.
+    const knownTools = discoveredTools[name] ?? [];
+    const enabledTools = entry.enabledTools ?? registered?.enabledTools;
+    const disabledTools = entry.disabledTools ?? registered?.disabledTools ?? [];
+    if (enabledTools && knownTools.length > 0) {
+      const unexpected = knownTools.filter((tool) => !enabledTools.includes(tool));
+      if (unexpected.length > 0) {
+        blockedTools[name] = [...(blockedTools[name] ?? []), ...unexpected];
+        checks.push({
+          name: `${checkName}-tool-governance`,
+          server: name,
+          status: "warn",
+          message: `${unexpected.length} tool(s) not in enabledTools allowlist`,
+          fixable: false,
+        });
+      }
+    }
+    if (disabledTools.length > 0 && knownTools.length > 0) {
+      const blocked = knownTools.filter((tool) => disabledTools.includes(tool));
+      if (blocked.length > 0) {
+        blockedTools[name] = [...(blockedTools[name] ?? []), ...blocked];
+        checks.push({
+          name: `${checkName}-tool-governance`,
+          server: name,
+          status: "warn",
+          message: `${blocked.length} tool(s) in disabledTools blocklist`,
+          fixable: false,
+        });
+      }
+    }
   }
 
-  if (userMcp?.mcpServers[CLOUDFLARE_API_SERVER]) {
-    const entry = userMcp.mcpServers[CLOUDFLARE_API_SERVER];
+  // Profile checks.
+  if (activeProfile && userMcp?.profiles?.[activeProfile]) {
+    const profile = userMcp.profiles[activeProfile];
     checks.push({
-      name: "cloudflare-api-mcp",
+      name: "mcp-profile",
+      profile: activeProfile,
       status: "ok",
-      message: entry.url
-        ? `registered at ${entry.url} (tools: ${CLOUDFLARE_API_TOOL_SEARCH}, ${CLOUDFLARE_API_TOOL_EXECUTE})`
-        : `registered (tools: ${CLOUDFLARE_API_TOOL_SEARCH}, ${CLOUDFLARE_API_TOOL_EXECUTE})`,
+      message: profile.description ?? `profile ${activeProfile}`,
       fixable: false,
     });
-  } else {
-    checks.push({
-      name: "cloudflare-api-mcp",
-      status: "warn",
-      message: userReadError
-        ? `cannot verify — mcp.json unreadable: ${userReadError}`
-        : "not in mcpServers — run kimi-doctor --fix to enable Cloudflare API access",
-      fixable: true,
-    });
+    for (const server of profile.disabledServers ?? []) {
+      if (configuredServers[server]?.enabled !== false) {
+        checks.push({
+          name: `mcp-profile-${activeProfile}-server`,
+          server,
+          profile: activeProfile,
+          status: "warn",
+          message: `server ${server} should be disabled in profile ${activeProfile}`,
+          fixable: true,
+        });
+      }
+    }
   }
 
   if (existsSync(bridgePath)) {
@@ -349,7 +478,7 @@ export async function validateMcpConfig(
     }
   }
 
-  return { checks, userPath, projectPath };
+  return { checks, userPath, projectPath, activeProfile, discoveredTools, blockedTools };
 }
 
 export async function fixMcpConfig(
@@ -380,6 +509,16 @@ export function projectMcpStub(): string {
     JSON.stringify(
       {
         mcpServers: {},
+        profiles: {
+          safe: {
+            description: "Disable shell execution; keep read-only tools",
+            disabledServers: [UNIFIED_SHELL_SERVER],
+          },
+          full: {
+            description: "Enable all registered servers",
+            enabledServers: ["*"],
+          },
+        },
         _comment:
           "Project MCP servers override ${mcpPath()} entries with the same name. See UNIFIED.md.",
       },
@@ -387,4 +526,22 @@ export function projectMcpStub(): string {
       2
     ) + "\n"
   );
+}
+
+/** Apply a profile by mutating server enabled flags. Returns a new McpJson. */
+export function applyMcpProfile(config: McpJson, profileName: string): McpJson {
+  const profile = config.profiles?.[profileName];
+  if (!profile) return config;
+
+  const mcpServers: Record<string, McpServerEntry> = {};
+  for (const [name, entry] of Object.entries(config.mcpServers)) {
+    let enabled = entry.enabled !== false;
+    if (profile.enabledServers?.includes("*")) enabled = true;
+    if (profile.disabledServers?.includes(name)) enabled = false;
+    if (profile.enabledServers && !profile.enabledServers.includes("*")) {
+      enabled = profile.enabledServers.includes(name);
+    }
+    mcpServers[name] = { ...entry, enabled };
+  }
+  return { ...config, mcpServers };
 }

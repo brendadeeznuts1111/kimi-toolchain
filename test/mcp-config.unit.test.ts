@@ -102,28 +102,43 @@ describe("mcp-config", () => {
   });
 
   test("validateMcpConfig reports cloudflare-api and project stub/override issues", async () => {
-    await provisionUserMcp(tmpHome);
-    const report = await validateMcpConfig(tmpHome);
-    const cfCheck = report.checks.find((c) => c.name === "cloudflare-api-mcp");
-    expect(cfCheck?.status).toBe("ok");
-    expect(cfCheck?.message).toContain("mcp.cloudflare.com");
+    const originalHome = process.env.HOME;
+    const originalCfToken = process.env.CLOUDFLARE_API_TOKEN;
+    process.env.HOME = tmpHome;
+    process.env.CLOUDFLARE_API_TOKEN = "test-token";
+    try {
+      const path = userMcpPath();
+      if (existsSync(path)) rmSync(path, { force: true });
+      await provisionUserMcp(tmpHome);
+      const report = await validateMcpConfig(tmpHome);
+      const cfCheck = report.checks.find((c) => c.name === "cloudflare-api-mcp");
+      expect(cfCheck?.status).toBe("ok");
+      expect(cfCheck?.message).toContain("Cloudflare API");
 
-    const projectRoot = join(tmpHome, "proj");
-    const projectMcp = join(projectRoot, ".kimi-code", "mcp.json");
-    mkdirSync(join(projectRoot, ".kimi-code"), { recursive: true });
-    await writeMcpJson(projectMcp, { mcpServers: {} });
+      const projectRoot = join(tmpHome, "proj");
+      const projectMcp = join(projectRoot, ".kimi-code", "mcp.json");
+      mkdirSync(join(projectRoot, ".kimi-code"), { recursive: true });
+      await writeMcpJson(projectMcp, { mcpServers: {} });
 
-    const stubReport = await validateMcpConfig(tmpHome, projectRoot);
-    const projectCheck = stubReport.checks.find((c) => c.name === "mcp-project");
-    expect(projectCheck?.status).toBe("ok");
-    expect(projectCheck?.message).toContain("empty stub");
+      const stubReport = await validateMcpConfig(tmpHome, projectRoot);
+      const projectCheck = stubReport.checks.find((c) => c.name === "mcp-project");
+      expect(projectCheck?.status).toBe("ok");
+      expect(projectCheck?.message).toContain("empty stub");
 
-    await writeMcpJson(projectMcp, {
-      mcpServers: { [UNIFIED_SHELL_SERVER]: { enabled: false } },
-    });
-    const disabledReport = await validateMcpConfig(tmpHome, projectRoot);
-    expect(disabledReport.checks.find((c) => c.name === "mcp-project-override")?.message).toContain(
-      "disabled"
-    );
+      await writeMcpJson(projectMcp, {
+        mcpServers: { [UNIFIED_SHELL_SERVER]: { enabled: false } },
+      });
+      const disabledReport = await validateMcpConfig(tmpHome, projectRoot);
+      expect(
+        disabledReport.checks.find((c) => c.name === "mcp-project-override")?.message
+      ).toContain("disabled");
+    } finally {
+      process.env.HOME = originalHome;
+      if (originalCfToken === undefined) {
+        delete process.env.CLOUDFLARE_API_TOKEN;
+      } else {
+        process.env.CLOUDFLARE_API_TOKEN = originalCfToken;
+      }
+    }
   });
 });
