@@ -186,13 +186,31 @@ async function apiRuntimeInfo(): Promise<Response> {
 }
 
 async function apiInspect(): Promise<Response> {
+  // Sample object demonstrating Bun.inspect() with typed values
+  const typedArray = new Uint8Array([1, 2, 3]);
+  class Config {
+    port: number;
+    host: string;
+    constructor() { this.port = 5678; this.host = "localhost"; }
+  }
+
   const sample = {
-    name: "kimi-toolchain-dashboard",
-    version: "0.1.0",
-    features: ["bundle", "compile", "gates", "markdown"],
-    config: { port: 5678, debug: false },
-    nested: { a: { b: { c: "deep" } } },
+    "path.root": "kimi-toolchain-dashboard",
+    "path.version": "0.1.0",
+    "path.config.port": 5678,
+    "path.config.host": "localhost",
+    "path.config.debug": false,
+    "path.config.env": null as null | string,
+    "path.features[0]": "bundle",
+    "path.features[1]": "compile",
+    "path.features[2]": "gates",
+    "path.nested.a.b.c": "deep",
+    "path.typed.uint8": typedArray,
+    "path.typed.config": new Config(),
+    "path.typed.regex": /kimi-\w+/,
+    "path.typed.date": new Date(),
   };
+
   const serialized = Bun.inspect(sample);
   return new Response(serialized, {
     headers: { "content-type": "text/plain; charset=utf-8" },
