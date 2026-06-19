@@ -63,7 +63,7 @@ async function fetchJson(url) { const res = await fetch(url); return res.json();
   const el = document.getElementById("path-header");
   try {
     const d = await fetchJson("/api/env");
-    const tools = d.tools.map((t: any) =>
+    const tools = d.tools.map((t) =>
       `<span class="badge ${t.path ? 'badge-ok' : 'badge-err'}" style="margin:0 2px" title="${t.flags}">
         ${t.bin}${t.path ? '' : ' ✗'}${t.resolution==='toolchain'?'·tc':t.resolution==='project'?'·prj':''}
       </span>`
