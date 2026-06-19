@@ -152,6 +152,9 @@ card("card-markdown", `
     h += `<div class="row"><span>BUILD_VERSION</span><span style="font-size:11px">${d.compileTime.BUILD_VERSION}</span></div>`;
     h += `<div class="row"><span>GIT_COMMIT</span><span style="font-size:11px;font-family:monospace">${d.compileTime.GIT_COMMIT}</span></div>`;
     h += `<div class="row"><span>BUILD_TIME</span><span style="font-size:11px">${d.compileTime.BUILD_TIME}</span></div>`;
+    h += `<p style="color:var(--blue);margin:8px 0 4px">Active defines (AST-level rewrites)</p>`;
+    h += `<div class="row"><span>console.write</span><span class="badge badge-ok">→ console.log</span></div>`;
+    h += `<div class="row"><span>consoleWriteRewritten</span><span class="badge ${d.consoleWriteRewritten ? 'badge-ok' : 'badge-err'}">${d.consoleWriteRewritten}</span></div>`;
     h += `<p style="color:var(--blue);margin:8px 0 4px">Runtime</p>`;
     h += `<div class="row"><span>platform</span><span class="badge badge-ok">${d.runtime.platform}</span></div>`;
     h += `<div class="row"><span>arch</span><span class="badge badge-ok">${d.runtime.arch}</span></div>`;

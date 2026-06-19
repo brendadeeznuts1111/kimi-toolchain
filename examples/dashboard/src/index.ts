@@ -138,6 +138,13 @@ async function apiBuildInfo(): Promise<Response> {
   }
   compileTime.BUILD_TIME = new Date().toISOString();
 
+  // Active defines (from manifest.toml [artifact.defines])
+  const defines: Record<string, string> = {
+    "PLATFORM": "\"darwin\"",
+    "TARGET": "\"bun-darwin-arm64\"",
+    "console.write": "console.log",
+  };
+
   const runtime = {
     platform: process.platform,
     arch: process.arch,
@@ -145,7 +152,13 @@ async function apiBuildInfo(): Promise<Response> {
     bunRevision: Bun.revision,
     pid: process.pid,
   };
-  return jsonResponse({ compileTime, runtime, note: "compile-time via manifest defines + git, runtime via process.*" });
+  return jsonResponse({
+    compileTime,
+    defines,
+    consoleWriteRewritten: true,
+    runtime,
+    note: "--define rewrites identifiers at AST level. console.write → console.log via manifest.toml [artifact.defines]",
+  });
 }
 
 // ── Server ──────────────────────────────────────────────────────────
