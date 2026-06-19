@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-19T17:45:15.556Z",
+  "repo": "kimi-toolchain",
+  "tuningSetVersion": "1.4.2",
+  "domains": {
+    "contract-inference": {
+      "KIMI_CONTRACT_OBSERVATIONS_PATH": {
+        "type": "string",
+        "default": ".kimi/var/contract-observations.ndjson",
+        "restrictions": "must be a relative path from project root",
+        "see": ["src/lib/paths.ts contractObservationsPath"]
+      },
+      "KIMI_CONTRACT_SCHEMA_VERSION": {
+        "type": "string",
+        "default": "1.0.0",
+        "restrictions": "semver string written/read by contract inference",
+        "see": ["src/lib/contract-inference.ts"]
+      },
+      "KIMI_CONTRACT_INFERENCE_ENABLED": {
+        "type": "boolean",
+        "default": true,
+        "restrictions": "when false, inferContractFromObservations skips work"
+      }
+    },
+    "hook-verifier": {
+      "KIMI_HOOK_VERIFIER_MAX_CYCLES": {
+        "type": "number",
+        "default": 32,
+        "restrictions": "positive integer — max allowed hook-graph cycle length",
+        "see": ["src/lib/hook-verifier.ts"]
+      }
+    },
+    "error-embedding": {
+      "KIMI_ERROR_EMBEDDING_DIM": {
+        "type": "number",
+        "default": 384,
+        "restrictions": "reserved — embedding vector width (Phase 2)",
+        "see": ["src/lib/error-embedding.ts"]
+      }
+    },
+    "decision-scoring": {
+      "KIMI_DECISION_SCORE_WINDOW_DAYS": {
+        "type": "number",
+        "default": 7,
+        "restrictions": "positive integer — decision score rolling window in days (Phase 2)",
+        "see": [
+          "constants-parity.toml shared id velocity-window-days",
+          "src/lib/decision-scoring.ts"
+        ]
+      }
+    },
+    "optimizer": {
+      "KIMI_OPTIMIZER_CONFIDENCE_DECAY_DAYS": {
+        "type": "number",
+        "default": 30,
+        "restrictions": "positive integer — linear decay window for insufficient-data confidence (Phase 3.2)",
+        "see": ["src/lib/constant-optimizer.ts"]
+      }
+    },
+    "error-clustering": {
+      "KIMI_ERROR_CLUSTER_SIMILARITY_THRESHOLD": {
+        "type": "number",
+        "default": 0.55,
+        "restrictions": "reserved — cluster merge threshold in [0, 1] (Phase 2)",
+        "see": ["src/lib/error-clustering.ts"]
+      }
+    },
+    "runtime": {
+      "KIMI_RUNTIME_MIN_BUN_VERSION": {
+        "type": "string",
+        "default": "1.4.0",
+        "restrictions": "semver — minimum Bun runtime version required by toolchain tooling"
+      },
+      "KIMI_RUNTIME_CLI_BUILD_CHANNEL": {
+        "type": "string",
+        "default": "source",
+        "restrictions": "one of source | release | canary — identifies how CLI binaries were built"
+      }
+    },
+    "dashboard": {
+      "KIMI_DASHBOARD_LIVE_REFRESH_ENABLED": {
+        "type": "boolean",
+        "default": true,
+        "restrictions": "boolean flag — when false, dashboard live refresh is disabled"
+      }
+    },
+    "effect-discipline": {
+      "KIMI_EFFECT_MAX_DIRECT_PROMISE": {
+        "type": "number",
+        "default": 0,
+        "restrictions": "zero-tolerance threshold for bare Promise usage in service code",
+        "see": ["src/lib/effect-gates.ts"]
+      },
+      "KIMI_DOMAIN_PURITY_LEVEL": {
+        "type": "string",
+        "default": "strict"
+      },
+      "KIMI_LAYER_CIRCULARITY_TOLERANCE": {
+        "type": "number",
+        "default": 0,
+        "restrictions": "zero-tolerance threshold for circular layer dependencies",
+        "see": ["src/lib/effect-gates.ts"]
+      },
+      "KIMI_SERVICE_TAG_REQUIRED": {
+        "type": "boolean",
+        "default": true,
+        "restrictions": "when true, exported services must be provided through Tag + Layer",
+        "see": ["src/lib/effect-gates.ts"]
+      },
+      "KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED": {
+        "type": "boolean",
+        "default": true,
+        "restrictions": "when true, Effect.runPromise calls outside src/cli, src/entry, src/runtime.ts, or test files are flagged",
+        "see": ["src/lib/effect-gates.ts"]
+      }
+    },
+    "effect-benchmark": {
+      "KIMI_EFFECT_BENCHMARK_ITERATIONS": {
+        "type": "number",
+        "default": 5,
+        "restrictions": "positive integer — measured iterations per effect handler",
+        "see": ["src/lib/effect-benchmark.ts"]
+      },
+      "KIMI_EFFECT_BENCHMARK_WARMUP": {
+        "type": "number",
+        "default": 2,
+        "restrictions": "non-negative integer — warmup iterations discarded before measurement",
+        "see": ["src/lib/effect-benchmark.ts"]
+      },
+      "KIMI_EFFECT_BENCHMARK_TRAIN_MARGIN": {
+        "type": "number",
+        "default": 1.1,
+        "restrictions": "multiplier >= 1.0 — trained threshold margin over measured median",
+        "see": ["src/lib/effect-benchmark.ts"]
+      },
+      "KIMI_EFFECT_BENCHMARK_REGRESSION_TOLERANCE": {
+        "type": "number",
+        "default": 1.05,
+        "restrictions": "multiplier >= 1.0 — regression tolerance when comparing to previous snapshot",
+        "see": ["src/lib/effect-benchmark.ts"]
+      },
+      "KIMI_EFFECT_BENCHMARK_DEFAULT_THRESHOLD_MS": {
+        "type": "number",
+        "default": 100,
+        "restrictions": "positive number — fallback threshold (ms) for handlers without a default",
+        "see": ["src/lib/effect-benchmark.ts"]
+      }
+    },
+    "governance": {
+      "KIMI_TUNING_SET_VERSION": {
+        "type": "string",
+        "default": "1.4.2",
+        "restrictions": "semver — bump when any other KIMI_* define is added, changed, or removed",
+        "see": ["scripts/lint-tuning-set-version.ts"]
+      }
+    }
+  },
+  "parity": {
+    "shared": [
+      {
+        "id": "velocity-window-days",
+        "description": "Rolling window for velocity/decision scoring (days)",
+        "repos": {
+          "kimi-toolchain": {
+            "key": "KIMI_DECISION_SCORE_WINDOW_DAYS",
+            "defineDomain": "decision-scoring",
+            "value": 7,
+            "present": true
+          },
+          "accounting-telegram": {
+            "key": "DRIFT_VELOCITY_WINDOW_DAYS",
+            "defineDomain": "drift-predict",
+            "value": 7,
+            "present": true
+          }
+        },
+        "aligned": true
+      }
+    ]
+  }
+}
