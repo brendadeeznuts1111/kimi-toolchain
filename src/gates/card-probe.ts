@@ -23,12 +23,14 @@ function statusFromSummary(
 }
 
 export async function runCardProbeGate(
-  opts: GateRunOptions & { probeConfig?: CardProbeConfig } = {}
+  opts: GateRunOptions & { probeConfig?: CardProbeConfig; strict?: boolean } = {}
 ): Promise<GateResult> {
   const projectRoot = opts.projectRoot ?? process.cwd();
+  const started = Bun.nanoseconds();
   const statuses = await probeAllCards(opts.probeConfig);
   const summary = summarizeCardStatuses(statuses);
   const status = statusFromSummary(summary);
+  const elapsedMs = (Bun.nanoseconds() - started) / 1e6;
 
   const result: CardProbeGateResult = {
     status,
@@ -43,7 +45,13 @@ export async function runCardProbeGate(
 
   if (opts.saveArtifact) {
     const store = new ArtifactStore(projectRoot);
-    result.artifactPath = await store.save("card-probe", result);
+    result.artifactPath = await store.save("card-probe", {
+      statuses,
+      summary,
+      strict: opts.strict === true,
+      elapsedMs,
+      timestamp: result.timestamp,
+    });
   }
 
   return result;

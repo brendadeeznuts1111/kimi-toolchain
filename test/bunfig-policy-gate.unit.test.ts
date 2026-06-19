@@ -201,6 +201,60 @@ describe("bunfig-policy-gate", () => {
     expect(pathExists(payload.result.artifactPath!)).toBe(true);
   });
 
+  test("kimi-doctor --artifacts-list and --artifacts-latest inspect saved runs", async () => {
+    const dir = testTempDir("bunfig-policy-artifacts-cli-");
+    writeSecureProject(dir);
+
+    const run = await spawnCaptured(
+      [
+        "bun",
+        "run",
+        "src/bin/kimi-doctor.ts",
+        "--gate",
+        "bunfig-policy",
+        "--save-artifact",
+        "--project-root",
+        dir,
+      ],
+      { cwd: join(import.meta.dir, ".."), env: CLEAN_ENV }
+    );
+    expect(run.exitCode).toBe(0);
+
+    const list = await spawnCaptured(
+      [
+        "bun",
+        "run",
+        "src/bin/kimi-doctor.ts",
+        "--artifacts-list",
+        "bunfig-policy",
+        "--project-root",
+        dir,
+      ],
+      { cwd: join(import.meta.dir, "..") }
+    );
+    expect(list.exitCode).toBe(0);
+    expect(list.stdout.trim().length).toBeGreaterThan(0);
+    expect(list.stdout).toContain(".kimi/artifacts/bunfig-policy/");
+
+    const latest = await spawnCaptured(
+      [
+        "bun",
+        "run",
+        "src/bin/kimi-doctor.ts",
+        "--artifacts-latest",
+        "bunfig-policy",
+        "--project-root",
+        dir,
+        "--json",
+      ],
+      { cwd: join(import.meta.dir, "..") }
+    );
+    expect(latest.exitCode).toBe(0);
+    const payload = JSON.parse(latest.stdout) as { mode: string; payload: { status: string } };
+    expect(payload.mode).toBe("artifacts-latest");
+    expect(payload.payload.status).toBe("pass");
+  });
+
   test("kimi-doctor rejects unknown --gate names", async () => {
     const result = await spawnCaptured(
       ["bun", "run", "src/bin/kimi-doctor.ts", "--gate", "not-a-gate"],

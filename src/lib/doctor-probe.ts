@@ -263,6 +263,18 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
         description: "Persist gate result JSON under .kimi/artifacts/{gate}/",
         agentFacing: true,
       },
+      {
+        name: "--artifacts-list",
+        type: "string",
+        description: "List saved artifacts for a gate (chronological relative paths)",
+        agentFacing: true,
+      },
+      {
+        name: "--artifacts-latest",
+        type: "string",
+        description: "Print the newest saved artifact JSON for a gate",
+        agentFacing: true,
+      },
       { name: "--mcp-server", type: "boolean", description: "Start MCP stdio server" },
       { name: "--probe", type: "boolean", description: "Emit capability manifest" },
       {

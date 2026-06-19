@@ -18,4 +18,32 @@ describe("artifact-store", () => {
       expect(store.relativePath(path)).toMatch(/^\.kimi\/artifacts\/bunfig-policy\//);
     });
   });
+
+  test("list returns chronological relative paths", async () => {
+    await withTempDir("artifact-store-list-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      await store.save("perf-gate", { n: 1 });
+      await Bun.sleep(2);
+      await store.save("perf-gate", { n: 2 });
+
+      const files = await store.list("perf-gate");
+      expect(files).toHaveLength(2);
+      expect(files[0]).toMatch(/^\.kimi\/artifacts\/perf-gate\//);
+      expect(files[1]).toMatch(/^\.kimi\/artifacts\/perf-gate\//);
+    });
+  });
+
+  test("getLatest returns newest payload", async () => {
+    await withTempDir("artifact-store-latest-", async (dir) => {
+      const store = new ArtifactStore(dir);
+      await store.save("card-probe", { n: 1 });
+      await Bun.sleep(2);
+      await store.save("card-probe", { n: 2 });
+
+      const latest = await store.getLatest("card-probe");
+      expect(latest).not.toBeNull();
+      expect((latest!.payload as { n: number }).n).toBe(2);
+      expect(latest!.relativePath).toContain(".kimi/artifacts/card-probe/");
+    });
+  });
 });

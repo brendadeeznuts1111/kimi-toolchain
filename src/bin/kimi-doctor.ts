@@ -116,6 +116,7 @@ import {
   type BenchmarkRegression,
 } from "../lib/effect-benchmark.ts";
 import { toolStart, toolDone, healthResult } from "../lib/health-channel.ts";
+import { ArtifactStore } from "../lib/artifact-store.ts";
 import { getGate, listGates } from "../gates/registry.ts";
 
 const writer = createCli(Bun.argv, "kimi-doctor");
@@ -172,6 +173,8 @@ const PERF_AUTO_TRAIN = Bun.argv.includes("--perf-auto-train");
 const OPEN = Bun.argv.includes("--open");
 const GATE = argValue("--gate");
 const SAVE_ARTIFACT = Bun.argv.includes("--save-artifact");
+const ARTIFACTS_LIST = argValue("--artifacts-list");
+const ARTIFACTS_LATEST = argValue("--artifacts-latest");
 const AGENT_ID = argValue("--agent-id");
 const ADAPTER = argValue("--adapter");
 const PLUGIN = argValue("--plugin");
@@ -1432,6 +1435,42 @@ async function main(): Promise<number> {
     return 0;
   }
 
+  const projectRoot = await resolveProjectRoot(argValue("--project-root"));
+
+  if (ARTIFACTS_LIST) {
+    const store = new ArtifactStore(projectRoot);
+    const files = await store.list(ARTIFACTS_LIST);
+    if (JSON_OUT) {
+      emitJson({ mode: "artifacts-list", gate: ARTIFACTS_LIST, projectRoot, files });
+    } else if (files.length === 0) {
+      logger.info("No artifacts found");
+    } else {
+      for (const file of files) logger.line(file);
+    }
+    return 0;
+  }
+
+  if (ARTIFACTS_LATEST) {
+    const store = new ArtifactStore(projectRoot);
+    const latest = await store.getLatest(ARTIFACTS_LATEST);
+    if (!latest) {
+      logger.error("No artifacts found");
+      return 1;
+    }
+    if (JSON_OUT) {
+      emitJson({
+        mode: "artifacts-latest",
+        gate: ARTIFACTS_LATEST,
+        projectRoot,
+        path: latest.relativePath,
+        payload: latest.payload,
+      });
+    } else {
+      emitJson(latest.payload);
+    }
+    return 0;
+  }
+
   if (SERVE_PROBE || PROBE_CARDS) {
     const { runCardProbeCli } = await import("../lib/card-probe-cli.ts");
     const mode =
@@ -1440,6 +1479,8 @@ async function main(): Promise<number> {
       mode,
       json: JSON_OUT,
       strict: STRICT_PROBE,
+      saveArtifact: SAVE_ARTIFACT,
+      projectRoot,
       log: (line) => logger.info(line),
     });
     if (JSON_OUT && result.payload) emitJson(result.payload);
@@ -1453,7 +1494,6 @@ async function main(): Promise<number> {
   }
 
   const argv = Bun.argv.slice(2);
-  const projectRoot = await resolveProjectRoot(argValue("--project-root"));
 
   if (GATE) {
     const gate = getGate(GATE);

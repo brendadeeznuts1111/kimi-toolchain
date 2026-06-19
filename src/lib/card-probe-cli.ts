@@ -29,6 +29,7 @@ export interface CardProbeCliOptions {
   json?: boolean;
   strict?: boolean;
   saveArtifact?: boolean;
+  projectRoot?: string;
   probeConfig?: CardProbeConfig;
   log?: (line: string) => void;
 }
@@ -147,8 +148,10 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
   }
 
   const gateResult = (await runCardProbeGate({
+    projectRoot: options.projectRoot ?? process.cwd(),
     probeConfig,
     saveArtifact: options.saveArtifact,
+    strict,
   })) as CardProbeGateResult;
   const statuses = gateResult.statuses;
   const summary = gateResult.summary;
@@ -161,6 +164,9 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
   } else {
     log?.(formatCardProbeTable(statuses));
     logProbeSummary(log, summary, strict);
+    if (options.saveArtifact && gateResult.artifactPath) {
+      log?.(`  Artifact: ${gateResult.artifactPath}`);
+    }
   }
 
   return {
