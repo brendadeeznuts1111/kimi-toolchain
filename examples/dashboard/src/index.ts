@@ -161,6 +161,20 @@ async function apiBuildInfo(): Promise<Response> {
   });
 }
 
+async function apiRuntimeInfo(): Promise<Response> {
+  const isBun = typeof Bun !== "undefined";
+  const runtime = isBun ? "bun" : (typeof process !== "undefined" && process.versions?.node ? "node" : "unknown");
+  return jsonResponse({
+    runtime,
+    version: isBun ? Bun.version : (process.versions?.node || "unknown"),
+    isBun,
+    bunVersion: isBun ? Bun.version : null,
+    bunRevision: isBun ? Bun.revision : null,
+    detection: 'typeof Bun !== "undefined"',
+    note: "Runtime detection pattern — no type-definition overhead",
+  });
+}
+
 // ── Server ──────────────────────────────────────────────────────────
 
 const server = Bun.serve({
@@ -186,6 +200,8 @@ const server = Bun.serve({
         return apiEnv();
       case "/api/build-info":
         return apiBuildInfo();
+      case "/api/runtime-info":
+        return apiRuntimeInfo();
       case "/health":
         return new Response("ok");
       default:
