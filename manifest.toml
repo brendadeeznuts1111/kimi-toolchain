@@ -35,3 +35,8 @@ pathIgnorePatterns = [
 
 # Console inspection depth — cli flag --console-depth overrides
 console.depth = 4
+
+[artifact.defines]
+PLATFORM = "darwin"
+TARGET = "bun-darwin-arm64"
+VERSION = "0.1.0"

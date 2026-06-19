@@ -115,6 +115,23 @@ async function apiConsoleDepth(): Promise<Response> {
   });
 }
 
+async function apiBuildInfo(): Promise<Response> {
+  // Simulates compile-time constants from manifest.toml [artifact.defines]
+  const compileTime = {
+    PLATFORM: "darwin",
+    TARGET: "bun-darwin-arm64",
+    VERSION: "0.1.0",
+  };
+  const runtime = {
+    platform: process.platform,
+    arch: process.arch,
+    bunVersion: Bun.version,
+    bunRevision: Bun.revision,
+    pid: process.pid,
+  };
+  return jsonResponse({ compileTime, runtime, note: "compile-time via manifest defines, runtime via process.*" });
+}
+
 // ── Server ──────────────────────────────────────────────────────────
 
 const server = Bun.serve({
@@ -138,6 +155,8 @@ const server = Bun.serve({
         return apiConsoleDepth();
       case "/api/env":
         return apiEnv();
+      case "/api/build-info":
+        return apiBuildInfo();
       case "/health":
         return new Response("ok");
       default:

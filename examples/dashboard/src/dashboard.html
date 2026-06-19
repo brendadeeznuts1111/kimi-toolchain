@@ -53,6 +53,7 @@
   <div class="card" id="card-gates"><h2>Gate Health</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-markdown"><h2>Markdown Rendering</h2><div class="loading">Loading…</div></div>
   <div class="card" id="card-depth"><h2>Console Depth</h2><div class="loading">Loading…</div></div>
+  <div class="card" id="card-build"><h2>Build Info</h2><div class="loading">Loading…</div></div>
 </div>
 <script>
 async function fetchJson(url) { const res = await fetch(url); return res.json(); }
@@ -140,7 +141,24 @@ card("card-markdown", `
     </table>
   </div>`);
 
-// Console Depth
+// Build Info
+(async () => {
+  try {
+    const d = await fetchJson("/api/build-info");
+    let h = `<div style="font-size:13px">`;
+    h += `<p style="color:var(--blue);margin-bottom:4px">Compile-time (manifest defines)</p>`;
+    h += `<div class="row"><span>PLATFORM</span><span class="badge badge-info">${d.compileTime.PLATFORM}</span></div>`;
+    h += `<div class="row"><span>TARGET</span><span class="badge badge-info">${d.compileTime.TARGET}</span></div>`;
+    h += `<div class="row"><span>VERSION</span><span class="badge badge-info">${d.compileTime.VERSION}</span></div>`;
+    h += `<p style="color:var(--blue);margin:8px 0 4px">Runtime (process.*)</p>`;
+    h += `<div class="row"><span>platform</span><span class="badge badge-ok">${d.runtime.platform}</span></div>`;
+    h += `<div class="row"><span>arch</span><span class="badge badge-ok">${d.runtime.arch}</span></div>`;
+    h += `<div class="row"><span>Bun</span><span class="badge badge-ok">${d.runtime.bunVersion}</span></div>`;
+    h += `</div>`;
+    h += `<p class="status ok" style="margin-top:4px">${d.note}</p>`;
+    card("card-build", h);
+  } catch(e) { card("card-build", `<p class="status err">${e.message}</p>`); }
+})();
 (async () => {
   try {
     const d = await fetchJson("/api/console-depth");
