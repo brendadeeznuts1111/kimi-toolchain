@@ -211,7 +211,7 @@ Related commands: `bun run dx:table -u`, `bun run dx:table:contract`, `bun run r
 
 ## Related docs
 
-### `docs/references/` index (10 `localDocs`)
+### `docs/references/` index (11 `localDocs`)
 
 Agent-indexed reference docs in this directory — synced to `~/.kimi-code/docs/references/` after `bun run sync`. SSOT rows: `src/lib/canonical-references.ts` → `canonical-references.json`.
 
@@ -227,6 +227,7 @@ Agent-indexed reference docs in this directory — synced to `~/.kimi-code/docs/
 | `template-matrix`               | [template-matrix.md](./template-matrix.md)                     | Scaffold template families, collision resolution, profile diff                     |
 | `herdr-socket-saturation-protocol` | [herdr-socket-saturation-protocol.md](./herdr-socket-saturation-protocol.md) | EAGAIN taxonomy, socket recovery protocol                            |
 | `herdr-plugin-architecture`     | [herdr-plugin-architecture.md](./herdr-plugin-architecture.md) | Herdr plugin boundaries and architecture                                           |
+| `v53-architecture`              | [v53-architecture.md](./v53-architecture.md)                   | v5.3 consolidated reference: 9-file map, profiles, MODULE_REGISTRY, card dashboard  |
 
 | Topic                                 | Path                                                           |
 | ------------------------------------- | -------------------------------------------------------------- |

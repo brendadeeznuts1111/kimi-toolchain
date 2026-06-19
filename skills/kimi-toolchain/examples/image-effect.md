@@ -23,7 +23,7 @@ globalThis[Symbol.for("kimi.effect.image")] = image;
 
 ## Auto‑Benchmark Output
 
-The harness (`src/harness/perf-monitor.ts`) discovers it via `Object.getOwnPropertySymbols(globalThis)`, loads a test JPEG from `getTestInput()`, and measures each method with `Bun.nanoseconds()`:
+The harness (`examples/dashboard/src/harness/perf-monitor.ts`) discovers it via `Object.getOwnPropertySymbols(globalThis)`, loads a test JPEG from `getTestInput()`, and measures each method with `Bun.nanoseconds()`:
 
 | Symbol              | Operation     | Actual | Threshold | Status |
 | ------------------- | ------------- | ------ | --------- | ------ |

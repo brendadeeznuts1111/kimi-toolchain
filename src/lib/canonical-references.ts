@@ -290,13 +290,6 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     purpose: "Bun $ template vs subprocess and inspect companion patterns",
   },
   {
-    id: "canvas-companions",
-    repoPath: "docs/references/canvas-companions.md",
-    runtimePath: "~/.kimi-code/docs/references/canvas-companions.md",
-    purpose:
-      "Canvas companion system: manifest registration, CANVAS_ROUTING conventions, /api/canvases, dashboard tab, click-to-open bridge, read-order groups, metadata integrity gate",
-  },
-  {
     id: "template-matrix",
     repoPath: "docs/references/template-matrix.md",
     runtimePath: "~/.kimi-code/docs/references/template-matrix.md",
@@ -316,6 +309,13 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     canvasLayer: "Herdr plugins v0.5.0",
     canvasOpenWhen: "prefix+* · orthogonal to finish-work gates",
     canvasReadOrder: 8,
+  },
+  {
+    id: "v53-architecture",
+    repoPath: "docs/references/v53-architecture.md",
+    runtimePath: "~/.kimi-code/docs/references/v53-architecture.md",
+    purpose:
+      "v5.3 architecture consolidated reference: 9-file map, awk splitter, profile registry, DEFAULT_MODULES, MODULE_REGISTRY, 42-card dashboard, Herdr integration",
   },
   {
     id: "canonical-references",
