@@ -1,3 +1,9 @@
+/**
+ * Doctor gate contracts — distinct from CI shell gates in `src/lib/gate-runner.ts`.
+ *
+ * `GateContext` is built by `runGatesWithDependencies` in `runner.ts`.
+ * Retention defaults: `GATE_LEVEL_PRUNE_MS` by control-plane level (L1/L2/L3).
+ */
 export type GateStatus = "pass" | "warn" | "fail";
 
 /** Default newest-N cap when `getArtifacts()` omits `limit` (backpressure). */

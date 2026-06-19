@@ -1,3 +1,9 @@
+/**
+ * Mermaid export for gate execution DAGs and artifact lineage graphs.
+ *
+ * Uses `LineageResolvedDependency` instead of importing `artifact-store` to
+ * break the effect-gates circular dependency.
+ */
 /** Minimal shape for Mermaid lineage (avoids importing artifact-store). */
 export interface LineageResolvedDependency {
   paths: string[];
