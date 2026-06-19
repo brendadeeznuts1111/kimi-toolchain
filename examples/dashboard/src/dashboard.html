@@ -99,9 +99,9 @@ async function fetchJson(url) { const res = await fetch(url); return res.json();
     </table></details>
     <details style="margin-top:4px"><summary style="color:var(--blue);cursor:pointer;font-size:11px">Runtime env (${Object.keys(d.keyVars).length + 3})</summary>
     <table class="tbl" style="margin-top:4px"><tr><th>#</th><th>Variable</th><th>Value</th><th>Type</th></tr>
-    ${Object.entries({...d.keyVars, ...{BUN_VERSION: rt.bunVersion, BUN_REVISION: rt.bunRevision, IS_BUN: rt.isBun}}).map((kv, i) => {
+    ${Object.entries({...d.keyVars, CONSOLE_DEPTH: 4, BUN_VERSION: rt.bunVersion, BUN_REVISION: rt.bunRevision, IS_BUN: rt.isBun}).map((kv, i) => {
       const [k, v] = kv;
-      const t = v === "unset" ? "unset" : typeof v === "boolean" ? "boolean" : "string";
+      const t = v === "unset" ? "unset" : k === "CONSOLE_DEPTH" ? "number" : typeof v === "boolean" ? "boolean" : "string";
       return `<tr><td class="num">${i + 1}.</td><td><code>${k}</code></td><td style="font-size:10px">${v}</td><td><span class="badge badge-${t==='unset'?'warn':'ok'}">${t}</span></td></tr>`;
     }).join("")}
     </table></details>`;
