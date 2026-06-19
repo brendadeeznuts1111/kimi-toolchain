@@ -242,6 +242,29 @@ async function apiInspect(): Promise<Response> {
   });
 }
 
+async function apiUuid(): Promise<Response> {
+  const now = Date.now();
+  const hex = Bun.randomUUIDv7();
+  const b64 = Bun.randomUUIDv7("base64");
+  const b64url = Bun.randomUUIDv7("base64url");
+  const buf = Bun.randomUUIDv7("buffer");
+  const oldTimestamp = Bun.randomUUIDv7(1700000000000);
+
+  return jsonResponse({
+    formats: {
+      hex,
+      base64: b64,
+      base64url: b64url,
+      buffer: `Buffer<${buf.length} bytes>`,
+    },
+    timestamped: {
+      now: `Bun.randomUUIDv7() → ${hex}`,
+      epoch: `Bun.randomUUIDv7(1700000000000) → ${oldTimestamp}`,
+    },
+    note: "UUID v7: time-ordered, 48-bit Unix ms timestamp prefix. Hex, base64, base64url, buffer encodings.",
+  });
+}
+
 // ── Server ──────────────────────────────────────────────────────────
 
 const server = Bun.serve({
@@ -271,6 +294,8 @@ const server = Bun.serve({
         return apiRuntimeInfo();
       case "/api/inspect":
         return apiInspect();
+      case "/api/uuid":
+        return apiUuid();
       case "/health":
         return new Response("ok");
       default:
