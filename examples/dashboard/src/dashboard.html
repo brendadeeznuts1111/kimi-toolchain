@@ -40,6 +40,10 @@
   .badge-err { background: #3a1a1a; color: var(--red); }
   .badge-info { background: #1a2a3a; color: var(--blue); }
   .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0; }
+  .tbl th { text-align: left; padding: 2px 8px; border-bottom: 1px solid var(--border); color: var(--blue); font-size: 11px; }
+  .tbl td { padding: 2px 8px; border-bottom: 1px solid var(--border); }
+  .tbl .num { color: var(--muted); width: 20px; text-align: right; }
 </style>
 </head>
 <body>
@@ -156,21 +160,46 @@ card("card-markdown", `
 (async () => {
   try {
     const d = await fetchJson("/api/build-info");
-    let h = `<div style="font-size:13px">`;
-    h += `<p style="color:var(--blue);margin-bottom:4px">Compile-time (manifest + git)</p>`;
-    h += `<div class="row"><span>PLATFORM</span><span class="badge badge-info">${d.compileTime.PLATFORM}</span></div>`;
-    h += `<div class="row"><span>TARGET</span><span class="badge badge-info">${d.compileTime.TARGET}</span></div>`;
-    h += `<div class="row"><span>BUILD_VERSION</span><span style="font-size:11px">${d.compileTime.BUILD_VERSION}</span></div>`;
-    h += `<div class="row"><span>GIT_COMMIT</span><span style="font-size:11px;font-family:monospace">${d.compileTime.GIT_COMMIT}</span></div>`;
-    h += `<div class="row"><span>BUILD_TIME</span><span style="font-size:11px">${d.compileTime.BUILD_TIME}</span></div>`;
-    h += `<p style="color:var(--blue);margin:8px 0 4px">Active defines (AST-level rewrites)</p>`;
-    h += `<div class="row"><span>console.write</span><span class="badge badge-ok">→ console.log</span></div>`;
-    h += `<div class="row"><span>consoleWriteRewritten</span><span class="badge ${d.consoleWriteRewritten ? 'badge-ok' : 'badge-err'}">${d.consoleWriteRewritten}</span></div>`;
-    h += `<p style="color:var(--blue);margin:8px 0 4px">Runtime</p>`;
-    h += `<div class="row"><span>platform</span><span class="badge badge-ok">${d.runtime.platform}</span></div>`;
-    h += `<div class="row"><span>arch</span><span class="badge badge-ok">${d.runtime.arch}</span></div>`;
-    h += `<div class="row"><span>Bun</span><span class="badge badge-ok">${d.runtime.bunVersion}</span></div>`;
-    h += `</div>`;
+    let h = "";
+    // Compile-time table
+    const ctRows = [
+      ["PLATFORM", d.compileTime.PLATFORM],
+      ["TARGET", d.compileTime.TARGET],
+      ["BUILD_VERSION", d.compileTime.BUILD_VERSION],
+      ["GIT_COMMIT", d.compileTime.GIT_COMMIT],
+      ["BUILD_TIME", d.compileTime.BUILD_TIME.slice(0, 19)],
+    ];
+    h += `<p style="color:var(--blue);margin:4px 0">Table 1 — Compile-time (manifest + git)</p>`;
+    h += `<table class="tbl"><tr><th>#</th><th>Key</th><th>Value</th></tr>`;
+    ctRows.forEach((r, i) => {
+      h += `<tr><td class="num">${i + 1}.</td><td>${r[0]}</td><td><code style="font-size:11px">${r[1]}</code></td></tr>`;
+    });
+    h += `</table>`;
+    // Defines table
+    const defRows = [
+      ["console.write", "→ console.log"],
+      ["PLATFORM", d.compileTime.PLATFORM],
+      ["TARGET", d.compileTime.TARGET],
+    ];
+    h += `<p style="color:var(--blue);margin:8px 0 4px">Table 2 — Active defines (AST-level rewrites)</p>`;
+    h += `<table class="tbl"><tr><th>#</th><th>Identifier</th><th>Rewrites to</th></tr>`;
+    defRows.forEach((r, i) => {
+      h += `<tr><td class="num">${i + 1}.</td><td><code>${r[0]}</code></td><td><span class="badge badge-ok">${r[1]}</span></td></tr>`;
+    });
+    h += `</table>`;
+    // Runtime table
+    const rtRows = [
+      ["platform", d.runtime.platform],
+      ["arch", d.runtime.arch],
+      ["Bun", d.runtime.bunVersion],
+      ["revision", d.runtime.bunRevision],
+    ];
+    h += `<p style="color:var(--blue);margin:8px 0 4px">Table 3 — Runtime</p>`;
+    h += `<table class="tbl"><tr><th>#</th><th>Key</th><th>Value</th></tr>`;
+    rtRows.forEach((r, i) => {
+      h += `<tr><td class="num">${i + 1}.</td><td>${r[0]}</td><td><span class="badge badge-ok">${r[1]}</span></td></tr>`;
+    });
+    h += `</table>`;
     h += `<p class="status ok" style="margin-top:4px">${d.note}</p>`;
     card("card-build", h);
   } catch(e) { card("card-build", `<p class="status err">${e.message}</p>`); }
