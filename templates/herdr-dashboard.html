@@ -8,7 +8,7 @@
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23238636'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='%23fff' font-size='14' font-family='system-ui'%3EH%3C/text%3E%3C/svg%3E"
     />
-    <link rel="stylesheet" href="/herdr-dashboard.css" />
+    <link rel="stylesheet" href="herdr-dashboard.css" />
   </head>
   <body>
     <header>
@@ -133,6 +133,7 @@
       <button data-tab="scan">Upgrade scan</button>
       <button data-tab="canvases">Canvases</button>
       <button data-tab="metrics">Metrics</button>
+      <button data-tab="artifacts">Artifacts</button>
       <button data-tab="events">Events</button>
       <button data-tab="logs">Logs</button>
       <button data-tab="examples">Examples</button>
@@ -157,6 +158,10 @@
             <h3>Gates</h3>
             <div class="summary-body">—</div>
           </div>
+          <div class="summary-card" id="health-probe">
+            <h3>Probe</h3>
+            <div class="summary-body">—</div>
+          </div>
           <div class="summary-card" id="health-discovery">
             <h3>Discovery</h3>
             <div class="summary-body">—</div>
@@ -176,7 +181,7 @@
           header threshold (agent may still be running in Herdr).
         </p>
         <div class="scroll agents-scroll">
-          <table>
+          <table class="artifacts-table">
             <thead>
               <tr>
                 <th>Host</th>
@@ -314,6 +319,35 @@
           </div>
         </div>
       </section>
+      <section id="artifacts" class="panel">
+        <h2 class="panel-heading">Artifacts</h2>
+        <p class="artifacts-legend">
+          Saved gate and probe payloads from .kimi/artifacts — live cards via serve-probe when
+          running
+        </p>
+        <div id="artifacts-probe-hint" class="artifacts-probe-hint"></div>
+        <div id="artifacts-error" class="error"></div>
+        <div class="scroll artifacts-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Gate</th>
+                <th>Status</th>
+                <th>Artifacts</th>
+                <th>Latest</th>
+                <th>Size</th>
+                <th>Result</th>
+                <th>Summary</th>
+              </tr>
+            </thead>
+            <tbody id="artifacts-body">
+              <tr>
+                <td colspan="7" class="empty-state">Loading artifacts…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
       <section id="logs" class="panel">
         <h2 class="panel-heading">Error logs</h2>
         <p class="logs-legend">Curated failure traces — pair with Events when a gate fails</p>
@@ -406,6 +440,6 @@
         ></iframe>
       </section>
     </main>
-    <script src="/herdr-dashboard.js" defer></script>
+    <script src="herdr-dashboard.js" defer></script>
   </body>
 </html>

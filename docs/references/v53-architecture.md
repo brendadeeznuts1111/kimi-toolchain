@@ -133,15 +133,19 @@ bun run src/bin/kimi-heal.ts --effect-audit
 ## Herdr Integration
 
 ```toml
-# dx.config.toml
+# dx.config.toolchain.toml (toolchain profile)
 [finishWork]
-gates = ["bun run src/bin/kimi-fix.ts --profile toolchain"]
+gates = ["bun run check:fast", "kimi-doctor --effect-gates", "kimi-doctor --automation"]
 
 [doctor]
 tabs = [
-  { name = "toolchain", cmd = "bun run src/bin/kimi-fix.ts --profile toolchain --watch" },
-  { name = "heal", cmd = "bun run src/bin/kimi-heal.ts --watch" },
+  { name = "probe", command = "kimi-doctor --serve-probe" },
+  { name = "bunfig", command = "kimi-doctor --gate bunfig-policy" },
 ]
+
+[doctor.probe]
+port = 5678
+interval = 15000
 ```
 
 ## Output Example

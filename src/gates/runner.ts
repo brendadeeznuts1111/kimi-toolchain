@@ -22,6 +22,30 @@ export interface DependencyRunOutcome {
   graphArtifactPath?: string;
 }
 
+export interface GatePlanEntry {
+  name: string;
+  description: string;
+  dependsOn: string[];
+}
+
+export interface GateExecutionPlan {
+  order: string[];
+  gates: GatePlanEntry[];
+}
+
+/** Preview topological execution order without running gates. */
+export function planGateExecution(gates: Gate[]): GateExecutionPlan {
+  const order = topologicalSort(gates);
+  return {
+    order: order.map((g) => g.name),
+    gates: order.map((g) => ({
+      name: g.name,
+      description: g.description,
+      dependsOn: g.dependsOn ?? [],
+    })),
+  };
+}
+
 /** Topological sort (Kahn's algorithm). Returns gates in execution order. */
 export function topologicalSort(gates: Gate[]): Gate[] {
   const index = new Map<string, Gate>();

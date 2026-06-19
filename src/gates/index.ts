@@ -36,10 +36,13 @@ export {
   detectCycle,
   formatGateResults,
   generateGateGraph,
+  planGateExecution,
   runGatesWithDependencies,
   topologicalSort,
   type DependencyRunOutcome,
   type DependencyRunnerOptions,
+  type GateExecutionPlan,
+  type GatePlanEntry,
   type GateRunResult,
 } from "./runner.ts";
 

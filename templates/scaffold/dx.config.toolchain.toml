@@ -82,6 +82,17 @@ testCoverageCi = "bun run test:coverage:ci"
 formatCheckCi = "bun run format:check:ci"
 docsSync = "bun run docs:sync"
 
+[doctor]
+gates = ["bunfig-policy"]
+tabs = [
+  { name = "probe", command = "kimi-doctor --serve-probe" },
+  { name = "bunfig", command = "kimi-doctor --gate bunfig-policy" },
+]
+
+[doctor.probe]
+port = 5678
+interval = 15000
+
 [agents]
 firstRead = ["{{DX_AGENTS_PATH}}", "AGENTS.md", "CODE_REFERENCES.md"]
 bootstrap = [
@@ -107,6 +118,7 @@ avoid = ["docker", "sync daemon unless actively developing runtime tooling"]
 [finishWork]
 gates = [
   "bun run check:fast",
+  "kimi-doctor --gate bunfig-policy",
   "kimi-doctor --effect-gates",
   "kimi-doctor --automation",
   "kimi-heal effect audit",
@@ -182,8 +194,12 @@ label = "doctor"
 command = "kimi-doctor --watch"
 
 [[herdr.tabs]]
+label = "bunfig"
+command = "kimi-doctor --gate bunfig-policy"
+
+[[herdr.tabs]]
 label = "probe"
-command = "kimi-doctor --serve-probe"
+command = "kimi-doctor --serve-probe --save-artifact --project-root ."
 
 [[herdr.tabs]]
 label = "shell"

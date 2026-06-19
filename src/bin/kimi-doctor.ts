@@ -121,7 +121,9 @@ import {
   detectCycle,
   formatGateResults,
   generateGateGraph,
+  planGateExecution,
   runGatesWithDependencies,
+  type GateExecutionPlan,
 } from "../gates/runner.ts";
 import {
   getGate,
@@ -185,7 +187,8 @@ const OPEN = Bun.argv.includes("--open");
 const GATE = argValue("--gate");
 const RUN_GATES = Bun.argv.includes("--run-gates");
 const GATE_GRAPH = Bun.argv.includes("--gate-graph") || Bun.argv.includes("--graph");
-const SAVE_ARTIFACT = Bun.argv.includes("--save-artifact");
+const DRYRUN = Bun.argv.includes("--dryrun") || Bun.argv.includes("--dry-run");
+const SAVE_ARTIFACT = Bun.argv.includes("--save-artifact") && !DRYRUN;
 const ARTIFACTS_LIST = argValue("--artifacts-list");
 const ARTIFACTS_LATEST = argValue("--artifacts-latest");
 const AGENT_ID = argValue("--agent-id");
@@ -1436,6 +1439,35 @@ async function runAllMode(projectRoot: string): Promise<number> {
   return summary.errorCount > 0 ? 1 : 0;
 }
 
+function emitGateDryRun(
+  plan: GateExecutionPlan,
+  mode: "gate" | "run-gates",
+  projectRoot: string,
+  extra: Record<string, unknown> = {}
+): void {
+  if (JSON_OUT) {
+    emitJson({
+      schemaVersion: 1,
+      tool: "kimi-doctor",
+      mode,
+      dryrun: true,
+      projectRoot,
+      ...extra,
+      order: plan.order,
+      gates: plan.gates,
+    });
+    return;
+  }
+
+  logger.info(`Dry run — would execute ${plan.order.length} gate(s) in order:`);
+  for (const [index, name] of plan.order.entries()) {
+    const entry = plan.gates.find((g) => g.name === name);
+    const deps =
+      entry && entry.dependsOn.length > 0 ? ` (depends on: ${entry.dependsOn.join(", ")})` : "";
+    logger.line(`  ${index + 1}. ${name}${deps}`);
+  }
+}
+
 async function main(): Promise<number> {
   if (MEMORY_BUDGET) {
     printMemoryBudget(logger);
@@ -1548,6 +1580,11 @@ async function main(): Promise<number> {
       return 1;
     }
 
+    if (DRYRUN) {
+      emitGateDryRun(planGateExecution(gates), "run-gates", projectRoot);
+      return 0;
+    }
+
     const { results, order } = await runGatesWithDependencies(gates, {
       projectRoot,
       saveArtifact: SAVE_ARTIFACT,
@@ -1589,6 +1626,11 @@ async function main(): Promise<number> {
     if (cycle.length > 0) {
       logger.error(`Gate dependency cycle: ${cycle.join(" → ")}`);
       return 1;
+    }
+
+    if (DRYRUN) {
+      emitGateDryRun(planGateExecution(closure.gates), "gate", projectRoot, { gate: GATE });
+      return 0;
     }
 
     const { results, order, graphArtifactPath } = await runGatesWithDependencies(closure.gates, {

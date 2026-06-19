@@ -46,6 +46,7 @@ This repository uses **four distinct configuration layers**. They are not interc
 | Bootstrap a new app's install/test policy | `templates/scaffold/bunfig.toml` (via `kimi-fix`) |
 | Scaffold perf harness + perf-doctor CLI | `kimi-fix` with default `KIMI_MODULES=doctor` (`src/lib/scaffold-modules.ts`) |
 | Auto-repair bare Promise / domain import violations | `kimi-heal --fix` or `kimi-heal effect audit --fix` |
+| Configure serve-probe port / Herdr doctor tabs | `dx.config.toml` `[doctor]` + `[doctor.probe]` — [serve-probe.md](./serve-probe.md) |
 
 ---
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-19T12:55:22.248Z",
+  "generatedAt": "2026-06-19T15:02:36.135Z",
   "toolchainVersion": "0.1.0",
   "ecosystem": [
     {
@@ -194,6 +194,12 @@
         "card-perf-harness",
         "card-perf-registry"
       ]
+    },
+    {
+      "id": "serve-probe",
+      "repoPath": "docs/references/serve-probe.md",
+      "runtimePath": "~/.kimi-code/docs/references/serve-probe.md",
+      "purpose": "kimi-doctor --serve-probe HTTP routes, [doctor.probe] dx.config.toml, artifact list API, and Herdr tab wiring"
     },
     {
       "id": "herdr-socket-saturation-protocol",

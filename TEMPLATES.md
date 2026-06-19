@@ -303,7 +303,7 @@ App → toolchain: back up custom `dx.config.toml`, remove stale scaffold files,
 
 ### Herdr project profile (`[herdr]`)
 
-Authoritative `[herdr]` blocks: `templates/scaffold/dx.config.toolchain.toml` and live `dx.config.toml`. Layout model, symlink chain, finish-work scripts, and `herdr-project` contract: [CODE_REFERENCES.md](CODE_REFERENCES.md) § Herdr orchestration / DX Workspace Layout. Production validation scope: `docs/SCOPE.md`.
+Authoritative `[herdr]` and `[doctor]` blocks: `templates/scaffold/dx.config.toolchain.toml` and live `dx.config.toml`. `[doctor].tabs` declares probe/bunfig pane commands; `[doctor.probe]` sets serve-probe port and refresh interval — see [serve-probe.md](docs/references/serve-probe.md). Layout model, symlink chain, finish-work scripts, and `herdr-project` contract: [CODE_REFERENCES.md](CODE_REFERENCES.md) § Herdr orchestration / DX Workspace Layout. Production validation scope: `docs/SCOPE.md`.
 
 ```bash
 bun run finish-work --dry-run

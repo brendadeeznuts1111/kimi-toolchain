@@ -77,6 +77,35 @@ describe("kimi-doctor-gate", () => {
     expect(payload.results[0]?.status).toBe("pass");
   });
 
+  test("--dryrun prints gate order without executing", async () => {
+    const result = await spawnCaptured(
+      [
+        "bun",
+        "run",
+        "src/bin/kimi-doctor.ts",
+        "--gate",
+        "perf-gate",
+        "--dryrun",
+        "--json",
+      ],
+      { cwd: REPO_ROOT }
+    );
+
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout) as {
+      mode: string;
+      dryrun: boolean;
+      gate: string;
+      order: string[];
+      gates: Array<{ name: string; dependsOn: string[] }>;
+    };
+    expect(payload.mode).toBe("gate");
+    expect(payload.dryrun).toBe(true);
+    expect(payload.gate).toBe("perf-gate");
+    expect(payload.order).toEqual(["bunfig-policy", "perf-gate"]);
+    expect(payload.gates.map((g) => g.name)).toEqual(["bunfig-policy", "perf-gate"]);
+  });
+
   test("--gate-graph emits Mermaid for a gate closure", async () => {
     const result = await spawnCaptured(
       ["bun", "run", "src/bin/kimi-doctor.ts", "--gate", "perf-gate", "--gate-graph", "--json"],

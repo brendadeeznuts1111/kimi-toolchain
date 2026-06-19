@@ -41,6 +41,9 @@ import {
   fetchDashboardHealth,
   fetchDashboardMetrics,
   fetchDashboardTlsCompliance,
+  fetchDashboardArtifacts,
+  fetchDashboardProbeCards,
+  fetchDashboardProbeHealthInput,
   type DashboardActionRequest,
   type DashboardFetchOptions,
   type DashboardIpcCommand,
@@ -210,6 +213,44 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+async function fetchExamplesDashboardHealth(url: string): Promise<Record<string, unknown>> {
+  const checkedAt = new Date().toISOString();
+  const healthUrl = (() => {
+    try {
+      return new URL("/health", url).toString();
+    } catch {
+      return null;
+    }
+  })();
+  if (!healthUrl) {
+    return { ok: false, url, checkedAt, error: "invalid examples dashboard URL" };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1200);
+  try {
+    const res = await fetch(healthUrl, { signal: controller.signal });
+    return {
+      ok: res.ok,
+      url,
+      healthUrl,
+      status: res.status,
+      checkedAt,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      url,
+      healthUrl,
+      checkedAt,
+      error: message,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 interface ServeRequest {
   url: string;
   method: string;
@@ -242,6 +283,13 @@ export function startHerdrDashboardServer(
     includeDoctor: options.includeDoctor,
     verbose: options.verbose,
   };
+  const http3Option = Object.hasOwn(options, "http3") ? options.http3 : undefined;
+  const { serveOptions, transport } = resolveDashboardServeTransport({
+    http3: http3Option,
+    certPath: options.tlsCertPath,
+    keyPath: options.tlsKeyPath,
+  });
+  const scheme = dashboardServeScheme(transport);
 
   const hub = new HerdrDashboardHub({
     projectPath: options.projectPath,
@@ -287,12 +335,6 @@ export function startHerdrDashboardServer(
   const widgetCache = new TtlCache<DashboardWidgetResponse>({ ttlMs: ssePollMs });
   const thumbnailCache = new TtlCache<Uint8Array>({ ttlMs: ssePollMs * 2 });
 
-  const { serveOptions, transport } = resolveDashboardServeTransport({
-    http3: options.http3,
-    certPath: options.tlsCertPath,
-    keyPath: options.tlsKeyPath,
-  });
-  const scheme = dashboardServeScheme(transport);
   const metaWebView = buildDashboardMetaWebView(options.webview);
 
   const server = Bun.serve({
@@ -320,6 +362,8 @@ export function startHerdrDashboardServer(
       }
 
       const examplesDashboardUrl = Bun.env.HERDR_EXAMPLES_DASHBOARD_URL || "http://localhost:5678/";
+      const { resolveProbeServerUrl } = await import("./doctor-probe-config.ts");
+      const probeServerUrl = await resolveProbeServerUrl(options.projectPath);
 
       if (path === "/api/meta") {
         const dxDefaults = await loadDxDefaults(options.projectPath);
@@ -331,6 +375,7 @@ export function startHerdrDashboardServer(
           sse: true,
           staleMs,
           examplesDashboardUrl,
+          probeServerUrl,
           cache: hub.cacheStats(),
           herdrEvents: herdrEventBridge.status(),
           webview: metaWebView,
@@ -372,6 +417,16 @@ export function startHerdrDashboardServer(
           if (placeholder) meta.placeholder = placeholder;
         }
         return jsonResponse(meta);
+      }
+
+      if (path === "/api/examples/health") {
+        const payload = await fetchExamplesDashboardHealth(examplesDashboardUrl);
+        return jsonResponse(payload);
+      }
+
+      if (path === "/api/probe/cards" && request.method === "GET") {
+        const payload = await fetchDashboardProbeCards(options.projectPath);
+        return jsonResponse(payload, payload.reachable ? 200 : 503);
       }
 
       if (path === "/api/thumbnail") {
@@ -546,6 +601,24 @@ export function startHerdrDashboardServer(
         return jsonResponse(fetchDashboardCanvases());
       }
 
+      // Read-only by design: the dashboard observes saved artifacts but never executes gates.
+      // Fresh gate artifacts must come from explicit CLI runs with --save-artifact.
+      if (path === "/api/artifacts" && request.method === "GET") {
+        const payload = await fetchDashboardArtifacts(options.projectPath);
+        return jsonResponse(payload);
+      }
+
+      if (path === "/api/artifacts" || path.startsWith("/api/artifacts/")) {
+        return jsonResponse(
+          {
+            ok: false,
+            error:
+              "artifact API is read-only; run kimi-doctor --gate <name> --save-artifact to refresh gate artifacts",
+          },
+          request.method === "GET" ? 404 : 405
+        );
+      }
+
       if (path === "/api/debug/logs") {
         const sink = url.searchParams.get("sink")?.trim() ?? "";
         if (!sink) {
@@ -576,6 +649,7 @@ export function startHerdrDashboardServer(
       }
 
       if (path === "/api/health") {
+        const probe = await fetchDashboardProbeHealthInput(options.projectPath);
         const payload = fetchDashboardHealth({
           agentCount: hub.lastPayload?.agentCount ?? 0,
           sseSubscribers: hub.sseSubscriberCount(),
@@ -584,6 +658,7 @@ export function startHerdrDashboardServer(
           herdrEnabled: herdrEventBridge.status().enabled,
           gateFailed: gateHealthWatch?.state.lastFailed ?? null,
           discoveryWorkspaceId: hub.discoveryCache.discoveryContext().workspaceId,
+          probe,
         });
         return jsonResponse(payload);
       }

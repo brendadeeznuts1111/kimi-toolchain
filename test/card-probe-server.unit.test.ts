@@ -3,10 +3,17 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { pathExists } from "../src/lib/bun-io.ts";
-import { startProbeServer } from "../src/lib/card-probe-server.ts";
+import { extractArtifactTimestamp, startProbeServer } from "../src/lib/card-probe-server.ts";
 import { withTempDir } from "./helpers.ts";
 
 describe("card-probe-server", () => {
+  test("extractArtifactTimestamp parses filename stamps without stat", () => {
+    expect(
+      extractArtifactTimestamp(".kimi/artifacts/bunfig-policy/2026-06-19T14-40-33-297Z.json")
+    ).toBe("2026-06-19T14:40:33.297Z");
+    expect(extractArtifactTimestamp(".kimi/artifacts/card-probe/not-a-stamp.json")).toBeNull();
+  });
+
   test("serves /api/health, /api/cards, and /api/refresh", async () => {
     const handle = await startProbeServer({ port: 0, probeConfig: { timeoutMs: 100 } });
     try {
@@ -72,18 +79,31 @@ describe("card-probe-server", () => {
         expect(gatesBody.gates).toContain("card-probe");
         expect(gatesBody.count).toBe(gatesBody.gates.length);
 
-        const list = await fetch(`${handle.url}/api/artifacts/card-probe`);
+        const list = await fetch(`${handle.url}/api/artifacts/card-probe?limit=1`);
         expect(list.status).toBe(200);
         const listBody = (await list.json()) as {
           ok: boolean;
           gate: string;
-          files: Array<{ path: string; timestamp: string | null; size: number }>;
+          count: number;
+          total: number;
+          limit: number;
+          files: Array<{
+            path: string;
+            timestamp: string | null;
+            size?: number;
+            resultSize?: number;
+          }>;
         };
         expect(listBody.ok).toBe(true);
         expect(listBody.gate).toBe("card-probe");
-        expect(listBody.files.length).toBeGreaterThan(0);
+        expect(listBody.limit).toBe(1);
+        expect(listBody.total).toBeGreaterThanOrEqual(listBody.count);
+        expect(listBody.count).toBe(listBody.files.length);
+        expect(listBody.files.length).toBe(1);
         expect(listBody.files[0]?.path).toMatch(/^\.kimi\/artifacts\/card-probe\//);
-        expect(typeof listBody.files[0]?.size).toBe("number");
+        expect(listBody.files[0]?.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\./);
+        expect(listBody.files[0]?.size).toBeGreaterThan(0);
+        expect(listBody.files[0]?.resultSize).toBeGreaterThan(0);
 
         const latest = await fetch(`${handle.url}/api/artifacts/card-probe/latest`);
         expect(latest.status).toBe(200);

@@ -1,9 +1,12 @@
 const SESSION_STORAGE_KEY = "herdr-dashboard.activeSession";
 const SESSION_ALL = "__all__";
+const STATIC_PREVIEW = window.location.protocol === "file:";
 let lastFilteredAgentsJson = "";
 let lastHandoffsJson = "";
+let lastRulesJson = "";
 let lastScanJson = "";
 let lastCanvasesJson = "";
+let lastArtifactsJson = "";
 let gateHealthPollTimer = null;
 let lastEventsJson = "";
 let eventsTypeFilter = "";
@@ -41,6 +44,7 @@ const HEALTH_POLL_MS = 10_000;
 let activeSession = loadActiveSession();
 let thumbLive = false;
 let examplesDashboardUrl = null;
+let examplesLoadTimer = null;
 
 /**
  * Panel registry — central place for adding/removing dashboard tabs.
@@ -97,6 +101,13 @@ const PANELS = {
       void refreshMetrics();
     },
   },
+  artifacts: {
+    label: "Artifacts",
+    activate() {
+      lastArtifactsJson = "";
+      void refreshArtifacts();
+    },
+  },
   events: {
     label: "Events",
     activate() {
@@ -123,7 +134,7 @@ const PANELS = {
     activate() {
       const frame = document.getElementById("examples-frame");
       if (examplesDashboardUrl && frame && !frame.src.includes(examplesDashboardUrl)) {
-        loadExamplesDashboard(examplesDashboardUrl);
+        void loadExamplesDashboard(examplesDashboardUrl);
       }
     },
   },
@@ -150,6 +161,17 @@ function saveActiveSession(value) {
   } catch {
     /* sessionStorage unavailable */
   }
+}
+
+function showStaticPanelNotice(tab = activeTab) {
+  const panel = document.getElementById(tab);
+  const target =
+    panel?.querySelector(".error") ||
+    panel?.querySelector(".empty-state") ||
+    document.getElementById("agents-error");
+  if (!target) return;
+  target.innerHTML =
+    'Static preview only. Open <a href="http://127.0.0.1:18412/">the live dashboard server</a> for data and controls.';
 }
 
 function normalizeSessionValue(session) {
@@ -1055,6 +1077,68 @@ const esc = (value) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 
+function timestampMs(value) {
+  if (typeof value === "number")
+    return value > 1_000_000_000_000 ? value : Math.floor(value / 1_000_000);
+  const parsed = Date.parse(String(value ?? ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function tagTone(value) {
+  const key = String(value ?? "").toLowerCase();
+  if (["ok", "pass", "passed", "done", "fixed", "active", "true"].includes(key)) return "ok";
+  if (["warn", "warning", "stale", "dry-run", "unknown"].includes(key)) return "warn";
+  if (["error", "fail", "failed", "failure", "blocked", "false"].includes(key)) return "error";
+  if (["working", "running", "scan", "fixable"].includes(key)) return "info";
+  return "neutral";
+}
+
+function tagHtml(label, tone = tagTone(label)) {
+  return `<span class="tag tag-${tone}">${esc(label)}</span>`;
+}
+
+function statusRank(status) {
+  const key = String(status ?? "unknown").toLowerCase();
+  return (
+    {
+      blocked: 0,
+      stale: 1,
+      working: 2,
+      idle: 3,
+      done: 4,
+      unknown: 5,
+    }[key] ?? 6
+  );
+}
+
+function sortAgents(rows) {
+  return [...(rows || [])].sort((a, b) => {
+    const byStatus = statusRank(a.status) - statusRank(b.status);
+    if (byStatus !== 0) return byStatus;
+    return (
+      [
+        String(a.host ?? "").localeCompare(String(b.host ?? "")),
+        String(a.session ?? "").localeCompare(String(b.session ?? "")),
+        String(a.workspaceId ?? "").localeCompare(String(b.workspaceId ?? "")),
+        String(a.agent ?? "").localeCompare(String(b.agent ?? "")),
+        String(a.paneId ?? "").localeCompare(String(b.paneId ?? "")),
+      ].find((value) => value !== 0) ?? 0
+    );
+  });
+}
+
+function sortFindings(findings) {
+  return [...(findings || [])].sort((a, b) => {
+    const byFix = Number(Boolean(b.hasAutoFix)) - Number(Boolean(a.hasAutoFix));
+    if (byFix !== 0) return byFix;
+    return (
+      String(a.file ?? "").localeCompare(String(b.file ?? "")) ||
+      Number(a.line ?? 0) - Number(b.line ?? 0) ||
+      String(a.ruleId ?? "").localeCompare(String(b.ruleId ?? ""))
+    );
+  });
+}
+
 function ipcCommand(command, args) {
   const payload = { command, args };
   const ipcTag = "__HERDR" + "_IPC__";
@@ -1325,7 +1409,7 @@ function renderAgents(data) {
   syncSessionSelector(data.agents, metaSnapshot?.discovery);
   wireSessionSelector();
 
-  const agents = filterAgentsBySession(data.agents || [], activeSession);
+  const agents = sortAgents(filterAgentsBySession(data.agents || [], activeSession));
   const filteredJson = JSON.stringify(agents);
   if (filteredJson === lastFilteredAgentsJson) return;
   lastFilteredAgentsJson = filteredJson;
@@ -1363,7 +1447,9 @@ function renderAgents(data) {
 
   for (const row of agents) {
     const tr = document.createElement("tr");
-    tr.className = `agent-row${row.status === "stale" ? " agent-row--stale" : ""}`;
+    tr.className = `agent-row agent-row--${statusClass(row.status).replace("status-", "")}${
+      row.status === "stale" ? " agent-row--stale" : ""
+    }`;
     tr.innerHTML = `
       <td>${esc(row.host)}</td>
       ${sessionCellHtml(row.session)}
@@ -1466,25 +1552,34 @@ function connectAgentsLive() {
 
 async function refreshHandoffs() {
   if (activeTab !== "handoffs") return;
+  const body = document.getElementById("handoffs-body");
+  if (!body) return;
   const res = await fetch("/api/handoffs?limit=80");
   const data = await res.json();
-  const json = JSON.stringify(data.entries || []);
+  const entries = [...(data.entries || [])].sort(
+    (a, b) => timestampMs(b.timestamp) - timestampMs(a.timestamp)
+  );
+  const json = JSON.stringify(entries);
   if (json === lastHandoffsJson) return;
   lastHandoffsJson = json;
-  const body = document.getElementById("handoffs-body");
   body.replaceChildren();
-  for (const row of data.entries || []) {
+  if (entries.length === 0) {
+    body.innerHTML = '<tr><td colspan="6" class="empty-state">No handoffs recorded</td></tr>';
+    return;
+  }
+  for (const row of entries) {
     const tr = document.createElement("tr");
+    tr.className = row.ok ? "handoff-row handoff-row--ok" : "handoff-row handoff-row--failed";
     tr.innerHTML = `
       <td>${esc(row.timestamp)}</td>
       <td>${esc(row.workspace)}</td>
       <td>${esc(row.agent)}</td>
-      <td>${esc(row.action)}</td>
+      <td>${tagHtml(row.action || "handoff", "info")}</td>
       <td>${esc(row.detail)}</td>
-      <td>${row.ok ? "✓" : "✗"}</td>`;
+      <td>${tagHtml(row.ok ? "ok" : "failed", row.ok ? "ok" : "error")}</td>`;
     body.appendChild(tr);
   }
-  console.log("dashboard.handoffs", (data.entries || []).length);
+  console.log("dashboard.handoffs", entries.length);
 }
 
 async function refreshRules() {
@@ -1501,17 +1596,30 @@ async function refreshRules() {
   rulesMeta.setAttribute("aria-hidden", "false");
   const body = document.getElementById("rules-body");
   body.replaceChildren();
-  for (const row of data.rules || []) {
+  const rules = [...(data.rules || [])].sort((a, b) => Number(a.index) - Number(b.index));
+  if (rules.length === 0) {
+    body.innerHTML =
+      '<tr><td colspan="5" class="empty-state">No handoff rules configured</td></tr>';
+    return;
+  }
+  for (const row of rules) {
     const tr = document.createElement("tr");
+    tr.className = row.lastOk === false ? "rule-row rule-row--failed" : "rule-row";
     tr.innerHTML = `
       <td>${row.index}</td>
-      <td>${esc(row.condition)}</td>
+      <td>${tagHtml(row.active ? "active" : "inactive", row.active ? "ok" : "warn")} ${esc(
+        row.condition
+      )}</td>
       <td>${esc(row.lastFired || "—")}</td>
       <td>${esc(row.lastAction || "—")}</td>
-      <td>${row.lastOk === undefined ? "—" : row.lastOk ? "✓" : "✗"}</td>`;
+      <td>${
+        row.lastOk === undefined
+          ? "—"
+          : tagHtml(row.lastOk ? "ok" : "failed", row.lastOk ? "ok" : "error")
+      }</td>`;
     body.appendChild(tr);
   }
-  console.log("dashboard.rules", (data.rules || []).length);
+  console.log("dashboard.rules", rules.length);
 }
 
 function scheduleSecondaryPoll(pollMs) {
@@ -1549,9 +1657,9 @@ async function refreshScan() {
       ? "No findings — project matches Bun-native patterns"
       : `${total} finding(s) · ${report.tool}`;
 
-  const findings = report?.findings ?? [];
+  const findings = sortFindings(report?.findings ?? []);
   if (findings.length === 0) {
-    body.innerHTML = '<tr><td colspan="5" class="empty-state">No findings</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" class="empty-state">No findings</td></tr>';
     return;
   }
 
@@ -1562,11 +1670,13 @@ async function refreshScan() {
     tr.innerHTML = `
       <td class="scan-file">${esc(row.file)}</td>
       <td class="scan-line">${esc(String(row.line))}</td>
-      <td class="scan-rule">${esc(row.ruleId)}</td>
+      <td class="scan-rule">${tagHtml(row.ruleId, row.hasAutoFix ? "info" : "neutral")}</td>
       <td>${esc(row.message)}</td>
       <td class="scan-suggestion">${esc(row.suggestion)}</td>
       <td class="scan-actions">${
-        row.hasAutoFix ? '<button type="button" class="scan-fix-btn">Apply fix</button>' : ""
+        row.hasAutoFix
+          ? '<button type="button" class="scan-fix-btn">Apply fix</button>'
+          : tagHtml("manual", "warn")
       }</td>
     `;
     if (row.hasAutoFix) {
@@ -1720,6 +1830,7 @@ function wireScanPanel() {
 }
 
 function wireCanvasesPanel() {
+  if (STATIC_PREVIEW) return;
   // Pre-fetch canvases on boot so the tab is ready when activated
   void refreshCanvases();
 }
@@ -1794,13 +1905,111 @@ function wireMetricsPanel() {
   // metrics tab loaded on first activation via switchTab
 }
 
+// ── Artifacts tab ────────────────────────────────────────────────────
+
+function artifactStatusClass(status) {
+  return `artifact-status--${tagTone(status)}`;
+}
+
+function formatArtifactBytes(value) {
+  if (value === undefined || value === null || !Number.isFinite(value)) return "—";
+  return `${value} B`;
+}
+
+function compactArtifactPath(path) {
+  const text = String(path ?? "").trim();
+  if (!text) return "—";
+  const prefix = ".kimi/artifacts/";
+  return text.startsWith(prefix) ? text.slice(prefix.length) : text;
+}
+
+async function refreshArtifacts() {
+  if (activeTab !== "artifacts") return;
+  const body = document.getElementById("artifacts-body");
+  const errEl = document.getElementById("artifacts-error");
+  const hintEl = document.getElementById("artifacts-probe-hint");
+  if (!body) return;
+
+  try {
+    const res = await fetch("/api/artifacts");
+    const payload = await res.json();
+    const artifacts = [...(payload.artifacts || [])].sort((a, b) => {
+      const byLatest = String(b.latestPath ?? "").localeCompare(String(a.latestPath ?? ""));
+      if (byLatest !== 0) return byLatest;
+      return String(a.gate ?? "").localeCompare(String(b.gate ?? ""));
+    });
+    const json = JSON.stringify(artifacts);
+    if (json === lastArtifactsJson) return;
+    lastArtifactsJson = json;
+
+    if (!payload.ok) {
+      if (errEl) errEl.textContent = payload.error || "Failed to load artifacts";
+      return;
+    }
+    if (errEl) errEl.textContent = "";
+
+    if (hintEl) {
+      const url = payload.probeServerUrl || "";
+      hintEl.textContent = payload.probeReachable
+        ? `serve-probe reachable at ${url}`
+        : `serve-probe offline at ${url} — start: kimi-doctor --serve-probe`;
+      hintEl.className = payload.probeReachable
+        ? "artifacts-probe-hint artifacts-probe-hint--ok"
+        : "artifacts-probe-hint artifacts-probe-hint--warn";
+    }
+
+    body.innerHTML = "";
+    if (artifacts.length === 0) {
+      body.innerHTML =
+        '<tr><td colspan="7" class="empty-state">No saved artifacts under .kimi/artifacts</td></tr>';
+      return;
+    }
+
+    for (const row of artifacts) {
+      const tr = document.createElement("tr");
+      tr.className = `artifact-row ${artifactStatusClass(row.status)}`;
+      const latestPath = row.latestPath || "";
+      const latestMeta = row.updatedAt
+        ? `<span class="artifact-time">${esc(row.updatedAt)}</span>`
+        : "";
+      tr.innerHTML = `
+        <td class="artifact-gate"><code>${esc(row.gate)}</code></td>
+        <td>${tagHtml(row.status || "unknown")}</td>
+        <td class="artifact-count">${esc(String(row.count ?? 0))}</td>
+        <td class="artifact-latest"><code title="${esc(latestPath)}">${esc(
+          compactArtifactPath(latestPath)
+        )}</code>${latestMeta}</td>
+        <td class="artifact-size"><code>${esc(formatArtifactBytes(row.latestSize))}</code></td>
+        <td class="artifact-size"><code>${esc(formatArtifactBytes(row.latestResultSize))}</code></td>
+        <td class="artifact-summary">${esc(row.summary || "—")}</td>
+      `;
+      body.appendChild(tr);
+    }
+  } catch (err) {
+    if (errEl) errEl.textContent = err instanceof Error ? err.message : String(err);
+  }
+}
+
 // ── Events tab ─────────────────────────────────────────────────────
 
+function eventTone(type) {
+  const key = String(type ?? "").toLowerCase();
+  if (key === "gate.failed" || key.includes("error") || key.includes("failed")) return "error";
+  if (key === "gate.cleared") return "ok";
+  if (key.startsWith("scan.") || key.startsWith("agent.") || key.startsWith("dashboard.")) {
+    return "info";
+  }
+  if (key.startsWith("handoff.") || key.includes("handoff")) return "warn";
+  if (key.startsWith("git.")) return "neutral";
+  return "neutral";
+}
+
 function eventTypeClass(type) {
-  if (type === "gate.failed") return "event-type--gate-failed";
-  if (type === "scan.fix") return "event-type--scan-fix";
-  if (type === "gate.cleared") return "event-type--gate-cleared";
-  return "";
+  const key = String(type ?? "").toLowerCase();
+  if (key === "gate.failed") return "event-type--gate-failed";
+  if (key === "scan.fix") return "event-type--scan-fix";
+  if (key === "gate.cleared") return "event-type--gate-cleared";
+  return `event-type--${eventTone(key)}`;
 }
 
 function formatEventTime(at) {
@@ -1836,13 +2045,16 @@ async function refreshEvents() {
     }
     if (errEl) errEl.textContent = "";
 
+    const events = [...(payload.events || [])].sort(
+      (a, b) => timestampMs(b.at) - timestampMs(a.at)
+    );
     body.innerHTML = "";
-    if (payload.events.length === 0) {
+    if (events.length === 0) {
       body.innerHTML = '<tr><td colspan="5" class="empty-state">No events</td></tr>';
       return;
     }
 
-    for (const e of payload.events) {
+    for (const e of events) {
       const tr = document.createElement("tr");
       tr.className = `event-row ${eventTypeClass(e.type)}`;
       tr.innerHTML = `
@@ -1860,7 +2072,7 @@ async function refreshEvents() {
     if (filter && filter.options.length <= 1) {
       const typesRes = await fetch("/api/events/types");
       const typesData = await typesRes.json();
-      for (const t of typesData.types || []) {
+      for (const t of [...(typesData.types || [])].sort()) {
         const opt = document.createElement("option");
         opt.value = t;
         opt.textContent = t;
@@ -1872,12 +2084,22 @@ async function refreshEvents() {
   }
 }
 
-function logLineClass(line) {
+function logLineSeverity(line) {
   if (/\b(error|fail(?:ed|ure)?|exception|panic|fatal|✗|✘)\b/i.test(line)) {
-    return "log-line--error";
+    return "error";
   }
-  if (/\b(warn(?:ing)?)\b/i.test(line)) return "log-line--warn";
-  return "";
+  if (/\b(warn(?:ing)?)\b/i.test(line)) return "warn";
+  return "info";
+}
+
+function logLineClass(line) {
+  return `log-line--${logLineSeverity(line)}`;
+}
+
+function summarizeLogLines(lines) {
+  const counts = { error: 0, warn: 0, info: 0 };
+  for (const line of lines || []) counts[logLineSeverity(line)] += 1;
+  return counts;
 }
 
 function renderDebugLogLines(lines) {
@@ -1892,8 +2114,11 @@ function renderDebugLogLines(lines) {
   }
   for (const line of lines) {
     const row = document.createElement("div");
+    const severity = logLineSeverity(line);
     row.className = `log-line ${logLineClass(line)}`;
-    row.textContent = line;
+    row.innerHTML = `<span class="log-severity tag tag-${tagTone(severity)}">${esc(
+      severity
+    )}</span><span class="log-message">${esc(line)}</span>`;
     row.title = "Click to copy";
     row.addEventListener("click", () => {
       void navigator.clipboard.writeText(line).then(() => {
@@ -1955,7 +2180,8 @@ async function refreshDebugLogs() {
     }
     if (errEl) errEl.textContent = "";
     if (metaEl) {
-      metaEl.textContent = `${payload.path} · ${payload.lines.length}/${payload.totalLines} lines (tail ${payload.tail})`;
+      const counts = summarizeLogLines(payload.lines);
+      metaEl.textContent = `${payload.path} · ${payload.lines.length}/${payload.totalLines} lines (tail ${payload.tail}) · ${counts.error} error · ${counts.warn} warn`;
     }
     renderDebugLogLines(payload.lines);
   } catch (err) {
@@ -2044,7 +2270,9 @@ function switchTab(tab) {
 
   // Activate new panel
   const nextPanel = PANELS[tab];
-  if (nextPanel?.activate) {
+  if (STATIC_PREVIEW) {
+    showStaticPanelNotice(tab);
+  } else if (nextPanel?.activate) {
     try {
       nextPanel.activate();
     } catch (err) {
@@ -2052,7 +2280,7 @@ function switchTab(tab) {
     }
   }
 
-  if (window.__HERDR_DASHBOARD_POLL_MS__) {
+  if (!STATIC_PREVIEW && window.__HERDR_DASHBOARD_POLL_MS__) {
     scheduleSecondaryPoll(window.__HERDR_DASHBOARD_POLL_MS__);
   }
 }
@@ -2084,16 +2312,55 @@ function updateExamplesUrlDisplay(url) {
   if (popout) popout.href = url || "#";
 }
 
-function loadExamplesDashboard(url) {
+function clearExamplesLoadTimer() {
+  if (!examplesLoadTimer) return;
+  clearTimeout(examplesLoadTimer);
+  examplesLoadTimer = null;
+}
+
+async function examplesHealthProbe() {
+  const res = await fetch("/api/examples/health");
+  return res.json();
+}
+
+async function loadExamplesDashboard(url) {
   const frame = document.getElementById("examples-frame");
   if (!frame) return;
   if (!url) {
+    clearExamplesLoadTimer();
     setExamplesError("Examples dashboard URL not configured.");
     setExamplesLoading(false);
     return;
   }
   setExamplesError("");
   setExamplesLoading(true);
+  frame.src = "about:blank";
+
+  let health = null;
+  try {
+    health = await examplesHealthProbe();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    setExamplesLoading(false);
+    setExamplesError(`Could not check examples dashboard health: ${message}`);
+    return;
+  }
+
+  if (!health?.ok) {
+    setExamplesLoading(false);
+    const detail = health?.error ? ` (${health.error})` : "";
+    setExamplesError(
+      `Examples dashboard is not running at ${url}${detail}. Start it with: PORT=5678 bun run dashboard`
+    );
+    return;
+  }
+
+  clearExamplesLoadTimer();
+  setExamplesLoading(true);
+  examplesLoadTimer = setTimeout(() => {
+    setExamplesLoading(false);
+    setExamplesError(`Examples dashboard did not finish loading at ${url}. Try Reload or Open.`);
+  }, 6000);
   frame.src = url;
 }
 
@@ -2103,17 +2370,19 @@ function wireExamplesPanel() {
   if (!frame) return;
 
   frame.addEventListener("load", () => {
+    clearExamplesLoadTimer();
     setExamplesLoading(false);
     setExamplesError("");
   });
   frame.addEventListener("error", () => {
+    clearExamplesLoadTimer();
     setExamplesLoading(false);
     setExamplesError(`Failed to load examples dashboard at ${examplesDashboardUrl || "(unknown)"}`);
   });
 
   if (reload) {
     reload.addEventListener("click", () => {
-      if (examplesDashboardUrl) loadExamplesDashboard(examplesDashboardUrl);
+      if (examplesDashboardUrl) void loadExamplesDashboard(examplesDashboardUrl);
     });
   }
 }
@@ -2123,7 +2392,7 @@ function applyExamplesMeta(meta) {
   examplesDashboardUrl = url;
   updateExamplesUrlDisplay(url);
   if (activeTab === "examples" && url) {
-    loadExamplesDashboard(url);
+    void loadExamplesDashboard(url);
   }
 }
 
@@ -2161,12 +2430,13 @@ function renderHeaderBadges(health) {
     `<span class="badge ${healthStatusClass(sse?.status)}" title="SSE subscribers">sse ${sse?.subscribers ?? "—"}</span>`,
     `<span class="badge ${healthStatusClass(herdr?.status)}" title="Herdr socket">herdr ${herdr?.connected ? "✓" : herdr?.status === "unknown" ? "off" : "✗"}</span>`,
     `<span class="badge ${healthStatusClass(gate?.status)}" title="Gate health">gates ${gate?.failed === false ? "✓" : gate?.failed === true ? "✗" : "—"}</span>`,
+    `<span class="badge ${healthStatusClass(checks.probe?.status)}" title="Serve-probe cards">probe ${checks.probe?.reachable ? (checks.probe?.fail > 0 ? "✗" : checks.probe?.unknown > 0 ? "?" : "✓") : "off"}</span>`,
   ].join("");
 }
 
 function renderSummaryCards(health) {
   const checks = health?.checks ?? {};
-  for (const key of ["agents", "sse", "herdr", "gate", "discovery"]) {
+  for (const key of ["agents", "sse", "herdr", "gate", "probe", "discovery"]) {
     const check = checks[key];
     const el = document.getElementById(`health-${key}`);
     if (!el || !check) continue;
@@ -2234,26 +2504,47 @@ wireCanvasesPanel();
 wireMetricsPanel();
 wireEventsPanel();
 wireLogsTabPanel();
-scheduleGateHealthPoll();
+if (!STATIC_PREVIEW) scheduleGateHealthPoll();
 
 // Activate the initial tab so panels can run their setup logic.
-PANELS[activeTab]?.activate?.();
+if (!STATIC_PREVIEW) PANELS[activeTab]?.activate?.();
 
-(async () => {
-  const res = await fetch("/api/meta");
-  const meta = await res.json();
-  renderMetaDisplay(meta);
-  wireAgentThumbnail(meta);
-  applyExamplesMeta(meta);
+if (STATIC_PREVIEW) {
+  document.body.dataset.mode = "static-preview";
   renderHeaderBadges(null);
-  void refreshHealth();
-  void refreshTlsCompliance();
-  scheduleHealthPoll();
-  const poll = meta.pollHintMs || 5000;
-  window.__HERDR_DASHBOARD_POLL_MS__ = poll;
-  scheduleMetaRefresh(meta.ssePollMs);
-  connectAgentsLive();
-  scheduleSecondaryPoll(poll);
-  scheduleProcessesPoll(poll);
-  void fetchGit();
-})();
+  renderSummaryCards(null);
+  const meta = document.getElementById("meta");
+  if (meta) {
+    meta.textContent = "Static file preview";
+  }
+  const control = document.getElementById("control-plane-status");
+  if (control) {
+    control.innerHTML =
+      'Live controls require the dashboard server at <a href="http://127.0.0.1:18412/">127.0.0.1:18412</a>.';
+  }
+  const error = document.getElementById("agents-error");
+  if (error) {
+    error.innerHTML =
+      "<strong>Static preview mode.</strong> Start the dashboard server for live agent data, control actions, events, and metrics.";
+  }
+  showStaticPanelNotice(activeTab);
+} else {
+  (async () => {
+    const res = await fetch("/api/meta");
+    const meta = await res.json();
+    renderMetaDisplay(meta);
+    wireAgentThumbnail(meta);
+    applyExamplesMeta(meta);
+    renderHeaderBadges(null);
+    void refreshHealth();
+    void refreshTlsCompliance();
+    scheduleHealthPoll();
+    const poll = meta.pollHintMs || 5000;
+    window.__HERDR_DASHBOARD_POLL_MS__ = poll;
+    scheduleMetaRefresh(meta.ssePollMs);
+    connectAgentsLive();
+    scheduleSecondaryPoll(poll);
+    scheduleProcessesPoll(poll);
+    void fetchGit();
+  })();
+}

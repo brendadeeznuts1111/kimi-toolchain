@@ -196,8 +196,26 @@ Poll interval is tab-driven (on Metrics tab activation), not on a fixed cron.
 
 ---
 
+## Serve-probe and gate artifacts
+
+Card cache server, artifact inspection routes, `[doctor.probe]` config, and Herdr tab
+wiring are documented in [serve-probe.md](./serve-probe.md).
+
+Quick reference:
+
+```bash
+kimi-doctor --serve-probe                    # HTTP cache (port from [doctor.probe] or env)
+kimi-doctor --gate bunfig-policy --save-artifact
+kimi-doctor --artifacts-list bunfig-policy
+```
+
+ADR: [ADR-0004 serve-probe read-only](../adr/ADR-0004-serve-probe-readonly.md).
+
+---
+
 ## Relationship to other endpoints
 
+- **Serve-probe HTTP + artifacts** → [serve-probe.md](./serve-probe.md)
 - **Dashboard storage / thumbnail architecture** → [dashboard-thumbnails.md](./dashboard-thumbnails.md)
 - **`meta.webview` profile fields** → [dashboard-thumbnails.md](./dashboard-thumbnails.md#metawebview-object) (persistent vs ephemeral, directory, WebKit guard)
 - **Orchestrator probe** (`herdr-orchestrator dashboard --probe`) → returns the
@@ -249,6 +267,7 @@ The `kimi-doctor --doc-links` lint gate enforces that every entry in `DOC_REFERE
 - `bun-runtime-scaffold.md` — Bun install config layers
 - `herdr-socket-saturation-protocol.md` — EAGAIN recovery
 - `configuration-layers.md` — where `thresholds.json` fits in the config model
+- `serve-probe.md` — `--serve-probe`, `[doctor.probe]`, artifact list API
 - `template-matrix.md` — domain effect module templates
 
 ## Effects pipeline (`perf-doctor` / scaffolded `doctor` module)
@@ -339,6 +358,9 @@ Domain effect handlers live under `templates/modules/` for scaffolding and `exam
 | Metrics API | `src/lib/herdr-dashboard-data.ts` (`fetchDashboardMetrics`) |
 | WebP encode | `src/lib/bun-image.ts` (`dashboardWebpThumbnail`) |
 | Doctor adapter | `src/lib/doctor-adapters/dashboard-automation.ts` |
+| Serve-probe CLI / server | `src/lib/card-probe-cli.ts`, `src/lib/card-probe-server.ts` |
+| Artifact store | `src/lib/artifact-store.ts` |
+| `[doctor.probe]` config | `src/lib/doctor-probe-config.ts` |
 | Perf gate | `src/guardian/perf-gate.ts` |
 | HTML reporter | `src/harness/html-reporter.ts` |
 | Perf monitor (harness) | `examples/dashboard/src/harness/perf-monitor.ts` |

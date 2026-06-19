@@ -228,6 +228,17 @@ verify = "artifact-verify --project ."
 memoryGate = true
 preflight = true
 
+[doctor]
+gates = ["bunfig-policy"]
+tabs = [
+  { name = "probe", command = "kimi-doctor --serve-probe" },
+  { name = "bunfig", command = "kimi-doctor --gate bunfig-policy" },
+]
+
+[doctor.probe]
+port = 9239
+interval = 15000
+
 # Herdr workspace layout — single source of truth (herdr-project reads [herdr] only):
 #   agents tab: [herdr.agentsTab] + [[herdr.agentsTab.panes]] (canonical pane layout spec)
 #   Legacy shorthand: primaryAgent, shellPane, shellSplit, secondaryAgents (runner uses these today)
@@ -379,6 +390,10 @@ to_agent = "codex-primary"
 [[herdr.tabs]]
 label = "doctor"
 command = "kimi-doctor --watch"
+
+[[herdr.tabs]]
+label = "probe"
+command = "kimi-doctor --serve-probe --save-artifact --project-root ."
 
 [[herdr.tabs]]
 label = "heal"

@@ -12,7 +12,7 @@
     },
     "checks": {
       "type": "object",
-      "required": ["agents", "sse", "herdr", "gate", "discovery"],
+      "required": ["agents", "sse", "herdr", "gate", "probe", "discovery"],
       "properties": {
         "agents": {
           "$ref": "#/definitions/healthCheck",
@@ -48,6 +48,17 @@
           "required": ["status", "workspaceId"],
           "properties": {
             "workspaceId": { "type": ["string", "null"] }
+          }
+        },
+        "probe": {
+          "$ref": "#/definitions/healthCheck",
+          "required": ["status", "url", "reachable", "pass", "fail", "unknown"],
+          "properties": {
+            "url": { "type": "string" },
+            "reachable": { "type": "boolean" },
+            "pass": { "type": "integer", "minimum": 0 },
+            "fail": { "type": "integer", "minimum": 0 },
+            "unknown": { "type": "integer", "minimum": 0 }
           }
         }
       },

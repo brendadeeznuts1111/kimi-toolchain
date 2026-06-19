@@ -7,6 +7,7 @@ import { resolveGateClosure } from "../src/gates/registry.ts";
 import {
   detectCycle,
   generateGateGraph,
+  planGateExecution,
   runGatesWithDependencies,
   topologicalSort,
 } from "../src/gates/runner.ts";
@@ -127,6 +128,18 @@ describe("doctor-gates-runner", () => {
       expect(payload.mermaid).toContain("alpha");
       expect(payload.mermaid).toContain("beta");
     });
+  });
+
+  test("planGateExecution returns topological order without running gates", () => {
+    const plan = planGateExecution([
+      mockGate("child", { dependsOn: ["parent"] }),
+      mockGate("parent"),
+    ]);
+    expect(plan.order).toEqual(["parent", "child"]);
+    expect(plan.gates).toEqual([
+      { name: "parent", description: "mock parent", dependsOn: [] },
+      { name: "child", description: "mock child", dependsOn: ["parent"] },
+    ]);
   });
 
   test("generateGateGraph emits Mermaid edges for dependsOn", () => {

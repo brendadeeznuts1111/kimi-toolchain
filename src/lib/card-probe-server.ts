@@ -5,14 +5,19 @@
  * Gate execution stays CLI-bound. See docs/adr/ADR-0004-serve-probe-readonly.md.
  */
 
-import { join } from "path";
-import { ArtifactStore } from "./artifact-store.ts";
+import {
+  ArtifactStore,
+  extractArtifactTimestamp,
+  parseArtifactListQuery,
+} from "./artifact-store.ts";
 import {
   type CardProbeConfig,
   type CardStatus,
   probeAllCards,
   summarizeCardStatuses,
 } from "./card-probe.ts";
+
+export { extractArtifactTimestamp };
 
 export const PROBE_SERVER_HOST_ENV = "PROBE_SERVER_HOST";
 export const PROBE_SERVER_PORT_ENV = "PROBE_SERVER_PORT";
@@ -42,6 +47,8 @@ export const SERVE_PROBE_READONLY_ADR_URL =
 export interface ProbeServerOptions {
   host?: string;
   port?: number;
+  /** Periodic card refresh interval in milliseconds (0 disables). */
+  refreshIntervalMs?: number;
   probeConfig?: CardProbeConfig;
   projectRoot?: string;
   saveArtifact?: boolean;
@@ -72,25 +79,6 @@ function artifactRefreshDisabled(gateName: string): Response {
       },
     },
     403
-  );
-}
-
-async function artifactFileEntries(
-  artifactStore: ArtifactStore,
-  projectRoot: string,
-  gateName: string
-): Promise<Array<{ path: string; timestamp: string | null; size: number }>> {
-  const relativePaths = await artifactStore.list(gateName);
-  return Promise.all(
-    relativePaths.map(async (relativePath) => {
-      const absolutePath = join(projectRoot, relativePath);
-      const stat = await Bun.file(absolutePath).stat();
-      return {
-        path: relativePath,
-        timestamp: stat?.mtime ? new Date(stat.mtime).toISOString() : null,
-        size: stat?.size ?? 0,
-      };
-    })
   );
 }
 
@@ -156,12 +144,15 @@ function artifactStoreFor(options: ProbeServerOptions): ArtifactStore | null {
   return root ? new ArtifactStore(root) : null;
 }
 
-/** Start probe cache server on 127.0.0.1:9239 (override via env). */
+/** Start probe cache server (default 127.0.0.1:9239; override via [doctor.probe] or env). */
 export async function startProbeServer(
   options: ProbeServerOptions = {}
 ): Promise<ProbeServerHandle> {
-  const host = options.host ?? Bun.env[PROBE_SERVER_HOST_ENV] ?? DEFAULT_PROBE_SERVER_HOST;
-  const port = Number(options.port ?? Bun.env[PROBE_SERVER_PORT_ENV] ?? DEFAULT_PROBE_SERVER_PORT);
+  const host = Bun.env[PROBE_SERVER_HOST_ENV] ?? options.host ?? DEFAULT_PROBE_SERVER_HOST;
+  const port = Number(
+    Bun.env[PROBE_SERVER_PORT_ENV] ?? options.port ?? DEFAULT_PROBE_SERVER_PORT
+  );
+  const refreshIntervalMs = Math.max(0, Number(options.refreshIntervalMs ?? 0));
   const probeConfig = probeConfigFromEnv(options.probeConfig);
   const projectRoot = options.projectRoot ?? process.cwd();
   const artifactStore = artifactStoreFor({ ...options, projectRoot });
@@ -170,6 +161,7 @@ export async function startProbeServer(
   let lastFetchedAt = new Date().toISOString();
   let lastArtifactPath: string | undefined;
   let refreshInFlight: Promise<CardStatus[]> | null = null;
+  let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
   async function persistRefreshArtifact(
     cards: CardStatus[],
@@ -206,7 +198,11 @@ export async function startProbeServer(
     return refreshInFlight;
   }
 
-  async function handleArtifactsRoute(path: string, method: string): Promise<Response | null> {
+  async function handleArtifactsRoute(
+    path: string,
+    method: string,
+    searchParams: URLSearchParams
+  ): Promise<Response | null> {
     const match = path.match(ARTIFACTS_ROUTE);
     if (!match) return null;
 
@@ -249,15 +245,30 @@ export async function startProbeServer(
       });
     }
 
-    const files = await artifactFileEntries(artifactStore, projectRoot, gateName);
-    return jsonResponse({ ok: true, gate: gateName, projectRoot, files });
+    const listed = await artifactStore.listEntries(gateName, parseArtifactListQuery(searchParams));
+    return jsonResponse({
+      ok: true,
+      gate: gateName,
+      projectRoot,
+      count: listed.entries.length,
+      total: listed.total,
+      ...(listed.since ? { since: listed.since } : {}),
+      ...(listed.limit !== undefined ? { limit: listed.limit } : {}),
+      files: listed.entries.map((entry) => ({
+        path: entry.path,
+        timestamp: entry.timestamp,
+        ...(entry.size !== undefined ? { size: entry.size } : {}),
+        ...(entry.resultSize !== undefined ? { resultSize: entry.resultSize } : {}),
+      })),
+    });
   }
 
   const server = Bun.serve({
     hostname: host,
     port,
     async fetch(req) {
-      const path = new URL(req.url).pathname;
+      const url = new URL(req.url);
+      const path = url.pathname;
       const method = req.method;
 
       if (path === "/api/health") {
@@ -287,7 +298,7 @@ export async function startProbeServer(
         });
       }
 
-      const artifactsResponse = await handleArtifactsRoute(path, method);
+      const artifactsResponse = await handleArtifactsRoute(path, method, url.searchParams);
       if (artifactsResponse) return artifactsResponse;
 
       return notFound(path);
@@ -296,12 +307,24 @@ export async function startProbeServer(
 
   await refresh();
 
+  if (refreshIntervalMs > 0) {
+    refreshTimer = setInterval(() => {
+      void refresh();
+    }, refreshIntervalMs);
+  }
+
   return {
     url: `http://${host}:${server.port}`,
     refresh,
     getCached: () => cached,
     getLastArtifactPath: () => lastArtifactPath,
-    stop: () => server.stop(),
+    stop: () => {
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+      }
+      server.stop();
+    },
   };
 }
 

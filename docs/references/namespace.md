@@ -6,7 +6,7 @@ Agents often conflate names that share a word (`doctor`, `orchestrator`) but liv
 
 | Namespace                     | What it is                                                                       | Binding / invoke                                        | Documented                                                                            |
 | ----------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `kimi-doctor`                 | Toolchain CLI — diagnostics, `--automation`, `--effect-gates`, finish-work gates | Shell: `kimi-doctor …` in `[finishWork].gates`          | [kimi-doctor.md](./kimi-doctor.md)                                                    |
+| `kimi-doctor`                 | Toolchain CLI — diagnostics, `--automation`, `--effect-gates`, `--serve-probe`, finish-work gates | Shell: `kimi-doctor …` in `[finishWork].gates` or `[doctor].tabs` | [kimi-doctor.md](./kimi-doctor.md), [serve-probe.md](./serve-probe.md) |
 | `herdr-doctor` (bin)          | Toolchain bin — DX/Herdr **integration health** for the config hub               | Shell: `herdr-doctor [--json] [--fix]`                  | `src/bin/herdr-doctor.ts`, [Doctor trinity](#doctor-trinity--kimi-code)               |
 | `herdr-doctor` (plugin)       | **Herdr plugin** — sidebar pane, fleet/manifest status                           | Herdr UI: `prefix+d` → `herdr-doctor.status`            | Herdr plugin plan v0.5.0 (outside repo)                                               |
 | `herdr-orchestrator` (CLI)    | Toolchain bin — dashboard server, `--probe`, context-sync                        | Shell: `herdr-orchestrator dashboard …`                 | `src/bin/herdr-orchestrator.ts`, [dashboard-thumbnails.md](./dashboard-thumbnails.md) |
@@ -43,6 +43,8 @@ Agents often conflate names that share a word (`doctor`, `orchestrator`) but liv
 | `herdr-orchestrator dashboard` | Toolchain bin (shell) | `herdr-orchestrator.ts` | [dashboard-thumbnails.md](./dashboard-thumbnails.md) |
 | `prefix+a/l/f/t` | Herdr plugin action | `herdr-orchestrator.*` handlers | Herdr plugin plan v0.5.0 |
 | `GET /api/thumbnail` | Orchestrator HTTP | `Bun.serve` on dashboard port | [dashboard-thumbnails.md](./dashboard-thumbnails.md) |
+| `kimi-doctor --serve-probe` | Toolchain HTTP (loopback) | `card-probe-server` on `[doctor.probe].port` | [serve-probe.md](./serve-probe.md) |
+| `GET /api/artifacts` (dashboard) | Herdr dashboard HTTP | Disk-backed `.kimi/artifacts/` — not serve-probe proxy | [serve-probe.md](./serve-probe.md) |
 | `[[endpoints]]` row | dx URL inventory | MCP/doc links — not dashboard HTTP | `schemas/endpoints-strict.schema.toml` |
 
 **Canvas companion:** `docs/canvases/namespace-boundaries.canvas.tsx` (manifest id `namespace` · `cursorCanvas` pointer; not synced).

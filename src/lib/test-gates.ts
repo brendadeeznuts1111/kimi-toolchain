@@ -51,6 +51,7 @@ export const UNIT_TEST_FILES = [
   "test/card-probe.unit.test.ts",
   "test/card-probe-cli.unit.test.ts",
   "test/card-probe-server.unit.test.ts",
+  "test/doctor-probe-config.unit.test.ts",
   "test/defaults-config.unit.test.ts",
   "test/herdr-dashboard-agents.unit.test.ts",
   "test/herdr-dashboard-discovery-cache.unit.test.ts",

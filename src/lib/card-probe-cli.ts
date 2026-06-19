@@ -14,6 +14,7 @@ import {
   startProbeServer,
   unhealthyCardStatuses,
 } from "./card-probe-server.ts";
+import { readDoctorProbeConfig } from "./doctor-probe-config.ts";
 
 export interface CardProbeSummary {
   total: number;
@@ -98,11 +99,16 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
   const log = options.log;
   const json = options.json === true;
 
+  const projectRoot = options.projectRoot ?? process.cwd();
+  const doctorProbe = await readDoctorProbeConfig(projectRoot);
   const serverOptions = {
     probeConfig,
-    projectRoot: options.projectRoot ?? process.cwd(),
+    projectRoot,
     saveArtifact: options.saveArtifact,
     strict,
+    host: doctorProbe.host,
+    port: doctorProbe.port,
+    refreshIntervalMs: doctorProbe.intervalMs,
   };
 
   if (options.mode === "serve-probe-once") {

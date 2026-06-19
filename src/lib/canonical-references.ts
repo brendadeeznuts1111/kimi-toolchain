@@ -265,6 +265,13 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     canvasInfluences: ["card-kimi-doctor", "card-gates", "card-perf-harness", "card-perf-registry"],
   },
   {
+    id: "serve-probe",
+    repoPath: "docs/references/serve-probe.md",
+    runtimePath: "~/.kimi-code/docs/references/serve-probe.md",
+    purpose:
+      "kimi-doctor --serve-probe HTTP routes, [doctor.probe] dx.config.toml, artifact list API, and Herdr tab wiring",
+  },
+  {
     id: "herdr-socket-saturation-protocol",
     repoPath: "docs/references/herdr-socket-saturation-protocol.md",
     runtimePath: "~/.kimi-code/docs/references/herdr-socket-saturation-protocol.md",

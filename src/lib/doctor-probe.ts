@@ -258,6 +258,12 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
         agentFacing: true,
       },
       {
+        name: "--dryrun",
+        type: "boolean",
+        description: "With --gate or --run-gates, print execution order without running gates",
+        agentFacing: true,
+      },
+      {
         name: "--gate-graph",
         type: "boolean",
         description: "Emit Mermaid dependency graph for --gate closure or all built-in gates",
@@ -299,7 +305,7 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
         name: "--serve-probe",
         type: "boolean",
         description:
-          "Start HTTP server on 127.0.0.1:9239 — GET|HEAD /api/health, GET /api/cards, GET|POST /api/refresh (cards only), GET /api/artifacts[/{gate}[/latest]] (read-only)",
+          "Start HTTP card cache (127.0.0.1; port from [doctor.probe] or PROBE_SERVER_PORT, else 9239) — GET|HEAD /api/health, GET /api/cards, GET|POST /api/refresh, GET /api/artifacts[/{gate}[/latest]]?limit=N&since=ISO (read-only)",
         agentFacing: true,
       },
       {

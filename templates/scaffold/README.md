@@ -27,7 +27,7 @@ bun run check:fast
 | `bun run doctor`              | Full toolchain diagnostics (kimi-doctor)             |
 | `bun run doctor:probe`        | Probe dashboard cards once (report only)             |
 | `bun run doctor:probe:strict` | Probe cards; exit 1 if any not passing               |
-| `bun run doctor:probe:serve`  | Start card probe cache server on :9239               |
+| `bun run doctor:probe:serve`  | Start card probe cache server (`[doctor.probe].port`, default 5678) |
 
 ## Card probes
 
@@ -37,10 +37,11 @@ When a dashboard is running, card probes report live route health:
 bun run dev                          # start app (optional)
 bun run doctor:probe                 # one-shot table
 kimi-doctor --probe-cards --json       # structured JSON
-bun run doctor:probe:serve           # cache server at http://127.0.0.1:9239
+bun run doctor:probe:serve           # cache server — port from [doctor.probe] in dx.config.toml
+kimi-doctor --serve-probe            # Herdr [doctor].tabs probe pane command
 ```
 
-Set `EXAMPLES_DASHBOARD_URL` / `HERDR_DASHBOARD_URL` in `.env` when auto-discovery on ports 3000 / 18412 is not enough. See `env.example`.
+Configure port and refresh interval in `dx.config.toml` `[doctor.probe]` (scaffold default port **5678**, interval **15000** ms). Env `PROBE_SERVER_PORT` overrides TOML. Set `EXAMPLES_DASHBOARD_URL` / `HERDR_DASHBOARD_URL` in `.env` when auto-discovery on ports 3000 / 18412 is not enough. See `env.example` and [serve-probe.md](../../docs/references/serve-probe.md).
 
 ## Tech Stack
 

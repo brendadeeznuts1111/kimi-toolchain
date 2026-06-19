@@ -11,6 +11,8 @@ import {
 } from "../src/lib/herdr-dashboard-data.ts";
 import { bunImageSupported } from "../src/lib/bun-image.ts";
 import { HerdrDashboardDiscoveryCache } from "../src/lib/herdr-dashboard-discovery-cache.ts";
+import { ArtifactStore } from "../src/lib/artifact-store.ts";
+import { startProbeServer } from "../src/lib/card-probe-server.ts";
 import {
   dashboardScreenshotPlaceholder,
   resolveHerdrDashboardHtmlPath,
@@ -25,7 +27,14 @@ import {
 } from "../src/lib/herdr-webview-dashboard.ts";
 import { webViewConsoleMirror } from "../src/lib/webview-console.ts";
 import type { DashboardIpcCommand } from "../src/lib/herdr-dashboard-data.ts";
-import { REPO_ROOT, captureConsole, testTempDir, writeText } from "./helpers.ts";
+import {
+  REPO_ROOT,
+  captureConsole,
+  cleanupPath,
+  testTempDir,
+  withEnv,
+  writeText,
+} from "./helpers.ts";
 
 /** Fast gate: CLI --timeout 1500; slow tests need per-test override. */
 const SERVER_TEST_MS = 20_000;
@@ -179,8 +188,8 @@ describe("herdr-dashboard-server", () => {
         };
         const html = await readableStreamToText(htmlRes.body);
         expect(html).toContain("Herdr Orchestrator Dashboard");
-        expect(html).toContain("/herdr-dashboard.css");
-        expect(html).toContain("/herdr-dashboard.js");
+        expect(html).toContain('href="herdr-dashboard.css"');
+        expect(html).toContain('src="herdr-dashboard.js"');
         expect(html).toContain("Loading agents");
         expect(html).toContain("rules-meta-slot");
         expect(html).toContain("control-plane");
@@ -188,6 +197,7 @@ describe("herdr-dashboard-server", () => {
         expect(html).toContain("agents-heading");
         expect(html).toContain("agents-legend");
         expect(html).toContain("Upgrade scan");
+        expect(html).toContain("Artifacts");
 
         const cssRes = (await fetch(`${server.url}herdr-dashboard.css`)) as unknown as {
           body: ReadableStream<Uint8Array>;
@@ -264,6 +274,130 @@ describe("herdr-dashboard-server", () => {
   );
 
   test(
+    "dashboard server artifacts API returns saved gate artifacts",
+    async () => {
+      const dir = testTempDir("herdr-dashboard-artifacts-");
+      await Bun.write(
+        join(dir, "dx.config.toml"),
+        `[doctor.probe]\nport = 59123\nhost = "127.0.0.1"\n`
+      );
+      const store = new ArtifactStore(dir);
+      await store.save("bunfig-policy", { status: "pass", message: "bunfig policy ok" });
+      await store.save("card-probe", { ok: false, reason: "card probe failed" });
+      await withEnv({ PROBE_SERVER_PORT: undefined, PROBE_SERVER_HOST: undefined }, async () => {
+        const server = startHerdrDashboardServer({
+          projectPath: dir,
+          port: 0,
+          sessions: false,
+        });
+        try {
+          const res = (await fetch(`${server.url}api/artifacts`)) as unknown as {
+            status: number;
+            body: ReadableStream<Uint8Array>;
+          };
+          expect(res.status).toBe(200);
+          const body = JSON.parse(await readableStreamToText(res.body)) as {
+            ok: boolean;
+            artifacts: Array<{
+              gate: string;
+              count: number;
+              status: string;
+              summary: string;
+              latestSize?: number;
+              latestResultSize?: number;
+            }>;
+            probeServerUrl: string;
+            probeReachable: boolean;
+          };
+          expect(body.ok).toBe(true);
+          expect(body.artifacts.map((row) => row.gate).sort()).toEqual([
+            "bunfig-policy",
+            "card-probe",
+          ]);
+          expect(body.artifacts.find((row) => row.gate === "bunfig-policy")?.status).toBe("pass");
+          expect(body.artifacts.find((row) => row.gate === "card-probe")?.summary).toContain(
+            "card probe failed"
+          );
+          expect(typeof body.probeServerUrl).toBe("string");
+          expect(body.probeReachable).toBe(false);
+          const bunfig = body.artifacts.find((row) => row.gate === "bunfig-policy");
+          expect(bunfig?.latestSize).toBeGreaterThan(0);
+          expect(bunfig?.latestResultSize).toBeGreaterThan(0);
+        } finally {
+          server.stop();
+        }
+      });
+      cleanupPath(dir);
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
+    "dashboard server artifacts API is read-only",
+    async () => {
+      const server = startHerdrDashboardServer({
+        projectPath: REPO_ROOT,
+        port: 0,
+        sessions: false,
+      });
+      try {
+        const res = (await fetch(`${server.url}api/artifacts/bunfig-policy/refresh`, {
+          method: "POST",
+        })) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        expect(res.status).toBe(405);
+        const body = JSON.parse(await readableStreamToText(res.body)) as {
+          ok: boolean;
+          error: string;
+        };
+        expect(body.ok).toBe(false);
+        expect(body.error).toContain("artifact API is read-only");
+        expect(body.error).toContain("kimi-doctor --gate <name> --save-artifact");
+      } finally {
+        server.stop();
+      }
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
+    "dashboard server examples health API reports unavailable service",
+    async () => {
+      await withEnv({ HERDR_EXAMPLES_DASHBOARD_URL: "http://127.0.0.1:9/" }, async () => {
+        const server = startHerdrDashboardServer({
+          projectPath: REPO_ROOT,
+          port: 0,
+          sessions: false,
+          herdrEvents: false,
+          gateHealthWatch: false,
+        });
+        try {
+          const res = (await fetch(`${server.url}api/examples/health`)) as unknown as {
+            status: number;
+            body: ReadableStream<Uint8Array>;
+          };
+          expect(res.status).toBe(200);
+          const body = JSON.parse(await readableStreamToText(res.body)) as {
+            ok: boolean;
+            url: string;
+            healthUrl: string;
+            error?: string;
+          };
+          expect(body.ok).toBe(false);
+          expect(body.url).toBe("http://127.0.0.1:9/");
+          expect(body.healthUrl).toBe("http://127.0.0.1:9/health");
+          expect(body.error).toBeTruthy();
+        } finally {
+          server.stop();
+        }
+      });
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
     "dashboard server health API returns subsystem statuses",
     async () => {
       const discoveryCache = new HerdrDashboardDiscoveryCache({
@@ -302,42 +436,107 @@ describe("herdr-dashboard-server", () => {
           hosts: [],
         }),
       });
-      const server = startHerdrDashboardServer({
-        projectPath: REPO_ROOT,
+      await withEnv({ PROBE_SERVER_PORT: "59124" }, async () => {
+        const server = startHerdrDashboardServer({
+          projectPath: REPO_ROOT,
+          port: 0,
+          sessions: false,
+          discoveryCache,
+        });
+        try {
+          await server.hub.refresh();
+          const res = (await fetch(`${server.url}api/health`)) as unknown as {
+            status: number;
+            body: ReadableStream<Uint8Array>;
+          };
+          expect(res.status).toBe(200);
+          const body = JSON.parse(await readableStreamToText(res.body)) as {
+            ok: boolean;
+            checks: {
+              agents: { status: string; count: number };
+              sse: { status: string; subscribers: number };
+              herdr: { status: string; connected: boolean; workspaceId: string | null };
+              gate: { status: string; failed: boolean | null };
+              probe: {
+                status: string;
+                reachable: boolean;
+                pass: number;
+                fail: number;
+                unknown: number;
+                url: string;
+              };
+              discovery: { status: string; workspaceId: string | null };
+            };
+            fetchedAt: string;
+          };
+          expect(body.ok).toBe(true);
+          expect(body.checks.agents.status).toBe("ok");
+          expect(body.checks.agents.count).toBe(2);
+          expect(body.checks.sse.status).toBe("warn");
+          expect(["ok", "warn", "unknown"]).toContain(body.checks.herdr.status);
+          expect(
+            body.checks.gate.failed === null || typeof body.checks.gate.failed === "boolean"
+          ).toBe(true);
+          expect(body.checks.discovery.status).toBe("ok");
+          expect(body.checks.probe.status).toBe("unknown");
+          expect(body.checks.probe.reachable).toBe(false);
+          expect(body.fetchedAt).toBeTruthy();
+        } finally {
+          server.stop();
+        }
+      });
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
+    "dashboard server proxies serve-probe when [doctor.probe] port is reachable",
+    async () => {
+      const dir = testTempDir("herdr-dashboard-probe-proxy-");
+      const probe = await startProbeServer({
         port: 0,
-        sessions: false,
-        discoveryCache,
+        projectRoot: dir,
+        probeConfig: { timeoutMs: 100 },
       });
       try {
-        await server.hub.refresh();
-        const res = (await fetch(`${server.url}api/health`)) as unknown as {
-          status: number;
-          body: ReadableStream<Uint8Array>;
-        };
-        expect(res.status).toBe(200);
-        const body = JSON.parse(await readableStreamToText(res.body)) as {
-          ok: boolean;
-          checks: {
-            agents: { status: string; count: number };
-            sse: { status: string; subscribers: number };
-            herdr: { status: string; connected: boolean; workspaceId: string | null };
-            gate: { status: string; failed: boolean | null };
-            discovery: { status: string; workspaceId: string | null };
+        await Bun.write(
+          join(dir, "dx.config.toml"),
+          `[doctor.probe]\nport = ${new URL(probe.url).port}\nhost = "127.0.0.1"\n`
+        );
+        const dashboard = startHerdrDashboardServer({
+          projectPath: dir,
+          port: 0,
+          sessions: false,
+        });
+        try {
+          const healthRes = (await fetch(`${dashboard.url}api/health`)) as unknown as {
+            status: number;
+            body: ReadableStream<Uint8Array>;
           };
-          fetchedAt: string;
-        };
-        expect(body.ok).toBe(true);
-        expect(body.checks.agents.status).toBe("ok");
-        expect(body.checks.agents.count).toBe(2);
-        expect(body.checks.sse.status).toBe("warn");
-        expect(["ok", "warn", "unknown"]).toContain(body.checks.herdr.status);
-        expect(
-          body.checks.gate.failed === null || typeof body.checks.gate.failed === "boolean"
-        ).toBe(true);
-        expect(body.checks.discovery.status).toBe("ok");
-        expect(body.fetchedAt).toBeTruthy();
+          const health = JSON.parse(await readableStreamToText(healthRes.body)) as {
+            checks: { probe: { reachable: boolean; status: string } };
+          };
+          expect(health.checks.probe.reachable).toBe(true);
+          expect(["ok", "warn", "error"]).toContain(health.checks.probe.status);
+
+          const cardsRes = (await fetch(`${dashboard.url}api/probe/cards`)) as unknown as {
+            status: number;
+            body: ReadableStream<Uint8Array>;
+          };
+          expect(cardsRes.status).toBe(200);
+          const cards = JSON.parse(await readableStreamToText(cardsRes.body)) as {
+            ok: boolean;
+            reachable: boolean;
+            summary: { total: number };
+          };
+          expect(cards.reachable).toBe(true);
+          expect(cards.summary.total).toBeGreaterThanOrEqual(0);
+        } finally {
+          dashboard.stop();
+        }
       } finally {
-        server.stop();
+        probe.stop();
+        cleanupPath(dir);
       }
     },
     { timeout: SERVER_TEST_MS }

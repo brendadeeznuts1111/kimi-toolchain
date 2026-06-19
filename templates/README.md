@@ -184,7 +184,9 @@ Most dashboard data flows through three layers:
 | `GET /api/meta`        | Runtime config, discovery context, and WebView metadata.                                                                          |
 | `GET /api/agents`      | Current agent snapshot.                                                                                                           |
 | `GET /api/agents/live` | SSE live stream of agent updates.                                                                                                 |
-| `GET /api/health`      | Lightweight subsystem health (agents, SSE, herdr socket, gates, discovery). Schema: `schemas/herdr-dashboard-health.schema.json`. |
+| `GET /api/health`      | Lightweight subsystem health (agents, SSE, herdr socket, gates, **probe**, discovery). Schema: `schemas/herdr-dashboard-health.schema.json`. |
+| `GET /api/artifacts`   | Saved gate artifacts (disk) with `latestSize` / `latestResultSize` and serve-probe reachability hint. |
+| `GET /api/probe/cards` | Proxy to serve-probe `/api/cards` (live dashboard card snapshot). |
 | `GET /api/handoffs`    | Handoff history.                                                                                                                  |
 | `GET /api/rules`       | Handoff rules with last-fired metadata.                                                                                           |
 | `GET /api/scan`        | Upgrade scan findings.                                                                                                            |

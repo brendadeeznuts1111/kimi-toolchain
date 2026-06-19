@@ -22,6 +22,7 @@ import {
   type ErrorLogSinkStatus,
 } from "./error-log-discovery.ts";
 import { tlsComplianceGate } from "../guardian/tls-compliance.ts";
+import { ArtifactStore } from "./artifact-store.ts";
 
 export const DEFAULT_DASHBOARD_PORT = 18412;
 
@@ -412,6 +413,171 @@ export function fetchDashboardCanvases(): DashboardCanvasesPayload {
   };
 }
 
+// ── Artifact inventory ─────────────────────────────────────────────────
+
+export interface DashboardArtifactEntry {
+  gate: string;
+  count: number;
+  latestPath: string | null;
+  latestSize?: number;
+  latestResultSize?: number;
+  status: string;
+  summary: string;
+  updatedAt: string | null;
+}
+
+export interface DashboardArtifactsPayload {
+  ok: boolean;
+  projectPath: string;
+  probeServerUrl: string;
+  probeReachable: boolean;
+  artifacts: DashboardArtifactEntry[];
+  fetchedAt: string;
+}
+
+export interface DashboardProbeCardsPayload {
+  ok: boolean;
+  url: string;
+  reachable: boolean;
+  summary?: { pass: number; fail: number; unknown: number; total: number };
+  fetchedAt?: string;
+  cards?: unknown[];
+  error?: string;
+}
+
+function artifactPayloadStatus(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "unknown";
+  const row = payload as Record<string, unknown>;
+  if (typeof row.status === "string") return row.status;
+  if (typeof row.ok === "boolean") return row.ok ? "pass" : "fail";
+  const summary = row.summary as Record<string, unknown> | undefined;
+  if (typeof summary?.ok === "boolean") return summary.ok ? "pass" : "fail";
+  return "unknown";
+}
+
+function artifactPayloadSummary(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "No payload summary";
+  const row = payload as Record<string, unknown>;
+  if (typeof row.message === "string") return row.message.slice(0, 160);
+  if (typeof row.reason === "string") return row.reason.slice(0, 160);
+  const summary = row.summary as Record<string, unknown> | undefined;
+  if (summary && typeof summary === "object") {
+    const parts = Object.entries(summary)
+      .filter(([, value]) => typeof value !== "object")
+      .slice(0, 4)
+      .map(([key, value]) => `${key}: ${String(value)}`);
+    if (parts.length > 0) return parts.join(" · ").slice(0, 160);
+  }
+  return JSON.stringify(payload).slice(0, 160);
+}
+
+function artifactPayloadUpdatedAt(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const row = payload as Record<string, unknown>;
+  for (const key of ["fetchedAt", "generatedAt", "timestamp", "updatedAt"]) {
+    if (typeof row[key] === "string") return row[key] as string;
+  }
+  return null;
+}
+
+const PROBE_FETCH_TIMEOUT_MS = 1200;
+
+async function fetchServeProbeJson(
+  baseUrl: string,
+  path: string
+): Promise<{ ok: boolean; status: number; body: unknown }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PROBE_FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(new URL(path, baseUrl).toString(), { signal: controller.signal });
+    const text = await res.text();
+    let body: unknown = null;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = { raw: text };
+    }
+    return { ok: res.ok, status: res.status, body };
+  } catch {
+    return { ok: false, status: 0, body: null };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/** Proxy serve-probe card snapshot for dashboard summary card. */
+export async function fetchDashboardProbeCards(
+  projectPath: string
+): Promise<DashboardProbeCardsPayload> {
+  const { resolveProbeServerUrl } = await import("./doctor-probe-config.ts");
+  const url = await resolveProbeServerUrl(projectPath);
+  const result = await fetchServeProbeJson(url, "/api/cards");
+  if (!result.ok || !result.body || typeof result.body !== "object") {
+    return {
+      ok: false,
+      url,
+      reachable: false,
+      error: "serve-probe unreachable — run kimi-doctor --serve-probe",
+    };
+  }
+  const row = result.body as Record<string, unknown>;
+  const summary = row.summary as DashboardProbeCardsPayload["summary"];
+  return {
+    ok: row.ok === true,
+    url,
+    reachable: true,
+    summary,
+    fetchedAt: typeof row.fetchedAt === "string" ? row.fetchedAt : undefined,
+    cards: Array.isArray(row.cards) ? row.cards : undefined,
+  };
+}
+
+/** Saved gate artifacts for the dashboard Artifacts tab. */
+export async function fetchDashboardArtifacts(
+  projectPath: string
+): Promise<DashboardArtifactsPayload> {
+  const { resolveProbeServerUrl } = await import("./doctor-probe-config.ts");
+  const store = new ArtifactStore(projectPath);
+  const probeServerUrl = await resolveProbeServerUrl(projectPath);
+  const probeHealth = await fetchServeProbeJson(probeServerUrl, "/api/health");
+  const gates = await store.listGates();
+  const artifacts: DashboardArtifactEntry[] = [];
+
+  for (const gate of gates) {
+    const paths = await store.list(gate);
+    const latest = await store.getLatest(gate);
+    const listed = await store.listEntries(gate, { limit: 1 });
+    const latestEntry = listed.entries.at(-1);
+    artifacts.push({
+      gate,
+      count: paths.length,
+      latestPath: latest?.relativePath ?? null,
+      ...(latestEntry?.size !== undefined ? { latestSize: latestEntry.size } : {}),
+      ...(latestEntry?.resultSize !== undefined
+        ? { latestResultSize: latestEntry.resultSize }
+        : {}),
+      status: artifactPayloadStatus(latest?.payload),
+      summary: artifactPayloadSummary(latest?.payload),
+      updatedAt: artifactPayloadUpdatedAt(latest?.payload),
+    });
+  }
+
+  artifacts.sort((a, b) => {
+    const byLatest = String(b.latestPath ?? "").localeCompare(String(a.latestPath ?? ""));
+    if (byLatest !== 0) return byLatest;
+    return a.gate.localeCompare(b.gate);
+  });
+
+  return {
+    ok: true,
+    projectPath,
+    probeServerUrl,
+    probeReachable: probeHealth.ok,
+    artifacts,
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
 // ── Gate health ──────────────────────────────────────────────────────
 
 export interface DashboardGateCheckPayload {
@@ -607,6 +773,14 @@ export interface DashboardHealthCheck {
   message?: string;
 }
 
+export interface DashboardProbeHealthCheck extends DashboardHealthCheck {
+  url: string;
+  reachable: boolean;
+  pass: number;
+  fail: number;
+  unknown: number;
+}
+
 export interface DashboardHealthPayload {
   ok: boolean;
   checks: {
@@ -614,6 +788,7 @@ export interface DashboardHealthPayload {
     sse: DashboardHealthCheck & { subscribers: number };
     herdr: DashboardHealthCheck & { connected: boolean; workspaceId: string | null };
     gate: DashboardHealthCheck & { failed: boolean | null };
+    probe: DashboardProbeHealthCheck;
     discovery: DashboardHealthCheck & { workspaceId: string | null };
   };
   fetchedAt: string;
@@ -627,6 +802,7 @@ export interface DashboardHealthInput {
   herdrEnabled: boolean;
   gateFailed: boolean | null;
   discoveryWorkspaceId: string | null;
+  probe?: Pick<DashboardProbeHealthCheck, "url" | "reachable" | "pass" | "fail" | "unknown">;
 }
 
 /** Lightweight health snapshot for the Herdr dashboard header/summary cards. */
@@ -678,19 +854,65 @@ export function fetchDashboardHealth(input: DashboardHealthInput): DashboardHeal
       : "workspace not resolved",
   };
 
+  const probeInput = input.probe;
+  const probePass = probeInput?.pass ?? 0;
+  const probeFail = probeInput?.fail ?? 0;
+  const probeUnknown = probeInput?.unknown ?? 0;
+  const probe: DashboardProbeHealthCheck = {
+    status: !probeInput?.reachable
+      ? "unknown"
+      : probeFail > 0
+        ? "error"
+        : probeUnknown > 0
+          ? "warn"
+          : "ok",
+    url: probeInput?.url ?? "",
+    reachable: probeInput?.reachable === true,
+    pass: probePass,
+    fail: probeFail,
+    unknown: probeUnknown,
+    message: !probeInput?.reachable
+      ? "serve-probe offline"
+      : `${probePass} pass · ${probeFail} fail · ${probeUnknown} unknown`,
+  };
+
   const ok =
     agents.status !== "error" &&
     sse.status !== "error" &&
     herdr.status !== "error" &&
     gate.status !== "error" &&
+    probe.status !== "error" &&
     discovery.status !== "error" &&
     agents.status !== "warn" &&
     discovery.status !== "warn";
 
   return {
     ok,
-    checks: { agents, sse, herdr, gate, discovery },
+    checks: { agents, sse, herdr, gate, probe, discovery },
     fetchedAt,
+  };
+}
+
+/** Probe serve-probe and build health input for `/api/health`. */
+export async function fetchDashboardProbeHealthInput(
+  projectPath: string
+): Promise<NonNullable<DashboardHealthInput["probe"]>> {
+  const cards = await fetchDashboardProbeCards(projectPath);
+  if (!cards.reachable || !cards.summary) {
+    return {
+      url: cards.url,
+      reachable: false,
+      pass: 0,
+      fail: 0,
+      unknown: 0,
+    };
+  }
+  return {
+    url: cards.url,
+    reachable: true,
+    pass: cards.summary.pass,
+    fail: cards.summary.fail,
+    unknown: cards.summary.unknown,
   };
 }
 
