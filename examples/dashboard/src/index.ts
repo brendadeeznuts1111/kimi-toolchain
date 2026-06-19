@@ -449,68 +449,32 @@ async function apiUuid(): Promise<Response> {
 
 async function apiInspectConfig(): Promise<Response> {
   const isTTY = process.stdout?.isTTY ?? false;
-  const current = configureInspect("auto");
+  const debug = Bun.env.DEBUG_INSPECT === "true";
+  const isProd = Bun.env.NODE_ENV === "production";
+
+  const preset = debug ? "debug" : isProd ? "production" : isTTY ? "local" : "non-tty";
+  const depth = debug ? "Infinity" : isProd ? 2 : isTTY ? 5 : 4;
+  const colors = debug ? "inherit" : isTTY;
+  const compact = !isTTY || isProd;
+  const showHidden = debug;
 
   return jsonResponse({
-    preset: current.preset,
-    environment: Bun.env.NODE_ENV === "production" ? "production" : isTTY ? "local" : "non-tty",
-    config: current,
+    preset,
+    environment: isProd ? "production" : isTTY ? "local" : "non-tty",
+    config: { depth, colors, compact, sorted: isTTY, maxArrayLength: isProd ? 30 : "Infinity", showHidden },
     detected: {
       isTTY,
-      NODE_ENV: Bun.env.NODE_ENV || "development",
+      CI: Bun.env.CI || "unset",
+      NODE_ENV: Bun.env.NODE_ENV || "unset",
       DEBUG_INSPECT: Bun.env.DEBUG_INSPECT || "unset",
-      debugForced: current.forcedDebug,
     },
     presets: [
-      {
-        preset: "auto (TTY dev)",
-        colors: true,
-        depth: 5,
-        compact: false,
-        sorted: true,
-        maxArrayLength: "Infinity",
-        showHidden: false,
-      },
-      {
-        preset: "auto (non-TTY)",
-        colors: false,
-        depth: 4,
-        compact: true,
-        sorted: true,
-        maxArrayLength: 100,
-        showHidden: false,
-      },
-      {
-        preset: "auto (production)",
-        colors: false,
-        depth: 2,
-        compact: true,
-        sorted: false,
-        maxArrayLength: 30,
-        showHidden: false,
-      },
-      {
-        preset: "debug",
-        colors: "inherit",
-        depth: "Infinity",
-        compact: false,
-        sorted: true,
-        maxArrayLength: "Infinity",
-        showHidden: true,
-      },
-      {
-        preset: "compact",
-        colors: false,
-        depth: 3,
-        compact: true,
-        sorted: false,
-        maxArrayLength: 50,
-        showHidden: false,
-      },
+      { environment: "Local terminal (dev)", debug: "—", colors: "true (TTY)", depth: 5, compact: false, showHidden: false, useCase: "Best developer experience" },
+      { environment: "CI / GitHub Actions / pipe", debug: "—", colors: "false (pipe)", depth: 4, compact: true, showHidden: false, useCase: "Clean, safe logs" },
+      { environment: "Production", debug: "—", colors: "false", depth: 2, compact: true, showHidden: false, useCase: "Minimal output" },
+      { environment: "Any (local/CI/prod)", debug: "1 / true", colors: "true (if TTY)", depth: "Infinity", compact: false, showHidden: true, useCase: "Maximum visibility for debugging" },
     ],
-    note: current.forcedDebug
-      ? "DEBUG_INSPECT forced the debug preset"
-      : `Auto preset resolved to ${current.preset}`,
+    note: debug ? "DEBUG_INSPECT=true — depth=Infinity, showHidden=true" : `Auto preset (${preset}). console.depth=4 from bunfig.toml`,
   });
 }
 
