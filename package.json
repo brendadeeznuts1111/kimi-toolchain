@@ -37,6 +37,7 @@
     "kimi-resource-governor": "src/bin/kimi-resource-governor.ts",
     "kimi-snapshot": "src/bin/kimi-snapshot.ts",
     "kimi-toolchain": "src/bin/kimi-toolchain.ts",
+    "kimi-bake": "src/bin/kimi-bake.ts",
     "unified-shell-bridge": "src/bin/unified-shell-bridge.ts",
     "herdr-doctor": "src/bin/herdr-doctor.ts",
     "herdr-latm": "src/bin/herdr-latm.ts",
