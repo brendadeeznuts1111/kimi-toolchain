@@ -31,6 +31,8 @@ const THIS_MANIFEST_ID = "v53-architecture";
 const THIS_CANVAS_ID = "dashboard-card-registry";
 const BUN_INSPECT_DEPTH_DOC =
   "https://bun.sh/reference/bun/BunInspectOptions/depth#bun.BunInspectOptions.depth";
+const BUN_HTTPS_AGENT_OPTIONS_DOC =
+  "https://bun.sh/reference/node/https/AgentOptions#node:https.AgentOptions";
 
 const TOTAL_CARDS = 65;
 const CANVAS_ROWS = 10;
@@ -420,6 +422,15 @@ export default function DashboardCardRegistryCanvas() {
         <CanvasNavButton label="/api/console-depth" path="examples/dashboard/src/index.ts" dispatch={dispatch} /> —{" "}
         <code>Bun.inspect(obj, {"{ depth }"})</code> and global <code>console.depth</code> from bunfig.toml /
         <code>--console-depth</code>. Doc: {BUN_INSPECT_DEPTH_DOC}
+      </Callout>
+
+      <Callout tone="info" title="https.AgentOptions (http-client)">
+        Production TLS floor in{" "}
+        <CanvasNavButton label="src/lib/http-client.ts" path="src/lib/http-client.ts" dispatch={dispatch} /> —{" "}
+        <code>makeHttpClient({"{ minTLS }"})</code> passes <code>minVersion</code> to{" "}
+        <code>new https.Agent({"{ minVersion }"})</code> for <code>fetch(..., {"{ agent }"})</code>. Pair with{" "}
+        <code>maxVersion</code>, <code>rejectUnauthorized</code>, <code>ca</code> per Node compat. Doc:{" "}
+        {BUN_HTTPS_AGENT_OPTIONS_DOC}
       </Callout>
 
       <CollapsibleSection title={`Unlinked cards (${ORPHAN_CARDS})`} count={ORPHAN_CARDS} defaultOpen={false}>

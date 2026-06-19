@@ -10,7 +10,7 @@ import { makeDir, pathExists } from "./bun-io.ts";
 /** Modules scaffolded when KIMI_MODULES is unset. */
 export const DEFAULT_KIMI_MODULES = ["doctor"] as const;
 
-export type KimiModuleName = "doctor" | "image" | "trace" | "perf" | "clock" | "uuid";
+export type KimiModuleName = "doctor" | "image" | "trace" | "perf" | "clock" | "uuid" | "http";
 
 export function parseKimiModules(
   env: Record<string, string | undefined> = Bun.env
@@ -52,6 +52,7 @@ const DOCTOR_PACKAGE_SCRIPTS: Record<string, string> = {
 const IMAGE_TEMPLATE = join("templates", "modules", "image", "src", "processor.ts");
 const CLOCK_TEMPLATE = join("templates", "modules", "clock", "src", "processor.ts");
 const UUID_TEMPLATE = join("templates", "modules", "uuid", "src", "processor.ts");
+const HTTP_TEMPLATE = join("templates", "modules", "http", "src", "processor.ts");
 
 export interface ScaffoldModulesResult {
   modules: string[];
@@ -111,6 +112,11 @@ function initTsContent(modules: string[]): string {
   if (modules.includes("uuid")) {
     lines.push("import * as uuid from './effect/uuid/processor.ts';");
     lines.push("globalThis[Symbol.for('kimi.effect.uuid')] = uuid;");
+    lines.push("");
+  }
+  if (modules.includes("http")) {
+    lines.push("import * as http from './effect/http/processor.ts';");
+    lines.push("globalThis[Symbol.for('kimi.effect.http')] = http;");
     lines.push("");
   }
   if (modules.includes("doctor")) {
@@ -176,6 +182,20 @@ export async function scaffoldKimiModules(
       const dest = join(project, "src/effect/uuid/processor.ts");
       if (pathExists(dest)) {
         skipped.push("uuid:processor.ts");
+      } else if (pathExists(src)) {
+        if (!dryRun) {
+          makeDir(join(dest, ".."), { recursive: true });
+          await Bun.write(dest, Bun.file(src));
+        }
+        written.push(dest);
+      }
+    }
+
+    if (mod === "http") {
+      const src = join(root, HTTP_TEMPLATE);
+      const dest = join(project, "src/effect/http/processor.ts");
+      if (pathExists(dest)) {
+        skipped.push("http:processor.ts");
       } else if (pathExists(src)) {
         if (!dryRun) {
           makeDir(join(dest, ".."), { recursive: true });

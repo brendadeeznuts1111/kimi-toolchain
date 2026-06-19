@@ -7,6 +7,7 @@
  */
 
 import { resolve } from "path";
+import { readText } from "../lib/bun-io.ts";
 
 /** A discovered effect method. */
 export interface EffectMethod {
@@ -45,7 +46,7 @@ export function scanEffectMethods(pattern: string): EffectMethod[] {
 
     let source: string;
     try {
-      source = Bun.file(filePath).textSync?.() ?? "";
+      source = readText(filePath);
     } catch {
       continue;
     }

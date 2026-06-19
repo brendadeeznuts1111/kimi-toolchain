@@ -102,6 +102,22 @@ describe("doc-links-lint", () => {
     expect(violations).toHaveLength(0);
   });
 
+  test("allows BUN_HTTPS_AGENT_OPTIONS_DOC_URL definition in http-client.ts", () => {
+    const violations = scanDocLinkFile(
+      "src/lib/http-client.ts",
+      'export const BUN_HTTPS_AGENT_OPTIONS_DOC_URL = "https://bun.sh/reference/node/https/AgentOptions";\n'
+    );
+    expect(violations).toHaveLength(0);
+  });
+
+  test("flags raw https AgentOptions URL in consumer modules", () => {
+    const violations = scanDocLinkFile(
+      "src/lib/example.ts",
+      '  console.log("see https://bun.sh/reference/node/https/AgentOptions");\n'
+    );
+    expect(violations.some((v) => v.rule === "use-doc-constant")).toBe(true);
+  });
+
   test("flags raw image doc URL in consumer modules", () => {
     const violations = scanDocLinkFile(
       "src/lib/herdr-dashboard-server.ts",

@@ -67,6 +67,9 @@
     "LICENSE",
     "CHANGELOG.md"
   ],
+  "workspaces": [
+    "templates/bun-create"
+  ],
   "type": "module",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"

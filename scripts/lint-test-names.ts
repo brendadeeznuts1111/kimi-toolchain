@@ -57,6 +57,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "herdr-socket-saturation-subscribe": "src/lib/herdr-socket-client.ts",
   "canvas-metadata-integrity": "src/lib/canvas-metadata-integrity.gate.ts",
   "perf-gate": "src/guardian/perf-gate.ts",
+  "tls-compliance": "src/guardian/tls-compliance.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */

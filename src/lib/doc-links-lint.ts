@@ -92,6 +92,22 @@ export const BUN_DOC_LINK_CONSTANTS = [
       pathnamePrefix: "/reference/bun/randomUUIDv7",
     } satisfies BunDocLinkMatchSpec,
   },
+  {
+    constant: "BUN_HTTPS_AGENT_OPTIONS_DOC_URL",
+    definingFile: "src/lib/http-client.ts",
+    match: {
+      hostnames: ["bun.sh"],
+      pathname: "/reference/node/https/AgentOptions",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_HTTPS_AGENT_MIN_VERSION_DOC_URL",
+    definingFile: "src/lib/http-client.ts",
+    match: {
+      hostnames: ["bun.sh"],
+      pathnamePrefix: "/reference/node/https/AgentOptions/minVersion",
+    } satisfies BunDocLinkMatchSpec,
+  },
 ] as const;
 
 const DEFAULT_DOC_PROTOCOLS = ["http:", "https:"] as const;

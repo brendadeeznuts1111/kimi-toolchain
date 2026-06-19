@@ -5,7 +5,7 @@ import { startProbeServer } from "../src/lib/card-probe-server.ts";
 
 describe("card-probe-server", () => {
   test("serves /api/health, /api/cards, and /api/refresh", async () => {
-    const handle = await startProbeServer({ port: 0 });
+    const handle = await startProbeServer({ port: 0, probeConfig: { timeoutMs: 100 } });
     try {
       const health = await fetch(`${handle.url}/api/health`);
       expect(health.status).toBe(200);
@@ -48,7 +48,7 @@ describe("card-probe-server", () => {
   });
 
   test("returns JSON 405 with allowed methods", async () => {
-    const handle = await startProbeServer({ port: 0 });
+    const handle = await startProbeServer({ port: 0, probeConfig: { timeoutMs: 100 } });
     try {
       const cardsPost = await fetch(`${handle.url}/api/cards`, { method: "POST" });
       expect(cardsPost.status).toBe(405);

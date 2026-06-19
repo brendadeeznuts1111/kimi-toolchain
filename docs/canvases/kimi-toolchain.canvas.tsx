@@ -45,7 +45,7 @@ const TOOL_INVENTORY = [
 ] as const;
 
 const GATE_LAYERS = [
-  ["Fast iterate", "bun run check:fast", "~3s · 167 unit files @ 1500ms", "Local TDD"],
+  ["Fast iterate", "bun run check:fast", "~3s · 172 unit files @ 1500ms", "Local TDD"],
   ["Pre-commit", "format:check + lint + typecheck", "kimi-githooks install", "git commit"],
   [
     "Pre-push",
@@ -141,7 +141,7 @@ const CANVAS_ROUTING_ROW_TONE = [
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
-  { id: "test", label: "bun run check:fast", sub: "167 unit gates" },
+  { id: "test", label: "bun run check:fast", sub: "172 unit gates" },
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -168,8 +168,8 @@ const TOOL_CATEGORIES = [
 ] as const;
 
 const BIN_COUNT = 29;
-const LIB_COUNT = 261;
-const UNIT_COUNT = 167;
+const LIB_COUNT = 266;
+const UNIT_COUNT = 172;
 const INTEGRATION_COUNT = 5;
 const SMOKE_COUNT = 6;
 const CURSOR_CANVAS_COUNT = 10;

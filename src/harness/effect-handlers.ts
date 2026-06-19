@@ -7,6 +7,7 @@
  */
 
 import { registerEffectBenchmark } from "../lib/effect-benchmark.ts";
+import "./http-effect-handlers.ts";
 
 // Minimal valid PNG (2×2 red pixel)
 const SAMPLE_PNG = new Uint8Array([
