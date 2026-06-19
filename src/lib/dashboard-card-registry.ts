@@ -63,8 +63,12 @@ export interface DashboardCardsPayload {
     manifestId: string | null;
     canvasId: string | null;
     orphans: boolean;
+    /** False when `canvas` query did not match a known manifest/canvasId. */
+    recognized?: boolean;
   };
   fetchedAt: string;
+  /** Present when route probes ran (`probed` option / `?probe=true`). */
+  probedCount?: number;
 }
 
 export function repoRootFromLibDir(libDir: string): string {
@@ -73,6 +77,24 @@ export function repoRootFromLibDir(libDir: string): string {
 
 export function dashboardHtmlPath(repoRoot: string): string {
   return join(repoRoot, DASHBOARD_HTML_REL);
+}
+
+/** Start index of the innermost `(async () => {` IIFE enclosing `cardIndex`. */
+function findEnclosingIifeStart(script: string, cardIndex: number): number {
+  const before = script.slice(0, cardIndex);
+  const iifeRe = /\(async\s*\(\s*\)\s*=>\s*\{/g;
+  let start = 0;
+  for (const match of before.matchAll(iifeRe)) {
+    start = match.index ?? 0;
+  }
+  return start;
+}
+
+/** First document-order fetch in a card loader block (primary probe route). */
+function primaryApiRouteInBlock(block: string): string | null {
+  const fetchRe = /(?:fetchJson|fetch)\("(\/api\/[^"]+)"\)/g;
+  const matches = [...block.matchAll(fetchRe)].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+  return matches[0]?.[1] ?? null;
 }
 
 /** Parse `id="card-*"` panels and primary `/api/*` route from dashboard.html script blocks. */
@@ -94,15 +116,10 @@ export function parseDashboardCardsFromHtml(html: string): Array<{
   for (const match of script.matchAll(/card\("(card-[^"]+)"/g)) {
     const cardId = match[1];
     const idx = match.index ?? 0;
-    const window = script.slice(Math.max(0, idx - 2500), idx);
-    const fetchMatches = [
-      ...window.matchAll(/fetchJson\("(\/api\/[^"]+)"\)/g),
-      ...window.matchAll(/fetch\("(\/api\/[^"]+)"\)/g),
-    ];
-    if (fetchMatches.length > 0) {
-      const last = fetchMatches[fetchMatches.length - 1];
-      apiByCard.set(cardId, last[1]);
-    }
+    const iifeStart = findEnclosingIifeStart(script, idx);
+    const block = script.slice(iifeStart, idx);
+    const route = primaryApiRouteInBlock(block);
+    if (route) apiByCard.set(cardId, route);
   }
 
   return panels.map((panel) => ({
@@ -113,6 +130,7 @@ export function parseDashboardCardsFromHtml(html: string): Array<{
 
 function inferApiRoute(cardId: string): string | null {
   const overrides: Record<string, string> = {
+    "card-gates": "/api/gates",
     "card-depth": "/api/console-depth",
     "card-build": "/api/build-info",
     "card-dotenv": "/api/dotenv",
@@ -182,24 +200,30 @@ function buildInfluenceReverseMap(): Map<string, string[]> {
 export function resolveCanvasFilter(canvasQuery: string | null | undefined): {
   manifestId: string | null;
   canvasId: string | null;
+  recognized: boolean;
 } {
   const raw = canvasQuery?.trim();
-  if (!raw) return { manifestId: null, canvasId: null };
+  if (!raw) return { manifestId: null, canvasId: null, recognized: true };
 
   const byManifest = LOCAL_DOC_REFERENCES.find((r) => r.id === raw);
   if (byManifest?.cursorCanvas) {
     return {
       manifestId: byManifest.id,
       canvasId: byManifest.canvasId ?? raw,
+      recognized: true,
     };
   }
 
   const byCanvasId = LOCAL_DOC_REFERENCES.find((r) => r.canvasId === raw);
   if (byCanvasId) {
-    return { manifestId: byCanvasId.id, canvasId: byCanvasId.canvasId ?? raw };
+    return {
+      manifestId: byCanvasId.id,
+      canvasId: byCanvasId.canvasId ?? raw,
+      recognized: true,
+    };
   }
 
-  return { manifestId: raw, canvasId: raw };
+  return { manifestId: null, canvasId: null, recognized: false };
 }
 
 export function influencesForManifest(manifestId: string): readonly string[] {
@@ -369,11 +393,13 @@ export async function fetchDashboardCardsPayload(
     /** When true, include per-card probe counts in payload metadata. */
     probed?: boolean;
   } = {}
-): Promise<DashboardCardsPayload & { probedCount?: number }> {
+): Promise<DashboardCardsPayload> {
   const filter = resolveCanvasFilter(options.canvas ?? null);
   const registry = buildDashboardCardRegistry(repoRoot);
   const influenceSet =
-    filter.manifestId != null ? new Set(influencesForManifest(filter.manifestId)) : null;
+    filter.recognized && filter.manifestId != null
+      ? new Set(influencesForManifest(filter.manifestId))
+      : null;
   const showcaseIndex = buildCardShowcaseIndex();
 
   const probes: Record<string, unknown> = { ...options.probes };
@@ -403,6 +429,7 @@ export async function fetchDashboardCardsPayload(
       manifestId: filter.manifestId,
       canvasId: filter.canvasId,
       orphans: options.orphans === true,
+      recognized: filter.recognized,
     },
     fetchedAt: new Date().toISOString(),
     ...(options.probed

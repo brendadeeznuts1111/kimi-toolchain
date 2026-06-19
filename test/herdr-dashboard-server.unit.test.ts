@@ -1061,7 +1061,13 @@ describe("herdr-dashboard-server", () => {
           total: number;
           gates: number;
           mermaid: string;
-          nodes: Array<{ gate: string; status: string; upstream: string[] }>;
+          nodes: Array<{
+            gate: string;
+            status: string;
+            upstream: string[];
+            hostname?: string;
+            pid?: number;
+          }>;
           edges: Array<{ from: string; to: string }>;
           probeReachable: boolean;
         };
@@ -1072,8 +1078,62 @@ describe("herdr-dashboard-server", () => {
         expect(body.mermaid).toContain("bunfig-policy");
         expect(body.mermaid).toContain("perf-gate");
         expect(body.nodes.some((n) => n.gate === "perf-gate" && n.status === "pass")).toBe(true);
+        const perfNode = body.nodes.find((n) => n.gate === "perf-gate");
+        expect(perfNode?.hostname).toBeTruthy();
+        expect(perfNode?.pid).toBe(process.pid);
         expect(body.edges.length).toBe(1);
         expect(typeof body.probeReachable).toBe("boolean");
+      } finally {
+        server.stop();
+      }
+      cleanupPath(dir);
+    },
+    { timeout: SERVER_TEST_MS }
+  );
+
+  test(
+    "dashboard server metadata API returns indexed envelope metadata",
+    async () => {
+      const dir = testTempDir("herdr-dashboard-metadata-");
+      const store = new ArtifactStore(dir);
+      await store.save(
+        "model-drift",
+        { drift: 0.2 },
+        {
+          dependsOn: [{ gate: "strategy-performance", limit: 1 }],
+          runId: "run_herdr_meta",
+          level: 2,
+        }
+      );
+
+      const server = startHerdrDashboardServer({
+        projectPath: dir,
+        port: 0,
+        sessions: false,
+      });
+      try {
+        const res = (await fetch(
+          `${server.url}api/artifacts/metadata?gate=model-drift&limit=5`
+        )) as unknown as {
+          status: number;
+          body: ReadableStream<Uint8Array>;
+        };
+        expect(res.status).toBe(200);
+        const body = JSON.parse(await readableStreamToText(res.body)) as {
+          ok: boolean;
+          indexSource: string;
+          entries: Array<{
+            gate: string;
+            metadata: { runId?: string; hostname?: string; pid?: number; dependsOn?: unknown[] };
+          }>;
+        };
+        expect(body.ok).toBe(true);
+        expect(body.indexSource).toBe("sqlite");
+        expect(body.entries[0]?.gate).toBe("model-drift");
+        expect(body.entries[0]?.metadata.runId).toBe("run_herdr_meta");
+        expect(body.entries[0]?.metadata.hostname).toBeTruthy();
+        expect(body.entries[0]?.metadata.pid).toBe(process.pid);
+        expect(body.entries[0]?.metadata.dependsOn?.length).toBe(1);
       } finally {
         server.stop();
       }
