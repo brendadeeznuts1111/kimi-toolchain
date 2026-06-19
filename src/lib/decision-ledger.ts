@@ -3,11 +3,11 @@
  */
 
 import { Context, Data, Effect, Layer } from "effect";
-import { decisionLedgerPath } from "./paths.ts";
-import { sha256String } from "./utils.ts";
+import { decisionLedgerPath, decisionsNdjsonPath } from "./paths.ts";
+import { resolveProjectRoot, sha256String } from "./utils.ts";
 import { ensureProcessTrace } from "./effect/trace-context.ts";
 import { buildTraceGraph, type TraceGraph } from "./trace-ledger.ts";
-import { appendNdjsonRecord, readNdjsonFile } from "./ndjson.ts";
+import { appendNdjsonRecord, readNdjsonFile, rewriteNdjsonFile } from "./ndjson.ts";
 import {
   buildDecisionRationale,
   buildDecisionRationaleEffect,
@@ -16,6 +16,12 @@ import {
 
 export type { RationaleBuildContext } from "./decision-rationale.ts";
 export { buildDecisionRationale, buildDecisionRationaleEffect } from "./decision-rationale.ts";
+export { buildDecisionGraph } from "./decision-graph.ts";
+
+/** Backward-compatible aliases for legacy callers. */
+export type Decision = DecisionRecord;
+export type DecisionSuggestion = DecisionRecord;
+export type RationaleContext = RationaleBuildContext;
 
 export type DecisionSchemaVersion = 1 | 2;
 export type DecisionActor = "kimi" | "user" | "ci" | (string & {});
@@ -39,11 +45,11 @@ export interface DecisionEvidence {
 export interface DecisionRationaleBlock {
   summary: string;
   fullReasoning: string;
-  evidence: DecisionEvidence[];
+  evidence?: DecisionEvidence[];
 }
 
 export interface DecisionTriggerContext {
-  summary: string;
+  summary?: string;
   traceId?: string;
   clusterId?: string;
   contractFile?: string;
@@ -614,8 +620,11 @@ function parseTriggerContext(value: unknown): DecisionTriggerContext | null {
   }
   if (!value || typeof value !== "object") return null;
   const raw = value as Record<string, unknown>;
-  const summary = stringValue(raw.summary);
-  if (!summary) return null;
+  const summary =
+    stringValue(raw.summary) ??
+    stringValue(raw.traceId) ??
+    stringValue(raw.clusterId) ??
+    "legacy trigger";
   return {
     summary,
     traceId: stringValue(raw.traceId),
@@ -835,4 +844,274 @@ function scoreUpdateTarget(record: DecisionRecord): string | undefined {
   return typeof record.metadata?.scoreUpdateFor === "string"
     ? record.metadata.scoreUpdateFor
     : undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Backward-compatible decision API (legacy callers)
+// ---------------------------------------------------------------------------
+
+/** Resolve the decision ledger path for a project or the global fallback. */
+export function resolveDecisionsPath(projectRoot?: string): string {
+  return projectRoot ? decisionsNdjsonPath(projectRoot) : decisionLedgerPath();
+}
+
+/** Legacy alias for resolveProjectRoot used by kimi-doctor and kimi-config. */
+export async function resolveDecisionsRoot(fallback?: string): Promise<string> {
+  return resolveProjectRoot(fallback);
+}
+
+/** Legacy input shape accepted by logDecision/logDecisionEffect. */
+export interface LegacyDecisionInput
+  extends Omit<DecisionInput, "key" | "trigger" | "outcome" | "alternatives"> {
+  /** Derived from action/trigger when omitted. */
+  key?: string;
+  /** Old name for rationaleBlock. */
+  rationaleOverride?: Partial<DecisionRationaleBlock>;
+  /** Old name for triggerContext when passed as an object. */
+  trigger?: string | Partial<DecisionTriggerContext>;
+  /** Old name for outcomeDetail when passed as an object. */
+  outcome?: DecisionOutcome | DecisionOutcomeBlock;
+  /** Old name for alternativeOptions when passed as objects. */
+  alternatives?: string[] | DecisionAlternativeOption[];
+}
+
+function normalizeLegacyDecisionInput(input: LegacyDecisionInput): DecisionInput {
+  const normalized = { ...input } as DecisionInput;
+  const raw = normalized as unknown as Record<string, unknown>;
+  if (!normalized.key) {
+    normalized.key =
+      input.trigger && typeof input.trigger === "object" && input.trigger.capabilityItem
+        ? input.trigger.capabilityItem
+        : input.action;
+  }
+  if (input.rationaleOverride) {
+    normalized.rationaleBlock = {
+      summary: input.rationaleOverride.summary ?? "",
+      fullReasoning:
+        input.rationaleOverride.fullReasoning ?? input.rationaleOverride.summary ?? "",
+      evidence: input.rationaleOverride.evidence ?? [],
+    };
+    delete raw.rationaleOverride;
+  }
+  if (input.trigger && typeof input.trigger === "object") {
+    normalized.triggerContext = {
+      ...input.trigger,
+      summary:
+        input.trigger.summary ||
+        input.trigger.capabilityItem ||
+        input.action ||
+        "legacy trigger",
+    };
+    delete raw.trigger;
+  }
+  if (input.outcome && typeof input.outcome === "object") {
+    normalized.outcomeDetail = input.outcome;
+    delete raw.outcome;
+  }
+  if (
+    input.alternatives &&
+    input.alternatives.length > 0 &&
+    typeof input.alternatives[0] === "object"
+  ) {
+    normalized.alternativeOptions = input.alternatives as DecisionAlternativeOption[];
+    delete raw.alternatives;
+  }
+  return normalized;
+}
+
+/** Legacy alias for recordDecision that accepts older field names. */
+export async function logDecision(
+  input: LegacyDecisionInput,
+  pathOrOptions?: string | { projectRoot?: string }
+): Promise<DecisionRecord> {
+  const path =
+    typeof pathOrOptions === "string"
+      ? pathOrOptions
+      : resolveDecisionsPath(pathOrOptions?.projectRoot);
+  return recordDecision(normalizeLegacyDecisionInput(input), path);
+}
+
+/** Legacy alias for readDecisionLedger scoped to a project root. */
+export async function readDecisions(projectRoot?: string): Promise<DecisionRecord[]> {
+  return readDecisionLedger(resolveDecisionsPath(projectRoot));
+}
+
+/** Update the outcome of an existing decision record. */
+export async function updateDecisionOutcome(
+  decisionId: string,
+  outcome: DecisionOutcome | DecisionOutcomeBlock,
+  options?: { projectRoot?: string; qualityScore?: number }
+): Promise<DecisionRecord | null> {
+  const path = resolveDecisionsPath(options?.projectRoot);
+  const records = await readDecisionLedger(path);
+  const index = records.findIndex(
+    (record) => record.decisionId === decisionId || record.id === decisionId
+  );
+  if (index < 0) return null;
+  const record = records[index]!;
+  const outcomeBlock: DecisionOutcomeBlock =
+    typeof outcome === "string" ? { result: outcome } : outcome;
+  const updated: DecisionRecord = {
+    ...record,
+    outcome: outcomeBlock,
+    qualityScore: options?.qualityScore ?? record.qualityScore,
+  };
+  records[index] = updated;
+  await rewriteNdjsonFile(path, records);
+  return updated;
+}
+
+/** Legacy alias for explainDecision that accepts a decisionId and projectRoot. */
+export async function buildWhyReport(
+  decisionId: string,
+  projectRoot?: string
+): Promise<DecisionExplanation> {
+  return explainDecision(decisionId, resolveDecisionsPath(projectRoot));
+}
+
+/** Effect wrapper around logDecision for legacy callers. */
+export function logDecisionEffect(
+  input: LegacyDecisionInput,
+  options?: { projectRoot?: string; context?: RationaleBuildContext }
+): Effect.Effect<DecisionRecord, never> {
+  const normalized = normalizeLegacyDecisionInput(input);
+  if (options?.context && !normalized.rationaleContext && !normalized.rationaleBlock) {
+    normalized.rationaleContext = options.context;
+  }
+  return Effect.tryPromise({
+    try: () => logDecision(normalized, options),
+    catch: () => "log-decision-failed",
+  }).pipe(Effect.catchAll(() => Effect.succeed(createDecisionRecord(normalized))));
+}
+
+/** Current decision ledger schema version written by `logDecision`. */
+export const DECISION_SCHEMA_VERSION = 2 satisfies DecisionSchemaVersion;
+
+export interface DecisionDiffField {
+  field: string;
+  left: unknown;
+  right: unknown;
+}
+
+export interface DecisionDiffReport {
+  leftId: string;
+  rightId: string;
+  fields: DecisionDiffField[];
+}
+
+export interface DecisionListWindowOptions {
+  sinceMs: number;
+  nowMs?: number;
+}
+
+export interface DecisionRecentFilter extends DecisionListWindowOptions {
+  type?: string;
+}
+
+function decisionTimestampMs(decision: DecisionRecord): number {
+  const parsed = Date.parse(decision.timestamp);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function metadataType(decision: DecisionRecord): string | undefined {
+  const meta = decision.metadata;
+  return meta && typeof meta.type === "string" ? meta.type : undefined;
+}
+
+function constantKeyFromMetadata(metadata: Record<string, unknown> | undefined): string | undefined {
+  if (!metadata) return undefined;
+  if (typeof metadata.constantKey === "string") return metadata.constantKey;
+  const restored = metadata.restoredKeys;
+  if (Array.isArray(restored) && typeof restored[0] === "string") return restored[0];
+  return undefined;
+}
+
+/** Parse compact window strings (`7d`, `24h`, `30m`) to milliseconds. */
+export function parseDecisionWindow(window: string): number {
+  const match = window.trim().match(/^(\d+)([dhm])$/);
+  if (!match) throw new Error(`invalid decision window: ${window}`);
+  const amount = Number(match[1]);
+  const unit = match[2];
+  if (unit === "d") return amount * 24 * 60 * 60 * 1000;
+  if (unit === "h") return amount * 60 * 60 * 1000;
+  return amount * 60 * 1000;
+}
+
+export function filterDecisionsByConstant(
+  decisions: readonly DecisionRecord[],
+  constantKey: string,
+  options: DecisionListWindowOptions
+): DecisionRecord[] {
+  const nowMs = options.nowMs ?? Date.now();
+  return decisions.filter((decision) => {
+    const ts = decisionTimestampMs(decision);
+    if (ts < options.sinceMs || ts > nowMs) return false;
+    const key = constantKeyFromMetadata(decision.metadata);
+    return key === constantKey;
+  });
+}
+
+export function filterRecentDecisions(
+  decisions: readonly DecisionRecord[],
+  options: DecisionRecentFilter
+): DecisionRecord[] {
+  const nowMs = options.nowMs ?? Date.now();
+  return decisions.filter((decision) => {
+    const ts = decisionTimestampMs(decision);
+    if (ts < options.sinceMs || ts > nowMs) return false;
+    if (options.type && metadataType(decision) !== options.type) return false;
+    return true;
+  });
+}
+
+function collectDecisionDiffFields(
+  left: unknown,
+  right: unknown,
+  prefix: string,
+  fields: DecisionDiffField[]
+): void {
+  if (left === right) return;
+  if (
+    left &&
+    right &&
+    typeof left === "object" &&
+    typeof right === "object" &&
+    !Array.isArray(left) &&
+    !Array.isArray(right)
+  ) {
+    const leftObj = left as Record<string, unknown>;
+    const rightObj = right as Record<string, unknown>;
+    const keys = new Set([...Object.keys(leftObj), ...Object.keys(rightObj)]);
+    for (const key of keys) {
+      collectDecisionDiffFields(leftObj[key], rightObj[key], prefix ? `${prefix}.${key}` : key, fields);
+    }
+    return;
+  }
+  fields.push({ field: prefix, left, right });
+}
+
+export function diffDecisions(left: DecisionRecord, right: DecisionRecord): DecisionDiffReport {
+  const fields: DecisionDiffField[] = [];
+  collectDecisionDiffFields(left, right, "", fields);
+  return {
+    leftId: left.decisionId,
+    rightId: right.decisionId,
+    fields: fields.filter((field) => field.field.length > 0),
+  };
+}
+
+export function formatDecisionCompact(decision: DecisionRecord): string {
+  const date = decision.timestamp.slice(0, 10);
+  const type = metadataType(decision) ?? "unknown";
+  const meta = decision.metadata ?? {};
+  const key = constantKeyFromMetadata(meta) ?? "—";
+  const golden =
+    typeof meta.goldenVersion === "string" ? `golden v${meta.goldenVersion}` : "golden v?";
+  const diff = meta.diff as
+    | { invalidKeys?: Array<{ key: string; expected: unknown; actual: unknown }> }
+    | undefined;
+  const invalid = diff?.invalidKeys?.find((row) => row.key === key);
+  const repairPath =
+    invalid != null ? `${invalid.expected}->${invalid.actual}->${invalid.expected}` : "—";
+  return `${decision.decisionId} | ${date} | ${type} | ${key} | ${repairPath} | ${golden}`;
 }

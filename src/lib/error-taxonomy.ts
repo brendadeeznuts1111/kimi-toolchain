@@ -22,6 +22,10 @@ export interface TaxonomyCategory {
   severity: "info" | "warn" | "error";
   expected: boolean;
   patterns: TaxonomyPattern[];
+  /** bunfig `[define]` keys that influence this failure category. */
+  boundConstants?: string[];
+  /** @deprecated Use boundConstants — still accepted for legacy taxonomy YAML. */
+  relatedConstants?: string[];
   suggestion?: string;
   autoFix?: string;
   docLink?: string;

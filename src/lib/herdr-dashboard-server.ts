@@ -43,6 +43,9 @@ import {
   fetchDashboardTlsCompliance,
   fetchDashboardArtifacts,
   fetchDashboardArtifactAggregates,
+  fetchDashboardArtifactFeed,
+  fetchDashboardArtifactIndexStats,
+  fetchDashboardArtifactDiff,
   fetchDashboardRunsList,
   fetchDashboardRunManifest,
   fetchDashboardSessionsIndex,
@@ -66,7 +69,25 @@ import {
 } from "./herdr-dashboard-webview-store.ts";
 import { HerdrDashboardHub } from "./herdr-dashboard-hub.ts";
 import { HerdrDashboardDiscoveryCache } from "./herdr-dashboard-discovery-cache.ts";
+import {
+  buildHerdrDashboardEffectImageMeta,
+  effectImageMarkBytes,
+  effectImageMarkMime,
+  EFFECT_IMAGE_MARK_HEIGHT,
+  EFFECT_IMAGE_MARK_WIDTH,
+} from "./herdr-dashboard-effect-image.ts";
 import { artifactFilterFromSessionRoute, parseArtifactListQuery } from "./artifact-store.ts";
+import {
+  DASHBOARD_ARTIFACT_DIFF,
+  DASHBOARD_ARTIFACT_FEED,
+  DASHBOARD_ARTIFACT_INDEX_STATS,
+  DASHBOARD_ARTIFACT_LINEAGE,
+  DASHBOARD_RUN_MANIFEST,
+  DASHBOARD_SESSION_ARTIFACTS,
+  DASHBOARD_SESSION_RUNS,
+  isDashboardArtifactNamespace,
+  pathnameGroup,
+} from "./dashboard-route-patterns.ts";
 import { TtlCache } from "./cache.ts";
 import {
   dashboardEventTimestamp,
@@ -102,6 +123,10 @@ import {
   resolveDashboardServeTransport,
   type DashboardServeTransport,
 } from "./herdr-dashboard-http3.ts";
+import {
+  DEFAULT_EXAMPLES_DASHBOARD_URL,
+  fetchExamplesDashboardHealth,
+} from "./examples-dashboard-companion.ts";
 
 export interface HerdrDashboardServerOptions extends DashboardFetchOptions {
   projectPath: string;
@@ -140,6 +165,10 @@ export interface HerdrDashboardServerOptions extends DashboardFetchOptions {
   widgetGitDeps?: Partial<GitWidgetDeps>;
   /** Inject processes pane actions (tests). */
   widgetProcessesActionDeps?: Partial<ProcessesActionDeps>;
+  /** Examples tab iframe base URL (env/config resolved before server start). */
+  examplesDashboardUrl?: string;
+  /** Spawn examples dashboard companion when health is down (default true). */
+  autoStartExamples?: boolean;
 }
 
 export interface HerdrDashboardServerHandle {
@@ -231,44 +260,6 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-async function fetchExamplesDashboardHealth(url: string): Promise<Record<string, unknown>> {
-  const checkedAt = new Date().toISOString();
-  const healthUrl = (() => {
-    try {
-      return new URL("/health", url).toString();
-    } catch {
-      return null;
-    }
-  })();
-  if (!healthUrl) {
-    return { ok: false, url, checkedAt, error: "invalid examples dashboard URL" };
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 1200);
-  try {
-    const res = await fetch(healthUrl, { signal: controller.signal });
-    return {
-      ok: res.ok,
-      url,
-      healthUrl,
-      status: res.status,
-      checkedAt,
-    };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return {
-      ok: false,
-      url,
-      healthUrl,
-      checkedAt,
-      error: message,
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 interface ServeRequest {
   url: string;
   method: string;
@@ -294,6 +285,11 @@ export function startHerdrDashboardServer(
   const pollHintMs = options.pollHintMs ?? 5000;
   const ssePollMs = options.ssePollMs ?? pollHintMs;
   const staleMs = options.staleMs ?? 15_000;
+  const autoRefresh = options.autoRefresh ?? options.sessions !== false;
+  const examplesDashboardUrl =
+    options.examplesDashboardUrl?.trim() ||
+    Bun.env.HERDR_EXAMPLES_DASHBOARD_URL?.trim() ||
+    DEFAULT_EXAMPLES_DASHBOARD_URL;
   const fetchOpts: DashboardFetchOptions = {
     sessions: options.sessions,
     host: options.host,
@@ -316,14 +312,16 @@ export function startHerdrDashboardServer(
     staleMs,
     discoveryCache: options.discoveryCache,
   });
-  hub.start();
+  if (autoRefresh) hub.start();
   const metaWatchEnabled = options.metaWatch !== false;
   const metaWatch = metaWatchEnabled ? startDashboardMetaWatch(hub.eventBus) : null;
-  const gateHealthWatchEnabled = options.gateHealthWatch !== false && !Bun.env.KIMI_TEST_HOME;
+  const gateHealthWatchEnabled = options.gateHealthWatch === true && !Bun.env.KIMI_TEST_HOME;
   const gateHealthWatch = gateHealthWatchEnabled
     ? startDashboardGateHealthWatch(hub.eventBus, { projectPath: options.projectPath })
     : null;
-  void hub.refresh();
+  if (autoRefresh) {
+    setTimeout(() => void hub.refresh(), 0);
+  }
 
   const herdrEventBridge = startDashboardHerdrEventBridge({
     projectPath: options.projectPath,
@@ -389,12 +387,12 @@ export function startHerdrDashboardServer(
         return dashboardAssetResponse(name);
       }
 
-      const examplesDashboardUrl = Bun.env.HERDR_EXAMPLES_DASHBOARD_URL || "http://localhost:5678/";
       const { resolveProbeServerUrl } = await import("./doctor-probe-config.ts");
       const probeServerUrl = await resolveProbeServerUrl(options.projectPath);
 
       if (path === "/api/meta") {
         const dxDefaults = await loadDxDefaults(options.projectPath);
+        const effectImage = await buildHerdrDashboardEffectImageMeta();
         const meta: Record<string, unknown> = {
           ok: true,
           projectPath: options.projectPath,
@@ -408,6 +406,8 @@ export function startHerdrDashboardServer(
           herdrEvents: herdrEventBridge.status(),
           webview: metaWebView,
           discovery: hub.discoveryCache.discoveryContext(),
+          bunMarkPath: effectImage.markPath,
+          effectImage,
           defaults: dxDefaults ?? undefined,
           dryRun: options.dryRun ?? false,
           thumbnail:
@@ -455,6 +455,29 @@ export function startHerdrDashboardServer(
       if (path === "/api/probe/cards" && request.method === "GET") {
         const payload = await fetchDashboardProbeCards(options.projectPath);
         return jsonResponse(payload, payload.reachable ? 200 : 503);
+      }
+
+      if (path === "/api/bun-mark") {
+        if (!bunImageSupported()) {
+          return jsonResponse({ ok: false, error: "Bun.Image unavailable" }, 503);
+        }
+        const width = Number(url.searchParams.get("width") || String(EFFECT_IMAGE_MARK_WIDTH));
+        const height = Number(url.searchParams.get("height") || String(EFFECT_IMAGE_MARK_HEIGHT));
+        const quality = Number(url.searchParams.get("quality") || "82");
+        const bytes = await effectImageMarkBytes({ width, height, quality });
+        if (!bytes) {
+          return jsonResponse({ ok: false, error: "bun mark encode failed" }, 500);
+        }
+        return new Response(bytes, {
+          headers: withCorsHeaders({
+            "content-type": effectImageMarkMime(),
+            "cache-control": "no-store",
+          }),
+        });
+      }
+
+      if (path === "/api/effect-image") {
+        return jsonResponse(await buildHerdrDashboardEffectImageMeta());
       }
 
       if (path === "/api/thumbnail") {
@@ -507,8 +530,19 @@ export function startHerdrDashboardServer(
       }
 
       if (path === "/api/agents") {
-        const payload = await hub.refresh();
-        return jsonResponse(payload, payload.ok ? 200 : 503);
+        const cached = hub.lastPayload;
+        setTimeout(() => void hub.refreshDiscovery(), 0);
+        if (cached) {
+          return jsonResponse(cached, cached.ok ? 200 : 503);
+        }
+        return jsonResponse({
+          ok: true,
+          projectPath: options.projectPath,
+          agentCount: 0,
+          agents: [],
+          fetchedAt: new Date().toISOString(),
+          warming: true,
+        });
       }
 
       if (path === "/api/agents/live") {
@@ -663,19 +697,45 @@ export function startHerdrDashboardServer(
         return jsonResponse(payload);
       }
 
-      const sessionRunsMatch = path.match(/^\/api\/sessions\/([^/]+)\/runs$/);
+      const sessionRunsMatch = DASHBOARD_SESSION_RUNS.exec(url);
       if (sessionRunsMatch && request.method === "GET") {
-        const scope = decodeURIComponent(sessionRunsMatch[1]!);
+        const scope = pathnameGroup(sessionRunsMatch, "scope");
+        if (!scope) {
+          return jsonResponse({ ok: false, error: "session scope required" }, 400);
+        }
         const filter = artifactFilterFromSessionRoute(scope);
         const payload = await fetchDashboardRunsList(options.projectPath, filter);
         return jsonResponse(payload);
       }
 
-      const sessionArtifactsMatch = path.match(/^\/api\/sessions\/([^/]+)\/artifacts$/);
+      const sessionArtifactsMatch = DASHBOARD_SESSION_ARTIFACTS.exec(url);
       if (sessionArtifactsMatch && request.method === "GET") {
-        const scope = decodeURIComponent(sessionArtifactsMatch[1]!);
+        const scope = pathnameGroup(sessionArtifactsMatch, "scope");
+        if (!scope) {
+          return jsonResponse({ ok: false, error: "session scope required" }, 400);
+        }
         const filter = artifactFilterFromSessionRoute(scope);
         const payload = await fetchDashboardArtifacts(options.projectPath, filter);
+        return jsonResponse(payload);
+      }
+
+      if (DASHBOARD_ARTIFACT_FEED.test(url) && request.method === "GET") {
+        const limit = Number(url.searchParams.get("limit") ?? "50");
+        const xml = await fetchDashboardArtifactFeed(options.projectPath, {
+          baseUrl: url.origin,
+          limit: Number.isFinite(limit) ? limit : 50,
+        });
+        return new Response(xml, {
+          status: 200,
+          headers: {
+            "content-type": "application/rss+xml; charset=utf-8",
+            "cache-control": "no-store",
+          },
+        });
+      }
+
+      if (DASHBOARD_ARTIFACT_INDEX_STATS.test(url) && request.method === "GET") {
+        const payload = await fetchDashboardArtifactIndexStats(options.projectPath);
         return jsonResponse(payload);
       }
 
@@ -683,6 +743,23 @@ export function startHerdrDashboardServer(
         const filter = parseArtifactListQuery(url.searchParams);
         const payload = await fetchDashboardArtifactAggregates(options.projectPath, filter);
         return jsonResponse(payload);
+      }
+
+      const artifactDiffMatch = DASHBOARD_ARTIFACT_DIFF.exec(url);
+      if (artifactDiffMatch && request.method === "GET") {
+        const gateName = pathnameGroup(artifactDiffMatch, "gate");
+        const pathA = url.searchParams.get("a")?.trim() ?? "";
+        const pathB = url.searchParams.get("b")?.trim() ?? "";
+        if (!gateName || !pathA || !pathB) {
+          return jsonResponse({ ok: false, error: "gate, a, and b query params required" }, 400);
+        }
+        const payload = await fetchDashboardArtifactDiff(
+          options.projectPath,
+          gateName,
+          pathA,
+          pathB
+        );
+        return jsonResponse(payload, payload.ok ? 200 : 404);
       }
 
       if (path === "/api/artifacts" && request.method === "GET") {
@@ -697,16 +774,22 @@ export function startHerdrDashboardServer(
         return jsonResponse(payload);
       }
 
-      const runManifestMatch = path.match(/^\/api\/runs\/([^/]+)$/);
+      const runManifestMatch = DASHBOARD_RUN_MANIFEST.exec(url);
       if (runManifestMatch && request.method === "GET") {
-        const runId = decodeURIComponent(runManifestMatch[1]!);
+        const runId = pathnameGroup(runManifestMatch, "runId");
+        if (!runId) {
+          return jsonResponse({ ok: false, error: "runId required" }, 400);
+        }
         const payload = await fetchDashboardRunManifest(options.projectPath, runId);
         return jsonResponse(payload, payload.ok ? 200 : 404);
       }
 
-      const artifactLineageMatch = path.match(/^\/api\/artifacts\/([^/]+)\/lineage$/);
+      const artifactLineageMatch = DASHBOARD_ARTIFACT_LINEAGE.exec(url);
       if (artifactLineageMatch && request.method === "GET") {
-        const gateName = decodeURIComponent(artifactLineageMatch[1]!);
+        const gateName = pathnameGroup(artifactLineageMatch, "gate");
+        if (!gateName) {
+          return jsonResponse({ ok: false, error: "gate required" }, 400);
+        }
         const artifactPath = url.searchParams.get("path")?.trim() || undefined;
         const payload = await fetchDashboardArtifactLineage(
           options.projectPath,
@@ -727,14 +810,7 @@ export function startHerdrDashboardServer(
         return jsonResponse(payload, payload.ok ? 200 : 500);
       }
 
-      if (
-        path === "/api/artifacts" ||
-        path.startsWith("/api/artifacts/") ||
-        path === "/api/runs" ||
-        path.startsWith("/api/runs/") ||
-        path === "/api/sessions" ||
-        path.startsWith("/api/sessions/")
-      ) {
+      if (isDashboardArtifactNamespace(path)) {
         return jsonResponse(
           {
             ok: false,
@@ -776,6 +852,10 @@ export function startHerdrDashboardServer(
 
       if (path === "/api/health") {
         const probe = await fetchDashboardProbeHealthInput(options.projectPath);
+        const discoveryCtx = hub.discoveryCache.discoveryContext();
+        const agentWorkspaceId =
+          hub.lastPayload?.agents?.find((row) => row.workspaceId?.trim())?.workspaceId?.trim() ??
+          null;
         const payload = fetchDashboardHealth({
           agentCount: hub.lastPayload?.agentCount ?? 0,
           sseSubscribers: hub.sseSubscriberCount(),
@@ -783,7 +863,7 @@ export function startHerdrDashboardServer(
           herdrWorkspaceId: herdrEventBridge.status().workspaceId,
           herdrEnabled: herdrEventBridge.status().enabled,
           gateFailed: gateHealthWatch?.state.lastFailed ?? null,
-          discoveryWorkspaceId: hub.discoveryCache.discoveryContext().workspaceId,
+          discoveryWorkspaceId: discoveryCtx.workspaceId ?? agentWorkspaceId,
           probe,
         });
         return jsonResponse(payload);

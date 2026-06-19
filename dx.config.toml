@@ -25,3 +25,78 @@ docsSync = "bun run docs:sync"
 [kimi]
 memoryGate = true
 preflight = true
+
+[[endpoints]]
+name = "cloudflare-mcp"
+url = "https://mcp.cloudflare.com/mcp"
+
+[[endpoints]]
+name = "herdr-skill"
+url = "https://github.com/ogulcancelik/herdr/blob/d998753efe506a04c80306795efc72bff60bb0ec/SKILL.md"
+
+# Examples stack endpoints — mirrors examples/dashboard-urls.md inventory
+[[endpoints]]
+name = "examples-dashboard"
+url = "http://127.0.0.1:5678/"
+
+[[endpoints]]
+name = "examples-health"
+url = "http://127.0.0.1:5678/health"
+
+[[endpoints]]
+name = "examples-showcase"
+url = "http://127.0.0.1:5678/api/examples"
+
+[[endpoints]]
+name = "examples-cards"
+url = "http://127.0.0.1:5678/api/cards"
+
+[[endpoints]]
+name = "examples-artifact-lineage"
+url = "http://127.0.0.1:5678/api/artifacts/model-drift/lineage"
+
+[[endpoints]]
+name = "serve-probe-cards"
+url = "http://127.0.0.1:9239/api/cards"
+
+[[endpoints]]
+name = "herdr-meta"
+url = "http://127.0.0.1:18412/api/meta"
+
+[[endpoints]]
+name = "herdr-examples-health"
+url = "http://127.0.0.1:18412/api/examples/health"
+
+[finishWork]
+gates = [
+  "bun run check:fast",
+  "kimi-doctor --gate bunfig-policy",
+  "kimi-doctor --effect-gates",
+  "kimi-doctor --automation",
+  "kimi-heal effect audit",
+]
+
+[finishWork.followUp]
+command = "kimi-doctor --effect-floor"
+
+[herdr]
+enabled = true
+workspaceLabel = "kimi-toolchain"
+primaryAgent = "kimi"
+secondaryAgents = ["codex"]
+shellPane = true
+shellSplit = "right"
+
+[herdr.orchestrator]
+enabled = true
+contextOnIdle = true
+handoffFrom = "kimi"
+handoffTo = "codex"
+reviewerTab = "reviewer"
+
+[herdr.orchestrator.dashboard]
+examplesUrl = "http://127.0.0.1:5678/"
+autoStartExamples = true
+
+[herdr.orchestrator.remote_hosts.staging]
+host = "staging.example.com"

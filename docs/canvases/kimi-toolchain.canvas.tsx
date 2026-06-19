@@ -36,16 +36,16 @@ const NAME_MATRIX = [
 
 /** @generated hub-toolchain-inventory — bun run canvas:generate; do not edit */
 const TOOL_INVENTORY = [
-  ["Diagnostics", "kimi-config, kimi-debug, kimi-doctor, kimi-identity, kimi-orphan-kill"],
-  ["Governance / Security", "kimi-cloudflare-access, kimi-githooks, kimi-governance, kimi-guardian"],
-  ["Heal / Memory", "kimi-decision, kimi-heal, kimi-memory, kimi-resource-governor (health-listen), kimi-snapshot"],
-  ["Scaffold / Release", "kimi-bake, kimi-cleanup-legacy, kimi-context-gen, kimi-fix, kimi-new, kimi-release"],
-  ["Herdr", "herdr-doctor, herdr-latm, herdr-orchestrator, herdr-pane, herdr-project, herdr-spawn"],
-  ["Infrastructure", "kimi-dashboard, kimi-toolchain (router), unified-shell-bridge (MCP stdio)"],
+  ["Diagnostics", "kimi-capabilities, kimi-debug, kimi-doctor, kimi-orphan-kill, kimi-trace"],
+  ["Governance / Security", "kimi-cloudflare-access, kimi-contract, kimi-githooks, kimi-governance, kimi-guardian"],
+  ["Heal / Memory", "kimi-decision, kimi-error, kimi-heal, kimi-memory, kimi-resource-governor (health-listen), kimi-snapshot, kimi-why"],
+  ["Scaffold / Release", "kimi-cleanup-legacy, kimi-context-gen, kimi-fix, kimi-new, kimi-release"],
+  ["Herdr", ""],
+  ["Infrastructure", "kimi-toolchain (router), unified-shell-bridge (MCP stdio)"],
 ] as const;
 
 const GATE_LAYERS = [
-  ["Fast iterate", "bun run check:fast", "~3s · 184 unit files @ 1500ms", "Local TDD"],
+  ["Fast iterate", "bun run check:fast", "~3s · 188 unit files @ 1500ms", "Local TDD"],
   ["Pre-commit", "format:check + lint + typecheck", "kimi-githooks install", "git commit"],
   [
     "Pre-push",
@@ -85,7 +85,11 @@ const CONFIG_STATUS_SNAPSHOT = [
 const HEALTH_CHANNEL = [
   ["Publisher", "kimi-doctor", "tool:start · tool:progress · tool:done · result at entry/exit"],
   ["Subscriber", "kimi-resource-governor health-listen", "warning + load events from other tools"],
-  ["Transport", "~/.kimi-code/var/health-events.jsonl", "Append-only JSONL — same pattern as tool-failures.jsonl"],
+  [
+    "Transport",
+    "~/.kimi-code/var/health-events.jsonl",
+    "Append-only JSONL — same pattern as tool-failures.jsonl",
+  ],
   ["Module", "src/lib/health-channel.ts", "Cross-process telemetry; advisory, not critical path"],
 ] as const;
 
@@ -121,6 +125,7 @@ const CANVAS_ROUTING = [
   { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
   { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
   { id: "dashboard-card-registry", page: "Card registry", path: "docs/canvases/dashboard-card-registry.canvas.tsx", detail: "canvasInfluences · /api/cards · lint gate" },
+  { id: "artifact-lineage", page: "Artifacts & Runs", path: "docs/canvases/artifact-lineage.canvas.tsx", detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns" },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -136,12 +141,13 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "warning",
   "warning",
+  "neutral",
   "neutral"
 ] as const;
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
-  { id: "test", label: "bun run check:fast", sub: "184 unit gates" },
+  { id: "test", label: "bun run check:fast", sub: "188 unit gates" },
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -160,19 +166,19 @@ const DAG_EDGES = [
 /** @generated hub-toolchain-stats — bun run canvas:generate; do not edit */
 const TOOL_CATEGORIES = [
   { id: "diag", label: "Diagnostics", count: 5 },
-  { id: "gov", label: "Governance", count: 4 },
-  { id: "heal", label: "Heal / Memory", count: 5 },
-  { id: "scaffold", label: "Scaffold", count: 6 },
-  { id: "herdr", label: "Herdr", count: 6 },
-  { id: "infra", label: "Router / Bridge", count: 3 }
+  { id: "gov", label: "Governance", count: 5 },
+  { id: "heal", label: "Heal / Memory", count: 7 },
+  { id: "scaffold", label: "Scaffold", count: 5 },
+  { id: "herdr", label: "Herdr", count: 0 },
+  { id: "infra", label: "Router / Bridge", count: 2 }
 ] as const;
 
-const BIN_COUNT = 29;
-const LIB_COUNT = 269;
-const UNIT_COUNT = 184;
+const BIN_COUNT = 24;
+const LIB_COUNT = 290;
+const UNIT_COUNT = 188;
 const INTEGRATION_COUNT = 5;
 const SMOKE_COUNT = 6;
-const CURSOR_CANVAS_COUNT = 10;
+const CURSOR_CANVAS_COUNT = 11;
 
 function SyncFlowDag() {
   const theme = useHostTheme();
@@ -249,10 +255,29 @@ function SyncFlowDag() {
   );
 }
 
-function CanvasLink({ label, path, dispatch }: { label: string; path: string; dispatch: ReturnType<typeof useCanvasAction> }) {
+function CanvasLink({
+  label,
+  path,
+  dispatch,
+}: {
+  label: string;
+  path: string;
+  dispatch: ReturnType<typeof useCanvasAction>;
+}) {
   const theme = useHostTheme();
   return (
-    <Button variant="ghost" onClick={() => dispatch({ type: "openFile", path })} style={{ padding: 0, minHeight: "auto", height: "auto", color: theme.accent.primary, textDecoration: "underline", textUnderlineOffset: 2 }}>
+    <Button
+      variant="ghost"
+      onClick={() => dispatch({ type: "openFile", path })}
+      style={{
+        padding: 0,
+        minHeight: "auto",
+        height: "auto",
+        color: theme.accent.primary,
+        textDecoration: "underline",
+        textUnderlineOffset: 2,
+      }}
+    >
       {label}
     </Button>
   );
@@ -265,14 +290,21 @@ function RelatedCanvasesTable() {
       <Table
         headers={["Canvas", "Page", "Detail"]}
         rows={CANVAS_ROUTING.map((c) => [
-          <CanvasLink key={`${c.id}-file`} label={`${c.id}.canvas.tsx`} path={c.path} dispatch={dispatch} />,
+          <CanvasLink
+            key={`${c.id}-file`}
+            label={`${c.id}.canvas.tsx`}
+            path={c.path}
+            dispatch={dispatch}
+          />,
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail,
         ])}
         rowTone={[...CANVAS_ROUTING_ROW_TONE]}
         striped
       />
-      <Text tone="tertiary" size="small">Click Canvas or Page to open · read order: Hub → Config or Namespace → Scaffold → Herdr</Text>
+      <Text tone="tertiary" size="small">
+        Click Canvas or Page to open · read order: Hub → Config or Namespace → Scaffold → Herdr
+      </Text>
     </Stack>
   );
 }
@@ -421,7 +453,9 @@ export default function KimiToolchainCanvas() {
       </Card>
 
       <Card>
-        <CardHeader trailing={<Pill size="sm">JSONL</Pill>}>Health channel (cross-tool telemetry)</CardHeader>
+        <CardHeader trailing={<Pill size="sm">JSONL</Pill>}>
+          Health channel (cross-tool telemetry)
+        </CardHeader>
         <CardBody style={{ padding: 0 }}>
           <Table
             headers={["Role", "Tool / path", "Behavior"]}
@@ -432,8 +466,8 @@ export default function KimiToolchainCanvas() {
         </CardBody>
         <CardBody>
           <Text tone="tertiary" size="small">
-            Added 2026-06-18 · subscribe: kimi-resource-governor health-listen · publish: kimi-doctor
-            diagnostic runs
+            Added 2026-06-18 · subscribe: kimi-resource-governor health-listen · publish:
+            kimi-doctor diagnostic runs
           </Text>
         </CardBody>
       </Card>
@@ -458,7 +492,10 @@ export default function KimiToolchainCanvas() {
         </CardBody>
       </Card>
 
-      <CollapsibleSection title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`} defaultOpen>
+      <CollapsibleSection
+        title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`}
+        defaultOpen
+      >
         <RelatedCanvasesTable />
       </CollapsibleSection>
 
