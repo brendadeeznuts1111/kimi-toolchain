@@ -532,8 +532,9 @@ async function apiDeps(): Promise<Response> {
     tree: lsOut.trim(),
     bunx: {
       available: Bun.which("bunx") !== null,
-      usage: "bunx <package>[@version] [args]",
-      example: "bunx oxlint@latest --version",
+      usage: "bunx [--bun] <package>[@version] [args]",
+      example: "bunx --bun oxlint@latest --version",
+      note: "--bun flag must come before the package name. Flags after the name pass through.",
     },
     note: "bun pm ls --all + bun pm bin + bunx. CI: git diff --exit-code dependencies.txt",
   });
