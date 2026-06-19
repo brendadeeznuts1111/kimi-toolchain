@@ -6,9 +6,16 @@
 
 ## Agent (following skill protocol)
 
-```
-── Running kimi-doctor ──────────────────────────────────────
+Per Project Health Check: `bun run config:status`, then `kimi doctor`, then
+`kimi-toolchain doctor --ecosystem --quick` (full tool doctors without `--quick`):
 
+```bash
+bun run config:status
+kimi doctor
+kimi-toolchain doctor --ecosystem --quick
+```
+
+```
 ── System ───────────────────────────────────────────────────
   ✓ disk: 45%
   ✓ memory: ~4200MB free

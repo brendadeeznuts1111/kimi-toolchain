@@ -13,13 +13,12 @@ kimi-guardian check
 ```
 
 ```
-── Lockfile Guardian ────────────────────────────────────────
-  ✗ HASH MISMATCH
-    Expected: a3f7c2...
-    Actual:   9e1d4b...
-    File:     bun.lock
+── Lockfile Integrity ───────────────────────────────────────
+  Hash: 9e1d4b8a2c...
+  ✗ HASH MISMATCH — lockfile may have been tampered with
+  ⚠ No signed manifest — run 'kimi-guardian sign' for v2 protection
 
-  Run 'kimi-guardian sign' to baseline the new lockfile.
+  Run 'kimi-guardian fix' to baseline the new lockfile.
 ```
 
 🚫 **Push blocked.** The lockfile changed but wasn't re-baselined.
@@ -27,16 +26,19 @@ kimi-guardian check
 This is a security measure — it means someone (or something) modified
 `bun.lock` without updating the stored hash.
 
-**Did you intentionally modify dependencies?** If so:
+**Did you intentionally modify dependencies?** If so, use `bun add` / `bun update`
+(not plain `bun install`), then:
 
 ```bash
-kimi-guardian sign
+kimi-guardian fix
+kimi-guardian check
+# optional v2: kimi-guardian sign
 ```
 
 Then re-check:
 
 ```bash
-kimi-guardian check && kimi-doctor
+kimi-guardian check && kimi-toolchain doctor --ecosystem --quick
 ```
 
 If you **didn't** change deps, this could indicate:
