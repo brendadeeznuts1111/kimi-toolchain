@@ -39,3 +39,25 @@ console.depth = 4
 [run]
 # Parent-death detection — child processes auto-exit when the parent dies.
 noOrphans = true
+
+[inspect.auto]
+depth = 5
+colors = true
+compact = false
+sorted = true
+showHidden = false
+
+[inspect.debug]
+depth = "Infinity"
+colors = true
+compact = false
+sorted = true
+showHidden = true
+
+[inspect.prod]
+depth = 2
+colors = false
+compact = true
+sorted = false
+maxArrayLength = 50
+showHidden = false

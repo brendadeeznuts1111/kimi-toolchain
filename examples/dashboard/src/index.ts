@@ -504,6 +504,30 @@ async function apiDeps(): Promise<Response> {
   });
 }
 
+async function apiBunfig(): Promise<Response> {
+  try {
+    const raw = await Bun.file("./bunfig.toml").text();
+    // Parse sections from the raw TOML (lightweight, no parser needed for display)
+    const sections: Record<string, Record<string, string>> = {};
+    let currentSection = "";
+    for (const line of raw.split("\n")) {
+      const secMatch = line.match(/^\[(\w+(?:\.\w+)*)\]/);
+      if (secMatch) { currentSection = secMatch[1]; sections[currentSection] = {}; continue; }
+      if (!currentSection) continue;
+      const kvMatch = line.match(/^(\w+)\s*=\s*(.+)$/);
+      if (kvMatch) sections[currentSection][kvMatch[1]] = kvMatch[2].replace(/#.*$/, "").trim();
+    }
+    return jsonResponse({
+      path: "./bunfig.toml",
+      sections,
+      mergeRule: "global (~/.bunfig.toml) → project (./bunfig.toml) shallow merge → CLI flags override",
+      import: 'import bunfig from "./bunfig.toml" with { type: "toml" };',
+    });
+  } catch {
+    return jsonResponse({ error: "No bunfig.toml found" });
+  }
+}
+
 // ── Server ──────────────────────────────────────────────────────────
 
 const server = Bun.serve({
@@ -543,6 +567,8 @@ const server = Bun.serve({
         return apiInspectSimple();
       case "/api/inspect-config":
         return apiInspectConfig();
+      case "/api/bunfig":
+        return apiBunfig();
       case "/api/uuid":
         return apiUuid();
       case "/health":
