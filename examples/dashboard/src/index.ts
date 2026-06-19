@@ -263,9 +263,11 @@ async function apiToolchainHeal(): Promise<Response> {
 async function apiInspectSimple(): Promise<Response> {
   const obj = { foo: "bar" };
   const arr = new Uint8Array([1, 2, 3]);
+  const constObj = { method: "GET", status: 200, debug: true };
   return new Response(
     `// Bun.inspect({ foo: "bar" })\n${Bun.inspect(obj)}\n\n` +
-    `// Bun.inspect(new Uint8Array([1, 2, 3]))\n${Bun.inspect(arr)}`,
+    `// Bun.inspect(new Uint8Array([1, 2, 3]))\n${Bun.inspect(arr)}\n\n` +
+    `// as const — TypeScript only, no runtime effect\n${Bun.inspect(constObj)}`,
     { headers: { "content-type": "text/plain; charset=utf-8" } }
   );
 }
