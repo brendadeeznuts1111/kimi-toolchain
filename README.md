@@ -71,6 +71,7 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run bun-native:migrate-imports` | (synced from package.json) |
 | `bun run bun-native:report` | (synced from package.json) |
 | `bun run bun-native:rules` | (synced from package.json) |
+| `bun run canvas:generate` | (synced from package.json) |
 | `bun run check` | (synced from package.json) |
 | `bun run check:dry-run` | (synced from package.json) |
 | `bun run check:fast` | (synced from package.json) |
@@ -85,6 +86,9 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run dashboard` | (synced from package.json) |
 | `bun run docs:sync` | (synced from package.json) |
 | `bun run doctor` | (synced from package.json) |
+| `bun run doctor:probe` | (synced from package.json) |
+| `bun run doctor:train` | (synced from package.json) |
+| `bun run doctor:watch` | (synced from package.json) |
 | `bun run dx-config` | (synced from package.json) |
 | `bun run dx-table` | (synced from package.json) |
 | `bun run dx:config` | (synced from package.json) |
@@ -112,6 +116,7 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run memory-budget` | (synced from package.json) |
 | `bun run memory-check` | (synced from package.json) |
 | `bun run new` | (synced from package.json) |
+| `bun run perf:auto-train` | (synced from package.json) |
 | `bun run perf:effect-handlers` | (synced from package.json) |
 | `bun run perf:gates:changed` | (synced from package.json) |
 | `bun run perf:nightly` | (synced from package.json) |
@@ -212,7 +217,8 @@ Run `bun run docs:sync` to audit README ↔ `package.json` script drift.
 | `bun run manifest:generate` | Regenerate constants manifest |
 | `bun run config:status` | Configuration layers audit — canonical refs, manifest, constant parity ([configuration-layers.md](./docs/references/configuration-layers.md)) |
 | `bun run docs:sync` | README script drift check/patch |
-| `bun run references:generate` | Regenerate `canonical-references.json` ecosystem link manifest |
+| `bun run references:generate` | Regenerate `canonical-references.json` ecosystem link manifest (+ canvas companions) |
+| `bun run canvas:generate` | Regenerate canvas `CANVAS_ROUTING` + hub stats/inventory (`--check` for CI) |
 | `bun run pr:diff` | PR diff helper |
 | `bun run pr:status` | PR status helper |
 | `bun run test:smoke` | Smoke CLI tests only |
@@ -373,6 +379,9 @@ Live runtime at `~/.kimi-code/` is synced via `bun run sync` (`scripts/sync-to-d
 | [docs/canvases/herdr-dashboard-automation.canvas.tsx](./docs/canvases/herdr-dashboard-automation.canvas.tsx) | `kimi-doctor` | `kimi-doctor --automation` gate |
 | [docs/canvases/herdr-dashboard-thumbnails.canvas.tsx](./docs/canvases/herdr-dashboard-thumbnails.canvas.tsx) | `dashboard-thumbnails` | PNG → Bun.Image → `/api/thumbnail` |
 | [docs/canvases/herdr-unified-plugin-architecture.canvas.tsx](./docs/canvases/herdr-unified-plugin-architecture.canvas.tsx) | `herdr-plugin-architecture` | Herdr plugin plan v0.5.0 |
+| [docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx](./docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx) | `deep-quality` | Effect heal + `KIMI_MODULES=doctor` scaffold |
+
+Regenerate routing/stats/inventory: `bun run canvas:generate` (also runs after `bun run references:generate`). See [docs/canvases/README.md](./docs/canvases/README.md).
 
 **Templates:** [TEMPLATES.md](./TEMPLATES.md) (manifest id `templates`) — scaffold profiles, CONTEXT/CHANGELOG patterns, `kimi-fix` wiring.
 
