@@ -223,17 +223,19 @@ Lint: `bun run scripts/lint-canvas-influences.ts` (gate: `canvas-influences` in 
 | `kimi-heal-doctor-scaffold` | `deep-quality` | `card-gates`, `card-effect-image` |
 | `herdr-dashboard-automation` | `kimi-doctor` | `card-kimi-doctor` |
 
-### v5.5 planning (not started)
+### v5.5 planning (partial)
 
 Builds on v5.4 registry + `/api/cards`. Deep links use manifest ids: `?canvas=deep-quality`.
 
-| Priority | Deliverable | Notes |
-| -------- | ----------- | ----- |
-| 1 | **Card status probes** | Extend `/api/cards` to run lightweight checks per card `apiRoute` (or explicit probe map); today only `card-gates` reads effect-gates JSON |
-| 2 | **Herdr bridge** | Canvas row links to `examples/dashboard?canvas=<manifestId>` (or embedded filtered card strip) |
-| 3 | **Unified surface** | Single tab: Herdr agents + filtered examples cards, or shared `card-status.json` both dashboards consume |
+| Priority | Deliverable | Status |
+| -------- | ----------- | ------ |
+| 1 | **Hub card status probes** | **Shipped (slice)** — 6 cards via `HUB_CARD_PROBE_IDS` in `dashboard-card-registry.ts`; `apiCards` calls handlers in parallel |
+| 2 | **Herdr bridge** | Not started — canvas row → `examples/dashboard?canvas=<manifestId>` |
+| 3 | **Unified surface** | Not started — single tab Herdr + examples cards |
 
-Out of scope until v5.5: live status for all 64 cards, combined Herdr+examples layout.
+Hub probes: `card-gates`, `card-kimi-doctor`, `card-scaffold`, `card-perf-harness`, `card-symbols`, `card-perf-registry`. All other cards remain `unknown`.
+
+Out of scope: live status for all 64 cards, combined Herdr+examples layout.
 
 ## Related
 

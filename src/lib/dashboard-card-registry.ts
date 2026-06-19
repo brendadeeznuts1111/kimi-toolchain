@@ -10,6 +10,18 @@ export const DASHBOARD_HTML_REL = "examples/dashboard/src/dashboard.html";
 
 export type DashboardCardStatus = "ok" | "warn" | "error" | "unknown";
 
+/** v5.5 hub cards — lightweight /api/cards status probes (manifest v53-architecture influences). */
+export const HUB_CARD_PROBE_IDS = [
+  "card-gates",
+  "card-kimi-doctor",
+  "card-scaffold",
+  "card-perf-harness",
+  "card-symbols",
+  "card-perf-registry",
+] as const;
+
+export type HubCardProbeId = (typeof HUB_CARD_PROBE_IDS)[number];
+
 export interface DashboardCardEntry {
   id: string;
   title: string;
@@ -194,25 +206,70 @@ function gateStatusFromJson(data: unknown): DashboardCardStatus {
   return "unknown";
 }
 
+/** Derive card status from a probed API JSON payload (hub cards only). */
+export function cardStatusFromProbe(cardId: string, data: unknown): DashboardCardStatus {
+  if (data === undefined) return "unknown";
+
+  switch (cardId) {
+    case "card-gates":
+      return gateStatusFromJson(data);
+    case "card-perf-harness":
+    case "card-perf-registry": {
+      const allPass = (data as { allPass?: boolean }).allPass;
+      if (allPass === true) return "ok";
+      if (allPass === false) return "error";
+      return "unknown";
+    }
+    case "card-kimi-doctor": {
+      const commands = (data as { commands?: unknown[] }).commands;
+      return Array.isArray(commands) && commands.length > 0 ? "ok" : "warn";
+    }
+    case "card-scaffold": {
+      const body = data as { architecture?: unknown; scripts?: unknown };
+      return body.architecture && body.scripts ? "ok" : "warn";
+    }
+    case "card-symbols": {
+      const domain = (data as { symbols?: { domain?: unknown[] } }).symbols?.domain;
+      return Array.isArray(domain) && domain.length > 0 ? "ok" : "warn";
+    }
+    default:
+      return "unknown";
+  }
+}
+
+function resolveCardStatus(
+  cardId: string,
+  probes: Record<string, unknown> | undefined
+): DashboardCardStatus {
+  if (!probes || !(cardId in probes)) return "unknown";
+  if (!HUB_CARD_PROBE_IDS.includes(cardId as HubCardProbeId)) return "unknown";
+  return cardStatusFromProbe(cardId, probes[cardId]);
+}
+
 /** Build /api/cards payload; optional `canvas` query filters to influenced cards only. */
 export async function fetchDashboardCardsPayload(
   repoRoot: string,
-  options: { canvas?: string | null; gateJson?: unknown } = {}
+  options: {
+    canvas?: string | null;
+    /** @deprecated use probes.card-gates */
+    gateJson?: unknown;
+    probes?: Record<string, unknown>;
+  } = {}
 ): Promise<DashboardCardsPayload> {
   const filter = resolveCanvasFilter(options.canvas ?? null);
   const registry = buildDashboardCardRegistry(repoRoot);
   const influenceSet =
     filter.manifestId != null ? new Set(influencesForManifest(filter.manifestId)) : null;
 
+  const probes: Record<string, unknown> = { ...options.probes };
+  if (options.gateJson !== undefined) probes["card-gates"] = options.gateJson;
+
   const cards = registry
     .filter((card) => (influenceSet ? influenceSet.has(card.id) : true))
-    .map((card) => {
-      let status: DashboardCardStatus = "unknown";
-      if (card.id === "card-gates" && options.gateJson !== undefined) {
-        status = gateStatusFromJson(options.gateJson);
-      }
-      return { ...card, status };
-    });
+    .map((card) => ({
+      ...card,
+      status: resolveCardStatus(card.id, probes),
+    }));
 
   return {
     ok: true,

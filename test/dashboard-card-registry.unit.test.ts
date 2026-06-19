@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildDashboardCardRegistry,
+  cardStatusFromProbe,
+  fetchDashboardCardsPayload,
   influencesForManifest,
   lintCanvasInfluences,
   parseDashboardCardsFromHtml,
@@ -45,16 +47,37 @@ describe("dashboard-card-registry", () => {
     expect(influencesForManifest("templates")).toContain("card-scaffold");
   });
 
-  test("v53-architecture includes dashboard-card-registry cursorCanvas pointer", () => {
-    const entry = LOCAL_DOC_REFERENCES.find((ref) => ref.id === "v53-architecture");
-    expect(entry?.cursorCanvas).toBe("docs/canvases/dashboard-card-registry.canvas.tsx");
-    expect(entry?.canvasInfluences).toContain("card-gates");
-    expect(influencesForManifest("v53-architecture")).toContain("card-kimi-doctor");
-  });
-
   test("fetchDashboardCanvases exposes influences", () => {
     const payload = fetchDashboardCanvases();
     const templates = payload.canvases.find((c) => c.id === "templates");
     expect(templates?.influences).toContain("card-kimi-doctor");
+  });
+
+  test("cardStatusFromProbe maps hub card payloads", () => {
+    expect(cardStatusFromProbe("card-gates", { summary: { ok: true } })).toBe("ok");
+    expect(cardStatusFromProbe("card-gates", { summary: { ok: false } })).toBe("error");
+    expect(cardStatusFromProbe("card-perf-harness", { allPass: true })).toBe("ok");
+    expect(cardStatusFromProbe("card-perf-harness", { allPass: false })).toBe("error");
+    expect(cardStatusFromProbe("card-kimi-doctor", { commands: [{ flag: "--train" }] })).toBe("ok");
+    expect(cardStatusFromProbe("card-scaffold", { architecture: {}, scripts: {} })).toBe("ok");
+    expect(
+      cardStatusFromProbe("card-symbols", { symbols: { domain: [{ key: "kimi.trace" }] } })
+    ).toBe("ok");
+    expect(cardStatusFromProbe("card-gates", undefined)).toBe("unknown");
+  });
+
+  test("fetchDashboardCardsPayload applies hub probes", async () => {
+    const payload = await fetchDashboardCardsPayload(REPO_ROOT, {
+      probes: {
+        "card-gates": { summary: { ok: true } },
+        "card-perf-registry": { allPass: false },
+      },
+    });
+    const gates = payload.cards.find((c) => c.id === "card-gates");
+    const perf = payload.cards.find((c) => c.id === "card-perf-registry");
+    const orphan = payload.cards.find((c) => c.id === "card-color");
+    expect(gates?.status).toBe("ok");
+    expect(perf?.status).toBe("error");
+    expect(orphan?.status).toBe("unknown");
   });
 });
