@@ -251,6 +251,18 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
         description: "Run a single doctor plugin",
         agentFacing: true,
       },
+      {
+        name: "--gate",
+        type: "string",
+        description: "Run a single static gate such as bunfig-policy",
+        agentFacing: true,
+      },
+      {
+        name: "--save-artifact",
+        type: "boolean",
+        description: "Persist gate result JSON under .kimi/artifacts/{gate}/",
+        agentFacing: true,
+      },
       { name: "--mcp-server", type: "boolean", description: "Start MCP stdio server" },
       { name: "--probe", type: "boolean", description: "Emit capability manifest" },
       {

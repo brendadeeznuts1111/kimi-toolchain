@@ -116,6 +116,7 @@ import {
   type BenchmarkRegression,
 } from "../lib/effect-benchmark.ts";
 import { toolStart, toolDone, healthResult } from "../lib/health-channel.ts";
+import { getGate, listGates } from "../gates/registry.ts";
 
 const writer = createCli(Bun.argv, "kimi-doctor");
 const logger = writer.logger;
@@ -169,15 +170,26 @@ const REPORT = Bun.argv.includes("--report");
 const REGRESSION = Bun.argv.includes("--regression");
 const PERF_AUTO_TRAIN = Bun.argv.includes("--perf-auto-train");
 const OPEN = Bun.argv.includes("--open");
+const GATE = argValue("--gate");
+const SAVE_ARTIFACT = Bun.argv.includes("--save-artifact");
 const AGENT_ID = argValue("--agent-id");
 const ADAPTER = argValue("--adapter");
 const PLUGIN = argValue("--plugin");
 
 function argValue(flag: string): string | undefined {
-  const index = Bun.argv.indexOf(flag);
-  if (index < 0) return undefined;
-  const value = Bun.argv[index + 1];
-  return value && !value.startsWith("--") ? value : undefined;
+  const prefix = `${flag}=`;
+  for (let i = 2; i < Bun.argv.length; i++) {
+    const arg = Bun.argv[i]!;
+    if (arg.startsWith(prefix)) {
+      const value = arg.slice(prefix.length);
+      return value || undefined;
+    }
+    if (arg === flag) {
+      const value = Bun.argv[i + 1];
+      return value && !value.startsWith("--") ? value : undefined;
+    }
+  }
+  return undefined;
 }
 
 /** Agent/programmatic JSON output (--json); bypasses Logger formatting. */
@@ -1442,6 +1454,46 @@ async function main(): Promise<number> {
 
   const argv = Bun.argv.slice(2);
   const projectRoot = await resolveProjectRoot(argValue("--project-root"));
+
+  if (GATE) {
+    const gate = getGate(GATE);
+    if (!gate) {
+      logger.error(`Unknown gate: ${GATE}`);
+      logger.info(`Available: ${listGates().join(", ")}`);
+      return 1;
+    }
+
+    const result = await gate.run({ projectRoot, saveArtifact: SAVE_ARTIFACT });
+    if (JSON_OUT) {
+      emitJson({
+        agentId: AGENT_ID,
+        mode: "gate",
+        gate: GATE,
+        projectRoot,
+        saveArtifact: SAVE_ARTIFACT,
+        result,
+      });
+    } else {
+      const lines = gate.format?.(result) ?? [
+        `${result.status}: ${GATE}${result.reason ? ` — ${result.reason}` : ""}`,
+      ];
+      const [first, ...rest] = lines;
+      if (result.status === "fail") logger.error(first ?? `fail: ${GATE}`);
+      else if (result.status === "warn") logger.warn(first ?? `warn: ${GATE}`);
+      else logger.info(first ?? `pass: ${GATE}`);
+      for (const line of rest) logger.line(line);
+      if ("failures" in result && Array.isArray(result.failures)) {
+        for (const failure of result.failures) logger.error(`  - ${failure}`);
+      }
+      if ("warnings" in result && Array.isArray(result.warnings)) {
+        for (const warning of result.warnings) logger.warn(`  - ${warning}`);
+      }
+      if (SAVE_ARTIFACT && result.artifactPath) {
+        logger.info(`  Artifact: ${result.artifactPath}`);
+      }
+    }
+    return result.status === "fail" ? 1 : 0;
+  }
 
   if (ADAPTER) {
     const rawTimeout = argValue("--timeout");
