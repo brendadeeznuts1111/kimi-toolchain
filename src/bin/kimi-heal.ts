@@ -15,10 +15,17 @@
  */
 
 import { Effect } from "effect";
+import { join } from "path";
 import { createLogger } from "../lib/logger.ts";
+import { readText } from "../lib/bun-io.ts";
 import { createCli } from "../lib/cli-contract.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
-import { CliError } from "../lib/effect/errors.ts";
+import {
+  CliError,
+  EffectNotRegisteredError,
+  HealGoldenMissingError,
+  HealInvalidArgumentError,
+} from "../lib/effect/errors.ts";
 import { resolveDecisionsRoot } from "../lib/decision-ledger.ts";
 import { applyHealAction, buildHealPlanEffect } from "../lib/self-healing.ts";
 import { spawnBun } from "../lib/tool-runner.ts";
@@ -54,7 +61,7 @@ const logger = createLogger(Bun.argv, "kimi-heal");
 
 // ── Effect Audit (profile-aware) ──────────────────────────────────────────
 
-interface AuditIssue {
+export interface AuditIssue {
   type: "missing-symbol" | "unused-effect" | "circular-import" | "bare-promise" | "no-tag-service";
   file: string;
   line?: number;
@@ -63,7 +70,7 @@ interface AuditIssue {
 }
 
 /** Profile-scoped audit configuration. */
-interface AuditProfile {
+export interface AuditProfile {
   checkPipeline: boolean;
   checkBarePromises: boolean;
   checkDomainPurity: boolean;
@@ -91,6 +98,11 @@ const AUDIT_PROFILES: Record<string, AuditProfile> = {
   },
 };
 
+export interface AuditEffectsOptions extends Partial<AuditProfile> {
+  /** Override scan directory; scans the directory recursively for .ts files instead of using profile patterns. */
+  scanDir?: string;
+}
+
 /**
  * Run profile-aware effect discipline checks.
  *
@@ -99,10 +111,12 @@ const AUDIT_PROFILES: Record<string, AuditProfile> = {
  *   2. bare-promise — Promise.resolve() without Effect wrapper (regex scan)
  *   3. no-tag-service — domain/ imports effect directly (regex scan)
  */
-function auditEffects(profile?: string): AuditIssue[] {
-  const cfg = profile
+export function auditEffects(profile?: string, options?: AuditEffectsOptions): AuditIssue[] {
+  const base = profile
     ? (AUDIT_PROFILES[profile] ?? AUDIT_PROFILES.toolchain)
     : AUDIT_PROFILES.toolchain;
+  const cfg: AuditProfile = { ...base, ...options };
+  const scanPatterns = options?.scanDir ? [join(options.scanDir, "**/*.ts")] : cfg.scanPatterns;
   const issues: AuditIssue[] = [];
 
   // 1. Missing symbols — every EFFECT_PIPELINE stage must have a handler
@@ -124,7 +138,7 @@ function auditEffects(profile?: string): AuditIssue[] {
 
   // 2-3. Bare promises + domain purity — scan source files
   if (cfg.checkBarePromises || cfg.checkDomainPurity) {
-    for (const pattern of cfg.scanPatterns) {
+    for (const pattern of scanPatterns) {
       let methods: EffectMethod[];
       try {
         methods = scanEffectMethods(pattern);
@@ -135,7 +149,7 @@ function auditEffects(profile?: string): AuditIssue[] {
       for (const m of methods) {
         let source: string;
         try {
-          source = Bun.file(m.sourceFile).textSync?.() ?? "";
+          source = readText(m.sourceFile);
         } catch {
           continue;
         }
@@ -405,8 +419,7 @@ async function main(): Promise<number> {
 
     const plan = await buildConstantRepairPlan(projectRoot);
     if (!plan.canRepair && plan.goldenVersion === "missing") {
-      logger.error("Golden template missing — run: kimi-heal constants snapshot");
-      return 1;
+      throw new HealGoldenMissingError({ command: "kimi-heal constants snapshot" });
     }
 
     const result = await repairConstants({
@@ -548,8 +561,10 @@ async function main(): Promise<number> {
       const applyRequested = hasFlag("--apply");
       const minConfidence = numericArg("--min-confidence", 0.7);
       if (minConfidence < 0 || minConfidence > 1) {
-        logger.error("--min-confidence must be between 0 and 1");
-        return 1;
+        throw new HealInvalidArgumentError({
+          flag: "--min-confidence",
+          message: "must be between 0 and 1",
+        });
       }
 
       if (applyRequested) {
@@ -727,7 +742,24 @@ if (import.meta.main) {
   const exitCode = await runCliExit(
     Effect.tryPromise({
       try: () => main(),
-      catch: (e) => new CliError({ message: e instanceof Error ? e.message : String(e) }),
+      catch: (e) => {
+        if (e instanceof HealGoldenMissingError) {
+          return new CliError({
+            message: `Golden template missing — run: ${e.command}`,
+            exitCode: 1,
+          });
+        }
+        if (e instanceof HealInvalidArgumentError) {
+          return new CliError({ message: `${e.flag}: ${e.message}`, exitCode: 1 });
+        }
+        if (e instanceof EffectNotRegisteredError) {
+          return new CliError({
+            message: `Symbol ${e.symbol} (${e.label}) not registered`,
+            exitCode: 1,
+          });
+        }
+        return new CliError({ message: e instanceof Error ? e.message : String(e) });
+      },
     }),
     { toolName: "kimi-heal", logger }
   );

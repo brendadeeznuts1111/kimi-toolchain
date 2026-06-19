@@ -60,6 +60,31 @@ export class ConfigMergeConflict extends Data.TaggedError("ConfigMergeConflict")
   projectValue: string;
 }> {}
 
+export class EffectNotRegisteredError extends Data.TaggedError("EffectNotRegisteredError")<{
+  symbol: string;
+  label: string;
+}> {}
+
+export class ThresholdExceededError extends Data.TaggedError("ThresholdExceededError")<{
+  operation: string;
+  actualMs: number;
+  thresholdMs: number;
+}> {}
+
+export class HealGoldenMissingError extends Data.TaggedError("HealGoldenMissingError")<{
+  command: string;
+}> {}
+
+export class HealInvalidArgumentError extends Data.TaggedError("HealInvalidArgumentError")<{
+  flag: string;
+  message: string;
+}> {}
+
 export type DxConfigError = ConfigNotFound | ConfigParseError | ConfigMergeConflict;
 
 export type ToolRunnerError = ToolNotFound | ToolTimeout | ExitNonZero;
+
+export type HealError =
+  | HealGoldenMissingError
+  | HealInvalidArgumentError
+  | EffectNotRegisteredError;

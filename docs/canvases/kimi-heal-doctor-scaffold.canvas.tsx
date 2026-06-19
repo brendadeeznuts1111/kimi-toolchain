@@ -20,6 +20,30 @@ import {
   useHostTheme,
 } from "cursor/canvas";
 
+/** Effect-heal session canvas — manifest id `deep-quality` (file: kimi-heal-doctor-scaffold.canvas.tsx).
+ *
+ * Doc boundaries (do not mix):
+ * - **External Bun API:** `https://bun.com/docs/…#anchor` — cite via `BUN_*` constants + `@see` in source (e.g. `src/lib/bun-image.ts`). Canonical host is bun.com, not bun.sh.
+ * - **Internal manifest:** `LOCAL_DOC_REFERENCES` id strings (`dashboard-thumbnails`, `agents`, …) — localDocs tables and `references:generate` only; not external URLs.
+ *
+ * Bun.Image on the thumbnail path: primary encode = `#terminals` (`.blob()` / `.placeholder()`); `#metadata` is probe-only (`imageMetadata()` — no pixel decode). See herdr-dashboard-thumbnails canvas for pipeline DAG.
+ */
+
+/** Bun.Image anchors — SSOT constants in src/lib/bun-image.ts (bun.com, not bun.sh). */
+const BUN_IMAGE_DOC_ANCHORS = [
+  ["#terminals", "dashboardThumbnailBlob() · probeBunImageAvifEncode()", "Primary /api/thumbnail encode"],
+  ["#placeholders", "imagePlaceholderDataUrl()", "GET /api/meta LQIP"],
+  ["#metadata", "imageMetadata()", "Probe-only dimensions — secondary to encode path"],
+  ["#platform-backends", "setBunImageBackend()", "AVIF negotiation · golden-image tests"],
+] as const;
+
+/** External API docs vs internal manifest ids — never interchange. */
+const DOC_LINK_BOUNDARY = [
+  ["External Bun API", "bun.com/docs/runtime/image#terminals", "BUN_IMAGE_* in src/lib/bun-image.ts · @see in JSDoc"],
+  ["Internal manifest id", "dashboard-thumbnails", "LOCAL_DOC_REFERENCES → docs/references/dashboard-thumbnails.md"],
+  ["Canvas localDocs table", "MANIFEST_LOCAL_DOCS_ALL (17 ids)", "herdr-dashboard-thumbnails canvas only — not Bun anchor URLs"],
+] as const;
+
 const COMMITS = [
   ["643e808", "docs: platform-absorption + project-health-check skill examples"],
   ["9a16a4f", "docs: effects pipeline in kimi-doctor.md"],
@@ -95,23 +119,33 @@ const DOCS_UPDATED = [
   "v53-architecture.md",
 ] as const;
 
+/** @generated canvas-routing — bun run canvas:generate; do not edit */
 const CANVAS_ROUTING = [
-  { id: "kimi-toolchain", page: "Project hub", path: "docs/canvases/kimi-toolchain.canvas.tsx" },
-  { id: "namespace-boundaries", page: "Meta / routing", path: "docs/canvases/namespace-boundaries.canvas.tsx" },
-  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx" },
-  { id: "doc-links-and-see-ladder", page: "Cross-ref ladder", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx" },
-  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx", detail: "KIMI_MODULES=doctor · profiles" },
-  {
-    id: "kimi-heal-doctor-scaffold",
-    page: "Effect heal + doctor",
-    path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx",
-    detail: "manifest id deep-quality (this canvas)",
-  },
-  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx" },
-  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx" },
-  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx" },
+  { id: "kimi-toolchain", page: "Hub", path: "docs/canvases/kimi-toolchain.canvas.tsx", detail: "Architecture, tools, gates — start here" },
+  { id: "namespace-boundaries", page: "Meta / routing", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "Doctor trinity · finish-work vs prefix+*" },
+  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "Discovery · define · parity · scaffold layers" },
+  { id: "doc-links-and-see-ladder", page: "Doc links", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx", detail: "@see ladder · docs/references index" },
+  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx", detail: "Profiles · templates · scaffold doctor" },
+  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "PNG → Bun.Image → /api/thumbnail" },
+  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor --automation · gate JSON" },
+  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
+  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "manifest id deep-quality (this canvas)" },
 ] as const;
 
+/** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
+const CANVAS_ROUTING_COUNT = CANVAS_ROUTING.length;
+
+const CANVAS_ROUTING_ROW_TONE = [
+  "info",
+  "neutral",
+  "neutral",
+  "warning",
+  "neutral",
+  "neutral",
+  "neutral",
+  "warning",
+  "success"
+] as const;
 function CanvasLink({
   label,
   path,
@@ -151,7 +185,7 @@ function RelatedCanvasesTable() {
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
-        rowTone={["info", "warning", "neutral", "neutral", "success", "info", "info", "neutral", "warning"]}
+        rowTone={[...CANVAS_ROUTING_ROW_TONE]}
         striped
       />
       <Text tone="tertiary" size="small">
@@ -248,10 +282,37 @@ export default function KimiHealDoctorScaffoldCanvas() {
 
       <H2>Reference docs updated</H2>
       <Text size="small">{DOCS_UPDATED.join(" · ")}</Text>
+      <Text tone="tertiary" size="small">
+        Manifest ids above — not bun.com URLs. Regenerate index: bun run references:generate
+      </Text>
+
+      <CollapsibleSection title="Doc link boundaries (bun.com vs manifest ids)" defaultOpen={false}>
+        <Stack gap={12}>
+          <Callout tone="info" title="No mixing">
+            External Bun API anchors (bun.com/docs/…#metadata) belong in source `@see` and BUN_* constants.
+            Internal localDocs tables index LOCAL_DOC_REFERENCES ids only — see herdr-dashboard-thumbnails canvas.
+          </Callout>
+          <Table
+            headers={["Kind", "Example", "Belongs in"]}
+            rows={DOC_LINK_BOUNDARY.map((row) => [...row])}
+            rowTone={["info", "success", "neutral"]}
+            striped
+          />
+          <Table
+            headers={["Anchor", "Function", "Notes"]}
+            rows={BUN_IMAGE_DOC_ANCHORS.map((row) => [...row])}
+            rowTone={["success", "success", "neutral", "neutral"]}
+            striped
+          />
+          <Text tone="tertiary" size="small">
+            SSOT: src/lib/bun-image.ts (BUN_IMAGE_DOCS_URL = https://bun.com/docs/runtime/image) · lint: bun run lint (doc-links prefer bun.com over bun.sh)
+          </Text>
+        </Stack>
+      </CollapsibleSection>
 
       <CollapsibleSection
-        title={`Related canvases (${CANVAS_ROUTING.length} manifest-backed)`}
-        count={CANVAS_ROUTING.length}
+        title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`}
+        count={CANVAS_ROUTING_COUNT}
         defaultOpen={false}
       >
         <RelatedCanvasesTable />

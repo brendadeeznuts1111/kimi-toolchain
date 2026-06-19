@@ -20,7 +20,6 @@ import {
 } from "cursor/canvas";
 
 const CANVAS_PREFIX = "docs/canvases/";
-const TOOLCHAIN_VERSION = "0.1.0";
 
 const RULE_COUNT = 2;
 const CONSTANT_COUNT = 3;
@@ -172,69 +171,70 @@ const CLI_SEE_LADDER = [
   ["Agent discovery", "kimi-doctor --probe", "canonicalReferences embed"],
 ] as const;
 
+/** @generated canvas-routing — bun run canvas:generate; do not edit */
 const CANVAS_ROUTING = [
   {
     id: "kimi-toolchain",
     page: "Hub",
-    version: TOOLCHAIN_VERSION,
+    version: "0.1.0",
     layer: "Project hub",
     openWhen: "Architecture, tools, gates — start here",
     path: `${CANVAS_PREFIX}kimi-toolchain.canvas.tsx`,
     repoPath: `${CANVAS_PREFIX}kimi-toolchain.canvas.tsx`,
   },
   {
-    id: "doc-links-and-see-ladder",
-    page: "Doc links",
-    version: TOOLCHAIN_VERSION,
-    layer: "Doc URL lint",
-    openWhen: "This canvas · @see ladder · docs/references index",
-    path: `${CANVAS_PREFIX}doc-links-and-see-ladder.canvas.tsx`,
-    repoPath: `${CANVAS_PREFIX}doc-links-and-see-ladder.canvas.tsx`,
-  },
-  {
-    id: "configuration-layers",
-    page: "Config layers",
-    version: "four-layer-v1",
-    layer: "Config SSOT",
-    openWhen: "Discovery · define · parity · scaffold layers",
-    path: `${CANVAS_PREFIX}configuration-layers.canvas.tsx`,
-    repoPath: `${CANVAS_PREFIX}configuration-layers.canvas.tsx`,
-  },
-  {
     id: "namespace-boundaries",
-    page: "Namespace",
-    version: TOOLCHAIN_VERSION,
+    page: "Meta / routing",
+    version: "0.1.0",
     layer: "Meta / routing",
     openWhen: "Doctor trinity · finish-work vs prefix+*",
     path: `${CANVAS_PREFIX}namespace-boundaries.canvas.tsx`,
     repoPath: `${CANVAS_PREFIX}namespace-boundaries.canvas.tsx`,
   },
   {
+    id: "configuration-layers",
+    page: "Config SSOT",
+    version: "1.0.0",
+    layer: "Config SSOT",
+    openWhen: "Discovery · define · parity · scaffold layers",
+    path: `${CANVAS_PREFIX}configuration-layers.canvas.tsx`,
+    repoPath: `${CANVAS_PREFIX}configuration-layers.canvas.tsx`,
+  },
+  {
+    id: "doc-links-and-see-ladder",
+    page: "Doc links",
+    version: "0.1.0",
+    layer: "Doc URL lint",
+    openWhen: "@see ladder · docs/references index",
+    path: `${CANVAS_PREFIX}doc-links-and-see-ladder.canvas.tsx`,
+    repoPath: `${CANVAS_PREFIX}doc-links-and-see-ladder.canvas.tsx`,
+  },
+  {
     id: "kimi-fix",
     page: "Scaffold",
-    version: TOOLCHAIN_VERSION,
+    version: "0.1.0",
     layer: "kimi-fix · bun create",
     openWhen: "Profiles · templates · scaffold doctor",
     path: `${CANVAS_PREFIX}kimi-fix.canvas.tsx`,
     repoPath: `${CANVAS_PREFIX}kimi-fix.canvas.tsx`,
   },
   {
-    id: "herdr-dashboard-automation",
-    page: "Automation gate",
-    version: "gate-v1",
-    layer: "Finish-work shell",
-    openWhen: "kimi-doctor --automation · gate JSON",
-    path: `${CANVAS_PREFIX}herdr-dashboard-automation.canvas.tsx`,
-    repoPath: `${CANVAS_PREFIX}herdr-dashboard-automation.canvas.tsx`,
-  },
-  {
     id: "herdr-dashboard-thumbnails",
-    page: "Thumbnails",
-    version: TOOLCHAIN_VERSION,
+    page: "Orchestrator HTTP",
+    version: "0.1.0",
     layer: "Orchestrator HTTP",
     openWhen: "PNG → Bun.Image → /api/thumbnail",
     path: `${CANVAS_PREFIX}herdr-dashboard-thumbnails.canvas.tsx`,
     repoPath: `${CANVAS_PREFIX}herdr-dashboard-thumbnails.canvas.tsx`,
+  },
+  {
+    id: "herdr-dashboard-automation",
+    page: "Finish-work shell",
+    version: "1.0.0",
+    layer: "Finish-work shell",
+    openWhen: "kimi-doctor --automation · gate JSON",
+    path: `${CANVAS_PREFIX}herdr-dashboard-automation.canvas.tsx`,
+    repoPath: `${CANVAS_PREFIX}herdr-dashboard-automation.canvas.tsx`,
   },
   {
     id: "herdr-unified-plugin-architecture",
@@ -248,7 +248,7 @@ const CANVAS_ROUTING = [
   {
     id: "kimi-heal-doctor-scaffold",
     page: "Effect heal + doctor",
-    version: TOOLCHAIN_VERSION,
+    version: "0.1.0",
     layer: "kimi-heal --fix · doctor scaffold",
     openWhen: "Effect repair · KIMI_MODULES=doctor · perf gates",
     path: `${CANVAS_PREFIX}kimi-heal-doctor-scaffold.canvas.tsx`,
@@ -256,20 +256,20 @@ const CANVAS_ROUTING = [
   },
 ] as const;
 
+/** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
 const CANVAS_ROUTING_COUNT = CANVAS_ROUTING.length;
 
 const CANVAS_ROW_TONE = [
   "info",
-  "success",
   "neutral",
-  "info",
+  "neutral",
+  "success",
   "neutral",
   "neutral",
   "neutral",
   "warning",
-  "info",
+  "warning"
 ] as const;
-
 function CanvasNavButton({
   label,
   path,

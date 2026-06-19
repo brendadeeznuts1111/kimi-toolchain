@@ -67,10 +67,11 @@ const AGENT_DECISIONS = [
 const ENFORCEMENT_GATES = [
   ["All core gates (one shot)", "bun run config:status", "config:status"],
   ["Canonical refs fresh", "bun run references:generate --check", "canonical-references"],
+  ["Canvas companions fresh", "bun run canvas:generate --check", "canvas-companion"],
   ["Manifest fresh", "bun run manifest:generate --check", "constants-manifest"],
   ["Parity aligned", "bun run lint:constant-parity", "constant-parity"],
   ["Runtime cache valid", "bun run sync; probe:canonical-references:*", "handoff probes"],
-  ["Canvas pointers valid", "bun run scripts/lint-cursor-canvas.ts", "cursor-canvas"],
+  ["Canvas pointers + routing fresh", "bun run scripts/lint-cursor-canvas.ts", "cursor-canvas"],
 ] as const;
 
 const RELATED_PATHS = [
@@ -84,18 +85,33 @@ const RELATED_PATHS = [
   ["Bun runtime scaffold flags and install config", "docs/references/bun-runtime-scaffold.md · globalStore · execve · Bun.Terminal"],
 ] as const;
 
+/** @generated canvas-routing — bun run canvas:generate; do not edit */
 const CANVAS_ROUTING = [
-  { id: "kimi-toolchain", page: "Project hub", path: "docs/canvases/kimi-toolchain.canvas.tsx" },
-  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "(this canvas)" },
-  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx" },
-  { id: "namespace-boundaries", page: "Name collisions", path: "docs/canvases/namespace-boundaries.canvas.tsx" },
-  { id: "doc-links-and-see-ladder", page: "Cross-ref ladder", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx" },
-  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx" },
-  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx" },
-  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx" },
-  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "manifest id deep-quality" },
+  { id: "kimi-toolchain", page: "Hub", path: "docs/canvases/kimi-toolchain.canvas.tsx", detail: "Architecture, tools, gates — start here" },
+  { id: "namespace-boundaries", page: "Meta / routing", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "Doctor trinity · finish-work vs prefix+*" },
+  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "manifest id configuration-layers (this canvas)" },
+  { id: "doc-links-and-see-ladder", page: "Doc links", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx", detail: "@see ladder · docs/references index" },
+  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx", detail: "Profiles · templates · scaffold doctor" },
+  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "PNG → Bun.Image → /api/thumbnail" },
+  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor --automation · gate JSON" },
+  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
+  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
 ] as const;
 
+/** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
+const CANVAS_ROUTING_COUNT = CANVAS_ROUTING.length;
+
+const CANVAS_ROUTING_ROW_TONE = [
+  "info",
+  "neutral",
+  "success",
+  "warning",
+  "neutral",
+  "neutral",
+  "neutral",
+  "warning",
+  "warning"
+] as const;
 const CANONICAL_REPOS = ["kimi-toolchain", "kimi-code-upstream", "effect-upstream"] as const;
 
 const DAG_NODES = [
@@ -232,7 +248,7 @@ function RelatedCanvasesTable() {
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
-        rowTone={["info", "info", "success", "warning", "neutral", "info", "neutral", "warning", "info"]}
+        rowTone={[...CANVAS_ROUTING_ROW_TONE]}
         striped
       />
       <Text tone="tertiary" size="small">Click Canvas or Topic to open · config SSOT and 4-layer model</Text>
@@ -348,7 +364,7 @@ export default function ConfigurationLayersCanvas() {
         </Stack>
       </Grid>
 
-      <CollapsibleSection title="Related canvases (9 manifest-backed)" count={9} defaultOpen={false}>
+      <CollapsibleSection title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`} count={CANVAS_ROUTING_COUNT} defaultOpen={false}>
         <RelatedCanvasesTable />
       </CollapsibleSection>
 

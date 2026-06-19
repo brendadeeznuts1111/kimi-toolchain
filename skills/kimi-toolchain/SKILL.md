@@ -203,7 +203,9 @@ Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight a
   - `docs/canvases/herdr-dashboard-automation.canvas.tsx` — `--automation` gate (manifest id `kimi-doctor`)
   - `docs/canvases/herdr-dashboard-thumbnails.canvas.tsx` — thumbnail pipeline (manifest id `dashboard-thumbnails`)
   - `docs/canvases/herdr-unified-plugin-architecture.canvas.tsx` — Herdr plugin plan (manifest id `herdr-plugin-architecture`)
-- **Canvas lint**: `bun run scripts/lint-cursor-canvas.ts` — verifies each `cursorCanvas` path exists under `docs/canvases/` (8 pointers).
+  - `docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx` — Effect heal + doctor scaffold (manifest id `deep-quality`)
+- **Canvas generate**: `bun run canvas:generate` — regenerates `CANVAS_ROUTING` + hub stats/inventory from `canonical-references.ts` and `package.json` (also runs after `bun run references:generate`)
+- **Canvas lint**: `bun run scripts/lint-cursor-canvas.ts` — manifest `cursorCanvas` pointers + generated blocks fresh (9 canvases)
 
 - Cached link manifest: `~/.kimi-code/canonical-references.json` (`bun run references:generate`)
 - Repo: https://github.com/brendadeeznuts1111/kimi-toolchain

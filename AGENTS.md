@@ -123,7 +123,7 @@ All commands run from the repo root.
 ```bash
 bun install
 
-# Fast iteration (~3s): format + lint + typecheck + 94 unit files
+# Fast iteration (~3s): format + lint + typecheck + UNIT_TEST_FILES (see test-gates.ts)
 bun run check:fast
 bun run test:fast
 
@@ -223,7 +223,7 @@ bun run finish-work --message "..." --push  # gates + commit + push close-loop
 ## Testing Strategy
 
 - **Test runner**: `bun:test` (built into Bun)
-- **Fast gate**: 94 unit files in `UNIT_TEST_FILES` (`test-gates.ts`); 1,500ms timeout per test
+- **Fast gate**: `UNIT_TEST_FILES` in `test-gates.ts`; 1,500ms timeout per test
 - **Smoke**: `test/smoke/` — full CLI invocations (`bun run test:smoke`)
 - **Integration**: `INTEGRATION_TEST_FILES` in `test-gates.ts` — full suite only
 - **Isolation**: Unit tests use a temporary `HOME` (`Bun.env.KIMI_TEST_HOME`, default `.tmp-kimi-test-home`) so they never touch the real `~/.kimi-code/`
@@ -348,7 +348,7 @@ Three layers must stay separate:
 
 | Instead of                                                    | Use                                                          |
 | ------------------------------------------------------------- | ------------------------------------------------------------ |
-| `bun test` (full suite incl. smoke, ~15s)                     | `bun run test:fast` (94 unit files, ~5s)                     |
+| `bun test` (full suite incl. smoke, ~15s)                     | `bun run test:fast` (`UNIT_TEST_FILES` in test-gates.ts, ~5s) |
 | `bun run check` (~30s)                                        | `bun run check:fast` (~3s)                                   |
 | Re-running full suite after every edit                        | `bun test <specific-file>`                                   |
 | `kimi-doctor` without `--quick`                               | `kimi-doctor --quick`                                        |

@@ -32,75 +32,52 @@ const CONFIG = {
   thumbnail_quality: 75,
 } as const;
 
+/** @generated canvas-routing — bun run canvas:generate; do not edit */
 const CANVAS_ROUTING = [
-  { id: "kimi-toolchain", page: "Project hub", path: "docs/canvases/kimi-toolchain.canvas.tsx" },
-  { id: "doc-links-and-see-ladder", page: "Cross-ref ladder", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx" },
-  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx" },
-  { id: "namespace-boundaries", page: "Name collisions", path: "docs/canvases/namespace-boundaries.canvas.tsx" },
-  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx" },
-  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx" },
-  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "(this canvas)" },
-  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx" },
-  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "manifest id deep-quality" },
+  { id: "kimi-toolchain", page: "Hub", path: "docs/canvases/kimi-toolchain.canvas.tsx", detail: "Architecture, tools, gates — start here" },
+  { id: "namespace-boundaries", page: "Meta / routing", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "Doctor trinity · finish-work vs prefix+*" },
+  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "Discovery · define · parity · scaffold layers" },
+  { id: "doc-links-and-see-ladder", page: "Doc links", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx", detail: "@see ladder · docs/references index" },
+  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx", detail: "Profiles · templates · scaffold doctor" },
+  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "manifest id dashboard-thumbnails (this canvas)" },
+  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor --automation · gate JSON" },
+  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
+  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
 ] as const;
 
-/** All LOCAL_DOC_REFERENCES ids — derive counts from this array; keep in sync with canonical-references.ts */
+/** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
+const CANVAS_ROUTING_COUNT = CANVAS_ROUTING.length;
+
+const CANVAS_ROUTING_ROW_TONE = [
+  "info",
+  "neutral",
+  "neutral",
+  "warning",
+  "neutral",
+  "success",
+  "neutral",
+  "warning",
+  "warning"
+] as const;
+/** @generated manifest-local-docs — bun run canvas:generate; do not edit */
 const MANIFEST_LOCAL_DOCS_ALL = [
   { id: "agents", location: "repo root", purpose: "Toolchain agent guide" },
-  { id: "code-references", location: "repo root", purpose: "Local coding exemplars" },
+  { id: "code-references", location: "repo root", purpose: "Local coding exemplars; doc-links lint and @see ladder" },
   { id: "unified", location: "repo root", purpose: "Kimi Code vs kimi-toolchain matrix" },
-  { id: "deep-quality", location: "repo root", purpose: "Effect-discipline floor and gate JSON shapes" },
-  { id: "templates", location: "repo root", purpose: "Scaffold templates" },
-  {
-    id: "dashboard-thumbnails",
-    location: "docs/references",
-    purpose: "Thumbnail pipeline, Bun.Image terminals, .write() vs Bun.write",
-  },
-  {
-    id: "kimi-doctor",
-    location: "docs/references",
-    purpose: "kimi-doctor --automation gate CLI and JSON schema",
-  },
-  {
-    id: "namespace",
-    location: "docs/references",
-    purpose: "Toolchain vs Herdr plugin namespace; doctor trinity; global ecosystem",
-  },
-  {
-    id: "configuration-layers",
-    location: "docs/references",
-    purpose: "Four-layer model: discovery, define registry, parity contract, app scaffold",
-  },
-  {
-    id: "shell-spawn-choice",
-    location: "docs/references",
-    purpose: "invokeTool vs Bun.spawn vs governedSpawn matrix",
-  },
-  {
-    id: "bun-runtime-scaffold",
-    location: "docs/references",
-    purpose: "bunfig.toml merge · globalStore · execve · Bun.Terminal · cache/lazy install",
-  },
-  {
-    id: "bun-shell-companions",
-    location: "docs/references",
-    purpose: "Bun $ template vs subprocess patterns",
-  },
-  {
-    id: "template-matrix",
-    location: "docs/references",
-    purpose: "22-file scaffold breakdown · bridge pattern · template families",
-  },
-  {
-    id: "herdr-plugin-architecture",
-    location: "docs/references",
-    purpose: "Herdr unified plugin plan v0.5.0 · prefix+* · orthogonal to finish-work gates",
-  },
-  {
-    id: "canonical-references",
-    location: "repo root",
-    purpose: "Cached canonical ecosystem links (this manifest)",
-  },
+  { id: "deep-quality", location: "repo root", purpose: "Effect-discipline floor and gate JSON shapes; kimi-heal --fix bare-promise repair and KIMI_MODULES=doctor scaffold" },
+  { id: "templates", location: "repo root", purpose: "Scaffold templates — profiles, snippets, bun create flow, kimi-fix usage" },
+  { id: "dashboard-thumbnails", location: "docs/references", purpose: "Herdr dashboard thumbnail pipeline; meta.webview; WebView dataStore vs in-memory cache" },
+  { id: "kimi-doctor", location: "docs/references", purpose: "Dashboard automation gate (kimi-doctor --automation): CLI, JSON schema, exit codes, and failure modes" },
+  { id: "herdr-socket-saturation-protocol", location: "docs/references", purpose: "Herdr EAGAIN (os error 35) taxonomy, fix-socket --dry-run/--live contract, respawn protection, and Mac mini runbook" },
+  { id: "namespace", location: "docs/references", purpose: "Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings" },
+  { id: "configuration-layers", location: "docs/references", purpose: "Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml)" },
+  { id: "shell-spawn-choice", location: "docs/references", purpose: "invokeTool vs Bun.spawn vs governedSpawn decision matrix" },
+  { id: "bun-runtime-scaffold", location: "docs/references", purpose: "Bun install config (bunfig.toml merge order, defaults, env vars, backend, cache/lazy install)" },
+  { id: "bun-shell-companions", location: "docs/references", purpose: "Bun $ template vs subprocess and inspect companion patterns" },
+  { id: "template-matrix", location: "docs/references", purpose: "Template families matrix: scaffold breakdown (22 files), bridge pattern collision resolution, runtime sync paths, profile differentiation" },
+  { id: "herdr-plugin-architecture", location: "docs/references", purpose: "Herdr unified plugin plan v0.5.0 — prefix+* actions, STATE_DIR topology; orthogonal to [finishWork].gates" },
+  { id: "v53-architecture", location: "docs/references", purpose: "v5.3 architecture consolidated reference: 9-file map, awk splitter, profile registry, DEFAULT_MODULES, MODULE_REGISTRY, 42-card dashboard, Herdr integration" },
+  { id: "canonical-references", location: "repo root", purpose: "Cached canonical ecosystem links (this manifest)" },
 ] as const;
 
 const MANIFEST_DOCS_REFERENCES = MANIFEST_LOCAL_DOCS_ALL.filter(
@@ -387,7 +364,7 @@ function RelatedCanvasesTable() {
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
-        rowTone={["info", "neutral", "neutral", "warning", "success", "info", "info", "warning", "info"]}
+        rowTone={[...CANVAS_ROUTING_ROW_TONE]}
         striped
       />
       <Text tone="tertiary" size="small">Click Canvas or Page to open · thumbnail pipeline + Bun.Image encode path</Text>
@@ -887,7 +864,7 @@ export default function HerdrDashboardThumbnails() {
           references:generate; runtime copy updates on bun run sync.
         </Callout>
 
-        <CollapsibleSection title="Related canvases (9 manifest-backed)" defaultOpen={false}>
+        <CollapsibleSection title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`} defaultOpen={false}>
           <RelatedCanvasesTable />
         </CollapsibleSection>
       </Stack>

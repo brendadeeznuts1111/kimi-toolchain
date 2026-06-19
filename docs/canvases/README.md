@@ -29,6 +29,9 @@ Global canvas skills are **not** updated from this repo. Repo conventions live h
 1. Topic body (cards, tables, DAG — topic-specific)
 2. Self-contained — one `.canvas.tsx` per companion, no shared imports
 3. Registered with a `cursorCanvas` pointer in `src/lib/canonical-references.ts`
+4. `CANVAS_ROUTING`, hub stats, and `TOOL_INVENTORY` in `kimi-toolchain.canvas.tsx` are **generated** — run
+   `bun run canvas:generate` after manifest, bin, or test-gate changes (checked by
+   `bun run scripts/lint-cursor-canvas.ts`; `references:generate --check` includes canvas freshness)
 
 ## Canonical 9
 

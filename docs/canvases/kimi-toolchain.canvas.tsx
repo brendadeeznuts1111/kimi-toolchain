@@ -34,32 +34,18 @@ const NAME_MATRIX = [
   ["Kimi Work", "Desktop knowledge agent", "Kimi.app", "Not toolchain scope"],
 ] as const;
 
-const TOOL_CATEGORIES = [
-  { id: "diag", label: "Diagnostics", count: 5 },
-  { id: "gov", label: "Governance", count: 4 },
-  { id: "heal", label: "Heal / Memory", count: 5 },
-  { id: "scaffold", label: "Scaffold", count: 5 },
-  { id: "herdr", label: "Herdr", count: 6 },
-  { id: "infra", label: "Router / Bridge", count: 2 },
-] as const;
-
+/** @generated hub-toolchain-inventory — bun run canvas:generate; do not edit */
 const TOOL_INVENTORY = [
-  ["Diagnostics", "kimi-doctor, kimi-debug, kimi-orphan-kill, kimi-config, kimi-identity"],
-  [
-    "Governance / Security",
-    "kimi-governance, kimi-guardian, kimi-githooks, kimi-cloudflare-access",
-  ],
-  [
-    "Heal / Memory",
-    "kimi-heal, kimi-memory, kimi-snapshot, kimi-decision, kimi-resource-governor (health-listen)",
-  ],
-  ["Scaffold / Release", "kimi-fix, kimi-new, kimi-context-gen, kimi-cleanup-legacy, kimi-release"],
-  ["Herdr", "herdr-doctor, herdr-orchestrator, herdr-project, herdr-pane, herdr-spawn, herdr-latm"],
-  ["Infrastructure", "kimi-toolchain (router), unified-shell-bridge (MCP stdio)"],
+  ["Diagnostics", "kimi-config, kimi-debug, kimi-doctor, kimi-identity, kimi-orphan-kill"],
+  ["Governance / Security", "kimi-cloudflare-access, kimi-githooks, kimi-governance, kimi-guardian"],
+  ["Heal / Memory", "kimi-decision, kimi-heal, kimi-memory, kimi-resource-governor (health-listen), kimi-snapshot"],
+  ["Scaffold / Release", "kimi-bake, kimi-cleanup-legacy, kimi-context-gen, kimi-fix, kimi-new, kimi-release"],
+  ["Herdr", "herdr-doctor, herdr-latm, herdr-orchestrator, herdr-pane, herdr-project, herdr-spawn"],
+  ["Infrastructure", "kimi-dashboard, kimi-toolchain (router), unified-shell-bridge (MCP stdio)"],
 ] as const;
 
 const GATE_LAYERS = [
-  ["Fast iterate", "bun run check:fast", "~3s · 150 unit files @ 1500ms", "Local TDD"],
+  ["Fast iterate", "bun run check:fast", "~3s · 167 unit files @ 1500ms", "Local TDD"],
   ["Pre-commit", "format:check + lint + typecheck", "kimi-githooks install", "git commit"],
   [
     "Pre-push",
@@ -123,22 +109,37 @@ const HOOK_TAXONOMY = [
   ],
 ] as const;
 
+/** @generated canvas-routing — bun run canvas:generate; do not edit */
 const CANVAS_ROUTING = [
   { id: "kimi-toolchain", page: "Hub", path: "docs/canvases/kimi-toolchain.canvas.tsx", detail: "manifest id unified (this canvas)" },
-  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx", detail: "manifest id templates" },
-  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "four-layer model" },
-  { id: "namespace-boundaries", page: "Name collisions", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "doctor trinity" },
-  { id: "doc-links-and-see-ladder", page: "Cross-ref ladder", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx", detail: "code-references" },
-  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor" },
-  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "dashboard-thumbnails" },
-  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "herdr-plugin-architecture" },
-  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "manifest id deep-quality" },
+  { id: "namespace-boundaries", page: "Meta / routing", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "Doctor trinity · finish-work vs prefix+*" },
+  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "Discovery · define · parity · scaffold layers" },
+  { id: "doc-links-and-see-ladder", page: "Doc links", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx", detail: "@see ladder · docs/references index" },
+  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx", detail: "Profiles · templates · scaffold doctor" },
+  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "PNG → Bun.Image → /api/thumbnail" },
+  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor --automation · gate JSON" },
+  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
+  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
 ] as const;
 
+/** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
+const CANVAS_ROUTING_COUNT = CANVAS_ROUTING.length;
+
+const CANVAS_ROUTING_ROW_TONE = [
+  "info",
+  "success",
+  "neutral",
+  "neutral",
+  "neutral",
+  "neutral",
+  "neutral",
+  "warning",
+  "warning"
+] as const;
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
-  { id: "test", label: "bun run check:fast", sub: "150 unit gates" },
+  { id: "test", label: "bun run check:fast", sub: "167 unit gates" },
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -154,9 +155,19 @@ const DAG_EDGES = [
   { from: "path", to: "cli" },
 ] as const;
 
-const BIN_COUNT = 27;
-const LIB_COUNT = 237;
-const UNIT_COUNT = 150;
+/** @generated hub-toolchain-stats — bun run canvas:generate; do not edit */
+const TOOL_CATEGORIES = [
+  { id: "diag", label: "Diagnostics", count: 5 },
+  { id: "gov", label: "Governance", count: 4 },
+  { id: "heal", label: "Heal / Memory", count: 5 },
+  { id: "scaffold", label: "Scaffold", count: 6 },
+  { id: "herdr", label: "Herdr", count: 6 },
+  { id: "infra", label: "Router / Bridge", count: 3 }
+] as const;
+
+const BIN_COUNT = 29;
+const LIB_COUNT = 261;
+const UNIT_COUNT = 167;
 const INTEGRATION_COUNT = 5;
 const SMOKE_COUNT = 6;
 const CURSOR_CANVAS_COUNT = 9;
@@ -256,7 +267,7 @@ function RelatedCanvasesTable() {
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail,
         ])}
-        rowTone={["info", "success", "neutral", "warning", "neutral", "info", "neutral", "warning", "info"]}
+        rowTone={[...CANVAS_ROUTING_ROW_TONE]}
         striped
       />
       <Text tone="tertiary" size="small">Click Canvas or Page to open · read order: Hub → Config or Namespace → Scaffold → Herdr</Text>
@@ -277,6 +288,7 @@ export default function KimiToolchainCanvas() {
           <Pill>{BIN_COUNT} CLI bins</Pill>
           <Pill>{LIB_COUNT} lib modules</Pill>
           <Pill>{UNIT_COUNT} unit tests</Pill>
+          <Pill>{CURSOR_CANVAS_COUNT} IDE canvases</Pill>
           <Pill tone="info">Runtime: ~/.kimi-code/</Pill>
         </Row>
       </Stack>
@@ -444,7 +456,7 @@ export default function KimiToolchainCanvas() {
         </CardBody>
       </Card>
 
-      <CollapsibleSection title={`Related canvases (${CURSOR_CANVAS_COUNT} manifest-backed)`} defaultOpen>
+      <CollapsibleSection title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`} defaultOpen>
         <RelatedCanvasesTable />
       </CollapsibleSection>
 

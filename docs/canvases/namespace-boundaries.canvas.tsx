@@ -222,18 +222,33 @@ const SEE_DX_VERBAGE = [
 ] as const;
 
 /** Specialist canvases — read after namespace when binding layer is known. */
+/** @generated canvas-routing — bun run canvas:generate; do not edit */
 const CANVAS_ROUTING = [
-  { id: "kimi-toolchain", page: "Project hub", path: "docs/canvases/kimi-toolchain.canvas.tsx" },
-  { id: "namespace-boundaries", page: "Meta / routing", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "(this canvas)" },
-  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx" },
-  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx" },
-  { id: "doc-links-and-see-ladder", page: "Cross-ref ladder", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx" },
-  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx" },
-  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx" },
-  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins v0.5.0", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx" },
-  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "manifest id deep-quality" },
+  { id: "kimi-toolchain", page: "Hub", path: "docs/canvases/kimi-toolchain.canvas.tsx", detail: "Architecture, tools, gates — start here" },
+  { id: "namespace-boundaries", page: "Meta / routing", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "manifest id namespace (this canvas)" },
+  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "Discovery · define · parity · scaffold layers" },
+  { id: "doc-links-and-see-ladder", page: "Doc links", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx", detail: "@see ladder · docs/references index" },
+  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx", detail: "Profiles · templates · scaffold doctor" },
+  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "PNG → Bun.Image → /api/thumbnail" },
+  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor --automation · gate JSON" },
+  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
+  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
 ] as const;
 
+/** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
+const CANVAS_ROUTING_COUNT = CANVAS_ROUTING.length;
+
+const CANVAS_ROUTING_ROW_TONE = [
+  "info",
+  "success",
+  "neutral",
+  "warning",
+  "neutral",
+  "neutral",
+  "neutral",
+  "warning",
+  "warning"
+] as const;
 const DAG_NODES = [
   { id: "dx", label: "dx platform", sub: "~/.config/dx/" },
   { id: "dxToml", label: "dx.config.toml", sub: "project config" },
@@ -259,7 +274,6 @@ const DOCS_REF_COUNT = DOCS_REFERENCES.length;
 const LOCAL_DOCS_COUNT = 15;
 const ECOSYSTEM_COUNT = 8;
 const DOCS_REFS_IN_CANVAS = 9;
-const CURSOR_CANVAS_COUNT = 9;
 
 function BindingLayerDag() {
   const theme = useHostTheme();
@@ -356,7 +370,7 @@ function RelatedCanvasesTable() {
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
-        rowTone={["info", "info", "success", "neutral", "neutral", "neutral", "neutral", "warning", "info"]}
+        rowTone={[...CANVAS_ROUTING_ROW_TONE]}
         striped
       />
       <Text tone="tertiary" size="small">Click Canvas file or Binding layer to open · read order: namespace-boundaries → pick layer</Text>
@@ -452,7 +466,7 @@ export default function NamespaceBoundariesCanvas() {
         </Stack>
       </Grid>
 
-      <CollapsibleSection title={`Related canvases (${CURSOR_CANVAS_COUNT} manifest-backed)`} defaultOpen>
+      <CollapsibleSection title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`} defaultOpen>
         <RelatedCanvasesTable />
       </CollapsibleSection>
 

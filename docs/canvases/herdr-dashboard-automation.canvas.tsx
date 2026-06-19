@@ -119,14 +119,33 @@ const RELATED_SURFACES = [
   ["herdr-orchestrator dashboard --probe", "runHerdrDashboardAutomation — lower-level probe"],
 ] as const;
 
+/** @generated canvas-routing — bun run canvas:generate; do not edit */
 const CANVAS_ROUTING = [
-  { id: "namespace-boundaries", page: "Meta / routing", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "Which doctor surface?" },
-  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor --automation (this canvas)" },
+  { id: "kimi-toolchain", page: "Hub", path: "docs/canvases/kimi-toolchain.canvas.tsx", detail: "Architecture, tools, gates — start here" },
+  { id: "namespace-boundaries", page: "Meta / routing", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "Doctor trinity · finish-work vs prefix+*" },
+  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "Discovery · define · parity · scaffold layers" },
+  { id: "doc-links-and-see-ladder", page: "Doc links", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx", detail: "@see ladder · docs/references index" },
+  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx", detail: "Profiles · templates · scaffold doctor" },
   { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "PNG → Bun.Image → /api/thumbnail" },
-  { id: "configuration-layers", page: "Config layers", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "Discovery localDocs vs bunfig define" },
-  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "kimi-heal --fix · KIMI_MODULES=doctor" },
+  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "manifest id kimi-doctor (this canvas)" },
+  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
+  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
 ] as const;
 
+/** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
+const CANVAS_ROUTING_COUNT = CANVAS_ROUTING.length;
+
+const CANVAS_ROUTING_ROW_TONE = [
+  "info",
+  "neutral",
+  "neutral",
+  "warning",
+  "neutral",
+  "neutral",
+  "success",
+  "warning",
+  "warning"
+] as const;
 const LIFECYCLE_MODES = [
   ["Doctor gate (shipped)", "kimi-doctor --automation", "One-shot · ephemeral server · finish-work"],
   ["Monitor loop", "feedDashboardScreenshotPng", "2s poll · AbortSignal · --webview mode"],
@@ -277,10 +296,10 @@ function RelatedCanvasesTable() {
           <CanvasLink key={`${c.id}-page`} label={c.page} path={c.path} dispatch={dispatch} />,
           c.detail ?? c.path,
         ])}
-        rowTone={["info", "success", "neutral", "neutral", "info"]}
+        rowTone={[...CANVAS_ROUTING_ROW_TONE]}
         striped
       />
-      <Text tone="tertiary" size="small">Click Canvas file or Binding layer to open · read order: namespace → automation → thumbnails</Text>
+      <Text tone="tertiary" size="small">Click Canvas file or Binding layer to open · {CANVAS_ROUTING_COUNT} manifest-backed canvases</Text>
     </Stack>
   );
 }
@@ -314,7 +333,7 @@ export default function HerdrDashboardAutomationSpec() {
         after Herdr orchestrator bootstrap — not required for cold-machine finish-work.
       </Callout>
 
-      <CollapsibleSection title="Related canvases (read order)" count={5} defaultOpen>
+      <CollapsibleSection title={`Related canvases (${CANVAS_ROUTING_COUNT} manifest-backed)`} count={CANVAS_ROUTING_COUNT} defaultOpen>
         <RelatedCanvasesTable />
       </CollapsibleSection>
 
