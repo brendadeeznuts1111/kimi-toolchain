@@ -34,12 +34,20 @@ describe("herdr-dashboard-data", () => {
             severity: "error",
             message: "gate failed",
             raw: '2026-06-19T00:00:01Z {"level":"error","message":"gate failed"}',
+            preview: "gate failed",
+            source: "tool-failures",
+            tags: ["sink:tool-failures", "severity:error"],
+            payloadKeys: ["level", "message"],
           },
           {
             lineNumber: 3,
             severity: "warn",
             message: "memory high",
             raw: "2026-06-19T00:00:02Z warning: memory high",
+            preview: "memory high",
+            source: "tool-failures",
+            tags: ["sink:tool-failures", "severity:warn"],
+            payloadKeys: [],
           },
         ]);
       } finally {

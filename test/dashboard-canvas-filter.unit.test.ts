@@ -3,6 +3,7 @@ import {
   ARTIFACT_LINEAGE_CARD_IDS,
   computeRunManifestDiff,
 } from "../src/canvases/artifact-lineage.manifest.ts";
+import { GATE_HEALTH_CARD_IDS } from "../src/canvases/gate-health.manifest.ts";
 import {
   applyCanvasFilter,
   matchesCanvasDeepLink,

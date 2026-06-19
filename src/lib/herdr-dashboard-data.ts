@@ -22,6 +22,7 @@ import {
   type ErrorLogSinkStatus,
 } from "./error-log-discovery.ts";
 import { tlsComplianceGate } from "../guardian/tls-compliance.ts";
+import { formatLogPreviewText } from "./log-preview.ts";
 import {
   ArtifactStore,
   extractArtifactTimestampMs,
@@ -29,6 +30,11 @@ import {
   type ArtifactListOptions,
   type ArtifactRunManifest,
 } from "./artifact-store.ts";
+import {
+  getDoctorRunsByRunId,
+  getDoctorRunsBySession,
+  type DoctorRunRecord,
+} from "./doctor-runs.ts";
 
 export const DEFAULT_DASHBOARD_PORT = 18412;
 
@@ -49,6 +55,8 @@ export interface DashboardAgentsPayload {
   agents: DashboardAgentRow[];
   error?: string;
   fetchedAt: string;
+  /** True when the HTTP API returned a fast empty payload while discovery warms. */
+  warming?: boolean;
 }
 
 export interface DashboardRuleRow {
@@ -425,6 +433,8 @@ export interface DashboardArtifactEntry {
   gate: string;
   count: number;
   latestPath: string | null;
+  /** Second-newest path for the gate (diff UI). */
+  previousPath?: string | null;
   latestSize?: number;
   latestResultSize?: number;
   latestAgeMs?: number;
@@ -498,6 +508,8 @@ export interface DashboardRunsListPayload {
 export interface DashboardRunArtifactEntry {
   gate: string;
   path: string;
+  /** True when path resolved via SQLite index rather than manifest map. */
+  indexSource?: boolean;
   status: string;
   summary: string;
   savedAt: string | null;
@@ -517,6 +529,7 @@ export interface DashboardRunManifestPayload {
   runId: string;
   manifest: ArtifactRunManifest;
   artifacts: DashboardRunArtifactEntry[];
+  doctorRuns: DoctorRunRecord[];
   fetchedAt: string;
   error?: string;
 }
@@ -571,7 +584,7 @@ function artifactPayloadPreview(payload: unknown): string {
   return JSON.stringify(payload, null, 2).slice(0, 1200);
 }
 
-const PROBE_FETCH_TIMEOUT_MS = 1200;
+const PROBE_FETCH_TIMEOUT_MS = 400;
 
 async function fetchServeProbeJson(
   baseUrl: string,
@@ -692,12 +705,14 @@ export async function fetchDashboardArtifacts(
       const listed = await store.listEntries(gate, filter);
       if (listed.entries.length === 0) continue;
       const latestEntry = listed.entries.at(-1)!;
+      const previousEntry = listed.entries.length >= 2 ? listed.entries.at(-2) : undefined;
       const envelope = await store.readEnvelope(latestEntry.path);
       const latestTimestamp = extractArtifactTimestampMs(latestEntry.path);
       artifacts.push({
         gate,
         count: listed.entries.length,
         latestPath: latestEntry.path,
+        previousPath: previousEntry?.path ?? null,
         ...(latestEntry.size !== undefined ? { latestSize: latestEntry.size } : {}),
         ...(latestEntry.resultSize !== undefined
           ? { latestResultSize: latestEntry.resultSize }
@@ -712,8 +727,9 @@ export async function fetchDashboardArtifacts(
 
     const paths = await store.list(gate);
     const latest = await store.getLatest(gate);
-    const listed = await store.listEntries(gate, { limit: 1 });
+    const listed = await store.listEntries(gate, { limit: 2 });
     const latestEntry = listed.entries.at(-1);
+    const previousEntry = listed.entries.length >= 2 ? listed.entries.at(-2) : undefined;
     const latestTimestamp = latest?.relativePath
       ? extractArtifactTimestampMs(latest.relativePath)
       : null;
@@ -721,6 +737,7 @@ export async function fetchDashboardArtifacts(
       gate,
       count: paths.length,
       latestPath: latest?.relativePath ?? null,
+      previousPath: previousEntry?.path ?? null,
       ...(latestEntry?.size !== undefined ? { latestSize: latestEntry.size } : {}),
       ...(latestEntry?.resultSize !== undefined
         ? { latestResultSize: latestEntry.resultSize }
@@ -816,12 +833,156 @@ function artifactListOptionsToIndexQuery(
   return query;
 }
 
+export interface DashboardArtifactIndexStatsPayload {
+  ok: boolean;
+  projectPath: string;
+  stats: import("./artifact-store.ts").ArtifactIndexStats & { fsArtifactCount: number };
+  synced: { rebuilt: boolean; fsCount: number; indexCount: number };
+  fetchedAt: string;
+}
+
+export interface DashboardArtifactDiffPayload {
+  ok: boolean;
+  projectPath: string;
+  gate: string;
+  pathA: string;
+  pathB: string;
+  hashA: string | null;
+  hashB: string | null;
+  equal: boolean;
+  statusA?: string;
+  statusB?: string;
+  runIdA?: string;
+  runIdB?: string;
+  indexSource: "sqlite";
+  fetchedAt: string;
+  error?: string;
+}
+
+function escapeXmlText(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+export interface DashboardArtifactFeedOptions {
+  limit?: number;
+  baseUrl?: string;
+}
+
+/** RSS 2.0 feed of newest indexed artifacts (newest first). */
+export async function fetchDashboardArtifactFeed(
+  projectPath: string,
+  options: DashboardArtifactFeedOptions = {}
+): Promise<string> {
+  const limit = Math.min(Math.max(options.limit ?? 50, 1), 200);
+  const baseUrl = (options.baseUrl ?? "http://127.0.0.1").replace(/\/$/, "");
+  const store = new ArtifactStore(projectPath);
+  await store.syncIndexIfDrifted();
+  const rows = store.getIndex().find({ limit, order: "desc" });
+  const builtAt = new Date().toUTCString();
+  const channelTitle = escapeXmlText(`kimi-toolchain artifacts · ${projectPath}`);
+  const items = rows
+    .map((row) => {
+      const status = row.status ?? "unknown";
+      const title = escapeXmlText(`${row.gate} · ${status}`);
+      const pubDate = new Date(row.savedAt).toUTCString();
+      const lineageUrl = `${baseUrl}/api/artifacts/${encodeURIComponent(row.gate)}/lineage?path=${encodeURIComponent(row.relativePath)}`;
+      const description = escapeXmlText(
+        `${row.gate} artifact (${status}) saved ${row.savedAt}${row.runId ? ` · run ${row.runId}` : ""}`
+      );
+      return `    <item>
+      <title>${title}</title>
+      <link>${escapeXmlText(lineageUrl)}</link>
+      <guid isPermaLink="false">${escapeXmlText(row.relativePath)}</guid>
+      <pubDate>${pubDate}</pubDate>
+      <description>${description}</description>
+    </item>`;
+    })
+    .join("\n");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>${channelTitle}</title>
+    <link>${escapeXmlText(`${baseUrl}/api/artifacts/feed.xml`)}</link>
+    <description>Saved gate artifacts from .kimi/artifacts (SQLite index)</description>
+    <lastBuildDate>${builtAt}</lastBuildDate>
+    <generator>kimi-toolchain herdr-dashboard</generator>
+${items}
+  </channel>
+</rss>
+`;
+}
+
+/** SQLite index health — filesystem vs index counts with drift repair. */
+export async function fetchDashboardArtifactIndexStats(
+  projectPath: string
+): Promise<DashboardArtifactIndexStatsPayload> {
+  const store = new ArtifactStore(projectPath);
+  const synced = await store.syncIndexIfDrifted();
+  return {
+    ok: true,
+    projectPath,
+    stats: { ...store.getIndex().stats(), fsArtifactCount: synced.fsCount },
+    synced,
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+/** Compare two saved artifacts by content hash (indexed metadata when available). */
+export async function fetchDashboardArtifactDiff(
+  projectPath: string,
+  gateName: string,
+  pathA: string,
+  pathB: string
+): Promise<DashboardArtifactDiffPayload> {
+  const fetchedAt = new Date().toISOString();
+  const store = new ArtifactStore(projectPath);
+  const diff = await store.diffArtifactPaths(pathA.trim(), pathB.trim());
+  if (!diff.ok) {
+    return {
+      ok: false,
+      projectPath,
+      gate: gateName,
+      pathA,
+      pathB,
+      hashA: null,
+      hashB: null,
+      equal: false,
+      indexSource: "sqlite",
+      fetchedAt,
+      error: diff.error,
+    };
+  }
+  return {
+    ok: true,
+    projectPath,
+    gate: gateName,
+    pathA: diff.pathA,
+    pathB: diff.pathB,
+    hashA: diff.hashA,
+    hashB: diff.hashB,
+    equal: diff.equal,
+    ...(diff.statusA ? { statusA: diff.statusA } : {}),
+    ...(diff.statusB ? { statusB: diff.statusB } : {}),
+    ...(diff.runIdA ? { runIdA: diff.runIdA } : {}),
+    ...(diff.runIdB ? { runIdB: diff.runIdB } : {}),
+    indexSource: "sqlite",
+    fetchedAt,
+  };
+}
+
 /** Per-gate artifact counts from the SQLite index (supports identity/status filters). */
 export async function fetchDashboardArtifactAggregates(
   projectPath: string,
   filter: ArtifactListOptions = parseArtifactListQuery(new URLSearchParams())
 ): Promise<DashboardArtifactAggregatesPayload> {
   const store = new ArtifactStore(projectPath);
+  await store.syncIndexIfDrifted();
   const aggregates = store.getIndex().countByGate(artifactListOptionsToIndexQuery(filter));
   const hasFilter = hasArtifactListFilter(filter);
   return {
@@ -853,14 +1014,15 @@ async function hydrateRunArtifacts(
   manifest: ArtifactRunManifest
 ): Promise<DashboardRunArtifactEntry[]> {
   const artifacts: DashboardRunArtifactEntry[] = [];
-  for (const gate of manifest.gates) {
-    const relativePath = manifest.artifacts[gate];
-    if (!relativePath) continue;
+  const refs = await store.listRunArtifactRefs(manifest.runId, manifest);
+  for (const ref of refs) {
+    const relativePath = ref.relativePath;
     const envelope = await store.readEnvelope(relativePath);
     const metadata = envelope?.metadata;
     artifacts.push({
-      gate,
+      gate: ref.gate,
       path: relativePath,
+      indexSource: ref.indexSource,
       status: artifactPayloadStatus(envelope?.payload),
       summary: artifactPayloadSummary(envelope?.payload),
       savedAt: envelope?.savedAt ?? null,
@@ -927,16 +1089,23 @@ export async function fetchDashboardRunManifest(
         status: "fail",
       },
       artifacts: [],
+      doctorRuns: [],
       fetchedAt,
       error: "Run not found",
     };
   }
+  const doctorRuns = manifest.runId
+    ? getDoctorRunsByRunId(manifest.runId)
+    : manifest.sessionId
+      ? getDoctorRunsBySession(manifest.sessionId)
+      : [];
   return {
     ok: true,
     projectPath,
     runId,
     manifest,
     artifacts: await hydrateRunArtifacts(store, manifest),
+    doctorRuns,
     fetchedAt,
   };
 }
@@ -1572,6 +1741,17 @@ export interface DashboardDebugLogEntry {
   severity: "error" | "warn" | "info";
   message: string;
   raw: string;
+  /** Width-aware preview for log cards (stripANSI + stringWidth truncation). */
+  preview: string;
+  timestamp?: string;
+  source?: string;
+  tool?: string;
+  taxonomyId?: string;
+  category?: string;
+  sessionId?: string;
+  errorId?: string;
+  tags?: string[];
+  payloadKeys?: string[];
 }
 
 function toDebugLogSinkSummary(sink: ErrorLogSinkStatus): DashboardDebugLogSinkSummary {
@@ -1585,24 +1765,51 @@ function toDebugLogSinkSummary(sink: ErrorLogSinkStatus): DashboardDebugLogSinkS
   };
 }
 
-function dashboardDebugLogSeverity(line: string): DashboardDebugLogEntry["severity"] {
+function parseDashboardDebugLogJson(line: string): Record<string, unknown> | null {
+  const trimmed = line.trim();
+  const jsonStart = trimmed.indexOf("{");
+  if (jsonStart < 0) return null;
+  try {
+    const parsed = JSON.parse(trimmed.slice(jsonStart));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function dashboardDebugLogSeverity(
+  line: string,
+  parsed: Record<string, unknown> | null = parseDashboardDebugLogJson(line)
+): DashboardDebugLogEntry["severity"] {
+  const parsedSeverity = typeof parsed?.severity === "string" ? parsed.severity.toLowerCase() : "";
+  if (parsedSeverity === "error" || parsedSeverity === "warn" || parsedSeverity === "info") {
+    return parsedSeverity;
+  }
   if (/\b(error|fail(?:ed|ure)?|exception|panic|fatal|✗|✘)\b/i.test(line)) return "error";
   if (/\b(warn(?:ing)?)\b/i.test(line)) return "warn";
   return "info";
 }
 
-function dashboardDebugLogMessage(line: string): string {
+function firstUsefulLine(value: string): string {
+  return (
+    value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => line.length > 0) ?? value.trim()
+  );
+}
+
+function dashboardDebugLogMessage(
+  line: string,
+  parsed: Record<string, unknown> | null = parseDashboardDebugLogJson(line)
+): string {
   const trimmed = line.trim();
-  const jsonStart = trimmed.indexOf("{");
-  if (jsonStart >= 0) {
-    try {
-      const parsed = JSON.parse(trimmed.slice(jsonStart)) as Record<string, unknown>;
-      for (const key of ["message", "msg", "error"]) {
-        const value = parsed[key];
-        if (typeof value === "string" && value.trim()) return value;
-      }
-    } catch {
-      // Fall through to lightweight text cleanup.
+  if (parsed) {
+    for (const key of ["message", "msg", "error", "output", "suggestion"]) {
+      const value = parsed[key];
+      if (typeof value === "string" && value.trim()) return firstUsefulLine(value);
     }
   }
   return trimmed
@@ -1611,14 +1818,57 @@ function dashboardDebugLogMessage(line: string): string {
     .trim();
 }
 
-function dashboardDebugLogEntries(lines: string[], totalLines: number): DashboardDebugLogEntry[] {
+function dashboardDebugLogTags(
+  sinkId: string,
+  parsed: Record<string, unknown> | null,
+  severity: DashboardDebugLogEntry["severity"]
+): string[] {
+  const tags = new Set<string>([`sink:${sinkId}`, `severity:${severity}`]);
+  const add = (prefix: string, value: unknown) => {
+    if (typeof value === "string" && value.trim()) tags.add(`${prefix}:${value.trim()}`);
+  };
+  add("tool", parsed?.toolName);
+  add("taxonomy", parsed?.taxonomyId);
+  add("category", parsed?.categoryId);
+  add("session", parsed?.sessionId);
+  return [...tags].slice(0, 8);
+}
+
+function dashboardDebugLogEntries(
+  lines: string[],
+  totalLines: number,
+  sinkId: string
+): DashboardDebugLogEntry[] {
   const firstLine = Math.max(1, totalLines - lines.length + 1);
-  return lines.map((line, index) => ({
-    lineNumber: firstLine + index,
-    severity: dashboardDebugLogSeverity(line),
-    message: dashboardDebugLogMessage(line),
-    raw: line,
-  }));
+  return lines.map((line, index) => {
+    const parsed = parseDashboardDebugLogJson(line);
+    const severity = dashboardDebugLogSeverity(line, parsed);
+    const message = dashboardDebugLogMessage(line, parsed);
+    const tool = typeof parsed?.toolName === "string" ? parsed.toolName : undefined;
+    const taxonomyId = typeof parsed?.taxonomyId === "string" ? parsed.taxonomyId : undefined;
+    const category =
+      typeof parsed?.categoryName === "string"
+        ? parsed.categoryName
+        : typeof parsed?.categoryId === "string"
+          ? parsed.categoryId
+          : undefined;
+    return {
+      lineNumber: firstLine + index,
+      severity,
+      message,
+      raw: line,
+      preview: formatLogPreviewText(message || line),
+      ...(typeof parsed?.timestamp === "string" ? { timestamp: parsed.timestamp } : {}),
+      source: sinkId,
+      ...(tool ? { tool } : {}),
+      ...(taxonomyId ? { taxonomyId } : {}),
+      ...(category ? { category } : {}),
+      ...(typeof parsed?.sessionId === "string" ? { sessionId: parsed.sessionId } : {}),
+      ...(typeof parsed?.errorId === "string" ? { errorId: parsed.errorId } : {}),
+      tags: dashboardDebugLogTags(sinkId, parsed, severity),
+      payloadKeys: parsed ? Object.keys(parsed).slice(0, 12) : [],
+    };
+  });
 }
 
 /** Curated sink registry for the Logs tab (no wire.jsonl). */
@@ -1713,7 +1963,7 @@ export async function fetchDashboardDebugLogs(
     sink: id,
     path: sink.path,
     lines,
-    entries: dashboardDebugLogEntries(lines, totalLines),
+    entries: dashboardDebugLogEntries(lines, totalLines, id),
     totalLines,
     tail: limit,
     fetchedAt,

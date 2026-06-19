@@ -8,6 +8,10 @@ import {
   type RunManifestDiff,
 } from "../canvases/artifact-lineage.manifest.ts";
 import {
+  gateHealthManifest,
+  GATE_HEALTH_MANIFEST_ID,
+} from "../canvases/gate-health.manifest.ts";
+import {
   fetchDashboardRunManifest,
   fetchDashboardRunsList,
   type DashboardRunManifestPayload,
@@ -54,13 +58,7 @@ export interface CanvasFilterResult {
 
 const CANVAS_MANIFESTS = {
   [ARTIFACT_LINEAGE_MANIFEST_ID]: artifactLineageManifest,
-} as const;
-
-/** Stub registry entry for gate-health canvas (manifest TBD). */
-export const GATE_HEALTH_CANVAS_STUB = {
-  id: "gate-health",
-  cardIds: ["card-gates", "card-kimi-doctor"] as const,
-  urlPattern: new URLPattern({ search: "canvas=gate-health" }),
+  [GATE_HEALTH_MANIFEST_ID]: gateHealthManifest,
 } as const;
 
 function parseDiffParam(raw: string | null): { left: string; right: string } | null {

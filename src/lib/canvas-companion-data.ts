@@ -46,6 +46,8 @@ const BIN_CATEGORY: Record<string, HubBinCategory> = {
   "herdr-latm": "herdr",
   "kimi-toolchain": "infra",
   "kimi-dashboard": "infra",
+  "kimi-mcp": "infra",
+  "kimi-dashboard-mcp": "infra",
   "unified-shell-bridge": "infra",
 };
 
@@ -72,6 +74,8 @@ const INVENTORY_ROW_LABELS: Record<HubBinCategory, string> = {
 
 const INVENTORY_BIN_LABELS: Partial<Record<string, string>> = {
   "kimi-toolchain": "kimi-toolchain (router)",
+  "kimi-mcp": "kimi-mcp (MCP stdio)",
+  "kimi-dashboard-mcp": "kimi-dashboard-mcp (MCP stdio)",
   "unified-shell-bridge": "unified-shell-bridge (MCP stdio)",
   "kimi-resource-governor": "kimi-resource-governor (health-listen)",
 };
