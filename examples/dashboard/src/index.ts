@@ -363,24 +363,31 @@ async function apiUuid(): Promise<Response> {
 
 async function apiInspectConfig(): Promise<Response> {
   const debug = Bun.env.DEBUG_INSPECT === "true";
-  const preset = debug ? "debug" : "auto";
+  const isTTY = process.stdout.isTTY;
+  const isCI = !!Bun.env.CI;
+  const isProd = Bun.env.NODE_ENV === "production";
+
+  const preset = debug ? "debug" : isCI ? "ci" : isProd ? "production" : "local";
 
   return jsonResponse({
     preset,
+    environment: isCI ? "CI" : isProd ? "production" : "local",
     config: {
-      depth: debug ? Infinity : 4,
-      colors: process.stdout.isTTY,
-      compact: false,
+      depth: debug ? Infinity : isCI ? 4 : isProd ? 2 : 5,
+      colors: isTTY,
+      compact: isCI || isProd,
       sorted: false,
       maxArrayLength: null,
       showHidden: debug,
     },
-    detected: {
-      isTTY: process.stdout.isTTY,
-      NODE_ENV: Bun.env.NODE_ENV || "unset",
-      DEBUG_INSPECT: Bun.env.DEBUG_INSPECT || "unset",
-    },
-    note: debug ? "DEBUG_INSPECT=true → depth=Infinity, showHidden=true" : "Default preset. Set DEBUG_INSPECT=true for full depth.",
+    detected: { isTTY, CI: Bun.env.CI || "unset", NODE_ENV: Bun.env.NODE_ENV || "unset", DEBUG_INSPECT: Bun.env.DEBUG_INSPECT || "unset" },
+    presets: [
+      { environment: "Local terminal (dev)", colors: true, depth: 5, compact: false, showHidden: false, useCase: "Best developer experience" },
+      { environment: "CI / GitHub Actions", colors: false, depth: 4, compact: true, showHidden: false, useCase: "Clean, safe logs" },
+      { environment: "Production", colors: false, depth: 2, compact: true, showHidden: false, useCase: "Minimal output" },
+      { environment: "Debug (DEBUG_INSPECT=1)", colors: isTTY, depth: "Infinity", compact: false, showHidden: true, useCase: "Maximum visibility for debugging" },
+    ],
+    note: debug ? "DEBUG_INSPECT=true — depth=Infinity, showHidden=true" : `Auto preset (${preset}). Set DEBUG_INSPECT=true to override.`,
   });
 }
 
