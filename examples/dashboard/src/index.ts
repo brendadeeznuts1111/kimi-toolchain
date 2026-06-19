@@ -529,6 +529,29 @@ async function apiBunfig(): Promise<Response> {
   }
 }
 
+async function apiStringUtils(): Promise<Response> {
+  const ansiStr = "\u001b[31mhello\u001b[0m";
+  return jsonResponse({
+    stringWidth: {
+      plain: Bun.stringWidth("hello"),
+      ansi: Bun.stringWidth(ansiStr),
+      ansiCounted: Bun.stringWidth(ansiStr, { countAnsiEscapeCodes: true }),
+    },
+    escapeHTML: {
+      plain: Bun.escapeHTML("hello"),
+      script: Bun.escapeHTML("<script>alert('xss')</script>"),
+      amp: Bun.escapeHTML("a & b"),
+      number: Bun.escapeHTML(42),
+      bool: Bun.escapeHTML(true),
+    },
+    inspectCustom: {
+      symbol: "Bun.inspect.custom",
+      usage: "class Foo { [Bun.inspect.custom]() { return 'foo'; } }",
+      note: "Override console.log output per class. Same as util.inspect.custom in Node.js",
+    },
+  });
+}
+
 // ── Server ──────────────────────────────────────────────────────────
 
 const server = Bun.serve({
@@ -570,6 +593,8 @@ const server = Bun.serve({
         return apiInspectConfig();
       case "/api/bunfig":
         return apiBunfig();
+      case "/api/string-utils":
+        return apiStringUtils();
       case "/api/uuid":
         return apiUuid();
       case "/health":
