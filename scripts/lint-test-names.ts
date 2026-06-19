@@ -54,6 +54,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "herdr-socket-saturation": "src/lib/herdr-socket-client.ts",
   "herdr-socket-saturation-subscribe": "src/lib/herdr-socket-client.ts",
   "canvas-metadata-integrity": "src/lib/canvas-metadata-integrity.gate.ts",
+  "perf-gate": "src/guardian/perf-gate.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */
@@ -86,7 +87,7 @@ const LEGACY_DESCRIBE_EXEMPT = new Set([
 ]);
 
 const FILENAME_PATTERN =
-  /^test\/(?:effect\/|smoke\/)?[a-z0-9]+(?:-[a-z0-9]+)*\.(?:unit|integration|smoke|db|router)\.test\.ts$/;
+  /^test\/(?:effect\/|smoke\/|guardian\/)?[a-z0-9]+(?:-[a-z0-9]+)*\.(?:unit|integration|smoke|db|router)\.test\.ts$/;
 
 const KEBAB = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
