@@ -87,6 +87,9 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "url-i18n-gate": "src/gates/url-i18n.ts",
   "reclassify-failure-ledger": "scripts/reclassify-failure-ledger.ts",
   "gzip-performance": "src/lib/bun-utils.ts",
+  "buffer-from-performance": "src/lib/bun-native-shim.ts",
+  "fetch-header-casing": "src/lib/http-client.ts",
+  "arm64-jsc-performance": "src/lib/utils.ts",
   "bun-crypto": "src/lib/bun-utils.ts",
   "bun-image": "src/lib/bun-image.ts",
   "bun-cron": "src/lib/bun-utils.ts",
@@ -94,6 +97,8 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "source-map-memory": "src/lib/bun-install-config.ts",
   "parallel-console-buffering": "src/lib/bun-install-config.ts",
   "parallel-console": "src/lib/bun-install-config.ts",
+  "snapshot-counter": "src/lib/snapshot-core.ts",
+  "wrap-ansi": "src/lib/inspect.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */
@@ -145,7 +150,7 @@ const LEGACY_DESCRIBE_EXEMPT = new Set([
 ]);
 
 const FILENAME_PATTERN =
-  /^test\/(?:effect\/|smoke\/|guardian\/)?[a-z0-9]+(?:-[a-z0-9]+)*\.(?:unit|integration|smoke|db|router)\.test\.ts$/;
+  /^test\/(?:effect\/|smoke\/|guardian\/|harness\/)?[a-z0-9]+(?:-[a-z0-9]+)*\.(?:unit|integration|smoke|db|router)\.test\.ts$/;
 
 const KEBAB = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 

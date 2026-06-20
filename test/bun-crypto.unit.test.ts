@@ -12,7 +12,7 @@ import { describe, expect, test } from "bun:test";
 
 const CHUNK_1MB = new Uint8Array(1024 * 1024);
 
-describe("bun-hash", () => {
+describe("bun-crypto", () => {
   test("Bun.hash produces stable output", () => {
     const a = Bun.hash("hello");
     const b = Bun.hash("hello");

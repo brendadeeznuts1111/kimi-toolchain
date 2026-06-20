@@ -16,7 +16,8 @@ const FIXTURE_DIR = join(import.meta.dir, ".tmp-console-parallel-fixtures");
 
 function fixture(name: string, lines: number): string {
   const logs = Array.from({ length: lines }, (_, i) => `console.log("${name}-${i}");`).join("\n");
-  return `import { describe, test } from "bun:test";\ndescribe("${name}", () => {\n  test("logs", () => {\n${logs}\n  });\n});\n`;
+  const group = JSON.stringify(name);
+  return `import { describe, test } from "bun:test";\ndescribe(${group}, () => {\n  test("logs", () => {\n${logs}\n  });\n});\n`;
 }
 
 describe("parallel-console-buffering", () => {

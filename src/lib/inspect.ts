@@ -310,9 +310,11 @@ export function stripANSI(text: string): string {
   return Bun.stripANSI(text);
 }
 
+export type WrapAnsiOptions = NonNullable<Parameters<typeof Bun.wrapAnsi>[2]>;
+
 /** Wrap text at a given column width, respecting ANSI codes. */
-export function wrapAnsi(text: string, columns: number): string {
-  return Bun.wrapAnsi(text, columns);
+export function wrapAnsi(text: string, columns: number, options?: WrapAnsiOptions): string {
+  return Bun.wrapAnsi(text, columns, options);
 }
 
 /** Slice or truncate text by terminal display width, preserving ANSI codes. */

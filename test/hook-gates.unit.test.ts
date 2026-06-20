@@ -212,6 +212,44 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
     });
   });
 
+  it("pre-commit runs canonical references check when script exists", async () => {
+    await withClearedEnv(["KIMI_HOOK_SUMMARY"], async () => {
+      const scopedDir = testTempDir("hook-canonical-check-");
+      await $`git init`.cwd(scopedDir).nothrow().quiet();
+      await $`git config user.email test@example.com`.cwd(scopedDir).nothrow().quiet();
+      await $`git config user.name Test`.cwd(scopedDir).nothrow().quiet();
+      ensureTestDir(join(scopedDir, "src"));
+      makeDir(join(scopedDir, "scripts"), { recursive: true });
+      await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 1;\n");
+      writeText(
+        join(scopedDir, "scripts/generate-canonical-references.ts"),
+        "await Bun.write('canonical-ran.txt', 'yes\\n');\n"
+      );
+      writeText(
+        join(scopedDir, "package.json"),
+        JSON.stringify({
+          name: "other-project",
+          scripts: {
+            "format:check": "true",
+            lint: "true",
+            typecheck: "true",
+            "test:fast": "true",
+          },
+        })
+      );
+      await $`git add -A`.cwd(scopedDir).nothrow().quiet();
+      await $`git commit -m init`.cwd(scopedDir).nothrow().quiet();
+      await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 2;\n");
+      await $`git add src/foo.ts`.cwd(scopedDir).nothrow().quiet();
+
+      const code = await runPreCommitGates(scopedDir);
+
+      expect(code).toBe(0);
+      expect(await Bun.file(join(scopedDir, "canonical-ran.txt")).text()).toBe("yes\n");
+      removePath(scopedDir, { recursive: true, force: true });
+    });
+  });
+
   it("pre-commit skips test:fast when bun test --changed finds no matching tests", async () => {
     await withClearedEnv(["KIMI_HOOK_SUMMARY"], async () => {
       const scopedDir = testTempDir("hook-scoped-fail-");

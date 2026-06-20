@@ -37,7 +37,13 @@ import { filterChangedTestPaths, shouldRunScopedLint } from "./check-lint-scoped
 import { buildBunTestArgs } from "./test-runtime.ts";
 import { isBunTestChangedEmptyOutput } from "./test-gates.ts";
 
-const PRE_COMMIT_CACHE_GATES = ["format:check", "lint", "typecheck", "test:fast"] as const;
+const PRE_COMMIT_CACHE_GATES = [
+  "format:check",
+  "lint",
+  "typecheck",
+  "canonical-references",
+  "test:fast",
+] as const;
 const PRE_PUSH_CACHE_GATES = [
   "guardian",
   "constant-drift",
@@ -296,6 +302,20 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
       }
       if (!changedIncludesTypeScript(staged)) return skippedGateResult("typecheck");
       return runGateVisible(projectRoot, "typecheck", ["bun", "run", "typecheck"]);
+    },
+    async () => {
+      const script = join(projectRoot, "scripts/generate-canonical-references.ts");
+      if (!pathExists(script)) return null;
+      if (!summary) printVerboseBanner("Canonical references");
+      if (await shouldSkipGate(projectRoot, "canonical-references")) {
+        return skippedGateResult("canonical-references");
+      }
+      return runGateVisible(projectRoot, "canonical-references", [
+        "bun",
+        "run",
+        "scripts/generate-canonical-references.ts",
+        "--check",
+      ]);
     },
     async () => runPreCommitTestsGate(projectRoot, staged, summary),
     async () => {

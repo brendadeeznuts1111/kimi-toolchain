@@ -82,6 +82,19 @@ describe("card-probe-server", () => {
       expect(cardsBody.configStatus.aligned).toBe(true);
       expect(cardsBody.configStatus.gates.length).toBeGreaterThanOrEqual(3);
 
+      const configStatus = await fetch(`${handle.url}/api/config-status`);
+      expect(configStatus.status).toBe(200);
+      const configStatusBody = (await configStatus.json()) as {
+        ok: boolean;
+        configStatus: { tool: string; aligned: boolean; gates: unknown[] };
+        fetchedAt: string;
+      };
+      expect(configStatusBody.ok).toBe(true);
+      expect(configStatusBody.configStatus.tool).toBe("config-status");
+      expect(configStatusBody.configStatus.aligned).toBe(true);
+      expect(configStatusBody.configStatus.gates.length).toBeGreaterThanOrEqual(3);
+      expect(typeof configStatusBody.fetchedAt).toBe("string");
+
       const refreshGet = await fetch(`${handle.url}/api/refresh`);
       expect(refreshGet.status).toBe(200);
       const refreshGetBody = (await refreshGet.json()) as { ok: boolean; refreshedAt: string };
