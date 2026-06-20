@@ -111,7 +111,9 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "bun-yaml-serve": "src/lib/bun-utils.ts",
   "bun-spawn-which-uuid": "src/lib/bun-utils.ts",
   "bun-sleep-deepequals": "src/lib/bun-utils.ts",
+  "bun-pack-profiler": "src/lib/bun-install-config.ts",
   "bun-buffer-swap": "src/lib/bun-utils.ts",
+  "bun-string-width": "src/lib/bun-utils.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */
@@ -129,6 +131,10 @@ const DESCRIBE_STEM_ALIAS: Record<string, string> = {
   "url-i18n-gate": "url-i18n",
   "benchmark-manifest": "benchmark-manifest",
   "markdown-dead-links": "markdown-dead-links-lint",
+  "bun-yaml-serve": "bun-yaml",
+  "bun-json5-jsonl": "bun-json5",
+  "bun-spawn-which-uuid": "bun-spawn",
+  "bun-sleep-deepequals": "bun-sleep",
   "bun-utils-base64": "base64",
   "bun-utils-hex": "hex",
   "bun-utils-gzip": "gzip",
