@@ -45,8 +45,13 @@ describe("version", () => {
 
   test("formatVersionTable returns string with headers", () => {
     const table = formatVersionTable({
-      toolchain: "1.0.0", name: "kimi-toolchain", mcpBridge: "1.0.0",
-      desktop: null, gitHead: "abc123", dirty: false, manifestPath: "/tmp/manifest.json",
+      toolchain: "1.0.0",
+      name: "kimi-toolchain",
+      mcpBridge: "1.0.0",
+      desktop: null,
+      gitHead: "abc123",
+      dirty: false,
+      manifestPath: "/tmp/manifest.json",
     });
     expect(table).toContain("Toolchain");
     expect(table).toContain("1.0.0");

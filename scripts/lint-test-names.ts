@@ -103,9 +103,11 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "snapshot-counter": "src/lib/snapshot-core.ts",
   "bun-wrap-ansi": "src/lib/inspect.ts",
   "wrap-ansi": "src/lib/inspect.ts",
-  "version": "src/lib/version.ts",
+  version: "src/lib/version.ts",
   "bun-json5-jsonl": "src/lib/bun-utils.ts",
   "bun-transpiler": "src/lib/bun-utils.ts",
+  "bun-build": "src/lib/bun-utils.ts",
+  "bun-toml": "src/lib/bun-utils.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */

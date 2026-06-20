@@ -161,7 +161,7 @@ export function formatVersionTable(info: VersionInfo): string {
       { Component: "Git HEAD", Version: info.gitHead ?? "n/a" },
       { Component: "Working Tree", Version: info.dirty ? "dirty" : "clean" },
     ],
-    { headers: true },
+    { headers: true }
   );
 }
 
