@@ -232,6 +232,9 @@ describe("effect-benchmark", () => {
 
   it("classifies host-specific benchmark keys", () => {
     expect(isHostSpecificBenchmarkKey("httpClient.fetch-tls1.2")).toBe(true);
+    expect(isHostSpecificBenchmarkKey("http.fetch-h1")).toBe(true);
+    expect(isHostSpecificBenchmarkKey("isolation.roundtrip")).toBe(true);
+    expect(isHostSpecificBenchmarkKey("email-i18n")).toBe(true);
     expect(isHostSpecificBenchmarkKey("crypto.sha256")).toBe(false);
   });
 

@@ -8,6 +8,9 @@
 import { BENCHMARK_CARD_IDS, BENCHMARK_MANIFEST_ID } from "../canvases/benchmark.manifest.ts";
 
 export const BENCHMARK_CONVERGENCE_SCHEMA_VERSION = 1 as const;
+
+/** Conservative budget for build:portal --local-only (pre-push + portal-convergence guard). */
+export const PORTAL_LOCAL_BUILD_BUDGET_MS = 45_000;
 export const BENCHMARK_CONVERGENCE_CONTRACT = "contracts/artifact-portal.json";
 export const BENCHMARK_PROBE_ROUTE = "/api/effect-benchmark";
 export const BENCHMARK_PROBE_REFRESH_ROUTE = "/api/effect-benchmark/refresh";

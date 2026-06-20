@@ -2,7 +2,6 @@ import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
 
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
-import { buildCanonicalReferencesManifest } from "../src/lib/canonical-references.ts";
 import { DOCTOR_PROBE_SCHEMA_VERSION, buildDoctorProbeManifest } from "../src/lib/doctor-probe.ts";
 
 import { REPO_ROOT, testTempDir } from "./helpers.ts";
@@ -11,10 +10,8 @@ describe("doctor-probe", () => {
     const tmpHome = testTempDir("probe-refs-");
     const prevHome = Bun.env.HOME;
     makeDir(join(tmpHome, ".kimi-code"), { recursive: true });
-    writeText(
-      join(tmpHome, ".kimi-code", "canonical-references.json"),
-      JSON.stringify(buildCanonicalReferencesManifest(), null, 2)
-    );
+    const repoRefs = await Bun.file(join(REPO_ROOT, "canonical-references.json")).text();
+    writeText(join(tmpHome, ".kimi-code", "canonical-references.json"), repoRefs);
     Bun.env.HOME = tmpHome;
 
     try {

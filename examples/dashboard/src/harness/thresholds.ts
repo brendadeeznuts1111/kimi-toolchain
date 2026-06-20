@@ -1,4 +1,6 @@
 import { join } from "path";
+import { loadMergedEffectBenchmarkThresholds } from "../../../../src/lib/effect-benchmark.ts";
+import { TOOLCHAIN_ROOT } from "./changed-context.ts";
 import { DEFAULT_THRESHOLDS } from "./module-registry.ts";
 
 let trainedThresholds: Record<string, number> | null = null;
@@ -98,12 +100,25 @@ export async function resolveThresholdSources(root?: string): Promise<ThresholdS
   };
 }
 
-/** Merge thresholds: defaults < trained.json < bunfig < programmatic override. */
+/** Repo-root layered thresholds (baseline + .kimi/thresholds.local + legacy). */
+async function loadToolchainLayeredThresholds(): Promise<Record<string, number>> {
+  const { thresholds } = await loadMergedEffectBenchmarkThresholds(TOOLCHAIN_ROOT);
+  return thresholds;
+}
+
+/** Merge thresholds: defaults < toolchain layers < trained.json < bunfig < programmatic. */
 export async function loadThresholds(): Promise<Record<string, number>> {
   if (cachedMerged) return cachedMerged;
 
   const sources = await resolveThresholdSources();
-  cachedMerged = sources.merged;
+  const layered = await loadToolchainLayeredThresholds();
+  cachedMerged = {
+    ...sources.defaults,
+    ...layered,
+    ...sources.trained,
+    ...sources.bunfig,
+    ...sources.programmatic,
+  };
   return cachedMerged;
 }
 

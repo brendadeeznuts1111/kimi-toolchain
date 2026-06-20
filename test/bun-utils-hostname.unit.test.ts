@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { hostname } from "os";
 import { runtimeHostname } from "../src/lib/bun-utils.ts";
 
-describe("runtimeHostname wrapper", () => {
+describe("bun-utils-hostname", () => {
   test("matches os.hostname()", () => {
     expect(runtimeHostname()).toBe(hostname());
   });

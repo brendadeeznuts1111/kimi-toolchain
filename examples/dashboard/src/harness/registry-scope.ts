@@ -58,6 +58,13 @@ export const REGISTRY_FILE_DEPS: Record<string, readonly string[]> = {
     "src/lib/isolation/index.ts",
     "src/harness/module-registry.ts",
   ],
+  "email-i18n": [
+    "src/gates/email-i18n.ts",
+    "src/lib/email-i18n.ts",
+    "src/harness/module-registry.ts",
+  ],
+  clock: ["src/harness/module-registry.ts", "src/harness/perf-monitor.ts"],
+  uuid: ["src/harness/module-registry.ts", "src/harness/perf-monitor.ts"],
 };
 
 const DASHBOARD_PREFIX = "examples/dashboard/";

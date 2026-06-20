@@ -356,7 +356,11 @@ export async function startProbeServer(
           okCount: cached.filter((c) => c.status === "pass").length,
           fetchedAt: lastFetchedAt,
         };
-        const body = withBenchmarkConvergence(benchmarkEnvelope!, benchmarkEnvelope!.runner, probeSummary);
+        const body = withBenchmarkConvergence(
+          benchmarkEnvelope!,
+          benchmarkEnvelope!.runner,
+          probeSummary
+        );
         return jsonResponse({
           ...body,
           fetchedAt: benchmarkFetchedAt,

@@ -12,7 +12,7 @@ import {
 } from "../src/lib/benchmark-probe-client.ts";
 import { matchesCanvasDeepLink } from "../src/lib/dashboard-canvas-filter.ts";
 
-describe("benchmark.manifest", () => {
+describe("benchmark-manifest", () => {
   test("manifest id and card ids align with canonical-references", () => {
     expect(BENCHMARK_MANIFEST_ID).toBe("benchmark");
     expect(benchmarkManifest.canvasId).toBe("benchmark");

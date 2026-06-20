@@ -149,9 +149,16 @@ export function resetEffectBenchmarkRegistry(): void {
   registry.length = 0;
 }
 
-/** Host-specific benchmarks (network latency) train into the local overlay only. */
+/** Host-specific benchmarks train into .kimi/thresholds.local.json (gitignored overlay). */
 export function isHostSpecificBenchmarkKey(registryKey: string): boolean {
-  return registryKey.startsWith("httpClient.");
+  if (registryKey.startsWith("httpClient.")) return true;
+  if (registryKey.startsWith("http.fetch-")) return true;
+  if (registryKey.startsWith("isolation.")) return true;
+  if (registryKey.startsWith("file.serve-")) return true;
+  if (registryKey === "email-i18n" || registryKey === "clock" || registryKey === "uuid") {
+    return true;
+  }
+  return false;
 }
 
 function defaultThreshold(): number {

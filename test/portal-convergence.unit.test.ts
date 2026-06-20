@@ -10,6 +10,7 @@ import {
 import {
   buildBenchmarkConvergenceBlock,
   CONVERGED_PORTAL_COMPONENTS,
+  PORTAL_LOCAL_BUILD_BUDGET_MS,
 } from "../src/lib/benchmark-convergence.ts";
 import { PORTAL_MANIFEST_TYPE } from "../templates/artifact-portal/index.ts";
 import { ArtifactStore } from "../src/lib/artifact-store.ts";
@@ -117,15 +118,18 @@ describe("portal-convergence", () => {
 
   test("buildArtifactPortal --local-only path stamps convergence on local-loop envelope", async () => {
     await withTempDir("portal-convergence-local", async (dir) => {
+      const started = performance.now();
       const result = await buildArtifactPortal({
         projectRoot: dir,
         preferProbe: false,
       });
+      const elapsedMs = performance.now() - started;
 
       expect(result.ok).toBe(true);
       expect(result.converged).toBe(true);
       expect(result.benchmark.source).toBe("local-loop");
       expect(result.convergedComponents).toHaveLength(CONVERGED_PORTAL_COMPONENTS.length);
+      expect(elapsedMs).toBeLessThan(PORTAL_LOCAL_BUILD_BUDGET_MS);
 
       const store = new ArtifactStore(dir);
       const latest = await store.getLatest(ARTIFACT_PORTAL_GATE);
