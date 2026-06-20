@@ -152,16 +152,26 @@ describe("bun-install-config", () => {
     writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
     writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
 
-    const report = await buildInstallPolicyReport(dir);
-    const lines = formatInstallPolicyReport(report);
-    expect(lines[0]).toContain("policy≥");
-    expect(lines.some((l) => l.includes("streamingExtraction: enabled"))).toBe(true);
-    expect(lines.some((l) => l.includes("isolatedLinkerFastPath: active"))).toBe(true);
-    expect(lines.some((l) => l.includes("sourceMapsMemory: optimized"))).toBe(true);
-    expect(lines.some((l) => l.includes("Platform-specific"))).toBe(true);
-    expect(lines.some((l) => l.includes("targetOs"))).toBe(true);
-    expect(lines.some((l) => l.includes("Install CLI workflow"))).toBe(true);
-    expect(lines.some((l) => l.includes("## Property reference"))).toBe(true);
+    await withEnv(
+      {
+        BUN_RUNTIME_TRANSPILER_CACHE_PATH: undefined,
+        BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT: undefined,
+      },
+      async () => {
+        const report = await buildInstallPolicyReport(dir);
+        const lines = formatInstallPolicyReport(report);
+        expect(lines[0]).toContain("policy≥");
+        expect(lines.some((l) => l.includes("streamingExtraction: enabled"))).toBe(true);
+        expect(lines.some((l) => l.includes("isolatedLinkerFastPath: active"))).toBe(true);
+        expect(lines.some((l) => l.includes("sourceMapsMemory: optimized"))).toBe(true);
+        expect(lines.some((l) => l.includes("Runtime environment"))).toBe(true);
+        expect(lines.some((l) => l.includes("transpilerCache: snapshot-only"))).toBe(true);
+        expect(lines.some((l) => l.includes("Platform-specific"))).toBe(true);
+        expect(lines.some((l) => l.includes("targetOs"))).toBe(true);
+        expect(lines.some((l) => l.includes("Install CLI workflow"))).toBe(true);
+        expect(lines.some((l) => l.includes("## Property reference"))).toBe(true);
+      }
+    );
   });
 
   test("auditBunInstallConfig warns on risky env overrides", async () => {
@@ -218,6 +228,98 @@ describe("bun-install-config", () => {
       notes:
         "Bun 1.3.13+ stores source maps in a compact bit-packed format instead of the older Mapping.List representation, reducing memory pressure for large maps during stack lookups and compiled-binary startup.",
     });
+  });
+
+  test("buildInstallPolicyReport audits runtime environment defaults", async () => {
+    const dir = testTempDir("bun-install-runtime-env-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    await withEnv(
+      {
+        BUN_FEATURE_FLAG_NO_ORPHANS: undefined,
+        BUN_INSTALL_GLOBAL_STORE: undefined,
+        BUN_FEATURE_FLAG_DISABLE_BUN_JSX: undefined,
+        BUN_RUNTIME_TRANSPILER_CACHE_PATH: undefined,
+        BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT: undefined,
+      },
+      async () => {
+        const report = await buildInstallPolicyReport(dir);
+        expect(report.ok).toBe(true);
+        expect(report.runtimeEnvironment.noOrphans).toMatchObject({
+          status: process.platform === "win32" ? "inactive" : "active",
+          env: "BUN_FEATURE_FLAG_NO_ORPHANS",
+          value: process.platform === "win32" ? null : "1",
+          parentValue: null,
+          source: "src/lib/bun-spawn-env.ts",
+        });
+        expect(report.runtimeEnvironment.globalStore).toMatchObject({
+          status: "default",
+          env: "BUN_INSTALL_GLOBAL_STORE",
+          value: null,
+          bunfigValue: null,
+          documented: "docs/references/bun-runtime-scaffold.md",
+        });
+        expect(report.runtimeEnvironment.jsxDisable).toMatchObject({
+          status: "enabled",
+          env: "BUN_FEATURE_FLAG_DISABLE_BUN_JSX",
+          value: null,
+        });
+        expect(report.runtimeEnvironment.transpilerCache.status).toBe("snapshot-only");
+        expect(report.runtimeEnvironment.experimentalHttp2Client.status).toBe("advisor-only");
+        expect(report.runtimeEnvironmentAdvisories).toContain(
+          "BUN_RUNTIME_TRANSPILER_CACHE_PATH is snapshot-only, not policy-audited"
+        );
+        expect(report.runtimeEnvironmentAdvisories).toContain(
+          "BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT is advisor-only until adopted"
+        );
+      }
+    );
+  });
+
+  test("buildInstallPolicyReport audits runtime environment overrides", async () => {
+    const dir = testTempDir("bun-install-runtime-env-overrides-");
+    writeText(
+      join(dir, "bunfig.toml"),
+      SECURE_BUNFIG.replace("[install.cache]", "globalStore = true\n\n[install.cache]")
+    );
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    await withEnv(
+      {
+        BUN_FEATURE_FLAG_NO_ORPHANS: "0",
+        BUN_INSTALL_GLOBAL_STORE: "1",
+        BUN_FEATURE_FLAG_DISABLE_BUN_JSX: "1",
+        BUN_RUNTIME_TRANSPILER_CACHE_PATH: "/tmp/bun-transpiler-cache",
+        BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT: "1",
+      },
+      async () => {
+        const report = await buildInstallPolicyReport(dir);
+        expect(report.runtimeEnvironment.noOrphans.parentValue).toBe("0");
+        expect(report.runtimeEnvironment.noOrphans.value).toBe(
+          process.platform === "win32" ? "0" : "1"
+        );
+        expect(report.runtimeEnvironment.globalStore).toMatchObject({
+          status: "configured",
+          value: "1",
+          bunfigValue: true,
+        });
+        expect(report.runtimeEnvironment.jsxDisable).toMatchObject({
+          status: "disabled",
+          value: "1",
+        });
+        expect(report.runtimeEnvironment.transpilerCache).toMatchObject({
+          status: "configured",
+          value: "/tmp/bun-transpiler-cache",
+        });
+        expect(report.runtimeEnvironment.experimentalHttp2Client).toMatchObject({
+          status: "enabled",
+          value: "1",
+          source: "src/lib/upgrade-advisor.ts",
+        });
+        expect(report.runtimeEnvironmentAdvisories).toEqual([]);
+      }
+    );
   });
 
   test("auditBunInstallConfig warns when frozenLockfile is false", async () => {

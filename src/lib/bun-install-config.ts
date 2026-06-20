@@ -49,6 +49,12 @@ export const BUN_INSTALL_CACHE_DIR = "~/.bun/install/cache";
 /** Bun fallback flag for disabling streaming tarball extraction during install diagnostics. */
 export const BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV =
   "BUN_FEATURE_FLAG_DISABLE_STREAMING_INSTALL";
+export const BUN_FEATURE_FLAG_NO_ORPHANS_ENV = "BUN_FEATURE_FLAG_NO_ORPHANS";
+export const BUN_INSTALL_GLOBAL_STORE_ENV = "BUN_INSTALL_GLOBAL_STORE";
+export const BUN_FEATURE_FLAG_DISABLE_BUN_JSX_ENV = "BUN_FEATURE_FLAG_DISABLE_BUN_JSX";
+export const BUN_RUNTIME_TRANSPILER_CACHE_PATH_ENV = "BUN_RUNTIME_TRANSPILER_CACHE_PATH";
+export const BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT_ENV =
+  "BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT";
 
 /**
  * Agent-facing install CLI — SSOT for taxonomy autoFix, drift hints, and guardian output.
@@ -676,6 +682,7 @@ export interface BunfigInstallSection {
   globalBinDir?: string;
   minimumReleaseAge?: number;
   minimumReleaseAgeExcludes?: string[];
+  globalStore?: boolean;
   cache?: { dir?: string };
   registry?: string | { url?: string };
 }
@@ -693,6 +700,8 @@ export interface BunInstallConfigAudit {
   docsUrl: string;
   versions: BunInstallVersionInfo;
   runtimeCapabilities: BunInstallRuntimeCapabilities;
+  runtimeEnvironment: BunInstallRuntimeEnvironment;
+  runtimeEnvironmentAdvisories: string[];
   tables: Record<BunInstallPolicyGroup, BunInstallPolicyRow[]>;
   envRows: BunInstallEnvRow[];
   policy: typeof SECURE_BUN_INSTALL_POLICY;
@@ -723,6 +732,45 @@ export interface BunInstallRuntimeCapabilities {
     status: "optimized";
     releaseUrl: typeof BUN_RELEASE_1_3_13_SOURCE_MAPS_URL;
     notes: string;
+  };
+}
+
+export interface BunInstallRuntimeEnvironment {
+  noOrphans: {
+    status: "active" | "inactive";
+    env: typeof BUN_FEATURE_FLAG_NO_ORPHANS_ENV;
+    value: string | null;
+    parentValue: string | null;
+    appliedTo: "spawned processes (non-Windows)";
+    source: "src/lib/bun-spawn-env.ts";
+  };
+  globalStore: {
+    status: "configured" | "default";
+    env: typeof BUN_INSTALL_GLOBAL_STORE_ENV;
+    value: string | null;
+    bunfigValue: boolean | null;
+    documented: "docs/references/bun-runtime-scaffold.md";
+    note: string;
+  };
+  jsxDisable: {
+    status: "disabled" | "enabled";
+    env: typeof BUN_FEATURE_FLAG_DISABLE_BUN_JSX_ENV;
+    value: string | null;
+    policy: "Bun JSX transform enabled by default";
+  };
+  transpilerCache: {
+    status: "configured" | "snapshot-only";
+    env: typeof BUN_RUNTIME_TRANSPILER_CACHE_PATH_ENV;
+    value: string | null;
+    warning: "No policy row; only captured in src/lib/snapshot-core.ts";
+    recommendation: "Add to this audit or formalize in bun-runtime-scaffold.md";
+  };
+  experimentalHttp2Client: {
+    status: "enabled" | "advisor-only";
+    env: typeof BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT_ENV;
+    value: string | null;
+    source: "src/lib/upgrade-advisor.ts";
+    policy: "advisor-only until adopted";
   };
 }
 
@@ -953,6 +1001,74 @@ function buildRuntimeCapabilities(
   };
 }
 
+function buildRuntimeEnvironment(
+  install: BunfigInstallSection | null
+): BunInstallRuntimeEnvironment {
+  const noOrphansParentValue = Bun.env[BUN_FEATURE_FLAG_NO_ORPHANS_ENV] ?? null;
+  const noOrphansActive = process.platform !== "win32";
+  const globalStoreEnvValue = Bun.env[BUN_INSTALL_GLOBAL_STORE_ENV] ?? null;
+  const bunfigGlobalStore = install?.globalStore ?? null;
+  const globalStoreConfigured = globalStoreEnvValue != null || bunfigGlobalStore === true;
+  const transpilerCacheValue = Bun.env[BUN_RUNTIME_TRANSPILER_CACHE_PATH_ENV] ?? null;
+  const http2Value = Bun.env[BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT_ENV] ?? null;
+
+  return {
+    noOrphans: {
+      status: noOrphansActive ? "active" : "inactive",
+      env: BUN_FEATURE_FLAG_NO_ORPHANS_ENV,
+      value: noOrphansActive ? "1" : noOrphansParentValue,
+      parentValue: noOrphansParentValue,
+      appliedTo: "spawned processes (non-Windows)",
+      source: "src/lib/bun-spawn-env.ts",
+    },
+    globalStore: {
+      status: globalStoreConfigured ? "configured" : "default",
+      env: BUN_INSTALL_GLOBAL_STORE_ENV,
+      value: globalStoreEnvValue,
+      bunfigValue: bunfigGlobalStore,
+      documented: "docs/references/bun-runtime-scaffold.md",
+      note: "global virtual store toggle for isolated linker warm installs",
+    },
+    jsxDisable: {
+      status: Bun.env[BUN_FEATURE_FLAG_DISABLE_BUN_JSX_ENV] === "1" ? "disabled" : "enabled",
+      env: BUN_FEATURE_FLAG_DISABLE_BUN_JSX_ENV,
+      value: Bun.env[BUN_FEATURE_FLAG_DISABLE_BUN_JSX_ENV] ?? null,
+      policy: "Bun JSX transform enabled by default",
+    },
+    transpilerCache: {
+      status: transpilerCacheValue ? "configured" : "snapshot-only",
+      env: BUN_RUNTIME_TRANSPILER_CACHE_PATH_ENV,
+      value: transpilerCacheValue,
+      warning: "No policy row; only captured in src/lib/snapshot-core.ts",
+      recommendation: "Add to this audit or formalize in bun-runtime-scaffold.md",
+    },
+    experimentalHttp2Client: {
+      status: http2Value === "1" ? "enabled" : "advisor-only",
+      env: BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT_ENV,
+      value: http2Value,
+      source: "src/lib/upgrade-advisor.ts",
+      policy: "advisor-only until adopted",
+    },
+  };
+}
+
+function runtimeEnvironmentAdvisories(
+  runtimeEnvironment: BunInstallRuntimeEnvironment
+): string[] {
+  const advisories: string[] = [];
+  if (runtimeEnvironment.transpilerCache.status === "snapshot-only") {
+    advisories.push(
+      `${BUN_RUNTIME_TRANSPILER_CACHE_PATH_ENV} is snapshot-only, not policy-audited`
+    );
+  }
+  if (runtimeEnvironment.experimentalHttp2Client.status === "advisor-only") {
+    advisories.push(
+      `${BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT_ENV} is advisor-only until adopted`
+    );
+  }
+  return advisories;
+}
+
 function rowWarnings(row: BunInstallPolicyRow): string[] {
   if (row.status === "ok" || row.status === "n/a") return [];
   if (row.status === "missing") {
@@ -1009,6 +1125,8 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
   const platformRows = buildPolicyRows(BUN_INSTALL_PLATFORM_POLICY, install, cacheDir, packageMeta);
   const envRows = buildEnvRows();
   const runtimeCapabilities = buildRuntimeCapabilities(install);
+  const runtimeEnvironment = buildRuntimeEnvironment(install);
+  const runtimeEnvironmentAdvisoryRows = runtimeEnvironmentAdvisories(runtimeEnvironment);
 
   const envOverrides = envRows
     .filter((row) => row.current != null && row.current !== "")
@@ -1062,6 +1180,8 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
     docsUrl: BUN_INSTALL_DOCS_URL,
     versions,
     runtimeCapabilities,
+    runtimeEnvironment,
+    runtimeEnvironmentAdvisories: runtimeEnvironmentAdvisoryRows,
     tables,
     envRows,
     policy: SECURE_BUN_INSTALL_POLICY,
@@ -1158,6 +1278,12 @@ export function formatInstallPolicyReport(report: BunInstallConfigAudit): string
     `  streamingExtraction: ${report.runtimeCapabilities.streamingExtraction.status} (disable: ${report.runtimeCapabilities.streamingExtraction.disableEnv}=1)`,
     `  isolatedLinkerFastPath: ${report.runtimeCapabilities.isolatedLinkerFastPath.status} (${report.runtimeCapabilities.isolatedLinkerFastPath.cliFlag}; current=${report.runtimeCapabilities.isolatedLinkerFastPath.linker ?? "unset"})`,
     `  sourceMapsMemory: ${report.runtimeCapabilities.sourceMapsMemory.status} (Bun 1.3.13+ compact maps)`,
+    "Runtime environment:",
+    `  noOrphans: ${report.runtimeEnvironment.noOrphans.status} (${report.runtimeEnvironment.noOrphans.env}=${report.runtimeEnvironment.noOrphans.value ?? "unset"})`,
+    `  globalStore: ${report.runtimeEnvironment.globalStore.status} (${report.runtimeEnvironment.globalStore.env}=${report.runtimeEnvironment.globalStore.value ?? "unset"}; bunfig=${report.runtimeEnvironment.globalStore.bunfigValue ?? "unset"})`,
+    `  jsxTransform: ${report.runtimeEnvironment.jsxDisable.status} (${report.runtimeEnvironment.jsxDisable.env}=${report.runtimeEnvironment.jsxDisable.value ?? "unset"})`,
+    `  transpilerCache: ${report.runtimeEnvironment.transpilerCache.status} (${report.runtimeEnvironment.transpilerCache.env}=${report.runtimeEnvironment.transpilerCache.value ?? "unset"})`,
+    `  experimentalHttp2Client: ${report.runtimeEnvironment.experimentalHttp2Client.status} (${report.runtimeEnvironment.experimentalHttp2Client.env}=${report.runtimeEnvironment.experimentalHttp2Client.value ?? "unset"})`,
     "",
   ];
 
