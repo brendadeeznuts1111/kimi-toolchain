@@ -3,42 +3,35 @@ import { encodeHex } from "../../../../src/lib/bun-utils.ts";
 import { jsonResponse } from "./shared.ts";
 
 export async function apiStreamHash(): Promise<Response> {
-  // Write a test file
   const tmpPath = `/tmp/dashboard-stream-hash-${Date.now()}.bin`;
   const testData = "hello world ".repeat(100); // 1200 bytes
   await Bun.write(tmpPath, testData);
 
-  const { createHash } = await import("node:crypto");
-
-  // Streaming: read via Bun.file().stream(), hash via node:crypto
-  const streamHash = createHash("sha256");
+  const streamHasher = new Bun.CryptoHasher("sha256");
   const stream = Bun.file(tmpPath).stream();
   let chunkCount = 0;
   let totalBytes = 0;
   for await (const chunk of stream) {
     chunkCount++;
     totalBytes += chunk.byteLength;
-    streamHash.update(chunk); // Uint8Array → works with both Bun and Node hashers
+    streamHasher.update(chunk);
   }
-  const streamDigest = streamHash.digest("hex");
+  const streamDigest = streamHasher.digest("hex");
 
-  // Non-streaming: whole-file for comparison
-  const wholeHash = createHash("sha256");
   const fileBytes = new Uint8Array(await Bun.file(tmpPath).arrayBuffer());
-  wholeHash.update(fileBytes);
-  const wholeDigest = wholeHash.digest("hex");
+  const wholeHasher = new Bun.CryptoHasher("sha256");
+  wholeHasher.update(fileBytes);
+  const wholeDigest = wholeHasher.digest("hex");
 
-  // Also string-based
-  const stringHash = createHash("sha256");
-  stringHash.update(testData);
-  const stringDigest = stringHash.digest("hex");
+  const stringHasher = new Bun.CryptoHasher("sha256");
+  stringHasher.update(testData);
+  const stringDigest = stringHasher.digest("hex");
 
-  // Bun-native one-liner: Bun.SHA256.hash(arrayBuffer())
   const bunHash = Bun.SHA256.hash(await Bun.file(tmpPath).arrayBuffer());
   const bunHex = encodeHex(new Uint8Array(bunHash));
 
   try {
-    await import("node:fs/promises").then((fs) => fs.unlink(tmpPath));
+    await Bun.file(tmpPath).delete();
   } catch {
     /* ok */
   }
@@ -54,6 +47,6 @@ export async function apiStreamHash(): Promise<Response> {
     },
     allMatch:
       streamDigest === wholeDigest && wholeDigest === stringDigest && stringDigest === bunHex,
-    note: "Stream: Bun.file().stream() + node:crypto. One-liner: Bun.SHA256.hash(await file.arrayBuffer()) then encodeHex() (Uint8Array.toHex).",
+    note: "Stream: Bun.file().stream() + Bun.CryptoHasher. One-liner: Bun.SHA256.hash() then encodeHex().",
   });
 }

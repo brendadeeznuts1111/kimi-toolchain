@@ -16,13 +16,41 @@ const SAMPLE_PNG = new Uint8Array([
   12, 0, 0, 9, 0, 1, 0x35, 0x8b, 0x5a, 0xc0, 0, 0, 0, 0, 73, 69, 78, 68, 0xae, 66, 96, 130,
 ]);
 
+const BENCHMARK_PAYLOAD = "benchmark payload ".repeat(10);
+
 registerEffectBenchmark({
   registryKey: "crypto.sha256",
   symbol: "kimi.effect.crypto",
   thresholdMs: 5,
   workload: () => {
-    Bun.SHA256.hash("benchmark payload ".repeat(10));
+    Bun.SHA256.hash(BENCHMARK_PAYLOAD);
   },
+  sourceDescription: "Bun.SHA256.hash — one-liner",
+});
+
+for (const algo of ["sha3-224", "sha3-256", "sha3-384", "sha3-512"] as const) {
+  registerEffectBenchmark({
+    registryKey: `crypto.${algo}`,
+    symbol: "kimi.effect.crypto",
+    thresholdMs: 5,
+    workload: () => {
+      const hasher = new Bun.CryptoHasher(algo);
+      hasher.update(BENCHMARK_PAYLOAD);
+      hasher.digest("hex");
+    },
+    sourceDescription: `Bun.CryptoHasher(${algo}) — native`,
+  });
+}
+
+registerEffectBenchmark({
+  registryKey: "crypto.subtle.sha3-256",
+  symbol: "kimi.effect.crypto",
+  thresholdMs: 8,
+  workload: async () => {
+    const data = new TextEncoder().encode(BENCHMARK_PAYLOAD);
+    return crypto.subtle.digest("SHA3-256", data);
+  },
+  sourceDescription: "crypto.subtle.digest(SHA3-256) — Web Crypto boundary",
 });
 
 registerEffectBenchmark({
