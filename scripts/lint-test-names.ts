@@ -17,6 +17,7 @@
  * - No mkdtempSync / readFileSync / writeFileSync
  */
 
+import { parseArgs } from "util";
 import { basename, join } from "path";
 import { pathExists, readTextAsync } from "../src/lib/bun-io.ts";
 import { UNIT_TEST_FILES } from "../src/lib/test-gates.ts";
@@ -315,24 +316,96 @@ export async function lintTestNames(
     for await (const rel of glob.scan({ cwd: root, onlyFiles: true })) {
       await scanRel(rel);
     }
-  }
 
-  for (const rel of UNIT_TEST_FILES) {
-    if (!pathExists(join(root, rel))) {
-      violations.push(`test-gates: UNIT_TEST_FILES entry missing on disk: ${rel}`);
+    for (const rel of UNIT_TEST_FILES) {
+      if (!pathExists(join(root, rel))) {
+        violations.push(`test-gates: UNIT_TEST_FILES entry missing on disk: ${rel}`);
+      }
     }
   }
 
   return violations;
 }
 
+function normalizeTargetDir(dir: string): string {
+  return dir.replace(/\/+$/, "") || ".";
+}
+
+/** Collect test/*.ts paths under an optional subdirectory (e.g. test/effect/). */
+export function collectLintTargetFiles(targetDir?: string): {
+  targetDir: string | null;
+  conventionFiles: string[];
+  nameFiles: string[];
+} {
+  if (targetDir === undefined) {
+    return { targetDir: null, conventionFiles: [], nameFiles: [] };
+  }
+
+  const norm = normalizeTargetDir(targetDir);
+  const conventionFiles = [
+    ...new Bun.Glob(`${norm}/**/*.ts`).scanSync({ cwd: REPO_ROOT, onlyFiles: true }),
+  ];
+  const nameFiles = conventionFiles.filter((rel) => rel.endsWith(".test.ts"));
+  return { targetDir: norm, conventionFiles, nameFiles };
+}
+
+export function parseLintTestNamesCli(argv: string[]): {
+  json: boolean;
+  targetDir?: string;
+} {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    options: {
+      json: { type: "boolean", default: false },
+    },
+    strict: true,
+    allowPositionals: true,
+  });
+
+  return {
+    json: values.json ?? false,
+    targetDir: positionals[0],
+  };
+}
+
 async function main(): Promise<void> {
+  const { json, targetDir } = parseLintTestNamesCli(Bun.argv.slice(2));
+  const scoped = collectLintTargetFiles(targetDir);
+  const onlyConvention = scoped.targetDir !== null ? scoped.conventionFiles : undefined;
+  const onlyNames = scoped.targetDir !== null ? scoped.nameFiles : undefined;
+
   const [nameViolations, conventionViolations] = await Promise.all([
-    lintTestNames(),
-    lintTestConventions(),
+    lintTestNames(REPO_ROOT, onlyNames),
+    lintTestConventions(REPO_ROOT, onlyConvention),
   ]);
 
+  const ok = nameViolations.length === 0 && conventionViolations.length === 0;
+
+  if (json) {
+    console.log(
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          tool: "lint-test-names",
+          ok,
+          targetDir: scoped.targetDir,
+          filesScanned: scoped.targetDir !== null ? scoped.conventionFiles.length : null,
+          naming: { ok: nameViolations.length === 0, violations: nameViolations },
+          conventions: { ok: conventionViolations.length === 0, violations: conventionViolations },
+        },
+        null,
+        2
+      )
+    );
+    process.exit(ok ? 0 : 1);
+    return;
+  }
+
   let exit = 0;
+
+  if (scoped.targetDir !== null) {
+    console.log(`lint scope: ${scoped.targetDir}/ (${scoped.conventionFiles.length} file(s))`);
+  }
 
   if (nameViolations.length > 0) {
     console.error("✗ Test naming violations:\n");
