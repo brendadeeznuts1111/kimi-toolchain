@@ -41,6 +41,87 @@ export class CliContractError extends Error {
 /** Machine-readable output schema version. Bump only on breaking envelope changes. */
 export const CLI_OUTPUT_SCHEMA_VERSION = 1;
 
+/** @see https://bun.com/docs/guides/process/argv */
+export const BUN_ARGV_DOC_URL = "https://bun.com/docs/guides/process/argv";
+
+/** @see https://bun.com/docs/guides/process/stdin */
+export const BUN_STDIN_DOC_URL = "https://bun.com/docs/guides/process/stdin";
+
+/** @see https://bun.com/docs/guides/process/stdout */
+export const BUN_STDOUT_DOC_URL = "https://bun.com/docs/guides/process/stdout";
+
+/** @see https://bun.com/docs/guides/process/spawn-stderr */
+export const BUN_SPAWN_STDERR_DOC_URL = "https://bun.com/docs/guides/process/spawn-stderr";
+
+/** @see https://bun.com/docs/runtime/child-process */
+export const BUN_CHILD_PROCESS_DOC_URL = "https://bun.com/docs/runtime/child-process";
+
+/** @see https://bun.com/docs/runtime/file-io#writing-files-bun-write */
+export const BUN_FILE_IO_WRITE_DOC_URL =
+  "https://bun.com/docs/runtime/file-io#writing-files-bun-write";
+
+/** @see https://bun.com/docs/runtime/file-io#reference */
+export const BUN_FILE_IO_REFERENCE_DOC_URL = "https://bun.com/docs/runtime/file-io#reference";
+
+/**
+ * `Bun.write()` input per File I/O reference (`BUN_FILE_IO_REFERENCE_DOC_URL`).
+ * `BunFile` is a `Blob` — pass `Bun.file(path)` without a separate union member.
+ */
+export type StdoutPayload = string | Blob | ArrayBuffer | SharedArrayBuffer | Uint8Array | Response;
+
+/**
+ * Write raw output to stdout without `console.log` formatting or extra newlines.
+ * `Bun.stdout` is a BunFile — use as the destination for `Bun.write()`.
+ *
+ * Unlike `console.log`, no trailing newline is added.
+ *
+ * @see {@link BUN_STDOUT_DOC_URL} — `Bun.write(Bun.stdout, …)`
+ * @see {@link BUN_FILE_IO_WRITE_DOC_URL} — `Bun.write()` guide (destination + data)
+ * @see {@link BUN_FILE_IO_REFERENCE_DOC_URL} — `Bun.stdout`, `Bun.write`, `BunFile` signatures
+ * @see {@link BUN_CHILD_PROCESS_DOC_URL} — `stdout: Bun.file()` on spawned children
+ */
+export async function writeStdout(data: StdoutPayload): Promise<number> {
+  if (data instanceof Response) {
+    return Bun.write(Bun.stdout, data);
+  }
+  // Exclude Response so overload resolution picks Blob/TypedArray, not BunFile→BunFile copy.
+  return Bun.write(Bun.stdout, data);
+}
+
+/**
+ * Write a line to stdout (appends `\n` when missing).
+ *
+ * @see {@link BUN_STDOUT_DOC_URL} — `console.log` adds a newline automatically; this helper matches that for raw writes
+ */
+export async function writeStdoutLine(text: string): Promise<void> {
+  await writeStdout(text.endsWith("\n") ? text : `${text}\n`);
+}
+
+/**
+ * Write a file's contents to stdout (cat-like).
+ *
+ * Prefers the canonical passthrough:
+ * `await Bun.write(Bun.stdout, Bun.file(path))`
+ *
+ * Falls back to buffered `file.bytes()` when Bun.stdout rejects `fcopyfile`
+ * (observed on Bun 1.4 canary / macOS).
+ *
+ * @see {@link BUN_STDOUT_DOC_URL} — `Bun.stdout` as a `BunFile` destination for `Bun.write()`
+ * @see {@link BUN_FILE_IO_WRITE_DOC_URL} — `Bun.write(dest, Bun.file(path))` passthrough
+ * @see {@link BUN_FILE_IO_REFERENCE_DOC_URL} — official `cat` benchmark uses this exact pattern
+ */
+export async function pipeStdoutFromFile(path: string): Promise<void> {
+  const file = Bun.file(path);
+  const size = file.size;
+  if (size === 0) return;
+
+  const written = await Bun.write(Bun.stdout, file);
+  // Bun 1.4 canary / macOS: fcopyfile to Bun.stdout can return 0 without throwing.
+  if (written < size) {
+    await Bun.write(Bun.stdout, await file.bytes());
+  }
+}
+
 /** Common flags supported by every kimi-* tool. */
 export interface CliFlags {
   /** Emit structured JSON/JSONL on stdout. */
@@ -130,6 +211,8 @@ function envMs(name: string): number | undefined {
  *
  * Returns the parsed flags plus any positional arguments. Tool-specific flags
  * can still be handled from `positional` or by passing `allowedFlags`.
+ *
+ * @see {@link BUN_ARGV_DOC_URL} — `Bun.argv` + `util.parseArgs`
  */
 export function parseCliFlags(
   argv: string[],
