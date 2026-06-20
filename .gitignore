@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+.env.test
 
 # Project-level Kimi Code config (scaffolded by kimi-fix, not source)
 .kimi-code/

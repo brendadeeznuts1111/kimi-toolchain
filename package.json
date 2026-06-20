@@ -92,6 +92,8 @@
     "test:changed": "bun run scripts/test-changed.ts",
     "test:changed:push": "bun run scripts/test-changed.ts --push",
     "test:changed:watch": "NODE_ENV=test bun test --changed --watch --isolate",
+    "test:debug": "NODE_ENV=test bun test --inspect --isolate",
+    "test:smol": "bun run scripts/test-fast.ts -- --smol",
     "test:ci": "NODE_ENV=test bun test --timeout 30000 --isolate --parallel --shard=${CI_NODE_INDEX:-1}/${CI_NODE_TOTAL:-1}",
     "test:coverage": "bun run scripts/run-tests.ts --coverage",
     "test:coverage:fast": "bun run scripts/run-tests.ts --fast --coverage",

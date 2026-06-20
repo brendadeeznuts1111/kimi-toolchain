@@ -5,11 +5,15 @@
  * Usage:
  *   bun run scripts/test-changed.ts
  *   bun run scripts/test-changed.ts --push
+ *   bun run scripts/test-changed.ts -- --smol
  */
 import { join } from "path";
 import { $ } from "bun";
-import { DEFAULT_TEST_TIMEOUT_MS } from "../src/lib/test-gates.ts";
-import { buildTestRunnerEnv } from "../src/lib/test-runtime.ts";
+import {
+  bunTestArgsForChanged,
+  parseForwardedBunTestArgs,
+  runBunTest,
+} from "../src/lib/test-runtime.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
@@ -37,24 +41,9 @@ async function resolvePushRef(): Promise<string> {
 async function main(): Promise<number> {
   const push = Bun.argv.includes("--push");
   const changedRef = push ? await resolvePushRef() : "HEAD";
-  const proc = Bun.spawn(
-    [
-      "bun",
-      "test",
-      `--changed=${changedRef}`,
-      "--timeout",
-      String(DEFAULT_TEST_TIMEOUT_MS),
-      "--isolate",
-      "--parallel",
-    ],
-    {
-      cwd: REPO_ROOT,
-      stdout: "inherit",
-      stderr: "inherit",
-      env: buildTestRunnerEnv(),
-    }
-  );
-  return await proc.exited;
+  const forwarded = parseForwardedBunTestArgs(Bun.argv.slice(2));
+  const args = bunTestArgsForChanged(changedRef, { repoRoot: REPO_ROOT, forwarded });
+  return runBunTest(REPO_ROOT, args, { source: push ? "test:changed:push" : "test:changed" });
 }
 
 main()

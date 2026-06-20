@@ -20,7 +20,11 @@ import { dirname, isAbsolute, join } from "path";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { artifactPath } from "../src/lib/artifacts.ts";
 import { bunTestArgBatches } from "../src/lib/test-gates.ts";
-import { buildTestRunnerEnv } from "../src/lib/test-runtime.ts";
+import {
+  buildTestRunnerEnv,
+  mergeBunTestInvocationArgs,
+  parseForwardedBunTestArgs,
+} from "../src/lib/test-runtime.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
@@ -125,7 +129,7 @@ async function main() {
   if (!existsSync(testHome)) mkdirSync(testHome, { recursive: true });
   process.env.KIMI_TEST_HOME = testHome;
 
-  const batches = bunTestArgBatches({
+  const rawBatches = bunTestArgBatches({
     fast,
     coverage,
     ci,
@@ -137,7 +141,14 @@ async function main() {
     timeoutMs,
     parallel,
     shard,
-  }).map((batch) => batch.slice());
+  });
+  const forwarded = parseForwardedBunTestArgs(Bun.argv.slice(2));
+  const batches = rawBatches.map((batch) => {
+    const testIdx = batch.indexOf("test");
+    const tail = testIdx >= 0 ? batch.slice(testIdx + 1) : batch.slice(1);
+    const merged = mergeBunTestInvocationArgs(["test", ...tail], REPO_ROOT, forwarded);
+    return ["bun", ...merged];
+  });
   const quiet = Bun.argv.includes("--quiet");
 
   let finalExitCode = 0;
@@ -146,7 +157,7 @@ async function main() {
     if (batches.length > 1 && !quiet) {
       process.stderr.write(`\n[run-tests] batch ${i + 1}/${batches.length}\n`);
     }
-    const proc = Bun.spawn(["bun", ...batch], {
+    const proc = Bun.spawn(batch[0] === "bun" ? batch : ["bun", ...batch], {
       cwd: REPO_ROOT,
       env: buildTestRunnerEnv({ KIMI_TEST_HOME: process.env.KIMI_TEST_HOME }),
       stdout: quiet ? "pipe" : "inherit",

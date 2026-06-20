@@ -7,10 +7,11 @@ import { join } from "path";
 import { artifactPath } from "../src/lib/artifacts.ts";
 import { readText } from "../src/lib/bun-io.ts";
 import { parseBunfigDefines } from "../src/lib/build-constants-registry.ts";
+import { warnIfNodeEnvNotTest } from "../src/lib/test-runtime.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
-// https://bun.com/docs/test/runtime-behavior#node_env — wrappers may inherit NODE_ENV from parent shell
+warnIfNodeEnvNotTest("test/setup.ts");
 Bun.env.NODE_ENV = "test";
 if (!Bun.env.TZ) Bun.env.TZ = "Etc/UTC";
 

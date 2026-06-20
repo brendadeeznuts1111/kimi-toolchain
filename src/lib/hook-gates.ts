@@ -892,7 +892,10 @@ export async function auditPreCommitPolicy(projectRoot: string): Promise<PreComm
   const result = await $`git diff --cached --name-only`.cwd(projectRoot).nothrow().quiet();
   const files = result.stdout.toString().trim().split("\n").filter(Boolean);
 
-  const envFiles = files.filter((f) => /^\.env($|\.)/.test(f) && f !== ".env.example");
+  const envExampleAllowlist = new Set([".env.example", ".env.test.example"]);
+  const envFiles = files.filter(
+    (f) => /^\.env($|\.)/.test(f) && !envExampleAllowlist.has(f)
+  );
   if (envFiles.length > 0) {
     messages.push(
       `✗ Commit blocked: .env file detected in staged changes (${envFiles.join(", ")})`
