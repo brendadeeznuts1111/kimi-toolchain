@@ -625,6 +625,8 @@ export const BUN_TEST_FLAG_INTERACTIONS = {
   shardRandomize: "--randomize shuffles within the shard",
   /** Zero files in a shard exits 0 gracefully (no error). Invalid inputs like 0/3, 4/3, 1/0 exit non-zero. */
   shardEdgeCases: "--shard zero files exits 0; invalid inputs (0/3, 4/3, 1/0) exit non-zero with clear error",
+  /** Files sorted by path for determinism, distributed round-robin, balanced to within 1 file. 1-based index. */
+  shardDeterminism: "--shard sorts by path round-robin balanced within 1 file 1-based index",
   /** --changed --watch re-queries git on every restart; any .ts edit triggers re-run. */
   changedWatch: "--changed --watch re-filters on restart; broader trigger than file-scoped --watch",
   /** --parallel forwards transpiler/resolver flags to workers automatically. */
