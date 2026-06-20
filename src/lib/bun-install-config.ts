@@ -652,18 +652,17 @@ export const BUN_INSTALL_ENV_VARS: readonly {
   },
   {
     name: "BUN_CONFIG_SKIP_SAVE_LOCKFILE",
-    description: "do not write bun.lock",
+    description: "don't save a lockfile",
     risky: true,
   },
   {
     name: "BUN_CONFIG_SKIP_LOAD_LOCKFILE",
-    description: "ignore existing bun.lock",
+    description: "don't load a lockfile",
     risky: true,
   },
   {
     name: "BUN_CONFIG_SKIP_INSTALL_PACKAGES",
-    description:
-      "resolve only — no node_modules writes; useful for bun-create dry bootstrap probes",
+    description: "don't install any packages; useful for bun-create dry bootstrap probes",
     risky: true,
   },
 ] as const;
@@ -754,7 +753,8 @@ export interface BunInstallRuntimeCapabilities {
     notes: string;
   };
   platformTargeting: {
-    current: { cpu: string; os: string };
+    cpu: string;
+    os: string;
     lockfileBehavior: "normalized cpu/os stored; skipped if disabled for target";
     crossInstall: {
       status: "configured" | "not configured";
@@ -1038,10 +1038,13 @@ function buildRuntimeCapabilities(
         "Bun buffers console output per test file under --parallel and flushes each file atomically so concurrent files do not interleave.",
     },
     platformTargeting: {
-      current: { cpu: process.arch, os: process.platform },
+      cpu: process.arch,
+      os: process.platform,
       lockfileBehavior: "normalized cpu/os stored; skipped if disabled for target",
       crossInstall: {
-        status: Bun.env.BUN_CONFIG_SKIP_INSTALL_PACKAGES ? "not configured" as const : "not configured" as const,
+        status: Bun.env.BUN_CONFIG_SKIP_INSTALL_PACKAGES
+          ? ("not configured" as const)
+          : ("not configured" as const),
         flags: { "--cpu": null, "--os": null },
         supportedCpu: ["arm64", "x64", "ia32", "ppc64", "s390x"],
         supportedOs: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix"],
@@ -1327,7 +1330,7 @@ export function formatInstallPolicyReport(report: BunInstallConfigAudit): string
     `  isolatedLinkerFastPath: ${report.runtimeCapabilities.isolatedLinkerFastPath.status} (${report.runtimeCapabilities.isolatedLinkerFastPath.cliFlag}; current=${report.runtimeCapabilities.isolatedLinkerFastPath.linker ?? "unset"})`,
     `  sourceMapsMemory: ${report.runtimeCapabilities.sourceMapsMemory.status} (Bun 1.3.13+ compact maps)`,
     `  parallelConsole: ${report.runtimeCapabilities.parallelConsole.status} (${report.runtimeCapabilities.parallelConsole.flush})`,
-    `  platformTargeting: ${report.runtimeCapabilities.platformTargeting.crossInstall.status} (current: ${report.runtimeCapabilities.platformTargeting.current.cpu}/${report.runtimeCapabilities.platformTargeting.current.os})`,
+    `  platformTargeting: ${report.runtimeCapabilities.platformTargeting.crossInstall.status} (${report.runtimeCapabilities.platformTargeting.cpu}/${report.runtimeCapabilities.platformTargeting.os})`,
     "Runtime environment:",
     `  noOrphans: ${report.runtimeEnvironment.noOrphans.status} (${report.runtimeEnvironment.noOrphans.env}=${report.runtimeEnvironment.noOrphans.value ?? "unset"})`,
     `  globalStore: ${report.runtimeEnvironment.globalStore.status} (${report.runtimeEnvironment.globalStore.env}=${report.runtimeEnvironment.globalStore.value ?? "unset"}; bunfig=${report.runtimeEnvironment.globalStore.bunfigValue ?? "unset"})`,
