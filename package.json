@@ -132,6 +132,8 @@
     "dx:table:contract": "bun run scripts/dx-table-contract.ts",
     "canvas:generate": "bun run scripts/generate-canvas-companions.ts",
     "sync:cursor-canvases": "bun run scripts/sync-cursor-canvases.ts",
+    "build:portal": "bun run scripts/build-portal.ts",
+    "test:portal-convergence": "bun test test/portal-convergence.unit.test.ts",
     "finish-work": "bun run scripts/finish-work.ts"
   },
   "dependencies": {

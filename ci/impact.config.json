@@ -184,12 +184,15 @@
         "src/lib/herdr-dashboard-meta-gate.ts",
         "src/canvases/benchmark.manifest.ts",
         "contracts/artifact-portal.json",
-        "herdr-plugin/benchmark-portal.ts"
+        "herdr-plugin/benchmark-portal.ts",
+        "scripts/build-portal.ts",
+        "templates/artifact-portal/index.ts"
       ],
       "tests": [
         "test/artifact-portal.unit.test.ts",
         "test/benchmark-manifest.unit.test.ts",
-        "test/herdr-dashboard-meta-gate.unit.test.ts"
+        "test/herdr-dashboard-meta-gate.unit.test.ts",
+        "test/portal-convergence.unit.test.ts"
       ]
     },
     {

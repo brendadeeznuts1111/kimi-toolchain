@@ -241,6 +241,7 @@ export const UNIT_TEST_FILES = [
   "test/effect-benchmark-resilience.unit.test.ts",
   "test/benchmark-manifest.unit.test.ts",
   "test/artifact-portal.unit.test.ts",
+  "test/portal-convergence.unit.test.ts",
   "test/effect-gates.unit.test.ts",
   "test/effect/cli-contract-effect.unit.test.ts",
   "test/effect/kimi-introspection-services.unit.test.ts",
