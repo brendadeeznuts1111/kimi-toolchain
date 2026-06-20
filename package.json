@@ -100,6 +100,7 @@
     "test:ci": "NODE_ENV=test bun test --timeout 30000 --isolate --parallel --shard=${CI_NODE_INDEX:-1}/${CI_NODE_TOTAL:-1}",
     "test:shard": "NODE_ENV=test bun test --parallel=4 --isolate --bail --retry=2 --dots --shard=${BUN_TEST_SHARD:-1/1}",
     "test:parallel": "NODE_ENV=test bun test --parallel=4 --isolate --bail --retry=2 --dots",
+    "test:changed:shard": "NODE_ENV=test bun test --changed=main --parallel=4 --isolate --bail --retry=2 --dots --shard=${BUN_TEST_SHARD:-1/1}",
     "test:coverage": "bun run scripts/run-tests.ts --coverage",
     "test:coverage:fast": "bun run scripts/run-tests.ts --fast --coverage",
     "test:coverage:ci": "bun run scripts/run-tests.ts --ci --coverage",
