@@ -114,6 +114,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "bun-pack-profiler": "src/lib/bun-install-config.ts",
   "bun-buffer-swap": "src/lib/bun-utils.ts",
   "bun-string-width": "src/lib/bun-utils.ts",
+  "bun-shell": "src/lib/bun-utils.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */

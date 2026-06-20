@@ -44,14 +44,7 @@ await Bun.write("package.json", JSON.stringify(pkg, null, 2) + "\\n");
       );
 
       const pack = Bun.spawnSync({
-        cmd: [
-          "bun",
-          "pm",
-          "pack",
-          "--filename",
-          join(dist, "pack-lifecycle-demo.tgz"),
-          "--quiet",
-        ],
+        cmd: ["bun", "pm", "pack", "--filename", join(dist, "pack-lifecycle-demo.tgz"), "--quiet"],
         cwd: dir,
         stdout: "pipe",
         stderr: "pipe",

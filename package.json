@@ -161,7 +161,8 @@
     "profile": "bun run scripts/profile.ts",
     "discover": "bun run scripts/discover.ts",
     "discover:constants": "bun run scripts/discover.ts --constants",
-    "discover:dx": "bun run scripts/discover.ts --dx"
+    "discover:dx": "bun run scripts/discover.ts --dx",
+    "scope:run": "bun run scripts/scope-run.ts"
   },
   "dependencies": {
     "effect": "^3.21.3",

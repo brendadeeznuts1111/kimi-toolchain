@@ -196,12 +196,14 @@ async function main(): Promise<number> {
     logger.line(`  Available slots:      ${gov.available}`);
 
     const tasks = [1, 2, 3, 4].map((i) =>
-      gov.run(async () => {
-        logger.line(`    Task ${i} starting (slots: ${gov.available}, queued: ${gov.queued})...`);
-        await Bun.sleep(500);
-        logger.line(`    Task ${i} done`);
-        return i;
-      })
+      Effect.runPromise(
+        gov.run(async () => {
+          logger.line(`    Task ${i} starting (slots: ${gov.available}, queued: ${gov.queued})...`);
+          await Bun.sleep(500);
+          logger.line(`    Task ${i} done`);
+          return i;
+        })
+      )
     );
 
     await Promise.all(tasks);

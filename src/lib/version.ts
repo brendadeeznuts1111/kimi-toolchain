@@ -154,10 +154,7 @@ export async function getVersionInfo(): Promise<VersionInfo> {
 
 /** Format version matrix as Bun inspect table for CLI output. */
 export function formatVersionTable(info: VersionInfo): string {
-  const table = Bun.inspect.table as (
-    rows: object[],
-    options?: { headers?: boolean }
-  ) => string;
+  const table = Bun.inspect.table as (rows: object[], options?: { headers?: boolean }) => string;
   return table(
     [
       { Component: "Toolchain", Version: info.toolchain },
