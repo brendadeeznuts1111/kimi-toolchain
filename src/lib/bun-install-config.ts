@@ -747,6 +747,26 @@ export interface BunInstallRuntimeCapabilities {
     releaseUrl: typeof BUN_RELEASE_1_3_13_SOURCE_MAPS_URL;
     notes: string;
   };
+  pmPackLifecycleManifest: {
+    status: "rereads-package-json";
+    command: "bun pm pack";
+    lifecycleScripts: readonly ["prepack", "prepare", "prepublishOnly"];
+    packageJsonBehavior: "re-read after lifecycle scripts";
+    notes: string;
+  };
+  inspectorProfiler: {
+    status: "available";
+    module: "node:inspector/promises";
+    methods: readonly [
+      "Profiler.enable",
+      "Profiler.disable",
+      "Profiler.start",
+      "Profiler.stop",
+      "Profiler.setSamplingInterval",
+    ];
+    profileFormat: "Chrome DevTools Protocol";
+    notes: string;
+  };
   parallelConsole: {
     status: "buffered";
     appliesTo: "bun test --parallel";
@@ -1040,6 +1060,28 @@ function buildRuntimeCapabilities(
       releaseUrl: BUN_RELEASE_1_3_13_SOURCE_MAPS_URL,
       notes:
         "Bun 1.3.13+ stores source maps in a compact bit-packed format instead of the older Mapping.List representation, reducing memory pressure for large maps during stack lookups and compiled-binary startup.",
+    },
+    pmPackLifecycleManifest: {
+      status: "rereads-package-json",
+      command: "bun pm pack",
+      lifecycleScripts: ["prepack", "prepare", "prepublishOnly"],
+      packageJsonBehavior: "re-read after lifecycle scripts",
+      notes:
+        "Bun re-reads package.json after pack lifecycle scripts, so clean-package style mutations are reflected in the produced tarball.",
+    },
+    inspectorProfiler: {
+      status: "available",
+      module: "node:inspector/promises",
+      methods: [
+        "Profiler.enable",
+        "Profiler.disable",
+        "Profiler.start",
+        "Profiler.stop",
+        "Profiler.setSamplingInterval",
+      ],
+      profileFormat: "Chrome DevTools Protocol",
+      notes:
+        "Bun implements the node:inspector Profiler API for CPU profiling and returns Chrome DevTools Protocol profile payloads.",
     },
     parallelConsole: {
       status: "buffered",
@@ -1351,6 +1393,8 @@ export function formatInstallPolicyReport(report: BunInstallConfigAudit): string
     `  streamingExtraction: ${report.runtimeCapabilities.streamingExtraction.status} (disable: ${report.runtimeCapabilities.streamingExtraction.disableEnv}=1)`,
     `  isolatedLinkerFastPath: ${report.runtimeCapabilities.isolatedLinkerFastPath.status} (${report.runtimeCapabilities.isolatedLinkerFastPath.cliFlag}; current=${report.runtimeCapabilities.isolatedLinkerFastPath.linker ?? "unset"})`,
     `  sourceMapsMemory: ${report.runtimeCapabilities.sourceMapsMemory.status} (Bun 1.3.13+ compact maps)`,
+    `  pmPackLifecycleManifest: ${report.runtimeCapabilities.pmPackLifecycleManifest.status} (${report.runtimeCapabilities.pmPackLifecycleManifest.command})`,
+    `  inspectorProfiler: ${report.runtimeCapabilities.inspectorProfiler.status} (${report.runtimeCapabilities.inspectorProfiler.profileFormat})`,
     `  parallelConsole: ${report.runtimeCapabilities.parallelConsole.status} (${report.runtimeCapabilities.parallelConsole.flush})`,
     `  platformTargeting: ${report.runtimeCapabilities.platformTargeting.crossInstall.status} (${report.runtimeCapabilities.platformTargeting.cpu}/${report.runtimeCapabilities.platformTargeting.os})`,
     "Runtime environment:",

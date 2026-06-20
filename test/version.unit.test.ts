@@ -6,7 +6,6 @@ import {
   semverSatisfies,
   isValidSemver,
   versionBelow,
-  TOOLCHAIN_VERSION,
 } from "../src/lib/version.ts";
 
 describe("version", () => {

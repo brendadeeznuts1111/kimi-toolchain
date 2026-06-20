@@ -18,7 +18,10 @@ describe("bun-yaml", () => {
   });
 
   test("Bun.YAML.parse parses sections and arrays", () => {
-    const parsed = Bun.YAML.parse(YAML_CONFIG);
+    const parsed = Bun.YAML.parse(YAML_CONFIG) as {
+      install: { frozenLockfile: boolean; linker: string };
+      hooks: unknown[];
+    };
     expect(parsed.install.frozenLockfile).toBe(true);
     expect(parsed.install.linker).toBe("isolated");
     expect(Array.isArray(parsed.hooks)).toBe(true);

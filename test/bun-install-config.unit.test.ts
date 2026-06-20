@@ -228,6 +228,8 @@ describe("bun-install-config", () => {
         expect(lines.some((l) => l.includes("streamingExtraction: enabled"))).toBe(true);
         expect(lines.some((l) => l.includes("isolatedLinkerFastPath: active"))).toBe(true);
         expect(lines.some((l) => l.includes("sourceMapsMemory: optimized"))).toBe(true);
+        expect(lines.some((l) => l.includes("pmPackLifecycleManifest: rereads"))).toBe(true);
+        expect(lines.some((l) => l.includes("inspectorProfiler: available"))).toBe(true);
         expect(lines.some((l) => l.includes("parallelConsole: buffered"))).toBe(true);
         expect(lines.some((l) => l.includes("Runtime environment"))).toBe(true);
         expect(lines.some((l) => l.includes("transpilerCache: snapshot-only"))).toBe(true);
@@ -292,6 +294,46 @@ describe("bun-install-config", () => {
       releaseUrl: "https://bun.com/blog/bun-v1.3.13#source-maps-use-up-to-8x-less-memory",
       notes:
         "Bun 1.3.13+ stores source maps in a compact bit-packed format instead of the older Mapping.List representation, reducing memory pressure for large maps during stack lookups and compiled-binary startup.",
+    });
+  });
+
+  test("buildInstallPolicyReport documents Bun pm pack lifecycle manifest reread", async () => {
+    const dir = testTempDir("bun-install-pack-lifecycle-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    const report = await buildInstallPolicyReport(dir);
+
+    expect(report.runtimeCapabilities.pmPackLifecycleManifest).toEqual({
+      status: "rereads-package-json",
+      command: "bun pm pack",
+      lifecycleScripts: ["prepack", "prepare", "prepublishOnly"],
+      packageJsonBehavior: "re-read after lifecycle scripts",
+      notes:
+        "Bun re-reads package.json after pack lifecycle scripts, so clean-package style mutations are reflected in the produced tarball.",
+    });
+  });
+
+  test("buildInstallPolicyReport documents node inspector Profiler API", async () => {
+    const dir = testTempDir("bun-install-inspector-profiler-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    const report = await buildInstallPolicyReport(dir);
+
+    expect(report.runtimeCapabilities.inspectorProfiler).toEqual({
+      status: "available",
+      module: "node:inspector/promises",
+      methods: [
+        "Profiler.enable",
+        "Profiler.disable",
+        "Profiler.start",
+        "Profiler.stop",
+        "Profiler.setSamplingInterval",
+      ],
+      profileFormat: "Chrome DevTools Protocol",
+      notes:
+        "Bun implements the node:inspector Profiler API for CPU profiling and returns Chrome DevTools Protocol profile payloads.",
     });
   });
 
