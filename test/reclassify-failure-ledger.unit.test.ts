@@ -47,16 +47,15 @@ describe("reclassify-failure-ledger", () => {
   });
 
   test("reclassifyFailureRecords maps final unknown buckets", async () => {
-    const taxonomy = await loadTaxonomy(
-      `${import.meta.dir}/../error-taxonomy.yml`
-    );
+    const taxonomy = await loadTaxonomy(`${import.meta.dir}/../error-taxonomy.yml`);
     const { report } = reclassifyFailureRecords(
       [
         {
           schemaVersion: 1,
           timestamp: "2026-01-01T00:00:00.000Z",
           toolName: "Bash",
-          output: 'ERROR  rule 1: from_session "" is not running\nCommand failed with exit code: 2.',
+          output:
+            'ERROR  rule 1: from_session "" is not running\nCommand failed with exit code: 2.',
           taxonomyId: "unknown",
           categoryId: "unknown",
           errorId: "error-herdr1",

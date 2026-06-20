@@ -36,7 +36,7 @@ Output: `.kimi/artifacts/artifact-portal/` (`benchmark-diagnostics` + `artifact-
 
 | Consumer path     | Command                                                                                                            |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Runnable example  | `bun run build:portal:local`                                                                                     |
+| Runnable example  | `bun run build:portal:local`                                                                                       |
 | New workspace     | `bun create ./templates/bun-create/artifact-portal-convergence <name>`                                             |
 | Convergence check | `test:portal-convergence:fast` (quick) or `test:portal-convergence` (full); `hooks:install` standalone slices only |
 
@@ -116,6 +116,8 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run sync:check` | (synced from package.json) |
 | `bun run cleanup:artifacts` | (synced from package.json) |
 | `bun run test:portal-convergence:watch` | (synced from package.json) |
+
+| `bun run reclassify:failures` | (synced from package.json) |
 
 ### Core
 

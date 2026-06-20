@@ -85,6 +85,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "email-i18n-gate": "src/gates/email-i18n.ts",
   "email-i18n": "src/lib/email-i18n.ts",
   "url-i18n-gate": "src/gates/url-i18n.ts",
+  "reclassify-failure-ledger": "scripts/reclassify-failure-ledger.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */
@@ -383,12 +384,14 @@ export function collectLintTargetFiles(targets?: string[]): {
 
 export function parseLintTestNamesCli(argv: string[]): {
   json: boolean;
+  namesOnly: boolean;
   targets: string[];
 } {
   const { values, positionals } = parseArgs({
     args: argv,
     options: {
       json: { type: "boolean", default: false },
+      "names-only": { type: "boolean", default: false },
     },
     strict: true,
     allowPositionals: true,
@@ -396,19 +399,23 @@ export function parseLintTestNamesCli(argv: string[]): {
 
   return {
     json: values.json ?? false,
+    namesOnly: values["names-only"] ?? false,
     targets: positionals,
   };
 }
 
 async function main(): Promise<void> {
-  const { json, targets } = parseLintTestNamesCli(Bun.argv.slice(2));
+  const { json, namesOnly, targets } = parseLintTestNamesCli(Bun.argv.slice(2));
   const scoped = collectLintTargetFiles(targets.length > 0 ? targets : undefined);
-  const onlyConvention = scoped.targetDir !== null ? scoped.conventionFiles : undefined;
+  const onlyConvention =
+    scoped.targetDir !== null ? scoped.conventionFiles : namesOnly ? [] : undefined;
   const onlyNames = scoped.targetDir !== null ? scoped.nameFiles : undefined;
 
   const [nameViolations, conventionViolations] = await Promise.all([
     lintTestNames(REPO_ROOT, onlyNames),
-    lintTestConventions(REPO_ROOT, onlyConvention),
+    namesOnly && scoped.targetDir === null
+      ? Promise.resolve([])
+      : lintTestConventions(REPO_ROOT, onlyConvention),
   ]);
 
   const ok = nameViolations.length === 0 && conventionViolations.length === 0;
@@ -450,7 +457,9 @@ async function main(): Promise<void> {
     console.log("lint:test-names OK");
   }
 
-  if (conventionViolations.length > 0) {
+  if (namesOnly && scoped.targetDir === null) {
+    console.log("test conventions: skipped (--names-only)");
+  } else if (conventionViolations.length > 0) {
     console.error(`\ntest conventions: ${conventionViolations.length} violation(s)\n`);
     for (const line of conventionViolations) console.error(`  ${line}`);
     exit = 1;

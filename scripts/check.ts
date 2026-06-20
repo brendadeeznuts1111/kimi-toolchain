@@ -50,7 +50,10 @@ async function buildSteps(fast: boolean, skipTests: boolean): Promise<Step[]> {
       silentOnSuccess: true,
     },
     { name: "format:check", cmd: ["bun", "run", "format:check"] },
-    { name: "lint", cmd: ["bun", "run", "lint"] },
+    {
+      name: "lint",
+      cmd: fast ? ["bun", "run", "lint", "--names-only"] : ["bun", "run", "lint"],
+    },
     { name: "typecheck", cmd: ["bun", "run", "typecheck"] },
     {
       name: fast ? "test:fast" : "test",

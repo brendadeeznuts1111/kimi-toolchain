@@ -4,6 +4,7 @@
  *
  * Usage:
  *   bun run lint                  # full lint (all sub-scripts)
+ *   bun run lint --names-only     # fast path: skip convention/cli-contract/defaults-consts debt
  *   bun run lint --files <...>    # scoped lint: oxlint + banned-terms + patterns + test-names + doc-links
  */
 
@@ -22,11 +23,15 @@ import { lintTestNames } from "./lint-test-names.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
-function parseArgs(): { files: string[] } {
+function parseArgs(): { files: string[]; namesOnly: boolean } {
   const args = Bun.argv.slice(2);
+  const namesOnly = args.includes("--names-only");
   const filesIdx = args.indexOf("--files");
-  if (filesIdx === -1) return { files: [] };
-  return { files: args.slice(filesIdx + 1).filter((a) => !a.startsWith("-")) };
+  if (filesIdx === -1) return { files: [], namesOnly };
+  return {
+    files: args.slice(filesIdx + 1).filter((a) => !a.startsWith("-")),
+    namesOnly,
+  };
 }
 
 async function runOxlint(paths: string[]): Promise<number> {
@@ -94,7 +99,11 @@ async function runScopedLint(files: string[]): Promise<void> {
   }
 }
 
-async function runFullLint(): Promise<void> {
+async function runFullLint(namesOnly: boolean): Promise<void> {
+  const testNamesCmd = namesOnly
+    ? ["bun", "run", "scripts/lint-test-names.ts", "--names-only"]
+    : ["bun", "run", "scripts/lint-test-names.ts"];
+
   const subScripts = [
     { cmd: ["oxlint", "src", "test", "scripts"], label: "oxlint" },
     { cmd: ["bun", "run", "scripts/lint-banned-terms.ts"], label: "banned-terms" },
@@ -103,7 +112,7 @@ async function runFullLint(): Promise<void> {
     { cmd: ["bun", "run", "scripts/lint-skill-coverage.ts"], label: "skill-coverage" },
     { cmd: ["bun", "run", "scripts/lint-skill-frontmatter.ts"], label: "skill-frontmatter" },
     { cmd: ["bun", "run", "scripts/lint-tochange.ts"], label: "tochange" },
-    { cmd: ["bun", "run", "scripts/lint-test-names.ts"], label: "test-names" },
+    { cmd: testNamesCmd, label: "test-names" },
     { cmd: ["bun", "run", "scripts/lint-build-constants.ts"], label: "build-constants" },
     {
       cmd: ["bun", "run", "scripts/generate-constants-manifest.ts", "--check"],
@@ -120,8 +129,12 @@ async function runFullLint(): Promise<void> {
     { cmd: ["bun", "run", "scripts/lint-testing-docs.ts"], label: "testing-docs" },
     { cmd: ["bun", "run", "scripts/lint-markdown-links.ts", "--full"], label: "markdown-links" },
     { cmd: ["bun", "run", "scripts/lint-constant-parity.ts"], label: "constant-parity" },
-    { cmd: ["bun", "run", "scripts/lint-cli-contract.ts"], label: "cli-contract" },
-    { cmd: ["bun", "run", "scripts/lint-defaults-consts.ts"], label: "defaults-consts" },
+    ...(namesOnly
+      ? []
+      : [
+          { cmd: ["bun", "run", "scripts/lint-cli-contract.ts"], label: "cli-contract" },
+          { cmd: ["bun", "run", "scripts/lint-defaults-consts.ts"], label: "defaults-consts" },
+        ]),
     { cmd: ["bun", "run", "dx:table:contract"], label: "dx:table:contract" },
   ];
 
@@ -140,7 +153,7 @@ async function runFullLint(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const { files } = parseArgs();
+  const { files, namesOnly } = parseArgs();
 
   if (process.env.KIMI_QUIET !== "1") {
     console.log(`Bun ${Bun.version} (${Bun.revision})`);
@@ -149,7 +162,7 @@ async function main(): Promise<void> {
   if (files.length > 0) {
     await runScopedLint(files);
   } else {
-    await runFullLint();
+    await runFullLint(namesOnly);
   }
 }
 

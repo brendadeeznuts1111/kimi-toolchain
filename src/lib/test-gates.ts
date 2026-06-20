@@ -145,6 +145,7 @@ export const UNIT_TEST_FILES = [
   "test/optimizer-health-trend.unit.test.ts",
   "test/decision-list-diff.unit.test.ts",
   "test/taxonomy-coverage.unit.test.ts",
+  "test/reclassify-failure-ledger.unit.test.ts",
   "test/quiet-mode.unit.test.ts",
   "test/gate-runner.unit.test.ts",
   "test/git-helpers.unit.test.ts",
