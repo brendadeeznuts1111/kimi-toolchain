@@ -83,7 +83,6 @@ function generateFilesystemBridge(options: BridgeScaffoldOptions): string {
  * ${options.name} filesystem bridge — scoped file-system MCP server.
  */
 
-import { existsSync } from "fs";
 import { resolve } from "path";
 ${BRIDGE_INSPECT_IMPORT}
 
@@ -112,7 +111,7 @@ async function handleRequest(request: { method: string; params?: Record<string, 
       return { content: [{ type: "text", text: "path outside allowed roots" }], isError: true };
     }
     if (tool === "read_file") {
-      if (!existsSync(target)) return { content: [{ type: "text", text: "not found" }], isError: true };
+      if (!(await Bun.file(target).exists())) return { content: [{ type: "text", text: "not found" }], isError: true };
       const text = await Bun.file(target).text();
       return { content: [{ type: "text", text }] };
     }

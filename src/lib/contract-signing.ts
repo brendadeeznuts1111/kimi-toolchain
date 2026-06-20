@@ -3,7 +3,7 @@
  */
 
 import { Data, Effect } from "effect";
-import { existsSync, mkdirSync } from "fs";
+import { makeDir, pathExists } from "./bun-io.ts";
 import { dirname, extname, join, relative } from "path";
 import yaml from "js-yaml";
 import {
@@ -162,7 +162,7 @@ export async function signContract(
     signedAt: new Date().toISOString(),
   };
   const sigPath = signaturePathFor(contractPath);
-  mkdirSync(dirname(sigPath), { recursive: true });
+  makeDir(dirname(sigPath), { recursive: true });
   await Bun.write(sigPath, `${JSON.stringify(envelope, null, 2)}\n`);
   return envelope;
 }
@@ -185,7 +185,7 @@ export async function validateContract(
 ): Promise<ContractValidationResult> {
   const { normalized, payloadSha256 } = await readNormalizedContract(contractPath);
   const signaturePath = signaturePathFor(contractPath);
-  if (!existsSync(signaturePath)) {
+  if (!pathExists(signaturePath)) {
     const result = {
       path: contractPath,
       signaturePath,
@@ -309,7 +309,7 @@ export async function discoverContractFiles(projectRoot: string): Promise<string
 }
 
 export async function readTrustedKeys(path: string): Promise<TrustedKeys> {
-  if (!existsSync(path)) return {};
+  if (!pathExists(path)) return {};
   const text = await Bun.file(path).text();
   const parsed = safeParse<unknown>(text, {});
   if (!parsed || typeof parsed !== "object") return {};

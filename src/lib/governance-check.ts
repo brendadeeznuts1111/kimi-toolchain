@@ -1,4 +1,4 @@
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 
 export interface GovernanceCheck {
@@ -27,7 +27,7 @@ export async function checkGovernance(projectDir: string): Promise<GovernanceChe
   const licenseFiles = ["LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING"];
   for (const f of licenseFiles) {
     const path = join(projectDir, f);
-    if (existsSync(path)) {
+    if (pathExists(path)) {
       result.hasLicense = true;
       const content = (await Bun.file(path).text()).slice(0, 500).toLowerCase();
       if (content.includes("mit")) result.licenseType = "MIT";
@@ -39,8 +39,8 @@ export async function checkGovernance(projectDir: string): Promise<GovernanceChe
     }
   }
 
-  result.hasChangelog = existsSync(join(projectDir, "CHANGELOG.md"));
-  result.hasContributing = existsSync(join(projectDir, "CONTRIBUTING.md"));
+  result.hasChangelog = pathExists(join(projectDir, "CHANGELOG.md"));
+  result.hasContributing = pathExists(join(projectDir, "CONTRIBUTING.md"));
 
   const codeownersPaths = [
     join(projectDir, "CODEOWNERS"),
@@ -48,7 +48,7 @@ export async function checkGovernance(projectDir: string): Promise<GovernanceChe
     join(projectDir, "docs", "CODEOWNERS"),
   ];
   for (const path of codeownersPaths) {
-    if (existsSync(path)) {
+    if (pathExists(path)) {
       result.hasCodeowners = true;
       const lines = (await Bun.file(path).text()).split("\n");
       for (const line of lines) {
@@ -62,8 +62,8 @@ export async function checkGovernance(projectDir: string): Promise<GovernanceChe
     }
   }
 
-  result.hasReadme = existsSync(join(projectDir, "README.md"));
-  result.hasContext = existsSync(join(projectDir, "CONTEXT.md"));
+  result.hasReadme = pathExists(join(projectDir, "README.md"));
+  result.hasContext = pathExists(join(projectDir, "CONTEXT.md"));
 
   return result;
 }

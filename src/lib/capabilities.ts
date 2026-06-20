@@ -3,7 +3,7 @@
  */
 
 import { Data, Effect } from "effect";
-import { existsSync, mkdirSync } from "fs";
+import { makeDir, pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { capabilitySnapshotsDir, configTomlPath, failureLedgerPath, mcpPath } from "./paths.ts";
 import { safeParse } from "./utils.ts";
@@ -127,7 +127,7 @@ export async function readCapabilityTrend(limit = 10): Promise<CapabilityTrend> 
 
 export async function readCapabilitySnapshots(limit = 10): Promise<CapabilityReport[]> {
   const dir = capabilitySnapshotsDir();
-  if (!existsSync(dir)) return [];
+  if (!pathExists(dir)) return [];
   const glob = new Bun.Glob("*.json");
   const files: string[] = [];
   for await (const file of glob.scan({ cwd: dir, absolute: true, onlyFiles: true })) {
@@ -143,7 +143,7 @@ export async function readCapabilitySnapshots(limit = 10): Promise<CapabilityRep
 
 export async function writeCapabilitySnapshot(report: CapabilityReport): Promise<string> {
   const dir = capabilitySnapshotsDir();
-  mkdirSync(dir, { recursive: true });
+  makeDir(dir, { recursive: true });
   const file = join(dir, `${report.generatedAt.replace(/[:.]/g, "-")}.json`);
   await Bun.write(file, `${JSON.stringify(report, null, 2)}\n`);
   return file;
@@ -205,7 +205,7 @@ function applyLastSuccessfulContact(
 
 async function checkMcpConfig(): Promise<Omit<CapabilityResult, "latencyMs">> {
   const path = mcpPath();
-  if (!existsSync(path)) {
+  if (!pathExists(path)) {
     return {
       id: "mcp-config",
       type: "mcp",
@@ -235,12 +235,12 @@ async function checkMcpConfig(): Promise<Omit<CapabilityResult, "latencyMs">> {
 async function checkFailureLedgerHook(): Promise<Omit<CapabilityResult, "latencyMs">> {
   const configPath = configTomlPath();
   const ledgerPath = failureLedgerPath();
-  const hasConfig = existsSync(configPath);
+  const hasConfig = pathExists(configPath);
   const configText = hasConfig ? await Bun.file(configPath).text() : "";
   const hasHook =
     configText.includes("PostToolUseFailure") || configText.includes("log-tool-failure");
   try {
-    mkdirSync(ledgerPath.slice(0, ledgerPath.lastIndexOf("/")), { recursive: true });
+    makeDir(ledgerPath.slice(0, ledgerPath.lastIndexOf("/")), { recursive: true });
   } catch {
     return {
       id: "failure-ledger-hook",

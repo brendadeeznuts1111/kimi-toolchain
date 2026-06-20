@@ -2,7 +2,7 @@
  * Workspace health — single source of truth for repo/path/Cursor alignment.
  */
 
-import { unlinkSync } from "fs";
+import { removeFile } from "./bun-io.ts";
 import { basename, join, resolve } from "path";
 import { listDir, pathExists, pathExistsAsync, readTextAsync, resolveRealPath } from "./bun-io.ts";
 import { readPackageJson, safeParse } from "./utils.ts";
@@ -150,10 +150,7 @@ async function countOrphanedSnapshots(snapshotDir: string): Promise<number> {
   let orphaned = 0;
   const glob = new Bun.Glob("*.json");
   for (const file of glob.scanSync({ cwd: snapshotDir, absolute: true })) {
-    const snap = safeParse(
-      await readTextAsync(file),
-      null as { projectPath?: string } | null
-    );
+    const snap = safeParse(await readTextAsync(file), null as { projectPath?: string } | null);
     if (snap?.projectPath && !(await pathExistsAsync(snap.projectPath))) orphaned++;
   }
   return orphaned;
@@ -551,7 +548,7 @@ export function removeStaleWrappers(staleWrappers: string[], binDir: string): nu
   for (const name of staleWrappers) {
     const path = join(binDir, name);
     if (pathExists(path)) {
-      unlinkSync(path);
+      removeFile(path);
       removed++;
     }
   }
@@ -576,7 +573,7 @@ export async function removeOrphanedSnapshots(snapshotDir: string): Promise<numb
     if (!snap?.id || !snap?.project || !snap?.commit) remove = true;
     else if (snap.projectPath && !(await pathExistsAsync(snap.projectPath))) remove = true;
     if (remove) {
-      unlinkSync(file);
+      removeFile(file);
       removed++;
     }
   }

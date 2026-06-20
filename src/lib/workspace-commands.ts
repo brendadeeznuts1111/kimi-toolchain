@@ -2,7 +2,7 @@
  * Workspace subcommands — verify | audit | fix | cleanup
  */
 
-import { existsSync, lstatSync } from "fs";
+import { pathExists, pathLstat } from "./bun-io.ts";
 import { join, resolve } from "path";
 import {
   auditWorkspaceHealth,
@@ -205,9 +205,9 @@ async function runCleanup(
   logger.section("Legacy workspace cleanup");
 
   const legacyPath = legacyClonePath(home);
-  if (existsSync(legacyPath)) {
+  if (pathExists(legacyPath)) {
     try {
-      const stat = lstatSync(legacyPath);
+      const stat = pathLstat(legacyPath);
       if (stat.isSymbolicLink()) {
         logger.warn(`~/${LEGACY_REPO_NAMES[0]} symlink exists`);
         if (removeLegacyPath && removeLegacySymlink()) {
@@ -224,7 +224,7 @@ async function runCleanup(
   }
 
   const canonical = canonicalClonePath(home);
-  if (existsSync(join(canonical, "package.json"))) {
+  if (pathExists(join(canonical, "package.json"))) {
     logger.info(`~/${CANONICAL_REPO_NAME} present`);
   } else {
     logger.error(`~/${CANONICAL_REPO_NAME}/package.json missing`);
@@ -282,7 +282,7 @@ async function runCleanup(
 function defaultWorkspaceRoot(): string {
   if (Bun.env.KIMI_PROJECT_ROOT) return resolve(Bun.env.KIMI_PROJECT_ROOT);
   const cwd = resolve(Bun.cwd);
-  if (existsSync(join(cwd, "package.json"))) return cwd;
+  if (pathExists(join(cwd, "package.json"))) return cwd;
   return resolve(join(import.meta.dir, "../.."));
 }
 

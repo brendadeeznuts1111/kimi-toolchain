@@ -2,7 +2,7 @@
  * Canonical repo → ~/.kimi-code/ sync (single source of truth).
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
 import { dirname, join } from "path";
 import { ensureDir } from "./utils.ts";
 import {
@@ -179,7 +179,7 @@ export async function syncDesktop(
   await syncGlobDirectory(paths.binSrc, paths.binDst, LABEL_PREFIX.TOOLS, "*.ts", force, result);
   await syncGlobDirectory(paths.libSrc, paths.libDst, LABEL_PREFIX.LIB, "**/*.ts", force, result);
 
-  if (existsSync(paths.scriptsSrc)) {
+  if (pathExists(paths.scriptsSrc)) {
     await syncGlobDirectory(
       paths.scriptsSrc,
       paths.scriptsDst,
@@ -190,7 +190,7 @@ export async function syncDesktop(
     );
   }
 
-  if (existsSync(paths.kimiHooksSrc)) {
+  if (pathExists(paths.kimiHooksSrc)) {
     await syncGlobDirectory(
       paths.kimiHooksSrc,
       paths.kimiHooksDst,
@@ -201,7 +201,7 @@ export async function syncDesktop(
     );
   }
 
-  if (existsSync(paths.templatesSrc)) {
+  if (pathExists(paths.templatesSrc)) {
     await syncGlobDirectory(
       paths.templatesSrc,
       paths.templatesDst,
@@ -221,13 +221,13 @@ export async function syncDesktop(
     const dstPath = join(desktopRoot(), file);
     if (force) {
       await copyIfChanged(srcPath, dstPath, file, true, result);
-    } else if (!existsSync(dstPath) && existsSync(srcPath)) {
+    } else if (!pathExists(dstPath) && pathExists(srcPath)) {
       await Bun.write(dstPath, await Bun.file(srcPath).text());
       result.updated.push(file);
     }
   }
 
-  if (existsSync(paths.skillSrc)) {
+  if (pathExists(paths.skillSrc)) {
     const skillGlob = new Bun.Glob("**/*");
     for await (const rel of skillGlob.scan({ cwd: paths.skillSrc, onlyFiles: true })) {
       await copyIfChanged(

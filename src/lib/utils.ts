@@ -9,7 +9,7 @@
  * For paths: import { toolsDir, homeDir } from "./paths.ts"
  */
 
-import { existsSync, mkdirSync } from "fs";
+import { makeDir, pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { $ } from "bun";
 import { isAgentContext, runTool, invokeTool, toolsDir } from "./tool-runner.ts";
@@ -26,7 +26,7 @@ const DEFAULT_BANNER_INNER_WIDTH = 62;
 
 /** Ensure a directory exists, creating it recursively if needed. */
 export function ensureDir(dir: string) {
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  if (!pathExists(dir)) makeDir(dir, { recursive: true });
 }
 
 // ── Logging ──────────────────────────────────────────────────────────
@@ -113,7 +113,7 @@ export async function readPackageJson<T extends Record<string, unknown>>(
   validator?: (pkg: unknown) => pkg is T
 ): Promise<T | null> {
   const pkgPath = join(projectDir, "package.json");
-  if (!existsSync(pkgPath)) return null;
+  if (!pathExists(pkgPath)) return null;
   try {
     const pkg: unknown = await Bun.file(pkgPath).json();
     if (validator && !validator(pkg)) return null;

@@ -5,7 +5,7 @@
  * version information. Derives toolchain version from package.json.
  */
 
-import { mkdirSync } from "fs";
+import { makeDir } from "./bun-io.ts";
 import { dirname, join } from "path";
 import { $ } from "bun";
 import { manifestPath } from "./paths.ts";
@@ -129,6 +129,6 @@ export async function readManifest(): Promise<ToolchainManifest | null> {
 /** Write the desktop install manifest */
 export async function writeManifest(manifest: ToolchainManifest): Promise<void> {
   const path = manifestPath();
-  mkdirSync(dirname(path), { recursive: true });
+  makeDir(dirname(path), { recursive: true });
   await Bun.write(path, JSON.stringify(manifest, null, 2) + "\n");
 }

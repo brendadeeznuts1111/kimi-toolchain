@@ -7,7 +7,7 @@
 
 import { readableStreamToText } from "./bun-utils.ts";
 import { fetchWithTimeout } from "./utils.ts";
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { homeDir } from "./paths.ts";
 import { parsePolicyConfig } from "./cloudflare-access-policy.ts";
@@ -426,7 +426,7 @@ function loadProjectRoots(): string[] {
   const defaults = [join(homeDir(), "kimi-toolchain"), join(homeDir(), "Projects")];
   try {
     const userConfigPath = join(homeDir(), ".kimi-code", "project-mappings.yml");
-    if (existsSync(userConfigPath)) {
+    if (pathExists(userConfigPath)) {
       const text = Bun.file(userConfigPath).textSync?.() || "";
       const parsed = parsePolicyConfig(text);
       const roots = parsed?.roots;
@@ -444,7 +444,7 @@ function loadAppOverrides(): Record<string, string> {
   const defaults: Record<string, string> = {};
   try {
     const userConfigPath = join(homeDir(), ".kimi-code", "project-mappings.yml");
-    if (existsSync(userConfigPath)) {
+    if (pathExists(userConfigPath)) {
       const text = Bun.file(userConfigPath).textSync?.() || "";
       const parsed = parsePolicyConfig(text);
       const overrides = parsed?.appOverrides;
@@ -656,7 +656,7 @@ function loadInfraMap(): Record<
   > = {};
   try {
     const userConfigPath = join(homeDir(), ".kimi-code", "project-mappings.yml");
-    if (existsSync(userConfigPath)) {
+    if (pathExists(userConfigPath)) {
       const text = Bun.file(userConfigPath).textSync?.() || "";
       const parsed = parsePolicyConfig(text);
       const infra = parsed?.infrastructure;

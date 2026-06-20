@@ -3,7 +3,7 @@
  */
 
 import { Database } from "bun:sqlite";
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { ensureDir, safeParse } from "./utils.ts";
 import { SESSIONS_SCHEMA_SQL } from "./sessions-schema.ts";
@@ -124,7 +124,7 @@ export function getPersistentWarnings(tool?: string): Array<{
   age_days: number;
   taxonomy_id: string | null;
 }> {
-  if (!existsSync(dbPath())) return [];
+  if (!pathExists(dbPath())) return [];
 
   const db = openSessionsDb();
   let rows: Array<{
@@ -193,7 +193,7 @@ function rowToDoctorRunRecord(row: {
 /** Query doctor runs by exact run id (newest first). */
 export function getDoctorRunsByRunId(runId: string): DoctorRunRecord[] {
   if (!runId) return [];
-  if (!existsSync(dbPath())) return [];
+  if (!pathExists(dbPath())) return [];
   const db = openSessionsDb();
   const rows = db
     .query(
@@ -217,7 +217,7 @@ export function getDoctorRunsByRunId(runId: string): DoctorRunRecord[] {
 /** Query doctor runs by session id (newest first). */
 export function getDoctorRunsBySession(sessionId: string): DoctorRunRecord[] {
   if (!sessionId) return [];
-  if (!existsSync(dbPath())) return [];
+  if (!pathExists(dbPath())) return [];
   const db = openSessionsDb();
   const rows = db
     .query(
@@ -241,7 +241,7 @@ export function getDoctorRunsBySession(sessionId: string): DoctorRunRecord[] {
 /** Query doctor runs by project name (newest first). */
 export function getDoctorRunsByProject(project: string): DoctorRunRecord[] {
   if (!project) return [];
-  if (!existsSync(dbPath())) return [];
+  if (!pathExists(dbPath())) return [];
   const db = openSessionsDb();
   const rows = db
     .query(

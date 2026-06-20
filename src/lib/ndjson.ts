@@ -8,7 +8,7 @@
  * - `appendNdjsonRecord` — `Bun.write(..., { create: true, append: true })` when supported
  */
 
-import { appendFileSync, mkdirSync, unlinkSync } from "fs";
+import { appendText, makeDir, removeFile } from "./bun-io.ts";
 import { dirname, join } from "path";
 import { tmpdir } from "os";
 import { pathExistsAsync } from "./bun-io.ts";
@@ -114,21 +114,21 @@ export async function* streamNdjsonRecords<T = unknown>(
  * Prefers idiomatic Bun append:
  * `await Bun.write(path, JSON.stringify(entry) + '\\n', { create: true, append: true })`
  *
- * Bun 1.3.14 truncates on append — we probe once and fall back to `appendFileSync`.
+ * Bun 1.3.14 truncates on append — we probe once and fall back to `appendText`.
  */
 export async function appendNdjsonRecord(path: string, record: unknown): Promise<void> {
-  mkdirSync(dirname(path), { recursive: true });
+  makeDir(dirname(path), { recursive: true });
   const line = `${JSON.stringify(record)}\n`;
   if ((await resolveAppendMode()) === "bun-write") {
     await bunWrite(path, line, WRITE_APPEND);
     return;
   }
-  appendFileSync(path, line);
+  appendText(path, line);
 }
 
 /** Rewrite a JSONL file from an array of records. */
 export async function writeNdjsonFile(path: string, records: unknown[]): Promise<void> {
-  mkdirSync(dirname(path), { recursive: true });
+  makeDir(dirname(path), { recursive: true });
   const body =
     records.length > 0 ? records.map((record) => JSON.stringify(record)).join("\n") + "\n" : "";
   await Bun.write(path, body);
@@ -152,7 +152,7 @@ async function resolveAppendMode(): Promise<AppendMode> {
     appendMode = "fs-append";
   } finally {
     try {
-      unlinkSync(probe);
+      removeFile(probe);
     } catch {
       // ignore probe cleanup failures
     }

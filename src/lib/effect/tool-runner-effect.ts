@@ -3,7 +3,7 @@
  */
 
 import { Effect } from "effect";
-import { existsSync } from "fs";
+import { pathExists } from "../bun-io.ts";
 import { join } from "path";
 import {
   invokeCommand,
@@ -144,7 +144,7 @@ export function runToolEffect(
   options?: ToolInvocationOptions
 ): Effect.Effect<ToolInvocationWithTaxonomy, ToolRunnerError> {
   const toolPath = join(toolsDir(), `${toolName}.ts`);
-  if (!existsSync(toolPath)) {
+  if (!pathExists(toolPath)) {
     return Effect.fail(new ToolNotFound({ tool: toolName, path: toolPath }));
   }
   return invokeToolEffect(toolPath, args, options);

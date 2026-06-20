@@ -25,7 +25,7 @@
  * @see https://bun.com/reference/bun/test
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { readText } from "./bun-io.ts";
 import { parseBunfigDefines } from "./build-constants-registry.ts";
@@ -968,7 +968,7 @@ export function installBuildConstantGlobals(repoRoot: string): void {
 export function warnIfTestEnvFileSetsNodeEnv(repoRoot: string): void {
   if (envFileNodeEnvWarned) return;
   const path = join(repoRoot, TEST_ENV_FILE);
-  if (!existsSync(path)) return;
+  if (!pathExists(path)) return;
   let text: string;
   try {
     text = readText(path);
@@ -1038,7 +1038,7 @@ export function defaultTestEnvFileArgs(repoRoot: string, forwarded: readonly str
     return [];
   }
   const path = join(repoRoot, TEST_ENV_FILE);
-  if (!existsSync(path)) return [];
+  if (!pathExists(path)) return [];
   return ["--env-file", TEST_ENV_FILE];
 }
 

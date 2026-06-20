@@ -2,7 +2,7 @@
  * Ecosystem health — cross-product checks for Kimi Code + kimi-toolchain.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { auditCanonicalReferencesHealth } from "./canonical-references.ts";
 import { buildOptimizerDoctorMachineChecks } from "./constant-optimizer.ts";
@@ -58,7 +58,7 @@ import { runOfficialKimiDoctor } from "./kimi-doctor-wrapper.ts";
 
 async function checkQualityScripts(projectRoot: string): Promise<EcosystemCheck[]> {
   const pkgPath = join(projectRoot, "package.json");
-  if (!existsSync(pkgPath)) return [];
+  if (!pathExists(pkgPath)) return [];
 
   const checks: EcosystemCheck[] = [];
   const required = ["format:check", "lint", "typecheck", "check", "test"] as const;

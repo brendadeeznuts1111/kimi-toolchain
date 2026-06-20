@@ -4,7 +4,7 @@
  * Categories are defined in YAML so agents and hooks can share a single schema.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import yaml from "js-yaml";
 
@@ -56,7 +56,7 @@ export function taxonomyPath(home: string = homeDir()): string {
 
 export async function loadTaxonomy(path?: string): Promise<Taxonomy> {
   const p = path || taxonomyPath();
-  if (!existsSync(p)) {
+  if (!pathExists(p)) {
     return { version: 1, categories: [unknownCategory()] };
   }
 

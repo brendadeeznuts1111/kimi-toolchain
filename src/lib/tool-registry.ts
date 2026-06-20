@@ -2,7 +2,7 @@
  * kimi-toolchain meta-binary — tool name → script mapping.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { readPackageJson } from "./utils.ts";
 import { createLogger, type Logger } from "./logger.ts";
@@ -85,14 +85,14 @@ export function resolveToolScript(shortName: string, toolsDir: string): string |
   const script = shortNameToScript(shortName);
   if (!script) return null;
   const path = join(toolsDir, script);
-  return existsSync(path) ? path : null;
+  return pathExists(path) ? path : null;
 }
 
 export function resolveRepoToolScript(shortName: string, repoBinDir: string): string | null {
   const script = shortNameToScript(shortName);
   if (!script) return null;
   const path = join(repoBinDir, script);
-  return existsSync(path) ? path : null;
+  return pathExists(path) ? path : null;
 }
 
 export async function listPackageBinNames(repoRoot: string): Promise<string[]> {

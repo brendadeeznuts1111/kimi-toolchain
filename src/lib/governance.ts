@@ -5,7 +5,7 @@
  * Extracted from src/bin/kimi-governance.ts for reuse.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { $ } from "bun";
 import { readableStreamToText } from "./bun-utils.ts";
@@ -55,13 +55,13 @@ export async function checkCoverage(projectDir: string, _threshold = 70): Promis
   const report: CoverageReport = { covered: 0, total: 0, percentage: 0, files: [] };
 
   const pkgPath = join(projectDir, "package.json");
-  if (!existsSync(pkgPath)) return report;
+  if (!pathExists(pkgPath)) return report;
 
   const pkg = (await Bun.file(pkgPath).json()) as any;
   const hasTests =
     pkg.scripts?.test ||
-    existsSync(join(projectDir, "test")) ||
-    existsSync(join(projectDir, "tests"));
+    pathExists(join(projectDir, "test")) ||
+    pathExists(join(projectDir, "tests"));
   if (!hasTests) return report;
 
   const fastCoverage = useFastUnitCoverage(pkg.name);
@@ -178,7 +178,7 @@ export async function checkCoverage(projectDir: string, _threshold = 70): Promis
 
     if (report.total === 0) {
       const lcovPath = join(projectDir, ARTIFACTS_COVERAGE_DIR, "lcov.info");
-      if (existsSync(lcovPath)) {
+      if (pathExists(lcovPath)) {
         const lcov = await Bun.file(lcovPath).text();
         let totalLines = 0;
         let hitLines = 0;
@@ -211,7 +211,7 @@ export async function storeCoverageHistory(projectDir: string, report: CoverageR
   const historyPath = coverageHistoryPath();
   ensureDir(governanceDir());
   let history: CoverageHistoryEntry[] = [];
-  if (existsSync(historyPath)) {
+  if (pathExists(historyPath)) {
     try {
       history = (await Bun.file(historyPath).json()) as CoverageHistoryEntry[];
     } catch {
@@ -244,7 +244,7 @@ export async function storeCoverageHistory(projectDir: string, report: CoverageR
 /** Latest cached coverage entry for a project (no test subprocess). */
 export async function loadCachedCoverage(projectDir: string): Promise<CoverageReport | null> {
   const historyPath = coverageHistoryPath();
-  if (!existsSync(historyPath)) return null;
+  if (!pathExists(historyPath)) return null;
   let history: CoverageHistoryEntry[];
   try {
     history = (await Bun.file(historyPath).json()) as CoverageHistoryEntry[];
@@ -269,7 +269,7 @@ export async function loadCachedCoverage(projectDir: string): Promise<CoverageRe
 export async function refreshStaleLockfile(projectDir: string): Promise<boolean> {
   const lockPath = join(projectDir, "bun.lock");
   const pkgPath = join(projectDir, "package.json");
-  if (!existsSync(lockPath) || !existsSync(pkgPath)) return false;
+  if (!pathExists(lockPath) || !pathExists(pkgPath)) return false;
 
   const pkgMtime = Bun.file(pkgPath).lastModified;
   const lockMtime = Bun.file(lockPath).lastModified;

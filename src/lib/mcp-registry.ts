@@ -5,7 +5,7 @@
  * Built-in servers: embedded defaults for unified-shell and cloudflare-api.
  */
 
-import { existsSync, readdirSync } from "fs";
+import { listDir, pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { homeDir, mcpServersDir } from "./paths.ts";
 import { ensureDir } from "./utils.ts";
@@ -172,8 +172,8 @@ export async function loadMcpRegistry(home: string = homeDir()): Promise<McpRegi
 
   const dir = mcpServersDirPath(home);
   ensureDir(dir);
-  if (existsSync(dir)) {
-    for (const file of readdirSync(dir).filter((f) => f.endsWith(".toml"))) {
+  if (pathExists(dir)) {
+    for (const file of listDir(dir).filter((f) => f.endsWith(".toml"))) {
       const name = file.replace(/\.toml$/, "");
       const text = await Bun.file(join(dir, file)).text();
       const def = parseServerToml(name, text);

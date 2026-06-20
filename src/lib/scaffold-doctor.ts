@@ -2,7 +2,7 @@
  * Scaffold completeness checks for kimi-fix doctor.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { REQUIRED_PACKAGE_SCRIPTS } from "./scaffold-templates.ts";
 import type { HealthCheck as DoctorCheck } from "./health-check.ts";
@@ -23,7 +23,7 @@ async function readDxCiConfig(projectDir: string): Promise<DxCiConfig> {
   let workflowPath = DEFAULT_WORKFLOW_PATH;
   let explicitlyDisabled = false;
 
-  if (existsSync(dxPath)) {
+  if (pathExists(dxPath)) {
     const parsed = safeToml<Record<string, unknown> | null>(await Bun.file(dxPath).text(), null);
     if (parsed) {
       const github = parsed.github;
@@ -50,7 +50,7 @@ async function readDxCiConfig(projectDir: string): Promise<DxCiConfig> {
 async function checkCiWorkflow(projectDir: string): Promise<DoctorCheck> {
   const { workflowPath, explicitlyDisabled, pathImpliesDisabled } =
     await readDxCiConfig(projectDir);
-  const present = existsSync(join(projectDir, workflowPath));
+  const present = pathExists(join(projectDir, workflowPath));
   const ciDisabled = pathImpliesDisabled || explicitlyDisabled;
 
   if (present) {
@@ -97,7 +97,7 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
   ];
 
   for (const { name, rel } of fileChecks) {
-    const present = existsSync(join(projectDir, rel));
+    const present = pathExists(join(projectDir, rel));
     checks.push({
       name,
       status: present ? "ok" : "warn",
@@ -109,7 +109,7 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
   checks.push(await checkCiWorkflow(projectDir));
 
   const pkgPath = join(projectDir, "package.json");
-  if (!existsSync(pkgPath)) {
+  if (!pathExists(pkgPath)) {
     checks.push({
       name: "package.json",
       status: "error",

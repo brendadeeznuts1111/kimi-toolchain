@@ -2,7 +2,7 @@
  * Append-only causal trace ledger and graph reconstruction.
  */
 
-import { mkdirSync } from "fs";
+import { makeDir } from "./bun-io.ts";
 import { dirname } from "path";
 import { failureLedgerPath, traceEventsPath } from "./paths.ts";
 import { readNdjsonFile, appendNdjsonRecord } from "./ndjson.ts";
@@ -81,7 +81,7 @@ export async function recordTraceEvent(
   event: TraceEvent,
   path: string = traceEventsPath()
 ): Promise<void> {
-  mkdirSync(dirname(path), { recursive: true });
+  makeDir(dirname(path), { recursive: true });
   await appendNdjsonRecord(path, event);
 }
 

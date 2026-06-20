@@ -1,4 +1,4 @@
-import { existsSync } from "fs";
+import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { $ } from "bun";
 
@@ -8,7 +8,7 @@ export async function ensureQualityTooling(
   log: (step: string, msg: string) => void
 ) {
   const pkgPath = join(project, "package.json");
-  if (!existsSync(pkgPath)) return;
+  if (!pathExists(pkgPath)) return;
 
   const pkg = (await Bun.file(pkgPath).json()) as {
     scripts?: Record<string, string>;
@@ -74,7 +74,7 @@ export async function injectMissingScripts(
 
   if (profile === "toolchain") {
     const pkgPath = join(project, "package.json");
-    if (!existsSync(pkgPath)) return;
+    if (!pathExists(pkgPath)) return;
     const pkg = (await Bun.file(pkgPath).json()) as {
       scripts?: Record<string, string>;
     };
