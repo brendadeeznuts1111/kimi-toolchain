@@ -89,6 +89,17 @@ Key differences from Bun defaults:
 | `preload`           | unset                                 | `./test/setup.ts` | HOME isolation + `NODE_ENV=test` via setup           |
 | `noOrphans`         | false                                 | true              | Prevents zombie processes in Herdr panes, CI runners |
 
+### Workspace / package manager (Path A)
+
+| Key / command | Hardened | Notes |
+| ------------- | -------- | ----- |
+| `package.json` `workspaces` | `["examples/*"]` | Runnable examples only; templates stay scaffolding; root owns scripts/postinstall |
+| `examples/dashboard` → `kimi-toolchain` | `file:../..` | Not `workspace:*` — Bun resolves `workspace:*` only among workspace globs, not the root package name |
+| `bun install --filter './examples/dashboard'` | — | Scoped install for one workspace member |
+| `bun pm ls --all` | — | Verify members: `kimi-toolchain-dashboard@workspace:examples/dashboard` |
+
+Policy SSOT: `src/lib/bun-install-config.ts` (`BUN_INSTALL_WORKSPACE_POLICY`, `BUN_WORKSPACE_ROOT_CONSUMER_LINK`).
+
 Bun searches for `bunfig.toml` in these paths (merged if both exist):
 
 - `$XDG_CONFIG_HOME/.bunfig.toml` or `$HOME/.bunfig.toml`

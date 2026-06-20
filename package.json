@@ -40,6 +40,9 @@
     "kimi-why": "src/bin/kimi-why.ts",
     "unified-shell-bridge": "src/bin/unified-shell-bridge.ts"
   },
+  "workspaces": [
+    "examples/*"
+  ],
   "files": [
     "src",
     "scripts",

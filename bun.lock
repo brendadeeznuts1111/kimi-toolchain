@@ -17,6 +17,24 @@
         "typescript": "^5.8.0",
       },
     },
+    "examples/dashboard": {
+      "name": "kimi-toolchain-dashboard",
+      "version": "0.1.0",
+      "dependencies": {
+        "kimi-toolchain": "file:../..",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+      },
+    },
+    "examples/portal": {
+      "name": "kimi-artifact-portal-example",
+      "version": "0.1.0",
+    },
+    "examples/trading-workspace": {
+      "name": "kimi-trading-workspace",
+      "version": "0.1.0",
+    },
   },
   "packages": {
     "@nodelib/fs.scandir": ["@nodelib/fs.scandir@2.1.5", "", { "dependencies": { "@nodelib/fs.stat": "2.0.5", "run-parallel": "^1.1.9" } }, "sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g=="],
@@ -142,6 +160,14 @@
     "is-number": ["is-number@7.0.0", "", {}, "sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng=="],
 
     "js-yaml": ["js-yaml@4.2.0", "", { "dependencies": { "argparse": "^2.0.1" }, "bin": { "js-yaml": "bin/js-yaml.js" } }, "sha512-ePWsvanv0DWuDRsW8dnt+R4jQ31SCRCQ7hhNcPXZPsoBZiemuZNYGf7adZdqX2D86j6rvKp3RpCxVTSb8WQlOw=="],
+
+    "kimi-artifact-portal-example": ["kimi-artifact-portal-example@workspace:examples/portal"],
+
+    "kimi-toolchain": ["kimi-toolchain@root:", {}],
+
+    "kimi-toolchain-dashboard": ["kimi-toolchain-dashboard@workspace:examples/dashboard"],
+
+    "kimi-trading-workspace": ["kimi-trading-workspace@workspace:examples/trading-workspace"],
 
     "merge2": ["merge2@1.4.1", "", {}, "sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg=="],
 

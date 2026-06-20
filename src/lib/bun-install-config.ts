@@ -22,7 +22,7 @@ export const BUN_INSTALL_DOCS_URL = bunInstallDocAnchor("configuring-bun-install
 export const BUN_INSTALL_POLICY_MIN_BUN = "1.4.0";
 
 /** Last policy-matrix edit (ISO date) — bump when hardened defaults or rows change. */
-export const BUN_INSTALL_POLICY_LAST_MODIFIED = "2026-06-17";
+export const BUN_INSTALL_POLICY_LAST_MODIFIED = "2026-06-20";
 
 /** bunfig / package.json keys that must be explicit under hardened policy. */
 export const BUN_INSTALL_REQUIRED_KEYS = new Set([
@@ -62,7 +62,12 @@ export const BUN_INSTALL_CLI = {
   updateLatest: "bun update <pkg> --latest",
   guardianFix: "kimi-guardian fix",
   pmTrust: "bun pm trust <pkg>",
+  installFilter: "bun install --filter './examples/<name>'",
+  pmListAll: "bun pm ls --all",
 } as const;
+
+/** Link root package from an `examples/*` workspace — `workspace:*` does not resolve root names. */
+export const BUN_WORKSPACE_ROOT_CONSUMER_LINK = "file:../..";
 
 /** Dep-change commands only (alias for docs that reference DEP_CHANGE_CLI). */
 export const DEP_CHANGE_CLI = {
@@ -101,6 +106,7 @@ export type BunInstallPolicyGroup =
   | "supply-chain"
   | "performance"
   | "cache"
+  | "workspace"
   | "package-json"
   | "platform"
   | "environment";
@@ -430,6 +436,38 @@ export const BUN_INSTALL_PACKAGE_POLICY: readonly BunInstallPolicyRowDef[] = [
   },
 ] as const;
 
+/** package.json workspace layout — Path A (`examples/*` only; templates stay scaffolding). */
+export const BUN_INSTALL_WORKSPACE_POLICY: readonly BunInstallPolicyRowDef[] = [
+  {
+    group: "workspace",
+    key: "workspaces",
+    type: "string[]",
+    officialDefault: "unset",
+    hardenedDefault: '["examples/*"]',
+    bunfigKey: null,
+    cliFlag: "bun install --filter",
+    sinceBun: "1.0",
+    docsAnchor: "workspaces",
+    notes:
+      "Register runnable examples only; root scripts/postinstall stay at repo root; verify with bun pm ls --all",
+    lastModified: "2026-06-20",
+  },
+  {
+    group: "workspace",
+    key: "rootConsumerLink",
+    type: "string",
+    officialDefault: "workspace:*",
+    hardenedDefault: BUN_WORKSPACE_ROOT_CONSUMER_LINK,
+    bunfigKey: null,
+    cliFlag: null,
+    sinceBun: "1.0",
+    docsAnchor: "workspaces",
+    notes:
+      "examples/dashboard → kimi-toolchain: use file:../.. — Bun workspace:* only matches workspace globs, not the root package name",
+    lastModified: "2026-06-20",
+  },
+] as const;
+
 /** CLI workflow entries for the property reference table (not bunfig keys). */
 export const BUN_INSTALL_CLI_PROPERTY_REFS: readonly BunInstallPropertyRef[] = [
   {
@@ -492,6 +530,26 @@ export const BUN_INSTALL_CLI_PROPERTY_REFS: readonly BunInstallPropertyRef[] = [
     lastModified: BUN_INSTALL_POLICY_LAST_MODIFIED,
     docsUrl: BUN_INSTALL_DOCS_URL,
   },
+  {
+    property: "cli.installFilter",
+    type: "command",
+    default: BUN_INSTALL_CLI.installFilter,
+    required: false,
+    description: "Scoped install for one workspace member (name or path; ! prefix excludes)",
+    versionAdded: "1.0",
+    lastModified: BUN_INSTALL_POLICY_LAST_MODIFIED,
+    docsUrl: "https://bun.com/docs/pm/workspaces",
+  },
+  {
+    property: "cli.pmListAll",
+    type: "command",
+    default: BUN_INSTALL_CLI.pmListAll,
+    required: false,
+    description: "List lockfile tree including workspace members (@workspace:examples/…)",
+    versionAdded: "1.0",
+    lastModified: BUN_INSTALL_POLICY_LAST_MODIFIED,
+    docsUrl: "https://bun.com/docs/cli/pm",
+  },
 ] as const;
 
 /** @deprecated Use BUN_INSTALL_BUNFIG_POLICY — kept for tests and external readers. */
@@ -531,6 +589,7 @@ export const BUN_INSTALL_POLICY_GROUP_ORDER: readonly BunInstallPolicyGroup[] = 
   "supply-chain",
   "performance",
   "cache",
+  "workspace",
   "package-json",
   "platform",
   "environment",
@@ -545,6 +604,7 @@ export const BUN_INSTALL_POLICY_GROUP_LABELS: Record<BunInstallPolicyGroup, stri
   "supply-chain": "Supply chain",
   performance: "Performance",
   cache: "Cache",
+  workspace: "Workspace / package manager",
   "package-json": "package.json",
   platform: "Platform-specific",
   environment: "Environment overrides",
@@ -610,6 +670,7 @@ interface PackageJsonInstallMeta {
   packageManager?: string;
   engines?: { bun?: string };
   trustedDependencies?: string[];
+  workspaces?: string[];
 }
 
 export interface BunInstallConfigAudit {
@@ -738,6 +799,32 @@ function resolvePackageCurrent(key: string, meta: PackageJsonInstallMeta | null)
   if (key === "packageManager") {
     return meta.packageManager ?? null;
   }
+  if (key === "workspaces") {
+    return JSON.stringify(meta.workspaces ?? []);
+  }
+  return null;
+}
+
+async function resolveWorkspaceCurrent(
+  key: string,
+  projectDir: string,
+  packageMeta: PackageJsonInstallMeta | null
+): Promise<string | null> {
+  if (key === "workspaces") {
+    return resolvePackageCurrent("workspaces", packageMeta);
+  }
+  if (key === "rootConsumerLink") {
+    const dashboardPkg = join(projectDir, "examples/dashboard/package.json");
+    if (!pathExists(dashboardPkg)) return null;
+    try {
+      const parsed = (await Bun.file(dashboardPkg).json()) as {
+        dependencies?: Record<string, string>;
+      };
+      return parsed.dependencies?.["kimi-toolchain"] ?? null;
+    } catch {
+      return null;
+    }
+  }
   return null;
 }
 
@@ -745,7 +832,8 @@ function buildPolicyRows(
   defs: readonly BunInstallPolicyRowDef[],
   install: BunfigInstallSection | null,
   cacheDir: string | null,
-  packageMeta: PackageJsonInstallMeta | null
+  packageMeta: PackageJsonInstallMeta | null,
+  workspaceCurrent?: (key: string) => string | null
 ): BunInstallPolicyRow[] {
   return defs.map((def) => {
     let current: string | null = null;
@@ -753,6 +841,8 @@ function buildPolicyRows(
       current = resolvePlatformCurrent(def.key);
     } else if (def.group === "package-json") {
       current = resolvePackageCurrent(def.key, packageMeta);
+    } else if (def.group === "workspace") {
+      current = workspaceCurrent?.(def.key) ?? null;
     } else {
       current = resolveBunfigCurrent(def.key, install, cacheDir);
     }
@@ -808,6 +898,33 @@ function rowWarnings(row: BunInstallPolicyRow): string[] {
 export async function buildInstallPolicyReport(projectDir: string): Promise<BunInstallConfigAudit> {
   const { bunfigPath, install, cacheDir, packageMeta } = await readProjectInstallMeta(projectDir);
 
+  const isToolchainRoot = packageMeta?.name === "kimi-toolchain";
+  const workspaceRows = isToolchainRoot
+    ? await (async () => {
+        const rows = buildPolicyRows(
+          BUN_INSTALL_WORKSPACE_POLICY,
+          install,
+          cacheDir,
+          packageMeta,
+          (key) => {
+            if (key === "workspaces") return resolvePackageCurrent("workspaces", packageMeta);
+            return null;
+          }
+        );
+        for (const row of rows) {
+          if (row.key === "rootConsumerLink") {
+            row.current = await resolveWorkspaceCurrent("rootConsumerLink", projectDir, packageMeta);
+            row.status = comparePolicyStatus(row, row.current);
+          }
+        }
+        return rows;
+      })()
+    : BUN_INSTALL_WORKSPACE_POLICY.map((def) => ({
+        ...def,
+        current: null,
+        status: "n/a" as const,
+        docsUrl: bunInstallDocAnchor(def.docsAnchor),
+      }));
   const bunfigRows = buildPolicyRows(BUN_INSTALL_BUNFIG_POLICY, install, cacheDir, packageMeta);
   const packageRows = buildPolicyRows(BUN_INSTALL_PACKAGE_POLICY, install, cacheDir, packageMeta);
   const platformRows = buildPolicyRows(BUN_INSTALL_PLATFORM_POLICY, install, cacheDir, packageMeta);
@@ -832,7 +949,7 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
   if (!install) {
     warnings.push("missing bunfig.toml [install] — using Bun defaults (weaker than secure policy)");
   }
-  for (const row of [...bunfigRows, ...packageRows]) {
+  for (const row of [...bunfigRows, ...packageRows, ...workspaceRows]) {
     warnings.push(...rowWarnings(row));
   }
 
@@ -845,6 +962,7 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
     "supply-chain": bunfigRows.filter((r) => r.group === "supply-chain"),
     performance: bunfigRows.filter((r) => r.group === "performance"),
     cache: bunfigRows.filter((r) => r.group === "cache"),
+    workspace: workspaceRows,
     "package-json": packageRows,
     platform: platformRows,
     environment: [],
@@ -921,7 +1039,11 @@ export function policyRowToPropertyRef(row: BunInstallPolicyRowDef): BunInstallP
 
 /** All bunfig + package.json property references in stable order. */
 export function collectInstallPropertyReferences(): BunInstallPropertyRef[] {
-  const rows = [...BUN_INSTALL_BUNFIG_POLICY, ...BUN_INSTALL_PACKAGE_POLICY];
+  const rows = [
+    ...BUN_INSTALL_BUNFIG_POLICY,
+    ...BUN_INSTALL_WORKSPACE_POLICY,
+    ...BUN_INSTALL_PACKAGE_POLICY,
+  ];
   return [...rows.map(policyRowToPropertyRef), ...BUN_INSTALL_CLI_PROPERTY_REFS];
 }
 

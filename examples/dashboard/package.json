@@ -14,6 +14,9 @@
     "perf:train": "bun run src/bin/perf-doctor.ts --perf-gates --train --out=.",
     "perf:watch": "bun run src/bin/perf-doctor.ts --watch --perf-gates --report"
   },
+  "dependencies": {
+    "kimi-toolchain": "file:../.."
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },

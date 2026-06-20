@@ -53,12 +53,21 @@ export async function runSystemChecks(
   }
 
   // Memory
-  const memoryChecks = await runSystemMemoryChecks();
-  for (const check of memoryChecks) {
+  try {
+    const memoryChecks = await runSystemMemoryChecks();
+    for (const check of memoryChecks) {
+      results.push({
+        name: check.name,
+        status: check.status,
+        message: check.message,
+        fixable: false,
+      });
+    }
+  } catch {
     results.push({
-      name: check.name,
-      status: check.status,
-      message: check.message,
+      name: "memory",
+      status: "warn",
+      message: "ps unavailable — memory checks skipped",
       fixable: false,
     });
   }

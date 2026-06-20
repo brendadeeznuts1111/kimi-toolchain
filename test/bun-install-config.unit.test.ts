@@ -7,6 +7,8 @@ import {
   BUN_INSTALL_BUNFIG_POLICY,
   BUN_INSTALL_CLI,
   BUN_INSTALL_DOCS_URL,
+  BUN_INSTALL_WORKSPACE_POLICY,
+  BUN_WORKSPACE_ROOT_CONSUMER_LINK,
   BUN_INSTALL_ENV_VARS,
   BUN_INSTALL_PLATFORM_POLICY,
   BUN_INSTALL_POLICY_GROUP_ORDER,
@@ -106,6 +108,24 @@ describe("bun-install-config", () => {
     expect(collectInstallPropertyReferences().length).toBeGreaterThan(
       BUN_INSTALL_BUNFIG_POLICY.length
     );
+  });
+
+  test("BUN_INSTALL_WORKSPACE_POLICY documents Path A layout", () => {
+    const workspaces = BUN_INSTALL_WORKSPACE_POLICY.find((r) => r.key === "workspaces");
+    const rootLink = BUN_INSTALL_WORKSPACE_POLICY.find((r) => r.key === "rootConsumerLink");
+    expect(workspaces?.hardenedDefault).toBe('["examples/*"]');
+    expect(rootLink?.hardenedDefault).toBe(BUN_WORKSPACE_ROOT_CONSUMER_LINK);
+    expect(BUN_INSTALL_CLI.installFilter).toContain("--filter");
+    expect(BUN_INSTALL_POLICY_GROUP_ORDER).toContain("workspace");
+  });
+
+  test("buildInstallPolicyReport reads workspace rows from repo root", async () => {
+    const report = await buildInstallPolicyReport(REPO_ROOT);
+    const workspaces = report.tables.workspace.find((r) => r.key === "workspaces");
+    const rootLink = report.tables.workspace.find((r) => r.key === "rootConsumerLink");
+    expect(workspaces?.current).toBe('["examples/*"]');
+    expect(rootLink?.current).toBe(BUN_WORKSPACE_ROOT_CONSUMER_LINK);
+    expect(rootLink?.status).toBe("ok");
   });
 
   test("BUN_INSTALL_CLI documents add and update paths", () => {
