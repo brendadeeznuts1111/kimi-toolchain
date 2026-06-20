@@ -9,6 +9,7 @@
  * @see https://bun.com/docs/test/runtime-behavior#performance-considerations
  * @see https://bun.com/docs/test/runtime-behavior#memory-management
  * @see https://bun.com/docs/test/runtime-behavior#test-isolation
+ * @see https://bun.com/docs/test/runtime-behavior#watch-and-hot-reloading
  */
 
 import { existsSync } from "fs";
@@ -151,6 +152,49 @@ export function bunTestArgsIncludeFlag(args: readonly string[], flag: string): b
 
 export function tierUsesFileIsolation(spec: TestTierSpec): boolean {
   return spec.isolate;
+}
+
+/**
+ * Watch / hot reload (@see watch-and-hot-reloading).
+ * `--watch` / `--hot` are root Bun CLI flags (see `bun --help`), not `bun test --help`.
+ */
+export const BUN_TEST_WATCH = {
+  watchFlag: "--watch",
+  hotFlag: "--hot",
+  /** Bun recommends `--watch` over `--hot` for isolation between runs. */
+  preferredMode: "watch" as const,
+  packageScripts: {
+    all: "test:watch",
+    changed: "test:changed:watch",
+  },
+} as const;
+
+/**
+ * Args for interactive watch loops — direct `bun test`, not tier batch runners.
+ * Re-runs only tests affected by changed imports (Bun import graph).
+ */
+export function bunTestWatchArgs(
+  options: {
+    changedRef?: string;
+    files?: readonly string[];
+    isolate?: boolean;
+    useHot?: boolean;
+  } = {}
+): string[] {
+  const args = ["test"];
+  if (options.changedRef) args.push(`--changed=${options.changedRef}`);
+  if (options.files?.length) args.push(...options.files);
+  args.push(options.useHot ? BUN_TEST_WATCH.hotFlag : BUN_TEST_WATCH.watchFlag);
+  if (options.isolate !== false) args.push(BUN_TEST_ISOLATION.fileIsolationFlag);
+  return args;
+}
+
+export function isBunTestWatchMode(args: readonly string[]): boolean {
+  return bunTestArgsIncludeFlag(args, BUN_TEST_WATCH.watchFlag);
+}
+
+export function isBunTestHotMode(args: readonly string[]): boolean {
+  return bunTestArgsIncludeFlag(args, BUN_TEST_WATCH.hotFlag);
 }
 
 /** Bun test CLI flags we forward from scripts (see Bun CLI flags integration doc). */

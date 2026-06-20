@@ -10,7 +10,11 @@ import {
   BUN_TEST_MEMORY,
   BUN_TEST_PERFORMANCE,
   BUN_TEST_SIGNALS,
+  BUN_TEST_WATCH,
   bunTestArgsIncludeFlag,
+  bunTestWatchArgs,
+  isBunTestHotMode,
+  isBunTestWatchMode,
   describeBunTestExitCode,
   isBunCiDetectionEnv,
   isBunTestFailureExit,
@@ -30,7 +34,7 @@ import {
   warnIfNodeEnvNotTest,
   resetTestRuntimeWarningsForTests,
 } from "../src/lib/test-runtime.ts";
-import { testTempDir, withClearedEnv, withEnv } from "./helpers.ts";
+import { REPO_ROOT, testTempDir, withClearedEnv, withEnv } from "./helpers.ts";
 import { makeDir, writeText } from "../src/lib/bun-io.ts";
 import { join } from "path";
 
@@ -402,6 +406,63 @@ test("global cleaned", () => {
         stderr: "pipe",
       }).exited;
       expect(code).toBe(BUN_TEST_EXIT.ok);
+    }, 15_000);
+  });
+
+  describe("Bun watch and hot reloading", () => {
+    // https://bun.com/docs/test/runtime-behavior#watch-and-hot-reloading
+    test("documents watch vs hot and prefers --watch", () => {
+      expect(BUN_TEST_WATCH.watchFlag).toBe("--watch");
+      expect(BUN_TEST_WATCH.hotFlag).toBe("--hot");
+      expect(BUN_TEST_WATCH.preferredMode).toBe("watch");
+      expect(BUN_TEST_WATCH.packageScripts.all).toBe("test:watch");
+      expect(BUN_TEST_WATCH.packageScripts.changed).toBe("test:changed:watch");
+    });
+
+    test("bunTestWatchArgs builds --watch with isolate by default", () => {
+      const args = bunTestWatchArgs();
+      expect(isBunTestWatchMode(args)).toBe(true);
+      expect(isBunTestHotMode(args)).toBe(false);
+      expect(args).toContain("--isolate");
+    });
+
+    test("bunTestWatchArgs supports --changed watch loops", () => {
+      const args = bunTestWatchArgs({ changedRef: "HEAD" });
+      expect(args).toContain("--watch");
+      expect(args.some((arg) => arg.startsWith("--changed="))).toBe(true);
+    });
+
+    test("bunTestWatchArgs can opt into --hot", () => {
+      const args = bunTestWatchArgs({ useHot: true });
+      expect(isBunTestHotMode(args)).toBe(true);
+      expect(isBunTestWatchMode(args)).toBe(false);
+    });
+
+    test("package.json watch scripts use --watch and --isolate, not --hot", async () => {
+      const pkg = (await Bun.file(join(REPO_ROOT, "package.json")).json()) as {
+        scripts: Record<string, string>;
+      };
+      expect(pkg.scripts["test:watch"]).toContain("--watch");
+      expect(pkg.scripts["test:watch"]).toContain("--isolate");
+      expect(pkg.scripts["test:watch"]).not.toContain("--hot");
+      expect(pkg.scripts["test:changed:watch"]).toContain("--watch");
+      expect(pkg.scripts["test:changed:watch"]).toContain("--changed");
+      expect(pkg.scripts["test:changed:watch"]).not.toContain("--hot");
+    });
+
+    test("bun CLI advertises --watch and --hot for the test runner", async () => {
+      const proc = Bun.spawn(["bun", "--help"], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const [code, out] = await Promise.all([
+        proc.exited,
+        new Response(proc.stdout).text(),
+      ]);
+      expect(code).toBe(0);
+      expect(out).toContain("--watch");
+      expect(out).toContain("--hot");
+      expect(out).toContain("test runner");
     }, 15_000);
   });
 
