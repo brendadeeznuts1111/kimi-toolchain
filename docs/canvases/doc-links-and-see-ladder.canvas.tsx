@@ -22,7 +22,7 @@ import {
 const CANVAS_PREFIX = "docs/canvases/";
 
 const RULE_COUNT = 2;
-const CONSTANT_COUNT = 3;
+const CONSTANT_COUNT = 4;
 const URL_FIELD_COUNT = 8;
 const TEST_COUNT = 15;
 
@@ -67,6 +67,7 @@ const REGISTERED_CONSTANTS = [
   ],
   ["BUN_INSTALL_DOC_URL", "src/lib/bun-install-config.ts", "bun.com", "/docs/pm/cli/install"],
   ["BUN_IMAGE_DOCS_URL", "src/lib/bun-image.ts", "bun.com", "/docs/runtime/image"],
+  ["BUN_GUIDES_INDEX_DOC_URL", "src/lib/cli-contract.ts", "bun.com", "/docs/guides"],
 ] as const;
 
 const SEE_LADDER = [
@@ -120,6 +121,11 @@ const DOC_LINKS_SEE = [
     "prefer-bun-com-docs — migrate to bun.com",
   ],
   ["Ecosystem manifest root", 'docs: "https://bun.sh/docs"', "canonical-references.ts only"],
+  [
+    "Bun guides hub",
+    "https://bun.com/docs/guides (bun.sh redirects)",
+    "BUN_GUIDES_INDEX_DOC_URL · argv/stdin/stdout under /docs/guides/…",
+  ],
   [
     "dx URL inventory rows",
     "[[endpoints]] in dx.config.toml",
@@ -339,6 +345,15 @@ const CANVAS_ROUTING = [
     path: `${CANVAS_PREFIX}gate-health.canvas.tsx`,
     repoPath: `${CANVAS_PREFIX}gate-health.canvas.tsx`,
   },
+  {
+    id: "benchmark",
+    page: "Effect Benchmark",
+    version: "1.0.0",
+    layer: "Perf gates probe",
+    openWhen: "GET /api/effect-benchmark · serve-probe · 30s poll",
+    path: `${CANVAS_PREFIX}benchmark.canvas.tsx`,
+    repoPath: `${CANVAS_PREFIX}benchmark.canvas.tsx`,
+  },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -353,6 +368,7 @@ const CANVAS_ROW_TONE = [
   "neutral",
   "neutral",
   "warning",
+  "neutral",
   "neutral",
   "neutral",
   "neutral",

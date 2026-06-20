@@ -56,10 +56,10 @@ describe("herdr-dashboard-server", () => {
     expect(Array.isArray(payload.rules)).toBe(true);
   });
 
-  test("fetchDashboardCanvases returns all 12 cursorCanvas entries", async () => {
+  test("fetchDashboardCanvases returns all 13 cursorCanvas entries", async () => {
     const payload = await fetchDashboardCanvases();
     expect(payload.ok).toBe(true);
-    expect(payload.canvases.length).toBe(12);
+    expect(payload.canvases.length).toBe(13);
 
     const ids = payload.canvases.map((c) => c.id);
     expect(ids).toContain("unified");
@@ -71,6 +71,7 @@ describe("herdr-dashboard-server", () => {
     expect(ids).toContain("dashboard-thumbnails");
     expect(ids).toContain("herdr-plugin-architecture");
     expect(ids).toContain("deep-quality");
+    expect(ids).toContain("benchmark");
   });
 
   test("fetchDashboardCanvases sorts by readOrder ascending", async () => {
@@ -214,6 +215,8 @@ describe("herdr-dashboard-server", () => {
     expect(lineage?.dashboardDeepLink).toContain("canvas=artifact-lineage");
     const gateHealth = payload.canvases.find((c) => c.id === "gate-health");
     expect(gateHealth?.dashboardDeepLink).toContain("canvas=gate-health");
+    const benchmark = payload.canvases.find((c) => c.id === "benchmark");
+    expect(benchmark?.dashboardDeepLink).toContain("canvas=benchmark");
     const unified = payload.canvases.find((c) => c.id === "unified");
     expect(unified?.dashboardDeepLink).toBeUndefined();
   });

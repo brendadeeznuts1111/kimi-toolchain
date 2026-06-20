@@ -8,6 +8,7 @@ import {
   type RunManifestDiff,
   type RunManifestGateDiffRow,
 } from "../canvases/artifact-lineage.manifest.ts";
+import { benchmarkManifest, BENCHMARK_MANIFEST_ID } from "../canvases/benchmark.manifest.ts";
 import { gateHealthManifest, GATE_HEALTH_MANIFEST_ID } from "../canvases/gate-health.manifest.ts";
 import {
   fetchDashboardRunManifest,
@@ -57,6 +58,7 @@ export interface CanvasFilterResult {
 const CANVAS_MANIFESTS = {
   [ARTIFACT_LINEAGE_MANIFEST_ID]: artifactLineageManifest,
   [GATE_HEALTH_MANIFEST_ID]: gateHealthManifest,
+  [BENCHMARK_MANIFEST_ID]: benchmarkManifest,
 } as const;
 
 function parseDiffParam(raw: string | null): { left: string; right: string } | null {

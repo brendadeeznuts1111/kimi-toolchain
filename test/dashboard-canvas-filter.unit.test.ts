@@ -3,6 +3,7 @@ import {
   ARTIFACT_LINEAGE_CARD_IDS,
   computeRunManifestDiff,
 } from "../src/canvases/artifact-lineage.manifest.ts";
+import { BENCHMARK_CARD_IDS } from "../src/canvases/benchmark.manifest.ts";
 import { GATE_HEALTH_CARD_IDS } from "../src/canvases/gate-health.manifest.ts";
 import {
   applyCanvasFilter,
@@ -53,6 +54,19 @@ describe("dashboard-canvas-filter", () => {
     expect(result.action?.kind).toBe("highlight");
     if (result.action?.kind === "highlight") {
       expect(result.action.cardIds).toEqual(GATE_HEALTH_CARD_IDS);
+    }
+  });
+
+  test("matchesCanvasDeepLink uses URLPattern for benchmark", () => {
+    expect(matchesCanvasDeepLink("?canvas=benchmark", "benchmark")).toBe(true);
+    expect(matchesCanvasDeepLink("?canvas=gate-health", "benchmark")).toBe(false);
+  });
+
+  test("applyCanvasFilter highlights benchmark cards", async () => {
+    const result = await applyCanvasFilter(REPO_ROOT, "?canvas=benchmark");
+    expect(result.action?.kind).toBe("highlight");
+    if (result.action?.kind === "highlight") {
+      expect(result.action.cardIds).toEqual(BENCHMARK_CARD_IDS);
     }
   });
 

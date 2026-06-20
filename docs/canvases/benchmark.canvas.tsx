@@ -1,5 +1,5 @@
 /**
- * Live gate-health companion (manifest id gate-health).
+ * Effect benchmark companion (manifest id benchmark).
  * Regenerate routing: bun run canvas:generate
  */
 import {
@@ -22,57 +22,64 @@ import {
   useHostTheme,
 } from "cursor/canvas";
 
-const THIS_MANIFEST_ID = "gate-health";
+const THIS_MANIFEST_ID = "benchmark";
 const POLL_INTERVAL_MS = 30_000;
+const PROBE_DEFAULT_PORT = 5678;
 
 const API_SURFACE = [
-  ["/api/doctor/gates", "GET", "Effect-gates probe via kimi-doctor --effect-gates --json"],
-  ["/api/metrics", "GET", "Metrics tab + gate-health context (shared poll surface)"],
-  ["/api/canvas-filter", "GET", "?canvas=gate-health → highlight card-gates + card-kimi-doctor"],
-  ["/api/cards", "GET", "?canvas=gate-health filters influenced cards on examples dashboard"],
+  ["/api/effect-benchmark", "GET", "BenchmarkApiEnvelope from serve-probe cache"],
+  ["/api/effect-benchmark/refresh", "POST", "Re-run runEffectBenchmarkCardLoop (append snapshot)"],
+  ["/api/canvas-filter", "GET", "?canvas=benchmark → highlight effect-benchmark cards"],
+  ["/api/cards", "GET", "?canvas=benchmark filters influenced cards on examples dashboard"],
 ] as const;
 
 const PROBE_COMMAND = [
-  ["Subprocess", "kimi-doctor --effect-gates --json --project-root <projectPath>"],
-  ["Implementation", "fetchDashboardGateHealth() in src/lib/herdr-dashboard-data.ts"],
-  ["Route", "src/lib/herdr-dashboard-server.ts → GET /api/doctor/gates"],
+  ["CLI", "kimi-doctor --perf-gates --serve-probe"],
+  ["Orchestration", "runEffectBenchmarkCardLoop() in src/lib/effect-benchmark-card.ts"],
+  ["Serve-probe", "src/lib/card-probe-server.ts → GET /api/effect-benchmark"],
+  ["Dashboard parity", "examples/dashboard/src/handlers/effect-benchmark.ts"],
 ] as const;
 
-const RESPONSE_FIELDS = [
-  ["ok", "boolean", "Probe completed (doctor found and subprocess ran)"],
-  ["failed", "boolean", "One or more gates are failing"],
-  ["failures", "{ name, message }[]", "Failing gate names and messages"],
-  ["total", "number", "Total gates in effect-gates summary"],
-  ["fetchedAt", "string", "ISO timestamp"],
-] as const;
-
-const SERVER_WATCH = [
-  ["gate:failed", "First failure, pass→fail, or failure-set change", "gate.failed audit"],
-  ["gate:cleared", "Fail→pass transition", "gate.cleared audit"],
-  ["Poll interval", "30_000 ms", "DASHBOARD_GATE_HEALTH_POLL_MS"],
-  ["Disable in tests", "gateHealthWatch: false", "startHerdrDashboardServer() option"],
+const ENVELOPE_FIELDS = [
+  ["schemaVersion", "number", "Always 1 (BENCHMARK_API_SCHEMA_VERSION)"],
+  ["runner", "string", "serve-probe | kimi-doctor | dashboard"],
+  ["thresholdSource", "string", "baseline+local | local | baseline | legacy | default"],
+  ["summary", "object", "total · passing · regressions · partialSuccess · timedOut"],
+  ["sparklines", "Record<string, number[]>", "Per-registry-key history + current point"],
+  ["gates.effectBenchmarkGate", "object", "status pass|warn|partial|fail + reason"],
+  [
+    "taxonomyErrors",
+    "array?",
+    "perf_gate_timeout · perf_handler_failure · perf_gate_partial · rate_limited",
+  ],
+  ["metadata", "object", "trainApplied · cacheHit · timedOut"],
 ] as const;
 
 const INFLUENCED_CARDS = [
-  ["card-gates", "Gate Health", "/api/gates", "Execution DAG · gate registry probes"],
-  ["card-kimi-doctor", "kimi-doctor CLI", "/api/kimi-doctor", "Effect-gates + doctor adapters"],
+  [
+    "card-effect-benchmark",
+    "Effect Benchmark",
+    "/api/effect-benchmark",
+    "Shared BenchmarkApiEnvelope loop",
+  ],
+  ["card-perf-harness", "Perf Harness", "/api/perf-registry", "Registry + thresholds layers"],
+  ["card-kimi-doctor", "kimi-doctor CLI", "/api/kimi-doctor", "--perf-gates --json parity"],
 ] as const;
 
 const RELATED_PATHS = [
-  ["Gate-health doc (SSOT)", "docs/references/kimi-doctor.md § Live dashboard gate-health"],
-  ["Manifest + URLPattern", "src/canvases/gate-health.manifest.ts"],
+  ["Serve-probe doc", "docs/references/serve-probe.md"],
+  ["Manifest + URLPattern", "src/canvases/benchmark.manifest.ts"],
+  ["Probe client", "src/lib/benchmark-probe-client.ts"],
   ["Canvas filter", "src/lib/dashboard-canvas-filter.ts"],
-  ["Server gate watch", "src/lib/herdr-dashboard-gate-watch.ts"],
   ["Herdr bridge deep links", "src/lib/herdr-dashboard-bridge.ts"],
-  ["Browser overlay", "templates/herdr-dashboard.js → refreshGateHealthOverlay"],
-  ["Examples dashboard filter", "examples/dashboard/src/handlers/canvas-cards.ts"],
+  ["Examples handler", "examples/dashboard/src/handlers/effect-benchmark.ts"],
 ] as const;
 
 const ENFORCEMENT = [
   ["Canvas routing parity", "bun run scripts/lint-cursor-canvas.ts"],
   ["canvasInfluences lint", "bun run scripts/lint-canvas-influences.ts"],
   ["Deep-link filter", "bun test test/dashboard-canvas-filter.unit.test.ts"],
-  ["Gate watch unit", "bun test test/herdr-dashboard-gate-watch.unit.test.ts"],
+  ["Probe client", "bun test test/benchmark-manifest.unit.test.ts"],
 ] as const;
 
 /** @generated canvas-routing — bun run canvas:generate; do not edit */
@@ -147,13 +154,13 @@ const CANVAS_ROUTING = [
     id: "gate-health",
     page: "Gate Health",
     path: "docs/canvases/gate-health.canvas.tsx",
-    detail: "manifest id gate-health (this canvas)",
+    detail: "GET /api/doctor/gates · #gate-health overlay · 30s poll",
   },
   {
     id: "benchmark",
     page: "Effect Benchmark",
     path: "docs/canvases/benchmark.canvas.tsx",
-    detail: "GET /api/effect-benchmark · serve-probe · 30s poll",
+    detail: "manifest id benchmark (this canvas)",
   },
 ] as const;
 
@@ -172,8 +179,8 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "neutral",
   "neutral",
-  "success",
   "neutral",
+  "success",
 ] as const;
 function CanvasLink({
   label,
@@ -230,33 +237,33 @@ function RelatedCanvasesTable() {
   );
 }
 
-export default function GateHealthCanvas() {
+export default function BenchmarkCanvas() {
   const dispatch = useCanvasAction();
 
   return (
     <Stack gap={20} style={{ padding: 24, maxWidth: 960 }}>
       <Stack gap={6}>
         <Row gap={8} align="center" wrap>
-          <H1>Gate Health</H1>
-          <Pill tone="info">manifest: {THIS_MANIFEST_ID}</Pill>
+          <H1>Effect Benchmark</H1>
+          <Pill tone="success">manifest: {THIS_MANIFEST_ID}</Pill>
         </Row>
         <Text tone="secondary" size="small">
-          Live effect-gates probe for the Herdr dashboard — browser overlay, server watch, and
-          examples-dashboard deep links. Completes the v5.5 bridged companion set with
-          artifact-lineage.
+          BenchmarkApiEnvelope SSOT — kimi-doctor --perf-gates, examples dashboard, and serve-probe
+          share runEffectBenchmarkCardLoop(). Poll serve-probe for portal/Herdr diagnostics.
         </Text>
       </Stack>
 
       <Grid columns={3} gap={12}>
         <Stat value={String(API_SURFACE.length)} label="HTTP routes" tone="info" />
-        <Stat value={`${POLL_INTERVAL_MS / 1000}s`} label="Browser poll" />
+        <Stat value={`${POLL_INTERVAL_MS / 1000}s`} label="Suggested poll" />
         <Stat value={String(INFLUENCED_CARDS.length)} label="Influenced cards" tone="success" />
       </Grid>
 
-      <Callout tone="warning" title="Runtime probe — not finish-work">
-        <code>GET /api/doctor/gates</code> runs <code>kimi-doctor --effect-gates</code> against the
-        dashboard <code>projectPath</code>. Distinct from <code>--automation</code>,{" "}
-        <code>--dashboard-meta</code>, and finish-work gate JSON.
+      <Callout tone="info" title="Serve-probe contract">
+        Start <code>kimi-doctor --perf-gates --serve-probe</code> then poll{" "}
+        <code>GET http://127.0.0.1:{PROBE_DEFAULT_PORT}/api/effect-benchmark</code>. Runner is{" "}
+        <code>serve-probe</code>; CLI uses <code>kimi-doctor</code>; dashboard uses{" "}
+        <code>dashboard</code> — same envelope shape.
       </Callout>
 
       <H2>Deep link contract</H2>
@@ -264,10 +271,9 @@ export default function GateHealthCanvas() {
         framed
         headers={["Param", "Example", "Purpose"]}
         rows={[
-          ["canvas", "gate-health", "Manifest id · GATE_HEALTH_URL_PATTERN"],
-          ["runId", "run_*", "v5.6 companion link — latest or explicit run"],
-          ["sessionId", "sess_*", "Optional Artifacts identity scope"],
-          ["gate", "model-drift", "Optional gate filter on examples dashboard"],
+          ["canvas", "benchmark", "Manifest id · BENCHMARK_URL_PATTERN"],
+          ["runId", "run_*", "Optional v5.6 companion link scope"],
+          ["gate", "effect-benchmark", "Optional gate filter on examples dashboard"],
         ]}
         striped
       />
@@ -289,19 +295,11 @@ export default function GateHealthCanvas() {
         striped
       />
 
-      <H2>Response shape (DashboardGateCheckPayload)</H2>
+      <H2>BenchmarkApiEnvelope fields</H2>
       <Table
         framed
         headers={["Field", "Type", "Description"]}
-        rows={RESPONSE_FIELDS.map((row) => [...row])}
-        striped
-      />
-
-      <H2>Server gate watch</H2>
-      <Table
-        framed
-        headers={["Event / knob", "When / value", "Audit"]}
-        rows={SERVER_WATCH.map((row) => [...row])}
+        rows={ENVELOPE_FIELDS.map((row) => [...row])}
         striped
       />
 
@@ -330,7 +328,7 @@ export default function GateHealthCanvas() {
       </CollapsibleSection>
 
       <Card>
-        <CardHeader trailing={<Pill size="sm">read order 12</Pill>}>Specialist canvases</CardHeader>
+        <CardHeader trailing={<Pill size="sm">read order 13</Pill>}>Specialist canvases</CardHeader>
         <CardBody>
           <RelatedCanvasesTable />
         </CardBody>

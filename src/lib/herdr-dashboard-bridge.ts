@@ -2,6 +2,7 @@
  * Herdr ↔ examples dashboard bridge — deep links from canvas companions to reactive cards.
  */
 
+import { BENCHMARK_MANIFEST_ID } from "../canvases/benchmark.manifest.ts";
 import { GATE_HEALTH_MANIFEST_ID } from "../canvases/gate-health.manifest.ts";
 import { ARTIFACT_LINEAGE_MANIFEST_ID } from "../canvases/artifact-lineage.manifest.ts";
 import { parseCanvasDeepLink } from "./dashboard-canvas-filter.ts";
@@ -41,6 +42,7 @@ export function parseDashboardCompanionQuery(
 export const BRIDGED_CANVAS_MANIFEST_IDS = [
   ARTIFACT_LINEAGE_MANIFEST_ID,
   GATE_HEALTH_MANIFEST_ID,
+  BENCHMARK_MANIFEST_ID,
 ] as const;
 
 export type BridgedCanvasManifestId = (typeof BRIDGED_CANVAS_MANIFEST_IDS)[number];

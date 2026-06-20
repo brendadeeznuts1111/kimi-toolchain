@@ -29,6 +29,11 @@ describe("herdr-dashboard-bridge", () => {
     expect(url).toContain("runId=run_gate_health");
   });
 
+  test("buildDashboardDeepLink for benchmark manifest", () => {
+    const url = buildDashboardDeepLink({ manifestId: "benchmark" }, { baseUrl: BASE });
+    expect(url).toContain("canvas=benchmark");
+  });
+
   test("buildDashboardDeepLink with runId includes canvas and runId params", () => {
     const url = buildDashboardDeepLink(
       {

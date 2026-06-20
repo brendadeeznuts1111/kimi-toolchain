@@ -226,6 +226,12 @@ const CANVAS_ROUTING = [
     path: "docs/canvases/gate-health.canvas.tsx",
     detail: "GET /api/doctor/gates · #gate-health overlay · 30s poll",
   },
+  {
+    id: "benchmark",
+    page: "Effect Benchmark",
+    path: "docs/canvases/benchmark.canvas.tsx",
+    detail: "GET /api/effect-benchmark · serve-probe · 30s poll",
+  },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -243,6 +249,7 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "neutral",
   "success",
+  "neutral",
   "neutral",
 ] as const;
 const NODE_W = 148;

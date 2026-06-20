@@ -221,6 +221,12 @@ const MANIFEST_LOCAL_DOCS_ALL = [
       "Live Herdr dashboard gate-health overlay — effect-gates probe, browser poll, server watch",
   },
   {
+    id: "benchmark",
+    location: "docs/references",
+    purpose:
+      "BenchmarkApiEnvelope SSOT — runEffectBenchmarkCardLoop shared by CLI, dashboard, and serve-probe",
+  },
+  {
     id: "canonical-references",
     location: "repo root",
     purpose: "Cached canonical ecosystem links (this manifest)",

@@ -410,6 +410,21 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     canvasInfluences: ["card-gates", "card-kimi-doctor"],
   },
   {
+    id: "benchmark",
+    repoPath: "docs/references/serve-probe.md",
+    runtimePath: "~/.kimi-code/docs/references/serve-probe.md",
+    purpose:
+      "BenchmarkApiEnvelope SSOT — runEffectBenchmarkCardLoop shared by CLI, dashboard, and serve-probe",
+    cursorCanvas: "docs/canvases/benchmark.canvas.tsx",
+    canvasId: "benchmark",
+    canvasPage: "Effect Benchmark",
+    canvasVersion: "1.0.0",
+    canvasLayer: "Perf gates probe",
+    canvasOpenWhen: "GET /api/effect-benchmark · serve-probe · 30s poll",
+    canvasReadOrder: 13,
+    canvasInfluences: ["card-effect-benchmark", "card-perf-harness", "card-kimi-doctor"],
+  },
+  {
     id: "canonical-references",
     repoPath: CANONICAL_REFERENCES_FILENAME,
     runtimePath: `~/.kimi-code/${CANONICAL_REFERENCES_FILENAME}`,
