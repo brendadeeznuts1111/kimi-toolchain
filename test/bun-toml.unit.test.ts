@@ -24,7 +24,11 @@ describe("bun-toml", () => {
   });
 
   test("Bun.TOML.parse parses sections and arrays", () => {
-    const parsed = Bun.TOML.parse(TOML_CONFIG);
+    const parsed = Bun.TOML.parse(TOML_CONFIG) as {
+      install: { frozenLockfile: boolean; linker: string };
+      define: { KIMI_TUNING_SET_VERSION: string };
+      hooks: unknown[];
+    };
     expect(parsed.install.frozenLockfile).toBe(true);
     expect(parsed.install.linker).toBe("isolated");
     expect(parsed.define.KIMI_TUNING_SET_VERSION).toBe("1.4.4");

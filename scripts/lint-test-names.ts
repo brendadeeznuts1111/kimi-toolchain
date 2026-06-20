@@ -108,6 +108,9 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "bun-transpiler": "src/lib/bun-utils.ts",
   "bun-build": "src/lib/bun-utils.ts",
   "bun-toml": "src/lib/bun-utils.ts",
+  "bun-yaml-serve": "src/lib/bun-utils.ts",
+  "bun-spawn-which-uuid": "src/lib/bun-utils.ts",
+  "bun-sleep-deepequals": "src/lib/bun-utils.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */

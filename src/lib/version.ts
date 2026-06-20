@@ -10,6 +10,7 @@
 import { dirname, join } from "path";
 import { rename } from "node:fs/promises";
 import { $ } from "bun";
+import { makeDir } from "./bun-io.ts";
 import { manifestPath } from "./paths.ts";
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -153,7 +154,11 @@ export async function getVersionInfo(): Promise<VersionInfo> {
 
 /** Format version matrix as Bun inspect table for CLI output. */
 export function formatVersionTable(info: VersionInfo): string {
-  return Bun.inspect.table(
+  const table = Bun.inspect.table as (
+    rows: object[],
+    options?: { headers?: boolean }
+  ) => string;
+  return table(
     [
       { Component: "Toolchain", Version: info.toolchain },
       { Component: "MCP Bridge", Version: info.mcpBridge },
@@ -223,7 +228,7 @@ export async function hashFile(path: string): Promise<string> {
 /** Write manifest atomically (temp + rename). */
 export async function writeManifest(manifest: ToolchainManifest): Promise<void> {
   const path = manifestPath();
-  await Bun.mkdir(dirname(path), { recursive: true });
+  makeDir(dirname(path), { recursive: true });
 
   const tmp = `${path}.tmp.${Bun.randomUUIDv7()}`;
   const payload = JSON.stringify(manifest, null, 2) + "\n";

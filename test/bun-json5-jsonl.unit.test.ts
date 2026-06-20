@@ -26,7 +26,12 @@ describe("bun-json5", () => {
   });
 
   test("Bun.JSON5.parse handles comments and trailing commas", () => {
-    const parsed = Bun.JSON5.parse(JSON5_CONFIG);
+    const parsed = Bun.JSON5.parse(JSON5_CONFIG) as {
+      host: string;
+      port: number;
+      ssl: boolean;
+      hex: number;
+    };
     expect(parsed.host).toBe("localhost");
     expect(parsed.port).toBe(5432);
     expect(parsed.ssl).toBe(true);
