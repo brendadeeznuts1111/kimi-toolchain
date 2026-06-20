@@ -53,8 +53,7 @@ export interface AuditMarkdownDeadLinksOptions {
   paths?: readonly string[];
 }
 
-const MARKDOWN_LINK_RE =
-  /!?\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)|<https?:\/\/[^>]+>/g;
+const MARKDOWN_LINK_RE = /!?\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)|<https?:\/\/[^>]+>/g;
 
 function stripLinkSuffix(href: string): { path: string; fragment: string | undefined } {
   const hash = href.indexOf("#");
@@ -111,11 +110,7 @@ export function classifyMarkdownHref(
 }
 
 /** Resolve a repo-relative path for an internal markdown link. */
-export function resolveInternalMarkdownTarget(
-  root: string,
-  fromRel: string,
-  href: string
-): string {
+export function resolveInternalMarkdownTarget(root: string, fromRel: string, href: string): string {
   const { path } = stripLinkSuffix(href.trim());
   if (!path) return join(root, dirname(fromRel));
   if (path.startsWith("/")) return join(root, path.slice(1));
@@ -271,10 +266,8 @@ export async function auditMarkdownDeadLinks(
   }
 
   if (options.online && externalChecks.length > 0) {
-    const statuses = await mapPool(
-      externalChecks,
-      MARKDOWN_LINK_EXTERNAL_CONCURRENCY,
-      (item) => checkExternalHref(item.href)
+    const statuses = await mapPool(externalChecks, MARKDOWN_LINK_EXTERNAL_CONCURRENCY, (item) =>
+      checkExternalHref(item.href)
     );
     for (let i = 0; i < externalChecks.length; i++) {
       const item = externalChecks[i]!;

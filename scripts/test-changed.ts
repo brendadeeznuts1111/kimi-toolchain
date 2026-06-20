@@ -18,20 +18,14 @@ import {
 const REPO_ROOT = join(import.meta.dir, "..");
 
 async function resolvePushRef(): Promise<string> {
-  const upstream = await $`git rev-parse --abbrev-ref @{upstream}`
-    .cwd(REPO_ROOT)
-    .nothrow()
-    .quiet();
+  const upstream = await $`git rev-parse --abbrev-ref @{upstream}`.cwd(REPO_ROOT).nothrow().quiet();
   if (upstream.exitCode === 0) {
     const ref = upstream.stdout.toString().trim();
     if (ref) return "@{upstream}";
   }
 
   for (const candidate of ["origin/main", "origin/master", "main"]) {
-    const probe = await $`git rev-parse --verify ${candidate}`
-      .cwd(REPO_ROOT)
-      .nothrow()
-      .quiet();
+    const probe = await $`git rev-parse --verify ${candidate}`.cwd(REPO_ROOT).nothrow().quiet();
     if (probe.exitCode === 0) return candidate;
   }
 

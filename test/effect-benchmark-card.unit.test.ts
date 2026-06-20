@@ -15,7 +15,10 @@ import {
   sortedFamilyKeys,
   thresholdSourceKind,
 } from "../src/lib/effect-benchmark-card.ts";
-import { appendBenchmarkSnapshot, type EffectBenchmarkSnapshot } from "../src/lib/effect-benchmark.ts";
+import {
+  appendBenchmarkSnapshot,
+  type EffectBenchmarkSnapshot,
+} from "../src/lib/effect-benchmark.ts";
 import {
   thresholdsBaselinePath,
   thresholdsLegacyPath,

@@ -20,17 +20,13 @@ export function resolveBenchmarkProbeUrl(options?: {
   path?: string;
 }): string {
   const host = Bun.env[PROBE_SERVER_HOST_ENV] ?? options?.host ?? DEFAULT_PROBE_SERVER_HOST;
-  const port = Number(
-    Bun.env[PROBE_SERVER_PORT_ENV] ?? options?.port ?? DEFAULT_PROBE_SERVER_PORT
-  );
+  const port = Number(Bun.env[PROBE_SERVER_PORT_ENV] ?? options?.port ?? DEFAULT_PROBE_SERVER_PORT);
   const path = options?.path ?? BENCHMARK_PROBE_ROUTE;
   return `http://${host}:${port}${path}`;
 }
 
 /** Fetch cached BenchmarkApiEnvelope from kimi-doctor --perf-gates --serve-probe. */
-export async function fetchBenchmarkProbeEnvelope(
-  baseUrl?: string
-): Promise<BenchmarkApiEnvelope> {
+export async function fetchBenchmarkProbeEnvelope(baseUrl?: string): Promise<BenchmarkApiEnvelope> {
   const url = baseUrl ?? resolveBenchmarkProbeUrl();
   const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) {

@@ -26,6 +26,5 @@ function parseTier(): TestTier | "all" {
 }
 
 const tier = parseTier();
-const code =
-  tier === "all" ? await runAllTestTiers(REPO_ROOT) : await runTestTier(REPO_ROOT, tier);
+const code = tier === "all" ? await runAllTestTiers(REPO_ROOT) : await runTestTier(REPO_ROOT, tier);
 process.exit(code);

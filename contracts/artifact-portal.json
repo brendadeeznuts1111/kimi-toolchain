@@ -25,11 +25,7 @@
         ],
         "runners": ["serve-probe", "kimi-doctor", "dashboard"]
       },
-      "influences": [
-        "card-effect-benchmark",
-        "card-perf-harness",
-        "card-kimi-doctor"
-      ]
+      "influences": ["card-effect-benchmark", "card-perf-harness", "card-kimi-doctor"]
     }
   },
   "metadata": {

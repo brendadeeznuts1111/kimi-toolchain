@@ -2,7 +2,8 @@
 # One-shot local unification: sync runtime, install wrappers, validate.
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(bash "$(dirname "$0")/resolve-repo-root.sh")"
+export KIMI_PROJECT_ROOT="${REPO_ROOT}"
 cd "$REPO_ROOT"
 
 bash scripts/verify-workspace.sh

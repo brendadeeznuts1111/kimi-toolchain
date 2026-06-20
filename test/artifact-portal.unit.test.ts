@@ -86,7 +86,7 @@ describe("artifact-portal", () => {
         new Response(JSON.stringify(sampleEnvelope), {
           status: 200,
           headers: { "content-type": "application/json" },
-        })) as typeof fetch;
+        })) as unknown as typeof fetch;
 
       const result = await pullBenchmarkEnvelopeAndRegister({
         projectRoot: dir,
@@ -94,7 +94,9 @@ describe("artifact-portal", () => {
       });
       expect(result.envelope.runner).toBe("serve-probe");
       expect(result.record.type).toBe(PORTAL_BENCHMARK_DIAGNOSTICS_TYPE);
-      expect(result.record.artifactPath).toContain(join(".kimi", "artifacts", ARTIFACT_PORTAL_GATE));
+      expect(result.record.artifactPath).toContain(
+        join(".kimi", "artifacts", ARTIFACT_PORTAL_GATE)
+      );
     });
   });
 });

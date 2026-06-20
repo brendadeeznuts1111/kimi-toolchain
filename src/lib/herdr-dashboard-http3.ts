@@ -12,7 +12,7 @@
  */
 
 import { pathExists } from "./bun-io.ts";
-import { semverSatisfies } from "./bun-utils.ts";
+import { bunVersion, semverSatisfies } from "./bun-utils.ts";
 
 export const HERDR_DASHBOARD_HTTP3_ENV = "HERDR_DASHBOARD_HTTP3";
 export const HERDR_DASHBOARD_TLS_CERT_ENV = "HERDR_DASHBOARD_TLS_CERT";
@@ -23,7 +23,7 @@ export const BUN_HTTP3_MIN_VERSION = "1.3.14";
 
 /** True when this Bun runtime advertises experimental HTTP/3 in Bun.serve. */
 export function bunHttp3ServeSupported(): boolean {
-  return semverSatisfies(Bun.version, `>=${BUN_HTTP3_MIN_VERSION}`);
+  return semverSatisfies(bunVersion(), `>=${BUN_HTTP3_MIN_VERSION}`);
 }
 
 export interface DashboardTlsPaths {

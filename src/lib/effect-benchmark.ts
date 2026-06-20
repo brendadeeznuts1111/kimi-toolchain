@@ -221,9 +221,7 @@ export async function loadMergedEffectBenchmarkThresholds(
   return { thresholds, sources };
 }
 
-async function resolveTrainedThresholds(
-  opts?: BenchmarkOptions
-): Promise<MergedThresholds> {
+async function resolveTrainedThresholds(opts?: BenchmarkOptions): Promise<MergedThresholds> {
   if (opts?.thresholdsPath) {
     const thresholds = await loadThresholdFile(opts.thresholdsPath);
     const sources = Object.fromEntries(
@@ -266,17 +264,11 @@ function median(values: number[]): number {
   return sorted[mid]!;
 }
 
-function thresholdValue(
-  margin: number,
-  actualMs: number
-): number {
+function thresholdValue(margin: number, actualMs: number): number {
   return Math.max(0.01, Math.round(actualMs * margin * 1000) / 1000);
 }
 
-async function writeThresholdLayer(
-  path: string,
-  updates: Record<string, number>
-): Promise<void> {
+async function writeThresholdLayer(path: string, updates: Record<string, number>): Promise<void> {
   const existing = await loadThresholdFile(path);
   const merged = { ...existing, ...updates };
   await Bun.write(path, `${JSON.stringify(merged, null, 2)}\n`, { createPath: true });
@@ -350,10 +342,7 @@ async function runEntry(
   };
 }
 
-function failureMetric(
-  entry: EffectBenchmarkEntry,
-  trained: Record<string, number>
-): Metric {
+function failureMetric(entry: EffectBenchmarkEntry, trained: Record<string, number>): Metric {
   const operation = entry.operation ?? entry.registryKey.split(".").pop() ?? entry.registryKey;
   return {
     symbol: entry.symbol,
@@ -432,8 +421,7 @@ export async function runEffectBenchmarksReport(
 
   const measured = metrics.filter((m) => !m.skipped);
   const partialSuccess =
-    measured.some((m) => m.pass && !Number.isNaN(m.actualMs)) &&
-    (errors.length > 0 || timedOut);
+    measured.some((m) => m.pass && !Number.isNaN(m.actualMs)) && (errors.length > 0 || timedOut);
 
   return { metrics, errors, timedOut, partialSuccess };
 }

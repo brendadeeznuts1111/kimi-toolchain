@@ -80,144 +80,146 @@ Flags:
 if (!isDirectRun(import.meta.path)) {
   // Imported as a module — skip CLI dispatch.
 } else {
-const { flags, command, path: rawPath } = parseArgs(Bun.argv.slice(2));
-if (flags.help) {
-  await printHelp();
-  process.exit(0);
-}
-
-try {
-  const projectPath = resolveHerdrProjectPath(rawPath);
-  const configForDiscover = discoverHerdrProjectConfig(projectPath, { includeDisabled: true });
-  const config = discoverHerdrProjectConfig(projectPath);
-
-  if (command === "has-config") {
-    const ok = Boolean(configForDiscover?.enabled);
-    if (flags.json) {
-      await writeJson({ ok, projectPath, configPath: configForDiscover?.sourcePath || null });
-    }
-    process.exit(ok ? 0 : 1);
+  const { flags, command, path: rawPath } = parseArgs(Bun.argv.slice(2));
+  if (flags.help) {
+    await printHelp();
+    process.exit(0);
   }
 
-  if (command === "discover") {
-    if (!configForDiscover) {
-      if (flags.json) await writeJson({ projectPath, config: null });
-      else await writeOut(`No Herdr project config in ${projectPath}`);
-      process.exit(1);
+  try {
+    const projectPath = resolveHerdrProjectPath(rawPath);
+    const configForDiscover = discoverHerdrProjectConfig(projectPath, { includeDisabled: true });
+    const config = discoverHerdrProjectConfig(projectPath);
+
+    if (command === "has-config") {
+      const ok = Boolean(configForDiscover?.enabled);
+      if (flags.json) {
+        await writeJson({ ok, projectPath, configPath: configForDiscover?.sourcePath || null });
+      }
+      process.exit(ok ? 0 : 1);
     }
-    if (flags.json) await writeJson({ projectPath, config: configForDiscover });
-    else {
-      await writeOut(`Project: ${projectPath}`);
-      await writeOut(`Config: ${configForDiscover.sourcePath}`);
-      await writeOut(`Label: ${configForDiscover.workspaceLabel || "(auto)"}`);
-      await writeOut(`Primary: ${configForDiscover.primaryAgent || "(none)"}`);
-      await writeOut(
-        `Secondary: ${(configForDiscover.secondaryAgents || []).join(", ") || "(none)"}`
+
+    if (command === "discover") {
+      if (!configForDiscover) {
+        if (flags.json) await writeJson({ projectPath, config: null });
+        else await writeOut(`No Herdr project config in ${projectPath}`);
+        process.exit(1);
+      }
+      if (flags.json) await writeJson({ projectPath, config: configForDiscover });
+      else {
+        await writeOut(`Project: ${projectPath}`);
+        await writeOut(`Config: ${configForDiscover.sourcePath}`);
+        await writeOut(`Label: ${configForDiscover.workspaceLabel || "(auto)"}`);
+        await writeOut(`Primary: ${configForDiscover.primaryAgent || "(none)"}`);
+        await writeOut(
+          `Secondary: ${(configForDiscover.secondaryAgents || []).join(", ") || "(none)"}`
+        );
+      }
+      process.exit(0);
+    }
+
+    if (command === "status") {
+      if (!configForDiscover) {
+        const payload = { projectPath, configured: false, workspaceId: null };
+        if (flags.json) await writeJson(payload);
+        else await writeOut("No project Herdr config");
+        process.exit(1);
+      }
+      const match = findWorkspaceForProject({ ...configForDiscover, projectPath });
+      const payload = {
+        projectPath,
+        configured: true,
+        configPath: configForDiscover.sourcePath,
+        workspaceId: match.workspaceId,
+        matchReason: match.reason,
+      };
+      if (flags.json) await writeJson(payload);
+      else {
+        await writeOut(`Project: ${projectPath}`);
+        await writeOut(`Config: ${configForDiscover.sourcePath}`);
+        await writeOut(`Workspace: ${match.workspaceId || "(not open)"} (${match.reason})`);
+      }
+      process.exit(0);
+    }
+
+    if (command === "scaffold") {
+      const result = scaffoldHerdrProject(projectPath, flags.force);
+      if (flags.json) await writeJson(result);
+      else await writeOut(`${result.message}: ${result.path}`);
+      process.exit(result.ok ? 0 : 1);
+    }
+
+    if (command === "reconcile") {
+      if (!config?.enabled) {
+        const message = `No enabled Herdr project config in ${projectPath}`;
+        if (flags.json) await writeJson({ ok: false, message });
+        else writeErr(message);
+        process.exit(1);
+      }
+      await requireSessionRunning(config.session);
+      const reconcileFlags = resolveReconcileFlags({
+        apply: flags.apply,
+        closeOrphans: flags.closeOrphans,
+        fixAgents: flags.fixAgents,
+        forceLayout: flags.forceLayout,
+      });
+      const report = await Effect.runPromise(
+        reconcileHerdrProjectEffect({ ...config, projectPath }, reconcileFlags)
+      );
+      if (flags.json) await writeJson(report);
+      else {
+        await writeOut(`Reconcile ${projectPath} (${report.dryRun ? "dry-run" : "apply"})`);
+        await writeOut(`Workspace: ${report.workspaceId || "(not open)"}`);
+        if (report.layoutDrifts.length) {
+          await writeOut("Layout drifts:");
+          for (const drift of report.layoutDrifts) {
+            await writeOut(`- ${drift.tabLabel}: ${drift.reason}`);
+          }
+        }
+        for (const action of report.actions) {
+          await writeOut(`${action.type.toUpperCase()}  ${action.target}: ${action.reason}`);
+        }
+        if (report.applied.length) {
+          await writeOut("Applied:");
+          for (const action of report.applied) {
+            await writeOut(`- ${action.type} ${action.target}`);
+          }
+        }
+        if (report.warnings.length) await writeOut(`Warnings: ${report.warnings.join("; ")}`);
+      }
+      process.exit(
+        report.drift && report.dryRun ? 1 : report.warnings.length && flags.apply ? 2 : 0
       );
     }
-    process.exit(0);
-  }
 
-  if (command === "status") {
-    if (!configForDiscover) {
-      const payload = { projectPath, configured: false, workspaceId: null };
-      if (flags.json) await writeJson(payload);
-      else await writeOut("No project Herdr config");
-      process.exit(1);
-    }
-    const match = findWorkspaceForProject({ ...configForDiscover, projectPath });
-    const payload = {
-      projectPath,
-      configured: true,
-      configPath: configForDiscover.sourcePath,
-      workspaceId: match.workspaceId,
-      matchReason: match.reason,
-    };
-    if (flags.json) await writeJson(payload);
-    else {
-      await writeOut(`Project: ${projectPath}`);
-      await writeOut(`Config: ${configForDiscover.sourcePath}`);
-      await writeOut(`Workspace: ${match.workspaceId || "(not open)"} (${match.reason})`);
-    }
-    process.exit(0);
-  }
-
-  if (command === "scaffold") {
-    const result = scaffoldHerdrProject(projectPath, flags.force);
-    if (flags.json) await writeJson(result);
-    else await writeOut(`${result.message}: ${result.path}`);
-    process.exit(result.ok ? 0 : 1);
-  }
-
-  if (command === "reconcile") {
-    if (!config?.enabled) {
-      const message = `No enabled Herdr project config in ${projectPath}`;
-      if (flags.json) await writeJson({ ok: false, message });
-      else writeErr(message);
-      process.exit(1);
-    }
-    await requireSessionRunning(config.session);
-    const reconcileFlags = resolveReconcileFlags({
-      apply: flags.apply,
-      closeOrphans: flags.closeOrphans,
-      fixAgents: flags.fixAgents,
-      forceLayout: flags.forceLayout,
-    });
-    const report = await Effect.runPromise(
-      reconcileHerdrProjectEffect({ ...config, projectPath }, reconcileFlags)
-    );
-    if (flags.json) await writeJson(report);
-    else {
-      await writeOut(`Reconcile ${projectPath} (${report.dryRun ? "dry-run" : "apply"})`);
-      await writeOut(`Workspace: ${report.workspaceId || "(not open)"}`);
-      if (report.layoutDrifts.length) {
-        await writeOut("Layout drifts:");
-        for (const drift of report.layoutDrifts) {
-          await writeOut(`- ${drift.tabLabel}: ${drift.reason}`);
-        }
+    if (command === "bootstrap") {
+      if (!config?.enabled) {
+        const message = `No enabled Herdr project config in ${projectPath}`;
+        if (flags.json) await writeJson({ ok: false, message });
+        else writeErr(message);
+        process.exit(1);
       }
-      for (const action of report.actions) {
-        await writeOut(`${action.type.toUpperCase()}  ${action.target}: ${action.reason}`);
+      await requireSessionRunning(config.session);
+      const report = await bootstrapHerdrProject(
+        { ...config, projectPath },
+        { attach: flags.attach, force: flags.force }
+      );
+      if (flags.json) await writeJson(report);
+      else {
+        await writeOut(`Bootstrapped ${projectPath}`);
+        await writeOut(`Workspace: ${report.workspaceId || "(unknown)"}`);
+        for (const action of report.actions) await writeOut(`- ${action.action}`);
+        if (report.warnings.length) await writeOut(`Warnings: ${report.warnings.join("; ")}`);
       }
-      if (report.applied.length) {
-        await writeOut("Applied:");
-        for (const action of report.applied) {
-          await writeOut(`- ${action.type} ${action.target}`);
-        }
-      }
-      if (report.warnings.length) await writeOut(`Warnings: ${report.warnings.join("; ")}`);
+      process.exit(report.readiness.ready ? 0 : 2);
     }
-    process.exit(report.drift && report.dryRun ? 1 : report.warnings.length && flags.apply ? 2 : 0);
-  }
 
-  if (command === "bootstrap") {
-    if (!config?.enabled) {
-      const message = `No enabled Herdr project config in ${projectPath}`;
-      if (flags.json) await writeJson({ ok: false, message });
-      else writeErr(message);
-      process.exit(1);
-    }
-    await requireSessionRunning(config.session);
-    const report = await bootstrapHerdrProject(
-      { ...config, projectPath },
-      { attach: flags.attach, force: flags.force }
-    );
-    if (flags.json) await writeJson(report);
-    else {
-      await writeOut(`Bootstrapped ${projectPath}`);
-      await writeOut(`Workspace: ${report.workspaceId || "(unknown)"}`);
-      for (const action of report.actions) await writeOut(`- ${action.action}`);
-      if (report.warnings.length) await writeOut(`Warnings: ${report.warnings.join("; ")}`);
-    }
-    process.exit(report.readiness.ready ? 0 : 2);
+    await printHelp();
+    process.exit(2);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (flags.json) await writeJson({ ok: false, error: message });
+    else writeErr(message);
+    process.exit(1);
   }
-
-  await printHelp();
-  process.exit(2);
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  if (flags.json) await writeJson({ ok: false, error: message });
-  else writeErr(message);
-  process.exit(1);
-}
 }

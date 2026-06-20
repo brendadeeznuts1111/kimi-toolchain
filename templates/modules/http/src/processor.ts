@@ -31,10 +31,11 @@ export function createHttpProcessor(config: HttpProcessorConfig = {}) {
     fetch: (url: string, opts: FetchOptions = {}) => {
       const { minTLS, tls, ...rest } = opts;
       const minVersion = minTLS ?? defaultMinTLS;
-      return fetch(url, {
+      const init = {
         ...rest,
         tls: { ...tls, minVersion: tlsMinVersionCode(minVersion) },
-      });
+      } as BunFetchRequestInit;
+      return fetch(url, init);
     },
   };
 }

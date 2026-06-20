@@ -9,6 +9,8 @@ import {
   isWorkspaceBlocker,
   CANONICAL_REPO_NAME,
   WORKSPACE_BLOCKER_NAMES,
+  CURSOR_EPHEMERAL_WORKTREE_RE,
+  resolveEffectiveWorkspaceRoot,
 } from "../src/lib/workspace-health.ts";
 import {
   removeLegacyCursorSlugs,
@@ -114,4 +116,46 @@ describe("workspace-health", () => {
     expect(removed).toContain("Users-nolarose-kimicode-cli");
     expect(pathExists(slugPath)).toBe(false);
   }, 5_000);
+
+  test("CURSOR_EPHEMERAL_WORKTREE_RE matches known Cursor temp worktree paths", () => {
+    expect(CURSOR_EPHEMERAL_WORKTREE_RE.test("/var/folders/wt-match--abc/kimi-toolchain")).toBe(
+      true
+    );
+    expect(CURSOR_EPHEMERAL_WORKTREE_RE.test("/Users/x/.codex/worktrees/kimi-toolchain")).toBe(
+      true
+    );
+    expect(CURSOR_EPHEMERAL_WORKTREE_RE.test("/Users/x/kimi-toolchain")).toBe(false);
+  });
+
+  test("resolveEffectiveWorkspaceRoot uses cwd when package.json is present", () => {
+    const result = resolveEffectiveWorkspaceRoot(REPO_ROOT, tmpHome);
+    expect(result.root).toBe(REPO_ROOT);
+    expect(result.usedFallback).toBe(false);
+  });
+
+  test("resolveEffectiveWorkspaceRoot falls back to canonical clone when cwd lacks package.json", () => {
+    const canonical = join(tmpHome, CANONICAL_REPO_NAME);
+    makeDir(canonical, { recursive: true });
+    writeText(
+      join(canonical, "package.json"),
+      JSON.stringify({ name: CANONICAL_REPO_NAME }, null, 2)
+    );
+
+    const orphanCwd = join(tmpHome, "orphan-cwd");
+    makeDir(orphanCwd, { recursive: true });
+
+    const result = resolveEffectiveWorkspaceRoot(orphanCwd, tmpHome);
+    expect(result.root).toBe(canonical);
+    expect(result.usedFallback).toBe(true);
+    expect(result.reason).toBe("missing-package-json");
+  });
+
+  test("resolveEffectiveWorkspaceRoot stays on cwd when no canonical clone exists", () => {
+    const orphanCwd = join(tmpHome, "no-canonical");
+    makeDir(orphanCwd, { recursive: true });
+
+    const result = resolveEffectiveWorkspaceRoot(orphanCwd, tmpHome);
+    expect(result.root).toBe(orphanCwd);
+    expect(result.usedFallback).toBe(false);
+  });
 });

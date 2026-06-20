@@ -66,75 +66,75 @@ Examples:
 if (!isDirectRun(import.meta.path)) {
   // Imported as a module — skip CLI dispatch.
 } else {
-const [, , cmd, ...args] = Bun.argv;
-const json = parseFlag(args, "--json");
+  const [, , cmd, ...args] = Bun.argv;
+  const json = parseFlag(args, "--json");
 
-if (!cmd || cmd === "--help" || cmd === "-h") {
-  await showUsage();
-  process.exit(0);
-}
-
-switch (cmd) {
-  case "list": {
-    const report = await buildLatmListReport();
-    if (json) await writeJson(report);
-    else await printLatmListHuman(report);
-    break;
+  if (!cmd || cmd === "--help" || cmd === "-h") {
+    await showUsage();
+    process.exit(0);
   }
 
-  case "invoke": {
-    const paneFlag = parseStrFlag(args, "--pane");
-    const positionalPane = args[0] && !args[0].startsWith("--") ? args[0] : undefined;
-    const tool = parseStrFlag(args, "--tool");
-    const inputRaw = parseStrFlag(args, "--input");
-    const session = parseStrFlag(args, "--session");
-    if (!tool) {
-      die(
-        "Usage: herdr-latm invoke [--pane <id>] --tool <name> [--input <json>] [--session NAME] [--json]"
-      );
-    }
-    let pane = paneFlag ?? positionalPane;
-    if (!pane) {
+  switch (cmd) {
+    case "list": {
       const report = await buildLatmListReport();
-      const picked = pickInvokePane(tool, report.tools);
-      if (!picked) die(`No pane exposes tool ${tool}`);
-      pane = picked.paneId;
-      if (!json) await writeOut(`invoke: auto-routed ${tool} → ${pane} (${picked.role})`);
+      if (json) await writeJson(report);
+      else await printLatmListHuman(report);
+      break;
     }
-    const input = inputRaw ? (JSON.parse(inputRaw) as Record<string, unknown>) : {};
-    const result = await invokeTool(pane, tool, input, { session });
-    if (json) await writeJson(result);
-    else await writeJson(result);
-    process.exit(result.exitCode);
-  }
 
-  case "sync": {
-    const projectArg = parseStrFlag(args, "--project") || ".";
-    const sessionOverride = parseStrFlag(args, "--session");
-    const projectPath = resolveHerdrProjectPath(projectArg);
-    const config = discoverHerdrProjectConfig(projectPath);
-    if (!config?.enabled) die(`No enabled Herdr project config in ${projectPath}`);
-    const resolvedConfig =
-      sessionOverride !== undefined ? { ...config, session: sessionOverride } : config;
-    const workspaceId = resolveLatmSyncWorkspace(resolvedConfig);
-    if (!workspaceId) {
-      die(`No Herdr workspace found for ${projectPath}`);
-    }
-    const synced = await syncLatmManifestsForWorkspace(resolvedConfig, workspaceId);
-    if (json) await writeJson({ schemaVersion: 1, workspaceId, ...synced });
-    else {
-      await writeOut(`LATM sync: ${synced.written.length} manifest(s) written`);
-      for (const path of synced.written) await writeOut(`  ${path}`);
-      if (synced.pruned.length) {
-        await writeOut(`pruned: ${synced.pruned.length} stale manifest dir(s)`);
-        for (const path of synced.pruned) await writeOut(`  ${path}`);
+    case "invoke": {
+      const paneFlag = parseStrFlag(args, "--pane");
+      const positionalPane = args[0] && !args[0].startsWith("--") ? args[0] : undefined;
+      const tool = parseStrFlag(args, "--tool");
+      const inputRaw = parseStrFlag(args, "--input");
+      const session = parseStrFlag(args, "--session");
+      if (!tool) {
+        die(
+          "Usage: herdr-latm invoke [--pane <id>] --tool <name> [--input <json>] [--session NAME] [--json]"
+        );
       }
-      if (synced.skipped.length) await writeOut(`skipped: ${synced.skipped.join(", ")}`);
+      let pane = paneFlag ?? positionalPane;
+      if (!pane) {
+        const report = await buildLatmListReport();
+        const picked = pickInvokePane(tool, report.tools);
+        if (!picked) die(`No pane exposes tool ${tool}`);
+        pane = picked.paneId;
+        if (!json) await writeOut(`invoke: auto-routed ${tool} → ${pane} (${picked.role})`);
+      }
+      const input = inputRaw ? (JSON.parse(inputRaw) as Record<string, unknown>) : {};
+      const result = await invokeTool(pane, tool, input, { session });
+      if (json) await writeJson(result);
+      else await writeJson(result);
+      process.exit(result.exitCode);
     }
-    break;
-  }
 
-  default:
-    die(`Unknown command: ${cmd}\n\nRun herdr-latm --help`);
-}
+    case "sync": {
+      const projectArg = parseStrFlag(args, "--project") || ".";
+      const sessionOverride = parseStrFlag(args, "--session");
+      const projectPath = resolveHerdrProjectPath(projectArg);
+      const config = discoverHerdrProjectConfig(projectPath);
+      if (!config?.enabled) die(`No enabled Herdr project config in ${projectPath}`);
+      const resolvedConfig =
+        sessionOverride !== undefined ? { ...config, session: sessionOverride } : config;
+      const workspaceId = resolveLatmSyncWorkspace(resolvedConfig);
+      if (!workspaceId) {
+        die(`No Herdr workspace found for ${projectPath}`);
+      }
+      const synced = await syncLatmManifestsForWorkspace(resolvedConfig, workspaceId);
+      if (json) await writeJson({ schemaVersion: 1, workspaceId, ...synced });
+      else {
+        await writeOut(`LATM sync: ${synced.written.length} manifest(s) written`);
+        for (const path of synced.written) await writeOut(`  ${path}`);
+        if (synced.pruned.length) {
+          await writeOut(`pruned: ${synced.pruned.length} stale manifest dir(s)`);
+          for (const path of synced.pruned) await writeOut(`  ${path}`);
+        }
+        if (synced.skipped.length) await writeOut(`skipped: ${synced.skipped.join(", ")}`);
+      }
+      break;
+    }
+
+    default:
+      die(`Unknown command: ${cmd}\n\nRun herdr-latm --help`);
+  }
 }

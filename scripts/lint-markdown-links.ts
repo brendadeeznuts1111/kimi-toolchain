@@ -41,7 +41,9 @@ async function main(): Promise<number> {
 
   console.log(formatMarkdownDeadLinkReport(issues));
   if (paths.length > 0 && issues.length === 0) {
-    console.log(`  scanned ${paths.length} markdown file(s)${full ? " (full)" : " (agent subset)"}`);
+    console.log(
+      `  scanned ${paths.length} markdown file(s)${full ? " (full)" : " (agent subset)"}`
+    );
   }
   return errors.length === 0 ? 0 : 1;
 }

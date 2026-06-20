@@ -370,23 +370,11 @@ function pemToDer(pem: string): Uint8Array<ArrayBuffer> {
 }
 
 async function importEd25519PrivateKey(pem: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "pkcs8",
-    pemToDer(pem),
-    { name: "Ed25519" },
-    false,
-    ["sign"]
-  );
+  return crypto.subtle.importKey("pkcs8", pemToDer(pem), { name: "Ed25519" }, false, ["sign"]);
 }
 
 async function importEd25519PublicKey(pem: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "spki",
-    pemToDer(pem),
-    { name: "Ed25519" },
-    false,
-    ["verify"]
-  );
+  return crypto.subtle.importKey("spki", pemToDer(pem), { name: "Ed25519" }, false, ["verify"]);
 }
 
 async function signEd25519(privateKey: CryptoKey, data: Uint8Array): Promise<Uint8Array> {

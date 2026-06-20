@@ -340,8 +340,7 @@ export function buildEffectBenchmarkCardPayload(
   });
 
   const regressionKeys = rows.filter((r) => r.regression?.regressed).map((r) => r.name);
-  const regressions =
-    options.regressions ?? regressionKeys.length;
+  const regressions = options.regressions ?? regressionKeys.length;
 
   const payload: EffectBenchmarkCardPayload = {
     generatedAt: options.generatedAt ?? new Date().toISOString(),
@@ -383,9 +382,7 @@ function regressionsBetweenSnapshots(
 }
 
 /** Lightweight health from the latest NDJSON snapshot (no benchmark run). */
-export async function readBenchmarkHealthCheck(
-  projectRoot: string
-): Promise<BenchmarkHealthCheck> {
+export async function readBenchmarkHealthCheck(projectRoot: string): Promise<BenchmarkHealthCheck> {
   const snapshots = await readBenchmarkSnapshots(projectRoot, 2);
   if (snapshots.length === 0) {
     return {
@@ -704,7 +701,9 @@ export function resetBenchmarkApiState(): void {
 /** Human-readable summary for kimi-doctor --perf-gates (non-JSON). */
 export function formatPerfGatesHuman(envelope: BenchmarkApiEnvelope): string {
   const lines: string[] = [];
-  lines.push(`Effect benchmarks — ${envelope.summary.passing}/${envelope.summary.measured} passing`);
+  lines.push(
+    `Effect benchmarks — ${envelope.summary.passing}/${envelope.summary.measured} passing`
+  );
   lines.push(`Threshold source: ${envelope.thresholdSource}`);
   lines.push(`Gate: ${envelope.gates.effectBenchmarkGate.status.toUpperCase()}`);
   if (envelope.gates.effectBenchmarkGate.reason) {

@@ -202,7 +202,8 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
     async () => {
       if (!(await packageHasScript(projectRoot, "test:changed"))) return null;
       if (!summary) printVerboseBanner("Changed tests");
-      if (await shouldSkipGate(projectRoot, "test:changed")) return skippedGateResult("test:changed");
+      if (await shouldSkipGate(projectRoot, "test:changed"))
+        return skippedGateResult("test:changed");
       if (await shouldSkipGateFromScopedCache(projectRoot, "test:fast", staged)) {
         return skippedGateResult("test:changed");
       }
@@ -225,7 +226,10 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
           acquired.lock.release();
         }
       })();
-      if (result.exitCode !== 0 && isBunTestChangedEmptyOutput(`${result.stdout}\n${result.stderr}`)) {
+      if (
+        result.exitCode !== 0 &&
+        isBunTestChangedEmptyOutput(`${result.stdout}\n${result.stderr}`)
+      ) {
         return skippedGateResult("test:changed");
       }
       if (result.exitCode !== 0) {
@@ -893,9 +897,7 @@ export async function auditPreCommitPolicy(projectRoot: string): Promise<PreComm
   const files = result.stdout.toString().trim().split("\n").filter(Boolean);
 
   const envExampleAllowlist = new Set([".env.example", ".env.test.example"]);
-  const envFiles = files.filter(
-    (f) => /^\.env($|\.)/.test(f) && !envExampleAllowlist.has(f)
-  );
+  const envFiles = files.filter((f) => /^\.env($|\.)/.test(f) && !envExampleAllowlist.has(f));
   if (envFiles.length > 0) {
     messages.push(
       `✗ Commit blocked: .env file detected in staged changes (${envFiles.join(", ")})`

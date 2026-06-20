@@ -23,6 +23,7 @@ import {
   thumbnailFormatMime,
   type DashboardThumbnailFormat,
 } from "./bun-image.ts";
+import { bunRevision, bunVersion } from "./bun-utils.ts";
 import { pathExists, readText } from "./bun-io.ts";
 import { inspectAgent } from "./inspect.ts";
 import { loadDxDefaults } from "./defaults-config.ts";
@@ -440,8 +441,8 @@ export function startHerdrDashboardServer(
             fallbackReason: transport.fallbackReason,
           },
           runtime: {
-            bunVersion: Bun.version,
-            bunRevision: Bun.revision,
+            bunVersion: bunVersion(),
+            bunRevision: bunRevision(),
             platform: process.platform,
             arch: process.arch,
             pid: process.pid,

@@ -13,6 +13,7 @@ import {
   listActiveLegacyCursorSlugs,
   canonicalClonePath,
   legacyClonePath,
+  resolveEffectiveWorkspaceRoot,
 } from "./workspace-health.ts";
 import {
   removeLegacyCursorSlugs,
@@ -281,9 +282,11 @@ async function runCleanup(
 
 function defaultWorkspaceRoot(): string {
   if (Bun.env.KIMI_PROJECT_ROOT) return resolve(Bun.env.KIMI_PROJECT_ROOT);
-  const cwd = resolve(Bun.cwd);
-  if (pathExists(join(cwd, "package.json"))) return cwd;
-  return resolve(join(import.meta.dir, "../.."));
+  const { root, usedFallback, reason } = resolveEffectiveWorkspaceRoot(Bun.cwd);
+  if (usedFallback && reason) {
+    Bun.stderr.write(`[workspace] using ${root} (${reason} — reopen ~/kimi-toolchain in Cursor)\n`);
+  }
+  return root;
 }
 
 export async function runWorkspaceCommand(

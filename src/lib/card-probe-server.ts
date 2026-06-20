@@ -31,10 +31,7 @@ import {
   fetchDashboardArtifactIndexStats,
   fetchDashboardRunsList,
 } from "./herdr-dashboard-data.ts";
-import {
-  type BenchmarkApiEnvelope,
-  runEffectBenchmarkCardLoop,
-} from "./effect-benchmark-card.ts";
+import { type BenchmarkApiEnvelope, runEffectBenchmarkCardLoop } from "./effect-benchmark-card.ts";
 
 export { extractArtifactTimestamp };
 

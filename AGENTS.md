@@ -12,6 +12,12 @@
 | **Cursor**               | File → Open Folder → `~/kimi-toolchain` (not `$HOME`, not symlink)                |
 | **Repo root**            | Use `git rev-parse --show-toplevel` or workspace root — never assume an old clone |
 
+**Cursor ephemeral worktrees:** Cursor sometimes opens a git worktree under a temp path (`wt-match`, `.codex/worktrees`, `.grok/worktrees`, `herdr-worktrees`) where `git rev-parse --show-toplevel` points at the worktree but `package.json` is not materialized on disk. In that case Grep/Glob and `bun run` from the editor cwd will fail or see an empty tree.
+
+- **Preferred fix:** File → Open Folder → `~/kimi-toolchain` (canonical clone).
+- **Automatic fallback:** `bun run unify`, `bun run verify-workspace`, and `kimi-toolchain workspace *` resolve via `scripts/resolve-repo-root.sh` / `resolveEffectiveWorkspaceRoot()` and fall back to `~/kimi-toolchain` when the worktree lacks `package.json`. A stderr warning is emitted when fallback is used.
+- **Agents:** If tools cannot find repo files, run `pwd` and `git rev-parse --show-toplevel`; when they differ from `~/kimi-toolchain` and `package.json` is missing at the git root, operate from `~/kimi-toolchain` or rely on the fallback (set `KIMI_PROJECT_ROOT` after `bun run unify`).
+
 If Grep/Glob fail with a path under an old renamed clone, the editor opened the wrong folder. Reopen `~/kimi-toolchain`.
 
 **Before writing code:**
@@ -124,6 +130,28 @@ cadence. Any metric threshold change must update the threshold metadata in
   Bun.which("sh"); // => "/bin/sh"
   Bun.which("notfound"); // => null
   Bun.which("bun"); // => "/home/user/.bun/bin/bun"
+  ```
+
+- Gzip compression: [Bun.gzipSync / Bun.gunzipSync](https://bun.com/docs/guides/util/gzip)
+
+  ```ts
+  const data = Buffer.from("Hello, world!");
+  const compressed = Bun.gzipSync(data);
+  // => Uint8Array
+
+  const decompressed = Bun.gunzipSync(compressed);
+  // => Uint8Array
+  ```
+
+- DEFLATE compression: [Bun.deflateSync / Bun.inflateSync](https://bun.com/docs/guides/util/deflate)
+
+  ```ts
+  const data = Buffer.from("Hello, world!");
+  const compressed = Bun.deflateSync("Hello, world!");
+  // => Uint8Array
+
+  const decompressed = Bun.inflateSync(compressed);
+  // => Uint8Array
   ```
 
 ## Build, Test & Quality Gates

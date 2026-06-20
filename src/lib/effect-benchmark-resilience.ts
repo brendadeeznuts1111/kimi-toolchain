@@ -42,10 +42,9 @@ export function resetBenchmarkPostCooldown(): void {
 }
 
 export function benchmarkRateLimitEnvelope(retryAfterMs: number): BenchmarkApiEnvelope {
-  return benchmarkErrorApiEnvelope(
-    `Rate limited — retry in ${Math.ceil(retryAfterMs / 1000)}s`,
-    { retryAfterMs }
-  );
+  return benchmarkErrorApiEnvelope(`Rate limited — retry in ${Math.ceil(retryAfterMs / 1000)}s`, {
+    retryAfterMs,
+  });
 }
 
 /** @deprecated Use benchmarkErrorApiEnvelope from effect-benchmark-card.ts */

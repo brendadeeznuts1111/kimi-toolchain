@@ -8,11 +8,7 @@
 import { join } from "path";
 import { readTextAsync } from "./bun-io.ts";
 import { REQUIRED_PACKAGE_SCRIPT_ENTRIES } from "./scaffold-templates.ts";
-import {
-  INTEGRATION_TEST_FILES,
-  SMOKE_TEST_FILES,
-  UNIT_TEST_FILES,
-} from "./test-gates.ts";
+import { INTEGRATION_TEST_FILES, SMOKE_TEST_FILES, UNIT_TEST_FILES } from "./test-gates.ts";
 
 export const BUN_MARKDOWN_HTML_DOC_URL = "https://bun.com/docs/runtime/markdown#bun-markdown-html";
 

@@ -11,6 +11,7 @@ import {
   removeFile,
   resolveRealPath,
 } from "./bun-io.ts";
+import { homeDir } from "./paths.ts";
 import { readPackageJson, safeParse } from "./utils.ts";
 
 import {
@@ -125,6 +126,78 @@ export function legacyClonePath(home: string): string {
 
 export function canonicalClonePath(home: string): string {
   return join(home, CANONICAL_REPO_NAME);
+}
+
+/** Cursor/agent ephemeral git worktrees that often lack a materialized package.json. */
+export const CURSOR_EPHEMERAL_WORKTREE_RE =
+  /(?:wt-match|\.codex\/worktrees|\.grok\/worktrees|herdr-worktrees)/;
+
+export type WorkspaceRootFallbackReason = "cursor-worktree" | "missing-package-json";
+
+export interface EffectiveWorkspaceRoot {
+  root: string;
+  usedFallback: boolean;
+  reason?: WorkspaceRootFallbackReason;
+  gitTopLevel?: string;
+}
+
+function hasPackageJson(dir: string): boolean {
+  return pathExists(join(dir, "package.json"));
+}
+
+function gitShowToplevel(dir: string): string | null {
+  try {
+    const proc = Bun.spawnSync(["git", "-C", dir, "rev-parse", "--show-toplevel"], {
+      stdout: "pipe",
+      stderr: "ignore",
+    });
+    if (proc.exitCode !== 0) return null;
+    const top = proc.stdout.toString().trim();
+    return top.length > 0 ? top : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve a toolchain root when Cursor opens an ephemeral worktree without files on disk.
+ * Falls back to ~/kimi-toolchain when cwd or git toplevel lacks package.json.
+ */
+export function resolveEffectiveWorkspaceRoot(
+  cwd: string = process.cwd(),
+  home: string = homeDir()
+): EffectiveWorkspaceRoot {
+  const resolved = resolve(cwd);
+  const canonical = canonicalClonePath(home);
+  const gitTopLevel = gitShowToplevel(resolved) ?? undefined;
+
+  if (hasPackageJson(resolved)) {
+    if (
+      gitTopLevel &&
+      CURSOR_EPHEMERAL_WORKTREE_RE.test(gitTopLevel) &&
+      !hasPackageJson(gitTopLevel) &&
+      hasPackageJson(canonical)
+    ) {
+      return {
+        root: canonical,
+        usedFallback: true,
+        reason: "cursor-worktree",
+        gitTopLevel,
+      };
+    }
+    return { root: resolved, usedFallback: false, gitTopLevel };
+  }
+
+  if (hasPackageJson(canonical)) {
+    return {
+      root: canonical,
+      usedFallback: true,
+      reason: "missing-package-json",
+      gitTopLevel,
+    };
+  }
+
+  return { root: resolved, usedFallback: false, gitTopLevel };
 }
 
 export function listActiveLegacyCursorSlugs(): string[] {

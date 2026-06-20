@@ -17,7 +17,13 @@ for (const t of TARGETS) results[t.name] = [];
 
 const g = new Glob("**/*.{ts,js,mjs}");
 for await (const f of g.scan({ cwd: ".", absolute: false })) {
-  if (f.includes("node_modules") || f.includes("dist/") || f.includes("build/") || f.endsWith(".d.ts")) continue;
+  if (
+    f.includes("node_modules") ||
+    f.includes("dist/") ||
+    f.includes("build/") ||
+    f.endsWith(".d.ts")
+  )
+    continue;
   const text = await Bun.file(f).text();
   const lines = text.split("\n");
   for (const t of TARGETS) {

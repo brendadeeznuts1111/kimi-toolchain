@@ -107,6 +107,7 @@
     "ci:impact": "bun run scripts/ci-impact.ts",
     "docs:sync": "bun run scripts/readme-sync.ts --fix",
     "format": "oxfmt --write .",
+    "fix:drift": "bun run format && bun run typecheck",
     "format:check": "oxfmt --check -c .oxfmtrc.json .",
     "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
     "lint": "bun run scripts/lint.ts",

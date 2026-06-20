@@ -154,9 +154,9 @@ rg -n '^#{1,6}[^ #]' --glob '*.md' .
 
 Fence language inventory (repo uses short ids — `ts` not `typescript`):
 
-```bash
+````bash
 rg -n '^```[a-z]+' --glob '*.md' .
-```
+````
 
 The gate also cross-checks every `test/**/*.test.ts` against `UNIT_TEST_FILES` / `INTEGRATION_TEST_FILES` / `SMOKE_TEST_FILES` in `test-gates.ts` (orphan or stale tier entries).
 

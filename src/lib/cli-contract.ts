@@ -41,6 +41,9 @@ export class CliContractError extends Error {
 /** Machine-readable output schema version. Bump only on breaking envelope changes. */
 export const CLI_OUTPUT_SCHEMA_VERSION = 1;
 
+/** Bun guides hub — canonical host is bun.com (bun.sh/docs/guides redirects). */
+export const BUN_GUIDES_INDEX_DOC_URL = "https://bun.com/docs/guides";
+
 /** @see https://bun.com/docs/guides/process/argv */
 export const BUN_ARGV_DOC_URL = "https://bun.com/docs/guides/process/argv";
 

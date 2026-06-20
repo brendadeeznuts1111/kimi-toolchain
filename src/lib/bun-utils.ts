@@ -110,7 +110,8 @@ export function decodeBase64Bytes(encoded: string): Uint8Array {
  * @see {@link BUN_HEX_DOC_URL}
  */
 /** @see https://bun.sh/docs/runtime/binary-data#uint8array-tohex-and-fromhex */
-export const BUN_HEX_DOC_URL = "https://bun.sh/docs/runtime/binary-data#uint8array-tohex-and-fromhex";
+export const BUN_HEX_DOC_URL =
+  "https://bun.sh/docs/runtime/binary-data#uint8array-tohex-and-fromhex";
 
 /** Encode bytes to lowercase hex (`bytes.toHex()`). */
 export function encodeHex(bytes: Uint8Array): string {

@@ -12,6 +12,7 @@
  * appends on local filesystems.
  */
 
+import { bunRevision } from "./bun-utils.ts";
 import { appendNdjsonRecord } from "./ndjson.ts";
 import { varDir } from "./paths.ts";
 import { join } from "path";
@@ -127,7 +128,7 @@ export function isHealthEvent(value: unknown): value is HealthEvent {
  */
 export async function publish(event: HealthEvent): Promise<void> {
   try {
-    await appendNdjsonRecord(filePath(), { ...event, bunRevision: Bun.revision });
+    await appendNdjsonRecord(filePath(), { ...event, bunRevision: bunRevision() });
   } catch {
     // Degrade gracefully — health channel is advisory, not critical
   }

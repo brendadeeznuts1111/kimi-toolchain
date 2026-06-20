@@ -4,20 +4,14 @@
  * Pulls BenchmarkApiEnvelope from serve-probe and persists under `.kimi/artifacts/artifact-portal/`.
  */
 
-import {
-  BENCHMARK_CARD_IDS,
-  BENCHMARK_MANIFEST_ID,
-} from "../canvases/benchmark.manifest.ts";
+import { BENCHMARK_CARD_IDS, BENCHMARK_MANIFEST_ID } from "../canvases/benchmark.manifest.ts";
 import type { BenchmarkApiEnvelope } from "./effect-benchmark-card.ts";
 import { ArtifactStore } from "./artifact-store.ts";
 import {
   buildPortalManifestPayload,
   PORTAL_MANIFEST_TYPE,
 } from "../../templates/artifact-portal/index.ts";
-import {
-  fetchBenchmarkProbeEnvelope,
-  resolveBenchmarkProbeUrl,
-} from "./benchmark-probe-client.ts";
+import { fetchBenchmarkProbeEnvelope, resolveBenchmarkProbeUrl } from "./benchmark-probe-client.ts";
 import { runEffectBenchmarkCardLoop } from "./effect-benchmark-card.ts";
 
 export const ARTIFACT_PORTAL_GATE = "artifact-portal";

@@ -241,14 +241,8 @@ describe("effect-benchmark", () => {
         thresholdsBaselinePath(dir),
         JSON.stringify({ "crypto.sha256": 1, "util.inspect": 2 })
       );
-      await Bun.write(
-        thresholdsLocalPath(dir),
-        JSON.stringify({ "httpClient.fetch-tls1.2": 100 })
-      );
-      await Bun.write(
-        thresholdsLegacyPath(dir),
-        JSON.stringify({ "util.inspect": 3, "clock": 4 })
-      );
+      await Bun.write(thresholdsLocalPath(dir), JSON.stringify({ "httpClient.fetch-tls1.2": 100 }));
+      await Bun.write(thresholdsLegacyPath(dir), JSON.stringify({ "util.inspect": 3, clock: 4 }));
 
       const { thresholds, sources } = await loadMergedEffectBenchmarkThresholds(dir);
       expect(thresholds["crypto.sha256"]).toBe(1);

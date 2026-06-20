@@ -107,10 +107,7 @@ import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { generateBenchmarkHTML } from "../lib/effect-benchmark.ts";
-import {
-  formatPerfGatesHuman,
-  runEffectBenchmarkCardLoop,
-} from "../lib/effect-benchmark-card.ts";
+import { formatPerfGatesHuman, runEffectBenchmarkCardLoop } from "../lib/effect-benchmark-card.ts";
 import type { Metric } from "../harness/html-reporter.ts";
 import { toolStart, toolDone, healthResult } from "../lib/health-channel.ts";
 import { ArtifactStore } from "../lib/artifact-store.ts";
@@ -1957,11 +1954,8 @@ async function main(): Promise<number> {
     try {
       const outDir = argValue("--out-dir") ?? process.cwd();
       const projectRoot = process.cwd();
-      const useLegacyThresholds =
-        outDir.replace(/\/$/, "") !== projectRoot.replace(/\/$/, "");
-      const thresholdsPath = useLegacyThresholds
-        ? join(outDir, "thresholds.json")
-        : undefined;
+      const useLegacyThresholds = outDir.replace(/\/$/, "") !== projectRoot.replace(/\/$/, "");
+      const thresholdsPath = useLegacyThresholds ? join(outDir, "thresholds.json") : undefined;
       const reportPath = join(outDir, "effect-benchmark.html");
       const gitHead = await resolveGitHead(projectRoot);
       const jsonMode = JSON_OUT || PERF_RICH;
