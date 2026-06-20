@@ -109,7 +109,7 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check -c .oxfmtrc.json .",
     "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
-    "lint": "oxlint src test scripts && bun run scripts/lint-banned-terms.ts && bun run scripts/lint-patterns.ts && bun run scripts/lint-discovery.ts",
+    "lint": "bun run scripts/lint.ts",
     "quality:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json . && oxlint src test scripts && bun run scripts/lint-banned-terms.ts && bun run scripts/lint-patterns.ts && bun run scripts/lint-discovery.ts",
     "lint:terms": "bun run scripts/lint-banned-terms.ts",
     "lint:links": "bun run scripts/lint-markdown-links.ts",

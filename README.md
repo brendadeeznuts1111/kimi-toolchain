@@ -4,7 +4,7 @@
 >
 > `https://github.com/brendadeeznuts1111/kimi-toolchain`
 
-**Quality (local):** `bun run lint` includes the **testing-docs** gate (`bun run scripts/lint-testing-docs.ts`) — test script paths, headings, fence languages, and `test-gates.ts` tier inventory. GitHub Actions is disabled; enforcement is via pre-commit/pre-push hooks and `bun run ci:local`.
+**Quality (local):** `bun run lint` (`scripts/lint.ts`) includes **testing-docs** and **markdown-links** (`--full`, offline). Standalone: `bun run lint:links`, `bun run lint:links:online`. GitHub Actions is disabled; enforcement is via pre-commit/pre-push hooks and `bun run ci:local`.
 
 ## Install
 
