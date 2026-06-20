@@ -394,7 +394,8 @@ export const BUN_INSTALL_PLATFORM_POLICY: readonly BunInstallPolicyRowDef[] = [
     cliFlag: "--cpu",
     sinceBun: "1.0",
     docsAnchor: "platform-specific-dependencies",
-    notes: "arm64 | x64 | ia32 | ppc64 | s390x; lockfile stores normalized cpu — cross-platform without lockfile drift",
+    notes:
+      "Override CPU for platform-specific package selection: arm64 | x64 | ia32 | ppc64 | s390x; lockfile stores normalized cpu — cross-platform without lockfile drift",
   },
   {
     group: "platform",
@@ -406,7 +407,8 @@ export const BUN_INSTALL_PLATFORM_POLICY: readonly BunInstallPolicyRowDef[] = [
     cliFlag: "--os",
     sinceBun: "1.0",
     docsAnchor: "platform-specific-dependencies",
-    notes: "linux | darwin | win32 | freebsd | openbsd | sunos | aix; lockfile stores normalized cpu/os — cross-platform without lockfile drift",
+    notes:
+      "Override OS for platform-specific package selection: linux | darwin | win32 | freebsd | openbsd | sunos | aix; lockfile stores normalized cpu/os — cross-platform without lockfile drift",
   },
   {
     group: "platform",
@@ -740,6 +742,17 @@ export interface BunInstallRuntimeCapabilities {
     streams: readonly ["console.log", "console.error"];
     notes: string;
   };
+  platformTargeting: {
+    current: { cpu: string; os: string };
+    lockfileBehavior: "normalized cpu/os stored; skipped if disabled for target";
+    crossInstall: {
+      status: "configured" | "not configured";
+      flags: { "--cpu": string | null; "--os": string | null };
+      supportedCpu: readonly string[];
+      supportedOs: readonly string[];
+    };
+    ciImplications: "lockfile stable across matrix jobs; install subset varies by runner";
+  };
 }
 
 export interface BunInstallRuntimeEnvironment {
@@ -1012,6 +1025,17 @@ function buildRuntimeCapabilities(
       streams: ["console.log", "console.error"],
       notes:
         "Bun buffers console output per test file under --parallel and flushes each file atomically so concurrent files do not interleave.",
+    },
+    platformTargeting: {
+      current: { cpu: process.arch, os: process.platform },
+      lockfileBehavior: "normalized cpu/os stored; skipped if disabled for target",
+      crossInstall: {
+        status: Bun.env.BUN_CONFIG_SKIP_INSTALL_PACKAGES ? "not configured" as const : "not configured" as const,
+        flags: { "--cpu": null, "--os": null },
+        supportedCpu: ["arm64", "x64", "ia32", "ppc64", "s390x"],
+        supportedOs: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix"],
+      },
+      ciImplications: "lockfile stable across matrix jobs; install subset varies by runner",
     },
   };
 }
@@ -1292,6 +1316,7 @@ export function formatInstallPolicyReport(report: BunInstallConfigAudit): string
     `  isolatedLinkerFastPath: ${report.runtimeCapabilities.isolatedLinkerFastPath.status} (${report.runtimeCapabilities.isolatedLinkerFastPath.cliFlag}; current=${report.runtimeCapabilities.isolatedLinkerFastPath.linker ?? "unset"})`,
     `  sourceMapsMemory: ${report.runtimeCapabilities.sourceMapsMemory.status} (Bun 1.3.13+ compact maps)`,
     `  parallelConsole: ${report.runtimeCapabilities.parallelConsole.status} (${report.runtimeCapabilities.parallelConsole.flush})`,
+    `  platformTargeting: ${report.runtimeCapabilities.platformTargeting.crossInstall.status} (current: ${report.runtimeCapabilities.platformTargeting.current.cpu}/${report.runtimeCapabilities.platformTargeting.current.os})`,
     "Runtime environment:",
     `  noOrphans: ${report.runtimeEnvironment.noOrphans.status} (${report.runtimeEnvironment.noOrphans.env}=${report.runtimeEnvironment.noOrphans.value ?? "unset"})`,
     `  globalStore: ${report.runtimeEnvironment.globalStore.status} (${report.runtimeEnvironment.globalStore.env}=${report.runtimeEnvironment.globalStore.value ?? "unset"}; bunfig=${report.runtimeEnvironment.globalStore.bunfigValue ?? "unset"})`,

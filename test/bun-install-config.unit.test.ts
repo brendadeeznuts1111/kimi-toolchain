@@ -67,6 +67,37 @@ describe("bun-install-config", () => {
     expect(BUN_INSTALL_PLATFORM_POLICY.find((r) => r.key === "targetOs")?.notes).toContain("sunos");
   });
 
+  test("BUN_INSTALL_PLATFORM_POLICY documents cpu and os package selection overrides", async () => {
+    const dir = testTempDir("bun-install-platform-targets-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    const report = await buildInstallPolicyReport(dir);
+    const targetCpu = report.tables.platform.find((row) => row.key === "targetCpu");
+    const targetOs = report.tables.platform.find((row) => row.key === "targetOs");
+
+    expect(targetCpu).toMatchObject({
+      cliFlag: "--cpu",
+      officialDefault: "runtime arch",
+      hardenedDefault: "runtime arch",
+      current: process.arch,
+      status: "n/a",
+    });
+    expect(targetCpu?.notes).toContain("Override CPU for platform-specific package selection");
+    expect(targetCpu?.docsUrl).toContain("platform-specific-dependencies");
+
+    expect(targetOs).toMatchObject({
+      cliFlag: "--os",
+      officialDefault: "runtime os",
+      hardenedDefault: "runtime os",
+      current: process.platform,
+      status: "n/a",
+    });
+    expect(targetOs?.notes).toContain("Override OS for platform-specific package selection");
+    expect(targetOs?.notes).toContain("sunos");
+    expect(targetOs?.docsUrl).toContain("platform-specific-dependencies");
+  });
+
   test("BUN_INSTALL_ENV_VARS documents risky skip flags", () => {
     const risky = BUN_INSTALL_ENV_VARS.filter((row) => row.risky).map((row) => row.name);
     expect(risky).toContain("BUN_CONFIG_SKIP_SAVE_LOCKFILE");
