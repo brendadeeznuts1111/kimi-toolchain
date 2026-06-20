@@ -85,6 +85,34 @@ Top-level `describe("…")` must use **kebab-case** and start with the file stem
 - Use `test.each` / `describe.each` for parameterized tables.
 - Prefer `test` over `it`; both are valid aliases.
 
+## Snapshot tests
+
+Bun supports file snapshots (`toMatchSnapshot()`), inline snapshots (`toMatchInlineSnapshot()`),
+and error snapshots (`toThrowErrorMatchingSnapshot()` /
+`toThrowErrorMatchingInlineSnapshot()`). Use snapshots sparingly in this repo: they
+are best for compact, stable contract output where a diff is easier to review than
+many field-by-field assertions.
+
+| Use case                                    | Prefer                                                                 | Avoid                                                |
+| ------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------- |
+| Small scalar or object contracts            | `toMatchInlineSnapshot()`                                              | Large inline blobs that obscure the test body        |
+| Multi-line generated contract output        | `toMatchSnapshot()` plus a committed `__snapshots__/*.snap` file       | Snapshots of entire reports, dashboards, or logs     |
+| Dynamic values (paths, timestamps, ids)     | Normalize fields before matching or use property matchers              | Snapshots containing machine-local absolute paths    |
+| Error-message contracts                     | `toThrowErrorMatchingInlineSnapshot()` for short messages              | Generic `toThrow()` when the message is the contract |
+| Intentional snapshot refresh during a fixup | `bun test <file> --update-snapshots`, then review `git diff` carefully | Blanket snapshot updates across the whole suite      |
+
+Current local exemplar: `test/audit-effects.unit.test.ts` normalizes fixture paths
+before `toMatchSnapshot()`, and commits the expected output in
+`test/__snapshots__/audit-effects.unit.test.ts.snap`.
+
+Snapshot rules:
+
+- Keep snapshots focused and reviewable; if a snapshot is hard to inspect, replace it with explicit assertions or split the contract.
+- Normalize nondeterministic data before matching: timestamps, random ids, absolute paths, map iteration order, process ids, ports, and platform-specific separators.
+- Prefer inline snapshots only when the expected value is short enough to make the test clearer.
+- Do not use snapshots as a substitute for behavior assertions; assert critical booleans, statuses, and counts directly when they drive control flow.
+- When updating snapshots, run the narrowest command first and inspect only the intended `__snapshots__` or inline diff.
+
 ## Isolation
 
 1. **HOME** — Preload sets `Bun.env.KIMI_TEST_HOME`; unit tests must not touch real `~/.kimi-code/` or `~/.config/`. Use `withIsolatedHome()` from `test/helpers.ts`.
@@ -203,14 +231,16 @@ Render this guide in tooling via [Bun.markdown.html](https://bun.com/docs/runtim
 
 Contracts in `test-runtime.ts` align with these Bun docs:
 
-| Topic                           | Bun doc                                                        |
-| ------------------------------- | -------------------------------------------------------------- |
-| Runtime env, globals, isolation | [runtime-behavior](https://bun.com/docs/test/runtime-behavior) |
-| Discovery                       | [discovery](https://bun.com/docs/test/discovery)               |
-| `bunfig.toml` `[test]`          | [configuration](https://bun.com/docs/test/configuration)       |
-| Writing tests                   | [writing-tests](https://bun.com/docs/test/writing-tests)       |
-| Running tests                   | [test#run-tests](https://bun.com/docs/test#run-tests)          |
-| `bun:test` API                  | [reference/bun/test](https://bun.com/reference/bun/test)       |
+| Topic                           | Bun doc                                                               |
+| ------------------------------- | --------------------------------------------------------------------- |
+| Runtime env, globals, isolation | [runtime-behavior](https://bun.com/docs/test/runtime-behavior)        |
+| Discovery                       | [discovery](https://bun.com/docs/test/discovery)                      |
+| `bunfig.toml` `[test]`          | [configuration](https://bun.com/docs/test/configuration)              |
+| Writing tests                   | [writing-tests](https://bun.com/docs/test/writing-tests)              |
+| Running tests                   | [test#run-tests](https://bun.com/docs/test#run-tests)                 |
+| Snapshot testing                | [snapshot](https://bun.com/docs/guides/test/snapshot)                 |
+| Updating snapshots              | [update-snapshots](https://bun.com/docs/guides/test/update-snapshots) |
+| `bun:test` API                  | [reference/bun/test](https://bun.com/reference/bun/test)              |
 
 ## Example patterns
 

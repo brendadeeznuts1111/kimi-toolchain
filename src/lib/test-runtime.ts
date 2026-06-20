@@ -581,6 +581,39 @@ export const BUN_TEST_SNAPSHOTS_STRATEGY = {
   updateSnapshots: "forward-via-script-argv--update-snapshots-or--u",
 } as const;
 
+/**
+ * Flag interaction / composition semantics (@see https://bun.com/docs/test#cli-usage).
+ *
+ * Bun test flags compose in specific orders — not all combinations are commutative.
+ * These are the meaningful interactions documented by Bun and observed in practice.
+ */
+export const BUN_TEST_FLAG_INTERACTIONS = {
+  /** Workers auto-isolate between files; explicit --isolate is harmless but redundant. */
+  parallelIsolate: "--parallel implies --isolate per worker",
+  /** Import-graph filter applied before shard distribution. */
+  changedShard: "--shard splits after --changed filter",
+  /** Randomization applied within each shard after distribution. */
+  shardRandomize: "--randomize shuffles within the shard",
+  /** --changed --watch re-queries git on every restart; any .ts edit triggers re-run. */
+  changedWatch: "--changed --watch re-filters on restart; broader trigger than file-scoped --watch",
+  /** --parallel forwards transpiler/resolver flags to workers automatically. */
+  parallelTranspile: "--parallel inherits --define --loader --tsconfig-override --conditions --env-file",
+  /** --parallel sets BUN_TEST_WORKER_ID (1-based) and JEST_WORKER_ID in each worker. */
+  parallelWorkerEnv: "--parallel sets BUN_TEST_WORKER_ID and JEST_WORKER_ID in worker env",
+  /** --bail exits the entire run after N failures across all workers. */
+  bailParallel: "--bail N with --parallel exits after N failures across workers",
+  /** --concurrent runs tests concurrently within each worker file. */
+  concurrentParallel: "--concurrent applies within each --parallel worker",
+  /** Bare --changed exits 0 when no changed files; --changed --watch stays alive. */
+  changedNoop: "bare --changed exits cleanly on no changes; --changed --watch keeps running",
+  /** --isolate drains microtasks, closes sockets, kills subprocesses between files. */
+  isolateCleanup: "--isolate resets globals drains timers closes sockets kills children between files",
+  /** --watch auto-isolates; explicit --isolate accepted but no-op. */
+  watchIsolate: "--watch implicitly isolates; explicit --isolate is redundant",
+  /** --seed implies --randomize; same seed produces identical order. */
+  seedRandomize: "--seed N implies --randomize with reproducible order",
+} as const;
+
 /** Read optional `[test].root` from bunfig.toml (discovery scan root). */
 export function readBunfigTestRoot(repoRoot: string): string | undefined {
   const root = readBunfigTestConfig(repoRoot)?.root;
