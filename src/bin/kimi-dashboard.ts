@@ -24,7 +24,6 @@ import {
 } from "../lib/dashboard-settings.ts";
 import { runExamplesDashboardWebView } from "../lib/examples-dashboard-webview.ts";
 import { examplesDashboardLogPath, examplesDashboardPidPath, varDir } from "../lib/paths.ts";
-import { BUN_CHILD_PROCESS_DOC_URL, BUN_SPAWN_STDERR_DOC_URL } from "../lib/cli-contract.ts";
 import { withBunNoOrphans } from "../lib/tool-runner.ts";
 
 // Resolve the dashboard directory relative to the repo root

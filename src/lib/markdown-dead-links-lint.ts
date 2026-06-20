@@ -105,7 +105,7 @@ export function classifyMarkdownHref(
   if (/^mailto:/i.test(trimmed)) return "mailto";
   if (/^https?:\/\//i.test(trimmed)) return "external";
   const { path } = stripLinkSuffix(trimmed);
-  if (/^~/.test(path) || /^\$HOME\b/.test(path)) return "home_path";
+  if (path.startsWith("~") || /^\$HOME\b/.test(path)) return "home_path";
   return "internal";
 }
 
@@ -156,7 +156,7 @@ async function mapPool<T, R>(
   concurrency: number,
   fn: (item: T) => Promise<R>
 ): Promise<R[]> {
-  const results: R[] = new Array(items.length);
+  const results = Array.from({ length: items.length }) as R[];
   let index = 0;
   async function worker(): Promise<void> {
     while (index < items.length) {

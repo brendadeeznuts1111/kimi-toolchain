@@ -267,7 +267,7 @@ export const BUN_TEST_TZ = {
   envKey: "TZ",
 } as const;
 
-export function defaultTestTimezone(env: Record<string, string | undefined> = process.env): string {
+export function defaultTestTimezone(env: Record<string, string | undefined> = Bun.env): string {
   const tz = env[BUN_TEST_TZ.envKey];
   return tz && tz.length > 0 ? tz : BUN_TEST_TZ.defaultZone;
 }
@@ -660,7 +660,7 @@ export function shouldEmitCiTestReporter(env: Record<string, string | undefined>
 
 export function preservesBunDetectionEnv(
   built: Record<string, string>,
-  parent: Record<string, string | undefined> = process.env
+  parent: Record<string, string | undefined> = Bun.env
 ): boolean {
   for (const key of BUN_TEST_DETECTION_ENV_KEYS) {
     const parentVal = parent[key];
@@ -748,6 +748,67 @@ export function isBunTestWatchMode(args: readonly string[]): boolean {
 export function isBunTestHotMode(args: readonly string[]): boolean {
   return bunTestArgsIncludeFlag(args, BUN_TEST_WATCH.hotFlag);
 }
+
+/**
+ * `--changed` flag for git-aware test filtering (@see https://bun.com/docs/test#cli-usage).
+ *
+ * Bun builds the import graph of test files and runs only those that transitively depend
+ * on a file git reports as changed. Composes with `--watch` and `--shard`.
+ *
+ * - Bare `--changed`        — uncommitted changes (unstaged + staged + untracked)
+ * - `--changed=<ref>`       — changes since a commit, branch, or tag
+ * - `--changed --watch`     — re-filter on every restart; editing any local source file
+ *                             triggers a re-run even if not in the current filtered set
+ *
+ * @see BUN_TEST_EXECUTION_STRATEGY
+ */
+export const BUN_TEST_CHANGED = {
+  changedFlag: "--changed",
+  bareFilter: "--changed",
+  valuePrefix: "--changed=",
+  /** Default behavior: work-tree diff (unstaged + staged + untracked). */
+  defaultScope: "working-tree-diff",
+  /** `--changed --watch`: re-filter on every restart, tracks live working tree. */
+  composeWatch: "re-filter-on-restart-live-working-tree",
+} as const;
+
+export const BUN_TEST_CHANGED_FLAGS = [
+  BUN_TEST_CHANGED.changedFlag,
+  BUN_TEST_CHANGED.valuePrefix,
+] as const;
+
+/** How kimi-toolchain applies the --changed filter. */
+export const BUN_TEST_CHANGED_STRATEGY = {
+  script: "bun-run-test-changed-or-forward-via-script-argv",
+  compose: "shard-after-changed-randomize-after-shard",
+  bare: "uncommitted-changes-staged-unstaged-untracked",
+  explicit: "--changed=ref-branch-or-commit",
+  watch: "--changed---watch-re-filter-every-restart",
+} as const;
+
+/**
+ * `--parallel` worker semantics for `bun test`.
+ *
+ * `--parallel[=N]` distributes test files across up to N worker processes (defaults
+ * to CPU count). Workers auto-isolate between files and inherit all transpiler/resolver
+ * flags (`--define`, `--loader`, `--tsconfig-override`, `--conditions`, etc.).
+ *
+ * Composes with: `--bail`, `--randomize`, `--dots`, `--reporter=junit`, `--coverage`,
+ * snapshots, and `--changed` (import graph built on coordinator, distributed to workers).
+ *
+ * @see BUN_TEST_WORKER_ENV_KEYS
+ * @see https://bun.com/docs/test#cli-usage
+ */
+export const BUN_TEST_PARALLEL = {
+  parallelFlag: "--parallel",
+  parallelAssignFlag: "--parallel=",
+  autoIsolate: true,
+  composedFlags: "all-transpiler-resolver-and-execution-flags" as const,
+  workerEnvKeys: {
+    bunId: "BUN_TEST_WORKER_ID",
+    jestCompatId: "JEST_WORKER_ID",
+  } as const,
+} as const;
 
 /**
  * Installation-related flags for `bun test` (@see installation-related-flags).
@@ -934,7 +995,7 @@ export function resetTestRuntimeWarningsForTests(): void {
 /** Warn once when test runtime inherited a non-test NODE_ENV from the parent shell. */
 export function warnIfNodeEnvNotTest(source: string): void {
   if (nodeEnvWarned) return;
-  const prior = process.env.NODE_ENV;
+  const prior = Bun.env.NODE_ENV;
   if (!prior || prior === "test") return;
   nodeEnvWarned = true;
   process.stderr.write(
@@ -1061,7 +1122,7 @@ export function buildTestRunnerEnv(
 ): Record<string, string> {
   warnIfNodeEnvNotTest(source);
   const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
+  for (const [key, value] of Object.entries(Bun.env)) {
     if (value !== undefined) env[key] = value;
   }
   for (const [key, value] of Object.entries(extra)) {

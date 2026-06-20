@@ -5,7 +5,6 @@
 import type { BenchmarkApiEnvelope } from "./effect-benchmark-card.ts";
 import {
   benchmarkErrorApiEnvelope,
-  getLastGoodBenchmarkAt,
   getLastGoodBenchmarkEnvelope,
   type EffectBenchmarkCardPayload,
 } from "./effect-benchmark-card.ts";

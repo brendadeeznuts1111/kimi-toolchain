@@ -1,11 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  parseCliFlags,
-  createMachineWriter,
-  CliContractError,
-  pipeStdoutFromFile,
-  writeStdoutLine,
-} from "../src/lib/cli-contract.ts";
+import { parseCliFlags, createMachineWriter, CliContractError } from "../src/lib/cli-contract.ts";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { REPO_ROOT, testTempDir } from "./helpers.ts";
 import { inspectAgent } from "../src/lib/inspect.ts";

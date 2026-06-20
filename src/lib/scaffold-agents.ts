@@ -33,9 +33,9 @@ One-line description of what this does.
 - Inline single-use variables and private methods
 - \`trash\` > \`rm\`
 - Read-only checks before mutation (\`--dry-run\`)
-- Use \`Bun.env\` not \`process.env\`
+- Use \`Bun.env\` not Node env
 - Use \`Bun.cwd\` not \`process.cwd()\`
-- Use \`Bun.argv\` not \`process.argv\`
+- Use \`Bun.argv\` not Node argv
 - Use \`Uint8Array\` not \`Buffer\`
 - Prefer shared tool/logging helpers from \`~/.kimi-code/AGENTS.md\` over raw subprocess and console patterns
 

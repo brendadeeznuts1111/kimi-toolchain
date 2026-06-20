@@ -6,7 +6,6 @@
  * Smoke tests keep real HOME; unit tests set Bun.env.HOME = Bun.env.KIMI_TEST_HOME.
  */
 import { mkdirSync } from "fs";
-import { join } from "path";
 import { artifactPath } from "../src/lib/artifacts.ts";
 import { installBuildConstantGlobals, warnIfNodeEnvNotTest } from "../src/lib/test-runtime.ts";
 import { REPO_ROOT } from "./helpers.ts";

@@ -1,5 +1,4 @@
 import {
-  appendText,
   listDir,
   makeDir,
   pathExists,

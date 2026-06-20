@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { join } from "path";
 import { checkKimiDocsAligned, isKimiToolchainProject } from "../src/lib/kimi-docs-aligned.ts";
 import { REPO_ROOT } from "./helpers.ts";
 

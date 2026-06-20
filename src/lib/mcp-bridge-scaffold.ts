@@ -170,7 +170,7 @@ const DASHBOARD_PATH = join(homedir(), ".kimi-code", "tools", "kimi-dashboard-mc
 
 const proc = Bun.spawn(["bun", "run", DASHBOARD_PATH], {
   stdio: ["inherit", "inherit", "inherit"],
-  env: process.env,
+  env: Bun.env,
 });
 
 await proc.exited;

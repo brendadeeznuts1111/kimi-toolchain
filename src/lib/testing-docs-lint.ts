@@ -201,7 +201,7 @@ export function listMarkdownHeadings(
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i] ?? "";
     const trimmed = raw.trim();
-    if (/^```/.test(trimmed)) {
+    if (trimmed.startsWith("```")) {
       inFence = !inFence;
       continue;
     }
@@ -231,7 +231,7 @@ export function listMarkdownHeadings(
 }
 
 export function auditMarkdownHeadings(rel: string, text: string): TestingDocIssue[] {
-  if (!/\.md$/.test(rel)) return [];
+  if (!rel.endsWith(".md")) return [];
   const issues: TestingDocIssue[] = [];
   for (const hit of listMarkdownHeadings(text)) {
     if (/^(#{1,6})([^ #\s].*)$/.test(hit.raw.trim())) {
@@ -298,7 +298,7 @@ export function inventoryBunTestMentions(
   rel: string,
   text: string
 ): Array<{ line: number; allowed: boolean; snippet: string }> {
-  if (!/\.md$/.test(rel)) return [];
+  if (!rel.endsWith(".md")) return [];
   const hits: Array<{ line: number; allowed: boolean; snippet: string }> = [];
   const lines = text.split("\n");
   for (let i = 0; i < lines.length; i++) {
@@ -332,7 +332,7 @@ export function listMarkdownFences(
 }
 
 export function auditMarkdownFenceLanguages(rel: string, text: string): TestingDocIssue[] {
-  if (!/\.md$/.test(rel)) return [];
+  if (!rel.endsWith(".md")) return [];
   const issues: TestingDocIssue[] = [];
   for (const fence of listMarkdownFences(text)) {
     const preferred = MARKDOWN_FENCE_PREFER[fence.lang];
