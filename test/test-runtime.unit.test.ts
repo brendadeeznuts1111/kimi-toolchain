@@ -16,7 +16,10 @@ import {
   BUN_TEST_INSTALL_FLAGS,
   BUN_TEST_MODULE_LOADING,
   BUN_TEST_MODULE_LOADING_VALUE_FLAGS,
+  BUN_TEST_PROMISE_REJECTIONS,
   BUN_TEST_WATCH,
+  isPromiseRejectionRunnerExit,
+  isRunnerPromiseRejectionOutput,
   bunTestDebugArgs,
   readBunfigTestPreloadPaths,
   bunTestArgsIncludeFlag,
@@ -261,10 +264,31 @@ test("fails", () => {
       expect(code).toBe(BUN_TEST_EXIT.failures);
     }, 15_000);
 
-    test("native bun test: non-zero exit on unhandled rejection", async () => {
-      const dir = testTempDir("bun-exit-unhandled-");
+  });
+
+  describe("Bun promise rejections", () => {
+    // https://bun.com/docs/test/runtime-behavior#promise-rejections
+    test("documents promise rejection runner contract", () => {
+      expect(BUN_TEST_PROMISE_REJECTIONS.failsDespitePassingTests).toBe(true);
+      expect(BUN_TEST_PROMISE_REJECTIONS.docPattern).toContain("Promise.reject");
+      expect(BUN_TEST_PROMISE_REJECTIONS.runnerBanner).toBe(
+        "Unhandled error between tests"
+      );
+    });
+
+    test("isRunnerPromiseRejectionOutput detects Bun runner banner", () => {
+      const sample = `# Unhandled error between tests
+error: Unhandled rejection`;
+      expect(isRunnerPromiseRejectionOutput(sample)).toBe(true);
+      expect(isRunnerPromiseRejectionOutput("all passed")).toBe(false);
+      expect(isPromiseRejectionRunnerExit(1)).toBe(true);
+      expect(isPromiseRejectionRunnerExit(0)).toBe(false);
+    });
+
+    test("native bun test: module-level Promise.reject fails despite passing test", async () => {
+      const dir = testTempDir("bun-promise-reject-");
       makeDir(dir, { recursive: true });
-      const testPath = join(dir, "exit-unhandled.probe.test.ts");
+      const testPath = join(dir, "promise-reject.probe.test.ts");
       writeText(
         testPath,
         `import { test, expect } from "bun:test";
@@ -274,13 +298,18 @@ test("passes", () => {
 Promise.reject(new Error("Unhandled rejection"));`
       );
       writeText(join(dir, "bunfig.toml"), "[test]\n");
-      const code = await Bun.spawn(["bun", "test", testPath], {
+      const proc = Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
         env: { ...process.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
-      }).exited;
-      expect(isBunTestFailureExit(code)).toBe(true);
+      });
+      const [code, err] = await Promise.all([
+        proc.exited,
+        new Response(proc.stderr).text(),
+      ]);
+      expect(isPromiseRejectionRunnerExit(code)).toBe(true);
+      expect(isRunnerPromiseRejectionOutput(err)).toBe(true);
     }, 15_000);
   });
 

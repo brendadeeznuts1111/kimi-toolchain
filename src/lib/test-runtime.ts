@@ -13,6 +13,8 @@
  * @see https://bun.com/docs/test/runtime-behavior#installation-related-flags
  * @see https://bun.com/docs/test/runtime-behavior#debugging
  * @see https://bun.com/docs/test/runtime-behavior#module-loading
+ * @see https://bun.com/docs/test/runtime-behavior#error-handling
+ * @see https://bun.com/docs/test/runtime-behavior#promise-rejections
  */
 
 import { existsSync } from "fs";
@@ -86,6 +88,29 @@ export function describeBunTestExitCode(code: number): string {
   if (code === BUN_TEST_EXIT.ok) return "all passed";
   if (code === BUN_TEST_EXIT.failures) return "failures or runner errors";
   return `unhandled errors (${code})`;
+}
+
+/**
+ * Promise rejections outside test callbacks (@see promise-rejections).
+ * Bun fails the run even when registered tests pass.
+ */
+export const BUN_TEST_PROMISE_REJECTIONS = {
+  docPattern: 'Promise.reject(new Error("Unhandled rejection"))',
+  runnerBanner: "Unhandled error between tests",
+  failsDespitePassingTests: true,
+} as const;
+
+/** Detect Bun runner output for module-level unhandled promise rejections. */
+export function isRunnerPromiseRejectionOutput(output: string): boolean {
+  return (
+    output.includes(BUN_TEST_PROMISE_REJECTIONS.runnerBanner) &&
+    /Unhandled rejection/i.test(output)
+  );
+}
+
+/** Non-zero exit when the runner reported promise-rejection errors. */
+export function isPromiseRejectionRunnerExit(code: number): boolean {
+  return isBunTestFailureExit(code);
 }
 
 /** Signals the Bun test runner handles (@see signal-handling). */
