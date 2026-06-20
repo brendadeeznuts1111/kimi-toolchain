@@ -393,6 +393,19 @@ async function runStepsParallel(
   return results;
 }
 
+function dryRunResultFromSteps(steps: PipelineStep[]): CheckRunResult {
+  return buildCheckResult(
+    steps.map((step) => ({
+      name: step.name,
+      exitCode: 0,
+      ms: 0,
+      stdout: "",
+      stderr: "",
+      skipped: true,
+    }))
+  );
+}
+
 export async function resolveChangedFilesForOptions(
   projectRoot: string,
   options: CheckOptions
@@ -455,6 +468,12 @@ export async function runCheckPipeline(
   }
 
   const steps = await buildSteps(projectRoot, options, changedFiles, baseRef);
+
+  if (options.dryRun) {
+    if (!options.jsonSummary) printCheckDryRun(options, steps, changedFiles, baseLabel);
+    return dryRunResultFromSteps(steps);
+  }
+
   const gateQuiet = (!options.verbose && shouldSilentOnSuccess()) || options.jsonSummary;
 
   const testStep = steps.find((step) => step.name === "test" || step.name === "test:fast");
@@ -523,6 +542,13 @@ export async function runTestOnlyPipeline(
 
   const steps = await buildSteps(projectRoot, testOptions, changedFiles, baseRef);
   const testStep = steps.find((step) => step.name === "test" || step.name === "test:fast");
+
+  if (testOptions.dryRun) {
+    const dryRunSteps = testStep ? [testStep] : [];
+    if (!testOptions.jsonSummary) printCheckDryRun(testOptions, dryRunSteps, changedFiles, baseLabel);
+    return dryRunResultFromSteps(dryRunSteps);
+  }
+
   if (!testStep) {
     return { passed: true, steps: {}, failures: [], totalDurationMs: 0 };
   }
@@ -584,7 +610,7 @@ export function printCheckDryRun(
     }
     const commands = stepCommands(step);
     if (commands.length <= 1) {
-      checkOut(`  → ${step.cmd.join(" ")}`);
+      checkOut(`  → ${step.name}: ${step.cmd.join(" ")}`);
       continue;
     }
     checkOut(`  → ${step.name} (${commands.length} chunks)`);

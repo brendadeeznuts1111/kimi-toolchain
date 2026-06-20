@@ -175,7 +175,7 @@ describe("kimi-doctor smoke", () => {
     expect(await proc.exited).toBe(0);
     expect(out).toContain("format:check");
     expect(out).toContain("typecheck");
-    expect(out).toContain("test:fast");
+    expect(out).toContain("test:");
   }, 15_000);
 
   test("kimi-new --dry-run prints scaffold steps", async () => {

@@ -105,11 +105,11 @@ function parseCli(): CheckOptions {
 async function runOnce(options: CheckOptions): Promise<number> {
   if (options.watchTests) {
     const result = await runTestOnlyPipeline(REPO_ROOT, options);
-    printCheckResult(result, options);
+    if (!options.dryRun || options.jsonSummary) printCheckResult(result, options);
     return result.passed ? 0 : 1;
   }
   const result = await runCheckPipeline(REPO_ROOT, options);
-  printCheckResult(result, options);
+  if (!options.dryRun || options.jsonSummary) printCheckResult(result, options);
   return result.passed ? 0 : 1;
 }
 
