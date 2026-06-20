@@ -4,7 +4,47 @@ import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { pathExists } from "../src/lib/bun-io.ts";
 import { extractArtifactTimestamp, startProbeServer } from "../src/lib/card-probe-server.ts";
+import { buildBenchmarkConvergenceBlock } from "../src/lib/benchmark-convergence.ts";
+import {
+  BENCHMARK_API_SCHEMA_VERSION,
+  type BenchmarkApiEnvelope,
+} from "../src/lib/effect-benchmark-card.ts";
 import { withTempDir } from "./helpers.ts";
+
+function mockBenchmarkEnvelope(): BenchmarkApiEnvelope {
+  const generatedAt = "2026-06-20T00:00:00.000Z";
+  return {
+    ok: true,
+    schemaVersion: BENCHMARK_API_SCHEMA_VERSION,
+    timestamp: generatedAt,
+    runner: "serve-probe",
+    thresholdSource: "test",
+    summary: {
+      total: 1,
+      passing: 1,
+      measured: 1,
+      skipped: 0,
+      partialSuccess: false,
+      regressions: 0,
+      timedOut: false,
+    },
+    sparklines: {},
+    gates: { effectBenchmarkGate: { status: "pass" } },
+    metadata: { convergence: buildBenchmarkConvergenceBlock("serve-probe") },
+    generatedAt,
+    allPass: true,
+    registrySize: 1,
+    measured: 1,
+    skipped: 0,
+    failures: [],
+    families: {},
+    metrics: [],
+    recentRuns: [],
+    thresholdLayers: [],
+    snapshot: { count: 0, regressions: 0, regressionKeys: [] },
+    philosophy: "test fixture",
+  };
+}
 
 describe("card-probe-server", () => {
   test("extractArtifactTimestamp parses filename stamps without stat", () => {
@@ -305,6 +345,7 @@ describe("card-probe-server", () => {
         port: 0,
         probeConfig: { timeoutMs: 100 },
         effectBenchmark: true,
+        effectBenchmarkEnvelope: mockBenchmarkEnvelope(),
       });
       try {
         const res = await fetch(`${handle.url}/api/effect-benchmark`);

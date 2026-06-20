@@ -40,8 +40,8 @@ export type TestGateAcquireResult =
 export function resolveTestGateLockPath(projectRoot: string): string {
   const normalized = resolve(projectRoot);
   const hash = createHash("sha256").update(normalized).digest("hex").slice(0, 16);
-  const home = Bun.env.HOME || normalized;
-  return join(home, ".kimi-code", "var", "locks", "test-gates", `${hash}-${LOCK_DIR_NAME}`);
+  const base = Bun.env.KIMI_TEST_LOCK_DIR ?? join(normalized, ".kimi-test-locks");
+  return join(base, `${hash}-${LOCK_DIR_NAME}`);
 }
 
 function lockPath(projectRoot: string): string {

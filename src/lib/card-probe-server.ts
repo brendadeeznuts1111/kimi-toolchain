@@ -79,6 +79,8 @@ export interface ProbeServerOptions {
   strict?: boolean;
   /** When true (kimi-doctor --perf-gates --serve-probe), expose BenchmarkApiEnvelope routes. */
   effectBenchmark?: boolean;
+  /** Test/embedding seam: pre-seed the expensive BenchmarkApiEnvelope cache. */
+  effectBenchmarkEnvelope?: BenchmarkApiEnvelope;
 }
 
 export interface ProbeServerHandle {
@@ -184,7 +186,7 @@ export async function startProbeServer(
   let lastArtifactPath: string | undefined;
   let refreshInFlight: Promise<CardStatus[]> | null = null;
   let refreshTimer: ReturnType<typeof setInterval> | null = null;
-  let benchmarkEnvelope: BenchmarkApiEnvelope | null = null;
+  let benchmarkEnvelope: BenchmarkApiEnvelope | null = options.effectBenchmarkEnvelope ?? null;
   let benchmarkFetchedAt: string | null = null;
   let benchmarkRefreshInFlight: Promise<BenchmarkApiEnvelope> | null = null;
 
@@ -473,7 +475,7 @@ export async function startProbeServer(
   });
 
   await refresh();
-  if (options.effectBenchmark) {
+  if (options.effectBenchmark && !benchmarkEnvelope) {
     await refreshEffectBenchmark(false);
   }
 

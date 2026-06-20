@@ -192,6 +192,7 @@ const ARTIFACT_PATH = argValue("--artifact-path");
 const AGENT_ID = argValue("--agent-id");
 const ADAPTER = argValue("--adapter");
 const PLUGIN = argValue("--plugin");
+const SUBCOMMAND = Bun.argv[2];
 
 function parseArtifactsLineageGate(): string | undefined {
   if (ARTIFACTS_LINEAGE) return ARTIFACTS_LINEAGE;
@@ -1479,6 +1480,16 @@ function emitGateDryRun(
 }
 
 async function main(): Promise<number> {
+  if (SUBCOMMAND === "check") {
+    const result = await spawnBun(["run", "scripts/check.ts", ...Bun.argv.slice(3)], {
+      cwd: await resolveProjectRoot(Bun.cwd),
+      timeoutMs: 120_000,
+    });
+    if (result.stdout) await writeStdout(result.stdout);
+    if (result.stderr) await Bun.stderr.write(result.stderr);
+    return result.exitCode;
+  }
+
   if (MEMORY_BUDGET) {
     printMemoryBudget(logger);
     return 0;
