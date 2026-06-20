@@ -195,6 +195,23 @@ export function formatFailureOutput(error: unknown, fallback?: unknown): string 
   return "";
 }
 
+/** True when a legacy hook stored the pre-P0 Object#toString placeholder. */
+export function isOpaqueFailureOutput(output: string): boolean {
+  return output.trim() === "[object Object]";
+}
+
+/** Prefer stored output; fall back to context.stack when output is opaque or empty. */
+export function reconstructFailureOutput(record: {
+  output?: string;
+  context?: { stack?: string; inputs?: Record<string, unknown> };
+}): string {
+  const output = (record.output ?? "").trim();
+  if (output && !isOpaqueFailureOutput(output)) return output;
+  const stack = record.context?.stack?.trim();
+  if (stack) return stack;
+  return output;
+}
+
 export function buildClassifiedFailure(
   toolName: string,
   output: string,
@@ -236,23 +253,41 @@ export function buildClassifiedFailure(
   return record;
 }
 
+/** Prefer human-readable shell / hook fields before generic serialization. */
+const ERROR_SHAPE_STRING_KEYS = ["message", "error", "stderr", "stdout", "reason"] as const;
+
+function failureJsonReplacer(_key: string, v: unknown): unknown {
+  if (typeof v === "bigint") return `${v}n`;
+  if (typeof v === "function") return `function ${v.name || "anonymous"}`;
+  if (typeof v === "symbol") return v.toString();
+  return v;
+}
+
 function formatFailureValue(value: unknown): string {
   if (value === undefined || value === null) return "";
   if (typeof value === "string") return value.trim();
-  if (value instanceof Error) return (value.stack || value.message).trim();
-  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
-    return String(value);
-  }
+  if (value instanceof Error) return (value.stack ?? value.message).trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "bigint") return `${value}n`;
+  if (typeof value === "symbol") return value.toString();
+  if (typeof value === "function") return `function ${value.name || "anonymous"}`;
+
   if (typeof value === "object") {
     const record = value as Record<string, unknown>;
-    for (const key of ["message", "error", "stderr", "stdout", "reason"]) {
-      if (typeof record[key] === "string" && record[key].trim()) return record[key].trim();
+    for (const key of ERROR_SHAPE_STRING_KEYS) {
+      const field = record[key];
+      if (typeof field === "string" && field.trim()) return field.trim();
+    }
+    for (const key of ["exitCode", "signal"] as const) {
+      const field = record[key];
+      if (typeof field === "number" || typeof field === "boolean") return `${key}=${String(field)}`;
     }
     try {
-      return JSON.stringify(value, null, 2);
+      return JSON.stringify(value, failureJsonReplacer, 2);
     } catch {
-      return Object.prototype.toString.call(value);
+      return Bun.inspect(value);
     }
   }
-  return String(value);
+
+  return Object.prototype.toString.call(value);
 }

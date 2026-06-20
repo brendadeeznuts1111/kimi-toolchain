@@ -5,6 +5,8 @@ import { join } from "path";
 import {
   classifyFailure,
   formatFailureOutput,
+  isOpaqueFailureOutput,
+  reconstructFailureOutput,
   getSuggestions,
   loadTaxonomy,
   taxonomyPath,
@@ -54,6 +56,29 @@ describe("error-taxonomy", () => {
     expect(match.category.id).toBe("unknown");
   });
 
+  test("classifyFailure matches newly added patterns", async () => {
+    const taxonomy = await loadTaxonomy();
+    expect(
+      classifyFailure("$ bun run scripts/check.ts --fast\nFAIL format:check", taxonomy).category.id
+    ).toBe("format_check_failure");
+    expect(
+      classifyFailure("$ bun run scripts/check.ts --fast\nFAIL lint", taxonomy).category.id
+    ).toBe("lint_failure");
+    expect(
+      classifyFailure("$ bun run scripts/check.ts --fast\nFAIL test:fast", taxonomy).category.id
+    ).toBe("test_failure");
+    expect(
+      classifyFailure("fatal: this operation must be run in a work tree", taxonomy).category.id
+    ).toBe("git_not_worktree");
+    expect(classifyFailure("Interrupted by user", taxonomy).category.id).toBe("user_interrupt");
+    expect(classifyFailure('{"code":"internal","message":"..."}', taxonomy).category.id).toBe(
+      "shell_internal_error"
+    );
+    expect(classifyFailure("Test naming violations:", taxonomy).category.id).toBe(
+      "test_naming_violation"
+    );
+  });
+
   test("unknownCategory has expected defaults", () => {
     const cat = unknownCategory();
     expect(cat.id).toBe("unknown");
@@ -68,6 +93,56 @@ describe("error-taxonomy", () => {
       '"code": "E_FAIL"'
     );
     expect(formatFailureOutput({ code: "E_FAIL" })).not.toBe("[object Object]");
+  });
+
+  test("formatFailureOutput never returns [object Object] for tricky values", () => {
+    const circular: Record<string, unknown> = { a: 1 };
+    circular.self = circular;
+    const circularOutput = formatFailureOutput(circular);
+    expect(circularOutput).not.toBe("[object Object]");
+    expect(circularOutput).toContain("a: 1");
+    expect(circularOutput).toContain("self: [Circular]");
+
+    const withBigInt = { id: 123n, name: "test" };
+    const bigIntOutput = formatFailureOutput(withBigInt);
+    expect(bigIntOutput).not.toBe("[object Object]");
+    expect(bigIntOutput).toContain("123");
+
+    const withSymbol = { tag: Symbol("err") };
+    expect(formatFailureOutput(withSymbol)).not.toBe("[object Object]");
+
+    const withFunction = { fn: function namedFn() {} };
+    expect(formatFailureOutput(withFunction)).not.toBe("[object Object]");
+
+    const withMap = { map: new Map([["k", "v"]]) };
+    expect(formatFailureOutput(withMap)).not.toBe("[object Object]");
+  });
+
+  test("formatFailureOutput handles Bun-spawn-like errors", () => {
+    expect(formatFailureOutput({ exitCode: 7, signal: null })).toBe("exitCode=7");
+    expect(formatFailureOutput({ stderr: "ENOENT: no such file", exitCode: 1 })).toBe(
+      "ENOENT: no such file"
+    );
+    expect(formatFailureOutput({ code: "ENOENT", path: "/tmp/missing" })).toContain("ENOENT");
+  });
+
+  test("reconstructFailureOutput prefers readable output over opaque placeholder", async () => {
+    const taxonomy = await loadTaxonomy();
+    expect(isOpaqueFailureOutput("[object Object]")).toBe(true);
+    expect(
+      reconstructFailureOutput({
+        output: "[object Object]",
+        context: { stack: "TypeError: boom" },
+      })
+    ).toBe("TypeError: boom");
+    const match = classifyFailure("[object Object]", taxonomy);
+    expect(match.category.id).toBe("opaque_hook_output");
+  });
+
+  test("classifyFailure matches expected_nonzero with prefixed bash output", async () => {
+    const taxonomy = await loadTaxonomy();
+    const output = '{"error":"x"}\nCommand failed with exit code: 1.';
+    expect(classifyFailure(output, taxonomy).category.id).toBe("expected_nonzero");
   });
 });
 

@@ -9,7 +9,7 @@ categories:
     severity: info
     expected: true
     patterns:
-      - regex: "Command failed with exit code:\\s*1$"
+      - regex: "Command failed with exit code:\\s*1\\b"
       - regex: "Process exited with code\\s+\\d+"
 
   - id: approval_rejected
@@ -19,6 +19,23 @@ categories:
     expected: true
     patterns:
       - regex: "was not run because the user rejected the approval request"
+
+  - id: user_interrupt
+    name: User interrupted
+    description: The user interrupted or cancelled the operation.
+    severity: info
+    expected: true
+    patterns:
+      - regex: "Interrupted by user"
+
+  - id: opaque_hook_output
+    name: Opaque hook failure output
+    description: PostToolUseFailure logged [object Object] before formatFailureValue hardening; original error text is not recoverable from the ledger row.
+    severity: info
+    expected: true
+    suggestion: "Historical row — ignore for clustering or delete after audit. New failures use formatFailureOutput."
+    patterns:
+      - regex: "^\\[object Object\\]$"
 
   - id: format_check_failure
     name: Format check failed
@@ -30,6 +47,8 @@ categories:
     patterns:
       - regex: "Format issues found in above"
       - regex: 'error: script "format:check" exited with code 1'
+      - regex: "FAIL format:check"
+      - regex: "gate failed: format:check"
 
   - id: constants_drift
     name: Define constants drift
@@ -58,6 +77,8 @@ categories:
     patterns:
       - regex: "Found\\s+\\d+\\s+warning.*error"
       - regex: 'error: script "lint" exited with code 1'
+      - regex: "FAIL lint"
+      - regex: "gate failed: lint"
 
   - id: typecheck_failure
     name: TypeScript type check failed
@@ -81,9 +102,24 @@ categories:
     patterns:
       - regex: "\\d+ fail"
       - regex: 'error: script "test" exited with code 1'
+      - regex: 'error: script "test:fast" exited with code 1'
       - regex: "test.*fail"
       - regex: "AssertionError"
       - regex: "expect.*received"
+      - regex: "FAIL test:fast"
+      - regex: "FAIL test\b"
+      - regex: "gate failed: test:fast"
+      - regex: "gate failed: test"
+
+  - id: test_naming_violation
+    name: Test naming violation
+    description: Lint gate found test files violating naming conventions.
+    severity: warn
+    expected: false
+    suggestion: "Fix test naming violations reported by lint:test-names."
+    autoFix: "bun run lint"
+    patterns:
+      - regex: "Test naming violations"
 
   - id: edit_stale
     name: Edit old_string stale
@@ -119,6 +155,15 @@ categories:
       - regex: "does not exist\\."
       - regex: "Directories are not supported"
 
+  - id: write_missing_parent_dir
+    name: Write missing parent directory
+    description: The Write tool was asked to create a file in a directory that does not exist.
+    severity: warn
+    expected: false
+    suggestion: "Create the parent directory before writing the file."
+    patterns:
+      - regex: "Parent directory does not exist"
+
   - id: command_not_found
     name: Command not found
     description: A shell command or executable was not found on PATH.
@@ -132,6 +177,34 @@ categories:
       - regex: "Cannot find module"
       - regex: "Module not found"
       - regex: "ENOENT"
+
+  - id: git_not_worktree
+    name: Git not in work tree
+    description: Git operation ran outside a git work tree (wrong cwd or detached state).
+    severity: error
+    expected: false
+    suggestion: "Ensure the command runs from inside the repo work tree."
+    patterns:
+      - regex: "must be run in a work tree"
+      - regex: "not a git repository"
+
+  - id: npm_not_found
+    name: NPM package not found
+    description: npm registry returned 404 for a package install.
+    severity: error
+    expected: false
+    suggestion: "Check the package name and registry availability."
+    patterns:
+      - regex: "npm error code E404"
+
+  - id: shell_internal_error
+    name: Unified shell internal error
+    description: The unified-shell bridge returned an internal error envelope.
+    severity: error
+    expected: false
+    suggestion: "Check the shell bridge payload and retry."
+    patterns:
+      - regex: '"code":"internal","message"'
 
   - id: permission_denied
     name: Permission denied
@@ -183,6 +256,36 @@ categories:
     patterns:
       - regex: "blocking"
 
+  - id: preflight_check_failed
+    name: Pre-flight check failed
+    description: A pre-push or pre-commit gate passed governance but failed the composite check.
+    severity: warn
+    expected: false
+    suggestion: "Run the failing gate directly to see details."
+    patterns:
+      - regex: "rscore FAILcheck"
+
+  - id: merge_conflict
+    name: Merge conflict
+    description: Git or GitHub operation blocked by unresolved merge conflicts.
+    severity: warn
+    expected: false
+    suggestion: "Resolve merge conflicts before retrying."
+    patterns:
+      - regex: "merge conflicts"
+      - regex: "would be overwritten by merge"
+
+  - id: runtime_sync_drift
+    name: Runtime sync drift
+    description: Repo sources changed but ~/.kimi-code/ copy or manifest hashes are stale.
+    severity: warn
+    expected: false
+    suggestion: "Run bun run sync && bun run sync:verify before handoff."
+    autoFix: "bun run sync"
+    patterns:
+      - regex: "Drifted desktop runtime files"
+      - regex: 'error: script "sync:verify" exited with code 1'
+
   - id: network_timeout
     name: Network timeout
     description: Network operation timed out.
@@ -190,10 +293,11 @@ categories:
     expected: false
     suggestion: "Operation timed out — check network or increase timeout."
     patterns:
-      - regex: "timeout"
+      - regex: "timed out"
       - regex: "ETIMEDOUT"
       - regex: "ECONNREFUSED"
       - regex: "ENOTFOUND"
+      - regex: "network.*timeout"
 
   - id: port_conflict
     name: Port already in use
@@ -290,6 +394,8 @@ categories:
       - regex: "Tool timed out after"
       - regex: "SIGTERM sent"
       - regex: "SIGKILL after"
+      - regex: "Command failed with exit code:\\s*-1\\b"
+      - regex: "Process exited with code -1"
 
   - id: mcp_config_missing
     name: MCP config missing
@@ -311,6 +417,16 @@ categories:
     suggestion: "Check the tool help or use a supported flag."
     patterns:
       - regex: "Unknown flag"
+
+  - id: cli_invalid_usage
+    name: CLI invalid usage
+    description: A CLI command was invoked with wrong arguments or subcommand.
+    severity: warn
+    expected: false
+    suggestion: "Check the tool help for correct usage."
+    patterns:
+      - regex: "usage: herdr"
+      - regex: "error:.*required.*argument"
 
   - id: perf_gate_timeout
     name: Effect benchmark run timed out
