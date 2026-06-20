@@ -634,6 +634,8 @@ export const BUN_TEST_FLAG_INTERACTIONS = {
     "--parallel inherits --define --loader --tsconfig-override --conditions --env-file",
   /** --parallel sets BUN_TEST_WORKER_ID (1-based) and JEST_WORKER_ID in each worker. */
   parallelWorkerEnv: "--parallel sets BUN_TEST_WORKER_ID and JEST_WORKER_ID in worker env",
+  /** Files partitioned for cache locality; idle workers steal from busiest queue. Output buffered per-file. */
+  parallelScheduling: "cache-locality partitioning work-stealing idle-workers atomic-per-file-output",
   /** --bail exits the entire run after N failures across all workers. */
   bailParallel: "--bail N with --parallel exits after N failures across workers",
   /** --concurrent runs tests concurrently within each worker file. */
