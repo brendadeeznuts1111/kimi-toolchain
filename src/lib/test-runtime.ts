@@ -16,6 +16,7 @@
  * @see https://bun.com/docs/test/runtime-behavior#error-handling
  * @see https://bun.com/docs/test/runtime-behavior#promise-rejections
  * @see https://bun.com/docs/test/runtime-behavior#unhandled-errors
+ * @see https://bun.com/docs/test/runtime-behavior#test-timeouts
  */
 
 import { existsSync } from "fs";
@@ -25,8 +26,10 @@ import { parseBunfigDefines } from "./build-constants-registry.ts";
 import {
   CI_TEST_TIMEOUT_MS,
   DEFAULT_TEST_TIMEOUT_MS,
+  FAST_TEST_TIMEOUT_MS,
   INTEGRATION_TEST_FILES,
   SMOKE_TEST_FILES,
+  SMOKE_TEST_TIMEOUT_MS,
   UNIT_TEST_FILES,
 } from "./test-gates.ts";
 
@@ -71,6 +74,35 @@ export const BUN_TEST_EXIT = {
   /** Assertion failures; Bun 1.4 also uses 1 for module-level unhandled errors. */
   failures: 1,
 } as const;
+
+/** Bun per-test default when not overridden (@see test-timeouts). */
+export const BUN_TEST_DEFAULT_TIMEOUT_MS = 5_000;
+
+/** Timeout contract — global `--timeout`, per-test 3rd arg, `0`/`Infinity` disables. */
+export const BUN_TEST_TIMEOUTS = {
+  bunDefaultMs: BUN_TEST_DEFAULT_TIMEOUT_MS,
+  globalFlag: "--timeout",
+  perTestParameterIndex: 2,
+  kimi: {
+    fast: FAST_TEST_TIMEOUT_MS,
+    default: DEFAULT_TEST_TIMEOUT_MS,
+    ci: CI_TEST_TIMEOUT_MS,
+    smoke: SMOKE_TEST_TIMEOUT_MS,
+  },
+} as const;
+
+export function readTimeoutMsFromBunTestArgs(args: readonly string[]): number | undefined {
+  const idx = args.indexOf(BUN_TEST_TIMEOUTS.globalFlag);
+  if (idx < 0) return undefined;
+  const raw = args[idx + 1];
+  if (!raw) return undefined;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+export function isDisabledTestTimeout(ms: number): boolean {
+  return ms === 0 || ms === Infinity;
+}
 
 /** Non-zero when tests failed or the runner reported errors. */
 export function isBunTestFailureExit(code: number): boolean {
@@ -373,7 +405,7 @@ export const TEST_TIER_SPECS: Record<TestTier, TestTierSpec> = {
     tier: "unit",
     label: "unit",
     files: UNIT_TEST_FILES,
-    timeoutMs: DEFAULT_TEST_TIMEOUT_MS,
+    timeoutMs: FAST_TEST_TIMEOUT_MS,
     parallel: 4,
     isolate: true,
   },
@@ -388,7 +420,7 @@ export const TEST_TIER_SPECS: Record<TestTier, TestTierSpec> = {
     tier: "smoke",
     label: "smoke",
     files: SMOKE_TEST_FILES,
-    timeoutMs: CI_TEST_TIMEOUT_MS,
+    timeoutMs: SMOKE_TEST_TIMEOUT_MS,
     isolate: true,
   },
 };

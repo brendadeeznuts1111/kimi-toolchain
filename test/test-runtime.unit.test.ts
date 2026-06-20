@@ -9,7 +9,11 @@ import {
   BUN_TEST_ISOLATION_AFTER_EACH_IMPORT,
   BUN_TEST_MEMORY,
   BUN_TEST_PERFORMANCE,
+  BUN_TEST_DEFAULT_TIMEOUT_MS,
   BUN_TEST_SIGNALS,
+  BUN_TEST_TIMEOUTS,
+  readTimeoutMsFromBunTestArgs,
+  isDisabledTestTimeout,
   BUN_TEST_DEBUG,
   BUN_TEST_DEBUG_FLAGS,
   BUN_TEST_INSTALL,
@@ -269,6 +273,69 @@ test("fails", () => {
       expect(code).toBe(BUN_TEST_EXIT.failures);
     }, 15_000);
 
+  });
+
+  describe("Bun test timeouts", () => {
+    // https://bun.com/docs/test/runtime-behavior#test-timeouts
+    test("documents Bun default and kimi tier timeouts", () => {
+      expect(BUN_TEST_DEFAULT_TIMEOUT_MS).toBe(5000);
+      expect(BUN_TEST_TIMEOUTS.bunDefaultMs).toBe(5000);
+      expect(BUN_TEST_TIMEOUTS.kimi.fast).toBe(1500);
+      expect(BUN_TEST_TIMEOUTS.kimi.default).toBe(30_000);
+      expect(BUN_TEST_TIMEOUTS.kimi.smoke).toBe(60_000);
+      expect(TEST_TIER_SPECS.unit.timeoutMs).toBe(BUN_TEST_TIMEOUTS.kimi.fast);
+      expect(TEST_TIER_SPECS.smoke.timeoutMs).toBe(BUN_TEST_TIMEOUTS.kimi.smoke);
+      expect(isDisabledTestTimeout(0)).toBe(true);
+      expect(isDisabledTestTimeout(Infinity)).toBe(true);
+      expect(isDisabledTestTimeout(1500)).toBe(false);
+    });
+
+    test("bunTestArgsForTier includes global --timeout flag", () => {
+      const args = bunTestArgsForTier(TEST_TIER_SPECS.unit);
+      expect(readTimeoutMsFromBunTestArgs(args)).toBe(1500);
+    });
+
+    test("native bun test: global --timeout fails slow tests", async () => {
+      const dir = testTempDir("bun-timeout-global-");
+      makeDir(dir, { recursive: true });
+      const testPath = join(dir, "timeout-global.probe.test.ts");
+      writeText(
+        testPath,
+        `import { test } from "bun:test";
+test("slow", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 400));
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", "--timeout", "200", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.failures);
+    }, 15_000);
+
+    test("native bun test: per-test timeout overrides global --timeout", async () => {
+      const dir = testTempDir("bun-timeout-per-test-");
+      makeDir(dir, { recursive: true });
+      const testPath = join(dir, "timeout-per-test.probe.test.ts");
+      writeText(
+        testPath,
+        `import { test } from "bun:test";
+test("slow with per-test timeout", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 400));
+}, 2000);`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", "--timeout", "200", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+    }, 15_000);
   });
 
   describe("Bun error handling", () => {
