@@ -2,7 +2,7 @@
   "name": "kimi-toolchain-dashboard",
   "version": "0.1.0",
   "private": true,
-  "description": "65-card Bun API showcase with canvas filters and examples hub",
+  "description": "67-card Bun API showcase with canvas filters and examples hub",
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/index.ts",

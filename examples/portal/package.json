@@ -13,6 +13,9 @@
     "status": "bun run ../../src/bin/kimi-doctor.ts --artifacts-list artifact-portal",
     "hooks:install": "bash ../../scripts/hooks-portal-install.sh"
   },
+  "dependencies": {
+    "kimi-toolchain": "file:../.."
+  },
   "kimi": {
     "showcase": {
       "id": "portal",
@@ -21,7 +24,8 @@
       "cards": [
         "card-effect-benchmark",
         "card-perf-harness",
-        "card-kimi-doctor"
+        "card-kimi-doctor",
+        "card-bun-test"
       ]
     }
   }

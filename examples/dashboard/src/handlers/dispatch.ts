@@ -35,6 +35,7 @@ import {
   apiEffectBenchmarkRefresh,
   apiEffectBenchmarkTrain,
 } from "./effect-benchmark.ts";
+import { apiConfigStatus } from "./config-status.ts";
 import { readBenchmarkHealthCheck } from "../../../../src/lib/effect-benchmark-card.ts";
 import { resolveRoot } from "./shared.ts";
 import { apiEffectImage } from "./effect-image.ts";
@@ -83,7 +84,7 @@ import { apiTraceVerify } from "./trace-verify.ts";
 import { apiTranspilerScan } from "./transpiler-scan.ts";
 import { apiTranspiler } from "./transpiler.ts";
 import { apiTty } from "./tty.ts";
-import { apiUrlNode } from "./url-node-url.ts";
+import { apiUrlNode } from "./url-node.ts";
 import { apiUrl } from "./url-urlsearchparams.ts";
 import { apiUtilTypes } from "./util-types.ts";
 import { apiVmContext } from "./vm-context.ts";
@@ -204,6 +205,11 @@ export async function dispatchDashboardRoute(req: Request): Promise<Response | n
         return new Response("Method Not Allowed", { status: 405 });
       }
       return apiEffectBenchmark();
+    case "/api/config-status":
+      if (req.method !== "GET") {
+        return new Response("Method Not Allowed", { status: 405 });
+      }
+      return apiConfigStatus();
     case "/api/global-store":
       return apiGlobalStore();
     case "/api/trace-verify":

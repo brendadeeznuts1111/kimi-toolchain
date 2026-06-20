@@ -80,6 +80,6 @@ const server = Bun.serve({
   },
 });
 
-startHttp2DemoServer();
+await startHttp2DemoServer();
 
 Bun.stdout.write(`Dashboard running at http://localhost:${server.port}\n`);

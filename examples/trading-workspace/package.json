@@ -12,6 +12,9 @@
     "trading:drift": "bun run src/bin/trading-doctor.ts --gate model-drift --save-artifact",
     "trading:graph": "bun run src/bin/trading-doctor.ts --gate model-drift --gate-graph"
   },
+  "dependencies": {
+    "kimi-toolchain": "file:../.."
+  },
   "kimi": {
     "showcase": {
       "id": "trading-workspace",
