@@ -133,6 +133,8 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run test:gates` | (synced from package.json) |
 | `bun run bun-install:status` | (synced from package.json) |
 
+| `bun run test:shard` | (synced from package.json) |
+| `bun run test:parallel` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                           |
