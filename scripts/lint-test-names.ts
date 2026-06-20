@@ -122,6 +122,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "http-header-limit": "src/lib/bun-utils.ts",
   "websocket-url-credentials": "src/lib/bun-utils.ts",
   "js-builtins-performance": "src/lib/bun-utils.ts",
+  "bun-s3": "src/lib/bun-utils.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */
