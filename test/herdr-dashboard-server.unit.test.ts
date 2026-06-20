@@ -6,6 +6,7 @@ import {
   DEFAULT_DASHBOARD_PORT,
   fetchDashboardRules,
   fetchDashboardCanvases,
+  resolveDashboardCompanionContext,
   runDashboardAgentAction,
   runDashboardIpcCommand,
 } from "../src/lib/herdr-dashboard-data.ts";
@@ -55,8 +56,8 @@ describe("herdr-dashboard-server", () => {
     expect(Array.isArray(payload.rules)).toBe(true);
   });
 
-  test("fetchDashboardCanvases returns all 11 cursorCanvas entries", () => {
-    const payload = fetchDashboardCanvases();
+  test("fetchDashboardCanvases returns all 11 cursorCanvas entries", async () => {
+    const payload = await fetchDashboardCanvases();
     expect(payload.ok).toBe(true);
     expect(payload.canvases.length).toBe(11);
 
@@ -72,8 +73,8 @@ describe("herdr-dashboard-server", () => {
     expect(ids).toContain("deep-quality");
   });
 
-  test("fetchDashboardCanvases sorts by readOrder ascending", () => {
-    const payload = fetchDashboardCanvases();
+  test("fetchDashboardCanvases sorts by readOrder ascending", async () => {
+    const payload = await fetchDashboardCanvases();
     const orders = payload.canvases.map((c) => c.readOrder ?? 99);
     for (let i = 1; i < orders.length; i++) {
       expect(orders[i]).toBeGreaterThanOrEqual(orders[i - 1]);
@@ -82,8 +83,8 @@ describe("herdr-dashboard-server", () => {
     expect(payload.canvases[0].id).toBe("unified");
   });
 
-  test("fetchDashboardCanvases entries have required metadata", () => {
-    const payload = fetchDashboardCanvases();
+  test("fetchDashboardCanvases entries have required metadata", async () => {
+    const payload = await fetchDashboardCanvases();
     for (const c of payload.canvases) {
       expect(c.id).toBeTruthy();
       expect(c.canvasId).toBeTruthy();
@@ -92,6 +93,62 @@ describe("herdr-dashboard-server", () => {
       expect(c.purpose).toBeTruthy();
     }
   });
+
+  test(
+    "GET /api/canvases passes runId into companion deep links",
+    async () => {
+      const dir = testTempDir("herdr-dashboard-api-canvases-");
+      const store = new ArtifactStore(dir);
+      await store.saveRunManifest({
+        schemaVersion: 1,
+        runId: "run_api_canvases",
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        gates: ["perf-gate"],
+        artifacts: {},
+        status: "pass",
+      });
+
+      const server = startHerdrDashboardServer({
+        projectPath: dir,
+        port: 0,
+        sessions: false,
+        herdrEvents: false,
+        gateHealthWatch: false,
+        metaWatch: false,
+      });
+      try {
+        const explicit = await server.fetch(
+          new Request(`${server.url}api/canvases?runId=run_api_explicit`)
+        );
+        expect(explicit.status).toBe(200);
+        const explicitBody = (await explicit.json()) as {
+          ok?: boolean;
+          activeRunId?: string;
+          canvases: Array<{ id: string; dashboardDeepLink?: string }>;
+        };
+        expect(explicitBody.ok).toBe(true);
+        expect(explicitBody.activeRunId).toBe("run_api_explicit");
+        const explicitLineage = explicitBody.canvases.find((c) => c.id === "artifact-lineage");
+        expect(explicitLineage?.dashboardDeepLink).toContain("runId=run_api_explicit");
+
+        const latest = await server.fetch(new Request(`${server.url}api/canvases`));
+        expect(latest.status).toBe(200);
+        const latestBody = (await latest.json()) as {
+          ok?: boolean;
+          activeRunId?: string;
+          canvases: Array<{ id: string; dashboardDeepLink?: string }>;
+        };
+        expect(latestBody.activeRunId).toBe("run_api_canvases");
+        const latestLineage = latestBody.canvases.find((c) => c.id === "artifact-lineage");
+        expect(latestLineage?.dashboardDeepLink).toContain("runId=run_api_canvases");
+      } finally {
+        server.stop();
+      }
+      cleanupPath(dir);
+    },
+    { timeout: SERVER_TEST_MS }
+  );
 
   test(
     "GET /api/canvas-filter returns highlight action for artifact-lineage deep link",
@@ -124,8 +181,8 @@ describe("herdr-dashboard-server", () => {
     { timeout: SERVER_TEST_MS }
   );
 
-  test("fetchDashboardCanvases code-references has optional metadata", () => {
-    const payload = fetchDashboardCanvases();
+  test("fetchDashboardCanvases code-references has optional metadata", async () => {
+    const payload = await fetchDashboardCanvases();
     const entry = payload.canvases.find((c) => c.id === "code-references");
     expect(entry).toBeTruthy();
     expect(entry!.version).toBe("0.1.0");
@@ -134,8 +191,8 @@ describe("herdr-dashboard-server", () => {
     expect(entry!.readOrder).toBe(4);
   });
 
-  test("fetchDashboardCanvases herdr-plugin-architecture has version 0.5.0", () => {
-    const payload = fetchDashboardCanvases();
+  test("fetchDashboardCanvases herdr-plugin-architecture has version 0.5.0", async () => {
+    const payload = await fetchDashboardCanvases();
     const entry = payload.canvases.find((c) => c.id === "herdr-plugin-architecture");
     expect(entry).toBeTruthy();
     expect(entry!.version).toBe("0.5.0");
@@ -143,20 +200,67 @@ describe("herdr-dashboard-server", () => {
     expect(entry!.readOrder).toBe(8);
   });
 
-  test("fetchDashboardCanvases exposes canvasInfluences as influences", () => {
-    const payload = fetchDashboardCanvases();
+  test("fetchDashboardCanvases exposes canvasInfluences as influences", async () => {
+    const payload = await fetchDashboardCanvases();
     const deepQuality = payload.canvases.find((c) => c.id === "deep-quality");
     expect(deepQuality?.influences).toContain("card-gates");
     const templates = payload.canvases.find((c) => c.id === "templates");
     expect(templates?.influences).toContain("card-scaffold");
   });
 
-  test("fetchDashboardCanvases exposes dashboardDeepLink for bridged manifests", () => {
-    const payload = fetchDashboardCanvases();
+  test("fetchDashboardCanvases exposes dashboardDeepLink for bridged manifests", async () => {
+    const payload = await fetchDashboardCanvases();
     const lineage = payload.canvases.find((c) => c.id === "artifact-lineage");
     expect(lineage?.dashboardDeepLink).toContain("canvas=artifact-lineage");
     const unified = payload.canvases.find((c) => c.id === "unified");
     expect(unified?.dashboardDeepLink).toBeUndefined();
+  });
+
+  test("fetchDashboardCanvases honors explicit companion runId in deep links", async () => {
+    const payload = await fetchDashboardCanvases({
+      companion: { runId: "run_explicit_companion" },
+    });
+    expect(payload.activeRunId).toBe("run_explicit_companion");
+    const lineage = payload.canvases.find((c) => c.id === "artifact-lineage");
+    expect(lineage?.dashboardDeepLink).toContain("runId=run_explicit_companion");
+  });
+
+  test("fetchDashboardCanvases resolves latest run manifest for project companion links", async () => {
+    const dir = testTempDir("herdr-dashboard-canvases-run-");
+    const store = new ArtifactStore(dir);
+    await store.saveRunManifest({
+      schemaVersion: 1,
+      runId: "run_companion_latest",
+      startedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+      gates: ["perf-gate"],
+      artifacts: {},
+      status: "pass",
+    });
+
+    const payload = await fetchDashboardCanvases({ projectPath: dir });
+    expect(payload.activeRunId).toBe("run_companion_latest");
+    const lineage = payload.canvases.find((c) => c.id === "artifact-lineage");
+    expect(lineage?.dashboardDeepLink).toContain("runId=run_companion_latest");
+    cleanupPath(dir);
+  });
+
+  test("resolveDashboardCompanionContext prefers explicit runId over latest manifest", async () => {
+    const dir = testTempDir("herdr-dashboard-companion-ctx-");
+    const store = new ArtifactStore(dir);
+    await store.saveRunManifest({
+      schemaVersion: 1,
+      runId: "run_manifest_latest",
+      startedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+      gates: ["perf-gate"],
+      artifacts: {},
+      status: "pass",
+    });
+
+    const ctx = await resolveDashboardCompanionContext(dir, { runId: "run_query_override" });
+    expect(ctx.runId).toBe("run_query_override");
+    cleanupPath(dir);
   });
 
   test("createDashboardConsoleMirror exposes webView handler", () => {
@@ -2161,9 +2265,12 @@ describe("herdr-dashboard-server", () => {
 
   test("herdr-dashboard.js builds run-aware canvas companion deep links", () => {
     const js = readText(join(REPO_ROOT, "templates/herdr-dashboard.js"));
+    expect(js).toContain("function canvasCompanionQueryParams");
     expect(js).toContain("function canvasExamplesDeepLink");
     expect(js).toContain("artifactsRunFilter");
+    expect(js).toContain("artifactsSessionFilter");
     expect(js).toContain('runId: artifactsRunFilter || ""');
+    expect(js).toContain("/api/canvases?");
     expect(js).toContain("canvasExamplesDeepLink(c.dashboardDeepLink, artifactsRunFilter)");
   });
 

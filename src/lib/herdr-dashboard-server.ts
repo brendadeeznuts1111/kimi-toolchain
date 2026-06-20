@@ -694,7 +694,13 @@ export function startHerdrDashboardServer(
       }
 
       if (path === "/api/canvases") {
-        return jsonResponse(fetchDashboardCanvases());
+        const { parseDashboardCompanionQuery } = await import("./herdr-dashboard-bridge.ts");
+        const companion = parseDashboardCompanionQuery(url.searchParams);
+        const payload = await fetchDashboardCanvases({
+          projectPath: options.projectPath,
+          companion,
+        });
+        return jsonResponse(payload);
       }
 
       if (path === "/api/canvas-filter" && request.method === "GET") {

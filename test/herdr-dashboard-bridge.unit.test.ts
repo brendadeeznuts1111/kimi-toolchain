@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildDashboardDeepLink,
+  parseDashboardCompanionQuery,
   parseHerdrCanvasUrl,
   renderHerdrCanvasCompanion,
 } from "../src/lib/herdr-dashboard-bridge.ts";
@@ -8,6 +9,17 @@ import {
 const BASE = "http://127.0.0.1:5678/";
 
 describe("herdr-dashboard-bridge", () => {
+  test("parseDashboardCompanionQuery extracts runId sessionId and gate", () => {
+    const params = new URLSearchParams(
+      "runId=run_abc&sessionId=sess_xyz&gate=model-drift&canvas=artifact-lineage"
+    );
+    expect(parseDashboardCompanionQuery(params)).toEqual({
+      runId: "run_abc",
+      sessionId: "sess_xyz",
+      gate: "model-drift",
+    });
+  });
+
   test("buildDashboardDeepLink with runId includes canvas and runId params", () => {
     const url = buildDashboardDeepLink(
       {

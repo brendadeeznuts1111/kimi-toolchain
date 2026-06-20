@@ -17,6 +17,26 @@ export interface HerdrCanvasContext {
   gate?: string;
 }
 
+/** Query params for run-aware examples dashboard companion links. */
+export interface DashboardCompanionQuery {
+  runId?: string;
+  sessionId?: string;
+  gate?: string;
+}
+
+export function parseDashboardCompanionQuery(
+  searchParams: URLSearchParams
+): DashboardCompanionQuery {
+  const runId = searchParams.get("runId")?.trim();
+  const sessionId = searchParams.get("sessionId")?.trim();
+  const gate = searchParams.get("gate")?.trim();
+  return {
+    ...(runId ? { runId } : {}),
+    ...(sessionId ? { sessionId } : {}),
+    ...(gate ? { gate } : {}),
+  };
+}
+
 /** Manifest ids that expose examples dashboard deep links from Herdr canvas rows. */
 export const BRIDGED_CANVAS_MANIFEST_IDS = [
   ARTIFACT_LINEAGE_MANIFEST_ID,

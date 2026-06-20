@@ -143,7 +143,7 @@ export const MODULE_REGISTRY: Record<string, ModuleRegistryEntry> = {
     symbol: "kimi.effect.email",
     thresholdMs: 0.5,
     workload: async () => {
-      const { auditEmailI18n } = await import("../../../../../src/lib/email-i18n.ts");
+      const { auditEmailI18n } = await import("../../../../src/lib/email-i18n.ts");
       auditEmailI18n();
     },
   },

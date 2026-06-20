@@ -13,7 +13,12 @@ import { getHandoffHistory, getHandoffLogPath, type HandoffLogEntry } from "./ha
 import { herdrCliRun } from "./herdr-project-cli.ts";
 import { scanUpgradeAdvisor, type UpgradeScanReport } from "./upgrade-advisor.ts";
 import { LOCAL_DOC_REFERENCES } from "./canonical-references.ts";
-import { buildDashboardDeepLink, isBridgedCanvasManifest } from "./herdr-dashboard-bridge.ts";
+import {
+  buildDashboardDeepLink,
+  isBridgedCanvasManifest,
+  type DashboardCompanionQuery,
+  type HerdrCanvasContext,
+} from "./herdr-dashboard-bridge.ts";
 import {
   clampDashboardLogTail,
   dashboardLogSinkPriority,
@@ -401,13 +406,69 @@ export interface DashboardCanvasEntry {
 export interface DashboardCanvasesPayload {
   ok: boolean;
   canvases: DashboardCanvasEntry[];
+  /** Run id baked into bridged companion links (explicit query or latest manifest). */
+  activeRunId?: string;
   fetchedAt: string;
 }
 
+export interface FetchDashboardCanvasesOptions {
+  projectPath?: string;
+  companion?: DashboardCompanionQuery;
+  baseUrl?: string;
+}
+
+/** Resolve run/session/gate context for examples dashboard companion deep links. */
+export async function resolveDashboardCompanionContext(
+  projectPath: string,
+  query: DashboardCompanionQuery = {}
+): Promise<Pick<HerdrCanvasContext, "runId" | "sessionId" | "gate">> {
+  const explicitRunId = query.runId?.trim();
+  const sessionId = query.sessionId?.trim();
+  const gate = query.gate?.trim();
+
+  if (explicitRunId) {
+    return {
+      runId: explicitRunId,
+      ...(sessionId ? { sessionId } : {}),
+      ...(gate ? { gate } : {}),
+    };
+  }
+
+  const store = new ArtifactStore(projectPath);
+  const filter: ArtifactListOptions = { limit: 1 };
+  if (sessionId) filter.sessionId = sessionId;
+  const manifests = await store.listRunManifests(filter);
+  const latestRunId = manifests[0]?.runId;
+
+  return {
+    ...(latestRunId ? { runId: latestRunId } : {}),
+    ...(sessionId ? { sessionId } : {}),
+    ...(gate ? { gate } : {}),
+  };
+}
+
 /** All manifest-backed cursorCanvas companions for the dashboard navigator. */
-export function fetchDashboardCanvases(): DashboardCanvasesPayload {
+export async function fetchDashboardCanvases(
+  options: FetchDashboardCanvasesOptions = {}
+): Promise<DashboardCanvasesPayload> {
   const canvases: DashboardCanvasEntry[] = [];
   const canvasPrefix = "docs/canvases/";
+
+  let companionCtx: Pick<HerdrCanvasContext, "runId" | "sessionId" | "gate"> = {};
+  if (options.projectPath) {
+    companionCtx = await resolveDashboardCompanionContext(
+      options.projectPath,
+      options.companion ?? {}
+    );
+  } else if (options.companion?.runId?.trim()) {
+    companionCtx = {
+      runId: options.companion.runId.trim(),
+      ...(options.companion.sessionId?.trim()
+        ? { sessionId: options.companion.sessionId.trim() }
+        : {}),
+      ...(options.companion.gate?.trim() ? { gate: options.companion.gate.trim() } : {}),
+    };
+  }
 
   for (const ref of LOCAL_DOC_REFERENCES) {
     if (!ref.cursorCanvas) continue;
@@ -426,7 +487,10 @@ export function fetchDashboardCanvases(): DashboardCanvasesPayload {
       influences: ref.canvasInfluences ? [...ref.canvasInfluences] : undefined,
     };
     if (isBridgedCanvasManifest(canvasId)) {
-      entry.dashboardDeepLink = buildDashboardDeepLink({ manifestId: canvasId });
+      entry.dashboardDeepLink = buildDashboardDeepLink(
+        { manifestId: canvasId, ...companionCtx },
+        { baseUrl: options.baseUrl }
+      );
     }
     canvases.push(entry);
   }
@@ -436,6 +500,7 @@ export function fetchDashboardCanvases(): DashboardCanvasesPayload {
   return {
     ok: true,
     canvases,
+    ...(companionCtx.runId ? { activeRunId: companionCtx.runId } : {}),
     fetchedAt: new Date().toISOString(),
   };
 }

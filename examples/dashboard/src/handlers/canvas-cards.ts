@@ -70,8 +70,8 @@ export async function collectAllCardProbes(request: Request): Promise<Record<str
   return merged;
 }
 
-export function apiCanvases(): Response {
-  return jsonResponse(fetchDashboardCanvases());
+export async function apiCanvases(): Promise<Response> {
+  return jsonResponse(await fetchDashboardCanvases({ projectPath: projectRoot() }));
 }
 
 export async function apiCanvasFilter(request: Request): Promise<Response> {

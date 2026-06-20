@@ -2343,7 +2343,15 @@ async function runScanFromPanel() {
 
 // ── Canvases tab ─────────────────────────────────────────────────────
 
-/** Append active Artifacts run filter to examples dashboard companion deep link. */
+/** Build /api/canvases query from active Artifacts identity filters. */
+function canvasCompanionQueryParams() {
+  const params = new URLSearchParams();
+  if (artifactsRunFilter) params.set("runId", artifactsRunFilter);
+  if (artifactsSessionFilter) params.set("sessionId", artifactsSessionFilter);
+  return params;
+}
+
+/** Append active Artifacts run filter when server link predates client filter (legacy fallback). */
 function canvasExamplesDeepLink(baseLink, runId) {
   if (!baseLink) return null;
   try {
@@ -2362,7 +2370,9 @@ async function refreshCanvases() {
   const errEl = document.getElementById("canvases-error");
   if (!body) return;
 
-  const res = await fetch("/api/canvases");
+  const companionQuery = canvasCompanionQueryParams();
+  const qs = companionQuery.toString();
+  const res = await fetch(qs ? `/api/canvases?${qs}` : "/api/canvases");
   const payload = await res.json();
   const json = JSON.stringify({ payload, runId: artifactsRunFilter || "" });
   if (json === lastCanvasesJson) return;
@@ -2431,8 +2441,11 @@ async function refreshCanvases() {
       Array.isArray(c.influences) && c.influences.length > 0
         ? c.influences.map((id) => `<code>${esc(id)}</code>`).join(" ")
         : "—";
-    const companionUrl = canvasExamplesDeepLink(c.dashboardDeepLink, artifactsRunFilter);
-    const examplesLabel = artifactsRunFilter ? "Examples (run)" : "Examples";
+    const activeRunId = payload.activeRunId || artifactsRunFilter || "";
+    const companionUrl = c.dashboardDeepLink
+      ? canvasExamplesDeepLink(c.dashboardDeepLink, artifactsRunFilter)
+      : null;
+    const examplesLabel = activeRunId ? "Examples (run)" : "Examples";
     const examplesLink = companionUrl
       ? `<a href="${esc(companionUrl)}" target="_blank" rel="noopener noreferrer" class="canvas-examples-link" title="${esc(
           companionUrl
@@ -3086,7 +3099,7 @@ function applyArtifactsIdentityFilters(identity = {}) {
   renderArtifactsFilterChips();
   pushArtifactsFilterToUrl();
   invalidateArtifactsCache();
-  if (identity.runId !== undefined) {
+  if (identity.runId !== undefined || identity.sessionId !== undefined) {
     lastCanvasesJson = "";
     void refreshCanvases();
   }

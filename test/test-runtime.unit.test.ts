@@ -943,7 +943,7 @@ test("visible probe", () => {
     test("readKimiBunfigTestContract matches repo bunfig.toml [test] contract", () => {
       const contract = readKimiBunfigTestContract(REPO_ROOT);
       expect(contract).toEqual(KIMI_BUNFIG_TEST_CONTRACT);
-      expect(readBunfigTestPreloadPaths(REPO_ROOT)).toEqual(KIMI_BUNFIG_TEST_CONTRACT.preload);
+      expect(readBunfigTestPreloadPaths(REPO_ROOT)).toEqual([...KIMI_BUNFIG_TEST_CONTRACT.preload]);
       expect(readBunfigTestRoot(REPO_ROOT)).toBeUndefined();
       expect(readBunfigTestTimeoutMs(REPO_ROOT)).toBeUndefined();
     });

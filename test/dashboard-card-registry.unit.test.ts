@@ -103,8 +103,8 @@ describe("dashboard-card-registry", () => {
     expect(unknown.cards.map((c) => c.id).sort()).toEqual(all.cards.map((c) => c.id).sort());
   });
 
-  test("fetchDashboardCanvases exposes influences", () => {
-    const payload = fetchDashboardCanvases();
+  test("fetchDashboardCanvases exposes influences", async () => {
+    const payload = await fetchDashboardCanvases();
     const templates = payload.canvases.find((c) => c.id === "templates");
     expect(templates?.influences).toContain("card-kimi-doctor");
     const lineage = payload.canvases.find((c) => c.id === "artifact-lineage");

@@ -250,7 +250,7 @@ export async function dispatchDashboardRoute(req: Request): Promise<Response | n
     case "/api/sleep":
       return apiSleep();
     case "/api/canvases":
-      return apiCanvases();
+      return await apiCanvases();
     case "/api/cards":
       return apiCards(req);
     case "/api/canvas-filter":
