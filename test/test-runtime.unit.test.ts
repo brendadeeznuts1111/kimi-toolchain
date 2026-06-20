@@ -10,9 +10,13 @@ import {
   BUN_TEST_MEMORY,
   BUN_TEST_PERFORMANCE,
   BUN_TEST_SIGNALS,
+  BUN_TEST_INSTALL,
+  BUN_TEST_INSTALL_FLAGS,
   BUN_TEST_WATCH,
   bunTestArgsIncludeFlag,
   bunTestWatchArgs,
+  isBunTestInstallFlag,
+  parseForwardedInstallFlags,
   isBunTestHotMode,
   isBunTestWatchMode,
   describeBunTestExitCode,
@@ -471,6 +475,51 @@ test("global cleaned", () => {
     test("documents single-process default", () => {
       expect(BUN_TEST_PERFORMANCE.singleProcessDefault).toBe(true);
     });
+  });
+
+  describe("Bun installation-related flags", () => {
+    // https://bun.com/docs/test/runtime-behavior#installation-related-flags
+    test("documents install flags forwarded to bun test", () => {
+      expect(BUN_TEST_INSTALL_FLAGS).toEqual(["--prefer-offline", "--frozen-lockfile"]);
+      expect(BUN_TEST_INSTALL.preferOfflineFlag).toBe("--prefer-offline");
+      expect(BUN_TEST_INSTALL.frozenLockfileFlag).toBe("--frozen-lockfile");
+      expect(isBunTestInstallFlag("--prefer-offline")).toBe(true);
+      expect(isBunTestInstallFlag("--smol")).toBe(false);
+    });
+
+    test("parseForwardedInstallFlags extracts install flags from argv", () => {
+      expect(
+        parseForwardedInstallFlags(["--push", "--", "--prefer-offline", "--smol"])
+      ).toEqual(["--prefer-offline"]);
+      expect(parseForwardedInstallFlags(["--frozen-lockfile"])).toEqual(["--frozen-lockfile"]);
+    });
+
+    test("mergeBunTestInvocationArgs forwards install flags to bun test", () => {
+      const dir = testTempDir("test-install-flags-");
+      makeDir(dir, { recursive: true });
+      const merged = mergeBunTestInvocationArgs(
+        ["test", "--isolate"],
+        dir,
+        ["--prefer-offline", "--frozen-lockfile"]
+      );
+      expect(bunTestArgsIncludeFlag(merged, "--prefer-offline")).toBe(true);
+      expect(bunTestArgsIncludeFlag(merged, "--frozen-lockfile")).toBe(true);
+    });
+
+    test("bunfig.toml enables frozenLockfile for install during tests", async () => {
+      const text = await Bun.file(join(REPO_ROOT, "bunfig.toml")).text();
+      expect(text).toMatch(/^\s*frozenLockfile\s*=\s*true/m);
+    });
+
+    test("bun CLI advertises --prefer-offline", async () => {
+      const proc = Bun.spawn(["bun", "--help"], { stdout: "pipe", stderr: "pipe" });
+      const [code, out] = await Promise.all([
+        proc.exited,
+        new Response(proc.stdout).text(),
+      ]);
+      expect(code).toBe(0);
+      expect(out).toContain("--prefer-offline");
+    }, 15_000);
   });
 
   describe("Bun CLI flags integration", () => {

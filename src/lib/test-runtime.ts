@@ -10,6 +10,7 @@
  * @see https://bun.com/docs/test/runtime-behavior#memory-management
  * @see https://bun.com/docs/test/runtime-behavior#test-isolation
  * @see https://bun.com/docs/test/runtime-behavior#watch-and-hot-reloading
+ * @see https://bun.com/docs/test/runtime-behavior#installation-related-flags
  */
 
 import { existsSync } from "fs";
@@ -197,13 +198,36 @@ export function isBunTestHotMode(args: readonly string[]): boolean {
   return bunTestArgsIncludeFlag(args, BUN_TEST_WATCH.hotFlag);
 }
 
+/**
+ * Installation-related flags for `bun test` (@see installation-related-flags).
+ * Affect network requests and auto-installs during test execution.
+ */
+export const BUN_TEST_INSTALL = {
+  preferOfflineFlag: "--prefer-offline",
+  frozenLockfileFlag: "--frozen-lockfile",
+  /** Repo bunfig.toml [install].frozenLockfile — merged with CLI flags at runtime. */
+  bunfigFrozenLockfileKey: "frozenLockfile",
+} as const;
+
+export const BUN_TEST_INSTALL_FLAGS = [
+  BUN_TEST_INSTALL.preferOfflineFlag,
+  BUN_TEST_INSTALL.frozenLockfileFlag,
+] as const;
+
+export function isBunTestInstallFlag(flag: string): flag is (typeof BUN_TEST_INSTALL_FLAGS)[number] {
+  return (BUN_TEST_INSTALL_FLAGS as readonly string[]).includes(flag);
+}
+
+export function parseForwardedInstallFlags(argv: readonly string[]): string[] {
+  return parseForwardedBunTestArgs(argv).filter(isBunTestInstallFlag);
+}
+
 /** Bun test CLI flags we forward from scripts (see Bun CLI flags integration doc). */
 export const FORWARDABLE_BUN_TEST_FLAGS = [
   "--smol",
   "--inspect",
   "--inspect-brk",
-  "--prefer-offline",
-  "--frozen-lockfile",
+  ...BUN_TEST_INSTALL_FLAGS,
 ] as const;
 
 /** Ordered tiers for `bun run test` — unit → integration → smoke. */
