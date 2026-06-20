@@ -21,6 +21,12 @@ dir = "~/.bun/install/cache"
 # Shared test defaults — see src/lib/test-gates.ts and package.json test scripts
 [test]
 preload = ["./test/setup.ts"]
+# Default per-test timeout (overridden by tier runners in test-runtime.ts)
+timeout = 15000
+# Retries handled by tier runners, not bunfig default
+retry = 0
+# Exclude temporary test fixture directories from discovery
+pathIgnorePatterns = [".tmp*/**", "test/.tmp*/**", "**/.tmp-*/**"]
 # *.db.test.ts excluded — DB tests mutate shared state and must run sequentially
 concurrentTestGlob = ["test/*.unit.test.ts"]
 coverageSkipTestFiles = true

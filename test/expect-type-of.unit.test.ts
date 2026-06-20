@@ -6,7 +6,7 @@
  *
  * @see https://bun.com/docs/test/writing-tests#type-testing
  */
-import { expect, expectTypeOf, test } from "bun:test";
+import { expectTypeOf, test } from "bun:test";
 
 test("expectTypeOf basic matchers run without error", () => {
   // These are no-ops at runtime when types match

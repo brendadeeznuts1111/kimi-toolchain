@@ -123,6 +123,7 @@ export const UNIT_TEST_FILES = [
   "test/herdr-dashboard-widget-processes.unit.test.ts",
   "test/herdr-dashboard-widget-logs.unit.test.ts",
   "test/hook-error-ledger.unit.test.ts",
+  "test/expect-type-of.unit.test.ts",
   "test/herdr-dashboard-widget-git.unit.test.ts",
   "test/herdr-dashboard-widget-processes-action.unit.test.ts",
   "test/herdr-dashboard-sessions.unit.test.ts",

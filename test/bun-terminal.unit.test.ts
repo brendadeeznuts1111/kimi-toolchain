@@ -99,60 +99,66 @@ async function probeTerminalCallbacks(): Promise<TerminalCallbackProbe> {
 const terminalProbe = await probeTerminalCallbacks();
 
 describe("bun-terminal", () => {
-  test(`runtime probe on Bun ${Bun.version}: supported=${terminalProbe.supported}`, () => {
-    if (!terminalProbe.supported) {
-      console.warn(
-        `[bun-terminal] PTY callback probe inactive: ${terminalProbe.reason ?? "unknown"}`
-      );
-    }
-    expect(typeof terminalProbe.supported).toBe("boolean");
+  describe("runtime probe", () => {
+    test(`Bun ${Bun.version}: supported=${terminalProbe.supported}`, () => {
+      if (!terminalProbe.supported) {
+        console.warn(
+          `[bun-terminal] PTY callback probe inactive: ${terminalProbe.reason ?? "unknown"}`
+        );
+      }
+      expect(typeof terminalProbe.supported).toBe("boolean");
+    });
   });
 
-  test.skipIf(!terminalProbe.supported)(
-    "Bun.Terminal data/exit callbacks fire when created inside AsyncLocalStorage.run()",
-    () => {
-      const { insideAls, outsideAls } = terminalProbe;
-      expect(insideAls.data).toBe(true);
-      expect(insideAls.exit).toBe(true);
-      expect(insideAls.output).toContain("als-pty");
-      expect(outsideAls.data).toBe(true);
-      expect(outsideAls.exit).toBe(true);
-      expect(outsideAls.output).toContain("direct-pty");
-    }
-  );
+  describe("AsyncLocalStorage callbacks", () => {
+    test.skipIf(!terminalProbe.supported)(
+      "data/exit callbacks fire when Terminal is created inside AsyncLocalStorage.run()",
+      () => {
+        const { insideAls, outsideAls } = terminalProbe;
+        expect(insideAls.data).toBe(true);
+        expect(insideAls.exit).toBe(true);
+        expect(insideAls.output).toContain("als-pty");
+        expect(outsideAls.data).toBe(true);
+        expect(outsideAls.exit).toBe(true);
+        expect(outsideAls.output).toContain("direct-pty");
+      }
+    );
 
-  test.skipIf(!terminalProbe.supported)(
-    "ALS terminal probe matches direct terminal callback coverage",
-    () => {
-      expect(terminalProbe.insideAls.data).toBe(terminalProbe.outsideAls.data);
-      expect(terminalProbe.insideAls.exit).toBe(terminalProbe.outsideAls.exit);
-    }
-  );
+    test.skipIf(!terminalProbe.supported)(
+      "ALS probe matches direct terminal callback coverage",
+      () => {
+        expect(terminalProbe.insideAls.data).toBe(terminalProbe.outsideAls.data);
+        expect(terminalProbe.insideAls.exit).toBe(terminalProbe.outsideAls.exit);
+      }
+    );
+  });
 
-  test("apiTerminal handler returns dashboard JSON envelope", async () => {
-    const res = await apiTerminal();
-    expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toContain("application/json");
+  describe("dashboard handler", () => {
+    test("apiTerminal returns JSON envelope", async () => {
+      const res = await apiTerminal();
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toContain("application/json");
 
-    const body = (await res.json()) as {
-      dimensions?: { cols: number; rows: number };
-      output?: string;
-      closed?: boolean;
-      flags?: Record<string, string>;
-      error?: string;
-      note?: string;
-    };
+      const body = (await res.json()) as {
+        dimensions?: { cols: number; rows: number };
+        output?: string;
+        closed?: boolean;
+        flags?: Record<string, string>;
+        error?: string;
+        note?: string;
+      };
 
-    if (body.output !== undefined) {
-      expect(body.dimensions).toEqual({ cols: 80, rows: 24 });
-      expect(body.output).toContain("hello from PTY");
-      expect(typeof body.closed).toBe("boolean");
-      expect(body.flags?.controlFlags).toMatch(/^0x[0-9A-F]+$/i);
+      if (body.output !== undefined) {
+        expect(body.dimensions).toEqual({ cols: 80, rows: 24 });
+        expect(body.output).toContain("hello from PTY");
+        expect(typeof body.closed).toBe("boolean");
+        expect(body.flags?.controlFlags).toMatch(/^0x[0-9A-F]+$/i);
+        expect(body.note).toContain("Bun.Terminal");
+        return;
+      }
+
+      expect(body.error).toBeDefined();
       expect(body.note).toContain("Bun.Terminal");
-      return;
-    }
-
-    expect(body.error).toBeDefined();
-    expect(body.note).toContain("Bun.Terminal");
+    });
   });
 });

@@ -77,53 +77,57 @@ function customHeaderNames(names: string[]): string[] {
 }
 
 describe("fetch-header-casing", () => {
-  test(`runtime probe on Bun ${Bun.version}: preserves=${fetchPreservesHeaderCasing}`, () => {
-    if (!fetchPreservesHeaderCasing) {
-      console.warn(
-        `[fetch-header-casing] casing preservation not active on Bun ${Bun.version}; upgrade to v1.3.7+ with JSC fetch fix`
-      );
-    }
-    expect(typeof fetchPreservesHeaderCasing).toBe("boolean");
+  describe("runtime probe", () => {
+    test(`Bun ${Bun.version}: preserves=${fetchPreservesHeaderCasing}`, () => {
+      if (!fetchPreservesHeaderCasing) {
+        console.warn(
+          `[fetch-header-casing] casing preservation not active on Bun ${Bun.version}; upgrade to v1.3.7+ with JSC fetch fix`
+        );
+      }
+      expect(typeof fetchPreservesHeaderCasing).toBe("boolean");
+    });
   });
 
-  test.skipIf(!fetchPreservesHeaderCasing)(
-    "fetch plain-object headers preserve caller casing",
-    async () => {
-      const echo = await startHeaderEchoServer();
-      try {
-        const names = await echo.capture({
-          headers: {
-            Authorization: "Bearer token123",
-            "Content-Type": "application/json",
-            "X-Custom-Header": "value",
-          },
-        });
-        const custom = customHeaderNames(names);
-        expect(custom).toEqual(["Authorization", "Content-Type", "X-Custom-Header"]);
-        expect(custom).not.toContain("authorization");
-        expect(custom).not.toContain("content-type");
-      } finally {
-        await echo.close();
+  describe("outgoing fetch headers", () => {
+    test.skipIf(!fetchPreservesHeaderCasing)(
+      "plain-object headers preserve caller casing",
+      async () => {
+        const echo = await startHeaderEchoServer();
+        try {
+          const names = await echo.capture({
+            headers: {
+              Authorization: "Bearer token123",
+              "Content-Type": "application/json",
+              "X-Custom-Header": "value",
+            },
+          });
+          const custom = customHeaderNames(names);
+          expect(custom).toEqual(["Authorization", "Content-Type", "X-Custom-Header"]);
+          expect(custom).not.toContain("authorization");
+          expect(custom).not.toContain("content-type");
+        } finally {
+          await echo.close();
+        }
       }
-    }
-  );
+    );
 
-  test.skipIf(!fetchPreservesHeaderCasing)(
-    "fetch Headers object preserves casing from headers.set()",
-    async () => {
-      const echo = await startHeaderEchoServer();
-      try {
-        const headers = new Headers();
-        headers.set("Content-Type", "text/plain");
-        headers.set("X-Request-Id", "req-abc123");
-        const names = await echo.capture({ headers });
-        const custom = customHeaderNames(names);
-        expect(custom).toContain("Content-Type");
-        expect(custom).toContain("X-Request-Id");
-        expect(custom).not.toContain("content-type");
-      } finally {
-        await echo.close();
+    test.skipIf(!fetchPreservesHeaderCasing)(
+      "Headers object preserves casing from headers.set()",
+      async () => {
+        const echo = await startHeaderEchoServer();
+        try {
+          const headers = new Headers();
+          headers.set("Content-Type", "text/plain");
+          headers.set("X-Request-Id", "req-abc123");
+          const names = await echo.capture({ headers });
+          const custom = customHeaderNames(names);
+          expect(custom).toContain("Content-Type");
+          expect(custom).toContain("X-Request-Id");
+          expect(custom).not.toContain("content-type");
+        } finally {
+          await echo.close();
+        }
       }
-    }
-  );
+    );
+  });
 });
