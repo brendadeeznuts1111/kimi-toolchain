@@ -321,6 +321,8 @@ export const FAST_TEST_CHUNK_SIZE = 10;
 
 /** Integration tests — included by full Bun discovery, not the fast unit gate. */
 export const INTEGRATION_TEST_FILES = [
+  "test/doctor-runs.db.test.ts",
+  "test/kimi-toolchain.router.test.ts",
   "test/cleanup-legacy.integration.test.ts",
   "test/config-status.integration.test.ts",
   "test/decision-scoring.integration.test.ts",

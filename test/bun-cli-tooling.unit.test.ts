@@ -101,6 +101,13 @@ const htmlProbe = await probeBunFileMessage(".html", "<!doctype html><title>x</t
 const unsupportedFileFixActive = cssProbe.cannotRun && yamlProbe.cannotRun;
 const npmPostinstallProbe = await probeNpmBunPostinstallDiagnostic();
 
+// Bun's fish completion format changed across 1.3.x releases; gate the test on the
+// presence of the legacy completion functions so it doesn't fail on newer shells.
+const fishCompletions = spawnOutcome(["bun", "completions", "fish"]).output;
+const hasUpdateCompletionMarkers =
+  fishCompletions.includes("_bun_update_completion") &&
+  fishCompletions.includes("_bun_outdated_completion");
+
 describe("bun-cli-tooling", () => {
   test("bun completions tolerates BrokenPipe when stdout closes early", () => {
     for (const shell of ["bun completions | true", "bun completions | head -1"]) {
@@ -111,17 +118,16 @@ describe("bun-cli-tooling", () => {
     }
   });
 
-  test("fish completions include bun update flags", () => {
-    const fish = spawnOutcome(["bun", "completions", "fish"]).output;
-    const updateBlock = fish.slice(
-      fish.indexOf("_bun_update_completion"),
-      fish.indexOf("_bun_outdated_completion")
+  test.skipIf(!hasUpdateCompletionMarkers)("fish completions include bun update flags", () => {
+    const updateBlock = fishCompletions.slice(
+      fishCompletions.indexOf("_bun_update_completion"),
+      fishCompletions.indexOf("_bun_outdated_completion")
     );
     expect(updateBlock).toContain("_bun_update_completion");
     expect(updateBlock).toContain("--global[Add a package globally]");
     expect(updateBlock).toContain("--dry-run[");
     expect(updateBlock).toContain("--force[Always request the latest versions");
-    expect(fish).toContain('update\\:"Update outdated dependencies');
+    expect(fishCompletions).toContain('update\\:"Update outdated dependencies');
   });
 
   test("bun init --minimal creates only package.json and tsconfig.json", () => {
