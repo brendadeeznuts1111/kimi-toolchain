@@ -15,6 +15,7 @@
 
 import { resolve } from "path";
 import { pathExists } from "../src/lib/bun-io.ts";
+import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
 import {
   formatUpgradeReportHuman,
   scanUpgradeAdvisor,
@@ -93,7 +94,7 @@ if (import.meta.main) {
   const report = await scanUpgradeAdvisor(projectRoot, { rules });
 
   if (jsonMode) {
-    console.log(JSON.stringify(report, null, 2));
+    writeStdoutJsonSync(report, 2);
   } else if (brief) {
     if (report.summary.total === 0) {
       console.log("scan: ok (0 findings)");

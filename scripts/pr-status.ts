@@ -11,6 +11,7 @@
 
 import { $ } from "bun";
 import { join } from "path";
+import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import {
   parseGhStatusCheckRollup,
@@ -158,7 +159,7 @@ async function main(): Promise<number> {
   };
 
   if (json) {
-    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+    writeStdoutJsonSync(payload, 2);
   } else {
     printHuman(pr, checks, localCiPassing);
   }

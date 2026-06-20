@@ -12,7 +12,7 @@
  * appends on local filesystems.
  */
 
-import { appendText } from "./bun-io.ts";
+import { appendNdjsonRecord } from "./ndjson.ts";
 import { varDir } from "./paths.ts";
 import { join } from "path";
 
@@ -127,8 +127,7 @@ export function isHealthEvent(value: unknown): value is HealthEvent {
  */
 export async function publish(event: HealthEvent): Promise<void> {
   try {
-    const line = JSON.stringify({ ...event, bunRevision: Bun.revision }) + "\n";
-    appendText(filePath(), line);
+    await appendNdjsonRecord(filePath(), { ...event, bunRevision: Bun.revision });
   } catch {
     // Degrade gracefully — health channel is advisory, not critical
   }

@@ -13,6 +13,7 @@
  *   KIMI_PROJECT_ROOT        Project root (defaults to git top-level or cwd)
  */
 
+import { writeStdoutNdjsonLineSync } from "../lib/ndjson.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
 import { readHealthSnapshots } from "../lib/predictive-doctor.ts";
 import { readEffectGatesSnapshots } from "../lib/effect-gates.ts";
@@ -173,16 +174,14 @@ async function main(): Promise<void> {
         const request = JSON.parse(line) as JsonRpcRequest;
         const result = await handleRequest(request);
         if (request.id !== undefined) {
-          console.log(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }));
+          writeStdoutNdjsonLineSync({ jsonrpc: "2.0", id: request.id, result });
         }
       } catch (e) {
-        console.log(
-          JSON.stringify({
-            jsonrpc: "2.0",
-            id: null,
-            error: { code: -32603, message: e instanceof Error ? e.message : String(e) },
-          })
-        );
+        writeStdoutNdjsonLineSync({
+          jsonrpc: "2.0",
+          id: null,
+          error: { code: -32603, message: e instanceof Error ? e.message : String(e) },
+        });
       }
     }
   }

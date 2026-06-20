@@ -3,8 +3,8 @@
  * Read-only v1 — records dedupe state and correlation payload; no webhooks.
  */
 
-import { appendText, makeDir, pathExists, readText } from "./bun-io.ts";
-import { dirname } from "path";
+import { pathExists, readText } from "./bun-io.ts";
+import { appendNdjsonRecordSync } from "./ndjson.ts";
 import { loadTaxonomy } from "./error-taxonomy.ts";
 import {
   alertBucketKey,
@@ -63,16 +63,14 @@ export function appendDedupeLedgerRow(
   row: DedupeLedgerRow,
   path: string = herdrAlertDedupeLedgerPath()
 ): void {
-  makeDir(dirname(path), { recursive: true });
-  appendText(path, `${JSON.stringify(row)}\n`);
+  appendNdjsonRecordSync(path, row);
 }
 
 export function appendTaxonomyHitRow(
   hit: TaxonomyHit,
   path: string = herdrTaxonomyHitsLedgerPath()
 ): void {
-  makeDir(dirname(path), { recursive: true });
-  appendText(path, `${JSON.stringify(hit)}\n`);
+  appendNdjsonRecordSync(path, hit);
 }
 
 export function loadRecentTaxonomyHits(

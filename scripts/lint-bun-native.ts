@@ -5,6 +5,7 @@
 
 import { join } from "path";
 import { pathExists, readTextAsync, writeTextAsync } from "../src/lib/bun-io.ts";
+import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
 import {
   buildBaselineFromViolations,
   defaultConfig,
@@ -98,7 +99,7 @@ async function main(): Promise<number> {
   if (opts.listRules) {
     const catalog = formatRuleCatalog(violations, config);
     if (opts.json) {
-      console.log(JSON.stringify({ schemaVersion: 1, rules: catalog }, null, 2));
+      writeStdoutJsonSync({ schemaVersion: 1, rules: catalog }, 2);
       return 0;
     }
     console.log("Rule catalog:\n");

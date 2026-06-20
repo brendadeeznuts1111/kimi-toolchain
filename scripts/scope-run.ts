@@ -8,6 +8,7 @@
  */
 
 import { isAbsolute, join, normalize, resolve } from "path";
+import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
 import { ensureDir } from "../src/lib/utils.ts";
 import {
   formatScopePreflightReport,
@@ -77,7 +78,7 @@ async function main(): Promise<number> {
   }
 
   if (json) {
-    console.log(JSON.stringify(report));
+    writeStdoutJsonSync(report, null);
   } else {
     console.log(formatScopePreflightReport(report));
   }

@@ -5,8 +5,7 @@
  * Replaces reliance on raw stderr in examples-dashboard.log for request telemetry.
  */
 
-import { dirname } from "path";
-import { appendText, makeDir } from "./bun-io.ts";
+import { appendNdjsonRecordSync } from "./ndjson.ts";
 import { examplesDashboardEventsPath } from "./paths.ts";
 
 export const DASHBOARD_HTTP_LOG_SCHEMA_VERSION = 1 as const;
@@ -69,9 +68,7 @@ export function buildDashboardLogEntry(
 /** Append one structured HTTP event line (best-effort; never throws). */
 export function logDashboardEvent(entry: DashboardLogEntry): void {
   try {
-    const path = resolveLogPath();
-    makeDir(dirname(path), { recursive: true });
-    appendText(path, `${JSON.stringify(entry)}\n`);
+    appendNdjsonRecordSync(resolveLogPath(), entry);
   } catch {
     // audit must not break the request path
   }

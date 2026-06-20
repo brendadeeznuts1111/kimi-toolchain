@@ -4,10 +4,14 @@ import { tmpdir } from "os";
 import { join } from "path";
 import {
   appendNdjsonRecord,
+  appendNdjsonRecordSync,
+  formatNdjsonLine,
   readNdjsonFile,
   streamNdjsonRecords,
   writeNdjsonFile,
+  writeStdoutNdjsonLineSync,
 } from "../src/lib/ndjson.ts";
+import { captureStdout } from "./helpers.ts";
 
 function tempDir(): string {
   const dir = join(tmpdir(), `kimi-ndjson-${Bun.randomUUIDv7()}`);
@@ -70,6 +74,33 @@ describe("ndjson", () => {
         ids.push(value.id);
       }
       expect(ids).toEqual([1, 2]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("formatNdjsonLine serializes one trailing newline", () => {
+    expect(formatNdjsonLine({ a: 1 })).toBe('{"a":1}\n');
+  });
+
+  test("writeStdoutNdjsonLineSync writes raw NDJSON to stdout", () => {
+    const capture = captureStdout();
+    try {
+      writeStdoutNdjsonLineSync({ ok: true });
+      expect(capture.lines.join("")).toBe('{"ok":true}\n');
+    } finally {
+      capture.restore();
+    }
+  });
+
+  test("appendNdjsonRecordSync appends without truncating", async () => {
+    const dir = tempDir();
+    try {
+      const path = join(dir, "ledger.jsonl");
+      appendNdjsonRecordSync(path, { a: 1 });
+      appendNdjsonRecordSync(path, { b: 2 });
+      const text = await Bun.file(path).text();
+      expect(text).toBe('{"a":1}\n{"b":2}\n');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

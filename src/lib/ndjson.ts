@@ -8,11 +8,32 @@
  * - `appendNdjsonRecord` — `Bun.write(..., { create: true, append: true })` when supported
  */
 
-import { appendText, makeDir, removeFile } from "./bun-io.ts";
+import { appendText, makeDir, pathExistsAsync, removeFile } from "./bun-io.ts";
 import { dirname, join } from "path";
 import { tmpdir } from "os";
-import { pathExistsAsync } from "./bun-io.ts";
 import { safeParse } from "./utils.ts";
+
+/** Serialize one JSONL/NDJSON record (includes trailing newline). */
+export function formatNdjsonLine(record: unknown): string {
+  return `${JSON.stringify(record)}\n`;
+}
+
+/** Write one NDJSON line to stdout without `console.log` formatting. */
+export function writeStdoutNdjsonLineSync(record: unknown): void {
+  process.stdout.write(formatNdjsonLine(record));
+}
+
+/** Write pretty-printed JSON to stdout (multi-line document + trailing newline). */
+export function writeStdoutJsonSync(value: unknown, indent: number | null = 2): void {
+  const body = indent == null ? JSON.stringify(value) : JSON.stringify(value, null, indent);
+  process.stdout.write(`${body}\n`);
+}
+
+/** Sync append for hot paths — uses appendText after mkdir. */
+export function appendNdjsonRecordSync(path: string, record: unknown): void {
+  makeDir(dirname(path), { recursive: true });
+  appendText(path, formatNdjsonLine(record));
+}
 
 /** Parse newline-delimited JSON text into validated records. */
 export function parseNdjsonText<T>(text: string, validator?: (value: unknown) => value is T): T[] {
@@ -118,7 +139,7 @@ export async function* streamNdjsonRecords<T = unknown>(
  */
 export async function appendNdjsonRecord(path: string, record: unknown): Promise<void> {
   makeDir(dirname(path), { recursive: true });
-  const line = `${JSON.stringify(record)}\n`;
+  const line = formatNdjsonLine(record);
   if ((await resolveAppendMode()) === "bun-write") {
     await bunWrite(path, line, WRITE_APPEND);
     return;

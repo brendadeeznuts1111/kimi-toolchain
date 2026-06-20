@@ -3,9 +3,8 @@
  * Separate from decision-ledger.jsonl (kimi-why) and sessions.db (kimi-memory trends).
  */
 
-import { appendText, makeDir, pathExists } from "./bun-io.ts";
-
-import { dirname } from "path";
+import { pathExists } from "./bun-io.ts";
+import { appendNdjsonRecordSync } from "./ndjson.ts";
 import { institutionalMemoryPath } from "./paths.ts";
 import { ensureProcessTrace } from "./effect/trace-context.ts";
 import { safeParse, sha256String } from "./utils.ts";
@@ -113,8 +112,7 @@ export function appendMemoryRecord(
   path: string = institutionalMemoryPath()
 ): InstitutionalMemoryRecord {
   const record = buildMemoryRecord(input);
-  makeDir(dirname(path), { recursive: true });
-  appendText(path, `${JSON.stringify(record)}\n`);
+  appendNdjsonRecordSync(path, record);
   return record;
 }
 

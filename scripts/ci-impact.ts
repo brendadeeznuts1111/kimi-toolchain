@@ -7,6 +7,7 @@
  */
 
 import { join } from "path";
+import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
 import {
   analyzeImpact,
   buildModuleGraph,
@@ -76,7 +77,7 @@ async function main() {
   await writeGithubOutputs(result);
 
   if (options.json) {
-    console.log(JSON.stringify(result, null, 2));
+    writeStdoutJsonSync(result, 2);
     return;
   }
 

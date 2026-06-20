@@ -15,6 +15,7 @@
  */
 
 import { join } from "path";
+import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
 import { pathExists, removePath } from "../src/lib/bun-io.ts";
 import { emitGateFailure, runGate, type GateResult } from "../src/lib/gate-runner.ts";
 
@@ -143,7 +144,7 @@ async function main(): Promise<number> {
       steps: steps.map((step) => ({ job: step.job, name: step.name, cmd: step.cmd.join(" ") })),
     };
     if (json) {
-      process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+      writeStdoutJsonSync(payload, 2);
     } else {
       console.log(`ci:local (${job}) — dry run`);
       for (const step of steps) {

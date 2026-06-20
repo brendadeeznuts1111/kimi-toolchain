@@ -5,6 +5,7 @@
  */
 
 import { pathExists, pathLstat } from "../lib/bun-io.ts";
+import { writeStdoutNdjsonLineSync } from "../lib/ndjson.ts";
 import { MCP_BRIDGE_VERSION } from "../lib/version.ts";
 import { childTraceEnv, ensureProcessTrace, TRACE_ID_ENV } from "../lib/effect/trace-context.ts";
 import { buildTraceEvent, recordTraceEvent } from "../lib/trace-ledger.ts";
@@ -139,7 +140,7 @@ const TOOLS = [
 ];
 
 function send(msg: unknown) {
-  process.stdout.write(JSON.stringify(msg) + "\n");
+  writeStdoutNdjsonLineSync(msg);
 }
 
 async function handleRequest(req: any) {

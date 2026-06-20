@@ -9,7 +9,7 @@ import {
   writeBytes,
   writeText,
 } from "./bun-io.ts";
-import { parseNdjsonText } from "./ndjson.ts";
+import { appendNdjsonRecordSync, parseNdjsonText } from "./ndjson.ts";
 
 import { gzipBytes, gunzipText } from "./bun-utils.ts";
 import { homeDir } from "./paths.ts";
@@ -135,7 +135,7 @@ export function logHandoff(entry: Omit<HandoffLogEntry, "timestamp" | "seq" | "c
     });
     line.checksum = sha256(body);
 
-    appendText(logPath, `${JSON.stringify(line)}\n`);
+    appendNdjsonRecordSync(logPath, line);
   } catch {
     // Silent failure — logging is best-effort
   }

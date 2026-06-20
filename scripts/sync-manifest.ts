@@ -9,12 +9,13 @@
  */
 
 import { join } from "path";
+import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
 import { writeSyncManifest, verifySyncManifest } from "../src/lib/sync-manifest.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
 function emitJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+  writeStdoutJsonSync(value, 2);
 }
 
 async function main(): Promise<number> {

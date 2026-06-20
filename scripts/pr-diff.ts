@@ -13,6 +13,7 @@
 
 import { $ } from "bun";
 import { join } from "path";
+import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
@@ -206,7 +207,7 @@ async function main(): Promise<number> {
   const report = await buildReport(baseRef);
 
   if (json) {
-    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    writeStdoutJsonSync(report, 2);
     return 0;
   }
 
