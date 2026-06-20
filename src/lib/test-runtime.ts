@@ -337,6 +337,8 @@ export const BUN_TEST_DISCOVERY = {
   exclusions: ["node_modules", "hidden-directories", "non-js-like-extensions"] as const,
   testNamePatternFlag: "--test-name-pattern",
   testNamePatternShortFlag: "-t",
+  /** Include tests marked with test.todo() in the run. */
+  todoFlag: "--todo",
   bunfigRootKey: "root",
   executionOrder: ["files-sequential", "within-file-sequential"] as const,
 } as const;
@@ -356,6 +358,7 @@ export const BUN_TEST_DISCOVERY_STRATEGY = {
   substringFilter: "positional-args-after-test-command",
   exactPath: "leading-./-or-/-disambiguates-filter",
   testNamePattern: "forward-via-script-argv",
+  todo: "forward-via-script-argv--todo",
   bunfigRoot: "optional-bunfig-[test].root",
 } as const;
 
