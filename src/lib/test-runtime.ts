@@ -4,6 +4,9 @@
  * @see https://bun.com/docs/test/runtime-behavior#cli-flags-integration
  * @see https://bun.com/docs/test/runtime-behavior#global-variables
  * @see https://bun.com/docs/test/runtime-behavior#process-integration
+ * @see https://bun.com/docs/test/runtime-behavior#signal-handling
+ * @see https://bun.com/docs/test/runtime-behavior#environment-detection
+ * @see https://bun.com/docs/test/runtime-behavior#performance-considerations
  */
 
 import { existsSync } from "fs";
@@ -77,6 +80,50 @@ export function describeBunTestExitCode(code: number): string {
   if (code === BUN_TEST_EXIT.ok) return "all passed";
   if (code === BUN_TEST_EXIT.failures) return "failures or runner errors";
   return `unhandled errors (${code})`;
+}
+
+/** Signals the Bun test runner handles (@see signal-handling). */
+export const BUN_TEST_SIGNALS = {
+  gracefulStop: "SIGTERM",
+  immediateStop: "SIGKILL",
+} as const;
+
+/** Env vars Bun reads for CI / GitHub Actions (@see environment-detection). */
+export const BUN_TEST_DETECTION_ENV_KEYS = ["CI", "GITHUB_ACTIONS"] as const;
+
+export function isBunCiDetectionEnv(env: Record<string, string | undefined>): boolean {
+  const ci = env.CI;
+  const gha = env.GITHUB_ACTIONS;
+  return ci === "true" || ci === "1" || gha === "true" || gha === "1";
+}
+
+/** JUnit / annotation-friendly reporter when CI env is detected. */
+export function shouldEmitCiTestReporter(env: Record<string, string | undefined>): boolean {
+  return isBunCiDetectionEnv(env);
+}
+
+export function preservesBunDetectionEnv(
+  built: Record<string, string>,
+  parent: Record<string, string | undefined> = process.env
+): boolean {
+  for (const key of BUN_TEST_DETECTION_ENV_KEYS) {
+    const parentVal = parent[key];
+    if (parentVal === undefined) continue;
+    if (built[key] !== parentVal) return false;
+  }
+  return true;
+}
+
+/** kimi posture vs Bun single-process defaults (@see performance-considerations). */
+export const BUN_TEST_PERFORMANCE = {
+  lowMemoryFlag: "--smol",
+  isolationFlag: "--isolate",
+  /** Bun default; kimi splits unit → integration → smoke via {@link TEST_TIER_ORDER}. */
+  singleProcessDefault: true,
+} as const;
+
+export function tierUsesFileIsolation(spec: TestTierSpec): boolean {
+  return spec.isolate;
 }
 
 /** Bun test CLI flags we forward from scripts (see Bun CLI flags integration doc). */

@@ -1,15 +1,22 @@
 import { describe, expect, test } from "bun:test";
 import {
+  BUN_TEST_DETECTION_ENV_KEYS,
   BUN_TEST_EXIT,
   BUN_TEST_EXPLICIT_IMPORT,
   BUN_TEST_GLOBAL_NAMES,
   BUN_TEST_IMPORT_NAMES,
+  BUN_TEST_PERFORMANCE,
+  BUN_TEST_SIGNALS,
   describeBunTestExitCode,
+  isBunCiDetectionEnv,
   isBunTestFailureExit,
   isUnhandledErrorExitCode,
+  preservesBunDetectionEnv,
+  shouldEmitCiTestReporter,
   TEST_TIER_ORDER,
   TEST_TIER_SPECS,
   TEST_ENV_FILE,
+  tierUsesFileIsolation,
   buildTestRunnerEnv,
   bunTestArgsForTier,
   bunTestArgsForChanged,
@@ -192,15 +199,6 @@ describe("global describe", () => {
       expect(isUnhandledErrorExitCode(1)).toBe(false);
     });
 
-    test("buildTestRunnerEnv preserves CI detection env", () => {
-      withEnv({ CI: "true", GITHUB_ACTIONS: "true" }, () => {
-        const env = buildTestRunnerEnv({});
-        expect(env.CI).toBe("true");
-        expect(env.GITHUB_ACTIONS).toBe("true");
-        expect(env.NODE_ENV).toBe("test");
-      });
-    });
-
     test("native bun test: exit 0 when all tests pass", async () => {
       const dir = testTempDir("bun-exit-ok-");
       makeDir(dir, { recursive: true });
@@ -264,6 +262,86 @@ Promise.reject(new Error("Unhandled rejection"));`
       }).exited;
       expect(isBunTestFailureExit(code)).toBe(true);
     }, 15_000);
+  });
+
+  describe("Bun signal handling", () => {
+    // https://bun.com/docs/test/runtime-behavior#signal-handling
+    test("documents graceful and immediate stop signals", () => {
+      expect(BUN_TEST_SIGNALS.gracefulStop).toBe("SIGTERM");
+      expect(BUN_TEST_SIGNALS.immediateStop).toBe("SIGKILL");
+    });
+
+    test("native bun test: SIGTERM stops a running test", async () => {
+      const dir = testTempDir("bun-signal-term-");
+      makeDir(dir, { recursive: true });
+      const testPath = join(dir, "signal-term.probe.test.ts");
+      writeText(
+        testPath,
+        `import { test } from "bun:test";
+test("slow", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 120_000));
+}, 120_000);`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const proc = Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      await Bun.sleep(400);
+      proc.kill("SIGTERM");
+      const code = await proc.exited;
+      expect(isBunTestFailureExit(code)).toBe(true);
+    }, 15_000);
+  });
+
+  describe("Bun environment detection", () => {
+    // https://bun.com/docs/test/runtime-behavior#environment-detection
+    test("documents CI and GitHub Actions detection env keys", () => {
+      expect(BUN_TEST_DETECTION_ENV_KEYS).toEqual(["CI", "GITHUB_ACTIONS"]);
+    });
+
+    test("isBunCiDetectionEnv recognizes CI markers", () => {
+      expect(isBunCiDetectionEnv({ CI: "true" })).toBe(true);
+      expect(isBunCiDetectionEnv({ CI: "1" })).toBe(true);
+      expect(isBunCiDetectionEnv({ GITHUB_ACTIONS: "true" })).toBe(true);
+      expect(isBunCiDetectionEnv({})).toBe(false);
+      expect(shouldEmitCiTestReporter({ GITHUB_ACTIONS: "true" })).toBe(true);
+    });
+
+    test("buildTestRunnerEnv preserves CI detection env for child spawns", () => {
+      withEnv({ CI: "true", GITHUB_ACTIONS: "true" }, () => {
+        const env = buildTestRunnerEnv({});
+        expect(env.CI).toBe("true");
+        expect(env.GITHUB_ACTIONS).toBe("true");
+        expect(env.NODE_ENV).toBe("test");
+        expect(preservesBunDetectionEnv(env)).toBe(true);
+      });
+    });
+  });
+
+  describe("Bun performance considerations", () => {
+    // https://bun.com/docs/test/runtime-behavior#performance-considerations
+    test("documents low-memory and isolation flags", () => {
+      expect(BUN_TEST_PERFORMANCE.lowMemoryFlag).toBe("--smol");
+      expect(BUN_TEST_PERFORMANCE.isolationFlag).toBe("--isolate");
+      expect(BUN_TEST_PERFORMANCE.singleProcessDefault).toBe(true);
+    });
+
+    test("all kimi tiers enable per-file isolation", () => {
+      for (const tier of TEST_TIER_ORDER) {
+        const spec = TEST_TIER_SPECS[tier];
+        expect(tierUsesFileIsolation(spec)).toBe(true);
+        expect(bunTestArgsForTier(spec)).toContain("--isolate");
+      }
+    });
+
+    test("tier order splits suites for memory management", () => {
+      expect(TEST_TIER_ORDER).toEqual(["unit", "integration", "smoke"]);
+      expect(TEST_TIER_SPECS.unit.files.length).toBeGreaterThan(0);
+      expect(TEST_TIER_SPECS.smoke.files.length).toBeGreaterThan(0);
+    });
   });
 
   describe("Bun CLI flags integration", () => {
