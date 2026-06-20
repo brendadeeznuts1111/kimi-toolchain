@@ -651,7 +651,8 @@ export const BUN_TEST_FLAG_INTERACTIONS = {
 
 /**
  * Curated flag combinations for common test workflows.
- * These are starting points — adjust based on the task at hand.
+ * Each entry is a complete preset: description, example command, key flags,
+ * relevant Bun defaults, and usage notes.
  * @see test/testing.md § Recommended flag combinations
  */
 export const BUN_TEST_RECOMMENDED_COMBINATIONS = {
@@ -660,6 +661,7 @@ export const BUN_TEST_RECOMMENDED_COMBINATIONS = {
     description: "Quick validation of a focused test file or pattern",
     example: "bun test -t serve-probe ./test/portal-convergence.unit.test.ts",
     flags: ["--test-name-pattern", "-t"],
+    defaults: ["Single-process discovery", "BUN_TEST_DEFAULT_TIMEOUT_MS (5000 ms) per test"],
     notes: "Use with an explicit file path for best speed. Avoid --changed here.",
   },
 
@@ -668,6 +670,7 @@ export const BUN_TEST_RECOMMENDED_COMBINATIONS = {
     description: "Best DX for iterating on a specific test file",
     example: "bun test --watch ./test/portal-convergence.unit.test.ts -t serve-probe",
     flags: ["--watch"],
+    defaults: ["--watch implicitly --isolate", "Restarts on file change"],
     notes: "Do NOT combine with --changed. Use explicit file + pattern instead.",
   },
 
@@ -676,8 +679,11 @@ export const BUN_TEST_RECOMMENDED_COMBINATIONS = {
     description: "Run tests across workers for better throughput",
     example: "bun test --parallel",
     flags: ["--parallel", "--isolate"],
-    notes:
-      "--parallel implies --isolate per worker (see BUN_TEST_FLAG_INTERACTIONS.parallelIsolate).",
+    defaults: [
+      "Worker count defaults to available CPUs",
+      "--parallel implies --isolate per worker",
+    ],
+    notes: "See BUN_TEST_FLAG_INTERACTIONS.parallelIsolate.",
   },
 
   /** CI-friendly full run with sharding. */
@@ -685,8 +691,8 @@ export const BUN_TEST_RECOMMENDED_COMBINATIONS = {
     description: "Recommended for CI pipelines with multiple jobs",
     example: "bun test --shard=${SHARD_INDEX}/${SHARD_TOTAL} --parallel",
     flags: ["--shard", "--parallel", "--bail"],
-    notes:
-      "Combine with --changed in PRs for faster feedback (see BUN_TEST_FLAG_INTERACTIONS.changedShard).",
+    defaults: ["--bail defaults to 1 when present without value", "Shards are round-robin by file"],
+    notes: "Combine with --changed in PRs (see BUN_TEST_FLAG_INTERACTIONS.changedShard).",
   },
 
   /** Debugging flaky tests. */
@@ -694,6 +700,7 @@ export const BUN_TEST_RECOMMENDED_COMBINATIONS = {
     description: "Isolate and retry to surface intermittent failures",
     example: "bun test --isolate --retry=3 --bail=1 ./test/some-flaky.test.ts",
     flags: ["--isolate", "--retry", "--bail"],
+    defaults: ["--retry default count is 1 if omitted", "--bail defaults to 1"],
     notes: "Avoid --parallel when debugging specific tests.",
   },
 
@@ -702,8 +709,8 @@ export const BUN_TEST_RECOMMENDED_COMBINATIONS = {
     description: "Generate coverage with reasonable performance",
     example: "bun test --coverage --parallel",
     flags: ["--coverage", "--parallel"],
-    notes:
-      "Coverage aggregates across parallel workers (see BUN_TEST_FLAG_INTERACTIONS.coverageParallel).",
+    defaults: ["Default reporter: text; lcov available", "Output dir defaults to coverage/"],
+    notes: "Aggregates across parallel workers (see BUN_TEST_FLAG_INTERACTIONS.coverageParallel).",
   },
 
   /** Snapshot update (intentional). */
@@ -711,6 +718,7 @@ export const BUN_TEST_RECOMMENDED_COMBINATIONS = {
     description: "Update snapshots during development",
     example: "bun test -u ./test/some-component.test.ts",
     flags: ["--update-snapshots", "-u"],
+    defaults: ["Updates only snapshots for matched tests"],
     notes: "Only run on files you intend to update.",
   },
 } as const;

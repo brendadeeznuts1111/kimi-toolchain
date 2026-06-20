@@ -137,6 +137,7 @@ export const UNIT_TEST_FILES = [
   "test/telemetry-schema.unit.test.ts",
   "test/build-constants.unit.test.ts",
   "test/build-constants-registry.unit.test.ts",
+  "test/discover-constants.unit.test.ts",
   "test/taxonomy-constants.unit.test.ts",
   "test/error-suggest.unit.test.ts",
   "test/constant-optimizer.unit.test.ts",
@@ -335,6 +336,14 @@ export function bunTestArgs(options: {
   shard?: string;
   /** Bun test --reporter-outfile=<path> — JUnit report destination. */
   reporterOutfile?: string;
+  /** Bun test --rerun-each=N — run each test file N times to catch flakes. */
+  rerunEach?: number;
+  /** Bun test --randomize — run tests in random order. */
+  randomize?: boolean;
+  /** Bun test --seed=N — reproducible random order (implies --randomize). */
+  seed?: number;
+  /** Bun test --max-concurrency=N — max concurrent tests (default 20). */
+  maxConcurrency?: number;
 }): string[] {
   const timeout = String(
     options.timeoutMs ??
@@ -352,6 +361,22 @@ export function bunTestArgs(options: {
   }
   if (options.retry !== undefined && options.retry > 0) {
     args.push(`--retry=${options.retry}`);
+  }
+  if (options.shard) {
+    args.push(`--shard=${options.shard}`);
+  }
+  if (options.parallel) {
+    args.push(
+      typeof options.parallel === "number" ? `--parallel=${options.parallel}` : "--parallel"
+    );
+  }
+  if (options.rerunEach !== undefined && options.rerunEach > 0) {
+    args.push(`--rerun-each=${options.rerunEach}`);
+  }
+  if (options.randomize) args.push("--randomize");
+  if (options.seed !== undefined) args.push(`--seed=${options.seed}`);
+  if (options.maxConcurrency !== undefined && options.maxConcurrency > 0) {
+    args.push(`--max-concurrency=${options.maxConcurrency}`);
   }
   if (options.coverage) {
     args.push("--coverage", "--coverage-reporter=lcov", "--coverage-dir=./coverage");
