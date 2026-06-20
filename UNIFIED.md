@@ -203,17 +203,32 @@ bun run memory-check                  # pre-session gate
 
 ### Artifact Portal (benchmark diagnostics)
 
-Canvas, dashboard, serve-probe, and Herdr share one envelope (`BenchmarkApiEnvelope`). Publish a portal artifact in one command:
+Canvas, dashboard, serve-probe, and Herdr share one envelope (`BenchmarkApiEnvelope`). **One command** publishes diagnostics + a converged manifest — no duplicate benchmark loops:
 
 ```bash
-kimi-doctor --perf-gates --serve-probe   # optional: live probe on :5678
-bun run build:portal                     # probe first, local-loop fallback
-bun run build:portal --local-only        # offline (no serve-probe)
-bun run test:portal-convergence          # smoke
-curl http://127.0.0.1:5678/api/effect-benchmark | jq '.runner, .summary'
+bun run build:portal --local-only        # offline (recommended first run)
+bun run test:portal-convergence          # smoke + convergence guard (in-repo; no separate hook install)
 ```
 
-Output: `.kimi/artifacts/artifact-portal/` (benchmark diagnostics + portal manifest). Contract: `contracts/artifact-portal.json`. Canvas deep link: `?canvas=benchmark`.
+Live probe (optional):
+
+```bash
+kimi-doctor --perf-gates --serve-probe   # CLI probe on :5678
+bun run build:portal                     # probe first, local-loop fallback
+curl http://127.0.0.1:5678/api/effect-benchmark | jq '.runner, .metadata.convergence'
+```
+
+**Output:** `.kimi/artifacts/artifact-portal/` — `benchmark-diagnostics` envelope + `artifact-portal-manifest` listing `convergedComponents: ["canvas","dashboard","herdr"]`.
+
+**Consumers:**
+
+| Path                  | Install / run                                                                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Example               | `cd examples/portal && bun run portal:local`                                                                                                                 |
+| `bun create` template | `bun create ./templates/bun-create/artifact-portal-convergence <name>`                                                                                       |
+| Standalone slice hook | `bun run hooks:install` in `artifact-portal-convergence` — **pre-push only**, strips format/other hooks; skipped inside kimi-toolchain (shared `.git/hooks`) |
+
+Contract: `contracts/artifact-portal.json`. Manifest types: `templates/artifact-portal/index.ts`. Walkthrough: [examples/artifact-portal.md](examples/artifact-portal.md). Canvas deep link: `?canvas=benchmark`.
 
 ## MCP (Model Context Protocol)
 

@@ -186,6 +186,8 @@
         "contracts/artifact-portal.json",
         "herdr-plugin/benchmark-portal.ts",
         "scripts/build-portal.ts",
+        "scripts/pre-push-portal.sh",
+        "scripts/hooks-portal-install.sh",
         "templates/artifact-portal/index.ts"
       ],
       "tests": [

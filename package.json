@@ -134,7 +134,11 @@
     "canvas:generate": "bun run scripts/generate-canvas-companions.ts",
     "sync:cursor-canvases": "bun run scripts/sync-cursor-canvases.ts",
     "build:portal": "bun run scripts/build-portal.ts",
+    "build:portal:local": "bun run scripts/build-portal.ts --local-only",
+    "build:portal:json": "bun run scripts/build-portal.ts --json",
+    "build:portal:local:json": "bun run scripts/build-portal.ts --local-only --json",
     "test:portal-convergence": "bun test test/portal-convergence.unit.test.ts",
+    "test:portal-convergence:fast": "bun test test/portal-convergence.unit.test.ts -t serve-probe",
     "finish-work": "bun run scripts/finish-work.ts"
   },
   "dependencies": {

@@ -27,12 +27,15 @@ afterEach(() => {
 });
 
 describe("perf harness thresholds loop", () => {
-  test("loadThresholds returns defaults when no file", async () => {
+  test("loadThresholds merges toolchain layers over defaults when no trained file", async () => {
     const t = await loadThresholds();
-    expect(t["kimi.effect.crypto.sha256"]).toBe(DEFAULT_THRESHOLDS["kimi.effect.crypto.sha256"]);
+    expect(t["kimi.effect.crypto.sha256"]).toBeLessThan(
+      DEFAULT_THRESHOLDS["kimi.effect.crypto.sha256"]
+    );
+    expect(t["kimi.effect.crypto.sha256"]).toBeGreaterThan(0);
   });
 
-  test("loadThresholds merges trained thresholds.json", async () => {
+  test("loadThresholds merges trained thresholds.json over toolchain layers", async () => {
     const path = join(tmpDir, "thresholds.json");
     await Bun.write(path, JSON.stringify({ "kimi.effect.crypto.sha256": 0.001 }));
     resetThresholdCache(tmpDir);
@@ -40,7 +43,9 @@ describe("perf harness thresholds loop", () => {
 
     const t = await loadThresholds();
     expect(t["kimi.effect.crypto.sha256"]).toBe(0.001);
-    expect(t["kimi.effect.util.inspect"]).toBe(DEFAULT_THRESHOLDS["kimi.effect.util.inspect"]);
+    expect(t["kimi.effect.util.inspect"]).toBeLessThan(
+      DEFAULT_THRESHOLDS["kimi.effect.util.inspect"]
+    );
   });
 
   test("runEffectBenchmarks uses trained threshold for pass/fail", async () => {

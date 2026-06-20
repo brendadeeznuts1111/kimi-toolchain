@@ -7,6 +7,7 @@
     "kimi-toolchain",
     "kimi-dashboard",
     "kimi-gates",
+    "artifact-portal-convergence",
     "templates.json"
   ],
   "type": "module",

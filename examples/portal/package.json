@@ -8,8 +8,10 @@
     "portal": "bun run ../../scripts/build-portal.ts",
     "portal:json": "bun run ../../scripts/build-portal.ts --json",
     "portal:local": "bun run ../../scripts/build-portal.ts --local-only",
-    "verify": "bun test ../../test/portal-convergence.unit.test.ts",
-    "status": "bun run ../../src/bin/kimi-doctor.ts --artifacts-list artifact-portal"
+    "verify": "bun test ../../test/portal-convergence.unit.test.ts -t serve-probe",
+    "verify:full": "bun test ../../test/portal-convergence.unit.test.ts",
+    "status": "bun run ../../src/bin/kimi-doctor.ts --artifacts-list artifact-portal",
+    "hooks:install": "bash ../../scripts/hooks-portal-install.sh"
   },
   "kimi": {
     "showcase": {

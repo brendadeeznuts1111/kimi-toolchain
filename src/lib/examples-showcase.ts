@@ -130,7 +130,8 @@ export const SHOWCASE_ENTRIES: readonly ShowcaseEntry[] = [
     commands: [
       "cd examples/portal && bun run portal:local",
       "bun run build:portal",
-      "bun run test:portal-convergence",
+      "bun run test:portal-convergence:fast",
+      "bun run build:portal:local",
       "open http://127.0.0.1:5678?example=portal&canvas=benchmark",
     ],
     controlPlaneLevel: 1,

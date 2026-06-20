@@ -1,0 +1,43 @@
+{
+  "name": "{{name}}",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Artifact Portal convergence workspace — Canvas + Dashboard + Herdr → disk",
+  "type": "module",
+  "scripts": {
+    "portal": "sh scripts/portal.sh",
+    "portal:local": "sh scripts/portal.sh --local-only",
+    "portal:json": "sh scripts/portal.sh --json",
+    "verify": "sh scripts/verify.sh",
+    "status": "sh scripts/status.sh",
+    "hooks:install": "bash scripts/hooks-install.sh",
+    "hooks:doctor": "bash -n scripts/hooks-install.sh && echo '✓ hooks-install shell OK'"
+  },
+  "bun-create": {
+    "postinstall": [
+      "chmod +x scripts/*.sh",
+      "echo '✅ Artifact Portal convergence workspace ready.'",
+      "echo '   Offline publish: bun run portal:local'",
+      "echo '   Convergence test: bun run verify'",
+      "echo '   Install pre-push guard: bun run hooks:install'",
+      "echo '   Docs: README.md'"
+    ],
+    "start": {
+      "portal:local": "bun run portal:local",
+      "verify": "bun run verify",
+      "hooks:install": "bun run hooks:install"
+    }
+  },
+  "kimi": {
+    "showcase": {
+      "id": "artifact-portal-convergence",
+      "lane": "runtime",
+      "accent": "#a371f7",
+      "cards": [
+        "card-effect-benchmark",
+        "card-perf-harness",
+        "card-kimi-doctor"
+      ]
+    }
+  }
+}

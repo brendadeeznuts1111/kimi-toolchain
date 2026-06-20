@@ -413,7 +413,7 @@ export async function auditWorkspaceHealth(
 
   const toolsDir = join(home, ".kimi-code", "tools");
   const expectedBins = await getExpectedBinNames(projectRoot);
-  if (isToolchain && (await pathExistsAsync(toolsDir))) {
+  if (isToolchain && pathExists(toolsDir)) {
     const installedTools = listDir(toolsDir).filter((f) => f.endsWith(".ts")).length;
     checks.push(
       installedTools >= expectedBins.length
@@ -635,7 +635,7 @@ export function removeStaleWrappers(staleWrappers: string[], binDir: string): nu
 }
 
 export async function removeOrphanedSnapshots(snapshotDir: string): Promise<number> {
-  if (!(await pathExistsAsync(snapshotDir))) return 0;
+  if (!pathExists(snapshotDir)) return 0;
   let removed = 0;
   const glob = new Bun.Glob("*.json");
   for (const file of glob.scanSync({ cwd: snapshotDir, absolute: true })) {

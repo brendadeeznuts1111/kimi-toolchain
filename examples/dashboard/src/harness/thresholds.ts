@@ -103,7 +103,12 @@ export async function resolveThresholdSources(root?: string): Promise<ThresholdS
 /** Repo-root layered thresholds (baseline + .kimi/thresholds.local + legacy). */
 async function loadToolchainLayeredThresholds(): Promise<Record<string, number>> {
   const { thresholds } = await loadMergedEffectBenchmarkThresholds(TOOLCHAIN_ROOT);
-  return thresholds;
+  const prefixed: Record<string, number> = {};
+  for (const [key, value] of Object.entries(thresholds)) {
+    const normalizedKey = key.startsWith("kimi.effect.") ? key : `kimi.effect.${key}`;
+    prefixed[normalizedKey] = value;
+  }
+  return prefixed;
 }
 
 /** Merge thresholds: defaults < toolchain layers < trained.json < bunfig < programmatic. */

@@ -26,6 +26,15 @@
       "path": "kimi-gates",
       "sourceExample": "examples/trading-workspace",
       "cards": ["card-artifacts", "card-gates", "card-metrics-schema"]
+    },
+    {
+      "name": "artifact-portal-convergence",
+      "description": "Artifact Portal convergence workspace with pre-push guard (Canvas + Dashboard + Herdr → disk)",
+      "type": "workspace",
+      "complexity": "minimal",
+      "path": "artifact-portal-convergence",
+      "sourceExample": "examples/portal",
+      "cards": ["card-effect-benchmark", "card-perf-harness", "card-kimi-doctor"]
     }
   ]
 }

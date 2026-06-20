@@ -66,6 +66,28 @@ bun run check
     expect(missing).toContain("run-gates delegate");
   });
 
+  test("pre-push-portal hook is valid POSIX shell syntax", async () => {
+    const hookPath = join(REPO_ROOT, "scripts", "pre-push-portal.sh");
+    const syntax = await $`/bin/sh -n ${hookPath}`.nothrow().quiet();
+    expect(syntax.exitCode).toBe(0);
+    const content = await Bun.file(hookPath).text();
+    expect(content).not.toContain("bun run test:portal-convergence");
+    expect(content).toContain("build:portal:local:json");
+    expect(content).toContain("converged == true");
+  });
+
+  test("hooks-portal-install installs convergence guard only", async () => {
+    const installPath = join(REPO_ROOT, "scripts", "hooks-portal-install.sh");
+    const syntax = await $`bash -n ${installPath}`.nothrow().quiet();
+    expect(syntax.exitCode).toBe(0);
+    const content = await Bun.file(installPath).text();
+    expect(content).toContain("convergence pre-push guard only");
+    expect(content).toContain("kimi-githooks");
+    expect(content).toContain('echo "  removed ${hook}"');
+    expect(content).toContain("portal hook install skipped");
+    expect(content).toContain("pre-commit");
+  });
+
   test("rendered hook scripts are valid POSIX shell syntax", async () => {
     const tmpDir = artifactPath(REPO_ROOT, "tmp", `githooks-${Bun.randomUUIDv7()}`);
     mkdirSync(tmpDir, { recursive: true });

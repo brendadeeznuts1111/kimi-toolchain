@@ -108,7 +108,71 @@ Both paths register the same gate (`artifact-portal`) and canvas influences (`ca
 2. `bun run verify` — convergence unit smoke passes.
 3. Optional: start dashboard, `bun run portal`, compare probe JSON to saved artifact.
 4. Deep link: `http://127.0.0.1:5678/?example=portal&canvas=benchmark`.
+5. In-repo: `bun run test:portal-convergence` before push (or rely on `kimi-githooks`). Standalone slices: `bun run hooks:install`.
 
-## Scaffold
+## Hooks — what runs where
 
-Portal manifest template: `templates/artifact-portal/index.ts`. Extend with additional diagnostic types by registering new `registerPortalArtifact()` entries — keep one envelope schema per diagnostic surface.
+Git hooks are **per-repo** (one `.git/hooks/` for all of kimi-toolchain). Three layers — do not mix them up:
+
+| Layer             | Install                                  | On `git commit`                                                              | On `git push`                                                                                                                          |
+| ----------------- | ---------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **kimi-githooks** | `kimi-githooks install`                  | format + lint + typecheck on **staged** files; `test:changed` or `test:fast` | guardian, effect-gates, R-Score, `check:fast:skip-tests` (format/lint/tsc **no tests** by default), sync — see `src/lib/hook-gates.ts` |
+| **Portal guard**  | `hooks:install` in standalone slice only | **nothing** (removes pre-commit if present)                                  | `build:portal --local-only` + `jq` only (~5s) — **no** `bun test`, **no** format                                                       |
+| **Manual**        | —                                        | —                                                                            | `bun run test:portal-convergence` when you want the smoke file                                                                         |
+
+`kimi-githooks` pre-push does **not** run the full unit suite by default (`check:fast:skip-tests`). Set `KIMI_PRE_PUSH_TESTS=1` to add tests; `KIMI_PRE_PUSH_FULL=1` for full `check`.
+
+Portal tests are **not** repo-wide:
+
+```bash
+bun run test:portal-convergence:fast   # one mocked serve-probe test (~100ms)
+bun run test:portal-convergence        # + slow local-loop integration (~5s, runs effect benchmark loop once)
+```
+
+The local-loop test exercises `runEffectBenchmarkCardLoop()` (discovers registered effect handlers — feels like “the whole repo” but it is one orchestration pass, not `bun test` of every file). The portal **hook** no longer runs either test — only `build:portal --local-only`.
+
+## Pre-push guard (convergence only)
+
+Portal templates and workspaces install **only** the convergence pre-push guard. Format, typecheck, guardian, and other gates belong to `kimi-githooks` in the parent repo — not in spawned portal slices.
+
+`scripts/pre-push-portal.sh` keeps the convergence contract honest on every push — fast, deterministic, no network jitter.
+
+| Step | What runs                                 | Why                                                                                 |
+| ---- | ----------------------------------------- | ----------------------------------------------------------------------------------- |
+| 1    | `build:portal --local-only --json` + `jq` | `converged: true`, components `canvas` + `dashboard` + `herdr`, `source=local-loop` |
+
+Always `--local-only` — no dashboard, no `bun test`, no format/lint. Optional manual smoke: `bun run test:portal-convergence:fast`.
+
+**Install (standalone portal slice only):**
+
+```bash
+bun run hooks:install    # bun-create artifact-portal-convergence workspace
+```
+
+Inside **kimi-toolchain**, `hooks:install` is a no-op (shared `.git/hooks` — installing would clobber `kimi-githooks`). Use `bun run test:portal-convergence` or `kimi-githooks install` for full policy.
+
+When install runs (standalone clone), it symlinks **only** `.git/hooks/pre-push` and **removes** pre-commit, commit-msg, and other hooks so format/typecheck never run from portal slices.
+
+Hook resolves the repo root via `scripts/resolve-repo-root.sh` (Cursor worktree-safe) and follows symlinks when installed under `.git/hooks/`. Typical runtime: ~10s (well under the 50s hook budget).
+
+## Scaffold & templates
+
+| Artifact               | Path                                                | Purpose                                                   |
+| ---------------------- | --------------------------------------------------- | --------------------------------------------------------- |
+| Manifest types         | `templates/artifact-portal/index.ts`                | `buildPortalManifestPayload`, `convergedComponents` shape |
+| Runnable example       | `examples/portal/`                                  | Thin wrapper — `portal:local`, `verify`, `hooks:install`  |
+| `bun create` workspace | `templates/bun-create/artifact-portal-convergence/` | Spawn a convergence workspace inside the repo             |
+
+**Spawn a convergence workspace** (must live inside the kimi-toolchain git tree):
+
+```bash
+bun create ./templates/bun-create/artifact-portal-convergence my-portal-workspace
+cd my-portal-workspace
+bun run portal:local    # one command → diagnostics + manifest on disk
+bun run verify          # convergence smoke
+bun run hooks:install   # pre-push guard
+```
+
+The template delegates to repo-root scripts (`build-portal.ts`, `test/portal-convergence.unit.test.ts`) via thin `scripts/*.sh` wrappers. Set `KIMI_PROJECT_ROOT` when the git toplevel is not the canonical clone.
+
+Extend with additional diagnostic types by registering new `registerPortalArtifact()` entries — keep one envelope schema per diagnostic surface.

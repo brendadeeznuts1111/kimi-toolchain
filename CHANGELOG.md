@@ -35,14 +35,21 @@ One command publishes diagnostics + manifest to `.kimi/artifacts/artifact-portal
 
 **Breaking change:** none — additive APIs and scripts only.
 
-**Next (Artifact Portal Convergence Sprint):** unify Canvas + Dashboard + Herdr feed into the portal build pipeline using `BenchmarkApiEnvelope` + serve-probe as the single diagnostic contract.
+### Stabilization sprint — **done** (2026-06-20)
 
-### Unification (in progress)
+- `templates/bun-create/artifact-portal-convergence/` — minimal portal workspace; `hooks:install` delegates to `scripts/hooks-portal-install.sh`
+- Portal pre-push guard (`scripts/pre-push-portal.sh`) — single pass `build:portal:local:json` + `jq`; no format/lint/repo-wide tests
+- `hooks-portal-install.sh` — convergence hook only; strips other hooks; **skipped** inside kimi-toolchain (shared `.git/hooks`)
+- `package.json` portal scripts: `build:portal:local`, `build:portal:json`, `build:portal:local:json`, `test:portal-convergence:fast`
+- Docs: `examples/artifact-portal.md`, README, UNIFIED — hooks table + fast vs full test split
+- Validation: `bun run fix:drift` green; portal tests 12/12; `converged: true` on `build:portal:local:json`
+
+### Unification — **done**
 
 - `src/lib/benchmark-convergence.ts` — `metadata.convergence` on every `BenchmarkApiEnvelope`; manifest `convergedComponents`
 - serve-probe `GET /api/effect-benchmark` aggregates dashboard card probe into `dashboardProbe`
 - Herdr `benchmark-portal` calls full `buildArtifactPortal()` (parity with `bun run build:portal`)
-- `test:portal-convergence` exercises serve-probe + local-loop paths with converged manifest assertions
+- `test:portal-convergence` / `test:portal-convergence:fast` — serve-probe mock + optional local-loop integration
 
 ## Unreleased
 
