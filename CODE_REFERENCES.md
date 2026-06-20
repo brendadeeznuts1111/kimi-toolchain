@@ -196,6 +196,7 @@ Do not import packages that are not declared in `package.json`. In this repo tha
 | ------------------------ | ------------------------------------------------------------------------------ |
 | Bun test SSOT & tiers    | `src/lib/test-runtime.ts`, `test/test-runtime.unit.test.ts`, `test/testing.md` |
 | Testing doc audit        | `src/lib/testing-docs-lint.ts`, `scripts/lint-testing-docs.ts`                 |
+| Markdown dead links      | `src/lib/markdown-dead-links-lint.ts`, `scripts/lint-markdown-links.ts`        |
 | Test file lists/timeouts | `src/lib/test-gates.ts`, `test/test-gates.unit.test.ts`                        |
 | Test naming & patterns   | `scripts/lint-test-names.ts`, `test/lint-test-names.unit.test.ts`              |
 | Tool runner behavior     | `test/tool-runner.unit.test.ts`                                                |

@@ -168,6 +168,16 @@ bunx markdownlint-cli2 '**/*.md' '#node_modules'
 
 Gate JSON for agents: `bun run scripts/lint-testing-docs.ts --json` → `{ schemaVersion, tool, ok, issues[] }`.
 
+Markdown dead links (Bun-native — `Bun.markdown.render` + `Bun.file` / `fetch`):
+
+```bash
+bun run scripts/lint-markdown-links.ts           # agent docs, internal links only
+bun run scripts/lint-markdown-links.ts --full    # + docs/**/*.md, skills/**/SKILL.md
+bun run scripts/lint-markdown-links.ts --full --online  # HEAD-check externals (warn)
+```
+
+Full `bun run lint` runs `--full` offline; external checks stay opt-in (`lint:links:online`).
+
 Interpretation:
 
 - Bare `bun test` is **allowed** for single-file debug (`bun test <file>`), coverage probes (`bun test --coverage`), and anti-pattern tables — not for hooks/CI (use tier scripts).
