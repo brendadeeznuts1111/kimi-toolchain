@@ -65,6 +65,7 @@ describe("canonical-references", () => {
       "configuration-layers",
       "shell-spawn-choice",
       "bun-runtime-scaffold",
+      "testing-execution",
       "bun-shell-companions",
       "template-matrix",
       "herdr-plugin-architecture",

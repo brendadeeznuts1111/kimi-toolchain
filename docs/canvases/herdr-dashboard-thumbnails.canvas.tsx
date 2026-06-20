@@ -186,6 +186,12 @@ const MANIFEST_LOCAL_DOCS_ALL = [
       "Bun install config (bunfig.toml merge order, defaults, env vars, backend, cache/lazy install)",
   },
   {
+    id: "testing-execution",
+    location: "docs/references",
+    purpose:
+      "Four-script test execution model — selection (fast/changed/parallel/shard), distribution (file not describe), --changed safety net",
+  },
+  {
     id: "bun-shell-companions",
     location: "docs/references",
     purpose: "Bun $ template vs subprocess and inspect companion patterns",

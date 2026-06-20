@@ -1,4 +1,5 @@
 // ── Bun Test ───────────────────────────────────────────────────────
+import { BUN_TEST_CHANGED_IMPORT_GRAPH } from "../../../../src/lib/test-runtime.ts";
 import { jsonResponse } from "./shared.ts";
 
 export async function apiBunTest(): Promise<Response> {
@@ -63,6 +64,16 @@ snapshot("Deep error stack", error, { depth: 6, showHidden: true });`,
     runCommand: "bun test",
     cliFlags: [
       {
+        flag: "--changed",
+        value: "HEAD",
+        description: "Git import-graph filter — run tests transitively depending on changed files",
+      },
+      {
+        flag: "--changed",
+        value: "main",
+        description: "Import-graph filter since branch or commit ref",
+      },
+      {
         flag: "--filter",
         value: '"@myorg/*"',
         description: "Run tests in matching workspace packages",
@@ -70,7 +81,7 @@ snapshot("Deep error stack", error, { depth: 6, showHidden: true });`,
       {
         flag: "--shard",
         value: "1/4",
-        description: "Split tests across CI jobs (deterministic round-robin)",
+        description: "Split tests across CI jobs (deterministic round-robin by file)",
       },
       {
         flag: "--parallel",
@@ -86,6 +97,7 @@ snapshot("Deep error stack", error, { depth: 6, showHidden: true });`,
       { flag: "--bail", value: "5", description: "Exit after N test failures" },
       { flag: "--timeout", value: "10000", description: "Per-test timeout in ms" },
     ],
-    note: "bun:test — Bun's built-in test runner. --filter for monorepos, --shard for CI splitting, --parallel for speed, --isolate per process. expect() only inside test() blocks. Snapshot helper: Bun.inspect + Bun.stripANSI + toMatchSnapshot for color-stable output.",
+    changedImportGraph: BUN_TEST_CHANGED_IMPORT_GRAPH,
+    note: "bun:test — Bun's built-in test runner. --changed uses static import-graph selection; --shard/--parallel distribute by file. expect() only inside test() blocks.",
   });
 }

@@ -466,6 +466,7 @@ bun run sync && bun run sync:verify   # if runtime assets changed
 | Effect discipline depth       | `DEEP-QUALITY.md`                                                                                   |
 | `src/lib/` domain map         | `src/lib/README.md`                                                                                 |
 | Testing conventions           | `test/testing.md`                                                                                   |
+| Test execution model          | `docs/references/testing-execution.md` (`BUN_TEST_EXECUTION_STRATEGY`)                            |
 | Herdr orchestration           | `docs/SCOPE.md`, `docs/handoff-rules.md`, `docs/finish-work-close-loop.md`, `skills/herdr/SKILL.md` |
 | Kimi Code config / MCP        | `skills/kimi-toolchain/SKILL.md`                                                                    |
 | Configuration layers          | `docs/references/configuration-layers.md`                                                           |

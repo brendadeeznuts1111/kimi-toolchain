@@ -4,6 +4,7 @@
  */
 
 import type { DashboardCardStatus, DashboardCardsPayload } from "./dashboard-card-registry.ts";
+import { auditConfigLayersStatus } from "./config-status.ts";
 
 export interface CardProbeConfig {
   examplesDashboardUrl?: string;

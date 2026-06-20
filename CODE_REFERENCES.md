@@ -196,6 +196,8 @@ Do not import packages that are not declared in `package.json`. In this repo tha
 | Need                     | Reference                                                                      |
 | ------------------------ | ------------------------------------------------------------------------------ |
 | Bun test SSOT & tiers    | `src/lib/test-runtime.ts`, `test/test-runtime.unit.test.ts`, `test/testing.md` |
+| Test execution model     | `docs/references/testing-execution.md`, `BUN_TEST_EXECUTION_STRATEGY` in `test-runtime.ts` |
+| `--changed` import graph (portal) | `BUN_TEST_CHANGED_IMPORT_GRAPH`, `GET /api/bun-test`, `card-bun-test` |
 | Testing doc audit        | `src/lib/testing-docs-lint.ts`, `scripts/lint-testing-docs.ts`                 |
 | Markdown dead links      | `src/lib/markdown-dead-links-lint.ts`, `scripts/lint-markdown-links.ts`        |
 | Test file lists/timeouts | `src/lib/test-gates.ts`, `test/test-gates.unit.test.ts`                        |

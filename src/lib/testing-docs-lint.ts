@@ -22,6 +22,7 @@ export const TESTING_DOCS_DEFAULT_PATHS = [
   "CODE_REFERENCES.md",
   "test/testing.md",
   "docs/references/bun-runtime-scaffold.md",
+  "docs/references/testing-execution.md",
 ] as const;
 
 /** Shell recipes agents can run manually (kept in sync with gate rules). */

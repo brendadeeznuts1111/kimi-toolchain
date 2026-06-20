@@ -169,6 +169,7 @@ bun run check:fast          # unit gate @ 1500ms per test (~3s total)
 bun run check:dry-run       # preview format/lint/typecheck/test steps
 bun run test                # full suite: unit → integration → smoke
 bun run test:fast           # unit only (pre-commit default)
+bun run test:changed        # git import-graph filter (see docs/references/testing-execution.md)
 bun run doctor --quick
 
 # 3. Push to live runtime

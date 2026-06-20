@@ -184,7 +184,7 @@ Identity filters on list endpoints: `sessionId`, `workspaceId`, `paneId`, `agent
 | `GET`  | `/api/global-store`    | Global store effect                        |
 | `GET`  | `/api/metrics-schema`  | Metrics schema validation                  |
 | `GET`  | `/api/trace-verify`    | Trace verification                         |
-| `GET`  | `/api/bun-test`        | `bun test` integration demo                |
+| `GET`  | `/api/bun-test`        | `bun test` demo + `--changed` import-graph mechanics (`changedImportGraph`) |
 
 ### Artifact lineage & diff (`#card-artifacts`)
 

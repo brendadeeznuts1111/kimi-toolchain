@@ -234,28 +234,66 @@ export const KIMI_TEST_RUN_ENTRIES = {
     packageScript: "test",
     command: "bun run scripts/test-run.ts",
     runner: "runAllTestTiers",
+    selection: "explicit-file-list-per-tier",
   },
   fast: {
     packageScript: "test:fast",
     command: "bun run scripts/test-fast.ts",
     runner: "runTestTier",
     tier: "unit",
+    selection: "explicit-file-list",
   },
   unit: {
     packageScript: "test:unit",
     command: "bun run scripts/test-fast.ts",
     runner: "runTestTier",
     tier: "unit",
+    selection: "explicit-file-list",
   },
   changed: {
     packageScript: "test:changed",
     command: "bun run scripts/test-changed.ts",
     runner: "bunTestArgsForChanged",
+    selection: "git-import-graph",
+  },
+  changedPush: {
+    packageScript: "test:changed:push",
+    command: "bun run scripts/test-changed.ts --push",
+    runner: "bunTestArgsForChanged",
+    selection: "git-import-graph",
+  },
+  parallel: {
+    packageScript: "test:parallel",
+    command: "NODE_ENV=test bun test --parallel=4 --isolate --bail --retry=2 --dots",
+    runner: "bare-bun-test",
+    selection: "full-discovery",
+  },
+  shard: {
+    packageScript: "test:shard",
+    command:
+      "NODE_ENV=test bun test --parallel=4 --isolate --bail --retry=2 --dots --shard=${BUN_TEST_SHARD:-1/1}",
+    runner: "bare-bun-test",
+    selection: "full-discovery",
+  },
+  ci: {
+    packageScript: "test:ci",
+    command:
+      "NODE_ENV=test bun test --timeout 30000 --isolate --parallel --shard=${CI_NODE_INDEX:-1}/${CI_NODE_TOTAL:-1}",
+    runner: "bare-bun-test",
+    selection: "full-discovery",
+  },
+  changedShard: {
+    packageScript: "test:changed:shard",
+    command:
+      "NODE_ENV=test bun test --changed=main --parallel=4 --isolate --bail --retry=2 --dots --shard=${BUN_TEST_SHARD:-1/1}",
+    runner: "bare-bun-test",
+    selection: "git-import-graph",
   },
   watch: {
     packageScript: "test:watch",
     command: "NODE_ENV=test bun test --watch --isolate",
     runner: "bare-bun-test",
+    selection: "explicit-or-discovery",
   },
 } as const;
 
@@ -1001,6 +1039,45 @@ export const BUN_TEST_CHANGED_STRATEGY = {
   bare: "uncommitted-changes-staged-unstaged-untracked",
   explicit: "--changed=ref-branch-or-commit",
   watch: "--changed---watch-re-filter-every-restart",
+  limitations: "static-import-graph-only-may-miss-indirect-effects",
+  safetyNet: "test-parallel-test-shard-full-discovery",
+} as const;
+
+/**
+ * Four-script execution model — selection vs distribution (@see docs/references/testing-execution.md).
+ *
+ * - **Selection:** explicit file list (`test:fast`), git graph (`test:changed`), or full discovery (`test:parallel` / `test:shard`).
+ * - **Distribution:** `--parallel` and `--shard` operate on files, not `describe` blocks.
+ */
+export const BUN_TEST_EXECUTION_STRATEGY = {
+  referenceDoc: "docs/references/testing-execution.md",
+  distributionUnit: "test-file-not-describe-block",
+  describeGrouping: "presentation-and-contract-grouping-only",
+  safetyNet: "test-parallel-and-test-shard-backstop-test-changed-speed",
+  selectionAxes: {
+    explicitFileList: "test-fast-unit-test-files-from-test-gates",
+    gitImportGraph: "test-changed-bun-changed-flag",
+    fullDiscovery: "test-parallel-test-shard-bun-recursive-discovery",
+  },
+  fileDistributionGoals: {
+    outputReadability: {
+      describe: "presentation-only",
+      separateFiles: "actual-distribution",
+    },
+    shardBalancing: {
+      describe: "presentation-only",
+      separateFiles: "actual-distribution",
+    },
+    workerParallelism: {
+      describe: "same-file-same-worker",
+      separateFiles: "workers-run-concurrently",
+    },
+    contractGrouping: {
+      describe: "recommended",
+      separateFiles: "use-both-layers",
+    },
+  },
+  primaryScripts: ["test:fast", "test:changed", "test:parallel", "test:shard"] as const,
 } as const;
 
 /** Environment keys set by Bun inside `bun test --parallel` workers. */
@@ -1028,6 +1105,93 @@ export const BUN_TEST_PARALLEL = {
   autoIsolate: true,
   composedFlags: "all-transpiler-resolver-and-execution-flags" as const,
   workerEnvKeys: BUN_TEST_WORKER_ENV_KEYS,
+} as const;
+
+/**
+ * Portal/dashboard payload for Bun `--changed` import-graph mechanics.
+ * Consumed by Artifact Portal serve-probe card `card-bun-test` (`GET /api/bun-test`).
+ */
+export const BUN_TEST_CHANGED_IMPORT_GRAPH = {
+  title: "Bun Import Graph Mechanics for --changed",
+  referenceDoc: BUN_TEST_EXECUTION_STRATEGY.referenceDoc,
+  summary:
+    "Bun diffs git-changed source files, walks static import edges from discovered test files, and runs only tests that transitively depend on a changed file.",
+  pipeline: [
+    {
+      step: 1,
+      label: "Git diff",
+      detail: "Collect changed paths (working tree or --changed=<ref>)",
+    },
+    {
+      step: 2,
+      label: "Import graph scan",
+      detail: "Parse static imports on test files; no node_modules; no link/emit",
+    },
+    {
+      step: 3,
+      label: "Test selection",
+      detail: "Keep test files with a transitive import path to any changed file",
+    },
+    {
+      step: 4,
+      label: "Distribute (optional)",
+      detail: BUN_TEST_FLAG_INTERACTIONS.changedShard,
+    },
+  ],
+  graphScan: {
+    edges: "static-import-statements-only",
+    entersNodeModules: false,
+    linksOrEmitsCode: false,
+    overhead: "minimal-scan-only",
+  },
+  refModes: [
+    {
+      flag: BUN_TEST_CHANGED.bareFilter,
+      scope: BUN_TEST_CHANGED.defaultScope,
+      noChanges: "exits-0",
+    },
+    {
+      flag: BUN_TEST_CHANGED.valuePrefix,
+      scope: "since-ref-branch-or-commit",
+      noChanges: "exits-0",
+    },
+    {
+      flag: `${BUN_TEST_CHANGED.changedFlag} ${BUN_TEST_WATCH.watchFlag}`,
+      scope: BUN_TEST_CHANGED.composeWatch,
+      noChanges: BUN_TEST_CHANGED.noChangesBehavior,
+    },
+  ],
+  kimiScripts: [
+    {
+      script: KIMI_TEST_RUN_ENTRIES.changed.packageScript,
+      ref: "HEAD",
+      runner: KIMI_TEST_RUN_ENTRIES.changed.runner,
+    },
+    {
+      script: KIMI_TEST_RUN_ENTRIES.changedPush.packageScript,
+      ref: "@{upstream}",
+      runner: KIMI_TEST_RUN_ENTRIES.changedPush.runner,
+    },
+    {
+      script: KIMI_TEST_RUN_ENTRIES.changedShard.packageScript,
+      ref: "main",
+      runner: KIMI_TEST_RUN_ENTRIES.changedShard.runner,
+    },
+  ],
+  compose: [
+    BUN_TEST_FLAG_INTERACTIONS.changedShard,
+    BUN_TEST_FLAG_INTERACTIONS.shardRandomize,
+    BUN_TEST_PARALLEL.composedFlags,
+  ],
+  limitations: [
+    "Shared utilities with no static import edge from a test file may be missed",
+    "Dynamic import(), string require(), and config-only wiring are not graph edges",
+    "Global side effects without import paths are not detected",
+  ],
+  safetyNet: {
+    strategy: BUN_TEST_CHANGED_STRATEGY.safetyNet,
+    scripts: ["test:fast", "test:parallel", "test:shard"] as const,
+  },
 } as const;
 
 /**

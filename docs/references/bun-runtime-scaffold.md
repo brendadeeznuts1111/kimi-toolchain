@@ -75,7 +75,7 @@ timeout = 30000
 dots = true
 ```
 
-Authoring rules: `test/testing.md`. Runtime SSOT: `src/lib/test-runtime.ts`.
+Authoring rules: `test/testing.md`. Execution model: [testing-execution.md](./testing-execution.md). Runtime SSOT: `src/lib/test-runtime.ts`.
 
 Key differences from Bun defaults:
 

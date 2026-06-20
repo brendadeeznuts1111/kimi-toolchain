@@ -7,6 +7,7 @@
 import type { Gate } from "./types.ts";
 import { bunfigPolicyGateDefinition } from "./bunfig-policy.ts";
 import { cardProbeGateDefinition } from "./card-probe.ts";
+import { configStatusGateDefinition } from "./config-status.ts";
 import { modelDriftGateDefinition } from "./model-drift.ts";
 import { perfGateDefinition } from "./perf-gate.ts";
 import { strategyPerformanceGateDefinition } from "./strategy-performance.ts";
@@ -25,6 +26,7 @@ export function listBuiltinGateDefinitions(): Gate[] {
     urlI18nGateDefinition,
     emailI18nGateDefinition,
     cardProbeGateDefinition,
+    configStatusGateDefinition,
     strategyPerformanceGateDefinition,
     modelDriftGateDefinition,
   ];

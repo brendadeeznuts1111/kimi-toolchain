@@ -322,6 +322,13 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
       "Bun install config (bunfig.toml merge order, defaults, env vars, backend, cache/lazy install)",
   },
   {
+    id: "testing-execution",
+    repoPath: "docs/references/testing-execution.md",
+    runtimePath: "~/.kimi-code/docs/references/testing-execution.md",
+    purpose:
+      "Four-script test execution model — selection (fast/changed/parallel/shard), distribution (file not describe), --changed safety net",
+  },
+  {
     id: "bun-shell-companions",
     repoPath: "docs/references/bun-shell-companions.md",
     runtimePath: "~/.kimi-code/docs/references/bun-shell-companions.md",

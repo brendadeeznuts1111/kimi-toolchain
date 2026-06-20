@@ -13,6 +13,9 @@ import {
   BUN_TEST_RUN_EXAMPLES,
   BUN_TEST_RUN_STRATEGY,
   KIMI_TEST_RUN_ENTRIES,
+  BUN_TEST_CHANGED_STRATEGY,
+  BUN_TEST_CHANGED_IMPORT_GRAPH,
+  BUN_TEST_EXECUTION_STRATEGY,
   isTestRunFailure,
   BUN_TEST_MODULE,
   BUN_TEST_MODULE_STRATEGY,
@@ -551,6 +554,30 @@ test(${JSON.stringify(ex.name)}, (done) => {
       );
       expect(KIMI_TEST_RUN_ENTRIES.fast.tier).toBe("unit");
       expect(KIMI_TEST_RUN_ENTRIES.all.runner).toBe("runAllTestTiers");
+      expect(KIMI_TEST_RUN_ENTRIES.changed.selection).toBe("git-import-graph");
+      expect(KIMI_TEST_RUN_ENTRIES.parallel.selection).toBe("full-discovery");
+      expect(KIMI_TEST_RUN_ENTRIES.shard.runner).toBe("bare-bun-test");
+      expect(BUN_TEST_CHANGED_STRATEGY.limitations).toBe(
+        "static-import-graph-only-may-miss-indirect-effects"
+      );
+      expect(BUN_TEST_CHANGED_STRATEGY.safetyNet).toBe("test-parallel-test-shard-full-discovery");
+      expect(BUN_TEST_CHANGED_IMPORT_GRAPH.title).toContain("--changed");
+      expect(BUN_TEST_CHANGED_IMPORT_GRAPH.pipeline).toHaveLength(4);
+      expect(BUN_TEST_CHANGED_IMPORT_GRAPH.safetyNet.scripts).toContain("test:parallel");
+      expect(BUN_TEST_EXECUTION_STRATEGY.referenceDoc).toBe(
+        "docs/references/testing-execution.md"
+      );
+      expect(BUN_TEST_EXECUTION_STRATEGY.distributionUnit).toBe("test-file-not-describe-block");
+      expect(BUN_TEST_EXECUTION_STRATEGY.primaryScripts).toEqual([
+        "test:fast",
+        "test:changed",
+        "test:parallel",
+        "test:shard",
+      ]);
+      expect(BUN_TEST_EXECUTION_STRATEGY.fileDistributionGoals.workerParallelism).toEqual({
+        describe: "same-file-same-worker",
+        separateFiles: "workers-run-concurrently",
+      });
       expect(isTestRunFailure(1)).toBe(true);
       expect(isTestRunFailure(0)).toBe(false);
     });
@@ -973,7 +1000,7 @@ test("visible probe", () => {
       expect(contract).toEqual(KIMI_BUNFIG_TEST_CONTRACT);
       expect(readBunfigTestPreloadPaths(REPO_ROOT)).toEqual([...KIMI_BUNFIG_TEST_CONTRACT.preload]);
       expect(readBunfigTestRoot(REPO_ROOT)).toBeUndefined();
-      expect(readBunfigTestTimeoutMs(REPO_ROOT)).toBeUndefined();
+      expect(readBunfigTestTimeoutMs(REPO_ROOT)).toBe(15000);
     });
 
     test("parseKimiBunfigTestContract rejects incomplete [test] tables", () => {

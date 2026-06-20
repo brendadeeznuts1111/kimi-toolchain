@@ -27,6 +27,7 @@ export const UNIT_TEST_FILES = [
   "test/bun-cron.unit.test.ts",
   "test/bun-crypto.unit.test.ts",
   "test/bun-terminal.unit.test.ts",
+  "test/bun-test-handler.unit.test.ts",
   "test/bun-wrap-ansi.unit.test.ts",
   "test/bun-buffer-swap.unit.test.ts",
   "test/bun-ffi.unit.test.ts",

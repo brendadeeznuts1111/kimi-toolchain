@@ -3096,6 +3096,54 @@
           h += `</div>`;
           h += `<p style="font-size:11px;color:var(--blue);margin:6px 0 2px">Run</p>`;
           h += `<code style="font-size:10px;display:block">${d.runCommand}</code>`;
+          if (d.changedImportGraph) {
+            const g = d.changedImportGraph;
+            h += `<details open style="margin-top:6px"><summary style="font-size:11px;cursor:pointer;color:var(--blue)">${g.title}</summary>`;
+            h += `<p style="font-size:10px;color:var(--muted);margin:4px 0">${g.summary}</p>`;
+            h += `<table class="tbl"><tr><th>#</th><th>Stage</th><th>Mechanics</th></tr>`;
+            (g.pipeline || []).forEach((row) => {
+              h += `<tr><td class="num">${row.step}</td><td><strong style="font-size:10px">${row.label}</strong></td><td style="font-size:9px">${row.detail}</td></tr>`;
+            });
+            h += `</table>`;
+            if (g.graphScan) {
+              h += `<p style="font-size:10px;color:var(--blue);margin:6px 0 2px">Graph scan</p>`;
+              h += `<div style="font-size:9px;color:var(--muted)">`;
+              h += `<div class="row"><span>Edges</span><code>${g.graphScan.edges}</code></div>`;
+              h += `<div class="row"><span>node_modules</span><span class="badge ${g.graphScan.entersNodeModules ? "badge-warn" : "badge-ok"}">${g.graphScan.entersNodeModules ? "enters" : "skipped"}</span></div>`;
+              h += `<div class="row"><span>Link/emit</span><span class="badge ${g.graphScan.linksOrEmitsCode ? "badge-warn" : "badge-ok"}">${g.graphScan.linksOrEmitsCode ? "yes" : "no"}</span></div>`;
+              h += `</div>`;
+            }
+            if (g.refModes?.length) {
+              h += `<p style="font-size:10px;color:var(--blue);margin:6px 0 2px">Ref modes</p>`;
+              h += `<table class="tbl"><tr><th>Flag</th><th>Scope</th><th>No changes</th></tr>`;
+              g.refModes.forEach((m) => {
+                h += `<tr><td><code style="font-size:9px">${m.flag}</code></td><td style="font-size:9px">${m.scope}</td><td style="font-size:9px">${m.noChanges}</td></tr>`;
+              });
+              h += `</table>`;
+            }
+            if (g.kimiScripts?.length) {
+              h += `<p style="font-size:10px;color:var(--blue);margin:6px 0 2px">kimi-toolchain scripts</p>`;
+              h += `<table class="tbl"><tr><th>Script</th><th>Ref</th><th>Runner</th></tr>`;
+              g.kimiScripts.forEach((s) => {
+                h += `<tr><td><code style="font-size:9px">${s.script}</code></td><td style="font-size:9px">${s.ref}</td><td style="font-size:9px">${s.runner}</td></tr>`;
+              });
+              h += `</table>`;
+            }
+            if (g.limitations?.length) {
+              h += `<p style="font-size:10px;color:var(--amber,#b8860b);margin:6px 0 2px">Limitations</p><ul style="font-size:9px;color:var(--muted);margin:0;padding-left:16px">`;
+              g.limitations.forEach((line) => {
+                h += `<li>${line}</li>`;
+              });
+              h += `</ul>`;
+            }
+            if (g.safetyNet) {
+              h += `<p style="font-size:10px;color:var(--muted);margin:6px 0 2px">Safety net: <code>${(g.safetyNet.scripts || []).join(", ")}</code></p>`;
+            }
+            if (g.referenceDoc) {
+              h += `<p style="font-size:9px;color:var(--muted)">SSOT: <code>${g.referenceDoc}</code></p>`;
+            }
+            h += `</details>`;
+          }
           if (d.cliFlags) {
             h += `<details style="margin-top:4px"><summary style="font-size:11px;cursor:pointer;color:var(--blue)">CLI flags</summary>`;
             h += `<table class="tbl"><tr><th>Flag</th><th>Value</th><th>Purpose</th></tr>`;
