@@ -177,6 +177,22 @@
       "tests": ["test/provider-contract.unit.test.ts", "test/success-metrics.unit.test.ts"]
     },
     {
+      "id": "artifact-portal",
+      "paths": [
+        "src/lib/artifact-portal.ts",
+        "src/lib/benchmark-probe-client.ts",
+        "src/lib/herdr-dashboard-meta-gate.ts",
+        "src/canvases/benchmark.manifest.ts",
+        "contracts/artifact-portal.json",
+        "herdr-plugin/benchmark-portal.ts"
+      ],
+      "tests": [
+        "test/artifact-portal.unit.test.ts",
+        "test/benchmark-manifest.unit.test.ts",
+        "test/herdr-dashboard-meta-gate.unit.test.ts"
+      ]
+    },
+    {
       "id": "logging-telemetry",
       "paths": [
         "src/lib/logger.ts",

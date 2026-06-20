@@ -273,3 +273,14 @@ export async function runDashboardMetaGate(
     discovery: fetched.meta.discovery,
   };
 }
+
+export {
+  ARTIFACT_PORTAL_CONTRACT_PATH,
+  ARTIFACT_PORTAL_GATE,
+  PORTAL_BENCHMARK_DIAGNOSTICS_TYPE,
+  pullBenchmarkEnvelopeAndRegister,
+  registerPortalArtifact,
+  type PortalArtifactInput,
+  type PortalArtifactRecord,
+  type PullBenchmarkEnvelopeOptions,
+} from "./artifact-portal.ts";

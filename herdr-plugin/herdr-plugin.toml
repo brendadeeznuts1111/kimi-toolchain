@@ -28,6 +28,12 @@ title = "Run herdr-doctor"
 contexts = ["workspace"]
 command = ["./run.sh", "doctor.ts"]
 
+[[actions]]
+id = "benchmark-portal"
+title = "Register benchmark portal artifact from serve-probe"
+contexts = ["workspace"]
+command = ["./run.sh", "benchmark-portal.ts"]
+
 # ── Event hooks ──
 
 [[events]]

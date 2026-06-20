@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "kind": "artifact-portal",
+  "name": "artifact-portal",
+  "description": "Artifact Portal diagnostic contract — Canvas, Dashboard, Herdr, and serve-probe share BenchmarkApiEnvelope",
+  "gates": {
+    "artifactPortal": "artifact-portal"
+  },
+  "diagnostics": {
+    "benchmark": {
+      "type": "benchmark-diagnostics",
+      "canvasId": "benchmark",
+      "probeRoute": "/api/effect-benchmark",
+      "probeRefreshRoute": "/api/effect-benchmark/refresh",
+      "cli": "kimi-doctor --perf-gates --serve-probe",
+      "envelope": {
+        "schemaVersion": 1,
+        "required": [
+          "runner",
+          "thresholdSource",
+          "summary",
+          "sparklines",
+          "gates.effectBenchmarkGate",
+          "metadata"
+        ],
+        "runners": ["serve-probe", "kimi-doctor", "dashboard"]
+      },
+      "influences": [
+        "card-effect-benchmark",
+        "card-perf-harness",
+        "card-kimi-doctor"
+      ]
+    }
+  },
+  "metadata": {
+    "manifest": "src/canvases/benchmark.manifest.ts",
+    "probeClient": "src/lib/benchmark-probe-client.ts",
+    "registration": "src/lib/artifact-portal.ts"
+  }
+}
