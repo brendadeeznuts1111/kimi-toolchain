@@ -32,8 +32,8 @@ import { readableStreamToText } from "./bun-utils.ts";
 import { parseBunfigDefines } from "./build-constants-registry.ts";
 import {
   CI_TEST_TIMEOUT_MS,
-  chunkFastUnitTestFiles,
   DEFAULT_TEST_TIMEOUT_MS,
+  FAST_TEST_CHUNK_SIZE,
   FAST_TEST_TIMEOUT_MS,
   INTEGRATION_TEST_FILES,
   SMOKE_TEST_FILES,
@@ -1465,6 +1465,21 @@ export function buildBunTestArgs(options: BunTestRunOptions): string[] {
   }
 
   return args;
+}
+
+export function chunkFastUnitTestFiles(
+  files: readonly string[] = UNIT_TEST_FILES,
+  chunkSize = FAST_TEST_CHUNK_SIZE
+): string[][] {
+  if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
+    throw new Error(`Invalid fast test chunk size: ${chunkSize}`);
+  }
+
+  const chunks: string[][] = [];
+  for (let i = 0; i < files.length; i += chunkSize) {
+    chunks.push(files.slice(i, i + chunkSize));
+  }
+  return chunks;
 }
 
 /**

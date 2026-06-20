@@ -100,7 +100,6 @@ export const UNIT_TEST_FILES = [
   "test/bundle-gate.unit.test.ts",
   "test/compile-target.unit.test.ts",
   "test/herdr-dashboard-automation.unit.test.ts",
-  "test/herdr-dashboard-automation-gate.unit.test.ts",
   "test/tochange-tracker.unit.test.ts",
   "test/bun-native-lint.unit.test.ts",
   "test/bun-spawn-env.unit.test.ts",
@@ -289,6 +288,7 @@ export const INTEGRATION_TEST_FILES = [
   "test/decision-scoring.integration.test.ts",
   "test/effect-gates.integration.test.ts",
   "test/error-clustering.integration.test.ts",
+  "test/herdr-dashboard-automation-gate.integration.test.ts",
   "test/herdr-project.integration.test.ts",
   "test/kimi-decision.integration.test.ts",
   "test/kimi-docs-aligned.integration.test.ts",
@@ -318,153 +318,6 @@ export const SMOKE_TEST_TIMEOUT_MS = 60_000;
 /** True when `bun test --changed` failed only because no test files matched the glob. */
 export function isBunTestChangedEmptyOutput(output: string): boolean {
   return /No tests found/i.test(output) || /0 test files matching/i.test(output);
-}
-
-export function bunTestArgs(options: {
-  coverage?: boolean;
-  json?: boolean;
-  fast?: boolean;
-  ci?: boolean;
-  integration?: boolean;
-  smoke?: boolean;
-  files?: readonly string[];
-  bail?: boolean | number;
-  timeoutMs?: number;
-  retry?: number;
-  dots?: boolean;
-  /** Bun test --changed=<ref> — import-graph related tests vs a git ref */
-  changedRef?: string;
-  /** Bun test --parallel[=N] — run test files across N workers */
-  parallel?: number | boolean;
-  /** Bun test --shard=M/N — split test files across CI jobs */
-  shard?: string;
-  /** Bun test --reporter-outfile=<path> — JUnit report destination. */
-  reporterOutfile?: string;
-  /** Bun test --rerun-each=N — run each test file N times to catch flakes. */
-  rerunEach?: number;
-  /** Bun test --randomize — run tests in random order. */
-  randomize?: boolean;
-  /** Bun test --seed=N — reproducible random order (implies --randomize). */
-  seed?: number;
-  /** Bun test --max-concurrency=N — max concurrent tests (default 20). */
-  maxConcurrency?: number;
-}): string[] {
-  const timeout = String(
-    options.timeoutMs ??
-      (options.fast
-        ? FAST_TEST_TIMEOUT_MS
-        : options.smoke
-          ? SMOKE_TEST_TIMEOUT_MS
-          : options.ci
-            ? CI_TEST_TIMEOUT_MS
-            : DEFAULT_TEST_TIMEOUT_MS)
-  );
-  const args = ["test", "--timeout", timeout];
-  if (options.bail) {
-    args.push(typeof options.bail === "number" ? `--bail=${options.bail}` : "--bail");
-  }
-  if (options.retry !== undefined && options.retry > 0) {
-    args.push(`--retry=${options.retry}`);
-  }
-  if (options.shard) {
-    args.push(`--shard=${options.shard}`);
-  }
-  if (options.parallel) {
-    args.push(
-      typeof options.parallel === "number" ? `--parallel=${options.parallel}` : "--parallel"
-    );
-  }
-  if (options.rerunEach !== undefined && options.rerunEach > 0) {
-    args.push(`--rerun-each=${options.rerunEach}`);
-  }
-  if (options.randomize) args.push("--randomize");
-  if (options.seed !== undefined) args.push(`--seed=${options.seed}`);
-  if (options.maxConcurrency !== undefined && options.maxConcurrency > 0) {
-    args.push(`--max-concurrency=${options.maxConcurrency}`);
-  }
-  if (options.coverage) {
-    args.push("--coverage", "--coverage-reporter=lcov", "--coverage-dir=./coverage");
-  }
-  if (options.ci) {
-    args.push(
-      "--reporter=junit",
-      `--reporter-outfile=${options.reporterOutfile ?? "reports/junit.xml"}`
-    );
-  }
-  if (options.dots) args.push("--dots");
-  if (options.json) args.push("--json");
-  if (options.changedRef) {
-    args.push(`--changed=${options.changedRef}`);
-  } else if (options.files?.length) {
-    args.push("--isolate", ...options.files);
-  } else if (options.fast) {
-    // Bounded parallelism keeps per-worker memory low on memory-constrained hosts;
-    // --isolate drains microtasks and closes sockets between files, preventing
-    // the global-state leaks that cause hung workers (SIGTERM 143).
-    const parallel = Bun.env.KIMI_TEST_PARALLEL ? Number(Bun.env.KIMI_TEST_PARALLEL) : 4;
-    args.push(`--parallel=${parallel}`, "--isolate", ...UNIT_TEST_FILES);
-  } else if (options.integration) {
-    args.push("--isolate", ...INTEGRATION_TEST_FILES);
-  } else if (options.smoke) {
-    args.push("--isolate", ...SMOKE_TEST_FILES);
-  } else if (options.parallel === undefined && !options.shard && !(options.ci && !options.fast)) {
-    // Default full discovery runs every *.test.ts file; isolate per-file to prevent
-    // module-level mock.module() leaks between test files.
-    args.push("--isolate");
-  }
-  if (options.ci && !options.fast) {
-    args.push("--isolate");
-  }
-  if (options.parallel !== undefined && options.parallel !== false) {
-    const n = options.parallel === true ? "" : `=${options.parallel}`;
-    args.push(`--parallel${n}`, "--isolate");
-  }
-  if (options.shard) {
-    args.push(`--shard=${options.shard}`, "--isolate");
-  }
-  return args;
-}
-
-export function chunkFastUnitTestFiles(
-  files: readonly string[] = UNIT_TEST_FILES,
-  chunkSize = FAST_TEST_CHUNK_SIZE
-): string[][] {
-  if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
-    throw new Error(`Invalid fast test chunk size: ${chunkSize}`);
-  }
-
-  const chunks: string[][] = [];
-  for (let i = 0; i < files.length; i += chunkSize) {
-    chunks.push(files.slice(i, i + chunkSize));
-  }
-  return chunks;
-}
-
-function shouldChunkFastTests(options: Parameters<typeof bunTestArgs>[0]): boolean {
-  return (
-    options.fast === true &&
-    !options.coverage &&
-    !options.ci &&
-    !options.integration &&
-    !options.smoke &&
-    !options.changedRef &&
-    !options.files?.length &&
-    options.parallel === undefined &&
-    !options.shard
-  );
-}
-
-export function bunTestArgBatches(options: Parameters<typeof bunTestArgs>[0]): string[][] {
-  if (!shouldChunkFastTests(options)) return [bunTestArgs(options)];
-
-  return chunkFastUnitTestFiles().map((files) =>
-    bunTestArgs({
-      ...options,
-      fast: false,
-      timeoutMs: options.timeoutMs ?? FAST_TEST_TIMEOUT_MS,
-      files,
-    })
-  );
 }
 
 export function useFastUnitCoverage(packageName: string | undefined): boolean {

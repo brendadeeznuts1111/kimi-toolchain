@@ -667,6 +667,7 @@ export interface BunfigInstallSection {
 }
 
 interface PackageJsonInstallMeta {
+  name?: string;
   packageManager?: string;
   engines?: { bun?: string };
   trustedDependencies?: string[];
@@ -913,7 +914,11 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
         );
         for (const row of rows) {
           if (row.key === "rootConsumerLink") {
-            row.current = await resolveWorkspaceCurrent("rootConsumerLink", projectDir, packageMeta);
+            row.current = await resolveWorkspaceCurrent(
+              "rootConsumerLink",
+              projectDir,
+              packageMeta
+            );
             row.status = comparePolicyStatus(row, row.current);
           }
         }
