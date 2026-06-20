@@ -1,6 +1,10 @@
 import { makeDir, pathExists, readText, writeText } from "./bun-io.ts";
+import { readableStreamToText } from "./bun-utils.ts";
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
+import { withBunNoOrphans } from "./tool-runner.ts";
 
-import { join } from "path";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import { TOML } from "bun";
 import type { GateResult } from "./gate-runner.ts";
 import {
@@ -949,6 +953,42 @@ function finishWorkGateLogPath(projectRoot: string, gateName: string): string {
   return join(projectRoot, ".kimi", `finish-work-gate-${safe}.log`);
 }
 
+function resolveFinishWorkGateRunnerScript(projectRoot: string): string {
+  const local = join(projectRoot, "scripts", "finish-work-gate-run.ts");
+  if (pathExists(local)) return local;
+  return fileURLToPath(new URL("../../scripts/finish-work-gate-run.ts", import.meta.url));
+}
+
+/**
+ * Run a shell gate command with stdout/stderr captured to a log file via Bun.spawn.
+ *
+ * Pipes both streams then writes the merged text with `Bun.write` — assigning the same
+ * `Bun.file` to stdout and stderr drops bytes on Bun 1.4 when both streams are active.
+ *
+ * @see BUN_CHILD_PROCESS_DOC_URL — spawn stdio; log sink via `Bun.write(logPath, …)`
+ */
+export async function spawnGateCommandToLog(
+  command: string,
+  logPath: string,
+  options: { cwd?: string; env?: Record<string, string | undefined> } = {}
+): Promise<number> {
+  makeDir(dirname(logPath), { recursive: true });
+  const proc = Bun.spawn(withBunNoOrphans(["sh", "-lc", command]), {
+    cwd: options.cwd ?? process.cwd(),
+    env: withNoOrphansEnv(options.env),
+    stdin: "ignore",
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    readableStreamToText(proc.stdout),
+    readableStreamToText(proc.stderr),
+    proc.exited,
+  ]);
+  await Bun.write(logPath, `${stdout}${stderr}`);
+  return exitCode;
+}
+
 function parseDoctorGateMarker(output: string, nonce: string): number | null {
   const match = output.match(new RegExp(`__KIMI_FW_GATE_${nonce}:(\\d+)__`));
   if (!match) return null;
@@ -983,13 +1023,11 @@ export async function runDoctorPaneGate(
   const logPath = finishWorkGateLogPath(projectRoot, name);
   makeDir(join(projectRoot, ".kimi"), { recursive: true });
 
-  const wrapped = [
-    `rm -f ${shellQuote(logPath)}`,
-    `${command} > ${shellQuote(logPath)} 2>&1`,
-    `EC=$?`,
-    `echo __KIMI_FW_GATE_${nonce}:$EC__`,
-    "exit 0",
-  ].join("; ");
+  const runnerScript = resolveFinishWorkGateRunnerScript(projectRoot);
+  const gateInvocation = `bun ${shellQuote(runnerScript)} --log ${shellQuote(logPath)} --command ${shellQuote(command)}`;
+  const wrapped = [gateInvocation, `EC=$?`, `echo __KIMI_FW_GATE_${nonce}:$EC__`, "exit 0"].join(
+    "; "
+  );
 
   const ran = await cli(["pane", "run", doctorPaneId, paneRunCommand(wrapped)]);
   if (!ran.ok) {

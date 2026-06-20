@@ -10,6 +10,7 @@ import {
   resolveDoctorPaneId,
   resolveTabPrimaryPane,
   runDoctorPaneGate,
+  spawnGateCommandToLog,
   shouldEscalateToReviewer,
   shouldRouteGateThroughDoctor,
   shouldRunGateInDoctorPane,
@@ -180,6 +181,18 @@ describe("finish-work-herdr", () => {
     expect(resolved.error).toContain("doctor tab not found");
   });
 
+  test("spawnGateCommandToLog merges stdout and stderr into log file", async () => {
+    const root = testTempDir("finish-work-gate-spawn-");
+    const logPath = join(root, ".kimi", "gate.log");
+    const code = await spawnGateCommandToLog("printf out\\n; printf err >&2", logPath, {
+      cwd: root,
+    });
+    expect(code).toBe(0);
+    const log = await Bun.file(logPath).text();
+    expect(log).toContain("out");
+    expect(log).toContain("err");
+  });
+
   test("runDoctorPaneGate returns command exit code from doctor pane marker", async () => {
     const root = testTempDir("finish-work-herdr-");
     makeDir(join(root, ".kimi"), { recursive: true });
@@ -215,6 +228,8 @@ describe("finish-work-herdr", () => {
       expect(result.doctorPaneId).toBe("w1:p7");
       expect(result.stdout).toContain("audit ok");
       expect(capturedRun).toContain("kimi-heal effect audit");
+      expect(capturedRun).toContain("finish-work-gate-run.ts");
+      expect(capturedRun).not.toContain("2>&1");
     });
   });
 
