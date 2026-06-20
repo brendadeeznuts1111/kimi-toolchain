@@ -14,7 +14,7 @@ export interface CardProbeConfig {
 
 export interface CardStatus {
   cardId: string;
-  source: "examples" | "herdr";
+  source: "examples" | "herdr" | "config-status";
   status: "pass" | "fail" | "pending" | "unknown";
   lastUpdated: string;
   artifactUrl?: string;
@@ -97,7 +97,11 @@ function cardsPayloadToStatuses(payload: DashboardCardsPayload, source: "example
   }));
 }
 
-function unknownRow(source: "examples" | "herdr", cardId: string, error?: string): CardStatus {
+function unknownRow(
+  source: "examples" | "herdr" | "config-status",
+  cardId: string,
+  error?: string
+): CardStatus {
   return {
     cardId,
     source,
