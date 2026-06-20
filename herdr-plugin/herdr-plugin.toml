@@ -34,6 +34,60 @@ title = "Register benchmark portal artifact from serve-probe"
 contexts = ["workspace"]
 command = ["./run.sh", "benchmark-portal.ts"]
 
+[[actions]]
+id = "serve-probe"
+title = "Serve-Probe"
+contexts = ["workspace"]
+command = ["bun", "run", "serve-probe"]
+
+[[actions]]
+id = "frozen-ci-install"
+title = "Frozen CI Install"
+contexts = ["workspace"]
+command = ["bun", "ci"]
+
+[[actions]]
+id = "install-dashboard"
+title = "Install Dashboard"
+contexts = ["workspace"]
+command = ["bun", "install", "--filter", "./examples/dashboard"]
+
+[[actions]]
+id = "portal-convergence-check"
+title = "Portal Convergence Check"
+contexts = ["workspace"]
+command = ["bun", "run", "build:portal", "--dry-run"]
+
+[[actions]]
+id = "run-test-gates"
+title = "Run Test Gates"
+contexts = ["workspace"]
+command = ["bun", "run", "test:gates"]
+
+[[actions]]
+id = "bun-ssot-status"
+title = "BUN SSOT Status"
+contexts = ["workspace"]
+command = ["bun", "run", "bun-install:status"]
+
+[[actions]]
+id = "clean-frozen-reinstall"
+title = "Clean Frozen Reinstall"
+contexts = ["workspace"]
+command = ["bash", "-lc", "rm -rf node_modules && bun ci"]
+
+[[actions]]
+id = "add-runtime-dep"
+title = "Add Runtime Dep"
+contexts = ["workspace"]
+command = ["bash", "-lc", "read -r -p 'Runtime package: ' pkg && test -n \"$pkg\" && bun add \"$pkg\""]
+
+[[actions]]
+id = "add-dev-dep"
+title = "Add Dev Dep"
+contexts = ["workspace"]
+command = ["bash", "-lc", "read -r -p 'Dev package: ' pkg && test -n \"$pkg\" && bun add -d \"$pkg\""]
+
 # ── Event hooks ──
 
 [[events]]

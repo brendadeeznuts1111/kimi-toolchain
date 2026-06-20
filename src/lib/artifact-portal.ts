@@ -105,6 +105,8 @@ export interface BuildArtifactPortalOptions {
   probeUrl?: string;
   /** When true (default), try serve-probe before local loop. */
   preferProbe?: boolean;
+  /** Validate the envelope + manifest shape without writing artifacts. */
+  dryRun?: boolean;
 }
 
 export interface ArtifactPortalBuildResult {
@@ -113,6 +115,7 @@ export interface ArtifactPortalBuildResult {
   contractPath: string;
   canvasManifestId: string;
   builtAt: string;
+  dryRun?: boolean;
   benchmark: {
     source: BenchmarkEnvelopeSource;
     probeUrl?: string;
@@ -156,15 +159,18 @@ export async function buildArtifactPortal(
   const projectRoot = options.projectRoot ?? process.cwd();
   const builtAt = new Date().toISOString();
   const { envelope, source, probeUrl } = await resolveBenchmarkEnvelope(options);
+  const dryRun = options.dryRun === true;
 
-  const benchmarkRecord = await registerPortalArtifact({
-    type: PORTAL_BENCHMARK_DIAGNOSTICS_TYPE,
-    payload: envelope,
-    canvasId: BENCHMARK_MANIFEST_ID,
-    influences: BENCHMARK_CARD_IDS,
-    projectRoot,
-    probeUrl,
-  });
+  const benchmarkRecord = dryRun
+    ? { artifactPath: "(dry-run)" }
+    : await registerPortalArtifact({
+        type: PORTAL_BENCHMARK_DIAGNOSTICS_TYPE,
+        payload: envelope,
+        canvasId: BENCHMARK_MANIFEST_ID,
+        influences: BENCHMARK_CARD_IDS,
+        projectRoot,
+        probeUrl,
+      });
 
   const convergedComponents = convergedComponentsFromEnvelope(envelope);
   const converged = isFullyConvergedEnvelope(envelope);
@@ -181,14 +187,16 @@ export async function buildArtifactPortal(
     convergedComponents,
   });
 
-  const indexRecord = await registerPortalArtifact({
-    type: PORTAL_MANIFEST_TYPE,
-    payload: manifestPayload,
-    canvasId: BENCHMARK_MANIFEST_ID,
-    influences: BENCHMARK_CARD_IDS,
-    projectRoot,
-    probeUrl,
-  });
+  const indexRecord = dryRun
+    ? { artifactPath: "(dry-run)" }
+    : await registerPortalArtifact({
+        type: PORTAL_MANIFEST_TYPE,
+        payload: manifestPayload,
+        canvasId: BENCHMARK_MANIFEST_ID,
+        influences: BENCHMARK_CARD_IDS,
+        projectRoot,
+        probeUrl,
+      });
 
   return {
     ok: true,
@@ -196,6 +204,7 @@ export async function buildArtifactPortal(
     contractPath: ARTIFACT_PORTAL_CONTRACT_PATH,
     canvasManifestId: BENCHMARK_MANIFEST_ID,
     builtAt,
+    ...(dryRun ? { dryRun: true } : {}),
     benchmark: {
       source,
       probeUrl,
