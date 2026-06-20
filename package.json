@@ -132,6 +132,7 @@
     "@types/js-yaml": "^4.0.9",
     "oxfmt": "^0.53.0",
     "oxlint": "^1.68.0",
+    "ts-morph": "^25.0.0",
     "typescript": "^5.8.0"
   },
   "engines": {

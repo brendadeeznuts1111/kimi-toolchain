@@ -152,6 +152,8 @@ export interface HerdrDashboardServerOptions extends DashboardFetchOptions {
   screenshotProvider?: () => Promise<Uint8Array | null>;
   /** Bridge Herdr socket events → dashboard refresh (default true). */
   herdrEvents?: boolean;
+  /** When false, defer Herdr event socket connect (forwarded to event bridge). */
+  connect?: boolean;
   /** Inject discovery cache (tests) — skips default hub cache construction. */
   discoveryCache?: HerdrDashboardDiscoveryCache;
   /** Event-driven meta gate watch on discovery:refreshed (default true). */
@@ -330,6 +332,7 @@ export function startHerdrDashboardServer(
     projectPath: options.projectPath,
     hub,
     herdrEvents: options.herdrEvents,
+    connect: options.connect,
   });
 
   // Persist gate and scan events to the audit trail

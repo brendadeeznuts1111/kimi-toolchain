@@ -355,6 +355,33 @@ Three layers must stay separate:
 
 Batch edits (up to 5–8 files) → `bun run check:fast` → fix failures → repeat → `bun run check` before commit.
 
+### Agent Operating Loop
+
+| Step      | Action                                                                                                             |
+| --------- | ------------------------------------------------------------------------------------------------------------------ |
+| Scope     | Read `CODE_REFERENCES.md`, pick the closest existing pattern, and name the smallest change slice.                  |
+| Implement | Keep parsing, mutation, subprocess, and telemetry boundaries typed and local to established modules.               |
+| Guard     | Do not leave root-cause fixes as one-off patches; add a detector, regression test, or stale-pattern scan.          |
+| Validate  | Run targeted tests first (`bun test <specific-file>`), then `bun run check:fast`; reserve full checks for handoff. |
+
+### Regression hygiene
+
+After fixing a root cause: **Add a typed detector or gate**, add a regression test, and **Search for the same pattern** in generated scaffolds and sibling modules.
+
+### Pre-push defaults
+
+**pre-push** runs **check:fast** by default; set **KIMI_PRE_PUSH_FULL=1** for the full gate bundle.
+
+### Safe git and shell habits
+
+After rename/index-touching commands: `git diff --cached --stat`; unstage mistakes with `git restore --staged`.
+When searching logs or code with shell metacharacters, prefer `rg -e 'pattern'` over unquoted grep.
+
+### Contract trust and self-healing
+
+Run `kimi-contract validate --json` before trusting changed contracts; trust roots live in `trusted-keys.json`.
+Preview repairs with `kimi-heal apply --dry-run`; auto-apply only runs `safeToAutoApply` actions.
+
 **After finishing:** `kimi-githooks doctor` → `kimi-doctor --agent-ready` → `kimi-governance score --preflight --quick` → conventional commit → `bun run sync && bun run sync:verify` if runtime assets changed.
 
 ### Effect discipline

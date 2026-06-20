@@ -103,8 +103,8 @@ export const UNIT_TEST_FILES = [
   "test/scaffold-templates.unit.test.ts",
   "test/scaffold-doctor.unit.test.ts",
   "test/scaffold-aligned.unit.test.ts",
-  "test/workspace-health.test.ts",
-  "test/ecosystem-health.test.ts",
+  "test/workspace-health.unit.test.ts",
+  "test/ecosystem-health.unit.test.ts",
   "test/governance-check.unit.test.ts",
   "test/guardian-verify.unit.test.ts",
   "test/guardian/tls-compliance.unit.test.ts",
@@ -226,7 +226,6 @@ export const UNIT_TEST_FILES = [
   "test/doctor-workspace-context.unit.test.ts",
   "test/dx-cloudflare-config.unit.test.ts",
   "test/dx-config.unit.test.ts",
-  "test/ecosystem-health.unit.test.ts",
   "test/effect-benchmark.unit.test.ts",
   "test/effect-gates.unit.test.ts",
   "test/effect/cli-contract-effect.unit.test.ts",
@@ -247,7 +246,6 @@ export const UNIT_TEST_FILES = [
   "test/kimi-dashboard-mcp.unit.test.ts",
   "test/kimi-docs-aligned.unit.test.ts",
   "test/kimi-governance.unit.test.ts",
-  "test/kimi-toolchain.router.unit.test.ts",
   "test/mcp-bridge-scaffold.unit.test.ts",
   "test/mcp-registry.unit.test.ts",
   "test/mcp-telemetry.unit.test.ts",
@@ -258,7 +256,6 @@ export const UNIT_TEST_FILES = [
   "test/scoped-test-cache.unit.test.ts",
   "test/self-healing.unit.test.ts",
   "test/toolchain-paths.unit.test.ts",
-  "test/workspace-health.unit.test.ts",
 ] as const;
 
 export const FAST_TEST_CHUNK_SIZE = 10;
@@ -355,13 +352,18 @@ export function bunTestArgs(options: {
   } else if (options.files?.length) {
     args.push("--isolate", ...options.files);
   } else if (options.fast) {
-    args.push("--concurrency", "4", "--isolate", ...UNIT_TEST_FILES);
-  }
-  if (options.integration) {
-    args.push(...INTEGRATION_TEST_FILES);
-  }
-  if (options.smoke) {
+    // Concurrency is intentionally conservative on memory-constrained hosts;
+    // the full gate still uses parallel discovery. Raise with KIMI_TEST_CONCURRENCY.
+    const concurrency = process.env.KIMI_TEST_CONCURRENCY ?? "2";
+    args.push("--concurrency", concurrency, "--isolate", ...UNIT_TEST_FILES);
+  } else if (options.integration) {
+    args.push("--isolate", ...INTEGRATION_TEST_FILES);
+  } else if (options.smoke) {
     args.push("--isolate", ...SMOKE_TEST_FILES);
+  } else if (options.parallel === undefined && !options.shard && !(options.ci && !options.fast)) {
+    // Default full discovery runs every *.test.ts file; isolate per-file to prevent
+    // module-level mock.module() leaks between test files.
+    args.push("--isolate");
   }
   if (options.ci && !options.fast) {
     args.push("--isolate");

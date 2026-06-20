@@ -69,6 +69,16 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run decision` | (synced from package.json) |
 
+| `bun run dashboard` | (synced from package.json) |
+| `bun run dashboard-mcp` | (synced from package.json) |
+| `bun run mcp` | (synced from package.json) |
+| `bun run dx:table` | (synced from package.json) |
+| `bun run dx:table:contract` | (synced from package.json) |
+| `bun run canvas:generate` | (synced from package.json) |
+| `bun run sync:cursor-canvases` | (synced from package.json) |
+
+| `bun run finish-work` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                           |

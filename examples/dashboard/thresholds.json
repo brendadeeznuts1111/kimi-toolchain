@@ -13,5 +13,6 @@
   "kimi.effect.file.serve-full": 3.356,
   "kimi.effect.file.serve-range": 0.191,
   "kimi.effect.clock": 0.007,
-  "kimi.effect.uuid": 0.008
+  "kimi.effect.uuid": 0.008,
+  "email-i18n": 0
 }

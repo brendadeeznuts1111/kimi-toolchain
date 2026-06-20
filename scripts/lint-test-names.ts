@@ -4,7 +4,7 @@
  *
  * Naming rules:
  * - test files use {stem}.{unit|integration|smoke|db|router}.test.ts
- *   (legacy: ecosystem-health.test.ts, workspace-health.test.ts)
+
  * - *.unit.test.ts stem maps to a source module (src/lib, src/lib/effect, src/bin, types)
  * - Top-level describe("…") uses kebab-case and starts with the file stem
  *   (grandfathered files listed in LEGACY_DESCRIBE_EXEMPT)
@@ -22,11 +22,6 @@ import { pathExists, readTextAsync } from "../src/lib/bun-io.ts";
 import { UNIT_TEST_FILES } from "../src/lib/test-gates.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
-
-const LEGACY_PLAIN_TEST = new Set([
-  "test/ecosystem-health.test.ts",
-  "test/workspace-health.test.ts",
-]);
 
 /** Unit test stems that intentionally target a non-default source path. */
 const UNIT_STEM_SOURCE: Record<string, string> = {
@@ -67,6 +62,16 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "dashboard-audit-store": "src/lib/dashboard-audit-store.ts",
   "herdr-dashboard-data": "src/lib/herdr-dashboard-data.ts",
   "scaffold-trading": "src/lib/scaffold-modules.ts",
+  "introspection-docs": "src/lib/scaffold-agents.ts",
+  "examples-dashboard-routes": "examples/dashboard/src/index.ts",
+  "examples-dashboard-artifacts": "examples/dashboard/src/handlers/artifacts.ts",
+  "ci-pipeline": "src/lib/effect/ci-pipeline.ts",
+  "ci-impact": "src/lib/ci-impact.ts",
+  "agent-context-quality": "src/lib/agent-context-quality.ts",
+  "kimi-dashboard-daemon": "src/bin/kimi-dashboard.ts",
+  "kimi-dashboard-mcp": "src/bin/kimi-dashboard-mcp.ts",
+  "email-i18n-gate": "src/gates/email-i18n.ts",
+  "url-i18n-gate": "src/gates/url-i18n.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */
@@ -74,6 +79,16 @@ const DESCRIBE_STEM_ALIAS: Record<string, string> = {
   "cloudflare-access-dashboard": "cloudflare-access",
   sync: "sync-hashes",
   "telemetry-schema": "telemetry",
+  "introspection-docs": "introspection",
+  "trace-ledger": "trace",
+  "agent-context-quality": "agent",
+  "error-clustering": "error-embedding",
+  "kimi-dashboard-daemon": "kimi-dashboard",
+  "email-i18n-gate": "email-i18n",
+  "url-i18n-gate": "url-i18n",
+  "ci-impact": "ci",
+  "githook-templates": "githook",
+  "kimi-introspection-services": "kimi",
 };
 
 /** Allowed top-level describe prefixes for aggregate test files. */
@@ -96,6 +111,8 @@ const LEGACY_DESCRIBE_EXEMPT = new Set([
   "test/decision-scoring.integration.test.ts",
   "test/kimi-fix.integration.test.ts",
   "test/cleanup-legacy.integration.test.ts",
+  "test/ci-pipeline.unit.test.ts",
+  "test/error-clustering.integration.test.ts",
 ]);
 
 const FILENAME_PATTERN =
@@ -116,7 +133,6 @@ function resolveUnitSource(root: string, rel: string, stem: string): string {
 
 function parseStem(rel: string): string | null {
   const name = basename(rel);
-  if (LEGACY_PLAIN_TEST.has(rel)) return null;
   const match = name.match(/^(.+)\.(unit|integration|smoke|db|router)\.test\.ts$/);
   return match?.[1] ?? null;
 }
@@ -249,7 +265,7 @@ export async function lintTestNames(
   const glob = new Bun.Glob("test/**/*.test.ts");
 
   const scanRel = async (rel: string): Promise<void> => {
-    if (!LEGACY_PLAIN_TEST.has(rel) && !FILENAME_PATTERN.test(rel)) {
+    if (!FILENAME_PATTERN.test(rel)) {
       violations.push(
         `${rel}: filename must match {stem}.{unit|integration|smoke|db|router}.test.ts`
       );

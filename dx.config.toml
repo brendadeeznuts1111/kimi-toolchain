@@ -2,6 +2,10 @@
 schemaVersion = 1
 name = "kimi-toolchain"
 
+[dx.propertyTable]
+file = "test/fixtures/property-table-target.ts"
+class = "DemoConfig"
+
 [runtime]
 containers = "none"
 packageManager = "bun"
@@ -137,6 +141,22 @@ reviewerTab = "reviewer"
 [herdr.orchestrator.dashboard]
 examplesUrl = "http://127.0.0.1:5678/"
 autoStartExamples = true
+persist_profile = true
 
 [herdr.orchestrator.remote_hosts.staging]
 host = "staging.example.com"
+
+[[herdr.orchestrator.handoff_rules]]
+from_workspace = "wB"
+from_agent = "kimi"
+condition = "finish-work:handoff-ready"
+to_workspace = "wB"
+to_agent = "codex-primary"
+when = { finishWorkReport.review.resolved = true, pane.status = "idle" }
+
+[[herdr.orchestrator.handoff_rules]]
+from_workspace = "wB"
+from_agent = "kimi"
+condition = "probe:canonical-references:runtime-aligned"
+to_workspace = "wB"
+to_agent = "codex-primary"

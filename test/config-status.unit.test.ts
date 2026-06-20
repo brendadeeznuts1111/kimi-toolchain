@@ -17,7 +17,7 @@ describe("config-status", () => {
     }
     expect(report.aligned).toBe(true);
     expect(report.fixPlan).toHaveLength(0);
-  });
+  }, 5_000);
 
   test("formatConfigStatusTable emits gate names and status markers", async () => {
     const report = await auditConfigLayersStatus(REPO_ROOT);
@@ -27,11 +27,11 @@ describe("config-status", () => {
     expect(table).toContain("constant-parity");
     expect(table).toContain("✅");
     expect(table).toContain("Configuration layers status");
-  });
+  }, 5_000);
 
   test("isConfigStatusReport accepts valid report shape", async () => {
     const report = await auditConfigLayersStatus(REPO_ROOT);
     expect(isConfigStatusReport(report)).toBe(true);
     expect(isConfigStatusReport({ tool: "config-status" })).toBe(false);
-  });
+  }, 5_000);
 });

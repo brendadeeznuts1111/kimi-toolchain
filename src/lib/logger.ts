@@ -98,6 +98,12 @@ export class Logger {
       return;
     }
 
+    if (this.humanStderr) {
+      if (entry.level === "error") console.error(`  ✗ ${entry.message}`);
+      else if (entry.level === "warn") console.warn(`  ⚠ ${entry.message}`);
+      return;
+    }
+
     if (isAgentContext()) {
       if (entry.level === "error") console.error(`  ✗ ${entry.message}`);
       else if (entry.level === "warn") console.warn(`  ⚠ ${entry.message}`);

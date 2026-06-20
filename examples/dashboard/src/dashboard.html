@@ -396,7 +396,10 @@
         padding: 12px 14px;
         text-align: center;
         cursor: pointer;
-        transition: border-color 150ms;
+        transition:
+          border-color 150ms,
+          opacity 300ms;
+        position: relative;
       }
       .landing-stat:hover {
         border-color: var(--blue);
@@ -405,6 +408,7 @@
         font-size: 28px;
         font-weight: 700;
         line-height: 1.2;
+        transition: color 400ms;
       }
       .landing-stat .label {
         font-size: 11px;
@@ -421,6 +425,9 @@
         color: var(--muted);
         margin-top: 1px;
         font-style: italic;
+      }
+      .landing-stat.stale {
+        opacity: 0.55;
       }
       @media (max-width: 640px) {
         #landing-zone {
@@ -1335,19 +1342,34 @@
         // Refresher
         async function refreshLanding() {
           const now = new Date().toLocaleTimeString();
-          try {
-            settings = await fetchJson("/api/settings");
-          } catch {
-            /* keep prior settings snapshot */
-          }
+          try { settings = await fetchJson("/api/settings"); } catch { /* keep prior */ }
 
-          // Cards: dashboard
+          const probeBase = resolveProbeBase();
+          let probeCards = null;
+          let probeArts = null;
+
+          // Probe server: cards + artifacts (fire-and-forget, best-effort)
+          try {
+            const [pc, pa] = await Promise.all([
+              fetch(`${probeBase}/api/cards`).then(r => r.ok ? r.json() : null).catch(() => null),
+              fetch(`${probeBase}/api/artifacts`).then(r => r.ok ? r.json() : null).catch(() => null),
+            ]);
+            probeCards = pc;
+            probeArts = pa;
+          } catch { /* probe unreachable */ }
+
+          // Cards tile: dashboard + probe server
           try {
             const cards = await fetchJson("/api/cards?probe=true");
             const ok = cards.cards.filter((c) => c.status === "ok").length;
             const total = settings?.cardCount ?? cards.total;
+            let sub = `${total - ok} failing or unknown`;
+            if (probeCards?.cards) {
+              const probeOk = probeCards.cards.filter((c) => c.status === "pass").length;
+              sub += ` · probe ${probeOk}/${probeCards.total} pass`;
+            }
             setStat("cards", `${ok}/${total}`, "cards passing",
-              `${total - ok} failing or unknown`, `dashboard · refreshed ${now}`,
+              sub, `dashboard · refreshed ${now}`,
               colorForRatio(ok, total));
           } catch { setStat("cards", "—", "cards", "unavailable", `refreshed ${now}`); }
 
@@ -1357,31 +1379,23 @@
             setStat("runtime", rt.runtime, `${rt.version.split("-")[0]}`, rt.bunVersion, `refreshed ${now}`);
           } catch { setStat("runtime", "—", "runtime", "unavailable", `refreshed ${now}`); }
 
-          // Artifact gates
+          // Artifact gates: dashboard + probe
           try {
             const arts = await fetchJson("/api/artifacts");
             const withSaved = (arts.artifacts || []).filter((r) => (r.count ?? 0) > 0);
             const gateNames = withSaved.map((r) => r.gate).join(", ");
-            setStat(
-              "artifacts",
-              withSaved.length,
-              "artifact gates",
-              gateNames.length > 40 ? `${gateNames.slice(0, 40)}…` : gateNames,
-              `refreshed ${now}`
-            );
+            let sub = gateNames.length > 40 ? `${gateNames.slice(0, 40)}…` : gateNames;
+            if (probeArts?.gates) {
+              sub += ` · probe ${probeArts.count} gates`;
+            }
+            setStat("artifacts", withSaved.length, "artifact gates", sub || undefined, `refreshed ${now}`);
           } catch { setStat("artifacts", "—", "artifacts", "unavailable", `refreshed ${now}`); }
 
-          // Dual health: dashboard + probe server
+          // Dual health
           try {
             const dashHealth = await fetch("/api/health", { method: "HEAD" });
             const dashOk = dashHealth.ok;
-
-            let probeOk = false;
-            const probeBase = resolveProbeBase();
-            try {
-              const probeRes = await fetch(`${probeBase}/api/health`, { method: "HEAD" });
-              probeOk = probeRes.ok;
-            } catch { /* probe unreachable */ }
+            const probeOk = !!(probeCards || probeArts); // probe reachable if either endpoint responded
 
             const summary = dashOk && probeOk ? "✓ ✓" : dashOk ? "✓ ✗" : probeOk ? "✗ ✓" : "✗ ✗";
             const sub = dashOk ? (probeOk ? "both healthy" : "dashboard up · probe unreachable")
@@ -1396,8 +1410,20 @@
           }
         }
 
+        // Stale indicator — dim tiles when data is >90s old
+        let staleTimer = null;
+        function markStale() {
+          document.querySelectorAll(".landing-stat").forEach(el => el.classList.add("stale"));
+        }
+        function clearStale() {
+          document.querySelectorAll(".landing-stat").forEach(el => el.classList.remove("stale"));
+          clearTimeout(staleTimer);
+          staleTimer = setTimeout(markStale, 90000);
+        }
+
         await refreshLanding();
-        setInterval(refreshLanding, REFRESH_MS);
+        clearStale();
+        setInterval(() => { refreshLanding(); clearStale(); }, REFRESH_MS);
       })();
 
       function card(id, body) {

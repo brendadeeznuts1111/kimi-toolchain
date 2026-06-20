@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
+import { makeDir, writeText } from "../src/lib/bun-io.ts";
 import {
   HUB_BIN_CATEGORY,
   listPackageBinNames,
@@ -13,7 +14,46 @@ import {
 import { canvasCompanionsStale, syncCanvasCompanions } from "../src/lib/canvas-companion-sync.ts";
 import { extractCanvasRoutingIds } from "../src/lib/cursor-canvas-lint.ts";
 import { UNIT_TEST_FILES } from "../src/lib/test-gates.ts";
-import { REPO_ROOT, readText } from "./helpers.ts";
+import { cleanupPath, readText, REPO_ROOT, testTempDir } from "./helpers.ts";
+
+async function createMinimalCanvasProject(): Promise<string> {
+  const dir = testTempDir("canvas-sync-");
+  const canvasesDir = join(dir, "docs/canvases");
+  await makeDir(canvasesDir, { recursive: true });
+  await makeDir(join(dir, "src/lib"), { recursive: true });
+
+  for (const file of [
+    "kimi-toolchain.canvas.tsx",
+    "herdr-dashboard-thumbnails.canvas.tsx",
+    "namespace-boundaries.canvas.tsx",
+  ]) {
+    await Bun.write(
+      join(canvasesDir, file),
+      await Bun.file(join(REPO_ROOT, "docs/canvases", file)).text()
+    );
+  }
+
+  await writeText(
+    join(dir, "package.json"),
+    JSON.stringify(
+      {
+        name: "kimi-canvas-test",
+        version: "1.0.0",
+        bin: {
+          "kimi-doctor": "src/bin/kimi-doctor.ts",
+          "kimi-governance": "src/bin/kimi-governance.ts",
+        },
+      },
+      null,
+      2
+    )
+  );
+
+  await writeText(join(dir, "src/lib/a.ts"), "export const a = 1;\n");
+  await writeText(join(dir, "src/lib/b.ts"), "export const b = 2;\n");
+
+  return dir;
+}
 
 describe("cursor-canvas-lint", () => {
   test("manifestCanvasRoutes lists manifest-backed canvases", () => {
@@ -75,9 +115,14 @@ describe("cursor-canvas-lint", () => {
   });
 
   test("canvasCompanionsStale is clean after sync", async () => {
-    await syncCanvasCompanions(REPO_ROOT);
-    expect(await canvasCompanionsStale(REPO_ROOT)).toEqual([]);
-  });
+    const projectDir = await createMinimalCanvasProject();
+    try {
+      await syncCanvasCompanions(projectDir);
+      expect(await canvasCompanionsStale(projectDir)).toEqual([]);
+    } finally {
+      cleanupPath(projectDir);
+    }
+  }, 10_000);
 
   test("hub canvas unit count matches test-gates", async () => {
     const hub = await readText(join(REPO_ROOT, "docs/canvases/kimi-toolchain.canvas.tsx"));

@@ -159,6 +159,28 @@ Taxonomy lookup: `kimi-debug analyze --json` or `kimi-debug classify <text>` (`~
 4. kimi-doctor --effect-gates  → confirm clean
 ```
 
+### Agent Operating Loop
+
+| Step     | Action                                                                                       |
+| -------- | -------------------------------------------------------------------------------------------- |
+| Observe  | `kimi-capabilities --json`, `kimi-trace <trace-id> --json`, or `kimi-doctor --probe`         |
+| Scope    | Read `CODE_REFERENCES.md` and pick the closest existing pattern.                             |
+| Guard    | Add a detector or gate; search generated scaffolds for the same stale pattern before commit. |
+| Validate | Targeted tests, then `bun run check:fast`; full `bun run check` before push.                 |
+
+### Regression Hygiene
+
+After a root-cause fix: add a detector or gate, add a regression test, and search generated scaffolds for siblings with the same mistake.
+
+### Safe git and shell
+
+After index-touching commands: `git diff --cached --stat`; undo staging with `git restore --staged`.
+Quote shell searches safely: `rg -e 'pattern'` when the pattern contains shell metacharacters.
+
+### Self-healing
+
+`kimi-heal apply --dry-run` first; `kimi-heal apply --yes` only runs `safeToAutoApply` actions.
+
 ### Before Commit or Push
 
 ```

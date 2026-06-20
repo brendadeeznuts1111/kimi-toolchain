@@ -37,15 +37,24 @@ const NAME_MATRIX = [
 /** @generated hub-toolchain-inventory — bun run canvas:generate; do not edit */
 const TOOL_INVENTORY = [
   ["Diagnostics", "kimi-capabilities, kimi-debug, kimi-doctor, kimi-orphan-kill, kimi-trace"],
-  ["Governance / Security", "kimi-cloudflare-access, kimi-contract, kimi-githooks, kimi-governance, kimi-guardian"],
-  ["Heal / Memory", "kimi-decision, kimi-error, kimi-heal, kimi-memory, kimi-resource-governor (health-listen), kimi-snapshot, kimi-why"],
+  [
+    "Governance / Security",
+    "kimi-cloudflare-access, kimi-contract, kimi-githooks, kimi-governance, kimi-guardian",
+  ],
+  [
+    "Heal / Memory",
+    "kimi-decision, kimi-error, kimi-heal, kimi-memory, kimi-resource-governor (health-listen), kimi-snapshot, kimi-why",
+  ],
   ["Scaffold / Release", "kimi-cleanup-legacy, kimi-context-gen, kimi-fix, kimi-new, kimi-release"],
   ["Herdr", ""],
-  ["Infrastructure", "kimi-dashboard-mcp (MCP stdio), kimi-mcp (MCP stdio), kimi-toolchain (router), unified-shell-bridge (MCP stdio)"],
+  [
+    "Infrastructure",
+    "kimi-dashboard-mcp (MCP stdio), kimi-mcp (MCP stdio), kimi-toolchain (router), unified-shell-bridge (MCP stdio)",
+  ],
 ] as const;
 
 const GATE_LAYERS = [
-  ["Fast iterate", "bun run check:fast", "~3s · 250 unit files @ 1500ms", "Local TDD"],
+  ["Fast iterate", "bun run check:fast", "~3s · 248 unit files @ 1500ms", "Local TDD"],
   ["Pre-commit", "format:check + lint + typecheck", "kimi-githooks install", "git commit"],
   [
     "Pre-push",
@@ -115,17 +124,72 @@ const HOOK_TAXONOMY = [
 
 /** @generated canvas-routing — bun run canvas:generate; do not edit */
 const CANVAS_ROUTING = [
-  { id: "kimi-toolchain", page: "Hub", path: "docs/canvases/kimi-toolchain.canvas.tsx", detail: "manifest id unified (this canvas)" },
-  { id: "namespace-boundaries", page: "Meta / routing", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "Doctor trinity · finish-work vs prefix+*" },
-  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "Discovery · define · parity · scaffold layers" },
-  { id: "doc-links-and-see-ladder", page: "Doc links", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx", detail: "@see ladder · docs/references index" },
-  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx", detail: "Profiles · templates · scaffold doctor" },
-  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "PNG → Bun.Image → /api/thumbnail" },
-  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor --automation · gate JSON" },
-  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
-  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
-  { id: "dashboard-card-registry", page: "Card registry", path: "docs/canvases/dashboard-card-registry.canvas.tsx", detail: "canvasInfluences · /api/cards · lint gate" },
-  { id: "artifact-lineage", page: "Artifacts & Runs", path: "docs/canvases/artifact-lineage.canvas.tsx", detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns" },
+  {
+    id: "kimi-toolchain",
+    page: "Hub",
+    path: "docs/canvases/kimi-toolchain.canvas.tsx",
+    detail: "manifest id unified (this canvas)",
+  },
+  {
+    id: "namespace-boundaries",
+    page: "Meta / routing",
+    path: "docs/canvases/namespace-boundaries.canvas.tsx",
+    detail: "Doctor trinity · finish-work vs prefix+*",
+  },
+  {
+    id: "configuration-layers",
+    page: "Config SSOT",
+    path: "docs/canvases/configuration-layers.canvas.tsx",
+    detail: "Discovery · define · parity · scaffold layers",
+  },
+  {
+    id: "doc-links-and-see-ladder",
+    page: "Doc links",
+    path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx",
+    detail: "@see ladder · docs/references index",
+  },
+  {
+    id: "kimi-fix",
+    page: "Scaffold",
+    path: "docs/canvases/kimi-fix.canvas.tsx",
+    detail: "Profiles · templates · scaffold doctor",
+  },
+  {
+    id: "herdr-dashboard-thumbnails",
+    page: "Orchestrator HTTP",
+    path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx",
+    detail: "PNG → Bun.Image → /api/thumbnail",
+  },
+  {
+    id: "herdr-dashboard-automation",
+    page: "Finish-work shell",
+    path: "docs/canvases/herdr-dashboard-automation.canvas.tsx",
+    detail: "kimi-doctor --automation · gate JSON",
+  },
+  {
+    id: "herdr-unified-plugin-architecture",
+    page: "Herdr plugins",
+    path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx",
+    detail: "prefix+* · orthogonal to finish-work gates",
+  },
+  {
+    id: "kimi-heal-doctor-scaffold",
+    page: "Effect heal + doctor",
+    path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx",
+    detail: "Effect repair · KIMI_MODULES=doctor · perf gates",
+  },
+  {
+    id: "dashboard-card-registry",
+    page: "Card registry",
+    path: "docs/canvases/dashboard-card-registry.canvas.tsx",
+    detail: "canvasInfluences · /api/cards · lint gate",
+  },
+  {
+    id: "artifact-lineage",
+    page: "Artifacts & Runs",
+    path: "docs/canvases/artifact-lineage.canvas.tsx",
+    detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns",
+  },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -142,12 +206,12 @@ const CANVAS_ROUTING_ROW_TONE = [
   "warning",
   "warning",
   "neutral",
-  "neutral"
+  "neutral",
 ] as const;
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
-  { id: "test", label: "bun run check:fast", sub: "250 unit gates" },
+  { id: "test", label: "bun run check:fast", sub: "248 unit gates" },
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -170,12 +234,12 @@ const TOOL_CATEGORIES = [
   { id: "heal", label: "Heal / Memory", count: 7 },
   { id: "scaffold", label: "Scaffold", count: 5 },
   { id: "herdr", label: "Herdr", count: 0 },
-  { id: "infra", label: "Router / Bridge", count: 4 }
+  { id: "infra", label: "Router / Bridge", count: 4 },
 ] as const;
 
 const BIN_COUNT = 26;
-const LIB_COUNT = 298;
-const UNIT_COUNT = 250;
+const LIB_COUNT = 299;
+const UNIT_COUNT = 248;
 const INTEGRATION_COUNT = 13;
 const SMOKE_COUNT = 7;
 const CURSOR_CANVAS_COUNT = 11;

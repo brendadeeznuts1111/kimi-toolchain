@@ -2,7 +2,6 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "path";
 import { REPO_ROOT } from "./helpers.ts";
-const HEAL = join(REPO_ROOT, "src/bin/kimi-heal.ts");
 const DOCTOR = join(REPO_ROOT, "src/bin/kimi-doctor.ts");
 
 async function runCli(
@@ -45,42 +44,40 @@ describe("effect-gates CLI", () => {
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  test("kimi-heal effect audit --json emits effect-gates-report schema and exits 0 when clean", async () => {
+  test("kimi-doctor --effect-gates --json emits effect-gates report and exits 0 when clean", async () => {
     const { stdout, exitCode } = await runCli(
-      HEAL,
-      ["effect", "audit", "--json", "--project-root", tmpDir],
+      DOCTOR,
+      ["--effect-gates", "--json", "--project-root", tmpDir],
       REPO_ROOT
     );
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout.trim()) as {
-      schemaName: string;
-      payload: { tool: string; violations: unknown[]; summary: { total: number } };
+      effectGates: { current: { tool: string; violations: unknown[]; summary: { total: number } } };
     };
-    expect(parsed.schemaName).toBe("effect-gates-report");
-    expect(parsed.payload.tool).toBe("kimi-heal");
-    expect(Array.isArray(parsed.payload.violations)).toBe(true);
-    expect(parsed.payload.summary.total).toBe(0);
+    expect(parsed.effectGates.current.tool).toBe("kimi-doctor");
+    expect(Array.isArray(parsed.effectGates.current.violations)).toBe(true);
+    expect(parsed.effectGates.current.summary.total).toBe(0);
   });
 
-  test("kimi-heal effect audit --json exits non-zero on violations", async () => {
+  test("kimi-doctor --effect-gates --json exits non-zero on violations", async () => {
     await writeFile(
       join(tmpDir, "src", "service.ts"),
       `export function fetchUser() { return fetch("/user").then(r => r.json()); }`
     );
 
     const { stdout, exitCode } = await runCli(
-      HEAL,
-      ["effect", "audit", "--json", "--project-root", tmpDir],
+      DOCTOR,
+      ["--effect-gates", "--json", "--project-root", tmpDir],
       REPO_ROOT
     );
     expect(exitCode).toBe(1);
     const parsed = JSON.parse(stdout.trim()) as {
-      payload: { summary: { total: number }; violations: Array<{ gate: string }> };
+      effectGates: { current: { summary: { total: number }; violations: Array<{ gate: string }> } };
     };
-    expect(parsed.payload.summary.total).toBeGreaterThan(0);
+    expect(parsed.effectGates.current.summary.total).toBeGreaterThan(0);
   });
 
-  test("kimi-heal effect audit --event-streams --json detects EventEmitter in src/services", async () => {
+  test("kimi-doctor --effect-gates --json ignores EventEmitter when event-streams threshold is off", async () => {
     await mkdir(join(tmpDir, "src", "services"), { recursive: true });
     await writeFile(
       join(tmpDir, "src", "services", "broker.ts"),
@@ -88,15 +85,17 @@ describe("effect-gates CLI", () => {
     );
 
     const { stdout, exitCode } = await runCli(
-      HEAL,
-      ["effect", "audit", "--event-streams", "--json", "--project-root", tmpDir],
+      DOCTOR,
+      ["--effect-gates", "--json", "--project-root", tmpDir],
       REPO_ROOT
     );
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout.trim()) as {
-      payload: { violations: Array<{ gate: string; message: string }> };
+      effectGates: { current: { violations: Array<{ gate: string }> } };
     };
-    expect(parsed.payload.violations.some((v) => v.gate === "event-stream")).toBe(true);
+    expect(parsed.effectGates.current.violations.some((v) => v.gate === "event-stream")).toBe(
+      false
+    );
   });
 
   test("kimi-doctor --effect-gates --json emits trend report and appends snapshot", async () => {

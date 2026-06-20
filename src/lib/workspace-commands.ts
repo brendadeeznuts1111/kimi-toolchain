@@ -278,6 +278,13 @@ async function runCleanup(
   return verifyCode;
 }
 
+function defaultWorkspaceRoot(): string {
+  if (Bun.env.KIMI_PROJECT_ROOT) return resolve(Bun.env.KIMI_PROJECT_ROOT);
+  const cwd = resolve(Bun.cwd);
+  if (existsSync(join(cwd, "package.json"))) return cwd;
+  return resolve(join(import.meta.dir, "../.."));
+}
+
 export async function runWorkspaceCommand(
   command: string,
   argv: string[],
@@ -285,11 +292,7 @@ export async function runWorkspaceCommand(
   logger?: Logger
 ): Promise<number> {
   const log = resolveLogger(logger);
-  const root = projectRoot
-    ? resolve(projectRoot)
-    : Bun.env.KIMI_PROJECT_ROOT
-      ? resolve(Bun.env.KIMI_PROJECT_ROOT)
-      : resolve(join(import.meta.dir, "../.."));
+  const root = projectRoot ? resolve(projectRoot) : defaultWorkspaceRoot();
 
   const flags = parseWorkspaceFlags(argv);
 

@@ -142,17 +142,72 @@ const DOCS_REFERENCES = [
 
 /** @generated canvas-routing — bun run canvas:generate; do not edit */
 const CANVAS_ROUTING = [
-  { id: "kimi-toolchain", page: "Hub", path: "docs/canvases/kimi-toolchain.canvas.tsx", detail: "Architecture, tools, gates — start here" },
-  { id: "namespace-boundaries", page: "Meta / routing", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "Doctor trinity · finish-work vs prefix+*" },
-  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "Discovery · define · parity · scaffold layers" },
-  { id: "doc-links-and-see-ladder", page: "Doc links", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx", detail: "@see ladder · docs/references index" },
-  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx", detail: "manifest id templates (this canvas)" },
-  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "PNG → Bun.Image → /api/thumbnail" },
-  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor --automation · gate JSON" },
-  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
-  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
-  { id: "dashboard-card-registry", page: "Card registry", path: "docs/canvases/dashboard-card-registry.canvas.tsx", detail: "canvasInfluences · /api/cards · lint gate" },
-  { id: "artifact-lineage", page: "Artifacts & Runs", path: "docs/canvases/artifact-lineage.canvas.tsx", detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns" },
+  {
+    id: "kimi-toolchain",
+    page: "Hub",
+    path: "docs/canvases/kimi-toolchain.canvas.tsx",
+    detail: "Architecture, tools, gates — start here",
+  },
+  {
+    id: "namespace-boundaries",
+    page: "Meta / routing",
+    path: "docs/canvases/namespace-boundaries.canvas.tsx",
+    detail: "Doctor trinity · finish-work vs prefix+*",
+  },
+  {
+    id: "configuration-layers",
+    page: "Config SSOT",
+    path: "docs/canvases/configuration-layers.canvas.tsx",
+    detail: "Discovery · define · parity · scaffold layers",
+  },
+  {
+    id: "doc-links-and-see-ladder",
+    page: "Doc links",
+    path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx",
+    detail: "@see ladder · docs/references index",
+  },
+  {
+    id: "kimi-fix",
+    page: "Scaffold",
+    path: "docs/canvases/kimi-fix.canvas.tsx",
+    detail: "manifest id templates (this canvas)",
+  },
+  {
+    id: "herdr-dashboard-thumbnails",
+    page: "Orchestrator HTTP",
+    path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx",
+    detail: "PNG → Bun.Image → /api/thumbnail",
+  },
+  {
+    id: "herdr-dashboard-automation",
+    page: "Finish-work shell",
+    path: "docs/canvases/herdr-dashboard-automation.canvas.tsx",
+    detail: "kimi-doctor --automation · gate JSON",
+  },
+  {
+    id: "herdr-unified-plugin-architecture",
+    page: "Herdr plugins",
+    path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx",
+    detail: "prefix+* · orthogonal to finish-work gates",
+  },
+  {
+    id: "kimi-heal-doctor-scaffold",
+    page: "Effect heal + doctor",
+    path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx",
+    detail: "Effect repair · KIMI_MODULES=doctor · perf gates",
+  },
+  {
+    id: "dashboard-card-registry",
+    page: "Card registry",
+    path: "docs/canvases/dashboard-card-registry.canvas.tsx",
+    detail: "canvasInfluences · /api/cards · lint gate",
+  },
+  {
+    id: "artifact-lineage",
+    page: "Artifacts & Runs",
+    path: "docs/canvases/artifact-lineage.canvas.tsx",
+    detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns",
+  },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -169,7 +224,7 @@ const CANVAS_ROUTING_ROW_TONE = [
   "warning",
   "neutral",
   "neutral",
-  "neutral"
+  "neutral",
 ] as const;
 const BUN_RUNTIME_SCRIPTS = [
   ["bun run check:fast", "Scaffolded gate script", "Flags before run: bun --watch run dev"],

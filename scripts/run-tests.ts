@@ -19,7 +19,7 @@ import { existsSync, mkdirSync } from "fs";
 import { dirname, isAbsolute, join } from "path";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { artifactPath } from "../src/lib/artifacts.ts";
-import { bunTestArgs } from "../src/lib/test-gates.ts";
+import { bunTestArgBatches } from "../src/lib/test-gates.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
@@ -75,34 +75,54 @@ async function main() {
     const reportDir = dirname(isAbsolute(reportPath) ? reportPath : join(REPO_ROOT, reportPath));
     if (!existsSync(reportDir)) mkdirSync(reportDir, { recursive: true });
   }
-  const cmd = [
-    "bun",
-    ...bunTestArgs({
-      fast,
-      coverage,
-      ci,
-      smoke,
-      integration,
-      files,
-      reporterOutfile,
-      bail: ci ? 10 : true,
-    }),
-  ];
-  const quiet = Bun.argv.includes("--quiet");
-  const proc = Bun.spawn(cmd, {
-    cwd: REPO_ROOT,
-    env: process.env,
-    stdout: quiet ? "pipe" : "inherit",
-    stderr: quiet ? "pipe" : "inherit",
+  const testHome = artifactPath(REPO_ROOT, "test-home");
+  if (!existsSync(testHome)) mkdirSync(testHome, { recursive: true });
+  process.env.KIMI_TEST_HOME = testHome;
+
+  const setupPath = join(REPO_ROOT, "test/setup.ts");
+  const batches = bunTestArgBatches({
+    fast,
+    coverage,
+    ci,
+    smoke,
+    integration,
+    files,
+    reporterOutfile,
+    bail: ci ? 10 : true,
+  }).map((batch) => {
+    // Inject absolute preload after the leading "test" subcommand so isolate
+    // workers under concurrent load do not fail to resolve a relative preload.
+    const next = batch.slice();
+    next.splice(1, 0, `--preload=${setupPath}`);
+    return next;
   });
-  const exitCode = await proc.exited;
-  if (quiet) {
-    const out = await readableStreamToText(proc.stdout);
-    if (out) process.stdout.write(out);
-    const err = await readableStreamToText(proc.stderr);
-    if (err) process.stderr.write(err);
+  const quiet = Bun.argv.includes("--quiet");
+
+  let finalExitCode = 0;
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i]!;
+    if (batches.length > 1 && !quiet) {
+      process.stderr.write(`\n[run-tests] batch ${i + 1}/${batches.length}\n`);
+    }
+    const proc = Bun.spawn(["bun", ...batch], {
+      cwd: REPO_ROOT,
+      env: process.env,
+      stdout: quiet ? "pipe" : "inherit",
+      stderr: quiet ? "pipe" : "inherit",
+    });
+    const exitCode = await proc.exited;
+    if (quiet) {
+      const out = await readableStreamToText(proc.stdout);
+      if (out) process.stdout.write(out);
+      const err = await readableStreamToText(proc.stderr);
+      if (err) process.stderr.write(err);
+    }
+    if (exitCode !== 0) {
+      finalExitCode = exitCode;
+      break;
+    }
   }
-  process.exit(exitCode);
+  process.exit(finalExitCode);
 }
 
 main().catch((err) => {

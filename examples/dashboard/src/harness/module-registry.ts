@@ -27,6 +27,8 @@ export const DEFAULT_THRESHOLDS: Record<string, number> = {
   "kimi.effect.isolation.worker.run": 100,
   "kimi.effect.clock": 0.05,
   "kimi.effect.uuid": 0.1,
+  // Structural gate threshold — 0 allowed failures (not a perf-ms budget).
+  "email-i18n": 0,
 };
 
 /** Symbol-keyed workloads — threshold lookup uses `kimi.effect.${registryKey}`. */

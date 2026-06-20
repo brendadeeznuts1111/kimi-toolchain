@@ -18,6 +18,7 @@ function buildOutput(
 export const tscAdapter: ExternalToolAdapter = {
   name: "typecheck",
   command: ["tsc", "--noEmit"],
+  env: { NODE_OPTIONS: "--max-old-space-size=8192" },
   parse(result): AdapterOutput {
     if (result.error) {
       return buildOutput(result, [

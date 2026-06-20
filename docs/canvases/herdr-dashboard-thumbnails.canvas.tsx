@@ -34,17 +34,72 @@ const CONFIG = {
 
 /** @generated canvas-routing — bun run canvas:generate; do not edit */
 const CANVAS_ROUTING = [
-  { id: "kimi-toolchain", page: "Hub", path: "docs/canvases/kimi-toolchain.canvas.tsx", detail: "Architecture, tools, gates — start here" },
-  { id: "namespace-boundaries", page: "Meta / routing", path: "docs/canvases/namespace-boundaries.canvas.tsx", detail: "Doctor trinity · finish-work vs prefix+*" },
-  { id: "configuration-layers", page: "Config SSOT", path: "docs/canvases/configuration-layers.canvas.tsx", detail: "Discovery · define · parity · scaffold layers" },
-  { id: "doc-links-and-see-ladder", page: "Doc links", path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx", detail: "@see ladder · docs/references index" },
-  { id: "kimi-fix", page: "Scaffold", path: "docs/canvases/kimi-fix.canvas.tsx", detail: "Profiles · templates · scaffold doctor" },
-  { id: "herdr-dashboard-thumbnails", page: "Orchestrator HTTP", path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx", detail: "manifest id dashboard-thumbnails (this canvas)" },
-  { id: "herdr-dashboard-automation", page: "Finish-work shell", path: "docs/canvases/herdr-dashboard-automation.canvas.tsx", detail: "kimi-doctor --automation · gate JSON" },
-  { id: "herdr-unified-plugin-architecture", page: "Herdr plugins", path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx", detail: "prefix+* · orthogonal to finish-work gates" },
-  { id: "kimi-heal-doctor-scaffold", page: "Effect heal + doctor", path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx", detail: "Effect repair · KIMI_MODULES=doctor · perf gates" },
-  { id: "dashboard-card-registry", page: "Card registry", path: "docs/canvases/dashboard-card-registry.canvas.tsx", detail: "canvasInfluences · /api/cards · lint gate" },
-  { id: "artifact-lineage", page: "Artifacts & Runs", path: "docs/canvases/artifact-lineage.canvas.tsx", detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns" },
+  {
+    id: "kimi-toolchain",
+    page: "Hub",
+    path: "docs/canvases/kimi-toolchain.canvas.tsx",
+    detail: "Architecture, tools, gates — start here",
+  },
+  {
+    id: "namespace-boundaries",
+    page: "Meta / routing",
+    path: "docs/canvases/namespace-boundaries.canvas.tsx",
+    detail: "Doctor trinity · finish-work vs prefix+*",
+  },
+  {
+    id: "configuration-layers",
+    page: "Config SSOT",
+    path: "docs/canvases/configuration-layers.canvas.tsx",
+    detail: "Discovery · define · parity · scaffold layers",
+  },
+  {
+    id: "doc-links-and-see-ladder",
+    page: "Doc links",
+    path: "docs/canvases/doc-links-and-see-ladder.canvas.tsx",
+    detail: "@see ladder · docs/references index",
+  },
+  {
+    id: "kimi-fix",
+    page: "Scaffold",
+    path: "docs/canvases/kimi-fix.canvas.tsx",
+    detail: "Profiles · templates · scaffold doctor",
+  },
+  {
+    id: "herdr-dashboard-thumbnails",
+    page: "Orchestrator HTTP",
+    path: "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx",
+    detail: "manifest id dashboard-thumbnails (this canvas)",
+  },
+  {
+    id: "herdr-dashboard-automation",
+    page: "Finish-work shell",
+    path: "docs/canvases/herdr-dashboard-automation.canvas.tsx",
+    detail: "kimi-doctor --automation · gate JSON",
+  },
+  {
+    id: "herdr-unified-plugin-architecture",
+    page: "Herdr plugins",
+    path: "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx",
+    detail: "prefix+* · orthogonal to finish-work gates",
+  },
+  {
+    id: "kimi-heal-doctor-scaffold",
+    page: "Effect heal + doctor",
+    path: "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx",
+    detail: "Effect repair · KIMI_MODULES=doctor · perf gates",
+  },
+  {
+    id: "dashboard-card-registry",
+    page: "Card registry",
+    path: "docs/canvases/dashboard-card-registry.canvas.tsx",
+    detail: "canvasInfluences · /api/cards · lint gate",
+  },
+  {
+    id: "artifact-lineage",
+    page: "Artifacts & Runs",
+    path: "docs/canvases/artifact-lineage.canvas.tsx",
+    detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns",
+  },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -61,29 +116,109 @@ const CANVAS_ROUTING_ROW_TONE = [
   "warning",
   "neutral",
   "neutral",
-  "neutral"
+  "neutral",
 ] as const;
 /** @generated manifest-local-docs — bun run canvas:generate; do not edit */
 const MANIFEST_LOCAL_DOCS_ALL = [
   { id: "agents", location: "repo root", purpose: "Toolchain agent guide" },
-  { id: "code-references", location: "repo root", purpose: "Local coding exemplars; doc-links lint and @see ladder" },
+  {
+    id: "code-references",
+    location: "repo root",
+    purpose: "Local coding exemplars; doc-links lint and @see ladder",
+  },
   { id: "unified", location: "repo root", purpose: "Kimi Code vs kimi-toolchain matrix" },
-  { id: "deep-quality", location: "repo root", purpose: "Effect-discipline floor and gate JSON shapes; kimi-heal --fix bare-promise repair and KIMI_MODULES=doctor scaffold" },
-  { id: "templates", location: "repo root", purpose: "Scaffold templates — profiles, snippets, bun create flow, kimi-fix usage" },
-  { id: "dashboard-thumbnails", location: "docs/references", purpose: "Herdr dashboard thumbnail pipeline; meta.webview; WebView dataStore vs in-memory cache" },
-  { id: "kimi-doctor", location: "docs/references", purpose: "Dashboard automation gate (kimi-doctor --automation): CLI, JSON schema, exit codes, and failure modes" },
-  { id: "serve-probe", location: "docs/references", purpose: "kimi-doctor --serve-probe HTTP routes, [doctor.probe] dx.config.toml, artifact list API, and Herdr tab wiring" },
-  { id: "herdr-socket-saturation-protocol", location: "docs/references", purpose: "Herdr EAGAIN (os error 35) taxonomy, fix-socket --dry-run/--live contract, respawn protection, and Mac mini runbook" },
-  { id: "namespace", location: "docs/references", purpose: "Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings" },
-  { id: "configuration-layers", location: "docs/references", purpose: "Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml)" },
-  { id: "shell-spawn-choice", location: "docs/references", purpose: "invokeTool vs Bun.spawn vs governedSpawn decision matrix" },
-  { id: "bun-runtime-scaffold", location: "docs/references", purpose: "Bun install config (bunfig.toml merge order, defaults, env vars, backend, cache/lazy install)" },
-  { id: "bun-shell-companions", location: "docs/references", purpose: "Bun $ template vs subprocess and inspect companion patterns" },
-  { id: "template-matrix", location: "docs/references", purpose: "Template families matrix: scaffold breakdown (22 files), bridge pattern collision resolution, runtime sync paths, profile differentiation" },
-  { id: "herdr-plugin-architecture", location: "docs/references", purpose: "Herdr unified plugin plan v0.5.0 — prefix+* actions, STATE_DIR topology; orthogonal to [finishWork].gates" },
-  { id: "v53-architecture", location: "docs/references", purpose: "v5.3 architecture consolidated reference: 9-file map, awk splitter, profile registry, DEFAULT_MODULES, MODULE_REGISTRY, 42-card dashboard, Herdr integration" },
-  { id: "artifact-lineage", location: "repo root", purpose: "Run manifests, artifact lineage (dependsOn vs gate-graph), and session-scoped identity queries" },
-  { id: "canonical-references", location: "repo root", purpose: "Cached canonical ecosystem links (this manifest)" },
+  {
+    id: "deep-quality",
+    location: "repo root",
+    purpose:
+      "Effect-discipline floor and gate JSON shapes; kimi-heal --fix bare-promise repair and KIMI_MODULES=doctor scaffold",
+  },
+  {
+    id: "templates",
+    location: "repo root",
+    purpose: "Scaffold templates — profiles, snippets, bun create flow, kimi-fix usage",
+  },
+  {
+    id: "dashboard-thumbnails",
+    location: "docs/references",
+    purpose:
+      "Herdr dashboard thumbnail pipeline; meta.webview; WebView dataStore vs in-memory cache",
+  },
+  {
+    id: "kimi-doctor",
+    location: "docs/references",
+    purpose:
+      "Dashboard automation gate (kimi-doctor --automation): CLI, JSON schema, exit codes, and failure modes",
+  },
+  {
+    id: "serve-probe",
+    location: "docs/references",
+    purpose:
+      "kimi-doctor --serve-probe HTTP routes, [doctor.probe] dx.config.toml, artifact list API, and Herdr tab wiring",
+  },
+  {
+    id: "herdr-socket-saturation-protocol",
+    location: "docs/references",
+    purpose:
+      "Herdr EAGAIN (os error 35) taxonomy, fix-socket --dry-run/--live contract, respawn protection, and Mac mini runbook",
+  },
+  {
+    id: "namespace",
+    location: "docs/references",
+    purpose:
+      "Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings",
+  },
+  {
+    id: "configuration-layers",
+    location: "docs/references",
+    purpose:
+      "Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml)",
+  },
+  {
+    id: "shell-spawn-choice",
+    location: "docs/references",
+    purpose: "invokeTool vs Bun.spawn vs governedSpawn decision matrix",
+  },
+  {
+    id: "bun-runtime-scaffold",
+    location: "docs/references",
+    purpose:
+      "Bun install config (bunfig.toml merge order, defaults, env vars, backend, cache/lazy install)",
+  },
+  {
+    id: "bun-shell-companions",
+    location: "docs/references",
+    purpose: "Bun $ template vs subprocess and inspect companion patterns",
+  },
+  {
+    id: "template-matrix",
+    location: "docs/references",
+    purpose:
+      "Template families matrix: scaffold breakdown (22 files), bridge pattern collision resolution, runtime sync paths, profile differentiation",
+  },
+  {
+    id: "herdr-plugin-architecture",
+    location: "docs/references",
+    purpose:
+      "Herdr unified plugin plan v0.5.0 — prefix+* actions, STATE_DIR topology; orthogonal to [finishWork].gates",
+  },
+  {
+    id: "v53-architecture",
+    location: "docs/references",
+    purpose:
+      "v5.3 architecture consolidated reference: 9-file map, awk splitter, profile registry, DEFAULT_MODULES, MODULE_REGISTRY, 42-card dashboard, Herdr integration",
+  },
+  {
+    id: "artifact-lineage",
+    location: "repo root",
+    purpose:
+      "Run manifests, artifact lineage (dependsOn vs gate-graph), and session-scoped identity queries",
+  },
+  {
+    id: "canonical-references",
+    location: "repo root",
+    purpose: "Cached canonical ecosystem links (this manifest)",
+  },
 ] as const;
 
 const MANIFEST_DOCS_REFERENCES = MANIFEST_LOCAL_DOCS_ALL.filter(

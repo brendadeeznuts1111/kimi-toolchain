@@ -96,6 +96,7 @@ export function runExternalToolAdapterEffect(
     timeoutMs,
     maxOutputBytes: options.maxOutputBytes,
     timeoutError: () => `adapter ${name} timed out after ${timeoutMs}ms`,
+    env: adapter.env,
   }).pipe(
     Effect.matchEffect({
       onFailure: (error) => {

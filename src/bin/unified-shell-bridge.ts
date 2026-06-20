@@ -4,7 +4,7 @@
  * Derives version from src/lib/version.ts (package.json).
  */
 
-import { existsSync } from "fs";
+import { existsSync, lstatSync } from "fs";
 import { MCP_BRIDGE_VERSION } from "../lib/version.ts";
 import { childTraceEnv, ensureProcessTrace, TRACE_ID_ENV } from "../lib/effect/trace-context.ts";
 import { buildTraceEvent, recordTraceEvent } from "../lib/trace-ledger.ts";
@@ -15,30 +15,47 @@ interface ShellResult {
   stderr: string;
   exitCode: number;
   error?: string;
+  timedOut?: boolean;
+  stdoutTruncated?: boolean;
+  timeoutMs?: number;
+  maxOutputBytes?: number;
 }
 
 export async function executeCommand(
   command: string,
-  context: { workingDir?: string } = {}
+  context: { workingDir?: string; timeoutMs?: number; maxOutputBytes?: number } = {}
 ): Promise<ShellResult> {
   const cwd = context.workingDir || Bun.cwd;
-  if (context.workingDir && !existsSync(context.workingDir)) {
-    return {
-      stdout: "",
-      stderr: "",
-      exitCode: 1,
-      error: `Working directory does not exist: ${context.workingDir}`,
-    };
+  if (context.workingDir) {
+    if (!existsSync(context.workingDir)) {
+      return {
+        stdout: "",
+        stderr: "",
+        exitCode: 1,
+        error: `Working directory does not exist: ${context.workingDir}`,
+      };
+    }
+    if (!lstatSync(context.workingDir).isDirectory()) {
+      return {
+        stdout: "",
+        stderr: "",
+        exitCode: 1,
+        error: `Working directory is not a directory: ${context.workingDir}`,
+      };
+    }
   }
 
   const started = Date.now();
   const startedAt = new Date(started).toISOString();
   const parentTraceId = Bun.env[TRACE_ID_ENV] || ensureProcessTrace().traceId;
   const traceOverlay = childTraceEnv(parentTraceId);
+  const timeoutMs = context.timeoutMs ?? 120_000;
   const invoked = await invokeCommand(["sh", "-c", command], {
     cwd,
     env: { ...Bun.env, ...traceOverlay },
-    timeoutMs: 120_000,
+    timeoutMs,
+    maxOutputBytes: context.maxOutputBytes,
+    timeoutError: (ms) => `Command timed out after ${ms}ms`,
   });
   const exitCode = invoked.exitCode;
   const stdout = invoked.stdout;
@@ -62,7 +79,41 @@ export async function executeCommand(
   } catch {
     // MCP command tracing must not affect shell execution.
   }
-  return { stdout, stderr, exitCode };
+  return {
+    stdout,
+    stderr,
+    exitCode,
+    error: invoked.error,
+    timedOut: invoked.timedOut,
+    stdoutTruncated: invoked.stdoutTruncated,
+    timeoutMs: context.timeoutMs,
+    maxOutputBytes: context.maxOutputBytes,
+  };
+}
+
+function buildExecuteContent(result: ShellResult): {
+  content: Array<{ type: "text"; text: string }>;
+  isError: boolean;
+} {
+  const content: Array<{ type: "text"; text: string }> = [];
+  if (result.error) {
+    content.push({ type: "text", text: result.error });
+  } else {
+    if (result.stdout) content.push({ type: "text", text: result.stdout });
+    if (result.stderr) content.push({ type: "text", text: `stderr: ${result.stderr}` });
+    if (content.length === 0) content.push({ type: "text", text: "(no output)" });
+    content.push({ type: "text", text: `[exit code: ${result.exitCode}]` });
+  }
+  if (result.stdoutTruncated && result.maxOutputBytes != null) {
+    content.push({ type: "text", text: `stdout truncated at: ${result.maxOutputBytes} bytes` });
+  }
+  if (result.timedOut && result.timeoutMs != null) {
+    content.push({ type: "text", text: `timed out after: ${result.timeoutMs}ms` });
+  }
+  return {
+    content,
+    isError: result.exitCode !== 0 || !!result.error || !!result.timedOut,
+  };
 }
 
 // ─── MCP stdio server ───────────────────────────────────────────────────────
@@ -79,6 +130,8 @@ const TOOLS = [
       properties: {
         command: { type: "string" },
         workingDir: { type: "string" },
+        timeoutMs: { type: "number" },
+        maxOutputBytes: { type: "number" },
       },
       required: ["command"],
     },
@@ -134,24 +187,44 @@ async function handleRequest(req: any) {
         return;
       }
 
-      try {
-        const result = await executeCommand(command, { workingDir: args.workingDir });
-        const content: Array<{ type: "text"; text: string }> = [];
-        if (result.error) {
-          content.push({ type: "text", text: result.error });
-        } else {
-          if (result.stdout) content.push({ type: "text", text: result.stdout });
-          if (result.stderr) content.push({ type: "text", text: `stderr: ${result.stderr}` });
-          if (content.length === 0) content.push({ type: "text", text: "(no output)" });
-          content.push({ type: "text", text: `[exit code: ${result.exitCode}]` });
-        }
+      if (args.workingDir != null && typeof args.workingDir !== "string") {
         send({
           jsonrpc: "2.0",
           id,
-          result: {
-            content,
-            isError: result.exitCode !== 0 || !!result.error,
-          },
+          error: { code: -32602, message: "Invalid 'workingDir' argument" },
+        });
+        return;
+      }
+
+      if (args.timeoutMs != null && typeof args.timeoutMs !== "number") {
+        send({
+          jsonrpc: "2.0",
+          id,
+          error: { code: -32602, message: "Invalid 'timeoutMs' argument" },
+        });
+        return;
+      }
+
+      if (args.maxOutputBytes != null && typeof args.maxOutputBytes !== "number") {
+        send({
+          jsonrpc: "2.0",
+          id,
+          error: { code: -32602, message: "Invalid 'maxOutputBytes' argument" },
+        });
+        return;
+      }
+
+      try {
+        const result = await executeCommand(command, {
+          workingDir: args.workingDir,
+          timeoutMs: args.timeoutMs,
+          maxOutputBytes: args.maxOutputBytes,
+        });
+        const { content, isError } = buildExecuteContent(result);
+        send({
+          jsonrpc: "2.0",
+          id,
+          result: { content, isError },
         });
       } catch (err: any) {
         send({ jsonrpc: "2.0", id, error: { code: -32603, message: err.message || String(err) } });

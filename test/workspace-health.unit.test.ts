@@ -1,7 +1,8 @@
+import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { REPO_ROOT, testTempDir } from "./helpers.ts";
 import {
   auditWorkspaceHealth,
   countWorkspaceBlockers,
@@ -17,30 +18,29 @@ import {
   isCursorSlugActive,
 } from "../src/lib/legacy-cleanup.ts";
 
-const REPO_ROOT = import.meta.dir + "/..";
 let tmpHome: string;
 
 beforeEach(() => {
-  tmpHome = join(tmpdir(), `ws-health-${Bun.randomUUIDv7()}`);
-  mkdirSync(tmpHome, { recursive: true });
+  tmpHome = testTempDir("ws-health-");
+  makeDir(tmpHome, { recursive: true });
 });
 
 afterEach(() => {
-  if (existsSync(tmpHome)) rmSync(tmpHome, { recursive: true, force: true });
+  if (pathExists(tmpHome)) removePath(tmpHome, { recursive: true, force: true });
 });
 
 describe("workspace-health", () => {
   test("detects legacy Cursor slug as blocker when canonical clone present", async () => {
     const canonical = join(tmpHome, CANONICAL_REPO_NAME);
-    mkdirSync(canonical, { recursive: true });
-    writeFileSync(
+    makeDir(canonical, { recursive: true });
+    writeText(
       join(canonical, "package.json"),
       JSON.stringify({ name: CANONICAL_REPO_NAME, bin: {} }, null, 2)
     );
 
     const cursorProjects = join(tmpHome, ".cursor", "projects", "Users-test-kimicode-cli");
-    mkdirSync(cursorProjects, { recursive: true });
-    writeFileSync(join(cursorProjects, "state.json"), "{}");
+    makeDir(cursorProjects, { recursive: true });
+    writeText(join(cursorProjects, "state.json"), "{}");
 
     const report = await auditWorkspaceHealth(REPO_ROOT, { home: tmpHome });
     const cursorCheck = report.checks.find((c) => c.name === "cursor-workspace");
@@ -53,8 +53,8 @@ describe("workspace-health", () => {
   }, 10_000);
 
   test("reports missing wrappers as blocker", async () => {
-    mkdirSync(join(tmpHome, ".local", "bin"), { recursive: true });
-    mkdirSync(join(tmpHome, ".kimi-code", "tools"), { recursive: true });
+    makeDir(join(tmpHome, ".local", "bin"), { recursive: true });
+    makeDir(join(tmpHome, ".kimi-code", "tools"), { recursive: true });
 
     const report = await auditWorkspaceHealth(REPO_ROOT, { home: tmpHome });
     const wrapperCheck = report.checks.find((c) => c.name === "wrapper-coverage");
@@ -64,7 +64,7 @@ describe("workspace-health", () => {
 
   test("strict mode promotes soft session warnings to blockers", async () => {
     const sessionsDir = join(tmpHome, ".kimi-code", "sessions", "wd_kimicode-cli_abc");
-    mkdirSync(sessionsDir, { recursive: true });
+    makeDir(sessionsDir, { recursive: true });
 
     const report = await auditWorkspaceHealth(REPO_ROOT, { home: tmpHome });
     const loose = countWorkspaceBlockers(report);
@@ -74,8 +74,8 @@ describe("workspace-health", () => {
 
   test("pruneLegacySessionIndex removes kimicode-cli cwd lines", () => {
     const sessionsDir = join(tmpHome, ".kimi-code", "sessions");
-    mkdirSync(sessionsDir, { recursive: true });
-    writeFileSync(
+    makeDir(sessionsDir, { recursive: true });
+    writeText(
       join(sessionsDir, "session_index.jsonl"),
       [
         JSON.stringify({ workDir: "/Users/x/kimicode-cli" }),
@@ -90,28 +90,28 @@ describe("workspace-health", () => {
 
   test("archiveLegacyKimiSessions moves wd_kimicode-cli_* to archive", () => {
     const legacy = join(tmpHome, ".kimi-code", "sessions", "wd_kimicode-cli_abc");
-    mkdirSync(legacy, { recursive: true });
+    makeDir(legacy, { recursive: true });
     const archived = archiveLegacyKimiSessions(tmpHome);
     expect(archived).toContain("wd_kimicode-cli_abc");
-    expect(existsSync(legacy)).toBe(false);
-    expect(existsSync(join(tmpHome, ".kimi-code", "sessions", "archive"))).toBe(true);
+    expect(pathExists(legacy)).toBe(false);
+    expect(pathExists(join(tmpHome, ".kimi-code", "sessions", "archive"))).toBe(true);
   }, 5_000);
 
   test("isCursorSlugActive detects recent transcript mtime", () => {
     const slugPath = join(tmpHome, ".cursor", "projects", "Users-test-kimicode-cli");
     const transcripts = join(slugPath, "agent-transcripts");
-    mkdirSync(transcripts, { recursive: true });
-    writeFileSync(join(transcripts, "chat.jsonl"), "{}");
+    makeDir(transcripts, { recursive: true });
+    writeText(join(transcripts, "chat.jsonl"), "{}");
     expect(isCursorSlugActive("Users-test-kimicode-cli", undefined, tmpHome)).toBe(true);
   }, 5_000);
 
   test("removeLegacyCursorSlugs deletes matching folders", async () => {
     const slugPath = join(tmpHome, ".cursor", "projects", "Users-nolarose-kimicode-cli");
-    mkdirSync(slugPath, { recursive: true });
-    writeFileSync(join(slugPath, "meta.json"), "{}");
+    makeDir(slugPath, { recursive: true });
+    writeText(join(slugPath, "meta.json"), "{}");
 
     const removed = removeLegacyCursorSlugs(tmpHome);
     expect(removed).toContain("Users-nolarose-kimicode-cli");
-    expect(existsSync(slugPath)).toBe(false);
+    expect(pathExists(slugPath)).toBe(false);
   }, 5_000);
 });

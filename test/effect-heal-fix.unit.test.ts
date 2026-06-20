@@ -31,7 +31,7 @@ export function load() {
     const text = await Bun.file(join(tmpDir, "src", "service.ts")).text();
     expect(text).toContain("Effect.tryPromise");
     expect(text).not.toContain(".then(");
-  });
+  }, 5_000);
 
   test("dry-run does not write files", async () => {
     await writeFile(
@@ -41,7 +41,7 @@ export function load() {
     await applyEffectHealFix({ projectRoot: tmpDir, dryRun: true });
     const text = await Bun.file(join(tmpDir, "src", "service.ts")).text();
     expect(text).toContain(".then(");
-  });
+  }, 5_000);
 });
 
 describe("scaffold-modules", () => {

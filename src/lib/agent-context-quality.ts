@@ -66,7 +66,7 @@ export const AGENT_CONTEXT_QUALITY_CRITERIA = [
     evidence: [
       {
         file: "AGENTS.md",
-        includes: ["bun run check:fast", "Target specific test files"],
+        includes: ["bun run check:fast", "bun test <specific-file>"],
       },
       {
         file: "src/lib/scaffold-agents.ts",
@@ -103,7 +103,7 @@ export const AGENT_CONTEXT_QUALITY_CRITERIA = [
         includes: [
           "fast gate includes every unit-named test file",
           "integration gate includes every integration-named test file",
-          "all test files declare a unit, integration, or smoke class",
+          "all test files declare a gate class in their filename",
         ],
       },
     ],

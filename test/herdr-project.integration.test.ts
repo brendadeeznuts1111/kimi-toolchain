@@ -85,6 +85,10 @@ bootstrap = ["echo herdr-bootstrap-ok"]
       console.warn("skip: herdr server not running");
       return;
     }
+    if (!process.stdin.isTTY) {
+      console.warn("skip: no TTY available for herdr workspace creation");
+      return;
+    }
 
     const discover = await runHerdrProject(projectRoot, ["discover", projectRoot, "--json"]);
     const label = JSON.parse(discover.stdout).config.workspaceLabel as string;

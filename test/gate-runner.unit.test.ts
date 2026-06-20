@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
 import { $ } from "bun";
-import { cleanupPath, ensureTestDir, testTempDir } from "./helpers.ts";
+import { cleanupPath, ensureTestDir, REPO_ROOT, testTempDir } from "./helpers.ts";
 import {
   failMark,
   formatHookSummary,
@@ -31,11 +31,12 @@ describe("gate-runner", () => {
     previousNoColor = Bun.env.NO_COLOR;
     delete Bun.env.NO_COLOR;
     projectDir = testTempDir("gate-runner-");
-    ensureTestDir(join(projectDir, ".git"));
     ensureTestDir(join(projectDir, ".kimi"));
+    process.chdir(projectDir);
   });
 
   afterEach(() => {
+    process.chdir(REPO_ROOT);
     cleanupPath(projectDir);
     if (previousNoColor === undefined) delete Bun.env.NO_COLOR;
     else Bun.env.NO_COLOR = previousNoColor;
@@ -58,10 +59,9 @@ describe("gate-runner", () => {
   });
 
   it("should cache and skip gates for the same commit", async () => {
-    await $`git init`.cwd(projectDir).env(gitFixtureEnv).quiet();
+    await $`git init`.env(gitFixtureEnv).quiet();
     await Bun.write(join(projectDir, "README.md"), "# demo\n");
     await $`git add README.md`
-      .cwd(projectDir)
       .env({
         ...gitFixtureEnv,
         GIT_AUTHOR_NAME: "test",
@@ -71,7 +71,6 @@ describe("gate-runner", () => {
       })
       .quiet();
     await $`git commit -m init`
-      .cwd(projectDir)
       .env({
         ...gitFixtureEnv,
         GIT_AUTHOR_NAME: "test",
@@ -90,10 +89,9 @@ describe("gate-runner", () => {
   });
 
   it("appendGateCache merges gates for the same commit", async () => {
-    await $`git init`.cwd(projectDir).env(gitFixtureEnv).quiet();
+    await $`git init`.env(gitFixtureEnv).quiet();
     await Bun.write(join(projectDir, "README.md"), "# demo\n");
     await $`git add README.md`
-      .cwd(projectDir)
       .env({
         ...gitFixtureEnv,
         GIT_AUTHOR_NAME: "test",
@@ -103,7 +101,6 @@ describe("gate-runner", () => {
       })
       .quiet();
     await $`git commit -m init`
-      .cwd(projectDir)
       .env({
         ...gitFixtureEnv,
         GIT_AUTHOR_NAME: "test",

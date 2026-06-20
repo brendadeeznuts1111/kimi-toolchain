@@ -12,11 +12,7 @@
  */
 
 import { join } from "path";
-import {
-  bunTestArgs,
-  FAST_TEST_TIMEOUT_MS,
-  DEFAULT_TEST_TIMEOUT_MS,
-} from "../src/lib/test-gates.ts";
+import { FAST_TEST_TIMEOUT_MS, DEFAULT_TEST_TIMEOUT_MS } from "../src/lib/test-gates.ts";
 import { isKimiToolchainRepo } from "../src/lib/workspace-health.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -60,7 +56,7 @@ function parseCli(): { dryRun: boolean; fast: boolean; timeoutMs: number } {
   return { dryRun, fast, timeoutMs };
 }
 
-async function buildSteps(fast: boolean, timeoutMs: number): Promise<Step[]> {
+async function buildSteps(fast: boolean, _timeoutMs: number): Promise<Step[]> {
   const steps: Step[] = [];
   // Full check only — check:fast skips env blockers (cursor slug, wrappers) for quick iteration
   if (!fast && (await isKimiToolchainRepo(REPO_ROOT))) {
@@ -80,7 +76,8 @@ async function buildSteps(fast: boolean, timeoutMs: number): Promise<Step[]> {
     { name: "typecheck", cmd: ["bun", "run", "typecheck"] },
     {
       name: fast ? "test:fast" : "test",
-      cmd: ["bun", ...bunTestArgs({ fast, timeoutMs, bail: true })],
+      // Fast gate uses run-tests.ts batching + absolute preload (see scripts/run-tests.ts).
+      cmd: ["bun", "run", "scripts/run-tests.ts", ...(fast ? ["--fast"] : [])],
     }
   );
   return steps;

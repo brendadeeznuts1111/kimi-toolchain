@@ -112,19 +112,28 @@ export function startDashboardHerdrEventBridge(
   };
 
   let socket: ReturnType<typeof herdrSocketSubscribe> | null = null;
-  let abort: AbortController | null = null;
+  const bridgeAbort = new AbortController();
   let stopped = false;
   const debouncer = new DebouncedDashboardRefresh();
 
   const stop = () => {
+    if (stopped) return;
     stopped = true;
     debouncer.clear();
-    abort?.abort();
-    abort = null;
+    bridgeAbort.abort();
     socket?.end();
     socket = null;
     status.connected = false;
+    status.pending = false;
   };
+
+  if (options.signal) {
+    if (options.signal.aborted) {
+      stop();
+      return { stop, status: () => ({ ...status }) };
+    }
+    options.signal.addEventListener("abort", () => stop(), { once: true });
+  }
 
   if (!status.enabled) {
     return { stop, status: () => ({ ...status }) };
@@ -179,10 +188,7 @@ export function startDashboardHerdrEventBridge(
     const subscriptions = buildHerdrWorkspaceEventSubscriptions(workspaceId, paneIds);
     status.subscriptionCount = subscriptions.length;
 
-    abort = new AbortController();
-    if (options.signal) {
-      options.signal.addEventListener("abort", () => stop(), { once: true });
-    }
+    if (stopped || bridgeAbort.signal.aborted) return;
 
     const eventsConfig = orchestrator.events;
     const bus = options.hub.eventBus;
@@ -190,7 +196,7 @@ export function startDashboardHerdrEventBridge(
     socket = herdrSocketSubscribe({
       subscriptions,
       session: config.session,
-      signal: abort.signal,
+      signal: bridgeAbort.signal,
       onError: (error) => {
         status.connected = false;
         status.error = error;
@@ -224,9 +230,15 @@ export function startDashboardHerdrEventBridge(
       },
     });
 
+    if (stopped || bridgeAbort.signal.aborted) {
+      socket.end();
+      socket = null;
+      return;
+    }
+
     socket.on("close", () => {
       status.connected = false;
-      if (!abort?.signal.aborted) {
+      if (!bridgeAbort.signal.aborted) {
         status.error = "herdr event stream closed";
       }
     });

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { createDashboardEventBus } from "../src/lib/herdr-dashboard-bus.ts";
-import { routeDashboardHerdrEvent } from "../src/lib/herdr-dashboard-events.ts";
+import {
+  routeDashboardHerdrEvent,
+  startDashboardHerdrEventBridge,
+} from "../src/lib/herdr-dashboard-events.ts";
 import { HerdrDashboardHub } from "../src/lib/herdr-dashboard-hub.ts";
 import { HerdrDashboardDiscoveryCache } from "../src/lib/herdr-dashboard-discovery-cache.ts";
 import type { DashboardAgentsPayload } from "../src/lib/herdr-dashboard-data.ts";
@@ -74,6 +77,49 @@ describe("herdr-dashboard-events", () => {
     });
     await Bun.sleep(20);
     expect(calls).toBe(2);
+    hub.stop();
+  });
+
+  test("stop before async socket connect does not leave bridge pending", async () => {
+    const hub = new HerdrDashboardHub({
+      projectPath: REPO_ROOT,
+      fetchOpts: { sessions: false },
+      discoveryCache: new HerdrDashboardDiscoveryCache({
+        projectPath: REPO_ROOT,
+        fetchOpts: { sessions: false },
+        ttlMs: 60_000,
+      }),
+    });
+
+    const bridge = startDashboardHerdrEventBridge({
+      projectPath: REPO_ROOT,
+      hub,
+    });
+    bridge.stop();
+    await Bun.sleep(0);
+    expect(bridge.status().pending).toBe(false);
+    hub.stop();
+  });
+
+  test("connect false defers bridge without opening socket", () => {
+    const hub = new HerdrDashboardHub({
+      projectPath: REPO_ROOT,
+      fetchOpts: { sessions: false },
+      discoveryCache: new HerdrDashboardDiscoveryCache({
+        projectPath: REPO_ROOT,
+        fetchOpts: { sessions: false },
+        ttlMs: 60_000,
+      }),
+    });
+
+    const bridge = startDashboardHerdrEventBridge({
+      projectPath: REPO_ROOT,
+      hub,
+      connect: false,
+    });
+    expect(bridge.status().pending).toBe(false);
+    expect(bridge.status().error).toBe("event bridge deferred");
+    bridge.stop();
     hub.stop();
   });
 });

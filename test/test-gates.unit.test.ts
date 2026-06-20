@@ -13,12 +13,13 @@ import {
 const REPO_ROOT = join(import.meta.dir, "..");
 
 describe("test-gates", () => {
-  test("bunTestArgs defaults include bail and default timeout", () => {
+  test("bunTestArgs defaults include bail, default timeout, and isolate", () => {
     expect(bunTestArgs({ bail: true })).toEqual([
       "test",
       "--timeout",
       String(DEFAULT_TEST_TIMEOUT_MS),
       "--bail",
+      "--isolate",
     ]);
   });
 
@@ -63,29 +64,34 @@ describe("test-gates", () => {
     expect(missingFromSmokeGate).toEqual([]);
   });
 
-  test("all test files declare a unit, integration, or smoke class in their filename", async () => {
+  test("all test files declare a gate class in their filename", async () => {
     const allTests = await discoverTestFiles("test/**/*.test.ts");
+    const classifiedSuffixes = [
+      ".unit.test.ts",
+      ".integration.test.ts",
+      ".smoke.test.ts",
+      ".db.test.ts",
+      ".router.test.ts",
+    ];
     const unclassifiedTests = allTests.filter(
-      (file) =>
-        !file.endsWith(".unit.test.ts") &&
-        !file.endsWith(".integration.test.ts") &&
-        !file.endsWith(".smoke.test.ts")
+      (file) => !classifiedSuffixes.some((suffix) => file.endsWith(suffix))
     );
 
     expect(unclassifiedTests).toEqual([]);
   });
 
-  test("bunTestArgs ci mode uses 60s timeout and junit reporter", () => {
+  test("bunTestArgs ci mode uses CI timeout and junit reporter", () => {
     expect(bunTestArgs({ coverage: true, ci: true, bail: true })).toEqual([
       "test",
       "--timeout",
-      "60000",
+      "30000",
       "--bail",
       "--coverage",
-      "--coverage-dir",
-      ".kimi-artifacts/coverage",
+      "--coverage-reporter=lcov",
+      "--coverage-dir=./coverage",
       "--reporter=junit",
-      "--reporter-outfile=.kimi-artifacts/reports/junit.xml",
+      "--reporter-outfile=reports/junit.xml",
+      "--isolate",
     ]);
   });
 

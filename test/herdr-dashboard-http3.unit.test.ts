@@ -178,6 +178,8 @@ describe("herdr-dashboard-http3", () => {
         sessions: false,
         autoRefresh: false,
         metaWatch: false,
+        herdrEvents: false,
+        gateHealthWatch: false,
         http3: true,
       });
 

@@ -346,7 +346,7 @@ const CANVAS_ROW_TONE = [
   "warning",
   "neutral",
   "neutral",
-  "neutral"
+  "neutral",
 ] as const;
 function CanvasNavButton({
   label,

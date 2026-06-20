@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 import { normalizeRemoteHostConfig } from "../src/lib/herdr-orchestrator-config.ts";
 
 const sshRemoteCommands: string[][] = [];
@@ -60,6 +60,10 @@ const { discoverRemoteSessions, discoverRemoteWorkspaceAgents } =
   await import("../src/lib/herdr-orchestrator-remote-discovery.ts");
 
 describe("herdr-orchestrator-remote-discovery", () => {
+  afterAll(() => {
+    mock.restore();
+  });
+
   afterEach(() => {
     sshRemoteCommands.length = 0;
   });

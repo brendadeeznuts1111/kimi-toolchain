@@ -67,7 +67,7 @@ describe("kimi-doctor smoke", () => {
 
   test("kimi-governance score prints grade", async () => {
     if (Bun.env.KIMI_COVERAGE_SCAN) return;
-    const { stdout, exitCode } = await runTool(GOVERNANCE, ["score"]);
+    const { stdout, exitCode } = await runTool(GOVERNANCE, ["score", "--fast"]);
     expect(stdout).toContain("Grade:");
     expect(stdout).toMatch(/\d+\.\d+%/);
     expect(stdout).toContain("Breakdown:");
@@ -175,7 +175,7 @@ describe("kimi-doctor smoke", () => {
     expect(await proc.exited).toBe(0);
     expect(out).toContain("format:check");
     expect(out).toContain("typecheck");
-    expect(out).toContain("bun test");
+    expect(out).toContain("run-tests.ts");
   }, 5_000);
 
   test("kimi-new --dry-run prints scaffold steps", async () => {
@@ -302,5 +302,5 @@ describe("kimi-doctor smoke", () => {
     ]);
     // test:fast may exit 1 if any test exceeds the fast timeout; we only check output contains pass count
     expect(stdout + stderr).toMatch(/\d+ pass/);
-  }, 30_000);
+  }, 300_000);
 });

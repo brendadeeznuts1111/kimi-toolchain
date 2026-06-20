@@ -26,6 +26,8 @@ export interface ExternalToolAdapter {
   name: string;
   /** Command and arguments to execute. */
   command: string[];
+  /** Optional environment overlay for the child process. */
+  env?: Record<string, string | undefined>;
   /** Convert a completed invocation into a structured adapter output. */
   parse(result: ToolInvocation): AdapterOutput;
 }

@@ -87,7 +87,7 @@ export function effectGatesChecksFromReport(
 
 export const effectGatesAdapter: ExternalToolAdapter = {
   name: "effect-gates",
-  command: ["bun", "run", "src/bin/kimi-doctor.ts", "--effect-gates", "--json"],
+  command: ["bun", "src/bin/kimi-doctor.ts", "--effect-gates", "--json"],
   parse(result): AdapterOutput {
     if (result.error) {
       return {
