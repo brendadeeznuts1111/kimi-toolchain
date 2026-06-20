@@ -12,6 +12,10 @@ import {
   PORTAL_MANIFEST_TYPE,
 } from "../../templates/artifact-portal/index.ts";
 import { fetchBenchmarkProbeEnvelope, resolveBenchmarkProbeUrl } from "./benchmark-probe-client.ts";
+import {
+  convergedComponentsFromEnvelope,
+  isFullyConvergedEnvelope,
+} from "./benchmark-convergence.ts";
 import { runEffectBenchmarkCardLoop } from "./effect-benchmark-card.ts";
 
 export const ARTIFACT_PORTAL_GATE = "artifact-portal";
@@ -119,6 +123,8 @@ export interface ArtifactPortalBuildResult {
     artifactPath: string;
   };
   portalIndexPath: string;
+  converged: boolean;
+  convergedComponents: ReturnType<typeof convergedComponentsFromEnvelope>;
 }
 
 /** Resolve BenchmarkApiEnvelope from serve-probe or local loop fallback. */
@@ -163,6 +169,9 @@ export async function buildArtifactPortal(
     probeUrl,
   });
 
+  const convergedComponents = convergedComponentsFromEnvelope(envelope);
+  const converged = isFullyConvergedEnvelope(envelope);
+
   const manifestPayload = buildPortalManifestPayload({
     builtAt,
     contract: ARTIFACT_PORTAL_CONTRACT_PATH,
@@ -172,6 +181,7 @@ export async function buildArtifactPortal(
     runner: envelope.runner,
     benchmarkArtifactPath: benchmarkRecord.artifactPath,
     probeUrl,
+    convergedComponents,
   });
 
   const indexRecord = await registerPortalArtifact({
@@ -196,5 +206,7 @@ export async function buildArtifactPortal(
       artifactPath: benchmarkRecord.artifactPath,
     },
     portalIndexPath: indexRecord.artifactPath,
+    converged,
+    convergedComponents,
   };
 }

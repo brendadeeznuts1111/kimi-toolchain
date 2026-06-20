@@ -37,6 +37,13 @@ One command publishes diagnostics + manifest to `.kimi/artifacts/artifact-portal
 
 **Next (Artifact Portal Convergence Sprint):** unify Canvas + Dashboard + Herdr feed into the portal build pipeline using `BenchmarkApiEnvelope` + serve-probe as the single diagnostic contract.
 
+### Unification (in progress)
+
+- `src/lib/benchmark-convergence.ts` — `metadata.convergence` on every `BenchmarkApiEnvelope`; manifest `convergedComponents`
+- serve-probe `GET /api/effect-benchmark` aggregates dashboard card probe into `dashboardProbe`
+- Herdr `benchmark-portal` calls full `buildArtifactPortal()` (parity with `bun run build:portal`)
+- `test:portal-convergence` exercises serve-probe + local-loop paths with converged manifest assertions
+
 ## Unreleased
 
 ### Added

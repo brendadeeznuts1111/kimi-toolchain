@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
-// Plugin action: pull serve-probe BenchmarkApiEnvelope and register portal artifact.
+// Plugin action: full Artifact Portal publish — same path as bun run build:portal.
 
-import { pullBenchmarkEnvelopeAndRegister } from "../src/lib/artifact-portal.ts";
+import { buildArtifactPortal } from "../src/lib/artifact-portal.ts";
 
 const context = safeJson(process.env.HERDR_PLUGIN_CONTEXT_JSON, {});
 const cwd = context.workspace_cwd || context.workspace?.cwd || process.cwd();
@@ -11,14 +11,20 @@ console.error(
 );
 
 try {
-  const { envelope, record } = await pullBenchmarkEnvelopeAndRegister({ projectRoot: cwd });
+  const result = await buildArtifactPortal({
+    projectRoot: cwd,
+    preferProbe: true,
+  });
   console.log(
     JSON.stringify({
-      ok: true,
-      runner: envelope.runner,
-      gate: envelope.gates?.effectBenchmarkGate?.status,
-      artifactPath: record.artifactPath,
-      canvasId: record.canvasId,
+      ok: result.ok,
+      converged: result.converged,
+      runner: result.benchmark.runner,
+      source: result.benchmark.source,
+      artifactPath: result.benchmark.artifactPath,
+      portalIndexPath: result.portalIndexPath,
+      convergedComponents: result.convergedComponents.map((c) => c.id),
+      canvasId: result.canvasManifestId,
     })
   );
 } catch (err) {

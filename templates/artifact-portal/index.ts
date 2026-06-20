@@ -4,8 +4,17 @@
 
 export const ARTIFACT_PORTAL_TEMPLATE_VERSION = 1;
 export const PORTAL_MANIFEST_TYPE = "portal-manifest";
-export const PORTAL_HERDR_PLUGIN_ID = "dev.kimi-toolchain";
-export const PORTAL_HERDR_ACTION = "benchmark-portal";
+import {
+  PORTAL_HERDR_ACTION,
+  PORTAL_HERDR_PLUGIN_ID,
+  type ConvergedComponentRecord,
+} from "../../src/lib/benchmark-convergence.ts";
+
+export {
+  CONVERGED_PORTAL_COMPONENTS,
+  PORTAL_HERDR_ACTION,
+  PORTAL_HERDR_PLUGIN_ID,
+} from "../../src/lib/benchmark-convergence.ts";
 
 export interface ArtifactPortalManifestPayload {
   schemaVersion: number;
@@ -28,6 +37,7 @@ export interface ArtifactPortalManifestPayload {
     action: string;
   };
   benchmarkArtifactPath: string;
+  convergedComponents: ConvergedComponentRecord[];
 }
 
 export function buildPortalManifestPayload(input: {
@@ -39,6 +49,7 @@ export function buildPortalManifestPayload(input: {
   runner: string;
   benchmarkArtifactPath: string;
   probeUrl?: string;
+  convergedComponents: ConvergedComponentRecord[];
 }): ArtifactPortalManifestPayload {
   return {
     schemaVersion: ARTIFACT_PORTAL_TEMPLATE_VERSION,
@@ -61,5 +72,6 @@ export function buildPortalManifestPayload(input: {
       action: PORTAL_HERDR_ACTION,
     },
     benchmarkArtifactPath: input.benchmarkArtifactPath,
+    convergedComponents: input.convergedComponents,
   };
 }

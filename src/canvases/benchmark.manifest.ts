@@ -3,6 +3,11 @@
  * Companion IDE surface: docs/canvases/benchmark.canvas.tsx
  */
 
+export {
+  BENCHMARK_CONVERGENCE_CONTRACT,
+  CONVERGED_PORTAL_COMPONENTS,
+} from "../lib/benchmark-convergence.ts";
+
 export const BENCHMARK_MANIFEST_ID = "benchmark";
 
 /** Cards highlighted when ?canvas=benchmark. */

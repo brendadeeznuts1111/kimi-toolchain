@@ -9,12 +9,22 @@ Narrative walkthrough: [artifact-portal.md](../artifact-portal.md). Contract: [c
 ```
 benchmark.canvas (?canvas=benchmark)
         ↓
-serve-probe GET /api/effect-benchmark  (optional live runner)
+Dashboard + serve-probe → BenchmarkApiEnvelope (metadata.convergence)
         ↓
 build:portal / Herdr benchmark-portal action
         ↓
-.kimi/artifacts/artifact-portal/  (diagnostics + manifest)
+.kimi/artifacts/artifact-portal/  (diagnostics + converged manifest)
 ```
+
+## Converged components
+
+| Component | Wired via                                                 | Verify                        |
+| --------- | --------------------------------------------------------- | ----------------------------- |
+| Canvas    | `benchmark.manifest.ts` → envelope `metadata.convergence` | `?canvas=benchmark`           |
+| Dashboard | `effect-benchmark.ts` → `runEffectBenchmarkCardLoop`      | `GET /api/effect-benchmark`   |
+| Herdr     | `benchmark-portal.ts` → `buildArtifactPortal()`           | plugin JSON `converged: true` |
+
+One `bun run portal:local` (or `build:portal --local-only`) publishes a manifest whose `convergedComponents` lists all three with zero duplicate loops.
 
 ## Start (offline — no dashboard required)
 

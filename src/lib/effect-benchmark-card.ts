@@ -22,6 +22,8 @@ import {
   runEffectBenchmarksReport,
   trainEffectThresholds,
 } from "./effect-benchmark.ts";
+import type { BenchmarkConvergenceBlock } from "./benchmark-convergence.ts";
+import { buildBenchmarkConvergenceBlock } from "./benchmark-convergence.ts";
 import { thresholdsBaselinePath, thresholdsLegacyPath, thresholdsLocalPath } from "./paths.ts";
 
 export const BENCHMARK_API_SCHEMA_VERSION = 1;
@@ -53,6 +55,8 @@ export interface BenchmarkApiMetadata {
   trainApplied?: boolean;
   cacheHit?: boolean;
   timedOut?: boolean;
+  /** Canvas + Dashboard + Herdr unification — stamped on every emission. */
+  convergence?: BenchmarkConvergenceBlock;
 }
 
 /** Shared envelope for dashboard API and kimi-doctor --perf-gates --json. */
@@ -574,6 +578,7 @@ export function buildBenchmarkApiEnvelope(
       trainApplied: context.trainApplied ?? payload.train?.written,
       cacheHit: context.cacheHit,
       timedOut: payload.timedOut,
+      convergence: buildBenchmarkConvergenceBlock(context.runner),
     },
     requestError: context.requestError,
     lastSuccessfulAt: context.lastSuccessfulAt,

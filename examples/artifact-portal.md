@@ -40,6 +40,23 @@ flowchart LR
 
 Contract declaration: `contracts/artifact-portal.json`.
 
+## Converged components
+
+All three consumers feed the same `BenchmarkApiEnvelope` — no parallel benchmark loops:
+
+| Component     | SSOT                                                  | Emission path                                                     |
+| ------------- | ----------------------------------------------------- | ----------------------------------------------------------------- |
+| **Canvas**    | `src/canvases/benchmark.manifest.ts`                  | Deep-link influences; envelope stamped via `metadata.convergence` |
+| **Dashboard** | `examples/dashboard/src/handlers/effect-benchmark.ts` | `runEffectBenchmarkCardLoop({ runner: "dashboard" })`             |
+| **Herdr**     | `herdr-plugin/benchmark-portal.ts`                    | `buildArtifactPortal()` — same as `bun run build:portal`          |
+
+Serve-probe aggregates dashboard card probe state into the envelope (`metadata.convergence.dashboardProbe`). The portal manifest lists `convergedComponents: ["canvas","dashboard","herdr"]` after every `build:portal` run.
+
+```bash
+bun run build:portal --local-only
+bun run test:portal-convergence   # asserts converged manifest + envelope metadata
+```
+
 ## One-command demo
 
 ```bash

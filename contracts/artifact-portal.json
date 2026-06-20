@@ -28,9 +28,16 @@
       "influences": ["card-effect-benchmark", "card-perf-harness", "card-kimi-doctor"]
     }
   },
+  "convergence": {
+    "ssot": "src/lib/benchmark-convergence.ts",
+    "components": ["canvas", "dashboard", "herdr"],
+    "envelopeField": "metadata.convergence",
+    "manifestField": "convergedComponents"
+  },
   "metadata": {
     "manifest": "src/canvases/benchmark.manifest.ts",
     "probeClient": "src/lib/benchmark-probe-client.ts",
-    "registration": "src/lib/artifact-portal.ts"
+    "registration": "src/lib/artifact-portal.ts",
+    "convergence": "src/lib/benchmark-convergence.ts"
   }
 }

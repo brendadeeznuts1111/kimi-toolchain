@@ -31,6 +31,7 @@ import {
   fetchDashboardArtifactIndexStats,
   fetchDashboardRunsList,
 } from "./herdr-dashboard-data.ts";
+import { withBenchmarkConvergence } from "./benchmark-convergence.ts";
 import { type BenchmarkApiEnvelope, runEffectBenchmarkCardLoop } from "./effect-benchmark-card.ts";
 
 export { extractArtifactTimestamp };
@@ -214,9 +215,10 @@ export async function startProbeServer(
           appendSnapshot,
           mapTaxonomy: true,
         });
-        benchmarkEnvelope = envelope;
+        const converged = withBenchmarkConvergence(envelope, "serve-probe");
+        benchmarkEnvelope = converged;
         benchmarkFetchedAt = envelope.timestamp;
-        return envelope;
+        return converged;
       } finally {
         benchmarkRefreshInFlight = null;
       }
@@ -349,8 +351,14 @@ export async function startProbeServer(
         if (!benchmarkEnvelope) {
           await refreshEffectBenchmark(false);
         }
+        const probeSummary = {
+          cardCount: cached.length,
+          okCount: cached.filter((c) => c.status === "pass").length,
+          fetchedAt: lastFetchedAt,
+        };
+        const body = withBenchmarkConvergence(benchmarkEnvelope!, benchmarkEnvelope!.runner, probeSummary);
         return jsonResponse({
-          ...benchmarkEnvelope!,
+          ...body,
           fetchedAt: benchmarkFetchedAt,
         });
       }
@@ -359,8 +367,14 @@ export async function startProbeServer(
         if (!options.effectBenchmark) return notFound(path);
         if (method !== "POST") return methodNotAllowed(path, method, ["POST"]);
         const envelope = await refreshEffectBenchmark(true);
+        const probeSummary = {
+          cardCount: cached.length,
+          okCount: cached.filter((c) => c.status === "pass").length,
+          fetchedAt: lastFetchedAt,
+        };
+        const body = withBenchmarkConvergence(envelope, envelope.runner, probeSummary);
         return jsonResponse({
-          ...envelope,
+          ...body,
           refreshedAt: benchmarkFetchedAt,
         });
       }

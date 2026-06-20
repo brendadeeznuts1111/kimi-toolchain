@@ -76,7 +76,9 @@ describe("examples-showcase", () => {
     const trading = payload.entries.find((e) => e.id === "trading-workspace");
     expect(trading?.probe?.artifactCount).toBeGreaterThan(0);
     const dashboard = payload.entries.find((e) => e.id === "dashboard");
-    expect(dashboard?.probe?.cardCount).toBe(67);
+    expect(dashboard?.probe && "cardCount" in dashboard.probe ? dashboard.probe.cardCount : 0).toBe(
+      67
+    );
   });
 
   test("buildExamplesShowcasePayload rewrites open commands to settings port", () => {
