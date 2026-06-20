@@ -16,6 +16,7 @@ import {
 } from "../lib/self-healing.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import { writeStdoutLine } from "../lib/cli-contract.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
 
 const logger = createLogger(Bun.argv, "kimi-heal");
@@ -99,7 +100,7 @@ export function auditEffects(
 }
 
 async function emitJson(value: unknown): Promise<void> {
-  await Bun.write(Bun.stdout, `${JSON.stringify(value, null, 2)}\n`);
+  await writeStdoutLine(`${JSON.stringify(value, null, 2)}`);
 }
 
 function printHelp(): void {

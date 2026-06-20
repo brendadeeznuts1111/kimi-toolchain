@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { parseCliFlags, createMachineWriter, CliContractError } from "../src/lib/cli-contract.ts";
+import {
+  parseCliFlags,
+  createMachineWriter,
+  CliContractError,
+  pipeStdoutFromFile,
+  writeStdoutLine,
+} from "../src/lib/cli-contract.ts";
+import { REPO_ROOT, testTempDir } from "./helpers.ts";
 import { inspectAgent } from "../src/lib/inspect.ts";
 import { captureStdout, captureStderr, captureStderrWrite, withEnv } from "./helpers.ts";
 
@@ -361,6 +368,61 @@ describe("cli-contract", () => {
         stdout.restore();
         stderr.restore();
       }
+    });
+  });
+
+  describe("write-stdout", () => {
+    test("writeStdout writes raw bytes without trailing newline", async () => {
+      const proc = Bun.spawn(
+        [
+          "bun",
+          "-e",
+          'import { writeStdout } from "./src/lib/cli-contract.ts"; await writeStdout("Lorem ipsum");',
+        ],
+        { cwd: REPO_ROOT, stdout: "pipe", stderr: "pipe" }
+      );
+      expect(await new Response(proc.stdout).text()).toBe("Lorem ipsum");
+      expect(await proc.exited).toBe(0);
+    });
+
+    test("writeStdoutLine appends newline", async () => {
+      const proc = Bun.spawn(
+        [
+          "bun",
+          "-e",
+          'import { writeStdoutLine } from "./src/lib/cli-contract.ts"; await writeStdoutLine("hello");',
+        ],
+        { cwd: REPO_ROOT, stdout: "pipe", stderr: "pipe" }
+      );
+      expect(await new Response(proc.stdout).text()).toBe("hello\n");
+      expect(await proc.exited).toBe(0);
+    });
+
+    test("pipeStdoutFromFile streams file bytes", async () => {
+      const dir = testTempDir("cli-stdout-pipe-");
+      const path = `${dir}/sample.txt`;
+      await Bun.write(path, "cat-me\n");
+      const proc = Bun.spawn(
+        [
+          "bun",
+          "-e",
+          'import { pipeStdoutFromFile } from "./src/lib/cli-contract.ts"; await pipeStdoutFromFile(process.env.TEST_FILE!);',
+        ],
+        {
+          cwd: REPO_ROOT,
+          env: { ...Bun.env, TEST_FILE: path },
+          stdout: "pipe",
+          stderr: "pipe",
+        }
+      );
+      const [stdout, stderr, code] = await Promise.all([
+        new Response(proc.stdout).text(),
+        new Response(proc.stderr).text(),
+        proc.exited,
+      ]);
+      expect(stderr).toBe("");
+      expect(stdout).toBe("cat-me\n");
+      expect(code).toBe(0);
     });
   });
 });

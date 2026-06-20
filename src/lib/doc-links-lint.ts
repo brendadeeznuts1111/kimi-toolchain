@@ -134,6 +134,64 @@ export const BUN_DOC_LINK_CONSTANTS = [
       pathname: "/reference/node/punycode/decode",
     } satisfies BunDocLinkMatchSpec,
   },
+  {
+    constant: "BUN_ARGV_DOC_URL",
+    definingFile: "src/lib/cli-contract.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/guides/process/argv",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_STDIN_DOC_URL",
+    definingFile: "src/lib/cli-contract.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/guides/process/stdin",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_STDOUT_DOC_URL",
+    definingFile: "src/lib/cli-contract.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/guides/process/stdout",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_SPAWN_STDERR_DOC_URL",
+    definingFile: "src/lib/cli-contract.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/guides/process/spawn-stderr",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_CHILD_PROCESS_DOC_URL",
+    definingFile: "src/lib/cli-contract.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathnamePrefix: "/docs/runtime/child-process",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_FILE_IO_WRITE_DOC_URL",
+    definingFile: "src/lib/cli-contract.ts",
+    match: {
+      hostnames: ["bun.com", "bun.sh"],
+      pathnamePrefix: "/docs/runtime/file-io",
+      hash: "#writing-files-bun-write",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_FILE_IO_REFERENCE_DOC_URL",
+    definingFile: "src/lib/cli-contract.ts",
+    match: {
+      hostnames: ["bun.com", "bun.sh"],
+      pathnamePrefix: "/docs/runtime/file-io",
+      hash: "#reference",
+    } satisfies BunDocLinkMatchSpec,
+  },
 ] as const;
 
 const DEFAULT_DOC_PROTOCOLS = ["http:", "https:"] as const;

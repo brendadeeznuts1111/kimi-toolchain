@@ -59,7 +59,7 @@ import { auditAgentReady } from "../lib/agent-ready.ts";
 import { auditSuccessMetrics } from "../lib/success-metrics.ts";
 import { generateAgentDiagnosisReport } from "../lib/agent-diagnosis.ts";
 import { aggregateChecks, type HealthCheck } from "../lib/health-check.ts";
-import { createCli } from "../lib/cli-contract.ts";
+import { createCli, writeStdoutLine } from "../lib/cli-contract.ts";
 import {
   appendEffectGatesSnapshot,
   buildEffectGatesReport,
@@ -1930,7 +1930,7 @@ async function main(): Promise<number> {
         methods.map((m) => ({ method: m.methodName, file: m.sourceFile })),
         { colors: true }
       );
-      console.log(table);
+      await writeStdoutLine(table);
     } catch (e) {
       logger.error(e instanceof Error ? e.message : String(e));
       return 1;

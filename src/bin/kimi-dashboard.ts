@@ -23,6 +23,7 @@ import {
 } from "../lib/dashboard-settings.ts";
 import { runExamplesDashboardWebView } from "../lib/examples-dashboard-webview.ts";
 import { examplesDashboardLogPath, examplesDashboardPidPath, varDir } from "../lib/paths.ts";
+import { BUN_CHILD_PROCESS_DOC_URL, BUN_SPAWN_STDERR_DOC_URL } from "../lib/cli-contract.ts";
 import { withBunNoOrphans } from "../lib/tool-runner.ts";
 
 // Resolve the dashboard directory relative to the repo root
@@ -135,13 +136,16 @@ if (daemon) {
     movePath(logPath, rotatedLogPath);
   }
   // Direct script spawn — `bun run` wrapper does not survive detached unref on macOS.
-  const proc = Bun.spawn(["sh", "-c", `exec bun "${dashboardScript}" >> "${logPath}" 2>&1`], {
+  // @see BUN_CHILD_PROCESS_DOC_URL — stdout/stderr: Bun.file(logPath)
+  // @see BUN_SPAWN_STDERR_DOC_URL — merge stderr into log via same BunFile
+  const log = Bun.file(logPath);
+  const proc = Bun.spawn(withBunNoOrphans(["bun", dashboardScript]), {
     cwd: dashboardDir,
     env,
     detached: true,
     stdin: "ignore",
-    stdout: "ignore",
-    stderr: "ignore",
+    stdout: log,
+    stderr: log,
   });
   proc.unref();
   await Bun.write(pidPath, `${proc.pid}\n`);
