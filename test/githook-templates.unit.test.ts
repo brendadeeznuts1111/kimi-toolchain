@@ -10,8 +10,7 @@ import {
   renderPreCommitHook,
   renderPrePushHook,
 } from "../src/lib/githook-templates.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
+import { REPO_ROOT } from "./helpers.ts";
 
 describe("githook templates", () => {
   test("pre-commit template delegates to run-gates pre-commit", () => {

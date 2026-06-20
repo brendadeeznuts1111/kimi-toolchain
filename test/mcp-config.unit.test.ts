@@ -15,6 +15,7 @@ import {
   validateMcpConfig,
   writeMcpJson,
 } from "../src/lib/mcp-config.ts";
+import { withEnv } from "./helpers.ts";
 
 let tmpHome: string;
 
@@ -78,19 +79,18 @@ describe("mcp-config", () => {
   });
 
   test("provisionUserMcp creates mcp.json with both servers", async () => {
-    const originalHome = process.env.HOME;
-    process.env.HOME = tmpHome;
-    const path = userMcpPath();
-    // Clean up any pre-existing file from other test runs
-    if (existsSync(path)) rmSync(path, { force: true });
-    expect(existsSync(path)).toBe(false);
-    const result = await provisionUserMcp(tmpHome);
-    expect(result.changed).toBe(true);
-    expect(existsSync(path)).toBe(true);
-    const parsed = await readMcpJson(path);
-    expect(parsed?.data?.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
-    expect(parsed?.data?.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
-    process.env.HOME = originalHome;
+    await withEnv({ HOME: tmpHome }, async () => {
+      const path = userMcpPath();
+      // Clean up any pre-existing file from other test runs
+      if (existsSync(path)) rmSync(path, { force: true });
+      expect(existsSync(path)).toBe(false);
+      const result = await provisionUserMcp(tmpHome);
+      expect(result.changed).toBe(true);
+      expect(existsSync(path)).toBe(true);
+      const parsed = await readMcpJson(path);
+      expect(parsed?.data?.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
+      expect(parsed?.data?.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
+    });
   });
 
   test("writeMcpJson round-trips", async () => {
@@ -102,11 +102,7 @@ describe("mcp-config", () => {
   });
 
   test("validateMcpConfig reports cloudflare-api and project stub/override issues", async () => {
-    const originalHome = process.env.HOME;
-    const originalCfToken = process.env.CLOUDFLARE_API_TOKEN;
-    process.env.HOME = tmpHome;
-    process.env.CLOUDFLARE_API_TOKEN = "test-token";
-    try {
+    await withEnv({ HOME: tmpHome, CLOUDFLARE_API_TOKEN: "test-token" }, async () => {
       const path = userMcpPath();
       if (existsSync(path)) rmSync(path, { force: true });
       await provisionUserMcp(tmpHome);
@@ -132,13 +128,6 @@ describe("mcp-config", () => {
       expect(
         disabledReport.checks.find((c) => c.name === "mcp-project-override")?.message
       ).toContain("disabled");
-    } finally {
-      process.env.HOME = originalHome;
-      if (originalCfToken === undefined) {
-        delete process.env.CLOUDFLARE_API_TOKEN;
-      } else {
-        process.env.CLOUDFLARE_API_TOKEN = originalCfToken;
-      }
-    }
+    });
   });
 });

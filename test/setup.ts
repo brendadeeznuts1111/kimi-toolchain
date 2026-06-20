@@ -8,12 +8,8 @@
 import { mkdirSync } from "fs";
 import { join } from "path";
 import { artifactPath } from "../src/lib/artifacts.ts";
-import {
-  installBuildConstantGlobals,
-  warnIfNodeEnvNotTest,
-} from "../src/lib/test-runtime.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
+import { installBuildConstantGlobals, warnIfNodeEnvNotTest } from "../src/lib/test-runtime.ts";
+import { REPO_ROOT } from "./helpers.ts";
 
 warnIfNodeEnvNotTest("test/setup.ts");
 Bun.env.NODE_ENV = "test";

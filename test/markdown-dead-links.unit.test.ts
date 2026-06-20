@@ -6,8 +6,7 @@ import {
   extractMarkdownLinks,
   resolveInternalMarkdownTarget,
 } from "../src/lib/markdown-dead-links-lint.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
+import { REPO_ROOT } from "./helpers.ts";
 
 describe("markdown-dead-links-lint", () => {
   test("extractMarkdownLinks collects link and image targets", () => {

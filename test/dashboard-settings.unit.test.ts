@@ -9,9 +9,7 @@ import {
   resolveDashboardSettings,
   resolveDashboardStartupPort,
 } from "../src/lib/dashboard-settings.ts";
-import { withTempDir } from "./helpers.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
+import { REPO_ROOT, withTempDir } from "./helpers.ts";
 
 describe("dashboard-settings", () => {
   test("resolveDashboardListenPort prefers request URL port", () => {

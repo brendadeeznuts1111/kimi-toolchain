@@ -11,8 +11,7 @@ import {
   listMarkdownHeadings,
   TESTING_DOCS_AUDIT_COMMANDS,
 } from "../src/lib/testing-docs-lint.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
+import { REPO_ROOT } from "./helpers.ts";
 
 describe("testing-docs-lint", () => {
   test("encodes manual rg audit commands", () => {

@@ -9,8 +9,7 @@ import {
   UNIT_TEST_FILES,
   useFastUnitCoverage,
 } from "../src/lib/test-gates.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
+import { REPO_ROOT } from "./helpers.ts";
 
 describe("test-gates", () => {
   test("bunTestArgs defaults include bail, default timeout, and isolate", () => {

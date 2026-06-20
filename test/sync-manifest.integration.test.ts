@@ -4,8 +4,7 @@ import { join } from "path";
 import { artifactPath } from "../src/lib/artifacts.ts";
 import { desktopRoot, syncDesktop } from "../src/lib/desktop-sync.ts";
 import { writeSyncManifest, verifySyncManifest } from "../src/lib/sync-manifest.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
+import { REPO_ROOT } from "./helpers.ts";
 
 describe("sync-manifest", () => {
   let previousHome: string | undefined;

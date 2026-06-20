@@ -13,8 +13,7 @@ import {
 } from "../src/lib/success-metrics.ts";
 import { loadTaxonomy } from "../src/lib/error-taxonomy.ts";
 import { isTwoArtifactProviderIntegration } from "../src/lib/provider-contract.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
+import { REPO_ROOT } from "./helpers.ts";
 
 describe("success-metrics", () => {
   test("managed failure fixtures meet taxonomy coverage target", async () => {

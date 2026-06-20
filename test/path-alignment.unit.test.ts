@@ -10,14 +10,15 @@ import {
   removeOrphanedSnapshots,
   removeStaleWrappers,
 } from "../src/lib/workspace-health.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
+import { REPO_ROOT } from "./helpers.ts";
 
 describe("path-alignment", () => {
   let tmpHome: string;
   let tmpBin: string;
+  let originalHome: string | undefined;
 
   beforeEach(() => {
+    originalHome = Bun.env.HOME;
     tmpHome = join(tmpdir(), `kimi-path-align-${Bun.randomUUIDv7()}`);
     tmpBin = join(tmpHome, ".local", "bin");
     mkdirSync(tmpBin, { recursive: true });
@@ -25,7 +26,8 @@ describe("path-alignment", () => {
   });
 
   afterEach(() => {
-    Bun.env.HOME = process.env.HOME;
+    if (originalHome === undefined) delete Bun.env.HOME;
+    else Bun.env.HOME = originalHome;
     if (tmpHome) rmSync(tmpHome, { recursive: true, force: true });
   });
 
@@ -52,7 +54,7 @@ describe("path-alignment", () => {
   });
 
   test("auditPathAlignment passes for canonical repo layout", async () => {
-    Bun.env.HOME = process.env.HOME || tmpHome;
+    Bun.env.HOME = originalHome ?? tmpHome;
     const report = await auditPathAlignment(REPO_ROOT);
     const repoFolder = report.checks.find((c) => c.name === "repo-folder");
     expect(repoFolder?.status).toBe("ok");

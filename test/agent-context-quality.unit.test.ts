@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { AGENT_CONTEXT_TARGET_SCORE, scoreAgentContext } from "../src/lib/agent-context-quality.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
+import { REPO_ROOT } from "./helpers.ts";
 
 const QUALITY_FILES = [
   "AGENTS.md",

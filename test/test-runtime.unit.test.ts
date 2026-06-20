@@ -112,7 +112,7 @@ describe("test-runtime", () => {
   describe("Bun NODE_ENV contract", () => {
     // https://bun.com/docs/test/runtime-behavior#node_env
     test("with kimi preload: NODE_ENV is test", () => {
-      expect(process.env.NODE_ENV).toBe("test");
+      expect(Bun.env.NODE_ENV).toBe("test");
     });
 
     test("native bun test: explicit NODE_ENV=development is preserved without preload", async () => {
@@ -123,15 +123,15 @@ describe("test-runtime", () => {
         testPath,
         `import { test, expect } from "bun:test";
 test("probe", () => {
-  if (process.env.NODE_ENV !== "development") process.exit(2);
-  expect(process.env.NODE_ENV).toBe("development");
+  if (Bun.env.NODE_ENV !== "development") process.exit(2);
+  expect(Bun.env.NODE_ENV).toBe("development");
 });`
       );
       writeText(join(dir, "bunfig.toml"), "[test]\n");
 
       const proc = Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "development" },
+        env: { ...Bun.env, NODE_ENV: "development" },
         stdout: "pipe",
         stderr: "pipe",
       });
@@ -182,7 +182,7 @@ test("probe", () => {
     });
 
     test("with kimi preload: timezone is UTC", () => {
-      expect(process.env.TZ).toBe("Etc/UTC");
+      expect(Bun.env.TZ).toBe("Etc/UTC");
       expect(new Date().getTimezoneOffset()).toBe(0);
     });
 
@@ -221,7 +221,7 @@ test("timezone is UTC by default", () => {
 });`
       );
       writeText(join(dir, "bunfig.toml"), "[test]\n");
-      const spawnEnv = { ...process.env, NODE_ENV: "test" };
+      const spawnEnv = { ...Bun.env, NODE_ENV: "test" };
       delete spawnEnv.TZ;
       const code = await Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
@@ -240,14 +240,14 @@ test("timezone is UTC by default", () => {
         testPath,
         `import { test, expect } from "bun:test";
 test("timezone follows TZ env", () => {
-  expect(process.env.TZ).toBe("America/New_York");
+  expect(Bun.env.TZ).toBe("America/New_York");
   expect(new Date().getTimezoneOffset()).not.toBe(0);
 });`
       );
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test", TZ: "America/New_York" },
+        env: { ...Bun.env, NODE_ENV: "test", TZ: "America/New_York" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -315,7 +315,7 @@ describe("bun:test api", () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -360,7 +360,7 @@ describe("global describe", () => {
 
       const proc = Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       });
@@ -425,7 +425,7 @@ test(${JSON.stringify(ex.name)}, () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -453,7 +453,7 @@ ${cases}
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -475,7 +475,7 @@ test(${JSON.stringify(ex.name)}, async () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -499,7 +499,7 @@ test(${JSON.stringify(ex.name)}, (done) => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -548,7 +548,7 @@ test("2 + 2", () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", ...BUN_TEST_RUN_EXAMPLES.all], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -568,7 +568,7 @@ test("fails", () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -597,7 +597,7 @@ test("subtraction works", () => {
         ["bun", "test", "--test-name-pattern", "addition", "./math.test.ts"],
         {
           cwd: dir,
-          env: { ...process.env, NODE_ENV: "test" },
+          env: { ...Bun.env, NODE_ENV: "test" },
           stdout: "pipe",
           stderr: "pipe",
         }
@@ -634,7 +634,7 @@ test("passes", () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -655,7 +655,7 @@ test("fails", () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -715,7 +715,7 @@ test("slow", async () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", "--timeout", "200", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -737,7 +737,7 @@ test("slow test", async () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", "--timeout", "200", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -758,7 +758,7 @@ test("test without timeout", async () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", "--timeout", "200", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -845,7 +845,7 @@ test("plain probe", () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", "utils"], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -877,7 +877,7 @@ test("other probe", () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", "./specific.test.ts"], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -911,7 +911,7 @@ test("visible probe", () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test"], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -978,7 +978,7 @@ test("preload probe", () => {
       writeText(join(dir, "bunfig.toml"), `[test]\npreload = ["./preload.ts"]\n`);
       const code = await Bun.spawn(["bun", "test", "./probe.test.ts"], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -999,7 +999,7 @@ test("slow", async () => {
       writeText(join(dir, "bunfig.toml"), "[test]\ntimeout = 5000\n");
       const code = await Bun.spawn(["bun", "test", "--timeout", "200", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;
@@ -1050,7 +1050,7 @@ test("test 2", async () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const proc = Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       });
@@ -1095,7 +1095,7 @@ Promise.reject(new Error("Unhandled rejection"));`
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const proc = Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       });
@@ -1126,7 +1126,7 @@ test("slow", async () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const proc = Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       });
@@ -1230,7 +1230,7 @@ test("global cleaned", () => {
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", testPath], {
         cwd: dir,
-        env: { ...process.env, NODE_ENV: "test" },
+        env: { ...Bun.env, NODE_ENV: "test" },
         stdout: "pipe",
         stderr: "pipe",
       }).exited;

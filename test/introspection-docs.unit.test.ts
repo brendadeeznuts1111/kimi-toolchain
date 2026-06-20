@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { buildAgentsMd } from "../src/lib/scaffold-agents.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
+import { REPO_ROOT } from "./helpers.ts";
 
 async function readRepoFile(path: string): Promise<string> {
   return Bun.file(join(REPO_ROOT, path)).text();

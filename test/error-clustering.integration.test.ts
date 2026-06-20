@@ -2,8 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-
-const REPO_ROOT = join(import.meta.dir, "..");
+import { REPO_ROOT } from "./helpers.ts";
 const ERROR_CLI = join(REPO_ROOT, "src/bin/kimi-error.ts");
 
 function tempHome(): string {

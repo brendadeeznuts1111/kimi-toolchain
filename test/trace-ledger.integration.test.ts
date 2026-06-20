@@ -4,8 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { invokeTool } from "../src/lib/tool-runner.ts";
 import { buildTraceGraph } from "../src/lib/trace-ledger.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
+import { REPO_ROOT } from "./helpers.ts";
 const HOOK = join(REPO_ROOT, "src/kimi-hooks/log-tool-failure.ts");
 const TRACE = join(REPO_ROOT, "src/bin/kimi-trace.ts");
 
