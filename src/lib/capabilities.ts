@@ -110,13 +110,6 @@ export function runCapabilityAggregator(
   });
 }
 
-export async function capabilityReport(
-  projectRoot: string,
-  options: CapabilityOptions = {}
-): Promise<CapabilityReport> {
-  return Effect.runPromise(runCapabilityAggregator(projectRoot, options));
-}
-
 export async function readCapabilityTrend(limit = 10): Promise<CapabilityTrend> {
   const snapshots = await readCapabilitySnapshots(limit);
   return {

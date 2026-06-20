@@ -205,10 +205,9 @@ export function buildHealPlanEffect(
         );
     const capabilitiesEffect = options.capabilities
       ? Effect.succeed(options.capabilities)
-      : Effect.tryPromise({
-          try: () => capabilityReport(projectRoot, { saveSnapshot: false, recordDecisions: false }),
-          catch: () => "capability-read-failed",
-        }).pipe(Effect.catchAll(() => Effect.succeed(emptyCapabilityReport())));
+      : runCapabilityAggregator(projectRoot, { saveSnapshot: false, recordDecisions: false }).pipe(
+          Effect.catchAll(() => Effect.succeed(emptyCapabilityReport()))
+        );
 
     const [clusters, capabilities] = yield* Effect.all([clustersEffect, capabilitiesEffect], {
       concurrency: 2,
@@ -228,13 +227,6 @@ export function buildHealPlanEffect(
       summary: summarizeActions(actions),
     };
   });
-}
-
-export function buildHealPlan(
-  projectRoot: string,
-  options: BuildHealPlanOptions = {}
-): Promise<HealPlan> {
-  return Effect.runPromise(buildHealPlanEffect(projectRoot, options));
 }
 
 export function applyHealPlanEffect(
@@ -277,13 +269,6 @@ export function applyHealPlanEffect(
       },
     };
   });
-}
-
-export function applyHealPlan(
-  plan: HealPlan,
-  options: ApplyHealPlanOptions = {}
-): Promise<HealApplyReport> {
-  return Effect.runPromise(applyHealPlanEffect(plan, options));
 }
 
 function actionsFromCapabilities(report: CapabilityReport): HealAction[] {

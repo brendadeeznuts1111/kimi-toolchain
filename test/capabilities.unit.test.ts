@@ -1,8 +1,9 @@
+import { Effect } from "effect";
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { capabilityReport, readCapabilityTrend } from "../src/lib/capabilities.ts";
+import { runCapabilityAggregator, readCapabilityTrend } from "../src/lib/capabilities.ts";
 import { readDecisionLedger } from "../src/lib/decision-ledger.ts";
 
 describe("capabilities", () => {
@@ -21,7 +22,7 @@ describe("capabilities", () => {
 
     try {
       Bun.env.HOME = dir;
-      const report = await capabilityReport(dir);
+      const report = await Effect.runPromise(runCapabilityAggregator(dir));
       const trend = await readCapabilityTrend();
 
       expect(report.checks.map((check) => check.id)).toContain("mcp-config");

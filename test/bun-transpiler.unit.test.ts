@@ -34,6 +34,19 @@ describe("bun-transpiler", () => {
     expect(result.length).toBeGreaterThan(0);
   });
 
+  test("replMode: var is hoisted for persistence across lines", () => {
+    const transpiler = new Bun.Transpiler({ loader: "ts", replMode: true });
+    const result = transpiler.transformSync("var x = 10");
+    expect(result).toContain("x");
+  });
+
+  test("replMode: object literal auto-detected (not block statement)", () => {
+    const transpiler = new Bun.Transpiler({ loader: "ts", replMode: true });
+    const result = transpiler.transformSync("{ a: 1, b: 2 }");
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
+  });
+
   test("in-memory module scanning (no disk writes)", () => {
     const transpiler = new Bun.Transpiler({ loader: "ts" });
     const scanResult = transpiler.scan("import { foo } from './bar';");

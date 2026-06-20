@@ -117,6 +117,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "bun-shell": "src/lib/bun-utils.ts",
   "bun-ffi": "src/lib/bun-utils.ts",
   "bun-terminal-peek-shrink": "src/lib/bun-utils.ts",
+  "bun-plugin-alloc": "src/lib/bun-utils.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */
@@ -138,6 +139,7 @@ const DESCRIBE_STEM_ALIAS: Record<string, string> = {
   "bun-json5-jsonl": "bun-json5",
   "bun-spawn-which-uuid": "bun-spawn",
   "bun-sleep-deepequals": "bun-sleep",
+  "bun-terminal-peek-shrink": "bun-terminal",
   "bun-utils-base64": "base64",
   "bun-utils-hex": "hex",
   "bun-utils-gzip": "gzip",

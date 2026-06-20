@@ -8,7 +8,11 @@
 
 import { Context, Data, Effect, Layer } from "effect";
 import { isAbsolute, resolve } from "path";
-import { runCapabilityAggregator, type CapabilityReport, type CapabilityStatus } from "../capabilities.ts";
+import {
+  runCapabilityAggregator,
+  type CapabilityReport,
+  type CapabilityStatus,
+} from "../capabilities.ts";
 import {
   signContractEffect,
   validateContractEffect,
