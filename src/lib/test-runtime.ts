@@ -3,6 +3,7 @@
  * @see https://bun.com/docs/test/runtime-behavior#environment-variables
  * @see https://bun.com/docs/test/runtime-behavior#cli-flags-integration
  * @see https://bun.com/docs/test/runtime-behavior#global-variables
+ * @see https://bun.com/docs/test/runtime-behavior#process-integration
  */
 
 import { existsSync } from "fs";
@@ -44,6 +45,39 @@ export const BUN_TEST_GLOBAL_NAMES = [
   "jest",
   "vi",
 ] as const;
+
+/** Same symbols as {@link BUN_TEST_GLOBAL_NAMES} — preferred explicit import from `bun:test`. */
+export const BUN_TEST_IMPORT_NAMES = BUN_TEST_GLOBAL_NAMES;
+
+/** Canonical explicit import line (matches Bun runtime-behavior docs). */
+export const BUN_TEST_EXPLICIT_IMPORT =
+  'import { test, it, describe, expect, beforeAll, beforeEach, afterAll, afterEach, jest, vi } from "bun:test";';
+
+/** Bun `bun test` process exit codes (@see process-integration doc). */
+export const BUN_TEST_EXIT = {
+  ok: 0,
+  /** Assertion failures; Bun 1.4 also uses 1 for module-level unhandled errors. */
+  failures: 1,
+} as const;
+
+/** Non-zero when tests failed or the runner reported errors. */
+export function isBunTestFailureExit(code: number): boolean {
+  return code !== BUN_TEST_EXIT.ok;
+}
+
+/**
+ * Doc: exit &gt; 1 equals unhandled-error count. Bun 1.4-canary still exits 1 for
+ * module-level unhandled errors — use stderr error count when distinguishing.
+ */
+export function isUnhandledErrorExitCode(code: number): boolean {
+  return code > BUN_TEST_EXIT.failures;
+}
+
+export function describeBunTestExitCode(code: number): string {
+  if (code === BUN_TEST_EXIT.ok) return "all passed";
+  if (code === BUN_TEST_EXIT.failures) return "failures or runner errors";
+  return `unhandled errors (${code})`;
+}
 
 /** Bun test CLI flags we forward from scripts (see Bun CLI flags integration doc). */
 export const FORWARDABLE_BUN_TEST_FLAGS = [

@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
+  BUN_TEST_EXIT,
+  BUN_TEST_EXPLICIT_IMPORT,
   BUN_TEST_GLOBAL_NAMES,
+  BUN_TEST_IMPORT_NAMES,
+  describeBunTestExitCode,
+  isBunTestFailureExit,
+  isUnhandledErrorExitCode,
   TEST_TIER_ORDER,
   TEST_TIER_SPECS,
   TEST_ENV_FILE,
@@ -164,6 +170,100 @@ describe("global describe", () => {
         else globals[key] = priorTest;
       }
     });
+  });
+
+  describe("Bun process integration", () => {
+    // https://bun.com/docs/test/runtime-behavior#process-integration
+    test("documents bun:test explicit import line and import names", () => {
+      expect(BUN_TEST_IMPORT_NAMES).toEqual(BUN_TEST_GLOBAL_NAMES);
+      expect(BUN_TEST_EXPLICIT_IMPORT).toContain('from "bun:test"');
+      for (const name of BUN_TEST_IMPORT_NAMES) {
+        expect(BUN_TEST_EXPLICIT_IMPORT).toContain(name);
+      }
+    });
+
+    test("describeBunTestExitCode maps Bun exit codes", () => {
+      expect(describeBunTestExitCode(0)).toBe("all passed");
+      expect(describeBunTestExitCode(1)).toBe("failures or runner errors");
+      expect(describeBunTestExitCode(2)).toBe("unhandled errors (2)");
+      expect(isBunTestFailureExit(1)).toBe(true);
+      expect(isBunTestFailureExit(0)).toBe(false);
+      expect(isUnhandledErrorExitCode(2)).toBe(true);
+      expect(isUnhandledErrorExitCode(1)).toBe(false);
+    });
+
+    test("buildTestRunnerEnv preserves CI detection env", () => {
+      withEnv({ CI: "true", GITHUB_ACTIONS: "true" }, () => {
+        const env = buildTestRunnerEnv({});
+        expect(env.CI).toBe("true");
+        expect(env.GITHUB_ACTIONS).toBe("true");
+        expect(env.NODE_ENV).toBe("test");
+      });
+    });
+
+    test("native bun test: exit 0 when all tests pass", async () => {
+      const dir = testTempDir("bun-exit-ok-");
+      makeDir(dir, { recursive: true });
+      const testPath = join(dir, "exit-ok.probe.test.ts");
+      writeText(
+        testPath,
+        `import { test, expect } from "bun:test";
+test("passes", () => {
+  expect(1).toBe(1);
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+    }, 15_000);
+
+    test("native bun test: exit 1 on assertion failure", async () => {
+      const dir = testTempDir("bun-exit-fail-");
+      makeDir(dir, { recursive: true });
+      const testPath = join(dir, "exit-fail.probe.test.ts");
+      writeText(
+        testPath,
+        `import { test, expect } from "bun:test";
+test("fails", () => {
+  expect(1).toBe(2);
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.failures);
+    }, 15_000);
+
+    test("native bun test: non-zero exit on unhandled rejection", async () => {
+      const dir = testTempDir("bun-exit-unhandled-");
+      makeDir(dir, { recursive: true });
+      const testPath = join(dir, "exit-unhandled.probe.test.ts");
+      writeText(
+        testPath,
+        `import { test, expect } from "bun:test";
+test("passes", () => {
+  expect(1).toBe(1);
+});
+Promise.reject(new Error("Unhandled rejection"));`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(isBunTestFailureExit(code)).toBe(true);
+    }, 15_000);
   });
 
   describe("Bun CLI flags integration", () => {

@@ -11,10 +11,22 @@
 
 ## Golden rules
 
-1. **Import test symbols from `"bun:test"`**
+1. **Import test symbols from `"bun:test"`** (explicit imports preferred over Bun globals)
 
    ```ts
-   import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test";
+   import {
+     test,
+     it,
+     describe,
+     expect,
+     beforeAll,
+     beforeEach,
+     afterAll,
+     afterEach,
+     jest,
+     vi,
+     mock,
+   } from "bun:test";
    ```
 
 2. **Prefer Bun APIs over Node APIs**
