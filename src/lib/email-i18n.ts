@@ -168,7 +168,7 @@ export function validateEmail(email: string): EmailValidationResult {
         errors.push(`domain exceeds ${DOMAIN_MAX_OCTETS} octets`);
       }
     } catch (error: unknown) {
-      errors.push(`Domain error: ${error instanceof Error ? error.message : String(error)}`);
+      errors.push(`Domain error: ${error instanceof Error ? error.message : Bun.inspect(error)}`);
     }
   }
 
@@ -237,7 +237,7 @@ export function probeEmailI18n(fixture: EmailI18nFixture): EmailI18nProbe {
   try {
     asciiDomain = normalizeHostnameAscii(domain);
   } catch (e: unknown) {
-    domainError = e instanceof Error ? e.message : String(e);
+    domainError = e instanceof Error ? e.message : Bun.inspect(e);
   }
 
   const domainOctets = octetLength(asciiDomain);

@@ -1,5 +1,6 @@
 import { join } from "path";
-import { bunTestArgs, FAST_TEST_TIMEOUT_MS } from "./test-gates.ts";
+import { FAST_TEST_TIMEOUT_MS } from "./test-gates.ts";
+import { buildBunTestArgs } from "./test-runtime.ts";
 
 /** Herdr report-agent states (this build: idle | working | blocked | unknown). */
 export type HerdrAgentState = "working" | "idle" | "blocked" | "unknown";
@@ -32,7 +33,7 @@ export function testAgentCommand(mode: TestAgentMode): { label: string; cmd: str
         label: "test:fast",
         cmd: [
           "bun",
-          ...bunTestArgs({
+          ...buildBunTestArgs({
             fast: true,
             timeoutMs: FAST_TEST_TIMEOUT_MS,
             bail: true,

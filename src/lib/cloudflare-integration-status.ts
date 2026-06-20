@@ -179,7 +179,11 @@ async function defaultDetectWrangler(includeVersion = false): Promise<WranglerSt
     }
     return { available: true, path, version: stdout || undefined };
   } catch (error) {
-    return { available: true, path, error: error instanceof Error ? error.message : String(error) };
+    return {
+      available: true,
+      path,
+      error: error instanceof Error ? error.message : Bun.inspect(error),
+    };
   }
 }
 

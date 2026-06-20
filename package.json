@@ -101,8 +101,11 @@
     "check": "bun run scripts/check.ts",
     "check:fast": "bun run scripts/check.ts --fast",
     "check:fast:skip-tests": "bun run scripts/check.ts --fast --skip-tests",
+    "check:fast:changed": "bun run scripts/check.ts --fast --changed-only",
     "check:dry-run": "bun run scripts/check.ts --dry-run",
     "check:staged": "bun run scripts/check.ts --staged",
+    "check:watch": "bun run scripts/check.ts --watch",
+    "check:watch:tests": "bun run scripts/check.ts --watch-tests",
     "ci:pipeline": "bun run scripts/ci-pipeline.ts",
     "ci:impact": "bun run scripts/ci-impact.ts",
     "docs:sync": "bun run scripts/readme-sync.ts --fix",
@@ -144,7 +147,10 @@
     "test:portal-convergence": "bun test test/portal-convergence.unit.test.ts",
     "test:portal-convergence:fast": "bun test test/portal-convergence.unit.test.ts -t serve-probe",
     "test:portal-convergence:watch": "NODE_ENV=test bun test --watch --isolate ./test/portal-convergence.unit.test.ts -t serve-probe",
-    "finish-work": "bun run scripts/finish-work.ts"
+    "finish-work": "bun run scripts/finish-work.ts",
+    "discover": "bun run scripts/discover.ts",
+    "discover:constants": "bun run scripts/discover.ts --constants",
+    "discover:dx": "bun run scripts/discover.ts --dx"
   },
   "dependencies": {
     "effect": "^3.21.3",

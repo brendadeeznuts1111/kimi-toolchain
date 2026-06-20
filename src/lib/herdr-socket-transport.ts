@@ -66,7 +66,7 @@ export function parseSocketConnectErrorCode(error: unknown): string | undefined 
     const code = (error as { code?: unknown }).code;
     if (typeof code === "string") return code;
   }
-  const message = error instanceof Error ? error.message : String(error);
+  const message = error instanceof Error ? error.message : Bun.inspect(error);
   const match = message.match(/\b(EADDRINUSE|ENOENT|ECONNREFUSED|ETIMEDOUT|EAGAIN)\b/);
   if (match?.[1]) return match[1];
   if (/Resource temporarily unavailable|os error 35/i.test(message)) return "EAGAIN";
@@ -79,7 +79,7 @@ function socketErrorCode(error: unknown): string | undefined {
 }
 
 function socketErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return error instanceof Error ? error.message : Bun.inspect(error);
 }
 
 /** Quick Bun.connect probe — resolves when open fires or connectError/timeout. */

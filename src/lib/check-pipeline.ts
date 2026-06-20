@@ -2,7 +2,7 @@
  * Core check gate pipeline — build steps, run, and format results.
  */
 
-import { bunTestArgBatches, bunTestArgs } from "./test-gates.ts";
+import { buildBunTestArgBatches, buildBunTestArgs } from "./test-runtime.ts";
 import {
   emitGateFailure,
   runGate,
@@ -149,6 +149,12 @@ export async function buildSteps(
       cmd: ["bun", "run", "lint", "--files", ...changedFiles],
       silentOnSuccess: quiet,
     });
+  } else if (options.fast) {
+    steps.push({
+      name: "lint",
+      cmd: ["bun", "run", "lint", "--names-only"],
+      silentOnSuccess: quiet,
+    });
   } else {
     steps.push({
       name: "lint",
@@ -174,7 +180,7 @@ export async function buildSteps(
     if (changedFiles && changedFiles.length === 0) {
       steps.push({ name: testName, cmd: [], skipped: true });
     } else if (useBunChanged) {
-      const testArgs = bunTestArgs({
+      const testArgs = buildBunTestArgs({
         changedRef: baseRef,
         timeoutMs: options.timeoutMs,
         bail: true,
@@ -187,7 +193,7 @@ export async function buildSteps(
         silentOnSuccess: quiet,
       });
     } else {
-      const testArgBatches = bunTestArgBatches({
+      const testArgBatches = buildBunTestArgBatches({
         fast: options.fast,
         timeoutMs: options.timeoutMs,
         bail: true,

@@ -163,7 +163,7 @@ function validateCellValue(
         return `custom expression failed: ${rule.custom}`;
       }
     } catch (err) {
-      return `custom expression error: ${err instanceof Error ? err.message : String(err)}`;
+      return `custom expression error: ${err instanceof Error ? err.message : Bun.inspect(err)}`;
     }
   }
 

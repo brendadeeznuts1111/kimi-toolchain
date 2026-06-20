@@ -47,7 +47,7 @@ export async function probeMcpServer(
   } catch (cause) {
     return {
       ok: false,
-      error: cause instanceof Error ? cause.message : String(cause),
+      error: cause instanceof Error ? cause.message : Bun.inspect(cause),
       latencyMs: Date.now() - started,
     };
   }
@@ -154,7 +154,7 @@ async function probeStdioServer(
   } catch (cause) {
     return {
       ok: false,
-      error: cause instanceof Error ? cause.message : String(cause),
+      error: cause instanceof Error ? cause.message : Bun.inspect(cause),
     };
   } finally {
     clearTimeout(timeout);

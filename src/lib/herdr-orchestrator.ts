@@ -267,7 +267,7 @@ export async function sshExec(
       }
       return { ok: true, output };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : Bun.inspect(error);
       return { ok: false, output: message, code: 1 };
     }
   };

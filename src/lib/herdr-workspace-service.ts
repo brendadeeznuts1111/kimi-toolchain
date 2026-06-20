@@ -184,7 +184,7 @@ export function listWorkspacesSync(
       })),
     };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }
 
@@ -211,7 +211,7 @@ export function getWorkspaceSync(
       },
     };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }
 
@@ -254,7 +254,7 @@ export function createWorkspaceSync(options: CreateWorkspaceOptions = {}):
       json,
     };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }
 
@@ -267,7 +267,7 @@ export function focusWorkspaceSync(
     herdrCliSync(["workspace", "focus", workspaceId], session);
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }
 
@@ -281,7 +281,7 @@ export function renameWorkspaceSync(
     herdrCliSync(["workspace", "rename", workspaceId, label], session);
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }
 
@@ -294,6 +294,6 @@ export function closeWorkspaceSync(
     herdrCliSync(["workspace", "close", workspaceId], session);
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }

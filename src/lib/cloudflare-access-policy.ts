@@ -60,7 +60,7 @@ export async function loadPolicyConfig(cwd: string): Promise<AccessPolicyConfig 
       try {
         return (await file.json()) as AccessPolicyConfig;
       } catch (err) {
-        errors.push(`${p}: ${err instanceof Error ? err.message : String(err)}`);
+        errors.push(`${p}: ${err instanceof Error ? err.message : Bun.inspect(err)}`);
       }
     }
   }
@@ -82,13 +82,13 @@ export async function loadPolicyConfig(cwd: string): Promise<AccessPolicyConfig 
         const yaml = await import("js-yaml");
         return yaml.load(text) as AccessPolicyConfig;
       } catch (err) {
-        errors.push(`${p}: ${err instanceof Error ? err.message : String(err)}`);
+        errors.push(`${p}: ${err instanceof Error ? err.message : Bun.inspect(err)}`);
         // Fallback to best-effort parser if js-yaml is unavailable or fails
         try {
           return parsePolicyConfig(text);
         } catch (parseErr) {
           errors.push(
-            `${p} (fallback): ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`
+            `${p} (fallback): ${parseErr instanceof Error ? parseErr.message : Bun.inspect(parseErr)}`
           );
         }
       }
@@ -481,7 +481,7 @@ export async function applyDiff(
         }
       } catch (e: unknown) {
         result.errors.push(
-          `Failed to create app ${d.appName}: ${e instanceof Error ? e.message : String(e)}`
+          `Failed to create app ${d.appName}: ${e instanceof Error ? e.message : Bun.inspect(e)}`
         );
       }
       continue;
@@ -499,7 +499,7 @@ export async function applyDiff(
         result.deleted++;
       } catch (e: unknown) {
         result.errors.push(
-          `Failed to delete app ${d.appName}: ${e instanceof Error ? e.message : String(e)}`
+          `Failed to delete app ${d.appName}: ${e instanceof Error ? e.message : Bun.inspect(e)}`
         );
       }
       continue;
@@ -573,7 +573,7 @@ export async function applyDiff(
         result.updated++;
       } catch (e: unknown) {
         result.errors.push(
-          `Failed to update app ${d.appName}: ${e instanceof Error ? e.message : String(e)}`
+          `Failed to update app ${d.appName}: ${e instanceof Error ? e.message : Bun.inspect(e)}`
         );
       }
     }
@@ -691,7 +691,7 @@ export async function apiRequest<T = unknown>(
       const result = await apiCall<T>(accountId, apiToken, path, method, body, timeoutMs);
       return result;
     } catch (e: unknown) {
-      lastError = e instanceof Error ? e : new Error(String(e));
+      lastError = e instanceof Error ? e : new Error(Bun.inspect(e));
       // Only retry on 5xx or network errors, not on 4xx client errors
       const is5xx = e instanceof CloudflareApiError && e.status >= 500 && e.status < 600;
       const isNetworkError = !(e instanceof CloudflareApiError);

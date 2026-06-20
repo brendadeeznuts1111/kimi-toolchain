@@ -97,7 +97,7 @@ export async function readNormalizedContract(
   } catch (cause) {
     throw new ContractReadError({
       path,
-      message: cause instanceof Error ? cause.message : String(cause),
+      message: cause instanceof Error ? cause.message : Bun.inspect(cause),
     });
   }
 
@@ -141,7 +141,7 @@ export async function signContract(
     privateKey = await importEd25519PrivateKey(privateKeyPem);
   } catch (cause) {
     throw new ContractSigningKeyError({
-      message: cause instanceof Error ? cause.message : String(cause),
+      message: cause instanceof Error ? cause.message : Bun.inspect(cause),
     });
   }
 
@@ -330,7 +330,7 @@ function parseContract(text: string, path: string): unknown {
   } catch (cause) {
     throw new ContractParseError({
       path,
-      message: cause instanceof Error ? cause.message : String(cause),
+      message: cause instanceof Error ? cause.message : Bun.inspect(cause),
     });
   }
 }
@@ -451,7 +451,7 @@ function mapContractCause(path: string, cause: unknown): ContractError {
   }
   return new ContractSignatureError({
     path,
-    message: cause instanceof Error ? cause.message : String(cause),
+    message: cause instanceof Error ? cause.message : Bun.inspect(cause),
   });
 }
 

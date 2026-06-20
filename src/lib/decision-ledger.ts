@@ -190,7 +190,7 @@ export function makeDecisionLogger(options: DecisionLedgerOptions = {}) {
         catch: (cause) =>
           new DecisionLedgerWriteError({
             path,
-            message: cause instanceof Error ? cause.message : String(cause),
+            message: cause instanceof Error ? cause.message : Bun.inspect(cause),
           }),
       }),
     recordAction: (decision: Omit<DecisionInput, "traceId" | "parentTraceId">) =>
@@ -199,7 +199,7 @@ export function makeDecisionLogger(options: DecisionLedgerOptions = {}) {
         catch: (cause) =>
           new DecisionLedgerWriteError({
             path,
-            message: cause instanceof Error ? cause.message : String(cause),
+            message: cause instanceof Error ? cause.message : Bun.inspect(cause),
           }),
       }),
     list: (filters: DecisionQueryFilters = {}) =>
@@ -208,7 +208,7 @@ export function makeDecisionLogger(options: DecisionLedgerOptions = {}) {
         catch: (cause) =>
           new DecisionLedgerReadError({
             path,
-            message: cause instanceof Error ? cause.message : String(cause),
+            message: cause instanceof Error ? cause.message : Bun.inspect(cause),
           }),
       }),
     why: (query: string) =>
@@ -217,7 +217,7 @@ export function makeDecisionLogger(options: DecisionLedgerOptions = {}) {
         catch: (cause) =>
           new DecisionLedgerReadError({
             path,
-            message: cause instanceof Error ? cause.message : String(cause),
+            message: cause instanceof Error ? cause.message : Bun.inspect(cause),
           }),
       }),
   };

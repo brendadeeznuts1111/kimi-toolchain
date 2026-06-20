@@ -1,121 +1,136 @@
 #!/usr/bin/env bun
 /**
- * Quality gate runner with --dry-run and --skip-tests support.
+ * Quality gate runner.
  *
  * Usage:
  *   bun run scripts/check.ts
- *   bun run scripts/check.ts --dry-run
  *   bun run scripts/check.ts --fast
  *   bun run scripts/check.ts --fast --skip-tests
+ *   bun run scripts/check.ts --changed-only
+ *   bun run scripts/check.ts --staged
+ *   bun run scripts/check.ts --watch
+ *   bun run scripts/check.ts --watch-tests
+ *   bun run scripts/check.ts --dry-run
  */
 
 import { join } from "path";
-import { isKimiToolchainRepo } from "../src/lib/workspace-health.ts";
+import { runCheckPipeline, runTestOnlyPipeline } from "../src/lib/check-pipeline.ts";
+import { startCheckWatchMode } from "./check-watch-runner.ts";
+import type { CheckOptions } from "../src/lib/check-types.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
-interface Step {
-  name: string;
-  cmd: string[];
-  silentOnSuccess?: boolean;
-}
-
-function parseCli(): { dryRun: boolean; fast: boolean; skipTests: boolean } {
+function parseCli(): CheckOptions {
   const argv = Bun.argv.slice(2);
-  let dryRun = false;
-  let fast = false;
-  let skipTests = false;
+  const options: CheckOptions = {
+    dryRun: false,
+    fast: false,
+    staged: false,
+    verbose: false,
+    timeoutMs: 0,
+    changedOnly: false,
+    base: "",
+    baseExplicit: false,
+    failFast: false,
+    jsonSummary: false,
+    skipTests: false,
+    watch: false,
+    watchTests: false,
+    cacheResults: false,
+    noCache: false,
+  };
 
-  for (const arg of argv) {
-    if (arg === "--dry-run" || arg === "--dryrun") dryRun = true;
-    if (arg === "--fast") fast = true;
-    if (arg === "--skip-tests") skipTests = true;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]!;
+    switch (arg) {
+      case "--dry-run":
+      case "--dryrun":
+        options.dryRun = true;
+        break;
+      case "--fast":
+        options.fast = true;
+        break;
+      case "--skip-tests":
+        options.skipTests = true;
+        break;
+      case "--staged":
+        options.staged = true;
+        options.changedOnly = true;
+        break;
+      case "--changed-only":
+        options.changedOnly = true;
+        break;
+      case "--verbose":
+        options.verbose = true;
+        break;
+      case "--fail-fast":
+        options.failFast = true;
+        break;
+      case "--json-summary":
+        options.jsonSummary = true;
+        break;
+      case "--watch":
+        options.watch = true;
+        break;
+      case "--watch-tests":
+        options.watchTests = true;
+        break;
+      case "--cache-results":
+        options.cacheResults = true;
+        break;
+      case "--no-cache":
+        options.noCache = true;
+        break;
+      case "--base":
+        options.base = argv[++i] ?? "";
+        options.baseExplicit = true;
+        break;
+      case "--timeout":
+        options.timeoutMs = parseInt(argv[++i] ?? "", 10);
+        break;
+    }
+    if (arg.startsWith("--base=")) {
+      options.base = arg.slice("--base=".length);
+      options.baseExplicit = true;
+    }
   }
 
-  return { dryRun, fast, skipTests };
+  return options;
 }
 
-async function buildSteps(fast: boolean, skipTests: boolean): Promise<Step[]> {
-  const steps: Step[] = [];
-  if (!fast && (await isKimiToolchainRepo(REPO_ROOT))) {
-    steps.push({
-      name: "verify-workspace",
-      cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "workspace", "verify"],
-    });
+async function runOnce(options: CheckOptions): Promise<number> {
+  if (options.watchTests) {
+    const result = await runTestOnlyPipeline(REPO_ROOT, options);
+    return result.passed ? 0 : 1;
   }
-  steps.push(
-    {
-      name: "success-metrics",
-      cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "--success-metrics", "--json"],
-      silentOnSuccess: true,
-    },
-    { name: "format:check", cmd: ["bun", "run", "format:check"] },
-    {
-      name: "lint",
-      cmd: fast ? ["bun", "run", "lint", "--names-only"] : ["bun", "run", "lint"],
-    },
-    { name: "typecheck", cmd: ["bun", "run", "typecheck"] },
-    {
-      name: fast ? "test:fast" : "test",
-      cmd: ["bun", "run", fast ? "test:fast" : "test"],
-    }
-  );
-  return skipTests ? steps.filter((s) => s.name !== "test" && s.name !== "test:fast") : steps;
-}
-
-async function runStep(step: Step): Promise<number> {
-  if (step.silentOnSuccess) {
-    const proc = Bun.spawn(step.cmd, {
-      cwd: REPO_ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const [stdout, stderr, exitCode] = await Promise.all([
-      Bun.readableStreamToText(proc.stdout),
-      Bun.readableStreamToText(proc.stderr),
-      proc.exited,
-    ]);
-    if (exitCode !== 0) {
-      if (stdout) process.stdout.write(stdout);
-      if (stderr) process.stderr.write(stderr);
-    }
-    return exitCode;
-  }
-
-  const proc = Bun.spawn(step.cmd, {
-    cwd: REPO_ROOT,
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  return await proc.exited;
+  const result = await runCheckPipeline(REPO_ROOT, options);
+  return result.passed ? 0 : 1;
 }
 
 async function main() {
-  const { dryRun, fast, skipTests } = parseCli();
-  const steps = await buildSteps(fast, skipTests);
+  const options = parseCli();
 
-  if (dryRun) {
-    console.log(`check ${fast ? "(fast) " : ""}${skipTests ? "(skip tests) " : ""}— dry run`);
-    for (const step of steps) {
-      console.log(`  → ${step.cmd.join(" ")}`);
-    }
+  if (options.watch || options.watchTests) {
+    const stop = startCheckWatchMode(REPO_ROOT, options, async (watchOptions) => {
+      const code = await runOnce(watchOptions);
+      return {
+        passed: code === 0,
+        steps: {},
+        failures: [],
+        totalDurationMs: 0,
+      };
+    });
+    process.on("SIGINT", () => {
+      stop();
+      process.exit(0);
+    });
     return;
   }
 
-  const testStep = steps.find((s) => s.name === "test" || s.name === "test:fast");
-  const independentSteps = steps.filter((s) => s !== testStep);
-
-  const independentResults = await Promise.all(independentSteps.map(runStep));
-  const firstFail = independentResults.find((c) => c !== 0);
-  if (firstFail !== undefined) process.exit(firstFail);
-
-  if (testStep) {
-    const testCode = await runStep(testStep);
-    if (testCode !== 0) process.exit(testCode);
-  }
+  process.exit(await runOnce(options));
 }
 
 main().catch((err) => {
-  console.error("check failed:", err.message);
+  console.error("check failed:", err instanceof Error ? err.message : String(err));
   process.exit(1);
 });

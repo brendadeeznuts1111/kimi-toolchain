@@ -8,37 +8,44 @@
  *   bun run scripts/run-tests.ts --files test/lib.unit.test.ts,test/r-score.unit.test.ts
  *   bun run scripts/run-tests.ts --coverage
  *   bun run scripts/run-tests.ts --ci --coverage
- *
- * Note: Bun 1.3.14 has no `bun test --config=ci`; CI settings are explicit flags
- * plus bunfig.toml [test] defaults (concurrentTestGlob, coverageThreshold).
- *
- * @see https://bun.com/docs/guides/test/bail
+ *   bun run scripts/run-tests.ts --integration
+ *   bun run scripts/run-tests.ts --smoke
  */
 
+import { join } from "path";
 import { makeDir, pathExists } from "../src/lib/bun-io.ts";
-import { dirname, isAbsolute, join } from "path";
-import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { artifactPath } from "../src/lib/artifacts.ts";
-import { bunTestArgBatches } from "../src/lib/test-gates.ts";
 import {
-  buildTestRunnerEnv,
-  mergeBunTestInvocationArgs,
+  buildBunTestArgBatches,
   parseForwardedBunTestArgs,
+  runAllTestTiers,
+  runBunTest,
+  runTestTier,
+  type RunTestTierOptions,
+  type TestTier,
 } from "../src/lib/test-runtime.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
+function splitList(value: string): string[] {
+  return value
+    .split(/[\n, ]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 function parseCli(): {
+  tier?: TestTier;
+  files: string[];
   fast: boolean;
   coverage: boolean;
   ci: boolean;
-  smoke: boolean;
-  integration: boolean;
-  files: string[];
-  reporterOutfile?: string;
+  bail: boolean | number;
   timeoutMs?: number;
   parallel?: number | boolean;
   shard?: string;
+  reporterOutfile?: string;
+  rerunEach?: number;
 } {
   const argv = Bun.argv.slice(2);
   const files: string[] = [];
@@ -46,8 +53,10 @@ function parseCli(): {
   let timeoutMs: number | undefined;
   let parallel: number | boolean | undefined;
   let shard: string | undefined;
+  let rerunEach: number | undefined;
+
   for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
+    const arg = argv[i]!;
     if (arg === "--files") {
       files.push(...splitList(argv[++i] ?? ""));
       continue;
@@ -87,105 +96,100 @@ function parseCli(): {
     }
     if (arg.startsWith("--shard=")) {
       shard = arg.slice("--shard=".length);
+      continue;
+    }
+    if (arg === "--rerun-each") {
+      rerunEach = parseInt(argv[++i] ?? "", 10);
+      continue;
+    }
+    if (arg.startsWith("--rerun-each=")) {
+      rerunEach = parseInt(arg.slice("--rerun-each=".length), 10);
     }
   }
+
+  let tier: TestTier | undefined;
+  if (argv.includes("--integration")) tier = "integration";
+  if (argv.includes("--smoke")) tier = "smoke";
+
   return {
-    fast: argv.includes("--fast"),
+    tier,
+    files,
     coverage: argv.includes("--coverage"),
     ci: argv.includes("--ci"),
-    smoke: argv.includes("--smoke"),
-    integration: argv.includes("--integration"),
-    files,
-    reporterOutfile,
-    timeoutMs,
+    fast: argv.includes("--fast"),
+    bail: argv.includes("--ci") ? 10 : true,
+    timeoutMs: Number.isNaN(timeoutMs) ? undefined : timeoutMs,
     parallel,
     shard,
+    reporterOutfile,
+    rerunEach: Number.isNaN(rerunEach) ? undefined : rerunEach,
   };
 }
 
-async function main() {
-  const {
-    fast,
-    coverage,
-    ci,
-    smoke,
-    integration,
-    files,
-    reporterOutfile,
-    timeoutMs,
-    parallel,
-    shard,
-  } = parseCli();
-  if (ci || coverage) {
-    const artifactsDir = artifactPath(REPO_ROOT);
-    if (!pathExists(artifactsDir)) makeDir(artifactsDir, { recursive: true });
+async function ensureArtifactDirs() {
+  for (const sub of ["", "test-home", "reports"]) {
+    const dir = artifactPath(REPO_ROOT, sub);
+    if (!pathExists(dir)) makeDir(dir, { recursive: true });
   }
-  if (ci) {
-    const reportPath = reporterOutfile ?? ".kimi-artifacts/reports/junit.xml";
-    const reportDir = dirname(isAbsolute(reportPath) ? reportPath : join(REPO_ROOT, reportPath));
-    if (!pathExists(reportDir)) makeDir(reportDir, { recursive: true });
-  }
-  const testHome = artifactPath(REPO_ROOT, "test-home");
-  if (!pathExists(testHome)) makeDir(testHome, { recursive: true });
-  process.env.KIMI_TEST_HOME = testHome;
+}
 
-  const rawBatches = bunTestArgBatches({
-    fast,
-    coverage,
-    ci,
-    smoke,
-    integration,
-    files,
-    reporterOutfile,
-    bail: ci ? 10 : true,
-    timeoutMs,
-    parallel,
-    shard,
-  });
+async function runFiles(options: ReturnType<typeof parseCli>): Promise<number> {
   const forwarded = parseForwardedBunTestArgs(Bun.argv.slice(2));
-  const batches = rawBatches.map((batch) => {
-    const testIdx = batch.indexOf("test");
-    const tail = testIdx >= 0 ? batch.slice(testIdx + 1) : batch.slice(1);
-    const merged = mergeBunTestInvocationArgs(["test", ...tail], REPO_ROOT, forwarded);
-    return ["bun", ...merged];
-  });
-  const quiet = Bun.argv.includes("--quiet");
+  const batches = buildBunTestArgBatches({
+    files: options.files,
+    coverage: options.coverage,
+    ci: options.ci,
+    bail: options.bail,
+    timeoutMs: options.timeoutMs,
+    parallel: options.parallel,
+    shard: options.shard,
+    reporterOutfile: options.reporterOutfile,
+    rerunEach: options.rerunEach,
+  }).map((args) => (options.ci || options.coverage ? args : [...args, ...forwarded]));
 
-  let finalExitCode = 0;
+  const quiet = Bun.argv.includes("--quiet");
   for (let i = 0; i < batches.length; i++) {
-    const batch = batches[i]!;
     if (batches.length > 1 && !quiet) {
       process.stderr.write(`\n[run-tests] batch ${i + 1}/${batches.length}\n`);
     }
-    const proc = Bun.spawn(batch[0] === "bun" ? batch : ["bun", ...batch], {
-      cwd: REPO_ROOT,
-      env: buildTestRunnerEnv({ KIMI_TEST_HOME: process.env.KIMI_TEST_HOME }),
-      stdout: quiet ? "pipe" : "inherit",
-      stderr: quiet ? "pipe" : "inherit",
-    });
-    const exitCode = await proc.exited;
-    if (quiet) {
-      const out = await readableStreamToText(proc.stdout);
-      if (out) process.stdout.write(out);
-      const err = await readableStreamToText(proc.stderr);
-      if (err) process.stderr.write(err);
-    }
-    if (exitCode !== 0) {
-      finalExitCode = exitCode;
-      break;
-    }
+    const code = await runBunTest(REPO_ROOT, batches[i]!, { quiet, source: "run-tests" });
+    if (code !== 0) return code;
   }
-  process.exit(finalExitCode);
+  return 0;
+}
+
+async function main() {
+  const options = parseCli();
+  const forwarded = parseForwardedBunTestArgs(Bun.argv.slice(2));
+  await ensureArtifactDirs();
+  process.env.KIMI_TEST_HOME = artifactPath(REPO_ROOT, "test-home");
+
+  if (options.files.length > 0) {
+    process.exit(await runFiles(options));
+  }
+
+  const runOptions: RunTestTierOptions = {
+    forwarded,
+    coverage: options.coverage,
+    ci: options.ci,
+    bail: options.bail,
+    timeoutMs: options.timeoutMs,
+    parallel: options.parallel,
+    shard: options.shard,
+    reporterOutfile: options.reporterOutfile,
+    retry: options.rerunEach,
+  };
+
+  if (options.tier) {
+    process.exit(await runTestTier(REPO_ROOT, options.tier, runOptions));
+  }
+  if (options.fast) {
+    process.exit(await runTestTier(REPO_ROOT, "unit", runOptions));
+  }
+  process.exit(await runAllTestTiers(REPO_ROOT, runOptions));
 }
 
 main().catch((err) => {
-  console.error("run-tests failed:", err.message);
+  console.error("run-tests failed:", err instanceof Error ? err.message : String(err));
   process.exit(1);
 });
-
-function splitList(value: string): string[] {
-  return value
-    .split(/[\n, ]+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}

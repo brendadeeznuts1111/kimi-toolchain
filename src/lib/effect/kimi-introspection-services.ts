@@ -188,7 +188,7 @@ function toCapabilityProbeResult(report: CapabilityReport): CapabilityProbeResul
 }
 
 function fallbackCapabilityProbe(cause: unknown): CapabilityProbeResult {
-  const message = cause instanceof Error ? cause.message : String(cause);
+  const message = cause instanceof Error ? cause.message : Bun.inspect(cause);
   const generatedAt = new Date().toISOString();
   const report: CapabilityReport = {
     schemaVersion: 1,
@@ -219,7 +219,7 @@ function traceById(
     catch: (cause) =>
       new TraceReadError({
         traceId,
-        message: cause instanceof Error ? cause.message : String(cause),
+        message: cause instanceof Error ? cause.message : Bun.inspect(cause),
       }),
   }).pipe(
     Effect.flatMap((graph) =>
@@ -321,7 +321,7 @@ function signingKey(): Effect.Effect<string, MissingSigningKey> {
     try: () => Bun.file(keyFile).text(),
     catch: (cause) =>
       new MissingSigningKey({
-        message: cause instanceof Error ? cause.message : String(cause),
+        message: cause instanceof Error ? cause.message : Bun.inspect(cause),
       }),
   });
 }

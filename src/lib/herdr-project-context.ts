@@ -124,7 +124,7 @@ export function syncAgentsTabContext(
       text = runContextCommand(projectPath, pane.context.trim());
     } catch (error) {
       warnings.push(
-        `context command for ${pane.agent} failed: ${error instanceof Error ? error.message : String(error)}`
+        `context command for ${pane.agent} failed: ${error instanceof Error ? error.message : Bun.inspect(error)}`
       );
       continue;
     }
@@ -149,7 +149,7 @@ export function syncAgentsTabContext(
         }
       } catch (error) {
         warnings.push(
-          `context file drop failed: ${error instanceof Error ? error.message : String(error)}`
+          `context file drop failed: ${error instanceof Error ? error.message : Bun.inspect(error)}`
         );
       }
     } else {

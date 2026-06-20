@@ -387,12 +387,12 @@ export function createCanaryProposalEffect(input: {
       try: () => loadRepoDefineMap(input.projectRoot),
       catch: (err) =>
         new Error(
-          `Failed to load repo defines: ${err instanceof Error ? err.message : String(err)}`
+          `Failed to load repo defines: ${err instanceof Error ? err.message : Bun.inspect(err)}`
         ),
     });
     const issues = yield* Effect.tryPromise({
       try: () => validateProposedValue(input.projectRoot, input.constant, input.value),
-      catch: (err) => new Error(String(err)),
+      catch: (err) => new Error(Bun.inspect(err)),
     });
     const allValues = yield* runSuiteWithOverridesEffect(input.projectRoot, {
       [input.constant]: input.value,
@@ -424,7 +424,7 @@ export function createCanaryProposalEffect(input: {
       try: () => appendConfigLifecycle(input.projectRoot, record),
       catch: (err) =>
         new Error(
-          `Failed to append canary proposal: ${err instanceof Error ? err.message : String(err)}`
+          `Failed to append canary proposal: ${err instanceof Error ? err.message : Bun.inspect(err)}`
         ),
     });
     return {
@@ -451,11 +451,11 @@ export function createAbProposalEffect(input: {
       [
         Effect.tryPromise({
           try: () => validateProposedValue(input.projectRoot, input.constant, input.a),
-          catch: (err) => new Error(String(err)),
+          catch: (err) => new Error(Bun.inspect(err)),
         }),
         Effect.tryPromise({
           try: () => validateProposedValue(input.projectRoot, input.constant, input.b),
-          catch: (err) => new Error(String(err)),
+          catch: (err) => new Error(Bun.inspect(err)),
         }),
       ],
       { concurrency: 2 }
@@ -481,7 +481,7 @@ export function createAbProposalEffect(input: {
       try: () => appendConfigLifecycle(input.projectRoot, record),
       catch: (err) =>
         new Error(
-          `Failed to append A/B proposal: ${err instanceof Error ? err.message : String(err)}`
+          `Failed to append A/B proposal: ${err instanceof Error ? err.message : Bun.inspect(err)}`
         ),
     });
     const recommendation =

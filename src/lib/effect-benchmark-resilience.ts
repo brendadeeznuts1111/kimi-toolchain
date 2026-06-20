@@ -16,7 +16,7 @@ export { benchmarkErrorApiEnvelope } from "./effect-benchmark-card.ts";
 
 export function formatBenchmarkError(error: unknown): string {
   if (error instanceof Error) return error.message;
-  return String(error);
+  return Bun.inspect(error);
 }
 
 export function checkBenchmarkPostCooldown(

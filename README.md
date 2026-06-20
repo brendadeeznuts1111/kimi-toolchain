@@ -121,6 +121,16 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run references:generate` | (synced from package.json) |
 
+| `bun run manifest:generate` | (synced from package.json) |
+
+| `bun run discover` | (synced from package.json) |
+| `bun run discover:constants` | (synced from package.json) |
+| `bun run discover:dx` | (synced from package.json) |
+
+| `bun run check:fast:changed` | (synced from package.json) |
+| `bun run check:watch` | (synced from package.json) |
+| `bun run check:watch:tests` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                           |

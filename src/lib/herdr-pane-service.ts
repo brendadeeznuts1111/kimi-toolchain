@@ -703,7 +703,7 @@ export function splitPaneSync(
       json,
     };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }
 
@@ -716,7 +716,7 @@ export function closePaneSync(
     herdrCliSync(["pane", "close", paneId], session);
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }
 
@@ -745,7 +745,7 @@ export function paneRunSync(
     herdrCliSync(["pane", "run", paneId, shellCmd], session);
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }
 
@@ -759,7 +759,7 @@ export function sendKeysSync(
     herdrCliSync(["pane", "send-keys", paneId, keys], session);
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }
 
@@ -788,7 +788,7 @@ export function listPanesSync(
     }));
     return { ok: true, panes };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }
 
@@ -818,7 +818,7 @@ export function getPaneSync(
       },
     };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }
 
@@ -927,7 +927,7 @@ export function listTabsSync(
         })),
     };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }
 
@@ -958,7 +958,7 @@ export function createTabSync(
       json,
     };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }
 
@@ -971,6 +971,6 @@ export function closeTabSync(
     herdrCliSync(["tab", "close", tabId], session);
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : Bun.inspect(err) };
   }
 }

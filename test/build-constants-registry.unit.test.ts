@@ -81,6 +81,23 @@ describe("buildConstantsRegistry", () => {
     });
   });
 
+  it("should parse union literal declare types", () => {
+    const types = parseBuildConstantsTypes(`
+/**
+ * @defineDomain effect-discipline
+ * @type string
+ * @default "strict"
+ * @restrictions one of strict | gradual | off
+ */
+declare const KIMI_DOMAIN_PURITY_LEVEL: "strict" | "gradual" | "off";
+`);
+    expect(types.get("KIMI_DOMAIN_PURITY_LEVEL")).toMatchObject({
+      defineDomain: "effect-discipline",
+      type: "string",
+      enumValues: ["strict", "gradual", "off"],
+    });
+  });
+
   it("should merge bunfig and types into manifest domains", () => {
     const domains = buildManifestDomains(
       parseBunfigDefines(SAMPLE_BUNFIG),

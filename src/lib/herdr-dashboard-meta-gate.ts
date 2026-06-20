@@ -233,7 +233,7 @@ export async function fetchDashboardMeta(
     }
     return { ok: true, meta };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : Bun.inspect(error);
     return {
       ok: false,
       failure: {

@@ -49,7 +49,7 @@ export async function readTomlDocument(path: string): Promise<DxConfigDocument> 
   try {
     text = await Bun.file(path).text();
   } catch (err) {
-    throw new ConfigParseError(path, err instanceof Error ? err.message : String(err));
+    throw new ConfigParseError(path, err instanceof Error ? err.message : Bun.inspect(err));
   }
 
   try {
@@ -60,7 +60,7 @@ export async function readTomlDocument(path: string): Promise<DxConfigDocument> 
     return parsed as DxConfigDocument;
   } catch (err) {
     if (err instanceof ConfigParseError) throw err;
-    throw new ConfigParseError(path, err instanceof Error ? err.message : String(err));
+    throw new ConfigParseError(path, err instanceof Error ? err.message : Bun.inspect(err));
   }
 }
 

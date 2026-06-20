@@ -86,7 +86,7 @@ export async function readMcpJson(path: string): Promise<ReadMcpJsonResult> {
   } catch (e) {
     return {
       data: null,
-      error: e instanceof Error ? e.message : String(e),
+      error: e instanceof Error ? e.message : Bun.inspect(e),
     };
   }
 }

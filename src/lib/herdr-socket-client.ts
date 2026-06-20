@@ -211,7 +211,7 @@ export function herdrSocketSubscribe(
     });
 
     socket.on("error", (error) => {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : Bun.inspect(error);
       if (shuttingDown) {
         emitProxy("error", error);
         return;

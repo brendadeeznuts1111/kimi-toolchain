@@ -379,7 +379,7 @@ async function runEntrySafe(
     }
     return { metric };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : Bun.inspect(error);
     return {
       metric: failureMetric(entry, trained),
       error: { registryKey: entry.registryKey, message },

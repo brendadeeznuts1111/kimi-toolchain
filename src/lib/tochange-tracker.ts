@@ -193,10 +193,10 @@ export const STREAM_READ_REGISTRY: TochangeRegistryEntry[] = [
   },
   {
     id: "stream-read-run-tests",
-    file: "scripts/run-tests.ts",
+    file: "src/lib/test-runtime.ts",
     tier: "tier2",
     status: "implemented",
-    summary: "run-tests quiet mode routes stream reads through bun-utils",
+    summary: "runBunTest quiet mode reads streams via Bun.readableStreamToText",
     probe: "readableStreamToText(proc.stdout)",
   },
   {

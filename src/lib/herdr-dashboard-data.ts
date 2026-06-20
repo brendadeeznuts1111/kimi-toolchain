@@ -1651,7 +1651,7 @@ export async function fetchDashboardGateHealth(
       fetchedAt,
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = err instanceof Error ? err.message : Bun.inspect(err);
     return {
       ok: false,
       failed: true,

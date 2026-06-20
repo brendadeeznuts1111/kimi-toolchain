@@ -166,7 +166,7 @@ function messageFromError(error: unknown): string {
     if (error.name === "AbortError") return "request timed out";
     return error.message;
   }
-  return String(error);
+  return Bun.inspect(error);
 }
 
 function unreachableMessage(source: "examples" | "herdr", config: CardProbeConfig): string {

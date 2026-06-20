@@ -33,7 +33,8 @@ import {
 } from "./scoped-gate-cache.ts";
 import { changedIncludesTypeScript, filterFormatPaths, listChangedFiles } from "./check-changed.ts";
 import { filterChangedTestPaths, shouldRunScopedLint } from "./check-lint-scoped.ts";
-import { bunTestArgs, isBunTestChangedEmptyOutput } from "./test-gates.ts";
+import { buildBunTestArgs } from "./test-runtime.ts";
+import { isBunTestChangedEmptyOutput } from "./test-gates.ts";
 
 const PRE_COMMIT_CACHE_GATES = ["format:check", "lint", "typecheck", "test:fast"] as const;
 const PRE_PUSH_CACHE_GATES = [
@@ -86,7 +87,7 @@ export function planPreCommitTestArgs(staged: string[]): PreCommitTestPlan {
 
   if (stagedTestFiles.length > 0 && !hasNonTestCode) {
     return {
-      args: bunTestArgs({
+      args: buildBunTestArgs({
         ...base,
         files: stagedTestFiles,
       }),
@@ -96,7 +97,7 @@ export function planPreCommitTestArgs(staged: string[]): PreCommitTestPlan {
   }
 
   return {
-    args: bunTestArgs({
+    args: buildBunTestArgs({
       ...base,
       changedRef: "HEAD",
     }),

@@ -242,7 +242,7 @@ function run(cmd: string, args: string[] = [], _timeoutMs = 20_000) {
   } catch (error) {
     return {
       ok: false as const,
-      output: error instanceof Error ? error.message : String(error),
+      output: error instanceof Error ? error.message : Bun.inspect(error),
     };
   }
 }
@@ -349,7 +349,9 @@ function lintConfig(configPath: string) {
       }
     }
   } catch (error) {
-    warnings.push(`config parse failed: ${error instanceof Error ? error.message : String(error)}`);
+    warnings.push(
+      `config parse failed: ${error instanceof Error ? error.message : Bun.inspect(error)}`
+    );
   }
   return warnings;
 }

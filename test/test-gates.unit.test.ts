@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import {
-  bunTestArgs,
   DEFAULT_TEST_TIMEOUT_MS,
   FAST_TEST_TIMEOUT_MS,
   INTEGRATION_TEST_FILES,
@@ -8,11 +7,12 @@ import {
   UNIT_TEST_FILES,
   useFastUnitCoverage,
 } from "../src/lib/test-gates.ts";
+import { buildBunTestArgs } from "../src/lib/test-runtime.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
 describe("test-gates", () => {
-  test("bunTestArgs defaults include bail, default timeout, and isolate", () => {
-    expect(bunTestArgs({ bail: true })).toEqual([
+  test("buildBunTestArgs defaults include default timeout and isolate", () => {
+    expect(buildBunTestArgs({ bail: true })).toEqual([
       "test",
       "--timeout",
       String(DEFAULT_TEST_TIMEOUT_MS),
@@ -21,8 +21,8 @@ describe("test-gates", () => {
     ]);
   });
 
-  test("bunTestArgs fast mode uses the configured timeout and unit files", () => {
-    const args = bunTestArgs({ fast: true, bail: true });
+  test("buildBunTestArgs fast mode uses the configured timeout and unit files", () => {
+    const args = buildBunTestArgs({ fast: true, bail: true });
     expect(args).toContain("--timeout");
     expect(args).toContain(String(FAST_TEST_TIMEOUT_MS));
     expect(args).toContain("--bail");
@@ -78,8 +78,8 @@ describe("test-gates", () => {
     expect(unclassifiedTests).toEqual([]);
   });
 
-  test("bunTestArgs ci mode uses CI timeout and junit reporter", () => {
-    expect(bunTestArgs({ coverage: true, ci: true, bail: true })).toEqual([
+  test("buildBunTestArgs ci mode uses CI timeout and junit reporter", () => {
+    expect(buildBunTestArgs({ coverage: true, ci: true, bail: true })).toEqual([
       "test",
       "--timeout",
       "30000",
@@ -93,9 +93,9 @@ describe("test-gates", () => {
     ]);
   });
 
-  test("bunTestArgs ci mode supports isolated report files", () => {
+  test("buildBunTestArgs ci mode supports isolated report files", () => {
     expect(
-      bunTestArgs({ ci: true, reporterOutfile: ".kimi-artifacts/reports/unit.xml" })
+      buildBunTestArgs({ ci: true, reporterOutfile: ".kimi-artifacts/reports/unit.xml" })
     ).toContain("--reporter-outfile=.kimi-artifacts/reports/unit.xml");
   });
 

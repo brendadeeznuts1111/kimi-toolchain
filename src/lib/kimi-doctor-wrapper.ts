@@ -42,7 +42,7 @@ export async function runOfficialKimiDoctor(): Promise<KimiDoctorResult> {
     return {
       name: "kimi doctor",
       status: "error",
-      message: e instanceof Error ? e.message : String(e),
+      message: e instanceof Error ? e.message : Bun.inspect(e),
     };
   }
 }

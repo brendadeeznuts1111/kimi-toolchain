@@ -545,7 +545,7 @@ function applyOneAction(
           title: action.title,
           status: "failed",
           command: action.command,
-          reason: error instanceof Error ? error.message : String(error),
+          reason: error instanceof Error ? error.message : Bun.inspect(error),
           durationMs: Math.round(performance.now() - started),
         };
         const followUpDecisionId = await recordHealOutcomeDecision(action, applied, preDecisionId);
@@ -564,7 +564,7 @@ function applyOneAction(
         status: "failed" as const,
         decisionId: action.decisionPreviewId,
         command: action.command,
-        reason: error instanceof Error ? error.message : String(error),
+        reason: error instanceof Error ? error.message : Bun.inspect(error),
       })
     )
   );

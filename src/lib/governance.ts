@@ -10,7 +10,8 @@ import { join } from "path";
 import { $ } from "bun";
 import { readableStreamToText } from "./bun-utils.ts";
 import { ensureDir, getProjectName } from "./utils.ts";
-import { bunTestArgs, useFastUnitCoverage } from "./test-gates.ts";
+import { buildBunTestArgs } from "./test-runtime.ts";
+import { useFastUnitCoverage } from "./test-gates.ts";
 import { governorDir } from "./paths.ts";
 import { checkGovernance, type GovernanceCheck } from "./governance-check.ts";
 import { ARTIFACTS_COVERAGE_DIR } from "./artifacts.ts";
@@ -67,12 +68,15 @@ export async function checkCoverage(projectDir: string, _threshold = 70): Promis
   const fastCoverage = useFastUnitCoverage(pkg.name);
 
   async function spawnCoverage(json: boolean) {
-    const proc = Bun.spawn(["bun", ...bunTestArgs({ coverage: true, json, fast: fastCoverage })], {
-      cwd: projectDir,
-      env: { ...Bun.env, KIMI_COVERAGE_SCAN: "1" },
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const proc = Bun.spawn(
+      ["bun", ...buildBunTestArgs({ coverage: true, json, fast: fastCoverage })],
+      {
+        cwd: projectDir,
+        env: { ...Bun.env, KIMI_COVERAGE_SCAN: "1" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }
+    );
     const exitCode = await proc.exited;
     const stdout = await readableStreamToText(proc.stdout);
     const stderr = await readableStreamToText(proc.stderr);

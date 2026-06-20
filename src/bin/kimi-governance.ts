@@ -29,7 +29,8 @@ import {
   formatPoints,
   breakdownIndicator,
 } from "../lib/r-score.ts";
-import { bunTestArgs, useFastUnitCoverage } from "../lib/test-gates.ts";
+import { buildBunTestArgs } from "../lib/test-runtime.ts";
+import { useFastUnitCoverage } from "../lib/test-gates.ts";
 import { checkDocDrift, patchReadmeScripts } from "../lib/readme-sync.ts";
 import { checkKimiDocsAligned } from "../lib/kimi-docs-aligned.ts";
 import { checkScaffoldAligned } from "../lib/scaffold-aligned.ts";
@@ -100,12 +101,15 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
   const fastCoverage = useFastUnitCoverage(pkg.name);
 
   async function spawnCoverage(json: boolean) {
-    const proc = Bun.spawn(["bun", ...bunTestArgs({ coverage: true, json, fast: fastCoverage })], {
-      cwd: projectDir,
-      env: { ...Bun.env, KIMI_COVERAGE_SCAN: "1" },
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const proc = Bun.spawn(
+      ["bun", ...buildBunTestArgs({ coverage: true, json, fast: fastCoverage })],
+      {
+        cwd: projectDir,
+        env: { ...Bun.env, KIMI_COVERAGE_SCAN: "1" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }
+    );
     const exitCode = await proc.exited;
     const stdout = await readableStreamToText(proc.stdout);
     const stderr = await readableStreamToText(proc.stderr);

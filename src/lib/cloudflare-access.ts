@@ -181,7 +181,7 @@ export async function verifyToken(apiToken: string): Promise<{ valid: boolean; m
 
     return { valid: true };
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = e instanceof Error ? e.message : Bun.inspect(e);
     return { valid: false, message: msg };
   }
 }

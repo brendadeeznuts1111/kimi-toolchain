@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-20T05:57:46.576Z",
+  "generatedAt": "2026-06-20T08:25:34.997Z",
   "repo": "kimi-toolchain",
   "tuningSetVersion": "1.4.4",
   "domains": {
@@ -94,7 +94,9 @@
       },
       "KIMI_DOMAIN_PURITY_LEVEL": {
         "type": "string",
-        "default": "strict"
+        "default": "strict",
+        "restrictions": "one of strict | gradual | off",
+        "see": ["src/lib/effect-gates.ts"]
       },
       "KIMI_LAYER_CIRCULARITY_TOLERANCE": {
         "type": "number",

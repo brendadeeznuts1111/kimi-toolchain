@@ -114,7 +114,8 @@ export async function probeRemoteHosts(
   const hosts: RemoteHostProbeHost[] = settled.map((entry, index) => {
     const label = labels[index] ?? "unknown";
     if (entry.status === "fulfilled") return entry.value;
-    const message = entry.reason instanceof Error ? entry.reason.message : String(entry.reason);
+    const message =
+      entry.reason instanceof Error ? entry.reason.message : Bun.inspect(entry.reason);
     return { label, reachable: false, error: message };
   });
 

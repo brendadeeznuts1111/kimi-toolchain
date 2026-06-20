@@ -90,8 +90,11 @@ import {
   TEST_ENV_FILE,
   tierUsesFileIsolation,
   buildTestRunnerEnv,
+  bunTestArgBatchesForTier,
   bunTestArgsForTier,
   bunTestArgsForChanged,
+  buildBunTestArgs,
+  buildBunTestArgBatches,
   installBuildConstantGlobals,
   mergeBunTestInvocationArgs,
   parseForwardedBunTestArgs,
@@ -103,6 +106,7 @@ import { REPO_ROOT, captureStderrWrite, testTempDir, withClearedEnv, withEnv } f
 import { makeDir, writeText } from "../src/lib/bun-io.ts";
 import {
   INTEGRATION_TEST_FILES,
+  FAST_TEST_CHUNK_SIZE,
   SMOKE_TEST_FILES,
   UNIT_TEST_FILES,
 } from "../src/lib/test-gates.ts";
@@ -266,6 +270,24 @@ test("timezone follows TZ env", () => {
     expect(args).toContain("--parallel=4");
     expect(args).not.toContain("--parallel");
     expect(args[0]).toBe("test");
+  });
+
+  test("unit tier batches avoid one giant parallel worker run", () => {
+    const batches = bunTestArgBatchesForTier(TEST_TIER_SPECS.unit);
+    expect(batches.length).toBeGreaterThan(1);
+
+    const files = batches.flatMap((batch) =>
+      batch.filter((arg) => (UNIT_TEST_FILES as readonly string[]).includes(arg))
+    );
+
+    expect(files).toEqual([...UNIT_TEST_FILES]);
+    for (const batch of batches) {
+      expect(batch).toContain("--isolate");
+      expect(batch).not.toContain("--parallel=4");
+      expect(
+        batch.filter((arg) => (UNIT_TEST_FILES as readonly string[]).includes(arg)).length
+      ).toBeLessThanOrEqual(FAST_TEST_CHUNK_SIZE);
+    }
   });
 
   describe("Bun test module", () => {
@@ -1510,6 +1532,31 @@ test("global cleaned", () => {
       expect(args).toContain("--parallel=4");
       expect(args).not.toContain("--parallel");
       expect(args.some((arg) => arg.startsWith("--changed="))).toBe(true);
+    });
+
+    test("buildBunTestArgs is the unified argv builder", () => {
+      const args = buildBunTestArgs({ fast: true, bail: true });
+      expect(args[0]).toBe("test");
+      expect(args).toContain("--timeout");
+      expect(args).toContain("--bail");
+      expect(args).toContain("--isolate");
+      expect(args).toContain("--parallel=4");
+    });
+
+    test("buildBunTestArgBatches chunks fast unit gate", () => {
+      const batches = buildBunTestArgBatches({ fast: true, bail: true });
+      expect(batches.length).toBeGreaterThan(1);
+      const files = batches.flatMap((batch) =>
+        batch.filter((arg) => (UNIT_TEST_FILES as readonly string[]).includes(arg))
+      );
+      expect(files).toEqual([...UNIT_TEST_FILES]);
+    });
+
+    test("buildBunTestArgBatches returns a single batch for changed mode", () => {
+      const batches = buildBunTestArgBatches({ changedRef: "HEAD", bail: true });
+      expect(batches.length).toBe(1);
+      expect(batches[0]).toContain("--changed=HEAD");
+      expect(batches[0]).toContain("--parallel=4");
     });
   });
 });

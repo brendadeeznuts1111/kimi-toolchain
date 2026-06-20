@@ -166,7 +166,7 @@ async function runExternalAutomationGate(
 
     return { smoke, thumbnail };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : Bun.inspect(error);
     return {
       failure: { code: "smoke_failed", message },
     };
@@ -224,7 +224,7 @@ async function runOwnedAutomationGate(
 
     return { url: server.url, smoke, thumbnail };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : Bun.inspect(error);
     return {
       url: server.url,
       failure: { code: "smoke_failed", message },

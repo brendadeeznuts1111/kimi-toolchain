@@ -85,7 +85,7 @@ export function scoreDecisionsEffect(
     try: () => scoreDecisions(records, options),
     catch: (error) =>
       new DecisionScoringError({
-        message: error instanceof Error ? error.message : String(error),
+        message: error instanceof Error ? error.message : Bun.inspect(error),
         failurePath: options.failurePath,
       }),
   });
@@ -217,7 +217,7 @@ export function scoreAllDecisionsEffect(
     },
     catch: (error) =>
       new DecisionScoringError({
-        message: error instanceof Error ? error.message : String(error),
+        message: error instanceof Error ? error.message : Bun.inspect(error),
         failurePath: options.failurePath,
       }),
   });

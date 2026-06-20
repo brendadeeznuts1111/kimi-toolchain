@@ -201,7 +201,7 @@ export async function withDashboardSessionTimeout<T>(
     try {
       value = await run();
     } catch (error: unknown) {
-      failure = error instanceof Error ? error.message : String(error);
+      failure = error instanceof Error ? error.message : Bun.inspect(error);
     } finally {
       finished = true;
     }

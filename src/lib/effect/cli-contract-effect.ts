@@ -78,10 +78,12 @@ export function parseCliFlagsEffect(
         });
       }
       return new EffectCliContractError({
-        message: cause instanceof Error ? cause.message : String(cause),
+        message: cause instanceof Error ? cause.message : Bun.inspect(cause),
         toolName,
         taxonomyId: "cli_invalid_flag",
-        unknownFlag: extractUnknownFlag(cause instanceof Error ? cause.message : String(cause)),
+        unknownFlag: extractUnknownFlag(
+          cause instanceof Error ? cause.message : Bun.inspect(cause)
+        ),
       });
     },
   });

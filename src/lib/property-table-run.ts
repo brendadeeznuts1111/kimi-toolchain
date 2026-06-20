@@ -364,7 +364,7 @@ export function runPropertyTableExtractEffect(
       try: () => preparePropertyTableExtract({ ...input, className }, flags),
       catch: (err) =>
         new CliError({
-          message: err instanceof Error ? err.message : String(err),
+          message: err instanceof Error ? err.message : Bun.inspect(err),
         }),
     });
 
@@ -402,7 +402,7 @@ export function runPropertyTableExtractEffect(
           enforceTableSchema(input.projectRoot, flags.schemaPath!, flags.schemaWarn, tableForEmit),
         catch: (err) =>
           new CliError({
-            message: err instanceof Error ? err.message : String(err),
+            message: err instanceof Error ? err.message : Bun.inspect(err),
           }),
       });
     }
@@ -437,7 +437,7 @@ export function runPropertyTableExtractEffect(
         Effect.mapError(
           (err) =>
             new CliError({
-              message: err instanceof Error ? err.message : String(err),
+              message: err instanceof Error ? err.message : Bun.inspect(err),
             })
         )
       );
@@ -461,7 +461,7 @@ export function runPropertyTableExtractEffect(
       Effect.mapError(
         (err) =>
           new CliError({
-            message: err instanceof Error ? err.message : String(err),
+            message: err instanceof Error ? err.message : Bun.inspect(err),
           })
       )
     );

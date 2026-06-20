@@ -28,9 +28,11 @@
 import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { readText } from "./bun-io.ts";
+import { readableStreamToText } from "./bun-utils.ts";
 import { parseBunfigDefines } from "./build-constants-registry.ts";
 import {
   CI_TEST_TIMEOUT_MS,
+  chunkFastUnitTestFiles,
   DEFAULT_TEST_TIMEOUT_MS,
   FAST_TEST_TIMEOUT_MS,
   INTEGRATION_TEST_FILES,
@@ -1337,18 +1339,188 @@ export function buildTestRunnerEnv(
   return env;
 }
 
+/**
+ * Options for building a `bun test` argv.
+ * This is the unified entry point; prefer it over ad-hoc arg construction.
+ */
+export interface BunTestRunOptions {
+  /** Run a named tier's files with its configured timeout/parallelism. */
+  tier?: TestTier;
+  /** Run tests changed vs this git ref (--changed). */
+  changedRef?: string;
+  /** Run explicit file paths (--isolate is added automatically). */
+  files?: readonly string[];
+  /** Fast unit gate mode (all UNIT_TEST_FILES, chunked). */
+  fast?: boolean;
+  /** Integration file list. */
+  integration?: boolean;
+  /** Smoke file list. */
+  smoke?: boolean;
+  /** Enable coverage with lcov reporter. */
+  coverage?: boolean;
+  /** CI reporter mode (JUnit). */
+  ci?: boolean;
+  /** Bail after N failures; `true` uses Bun's default. */
+  bail?: boolean | number;
+  /** Per-test timeout in milliseconds. */
+  timeoutMs?: number;
+  /** Retry failed tests N times. */
+  retry?: number;
+  /** Run files across N workers; `true` lets Bun pick. */
+  parallel?: number | boolean;
+  /** Shard tests across CI jobs (--shard=M/N). */
+  shard?: string;
+  /** JUnit report destination (used with ci). */
+  reporterOutfile?: string;
+  /** Run each file N times. */
+  rerunEach?: number;
+  /** Randomize test order. */
+  randomize?: boolean;
+  /** Reproducible random order (implies --randomize). */
+  seed?: number;
+  /** Max concurrent tests (default 20). */
+  maxConcurrency?: number;
+  /** Dot reporter. */
+  dots?: boolean;
+  /** JSON reporter. */
+  json?: boolean;
+}
+
+/** Resolve the per-test timeout from options and tier/fast/smoke defaults. */
+export function resolveBunTestTimeoutMs(options: BunTestRunOptions): number {
+  if (options.timeoutMs !== undefined) return options.timeoutMs;
+  if (options.tier === "unit" || options.fast) return FAST_TEST_TIMEOUT_MS;
+  if (options.tier === "smoke" || options.smoke) return SMOKE_TEST_TIMEOUT_MS;
+  if (options.ci) return CI_TEST_TIMEOUT_MS;
+  return DEFAULT_TEST_TIMEOUT_MS;
+}
+
+/**
+ * Build a single `bun test` argv from options.
+ * This is the single source of truth for how kimi-toolchain invokes `bun test`.
+ */
+export function buildBunTestArgs(options: BunTestRunOptions): string[] {
+  const args = ["test", "--timeout", String(resolveBunTestTimeoutMs(options))];
+
+  if (options.bail !== undefined && options.bail !== false) {
+    args.push(typeof options.bail === "number" ? `--bail=${options.bail}` : "--bail");
+  }
+  if (options.retry !== undefined && options.retry > 0) {
+    args.push(`--retry=${options.retry}`);
+  }
+  if (options.rerunEach !== undefined && options.rerunEach > 0) {
+    args.push(`--rerun-each=${options.rerunEach}`);
+  }
+  if (options.randomize) args.push("--randomize");
+  if (options.seed !== undefined) args.push(`--seed=${options.seed}`);
+  if (options.maxConcurrency !== undefined && options.maxConcurrency > 0) {
+    args.push(`--max-concurrency=${options.maxConcurrency}`);
+  }
+  if (options.coverage) {
+    args.push("--coverage", "--coverage-reporter=lcov", "--coverage-dir=./coverage");
+  }
+  if (options.ci) {
+    args.push(
+      "--reporter=junit",
+      `--reporter-outfile=${options.reporterOutfile ?? "reports/junit.xml"}`
+    );
+  }
+  if (options.dots) args.push("--dots");
+  if (options.json) args.push("--json");
+
+  // Discovery: changed > explicit files > tier > fast > integration > smoke > default discovery
+  if (options.changedRef) {
+    args.push(`--changed=${options.changedRef}`, "--isolate", "--parallel=4");
+  } else if (options.files?.length) {
+    args.push("--isolate", ...options.files);
+  } else if (options.tier) {
+    const spec = TEST_TIER_SPECS[options.tier];
+    args.push("--isolate");
+    if (spec.parallel !== undefined) args.push(`--parallel=${spec.parallel}`);
+    args.push(...spec.files);
+  } else if (options.fast) {
+    const parallel = Bun.env.KIMI_TEST_PARALLEL ? Number(Bun.env.KIMI_TEST_PARALLEL) : 4;
+    args.push(`--parallel=${parallel}`, "--isolate", ...UNIT_TEST_FILES);
+  } else if (options.integration) {
+    args.push("--isolate", ...INTEGRATION_TEST_FILES);
+  } else if (options.smoke) {
+    args.push("--isolate", ...SMOKE_TEST_FILES);
+  } else if (options.parallel !== undefined || options.shard) {
+    // parallel/shard without explicit files: rely on Bun discovery but keep isolation
+    args.push("--isolate");
+  } else {
+    args.push("--isolate");
+  }
+
+  if (options.parallel !== undefined && options.parallel !== false && !options.changedRef) {
+    const n = options.parallel === true ? "" : `=${options.parallel}`;
+    // Avoid duplicating --parallel if tier/fast already emitted it
+    if (!args.some((arg) => arg.startsWith("--parallel"))) {
+      args.push(`--parallel${n}`);
+    }
+    if (!args.includes("--isolate")) args.push("--isolate");
+  }
+  if (options.shard && !args.some((arg) => arg.startsWith("--shard="))) {
+    args.push(`--shard=${options.shard}`);
+  }
+
+  return args;
+}
+
+/**
+ * Build one or more `bun test` argvs, chunking the fast unit gate to avoid
+ * one giant parallel worker run.
+ */
+export function buildBunTestArgBatches(options: BunTestRunOptions): string[][] {
+  const isUnitTier = options.tier === "unit";
+  const shouldChunk =
+    (options.fast === true || isUnitTier) &&
+    !options.coverage &&
+    !options.ci &&
+    !options.integration &&
+    !options.smoke &&
+    !options.changedRef &&
+    !options.files?.length &&
+    options.parallel === undefined &&
+    !options.shard;
+
+  if (!shouldChunk) return [buildBunTestArgs(options)];
+
+  return chunkFastUnitTestFiles(UNIT_TEST_FILES).map((files) =>
+    buildBunTestArgs({
+      ...options,
+      tier: undefined,
+      fast: false,
+      timeoutMs: options.timeoutMs ?? FAST_TEST_TIMEOUT_MS,
+      files,
+    })
+  );
+}
+
 export function bunTestArgsForTier(
   spec: TestTierSpec,
   options: { repoRoot?: string; forwarded?: readonly string[] } = {}
 ): string[] {
-  const args = ["test", "--timeout", String(spec.timeoutMs)];
-  if (spec.isolate) args.push("--isolate");
-  if (spec.parallel !== undefined) args.push(`--parallel=${spec.parallel}`);
-  args.push(...spec.files);
+  const args = buildBunTestArgs({
+    tier: spec.tier,
+    timeoutMs: spec.timeoutMs,
+    parallel: spec.parallel,
+  });
   if (options.repoRoot) {
     return mergeBunTestInvocationArgs(args, options.repoRoot, options.forwarded ?? []);
   }
   return args;
+}
+
+export function bunTestArgBatchesForTier(
+  spec: TestTierSpec,
+  options: { repoRoot?: string; forwarded?: readonly string[] } = {}
+): string[][] {
+  return buildBunTestArgBatches({ tier: spec.tier, timeoutMs: spec.timeoutMs }).map((args) =>
+    options.repoRoot
+      ? mergeBunTestInvocationArgs(args, options.repoRoot, options.forwarded ?? [])
+      : args
+  );
 }
 
 export function bunTestArgsForChanged(
@@ -1359,14 +1531,10 @@ export function bunTestArgsForChanged(
     forwarded?: readonly string[];
   } = {}
 ): string[] {
-  const args = [
-    "test",
-    `--changed=${changedRef}`,
-    "--timeout",
-    String(options.timeoutMs ?? DEFAULT_TEST_TIMEOUT_MS),
-    "--isolate",
-    "--parallel=4",
-  ];
+  const args = buildBunTestArgs({
+    changedRef,
+    timeoutMs: options.timeoutMs ?? DEFAULT_TEST_TIMEOUT_MS,
+  });
   if (options.repoRoot) {
     return mergeBunTestInvocationArgs(args, options.repoRoot, options.forwarded ?? []);
   }
@@ -1387,6 +1555,16 @@ export async function runBunTest(
     stderr: quiet ? "pipe" : "inherit",
     env: buildTestRunnerEnv({}, options.source ?? "runBunTest"),
   });
+  if (quiet) {
+    const [stdout, stderr, exitCode] = await Promise.all([
+      proc.stdout ? readableStreamToText(proc.stdout) : Promise.resolve(""),
+      proc.stderr ? readableStreamToText(proc.stderr) : Promise.resolve(""),
+      proc.exited,
+    ]);
+    if (stdout) process.stdout.write(stdout);
+    if (stderr) process.stderr.write(stderr);
+    return exitCode;
+  }
   return await proc.exited;
 }
 
@@ -1408,10 +1586,23 @@ async function writeRunnerBunfig(repoRoot: string): Promise<string> {
   return configPath;
 }
 
+export interface RunTestTierOptions {
+  quiet?: boolean;
+  forwarded?: readonly string[];
+  coverage?: boolean;
+  ci?: boolean;
+  bail?: boolean | number;
+  shard?: string;
+  parallel?: number | boolean;
+  retry?: number;
+  timeoutMs?: number;
+  reporterOutfile?: string;
+}
+
 export async function runTestTier(
   repoRoot: string,
   tier: TestTier,
-  options: { quiet?: boolean; forwarded?: readonly string[] } = {}
+  options: RunTestTierOptions = {}
 ): Promise<number> {
   const spec = TEST_TIER_SPECS[tier];
   const forwarded = options.forwarded ?? parseForwardedBunTestArgs(Bun.argv.slice(2));
@@ -1422,17 +1613,38 @@ export async function runTestTier(
       process.stderr.write(`[test] forwarded: ${forwarded.join(" ")}\n`);
     }
   }
-  const args = bunTestArgsForTier(spec, { repoRoot, forwarded });
-  return runBunTest(repoRoot, args, { quiet, source: `test:${spec.label}` });
+  const batches = buildBunTestArgBatches({
+    tier,
+    timeoutMs: options.timeoutMs ?? spec.timeoutMs,
+    coverage: options.coverage,
+    ci: options.ci,
+    bail: options.bail,
+    shard: options.shard,
+    parallel: options.parallel,
+    retry: options.retry,
+    reporterOutfile: options.reporterOutfile,
+  }).map((args) => mergeBunTestInvocationArgs(args, repoRoot, forwarded));
+
+  for (let i = 0; i < batches.length; i++) {
+    if (batches.length > 1 && !quiet) {
+      process.stderr.write(`[test] batch ${i + 1}/${batches.length}\n`);
+    }
+    const code = await runBunTest(repoRoot, batches[i]!, {
+      quiet,
+      source: `test:${spec.label}`,
+    });
+    if (isTestRunFailure(code)) return code;
+  }
+  return 0;
 }
 
 export async function runAllTestTiers(
   repoRoot: string,
-  options: { forwarded?: readonly string[] } = {}
+  options: RunTestTierOptions = {}
 ): Promise<number> {
   const forwarded = options.forwarded ?? parseForwardedBunTestArgs(Bun.argv.slice(2));
   for (const tier of TEST_TIER_ORDER) {
-    const code = await runTestTier(repoRoot, tier, { forwarded });
+    const code = await runTestTier(repoRoot, tier, { ...options, forwarded });
     if (isTestRunFailure(code)) return code;
   }
   return 0;

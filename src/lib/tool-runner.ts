@@ -252,7 +252,7 @@ async function invokeCommandOnce(
     });
   } catch (e: unknown) {
     const durationMs = Math.round(performance.now() - start);
-    const error = e instanceof Error ? e.message : String(e);
+    const error = e instanceof Error ? e.message : Bun.inspect(e);
     if (options.recordStepName) {
       recordStep(options.recordStepName, durationMs, true);
     }
@@ -303,7 +303,7 @@ async function invokeCommandOnce(
   try {
     exitCode = await proc.exited;
   } catch (e: unknown) {
-    error = e instanceof Error ? e.message : String(e);
+    error = e instanceof Error ? e.message : Bun.inspect(e);
   } finally {
     cleanup();
   }
@@ -315,7 +315,7 @@ async function invokeCommandOnce(
     stdoutTruncated = stdoutResult.truncated;
     stderrTruncated = stderrResult.truncated;
   } catch (e: unknown) {
-    if (!error) error = e instanceof Error ? e.message : String(e);
+    if (!error) error = e instanceof Error ? e.message : Bun.inspect(e);
   }
 
   if (timedOut && !error) {

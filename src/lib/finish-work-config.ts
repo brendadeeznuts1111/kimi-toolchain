@@ -69,7 +69,7 @@ export function decodeFinishWorkDxConfig(
   } catch (cause) {
     throw new FinishWorkConfigParseError({
       path,
-      message: cause instanceof Error ? cause.message : String(cause),
+      message: cause instanceof Error ? cause.message : Bun.inspect(cause),
     });
   }
 }
@@ -133,7 +133,7 @@ export function loadFinishWorkConfig(projectRoot: string): FinishWorkConfig {
   } catch (cause) {
     throw new FinishWorkConfigParseError({
       path,
-      message: cause instanceof Error ? cause.message : String(cause),
+      message: cause instanceof Error ? cause.message : Bun.inspect(cause),
     });
   }
 

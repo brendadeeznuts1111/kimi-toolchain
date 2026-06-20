@@ -357,7 +357,7 @@ export function herdrSocketRequest<T = HerdrSocketResponse>(
     socket.on("error", (error) => {
       finish({
         ok: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : Bun.inspect(error),
       });
     });
 

@@ -205,7 +205,7 @@ export function pipelineProgram(): Effect.Effect<PipelineReport, PipelineError, 
       catch: (cause) =>
         new PipelineConfigError({
           path: join(env.repoRoot, "ci", "impact.config.json"),
-          message: cause instanceof Error ? cause.message : String(cause),
+          message: cause instanceof Error ? cause.message : Bun.inspect(cause),
         }),
     });
     const impact = analyzeImpact(
@@ -632,7 +632,7 @@ function loadImpactConfig(): Effect.Effect<ImpactConfig, PipelineConfigError, Pi
       catch: (cause) =>
         new PipelineConfigError({
           path,
-          message: cause instanceof Error ? cause.message : String(cause),
+          message: cause instanceof Error ? cause.message : Bun.inspect(cause),
         }),
     });
     const config = safeParse<ImpactConfig>(text, null as unknown as ImpactConfig, isImpactConfig);
@@ -691,7 +691,7 @@ function capture(command: string[], cwd: string): Effect.Effect<string, Pipeline
         ? cause
         : new PipelineGitError({
             command: command.join(" "),
-            message: cause instanceof Error ? cause.message : String(cause),
+            message: cause instanceof Error ? cause.message : Bun.inspect(cause),
           }),
   });
 }
@@ -716,7 +716,7 @@ function runQuiet(command: string[], cwd: string): Effect.Effect<void, PipelineR
         ? cause
         : new PipelineResourceError({
             resource: command.join(" "),
-            message: cause instanceof Error ? cause.message : String(cause),
+            message: cause instanceof Error ? cause.message : Bun.inspect(cause),
           }),
   });
 }

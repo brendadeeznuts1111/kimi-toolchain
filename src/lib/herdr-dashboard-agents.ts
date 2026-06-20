@@ -234,7 +234,7 @@ export async function getDashboardAgents(
         cliErrors.push(...result.value.errors);
       } else {
         const message =
-          result.reason instanceof Error ? result.reason.message : String(result.reason);
+          result.reason instanceof Error ? result.reason.message : Bun.inspect(result.reason);
         cliErrors.push(message);
       }
     }

@@ -53,7 +53,7 @@ export async function fetchExamplesDashboardHealth(url: string): Promise<Record<
       checkedAt,
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = err instanceof Error ? err.message : Bun.inspect(err);
     return {
       ok: false,
       url: base,

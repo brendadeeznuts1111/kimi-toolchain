@@ -34,7 +34,7 @@ function flushTelemetry(logger: Logger): Effect.Effect<void> {
     const telemetryPath = join(homeDir(), ".kimi-code", "var", "cli-telemetry.jsonl");
     yield* Effect.tryPromise({
       try: () => logger.flushToFile(telemetryPath),
-      catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+      catch: (cause) => (cause instanceof Error ? cause : new Error(Bun.inspect(cause))),
     }).pipe(Effect.catchAll(() => Effect.void));
   });
 }
@@ -68,7 +68,7 @@ export async function runCli<A>(
       await recordCliTrace(options.toolName, trace, started, exitCode, error.message);
       return exitCode;
     }
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(error instanceof Error ? error.message : Bun.inspect(error));
     await recordCliTrace(options.toolName, trace, started, 1, String(error));
   } else {
     logger.error("Unexpected CLI failure");
@@ -102,7 +102,7 @@ export async function runCliExit(
       await recordCliTrace(options.toolName, trace, started, exitCode, error.message);
       return exitCode;
     }
-    logger.error(error instanceof Error ? error.message : String(error));
+    logger.error(error instanceof Error ? error.message : Bun.inspect(error));
     await recordCliTrace(options.toolName, trace, started, 1, String(error));
   } else {
     logger.error("Unexpected CLI failure");

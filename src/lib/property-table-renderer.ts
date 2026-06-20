@@ -167,7 +167,7 @@ export function emitPropertyTableOutput(
           try: () => Bun.write(file.path, file.markdown),
           catch: (err) =>
             new Error(
-              `Failed to write ${file.path}: ${err instanceof Error ? err.message : String(err)}`
+              `Failed to write ${file.path}: ${err instanceof Error ? err.message : Bun.inspect(err)}`
             ),
         });
         yield* Effect.sync(() => {
@@ -208,7 +208,7 @@ export function emitPropertyTableOutput(
         try: () => Bun.write(markdownPath, payload.markdown),
         catch: (err) =>
           new Error(
-            `Failed to write ${markdownPath}: ${err instanceof Error ? err.message : String(err)}`
+            `Failed to write ${markdownPath}: ${err instanceof Error ? err.message : Bun.inspect(err)}`
           ),
       });
 
@@ -241,14 +241,14 @@ export function emitPropertyTableOutput(
           try: () => Bun.write(previewPath, payload.markdown),
           catch: (err) =>
             new Error(
-              `Failed to write preview file: ${err instanceof Error ? err.message : String(err)}`
+              `Failed to write preview file: ${err instanceof Error ? err.message : Bun.inspect(err)}`
             ),
         });
       }
       const rendered = yield* Effect.tryPromise({
         try: () => previewMarkdownWithBun(previewPath),
         catch: (err) =>
-          new Error(`Preview failed: ${err instanceof Error ? err.message : String(err)}`),
+          new Error(`Preview failed: ${err instanceof Error ? err.message : Bun.inspect(err)}`),
       });
       if (rendered.exitCode !== 0) {
         return yield* Effect.fail(

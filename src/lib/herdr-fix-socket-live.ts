@@ -133,7 +133,7 @@ export function defaultFixSocketLiveDeps(): FixSocketLiveDeps {
         process.kill(pid, signal);
         return { ok: true };
       } catch (error) {
-        return { ok: false, error: error instanceof Error ? error.message : String(error) };
+        return { ok: false, error: error instanceof Error ? error.message : Bun.inspect(error) };
       }
     },
     sleep: (ms) => Bun.sleep(ms),

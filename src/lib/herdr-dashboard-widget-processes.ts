@@ -120,7 +120,7 @@ export function parseHerdrPaneListOutput(
     }));
     return { ok: true, panes };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : Bun.inspect(error);
     return { ok: false, error: `invalid pane list JSON: ${message}` };
   }
 }

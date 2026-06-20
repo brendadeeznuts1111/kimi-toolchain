@@ -225,7 +225,7 @@ async function handleRequest(req: unknown) {
             result: { content: [{ type: "text", text: JSON.stringify(manifest) }] },
           });
         } catch (e) {
-          internalError(id, e instanceof Error ? e.message : String(e));
+          internalError(id, e instanceof Error ? e.message : Bun.inspect(e));
         }
         return;
       }
@@ -267,7 +267,7 @@ async function handleRequest(req: unknown) {
             maxOutputBytes: 0,
             durationMs: 0,
             isError: true,
-            error: e instanceof Error ? e.message : String(e),
+            error: e instanceof Error ? e.message : Bun.inspect(e),
           };
         }
         send({
@@ -309,7 +309,7 @@ export async function startDoctorMcpServer(): Promise<void> {
     try {
       await handleRequest(req);
     } catch (e) {
-      internalError(req.id, e instanceof Error ? e.message : String(e));
+      internalError(req.id, e instanceof Error ? e.message : Bun.inspect(e));
     }
   }
 }

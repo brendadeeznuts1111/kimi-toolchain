@@ -83,7 +83,7 @@ export function invokeCommandEffect(
       new ExitNonZero({
         tool,
         exitCode: -1,
-        stderr: e instanceof Error ? e.message : String(e),
+        stderr: e instanceof Error ? e.message : Bun.inspect(e),
       }),
   }).pipe(
     Effect.flatMap(

@@ -75,7 +75,7 @@ async function runShellStartupCheck(): Promise<HealthCheck> {
     }
     return check("shell-startup", "ok", stdout.trim());
   } catch (e) {
-    return check("shell-startup", "error", e instanceof Error ? e.message : String(e), false);
+    return check("shell-startup", "error", e instanceof Error ? e.message : Bun.inspect(e), false);
   }
 }
 

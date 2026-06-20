@@ -532,7 +532,7 @@ export function startHerdrDashboardServer(
             }),
           });
         } catch (e: unknown) {
-          const message = e instanceof Error ? e.message : String(e);
+          const message = e instanceof Error ? e.message : Bun.inspect(e);
           return jsonResponse({ ok: false, error: message }, 500);
         }
       }

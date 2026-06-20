@@ -344,7 +344,7 @@ export class HerdrDashboardDiscoveryCache {
         }
         return payload;
       } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = error instanceof Error ? error.message : Bun.inspect(error);
         this.bus?.emit("discovery:failed", {
           error: message,
           projectPath: this.projectPath,

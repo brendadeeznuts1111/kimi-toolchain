@@ -197,7 +197,7 @@ export async function runReadmeSyncCli(args: string[]): Promise<ReadmeSyncResult
     }
     return { exitCode: EXIT_DRIFT, message: parts.join("; ") };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = err instanceof Error ? err.message : Bun.inspect(err);
     return { exitCode: EXIT_ERROR, message: `Error: ${message}` };
   }
 }

@@ -20,10 +20,13 @@ export interface TypeEntry {
   key: string;
   defineDomain: string;
   type: string;
+  typeExpr?: string;
+  enumValues?: string[];
   description?: string;
   default?: string;
   restrictions?: string;
   see?: string[];
+  line?: number;
 }
 
 export interface ManifestConstant {
@@ -116,6 +119,104 @@ export function parseDefineRawValue(raw: string): string | number | boolean {
   return trimmed;
 }
 
+export interface ConstantRange {
+  kind: "closed" | "min" | "enum" | "boolean" | "exact" | "semver" | "path" | "unbounded";
+  min?: number;
+  max?: number;
+  values?: string[];
+  description?: string;
+}
+
+const CLOSED_INTERVAL_RE = /\[(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\]/;
+const MIN_BOUND_RE = />=\s*(-?\d+(?:\.\d+)?)/;
+const ENUM_RE = /one of\s+(.+)/i;
+
+export function parseConstantRange(restrictions: string | undefined, type: string): ConstantRange {
+  if (!restrictions) {
+    if (type === "boolean") return { kind: "boolean", values: ["true", "false"] };
+    return { kind: "unbounded", description: "no restrictions documented" };
+  }
+
+  const closed = restrictions.match(CLOSED_INTERVAL_RE);
+  if (closed) {
+    return {
+      kind: "closed",
+      min: Number(closed[1]),
+      max: Number(closed[2]),
+      description: restrictions,
+    };
+  }
+
+  const minBound = restrictions.match(MIN_BOUND_RE);
+  if (minBound) {
+    return {
+      kind: "min",
+      min: Number(minBound[1]),
+      description: restrictions,
+    };
+  }
+
+  const enumMatch = restrictions.match(ENUM_RE);
+  if (enumMatch) {
+    const enumBody = enumMatch[1]!.split(/\s+[—-]\s+/)[0]!;
+    const values = enumBody
+      .split("|")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    return { kind: "enum", values, description: restrictions };
+  }
+
+  if (/boolean/i.test(restrictions)) {
+    return { kind: "boolean", values: ["true", "false"], description: restrictions };
+  }
+
+  if (/zero-tolerance/i.test(restrictions)) {
+    return { kind: "exact", min: 0, max: 0, description: restrictions };
+  }
+
+  if (/positive integer/i.test(restrictions)) {
+    return { kind: "min", min: 1, description: restrictions };
+  }
+
+  if (/non-negative integer/i.test(restrictions)) {
+    return { kind: "min", min: 0, description: restrictions };
+  }
+
+  if (/positive number/i.test(restrictions)) {
+    return { kind: "min", min: 0, description: restrictions };
+  }
+
+  if (/semver/i.test(restrictions)) {
+    return { kind: "semver", description: restrictions };
+  }
+
+  if (/relative path/i.test(restrictions)) {
+    return { kind: "path", description: restrictions };
+  }
+
+  return { kind: "unbounded", description: restrictions };
+}
+
+export function formatConstantRange(range: ConstantRange): string {
+  switch (range.kind) {
+    case "closed":
+      return `[${range.min}, ${range.max}]`;
+    case "min":
+      return `≥ ${range.min}`;
+    case "exact":
+      return `= ${range.min ?? 0}`;
+    case "enum":
+    case "boolean":
+      return range.values?.join(" | ") ?? "";
+    case "semver":
+      return "semver";
+    case "path":
+      return "relative path";
+    default:
+      return range.description ?? "any";
+  }
+}
+
 export function parseBunfigDefines(bunfigText: string): DefineEntry[] {
   const entries: DefineEntry[] = [];
   const lines = bunfigText.split("\n");
@@ -199,21 +300,51 @@ function parseJsDocBlock(block: string): Omit<TypeEntry, "key" | "type"> {
   };
 }
 
+export function parseTypeExpression(typeExpr: string): {
+  type: string;
+  typeExpr: string;
+  enumValues?: string[];
+} {
+  const trimmed = typeExpr.trim();
+  if (trimmed === "string" || trimmed === "number" || trimmed === "boolean") {
+    return { type: trimmed, typeExpr: trimmed };
+  }
+
+  const enumValues = [...trimmed.matchAll(/"([^"]+)"/g)].map((match) => match[1]!).filter(Boolean);
+  if (enumValues.length > 0) {
+    return { type: "string", typeExpr: trimmed, enumValues };
+  }
+
+  const primitive = trimmed.match(/^(string|number|boolean)\b/)?.[1];
+  return { type: primitive ?? "string", typeExpr: trimmed };
+}
+
+function typesLineForKey(typesText: string, key: string): number | undefined {
+  const marker = `declare const ${key}:`;
+  const index = typesText.indexOf(marker);
+  if (index < 0) return undefined;
+  return typesText.slice(0, index).split("\n").length;
+}
+
 export function parseBuildConstantsTypes(typesText: string): Map<string, TypeEntry> {
   const entries = new Map<string, TypeEntry>();
 
   for (const chunk of typesText.split(/(?=\/\*\*)/)) {
-    const match = chunk.match(/^\/\*\*([\s\S]*?)\*\/\s*declare const ([A-Z][A-Z0-9_]*):\s*(\w+)/);
+    const match = chunk.match(
+      /^\/\*\*([\s\S]*?)\*\/\s*declare const ([A-Z][A-Z0-9_]*):\s*([^;]+);/
+    );
     if (!match) continue;
 
-    const [, block, key, type] = match;
+    const [, block, key, typeExpr] = match;
     const parsed = parseJsDocBlock(block!);
     if (parsed.defineDomain === "unknown") continue;
+    const normalized = parseTypeExpression(typeExpr!);
 
     entries.set(key!, {
       key: key!,
-      type,
+      ...normalized,
       ...parsed,
+      line: typesLineForKey(typesText, key!),
     });
   }
 

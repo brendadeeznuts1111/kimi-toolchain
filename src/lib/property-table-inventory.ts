@@ -116,7 +116,7 @@ export function runPropertyTableInventoryEffect(
 
     const payload = yield* Effect.tryPromise({
       try: () => buildPropertyTableInventory(input),
-      catch: (err) => (err instanceof Error ? err : new Error(String(err))),
+      catch: (err) => (err instanceof Error ? err : new Error(Bun.inspect(err))),
     });
 
     const noHeader = flags.noHeader;
