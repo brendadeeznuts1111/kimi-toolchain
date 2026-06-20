@@ -636,6 +636,8 @@ export const BUN_TEST_FLAG_INTERACTIONS = {
   parallelWorkerEnv: "--parallel sets BUN_TEST_WORKER_ID and JEST_WORKER_ID in worker env",
   /** Files partitioned for cache locality; idle workers steal from busiest queue. Output buffered per-file. */
   parallelScheduling: "cache-locality partitioning work-stealing idle-workers atomic-per-file-output",
+  /** console.log/console.error output is buffered per file and flushed atomically — files never interleave. */
+  parallelConsole: "console.log and console.error buffered per-file flushed atomically no interleaving",
   /** --bail exits the entire run after N failures across all workers. */
   bailParallel: "--bail N with --parallel exits after N failures across workers",
   /** --concurrent runs tests concurrently within each worker file. */
