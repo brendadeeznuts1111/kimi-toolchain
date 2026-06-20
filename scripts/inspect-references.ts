@@ -10,22 +10,30 @@
  *   bun run references:inspect --plain          # strip ANSI even when TTY
  *   bun run references:inspect --validate       # run URL lint after printing
  *   bun run references:inspect --json             # machine-readable JSON for jq / CI
+ *   bun run references:inspect --health         # audit repo + runtime health
  */
 
+import { join } from "path";
 import {
   ECOSYSTEM_REFERENCES,
   LOCAL_DOC_REFERENCES,
   REPO_REFERENCES,
+  auditCanonicalReferencesHealth,
   formatCanonicalReferencesInspectPlain,
   lintRepoUrls,
+  repoCanonicalReferencesPath,
   repoUrlParts,
   type CanonicalReferencesInspectSection,
 } from "../src/lib/canonical-references.ts";
+import { canonicalReferencesPath, homeDir } from "../src/lib/paths.ts";
+
+const REPO_ROOT = join(import.meta.dir, "..");
 
 const args = new Set(Bun.argv.slice(2));
 const plain = args.has("--plain");
 const validate = args.has("--validate");
 const jsonMode = args.has("--json");
+const healthMode = args.has("--health");
 
 const section = (() => {
   const idx = Bun.argv.indexOf("--section");
@@ -40,6 +48,40 @@ function printTable(header: string, table: string): void {
 }
 
 const repoNameById = new Map(REPO_REFERENCES.map((r) => [r.id, r.name]));
+
+if (healthMode) {
+  const home = homeDir();
+  const report = await auditCanonicalReferencesHealth(REPO_ROOT, home);
+  if (!report.applicable) {
+    console.log("Canonical references health not applicable for this project.");
+    process.exit(0);
+  }
+  console.log(`repo manifest: ${repoCanonicalReferencesPath(REPO_ROOT)}`);
+  console.log(`runtime cache: ${canonicalReferencesPath(home)}`);
+  function fixForCheck(name: string, fixable: boolean): string {
+    if (!fixable) return "—";
+    if (name.startsWith("runtime-")) return "bun run sync";
+    if (name.startsWith("repo-")) return "bun run references:generate";
+    if (name === "package-pointer") return "(informational)";
+    return "—";
+  }
+
+  const table = Bun.inspect.table(
+    report.checks.map((c) => ({
+      name: c.name,
+      status: c.status,
+      message: c.message,
+      fix: fixForCheck(c.name, c.fixable),
+    }))
+  );
+  printTable("Canonical references health", table);
+  console.log(`\naligned: ${report.aligned}`);
+  if (report.fixPlan.length > 0) {
+    console.log(`fix plan: ${[...new Set(report.fixPlan)].join(" → ")}`);
+  }
+  if (!report.aligned) process.exit(1);
+  process.exit(0);
+}
 
 if (jsonMode) {
   const output: Record<string, unknown> = {};
