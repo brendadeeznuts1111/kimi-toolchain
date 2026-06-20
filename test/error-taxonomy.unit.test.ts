@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+import { REPO_ROOT } from "./helpers.ts";
 import {
   classifyFailure,
   formatFailureOutput,
@@ -9,6 +10,7 @@ import {
   reconstructFailureOutput,
   getSuggestions,
   loadTaxonomy,
+  resolveTaxonomyPath,
   taxonomyPath,
   unknownCategory,
   buildClassifiedFailure,
@@ -19,6 +21,14 @@ import {
 describe("error-taxonomy", () => {
   test("taxonomyPath points under ~/.kimi-code", () => {
     expect(taxonomyPath("/tmp/home")).toContain(".kimi-code/error-taxonomy.yml");
+  });
+
+  test("resolveTaxonomyPath prefers repo file under NODE_ENV=test", () => {
+    expect(resolveTaxonomyPath()).toBe(join(REPO_ROOT, "error-taxonomy.yml"));
+  });
+
+  test("resolveTaxonomyPath honors explicit override", () => {
+    expect(resolveTaxonomyPath("/tmp/custom.yml")).toBe("/tmp/custom.yml");
   });
 
   test("loadTaxonomy falls back to unknown when file missing", async () => {

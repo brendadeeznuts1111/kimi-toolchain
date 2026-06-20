@@ -47,7 +47,7 @@ describe("reclassify-failure-ledger", () => {
   });
 
   test("reclassifyFailureRecords maps final unknown buckets", async () => {
-    const taxonomy = await loadTaxonomy(`${import.meta.dir}/../error-taxonomy.yml`);
+    const taxonomy = await loadTaxonomy();
     const { report } = reclassifyFailureRecords(
       [
         {

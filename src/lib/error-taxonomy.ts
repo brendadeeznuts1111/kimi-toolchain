@@ -54,8 +54,27 @@ export function taxonomyPath(home: string = homeDir()): string {
   return join(home, ".kimi-code", "error-taxonomy.yml");
 }
 
+function repoTaxonomyPath(): string {
+  return join(import.meta.dir, "..", "..", "error-taxonomy.yml");
+}
+
+/** Preferred entry point — repo taxonomy under NODE_ENV=test, desktop runtime otherwise. */
+export function resolveTaxonomyPath(override?: string): string {
+  if (override) return override;
+
+  if (Bun.env.NODE_ENV === "test") {
+    const repo = repoTaxonomyPath();
+    if (pathExists(repo)) return repo;
+    console.warn(
+      `resolveTaxonomyPath: repo taxonomy missing at ${repo}; falling back to ${taxonomyPath()}`
+    );
+  }
+
+  return taxonomyPath();
+}
+
 export async function loadTaxonomy(path?: string): Promise<Taxonomy> {
-  const p = path || taxonomyPath();
+  const p = resolveTaxonomyPath(path);
   if (!pathExists(p)) {
     return { version: 1, categories: [unknownCategory()] };
   }
