@@ -45,3 +45,4 @@ test-define-tmp.ts
 
 # OS
 .DS_Store
+profiles/
