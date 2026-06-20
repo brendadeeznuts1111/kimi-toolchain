@@ -12,8 +12,18 @@
  *
  * Artifact-lineage canvas placement deferred until real usage justifies it.
  */
-import { auditEmailI18n, type EmailI18nAudit } from "../lib/email-i18n.ts";
+import {
+  auditEmailI18n,
+  validateEmail,
+  type EmailI18nAudit,
+  type EmailValidationResult,
+} from "../lib/email-i18n.ts";
 import type { Gate, GateResult, GateRunOptions } from "./types.ts";
+
+export { validateEmail, type EmailValidationResult };
+
+/** Perf budget for `auditEmailI18n()` / `validateEmail()` on dashboard + doctor probes. */
+export const EMAIL_I18N_GATE_THRESHOLD_MS = 0.5;
 
 export interface EmailI18nGateResult extends GateResult, EmailI18nAudit {
   timestamp: string;

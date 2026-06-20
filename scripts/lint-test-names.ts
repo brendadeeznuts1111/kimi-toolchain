@@ -74,6 +74,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "kimi-dashboard-daemon": "src/bin/kimi-dashboard.ts",
   "kimi-dashboard-mcp": "src/bin/kimi-dashboard-mcp.ts",
   "email-i18n-gate": "src/gates/email-i18n.ts",
+  "email-i18n": "src/lib/email-i18n.ts",
   "url-i18n-gate": "src/gates/url-i18n.ts",
 };
 
@@ -88,6 +89,7 @@ const DESCRIBE_STEM_ALIAS: Record<string, string> = {
   "error-clustering": "error-embedding",
   "kimi-dashboard-daemon": "kimi-dashboard",
   "email-i18n-gate": "email-i18n",
+  "email-i18n": "email-i18n",
   "url-i18n-gate": "url-i18n",
   "ci-impact": "ci",
   "githook-templates": "githook",

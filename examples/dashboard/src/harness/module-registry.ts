@@ -27,8 +27,7 @@ export const DEFAULT_THRESHOLDS: Record<string, number> = {
   "kimi.effect.isolation.worker.run": 100,
   "kimi.effect.clock": 0.05,
   "kimi.effect.uuid": 0.1,
-  // Structural gate threshold — 0 allowed failures (not a perf-ms budget).
-  "email-i18n": 0,
+  "kimi.effect.email-i18n": 0.5,
 };
 
 /** Symbol-keyed workloads — threshold lookup uses `kimi.effect.${registryKey}`. */
@@ -138,6 +137,14 @@ export const MODULE_REGISTRY: Record<string, ModuleRegistryEntry> = {
     thresholdMs: 0.1,
     workload: () => {
       Bun.randomUUIDv7();
+    },
+  },
+  "email-i18n": {
+    symbol: "kimi.effect.email",
+    thresholdMs: 0.5,
+    workload: async () => {
+      const { auditEmailI18n } = await import("../../../../../src/lib/email-i18n.ts");
+      auditEmailI18n();
     },
   },
 };

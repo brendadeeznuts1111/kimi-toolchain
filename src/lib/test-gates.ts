@@ -36,6 +36,7 @@ export const UNIT_TEST_FILES = [
   "test/bunfig-policy-gate.unit.test.ts",
   "test/url-i18n-gate.unit.test.ts",
   "test/email-i18n-gate.unit.test.ts",
+  "test/email-i18n.unit.test.ts",
   "test/gate-registry.unit.test.ts",
   "test/doctor-gates-runner.unit.test.ts",
   "test/gates-trading.unit.test.ts",

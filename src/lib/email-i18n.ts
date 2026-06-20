@@ -76,9 +76,30 @@ export interface EmailI18nAudit {
   limitations: readonly string[];
 }
 
+export interface EmailValidationResult {
+  valid: boolean;
+  local: string;
+  domain: string;
+  /** ASCII hostname (Punycode labels) when the domain encodes IDN or differs from Unicode input. */
+  punycode?: string;
+  errors: string[];
+}
+
 function localPartHasUnicode(local: string): boolean {
   // eslint-disable-next-line no-control-regex
   return /[^\u0000-\u007F]/.test(local);
+}
+
+/** Lightweight domain-part rules — not full RFC 5322 / RFC 6531. */
+export function validateEmailDomain(domain: string): string | null {
+  if (octetLength(domain) > DOMAIN_MAX_OCTETS) {
+    return `domain exceeds ${DOMAIN_MAX_OCTETS} octets`;
+  }
+  if (domain.startsWith(".") || domain.endsWith(".")) return "domain boundary violation";
+  if (domain.includes("..")) return "domain contains consecutive dots";
+  const labels = domain.split(".");
+  if (labels.some((label) => !label)) return "empty domain label";
+  return null;
 }
 
 /** Lightweight local-part rules — not full RFC 6531. */
@@ -103,6 +124,63 @@ function matchesExpectation(probe: EmailI18nProbe, fixture: EmailI18nFixture): b
   if (probe.status !== "invalid") return false;
   if (!fixture.invalidReason) return true;
   return (probe.reason ?? "").includes(fixture.invalidReason);
+}
+
+/**
+ * Validate email structure: `@` split, UTF-8 local part, IDN domain via punycode.toASCII.
+ * Not a full RFC 5322 parser — see {@link EMAIL_I18N_LIMITATIONS}.
+ */
+export function validateEmail(email: string): EmailValidationResult {
+  const errors: string[] = [];
+  const atCount = (email.match(/@/g) ?? []).length;
+
+  if (atCount === 0) {
+    return { valid: false, local: "", domain: "", errors: ["Missing @"] };
+  }
+  if (atCount > 1) {
+    return { valid: false, local: "", domain: "", errors: ["Multiple @ signs"] };
+  }
+
+  const at = email.indexOf("@");
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+
+  if (!local) errors.push("Empty local part");
+  if (!domain) errors.push("Empty domain part");
+  if (!local || !domain) {
+    return { valid: false, local, domain, errors };
+  }
+
+  const localPartError = validateEmailLocalPart(local);
+  if (localPartError) errors.push(localPartError);
+
+  const domainShapeError = validateEmailDomain(domain);
+  if (domainShapeError) errors.push(domainShapeError);
+
+  let punycode: string | undefined;
+  if (!domainShapeError) {
+    try {
+      punycode = normalizeHostnameAscii(domain);
+      if (normalizeHostnameAscii(punycode) !== punycode) {
+        errors.push("Domain not idempotent under punycode.toASCII");
+      }
+      if (octetLength(punycode) > DOMAIN_MAX_OCTETS) {
+        errors.push(`domain exceeds ${DOMAIN_MAX_OCTETS} octets`);
+      }
+    } catch (error: unknown) {
+      errors.push(`Domain error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  const showPunycode = punycode && punycode !== domain.trim().toLowerCase();
+
+  return {
+    valid: errors.length === 0,
+    local,
+    domain,
+    ...(showPunycode ? { punycode } : {}),
+    errors,
+  };
 }
 
 /** Probe a single email address against structural + i18n rules. */
