@@ -8,7 +8,7 @@
  */
 
 import { $ } from "bun";
-import { existsSync, readdirSync, statSync } from "fs";
+import { listDir, makeDir, pathExists, pathStat } from "../lib/bun-io.ts";
 import { join } from "path";
 import { homeDir, toolsDir } from "../lib/paths.ts";
 import { resolveProjectRoot, safeParse } from "../lib/utils.ts";
@@ -100,19 +100,19 @@ async function getLastCommitMessage(projectDir: string): Promise<string> {
 /** Find the most recent wire.jsonl across all sessions. */
 function findLatestWireLog(home: string = homeDir()): string | null {
   const sessionsDir = join(home, ".kimi-code", "sessions");
-  if (!existsSync(sessionsDir)) return null;
+  if (!pathExists(sessionsDir)) return null;
 
   let latestWire: string | null = null;
   let latestMtime = 0;
 
-  for (const workspace of readdirSync(sessionsDir, { withFileTypes: true })) {
+  for (const workspace of listDir(sessionsDir, { withFileTypes: true })) {
     if (!workspace.isDirectory()) continue;
     const workspacePath = join(sessionsDir, workspace.name);
-    for (const session of readdirSync(workspacePath, { withFileTypes: true })) {
+    for (const session of listDir(workspacePath, { withFileTypes: true })) {
       if (!session.isDirectory()) continue;
       const wirePath = join(workspacePath, session.name, "agents", "main", "wire.jsonl");
-      if (!existsSync(wirePath)) continue;
-      const mtime = statSync(wirePath).mtimeMs;
+      if (!pathExists(wirePath)) continue;
+      const mtime = pathStat(wirePath).mtimeMs;
       if (mtime > latestMtime) {
         latestMtime = mtime;
         latestWire = wirePath;
@@ -140,7 +140,7 @@ async function analyzeError(
 // ── Session History (from memory DB if available) ────────────────────
 
 async function getRecentSessions(project: string, limit = 5): Promise<SessionEvent[]> {
-  if (!existsSync(MEMORY_DB)) return [];
+  if (!pathExists(MEMORY_DB)) return [];
 
   try {
     const { Database } = await import("bun:sqlite");
@@ -167,9 +167,8 @@ async function getRecentSessions(project: string, limit = 5): Promise<SessionEve
 async function recordFailure(project: string, errorText: string, suggestions: string[]) {
   try {
     const { Database } = await import("bun:sqlite");
-    if (!existsSync(WIZARD_DIR)) {
-      const { mkdirSync } = await import("fs");
-      mkdirSync(WIZARD_DIR, { recursive: true });
+    if (!pathExists(WIZARD_DIR)) {
+      makeDir(WIZARD_DIR, { recursive: true });
     }
     const db = new Database(join(WIZARD_DIR, "failures.sqlite"), { create: true });
     db.exec(`
@@ -275,7 +274,7 @@ interface WireEvent {
 }
 
 async function parseWireLog(wirePath: string): Promise<number> {
-  if (!existsSync(wirePath)) {
+  if (!pathExists(wirePath)) {
     logger.error(`Wire log not found: ${wirePath}`);
     return 1;
   }
@@ -358,7 +357,7 @@ async function doctor(projectDir: string) {
   }> = [];
 
   // Git repo check
-  const hasGit = existsSync(join(projectDir, ".git"));
+  const hasGit = pathExists(join(projectDir, ".git"));
   checks.push({
     name: "git-repo",
     status: hasGit ? "ok" : "warn",
@@ -369,8 +368,8 @@ async function doctor(projectDir: string) {
   // Memory DB check
   checks.push({
     name: "memory-db",
-    status: existsSync(MEMORY_DB) ? "ok" : "warn",
-    message: existsSync(MEMORY_DB) ? "Accessible" : "Not found — sessions won't be recorded",
+    status: pathExists(MEMORY_DB) ? "ok" : "warn",
+    message: pathExists(MEMORY_DB) ? "Accessible" : "Not found — sessions won't be recorded",
     fixable: false,
   });
 
@@ -387,8 +386,8 @@ async function doctor(projectDir: string) {
   const guardianPath = join(toolsDir(), "kimi-guardian.ts");
   checks.push({
     name: "guardian",
-    status: existsSync(guardianPath) ? "ok" : "warn",
-    message: existsSync(guardianPath)
+    status: pathExists(guardianPath) ? "ok" : "warn",
+    message: pathExists(guardianPath)
       ? "Available"
       : "Not found — lockfile issues won't be detected",
     fixable: false,
