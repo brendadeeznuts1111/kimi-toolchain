@@ -394,7 +394,7 @@ export const BUN_INSTALL_PLATFORM_POLICY: readonly BunInstallPolicyRowDef[] = [
     cliFlag: "--cpu",
     sinceBun: "1.0",
     docsAnchor: "platform-specific-dependencies",
-    notes: "arm64 | x64 | ia32 | ppc64 | s390x | *",
+    notes: "arm64 | x64 | ia32 | ppc64 | s390x; lockfile stores normalized cpu — cross-platform without lockfile drift",
   },
   {
     group: "platform",
@@ -406,7 +406,7 @@ export const BUN_INSTALL_PLATFORM_POLICY: readonly BunInstallPolicyRowDef[] = [
     cliFlag: "--os",
     sinceBun: "1.0",
     docsAnchor: "platform-specific-dependencies",
-    notes: "linux | darwin | win32 | freebsd | openbsd | sunos | aix",
+    notes: "linux | darwin | win32 | freebsd | openbsd | sunos | aix; lockfile stores normalized cpu/os — cross-platform without lockfile drift",
   },
   {
     group: "platform",
@@ -733,6 +733,13 @@ export interface BunInstallRuntimeCapabilities {
     releaseUrl: typeof BUN_RELEASE_1_3_13_SOURCE_MAPS_URL;
     notes: string;
   };
+  parallelConsole: {
+    status: "buffered";
+    appliesTo: "bun test --parallel";
+    flush: "per-file atomic";
+    streams: readonly ["console.log", "console.error"];
+    notes: string;
+  };
 }
 
 export interface BunInstallRuntimeEnvironment {
@@ -997,6 +1004,14 @@ function buildRuntimeCapabilities(
       releaseUrl: BUN_RELEASE_1_3_13_SOURCE_MAPS_URL,
       notes:
         "Bun 1.3.13+ stores source maps in a compact bit-packed format instead of the older Mapping.List representation, reducing memory pressure for large maps during stack lookups and compiled-binary startup.",
+    },
+    parallelConsole: {
+      status: "buffered",
+      appliesTo: "bun test --parallel",
+      flush: "per-file atomic",
+      streams: ["console.log", "console.error"],
+      notes:
+        "Bun buffers console output per test file under --parallel and flushes each file atomically so concurrent files do not interleave.",
     },
   };
 }
@@ -1276,6 +1291,7 @@ export function formatInstallPolicyReport(report: BunInstallConfigAudit): string
     `  streamingExtraction: ${report.runtimeCapabilities.streamingExtraction.status} (disable: ${report.runtimeCapabilities.streamingExtraction.disableEnv}=1)`,
     `  isolatedLinkerFastPath: ${report.runtimeCapabilities.isolatedLinkerFastPath.status} (${report.runtimeCapabilities.isolatedLinkerFastPath.cliFlag}; current=${report.runtimeCapabilities.isolatedLinkerFastPath.linker ?? "unset"})`,
     `  sourceMapsMemory: ${report.runtimeCapabilities.sourceMapsMemory.status} (Bun 1.3.13+ compact maps)`,
+    `  parallelConsole: ${report.runtimeCapabilities.parallelConsole.status} (${report.runtimeCapabilities.parallelConsole.flush})`,
     "Runtime environment:",
     `  noOrphans: ${report.runtimeEnvironment.noOrphans.status} (${report.runtimeEnvironment.noOrphans.env}=${report.runtimeEnvironment.noOrphans.value ?? "unset"})`,
     `  globalStore: ${report.runtimeEnvironment.globalStore.status} (${report.runtimeEnvironment.globalStore.env}=${report.runtimeEnvironment.globalStore.value ?? "unset"}; bunfig=${report.runtimeEnvironment.globalStore.bunfigValue ?? "unset"})`,

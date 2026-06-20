@@ -164,6 +164,7 @@ describe("bun-install-config", () => {
         expect(lines.some((l) => l.includes("streamingExtraction: enabled"))).toBe(true);
         expect(lines.some((l) => l.includes("isolatedLinkerFastPath: active"))).toBe(true);
         expect(lines.some((l) => l.includes("sourceMapsMemory: optimized"))).toBe(true);
+        expect(lines.some((l) => l.includes("parallelConsole: buffered"))).toBe(true);
         expect(lines.some((l) => l.includes("Runtime environment"))).toBe(true);
         expect(lines.some((l) => l.includes("transpilerCache: snapshot-only"))).toBe(true);
         expect(lines.some((l) => l.includes("Platform-specific"))).toBe(true);
@@ -227,6 +228,23 @@ describe("bun-install-config", () => {
       releaseUrl: "https://bun.com/blog/bun-v1.3.13#source-maps-use-up-to-8x-less-memory",
       notes:
         "Bun 1.3.13+ stores source maps in a compact bit-packed format instead of the older Mapping.List representation, reducing memory pressure for large maps during stack lookups and compiled-binary startup.",
+    });
+  });
+
+  test("buildInstallPolicyReport documents Bun parallel console buffering", async () => {
+    const dir = testTempDir("bun-install-parallel-console-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    const report = await buildInstallPolicyReport(dir);
+
+    expect(report.runtimeCapabilities.parallelConsole).toEqual({
+      status: "buffered",
+      appliesTo: "bun test --parallel",
+      flush: "per-file atomic",
+      streams: ["console.log", "console.error"],
+      notes:
+        "Bun buffers console output per test file under --parallel and flushes each file atomically so concurrent files do not interleave.",
     });
   });
 

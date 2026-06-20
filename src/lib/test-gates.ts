@@ -33,6 +33,7 @@ export const UNIT_TEST_FILES = [
   "test/bun-utils-gzip.unit.test.ts",
   "test/bun-utils-hostname.unit.test.ts",
   "test/bun-utils-hex.unit.test.ts",
+  "test/parallel-console.unit.test.ts",
   "test/html-reporter.unit.test.ts",
   "test/http-client.unit.test.ts",
   "test/bun-install-config.unit.test.ts",
