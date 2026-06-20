@@ -54,8 +54,21 @@ src/lib/canonical-references.ts
   stableStringify() → canonical-references.json (repo root)
         │
         ▼
-  bun run sync → ~/.kimi-code/canonical-references.json
+  bun run sync → collectRootLocalDocSyncPaths() → ~/.kimi-code/
 ```
+
+### Root sync rule (manifest-driven)
+
+`syncDesktop()` copies every `LOCAL_DOC_REFERENCES` row via `collectLocalDocSyncEntries()`:
+
+```typescript
+collectLocalDocSyncPaths();
+// AGENTS.md, docs/references/testing-execution.md, examples/artifact-dependency-graphs.md, …
+```
+
+The self-referencing `canonical-references` row therefore controls distribution of the manifest itself. **All** `LOCAL_DOC_REFERENCES` rows sync via `collectLocalDocSyncEntries()` — nested paths (`docs/references/*.md`, `docs/*.md`, `examples/*.md`) map `repoPath` → `~/.kimi-code/<repoPath>`. Infra files not indexed as local docs (`error-taxonomy.yml`, `dx.config.toml`, …) stay in `SYNC_ROOT_INFRA`.
+
+`lintLocalDocSyncPaths()` enforces `runtimePath === ~/.kimi-code/<repoPath>` for every row. Duplicate `repoPath` aliases (canvas companions) must share the same `runtimePath`.
 
 ### `buildCanonicalReferencesManifest()`
 

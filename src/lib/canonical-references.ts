@@ -12,6 +12,8 @@ import { stableStringify } from "./build-constants-registry.ts";
 
 export const CANONICAL_REFERENCES_SCHEMA_VERSION = 1;
 export const CANONICAL_REFERENCES_FILENAME = "canonical-references.json";
+/** Prefix for every `LocalDocReference.runtimePath` synced to ~/.kimi-code/. */
+export const KIMI_CODE_RUNTIME_PREFIX = "~/.kimi-code/" as const;
 
 export type ReferenceKind =
   | "runtime"
@@ -1232,6 +1234,8 @@ export function lintRepoReferences(options: LintRepoClonePathsOptions = {}): str
     ...lintRepoDuplicateKeys(),
     ...lintRepoProvidesLinks(),
     ...lintEcosystemRepoCompleteness(),
+    ...lintLocalDocSyncPaths(),
+    ...lintLocalDocSyncDuplicateRepoPaths(),
     ...lintRepoClonePaths(options),
   ];
 }
@@ -1281,6 +1285,73 @@ export function ecosystemReferenceById(id: string): EcosystemReference | undefin
 
 export function localDocReferenceById(id: string): LocalDocReference | undefined {
   return LOCAL_DOC_BY_ID[id as LocalDocId];
+}
+
+/** True when `repoPath` is repo-root relative (no directory separator). */
+export function isRootLocalDocRepoPath(repoPath: string): boolean {
+  return !repoPath.includes("/");
+}
+
+/** All unique `repoPath` values indexed as local docs (root + nested). */
+export function collectLocalDocSyncPaths(): readonly string[] {
+  const paths = new Set<string>();
+  for (const doc of LOCAL_DOC_REFERENCES) paths.add(doc.repoPath);
+  return [...paths].sort();
+}
+
+/** Deduped localDoc rows for sync — one entry per `repoPath`. */
+export function collectLocalDocSyncEntries(): readonly LocalDocReference[] {
+  const byRepoPath = new Map<string, LocalDocReference>();
+  for (const doc of LOCAL_DOC_REFERENCES) {
+    if (!byRepoPath.has(doc.repoPath)) byRepoPath.set(doc.repoPath, doc);
+  }
+  return [...byRepoPath.values()].sort((a, b) => a.repoPath.localeCompare(b.repoPath));
+}
+
+/** Strip `~/.kimi-code/` prefix — desktop-relative destination for a localDoc row. */
+export function localDocDesktopRelativePath(runtimePath: string): string {
+  if (!runtimePath.startsWith(KIMI_CODE_RUNTIME_PREFIX)) {
+    throw new Error(`runtimePath must start with ${KIMI_CODE_RUNTIME_PREFIX}: ${runtimePath}`);
+  }
+  return runtimePath.slice(KIMI_CODE_RUNTIME_PREFIX.length);
+}
+
+/**
+ * `LOCAL_DOC_REFERENCES` rows synced flat to `~/.kimi-code/`.
+ * Rule: every localDoc whose `repoPath` has no `/` is a root sync target.
+ */
+export function collectRootLocalDocSyncPaths(): readonly string[] {
+  return collectLocalDocSyncPaths().filter(isRootLocalDocRepoPath);
+}
+
+/** Lint: every localDoc must declare `runtimePath` as `~/.kimi-code/<repoPath>`. */
+export function lintLocalDocSyncPaths(): string[] {
+  const violations: string[] = [];
+  for (const doc of LOCAL_DOC_REFERENCES) {
+    const expected = `${KIMI_CODE_RUNTIME_PREFIX}${doc.repoPath}`;
+    if (doc.runtimePath !== expected) {
+      violations.push(
+        `localDoc "${doc.id}": sync runtimePath must be "${expected}", got "${doc.runtimePath}"`
+      );
+    }
+  }
+  return violations;
+}
+
+/** Lint: duplicate repoPath rows must share the same runtimePath. */
+export function lintLocalDocSyncDuplicateRepoPaths(): string[] {
+  const violations: string[] = [];
+  const seen = new Map<string, LocalDocReference>();
+  for (const doc of LOCAL_DOC_REFERENCES) {
+    const prev = seen.get(doc.repoPath);
+    if (prev && prev.runtimePath !== doc.runtimePath) {
+      violations.push(
+        `localDoc duplicate repoPath "${doc.repoPath}": "${prev.id}" and "${doc.id}" disagree on runtimePath`
+      );
+    }
+    seen.set(doc.repoPath, doc);
+  }
+  return violations;
 }
 
 function docsLink(ref: EcosystemReference): string {

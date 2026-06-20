@@ -4,6 +4,7 @@ import { describe, expect, mock, test } from "bun:test";
 import { join } from "path";
 import { REPO_ROOT, testTempDir } from "./helpers.ts";
 import {
+  CANONICAL_REFERENCES_FILENAME,
   CANONICAL_REFERENCES_SCHEMA_VERSION,
   ECOSYSTEM_BY_ID,
   ECOSYSTEM_REFERENCES,
@@ -18,7 +19,13 @@ import {
   evaluateProbeHandoffCondition,
   resolveProbeHealthCheck,
   buildCanonicalReferencesManifest,
+  collectLocalDocSyncEntries,
+  collectLocalDocSyncPaths,
+  collectRootLocalDocSyncPaths,
   ecosystemReferenceById,
+  isRootLocalDocRepoPath,
+  lintLocalDocSyncPaths,
+  localDocDesktopRelativePath,
   formatCanonicalReferencesInspectPlain,
   formatCanonicalReferencesMarkdown,
   formatEcosystemReferenceUrlReport,
@@ -179,6 +186,21 @@ describe("canonical-references", () => {
 
   test("lintRepoReferences passes for canonical repo manifest", () => {
     expect(lintRepoReferences({ projectRoot: REPO_ROOT })).toEqual([]);
+  });
+
+  test("collectLocalDocSyncPaths includes root and nested manifest docs", () => {
+    const paths = collectLocalDocSyncPaths();
+    expect(paths).toContain(CANONICAL_REFERENCES_FILENAME);
+    expect(paths).toContain("AGENTS.md");
+    expect(paths).toContain("DEEP-QUALITY.md");
+    expect(paths).toContain("docs/references/testing-execution.md");
+    expect(paths).toContain("docs/handoff-rules.md");
+    expect(collectRootLocalDocSyncPaths().every((p) => isRootLocalDocRepoPath(p))).toBe(true);
+    expect(lintLocalDocSyncPaths()).toEqual([]);
+    expect(collectLocalDocSyncEntries().length).toBe(paths.length);
+    for (const entry of collectLocalDocSyncEntries()) {
+      expect(localDocDesktopRelativePath(entry.runtimePath)).toBe(entry.repoPath);
+    }
   });
 
   test("repo metadata includes description, defaultBranch, and ciStatusUrl", () => {

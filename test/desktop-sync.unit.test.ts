@@ -3,10 +3,15 @@ import { existsSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { artifactPath } from "../src/lib/artifacts.ts";
 import {
+  CANONICAL_REFERENCES_FILENAME,
+  collectRootLocalDocSyncPaths,
+} from "../src/lib/canonical-references.ts";
+import {
+  collectStaticFileSyncPaths,
   desktopRoot,
   ensureDesktopLayout,
   resolveDesktopPaths,
-  ROOT_TEMPLATES,
+  SYNC_ROOT_INFRA,
   syncDesktop,
 } from "../src/lib/desktop-sync.ts";
 
@@ -38,10 +43,47 @@ describe("desktop-sync", () => {
     expect(paths.templatesDst).toContain(".kimi-code/templates");
   });
 
-  test("ROOT_TEMPLATES includes core docs", () => {
-    expect(ROOT_TEMPLATES).toContain("AGENTS.md");
-    expect(ROOT_TEMPLATES).toContain("CODE_REFERENCES.md");
-    expect(ROOT_TEMPLATES).toContain("UNIFIED.md");
+  test("collectStaticFileSyncPaths merges manifest localDocs and infra", () => {
+    const paths = collectStaticFileSyncPaths();
+    for (const doc of collectRootLocalDocSyncPaths()) {
+      expect(paths).toContain(doc);
+    }
+    for (const doc of SYNC_ROOT_INFRA) {
+      expect(paths).toContain(doc);
+    }
+    expect(paths).toContain("AGENTS.md");
+    expect(paths).toContain("DEEP-QUALITY.md");
+    expect(paths).toContain(CANONICAL_REFERENCES_FILENAME);
+  });
+
+  test("syncDesktop copies nested manifest localDocs under desktop tree", async () => {
+    const tmpHome = artifactPath(REPO_ROOT, "tmp", `desktop-nested-docs-${Date.now()}`);
+    mkdirSync(tmpHome, { recursive: true });
+    Bun.env.HOME = tmpHome;
+    try {
+      const result = await syncDesktop(REPO_ROOT, { force: true });
+      const nested = "docs/references/testing-execution.md";
+      expect(result.updated).toContain(nested);
+      expect(existsSync(join(desktopRoot(), nested))).toBe(true);
+      expect(existsSync(join(desktopRoot(), "docs/handoff-rules.md"))).toBe(true);
+    } finally {
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
+  test("syncDesktop copies manifest root localDocs to desktop root", async () => {
+    const tmpHome = artifactPath(REPO_ROOT, "tmp", `desktop-root-docs-${Date.now()}`);
+    mkdirSync(tmpHome, { recursive: true });
+    Bun.env.HOME = tmpHome;
+    try {
+      const result = await syncDesktop(REPO_ROOT, { force: true });
+      expect(result.updated).toContain("DEEP-QUALITY.md");
+      expect(result.updated).toContain(CANONICAL_REFERENCES_FILENAME);
+      expect(existsSync(join(desktopRoot(), "DEEP-QUALITY.md"))).toBe(true);
+      expect(existsSync(join(desktopRoot(), CANONICAL_REFERENCES_FILENAME))).toBe(true);
+    } finally {
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
   });
 
   test("ensureDesktopLayout creates desktop dirs", () => {

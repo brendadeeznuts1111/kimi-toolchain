@@ -6,7 +6,8 @@ import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { sha256File } from "./utils.ts";
 import { agentsSkillsRoot, desktopRoot, skillsDir } from "./paths.ts";
-import { LABEL_PREFIX, ROOT_TEMPLATES } from "./desktop-sync.ts";
+import { collectLocalDocSyncPaths } from "./canonical-references.ts";
+import { collectStaticFileSyncPaths, LABEL_PREFIX, SYNC_ROOT_INFRA } from "./desktop-sync.ts";
 
 async function addGlobHashes(
   hashes: Record<string, string>,
@@ -44,7 +45,12 @@ export async function computeSyncHashes(repoRoot: string): Promise<Record<string
   await addGlobHashes(hashes, kimiHooksDir, LABEL_PREFIX.KIMI_HOOKS, "*.ts");
   await addGlobHashes(hashes, templatesDir, LABEL_PREFIX.TEMPLATES, "**/*");
 
-  for (const doc of ROOT_TEMPLATES) {
+  for (const doc of collectLocalDocSyncPaths()) {
+    const path = join(repoRoot, doc);
+    if (pathExists(path)) hashes[doc] = await sha256File(path);
+  }
+
+  for (const doc of SYNC_ROOT_INFRA) {
     const path = join(repoRoot, doc);
     if (pathExists(path)) hashes[doc] = await sha256File(path);
   }
@@ -75,7 +81,7 @@ function desktopPathForKey(key: string): string | null {
     return join(agentsSkillsRoot(), "kimi-toolchain", key.slice(13));
   }
   if (key.startsWith("kimi-skill/")) return join(skillsDir(), "kimi-toolchain", key.slice(11));
-  if ((ROOT_TEMPLATES as readonly string[]).includes(key)) return join(root, key);
+  if (collectStaticFileSyncPaths().includes(key)) return join(root, key);
   return null;
 }
 

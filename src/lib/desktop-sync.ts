@@ -3,6 +3,7 @@
  */
 
 import { pathExists } from "./bun-io.ts";
+import { collectLocalDocSyncEntries, collectLocalDocSyncPaths } from "./canonical-references.ts";
 import { dirname, join } from "path";
 import { ensureDir } from "./utils.ts";
 import {
@@ -32,17 +33,26 @@ export function kimiCodeSkillsRoot(): string {
   return skillsDir();
 }
 
-export const ROOT_TEMPLATES = [
-  "AGENTS.md",
-  "CODE_REFERENCES.md",
-  "UNIFIED.md",
-  "TEMPLATES.md",
+/** Root repo files synced to ~/.kimi-code/ but not indexed in LOCAL_DOC_REFERENCES. */
+export const SYNC_ROOT_INFRA = [
   "CONTRIBUTING.md",
   "dx.config.toml",
   "kimi-toolchain.code-workspace",
   "error-taxonomy.yml",
-  "canonical-references.json",
 ] as const;
+
+/** All manifest-indexed files + infra extras copied as static paths under ~/.kimi-code/. */
+export function collectStaticFileSyncPaths(): readonly string[] {
+  return [...collectLocalDocSyncPaths(), ...SYNC_ROOT_INFRA].sort();
+}
+
+/** @deprecated Prefer collectStaticFileSyncPaths() */
+export function collectRootSyncPaths(): readonly string[] {
+  return collectStaticFileSyncPaths();
+}
+
+/** @deprecated Prefer collectStaticFileSyncPaths() — computed from LOCAL_DOC_REFERENCES + SYNC_ROOT_INFRA. */
+export const ROOT_TEMPLATES: readonly string[] = collectStaticFileSyncPaths();
 
 export const OPTIONAL_CONFIG_FILES = ["bunfig.toml", ".gitignore"] as const;
 
@@ -267,8 +277,18 @@ export async function syncDesktop(
     );
   }
 
-  for (const doc of ROOT_TEMPLATES) {
-    await copyIfChanged(join(repoRoot, doc), join(desktopRoot(), doc), doc, force, result);
+  for (const doc of collectLocalDocSyncEntries()) {
+    await copyIfChanged(
+      join(repoRoot, doc.repoPath),
+      join(desktopRoot(), doc.repoPath),
+      doc.repoPath,
+      force,
+      result
+    );
+  }
+
+  for (const file of SYNC_ROOT_INFRA) {
+    await copyIfChanged(join(repoRoot, file), join(desktopRoot(), file), file, force, result);
   }
 
   for (const file of OPTIONAL_CONFIG_FILES) {
