@@ -28,6 +28,7 @@ import {
   fetchDashboardArtifactMetadata,
   fetchDashboardGateGraph,
   fetchDashboardRunManifest,
+  fetchDashboardRunsList,
   fetchDashboardSessionsIndex,
 } from "../../../../src/lib/herdr-dashboard-data.ts";
 import { resolveDashboardProjectRoot } from "../../../../src/lib/dashboard-settings.ts";
@@ -182,33 +183,6 @@ async function fetchArtifacts(
   };
 }
 
-async function fetchRunsList(
-  projectPath: string,
-  filter = parseArtifactListQuery(new URLSearchParams())
-) {
-  const store = new ArtifactStore(projectPath);
-  const runs = [];
-  for (const manifest of await store.listRunManifests(filter)) {
-    runs.push({
-      runId: manifest.runId,
-      status: manifest.status,
-      startedAt: manifest.startedAt,
-      completedAt: manifest.completedAt,
-      gates: manifest.gates,
-      ...(manifest.sessionId ? { sessionId: manifest.sessionId } : {}),
-      ...(manifest.workspaceId ? { workspaceId: manifest.workspaceId } : {}),
-      ...(manifest.paneId ? { paneId: manifest.paneId } : {}),
-      ...(manifest.agentId ? { agentId: manifest.agentId } : {}),
-    });
-  }
-  return {
-    ok: true,
-    projectPath,
-    runs,
-    fetchedAt: new Date().toISOString(),
-  };
-}
-
 export async function handleArtifactsRequest(req: Request): Promise<Response | null> {
   const url = new URL(req.url);
   const path = url.pathname;
@@ -226,7 +200,7 @@ export async function handleArtifactsRequest(req: Request): Promise<Response | n
   }
 
   if (path === "/api/runs" && req.method === "GET") {
-    return jsonResponse(await fetchRunsList(root, filter));
+    return jsonResponse(await fetchDashboardRunsList(root, filter));
   }
 
   if (path === "/api/sessions" && req.method === "GET") {
@@ -240,7 +214,7 @@ export async function handleArtifactsRequest(req: Request): Promise<Response | n
       return jsonResponse({ ok: false, error: "session scope required" }, 400);
     }
     const sessionFilter = artifactFilterFromSessionRoute(scope);
-    return jsonResponse(await fetchRunsList(root, sessionFilter));
+    return jsonResponse(await fetchDashboardRunsList(root, sessionFilter));
   }
 
   const sessionArtifactsMatch = DASHBOARD_SESSION_ARTIFACTS.exec(url);

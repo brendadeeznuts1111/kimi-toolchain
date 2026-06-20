@@ -159,6 +159,40 @@ describe("examples-dashboard-artifacts", () => {
     }
   });
 
+  test("GET /api/runs lists saved run manifests via fetchDashboardRunsList SSOT", async () => {
+    const dir = testTempDir("ex-dash-runs-list-");
+    const prev = Bun.env.KIMI_ARTIFACT_PROJECT_ROOT;
+    Bun.env.KIMI_ARTIFACT_PROJECT_ROOT = dir;
+    try {
+      const store = new ArtifactStore(dir);
+      const runId = "run_dashboard_list";
+      await store.saveRunManifest({
+        schemaVersion: 1,
+        runId,
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        gates: ["model-drift"],
+        artifacts: {},
+        status: "pass",
+        sessionId: "sess_list",
+      });
+
+      const res = await handleArtifactsRequest(new Request("http://127.0.0.1/api/runs"));
+      expect(res?.status).toBe(200);
+      const body = (await res!.json()) as {
+        ok: boolean;
+        runs: Array<{ runId: string; sessionId?: string }>;
+      };
+      expect(body.ok).toBe(true);
+      expect(body.runs.some((row) => row.runId === runId)).toBe(true);
+      expect(body.runs.find((row) => row.runId === runId)?.sessionId).toBe("sess_list");
+    } finally {
+      if (prev === undefined) delete Bun.env.KIMI_ARTIFACT_PROJECT_ROOT;
+      else Bun.env.KIMI_ARTIFACT_PROJECT_ROOT = prev;
+      cleanupPath(dir);
+    }
+  });
+
   test("GET /api/runs/:runId returns provenance metadata on artifacts", async () => {
     const dir = testTempDir("ex-dash-run-meta-");
     const prev = Bun.env.KIMI_ARTIFACT_PROJECT_ROOT;

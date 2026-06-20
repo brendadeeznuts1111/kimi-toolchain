@@ -88,11 +88,11 @@ Artifacts are temporally grouped by gate name and filename; identity fields add
 **who** and **which invocation** produced each envelope. Implementation is
 intentionally phased — correlation first, narrative manifests second.
 
-| Phase                                      | Shipped                      | Purpose                                                                                                       |
-| ------------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **1 — Identity on every save**             | Yes                          | `runId`, `sessionId`, `workspaceId`, `paneId`, `agentId`, `parentRunId` in `metadata`                         |
-| **2 — Run manifest per doctor invocation** | Yes (with `--save-artifact`) | `.kimi/artifacts/runs/{runId}.json` groups all gates from one closure                                         |
-| **3 — Query + dashboard narrative**        | Partial                      | Filter APIs + Herdr Artifacts tab; wire `/api/runs` where the dashboard server delegates to artifact handlers |
+| Phase                                      | Shipped                      | Purpose                                                                                                                 |
+| ------------------------------------------ | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **1 — Identity on every save**             | Yes                          | `runId`, `sessionId`, `workspaceId`, `paneId`, `agentId`, `parentRunId` in `metadata`                                   |
+| **2 — Run manifest per doctor invocation** | Yes (with `--save-artifact`) | `.kimi/artifacts/runs/{runId}.json` groups all gates from one closure                                                   |
+| **3 — Query + dashboard narrative**        | Yes                          | `fetchDashboardRunsList` / `fetchDashboardRunManifest` on examples dashboard (`handlers/artifacts.ts`) and Herdr server |
 
 Gates do not pass identity fields manually. `ArtifactStore.save()` resolves
 context from the environment and always stamps a `runId`:

@@ -32,6 +32,8 @@ describe("examples-dashboard-routes", () => {
     expect(source).toContain("DASHBOARD_SESSION_RUNS");
     expect(source).toContain("DASHBOARD_SESSION_ARTIFACTS");
     expect(source).toContain('path === "/api/sessions"');
+    expect(source).toContain("fetchDashboardRunsList");
+    expect(source).toContain("fetchDashboardRunManifest");
     expect(source).toContain("artifactFilterFromSessionRoute");
     expect(source).toContain("count: artifacts.length");
   });
