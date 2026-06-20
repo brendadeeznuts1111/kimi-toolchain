@@ -129,10 +129,15 @@ describe("password hashing wrapper", () => {
       ).rejects.toThrow();
     });
 
-    test("argon2 memoryCost below minimum (8) is rejected", async () => {
+    test("argon2 memoryCost of 0 is rejected", async () => {
       await expect(
-        (async () => hashPassword(PLAIN, { algorithm: "argon2id", memoryCost: 4 }))()
-      ).rejects.toThrow();
+        (async () => hashPassword(PLAIN, { algorithm: "argon2id", memoryCost: 0 }))()
+      ).rejects.toThrow(/greater than 0/i);
+    });
+
+    test("argon2 accepts low memoryCost values (Bun 1.3.14+ no longer enforces m>=8)", async () => {
+      const hash = await hashPassword(PLAIN, { algorithm: "argon2id", memoryCost: 4 });
+      expect(hash).toStartWith("$argon2id$v=19$m=4,t=");
     });
   });
 });

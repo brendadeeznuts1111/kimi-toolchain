@@ -18,6 +18,7 @@ import {
   getRepoHead,
   hasUncommittedChanges,
   readManifest,
+  versionBelow,
 } from "../lib/version.ts";
 import { runSystemChecks, printMemoryBudget, countBlockingErrors } from "../lib/system-checks.ts";
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
@@ -256,11 +257,6 @@ function error(name: string, message: string): CheckResult {
   return check;
 }
 
-function semverBelow(version: string | null, floor: string): boolean {
-  if (!version) return true;
-  return Bun.semver.order(version, floor) < 0;
-}
-
 import { runOfficialKimiDoctor } from "../lib/kimi-doctor-wrapper.ts";
 import { renderMarkdownHtml } from "../lib/bun-markdown.ts";
 import { runBundleGate } from "../lib/bundle-gate.ts";
@@ -280,18 +276,18 @@ async function versionMatrix(): Promise<CheckResult[]> {
 
   if (desktopVersion) {
     results.push(ok("Desktop (kimi)", desktopLabel));
-    if (semverBelow(desktopVersion, "0.9.0")) {
+    if (versionBelow(desktopVersion, "0.9.0")) {
       results.push(warn("kimi acp", "requires kimi >= 0.9.0"));
     }
-    if (semverBelow(desktopVersion, "0.10.0")) {
+    if (versionBelow(desktopVersion, "0.10.0")) {
       results.push(warn("kimi doctor cmd", "requires kimi >= 0.10.0"));
     }
-    if (semverBelow(desktopVersion, "0.12.0")) {
+    if (versionBelow(desktopVersion, "0.12.0")) {
       results.push(warn("sub-skills", "0.12.0+ for stable sub-skill discovery"));
     } else {
       results.push(ok("sub-skills", "stable since 0.12.0"));
     }
-    if (semverBelow(desktopVersion, "0.14.0")) {
+    if (versionBelow(desktopVersion, "0.14.0")) {
       results.push(warn("kimi-code update", "0.14.0+ recommended — run kimi upgrade"));
     }
   } else {

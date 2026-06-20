@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-06-20T07:57:17.817Z",
-  "toolchainVersion": "0.1.0",
+  "toolchainVersion": "1.0.0",
   "ecosystem": [
     {
       "id": "bun",
