@@ -145,12 +145,18 @@
         "default": 100,
         "restrictions": "positive number — fallback threshold (ms) for handlers without a default",
         "see": ["src/lib/effect-benchmark.ts"]
+      },
+      "KIMI_EFFECT_BENCHMARK_SNAPSHOT_MAX_RUNS": {
+        "type": "number",
+        "default": 50,
+        "restrictions": "positive integer — max NDJSON snapshot rows retained per project",
+        "see": ["src/lib/effect-benchmark.ts"]
       }
     },
     "governance": {
       "KIMI_TUNING_SET_VERSION": {
         "type": "string",
-        "default": "1.4.2",
+        "default": "1.4.3",
         "restrictions": "semver — bump when any other KIMI_* define is added, changed, or removed",
         "see": ["scripts/lint-tuning-set-version.ts"]
       }

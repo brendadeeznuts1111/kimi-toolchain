@@ -6,12 +6,19 @@ import {
   discoverEffectBenchmarks,
   evaluateEffectBenchmarkGate,
   generateBenchmarkHTML,
+  isHostSpecificBenchmarkKey,
+  loadMergedEffectBenchmarkThresholds,
   readBenchmarkSnapshots,
   registerEffectBenchmark,
   resetEffectBenchmarkRegistry,
   runEffectBenchmarks,
   trainEffectThresholds,
 } from "../src/lib/effect-benchmark.ts";
+import {
+  thresholdsBaselinePath,
+  thresholdsLegacyPath,
+  thresholdsLocalPath,
+} from "../src/lib/paths.ts";
 import { withTempDir } from "./helpers.ts";
 
 describe("effect-benchmark", () => {
@@ -220,6 +227,78 @@ describe("effect-benchmark", () => {
     ];
     const regressions = detectBenchmarkRegressions(current, previous, 1.05);
     expect(regressions).toHaveLength(0);
+  });
+
+  it("classifies host-specific benchmark keys", () => {
+    expect(isHostSpecificBenchmarkKey("httpClient.fetch-tls1.2")).toBe(true);
+    expect(isHostSpecificBenchmarkKey("crypto.sha256")).toBe(false);
+  });
+
+  it("merges baseline, local, and legacy threshold layers", async () => {
+    await withTempDir("effect-benchmark-merge", async (dir) => {
+      await Bun.write(
+        thresholdsBaselinePath(dir),
+        JSON.stringify({ "crypto.sha256": 1, "util.inspect": 2 })
+      );
+      await Bun.write(
+        thresholdsLocalPath(dir),
+        JSON.stringify({ "httpClient.fetch-tls1.2": 100 })
+      );
+      await Bun.write(
+        thresholdsLegacyPath(dir),
+        JSON.stringify({ "util.inspect": 3, "clock": 4 })
+      );
+
+      const { thresholds, sources } = await loadMergedEffectBenchmarkThresholds(dir);
+      expect(thresholds["crypto.sha256"]).toBe(1);
+      expect(thresholds["httpClient.fetch-tls1.2"]).toBe(100);
+      expect(thresholds["util.inspect"]).toBe(3);
+      expect(thresholds["clock"]).toBe(4);
+      expect(sources["crypto.sha256"]).toBe(thresholdsBaselinePath(dir));
+      expect(sources["httpClient.fetch-tls1.2"]).toBe(thresholdsLocalPath(dir));
+      expect(sources["clock"]).toBe(thresholdsLegacyPath(dir));
+    });
+  });
+
+  it("gates with merged layers when projectRoot is set", async () => {
+    await withTempDir("effect-benchmark-layer-gate", async (dir) => {
+      await Bun.write(thresholdsBaselinePath(dir), JSON.stringify({ "gated.op": 5 }));
+      registerEffectBenchmark({
+        registryKey: "gated.op",
+        symbol: "kimi.effect.gate",
+        thresholdMs: 100,
+        workload: () => Bun.sleep(1),
+      });
+      const metrics = await runEffectBenchmarks({
+        projectRoot: dir,
+        iterations: 3,
+        warmup: 1,
+      });
+      const gate = await evaluateEffectBenchmarkGate(metrics, undefined, dir);
+      expect(gate.pass).toBe(true);
+    });
+  });
+
+  it("rotates ndjson snapshots to the configured max runs", async () => {
+    await withTempDir("effect-benchmark-rotate", async (dir) => {
+      const metrics = [
+        {
+          symbol: "s",
+          operation: "op",
+          actualMs: 1,
+          thresholdMs: 10,
+          pass: true,
+          registryKey: "k",
+        },
+      ];
+      const totalRuns = KIMI_EFFECT_BENCHMARK_SNAPSHOT_MAX_RUNS + 5;
+      for (let i = 0; i < totalRuns; i++) {
+        await appendBenchmarkSnapshot(dir, metrics, { tool: `run-${i}` });
+      }
+      const loaded = await readBenchmarkSnapshots(dir, totalRuns);
+      expect(loaded).toHaveLength(KIMI_EFFECT_BENCHMARK_SNAPSHOT_MAX_RUNS);
+      expect(loaded[0]!.tool).toBe(`run-${totalRuns - 1}`);
+    });
   });
 
   it("appends and reads snapshots", async () => {

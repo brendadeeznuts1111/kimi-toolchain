@@ -1958,27 +1958,45 @@ async function main(): Promise<number> {
     try {
       const { runEffectBenchmarks } = await import("../harness/perf-monitor.ts");
       const outDir = argValue("--out-dir") ?? process.cwd();
-      const thresholdsPath = join(outDir, "thresholds.json");
-      const reportPath = join(outDir, "effect-benchmark.html");
       const projectRoot = process.cwd();
+      const useLegacyThresholds =
+        outDir.replace(/\/$/, "") !== projectRoot.replace(/\/$/, "");
+      const thresholdsPath = useLegacyThresholds
+        ? join(outDir, "thresholds.json")
+        : undefined;
+      const reportPath = join(outDir, "effect-benchmark.html");
       const gitHead = await resolveGitHead(projectRoot);
 
-      const metrics = await runEffectBenchmarks({ thresholdsPath });
+      const metrics = await runEffectBenchmarks({
+        projectRoot,
+        thresholdsPath,
+      });
 
       if (TRAIN) {
         if (metrics.length === 0) {
           logger.error("No benchmark metrics to train on. Register an effect handler first.");
           return 1;
         }
-        const gate = await evaluateEffectBenchmarkGate(metrics, thresholdsPath);
+        const gate = await evaluateEffectBenchmarkGate(
+          metrics,
+          thresholdsPath,
+          projectRoot
+        );
         if (!gate.pass) {
           logger.error("Cannot train with failing benchmarks. Fix gates first:");
           for (const f of gate.failures) logger.error(`  - ${f}`);
           return 1;
         }
-        const result = await trainEffectThresholds(metrics, outDir);
+        const result = await trainEffectThresholds(
+          metrics,
+          useLegacyThresholds ? outDir : projectRoot
+        );
         if (result.written) {
-          logger.info(`Thresholds written to ${result.path}`);
+          logger.info(
+            result.paths.length > 1
+              ? `Thresholds written to ${result.paths.join(", ")}`
+              : `Thresholds written to ${result.path}`
+          );
         } else {
           logger.error("Training failed — all measured handlers must pass before training.");
           return 1;
@@ -1994,7 +2012,11 @@ async function main(): Promise<number> {
         }
       }
 
-      const gate = await evaluateEffectBenchmarkGate(metrics, thresholdsPath);
+      const gate = await evaluateEffectBenchmarkGate(
+        metrics,
+        thresholdsPath,
+        projectRoot
+      );
       const passCount = metrics.filter((m) => m.pass && !m.skipped).length;
       const measuredCount = metrics.filter((m) => !m.skipped).length;
 

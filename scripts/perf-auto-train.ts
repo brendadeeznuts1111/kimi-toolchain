@@ -3,8 +3,9 @@
  * perf-auto-train.ts — Closed-loop auto-training for effect benchmarks.
  *
  * Runs the registered effect-handler benchmarks, evaluates the gate, and
- * updates thresholds.json when everything passes. If thresholds changed,
- * it commits them so CI can close the training loop without a manual step.
+ * updates threshold layers when everything passes:
+ *   - thresholds.baseline.json (portable, committed)
+ *   - .kimi/thresholds.local.json (host-specific HTTP, gitignored)
  *
  * Usage:
  *   bun run scripts/perf-auto-train.ts
@@ -22,6 +23,7 @@ import {
   trainEffectThresholds,
   type BenchmarkRegression,
 } from "../src/lib/effect-benchmark.ts";
+import { thresholdsBaselinePath } from "../src/lib/paths.ts";
 // Side-effect import: registers the built-in effect-handler benchmarks.
 import { runEffectBenchmarks } from "../src/harness/perf-monitor.ts";
 import type { Metric } from "../src/harness/html-reporter.ts";
@@ -29,7 +31,7 @@ import { invokeCommand } from "../src/lib/tool-runner.ts";
 
 const REPO_ROOT = process.cwd();
 const OUT_DIR = join(REPO_ROOT, "reports");
-const THRESHOLDS_PATH = join(REPO_ROOT, "thresholds.json");
+const BASELINE_PATH = thresholdsBaselinePath(REPO_ROOT);
 const REPORT_PATH = join(OUT_DIR, "effect-benchmark.html");
 
 interface AutoTrainResult {
@@ -69,14 +71,14 @@ async function resolveGitHead(projectRoot: string): Promise<string | undefined> 
   }
 }
 
-async function stageAndCommitThresholds(thresholdsPath: string): Promise<boolean> {
-  const addResult = await invokeCommand(["git", "add", "--", thresholdsPath], {
+async function stageAndCommitBaseline(baselinePath: string): Promise<boolean> {
+  const addResult = await invokeCommand(["git", "add", "--", baselinePath], {
     cwd: REPO_ROOT,
     timeoutMs: 10_000,
     maxOutputBytes: 64 * 1024,
   });
   if (addResult.exitCode !== 0) {
-    console.error("Failed to stage thresholds:", addResult.stderr);
+    console.error("Failed to stage baseline thresholds:", addResult.stderr);
     return false;
   }
 
@@ -86,9 +88,9 @@ async function stageAndCommitThresholds(thresholdsPath: string): Promise<boolean
       "commit",
       "--no-verify",
       "-m",
-      "chore: auto-train effect benchmark thresholds",
+      "chore: auto-train effect benchmark baseline thresholds",
       "--",
-      thresholdsPath,
+      baselinePath,
     ],
     {
       cwd: REPO_ROOT,
@@ -97,7 +99,7 @@ async function stageAndCommitThresholds(thresholdsPath: string): Promise<boolean
     }
   );
   if (commitResult.exitCode !== 0) {
-    console.error("Failed to commit thresholds:", commitResult.stderr);
+    console.error("Failed to commit baseline thresholds:", commitResult.stderr);
     return false;
   }
 
@@ -118,8 +120,8 @@ async function pushCommit(): Promise<boolean> {
 }
 
 export async function runPerfAutoTrain(options: { push?: boolean } = {}): Promise<AutoTrainResult> {
-  const metrics = await runEffectBenchmarks({ thresholdsPath: THRESHOLDS_PATH });
-  const gate = await evaluateEffectBenchmarkGate(metrics, THRESHOLDS_PATH);
+  const metrics = await runEffectBenchmarks({ projectRoot: REPO_ROOT });
+  const gate = await evaluateEffectBenchmarkGate(metrics, undefined, REPO_ROOT);
 
   const previous = (await readBenchmarkSnapshots(REPO_ROOT, 1))[0];
   const regressions = previous ? detectBenchmarkRegressions(metrics, previous.metrics) : [];
@@ -130,7 +132,7 @@ export async function runPerfAutoTrain(options: { push?: boolean } = {}): Promis
     gatePass: gate.pass,
     regressions,
     trained: false,
-    thresholdsPath: THRESHOLDS_PATH,
+    thresholdsPath: BASELINE_PATH,
     thresholdsChanged: false,
     committed: false,
     reportPath: REPORT_PATH,
@@ -148,7 +150,7 @@ export async function runPerfAutoTrain(options: { push?: boolean } = {}): Promis
     return result;
   }
 
-  const beforeHash = await sha256File(THRESHOLDS_PATH);
+  const beforeHash = await sha256File(BASELINE_PATH);
   const trainResult = await trainEffectThresholds(metrics, REPO_ROOT);
   result.trained = trainResult.written;
 
@@ -157,7 +159,7 @@ export async function runPerfAutoTrain(options: { push?: boolean } = {}): Promis
     return result;
   }
 
-  const afterHash = await sha256File(THRESHOLDS_PATH);
+  const afterHash = await sha256File(BASELINE_PATH);
   result.thresholdsChanged = beforeHash !== afterHash;
 
   // Generate the living HTML report and snapshot history
@@ -176,7 +178,7 @@ export async function runPerfAutoTrain(options: { push?: boolean } = {}): Promis
   await Bun.write(REPORT_PATH, html);
 
   if (result.thresholdsChanged) {
-    result.committed = await stageAndCommitThresholds(THRESHOLDS_PATH);
+    result.committed = await stageAndCommitBaseline(BASELINE_PATH);
     if (result.committed && options.push) {
       await pushCommit();
     }
@@ -194,8 +196,8 @@ async function main(): Promise<number> {
     console.log("perf:auto-train dry run — would:");
     console.log("  1. run registered effect benchmarks");
     console.log("  2. evaluate gate and regression checks");
-    console.log("  3. write thresholds.json and reports/effect-benchmark.html");
-    console.log(`  4. commit thresholds.json${push ? " and push" : ""} if changed`);
+    console.log("  3. write threshold layers and reports/effect-benchmark.html");
+    console.log(`  4. commit thresholds.baseline.json${push ? " and push" : ""} if changed`);
     return 0;
   }
 

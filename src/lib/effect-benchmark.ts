@@ -7,11 +7,19 @@
  *   - Gated: actual median compared to trained/default threshold
  *   - Regressed: compared against the previous snapshot in .kimi/var/effect-benchmark.ndjson
  *   - Artifacted: rendered to a living HTML dashboard
+ *
+ * Threshold layers (lowest precedence first):
+ *   thresholds.baseline.json → .kimi/thresholds.local.json → thresholds.json (legacy)
  */
 
 import { join } from "path";
 import { formatPerfGateFailure } from "./perf-gate-format.ts";
-import { effectBenchmarkSnapshotsPath } from "./paths.ts";
+import {
+  effectBenchmarkSnapshotsPath,
+  thresholdsBaselinePath,
+  thresholdsLegacyPath,
+  thresholdsLocalPath,
+} from "./paths.ts";
 import { getProjectName, safeParse } from "./utils.ts";
 import type { Metric, ReportMeta } from "../harness/html-reporter.ts";
 import { generatePerfHTML } from "../harness/html-reporter.ts";
@@ -43,9 +51,12 @@ export interface BenchmarkOptions {
   warmup?: number;
   /** Filter to specific registry keys; null/undefined runs all registered handlers. */
   registryKeys?: string[] | null;
-  /** Project root for snapshot I/O. Defaults to process.cwd(). */
+  /** Project root for snapshot I/O and layered thresholds. Defaults to process.cwd(). */
   projectRoot?: string;
-  /** Path to trained thresholds.json. Defaults to {cwd}/thresholds.json. */
+  /**
+   * Legacy single-file thresholds path. When set, layered merge is skipped and only
+   * this file is loaded (used by isolated test dirs).
+   */
   thresholdsPath?: string;
 }
 
@@ -56,7 +67,10 @@ export interface PerfGateResult {
 
 export interface TrainResult {
   written: boolean;
+  /** Primary path written (baseline when layered; thresholds.json in legacy mode). */
   path: string;
+  /** All paths written during training. */
+  paths: string[];
   thresholds: Record<string, number>;
 }
 
@@ -75,6 +89,11 @@ export interface EffectBenchmarkSnapshot {
   project: string;
   gitHead?: string;
   metrics: Metric[];
+}
+
+export interface MergedThresholds {
+  thresholds: Record<string, number>;
+  sources: Record<string, string>;
 }
 
 const SCHEMA_VERSION = 1;
@@ -116,6 +135,11 @@ export function resetEffectBenchmarkRegistry(): void {
   registry.length = 0;
 }
 
+/** Host-specific benchmarks (network latency) train into the local overlay only. */
+export function isHostSpecificBenchmarkKey(registryKey: string): boolean {
+  return registryKey.startsWith("httpClient.");
+}
+
 function defaultThreshold(): number {
   return KIMI_EFFECT_BENCHMARK_DEFAULT_THRESHOLD_MS;
 }
@@ -129,7 +153,20 @@ function benchmarkOptions(
   };
 }
 
-async function loadTrainedThresholds(path: string): Promise<Record<string, number>> {
+function normalizeRoot(path: string): string {
+  return path.replace(/\/$/, "");
+}
+
+function projectRootFrom(opts?: BenchmarkOptions): string {
+  return normalizeRoot(opts?.projectRoot ?? process.cwd());
+}
+
+function shouldUseLayeredThresholds(outDir?: string): boolean {
+  if (!outDir) return true;
+  return normalizeRoot(outDir) === normalizeRoot(process.cwd());
+}
+
+async function loadThresholdFile(path: string): Promise<Record<string, number>> {
   try {
     const file = Bun.file(path);
     if (await file.exists()) return (await file.json()) as Record<string, number>;
@@ -137,6 +174,50 @@ async function loadTrainedThresholds(path: string): Promise<Record<string, numbe
     // ignore malformed thresholds file
   }
   return {};
+}
+
+function assignLayerSources(
+  sources: Record<string, string>,
+  thresholds: Record<string, number>,
+  path: string
+): void {
+  for (const key of Object.keys(thresholds)) {
+    sources[key] = path;
+  }
+}
+
+/** Merge baseline → local → legacy thresholds for a project root. */
+export async function loadMergedEffectBenchmarkThresholds(
+  projectRoot: string
+): Promise<MergedThresholds> {
+  const baselinePath = thresholdsBaselinePath(projectRoot);
+  const localPath = thresholdsLocalPath(projectRoot);
+  const legacyPath = thresholdsLegacyPath(projectRoot);
+
+  const baseline = await loadThresholdFile(baselinePath);
+  const local = await loadThresholdFile(localPath);
+  const legacy = await loadThresholdFile(legacyPath);
+
+  const thresholds = { ...baseline, ...local, ...legacy };
+  const sources: Record<string, string> = {};
+  assignLayerSources(sources, baseline, baselinePath);
+  assignLayerSources(sources, local, localPath);
+  assignLayerSources(sources, legacy, legacyPath);
+
+  return { thresholds, sources };
+}
+
+async function resolveTrainedThresholds(
+  opts?: BenchmarkOptions
+): Promise<MergedThresholds> {
+  if (opts?.thresholdsPath) {
+    const thresholds = await loadThresholdFile(opts.thresholdsPath);
+    const sources = Object.fromEntries(
+      Object.keys(thresholds).map((key) => [key, opts.thresholdsPath!])
+    );
+    return { thresholds, sources };
+  }
+  return loadMergedEffectBenchmarkThresholds(projectRootFrom(opts));
 }
 
 function trainedThresholdLastModified(path: string): string | undefined {
@@ -169,6 +250,22 @@ function median(values: number[]): number {
   const mid = Math.floor(sorted.length / 2);
   if (sorted.length % 2 === 0) return (sorted[mid - 1]! + sorted[mid]!) / 2;
   return sorted[mid]!;
+}
+
+function thresholdValue(
+  margin: number,
+  actualMs: number
+): number {
+  return Math.max(0.01, Math.round(actualMs * margin * 1000) / 1000);
+}
+
+async function writeThresholdLayer(
+  path: string,
+  updates: Record<string, number>
+): Promise<void> {
+  const existing = await loadThresholdFile(path);
+  const merged = { ...existing, ...updates };
+  await Bun.write(path, `${JSON.stringify(merged, null, 2)}\n`, { createPath: true });
 }
 
 async function runEntry(
@@ -249,8 +346,7 @@ export async function runEffectBenchmarks(opts?: BenchmarkOptions): Promise<Metr
       : entries.filter((e) => keys.includes(e.registryKey));
 
   const { iterations, warmup } = benchmarkOptions(opts);
-  const thresholdsPath = opts?.thresholdsPath ?? join(process.cwd(), "thresholds.json");
-  const trained = await loadTrainedThresholds(thresholdsPath);
+  const { thresholds: trained } = await resolveTrainedThresholds(opts);
 
   const metrics: Metric[] = [];
   for (const entry of filtered) {
@@ -259,7 +355,7 @@ export async function runEffectBenchmarks(opts?: BenchmarkOptions): Promise<Metr
   return metrics;
 }
 
-/** Train thresholds from passing metrics and write thresholds.json. */
+/** Train thresholds from passing metrics into layered or legacy threshold files. */
 export async function trainEffectThresholds(
   metrics: Metric[],
   outDir?: string,
@@ -267,46 +363,85 @@ export async function trainEffectThresholds(
 ): Promise<TrainResult> {
   const measured = metrics.filter((m) => !m.skipped);
   const allPass = measured.every((m) => m.pass && !Number.isNaN(m.actualMs));
-  const path = outDir
-    ? join(outDir.replace(/\/$/, ""), "thresholds.json")
-    : join(process.cwd(), "thresholds.json");
+  const root = normalizeRoot(outDir ?? process.cwd());
+  const legacyPath = outDir
+    ? join(normalizeRoot(outDir), "thresholds.json")
+    : thresholdsLegacyPath(process.cwd());
 
   if (!allPass) {
-    return { written: false, path, thresholds: {} };
+    return { written: false, path: legacyPath, paths: [], thresholds: {} };
   }
 
-  const thresholds: Record<string, number> = {};
+  const portable: Record<string, number> = {};
+  const hostSpecific: Record<string, number> = {};
+  const combined: Record<string, number> = {};
+
   for (const m of measured) {
-    thresholds[m.registryKey ?? m.operation] = Math.max(
-      0.01,
-      Math.round(m.actualMs * margin * 1000) / 1000
-    );
+    const key = m.registryKey ?? m.operation;
+    const value = thresholdValue(margin, m.actualMs);
+    combined[key] = value;
+    if (isHostSpecificBenchmarkKey(key)) {
+      hostSpecific[key] = value;
+    } else {
+      portable[key] = value;
+    }
   }
 
-  await Bun.write(path, `${JSON.stringify(thresholds, null, 2)}\n`, { createPath: true });
-  return { written: true, path, thresholds };
+  if (!shouldUseLayeredThresholds(outDir)) {
+    await writeThresholdLayer(legacyPath, combined);
+    return { written: true, path: legacyPath, paths: [legacyPath], thresholds: combined };
+  }
+
+  const writtenPaths: string[] = [];
+  if (Object.keys(portable).length > 0) {
+    const baselinePath = thresholdsBaselinePath(root);
+    await writeThresholdLayer(baselinePath, portable);
+    writtenPaths.push(baselinePath);
+  }
+  if (Object.keys(hostSpecific).length > 0) {
+    const localPath = thresholdsLocalPath(root);
+    await writeThresholdLayer(localPath, hostSpecific);
+    writtenPaths.push(localPath);
+  }
+
+  return {
+    written: writtenPaths.length > 0,
+    path: writtenPaths[0] ?? thresholdsBaselinePath(root),
+    paths: writtenPaths,
+    thresholds: combined,
+  };
 }
 
 /** Evaluate metrics against trained/default thresholds. */
 export async function evaluateEffectBenchmarkGate(
   metrics: Metric[],
-  thresholdsPath?: string
+  thresholdsPath?: string,
+  projectRoot?: string
 ): Promise<PerfGateResult> {
-  const path = thresholdsPath ?? join(process.cwd(), "thresholds.json");
-  const trained = await loadTrainedThresholds(path);
-  const lastTrainedAt = trainedThresholdLastModified(path);
+  let trained: Record<string, number>;
+  let sources: Record<string, string>;
+  if (thresholdsPath) {
+    trained = await loadThresholdFile(thresholdsPath);
+    sources = Object.fromEntries(Object.keys(trained).map((key) => [key, thresholdsPath]));
+  } else {
+    ({ thresholds: trained, sources } = await loadMergedEffectBenchmarkThresholds(
+      normalizeRoot(projectRoot ?? process.cwd())
+    ));
+  }
+
   const failures: string[] = [];
 
   for (const m of metrics) {
     if (m.skipped) continue;
-    const threshold = trained[m.registryKey ?? m.operation] ?? m.thresholdMs;
+    const key = m.registryKey ?? m.operation;
+    const trainedValue = trained[key];
+    const threshold = trainedValue ?? m.thresholdMs;
     if (Number.isNaN(m.actualMs) || m.actualMs > threshold) {
+      const sourcePath = trainedValue === undefined ? undefined : sources[key];
       failures.push(
         formatPerfGateFailure(m, threshold, {
-          thresholdSourceFile:
-            trained[m.registryKey ?? m.operation] === undefined ? undefined : path,
-          lastTrainedAt:
-            trained[m.registryKey ?? m.operation] === undefined ? undefined : lastTrainedAt,
+          thresholdSourceFile: sourcePath,
+          lastTrainedAt: sourcePath ? trainedThresholdLastModified(sourcePath) : undefined,
         })
       );
     }
@@ -348,7 +483,7 @@ function projectRootOrCwd(projectRoot?: string): string {
   return projectRoot ?? process.cwd();
 }
 
-/** Append a benchmark snapshot to the project NDJSON log. */
+/** Append a benchmark snapshot to the project NDJSON log (rotated to max runs). */
 export async function appendBenchmarkSnapshot(
   projectRoot: string,
   metrics: Metric[],
@@ -366,9 +501,16 @@ export async function appendBenchmarkSnapshot(
 
   const path = effectBenchmarkSnapshotsPath(root);
   const file = Bun.file(path);
-  const existing = (await file.exists()) ? await file.text() : "";
-  const record = `${JSON.stringify(snapshot)}\n`;
-  await Bun.write(path, `${existing}${record}`, { createPath: true });
+  const lines = (await file.exists())
+    ? (await file.text())
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+    : [];
+  lines.push(JSON.stringify(snapshot));
+  const maxRuns = KIMI_EFFECT_BENCHMARK_SNAPSHOT_MAX_RUNS;
+  const rotated = lines.length > maxRuns ? lines.slice(-maxRuns) : lines;
+  await Bun.write(path, `${rotated.map((line) => `${line}\n`).join("")}`, { createPath: true });
   return snapshot;
 }
 
@@ -426,7 +568,11 @@ export async function runBenchmarkLoop(
 ): Promise<BenchmarkRunResult> {
   const root = projectRootOrCwd(options.projectRoot);
   const metrics = await runEffectBenchmarks(options);
-  const gate = await evaluateEffectBenchmarkGate(metrics, options.thresholdsPath);
+  const gate = await evaluateEffectBenchmarkGate(
+    metrics,
+    options.thresholdsPath,
+    options.projectRoot
+  );
 
   let regressions: BenchmarkRegression[] = [];
   if (options.detectRegression) {

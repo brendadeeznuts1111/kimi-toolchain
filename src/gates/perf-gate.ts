@@ -1,4 +1,3 @@
-import { join } from "path";
 import { evaluateEffectBenchmarkGate } from "../lib/effect-benchmark.ts";
 import type { Metric } from "../harness/html-reporter.ts";
 import type { Gate, GateResult, GateRunOptions } from "./types.ts";
@@ -13,9 +12,8 @@ export interface PerfGateDoctorResult extends GateResult {
 export async function runPerfGate(opts: GateRunOptions = {}): Promise<GateResult> {
   const projectRoot = opts.projectRoot ?? process.cwd();
   const { runEffectBenchmarks } = await import("../harness/perf-monitor.ts");
-  const thresholdsPath = join(projectRoot, "thresholds.json");
-  const measurements = await runEffectBenchmarks({ projectRoot, thresholdsPath });
-  const gate = await evaluateEffectBenchmarkGate(measurements, thresholdsPath);
+  const measurements = await runEffectBenchmarks({ projectRoot });
+  const gate = await evaluateEffectBenchmarkGate(measurements, undefined, projectRoot);
 
   const result: PerfGateDoctorResult = {
     status: gate.pass ? "pass" : "fail",

@@ -203,6 +203,15 @@ declare const KIMI_EFFECT_BENCHMARK_REGRESSION_TOLERANCE: number;
 declare const KIMI_EFFECT_BENCHMARK_DEFAULT_THRESHOLD_MS: number;
 
 /**
+ * @defineDomain effect-benchmark
+ * @type number
+ * @default 50
+ * @restrictions positive integer — max NDJSON snapshot rows retained per project
+ * @see src/lib/effect-benchmark.ts
+ */
+declare const KIMI_EFFECT_BENCHMARK_SNAPSHOT_MAX_RUNS: number;
+
+/**
  * @defineDomain governance
  * @type string
  * @default "1.2.0"

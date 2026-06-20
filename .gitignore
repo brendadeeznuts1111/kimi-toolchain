@@ -32,6 +32,9 @@ reports/
 *.log
 *.bun-build
 
+# Machine-trained perf thresholds (portable baseline is thresholds.baseline.json)
+thresholds.json
+
 # Local toolchain / editor runtime (repo root only)
 .kimi/
 .reasonix/

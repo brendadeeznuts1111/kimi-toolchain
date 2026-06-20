@@ -150,6 +150,21 @@ export function effectBenchmarkSnapshotsPath(projectRoot: string): string {
   return join(projectKimiDir(projectRoot), "var", "effect-benchmark.ndjson");
 }
 
+/** Return {projectRoot}/thresholds.baseline.json — committed portable thresholds. */
+export function thresholdsBaselinePath(projectRoot: string): string {
+  return join(projectRoot, "thresholds.baseline.json");
+}
+
+/** Return {projectRoot}/.kimi/thresholds.local.json — gitignored host-specific overlay. */
+export function thresholdsLocalPath(projectRoot: string): string {
+  return join(projectKimiDir(projectRoot), "thresholds.local.json");
+}
+
+/** Return {projectRoot}/thresholds.json — legacy single-file fallback. */
+export function thresholdsLegacyPath(projectRoot: string): string {
+  return join(projectRoot, "thresholds.json");
+}
+
 /** Return {projectRoot}/.kimi/identity.ndjson */
 export function identityAuditPath(projectRoot: string): string {
   return join(projectKimiDir(projectRoot), "identity.ndjson");

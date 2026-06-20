@@ -1,0 +1,13 @@
+{
+  "crypto.sha256": 0.01,
+  "crypto.sha3-224": 0.01,
+  "crypto.sha3-256": 0.01,
+  "crypto.sha3-384": 0.01,
+  "crypto.sha3-512": 0.01,
+  "crypto.subtle.sha3-256": 0.05,
+  "util.inspect": 0.01,
+  "util.deepEquals": 0.01,
+  "image.metadata": 0.01,
+  "clock": 0.01,
+  "uuid": 0.01
+}
