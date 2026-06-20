@@ -7,6 +7,7 @@
  *   kimi-fix doctor [project-path]
  */
 
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { makeDir, pathExists } from "../lib/bun-io.ts";
 import { join, basename, resolve } from "path";
 import { $ } from "bun";
@@ -350,14 +351,16 @@ async function main(): Promise<number> {
   return 0;
 }
 
-const exitCode = await runCliExit(
-  Effect.tryPromise({
-    try: () => main(),
-    catch: (e) =>
-      new CliError({
-        message: e instanceof Error ? e.message : String(e),
-      }),
-  }),
-  { toolName: "kimi-fix", logger }
-);
-process.exit(exitCode);
+if (isDirectRun(import.meta.path)) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        new CliError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    }),
+    { toolName: "kimi-fix", logger }
+  );
+  process.exit(exitCode);
+}

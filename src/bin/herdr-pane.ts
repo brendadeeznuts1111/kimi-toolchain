@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { isDirectRun } from "../lib/bun-utils.ts";
 /**
  * herdr-pane — CLI for herdr pane operations
  *
@@ -512,4 +513,6 @@ async function main() {
   }
 }
 
-main();
+if (isDirectRun(import.meta.path)) {
+  void main();
+}

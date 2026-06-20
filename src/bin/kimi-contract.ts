@@ -15,6 +15,7 @@ import {
 } from "../lib/contract-signing.ts";
 import { recordDecision } from "../lib/decision-ledger.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { writeStdoutLine } from "../lib/cli-contract.ts";
@@ -130,14 +131,16 @@ function printValidation(result: ContractValidationResult): void {
   logger.info(`${prefix}: ${result.path}${key} — ${result.message}`);
 }
 
-const exitCode = await runCliExit(
-  Effect.tryPromise({
-    try: () => main(),
-    catch: (e) =>
-      e instanceof CliError
-        ? e
-        : new CliError({ message: e instanceof Error ? e.message : String(e) }),
-  }),
-  { toolName: "kimi-contract", logger }
-);
-process.exit(exitCode);
+if (isDirectRun(import.meta.path)) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        e instanceof CliError
+          ? e
+          : new CliError({ message: e instanceof Error ? e.message : String(e) }),
+    }),
+    { toolName: "kimi-contract", logger }
+  );
+  process.exit(exitCode);
+}

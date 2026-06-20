@@ -17,6 +17,7 @@ import {
 import { runWorkspaceCommand, printWorkspaceHelp } from "../lib/workspace-commands.ts";
 import { invokeTool, defaultToolTimeoutMs } from "../lib/tool-runner.ts";
 import { toolsDir } from "../lib/paths.ts";
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { createLogger } from "../lib/logger.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -94,7 +95,7 @@ async function main(): Promise<number> {
   return dispatchTool(tool, rest);
 }
 
-if (import.meta.main) {
+if (isDirectRun(import.meta.path)) {
   const exitCode = await runCliExit(
     Effect.tryPromise({
       try: () => main(),

@@ -14,6 +14,7 @@ import {
   suggestForError,
   type ClusterSummary,
 } from "../lib/error-clustering.ts";
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { writeStdoutLine } from "../lib/cli-contract.ts";
@@ -113,14 +114,16 @@ async function main(): Promise<number> {
   throw new CliError({ message: `Unknown error command: ${command}` });
 }
 
-const exitCode = await runCliExit(
-  Effect.tryPromise({
-    try: () => main(),
-    catch: (e) =>
-      e instanceof CliError
-        ? e
-        : new CliError({ message: e instanceof Error ? e.message : String(e) }),
-  }),
-  { toolName: "kimi-error", logger }
-);
-process.exit(exitCode);
+if (isDirectRun(import.meta.path)) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        e instanceof CliError
+          ? e
+          : new CliError({ message: e instanceof Error ? e.message : String(e) }),
+    }),
+    { toolName: "kimi-error", logger }
+  );
+  process.exit(exitCode);
+}

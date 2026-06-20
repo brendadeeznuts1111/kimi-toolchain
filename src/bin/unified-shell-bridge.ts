@@ -4,6 +4,7 @@
  * Derives version from src/lib/version.ts (package.json).
  */
 
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { pathExists, pathLstat } from "../lib/bun-io.ts";
 import { writeStdoutNdjsonLineSync } from "../lib/ndjson.ts";
 import { MCP_BRIDGE_VERSION } from "../lib/version.ts";
@@ -242,7 +243,7 @@ const decoder = new TextDecoder();
 
 // ─── Main entry point ───────────────────────────────────────────────────────
 
-if (import.meta.main) {
+if (isDirectRun(import.meta.path)) {
   process.on("SIGINT", () => process.exit(0));
   process.on("SIGTERM", () => process.exit(0));
   process.on("SIGHUP", () => process.exit(0));

@@ -12,6 +12,7 @@ import { getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 import { runTool } from "../lib/tool-runner.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import {
@@ -224,14 +225,16 @@ async function main(): Promise<number> {
   return 0;
 }
 
-const exitCode = await runCliExit(
-  Effect.tryPromise({
-    try: () => main(),
-    catch: (e) =>
-      new CliError({
-        message: e instanceof Error ? e.message : String(e),
-      }),
-  }),
-  { toolName: "kimi-release", logger }
-);
-process.exit(exitCode);
+if (isDirectRun(import.meta.path)) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        new CliError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    }),
+    { toolName: "kimi-release", logger }
+  );
+  process.exit(exitCode);
+}

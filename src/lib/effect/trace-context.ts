@@ -3,7 +3,6 @@
  */
 
 import { Context, Layer } from "effect";
-import { randomUUID } from "node:crypto";
 
 export const TRACE_ID_ENV = "KIMI_TRACE_ID";
 export const PARENT_TRACE_ID_ENV = "KIMI_PARENT_TRACE_ID";
@@ -18,7 +17,7 @@ export interface TraceRuntime {
 export class TraceContext extends Context.Tag("TraceContext")<TraceContext, TraceRuntime>() {}
 
 export function createTraceId(): string {
-  return randomUUID();
+  return crypto.randomUUID();
 }
 
 export function readTraceFromEnv(): TraceRuntime | null {

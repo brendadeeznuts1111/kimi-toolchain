@@ -3,6 +3,7 @@
  */
 
 import { $ } from "bun";
+import { resolveExecutable } from "./bun-utils.ts";
 import { createLogger, type Logger } from "./logger.ts";
 import {
   getCachedCommandOutput,
@@ -11,8 +12,6 @@ import {
   clearProcessCache,
   countOrphanCandidates,
 } from "./proc-cache.ts";
-
-const decoder = new TextDecoder();
 
 // Re-export for consumers that imported clearProcessCache from here
 export { clearProcessCache };
@@ -149,12 +148,7 @@ export function isDockerDesktopRunning(): boolean {
 }
 
 export function isDockerCliInstalled(): boolean {
-  try {
-    const out = decoder.decode(Bun.spawnSync(["which", "docker"]).stdout);
-    return out.trim().length > 0;
-  } catch {
-    return false;
-  }
+  return resolveExecutable("docker") !== null;
 }
 
 export function isSyncDaemonRunning(): boolean {

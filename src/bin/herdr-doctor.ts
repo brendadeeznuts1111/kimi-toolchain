@@ -7,6 +7,7 @@ import {
   runFixSocket,
 } from "../lib/herdr-doctor.ts";
 
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { writeStdoutLine } from "../lib/cli-contract.ts";
 
 async function writeOut(line = ""): Promise<void> {
@@ -38,54 +39,58 @@ function parseArgs(argv: string[]) {
   };
 }
 
-const options = parseArgs(Bun.argv.slice(2));
-if (options.help) {
-  await writeOut(
-    [
-      "herdr-doctor [doctor] [--json] [--fix]",
-      "herdr-doctor fix-socket [--dry-run] [--live] [--json] [--error <text>]",
-      "",
-      "doctor  Read-only Herdr integration health for the DX config hub.",
-      "          --fix updates stale agent manifests when the server is running.",
-      "fix-socket  Materialize socket recovery plan with pgrep-resolved server PIDs.",
-      "          --dry-run (default) prints commands without executing them.",
-      "          --live executes graceful stop (10s timeout) and validated kill escalation.",
-      "          --error optional Herdr CLI stderr to select EAGAIN vs ECONNREFUSED plan.",
-    ].join("\n")
-  );
-  process.exit(0);
-}
-
-if (options.command === "fix-socket") {
-  try {
-    const run = () =>
-      runFixSocket({
-        dryRun: options.dryRun,
-        errorText: options.errorText || undefined,
-      });
-
-    const report = options.live
-      ? await Promise.race([
-          run(),
-          (async () => {
-            await Bun.sleep(FIX_SOCKET_LIVE_TOTAL_TIMEOUT_MS);
-            throw new Error(
-              `fix-socket --live exceeded ${FIX_SOCKET_LIVE_TOTAL_TIMEOUT_MS}ms total timeout`
-            );
-          })(),
-        ])
-      : await run();
-
-    if (options.json) await writeOut(JSON.stringify(report, null, 2));
-    else await printFixSocketHuman(report);
+if (!isDirectRun(import.meta.path)) {
+  // Imported as a module — skip CLI dispatch.
+} else {
+  const options = parseArgs(Bun.argv.slice(2));
+  if (options.help) {
+    await writeOut(
+      [
+        "herdr-doctor [doctor] [--json] [--fix]",
+        "herdr-doctor fix-socket [--dry-run] [--live] [--json] [--error <text>]",
+        "",
+        "doctor  Read-only Herdr integration health for the DX config hub.",
+        "          --fix updates stale agent manifests when the server is running.",
+        "fix-socket  Materialize socket recovery plan with pgrep-resolved server PIDs.",
+        "          --dry-run (default) prints commands without executing them.",
+        "          --live executes graceful stop (10s timeout) and validated kill escalation.",
+        "          --error optional Herdr CLI stderr to select EAGAIN vs ECONNREFUSED plan.",
+      ].join("\n")
+    );
     process.exit(0);
-  } catch (error) {
-    await writeOut(error instanceof Error ? error.message : String(error));
-    process.exit(1);
   }
-}
 
-const report = await inspectHerdrDoctor({ fix: options.fix });
-if (options.json) await writeOut(JSON.stringify(report, null, 2));
-else await printHerdrDoctorHuman(report);
-process.exit(report.readiness.ready ? 0 : 1);
+  if (options.command === "fix-socket") {
+    try {
+      const run = () =>
+        runFixSocket({
+          dryRun: options.dryRun,
+          errorText: options.errorText || undefined,
+        });
+
+      const report = options.live
+        ? await Promise.race([
+            run(),
+            (async () => {
+              await Bun.sleep(FIX_SOCKET_LIVE_TOTAL_TIMEOUT_MS);
+              throw new Error(
+                `fix-socket --live exceeded ${FIX_SOCKET_LIVE_TOTAL_TIMEOUT_MS}ms total timeout`
+              );
+            })(),
+          ])
+        : await run();
+
+      if (options.json) await writeOut(JSON.stringify(report, null, 2));
+      else await printFixSocketHuman(report);
+      process.exit(0);
+    } catch (error) {
+      await writeOut(error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  }
+
+  const report = await inspectHerdrDoctor({ fix: options.fix });
+  if (options.json) await writeOut(JSON.stringify(report, null, 2));
+  else await printHerdrDoctorHuman(report);
+  process.exit(report.readiness.ready ? 0 : 1);
+}

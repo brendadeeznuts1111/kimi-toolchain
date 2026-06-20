@@ -11,6 +11,7 @@ import {
 } from "../lib/capabilities.ts";
 import { createLogger } from "../lib/logger.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { writeStdoutLine } from "../lib/cli-contract.ts";
@@ -71,14 +72,16 @@ function statusIcon(status: CapabilityStatus): string {
   return "❌";
 }
 
-const exitCode = await runCliExit(
-  Effect.tryPromise({
-    try: () => main(),
-    catch: (e) =>
-      new CliError({
-        message: e instanceof Error ? e.message : String(e),
-      }),
-  }),
-  { toolName: "kimi-capabilities", logger }
-);
-process.exit(exitCode);
+if (isDirectRun(import.meta.path)) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        new CliError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    }),
+    { toolName: "kimi-capabilities", logger }
+  );
+  process.exit(exitCode);
+}

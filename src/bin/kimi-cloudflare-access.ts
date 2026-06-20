@@ -20,6 +20,7 @@
 
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { writeStdoutLine } from "../lib/cli-contract.ts";
@@ -847,7 +848,7 @@ async () => {
   return 1;
 }
 
-if (import.meta.main) {
+if (isDirectRun(import.meta.path)) {
   const exitCode = await runCliExit(
     Effect.tryPromise({
       try: () => main(),

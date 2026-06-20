@@ -11,6 +11,7 @@
 
 import { $, TOML } from "bun";
 import { Database } from "bun:sqlite";
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { makeDir, pathExists } from "../lib/bun-io.ts";
 import { join } from "path";
 import {
@@ -691,7 +692,7 @@ async function main(): Promise<number> {
   return 0;
 }
 
-if (import.meta.main) {
+if (isDirectRun(import.meta.path)) {
   const exitCode = await runCliExit(
     Effect.tryPromise({
       try: () => main(),

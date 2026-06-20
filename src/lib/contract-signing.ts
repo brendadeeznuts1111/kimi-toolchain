@@ -6,13 +6,6 @@ import { Data, Effect } from "effect";
 import { makeDir, pathExists } from "./bun-io.ts";
 import { dirname, extname, join, relative } from "path";
 import yaml from "js-yaml";
-import {
-  createPrivateKey,
-  createPublicKey,
-  sign as cryptoSign,
-  verify as cryptoVerify,
-  type KeyObject,
-} from "node:crypto";
 import { safeParse, sha256String } from "./utils.ts";
 
 export type ContractTrustStatus = "valid" | "unsigned" | "unknown-key" | "invalid";
@@ -143,16 +136,16 @@ export async function signContract(
   }
 
   const { normalized, payloadSha256 } = await readNormalizedContract(contractPath);
-  let privateKey: KeyObject;
+  let privateKey: CryptoKey;
   try {
-    privateKey = createPrivateKey(privateKeyPem);
+    privateKey = await importEd25519PrivateKey(privateKeyPem);
   } catch (cause) {
     throw new ContractSigningKeyError({
       message: cause instanceof Error ? cause.message : String(cause),
     });
   }
 
-  const signature = cryptoSign(null, new TextEncoder().encode(normalized), privateKey);
+  const signature = await signEd25519(privateKey, new TextEncoder().encode(normalized));
   const envelope: ContractSignatureEnvelope = {
     schemaVersion: 1,
     algorithm: "ed25519",
@@ -209,7 +202,7 @@ export async function validateContract(
     });
   }
 
-  const recognized = verifyWithTrustedKeys(normalized, signature, trustedKeys);
+  const recognized = await verifyWithTrustedKeys(normalized, signature, trustedKeys);
   if (recognized) {
     return {
       path: contractPath,
@@ -342,24 +335,26 @@ function parseContract(text: string, path: string): unknown {
   }
 }
 
-function verifyWithTrustedKeys(
+async function verifyWithTrustedKeys(
   normalized: string,
   signature: ContractSignatureEnvelope,
   trustedKeys: TrustedKeys
-): string | null {
+): Promise<string | null> {
   const candidates = Object.entries(trustedKeys).sort(([a], [b]) => {
     if (a === signature.keyId) return -1;
     if (b === signature.keyId) return 1;
     return a.localeCompare(b);
   });
+  const payload = new TextEncoder().encode(normalized);
+  const signatureBytes = hexToBytes(signature.signatureHex);
   for (const [keyId, trusted] of candidates) {
     try {
-      const publicKey = createPublicKey(trusted.publicKey);
-      const ok = cryptoVerify(
-        null,
-        new TextEncoder().encode(normalized),
+      const publicKey = await importEd25519PublicKey(trusted.publicKey);
+      const ok = await crypto.subtle.verify(
+        "Ed25519",
         publicKey,
-        hexToBytes(signature.signatureHex)
+        signatureBytes as Uint8Array<ArrayBuffer>,
+        payload as Uint8Array<ArrayBuffer>
       );
       if (ok) return keyId;
     } catch {
@@ -367,6 +362,40 @@ function verifyWithTrustedKeys(
     }
   }
   return null;
+}
+
+function pemToDer(pem: string): Uint8Array<ArrayBuffer> {
+  const base64 = pem.replace(/-----BEGIN[^-]+-----|-----END[^-]+-----|\s/g, "");
+  return Uint8Array.fromBase64(base64) as Uint8Array<ArrayBuffer>;
+}
+
+async function importEd25519PrivateKey(pem: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    "pkcs8",
+    pemToDer(pem),
+    { name: "Ed25519" },
+    false,
+    ["sign"]
+  );
+}
+
+async function importEd25519PublicKey(pem: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    "spki",
+    pemToDer(pem),
+    { name: "Ed25519" },
+    false,
+    ["verify"]
+  );
+}
+
+async function signEd25519(privateKey: CryptoKey, data: Uint8Array): Promise<Uint8Array> {
+  const signature = await crypto.subtle.sign(
+    "Ed25519",
+    privateKey,
+    Uint8Array.from(data) as Uint8Array<ArrayBuffer>
+  );
+  return new Uint8Array(signature);
 }
 
 function normalizeTrustedKeys(value: unknown): TrustedKeys {

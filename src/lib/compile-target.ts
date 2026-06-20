@@ -10,7 +10,7 @@
  */
 
 import { join } from "path";
-import { readableStreamToText } from "./bun-utils.ts";
+import { bunRevision, bunVersion, readableStreamToText } from "./bun-utils.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -73,19 +73,11 @@ export interface CompileCapabilities {
 let _bunVersion: string | null = null;
 let _bunRevision: string | null = null;
 
-async function resolveBunVersion(): Promise<{ version: string; revision: string }> {
+function resolveBunVersion(): { version: string; revision: string } {
   if (_bunVersion && _bunRevision) return { version: _bunVersion, revision: _bunRevision };
 
-  const proc = Bun.spawn(["bun", "--version"], { stdout: "pipe", stderr: "pipe" });
-  const version = (await readableStreamToText(proc.stdout)).trim();
-  await proc.exited;
-
-  const revProc = Bun.spawn(["bun", "--revision"], { stdout: "pipe", stderr: "pipe" });
-  const revision = (await readableStreamToText(revProc.stdout)).trim();
-  await revProc.exited;
-
-  _bunVersion = version || "unknown";
-  _bunRevision = revision || "unknown";
+  _bunVersion = bunVersion() || "unknown";
+  _bunRevision = bunRevision() || "unknown";
   return { version: _bunVersion, revision: _bunRevision };
 }
 
@@ -126,7 +118,7 @@ let _capabilities: CompileCapabilities | null = null;
 export async function probeCompileCapabilities(): Promise<CompileCapabilities> {
   if (_capabilities) return _capabilities;
 
-  const { version, revision } = await resolveBunVersion();
+  const { version, revision } = resolveBunVersion();
   const hasCompile = true; // --compile exists since Bun 1.0
   const hasBytecode = true; // --bytecode exists since Bun 1.1
   const esmBytecode = versionGte(

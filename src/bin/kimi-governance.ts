@@ -9,7 +9,7 @@
  */
 
 import { $ } from "bun";
-import { readableStreamToText } from "../lib/bun-utils.ts";
+import { isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
@@ -899,7 +899,7 @@ async function main(): Promise<number> {
   return 0;
 }
 
-if (import.meta.main) {
+if (isDirectRun(import.meta.path)) {
   const exitCode = await runCliExit(
     Effect.tryPromise({
       try: () => main(),

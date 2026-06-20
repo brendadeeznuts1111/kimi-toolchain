@@ -13,6 +13,7 @@
  *   doctor [--profile <name>]    Run MCP health checks.
  */
 
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { createLogger } from "../lib/logger.ts";
 import {
   applyMcpProfile,
@@ -305,4 +306,6 @@ async function main(): Promise<number> {
   return 1;
 }
 
-main().then((code) => process.exit(code));
+if (isDirectRun(import.meta.path)) {
+  main().then((code) => process.exit(code));
+}

@@ -5,6 +5,7 @@
  * @see https://bun.com/docs/pm/cli/install#platform-specific-dependencies
  */
 
+import { bunVersion } from "./bun-utils.ts";
 import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { TOML } from "bun";
@@ -850,7 +851,7 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
   };
 
   const versions: BunInstallVersionInfo = {
-    runtimeBun: Bun.version,
+    runtimeBun: bunVersion(),
     packageManager: packageMeta?.packageManager ?? null,
     enginesBun: packageMeta?.engines?.bun ?? null,
     policyMinBun: BUN_INSTALL_POLICY_MIN_BUN,

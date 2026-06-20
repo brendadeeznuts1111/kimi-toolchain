@@ -13,6 +13,7 @@
  *   KIMI_PROJECT_ROOT        Project root (defaults to git top-level or cwd)
  */
 
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { writeStdoutNdjsonLineSync } from "../lib/ndjson.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
 import { readHealthSnapshots } from "../lib/predictive-doctor.ts";
@@ -187,4 +188,6 @@ async function main(): Promise<void> {
   }
 }
 
-main();
+if (isDirectRun(import.meta.path)) {
+  void main();
+}

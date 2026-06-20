@@ -15,6 +15,7 @@ import { snapshotDir } from "../lib/paths.ts";
 import { Snapshot, snapshotPath, saveSnapshot, listSnapshots } from "../lib/snapshot-core.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 
@@ -280,14 +281,16 @@ async function main(): Promise<number> {
   return 0;
 }
 
-const exitCode = await runCliExit(
-  Effect.tryPromise({
-    try: () => main(),
-    catch: (e) =>
-      new CliError({
-        message: e instanceof Error ? e.message : String(e),
-      }),
-  }),
-  { toolName: "kimi-snapshot", logger }
-);
-process.exit(exitCode);
+if (isDirectRun(import.meta.path)) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        new CliError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    }),
+    { toolName: "kimi-snapshot", logger }
+  );
+  process.exit(exitCode);
+}

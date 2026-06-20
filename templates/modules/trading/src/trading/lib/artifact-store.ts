@@ -1,4 +1,4 @@
-import { hostname } from "node:os";
+import { hostname } from "os";
 import { join } from "path";
 import { listDir, makeDir, pathExists, removePath } from "./bun-io.ts";
 import { GATE_LEVEL_PRUNE_MS } from "../gates/types.ts";

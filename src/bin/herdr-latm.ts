@@ -18,6 +18,7 @@ import {
 import { discoverHerdrProjectConfig } from "../lib/herdr-project-config.ts";
 import { resolveHerdrProjectPath } from "../lib/herdr-project-runner.ts";
 
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { writeStdoutLine } from "../lib/cli-contract.ts";
 
 async function writeOut(line = ""): Promise<void> {
@@ -62,6 +63,9 @@ Examples:
 `);
 }
 
+if (!isDirectRun(import.meta.path)) {
+  // Imported as a module — skip CLI dispatch.
+} else {
 const [, , cmd, ...args] = Bun.argv;
 const json = parseFlag(args, "--json");
 
@@ -132,4 +136,5 @@ switch (cmd) {
 
   default:
     die(`Unknown command: ${cmd}\n\nRun herdr-latm --help`);
+}
 }

@@ -6,10 +6,103 @@
  * For inspect output, equality, and ANSI helpers see src/lib/inspect.ts.
  */
 
-import { peek } from "bun";
+import { peek, password } from "bun";
+import { hostname as osHostname } from "os";
 
 /** Monotonic UUID v7 — prefer for session/db ids (see Bun.randomUUIDv7). */
 export { randomUUIDv7 } from "bun";
+
+/**
+ * Password hashing SSOT (`password` from `"bun"` ≡ `Bun.password`).
+ *
+ * Defaults: match bare `Bun.password.hash(plain)` — argon2id, `m=65536,t=2,p=1` (see hash-a-password guide).
+ * Tests: {@link getPasswordOptions} uses 1 MiB / `timeCost: 1` when `Bun.env.NODE_ENV === "test"`.
+ *
+ * Rotation: change {@link DEFAULT_PASSWORD_OPTIONS} only; new {@link hashPassword} uses new costs;
+ * {@link verifyPassword} reads costs from the hash prefix (old users keep working).
+ *
+ * Optional upgrade-on-login (app code): `if (await verifyPassword(plain, hash) && needsUpgrade(hash))
+ * { save(await hashPassword(plain)); }` — compare parsed `m`/`t` from the hash to current minimums.
+ *
+ * @see {@link BUN_PASSWORD_DOC_URL}
+ */
+/** Password hashing (argon2id default, bcrypt optional) — same as `Bun.password`. */
+export { password };
+
+/** @see https://bun.sh/docs/guides/util/hash-a-password */
+export const BUN_PASSWORD_DOC_URL = "https://bun.sh/docs/guides/util/hash-a-password";
+
+export type PasswordHashOptions = Parameters<typeof password.hash>[1];
+
+/**
+ * Argon2id defaults — word-for-word with bare `Bun.password.hash()` (`$m=65536,t=2,p=1`).
+ * Tune here for rotation; existing hashes still verify (params live in the hash).
+ */
+export const DEFAULT_PASSWORD_OPTIONS = {
+  algorithm: "argon2id",
+  memoryCost: 65536,
+  timeCost: 2,
+} satisfies Bun.Password.Argon2Algorithm;
+
+/** Production defaults; lighter cost when `Bun.env.NODE_ENV === "test"`. */
+export function getPasswordOptions(): Bun.Password.Argon2Algorithm {
+  if (Bun.env.NODE_ENV === "test") {
+    return {
+      algorithm: "argon2id",
+      memoryCost: 1024,
+      timeCost: 1,
+    };
+  }
+  return DEFAULT_PASSWORD_OPTIONS;
+}
+
+/** Async hash — merges {@link getPasswordOptions} with per-call overrides. */
+export function hashPassword(plain: string, options?: PasswordHashOptions): Promise<string> {
+  if (options === undefined) {
+    return password.hash(plain, getPasswordOptions());
+  }
+  if (typeof options === "string") {
+    return password.hash(plain, options);
+  }
+  return password.hash(plain, { ...getPasswordOptions(), ...options });
+}
+
+/**
+ * Async verify — uses cost/algorithm embedded in `hash`, not {@link getPasswordOptions}.
+ * Safe across DEFAULT_PASSWORD_OPTIONS rotations; only new `hashPassword` calls use new costs.
+ */
+export function verifyPassword(plain: string, hash: string): Promise<boolean> {
+  return password.verify(plain, hash);
+}
+
+/**
+ * Base64 string encoding (Web `btoa` / `atob`).
+ * For binary payloads prefer {@link encodeBase64Bytes} / {@link decodeBase64Bytes}.
+ *
+ * @see {@link BUN_BASE64_DOC_URL}
+ */
+/** @see https://bun.sh/docs/guides/util/base64 */
+export const BUN_BASE64_DOC_URL = "https://bun.sh/docs/guides/util/base64";
+
+/** Encode a string to base64 (`btoa`). */
+export function encodeBase64(data: string): string {
+  return btoa(data);
+}
+
+/** Decode a base64 string (`atob`). */
+export function decodeBase64(encoded: string): string {
+  return atob(encoded);
+}
+
+/** Encode bytes to base64 (`Uint8Array.prototype.toBase64`). */
+export function encodeBase64Bytes(bytes: Uint8Array): string {
+  return bytes.toBase64();
+}
+
+/** Decode base64 to bytes (`Uint8Array.fromBase64`). */
+export function decodeBase64Bytes(encoded: string): Uint8Array {
+  return Uint8Array.fromBase64(encoded);
+}
 
 /** @see https://bun.sh/reference/bun/randomUUIDv7#bun.randomUUIDv7 */
 export const BUN_RANDOM_UUIDV7_DOC_URL = "https://bun.sh/reference/bun/randomUUIDv7";
@@ -26,9 +119,13 @@ export function resolveModule(specifier: string, fromDir: string): string {
   return Bun.resolveSync(specifier, fromDir);
 }
 
-/** file:// URL → absolute path (Bun.fileURLToPath). */
+/**
+ * file:// URL → absolute path (`Bun.fileURLToPath`).
+ * Prefer a string href; URL objects are normalized via `.href`.
+ * @see https://bun.sh/docs/runtime/utils#bun-fileurltopath
+ */
 export function filePathFromUrl(url: string | URL): string {
-  return Bun.fileURLToPath(url);
+  return Bun.fileURLToPath(typeof url === "string" ? url : url.href);
 }
 
 /** Absolute path → file:// URL (Bun.pathToFileURL). */
@@ -91,6 +188,15 @@ export function semverSatisfies(version: string, range: string): boolean {
   return Bun.semver.satisfies(version, range);
 }
 
+/**
+ * Gzip compression (`Bun.gzipSync` / `Bun.gunzipSync`) — `Uint8Array` ↔ `Uint8Array`.
+ * String helpers encode/decode UTF-8 at the boundary; prefer bytes pass-through when already binary.
+ *
+ * @see {@link BUN_GZIP_DOC_URL}
+ */
+/** @see https://bun.sh/docs/guides/util/gzip */
+export const BUN_GZIP_DOC_URL = "https://bun.sh/docs/guides/util/gzip";
+
 function gzipInput(data: string | Uint8Array): Uint8Array<ArrayBuffer> {
   if (typeof data === "string") {
     return new TextEncoder().encode(data) as Uint8Array<ArrayBuffer>;
@@ -98,7 +204,7 @@ function gzipInput(data: string | Uint8Array): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(data) as Uint8Array<ArrayBuffer>;
 }
 
-/** Gzip bytes with Bun.gzipSync. */
+/** Gzip bytes with Bun.gzipSync. Accepts UTF-8 string or Uint8Array input. */
 export function gzipBytes(data: string | Uint8Array): Uint8Array {
   return Bun.gzipSync(gzipInput(data));
 }
@@ -155,12 +261,18 @@ export function sleepSync(ms: number): void {
   Bun.sleepSync(Math.max(0, ms));
 }
 
-/** Entry script path for direct-run guards (Bun.main). */
+/** @see https://bun.sh/docs/runtime/utils#bun-main */
+export const BUN_MAIN_DOC_URL = "https://bun.sh/docs/runtime/utils#bun-main";
+
+/** Absolute path to the process entry script (`Bun.main`). */
 export function entryScriptPath(): string {
   return Bun.main;
 }
 
-/** True when this module is the process entrypoint. */
+/**
+ * True when `modulePath` is the process entry script (`import.meta.path === Bun.main`).
+ * Use at the bottom of CLI bins instead of `import.meta.main` for a single SSOT surface.
+ */
 export function isDirectRun(modulePath: string): boolean {
   return modulePath === Bun.main;
 }
@@ -222,4 +334,23 @@ export function bunVersion(): string {
 /** Bun build git revision. */
 export function bunRevision(): string {
   return Bun.revision;
+}
+
+/**
+ * Local machine hostname for provenance metadata (`os.hostname`).
+ *
+ * Not `Bun.serve({ hostname })` / `server.hostname` — those are the server bind address
+ * (default `"0.0.0.0"`). See {@link BUN_SERVE_HOSTNAME_DOC_URL}.
+ *
+ * Bun mirrors `node:os`; confine the import here rather than at feature call sites.
+ */
+/** @see https://bun.sh/docs/runtime/http/server#changing-the-port-and-hostname */
+export const BUN_SERVE_HOSTNAME_DOC_URL =
+  "https://bun.sh/docs/runtime/http/server#changing-the-port-and-hostname";
+
+/** @see https://bun.com/reference/node/os/hostname */
+export const BUN_OS_HOSTNAME_DOC_URL = "https://bun.com/reference/node/os/hostname";
+
+export function runtimeHostname(): string {
+  return osHostname();
 }

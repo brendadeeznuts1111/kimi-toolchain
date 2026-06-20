@@ -20,6 +20,7 @@ import {
 } from "../lib/decision-ledger.ts";
 import { buildDecisionGraph, renderDecisionGraphAscii } from "../lib/decision-graph.ts";
 import { scoreDecisions } from "../lib/decision-scoring.ts";
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 
@@ -266,7 +267,7 @@ function printDecisionWhy(
   }
 }
 
-if (import.meta.main) {
+if (isDirectRun(import.meta.path)) {
   const exitCode = await runCliExit(
     Effect.tryPromise({
       try: () => runDecisionCli(),

@@ -1,10 +1,9 @@
 import { makeDir, pathExists, readText, writeText } from "./bun-io.ts";
-import { readableStreamToText } from "./bun-utils.ts";
+import { filePathFromUrl, readableStreamToText } from "./bun-utils.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { withBunNoOrphans } from "./tool-runner.ts";
 
 import { dirname, join } from "path";
-import { fileURLToPath } from "url";
 import { TOML } from "bun";
 import type { GateResult } from "./gate-runner.ts";
 import {
@@ -956,7 +955,7 @@ function finishWorkGateLogPath(projectRoot: string, gateName: string): string {
 function resolveFinishWorkGateRunnerScript(projectRoot: string): string {
   const local = join(projectRoot, "scripts", "finish-work-gate-run.ts");
   if (pathExists(local)) return local;
-  return fileURLToPath(new URL("../../scripts/finish-work-gate-run.ts", import.meta.url));
+  return filePathFromUrl(new URL("../../scripts/finish-work-gate-run.ts", import.meta.url).href);
 }
 
 /**

@@ -7,7 +7,8 @@
  *   kimi-context-gen [scan|freshness|update|doctor|fix]
  */
 
-import { $, semver, TOML } from "bun";
+import { $, TOML } from "bun";
+import { bunVersion, isDirectRun, semverSatisfies } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
@@ -92,7 +93,7 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
     const engineBun = pkg.engines?.bun;
     if (engineBun && stack.runtime?.includes("Bun")) {
       try {
-        if (!semver.satisfies(Bun.version, engineBun)) {
+        if (!semverSatisfies(bunVersion(), engineBun)) {
           stack.runtime += ` (⚠ engine mismatch: needs ${engineBun})`;
         }
       } catch {
@@ -598,7 +599,7 @@ async function main(): Promise<number> {
   return 0;
 }
 
-if (import.meta.main) {
+if (isDirectRun(import.meta.path)) {
   const exitCode = await runCliExit(
     Effect.tryPromise({
       try: () => main(),

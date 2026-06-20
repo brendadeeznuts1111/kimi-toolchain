@@ -13,6 +13,7 @@ import {
   type HealApplyReport,
   type HealPlan,
 } from "../lib/self-healing.ts";
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { writeStdoutLine } from "../lib/cli-contract.ts";
@@ -238,7 +239,7 @@ function printApplyReport(report: HealApplyReport): void {
   }
 }
 
-if (import.meta.main) {
+if (isDirectRun(import.meta.path)) {
   const exitCode = await runCliExit(
     Effect.tryPromise({
       try: () => main(),

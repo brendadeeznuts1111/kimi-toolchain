@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { readableStreamToText } from "../lib/bun-utils.ts";
+import { bunRevision, bunVersion, isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
 import { spawnBun, withBunNoOrphans } from "../lib/tool-runner.ts";
 import { withNoOrphansEnv } from "../lib/bun-spawn-env.ts";
@@ -2295,7 +2295,9 @@ async function main(): Promise<number> {
   logger.section("Node Ecosystem");
 
   const bunPath = Bun.which("bun");
-  results.push(bunPath ? ok("bun", `${Bun.version} (${Bun.revision})`) : error("bun", "not found"));
+  results.push(
+    bunPath ? ok("bun", `${bunVersion()} (${bunRevision()})`) : error("bun", "not found")
+  );
 
   for (const cmd of ["node", "npm", "pnpm", "yarn"]) {
     const p = Bun.which(cmd);
@@ -2443,14 +2445,16 @@ async function main(): Promise<number> {
   return exitCode;
 }
 
-const exitCode = await runCliExit(
-  Effect.tryPromise({
-    try: () => main(),
-    catch: (e) =>
-      new CliError({
-        message: e instanceof Error ? e.message : String(e),
-      }),
-  }),
-  { toolName: "kimi-doctor", logger }
-);
-process.exit(exitCode);
+if (isDirectRun(import.meta.path)) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        new CliError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    }),
+    { toolName: "kimi-doctor", logger }
+  );
+  process.exit(exitCode);
+}

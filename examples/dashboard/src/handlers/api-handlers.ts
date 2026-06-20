@@ -3,7 +3,11 @@ import {
   resolveDashboardProjectRoot,
   resolveDashboardSettings,
 } from "../../../../src/lib/dashboard-settings.ts";
-import { readableStreamToText } from "../../../../src/lib/bun-utils.ts";
+import {
+  entryScriptPath,
+  isDirectRun,
+  readableStreamToText,
+} from "../../../../src/lib/bun-utils.ts";
 import { resolveBin, USER_TOOLCHAIN_BIN } from "../lib/toolchain-paths.ts";
 import { doctorBin, jsonResponse, resolveRoot } from "./shared.ts";
 
@@ -279,8 +283,8 @@ export async function apiRuntimeInfo(): Promise<Response> {
     bunVersion: isBun ? Bun.version : null,
     bunRevision: isBun ? Bun.revision : null,
     activeBunfig,
-    main: isBun ? Bun.main : null,
-    isEntrypoint: (import.meta as any).main === true,
+    main: isBun ? entryScriptPath() : null,
+    isEntrypoint: isBun ? isDirectRun(import.meta.path) : false,
     whichBun: isBun ? Bun.which("bun") : null,
     note: "Bun.main = entrypoint path. Bun.which('bun') = resolved binary. --config overrides bunfig.toml.",
   });

@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { writeStdoutLine } from "../lib/cli-contract.ts";
 import { Effect } from "effect";
 import { discoverHerdrProjectConfig } from "../lib/herdr-project-config.ts";
@@ -76,6 +77,9 @@ Flags:
 `);
 }
 
+if (!isDirectRun(import.meta.path)) {
+  // Imported as a module — skip CLI dispatch.
+} else {
 const { flags, command, path: rawPath } = parseArgs(Bun.argv.slice(2));
 if (flags.help) {
   await printHelp();
@@ -215,4 +219,5 @@ try {
   if (flags.json) await writeJson({ ok: false, error: message });
   else writeErr(message);
   process.exit(1);
+}
 }

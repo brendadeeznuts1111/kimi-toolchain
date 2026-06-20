@@ -18,6 +18,7 @@ import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 
 import { Effect } from "effect";
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { getGovernorConfigPath, DEFAULT_CONFIG_TEMPLATE } from "../lib/governor-config.ts";
@@ -376,14 +377,16 @@ process.on("beforeExit", () => {
   if (hasSessionId()) endSession(getSessionId());
 });
 
-const exitCode = await runCliExit(
-  Effect.tryPromise({
-    try: () => main(),
-    catch: (e) =>
-      new CliError({
-        message: e instanceof Error ? e.message : String(e),
-      }),
-  }),
-  { toolName: "kimi-resource-governor", logger }
-);
-process.exit(exitCode);
+if (isDirectRun(import.meta.path)) {
+  const exitCode = await runCliExit(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (e) =>
+        new CliError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    }),
+    { toolName: "kimi-resource-governor", logger }
+  );
+  process.exit(exitCode);
+}

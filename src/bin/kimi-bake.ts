@@ -12,6 +12,7 @@
  */
 
 import { join } from "path";
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { pathExists, readText } from "../lib/bun-io.ts";
 import { loadTomlConfig } from "../lib/toml-config.ts";
 
@@ -271,24 +272,28 @@ async function cmdBake(name: string, outputDir?: string, dryRun = false): Promis
 
 // ── Main ────────────────────────────────────────────────────────────
 
-const result = await (async (): Promise<number> => {
-  switch (command) {
-    case "list":
-      return await cmdList();
-    case "doctor":
-      return await cmdDoctor();
-    case undefined:
-    case "--help":
-    case "-h":
-      printHelp();
-      return 0;
-    default: {
-      const outputIdx = args.indexOf("--output");
-      const outputDir = outputIdx !== -1 ? args[outputIdx + 1] : undefined;
-      const dryRun = args.includes("--dry-run");
-      return cmdBake(command, outputDir, dryRun);
+if (!isDirectRun(import.meta.path)) {
+  // Imported as a module — skip CLI dispatch.
+} else {
+  const result = await (async (): Promise<number> => {
+    switch (command) {
+      case "list":
+        return await cmdList();
+      case "doctor":
+        return await cmdDoctor();
+      case undefined:
+      case "--help":
+      case "-h":
+        printHelp();
+        return 0;
+      default: {
+        const outputIdx = args.indexOf("--output");
+        const outputDir = outputIdx !== -1 ? args[outputIdx + 1] : undefined;
+        const dryRun = args.includes("--dry-run");
+        return cmdBake(command, outputDir, dryRun);
+      }
     }
-  }
-})();
+  })();
 
-process.exit(result);
+  process.exit(result);
+}

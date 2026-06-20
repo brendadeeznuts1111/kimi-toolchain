@@ -4,7 +4,7 @@
  */
 
 import { Effect } from "effect";
-import { readableStreamToText } from "../lib/bun-utils.ts";
+import { isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
@@ -268,7 +268,7 @@ async function main(): Promise<number> {
   return 1;
 }
 
-if (import.meta.main) {
+if (isDirectRun(import.meta.path)) {
   const exitCode = await runCliExit(
     Effect.tryPromise({
       try: () => main(),

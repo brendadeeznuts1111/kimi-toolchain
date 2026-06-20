@@ -7,8 +7,8 @@
  * @see src/gates/runner.ts — `persistGateArtifact`, `buildGateContext`
  * @see examples/artifact-trading-loop.md — L2 feedback loop demo
  */
-import { hostname } from "node:os";
 import { join } from "path";
+import { bunVersion, runtimeHostname } from "./bun-utils.ts";
 import { listDir, makeDir, pathExists, removePath } from "./bun-io.ts";
 import { GATE_LEVEL_PRUNE_MS } from "../gates/types.ts";
 import { generateArtifactLineageMermaid, generateRunLineageMermaid } from "./graph-to-mermaid.ts";
@@ -911,9 +911,9 @@ export class ArtifactStore {
       ...(lineageMermaid ? { lineageMermaid } : {}),
       ...identity,
       ...(parentRunId ? { parentRunId } : {}),
-      hostname: hostname(),
+      hostname: runtimeHostname(),
       pid: process.pid,
-      bunVersion: Bun.version,
+      bunVersion: bunVersion(),
       resultSize,
     };
     const envelopeWithoutSize: Omit<ArtifactEnvelope, "size"> = {
@@ -937,9 +937,9 @@ export class ArtifactStore {
     if (!envelope) return;
 
     const metadata: ArtifactMetadata = {
-      hostname: hostname(),
+      hostname: runtimeHostname(),
       pid: process.pid,
-      bunVersion: Bun.version,
+      bunVersion: bunVersion(),
       resultSize:
         typeof envelope.metadata?.resultSize === "number"
           ? envelope.metadata.resultSize

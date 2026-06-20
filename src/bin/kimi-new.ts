@@ -9,7 +9,7 @@ import { Effect } from "effect";
 import { makeDir, pathExists } from "../lib/bun-io.ts";
 import { join, resolve } from "path";
 import { $ } from "bun";
-import { readableStreamToText } from "../lib/bun-utils.ts";
+import { bunVersion, isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
 import { toolsDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -49,7 +49,7 @@ async function runDoctor(parent: string): Promise<number> {
     logger.check({
       name: "bun",
       status: "ok",
-      message: `${Bun.version} (${bunPath})`,
+      message: `${bunVersion()} (${bunPath})`,
       fixable: false,
     });
   } else {
@@ -191,7 +191,7 @@ async function main(): Promise<number> {
   return runScaffold(args);
 }
 
-if (import.meta.main) {
+if (isDirectRun(import.meta.path)) {
   const exitCode = await runCliExit(
     Effect.tryPromise({
       try: () => main(),
