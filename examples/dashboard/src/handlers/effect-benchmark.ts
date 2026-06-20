@@ -21,10 +21,15 @@ interface RunOptions {
   train?: boolean;
 }
 
+const HISTORY_LIMIT = 6;
+
 async function runEffectBenchmarkCard(
   options: RunOptions = {}
 ): Promise<EffectBenchmarkCardPayload> {
   const projectRoot = resolveRoot();
+  const historyBefore = await readBenchmarkSnapshots(projectRoot, HISTORY_LIMIT);
+  const previousSnapshot = historyBefore[0];
+
   const { sources } = await loadMergedEffectBenchmarkThresholds(projectRoot);
   const metrics = await runEffectBenchmarks({ projectRoot });
   const gate = await evaluateEffectBenchmarkGate(metrics, undefined, projectRoot);
@@ -38,21 +43,25 @@ async function runEffectBenchmarkCard(
 
   let regressions = 0;
   let lastRunAt = new Date().toISOString();
+  let historyAfter = historyBefore;
 
   if (options.appendSnapshot) {
     regressions = await regressionsAgainstLatestSnapshot(projectRoot, metrics);
     const snapshot = await appendBenchmarkSnapshot(projectRoot, metrics);
     lastRunAt = snapshot.generatedAt;
+    historyAfter = await readBenchmarkSnapshots(projectRoot, HISTORY_LIMIT);
   }
 
-  const snapshots = await readBenchmarkSnapshots(projectRoot, KIMI_EFFECT_BENCHMARK_SNAPSHOT_MAX_RUNS);
+  const comparePrevious = options.appendSnapshot ? historyAfter[1] : previousSnapshot;
 
   return buildEffectBenchmarkCardPayload(metrics, gate, projectRoot, {
     thresholdSources: sources,
     train,
     regressions,
-    snapshotCount: snapshots.length,
-    lastRunAt: options.appendSnapshot ? lastRunAt : snapshots[0]?.generatedAt,
+    snapshotCount: historyAfter.length,
+    lastRunAt: options.appendSnapshot ? lastRunAt : historyAfter[0]?.generatedAt,
+    historySnapshots: historyAfter,
+    previousSnapshot: comparePrevious,
   });
 }
 

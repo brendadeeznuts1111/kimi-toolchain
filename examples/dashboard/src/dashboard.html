@@ -110,6 +110,19 @@
         background: #1a2a3a;
         color: var(--blue);
       }
+      .benchmark-regressed td {
+        background: rgba(210, 153, 34, 0.08);
+      }
+      .benchmark-sparkline {
+        display: inline-block;
+        vertical-align: middle;
+      }
+      .benchmark-recent-runs summary {
+        cursor: pointer;
+        color: var(--muted);
+        font-size: 11px;
+        margin-top: 8px;
+      }
       .lineage-badge {
         font-size: 9px;
         padding: 1px 6px;
@@ -2418,6 +2431,37 @@
         return `<span class="badge badge-${tone}" style="font-size:9px" title="Threshold layer">${source}</span>`;
       }
 
+      function effectBenchmarkSparkline(values) {
+        if (!values?.length) {
+          return '<span style="color:var(--muted);font-size:9px">—</span>';
+        }
+        const w = 48;
+        const h = 14;
+        const pad = 1;
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const range = max - min || 0.001;
+        const step = values.length > 1 ? (w - pad * 2) / (values.length - 1) : 0;
+        const points = values
+          .map((v, i) => {
+            const x = pad + i * step;
+            const y = pad + (h - pad * 2) * (1 - (v - min) / range);
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+          })
+          .join(" ");
+        const last = values[values.length - 1];
+        const first = values[0];
+        const color =
+          last > first * 1.05 ? "var(--yellow)" : last < first ? "var(--green)" : "var(--blue)";
+        return `<span class="benchmark-sparkline" title="${values.map((v) => v.toFixed(3) + "ms").join(" → ")}"><svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline fill="none" stroke="${color}" stroke-width="1.5" points="${points}"/></svg></span>`;
+      }
+
+      function effectBenchmarkRegressionBadge(row) {
+        if (!row.regression?.regressed) return "";
+        const r = row.regression;
+        return `<span class="badge badge-warn" style="font-size:9px;margin-left:4px" title="vs ${r.previousMs.toFixed(3)}ms">+${r.deltaMs.toFixed(3)}ms</span>`;
+      }
+
       function renderEffectBenchmarkCard(d) {
         const runAt = d.generatedAt
           ? new Date(d.generatedAt).toLocaleString()
@@ -2430,7 +2474,11 @@
         h += `<div class="row"><span>Status</span><span class="badge badge-${d.allPass ? "ok" : "err"}">${d.allPass ? "ALL PASS" : "FAIL"}</span></div>`;
         h += `<div class="row"><span>Last run</span><span style="font-size:10px">${runAt}</span></div>`;
         if (d.snapshot) {
-          h += `<div class="row"><span>Snapshots</span><span style="font-size:10px">${d.snapshot.count} stored${d.snapshot.regressions ? ` · <span class="status warn">${d.snapshot.regressions} regression(s)</span>` : ""}</span></div>`;
+          const regKeys =
+            d.snapshot.regressionKeys?.length > 0
+              ? ` (${d.snapshot.regressionKeys.slice(0, 3).join(", ")}${d.snapshot.regressionKeys.length > 3 ? "…" : ""})`
+              : "";
+          h += `<div class="row"><span>Snapshots</span><span style="font-size:10px">${d.snapshot.count} stored${d.snapshot.regressions ? ` · <span class="status warn">${d.snapshot.regressions} regression(s)${regKeys}</span>` : ""}</span></div>`;
         }
         if (d.train) {
           const trainTone = d.train.written ? "ok" : "err";
@@ -2451,16 +2499,26 @@
           const rows = families[family] || [];
           if (!rows.length) continue;
           h += `<h3 style="font-size:12px;color:var(--muted);margin:10px 0 4px">${family}</h3>`;
-          h += `<table class="tbl"><tr><th>#</th><th>Handler</th><th>Time</th><th>Thr</th><th>Src</th><th></th></tr>`;
+          h += `<table class="tbl"><tr><th>#</th><th>Handler</th><th>Time</th><th>Trend</th><th>Thr</th><th>Src</th><th></th></tr>`;
           rows.forEach((m, i) => {
-            const time = m.skipped ? "—" : `${m.actualMs.toFixed(3)}ms`;
+            const time = m.skipped ? "—" : `${m.actualMs.toFixed(3)}ms${effectBenchmarkRegressionBadge(m)}`;
             const thr = m.skipped ? "—" : `${m.thresholdMs}ms`;
             const status = m.skipped
               ? `<span class="badge badge-warn" title="${m.skipReason || "skipped"}">↷</span>`
               : `<span class="badge badge-${m.pass ? "ok" : "err"}">${m.pass ? "✓" : "✗"}</span>`;
-            h += `<tr><td class="num">${i + 1}.</td><td><code style="font-size:9px">${m.name}</code></td><td style="font-size:10px">${time}</td><td style="font-size:10px">${thr}</td><td>${effectBenchmarkSourceBadge(m.thresholdSource)}</td><td>${status}</td></tr>`;
+            const rowClass = m.regression?.regressed ? ' class="benchmark-regressed"' : "";
+            h += `<tr${rowClass}><td class="num">${i + 1}.</td><td><code style="font-size:9px">${m.name}</code></td><td style="font-size:10px">${time}</td><td>${effectBenchmarkSparkline(m.sparkline)}</td><td style="font-size:10px">${thr}</td><td>${effectBenchmarkSourceBadge(m.thresholdSource)}</td><td>${status}</td></tr>`;
           });
           h += `</table>`;
+        }
+        if (d.recentRuns?.length) {
+          h += `<details class="benchmark-recent-runs"><summary>Recent runs (${d.recentRuns.length})</summary>`;
+          h += `<table class="tbl" style="margin-top:4px"><tr><th>When</th><th>Measured</th><th>Passed</th><th>Status</th></tr>`;
+          d.recentRuns.forEach((run) => {
+            const when = new Date(run.generatedAt).toLocaleString();
+            h += `<tr><td style="font-size:10px">${when}</td><td class="num">${run.measured}</td><td class="num">${run.passed}</td><td><span class="badge badge-${run.allPass ? "ok" : "err"}">${run.allPass ? "PASS" : "FAIL"}</span></td></tr>`;
+          });
+          h += `</table></details>`;
         }
         h += `<p class="status ok" style="margin-top:8px;font-size:10px">Layers: ${(d.thresholdLayers || []).join(" → ")}</p>`;
         return h;

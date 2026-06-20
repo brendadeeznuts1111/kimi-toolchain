@@ -3,13 +3,16 @@ import { join } from "path";
 import {
   benchmarkFamily,
   buildEffectBenchmarkCardPayload,
+  buildRecentRunsSummary,
+  buildSparklines,
+  enrichCardRows,
   groupMetricsByFamily,
-  metricToCardRow,
   readBenchmarkHealthCheck,
+  rowRegression,
   sortedFamilyKeys,
   thresholdSourceKind,
 } from "../src/lib/effect-benchmark-card.ts";
-import { appendBenchmarkSnapshot } from "../src/lib/effect-benchmark.ts";
+import { appendBenchmarkSnapshot, type EffectBenchmarkSnapshot } from "../src/lib/effect-benchmark.ts";
 import {
   thresholdsBaselinePath,
   thresholdsLegacyPath,
@@ -27,6 +30,21 @@ const sampleMetric = (overrides: Partial<Metric> = {}): Metric => ({
   registryKey: "crypto.sha256",
   ...overrides,
 });
+
+function snapshotAt(
+  generatedAt: string,
+  metrics: Metric[],
+  overrides: Partial<EffectBenchmarkSnapshot> = {}
+): EffectBenchmarkSnapshot {
+  return {
+    schemaVersion: 1,
+    tool: "test",
+    generatedAt,
+    project: "test",
+    metrics,
+    ...overrides,
+  };
+}
 
 describe("effect-benchmark-card", () => {
   it("derives benchmark families from registry keys", () => {
@@ -50,41 +68,83 @@ describe("effect-benchmark-card", () => {
   });
 
   it("groups metrics by family and sorts keys for display", () => {
-    const rows = [
-      metricToCardRow(sampleMetric({ registryKey: "util.inspect", operation: "inspect" }), {}, "/tmp"),
-      metricToCardRow(sampleMetric({ registryKey: "crypto.sha3-256", operation: "sha3-256" }), {}, "/tmp"),
-      metricToCardRow(
-        sampleMetric({ registryKey: "httpClient.fetch-tls1.2", operation: "fetch-tls1.2" }),
-        {},
-        "/tmp"
-      ),
-    ];
+    const rows = enrichCardRows(
+      [
+        sampleMetric({ registryKey: "util.inspect", operation: "inspect" }),
+        sampleMetric({ registryKey: "crypto.sha3-256", operation: "sha3-256" }),
+        sampleMetric({
+          registryKey: "httpClient.fetch-tls1.2",
+          operation: "fetch-tls1.2",
+        }),
+      ],
+      {},
+      "/tmp"
+    );
     const families = groupMetricsByFamily(rows);
     expect(families.crypto).toHaveLength(1);
     expect(families.httpClient).toHaveLength(1);
     expect(sortedFamilyKeys(families)).toEqual(["crypto", "httpClient", "util"]);
   });
 
-  it("builds dashboard payload with families and layer metadata", () => {
+  it("builds sparklines oldest to newest from NDJSON history", () => {
+    const snapshots = [
+      snapshotAt("2026-06-19T03:00:00Z", [sampleMetric({ actualMs: 0.03 })]),
+      snapshotAt("2026-06-19T02:00:00Z", [sampleMetric({ actualMs: 0.02 })]),
+      snapshotAt("2026-06-19T01:00:00Z", [sampleMetric({ actualMs: 0.01 })]),
+    ];
+    const sparklines = buildSparklines(snapshots, ["crypto.sha256"], 3);
+    expect(sparklines["crypto.sha256"]).toEqual([0.01, 0.02, 0.03]);
+  });
+
+  it("flags per-row regression when latency exceeds tolerance", () => {
+    const current = sampleMetric({ actualMs: 0.5 });
+    const previous = [sampleMetric({ actualMs: 0.01 })];
+    const regression = rowRegression(current, previous);
+    expect(regression?.regressed).toBe(true);
+    expect(regression?.previousMs).toBe(0.01);
+    expect(regression?.deltaMs).toBeGreaterThan(0);
+  });
+
+  it("builds dashboard payload with sparklines, regressions, and recent runs", () => {
     const metrics = [
-      sampleMetric(),
+      sampleMetric({ actualMs: 0.5 }),
       sampleMetric({
         registryKey: "crypto.sha3-256",
         operation: "sha3-256",
+        actualMs: 0.012,
       }),
     ];
+    const history = [
+      snapshotAt("2026-06-19T12:00:00Z", metrics),
+      snapshotAt("2026-06-19T11:00:00Z", [sampleMetric({ actualMs: 0.01 })]),
+      snapshotAt("2026-06-19T10:00:00Z", [sampleMetric({ actualMs: 0.009 })]),
+    ];
+
     const payload = buildEffectBenchmarkCardPayload(metrics, { pass: true, failures: [] }, "/tmp", {
       thresholdSources: { "crypto.sha256": join("/tmp", "thresholds.baseline.json") },
-      snapshotCount: 3,
-      lastRunAt: "2026-06-19T12:00:00.000Z",
+      historySnapshots: history,
+      previousSnapshot: history[1],
+      snapshotCount: history.length,
+      lastRunAt: history[0]!.generatedAt,
     });
+
     expect(payload.registrySize).toBe(2);
-    expect(payload.allPass).toBe(true);
+    expect(payload.recentRuns).toHaveLength(3);
+    expect(payload.metrics[0]!.sparkline).toEqual([0.009, 0.01, 0.5]);
+    expect(payload.metrics[0]!.regression?.regressed).toBe(true);
+    expect(payload.snapshot.regressionKeys).toContain("crypto.sha256");
     expect(payload.families.crypto).toHaveLength(2);
-    expect(payload.metrics[0]!.thresholdSource).toBe("baseline");
-    expect(payload.thresholdLayers).toContain("thresholds.baseline.json");
-    expect(payload.snapshot.count).toBe(3);
-    expect(payload.snapshot.lastRunAt).toBe("2026-06-19T12:00:00.000Z");
+  });
+
+  it("summarizes recent runs with pass counts", () => {
+    const runs = buildRecentRunsSummary([
+      snapshotAt("t2", [sampleMetric(), sampleMetric({ pass: false, actualMs: 5 })]),
+      snapshotAt("t1", [sampleMetric()]),
+    ]);
+    expect(runs[0]!.measured).toBe(2);
+    expect(runs[0]!.passed).toBe(1);
+    expect(runs[0]!.allPass).toBe(false);
+    expect(runs[1]!.allPass).toBe(true);
   });
 
   it("reads health from latest snapshot without running benchmarks", async () => {
@@ -110,6 +170,19 @@ describe("effect-benchmark-card", () => {
       expect(health.measured).toBe(2);
       expect(health.failures).toBe(1);
       expect(health.lastRunAt).toBeDefined();
+    });
+  });
+
+  it("marks health warn when latest run passes but regressed vs previous", async () => {
+    await withTempDir("benchmark-card-health-warn", async (dir) => {
+      await appendBenchmarkSnapshot(dir, [sampleMetric({ actualMs: 0.01 })]);
+      await appendBenchmarkSnapshot(dir, [sampleMetric({ actualMs: 0.5 })]);
+
+      const health = await readBenchmarkHealthCheck(dir);
+      expect(health.pass).toBe(true);
+      expect(health.status).toBe("warn");
+      expect(health.regressions).toBeGreaterThan(0);
+      expect(health.regressionKeys).toContain("crypto.sha256");
     });
   });
 });
