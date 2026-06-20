@@ -14,49 +14,40 @@ import {
 const REPO_ROOT = join(import.meta.dir, "..");
 
 describe("githook templates", () => {
-  test("pre-commit template includes the managed fast quality gates", () => {
+  test("pre-commit template delegates to run-gates pre-commit", () => {
     const hook = renderPreCommitHook();
     const analysis = analyzePreCommitHook(hook);
 
     expect(analysis.ok).toBe(true);
-    expect(hook).toContain("bun run format:check");
-    expect(hook).toContain("bun run lint");
-    expect(hook).toContain("bun run typecheck");
-    expect(hook).toContain("bun run test:fast");
+    expect(hook).toContain("run-gates pre-commit");
+    expect(hook).toContain("src/bin/kimi-githooks.ts");
   });
 
   test("pre-push skips expensive gates when Git supplies no refs", () => {
-    const hook = renderPrePushHook("/tmp/kimi tools");
+    const hook = renderPrePushHook("/tmp/kimi-tools");
     const noRefSkipIndex = hook.indexOf("No refs to push; skipping pre-push checks");
-    const firstExpensiveGateIndex = hook.indexOf("Supply Chain Security");
+    const delegateIndex = hook.indexOf("exec bun run src/bin/kimi-githooks.ts run-gates pre-push");
 
     expect(noRefSkipIndex).toBeGreaterThan(0);
-    expect(firstExpensiveGateIndex).toBeGreaterThan(noRefSkipIndex);
+    expect(delegateIndex).toBeGreaterThan(noRefSkipIndex);
     expect(hook).toContain("PUSH_REFS=$(cat)");
   });
 
-  test("pre-push skips delete-only pushes before local quality gates", () => {
+  test("pre-push skips delete-only pushes before run-gates delegate", () => {
     const hook = renderPrePushHook("/tmp/kimi-tools");
     const deleteSkipIndex = hook.indexOf("Only deleted refs; skipping local quality gates");
-    const qualityGateIndex = hook.indexOf("Quality Gate");
+    const delegateIndex = hook.indexOf("exec bun run src/bin/kimi-githooks.ts run-gates pre-push");
 
     expect(deleteSkipIndex).toBeGreaterThan(0);
-    expect(qualityGateIndex).toBeGreaterThan(deleteSkipIndex);
+    expect(delegateIndex).toBeGreaterThan(deleteSkipIndex);
     expect(hook).toContain("awk '$2 !~ /^0+$/ { print }'");
   });
 
-  test("pre-push defaults to the fast quality gate with an explicit full override", () => {
+  test("pre-push keeps snapshot guard and run-gates delegate", () => {
     const hook = renderPrePushHook("/tmp/kimi-tools");
-    const fastGateIndex = hook.indexOf("bun run check:fast --skip-tests");
-    const changedTestsIndex = hook.indexOf("bun test --changed=HEAD --isolate --parallel");
-    const fullGateIndex = hook.indexOf("bun run check || exit 1");
 
-    expect(hook).toContain("KIMI_PRE_PUSH_FULL");
-    expect(fastGateIndex).toBeGreaterThan(0);
-    expect(changedTestsIndex).toBeGreaterThan(0);
-    expect(fullGateIndex).toBeGreaterThan(0);
-    expect(fastGateIndex).toBeGreaterThan(fullGateIndex);
-    expect(changedTestsIndex).toBeGreaterThan(fastGateIndex);
+    expect(hook).toContain("KIMI_HOOK_SNAPSHOT");
+    expect(hook).toContain("run-gates pre-push");
     expect(analyzePrePushHook(hook).ok).toBe(true);
   });
 
@@ -64,7 +55,6 @@ describe("githook templates", () => {
     const staleHook = `#!/bin/sh
 # Auto-installed by kimi-githooks
 KIMI_HOOK_SNAPSHOT=1
-echo "── Quality Gate ──"
 bun run check
 `;
 
@@ -74,7 +64,7 @@ bun run check
     expect(analysis.managed).toBe(true);
     expect(analysis.ok).toBe(false);
     expect(missing).toContain("no-ref push skip");
-    expect(missing).toContain("fast quality gate");
+    expect(missing).toContain("run-gates delegate");
   });
 
   test("rendered hook scripts are valid POSIX shell syntax", async () => {

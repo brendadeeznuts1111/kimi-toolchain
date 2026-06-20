@@ -10,6 +10,10 @@ import { parseBunfigDefines } from "../src/lib/build-constants-registry.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
+// https://bun.com/docs/test/runtime-behavior#node_env — wrappers may inherit NODE_ENV from parent shell
+Bun.env.NODE_ENV = "test";
+if (!Bun.env.TZ) Bun.env.TZ = "Etc/UTC";
+
 if (!Bun.env.KIMI_TEST_HOME) {
   const dir = artifactPath(REPO_ROOT, "test-home");
   mkdirSync(dir, { recursive: true });

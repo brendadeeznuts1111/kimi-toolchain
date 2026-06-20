@@ -77,7 +77,7 @@ const UNIX_HTTP_PATTERNS = [
   /net\.connect\s*\(\s*['"][^'"]+\.sock['"]/,
 ] as const;
 
-const PARALLEL_TEST_SCRIPTS = ["test:parallel", "test:parallel:4", "test:shard"] as const;
+const PARALLEL_TEST_SCRIPTS = ["test:ci", "test:changed", "test:changed:push"] as const;
 
 /**
  * Build an autoFix for the bun-serve-http3 rule.
@@ -390,7 +390,7 @@ async function scanPackageJson(
           "package.json",
           lineIdx >= 0 ? lineIdx + 1 : 1,
           `Missing parallel/shard test scripts: ${missing.join(", ")}`,
-          'Add: "test:parallel": "bun run scripts/run-tests.ts --parallel", "test:parallel:4": "… --parallel=4", "test:shard": "… --shard"',
+          'Add: "test:ci": "bun test --timeout 30000 --isolate --parallel --shard=${CI_NODE_INDEX:-1}/${CI_NODE_TOTAL:-1}", "test:changed", "test:changed:push"',
           missing.map((k) => `"${k}"`).join(", ")
         )
       );

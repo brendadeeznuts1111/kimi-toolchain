@@ -20,6 +20,7 @@ import { dirname, isAbsolute, join } from "path";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { artifactPath } from "../src/lib/artifacts.ts";
 import { bunTestArgBatches } from "../src/lib/test-gates.ts";
+import { buildTestRunnerEnv } from "../src/lib/test-runtime.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
@@ -124,7 +125,6 @@ async function main() {
   if (!existsSync(testHome)) mkdirSync(testHome, { recursive: true });
   process.env.KIMI_TEST_HOME = testHome;
 
-  const setupPath = join(REPO_ROOT, "test/setup.ts");
   const batches = bunTestArgBatches({
     fast,
     coverage,
@@ -137,13 +137,7 @@ async function main() {
     timeoutMs,
     parallel,
     shard,
-  }).map((batch) => {
-    // Inject absolute preload after the leading "test" subcommand so isolate
-    // workers under concurrent load do not fail to resolve a relative preload.
-    const next = batch.slice();
-    next.splice(1, 0, `--preload=${setupPath}`);
-    return next;
-  });
+  }).map((batch) => batch.slice());
   const quiet = Bun.argv.includes("--quiet");
 
   let finalExitCode = 0;
@@ -154,7 +148,7 @@ async function main() {
     }
     const proc = Bun.spawn(["bun", ...batch], {
       cwd: REPO_ROOT,
-      env: process.env,
+      env: buildTestRunnerEnv({ KIMI_TEST_HOME: process.env.KIMI_TEST_HOME }),
       stdout: quiet ? "pipe" : "inherit",
       stderr: quiet ? "pipe" : "inherit",
     });

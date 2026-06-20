@@ -18,10 +18,9 @@ minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 [install.cache]
 dir = "~/.bun/install/cache"
 
-# Shared test defaults — see src/lib/test-gates.ts and scripts/run-tests.ts
+# Shared test defaults — see src/lib/test-gates.ts and package.json test scripts
 [test]
-# Preload is injected by scripts/run-tests.ts with an absolute path so isolate
-# workers under concurrent load do not fail to resolve a relative preload.
+preload = ["./test/setup.ts"]
 # *.db.test.ts excluded — DB tests mutate shared state and must run sequentially
 concurrentTestGlob = ["test/*.unit.test.ts"]
 coverageSkipTestFiles = true

@@ -35,6 +35,13 @@ import {
   renderPreCommitHook,
   renderPrePushHook,
 } from "../lib/githook-templates.ts";
+import {
+  runPreCommitDryRun,
+  runPreCommitGates,
+  runPreCommitPolicy,
+  runPrePushDryRun,
+  runPrePushGates,
+} from "../lib/hook-gates.ts";
 import { profileMatchesGitIdentity, type GitIdentity } from "../lib/identity-matrix.ts";
 
 const logger = createLogger(Bun.argv, "kimi-githooks");
@@ -142,11 +149,9 @@ async function installHooks(projectDir: string): Promise<number> {
   }
 
   logger.info("Hooks active. They will run on next commit/push.");
+  logger.info("  pre-commit: policy checks + run-gates (format, lint, typecheck, test:changed)");
   logger.info(
-    "  pre-commit: blocks .env, format:check + lint + typecheck, warns on TODO/console.log"
-  );
-  logger.info(
-    "  pre-push:   no-op skip, guardian/R-Score, fast quality gate by default, mandatory sync + sync:verify"
+    "  pre-push:   no-op skip, run-gates (guardian, R-Score, check:fast:skip-tests, test:changed:push, sync)"
   );
   logger.info("              Set KIMI_PRE_PUSH_FULL=1 to run the full local gate before push.");
   return 0;
@@ -210,7 +215,7 @@ async function doctorHooks(projectDir: string) {
       status: analysis.ok ? "ok" : "warn",
       message: analysis.managed
         ? analysis.ok
-          ? "Installed with format/lint/typecheck gates"
+          ? "Installed with run-gates pre-commit delegate"
           : `Installed but stale template — missing ${missing}; run kimi-githooks fix`
         : "Custom pre-commit (not managed)",
       fixable: !analysis.ok,
@@ -235,7 +240,7 @@ async function doctorHooks(projectDir: string) {
       status: analysis.ok ? "ok" : "warn",
       message: analysis.managed
         ? analysis.ok
-          ? "Installed with no-op skip, repo-first tools, fast default gate, mandatory desktop sync, sync manifest verify, snapshot guard"
+          ? "Installed with ref skip guards + run-gates pre-push delegate"
           : `Installed but stale template — missing ${missing}; run kimi-githooks fix`
         : "Custom pre-push (not managed)",
       fixable: !analysis.ok,
@@ -355,34 +360,36 @@ async function main(): Promise<number> {
     logger.info("All hooks properly installed");
     return 0;
   }
-  if (command === "pre-commit") {
-    logger.section("Pre-commit checks");
-    const result = await $`git diff --cached --name-only`.cwd(projectDir).nothrow().quiet();
-    const files = result.stdout.toString().trim().split("\n").filter(Boolean);
-    if (files.length === 0) {
-      logger.warn("No staged files");
-    } else {
-      logger.info(`${files.length} staged file(s)`);
-      const envFiles = files.filter((f) => /^\.env($|\.)/.test(f) && f !== ".env.example");
-      if (envFiles.length > 0) {
-        logger.error(`.env files in staged changes: ${envFiles.join(", ")}`);
-        return 1;
-      }
+  if (command === "run-gates") {
+    const hook = args[1];
+    const dryRun = args.includes("--dry-run") || args.includes("--dryrun");
+    if (hook === "pre-commit") {
+      if (dryRun) return runPreCommitDryRun(projectDir);
+      const policyCode = await runPreCommitPolicy(projectDir);
+      if (policyCode !== 0) return policyCode;
+      return runPreCommitGates(projectDir);
     }
-    return 0;
+    if (hook === "pre-push") {
+      if (dryRun) return runPrePushDryRun(projectDir);
+      return runPrePushGates(projectDir);
+    }
+    logger.error("Usage: run-gates <pre-commit|pre-push> [--dry-run]");
+    return 1;
+  }
+  if (command === "pre-commit") {
+    return runPreCommitGates(projectDir);
   }
   if (command === "pre-push") {
-    logger.section("Pre-push checks (manual run)");
-    logger.info("Run 'git push' to trigger automatically, or use guardian/governance directly");
-    return 0;
+    return runPrePushGates(projectDir);
   }
 
   logger.section("Commands");
   logger.info("  install        Install pre-commit and pre-push hooks");
   logger.info("  doctor         Check hook installation health");
   logger.info("  fix            Re-install missing/outdated hooks");
-  logger.info("  pre-commit     Run pre-commit checks manually");
-  logger.info("  pre-push       Info about pre-push checks");
+  logger.info("  run-gates      Hook gate runner (pre-commit | pre-push) [--dry-run]");
+  logger.info("  pre-commit     Run pre-commit gates manually");
+  logger.info("  pre-push       Run pre-push gates manually");
   return 0;
 }
 

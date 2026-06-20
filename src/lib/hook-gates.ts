@@ -200,23 +200,16 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
       return runGateVisible(projectRoot, "typecheck", ["bun", "run", "typecheck"]);
     },
     async () => {
-      if (!(await packageHasScript(projectRoot, "test:fast"))) return null;
-      if (!summary) printVerboseBanner("Unit tests (fast)");
-      if (await shouldSkipGate(projectRoot, "test:fast")) return skippedGateResult("test:fast");
+      if (!(await packageHasScript(projectRoot, "test:changed"))) return null;
+      if (!summary) printVerboseBanner("Changed tests");
+      if (await shouldSkipGate(projectRoot, "test:changed")) return skippedGateResult("test:changed");
       if (await shouldSkipGateFromScopedCache(projectRoot, "test:fast", staged)) {
-        return skippedGateResult("test:fast");
+        return skippedGateResult("test:changed");
       }
-      const headResult = await $`git rev-parse HEAD`.cwd(projectRoot).nothrow().quiet();
-      const head = headResult.exitCode === 0 ? headResult.stdout.toString().trim() : null;
-      if (!head) return skippedGateResult("test:fast");
-      const testPlan = planPreCommitTestArgs(staged);
-      const lockReason = testPlan.usesChangedRef
-        ? "pre-commit test:fast (--changed=HEAD)"
-        : `pre-commit test:fast (${testPlan.stagedTestFiles.length} staged test file(s))`;
-      const acquired = acquireTestGateLock(projectRoot, lockReason);
+      const acquired = acquireTestGateLock(projectRoot, "pre-commit test:changed");
       if (!acquired.ok) {
         return {
-          name: "test:fast",
+          name: "test:changed",
           exitCode: 1,
           ms: 0,
           stdout: "",
@@ -225,25 +218,21 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
       }
       const result = await (async () => {
         try {
-          return await runGate("test:fast", ["bun", ...testPlan.args], { cwd: projectRoot });
+          return await runGate("test:changed", ["bun", "run", "test:changed"], {
+            cwd: projectRoot,
+          });
         } finally {
           acquired.lock.release();
         }
       })();
-      // bun test --changed exits 1 when no test files match — treat as skip
-      if (
-        testPlan.usesChangedRef &&
-        result.exitCode !== 0 &&
-        isBunTestChangedEmptyOutput(`${result.stdout}\n${result.stderr}`)
-      ) {
-        return skippedGateResult("test:fast");
+      if (result.exitCode !== 0 && isBunTestChangedEmptyOutput(`${result.stdout}\n${result.stderr}`)) {
+        return skippedGateResult("test:changed");
       }
-      // Re-emit output for visibility (runGate captures, doesn't stream)
       if (result.exitCode !== 0) {
         if (result.stdout) gateOut(result.stdout);
         if (result.stderr) gateErr(result.stderr);
       }
-      return result;
+      return { ...result, name: "test:changed" };
     },
     async () => {
       const tuning = join(projectRoot, "scripts/lint-tuning-set-version.ts");
@@ -287,7 +276,9 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
 
   const succeeded = results.filter((item) => item.exitCode === 0);
   const cacheable = PRE_COMMIT_CACHE_GATES.filter((gate) =>
-    succeeded.some((item) => item.name === gate)
+    succeeded.some(
+      (item) => item.name === gate || (gate === "test:fast" && item.name === "test:changed")
+    )
   );
   if (cacheable.length > 0) await appendGateCache(projectRoot, [...cacheable]);
 
@@ -538,9 +529,52 @@ async function runPerfChangedGate(projectRoot: string): Promise<GateResult> {
   ]);
 }
 
+async function runChangedPushTestsGate(projectRoot: string): Promise<GateResult> {
+  if (Bun.env.KIMI_PRE_PUSH_FULL === "1") {
+    return {
+      name: "test:changed:push",
+      exitCode: 0,
+      ms: 0,
+      stdout: "",
+      stderr: "",
+      skipped: true,
+    };
+  }
+  if (!(await packageHasScript(projectRoot, "test:changed:push"))) {
+    return {
+      name: "test:changed:push",
+      exitCode: 0,
+      ms: 0,
+      stdout: "",
+      stderr: "",
+      skipped: true,
+    };
+  }
+  if (await shouldSkipGate(projectRoot, "test:changed:push")) {
+    return {
+      name: "test:changed:push",
+      exitCode: 0,
+      ms: 0,
+      stdout: "",
+      stderr: "",
+      skipped: true,
+    };
+  }
+  const result = await runGateVisible(projectRoot, "test:changed:push", [
+    "bun",
+    "run",
+    "test:changed:push",
+  ]);
+  if (result.exitCode !== 0 && isBunTestChangedEmptyOutput(`${result.stdout}\n${result.stderr}`)) {
+    return { ...result, exitCode: 0, skipped: true };
+  }
+  return result;
+}
+
 async function runCheckFastGate(projectRoot: string): Promise<GateResult> {
   const full = Bun.env.KIMI_PRE_PUSH_FULL === "1";
-  const script = full ? "check" : "check:fast";
+  const skipTests = !full && Bun.env.KIMI_PRE_PUSH_TESTS !== "1";
+  const script = full ? "check" : skipTests ? "check:fast:skip-tests" : "check:fast";
   if (!(await packageHasScript(projectRoot, script))) {
     return { name: script, exitCode: 0, ms: 0, stdout: "", stderr: "", skipped: true };
   }
@@ -554,12 +588,11 @@ async function runCheckFastGate(projectRoot: string): Promise<GateResult> {
       skipped: true,
     };
   }
-  // Skip tests in pre-push unless KIMI_PRE_PUSH_FULL=1 — pre-commit already ran them.
-  // Set KIMI_PRE_PUSH_TESTS=1 to re-enable test execution in pre-push check:fast.
-  const skipTests = !full && Bun.env.KIMI_PRE_PUSH_TESTS !== "1";
-  const cmd = ["bun", "run", script];
-  if (skipTests) cmd.push("--skip-tests");
-  const result = await runGateVisible(projectRoot, full ? "check" : "check:fast", cmd);
+  const result = await runGateVisible(projectRoot, full ? "check" : "check:fast", [
+    "bun",
+    "run",
+    script,
+  ]);
   if (result.exitCode !== 0 && Bun.env.KIMI_SKIP_FLAKY_TESTS === "1") {
     const combined = `${result.stdout}\n${result.stderr}`;
     if (/EPERM|EACCES|sandbox/i.test(combined)) {
@@ -701,7 +734,11 @@ async function runPrePushGatesSerial(
   if (!summary) printVerboseBanner("Quality");
   fail = mergePushGateResults(
     results,
-    await Promise.all([runRScoreGate(projectRoot), runCheckFastGate(projectRoot)])
+    await Promise.all([
+      runRScoreGate(projectRoot),
+      runCheckFastGate(projectRoot),
+      runChangedPushTestsGate(projectRoot),
+    ])
   );
   return { results, fail };
 }
@@ -788,6 +825,7 @@ export async function runPrePushGates(projectRoot: string): Promise<number> {
       () => runPerfChangedGate(projectRoot),
       () => runRScoreGate(projectRoot),
       () => runCheckFastGate(projectRoot),
+      () => runChangedPushTestsGate(projectRoot),
     ];
     if (isToolchain) {
       runners.push(
@@ -914,11 +952,11 @@ export async function planPreCommitGates(projectRoot: string): Promise<PlannedGa
       skipped: await shouldSkipGate(projectRoot, "typecheck"),
     });
   }
-  if (await packageHasScript(projectRoot, "test:fast")) {
+  if (await packageHasScript(projectRoot, "test:changed")) {
     planned.push({
-      name: "test:fast",
-      cmd: ["bun", "run", "test:fast"],
-      skipped: await shouldSkipGate(projectRoot, "test:fast"),
+      name: "test:changed",
+      cmd: ["bun", "run", "test:changed"],
+      skipped: await shouldSkipGate(projectRoot, "test:changed"),
     });
   }
   if (pathExists(join(projectRoot, "scripts/lint-tuning-set-version.ts"))) {
@@ -961,12 +999,20 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
   }
 
   const full = Bun.env.KIMI_PRE_PUSH_FULL === "1";
-  const script = full ? "check" : "check:fast";
+  const skipTests = !full && Bun.env.KIMI_PRE_PUSH_TESTS !== "1";
+  const script = full ? "check" : skipTests ? "check:fast:skip-tests" : "check:fast";
   if (await packageHasScript(projectRoot, script)) {
     planned.push({
-      name: script,
+      name: full ? "check" : "check:fast",
       cmd: ["bun", "run", script],
       skipped: !full && (await qualityGatesCached(projectRoot)),
+    });
+  }
+  if (!full && (await packageHasScript(projectRoot, "test:changed:push"))) {
+    planned.push({
+      name: "test:changed:push",
+      cmd: ["bun", "run", "test:changed:push"],
+      skipped: await shouldSkipGate(projectRoot, "test:changed:push"),
     });
   }
 
