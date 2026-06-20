@@ -149,12 +149,3 @@ export function runToolEffect(
   }
   return invokeToolEffect(toolPath, args, options);
 }
-
-/** Thin promise wrapper for legacy callers. */
-export async function invokeToolWithTaxonomy(
-  toolPath: string,
-  args: string[],
-  options: ToolInvocationOptions = {}
-): Promise<ToolInvocationWithTaxonomy> {
-  return Effect.runPromise(invokeToolEffect(toolPath, args, options));
-}

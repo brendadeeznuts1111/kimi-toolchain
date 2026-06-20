@@ -63,4 +63,25 @@ describe("js-builtins-throughput", () => {
     expect(result).toBe(s);
     expect(elapsed).toBeLessThan(1);
   });
+
+  test("matchAll on 100K matches completes under 50ms (C++ backend)", () => {
+    const s = "a1".repeat(100_000);
+    const re = /(a)(\d)/g;
+    const start = Bun.nanoseconds();
+    const count = [...s.matchAll(re)].length;
+    const elapsed = (Bun.nanoseconds() - start) / 1e6;
+    console.log(`  matchAll 100K: ${elapsed.toFixed(0)} ms (C++ backend)`);
+    expect(count).toBe(100_000);
+    expect(elapsed).toBeLessThan(50);
+  });
+
+  test("replace on 100K matches completes under 50ms (C++ backend)", () => {
+    const s = "a1".repeat(100_000);
+    const start = Bun.nanoseconds();
+    const result = s.replace(/a/g, "b");
+    const elapsed = (Bun.nanoseconds() - start) / 1e6;
+    console.log(`  replace 100K: ${elapsed.toFixed(0)} ms (C++ backend)`);
+    expect(result).toBe("b1".repeat(100_000));
+    expect(elapsed).toBeLessThan(50);
+  });
 });

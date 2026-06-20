@@ -144,6 +144,7 @@ const DESCRIBE_STEM_ALIAS: Record<string, string> = {
   "bun-spawn-which-uuid": "bun-spawn",
   "bun-sleep-deepequals": "bun-sleep",
   "bun-terminal-peek-shrink": "bun-terminal",
+  "bun-plugin-alloc": "bun-plugin",
   "bun-utils-base64": "base64",
   "bun-utils-hex": "hex",
   "bun-utils-gzip": "gzip",

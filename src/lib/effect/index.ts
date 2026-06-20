@@ -16,7 +16,6 @@ export { ToolchainConfigLive, telemetryEnabled, type ToolchainConfig } from "./c
 export {
   invokeToolEffect,
   runToolEffect,
-  invokeToolWithTaxonomy,
   type ToolInvocationWithTaxonomy,
 } from "./tool-runner-effect.ts";
 
