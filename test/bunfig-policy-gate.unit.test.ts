@@ -47,8 +47,8 @@ const CLEAN_ENV = {
   BUN_CONFIG_SKIP_INSTALL_PACKAGES: undefined,
 };
 
-/** Spawn-heavy kimi-doctor invocations need headroom under parallel check:fast. */
-const SPAWN_TEST_TIMEOUT_MS = 30_000;
+/** Spawn-heavy kimi-doctor invocations need headroom under parallel pre-push gates. */
+const SPAWN_TEST_TIMEOUT_MS = 60_000;
 
 describe("bunfig-policy-gate", () => {
   test("passes secure bunfig policy", async () => {
