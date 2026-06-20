@@ -2343,6 +2343,20 @@ async function runScanFromPanel() {
 
 // ── Canvases tab ─────────────────────────────────────────────────────
 
+/** Append active Artifacts run filter to examples dashboard companion deep link. */
+function canvasExamplesDeepLink(baseLink, runId) {
+  if (!baseLink) return null;
+  try {
+    const url = new URL(baseLink);
+    const trimmed = String(runId ?? "").trim();
+    if (trimmed) url.searchParams.set("runId", trimmed);
+    else url.searchParams.delete("runId");
+    return url.toString();
+  } catch {
+    return baseLink;
+  }
+}
+
 async function refreshCanvases() {
   const body = document.getElementById("canvases-body");
   const errEl = document.getElementById("canvases-error");
@@ -2350,7 +2364,7 @@ async function refreshCanvases() {
 
   const res = await fetch("/api/canvases");
   const payload = await res.json();
-  const json = JSON.stringify(payload);
+  const json = JSON.stringify({ payload, runId: artifactsRunFilter || "" });
   if (json === lastCanvasesJson) return;
   lastCanvasesJson = json;
 
@@ -2417,8 +2431,12 @@ async function refreshCanvases() {
       Array.isArray(c.influences) && c.influences.length > 0
         ? c.influences.map((id) => `<code>${esc(id)}</code>`).join(" ")
         : "—";
-    const examplesLink = c.dashboardDeepLink
-      ? `<a href="${esc(c.dashboardDeepLink)}" target="_blank" rel="noopener noreferrer" class="canvas-examples-link">Examples</a>`
+    const companionUrl = canvasExamplesDeepLink(c.dashboardDeepLink, artifactsRunFilter);
+    const examplesLabel = artifactsRunFilter ? "Examples (run)" : "Examples";
+    const examplesLink = companionUrl
+      ? `<a href="${esc(companionUrl)}" target="_blank" rel="noopener noreferrer" class="canvas-examples-link" title="${esc(
+          companionUrl
+        )}">${esc(examplesLabel)}</a>`
       : "—";
     tr.innerHTML = `
       <td><code>${esc(c.path)}</code></td>
@@ -3068,6 +3086,10 @@ function applyArtifactsIdentityFilters(identity = {}) {
   renderArtifactsFilterChips();
   pushArtifactsFilterToUrl();
   invalidateArtifactsCache();
+  if (identity.runId !== undefined) {
+    lastCanvasesJson = "";
+    void refreshCanvases();
+  }
 }
 
 function showRunManifestDiffHint(runA, runB, gateRows) {

@@ -2159,6 +2159,14 @@ describe("herdr-dashboard-server", () => {
     expect(js).toContain("canvas-filter-applied");
   });
 
+  test("herdr-dashboard.js builds run-aware canvas companion deep links", () => {
+    const js = readText(join(REPO_ROOT, "templates/herdr-dashboard.js"));
+    expect(js).toContain("function canvasExamplesDeepLink");
+    expect(js).toContain("artifactsRunFilter");
+    expect(js).toContain('runId: artifactsRunFilter || ""');
+    expect(js).toContain("canvasExamplesDeepLink(c.dashboardDeepLink, artifactsRunFilter)");
+  });
+
   test(
     "dashboard meta includes placeholder when screenshot cached",
     async () => {
