@@ -34,6 +34,7 @@ Machine-readable manifest: \`canonical-references.json\` (synced to \`~/.kimi-co
 | \`docs/references/herdr-socket-saturation-protocol.md\` | \`~/.kimi-code/docs/references/herdr-socket-saturation-protocol.md\` | Herdr EAGAIN (os error 35) taxonomy, fix-socket --dry-run/--live contract, respawn protection, and Mac mini runbook |
 | \`docs/references/namespace.md\` | \`~/.kimi-code/docs/references/namespace.md\` | Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings |
 | \`docs/references/configuration-layers.md\` | \`~/.kimi-code/docs/references/configuration-layers.md\` | Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml) |
+| \`docs/references/canonical-references-system.md\` | \`~/.kimi-code/docs/references/canonical-references-system.md\` | Manifest schema, generation pipeline, freshness/drift mechanics, lint layers, and consumer graph for canonical-references.json |
 | \`docs/references/shell-spawn-choice.md\` | \`~/.kimi-code/docs/references/shell-spawn-choice.md\` | invokeTool vs Bun.spawn vs governedSpawn decision matrix |
 | \`docs/references/bun-runtime-scaffold.md\` | \`~/.kimi-code/docs/references/bun-runtime-scaffold.md\` | Bun install config (bunfig.toml merge order, defaults, env vars, backend, cache/lazy install) |
 | \`docs/references/testing-execution.md\` | \`~/.kimi-code/docs/references/testing-execution.md\` | Four-script test execution model — selection (fast/changed/parallel/shard), distribution (file not describe), --changed safety net |
@@ -67,5 +68,70 @@ exports[`canonical-references formatCanonicalReferencesMarkdown compact output m
 
 Cached manifest: \`canonical-references.json\` (\`bun run references:generate\`; synced to \`~/.kimi-code/\`). Stacks: Bun, Effect, Kimi Code, Herdr, Cloudflare Platform, Cloudflare MCP, DX, js-yaml, Oxc (oxfmt / oxlint). Full tables: \`CODE_REFERENCES.md\` § Canonical ecosystem links.
 
+"
+`;
+
+exports[`canonical-references formatCanonicalReferencesInspectPlain full output matches snapshot 1`] = `
+"
+Ecosystem references:
+┌───┬────────────────┬──────────┬─────────┬────────────┬────────┬────────────────────┬──────────────────────┐
+│   │ id             │ kind     │ package │ minVersion │ status │ repoId             │ sourceRepo           │
+├───┼────────────────┼──────────┼─────────┼────────────┼────────┼────────────────────┼──────────────────────┤
+│ 0 │ bun            │ runtime  │ bun     │ 1.4.0      │ active │ (noRepo)           │ —                    │
+│ 1 │ effect         │ library  │ effect  │ 3.21.3     │ active │ effect-upstream    │ Effect               │
+│ 2 │ kimi-code      │ product  │ —       │ —          │ active │ kimi-code-upstream │ Kimi Code (Moonshot) │
+│ 3 │ herdr          │ product  │ —       │ —          │ active │ (noRepo)           │ —                    │
+│ 4 │ cloudflare     │ platform │ —       │ —          │ active │ (noRepo)           │ —                    │
+│ 5 │ cloudflare-mcp │ mcp      │ —       │ —          │ active │ (noRepo)           │ —                    │
+│ 6 │ dx             │ product  │ —       │ —          │ active │ (noRepo)           │ —                    │
+│ 7 │ js-yaml        │ library  │ js-yaml │ 4.1.0      │ active │ (noRepo)           │ —                    │
+│ 8 │ oxc            │ library  │ oxfmt   │ —          │ active │ oxc-upstream       │ Oxc                  │
+└───┴────────────────┴──────────┴─────────┴────────────┴────────┴────────────────────┴──────────────────────┘
+
+
+Repository references:
+┌───┬────────────────────┬──────────┬───────────┬──────────────────┬───────────────────────────────────┐
+│   │ id                 │ role     │ provides  │ clonePath        │ source                            │
+├───┼────────────────────┼──────────┼───────────┼──────────────────┼───────────────────────────────────┤
+│ 0 │ kimi-toolchain     │ tool     │ —         │ ~/kimi-toolchain │ brendadeeznuts1111/kimi-toolchain │
+│ 1 │ kimi-code-upstream │ upstream │ kimi-code │ —                │ MoonshotAI/kimi-code              │
+│ 2 │ effect-upstream    │ upstream │ effect    │ —                │ Effect-TS/effect                  │
+│ 3 │ oxc-upstream       │ upstream │ oxc       │ —                │ oxc-project/oxc                   │
+└───┴────────────────────┴──────────┴───────────┴──────────────────┴───────────────────────────────────┘
+
+
+Local doc references:
+┌────┬──────────────────────────────────┬─────────────────────────────────────────────────────┬────────┬───────────┐
+│    │ id                               │ repoPath                                            │ canvas │ readOrder │
+├────┼──────────────────────────────────┼─────────────────────────────────────────────────────┼────────┼───────────┤
+│  0 │ agents                           │ AGENTS.md                                           │ —      │ —         │
+│  1 │ code-references                  │ CODE_REFERENCES.md                                  │ yes    │ 4         │
+│  2 │ unified                          │ UNIFIED.md                                          │ yes    │ 1         │
+│  3 │ deep-quality                     │ DEEP-QUALITY.md                                     │ yes    │ 9         │
+│  4 │ templates                        │ TEMPLATES.md                                        │ yes    │ 5         │
+│  5 │ dashboard-thumbnails             │ docs/references/dashboard-thumbnails.md             │ yes    │ 6         │
+│  6 │ kimi-doctor                      │ docs/references/kimi-doctor.md                      │ yes    │ 7         │
+│  7 │ serve-probe                      │ docs/references/serve-probe.md                      │ —      │ —         │
+│  8 │ herdr-socket-saturation-protocol │ docs/references/herdr-socket-saturation-protocol.md │ —      │ —         │
+│  9 │ namespace                        │ docs/references/namespace.md                        │ yes    │ 2         │
+│ 10 │ configuration-layers             │ docs/references/configuration-layers.md             │ yes    │ 3         │
+│ 11 │ canonical-references-system      │ docs/references/canonical-references-system.md      │ —      │ 3         │
+│ 12 │ shell-spawn-choice               │ docs/references/shell-spawn-choice.md               │ —      │ —         │
+│ 13 │ bun-runtime-scaffold             │ docs/references/bun-runtime-scaffold.md             │ —      │ —         │
+│ 14 │ testing-execution                │ docs/references/testing-execution.md                │ —      │ —         │
+│ 15 │ bun-shell-companions             │ docs/references/bun-shell-companions.md             │ —      │ —         │
+│ 16 │ bun-file-streaming               │ docs/references/bun-file-streaming.md               │ —      │ —         │
+│ 17 │ template-matrix                  │ docs/references/template-matrix.md                  │ —      │ —         │
+│ 18 │ herdr-plugin-architecture        │ docs/references/herdr-plugin-architecture.md        │ yes    │ 8         │
+│ 19 │ v53-architecture                 │ docs/references/v53-architecture.md                 │ yes    │ 10        │
+│ 20 │ artifact-lineage                 │ examples/artifact-dependency-graphs.md              │ yes    │ 11        │
+│ 21 │ gate-health                      │ docs/references/serve-probe.md                      │ yes    │ 12        │
+│ 22 │ benchmark                        │ docs/references/kimi-doctor.md                      │ yes    │ 13        │
+│ 23 │ agent-api                        │ docs/agent-api.md                                   │ —      │ —         │
+│ 24 │ finish-work-close-loop           │ docs/finish-work-close-loop.md                      │ —      │ —         │
+│ 25 │ handoff-rules                    │ docs/handoff-rules.md                               │ —      │ —         │
+│ 26 │ naming                           │ docs/naming.md                                      │ —      │ —         │
+│ 27 │ canonical-references             │ canonical-references.json                           │ —      │ —         │
+└────┴──────────────────────────────────┴─────────────────────────────────────────────────────┴────────┴───────────┘
 "
 `;

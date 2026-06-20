@@ -39,6 +39,7 @@ This repository uses **four distinct configuration layers**. They are not interc
 | If you are trying to…                                         | Look at…                                                                            |
 | :------------------------------------------------------------ | :---------------------------------------------------------------------------------- |
 | Find external stack links or indexed local docs               | `canonical-references.json` → `ecosystem` / `localDocs`                             |
+| Understand manifest freshness, drift, lint, and consumers     | [canonical-references-system.md](./canonical-references-system.md)                  |
 | Find the GitHub URL for a major upstream project              | `canonical-references.json` → `repos` (3 entries)                                   |
 | Read or change a `KIMI_*` value                               | Root `bunfig.toml` (`[define]`) + `types/build-constants.d.ts`                      |
 | Discover defaults, domains, or the generated define inventory | `constants-manifest.json`                                                           |

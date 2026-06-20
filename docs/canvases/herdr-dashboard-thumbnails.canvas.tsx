@@ -175,6 +175,12 @@ const MANIFEST_LOCAL_DOCS_ALL = [
       "Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml)",
   },
   {
+    id: "canonical-references-system",
+    location: "docs/references",
+    purpose:
+      "Manifest schema, generation pipeline, freshness/drift mechanics, lint layers, and consumer graph for canonical-references.json",
+  },
+  {
     id: "shell-spawn-choice",
     location: "docs/references",
     purpose: "invokeTool vs Bun.spawn vs governedSpawn decision matrix",

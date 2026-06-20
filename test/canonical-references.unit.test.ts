@@ -1,6 +1,6 @@
 import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { join } from "path";
 import { REPO_ROOT, testTempDir } from "./helpers.ts";
 import {
@@ -12,11 +12,17 @@ import {
   REPO_BY_ID,
   REPO_REFERENCES,
   auditCanonicalReferencesHealth,
+  auditEcosystemReferenceUrlsOnline,
+  checkEcosystemReferenceUrl,
+  collectEcosystemHttpUrls,
   evaluateProbeHandoffCondition,
   resolveProbeHealthCheck,
   buildCanonicalReferencesManifest,
   ecosystemReferenceById,
+  formatCanonicalReferencesInspectPlain,
   formatCanonicalReferencesMarkdown,
+  formatEcosystemReferenceUrlReport,
+  isHttpReferenceUrl,
   repoUrlParts,
   getRepo,
   getRepoByUrl,
@@ -76,6 +82,7 @@ describe("canonical-references", () => {
       "kimi-doctor",
       "namespace",
       "configuration-layers",
+      "canonical-references-system",
       "shell-spawn-choice",
       "bun-runtime-scaffold",
       "testing-execution",
@@ -215,6 +222,64 @@ describe("canonical-references", () => {
     const compact = formatCanonicalReferencesMarkdown(true);
     expect(compact).toMatchSnapshot();
     expect(compact).toContain("Bun, Effect, Kimi Code");
+  });
+
+  test("formatCanonicalReferencesInspectPlain full output matches snapshot", () => {
+    expect(formatCanonicalReferencesInspectPlain("all")).toMatchSnapshot();
+  });
+
+  test("collectEcosystemHttpUrls skips non-http docs paths", () => {
+    const urls = collectEcosystemHttpUrls();
+    const dxDocs = urls.find((e) => e.ecosystemId === "dx" && e.field === "docs");
+    expect(dxDocs).toBeUndefined();
+    expect(urls.some((e) => e.ecosystemId === "dx" && e.field === "homepage")).toBe(true);
+    expect(urls.some((e) => e.ecosystemId === "bun" && e.field === "docs")).toBe(true);
+    expect(isHttpReferenceUrl("~/.config/dx/AGENTS.md")).toBe(false);
+  });
+
+  test("checkEcosystemReferenceUrl uses HEAD with GET fallback", async () => {
+    const fetchMock = mock((url: string, init?: RequestInit) => {
+      if (init?.method === "HEAD" && url === "https://example.com/head-405") {
+        return Promise.resolve(new Response(null, { status: 405 }));
+      }
+      if (init?.method === "GET" && url === "https://example.com/head-405") {
+        return Promise.resolve(new Response("ok", { status: 200 }));
+      }
+      if (url === "https://example.com/fail") {
+        return Promise.resolve(new Response(null, { status: 404 }));
+      }
+      return Promise.resolve(new Response(null, { status: 200 }));
+    });
+    const prior = globalThis.fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      expect(await checkEcosystemReferenceUrl("https://example.com/ok")).toBe("ok");
+      expect(await checkEcosystemReferenceUrl("https://example.com/head-405")).toBe("ok");
+      expect(await checkEcosystemReferenceUrl("https://example.com/fail")).toBe("fail");
+    } finally {
+      globalThis.fetch = prior;
+    }
+  });
+
+  test("auditEcosystemReferenceUrlsOnline reports skipped dx docs and mocked failures", async () => {
+    const fetchMock = mock((url: string) => {
+      if (url.includes("moonshotai.github.io")) {
+        return Promise.resolve(new Response(null, { status: 404 }));
+      }
+      return Promise.resolve(new Response(null, { status: 200 }));
+    });
+    const issues = await auditEcosystemReferenceUrlsOnline({
+      fetchFn: fetchMock as unknown as typeof fetch,
+      delayMs: 0,
+      timeoutMs: 1000,
+    });
+    const dxDocs = issues.find((i) => i.ecosystemId === "dx" && i.field === "docs");
+    expect(dxDocs?.status).toBe("skipped");
+    const kimiFail = issues.find(
+      (i) => i.ecosystemId === "kimi-code" && i.field === "homepage" && i.status === "fail"
+    );
+    expect(kimiFail).toBeDefined();
+    expect(formatEcosystemReferenceUrlReport(issues)).toContain("references-online:");
   });
 
   test("ECOSYSTEM_BY_ID and LOCAL_DOC_BY_ID provide O(1) typed lookup", () => {

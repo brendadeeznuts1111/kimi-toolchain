@@ -16,8 +16,10 @@ import {
   ECOSYSTEM_REFERENCES,
   LOCAL_DOC_REFERENCES,
   REPO_REFERENCES,
+  formatCanonicalReferencesInspectPlain,
   lintRepoUrls,
   repoUrlParts,
+  type CanonicalReferencesInspectSection,
 } from "../src/lib/canonical-references.ts";
 
 const args = new Set(Bun.argv.slice(2));
@@ -27,7 +29,8 @@ const jsonMode = args.has("--json");
 
 const section = (() => {
   const idx = Bun.argv.indexOf("--section");
-  return idx >= 0 ? Bun.argv[idx + 1] : "all";
+  const raw = idx >= 0 ? Bun.argv[idx + 1] : "all";
+  return (raw ?? "all") as CanonicalReferencesInspectSection;
 })();
 
 function printTable(header: string, table: string): void {
@@ -47,7 +50,9 @@ if (jsonMode) {
   process.exit(0);
 }
 
-if (section === "all" || section === "ecosystem") {
+if (plain) {
+  process.stdout.write(formatCanonicalReferencesInspectPlain(section) + "\n");
+} else if (section === "all" || section === "ecosystem") {
   printTable(
     "Ecosystem references",
     Bun.inspect.table(
@@ -68,7 +73,7 @@ if (section === "all" || section === "ecosystem") {
   );
 }
 
-if (section === "all" || section === "repos") {
+if (!plain && (section === "all" || section === "repos")) {
   printTable(
     "Repository references",
     Bun.inspect.table(
@@ -83,7 +88,7 @@ if (section === "all" || section === "repos") {
   );
 }
 
-if (section === "all" || section === "docs") {
+if (!plain && (section === "all" || section === "docs")) {
   printTable(
     "Local doc references",
     Bun.inspect.table(

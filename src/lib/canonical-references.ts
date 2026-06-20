@@ -355,6 +355,14 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     canvasInfluences: ["card-threshold-overrides", "card-metrics-schema", "card-global-store"],
   },
   {
+    id: "canonical-references-system",
+    repoPath: "docs/references/canonical-references-system.md",
+    runtimePath: "~/.kimi-code/docs/references/canonical-references-system.md",
+    purpose:
+      "Manifest schema, generation pipeline, freshness/drift mechanics, lint layers, and consumer graph for canonical-references.json",
+    canvasReadOrder: 3,
+  },
+  {
     id: "shell-spawn-choice",
     repoPath: "docs/references/shell-spawn-choice.md",
     runtimePath: "~/.kimi-code/docs/references/shell-spawn-choice.md",
@@ -965,6 +973,144 @@ const GITHUB_URL_PATTERN = new URLPattern({
   pathname: "/:org/:repo{.git}?",
 });
 
+export type CanonicalReferencesInspectSection = "all" | "ecosystem" | "repos" | "docs";
+
+export type EcosystemReferenceUrlField = "homepage" | "docs";
+
+export type EcosystemReferenceUrlStatus = "ok" | "fail" | "skipped";
+
+export interface EcosystemReferenceUrlIssue {
+  ecosystemId: string;
+  field: EcosystemReferenceUrlField;
+  url: string;
+  status: EcosystemReferenceUrlStatus;
+  message: string;
+}
+
+export const ECOSYSTEM_REFERENCE_ONLINE_TIMEOUT_MS = 10_000;
+export const ECOSYSTEM_REFERENCE_ONLINE_DELAY_MS = 200;
+
+export function isHttpReferenceUrl(url: string): boolean {
+  return url.startsWith("http://") || url.startsWith("https://");
+}
+
+/** Collect ecosystem homepage/docs URLs eligible for online HEAD checks. */
+export function collectEcosystemHttpUrls(): Array<{
+  ecosystemId: string;
+  field: EcosystemReferenceUrlField;
+  url: string;
+}> {
+  const entries: Array<{
+    ecosystemId: string;
+    field: EcosystemReferenceUrlField;
+    url: string;
+  }> = [];
+  for (const ref of ECOSYSTEM_REFERENCES) {
+    if (isHttpReferenceUrl(ref.homepage)) {
+      entries.push({ ecosystemId: ref.id, field: "homepage", url: ref.homepage });
+    }
+    if (isHttpReferenceUrl(ref.docs)) {
+      entries.push({ ecosystemId: ref.id, field: "docs", url: ref.docs });
+    }
+  }
+  return entries;
+}
+
+type ReferenceFetchFn = typeof fetch;
+
+export async function checkEcosystemReferenceUrl(
+  url: string,
+  options: { fetchFn?: ReferenceFetchFn; timeoutMs?: number } = {}
+): Promise<"ok" | "fail"> {
+  const fetchFn = options.fetchFn ?? fetch;
+  const timeoutMs = options.timeoutMs ?? ECOSYSTEM_REFERENCE_ONLINE_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetchFn(url, {
+      method: "HEAD",
+      signal: controller.signal,
+      redirect: "follow",
+    });
+    if (res.status === 405 || res.status === 501) {
+      const getRes = await fetchFn(url, {
+        method: "GET",
+        signal: controller.signal,
+        redirect: "follow",
+      });
+      return getRes.ok ? "ok" : "fail";
+    }
+    return res.ok ? "ok" : "fail";
+  } catch {
+    return "fail";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export interface AuditEcosystemReferenceUrlsOnlineOptions {
+  fetchFn?: ReferenceFetchFn;
+  timeoutMs?: number;
+  /** Politeness delay between checks; set 0 in tests. */
+  delayMs?: number;
+}
+
+/** HEAD-check ecosystem homepage/docs URLs; skips non-http paths (e.g. dx local docs). */
+export async function auditEcosystemReferenceUrlsOnline(
+  options: AuditEcosystemReferenceUrlsOnlineOptions = {}
+): Promise<EcosystemReferenceUrlIssue[]> {
+  const {
+    fetchFn = fetch,
+    timeoutMs = ECOSYSTEM_REFERENCE_ONLINE_TIMEOUT_MS,
+    delayMs = ECOSYSTEM_REFERENCE_ONLINE_DELAY_MS,
+  } = options;
+
+  const issues: EcosystemReferenceUrlIssue[] = [];
+
+  for (const ref of ECOSYSTEM_REFERENCES) {
+    for (const field of ["homepage", "docs"] as const) {
+      const url = ref[field];
+      if (!isHttpReferenceUrl(url)) {
+        issues.push({
+          ecosystemId: ref.id,
+          field,
+          url,
+          status: "skipped",
+          message: "non-http URL — skipped",
+        });
+        continue;
+      }
+
+      const status = await checkEcosystemReferenceUrl(url, { fetchFn, timeoutMs });
+      issues.push({
+        ecosystemId: ref.id,
+        field,
+        url,
+        status,
+        message: status === "ok" ? "reachable" : "HEAD/GET check failed",
+      });
+
+      if (delayMs > 0) await Bun.sleep(delayMs);
+    }
+  }
+
+  return issues;
+}
+
+export function formatEcosystemReferenceUrlReport(issues: EcosystemReferenceUrlIssue[]): string {
+  const failures = issues.filter((i) => i.status === "fail");
+  const skipped = issues.filter((i) => i.status === "skipped");
+  if (failures.length === 0) {
+    const checked = issues.length - skipped.length;
+    return `references-online: ok (${checked} checked, ${skipped.length} skipped)`;
+  }
+  const lines = [`references-online: ${failures.length} failure(s)`];
+  for (const issue of failures) {
+    lines.push(`  ${issue.ecosystemId}.${issue.field} ${issue.url} — ${issue.message}`);
+  }
+  return lines.join("\n");
+}
+
 /** Validate that every REPO_REFERENCES url follows the canonical https://github.com/:org/:repo shape. */
 export function lintRepoUrls(): string[] {
   const violations: string[] = [];
@@ -1278,4 +1424,58 @@ ${buildTable(LOCAL_DOC_REFERENCES, LOCAL_DOC_COLUMNS)}
 
 ${buildTable(REPO_REFERENCES, REPO_COLUMNS)}
 `;
+}
+
+/** Terminal tables for `references:inspect --plain` (ANSI stripped). */
+export function formatCanonicalReferencesInspectPlain(
+  section: CanonicalReferencesInspectSection = "all"
+): string {
+  const parts: string[] = [];
+  const repoNameById = new Map(REPO_REFERENCES.map((r) => [r.id, r.name]));
+
+  if (section === "all" || section === "ecosystem") {
+    const table = Bun.inspect.table(
+      ECOSYSTEM_REFERENCES.map((e) => {
+        const resolvedRepoId = e.repoId ?? `${e.id}-upstream`;
+        const repoName = repoNameById.get(resolvedRepoId);
+        return {
+          id: e.id,
+          kind: e.kind,
+          package: e.package ?? "—",
+          minVersion: e.minVersion ?? "—",
+          status: e.status ?? "active",
+          repoId: e.noRepo ? "(noRepo)" : resolvedRepoId,
+          sourceRepo: e.noRepo ? "—" : (repoName ?? "?"),
+        };
+      })
+    );
+    parts.push(`\nEcosystem references:\n${Bun.stripANSI(table)}`);
+  }
+
+  if (section === "all" || section === "repos") {
+    const table = Bun.inspect.table(
+      REPO_REFERENCES.map((r) => ({
+        id: r.id,
+        role: r.role ?? "—",
+        provides: r.provides?.join(", ") ?? "—",
+        clonePath: r.clonePath ?? "—",
+        source: repoUrlParts(r.url).display,
+      }))
+    );
+    parts.push(`\nRepository references:\n${Bun.stripANSI(table)}`);
+  }
+
+  if (section === "all" || section === "docs") {
+    const table = Bun.inspect.table(
+      LOCAL_DOC_REFERENCES.map((d) => ({
+        id: d.id,
+        repoPath: d.repoPath,
+        canvas: d.cursorCanvas ? "yes" : "—",
+        readOrder: d.canvasReadOrder ?? "—",
+      }))
+    );
+    parts.push(`\nLocal doc references:\n${Bun.stripANSI(table)}`);
+  }
+
+  return parts.join("\n");
 }
