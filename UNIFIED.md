@@ -94,6 +94,56 @@ bun install -g .                    # global link + postinstall → ~/.kimi-code
 bash scripts/install-bin-wrappers.sh
 ```
 
+### Bun pm / install policy (DX)
+
+| Concern                 | Command                                       | Notes                                                                                 |
+| ----------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Reproducible CI install | `bun ci`                                      | Frozen lockfile — same as `bun install --frozen-lockfile`                             |
+| Workspace members       | `bun pm ls --all`                             | `examples/*` registered; e.g. `kimi-toolchain-dashboard@workspace:examples/dashboard` |
+| Scoped install          | `bun install --filter './examples/dashboard'` | One example workspace without reinstalling siblings                                   |
+| Built-in trust list     | `bun pm default-trusted`                      | 367 packages allowed to run dependency lifecycle scripts                              |
+| Blocked scripts         | `bun pm untrusted`                            | Audit after adding deps; `0` = clean                                                  |
+| Explicit trust          | `bun pm trust <pkg>`                          | For packages not on Bun’s default list                                                |
+
+Path A workspaces: `"workspaces": ["examples/*"]` in root `package.json`; dashboard consumes root via `"kimi-toolchain": "file:../.."`. Policy SSOT: `src/lib/bun-install-config.ts`; reference: `docs/references/bun-runtime-scaffold.md`.
+
+#### Workspace install verification
+
+| Check                                                | Result         | Signal                                                 |
+| ---------------------------------------------------- | -------------- | ------------------------------------------------------ |
+| `bun pm untrusted`                                   | `0`            | No blocked lifecycle scripts                           |
+| `bun pm ls --trusted`                                | 11 direct deps | None on Bun’s 367 allowlist (no esbuild/sharp/etc.)    |
+| `bun install --filter './examples/portal' --dry-run` | `exit:0`       | Filtered install works; `workspace:*` blocker resolved |
+
+#### `bun add` scoping flags
+
+| Flag         | Alias      | Adds to                            | Repo example                                              |
+| ------------ | ---------- | ---------------------------------- | --------------------------------------------------------- |
+| `--dev`      | `-d`, `-D` | `devDependencies`                  | `bun add -d @types/bun` (root types, linters)             |
+| `--optional` | —          | `optionalDependencies`             | Native deps that may fail on some platforms               |
+| `--peer`     | —          | `peerDependencies`                 | `cd examples/portal && bun add --peer react`              |
+| `--exact`    | `-E`       | pinned version (no `^`)            | `bun add -E effect` — deterministic across agent sessions |
+| `--global`   | `-g`       | global install (no `package.json`) | `bun add -g <cli-tool>`                                   |
+
+Under `frozenLockfile`, use **`bun add` / `bun update`** for dep changes — not plain `bun install`. SSOT: `BUN_INSTALL_CLI` in `src/lib/bun-install-config.ts`.
+
+```bash
+bun add -d @types/bun @types/js-yaml    # root devDependencies
+bun add -E effect                        # pin foundational dep (no ^ drift)
+bun add -g <tool>                        # global CLI — does not touch repo package.json
+```
+
+**Exact vs range:** default `^` allows minor bumps on resolve; `-E` freezes the declared version until `bun update <pkg>`. Root today uses `^` on `effect` and `typescript`; pin with `-E` when you need stricter reproducibility.
+
+**Dep-type audit:** `bun pm ls --dev` / `--optional` / `--peer` do not filter on Bun 1.4.0 (same 11-package tree as `bun pm ls`). Use `package.json` sections instead:
+
+```bash
+bun pm pkg get devDependencies dependencies
+bun pm pkg get optionalDependencies peerDependencies   # unset until declared
+```
+
+Compatibility matrix: `docs/references/bun-runtime-scaffold.md` (`bun pm ls` scope flags).
+
 ## Greenfield project
 
 ```bash

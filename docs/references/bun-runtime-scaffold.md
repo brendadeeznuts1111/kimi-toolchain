@@ -91,14 +91,29 @@ Key differences from Bun defaults:
 
 ### Workspace / package manager (Path A)
 
-| Key / command | Hardened | Notes |
-| ------------- | -------- | ----- |
-| `package.json` `workspaces` | `["examples/*"]` | Runnable examples only; templates stay scaffolding; root owns scripts/postinstall |
-| `examples/dashboard` → `kimi-toolchain` | `file:../..` | Not `workspace:*` — Bun resolves `workspace:*` only among workspace globs, not the root package name |
-| `bun install --filter './examples/dashboard'` | — | Scoped install for one workspace member |
-| `bun pm ls --all` | — | Verify members: `kimi-toolchain-dashboard@workspace:examples/dashboard` |
+| Key / command                                 | Hardened         | Notes                                                                                                |
+| --------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------- |
+| `package.json` `workspaces`                   | `["examples/*"]` | Runnable examples only; templates stay scaffolding; root owns scripts/postinstall                    |
+| `examples/dashboard` → `kimi-toolchain`       | `file:../..`     | Not `workspace:*` — Bun resolves `workspace:*` only among workspace globs, not the root package name |
+| `bun install --filter './examples/dashboard'` | —                | Scoped install for one workspace member                                                              |
+| `bun pm ls --all`                             | —                | Verify members: `kimi-toolchain-dashboard@workspace:examples/dashboard`                              |
 
 Policy SSOT: `src/lib/bun-install-config.ts` (`BUN_INSTALL_WORKSPACE_POLICY`, `BUN_WORKSPACE_ROOT_CONSUMER_LINK`).
+
+#### `bun pm ls` scope flags (Bun 1.4.0)
+
+Validated on `bun@1.4.0-canary.1`. Use `bun pm pkg get <section>` until scope flags filter correctly.
+
+| Command                               | Expected                    | Actual (kimi-toolchain)   | Status |
+| ------------------------------------- | --------------------------- | ------------------------- | ------ |
+| `bun pm ls --dev`                     | `devDependencies` only      | All 11 top-level packages | Broken |
+| `bun pm ls --optional`                | `optionalDependencies` only | All 11 top-level packages | Broken |
+| `bun pm ls --peer`                    | `peerDependencies` only     | All 11 top-level packages | Broken |
+| `bun pm ls`                           | Direct deps + workspaces    | Direct deps + workspaces  | Works  |
+| `bun pm ls --all`                     | Full transitive tree        | Full transitive tree      | Works  |
+| `bun pm pkg get devDependencies`      | `package.json` section      | 6 packages                | Works  |
+| `bun pm pkg get optionalDependencies` | `package.json` section      | (unset)                   | Works  |
+| `bun pm pkg get peerDependencies`     | `package.json` section      | (unset)                   | Works  |
 
 Bun searches for `bunfig.toml` in these paths (merged if both exist):
 
