@@ -193,6 +193,10 @@ export interface SshExecResult {
   code?: number;
 }
 
+export interface RemoteDiscoveryOptions {
+  sshExec?: (resolved: ResolvedRemoteHost, command: string[]) => Promise<SshExecResult>;
+}
+
 /**
  * Build SSH command-line args from a resolved host config.
  * Returns the argv array to append `--` and the remote command to.
@@ -324,15 +328,17 @@ export function friendlySshError(output: string, host: string): string {
  */
 export async function discoverRemoteSessions(
   hosts: Record<string, string | RemoteHostConfig>,
-  defaults?: RemoteDefaults
+  defaults?: RemoteDefaults,
+  options: RemoteDiscoveryOptions = {}
 ): Promise<{ sessions: RemoteSession[]; errors: Array<{ host: string; message: string }> }> {
   const resolvedHosts = normalizeRemoteHostConfig(hosts, defaults);
   const sessions: RemoteSession[] = [];
   const errors: Array<{ host: string; message: string }> = [];
+  const exec = options.sshExec ?? sshExec;
 
   for (const [hostLabel, resolved] of Object.entries(resolvedHosts)) {
     // Test connectivity first
-    const versionCheck = await sshExec(resolved, ["herdr", "version"]);
+    const versionCheck = await exec(resolved, ["herdr", "version"]);
     if (!versionCheck.ok) {
       const msg =
         versionCheck.output.includes("command not found") ||
@@ -344,7 +350,7 @@ export async function discoverRemoteSessions(
     }
 
     // Discover sessions
-    const sessionResult = await sshExec(
+    const sessionResult = await exec(
       resolved,
       buildRemoteHerdrArgs(undefined, ["session", "list"])
     );
@@ -360,10 +366,7 @@ export async function discoverRemoteSessions(
       const hostSessions = parsed.sessions || [];
       for (const s of hostSessions) {
         // Fetch workspace count for this session
-        const wsResult = await sshExec(
-          resolved,
-          buildRemoteHerdrArgs(s.name, ["workspace", "list"])
-        );
+        const wsResult = await exec(resolved, buildRemoteHerdrArgs(s.name, ["workspace", "list"]));
         let workspaceCount = 0;
         let agentCount = 0;
         if (wsResult.ok) {
@@ -373,7 +376,7 @@ export async function discoverRemoteSessions(
             };
             const workspaces = wsParsed.result?.workspaces || [];
             workspaceCount = workspaces.length;
-            const agentResult = await sshExec(
+            const agentResult = await exec(
               resolved,
               buildRemoteHerdrArgs(s.name, ["agent", "list"])
             );
@@ -422,11 +425,13 @@ export async function discoverRemoteSessions(
 export async function discoverRemoteWorkspaceAgents(
   hostLabel: string,
   resolved: ResolvedRemoteHost,
-  session: string
+  session: string,
+  options: RemoteDiscoveryOptions = {}
 ): Promise<RemoteAgentSnapshot[]> {
   const agents: RemoteAgentSnapshot[] = [];
+  const exec = options.sshExec ?? sshExec;
 
-  const wsResult = await sshExec(resolved, buildRemoteHerdrArgs(session, ["workspace", "list"]));
+  const wsResult = await exec(resolved, buildRemoteHerdrArgs(session, ["workspace", "list"]));
   if (!wsResult.ok) return agents;
 
   try {
@@ -435,7 +440,7 @@ export async function discoverRemoteWorkspaceAgents(
     };
     const workspaces = wsParsed.result?.workspaces || [];
 
-    const agentResult = await sshExec(resolved, buildRemoteHerdrArgs(session, ["agent", "list"]));
+    const agentResult = await exec(resolved, buildRemoteHerdrArgs(session, ["agent", "list"]));
     if (!agentResult.ok) return agents;
 
     try {

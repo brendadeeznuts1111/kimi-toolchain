@@ -18,7 +18,7 @@ const DEMO_PKG = {
 
 /** Valid lock for DEMO_PKG — frozen `bun install` succeeds on scripts-only package.json edits. */
 const DEMO_LOCK = `{
-  "lockfileVersion": 2,
+  "lockfileVersion": 1,
   "configVersion": 1,
   "workspaces": {
     "": {

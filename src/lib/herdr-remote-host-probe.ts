@@ -12,7 +12,7 @@ import {
   type RemoteHostConfig,
   type ResolvedRemoteHost,
 } from "./herdr-orchestrator-config.ts";
-import { friendlySshError, sshExec } from "./herdr-orchestrator.ts";
+import { friendlySshError, sshExec, type SshExecResult } from "./herdr-orchestrator.ts";
 
 export const REMOTE_HOST_PROBE_TIMEOUT_MS = 5_000;
 
@@ -31,6 +31,7 @@ export interface DashboardRemoteHostsStatus {
 
 export interface ProbeRemoteHostOptions {
   timeoutMs?: number;
+  sshExec?: (resolved: ResolvedRemoteHost, command: string[]) => Promise<SshExecResult>;
 }
 
 function loadOrchestratorDocument(sourcePath: string | null): Record<string, unknown> | null {
@@ -71,7 +72,8 @@ export async function probeRemoteHost(
 ): Promise<RemoteHostProbeHost> {
   const timeoutMs = options.timeoutMs ?? REMOTE_HOST_PROBE_TIMEOUT_MS;
   const probeResolved: ResolvedRemoteHost = { ...resolved, timeout: timeoutMs };
-  const result = await sshExec(probeResolved, ["herdr", "version"]);
+  const exec = options.sshExec ?? sshExec;
+  const result = await exec(probeResolved, ["herdr", "version"]);
   if (!result.ok) {
     const output = result.output;
     const error =

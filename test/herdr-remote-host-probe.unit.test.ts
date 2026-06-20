@@ -1,33 +1,31 @@
-import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { normalizeRemoteHostConfig } from "../src/lib/herdr-orchestrator-config.ts";
-import { installGovernorSpawnSshMock } from "./helpers/governor-spawn-ssh-mock.ts";
+import {
+  buildRemoteHostsStatus,
+  parseHerdrVersionOutput,
+  probeRemoteHost,
+  probeRemoteHosts,
+} from "../src/lib/herdr-remote-host-probe.ts";
+import type { ResolvedRemoteHost } from "../src/lib/herdr-orchestrator-config.ts";
+import type { SshExecResult } from "../src/lib/herdr-orchestrator.ts";
 
 const sshRemoteCommands: string[][] = [];
 
-installGovernorSpawnSshMock(async (remote, cmd) => {
-  sshRemoteCommands.push(remote);
-  const key = remote.join(" ");
-
-  if (key === "herdr version") {
-    const dash = cmd.indexOf("--");
-    const target = dash > 0 ? (cmd[dash - 1] ?? "") : "";
-    if (target.includes("staging")) {
-      return { stdout: "herdr 0.9.4", stderr: "", exitCode: 0 };
+async function fakeSshExec(
+  resolved: ResolvedRemoteHost,
+  command: string[]
+): Promise<SshExecResult> {
+  sshRemoteCommands.push(command);
+  if (command.join(" ") === "herdr version") {
+    if (resolved.host.includes("staging")) {
+      return { ok: true, output: "herdr 0.9.4" };
     }
-    return { stdout: "", stderr: "connection timed out", exitCode: 255 };
+    return { ok: false, output: "connection timed out", code: 255 };
   }
-
-  return { stdout: "", stderr: `unknown remote command: ${key}`, exitCode: 1 };
-});
-
-const { buildRemoteHostsStatus, parseHerdrVersionOutput, probeRemoteHost, probeRemoteHosts } =
-  await import("../src/lib/herdr-remote-host-probe.ts");
+  return { ok: false, output: `unknown remote command: ${command.join(" ")}`, code: 1 };
+}
 
 describe("herdr-remote-host-probe", () => {
-  afterAll(() => {
-    mock.restore();
-  });
-
   afterEach(() => {
     sshRemoteCommands.length = 0;
   });
@@ -39,17 +37,21 @@ describe("herdr-remote-host-probe", () => {
 
   test("probeRemoteHost returns reachable host with version", async () => {
     const resolved = normalizeRemoteHostConfig({ staging: "staging.local" }).staging!;
-    const result = await probeRemoteHost("staging", resolved);
+    const result = await probeRemoteHost("staging", resolved, { sshExec: fakeSshExec });
     expect(result.reachable).toBe(true);
     expect(result.version).toBe("0.9.4");
     expect(sshRemoteCommands).toEqual([["herdr", "version"]]);
   });
 
   test("probeRemoteHosts runs hosts in parallel and aggregates status", async () => {
-    const status = await probeRemoteHosts({
-      staging: "staging.local",
-      workbox: "workbox.local",
-    });
+    const status = await probeRemoteHosts(
+      {
+        staging: "staging.local",
+        workbox: "workbox.local",
+      },
+      undefined,
+      { sshExec: fakeSshExec }
+    );
     expect(status.configured).toBe(2);
     expect(status.reachable).toBe(1);
     expect(status.hosts).toHaveLength(2);

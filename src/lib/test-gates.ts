@@ -88,7 +88,6 @@ export const UNIT_TEST_FILES = [
   "test/herdr-dashboard-agents.unit.test.ts",
   "test/herdr-dashboard-discovery-cache.unit.test.ts",
   "test/herdr-dashboard-discovery-meta.unit.test.ts",
-  "test/herdr-remote-host-probe.unit.test.ts",
   "test/herdr-dashboard-meta-gate.unit.test.ts",
   "test/herdr-dashboard-events.unit.test.ts",
   "test/herdr-dashboard-server.unit.test.ts",
@@ -292,6 +291,8 @@ export const UNIT_TEST_FILES = [
   "test/scoped-test-cache.unit.test.ts",
   "test/self-healing.unit.test.ts",
   "test/toolchain-paths.unit.test.ts",
+  // mock.module SSH transport — must run in a single-file fast chunk (--isolate breaks multi-file mocks)
+  "test/herdr-remote-host-probe.unit.test.ts",
 ] as const;
 
 export const FAST_TEST_CHUNK_SIZE = 10;
