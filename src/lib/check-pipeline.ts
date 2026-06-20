@@ -13,7 +13,6 @@ import {
 import { readableStreamToText } from "./bun-utils.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { withBunNoOrphans } from "./tool-runner.ts";
-import { acquireTestGateLock } from "./test-run-guard.ts";
 import {
   changedIncludesTypeScript,
   countLikelyErrors,
@@ -113,6 +112,14 @@ export async function buildSteps(
     cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "--success-metrics", "--json"],
     silentOnSuccess: true,
   });
+
+  if (options.fast && (await isKimiToolchainRepo(projectRoot))) {
+    steps.push({
+      name: "canonical-references",
+      cmd: ["bun", "run", "scripts/generate-canonical-references.ts", "--check"],
+      silentOnSuccess: quiet,
+    });
+  }
 
   if (options.fast && pathExists(join(projectRoot, "scripts", "scan.ts"))) {
     const scanCmd = ["bun", "run", "scripts/scan.ts", "--brief"];
@@ -487,22 +494,7 @@ export async function runCheckPipeline(
 
   const allResults = [...independentResults];
   if (testStep) {
-    const acquired = acquireTestGateLock(projectRoot, testStep.name);
-    if (!acquired.ok) {
-      allResults.push({
-        name: testStep.name,
-        exitCode: 1,
-        ms: 0,
-        stdout: "",
-        stderr: acquired.conflict.message,
-      });
-    } else {
-      try {
-        allResults.push(await runStepTracked(projectRoot, testStep, gateQuiet));
-      } finally {
-        acquired.lock.release();
-      }
-    }
+    allResults.push(await runStepTracked(projectRoot, testStep, gateQuiet));
   }
 
   const scopedGatesRecorded = await recordScopedGatePasses(
@@ -545,7 +537,8 @@ export async function runTestOnlyPipeline(
 
   if (testOptions.dryRun) {
     const dryRunSteps = testStep ? [testStep] : [];
-    if (!testOptions.jsonSummary) printCheckDryRun(testOptions, dryRunSteps, changedFiles, baseLabel);
+    if (!testOptions.jsonSummary)
+      printCheckDryRun(testOptions, dryRunSteps, changedFiles, baseLabel);
     return dryRunResultFromSteps(dryRunSteps);
   }
 
@@ -553,22 +546,7 @@ export async function runTestOnlyPipeline(
     return { passed: true, steps: {}, failures: [], totalDurationMs: 0 };
   }
   const gateQuiet = (!testOptions.verbose && shouldSilentOnSuccess()) || testOptions.jsonSummary;
-  const acquired = acquireTestGateLock(projectRoot, testStep.name);
-  const result = acquired.ok
-    ? await (async () => {
-        try {
-          return await runStepTracked(projectRoot, testStep, gateQuiet);
-        } finally {
-          acquired.lock.release();
-        }
-      })()
-    : {
-        name: testStep.name,
-        exitCode: 1,
-        ms: 0,
-        stdout: "",
-        stderr: acquired.conflict.message,
-      };
+  const result = await runStepTracked(projectRoot, testStep, gateQuiet);
   const scopedGatesRecorded = await recordScopedGatePasses(
     projectRoot,
     testOptions,

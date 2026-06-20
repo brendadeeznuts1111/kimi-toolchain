@@ -222,6 +222,7 @@ export const UNIT_TEST_FILES = [
   "test/capabilities.unit.test.ts",
   "test/check-changed.unit.test.ts",
   "test/check-lint-scoped.unit.test.ts",
+  "test/check-pipeline.unit.test.ts",
   "test/check-result-cache.unit.test.ts",
   "test/check-watch.unit.test.ts",
   "test/ci-impact.unit.test.ts",

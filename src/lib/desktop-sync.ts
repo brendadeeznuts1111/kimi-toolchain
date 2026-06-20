@@ -175,7 +175,7 @@ async function syncGlobDirectory(
   result: SyncFileResult
 ): Promise<void> {
   const glob = new Bun.Glob(globPattern);
-  for await (const file of glob.scan(srcDir)) {
+  for await (const file of glob.scan({ cwd: srcDir, onlyFiles: true })) {
     await copyIfChanged(
       join(srcDir, file),
       join(dstDir, file),

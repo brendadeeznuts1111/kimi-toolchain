@@ -116,7 +116,7 @@ async function handleRequest(request: { method: string; params?: Record<string, 
       return { content: [{ type: "text", text }] };
     }
     if (tool === "list_dir") {
-      const entries = [...Bun.Glob({}).scanSync(target)];
+      const entries = [...new Bun.Glob("*").scanSync({ cwd: target, onlyFiles: false })];
       return { content: [{ type: "text", text: entries.join("\\n") }] };
     }
   }

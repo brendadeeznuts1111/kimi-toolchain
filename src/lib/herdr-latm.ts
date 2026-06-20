@@ -299,7 +299,10 @@ export async function discoverTools(home: string = homeDir()): Promise<Discovere
   const root = herdrAgentsDir(home);
   if (!pathExists(root)) return tools;
 
-  for await (const relative of new Bun.Glob("*/capabilities.json").scan(root)) {
+  for await (const relative of new Bun.Glob("*/capabilities.json").scan({
+    cwd: root,
+    onlyFiles: true,
+  })) {
     const fullPath = join(root, relative);
     const manifest = await readLatmManifestFile(fullPath);
     if (!manifest) continue;
@@ -378,7 +381,10 @@ export async function pruneLatmManifests(options: {
   const root = herdrAgentsDir(home);
   if (!pathExists(root)) return { removed };
 
-  for await (const relative of new Bun.Glob("*/capabilities.json").scan(root)) {
+  for await (const relative of new Bun.Glob("*/capabilities.json").scan({
+    cwd: root,
+    onlyFiles: true,
+  })) {
     const paneDir = relative.split("/")[0];
     if (!paneDir) continue;
     const fullPath = join(root, relative);

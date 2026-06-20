@@ -63,6 +63,9 @@ describe("card-probe-cli", () => {
       });
       expect(result.url).toMatch(/^http:\/\//);
       expect(result.payload?.url).toBe(result.url);
+      expect((result.payload?.configStatus as { aligned?: boolean } | undefined)?.aligned).toBe(
+        true
+      );
       expect(Array.isArray(result.statuses)).toBe(true);
     } finally {
       if (prevPort === undefined) delete Bun.env.PROBE_SERVER_PORT;

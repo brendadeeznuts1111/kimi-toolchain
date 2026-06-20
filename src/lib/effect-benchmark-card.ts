@@ -24,6 +24,7 @@ import {
 } from "./effect-benchmark.ts";
 import type { BenchmarkConvergenceBlock } from "./benchmark-convergence.ts";
 import { buildBenchmarkConvergenceBlock } from "./benchmark-convergence.ts";
+import type { ConfigStatusReport } from "./config-status.ts";
 import { thresholdsBaselinePath, thresholdsLegacyPath, thresholdsLocalPath } from "./paths.ts";
 
 export const BENCHMARK_API_SCHEMA_VERSION = 1;
@@ -71,6 +72,8 @@ export interface BenchmarkApiEnvelope extends EffectBenchmarkCardPayload {
   taxonomyErrors?: BenchmarkTaxonomyError[];
   gates: { effectBenchmarkGate: BenchmarkGateInfo };
   metadata: BenchmarkApiMetadata;
+  /** Read-only configuration alignment snapshot from serve-probe. */
+  configStatus?: ConfigStatusReport;
   requestError?: string;
   lastSuccessfulAt?: string;
   retryAfterMs?: number;

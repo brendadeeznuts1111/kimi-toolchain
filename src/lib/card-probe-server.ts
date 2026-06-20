@@ -17,6 +17,7 @@ import {
   probeAllCards,
   summarizeCardStatuses,
 } from "./card-probe.ts";
+import { auditConfigLayersStatus, type ConfigStatusReport } from "./config-status.ts";
 import {
   DASHBOARD_ARTIFACT_DIFF,
   DASHBOARD_ARTIFACT_FEED,
@@ -81,12 +82,15 @@ export interface ProbeServerOptions {
   effectBenchmark?: boolean;
   /** Test/embedding seam: pre-seed the expensive BenchmarkApiEnvelope cache. */
   effectBenchmarkEnvelope?: BenchmarkApiEnvelope;
+  /** Test/embedding seam: pre-seed the read-only config-status cache. */
+  configStatus?: ConfigStatusReport;
 }
 
 export interface ProbeServerHandle {
   url: string;
   refresh: () => Promise<CardStatus[]>;
   getCached: () => CardStatus[];
+  getConfigStatus: () => ConfigStatusReport | undefined;
   getLastArtifactPath: () => string | undefined;
   stop: () => void;
 }
@@ -155,13 +159,18 @@ function notFound(path: string): Response {
   );
 }
 
-function cardsEnvelope(cards: CardStatus[], fetchedAt: string): Record<string, unknown> {
+function cardsEnvelope(
+  cards: CardStatus[],
+  fetchedAt: string,
+  configStatus?: ConfigStatusReport
+): Record<string, unknown> {
   return {
     ok: true,
     cards,
     total: cards.length,
     summary: summarizeCardStatuses(cards),
     fetchedAt,
+    ...(configStatus ? { configStatus } : {}),
   };
 }
 
@@ -189,6 +198,16 @@ export async function startProbeServer(
   let benchmarkEnvelope: BenchmarkApiEnvelope | null = options.effectBenchmarkEnvelope ?? null;
   let benchmarkFetchedAt: string | null = null;
   let benchmarkRefreshInFlight: Promise<BenchmarkApiEnvelope> | null = null;
+  let configStatus: ConfigStatusReport | undefined = options.configStatus;
+
+  async function refreshConfigStatus(): Promise<ConfigStatusReport | undefined> {
+    try {
+      configStatus = await auditConfigLayersStatus(projectRoot);
+      return configStatus;
+    } catch {
+      return configStatus;
+    }
+  }
 
   async function persistRefreshArtifact(
     cards: CardStatus[],
@@ -332,7 +351,7 @@ export async function startProbeServer(
 
       if (path === "/api/cards") {
         if (method !== "GET") return methodNotAllowed(path, method, ["GET"]);
-        return jsonResponse(cardsEnvelope(cached, lastFetchedAt));
+        return jsonResponse(cardsEnvelope(cached, lastFetchedAt, configStatus));
       }
 
       if (path === "/api/refresh") {
@@ -341,7 +360,7 @@ export async function startProbeServer(
         }
         const cards = await refresh();
         return jsonResponse({
-          ...cardsEnvelope(cards, lastFetchedAt),
+          ...cardsEnvelope(cards, lastFetchedAt, configStatus),
           refreshedAt: lastFetchedAt,
           artifactPath: lastArtifactPath,
         });
@@ -365,6 +384,7 @@ export async function startProbeServer(
         );
         return jsonResponse({
           ...body,
+          ...(configStatus ? { configStatus } : {}),
           fetchedAt: benchmarkFetchedAt,
         });
       }
@@ -381,6 +401,7 @@ export async function startProbeServer(
         const body = withBenchmarkConvergence(envelope, envelope.runner, probeSummary);
         return jsonResponse({
           ...body,
+          ...(configStatus ? { configStatus } : {}),
           refreshedAt: benchmarkFetchedAt,
         });
       }
@@ -475,6 +496,7 @@ export async function startProbeServer(
   });
 
   await refresh();
+  await refreshConfigStatus();
   if (options.effectBenchmark && !benchmarkEnvelope) {
     await refreshEffectBenchmark(false);
   }
@@ -489,6 +511,7 @@ export async function startProbeServer(
     url: `http://${host}:${server.port}`,
     refresh,
     getCached: () => cached,
+    getConfigStatus: () => configStatus,
     getLastArtifactPath: () => lastArtifactPath,
     stop: () => {
       if (refreshTimer) {

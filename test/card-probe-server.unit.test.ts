@@ -72,11 +72,15 @@ describe("card-probe-server", () => {
         total: number;
         summary: { pass: number; fail: number; unknown: number; total: number };
         fetchedAt: string;
+        configStatus: { tool: string; aligned: boolean; gates: unknown[] };
       };
       expect(cardsBody.ok).toBe(true);
       expect(typeof cardsBody.total).toBe("number");
       expect(typeof cardsBody.fetchedAt).toBe("string");
       expect(cardsBody.summary.total).toBe(cardsBody.total);
+      expect(cardsBody.configStatus.tool).toBe("config-status");
+      expect(cardsBody.configStatus.aligned).toBe(true);
+      expect(cardsBody.configStatus.gates.length).toBeGreaterThanOrEqual(3);
 
       const refreshGet = await fetch(`${handle.url}/api/refresh`);
       expect(refreshGet.status).toBe(200);
@@ -355,11 +359,14 @@ describe("card-probe-server", () => {
           runner: string;
           summary: { total: number };
           gates: { effectBenchmarkGate: { status: string } };
+          configStatus: { tool: string; aligned: boolean };
         };
         expect(body.schemaVersion).toBe(1);
         expect(body.runner).toBe("serve-probe");
         expect(body.summary.total).toBeGreaterThan(0);
         expect(body.gates.effectBenchmarkGate.status).toBeDefined();
+        expect(body.configStatus.tool).toBe("config-status");
+        expect(body.configStatus.aligned).toBe(true);
       } finally {
         handle.stop();
       }

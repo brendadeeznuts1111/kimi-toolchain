@@ -27,7 +27,7 @@ async function cleanCoverageTmp(): Promise<number> {
   if (!pathExists(coverageDir)) return 0;
   let removed = 0;
   const glob = new Bun.Glob("*.tmp");
-  for await (const file of glob.scan(coverageDir)) {
+  for await (const file of glob.scan({ cwd: coverageDir, onlyFiles: true })) {
     removePath(join(coverageDir, file));
     removed++;
   }

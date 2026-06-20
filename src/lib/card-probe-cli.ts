@@ -128,6 +128,7 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
       url: handle.url,
       saveArtifact: options.saveArtifact === true,
       artifactPath: handle.getLastArtifactPath(),
+      configStatus: handle.getConfigStatus(),
     });
 
     if (json) {
@@ -159,6 +160,7 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
       url: handle.url,
       saveArtifact: options.saveArtifact === true,
       artifactPath: handle.getLastArtifactPath(),
+      configStatus: handle.getConfigStatus(),
       routes: PROBE_SERVER_ROUTES.map((route) => ({
         path: route.path,
         methods: [...route.methods],
