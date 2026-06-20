@@ -869,6 +869,7 @@ export function manifestNeedsRefresh(
 
 export type EcosystemId = (typeof ECOSYSTEM_REFERENCES)[number]["id"];
 export type RepoId = (typeof REPO_REFERENCES)[number]["id"];
+export type LocalDocId = (typeof LOCAL_DOC_REFERENCES)[number]["id"];
 
 function buildRepoById(): Record<RepoId, RepoReference> {
   const map = {} as Record<RepoId, RepoReference>;
@@ -880,6 +881,24 @@ function buildRepoById(): Record<RepoId, RepoReference> {
 
 /** O(1) typed lookup — prefer over scanning REPO_REFERENCES. */
 export const REPO_BY_ID: Record<RepoId, RepoReference> = buildRepoById();
+
+function buildEcosystemById(): Record<EcosystemId, EcosystemReference> {
+  const map = {} as Record<EcosystemId, EcosystemReference>;
+  for (const eco of ECOSYSTEM_REFERENCES) map[eco.id as EcosystemId] = eco;
+  return map;
+}
+
+function buildLocalDocById(): Record<LocalDocId, LocalDocReference> {
+  const map = {} as Record<LocalDocId, LocalDocReference>;
+  for (const doc of LOCAL_DOC_REFERENCES) map[doc.id as LocalDocId] = doc;
+  return map;
+}
+
+/** O(1) typed lookup — prefer over scanning ECOSYSTEM_REFERENCES. */
+export const ECOSYSTEM_BY_ID: Record<EcosystemId, EcosystemReference> = buildEcosystemById();
+
+/** O(1) typed lookup — prefer over scanning LOCAL_DOC_REFERENCES. */
+export const LOCAL_DOC_BY_ID: Record<LocalDocId, LocalDocReference> = buildLocalDocById();
 
 /** Normalize GitHub URLs for reverse lookup (strip .git, trailing slash, lowercase host/path). */
 export function normalizeRepoUrl(url: string): string {
@@ -913,7 +932,7 @@ export function expandClonePath(clonePath: string): string {
 }
 
 export function getEcosystem(id: EcosystemId): EcosystemReference {
-  return ECOSYSTEM_REFERENCES.find((ref) => ref.id === id) as EcosystemReference;
+  return ECOSYSTEM_BY_ID[id];
 }
 
 export function getRepo(id: RepoId): RepoReference {
@@ -1111,11 +1130,11 @@ export function lintEcosystemRepoCompleteness(): string[] {
 }
 
 export function ecosystemReferenceById(id: string): EcosystemReference | undefined {
-  return ECOSYSTEM_REFERENCES.find((ref) => ref.id === id);
+  return ECOSYSTEM_BY_ID[id as EcosystemId];
 }
 
 export function localDocReferenceById(id: string): LocalDocReference | undefined {
-  return LOCAL_DOC_REFERENCES.find((r) => r.id === id);
+  return LOCAL_DOC_BY_ID[id as LocalDocId];
 }
 
 function docsLink(ref: EcosystemReference): string {
@@ -1199,6 +1218,13 @@ function buildTable<T>(items: readonly T[], columns: ColumnDef<T>[]): string {
 const ECOSYSTEM_COLUMNS: ColumnDef<EcosystemReference>[] = [
   { header: "Stack", cell: (e) => e.name },
   { header: "Docs", cell: (e) => docsLink(e) },
+  {
+    header: "Source repo",
+    cell: (e) => {
+      const repo = resolveRepoForEcosystem(e);
+      return repo ? `[${repo.name}](${repo.url})` : "—";
+    },
+  },
   { header: "Usage in this repo", cell: (e) => e.usage },
 ];
 

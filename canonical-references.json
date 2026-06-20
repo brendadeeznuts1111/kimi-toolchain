@@ -113,7 +113,11 @@
       "canvasLayer": "Doc URL lint",
       "canvasOpenWhen": "@see ladder · docs/references index",
       "canvasReadOrder": 4,
-      "canvasInfluences": ["card-inspect-table", "card-file-split", "card-transpiler-scan"]
+      "canvasInfluences": [
+        "card-inspect-table",
+        "card-file-split",
+        "card-transpiler-scan"
+      ]
     },
     {
       "id": "unified",
@@ -168,7 +172,12 @@
       "canvasLayer": "kimi-fix · bun create",
       "canvasOpenWhen": "Profiles · templates · scaffold doctor",
       "canvasReadOrder": 5,
-      "canvasInfluences": ["card-scaffold", "card-kimi-doctor", "card-gates", "card-kimi-publish"]
+      "canvasInfluences": [
+        "card-scaffold",
+        "card-kimi-doctor",
+        "card-gates",
+        "card-kimi-publish"
+      ]
     },
     {
       "id": "dashboard-thumbnails",
@@ -182,7 +191,10 @@
       "canvasLayer": "Orchestrator HTTP",
       "canvasOpenWhen": "PNG → Bun.Image → /api/thumbnail",
       "canvasReadOrder": 6,
-      "canvasInfluences": ["card-image", "card-perf-harness"]
+      "canvasInfluences": [
+        "card-image",
+        "card-perf-harness"
+      ]
     },
     {
       "id": "kimi-doctor",
@@ -227,7 +239,11 @@
       "canvasLayer": "Meta / routing",
       "canvasOpenWhen": "Doctor trinity · finish-work vs prefix+*",
       "canvasReadOrder": 2,
-      "canvasInfluences": ["card-gates", "card-symbols", "card-kimi-doctor"]
+      "canvasInfluences": [
+        "card-gates",
+        "card-symbols",
+        "card-kimi-doctor"
+      ]
     },
     {
       "id": "configuration-layers",
@@ -241,7 +257,11 @@
       "canvasLayer": "Config SSOT",
       "canvasOpenWhen": "Discovery · define · parity · scaffold layers",
       "canvasReadOrder": 3,
-      "canvasInfluences": ["card-threshold-overrides", "card-metrics-schema", "card-global-store"]
+      "canvasInfluences": [
+        "card-threshold-overrides",
+        "card-metrics-schema",
+        "card-global-store"
+      ]
     },
     {
       "id": "shell-spawn-choice",
@@ -291,7 +311,11 @@
       "canvasLayer": "Herdr plugins v0.5.0",
       "canvasOpenWhen": "prefix+* · orthogonal to finish-work gates",
       "canvasReadOrder": 8,
-      "canvasInfluences": ["card-ipc-matrix", "card-vm-context", "card-ipc"]
+      "canvasInfluences": [
+        "card-ipc-matrix",
+        "card-vm-context",
+        "card-ipc"
+      ]
     },
     {
       "id": "v53-architecture",
@@ -348,7 +372,10 @@
       "canvasLayer": "Effect gates probe",
       "canvasOpenWhen": "GET /api/doctor/gates · #gate-health overlay · 30s poll",
       "canvasReadOrder": 12,
-      "canvasInfluences": ["card-gates", "card-kimi-doctor"]
+      "canvasInfluences": [
+        "card-gates",
+        "card-kimi-doctor"
+      ]
     },
     {
       "id": "benchmark",
@@ -362,7 +389,11 @@
       "canvasLayer": "Perf gates probe",
       "canvasOpenWhen": "GET /api/effect-benchmark · serve-probe · 30s poll",
       "canvasReadOrder": 13,
-      "canvasInfluences": ["card-effect-benchmark", "card-perf-harness", "card-kimi-doctor"]
+      "canvasInfluences": [
+        "card-effect-benchmark",
+        "card-perf-harness",
+        "card-kimi-doctor"
+      ]
     },
     {
       "id": "agent-api",
@@ -406,7 +437,11 @@
       "clonePath": "~/kimi-toolchain",
       "role": "tool",
       "language": "typescript",
-      "frameworks": ["bun", "effect", "oxc"],
+      "frameworks": [
+        "bun",
+        "effect",
+        "oxc"
+      ],
       "expectedPackageName": "kimi-toolchain"
     },
     {
@@ -416,10 +451,14 @@
       "description": "Official Kimi Code agent CLI, config.toml, sessions, and MCP integration",
       "defaultBranch": "main",
       "ciStatusUrl": "https://github.com/MoonshotAI/kimi-code/actions",
-      "provides": ["kimi-code"],
+      "provides": [
+        "kimi-code"
+      ],
       "role": "upstream",
       "language": "typescript",
-      "frameworks": ["node"]
+      "frameworks": [
+        "node"
+      ]
     },
     {
       "id": "effect-upstream",
@@ -428,10 +467,15 @@
       "description": "Typed functional effect system for TypeScript services and CLI pipelines",
       "defaultBranch": "main",
       "ciStatusUrl": "https://github.com/Effect-TS/effect/actions",
-      "provides": ["effect"],
+      "provides": [
+        "effect"
+      ],
       "role": "upstream",
       "language": "typescript",
-      "frameworks": ["effect", "node"]
+      "frameworks": [
+        "effect",
+        "node"
+      ]
     },
     {
       "id": "oxc-upstream",
@@ -440,10 +484,14 @@
       "description": "Rust-based JavaScript toolchain (oxfmt, oxlint) used in format and lint gates",
       "defaultBranch": "main",
       "ciStatusUrl": "https://github.com/oxc-project/oxc/actions",
-      "provides": ["oxc"],
+      "provides": [
+        "oxc"
+      ],
       "role": "upstream",
       "language": "rust",
-      "frameworks": ["oxc"]
+      "frameworks": [
+        "oxc"
+      ]
     }
   ]
 }

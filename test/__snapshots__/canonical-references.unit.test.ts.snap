@@ -1,0 +1,71 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`canonical-references formatCanonicalReferencesMarkdown full output matches snapshot 1`] = `
+"## Canonical References
+
+Machine-readable manifest: \`canonical-references.json\` (synced to \`~/.kimi-code/\`). Regenerate: \`bun run references:generate\`.
+
+### Ecosystem
+
+| Stack | Docs | Source repo | Usage in this repo |
+| :--- | :--- | :--- | :--- |
+| Bun | [docs](https://bun.sh/docs) | — | Runtime, test runner, package manager, and native I/O for kimi-toolchain |
+| Effect | [docs](https://effect.website/docs) | [Effect](https://github.com/Effect-TS/effect) | Typed errors, CLI/runtime adapters, and Herdr pane orchestration in src/lib/effect/ |
+| Kimi Code | [docs](https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html) | [Kimi Code (Moonshot)](https://github.com/MoonshotAI/kimi-code) | Official agent CLI (\`kimi\`), config.toml, sessions, MCP — distinct from \`kimi-doctor\` |
+| Herdr | [docs](https://herdr.dev/docs/) | — | Terminal-native multiplexer; socket API for herdr-pane, herdr-latm, herdr-orchestrator |
+| Cloudflare Platform | [docs](https://developers.cloudflare.com/workers/) | — | Workers, Access, MCP; use kimi-cloudflare-access for API tokens (separate from Wrangler OAuth) |
+| Cloudflare MCP | [docs](https://developers.cloudflare.com/agents/model-context-protocol/mcp-server/) | — | Default user MCP \`cloudflare-api\`; optional docs/bindings/builds/observability endpoints |
+| DX | \`~/.config/dx/AGENTS.md\` | — | Global Bun dev platform — \`dx config\`, \`dx mcp-status\`, \`dx.config.toml\` herdr/finishWork |
+| js-yaml | [docs](https://github.com/nodeca/js-yaml#readme) | — | YAML parsing for error-taxonomy.yml and config files; minimal runtime dependency alongside effect |
+| Oxc (oxfmt / oxlint) | [docs](https://oxc.rs/docs/guide/usage/formatter.html) | [Oxc](https://github.com/oxc-project/oxc) | Format (oxfmt) and lint (oxlint) gates — no ESLint/Prettier in this repo |
+
+### Local docs (cached after sync)
+
+| Repo | Runtime | Purpose |
+| :--- | :--- | :--- |
+| \`AGENTS.md\` | \`~/.kimi-code/AGENTS.md\` | Toolchain agent guide |
+| \`CODE_REFERENCES.md\` | \`~/.kimi-code/CODE_REFERENCES.md\` | Local coding exemplars; doc-links lint and @see ladder |
+| \`UNIFIED.md\` | \`~/.kimi-code/UNIFIED.md\` | Kimi Code vs kimi-toolchain matrix |
+| \`DEEP-QUALITY.md\` | \`~/.kimi-code/DEEP-QUALITY.md\` | Effect-discipline floor and gate JSON shapes; kimi-heal --fix bare-promise repair and KIMI_MODULES=doctor scaffold |
+| \`TEMPLATES.md\` | \`~/.kimi-code/TEMPLATES.md\` | Scaffold templates — profiles, snippets, bun create flow, kimi-fix usage |
+| \`docs/references/dashboard-thumbnails.md\` | \`~/.kimi-code/docs/references/dashboard-thumbnails.md\` | Herdr dashboard thumbnail pipeline; meta.webview; WebView dataStore vs in-memory cache |
+| \`docs/references/kimi-doctor.md\` | \`~/.kimi-code/docs/references/kimi-doctor.md\` | Dashboard automation gate (kimi-doctor --automation): CLI, JSON schema, exit codes, and failure modes |
+| \`docs/references/serve-probe.md\` | \`~/.kimi-code/docs/references/serve-probe.md\` | kimi-doctor --serve-probe HTTP routes, [doctor.probe] dx.config.toml, artifact list API, and Herdr tab wiring |
+| \`docs/references/herdr-socket-saturation-protocol.md\` | \`~/.kimi-code/docs/references/herdr-socket-saturation-protocol.md\` | Herdr EAGAIN (os error 35) taxonomy, fix-socket --dry-run/--live contract, respawn protection, and Mac mini runbook |
+| \`docs/references/namespace.md\` | \`~/.kimi-code/docs/references/namespace.md\` | Toolchain vs Herdr plugin namespace; doctor trinity (kimi-doctor, herdr-doctor bin/plugin, kimi doctor); global ecosystem; finish-work vs prefix keybindings |
+| \`docs/references/configuration-layers.md\` | \`~/.kimi-code/docs/references/configuration-layers.md\` | Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml) |
+| \`docs/references/shell-spawn-choice.md\` | \`~/.kimi-code/docs/references/shell-spawn-choice.md\` | invokeTool vs Bun.spawn vs governedSpawn decision matrix |
+| \`docs/references/bun-runtime-scaffold.md\` | \`~/.kimi-code/docs/references/bun-runtime-scaffold.md\` | Bun install config (bunfig.toml merge order, defaults, env vars, backend, cache/lazy install) |
+| \`docs/references/testing-execution.md\` | \`~/.kimi-code/docs/references/testing-execution.md\` | Four-script test execution model — selection (fast/changed/parallel/shard), distribution (file not describe), --changed safety net |
+| \`docs/references/bun-shell-companions.md\` | \`~/.kimi-code/docs/references/bun-shell-companions.md\` | Bun $ template vs subprocess and inspect companion patterns |
+| \`docs/references/bun-file-streaming.md\` | \`~/.kimi-code/docs/references/bun-file-streaming.md\` | Bun.file/Bun.write streaming decisions for configs, JSONL ledgers, large artifacts, transformed streams, and HTTP responses |
+| \`docs/references/template-matrix.md\` | \`~/.kimi-code/docs/references/template-matrix.md\` | Template families matrix: scaffold breakdown (22 files), bridge pattern collision resolution, runtime sync paths, profile differentiation |
+| \`docs/references/herdr-plugin-architecture.md\` | \`~/.kimi-code/docs/references/herdr-plugin-architecture.md\` | Herdr unified plugin plan v0.5.0 — prefix+* actions, STATE_DIR topology; orthogonal to [finishWork].gates |
+| \`docs/references/v53-architecture.md\` | \`~/.kimi-code/docs/references/v53-architecture.md\` | v5.3 architecture consolidated reference: 9-file map, awk splitter, profile registry, DEFAULT_MODULES, MODULE_REGISTRY, 42-card dashboard, Herdr integration |
+| \`examples/artifact-dependency-graphs.md\` | \`~/.kimi-code/examples/artifact-dependency-graphs.md\` | Run manifests, artifact lineage (dependsOn vs gate-graph), and session-scoped identity queries |
+| \`docs/references/serve-probe.md\` | \`~/.kimi-code/docs/references/serve-probe.md\` | Live Herdr dashboard gate-health overlay — effect-gates probe, browser poll, server watch |
+| \`docs/references/kimi-doctor.md\` | \`~/.kimi-code/docs/references/kimi-doctor.md\` | BenchmarkApiEnvelope SSOT — runEffectBenchmarkCardLoop shared by CLI, dashboard, and serve-probe |
+| \`docs/agent-api.md\` | \`~/.kimi-code/docs/agent-api.md\` | Effect-native agent API surface: KimiCapabilities, KimiTrace, KimiContract, DecisionLogger services — use instead of CLI shelling out inside Effect programs |
+| \`docs/finish-work-close-loop.md\` | \`~/.kimi-code/docs/finish-work-close-loop.md\` | Finish-work close-loop architecture: gates → git → dirty check → reviewer escalation → orchestrator signal; dx.config.toml [finishWork] and [herdr.orchestrator] wiring |
+| \`docs/handoff-rules.md\` | \`~/.kimi-code/docs/handoff-rules.md\` | Herdr orchestrator handoff rules: TOML format, condition syntax (done/blocked/idle/probe:*), report-native when-clauses, and cross-workspace agent routing |
+| \`docs/naming.md\` | \`~/.kimi-code/docs/naming.md\` | CLI naming notes and deprecation register: --session-report → --effect-floor; kimi-doctor vs herdr-doctor vs kimi doctor disambiguation shortcuts |
+| \`canonical-references.json\` | \`~/.kimi-code/canonical-references.json\` | Cached canonical ecosystem links (this manifest) |
+
+### Repositories
+
+| Key | Project | Source | Clone path | Role / provides |
+| :--- | :--- | :--- | :--- | :--- |
+| \`kimi-toolchain\` | kimi-toolchain | [brendadeeznuts1111/kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain) | \`~/kimi-toolchain\` | tool |
+| \`kimi-code-upstream\` | Kimi Code (Moonshot) | [MoonshotAI/kimi-code](https://github.com/MoonshotAI/kimi-code) | — | upstream / kimi-code |
+| \`effect-upstream\` | Effect | [Effect-TS/effect](https://github.com/Effect-TS/effect) | — | upstream / effect |
+| \`oxc-upstream\` | Oxc | [oxc-project/oxc](https://github.com/oxc-project/oxc) | — | upstream / oxc |
+"
+`;
+
+exports[`canonical-references formatCanonicalReferencesMarkdown compact output matches snapshot 1`] = `
+"## Canonical References
+
+Cached manifest: \`canonical-references.json\` (\`bun run references:generate\`; synced to \`~/.kimi-code/\`). Stacks: Bun, Effect, Kimi Code, Herdr, Cloudflare Platform, Cloudflare MCP, DX, js-yaml, Oxc (oxfmt / oxlint). Full tables: \`CODE_REFERENCES.md\` § Canonical ecosystem links.
+
+"
+`;

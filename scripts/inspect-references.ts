@@ -9,6 +9,7 @@
  *   bun run references:inspect --section docs
  *   bun run references:inspect --plain          # strip ANSI even when TTY
  *   bun run references:inspect --validate       # run URL lint after printing
+ *   bun run references:inspect --json             # machine-readable JSON for jq / CI
  */
 
 import {
@@ -22,6 +23,7 @@ import {
 const args = new Set(Bun.argv.slice(2));
 const plain = args.has("--plain");
 const validate = args.has("--validate");
+const jsonMode = args.has("--json");
 
 const section = (() => {
   const idx = Bun.argv.indexOf("--section");
@@ -36,20 +38,30 @@ function printTable(header: string, table: string): void {
 
 const repoNameById = new Map(REPO_REFERENCES.map((r) => [r.id, r.name]));
 
+if (jsonMode) {
+  const output: Record<string, unknown> = {};
+  if (section === "all" || section === "ecosystem") output.ecosystem = ECOSYSTEM_REFERENCES;
+  if (section === "all" || section === "repos") output.repos = REPO_REFERENCES;
+  if (section === "all" || section === "docs") output.localDocs = LOCAL_DOC_REFERENCES;
+  process.stdout.write(JSON.stringify(output, null, 2) + "\n");
+  process.exit(0);
+}
+
 if (section === "all" || section === "ecosystem") {
   printTable(
     "Ecosystem references",
     Bun.inspect.table(
       ECOSYSTEM_REFERENCES.map((e) => {
-        const resolvedRepoId = e.repoId ?? (e.noRepo ? null : `${e.id}-upstream`);
+        const resolvedRepoId = e.repoId ?? `${e.id}-upstream`;
+        const repoName = repoNameById.get(resolvedRepoId);
         return {
           id: e.id,
           kind: e.kind,
           package: e.package ?? "—",
           minVersion: e.minVersion ?? "—",
           status: e.status ?? "active",
-          repoId: resolvedRepoId ?? "(noRepo)",
-          sourceRepo: resolvedRepoId ? (repoNameById.get(resolvedRepoId) ?? "?") : "—",
+          repoId: e.noRepo ? "(noRepo)" : resolvedRepoId,
+          sourceRepo: e.noRepo ? "—" : (repoName ?? "?"),
         };
       })
     )

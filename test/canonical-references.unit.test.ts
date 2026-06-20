@@ -5,7 +5,9 @@ import { join } from "path";
 import { REPO_ROOT, testTempDir } from "./helpers.ts";
 import {
   CANONICAL_REFERENCES_SCHEMA_VERSION,
+  ECOSYSTEM_BY_ID,
   ECOSYSTEM_REFERENCES,
+  LOCAL_DOC_BY_ID,
   LOCAL_DOC_REFERENCES,
   REPO_BY_ID,
   REPO_REFERENCES,
@@ -203,6 +205,23 @@ describe("canonical-references", () => {
     expect(md).toContain(
       "| `kimi-toolchain` | kimi-toolchain | [brendadeeznuts1111/kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain) | `~/kimi-toolchain` | tool |"
     );
+  });
+
+  test("formatCanonicalReferencesMarkdown full output matches snapshot", () => {
+    expect(formatCanonicalReferencesMarkdown(false)).toMatchSnapshot();
+  });
+
+  test("formatCanonicalReferencesMarkdown compact output matches snapshot", () => {
+    const compact = formatCanonicalReferencesMarkdown(true);
+    expect(compact).toMatchSnapshot();
+    expect(compact).toContain("Bun, Effect, Kimi Code");
+  });
+
+  test("ECOSYSTEM_BY_ID and LOCAL_DOC_BY_ID provide O(1) typed lookup", () => {
+    expect(ECOSYSTEM_BY_ID["bun"].minVersion).toBe("1.4.0");
+    expect(ECOSYSTEM_BY_ID["effect"].package).toBe("effect");
+    expect(LOCAL_DOC_BY_ID["agents"].repoPath).toBe("AGENTS.md");
+    expect(LOCAL_DOC_BY_ID["unified"].cursorCanvas).toContain("kimi-toolchain");
   });
 
   test("auditCanonicalReferencesHealth passes for aligned repo + runtime", async () => {
