@@ -12,8 +12,13 @@
 
 import type { HealthCheck, HealthReport } from "./health-check.ts";
 import { statusIcon as healthStatusIcon, aggregateChecks } from "./health-check.ts";
+import { inspectAgent } from "./inspect.ts";
 import { isAgentContext } from "./tool-runner.ts";
 import { getStepBudgetStatus } from "./step-budget.ts";
+
+function writeJsonLine(value: unknown): void {
+  process.stdout.write(`${inspectAgent(value)}\n`);
+}
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -94,7 +99,7 @@ export class Logger {
     this.pushEntry(entry);
 
     if (this.json) {
-      console.log(JSON.stringify(entry));
+      writeJsonLine(entry);
       return;
     }
 
@@ -177,7 +182,7 @@ export class Logger {
     this.pushEntry(entry);
 
     if (this.json) {
-      if (this.shouldEmit(level)) console.log(JSON.stringify(entry));
+      if (this.shouldEmit(level)) writeJsonLine(entry);
       return;
     }
 
@@ -208,7 +213,7 @@ export class Logger {
     this.pushEntry(entry);
 
     if (this.json) {
-      console.log(JSON.stringify(entry));
+      writeJsonLine(entry);
       return;
     }
 

@@ -20,6 +20,35 @@ export function bridgeScriptName(name: string, kind: BridgeKind): string {
   return `${name}-${kind}-bridge.ts`;
 }
 
+const BRIDGE_INSPECT_IMPORT = `import { homedir } from "os";
+import { join } from "path";
+const { inspectAgent } = await import(join(homedir(), ".kimi-code", "lib", "inspect.ts"));`;
+
+const BRIDGE_JSONRPC_RESULT_OUT =
+  'process.stdout.write(`${inspectAgent({ jsonrpc: "2.0", id: request.id, result })}\\n`);';
+const BRIDGE_JSONRPC_ERROR_OUT =
+  'process.stdout.write(`${inspectAgent({ jsonrpc: "2.0", id: null, error: { code: -32700, message: String(e) } })}\\n`);';
+
+const BRIDGE_STDIO_LOOP = `
+const decoder = new TextDecoder();
+let buffer = "";
+for await (const chunk of Bun.stdin.stream()) {
+  buffer += decoder.decode(chunk, { stream: true });
+  const lines = buffer.split("\\n");
+  buffer = lines.pop() ?? "";
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      const request = JSON.parse(line);
+      const result = await handleRequest(request);
+      ${BRIDGE_JSONRPC_RESULT_OUT}
+    } catch (e) {
+      ${BRIDGE_JSONRPC_ERROR_OUT}
+    }
+  }
+}
+`;
+
 export function generateBridgeScript(options: BridgeScaffoldOptions): string {
   switch (options.kind) {
     case "filesystem":
@@ -56,6 +85,7 @@ function generateFilesystemBridge(options: BridgeScaffoldOptions): string {
 
 import { existsSync } from "fs";
 import { resolve } from "path";
+${BRIDGE_INSPECT_IMPORT}
 
 const ALLOWED_ROOTS = ${allowed}.map((p: string) => resolve(p));
 
@@ -93,26 +123,7 @@ async function handleRequest(request: { method: string; params?: Record<string, 
   }
   return { error: { code: -32601, message: "Method not found" } };
 }
-
-// Minimal stdio JSON-RPC loop
-const decoder = new TextDecoder();
-let buffer = "";
-for await (const chunk of Bun.stdin.stream()) {
-  buffer += decoder.decode(chunk, { stream: true });
-  const lines = buffer.split("\\n");
-  buffer = lines.pop() ?? "";
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    try {
-      const request = JSON.parse(line);
-      const result = await handleRequest(request);
-      console.log(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }));
-    } catch (e) {
-      console.log(JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: String(e) } }));
-    }
-  }
-}
-`;
+${BRIDGE_STDIO_LOOP}`;
 }
 
 function generateHttpBridge(options: BridgeScaffoldOptions): string {
@@ -123,6 +134,7 @@ function generateHttpBridge(options: BridgeScaffoldOptions): string {
  */
 
 const TARGET_URL = ${JSON.stringify(targetUrl)};
+${BRIDGE_INSPECT_IMPORT}
 
 async function handleRequest(request: { method: string; params?: Record<string, unknown> }) {
   if (request.method === "tools/list") {
@@ -143,25 +155,7 @@ async function handleRequest(request: { method: string; params?: Record<string, 
   }
   return { error: { code: -32601, message: "Method not found" } };
 }
-
-const decoder = new TextDecoder();
-let buffer = "";
-for await (const chunk of Bun.stdin.stream()) {
-  buffer += decoder.decode(chunk, { stream: true });
-  const lines = buffer.split("\\n");
-  buffer = lines.pop() ?? "";
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    try {
-      const request = JSON.parse(line);
-      const result = await handleRequest(request);
-      console.log(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }));
-    } catch (e) {
-      console.log(JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: String(e) } }));
-    }
-  }
-}
-`;
+${BRIDGE_STDIO_LOOP}`;
 }
 
 function generateDashboardBridge(options: BridgeScaffoldOptions): string {
@@ -189,6 +183,7 @@ function generateSandboxBridge(options: BridgeScaffoldOptions): string {
 /**
  * ${options.name} sandbox bridge — dry-run wrapper that logs but does not execute.
  */
+${BRIDGE_INSPECT_IMPORT}
 
 async function handleRequest(request: { method: string; params?: Record<string, unknown> }) {
   if (request.method === "tools/list") {
@@ -206,23 +201,5 @@ async function handleRequest(request: { method: string; params?: Record<string, 
   }
   return { error: { code: -32601, message: "Method not found" } };
 }
-
-const decoder = new TextDecoder();
-let buffer = "";
-for await (const chunk of Bun.stdin.stream()) {
-  buffer += decoder.decode(chunk, { stream: true });
-  const lines = buffer.split("\\n");
-  buffer = lines.pop() ?? "";
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    try {
-      const request = JSON.parse(line);
-      const result = await handleRequest(request);
-      console.log(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }));
-    } catch (e) {
-      console.log(JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: String(e) } }));
-    }
-  }
-}
-`;
+${BRIDGE_STDIO_LOOP}`;
 }
