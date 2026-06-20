@@ -4,8 +4,9 @@
  */
 
 import { join } from "path";
-import { pathExists } from "./bun-io.ts";
-import { canonicalReferencesPath } from "./paths.ts";
+import { pathExists, readText } from "./bun-io.ts";
+import { canonicalReferencesPath, homeDir } from "./paths.ts";
+import { safeParse } from "./utils.ts";
 import { TOOLCHAIN_VERSION } from "./version.ts";
 import { stableStringify } from "./build-constants-registry.ts";
 
@@ -21,6 +22,8 @@ export type ReferenceKind =
   | "repo"
   | "mcp";
 
+export type EcosystemReferenceStatus = "active" | "deprecated" | "experimental" | "external-fork";
+
 export interface EcosystemReference {
   id: string;
   name: string;
@@ -33,6 +36,12 @@ export interface EcosystemReference {
   usage: string;
   minVersion?: string;
   install?: string;
+  /** Corresponding REPO_REFERENCES id. Falls back to convention `<id>-upstream` when absent. */
+  repoId?: string;
+  /** Set true when no repo entry is expected (e.g. platform services, hosted MCPs). */
+  noRepo?: true;
+  /** Lifecycle status — agents should avoid deprecated entries. Defaults to "active" when absent. */
+  status?: EcosystemReferenceStatus;
 }
 
 /**
@@ -64,11 +73,27 @@ export interface LocalDocReference {
   canvasInfluences?: readonly string[];
 }
 
+export type RepoRole = "upstream" | "tool" | "dependency";
+
+export type RepoLanguage = "typescript" | "rust" | "javascript";
+
+export type RepoFramework = "bun" | "node" | "effect" | "oxc";
+
 export interface RepoReference {
   id: string;
   name: string;
   url: string;
+  description?: string;
+  defaultBranch?: string;
+  ciStatusUrl?: string;
   clonePath?: string;
+  /** EcosystemReference ids this repository is the canonical source for. */
+  provides?: readonly string[];
+  role?: RepoRole;
+  language?: RepoLanguage;
+  frameworks?: readonly RepoFramework[];
+  /** Expected package.json `name` when clonePath is validated. Defaults to `name`. */
+  expectedPackageName?: string;
 }
 
 export interface CanonicalReferencesManifest {
@@ -91,6 +116,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     package: "bun",
     usage: "Runtime, test runner, package manager, and native I/O for kimi-toolchain",
     minVersion: "1.4.0",
+    noRepo: true,
   },
   {
     id: "effect",
@@ -101,6 +127,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     package: "effect",
     usage: "Typed errors, CLI/runtime adapters, and Herdr pane orchestration in src/lib/effect/",
     minVersion: "3.21.3",
+    repoId: "effect-upstream",
   },
   {
     id: "kimi-code",
@@ -110,6 +137,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     docs: "https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html",
     usage: "Official agent CLI (`kimi`), config.toml, sessions, MCP — distinct from `kimi-doctor`",
     install: "https://code.kimi.com/kimi-code/install.sh",
+    repoId: "kimi-code-upstream",
   },
   {
     id: "herdr",
@@ -119,6 +147,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     docs: "https://herdr.dev/docs/",
     usage: "Terminal-native multiplexer; socket API for herdr-pane, herdr-latm, herdr-orchestrator",
     install: "https://herdr.dev/install.sh",
+    noRepo: true,
   },
   {
     id: "cloudflare",
@@ -128,6 +157,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     docs: "https://developers.cloudflare.com/workers/",
     usage:
       "Workers, Access, MCP; use kimi-cloudflare-access for API tokens (separate from Wrangler OAuth)",
+    noRepo: true,
   },
   {
     id: "cloudflare-mcp",
@@ -137,6 +167,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     docs: "https://developers.cloudflare.com/agents/model-context-protocol/mcp-server/",
     usage:
       "Default user MCP `cloudflare-api`; optional docs/bindings/builds/observability endpoints",
+    noRepo: true,
   },
   {
     id: "dx",
@@ -146,6 +177,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     docs: "~/.config/dx/AGENTS.md",
     usage:
       "Global Bun dev platform — `dx config`, `dx mcp-status`, `dx.config.toml` herdr/finishWork",
+    noRepo: true,
   },
   {
     id: "js-yaml",
@@ -157,6 +189,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     usage:
       "YAML parsing for error-taxonomy.yml and config files; minimal runtime dependency alongside effect",
     minVersion: "4.1.0",
+    noRepo: true,
   },
   {
     id: "oxc",
@@ -166,6 +199,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     docs: "https://oxc.rs/docs/guide/usage/formatter.html",
     package: "oxfmt",
     usage: "Format (oxfmt) and lint (oxlint) gates — no ESLint/Prettier in this repo",
+    repoId: "oxc-upstream",
   },
 ] as const;
 
@@ -491,22 +525,50 @@ export const REPO_REFERENCES: readonly RepoReference[] = [
     id: "kimi-toolchain",
     name: "kimi-toolchain",
     url: "https://github.com/brendadeeznuts1111/kimi-toolchain",
+    description: "Bun-native developer tooling: governance, diagnostics, security, and scaffolding",
+    defaultBranch: "main",
+    ciStatusUrl: "https://github.com/brendadeeznuts1111/kimi-toolchain/actions",
     clonePath: "~/kimi-toolchain",
+    role: "tool",
+    language: "typescript",
+    frameworks: ["bun", "effect", "oxc"],
+    expectedPackageName: "kimi-toolchain",
   },
   {
     id: "kimi-code-upstream",
     name: "Kimi Code (Moonshot)",
     url: "https://github.com/MoonshotAI/kimi-code",
+    description: "Official Kimi Code agent CLI, config.toml, sessions, and MCP integration",
+    defaultBranch: "main",
+    ciStatusUrl: "https://github.com/MoonshotAI/kimi-code/actions",
+    provides: ["kimi-code"],
+    role: "upstream",
+    language: "typescript",
+    frameworks: ["node"],
   },
   {
     id: "effect-upstream",
     name: "Effect",
     url: "https://github.com/Effect-TS/effect",
+    description: "Typed functional effect system for TypeScript services and CLI pipelines",
+    defaultBranch: "main",
+    ciStatusUrl: "https://github.com/Effect-TS/effect/actions",
+    provides: ["effect"],
+    role: "upstream",
+    language: "typescript",
+    frameworks: ["effect", "node"],
   },
   {
     id: "oxc-upstream",
     name: "Oxc",
     url: "https://github.com/oxc-project/oxc",
+    description: "Rust-based JavaScript toolchain (oxfmt, oxlint) used in format and lint gates",
+    defaultBranch: "main",
+    ciStatusUrl: "https://github.com/oxc-project/oxc/actions",
+    provides: ["oxc"],
+    role: "upstream",
+    language: "rust",
+    frameworks: ["oxc"],
   },
 ] as const;
 
@@ -805,6 +867,249 @@ export function manifestNeedsRefresh(
   return !referencesContentEqual(generated, existing);
 }
 
+export type EcosystemId = (typeof ECOSYSTEM_REFERENCES)[number]["id"];
+export type RepoId = (typeof REPO_REFERENCES)[number]["id"];
+
+function buildRepoById(): Record<RepoId, RepoReference> {
+  const map = {} as Record<RepoId, RepoReference>;
+  for (const repo of REPO_REFERENCES) {
+    map[repo.id as RepoId] = repo;
+  }
+  return map;
+}
+
+/** O(1) typed lookup — prefer over scanning REPO_REFERENCES. */
+export const REPO_BY_ID: Record<RepoId, RepoReference> = buildRepoById();
+
+/** Normalize GitHub URLs for reverse lookup (strip .git, trailing slash, lowercase host/path). */
+export function normalizeRepoUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.replace(/\/$/, "").replace(/\.git$/, "");
+    return `${parsed.protocol}//${parsed.host.toLowerCase()}${path.toLowerCase()}`;
+  } catch {
+    return url
+      .trim()
+      .toLowerCase()
+      .replace(/\.git$/, "")
+      .replace(/\/$/, "");
+  }
+}
+
+function buildRepoByUrl(): ReadonlyMap<string, RepoReference> {
+  const map = new Map<string, RepoReference>();
+  for (const repo of REPO_REFERENCES) {
+    map.set(normalizeRepoUrl(repo.url), repo);
+  }
+  return map;
+}
+
+const REPO_BY_URL = buildRepoByUrl();
+
+export function expandClonePath(clonePath: string): string {
+  if (clonePath.startsWith("~/")) return join(homeDir(), clonePath.slice(2));
+  if (clonePath === "~") return homeDir();
+  return clonePath;
+}
+
+export function getEcosystem(id: EcosystemId): EcosystemReference {
+  return ECOSYSTEM_REFERENCES.find((ref) => ref.id === id) as EcosystemReference;
+}
+
+export function getRepo(id: RepoId): RepoReference {
+  return REPO_BY_ID[id];
+}
+
+/** Resolve a repository from a GitHub URL (or normalized equivalent). */
+export function getRepoByUrl(url: string): RepoReference | undefined {
+  return REPO_BY_URL.get(normalizeRepoUrl(url));
+}
+
+/** Resolve a repository id from a GitHub URL — convenience over getRepoByUrl(). */
+export function getRepoIdByUrl(url: string): RepoId | undefined {
+  return getRepoByUrl(url)?.id;
+}
+
+/**
+ * Resolve the REPO_REFERENCES entry for an ecosystem entry.
+ * Uses explicit `repoId` when set; falls back to `<ecosystemId>-upstream` convention.
+ */
+export function resolveRepoForEcosystem(ref: EcosystemReference): RepoReference | undefined {
+  if (ref.noRepo) return undefined;
+  const repoId = ref.repoId ?? `${ref.id}-upstream`;
+  return REPO_BY_ID[repoId as RepoId];
+}
+
+const GITHUB_URL_PATTERN = new URLPattern({
+  protocol: "https",
+  hostname: "github.com",
+  pathname: "/:org/:repo{.git}?",
+});
+
+/** Validate that every REPO_REFERENCES url follows the canonical https://github.com/:org/:repo shape. */
+export function lintRepoUrls(): string[] {
+  const violations: string[] = [];
+  for (const repo of REPO_REFERENCES) {
+    if (!GITHUB_URL_PATTERN.test(repo.url)) {
+      violations.push(
+        `repo "${repo.id}": url "${repo.url}" does not match expected pattern https://github.com/:org/:repo`
+      );
+    } else if (repo.url.endsWith(".git")) {
+      violations.push(
+        `repo "${repo.id}": url "${repo.url}" has trailing .git — use bare HTTPS URL`
+      );
+    } else if (repo.url.endsWith("/")) {
+      violations.push(`repo "${repo.id}": url "${repo.url}" has trailing slash — remove it`);
+    }
+  }
+  return violations;
+}
+
+/** Lint duplicate repo ids and normalized URLs. */
+export function lintRepoDuplicateKeys(): string[] {
+  const violations: string[] = [];
+  const seenIds = new Map<string, number>();
+  const seenUrls = new Map<string, string>();
+
+  for (const repo of REPO_REFERENCES) {
+    seenIds.set(repo.id, (seenIds.get(repo.id) ?? 0) + 1);
+    const normalized = normalizeRepoUrl(repo.url);
+    const prior = seenUrls.get(normalized);
+    if (prior) {
+      violations.push(`repo duplicate url: "${repo.id}" and "${prior}" both map to ${normalized}`);
+    } else {
+      seenUrls.set(normalized, repo.id);
+    }
+  }
+
+  for (const [id, count] of seenIds) {
+    if (count > 1) violations.push(`repo duplicate id: "${id}" appears ${count} times`);
+  }
+
+  return violations;
+}
+
+/** Lint repo.provides ↔ ecosystem.repoId bidirectional links. */
+export function lintRepoProvidesLinks(): string[] {
+  const violations: string[] = [];
+
+  for (const repo of REPO_REFERENCES) {
+    for (const ecoId of repo.provides ?? []) {
+      const eco = ecosystemReferenceById(ecoId);
+      if (!eco) {
+        violations.push(`repo "${repo.id}": provides unknown ecosystem id "${ecoId}"`);
+        continue;
+      }
+      const linked = resolveRepoForEcosystem(eco);
+      if (!linked || linked.id !== repo.id) {
+        violations.push(
+          `repo "${repo.id}": provides "${ecoId}" but ecosystem links to "${linked?.id ?? "none"}"`
+        );
+      }
+    }
+  }
+
+  return violations;
+}
+
+export interface LintRepoClonePathsOptions {
+  /** Accept this directory as a valid clone root for kimi-toolchain (worktree-safe). */
+  projectRoot?: string;
+  /** Skip filesystem checks (unit tests / sandboxes without canonical clone). */
+  skipFilesystem?: boolean;
+}
+
+/** Validate clonePath exists and package.json name matches expectedPackageName. */
+export function lintRepoClonePaths(options: LintRepoClonePathsOptions = {}): string[] {
+  if (options.skipFilesystem) return [];
+
+  const violations: string[] = [];
+  const projectRoot = options.projectRoot ?? process.cwd();
+
+  for (const repo of REPO_REFERENCES) {
+    if (!repo.clonePath) continue;
+
+    const absolute = expandClonePath(repo.clonePath);
+    const expectedName = repo.expectedPackageName ?? repo.name;
+    const candidateRoots = new Set([absolute]);
+    if (repo.id === "kimi-toolchain") candidateRoots.add(projectRoot);
+
+    let matched = false;
+    for (const root of candidateRoots) {
+      const pkgPath = join(root, "package.json");
+      if (!pathExists(pkgPath)) continue;
+      const pkg = safeParse(readText(pkgPath), {} as { name?: string });
+      if (pkg.name === expectedName) {
+        matched = true;
+        break;
+      }
+    }
+
+    if (matched) continue;
+
+    if (!pathExists(absolute)) {
+      violations.push(`repo "${repo.id}": clonePath "${repo.clonePath}" does not exist`);
+      continue;
+    }
+
+    violations.push(
+      `repo "${repo.id}": clonePath "${repo.clonePath}" missing package.json name "${expectedName}"`
+    );
+  }
+
+  return violations;
+}
+
+/** Combined repo reference lint — URLs, duplicates, provides links, ecosystem pairing, clone paths. */
+export function lintRepoReferences(options: LintRepoClonePathsOptions = {}): string[] {
+  return [
+    ...lintRepoUrls(),
+    ...lintRepoDuplicateKeys(),
+    ...lintRepoProvidesLinks(),
+    ...lintEcosystemRepoCompleteness(),
+    ...lintRepoClonePaths(options),
+  ];
+}
+
+/**
+ * Lint: verify ecosystem ↔ repo pairing completeness.
+ * Returns violation strings; empty array = OK.
+ */
+export function lintEcosystemRepoCompleteness(): string[] {
+  const violations: string[] = [];
+  const linkedKinds: ReferenceKind[] = ["library", "runtime", "product"];
+
+  for (const ref of ECOSYSTEM_REFERENCES) {
+    if (ref.noRepo) continue;
+    if (!linkedKinds.includes(ref.kind)) continue;
+    const repo = resolveRepoForEcosystem(ref);
+    if (!repo) {
+      const convention = `${ref.id}-upstream`;
+      violations.push(
+        `ecosystem "${ref.id}" (${ref.kind}): no repo entry found — add repoId or create REPO_REFERENCES entry "${convention}", or set noRepo: true`
+      );
+    }
+  }
+
+  for (const repo of REPO_REFERENCES) {
+    const provides = repo.provides ?? [];
+    if (provides.length > 0) continue;
+    if (repo.role === "tool") continue;
+    if (!repo.clonePath) continue;
+
+    const hasCounterpart = ECOSYSTEM_REFERENCES.some(
+      (e) => (e.repoId ?? `${e.id}-upstream`) === repo.id
+    );
+    if (!hasCounterpart) {
+      violations.push(
+        `repo "${repo.id}" has clonePath but no ecosystem entry references it — add provides, repoId on ecosystem, or remove clonePath`
+      );
+    }
+  }
+
+  return violations;
+}
+
 export function ecosystemReferenceById(id: string): EcosystemReference | undefined {
   return ECOSYSTEM_REFERENCES.find((ref) => ref.id === id);
 }
@@ -820,6 +1125,106 @@ function docsLink(ref: EcosystemReference): string {
   return `\`${ref.docs}\``;
 }
 
+/** Parse a GitHub repo URL into a short owner/repo display slug and link target. */
+export function repoUrlParts(url: string): { display: string; href: string } {
+  try {
+    const pattern = new URLPattern("https://github.com/:owner/:repo");
+    const match = pattern.exec(url);
+    if (match?.pathname.groups) {
+      const owner = match.pathname.groups.owner ?? "";
+      const repo = (match.pathname.groups.repo ?? "").replace(/\.git$/, "");
+      if (owner && repo) {
+        return { display: `${owner}/${repo}`, href: url };
+      }
+    }
+  } catch {
+    // URLPattern unavailable or malformed URL — fall through
+  }
+
+  try {
+    const parsed = new URL(url);
+    const segments = parsed.pathname
+      .replace(/\/$/, "")
+      .replace(/\.git$/, "")
+      .split("/")
+      .filter(Boolean);
+    if (parsed.host.toLowerCase() === "github.com" && segments.length >= 2) {
+      return { display: `${segments[0]}/${segments[1]}`, href: url };
+    }
+  } catch {
+    // ignore
+  }
+
+  return { display: url, href: url };
+}
+
+function formatRepoRoleProvides(ref: RepoReference): string {
+  const parts: string[] = [];
+  if (ref.role) parts.push(ref.role);
+  if (ref.provides?.length) parts.push(ref.provides.join(", "));
+  return parts.join(" / ") || "—";
+}
+
+/** Column descriptor for a generic markdown table builder. */
+interface ColumnDef<T> {
+  header: string;
+  cell: (item: T) => string;
+  align?: "left" | "center" | "right";
+}
+
+/** Escape pipe characters inside a table cell so they don't break column parsing. */
+function escapeCell(value: string): string {
+  return value.replace(/\|/g, "\\|");
+}
+
+/** Render an array of items as a GFM markdown table using column descriptors. */
+function buildTable<T>(items: readonly T[], columns: ColumnDef<T>[]): string {
+  const headerRow = "| " + columns.map((c) => c.header).join(" | ") + " |";
+  const separator =
+    "| " +
+    columns
+      .map((c) => {
+        if (c.align === "center") return ":---:";
+        if (c.align === "right") return "---:";
+        return ":---";
+      })
+      .join(" | ") +
+    " |";
+  const dataRows = items.map(
+    (item) => "| " + columns.map((c) => escapeCell(c.cell(item))).join(" | ") + " |"
+  );
+  return [headerRow, separator, ...dataRows].join("\n");
+}
+
+const ECOSYSTEM_COLUMNS: ColumnDef<EcosystemReference>[] = [
+  { header: "Stack", cell: (e) => e.name },
+  { header: "Docs", cell: (e) => docsLink(e) },
+  { header: "Usage in this repo", cell: (e) => e.usage },
+];
+
+const LOCAL_DOC_COLUMNS: ColumnDef<LocalDocReference>[] = [
+  { header: "Repo", cell: (d) => `\`${d.repoPath}\`` },
+  { header: "Runtime", cell: (d) => `\`${d.runtimePath}\`` },
+  { header: "Purpose", cell: (d) => d.purpose },
+];
+
+const REPO_COLUMNS: ColumnDef<RepoReference>[] = [
+  { header: "Key", cell: (r) => `\`${r.id}\`` },
+  { header: "Project", cell: (r) => r.name },
+  {
+    header: "Source",
+    cell: (r) => {
+      const { display, href } = repoUrlParts(r.url);
+      return `[${display}](${href})`;
+    },
+  },
+  {
+    header: "Clone path",
+    cell: (r) => (r.clonePath ? `\`${r.clonePath}\`` : "—"),
+  },
+  { header: "Role / provides", cell: formatRepoRoleProvides },
+];
+
 /** Markdown block for CONTEXT.md (compact) or full tables. */
 export function formatCanonicalReferencesMarkdown(compact = false): string {
   if (compact) {
@@ -831,36 +1236,20 @@ Cached manifest: \`${CANONICAL_REFERENCES_FILENAME}\` (\`bun run references:gene
 `;
   }
 
-  const ecoRows = ECOSYSTEM_REFERENCES.map(
-    (ref) => `| ${ref.name} | ${docsLink(ref)} | ${ref.usage} |`
-  ).join("\n");
-  const docRows = LOCAL_DOC_REFERENCES.map(
-    (ref) => `| \`${ref.repoPath}\` | \`${ref.runtimePath}\` | ${ref.purpose} |`
-  ).join("\n");
-  const repoRows = REPO_REFERENCES.map(
-    (ref) => `| ${ref.name} | ${ref.url}${ref.clonePath ? ` (\`${ref.clonePath}\`)` : ""} |`
-  ).join("\n");
-
   return `## Canonical References
 
 Machine-readable manifest: \`${CANONICAL_REFERENCES_FILENAME}\` (synced to \`~/.kimi-code/\`). Regenerate: \`bun run references:generate\`.
 
 ### Ecosystem
 
-| Stack | Docs | Usage in this repo |
-| ----- | ---- | ------------------ |
-${ecoRows}
+${buildTable(ECOSYSTEM_REFERENCES, ECOSYSTEM_COLUMNS)}
 
 ### Local docs (cached after sync)
 
-| Repo | Runtime | Purpose |
-| ---- | ------- | ------- |
-${docRows}
+${buildTable(LOCAL_DOC_REFERENCES, LOCAL_DOC_COLUMNS)}
 
 ### Repositories
 
-| Project | URL |
-| ------- | --- |
-${repoRows}
+${buildTable(REPO_REFERENCES, REPO_COLUMNS)}
 `;
 }

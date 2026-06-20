@@ -7,6 +7,7 @@ import {
   CANONICAL_REFERENCES_SCHEMA_VERSION,
   ECOSYSTEM_REFERENCES,
   LOCAL_DOC_REFERENCES,
+  REPO_BY_ID,
   REPO_REFERENCES,
   auditCanonicalReferencesHealth,
   evaluateProbeHandoffCondition,
@@ -14,8 +15,18 @@ import {
   buildCanonicalReferencesManifest,
   ecosystemReferenceById,
   formatCanonicalReferencesMarkdown,
+  repoUrlParts,
+  getRepo,
+  getRepoByUrl,
+  getRepoIdByUrl,
   isCanonicalReferencesManifest,
+  lintRepoClonePaths,
+  lintRepoDuplicateKeys,
+  lintRepoProvidesLinks,
+  lintRepoReferences,
+  lintRepoUrls,
   manifestNeedsRefresh,
+  normalizeRepoUrl,
   referencesContentEqual,
 } from "../src/lib/canonical-references.ts";
 
@@ -131,13 +142,67 @@ describe("canonical-references", () => {
     );
   });
 
-  test("formatCanonicalReferencesMarkdown includes key stacks", () => {
+  test("REPO_BY_ID and getRepo provide O(1) typed lookup", () => {
+    expect(getRepo("kimi-toolchain").name).toBe("kimi-toolchain");
+    expect(REPO_BY_ID["effect-upstream"].provides).toEqual(["effect"]);
+    expect(getRepo("oxc-upstream").language).toBe("rust");
+  });
+
+  test("getRepoByUrl resolves ids from GitHub URLs", () => {
+    expect(getRepoByUrl("https://github.com/Effect-TS/effect")?.id).toBe("effect-upstream");
+    expect(getRepoByUrl("https://github.com/Effect-TS/effect.git")?.id).toBe("effect-upstream");
+    expect(normalizeRepoUrl("https://GitHub.com/MoonshotAI/kimi-code/")).toContain("kimi-code");
+    expect(getRepoByUrl("https://github.com/brendadeeznuts1111/kimi-toolchain")?.role).toBe("tool");
+    expect(getRepoIdByUrl("https://github.com/oxc-project/oxc")).toBe("oxc-upstream");
+    expect(getRepoIdByUrl("https://example.com/unknown")).toBeUndefined();
+  });
+
+  test("lintRepoDuplicateKeys and lintRepoProvidesLinks pass for canonical manifest", () => {
+    expect(lintRepoDuplicateKeys()).toEqual([]);
+    expect(lintRepoProvidesLinks()).toEqual([]);
+    expect(lintRepoUrls()).toEqual([]);
+  });
+
+  test("lintRepoClonePaths accepts projectRoot for kimi-toolchain worktrees", () => {
+    expect(lintRepoClonePaths({ projectRoot: REPO_ROOT, skipFilesystem: false })).toEqual([]);
+    expect(lintRepoClonePaths({ skipFilesystem: true })).toEqual([]);
+  });
+
+  test("lintRepoReferences passes for canonical repo manifest", () => {
+    expect(lintRepoReferences({ projectRoot: REPO_ROOT })).toEqual([]);
+  });
+
+  test("repo metadata includes description, defaultBranch, and ciStatusUrl", () => {
+    const toolchain = REPO_REFERENCES.find((r) => r.id === "kimi-toolchain");
+    expect(toolchain?.description).toContain("Bun-native");
+    expect(toolchain?.defaultBranch).toBe("main");
+    expect(toolchain?.ciStatusUrl).toContain("/actions");
+    expect(toolchain?.frameworks).toContain("bun");
+  });
+
+  test("repoUrlParts shortens GitHub URLs to owner/repo slugs", () => {
+    expect(repoUrlParts("https://github.com/Effect-TS/effect")).toEqual({
+      display: "Effect-TS/effect",
+      href: "https://github.com/Effect-TS/effect",
+    });
+    expect(repoUrlParts("https://github.com/oxc-project/oxc.git").display).toBe("oxc-project/oxc");
+    expect(repoUrlParts("https://example.com/foo").display).toBe("https://example.com/foo");
+  });
+
+  test("formatCanonicalReferencesMarkdown renders repository table columns", () => {
     const md = formatCanonicalReferencesMarkdown();
     expect(md).toContain("canonical-references.json");
     expect(md).toContain("https://bun.sh/docs");
     expect(md).toContain("https://effect.website/docs");
     expect(md).toContain("https://herdr.dev/docs/");
-    expect(md).toContain("kimi-toolchain");
+    expect(md).toContain("| Key | Project | Source | Clone path | Role / provides |");
+    expect(md).toContain("`effect-upstream`");
+    expect(md).toContain("[Effect-TS/effect](https://github.com/Effect-TS/effect)");
+    expect(md).toContain("`~/kimi-toolchain`");
+    expect(md).toContain("upstream / effect");
+    expect(md).toContain(
+      "| `kimi-toolchain` | kimi-toolchain | [brendadeeznuts1111/kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain) | `~/kimi-toolchain` | tool |"
+    );
   });
 
   test("auditCanonicalReferencesHealth passes for aligned repo + runtime", async () => {

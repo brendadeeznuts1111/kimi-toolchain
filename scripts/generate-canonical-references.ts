@@ -13,6 +13,8 @@ import { writeTextAsync } from "../src/lib/bun-io.ts";
 import {
   buildCanonicalReferencesManifest,
   finalizeCanonicalReferencesManifest,
+  lintRepoReferences,
+  lintEcosystemRepoCompleteness,
   repoCanonicalReferencesPath,
   manifestNeedsRefresh,
   readCanonicalReferencesManifest,
@@ -22,6 +24,14 @@ import { syncCanvasCompanions, canvasCompanionsStale } from "../src/lib/canvas-c
 
 const ROOT = join(import.meta.dir, "..");
 const MANIFEST_PATH = repoCanonicalReferencesPath(ROOT);
+
+function assertRepoReferenceLint(projectRoot: string): void {
+  const violations = lintRepoReferences({ projectRoot });
+  if (violations.length === 0) return;
+  console.error("repo reference lint failed:\n");
+  for (const line of violations) console.error(`  ${line}`);
+  process.exit(1);
+}
 
 async function main(): Promise<void> {
   const check = Bun.argv.includes("--check");
@@ -34,9 +44,17 @@ async function main(): Promise<void> {
     return;
   }
 
+  assertRepoReferenceLint(ROOT);
+
   if (check) {
     if (manifestNeedsRefresh(generated, existing)) {
       console.error("canonical-references.json is stale — run: bun run references:generate");
+      process.exit(1);
+    }
+    const ecoViolations = lintEcosystemRepoCompleteness();
+    if (ecoViolations.length > 0) {
+      console.error("ecosystem ↔ repo completeness violations:\n");
+      for (const line of ecoViolations) console.error(`  ${line}`);
       process.exit(1);
     }
     const canvasViolations = await canvasCompanionsStale(ROOT);
@@ -45,7 +63,7 @@ async function main(): Promise<void> {
       for (const line of canvasViolations) console.error(`  ${line}`);
       process.exit(1);
     }
-    console.log("canonical-references.json OK · canvas companions OK");
+    console.log("canonical-references.json OK · ecosystem ↔ repo OK · canvas companions OK");
     return;
   }
 

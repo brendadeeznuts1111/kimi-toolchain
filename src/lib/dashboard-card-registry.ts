@@ -107,7 +107,11 @@ export function parseDashboardCardsFromHtml(html: string): Array<{
   const panels: Array<{ id: string; title: string }> = [];
   const panelRe = /id="(card-[^"]+)"[^>]*>\s*<h2>([^<]*)<\/h2>/g;
   for (const match of html.matchAll(panelRe)) {
-    panels.push({ id: match[1], title: match[2].trim() });
+    const id = match[1];
+    if (!/^card-[\w-]+$/.test(id)) {
+      throw new Error(`dashboard.html: malformed card id "${id}" — must match card-[\\w-]+`);
+    }
+    panels.push({ id, title: match[2].trim() });
   }
 
   const scriptStart = html.indexOf("<script>");
@@ -180,10 +184,22 @@ function inferApiRoute(cardId: string): string | null {
   return `/api/${slug}`;
 }
 
-export function loadDashboardCardIds(repoRoot: string): string[] {
+const _cardCache = new Map<string, Array<{ id: string; title: string; apiRoute: string | null }>>();
+
+export function loadDashboardCards(
+  repoRoot: string
+): Array<{ id: string; title: string; apiRoute: string | null }> {
+  const cached = _cardCache.get(repoRoot);
+  if (cached) return cached;
   const path = dashboardHtmlPath(repoRoot);
   const html = readText(path);
-  return parseDashboardCardsFromHtml(html).map((c) => c.id);
+  const result = parseDashboardCardsFromHtml(html);
+  _cardCache.set(repoRoot, result);
+  return result;
+}
+
+export function loadDashboardCardIds(repoRoot: string): string[] {
+  return loadDashboardCards(repoRoot).map((c) => c.id);
 }
 
 function buildInfluenceReverseMap(): Map<string, string[]> {
@@ -233,9 +249,7 @@ export function influencesForManifest(manifestId: string): readonly string[] {
 }
 
 export function buildDashboardCardRegistry(repoRoot: string): DashboardCardEntry[] {
-  const path = dashboardHtmlPath(repoRoot);
-  const html = readText(path);
-  const parsed = parseDashboardCardsFromHtml(html);
+  const parsed = loadDashboardCards(repoRoot);
   const reverse = buildInfluenceReverseMap();
 
   return parsed.map((card) => ({
@@ -448,13 +462,22 @@ export async function fetchDashboardCardsPayload(
 
 export function lintCanvasInfluences(repoRoot: string): string[] {
   const violations: string[] = [];
-  const cardIds = new Set(loadDashboardCardIds(repoRoot));
   const htmlPath = dashboardHtmlPath(repoRoot);
 
   if (!pathExists(htmlPath)) {
     violations.push(`missing dashboard html: ${DASHBOARD_HTML_REL}`);
     return violations;
   }
+
+  const cards = loadDashboardCards(repoRoot);
+  const seen = new Set<string>();
+  for (const card of cards) {
+    if (seen.has(card.id)) {
+      violations.push(`duplicate card id in dashboard.html: ${card.id}`);
+    }
+    seen.add(card.id);
+  }
+  const cardIds = seen;
 
   for (const ref of LOCAL_DOC_REFERENCES) {
     if (!ref.canvasInfluences?.length) {

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-20T21:30:47.278Z",
+  "generatedAt": "2026-06-20T22:53:16.915Z",
   "toolchainVersion": "1.0.0",
   "ecosystem": [
     {
@@ -11,7 +11,8 @@
       "docs": "https://bun.sh/docs",
       "package": "bun",
       "usage": "Runtime, test runner, package manager, and native I/O for kimi-toolchain",
-      "minVersion": "1.4.0"
+      "minVersion": "1.4.0",
+      "noRepo": true
     },
     {
       "id": "effect",
@@ -21,7 +22,8 @@
       "docs": "https://effect.website/docs",
       "package": "effect",
       "usage": "Typed errors, CLI/runtime adapters, and Herdr pane orchestration in src/lib/effect/",
-      "minVersion": "3.21.3"
+      "minVersion": "3.21.3",
+      "repoId": "effect-upstream"
     },
     {
       "id": "kimi-code",
@@ -30,7 +32,8 @@
       "homepage": "https://moonshotai.github.io/kimi-code/",
       "docs": "https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html",
       "usage": "Official agent CLI (`kimi`), config.toml, sessions, MCP — distinct from `kimi-doctor`",
-      "install": "https://code.kimi.com/kimi-code/install.sh"
+      "install": "https://code.kimi.com/kimi-code/install.sh",
+      "repoId": "kimi-code-upstream"
     },
     {
       "id": "herdr",
@@ -39,7 +42,8 @@
       "homepage": "https://herdr.dev",
       "docs": "https://herdr.dev/docs/",
       "usage": "Terminal-native multiplexer; socket API for herdr-pane, herdr-latm, herdr-orchestrator",
-      "install": "https://herdr.dev/install.sh"
+      "install": "https://herdr.dev/install.sh",
+      "noRepo": true
     },
     {
       "id": "cloudflare",
@@ -47,7 +51,8 @@
       "kind": "platform",
       "homepage": "https://developers.cloudflare.com/",
       "docs": "https://developers.cloudflare.com/workers/",
-      "usage": "Workers, Access, MCP; use kimi-cloudflare-access for API tokens (separate from Wrangler OAuth)"
+      "usage": "Workers, Access, MCP; use kimi-cloudflare-access for API tokens (separate from Wrangler OAuth)",
+      "noRepo": true
     },
     {
       "id": "cloudflare-mcp",
@@ -55,7 +60,8 @@
       "kind": "mcp",
       "homepage": "https://mcp.cloudflare.com/mcp",
       "docs": "https://developers.cloudflare.com/agents/model-context-protocol/mcp-server/",
-      "usage": "Default user MCP `cloudflare-api`; optional docs/bindings/builds/observability endpoints"
+      "usage": "Default user MCP `cloudflare-api`; optional docs/bindings/builds/observability endpoints",
+      "noRepo": true
     },
     {
       "id": "dx",
@@ -63,7 +69,8 @@
       "kind": "product",
       "homepage": "https://github.com/brendadeeznuts1111/dx-config",
       "docs": "~/.config/dx/AGENTS.md",
-      "usage": "Global Bun dev platform — `dx config`, `dx mcp-status`, `dx.config.toml` herdr/finishWork"
+      "usage": "Global Bun dev platform — `dx config`, `dx mcp-status`, `dx.config.toml` herdr/finishWork",
+      "noRepo": true
     },
     {
       "id": "js-yaml",
@@ -73,7 +80,8 @@
       "docs": "https://github.com/nodeca/js-yaml#readme",
       "package": "js-yaml",
       "usage": "YAML parsing for error-taxonomy.yml and config files; minimal runtime dependency alongside effect",
-      "minVersion": "4.1.0"
+      "minVersion": "4.1.0",
+      "noRepo": true
     },
     {
       "id": "oxc",
@@ -82,7 +90,8 @@
       "homepage": "https://oxc.rs",
       "docs": "https://oxc.rs/docs/guide/usage/formatter.html",
       "package": "oxfmt",
-      "usage": "Format (oxfmt) and lint (oxlint) gates — no ESLint/Prettier in this repo"
+      "usage": "Format (oxfmt) and lint (oxlint) gates — no ESLint/Prettier in this repo",
+      "repoId": "oxc-upstream"
     }
   ],
   "localDocs": [
@@ -391,22 +400,50 @@
       "id": "kimi-toolchain",
       "name": "kimi-toolchain",
       "url": "https://github.com/brendadeeznuts1111/kimi-toolchain",
-      "clonePath": "~/kimi-toolchain"
+      "description": "Bun-native developer tooling: governance, diagnostics, security, and scaffolding",
+      "defaultBranch": "main",
+      "ciStatusUrl": "https://github.com/brendadeeznuts1111/kimi-toolchain/actions",
+      "clonePath": "~/kimi-toolchain",
+      "role": "tool",
+      "language": "typescript",
+      "frameworks": ["bun", "effect", "oxc"],
+      "expectedPackageName": "kimi-toolchain"
     },
     {
       "id": "kimi-code-upstream",
       "name": "Kimi Code (Moonshot)",
-      "url": "https://github.com/MoonshotAI/kimi-code"
+      "url": "https://github.com/MoonshotAI/kimi-code",
+      "description": "Official Kimi Code agent CLI, config.toml, sessions, and MCP integration",
+      "defaultBranch": "main",
+      "ciStatusUrl": "https://github.com/MoonshotAI/kimi-code/actions",
+      "provides": ["kimi-code"],
+      "role": "upstream",
+      "language": "typescript",
+      "frameworks": ["node"]
     },
     {
       "id": "effect-upstream",
       "name": "Effect",
-      "url": "https://github.com/Effect-TS/effect"
+      "url": "https://github.com/Effect-TS/effect",
+      "description": "Typed functional effect system for TypeScript services and CLI pipelines",
+      "defaultBranch": "main",
+      "ciStatusUrl": "https://github.com/Effect-TS/effect/actions",
+      "provides": ["effect"],
+      "role": "upstream",
+      "language": "typescript",
+      "frameworks": ["effect", "node"]
     },
     {
       "id": "oxc-upstream",
       "name": "Oxc",
-      "url": "https://github.com/oxc-project/oxc"
+      "url": "https://github.com/oxc-project/oxc",
+      "description": "Rust-based JavaScript toolchain (oxfmt, oxlint) used in format and lint gates",
+      "defaultBranch": "main",
+      "ciStatusUrl": "https://github.com/oxc-project/oxc/actions",
+      "provides": ["oxc"],
+      "role": "upstream",
+      "language": "rust",
+      "frameworks": ["oxc"]
     }
   ]
 }
