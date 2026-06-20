@@ -114,8 +114,12 @@ async function packageHasScript(projectRoot: string, script: string): Promise<bo
 
 /** Run `bun pm pkg get <property>` and return the raw value, or null on error. */
 async function pkgGet(projectRoot: string, property: string): Promise<string | null> {
+  // Use bracket notation for last segment if it contains special chars (:)
+  const escaped = property.replace(/\.([^.[]+)$/, (_m, last) => {
+    return /[:]/.test(last) ? `[${last}]` : `.${last}`;
+  });
   try {
-    const proc = Bun.spawn(["bun", "pm", "pkg", "get", property], {
+    const proc = Bun.spawn(["bun", "pm", "pkg", "get", escaped], {
       cwd: projectRoot,
       stdout: "pipe",
       stderr: "pipe",
