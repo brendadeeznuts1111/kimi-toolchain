@@ -35,7 +35,7 @@ const BUN_HTTPS_AGENT_OPTIONS_DOC =
   "https://bun.sh/reference/node/https/AgentOptions#node:https.AgentOptions";
 
 const TOTAL_CARDS = 67;
-const CANVAS_ROWS = 11;
+const CANVAS_ROWS = 12;
 const INFLUENCED_CARDS = 23;
 const ORPHAN_CARDS = 44;
 
@@ -119,6 +119,13 @@ const MANIFEST_CANVAS_ROWS = [
       "card-artifacts, card-gates, card-metrics-schema, card-kimi-doctor, card-trace-verify, card-bunfig-policy",
     count: 6,
     readOrder: 11,
+  },
+  {
+    manifestId: "gate-health",
+    canvasId: "gate-health",
+    influences: "card-gates, card-kimi-doctor",
+    count: 2,
+    readOrder: 12,
   },
 ] as const;
 
@@ -300,6 +307,12 @@ const CANVAS_ROUTING = [
     path: "docs/canvases/artifact-lineage.canvas.tsx",
     detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns",
   },
+  {
+    id: "gate-health",
+    page: "Gate Health",
+    path: "docs/canvases/gate-health.canvas.tsx",
+    detail: "GET /api/doctor/gates · #gate-health overlay · 30s poll",
+  },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -316,6 +329,7 @@ const CANVAS_ROUTING_ROW_TONE = [
   "warning",
   "neutral",
   "success",
+  "neutral",
   "neutral",
 ] as const;
 function CanvasNavButton({

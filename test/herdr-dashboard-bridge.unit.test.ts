@@ -20,6 +20,15 @@ describe("herdr-dashboard-bridge", () => {
     });
   });
 
+  test("buildDashboardDeepLink for gate-health manifest", () => {
+    const url = buildDashboardDeepLink(
+      { manifestId: "gate-health", runId: "run_gate_health" },
+      { baseUrl: BASE }
+    );
+    expect(url).toContain("canvas=gate-health");
+    expect(url).toContain("runId=run_gate_health");
+  });
+
   test("buildDashboardDeepLink with runId includes canvas and runId params", () => {
     const url = buildDashboardDeepLink(
       {

@@ -203,6 +203,12 @@ const CANVAS_ROUTING = [
     path: "docs/canvases/artifact-lineage.canvas.tsx",
     detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns",
   },
+  {
+    id: "gate-health",
+    page: "Gate Health",
+    path: "docs/canvases/gate-health.canvas.tsx",
+    detail: "GET /api/doctor/gates · #gate-health overlay · 30s poll",
+  },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -218,6 +224,7 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "warning",
   "success",
+  "neutral",
   "neutral",
   "neutral",
 ] as const;

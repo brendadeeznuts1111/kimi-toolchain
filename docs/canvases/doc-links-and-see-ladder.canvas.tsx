@@ -330,6 +330,15 @@ const CANVAS_ROUTING = [
     path: `${CANVAS_PREFIX}artifact-lineage.canvas.tsx`,
     repoPath: `${CANVAS_PREFIX}artifact-lineage.canvas.tsx`,
   },
+  {
+    id: "gate-health",
+    page: "Gate Health",
+    version: "1.0.0",
+    layer: "Effect gates probe",
+    openWhen: "GET /api/doctor/gates · #gate-health overlay · 30s poll",
+    path: `${CANVAS_PREFIX}gate-health.canvas.tsx`,
+    repoPath: `${CANVAS_PREFIX}gate-health.canvas.tsx`,
+  },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -344,6 +353,7 @@ const CANVAS_ROW_TONE = [
   "neutral",
   "neutral",
   "warning",
+  "neutral",
   "neutral",
   "neutral",
   "neutral",

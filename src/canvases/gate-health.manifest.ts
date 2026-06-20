@@ -1,6 +1,6 @@
 /**
  * gate-health canvas manifest — highlights gate-status cards on deep links.
- * Companion IDE surface: docs/canvases/gate-health.canvas.tsx (TBD)
+ * Companion IDE surface: docs/canvases/gate-health.canvas.tsx
  */
 
 export const GATE_HEALTH_MANIFEST_ID = "gate-health";

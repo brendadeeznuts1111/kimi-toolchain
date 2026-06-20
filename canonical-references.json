@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-19T19:10:34.737Z",
+  "generatedAt": "2026-06-20T02:57:25.253Z",
   "toolchainVersion": "0.1.0",
   "ecosystem": [
     {
@@ -93,7 +93,11 @@
       "canvasLayer": "Doc URL lint",
       "canvasOpenWhen": "@see ladder · docs/references index",
       "canvasReadOrder": 4,
-      "canvasInfluences": ["card-inspect-table", "card-file-split", "card-transpiler-scan"]
+      "canvasInfluences": [
+        "card-inspect-table",
+        "card-file-split",
+        "card-transpiler-scan"
+      ]
     },
     {
       "id": "unified",
@@ -148,7 +152,12 @@
       "canvasLayer": "kimi-fix · bun create",
       "canvasOpenWhen": "Profiles · templates · scaffold doctor",
       "canvasReadOrder": 5,
-      "canvasInfluences": ["card-scaffold", "card-kimi-doctor", "card-gates", "card-kimi-publish"]
+      "canvasInfluences": [
+        "card-scaffold",
+        "card-kimi-doctor",
+        "card-gates",
+        "card-kimi-publish"
+      ]
     },
     {
       "id": "dashboard-thumbnails",
@@ -162,7 +171,10 @@
       "canvasLayer": "Orchestrator HTTP",
       "canvasOpenWhen": "PNG → Bun.Image → /api/thumbnail",
       "canvasReadOrder": 6,
-      "canvasInfluences": ["card-image", "card-perf-harness"]
+      "canvasInfluences": [
+        "card-image",
+        "card-perf-harness"
+      ]
     },
     {
       "id": "kimi-doctor",
@@ -207,7 +219,11 @@
       "canvasLayer": "Meta / routing",
       "canvasOpenWhen": "Doctor trinity · finish-work vs prefix+*",
       "canvasReadOrder": 2,
-      "canvasInfluences": ["card-gates", "card-symbols", "card-kimi-doctor"]
+      "canvasInfluences": [
+        "card-gates",
+        "card-symbols",
+        "card-kimi-doctor"
+      ]
     },
     {
       "id": "configuration-layers",
@@ -221,7 +237,11 @@
       "canvasLayer": "Config SSOT",
       "canvasOpenWhen": "Discovery · define · parity · scaffold layers",
       "canvasReadOrder": 3,
-      "canvasInfluences": ["card-threshold-overrides", "card-metrics-schema", "card-global-store"]
+      "canvasInfluences": [
+        "card-threshold-overrides",
+        "card-metrics-schema",
+        "card-global-store"
+      ]
     },
     {
       "id": "shell-spawn-choice",
@@ -259,7 +279,11 @@
       "canvasLayer": "Herdr plugins v0.5.0",
       "canvasOpenWhen": "prefix+* · orthogonal to finish-work gates",
       "canvasReadOrder": 8,
-      "canvasInfluences": ["card-ipc-matrix", "card-vm-context", "card-ipc"]
+      "canvasInfluences": [
+        "card-ipc-matrix",
+        "card-vm-context",
+        "card-ipc"
+      ]
     },
     {
       "id": "v53-architecture",
@@ -302,6 +326,23 @@
         "card-trace-verify",
         "card-bunfig-policy",
         "card-url"
+      ]
+    },
+    {
+      "id": "gate-health",
+      "repoPath": "docs/references/kimi-doctor.md",
+      "runtimePath": "~/.kimi-code/docs/references/kimi-doctor.md",
+      "purpose": "Live Herdr dashboard gate-health overlay — effect-gates probe, browser poll, server watch",
+      "cursorCanvas": "docs/canvases/gate-health.canvas.tsx",
+      "canvasId": "gate-health",
+      "canvasPage": "Gate Health",
+      "canvasVersion": "1.0.0",
+      "canvasLayer": "Effect gates probe",
+      "canvasOpenWhen": "GET /api/doctor/gates · #gate-health overlay · 30s poll",
+      "canvasReadOrder": 12,
+      "canvasInfluences": [
+        "card-gates",
+        "card-kimi-doctor"
       ]
     },
     {

@@ -395,6 +395,21 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     ],
   },
   {
+    id: "gate-health",
+    repoPath: "docs/references/kimi-doctor.md",
+    runtimePath: "~/.kimi-code/docs/references/kimi-doctor.md",
+    purpose:
+      "Live Herdr dashboard gate-health overlay — effect-gates probe, browser poll, server watch",
+    cursorCanvas: "docs/canvases/gate-health.canvas.tsx",
+    canvasId: "gate-health",
+    canvasPage: "Gate Health",
+    canvasVersion: "1.0.0",
+    canvasLayer: "Effect gates probe",
+    canvasOpenWhen: "GET /api/doctor/gates · #gate-health overlay · 30s poll",
+    canvasReadOrder: 12,
+    canvasInfluences: ["card-gates", "card-kimi-doctor"],
+  },
+  {
     id: "canonical-references",
     repoPath: CANONICAL_REFERENCES_FILENAME,
     runtimePath: `~/.kimi-code/${CANONICAL_REFERENCES_FILENAME}`,

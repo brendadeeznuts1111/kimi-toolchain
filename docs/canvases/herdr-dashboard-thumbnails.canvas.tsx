@@ -215,6 +215,12 @@ const MANIFEST_LOCAL_DOCS_ALL = [
       "Run manifests, artifact lineage (dependsOn vs gate-graph), and session-scoped identity queries",
   },
   {
+    id: "gate-health",
+    location: "docs/references",
+    purpose:
+      "Live Herdr dashboard gate-health overlay — effect-gates probe, browser poll, server watch",
+  },
+  {
     id: "canonical-references",
     location: "repo root",
     purpose: "Cached canonical ecosystem links (this manifest)",
