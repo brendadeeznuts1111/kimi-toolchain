@@ -1,6 +1,17 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { aggregateChecks } from "../src/lib/health-check.ts";
 import { Logger, createLogger, log, statusIcon } from "../src/lib/logger.ts";
+import { captureConsoleError, captureStdout } from "./helpers.ts";
+
+function withStdoutCapture(run: () => void): string[] {
+  const capture = captureStdout();
+  try {
+    run();
+    return [...capture.lines];
+  } finally {
+    capture.restore();
+  }
+}
 
 describe("logger", () => {
   let originalEnv: Record<string, string | undefined>;
@@ -20,106 +31,74 @@ describe("logger", () => {
   });
 
   test("Logger.info emits with checkmark icon", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ level: "info" });
-    logger.info("test message");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(1);
-    expect(logs[0]).toContain("test message");
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ level: "info" });
+      logger.info("test message");
+    });
+    expect(lines.length).toBe(1);
+    expect(lines[0]).toContain("test message");
   });
 
   test("Logger.error emits with x icon", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ level: "info" });
-    logger.error("test error");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(1);
-    expect(logs[0]).toContain("test error");
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ level: "info" });
+      logger.error("test error");
+    });
+    expect(lines.length).toBe(1);
+    expect(lines[0]).toContain("test error");
   });
 
   test("Logger.warn emits with warning icon", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ level: "info" });
-    logger.warn("test warning");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(1);
-    expect(logs[0]).toContain("test warning");
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ level: "info" });
+      logger.warn("test warning");
+    });
+    expect(lines.length).toBe(1);
+    expect(lines[0]).toContain("test warning");
   });
 
   test("Logger.debug is suppressed at info level", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ level: "info" });
-    logger.debug("test debug");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(0);
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ level: "info" });
+      logger.debug("test debug");
+    });
+    expect(lines.length).toBe(0);
   });
 
   test("Logger.debug emits at debug level", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ level: "debug" });
-    logger.debug("test debug");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(1);
-    expect(logs[0]).toContain("test debug");
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ level: "debug" });
+      logger.debug("test debug");
+    });
+    expect(lines.length).toBe(1);
+    expect(lines[0]).toContain("test debug");
   });
 
   test("quiet mode suppresses info and warn", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ quiet: true });
-    logger.info("test info");
-    logger.warn("test warn");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(0);
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ quiet: true });
+      logger.info("test info");
+      logger.warn("test warn");
+    });
+    expect(lines.length).toBe(0);
   });
 
   test("quiet mode allows errors", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ quiet: true });
-    logger.error("test error");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(1);
-    expect(logs[0]).toContain("test error");
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ quiet: true });
+      logger.error("test error");
+    });
+    expect(lines.length).toBe(1);
+    expect(lines[0]).toContain("test error");
   });
 
   test("json mode outputs structured JSON", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ json: true, tool: "test-tool" });
-    logger.info("test message");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(1);
-    const parsed = JSON.parse(logs[0]);
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ json: true, tool: "test-tool" });
+      logger.info("test message");
+    });
+    expect(lines.length).toBe(1);
+    const parsed = JSON.parse(lines[0]);
     expect(parsed.tool).toBe("test-tool");
     expect(parsed.level).toBe("info");
     expect(parsed.message).toBe("test message");
@@ -128,85 +107,57 @@ describe("logger", () => {
 
   test("agent context suppresses info output", () => {
     Bun.env.KIMI_AGENT_SESSION = "1";
-
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ level: "info" });
-    logger.info("test info");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(0);
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ level: "info" });
+      logger.info("test info");
+    });
+    expect(lines.length).toBe(0);
   });
 
-  test("agent context allows errors", () => {
+  test("agent context allows errors", async () => {
     Bun.env.KIMI_AGENT_SESSION = "1";
-
-    const logs: string[] = [];
-    const originalError = console.error;
-    console.error = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ level: "info" });
-    logger.error("test error");
-
-    console.error = originalError;
-    expect(logs.length).toBe(1);
-    expect(logs[0]).toContain("test error");
+    const lines = await captureConsoleError(() => {
+      const logger = new Logger({ level: "info" });
+      logger.error("test error");
+    });
+    expect(lines.length).toBe(1);
+    expect(lines[0]).toContain("test error");
   });
 
   test("result() logs ok status", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ level: "info" });
-    logger.result("test-tool", "ok", "passed");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(1);
-    expect(logs[0]).toContain("passed");
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ level: "info" });
+      logger.result("test-tool", "ok", "passed");
+    });
+    expect(lines.length).toBe(1);
+    expect(lines[0]).toContain("passed");
   });
 
   test("result() suppresses ok in agent context", () => {
     Bun.env.KIMI_AGENT_SESSION = "1";
-
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ level: "info" });
-    logger.result("test-tool", "ok", "passed");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(0);
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ level: "info" });
+      logger.result("test-tool", "ok", "passed");
+    });
+    expect(lines.length).toBe(0);
   });
 
   test("section() prints header in human mode", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger();
-    logger.section("Test Section");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(2); // empty line + header
-    expect(logs[1]).toContain("Test Section");
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger();
+      logger.section("Test Section");
+    });
+    expect(lines.length).toBe(2);
+    expect(lines[1]).toContain("Test Section");
   });
 
   test("section() suppressed in agent context", () => {
     Bun.env.KIMI_AGENT_SESSION = "1";
-
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger();
-    logger.section("Test Section");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(0);
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger();
+      logger.section("Test Section");
+    });
+    expect(lines.length).toBe(0);
   });
 
   test("createLogger parses --json flag", () => {
@@ -220,27 +171,19 @@ describe("logger", () => {
   });
 
   test("createLogger parses --debug flag", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = createLogger(["--debug"], "test");
-    logger.debug("test debug");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(1);
+    const lines = withStdoutCapture(() => {
+      const logger = createLogger(["--debug"], "test");
+      logger.debug("test debug");
+    });
+    expect(lines.length).toBe(1);
   });
 
   test("log() backward compatibility", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    log("info", "backward compat");
-
-    console.log = originalLog;
-    expect(logs.length).toBe(1);
-    expect(logs[0]).toContain("backward compat");
+    const lines = withStdoutCapture(() => {
+      log("info", "backward compat");
+    });
+    expect(lines.length).toBe(1);
+    expect(lines[0]).toContain("backward compat");
   });
 
   test("statusIcon returns correct icons", () => {
@@ -255,24 +198,20 @@ describe("logger", () => {
     logger.warn("second");
     logger.error("third");
 
-    const logs = logger.getLogs();
-    expect(logs.length).toBe(3);
-    expect(logs[0].message).toBe("first");
-    expect(logs[1].message).toBe("second");
-    expect(logs[2].message).toBe("third");
+    const entries = logger.getLogs();
+    expect(entries.length).toBe(3);
+    expect(entries[0].message).toBe("first");
+    expect(entries[1].message).toBe("second");
+    expect(entries[2].message).toBe("third");
   });
 
   test("check() emits structured JSON with schemaVersion", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ json: true, tool: "test-tool" });
-    logger.check({ name: "disk", status: "warn", message: "85%", fixable: false });
-
-    console.log = originalLog;
-    expect(logs.length).toBe(1);
-    const parsed = JSON.parse(logs[0]);
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ json: true, tool: "test-tool" });
+      logger.check({ name: "disk", status: "warn", message: "85%", fixable: false });
+    });
+    expect(lines.length).toBe(1);
+    const parsed = JSON.parse(lines[0]);
     expect(parsed.schemaVersion).toBe(1);
     expect(parsed.check.name).toBe("disk");
   });
@@ -293,79 +232,59 @@ describe("logger", () => {
   });
 
   test("printHealthReport prints section, checks, and summary", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
     const report = aggregateChecks("kimi-doctor", [
       { name: "bun", status: "ok", message: "1.3.14", fixable: false },
       { name: "disk", status: "warn", message: "85%", fixable: true },
     ]);
     const logger = new Logger({ level: "info", tool: "kimi-doctor" });
-    logger.printHealthReport(report);
-
-    console.log = originalLog;
-    expect(logs.some((l) => l.includes("kimi-doctor Doctor"))).toBe(true);
-    expect(logs.some((l) => l.includes("bun: 1.3.14"))).toBe(true);
-    expect(logs.some((l) => l.includes("disk: 85%"))).toBe(true);
-    expect(logs.some((l) => l.includes("0 error(s), 1 warning(s), 1 fixable"))).toBe(true);
+    const lines = withStdoutCapture(() => {
+      logger.printHealthReport(report);
+    });
+    expect(lines.some((l) => l.includes("kimi-doctor Doctor"))).toBe(true);
+    expect(lines.some((l) => l.includes("bun: 1.3.14"))).toBe(true);
+    expect(lines.some((l) => l.includes("disk: 85%"))).toBe(true);
+    expect(lines.some((l) => l.includes("0 error(s), 1 warning(s), 1 fixable"))).toBe(true);
     expect(logger.getLogs().length).toBeGreaterThanOrEqual(3);
   });
 
   test("printHealthReport accepts custom section title", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const report = aggregateChecks("kimi-fix", [
-      { name: "lockfile", status: "ok", message: "present", fixable: false },
-    ]);
-    const logger = new Logger();
-    logger.printHealthReport(report, "Custom Section");
-
-    console.log = originalLog;
-    expect(logs.some((l) => l.includes("Custom Section"))).toBe(true);
-    expect(logs.some((l) => l.includes("kimi-fix Doctor"))).toBe(false);
+    const lines = withStdoutCapture(() => {
+      const report = aggregateChecks("kimi-fix", [
+        { name: "lockfile", status: "ok", message: "present", fixable: false },
+      ]);
+      const logger = new Logger();
+      logger.printHealthReport(report, "Custom Section");
+    });
+    expect(lines.some((l) => l.includes("Custom Section"))).toBe(true);
+    expect(lines.some((l) => l.includes("kimi-fix Doctor"))).toBe(false);
   });
 
   test("projectBanner prints banner, project line, and blank line", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ level: "info" });
-    logger.projectBanner("Kimi Doctor", "my-project", "Health checks");
-
-    console.log = originalLog;
-    expect(logs.some((l) => l.includes("Kimi Doctor"))).toBe(true);
-    expect(logs.some((l) => l.includes("Health checks"))).toBe(true);
-    expect(logs.some((l) => l.includes("Project: my-project"))).toBe(true);
-    expect(logs.some((l) => l === "")).toBe(true);
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ level: "info" });
+      logger.projectBanner("Kimi Doctor", "my-project", "Health checks");
+    });
+    expect(lines.some((l) => l.includes("Kimi Doctor"))).toBe(true);
+    expect(lines.some((l) => l.includes("Health checks"))).toBe(true);
+    expect(lines.some((l) => l.includes("Project: my-project"))).toBe(true);
+    expect(lines.some((l) => l === "")).toBe(true);
   });
 
   test("projectBanner omits project line when project is omitted", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ level: "info" });
-    logger.projectBanner("Kimi Doctor");
-
-    console.log = originalLog;
-    expect(logs.some((l) => l.includes("Project:"))).toBe(false);
-    expect(logs.some((l) => l.includes("Kimi Doctor"))).toBe(true);
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ level: "info" });
+      logger.projectBanner("Kimi Doctor");
+    });
+    expect(lines.some((l) => l.includes("Project:"))).toBe(false);
+    expect(lines.some((l) => l.includes("Kimi Doctor"))).toBe(true);
   });
 
   test("suggest() includes taxonomyId and autoFix in JSON mode", () => {
-    const logs: string[] = [];
-    const originalLog = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.join(" "));
-
-    const logger = new Logger({ json: true, tool: "kimi-debug" });
-    logger.suggest("lockfile_issue", "Run bun install", "bun install");
-
-    console.log = originalLog;
-    const parsed = JSON.parse(logs[0]);
+    const lines = withStdoutCapture(() => {
+      const logger = new Logger({ json: true, tool: "kimi-debug" });
+      logger.suggest("lockfile_issue", "Run bun install", "bun install");
+    });
+    const parsed = JSON.parse(lines[0]);
     expect(parsed.taxonomyId).toBe("lockfile_issue");
     expect(parsed.autoFix).toBe("bun install");
   });

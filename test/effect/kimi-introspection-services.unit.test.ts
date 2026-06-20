@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Exit } from "effect";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
@@ -12,11 +11,12 @@ import {
   TraceNotFound,
 } from "../../src/lib/effect/kimi-introspection-services.ts";
 import { buildTraceEvent, recordTraceEvent } from "../../src/lib/trace-ledger.ts";
+import { makeDir, pathExists, removePath, writeText } from "../../src/lib/bun-io.ts";
 
 function makeTempProject(): string {
   const dir = join(tmpdir(), `kimi-introspection-services-${Bun.randomUUIDv7()}`);
-  mkdirSync(join(dir, "contracts"), { recursive: true });
-  writeFileSync(
+  makeDir(join(dir, "contracts"), { recursive: true });
+  writeText(
     join(dir, "contracts", "sample.contract.json"),
     JSON.stringify({ schemaVersion: 1, kind: "sample", name: "sample" }, null, 2)
   );
@@ -26,14 +26,14 @@ function makeTempProject(): string {
 async function withTempHome<T>(fn: (home: string) => Promise<T>): Promise<T> {
   const home = join(tmpdir(), `kimi-introspection-home-${Bun.randomUUIDv7()}`);
   const oldHome = Bun.env.HOME;
-  mkdirSync(join(home, ".kimi-code"), { recursive: true });
+  makeDir(join(home, ".kimi-code"), { recursive: true });
   try {
     Bun.env.HOME = home;
     return await fn(home);
   } finally {
     if (oldHome === undefined) delete Bun.env.HOME;
     else Bun.env.HOME = oldHome;
-    rmSync(home, { recursive: true, force: true });
+    removePath(home, { recursive: true, force: true });
   }
 }
 
@@ -41,11 +41,11 @@ describe("kimi introspection Effect services", () => {
   test("capabilities service probes readiness without shelling out", async () => {
     const projectRoot = makeTempProject();
     await withTempHome(async (home) => {
-      writeFileSync(
+      writeText(
         join(home, ".kimi-code", "mcp.json"),
         JSON.stringify({ mcpServers: { "unified-shell": { command: "bun" } } })
       );
-      writeFileSync(
+      writeText(
         join(home, ".kimi-code", "config.toml"),
         '[[hooks]]\nevent = "PostToolUseFailure"\ncommand = "log-tool-failure"\n'
       );
@@ -62,7 +62,7 @@ describe("kimi introspection Effect services", () => {
       expect(result.items.map((item) => item.name)).toContain("contract-trust");
       expect(result.report.checks.length).toBeGreaterThan(0);
     });
-    rmSync(projectRoot, { recursive: true, force: true });
+    removePath(projectRoot, { recursive: true, force: true });
   });
 
   test("trace service returns causal steps and typed not-found failures", async () => {
@@ -146,13 +146,13 @@ describe("kimi introspection Effect services", () => {
       if (Exit.isFailure(signing) && signing.cause._tag === "Fail") {
         expect(signing.cause.error).toBeInstanceOf(MissingSigningKey);
       }
-      expect(existsSync(join(projectRoot, "contracts", "sample.contract.json.sig"))).toBe(false);
+      expect(pathExists(join(projectRoot, "contracts", "sample.contract.json.sig"))).toBe(false);
     } finally {
       if (oldSigningKey === undefined) delete Bun.env.KIMI_SIGNING_KEY;
       else Bun.env.KIMI_SIGNING_KEY = oldSigningKey;
       if (oldSigningKeyFile === undefined) delete Bun.env.KIMI_SIGNING_KEY_FILE;
       else Bun.env.KIMI_SIGNING_KEY_FILE = oldSigningKeyFile;
-      rmSync(projectRoot, { recursive: true, force: true });
+      removePath(projectRoot, { recursive: true, force: true });
     }
   });
 });

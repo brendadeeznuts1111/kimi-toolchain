@@ -33,6 +33,7 @@ import {
   loadGovernorDefaults,
   BUILTIN_DEFAULTS,
 } from "../src/lib/governor-config.ts";
+import { captureStdout } from "./helpers.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 
@@ -132,9 +133,7 @@ describe("lib/utils", () => {
   });
 
   test("log and print helpers emit formatted output", () => {
-    const lines: string[] = [];
-    const orig = console.log;
-    console.log = (...args: unknown[]) => lines.push(args.join(" "));
+    const capture = captureStdout();
     try {
       log("info", "ok");
       log("warn", "caution");
@@ -145,13 +144,13 @@ describe("lib/utils", () => {
         { name: "b", status: "warn", message: "fix me", fixable: true },
       ]);
       printDoctorReport(report);
-      expect(lines.some((l) => l.includes("✓ ok"))).toBe(true);
-      expect(lines.some((l) => l.includes("Section"))).toBe(true);
-      expect(lines.some((l) => l.includes("Banner"))).toBe(true);
+      expect(capture.lines.some((l) => l.includes("✓ ok"))).toBe(true);
+      expect(capture.lines.some((l) => l.includes("Section"))).toBe(true);
+      expect(capture.lines.some((l) => l.includes("Banner"))).toBe(true);
       expect(report.warnCount).toBe(1);
       expect(report.fixableCount).toBe(1);
     } finally {
-      console.log = orig;
+      capture.restore();
     }
   });
 
