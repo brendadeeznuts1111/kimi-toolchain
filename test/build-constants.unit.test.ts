@@ -21,7 +21,7 @@ describe("buildConstants", () => {
     expect(KIMI_LAYER_CIRCULARITY_TOLERANCE).toBe(0);
     expect(KIMI_SERVICE_TAG_REQUIRED).toBe(true);
     expect(KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED).toBe(true);
-    expect(KIMI_TUNING_SET_VERSION).toBe("1.4.2");
+    expect(KIMI_TUNING_SET_VERSION).toBe("1.4.4");
   });
 
   it("should resolve contract observations path from define", () => {

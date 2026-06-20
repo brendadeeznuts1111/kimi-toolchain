@@ -69,16 +69,15 @@ async function runScopedLint(files: string[]): Promise<void> {
   if (testPaths.length > 0) console.log("lint:test-names OK");
 
   const docLinkPaths = filterDocLinkPaths(files);
-  const docViolations = await lintDocLinks(
-    REPO_ROOT,
-    docLinkPaths.length > 0 ? docLinkPaths : undefined
-  );
-  if (docViolations.length > 0) {
-    console.error("\u2717 Doc link violations found:\n");
-    for (const v of docViolations) console.error(`  ${formatDocLinkViolation(v)}\n`);
-    process.exit(1);
+  if (docLinkPaths.length > 0) {
+    const docViolations = await lintDocLinks(REPO_ROOT, docLinkPaths);
+    if (docViolations.length > 0) {
+      console.error("\u2717 Doc link violations found:\n");
+      for (const v of docViolations) console.error(`  ${formatDocLinkViolation(v)}\n`);
+      process.exit(1);
+    }
+    console.log("  \u2713 Doc links OK");
   }
-  if (docLinkPaths.length > 0) console.log("  \u2713 Doc links OK");
 
   const skillFiles = files.filter((f) => /^skills\/.*\/SKILL\.md$/.test(f));
   if (skillFiles.length > 0) {

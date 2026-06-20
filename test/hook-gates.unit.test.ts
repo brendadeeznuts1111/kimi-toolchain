@@ -117,6 +117,20 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
     expect(direct.args).toContain("test/foo.unit.test.ts");
     expect(direct.args).not.toContain("--changed=HEAD");
 
+    const mini = planPreCommitTestArgs([
+      "examples/dashboard/thresholds.json",
+      "scripts/bootstrap-git-ssh.sh",
+      "test/bunfig-policy-gate.unit.test.ts",
+    ]);
+    expect(mini.skip).toBeUndefined();
+    expect(mini.usesChangedRef).toBe(false);
+    expect(mini.stagedTestFiles).toEqual(["test/bunfig-policy-gate.unit.test.ts"]);
+    expect(mini.args).toContain("test/bunfig-policy-gate.unit.test.ts");
+
+    const dataOnly = planPreCommitTestArgs(["examples/dashboard/thresholds.json"]);
+    expect(dataOnly.skip).toBe(true);
+    expect(dataOnly.args).toEqual([]);
+
     const mixed = planPreCommitTestArgs(["src/lib/foo.ts", "test/foo.unit.test.ts"]);
     expect(mixed.usesChangedRef).toBe(true);
     expect(mixed.stagedTestFiles).toEqual(["test/foo.unit.test.ts"]);

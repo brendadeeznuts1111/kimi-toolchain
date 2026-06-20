@@ -58,7 +58,7 @@ async function createMinimalCanvasProject(): Promise<string> {
 describe("cursor-canvas-lint", () => {
   test("manifestCanvasRoutes lists manifest-backed canvases", () => {
     const routes = manifestCanvasRoutes();
-    expect(routes).toHaveLength(11);
+    expect(routes).toHaveLength(13);
     expect(routes.map((r) => r.canvasId)).toContain("herdr-dashboard-automation");
   });
 
@@ -111,7 +111,7 @@ describe("cursor-canvas-lint", () => {
     const automation = await readText(
       join(REPO_ROOT, "docs/canvases/herdr-dashboard-automation.canvas.tsx")
     );
-    expect(extractCanvasRoutingIds(automation)).toHaveLength(11);
+    expect(extractCanvasRoutingIds(automation)).toHaveLength(13);
   });
 
   test("canvasCompanionsStale is clean after sync", async () => {

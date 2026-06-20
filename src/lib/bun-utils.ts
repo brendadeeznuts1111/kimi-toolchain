@@ -29,8 +29,8 @@ export { randomUUIDv7 } from "bun";
 /** Password hashing (argon2id default, bcrypt optional) — same as `Bun.password`. */
 export { password };
 
-/** @see https://bun.sh/docs/guides/util/hash-a-password */
-export const BUN_PASSWORD_DOC_URL = "https://bun.sh/docs/guides/util/hash-a-password";
+/** @see https://bun.com/docs/guides/util/hash-a-password */
+export const BUN_PASSWORD_DOC_URL = "https://bun.com/docs/guides/util/hash-a-password";
 
 export type PasswordHashOptions = Parameters<typeof password.hash>[1];
 
@@ -81,8 +81,8 @@ export function verifyPassword(plain: string, hash: string): Promise<boolean> {
  *
  * @see {@link BUN_BASE64_DOC_URL}
  */
-/** @see https://bun.sh/docs/guides/util/base64 */
-export const BUN_BASE64_DOC_URL = "https://bun.sh/docs/guides/util/base64";
+/** @see https://bun.com/docs/guides/util/base64 */
+export const BUN_BASE64_DOC_URL = "https://bun.com/docs/guides/util/base64";
 
 /** Encode a string to base64 (`btoa`). */
 export function encodeBase64(data: string): string {
@@ -109,9 +109,9 @@ export function decodeBase64Bytes(encoded: string): Uint8Array {
  *
  * @see {@link BUN_HEX_DOC_URL}
  */
-/** @see https://bun.sh/docs/runtime/binary-data#uint8array-tohex-and-fromhex */
+/** @see https://bun.com/docs/runtime/binary-data#uint8array-tohex-and-fromhex */
 export const BUN_HEX_DOC_URL =
-  "https://bun.sh/docs/runtime/binary-data#uint8array-tohex-and-fromhex";
+  "https://bun.com/docs/runtime/binary-data#uint8array-tohex-and-fromhex";
 
 /** Encode bytes to lowercase hex (`bytes.toHex()`). */
 export function encodeHex(bytes: Uint8Array): string {
@@ -128,8 +128,8 @@ export function utf8ByteLength(text: string): number {
   return new TextEncoder().encode(text).byteLength;
 }
 
-/** @see https://bun.sh/reference/bun/randomUUIDv7#bun.randomUUIDv7 */
-export const BUN_RANDOM_UUIDV7_DOC_URL = "https://bun.sh/reference/bun/randomUUIDv7";
+/** @see https://bun.com/reference/bun/randomUUIDv7#bun.randomUUIDv7 */
+export const BUN_RANDOM_UUIDV7_DOC_URL = "https://bun.com/reference/bun/randomUUIDv7";
 
 export type PeekStatus = "fulfilled" | "pending" | "rejected";
 
@@ -146,7 +146,7 @@ export function resolveModule(specifier: string, fromDir: string): string {
 /**
  * file:// URL → absolute path (`Bun.fileURLToPath`).
  * Prefer a string href; URL objects are normalized via `.href`.
- * @see https://bun.sh/docs/runtime/utils#bun-fileurltopath
+ * @see https://bun.com/docs/runtime/utils#bun-fileurltopath
  */
 export function filePathFromUrl(url: string | URL): string {
   return Bun.fileURLToPath(typeof url === "string" ? url : url.href);
@@ -218,8 +218,8 @@ export function semverSatisfies(version: string, range: string): boolean {
  *
  * @see {@link BUN_GZIP_DOC_URL}
  */
-/** @see https://bun.sh/docs/guides/util/gzip */
-export const BUN_GZIP_DOC_URL = "https://bun.sh/docs/guides/util/gzip";
+/** @see https://bun.com/docs/guides/util/gzip */
+export const BUN_GZIP_DOC_URL = "https://bun.com/docs/guides/util/gzip";
 
 function gzipInput(data: string | Uint8Array): Uint8Array<ArrayBuffer> {
   if (typeof data === "string") {
@@ -285,8 +285,8 @@ export function sleepSync(ms: number): void {
   Bun.sleepSync(Math.max(0, ms));
 }
 
-/** @see https://bun.sh/docs/runtime/utils#bun-main */
-export const BUN_MAIN_DOC_URL = "https://bun.sh/docs/runtime/utils#bun-main";
+/** @see https://bun.com/docs/runtime/utils#bun-main */
+export const BUN_MAIN_DOC_URL = "https://bun.com/docs/runtime/utils#bun-main";
 
 /** Absolute path to the process entry script (`Bun.main`). */
 export function entryScriptPath(): string {
@@ -368,9 +368,9 @@ export function bunRevision(): string {
  *
  * Bun mirrors `node:os`; confine the import here rather than at feature call sites.
  */
-/** @see https://bun.sh/docs/runtime/http/server#changing-the-port-and-hostname */
+/** @see https://bun.com/docs/runtime/http/server#changing-the-port-and-hostname */
 export const BUN_SERVE_HOSTNAME_DOC_URL =
-  "https://bun.sh/docs/runtime/http/server#changing-the-port-and-hostname";
+  "https://bun.com/docs/runtime/http/server#changing-the-port-and-hostname";
 
 /** @see https://bun.com/reference/node/os/hostname */
 export const BUN_OS_HOSTNAME_DOC_URL = "https://bun.com/reference/node/os/hostname";

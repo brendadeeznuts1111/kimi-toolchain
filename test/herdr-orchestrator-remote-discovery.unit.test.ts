@@ -1,60 +1,54 @@
 import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 import { normalizeRemoteHostConfig } from "../src/lib/herdr-orchestrator-config.ts";
+import { installGovernorSpawnSshMock } from "./helpers/governor-spawn-ssh-mock.ts";
 
 const sshRemoteCommands: string[][] = [];
 
-mock.module("../src/lib/governor-spawn.ts", () => ({
-  governedSpawn: async (cmd: string[]) => {
-    if (cmd[0] !== "ssh") throw new Error(`unexpected spawn: ${cmd.join(" ")}`);
-    const remoteStart = cmd.indexOf("--") + 1;
-    const remote = cmd.slice(remoteStart);
-    sshRemoteCommands.push(remote);
-    const key = remote.join(" ");
+installGovernorSpawnSshMock(async (remote, _cmd) => {
+  sshRemoteCommands.push(remote);
+  const key = remote.join(" ");
 
-    if (key === "herdr version") {
-      return { stdout: "herdr 0.1.0", stderr: "", exitCode: 0 };
-    }
-    if (key === "herdr session list --json") {
-      return {
-        stdout: JSON.stringify({
-          sessions: [
-            { name: "dev", running: true, default: false, socket_path: "/tmp/herdr.sock" },
+  if (key === "herdr version") {
+    return { stdout: "herdr 0.1.0", stderr: "", exitCode: 0 };
+  }
+  if (key === "herdr session list --json") {
+    return {
+      stdout: JSON.stringify({
+        sessions: [{ name: "dev", running: true, default: false, socket_path: "/tmp/herdr.sock" }],
+      }),
+      stderr: "",
+      exitCode: 0,
+    };
+  }
+  if (key === "herdr --session dev workspace list") {
+    return {
+      stdout: JSON.stringify({
+        result: {
+          workspaces: [{ workspace_id: "w1" }, { workspace_id: "w2" }, { workspace_id: "w3" }],
+        },
+      }),
+      stderr: "",
+      exitCode: 0,
+    };
+  }
+  if (key === "herdr --session dev agent list") {
+    return {
+      stdout: JSON.stringify({
+        result: {
+          agents: [
+            { workspace_id: "w1", agent: "kimi", pane_id: "p1" },
+            { workspace_id: "w2", agent: "codex", pane_id: "p2" },
+            { workspace_id: "w3", agent: "claude", pane_id: "p3" },
           ],
-        }),
-        stderr: "",
-        exitCode: 0,
-      };
-    }
-    if (key === "herdr --session dev workspace list") {
-      return {
-        stdout: JSON.stringify({
-          result: {
-            workspaces: [{ workspace_id: "w1" }, { workspace_id: "w2" }, { workspace_id: "w3" }],
-          },
-        }),
-        stderr: "",
-        exitCode: 0,
-      };
-    }
-    if (key === "herdr --session dev agent list") {
-      return {
-        stdout: JSON.stringify({
-          result: {
-            agents: [
-              { workspace_id: "w1", agent: "kimi", pane_id: "p1" },
-              { workspace_id: "w2", agent: "codex", pane_id: "p2" },
-              { workspace_id: "w3", agent: "claude", pane_id: "p3" },
-            ],
-          },
-        }),
-        stderr: "",
-        exitCode: 0,
-      };
-    }
+        },
+      }),
+      stderr: "",
+      exitCode: 0,
+    };
+  }
 
-    return { stdout: "", stderr: `unknown remote command: ${key}`, exitCode: 1 };
-  },
-}));
+  return { stdout: "", stderr: `unknown remote command: ${key}`, exitCode: 1 };
+});
 
 const { discoverRemoteSessions, discoverRemoteWorkspaceAgents } =
   await import("../src/lib/herdr-orchestrator-remote-discovery.ts");

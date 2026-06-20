@@ -29,8 +29,9 @@ import { listStagedPaths } from "./scoped-test-cache.ts";
 import {
   allPreCommitGatesCoveredAtHead,
   shouldSkipGateFromScopedCache,
+  writeScopedGatePass,
 } from "./scoped-gate-cache.ts";
-import { filterFormatPaths, listChangedFiles } from "./check-changed.ts";
+import { changedIncludesTypeScript, filterFormatPaths, listChangedFiles } from "./check-changed.ts";
 import { filterChangedTestPaths, shouldRunScopedLint } from "./check-lint-scoped.ts";
 import { bunTestArgs, isBunTestChangedEmptyOutput } from "./test-gates.ts";
 
@@ -62,6 +63,8 @@ export interface PreCommitTestPlan {
   args: string[];
   usesChangedRef: boolean;
   stagedTestFiles: string[];
+  /** True when stage is data/shell/docs only — no TS/JS code and no test files to run. */
+  skip?: boolean;
 }
 
 export function planPreCommitTestArgs(staged: string[]): PreCommitTestPlan {
@@ -76,6 +79,10 @@ export function planPreCommitTestArgs(staged: string[]): PreCommitTestPlan {
     retry: 2,
     dots: true,
   } as const;
+
+  if (staged.length > 0 && stagedTestFiles.length === 0 && !hasNonTestCode) {
+    return { args: [], usesChangedRef: false, stagedTestFiles: [], skip: true };
+  }
 
   if (stagedTestFiles.length > 0 && !hasNonTestCode) {
     return {
@@ -154,6 +161,64 @@ function skippedGateResult(name: string): GateResult {
   return { name, exitCode: 0, ms: 0, stdout: "", stderr: "", skipped: true };
 }
 
+async function runPreCommitTestsGate(
+  projectRoot: string,
+  staged: string[],
+  summary: boolean
+): Promise<GateResult | null> {
+  const testPlan = planPreCommitTestArgs(staged);
+  if (testPlan.skip) return skippedGateResult("test:changed");
+
+  if (!summary) printVerboseBanner("Changed tests");
+  if (await shouldSkipGate(projectRoot, "test:changed")) return skippedGateResult("test:changed");
+  if (await shouldSkipGateFromScopedCache(projectRoot, "test:fast", staged)) {
+    return skippedGateResult("test:changed");
+  }
+
+  const acquired = acquireTestGateLock(
+    projectRoot,
+    testPlan.usesChangedRef ? "pre-commit test:changed" : "pre-commit test:staged"
+  );
+  if (!acquired.ok) {
+    return {
+      name: "test:changed",
+      exitCode: 1,
+      ms: 0,
+      stdout: "",
+      stderr: acquired.conflict.message,
+    };
+  }
+
+  const result = await (async () => {
+    try {
+      return await runGate("test:changed", ["bun", ...testPlan.args], {
+        cwd: projectRoot,
+        env: { NODE_ENV: "test" },
+      });
+    } finally {
+      acquired.lock.release();
+    }
+  })();
+
+  if (result.exitCode !== 0 && isBunTestChangedEmptyOutput(`${result.stdout}\n${result.stderr}`)) {
+    return skippedGateResult("test:changed");
+  }
+  if (result.exitCode === 0 && !testPlan.usesChangedRef && testPlan.stagedTestFiles.length > 0) {
+    await writeScopedGatePass(
+      projectRoot,
+      "test:fast",
+      testPlan.stagedTestFiles,
+      "HEAD",
+      testPlan.stagedTestFiles
+    );
+  }
+  if (result.exitCode !== 0) {
+    if (result.stdout) gateOut(result.stdout);
+    if (result.stderr) gateErr(result.stderr);
+  }
+  return { ...result, name: "test:changed" };
+}
+
 export async function runPreCommitGates(projectRoot: string): Promise<number> {
   const summary = hookUsesSummary();
   const results: GateResult[] = [];
@@ -170,6 +235,17 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
       }
       const formatPaths = filterFormatPaths(staged);
       if (formatPaths.length === 0) return skippedGateResult("format:check");
+      const oxfmtConfig = pathExists(join(projectRoot, ".oxfmtrc.json"));
+      const oxfmtBin = Bun.which("oxfmt");
+      if (oxfmtConfig && oxfmtBin) {
+        return runGateVisible(projectRoot, "format:check", [
+          oxfmtBin,
+          "--check",
+          "-c",
+          ".oxfmtrc.json",
+          ...formatPaths,
+        ]);
+      }
       return runGateVisible(projectRoot, "format:check", ["bun", "run", "format:check"]);
     },
     async () => {
@@ -197,47 +273,10 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
       if (await shouldSkipGateFromScopedCache(projectRoot, "typecheck", staged)) {
         return skippedGateResult("typecheck");
       }
+      if (!changedIncludesTypeScript(staged)) return skippedGateResult("typecheck");
       return runGateVisible(projectRoot, "typecheck", ["bun", "run", "typecheck"]);
     },
-    async () => {
-      if (!(await packageHasScript(projectRoot, "test:changed"))) return null;
-      if (!summary) printVerboseBanner("Changed tests");
-      if (await shouldSkipGate(projectRoot, "test:changed"))
-        return skippedGateResult("test:changed");
-      if (await shouldSkipGateFromScopedCache(projectRoot, "test:fast", staged)) {
-        return skippedGateResult("test:changed");
-      }
-      const acquired = acquireTestGateLock(projectRoot, "pre-commit test:changed");
-      if (!acquired.ok) {
-        return {
-          name: "test:changed",
-          exitCode: 1,
-          ms: 0,
-          stdout: "",
-          stderr: acquired.conflict.message,
-        };
-      }
-      const result = await (async () => {
-        try {
-          return await runGate("test:changed", ["bun", "run", "test:changed"], {
-            cwd: projectRoot,
-          });
-        } finally {
-          acquired.lock.release();
-        }
-      })();
-      if (
-        result.exitCode !== 0 &&
-        isBunTestChangedEmptyOutput(`${result.stdout}\n${result.stderr}`)
-      ) {
-        return skippedGateResult("test:changed");
-      }
-      if (result.exitCode !== 0) {
-        if (result.stdout) gateOut(result.stdout);
-        if (result.stderr) gateErr(result.stderr);
-      }
-      return { ...result, name: "test:changed" };
-    },
+    async () => runPreCommitTestsGate(projectRoot, staged, summary),
     async () => {
       const tuning = join(projectRoot, "scripts/lint-tuning-set-version.ts");
       if (!pathExists(tuning)) return null;
@@ -560,6 +599,16 @@ async function runChangedPushTestsGate(projectRoot: string): Promise<GateResult>
       exitCode: 0,
       ms: 0,
       stdout: "",
+      stderr: "",
+      skipped: true,
+    };
+  }
+  if (await qualityGatesCached(projectRoot)) {
+    return {
+      name: "test:changed:push",
+      exitCode: 0,
+      ms: 0,
+      stdout: "pre-commit quality gates cached at HEAD",
       stderr: "",
       skipped: true,
     };
@@ -1017,7 +1066,9 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
     planned.push({
       name: "test:changed:push",
       cmd: ["bun", "run", "test:changed:push"],
-      skipped: await shouldSkipGate(projectRoot, "test:changed:push"),
+      skipped:
+        (await shouldSkipGate(projectRoot, "test:changed:push")) ||
+        (await qualityGatesCached(projectRoot)),
     });
   }
 

@@ -137,76 +137,84 @@ describe("herdr-ws-unix", () => {
     expect(lines).toEqual(['{"a":1}', '{"b":2}']);
   });
 
-  test("herdrSocketSubscribe over ws+unix receives events", async () => {
-    await withMockHerdrWsServer(async (socketPath) => {
-      const events: string[] = [];
-      await withEnv(
-        {
-          HERDR_SOCKET_PATH: socketPath,
-          HERDR_SOCKET_TRANSPORT: "websocket",
-          HERDR_SESSION: undefined,
-        },
-        async () => {
-          await new Promise<void>((resolve, reject) => {
-            const socket = herdrSocketSubscribe({
-              subscriptions: [{ type: "pane.agent_status_changed" }],
-              transport: "websocket",
-              onTransport: (transport) => {
-                expect(describeHerdrSocketTransport(transport)).toBe("ws+unix");
-              },
-              onEvent: (envelope) => {
-                events.push(envelope.event || "");
-                socket.end();
-              },
-              onError: (message) => reject(new Error(message)),
+  test(
+    "herdrSocketSubscribe over ws+unix receives events",
+    async () => {
+      await withMockHerdrWsServer(async (socketPath) => {
+        const events: string[] = [];
+        await withEnv(
+          {
+            HERDR_SOCKET_PATH: socketPath,
+            HERDR_SOCKET_TRANSPORT: "websocket",
+            HERDR_SESSION: undefined,
+          },
+          async () => {
+            await new Promise<void>((resolve, reject) => {
+              const socket = herdrSocketSubscribe({
+                subscriptions: [{ type: "pane.agent_status_changed" }],
+                transport: "websocket",
+                onTransport: (transport) => {
+                  expect(describeHerdrSocketTransport(transport)).toBe("ws+unix");
+                },
+                onEvent: (envelope) => {
+                  events.push(envelope.event || "");
+                  socket.end();
+                },
+                onError: (message) => reject(new Error(message)),
+              });
+              socket.on("close", () => {
+                try {
+                  expect(events).toEqual(["pane.agent_status_changed"]);
+                  resolve();
+                } catch (error) {
+                  reject(error);
+                }
+              });
             });
-            socket.on("close", () => {
-              try {
-                expect(events).toEqual(["pane.agent_status_changed"]);
-                resolve();
-              } catch (error) {
-                reject(error);
+          }
+        );
+      });
+    },
+    { timeout: 5000 }
+  );
+
+  test(
+    "connectHerdrSocket auto falls back to jsonl",
+    async () => {
+      await withMockHerdrJsonlServer(async (socketPath) => {
+        await withEnv({ HERDR_SOCKET_TRANSPORT: "auto", HERDR_SESSION: undefined }, async () => {
+          await new Promise<void>((resolve, reject) => {
+            let transport = "";
+            const socket = connectHerdrSocket(socketPath, {
+              transport: "auto",
+              connectTimeoutMs: 400,
+              onTransport: (active) => {
+                transport = active;
+              },
+            });
+            const payload = formatHerdrSocketPayload(
+              { id: "t", method: "events.subscribe", params: { subscriptions: [] } },
+              "jsonl"
+            );
+            socket.write(payload);
+            const push = createJsonlLineBuffer((line) => {
+              const json = parseHerdrSocketJsonLine(line);
+              if (json?.result) {
+                expect(transport || socket.transport).toBe("websocket-fallback");
+                socket.end();
               }
             });
+            socket.on("data", push);
+            socket.on("error", (error) =>
+              reject(error instanceof Error ? error : new Error(String(error)))
+            );
+            socket.on("close", () => resolve());
           });
-        }
-      );
-    });
-  });
-
-  test("connectHerdrSocket auto falls back to jsonl", async () => {
-    await withMockHerdrJsonlServer(async (socketPath) => {
-      await withEnv({ HERDR_SOCKET_TRANSPORT: "auto", HERDR_SESSION: undefined }, async () => {
-        await new Promise<void>((resolve, reject) => {
-          let transport = "";
-          const socket = connectHerdrSocket(socketPath, {
-            transport: "auto",
-            connectTimeoutMs: 400,
-            onTransport: (active) => {
-              transport = active;
-            },
-          });
-          const payload = formatHerdrSocketPayload(
-            { id: "t", method: "events.subscribe", params: { subscriptions: [] } },
-            "jsonl"
-          );
-          socket.write(payload);
-          const push = createJsonlLineBuffer((line) => {
-            const json = parseHerdrSocketJsonLine(line);
-            if (json?.result) {
-              expect(transport || socket.transport).toBe("websocket-fallback");
-              socket.end();
-            }
-          });
-          socket.on("data", push);
-          socket.on("error", (error) =>
-            reject(error instanceof Error ? error : new Error(String(error)))
-          );
-          socket.on("close", () => resolve());
         });
       });
-    });
-  });
+    },
+    { timeout: 5000 }
+  );
 
   test("Bun.listen unix EADDRINUSE on double bind; stop unlinks socket", async () => {
     const dir = testTempDir("kimi-herdr-unix-bind-");
@@ -262,24 +270,28 @@ describe("herdr-ws-unix", () => {
     cleanupPath(dir);
   });
 
-  test("jsonl connect still works for RPC-style responses", async () => {
-    await withMockHerdrJsonlServer(async (socketPath) => {
-      await new Promise<void>((resolve, reject) => {
-        const socket = connectHerdrUnixSocket(socketPath);
-        socket.write(
-          formatHerdrSocketPayload({ id: "rpc", method: "layout.export", params: {} }, "jsonl")
-        );
-        const push = createJsonlLineBuffer((line) => {
-          const json = parseHerdrSocketJsonLine(line);
-          expect(json?.result).toEqual({ ok: true });
-          socket.end();
+  test(
+    "jsonl connect still works for RPC-style responses",
+    async () => {
+      await withMockHerdrJsonlServer(async (socketPath) => {
+        await new Promise<void>((resolve, reject) => {
+          const socket = connectHerdrUnixSocket(socketPath);
+          socket.write(
+            formatHerdrSocketPayload({ id: "rpc", method: "layout.export", params: {} }, "jsonl")
+          );
+          const push = createJsonlLineBuffer((line) => {
+            const json = parseHerdrSocketJsonLine(line);
+            expect(json?.result).toEqual({ ok: true });
+            socket.end();
+          });
+          socket.on("data", push);
+          socket.on("error", (error) =>
+            reject(error instanceof Error ? error : new Error(String(error)))
+          );
+          socket.on("close", () => resolve());
         });
-        socket.on("data", push);
-        socket.on("error", (error) =>
-          reject(error instanceof Error ? error : new Error(String(error)))
-        );
-        socket.on("close", () => resolve());
       });
-    });
-  });
+    },
+    { timeout: 5000 }
+  );
 });

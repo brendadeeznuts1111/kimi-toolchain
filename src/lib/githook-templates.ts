@@ -60,10 +60,6 @@ export function describeMissingHookMarkers(analysis: HookTemplateAnalysis): stri
   return analysis.missingMarkers.map((marker) => marker.label).join(", ");
 }
 
-function shellSingleQuote(value: string): string {
-  return `'${value.replaceAll("'", "'\"'\"'")}'`;
-}
-
 function hookDelegate(subcommand: "pre-commit" | "pre-push"): string {
   return `ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 1
 cd "$ROOT" || exit 1
@@ -81,6 +77,7 @@ ${hookDelegate("pre-commit")}
 export function renderPrePushHook(_toolsDirPath: string): string {
   return `#!/bin/sh
 # Auto-installed by kimi-githooks — git stdin/ref guards; gates run via run-gates pre-push
+# Default pre-push gate is check:fast; set KIMI_PRE_PUSH_FULL=1 for the full local gate bundle.
 
 if [ -z "\${KIMI_HOOK_SNAPSHOT:-}" ]; then
   KIMI_HOOK_TMP="\${TMPDIR:-/tmp}/kimi-pre-push.$$"

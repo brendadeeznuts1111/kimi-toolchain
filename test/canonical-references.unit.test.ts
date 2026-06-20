@@ -88,6 +88,8 @@ describe("canonical-references", () => {
       "deep-quality": "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx",
       "v53-architecture": "docs/canvases/dashboard-card-registry.canvas.tsx",
       "artifact-lineage": "docs/canvases/artifact-lineage.canvas.tsx",
+      "gate-health": "docs/canvases/gate-health.canvas.tsx",
+      benchmark: "docs/canvases/benchmark.canvas.tsx",
     };
     const withCanvas = LOCAL_DOC_REFERENCES.filter((ref) => ref.cursorCanvas);
     expect(withCanvas.length).toBe(Object.keys(expected).length);

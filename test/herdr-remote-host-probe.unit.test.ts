@@ -1,33 +1,33 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 import { normalizeRemoteHostConfig } from "../src/lib/herdr-orchestrator-config.ts";
+import { installGovernorSpawnSshMock } from "./helpers/governor-spawn-ssh-mock.ts";
 
 const sshRemoteCommands: string[][] = [];
 
-mock.module("../src/lib/governor-spawn.ts", () => ({
-  governedSpawn: async (cmd: string[]) => {
-    if (cmd[0] !== "ssh") throw new Error(`unexpected spawn: ${cmd.join(" ")}`);
-    const remoteStart = cmd.indexOf("--") + 1;
-    const remote = cmd.slice(remoteStart);
-    sshRemoteCommands.push(remote);
-    const key = remote.join(" ");
+installGovernorSpawnSshMock(async (remote, cmd) => {
+  sshRemoteCommands.push(remote);
+  const key = remote.join(" ");
 
-    if (key === "herdr version") {
-      const dash = cmd.indexOf("--");
-      const target = dash > 0 ? (cmd[dash - 1] ?? "") : "";
-      if (target.includes("staging")) {
-        return { stdout: "herdr 0.9.4", stderr: "", exitCode: 0 };
-      }
-      return { stdout: "", stderr: "connection timed out", exitCode: 255 };
+  if (key === "herdr version") {
+    const dash = cmd.indexOf("--");
+    const target = dash > 0 ? (cmd[dash - 1] ?? "") : "";
+    if (target.includes("staging")) {
+      return { stdout: "herdr 0.9.4", stderr: "", exitCode: 0 };
     }
+    return { stdout: "", stderr: "connection timed out", exitCode: 255 };
+  }
 
-    return { stdout: "", stderr: `unknown remote command: ${key}`, exitCode: 1 };
-  },
-}));
+  return { stdout: "", stderr: `unknown remote command: ${key}`, exitCode: 1 };
+});
 
 const { buildRemoteHostsStatus, parseHerdrVersionOutput, probeRemoteHost, probeRemoteHosts } =
   await import("../src/lib/herdr-remote-host-probe.ts");
 
 describe("herdr-remote-host-probe", () => {
+  afterAll(() => {
+    mock.restore();
+  });
+
   afterEach(() => {
     sshRemoteCommands.length = 0;
   });
