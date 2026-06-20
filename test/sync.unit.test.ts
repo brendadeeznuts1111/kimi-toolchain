@@ -11,6 +11,9 @@ describe("sync-hashes", () => {
     const hashes = await computeSyncHashes(REPO_ROOT);
     expect(hashes["tools/kimi-doctor.ts"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["lib/utils.ts"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["canvases/benchmark.manifest.ts"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["gates/registry.ts"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashes["harness/html-reporter.ts"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["scripts/lint-banned-terms.ts"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["kimi-hooks/log-tool-failure.ts"]).toMatch(/^[a-f0-9]{64}$/);
     expect(hashes["templates/scaffold/dx.config.toml"]).toMatch(/^[a-f0-9]{64}$/);

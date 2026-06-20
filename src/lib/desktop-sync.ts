@@ -10,6 +10,9 @@ import {
   agentsSkillsRoot,
   toolsDir,
   libDir,
+  canvasesDir,
+  gatesDir,
+  harnessDir,
   scriptsDir,
   kimiHooksDir,
   varDir,
@@ -47,6 +50,9 @@ export const TOOL_ORPHANS = ["kimi-utils.ts"] as const;
 export const LABEL_PREFIX = {
   TOOLS: "tools/",
   LIB: "lib/",
+  CANVASES: "canvases/",
+  GATES: "gates/",
+  HARNESS: "harness/",
   SCRIPTS: "scripts/",
   KIMI_HOOKS: "kimi-hooks/",
   TEMPLATES: "templates/",
@@ -61,6 +67,12 @@ export interface DesktopPaths {
   binDst: string;
   libSrc: string;
   libDst: string;
+  canvasesSrc: string;
+  canvasesDst: string;
+  gatesSrc: string;
+  gatesDst: string;
+  harnessSrc: string;
+  harnessDst: string;
   scriptsSrc: string;
   scriptsDst: string;
   kimiHooksSrc: string;
@@ -81,6 +93,12 @@ export function resolveDesktopPaths(repoRoot: string): DesktopPaths {
     binDst: toolsDir(),
     libSrc: join(repoRoot, "src", "lib"),
     libDst: libDir(),
+    canvasesSrc: join(repoRoot, "src", "canvases"),
+    canvasesDst: canvasesDir(),
+    gatesSrc: join(repoRoot, "src", "gates"),
+    gatesDst: gatesDir(),
+    harnessSrc: join(repoRoot, "src", "harness"),
+    harnessDst: harnessDir(),
     scriptsSrc: join(repoRoot, "scripts"),
     scriptsDst: scriptsDir(),
     kimiHooksSrc: join(repoRoot, "src", "kimi-hooks"),
@@ -97,6 +115,9 @@ export function ensureDesktopLayout(): void {
   for (const dir of [
     toolsDir(),
     libDir(),
+    canvasesDir(),
+    gatesDir(),
+    harnessDir(),
     scriptsDir(),
     kimiHooksDir(),
     varDir(),
@@ -178,6 +199,39 @@ export async function syncDesktop(
 
   await syncGlobDirectory(paths.binSrc, paths.binDst, LABEL_PREFIX.TOOLS, "*.ts", force, result);
   await syncGlobDirectory(paths.libSrc, paths.libDst, LABEL_PREFIX.LIB, "**/*.ts", force, result);
+
+  if (pathExists(paths.canvasesSrc)) {
+    await syncGlobDirectory(
+      paths.canvasesSrc,
+      paths.canvasesDst,
+      LABEL_PREFIX.CANVASES,
+      "*.ts",
+      force,
+      result
+    );
+  }
+
+  if (pathExists(paths.gatesSrc)) {
+    await syncGlobDirectory(
+      paths.gatesSrc,
+      paths.gatesDst,
+      LABEL_PREFIX.GATES,
+      "**/*.ts",
+      force,
+      result
+    );
+  }
+
+  if (pathExists(paths.harnessSrc)) {
+    await syncGlobDirectory(
+      paths.harnessSrc,
+      paths.harnessDst,
+      LABEL_PREFIX.HARNESS,
+      "**/*.ts",
+      force,
+      result
+    );
+  }
 
   if (pathExists(paths.scriptsSrc)) {
     await syncGlobDirectory(

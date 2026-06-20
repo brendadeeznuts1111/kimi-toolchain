@@ -30,6 +30,21 @@ export function libDir(): string {
   return join(desktopRoot(), "lib");
 }
 
+/** Return ~/.kimi-code/canvases — synced from src/canvases (lib imports ../canvases/). */
+export function canvasesDir(): string {
+  return join(desktopRoot(), "canvases");
+}
+
+/** Return ~/.kimi-code/gates — synced from src/gates (lib/tools import ../gates/). */
+export function gatesDir(): string {
+  return join(desktopRoot(), "gates");
+}
+
+/** Return ~/.kimi-code/harness — synced from src/harness (lib/tools import ../harness/). */
+export function harnessDir(): string {
+  return join(desktopRoot(), "harness");
+}
+
 /** Return ~/.kimi-code/scripts */
 export function scriptsDir(): string {
   return join(desktopRoot(), "scripts");

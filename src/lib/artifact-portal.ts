@@ -7,10 +7,7 @@
 import { BENCHMARK_CARD_IDS, BENCHMARK_MANIFEST_ID } from "../canvases/benchmark.manifest.ts";
 import type { BenchmarkApiEnvelope } from "./effect-benchmark-card.ts";
 import { ArtifactStore } from "./artifact-store.ts";
-import {
-  buildPortalManifestPayload,
-  PORTAL_MANIFEST_TYPE,
-} from "../../templates/artifact-portal/index.ts";
+import { buildPortalManifestPayload, PORTAL_MANIFEST_TYPE } from "./artifact-portal-manifest.ts";
 import { fetchBenchmarkProbeEnvelope, resolveBenchmarkProbeUrl } from "./benchmark-probe-client.ts";
 import {
   convergedComponentsFromEnvelope,

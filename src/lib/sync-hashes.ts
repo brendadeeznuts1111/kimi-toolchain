@@ -27,6 +27,9 @@ export async function computeSyncHashes(repoRoot: string): Promise<Record<string
 
   const binDir = join(repoRoot, "src", "bin");
   const libDir = join(repoRoot, "src", "lib");
+  const canvasesDir = join(repoRoot, "src", "canvases");
+  const gatesDir = join(repoRoot, "src", "gates");
+  const harnessDir = join(repoRoot, "src", "harness");
   const scriptsDir = join(repoRoot, "scripts");
   const kimiHooksDir = join(repoRoot, "src", "kimi-hooks");
   const templatesDir = join(repoRoot, "templates");
@@ -34,6 +37,9 @@ export async function computeSyncHashes(repoRoot: string): Promise<Record<string
 
   await addGlobHashes(hashes, binDir, LABEL_PREFIX.TOOLS, "*.ts");
   await addGlobHashes(hashes, libDir, LABEL_PREFIX.LIB, "**/*.ts");
+  await addGlobHashes(hashes, canvasesDir, LABEL_PREFIX.CANVASES, "*.ts");
+  await addGlobHashes(hashes, gatesDir, LABEL_PREFIX.GATES, "**/*.ts");
+  await addGlobHashes(hashes, harnessDir, LABEL_PREFIX.HARNESS, "**/*.ts");
   await addGlobHashes(hashes, scriptsDir, LABEL_PREFIX.SCRIPTS, "*.ts");
   await addGlobHashes(hashes, kimiHooksDir, LABEL_PREFIX.KIMI_HOOKS, "*.ts");
   await addGlobHashes(hashes, templatesDir, LABEL_PREFIX.TEMPLATES, "**/*");
@@ -59,6 +65,9 @@ function desktopPathForKey(key: string): string | null {
   const root = desktopRoot();
   if (key.startsWith("tools/")) return join(root, "tools", key.slice(6));
   if (key.startsWith("lib/")) return join(root, "lib", key.slice(4));
+  if (key.startsWith("canvases/")) return join(root, "canvases", key.slice(9));
+  if (key.startsWith("gates/")) return join(root, "gates", key.slice(6));
+  if (key.startsWith("harness/")) return join(root, "harness", key.slice(8));
   if (key.startsWith("scripts/")) return join(root, "scripts", key.slice(8));
   if (key.startsWith("kimi-hooks/")) return join(root, "kimi-hooks", key.slice(11));
   if (key.startsWith("templates/")) return join(root, "templates", key.slice(10));
