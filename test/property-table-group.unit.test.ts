@@ -9,7 +9,7 @@ import {
 } from "../src/lib/property-table-group.ts";
 import { runPropertyTableExtractEffect } from "../src/lib/property-table-run.ts";
 import { Effect } from "effect";
-import { REPO_ROOT, testTempDir } from "./helpers.ts";
+import { captureStdout, REPO_ROOT, testTempDir } from "./helpers.ts";
 
 const ENDPOINTS = "test/fixtures/dx-url-endpoints.toml";
 
@@ -117,12 +117,7 @@ describe("property-table-group", () => {
   });
 
   test("runPropertyTableExtractEffect emits grouped markdown to stdout", async () => {
-    const stdout: string[] = [];
-    const origStdout = process.stdout.write.bind(process.stdout);
-    process.stdout.write = ((chunk: string | Uint8Array) => {
-      stdout.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
-      return true;
-    }) as typeof process.stdout.write;
+    const stdout = captureStdout();
 
     try {
       await Effect.runPromise(
@@ -134,12 +129,12 @@ describe("property-table-group", () => {
           argv: ["--exact", "-u", "--group-by", "url_hostname", "--format", "markdown"],
         })
       );
-      const combined = stdout.join("");
+      const combined = stdout.lines.join("");
       expect(combined).toContain("---");
       expect(combined).toContain("api.example.com");
       expect(combined).toContain("api.staging.example.com");
     } finally {
-      process.stdout.write = origStdout;
+      stdout.restore();
     }
   });
 });

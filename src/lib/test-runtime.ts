@@ -530,6 +530,57 @@ export function readKimiBunfigTestContract(repoRoot: string): KimiBunfigTestCont
   return parseKimiBunfigTestContract(readBunfigTestConfig(repoRoot));
 }
 
+/**
+ * Reporting flags from `bun test --help` (@see https://bun.com/docs/test#cli-usage).
+ */
+export const BUN_TEST_REPORTING = {
+  reporterFlag: "--reporter",
+  reporterOutfileFlag: "--reporter-outfile",
+  dotsFlag: "--dots",
+} as const;
+
+export const BUN_TEST_REPORTING_FLAGS = [
+  BUN_TEST_REPORTING.reporterFlag,
+  BUN_TEST_REPORTING.reporterOutfileFlag,
+  BUN_TEST_REPORTING.dotsFlag,
+] as const;
+
+/** How kimi-toolchain uses reporting flags. */
+export const BUN_TEST_REPORTING_STRATEGY = {
+  reporter: "forward-via-script-argv--reporter-junit-or-dots",
+  reporterOutfile: "forward-via-script-argv--reporter-outfile",
+  dots: "forward-via-script-argv--dots",
+} as const;
+
+/**
+ * Coverage flags from `bun test --help` (@see https://bun.com/docs/test#cli-usage).
+ */
+export const BUN_TEST_COVERAGE_FLAGS = {
+  coverageFlag: "--coverage",
+  coverageReporterFlag: "--coverage-reporter",
+  coverageDirFlag: "--coverage-dir",
+} as const;
+
+/** How kimi-toolchain uses coverage flags. */
+export const BUN_TEST_COVERAGE_STRATEGY = {
+  coverage: "forward-via-script-argv--coverage",
+  coverageReporter: "forward-via-script-argv--coverage-reporter-text-or-lcov",
+  coverageDir: "forward-via-script-argv--coverage-dir",
+} as const;
+
+/**
+ * Snapshot flags from `bun test --help` (@see https://bun.com/docs/test#cli-usage).
+ */
+export const BUN_TEST_SNAPSHOTS = {
+  updateSnapshotsFlag: "--update-snapshots",
+  updateSnapshotsShortFlag: "-u",
+} as const;
+
+/** How kimi-toolchain uses snapshot flags. */
+export const BUN_TEST_SNAPSHOTS_STRATEGY = {
+  updateSnapshots: "forward-via-script-argv--update-snapshots-or--u",
+} as const;
+
 /** Read optional `[test].root` from bunfig.toml (discovery scan root). */
 export function readBunfigTestRoot(repoRoot: string): string | undefined {
   const root = readBunfigTestConfig(repoRoot)?.root;

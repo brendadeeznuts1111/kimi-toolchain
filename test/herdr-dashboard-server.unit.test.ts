@@ -41,7 +41,7 @@ import {
   writeText,
 } from "./helpers.ts";
 
-/** Fast gate: CLI --timeout 1500; slow tests need per-test override. */
+/** Fast gate: CLI --timeout 30000; slow tests need per-test override. */
 const SERVER_TEST_MS = 20_000;
 
 describe("herdr-dashboard-server", () => {

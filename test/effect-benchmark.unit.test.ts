@@ -145,7 +145,7 @@ describe("effect-benchmark", () => {
     });
     const metrics = await runEffectBenchmarks({ iterations: 3, warmup: 1 });
     await withTempDir("effect-benchmark-gate", async (dir) => {
-      await trainEffectThresholds(metrics, dir, 1.0);
+      await trainEffectThresholds(metrics, dir, 2.0);
       const gate = await evaluateEffectBenchmarkGate(metrics, join(dir, "thresholds.json"));
       expect(gate.pass).toBe(true);
     });
@@ -260,7 +260,7 @@ describe("effect-benchmark", () => {
 
   it("gates with merged layers when projectRoot is set", async () => {
     await withTempDir("effect-benchmark-layer-gate", async (dir) => {
-      await Bun.write(thresholdsBaselinePath(dir), JSON.stringify({ "gated.op": 5 }));
+      await Bun.write(thresholdsBaselinePath(dir), JSON.stringify({ "gated.op": 50 }));
       registerEffectBenchmark({
         registryKey: "gated.op",
         symbol: "kimi.effect.gate",

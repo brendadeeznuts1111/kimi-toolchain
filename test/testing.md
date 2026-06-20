@@ -51,7 +51,7 @@ When no changed files are found: `--changed --watch` stays alive (waits for the 
 
 | Tier                          | Per-test timeout | Constant                      |
 | ----------------------------- | ---------------- | ----------------------------- |
-| Fast unit gate                | 1,500 ms         | `FAST_TEST_TIMEOUT_MS`        |
+| Fast unit gate                | 30 s             | `FAST_TEST_TIMEOUT_MS`        |
 | Integration / default         | 30 s             | `DEFAULT_TEST_TIMEOUT_MS`     |
 | Smoke                         | 60 s             | `SMOKE_TEST_TIMEOUT_MS`       |
 | Bun default (bare `bun test`) | 5 s              | `BUN_TEST_DEFAULT_TIMEOUT_MS` |

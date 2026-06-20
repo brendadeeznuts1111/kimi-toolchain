@@ -266,7 +266,7 @@ bun run finish-work --message "..." --push  # gates + commit + push close-loop
 - **Doc drift gate**: `scripts/lint-testing-docs.ts` — stale test script paths, foreign runners in markdown
 - **Naming lint**: `scripts/lint-test-names.ts` (part of `bun run lint`)
 - **Test runner**: `bun:test` via `bun run test:fast` (unit tier) or `bun run test` (all tiers)
-- **Fast gate**: 1,500ms per test (`FAST_TEST_TIMEOUT_MS`); `--parallel=4 --isolate`
+- **Fast gate**: 30s per test (`FAST_TEST_TIMEOUT_MS`); `--parallel=4 --isolate`
 - **Smoke**: `test/smoke/` — `bun run test:smoke` (60s timeout)
 - **Integration**: full suite only — 30s default timeout
 - **Preload**: `bunfig.toml` `[test].preload = ["./test/setup.ts"]` — tier scripts omit CLI `--preload`

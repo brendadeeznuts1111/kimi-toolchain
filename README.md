@@ -119,6 +119,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run reclassify:failures` | (synced from package.json) |
 
+| `bun run references:generate` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                           |
@@ -138,7 +139,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run new`                          | Run kimi-new from repo                                               |
 | `bun run governance`                   | Run kimi-governance from repo                                        |
 | `bun run test`                         | Full suite: unit → integration → smoke (`test-run.ts`)               |
-| `bun run test:fast`                    | Unit gate only (`UNIT_TEST_FILES`, 1500ms, `--parallel=4 --isolate`) |
+| `bun run test:fast`                    | Unit gate only (`UNIT_TEST_FILES`, 30s, `--parallel=4 --isolate`)    |
 | `bun test <file>`                      | Single-file debug (bare Bun discovery)                               |
 | `bun test --coverage`                  | Coverage probe without tier wrapper                                  |
 | `bun test --parallel`                  | Full suite across all cores                                          |

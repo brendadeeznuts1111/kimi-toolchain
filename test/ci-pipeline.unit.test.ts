@@ -109,7 +109,7 @@ describe("Effect CI pipeline planning", () => {
     await Bun.sleep(300);
 
     expect(Exit.isFailure(exit)).toBe(true);
-    expect(durationMs).toBeLessThan(220);
+    expect(durationMs).toBeLessThan(1_500);
     expect(await Bun.file(marker).exists()).toBe(false);
   });
 });

@@ -54,7 +54,7 @@ const TOOL_INVENTORY = [
 ] as const;
 
 const GATE_LAYERS = [
-  ["Fast iterate", "bun run check:fast", "~3s · 265 unit files @ 1500ms", "Local TDD"],
+  ["Fast iterate", "bun run check:fast", "~3s · 265 unit files @ 30s", "Local TDD"],
   ["Pre-commit", "format:check + lint + typecheck", "kimi-githooks install", "git commit"],
   [
     "Pre-push",
@@ -466,7 +466,7 @@ export default function KimiToolchainCanvas() {
             donut
           />
           <Text tone="tertiary" size="small">
-            Source: src/lib/test-gates.ts · fast gate = {UNIT_COUNT} files @ 1500ms · full suite
+            Source: src/lib/test-gates.ts · fast gate = {UNIT_COUNT} files @ 30s · full suite
             adds smoke + integration
           </Text>
         </Stack>
