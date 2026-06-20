@@ -12,6 +12,8 @@ import { TOML } from "bun";
 
 export const BUN_INSTALL_DOC_URL = "https://bun.com/docs/pm/cli/install";
 export const BUN_RELEASE_1_3_13_URL = "https://bun.com/blog/bun-v1.3.13";
+export const BUN_RELEASE_1_3_13_SOURCE_MAPS_URL =
+  "https://bun.com/blog/bun-v1.3.13#source-maps-use-up-to-8x-less-memory";
 
 export function bunInstallDocAnchor(fragment: string): string {
   return `${BUN_INSTALL_DOC_URL}#${fragment}`;
@@ -719,7 +721,7 @@ export interface BunInstallRuntimeCapabilities {
   };
   sourceMapsMemory: {
     status: "optimized";
-    releaseUrl: typeof BUN_RELEASE_1_3_13_URL;
+    releaseUrl: typeof BUN_RELEASE_1_3_13_SOURCE_MAPS_URL;
     notes: string;
   };
 }
@@ -944,9 +946,9 @@ function buildRuntimeCapabilities(
     },
     sourceMapsMemory: {
       status: "optimized",
-      releaseUrl: BUN_RELEASE_1_3_13_URL,
+      releaseUrl: BUN_RELEASE_1_3_13_SOURCE_MAPS_URL,
       notes:
-        "Bun 1.3.13+ stores source maps in a compact bit-packed format, reducing memory pressure for large maps during stack lookups and compiled-binary startup.",
+        "Bun 1.3.13+ stores source maps in a compact bit-packed format instead of the older Mapping.List representation, reducing memory pressure for large maps during stack lookups and compiled-binary startup.",
     },
   };
 }

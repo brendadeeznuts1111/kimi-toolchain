@@ -214,9 +214,9 @@ describe("bun-install-config", () => {
 
     expect(report.runtimeCapabilities.sourceMapsMemory).toEqual({
       status: "optimized",
-      releaseUrl: "https://bun.com/blog/bun-v1.3.13",
+      releaseUrl: "https://bun.com/blog/bun-v1.3.13#source-maps-use-up-to-8x-less-memory",
       notes:
-        "Bun 1.3.13+ stores source maps in a compact bit-packed format, reducing memory pressure for large maps during stack lookups and compiled-binary startup.",
+        "Bun 1.3.13+ stores source maps in a compact bit-packed format instead of the older Mapping.List representation, reducing memory pressure for large maps during stack lookups and compiled-binary startup.",
     });
   });
 
