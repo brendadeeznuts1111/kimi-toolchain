@@ -1,6 +1,6 @@
 {
   "name": "kimi-toolchain",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Bun-native developer tooling: governance, diagnostics, security, and scaffolding",
   "homepage": "https://github.com/brendadeeznuts1111/kimi-toolchain#readme",
   "bugs": {
