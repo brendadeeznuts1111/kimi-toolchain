@@ -331,27 +331,42 @@ function normalizeTargetDir(dir: string): string {
   return dir.replace(/\/+$/, "") || ".";
 }
 
-/** Collect test/*.ts paths under an optional subdirectory (e.g. test/effect/). */
-export function collectLintTargetFiles(targetDir?: string): {
+/** Collect test/*.ts paths under subdirectories and/or explicit file paths. */
+export function collectLintTargetFiles(targets?: string[]): {
   targetDir: string | null;
   conventionFiles: string[];
   nameFiles: string[];
 } {
-  if (targetDir === undefined) {
+  if (targets === undefined || targets.length === 0) {
     return { targetDir: null, conventionFiles: [], nameFiles: [] };
   }
 
-  const norm = normalizeTargetDir(targetDir);
+  if (targets.every((target) => target.endsWith(".ts"))) {
+    const conventionFiles = [...new Set(targets)];
+    return {
+      targetDir: conventionFiles.join(", "),
+      conventionFiles,
+      nameFiles: conventionFiles.filter((rel) => rel.endsWith(".test.ts")),
+    };
+  }
+
   const conventionFiles = [
-    ...new Bun.Glob(`${norm}/**/*.ts`).scanSync({ cwd: REPO_ROOT, onlyFiles: true }),
+    ...new Set(
+      targets.flatMap((target) => [
+        ...new Bun.Glob(`${normalizeTargetDir(target)}/**/*.ts`).scanSync({
+          cwd: REPO_ROOT,
+          onlyFiles: true,
+        }),
+      ])
+    ),
   ];
   const nameFiles = conventionFiles.filter((rel) => rel.endsWith(".test.ts"));
-  return { targetDir: norm, conventionFiles, nameFiles };
+  return { targetDir: targets.map(normalizeTargetDir).join(", "), conventionFiles, nameFiles };
 }
 
 export function parseLintTestNamesCli(argv: string[]): {
   json: boolean;
-  targetDir?: string;
+  targets: string[];
 } {
   const { values, positionals } = parseArgs({
     args: argv,
@@ -364,13 +379,13 @@ export function parseLintTestNamesCli(argv: string[]): {
 
   return {
     json: values.json ?? false,
-    targetDir: positionals[0],
+    targets: positionals,
   };
 }
 
 async function main(): Promise<void> {
-  const { json, targetDir } = parseLintTestNamesCli(Bun.argv.slice(2));
-  const scoped = collectLintTargetFiles(targetDir);
+  const { json, targets } = parseLintTestNamesCli(Bun.argv.slice(2));
+  const scoped = collectLintTargetFiles(targets.length > 0 ? targets : undefined);
   const onlyConvention = scoped.targetDir !== null ? scoped.conventionFiles : undefined;
   const onlyNames = scoped.targetDir !== null ? scoped.nameFiles : undefined;
 
@@ -404,7 +419,10 @@ async function main(): Promise<void> {
   let exit = 0;
 
   if (scoped.targetDir !== null) {
-    console.log(`lint scope: ${scoped.targetDir}/ (${scoped.conventionFiles.length} file(s))`);
+    const scopeLabel = targets.every((t) => t.endsWith(".ts"))
+      ? scoped.targetDir
+      : `${scoped.targetDir}/`;
+    console.log(`lint scope: ${scopeLabel} (${scoped.conventionFiles.length} file(s))`);
   }
 
   if (nameViolations.length > 0) {
