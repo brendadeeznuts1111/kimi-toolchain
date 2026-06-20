@@ -26,6 +26,54 @@ export type ReferenceKind =
 
 export type EcosystemReferenceStatus = "active" | "deprecated" | "experimental" | "external-fork";
 
+const ECOSYSTEM_STATUS_ICONS: Record<EcosystemReferenceStatus, string> = {
+  active: "✅",
+  deprecated: "⚠️",
+  experimental: "🧪",
+  "external-fork": "🍴",
+};
+
+/** Resolve omitted ecosystem status to `active`. */
+export function resolveEcosystemReferenceStatus(
+  status?: EcosystemReferenceStatus
+): EcosystemReferenceStatus {
+  return status ?? "active";
+}
+
+/** Display label for inspect tables — Unicode icon + status slug (manifest JSON keeps bare enum). */
+export function formatEcosystemReferenceStatus(status?: EcosystemReferenceStatus): string {
+  const resolved = resolveEcosystemReferenceStatus(status);
+  return `${ECOSYSTEM_STATUS_ICONS[resolved]} ${resolved}`;
+}
+
+export interface EcosystemReferenceInspectRow {
+  id: string;
+  kind: ReferenceKind;
+  package: string;
+  minVersion: string;
+  status: string;
+  repoId: string;
+  sourceRepo: string;
+}
+
+/** Shared row shape for `references:inspect` ecosystem tables. */
+export function ecosystemReferenceInspectRow(
+  ref: EcosystemReference,
+  repoNameById: ReadonlyMap<string, string>
+): EcosystemReferenceInspectRow {
+  const resolvedRepoId = ref.repoId ?? `${ref.id}-upstream`;
+  const repoName = repoNameById.get(resolvedRepoId);
+  return {
+    id: ref.id,
+    kind: ref.kind,
+    package: ref.package ?? "—",
+    minVersion: ref.minVersion ?? "—",
+    status: formatEcosystemReferenceStatus(ref.status),
+    repoId: ref.noRepo ? "(noRepo)" : resolvedRepoId,
+    sourceRepo: ref.noRepo ? "—" : (repoName ?? "?"),
+  };
+}
+
 export interface EcosystemReference {
   id: string;
   name: string;
@@ -1434,6 +1482,7 @@ function buildTable<T>(items: readonly T[], columns: ColumnDef<T>[]): string {
 
 const ECOSYSTEM_COLUMNS: ColumnDef<EcosystemReference>[] = [
   { header: "Stack", cell: (e) => e.name },
+  { header: "Status", cell: (e) => formatEcosystemReferenceStatus(e.status) },
   { header: "Docs", cell: (e) => docsLink(e) },
   {
     header: "Source repo",
@@ -1468,18 +1517,49 @@ const REPO_COLUMNS: ColumnDef<RepoReference>[] = [
   { header: "Role / provides", cell: formatRepoRoleProvides },
 ];
 
+/**
+ * Slice full GFM markdown to one inspect section (used by `--watch` and `--section`).
+ * Headings: `### Ecosystem`, `### Local docs`, `### Repositories`.
+ */
+export function filterCanonicalReferencesMarkdownSection(
+  md: string,
+  section: CanonicalReferencesInspectSection
+): string {
+  if (section === "all") return md;
+
+  const sectionHeadings: Record<Exclude<CanonicalReferencesInspectSection, "all">, string> = {
+    ecosystem: "### Ecosystem",
+    docs: "### Local docs",
+    repos: "### Repositories",
+  };
+
+  const heading = sectionHeadings[section];
+  const start = md.indexOf(heading);
+  if (start === -1) return md;
+
+  const nextMatch = md.indexOf("\n### ", start + 1);
+  const body = nextMatch === -1 ? md.slice(start) : md.slice(start, nextMatch);
+  const firstSection = md.indexOf("\n### ");
+  const topHeader = firstSection === -1 ? md : md.slice(0, firstSection);
+  return `${topHeader}\n${body}`;
+}
+
 /** Markdown block for CONTEXT.md (compact) or full tables. */
-export function formatCanonicalReferencesMarkdown(compact = false): string {
+export function formatCanonicalReferencesMarkdown(
+  compact = false,
+  section: CanonicalReferencesInspectSection = "all"
+): string {
   if (compact) {
     const stacks = ECOSYSTEM_REFERENCES.map((ref) => ref.name).join(", ");
-    return `## Canonical References
+    const body = `## Canonical References
 
 Cached manifest: \`${CANONICAL_REFERENCES_FILENAME}\` (\`bun run references:generate\`; synced to \`~/.kimi-code/\`). Stacks: ${stacks}. Full tables: \`CODE_REFERENCES.md\` § Canonical ecosystem links.
 
 `;
+    return filterCanonicalReferencesMarkdownSection(body, section);
   }
 
-  return `## Canonical References
+  const full = `## Canonical References
 
 Machine-readable manifest: \`${CANONICAL_REFERENCES_FILENAME}\` (synced to \`~/.kimi-code/\`). Regenerate: \`bun run references:generate\`.
 
@@ -1495,6 +1575,7 @@ ${buildTable(LOCAL_DOC_REFERENCES, LOCAL_DOC_COLUMNS)}
 
 ${buildTable(REPO_REFERENCES, REPO_COLUMNS)}
 `;
+  return filterCanonicalReferencesMarkdownSection(full, section);
 }
 
 /** Terminal tables for `references:inspect --plain` (ANSI stripped). */
@@ -1506,19 +1587,7 @@ export function formatCanonicalReferencesInspectPlain(
 
   if (section === "all" || section === "ecosystem") {
     const table = Bun.inspect.table(
-      ECOSYSTEM_REFERENCES.map((e) => {
-        const resolvedRepoId = e.repoId ?? `${e.id}-upstream`;
-        const repoName = repoNameById.get(resolvedRepoId);
-        return {
-          id: e.id,
-          kind: e.kind,
-          package: e.package ?? "—",
-          minVersion: e.minVersion ?? "—",
-          status: e.status ?? "active",
-          repoId: e.noRepo ? "(noRepo)" : resolvedRepoId,
-          sourceRepo: e.noRepo ? "—" : (repoName ?? "?"),
-        };
-      })
+      ECOSYSTEM_REFERENCES.map((e) => ecosystemReferenceInspectRow(e, repoNameById))
     );
     parts.push(`\nEcosystem references:\n${Bun.stripANSI(table)}`);
   }

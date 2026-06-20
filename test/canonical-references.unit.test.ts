@@ -23,9 +23,13 @@ import {
   collectLocalDocSyncPaths,
   collectRootLocalDocSyncPaths,
   ecosystemReferenceById,
+  ecosystemReferenceInspectRow,
+  formatEcosystemReferenceStatus,
+  resolveEcosystemReferenceStatus,
   isRootLocalDocRepoPath,
   lintLocalDocSyncPaths,
   localDocDesktopRelativePath,
+  filterCanonicalReferencesMarkdownSection,
   formatCanonicalReferencesInspectPlain,
   formatCanonicalReferencesMarkdown,
   formatEcosystemReferenceUrlReport,
@@ -61,6 +65,24 @@ describe("canonical-references", () => {
     expect(manifest.ecosystem.length).toBe(ECOSYSTEM_REFERENCES.length);
     expect(manifest.localDocs.length).toBe(LOCAL_DOC_REFERENCES.length);
     expect(manifest.repos.length).toBe(REPO_REFERENCES.length);
+  });
+
+  test("formatEcosystemReferenceStatus maps lifecycle icons for inspect tables", () => {
+    expect(formatEcosystemReferenceStatus()).toBe("✅ active");
+    expect(formatEcosystemReferenceStatus("deprecated")).toBe("⚠️ deprecated");
+    expect(formatEcosystemReferenceStatus("experimental")).toBe("🧪 experimental");
+    expect(formatEcosystemReferenceStatus("external-fork")).toBe("🍴 external-fork");
+    expect(resolveEcosystemReferenceStatus()).toBe("active");
+    expect(Bun.deepEquals(formatEcosystemReferenceStatus("deprecated"), "⚠\uFE0F deprecated")).toBe(
+      true
+    );
+  });
+
+  test("ecosystemReferenceInspectRow uses formatted status column", () => {
+    const repoNameById = new Map(REPO_REFERENCES.map((r) => [r.id, r.name]));
+    const row = ecosystemReferenceInspectRow(ECOSYSTEM_BY_ID["bun"], repoNameById);
+    expect(row.status).toBe("✅ active");
+    expect(row.repoId).toBe("(noRepo)");
   });
 
   test("ecosystemReferenceById resolves docs URLs", () => {
@@ -218,6 +240,16 @@ describe("canonical-references", () => {
     });
     expect(repoUrlParts("https://github.com/oxc-project/oxc.git").display).toBe("oxc-project/oxc");
     expect(repoUrlParts("https://example.com/foo").display).toBe("https://example.com/foo");
+  });
+
+  test("formatCanonicalReferencesMarkdown section filter keeps one table", () => {
+    const repos = formatCanonicalReferencesMarkdown(false, "repos");
+    expect(repos).toContain("### Repositories");
+    expect(repos).not.toContain("### Ecosystem");
+    const all = formatCanonicalReferencesMarkdown(false, "all");
+    expect(all).toContain("### Ecosystem");
+    expect(all).toContain("### Repositories");
+    expect(filterCanonicalReferencesMarkdownSection(all, "docs")).toContain("### Local docs");
   });
 
   test("formatCanonicalReferencesMarkdown renders repository table columns", () => {

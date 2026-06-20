@@ -7,17 +7,17 @@ Machine-readable manifest: \`canonical-references.json\` (synced to \`~/.kimi-co
 
 ### Ecosystem
 
-| Stack | Docs | Source repo | Usage in this repo |
-| :--- | :--- | :--- | :--- |
-| Bun | [docs](https://bun.sh/docs) | — | Runtime, test runner, package manager, and native I/O for kimi-toolchain |
-| Effect | [docs](https://effect.website/docs) | [Effect](https://github.com/Effect-TS/effect) | Typed errors, CLI/runtime adapters, and Herdr pane orchestration in src/lib/effect/ |
-| Kimi Code | [docs](https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html) | [Kimi Code (Moonshot)](https://github.com/MoonshotAI/kimi-code) | Official agent CLI (\`kimi\`), config.toml, sessions, MCP — distinct from \`kimi-doctor\` |
-| Herdr | [docs](https://herdr.dev/docs/) | — | Terminal-native multiplexer; socket API for herdr-pane, herdr-latm, herdr-orchestrator |
-| Cloudflare Platform | [docs](https://developers.cloudflare.com/workers/) | — | Workers, Access, MCP; use kimi-cloudflare-access for API tokens (separate from Wrangler OAuth) |
-| Cloudflare MCP | [docs](https://developers.cloudflare.com/agents/model-context-protocol/mcp-server/) | — | Default user MCP \`cloudflare-api\`; optional docs/bindings/builds/observability endpoints |
-| DX | \`~/.config/dx/AGENTS.md\` | — | Global Bun dev platform — \`dx config\`, \`dx mcp-status\`, \`dx.config.toml\` herdr/finishWork |
-| js-yaml | [docs](https://github.com/nodeca/js-yaml#readme) | — | YAML parsing for error-taxonomy.yml and config files; minimal runtime dependency alongside effect |
-| Oxc (oxfmt / oxlint) | [docs](https://oxc.rs/docs/guide/usage/formatter.html) | [Oxc](https://github.com/oxc-project/oxc) | Format (oxfmt) and lint (oxlint) gates — no ESLint/Prettier in this repo |
+| Stack | Status | Docs | Source repo | Usage in this repo |
+| :--- | :--- | :--- | :--- | :--- |
+| Bun | ✅ active | [docs](https://bun.sh/docs) | — | Runtime, test runner, package manager, and native I/O for kimi-toolchain |
+| Effect | ✅ active | [docs](https://effect.website/docs) | [Effect](https://github.com/Effect-TS/effect) | Typed errors, CLI/runtime adapters, and Herdr pane orchestration in src/lib/effect/ |
+| Kimi Code | ✅ active | [docs](https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html) | [Kimi Code (Moonshot)](https://github.com/MoonshotAI/kimi-code) | Official agent CLI (\`kimi\`), config.toml, sessions, MCP — distinct from \`kimi-doctor\` |
+| Herdr | ✅ active | [docs](https://herdr.dev/docs/) | — | Terminal-native multiplexer; socket API for herdr-pane, herdr-latm, herdr-orchestrator |
+| Cloudflare Platform | ✅ active | [docs](https://developers.cloudflare.com/workers/) | — | Workers, Access, MCP; use kimi-cloudflare-access for API tokens (separate from Wrangler OAuth) |
+| Cloudflare MCP | ✅ active | [docs](https://developers.cloudflare.com/agents/model-context-protocol/mcp-server/) | — | Default user MCP \`cloudflare-api\`; optional docs/bindings/builds/observability endpoints |
+| DX | ✅ active | \`~/.config/dx/AGENTS.md\` | — | Global Bun dev platform — \`dx config\`, \`dx mcp-status\`, \`dx.config.toml\` herdr/finishWork |
+| js-yaml | ✅ active | [docs](https://github.com/nodeca/js-yaml#readme) | — | YAML parsing for error-taxonomy.yml and config files; minimal runtime dependency alongside effect |
+| Oxc (oxfmt / oxlint) | ✅ active | [docs](https://oxc.rs/docs/guide/usage/formatter.html) | [Oxc](https://github.com/oxc-project/oxc) | Format (oxfmt) and lint (oxlint) gates — no ESLint/Prettier in this repo |
 
 ### Local docs (cached after sync)
 
@@ -74,19 +74,19 @@ Cached manifest: \`canonical-references.json\` (\`bun run references:generate\`;
 exports[`canonical-references formatCanonicalReferencesInspectPlain full output matches snapshot 1`] = `
 "
 Ecosystem references:
-┌───┬────────────────┬──────────┬─────────┬────────────┬────────┬────────────────────┬──────────────────────┐
-│   │ id             │ kind     │ package │ minVersion │ status │ repoId             │ sourceRepo           │
-├───┼────────────────┼──────────┼─────────┼────────────┼────────┼────────────────────┼──────────────────────┤
-│ 0 │ bun            │ runtime  │ bun     │ 1.4.0      │ active │ (noRepo)           │ —                    │
-│ 1 │ effect         │ library  │ effect  │ 3.21.3     │ active │ effect-upstream    │ Effect               │
-│ 2 │ kimi-code      │ product  │ —       │ —          │ active │ kimi-code-upstream │ Kimi Code (Moonshot) │
-│ 3 │ herdr          │ product  │ —       │ —          │ active │ (noRepo)           │ —                    │
-│ 4 │ cloudflare     │ platform │ —       │ —          │ active │ (noRepo)           │ —                    │
-│ 5 │ cloudflare-mcp │ mcp      │ —       │ —          │ active │ (noRepo)           │ —                    │
-│ 6 │ dx             │ product  │ —       │ —          │ active │ (noRepo)           │ —                    │
-│ 7 │ js-yaml        │ library  │ js-yaml │ 4.1.0      │ active │ (noRepo)           │ —                    │
-│ 8 │ oxc            │ library  │ oxfmt   │ —          │ active │ oxc-upstream       │ Oxc                  │
-└───┴────────────────┴──────────┴─────────┴────────────┴────────┴────────────────────┴──────────────────────┘
+┌───┬────────────────┬──────────┬─────────┬────────────┬───────────┬────────────────────┬──────────────────────┐
+│   │ id             │ kind     │ package │ minVersion │ status    │ repoId             │ sourceRepo           │
+├───┼────────────────┼──────────┼─────────┼────────────┼───────────┼────────────────────┼──────────────────────┤
+│ 0 │ bun            │ runtime  │ bun     │ 1.4.0      │ ✅ active │ (noRepo)           │ —                    │
+│ 1 │ effect         │ library  │ effect  │ 3.21.3     │ ✅ active │ effect-upstream    │ Effect               │
+│ 2 │ kimi-code      │ product  │ —       │ —          │ ✅ active │ kimi-code-upstream │ Kimi Code (Moonshot) │
+│ 3 │ herdr          │ product  │ —       │ —          │ ✅ active │ (noRepo)           │ —                    │
+│ 4 │ cloudflare     │ platform │ —       │ —          │ ✅ active │ (noRepo)           │ —                    │
+│ 5 │ cloudflare-mcp │ mcp      │ —       │ —          │ ✅ active │ (noRepo)           │ —                    │
+│ 6 │ dx             │ product  │ —       │ —          │ ✅ active │ (noRepo)           │ —                    │
+│ 7 │ js-yaml        │ library  │ js-yaml │ 4.1.0      │ ✅ active │ (noRepo)           │ —                    │
+│ 8 │ oxc            │ library  │ oxfmt   │ —          │ ✅ active │ oxc-upstream       │ Oxc                  │
+└───┴────────────────┴──────────┴─────────┴────────────┴───────────┴────────────────────┴──────────────────────┘
 
 
 Repository references:

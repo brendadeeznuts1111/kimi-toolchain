@@ -11,14 +11,18 @@
  *   bun run references:inspect --validate       # run URL lint after printing
  *   bun run references:inspect --json             # machine-readable JSON for jq / CI
  *   bun run references:inspect --health         # audit repo + runtime health
+ *   bun run references:inspect --watch            # live dashboard (q/r/0-3 keys); prefers Bun.markdown.ansi, falls back to PTY
+ *   bun --hot run references:inspect --watch      # HMR-aware: Bun reloads changed modules automatically
  */
 
 import { join } from "path";
+import { REFERENCES_INSPECT_CHILD_ENV } from "../src/lib/references-inspect-watch.ts";
 import {
   ECOSYSTEM_REFERENCES,
   LOCAL_DOC_REFERENCES,
   REPO_REFERENCES,
   auditCanonicalReferencesHealth,
+  ecosystemReferenceInspectRow,
   formatCanonicalReferencesInspectPlain,
   lintRepoUrls,
   repoCanonicalReferencesPath,
@@ -30,16 +34,25 @@ import { canonicalReferencesPath, homeDir } from "../src/lib/paths.ts";
 const REPO_ROOT = join(import.meta.dir, "..");
 
 const args = new Set(Bun.argv.slice(2));
-const plain = args.has("--plain");
-const validate = args.has("--validate");
-const jsonMode = args.has("--json");
-const healthMode = args.has("--health");
 
 const section = (() => {
   const idx = Bun.argv.indexOf("--section");
   const raw = idx >= 0 ? Bun.argv[idx + 1] : "all";
   return (raw ?? "all") as CanonicalReferencesInspectSection;
 })();
+
+const watchMode =
+  args.has("--watch") && Bun.env[REFERENCES_INSPECT_CHILD_ENV] !== "1" && !args.has("--json");
+const plain = args.has("--plain");
+const validate = args.has("--validate");
+const jsonMode = args.has("--json");
+const healthMode = args.has("--health");
+
+if (watchMode) {
+  const { runReferencesInspectWatch } = await import("../src/lib/references-inspect-watch.ts");
+  await runReferencesInspectWatch({ repoRoot: REPO_ROOT, initialSection: section });
+  process.exit(0);
+}
 
 function printTable(header: string, table: string): void {
   console.log(`\n${header}:`);
@@ -98,19 +111,7 @@ if (plain) {
   printTable(
     "Ecosystem references",
     Bun.inspect.table(
-      ECOSYSTEM_REFERENCES.map((e) => {
-        const resolvedRepoId = e.repoId ?? `${e.id}-upstream`;
-        const repoName = repoNameById.get(resolvedRepoId);
-        return {
-          id: e.id,
-          kind: e.kind,
-          package: e.package ?? "—",
-          minVersion: e.minVersion ?? "—",
-          status: e.status ?? "active",
-          repoId: e.noRepo ? "(noRepo)" : resolvedRepoId,
-          sourceRepo: e.noRepo ? "—" : (repoName ?? "?"),
-        };
-      })
+      ECOSYSTEM_REFERENCES.map((e) => ecosystemReferenceInspectRow(e, repoNameById))
     )
   );
 }
