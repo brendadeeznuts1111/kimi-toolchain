@@ -1,24 +1,37 @@
 /**
  * http-client.ts — Bun-native HTTP client with configurable TLS floor.
  *
- * Provides a production-safe fetch wrapper that lets callers pin the minimum
- * TLS version. Uses Node's https.Agent only for the TLS floor; everything else
- * is plain fetch.
+ * Pins minimum TLS via Bun.fetch `tls.minVersion` (OpenSSL version codes).
+ * Legacy equivalent: `https.Agent({ minVersion: "TLSv1.2" })`.
  *
- * @see {@link BUN_HTTPS_AGENT_OPTIONS_DOC_URL} — `https.AgentOptions` (`minVersion`, `maxVersion`, …)
+ * @see {@link BUN_FETCH_TLS_DOC_URL}
  */
 
-import https from "node:https";
+/** @see https://bun.com/docs/api/fetch#tls */
+export const BUN_FETCH_TLS_DOC_URL = "https://bun.com/docs/api/fetch#tls";
 
-/** @see {@link BUN_HTTPS_AGENT_OPTIONS_DOC_URL} */
-export const BUN_HTTPS_AGENT_OPTIONS_DOC_URL = "https://bun.sh/reference/node/https/AgentOptions";
+/** Legacy Node agent option — superseded by {@link BUN_FETCH_TLS_DOC_URL}. */
+export const BUN_HTTPS_AGENT_OPTIONS_DOC_URL =
+  "https://bun.sh/reference/node/https/AgentOptions";
 
-/** @see {@link BUN_HTTPS_AGENT_MIN_VERSION_DOC_URL} */
+/** Legacy Node minVersion — superseded by {@link tlsMinVersionCode}. */
 export const BUN_HTTPS_AGENT_MIN_VERSION_DOC_URL =
   "https://bun.sh/reference/node/https/AgentOptions/minVersion";
 
 export const TLS_VERSIONS = ["TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"] as const;
 export type TLSVersion = (typeof TLS_VERSIONS)[number];
+
+const TLS_CODE_MAP: Record<TLSVersion, number> = {
+  TLSv1: 0x0301,
+  "TLSv1.1": 0x0302,
+  "TLSv1.2": 0x0303,
+  "TLSv1.3": 0x0304,
+};
+
+/** Map TLS version label to Bun.fetch `tls.minVersion` OpenSSL code. */
+export function tlsMinVersionCode(version: TLSVersion): number {
+  return TLS_CODE_MAP[version];
+}
 
 export interface HttpClientOptions {
   /** Production default minimum TLS version. */
@@ -28,6 +41,8 @@ export interface HttpClientOptions {
 export interface FetchOptions extends RequestInit {
   /** Override the client's default TLS floor for this request. */
   minTLS?: TLSVersion;
+  /** Bun.fetch TLS options (merged with minVersion floor). */
+  tls?: Bun.TLSOptions;
 }
 
 export interface HttpClient {
@@ -40,10 +55,12 @@ export function makeHttpClient(options: HttpClientOptions = {}): HttpClient {
 
   return {
     fetch: async (url: string, opts: FetchOptions = {}): Promise<Response> => {
-      const minVersion = opts.minTLS ?? defaultMinTLS;
-      // https.AgentOptions.minVersion — default TLSv1.2; CLI --tls-min-v1.3 overrides globally
-      const agent = new https.Agent({ minVersion });
-      return fetch(url, { ...opts, agent } as RequestInit);
+      const { minTLS, tls, ...rest } = opts;
+      const minVersion = minTLS ?? defaultMinTLS;
+      return fetch(url, {
+        ...rest,
+        tls: { ...tls, minVersion: tlsMinVersionCode(minVersion) },
+      });
     },
   };
 }

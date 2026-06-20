@@ -1,10 +1,19 @@
 // templates/modules/http/src/processor.ts
 // Configurable TLS-floor HTTP client — registered under Symbol.for("kimi.effect.http")
 
-import https from "node:https";
-
 export const TLS_VERSIONS = ["TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"] as const;
 export type TLSVersion = (typeof TLS_VERSIONS)[number];
+
+const TLS_CODE_MAP: Record<TLSVersion, number> = {
+  TLSv1: 0x0301,
+  "TLSv1.1": 0x0302,
+  "TLSv1.2": 0x0303,
+  "TLSv1.3": 0x0304,
+};
+
+function tlsMinVersionCode(version: TLSVersion): number {
+  return TLS_CODE_MAP[version];
+}
 
 export interface HttpProcessorConfig {
   minTLS?: TLSVersion;
@@ -12,6 +21,7 @@ export interface HttpProcessorConfig {
 
 export interface FetchOptions extends RequestInit {
   minTLS?: TLSVersion;
+  tls?: Bun.TLSOptions;
 }
 
 export function createHttpProcessor(config: HttpProcessorConfig = {}) {
@@ -19,9 +29,12 @@ export function createHttpProcessor(config: HttpProcessorConfig = {}) {
 
   return {
     fetch: (url: string, opts: FetchOptions = {}) => {
-      const minVersion = opts.minTLS ?? defaultMinTLS;
-      const agent = new https.Agent({ minVersion });
-      return fetch(url, { ...opts, agent } as RequestInit);
+      const { minTLS, tls, ...rest } = opts;
+      const minVersion = minTLS ?? defaultMinTLS;
+      return fetch(url, {
+        ...rest,
+        tls: { ...tls, minVersion: tlsMinVersionCode(minVersion) },
+      });
     },
   };
 }

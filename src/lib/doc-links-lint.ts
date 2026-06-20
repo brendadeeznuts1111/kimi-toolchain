@@ -93,6 +93,15 @@ export const BUN_DOC_LINK_CONSTANTS = [
     } satisfies BunDocLinkMatchSpec,
   },
   {
+    constant: "BUN_FETCH_TLS_DOC_URL",
+    definingFile: "src/lib/http-client.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/api/fetch",
+      hash: "#tls",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
     constant: "BUN_HTTPS_AGENT_OPTIONS_DOC_URL",
     definingFile: "src/lib/http-client.ts",
     match: {
@@ -132,6 +141,14 @@ export const BUN_DOC_LINK_CONSTANTS = [
     match: {
       hostnames: ["bun.sh"],
       pathname: "/reference/node/punycode/decode",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_GUIDES_INDEX_DOC_URL",
+    definingFile: "src/lib/cli-contract.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/guides",
     } satisfies BunDocLinkMatchSpec,
   },
   {
