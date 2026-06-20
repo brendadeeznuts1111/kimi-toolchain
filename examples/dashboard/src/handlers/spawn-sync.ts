@@ -4,7 +4,7 @@ import { jsonResponse } from "./shared.ts";
 export async function apiSpawnSync(): Promise<Response> {
   const proc = Bun.spawnSync(["echo", "hello from spawnSync"]);
   const stdout = proc.stdout?.toString().trim() ?? "";
-  const usage = proc.resourceUsage();
+  const usage = proc.resourceUsage;
 
   return jsonResponse({
     stdout,
@@ -20,6 +20,6 @@ export async function apiSpawnSync(): Promise<Response> {
           contextSwitches: usage.contextSwitches,
         }
       : null,
-    note: "Bun.spawnSync — blocking, returns Buffer stdout/stderr. 60% faster than Node.js child_process. resourceUsage() gives CPU, memory, context switches.",
+    note: "Bun.spawnSync — blocking, returns Buffer stdout/stderr. proc.resourceUsage is a property (not a method).",
   });
 }

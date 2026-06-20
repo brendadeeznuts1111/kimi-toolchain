@@ -3,36 +3,35 @@ import { jsonResponse } from "./shared.ts";
 
 export async function apiCron(): Promise<Response> {
   const started = Date.now();
+  const pattern = "* * * * *";
 
   return new Promise((resolve) => {
     let fired = false;
-    let firedAt = 0;
 
-    const job = Bun.cron("* * * * * *", () => {
+    const job = Bun.cron(pattern, () => {
       if (!fired) {
         fired = true;
-        firedAt = Date.now();
         job.stop();
         resolve(
           jsonResponse({
-            pattern: "* * * * * * (every second)",
+            pattern: `${pattern} (every minute — 5-field)`,
             fired: true,
-            latencyMs: firedAt - started,
-            note: "Bun.cron(cronExpression, callback) — native cron scheduler. job.stop() to cancel. Supports 6-field expressions with seconds.",
+            latencyMs: Date.now() - started,
+            note: "Bun.cron uses 5 fields (minute hour day month weekday). Seconds are not supported.",
           })
         );
       }
     });
 
-    // Timeout safety: resolve after 2s if cron doesn't fire
     setTimeout(() => {
       if (!fired) {
+        job.stop();
         resolve(
           jsonResponse({
-            pattern: "* * * * * *",
+            pattern,
             fired: false,
-            error: "Cron did not fire within 2s",
-            note: "Bun.cron may not be supported in this environment.",
+            latencyMs: Date.now() - started,
+            note: "Cron registered; no tick within 2s (minute-granularity). Bun.cron rejects 6-field expressions.",
           })
         );
       }
