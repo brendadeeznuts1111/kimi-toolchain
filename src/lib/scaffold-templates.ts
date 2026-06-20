@@ -39,7 +39,7 @@ export const CODE_REFERENCES_TEMPLATE = load("code-references.md");
 
 export const REQUIRED_PACKAGE_SCRIPT_ENTRIES: Record<string, string> = {
   test: "bun run scripts/run-tests.ts",
-  "test:fast": "bun run scripts/run-tests.ts --fast",
+  "test:fast": "bun run scripts/test-fast.ts",
   "test:coverage": "bun run scripts/run-tests.ts --coverage",
   "test:coverage:ci": "bun run scripts/run-tests.ts --ci --coverage",
   check: "bun run scripts/check.ts",

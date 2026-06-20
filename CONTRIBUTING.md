@@ -13,8 +13,8 @@ bun run unify          # sync → ~/.kimi-code/, PATH wrappers
 
 ```bash
 bun run format         # oxfmt --write .
-bun run check:fast     # format + lint + typecheck + unit tests (~1s)
-bun run check          # full gate including smoke tests (~4s)
+bun run check:fast     # format + lint + typecheck + unit tests (~3s)
+bun run check          # full gate including smoke tests (~30s)
 kimi-doctor --quick    # toolchain health
 ```
 
@@ -26,7 +26,9 @@ Config: `.oxfmtrc.json` (formatter), `.oxlintrc.json` (linter), `bunfig.toml` (t
 
 ## Testing
 
-Read **`test/testing.md`** before adding or changing tests. Runtime contracts live in **`src/lib/test-runtime.ts`** (contract tests: `test/test-runtime.unit.test.ts`). File lists and timeouts: **`src/lib/test-gates.ts`**. Naming rules: **`scripts/lint-test-names.ts`**.
+Read **`test/testing.md`** before adding or changing tests. Runtime contracts live in **`src/lib/test-runtime.ts`** (contract tests: `test/test-runtime.unit.test.ts`). File lists and timeouts: **`src/lib/test-gates.ts`**. Naming rules: **`scripts/lint-test-names.ts`**. Doc drift gate: **`bun run scripts/lint-testing-docs.ts`**.
+
+For single-file debug use bare Bun (`bun test test/foo.unit.test.ts`, `bun test --coverage`). Hooks and CI use tier scripts (`bun run test:fast`, `bun run test`).
 
 External references:
 

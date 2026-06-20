@@ -121,6 +121,37 @@ Effect tests: `runWithLayer` from `test/effect-helpers.ts`.
 | Bare `bun test` in hooks/CI                     | `bun run test:fast` or tier scripts                      |
 | CLI `--preload ./test/setup.ts` in tier scripts | `bunfig.toml` `[test].preload`                           |
 
+## Doc audit (agents)
+
+Before editing testing docs, run the gate or the equivalent `rg` recipes (SSOT: `src/lib/testing-docs-lint.ts`).
+
+```bash
+bun run scripts/lint-testing-docs.ts          # stale-pattern gate
+bun run scripts/lint-testing-docs.ts --report # print rg recipes + bun test inventory
+```
+
+Manual inventory (same patterns encoded in `TESTING_DOCS_AUDIT_COMMANDS`):
+
+```bash
+rg -n --glob '*.{md,ts}' 'bun test' .
+
+rg -n --glob '*.{md,ts,js,json}' \
+  -e 'jest|vitest|mocha|ava|tap|jasmine' \
+  -e 'test\(|it\(|describe\(' \
+  --ignore-case \
+  --no-ignore-vcs \
+  -g '!node_modules' -g '!dist' -g '!.git' -g '!pnpm-lock.yaml' -g '!bun.lock' \
+  .
+```
+
+Interpretation:
+
+- Bare `bun test` is **allowed** for single-file debug (`bun test <file>`), coverage probes (`bun test --coverage`), and anti-pattern tables — not for hooks/CI (use tier scripts).
+- `jest` in docs usually means Bun's `bun:test` Jest-compat namespace (`jest.resetModules()`, `jest.fn`) — not the Jest package.
+- Reject `vitest` / `mocha` / `jasmine` in agent-facing markdown unless documenting a migration away from them.
+
+Render this guide in tooling via [Bun.markdown.html](https://bun.com/docs/runtime/markdown#bun-markdown-html) (`src/lib/bun-markdown.ts` — `markdownHtmlSupported()` / `markdownToHtml()`).
+
 ## Bun documentation map
 
 Contracts in `test-runtime.ts` align with these Bun docs:

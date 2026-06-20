@@ -234,7 +234,8 @@ bun run finish-work --message "..." --push  # gates + commit + push close-loop
 
 - **SSOT**: `src/lib/test-runtime.ts` — Bun contracts (`BUN_TEST_*`, `KIMI_*`); tier runners; verified by `test/test-runtime.unit.test.ts`
 - **File lists**: `src/lib/test-gates.ts` — `UNIT_TEST_FILES`, `INTEGRATION_TEST_FILES`, `SMOKE_TEST_FILES`
-- **Author guide**: `test/testing.md` — naming, isolation, grouping, anti-patterns
+- **Author guide**: `test/testing.md` — naming, isolation, grouping, anti-patterns, doc audit `rg` recipes
+- **Doc drift gate**: `scripts/lint-testing-docs.ts` — stale test script paths, foreign runners in markdown
 - **Naming lint**: `scripts/lint-test-names.ts` (part of `bun run lint`)
 - **Test runner**: `bun:test` via `bun run test:fast` (unit tier) or `bun run test` (all tiers)
 - **Fast gate**: 1,500ms per test (`FAST_TEST_TIMEOUT_MS`); `--parallel=4 --isolate`

@@ -74,6 +74,7 @@ export const UNIT_TEST_FILES = [
   "test/herdr-dashboard-server.unit.test.ts",
   "test/herdr-dashboard-webview-store.unit.test.ts",
   "test/doc-links-lint.unit.test.ts",
+  "test/testing-docs-lint.unit.test.ts",
   "test/dashboard-logger.unit.test.ts",
   "test/error-log-discovery.unit.test.ts",
   "test/herdr-dashboard-http3.unit.test.ts",

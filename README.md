@@ -105,6 +105,8 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run governance`         | Run kimi-governance from repo                                        |
 | `bun run test`               | Full suite: unit → integration → smoke (`test-run.ts`)               |
 | `bun run test:fast`          | Unit gate only (`UNIT_TEST_FILES`, 1500ms, `--parallel=4 --isolate`) |
+| `bun test <file>`            | Single-file debug (bare Bun discovery)                               |
+| `bun test --coverage`        | Coverage probe without tier wrapper                                  |
 | `bun run test:parallel`      | Full suite across all cores (`--parallel`)                           |
 | `bun run test:parallel:4`    | Full suite across 4 workers (`--parallel=4`)                         |
 | `bun run test:shard`         | CI sharding (`--parallel --shard <M/N>`)                             |
