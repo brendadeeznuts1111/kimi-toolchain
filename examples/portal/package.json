@@ -1,0 +1,26 @@
+{
+  "name": "kimi-artifact-portal-example",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One-command Artifact Portal — Canvas → Probe → Herdr → disk",
+  "type": "module",
+  "scripts": {
+    "portal": "bun run ../../scripts/build-portal.ts",
+    "portal:json": "bun run ../../scripts/build-portal.ts --json",
+    "portal:local": "bun run ../../scripts/build-portal.ts --local-only",
+    "verify": "bun test ../../test/portal-convergence.unit.test.ts",
+    "status": "bun run ../../src/bin/kimi-doctor.ts --artifacts-list artifact-portal"
+  },
+  "kimi": {
+    "showcase": {
+      "id": "portal",
+      "lane": "runtime",
+      "accent": "#a371f7",
+      "cards": [
+        "card-effect-benchmark",
+        "card-perf-harness",
+        "card-kimi-doctor"
+      ]
+    }
+  }
+}

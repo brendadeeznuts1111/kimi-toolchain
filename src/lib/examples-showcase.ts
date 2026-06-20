@@ -111,10 +111,35 @@ export const SHOWCASE_ENTRIES: readonly ShowcaseEntry[] = [
     controlPlaneLevel: 1,
   },
   {
+    id: "portal",
+    kind: "project",
+    lane: "runtime",
+    order: 2,
+    title: "Artifact Portal",
+    tagline:
+      "One command — Canvas, serve-probe, and Herdr converge into benchmark diagnostics on disk",
+    path: "examples/portal",
+    accent: "#a371f7",
+    cardIds: ["card-effect-benchmark", "card-perf-harness", "card-kimi-doctor"],
+    relatedDocs: [
+      "examples/portal/README.md",
+      "examples/artifact-portal.md",
+      "contracts/artifact-portal.json",
+      "docs/references/serve-probe.md",
+    ],
+    commands: [
+      "cd examples/portal && bun run portal:local",
+      "bun run build:portal",
+      "bun run test:portal-convergence",
+      "open http://127.0.0.1:5678?example=portal&canvas=benchmark",
+    ],
+    controlPlaneLevel: 1,
+  },
+  {
     id: "dashboard-urls",
     kind: "guide",
     lane: "runtime",
-    order: 3,
+    order: 4,
     title: "Dashboard URLs & Ports",
     tagline: "URLPattern routes, port properties, protocol layers, and dx:table URL decomposition",
     path: "examples/dashboard-urls.md",
@@ -135,7 +160,7 @@ export const SHOWCASE_ENTRIES: readonly ShowcaseEntry[] = [
     id: "trading-workspace",
     kind: "project",
     lane: "runtime",
-    order: 2,
+    order: 3,
     title: "Trading Artifact Loop",
     tagline: "Alex the quant — L1 freshness/risk gates feed L2 strategy drift with saved lineage",
     path: "examples/trading-workspace",
@@ -155,10 +180,32 @@ export const SHOWCASE_ENTRIES: readonly ShowcaseEntry[] = [
     persona: "Alex — independent quant trader",
   },
   {
-    id: "control-plane-layers",
+    id: "artifact-portal",
     kind: "guide",
     lane: "control-plane",
     order: 1,
+    title: "Artifact Portal Convergence",
+    tagline: "benchmark.canvas → serve-probe → build:portal → .kimi/artifacts/artifact-portal/",
+    path: "examples/artifact-portal.md",
+    accent: "#bc8cff",
+    cardIds: ["card-effect-benchmark", "card-perf-harness", "card-kimi-doctor", "card-artifacts"],
+    relatedDocs: [
+      "examples/portal/README.md",
+      "contracts/artifact-portal.json",
+      "src/canvases/benchmark.manifest.ts",
+    ],
+    commands: [
+      "cd examples/portal && bun run portal:local",
+      "kimi-doctor --artifacts-list artifact-portal",
+      "curl -s http://127.0.0.1:5678/api/effect-benchmark | jq '.runner'",
+    ],
+    controlPlaneLevel: 1,
+  },
+  {
+    id: "control-plane-layers",
+    kind: "guide",
+    lane: "control-plane",
+    order: 2,
     title: "Control Plane Layers",
     tagline: "L0 events stay out of the store — artifacts begin at L1 tactical summaries",
     path: "examples/control-plane-layers.md",
@@ -178,7 +225,7 @@ export const SHOWCASE_ENTRIES: readonly ShowcaseEntry[] = [
     id: "artifact-dependency-graphs",
     kind: "guide",
     lane: "control-plane",
-    order: 2,
+    order: 3,
     title: "Artifact Dependency Graphs",
     tagline: "Data lineage (what consumed what) vs gate order (what runs before what)",
     path: "examples/artifact-dependency-graphs.md",
@@ -195,7 +242,7 @@ export const SHOWCASE_ENTRIES: readonly ShowcaseEntry[] = [
     id: "dependency-graphs-developer-workflow",
     kind: "guide",
     lane: "control-plane",
-    order: 3,
+    order: 4,
     title: "Developer Workflow",
     tagline: "Daily CLI cheat sheet — dry-run, gate-graph, save-artifact, dashboard observe",
     path: "examples/dependency-graphs-developer-workflow.md",
@@ -212,7 +259,7 @@ export const SHOWCASE_ENTRIES: readonly ShowcaseEntry[] = [
     id: "artifact-trading-loop",
     kind: "guide",
     lane: "control-plane",
-    order: 4,
+    order: 5,
     title: "Trading Feedback Loop",
     tagline: "Minute-level L1 gates → daily L2 drift → alert and resize positions",
     path: "examples/artifact-trading-loop.md",
@@ -326,7 +373,21 @@ export interface DashboardProjectProbe {
   defaultPort: number;
 }
 
-export type ShowcaseProjectProbe = TradingWorkspaceProbe | DashboardProjectProbe;
+export interface ArtifactPortalProbe {
+  ok: boolean;
+  artifactsDir: string;
+  artifactCount: number;
+  diagnosticsCount: number;
+  manifestCount: number;
+  latestDiagnostics?: string;
+  latestManifest?: string;
+  runner?: string;
+}
+
+export type ShowcaseProjectProbe =
+  | TradingWorkspaceProbe
+  | DashboardProjectProbe
+  | ArtifactPortalProbe;
 
 export interface ShowcaseEntryPayload extends ShowcaseEntry {
   status: ShowcaseEntryStatus;
@@ -452,6 +513,61 @@ export function probeTradingWorkspace(repoRoot: string): TradingWorkspaceProbe {
   };
 }
 
+/** Summarize artifact-portal gate envelopes at repo root. */
+export function probeArtifactPortal(repoRoot: string): ArtifactPortalProbe {
+  const artifactsDir = join(repoRoot, ".kimi", "artifacts", "artifact-portal");
+  if (!pathExists(artifactsDir)) {
+    return {
+      ok: false,
+      artifactsDir,
+      artifactCount: 0,
+      diagnosticsCount: 0,
+      manifestCount: 0,
+    };
+  }
+
+  const files = listDir(artifactsDir)
+    .filter((f) => f.endsWith(".json"))
+    .sort();
+  let diagnosticsCount = 0;
+  let manifestCount = 0;
+  let latestDiagnostics: string | undefined;
+  let latestManifest: string | undefined;
+  let runner: string | undefined;
+
+  for (const file of files) {
+    const envelope = safeParseRecord(readText(join(artifactsDir, file)));
+    const kind = envelope?.kind;
+    if (kind === "artifact-portal-entry") {
+      const type = envelope?.type;
+      if (type === "benchmark-diagnostics") {
+        diagnosticsCount += 1;
+        latestDiagnostics = file;
+        const payload =
+          envelope && typeof envelope.payload === "object" && envelope.payload !== null
+            ? (envelope.payload as Record<string, unknown>)
+            : undefined;
+        const r = payload?.runner;
+        if (typeof r === "string") runner = r;
+      } else if (type === "portal-manifest") {
+        manifestCount += 1;
+        latestManifest = file;
+      }
+    }
+  }
+
+  return {
+    ok: diagnosticsCount > 0 && manifestCount > 0,
+    artifactsDir,
+    artifactCount: files.length,
+    diagnosticsCount,
+    manifestCount,
+    ...(latestDiagnostics ? { latestDiagnostics } : {}),
+    ...(latestManifest ? { latestManifest } : {}),
+    ...(runner ? { runner } : {}),
+  };
+}
+
 /** Dashboard project summary for showcase hub. */
 export function probeDashboardProject(
   repoRoot: string,
@@ -484,6 +600,7 @@ function projectProbe(
 ): ShowcaseProjectProbe | undefined {
   if (entry.kind !== "project" || !entryStatus(repoRoot, entry).runnable) return undefined;
   if (entry.id === "trading-workspace") return probeTradingWorkspace(repoRoot);
+  if (entry.id === "portal") return probeArtifactPortal(repoRoot);
   if (entry.id === "dashboard") return probeDashboardProject(repoRoot, dashboardPort);
   return undefined;
 }

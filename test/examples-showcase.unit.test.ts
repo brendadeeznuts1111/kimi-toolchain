@@ -12,26 +12,29 @@ import {
 import { REPO_ROOT } from "./helpers.ts";
 
 describe("examples-showcase", () => {
-  test("registry has two runnable projects and ten guides", () => {
+  test("registry has three runnable projects and eleven guides", () => {
     const projects = SHOWCASE_ENTRIES.filter((e) => e.kind === "project");
     const guides = SHOWCASE_ENTRIES.filter((e) => e.kind === "guide");
-    expect(projects.length).toBe(2);
-    expect(guides.length).toBe(10);
-    expect(projects.map((p) => p.id).sort()).toEqual(["dashboard", "trading-workspace"]);
+    expect(projects.length).toBe(3);
+    expect(guides.length).toBe(11);
+    expect(projects.map((p) => p.id).sort()).toEqual(["dashboard", "portal", "trading-workspace"]);
   });
 
   test("buildExamplesShowcasePayload marks projects present and runnable", () => {
     const payload = buildExamplesShowcasePayload(REPO_ROOT);
     expect(payload.ok).toBe(true);
     expect(payload.schemaVersion).toBe(1);
-    expect(payload.totals.projects).toBe(2);
-    expect(payload.totals.guides).toBe(10);
+    expect(payload.totals.projects).toBe(3);
+    expect(payload.totals.guides).toBe(11);
     expect(payload.totals.cardsMapped).toBeGreaterThan(10);
 
     const dashboard = payload.entries.find((e) => e.id === "dashboard");
+    const portal = payload.entries.find((e) => e.id === "portal");
     const trading = payload.entries.find((e) => e.id === "trading-workspace");
     expect(dashboard?.status.present).toBe(true);
     expect(dashboard?.status.runnable).toBe(true);
+    expect(portal?.status.present).toBe(true);
+    expect(portal?.status.runnable).toBe(true);
     expect(trading?.status.present).toBe(true);
     expect(trading?.status.runnable).toBe(true);
   });
@@ -50,7 +53,8 @@ describe("examples-showcase", () => {
   test("entriesForLane returns ordered runtime projects first", () => {
     const runtime = entriesForLane("runtime");
     expect(runtime[0]?.id).toBe("dashboard");
-    expect(runtime[1]?.id).toBe("trading-workspace");
+    expect(runtime[1]?.id).toBe("portal");
+    expect(runtime[2]?.id).toBe("trading-workspace");
   });
 
   test("getShowcaseEntry returns trading persona metadata", () => {

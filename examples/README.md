@@ -7,6 +7,9 @@ Runnable projects and narrative guides that demonstrate how the toolchain works 
 ## Quick start
 
 ```bash
+# Artifact Portal — one-command convergence demo (no server required)
+cd examples/portal && bun run portal:local
+
 # Canonical (Herdr / kimi-dashboard)
 cd ~/kimi-toolchain && PORT=5678 bun run dashboard
 
@@ -28,6 +31,7 @@ cd examples/trading-workspace && bun run trading
 
 | Entry                     | Path                 | Cards                                       | Start here                                   |
 | ------------------------- | -------------------- | ------------------------------------------- | -------------------------------------------- |
+| **Artifact Portal**       | `portal/`            | effect-benchmark, perf-harness, kimi-doctor | `cd examples/portal && bun run portal:local` |
 | **Bun API Dashboard**     | `dashboard/`         | gates, kimi-doctor, perf-harness, artifacts | `PORT=5678 bun run dashboard` from repo root |
 | **Trading Artifact Loop** | `trading-workspace/` | artifacts, gates, metrics-schema            | `bun run trading`                            |
 
@@ -45,6 +49,7 @@ The trading workspace is a self-contained L1+L2 gate tree — data freshness and
 
 | Guide                                                                              | Focus                                                 |
 | ---------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| [artifact-portal.md](artifact-portal.md)                                           | Canvas → Probe → Herdr → Artifact convergence         |
 | [control-plane-layers.md](control-plane-layers.md)                                 | L0–L3 model, retention defaults, readonly serve-probe |
 | [artifact-dependency-graphs.md](artifact-dependency-graphs.md)                     | Lineage vs execution DAG                              |
 | [dependency-graphs-developer-workflow.md](dependency-graphs-developer-workflow.md) | Daily CLI cheat sheet                                 |
@@ -77,6 +82,7 @@ bun run scripts/lint-examples-showcase.ts
 Deep-link a showcase entry on the dashboard:
 
 ```
+http://127.0.0.1:5678/?example=portal&canvas=benchmark
 http://127.0.0.1:5678/?example=trading-workspace
 http://127.0.0.1:5678/?canvas=artifact-lineage&example=artifact-dependency-graphs
 http://127.0.0.1:5678/?canvas=artifact-lineage&diff=runA..runB
