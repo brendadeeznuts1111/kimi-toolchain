@@ -201,6 +201,20 @@ bun run memory-check                  # pre-session gate
 
 `kimi-doctor --json` emits structured output for agents. `kimi-doctor --fix` runs `sync`, MCP provisioning, and wrapper install when drift is detected.
 
+### Artifact Portal (benchmark diagnostics)
+
+Canvas, dashboard, serve-probe, and Herdr share one envelope (`BenchmarkApiEnvelope`). Publish a portal artifact in one command:
+
+```bash
+kimi-doctor --perf-gates --serve-probe   # optional: live probe on :5678
+bun run build:portal                     # probe first, local-loop fallback
+bun run build:portal --local-only        # offline (no serve-probe)
+bun run test:portal-convergence          # smoke
+curl http://127.0.0.1:5678/api/effect-benchmark | jq '.runner, .summary'
+```
+
+Output: `.kimi/artifacts/artifact-portal/` (benchmark diagnostics + portal manifest). Contract: `contracts/artifact-portal.json`. Canvas deep link: `?canvas=benchmark`.
+
 ## MCP (Model Context Protocol)
 
 Docs: https://moonshotai.github.io/kimi-code/en/customization/mcp.html
