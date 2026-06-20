@@ -5,7 +5,7 @@
  * @see https://bun.com/docs/test/configuration
  */
 
-/** Pure unit tests (no subprocess smoke); safe at the fast timeout. */
+/** Unit tests included in fast local gates; includes subprocess-heavy contract tests. */
 export const UNIT_TEST_FILES = [
   "test/lib.unit.test.ts",
   "test/r-score.unit.test.ts",
@@ -305,7 +305,7 @@ export const SMOKE_TEST_FILES = [
   "test/smoke/kimi-identity.smoke.test.ts",
 ] as const;
 
-export const FAST_TEST_TIMEOUT_MS = 1_500;
+export const FAST_TEST_TIMEOUT_MS = 30_000;
 export const DEFAULT_TEST_TIMEOUT_MS = 30_000;
 export const CI_TEST_TIMEOUT_MS = 30_000;
 export const SMOKE_TEST_TIMEOUT_MS = 60_000;

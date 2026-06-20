@@ -18,7 +18,7 @@ import { resolveProjectRoot } from "../lib/utils.ts";
 import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
-import { writeStdoutLine } from "../lib/cli-contract.ts";
+import { parseCliFlags, writeStdoutLine } from "../lib/cli-contract.ts";
 
 const logger = createLogger(Bun.argv, "kimi-contract");
 
@@ -54,7 +54,7 @@ async function signingKey(): Promise<string> {
 }
 
 async function main(): Promise<number> {
-  const json = Bun.argv.includes("--json");
+  const { json } = parseCliFlags(Bun.argv, "kimi-contract");
   const strict = Bun.argv.includes("--strict");
   const args = Bun.argv.slice(2).filter((arg) => !arg.startsWith("--"));
   const command = args[0];

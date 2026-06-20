@@ -9,7 +9,7 @@ import { buildTraceGraph, renderTraceTree } from "../lib/trace-ledger.ts";
 import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
-import { writeStdoutLine } from "../lib/cli-contract.ts";
+import { parseCliFlags, writeStdoutLine } from "../lib/cli-contract.ts";
 
 const logger = createLogger(Bun.argv, "kimi-trace");
 
@@ -27,7 +27,7 @@ function printHelp(): void {
 
 async function main(): Promise<number> {
   const args = Bun.argv.slice(2).filter((arg) => arg !== "--json");
-  const json = Bun.argv.includes("--json");
+  const { json } = parseCliFlags(Bun.argv, "kimi-trace");
   const traceId = args[0];
 
   if (!traceId || traceId === "--help" || traceId === "-h") {

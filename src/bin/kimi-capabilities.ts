@@ -14,7 +14,7 @@ import { resolveProjectRoot } from "../lib/utils.ts";
 import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
-import { writeStdoutLine } from "../lib/cli-contract.ts";
+import { parseCliFlags, writeStdoutLine } from "../lib/cli-contract.ts";
 
 const logger = createLogger(Bun.argv, "kimi-capabilities");
 
@@ -27,7 +27,7 @@ function printHelp(): void {
 }
 
 async function main(): Promise<number> {
-  const json = Bun.argv.includes("--json");
+  const { json } = parseCliFlags(Bun.argv, "kimi-capabilities");
   const trend = Bun.argv.includes("--trend");
   if (Bun.argv.includes("--help") || Bun.argv.includes("-h")) {
     printHelp();

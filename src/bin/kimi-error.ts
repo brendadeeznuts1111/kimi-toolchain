@@ -17,7 +17,7 @@ import {
 import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
-import { writeStdoutLine } from "../lib/cli-contract.ts";
+import { parseCliFlags, writeStdoutLine } from "../lib/cli-contract.ts";
 
 const logger = createLogger(Bun.argv, "kimi-error");
 
@@ -70,7 +70,7 @@ function printClusterTable(summaries: ClusterSummary[]): void {
 }
 
 async function main(): Promise<number> {
-  const json = Bun.argv.includes("--json");
+  const { json } = parseCliFlags(Bun.argv, "kimi-error");
   const argv = Bun.argv.slice(2);
   const command = argv.find((arg) => !arg.startsWith("--"));
 

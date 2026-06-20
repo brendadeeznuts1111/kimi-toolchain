@@ -392,4 +392,4 @@ export async function runBunScript(
 }
 
 // Re-export bun-io primitives used directly in tests (no redundant wrappers).
-export { pathExists, readText, writeText };
+export { makeDir, pathExists, readText, removePath, writeText };

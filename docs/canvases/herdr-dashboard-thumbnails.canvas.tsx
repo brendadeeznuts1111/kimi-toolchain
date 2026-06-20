@@ -191,6 +191,12 @@ const MANIFEST_LOCAL_DOCS_ALL = [
     purpose: "Bun $ template vs subprocess and inspect companion patterns",
   },
   {
+    id: "bun-file-streaming",
+    location: "docs/references",
+    purpose:
+      "Bun.file/Bun.write streaming decisions for configs, JSONL ledgers, large artifacts, transformed streams, and HTTP responses",
+  },
+  {
     id: "template-matrix",
     location: "docs/references",
     purpose:

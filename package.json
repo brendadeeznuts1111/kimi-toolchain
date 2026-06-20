@@ -123,6 +123,7 @@
     "sync:manifest": "bun run scripts/sync-manifest.ts",
     "sync:verify": "bun run scripts/sync-manifest.ts --verify",
     "sync:daemon": "bun run scripts/sync-to-desktop.ts --daemon",
+    "references:generate": "bun run scripts/generate-canonical-references.ts",
     "push": "bash scripts/push.sh",
     "unify": "bash scripts/unify.sh",
     "verify-workspace": "bash scripts/verify-workspace.sh",

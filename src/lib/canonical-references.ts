@@ -328,6 +328,13 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     purpose: "Bun $ template vs subprocess and inspect companion patterns",
   },
   {
+    id: "bun-file-streaming",
+    repoPath: "docs/references/bun-file-streaming.md",
+    runtimePath: "~/.kimi-code/docs/references/bun-file-streaming.md",
+    purpose:
+      "Bun.file/Bun.write streaming decisions for configs, JSONL ledgers, large artifacts, transformed streams, and HTTP responses",
+  },
+  {
     id: "template-matrix",
     repoPath: "docs/references/template-matrix.md",
     runtimePath: "~/.kimi-code/docs/references/template-matrix.md",

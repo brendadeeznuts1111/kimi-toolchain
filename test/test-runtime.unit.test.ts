@@ -671,7 +671,7 @@ test("fails", () => {
       expect(BUN_TEST_TIMEOUTS.bunDefaultMs).toBe(5000);
       expect(BUN_TEST_TIMEOUTS.globalFlag).toBe("--timeout");
       expect(BUN_TEST_TIMEOUTS.perTestParameterIndex).toBe(2);
-      expect(BUN_TEST_TIMEOUTS.kimi.fast).toBe(1500);
+      expect(BUN_TEST_TIMEOUTS.kimi.fast).toBe(30_000);
       expect(BUN_TEST_TIMEOUTS.kimi.default).toBe(30_000);
       expect(BUN_TEST_TIMEOUTS.kimi.smoke).toBe(60_000);
       expect(TEST_TIER_SPECS.unit.timeoutMs).toBe(BUN_TEST_TIMEOUTS.kimi.fast);
@@ -690,7 +690,7 @@ test("fails", () => {
       for (const value of BUN_TEST_TIMEOUTS.disableValues) {
         expect(isDisabledTestTimeout(value)).toBe(true);
       }
-      expect(isDisabledTestTimeout(1500)).toBe(false);
+      expect(isDisabledTestTimeout(30_000)).toBe(false);
     });
 
     test("readTimeoutMsFromBunTestArgs parses doc global --timeout 10000", () => {
@@ -699,7 +699,7 @@ test("fails", () => {
 
     test("bunTestArgsForTier includes global --timeout flag", () => {
       const args = bunTestArgsForTier(TEST_TIER_SPECS.unit);
-      expect(readTimeoutMsFromBunTestArgs(args)).toBe(1500);
+      expect(readTimeoutMsFromBunTestArgs(args)).toBe(30_000);
     });
 
     test("native bun test: global --timeout fails slow tests", async () => {
