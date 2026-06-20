@@ -48,6 +48,7 @@ export const PROBE_SERVER_ROUTES = [
   { path: "/api/health", methods: ["GET", "HEAD"] as const },
   { path: "/api/cards", methods: ["GET"] as const },
   { path: "/api/refresh", methods: ["GET", "POST"] as const },
+  { path: "/api/config-status", methods: ["GET"] as const },
   { path: "/api/artifacts", methods: ["GET"] as const },
   { path: "/api/artifacts/:gate", methods: ["GET"] as const },
   { path: "/api/artifacts/:gate/latest", methods: ["GET"] as const },
@@ -211,6 +212,8 @@ export async function startProbeServer(
   let benchmarkFetchedAt: string | null = null;
   let benchmarkRefreshInFlight: Promise<BenchmarkApiEnvelope> | null = null;
   let configStatus: ConfigStatusReport | undefined = options.configStatus;
+  let configStatusFetchedAt: string | null = options.configStatus ? new Date().toISOString() : null;
+  let configStatusRefreshInFlight: Promise<ConfigStatusReport | undefined> | null = null;
   let platformTargeting: PlatformTargetingEnvelope | undefined = options.platformTargeting ?? {
     cpu: process.arch,
     os: process.platform,
@@ -218,15 +221,6 @@ export async function startProbeServer(
     supportedCpu: ["arm64", "x64", "ia32", "ppc64", "s390x"] as const,
     supportedOs: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix"] as const,
   };
-
-  async function refreshConfigStatus(): Promise<ConfigStatusReport | undefined> {
-    try {
-      configStatus = await auditConfigLayersStatus(projectRoot);
-      return configStatus;
-    } catch {
-      return configStatus;
-    }
-  }
 
   async function persistRefreshArtifact(
     cards: CardStatus[],
@@ -264,6 +258,23 @@ export async function startProbeServer(
       }
     })();
     return benchmarkRefreshInFlight;
+  }
+
+  async function refreshConfigStatus(): Promise<ConfigStatusReport | undefined> {
+    if (configStatusRefreshInFlight) return configStatusRefreshInFlight;
+    configStatusRefreshInFlight = (async () => {
+      try {
+        const report = await auditConfigLayersStatus(projectRoot);
+        configStatus = report;
+        configStatusFetchedAt = new Date().toISOString();
+        return report;
+      } catch {
+        return configStatus;
+      } finally {
+        configStatusRefreshInFlight = null;
+      }
+    })();
+    return configStatusRefreshInFlight;
   }
 
   async function refresh(): Promise<CardStatus[]> {
@@ -385,11 +396,36 @@ export async function startProbeServer(
         });
       }
 
+      if (path === "/api/config-status") {
+        if (method !== "GET") return methodNotAllowed(path, method, ["GET"]);
+        if (!configStatus) {
+          await refreshConfigStatus();
+        }
+        return jsonResponse({
+          ok: true,
+          configStatus: configStatus!,
+          fetchedAt: configStatusFetchedAt,
+        });
+      }
+
+      if (path === "/api/config-status") {
+        if (method !== "GET") return methodNotAllowed(path, method, ["GET"]);
+        const status = configStatus ?? (await refreshConfigStatus());
+        return jsonResponse({
+          ok: Boolean(status),
+          configStatus: status ?? null,
+          fetchedAt: configStatusFetchedAt,
+        });
+      }
+
       if (path === "/api/effect-benchmark") {
         if (!options.effectBenchmark) return notFound(path);
         if (method !== "GET") return methodNotAllowed(path, method, ["GET"]);
         if (!benchmarkEnvelope) {
           await refreshEffectBenchmark(false);
+        }
+        if (!configStatus) {
+          await refreshConfigStatus();
         }
         const probeSummary = {
           cardCount: cached.length,
@@ -403,7 +439,8 @@ export async function startProbeServer(
         );
         return jsonResponse({
           ...body,
-          ...(configStatus ? { configStatus } : {}),
+          configStatus: configStatus!,
+          configStatusFetchedAt,
           fetchedAt: benchmarkFetchedAt,
         });
       }
@@ -412,6 +449,9 @@ export async function startProbeServer(
         if (!options.effectBenchmark) return notFound(path);
         if (method !== "POST") return methodNotAllowed(path, method, ["POST"]);
         const envelope = await refreshEffectBenchmark(true);
+        if (!configStatus) {
+          await refreshConfigStatus();
+        }
         const probeSummary = {
           cardCount: cached.length,
           okCount: cached.filter((c) => c.status === "pass").length,
@@ -420,7 +460,8 @@ export async function startProbeServer(
         const body = withBenchmarkConvergence(envelope, envelope.runner, probeSummary);
         return jsonResponse({
           ...body,
-          ...(configStatus ? { configStatus } : {}),
+          configStatus: configStatus!,
+          configStatusFetchedAt,
           refreshedAt: benchmarkFetchedAt,
         });
       }

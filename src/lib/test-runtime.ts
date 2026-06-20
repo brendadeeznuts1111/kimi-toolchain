@@ -624,7 +624,8 @@ export const BUN_TEST_FLAG_INTERACTIONS = {
   /** Randomization applied within each shard after distribution. */
   shardRandomize: "--randomize shuffles within the shard",
   /** Zero files in a shard exits 0 gracefully (no error). Invalid inputs like 0/3, 4/3, 1/0 exit non-zero. */
-  shardEdgeCases: "--shard zero files exits 0; invalid inputs (0/3, 4/3, 1/0) exit non-zero with clear error",
+  shardEdgeCases:
+    "--shard zero files exits 0; invalid inputs (0/3, 4/3, 1/0) exit non-zero with clear error",
   /** Files sorted by path for determinism, distributed round-robin, balanced to within 1 file. 1-based index. */
   shardDeterminism: "--shard sorts by path round-robin balanced within 1 file 1-based index",
   /** --changed --watch re-queries git on every restart; any .ts edit triggers re-run. */
@@ -635,9 +636,11 @@ export const BUN_TEST_FLAG_INTERACTIONS = {
   /** --parallel sets BUN_TEST_WORKER_ID (1-based) and JEST_WORKER_ID in each worker. */
   parallelWorkerEnv: "--parallel sets BUN_TEST_WORKER_ID and JEST_WORKER_ID in worker env",
   /** Files partitioned for cache locality; idle workers steal from busiest queue. Output buffered per-file. */
-  parallelScheduling: "cache-locality partitioning work-stealing idle-workers atomic-per-file-output",
+  parallelScheduling:
+    "cache-locality partitioning work-stealing idle-workers atomic-per-file-output",
   /** console.log/console.error output is buffered per file and flushed atomically — files never interleave. */
-  parallelConsole: "console.log and console.error buffered per-file flushed atomically no interleaving",
+  parallelConsole:
+    "console.log and console.error buffered per-file flushed atomically no interleaving",
   /** --bail exits the entire run after N failures across all workers. */
   bailParallel: "--bail N with --parallel exits after N failures across workers",
   /** --concurrent runs tests concurrently within each worker file. */

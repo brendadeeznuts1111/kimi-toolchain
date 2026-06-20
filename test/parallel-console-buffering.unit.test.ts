@@ -28,8 +28,9 @@ describe("parallel-console-buffering", () => {
     }
 
     try {
-      const result =
-        await $`bun test --parallel=4 ${FIXTURE_DIR}/*.test.ts`.cwd(import.meta.dir).nothrow();
+      const result = await $`bun test --parallel=4 ${FIXTURE_DIR}/*.test.ts`
+        .cwd(import.meta.dir)
+        .nothrow();
 
       // All 4 tests should pass (exit 0 confirms console output worked correctly)
       expect(result.exitCode).toBe(0);

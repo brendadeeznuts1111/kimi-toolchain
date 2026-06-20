@@ -86,6 +86,14 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "email-i18n": "src/lib/email-i18n.ts",
   "url-i18n-gate": "src/gates/url-i18n.ts",
   "reclassify-failure-ledger": "scripts/reclassify-failure-ledger.ts",
+  "gzip-performance": "src/lib/bun-utils.ts",
+  "bun-crypto": "src/lib/bun-utils.ts",
+  "bun-image": "src/lib/bun-image.ts",
+  "bun-cron": "src/lib/bun-utils.ts",
+  "bun-markdown": "src/lib/bun-utils.ts",
+  "source-map-memory": "src/lib/bun-install-config.ts",
+  "parallel-console-buffering": "src/lib/bun-install-config.ts",
+  "parallel-console": "src/lib/bun-install-config.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */
