@@ -5,8 +5,12 @@ import {
   BUN_TEST_EXPLICIT_IMPORT,
   BUN_TEST_GLOBAL_NAMES,
   BUN_TEST_IMPORT_NAMES,
+  BUN_TEST_ISOLATION,
+  BUN_TEST_ISOLATION_AFTER_EACH_IMPORT,
+  BUN_TEST_MEMORY,
   BUN_TEST_PERFORMANCE,
   BUN_TEST_SIGNALS,
+  bunTestArgsIncludeFlag,
   describeBunTestExitCode,
   isBunCiDetectionEnv,
   isBunTestFailureExit,
@@ -321,15 +325,45 @@ test("slow", async () => {
     });
   });
 
-  describe("Bun performance considerations", () => {
-    // https://bun.com/docs/test/runtime-behavior#performance-considerations
-    test("documents low-memory and isolation flags", () => {
+  describe("Bun memory management", () => {
+    // https://bun.com/docs/test/runtime-behavior#memory-management
+    test("documents --smol and tier-based suite splitting", () => {
+      expect(BUN_TEST_MEMORY.lowMemoryFlag).toBe("--smol");
+      expect(BUN_TEST_MEMORY.packageScript).toBe("test:smol");
+      expect(BUN_TEST_MEMORY.splitStrategy).toBe("tier");
       expect(BUN_TEST_PERFORMANCE.lowMemoryFlag).toBe("--smol");
-      expect(BUN_TEST_PERFORMANCE.isolationFlag).toBe("--isolate");
-      expect(BUN_TEST_PERFORMANCE.singleProcessDefault).toBe(true);
     });
 
-    test("all kimi tiers enable per-file isolation", () => {
+    test("mergeBunTestInvocationArgs forwards --smol to bun test", () => {
+      const dir = testTempDir("test-smol-args-");
+      makeDir(dir, { recursive: true });
+      const merged = mergeBunTestInvocationArgs(
+        ["test", "--isolate"],
+        dir,
+        ["--smol"]
+      );
+      expect(bunTestArgsIncludeFlag(merged, "--smol")).toBe(true);
+    });
+
+    test("tier order splits suites instead of monolithic bun test", () => {
+      expect(TEST_TIER_ORDER).toEqual(["unit", "integration", "smoke"]);
+      expect(TEST_TIER_SPECS.unit.files.length).toBeGreaterThan(0);
+      expect(TEST_TIER_SPECS.smoke.files.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Bun test isolation", () => {
+    // https://bun.com/docs/test/runtime-behavior#test-isolation
+    test("documents file isolation and afterEach lifecycle", () => {
+      expect(BUN_TEST_ISOLATION.fileIsolationFlag).toBe("--isolate");
+      expect(BUN_TEST_ISOLATION.lifecycleHook).toBe("afterEach");
+      expect(BUN_TEST_ISOLATION.moduleResetCall).toBe("jest.resetModules()");
+      expect(BUN_TEST_ISOLATION.homeEnvKey).toBe("KIMI_TEST_HOME");
+      expect(BUN_TEST_ISOLATION_AFTER_EACH_IMPORT).toContain("afterEach");
+      expect(BUN_TEST_PERFORMANCE.isolationFlag).toBe("--isolate");
+    });
+
+    test("all kimi tiers enable per-file --isolate", () => {
       for (const tier of TEST_TIER_ORDER) {
         const spec = TEST_TIER_SPECS[tier];
         expect(tierUsesFileIsolation(spec)).toBe(true);
@@ -337,10 +371,44 @@ test("slow", async () => {
       }
     });
 
-    test("tier order splits suites for memory management", () => {
-      expect(TEST_TIER_ORDER).toEqual(["unit", "integration", "smoke"]);
-      expect(TEST_TIER_SPECS.unit.files.length).toBeGreaterThan(0);
-      expect(TEST_TIER_SPECS.smoke.files.length).toBeGreaterThan(0);
+    test("preload sets KIMI_TEST_HOME for HOME isolation", () => {
+      expect(Bun.env.KIMI_TEST_HOME).toBeTruthy();
+    });
+
+    test("native bun test: afterEach cleans shared global state", async () => {
+      const dir = testTempDir("bun-isolation-aftereach-");
+      makeDir(dir, { recursive: true });
+      const testPath = join(dir, "isolation.probe.test.ts");
+      writeText(
+        testPath,
+        `import { test, expect, afterEach } from "bun:test";
+const probe = globalThis as { kimiIsolationProbe?: string };
+test("sets global", () => {
+  probe.kimiIsolationProbe = "dirty";
+  expect(probe.kimiIsolationProbe).toBe("dirty");
+});
+afterEach(() => {
+  delete probe.kimiIsolationProbe;
+});
+test("global cleaned", () => {
+  expect(probe.kimiIsolationProbe).toBeUndefined();
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+    }, 15_000);
+  });
+
+  describe("Bun performance considerations", () => {
+    // https://bun.com/docs/test/runtime-behavior#performance-considerations
+    test("documents single-process default", () => {
+      expect(BUN_TEST_PERFORMANCE.singleProcessDefault).toBe(true);
     });
   });
 

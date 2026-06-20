@@ -7,6 +7,8 @@
  * @see https://bun.com/docs/test/runtime-behavior#signal-handling
  * @see https://bun.com/docs/test/runtime-behavior#environment-detection
  * @see https://bun.com/docs/test/runtime-behavior#performance-considerations
+ * @see https://bun.com/docs/test/runtime-behavior#memory-management
+ * @see https://bun.com/docs/test/runtime-behavior#test-isolation
  */
 
 import { existsSync } from "fs";
@@ -114,13 +116,38 @@ export function preservesBunDetectionEnv(
   return true;
 }
 
+/** Memory management (@see memory-management). */
+export const BUN_TEST_MEMORY = {
+  lowMemoryFlag: "--smol",
+  packageScript: "test:smol",
+  /** kimi splits large suites by {@link TEST_TIER_ORDER} instead of path globs. */
+  splitStrategy: "tier" as const,
+} as const;
+
+/** Test isolation in Bun's single-process runner (@see test-isolation). */
+export const BUN_TEST_ISOLATION = {
+  fileIsolationFlag: "--isolate",
+  lifecycleHook: "afterEach",
+  moduleResetCall: "jest.resetModules()",
+  /** Isolated HOME for unit tests — set in preload; use test/helpers `withIsolatedHome`. */
+  homeEnvKey: "KIMI_TEST_HOME",
+} as const;
+
+/** Canonical afterEach cleanup pattern from Bun docs (explicit import preferred in-repo). */
+export const BUN_TEST_ISOLATION_AFTER_EACH_IMPORT =
+  'import { afterEach } from "bun:test";';
+
 /** kimi posture vs Bun single-process defaults (@see performance-considerations). */
 export const BUN_TEST_PERFORMANCE = {
-  lowMemoryFlag: "--smol",
-  isolationFlag: "--isolate",
+  lowMemoryFlag: BUN_TEST_MEMORY.lowMemoryFlag,
+  isolationFlag: BUN_TEST_ISOLATION.fileIsolationFlag,
   /** Bun default; kimi splits unit → integration → smoke via {@link TEST_TIER_ORDER}. */
   singleProcessDefault: true,
 } as const;
+
+export function bunTestArgsIncludeFlag(args: readonly string[], flag: string): boolean {
+  return args.includes(flag);
+}
 
 export function tierUsesFileIsolation(spec: TestTierSpec): boolean {
   return spec.isolate;
