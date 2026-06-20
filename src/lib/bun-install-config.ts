@@ -630,7 +630,7 @@ export interface BunInstallEnvRow {
   description: string;
   officialDefault: string;
   current: string | null;
-  priority: "overrides bunfig";
+  priority: "higher priority than bunfig.toml";
   risky?: boolean;
   diagnostic?: boolean;
 }
@@ -666,6 +666,17 @@ export const BUN_INSTALL_ENV_VARS: readonly {
       "resolve only — no node_modules writes; useful for bun-create dry bootstrap probes",
     risky: true,
   },
+] as const;
+
+/** Bun install env vars from the official "Configuring with environment variables" table. */
+export const BUN_INSTALL_OFFICIAL_ENV_VAR_NAMES = [
+  "BUN_CONFIG_REGISTRY",
+  "BUN_CONFIG_TOKEN",
+  "BUN_CONFIG_YARN_LOCKFILE",
+  "BUN_CONFIG_LINK_NATIVE_BINS",
+  "BUN_CONFIG_SKIP_SAVE_LOCKFILE",
+  "BUN_CONFIG_SKIP_LOAD_LOCKFILE",
+  "BUN_CONFIG_SKIP_INSTALL_PACKAGES",
 ] as const;
 
 export interface BunfigInstallSection {
@@ -980,7 +991,7 @@ function buildEnvRows(): BunInstallEnvRow[] {
     description: spec.description,
     officialDefault: "unset",
     current: Bun.env[spec.name] ?? null,
-    priority: "overrides bunfig",
+    priority: "higher priority than bunfig.toml",
     risky: spec.risky,
     diagnostic: spec.diagnostic,
   }));

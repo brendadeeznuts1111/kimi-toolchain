@@ -84,6 +84,8 @@ export interface ProbeServerOptions {
   effectBenchmarkEnvelope?: BenchmarkApiEnvelope;
   /** Test/embedding seam: pre-seed the read-only config-status cache. */
   configStatus?: ConfigStatusReport;
+  /** Test/embedding seam: pre-seed the platform targeting snapshot. */
+  platformTargeting?: PlatformTargetingEnvelope;
 }
 
 export interface ProbeServerHandle {
@@ -159,10 +161,18 @@ function notFound(path: string): Response {
   );
 }
 
+export interface PlatformTargetingEnvelope {
+  current: { cpu: string; os: string };
+  lockfileBehavior: string;
+  supportedCpu: readonly string[];
+  supportedOs: readonly string[];
+}
+
 function cardsEnvelope(
   cards: CardStatus[],
   fetchedAt: string,
-  configStatus?: ConfigStatusReport
+  configStatus?: ConfigStatusReport,
+  platformTargeting?: PlatformTargetingEnvelope
 ): Record<string, unknown> {
   return {
     ok: true,
@@ -171,6 +181,7 @@ function cardsEnvelope(
     summary: summarizeCardStatuses(cards),
     fetchedAt,
     ...(configStatus ? { configStatus } : {}),
+    ...(platformTargeting ? { platformTargeting } : {}),
   };
 }
 
@@ -199,6 +210,12 @@ export async function startProbeServer(
   let benchmarkFetchedAt: string | null = null;
   let benchmarkRefreshInFlight: Promise<BenchmarkApiEnvelope> | null = null;
   let configStatus: ConfigStatusReport | undefined = options.configStatus;
+  let platformTargeting: PlatformTargetingEnvelope | undefined = options.platformTargeting ?? {
+    current: { cpu: process.arch, os: process.platform },
+    lockfileBehavior: "normalized cpu/os stored; skipped if disabled for target",
+    supportedCpu: ["arm64", "x64", "ia32", "ppc64", "s390x"] as const,
+    supportedOs: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix"] as const,
+  };
 
   async function refreshConfigStatus(): Promise<ConfigStatusReport | undefined> {
     try {
@@ -351,7 +368,7 @@ export async function startProbeServer(
 
       if (path === "/api/cards") {
         if (method !== "GET") return methodNotAllowed(path, method, ["GET"]);
-        return jsonResponse(cardsEnvelope(cached, lastFetchedAt, configStatus));
+        return jsonResponse(cardsEnvelope(cached, lastFetchedAt, configStatus, platformTargeting));
       }
 
       if (path === "/api/refresh") {
@@ -360,7 +377,7 @@ export async function startProbeServer(
         }
         const cards = await refresh();
         return jsonResponse({
-          ...cardsEnvelope(cards, lastFetchedAt, configStatus),
+          ...cardsEnvelope(cards, lastFetchedAt, configStatus, platformTargeting),
           refreshedAt: lastFetchedAt,
           artifactPath: lastArtifactPath,
         });

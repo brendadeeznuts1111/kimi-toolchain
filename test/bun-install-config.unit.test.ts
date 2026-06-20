@@ -11,6 +11,7 @@ import {
   BUN_WORKSPACE_ROOT_CONSUMER_LINK,
   BUN_INSTALL_ENV_VARS,
   BUN_INSTALL_PLATFORM_POLICY,
+  BUN_INSTALL_OFFICIAL_ENV_VAR_NAMES,
   BUN_INSTALL_POLICY_GROUP_ORDER,
   BUN_INSTALL_POLICY_MIN_BUN,
   BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV,
@@ -105,6 +106,38 @@ describe("bun-install-config", () => {
     expect(BUN_INSTALL_ENV_VARS.map((row) => row.name)).toContain(
       BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV
     );
+  });
+
+  test("BUN_INSTALL_ENV_VARS documents official higher-priority env overrides", async () => {
+    const dir = testTempDir("bun-install-env-priority-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    const names = BUN_INSTALL_ENV_VARS.map((row) => row.name);
+    expect(BUN_INSTALL_OFFICIAL_ENV_VAR_NAMES).toEqual([
+      "BUN_CONFIG_REGISTRY",
+      "BUN_CONFIG_TOKEN",
+      "BUN_CONFIG_YARN_LOCKFILE",
+      "BUN_CONFIG_LINK_NATIVE_BINS",
+      "BUN_CONFIG_SKIP_SAVE_LOCKFILE",
+      "BUN_CONFIG_SKIP_LOAD_LOCKFILE",
+      "BUN_CONFIG_SKIP_INSTALL_PACKAGES",
+    ]);
+    for (const name of BUN_INSTALL_OFFICIAL_ENV_VAR_NAMES) {
+      expect(names).toContain(name);
+    }
+
+    const report = await buildInstallPolicyReport(dir);
+    for (const name of BUN_INSTALL_OFFICIAL_ENV_VAR_NAMES) {
+      const row = report.envRows.find((env) => env.name === name);
+      expect(row?.priority).toBe("higher priority than bunfig.toml");
+    }
+    expect(report.envRows.find((env) => env.name === "BUN_CONFIG_REGISTRY")?.description).toContain(
+      "npm registry"
+    );
+    expect(
+      report.envRows.find((env) => env.name === "BUN_CONFIG_SKIP_INSTALL_PACKAGES")?.description
+    ).toContain("don't install any packages");
   });
 
   test("buildInstallPolicyReport groups tables in stable order", async () => {
