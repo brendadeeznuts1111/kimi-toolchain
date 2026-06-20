@@ -71,7 +71,7 @@ export function parseHookCommands(text: string): string[] {
   const commands: string[] = [];
   const blocks = text.split(/\[\[hooks\]\]/);
   for (const block of blocks.slice(1)) {
-    const command = block.match(/command\s*=\s*"([^"]+)")/s)?.[1];
+    const command = block.match(/command\s*=\s*"([^"]+)"/s)?.[1];
     if (command) commands.push(command);
   }
   return commands;
