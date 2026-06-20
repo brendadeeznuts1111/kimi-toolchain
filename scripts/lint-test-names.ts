@@ -65,6 +65,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "introspection-docs": "src/lib/scaffold-agents.ts",
   "examples-dashboard-routes": "examples/dashboard/src/index.ts",
   "examples-dashboard-artifacts": "examples/dashboard/src/handlers/artifacts.ts",
+  "examples-dashboard-canvas-filter": "examples/dashboard/src/handlers/canvas-cards.ts",
   "ci-pipeline": "src/lib/effect/ci-pipeline.ts",
   "ci-impact": "src/lib/ci-impact.ts",
   "agent-context-quality": "src/lib/agent-context-quality.ts",

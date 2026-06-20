@@ -232,6 +232,7 @@ export const UNIT_TEST_FILES = [
   "test/effect/kimi-introspection-services.unit.test.ts",
   "test/error-clustering.unit.test.ts",
   "test/examples-dashboard-artifacts.unit.test.ts",
+  "test/examples-dashboard-canvas-filter.unit.test.ts",
   "test/examples-dashboard-companion.unit.test.ts",
   "test/examples-dashboard-routes.unit.test.ts",
   "test/examples-dashboard-webview.unit.test.ts",

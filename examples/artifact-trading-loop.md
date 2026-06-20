@@ -93,6 +93,7 @@ intentionally phased — correlation first, narrative manifests second.
 | **1 — Identity on every save**             | Yes                          | `runId`, `sessionId`, `workspaceId`, `paneId`, `agentId`, `parentRunId` in `metadata`                                   |
 | **2 — Run manifest per doctor invocation** | Yes (with `--save-artifact`) | `.kimi/artifacts/runs/{runId}.json` groups all gates from one closure                                                   |
 | **3 — Query + dashboard narrative**        | Yes                          | `fetchDashboardRunsList` / `fetchDashboardRunManifest` on examples dashboard (`handlers/artifacts.ts`) and Herdr server |
+| **4 — Canvas deep-link integration**       | Yes                          | `GET /api/canvas-filter?canvas=artifact-lineage&runId=…` → `run-manifest` action; covered by `test/examples-dashboard-canvas-filter.unit.test.ts` |
 
 Gates do not pass identity fields manually. `ArtifactStore.save()` resolves
 context from the environment and always stamps a `runId`:
@@ -119,6 +120,10 @@ kimi-doctor --gate model-drift --save-artifact
 # Phase 3 — run narrative
 GET /api/runs
 GET /api/runs/run_20260619_120000_ab12cd
+
+# Phase 4 — reactive canvas deep link
+GET /api/canvas-filter?canvas=artifact-lineage&runId=run_20260619_120000_ab12cd
+open http://127.0.0.1:5678/?canvas=artifact-lineage&runId=run_20260619_120000_ab12cd
 ```
 
 Modules: `src/lib/artifact-store.ts`, `src/lib/artifact-identity.ts` (`resolveIdentityContext`),

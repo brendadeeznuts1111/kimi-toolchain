@@ -1,5 +1,5 @@
-import { join } from "path";
 import { applyCanvasFilter } from "../../../../src/lib/dashboard-canvas-filter.ts";
+import { resolveDashboardProjectRoot } from "../../../../src/lib/dashboard-settings.ts";
 import { fetchDashboardCanvases } from "../../../../src/lib/herdr-dashboard-data.ts";
 import {
   fetchDashboardCardsPayload,
@@ -14,7 +14,7 @@ import { apiPerfHarness, apiPerfRegistry } from "./perf-registry.ts";
 import { apiSymbols } from "./symbols.ts";
 import { apiEffectBenchmark } from "./effect-benchmark.ts";
 
-const REPO_ROOT = join(import.meta.dir, "../../../..");
+const projectRoot = () => resolveDashboardProjectRoot(import.meta.dir);
 const ROUTE_PROBE_TIMEOUT_MS = 5000;
 
 const HUB_PROBE_HANDLERS: Record<HubCardProbeId, () => Promise<Response>> = {
@@ -51,7 +51,7 @@ export async function collectAllCardProbes(request: Request): Promise<Record<str
   const hubSkip = new Set<string>(HUB_CARD_PROBE_IDS);
   const [hub, routes] = await Promise.all([
     collectHubCardProbes(),
-    probeAllRegistryRoutes(origin, REPO_ROOT, {
+    probeAllRegistryRoutes(origin, projectRoot(), {
       timeoutMs: ROUTE_PROBE_TIMEOUT_MS,
       skipCardIds: hubSkip,
     }),
@@ -76,7 +76,7 @@ export function apiCanvases(): Response {
 
 export async function apiCanvasFilter(request: Request): Promise<Response> {
   const url = new URL(request.url);
-  const result = await applyCanvasFilter(REPO_ROOT, url);
+  const result = await applyCanvasFilter(projectRoot(), url);
   return jsonResponse({
     ok: true,
     ...result,
@@ -90,7 +90,7 @@ export async function apiCards(request: Request): Promise<Response> {
   const orphans = url.searchParams.get("orphans") === "true";
   const deepProbe = url.searchParams.get("probe") !== "false";
   const probes = deepProbe ? await collectAllCardProbes(request) : await collectHubCardProbes();
-  const payload = await fetchDashboardCardsPayload(REPO_ROOT, {
+  const payload = await fetchDashboardCardsPayload(projectRoot(), {
     canvas: orphans ? null : canvas,
     orphans,
     probes,

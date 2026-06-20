@@ -273,19 +273,24 @@ Lint: `bun run scripts/lint-canvas-influences.ts` (gate: `canvas-influences` in 
 | `kimi-heal-doctor-scaffold`  | `deep-quality` | `card-gates`, `card-effect-image`                 |
 | `herdr-dashboard-automation` | `kimi-doctor`  | `card-kimi-doctor`                                |
 
-### v5.5 planning (partial)
+### v5.5 operator surface (shipped — bridge next)
 
-Builds on v5.4 registry + `/api/cards`. Deep links use manifest ids: `?canvas=deep-quality`.
+Builds on v5.4 registry + `/api/cards`. Deep links use canvas manifest ids (`artifact-lineage`, `gate-health`): `?canvas=artifact-lineage&runId=run_*`.
 
-| Priority | Deliverable                | Status                                                                                                                        |
-| -------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1        | **Hub card status probes** | **Shipped (slice)** — 6 cards via `HUB_CARD_PROBE_IDS` in `dashboard-card-registry.ts`; `apiCards` calls handlers in parallel |
-| 2        | **Herdr bridge**           | Not started — canvas row → `examples/dashboard?canvas=<manifestId>`                                                           |
-| 3        | **Unified surface**        | Not started — single tab Herdr + examples cards                                                                               |
+| Priority | Deliverable                     | Status                                                                                                                                                                                                 |
+| -------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1        | **Hub card status probes**      | **Shipped** — 7 cards via `HUB_CARD_PROBE_IDS`; in-process handlers + parallel route probes (`probeAllRegistryRoutes`)                                                                                 |
+| 2        | **Deep-link reactive canvas**   | **Shipped** — `dashboard-canvas-filter.ts`, `artifact-lineage.manifest.ts`, `GET /api/canvas-filter`, run/diff/session actions; `dashboard.html` `fetchAndApplyCanvasDeepLink()`                       |
+| 3        | **Run manifest APIs**           | **Shipped** — `fetchDashboardRunsList` / `fetchDashboardRunManifest` on examples dashboard + Herdr server (`handlers/artifacts.ts`)                                                                      |
+| 4        | **Structured HTTP audit**       | **Shipped** — `examples-dashboard-events.jsonl` via `dashboard-logger.ts` (see `error-log-discovery` sink `examples-dashboard-events`)                                                               |
+| 5        | **Herdr bridge**                | **Next** — Herdr canvas companion row → `http://127.0.0.1:5678/?canvas=<manifestId>&runId=…`                                                                                                           |
+| 6        | **Unified surface**             | Not started — single tab Herdr + examples cards                                                                                                                                                        |
 
-Hub probes: `card-gates`, `card-kimi-doctor`, `card-scaffold`, `card-perf-harness`, `card-symbols`, `card-perf-registry`. All other cards remain `unknown`.
+Hub probes: `card-gates`, `card-kimi-doctor`, `card-scaffold`, `card-perf-harness`, `card-perf-registry`, `card-effect-benchmark`, `card-symbols`. Non-hub cards use loopback GET probes (`x-kimi-dashboard-probe: 1`).
 
-Out of scope: live status for all 64 cards, combined Herdr+examples layout.
+Regression: `test/examples-dashboard-canvas-filter.unit.test.ts`, `test/dashboard-canvas-filter.unit.test.ts`.
+
+Out of scope: live status for all 67 cards, combined Herdr+examples layout.
 
 ## Related
 
