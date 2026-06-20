@@ -12,6 +12,10 @@ import {
   BUN_TEST_DEFAULT_TIMEOUT_MS,
   BUN_TEST_SIGNALS,
   BUN_TEST_TIMEOUTS,
+  BUN_TEST_TZ,
+  applyDefaultTestTimezone,
+  defaultTestTimezone,
+  isUtcTimezoneOffset,
   readTimeoutMsFromBunTestArgs,
   isDisabledTestTimeout,
   BUN_TEST_DEBUG,
@@ -128,9 +132,89 @@ test("probe", () => {
     expect(env.NODE_ENV).toBe("test");
   });
 
-  test("buildTestRunnerEnv defaults TZ to UTC", () => {
-    const env = buildTestRunnerEnv({});
-    expect(env.TZ).toBe("Etc/UTC");
+  describe("Bun TZ contract", () => {
+    // https://bun.com/docs/test/runtime-behavior#tz-timezone
+    test("documents UTC default and TZ env key", () => {
+      expect(BUN_TEST_TZ.defaultZone).toBe("Etc/UTC");
+      expect(BUN_TEST_TZ.envKey).toBe("TZ");
+      expect(defaultTestTimezone({})).toBe("Etc/UTC");
+      expect(defaultTestTimezone({ TZ: "America/New_York" })).toBe("America/New_York");
+      expect(isUtcTimezoneOffset(0)).toBe(true);
+      expect(isUtcTimezoneOffset(240)).toBe(false);
+    });
+
+    test("with kimi preload: timezone is UTC", () => {
+      expect(process.env.TZ).toBe("Etc/UTC");
+      expect(new Date().getTimezoneOffset()).toBe(0);
+    });
+
+    test("buildTestRunnerEnv defaults TZ to UTC when unset", () => {
+      withClearedEnv(["TZ"], () => {
+        const env = buildTestRunnerEnv({});
+        expect(env.TZ).toBe("Etc/UTC");
+      });
+    });
+
+    test("buildTestRunnerEnv preserves explicit TZ override", () => {
+      withEnv({ TZ: "America/New_York" }, () => {
+        const env = buildTestRunnerEnv({});
+        expect(env.TZ).toBe("America/New_York");
+      });
+    });
+
+    test("applyDefaultTestTimezone only fills missing TZ", () => {
+      const env: Record<string, string> = {};
+      applyDefaultTestTimezone(env);
+      expect(env.TZ).toBe("Etc/UTC");
+      env.TZ = "Europe/Berlin";
+      applyDefaultTestTimezone(env);
+      expect(env.TZ).toBe("Europe/Berlin");
+    });
+
+    test("native bun test: UTC when TZ is unset", async () => {
+      const dir = testTempDir("bun-tz-utc-");
+      makeDir(dir, { recursive: true });
+      const testPath = join(dir, "tz-utc.probe.test.ts");
+      writeText(
+        testPath,
+        `import { test, expect } from "bun:test";
+test("timezone is UTC by default", () => {
+  expect(new Date().getTimezoneOffset()).toBe(0);
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const spawnEnv = { ...process.env, NODE_ENV: "test" };
+      delete spawnEnv.TZ;
+      const code = await Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: spawnEnv,
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+    }, 15_000);
+
+    test("native bun test: TZ env overrides default UTC", async () => {
+      const dir = testTempDir("bun-tz-override-");
+      makeDir(dir, { recursive: true });
+      const testPath = join(dir, "tz-override.probe.test.ts");
+      writeText(
+        testPath,
+        `import { test, expect } from "bun:test";
+test("timezone follows TZ env", () => {
+  expect(process.env.TZ).toBe("America/New_York");
+  expect(new Date().getTimezoneOffset()).not.toBe(0);
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test", TZ: "America/New_York" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+    }, 15_000);
   });
 
   test("tier order runs unit before integration and smoke", () => {

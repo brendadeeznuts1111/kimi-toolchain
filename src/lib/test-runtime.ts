@@ -17,6 +17,7 @@
  * @see https://bun.com/docs/test/runtime-behavior#promise-rejections
  * @see https://bun.com/docs/test/runtime-behavior#unhandled-errors
  * @see https://bun.com/docs/test/runtime-behavior#test-timeouts
+ * @see https://bun.com/docs/test/runtime-behavior#tz-timezone
  */
 
 import { existsSync } from "fs";
@@ -74,6 +75,27 @@ export const BUN_TEST_EXIT = {
   /** Assertion failures; Bun 1.4 also uses 1 for module-level unhandled errors. */
   failures: 1,
 } as const;
+
+/** TZ defaults for `bun test` (@see tz-timezone). */
+export const BUN_TEST_TZ = {
+  defaultZone: "Etc/UTC",
+  envKey: "TZ",
+} as const;
+
+export function defaultTestTimezone(
+  env: Record<string, string | undefined> = process.env
+): string {
+  const tz = env[BUN_TEST_TZ.envKey];
+  return tz && tz.length > 0 ? tz : BUN_TEST_TZ.defaultZone;
+}
+
+export function applyDefaultTestTimezone(env: Record<string, string>): void {
+  if (!env[BUN_TEST_TZ.envKey]) env[BUN_TEST_TZ.envKey] = BUN_TEST_TZ.defaultZone;
+}
+
+export function isUtcTimezoneOffset(offsetMinutes: number): boolean {
+  return offsetMinutes === 0;
+}
 
 /** Bun per-test default when not overridden (@see test-timeouts). */
 export const BUN_TEST_DEFAULT_TIMEOUT_MS = 5_000;
@@ -573,7 +595,7 @@ export function buildTestRunnerEnv(
     if (value !== undefined) env[key] = value;
   }
   env.NODE_ENV = "test";
-  if (!env.TZ) env.TZ = "Etc/UTC";
+  applyDefaultTestTimezone(env);
   return env;
 }
 
