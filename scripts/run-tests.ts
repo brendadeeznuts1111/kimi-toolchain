@@ -15,7 +15,7 @@
  * @see https://bun.com/docs/guides/test/bail
  */
 
-import { existsSync, mkdirSync } from "fs";
+import { makeDir, pathExists } from "../src/lib/bun-io.ts";
 import { dirname, isAbsolute, join } from "path";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { artifactPath } from "../src/lib/artifacts.ts";
@@ -118,15 +118,15 @@ async function main() {
   } = parseCli();
   if (ci || coverage) {
     const artifactsDir = artifactPath(REPO_ROOT);
-    if (!existsSync(artifactsDir)) mkdirSync(artifactsDir, { recursive: true });
+    if (!pathExists(artifactsDir)) makeDir(artifactsDir, { recursive: true });
   }
   if (ci) {
     const reportPath = reporterOutfile ?? ".kimi-artifacts/reports/junit.xml";
     const reportDir = dirname(isAbsolute(reportPath) ? reportPath : join(REPO_ROOT, reportPath));
-    if (!existsSync(reportDir)) mkdirSync(reportDir, { recursive: true });
+    if (!pathExists(reportDir)) makeDir(reportDir, { recursive: true });
   }
   const testHome = artifactPath(REPO_ROOT, "test-home");
-  if (!existsSync(testHome)) mkdirSync(testHome, { recursive: true });
+  if (!pathExists(testHome)) makeDir(testHome, { recursive: true });
   process.env.KIMI_TEST_HOME = testHome;
 
   const rawBatches = bunTestArgBatches({

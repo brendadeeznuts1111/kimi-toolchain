@@ -2,9 +2,15 @@
  * Workspace health — single source of truth for repo/path/Cursor alignment.
  */
 
-import { removeFile } from "./bun-io.ts";
 import { basename, join, resolve } from "path";
-import { listDir, pathExists, pathExistsAsync, readTextAsync, resolveRealPath } from "./bun-io.ts";
+import {
+  listDir,
+  pathExists,
+  pathExistsAsync,
+  readTextAsync,
+  removeFile,
+  resolveRealPath,
+} from "./bun-io.ts";
 import { readPackageJson, safeParse } from "./utils.ts";
 
 import {

@@ -8,7 +8,7 @@
  */
 
 import { $ } from "bun";
-import { existsSync } from "fs";
+import { pathExists } from "../lib/bun-io.ts";
 import { join } from "path";
 
 const QUICK = Bun.argv.includes("--quick");
@@ -26,7 +26,7 @@ async function main() {
   const pkgPath = join(cwd, "package.json");
   const lockPath = join(cwd, "bun.lock");
 
-  if (!existsSync(pkgPath)) {
+  if (!pathExists(pkgPath)) {
     console.log("⚠ No package.json found — skipping drift check");
     process.exit(0);
   }
@@ -34,7 +34,7 @@ async function main() {
   const issues: DriftIssue[] = [];
 
   // Quick mode: just check if lockfile is stale vs package.json
-  if (QUICK && existsSync(lockPath)) {
+  if (QUICK && pathExists(lockPath)) {
     const pkgMtime = Bun.file(pkgPath).lastModified;
     const lockMtime = Bun.file(lockPath).lastModified;
     if (pkgMtime > lockMtime) {

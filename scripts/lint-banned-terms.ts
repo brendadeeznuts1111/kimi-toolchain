@@ -4,7 +4,7 @@
  * Markdown and docs are not covered by oxlint — this script gates them.
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "../src/lib/bun-io.ts";
 import { join, relative } from "path";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -85,7 +85,7 @@ async function main() {
     process.exit(1);
   }
 
-  if (!existsSync(join(REPO_ROOT, ".oxlintrc.json"))) {
+  if (!pathExists(join(REPO_ROOT, ".oxlintrc.json"))) {
     console.warn("  ⚠ .oxlintrc.json missing");
   }
 

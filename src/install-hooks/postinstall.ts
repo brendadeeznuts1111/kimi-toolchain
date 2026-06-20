@@ -4,7 +4,7 @@
  * Runs on `bun install -g` or `bun install`
  */
 
-import { existsSync } from "fs";
+import { pathExists } from "../lib/bun-io.ts";
 import { readableStreamToText } from "../lib/bun-utils.ts";
 import { join, resolve } from "path";
 import { Database } from "bun:sqlite";
@@ -29,7 +29,7 @@ async function main() {
   ensureDesktopLayout();
 
   const governorDefaults = join(GOVERNOR_DIR, "defaults.toml");
-  if (!existsSync(governorDefaults)) {
+  if (!pathExists(governorDefaults)) {
     await Bun.write(governorDefaults, DEFAULT_CONFIG_TEMPLATE);
   }
 
@@ -41,7 +41,7 @@ async function main() {
   );
 
   const dbPath = join(VAR_DIR, "sessions.db");
-  if (!existsSync(dbPath)) {
+  if (!pathExists(dbPath)) {
     console.log("  🗄 Initializing sessions.db...");
     const db = new Database(dbPath, { create: true });
     db.exec("PRAGMA journal_mode = WAL;");
@@ -50,7 +50,7 @@ async function main() {
   }
 
   const wrapperScript = join(REPO_ROOT, "scripts", "install-bin-wrappers.sh");
-  if (existsSync(wrapperScript)) {
+  if (pathExists(wrapperScript)) {
     const proc = Bun.spawn(["bash", wrapperScript], { stdout: "pipe", stderr: "pipe" });
     const exitCode = await proc.exited;
     if (exitCode === 0) {

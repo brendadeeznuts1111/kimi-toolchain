@@ -2,7 +2,7 @@
  * File watcher runner for scripts/check.ts --watch / --watch-tests.
  */
 
-import { watch } from "fs";
+import { watchPath } from "../src/lib/bun-io.ts";
 import { mergeWatchOptions, mergeWatchTestsOptions } from "../src/lib/check-watch.ts";
 import type { CheckOptions, CheckRunResult } from "../src/lib/check-types.ts";
 
@@ -23,7 +23,7 @@ export function startCheckWatchMode(
   watchOut(testOnly ? "👀 Watching for test changes..." : "👀 Watching for changes...");
 
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const watchers: ReturnType<typeof watch>[] = [];
+  const watchers: ReturnType<typeof watchPath>[] = [];
 
   const schedule = () => {
     if (timer) clearTimeout(timer);
@@ -53,8 +53,8 @@ export function startCheckWatchMode(
   for (const dir of WATCH_DIRS) {
     const path = `${projectRoot}/${dir}`;
     try {
-      const watcher = watch(path, { recursive: true }, (_event, filename) => {
-        if (!filename || IGNORE_PATTERN.test(filename)) return;
+      const watcher = watchPath(path, { recursive: true }, (_event, filename) => {
+        if (typeof filename !== "string" || !filename || IGNORE_PATTERN.test(filename)) return;
         schedule();
       });
       watchers.push(watcher);

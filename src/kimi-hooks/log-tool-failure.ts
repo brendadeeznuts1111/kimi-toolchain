@@ -7,7 +7,7 @@
  * ~/.kimi-code/var/tool-failures.jsonl.
  */
 
-import { existsSync, mkdirSync } from "fs";
+import { makeDir, pathExists } from "../lib/bun-io.ts";
 import { safeParse } from "../lib/utils.ts";
 import {
   buildClassifiedFailure,
@@ -82,7 +82,7 @@ async function main() {
 
   const logPath = failureLedgerPath();
   const varDir = logPath.slice(0, logPath.lastIndexOf("/"));
-  if (!existsSync(varDir)) mkdirSync(varDir, { recursive: true });
+  if (!pathExists(varDir)) makeDir(varDir, { recursive: true });
 
   await appendFailureRecord(record, logPath);
 
