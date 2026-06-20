@@ -140,6 +140,8 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run profile` | (synced from package.json) |
 | `bun run scope:run` | (synced from package.json) |
 
+| `bun run config:status` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                           |

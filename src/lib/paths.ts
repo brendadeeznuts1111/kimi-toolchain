@@ -60,6 +60,11 @@ export function failureLedgerPath(): string {
   return join(varDir(), "tool-failures.jsonl");
 }
 
+/** Return ~/.kimi-code/var/hook-errors.jsonl */
+export function hookErrorsPath(): string {
+  return join(varDir(), "hook-errors.jsonl");
+}
+
 /** Return ~/.kimi-code/var/herdr-alert-dedupe.jsonl */
 export function herdrAlertDedupeLedgerPath(): string {
   return join(varDir(), "herdr-alert-dedupe.jsonl");

@@ -8,6 +8,7 @@
  */
 
 import { makeDir, pathExists } from "../lib/bun-io.ts";
+import { appendHookError } from "../lib/hook-error-ledger.ts";
 import { safeParse } from "../lib/utils.ts";
 import {
   buildClassifiedFailure,
@@ -110,6 +111,10 @@ async function main() {
   }
 }
 
-main().catch(() => {
+main().catch(async (err: unknown) => {
+  await appendHookError(err).catch(() => {
+    // Last-resort fallback: if even the error ledger fails, silently exit so
+    // the Kimi Code runtime is not blocked by a misbehaving hook.
+  });
   process.exit(0);
 });

@@ -441,6 +441,38 @@ describe("bun-install-config", () => {
     expect(fix?.expected).toContain("bunfig.toml");
   });
 
+  const scopeRegistryCases: Array<{
+    label: string;
+    bunfig: string;
+    expected: Record<string, string>;
+  }> = [
+    {
+      label: "object scope registry",
+      bunfig: `[install.scopes]
+"@orgname" = { url = "https://npm.pkg.github.com/" }
+`,
+      expected: {
+        "@orgname": "https://npm.pkg.github.com/",
+      },
+    },
+    {
+      label: "string shorthand scope registry",
+      bunfig: `[install.scopes]
+other = "https://registry.example.test/"
+`,
+      expected: {
+        "@other": "https://registry.example.test/",
+      },
+    },
+  ];
+
+  test.each(scopeRegistryCases)(
+    "extractBunfigScopeRegistries supports $label",
+    ({ bunfig, expected }) => {
+      expect(extractBunfigScopeRegistries(bunfig)).toEqual(expected);
+    }
+  );
+
   test("findFrozenLockfileScopeRegistryFallbacks maps empty scoped lockfile registry to bunfig", () => {
     const bunfig = `[install.scopes]
 "@orgname" = { url = "https://npm.pkg.github.com/" }
@@ -456,10 +488,6 @@ other = "https://registry.example.test/"
   }
 }`;
 
-    expect(extractBunfigScopeRegistries(bunfig)).toEqual({
-      "@orgname": "https://npm.pkg.github.com/",
-      "@other": "https://registry.example.test/",
-    });
     expect(findFrozenLockfileScopeRegistryFallbacks(bunLock, bunfig)).toEqual([
       {
         packageName: "@orgname/package",

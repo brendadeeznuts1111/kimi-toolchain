@@ -934,7 +934,7 @@ export function findScopedRegistryFallbacksInBunLock(
   scopeRegistries: Record<string, string>
 ): FrozenLockfileScopeRegistryFallback[] {
   const fallbacks: FrozenLockfileScopeRegistryFallback[] = [];
-  const packageRows = /^\s*"(@[^"\/]+\/[^"]+)":\s*\[\s*"[^"]+"\s*,\s*"([^"]*)"/gm;
+  const packageRows = /^\s*"(@[^"/]+\/[^"]+)":\s*\[\s*"[^"]+"\s*,\s*"([^"]*)"/gm;
 
   for (const match of bunLockText.matchAll(packageRows)) {
     const [, packageName, registryUrl] = match;
