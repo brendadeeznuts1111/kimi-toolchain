@@ -20,8 +20,10 @@ export class ParallelGovernor {
   }
 
   run<T>(fn: () => Promise<T>): Effect.Effect<T, never> {
-    return Effect.acquireRelease(this.acquire(), () => this.release()).pipe(
-      Effect.flatMap(() => Effect.promise(() => fn()))
+    return Effect.acquireUseRelease(
+      this.acquire(),
+      () => Effect.promise(() => fn()),
+      () => this.release()
     );
   }
 

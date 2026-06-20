@@ -1,12 +1,13 @@
+import { Effect } from "effect";
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { cosineSimilarity, embedText, EMBEDDING_DIM } from "../src/lib/error-embedding.ts";
 import {
-  clusterFailureLedger,
+  clusterFailureLedgerEffect,
   matchErrorToClusters,
-  suggestForError,
+  suggestForErrorEffect,
 } from "../src/lib/error-clustering.ts";
 import { readFailureRecords } from "../src/lib/failure-ledger.ts";
 
@@ -61,12 +62,14 @@ describe("error-clustering", () => {
       ];
       writeFileSync(failurePath, records.map((r) => JSON.stringify(r)).join("\n"));
 
-      const report = await clusterFailureLedger({
-        failurePath,
-        tracePath: join(dir, "trace-events.jsonl"),
-        clustersPath: join(dir, "error-clusters.json"),
-        threshold: 0.35,
-      });
+      const report = await Effect.runPromise(
+        clusterFailureLedgerEffect({
+          failurePath,
+          tracePath: join(dir, "trace-events.jsonl"),
+          clustersPath: join(dir, "error-clusters.json"),
+          threshold: 0.35,
+        })
+      );
 
       expect(report.totalFailures).toBe(3);
       expect(report.summaries.length).toBeGreaterThanOrEqual(2);
@@ -100,17 +103,21 @@ describe("error-clustering", () => {
         })
       );
 
-      await clusterFailureLedger({
-        failurePath,
-        tracePath: join(dir, "trace-events.jsonl"),
-        clustersPath: join(dir, "error-clusters.json"),
-        threshold: 0.35,
-      });
+      await Effect.runPromise(
+        clusterFailureLedgerEffect({
+          failurePath,
+          tracePath: join(dir, "trace-events.jsonl"),
+          clustersPath: join(dir, "error-clusters.json"),
+          threshold: 0.35,
+        })
+      );
 
-      const suggestion = await suggestForError("error-suggest-1", {
-        failurePath,
-        tracePath: join(dir, "trace-events.jsonl"),
-      });
+      const suggestion = await Effect.runPromise(
+        suggestForErrorEffect("error-suggest-1", {
+          failurePath,
+          tracePath: join(dir, "trace-events.jsonl"),
+        })
+      );
       expect(suggestion?.errorId).toBe("error-suggest-1");
       expect(suggestion?.clusterId).toBeTruthy();
       expect(suggestion?.recommendation.length).toBeGreaterThan(0);
@@ -130,12 +137,14 @@ describe("error-clustering", () => {
         ].join("\n")
       );
 
-      const report = await clusterFailureLedger({
-        failurePath,
-        tracePath: join(dir, "trace-events.jsonl"),
-        clustersPath: join(dir, "error-clusters.json"),
-        threshold: 0.35,
-      });
+      const report = await Effect.runPromise(
+        clusterFailureLedgerEffect({
+          failurePath,
+          tracePath: join(dir, "trace-events.jsonl"),
+          clustersPath: join(dir, "error-clusters.json"),
+          threshold: 0.35,
+        })
+      );
       expect(report.totalFailures).toBe(1);
       const updated = await readFailureRecords(failurePath);
       expect(updated[0].errorId).toBeTruthy();

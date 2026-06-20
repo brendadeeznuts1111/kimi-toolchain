@@ -44,7 +44,7 @@ await Bun.write("package.json", JSON.stringify(pkg, null, 2) + "\\n");
       );
 
       const pack = Bun.spawnSync({
-        cmd: ["bun", "pm", "pack", "--filename", join(dist, "pack-lifecycle-demo.tgz"), "--quiet"],
+        cmd: ["bun", "pm", "pack", "--destination", dist, "--quiet"],
         cwd: dir,
         stdout: "pipe",
         stderr: "pipe",
@@ -52,7 +52,9 @@ await Bun.write("package.json", JSON.stringify(pkg, null, 2) + "\\n");
       const packOutput = `${new TextDecoder().decode(pack.stdout)}\n${new TextDecoder().decode(pack.stderr)}`;
       expect(pack.exitCode, packOutput).toBe(0);
 
-      const tarball = join(dist, "pack-lifecycle-demo.tgz");
+      const tarballs = [...new Bun.Glob("*.tgz").scanSync({ cwd: dist, absolute: true })];
+      expect(tarballs).toHaveLength(1);
+      const tarball = tarballs[0]!;
       const untar = Bun.spawnSync({
         cmd: ["tar", "-xzf", tarball, "-C", extract],
         stdout: "pipe",

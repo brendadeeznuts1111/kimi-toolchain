@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
@@ -8,7 +9,7 @@ import {
   recordDecision,
 } from "../src/lib/decision-ledger.ts";
 import { applyHealPlan, buildHealPlan, type HealPlan } from "../src/lib/self-healing.ts";
-import { clusterFailureLedger } from "../src/lib/error-clustering.ts";
+import { clusterFailureLedgerEffect } from "../src/lib/error-clustering.ts";
 import { writeFileSync } from "fs";
 
 function tempDir(): string {
@@ -35,12 +36,14 @@ describe("self-healing", () => {
         ].join("\n")
       );
 
-      const clusters = await clusterFailureLedger({
-        failurePath,
-        tracePath: join(dir, "trace-events.jsonl"),
-        clustersPath: join(dir, "error-clusters.json"),
-        threshold: 0.35,
-      });
+      const clusters = await Effect.runPromise(
+        clusterFailureLedgerEffect({
+          failurePath,
+          tracePath: join(dir, "trace-events.jsonl"),
+          clustersPath: join(dir, "error-clusters.json"),
+          threshold: 0.35,
+        })
+      );
 
       const plan = await buildHealPlan(dir, {
         clusters,
@@ -97,12 +100,14 @@ describe("self-healing", () => {
         ].join("\n")
       );
 
-      const clusters = await clusterFailureLedger({
-        failurePath,
-        tracePath: join(dir, "trace-events.jsonl"),
-        clustersPath: join(dir, "error-clusters.json"),
-        threshold: 0.35,
-      });
+      const clusters = await Effect.runPromise(
+        clusterFailureLedgerEffect({
+          failurePath,
+          tracePath: join(dir, "trace-events.jsonl"),
+          clustersPath: join(dir, "error-clusters.json"),
+          threshold: 0.35,
+        })
+      );
       const plan = await buildHealPlan(dir, {
         clusters,
         capabilities: {

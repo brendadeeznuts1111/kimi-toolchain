@@ -224,6 +224,7 @@ export const UNIT_TEST_FILES = [
   "test/handoff-log.unit.test.ts",
   "test/governor-config.unit.test.ts",
   "test/governor-spawn.unit.test.ts",
+  "test/governor-parallel.unit.test.ts",
   "test/governance-preflight.unit.test.ts",
   "test/canonical-references.unit.test.ts",
   "test/cursor-canvas-lint.unit.test.ts",

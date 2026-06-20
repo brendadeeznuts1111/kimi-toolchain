@@ -230,6 +230,7 @@ describe("bun-install-config", () => {
         expect(lines.some((l) => l.includes("sourceMapsMemory: optimized"))).toBe(true);
         expect(lines.some((l) => l.includes("pmPackLifecycleManifest: rereads"))).toBe(true);
         expect(lines.some((l) => l.includes("inspectorProfiler: available"))).toBe(true);
+        expect(lines.some((l) => l.includes("ffiCompilerPaths: env-aware"))).toBe(true);
         expect(lines.some((l) => l.includes("parallelConsole: buffered"))).toBe(true);
         expect(lines.some((l) => l.includes("Runtime environment"))).toBe(true);
         expect(lines.some((l) => l.includes("transpilerCache: snapshot-only"))).toBe(true);
@@ -335,6 +336,50 @@ describe("bun-install-config", () => {
       notes:
         "Bun implements the node:inspector Profiler API for CPU profiling and returns Chrome DevTools Protocol profile payloads.",
     });
+  });
+
+  test("buildInstallPolicyReport documents bun:ffi compiler path env support", async () => {
+    const dir = testTempDir("bun-install-ffi-compiler-paths-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    await withEnv({ C_INCLUDE_PATH: undefined, LIBRARY_PATH: undefined }, async () => {
+      const report = await buildInstallPolicyReport(dir);
+
+      expect(report.runtimeCapabilities.ffiCompilerPaths).toEqual({
+        status: "env-aware",
+        module: "bun:ffi",
+        env: {
+          C_INCLUDE_PATH: null,
+          LIBRARY_PATH: null,
+        },
+        appliesTo: "Bun built-in C compiler",
+        platformUse: "NixOS and non-FHS systems",
+        notes:
+          "Bun's built-in C compiler respects standard C_INCLUDE_PATH and LIBRARY_PATH values when resolving headers and libraries for bun:ffi.",
+      });
+    });
+  });
+
+  test("buildInstallPolicyReport captures bun:ffi compiler path env overrides", async () => {
+    const dir = testTempDir("bun-install-ffi-compiler-env-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    await withEnv(
+      {
+        C_INCLUDE_PATH: "/nix/store/demo-include/include",
+        LIBRARY_PATH: "/nix/store/demo-lib/lib",
+      },
+      async () => {
+        const report = await buildInstallPolicyReport(dir);
+
+        expect(report.runtimeCapabilities.ffiCompilerPaths.env).toEqual({
+          C_INCLUDE_PATH: "/nix/store/demo-include/include",
+          LIBRARY_PATH: "/nix/store/demo-lib/lib",
+        });
+      }
+    );
   });
 
   test("buildInstallPolicyReport documents Bun parallel console buffering", async () => {

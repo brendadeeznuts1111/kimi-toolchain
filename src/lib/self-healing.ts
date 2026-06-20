@@ -10,7 +10,7 @@ import { Effect } from "effect";
 import { readableStreamToText } from "./bun-utils.ts";
 import { capabilityReport, type CapabilityReport, type CapabilityResult } from "./capabilities.ts";
 import {
-  clusterFailureLedger,
+  clusterFailureLedgerEffect,
   type ErrorCluster,
   type ErrorClusterReport,
 } from "./error-clustering.ts";
@@ -196,10 +196,9 @@ export function buildHealPlanEffect(
   return Effect.gen(function* () {
     const clustersEffect = options.clusters
       ? Effect.succeed(options.clusters)
-      : Effect.tryPromise({
-          try: () => clusterFailureLedger({ threshold: options.threshold }),
-          catch: () => "cluster-read-failed",
-        }).pipe(Effect.catchAll(() => Effect.succeed(emptyClusterReport(options.threshold))));
+      : clusterFailureLedgerEffect({ threshold: options.threshold }).pipe(
+          Effect.catchAll(() => Effect.succeed(emptyClusterReport(options.threshold)))
+        );
     const capabilitiesEffect = options.capabilities
       ? Effect.succeed(options.capabilities)
       : Effect.tryPromise({

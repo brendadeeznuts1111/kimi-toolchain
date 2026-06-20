@@ -6,7 +6,7 @@
 import { Effect } from "effect";
 import { join } from "path";
 import { createLogger } from "../lib/logger.ts";
-import { clusterFailureLedger, matchErrorToClusters } from "../lib/error-clustering.ts";
+import { clusterFailureLedgerEffect, matchErrorToClusters } from "../lib/error-clustering.ts";
 import {
   applyHealPlan,
   buildHealPlan,
@@ -172,7 +172,7 @@ async function main(): Promise<number> {
   }
 
   if (command === "clusters") {
-    const report = await clusterFailureLedger({ threshold: threshold() });
+    const report = await Effect.runPromise(clusterFailureLedgerEffect({ threshold: threshold() }));
     if (json) await emitJson(report.summaries);
     else {
       logger.banner("Kimi Heal Clusters");
@@ -191,7 +191,7 @@ async function main(): Promise<number> {
       .join(" ")
       .trim();
     if (!text) throw new CliError({ message: "Usage: kimi-heal match <error-text>" });
-    const report = await clusterFailureLedger({ threshold: threshold() });
+    const report = await Effect.runPromise(clusterFailureLedgerEffect({ threshold: threshold() }));
     const match = matchErrorToClusters(text, report.clusters);
     if (json) await emitJson({ query: text, match });
     else if (match) {

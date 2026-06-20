@@ -767,6 +767,17 @@ export interface BunInstallRuntimeCapabilities {
     profileFormat: "Chrome DevTools Protocol";
     notes: string;
   };
+  ffiCompilerPaths: {
+    status: "env-aware";
+    module: "bun:ffi";
+    env: {
+      C_INCLUDE_PATH: string | null;
+      LIBRARY_PATH: string | null;
+    };
+    appliesTo: "Bun built-in C compiler";
+    platformUse: "NixOS and non-FHS systems";
+    notes: string;
+  };
   parallelConsole: {
     status: "buffered";
     appliesTo: "bun test --parallel";
@@ -1083,6 +1094,18 @@ function buildRuntimeCapabilities(
       notes:
         "Bun implements the node:inspector Profiler API for CPU profiling and returns Chrome DevTools Protocol profile payloads.",
     },
+    ffiCompilerPaths: {
+      status: "env-aware",
+      module: "bun:ffi",
+      env: {
+        C_INCLUDE_PATH: Bun.env.C_INCLUDE_PATH ?? null,
+        LIBRARY_PATH: Bun.env.LIBRARY_PATH ?? null,
+      },
+      appliesTo: "Bun built-in C compiler",
+      platformUse: "NixOS and non-FHS systems",
+      notes:
+        "Bun's built-in C compiler respects standard C_INCLUDE_PATH and LIBRARY_PATH values when resolving headers and libraries for bun:ffi.",
+    },
     parallelConsole: {
       status: "buffered",
       appliesTo: "bun test --parallel",
@@ -1395,6 +1418,7 @@ export function formatInstallPolicyReport(report: BunInstallConfigAudit): string
     `  sourceMapsMemory: ${report.runtimeCapabilities.sourceMapsMemory.status} (Bun 1.3.13+ compact maps)`,
     `  pmPackLifecycleManifest: ${report.runtimeCapabilities.pmPackLifecycleManifest.status} (${report.runtimeCapabilities.pmPackLifecycleManifest.command})`,
     `  inspectorProfiler: ${report.runtimeCapabilities.inspectorProfiler.status} (${report.runtimeCapabilities.inspectorProfiler.profileFormat})`,
+    `  ffiCompilerPaths: ${report.runtimeCapabilities.ffiCompilerPaths.status} (${report.runtimeCapabilities.ffiCompilerPaths.module})`,
     `  parallelConsole: ${report.runtimeCapabilities.parallelConsole.status} (${report.runtimeCapabilities.parallelConsole.flush})`,
     `  platformTargeting: ${report.runtimeCapabilities.platformTargeting.crossInstall.status} (${report.runtimeCapabilities.platformTargeting.cpu}/${report.runtimeCapabilities.platformTargeting.os})`,
     "Runtime environment:",

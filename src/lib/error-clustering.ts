@@ -192,12 +192,6 @@ export function clusterFailureLedgerEffect(
   });
 }
 
-export function clusterFailureLedger(
-  options: FailureClusterInput = {}
-): Promise<ErrorClusterReport> {
-  return Effect.runPromise(clusterFailureLedgerEffect(options));
-}
-
 export function suggestForErrorEffect(
   errorId: string,
   options: FailureClusterInput = {}
@@ -255,13 +249,6 @@ export function suggestForErrorEffect(
           "Review similar past errors and add a healing playbook for this cluster."),
     };
   });
-}
-
-export function suggestForError(
-  errorId: string,
-  options: FailureClusterInput = {}
-): Promise<ErrorSuggestion | null> {
-  return Effect.runPromise(suggestForErrorEffect(errorId, options));
 }
 
 export interface ErrorIdSuggestion {
