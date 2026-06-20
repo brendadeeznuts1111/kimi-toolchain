@@ -10,12 +10,20 @@ import {
   BUN_TEST_MEMORY,
   BUN_TEST_PERFORMANCE,
   BUN_TEST_SIGNALS,
+  BUN_TEST_DEBUG,
+  BUN_TEST_DEBUG_FLAGS,
   BUN_TEST_INSTALL,
   BUN_TEST_INSTALL_FLAGS,
+  BUN_TEST_MODULE_LOADING,
+  BUN_TEST_MODULE_LOADING_VALUE_FLAGS,
   BUN_TEST_WATCH,
+  bunTestDebugArgs,
+  readBunfigTestPreloadPaths,
   bunTestArgsIncludeFlag,
   bunTestWatchArgs,
+  isBunTestDebugFlag,
   isBunTestInstallFlag,
+  parseForwardedDebugFlags,
   parseForwardedInstallFlags,
   isBunTestHotMode,
   isBunTestWatchMode,
@@ -520,6 +528,89 @@ test("global cleaned", () => {
       expect(code).toBe(0);
       expect(out).toContain("--prefer-offline");
     }, 15_000);
+  });
+
+  describe("Bun debugging", () => {
+    // https://bun.com/docs/test/runtime-behavior#debugging
+    test("documents inspect flags and test:debug script", () => {
+      expect(BUN_TEST_DEBUG_FLAGS).toEqual(["--inspect", "--inspect-brk"]);
+      expect(BUN_TEST_DEBUG.packageScript).toBe("test:debug");
+      expect(isBunTestDebugFlag("--inspect-brk")).toBe(true);
+      expect(isBunTestDebugFlag("--smol")).toBe(false);
+    });
+
+    test("bunTestDebugArgs attaches debugger with isolate by default", () => {
+      expect(bunTestDebugArgs()).toEqual(["test", "--inspect", "--isolate"]);
+      expect(bunTestDebugArgs({ breakOnStart: true })).toEqual([
+        "test",
+        "--inspect-brk",
+        "--isolate",
+      ]);
+    });
+
+    test("parseForwardedDebugFlags extracts inspect flags", () => {
+      expect(parseForwardedDebugFlags(["--", "--inspect-brk", "--smol"])).toEqual([
+        "--inspect-brk",
+      ]);
+    });
+
+    test("package.json test:debug uses --inspect and --isolate", async () => {
+      const pkg = (await Bun.file(join(REPO_ROOT, "package.json")).json()) as {
+        scripts: Record<string, string>;
+      };
+      expect(pkg.scripts["test:debug"]).toContain("--inspect");
+      expect(pkg.scripts["test:debug"]).toContain("--isolate");
+      expect(pkg.scripts["test:debug"]).not.toContain("--inspect-brk");
+    });
+
+    test("bun CLI advertises --inspect and --inspect-brk", async () => {
+      const proc = Bun.spawn(["bun", "--help"], { stdout: "pipe", stderr: "pipe" });
+      const [code, out] = await Promise.all([
+        proc.exited,
+        new Response(proc.stdout).text(),
+      ]);
+      expect(code).toBe(0);
+      expect(out).toContain("--inspect");
+      expect(out).toContain("--inspect-brk");
+    }, 15_000);
+  });
+
+  describe("Bun module loading", () => {
+    // https://bun.com/docs/test/runtime-behavior#module-loading
+    test("documents module-loading flags and kimi SSOT paths", () => {
+      expect(BUN_TEST_MODULE_LOADING_VALUE_FLAGS).toContain("--preload");
+      expect(BUN_TEST_MODULE_LOADING_VALUE_FLAGS).toContain("--define");
+      expect(BUN_TEST_MODULE_LOADING_VALUE_FLAGS).toContain("--env-file");
+      expect(BUN_TEST_MODULE_LOADING.bunfigPreloadRelPath).toBe("./test/setup.ts");
+      expect(BUN_TEST_MODULE_LOADING.defaultEnvFile).toBe(TEST_ENV_FILE);
+      expect(BUN_TEST_MODULE_LOADING.defineRegistry).toBe("bunfig.toml [define]");
+    });
+
+    test("readBunfigTestPreloadPaths reads declarative preload from bunfig", () => {
+      const paths = readBunfigTestPreloadPaths(REPO_ROOT);
+      expect(paths).toContain("./test/setup.ts");
+    });
+
+    test("parseForwardedBunTestArgs forwards --preload and --define values", () => {
+      expect(
+        parseForwardedBunTestArgs([
+          "--preload",
+          "./extra-setup.ts",
+          "--define",
+          "KIMI_PROBE=1",
+        ])
+      ).toEqual(["--preload", "./extra-setup.ts", "--define", "KIMI_PROBE=1"]);
+      expect(parseForwardedBunTestArgs(["--conditions=development"])).toEqual([
+        "--conditions=development",
+      ]);
+    });
+
+    test("bunfig.toml declares [test].preload and [define] registry", async () => {
+      const text = await Bun.file(join(REPO_ROOT, "bunfig.toml")).text();
+      expect(text).toContain('[test]');
+      expect(text).toContain('preload = ["./test/setup.ts"]');
+      expect(text).toContain("[define]");
+    });
   });
 
   describe("Bun CLI flags integration", () => {

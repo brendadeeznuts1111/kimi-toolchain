@@ -11,6 +11,8 @@
  * @see https://bun.com/docs/test/runtime-behavior#test-isolation
  * @see https://bun.com/docs/test/runtime-behavior#watch-and-hot-reloading
  * @see https://bun.com/docs/test/runtime-behavior#installation-related-flags
+ * @see https://bun.com/docs/test/runtime-behavior#debugging
+ * @see https://bun.com/docs/test/runtime-behavior#module-loading
  */
 
 import { existsSync } from "fs";
@@ -222,11 +224,82 @@ export function parseForwardedInstallFlags(argv: readonly string[]): string[] {
   return parseForwardedBunTestArgs(argv).filter(isBunTestInstallFlag);
 }
 
+/** Debugger attachment flags (@see debugging). Root Bun CLI flags — see `bun --help`. */
+export const BUN_TEST_DEBUG = {
+  inspectFlag: "--inspect",
+  inspectBrkFlag: "--inspect-brk",
+  packageScript: "test:debug",
+} as const;
+
+export const BUN_TEST_DEBUG_FLAGS = [
+  BUN_TEST_DEBUG.inspectFlag,
+  BUN_TEST_DEBUG.inspectBrkFlag,
+] as const;
+
+export function isBunTestDebugFlag(flag: string): flag is (typeof BUN_TEST_DEBUG_FLAGS)[number] {
+  return (BUN_TEST_DEBUG_FLAGS as readonly string[]).includes(flag);
+}
+
+export function parseForwardedDebugFlags(argv: readonly string[]): string[] {
+  return parseForwardedBunTestArgs(argv).filter(isBunTestDebugFlag);
+}
+
+/** Args for attaching a debugger to the test runner process. */
+export function bunTestDebugArgs(
+  options: { breakOnStart?: boolean; isolate?: boolean } = {}
+): string[] {
+  const args = [
+    "test",
+    options.breakOnStart ? BUN_TEST_DEBUG.inspectBrkFlag : BUN_TEST_DEBUG.inspectFlag,
+  ];
+  if (options.isolate !== false) args.push(BUN_TEST_ISOLATION.fileIsolationFlag);
+  return args;
+}
+
+/** Module-loading flags (@see module-loading). */
+export const BUN_TEST_MODULE_LOADING = {
+  preloadFlag: "--preload",
+  defineFlag: "--define",
+  loaderFlag: "--loader",
+  tsconfigOverrideFlag: "--tsconfig-override",
+  conditionsFlag: "--conditions",
+  envFileFlag: "--env-file",
+  /** Declarative SSOT: bunfig.toml [test].preload */
+  bunfigPreloadRelPath: "./test/setup.ts",
+  defaultEnvFile: TEST_ENV_FILE,
+  defineRegistry: "bunfig.toml [define]",
+} as const;
+
+/** Module-loading flags that take a value (flag + token or --flag=value). */
+export const BUN_TEST_MODULE_LOADING_VALUE_FLAGS = [
+  BUN_TEST_MODULE_LOADING.preloadFlag,
+  BUN_TEST_MODULE_LOADING.defineFlag,
+  BUN_TEST_MODULE_LOADING.loaderFlag,
+  BUN_TEST_MODULE_LOADING.tsconfigOverrideFlag,
+  BUN_TEST_MODULE_LOADING.conditionsFlag,
+  BUN_TEST_MODULE_LOADING.envFileFlag,
+] as const;
+
+/** Read [test].preload paths from bunfig.toml (declarative preload SSOT). */
+export function readBunfigTestPreloadPaths(repoRoot: string): string[] {
+  const bunfigPath = join(repoRoot, "bunfig.toml");
+  let text: string;
+  try {
+    text = readText(bunfigPath);
+  } catch {
+    return [];
+  }
+  const section = text.match(/\[test\][\s\S]*?(?=\n\[|\n*$)/);
+  if (!section) return [];
+  const preload = section[0].match(/preload\s*=\s*\[([^\]]*)\]/);
+  if (!preload) return [];
+  return [...preload[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]!);
+}
+
 /** Bun test CLI flags we forward from scripts (see Bun CLI flags integration doc). */
 export const FORWARDABLE_BUN_TEST_FLAGS = [
   "--smol",
-  "--inspect",
-  "--inspect-brk",
+  ...BUN_TEST_DEBUG_FLAGS,
   ...BUN_TEST_INSTALL_FLAGS,
 ] as const;
 
@@ -328,6 +401,19 @@ export function warnIfTestEnvFileSetsNodeEnv(repoRoot: string): void {
  *   bun run scripts/test-fast.ts -- --smol
  *   bun run scripts/test-fast.ts --inspect
  */
+function pushValueFlag(out: string[], flag: string, value: string | undefined): void {
+  if (value) out.push(flag, value);
+}
+
+function isModuleLoadingValueFlag(arg: string): boolean {
+  return (
+    (BUN_TEST_MODULE_LOADING_VALUE_FLAGS as readonly string[]).includes(arg) ||
+    (BUN_TEST_MODULE_LOADING_VALUE_FLAGS as readonly string[]).some((flag) =>
+      arg.startsWith(`${flag}=`)
+    )
+  );
+}
+
 export function parseForwardedBunTestArgs(argv: readonly string[]): string[] {
   const dash = argv.indexOf("--");
   if (dash >= 0) return argv.slice(dash + 1).filter(Boolean);
@@ -339,12 +425,18 @@ export function parseForwardedBunTestArgs(argv: readonly string[]): string[] {
       out.push(arg);
       continue;
     }
-    if (arg === "--env-file") {
-      const next = argv[++i];
-      if (next) out.push("--env-file", next);
-      continue;
+    if (isModuleLoadingValueFlag(arg)) {
+      for (const flag of BUN_TEST_MODULE_LOADING_VALUE_FLAGS) {
+        if (arg === flag) {
+          pushValueFlag(out, flag, argv[++i]);
+          break;
+        }
+        if (arg.startsWith(`${flag}=`)) {
+          out.push(arg);
+          break;
+        }
+      }
     }
-    if (arg.startsWith("--env-file=")) out.push(arg);
   }
   return out;
 }

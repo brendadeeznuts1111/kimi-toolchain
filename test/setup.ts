@@ -1,5 +1,6 @@
 /**
  * Test preload — ensures KIMI_TEST_HOME exists for isolated unit tests.
+ * @see https://bun.com/docs/test/runtime-behavior#module-loading
  * @see https://bun.com/docs/test/runtime-behavior#test-isolation
  * Smoke tests keep real HOME; unit tests set Bun.env.HOME = Bun.env.KIMI_TEST_HOME.
  */
