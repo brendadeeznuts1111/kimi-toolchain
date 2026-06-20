@@ -797,6 +797,7 @@ export interface BunInstallRuntimeCapabilities {
     status: "node-compatible";
     property: "_idleStart";
     objects: readonly ["setTimeout", "setInterval"];
+    rescheduledBy: readonly ["Timeout.refresh()"];
     timestamp: "monotonic milliseconds";
     compatibility: "Next.js 16 Cache Components";
     notes: string;
@@ -1177,10 +1178,11 @@ function buildRuntimeCapabilities(
       status: "node-compatible",
       property: "_idleStart",
       objects: ["setTimeout", "setInterval"],
+      rescheduledBy: ["Timeout.refresh()"],
       timestamp: "monotonic milliseconds",
       compatibility: "Next.js 16 Cache Components",
       notes:
-        "Timeout objects returned by setTimeout and setInterval expose Node-compatible _idleStart timestamps for framework timer coordination.",
+        "Timeout objects returned by setTimeout and setInterval expose Node-compatible _idleStart timestamps; Timeout.refresh updates the timestamp when rescheduled.",
     },
     parallelConsole: {
       status: "buffered",

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 interface NodeCompatTimer {
   _idleStart: number;
+  refresh: () => NodeCompatTimer;
 }
 
 function asNodeCompatTimer(timer: ReturnType<typeof setTimeout>): NodeCompatTimer {
@@ -38,7 +39,23 @@ describe("bun-timer-idle-start", () => {
     }
   });
 
-  test("setInterval returns a Timeout with _idleStart and reschedules it", async () => {
+  test("Timeout.refresh updates _idleStart to the reschedule time", async () => {
+    const timeout = setTimeout(() => {}, 1_000);
+    try {
+      const timer = asNodeCompatTimer(timeout);
+      const initialIdleStart = timer._idleStart;
+
+      await Bun.sleep(20);
+      const refreshed = timer.refresh();
+
+      expect(refreshed).toBe(timer);
+      expect(timer._idleStart).toBeGreaterThan(initialIdleStart);
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+
+  test("setInterval keeps _idleStart available while ticking", async () => {
     let ticks = 0;
     const interval = setInterval(() => {
       ticks++;
@@ -53,6 +70,8 @@ describe("bun-timer-idle-start", () => {
       await Bun.sleep(35);
 
       expect(ticks).toBeGreaterThan(0);
+      expect(typeof timer._idleStart).toBe("number");
+      expect(Number.isFinite(timer._idleStart)).toBe(true);
       expect(timer._idleStart).toBeGreaterThanOrEqual(initialIdleStart);
     } finally {
       clearInterval(interval);

@@ -47,4 +47,22 @@ describe("bun-build", () => {
       removePath(FIXTURE_DIR, { recursive: true, force: true });
     }
   });
+
+  test("compile target does not throw (BUN_OPTIONS fix guard)", async () => {
+    makeDir(FIXTURE_DIR, { recursive: true });
+    writeText(join(FIXTURE_DIR, "cli.ts"), 'console.log("ok");');
+    try {
+      const result = await Bun.build({
+        entrypoints: [join(FIXTURE_DIR, "cli.ts")],
+        target: "bun",
+        compile: true,
+      });
+      expect(result.success).toBe(true);
+      // compile: true produces an executable binary (kind may vary by Bun version)
+      expect(result.outputs.length).toBeGreaterThan(0);
+      expect(["entry-point", "executable", "bytecode"]).toContain(result.outputs[0].kind);
+    } finally {
+      removePath(FIXTURE_DIR, { recursive: true, force: true });
+    }
+  });
 });
