@@ -259,6 +259,8 @@ Contracts in `test-runtime.ts` align with these Bun docs:
 
 Code constants: `BUN_TEST_FLAG_INTERACTIONS` (16 compositions) and `BUN_TEST_RECOMMENDED_COMBINATIONS` (7 workflows) in `src/lib/test-runtime.ts`.
 
+> **Defaults:** When flags are omitted, Bun uses these defaults: `--timeout=5000`, `--bail=1` (when passed), `--max-concurrency=20`, `--reporter=console`, `--coverage-reporter=text`, `--coverage-dir=coverage`. See `BUN_TEST_DEFAULTS` in `test-runtime.ts`.
+
 ## Example patterns
 
 ### Temp directory with cleanup
