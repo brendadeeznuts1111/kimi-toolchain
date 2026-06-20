@@ -263,7 +263,8 @@ test("timezone follows TZ env", () => {
   test("unit tier uses parallel isolate args", () => {
     const args = bunTestArgsForTier(TEST_TIER_SPECS.unit);
     expect(args).toContain("--isolate");
-    expect(args).toContain("--parallel");
+    expect(args).toContain("--parallel=4");
+    expect(args).not.toContain("--parallel");
     expect(args[0]).toBe("test");
   });
 
@@ -1506,7 +1507,8 @@ test("global cleaned", () => {
     test("bunTestArgsForChanged includes isolate and parallel", () => {
       const args = bunTestArgsForChanged("HEAD");
       expect(args).toContain("--isolate");
-      expect(args).toContain("--parallel");
+      expect(args).toContain("--parallel=4");
+      expect(args).not.toContain("--parallel");
       expect(args.some((arg) => arg.startsWith("--changed="))).toBe(true);
     });
   });

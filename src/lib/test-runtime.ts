@@ -622,6 +622,72 @@ export const BUN_TEST_FLAG_INTERACTIONS = {
   retryParallel: "--retry N with --parallel retries per-worker before aggregation",
 } as const;
 
+/**
+ * Curated flag combinations for common test workflows.
+ * These are starting points — adjust based on the task at hand.
+ * @see test/testing.md § Recommended flag combinations
+ */
+export const BUN_TEST_RECOMMENDED_COMBINATIONS = {
+  /** Fast one-shot smoke / gate (used by pre-push and CI quick checks). */
+  fastSmoke: {
+    description: "Quick validation of a focused test file or pattern",
+    example: "bun test -t serve-probe ./test/portal-convergence.unit.test.ts",
+    flags: ["--test-name-pattern", "-t"],
+    notes: "Use with an explicit file path for best speed. Avoid --changed here.",
+  },
+
+  /** Focused local development loop. */
+  focusedWatch: {
+    description: "Best DX for iterating on a specific test file",
+    example: "bun test --watch ./test/portal-convergence.unit.test.ts -t serve-probe",
+    flags: ["--watch"],
+    notes: "Do NOT combine with --changed. Use explicit file + pattern instead.",
+  },
+
+  /** Parallel execution for faster local/CI runs. */
+  parallelLocal: {
+    description: "Run tests across workers for better throughput",
+    example: "bun test --parallel",
+    flags: ["--parallel", "--isolate"],
+    notes:
+      "--parallel implies --isolate per worker (see BUN_TEST_FLAG_INTERACTIONS.parallelIsolate).",
+  },
+
+  /** CI-friendly full run with sharding. */
+  ciSharded: {
+    description: "Recommended for CI pipelines with multiple jobs",
+    example: "bun test --shard=${SHARD_INDEX}/${SHARD_TOTAL} --parallel",
+    flags: ["--shard", "--parallel", "--bail"],
+    notes:
+      "Combine with --changed in PRs for faster feedback (see BUN_TEST_FLAG_INTERACTIONS.changedShard).",
+  },
+
+  /** Debugging flaky tests. */
+  debugFlaky: {
+    description: "Isolate and retry to surface intermittent failures",
+    example: "bun test --isolate --retry=3 --bail=1 ./test/some-flaky.test.ts",
+    flags: ["--isolate", "--retry", "--bail"],
+    notes: "Avoid --parallel when debugging specific tests.",
+  },
+
+  /** Coverage run. */
+  coverage: {
+    description: "Generate coverage with reasonable performance",
+    example: "bun test --coverage --parallel",
+    flags: ["--coverage", "--parallel"],
+    notes:
+      "Coverage aggregates across parallel workers (see BUN_TEST_FLAG_INTERACTIONS.coverageParallel).",
+  },
+
+  /** Snapshot update (intentional). */
+  updateSnapshots: {
+    description: "Update snapshots during development",
+    example: "bun test -u ./test/some-component.test.ts",
+    flags: ["--update-snapshots", "-u"],
+    notes: "Only run on files you intend to update.",
+  },
+} as const;
+
 /** Read optional `[test].root` from bunfig.toml (discovery scan root). */
 export function readBunfigTestRoot(repoRoot: string): string | undefined {
   const root = readBunfigTestConfig(repoRoot)?.root;
@@ -1242,7 +1308,7 @@ export function bunTestArgsForTier(
 ): string[] {
   const args = ["test", "--timeout", String(spec.timeoutMs)];
   if (spec.isolate) args.push("--isolate");
-  if (spec.parallel !== undefined) args.push("--parallel", String(spec.parallel));
+  if (spec.parallel !== undefined) args.push(`--parallel=${spec.parallel}`);
   args.push(...spec.files);
   if (options.repoRoot) {
     return mergeBunTestInvocationArgs(args, options.repoRoot, options.forwarded ?? []);
@@ -1264,7 +1330,7 @@ export function bunTestArgsForChanged(
     "--timeout",
     String(options.timeoutMs ?? DEFAULT_TEST_TIMEOUT_MS),
     "--isolate",
-    "--parallel",
+    "--parallel=4",
   ];
   if (options.repoRoot) {
     return mergeBunTestInvocationArgs(args, options.repoRoot, options.forwarded ?? []);

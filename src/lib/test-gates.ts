@@ -373,7 +373,7 @@ export function bunTestArgs(options: {
     // --isolate drains microtasks and closes sockets between files, preventing
     // the global-state leaks that cause hung workers (SIGTERM 143).
     const parallel = Bun.env.KIMI_TEST_PARALLEL ? Number(Bun.env.KIMI_TEST_PARALLEL) : 4;
-    args.push("--parallel", String(parallel), "--isolate", ...UNIT_TEST_FILES);
+    args.push(`--parallel=${parallel}`, "--isolate", ...UNIT_TEST_FILES);
   } else if (options.integration) {
     args.push("--isolate", ...INTEGRATION_TEST_FILES);
   } else if (options.smoke) {
