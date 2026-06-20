@@ -162,36 +162,6 @@ export function PipelineEnvLive(options: PipelineOptions) {
   });
 }
 
-export function runCiPipeline(options: PipelineOptions): Promise<number> {
-  const wallClockStarted = Date.now();
-  return Effect.runPromise(
-    pipelineProgram().pipe(
-      Effect.provide(PipelineEnvLive(options)),
-      Effect.tap((report) =>
-        Effect.sync(() => printReport(report, options.json ?? false, Date.now() - wallClockStarted))
-      ),
-      Effect.as(0),
-      Effect.catchAll((error) =>
-        Effect.sync(() => {
-          if (error instanceof PipelineRunFailedError) {
-            printPipelineError(error.cause);
-            printMetricsLine(error.metrics, Date.now() - wallClockStarted, error.dryRun, "failed");
-          } else {
-            printPipelineError(error);
-            printMetricsLine(
-              genericFailureMetrics(Date.now() - wallClockStarted),
-              Date.now() - wallClockStarted,
-              options.dryRun ?? false,
-              "failed"
-            );
-          }
-          return 1;
-        })
-      )
-    )
-  );
-}
-
 export function pipelineProgram(): Effect.Effect<PipelineReport, PipelineError, PipelineEnv> {
   return Effect.gen(function* () {
     const env = yield* PipelineEnv;
@@ -749,7 +719,7 @@ function isImpactConfig(value: unknown): value is ImpactConfig {
   );
 }
 
-function printReport(report: PipelineReport, json: boolean, wallClockMs: number): void {
+export function printReport(report: PipelineReport, json: boolean, wallClockMs: number): void {
   if (json) {
     writeOut(
       `${JSON.stringify(
@@ -783,7 +753,7 @@ function printReport(report: PipelineReport, json: boolean, wallClockMs: number)
   printMetricsLine(report.metrics, wallClockMs, report.dryRun, "ok");
 }
 
-function printPipelineError(error: PipelineError): void {
+export function printPipelineError(error: PipelineError): void {
   if (error instanceof PipelineRunFailedError) {
     printPipelineError(error.cause);
     return;
@@ -818,7 +788,7 @@ function printPipelineError(error: PipelineError): void {
   writeErr(`[ci] failed: ${String(error)}\n`);
 }
 
-function printMetricsLine(
+export function printMetricsLine(
   metrics: PipelineMetrics,
   wallClockMs: number,
   dryRun: boolean,
@@ -851,7 +821,7 @@ function getCancellationLatencyMs(error: PipelineExecutionError): number | null 
   return error instanceof PipelineInterruptedError ? error.cancellationLatencyMs : null;
 }
 
-function genericFailureMetrics(durationMs: number): PipelineMetrics {
+export function genericFailureMetrics(durationMs: number): PipelineMetrics {
   return {
     skippedEffectsCount: 0,
     totalEffectsCount: FULL_EFFECT_IDS.length,

@@ -3,8 +3,18 @@
  * Thin Bun wrapper for the Effect CI pipeline.
  */
 
+import { Effect } from "effect";
 import { join } from "path";
-import { runCiPipeline, type PipelineOptions } from "../src/lib/effect/ci-pipeline.ts";
+import {
+  pipelineProgram,
+  PipelineEnvLive,
+  PipelineRunFailedError,
+  printPipelineError,
+  printMetricsLine,
+  printReport,
+  genericFailureMetrics,
+  type PipelineOptions,
+} from "../src/lib/effect/ci-pipeline.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
@@ -77,5 +87,33 @@ function splitList(value: string): string[] {
     .filter(Boolean);
 }
 
-const exitCode = await runCiPipeline(parseCli());
+const options = parseCli();
+const wallClockStarted = Date.now();
+
+const exitCode = await Effect.runPromise(
+  pipelineProgram().pipe(
+    Effect.provide(PipelineEnvLive(options)),
+    Effect.tap((report) =>
+      Effect.sync(() => printReport(report, options.json ?? false, Date.now() - wallClockStarted))
+    ),
+    Effect.as(0),
+    Effect.catchAll((error) =>
+      Effect.sync(() => {
+        if (error instanceof PipelineRunFailedError) {
+          printPipelineError(error.cause);
+          printMetricsLine(error.metrics, Date.now() - wallClockStarted, error.dryRun, "failed");
+        } else {
+          printPipelineError(error);
+          printMetricsLine(
+            genericFailureMetrics(Date.now() - wallClockStarted),
+            Date.now() - wallClockStarted,
+            options.dryRun ?? false,
+            "failed"
+          );
+        }
+        return 1;
+      })
+    )
+  )
+);
 process.exit(exitCode);

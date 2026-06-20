@@ -42,3 +42,25 @@ describe("js-builtins-performance", () => {
     expect(result).toBe("1a2b");
   });
 });
+
+describe("js-builtins-throughput", () => {
+  test("isWellFormed on 1MB ASCII completes under 1ms (simdutf)", () => {
+    const s = "x".repeat(1_000_000);
+    const start = Bun.nanoseconds();
+    const result = s.isWellFormed();
+    const elapsed = (Bun.nanoseconds() - start) / 1e6;
+    console.log(`  isWellFormed 1MB: ${elapsed.toFixed(2)} ms (simdutf, ~5x faster)`);
+    expect(result).toBe(true);
+    expect(elapsed).toBeLessThan(1);
+  });
+
+  test("toWellFormed on 1MB ASCII completes under 1ms (simdutf)", () => {
+    const s = "x".repeat(1_000_000);
+    const start = Bun.nanoseconds();
+    const result = s.toWellFormed();
+    const elapsed = (Bun.nanoseconds() - start) / 1e6;
+    console.log(`  toWellFormed 1MB: ${elapsed.toFixed(2)} ms (simdutf, ~5x faster)`);
+    expect(result).toBe(s);
+    expect(elapsed).toBeLessThan(1);
+  });
+});

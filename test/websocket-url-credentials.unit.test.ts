@@ -37,7 +37,7 @@ describe("websocket-url-credentials", () => {
       const ws = new WebSocket(`ws://localhost:${server.port}`);
       await new Promise<void>((resolve, reject) => {
         ws.onopen = () => resolve();
-        ws.onerror = (e) => reject(new Error("ws error"));
+        ws.onerror = (_e) => reject(new Error("ws error"));
         setTimeout(() => reject(new Error("ws timeout")), 2000);
       });
       expect(received).toBe(true);
