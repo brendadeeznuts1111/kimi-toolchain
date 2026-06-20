@@ -1,12 +1,13 @@
 #!/usr/bin/env bun
 /**
- * Quality gate runner with --dry-run and --timeout support.
+ * Quality gate runner with --dry-run, --timeout, and --skip-tests support.
  *
  * Usage:
  *   bun run scripts/check.ts
  *   bun run scripts/check.ts --dry-run
  *   bun run scripts/check.ts --fast
  *   bun run scripts/check.ts --dryrun --fast
+ *   bun run scripts/check.ts --fast --skip-tests
  *
  * @see https://bun.com/docs/guides/test/timeout
  */
@@ -23,11 +24,13 @@ interface Step {
   silentOnSuccess?: boolean;
 }
 
-function parseCli(): { dryRun: boolean; fast: boolean; timeoutMs: number } {
+function parseCli(): { dryRun: boolean; fast: boolean; timeoutMs: number; skipTests: boolean } {
   const argv = Bun.argv.slice(2);
   let dryRun = false;
   let fast = false;
+  let skipTests = false;
   let timeoutMs = DEFAULT_TEST_TIMEOUT_MS;
+  let explicitTimeout = false;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -39,24 +42,32 @@ function parseCli(): { dryRun: boolean; fast: boolean; timeoutMs: number } {
       fast = true;
       continue;
     }
+    if (arg === "--skip-tests") {
+      skipTests = true;
+      continue;
+    }
     if (arg === "--timeout") {
       const next = argv[++i];
-      if (next) timeoutMs = parseInt(next, 10);
+      if (next) {
+        timeoutMs = parseInt(next, 10);
+        explicitTimeout = true;
+      }
       continue;
     }
     if (arg.startsWith("--timeout=")) {
       timeoutMs = parseInt(arg.split("=")[1] ?? "", 10);
+      explicitTimeout = true;
     }
   }
 
-  if (fast && timeoutMs === DEFAULT_TEST_TIMEOUT_MS) {
+  if (fast && !explicitTimeout) {
     timeoutMs = FAST_TEST_TIMEOUT_MS;
   }
 
-  return { dryRun, fast, timeoutMs };
+  return { dryRun, fast, timeoutMs, skipTests };
 }
 
-async function buildSteps(fast: boolean, _timeoutMs: number): Promise<Step[]> {
+async function buildSteps(fast: boolean, _timeoutMs: number, skipTests: boolean): Promise<Step[]> {
   const steps: Step[] = [];
   // Full check only — check:fast skips env blockers (cursor slug, wrappers) for quick iteration
   if (!fast && (await isKimiToolchainRepo(REPO_ROOT))) {
@@ -76,11 +87,17 @@ async function buildSteps(fast: boolean, _timeoutMs: number): Promise<Step[]> {
     { name: "typecheck", cmd: ["bun", "run", "typecheck"] },
     {
       name: fast ? "test:fast" : "test",
-      // Fast gate uses run-tests.ts batching + absolute preload (see scripts/run-tests.ts).
-      cmd: ["bun", "run", "scripts/run-tests.ts", ...(fast ? ["--fast"] : [])],
+      // Fast gate uses run-tests.ts with bounded --parallel + --isolate (see scripts/run-tests.ts).
+      cmd: [
+        "bun",
+        "run",
+        "scripts/run-tests.ts",
+        ...(fast ? ["--fast"] : []),
+        `--timeout=${_timeoutMs}`,
+      ],
     }
   );
-  return steps;
+  return skipTests ? steps.filter((s) => s.name !== "test" && s.name !== "test:fast") : steps;
 }
 
 async function runStep(step: Step): Promise<number> {
@@ -111,11 +128,11 @@ async function runStep(step: Step): Promise<number> {
 }
 
 async function main() {
-  const { dryRun, fast, timeoutMs } = parseCli();
-  const steps = await buildSteps(fast, timeoutMs);
+  const { dryRun, fast, timeoutMs, skipTests } = parseCli();
+  const steps = await buildSteps(fast, timeoutMs, skipTests);
 
   if (dryRun) {
-    console.log(`check ${fast ? "(fast) " : ""}— dry run`);
+    console.log(`check ${fast ? "(fast) " : ""}${skipTests ? "(skip tests) " : ""}— dry run`);
     console.log(`  test timeout: ${timeoutMs}ms`);
     for (const step of steps) {
       console.log(`  → ${step.cmd.join(" ")}`);

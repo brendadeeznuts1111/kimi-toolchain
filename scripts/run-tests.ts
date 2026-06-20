@@ -31,10 +31,16 @@ function parseCli(): {
   integration: boolean;
   files: string[];
   reporterOutfile?: string;
+  timeoutMs?: number;
+  parallel?: number | boolean;
+  shard?: string;
 } {
   const argv = Bun.argv.slice(2);
   const files: string[] = [];
   let reporterOutfile: string | undefined;
+  let timeoutMs: number | undefined;
+  let parallel: number | boolean | undefined;
+  let shard: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--files") {
@@ -51,6 +57,31 @@ function parseCli(): {
     }
     if (arg.startsWith("--report-file=")) {
       reporterOutfile = arg.slice("--report-file=".length);
+      continue;
+    }
+    if (arg === "--timeout") {
+      timeoutMs = parseInt(argv[++i] ?? "", 10);
+      continue;
+    }
+    if (arg.startsWith("--timeout=")) {
+      timeoutMs = parseInt(arg.slice("--timeout=".length), 10);
+      continue;
+    }
+    if (arg === "--parallel") {
+      parallel = true;
+      continue;
+    }
+    if (arg.startsWith("--parallel=")) {
+      const n = parseInt(arg.slice("--parallel=".length), 10);
+      parallel = Number.isNaN(n) ? true : n;
+      continue;
+    }
+    if (arg === "--shard") {
+      shard = argv[++i];
+      continue;
+    }
+    if (arg.startsWith("--shard=")) {
+      shard = arg.slice("--shard=".length);
     }
   }
   return {
@@ -61,11 +92,25 @@ function parseCli(): {
     integration: argv.includes("--integration"),
     files,
     reporterOutfile,
+    timeoutMs,
+    parallel,
+    shard,
   };
 }
 
 async function main() {
-  const { fast, coverage, ci, smoke, integration, files, reporterOutfile } = parseCli();
+  const {
+    fast,
+    coverage,
+    ci,
+    smoke,
+    integration,
+    files,
+    reporterOutfile,
+    timeoutMs,
+    parallel,
+    shard,
+  } = parseCli();
   if (ci || coverage) {
     const artifactsDir = artifactPath(REPO_ROOT);
     if (!existsSync(artifactsDir)) mkdirSync(artifactsDir, { recursive: true });
@@ -89,6 +134,9 @@ async function main() {
     files,
     reporterOutfile,
     bail: ci ? 10 : true,
+    timeoutMs,
+    parallel,
+    shard,
   }).map((batch) => {
     // Inject absolute preload after the leading "test" subcommand so isolate
     // workers under concurrent load do not fail to resolve a relative preload.

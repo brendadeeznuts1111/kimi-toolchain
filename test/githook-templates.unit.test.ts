@@ -47,13 +47,16 @@ describe("githook templates", () => {
 
   test("pre-push defaults to the fast quality gate with an explicit full override", () => {
     const hook = renderPrePushHook("/tmp/kimi-tools");
-    const fastGateIndex = hook.indexOf("bun run check:fast");
+    const fastGateIndex = hook.indexOf("bun run check:fast --skip-tests");
+    const changedTestsIndex = hook.indexOf("bun test --changed=HEAD --isolate --parallel");
     const fullGateIndex = hook.indexOf("bun run check || exit 1");
 
     expect(hook).toContain("KIMI_PRE_PUSH_FULL");
     expect(fastGateIndex).toBeGreaterThan(0);
+    expect(changedTestsIndex).toBeGreaterThan(0);
     expect(fullGateIndex).toBeGreaterThan(0);
     expect(fastGateIndex).toBeGreaterThan(fullGateIndex);
+    expect(changedTestsIndex).toBeGreaterThan(fastGateIndex);
     expect(analyzePrePushHook(hook).ok).toBe(true);
   });
 

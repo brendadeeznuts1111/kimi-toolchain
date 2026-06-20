@@ -215,7 +215,7 @@ if [ -f "package.json" ]; then
   else
     echo "── Quality Gate (fast; set KIMI_PRE_PUSH_FULL=1 for full) ───"
     if grep -q '"check:fast"' package.json 2>/dev/null; then
-      bun run check:fast || exit 1
+      bun run check:fast --skip-tests || exit 1
     else
       if grep -q '"format:check"' package.json 2>/dev/null; then
         bun run format:check || exit 1
@@ -226,12 +226,9 @@ if [ -f "package.json" ]; then
       if grep -q '"typecheck"' package.json 2>/dev/null; then
         bun run typecheck || exit 1
       fi
-      if grep -q '"test:fast"' package.json 2>/dev/null; then
-        bun run test:fast || exit 1
-      elif grep -q '"test"' package.json 2>/dev/null; then
-        bun test || exit 1
-      fi
     fi
+    echo "── Changed tests ────────────────────────────────────────────"
+    bun test --changed=HEAD --isolate --parallel || exit 1
   fi
 fi
 

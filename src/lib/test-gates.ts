@@ -354,10 +354,11 @@ export function bunTestArgs(options: {
   } else if (options.files?.length) {
     args.push("--isolate", ...options.files);
   } else if (options.fast) {
-    // Concurrency is intentionally conservative on memory-constrained hosts;
-    // the full gate still uses parallel discovery. Raise with KIMI_TEST_CONCURRENCY.
-    const concurrency = process.env.KIMI_TEST_CONCURRENCY ?? "2";
-    args.push("--concurrency", concurrency, "--isolate", ...UNIT_TEST_FILES);
+    // Bounded parallelism keeps per-worker memory low on memory-constrained hosts;
+    // --isolate drains microtasks and closes sockets between files, preventing
+    // the global-state leaks that cause hung workers (SIGTERM 143).
+    const parallel = process.env.KIMI_TEST_PARALLEL ? Number(process.env.KIMI_TEST_PARALLEL) : 4;
+    args.push("--parallel", String(parallel), "--isolate", ...UNIT_TEST_FILES);
   } else if (options.integration) {
     args.push("--isolate", ...INTEGRATION_TEST_FILES);
   } else if (options.smoke) {
