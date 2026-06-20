@@ -121,6 +121,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "bun-plugin-alloc": "src/lib/bun-utils.ts",
   "http-header-limit": "src/lib/bun-utils.ts",
   "websocket-url-credentials": "src/lib/bun-utils.ts",
+  "js-builtins-performance": "src/lib/bun-utils.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */

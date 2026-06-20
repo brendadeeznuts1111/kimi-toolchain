@@ -1,0 +1,44 @@
+/**
+ * Bun v1.3.7 "Faster JavaScript Built-ins" regression test.
+ *
+ * String methods (isWellFormed/toWellFormed) 5.2-5.4x faster via simdutf.
+ * RegExp methods (matchAll/replace) reimplemented in C++.
+ */
+import { describe, expect, test } from "bun:test";
+
+describe("js-builtins-performance", () => {
+  test("String.prototype.isWellFormed returns true for ASCII", () => {
+    const s = "hello world";
+    expect(s.isWellFormed()).toBe(true);
+  });
+
+  test("String.prototype.isWellFormed detects lone surrogate", () => {
+    const s = "a\uD800b";
+    expect(s.isWellFormed()).toBe(false);
+  });
+
+  test("String.prototype.toWellFormed replaces lone surrogate with U+FFFD", () => {
+    const s = "a\uD800b";
+    const fixed = s.toWellFormed();
+    expect(fixed).not.toBe(s);
+    expect(fixed.isWellFormed()).toBe(true);
+    expect(fixed).toBe("a\uFFFDb");
+  });
+
+  test("String.prototype.toWellFormed on already-valid string returns same value", () => {
+    const s = "hello";
+    expect(s.toWellFormed()).toBe(s);
+  });
+
+  test("RegExp matchAll works correctly", () => {
+    const matches = [..."a1b2c3".matchAll(/([a-z])(\d)/g)];
+    expect(matches.length).toBe(3);
+    expect(matches[0][1]).toBe("a");
+    expect(matches[0][2]).toBe("1");
+  });
+
+  test("RegExp replace with function callback", () => {
+    const result = "a1b2".replace(/([a-z])(\d)/g, (_, l, d) => d + l);
+    expect(result).toBe("1a2b");
+  });
+});

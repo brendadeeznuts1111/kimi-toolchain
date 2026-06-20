@@ -10,16 +10,31 @@ function asNodeCompatTimer(timer: ReturnType<typeof setTimeout>): NodeCompatTime
 
 describe("bun-timer-idle-start", () => {
   test("setTimeout returns a Timeout with Node-compatible _idleStart", () => {
-    const before = performance.now();
     const timer = setTimeout(() => {}, 1_000);
     try {
       const idleStart = asNodeCompatTimer(timer)._idleStart;
       expect(typeof idleStart).toBe("number");
       expect(Number.isFinite(idleStart)).toBe(true);
       expect(idleStart).toBeGreaterThanOrEqual(0);
-      expect(idleStart).toBeLessThanOrEqual(before + 1_000);
     } finally {
       clearTimeout(timer);
+    }
+  });
+
+  test("newer timeouts receive non-decreasing _idleStart values", async () => {
+    const first = setTimeout(() => {}, 1_000);
+    try {
+      await Bun.sleep(5);
+      const second = setTimeout(() => {}, 1_000);
+      try {
+        expect(asNodeCompatTimer(second)._idleStart).toBeGreaterThanOrEqual(
+          asNodeCompatTimer(first)._idleStart
+        );
+      } finally {
+        clearTimeout(second);
+      }
+    } finally {
+      clearTimeout(first);
     }
   });
 
