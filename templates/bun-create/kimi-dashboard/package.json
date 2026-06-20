@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
+    "test": "bun test",
+    "test:changed": "bun test --changed",
+    "test:parallel": "bun test --parallel",
     "typecheck": "tsc --noEmit",
     "artifact:save": "bun run src/bin/save-artifacts.ts",
     "artifact:list": "ls -1 var/artifacts 2>/dev/null || echo 'No artifacts yet. Run artifact:save first.'"

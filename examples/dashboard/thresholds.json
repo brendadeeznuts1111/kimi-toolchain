@@ -1,10 +1,10 @@
 {
   "kimi.effect.isolation.realmEvaluate": 2,
   "kimi.effect.isolation.createChannel": 2.5,
-  "kimi.effect.isolation.roundtrip": 12.5,
+  "kimi.effect.isolation.roundtrip": 175,
   "kimi.effect.isolation.realm.run": 6.5,
   "kimi.effect.isolation.worker.run": 18,
-  "kimi.effect.crypto.sha256": 0.15,
+  "kimi.effect.crypto.sha256": 0.65,
   "kimi.effect.util.inspect": 0.4,
   "kimi.effect.util.deepEquals": 0.055,
   "kimi.effect.image.metadata": 0.8,

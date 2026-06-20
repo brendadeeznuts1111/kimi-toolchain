@@ -54,18 +54,18 @@ If Grep/Glob fail with a path under an old renamed clone, the editor opened the 
 
 Authoritative maps — do not duplicate stale trees here:
 
-| Need                                                                                  | Source                                                                                 |
-| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Need                                                                                   | Source                                                                                 |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | CLI entry points (26 registered bins in `package.json` + 10 source-only in `src/bin/`) | `package.json` `bin` + `src/bin/*.ts`                                                  |
-| Tool routing                                                                          | [UNIFIED.md](UNIFIED.md)                                                               |
-| Shared library                                                                        | `src/lib/` (flat by default; `src/lib/effect/` for Effect adapters)                    |
-| Library domain guide                                                                  | `src/lib/README.md`                                                                    |
-| Unit vs smoke vs integration tests                                                    | `src/lib/test-gates.ts` + `src/lib/test-runtime.ts`; author guide `test/testing.md`    |
-| Coding exemplars                                                                      | [CODE_REFERENCES.md](CODE_REFERENCES.md)                                               |
-| Canonical ecosystem links                                                             | `canonical-references.json` (`bun run references:generate`; cached at `~/.kimi-code/`) |
-| Scaffolding templates                                                                 | [TEMPLATES.md](TEMPLATES.md)                                                           |
-| Failure taxonomy                                                                      | `error-taxonomy.yml` (synced to `~/.kimi-code/`)                                       |
-| Build-time constants                                                                  | `bunfig.toml` `[define]` + `types/build-constants.d.ts`                                |
+| Tool routing                                                                           | [UNIFIED.md](UNIFIED.md)                                                               |
+| Shared library                                                                         | `src/lib/` (flat by default; `src/lib/effect/` for Effect adapters)                    |
+| Library domain guide                                                                   | `src/lib/README.md`                                                                    |
+| Unit vs smoke vs integration tests                                                     | `src/lib/test-gates.ts` + `src/lib/test-runtime.ts`; author guide `test/testing.md`    |
+| Coding exemplars                                                                       | [CODE_REFERENCES.md](CODE_REFERENCES.md)                                               |
+| Canonical ecosystem links                                                              | `canonical-references.json` (`bun run references:generate`; cached at `~/.kimi-code/`) |
+| Scaffolding templates                                                                  | [TEMPLATES.md](TEMPLATES.md)                                                           |
+| Failure taxonomy                                                                       | `error-taxonomy.yml` (synced to `~/.kimi-code/`)                                       |
+| Build-time constants                                                                   | `bunfig.toml` `[define]` + `types/build-constants.d.ts`                                |
 
 Top-level dirs: `src/` (bins, lib, install-hooks, kimi-hooks), `test/`, `scripts/`, `skills/`, `docs/`, `bench/`, `templates/`.
 

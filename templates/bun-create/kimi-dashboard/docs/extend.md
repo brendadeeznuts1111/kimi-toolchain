@@ -36,15 +36,17 @@ const HANDLERS = {
 
 The `kimi-toolchain` repo has 40+ handlers covering:
 
-| Handler       | Bun API               | Path in repo                                  |
-| ------------- | --------------------- | --------------------------------------------- |
-| `password.ts` | `Bun.password`        | `examples/dashboard/src/handlers/password.ts` |
-| `sqlite.ts`   | `bun:sqlite`          | `examples/dashboard/src/handlers/sqlite.ts`   |
-| `markdown.ts` | `Bun.markdown.html()` | `examples/dashboard/src/handlers/markdown.ts` |
-| `glob.ts`     | `Bun.Glob`            | `examples/dashboard/src/handlers/glob.ts`     |
-| `shell.ts`    | `Bun.Shell ($)`       | `examples/dashboard/src/handlers/shell.ts`    |
-| `image.ts`    | `Bun.Image`           | `examples/dashboard/src/handlers/image.ts`    |
-| `os-info.ts`  | `node:os`             | `examples/dashboard/src/handlers/os-info.ts`  |
+| Handler          | Bun API                                    | Bun Version | Path in repo                                     |
+| ---------------- | ------------------------------------------ | ----------- | ------------------------------------------------ |
+| `password.ts`    | `Bun.password`                             | ≥1.2        | `examples/dashboard/src/handlers/password.ts`    |
+| `sqlite.ts`      | `bun:sqlite`                               | ≥1.2        | `examples/dashboard/src/handlers/sqlite.ts`      |
+| `markdown.ts`    | `Bun.markdown.html()`                      | ≥1.2        | `examples/dashboard/src/handlers/markdown.ts`    |
+| `glob.ts`        | `Bun.Glob`                                 | ≥1.2        | `examples/dashboard/src/handlers/glob.ts`        |
+| `shell.ts`       | `Bun.Shell ($)`                            | ≥1.2        | `examples/dashboard/src/handlers/shell.ts`       |
+| `image.ts`       | `Bun.Image`                                | ≥1.2        | `examples/dashboard/src/handlers/image.ts`       |
+| `os-info.ts`     | `node:os`                                  | ≥1.2        | `examples/dashboard/src/handlers/os-info.ts`     |
+| `file.ts`        | `Bun.serve()` Range requests, `Bun.file()` | ≥1.3.13     | `examples/dashboard/src/handlers/file.ts`        |
+| `crypto-sha3.ts` | WebCrypto SHA3 + `node:crypto` SHA3/HMAC   | ≥1.3.13     | `examples/dashboard/src/handlers/crypto-sha3.ts` |
 
 ```bash
 cd ~/kimi-toolchain/examples/dashboard
@@ -78,3 +80,4 @@ bun run typecheck   # tsc --noEmit
 
 - [examples/dashboard/](../../../examples/dashboard/) — Full 65-card showcase
 - [examples/dashboard-urls.md](../../../examples/dashboard-urls.md) — Port, protocol, and URLPattern reference
+- [Bun v1.3.13 release notes](https://bun.com/blog/bun-v1.3.13) — Range requests, SHA3, isolated linker, test parallelism

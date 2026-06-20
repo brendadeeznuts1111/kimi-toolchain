@@ -2,6 +2,14 @@
 
 L1→L2 gate tree with artifact persistence and lineage. Scaffolded from [kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain).
 
+Optimized for Bun v1.3.13+:
+
+- Isolated linker (`--linker=isolated`) for ~8× faster installs in peer-heavy workspaces
+- Test runner: `--isolate`, `--parallel`, `--shard`, `--changed` for CI and large suites
+- mimalloc v3: ~5% lower baseline memory (health-check gate reflects this)
+
+@see https://bun.com/blog/bun-v1.3.13
+
 ## Quickstart
 
 ```bash
@@ -42,6 +50,15 @@ bun run gate:plan
 
 # JSON output
 bun run src/bin/gate-doctor.ts --all --save-artifact --json
+
+# Test commands (Bun v1.3.13+)
+bun test                           # run all tests
+bun test --isolate                 # fresh global per file
+bun test --parallel                # distribute across all CPUs
+bun test --parallel=4              # explicit 4 workers
+bun test --shard=1/3               # CI split (deterministic round-robin)
+bun test --changed                 # only tests affected by git changes
+bun test --changed --watch         # re-filter on every restart
 ```
 
 ## Artifacts
@@ -105,3 +122,5 @@ See `docs/extend.md` for adding new gates, L3 governance gates, and integrating 
 - [examples/trading-workspace/](../../../examples/trading-workspace/) — Full 4-gate L1→L2 loop with real metrics
 - [examples/artifact-trading-loop.md](../../../examples/artifact-trading-loop.md) — Alex the quant narrative
 - [examples/control-plane-layers.md](../../../examples/control-plane-layers.md) — L0–L3 retention model
+- [examples/artifact-dependency-graphs.md](../../../examples/artifact-dependency-graphs.md) — lineage vs execution DAG
+- [Bun v1.3.13 release notes](https://bun.com/blog/bun-v1.3.13) — test parallelism, isolated linker, SHA3, range requests, 5% less memory

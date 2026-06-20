@@ -45,20 +45,25 @@ my-dashboard/
     │   ├── health.ts         # runtime probe
     │   ├── inspect.ts        # Bun.inspect demo
     │   ├── env.ts            # env vars + bunfig parse
-    │   └── crypto.ts         # CryptoHasher + UUID v7
+    │   ├── crypto.ts         # CryptoHasher + UUID v7
+    │   ├── crypto-sha3.ts    # SHA3 via WebCrypto + node:crypto (1.3.13+)
+    │   └── file.ts           # Bun.serve() Range request support (1.3.13+)
     └── docs/
         └── extend.md         # how to add handlers and copy from examples
 ```
 
 ## API routes
 
-| Route      | Description                                                    |
-| ---------- | -------------------------------------------------------------- |
-| `/`        | Plain-text banner (`{{name}} — Bun Dashboard`)                 |
-| `/health`  | Runtime info: Bun version/revision, pid, uptime, memory        |
-| `/inspect` | `Bun.inspect()` — default vs configured depth/sort/compact     |
-| `/env`     | Sample env vars + `Bun.TOML.parse()` of `./bunfig.toml`        |
-| `/crypto`  | `Bun.CryptoHasher` (sha256), `Bun.randomUUIDv7()`, nanoseconds |
+| Route          | Description                                                     |
+| -------------- | --------------------------------------------------------------- |
+| `/`            | Plain-text banner (`{{name}} — Bun Dashboard`)                  |
+| `/health`      | Runtime info: Bun version/revision, pid, uptime, memory         |
+| `/inspect`     | `Bun.inspect()` — default vs configured depth/sort/compact      |
+| `/env`         | Sample env vars + `Bun.TOML.parse()` of `./bunfig.toml`         |
+| `/crypto`      | `Bun.CryptoHasher` (sha256), `Bun.randomUUIDv7()`, nanoseconds  |
+| `/crypto/sha3` | SHA3-256 via WebCrypto + node:crypto (Bun 1.3.13+)              |
+| `/file`        | File-backed response with automatic Range support (Bun 1.3.13+) |
+| `/file/info`   | File metadata + Range request demo commands                     |
 
 All JSON routes return `content-type: application/json; charset=utf-8`.
 

@@ -8,6 +8,10 @@
     "gate:graph": "bun run src/bin/gate-doctor.ts --all --gate-graph",
     "gate:status": "bun run src/bin/gate-doctor.ts --status --json",
     "gate:plan": "bun run src/bin/gate-doctor.ts --all --dry-run",
+    "test": "bun test",
+    "test:changed": "bun test --changed",
+    "test:parallel": "bun test --parallel",
+    "test:smoke": "bun test --timeout 60000",
     "dev": "bun run --watch src/bin/gate-doctor.ts --all",
     "typecheck": "tsc --noEmit"
   },

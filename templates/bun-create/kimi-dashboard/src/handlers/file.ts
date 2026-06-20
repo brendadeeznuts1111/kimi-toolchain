@@ -1,58 +1,48 @@
 /**
- * File serving with Range Request support — Bun.serve() 1.3.13+.
+ * Bun.serve() range request showcase — byte-range support for large files.
  *
- * Bun APIs: Bun.file(), Bun.serve() range handling, Response with file-backed body
+ * Bun 1.3.13+: returning `Bun.file()` from a `fetch` handler automatically
+ * honours `Range` headers (HTTP 206 Partial Content). Previously this only
+ * worked for static routes; now it works in dynamic handlers too.
  *
- * Bun v1.3.13 added automatic Range request handling for file-backed responses:
- * - Incoming Range: bytes=... headers are automatically handled
- * - Returns 206 Partial Content with Content-Range header
- * - Suffix ranges (bytes=-500), open-ended ranges (bytes=1024-) supported
- * - Multi-range requests fall through to a full-body 200 response
- *
- * @see https://bun.com/blog/bun-v1.3.13#range-request-support-in-bunserv
+ * Bun APIs: Bun.file(), Bun.write(), Bun.serve() range support
  */
 
 import { json } from "../lib/response.ts";
 
-const SAMPLE_TEXT = `Bun v1.3.13 adds automatic Range request support for file-backed responses.
+const DEMO_FILE = "var/demo-asset.json";
 
-When a client sends Range: bytes=0-1023, Bun.serve() returns 206 Partial Content
-with the correct Content-Range header. This is useful for video streaming, large
-download resumption, and any byte-range protocol.
+export async function apiFile(req: Request): Promise<Response> {
+  // Ensure the demo file exists (idempotent)
+  await Bun.write(
+    DEMO_FILE,
+    JSON.stringify({
+      message: "Hello from Bun range request demo",
+      rows: Array.from({ length: 100 }, (_, i) => ({ id: i, value: Math.random() })),
+    })
+  );
 
-Suffix ranges (bytes=-500) and open-ended ranges (bytes=1024-) are also supported.
-`;
+  const rangeHeader = req.headers.get("range");
 
-/** Ensure a sample file exists for range request demos. */
-async function ensureSampleFile(): Promise<string> {
-  const path = "var/sample-for-range.txt";
-  await Bun.mkdir("var", { recursive: true });
-  try {
-    await Bun.file(path).text();
-  } catch {
-    await Bun.write(path, SAMPLE_TEXT);
+  // Return the file directly — Bun handles Range → 206 automatically
+  const file = Bun.file(DEMO_FILE);
+
+  if (rangeHeader) {
+    // When a Range header is present, Bun.file() responses automatically
+    // return 206 Partial Content with the correct byte range.
+    return new Response(file, {
+      headers: {
+        "content-type": "application/json",
+        "accept-ranges": "bytes",
+        "x-range-request": rangeHeader,
+      },
+    });
   }
-  return path;
-}
 
-export async function apiFile(): Promise<Response> {
-  const path = await ensureSampleFile();
-  return new Response(Bun.file(path));
-}
-
-export async function apiFileInfo(): Promise<Response> {
-  const path = await ensureSampleFile();
-  const file = Bun.file(path);
-  const stat = await file.stat().catch(() => null);
   return json({
-    path,
-    size: file.size,
-    type: file.type,
-    mtime: stat?.mtime?.toISOString() ?? null,
-    note: "GET /file serves this with automatic Range request support (Bun 1.3.13+)",
-    rangeDemo: [
-      "curl -H 'Range: bytes=0-50' http://localhost:3000/file",
-      "curl -H 'Range: bytes=-20' http://localhost:3000/file",
-    ],
+    note: "Add a Range header (e.g. `curl -H 'Range: bytes=0-99' ...`) to see 206 Partial Content",
+    fileSize: file.size,
+    filePath: DEMO_FILE,
+    rangeHeader: rangeHeader ?? null,
   });
 }

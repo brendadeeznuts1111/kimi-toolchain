@@ -21,13 +21,13 @@ const port = Number(Bun.env.PORT) || 5678;
 // ── Route table ─────────────────────────────────────────────────────
 
 /** Add new handlers here — key is the pathname, value is the exported function. */
-const HANDLERS: Record<string, () => Promise<Response>> = {
+const HANDLERS: Record<string, (req: Request) => Promise<Response>> = {
   "/health": health.apiHealth,
   "/inspect": inspect.apiInspect,
   "/env": env.apiEnv,
   "/crypto": crypto.apiCrypto,
-  "/crypto/sha3": cryptoSha3.apiCryptoSha3,
-  "/file/range": file.apiFileRange,
+  "/crypto-sha3": cryptoSha3.apiCryptoSha3,
+  "/file": file.apiFile,
 };
 
 // ── Server ──────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ Bun.serve({
 
     const handler = HANDLERS[url.pathname];
     if (handler) {
-      return await handler();
+      return await handler(req);
     }
 
     return new Response("Not Found", { status: 404 });
