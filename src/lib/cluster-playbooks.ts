@@ -2,8 +2,8 @@
  * Track healing playbooks applied to error clusters.
  */
 
-import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { dirname } from "path";
+import { makeDir, pathExistsAsync, writeTextAsync } from "./bun-io.ts";
 import { clusterPlaybooksPath } from "./paths.ts";
 import { safeParse } from "./utils.ts";
 
@@ -25,31 +25,30 @@ export interface ClusterPlaybookStore {
 export async function readClusterPlaybooks(
   path: string = clusterPlaybooksPath()
 ): Promise<ClusterPlaybookStore> {
-  if (!existsSync(path)) return emptyStore();
+  if (!(await pathExistsAsync(path))) return emptyStore();
   const text = await Bun.file(path).text();
   const parsed = safeParse<ClusterPlaybookStore | null>(text, null);
   if (!parsed || parsed.schemaVersion !== 1) return emptyStore();
   return parsed;
 }
 
-export function writeClusterPlaybooks(
+export async function writeClusterPlaybooks(
   store: ClusterPlaybookStore,
   path: string = clusterPlaybooksPath()
-): void {
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${JSON.stringify(store, null, 2)}\n`);
+): Promise<void> {
+  makeDir(dirname(path), { recursive: true });
+  await writeTextAsync(path, `${JSON.stringify(store, null, 2)}\n`);
 }
 
-export function recordClusterPlaybook(
+export async function recordClusterPlaybook(
   record: ClusterPlaybookRecord,
   path: string = clusterPlaybooksPath()
 ): Promise<ClusterPlaybookStore> {
-  return readClusterPlaybooks(path).then((store) => {
-    store.playbooks[record.clusterId] = record;
-    store.updatedAt = new Date().toISOString();
-    writeClusterPlaybooks(store, path);
-    return store;
-  });
+  const store = await readClusterPlaybooks(path);
+  store.playbooks[record.clusterId] = record;
+  store.updatedAt = new Date().toISOString();
+  await writeClusterPlaybooks(store, path);
+  return store;
 }
 
 export function hasSuccessfulPlaybook(clusterId: string, store: ClusterPlaybookStore): boolean {

@@ -6,8 +6,8 @@
  */
 
 import { Effect } from "effect";
-import { mkdirSync, writeFileSync } from "fs";
 import { dirname } from "path";
+import { makeDir, writeTextAsync } from "./bun-io.ts";
 import {
   cosineSimilarity,
   decodeEmbedding,
@@ -182,7 +182,10 @@ export function clusterFailureLedgerEffect(
     };
 
     if (persist) {
-      yield* Effect.sync(() => writeClusterMetadata(report, clustersPath));
+      yield* Effect.tryPromise({
+        try: () => writeClusterMetadata(report, clustersPath),
+        catch: () => new Error("cluster-metadata-write"),
+      }).pipe(Effect.catchAll(() => Effect.void));
     }
 
     return report;
@@ -507,9 +510,9 @@ function dominantTaxonomy(counts: Record<string, number>): string {
   return entries[0][0];
 }
 
-function writeClusterMetadata(report: ErrorClusterReport, path: string): void {
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(
+async function writeClusterMetadata(report: ErrorClusterReport, path: string): Promise<void> {
+  makeDir(dirname(path), { recursive: true });
+  await writeTextAsync(
     path,
     `${JSON.stringify(
       {
