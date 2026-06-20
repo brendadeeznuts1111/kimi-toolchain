@@ -2,21 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 2026-06-20 — Artifact Portal Convergence
 
-### Added
+**One-liner:** Artifact Portal convergence: shared BenchmarkApiEnvelope, `build:portal`, `examples/portal` demo.
 
-- **Artifact Portal convergence** — Canvas, Dashboard, Herdr, and CLI share `BenchmarkApiEnvelope` via `runEffectBenchmarkCardLoop()` (commits `914b9195`–`bdccb421`)
-- `kimi-doctor --perf-gates --json` / `--rich` — same envelope as examples dashboard and serve-probe
+### feat(convergence): Artifact Portal synthesis — BenchmarkApiEnvelope SSOT + polish
+
+**Core:**
+
+- `BenchmarkApiEnvelope` is the shared envelope across `kimi-doctor`, serve-probe (`GET /api/effect-benchmark`), `benchmark.canvas`, Herdr `benchmark-portal`, and Artifact Portal registration (`src/lib/artifact-portal.ts`)
+- `bun run build:portal` — probe-first; `--local-only` for offline local loop
+- `contracts/artifact-portal.json` + `templates/artifact-portal` + `herdr-plugin/benchmark-portal.ts`
+- Runnable `examples/portal/` + `examples/artifact-portal.md`; README and UNIFIED convergence sections
+- `kimi-doctor --perf-gates --json` / `--rich` — same envelope as dashboard and serve-probe
 - `kimi-doctor --perf-gates --serve-probe` — `GET /api/effect-benchmark` + `POST /api/effect-benchmark/refresh`
-- `src/canvases/benchmark.manifest.ts` + `docs/canvases/benchmark.canvas.tsx` — benchmark canvas companion (read order 13)
+- `src/canvases/benchmark.manifest.ts` + `docs/canvases/benchmark.canvas.tsx` — benchmark canvas companion
 - `src/lib/benchmark-probe-client.ts` — `fetchBenchmarkProbeEnvelope()` for serve-probe poll
-- `src/lib/artifact-portal.ts` — `registerPortalArtifact()`, `pullBenchmarkEnvelopeAndRegister()`, `buildArtifactPortal()`
-- `contracts/artifact-portal.json` — portal diagnostics contract
-- `herdr-plugin/benchmark-portal` action — pull probe envelope and register portal artifact
-- `bun run build:portal` — one-command publish to `.kimi/artifacts/artifact-portal/` (serve-probe first, `--local-only` fallback)
 - `bun run test:portal-convergence` — end-to-end portal smoke test
 - Perf taxonomy rows: `perf_gate_timeout`, `perf_handler_failure`, `perf_gate_partial`, `rate_limited`
+
+**Polish:**
+
+- `http-client` TLS typing + `bun run fix:drift` (format + typecheck)
+- Cursor `wt-match` worktree fallback (`scripts/resolve-repo-root.sh`, `resolveEffectiveWorkspaceRoot`)
+- `AGENTS.md` ephemeral worktree note
+
+**Impact:**
+
+One command publishes diagnostics + manifest to `.kimi/artifacts/artifact-portal/` — observable convergence without duplicate benchmark loops. Foundation for dashboard, Herdr, and future portal consumers (Buckeye / MCP / templates next).
+
+**Refs:** `8ce0ea63` (tip), `test:portal-convergence`, `?canvas=benchmark`
+
+**Breaking change:** none — additive APIs and scripts only.
+
+**Next (Artifact Portal Convergence Sprint):** unify Canvas + Dashboard + Herdr feed into the portal build pipeline using `BenchmarkApiEnvelope` + serve-probe as the single diagnostic contract.
+
+## Unreleased
 
 ### Added
 
