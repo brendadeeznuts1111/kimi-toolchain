@@ -1,4 +1,5 @@
 // ── Node HTTP ──────────────────────────────────────────────────────
+import { utf8ByteLength } from "../../../../src/lib/bun-utils.ts";
 import { jsonResponse } from "./shared.ts";
 
 export async function apiNodeHttp(): Promise<Response> {
@@ -8,7 +9,7 @@ export async function apiNodeHttp(): Promise<Response> {
     const server = http.createServer((_req, res) => {
       const body = "hello from node:http";
       res.writeHead(200, {
-        "Content-Length": Buffer.byteLength(body),
+        "Content-Length": utf8ByteLength(body),
         "Content-Type": "text/plain",
         "X-Demo": "true",
       });

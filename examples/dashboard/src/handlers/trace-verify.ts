@@ -1,4 +1,5 @@
 // ── Trace Verify ───────────────────────────────────────────────────
+import { decodeHex, encodeHex } from "../../../../src/lib/bun-utils.ts";
 import { jsonResponse } from "./shared.ts";
 
 interface TraceSummary {
@@ -9,13 +10,12 @@ interface TraceSummary {
 }
 
 export function formatTraceTable(traces: TraceSummary[]): string {
-  const toHex = (buf: Uint8Array) => Buffer.from(buf).toString("hex");
   const rows = traces.map((t) => ({
     traceId: t.traceId,
     status: String(t.status),
     type: t.contentType,
-    hash: toHex(t.bodyHash).slice(0, 16) + "...",
-    hashWidth: Bun.stringWidth(toHex(t.bodyHash)), // 64 for 32-byte SHA-256
+    hash: encodeHex(t.bodyHash).slice(0, 16) + "...",
+    hashWidth: Bun.stringWidth(encodeHex(t.bodyHash)), // 64 for 32-byte SHA-256
   }));
   return Bun.inspect.table(rows, ["traceId", "status", "type", "hash"], { colors: false });
 }
@@ -27,7 +27,7 @@ export function verifyTraceHash(
   const checks: Record<string, boolean> = {};
   checks.byteLength32 = trace.bodyHash.byteLength === 32;
   checks.hexLength64 = expectedHex.length === 64;
-  checks.deepEquals = Bun.deepEquals(trace.bodyHash, Buffer.from(expectedHex, "hex"));
+  checks.deepEquals = Bun.deepEquals(trace.bodyHash, decodeHex(expectedHex));
   return { valid: Object.values(checks).every(Boolean), checks };
 }
 
@@ -67,6 +67,6 @@ export async function apiTraceVerify(): Promise<Response> {
       checks: verify.checks,
       valid: verify.valid,
     },
-    note: "Trace verification: Bun.inspect.table(), Bun.stringWidth(), Bun.deepEquals() with Buffer.from(hex,'hex'). Bun.hex() not yet available — use Buffer.from(buf).toString('hex').",
+    note: "Trace verification: Bun.inspect.table(), Bun.stringWidth(), Bun.deepEquals() with decodeHex() / encodeHex() from bun-utils (Uint8Array.fromHex / toHex).",
   });
 }

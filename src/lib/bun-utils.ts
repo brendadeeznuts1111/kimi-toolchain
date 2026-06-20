@@ -104,6 +104,29 @@ export function decodeBase64Bytes(encoded: string): Uint8Array {
   return Uint8Array.fromBase64(encoded);
 }
 
+/**
+ * Hex encoding (`Uint8Array.prototype.toHex` / `Uint8Array.fromHex`).
+ *
+ * @see {@link BUN_HEX_DOC_URL}
+ */
+/** @see https://bun.sh/docs/runtime/binary-data#uint8array-tohex-and-fromhex */
+export const BUN_HEX_DOC_URL = "https://bun.sh/docs/runtime/binary-data#uint8array-tohex-and-fromhex";
+
+/** Encode bytes to lowercase hex (`bytes.toHex()`). */
+export function encodeHex(bytes: Uint8Array): string {
+  return bytes.toHex();
+}
+
+/** Decode hex string to bytes (`Uint8Array.fromHex`). */
+export function decodeHex(hex: string): Uint8Array {
+  return Uint8Array.fromHex(hex);
+}
+
+/** UTF-8 byte length for a string (`TextEncoder`). */
+export function utf8ByteLength(text: string): number {
+  return new TextEncoder().encode(text).byteLength;
+}
+
 /** @see https://bun.sh/reference/bun/randomUUIDv7#bun.randomUUIDv7 */
 export const BUN_RANDOM_UUIDV7_DOC_URL = "https://bun.sh/reference/bun/randomUUIDv7";
 

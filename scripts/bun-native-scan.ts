@@ -8,7 +8,7 @@ const TARGETS = [
   { name: "node:crypto", pattern: nodeImport("crypto") },
   { name: "node:os", pattern: nodeImport("os") },
   { name: "node:https", pattern: nodeImport("https") },
-  { name: "Buffer", pattern: /Buffer\.(from|alloc|allocUnsafe)/ },
+  { name: "Buffer", pattern: /Buffer\.(from|alloc|allocUnsafe|byteLength)/ },
   { name: "fs-sync", pattern: /fs\.(readFileSync|writeFileSync|existsSync)/ },
 ];
 
