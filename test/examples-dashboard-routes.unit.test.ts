@@ -21,6 +21,9 @@ describe("examples-dashboard-routes", () => {
     expect(source).toContain('method === "HEAD"');
     expect(source).toContain('case "/api/file-split"');
     expect(source).toContain('case "/api/effect-benchmark"');
+    expect(source).toContain('case "/api/effect-benchmark/refresh"');
+    expect(source).toContain('case "/api/effect-benchmark/train"');
+    expect(source).toContain("readBenchmarkHealthCheck");
     expect(source).toContain('case "/api/canvases"');
     expect(source).toContain('case "/api/settings"');
   });

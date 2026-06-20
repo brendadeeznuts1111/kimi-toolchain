@@ -44,8 +44,18 @@ export async function apiThresholdOverrides(): Promise<Response> {
         source: "bunfig.toml",
         method: "Human config ([doctor.thresholds] or [test.kimi-doctor.thresholds])",
       },
-      { layer: 3, source: "thresholds.json", method: "Machine-trained (kimi-doctor --train)" },
-      { layer: 4, source: "DEFAULT_THRESHOLDS", method: "Built-in fallback" },
+      {
+        layer: 3,
+        source: "thresholds.baseline.json",
+        method: "Committed portable baseline (crypto/util/image)",
+      },
+      {
+        layer: 4,
+        source: ".kimi/thresholds.local.json",
+        method: "Host-specific HTTP overlay (kimi-doctor --train)",
+      },
+      { layer: 5, source: "thresholds.json", method: "Legacy single-file fallback" },
+      { layer: 6, source: "DEFAULT_THRESHOLDS", method: "Built-in registration default" },
     ],
     tomlFormats: [
       "[doctor.thresholds]",
@@ -58,6 +68,6 @@ export async function apiThresholdOverrides(): Promise<Response> {
 [doctor.thresholds]
 "kimi.effect.image.metadata" = 3.5
 "kimi.effect.image.thumbnail" = 150`,
-    note: "Dual TOML format + regex fallback. 4-layer precedence: overrideThresholds() > bunfig.toml > thresholds.json > DEFAULT_THRESHOLDS. kimi-publish wraps bun publish with README check + perf gates.",
+    note: "Dual TOML format + regex fallback. Precedence: overrideThresholds() > bunfig.toml > thresholds.baseline.json > .kimi/thresholds.local.json > thresholds.json (legacy) > DEFAULT_THRESHOLDS. kimi-publish wraps bun publish with README check + perf gates.",
   });
 }

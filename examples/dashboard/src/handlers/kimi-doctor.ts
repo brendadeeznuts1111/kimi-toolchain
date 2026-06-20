@@ -18,8 +18,9 @@ export async function apiKimiDoctor(): Promise<Response> {
       },
       {
         flag: "--train",
-        description: "If all gates pass, update thresholds.json with 10% margin",
-        output: "thresholds.json written (skipped benchmarks excluded)",
+        description: "If all gates pass, update layered thresholds with 10% margin",
+        output:
+          "thresholds.baseline.json (portable) + .kimi/thresholds.local.json (HTTP); skipped benchmarks excluded",
       },
       {
         flag: "--watch",

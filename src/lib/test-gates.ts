@@ -237,6 +237,7 @@ export const UNIT_TEST_FILES = [
   "test/dx-cloudflare-config.unit.test.ts",
   "test/dx-config.unit.test.ts",
   "test/effect-benchmark.unit.test.ts",
+  "test/effect-benchmark-card.unit.test.ts",
   "test/effect-gates.unit.test.ts",
   "test/effect/cli-contract-effect.unit.test.ts",
   "test/effect/kimi-introspection-services.unit.test.ts",

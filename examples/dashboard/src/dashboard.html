@@ -2398,26 +2398,103 @@
       })();
 
       // Effect Benchmarks (toolchain closed-loop harness)
-      (async () => {
-        try {
-          const d = await fetchJson("/api/effect-benchmark");
-          let h = `<div class="row"><span>Handlers</span><strong>${d.registrySize}</strong></div>`;
-          h += `<div class="row"><span>Status</span><span class="badge badge-${d.allPass ? "ok" : "err"}">${d.allPass ? "ALL PASS" : "FAIL"}</span></div>`;
-          if (d.failures?.length) {
-            h += `<p class="status err" style="margin-top:4px">${d.failures.slice(0, 2).join("<br>")}</p>`;
-          }
-          h += `<table class="tbl" style="margin-top:4px"><tr><th>#</th><th>Handler</th><th>Symbol</th><th>Time</th><th>≤Thr</th></tr>`;
-          d.metrics.forEach((m, i) => {
+      const EFFECT_BENCHMARK_FAMILY_ORDER = [
+        "crypto",
+        "httpClient",
+        "util",
+        "image",
+        "clock",
+        "uuid",
+      ];
+
+      function effectBenchmarkSourceBadge(source) {
+        const tones = {
+          baseline: "ok",
+          local: "info",
+          legacy: "warn",
+          default: "warn",
+        };
+        const tone = tones[source] ?? "warn";
+        return `<span class="badge badge-${tone}" style="font-size:9px" title="Threshold layer">${source}</span>`;
+      }
+
+      function renderEffectBenchmarkCard(d) {
+        const runAt = d.generatedAt
+          ? new Date(d.generatedAt).toLocaleString()
+          : "—";
+        let h = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">`;
+        h += `<button type="button" class="showcase-btn" id="effect-benchmark-refresh">Refresh</button>`;
+        h += `<button type="button" class="showcase-btn muted" id="effect-benchmark-train">Train</button>`;
+        h += `</div>`;
+        h += `<div class="row"><span>Handlers</span><strong>${d.registrySize}</strong> <span style="font-size:10px;color:var(--muted)">(${d.measured} measured · ${d.skipped} skipped)</span></div>`;
+        h += `<div class="row"><span>Status</span><span class="badge badge-${d.allPass ? "ok" : "err"}">${d.allPass ? "ALL PASS" : "FAIL"}</span></div>`;
+        h += `<div class="row"><span>Last run</span><span style="font-size:10px">${runAt}</span></div>`;
+        if (d.snapshot) {
+          h += `<div class="row"><span>Snapshots</span><span style="font-size:10px">${d.snapshot.count} stored${d.snapshot.regressions ? ` · <span class="status warn">${d.snapshot.regressions} regression(s)</span>` : ""}</span></div>`;
+        }
+        if (d.train) {
+          const trainTone = d.train.written ? "ok" : "err";
+          const trainLabel = d.train.written
+            ? `trained → ${(d.train.paths || [d.train.path]).join(", ")}`
+            : "train skipped (gate must pass)";
+          h += `<div class="row"><span>Train</span><span class="badge badge-${trainTone}" style="font-size:10px">${trainLabel}</span></div>`;
+        }
+        if (d.failures?.length) {
+          h += `<p class="status err" style="margin-top:4px">${d.failures.slice(0, 2).join("<br>")}</p>`;
+        }
+        const families = d.families || {};
+        const familyKeys = EFFECT_BENCHMARK_FAMILY_ORDER.filter((k) => families[k]);
+        for (const key of Object.keys(families)) {
+          if (!familyKeys.includes(key)) familyKeys.push(key);
+        }
+        for (const family of familyKeys) {
+          const rows = families[family] || [];
+          if (!rows.length) continue;
+          h += `<h3 style="font-size:12px;color:var(--muted);margin:10px 0 4px">${family}</h3>`;
+          h += `<table class="tbl"><tr><th>#</th><th>Handler</th><th>Time</th><th>Thr</th><th>Src</th><th></th></tr>`;
+          rows.forEach((m, i) => {
             const time = m.skipped ? "—" : `${m.actualMs.toFixed(3)}ms`;
-            h += `<tr><td class="num">${i + 1}.</td><td><code style="font-size:9px">${m.name}</code></td><td style="font-size:9px">${m.symbol}</td><td style="font-size:10px">${time}</td><td><span class="badge badge-${m.pass ? "ok" : "err"}">${m.pass ? "✓" : "✗"}</span></td></tr>`;
+            const thr = m.skipped ? "—" : `${m.thresholdMs}ms`;
+            const status = m.skipped
+              ? `<span class="badge badge-warn" title="${m.skipReason || "skipped"}">↷</span>`
+              : `<span class="badge badge-${m.pass ? "ok" : "err"}">${m.pass ? "✓" : "✗"}</span>`;
+            h += `<tr><td class="num">${i + 1}.</td><td><code style="font-size:9px">${m.name}</code></td><td style="font-size:10px">${time}</td><td style="font-size:10px">${thr}</td><td>${effectBenchmarkSourceBadge(m.thresholdSource)}</td><td>${status}</td></tr>`;
           });
           h += `</table>`;
-          h += `<p class="status ok" style="margin-top:4px;font-size:10px">${d.philosophy}</p>`;
-          card("card-effect-benchmark", h);
-        } catch (e) {
-          card("card-effect-benchmark", `<p class="status err">${e.message}</p>`);
         }
-      })();
+        h += `<p class="status ok" style="margin-top:8px;font-size:10px">Layers: ${(d.thresholdLayers || []).join(" → ")}</p>`;
+        return h;
+      }
+
+      async function loadEffectBenchmarkCard(url = "/api/effect-benchmark") {
+        const cardId = "card-effect-benchmark";
+        try {
+          const opts =
+            url === "/api/effect-benchmark"
+              ? undefined
+              : { method: "POST", headers: { "content-type": "application/json" } };
+          const res = await fetch(url, opts);
+          if (!res.ok) throw new Error(`${url} → ${res.status}`);
+          const d = await res.json();
+          card(cardId, renderEffectBenchmarkCard(d));
+          document
+            .getElementById("effect-benchmark-refresh")
+            ?.addEventListener("click", () => {
+              card(cardId, '<div class="loading">Refreshing…</div>');
+              loadEffectBenchmarkCard("/api/effect-benchmark/refresh");
+            });
+          document
+            .getElementById("effect-benchmark-train")
+            ?.addEventListener("click", () => {
+              card(cardId, '<div class="loading">Training…</div>');
+              loadEffectBenchmarkCard("/api/effect-benchmark/train");
+            });
+        } catch (e) {
+          card(cardId, `<p class="status err">${e.message}</p>`);
+        }
+      }
+
+      loadEffectBenchmarkCard();
 
       // Perf Auto-Discover
       (async () => {

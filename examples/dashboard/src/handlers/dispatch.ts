@@ -30,7 +30,13 @@ import { apiCryptoHash } from "./cryptohasher.ts";
 import { apiDashboardSettings } from "./dashboard-settings.ts";
 import { apiDeepEquals } from "./deep-equals.ts";
 import { apiDeepMatch } from "./deep-match.ts";
-import { apiEffectBenchmark } from "./effect-benchmark.ts";
+import {
+  apiEffectBenchmark,
+  apiEffectBenchmarkRefresh,
+  apiEffectBenchmarkTrain,
+} from "./effect-benchmark.ts";
+import { readBenchmarkHealthCheck } from "../../../../src/lib/effect-benchmark-card.ts";
+import { resolveRoot } from "./shared.ts";
 import { apiEffectImage } from "./effect-image.ts";
 import { apiDotenv } from "./env-env.ts";
 import { apiExamples, apiExamplesTrading } from "./examples-showcase.ts";
@@ -183,7 +189,20 @@ export async function dispatchDashboardRoute(req: Request): Promise<Response | n
       return apiKimiDoctor();
     case "/api/perf-threaded":
       return apiPerfThreaded();
+    case "/api/effect-benchmark/refresh":
+      if (req.method !== "POST") {
+        return new Response("Method Not Allowed", { status: 405 });
+      }
+      return apiEffectBenchmarkRefresh();
+    case "/api/effect-benchmark/train":
+      if (req.method !== "POST") {
+        return new Response("Method Not Allowed", { status: 405 });
+      }
+      return apiEffectBenchmarkTrain();
     case "/api/effect-benchmark":
+      if (req.method !== "GET") {
+        return new Response("Method Not Allowed", { status: 405 });
+      }
       return apiEffectBenchmark();
     case "/api/global-store":
       return apiGlobalStore();
@@ -262,9 +281,23 @@ export async function dispatchDashboardRoute(req: Request): Promise<Response | n
     case "/api/settings":
       return apiDashboardSettings(req);
     case "/api/health": {
-      const headers = { "cache-control": "no-store" };
+      const headers = {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=utf-8",
+      };
       if (req.method === "HEAD") return new Response(null, { status: 200, headers });
-      if (req.method === "GET") return new Response("ok", { status: 200, headers });
+      if (req.method === "GET") {
+        const benchmark = await readBenchmarkHealthCheck(resolveRoot());
+        const ok = benchmark.status !== "error";
+        return new Response(
+          JSON.stringify(
+            { ok, checks: { benchmark }, fetchedAt: new Date().toISOString() },
+            null,
+            2
+          ),
+          { status: 200, headers }
+        );
+      }
       return new Response("Method Not Allowed", { status: 405 });
     }
     case "/health":
