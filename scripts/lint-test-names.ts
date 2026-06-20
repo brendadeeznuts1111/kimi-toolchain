@@ -105,6 +105,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "wrap-ansi": "src/lib/inspect.ts",
   "version": "src/lib/version.ts",
   "bun-json5-jsonl": "src/lib/bun-utils.ts",
+  "bun-transpiler": "src/lib/bun-utils.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */
