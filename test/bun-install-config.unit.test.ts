@@ -13,6 +13,7 @@ import {
   BUN_INSTALL_PLATFORM_POLICY,
   BUN_INSTALL_POLICY_GROUP_ORDER,
   BUN_INSTALL_POLICY_MIN_BUN,
+  BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV,
   buildInstallPolicyReport,
   BUN_INSTALL_REQUIRED_KEYS,
   collectInstallPropertyReferences,
@@ -70,6 +71,9 @@ describe("bun-install-config", () => {
     const risky = BUN_INSTALL_ENV_VARS.filter((row) => row.risky).map((row) => row.name);
     expect(risky).toContain("BUN_CONFIG_SKIP_SAVE_LOCKFILE");
     expect(risky).toContain("BUN_CONFIG_SKIP_LOAD_LOCKFILE");
+    expect(BUN_INSTALL_ENV_VARS.map((row) => row.name)).toContain(
+      BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV
+    );
   });
 
   test("buildInstallPolicyReport groups tables in stable order", async () => {
@@ -151,6 +155,9 @@ describe("bun-install-config", () => {
     const report = await buildInstallPolicyReport(dir);
     const lines = formatInstallPolicyReport(report);
     expect(lines[0]).toContain("policy≥");
+    expect(lines.some((l) => l.includes("streamingExtraction: enabled"))).toBe(true);
+    expect(lines.some((l) => l.includes("isolatedLinkerFastPath: active"))).toBe(true);
+    expect(lines.some((l) => l.includes("sourceMapsMemory: optimized"))).toBe(true);
     expect(lines.some((l) => l.includes("Platform-specific"))).toBe(true);
     expect(lines.some((l) => l.includes("targetOs"))).toBe(true);
     expect(lines.some((l) => l.includes("Install CLI workflow"))).toBe(true);
@@ -167,6 +174,49 @@ describe("bun-install-config", () => {
       expect(audit.ok).toBe(false);
       expect(audit.docsUrl).toBe(BUN_INSTALL_DOCS_URL);
       expect(audit.warnings.some((w) => w.includes("BUN_CONFIG_SKIP_SAVE_LOCKFILE"))).toBe(true);
+    });
+  });
+
+  test("auditBunInstallConfig reports streaming install fallback without failing", async () => {
+    const dir = testTempDir("bun-install-streaming-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    await withEnv(
+      {
+        [BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV]: "1",
+        BUN_CONFIG_SKIP_SAVE_LOCKFILE: undefined,
+        BUN_CONFIG_SKIP_LOAD_LOCKFILE: undefined,
+        BUN_CONFIG_SKIP_INSTALL_PACKAGES: undefined,
+      },
+      async () => {
+        const audit = await auditBunInstallConfig(dir);
+        expect(audit.ok).toBe(true);
+        expect(audit.runtimeCapabilities.streamingExtraction.status).toBe("disabled");
+        expect(audit.runtimeCapabilities.streamingExtraction.disableEnvValue).toBe("1");
+        expect(audit.runtimeCapabilities.isolatedLinkerFastPath.status).toBe("active");
+        expect(audit.envOverrides).toContainEqual({
+          name: BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV,
+          value: "1",
+          risky: false,
+          diagnostic: true,
+        });
+      }
+    );
+  });
+
+  test("buildInstallPolicyReport documents Bun 1.3.13 source map memory optimization", async () => {
+    const dir = testTempDir("bun-install-source-maps-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    const report = await buildInstallPolicyReport(dir);
+
+    expect(report.runtimeCapabilities.sourceMapsMemory).toEqual({
+      status: "optimized",
+      releaseUrl: "https://bun.com/blog/bun-v1.3.13",
+      notes:
+        "Bun 1.3.13+ stores source maps in a compact bit-packed format, reducing memory pressure for large maps during stack lookups and compiled-binary startup.",
     });
   });
 
@@ -199,6 +249,8 @@ describe("bun-install-config", () => {
         expect(audit.ok).toBe(true);
         expect(audit.bunfigInstall?.frozenLockfile).toBe(true);
         expect(audit.bunfigInstall?.linker).toBe("isolated");
+        expect(audit.runtimeCapabilities.streamingExtraction.status).toBe("enabled");
+        expect(audit.runtimeCapabilities.isolatedLinkerFastPath.status).toBe("active");
         expect(audit.bunfigInstall?.globalBinDir).toBe("~/.bun/bin");
       }
     );

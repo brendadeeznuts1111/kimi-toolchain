@@ -996,6 +996,12 @@ export const BUN_TEST_CHANGED_STRATEGY = {
   watch: "--changed---watch-re-filter-every-restart",
 } as const;
 
+/** Environment keys set by Bun inside `bun test --parallel` workers. */
+export const BUN_TEST_WORKER_ENV_KEYS = {
+  bunId: "BUN_TEST_WORKER_ID",
+  jestCompatId: "JEST_WORKER_ID",
+} as const;
+
 /**
  * `--parallel` worker semantics for `bun test`.
  *
@@ -1014,10 +1020,7 @@ export const BUN_TEST_PARALLEL = {
   parallelAssignFlag: "--parallel=",
   autoIsolate: true,
   composedFlags: "all-transpiler-resolver-and-execution-flags" as const,
-  workerEnvKeys: {
-    bunId: "BUN_TEST_WORKER_ID",
-    jestCompatId: "JEST_WORKER_ID",
-  } as const,
+  workerEnvKeys: BUN_TEST_WORKER_ENV_KEYS,
 } as const;
 
 /**

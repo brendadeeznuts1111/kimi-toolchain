@@ -88,6 +88,9 @@ import {
   TEST_TIER_ORDER,
   TEST_TIER_SPECS,
   TEST_ENV_FILE,
+  BUN_TEST_FLAG_INTERACTIONS,
+  BUN_TEST_PARALLEL,
+  BUN_TEST_WORKER_ENV_KEYS,
   tierUsesFileIsolation,
   buildTestRunnerEnv,
   bunTestArgBatchesForTier,
@@ -1555,6 +1558,16 @@ test("global cleaned", () => {
       expect(args).toContain("--bail");
       expect(args).toContain("--isolate");
       expect(args).toContain("--parallel=4");
+    });
+
+    test("parallel worker env keys are documented in flag interactions", () => {
+      expect(BUN_TEST_WORKER_ENV_KEYS).toEqual({
+        bunId: "BUN_TEST_WORKER_ID",
+        jestCompatId: "JEST_WORKER_ID",
+      });
+      expect(BUN_TEST_PARALLEL.workerEnvKeys).toBe(BUN_TEST_WORKER_ENV_KEYS);
+      expect(BUN_TEST_FLAG_INTERACTIONS.parallelWorkerEnv).toContain("BUN_TEST_WORKER_ID");
+      expect(BUN_TEST_FLAG_INTERACTIONS.parallelWorkerEnv).toContain("JEST_WORKER_ID");
     });
 
     test("buildBunTestArgBatches chunks fast unit gate", () => {

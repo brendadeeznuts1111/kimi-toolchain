@@ -11,6 +11,7 @@ import { join } from "path";
 import { TOML } from "bun";
 
 export const BUN_INSTALL_DOC_URL = "https://bun.com/docs/pm/cli/install";
+export const BUN_RELEASE_1_3_13_URL = "https://bun.com/blog/bun-v1.3.13";
 
 export function bunInstallDocAnchor(fragment: string): string {
   return `${BUN_INSTALL_DOC_URL}#${fragment}`;
@@ -42,6 +43,10 @@ export const BUN_GLOBAL_INSTALL_PATHS = {
 } as const;
 
 export const BUN_INSTALL_CACHE_DIR = "~/.bun/install/cache";
+
+/** Bun fallback flag for disabling streaming tarball extraction during install diagnostics. */
+export const BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV =
+  "BUN_FEATURE_FLAG_DISABLE_STREAMING_INSTALL";
 
 /**
  * Agent-facing install CLI — SSOT for taxonomy autoFix, drift hints, and guardian output.
@@ -277,7 +282,7 @@ export const BUN_INSTALL_BUNFIG_POLICY: readonly BunInstallPolicyRowDef[] = [
     sinceBun: "1.3.2",
     docsAnchor: "installation-strategies",
     notes:
-      'Bun defaults to "isolated" for configVersion=1 workspaces, otherwise "hoisted"; hardened policy pins isolated to prevent phantom dependencies',
+      'Bun defaults to "isolated" for configVersion=1 workspaces, otherwise "hoisted"; hardened policy pins isolated to prevent phantom dependencies and uses Bun 1.3.13+ peer-heavy install fast paths',
   },
   {
     group: "global",
@@ -617,17 +622,24 @@ export interface BunInstallEnvRow {
   current: string | null;
   priority: "overrides bunfig";
   risky?: boolean;
+  diagnostic?: boolean;
 }
 
 export const BUN_INSTALL_ENV_VARS: readonly {
   name: string;
   description: string;
   risky?: boolean;
+  diagnostic?: boolean;
 }[] = [
   { name: "BUN_CONFIG_REGISTRY", description: "npm registry URL" },
   { name: "BUN_CONFIG_TOKEN", description: "auth token (currently no-op in Bun)" },
   { name: "BUN_CONFIG_YARN_LOCKFILE", description: "also write yarn.lock" },
   { name: "BUN_CONFIG_LINK_NATIVE_BINS", description: "platform-specific bin links" },
+  {
+    name: BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV,
+    description: "disable Bun install streaming extraction fallback",
+    diagnostic: true,
+  },
   {
     name: "BUN_CONFIG_SKIP_SAVE_LOCKFILE",
     description: "do not write bun.lock",
@@ -678,14 +690,38 @@ export interface BunInstallConfigAudit {
   schemaVersion: 1;
   docsUrl: string;
   versions: BunInstallVersionInfo;
+  runtimeCapabilities: BunInstallRuntimeCapabilities;
   tables: Record<BunInstallPolicyGroup, BunInstallPolicyRow[]>;
   envRows: BunInstallEnvRow[];
   policy: typeof SECURE_BUN_INSTALL_POLICY;
-  envOverrides: Array<{ name: string; value: string; risky: boolean }>;
+  envOverrides: Array<{ name: string; value: string; risky: boolean; diagnostic: boolean }>;
   bunfigPath: string | null;
   bunfigInstall: BunfigInstallSection | null;
   warnings: string[];
   ok: boolean;
+}
+
+export interface BunInstallRuntimeCapabilities {
+  streamingExtraction: {
+    status: "enabled" | "disabled";
+    enabled: boolean;
+    disableEnv: typeof BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV;
+    disableEnvValue: string | null;
+    notes: string;
+  };
+  isolatedLinkerFastPath: {
+    status: "active" | "inactive";
+    active: boolean;
+    linker: string | null;
+    cliFlag: "--linker=isolated";
+    releaseUrl: typeof BUN_RELEASE_1_3_13_URL;
+    notes: string;
+  };
+  sourceMapsMemory: {
+    status: "optimized";
+    releaseUrl: typeof BUN_RELEASE_1_3_13_URL;
+    notes: string;
+  };
 }
 
 function parseDisplayValue(raw: string): string | number | boolean {
@@ -876,7 +912,43 @@ function buildEnvRows(): BunInstallEnvRow[] {
     current: Bun.env[spec.name] ?? null,
     priority: "overrides bunfig",
     risky: spec.risky,
+    diagnostic: spec.diagnostic,
   }));
+}
+
+function buildRuntimeCapabilities(
+  install: BunfigInstallSection | null
+): BunInstallRuntimeCapabilities {
+  const disableEnvValue = Bun.env[BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV] ?? null;
+  const streamingDisabled = disableEnvValue === "1";
+  const linker = install?.linker ?? null;
+  const isolatedActive = linker === "isolated";
+
+  return {
+    streamingExtraction: {
+      status: streamingDisabled ? "disabled" : "enabled",
+      enabled: !streamingDisabled,
+      disableEnv: BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV,
+      disableEnvValue,
+      notes:
+        "Bun streams package tarball extraction by default; set the fallback env to 1 only when diagnosing install extraction regressions.",
+    },
+    isolatedLinkerFastPath: {
+      status: isolatedActive ? "active" : "inactive",
+      active: isolatedActive,
+      linker,
+      cliFlag: "--linker=isolated",
+      releaseUrl: BUN_RELEASE_1_3_13_URL,
+      notes:
+        "Bun 1.3.13+ accelerates peer-heavy installs with the isolated linker while preserving the final .bun store layout.",
+    },
+    sourceMapsMemory: {
+      status: "optimized",
+      releaseUrl: BUN_RELEASE_1_3_13_URL,
+      notes:
+        "Bun 1.3.13+ stores source maps in a compact bit-packed format, reducing memory pressure for large maps during stack lookups and compiled-binary startup.",
+    },
+  };
 }
 
 function rowWarnings(row: BunInstallPolicyRow): string[] {
@@ -934,6 +1006,7 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
   const packageRows = buildPolicyRows(BUN_INSTALL_PACKAGE_POLICY, install, cacheDir, packageMeta);
   const platformRows = buildPolicyRows(BUN_INSTALL_PLATFORM_POLICY, install, cacheDir, packageMeta);
   const envRows = buildEnvRows();
+  const runtimeCapabilities = buildRuntimeCapabilities(install);
 
   const envOverrides = envRows
     .filter((row) => row.current != null && row.current !== "")
@@ -941,6 +1014,7 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
       name: row.name,
       value: row.current!,
       risky: row.risky === true,
+      diagnostic: row.diagnostic === true,
     }));
 
   const warnings: string[] = [];
@@ -985,6 +1059,7 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
     schemaVersion: 1,
     docsUrl: BUN_INSTALL_DOCS_URL,
     versions,
+    runtimeCapabilities,
     tables,
     envRows,
     policy: SECURE_BUN_INSTALL_POLICY,
@@ -1077,6 +1152,10 @@ export function formatInstallPolicyReport(report: BunInstallConfigAudit): string
   const lines: string[] = [
     `Bun ${report.versions.runtimeBun} | policy≥${report.versions.policyMinBun} | packageManager=${report.versions.packageManager ?? "unset"} | engines.bun=${report.versions.enginesBun ?? "unset"}`,
     `Docs: ${report.versions.docsUrl}`,
+    "Install runtime:",
+    `  streamingExtraction: ${report.runtimeCapabilities.streamingExtraction.status} (disable: ${report.runtimeCapabilities.streamingExtraction.disableEnv}=1)`,
+    `  isolatedLinkerFastPath: ${report.runtimeCapabilities.isolatedLinkerFastPath.status} (${report.runtimeCapabilities.isolatedLinkerFastPath.cliFlag}; current=${report.runtimeCapabilities.isolatedLinkerFastPath.linker ?? "unset"})`,
+    `  sourceMapsMemory: ${report.runtimeCapabilities.sourceMapsMemory.status} (Bun 1.3.13+ compact maps)`,
     "",
   ];
 
