@@ -3,6 +3,7 @@ import {
   resolveDashboardProjectRoot,
   resolveDashboardSettings,
 } from "../../../../src/lib/dashboard-settings.ts";
+import { readableStreamToText } from "../../../../src/lib/bun-utils.ts";
 import { resolveBin, USER_TOOLCHAIN_BIN } from "../lib/toolchain-paths.ts";
 import { doctorBin, jsonResponse, resolveRoot } from "./shared.ts";
 
@@ -16,7 +17,7 @@ export async function apiBundle(): Promise<Response> {
     stdout: "pipe",
     stderr: "pipe",
   });
-  const stdout = await new Response(proc.stdout).text();
+  const stdout = await readableStreamToText(proc.stdout);
   await proc.exited;
   return jsonResponse(JSON.parse(stdout));
 }
@@ -27,7 +28,7 @@ export async function apiCompile(): Promise<Response> {
     stdout: "pipe",
     stderr: "pipe",
   });
-  const stdout = await new Response(proc.stdout).text();
+  const stdout = await readableStreamToText(proc.stdout);
   await proc.exited;
   return jsonResponse(JSON.parse(stdout));
 }
@@ -38,7 +39,7 @@ export async function apiGates(): Promise<Response> {
     stdout: "pipe",
     stderr: "pipe",
   });
-  const stdout = await new Response(proc.stdout).text();
+  const stdout = await readableStreamToText(proc.stdout);
   await proc.exited;
   return jsonResponse(JSON.parse(stdout));
 }
@@ -159,7 +160,7 @@ export async function apiConsoleDepth(): Promise<Response> {
     }
   );
   // We can't change depth programmatically in the same process — just show the structure
-  await new Response(depth2.stdout).text();
+  await readableStreamToText(depth2.stdout);
   await depth2.exited;
 
   return jsonResponse({
@@ -210,7 +211,7 @@ export async function apiBuildInfo(): Promise<Response> {
       stdout: "pipe",
       stderr: "pipe",
     });
-    compileTime.BUILD_VERSION = (await new Response(gitDesc.stdout).text()).trim() || "unknown";
+    compileTime.BUILD_VERSION = (await readableStreamToText(gitDesc.stdout)).trim() || "unknown";
     await gitDesc.exited;
 
     const gitRev = Bun.spawn(["git", "rev-parse", "HEAD"], {
@@ -219,7 +220,7 @@ export async function apiBuildInfo(): Promise<Response> {
       stderr: "pipe",
     });
     compileTime.GIT_COMMIT =
-      (await new Response(gitRev.stdout).text()).trim().slice(0, 8) || "unknown";
+      (await readableStreamToText(gitRev.stdout)).trim().slice(0, 8) || "unknown";
     await gitRev.exited;
   } catch {
     compileTime.BUILD_VERSION = "unknown";
@@ -532,9 +533,9 @@ export async function apiDeps(): Promise<Response> {
   const bin = Bun.spawn(["bun", "pm", "bin"], { stdout: "pipe", stderr: "pipe" });
   const bunx = Bun.spawn(["bunx", "--help"], { stdout: "pipe", stderr: "pipe" });
   const [lsOut, binOut, _bunxOut] = await Promise.all([
-    new Response(ls.stdout).text(),
-    new Response(bin.stdout).text(),
-    new Response(bunx.stdout).text(),
+    readableStreamToText(ls.stdout),
+    readableStreamToText(bin.stdout),
+    readableStreamToText(bunx.stdout),
   ]);
   await Promise.all([ls.exited, bin.exited, bunx.exited]);
 

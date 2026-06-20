@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { cleanupPath, ensureTestDir, testTempDir } from "./helpers.ts";
+import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import {
   changedIncludesTypeScript,
   filterFormatPaths,
@@ -27,7 +28,7 @@ async function gitOk(projectDir: string, ...args: string[]): Promise<void> {
   });
   const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    const stderr = await new Response(proc.stderr).text();
+    const stderr = await readableStreamToText(proc.stderr);
     throw new Error(`git -C ${projectDir} ${args.join(" ")} failed (${exitCode}): ${stderr}`);
   }
 }

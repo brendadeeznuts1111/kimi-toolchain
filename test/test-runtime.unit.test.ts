@@ -98,6 +98,7 @@ import {
   warnIfNodeEnvNotTest,
   resetTestRuntimeWarningsForTests,
 } from "../src/lib/test-runtime.ts";
+import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { REPO_ROOT, captureStderrWrite, testTempDir, withClearedEnv, withEnv } from "./helpers.ts";
 import { makeDir, writeText } from "../src/lib/bun-io.ts";
 import {
@@ -1056,7 +1057,7 @@ test("test 2", async () => {
       });
       const [code, combined] = await Promise.all([
         proc.exited,
-        Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]).then(
+        Promise.all([readableStreamToText(proc.stdout), readableStreamToText(proc.stderr)]).then(
           ([out, err]) => out + err
         ),
       ]);
@@ -1099,7 +1100,7 @@ Promise.reject(new Error("Unhandled rejection"));`
         stdout: "pipe",
         stderr: "pipe",
       });
-      const [code, err] = await Promise.all([proc.exited, new Response(proc.stderr).text()]);
+      const [code, err] = await Promise.all([proc.exited, readableStreamToText(proc.stderr)]);
       expect(isPromiseRejectionRunnerExit(code)).toBe(true);
       expect(isRunnerPromiseRejectionOutput(err)).toBe(true);
     }, 15_000);
@@ -1284,7 +1285,7 @@ test("global cleaned", () => {
         stdout: "pipe",
         stderr: "pipe",
       });
-      const [code, out] = await Promise.all([proc.exited, new Response(proc.stdout).text()]);
+      const [code, out] = await Promise.all([proc.exited, readableStreamToText(proc.stdout)]);
       expect(code).toBe(0);
       expect(out).toContain("--watch");
       expect(out).toContain("--hot");
@@ -1334,7 +1335,7 @@ test("global cleaned", () => {
 
     test("bun CLI advertises --prefer-offline", async () => {
       const proc = Bun.spawn(["bun", "--help"], { stdout: "pipe", stderr: "pipe" });
-      const [code, out] = await Promise.all([proc.exited, new Response(proc.stdout).text()]);
+      const [code, out] = await Promise.all([proc.exited, readableStreamToText(proc.stdout)]);
       expect(code).toBe(0);
       expect(out).toContain("--prefer-offline");
     }, 15_000);
@@ -1375,7 +1376,7 @@ test("global cleaned", () => {
 
     test("bun CLI advertises --inspect and --inspect-brk", async () => {
       const proc = Bun.spawn(["bun", "--help"], { stdout: "pipe", stderr: "pipe" });
-      const [code, out] = await Promise.all([proc.exited, new Response(proc.stdout).text()]);
+      const [code, out] = await Promise.all([proc.exited, readableStreamToText(proc.stdout)]);
       expect(code).toBe(0);
       expect(out).toContain("--inspect");
       expect(out).toContain("--inspect-brk");

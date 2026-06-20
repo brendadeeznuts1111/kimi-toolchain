@@ -6,6 +6,7 @@ import {
   pipeStdoutFromFile,
   writeStdoutLine,
 } from "../src/lib/cli-contract.ts";
+import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { REPO_ROOT, testTempDir } from "./helpers.ts";
 import { inspectAgent } from "../src/lib/inspect.ts";
 import { captureStdout, captureStderr, captureStderrWrite, withEnv } from "./helpers.ts";
@@ -381,7 +382,7 @@ describe("cli-contract", () => {
         ],
         { cwd: REPO_ROOT, stdout: "pipe", stderr: "pipe" }
       );
-      expect(await new Response(proc.stdout).text()).toBe("Lorem ipsum");
+      expect(await readableStreamToText(proc.stdout)).toBe("Lorem ipsum");
       expect(await proc.exited).toBe(0);
     });
 
@@ -394,7 +395,7 @@ describe("cli-contract", () => {
         ],
         { cwd: REPO_ROOT, stdout: "pipe", stderr: "pipe" }
       );
-      expect(await new Response(proc.stdout).text()).toBe("hello\n");
+      expect(await readableStreamToText(proc.stdout)).toBe("hello\n");
       expect(await proc.exited).toBe(0);
     });
 
@@ -416,8 +417,8 @@ describe("cli-contract", () => {
         }
       );
       const [stdout, stderr, code] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
+        readableStreamToText(proc.stdout),
+        readableStreamToText(proc.stderr),
         proc.exited,
       ]);
       expect(stderr).toBe("");

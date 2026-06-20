@@ -5,6 +5,7 @@
  * scoping. Format and lint scoping still use `git diff --name-only`.
  */
 
+import { readableStreamToText } from "./bun-utils.ts";
 import type { CheckOptions } from "./check-types.ts";
 
 export interface ChangedContext {
@@ -34,7 +35,7 @@ export async function listChangedFiles(projectRoot: string, baseRef: string): Pr
     stderr: "pipe",
   });
   if ((await proc.exited) !== 0) return [];
-  const stdout = await new Response(proc.stdout).text();
+  const stdout = await readableStreamToText(proc.stdout);
   return stdout
     .split("\n")
     .map((line) => line.trim())

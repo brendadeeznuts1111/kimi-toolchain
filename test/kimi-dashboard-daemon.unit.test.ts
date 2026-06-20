@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
+import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { REPO_ROOT, withIsolatedHome } from "./helpers.ts";
 
 const DASHBOARD = join(REPO_ROOT, "src/bin/kimi-dashboard.ts");
@@ -22,8 +23,8 @@ describe("kimi-dashboard daemon", () => {
           stderr: "pipe",
         });
         const [stdout, stderr, exitCode] = await Promise.all([
-          new Response(launcher.stdout).text(),
-          new Response(launcher.stderr).text(),
+          readableStreamToText(launcher.stdout),
+          readableStreamToText(launcher.stderr),
           launcher.exited,
         ]);
         if (exitCode !== 0) {

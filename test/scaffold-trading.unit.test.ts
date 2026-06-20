@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { join } from "path";
 import { removePath } from "../src/lib/bun-io.ts";
+import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { parseKimiModules, scaffoldKimiModules } from "../src/lib/scaffold-modules.ts";
 
 const TMP = join(import.meta.dir, ".tmp-scaffold-trading");
@@ -52,7 +53,7 @@ describe("scaffold-trading", () => {
       }
     );
     const code = await proc.exited;
-    const stdout = await new Response(proc.stdout).text();
+    const stdout = await readableStreamToText(proc.stdout);
 
     expect(code).toBe(0);
     const payload = JSON.parse(stdout) as { order: string[]; results: { gate: string }[] };
