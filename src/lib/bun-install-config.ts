@@ -793,6 +793,14 @@ export interface BunInstallRuntimeCapabilities {
       expected: string;
     }[];
   };
+  timerIdleStart: {
+    status: "node-compatible";
+    property: "_idleStart";
+    objects: readonly ["setTimeout", "setInterval"];
+    timestamp: "monotonic milliseconds";
+    compatibility: "Next.js 16 Cache Components";
+    notes: string;
+  };
   parallelConsole: {
     status: "buffered";
     appliesTo: "bun test --parallel";
@@ -1165,6 +1173,15 @@ function buildRuntimeCapabilities(
         },
       ],
     },
+    timerIdleStart: {
+      status: "node-compatible",
+      property: "_idleStart",
+      objects: ["setTimeout", "setInterval"],
+      timestamp: "monotonic milliseconds",
+      compatibility: "Next.js 16 Cache Components",
+      notes:
+        "Timeout objects returned by setTimeout and setInterval expose Node-compatible _idleStart timestamps for framework timer coordination.",
+    },
     parallelConsole: {
       status: "buffered",
       appliesTo: "bun test --parallel",
@@ -1479,6 +1496,7 @@ export function formatInstallPolicyReport(report: BunInstallConfigAudit): string
     `  inspectorProfiler: ${report.runtimeCapabilities.inspectorProfiler.status} (${report.runtimeCapabilities.inspectorProfiler.profileFormat})`,
     `  ffiCompilerPaths: ${report.runtimeCapabilities.ffiCompilerPaths.status} (${report.runtimeCapabilities.ffiCompilerPaths.module})`,
     `  packageManagerFixes: ${report.runtimeCapabilities.packageManagerFixes.status} (${report.runtimeCapabilities.packageManagerFixes.fixes.length} fixes)`,
+    `  timerIdleStart: ${report.runtimeCapabilities.timerIdleStart.status} (${report.runtimeCapabilities.timerIdleStart.property})`,
     `  parallelConsole: ${report.runtimeCapabilities.parallelConsole.status} (${report.runtimeCapabilities.parallelConsole.flush})`,
     `  platformTargeting: ${report.runtimeCapabilities.platformTargeting.crossInstall.status} (${report.runtimeCapabilities.platformTargeting.cpu}/${report.runtimeCapabilities.platformTargeting.os})`,
     "Runtime environment:",

@@ -118,6 +118,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "bun-ffi": "src/lib/bun-utils.ts",
   "bun-terminal-peek-shrink": "src/lib/bun-utils.ts",
   "bun-plugin-alloc": "src/lib/bun-utils.ts",
+  "http-header-limit": "src/lib/bun-utils.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */

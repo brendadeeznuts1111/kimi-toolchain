@@ -232,6 +232,7 @@ describe("bun-install-config", () => {
         expect(lines.some((l) => l.includes("inspectorProfiler: available"))).toBe(true);
         expect(lines.some((l) => l.includes("ffiCompilerPaths: env-aware"))).toBe(true);
         expect(lines.some((l) => l.includes("packageManagerFixes: tracked"))).toBe(true);
+        expect(lines.some((l) => l.includes("timerIdleStart: node-compatible"))).toBe(true);
         expect(lines.some((l) => l.includes("parallelConsole: buffered"))).toBe(true);
         expect(lines.some((l) => l.includes("Runtime environment"))).toBe(true);
         expect(lines.some((l) => l.includes("transpilerCache: snapshot-only"))).toBe(true);
@@ -413,6 +414,24 @@ describe("bun-install-config", () => {
     expect(byId.get("add-network-metadata-panic")?.regression).toContain(
       "Expected metadata to be set"
     );
+  });
+
+  test("buildInstallPolicyReport documents Node-compatible timer _idleStart", async () => {
+    const dir = testTempDir("bun-install-timer-idle-start-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    const report = await buildInstallPolicyReport(dir);
+
+    expect(report.runtimeCapabilities.timerIdleStart).toEqual({
+      status: "node-compatible",
+      property: "_idleStart",
+      objects: ["setTimeout", "setInterval"],
+      timestamp: "monotonic milliseconds",
+      compatibility: "Next.js 16 Cache Components",
+      notes:
+        "Timeout objects returned by setTimeout and setInterval expose Node-compatible _idleStart timestamps for framework timer coordination.",
+    });
   });
 
   test("buildInstallPolicyReport documents Bun parallel console buffering", async () => {
