@@ -22,6 +22,7 @@ export const UNIT_TEST_FILES = [
   "test/skill-table.unit.test.ts",
   "test/frontmatter.unit.test.ts",
   "test/webview-console.unit.test.ts",
+  "test/bun-webview-automation.unit.test.ts",
   "test/bun-image.unit.test.ts",
   "test/bun-cli-tooling.unit.test.ts",
   "test/bun-cron.unit.test.ts",

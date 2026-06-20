@@ -92,6 +92,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "arm64-jsc-performance": "src/lib/utils.ts",
   "bun-cli-tooling": "src/lib/bun-install-config.ts",
   "bun-terminal": "examples/dashboard/src/handlers/terminal.ts",
+  "bun-webview-automation": "src/lib/webview-console.ts",
   "bun-crypto": "src/lib/bun-utils.ts",
   "bun-image": "src/lib/bun-image.ts",
   "bun-cron": "src/lib/bun-utils.ts",
