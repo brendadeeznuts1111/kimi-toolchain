@@ -1,0 +1,25 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`snapshot-counter toMatchSnapshot produces consistent output across iterations 1`] = `
+{
+  "key": "snapshot-counter-regression-value",
+  "value": 42,
+}
+`;
+
+exports[`snapshot-counter inline snapshot matching is stable 1`] = `"hello snapshot"`;
+
+exports[`snapshot-counter complex object snapshot is stable 1`] = `
+{
+  "id": "regression-test",
+  "items": [
+    1,
+    2,
+    3,
+  ],
+  "nested": {
+    "a": true,
+    "b": false,
+  },
+}
+`;

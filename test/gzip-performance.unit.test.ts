@@ -15,11 +15,11 @@
 import { describe, expect, test } from "bun:test";
 
 function asArrayBufferBytes(bytes: Uint8Array<ArrayBufferLike>): Uint8Array<ArrayBuffer> {
-  return new Uint8Array(bytes);
+  return new Uint8Array(bytes) as Uint8Array<ArrayBuffer>;
 }
 
 /** Minimal HTML payload ~128KB (matches the blog benchmark fixture). */
-function html128K(): Uint8Array {
+function html128K(): Uint8Array<ArrayBuffer> {
   const template =
     "<!DOCTYPE html><html><head><title>Benchmark</title></head><body>" +
     "<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(400) +
@@ -31,7 +31,7 @@ function html128K(): Uint8Array {
 }
 
 /** ~1MB JSON payload (blog fixture). */
-function json1M(): Uint8Array {
+function json1M(): Uint8Array<ArrayBuffer> {
   const items: Record<string, unknown>[] = [];
   for (let i = 0; i < 5000; i++) {
     items.push({
@@ -52,7 +52,9 @@ describe("gzip-performance", () => {
     const compressed = asArrayBufferBytes(Bun.gzipSync(input));
     const elapsed = (Bun.nanoseconds() - start) / 1e3;
 
-    console.log(`  gzipSync 128KB HTML: ${elapsed.toFixed(0)} µs (blog: ~107 µs, pre-1.3.13: ~275 µs)`);
+    console.log(
+      `  gzipSync 128KB HTML: ${elapsed.toFixed(0)} µs (blog: ~107 µs, pre-1.3.13: ~275 µs)`
+    );
 
     expect(compressed.length).toBeGreaterThan(0);
     expect(compressed.length).toBeLessThan(input.length); // compresses
@@ -70,7 +72,9 @@ describe("gzip-performance", () => {
     const compressed = asArrayBufferBytes(Bun.gzipSync(input));
     const elapsed = (Bun.nanoseconds() - start) / 1e3;
 
-    console.log(`  gzipSync 1MB JSON: ${(elapsed / 1000).toFixed(2)} ms (blog: ~0.89 ms, pre-1.3.13: ~2.23 ms)`);
+    console.log(
+      `  gzipSync 1MB JSON: ${(elapsed / 1000).toFixed(2)} ms (blog: ~0.89 ms, pre-1.3.13: ~2.23 ms)`
+    );
 
     expect(compressed.length).toBeGreaterThan(0);
     expect(compressed.length).toBeLessThan(input.length);
