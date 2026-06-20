@@ -9,6 +9,20 @@ bun install
 bun run unify          # sync → ~/.kimi-code/, PATH wrappers
 ```
 
+## Multi-worktree Git
+
+This repo uses linked worktrees (Herdr, Codex, etc.). If `pwd` is `~/kimi-toolchain` but `git rev-parse --show-toplevel` points elsewhere, Git is resolving the wrong worktree — `git status` may show unrelated branch changes.
+
+Pin the canonical clone before commit/push:
+
+```bash
+export GIT_DIR=~/kimi-toolchain/.git GIT_WORK_TREE=~/kimi-toolchain
+git rev-parse --show-toplevel   # must print ~/kimi-toolchain
+git status --short
+```
+
+List worktrees: `git worktree list`. Open Cursor at `~/kimi-toolchain` (folder name must match `package.json` `name`).
+
 ## Before You Commit
 
 ```bash
