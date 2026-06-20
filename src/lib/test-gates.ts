@@ -235,6 +235,7 @@ export const UNIT_TEST_FILES = [
   "test/governor-parallel.unit.test.ts",
   "test/governance-preflight.unit.test.ts",
   "test/canonical-references.unit.test.ts",
+  "test/references-inspect-watch.unit.test.ts",
   "test/cursor-canvas-lint.unit.test.ts",
   "test/dashboard-card-registry.unit.test.ts",
   "test/kimi-dashboard-daemon.unit.test.ts",

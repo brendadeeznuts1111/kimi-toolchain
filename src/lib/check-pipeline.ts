@@ -113,10 +113,10 @@ export async function buildSteps(
     silentOnSuccess: true,
   });
 
-  if (options.fast && (await isKimiToolchainRepo(projectRoot))) {
+  if (await isKimiToolchainRepo(projectRoot)) {
     steps.push({
-      name: "canonical-references",
-      cmd: ["bun", "run", "scripts/generate-canonical-references.ts", "--check"],
+      name: "references:lint",
+      cmd: ["bun", "run", "references:lint"],
       silentOnSuccess: quiet,
     });
   }
