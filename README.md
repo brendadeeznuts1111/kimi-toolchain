@@ -4,7 +4,7 @@
 >
 > `https://github.com/brendadeeznuts1111/kimi-toolchain`
 
-**Quality (local):** `bun run lint` (`scripts/lint.ts`) includes **testing-docs** and **markdown-links** (`--full`, offline). Standalone: `bun run lint:links`, `bun run lint:links:online`. GitHub Actions is disabled; enforcement is via pre-commit/pre-push hooks and `bun run ci:local`.
+**Quality (local):** `bun run lint` (`scripts/lint.ts`) includes **testing-docs** and **markdown-links** (`--full`, offline). Standalone: `bun run lint:links`, `bun run lint:links:online`. GitHub Actions is disabled; enforcement is via pre-commit/pre-push hooks and `bun run check`.
 
 ## Install
 
@@ -28,8 +28,7 @@ See **UNIFIED.md** for how Kimi Code (`kimi`), kimi-toolchain (`kimi-doctor`), a
 Canvas, dashboard, serve-probe, and Herdr share one `BenchmarkApiEnvelope`. **One command** publishes diagnostics + a converged manifest to disk:
 
 ```bash
-cd examples/portal && bun run portal:local   # offline — recommended first run
-bun run build:portal:local                   # same from repo root
+bun run build:portal:local                   # offline — recommended first run
 bun run test:portal-convergence:fast         # quick smoke (~100ms)
 ```
 
@@ -37,7 +36,7 @@ Output: `.kimi/artifacts/artifact-portal/` (`benchmark-diagnostics` + `artifact-
 
 | Consumer path     | Command                                                                                                            |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Runnable example  | `cd examples/portal && bun run portal:local`                                                                       |
+| Runnable example  | `bun run build:portal:local`                                                                                     |
 | New workspace     | `bun create ./templates/bun-create/artifact-portal-convergence <name>`                                             |
 | Convergence check | `test:portal-convergence:fast` (quick) or `test:portal-convergence` (full); `hooks:install` standalone slices only |
 
@@ -101,9 +100,6 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run finish-work` | (synced from package.json) |
 
-| `bun run test:parallel` | (synced from package.json) |
-| `bun run test:parallel:4` | (synced from package.json) |
-| `bun run test:shard` | (synced from package.json) |
 | `bun run test:changed` | (synced from package.json) |
 | `bun run test:changed:watch` | (synced from package.json) |
 
@@ -116,6 +112,10 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run fix:drift` | (synced from package.json) |
 | `bun run lint:links:full` | (synced from package.json) |
 | `bun run test:portal-convergence:fast` | (synced from package.json) |
+
+| `bun run sync:check` | (synced from package.json) |
+| `bun run cleanup:artifacts` | (synced from package.json) |
+| `bun run test:portal-convergence:watch` | (synced from package.json) |
 
 ### Core
 
@@ -139,9 +139,9 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run test:fast`                    | Unit gate only (`UNIT_TEST_FILES`, 1500ms, `--parallel=4 --isolate`) |
 | `bun test <file>`                      | Single-file debug (bare Bun discovery)                               |
 | `bun test --coverage`                  | Coverage probe without tier wrapper                                  |
-| `bun run test:parallel`                | Full suite across all cores (`--parallel`)                           |
-| `bun run test:parallel:4`              | Full suite across 4 workers (`--parallel=4`)                         |
-| `bun run test:shard`                   | CI sharding (`--parallel --shard <M/N>`)                             |
+| `bun test --parallel`                  | Full suite across all cores                                          |
+| `bun test --parallel=4`                | Full suite across 4 workers                                          |
+| `bun test --shard=1/3`                 | CI sharding (`--parallel --shard <M/N>`)                             |
 | `bun run test:changed`                 | Only tests impacted by uncommitted changes                           |
 | `bun run test:changed:watch`           | Changed tests watcher                                                |
 | `bun run test:coverage`                | Full suite with Bun coverage report                                  |
