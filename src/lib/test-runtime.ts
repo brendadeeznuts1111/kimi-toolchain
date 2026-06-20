@@ -15,6 +15,7 @@
  * @see https://bun.com/docs/test/runtime-behavior#module-loading
  * @see https://bun.com/docs/test/runtime-behavior#error-handling
  * @see https://bun.com/docs/test/runtime-behavior#promise-rejections
+ * @see https://bun.com/docs/test/runtime-behavior#unhandled-errors
  */
 
 import { existsSync } from "fs";
@@ -91,26 +92,62 @@ export function describeBunTestExitCode(code: number): string {
 }
 
 /**
+ * Error handling umbrella (@see error-handling).
+ * Bun tracks rejections and inter-test errors; kimi uses the built-in runner (no custom handlers in preload).
+ */
+export const BUN_TEST_ERROR_HANDLING = {
+  runnerBanner: "Unhandled error between tests",
+  failsDespitePassingTests: true,
+  customHandlerEvents: ["uncaughtException", "unhandledRejection"] as const,
+  /** test/setup.ts relies on Bun runner tracking instead of process.on handlers. */
+  kimiUsesBunRunnerTracking: true,
+} as const;
+
+/** Inter-test throws (@see unhandled-errors). */
+export const BUN_TEST_UNHANDLED_ERRORS = {
+  docPattern: 'setTimeout(() => { throw new Error("Unhandled error"); }, 0)',
+  failsDespitePassingTests: true,
+} as const;
+
+/**
  * Promise rejections outside test callbacks (@see promise-rejections).
  * Bun fails the run even when registered tests pass.
  */
 export const BUN_TEST_PROMISE_REJECTIONS = {
   docPattern: 'Promise.reject(new Error("Unhandled rejection"))',
-  runnerBanner: "Unhandled error between tests",
+  runnerBanner: BUN_TEST_ERROR_HANDLING.runnerBanner,
   failsDespitePassingTests: true,
 } as const;
+
+/** Canonical custom handler pattern from Bun docs (optional; not used in kimi preload). */
+export const BUN_TEST_CUSTOM_ERROR_HANDLERS = [
+  'process.on("uncaughtException", (error) => { ... })',
+  'process.on("unhandledRejection", (reason, promise) => { ... })',
+] as const;
+
+export function isRunnerErrorHandlingExit(code: number): boolean {
+  return isBunTestFailureExit(code);
+}
 
 /** Detect Bun runner output for module-level unhandled promise rejections. */
 export function isRunnerPromiseRejectionOutput(output: string): boolean {
   return (
-    output.includes(BUN_TEST_PROMISE_REJECTIONS.runnerBanner) &&
+    output.includes(BUN_TEST_ERROR_HANDLING.runnerBanner) &&
     /Unhandled rejection/i.test(output)
+  );
+}
+
+/** Detect runner output for inter-test throws (banner or surfaced error text). */
+export function isRunnerUnhandledErrorOutput(output: string): boolean {
+  return (
+    output.includes(BUN_TEST_ERROR_HANDLING.runnerBanner) ||
+    (/Unhandled error/i.test(output) && !/Unhandled rejection/i.test(output))
   );
 }
 
 /** Non-zero exit when the runner reported promise-rejection errors. */
 export function isPromiseRejectionRunnerExit(code: number): boolean {
-  return isBunTestFailureExit(code);
+  return isRunnerErrorHandlingExit(code);
 }
 
 /** Signals the Bun test runner handles (@see signal-handling). */

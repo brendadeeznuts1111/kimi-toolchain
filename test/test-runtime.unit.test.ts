@@ -16,10 +16,15 @@ import {
   BUN_TEST_INSTALL_FLAGS,
   BUN_TEST_MODULE_LOADING,
   BUN_TEST_MODULE_LOADING_VALUE_FLAGS,
+  BUN_TEST_CUSTOM_ERROR_HANDLERS,
+  BUN_TEST_ERROR_HANDLING,
   BUN_TEST_PROMISE_REJECTIONS,
+  BUN_TEST_UNHANDLED_ERRORS,
   BUN_TEST_WATCH,
   isPromiseRejectionRunnerExit,
+  isRunnerErrorHandlingExit,
   isRunnerPromiseRejectionOutput,
+  isRunnerUnhandledErrorOutput,
   bunTestDebugArgs,
   readBunfigTestPreloadPaths,
   bunTestArgsIncludeFlag,
@@ -266,7 +271,65 @@ test("fails", () => {
 
   });
 
-  describe("Bun promise rejections", () => {
+  describe("Bun error handling", () => {
+    // https://bun.com/docs/test/runtime-behavior#error-handling
+    test("documents error-handling umbrella and kimi preload policy", () => {
+      expect(BUN_TEST_ERROR_HANDLING.runnerBanner).toBe("Unhandled error between tests");
+      expect(BUN_TEST_ERROR_HANDLING.failsDespitePassingTests).toBe(true);
+      expect(BUN_TEST_ERROR_HANDLING.kimiUsesBunRunnerTracking).toBe(true);
+      expect(BUN_TEST_ERROR_HANDLING.customHandlerEvents).toEqual([
+        "uncaughtException",
+        "unhandledRejection",
+      ]);
+      expect(BUN_TEST_CUSTOM_ERROR_HANDLERS).toHaveLength(2);
+      expect(BUN_TEST_UNHANDLED_ERRORS.docPattern).toContain("setTimeout");
+      expect(BUN_TEST_PROMISE_REJECTIONS.runnerBanner).toBe(
+        BUN_TEST_ERROR_HANDLING.runnerBanner
+      );
+    });
+
+    test("test/setup.ts does not install custom process error handlers", async () => {
+      const text = await Bun.file(join(REPO_ROOT, "test/setup.ts")).text();
+      expect(text).not.toContain('process.on("uncaughtException"');
+      expect(text).not.toContain('process.on("unhandledRejection"');
+    });
+
+    test("native bun test: inter-test setTimeout throw fails the run", async () => {
+      const dir = testTempDir("bun-unhandled-error-");
+      makeDir(dir, { recursive: true });
+      const testPath = join(dir, "unhandled-error.probe.test.ts");
+      writeText(
+        testPath,
+        `import { test, expect } from "bun:test";
+test("test 1", () => {
+  expect(true).toBe(true);
+});
+setTimeout(() => {
+  throw new Error("Unhandled error");
+}, 0);
+test("test 2", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(true).toBe(true);
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const proc = Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const [code, combined] = await Promise.all([
+        proc.exited,
+        Promise.all([
+          new Response(proc.stdout).text(),
+          new Response(proc.stderr).text(),
+        ]).then(([out, err]) => out + err),
+      ]);
+      expect(isRunnerErrorHandlingExit(code)).toBe(true);
+      expect(isRunnerUnhandledErrorOutput(combined)).toBe(true);
+    }, 15_000);
+
     // https://bun.com/docs/test/runtime-behavior#promise-rejections
     test("documents promise rejection runner contract", () => {
       expect(BUN_TEST_PROMISE_REJECTIONS.failsDespitePassingTests).toBe(true);
