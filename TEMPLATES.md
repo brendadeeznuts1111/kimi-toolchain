@@ -202,7 +202,7 @@ Run type checking separately: `bun run typecheck` (`tsc --noEmit`). Bun runtime 
 
 Temporary shims for Bun 1.3+ runtime APIs ahead of `bun-types`. Remove entries as `@types/bun` catches up:
 
-```typescript
+```ts
 /// <reference types="bun" />
 
 declare module "bun" {
@@ -486,7 +486,7 @@ jobs:
 
 This example is for kimi-toolchain internals. Other projects should use their local runner/helper first and record that path in `CODE_REFERENCES.md`.
 
-```typescript
+```ts
 import { invokeTool } from "./src/lib/tool-runner.ts";
 
 interface Result {
@@ -520,7 +520,7 @@ export async function runToolchainCommand(
 
 ## SQLite + Bun Template
 
-```typescript
+```ts
 import { Database } from "bun:sqlite";
 
 const db = new Database("data.sqlite", { create: true });
@@ -537,7 +537,7 @@ db.close();
 
 ## File I/O Template (Bun-Native)
 
-```typescript
+```ts
 const text = await Bun.file("config.json").text();
 const json = await Bun.file("config.json").json();
 await Bun.write("output.txt", "hello");
@@ -550,7 +550,7 @@ if (existsSync("file.txt")) {
 
 ## Hashing Template (Bun-Native)
 
-```typescript
+```ts
 const hasher = new Bun.CryptoHasher("sha256");
 hasher.update("data");
 const hash = hasher.digest("hex");
@@ -558,7 +558,7 @@ const hash = hasher.digest("hex");
 
 ## Spawn with Resource Limits Template
 
-```typescript
+```ts
 import { governedSpawn, ParallelGovernor } from "~/.kimi-code/tools/kimi-resource-governor.ts";
 
 const result = await governedSpawn(["bun", "test"], {

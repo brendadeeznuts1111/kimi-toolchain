@@ -152,11 +152,21 @@ rg -n '^#{1,6}\s+.*[.!?]$' --glob '*.md' .
 rg -n '^#{1,6}[^ #]' --glob '*.md' .
 ```
 
+Fence language inventory (repo uses short ids — `ts` not `typescript`):
+
+```bash
+rg -n '^```[a-z]+' --glob '*.md' .
+```
+
+The gate also cross-checks every `test/**/*.test.ts` against `UNIT_TEST_FILES` / `INTEGRATION_TEST_FILES` / `SMOKE_TEST_FILES` in `test-gates.ts` (orphan or stale tier entries).
+
 Optional deep audit (skipped levels, duplicate headings, trailing spaces, setext vs ATX):
 
 ```bash
 bunx markdownlint-cli2 '**/*.md' '#node_modules'
 ```
+
+Gate JSON for agents: `bun run scripts/lint-testing-docs.ts --json` → `{ schemaVersion, tool, ok, issues[] }`.
 
 Interpretation:
 

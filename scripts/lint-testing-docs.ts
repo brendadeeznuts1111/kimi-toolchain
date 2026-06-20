@@ -7,10 +7,13 @@
 
 import { join } from "path";
 import {
+  auditMarkdownFenceLanguages,
   auditMarkdownHeadings,
+  auditTestTierInventory,
   auditTestingDocs,
   formatTestingDocReport,
   inventoryBunTestMentions,
+  listMarkdownFences,
   TESTING_DOCS_AUDIT_COMMANDS,
   TESTING_DOCS_DEFAULT_PATHS,
 } from "../src/lib/testing-docs-lint.ts";
@@ -49,6 +52,27 @@ async function main(): Promise<number> {
       for (const issue of headingIssues) {
         console.log(`  L${issue.line} [${issue.severity}] ${issue.ruleId}  ${issue.snippet}`);
       }
+    }
+    console.log("\nfence languages (agent docs):\n");
+    for (const rel of TESTING_DOCS_DEFAULT_PATHS) {
+      if (!rel.endsWith(".md")) continue;
+      const text = await readTextAsync(join(REPO_ROOT, rel));
+      const fences = listMarkdownFences(text);
+      if (fences.length === 0) continue;
+      const fenceIssues = auditMarkdownFenceLanguages(rel, text);
+      console.log(`${rel}: ${fences.length} fence(s)`);
+      for (const issue of fenceIssues) {
+        console.log(`  L${issue.line} [${issue.severity}] ${issue.ruleId}  ${issue.snippet}`);
+      }
+    }
+    const tierIssues = await auditTestTierInventory(REPO_ROOT);
+    const onDisk = tierIssues.filter((i) => i.ruleId === "test-file-not-in-tier-inventory").length;
+    const stale = tierIssues.filter((i) => i.ruleId === "stale-test-gates-entry").length;
+    console.log(
+      `\ntest tier inventory: ${onDisk} orphan(s) on disk, ${stale} stale test-gates.ts entry(ies)`
+    );
+    for (const issue of tierIssues) {
+      console.log(`  [${issue.severity}] ${issue.ruleId}  ${issue.snippet}`);
     }
     console.log(
       "\nOptional deep markdown lint (skipped levels, duplicates, trailing spaces):\n" +

@@ -8,6 +8,11 @@
 import { join } from "path";
 import { readTextAsync } from "./bun-io.ts";
 import { REQUIRED_PACKAGE_SCRIPT_ENTRIES } from "./scaffold-templates.ts";
+import {
+  INTEGRATION_TEST_FILES,
+  SMOKE_TEST_FILES,
+  UNIT_TEST_FILES,
+} from "./test-gates.ts";
 
 export const BUN_MARKDOWN_HTML_DOC_URL = "https://bun.com/docs/runtime/markdown#bun-markdown-html";
 
@@ -36,9 +41,51 @@ export const TESTING_DOCS_AUDIT_COMMANDS = {
   headingLowercase: "rg -n '^#{1,6}\\\\s+[a-z]' --glob '*.md' .",
   headingTrailingPunctuation: "rg -n '^#{1,6}\\\\s+.*[.!?]$' --glob '*.md' .",
   headingMissingSpace: "rg -n '^#{1,6}[^ #]' --glob '*.md' .",
+  fenceLanguages: "rg -n '^```[a-z]+' --glob '*.md' .",
   /** Optional deep audit — skipped levels, duplicates, trailing spaces, setext vs ATX. */
   markdownlintOptional: "bunx markdownlint-cli2 '**/*.md' '#node_modules'",
 } as const;
+
+/** Repo convention: short fence ids (prefer `ts` over `typescript`). */
+export const MARKDOWN_FENCE_ALLOWED = new Set([
+  "bash",
+  "sh",
+  "shell",
+  "ts",
+  "tsx",
+  "json",
+  "jsonc",
+  "toml",
+  "yaml",
+  "yml",
+  "md",
+  "markdown",
+  "mermaid",
+  "text",
+  "plaintext",
+  "diff",
+  "sql",
+  "html",
+  "xml",
+  "ini",
+  "env",
+  "dotenv",
+  "gitignore",
+  "dockerfile",
+  "c",
+  "cpp",
+  "rs",
+  "go",
+  "python",
+  "py",
+]);
+
+/** Deprecated fence ids → preferred replacement (agent docs). */
+export const MARKDOWN_FENCE_PREFER: Readonly<Record<string, string>> = {
+  typescript: "ts",
+  javascript: "ts",
+  js: "ts",
+};
 
 export type TestingDocSeverity = "error" | "warn";
 
@@ -273,6 +320,90 @@ export function inventoryBunTestMentions(
 }
 
 /** TEMPLATES.md package.json block must match scaffold SSOT for test:fast. */
+/** List fenced code-block openers (` ```lang `). */
+export function listMarkdownFences(
+  text: string
+): Array<{ line: number; lang: string; raw: string }> {
+  const lines = text.split("\n");
+  const hits: Array<{ line: number; lang: string; raw: string }> = [];
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i] ?? "";
+    const m = raw.match(/^```([A-Za-z0-9+#.-]+)\s*$/);
+    if (!m) continue;
+    hits.push({ line: i + 1, lang: m[1]!.toLowerCase(), raw: raw.trim() });
+  }
+  return hits;
+}
+
+export function auditMarkdownFenceLanguages(rel: string, text: string): TestingDocIssue[] {
+  if (!/\.md$/.test(rel)) return [];
+  const issues: TestingDocIssue[] = [];
+  for (const fence of listMarkdownFences(text)) {
+    const preferred = MARKDOWN_FENCE_PREFER[fence.lang];
+    if (preferred) {
+      issues.push({
+        file: rel,
+        line: fence.line,
+        ruleId: "fence-deprecated-language",
+        severity: "error",
+        message: `Use \`\`\`${preferred}\` instead of \`\`\`${fence.lang}\``,
+        snippet: fence.raw,
+      });
+      continue;
+    }
+    if (!MARKDOWN_FENCE_ALLOWED.has(fence.lang)) {
+      issues.push({
+        file: rel,
+        line: fence.line,
+        ruleId: "fence-unknown-language",
+        severity: "warn",
+        message: `Unknown fence language "${fence.lang}" — add to MARKDOWN_FENCE_ALLOWED or fix typo`,
+        snippet: fence.raw,
+      });
+    }
+  }
+  return issues;
+}
+
+/** Cross-check all test tier files on disk vs test-gates.ts lists. */
+export async function auditTestTierInventory(root: string): Promise<TestingDocIssue[]> {
+  const tierPaths = new Set<string>([
+    ...UNIT_TEST_FILES,
+    ...INTEGRATION_TEST_FILES,
+    ...SMOKE_TEST_FILES,
+  ]);
+  const onDisk = new Set<string>();
+  const glob = new Bun.Glob("test/**/*.test.ts");
+  for await (const rel of glob.scan({ cwd: root, onlyFiles: true })) {
+    onDisk.add(rel);
+  }
+
+  const issues: TestingDocIssue[] = [];
+  for (const rel of onDisk) {
+    if (tierPaths.has(rel)) continue;
+    issues.push({
+      file: rel,
+      line: 0,
+      ruleId: "test-file-not-in-tier-inventory",
+      severity: "warn",
+      message: "Add to UNIT/INTEGRATION/SMOKE_TEST_FILES in test-gates.ts (see test/testing.md)",
+      snippet: rel,
+    });
+  }
+  for (const rel of tierPaths) {
+    if (onDisk.has(rel)) continue;
+    issues.push({
+      file: "src/lib/test-gates.ts",
+      line: 0,
+      ruleId: "stale-test-gates-entry",
+      severity: "error",
+      message: `Stale tier entry — missing on disk: ${rel}`,
+      snippet: rel,
+    });
+  }
+  return issues;
+}
+
 export async function auditTemplatesTestFastParity(
   root: string
 ): Promise<TestingDocIssue | undefined> {
@@ -331,6 +462,7 @@ export async function auditTestingDocs(
     }
     issues.push(...scanText(rel, text));
     issues.push(...auditMarkdownHeadings(rel, text));
+    issues.push(...auditMarkdownFenceLanguages(rel, text));
   }
 
   // Scaffold parity + repo-wide stale script scan (scaffold injectors).
@@ -341,6 +473,8 @@ export async function auditTestingDocs(
 
   const parity = await auditTemplatesTestFastParity(root);
   if (parity) issues.push(parity);
+
+  issues.push(...(await auditTestTierInventory(root)));
 
   return issues;
 }

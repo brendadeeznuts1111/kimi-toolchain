@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import {
+  auditMarkdownFenceLanguages,
   auditMarkdownHeadings,
   auditTemplatesTestFastParity,
+  auditTestTierInventory,
   auditTestingDocs,
   inventoryBunTestMentions,
+  listMarkdownFences,
   listMarkdownHeadings,
   TESTING_DOCS_AUDIT_COMMANDS,
 } from "../src/lib/testing-docs-lint.ts";
@@ -56,6 +59,28 @@ describe("testing-docs-lint", () => {
     expect(hits[0]?.allowed).toBe(true);
     expect(hits[1]?.allowed).toBe(true);
     expect(hits[2]?.allowed).toBe(false);
+  });
+
+  test("auditMarkdownFenceLanguages rejects typescript fences", () => {
+    const issues = auditMarkdownFenceLanguages(
+      "sample.md",
+      "```typescript\nconst x = 1;\n```\n```ts\nok\n```"
+    );
+    expect(issues.some((i) => i.ruleId === "fence-deprecated-language")).toBe(true);
+    expect(issues.filter((i) => i.severity === "error")).toHaveLength(1);
+  });
+
+  test("listMarkdownFences collects fence openers", () => {
+    expect(listMarkdownFences("```bash\nx\n```\n```ts\n")).toEqual([
+      { line: 1, lang: "bash", raw: "```bash" },
+      { line: 4, lang: "ts", raw: "```ts" },
+    ]);
+  });
+
+  test("auditTestTierInventory has no orphans on canonical repo", async () => {
+    const issues = await auditTestTierInventory(REPO_ROOT);
+    expect(issues.filter((i) => i.severity === "error")).toEqual([]);
+    expect(issues.filter((i) => i.ruleId === "test-file-not-in-tier-inventory")).toEqual([]);
   });
 
   test("flags stale run-tests.ts --fast in markdown", async () => {
