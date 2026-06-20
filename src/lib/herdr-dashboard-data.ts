@@ -13,6 +13,7 @@ import { getHandoffHistory, getHandoffLogPath, type HandoffLogEntry } from "./ha
 import { herdrCliRun } from "./herdr-project-cli.ts";
 import { scanUpgradeAdvisor, type UpgradeScanReport } from "./upgrade-advisor.ts";
 import { LOCAL_DOC_REFERENCES } from "./canonical-references.ts";
+import { buildDashboardDeepLink, isBridgedCanvasManifest } from "./herdr-dashboard-bridge.ts";
 import {
   clampDashboardLogTail,
   dashboardLogSinkPriority,
@@ -393,6 +394,8 @@ export interface DashboardCanvasEntry {
   readOrder?: number;
   /** examples/dashboard card ids influenced by this canvas (v5.4) */
   influences?: string[];
+  /** Examples dashboard deep link when canvas supports reactive cards (v5.5 Herdr bridge) */
+  dashboardDeepLink?: string;
 }
 
 export interface DashboardCanvasesPayload {
@@ -408,10 +411,11 @@ export function fetchDashboardCanvases(): DashboardCanvasesPayload {
 
   for (const ref of LOCAL_DOC_REFERENCES) {
     if (!ref.cursorCanvas) continue;
-    canvases.push({
+    const canvasId =
+      ref.canvasId ?? ref.cursorCanvas.replace(canvasPrefix, "").replace(".canvas.tsx", "");
+    const entry: DashboardCanvasEntry = {
       id: ref.id,
-      canvasId:
-        ref.canvasId ?? ref.cursorCanvas.replace(canvasPrefix, "").replace(".canvas.tsx", ""),
+      canvasId,
       page: ref.canvasPage ?? ref.cursorCanvas.replace(canvasPrefix, "").replace(".canvas.tsx", ""),
       path: ref.cursorCanvas,
       purpose: ref.purpose ?? "",
@@ -420,7 +424,11 @@ export function fetchDashboardCanvases(): DashboardCanvasesPayload {
       openWhen: ref.canvasOpenWhen,
       readOrder: ref.canvasReadOrder,
       influences: ref.canvasInfluences ? [...ref.canvasInfluences] : undefined,
-    });
+    };
+    if (isBridgedCanvasManifest(canvasId)) {
+      entry.dashboardDeepLink = buildDashboardDeepLink({ manifestId: canvasId });
+    }
+    canvases.push(entry);
   }
 
   canvases.sort((a, b) => (a.readOrder ?? 99) - (b.readOrder ?? 99));

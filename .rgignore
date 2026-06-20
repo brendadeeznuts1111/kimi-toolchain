@@ -1,0 +1,15 @@
+# Project-level ripgrep ignores — search/AI discovery only, not Git
+# Keeps build artifacts, caches, and temp dirs out of rg results.
+.kimi-artifacts/
+.kimi/
+.tmp-*/
+~/.bun/
+.bun/install/cache/
+coverage/
+*.log
+
+# Generated binaries and archives
+*.tar.gz
+*.zip
+*.wasm
+*.node

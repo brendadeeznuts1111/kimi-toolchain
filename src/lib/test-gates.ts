@@ -41,6 +41,7 @@ export const UNIT_TEST_FILES = [
   "test/dashboard-audit-store.unit.test.ts",
   "test/dashboard-route-patterns.unit.test.ts",
   "test/dashboard-canvas-filter.unit.test.ts",
+  "test/herdr-dashboard-bridge.unit.test.ts",
   "test/log-preview.unit.test.ts",
   "test/herdr-dashboard-data.unit.test.ts",
   "test/kimi-doctor-gate.unit.test.ts",

@@ -151,6 +151,14 @@ describe("herdr-dashboard-server", () => {
     expect(templates?.influences).toContain("card-scaffold");
   });
 
+  test("fetchDashboardCanvases exposes dashboardDeepLink for bridged manifests", () => {
+    const payload = fetchDashboardCanvases();
+    const lineage = payload.canvases.find((c) => c.id === "artifact-lineage");
+    expect(lineage?.dashboardDeepLink).toContain("canvas=artifact-lineage");
+    const unified = payload.canvases.find((c) => c.id === "unified");
+    expect(unified?.dashboardDeepLink).toBeUndefined();
+  });
+
   test("createDashboardConsoleMirror exposes webView handler", () => {
     const handler = createDashboardConsoleMirror();
     expect(typeof handler).toBe("function");

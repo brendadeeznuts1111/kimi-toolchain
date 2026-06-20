@@ -61,6 +61,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "gates-trading": "src/gates/trading-metrics.ts",
   "dashboard-audit-store": "src/lib/dashboard-audit-store.ts",
   "herdr-dashboard-data": "src/lib/herdr-dashboard-data.ts",
+  "herdr-dashboard-bridge": "src/lib/herdr-dashboard-bridge.ts",
   "scaffold-trading": "src/lib/scaffold-modules.ts",
   "introspection-docs": "src/lib/scaffold-agents.ts",
   "examples-dashboard-routes": "examples/dashboard/src/index.ts",
