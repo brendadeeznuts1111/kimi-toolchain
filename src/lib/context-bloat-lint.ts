@@ -52,7 +52,21 @@ export const AGENT_DOC_PLACEHOLDER_RE =
   /\[(?:Add |Auto-generated\.|High-level |Anything else |Replace )[^\]]+\]/g;
 
 /** AGENTS.md Architecture tree — claimed registered bin count. */
-export const AGENTS_BIN_COUNT_RE = /CLI entry points \((\d+) registered bins\)/;
+export const AGENTS_BIN_COUNT_RE = /CLI entry points \((\d+) registered bins/;
+
+/** Bins routed via kimi-toolchain or bun run — intentionally omitted from package.json bin. */
+export const SOURCE_ONLY_BIN_FILES = [
+  "herdr-doctor.ts",
+  "herdr-latm.ts",
+  "herdr-orchestrator.ts",
+  "herdr-pane.ts",
+  "herdr-project.ts",
+  "herdr-spawn.ts",
+  "kimi-bake.ts",
+  "kimi-config.ts",
+  "kimi-dashboard.ts",
+  "kimi-identity.ts",
+] as const;
 
 export const AGENTS_MAX_LINES = 900;
 export const CONTEXT_MAX_LINES = 120;
@@ -380,9 +394,11 @@ export function findBinCountDrift(agentsText: string, actualBinCount: number): C
 /** package.json bin entries must map 1:1 to src/bin/*.ts. */
 export function findPackageBinDrift(
   packageBins: Record<string, string>,
-  srcBinFiles: string[]
+  srcBinFiles: string[],
+  sourceOnlyFiles: readonly string[] = SOURCE_ONLY_BIN_FILES
 ): ContextBloatIssue[] {
   const issues: ContextBloatIssue[] = [];
+  const sourceOnlySet = new Set(sourceOnlyFiles);
   const actualPaths = new Set(srcBinFiles.map((f) => `src/bin/${f}`));
   const registeredPaths = new Set(Object.values(packageBins));
 
@@ -399,6 +415,7 @@ export function findPackageBinDrift(
   }
 
   for (const file of srcBinFiles) {
+    if (sourceOnlySet.has(file)) continue;
     const relPath = `src/bin/${file}`;
     if (!registeredPaths.has(relPath)) {
       issues.push({
@@ -483,18 +500,19 @@ export async function auditContextBloat(projectRoot: string): Promise<ContextBlo
   issues.push(...findDuplicatePlaceholders(agentDocs));
 
   const srcBinFiles = await listSrcBinFiles(projectRoot);
+  const packagePath = join(projectRoot, "package.json");
+  const pkg = pathExists(packagePath)
+    ? ((await Bun.file(packagePath).json()) as { bin?: Record<string, string> })
+    : undefined;
   const agentsPath = join(projectRoot, "AGENTS.md");
   if (pathExists(agentsPath)) {
     const agentsText = await Bun.file(agentsPath).text();
-    issues.push(...findBinCountDrift(agentsText, srcBinFiles.length));
+    const registeredCount = pkg?.bin ? Object.keys(pkg.bin).length : srcBinFiles.length;
+    issues.push(...findBinCountDrift(agentsText, registeredCount));
   }
 
-  const packagePath = join(projectRoot, "package.json");
-  if (pathExists(packagePath)) {
-    const pkg = (await Bun.file(packagePath).json()) as { bin?: Record<string, string> };
-    if (pkg.bin) {
-      issues.push(...findPackageBinDrift(pkg.bin, srcBinFiles));
-    }
+  if (pkg?.bin) {
+    issues.push(...findPackageBinDrift(pkg.bin, srcBinFiles));
   }
 
   for (const tracked of await listTrackedBackupFiles(projectRoot)) {

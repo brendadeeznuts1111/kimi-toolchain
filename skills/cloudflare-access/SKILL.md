@@ -14,16 +14,16 @@ trigger:
   - policy-as-code plan/apply
 dependencies:
   - kimi-toolchain
-loaded_by: On-demand / cloudflare-access topic
+loaded_by: System / On-demand
 role: Zero Trust hygiene runbook — CLI surface, auth separation, plan-before-apply
 token_estimate: 680
+run_as: subagent
 allowed_tools:
   - read_file
   - write_file
   - search_content
   - run_command
   - web_fetch
-run_as: subagent
 model: deepseek-v4-flash
 ---
 

@@ -56,7 +56,7 @@ Authoritative maps — do not duplicate stale trees here:
 
 | Need                                                                                  | Source                                                                                 |
 | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| CLI entry points (24 registered in `package.json` bin + 10 source-only in `src/bin/`) | `package.json` `bin` + `src/bin/*.ts`                                                  |
+| CLI entry points (26 registered bins in `package.json` + 10 source-only in `src/bin/`) | `package.json` `bin` + `src/bin/*.ts`                                                  |
 | Tool routing                                                                          | [UNIFIED.md](UNIFIED.md)                                                               |
 | Shared library                                                                        | `src/lib/` (flat by default; `src/lib/effect/` for Effect adapters)                    |
 | Library domain guide                                                                  | `src/lib/README.md`                                                                    |
@@ -526,6 +526,7 @@ On memory-constrained hosts, swap thrashing inflates load before CPU looks busy.
 | `docs/handoff-rules.md`                   | Cross-pane handoff contract                                                                                                  |
 | `docs/naming.md`                          | Session and pane naming conventions                                                                                          |
 | `docs/flake-register.md`                  | Known flaky tests and mitigations                                                                                            |
+| `docs/rgignore.md`                        | Project and global ripgrep ignore layers                                                                                     |
 | `docs/references/configuration-layers.md` | Four-layer config model: discovery, define registry, parity contract, app scaffold                                           |
 | `docs/references/bun-runtime-scaffold.md` | Bun install config (bunfig.toml merge, env vars, globalStore, process.execve, Bun.Terminal, using)                           |
 | `docs/canvases/*.canvas.tsx`              | IDE canvas companions (via `cursorCanvas` in manifest; not synced)                                                           |
