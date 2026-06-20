@@ -5,7 +5,7 @@
 
 import { Effect } from "effect";
 import {
-  capabilityReport,
+  runCapabilityAggregator,
   readCapabilityTrend,
   type CapabilityStatus,
 } from "../lib/capabilities.ts";
@@ -49,7 +49,7 @@ async function main(): Promise<number> {
   }
 
   const projectRoot = await resolveProjectRoot();
-  const report = await capabilityReport(projectRoot);
+  const report = await Effect.runPromise(runCapabilityAggregator(projectRoot));
   if (json) {
     await emitJson(report);
     return report.unavailable > 0 ? 1 : 0;

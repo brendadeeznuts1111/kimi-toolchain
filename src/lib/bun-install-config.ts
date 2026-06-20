@@ -778,6 +778,21 @@ export interface BunInstallRuntimeCapabilities {
     platformUse: "NixOS and non-FHS systems";
     notes: string;
   };
+  packageManagerFixes: {
+    status: "tracked";
+    fixes: readonly {
+      id:
+        | "update-interactive-latest-toggle"
+        | "install-yarn-workspace-lockfile"
+        | "frozen-lockfile-scope-registry"
+        | "file-path-stale-lockfile-error"
+        | "add-network-metadata-panic";
+      command: string;
+      surface: string;
+      regression: string;
+      expected: string;
+    }[];
+  };
   parallelConsole: {
     status: "buffered";
     appliesTo: "bun test --parallel";
@@ -1106,6 +1121,50 @@ function buildRuntimeCapabilities(
       notes:
         "Bun's built-in C compiler respects standard C_INCLUDE_PATH and LIBRARY_PATH values when resolving headers and libraries for bun:ffi.",
     },
+    packageManagerFixes: {
+      status: "tracked",
+      fixes: [
+        {
+          id: "update-interactive-latest-toggle",
+          command: BUN_INSTALL_CLI.updateInteractive,
+          surface: "interactive update selection",
+          regression:
+            "pressing l to toggle Target/Latest made the underline indicator disappear and excluded packages on confirm",
+          expected: "toggling Target/Latest keeps package selection intact",
+        },
+        {
+          id: "install-yarn-workspace-lockfile",
+          command: "bun install --yarn",
+          surface: "Yarn v1 lockfile generation",
+          regression: "workspace:* dependencies in monorepos produced invalid yarn.lock entries",
+          expected: "workspace:* dependencies serialize to valid yarn.lock content",
+        },
+        {
+          id: "frozen-lockfile-scope-registry",
+          command: BUN_INSTALL_CLI.frozenInstall,
+          surface: "scope-specific bunfig registries",
+          regression:
+            "empty registry URLs in the lockfile fell back to the default npm registry for scoped packages",
+          expected: "frozen installs honor scope-specific registries from bunfig.toml",
+        },
+        {
+          id: "file-path-stale-lockfile-error",
+          command: BUN_INSTALL_CLI.install,
+          surface: "file: dependency resolution",
+          regression:
+            "stale lockfile file: path failures omitted the dependency name and reported a misleading package.json error",
+          expected: "file: path resolution errors include the affected dependency name",
+        },
+        {
+          id: "add-network-metadata-panic",
+          command: BUN_INSTALL_CLI.add,
+          surface: "network failure handling",
+          regression:
+            "HTTP failures before response headers could panic with Expected metadata to be set",
+          expected: "network failures return a normal package-manager error instead of panicking",
+        },
+      ],
+    },
     parallelConsole: {
       status: "buffered",
       appliesTo: "bun test --parallel",
@@ -1419,6 +1478,7 @@ export function formatInstallPolicyReport(report: BunInstallConfigAudit): string
     `  pmPackLifecycleManifest: ${report.runtimeCapabilities.pmPackLifecycleManifest.status} (${report.runtimeCapabilities.pmPackLifecycleManifest.command})`,
     `  inspectorProfiler: ${report.runtimeCapabilities.inspectorProfiler.status} (${report.runtimeCapabilities.inspectorProfiler.profileFormat})`,
     `  ffiCompilerPaths: ${report.runtimeCapabilities.ffiCompilerPaths.status} (${report.runtimeCapabilities.ffiCompilerPaths.module})`,
+    `  packageManagerFixes: ${report.runtimeCapabilities.packageManagerFixes.status} (${report.runtimeCapabilities.packageManagerFixes.fixes.length} fixes)`,
     `  parallelConsole: ${report.runtimeCapabilities.parallelConsole.status} (${report.runtimeCapabilities.parallelConsole.flush})`,
     `  platformTargeting: ${report.runtimeCapabilities.platformTargeting.crossInstall.status} (${report.runtimeCapabilities.platformTargeting.cpu}/${report.runtimeCapabilities.platformTargeting.os})`,
     "Runtime environment:",

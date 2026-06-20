@@ -26,7 +26,8 @@ describe("bun-ffi", () => {
 
   test("Bun.FFI static member exists", () => {
     // Bun.FFI provides linkSymbols for dynamic loading
-    expect(typeof Bun.FFI).toBe("object");
-    expect(typeof Bun.FFI.linkSymbols).toBe("function");
+    const ffi = (Bun as unknown as { FFI: { linkSymbols: unknown } }).FFI;
+    expect(typeof ffi).toBe("object");
+    expect(typeof ffi.linkSymbols).toBe("function");
   });
 });

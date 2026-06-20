@@ -8,7 +8,7 @@
 
 import { Context, Data, Effect, Layer } from "effect";
 import { isAbsolute, resolve } from "path";
-import { capabilityReport, type CapabilityReport, type CapabilityStatus } from "../capabilities.ts";
+import { runCapabilityAggregator, type CapabilityReport, type CapabilityStatus } from "../capabilities.ts";
 import {
   signContractEffect,
   validateContractEffect,
@@ -163,10 +163,7 @@ export function KimiIntrospectionLiveFor(options: KimiIntrospectionOptions = {})
 export const KimiIntrospectionLive = KimiIntrospectionLiveFor();
 
 function probeCapabilities(projectRoot: string): Effect.Effect<CapabilityProbeResult, never> {
-  return Effect.tryPromise({
-    try: () => capabilityReport(projectRoot),
-    catch: (cause) => cause,
-  }).pipe(
+  return runCapabilityAggregator(projectRoot).pipe(
     Effect.map(toCapabilityProbeResult),
     Effect.catchAll((cause) => Effect.succeed(fallbackCapabilityProbe(cause)))
   );

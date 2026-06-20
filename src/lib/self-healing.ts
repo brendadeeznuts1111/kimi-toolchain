@@ -8,7 +8,11 @@
 
 import { Effect } from "effect";
 import { readableStreamToText } from "./bun-utils.ts";
-import { capabilityReport, type CapabilityReport, type CapabilityResult } from "./capabilities.ts";
+import {
+  runCapabilityAggregator,
+  type CapabilityReport,
+  type CapabilityResult,
+} from "./capabilities.ts";
 import {
   clusterFailureLedgerEffect,
   type ErrorCluster,

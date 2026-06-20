@@ -231,6 +231,7 @@ describe("bun-install-config", () => {
         expect(lines.some((l) => l.includes("pmPackLifecycleManifest: rereads"))).toBe(true);
         expect(lines.some((l) => l.includes("inspectorProfiler: available"))).toBe(true);
         expect(lines.some((l) => l.includes("ffiCompilerPaths: env-aware"))).toBe(true);
+        expect(lines.some((l) => l.includes("packageManagerFixes: tracked"))).toBe(true);
         expect(lines.some((l) => l.includes("parallelConsole: buffered"))).toBe(true);
         expect(lines.some((l) => l.includes("Runtime environment"))).toBe(true);
         expect(lines.some((l) => l.includes("transpilerCache: snapshot-only"))).toBe(true);
@@ -379,6 +380,38 @@ describe("bun-install-config", () => {
           LIBRARY_PATH: "/nix/store/demo-lib/lib",
         });
       }
+    );
+  });
+
+  test("buildInstallPolicyReport tracks Bun package-manager regression fixes", async () => {
+    const dir = testTempDir("bun-install-pm-fixes-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    const report = await buildInstallPolicyReport(dir);
+    const fixes = report.runtimeCapabilities.packageManagerFixes.fixes;
+    const byId = new Map(fixes.map((fix) => [fix.id, fix]));
+
+    expect(report.runtimeCapabilities.packageManagerFixes.status).toBe("tracked");
+    expect([...byId.keys()]).toEqual([
+      "update-interactive-latest-toggle",
+      "install-yarn-workspace-lockfile",
+      "frozen-lockfile-scope-registry",
+      "file-path-stale-lockfile-error",
+      "add-network-metadata-panic",
+    ]);
+    expect(byId.get("update-interactive-latest-toggle")?.command).toBe(
+      BUN_INSTALL_CLI.updateInteractive
+    );
+    expect(byId.get("install-yarn-workspace-lockfile")?.command).toBe("bun install --yarn");
+    expect(byId.get("install-yarn-workspace-lockfile")?.regression).toContain("workspace:*");
+    expect(byId.get("frozen-lockfile-scope-registry")?.command).toBe(BUN_INSTALL_CLI.frozenInstall);
+    expect(byId.get("frozen-lockfile-scope-registry")?.expected).toContain(
+      "scope-specific registries"
+    );
+    expect(byId.get("file-path-stale-lockfile-error")?.expected).toContain("dependency name");
+    expect(byId.get("add-network-metadata-panic")?.regression).toContain(
+      "Expected metadata to be set"
     );
   });
 

@@ -8,8 +8,8 @@ import { join } from "path";
 import { createLogger } from "../lib/logger.ts";
 import { clusterFailureLedgerEffect, matchErrorToClusters } from "../lib/error-clustering.ts";
 import {
-  applyHealPlan,
-  buildHealPlan,
+  applyHealPlanEffect,
+  buildHealPlanEffect,
   type HealApplyReport,
   type HealPlan,
 } from "../lib/self-healing.ts";
@@ -151,7 +151,9 @@ async function main(): Promise<number> {
   }
 
   if (command === "plan") {
-    const plan = await buildHealPlan(await resolveProjectRoot(), { threshold: threshold() });
+    const plan = await Effect.runPromise(
+      buildHealPlanEffect(await resolveProjectRoot(), { threshold: threshold() })
+    );
     if (json) await emitJson(plan);
     else printPlan(plan);
     return 0;
@@ -159,13 +161,17 @@ async function main(): Promise<number> {
 
   if (command === "apply") {
     const projectRoot = await resolveProjectRoot();
-    const plan = await buildHealPlan(projectRoot, { threshold: threshold() });
-    const report = await applyHealPlan(plan, {
-      projectRoot,
-      dryRun: Bun.argv.includes("--dry-run") ? true : undefined,
-      yes: Bun.argv.includes("--yes"),
-      actionIds: argValues("--action"),
-    });
+    const plan = await Effect.runPromise(
+      buildHealPlanEffect(projectRoot, { threshold: threshold() })
+    );
+    const report = await Effect.runPromise(
+      applyHealPlanEffect(plan, {
+        projectRoot,
+        dryRun: Bun.argv.includes("--dry-run") ? true : undefined,
+        yes: Bun.argv.includes("--yes"),
+        actionIds: argValues("--action"),
+      })
+    );
     if (json) await emitJson(report);
     else printApplyReport(report);
     return report.summary.failed > 0 ? 1 : 0;

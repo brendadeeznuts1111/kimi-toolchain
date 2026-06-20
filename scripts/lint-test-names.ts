@@ -116,6 +116,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "bun-string-width": "src/lib/bun-utils.ts",
   "bun-shell": "src/lib/bun-utils.ts",
   "bun-ffi": "src/lib/bun-utils.ts",
+  "bun-terminal-peek-shrink": "src/lib/bun-utils.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */
