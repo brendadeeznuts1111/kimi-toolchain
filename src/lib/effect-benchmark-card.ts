@@ -14,10 +14,77 @@ import type {
   TrainResult,
 } from "./effect-benchmark.ts";
 import {
+  appendBenchmarkSnapshot,
   detectBenchmarkRegressions,
+  evaluateEffectBenchmarkGate,
+  loadMergedEffectBenchmarkThresholds,
   readBenchmarkSnapshots,
+  runEffectBenchmarksReport,
+  trainEffectThresholds,
 } from "./effect-benchmark.ts";
 import { thresholdsBaselinePath, thresholdsLegacyPath, thresholdsLocalPath } from "./paths.ts";
+
+export const BENCHMARK_API_SCHEMA_VERSION = 1;
+const HISTORY_LIMIT = 6;
+
+export interface BenchmarkTaxonomyError {
+  type: string;
+  severity: "info" | "warn" | "error";
+  details: string;
+  registryKey?: string;
+}
+
+export interface BenchmarkSummary {
+  total: number;
+  passing: number;
+  measured: number;
+  skipped: number;
+  partialSuccess: boolean;
+  regressions: number;
+  timedOut: boolean;
+}
+
+export interface BenchmarkGateInfo {
+  status: "pass" | "warn" | "partial" | "fail";
+  reason?: string;
+}
+
+export interface BenchmarkApiMetadata {
+  trainApplied?: boolean;
+  cacheHit?: boolean;
+  timedOut?: boolean;
+}
+
+/** Shared envelope for dashboard API and kimi-doctor --perf-gates --json. */
+export interface BenchmarkApiEnvelope extends EffectBenchmarkCardPayload {
+  ok: boolean;
+  schemaVersion: number;
+  timestamp: string;
+  runner: string;
+  thresholdSource: string;
+  summary: BenchmarkSummary;
+  sparklines: Record<string, number[]>;
+  taxonomyErrors?: BenchmarkTaxonomyError[];
+  gates: { effectBenchmarkGate: BenchmarkGateInfo };
+  metadata: BenchmarkApiMetadata;
+  requestError?: string;
+  lastSuccessfulAt?: string;
+  retryAfterMs?: number;
+}
+
+export interface EffectBenchmarkCardLoopOptions {
+  projectRoot: string;
+  runner?: string;
+  train?: boolean;
+  appendSnapshot?: boolean;
+  timeoutMs?: number;
+  thresholdsPath?: string;
+  gitHead?: string;
+  mapTaxonomy?: boolean;
+}
+
+let lastGoodEnvelope: BenchmarkApiEnvelope | null = null;
+let lastGoodAt: string | null = null;
 
 export type ThresholdSourceKind = "baseline" | "local" | "legacy" | "default";
 
@@ -367,4 +434,296 @@ export async function regressionsAgainstLatestSnapshot(
   const previous = (await readBenchmarkSnapshots(projectRoot, 1))[0];
   if (!previous) return 0;
   return detectBenchmarkRegressions(metrics, previous.metrics).length;
+}
+
+export function resolveThresholdSourceLabel(
+  thresholdSources: Record<string, string>,
+  projectRoot: string
+): string {
+  const usesBaseline = Object.values(thresholdSources).some(
+    (p) => p === thresholdsBaselinePath(projectRoot)
+  );
+  const usesLocal = Object.values(thresholdSources).some(
+    (p) => p === thresholdsLocalPath(projectRoot)
+  );
+  const usesLegacy = Object.values(thresholdSources).some(
+    (p) => p === thresholdsLegacyPath(projectRoot)
+  );
+  const parts: string[] = [];
+  if (usesBaseline) parts.push("baseline");
+  if (usesLocal) parts.push("local");
+  if (usesLegacy) parts.push("legacy");
+  return parts.length > 0 ? parts.join("+") : "default";
+}
+
+export function buildSparklineMap(rows: BenchmarkCardRow[]): Record<string, number[]> {
+  const map: Record<string, number[]> = {};
+  for (const row of rows) {
+    if (row.sparkline?.length) {
+      map[row.name] = row.sparkline;
+    } else if (!row.skipped && !Number.isNaN(row.actualMs)) {
+      map[row.name] = [row.actualMs];
+    }
+  }
+  return map;
+}
+
+export function mapBenchmarkTaxonomyErrors(
+  payload: EffectBenchmarkCardPayload,
+  handlerErrors: BenchmarkHandlerError[] = []
+): BenchmarkTaxonomyError[] {
+  const out: BenchmarkTaxonomyError[] = [];
+
+  if (payload.timedOut) {
+    out.push({
+      type: "perf_gate_timeout",
+      severity: "warn",
+      details: "Benchmark run exceeded wall-clock timeout before all handlers completed",
+    });
+  }
+
+  if (payload.partialSuccess) {
+    out.push({
+      type: "perf_gate_partial",
+      severity: "warn",
+      details: "Some handlers succeeded while others failed or were skipped due to timeout",
+    });
+  }
+
+  for (const err of handlerErrors) {
+    out.push({
+      type: "perf_handler_failure",
+      severity: "error",
+      details: err.message,
+      registryKey: err.registryKey,
+    });
+  }
+
+  for (const failure of payload.failures) {
+    out.push({
+      type: "perf_gate_threshold",
+      severity: "error",
+      details: failure,
+    });
+  }
+
+  return out;
+}
+
+function resolveGateStatus(
+  payload: EffectBenchmarkCardPayload,
+  gate: PerfGateResult
+): BenchmarkGateInfo {
+  if (payload.timedOut || payload.partialSuccess) {
+    return {
+      status: "partial",
+      reason: gate.failures[0] ?? "partial benchmark run",
+    };
+  }
+  if (!gate.pass) {
+    return { status: "fail", reason: gate.failures[0] };
+  }
+  if (payload.snapshot.regressions > 0) {
+    return {
+      status: "warn",
+      reason: `${payload.snapshot.regressions} regression(s) vs prior run`,
+    };
+  }
+  return { status: "pass" };
+}
+
+export function buildBenchmarkApiEnvelope(
+  payload: EffectBenchmarkCardPayload,
+  context: {
+    runner: string;
+    thresholdSource: string;
+    gate: PerfGateResult;
+    ok?: boolean;
+    mapTaxonomy?: boolean;
+    requestError?: string;
+    retryAfterMs?: number;
+    lastSuccessfulAt?: string;
+    cacheHit?: boolean;
+    handlerErrors?: BenchmarkHandlerError[];
+    trainApplied?: boolean;
+  }
+): BenchmarkApiEnvelope {
+  const passing = payload.metrics.filter((m) => m.pass && !m.skipped).length;
+  const gateInfo = resolveGateStatus(payload, context.gate);
+  const taxonomyErrors = context.mapTaxonomy
+    ? mapBenchmarkTaxonomyErrors(payload, context.handlerErrors ?? payload.errors)
+    : undefined;
+
+  return {
+    ...payload,
+    ok: context.ok ?? (context.requestError ? false : gateInfo.status !== "fail"),
+    schemaVersion: BENCHMARK_API_SCHEMA_VERSION,
+    timestamp: payload.generatedAt,
+    runner: context.runner,
+    thresholdSource: context.thresholdSource,
+    summary: {
+      total: payload.registrySize,
+      passing,
+      measured: payload.measured,
+      skipped: payload.skipped,
+      partialSuccess: payload.partialSuccess ?? false,
+      regressions: payload.snapshot.regressions,
+      timedOut: payload.timedOut ?? false,
+    },
+    sparklines: buildSparklineMap(payload.metrics),
+    taxonomyErrors,
+    gates: { effectBenchmarkGate: gateInfo },
+    metadata: {
+      trainApplied: context.trainApplied ?? payload.train?.written,
+      cacheHit: context.cacheHit,
+      timedOut: payload.timedOut,
+    },
+    requestError: context.requestError,
+    lastSuccessfulAt: context.lastSuccessfulAt,
+    retryAfterMs: context.retryAfterMs,
+  };
+}
+
+/** Orchestration heart — shared by dashboard handler and kimi-doctor --perf-gates. */
+export async function runEffectBenchmarkCardLoop(
+  options: EffectBenchmarkCardLoopOptions
+): Promise<BenchmarkApiEnvelope> {
+  await import("../harness/perf-monitor.ts");
+  const projectRoot = options.projectRoot;
+  const historyBefore = await readBenchmarkSnapshots(projectRoot, HISTORY_LIMIT);
+  const previousSnapshot = historyBefore[0];
+
+  const { sources } = await loadMergedEffectBenchmarkThresholds(projectRoot);
+  const report = await runEffectBenchmarksReport({
+    projectRoot,
+    thresholdsPath: options.thresholdsPath,
+    timeoutMs: options.timeoutMs,
+  });
+  const { metrics, errors, timedOut, partialSuccess } = report;
+  const gate = await evaluateEffectBenchmarkGate(metrics, options.thresholdsPath, projectRoot);
+
+  let train: TrainResult | undefined;
+  if (options.train && gate.pass && !timedOut) {
+    const trainOutDir = options.thresholdsPath
+      ? options.thresholdsPath.replace(/\/thresholds\.json$/, "")
+      : projectRoot;
+    train = await trainEffectThresholds(metrics, trainOutDir);
+  } else if (options.train) {
+    train = { written: false, path: "", paths: [], thresholds: {} };
+  }
+
+  let regressions = 0;
+  let lastRunAt = new Date().toISOString();
+  let historyAfter = historyBefore;
+
+  if (options.appendSnapshot && metrics.length > 0) {
+    regressions = await regressionsAgainstLatestSnapshot(projectRoot, metrics);
+    const snapshot = await appendBenchmarkSnapshot(projectRoot, metrics, {
+      gitHead: options.gitHead,
+    });
+    lastRunAt = snapshot.generatedAt;
+    historyAfter = await readBenchmarkSnapshots(projectRoot, HISTORY_LIMIT);
+  }
+
+  const comparePrevious = options.appendSnapshot ? historyAfter[1] : previousSnapshot;
+
+  const payload = buildEffectBenchmarkCardPayload(metrics, gate, projectRoot, {
+    thresholdSources: sources,
+    train,
+    regressions,
+    snapshotCount: historyAfter.length,
+    lastRunAt: options.appendSnapshot ? lastRunAt : historyAfter[0]?.generatedAt,
+    historySnapshots: historyAfter,
+    previousSnapshot: comparePrevious,
+    partialSuccess,
+    timedOut,
+    errors,
+  });
+
+  const envelope = buildBenchmarkApiEnvelope(payload, {
+    runner: options.runner ?? "effect-benchmark",
+    thresholdSource: resolveThresholdSourceLabel(sources, projectRoot),
+    gate,
+    mapTaxonomy: options.mapTaxonomy ?? true,
+    handlerErrors: errors,
+    trainApplied: train?.written,
+  });
+
+  rememberLastGoodEnvelope(envelope);
+  return envelope;
+}
+
+export function rememberLastGoodEnvelope(envelope: BenchmarkApiEnvelope): void {
+  if (envelope.registrySize > 0) {
+    lastGoodEnvelope = envelope;
+    lastGoodAt = envelope.timestamp;
+  }
+}
+
+export function getLastGoodBenchmarkEnvelope(): BenchmarkApiEnvelope | null {
+  return lastGoodEnvelope;
+}
+
+export function getLastGoodBenchmarkAt(): string | null {
+  return lastGoodAt;
+}
+
+export function benchmarkErrorApiEnvelope(
+  requestError: string,
+  overrides?: { retryAfterMs?: number }
+): BenchmarkApiEnvelope {
+  if (lastGoodEnvelope) {
+    return {
+      ...lastGoodEnvelope,
+      ok: false,
+      requestError,
+      retryAfterMs: overrides?.retryAfterMs,
+      lastSuccessfulAt: lastGoodAt ?? lastGoodEnvelope.timestamp,
+      metadata: { ...lastGoodEnvelope.metadata, cacheHit: true },
+    };
+  }
+
+  const emptyGate: PerfGateResult = { pass: false, failures: [requestError] };
+  const emptyPayload = buildEffectBenchmarkCardPayload([], emptyGate, process.cwd());
+  return buildBenchmarkApiEnvelope(emptyPayload, {
+    runner: "effect-benchmark",
+    thresholdSource: "default",
+    gate: emptyGate,
+    ok: false,
+    requestError,
+    retryAfterMs: overrides?.retryAfterMs,
+    mapTaxonomy: true,
+  });
+}
+
+export function resetBenchmarkApiState(): void {
+  lastGoodEnvelope = null;
+  lastGoodAt = null;
+}
+
+/** Human-readable summary for kimi-doctor --perf-gates (non-JSON). */
+export function formatPerfGatesHuman(envelope: BenchmarkApiEnvelope): string {
+  const lines: string[] = [];
+  lines.push(`Effect benchmarks — ${envelope.summary.passing}/${envelope.summary.measured} passing`);
+  lines.push(`Threshold source: ${envelope.thresholdSource}`);
+  lines.push(`Gate: ${envelope.gates.effectBenchmarkGate.status.toUpperCase()}`);
+  if (envelope.gates.effectBenchmarkGate.reason) {
+    lines.push(`  └─ ${envelope.gates.effectBenchmarkGate.reason}`);
+  }
+  for (const family of sortedFamilyKeys(envelope.families)) {
+    const rows = envelope.families[family] ?? [];
+    lines.push(`${family} (${rows.length})`);
+    for (const row of rows) {
+      const mark = row.skipped ? "↷" : row.pass ? "✓" : "✗";
+      const time = row.skipped ? "—" : `${row.actualMs.toFixed(3)}ms`;
+      lines.push(`  ${mark} ${row.name} ${time} [${row.thresholdSource}]`);
+    }
+  }
+  if (envelope.taxonomyErrors?.length) {
+    lines.push("Issues:");
+    for (const err of envelope.taxonomyErrors.slice(0, 5)) {
+      lines.push(`  [${err.type}] ${err.details}`);
+    }
+  }
+  return lines.join("\n");
 }

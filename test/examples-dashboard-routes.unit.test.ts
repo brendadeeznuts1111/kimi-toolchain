@@ -28,7 +28,7 @@ describe("examples-dashboard-routes", () => {
       join(REPO_ROOT, "examples/dashboard/src/handlers/effect-benchmark.ts")
     ).text();
     expect(benchmarkHandler).toContain("checkBenchmarkPostCooldown");
-    expect(benchmarkHandler).toContain("runEffectBenchmarksReport");
+    expect(benchmarkHandler).toContain("runEffectBenchmarkCardLoop");
     expect(source).toContain('case "/api/canvases"');
     expect(source).toContain('case "/api/settings"');
   });

@@ -2,12 +2,15 @@ import { describe, expect, it } from "bun:test";
 import { join } from "path";
 import {
   benchmarkFamily,
+  buildBenchmarkApiEnvelope,
   buildEffectBenchmarkCardPayload,
   buildRecentRunsSummary,
   buildSparklines,
   enrichCardRows,
   groupMetricsByFamily,
+  mapBenchmarkTaxonomyErrors,
   readBenchmarkHealthCheck,
+  resolveThresholdSourceLabel,
   rowRegression,
   sortedFamilyKeys,
   thresholdSourceKind,
@@ -171,6 +174,46 @@ describe("effect-benchmark-card", () => {
       expect(health.failures).toBe(1);
       expect(health.lastRunAt).toBeDefined();
     });
+  });
+
+  it("maps benchmark issues to taxonomy error types", () => {
+    const payload = buildEffectBenchmarkCardPayload(
+      [sampleMetric({ actualMs: 5, pass: false })],
+      { pass: false, failures: ["fail: crypto.sha256 exceeded threshold"] },
+      "/tmp",
+      { partialSuccess: true, timedOut: true, errors: [{ registryKey: "x", message: "boom" }] }
+    );
+    const taxonomy = mapBenchmarkTaxonomyErrors(payload, payload.errors);
+    expect(taxonomy.some((t) => t.type === "perf_gate_timeout")).toBe(true);
+    expect(taxonomy.some((t) => t.type === "perf_gate_partial")).toBe(true);
+    expect(taxonomy.some((t) => t.type === "perf_handler_failure")).toBe(true);
+  });
+
+  it("builds API envelope with summary, sparklines, and gates", () => {
+    const payload = buildEffectBenchmarkCardPayload(
+      [sampleMetric()],
+      { pass: true, failures: [] },
+      "/tmp",
+      {
+        thresholdSources: {
+          "crypto.sha256": thresholdsBaselinePath("/tmp"),
+        },
+      }
+    );
+    const envelope = buildBenchmarkApiEnvelope(payload, {
+      runner: "kimi-doctor",
+      thresholdSource: resolveThresholdSourceLabel(
+        { "crypto.sha256": thresholdsBaselinePath("/tmp") },
+        "/tmp"
+      ),
+      gate: { pass: true, failures: [] },
+      mapTaxonomy: true,
+    });
+    expect(envelope.schemaVersion).toBe(1);
+    expect(envelope.runner).toBe("kimi-doctor");
+    expect(envelope.summary.total).toBe(1);
+    expect(envelope.gates.effectBenchmarkGate.status).toBe("pass");
+    expect(envelope.sparklines["crypto.sha256"]).toBeDefined();
   });
 
   it("marks health warn when latest run passes but regressed vs previous", async () => {

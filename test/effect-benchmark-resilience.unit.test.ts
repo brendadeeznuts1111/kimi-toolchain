@@ -1,13 +1,17 @@
 import { describe, expect, it, beforeEach } from "bun:test";
 import {
-  benchmarkErrorEnvelope,
-  benchmarkRateLimitEnvelope,
-  benchmarkSuccessEnvelope,
+  buildBenchmarkApiEnvelope,
+  buildEffectBenchmarkCardPayload,
+  benchmarkErrorApiEnvelope,
+  rememberLastGoodEnvelope,
+  resetBenchmarkApiState,
+} from "../src/lib/effect-benchmark-card.ts";
+import {
   checkBenchmarkPostCooldown,
+  benchmarkRateLimitEnvelope,
   markBenchmarkPost,
   resetBenchmarkPostCooldown,
 } from "../src/lib/effect-benchmark-resilience.ts";
-import { buildEffectBenchmarkCardPayload } from "../src/lib/effect-benchmark-card.ts";
 import type { Metric } from "../src/harness/html-reporter.ts";
 
 const sampleMetric = (): Metric => ({
@@ -22,6 +26,7 @@ const sampleMetric = (): Metric => ({
 describe("effect-benchmark-resilience", () => {
   beforeEach(() => {
     resetBenchmarkPostCooldown();
+    resetBenchmarkApiState();
   });
 
   it("enforces post cooldown per route", () => {
@@ -39,11 +44,17 @@ describe("effect-benchmark-resilience", () => {
       { pass: true, failures: [] },
       "/tmp"
     );
-    const envelope = benchmarkRateLimitEnvelope(2500, payload, payload.generatedAt);
-    expect(envelope.ok).toBe(false);
-    expect(envelope.retryAfterMs).toBe(2500);
-    expect(envelope.registrySize).toBe(1);
-    expect(envelope.requestError).toContain("Rate limited");
+    const envelope = buildBenchmarkApiEnvelope(payload, {
+      runner: "dashboard",
+      thresholdSource: "baseline",
+      gate: { pass: true, failures: [] },
+    });
+    rememberLastGoodEnvelope(envelope);
+    const limited = benchmarkRateLimitEnvelope(2500);
+    expect(limited.ok).toBe(false);
+    expect(limited.retryAfterMs).toBe(2500);
+    expect(limited.registrySize).toBe(1);
+    expect(limited.requestError).toContain("Rate limited");
   });
 
   it("builds error envelope preserving last successful data", () => {
@@ -52,26 +63,16 @@ describe("effect-benchmark-resilience", () => {
       { pass: true, failures: [] },
       "/tmp"
     );
-    const envelope = benchmarkErrorEnvelope("benchmark crashed", payload, payload.generatedAt);
-    expect(envelope.ok).toBe(false);
-    expect(envelope.requestError).toBe("benchmark crashed");
-    expect(envelope.metrics).toHaveLength(1);
-    expect(envelope.lastSuccessfulAt).toBe(payload.generatedAt);
-  });
-
-  it("wraps success payload with resilience metadata", () => {
-    const payload = buildEffectBenchmarkCardPayload(
-      [sampleMetric()],
-      { pass: false, failures: ["fail"] },
-      "/tmp",
-      { partialSuccess: true, timedOut: false, errors: [{ registryKey: "x", message: "boom" }] }
-    );
-    const envelope = benchmarkSuccessEnvelope(payload, {
-      partialSuccess: true,
-      errors: [{ registryKey: "x", message: "boom" }],
+    const envelope = buildBenchmarkApiEnvelope(payload, {
+      runner: "kimi-doctor",
+      thresholdSource: "baseline",
+      gate: { pass: true, failures: [] },
     });
-    expect(envelope.ok).toBe(true);
-    expect(envelope.partialSuccess).toBe(true);
-    expect(envelope.errors).toHaveLength(1);
+    rememberLastGoodEnvelope(envelope);
+    const err = benchmarkErrorApiEnvelope("benchmark crashed");
+    expect(err.ok).toBe(false);
+    expect(err.requestError).toBe("benchmark crashed");
+    expect(err.metrics).toHaveLength(1);
+    expect(err.metadata.cacheHit).toBe(true);
   });
 });

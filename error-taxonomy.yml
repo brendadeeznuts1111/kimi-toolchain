@@ -312,6 +312,46 @@ categories:
     patterns:
       - regex: "Unknown flag"
 
+  - id: perf_gate_timeout
+    name: Effect benchmark run timed out
+    description: The effect benchmark harness exceeded its wall-clock budget before all handlers completed.
+    severity: warn
+    expected: false
+    suggestion: "Retry with fewer handlers, increase KIMI_EFFECT_BENCHMARK_RUN_TIMEOUT_MS, or check slow HTTP fixtures."
+    patterns:
+      - regex: "perf_gate_timeout"
+      - regex: "benchmark run timed out"
+
+  - id: perf_handler_failure
+    name: Effect benchmark handler failure
+    description: An individual registered benchmark handler threw or returned a failing metric.
+    severity: error
+    expected: false
+    suggestion: "Inspect the handler registry key in the benchmark envelope errors[] and fix the workload or skipIf guard."
+    patterns:
+      - regex: "perf_handler_failure"
+      - regex: "workload failed"
+
+  - id: perf_gate_partial
+    name: Effect benchmark partial success
+    description: Some benchmark handlers passed while others failed or were skipped due to timeout.
+    severity: warn
+    expected: false
+    suggestion: "Review partialSuccess and errors[] in the benchmark envelope; re-run after fixing flaky handlers."
+    patterns:
+      - regex: "perf_gate_partial"
+      - regex: "partial benchmark run"
+
+  - id: rate_limited
+    name: Benchmark refresh rate limited
+    description: Dashboard refresh or train was called before the POST cooldown elapsed.
+    severity: info
+    expected: true
+    suggestion: "Wait for retryAfterMs in the response before calling refresh/train again."
+    patterns:
+      - regex: "rate_limited"
+      - regex: "Rate limited"
+
   - id: effect_gates_threshold_exceeded
     name: Effect gates threshold exceeded
     description: An Effect gate count exceeds its constant-derived threshold.

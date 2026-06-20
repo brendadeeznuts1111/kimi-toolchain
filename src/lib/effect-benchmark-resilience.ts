@@ -1,10 +1,19 @@
 /**
- * effect-benchmark-resilience.ts — Rate limiting and API error helpers for dashboard POST routes.
+ * effect-benchmark-resilience.ts — Rate limiting helpers for dashboard POST routes.
  */
 
-import type { EffectBenchmarkCardPayload } from "./effect-benchmark-card.ts";
+import type { BenchmarkApiEnvelope } from "./effect-benchmark-card.ts";
+import {
+  benchmarkErrorApiEnvelope,
+  getLastGoodBenchmarkAt,
+  getLastGoodBenchmarkEnvelope,
+  type EffectBenchmarkCardPayload,
+} from "./effect-benchmark-card.ts";
 
 const postCooldownByRoute = new Map<string, number>();
+
+export type { BenchmarkApiEnvelope } from "./effect-benchmark-card.ts";
+export { benchmarkErrorApiEnvelope } from "./effect-benchmark-card.ts";
 
 export function formatBenchmarkError(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -32,99 +41,32 @@ export function resetBenchmarkPostCooldown(): void {
   postCooldownByRoute.clear();
 }
 
-export interface BenchmarkApiEnvelope extends EffectBenchmarkCardPayload {
-  ok: boolean;
-  partialSuccess?: boolean;
-  timedOut?: boolean;
-  errors?: Array<{ registryKey: string; message: string }>;
-  requestError?: string;
-  lastSuccessfulAt?: string;
-  retryAfterMs?: number;
+export function benchmarkRateLimitEnvelope(retryAfterMs: number): BenchmarkApiEnvelope {
+  return benchmarkErrorApiEnvelope(
+    `Rate limited — retry in ${Math.ceil(retryAfterMs / 1000)}s`,
+    { retryAfterMs }
+  );
 }
 
-export function benchmarkRateLimitEnvelope(
-  retryAfterMs: number,
-  lastSuccessful: EffectBenchmarkCardPayload | null,
-  lastSuccessfulAt: string | null
-): BenchmarkApiEnvelope {
-  const base: BenchmarkApiEnvelope = {
-    ok: false,
-    requestError: `Rate limited — retry in ${Math.ceil(retryAfterMs / 1000)}s`,
-    retryAfterMs,
-    lastSuccessfulAt: lastSuccessfulAt ?? undefined,
-    generatedAt: new Date().toISOString(),
-    allPass: false,
-    registrySize: 0,
-    measured: 0,
-    skipped: 0,
-    failures: [],
-    families: {},
-    metrics: [],
-    recentRuns: [],
-    thresholdLayers: [],
-    snapshot: { count: 0, regressions: 0, regressionKeys: [] },
-    philosophy: "",
-  };
-
-  if (lastSuccessful) {
-    return {
-      ...lastSuccessful,
-      ok: false,
-      requestError: base.requestError,
-      retryAfterMs,
-      lastSuccessfulAt: lastSuccessfulAt ?? lastSuccessful.generatedAt,
-    };
-  }
-
-  return base;
-}
-
+/** @deprecated Use benchmarkErrorApiEnvelope from effect-benchmark-card.ts */
 export function benchmarkErrorEnvelope(
   requestError: string,
-  lastSuccessful: EffectBenchmarkCardPayload | null,
-  lastSuccessfulAt: string | null
+  _lastSuccessful: EffectBenchmarkCardPayload | null,
+  _lastSuccessfulAt: string | null
 ): BenchmarkApiEnvelope {
-  if (lastSuccessful) {
-    return {
-      ...lastSuccessful,
-      ok: false,
-      requestError,
-      lastSuccessfulAt: lastSuccessfulAt ?? lastSuccessful.generatedAt,
-    };
-  }
-
-  return {
-    ok: false,
-    requestError,
-    lastSuccessfulAt: lastSuccessfulAt ?? undefined,
-    generatedAt: new Date().toISOString(),
-    allPass: false,
-    registrySize: 0,
-    measured: 0,
-    skipped: 0,
-    failures: [],
-    families: {},
-    metrics: [],
-    recentRuns: [],
-    thresholdLayers: [],
-    snapshot: { count: 0, regressions: 0, regressionKeys: [] },
-    philosophy: "",
-  };
+  return benchmarkErrorApiEnvelope(requestError);
 }
 
+/** @deprecated Loop returns BenchmarkApiEnvelope directly */
 export function benchmarkSuccessEnvelope(
   payload: EffectBenchmarkCardPayload,
-  resilience: {
+  _resilience: {
     partialSuccess?: boolean;
     timedOut?: boolean;
     errors?: Array<{ registryKey: string; message: string }>;
   }
 ): BenchmarkApiEnvelope {
-  return {
-    ok: true,
-    partialSuccess: resilience.partialSuccess,
-    timedOut: resilience.timedOut,
-    errors: resilience.errors?.length ? resilience.errors : undefined,
-    ...payload,
-  };
+  void payload;
+  void _resilience;
+  return getLastGoodBenchmarkEnvelope() ?? benchmarkErrorApiEnvelope("envelope unavailable");
 }

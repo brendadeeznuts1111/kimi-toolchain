@@ -106,15 +106,12 @@ import {
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import { generateBenchmarkHTML } from "../lib/effect-benchmark.ts";
 import {
-  appendBenchmarkSnapshot,
-  detectBenchmarkRegressions,
-  evaluateEffectBenchmarkGate,
-  generateBenchmarkHTML,
-  readBenchmarkSnapshots,
-  trainEffectThresholds,
-  type BenchmarkRegression,
-} from "../lib/effect-benchmark.ts";
+  formatPerfGatesHuman,
+  runEffectBenchmarkCardLoop,
+} from "../lib/effect-benchmark-card.ts";
+import type { Metric } from "../harness/html-reporter.ts";
 import { toolStart, toolDone, healthResult } from "../lib/health-channel.ts";
 import { ArtifactStore } from "../lib/artifact-store.ts";
 import {
@@ -179,6 +176,7 @@ const MCP_SERVER = Bun.argv.includes("--mcp-server");
 const ALL = Bun.argv.includes("--all");
 const EFFECT_SCAN = Bun.argv.includes("--effect-scan");
 const PERF_GATES = Bun.argv.includes("--perf-gates");
+const PERF_RICH = Bun.argv.includes("--rich");
 const TRAIN = Bun.argv.includes("--train");
 const REPORT = Bun.argv.includes("--report");
 const REGRESSION = Bun.argv.includes("--regression");
@@ -1956,7 +1954,6 @@ async function main(): Promise<number> {
 
   if (PERF_GATES || TRAIN || REPORT || REGRESSION) {
     try {
-      const { runEffectBenchmarks } = await import("../harness/perf-monitor.ts");
       const outDir = argValue("--out-dir") ?? process.cwd();
       const projectRoot = process.cwd();
       const useLegacyThresholds =
@@ -1966,70 +1963,61 @@ async function main(): Promise<number> {
         : undefined;
       const reportPath = join(outDir, "effect-benchmark.html");
       const gitHead = await resolveGitHead(projectRoot);
+      const jsonMode = JSON_OUT || PERF_RICH;
 
-      const metrics = await runEffectBenchmarks({
+      const envelope = await runEffectBenchmarkCardLoop({
         projectRoot,
+        runner: "kimi-doctor",
+        train: TRAIN,
+        appendSnapshot: TRAIN || REGRESSION || REPORT,
         thresholdsPath,
+        gitHead,
+        mapTaxonomy: true,
       });
+
+      const metrics: Metric[] = envelope.metrics.map((row) => ({
+        symbol: row.symbol,
+        operation: row.operation,
+        actualMs: row.actualMs,
+        thresholdMs: row.thresholdMs,
+        pass: row.pass,
+        registryKey: row.name,
+        skipped: row.skipped,
+        skipReason: row.skipReason,
+      }));
 
       if (TRAIN) {
         if (metrics.length === 0) {
           logger.error("No benchmark metrics to train on. Register an effect handler first.");
           return 1;
         }
-        const gate = await evaluateEffectBenchmarkGate(
-          metrics,
-          thresholdsPath,
-          projectRoot
-        );
-        if (!gate.pass) {
+        if (!envelope.train?.written) {
           logger.error("Cannot train with failing benchmarks. Fix gates first:");
-          for (const f of gate.failures) logger.error(`  - ${f}`);
+          for (const f of envelope.failures) logger.error(`  - ${f}`);
+          for (const err of envelope.taxonomyErrors ?? []) {
+            logger.error(`  - [${err.type}] ${err.details}`);
+          }
           return 1;
         }
-        const result = await trainEffectThresholds(
-          metrics,
-          useLegacyThresholds ? outDir : projectRoot
+        logger.info(
+          envelope.train.paths.length > 1
+            ? `Thresholds written to ${envelope.train.paths.join(", ")}`
+            : `Thresholds written to ${envelope.train.path}`
         );
-        if (result.written) {
-          logger.info(
-            result.paths.length > 1
-              ? `Thresholds written to ${result.paths.join(", ")}`
-              : `Thresholds written to ${result.path}`
-          );
-        } else {
-          logger.error("Training failed — all measured handlers must pass before training.");
-          return 1;
+        if (jsonMode) {
+          console.log(JSON.stringify(envelope, null, 2));
         }
         return 0;
       }
 
-      let regressions: BenchmarkRegression[] = [];
-      if (REGRESSION) {
-        const previous = (await readBenchmarkSnapshots(projectRoot, 1))[0];
-        if (previous) {
-          regressions = detectBenchmarkRegressions(metrics, previous.metrics);
-        }
-      }
-
-      const gate = await evaluateEffectBenchmarkGate(
-        metrics,
-        thresholdsPath,
-        projectRoot
-      );
-      const passCount = metrics.filter((m) => m.pass && !m.skipped).length;
-      const measuredCount = metrics.filter((m) => !m.skipped).length;
-
       if (REPORT) {
-        const snapshot = await appendBenchmarkSnapshot(projectRoot, metrics, { gitHead });
-        const history = await readBenchmarkSnapshots(projectRoot, 10);
         const html = generateBenchmarkHTML(metrics, {
           title: "Effect Handler Benchmarks",
           meta: {
-            generatedAt: snapshot.generatedAt,
+            generatedAt: envelope.timestamp,
             gitHead,
-            regressionCount: regressions.length,
-            snapshotCount: history.length,
+            regressionCount: envelope.summary.regressions,
+            snapshotCount: envelope.snapshot.count,
           },
         });
         await Bun.write(reportPath, html);
@@ -2050,18 +2038,35 @@ async function main(): Promise<number> {
           logger.warn("No benchmark metrics — nothing to gate.");
           return 0;
         }
-        if (REGRESSION && regressions.length > 0) {
-          logger.error(`${regressions.length} benchmark regression(s) detected:`);
-          for (const r of regressions) logger.error(`  - ${r.message}`);
+
+        if (jsonMode) {
+          console.log(JSON.stringify(envelope, null, 2));
+        } else if (PERF_RICH || PERF_GATES) {
+          for (const line of formatPerfGatesHuman(envelope).split("\n")) {
+            logger.info(line);
+          }
         }
-        if (!gate.pass) {
+
+        if (REGRESSION && envelope.summary.regressions > 0) {
+          logger.error(`${envelope.summary.regressions} benchmark regression(s) detected`);
+          for (const key of envelope.snapshot.regressionKeys) {
+            logger.error(`  - ${key}`);
+          }
+        }
+        if (!envelope.allPass) {
           logger.error("Performance gates failed:");
-          for (const f of gate.failures) logger.error(`  - ${f}`);
+          for (const f of envelope.failures) logger.error(`  - ${f}`);
         }
-        if (!gate.pass || regressions.length > 0) {
+        if (
+          !envelope.allPass ||
+          (REGRESSION && envelope.summary.regressions > 0) ||
+          envelope.gates.effectBenchmarkGate.status === "fail"
+        ) {
           return 1;
         }
-        logger.info(`${passCount}/${measuredCount} operations within threshold`);
+        logger.info(
+          `${envelope.summary.passing}/${envelope.summary.measured} operations within threshold`
+        );
       }
 
       return 0;
