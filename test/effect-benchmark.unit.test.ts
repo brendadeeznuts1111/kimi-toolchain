@@ -12,6 +12,7 @@ import {
   registerEffectBenchmark,
   resetEffectBenchmarkRegistry,
   runEffectBenchmarks,
+  runEffectBenchmarksReport,
   trainEffectThresholds,
 } from "../src/lib/effect-benchmark.ts";
 import {
@@ -319,6 +320,52 @@ describe("effect-benchmark", () => {
       const loaded = await readBenchmarkSnapshots(dir, 5);
       expect(loaded).toHaveLength(1);
     });
+  });
+
+  it("reports handler errors without aborting the full run", async () => {
+    registerEffectBenchmark({
+      registryKey: "throws.op",
+      symbol: "kimi.effect.throw",
+      thresholdMs: 10,
+      workload: () => {
+        throw new Error("handler exploded");
+      },
+    });
+    registerEffectBenchmark({
+      registryKey: "fast.ok",
+      symbol: "kimi.effect.ok",
+      thresholdMs: 50,
+      workload: () => Bun.sleep(1),
+    });
+    const report = await runEffectBenchmarksReport({ iterations: 1, warmup: 0 });
+    expect(report.errors.some((e) => e.registryKey === "throws.op")).toBe(true);
+    expect(report.metrics.some((m) => m.registryKey === "fast.ok" && m.pass)).toBe(true);
+    expect(report.partialSuccess).toBe(true);
+  });
+
+  it("stops before deadline and marks timed out", async () => {
+    registerEffectBenchmark({
+      registryKey: "slow.op",
+      symbol: "kimi.effect.slow",
+      thresholdMs: 100,
+      workload: async () => {
+        await Bun.sleep(80);
+      },
+    });
+    registerEffectBenchmark({
+      registryKey: "never.ran",
+      symbol: "kimi.effect.never",
+      thresholdMs: 10,
+      workload: () => {},
+    });
+    const report = await runEffectBenchmarksReport({
+      iterations: 1,
+      warmup: 0,
+      timeoutMs: 50,
+      registryKeys: ["slow.op", "never.ran"],
+    });
+    expect(report.timedOut).toBe(true);
+    expect(report.errors.some((e) => e.registryKey === "never.ran")).toBe(true);
   });
 
   it("generates HTML report with metadata", () => {

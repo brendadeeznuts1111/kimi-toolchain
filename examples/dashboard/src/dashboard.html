@@ -2462,16 +2462,59 @@
         return `<span class="badge badge-warn" style="font-size:9px;margin-left:4px" title="vs ${r.previousMs.toFixed(3)}ms">+${r.deltaMs.toFixed(3)}ms</span>`;
       }
 
+      let effectBenchmarkLastGood = null;
+
+      function effectBenchmarkLastSuccessLabel(d) {
+        const at = d.lastSuccessfulAt || d.generatedAt;
+        if (!at) return "";
+        const mins = Math.max(0, Math.round((Date.now() - Date.parse(at)) / 60000));
+        const label = mins < 1 ? "just now" : `${mins} min ago`;
+        return `<div class="row"><span>Last successful</span><span style="font-size:10px;color:var(--muted)">${label}</span></div>`;
+      }
+
       function renderEffectBenchmarkCard(d) {
         const runAt = d.generatedAt
           ? new Date(d.generatedAt).toLocaleString()
           : "—";
-        let h = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">`;
+        let h = "";
+        if (d._loading) {
+          h += `<p class="status warn" style="margin-bottom:8px">${d._loading}</p>`;
+        }
+        if (d.requestError) {
+          h += `<div class="status err" style="margin-bottom:8px;padding:8px;border:1px solid var(--red);border-radius:6px">${d.requestError}${d.retryAfterMs ? ` <span style="color:var(--muted)">(${Math.ceil(d.retryAfterMs / 1000)}s)</span>` : ""}</div>`;
+          h += effectBenchmarkLastSuccessLabel(d);
+        } else if (d.timedOut || d.partialSuccess || d.errors?.length) {
+          const bits = [];
+          if (d.timedOut) bits.push("run timed out");
+          if (d.partialSuccess) bits.push("partial results");
+          if (d.errors?.length) bits.push(`${d.errors.length} handler error(s)`);
+          h += `<div class="status warn" style="margin-bottom:8px;padding:8px;border:1px solid var(--yellow);border-radius:6px">${bits.join(" · ")}</div>`;
+        }
+        if (d.errors?.length && !d.requestError) {
+          h += `<p class="status warn" style="margin-top:0;font-size:10px">${d.errors
+            .slice(0, 3)
+            .map((e) => `${e.registryKey}: ${e.message}`)
+            .join("<br>")}</p>`;
+        }
+        h += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">`;
         h += `<button type="button" class="showcase-btn" id="effect-benchmark-refresh">Refresh</button>`;
         h += `<button type="button" class="showcase-btn muted" id="effect-benchmark-train">Train</button>`;
+        h += `<button type="button" class="showcase-btn muted" id="effect-benchmark-retry">Retry</button>`;
         h += `</div>`;
+        if (!d.registrySize) {
+          h += `<p class="status warn">No benchmark data yet — try Refresh.</p>`;
+          return h;
+        }
         h += `<div class="row"><span>Handlers</span><strong>${d.registrySize}</strong> <span style="font-size:10px;color:var(--muted)">(${d.measured} measured · ${d.skipped} skipped)</span></div>`;
-        h += `<div class="row"><span>Status</span><span class="badge badge-${d.allPass ? "ok" : "err"}">${d.allPass ? "ALL PASS" : "FAIL"}</span></div>`;
+        const statusTone = d.partialSuccess || d.timedOut ? "warn" : d.allPass ? "ok" : "err";
+        const statusLabel = d.partialSuccess
+          ? "PARTIAL"
+          : d.timedOut
+            ? "TIMEOUT"
+            : d.allPass
+              ? "ALL PASS"
+              : "FAIL";
+        h += `<div class="row"><span>Status</span><span class="badge badge-${statusTone}">${statusLabel}</span></div>`;
         h += `<div class="row"><span>Last run</span><span style="font-size:10px">${runAt}</span></div>`;
         if (d.snapshot) {
           const regKeys =
@@ -2524,31 +2567,100 @@
         return h;
       }
 
-      async function loadEffectBenchmarkCard(url = "/api/effect-benchmark") {
+      function wireEffectBenchmarkButtons(retryUrl = "/api/effect-benchmark/refresh") {
         const cardId = "card-effect-benchmark";
+        document
+          .getElementById("effect-benchmark-refresh")
+          ?.addEventListener("click", () => {
+            loadEffectBenchmarkCard("/api/effect-benchmark/refresh", { loading: "Refreshing…" });
+          });
+        document
+          .getElementById("effect-benchmark-train")
+          ?.addEventListener("click", () => {
+            loadEffectBenchmarkCard("/api/effect-benchmark/train", { loading: "Training…" });
+          });
+        document
+          .getElementById("effect-benchmark-retry")
+          ?.addEventListener("click", () => {
+            loadEffectBenchmarkCard(retryUrl, { loading: "Retrying…" });
+          });
+      }
+
+      async function loadEffectBenchmarkCard(
+        url = "/api/effect-benchmark",
+        options = {}
+      ) {
+        const cardId = "card-effect-benchmark";
+        const loadingMsg = options.loading ?? "Loading…";
+        if (effectBenchmarkLastGood) {
+          card(
+            cardId,
+            renderEffectBenchmarkCard({
+              ...effectBenchmarkLastGood,
+              _loading: loadingMsg,
+            })
+          );
+        } else {
+          card(cardId, `<div class="loading">${loadingMsg}</div>`);
+        }
+
         try {
-          const opts =
+          const fetchOpts =
             url === "/api/effect-benchmark"
               ? undefined
               : { method: "POST", headers: { "content-type": "application/json" } };
-          const res = await fetch(url, opts);
-          if (!res.ok) throw new Error(`${url} → ${res.status}`);
+          const res = await fetch(url, fetchOpts);
           const d = await res.json();
+
+          if (!res.ok && d.requestError && effectBenchmarkLastGood) {
+            card(
+              cardId,
+              renderEffectBenchmarkCard({
+                ...effectBenchmarkLastGood,
+                requestError: d.requestError,
+                retryAfterMs: d.retryAfterMs,
+                lastSuccessfulAt: d.lastSuccessfulAt ?? effectBenchmarkLastGood.generatedAt,
+              })
+            );
+            wireEffectBenchmarkButtons(url);
+            return;
+          }
+
+          if (!res.ok) {
+            throw new Error(d.requestError || `${url} → ${res.status}`);
+          }
+
+          if (d.ok !== false && d.registrySize > 0) {
+            effectBenchmarkLastGood = d;
+          } else if (d.ok === false && effectBenchmarkLastGood) {
+            card(
+              cardId,
+              renderEffectBenchmarkCard({
+                ...effectBenchmarkLastGood,
+                requestError: d.requestError,
+                lastSuccessfulAt: d.lastSuccessfulAt ?? effectBenchmarkLastGood.generatedAt,
+              })
+            );
+            wireEffectBenchmarkButtons(url);
+            return;
+          }
+
           card(cardId, renderEffectBenchmarkCard(d));
-          document
-            .getElementById("effect-benchmark-refresh")
-            ?.addEventListener("click", () => {
-              card(cardId, '<div class="loading">Refreshing…</div>');
-              loadEffectBenchmarkCard("/api/effect-benchmark/refresh");
-            });
-          document
-            .getElementById("effect-benchmark-train")
-            ?.addEventListener("click", () => {
-              card(cardId, '<div class="loading">Training…</div>');
-              loadEffectBenchmarkCard("/api/effect-benchmark/train");
-            });
+          wireEffectBenchmarkButtons(url);
         } catch (e) {
-          card(cardId, `<p class="status err">${e.message}</p>`);
+          if (effectBenchmarkLastGood) {
+            card(
+              cardId,
+              renderEffectBenchmarkCard({
+                ...effectBenchmarkLastGood,
+                requestError: e.message,
+                lastSuccessfulAt: effectBenchmarkLastGood.generatedAt,
+              })
+            );
+            wireEffectBenchmarkButtons(url);
+          } else {
+            card(cardId, `<p class="status err">${e.message}</p>`);
+          }
         }
       }
 

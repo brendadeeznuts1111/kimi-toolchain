@@ -58,6 +58,20 @@ export interface BenchmarkOptions {
    * this file is loaded (used by isolated test dirs).
    */
   thresholdsPath?: string;
+  /** Wall-clock budget for the full run; defaults to KIMI_EFFECT_BENCHMARK_RUN_TIMEOUT_MS when set via report API. */
+  timeoutMs?: number;
+}
+
+export interface BenchmarkHandlerError {
+  registryKey: string;
+  message: string;
+}
+
+export interface BenchmarkRunReport {
+  metrics: Metric[];
+  errors: BenchmarkHandlerError[];
+  timedOut: boolean;
+  partialSuccess: boolean;
 }
 
 export interface PerfGateResult {
@@ -336,8 +350,51 @@ async function runEntry(
   };
 }
 
-/** Measure every registered effect handler and return Metric rows. */
-export async function runEffectBenchmarks(opts?: BenchmarkOptions): Promise<Metric[]> {
+function failureMetric(
+  entry: EffectBenchmarkEntry,
+  trained: Record<string, number>
+): Metric {
+  const operation = entry.operation ?? entry.registryKey.split(".").pop() ?? entry.registryKey;
+  return {
+    symbol: entry.symbol,
+    operation,
+    actualMs: NaN,
+    thresholdMs: trained[entry.registryKey] ?? entry.thresholdMs ?? defaultThreshold(),
+    pass: false,
+    registryKey: entry.registryKey,
+    sourceFile: entry.sourceFile,
+    lineNumber: entry.lineNumber,
+    sourceDescription: entry.sourceDescription,
+  };
+}
+
+async function runEntrySafe(
+  entry: EffectBenchmarkEntry,
+  opts: Required<Pick<BenchmarkOptions, "iterations" | "warmup">>,
+  trained: Record<string, number>
+): Promise<{ metric: Metric; error?: BenchmarkHandlerError }> {
+  try {
+    const metric = await runEntry(entry, opts, trained);
+    if (!metric.skipped && Number.isNaN(metric.actualMs)) {
+      return {
+        metric,
+        error: { registryKey: entry.registryKey, message: "workload failed" },
+      };
+    }
+    return { metric };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      metric: failureMetric(entry, trained),
+      error: { registryKey: entry.registryKey, message },
+    };
+  }
+}
+
+/** Measure handlers and return metrics plus resilience metadata. */
+export async function runEffectBenchmarksReport(
+  opts?: BenchmarkOptions
+): Promise<BenchmarkRunReport> {
   const entries = discoverEffectBenchmarks();
   const keys = opts?.registryKeys;
   const filtered =
@@ -347,12 +404,43 @@ export async function runEffectBenchmarks(opts?: BenchmarkOptions): Promise<Metr
 
   const { iterations, warmup } = benchmarkOptions(opts);
   const { thresholds: trained } = await resolveTrainedThresholds(opts);
+  const timeoutMs = opts?.timeoutMs ?? KIMI_EFFECT_BENCHMARK_RUN_TIMEOUT_MS;
+  const deadline = Date.now() + timeoutMs;
 
   const metrics: Metric[] = [];
-  for (const entry of filtered) {
-    metrics.push(await runEntry(entry, { iterations, warmup }, trained));
+  const errors: BenchmarkHandlerError[] = [];
+  let timedOut = false;
+
+  for (let i = 0; i < filtered.length; i++) {
+    const entry = filtered[i]!;
+    if (Date.now() >= deadline) {
+      timedOut = true;
+      for (let j = i; j < filtered.length; j++) {
+        const skipped = filtered[j]!;
+        errors.push({
+          registryKey: skipped.registryKey,
+          message: "skipped: benchmark run timed out",
+        });
+      }
+      break;
+    }
+
+    const result = await runEntrySafe(entry, { iterations, warmup }, trained);
+    metrics.push(result.metric);
+    if (result.error) errors.push(result.error);
   }
-  return metrics;
+
+  const measured = metrics.filter((m) => !m.skipped);
+  const partialSuccess =
+    measured.some((m) => m.pass && !Number.isNaN(m.actualMs)) &&
+    (errors.length > 0 || timedOut);
+
+  return { metrics, errors, timedOut, partialSuccess };
+}
+
+/** Measure every registered effect handler and return Metric rows. */
+export async function runEffectBenchmarks(opts?: BenchmarkOptions): Promise<Metric[]> {
+  return (await runEffectBenchmarksReport(opts)).metrics;
 }
 
 /** Train thresholds from passing metrics into layered or legacy threshold files. */

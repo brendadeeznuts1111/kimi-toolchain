@@ -151,12 +151,24 @@
         "default": 50,
         "restrictions": "positive integer — max NDJSON snapshot rows retained per project",
         "see": ["src/lib/effect-benchmark.ts"]
+      },
+      "KIMI_EFFECT_BENCHMARK_RUN_TIMEOUT_MS": {
+        "type": "number",
+        "default": 10000,
+        "restrictions": "positive integer — max wall-clock ms for a dashboard benchmark run",
+        "see": ["src/lib/effect-benchmark.ts"]
+      },
+      "KIMI_EFFECT_BENCHMARK_POST_COOLDOWN_MS": {
+        "type": "number",
+        "default": 8000,
+        "restrictions": "positive integer — min ms between POST refresh/train requests",
+        "see": ["src/lib/effect-benchmark-resilience.ts"]
       }
     },
     "governance": {
       "KIMI_TUNING_SET_VERSION": {
         "type": "string",
-        "default": "1.4.3",
+        "default": "1.4.4",
         "restrictions": "semver — bump when any other KIMI_* define is added, changed, or removed",
         "see": ["scripts/lint-tuning-set-version.ts"]
       }

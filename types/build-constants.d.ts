@@ -212,6 +212,24 @@ declare const KIMI_EFFECT_BENCHMARK_DEFAULT_THRESHOLD_MS: number;
 declare const KIMI_EFFECT_BENCHMARK_SNAPSHOT_MAX_RUNS: number;
 
 /**
+ * @defineDomain effect-benchmark
+ * @type number
+ * @default 10000
+ * @restrictions positive integer — max wall-clock ms for a dashboard benchmark run
+ * @see src/lib/effect-benchmark.ts
+ */
+declare const KIMI_EFFECT_BENCHMARK_RUN_TIMEOUT_MS: number;
+
+/**
+ * @defineDomain effect-benchmark
+ * @type number
+ * @default 8000
+ * @restrictions positive integer — min ms between POST refresh/train requests
+ * @see src/lib/effect-benchmark-resilience.ts
+ */
+declare const KIMI_EFFECT_BENCHMARK_POST_COOLDOWN_MS: number;
+
+/**
  * @defineDomain governance
  * @type string
  * @default "1.2.0"

@@ -7,7 +7,12 @@
  */
 
 import type { Metric } from "../harness/html-reporter.ts";
-import type { EffectBenchmarkSnapshot, PerfGateResult, TrainResult } from "./effect-benchmark.ts";
+import type {
+  BenchmarkHandlerError,
+  EffectBenchmarkSnapshot,
+  PerfGateResult,
+  TrainResult,
+} from "./effect-benchmark.ts";
 import {
   detectBenchmarkRegressions,
   readBenchmarkSnapshots,
@@ -64,6 +69,9 @@ export interface EffectBenchmarkCardPayload {
   snapshot: BenchmarkSnapshotSummary;
   philosophy: string;
   train?: TrainResult;
+  partialSuccess?: boolean;
+  timedOut?: boolean;
+  errors?: BenchmarkHandlerError[];
 }
 
 export interface BenchmarkHealthCheck {
@@ -89,6 +97,9 @@ export interface BuildEffectBenchmarkCardOptions {
   historySnapshots?: EffectBenchmarkSnapshot[];
   /** Snapshot to compare against for per-row regression (previous run). */
   previousSnapshot?: EffectBenchmarkSnapshot;
+  partialSuccess?: boolean;
+  timedOut?: boolean;
+  errors?: BenchmarkHandlerError[];
 }
 
 const FAMILY_ORDER = ["crypto", "httpClient", "util", "image", "clock", "uuid"];
@@ -265,7 +276,7 @@ export function buildEffectBenchmarkCardPayload(
   const regressions =
     options.regressions ?? regressionKeys.length;
 
-  return {
+  const payload: EffectBenchmarkCardPayload = {
     generatedAt: options.generatedAt ?? new Date().toISOString(),
     allPass: gate.pass,
     registrySize: metrics.length,
@@ -289,6 +300,12 @@ export function buildEffectBenchmarkCardPayload(
     philosophy: CARD_PHILOSOPHY,
     train: options.train,
   };
+
+  if (options.partialSuccess) payload.partialSuccess = true;
+  if (options.timedOut) payload.timedOut = true;
+  if (options.errors?.length) payload.errors = options.errors;
+
+  return payload;
 }
 
 function regressionsBetweenSnapshots(
