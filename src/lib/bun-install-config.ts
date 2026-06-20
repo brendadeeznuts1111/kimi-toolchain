@@ -1052,9 +1052,7 @@ function buildRuntimeEnvironment(
   };
 }
 
-function runtimeEnvironmentAdvisories(
-  runtimeEnvironment: BunInstallRuntimeEnvironment
-): string[] {
+function runtimeEnvironmentAdvisories(runtimeEnvironment: BunInstallRuntimeEnvironment): string[] {
   const advisories: string[] = [];
   if (runtimeEnvironment.transpilerCache.status === "snapshot-only") {
     advisories.push(
