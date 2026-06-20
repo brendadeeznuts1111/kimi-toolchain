@@ -95,6 +95,7 @@ import {
   bunTestArgsForChanged,
   buildBunTestArgs,
   buildBunTestArgBatches,
+  bunInvocationWithTestConfig,
   installBuildConstantGlobals,
   mergeBunTestInvocationArgs,
   parseForwardedBunTestArgs,
@@ -1532,6 +1533,19 @@ test("global cleaned", () => {
       expect(args).toContain("--parallel=4");
       expect(args).not.toContain("--parallel");
       expect(args.some((arg) => arg.startsWith("--changed="))).toBe(true);
+    });
+
+    test("bunInvocationWithTestConfig uses Bun CLI --config flag", () => {
+      const args = bunInvocationWithTestConfig(
+        ["test", "--timeout", "30000"],
+        "/repo/.kimi/test-runner-bunfig.toml"
+      );
+      expect(args).toEqual([
+        "--config=/repo/.kimi/test-runner-bunfig.toml",
+        "test",
+        "--timeout",
+        "30000",
+      ]);
     });
 
     test("buildBunTestArgs is the unified argv builder", () => {

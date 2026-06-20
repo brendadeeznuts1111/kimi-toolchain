@@ -1563,7 +1563,7 @@ export async function runBunTest(
 ): Promise<number> {
   const quiet = options.quiet ?? false;
   const runnerConfigPath = await writeRunnerBunfig(repoRoot);
-  const bunArgs = insertBunTestConfig(args, runnerConfigPath);
+  const bunArgs = bunInvocationWithTestConfig(args, runnerConfigPath);
   const proc = Bun.spawn(["bun", ...bunArgs], {
     cwd: repoRoot,
     stdout: quiet ? "pipe" : "inherit",
@@ -1583,9 +1583,10 @@ export async function runBunTest(
   return await proc.exited;
 }
 
-function insertBunTestConfig(args: string[], configPath: string): string[] {
-  if (args[0] !== "test" || args.includes("--config")) return args;
-  return ["test", "--config", configPath, ...args.slice(1)];
+/** Bun 1.4+: `--config` is a Bun CLI flag, not a `bun test` subcommand flag. */
+export function bunInvocationWithTestConfig(args: string[], configPath: string): string[] {
+  if (args[0] !== "test") return args;
+  return [`--config=${configPath}`, ...args];
 }
 
 async function writeRunnerBunfig(repoRoot: string): Promise<string> {
