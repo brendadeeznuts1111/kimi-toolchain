@@ -10,7 +10,7 @@
 import { dirname, join } from "path";
 import { rename } from "node:fs/promises";
 import { $ } from "bun";
-import { makeDir } from "./bun-io.ts";
+import { makeDir, pathExists, readText } from "./bun-io.ts";
 import { manifestPath } from "./paths.ts";
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -21,50 +21,32 @@ const DEFAULT_NAME = "kimi-toolchain" as const;
 /** Path to the desktop install manifest */
 export const MANIFEST_PATH = manifestPath();
 
-// ── Version resolution ─────────────────────────────────────────────────
-
-let _versionCache: { version: string; name: string } | null = null;
-
-async function resolveVersion(): Promise<{ version: string; name: string }> {
-  if (_versionCache) return _versionCache;
-
-  const pkgPath = join(import.meta.dir, "..", "..", "package.json");
-  const pkg = await safeFileJson<{ version?: unknown; name?: unknown }>(pkgPath);
-  if (pkg) {
-    const version = typeof pkg.version === "string" ? pkg.version : DEFAULT_VERSION;
-    const name = typeof pkg.name === "string" ? pkg.name : DEFAULT_NAME;
-    _versionCache = { version, name };
-    return _versionCache;
-  }
-
-  const manifest = await safeFileJson<{ toolchainVersion?: unknown }>(MANIFEST_PATH);
-  if (manifest) {
-    const version =
-      typeof manifest.toolchainVersion === "string" ? manifest.toolchainVersion : DEFAULT_VERSION;
-    _versionCache = { version, name: DEFAULT_NAME };
-    return _versionCache;
-  }
-
-  _versionCache = { version: DEFAULT_VERSION, name: DEFAULT_NAME };
-  return _versionCache;
+// Resolve version synchronously at module load to avoid top-level await TDZ
+// for consumers (e.g. test describe callbacks) and keep exports constants.
+const pkgPath = join(import.meta.dir, "..", "..", "package.json");
+let _version = DEFAULT_VERSION;
+let _name = DEFAULT_NAME;
+try {
+  const pkg = JSON.parse(readText(pkgPath)) as { version?: unknown; name?: unknown };
+  if (typeof pkg.version === "string") _version = pkg.version;
+  if (typeof pkg.name === "string") _name = pkg.name;
+} catch {
+  // package.json missing in installed runtime; fall through to manifest.
 }
-
-/** Read a JSON file safely, returning null on any failure. */
-async function safeFileJson<T>(path: string): Promise<T | null> {
+if (_version === DEFAULT_VERSION && pathExists(MANIFEST_PATH)) {
   try {
-    return (await Bun.file(path).json()) as T;
+    const manifest = JSON.parse(readText(MANIFEST_PATH)) as { toolchainVersion?: unknown };
+    if (typeof manifest.toolchainVersion === "string") _version = manifest.toolchainVersion;
   } catch {
-    return null;
+    // ignore malformed/missing manifest
   }
 }
-
-const { version: TOOLCHAIN_VERSION, name: TOOLCHAIN_NAME } = await resolveVersion();
 
 /** Toolchain version from package.json (e.g. "0.1.0") */
-export { TOOLCHAIN_VERSION };
+export const TOOLCHAIN_VERSION = _version;
 
 /** Toolchain package name */
-export { TOOLCHAIN_NAME };
+export const TOOLCHAIN_NAME = _name;
 
 /** MCP bridge version — unified with toolchain version */
 export const MCP_BRIDGE_VERSION = TOOLCHAIN_VERSION;
