@@ -8,9 +8,10 @@
  * - `appendNdjsonRecord` — `Bun.write(..., { create: true, append: true })` when supported
  */
 
-import { appendFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
+import { appendFileSync, mkdirSync, unlinkSync } from "fs";
 import { dirname, join } from "path";
 import { tmpdir } from "os";
+import { pathExistsAsync } from "./bun-io.ts";
 import { safeParse } from "./utils.ts";
 
 /** Parse newline-delimited JSON text into validated records. */
@@ -61,7 +62,7 @@ async function bunWrite(
 
 /** Read all JSONL records using Bun.JSONL.parseChunk with error recovery. */
 export async function readNdjsonFile<T = unknown>(path: string): Promise<T[]> {
-  if (!existsSync(path)) return [];
+  if (!(await pathExistsAsync(path))) return [];
   const bytes = await Bun.file(path).bytes();
   if (bytes.length === 0) return [];
 
@@ -83,7 +84,7 @@ export async function readNdjsonFile<T = unknown>(path: string): Promise<T[]> {
 export async function* streamNdjsonRecords<T = unknown>(
   path: string
 ): AsyncGenerator<{ value: T; index: number }> {
-  if (!existsSync(path)) return;
+  if (!(await pathExistsAsync(path))) return;
 
   let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
   let index = 0;
