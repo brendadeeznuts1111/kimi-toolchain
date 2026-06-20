@@ -42,7 +42,7 @@ const logger = createLogger(Bun.argv, "kimi-memory");
 import { getDb } from "../lib/memory-sessions.ts";
 import { varDir } from "../lib/paths.ts";
 import { join } from "path";
-import { existsSync } from "fs";
+import { pathExists } from "../lib/bun-io.ts";
 
 const DB_PATH = join(varDir(), "sessions.db");
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -109,7 +109,7 @@ function doctor(): Array<{
 
   // WAL size
   const walPath = DB_PATH + "-wal";
-  if (existsSync(walPath)) {
+  if (pathExists(walPath)) {
     const walSize = Bun.file(walPath).size;
     const walMB = walSize / 1024 / 1024;
     checks.push({

@@ -8,7 +8,7 @@
  */
 
 import { $ } from "bun";
-import { existsSync } from "fs";
+import { pathExists } from "../lib/bun-io.ts";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 import { snapshotDir } from "../lib/paths.ts";
@@ -25,7 +25,7 @@ const SNAPSHOT_DIR = snapshotDir();
 
 async function restoreSnapshot(id: string, projectDir: string) {
   const path = snapshotPath(id);
-  if (!existsSync(path)) {
+  if (!pathExists(path)) {
     throw new Error(`Snapshot not found: ${id}`);
   }
 
@@ -86,7 +86,7 @@ async function doctor(): Promise<
       if (!snap.id || !snap.project || !snap.commit) {
         corrupted++;
       }
-      if (snap.projectPath && !existsSync(snap.projectPath)) {
+      if (snap.projectPath && !pathExists(snap.projectPath)) {
         orphaned++;
       }
       if (snap.projectPath) projectPaths.add(snap.projectPath);
@@ -159,7 +159,7 @@ async function fixSnapshots() {
       if (!snap.id || !snap.project || !snap.commit) {
         isCorrupted = true;
       }
-      if (snap.projectPath && !existsSync(snap.projectPath)) {
+      if (snap.projectPath && !pathExists(snap.projectPath)) {
         isOrphaned = true;
       }
     } catch {
@@ -190,7 +190,7 @@ async function main(): Promise<number> {
     const description = args.slice(1).join(" ") || undefined;
     logger.section("Saving snapshot");
 
-    if (!existsSync(join(projectDir, ".git"))) {
+    if (!pathExists(join(projectDir, ".git"))) {
       logger.error("Not a git repository — snapshots require git");
       return 1;
     }
@@ -224,7 +224,7 @@ async function main(): Promise<number> {
       return 1;
     }
     const path = snapshotPath(id);
-    if (!existsSync(path)) {
+    if (!pathExists(path)) {
       logger.error(`Snapshot not found: ${id}`);
       return 1;
     }

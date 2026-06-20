@@ -4,7 +4,7 @@
  * Derives version from src/lib/version.ts (package.json).
  */
 
-import { existsSync, lstatSync } from "fs";
+import { pathExists, pathLstat } from "../lib/bun-io.ts";
 import { MCP_BRIDGE_VERSION } from "../lib/version.ts";
 import { childTraceEnv, ensureProcessTrace, TRACE_ID_ENV } from "../lib/effect/trace-context.ts";
 import { buildTraceEvent, recordTraceEvent } from "../lib/trace-ledger.ts";
@@ -27,7 +27,7 @@ export async function executeCommand(
 ): Promise<ShellResult> {
   const cwd = context.workingDir || Bun.cwd;
   if (context.workingDir) {
-    if (!existsSync(context.workingDir)) {
+    if (!pathExists(context.workingDir)) {
       return {
         stdout: "",
         stderr: "",
@@ -35,7 +35,7 @@ export async function executeCommand(
         error: `Working directory does not exist: ${context.workingDir}`,
       };
     }
-    if (!lstatSync(context.workingDir).isDirectory()) {
+    if (!pathLstat(context.workingDir).isDirectory()) {
       return {
         stdout: "",
         stderr: "",

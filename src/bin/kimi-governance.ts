@@ -10,7 +10,7 @@
 
 import { $ } from "bun";
 import { readableStreamToText } from "../lib/bun-utils.ts";
-import { existsSync } from "fs";
+import { pathExists } from "../lib/bun-io.ts";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 import { runTool } from "../lib/tool-runner.ts";
@@ -88,13 +88,13 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
   const report: CoverageReport = { covered: 0, total: 0, percentage: 0, files: [] };
 
   const pkgPath = join(projectDir, "package.json");
-  if (!existsSync(pkgPath)) return report;
+  if (!pathExists(pkgPath)) return report;
 
   const pkg = (await Bun.file(pkgPath).json()) as any;
   const hasTests =
     pkg.scripts?.test ||
-    existsSync(join(projectDir, "test")) ||
-    existsSync(join(projectDir, "tests"));
+    pathExists(join(projectDir, "test")) ||
+    pathExists(join(projectDir, "tests"));
   if (!hasTests) return report;
 
   const fastCoverage = useFastUnitCoverage(pkg.name);
@@ -211,7 +211,7 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
 
     if (report.total === 0) {
       const lcovPath = join(projectDir, ARTIFACTS_COVERAGE_DIR, "lcov.info");
-      if (existsSync(lcovPath)) {
+      if (pathExists(lcovPath)) {
         const lcov = await Bun.file(lcovPath).text();
         let totalLines = 0;
         let hitLines = 0;
@@ -251,7 +251,7 @@ interface CoverageHistoryEntry {
 }
 
 async function latestCoverageHistory(projectDir: string): Promise<CoverageReport | null> {
-  if (!existsSync(COVERAGE_HISTORY)) return null;
+  if (!pathExists(COVERAGE_HISTORY)) return null;
   let history: CoverageHistoryEntry[];
   try {
     history = (await Bun.file(COVERAGE_HISTORY).json()) as CoverageHistoryEntry[];
@@ -276,7 +276,7 @@ export { loadCachedCoverage } from "../lib/governance.ts";
 async function storeCoverageHistory(projectDir: string, report: CoverageReport) {
   ensureDir(GOVERNANCE_DIR);
   let history: CoverageHistoryEntry[] = [];
-  if (existsSync(COVERAGE_HISTORY)) {
+  if (pathExists(COVERAGE_HISTORY)) {
     try {
       history = (await Bun.file(COVERAGE_HISTORY).json()) as CoverageHistoryEntry[];
     } catch {
@@ -309,7 +309,7 @@ async function storeCoverageHistory(projectDir: string, report: CoverageReport) 
 async function refreshStaleLockfile(projectDir: string): Promise<boolean> {
   const lockPath = join(projectDir, "bun.lock");
   const pkgPath = join(projectDir, "package.json");
-  if (!existsSync(lockPath) || !existsSync(pkgPath)) return false;
+  if (!pathExists(lockPath) || !pathExists(pkgPath)) return false;
 
   const pkgMtime = Bun.file(pkgPath).lastModified;
   const lockMtime = Bun.file(lockPath).lastModified;
@@ -346,7 +346,7 @@ async function computeRScore(
   const lockPath = join(projectDir, "bun.lock");
   const pkgPath = join(projectDir, "package.json");
   let staleLockfile = false;
-  if (existsSync(lockPath) && existsSync(pkgPath)) {
+  if (pathExists(lockPath) && pathExists(pkgPath)) {
     const pkgMtime = Bun.file(pkgPath).lastModified;
     const lockMtime = Bun.file(lockPath).lastModified;
     staleLockfile = pkgMtime > lockMtime;
@@ -377,7 +377,7 @@ async function computeRScore(
 
   ensureDir(GOVERNANCE_DIR);
   let history: RScore[] = [];
-  if (existsSync(SCORE_HISTORY)) {
+  if (pathExists(SCORE_HISTORY)) {
     try {
       history = (await Bun.file(SCORE_HISTORY).json()) as RScore[];
     } catch {
@@ -459,9 +459,9 @@ async function main(): Promise<number> {
       return 1;
     }
 
-    if (!existsSync(join(projectDir, "README.md"))) {
+    if (!pathExists(join(projectDir, "README.md"))) {
       logger.error("README.md not found");
-    } else if (!existsSync(join(projectDir, "package.json"))) {
+    } else if (!pathExists(join(projectDir, "package.json"))) {
       logger.warn("No package.json — skipping script comparison");
     } else {
       (drift.fresh ? logger.info : logger.warn)(
@@ -861,7 +861,7 @@ async function main(): Promise<number> {
       );
     }
 
-    if (existsSync(SCORE_HISTORY)) {
+    if (pathExists(SCORE_HISTORY)) {
       const history = (await Bun.file(SCORE_HISTORY).json()) as RScore[];
       if (history.length > 1) {
         const prev = history[history.length - 2];
