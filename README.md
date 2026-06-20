@@ -79,8 +79,6 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run finish-work` | (synced from package.json) |
 
-| `bun run test:changed` | (synced from package.json) |
-
 ### Core
 
 | Command                        | Description                           |
