@@ -287,4 +287,42 @@ describe("card-probe-server", () => {
       handle.stop();
     }
   });
+
+  test("hides /api/effect-benchmark unless effectBenchmark is enabled", async () => {
+    const handle = await startProbeServer({ port: 0, probeConfig: { timeoutMs: 100 } });
+    try {
+      const res = await fetch(`${handle.url}/api/effect-benchmark`);
+      expect(res.status).toBe(404);
+    } finally {
+      handle.stop();
+    }
+  });
+
+  test(
+    "serves BenchmarkApiEnvelope at /api/effect-benchmark when enabled",
+    async () => {
+      const handle = await startProbeServer({
+        port: 0,
+        probeConfig: { timeoutMs: 100 },
+        effectBenchmark: true,
+      });
+      try {
+        const res = await fetch(`${handle.url}/api/effect-benchmark`);
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as {
+          schemaVersion: number;
+          runner: string;
+          summary: { total: number };
+          gates: { effectBenchmarkGate: { status: string } };
+        };
+        expect(body.schemaVersion).toBe(1);
+        expect(body.runner).toBe("serve-probe");
+        expect(body.summary.total).toBeGreaterThan(0);
+        expect(body.gates.effectBenchmarkGate.status).toBeDefined();
+      } finally {
+        handle.stop();
+      }
+    },
+    { timeout: 30_000 }
+  );
 });

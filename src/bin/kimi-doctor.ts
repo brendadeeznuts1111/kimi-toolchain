@@ -1599,6 +1599,7 @@ async function main(): Promise<number> {
       strict: STRICT_PROBE,
       saveArtifact: SAVE_ARTIFACT,
       projectRoot,
+      effectBenchmark: PERF_GATES && SERVE_PROBE,
       log: (line) => logger.info(line),
     });
     if (JSON_OUT && result.payload) emitJson(result.payload);

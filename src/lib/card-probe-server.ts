@@ -31,6 +31,10 @@ import {
   fetchDashboardArtifactIndexStats,
   fetchDashboardRunsList,
 } from "./herdr-dashboard-data.ts";
+import {
+  type BenchmarkApiEnvelope,
+  runEffectBenchmarkCardLoop,
+} from "./effect-benchmark-card.ts";
 
 export { extractArtifactTimestamp };
 
@@ -53,6 +57,8 @@ export const PROBE_SERVER_ROUTES = [
   { path: "/api/artifacts/:gate/diff", methods: ["GET"] as const },
   { path: "/api/runs", methods: ["GET"] as const },
   { path: "/api/runs/:runId", methods: ["GET"] as const },
+  { path: "/api/effect-benchmark", methods: ["GET"] as const },
+  { path: "/api/effect-benchmark/refresh", methods: ["POST"] as const },
 ] as const;
 
 /** Reserved route — returns 403 until opt-in gate refresh is implemented (ADR-0004). */
@@ -73,6 +79,8 @@ export interface ProbeServerOptions {
   projectRoot?: string;
   saveArtifact?: boolean;
   strict?: boolean;
+  /** When true (kimi-doctor --perf-gates --serve-probe), expose BenchmarkApiEnvelope routes. */
+  effectBenchmark?: boolean;
 }
 
 export interface ProbeServerHandle {
@@ -178,6 +186,9 @@ export async function startProbeServer(
   let lastArtifactPath: string | undefined;
   let refreshInFlight: Promise<CardStatus[]> | null = null;
   let refreshTimer: ReturnType<typeof setInterval> | null = null;
+  let benchmarkEnvelope: BenchmarkApiEnvelope | null = null;
+  let benchmarkFetchedAt: string | null = null;
+  let benchmarkRefreshInFlight: Promise<BenchmarkApiEnvelope> | null = null;
 
   async function persistRefreshArtifact(
     cards: CardStatus[],
@@ -194,6 +205,26 @@ export async function startProbeServer(
       source: "serve-probe",
     });
     return lastArtifactPath;
+  }
+
+  async function refreshEffectBenchmark(appendSnapshot = false): Promise<BenchmarkApiEnvelope> {
+    if (benchmarkRefreshInFlight) return benchmarkRefreshInFlight;
+    benchmarkRefreshInFlight = (async () => {
+      try {
+        const envelope = await runEffectBenchmarkCardLoop({
+          projectRoot,
+          runner: "serve-probe",
+          appendSnapshot,
+          mapTaxonomy: true,
+        });
+        benchmarkEnvelope = envelope;
+        benchmarkFetchedAt = envelope.timestamp;
+        return envelope;
+      } finally {
+        benchmarkRefreshInFlight = null;
+      }
+    })();
+    return benchmarkRefreshInFlight;
   }
 
   async function refresh(): Promise<CardStatus[]> {
@@ -315,6 +346,28 @@ export async function startProbeServer(
         });
       }
 
+      if (path === "/api/effect-benchmark") {
+        if (!options.effectBenchmark) return notFound(path);
+        if (method !== "GET") return methodNotAllowed(path, method, ["GET"]);
+        if (!benchmarkEnvelope) {
+          await refreshEffectBenchmark(false);
+        }
+        return jsonResponse({
+          ...benchmarkEnvelope!,
+          fetchedAt: benchmarkFetchedAt,
+        });
+      }
+
+      if (path === "/api/effect-benchmark/refresh") {
+        if (!options.effectBenchmark) return notFound(path);
+        if (method !== "POST") return methodNotAllowed(path, method, ["POST"]);
+        const envelope = await refreshEffectBenchmark(true);
+        return jsonResponse({
+          ...envelope,
+          refreshedAt: benchmarkFetchedAt,
+        });
+      }
+
       if (path === "/api/runs" && method === "GET") {
         if (!artifactStore) {
           return jsonResponse({ ok: false, error: "Artifact store unavailable" }, 500);
@@ -405,6 +458,9 @@ export async function startProbeServer(
   });
 
   await refresh();
+  if (options.effectBenchmark) {
+    await refreshEffectBenchmark(false);
+  }
 
   if (refreshIntervalMs > 0) {
     refreshTimer = setInterval(() => {

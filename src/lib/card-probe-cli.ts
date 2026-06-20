@@ -37,6 +37,8 @@ export interface CardProbeCliOptions {
   saveArtifact?: boolean;
   projectRoot?: string;
   probeConfig?: CardProbeConfig;
+  /** kimi-doctor --perf-gates --serve-probe: expose /api/effect-benchmark */
+  effectBenchmark?: boolean;
   log?: (line: string) => void;
 }
 
@@ -115,6 +117,7 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
     host: doctorProbe.host,
     port: doctorProbe.port,
     refreshIntervalMs: doctorProbe.intervalMs,
+    effectBenchmark: options.effectBenchmark === true,
   };
 
   if (options.mode === "serve-probe-once") {
@@ -164,8 +167,11 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
 
     if (!json) {
       log?.(`Card probe server listening at ${handle.url}`);
+      const benchmarkRoutes = options.effectBenchmark
+        ? " · GET /api/effect-benchmark · POST /api/effect-benchmark/refresh"
+        : "";
       log?.(
-        "Routes: GET|HEAD /api/health · GET /api/cards · GET|POST /api/refresh · GET /api/artifacts[/{gate}[/latest]]"
+        `Routes: GET|HEAD /api/health · GET /api/cards · GET|POST /api/refresh · GET /api/artifacts[/{gate}[/latest]]${benchmarkRoutes}`
       );
       if (options.saveArtifact && handle.getLastArtifactPath()) {
         log?.(`  Artifact: ${handle.getLastArtifactPath()}`);
