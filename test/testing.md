@@ -144,11 +144,26 @@ rg -n --glob '*.{md,ts,js,json}' \
   .
 ```
 
+Heading case and ATX format (`rg` — gate skips lines inside fenced code blocks):
+
+```bash
+rg -n '^#{1,6}\s+[a-z]' --glob '*.md' .
+rg -n '^#{1,6}\s+.*[.!?]$' --glob '*.md' .
+rg -n '^#{1,6}[^ #]' --glob '*.md' .
+```
+
+Optional deep audit (skipped levels, duplicate headings, trailing spaces, setext vs ATX):
+
+```bash
+bunx markdownlint-cli2 '**/*.md' '#node_modules'
+```
+
 Interpretation:
 
 - Bare `bun test` is **allowed** for single-file debug (`bun test <file>`), coverage probes (`bun test --coverage`), and anti-pattern tables — not for hooks/CI (use tier scripts).
 - `jest` in docs usually means Bun's `bun:test` Jest-compat namespace (`jest.resetModules()`, `jest.fn`) — not the Jest package.
 - Reject `vitest` / `mocha` / `jasmine` in agent-facing markdown unless documenting a migration away from them.
+- Heading lowercase / trailing punctuation are **warnings** on agent docs (h1 slug titles like `# kimi-toolchain` are allowed). Missing space after `#` is an **error**.
 
 Render this guide in tooling via [Bun.markdown.html](https://bun.com/docs/runtime/markdown#bun-markdown-html) (`src/lib/bun-markdown.ts` — `markdownHtmlSupported()` / `markdownToHtml()`).
 

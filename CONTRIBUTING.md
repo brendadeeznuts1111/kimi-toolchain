@@ -55,7 +55,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `test:` — adding or correcting tests
 - `chore:` — maintenance tasks
 
-## Questions?
+## Questions
 
 - Open an issue: https://github.com/brendadeeznuts1111/kimi-toolchain/issues
 - Contact the maintainers (see CODEOWNERS)

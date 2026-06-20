@@ -33,6 +33,11 @@ export const TESTING_DOCS_AUDIT_COMMANDS = {
   --no-ignore-vcs \\
   -g '!node_modules' -g '!dist' -g '!.git' -g '!pnpm-lock.yaml' -g '!bun.lock' \\
   .`,
+  headingLowercase: "rg -n '^#{1,6}\\\\s+[a-z]' --glob '*.md' .",
+  headingTrailingPunctuation: "rg -n '^#{1,6}\\\\s+.*[.!?]$' --glob '*.md' .",
+  headingMissingSpace: "rg -n '^#{1,6}[^ #]' --glob '*.md' .",
+  /** Optional deep audit — skipped levels, duplicates, trailing spaces, setext vs ATX. */
+  markdownlintOptional: "bunx markdownlint-cli2 '**/*.md' '#node_modules'",
 } as const;
 
 export type TestingDocSeverity = "error" | "warn";
@@ -107,6 +112,111 @@ const LINT_RULES: LintRule[] = [
 ];
 
 const BUN_TEST_INVENTORY_ALLOW = /bun test\s*(<|--|\()/;
+
+interface HeadingRule {
+  id: string;
+  severity: TestingDocSeverity;
+  test: (heading: string, level: number) => boolean;
+  message: string;
+}
+
+/** ATX heading rules — h1 lowercase skipped (project slugs like `# kimi-toolchain`). */
+const HEADING_RULES: HeadingRule[] = [
+  {
+    id: "heading-lowercase-start",
+    severity: "warn",
+    test: (heading, level) => {
+      if (level < 2) return false;
+      if (/^[\w./-]+\.(json|toml|ts|md|yml|d\.ts)\b/i.test(heading)) return false;
+      if (/^src\//i.test(heading)) return false;
+      if (/^[a-z]+[A-Z]/.test(heading)) return false;
+      return /^[a-z]/.test(heading);
+    },
+    message: "Heading should start with an uppercase letter (h2–h6)",
+  },
+  {
+    id: "heading-trailing-punctuation",
+    severity: "warn",
+    test: (heading) => /[.!?]$/.test(heading.trim()),
+    message: "Headings should not end with . ! or ?",
+  },
+  {
+    id: "heading-missing-space",
+    severity: "error",
+    test: () => false,
+    message: "ATX headings need a space after # characters",
+  },
+];
+
+/** Collect ATX heading lines outside fenced code blocks. */
+export function listMarkdownHeadings(
+  text: string
+): Array<{ line: number; level: number; title: string; raw: string }> {
+  const lines = text.split("\n");
+  const hits: Array<{ line: number; level: number; title: string; raw: string }> = [];
+  let inFence = false;
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i] ?? "";
+    const trimmed = raw.trim();
+    if (/^```/.test(trimmed)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+
+    const missingSpace = raw.match(/^(#{1,6})([^ #\s].*)$/);
+    if (missingSpace) {
+      hits.push({
+        line: i + 1,
+        level: missingSpace[1]!.length,
+        title: missingSpace[2]!.trim(),
+        raw,
+      });
+      continue;
+    }
+
+    const m = raw.match(/^(#{1,6})\s+(.+?)\s*$/);
+    if (!m) continue;
+    hits.push({
+      line: i + 1,
+      level: m[1]!.length,
+      title: m[2]!.trim(),
+      raw,
+    });
+  }
+  return hits;
+}
+
+export function auditMarkdownHeadings(rel: string, text: string): TestingDocIssue[] {
+  if (!/\.md$/.test(rel)) return [];
+  const issues: TestingDocIssue[] = [];
+  for (const hit of listMarkdownHeadings(text)) {
+    if (/^(#{1,6})([^ #\s].*)$/.test(hit.raw.trim())) {
+      issues.push({
+        file: rel,
+        line: hit.line,
+        ruleId: "heading-missing-space",
+        severity: "error",
+        message: HEADING_RULES.find((r) => r.id === "heading-missing-space")!.message,
+        snippet: hit.raw.trim().slice(0, 140),
+      });
+      continue;
+    }
+    for (const rule of HEADING_RULES) {
+      if (rule.id === "heading-missing-space") continue;
+      if (!rule.test(hit.title, hit.level)) continue;
+      issues.push({
+        file: rel,
+        line: hit.line,
+        ruleId: rule.id,
+        severity: rule.severity,
+        message: rule.message,
+        snippet: hit.raw.trim().slice(0, 140),
+      });
+    }
+  }
+  return issues;
+}
 
 function scanLine(
   rel: string,
@@ -220,6 +330,7 @@ export async function auditTestingDocs(
       continue;
     }
     issues.push(...scanText(rel, text));
+    issues.push(...auditMarkdownHeadings(rel, text));
   }
 
   // Scaffold parity + repo-wide stale script scan (scaffold injectors).

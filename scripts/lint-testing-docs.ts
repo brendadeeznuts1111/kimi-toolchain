@@ -7,6 +7,7 @@
 
 import { join } from "path";
 import {
+  auditMarkdownHeadings,
   auditTestingDocs,
   formatTestingDocReport,
   inventoryBunTestMentions,
@@ -38,6 +39,21 @@ async function main(): Promise<number> {
         console.log(`  L${hit.line} ${hit.allowed ? "ok" : "review"}  ${hit.snippet}`);
       }
     }
+    console.log("\nheading audit (agent docs, fence-aware; rg recipes above are repo-wide):\n");
+    for (const rel of TESTING_DOCS_DEFAULT_PATHS) {
+      if (!rel.endsWith(".md")) continue;
+      const text = await readTextAsync(join(REPO_ROOT, rel));
+      const headingIssues = auditMarkdownHeadings(rel, text);
+      if (headingIssues.length === 0) continue;
+      console.log(`${rel}:`);
+      for (const issue of headingIssues) {
+        console.log(`  L${issue.line} [${issue.severity}] ${issue.ruleId}  ${issue.snippet}`);
+      }
+    }
+    console.log(
+      "\nOptional deep markdown lint (skipped levels, duplicates, trailing spaces):\n" +
+        TESTING_DOCS_AUDIT_COMMANDS.markdownlintOptional
+    );
     return 0;
   }
 

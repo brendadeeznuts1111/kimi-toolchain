@@ -128,7 +128,7 @@ Three **separate naming layers** — do not reuse one vocabulary for another:
 
 **Cross-repo parity (accounting-telegram):** same layers; app repo uses domain prefixes instead of `KIMI_` — `DRIFT_*`, `CI_*`, `SCRIPTS_*` map to defineDomains `drift-predict`, `ci-pipeline`, `governance`. Tags optional in bunfig comments there; prefix is the domain key.
 
-### define constant rules (kimi-toolchain)
+### Define Constant Rules (kimi-toolchain)
 
 1. Every `[define]` key starts with `KIMI_`.
 2. Booleans end with `_ENABLED` (`KIMI_CONTRACT_INFERENCE_ENABLED`), never `ENABLE_*`.
@@ -136,13 +136,13 @@ Three **separate naming layers** — do not reuse one vocabulary for another:
 4. Numeric tuning includes domain: `KIMI_ERROR_EMBEDDING_DIM`, `KIMI_DECISION_SCORE_WINDOW_DAYS`.
 5. Change values in `bunfig.toml` only — no duplicated literals in lib code.
 
-### defineDomain rules
+### defineDomain Rules
 
 1. One `# define-domain:{name}` comment immediately before each constant group in bunfig.
 2. `{name}` is kebab-case and aligns with the owning lib file or Phase 2 module (`error-clustering`, not umbrella `self-healing`).
 3. JSDoc uses `@defineDomain {name}` — **never** `@tag` (collides mentally with failure taxonomy).
 
-### taxonomyId rules (unchanged)
+### taxonomyId Rules (unchanged)
 
 1. Loaded from `error-taxonomy.yml`; used in tool failures, doctor checks, JSONL — **not** for bunfig tuning.
 2. snake_case only; never used as a defineDomain or define constant prefix.
@@ -338,7 +338,7 @@ Use this pattern when extending `kimi-doctor` with new agent-facing diagnostics.
 
 Runtime state (`~/.config/herdr/session.json`, sockets, logs) and integration hooks (`herdr integration install`) stay outside `~/dx-config`. See `~/.config/dx/herdr.md` and `~/dx-config/README.md`.
 
-## dx-config vs kimi-toolchain
+## DX-Config vs kimi-toolchain
 
 Keep separate git repos. `~/dx-config` is dotfiles (config + install); `kimi-toolchain` is code (semver, releases).
 

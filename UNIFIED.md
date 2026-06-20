@@ -162,7 +162,7 @@ Manual or blocked actions are evidence, not permission to mutate. Use
 | `bun run doctor` | repo `src/bin/kimi-doctor.ts`                                    | Same logic, reads repo package.json |
 | `dx config`      | `~/.local/bin/dx`                                                | Machine-wide Bun/DX audit           |
 
-## dx vs kimi-toolchain
+## DX vs kimi-toolchain
 
 | Tool                                              | Scope                                                |
 | ------------------------------------------------- | ---------------------------------------------------- |
