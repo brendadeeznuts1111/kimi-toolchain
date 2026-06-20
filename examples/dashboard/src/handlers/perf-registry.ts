@@ -55,7 +55,7 @@ export async function apiPerfHarness(): Promise<Response> {
 
   // Measure each effect module
   const t0 = Bun.nanoseconds();
-  void new Uint8Array(await Bun.SHA256.hash("benchmark payload"));
+  await Bun.SHA256.hash("benchmark payload");
   const t1 = Bun.nanoseconds();
   metrics.push({
     name: "crypto.sha256",

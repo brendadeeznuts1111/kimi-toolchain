@@ -429,6 +429,22 @@
       .landing-stat.stale {
         opacity: 0.55;
       }
+      .landing-stat.refreshed {
+        animation: landing-pulse 600ms ease-out;
+      }
+      @keyframes landing-pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(88, 166, 255, 0.35);
+        }
+        100% {
+          box-shadow: 0 0 0 0 transparent;
+        }
+      }
+      .landing-stat .err-icon {
+        font-size: 10px;
+        margin-left: 4px;
+        color: var(--red);
+      }
       @media (max-width: 640px) {
         #landing-zone {
           grid-template-columns: 1fr 1fr;
@@ -470,6 +486,22 @@
       <div class="landing-stat" data-stat="probe">
         <div class="loading" style="font-size: 11px">Probe…</div>
       </div>
+    </div>
+    <div
+      id="activity-bar"
+      style="
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 14px;
+        margin-bottom: 12px;
+        font-size: 11px;
+        color: var(--muted);
+        text-align: center;
+        transition: border-color 200ms;
+      "
+    >
+      <span class="loading">Checking activity…</span>
     </div>
     <div id="canvas-filter-bar" class="canvas-filter-bar" aria-label="Manifest canvas filter">
       <span style="font-size: 11px; color: var(--muted); margin-right: 4px">Canvas filter:</span>
@@ -1421,9 +1453,148 @@
           staleTimer = setTimeout(markStale, 90000);
         }
 
+        // Pulse on update — brief blue glow when new data arrives
+        function pulseLanding() {
+          document.querySelectorAll(".landing-stat").forEach(el => {
+            el.classList.remove("refreshed");
+            void el.offsetWidth; // force reflow to restart animation
+            el.classList.add("refreshed");
+          });
+        }
+
+        // Error resilience: track consecutive failures per tile
+        const landingErrors = { cards: 0, runtime: 0, artifacts: 0, probe: 0 };
+        function setStatErrored(statId) {
+          landingErrors[statId] = (landingErrors[statId] || 0) + 1;
+          const warn = landingErrors[statId] >= 3 ? ' <span class="err-icon">⚠</span>' : '';
+          setStat(statId, "—", `unavailable${warn}`, `failures: ${landingErrors[statId]}`, `refreshed ${new Date().toLocaleTimeString()}`);
+        }
+        function setStatOk(statId) { landingErrors[statId] = 0; }
+
+        // Wrapper: tries fetch, resets error count on success, increments on failure
+        async function refreshLandingSafe(statId, fetch, render) {
+          try {
+            await render();
+            setStatOk(statId);
+            return true;
+          } catch {
+            setStatErrored(statId);
+            return false;
+          }
+        }
+
+        // Refresher (rewired with error tracking)
+        async function refreshLanding() {
+          const now = new Date().toLocaleTimeString();
+          try { settings = await fetchJson("/api/settings"); } catch { /* keep prior */ }
+
+          const probeBase = resolveProbeBase();
+          let probeCards = null;
+          let probeArts = null;
+
+          // Probe server: cards + artifacts (fire-and-forget, best-effort)
+          try {
+            const [pc, pa] = await Promise.all([
+              fetch(`${probeBase}/api/cards`).then(r => r.ok ? r.json() : null).catch(() => null),
+              fetch(`${probeBase}/api/artifacts`).then(r => r.ok ? r.json() : null).catch(() => null),
+            ]);
+            probeCards = pc;
+            probeArts = pa;
+          } catch { /* probe unreachable */ }
+
+          // Cards tile
+          await refreshLandingSafe("cards",
+            () => fetchJson("/api/cards?probe=true"),
+            async () => {
+              const cards = await fetchJson("/api/cards?probe=true");
+              const ok = cards.cards.filter((c) => c.status === "ok").length;
+              const total = settings?.cardCount ?? cards.total;
+              let sub = `${total - ok} failing or unknown`;
+              if (probeCards?.cards) {
+                const probeOk = probeCards.cards.filter((c) => c.status === "pass").length;
+                sub += ` · probe ${probeOk}/${probeCards.total} pass`;
+              }
+              setStat("cards", `${ok}/${total}`, "cards passing", sub, `dashboard · refreshed ${now}`, colorForRatio(ok, total));
+            }
+          );
+
+          // Runtime
+          await refreshLandingSafe("runtime",
+            () => fetchJson("/api/runtime-info"),
+            async () => {
+              const rt = await fetchJson("/api/runtime-info");
+              setStat("runtime", rt.runtime, `${rt.version.split("-")[0]}`, rt.bunVersion, `refreshed ${now}`);
+            }
+          );
+
+          // Artifact gates
+          await refreshLandingSafe("artifacts",
+            () => fetchJson("/api/artifacts"),
+            async () => {
+              const arts = await fetchJson("/api/artifacts");
+              const withSaved = (arts.artifacts || []).filter((r) => (r.count ?? 0) > 0);
+              const gateNames = withSaved.map((r) => r.gate).join(", ");
+              let sub = gateNames.length > 40 ? `${gateNames.slice(0, 40)}…` : gateNames;
+              if (probeArts?.gates) sub += ` · probe ${probeArts.count} gates`;
+              setStat("artifacts", withSaved.length, "artifact gates", sub || undefined, `refreshed ${now}`);
+            }
+          );
+
+          // Dual health
+          await refreshLandingSafe("probe",
+            () => fetch("/api/health", { method: "HEAD" }),
+            async () => {
+              const dashHealth = await fetch("/api/health", { method: "HEAD" });
+              const dashOk = dashHealth.ok;
+              const probeOk = !!(probeCards || probeArts);
+              const summary = dashOk && probeOk ? "✓ ✓" : dashOk ? "✓ ✗" : probeOk ? "✗ ✓" : "✗ ✗";
+              const sub = dashOk ? (probeOk ? "both healthy" : "dashboard up · probe unreachable") : (probeOk ? "dashboard down · probe up" : "both down");
+              const dashLabel = settings ? `dashboard :${settings.port}` : "dashboard";
+              const probeLabel = `${settings?.probeHost ?? "127.0.0.1"}:${settings?.probePort ?? settings?.port ?? CANONICAL_DASHBOARD_PORT}`;
+              setStat("probe", summary, sub, `${dashLabel} · probe ${probeLabel}`, `refreshed ${now}`, dashOk && probeOk ? "var(--green)" : dashOk || probeOk ? "var(--yellow)" : "var(--red)");
+            }
+          );
+        }
+
+        // Activity bar — latest run manifest from probe server
+        function renderActivity(runManifest, probeBase) {
+          const el = document.getElementById("activity-bar");
+          if (!el) return;
+          const m = runManifest?.manifest || runManifest;
+          if (m?.runId) {
+            const gates = (m.gates || []).join(", ");
+            const statusColor = m.status === "pass" ? "var(--green)" : m.status === "fail" ? "var(--red)" : "var(--yellow)";
+            el.innerHTML = `Last run: <code style="color:var(--blue)">${m.runId.slice(0, 32)}…</code> · ${m.gates?.length || 0} gates: ${gates.slice(0, 50)} · <span style="color:${statusColor}">${m.status}</span> · probe: <code>${probeBase.replace("http://", "")}</code>`;
+          } else {
+            el.innerHTML = `No run manifests yet · Save one with <code style="color:var(--blue)">kimi-doctor --run-gates --save-artifact</code> · probe: <code>${probeBase.replace("http://", "")}</code>`;
+          }
+        }
+
+        // Attempt to load latest run manifest from probe server
+        async function refreshActivity() {
+          const el = document.getElementById("activity-bar");
+          if (!el) return;
+          try {
+            const probeBase = resolveProbeBase();
+            const runList = await fetch(`${probeBase}/api/runs`).then(r => r.ok ? r.json() : null).catch(() => null);
+            let manifest = null;
+            if (runList?.runs?.length > 0) {
+              const latestId = runList.runs[0].runId;
+              try {
+                manifest = await fetch(`${probeBase}/api/runs/${encodeURIComponent(latestId)}`).then(r => r.ok ? r.json() : null).catch(() => null);
+              } catch { /* manifest not found */ }
+            }
+            renderActivity(manifest, probeBase);
+          } catch {
+            if (el) el.innerHTML = '<span style="color:var(--muted)">Activity unavailable</span>';
+          }
+        }
+
+        await refreshActivity();
         await refreshLanding();
+        pulseLanding();
         clearStale();
-        setInterval(() => { refreshLanding(); clearStale(); }, REFRESH_MS);
+        setInterval(() => { refreshLanding().then(pulseLanding); clearStale(); }, REFRESH_MS);
       })();
 
       function card(id, body) {

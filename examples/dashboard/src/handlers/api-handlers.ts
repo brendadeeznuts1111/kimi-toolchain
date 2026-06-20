@@ -118,7 +118,7 @@ export async function apiEnv(request?: Request): Promise<Response> {
   let bunfigRun: Record<string, unknown> = {};
   try {
     const bunfigText = await Bun.file("./bunfig.toml").text();
-    const parsed = Bun.TOML.parse(bunfigText);
+    const parsed = Bun.TOML.parse(bunfigText) as Record<string, unknown>;
     if (parsed.run && typeof parsed.run === "object") {
       bunfigRun = parsed.run as Record<string, unknown>;
     }
@@ -182,7 +182,7 @@ export async function apiBuildInfo(): Promise<Response> {
     for (const candidate of candidates) {
       const f = Bun.file(candidate);
       if (await f.exists()) {
-        const parsed = Bun.TOML.parse(await f.text());
+        const parsed = Bun.TOML.parse(await f.text()) as Record<string, unknown>;
         if (parsed.define && typeof parsed.define === "object") {
           bunfigDefines = Object.fromEntries(
             Object.entries(parsed.define as Record<string, unknown>).map(([k, v]) => [k, String(v)])
@@ -437,7 +437,7 @@ export async function apiUuid(): Promise<Response> {
   const b64 = Bun.randomUUIDv7("base64");
   const b64url = Bun.randomUUIDv7("base64url");
   const buf = Bun.randomUUIDv7("buffer");
-  const oldTimestamp = Bun.randomUUIDv7(1700000000000);
+  const oldTimestamp = Bun.randomUUIDv7("hex", 1700000000000);
 
   return jsonResponse({
     formats: {

@@ -112,7 +112,10 @@ export async function benchFetchH2(servers: HttpBenchServers): Promise<void> {
 
 export async function benchFetchH3(servers: HttpBenchServers): Promise<void> {
   if (!servers.h3Url) throw new Error("http.fetch-h3: HTTP/3 server unavailable");
-  const res = await fetch(servers.h3Url, { protocol: "http3", tls: FETCH_TLS });
+  const res = await fetch(servers.h3Url, {
+    protocol: "http3",
+    tls: FETCH_TLS,
+  } as RequestInit & { protocol?: "http3"; tls?: unknown });
   if (!res.ok || (await res.text()) !== "ok") {
     throw new Error("http.fetch-h3: unexpected response");
   }
