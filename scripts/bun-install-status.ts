@@ -8,10 +8,7 @@
  */
 
 import { join, resolve } from "path";
-import {
-  auditBunInstallConfig,
-  formatInstallPolicyReport,
-} from "../src/lib/bun-install-config.ts";
+import { auditBunInstallConfig, formatInstallPolicyReport } from "../src/lib/bun-install-config.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 const args = Bun.argv.slice(2);

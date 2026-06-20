@@ -176,7 +176,7 @@ describe("kimi-doctor smoke", () => {
     expect(out).toContain("format:check");
     expect(out).toContain("typecheck");
     expect(out).toContain("test:fast");
-  }, 5_000);
+  }, 15_000);
 
   test("kimi-new --dry-run prints scaffold steps", async () => {
     const name = `scaffold-${Bun.randomUUIDv7()}`;

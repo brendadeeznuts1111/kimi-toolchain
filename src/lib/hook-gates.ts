@@ -3,6 +3,7 @@
  */
 
 import { makeDir, pathExists } from "./bun-io.ts";
+import { readableStreamToText } from "./bun-utils.ts";
 
 import { join } from "path";
 import { $ } from "bun";
@@ -124,7 +125,7 @@ async function pkgGet(projectRoot: string, property: string): Promise<string | n
       stdout: "pipe",
       stderr: "pipe",
     });
-    const output = (await new Response(proc.stdout).text()).trim();
+    const output = (await readableStreamToText(proc.stdout)).trim();
     if ((await proc.exited) !== 0) return null;
     return output || null;
   } catch {

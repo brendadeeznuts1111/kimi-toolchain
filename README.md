@@ -128,6 +128,11 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run check:watch` | (synced from package.json) |
 | `bun run check:watch:tests` | (synced from package.json) |
 
+| `bun run serve-probe` | (synced from package.json) |
+| `bun run build:portal:dry-run` | (synced from package.json) |
+| `bun run test:gates` | (synced from package.json) |
+| `bun run bun-install:status` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                           |

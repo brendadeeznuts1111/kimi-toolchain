@@ -80,13 +80,21 @@ command = ["bash", "-lc", "rm -rf node_modules && bun ci"]
 id = "add-runtime-dep"
 title = "Add Runtime Dep"
 contexts = ["workspace"]
-command = ["bash", "-lc", "read -r -p 'Runtime package: ' pkg && test -n \"$pkg\" && bun add \"$pkg\""]
+command = [
+  "bash",
+  "-lc",
+  "read -r -p 'Runtime package: ' pkg && test -n \"$pkg\" && bun add \"$pkg\"",
+]
 
 [[actions]]
 id = "add-dev-dep"
 title = "Add Dev Dep"
 contexts = ["workspace"]
-command = ["bash", "-lc", "read -r -p 'Dev package: ' pkg && test -n \"$pkg\" && bun add -d \"$pkg\""]
+command = [
+  "bash",
+  "-lc",
+  "read -r -p 'Dev package: ' pkg && test -n \"$pkg\" && bun add -d \"$pkg\"",
+]
 
 # ── Event hooks ──
 
