@@ -14,6 +14,8 @@ export const BUN_INSTALL_DOC_URL = "https://bun.com/docs/pm/cli/install";
 export const BUN_RELEASE_1_3_13_URL = "https://bun.com/blog/bun-v1.3.13";
 export const BUN_RELEASE_1_3_13_SOURCE_MAPS_URL =
   "https://bun.com/blog/bun-v1.3.13#source-maps-use-up-to-8x-less-memory";
+export const BUN_HTML_STATIC_CONSOLE_DOC_URL =
+  "https://bun.com/docs/bundler/html-static#echo-console-logs-from-browser-to-terminal";
 
 export function bunInstallDocAnchor(fragment: string): string {
   return `${BUN_INSTALL_DOC_URL}#${fragment}`;
@@ -752,6 +754,16 @@ export interface BunInstallRuntimeCapabilities {
     streams: readonly ["console.log", "console.error"];
     notes: string;
   };
+  htmlStaticConsoleEcho: {
+    status: "available";
+    command: "bun ./index.html --console";
+    appliesTo: "Bun HTML static dev server";
+    flag: "--console";
+    streams: readonly ["console.log", "console.error"];
+    transport: "HMR WebSocket";
+    docsUrl: typeof BUN_HTML_STATIC_CONSOLE_DOC_URL;
+    agentUse: "browser logs visible in the terminal that started the dev server";
+  };
   platformTargeting: {
     cpu: string;
     os: string;
@@ -1036,6 +1048,16 @@ function buildRuntimeCapabilities(
       streams: ["console.log", "console.error"],
       notes:
         "Bun buffers console output per test file under --parallel and flushes each file atomically so concurrent files do not interleave.",
+    },
+    htmlStaticConsoleEcho: {
+      status: "available",
+      command: "bun ./index.html --console",
+      appliesTo: "Bun HTML static dev server",
+      flag: "--console",
+      streams: ["console.log", "console.error"],
+      transport: "HMR WebSocket",
+      docsUrl: BUN_HTML_STATIC_CONSOLE_DOC_URL,
+      agentUse: "browser logs visible in the terminal that started the dev server",
     },
     platformTargeting: {
       cpu: process.arch,

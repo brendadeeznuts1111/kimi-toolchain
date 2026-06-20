@@ -9,7 +9,6 @@ import { makeDir } from "./bun-io.ts";
 import { dirname, join } from "path";
 import { $ } from "bun";
 import { manifestPath } from "./paths.ts";
-import { safeParse } from "./utils.ts";
 
 // ── Constants ──────────────────────────────────────────────────────────
 
@@ -42,11 +41,20 @@ async function resolveVersion(): Promise<{ version: string; name: string }> {
   return { version: DEFAULT_VERSION, name: DEFAULT_NAME };
 }
 
+/** Parse JSON text without pulling in utils.ts (breaks version ↔ tool-runner cycle). */
+function parseJsonText<T>(text: string): T | null {
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
+
 /** Read a JSON file safely, returning null on any failure. */
 async function safeFileJson<T>(path: string): Promise<T | null> {
   try {
     const text = await Bun.file(path).text();
-    return safeParse<T>(text, null as T);
+    return parseJsonText<T>(text);
   } catch {
     return null;
   }
@@ -120,7 +128,8 @@ function isToolchainManifest(val: unknown): val is ToolchainManifest {
 export async function readManifest(): Promise<ToolchainManifest | null> {
   try {
     const text = await Bun.file(manifestPath()).text();
-    return safeParse(text, null, isToolchainManifest);
+    const parsed = parseJsonText<unknown>(text);
+    return parsed !== null && isToolchainManifest(parsed) ? parsed : null;
   } catch {
     return null;
   }

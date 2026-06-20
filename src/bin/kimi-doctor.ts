@@ -256,19 +256,9 @@ function error(name: string, message: string): CheckResult {
   return check;
 }
 
-function parseSemver(version: string): [number, number, number] | null {
-  const m = version.trim().match(/^(\d+)\.(\d+)\.(\d+)/);
-  if (!m) return null;
-  return [Number(m[1]), Number(m[2]), Number(m[3])];
-}
-
-function semverBelow(version: string | null, floor: [number, number, number]): boolean {
+function semverBelow(version: string | null, floor: string): boolean {
   if (!version) return true;
-  const v = parseSemver(version);
-  if (!v) return false;
-  if (v[0] !== floor[0]) return v[0] < floor[0];
-  if (v[1] !== floor[1]) return v[1] < floor[1];
-  return v[2] < floor[2];
+  return Bun.semver.order(version, floor) < 0;
 }
 
 import { runOfficialKimiDoctor } from "../lib/kimi-doctor-wrapper.ts";
@@ -290,18 +280,18 @@ async function versionMatrix(): Promise<CheckResult[]> {
 
   if (desktopVersion) {
     results.push(ok("Desktop (kimi)", desktopLabel));
-    if (semverBelow(desktopVersion, [0, 9, 0])) {
+    if (semverBelow(desktopVersion, "0.9.0")) {
       results.push(warn("kimi acp", "requires kimi >= 0.9.0"));
     }
-    if (semverBelow(desktopVersion, [0, 10, 0])) {
+    if (semverBelow(desktopVersion, "0.10.0")) {
       results.push(warn("kimi doctor cmd", "requires kimi >= 0.10.0"));
     }
-    if (semverBelow(desktopVersion, [0, 12, 0])) {
+    if (semverBelow(desktopVersion, "0.12.0")) {
       results.push(warn("sub-skills", "0.12.0+ for stable sub-skill discovery"));
     } else {
       results.push(ok("sub-skills", "stable since 0.12.0"));
     }
-    if (semverBelow(desktopVersion, [0, 14, 0])) {
+    if (semverBelow(desktopVersion, "0.14.0")) {
       results.push(warn("kimi-code update", "0.14.0+ recommended — run kimi upgrade"));
     }
   } else {

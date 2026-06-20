@@ -312,6 +312,26 @@ describe("bun-install-config", () => {
     });
   });
 
+  test("buildInstallPolicyReport documents HTML static console echo", async () => {
+    const dir = testTempDir("bun-install-html-console-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    const report = await buildInstallPolicyReport(dir);
+
+    expect(report.runtimeCapabilities.htmlStaticConsoleEcho).toEqual({
+      status: "available",
+      command: "bun ./index.html --console",
+      appliesTo: "Bun HTML static dev server",
+      flag: "--console",
+      streams: ["console.log", "console.error"],
+      transport: "HMR WebSocket",
+      docsUrl:
+        "https://bun.com/docs/bundler/html-static#echo-console-logs-from-browser-to-terminal",
+      agentUse: "browser logs visible in the terminal that started the dev server",
+    });
+  });
+
   test("buildInstallPolicyReport audits runtime environment defaults", async () => {
     const dir = testTempDir("bun-install-runtime-env-");
     writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
