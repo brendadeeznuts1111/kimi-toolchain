@@ -9,6 +9,7 @@
  * @see https://bun.com/docs/runtime/webview#console-capture
  */
 
+import { writeStdoutLine } from "./cli-contract.ts";
 import {
   resolveHerdrDashboardWebViewStore,
   type ResolvedHerdrDashboardWebViewStore,
@@ -191,8 +192,8 @@ export async function runHerdrDashboardWebView(
       },
       async (view) => {
         process.stderr.write(`${formatWebViewExperimentalNotice()}\n`);
-        process.stdout.write(
-          `[dashboard] WebView open ${url} — ${formatDataStoreNote(store)} (ctrl+c to stop)\n`
+        await writeStdoutLine(
+          `[dashboard] WebView open ${url} — ${formatDataStoreNote(store)} (ctrl+c to stop)`
         );
         const shutdown = bindShutdownSignal();
         await Promise.all([
@@ -220,8 +221,8 @@ export async function runHerdrDashboardServe(
     : server.transport.fallbackReason
       ? `HTTP/1.1 (HTTP/3 fallback: ${server.transport.fallbackReason})`
       : "HTTP/1.1";
-  process.stdout.write(
-    `[dashboard] serving ${server.url} (${transportNote}, SSE /api/agents/live)\n`
+  await writeStdoutLine(
+    `[dashboard] serving ${server.url} (${transportNote}, SSE /api/agents/live)`
   );
   try {
     await waitForShutdown();

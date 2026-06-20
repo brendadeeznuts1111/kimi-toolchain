@@ -59,7 +59,7 @@ import { auditAgentReady } from "../lib/agent-ready.ts";
 import { auditSuccessMetrics } from "../lib/success-metrics.ts";
 import { generateAgentDiagnosisReport } from "../lib/agent-diagnosis.ts";
 import { aggregateChecks, type HealthCheck } from "../lib/health-check.ts";
-import { createCli, writeStdoutLine } from "../lib/cli-contract.ts";
+import { createCli, writeStdout, writeStdoutLine } from "../lib/cli-contract.ts";
 import {
   appendEffectGatesSnapshot,
   buildEffectGatesReport,
@@ -1309,9 +1309,9 @@ async function runWorkspaceContextMode(projectRoot: string): Promise<number> {
     }
     emitJson(report);
   } else if (HTML_OUT) {
-    process.stdout.write(renderMarkdownHtml(report.markdown));
+    await writeStdout(renderMarkdownHtml(report.markdown));
   } else {
-    process.stdout.write(report.markdown);
+    await writeStdout(report.markdown);
   }
 
   return 0;

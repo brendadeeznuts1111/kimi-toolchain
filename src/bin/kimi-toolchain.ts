@@ -20,6 +20,7 @@ import { toolsDir } from "../lib/paths.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { createLogger } from "../lib/logger.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import { writeStdout } from "../lib/cli-contract.ts";
 
 const logger = createLogger(Bun.argv, "kimi-toolchain");
 const REPO_BIN = resolve(join(import.meta.dir));
@@ -31,7 +32,7 @@ async function spawnTool(script: string, args: string[], timeoutMs?: number): Pr
     cwd: Bun.cwd,
     timeoutMs: timeoutMs ?? defaultToolTimeoutMs(),
   });
-  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stdout) await writeStdout(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   if (result.error) {
     logger.error(result.error);

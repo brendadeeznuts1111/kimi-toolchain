@@ -4,6 +4,7 @@
 
 import { join, resolve } from "path";
 import { Effect } from "effect";
+import { writeStdout, writeStdoutLine } from "./cli-contract.ts";
 import { pathExists } from "./bun-io.ts";
 import { emptyToEmDash } from "./markdown-table.ts";
 import {
@@ -119,12 +120,16 @@ export function runPropertyTableInventoryEffect(
     });
 
     const noHeader = flags.noHeader;
-    yield* Effect.sync(() => {
-      const body =
-        format === "json"
-          ? formatPropertyTableJson(payload)
-          : formatPropertyTableCsv(payload, { noHeader });
-      process.stdout.write(body.endsWith("\n") ? body : `${body}\n`);
+    const body =
+      format === "json"
+        ? formatPropertyTableJson(payload)
+        : formatPropertyTableCsv(payload, { noHeader });
+    yield* Effect.tryPromise({
+      try: async () => {
+        if (body.endsWith("\n")) await writeStdout(body);
+        else await writeStdoutLine(body);
+      },
+      catch: () => new Error("stdout-write"),
     });
 
     return payload;

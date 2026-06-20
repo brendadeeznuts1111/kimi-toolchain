@@ -4,6 +4,7 @@
  * @see https://bun.com/docs/runtime/webview#persistent-storage
  */
 
+import { writeStdoutLine } from "./cli-contract.ts";
 import {
   ensureExamplesDashboardCompanion,
   stopExamplesDashboardCompanion,
@@ -106,8 +107,8 @@ export async function runExamplesDashboardWebView(
 
   try {
     process.stderr.write(`${formatWebViewExperimentalNotice()}\n`);
-    process.stdout.write(
-      `[dashboard] WebView open ${url} — ${formatDataStoreNote(store.mode, store.directory)} (ctrl+c to stop)\n`
+    await writeStdoutLine(
+      `[dashboard] WebView open ${url} — ${formatDataStoreNote(store.mode, store.directory)} (ctrl+c to stop)`
     );
 
     await using view = new Bun.WebView(constructorOptions);

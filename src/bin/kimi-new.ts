@@ -14,6 +14,7 @@ import { toolsDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import { writeStdoutLine } from "../lib/cli-contract.ts";
 
 const logger = createLogger(Bun.argv, "kimi-new");
 const NAME_RE = /^[a-z0-9][a-z0-9._-]*$/i;
@@ -157,7 +158,7 @@ async function runScaffold(args: string[]): Promise<number> {
   const stderr = await readableStreamToText(proc.stderr);
 
   for (const line of (stdout + stderr).split("\n")) {
-    if (line.trim()) process.stdout.write(`${line}\n`);
+    if (line.trim()) await writeStdoutLine(line);
   }
 
   if (exitCode !== 0) {

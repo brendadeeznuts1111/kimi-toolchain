@@ -1,3 +1,4 @@
+import { writeStdoutLine } from "./cli-contract.ts";
 import { pathExists, pathLstat, readLink, readText } from "./bun-io.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 
@@ -720,96 +721,96 @@ export async function runFixSocketDryRun(
 export type FixSocketReport = Awaited<ReturnType<typeof runFixSocket>>;
 export type FixSocketDryRunReport = FixSocketReport;
 
-function writeOut(line = ""): void {
-  process.stdout.write(`${line}\n`);
+async function writeOut(line = ""): Promise<void> {
+  await writeStdoutLine(line);
 }
 
-export function printFixSocketHuman(report: FixSocketReport): void {
-  writeOut(`Herdr Doctor — fix-socket (${report.dryRun ? "dry-run" : "live"})`);
-  writeOut(`Generated: ${report.generatedAt}`);
-  writeOut(`Taxonomy: ${report.taxonomyId} (${report.code})`);
-  writeOut(`Socket: ${report.socketPath}`);
-  writeOut(`Server running: ${report.serverRunning ? "yes" : "no"}`);
-  writeOut(`pgrep: ${report.pgrep.pgrepCommand}`);
+export async function printFixSocketHuman(report: FixSocketReport): Promise<void> {
+  await writeOut(`Herdr Doctor — fix-socket (${report.dryRun ? "dry-run" : "live"})`);
+  await writeOut(`Generated: ${report.generatedAt}`);
+  await writeOut(`Taxonomy: ${report.taxonomyId} (${report.code})`);
+  await writeOut(`Socket: ${report.socketPath}`);
+  await writeOut(`Server running: ${report.serverRunning ? "yes" : "no"}`);
+  await writeOut(`pgrep: ${report.pgrep.pgrepCommand}`);
   if (report.pgrep.processes.length) {
     for (const proc of report.pgrep.processes) {
-      writeOut(`  pid ${proc.pid}: ${proc.command}`);
+      await writeOut(`  pid ${proc.pid}: ${proc.command}`);
     }
   } else {
-    writeOut("  (no herdr server PID resolved)");
+    await writeOut("  (no herdr server PID resolved)");
   }
-  writeOut("");
-  writeOut("Recovery plan:");
+  await writeOut("");
+  await writeOut("Recovery plan:");
   for (const step of report.steps) {
     const tag = step.destructive ? "destructive" : "safe";
-    writeOut(`  ${step.order}. [${tag}] ${step.action}`);
+    await writeOut(`  ${step.order}. [${tag}] ${step.action}`);
     if (step.command) writeOut(`     cmd: ${step.command}`);
     if (step.wouldRun) writeOut(`     ${step.wouldRun}`);
     if (step.skippedReason) writeOut(`     skip: ${step.skippedReason}`);
   }
   if (report.executed && report.live) {
-    writeOut("");
-    writeOut("Live execution:");
+    await writeOut("");
+    await writeOut("Live execution:");
     for (const action of report.live.actions) {
-      writeOut(
+      await writeOut(
         `  [${action.outcome}] ${action.phase}${action.command ? `: ${action.command}` : ""}`
       );
       if (action.detail) writeOut(`    ${action.detail}`);
     }
-    writeOut(`Final server: ${report.live.finalServerRunning ? "running" : "not running"}`);
+    await writeOut(`Final server: ${report.live.finalServerRunning ? "running" : "not running"}`);
   } else {
-    writeOut("");
-    writeOut("No commands were executed. Re-run with --live to execute.");
+    await writeOut("");
+    await writeOut("No commands were executed. Re-run with --live to execute.");
   }
 }
 
 export const printFixSocketDryRunHuman = printFixSocketHuman;
 
-export function printHerdrDoctorHuman(report: HerdrDoctorReport): void {
-  writeOut("Herdr Doctor");
-  writeOut(`Generated: ${report.generatedAt}`);
-  writeOut("");
+export async function printHerdrDoctorHuman(report: HerdrDoctorReport): Promise<void> {
+  await writeOut("Herdr Doctor");
+  await writeOut(`Generated: ${report.generatedAt}`);
+  await writeOut("");
   for (const [name, ok] of Object.entries(report.checks)) {
-    writeOut(`${ok ? "PASS" : "FAIL"} ${name}`);
+    await writeOut(`${ok ? "PASS" : "FAIL"} ${name}`);
   }
-  writeOut("");
+  await writeOut("");
   if (report.details.version) writeOut(`Version: ${report.details.version}`);
   if (report.details.binary) writeOut(`Binary: ${report.details.binary}`);
   if (report.details.paneBinary) writeOut(`Pane CLI: ${report.details.paneBinary}`);
   if (report.details.socketTransportProbe) {
     const probe = report.details.socketTransportProbe;
-    writeOut(
+    await writeOut(
       `Socket transport: ${probe.transport} (ws+unix: ${probe.wsSupported ? "yes" : "no"}, path: ${probe.socketPath})`
     );
   }
   if (report.details.socketHealthProbe) {
     const health = report.details.socketHealthProbe;
-    writeOut(
+    await writeOut(
       `Socket health: file=${health.socketFileExists ? "yes" : "no"}, connectable=${health.connectable ? "yes" : "no"} (${health.socketPath})`
     );
   }
   if (report.details.socketHints?.length) {
     for (const hint of report.details.socketHints) {
-      writeOut(`Socket hint [${hint.code}]: ${hint.summary}`);
+      await writeOut(`Socket hint [${hint.code}]: ${hint.summary}`);
       if (hint.action) writeOut(`  action: ${hint.action}`);
     }
   }
   if (report.details.socketRecoveryPlan?.length) {
-    writeOut("Socket recovery plan (read-only — run steps manually):");
+    await writeOut("Socket recovery plan (read-only — run steps manually):");
     for (const step of report.details.socketRecoveryPlan) {
       const tag = step.destructive ? "destructive" : "safe";
-      writeOut(`  ${step.order}. [${tag}] ${step.action}`);
+      await writeOut(`  ${step.order}. [${tag}] ${step.action}`);
       if (step.command) writeOut(`     ${step.command}`);
     }
   }
-  writeOut(`Config: ${report.details.configPath}`);
+  await writeOut(`Config: ${report.details.configPath}`);
   if (report.details.fixes?.length) writeOut(`Fixes: ${report.details.fixes.join("; ")}`);
-  writeOut("");
-  writeOut(`Status: ${report.readiness.ready ? "ready" : "blocked"}`);
+  await writeOut("");
+  await writeOut(`Status: ${report.readiness.ready ? "ready" : "blocked"}`);
   if (report.readiness.blockers.length) {
-    writeOut(`Blockers: ${report.readiness.blockers.join("; ")}`);
+    await writeOut(`Blockers: ${report.readiness.blockers.join("; ")}`);
   }
   if (report.readiness.warnings.length) {
-    writeOut(`Warnings: ${report.readiness.warnings.join("; ")}`);
+    await writeOut(`Warnings: ${report.readiness.warnings.join("; ")}`);
   }
 }

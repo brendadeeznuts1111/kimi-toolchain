@@ -7,8 +7,10 @@ import {
   runFixSocket,
 } from "../lib/herdr-doctor.ts";
 
-function writeOut(line = ""): void {
-  process.stdout.write(`${line}\n`);
+import { writeStdoutLine } from "../lib/cli-contract.ts";
+
+async function writeOut(line = ""): Promise<void> {
+  await writeStdoutLine(line);
 }
 
 function parseArgs(argv: string[]) {
@@ -38,7 +40,7 @@ function parseArgs(argv: string[]) {
 
 const options = parseArgs(Bun.argv.slice(2));
 if (options.help) {
-  writeOut(
+  await writeOut(
     [
       "herdr-doctor [doctor] [--json] [--fix]",
       "herdr-doctor fix-socket [--dry-run] [--live] [--json] [--error <text>]",
@@ -74,16 +76,16 @@ if (options.command === "fix-socket") {
         ])
       : await run();
 
-    if (options.json) writeOut(JSON.stringify(report, null, 2));
-    else printFixSocketHuman(report);
+    if (options.json) await writeOut(JSON.stringify(report, null, 2));
+    else await printFixSocketHuman(report);
     process.exit(0);
   } catch (error) {
-    writeOut(error instanceof Error ? error.message : String(error));
+    await writeOut(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }
 
 const report = await inspectHerdrDoctor({ fix: options.fix });
-if (options.json) writeOut(JSON.stringify(report, null, 2));
-else printHerdrDoctorHuman(report);
+if (options.json) await writeOut(JSON.stringify(report, null, 2));
+else await printHerdrDoctorHuman(report);
 process.exit(report.readiness.ready ? 0 : 1);

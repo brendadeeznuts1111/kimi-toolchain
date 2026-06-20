@@ -18,12 +18,14 @@ import {
 import { discoverHerdrProjectConfig } from "../lib/herdr-project-config.ts";
 import { resolveHerdrProjectPath } from "../lib/herdr-project-runner.ts";
 
-function writeOut(line = ""): void {
-  process.stdout.write(`${line}\n`);
+import { writeStdoutLine } from "../lib/cli-contract.ts";
+
+async function writeOut(line = ""): Promise<void> {
+  await writeStdoutLine(line);
 }
 
-function writeJson(value: unknown): void {
-  writeOut(JSON.stringify(value, null, 2));
+async function writeJson(value: unknown): Promise<void> {
+  await writeOut(JSON.stringify(value, null, 2));
 }
 
 function die(message: string, code = 1): never {
@@ -41,8 +43,8 @@ function parseStrFlag(argv: string[], flag: string): string | undefined {
   return undefined;
 }
 
-function showUsage(): void {
-  writeOut(`herdr-latm — Local Agent Tool Mesh
+async function showUsage(): Promise<void> {
+  await writeOut(`herdr-latm — Local Agent Tool Mesh
 
 Commands:
   list [--json]                         Discover all pane capabilities
@@ -64,15 +66,15 @@ const [, , cmd, ...args] = Bun.argv;
 const json = parseFlag(args, "--json");
 
 if (!cmd || cmd === "--help" || cmd === "-h") {
-  showUsage();
+  await showUsage();
   process.exit(0);
 }
 
 switch (cmd) {
   case "list": {
     const report = await buildLatmListReport();
-    if (json) writeJson(report);
-    else printLatmListHuman(report);
+    if (json) await writeJson(report);
+    else await printLatmListHuman(report);
     break;
   }
 
@@ -93,12 +95,12 @@ switch (cmd) {
       const picked = pickInvokePane(tool, report.tools);
       if (!picked) die(`No pane exposes tool ${tool}`);
       pane = picked.paneId;
-      if (!json) writeOut(`invoke: auto-routed ${tool} → ${pane} (${picked.role})`);
+      if (!json) await writeOut(`invoke: auto-routed ${tool} → ${pane} (${picked.role})`);
     }
     const input = inputRaw ? (JSON.parse(inputRaw) as Record<string, unknown>) : {};
     const result = await invokeTool(pane, tool, input, { session });
-    if (json) writeJson(result);
-    else writeJson(result);
+    if (json) await writeJson(result);
+    else await writeJson(result);
     process.exit(result.exitCode);
   }
 
@@ -115,15 +117,15 @@ switch (cmd) {
       die(`No Herdr workspace found for ${projectPath}`);
     }
     const synced = await syncLatmManifestsForWorkspace(resolvedConfig, workspaceId);
-    if (json) writeJson({ schemaVersion: 1, workspaceId, ...synced });
+    if (json) await writeJson({ schemaVersion: 1, workspaceId, ...synced });
     else {
-      writeOut(`LATM sync: ${synced.written.length} manifest(s) written`);
-      for (const path of synced.written) writeOut(`  ${path}`);
+      await writeOut(`LATM sync: ${synced.written.length} manifest(s) written`);
+      for (const path of synced.written) await writeOut(`  ${path}`);
       if (synced.pruned.length) {
-        writeOut(`pruned: ${synced.pruned.length} stale manifest dir(s)`);
-        for (const path of synced.pruned) writeOut(`  ${path}`);
+        await writeOut(`pruned: ${synced.pruned.length} stale manifest dir(s)`);
+        for (const path of synced.pruned) await writeOut(`  ${path}`);
       }
-      if (synced.skipped.length) writeOut(`skipped: ${synced.skipped.join(", ")}`);
+      if (synced.skipped.length) await writeOut(`skipped: ${synced.skipped.join(", ")}`);
     }
     break;
   }

@@ -11,6 +11,7 @@ import {
 import { resolveDoctorPaneId } from "./finish-work-herdr.ts";
 import { herdrCliRun, resolveHerdrSession } from "./herdr-project-cli.ts";
 import { herdrReportPaneMetadata } from "./herdr-socket-client.ts";
+import { writeStdoutLine } from "./cli-contract.ts";
 import type { createLogger } from "./logger.ts";
 
 export const EFFECT_GATES_CHANGED_STATUS = "effect.gates.changed";
@@ -163,8 +164,8 @@ export async function runDoctorWatchLoop(options: DoctorWatchOptions): Promise<v
 
     const stamp = new Date().toISOString();
     if (options.json) {
-      process.stdout.write(
-        `${JSON.stringify({
+      await writeStdoutLine(
+        JSON.stringify({
           schemaVersion: 1,
           tool: "kimi-doctor",
           mode: "watch",
@@ -177,7 +178,7 @@ export async function runDoctorWatchLoop(options: DoctorWatchOptions): Promise<v
             regressions: regressions.length,
           },
           violations: report.violations,
-        })}\n`
+        })
       );
       return;
     }

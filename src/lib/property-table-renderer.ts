@@ -7,6 +7,7 @@
 
 import { join } from "path";
 import { Effect } from "effect";
+import { writeStdout, writeStdoutLine } from "./cli-contract.ts";
 import { renderMarkdownAnsi } from "./bun-markdown.ts";
 import { previewMarkdownWithBun } from "./markdown-table.ts";
 
@@ -178,24 +179,29 @@ export function emitPropertyTableOutput(
     }
 
     if (format === "raw") {
-      yield* Effect.sync(() => {
-        const body = groupedMarkdown ?? payload.markdown.trim();
-        process.stdout.write(`${body}\n`);
+      yield* Effect.tryPromise({
+        try: () => writeStdoutLine(groupedMarkdown ?? payload.markdown.trim()),
+        catch: () => new Error("stdout-write"),
       });
     } else if (format === "table") {
-      yield* Effect.sync(() => {
-        process.stdout.write(`${formatPropertyTableInspect(payload)}\n`);
+      yield* Effect.tryPromise({
+        try: () => writeStdoutLine(formatPropertyTableInspect(payload)),
+        catch: () => new Error("stdout-write"),
       });
     } else if (format === "csv") {
-      yield* Effect.sync(() => {
-        process.stdout.write(formatPropertyTableCsv(payload, { noHeader }));
+      yield* Effect.tryPromise({
+        try: () => writeStdout(formatPropertyTableCsv(payload, { noHeader })),
+        catch: () => new Error("stdout-write"),
       });
     } else if (format === "json") {
-      yield* Effect.sync(() => {
-        const body = describeKeyColumn
-          ? formatDescribeJson(payload, describeKeyColumn)
-          : formatPropertyTableJson(payload);
-        process.stdout.write(`${body}\n`);
+      yield* Effect.tryPromise({
+        try: () =>
+          writeStdoutLine(
+            describeKeyColumn
+              ? formatDescribeJson(payload, describeKeyColumn)
+              : formatPropertyTableJson(payload)
+          ),
+        catch: () => new Error("stdout-write"),
       });
     } else {
       yield* Effect.tryPromise({
@@ -215,8 +221,9 @@ export function emitPropertyTableOutput(
         const body = payload.markdown.trim();
         const fullMd = body.startsWith("#") ? body : `# ${payload.title}\n\n${body}`;
         const ansi = renderMarkdownAnsi(fullMd, { hyperlinks: true });
-        yield* Effect.sync(() => {
-          process.stdout.write(`${ansi}\n`);
+        yield* Effect.tryPromise({
+          try: () => writeStdoutLine(ansi),
+          catch: () => new Error("stdout-write"),
         });
       }
     }
@@ -248,9 +255,12 @@ export function emitPropertyTableOutput(
           new Error(rendered.stderr.trim() || `bun preview exited ${rendered.exitCode}`)
         );
       }
-      yield* Effect.sync(() => {
-        if (rendered.stdout) process.stdout.write(`${rendered.stdout}\n`);
-      });
+      if (rendered.stdout) {
+        yield* Effect.tryPromise({
+          try: () => writeStdoutLine(rendered.stdout!),
+          catch: () => new Error("stdout-write"),
+        });
+      }
     }
   });
 }

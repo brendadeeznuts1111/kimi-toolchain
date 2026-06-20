@@ -33,6 +33,7 @@
  *   herdr-pane split-and-run <pane_id> --direction right|down --command CMD [--ready TEXT] [--timeout MS] [--json]
  */
 
+import { writeStdoutLine } from "../lib/cli-contract.ts";
 import { Effect } from "effect";
 import {
   listPanes,
@@ -65,12 +66,12 @@ import {
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-function writeOut(line = ""): void {
-  process.stdout.write(`${line}\n`);
+async function writeOut(line = ""): Promise<void> {
+  await writeStdoutLine(line);
 }
 
-function writeJson(value: unknown): void {
-  writeOut(JSON.stringify(value, null, 2));
+async function writeJson(value: unknown): Promise<void> {
+  await writeOut(JSON.stringify(value, null, 2));
 }
 
 function die(message: string, code = 1): never {
@@ -101,9 +102,9 @@ function parseDirection(argv: string[], flag = "--direction"): Direction | undef
   return undefined;
 }
 
-function showUsage(subcommand?: string): void {
+async function showUsage(subcommand?: string): Promise<void> {
   if (!subcommand) {
-    writeOut(`herdr-pane <command> [args...] [--json]
+    await writeOut(`herdr-pane <command> [args...] [--json]
 
 Commands:
   list           List all panes [--workspace ID]
@@ -163,10 +164,10 @@ Run herdr-pane <command> --help for command-specific usage.`);
   };
 
   if (help[subcommand]) {
-    writeOut(`${help[subcommand]}\n`);
+    await writeOut(`${help[subcommand]}\n`);
   } else {
-    writeOut(`Unknown command: ${subcommand}`);
-    showUsage();
+    await writeOut(`Unknown command: ${subcommand}`);
+    await showUsage();
   }
 }
 
@@ -175,7 +176,7 @@ Run herdr-pane <command> --help for command-specific usage.`);
 async function main() {
   const argv = Bun.argv.slice(2);
   if (argv.length === 0 || argv.includes("--help") || argv.includes("-h")) {
-    showUsage(argv[0]);
+    await showUsage(argv[0]);
     process.exit(0);
   }
 
@@ -184,12 +185,12 @@ async function main() {
   const json = parseFlag(args, "--json");
 
   if (subcommand === "--help" || subcommand === "-h") {
-    showUsage();
+    await showUsage();
     process.exit(0);
   }
 
   if (parseFlag(args, "--help") || parseFlag(args, "-h")) {
-    showUsage(subcommand);
+    await showUsage(subcommand);
     process.exit(0);
   }
 
@@ -198,12 +199,12 @@ async function main() {
       case "list": {
         const workspace = parseStrFlag(args, "--workspace");
         const panes = await Effect.runPromise(listPanes(workspace));
-        if (json) writeJson({ panes });
+        if (json) await writeJson({ panes });
         else {
           for (const p of panes) {
             const marker = p.focused ? " *" : "  ";
             const agent = p.agent ? ` [${p.agent}]` : "";
-            writeOut(`${marker}${p.paneId} ${p.title}${agent} (${p.cwd})`);
+            await writeOut(`${marker}${p.paneId} ${p.title}${agent} (${p.cwd})`);
           }
         }
         break;
@@ -213,15 +214,15 @@ async function main() {
         const paneId = args[0];
         if (!paneId) die("Missing pane_id");
         const pane = await Effect.runPromise(getPane(paneId));
-        if (json) writeJson(pane);
-        else writeOut(JSON.stringify(pane, null, 2));
+        if (json) await writeJson(pane);
+        else await writeOut(JSON.stringify(pane, null, 2));
         break;
       }
 
       case "current": {
         const pane = await Effect.runPromise(currentPane());
-        if (json) writeJson(pane);
-        else writeOut(pane.paneId);
+        if (json) await writeJson(pane);
+        else await writeOut(pane.paneId);
         break;
       }
 
@@ -240,8 +241,8 @@ async function main() {
             ? false
             : undefined;
         const result = await Effect.runPromise(splitPane(paneId, { direction, ratio, cwd, focus }));
-        if (json) writeJson(result);
-        else writeOut(result.paneId);
+        if (json) await writeJson(result);
+        else await writeOut(result.paneId);
         break;
       }
 
@@ -261,7 +262,7 @@ async function main() {
         const lines = parseNumFlag(args, "--lines");
         const ansi = parseFlag(args, "--ansi");
         const text = await Effect.runPromise(readPane(paneId, { source, lines, ansi }));
-        writeOut(text);
+        await writeOut(text);
         break;
       }
 
@@ -389,20 +390,20 @@ async function main() {
         if (!direction) die("Missing --direction (left|right|up|down)");
         const paneId = parseStrFlag(args, "--pane");
         const neighbor = await Effect.runPromise(neighborPane(direction, paneId));
-        if (json) writeJson(neighbor);
-        else writeOut(neighbor.paneId);
+        if (json) await writeJson(neighbor);
+        else await writeOut(neighbor.paneId);
         break;
       }
 
       case "edges": {
         const paneId = parseStrFlag(args, "--pane");
         const edges = await Effect.runPromise(paneEdges(paneId));
-        if (json) writeJson(edges);
+        if (json) await writeJson(edges);
         else {
-          writeOut(`left:   ${edges.left ?? "(none)"}`);
-          writeOut(`right:  ${edges.right ?? "(none)"}`);
-          writeOut(`top:    ${edges.top ?? "(none)"}`);
-          writeOut(`bottom: ${edges.bottom ?? "(none)"}`);
+          await writeOut(`left:   ${edges.left ?? "(none)"}`);
+          await writeOut(`right:  ${edges.right ?? "(none)"}`);
+          await writeOut(`top:    ${edges.top ?? "(none)"}`);
+          await writeOut(`bottom: ${edges.bottom ?? "(none)"}`);
         }
         break;
       }
@@ -410,15 +411,16 @@ async function main() {
       case "layout": {
         const paneId = parseStrFlag(args, "--pane");
         const layout = await Effect.runPromise(paneLayout(paneId));
-        writeJson(layout);
+        await writeJson(layout);
         break;
       }
 
       case "process-info": {
         const paneId = parseStrFlag(args, "--pane");
         const info = await Effect.runPromise(paneProcessInfo(paneId));
-        if (json) writeJson(info);
-        else writeOut(`${info.paneId} pid=${info.pid} ${info.command} ${info.args.join(" ")}`);
+        if (json) await writeJson(info);
+        else
+          await writeOut(`${info.paneId} pid=${info.pid} ${info.command} ${info.args.join(" ")}`);
         break;
       }
 
@@ -441,11 +443,11 @@ async function main() {
         const regex = parseFlag(args, "--regex");
         const timeoutMs = parseNumFlag(args, "--timeout");
         const result = await Effect.runPromise(waitOutput(paneId, { match, regex, timeoutMs }));
-        if (json) writeJson(result);
+        if (json) await writeJson(result);
         else {
-          if (result.matched) writeOut("matched");
-          else if (result.timedOut) writeOut("timed out");
-          else writeOut("not matched");
+          if (result.matched) await writeOut("matched");
+          else if (result.timedOut) await writeOut("timed out");
+          else await writeOut("not matched");
         }
         process.exit(result.matched ? 0 : 1);
       }
@@ -465,8 +467,8 @@ async function main() {
         }
         const timeoutMs = parseNumFlag(args, "--timeout");
         const result = await Effect.runPromise(waitAgentStatus(paneId, { status, timeoutMs }));
-        if (json) writeJson(result);
-        else writeOut(result.matched ? `agent is ${status}` : "timed out");
+        if (json) await writeJson(result);
+        else await writeOut(result.matched ? `agent is ${status}` : "timed out");
         process.exit(result.matched ? 0 : 1);
       }
 
@@ -486,17 +488,17 @@ async function main() {
           const result = await Effect.runPromise(
             splitRunAndWait(paneId, command, ready, { direction, timeoutMs })
           );
-          if (json) writeJson(result);
+          if (json) await writeJson(result);
           else {
-            writeOut(result.paneId);
-            writeOut(result.ready ? "ready" : "timeout");
+            await writeOut(result.paneId);
+            await writeOut(result.ready ? "ready" : "timeout");
           }
         } else {
           const result = await Effect.runPromise(
             splitAndRun(paneId, { direction, command, focus: false })
           );
-          if (json) writeJson({ paneId: result });
-          else writeOut(result);
+          if (json) await writeJson({ paneId: result });
+          else await writeOut(result);
         }
         break;
       }

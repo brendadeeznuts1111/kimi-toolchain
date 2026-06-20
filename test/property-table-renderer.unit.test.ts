@@ -14,7 +14,7 @@ import {
 } from "../src/lib/property-table-renderer.ts";
 import { applyTableRenderOptions } from "../src/lib/property-table-options.ts";
 import { buildTomlPropertyTable } from "../src/lib/toml-property-table.ts";
-import { REPO_ROOT, testTempDir } from "./helpers.ts";
+import { captureStdout, REPO_ROOT, testTempDir } from "./helpers.ts";
 
 const ENDPOINTS = "test/fixtures/dx-url-endpoints.toml";
 
@@ -99,13 +99,7 @@ describe("property-table-renderer", () => {
       filters: [{ column: "name", value: "health" }],
       columnPick: ["name", "url_pathname"],
     });
-    const stdout: string[] = [];
-    const origStdout = process.stdout.write.bind(process.stdout);
-    process.stdout.write = ((chunk: string | Uint8Array) => {
-      stdout.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
-      return true;
-    }) as typeof process.stdout.write;
-
+    const capture = captureStdout();
     try {
       await Effect.runPromise(
         emitPropertyTableOutput(
@@ -119,22 +113,16 @@ describe("property-table-renderer", () => {
           { format: "csv", markdownPath: "/tmp/unused.md" }
         )
       );
-      expect(stdout.join("")).toBe("name,url_pathname\nhealth,/health\n");
+      expect(capture.lines.join("")).toBe("name,url_pathname\nhealth,/health\n");
     } finally {
-      process.stdout.write = origStdout;
+      capture.restore();
     }
   });
 
   test("emitPropertyTableOutput csv writes CSV only to stdout", async () => {
     const dir = testTempDir("pt-renderer-csv-");
     const mdPath = join(dir, "out.md");
-    const stdout: string[] = [];
-    const origStdout = process.stdout.write.bind(process.stdout);
-    process.stdout.write = ((chunk: string | Uint8Array) => {
-      stdout.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
-      return true;
-    }) as typeof process.stdout.write;
-
+    const capture = captureStdout();
     try {
       await Effect.runPromise(
         emitPropertyTableOutput(SAMPLE, {
@@ -142,10 +130,10 @@ describe("property-table-renderer", () => {
           markdownPath: mdPath,
         })
       );
-      expect(stdout.join("")).toBe("Host,Port\nstaging,2222\n");
+      expect(capture.lines.join("")).toBe("Host,Port\nstaging,2222\n");
       expect(await Bun.file(mdPath).exists()).toBe(false);
     } finally {
-      process.stdout.write = origStdout;
+      capture.restore();
     }
   });
 
@@ -158,13 +146,7 @@ describe("property-table-renderer", () => {
   test("emitPropertyTableOutput raw writes markdown only", async () => {
     const dir = testTempDir("pt-renderer-raw-");
     const mdPath = join(dir, "out.md");
-    const stdout: string[] = [];
-    const origStdout = process.stdout.write.bind(process.stdout);
-    process.stdout.write = ((chunk: string | Uint8Array) => {
-      stdout.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
-      return true;
-    }) as typeof process.stdout.write;
-
+    const capture = captureStdout();
     try {
       await Effect.runPromise(
         emitPropertyTableOutput(SAMPLE, {
@@ -172,10 +154,10 @@ describe("property-table-renderer", () => {
           markdownPath: mdPath,
         })
       );
-      expect(stdout.join("")).toContain("| staging | 2222 |");
+      expect(capture.lines.join("")).toContain("| staging | 2222 |");
       expect(await Bun.file(mdPath).exists()).toBe(false);
     } finally {
-      process.stdout.write = origStdout;
+      capture.restore();
     }
   });
 
@@ -218,13 +200,7 @@ describe("property-table-renderer", () => {
   test("emitPropertyTableOutput json writes payload JSON to stdout", async () => {
     const dir = testTempDir("pt-renderer-json-");
     const mdPath = join(dir, "out.md");
-    const stdout: string[] = [];
-    const origStdout = process.stdout.write.bind(process.stdout);
-    process.stdout.write = ((chunk: string | Uint8Array) => {
-      stdout.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
-      return true;
-    }) as typeof process.stdout.write;
-
+    const capture = captureStdout();
     try {
       await Effect.runPromise(
         emitPropertyTableOutput(SAMPLE, {
@@ -232,12 +208,12 @@ describe("property-table-renderer", () => {
           markdownPath: mdPath,
         })
       );
-      const parsed = JSON.parse(stdout.join(""));
+      const parsed = JSON.parse(capture.lines.join(""));
       expect(parsed.columns).toEqual(["Host", "Port"]);
       expect(parsed.rows).toEqual([{ Host: "staging", Port: "2222" }]);
       expect(await Bun.file(mdPath).exists()).toBe(false);
     } finally {
-      process.stdout.write = origStdout;
+      capture.restore();
     }
   });
 });

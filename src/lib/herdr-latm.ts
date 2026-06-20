@@ -6,6 +6,7 @@
  */
 
 import { join } from "path";
+import { writeStdoutLine } from "./cli-contract.ts";
 import { pathExists, removePath } from "./bun-io.ts";
 import { execCli, execCliJson } from "./herdr-project-cli.ts";
 import { paneRunSync } from "./herdr-pane-service.ts";
@@ -588,13 +589,13 @@ export async function syncLatmManifestsForWorkspace(
   return { written, skipped, pruned };
 }
 
-export function printLatmListHuman(report: LatmListReport): void {
-  process.stdout.write(`\n${report.toolCount} tools discovered across LATM\n`);
+export async function printLatmListHuman(report: LatmListReport): Promise<void> {
+  await writeStdoutLine(`\n${report.toolCount} tools discovered across LATM`);
   const byRole = Map.groupBy(report.tools, (tool) => tool.role);
   for (const [role, list] of byRole) {
     const staleCount = list.filter((tool) => tool.stale).length;
     const status = staleCount > 0 ? ` (${staleCount} stale)` : "";
-    process.stdout.write(`\n[${role}]${status}\n`);
+    await writeStdoutLine(`\n[${role}]${status}`);
     for (const tool of list) {
       const ro = tool.readOnly ? "R" : "W";
       const age =
@@ -602,10 +603,10 @@ export function printLatmListHuman(report: LatmListReport): void {
           ? `${Math.round(tool.ageMs / 60_000)}m`
           : `${Math.round(tool.ageMs / 1000)}s`;
       const desc = tool.description.slice(0, 40);
-      process.stdout.write(
-        `  ${ro} ${tool.name.padEnd(24)} ${tool.paneId.padEnd(8)} ${desc} (${age})\n`
+      await writeStdoutLine(
+        `  ${ro} ${tool.name.padEnd(24)} ${tool.paneId.padEnd(8)} ${desc} (${age})`
       );
     }
   }
-  process.stdout.write("\n");
+  await writeStdoutLine("");
 }

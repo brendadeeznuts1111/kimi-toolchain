@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { writeStdout, writeStdoutLine } from "../lib/cli-contract.ts";
 import { pathExists, readText, watchPath } from "../lib/bun-io.ts";
 import { handoffInheritedSpawn } from "../lib/execve-handoff.ts";
 import { withNoOrphansEnv } from "../lib/bun-spawn-env.ts";
@@ -167,12 +168,12 @@ function parseArgs(argv: string[]) {
   };
 }
 
-function writeOut(line = "") {
-  process.stdout.write(`${line}\n`);
+async function writeOut(line = ""): Promise<void> {
+  await writeStdoutLine(line);
 }
 
-function writeJson(value: unknown) {
-  writeOut(JSON.stringify(value, null, 2));
+async function writeJson(value: unknown): Promise<void> {
+  await writeOut(JSON.stringify(value, null, 2));
 }
 
 function resolveOrchestratorPluginRoot(): string | null {
@@ -185,9 +186,9 @@ function resolveOrchestratorPluginRoot(): string | null {
   return plugin?.plugin_root || null;
 }
 
-function printHelp() {
+async function printHelp() {
   const webviewDocs = BUN_WEBVIEW_DOCS_URL;
-  writeOut(`herdr-orchestrator <command> [path] [flags]
+  await writeOut(`herdr-orchestrator <command> [path] [flags]
 
 Commands:
   react          React to agent state transitions (context sync, handoff, reviewer)
@@ -302,7 +303,7 @@ const {
 } = parseArgs(Bun.argv.slice(2));
 
 if (help) {
-  printHelp();
+  await printHelp();
   process.exit(0);
 }
 
@@ -316,8 +317,8 @@ try {
   if (command === "status") {
     const status = await orchestratorStatus(projectPath, { workspaceId: workspace });
     if (!status) {
-      if (json) writeJson({ ok: false, error: "no [herdr] profile" });
-      else writeOut("No [herdr] profile");
+      if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
+      else await writeOut("No [herdr] profile");
       process.exit(1);
     }
 
@@ -350,22 +351,24 @@ try {
       const payload: Record<string, unknown> = { ok: true, projectPath };
       for (const [k, v] of Object.entries(status)) payload[k] = v;
       if (includeDoctor) payload.doctorAgents = doctorAgents;
-      writeJson(payload);
+      await writeJson(payload);
     } else {
-      writeOut(`Orchestrator: ${status.config.enabled ? "enabled" : "disabled"}`);
-      if (status.workspaceId) writeOut(`Workspace: ${status.workspaceId}`);
-      writeOut(`Handoff: ${status.config.handoffFrom || "-"} → ${status.config.handoffTo || "-"}`);
-      writeOut(`Context on idle: ${status.config.contextOnIdle}`);
-      writeOut(
+      await writeOut(`Orchestrator: ${status.config.enabled ? "enabled" : "disabled"}`);
+      if (status.workspaceId) await writeOut(`Workspace: ${status.workspaceId}`);
+      await writeOut(
+        `Handoff: ${status.config.handoffFrom || "-"} → ${status.config.handoffTo || "-"}`
+      );
+      await writeOut(`Context on idle: ${status.config.contextOnIdle}`);
+      await writeOut(
         `Events: ${status.config.events.enabled ? "enabled" : "disabled"} (debounce ${status.config.events.debounceMs}ms)`
       );
       for (const agent of status.agents) {
-        writeOut(`- ${agent.agent} (${agent.paneId}): ${agent.status}`);
+        await writeOut(`- ${agent.agent} (${agent.paneId}): ${agent.status}`);
       }
       if (includeDoctor && doctorAgents.length > 0) {
-        writeOut("── Doctor agents (from manifests) ──");
+        await writeOut("── Doctor agents (from manifests) ──");
         for (const agent of doctorAgents) {
-          writeOut(`- ${agent.agent} (${agent.paneId}): ${agent.status}`);
+          await writeOut(`- ${agent.agent} (${agent.paneId}): ${agent.status}`);
         }
       }
 
@@ -383,25 +386,25 @@ try {
             }
           })();
           const orchCfg = resolveOrchestratorConfig(fullCfg, doc);
-          writeOut("");
-          writeOut("── Daemon config ──");
-          writeOut(`Remote hosts: ${Object.keys(orchCfg.remoteHosts).length}`);
-          writeOut(`Domains: ${Object.keys(orchCfg.domains).join(", ") || "none"}`);
-          writeOut(
+          await writeOut("");
+          await writeOut("── Daemon config ──");
+          await writeOut(`Remote hosts: ${Object.keys(orchCfg.remoteHosts).length}`);
+          await writeOut(`Domains: ${Object.keys(orchCfg.domains).join(", ") || "none"}`);
+          await writeOut(
             `Notifications: ${orchCfg.notifications.webhookUrl ? `webhook → ${orchCfg.notifications.webhookUrl.split("/").slice(0, -1).join("/")}/...` : "none"}`
           );
-          writeOut(`Handoff rules: ${orchCfg.handoffRules.length} global`);
+          await writeOut(`Handoff rules: ${orchCfg.handoffRules.length} global`);
           for (const [dname, d] of Object.entries(orchCfg.domains)) {
             const dRules = d.handoffRules?.length || 0;
-            writeOut(
+            await writeOut(
               `  ${dname}: ${d.hosts.length} hosts, ${dRules} rules, ${d.notifications?.webhookUrl ? "notify ✓" : "notify ✗"}`
             );
           }
           const historyEntries = getHandoffHistory(5);
           if (historyEntries.length > 0) {
-            writeOut(`Recent handoffs: ${historyEntries.length}`);
+            await writeOut(`Recent handoffs: ${historyEntries.length}`);
             for (const e of historyEntries.slice(0, 3)) {
-              writeOut(
+              await writeOut(
                 `  ${e.ok ? "✓" : "✗"} ${e.action} ${e.fromAgent || "-"} → ${e.toAgent || "-"}`
               );
             }
@@ -415,7 +418,7 @@ try {
   if (command === "workspaces") {
     const config = discoverHerdrProjectConfig(projectPath);
     if (!config?.enabled) {
-      if (json) writeJson({ ok: false, error: "no [herdr] profile" });
+      if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
       process.exit(1);
     }
     const full = { ...config, projectPath };
@@ -448,15 +451,15 @@ try {
       }
       const error = cliErrors.length > 0 ? cliErrors.join("; ") : undefined;
       const ok = cliErrors.length === 0 || workspaces.length > 0;
-      writeJson({ ok, projectPath, workspaces, ...(error ? { error } : {}) });
+      await writeJson({ ok, projectPath, workspaces, ...(error ? { error } : {}) });
       process.exit(ok ? 0 : 1);
     } else {
       for (const id of ids) {
         const listed = listWorkspaceAgents(id, session);
         const names = listed.agents.map((a) => `${a.agent}:${a.status}`).join(", ");
-        writeOut(`${id}  ${listed.agents.length} agent(s)${names ? ` — ${names}` : ""}`);
+        await writeOut(`${id}  ${listed.agents.length} agent(s)${names ? ` — ${names}` : ""}`);
       }
-      if (!ids.length) writeOut("No workspaces discovered");
+      if (!ids.length) await writeOut("No workspaces discovered");
     }
     process.exit(0);
   }
@@ -465,7 +468,7 @@ try {
     // Local sessions
     const sessionsRaw = herdrCliJson("", ["session", "list", "--json"]);
     if (!sessionsRaw.ok) {
-      writeOut("Failed to list sessions");
+      await writeOut("Failed to list sessions");
       process.exit(1);
     }
     const sessionList =
@@ -547,7 +550,7 @@ try {
     const hasRemote = Object.keys(remoteHosts).length > 0;
 
     if (json) {
-      writeJson({
+      await writeJson({
         ok: remoteErrors.length === 0,
         sessions: rows,
         remoteErrors: remoteErrors.length ? remoteErrors : undefined,
@@ -561,7 +564,7 @@ try {
 
     // Emit remote connection errors as WARN lines before the table
     for (const err of remoteErrors) {
-      writeOut(`${colorYellow}WARN${reset}   ${err.message}`);
+      await writeOut(`${colorYellow}WARN${reset}   ${err.message}`);
     }
 
     const hostWidth = hasRemote ? Math.max(4, ...rows.map((r) => r.host.length)) : 0;
@@ -569,38 +572,38 @@ try {
     const wsCountWidth = Math.max(10, ...rows.map((r) => String(r.workspaceCount).length));
 
     if (hasRemote) {
-      writeOut(
+      await writeOut(
         `SESSION${" ".repeat(Math.max(0, sessionWidth - 7))}  HOST${" ".repeat(Math.max(0, hostWidth - 4))}  STATUS    WORKSPACES  AGENTS`
       );
-      writeOut(
+      await writeOut(
         `${"─".repeat(sessionWidth)}  ${"─".repeat(hostWidth)}  ────────  ${"─".repeat(wsCountWidth)}  ──────`
       );
     } else {
-      writeOut("SESSION     STATUS    WORKSPACES  AGENTS");
-      writeOut("──────────  ────────  ──────────  ──────");
+      await writeOut("SESSION     STATUS    WORKSPACES  AGENTS");
+      await writeOut("──────────  ────────  ──────────  ──────");
     }
     for (const r of rows) {
       const statusStr = r.running ? `${colorGreen}running${reset}` : "stopped";
       if (hasRemote) {
-        writeOut(
+        await writeOut(
           `${r.name.padEnd(sessionWidth)}  ${r.host.padEnd(hostWidth)}  ${statusStr.padEnd(16 + colorGreen.length + reset.length - 7)}  ${String(r.workspaceCount).padEnd(wsCountWidth)}  ${r.agentCount}`
         );
       } else {
-        writeOut(
+        await writeOut(
           `${r.name.padEnd(10)}  ${statusStr.padEnd(16 + colorGreen.length + reset.length - 7)}  ${String(r.workspaceCount).padEnd(10)}  ${r.agentCount}`
         );
       }
     }
-    writeOut("");
-    if (!hasRemote) writeOut("* = default session");
+    await writeOut("");
+    if (!hasRemote) await writeOut("* = default session");
     process.exit(0);
   }
 
   if (command === "check-hosts") {
     const config = discoverHerdrProjectConfig(projectPath);
     if (!config?.enabled) {
-      if (json) writeJson({ ok: false, error: "no [herdr] profile" });
-      else writeOut("No [herdr] profile");
+      if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
+      else await writeOut("No [herdr] profile");
       process.exit(1);
     }
     const full = { ...config, projectPath };
@@ -619,8 +622,8 @@ try {
     );
 
     if (Object.keys(resolvedHosts).length === 0) {
-      if (json) writeJson({ ok: true, hosts: [], message: "no remote hosts configured" });
-      else writeOut("No remote hosts configured.");
+      if (json) await writeJson({ ok: true, hosts: [], message: "no remote hosts configured" });
+      else await writeOut("No remote hosts configured.");
       process.exit(0);
     }
 
@@ -680,7 +683,7 @@ try {
     }
 
     if (json) {
-      writeJson({ ok: results.some((r) => r.reachable), hosts: results });
+      await writeJson({ ok: results.some((r) => r.reachable), hosts: results });
       process.exit(0);
     }
 
@@ -698,40 +701,42 @@ try {
           r.herdrChannel === "preview"
             ? `${colorYellow}preview${reset}`
             : `${colorGreen}stable${reset}`;
-        writeOut(`${colorGreen}✓${reset} ${r.host}  ${r.herdrVersion}  channel=${channelTag}`);
+        await writeOut(
+          `${colorGreen}✓${reset} ${r.host}  ${r.herdrVersion}  channel=${channelTag}`
+        );
         if (versions && r.integrations) {
           const integParts = Object.entries(r.integrations).map(([k, v]) => `${k}=${v}`);
           if (integParts.length > 0)
-            writeOut(`   ${dim}integrations: ${integParts.join(", ")}${reset}`);
+            await writeOut(`   ${dim}integrations: ${integParts.join(", ")}${reset}`);
         }
       } else {
-        writeOut(`${colorRed}✗${reset} ${r.host}  ${dim}${r.error}${reset}`);
+        await writeOut(`${colorRed}✗${reset} ${r.host}  ${dim}${r.error}${reset}`);
       }
     }
 
     if (hasFailures && verbose) {
-      writeOut("");
-      writeOut("── Diagnosis ──");
+      await writeOut("");
+      await writeOut("── Diagnosis ──");
       for (const r of results) {
         if (r.reachable) continue;
         if (r.error?.includes("command not found") || r.error?.includes("not found")) {
-          writeOut(`  ${r.host}: Install herdr on the remote host:`);
-          writeOut(`    curl -fsSL https://herdr.dev/install.sh | sh`);
-          writeOut(`  Or add ~/.local/bin to the remote PATH.`);
+          await writeOut(`  ${r.host}: Install herdr on the remote host:`);
+          await writeOut(`    curl -fsSL https://herdr.dev/install.sh | sh`);
+          await writeOut(`  Or add ~/.local/bin to the remote PATH.`);
         } else if (
           r.error?.includes("Connection refused") ||
           r.error?.includes("Connection timed out")
         ) {
-          writeOut(`  ${r.host}: SSH connection failed. Check:`);
-          writeOut(`    - Host is reachable: ping ${r.host}`);
-          writeOut(
+          await writeOut(`  ${r.host}: SSH connection failed. Check:`);
+          await writeOut(`    - Host is reachable: ping ${r.host}`);
+          await writeOut(
             `    - SSH port is open: nc -zv ${resolvedHosts[r.host]?.host || r.host} ${resolvedHosts[r.host]?.port || 22}`
           );
-          writeOut(
+          await writeOut(
             `    - Identity file exists: ${resolvedHosts[r.host]?.identityFile || "(ssh default)"}`
           );
         } else {
-          writeOut(`  ${r.host}: ${r.error}`);
+          await writeOut(`  ${r.host}: ${r.error}`);
         }
       }
     }
@@ -742,7 +747,7 @@ try {
   if (command === "check-sessions") {
     const config = discoverHerdrProjectConfig(projectPath);
     if (!config?.enabled) {
-      if (json) writeJson({ ok: false, error: "no [herdr] profile" });
+      if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
       process.exit(1);
     }
     const full = { ...config, projectPath };
@@ -759,7 +764,7 @@ try {
     const remoteHosts = orchConfig.remoteHosts;
 
     if (!orchConfig.handoffRules.length) {
-      writeOut("No handoff rules defined.");
+      await writeOut("No handoff rules defined.");
       process.exit(0);
     }
 
@@ -1093,7 +1098,7 @@ try {
     }
 
     if (json) {
-      writeJson({
+      await writeJson({
         ok: issues.filter((i) => i.severity === "error").length === 0,
         rules: orchConfig.handoffRules.length,
         issues,
@@ -1112,12 +1117,12 @@ try {
           : i.severity === "warn"
             ? `${yellow}WARN ${reset}`
             : `${dim}INFO ${reset}`;
-      writeOut(`${tag}  rule ${i.rule}: ${i.message}`);
+      await writeOut(`${tag}  rule ${i.rule}: ${i.message}`);
     }
-    if (!issues.length) writeOut("All handoff rules validated — no issues.");
+    if (!issues.length) await writeOut("All handoff rules validated — no issues.");
     else {
-      writeOut("");
-      writeOut(
+      await writeOut("");
+      await writeOut(
         `${issues.filter((i) => i.severity === "error").length} error(s), ${issues.filter((i) => i.severity === "warn").length} warning(s)`
       );
     }
@@ -1146,17 +1151,17 @@ try {
     if (argv.includes("--failed")) query.ok = false;
     if (argv.includes("--ok")) query.ok = true;
 
-    const printHistoryEntries = (entries: ReturnType<typeof queryHandoffHistory>) => {
+    const printHistoryEntries = async (entries: ReturnType<typeof queryHandoffHistory>) => {
       if (json) {
-        writeJson({ ok: true, logPath: getHandoffLogPath(), query, entries });
+        await writeJson({ ok: true, logPath: getHandoffLogPath(), query, entries });
         return;
       }
       if (!entries.length) {
-        writeOut(`No handoff history matches filters. Log: ${getHandoffLogPath()}`);
+        await writeOut(`No handoff history matches filters. Log: ${getHandoffLogPath()}`);
         return;
       }
-      writeOut(`Handoff audit (${entries.length} entries, ${getHandoffLogPath()}):`);
-      writeOut("");
+      await writeOut(`Handoff audit (${entries.length} entries, ${getHandoffLogPath()}):`);
+      await writeOut("");
       const dim = "\x1b[2m";
       const R = "\x1b[0m";
       for (const e of entries) {
@@ -1164,7 +1169,7 @@ try {
         const ts = new Date(e.timestamp).toISOString().replace("T", " ").slice(0, 19);
         const from = e.fromAgent ? `${e.fromHost || "(local)"}/${e.fromAgent}` : "-";
         const to = e.toAgent ? `${e.toHost || "(local)"}/${e.toAgent}` : "-";
-        writeOut(
+        await writeOut(
           `  ${dim}${ts}${R}  ${tag}  ${e.trigger.padEnd(12)}  ${e.action.padEnd(14)}  ${from.padEnd(22)} → ${to.padEnd(22)}  ${dim}${e.detail.slice(0, 60)}${R}`
         );
       }
@@ -1172,19 +1177,20 @@ try {
 
     if (argv.includes("--verify")) {
       const failures = verifyHandoffLog();
-      if (json) writeJson({ ok: failures.length === 0, logPath: getHandoffLogPath(), failures });
+      if (json)
+        await writeJson({ ok: failures.length === 0, logPath: getHandoffLogPath(), failures });
       else if (failures.length) {
-        writeOut(`Checksum failures in live log (${failures.length}):`);
+        await writeOut(`Checksum failures in live log (${failures.length}):`);
         for (const f of failures)
-          writeOut(`  seq ${f.seq}: expected ${f.expected}, got ${f.actual}`);
-      } else writeOut(`Checksum OK (${getHandoffLogPath()})`);
+          await writeOut(`  seq ${f.seq}: expected ${f.expected}, got ${f.actual}`);
+      } else await writeOut(`Checksum OK (${getHandoffLogPath()})`);
       process.exit(failures.length ? 2 : 0);
     }
 
     if (argv.includes("--follow")) {
       let offset = 0;
       const logPath = getHandoffLogPath();
-      const renderNew = () => {
+      const renderNew = async () => {
         if (!pathExists(logPath)) return;
         const raw = readText(logPath);
         if (raw.length <= offset) return;
@@ -1198,7 +1204,7 @@ try {
             const R = "\x1b[0m";
             const tag = e.ok ? "✓" : "✗";
             const ts = new Date(e.timestamp).toISOString().replace("T", " ").slice(0, 19);
-            writeOut(
+            await writeOut(
               `${dim}${ts}${R}  ${tag}  ${e.trigger}  ${e.action}  ${e.detail.slice(0, 80)}`
             );
           } catch {
@@ -1206,9 +1212,9 @@ try {
           }
         }
       };
-      writeOut(`Following ${logPath} (Ctrl+C to stop)…`);
-      printHistoryEntries(queryHandoffHistory(query));
-      renderNew();
+      await writeOut(`Following ${logPath} (Ctrl+C to stop)…`);
+      await printHistoryEntries(queryHandoffHistory(query));
+      await renderNew();
 
       const followAbort = new AbortController();
       let watcher: ReturnType<typeof watchPath> | null = null;
@@ -1219,7 +1225,7 @@ try {
       };
 
       if (pathExists(logPath)) {
-        watcher = watchPath(logPath, renderNew);
+        watcher = watchPath(logPath, () => void renderNew());
       }
 
       void (async () => {
@@ -1228,15 +1234,15 @@ try {
           if (followAbort.signal.aborted) break;
           if (!pathExists(logPath)) continue;
           if (!watcher) {
-            watcher = watchPath(logPath, renderNew);
-            renderNew();
+            watcher = watchPath(logPath, () => void renderNew());
+            await renderNew();
           }
         }
       })();
 
       process.on("SIGINT", stopFollow);
     } else {
-      printHistoryEntries(queryHandoffHistory(query));
+      await printHistoryEntries(queryHandoffHistory(query));
       process.exit(0);
     }
   }
@@ -1246,27 +1252,28 @@ try {
     const rawPos = Bun.argv.slice(2).filter((a) => !a.startsWith("-"));
     const sub = rawPos[1] && rawPos[0] === "config" ? rawPos[1] : "show";
 
-    const displayHerdrConfig = () => {
+    const displayHerdrConfig = async () => {
       const app = readHerdrAppConfig();
       if (!app) {
-        if (json) writeJson({ ok: false, error: "~/.config/herdr/config.toml not found" });
-        else writeOut("No Herdr config found at ~/.config/herdr/config.toml");
+        if (json) await writeJson({ ok: false, error: "~/.config/herdr/config.toml not found" });
+        else await writeOut("No Herdr config found at ~/.config/herdr/config.toml");
         process.exit(1);
       }
       if (json) {
-        writeJson({ ok: true, herdrConfig: app });
+        await writeJson({ ok: true, herdrConfig: app });
       } else {
-        writeOut("── Herdr App Config (~/.config/herdr/config.toml) ──");
-        writeOut(`  onboarding: ${app.onboarding ?? "(not set)"}`);
-        if (app.update) writeOut(`  update.channel: ${app.update.channel}`);
-        if (app.remote) writeOut(`  remote.manage_ssh_config: ${app.remote.manageSshConfig}`);
+        await writeOut("── Herdr App Config (~/.config/herdr/config.toml) ──");
+        await writeOut(`  onboarding: ${app.onboarding ?? "(not set)"}`);
+        if (app.update) await writeOut(`  update.channel: ${app.update.channel}`);
+        if (app.remote) await writeOut(`  remote.manage_ssh_config: ${app.remote.manageSshConfig}`);
         if (app.plugins?.notify) {
           const n = app.plugins.notify;
-          writeOut(`  plugins.notify.enabled: ${n.enabled ?? true}`);
-          if (n.webhookUrl) writeOut(`  plugins.notify.webhook_url: ${n.webhookUrl}`);
-          if (n.onHandoff !== undefined) writeOut(`  plugins.notify.on_handoff: ${n.onHandoff}`);
-          if (n.onSpawn !== undefined) writeOut(`  plugins.notify.on_spawn: ${n.onSpawn}`);
-          if (n.onError !== undefined) writeOut(`  plugins.notify.on_error: ${n.onError}`);
+          await writeOut(`  plugins.notify.enabled: ${n.enabled ?? true}`);
+          if (n.webhookUrl) await writeOut(`  plugins.notify.webhook_url: ${n.webhookUrl}`);
+          if (n.onHandoff !== undefined)
+            await writeOut(`  plugins.notify.on_handoff: ${n.onHandoff}`);
+          if (n.onSpawn !== undefined) await writeOut(`  plugins.notify.on_spawn: ${n.onSpawn}`);
+          if (n.onError !== undefined) await writeOut(`  plugins.notify.on_error: ${n.onError}`);
         }
       }
       process.exit(0);
@@ -1275,8 +1282,8 @@ try {
     const reloadConfig = async () => {
       const config = discoverHerdrProjectConfig(projectPath);
       if (!config?.enabled) {
-        if (json) writeJson({ ok: false, error: "no [herdr] profile" });
-        else writeOut("No [herdr] profile");
+        if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
+        else await writeOut("No [herdr] profile");
         process.exit(1);
       }
       const full = { ...config, projectPath };
@@ -1295,14 +1302,14 @@ try {
       );
 
       if (Object.keys(resolvedHosts).length === 0) {
-        if (json) writeJson({ ok: false, error: "no remote hosts configured" });
-        else writeOut("No remote hosts configured.");
+        if (json) await writeJson({ ok: false, error: "no remote hosts configured" });
+        else await writeOut("No remote hosts configured.");
         process.exit(1);
       }
 
       const results: Array<{ host: string; ok: boolean; error?: string }> = [];
       for (const [hostLabel, resolved] of Object.entries(resolvedHosts)) {
-        if (!json) writeOut(`Reloading config on ${hostLabel}...`);
+        if (!json) await writeOut(`Reloading config on ${hostLabel}...`);
         const result = await sshExec(resolved, ["herdr", "server", "reload-config"]);
         results.push({
           host: hostLabel,
@@ -1312,17 +1319,17 @@ try {
       }
 
       if (json) {
-        writeJson({ ok: results.every((r) => r.ok), results });
+        await writeJson({ ok: results.every((r) => r.ok), results });
       } else {
         for (const r of results) {
-          writeOut(r.ok ? `  ✓ ${r.host}: config reloaded` : `  ✗ ${r.host}: ${r.error}`);
+          await writeOut(r.ok ? `  ✓ ${r.host}: config reloaded` : `  ✗ ${r.host}: ${r.error}`);
         }
       }
       process.exit(results.every((r) => r.ok) ? 0 : 2);
     };
 
     if (sub === "herdr") {
-      displayHerdrConfig();
+      await displayHerdrConfig();
       process.exit(0);
     }
     if (sub === "reload") {
@@ -1331,14 +1338,14 @@ try {
     }
 
     if (sub !== "show") {
-      writeOut(`Unknown config subcommand "${sub}". Use: show, herdr, or reload.`);
+      await writeOut(`Unknown config subcommand "${sub}". Use: show, herdr, or reload.`);
       process.exit(2);
     }
 
     const config = discoverHerdrProjectConfig(projectPath);
     if (!config?.enabled) {
-      if (json) writeJson({ ok: false, error: "no [herdr] profile" });
-      else writeOut("No [herdr] profile");
+      if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
+      else await writeOut("No [herdr] profile");
       process.exit(1);
     }
 
@@ -1354,9 +1361,10 @@ try {
     const orchConfig = resolveOrchestratorConfig(full, doc);
 
     if (Object.keys(orchConfig.remoteHosts).length === 0) {
-      if (json) writeJson({ ok: true, remoteHosts: {}, message: "no remote hosts configured" });
+      if (json)
+        await writeJson({ ok: true, remoteHosts: {}, message: "no remote hosts configured" });
       else
-        writeOut(
+        await writeOut(
           "No remote hosts configured. Add [herdr.orchestrator.remote_hosts] to your config."
         );
       process.exit(0);
@@ -1369,50 +1377,55 @@ try {
       for (const [label, r] of Object.entries(resolved)) {
         printable[label] = { ...r, name: undefined };
       }
-      writeJson({ ok: true, remoteDefaults: orchConfig.remoteDefaults, remoteHosts: printable });
+      await writeJson({
+        ok: true,
+        remoteDefaults: orchConfig.remoteDefaults,
+        remoteHosts: printable,
+      });
       process.exit(0);
     }
 
-    writeOut(`Remote hosts (${Object.keys(resolved).length}):`);
-    writeOut("");
+    await writeOut(`Remote hosts (${Object.keys(resolved).length}):`);
+    await writeOut("");
     for (const [label, r] of Object.entries(resolved)) {
-      writeOut(`  ${label}:`);
-      writeOut(`    host:          ${r.host}`);
-      writeOut(`    port:          ${r.port ?? 22}`);
-      writeOut(`    user:          ${r.user || "(ssh default)"}`);
-      writeOut(
+      await writeOut(`  ${label}:`);
+      await writeOut(`    host:          ${r.host}`);
+      await writeOut(`    port:          ${r.port ?? 22}`);
+      await writeOut(`    user:          ${r.user || "(ssh default)"}`);
+      await writeOut(
         `    identityFile:  ${r.identityFile ? `${r.identityFile} [${r.identityFileSource}]` : "(ssh default)"}`
       );
-      writeOut(`    timeout:       ${r.timeout}ms`);
-      writeOut(`    batchMode:     ${r.batchMode}`);
-      writeOut(`    connectTimeout:${r.connectTimeout}s`);
-      writeOut(`    strictHostKey: ${r.strictHostKeyChecking}`);
-      if (r.userKnownHostsFile) writeOut(`    knownHostsFile:${r.userKnownHostsFile}`);
+      await writeOut(`    timeout:       ${r.timeout}ms`);
+      await writeOut(`    batchMode:     ${r.batchMode}`);
+      await writeOut(`    connectTimeout:${r.connectTimeout}s`);
+      await writeOut(`    strictHostKey: ${r.strictHostKeyChecking}`);
+      if (r.userKnownHostsFile) await writeOut(`    knownHostsFile:${r.userKnownHostsFile}`);
       if (r.serverAliveInterval)
-        writeOut(`    keepAlive:     ${r.serverAliveInterval}s × ${r.serverAliveCountMax}`);
+        await writeOut(`    keepAlive:     ${r.serverAliveInterval}s × ${r.serverAliveCountMax}`);
       if (r.controlMaster !== "no") {
-        writeOut(`    controlMaster: ${r.controlMaster}`);
-        if (r.controlPath) writeOut(`    controlPath:   ${r.controlPath}`);
-        if (r.controlPersist !== undefined) writeOut(`    controlPersist:${r.controlPersist}s`);
+        await writeOut(`    controlMaster: ${r.controlMaster}`);
+        if (r.controlPath) await writeOut(`    controlPath:   ${r.controlPath}`);
+        if (r.controlPersist !== undefined)
+          await writeOut(`    controlPersist:${r.controlPersist}s`);
       }
-      if (r.compression) writeOut(`    compression:   ${r.compression}`);
-      if (r.proxyJump) writeOut(`    proxyJump:     ${r.proxyJump}`);
-      if (r.identitiesOnly) writeOut(`    identitiesOnly:${r.identitiesOnly}`);
-      writeOut("");
+      if (r.compression) await writeOut(`    compression:   ${r.compression}`);
+      if (r.proxyJump) await writeOut(`    proxyJump:     ${r.proxyJump}`);
+      if (r.identitiesOnly) await writeOut(`    identitiesOnly:${r.identitiesOnly}`);
+      await writeOut("");
     }
 
     // Validation warnings
     const warnings = validateRemoteHostConfig(resolved);
     if (warnings.length > 0) {
-      writeOut("── Warnings ──");
+      await writeOut("── Warnings ──");
       const colorY = "\x1b[33;1m";
       const dim = "\x1b[2m";
       const reset = "\x1b[0m";
       for (const w of warnings) {
         const tag = w.severity === "warn" ? `${colorY}WARN${reset}` : `${dim}INFO${reset}`;
-        writeOut(`  ${tag}  ${w.host}: ${w.message}`);
+        await writeOut(`  ${tag}  ${w.host}: ${w.message}`);
       }
-      writeOut("");
+      await writeOut("");
     }
 
     process.exit(0);
@@ -1421,7 +1434,7 @@ try {
   if (command === "readiness") {
     const config = discoverHerdrProjectConfig(projectPath);
     if (!config?.enabled) {
-      if (json) writeJson({ ok: false, error: "no [herdr] profile" });
+      if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
       process.exit(1);
     }
     const full = { ...config, projectPath };
@@ -1453,7 +1466,7 @@ try {
     const results = agents.map((a) => getReadiness(a.paneId, a.agent));
 
     if (json) {
-      writeJson({ ok: true, projectPath, agentCount: results.length, agents: results });
+      await writeJson({ ok: true, projectPath, agentCount: results.length, agents: results });
       process.exit(0);
     }
 
@@ -1470,16 +1483,16 @@ try {
     };
     const reset = "\x1b[0m";
 
-    writeOut("AGENT         RESTORE  DETAIL");
-    writeOut("────────────  ───────  ──────────────────────────────────────────────");
+    await writeOut("AGENT         RESTORE  DETAIL");
+    await writeOut("────────────  ───────  ──────────────────────────────────────────────");
     for (const r of results) {
       counts[r.restore]++;
-      writeOut(
+      await writeOut(
         `${r.agent.padEnd(13)} ${colorR(r.restore)}${r.restore.padEnd(7)}${reset} ${r.detail}`
       );
     }
-    writeOut("");
-    writeOut(
+    await writeOut("");
+    await writeOut(
       `Summary: ${colorR("native")}${counts.native} native${reset}, ${colorR("replay")}${counts.replay} replay${reset}, ${counts.none} none`
     );
 
@@ -1491,7 +1504,7 @@ try {
     const rawPos = Bun.argv.slice(2).filter((a) => !a.startsWith("-") && a !== command);
     const target = rawPos[0] || "";
     if (!target) {
-      writeOut("usage: herdr-orchestrator agent-info <target> [path]");
+      await writeOut("usage: herdr-orchestrator agent-info <target> [path]");
       process.exit(1);
     }
     // Use explicit path if provided (3rd arg), else process.cwd()
@@ -1519,7 +1532,7 @@ try {
     })();
 
     if (!agentData) {
-      writeOut(`Agent "${target}" not found`);
+      await writeOut(`Agent "${target}" not found`);
       process.exit(1);
     }
 
@@ -1531,7 +1544,7 @@ try {
         : "detected (screen manifest)";
 
     if (json) {
-      writeJson({
+      await writeJson({
         ok: true,
         target,
         agent: agentData.agent || null,
@@ -1550,23 +1563,23 @@ try {
       process.exit(0);
     }
 
-    writeOut(`Agent: ${agentData.agent || agentData.name || target}`);
-    if (agentData.label) writeOut(`Label: ${agentData.label}`);
-    writeOut(`Pane: ${agentData.pane_id || "?"}`);
-    writeOut(`Workspace: ${agentData.workspace_id || "?"}`);
-    writeOut(`Status: ${agentData.agent_status || "unknown"}`);
-    if (agentData.custom_status) writeOut(`Custom: ${agentData.custom_status}`);
-    writeOut(`Detection: ${detectionKind}`);
+    await writeOut(`Agent: ${agentData.agent || agentData.name || target}`);
+    if (agentData.label) await writeOut(`Label: ${agentData.label}`);
+    await writeOut(`Pane: ${agentData.pane_id || "?"}`);
+    await writeOut(`Workspace: ${agentData.workspace_id || "?"}`);
+    await writeOut(`Status: ${agentData.agent_status || "unknown"}`);
+    if (agentData.custom_status) await writeOut(`Custom: ${agentData.custom_status}`);
+    await writeOut(`Detection: ${detectionKind}`);
 
     // Try agent explain for native integrations
     if (agentData.agent_session) {
-      writeOut("");
-      writeOut("── herdr agent explain ──");
+      await writeOut("");
+      await writeOut("── herdr agent explain ──");
       const explain = herdrCliRun(session, ["agent", "explain", target]);
       if (explain.ok) {
-        writeOut(explain.output);
+        await writeOut(explain.output);
       } else {
-        writeOut(`(explain unavailable: ${explain.output.slice(0, 120)})`);
+        await writeOut(`(explain unavailable: ${explain.output.slice(0, 120)})`);
       }
     }
 
@@ -1576,7 +1589,7 @@ try {
   if (command === "dashboard") {
     const config = discoverHerdrProjectConfig(projectPath);
     if (!config?.enabled) {
-      if (json) writeJson({ ok: false, error: "no [herdr] profile" });
+      if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
       process.exit(1);
     }
 
@@ -1644,13 +1657,13 @@ try {
           clickAttach: dashboardProbe,
         });
         if (json) {
-          writeJson(result);
+          await writeJson(result);
         } else {
           const thumb =
             result.thumbnailPath && result.thumbnailBytes
               ? ` thumb=${result.thumbnailPath} (${result.thumbnailBytes}b)`
               : "";
-          writeOut(
+          await writeOut(
             `[dashboard] screenshot ${result.outputPath} (${result.screenshotBytes} bytes, ready=${result.ready}, agents=${result.agentRows})${thumb}`
           );
         }
@@ -1683,7 +1696,7 @@ try {
     const hasRemote = rows.some((r) => r.host !== "(local)");
 
     if (json) {
-      writeJson({
+      await writeJson({
         ok: payload.ok,
         projectPath: payload.projectPath,
         agentCount: payload.agentCount,
@@ -1694,7 +1707,7 @@ try {
     }
 
     if (!rows.length) {
-      writeOut(`No agents discovered${domain ? ` in domain "${domain}"` : ""}`);
+      await writeOut(`No agents discovered${domain ? ` in domain "${domain}"` : ""}`);
       process.exit(0);
     }
 
@@ -1785,9 +1798,9 @@ try {
     }
 
     // Render
-    writeOut("");
-    for (const line of lines) writeOut(`  ${line}`);
-    writeOut("");
+    await writeOut("");
+    for (const line of lines) await writeOut(`  ${line}`);
+    await writeOut("");
 
     // Summary bar
     const total = rows.length;
@@ -1799,17 +1812,17 @@ try {
     }
     const other = total - order.reduce((sum, s) => sum + (counts[s] || 0), 0);
     if (other > 0) parts.push(`${D}${other} other${R}`);
-    writeOut(`  ${B}${total}${R} agent(s) · ${parts.join(`  ${D}│${R}  `)}`);
-    writeOut("");
+    await writeOut(`  ${B}${total}${R} agent(s) · ${parts.join(`  ${D}│${R}  `)}`);
+    await writeOut("");
 
     if (dashboardWatch) {
-      writeOut(`${D}── watch mode: ctrl+c to stop ──${R}`);
-      writeOut("");
+      await writeOut(`${D}── watch mode: ctrl+c to stop ──${R}`);
+      await writeOut("");
 
       const refresh = async () => {
         while (true) {
           await Bun.sleep(3000);
-          process.stdout.write("\x1b[2J\x1b[H");
+          await writeStdout("\x1b[2J\x1b[H");
           const proc = Bun.spawn(
             withBunNoOrphans([
               process.execPath,
@@ -1844,17 +1857,18 @@ try {
     const match = findWorkspaceForProject(full);
     const sync = syncAgentsTabContext(full, full.agentsTab?.panes, match.workspaceId);
     if (json)
-      writeJson({
+      await writeJson({
         ok: sync.warnings.length === 0,
         delivered: sync.delivered,
         contextFile: sync.contextFile,
         warnings: sync.warnings,
       });
     else {
-      for (const row of sync.delivered) writeOut(`delivered ${row.agent} (${row.bytes} bytes)`);
-      if (sync.contextFile) writeOut(`context file: ${sync.contextFile}`);
-      if (sync.contextJsonFile) writeOut(`context json: ${sync.contextJsonFile}`);
-      for (const warning of sync.warnings) writeOut(`warn: ${warning}`);
+      for (const row of sync.delivered)
+        await writeOut(`delivered ${row.agent} (${row.bytes} bytes)`);
+      if (sync.contextFile) await writeOut(`context file: ${sync.contextFile}`);
+      if (sync.contextJsonFile) await writeOut(`context json: ${sync.contextJsonFile}`);
+      for (const warning of sync.warnings) await writeOut(`warn: ${warning}`);
     }
     process.exit(sync.warnings.length ? 2 : 0);
   }
@@ -1862,16 +1876,16 @@ try {
   if (command === "escalate") {
     const reportPath = join(projectPath, ".kimi", "finish-work-report.json");
     if (!pathExists(reportPath)) {
-      if (json) writeJson({ ok: false, error: "no finish-work report" });
+      if (json) await writeJson({ ok: false, error: "no finish-work report" });
       process.exit(1);
     }
     const report = normalizeFinishWorkReport(
       JSON.parse(readText(reportPath)) as Record<string, unknown>
     );
     const result = await escalateFinishWorkToReviewer(projectPath, report);
-    if (json) writeJson({ ok: Boolean(result.herdr?.escalated), herdr: result.herdr });
+    if (json) await writeJson({ ok: Boolean(result.herdr?.escalated), herdr: result.herdr });
     else
-      writeOut(
+      await writeOut(
         result.herdr?.escalated
           ? `escalated ${result.herdr.reviewerPaneId}`
           : result.herdr?.error || "not escalated"
@@ -1891,7 +1905,7 @@ try {
           signal: controller.signal,
         }).pipe(Effect.provide(mergedHerdrConfigLayer()))
       );
-      if (json) writeJson(result);
+      if (json) await writeJson(result);
       process.exit(result.ok ? 0 : 2);
     } finally {
       process.off("SIGINT", onSignal);
@@ -1903,7 +1917,7 @@ try {
 
   if (command === "agent") {
     if (!agentSubcommand || !cliHost) {
-      writeOut(
+      await writeOut(
         "usage: herdr-orchestrator agent <start|stop|restart|upgrade|list|get|send|exec|log|explain|rename|wait|manifests|ssh|attach> [target] --host HOST [--session S] [--workspace W] [--takeover]"
       );
       process.exit(2);
@@ -1911,8 +1925,8 @@ try {
 
     const config = discoverHerdrProjectConfig(projectPath);
     if (!config?.enabled) {
-      if (json) writeJson({ ok: false, error: "no [herdr] profile" });
-      else writeOut("No [herdr] profile");
+      if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
+      else await writeOut("No [herdr] profile");
       process.exit(1);
     }
 
@@ -1930,11 +1944,11 @@ try {
     if (!rawHostConfig) {
       const knownHosts = Object.keys(orchConfig.remoteHosts).join(", ");
       if (json)
-        writeJson({
+        await writeJson({
           ok: false,
           error: `host "${cliHost}" not configured (known: ${knownHosts || "none"})`,
         });
-      else writeOut(`Unknown host "${cliHost}". Known hosts: ${knownHosts || "none"}`);
+      else await writeOut(`Unknown host "${cliHost}". Known hosts: ${knownHosts || "none"}`);
       process.exit(1);
     }
     const resolvedHosts = normalizeRemoteHostConfig(
@@ -1951,7 +1965,7 @@ try {
 
     if (agentSubcommand === "start") {
       if (!agentTarget) {
-        writeOut(
+        await writeOut(
           "usage: herdr-orchestrator agent start <name> --host HOST [--session S] [--workspace W] [--cwd PATH] [--tab ID] [--split DIR] [--env K=V] [--focus] -- [argv...]"
         );
         process.exit(2);
@@ -1982,26 +1996,28 @@ try {
       if (workspace && !hasWorkspace) startArgs.push("--workspace", workspace);
       const sshCommand = [...herdrArgs(startArgs)];
       if (dryRun) {
-        writeOut(`[dry-run] ssh -> ${resolved.host}: ${sshCommand.join(" ")}`);
+        await writeOut(`[dry-run] ssh -> ${resolved.host}: ${sshCommand.join(" ")}`);
         process.exit(0);
       }
       if (json)
-        writeOut(JSON.stringify({ ok: true, host: cliHost, command: "start", agent: agentTarget }));
-      else writeOut(`Starting agent "${agentTarget}" on ${cliHost}...`);
+        await writeOut(
+          JSON.stringify({ ok: true, host: cliHost, command: "start", agent: agentTarget })
+        );
+      else await writeOut(`Starting agent "${agentTarget}" on ${cliHost}...`);
 
       const result = await sshExec(resolved, sshCommand);
       if (!result.ok) {
-        if (json) writeJson({ ok: false, error: result.output });
-        else writeOut(`Failed: ${result.output}`);
+        if (json) await writeJson({ ok: false, error: result.output });
+        else await writeOut(`Failed: ${result.output}`);
         process.exit(1);
       }
-      if (!json) writeOut(result.output);
+      if (!json) await writeOut(result.output);
       process.exit(0);
     }
 
     if (agentSubcommand === "stop") {
       if (!agentTarget) {
-        writeOut("usage: herdr-orchestrator agent stop <target> --host HOST [--session S]");
+        await writeOut("usage: herdr-orchestrator agent stop <target> --host HOST [--session S]");
         process.exit(2);
       }
       // Resolve agent name to pane ID if not already a pane ID
@@ -2027,92 +2043,95 @@ try {
         ? [...herdrArgs(["pane", "close", paneOrAgent])]
         : [...herdrArgs(["agent", "stop", agentTarget])];
       if (dryRun) {
-        writeOut(`[dry-run] ssh -> ${resolved.host}: ${closeCmd.join(" ")}`);
+        await writeOut(`[dry-run] ssh -> ${resolved.host}: ${closeCmd.join(" ")}`);
         process.exit(0);
       }
       if (json)
-        writeOut(JSON.stringify({ ok: true, host: cliHost, command: "stop", target: agentTarget }));
-      else writeOut(`Stopping agent "${agentTarget}" on ${cliHost}...`);
+        await writeOut(
+          JSON.stringify({ ok: true, host: cliHost, command: "stop", target: agentTarget })
+        );
+      else await writeOut(`Stopping agent "${agentTarget}" on ${cliHost}...`);
 
       const result = await sshExec(resolved, closeCmd);
       if (!result.ok) {
-        if (json) writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
-        else writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
+        if (json) await writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
+        else await writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
         process.exit(1);
       }
-      if (!json) writeOut(result.output);
+      if (!json) await writeOut(result.output);
       process.exit(0);
     }
 
     if (agentSubcommand === "upgrade") {
       if (dryRun) {
-        writeOut(`[dry-run] ${cliHost}: herdr update`);
+        await writeOut(`[dry-run] ${cliHost}: herdr update`);
         process.exit(0);
       }
-      if (json) writeOut(JSON.stringify({ ok: true, host: cliHost, command: "upgrade" }));
-      else writeOut(`Upgrading herdr on ${cliHost}...`);
+      if (json) await writeOut(JSON.stringify({ ok: true, host: cliHost, command: "upgrade" }));
+      else await writeOut(`Upgrading herdr on ${cliHost}...`);
 
       const result = await sshExec(resolved, ["herdr", "update"]);
       if (!result.ok) {
-        if (json) writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
-        else writeOut(`Upgrade failed: ${friendlySshError(result.output, cliHost)}`);
+        if (json) await writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
+        else await writeOut(`Upgrade failed: ${friendlySshError(result.output, cliHost)}`);
         process.exit(1);
       }
-      if (json) writeJson({ ok: true, host: cliHost, output: result.output });
-      else writeOut(result.output);
+      if (json) await writeJson({ ok: true, host: cliHost, output: result.output });
+      else await writeOut(result.output);
       process.exit(0);
     }
 
     if (agentSubcommand === "restart") {
       if (!agentTarget) {
-        writeOut(
+        await writeOut(
           "usage: herdr-orchestrator agent restart <name> --host HOST [--session S] [--workspace W]"
         );
         process.exit(2);
       }
       if (dryRun) {
-        writeOut(`[dry-run] ${cliHost}: stop + start "${agentTarget}"`);
+        await writeOut(`[dry-run] ${cliHost}: stop + start "${agentTarget}"`);
         process.exit(0);
       }
       const wsArgs = workspace ? ["--workspace", workspace] : [];
 
-      if (!json) writeOut(`Restarting agent "${agentTarget}" on ${cliHost}...`);
+      if (!json) await writeOut(`Restarting agent "${agentTarget}" on ${cliHost}...`);
 
       // Stop
-      if (!json) writeOut(`  ⏹  stopping...`);
+      if (!json) await writeOut(`  ⏹  stopping...`);
       const stopResult = await sshExec(resolved, [...herdrArgs(["agent", "stop", agentTarget])]);
       if (!stopResult.ok) {
         if (json)
-          writeJson({
+          await writeJson({
             ok: false,
             step: "stop",
             error: friendlySshError(stopResult.output, cliHost),
           });
-        else writeOut(`  ✗  stop failed: ${friendlySshError(stopResult.output, cliHost)}`);
+        else await writeOut(`  ✗  stop failed: ${friendlySshError(stopResult.output, cliHost)}`);
         process.exit(1);
       }
 
       // Small delay to let the server process the stop
-      if (!json) writeOut(`  ✓  stopped`);
+      if (!json) await writeOut(`  ✓  stopped`);
 
       // Start
-      if (!json) writeOut(`  ▶  starting...`);
+      if (!json) await writeOut(`  ▶  starting...`);
       const startResult = await sshExec(resolved, [
         ...herdrArgs(["agent", "start", agentTarget, ...wsArgs]),
       ]);
       if (!startResult.ok) {
         if (json)
-          writeJson({
+          await writeJson({
             ok: false,
             step: "start",
             error: friendlySshError(startResult.output, cliHost),
           });
-        else writeOut(`  ✗  start failed: ${friendlySshError(startResult.output, cliHost)}`);
+        else await writeOut(`  ✗  start failed: ${friendlySshError(startResult.output, cliHost)}`);
         process.exit(1);
       }
 
-      if (json) writeJson({ ok: true, host: cliHost, command: "restart", agent: agentTarget });
-      else writeOut(`  ✓  restarted`);
+      if (json)
+        await writeJson({ ok: true, host: cliHost, command: "restart", agent: agentTarget });
+      else await writeOut(`  ✓  restarted`);
       process.exit(0);
     }
 
@@ -2149,7 +2168,7 @@ try {
       const herdrCmd = `herdr --remote ${remoteFlag}${sessFlag}`;
 
       if (json) {
-        writeJson({
+        await writeJson({
           ok: true,
           host: cliHost,
           agent: agentTarget || null,
@@ -2159,13 +2178,13 @@ try {
         });
       } else {
         if (agentTarget) {
-          writeOut(
+          await writeOut(
             `Agent "${agentTarget}" on ${cliHost}${foundInfo ? ` (pane ${foundInfo})` : ""}`
           );
         } else {
-          writeOut(`Remote host ${cliHost}`);
+          await writeOut(`Remote host ${cliHost}`);
         }
-        writeOut(`Attach with:\n  $ ${herdrCmd}${takeoverFlag}`);
+        await writeOut(`Attach with:\n  $ ${herdrCmd}${takeoverFlag}`);
       }
       process.exit(0);
     }
@@ -2175,17 +2194,17 @@ try {
         ...herdrArgs(["agent", "list", ...(json ? ["--json"] : [])]),
       ]);
       if (!listResult.ok) {
-        if (json) writeJson({ ok: false, error: listResult.output });
-        else writeOut(`Failed to list agents on ${cliHost}: ${listResult.output}`);
+        if (json) await writeJson({ ok: false, error: listResult.output });
+        else await writeOut(`Failed to list agents on ${cliHost}: ${listResult.output}`);
         process.exit(1);
       }
 
       if (json) {
         try {
           const parsed = JSON.parse(listResult.output);
-          writeJson({ ok: true, host: cliHost, agents: parsed.result?.agents || [] });
+          await writeJson({ ok: true, host: cliHost, agents: parsed.result?.agents || [] });
         } catch {
-          writeJson({ ok: false, error: "invalid JSON from remote" });
+          await writeJson({ ok: false, error: "invalid JSON from remote" });
         }
       } else {
         try {
@@ -2205,16 +2224,16 @@ try {
           };
           const agents = parsed.result?.agents || [];
           if (!agents.length) {
-            writeOut(`No agents on ${cliHost}${sess ? ` (session ${sess})` : ""}`);
+            await writeOut(`No agents on ${cliHost}${sess ? ` (session ${sess})` : ""}`);
           } else {
-            writeOut(`Agents on ${cliHost}${sess ? ` (session ${sess})` : ""}:`);
+            await writeOut(`Agents on ${cliHost}${sess ? ` (session ${sess})` : ""}:`);
             for (const a of agents) {
               const label = a.name && a.name !== a.agent ? ` (label: ${a.name})` : "";
               const base = `  ${a.agent}${label}  status=${a.agent_status || "?"}  workspace=${a.workspace_id || "?"}  pane=${a.pane_id || "?"}`;
-              writeOut(base);
+              await writeOut(base);
               if (verbose) {
-                if (a.custom_status) writeOut(`    custom: ${a.custom_status}`);
-                if (a.foreground_cwd) writeOut(`    cwd:    ${a.foreground_cwd}`);
+                if (a.custom_status) await writeOut(`    custom: ${a.custom_status}`);
+                if (a.foreground_cwd) await writeOut(`    cwd:    ${a.foreground_cwd}`);
                 if (a.agent_session) {
                   const sessInfo = a.agent_session;
                   const parts: string[] = [];
@@ -2222,13 +2241,13 @@ try {
                   if (sessInfo.id) parts.push(`id=${sessInfo.id}`);
                   if (sessInfo.path) parts.push(`path=${sessInfo.path}`);
                   if (sessInfo.kind) parts.push(`kind=${sessInfo.kind}`);
-                  if (parts.length > 0) writeOut(`    session: ${parts.join(" ")}`);
+                  if (parts.length > 0) await writeOut(`    session: ${parts.join(" ")}`);
                 }
               }
             }
           }
         } catch {
-          writeOut(listResult.output);
+          await writeOut(listResult.output);
         }
       }
       process.exit(0);
@@ -2240,10 +2259,10 @@ try {
         .map((a) => (a.includes(" ") || a.startsWith("-") ? `"${a}"` : a))
         .join(" ")}${agentTarget ? ` -- ${agentTarget}` : ""}`;
       if (json) {
-        writeJson({ ok: true, host: cliHost, command: cmd });
+        await writeJson({ ok: true, host: cliHost, command: cmd });
       } else {
-        writeOut(`# Connect to ${cliHost} with resolved SSH options:`);
-        writeOut(`$ ${cmd}`);
+        await writeOut(`# Connect to ${cliHost} with resolved SSH options:`);
+        await writeOut(`$ ${cmd}`);
       }
       process.exit(0);
     }
@@ -2258,16 +2277,16 @@ try {
       ]);
       if (!manifestsResult.ok) {
         if (json)
-          writeJson({ ok: false, error: friendlySshError(manifestsResult.output, cliHost) });
-        else writeOut(`Failed: ${friendlySshError(manifestsResult.output, cliHost)}`);
+          await writeJson({ ok: false, error: friendlySshError(manifestsResult.output, cliHost) });
+        else await writeOut(`Failed: ${friendlySshError(manifestsResult.output, cliHost)}`);
         process.exit(1);
       }
 
       if (json) {
         try {
-          writeJson({ ok: true, host: cliHost, ...JSON.parse(manifestsResult.output) });
+          await writeJson({ ok: true, host: cliHost, ...JSON.parse(manifestsResult.output) });
         } catch {
-          writeJson({ ok: true, host: cliHost, output: manifestsResult.output });
+          await writeJson({ ok: true, host: cliHost, output: manifestsResult.output });
         }
       } else {
         try {
@@ -2275,13 +2294,15 @@ try {
             manifests?: Array<{ name?: string; source?: string; state?: string }>;
           };
           const manifests = parsed.manifests || [];
-          writeOut(`Agent manifests on ${cliHost}:`);
+          await writeOut(`Agent manifests on ${cliHost}:`);
           for (const m of manifests) {
-            writeOut(`  ${m.name || "?"}  source=${m.source || "?"}  state=${m.state || "?"}`);
+            await writeOut(
+              `  ${m.name || "?"}  source=${m.source || "?"}  state=${m.state || "?"}`
+            );
           }
-          if (!manifests.length) writeOut("  (none)");
+          if (!manifests.length) await writeOut("  (none)");
         } catch {
-          writeOut(manifestsResult.output);
+          await writeOut(manifestsResult.output);
         }
       }
       process.exit(0);
@@ -2292,18 +2313,19 @@ try {
         ...herdrArgs(["agent", "get", agentTarget, ...(json ? ["--json"] : [])]),
       ]);
       if (!getResult.ok) {
-        if (json) writeJson({ ok: false, error: friendlySshError(getResult.output, cliHost) });
-        else writeOut(`Failed: ${friendlySshError(getResult.output, cliHost)}`);
+        if (json)
+          await writeJson({ ok: false, error: friendlySshError(getResult.output, cliHost) });
+        else await writeOut(`Failed: ${friendlySshError(getResult.output, cliHost)}`);
         process.exit(1);
       }
       if (json) {
         try {
-          writeJson({ ok: true, host: cliHost, agent: JSON.parse(getResult.output) });
+          await writeJson({ ok: true, host: cliHost, agent: JSON.parse(getResult.output) });
         } catch {
-          writeJson({ ok: true, host: cliHost, output: getResult.output });
+          await writeJson({ ok: true, host: cliHost, output: getResult.output });
         }
       } else {
-        writeOut(getResult.output);
+        await writeOut(getResult.output);
       }
       process.exit(0);
     }
@@ -2318,19 +2340,20 @@ try {
         ]),
       ]);
       if (!explainResult.ok) {
-        if (json) writeJson({ ok: false, error: friendlySshError(explainResult.output, cliHost) });
-        else writeOut(`Failed: ${friendlySshError(explainResult.output, cliHost)}`);
+        if (json)
+          await writeJson({ ok: false, error: friendlySshError(explainResult.output, cliHost) });
+        else await writeOut(`Failed: ${friendlySshError(explainResult.output, cliHost)}`);
         process.exit(1);
       }
       if (json) {
         try {
-          writeJson({ ok: true, host: cliHost, explain: JSON.parse(explainResult.output) });
+          await writeJson({ ok: true, host: cliHost, explain: JSON.parse(explainResult.output) });
         } catch {
-          writeJson({ ok: true, host: cliHost, output: explainResult.output });
+          await writeJson({ ok: true, host: cliHost, output: explainResult.output });
         }
       } else {
-        writeOut(`── agent explain ${agentTarget}@${cliHost} ──`);
-        writeOut(explainResult.output);
+        await writeOut(`── agent explain ${agentTarget}@${cliHost} ──`);
+        await writeOut(explainResult.output);
       }
       process.exit(0);
     }
@@ -2340,7 +2363,7 @@ try {
       const oldName = rawPos[2] || agentTarget;
       const newName = rawPos[3] || "";
       if (!oldName || !newName || oldName === newName) {
-        writeOut(
+        await writeOut(
           "usage: herdr-orchestrator agent rename <old-name> <new-name> --host HOST [--session S]"
         );
         process.exit(2);
@@ -2349,12 +2372,13 @@ try {
         ...herdrArgs(["agent", "rename", oldName, newName]),
       ]);
       if (!renameResult.ok) {
-        if (json) writeJson({ ok: false, error: friendlySshError(renameResult.output, cliHost) });
-        else writeOut(`Failed: ${friendlySshError(renameResult.output, cliHost)}`);
+        if (json)
+          await writeJson({ ok: false, error: friendlySshError(renameResult.output, cliHost) });
+        else await writeOut(`Failed: ${friendlySshError(renameResult.output, cliHost)}`);
         process.exit(1);
       }
-      if (json) writeJson({ ok: true, host: cliHost, oldName, newName });
-      else writeOut(`Renamed "${oldName}" → "${newName}" on ${cliHost}`);
+      if (json) await writeJson({ ok: true, host: cliHost, oldName, newName });
+      else await writeOut(`Renamed "${oldName}" → "${newName}" on ${cliHost}`);
       process.exit(0);
     }
 
@@ -2366,7 +2390,7 @@ try {
       const timeoutFlag = timeoutIdx >= 0 ? parseInt(Bun.argv[timeoutIdx + 1] || "0", 10) : 30000;
 
       if (!agentTarget) {
-        writeOut(
+        await writeOut(
           "usage: herdr-orchestrator agent wait <name> --host HOST --status idle|working|blocked|done|unknown [--timeout MS]"
         );
         process.exit(2);
@@ -2384,20 +2408,24 @@ try {
         ]),
       ];
       if (dryRun) {
-        writeOut(`[dry-run] ${cliHost}: ${waitArgs.join(" ")}`);
+        await writeOut(`[dry-run] ${cliHost}: ${waitArgs.join(" ")}`);
         process.exit(0);
       }
 
       if (!json)
-        writeOut(`Waiting for agent "${agentTarget}" to become ${statusFlag} on ${cliHost}...`);
+        await writeOut(
+          `Waiting for agent "${agentTarget}" to become ${statusFlag} on ${cliHost}...`
+        );
       const waitResult = await sshExec(resolved, waitArgs);
       if (!waitResult.ok) {
-        if (json) writeJson({ ok: false, error: friendlySshError(waitResult.output, cliHost) });
-        else writeOut(`Wait failed: ${friendlySshError(waitResult.output, cliHost)}`);
+        if (json)
+          await writeJson({ ok: false, error: friendlySshError(waitResult.output, cliHost) });
+        else await writeOut(`Wait failed: ${friendlySshError(waitResult.output, cliHost)}`);
         process.exit(1);
       }
-      if (json) writeJson({ ok: true, host: cliHost, agent: agentTarget, status: statusFlag });
-      else writeOut(`✓ ${agentTarget}@${cliHost} is now ${statusFlag}`);
+      if (json)
+        await writeJson({ ok: true, host: cliHost, agent: agentTarget, status: statusFlag });
+      else await writeOut(`✓ ${agentTarget}@${cliHost} is now ${statusFlag}`);
       process.exit(0);
     }
 
@@ -2422,8 +2450,11 @@ try {
       }
       if (!paneId) {
         if (json)
-          writeJson({ ok: false, error: `agent/pane "${agentTarget}" not found on ${cliHost}` });
-        else writeOut(`Agent/pane "${agentTarget}" not found on ${cliHost}`);
+          await writeJson({
+            ok: false,
+            error: `agent/pane "${agentTarget}" not found on ${cliHost}`,
+          });
+        else await writeOut(`Agent/pane "${agentTarget}" not found on ${cliHost}`);
         process.exit(1);
       }
 
@@ -2441,13 +2472,13 @@ try {
         ]),
       ]);
       if (!logResult.ok) {
-        if (json) writeJson({ ok: false, error: logResult.output });
-        else writeOut(`Failed to read agent log: ${logResult.output}`);
+        if (json) await writeJson({ ok: false, error: logResult.output });
+        else await writeOut(`Failed to read agent log: ${logResult.output}`);
         process.exit(1);
       }
 
       if (json) {
-        writeJson({
+        await writeJson({
           ok: true,
           host: cliHost,
           agent: agentTarget,
@@ -2455,10 +2486,10 @@ try {
           output: logResult.output,
         });
       } else {
-        writeOut(
+        await writeOut(
           `── ${agentTarget}@${cliHost}${sess ? ` session:${sess}` : ""} (pane ${paneId}) ──`
         );
-        writeOut(logResult.output);
+        await writeOut(logResult.output);
       }
       process.exit(0);
     }
@@ -2469,7 +2500,7 @@ try {
       const dashIdx = fullArgs.indexOf("--");
       const text = dashIdx >= 0 ? fullArgs.slice(dashIdx + 1).join(" ") : "";
       if (!text) {
-        writeOut(
+        await writeOut(
           "usage: herdr-orchestrator agent send <target> --host HOST [--session S] -- <text>"
         );
         process.exit(2);
@@ -2477,23 +2508,24 @@ try {
 
       if (dryRun) {
         const dryCmd = [...herdrArgs(["agent", "send", agentTarget, text])].join(" ");
-        writeOut(`[dry-run] ${cliHost}: ${dryCmd}`);
+        await writeOut(`[dry-run] ${cliHost}: ${dryCmd}`);
         process.exit(0);
       }
 
       if (!json)
-        writeOut(
+        await writeOut(
           `Sending to ${agentTarget}@${cliHost}: ${text.slice(0, 60)}${text.length > 60 ? "…" : ""}`
         );
       const sendResult = await sshExec(resolved, [
         ...herdrArgs(["agent", "send", agentTarget, text]),
       ]);
       if (!sendResult.ok) {
-        if (json) writeJson({ ok: false, error: friendlySshError(sendResult.output, cliHost) });
-        else writeOut(`Send failed: ${friendlySshError(sendResult.output, cliHost)}`);
+        if (json)
+          await writeJson({ ok: false, error: friendlySshError(sendResult.output, cliHost) });
+        else await writeOut(`Send failed: ${friendlySshError(sendResult.output, cliHost)}`);
         process.exit(1);
       }
-      if (json) writeJson({ ok: true, host: cliHost, agent: agentTarget, text });
+      if (json) await writeJson({ ok: true, host: cliHost, agent: agentTarget, text });
       process.exit(0);
     }
 
@@ -2503,7 +2535,7 @@ try {
       const dashIdx = fullArgs.indexOf("--");
       const execCmd = dashIdx >= 0 ? fullArgs.slice(dashIdx + 1).join(" ") : agentTarget;
       if (!execCmd) {
-        writeOut(
+        await writeOut(
           "usage: herdr-orchestrator agent exec <target> --host HOST [--session S] -- <command>"
         );
         process.exit(2);
@@ -2529,32 +2561,35 @@ try {
       }
       if (!paneId) {
         if (json)
-          writeJson({ ok: false, error: `agent/pane "${agentTarget}" not found on ${cliHost}` });
-        else writeOut(`Agent/pane "${agentTarget}" not found on ${cliHost}`);
+          await writeJson({
+            ok: false,
+            error: `agent/pane "${agentTarget}" not found on ${cliHost}`,
+          });
+        else await writeOut(`Agent/pane "${agentTarget}" not found on ${cliHost}`);
         process.exit(1);
       }
 
       if (dryRun) {
         const dryCmd = [...herdrArgs(["pane", "run", paneId, execCmd])].join(" ");
-        writeOut(`[dry-run] ${cliHost}: ${dryCmd}`);
+        await writeOut(`[dry-run] ${cliHost}: ${dryCmd}`);
         process.exit(0);
       }
 
       if (json)
-        writeJson({ ok: true, host: cliHost, agent: agentTarget, paneId, command: execCmd });
-      else writeOut(`Sending to ${agentTarget}@${cliHost} (pane ${paneId}): ${execCmd}`);
+        await writeJson({ ok: true, host: cliHost, agent: agentTarget, paneId, command: execCmd });
+      else await writeOut(`Sending to ${agentTarget}@${cliHost} (pane ${paneId}): ${execCmd}`);
 
       const execResult = await sshExec(resolved, [...herdrArgs(["pane", "run", paneId, execCmd])]);
       if (!execResult.ok) {
-        if (json) writeJson({ ok: false, error: execResult.output });
-        else writeOut(`Exec failed: ${execResult.output}`);
+        if (json) await writeJson({ ok: false, error: execResult.output });
+        else await writeOut(`Exec failed: ${execResult.output}`);
         process.exit(1);
       }
-      if (!json) writeOut(execResult.output);
+      if (!json) await writeOut(execResult.output);
       process.exit(0);
     }
 
-    writeOut(
+    await writeOut(
       `Unknown agent subcommand "${agentSubcommand}". Use: start, stop, restart, upgrade, list, get, explain, rename, wait, manifests, send, attach, ssh, log, or exec.`
     );
     process.exit(2);
@@ -2611,8 +2646,8 @@ try {
     ) {
       const config = discoverHerdrProjectConfig(projectPath);
       if (!config?.enabled) {
-        if (json) writeJson({ ok: false, error: "no [herdr] profile" });
-        else writeOut("No [herdr] profile");
+        if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
+        else await writeOut("No [herdr] profile");
         process.exit(1);
       }
       const full = { ...config, projectPath };
@@ -2627,8 +2662,8 @@ try {
       const orchConfig = resolveOrchestratorConfig(full, doc);
       const rawHostConfig = orchConfig.remoteHosts[cliHost];
       if (!rawHostConfig) {
-        if (json) writeJson({ ok: false, error: `host "${cliHost}" not configured` });
-        else writeOut(`Unknown host "${cliHost}".`);
+        if (json) await writeJson({ ok: false, error: `host "${cliHost}" not configured` });
+        else await writeOut(`Unknown host "${cliHost}".`);
         process.exit(1);
       }
       const resolvedHosts = normalizeRemoteHostConfig(
@@ -2651,8 +2686,8 @@ try {
       if (json) extraArgs.push("--json");
       const wsResult = await sshExec(resolved, [...herdrWsArgs, ...extraArgs]);
       if (!wsResult.ok) {
-        if (json) writeJson({ ok: false, error: wsResult.output });
-        else writeOut(`Failed to list workspaces: ${wsResult.output}`);
+        if (json) await writeJson({ ok: false, error: wsResult.output });
+        else await writeOut(`Failed to list workspaces: ${wsResult.output}`);
         process.exit(1);
       }
 
@@ -2666,7 +2701,7 @@ try {
               : isPanes
                 ? "panes"
                 : "workspaces";
-          writeJson({
+          await writeJson({
             ok: true,
             host: cliHost,
             [resultKey]: isTabs
@@ -2676,7 +2711,7 @@ try {
                 : parsed.result?.workspaces || [],
           });
         } catch {
-          writeJson({ ok: false, error: "invalid JSON" });
+          await writeJson({ ok: false, error: "invalid JSON" });
         }
       } else {
         try {
@@ -2708,11 +2743,11 @@ try {
               : isPanes
                 ? "Panes"
                 : "Workspaces";
-          writeOut(`${heading} on ${cliHost}${sess ? ` (session ${sess})` : ""}:`);
+          await writeOut(`${heading} on ${cliHost}${sess ? ` (session ${sess})` : ""}:`);
           if (isTabs) {
             for (const t of items as Array<{ tab_id?: string; label?: string; active?: boolean }>) {
               const activeMark = t.active ? " *" : "  ";
-              writeOut(`  ${t.tab_id || "?"}  "${t.label || ""}"${activeMark}`);
+              await writeOut(`  ${t.tab_id || "?"}  "${t.label || ""}"${activeMark}`);
             }
           } else if (isPanes) {
             for (const p of items as Array<{
@@ -2722,7 +2757,7 @@ try {
               title?: string;
             }>) {
               const agent = p.agent || p.title || "";
-              writeOut(`  ${p.pane_id || "?"}  ${agent}  ${p.agent_status || ""}`);
+              await writeOut(`  ${p.pane_id || "?"}  ${agent}  ${p.agent_status || ""}`);
             }
           } else {
             for (const ws of items as Array<{
@@ -2731,12 +2766,12 @@ try {
               status?: string;
             }>) {
               const name = ws.workspace_label || ws.workspace_id || "?";
-              writeOut(`  ${name}  status=${ws.status || "?"}`);
+              await writeOut(`  ${name}  status=${ws.status || "?"}`);
             }
           }
-          if (!items.length) writeOut("  (none)");
+          if (!items.length) await writeOut("  (none)");
         } catch {
-          writeOut(wsResult.output);
+          await writeOut(wsResult.output);
         }
       }
       process.exit(0);
@@ -2756,8 +2791,8 @@ try {
 
       const config = discoverHerdrProjectConfig(projectPath);
       if (!config?.enabled) {
-        if (json) writeJson({ ok: false, error: "no [herdr] profile" });
-        else writeOut("No [herdr] profile");
+        if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
+        else await writeOut("No [herdr] profile");
         process.exit(1);
       }
       const full = { ...config, projectPath };
@@ -2772,8 +2807,8 @@ try {
       const orchConfig = resolveOrchestratorConfig(full, doc);
       const rawHostConfig = orchConfig.remoteHosts[cliHost];
       if (!rawHostConfig) {
-        if (json) writeJson({ ok: false, error: `host "${cliHost}" not configured` });
-        else writeOut(`Unknown host "${cliHost}".`);
+        if (json) await writeJson({ ok: false, error: `host "${cliHost}" not configured` });
+        else await writeOut(`Unknown host "${cliHost}".`);
         process.exit(1);
       }
       const resolvedHosts = normalizeRemoteHostConfig(
@@ -2801,13 +2836,14 @@ try {
 
       const readResult = await sshExec(resolved, readArgs);
       if (!readResult.ok) {
-        if (json) writeJson({ ok: false, error: friendlySshError(readResult.output, cliHost) });
-        else writeOut(`Failed: ${friendlySshError(readResult.output, cliHost)}`);
+        if (json)
+          await writeJson({ ok: false, error: friendlySshError(readResult.output, cliHost) });
+        else await writeOut(`Failed: ${friendlySshError(readResult.output, cliHost)}`);
         process.exit(1);
       }
 
       if (json) {
-        writeJson({
+        await writeJson({
           ok: true,
           host: cliHost,
           paneId,
@@ -2816,8 +2852,10 @@ try {
           output: readResult.output,
         });
       } else {
-        writeOut(`── pane ${paneId}@${cliHost} (source=${sourceFlag}, lines=${linesFlag}) ──`);
-        writeOut(readResult.output);
+        await writeOut(
+          `── pane ${paneId}@${cliHost} (source=${sourceFlag}, lines=${linesFlag}) ──`
+        );
+        await writeOut(readResult.output);
       }
       process.exit(0);
     }
@@ -2827,8 +2865,8 @@ try {
       const paneId = rawPos[2];
       const config = discoverHerdrProjectConfig(projectPath);
       if (!config?.enabled) {
-        if (json) writeJson({ ok: false, error: "no [herdr] profile" });
-        else writeOut("No [herdr] profile");
+        if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
+        else await writeOut("No [herdr] profile");
         process.exit(1);
       }
       const full = { ...config, projectPath };
@@ -2843,8 +2881,8 @@ try {
       const orchConfig = resolveOrchestratorConfig(full, doc);
       const rawHostConfig = orchConfig.remoteHosts[cliHost];
       if (!rawHostConfig) {
-        if (json) writeJson({ ok: false, error: `host "${cliHost}" not configured` });
-        else writeOut(`Unknown host "${cliHost}".`);
+        if (json) await writeJson({ ok: false, error: `host "${cliHost}" not configured` });
+        else await writeOut(`Unknown host "${cliHost}".`);
         process.exit(1);
       }
       const resolvedHosts = normalizeRemoteHostConfig(
@@ -2860,20 +2898,21 @@ try {
 
       const getResult = await sshExec(resolved, getArgs);
       if (!getResult.ok) {
-        if (json) writeJson({ ok: false, error: friendlySshError(getResult.output, cliHost) });
-        else writeOut(`Failed: ${friendlySshError(getResult.output, cliHost)}`);
+        if (json)
+          await writeJson({ ok: false, error: friendlySshError(getResult.output, cliHost) });
+        else await writeOut(`Failed: ${friendlySshError(getResult.output, cliHost)}`);
         process.exit(1);
       }
 
       if (json) {
         try {
-          writeJson({ ok: true, host: cliHost, pane: JSON.parse(getResult.output) });
+          await writeJson({ ok: true, host: cliHost, pane: JSON.parse(getResult.output) });
         } catch {
-          writeJson({ ok: true, host: cliHost, output: getResult.output });
+          await writeJson({ ok: true, host: cliHost, output: getResult.output });
         }
       } else {
-        writeOut(`── pane ${paneId}@${cliHost} ──`);
-        writeOut(getResult.output);
+        await writeOut(`── pane ${paneId}@${cliHost} ──`);
+        await writeOut(getResult.output);
       }
       process.exit(0);
     }
@@ -2895,8 +2934,8 @@ try {
 
       const config = discoverHerdrProjectConfig(projectPath);
       if (!config?.enabled) {
-        if (json) writeJson({ ok: false, error: "no [herdr] profile" });
-        else writeOut("No [herdr] profile");
+        if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
+        else await writeOut("No [herdr] profile");
         process.exit(1);
       }
       const full = { ...config, projectPath };
@@ -2911,8 +2950,8 @@ try {
       const orchConfig = resolveOrchestratorConfig(full, doc);
       const rawHostConfig = orchConfig.remoteHosts[cliHost];
       if (!rawHostConfig) {
-        if (json) writeJson({ ok: false, error: `host "${cliHost}" not configured` });
-        else writeOut(`Unknown host "${cliHost}".`);
+        if (json) await writeJson({ ok: false, error: `host "${cliHost}" not configured` });
+        else await writeOut(`Unknown host "${cliHost}".`);
         process.exit(1);
       }
       const resolvedHosts = normalizeRemoteHostConfig(
@@ -2928,19 +2967,19 @@ try {
         : ["herdr", "pane", sub, paneId, ...flagArgs];
 
       if (dryRun) {
-        writeOut(`[dry-run] ${cliHost}: ${reportArgs.join(" ")}`);
+        await writeOut(`[dry-run] ${cliHost}: ${reportArgs.join(" ")}`);
         process.exit(0);
       }
 
       const result = await sshExec(resolved, reportArgs);
       if (!result.ok) {
-        if (json) writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
-        else writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
+        if (json) await writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
+        else await writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
         process.exit(1);
       }
 
-      if (json) writeJson({ ok: true, host: cliHost, paneId, action: sub });
-      else writeOut(`✓ reported ${sub} to ${paneId}@${cliHost}`);
+      if (json) await writeJson({ ok: true, host: cliHost, paneId, action: sub });
+      else await writeOut(`✓ reported ${sub} to ${paneId}@${cliHost}`);
       process.exit(0);
     }
 
@@ -2949,8 +2988,8 @@ try {
       const termId = rawPos[2];
       const config = discoverHerdrProjectConfig(projectPath);
       if (!config?.enabled) {
-        if (json) writeJson({ ok: false, error: "no [herdr] profile" });
-        else writeOut("No [herdr] profile");
+        if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
+        else await writeOut("No [herdr] profile");
         process.exit(1);
       }
       const full = { ...config, projectPath };
@@ -2965,8 +3004,8 @@ try {
       const orchConfig = resolveOrchestratorConfig(full, doc);
       const rawHostConfig = orchConfig.remoteHosts[cliHost];
       if (!rawHostConfig) {
-        if (json) writeJson({ ok: false, error: `host "${cliHost}" not configured` });
-        else writeOut(`Unknown host "${cliHost}".`);
+        if (json) await writeJson({ ok: false, error: `host "${cliHost}" not configured` });
+        else await writeOut(`Unknown host "${cliHost}".`);
         process.exit(1);
       }
       const resolvedHosts = normalizeRemoteHostConfig(
@@ -2982,9 +3021,9 @@ try {
       const takeFlag = takeover ? " --takeover" : "";
       const cmd = `herdr --remote ${remoteFlag}${takeFlag}`;
 
-      if (json) writeJson({ ok: true, host: cliHost, terminalId: termId, command: cmd });
+      if (json) await writeJson({ ok: true, host: cliHost, terminalId: termId, command: cmd });
       else
-        writeOut(
+        await writeOut(
           `Direct attach to ${termId}@${cliHost}:\n  $ ${cmd}\n  # Then run: herdr terminal attach ${termId}${takeFlag}`
         );
       process.exit(0);
@@ -2994,8 +3033,8 @@ try {
     if (isTermTitle) {
       const config = discoverHerdrProjectConfig(projectPath);
       if (!config?.enabled) {
-        if (json) writeJson({ ok: false, error: "no [herdr] profile" });
-        else writeOut("No [herdr] profile");
+        if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
+        else await writeOut("No [herdr] profile");
         process.exit(1);
       }
       const full = { ...config, projectPath };
@@ -3010,8 +3049,8 @@ try {
       const orchConfig = resolveOrchestratorConfig(full, doc);
       const rawHostConfig = orchConfig.remoteHosts[cliHost];
       if (!rawHostConfig) {
-        if (json) writeJson({ ok: false, error: `host "${cliHost}" not configured` });
-        else writeOut(`Unknown host "${cliHost}".`);
+        if (json) await writeJson({ ok: false, error: `host "${cliHost}" not configured` });
+        else await writeOut(`Unknown host "${cliHost}".`);
         process.exit(1);
       }
       const resolvedHosts = normalizeRemoteHostConfig(
@@ -3029,19 +3068,19 @@ try {
       const cmdArgs = sess ? ["herdr", "--session", sess, ...titleArgs] : ["herdr", ...titleArgs];
 
       if (dryRun) {
-        writeOut(`[dry-run] ${cliHost}: ${cmdArgs.join(" ")}`);
+        await writeOut(`[dry-run] ${cliHost}: ${cmdArgs.join(" ")}`);
         process.exit(0);
       }
 
       const result = await sshExec(resolved, cmdArgs);
       if (!result.ok) {
-        if (json) writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
-        else writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
+        if (json) await writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
+        else await writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
         process.exit(1);
       }
 
-      if (json) writeJson({ ok: true, host: cliHost, title: isClear ? null : titleText });
-      else writeOut(`✓ ${isClear ? "cleared" : `set to "${titleText}"`} on ${cliHost}`);
+      if (json) await writeJson({ ok: true, host: cliHost, title: isClear ? null : titleText });
+      else await writeOut(`✓ ${isClear ? "cleared" : `set to "${titleText}"`} on ${cliHost}`);
       process.exit(0);
     }
 
@@ -3062,8 +3101,8 @@ try {
 
       const config = discoverHerdrProjectConfig(projectPath);
       if (!config?.enabled) {
-        if (json) writeJson({ ok: false, error: "no [herdr] profile" });
-        else writeOut("No [herdr] profile");
+        if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
+        else await writeOut("No [herdr] profile");
         process.exit(1);
       }
       const full = { ...config, projectPath };
@@ -3078,8 +3117,8 @@ try {
       const orchConfig = resolveOrchestratorConfig(full, doc);
       const rawHostConfig = orchConfig.remoteHosts[cliHost];
       if (!rawHostConfig) {
-        if (json) writeJson({ ok: false, error: `host "${cliHost}" not configured` });
-        else writeOut(`Unknown host "${cliHost}".`);
+        if (json) await writeJson({ ok: false, error: `host "${cliHost}" not configured` });
+        else await writeOut(`Unknown host "${cliHost}".`);
         process.exit(1);
       }
       const resolvedHosts = normalizeRemoteHostConfig(
@@ -3096,20 +3135,20 @@ try {
         : ["herdr", sub, subSub, paneId, ...flagArgs];
 
       if (dryRun) {
-        writeOut(`[dry-run] ${cliHost}: ${waitArgs.join(" ")}`);
+        await writeOut(`[dry-run] ${cliHost}: ${waitArgs.join(" ")}`);
         process.exit(0);
       }
 
-      if (!json) writeOut(`Waiting on ${paneId}@${cliHost}...`);
+      if (!json) await writeOut(`Waiting on ${paneId}@${cliHost}...`);
       const result = await sshExec(resolved, waitArgs);
       if (!result.ok) {
-        if (json) writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
-        else writeOut(`Wait failed: ${friendlySshError(result.output, cliHost)}`);
+        if (json) await writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
+        else await writeOut(`Wait failed: ${friendlySshError(result.output, cliHost)}`);
         process.exit(1);
       }
 
-      if (json) writeJson({ ok: true, host: cliHost, paneId });
-      else writeOut(`✓ matched on ${paneId}@${cliHost}`);
+      if (json) await writeJson({ ok: true, host: cliHost, paneId });
+      else await writeOut(`✓ matched on ${paneId}@${cliHost}`);
       process.exit(0);
     }
 
@@ -3117,8 +3156,8 @@ try {
     if (isPluginSub) {
       const config = discoverHerdrProjectConfig(projectPath);
       if (!config?.enabled) {
-        if (json) writeJson({ ok: false, error: "no [herdr] profile" });
-        else writeOut("No [herdr] profile");
+        if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
+        else await writeOut("No [herdr] profile");
         process.exit(1);
       }
       const full = { ...config, projectPath };
@@ -3133,8 +3172,8 @@ try {
       const orchConfig = resolveOrchestratorConfig(full, doc);
       const rawHostConfig = orchConfig.remoteHosts[cliHost];
       if (!rawHostConfig) {
-        if (json) writeJson({ ok: false, error: `host "${cliHost}" not configured` });
-        else writeOut(`Unknown host "${cliHost}".`);
+        if (json) await writeJson({ ok: false, error: `host "${cliHost}" not configured` });
+        else await writeOut(`Unknown host "${cliHost}".`);
         process.exit(1);
       }
       const resolvedHosts = normalizeRemoteHostConfig(
@@ -3149,7 +3188,7 @@ try {
       } else if (wsSub === "plugin-install") {
         const target = rawPos[2] || "";
         if (!target) {
-          writeOut(
+          await writeOut(
             "usage: herdr-orchestrator workspace plugin-install <owner/repo> --host HOST [--ref REF]"
           );
           process.exit(2);
@@ -3159,14 +3198,14 @@ try {
       } else if (wsSub === "plugin-uninstall") {
         const target = rawPos[2] || "";
         if (!target) {
-          writeOut("usage: herdr-orchestrator workspace plugin-uninstall <id> --host HOST");
+          await writeOut("usage: herdr-orchestrator workspace plugin-uninstall <id> --host HOST");
           process.exit(2);
         }
         pluginCmd = ["plugin", "uninstall", target];
       } else if (wsSub === "plugin-link") {
         const target = rawPos[2] || "";
         if (!target) {
-          writeOut(
+          await writeOut(
             "usage: herdr-orchestrator workspace plugin-link <path> --host HOST [--disabled]"
           );
           process.exit(2);
@@ -3178,21 +3217,21 @@ try {
       } else if (wsSub === "plugin-unlink") {
         const target = rawPos[2] || "";
         if (!target) {
-          writeOut("usage: herdr-orchestrator workspace plugin-unlink <id> --host HOST");
+          await writeOut("usage: herdr-orchestrator workspace plugin-unlink <id> --host HOST");
           process.exit(2);
         }
         pluginCmd = ["plugin", "unlink", target];
       } else if (wsSub === "plugin-enable") {
         const target = rawPos[2] || "";
         if (!target) {
-          writeOut("usage: herdr-orchestrator workspace plugin-enable <id> --host HOST");
+          await writeOut("usage: herdr-orchestrator workspace plugin-enable <id> --host HOST");
           process.exit(2);
         }
         pluginCmd = ["plugin", "enable", target];
       } else if (wsSub === "plugin-config-dir") {
         const target = rawPos[2] || "";
         if (!target) {
-          writeOut("usage: herdr-orchestrator workspace plugin-config-dir <id> --host HOST");
+          await writeOut("usage: herdr-orchestrator workspace plugin-config-dir <id> --host HOST");
           process.exit(2);
         }
         pluginCmd = ["plugin", "config-dir", target];
@@ -3205,7 +3244,7 @@ try {
       } else if (wsSub === "plugin-action-invoke") {
         const actionId = rawPos[2] || "";
         if (!actionId) {
-          writeOut(
+          await writeOut(
             "usage: herdr-orchestrator workspace plugin-action-invoke <action_id> --host HOST [--plugin ID]"
           );
           process.exit(2);
@@ -3243,50 +3282,54 @@ try {
       } else if (wsSub === "plugin-pane-focus") {
         const target = rawPos[2] || "";
         if (!target) {
-          writeOut("usage: herdr-orchestrator workspace plugin-pane-focus <pane_id> --host HOST");
+          await writeOut(
+            "usage: herdr-orchestrator workspace plugin-pane-focus <pane_id> --host HOST"
+          );
           process.exit(2);
         }
         pluginCmd = ["plugin", "pane", "focus", target];
       } else if (wsSub === "plugin-pane-close") {
         const target = rawPos[2] || "";
         if (!target) {
-          writeOut("usage: herdr-orchestrator workspace plugin-pane-close <pane_id> --host HOST");
+          await writeOut(
+            "usage: herdr-orchestrator workspace plugin-pane-close <pane_id> --host HOST"
+          );
           process.exit(2);
         }
         pluginCmd = ["plugin", "pane", "close", target];
       } else {
         const target = rawPos[2] || "";
         if (!target) {
-          writeOut("usage: herdr-orchestrator workspace plugin-disable <id> --host HOST");
+          await writeOut("usage: herdr-orchestrator workspace plugin-disable <id> --host HOST");
           process.exit(2);
         }
         pluginCmd = ["plugin", "disable", target];
       }
 
       if (dryRun) {
-        writeOut(`[dry-run] ${cliHost}: herdr ${pluginCmd.join(" ")}`);
+        await writeOut(`[dry-run] ${cliHost}: herdr ${pluginCmd.join(" ")}`);
         process.exit(0);
       }
 
       const result = await sshExec(resolved, ["herdr", ...pluginCmd]);
       if (!result.ok) {
-        if (json) writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
-        else writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
+        if (json) await writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
+        else await writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
         process.exit(1);
       }
 
       if (json) {
         if (wsSub === "plugins" || wsSub === "plugin-actions" || wsSub === "plugin-logs") {
           try {
-            writeJson({ ok: true, host: cliHost, ...JSON.parse(result.output) });
+            await writeJson({ ok: true, host: cliHost, ...JSON.parse(result.output) });
           } catch {
-            writeJson({ ok: true, host: cliHost, output: result.output });
+            await writeJson({ ok: true, host: cliHost, output: result.output });
           }
         } else {
-          writeJson({ ok: true, host: cliHost, action: wsSub });
+          await writeJson({ ok: true, host: cliHost, action: wsSub });
         }
       } else {
-        writeOut(result.output || `✓ plugin ${wsSub.split("-")[1]} on ${cliHost}`);
+        await writeOut(result.output || `✓ plugin ${wsSub.split("-")[1]} on ${cliHost}`);
       }
       process.exit(0);
     }
@@ -3298,7 +3341,7 @@ try {
       const dashIdx = fullArgs.indexOf("--");
       const content = dashIdx >= 0 ? fullArgs.slice(dashIdx + 1).join(" ") : "";
       if (!content) {
-        writeOut(
+        await writeOut(
           `usage: herdr-orchestrator workspace ${wsSub} <pane_id> --host HOST [--session S] -- <content>`
         );
         process.exit(2);
@@ -3306,8 +3349,8 @@ try {
 
       const config = discoverHerdrProjectConfig(projectPath);
       if (!config?.enabled) {
-        if (json) writeJson({ ok: false, error: "no [herdr] profile" });
-        else writeOut("No [herdr] profile");
+        if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
+        else await writeOut("No [herdr] profile");
         process.exit(1);
       }
       const full = { ...config, projectPath };
@@ -3322,8 +3365,8 @@ try {
       const orchConfig = resolveOrchestratorConfig(full, doc);
       const rawHostConfig = orchConfig.remoteHosts[cliHost];
       if (!rawHostConfig) {
-        if (json) writeJson({ ok: false, error: `host "${cliHost}" not configured` });
-        else writeOut(`Unknown host "${cliHost}".`);
+        if (json) await writeJson({ ok: false, error: `host "${cliHost}" not configured` });
+        else await writeOut(`Unknown host "${cliHost}".`);
         process.exit(1);
       }
       const resolvedHosts = normalizeRemoteHostConfig(
@@ -3342,20 +3385,20 @@ try {
         : ["herdr", cmd, sub, paneId, ...contentArgs];
 
       if (dryRun) {
-        writeOut(`[dry-run] ${cliHost}: ${sendArgs.join(" ")}`);
+        await writeOut(`[dry-run] ${cliHost}: ${sendArgs.join(" ")}`);
         process.exit(0);
       }
 
       const result = await sshExec(resolved, sendArgs);
       if (!result.ok) {
-        if (json) writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
-        else writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
+        if (json) await writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
+        else await writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
         process.exit(1);
       }
 
       if (json)
-        writeJson({ ok: true, host: cliHost, paneId, action: wsSub, output: result.output });
-      else writeOut(result.output || `✓ sent to ${paneId}@${cliHost}`);
+        await writeJson({ ok: true, host: cliHost, paneId, action: wsSub, output: result.output });
+      else await writeOut(result.output || `✓ sent to ${paneId}@${cliHost}`);
       process.exit(0);
     }
 
@@ -3390,19 +3433,19 @@ try {
             const result = await reactOne(id);
             if (json) {
               const { workspaceId: _wsId, ...rest } = result;
-              writeJson({ workspaceId: id, ...rest });
+              await writeJson({ workspaceId: id, ...rest });
             } else {
               for (const action of result.actions)
-                writeOut(`${id}: ${action.type}: ${action.detail}`);
-              for (const warning of result.warnings) writeOut(`${id}: warn: ${warning}`);
+                await writeOut(`${id}: ${action.type}: ${action.detail}`);
+              for (const warning of result.warnings) await writeOut(`${id}: warn: ${warning}`);
             }
           }
         } else {
           const result = await reactOne();
-          if (json) writeJson(result);
+          if (json) await writeJson(result);
           else {
-            for (const action of result.actions) writeOut(`${action.type}: ${action.detail}`);
-            for (const warning of result.warnings) writeOut(`warn: ${warning}`);
+            for (const action of result.actions) await writeOut(`${action.type}: ${action.detail}`);
+            for (const warning of result.warnings) await writeOut(`warn: ${warning}`);
           }
         }
         await Bun.sleep(Math.max(5, interval) * 1000);
@@ -3433,9 +3476,9 @@ try {
         });
         if (!result.ok) allOk = false;
         if (!json) {
-          writeOut(`── ${id} ──`);
-          for (const action of result.actions) writeOut(`${action.type}: ${action.detail}`);
-          for (const warning of result.warnings) writeOut(`warn: ${warning}`);
+          await writeOut(`── ${id} ──`);
+          for (const action of result.actions) await writeOut(`${action.type}: ${action.detail}`);
+          for (const warning of result.warnings) await writeOut(`warn: ${warning}`);
         }
         // Collect agents + state for cross-workspace evaluation
         const xwSession = discoverHerdrProjectConfig(projectPath)?.session ?? "";
@@ -3663,9 +3706,9 @@ try {
                     actions: [{ type: "cross_handoff", detail: `${prefix}${xw.detail}` }],
                     warnings: [],
                   });
-                else writeOut(`cross-handoff: ${prefix}${xw.detail}`);
+                else await writeOut(`cross-handoff: ${prefix}${xw.detail}`);
               } else {
-                if (!json) writeOut(`cross-handoff skipped: ${prefix}${xw.detail}`);
+                if (!json) await writeOut(`cross-handoff skipped: ${prefix}${xw.detail}`);
               }
             }
 
@@ -3742,7 +3785,7 @@ try {
               const info = getReadiness(resolvedToAgent.paneId, resolvedToAgent.agent);
               if (info.restore === "none") {
                 const msg = `handoff target ${rule.toAgent} (${rule.toWorkspace}) is not restorable`;
-                if (!json) writeOut(`warn: ${prefix}${msg}`);
+                if (!json) await writeOut(`warn: ${prefix}${msg}`);
                 else
                   results.push({
                     workspaceId: "validation",
@@ -3756,24 +3799,24 @@ try {
         }
       }
 
-      if (json) writeJson({ ok: allOk, projectPath, results });
+      if (json) await writeJson({ ok: allOk, projectPath, results });
       process.exit(allOk ? 0 : 2);
     }
 
     const result = await reactOne();
-    if (json) writeJson(result);
+    if (json) await writeJson(result);
     else {
-      for (const action of result.actions) writeOut(`${action.type}: ${action.detail}`);
-      for (const warning of result.warnings) writeOut(`warn: ${warning}`);
+      for (const action of result.actions) await writeOut(`${action.type}: ${action.detail}`);
+      for (const warning of result.warnings) await writeOut(`warn: ${warning}`);
     }
     process.exit(result.ok ? 0 : 2);
   }
 
   if (command === "bootstrap") {
     if (!cliHost) {
-      if (json) writeJson({ ok: false, error: "missing --host <ssh-label>" });
+      if (json) await writeJson({ ok: false, error: "missing --host <ssh-label>" });
       else
-        writeOut(
+        await writeOut(
           "Usage: herdr-orchestrator bootstrap --host <ssh-label> [--verify] [--domain <name>] [--interval <sec>] [--ref <git-ref>] [--repo <owner/repo/path>] [--no-start]"
         );
       process.exit(1);
@@ -3781,11 +3824,13 @@ try {
 
     const pluginRoot = resolveOrchestratorPluginRoot();
     if (!pluginRoot) {
-      if (json) writeJson({ ok: false, error: "herdr-orchestrator plugin not installed" });
+      if (json) await writeJson({ ok: false, error: "herdr-orchestrator plugin not installed" });
       else {
-        writeOut("herdr-orchestrator plugin not installed.");
-        writeOut("Install it with:");
-        writeOut("  herdr plugin install brendadeeznuts1111/herdr-plugins/herdr-orchestrator");
+        await writeOut("herdr-orchestrator plugin not installed.");
+        await writeOut("Install it with:");
+        await writeOut(
+          "  herdr plugin install brendadeeznuts1111/herdr-plugins/herdr-orchestrator"
+        );
       }
       process.exit(1);
     }
@@ -3801,11 +3846,11 @@ try {
     process.exit(code);
   }
 
-  printHelp();
+  await printHelp();
   process.exit(2);
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
-  if (json) writeJson({ ok: false, error: message });
-  else writeOut(message);
+  if (json) await writeJson({ ok: false, error: message });
+  else await writeOut(message);
   process.exit(1);
 }

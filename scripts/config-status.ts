@@ -10,6 +10,7 @@
  */
 
 import { isAbsolute, join, resolve } from "path";
+import { writeStdout, writeStdoutLine } from "../src/lib/cli-contract.ts";
 import {
   auditConfigLayersStatus,
   CONFIG_STATUS_USAGE,
@@ -69,7 +70,7 @@ function parseCli(): CliOptions {
 async function main(): Promise<void> {
   const options = parseCli();
   if (options.help) {
-    process.stdout.write(CONFIG_STATUS_USAGE);
+    await writeStdout(CONFIG_STATUS_USAGE);
     return;
   }
 
@@ -78,9 +79,9 @@ async function main(): Promise<void> {
   });
 
   if (options.json) {
-    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    await writeStdoutLine(JSON.stringify(report, null, 2));
   } else {
-    printConfigStatusReport(report);
+    await printConfigStatusReport(report);
   }
 
   if (!report.aligned) process.exit(1);

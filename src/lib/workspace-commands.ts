@@ -20,6 +20,7 @@ import {
   listLegacyCursorSlugs,
 } from "./legacy-cleanup.ts";
 import { createLogger, type Logger } from "./logger.ts";
+import { writeStdoutLine } from "./cli-contract.ts";
 import { homeDir } from "./paths.ts";
 
 export interface WorkspaceCommandFlags {
@@ -106,8 +107,8 @@ async function runAudit(
   const summary = countWorkspaceBlockers(report, { strictWorkspace: strict });
 
   if (json) {
-    process.stdout.write(
-      `${JSON.stringify(
+    await writeStdoutLine(
+      JSON.stringify(
         {
           checks: report.checks,
           summary: {
@@ -122,7 +123,7 @@ async function runAudit(
         },
         null,
         2
-      )}\n`
+      )
     );
     return summary.blocking > 0 ? 1 : 0;
   }

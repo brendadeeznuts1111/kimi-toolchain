@@ -3,6 +3,7 @@
  */
 
 import { checkScaffoldAligned } from "./scaffold-aligned.ts";
+import { writeStdoutLine } from "./cli-contract.ts";
 import { runGate } from "./gate-runner.ts";
 import { renderMarkdownAnsi } from "./bun-markdown.ts";
 
@@ -180,9 +181,9 @@ export function isConfigStatusReport(val: unknown): val is ConfigStatusReport {
   );
 }
 
-export function printConfigStatusReport(report: ConfigStatusReport): void {
+export async function printConfigStatusReport(report: ConfigStatusReport): Promise<void> {
   const table = formatConfigStatusTable(report);
-  process.stdout.write(`${renderMarkdownAnsi(table)}\n`);
+  await writeStdoutLine(renderMarkdownAnsi(table));
 
   const failures = report.gates.filter((gate) => gate.status === "fail" && gate.message);
   if (failures.length > 0) {

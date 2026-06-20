@@ -207,26 +207,61 @@ export interface CaptureHandle {
   restore: () => void;
 }
 
+function isStdoutDestination(destination: unknown): boolean {
+  return destination === Bun.stdout || destination === 1 || destination === process.stdout;
+}
+
+async function stdoutPayloadToText(data: unknown): Promise<string> {
+  if (typeof data === "string") return data;
+  if (data instanceof Uint8Array) return new TextDecoder().decode(data);
+  if (data instanceof ArrayBuffer) return new TextDecoder().decode(new Uint8Array(data));
+  if (typeof SharedArrayBuffer !== "undefined" && data instanceof SharedArrayBuffer) {
+    return new TextDecoder().decode(new Uint8Array(data));
+  }
+  if (data instanceof Response) return data.text();
+  if (data instanceof Blob) return data.text();
+  return String(data);
+}
+
 /**
- * Capture console.log and process.stdout.write during a callback.
+ * Capture console.log, process.stdout.write, and Bun.write(Bun.stdout, …) during a callback.
  * Use restore() in finally, or captureStdoutAsync for automatic cleanup.
  */
 export function captureStdout(): CaptureHandle {
   const lines: string[] = [];
   const originalLog = console.log;
   const originalWrite = process.stdout.write.bind(process.stdout);
+  const originalBunWrite = Bun.write;
+
+  const pushChunk = (chunk: string | Uint8Array) => {
+    lines.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
+  };
+
   console.log = (...args: unknown[]) => {
     lines.push(args.map((a) => (typeof a === "string" ? a : String(a))).join(" "));
   };
   process.stdout.write = (chunk: string | Uint8Array) => {
-    lines.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
+    pushChunk(chunk);
     return true;
   };
+  Bun.write = (async (
+    destination: Parameters<typeof Bun.write>[0],
+    data: Parameters<typeof Bun.write>[1]
+  ) => {
+    if (isStdoutDestination(destination)) {
+      const text = await stdoutPayloadToText(data);
+      lines.push(text);
+      return text.length;
+    }
+    return originalBunWrite(destination, data);
+  }) as typeof Bun.write;
+
   return {
     lines,
     restore: () => {
       console.log = originalLog;
       process.stdout.write = originalWrite;
+      Bun.write = originalBunWrite;
     },
   };
 }

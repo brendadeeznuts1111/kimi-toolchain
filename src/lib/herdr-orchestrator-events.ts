@@ -1,4 +1,5 @@
 import { pathExists, readText, watchPath } from "./bun-io.ts";
+import { writeStdoutLine } from "./cli-contract.ts";
 
 import { join } from "path";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
@@ -293,18 +294,21 @@ async function runWatchOrchestratorEvents(
   const debouncer = new DebouncedOrchestratorActions();
   const eventsConfig = orchestrator.events;
 
-  const emit = (dispatch: OrchestratorEventDispatch, correlation?: AgentStatusCorrelation) => {
+  const emit = async (
+    dispatch: OrchestratorEventDispatch,
+    correlation?: AgentStatusCorrelation
+  ) => {
     options.onDispatch?.(dispatch);
     if (options.json) {
-      process.stdout.write(
-        `${JSON.stringify({
+      await writeStdoutLine(
+        JSON.stringify({
           schemaVersion: 1,
           tool: "herdr-orchestrator",
           mode: "watch-events",
           at: new Date().toISOString(),
           ...dispatch,
           ...(correlation ? { correlation } : {}),
-        })}\n`
+        })
       );
     } else {
       const hitCount = correlation?.hits.length ?? 0;
@@ -312,7 +316,7 @@ async function runWatchOrchestratorEvents(
         correlation && hitCount > 0
           ? ` (${hitCount} taxonomy hit${hitCount === 1 ? "" : "s"})`
           : "";
-      process.stdout.write(`event → ${dispatch.action}: ${dispatch.reason}${suffix}\n`);
+      await writeStdoutLine(`event → ${dispatch.action}: ${dispatch.reason}${suffix}`);
     }
   };
 
@@ -326,7 +330,7 @@ async function runWatchOrchestratorEvents(
       ) {
         correlation = await correlateAgentStatusChanged(envelope.data as Record<string, unknown>);
       }
-      emit(dispatch, correlation);
+      await emit(dispatch, correlation);
       await runDispatch(projectRoot, dispatch, eventsConfig, workspaceId);
     });
   };
@@ -370,8 +374,8 @@ async function runWatchOrchestratorEvents(
     const mode = resolveHerdrSocketTransport();
     const transportHint =
       mode === "auto" ? "auto (ws+unix → jsonl)" : mode === "websocket" ? "ws+unix" : "jsonl";
-    process.stdout.write(
-      `watch-events: session ${sessionLabel}, transport ${transportHint}, socket ${socketPath}, workspace ${workspaceId}, ${subscriptions.length} subscription(s)\n`
+    await writeStdoutLine(
+      `watch-events: session ${sessionLabel}, transport ${transportHint}, socket ${socketPath}, workspace ${workspaceId}, ${subscriptions.length} subscription(s)`
     );
   }
 
