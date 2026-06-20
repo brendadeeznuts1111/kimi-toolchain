@@ -24,6 +24,7 @@ import {
 } from "./effect-benchmark.ts";
 import type { BenchmarkConvergenceBlock } from "./benchmark-convergence.ts";
 import { buildBenchmarkConvergenceBlock } from "./benchmark-convergence.ts";
+import { BUN_TEST_CHANGED_IMPORT_GRAPH } from "./test-runtime.ts";
 import type { ConfigStatusReport } from "./config-status.ts";
 import { thresholdsBaselinePath, thresholdsLegacyPath, thresholdsLocalPath } from "./paths.ts";
 
@@ -58,6 +59,10 @@ export interface BenchmarkApiMetadata {
   timedOut?: boolean;
   /** Canvas + Dashboard + Herdr unification — stamped on every emission. */
   convergence?: BenchmarkConvergenceBlock;
+  /** Bun `--changed` import-graph mechanics — portal + card-bun-test SSOT. */
+  testExecution?: {
+    changedImportGraph: typeof BUN_TEST_CHANGED_IMPORT_GRAPH;
+  };
 }
 
 /** Shared envelope for dashboard API and kimi-doctor --perf-gates --json. */
@@ -582,6 +587,7 @@ export function buildBenchmarkApiEnvelope(
       cacheHit: context.cacheHit,
       timedOut: payload.timedOut,
       convergence: buildBenchmarkConvergenceBlock(context.runner),
+      testExecution: { changedImportGraph: BUN_TEST_CHANGED_IMPORT_GRAPH },
     },
     requestError: context.requestError,
     lastSuccessfulAt: context.lastSuccessfulAt,

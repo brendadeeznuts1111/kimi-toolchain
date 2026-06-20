@@ -217,6 +217,7 @@ describe("effect-benchmark-card", () => {
     expect(envelope.summary.total).toBe(1);
     expect(envelope.gates.effectBenchmarkGate.status).toBe("pass");
     expect(envelope.sparklines["crypto.sha256"]).toBeDefined();
+    expect(envelope.metadata.testExecution?.changedImportGraph.title).toContain("--changed");
   });
 
   it("marks health warn when latest run passes but regressed vs previous", async () => {

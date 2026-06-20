@@ -109,3 +109,79 @@ export function convergedComponentsFromEnvelope(envelope: {
   }
   return buildBenchmarkConvergenceBlock(envelope.runner).components;
 }
+
+export interface PortalConvergenceGateInput {
+  converged: boolean;
+  convergedComponents: ReadonlyArray<{ id: string }>;
+  benchmark: { source: string };
+  changedImportGraphTitle?: string;
+}
+
+export interface PortalConvergenceGateOptions {
+  /** Pre-push gate uses local-loop only (no serve-probe dependency). */
+  requireLocalLoop?: boolean;
+  /** Assert Bun `--changed` import-graph title is stamped on the envelope. */
+  requireImportGraphTitle?: boolean;
+}
+
+/** Validate Artifact Portal build output for pre-push / --gate dry-run. */
+export function validatePortalConvergenceGate(
+  input: PortalConvergenceGateInput,
+  options: PortalConvergenceGateOptions = {}
+): { ok: boolean; errors: string[] } {
+  const errors: string[] = [];
+  const requireLocalLoop = options.requireLocalLoop === true;
+  const requireImportGraphTitle = options.requireImportGraphTitle === true;
+
+  if (!input.converged) {
+    errors.push("converged must be true");
+  }
+
+  const componentIds = input.convergedComponents.map((c) => c.id).sort();
+  const expected = [...CONVERGED_PORTAL_COMPONENTS].sort();
+  if (componentIds.join(",") !== expected.join(",")) {
+    errors.push(
+      `convergedComponents must be ${expected.join(", ")} (got ${componentIds.join(", ") || "none"})`
+    );
+  }
+
+  if (requireLocalLoop && input.benchmark.source !== "local-loop") {
+    errors.push(`benchmark.source must be local-loop (got ${input.benchmark.source})`);
+  }
+
+  if (requireImportGraphTitle) {
+    const title = input.changedImportGraphTitle;
+    if (typeof title !== "string" || title.length === 0) {
+      errors.push("changedImportGraphTitle must be a non-empty string");
+    } else if (!title.includes("--changed")) {
+      errors.push(`changedImportGraphTitle must reference --changed (got "${title}")`);
+    }
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+/** Paths that should trigger the portal convergence pre-push gate when changed vs base. */
+export const PORTAL_CONVERGENCE_CHANGED_PREFIXES = [
+  "src/lib/artifact-portal.ts",
+  "src/lib/artifact-portal-manifest.ts",
+  "src/lib/benchmark-convergence.ts",
+  "src/lib/benchmark-probe-client.ts",
+  "src/lib/config-status-probe-client.ts",
+  "src/lib/effect-benchmark-card.ts",
+  "src/lib/card-probe-server.ts",
+  "src/canvases/benchmark.manifest.ts",
+  "contracts/artifact-portal.json",
+  "herdr-plugin/benchmark-portal.ts",
+  "scripts/build-portal.ts",
+  "scripts/pre-push-portal.sh",
+  "templates/artifact-portal/",
+  "test/portal-convergence.unit.test.ts",
+  "test/artifact-portal.unit.test.ts",
+] as const;
+
+export function changedTouchesPortalConvergence(changed: readonly string[]): boolean {
+  return changed.some((file) =>
+    PORTAL_CONVERGENCE_CHANGED_PREFIXES.some((prefix) => file === prefix || file.startsWith(prefix))
+  );
+}

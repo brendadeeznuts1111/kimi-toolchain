@@ -56,7 +56,7 @@ command = ["bun", "install", "--filter", "./examples/dashboard"]
 id = "portal-convergence-check"
 title = "Portal Convergence Check"
 contexts = ["workspace"]
-command = ["bun", "run", "build:portal", "--dry-run"]
+command = ["bun", "run", "build:portal:gate"]
 
 [[actions]]
 id = "run-test-gates"

@@ -15,6 +15,7 @@ export const BENCHMARK_CARD_IDS = [
   "card-effect-benchmark",
   "card-perf-harness",
   "card-kimi-doctor",
+  "card-bun-test",
 ] as const;
 
 export type BenchmarkCardId = (typeof BENCHMARK_CARD_IDS)[number];

@@ -33,6 +33,7 @@ import {
   writeScopedGatePass,
 } from "./scoped-gate-cache.ts";
 import { changedIncludesTypeScript, filterFormatPaths, listChangedFiles } from "./check-changed.ts";
+import { changedTouchesPortalConvergence } from "./benchmark-convergence.ts";
 import { filterChangedTestPaths, shouldRunScopedLint } from "./check-lint-scoped.ts";
 import { buildBunTestArgs } from "./test-runtime.ts";
 import { isBunTestChangedEmptyOutput } from "./test-gates.ts";
@@ -82,7 +83,8 @@ export function planPreCommitTestArgs(staged: string[]): PreCommitTestPlan {
     (path) => /\.(ts|tsx|js|jsx|mjs|cjs)$/.test(path) && !stagedTestFileSet.has(path)
   );
   const base = {
-    timeoutMs: 1500,
+    // 1500ms is too tight for spawn-heavy suites under 4x parallel test:changed.
+    timeoutMs: 10_000,
     bail: true,
     retry: 2,
     dots: true,
@@ -613,6 +615,47 @@ async function runPerfChangedGate(projectRoot: string): Promise<GateResult> {
   ]);
 }
 
+async function shouldRunPortalConvergenceGate(projectRoot: string): Promise<boolean> {
+  if (Bun.env.KIMI_SKIP_PORTAL_GATE === "1") return false;
+  if (!(await isKimiToolchainRepo(projectRoot))) return false;
+  if (!pathExists(join(projectRoot, "scripts/build-portal.ts"))) return false;
+  if (Bun.env.KIMI_PORTAL_GATE_ALWAYS === "1" || Bun.env.KIMI_PRE_PUSH_FULL === "1") {
+    return true;
+  }
+  let changed = await listChangedFiles(projectRoot, "origin/main");
+  if (changed.length === 0) {
+    changed = await listChangedFiles(projectRoot, "main");
+  }
+  return changedTouchesPortalConvergence(changed);
+}
+
+export async function runPortalConvergenceGate(projectRoot: string): Promise<GateResult> {
+  if (!(await shouldRunPortalConvergenceGate(projectRoot))) {
+    return {
+      name: "portal:gate",
+      exitCode: 0,
+      ms: 0,
+      stdout: "",
+      stderr: "",
+      skipped: true,
+    };
+  }
+  if (await shouldSkipGate(projectRoot, "portal:gate")) {
+    return {
+      name: "portal:gate",
+      exitCode: 0,
+      ms: 0,
+      stdout: "",
+      stderr: "",
+      skipped: true,
+    };
+  }
+  const cmd = (await packageHasScript(projectRoot, "build:portal:gate"))
+    ? ["bun", "run", "build:portal:gate"]
+    : ["bun", "run", "scripts/build-portal.ts", "--gate"];
+  return runGateVisible(projectRoot, "portal:gate", cmd);
+}
+
 async function runChangedPushTestsGate(projectRoot: string): Promise<GateResult> {
   if (Bun.env.KIMI_PRE_PUSH_FULL === "1") {
     return {
@@ -821,6 +864,7 @@ async function runPrePushGatesSerial(
       runConstantDriftGate(projectRoot),
       runEffectGatesGate(projectRoot),
       runPerfChangedGate(projectRoot),
+      runPortalConvergenceGate(projectRoot),
     ])
   );
   if (fail !== null) return { results, fail };
@@ -917,6 +961,7 @@ export async function runPrePushGates(projectRoot: string): Promise<number> {
       () => runConstantDriftGate(projectRoot),
       () => runEffectGatesGate(projectRoot),
       () => runPerfChangedGate(projectRoot),
+      () => runPortalConvergenceGate(projectRoot),
       () => runRScoreGate(projectRoot),
       () => runCheckFastGate(projectRoot),
       () => runChangedPushTestsGate(projectRoot),
@@ -1133,6 +1178,18 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
       skipped:
         Bun.env.KIMI_SKIP_PERF_GATES === "1" ||
         (await shouldSkipGate(projectRoot, "perf:gates:changed")),
+    });
+  }
+
+  if (isToolchain && (await shouldRunPortalConvergenceGate(projectRoot))) {
+    const portalCmd = (await packageHasScript(projectRoot, "build:portal:gate"))
+      ? ["bun", "run", "build:portal:gate"]
+      : ["bun", "run", "scripts/build-portal.ts", "--gate"];
+    planned.push({
+      name: "portal:gate",
+      cmd: portalCmd,
+      skipped:
+        Bun.env.KIMI_SKIP_PORTAL_GATE === "1" || (await shouldSkipGate(projectRoot, "portal:gate")),
     });
   }
 

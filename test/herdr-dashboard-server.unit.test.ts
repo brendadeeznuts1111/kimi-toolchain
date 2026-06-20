@@ -1606,7 +1606,7 @@ describe("herdr-dashboard-server", () => {
                 reachable: boolean;
                 pass: number;
                 fail: number;
-                unknown: number;
+                skip: number;
                 url: string;
               };
               discovery: { status: string; workspaceId: string | null };

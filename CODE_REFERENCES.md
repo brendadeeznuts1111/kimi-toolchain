@@ -193,24 +193,24 @@ Do not import packages that are not declared in `package.json`. In this repo tha
 
 ## Testing References
 
-| Need                     | Reference                                                                      |
-| ------------------------ | ------------------------------------------------------------------------------ |
-| Bun test SSOT & tiers    | `src/lib/test-runtime.ts`, `test/test-runtime.unit.test.ts`, `test/testing.md` |
-| Test execution model     | `docs/references/testing-execution.md`, `BUN_TEST_EXECUTION_STRATEGY` in `test-runtime.ts` |
-| `--changed` import graph (portal) | `BUN_TEST_CHANGED_IMPORT_GRAPH`, `GET /api/bun-test`, `card-bun-test` |
-| Testing doc audit        | `src/lib/testing-docs-lint.ts`, `scripts/lint-testing-docs.ts`                 |
-| Markdown dead links      | `src/lib/markdown-dead-links-lint.ts`, `scripts/lint-markdown-links.ts`        |
-| Test file lists/timeouts | `src/lib/test-gates.ts`, `test/test-gates.unit.test.ts`                        |
-| Test naming & patterns   | `scripts/lint-test-names.ts`, `test/lint-test-names.unit.test.ts`              |
-| Tool runner behavior     | `test/tool-runner.unit.test.ts`                                                |
-| Effect CLI lifecycle     | `test/effect/cli-runtime.unit.test.ts`                                         |
-| Effect tool failures     | `test/effect/tool-runner-effect.unit.test.ts`                                  |
-| Effect CLI contract      | `test/effect/cli-contract-effect.unit.test.ts`                                 |
-| Config merge/idempotency | `test/mcp-config.unit.test.ts`                                                 |
-| Policy parser/diff       | `test/cloudflare-access-policy.unit.test.ts`                                   |
-| Test-gate lock guard     | `src/lib/test-run-guard.ts`                                                    |
-| Scaffold agent output    | `test/scaffold-agents.unit.test.ts`                                            |
-| Desktop sync drift       | `test/sync.unit.test.ts`, `test/sync-drift.unit.test.ts`                       |
+| Need                              | Reference                                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------------------------ |
+| Bun test SSOT & tiers             | `src/lib/test-runtime.ts`, `test/test-runtime.unit.test.ts`, `test/testing.md`             |
+| Test execution model              | `docs/references/testing-execution.md`, `BUN_TEST_EXECUTION_STRATEGY` in `test-runtime.ts` |
+| `--changed` import graph (portal) | `BUN_TEST_CHANGED_IMPORT_GRAPH`, `GET /api/bun-test`, `card-bun-test`                      |
+| Testing doc audit                 | `src/lib/testing-docs-lint.ts`, `scripts/lint-testing-docs.ts`                             |
+| Markdown dead links               | `src/lib/markdown-dead-links-lint.ts`, `scripts/lint-markdown-links.ts`                    |
+| Test file lists/timeouts          | `src/lib/test-gates.ts`, `test/test-gates.unit.test.ts`                                    |
+| Test naming & patterns            | `scripts/lint-test-names.ts`, `test/lint-test-names.unit.test.ts`                          |
+| Tool runner behavior              | `test/tool-runner.unit.test.ts`                                                            |
+| Effect CLI lifecycle              | `test/effect/cli-runtime.unit.test.ts`                                                     |
+| Effect tool failures              | `test/effect/tool-runner-effect.unit.test.ts`                                              |
+| Effect CLI contract               | `test/effect/cli-contract-effect.unit.test.ts`                                             |
+| Config merge/idempotency          | `test/mcp-config.unit.test.ts`                                                             |
+| Policy parser/diff                | `test/cloudflare-access-policy.unit.test.ts`                                               |
+| Test-gate lock guard              | `src/lib/test-run-guard.ts`                                                                |
+| Scaffold agent output             | `test/scaffold-agents.unit.test.ts`                                                        |
+| Desktop sync drift                | `test/sync.unit.test.ts`, `test/sync-drift.unit.test.ts`                                   |
 
 ## Cloudflare and MCP Boundaries
 

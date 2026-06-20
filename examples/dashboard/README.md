@@ -173,17 +173,17 @@ Identity filters on list endpoints: `sessionId`, `workspaceId`, `paneId`, `agent
 
 ### Isolation, transpiler & symbols
 
-| Method | Path                   | Response summary                           |
-| ------ | ---------------------- | ------------------------------------------ |
-| `GET`  | `/api/vm-context`      | Isolation factory + `vm.Context` roundtrip |
-| `GET`  | `/api/shadow-realm`    | `ShadowRealm` eval                         |
-| `GET`  | `/api/transpiler`      | `Bun.Transpiler` transform                 |
-| `GET`  | `/api/transpiler-scan` | Export scan                                |
-| `GET`  | `/api/extract-methods` | Method extraction                          |
-| `GET`  | `/api/symbols`         | Symbol registry                            |
-| `GET`  | `/api/global-store`    | Global store effect                        |
-| `GET`  | `/api/metrics-schema`  | Metrics schema validation                  |
-| `GET`  | `/api/trace-verify`    | Trace verification                         |
+| Method | Path                   | Response summary                                                            |
+| ------ | ---------------------- | --------------------------------------------------------------------------- |
+| `GET`  | `/api/vm-context`      | Isolation factory + `vm.Context` roundtrip                                  |
+| `GET`  | `/api/shadow-realm`    | `ShadowRealm` eval                                                          |
+| `GET`  | `/api/transpiler`      | `Bun.Transpiler` transform                                                  |
+| `GET`  | `/api/transpiler-scan` | Export scan                                                                 |
+| `GET`  | `/api/extract-methods` | Method extraction                                                           |
+| `GET`  | `/api/symbols`         | Symbol registry                                                             |
+| `GET`  | `/api/global-store`    | Global store effect                                                         |
+| `GET`  | `/api/metrics-schema`  | Metrics schema validation                                                   |
+| `GET`  | `/api/trace-verify`    | Trace verification                                                          |
 | `GET`  | `/api/bun-test`        | `bun test` demo + `--changed` import-graph mechanics (`changedImportGraph`) |
 
 ### Artifact lineage & diff (`#card-artifacts`)

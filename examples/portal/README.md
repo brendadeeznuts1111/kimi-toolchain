@@ -65,10 +65,10 @@ curl -s http://127.0.0.1:5678/api/effect-benchmark | jq '.runner, .summary'
 
 ## Output
 
-| Artifact kind              | Gate              | Purpose                                     |
-| -------------------------- | ----------------- | ------------------------------------------- |
-| `benchmark-diagnostics`    | `artifact-portal` | Full `BenchmarkApiEnvelope` from probe/loop |
-| `artifact-portal-manifest` | `artifact-portal` | Build index — paths, contract, canvas link  |
+| Artifact kind              | Gate              | Purpose                                                                                            |
+| -------------------------- | ----------------- | -------------------------------------------------------------------------------------------------- |
+| `benchmark-diagnostics`    | `artifact-portal` | Full `BenchmarkApiEnvelope` from probe/loop (includes `metadata.testExecution.changedImportGraph`) |
+| `artifact-portal-manifest` | `artifact-portal` | Build index — paths, contract, canvas link                                                         |
 
 ```bash
 kimi-doctor --artifacts-latest artifact-portal
@@ -80,6 +80,7 @@ kimi-doctor --artifacts-lineage artifact-portal --json
 ```
 http://127.0.0.1:5678/?example=portal&canvas=benchmark
 http://127.0.0.1:5678/?canvas=benchmark
+http://127.0.0.1:5678/?canvas=benchmark#card-bun-test
 ```
 
 Showcase hub: `GET /api/examples?id=portal`

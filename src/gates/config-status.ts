@@ -5,10 +5,7 @@
  * optional scaffold alignment. Integrated into serve-probe as a live card.
  */
 
-import {
-  auditConfigLayersStatus,
-  type ConfigStatusReport,
-} from "../lib/config-status.ts";
+import { auditConfigLayersStatus, type ConfigStatusReport } from "../lib/config-status.ts";
 import type { Gate, GateResult, GateRunOptions, GateStatus } from "./types.ts";
 
 export interface ConfigStatusGateResult extends GateResult {
@@ -49,9 +46,7 @@ export const configStatusGateDefinition: Gate = {
   run: runConfigStatusGate,
   format: (result) => {
     const row = result as ConfigStatusGateResult;
-    const summary = row.report.gates
-      .map((gate) => `${gate.id}: ${gate.status}`)
-      .join(", ");
+    const summary = row.report.gates.map((gate) => `${gate.id}: ${gate.status}`).join(", ");
     return [
       `${row.status}: config-status — ${row.report.gates.length} layer(s) audited`,
       `       └─ ${summary}`,

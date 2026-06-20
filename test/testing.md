@@ -26,15 +26,15 @@ Preload:               bunfig.toml [test].preload → test/setup.ts
 
 ## Entry points
 
-| Command                  | Selection              | Implementation                                 | When to use                                      |
-| ------------------------ | ---------------------- | ---------------------------------------------- | ------------------------------------------------ |
-| `bun run test:fast`      | Explicit unit files    | `scripts/test-fast.ts` → `runTestTier("unit")` | Default iteration; `check:fast`                  |
-| `bun run test:changed`   | Git import graph       | `scripts/test-changed.ts`                      | Pre-commit; only impacted tests                  |
-| `bun run test:parallel`  | Full discovery         | bare `bun test`                                | Full suite locally; breadth safety net           |
-| `bun run test:shard`     | Full discovery + shard | bare `bun test` + `--shard`                    | CI matrix; `BUN_TEST_SHARD=M/N` locally          |
-| `bun run test`           | Explicit per tier      | `scripts/test-run.ts` → `runAllTestTiers`      | Full suite: unit → integration → smoke           |
-| `bun test <file>`        | Single file            | Bare Bun discovery                             | Single-file debug                                |
-| `bun test`               | Full discovery         | Bare Bun discovery                             | Avoid in CI; use tier scripts                    |
+| Command                 | Selection              | Implementation                                 | When to use                             |
+| ----------------------- | ---------------------- | ---------------------------------------------- | --------------------------------------- |
+| `bun run test:fast`     | Explicit unit files    | `scripts/test-fast.ts` → `runTestTier("unit")` | Default iteration; `check:fast`         |
+| `bun run test:changed`  | Git import graph       | `scripts/test-changed.ts`                      | Pre-commit; only impacted tests         |
+| `bun run test:parallel` | Full discovery         | bare `bun test`                                | Full suite locally; breadth safety net  |
+| `bun run test:shard`    | Full discovery + shard | bare `bun test` + `--shard`                    | CI matrix; `BUN_TEST_SHARD=M/N` locally |
+| `bun run test`          | Explicit per tier      | `scripts/test-run.ts` → `runAllTestTiers`      | Full suite: unit → integration → smoke  |
+| `bun test <file>`       | Single file            | Bare Bun discovery                             | Single-file debug                       |
+| `bun test`              | Full discovery         | Bare Bun discovery                             | Avoid in CI; use tier scripts           |
 
 See [testing-execution.md](../docs/references/testing-execution.md) for the four-script model, `--changed` limitations, and why `describe` is presentation-only for sharding/parallelism.
 

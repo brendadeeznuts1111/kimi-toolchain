@@ -6,6 +6,7 @@ import {
   planPreCommitTestArgs,
   prePushRunsInParallel,
   runConstantDriftGate,
+  runPortalConvergenceGate,
   runPreCommitGates,
 } from "../src/lib/hook-gates.ts";
 import {
@@ -16,6 +17,9 @@ import {
 import { detectSyncDrift } from "../src/lib/sync-hashes.ts";
 import { writeConstantsGolden } from "../src/lib/constants-heal.ts";
 import { testTempDir, withClearedEnv, withEnv, ensureTestDir } from "./helpers.ts";
+
+/** Git init + pre-commit gate subprocesses need headroom under parallel test:changed. */
+const PRE_COMMIT_GATE_TEST_MS = 30_000;
 
 describe("hook-gates constant drift", () => {
   let projectDir: string;
@@ -100,6 +104,16 @@ KIMI_TUNING_SET_VERSION = '"1.0.0"'
     });
   });
 
+  it("should skip portal gate for non-toolchain repos", async () => {
+    writeText(
+      join(projectDir, "package.json"),
+      JSON.stringify({ name: "other-project", scripts: {} })
+    );
+    const result = await runPortalConvergenceGate(projectDir);
+    expect(result.skipped).toBe(true);
+    expect(result.exitCode).toBe(0);
+  });
+
   it("prePushRunsInParallel defaults true unless KIMI_PRE_PUSH_SERIAL=1", () => {
     withClearedEnv(["KIMI_PRE_PUSH_SERIAL"], () => {
       expect(prePushRunsInParallel()).toBe(true);
@@ -175,116 +189,130 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
     });
   });
 
-  it("pre-commit skips test:fast when scoped test cache covers staged files", async () => {
-    await withClearedEnv(["KIMI_HOOK_SUMMARY"], async () => {
-      const scopedDir = testTempDir("hook-scoped-pass-");
-      await $`git init`.cwd(scopedDir).nothrow().quiet();
-      await $`git config user.email test@example.com`.cwd(scopedDir).nothrow().quiet();
-      await $`git config user.name Test`.cwd(scopedDir).nothrow().quiet();
-      ensureTestDir(join(scopedDir, "src"));
-      await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 1;\n");
-      writeText(
-        join(scopedDir, "package.json"),
-        JSON.stringify({
-          name: "other-project",
-          scripts: {
-            "format:check": "true",
-            lint: "true",
-            typecheck: "true",
-            "test:fast": "exit 1",
-          },
-        })
-      );
-      await $`git add -A`.cwd(scopedDir).nothrow().quiet();
-      await $`git commit -m init`.cwd(scopedDir).nothrow().quiet();
+  describe.serial("pre-commit subprocess gates", () => {
+    it(
+      "pre-commit skips test:fast when scoped test cache covers staged files",
+      async () => {
+        await withClearedEnv(["KIMI_HOOK_SUMMARY"], async () => {
+          const scopedDir = testTempDir("hook-scoped-pass-");
+          await $`git init`.cwd(scopedDir).nothrow().quiet();
+          await $`git config user.email test@example.com`.cwd(scopedDir).nothrow().quiet();
+          await $`git config user.name Test`.cwd(scopedDir).nothrow().quiet();
+          ensureTestDir(join(scopedDir, "src"));
+          await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 1;\n");
+          writeText(
+            join(scopedDir, "package.json"),
+            JSON.stringify({
+              name: "other-project",
+              scripts: {
+                "format:check": "true",
+                lint: "true",
+                typecheck: "true",
+                "test:fast": "exit 1",
+              },
+            })
+          );
+          await $`git add -A`.cwd(scopedDir).nothrow().quiet();
+          await $`git commit -m init`.cwd(scopedDir).nothrow().quiet();
 
-      await writeScopedTestCache(scopedDir, ["src/foo.ts"], "main");
-      await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 2;\n");
-      await $`git add src/foo.ts`.cwd(scopedDir).nothrow().quiet();
+          await writeScopedTestCache(scopedDir, ["src/foo.ts"], "main");
+          await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 2;\n");
+          await $`git add src/foo.ts`.cwd(scopedDir).nothrow().quiet();
 
-      const staged = await listStagedPaths(scopedDir);
-      expect(staged).toEqual(["src/foo.ts"]);
-      expect(await shouldSkipTestFastFromScopedCache(scopedDir, staged)).toBe(true);
+          const staged = await listStagedPaths(scopedDir);
+          expect(staged).toEqual(["src/foo.ts"]);
+          expect(await shouldSkipTestFastFromScopedCache(scopedDir, staged)).toBe(true);
 
-      const code = await runPreCommitGates(scopedDir);
-      expect(code).toBe(0);
-      removePath(scopedDir, { recursive: true, force: true });
-    });
-  });
+          const code = await runPreCommitGates(scopedDir);
+          expect(code).toBe(0);
+          removePath(scopedDir, { recursive: true, force: true });
+        });
+      },
+      PRE_COMMIT_GATE_TEST_MS
+    );
 
-  it("pre-commit runs canonical references check when script exists", async () => {
-    await withClearedEnv(["KIMI_HOOK_SUMMARY"], async () => {
-      const scopedDir = testTempDir("hook-canonical-check-");
-      await $`git init`.cwd(scopedDir).nothrow().quiet();
-      await $`git config user.email test@example.com`.cwd(scopedDir).nothrow().quiet();
-      await $`git config user.name Test`.cwd(scopedDir).nothrow().quiet();
-      ensureTestDir(join(scopedDir, "src"));
-      makeDir(join(scopedDir, "scripts"), { recursive: true });
-      await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 1;\n");
-      writeText(
-        join(scopedDir, "scripts/generate-canonical-references.ts"),
-        "await Bun.write('canonical-ran.txt', 'yes\\n');\n"
-      );
-      writeText(
-        join(scopedDir, "package.json"),
-        JSON.stringify({
-          name: "other-project",
-          scripts: {
-            "format:check": "true",
-            lint: "true",
-            typecheck: "true",
-            "test:fast": "true",
-          },
-        })
-      );
-      await $`git add -A`.cwd(scopedDir).nothrow().quiet();
-      await $`git commit -m init`.cwd(scopedDir).nothrow().quiet();
-      await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 2;\n");
-      await $`git add src/foo.ts`.cwd(scopedDir).nothrow().quiet();
+    it(
+      "pre-commit runs canonical references check when script exists",
+      async () => {
+        await withClearedEnv(["KIMI_HOOK_SUMMARY"], async () => {
+          const scopedDir = testTempDir("hook-canonical-check-");
+          await $`git init`.cwd(scopedDir).nothrow().quiet();
+          await $`git config user.email test@example.com`.cwd(scopedDir).nothrow().quiet();
+          await $`git config user.name Test`.cwd(scopedDir).nothrow().quiet();
+          ensureTestDir(join(scopedDir, "src"));
+          makeDir(join(scopedDir, "scripts"), { recursive: true });
+          await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 1;\n");
+          writeText(
+            join(scopedDir, "scripts/generate-canonical-references.ts"),
+            "await Bun.write('canonical-ran.txt', 'yes\\n');\n"
+          );
+          writeText(
+            join(scopedDir, "package.json"),
+            JSON.stringify({
+              name: "other-project",
+              scripts: {
+                "format:check": "true",
+                lint: "true",
+                typecheck: "true",
+                "test:fast": "true",
+              },
+            })
+          );
+          await $`git add -A`.cwd(scopedDir).nothrow().quiet();
+          await $`git commit -m init`.cwd(scopedDir).nothrow().quiet();
+          await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 2;\n");
+          await $`git add src/foo.ts`.cwd(scopedDir).nothrow().quiet();
 
-      const code = await runPreCommitGates(scopedDir);
+          const code = await runPreCommitGates(scopedDir);
 
-      expect(code).toBe(0);
-      expect(await Bun.file(join(scopedDir, "canonical-ran.txt")).text()).toBe("yes\n");
-      removePath(scopedDir, { recursive: true, force: true });
-    });
-  });
+          expect(code).toBe(0);
+          expect(await Bun.file(join(scopedDir, "canonical-ran.txt")).text()).toBe("yes\n");
+          removePath(scopedDir, { recursive: true, force: true });
+        });
+      },
+      PRE_COMMIT_GATE_TEST_MS
+    );
 
-  it("pre-commit skips test:fast when bun test --changed finds no matching tests", async () => {
-    await withClearedEnv(["KIMI_HOOK_SUMMARY"], async () => {
-      const scopedDir = testTempDir("hook-scoped-fail-");
-      await $`git init`.cwd(scopedDir).nothrow().quiet();
-      await $`git config user.email test@example.com`.cwd(scopedDir).nothrow().quiet();
-      await $`git config user.name Test`.cwd(scopedDir).nothrow().quiet();
-      ensureTestDir(join(scopedDir, "src"));
-      await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 1;\n");
-      writeText(
-        join(scopedDir, "package.json"),
-        JSON.stringify({
-          name: "other-project",
-          scripts: {
-            "format:check": "true",
-            lint: "true",
-            typecheck: "true",
-            "test:fast": "true",
-          },
-        })
-      );
-      await $`git add -A`.cwd(scopedDir).nothrow().quiet();
-      await $`git commit -m init`.cwd(scopedDir).nothrow().quiet();
+    it(
+      "pre-commit skips test:fast when bun test --changed finds no matching tests",
+      async () => {
+        await withClearedEnv(["KIMI_HOOK_SUMMARY"], async () => {
+          const scopedDir = testTempDir("hook-scoped-fail-");
+          await $`git init`.cwd(scopedDir).nothrow().quiet();
+          await $`git config user.email test@example.com`.cwd(scopedDir).nothrow().quiet();
+          await $`git config user.name Test`.cwd(scopedDir).nothrow().quiet();
+          ensureTestDir(join(scopedDir, "src"));
+          await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 1;\n");
+          writeText(
+            join(scopedDir, "package.json"),
+            JSON.stringify({
+              name: "other-project",
+              scripts: {
+                "format:check": "true",
+                lint: "true",
+                typecheck: "true",
+                "test:fast": "true",
+              },
+            })
+          );
+          await $`git add -A`.cwd(scopedDir).nothrow().quiet();
+          await $`git commit -m init`.cwd(scopedDir).nothrow().quiet();
 
-      await writeScopedTestCache(scopedDir, ["src/foo.ts"], "main");
-      await Bun.write(join(scopedDir, "src/other.ts"), "export const z = 3;\n");
-      await $`git add src/other.ts`.cwd(scopedDir).nothrow().quiet();
+          await writeScopedTestCache(scopedDir, ["src/foo.ts"], "main");
+          await Bun.write(join(scopedDir, "src/other.ts"), "export const z = 3;\n");
+          await $`git add src/other.ts`.cwd(scopedDir).nothrow().quiet();
 
-      // src/other.ts is not in scoped cache, so cache skip won't trigger.
-      // bun test --changed=HEAD with 0 matching test files must skip (not fail).
-      // Matcher: isBunTestChangedEmptyOutput — Bun message strings drift across versions.
-      expect(await shouldSkipTestFastFromScopedCache(scopedDir, ["src/other.ts"])).toBe(false);
+          // src/other.ts is not in scoped cache, so cache skip won't trigger.
+          // bun test --changed=HEAD with 0 matching test files must skip (not fail).
+          // Matcher: isBunTestChangedEmptyOutput — Bun message strings drift across versions.
+          expect(await shouldSkipTestFastFromScopedCache(scopedDir, ["src/other.ts"])).toBe(false);
 
-      const code = await runPreCommitGates(scopedDir);
-      expect(code).toBe(0);
-      removePath(scopedDir, { recursive: true, force: true });
-    });
+          const code = await runPreCommitGates(scopedDir);
+          expect(code).toBe(0);
+          removePath(scopedDir, { recursive: true, force: true });
+        });
+      },
+      PRE_COMMIT_GATE_TEST_MS
+    );
   });
 });

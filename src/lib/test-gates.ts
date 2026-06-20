@@ -179,7 +179,6 @@ export const UNIT_TEST_FILES = [
   "test/error-suggest.unit.test.ts",
   "test/constant-optimizer.unit.test.ts",
   "test/optimizer-doctor.unit.test.ts",
-  "test/hook-gates.unit.test.ts",
   "test/optimizer-health-trend.unit.test.ts",
   "test/decision-list-diff.unit.test.ts",
   "test/taxonomy-coverage.unit.test.ts",
@@ -313,9 +312,10 @@ export const UNIT_TEST_FILES = [
   "test/scoped-test-cache.unit.test.ts",
   "test/self-healing.unit.test.ts",
   "test/toolchain-paths.unit.test.ts",
-  // IPC/cron + mock.module — single-file fast chunks (--isolate multi-file batches can hang)
+  // IPC/cron + mock.module + git subprocess gates — single-file fast chunks (--isolate batches can hang)
   "test/herdr-dashboard-server.unit.test.ts",
   "test/herdr-remote-host-probe.unit.test.ts",
+  "test/hook-gates.unit.test.ts",
 ] as const;
 
 export const FAST_TEST_CHUNK_SIZE = 10;

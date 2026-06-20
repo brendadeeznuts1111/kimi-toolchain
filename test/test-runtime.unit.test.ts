@@ -564,9 +564,7 @@ test(${JSON.stringify(ex.name)}, (done) => {
       expect(BUN_TEST_CHANGED_IMPORT_GRAPH.title).toContain("--changed");
       expect(BUN_TEST_CHANGED_IMPORT_GRAPH.pipeline).toHaveLength(4);
       expect(BUN_TEST_CHANGED_IMPORT_GRAPH.safetyNet.scripts).toContain("test:parallel");
-      expect(BUN_TEST_EXECUTION_STRATEGY.referenceDoc).toBe(
-        "docs/references/testing-execution.md"
-      );
+      expect(BUN_TEST_EXECUTION_STRATEGY.referenceDoc).toBe("docs/references/testing-execution.md");
       expect(BUN_TEST_EXECUTION_STRATEGY.distributionUnit).toBe("test-file-not-describe-block");
       expect(BUN_TEST_EXECUTION_STRATEGY.primaryScripts).toEqual([
         "test:fast",

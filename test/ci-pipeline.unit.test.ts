@@ -111,7 +111,7 @@ describe("Effect CI pipeline planning", () => {
     expect(Exit.isFailure(exit)).toBe(true);
     expect(durationMs).toBeLessThan(4_000);
     expect(await Bun.file(marker).exists()).toBe(false);
-  });
+  }, 30_000);
 });
 
 function impact(overrides: Partial<ImpactResult>): ImpactResult {

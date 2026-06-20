@@ -55,8 +55,9 @@ describe("dashboard-card-registry", () => {
 
   test("loadDashboardCardRegistry matches dashboard.html card count", () => {
     const registry = buildDashboardCardRegistry(REPO_ROOT);
-    expect(registry.length).toBe(67);
+    expect(registry.length).toBe(68);
     expect(registry.some((c) => c.id === "card-kimi-doctor")).toBe(true);
+    expect(registry.some((c) => c.id === "card-config-status")).toBe(true);
   });
 
   test("lintCanvasInfluences passes for all manifest canvas rows", () => {
@@ -92,12 +93,15 @@ describe("dashboard-card-registry", () => {
     expect(registry.find((c) => c.id === "card-build")?.apiRoute).toBe("/api/build-info");
     expect(registry.find((c) => c.id === "card-depth")?.apiRoute).toBe("/api/console-depth");
     expect(registry.find((c) => c.id === "card-semver")?.apiRoute).toBe("/api/semver");
+    expect(registry.find((c) => c.id === "card-config-status")?.apiRoute).toBe(
+      "/api/config-status"
+    );
   });
 
   test("fetchDashboardCardsPayload ignores unrecognized canvas query", async () => {
     const all = await fetchDashboardCardsPayload(REPO_ROOT, {});
     const unknown = await fetchDashboardCardsPayload(REPO_ROOT, { canvas: "nonexistent-canvas" });
-    expect(unknown.total).toBe(67);
+    expect(unknown.total).toBe(68);
     expect(unknown.filter.recognized).toBe(false);
     expect(unknown.filter.manifestId).toBeNull();
     expect(unknown.cards.map((c) => c.id).sort()).toEqual(all.cards.map((c) => c.id).sort());

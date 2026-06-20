@@ -100,6 +100,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     docs: "https://effect.website/docs",
     package: "effect",
     usage: "Typed errors, CLI/runtime adapters, and Herdr pane orchestration in src/lib/effect/",
+    minVersion: "3.21.3",
   },
   {
     id: "kimi-code",
@@ -147,13 +148,24 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
       "Global Bun dev platform — `dx config`, `dx mcp-status`, `dx.config.toml` herdr/finishWork",
   },
   {
+    id: "js-yaml",
+    name: "js-yaml",
+    kind: "library",
+    homepage: "https://github.com/nodeca/js-yaml",
+    docs: "https://github.com/nodeca/js-yaml#readme",
+    package: "js-yaml",
+    usage:
+      "YAML parsing for error-taxonomy.yml and config files; minimal runtime dependency alongside effect",
+    minVersion: "4.1.0",
+  },
+  {
     id: "oxc",
     name: "Oxc (oxfmt / oxlint)",
     kind: "library",
     homepage: "https://oxc.rs",
     docs: "https://oxc.rs/docs/guide/usage/formatter.html",
     package: "oxfmt",
-    usage: "Format and lint gates — no ESLint in this repo",
+    usage: "Format (oxfmt) and lint (oxlint) gates — no ESLint/Prettier in this repo",
   },
 ] as const;
 
@@ -410,8 +422,8 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
   },
   {
     id: "gate-health",
-    repoPath: "docs/references/kimi-doctor.md",
-    runtimePath: "~/.kimi-code/docs/references/kimi-doctor.md",
+    repoPath: "docs/references/serve-probe.md",
+    runtimePath: "~/.kimi-code/docs/references/serve-probe.md",
     purpose:
       "Live Herdr dashboard gate-health overlay — effect-gates probe, browser poll, server watch",
     cursorCanvas: "docs/canvases/gate-health.canvas.tsx",
@@ -425,8 +437,8 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
   },
   {
     id: "benchmark",
-    repoPath: "docs/references/serve-probe.md",
-    runtimePath: "~/.kimi-code/docs/references/serve-probe.md",
+    repoPath: "docs/references/kimi-doctor.md",
+    runtimePath: "~/.kimi-code/docs/references/kimi-doctor.md",
     purpose:
       "BenchmarkApiEnvelope SSOT — runEffectBenchmarkCardLoop shared by CLI, dashboard, and serve-probe",
     cursorCanvas: "docs/canvases/benchmark.canvas.tsx",
@@ -437,6 +449,34 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     canvasOpenWhen: "GET /api/effect-benchmark · serve-probe · 30s poll",
     canvasReadOrder: 13,
     canvasInfluences: ["card-effect-benchmark", "card-perf-harness", "card-kimi-doctor"],
+  },
+  {
+    id: "agent-api",
+    repoPath: "docs/agent-api.md",
+    runtimePath: "~/.kimi-code/docs/agent-api.md",
+    purpose:
+      "Effect-native agent API surface: KimiCapabilities, KimiTrace, KimiContract, DecisionLogger services — use instead of CLI shelling out inside Effect programs",
+  },
+  {
+    id: "finish-work-close-loop",
+    repoPath: "docs/finish-work-close-loop.md",
+    runtimePath: "~/.kimi-code/docs/finish-work-close-loop.md",
+    purpose:
+      "Finish-work close-loop architecture: gates → git → dirty check → reviewer escalation → orchestrator signal; dx.config.toml [finishWork] and [herdr.orchestrator] wiring",
+  },
+  {
+    id: "handoff-rules",
+    repoPath: "docs/handoff-rules.md",
+    runtimePath: "~/.kimi-code/docs/handoff-rules.md",
+    purpose:
+      "Herdr orchestrator handoff rules: TOML format, condition syntax (done/blocked/idle/probe:*), report-native when-clauses, and cross-workspace agent routing",
+  },
+  {
+    id: "naming",
+    repoPath: "docs/naming.md",
+    runtimePath: "~/.kimi-code/docs/naming.md",
+    purpose:
+      "CLI naming notes and deprecation register: --session-report → --effect-floor; kimi-doctor vs herdr-doctor vs kimi doctor disambiguation shortcuts",
   },
   {
     id: "canonical-references",
@@ -462,6 +502,11 @@ export const REPO_REFERENCES: readonly RepoReference[] = [
     id: "effect-upstream",
     name: "Effect",
     url: "https://github.com/Effect-TS/effect",
+  },
+  {
+    id: "oxc-upstream",
+    name: "Oxc",
+    url: "https://github.com/oxc-project/oxc",
   },
 ] as const;
 

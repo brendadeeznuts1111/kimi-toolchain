@@ -21,11 +21,34 @@
           "summary",
           "sparklines",
           "gates.effectBenchmarkGate",
-          "metadata"
+          "metadata",
+          "metadata.convergence",
+          "metadata.testExecution.changedImportGraph"
         ],
-        "runners": ["serve-probe", "kimi-doctor", "dashboard"]
+        "runners": ["serve-probe", "kimi-doctor", "dashboard", "artifact-portal"]
       },
-      "influences": ["card-effect-benchmark", "card-perf-harness", "card-kimi-doctor"]
+      "influences": [
+        "card-effect-benchmark",
+        "card-perf-harness",
+        "card-kimi-doctor",
+        "card-bun-test"
+      ],
+      "companionRoutes": {
+        "bunTest": "/api/bun-test",
+        "importGraphField": "metadata.testExecution.changedImportGraph"
+      }
+    },
+    "configStatus": {
+      "type": "config-status-diagnostics",
+      "canvasId": "benchmark",
+      "probeRoute": "/api/config-status",
+      "cli": "kimi-doctor --gate config-status --save-artifact",
+      "envelope": {
+        "schemaVersion": 1,
+        "required": ["tool", "schemaVersion", "aligned", "gates"],
+        "tools": ["config-status"]
+      },
+      "influences": ["card-config-status"]
     }
   },
   "convergence": {

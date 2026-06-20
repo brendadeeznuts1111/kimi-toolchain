@@ -26,7 +26,7 @@ export interface CardProbeSummary {
   total: number;
   pass: number;
   fail: number;
-  unknown: number;
+  skip: number;
 }
 
 export interface CardProbeCliOptions {
@@ -89,14 +89,10 @@ function logProbeSummary(
 ): void {
   if (!log) return;
   log(
-    `Card probes: ${summary.pass} pass · ${summary.fail} fail · ${summary.unknown} unknown (${summary.total} total)`
+    `Card probes: ${summary.pass} pass · ${summary.fail} fail · ${summary.skip} skip (${summary.total} total)`
   );
-  if (strict && summary.fail + summary.unknown > 0) {
-    log("Strict mode: exiting 1 because at least one card is not pass");
-  } else if (summary.unknown > 0) {
-    log(
-      "Hint: set EXAMPLES_DASHBOARD_URL / HERDR_DASHBOARD_URL or start dashboards on ports 5678 / 18412"
-    );
+  if (strict && summary.fail > 0) {
+    log("Strict mode: exiting 1 because at least one card is failing");
   }
 }
 
@@ -128,6 +124,7 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
       url: handle.url,
       saveArtifact: options.saveArtifact === true,
       artifactPath: handle.getLastArtifactPath(),
+      configStatusArtifactPath: handle.getLastConfigStatusArtifactPath(),
       configStatus: handle.getConfigStatus(),
     });
 
@@ -137,6 +134,9 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
       log?.(`Probe server warmed at ${handle.url}`);
       if (options.saveArtifact && handle.getLastArtifactPath()) {
         log?.(`  Artifact: ${handle.getLastArtifactPath()}`);
+      }
+      if (options.saveArtifact && handle.getLastConfigStatusArtifactPath()) {
+        log?.(`  Config artifact: ${handle.getLastConfigStatusArtifactPath()}`);
       }
       log?.(formatCardProbeTable(statuses));
       logProbeSummary(log, summary, strict);
@@ -160,6 +160,7 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
       url: handle.url,
       saveArtifact: options.saveArtifact === true,
       artifactPath: handle.getLastArtifactPath(),
+      configStatusArtifactPath: handle.getLastConfigStatusArtifactPath(),
       configStatus: handle.getConfigStatus(),
       routes: PROBE_SERVER_ROUTES.map((route) => ({
         path: route.path,
@@ -177,6 +178,9 @@ export async function runCardProbeCli(options: CardProbeCliOptions): Promise<Car
       );
       if (options.saveArtifact && handle.getLastArtifactPath()) {
         log?.(`  Artifact: ${handle.getLastArtifactPath()}`);
+      }
+      if (options.saveArtifact && handle.getLastConfigStatusArtifactPath()) {
+        log?.(`  Config artifact: ${handle.getLastConfigStatusArtifactPath()}`);
       }
       logProbeSummary(log, summary, false);
     }

@@ -684,7 +684,7 @@ export interface DashboardProbeCardsPayload {
   ok: boolean;
   url: string;
   reachable: boolean;
-  summary?: { pass: number; fail: number; unknown: number; total: number };
+  summary?: { pass: number; fail: number; skip: number; total: number };
   fetchedAt?: string;
   cards?: unknown[];
   error?: string;
@@ -1720,7 +1720,7 @@ export interface DashboardProbeHealthCheck extends DashboardHealthCheck {
   reachable: boolean;
   pass: number;
   fail: number;
-  unknown: number;
+  skip: number;
 }
 
 export interface DashboardHealthPayload {
@@ -1744,7 +1744,7 @@ export interface DashboardHealthInput {
   herdrEnabled: boolean;
   gateFailed: boolean | null;
   discoveryWorkspaceId: string | null;
-  probe?: Pick<DashboardProbeHealthCheck, "url" | "reachable" | "pass" | "fail" | "unknown">;
+  probe?: Pick<DashboardProbeHealthCheck, "url" | "reachable" | "pass" | "fail" | "skip">;
 }
 
 /** Lightweight health snapshot for the Herdr dashboard header/summary cards. */
@@ -1799,23 +1799,17 @@ export function fetchDashboardHealth(input: DashboardHealthInput): DashboardHeal
   const probeInput = input.probe;
   const probePass = probeInput?.pass ?? 0;
   const probeFail = probeInput?.fail ?? 0;
-  const probeUnknown = probeInput?.unknown ?? 0;
+  const probeSkip = probeInput?.skip ?? 0;
   const probe: DashboardProbeHealthCheck = {
-    status: !probeInput?.reachable
-      ? "unknown"
-      : probeFail > 0
-        ? "error"
-        : probeUnknown > 0
-          ? "warn"
-          : "ok",
+    status: !probeInput?.reachable ? "unknown" : probeFail > 0 ? "error" : "ok",
     url: probeInput?.url ?? "",
     reachable: probeInput?.reachable === true,
     pass: probePass,
     fail: probeFail,
-    unknown: probeUnknown,
+    skip: probeSkip,
     message: !probeInput?.reachable
       ? "serve-probe offline"
-      : `${probePass} pass · ${probeFail} fail · ${probeUnknown} unknown`,
+      : `${probePass} pass · ${probeFail} fail · ${probeSkip} skip`,
   };
 
   const ok =
@@ -1846,7 +1840,7 @@ export async function fetchDashboardProbeHealthInput(
       reachable: false,
       pass: 0,
       fail: 0,
-      unknown: 0,
+      skip: 0,
     };
   }
   return {
@@ -1854,7 +1848,7 @@ export async function fetchDashboardProbeHealthInput(
     reachable: true,
     pass: cards.summary.pass,
     fail: cards.summary.fail,
-    unknown: cards.summary.unknown,
+    skip: cards.summary.skip,
   };
 }
 

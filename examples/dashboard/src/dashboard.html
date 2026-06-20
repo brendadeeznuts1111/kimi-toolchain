@@ -807,6 +807,10 @@
         <h2>Effect Benchmarks</h2>
         <div class="loading">Loading…</div>
       </div>
+      <div class="card" id="card-config-status">
+        <h2>Config Status</h2>
+        <div class="loading">Loading…</div>
+      </div>
       <div class="card" id="card-perf-auto-discover">
         <h2>Auto-Discover</h2>
         <div class="loading">Loading…</div>
@@ -884,7 +888,7 @@
         <div class="loading">Loading…</div>
       </div>
       <div class="card" id="card-bun-test">
-        <h2>bun:test</h2>
+        <h2>bun:test · --changed import graph</h2>
         <div class="loading">Loading…</div>
       </div>
       <div class="card" id="card-build-compile">
@@ -1408,10 +1412,15 @@
             const cards = await fetchJson("/api/cards?probe=true");
             const ok = cards.cards.filter((c) => c.status === "ok").length;
             const total = settings?.cardCount ?? cards.total;
-            let sub = `${total - ok} failing or unknown`;
+            let sub = `${total - ok} not passing`;
             if (probeCards?.cards) {
               const probeOk = probeCards.cards.filter((c) => c.status === "pass").length;
+              const probeFail = probeCards.cards.filter((c) => c.status === "fail").length;
+              const probeSkip = probeCards.cards.filter((c) => c.status === "skip").length;
               sub += ` · probe ${probeOk}/${probeCards.total} pass`;
+              if (probeFail > 0 || probeSkip > 0) {
+                sub += ` (${probeFail} fail · ${probeSkip} skip)`;
+              }
             }
             setStat("cards", `${ok}/${total}`, "cards passing",
               sub, `dashboard · refreshed ${now}`,
@@ -1522,10 +1531,15 @@
               const cards = await fetchJson("/api/cards?probe=true");
               const ok = cards.cards.filter((c) => c.status === "ok").length;
               const total = settings?.cardCount ?? cards.total;
-              let sub = `${total - ok} failing or unknown`;
+              let sub = `${total - ok} not passing`;
               if (probeCards?.cards) {
                 const probeOk = probeCards.cards.filter((c) => c.status === "pass").length;
+                const probeFail = probeCards.cards.filter((c) => c.status === "fail").length;
+                const probeSkip = probeCards.cards.filter((c) => c.status === "skip").length;
                 sub += ` · probe ${probeOk}/${probeCards.total} pass`;
+                if (probeFail > 0 || probeSkip > 0) {
+                  sub += ` (${probeFail} fail · ${probeSkip} skip)`;
+                }
               }
               setStat("cards", `${ok}/${total}`, "cards passing", sub, `dashboard · refreshed ${now}`, colorForRatio(ok, total));
             }
@@ -2666,6 +2680,36 @@
 
       loadEffectBenchmarkCard();
 
+      // Config Status
+      (async () => {
+        try {
+          const d = await fetchJson("/api/config-status");
+          const tone = d.aligned ? "ok" : "err";
+          const label = d.aligned ? "ALIGNED" : "MISALIGNED";
+          let h = `<div class="row"><span>Status</span><span class="badge badge-${tone}">${label}</span></div>`;
+          h += `<div class="row"><span>Gates</span><strong>${d.gates.length}</strong></div>`;
+          if (d.fixPlan?.length) {
+            h += `<div class="row"><span>Fix plan</span><strong>${d.fixPlan.length}</strong></div>`;
+            h += `<ul style="margin:4px 0 0 16px;font-size:10px;color:var(--muted)">${d.fixPlan
+              .map((f) => `<li>${f}</li>`)
+              .join("")}</ul>`;
+          }
+          h +=
+            '<table class="tbl" style="margin-top:4px"><tr><th>Gate</th><th>Layer</th><th>Status</th><th>ms</th></tr>';
+          for (const g of d.gates) {
+            const statusTone =
+              g.status === "pass" ? "ok" : g.status === "skip" ? "warn" : "err";
+            h += `<tr><td style="font-size:9px">${g.id}</td><td style="font-size:9px">${g.layer}</td><td><span class="badge badge-${statusTone}">${g.status}</span></td><td class="num">${g.ms}</td></tr>`;
+          }
+          h += "</table>";
+          const fetched = d.fetchedAt ? new Date(d.fetchedAt).toLocaleString() : "—";
+          h += `<p class="status ok" style="margin-top:8px;font-size:10px">Fetched at ${fetched}</p>`;
+          card("card-config-status", h);
+        } catch (e) {
+          card("card-config-status", `<p class="status err">${e.message}</p>`);
+        }
+      })();
+
       // Perf Auto-Discover
       (async () => {
         try {
@@ -3500,7 +3544,9 @@
               ? "ok"
               : status === "fail" || status === "error"
                 ? "err"
-                : "warn";
+                : status === "skip"
+                  ? "warn"
+                  : "warn";
           return `<span class="badge badge-${tone}">${status || "unknown"}</span>`;
         }
 

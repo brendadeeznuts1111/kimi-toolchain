@@ -180,6 +180,7 @@
       "id": "artifact-portal",
       "paths": [
         "src/lib/artifact-portal.ts",
+        "src/lib/benchmark-convergence.ts",
         "src/lib/benchmark-probe-client.ts",
         "src/lib/herdr-dashboard-meta-gate.ts",
         "src/canvases/benchmark.manifest.ts",

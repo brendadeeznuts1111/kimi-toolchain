@@ -17,7 +17,8 @@ describe("benchmark-manifest", () => {
     expect(BENCHMARK_MANIFEST_ID).toBe("benchmark");
     expect(benchmarkManifest.canvasId).toBe("benchmark");
     expect(BENCHMARK_CARD_IDS).toContain("card-effect-benchmark");
-    expect(BENCHMARK_CARD_IDS).toHaveLength(3);
+    expect(BENCHMARK_CARD_IDS).toContain("card-bun-test");
+    expect(BENCHMARK_CARD_IDS).toHaveLength(4);
   });
 
   test("URLPattern matches benchmark deep links", () => {

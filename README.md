@@ -142,6 +142,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run config:status` | (synced from package.json) |
 
+| `bun run build:portal:gate` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                           |

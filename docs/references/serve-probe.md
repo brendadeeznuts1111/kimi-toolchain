@@ -63,6 +63,7 @@ Implementation: `src/lib/card-probe-server.ts` (`startProbeServer`).
 | `GET` / `HEAD` | `/api/health`                  | Liveness (`ok` text)                                           |
 | `GET`          | `/api/cards`                   | Cached card probe snapshot                                     |
 | `GET` / `POST` | `/api/refresh`                 | Re-probe cards; optional `artifactPath` when `--save-artifact` |
+| `GET`          | `/api/config-status`           | Configuration-layer audit report (`config-status` gate)        |
 | `GET`          | `/api/artifacts`               | List gate names with saved artifacts                           |
 | `GET`          | `/api/artifacts/:gate`         | List artifacts; query `?limit=N&since=ISO-8601`                |
 | `GET`          | `/api/artifacts/:gate/latest`  | Newest artifact payload (unwrapped)                            |
@@ -92,11 +93,14 @@ Artifacts are written only with explicit `--save-artifact`:
 
 ```bash
 kimi-doctor --gate bunfig-policy --save-artifact   # runs dependsOn closure when present
+kimi-doctor --gate config-status --save-artifact   # configuration-layer audit
 kimi-doctor --run-gates --save-artifact            # all built-in gates in topo order
-kimi-doctor --serve-probe --save-artifact          # card-probe gate only
+kimi-doctor --serve-probe --save-artifact          # card-probe + config-status gates
 ```
 
 Store: `ArtifactStore` in `src/lib/artifact-store.ts` → `.kimi/artifacts/{gateName}/`.
+
+When `--serve-probe --save-artifact` is used, both the `card-probe` snapshot and the `config-status` report are persisted. The config-status result is also exposed as a card with `source: "config-status"` in `/api/cards` and in detail at `/api/config-status`.
 
 CLI inspection:
 
@@ -109,12 +113,12 @@ kimi-doctor --artifacts-latest card-probe --json
 
 The Herdr dashboard (`:18412`) proxies serve-probe for live card health and enriches the Artifacts tab from disk.
 
-| Dashboard route        | Behavior                                                                                 |
-| ---------------------- | ---------------------------------------------------------------------------------------- |
-| `GET /api/health`      | Includes `checks.probe` (pass/fail/unknown from serve-probe `/api/cards`)                |
-| `GET /api/probe/cards` | Proxy to serve-probe card snapshot                                                       |
-| `GET /api/artifacts`   | Disk-backed gate inventory + `latestSize` / `latestResultSize` + probe reachability hint |
-| `GET /api/meta`        | Exposes `probeServerUrl` from `[doctor.probe]`                                           |
+| Dashboard route        | Behavior                                                                                                        |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `GET /api/health`      | Includes `checks.probe` (pass/fail/skip from serve-probe `/api/cards`; skip = not expected in this environment) |
+| `GET /api/probe/cards` | Proxy to serve-probe card snapshot; includes `config-status` card source                                        |
+| `GET /api/artifacts`   | Disk-backed gate inventory + `latestSize` / `latestResultSize` + probe reachability hint                        |
+| `GET /api/meta`        | Exposes `probeServerUrl` from `[doctor.probe]`                                                                  |
 
 | Surface             | Port                                  | Artifact source                                                |
 | ------------------- | ------------------------------------- | -------------------------------------------------------------- |
@@ -145,5 +149,6 @@ Card auto-discovery probes the canonical examples port `5678` first, then legacy
 | dx.config parser                | `src/lib/doctor-probe-config.ts`                              |
 | Artifact persistence            | `src/lib/artifact-store.ts`                                   |
 | Gate runner + `--save-artifact` | `src/gates/runner.ts`, `src/bin/kimi-doctor.ts`               |
+| config-status gate              | `src/gates/config-status.ts`                                  |
 | Capability manifest             | `src/lib/doctor-probe.ts` (`--probe` / `--serve-probe` flags) |
 | ADR                             | `docs/adr/ADR-0004-serve-probe-readonly.md`                   |

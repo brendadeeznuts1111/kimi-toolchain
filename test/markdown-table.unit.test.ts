@@ -1,9 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import { join } from "path";
+import { writeText } from "../src/lib/bun-io.ts";
 import {
   formatMarkdownPropertyTable,
   inferMarkdownColumnKind,
+  previewMarkdownWithBun,
   resolveMarkdownColumnSpecs,
 } from "../src/lib/markdown-table.ts";
+import { testTempDir } from "./helpers.ts";
 
 describe("markdown-table", () => {
   test("inferMarkdownColumnKind detects numbers and dates", () => {
@@ -44,5 +48,18 @@ describe("markdown-table", () => {
     expect(md).toContain("| :--- | ---: | ---: |");
     expect(md).toContain("| staging | 2222 | 2026-06-17 |");
     expect(md).toContain("Source: `dx.config.toml`");
+  });
+
+  test("previewMarkdownWithBun renders a markdown file through bun ./file.md", async () => {
+    const dir = testTempDir("markdown-terminal-preview-");
+    const mdPath = join(dir, "preview.md");
+    writeText(mdPath, "# Preview\n\n- terminal markdown\n");
+
+    const preview = await previewMarkdownWithBun(mdPath);
+    const combined = `${preview.stdout}\n${preview.stderr}`;
+
+    expect(preview.exitCode).toBe(0);
+    expect(combined).toContain("Preview");
+    expect(combined).toContain("terminal markdown");
   });
 });

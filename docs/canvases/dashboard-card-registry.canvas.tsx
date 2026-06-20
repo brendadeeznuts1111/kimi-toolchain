@@ -34,7 +34,7 @@ const BUN_INSPECT_DEPTH_DOC =
 const BUN_HTTPS_AGENT_OPTIONS_DOC =
   "https://bun.sh/reference/node/https/AgentOptions#node:https.AgentOptions";
 
-const TOTAL_CARDS = 67;
+const TOTAL_CARDS = 68;
 const CANVAS_ROWS = 12;
 const INFLUENCED_CARDS = 23;
 const ORPHAN_CARDS = 44;

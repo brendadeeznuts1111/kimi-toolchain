@@ -153,6 +153,7 @@
     "build:portal:json": "bun run scripts/build-portal.ts --json",
     "build:portal:local:json": "bun run scripts/build-portal.ts --local-only --json",
     "build:portal:dry-run": "bun run scripts/build-portal.ts --dry-run",
+    "build:portal:gate": "bun run scripts/build-portal.ts --gate",
     "test:gates": "bun test test/portal-convergence.unit.test.ts",
     "bun-install:status": "bun run scripts/bun-install-status.ts",
     "test:portal-convergence": "bun test test/portal-convergence.unit.test.ts",

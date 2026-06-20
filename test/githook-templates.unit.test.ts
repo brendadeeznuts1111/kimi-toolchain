@@ -72,8 +72,8 @@ bun run check
     expect(syntax.exitCode).toBe(0);
     const content = await Bun.file(hookPath).text();
     expect(content).not.toContain("bun run test:portal-convergence");
-    expect(content).toContain("build:portal:local:json");
-    expect(content).toContain("converged == true");
+    expect(content).toContain("build:portal:gate");
+    expect(content).not.toContain("build:portal:local:json");
   });
 
   test("hooks-portal-install installs convergence guard only", async () => {

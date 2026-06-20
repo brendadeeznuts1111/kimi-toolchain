@@ -34,7 +34,9 @@ flowchart LR
 | Canvas         | Deep-link filter for benchmark cards      | `src/canvases/benchmark.manifest.ts` |
 | Dashboard      | Live probe + refresh routes               | `src/lib/card-probe-server.ts`       |
 | serve-probe    | Read-only `BenchmarkApiEnvelope` HTTP API | `GET /api/effect-benchmark`          |
+| serve-probe    | Read-only `ConfigStatusReport` HTTP API   | `GET /api/config-status`             |
 | CLI / loop     | Offline fallback runner                   | `runEffectBenchmarkCardLoop()`       |
+| CLI / loop     | Offline config-status audit               | `auditConfigLayersStatus()`          |
 | Portal publish | Persist diagnostics + manifest            | `src/lib/artifact-portal.ts`         |
 | Herdr          | Workspace plugin action                   | `herdr-plugin/benchmark-portal.ts`   |
 
@@ -51,6 +53,8 @@ All three consumers feed the same `BenchmarkApiEnvelope` — no parallel benchma
 | **Herdr**     | `herdr-plugin/benchmark-portal.ts`                    | `buildArtifactPortal()` — same as `bun run build:portal`          |
 
 Serve-probe aggregates dashboard card probe state into the envelope (`metadata.convergence.dashboardProbe`). The portal manifest lists `convergedComponents: ["canvas","dashboard","herdr"]` after every `build:portal` run.
+
+**Bun `--changed` import-graph mechanics** are stamped on the same envelope as `metadata.testExecution.changedImportGraph` (SSOT: `BUN_TEST_CHANGED_IMPORT_GRAPH` in `src/lib/test-runtime.ts`). They are **not** a separate portal artifact — read them from the benchmark diagnostics JSON or live `GET /api/effect-benchmark`. The dashboard card `card-bun-test` mirrors the same payload at `GET /api/bun-test`.
 
 ```bash
 bun run build:portal --local-only
@@ -76,14 +80,17 @@ With dashboard running:
 PORT=5678 bun run dashboard -- --daemon --port=5678
 bun run build:portal
 curl -s http://127.0.0.1:5678/api/effect-benchmark | jq '.runner, .gates.effectBenchmarkGate'
+curl -s http://127.0.0.1:5678/api/effect-benchmark | jq '.metadata.testExecution.changedImportGraph.title'
+open 'http://127.0.0.1:5678/?example=portal&canvas=benchmark#card-bun-test'
 ```
 
 ## What lands on disk
 
 ```
 .kimi/artifacts/artifact-portal/
-├── <timestamp>-benchmark-diagnostics.json   # BenchmarkApiEnvelope payload
-└── <timestamp>-artifact-portal-manifest.json # portal index (paths, contract, source)
+├── <timestamp>-benchmark-diagnostics.json    # BenchmarkApiEnvelope (+ metadata.testExecution.changedImportGraph)
+├── <timestamp>-config-status-diagnostics.json # ConfigStatusReport from serve-probe or local audit
+└── <timestamp>-artifact-portal-manifest.json  # portal index (paths, contract, source, configStatus)
 ```
 
 Inspect:
@@ -100,7 +107,7 @@ kimi-doctor --artifacts-latest artifact-portal --json
 | `serve-probe`      | Dashboard probe reachable at resolve URL     |
 | `local-loop`       | Probe offline or `build:portal --local-only` |
 
-Both paths register the same gate (`artifact-portal`) and canvas influences (`card-effect-benchmark`, `card-perf-harness`, `card-kimi-doctor`).
+Both paths register the same gate (`artifact-portal`) and canvas influences (`card-effect-benchmark`, `card-perf-harness`, `card-kimi-doctor`, `card-config-status`). `build:portal` emits two diagnostic artifacts: benchmark diagnostics and config-status diagnostics.
 
 ## Agent checklist
 

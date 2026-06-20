@@ -33,6 +33,13 @@ export interface ArtifactPortalManifestPayload {
     probeUrl?: string;
     runner: string;
   };
+  configStatus?: {
+    type: string;
+    source: "serve-probe" | "local-loop";
+    probeUrl?: string;
+    artifactPath: string;
+    aligned: boolean;
+  };
   herdr: {
     pluginId: string;
     action: string;
@@ -51,6 +58,7 @@ export function buildPortalManifestPayload(input: {
   benchmarkArtifactPath: string;
   probeUrl?: string;
   convergedComponents: ConvergedComponentRecord[];
+  configStatus?: ArtifactPortalManifestPayload["configStatus"];
 }): ArtifactPortalManifestPayload {
   return {
     schemaVersion: ARTIFACT_PORTAL_TEMPLATE_VERSION,
@@ -68,6 +76,7 @@ export function buildPortalManifestPayload(input: {
       runner: input.runner,
       ...(input.probeUrl ? { probeUrl: input.probeUrl } : {}),
     },
+    ...(input.configStatus ? { configStatus: input.configStatus } : {}),
     herdr: {
       pluginId: PORTAL_HERDR_PLUGIN_ID,
       action: PORTAL_HERDR_ACTION,

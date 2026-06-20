@@ -10,6 +10,11 @@ import { ArtifactStore } from "./artifact-store.ts";
 import { buildPortalManifestPayload, PORTAL_MANIFEST_TYPE } from "./artifact-portal-manifest.ts";
 import { fetchBenchmarkProbeEnvelope, resolveBenchmarkProbeUrl } from "./benchmark-probe-client.ts";
 import {
+  fetchConfigStatusProbeEnvelope,
+  resolveConfigStatusProbeUrl,
+} from "./config-status-probe-client.ts";
+import { auditConfigLayersStatus, type ConfigStatusReport } from "./config-status.ts";
+import {
   convergedComponentsFromEnvelope,
   isFullyConvergedEnvelope,
 } from "./benchmark-convergence.ts";
@@ -17,6 +22,7 @@ import { runEffectBenchmarkCardLoop } from "./effect-benchmark-card.ts";
 
 export const ARTIFACT_PORTAL_GATE = "artifact-portal";
 export const PORTAL_BENCHMARK_DIAGNOSTICS_TYPE = "benchmark-diagnostics";
+export const PORTAL_CONFIG_STATUS_DIAGNOSTICS_TYPE = "config-status-diagnostics";
 export const ARTIFACT_PORTAL_CONTRACT_PATH = "contracts/artifact-portal.json";
 
 export interface PortalArtifactInput {
@@ -93,6 +99,7 @@ export async function pullBenchmarkEnvelopeAndRegister(
 }
 
 export type BenchmarkEnvelopeSource = "serve-probe" | "local-loop";
+export type ConfigStatusEnvelopeSource = "serve-probe" | "local-loop";
 
 export interface ResolveBenchmarkEnvelopeResult {
   envelope: BenchmarkApiEnvelope;
@@ -100,9 +107,16 @@ export interface ResolveBenchmarkEnvelopeResult {
   probeUrl?: string;
 }
 
+export interface ResolveConfigStatusEnvelopeResult {
+  report: ConfigStatusReport;
+  source: ConfigStatusEnvelopeSource;
+  probeUrl?: string;
+}
+
 export interface BuildArtifactPortalOptions {
   projectRoot?: string;
   probeUrl?: string;
+  configStatusProbeUrl?: string;
   /** When true (default), try serve-probe before local loop. */
   preferProbe?: boolean;
   /** Validate the envelope + manifest shape without writing artifacts. */
@@ -122,9 +136,17 @@ export interface ArtifactPortalBuildResult {
     runner: string;
     artifactPath: string;
   };
+  configStatus: {
+    source: ConfigStatusEnvelopeSource;
+    probeUrl?: string;
+    artifactPath: string;
+    aligned: boolean;
+  };
   portalIndexPath: string;
   converged: boolean;
   convergedComponents: ReturnType<typeof convergedComponentsFromEnvelope>;
+  /** Bun `--changed` import-graph title stamped on the benchmark envelope. */
+  changedImportGraphTitle?: string;
 }
 
 /** Resolve BenchmarkApiEnvelope from serve-probe or local loop fallback. */
@@ -152,6 +174,27 @@ export async function resolveBenchmarkEnvelope(
   return { envelope, source: "local-loop" };
 }
 
+/** Resolve ConfigStatusReport from serve-probe or local audit fallback. */
+export async function resolveConfigStatusEnvelope(
+  options: BuildArtifactPortalOptions = {}
+): Promise<ResolveConfigStatusEnvelopeResult> {
+  const projectRoot = options.projectRoot ?? process.cwd();
+  const preferProbe = options.preferProbe !== false;
+
+  if (preferProbe) {
+    const probeUrl = options.configStatusProbeUrl ?? resolveConfigStatusProbeUrl();
+    try {
+      const report = await fetchConfigStatusProbeEnvelope(probeUrl);
+      return { report, source: "serve-probe", probeUrl };
+    } catch {
+      /* fall through to local loop */
+    }
+  }
+
+  const report = await auditConfigLayersStatus(projectRoot, { withScaffold: false });
+  return { report, source: "local-loop" };
+}
+
 /** One-command Artifact Portal publish — benchmark envelope + portal manifest on disk. */
 export async function buildArtifactPortal(
   options: BuildArtifactPortalOptions = {}
@@ -172,6 +215,23 @@ export async function buildArtifactPortal(
         probeUrl,
       });
 
+  const {
+    report: configStatusReport,
+    source: configStatusSource,
+    probeUrl: configStatusProbeUrl,
+  } = await resolveConfigStatusEnvelope(options);
+
+  const configStatusRecord = dryRun
+    ? { artifactPath: "(dry-run)", aligned: configStatusReport.aligned }
+    : await registerPortalArtifact({
+        type: PORTAL_CONFIG_STATUS_DIAGNOSTICS_TYPE,
+        payload: configStatusReport,
+        canvasId: BENCHMARK_MANIFEST_ID,
+        influences: BENCHMARK_CARD_IDS,
+        projectRoot,
+        probeUrl: configStatusProbeUrl,
+      });
+
   const convergedComponents = convergedComponentsFromEnvelope(envelope);
   const converged = isFullyConvergedEnvelope(envelope);
 
@@ -185,6 +245,13 @@ export async function buildArtifactPortal(
     benchmarkArtifactPath: benchmarkRecord.artifactPath,
     probeUrl,
     convergedComponents,
+    configStatus: {
+      type: PORTAL_CONFIG_STATUS_DIAGNOSTICS_TYPE,
+      source: configStatusSource,
+      probeUrl: configStatusProbeUrl,
+      artifactPath: configStatusRecord.artifactPath,
+      aligned: configStatusReport.aligned,
+    },
   });
 
   const indexRecord = dryRun
@@ -211,8 +278,15 @@ export async function buildArtifactPortal(
       runner: envelope.runner,
       artifactPath: benchmarkRecord.artifactPath,
     },
+    configStatus: {
+      source: configStatusSource,
+      probeUrl: configStatusProbeUrl,
+      artifactPath: configStatusRecord.artifactPath,
+      aligned: configStatusReport.aligned,
+    },
     portalIndexPath: indexRecord.artifactPath,
     converged,
     convergedComponents,
+    changedImportGraphTitle: envelope.metadata.testExecution?.changedImportGraph.title,
   };
 }

@@ -152,7 +152,7 @@ async function installHooks(projectDir: string): Promise<number> {
   logger.info("Hooks active. They will run on next commit/push.");
   logger.info("  pre-commit: policy checks + run-gates (format, lint, typecheck, test:changed)");
   logger.info(
-    "  pre-push:   no-op skip, run-gates (guardian, R-Score, check:fast:skip-tests, test:changed:push, sync)"
+    "  pre-push:   no-op skip, run-gates (guardian, portal:gate, R-Score, check:fast:skip-tests, test:changed:push, sync)"
   );
   logger.info("              Set KIMI_PRE_PUSH_FULL=1 to run the full local gate before push.");
   return 0;

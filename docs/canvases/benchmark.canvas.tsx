@@ -29,6 +29,7 @@ const PROBE_DEFAULT_PORT = 5678;
 const API_SURFACE = [
   ["/api/effect-benchmark", "GET", "BenchmarkApiEnvelope from serve-probe cache"],
   ["/api/effect-benchmark/refresh", "POST", "Re-run runEffectBenchmarkCardLoop (append snapshot)"],
+  ["/api/bun-test", "GET", "bun:test card + changedImportGraph mechanics"],
   ["/api/canvas-filter", "GET", "?canvas=benchmark → highlight effect-benchmark cards"],
   ["/api/cards", "GET", "?canvas=benchmark filters influenced cards on examples dashboard"],
 ] as const;
@@ -52,7 +53,19 @@ const ENVELOPE_FIELDS = [
     "array?",
     "perf_gate_timeout · perf_handler_failure · perf_gate_partial · rate_limited",
   ],
-  ["metadata", "object", "trainApplied · cacheHit · timedOut"],
+  [
+    "metadata.testExecution",
+    "object?",
+    "changedImportGraph — Bun --changed import-graph mechanics (portal SSOT)",
+  ],
+  ["metadata", "object", "trainApplied · cacheHit · timedOut · convergence · testExecution"],
+] as const;
+
+const CHANGED_IMPORT_GRAPH_PIPELINE = [
+  ["1", "Git diff", "Working tree or --changed=<ref>"],
+  ["2", "Import graph scan", "Static imports only; skip node_modules; no link/emit"],
+  ["3", "Test selection", "Test files with transitive path to a changed file"],
+  ["4", "Distribute", "--shard splits after --changed filter"],
 ] as const;
 
 const INFLUENCED_CARDS = [
@@ -64,12 +77,20 @@ const INFLUENCED_CARDS = [
   ],
   ["card-perf-harness", "Perf Harness", "/api/perf-registry", "Registry + thresholds layers"],
   ["card-kimi-doctor", "kimi-doctor CLI", "/api/kimi-doctor", "--perf-gates --json parity"],
+  [
+    "card-bun-test",
+    "bun:test",
+    "/api/bun-test",
+    "changedImportGraph + metadata.testExecution on envelope",
+  ],
 ] as const;
 
 const RELATED_PATHS = [
   ["Serve-probe doc", "docs/references/serve-probe.md"],
   ["Manifest + URLPattern", "src/canvases/benchmark.manifest.ts"],
   ["Probe client", "src/lib/benchmark-probe-client.ts"],
+  ["--changed import graph", "src/lib/test-runtime.ts → BUN_TEST_CHANGED_IMPORT_GRAPH"],
+  ["Test execution doc", "docs/references/testing-execution.md"],
   ["Canvas filter", "src/lib/dashboard-canvas-filter.ts"],
   ["Herdr bridge deep links", "src/lib/herdr-dashboard-bridge.ts"],
   ["Examples handler", "examples/dashboard/src/handlers/effect-benchmark.ts"],
@@ -311,6 +332,21 @@ export default function BenchmarkCanvas() {
         rowTone={INFLUENCED_CARDS.map(() => "neutral" as const)}
         striped
       />
+
+      <CollapsibleSection title="Bun Import Graph Mechanics (--changed)" defaultOpen>
+        <Text tone="secondary" size="small">
+          Stamped on every BenchmarkApiEnvelope as{" "}
+          <code>metadata.testExecution.changedImportGraph</code> and mirrored on{" "}
+          <code>GET /api/bun-test</code>. Portal artifacts persist it via <code>build:portal</code>{" "}
+          — not only the bun:test card HTML.
+        </Text>
+        <Table
+          framed
+          headers={["Step", "Stage", "Mechanics"]}
+          rows={CHANGED_IMPORT_GRAPH_PIPELINE.map((row) => [...row])}
+          striped
+        />
+      </CollapsibleSection>
 
       <CollapsibleSection title="Related repo paths" defaultOpen>
         <Table

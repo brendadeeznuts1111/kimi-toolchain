@@ -12,19 +12,53 @@ export interface CardProbeConfig {
   timeoutMs?: number;
 }
 
+export interface ProbeEnvironment {
+  herdrActive: boolean;
+  examplesExpected: boolean;
+  herdrExpected: boolean;
+  ci: boolean;
+  context: "idle" | "dev" | "ci" | "herdr";
+}
+
+export function detectProbeEnvironment(config: CardProbeConfig = {}): ProbeEnvironment {
+  const herdrActive = Bun.env.HERDR_ENV === "1";
+  const ci = Bun.env.CI === "true" || Bun.env.GITHUB_ACTIONS === "true";
+  const examplesExplicit = !!(
+    config.examplesDashboardUrl?.trim() || Bun.env.EXAMPLES_DASHBOARD_URL?.trim()
+  );
+  const herdrExplicit = !!(config.herdrDashboardUrl?.trim() || Bun.env.HERDR_DASHBOARD_URL?.trim());
+
+  const examplesExpected = examplesExplicit;
+  const herdrExpected = herdrExplicit || herdrActive;
+
+  let context: ProbeEnvironment["context"] = "idle";
+  if (ci) context = "ci";
+  else if (herdrActive) context = "herdr";
+  else if (examplesExpected) context = "dev";
+
+  return { herdrActive, examplesExpected, herdrExpected, ci, context };
+}
+
 export interface CardStatus {
   cardId: string;
   source: "examples" | "herdr" | "config-status";
-  status: "pass" | "fail" | "pending" | "unknown";
+  status: "pass" | "fail" | "pending" | "skip";
   lastUpdated: string;
   artifactUrl?: string;
   error?: string;
+  reason?: string;
+  startHint?: string;
 }
 
 const DEFAULT_TIMEOUT_MS = 5000;
 /** Examples dashboard ports — canonical 5678 first, 3000/8080 retained as legacy fallback. */
-const EXAMPLES_PORTS = [5678, 3000, 8080] as const;
-const HERDR_PORTS = [18412] as const;
+export const CARD_PROBE_DECLARED_PORTS = {
+  examples: [5678, 3000, 8080],
+  herdr: [18412],
+} as const;
+
+const EXAMPLES_PORTS = CARD_PROBE_DECLARED_PORTS.examples;
+const HERDR_PORTS = CARD_PROBE_DECLARED_PORTS.herdr;
 
 export function displayCardId(id: string): string {
   return id.startsWith("card-") ? id.slice("card-".length) : id;
@@ -32,7 +66,7 @@ export function displayCardId(id: string): string {
 
 export function dashboardStatusToProbe(status: DashboardCardStatus | string): CardStatus["status"] {
   if (status === "ok") return "pass";
-  if (status === "unknown" || status === "pending") return "unknown";
+  if (status === "unknown" || status === "pending") return "skip";
   return "fail";
 }
 
@@ -97,17 +131,37 @@ function cardsPayloadToStatuses(payload: DashboardCardsPayload, source: "example
   }));
 }
 
-function unknownRow(
+function skipRow(
   source: "examples" | "herdr" | "config-status",
   cardId: string,
-  error?: string
+  reason: string,
+  startHint?: string
 ): CardStatus {
   return {
     cardId,
     source,
-    status: "unknown",
+    status: "skip",
+    lastUpdated: new Date().toISOString(),
+    reason,
+    startHint,
+  };
+}
+
+function failRow(
+  source: "examples" | "herdr" | "config-status",
+  cardId: string,
+  error: string,
+  reason: string,
+  startHint?: string
+): CardStatus {
+  return {
+    cardId,
+    source,
+    status: "fail",
     lastUpdated: new Date().toISOString(),
     error,
+    reason,
+    startHint,
   };
 }
 
@@ -128,7 +182,13 @@ export async function probeSingle(
     return cardsPayloadToStatuses(payload, "examples");
   } catch (error) {
     return [
-      unknownRow("examples", "examples-dashboard", `GET ${cardsUrl}: ${messageFromError(error)}`),
+      failRow(
+        "examples",
+        "examples-dashboard",
+        `GET ${cardsUrl}: ${messageFromError(error)}`,
+        "Examples dashboard is expected but unreachable",
+        "Check that the dev server is running: bun run dev"
+      ),
     ];
   }
 }
@@ -162,7 +222,15 @@ async function probeHerdrHealth(baseUrl: string, timeoutMs: number): Promise<Car
       },
     ];
   } catch (error) {
-    return [unknownRow("herdr", "herdr-dashboard", `GET ${healthUrl}: ${messageFromError(error)}`)];
+    return [
+      failRow(
+        "herdr",
+        "herdr-dashboard",
+        `GET ${healthUrl}: ${messageFromError(error)}`,
+        "Herdr dashboard is expected but unreachable",
+        "Check that Herdr is running (HERDR_ENV=1)"
+      ),
+    ];
   }
 }
 
@@ -174,7 +242,10 @@ function messageFromError(error: unknown): string {
   return Bun.inspect(error);
 }
 
-function unreachableMessage(source: "examples" | "herdr", config: CardProbeConfig): string {
+export function cardProbeUnreachableMessage(
+  source: "examples" | "herdr" | "config-status",
+  config: CardProbeConfig
+): string {
   if (source === "examples") {
     const explicit = config.examplesDashboardUrl?.trim();
     if (explicit) {
@@ -193,17 +264,17 @@ export function summarizeCardStatuses(statuses: CardStatus[]): {
   total: number;
   pass: number;
   fail: number;
-  unknown: number;
+  skip: number;
 } {
   let pass = 0;
   let fail = 0;
-  let unknown = 0;
+  let skip = 0;
   for (const row of statuses) {
     if (row.status === "pass") pass++;
-    else if (row.status === "unknown" || row.status === "pending") unknown++;
+    else if (row.status === "skip" || row.status === "pending") skip++;
     else fail++;
   }
-  return { total: statuses.length, pass, fail, unknown };
+  return { total: statuses.length, pass, fail, skip };
 }
 
 /** Snapshot served by `kimi-doctor --serve-probe`. */
@@ -213,37 +284,111 @@ export interface ProbeServerSnapshot {
   ok: boolean;
 }
 
-/** Count cards that are not passing. */
+/** Count cards that are not passing (skip is considered healthy). */
 export function countUnhealthy(statuses: CardStatus[]): number {
-  return statuses.filter((s) => s.status !== "pass").length;
+  return statuses.filter((s) => s.status !== "pass" && s.status !== "skip").length;
 }
 
-/** Probe examples + Herdr dashboards concurrently. */
-export async function probeAllCards(config: CardProbeConfig = {}): Promise<CardStatus[]> {
+/** Probe local configuration layers and return a card row. */
+export async function probeConfigStatusCard(
+  projectRoot: string = process.cwd()
+): Promise<CardStatus> {
+  try {
+    const report = await auditConfigLayersStatus(projectRoot, { withScaffold: false });
+    return {
+      cardId: "config-status",
+      source: "config-status",
+      status: report.aligned ? "pass" : "fail",
+      lastUpdated: new Date().toISOString(),
+      error: report.aligned
+        ? undefined
+        : `failed: ${report.gates
+            .filter((gate) => gate.status === "fail")
+            .map((gate) => gate.id)
+            .join(", ")}`,
+    };
+  } catch (error) {
+    return {
+      cardId: "config-status",
+      source: "config-status",
+      status: "fail",
+      lastUpdated: new Date().toISOString(),
+      error: messageFromError(error),
+    };
+  }
+}
+
+/** Probe examples + Herdr dashboards concurrently, skipping sources not expected in this environment. */
+export async function probeAllCards(
+  config: CardProbeConfig = {},
+  projectRoot?: string
+): Promise<CardStatus[]> {
+  const env = detectProbeEnvironment(config);
   const timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const [examplesBase, herdrBase] = await Promise.all([
-    resolveExamplesBaseUrl({ ...config, timeoutMs }),
-    resolveHerdrBaseUrl({ ...config, timeoutMs }),
+
+  const examplesPromise: Promise<CardStatus[]> = env.examplesExpected
+    ? (async () => {
+        const base = await resolveExamplesBaseUrl({ ...config, timeoutMs });
+        return base
+          ? probeSingle(base, "examples", timeoutMs)
+          : [
+              failRow(
+                "examples",
+                "examples-dashboard",
+                cardProbeUnreachableMessage("examples", config),
+                "EXAMPLES_DASHBOARD_URL is set but the server is not responding",
+                "Start the dev server: bun run dev"
+              ),
+            ];
+      })()
+    : Promise.resolve([
+        skipRow(
+          "examples",
+          "examples-dashboard",
+          "Examples dashboard not expected (EXAMPLES_DASHBOARD_URL not set)",
+          "Set EXAMPLES_DASHBOARD_URL or run `bun run dev`"
+        ),
+      ]);
+
+  const herdrPromise: Promise<CardStatus[]> = env.herdrExpected
+    ? (async () => {
+        const base = await resolveHerdrBaseUrl({ ...config, timeoutMs });
+        return base
+          ? probeSingle(base, "herdr", timeoutMs)
+          : [
+              failRow(
+                "herdr",
+                "herdr-dashboard",
+                cardProbeUnreachableMessage("herdr", config),
+                "Herdr dashboard is expected but the server is not responding",
+                "Start Herdr or check HERDR_DASHBOARD_URL"
+              ),
+            ];
+      })()
+    : Promise.resolve([
+        skipRow(
+          "herdr",
+          "herdr-dashboard",
+          `Herdr not active (HERDR_ENV not set, context: ${env.context})`,
+          "Set HERDR_ENV=1 or HERDR_DASHBOARD_URL to enable"
+        ),
+      ]);
+
+  const [examples, herdr, configStatusCard] = await Promise.all([
+    examplesPromise,
+    herdrPromise,
+    probeConfigStatusCard(projectRoot ?? process.cwd()),
   ]);
 
-  const [examples, herdr] = await Promise.all([
-    examplesBase
-      ? probeSingle(examplesBase, "examples", timeoutMs)
-      : Promise.resolve([
-          unknownRow("examples", "examples-dashboard", unreachableMessage("examples", config)),
-        ]),
-    herdrBase
-      ? probeSingle(herdrBase, "herdr", timeoutMs)
-      : Promise.resolve([
-          unknownRow("herdr", "herdr-dashboard", unreachableMessage("herdr", config)),
-        ]),
-  ]);
-
-  return [...examples, ...herdr];
+  return [...examples, ...herdr, configStatusCard];
 }
 
 export function formatCardProbeTable(statuses: CardStatus[]): string {
-  return Bun.inspect.table(statuses, ["cardId", "source", "status", "lastUpdated"], {
+  const hasReasons = statuses.some((s) => s.reason);
+  const columns: (keyof CardStatus)[] = hasReasons
+    ? ["cardId", "source", "status", "reason", "lastUpdated"]
+    : ["cardId", "source", "status", "lastUpdated"];
+  return Bun.inspect.table(statuses, columns, {
     colors: true,
   });
 }

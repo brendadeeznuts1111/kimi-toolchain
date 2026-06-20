@@ -239,6 +239,30 @@ const MANIFEST_LOCAL_DOCS_ALL = [
       "BenchmarkApiEnvelope SSOT — runEffectBenchmarkCardLoop shared by CLI, dashboard, and serve-probe",
   },
   {
+    id: "agent-api",
+    location: "repo root",
+    purpose:
+      "Effect-native agent API surface: KimiCapabilities, KimiTrace, KimiContract, DecisionLogger services — use instead of CLI shelling out inside Effect programs",
+  },
+  {
+    id: "finish-work-close-loop",
+    location: "repo root",
+    purpose:
+      "Finish-work close-loop architecture: gates → git → dirty check → reviewer escalation → orchestrator signal; dx.config.toml [finishWork] and [herdr.orchestrator] wiring",
+  },
+  {
+    id: "handoff-rules",
+    location: "repo root",
+    purpose:
+      "Herdr orchestrator handoff rules: TOML format, condition syntax (done/blocked/idle/probe:*), report-native when-clauses, and cross-workspace agent routing",
+  },
+  {
+    id: "naming",
+    location: "repo root",
+    purpose:
+      "CLI naming notes and deprecation register: --session-report → --effect-floor; kimi-doctor vs herdr-doctor vs kimi doctor disambiguation shortcuts",
+  },
+  {
     id: "canonical-references",
     location: "repo root",
     purpose: "Cached canonical ecosystem links (this manifest)",

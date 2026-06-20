@@ -142,6 +142,7 @@ function inferApiRoute(cardId: string): string | null {
     "card-perf-harness": "/api/perf-harness",
     "card-perf-registry": "/api/perf-registry",
     "card-effect-benchmark": "/api/effect-benchmark",
+    "card-config-status": "/api/config-status",
     "card-perf-auto-discover": "/api/perf-auto-discover",
     "card-threshold-overrides": "/api/threshold-overrides",
     "card-kimi-publish": "/api/kimi-publish",
@@ -267,10 +268,11 @@ export function cardStatusFromRouteResponse(
   if (statusCode === 0) return "unknown";
   if (statusCode >= 400) return "error";
   if (typeof body === "object" && body !== null) {
-    const record = body as { ok?: boolean; error?: unknown; allPass?: boolean };
+    const record = body as { ok?: boolean; error?: unknown; allPass?: boolean; aligned?: boolean };
     if (record.ok === false || record.error) return "error";
     if (record.allPass === false) return "error";
-    if (record.allPass === true || record.ok === true) return "ok";
+    if (record.aligned === false) return "error";
+    if (record.allPass === true || record.ok === true || record.aligned === true) return "ok";
   }
   return statusCode >= 200 && statusCode < 300 ? "ok" : "warn";
 }

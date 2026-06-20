@@ -95,6 +95,7 @@ export interface ProbeServerHandle {
   getCached: () => CardStatus[];
   getConfigStatus: () => ConfigStatusReport | undefined;
   getLastArtifactPath: () => string | undefined;
+  getLastConfigStatusArtifactPath: () => string | undefined;
   stop: () => void;
 }
 
@@ -206,6 +207,7 @@ export async function startProbeServer(
   let cached: CardStatus[] = [];
   let lastFetchedAt = new Date().toISOString();
   let lastArtifactPath: string | undefined;
+  let lastConfigStatusArtifactPath: string | undefined;
   let refreshInFlight: Promise<CardStatus[]> | null = null;
   let refreshTimer: ReturnType<typeof setInterval> | null = null;
   let benchmarkEnvelope: BenchmarkApiEnvelope | null = options.effectBenchmarkEnvelope ?? null;
@@ -267,6 +269,9 @@ export async function startProbeServer(
         const report = await auditConfigLayersStatus(projectRoot);
         configStatus = report;
         configStatusFetchedAt = new Date().toISOString();
+        if (options.saveArtifact && artifactStore) {
+          lastConfigStatusArtifactPath = await artifactStore.save("config-status", report);
+        }
         return report;
       } catch {
         return configStatus;
@@ -282,7 +287,7 @@ export async function startProbeServer(
     refreshInFlight = (async () => {
       const started = Bun.nanoseconds();
       try {
-        const cards = await probeAllCards(probeConfig);
+        const cards = await probeAllCards(probeConfig, projectRoot);
         cached = cards;
         lastFetchedAt = new Date().toISOString();
         const elapsedMs = (Bun.nanoseconds() - started) / 1e6;
@@ -393,18 +398,6 @@ export async function startProbeServer(
           ...cardsEnvelope(cards, lastFetchedAt, configStatus, platformTargeting),
           refreshedAt: lastFetchedAt,
           artifactPath: lastArtifactPath,
-        });
-      }
-
-      if (path === "/api/config-status") {
-        if (method !== "GET") return methodNotAllowed(path, method, ["GET"]);
-        if (!configStatus) {
-          await refreshConfigStatus();
-        }
-        return jsonResponse({
-          ok: true,
-          configStatus: configStatus!,
-          fetchedAt: configStatusFetchedAt,
         });
       }
 
@@ -573,6 +566,7 @@ export async function startProbeServer(
     getCached: () => cached,
     getConfigStatus: () => configStatus,
     getLastArtifactPath: () => lastArtifactPath,
+    getLastConfigStatusArtifactPath: () => lastConfigStatusArtifactPath,
     stop: () => {
       if (refreshTimer) {
         clearInterval(refreshTimer);
@@ -584,5 +578,5 @@ export async function startProbeServer(
 }
 
 export function unhealthyCardStatuses(statuses: CardStatus[]): CardStatus[] {
-  return statuses.filter((s) => s.status !== "pass");
+  return statuses.filter((s) => s.status !== "pass" && s.status !== "skip");
 }

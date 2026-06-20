@@ -84,7 +84,7 @@ const opsSnapshot = {
   focusedPane: "",
   probePass: null,
   probeFail: null,
-  probeUnknown: null,
+  probeSkip: null,
   probeReachable: null,
   branch: "",
   changed: null,
@@ -443,7 +443,6 @@ function opsTone(metric) {
   if (metric === "probe") {
     if (opsSnapshot.probeReachable === false) return "warn";
     if ((opsSnapshot.probeFail ?? 0) > 0) return "error";
-    if ((opsSnapshot.probeUnknown ?? 0) > 0) return "warn";
     return typeof opsSnapshot.probePass === "number" ? "ok" : "info";
   }
   if (metric === "panes") return (opsSnapshot.panes ?? 0) > 0 ? "ok" : "warn";
@@ -467,7 +466,7 @@ function renderOpsStrip() {
   const panesDetail = opsSnapshot.focusedPane ? ` · ${opsSnapshot.focusedPane}` : "";
   const probeText =
     typeof opsSnapshot.probePass === "number"
-      ? `${opsSnapshot.probePass}/${opsSnapshot.probeFail ?? 0}/${opsSnapshot.probeUnknown ?? 0}`
+      ? `${opsSnapshot.probePass}/${opsSnapshot.probeFail ?? 0}/${opsSnapshot.probeSkip ?? 0}`
       : opsSnapshot.probeReachable === false
         ? "off"
         : "—";
@@ -475,7 +474,7 @@ function renderOpsStrip() {
     `<span class="ops-pill ops-pill--${opsTone("agents")}" title="Discovered agents">agents <strong>${esc(opsValue(opsSnapshot.agents))}</strong></span>`,
     `<span class="ops-pill ops-pill--${opsTone("panes")}" title="Live Herdr panes">panes <strong>${esc(opsValue(opsSnapshot.panes))}</strong>${esc(panesDetail)}</span>`,
     `<span class="ops-pill ops-pill--${opsTone("git")}" title="Git branch and dirty files">git <strong>${esc(branch)}${esc(opsValue(opsSnapshot.changed))}</strong></span>`,
-    `<span class="ops-pill ops-pill--${opsTone("probe")}" title="Serve-probe pass/fail/unknown">probe <strong>${esc(probeText)}</strong></span>`,
+    `<span class="ops-pill ops-pill--${opsTone("probe")}" title="Serve-probe pass/fail/skip">probe <strong>${esc(probeText)}</strong></span>`,
     `<span class="ops-pill ops-pill--${opsTone("events")}" title="Filtered or latest events">events <strong>${esc(opsValue(opsSnapshot.events))}</strong>${esc(eventsDetail)}</span>`,
     `<span class="ops-pill ops-pill--${opsTone("artifacts")}" title="Saved gate/probe artifacts">artifacts <strong>${esc(opsValue(opsSnapshot.artifacts))}</strong>${esc(artifactsDetail)}</span>`,
     `<span class="ops-pill ops-pill--${opsTone("logs")}" title="Structured debug log tail">logs <strong>${esc(opsValue(opsSnapshot.logs))}</strong>${esc(logsDetail)}</span>`,
@@ -4307,13 +4306,13 @@ function renderHeaderBadges(health) {
     `<span class="badge ${healthStatusClass(sse?.status)}" title="SSE subscribers">sse ${sse?.subscribers ?? "—"}</span>`,
     `<span class="badge ${healthStatusClass(herdr?.status)}" title="Herdr socket">herdr ${herdr?.connected ? "✓" : herdr?.status === "unknown" ? "off" : "✗"}</span>`,
     `<span class="badge ${healthStatusClass(gate?.status)}" title="Gate health">gates ${gate?.failed === false ? "✓" : gate?.failed === true ? "✗" : "—"}</span>`,
-    `<span class="badge ${healthStatusClass(probe?.status)}" title="Serve-probe cards">probe ${probe?.reachable ? (probe?.fail > 0 ? "✗" : probe?.unknown > 0 ? "?" : "✓") : "off"}</span>`,
+    `<span class="badge ${healthStatusClass(probe?.status)}" title="Serve-probe cards">probe ${probe?.reachable ? (probe?.fail > 0 ? "✗" : "✓") : "off"}</span>`,
   ].join("");
   updateOpsSnapshot({
     agents: typeof agents?.count === "number" ? agents.count : opsSnapshot.agents,
     probePass: typeof probe?.pass === "number" ? probe.pass : opsSnapshot.probePass,
     probeFail: typeof probe?.fail === "number" ? probe.fail : opsSnapshot.probeFail,
-    probeUnknown: typeof probe?.unknown === "number" ? probe.unknown : opsSnapshot.probeUnknown,
+    probeSkip: typeof probe?.skip === "number" ? probe.skip : opsSnapshot.probeSkip,
     probeReachable:
       typeof probe?.reachable === "boolean" ? probe.reachable : opsSnapshot.probeReachable,
   });
