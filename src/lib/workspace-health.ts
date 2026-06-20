@@ -2,8 +2,9 @@
  * Workspace health — single source of truth for repo/path/Cursor alignment.
  */
 
-import { existsSync, readFileSync, readdirSync, realpathSync, unlinkSync } from "fs";
+import { unlinkSync } from "fs";
 import { basename, join, resolve } from "path";
+import { listDir, pathExists, pathExistsAsync, readTextAsync, resolveRealPath } from "./bun-io.ts";
 import { readPackageJson, safeParse } from "./utils.ts";
 
 import {
@@ -87,8 +88,8 @@ export async function getExpectedBinNames(repoRoot: string): Promise<string[]> {
 }
 
 export function listInstalledWrappers(binDir: string): string[] {
-  if (!existsSync(binDir)) return [];
-  return readdirSync(binDir)
+  if (!pathExists(binDir)) return [];
+  return listDir(binDir)
     .filter((f) => f.startsWith("kimi-") || f === "kimi-toolchain")
     .sort();
 }
@@ -105,7 +106,11 @@ export async function listStaleWrappers(repoRoot: string, binDir: string): Promi
 
 export async function listMissingWrappers(repoRoot: string, binDir: string): Promise<string[]> {
   const expected = await listExpectedWrapperNames(repoRoot);
-  return expected.filter((name) => !existsSync(join(binDir, name)));
+  const missing: string[] = [];
+  for (const name of expected) {
+    if (!(await pathExistsAsync(join(binDir, name)))) missing.push(name);
+  }
+  return missing;
 }
 
 export function legacyClonePath(home: string): string {
@@ -120,12 +125,15 @@ export function listActiveLegacyCursorSlugs(): string[] {
   return listLegacyCursorSlugs().filter((slug) => isCursorSlugActive(slug));
 }
 
-function countMismatchedSessionCwds(sessionIndexPath: string, expectedCwd: string): number {
-  if (!existsSync(sessionIndexPath)) return 0;
+async function countMismatchedSessionCwds(
+  sessionIndexPath: string,
+  expectedCwd: string
+): Promise<number> {
+  if (!(await pathExistsAsync(sessionIndexPath))) return 0;
   const expected = resolve(expectedCwd);
   let mismatched = 0;
   try {
-    const lines = readFileSync(sessionIndexPath, "utf8").split("\n").filter(Boolean);
+    const lines = (await readTextAsync(sessionIndexPath)).split("\n").filter(Boolean);
     for (const line of lines) {
       const entry = safeParse(line, null as { cwd?: string; workDir?: string } | null);
       const cwd = entry?.cwd || entry?.workDir;
@@ -137,20 +145,23 @@ function countMismatchedSessionCwds(sessionIndexPath: string, expectedCwd: strin
   return mismatched;
 }
 
-function countOrphanedSnapshots(snapshotDir: string): number {
-  if (!existsSync(snapshotDir)) return 0;
+async function countOrphanedSnapshots(snapshotDir: string): Promise<number> {
+  if (!(await pathExistsAsync(snapshotDir))) return 0;
   let orphaned = 0;
   const glob = new Bun.Glob("*.json");
   for (const file of glob.scanSync({ cwd: snapshotDir, absolute: true })) {
-    const snap = safeParse(readFileSync(file, "utf8"), null as { projectPath?: string } | null);
-    if (snap?.projectPath && !existsSync(snap.projectPath)) orphaned++;
+    const snap = safeParse(
+      await readTextAsync(file),
+      null as { projectPath?: string } | null
+    );
+    if (snap?.projectPath && !(await pathExistsAsync(snap.projectPath))) orphaned++;
   }
   return orphaned;
 }
 
 export async function isKimiToolchainRepo(projectRoot: string): Promise<boolean> {
   const pkgPath = join(projectRoot, "package.json");
-  if (!existsSync(pkgPath)) return false;
+  if (!(await pathExistsAsync(pkgPath))) return false;
   try {
     const pkg = (await Bun.file(pkgPath).json()) as { name?: string };
     return pkg.name === CANONICAL_REPO_NAME;
@@ -174,7 +185,7 @@ export async function auditWorkspaceHealth(
   const repoName = basename(resolvedRoot);
   let physicalName = repoName;
   try {
-    physicalName = basename(realpathSync(resolvedRoot));
+    physicalName = basename(resolveRealPath(resolvedRoot));
   } catch {
     /* keep repoName */
   }
@@ -192,10 +203,10 @@ export async function auditWorkspaceHealth(
 
   const isToolchain = pkgName === CANONICAL_REPO_NAME;
   const canonicalPath = canonicalClonePath(home);
-  const canonicalClonePresent = existsSync(join(canonicalPath, "package.json"));
+  const canonicalClonePresent = await pathExistsAsync(join(canonicalPath, "package.json"));
   const legacyCursorSlugs = listLegacyCursorSlugs(home);
 
-  if (!existsSync(join(projectRoot, "package.json"))) {
+  if (!(await pathExistsAsync(join(projectRoot, "package.json")))) {
     checks.push({
       name: "package-json",
       status: "error",
@@ -254,7 +265,7 @@ export async function auditWorkspaceHealth(
   }
 
   const legacyPath = legacyClonePath(home);
-  if (existsSync(legacyPath)) {
+  if (await pathExistsAsync(legacyPath)) {
     checks.push({
       name: "legacy-clone",
       status: "warn",
@@ -326,8 +337,8 @@ export async function auditWorkspaceHealth(
 
   const toolsDir = join(home, ".kimi-code", "tools");
   const expectedBins = await getExpectedBinNames(projectRoot);
-  if (isToolchain && existsSync(toolsDir)) {
-    const installedTools = readdirSync(toolsDir).filter((f) => f.endsWith(".ts")).length;
+  if (isToolchain && (await pathExistsAsync(toolsDir))) {
+    const installedTools = listDir(toolsDir).filter((f) => f.endsWith(".ts")).length;
     checks.push(
       installedTools >= expectedBins.length
         ? {
@@ -352,7 +363,7 @@ export async function auditWorkspaceHealth(
     });
   }
 
-  const orphanedSnapshots = countOrphanedSnapshots(snapshotDir);
+  const orphanedSnapshots = await countOrphanedSnapshots(snapshotDir);
   const snapshotStatus = orphanedSnapshots === 0 ? "ok" : strict ? "error" : "warn";
   checks.push(
     orphanedSnapshots === 0
@@ -389,8 +400,8 @@ export async function auditWorkspaceHealth(
   );
 
   const sessionIndex = join(sessionsDir, "session_index.jsonl");
-  if (isToolchain && existsSync(sessionIndex)) {
-    const mismatched = countMismatchedSessionCwds(sessionIndex, canonicalPath);
+  if (isToolchain && (await pathExistsAsync(sessionIndex))) {
+    const mismatched = await countMismatchedSessionCwds(sessionIndex, canonicalPath);
     const cwdStatus = mismatched === 0 ? "ok" : strict ? "error" : "warn";
     checks.push(
       mismatched === 0
@@ -458,9 +469,9 @@ export async function auditWorkspaceHealth(
   }
 
   const indexPath = join(home, ".kimi-code", "sessions", "session_index.jsonl");
-  if (isToolchain && existsSync(indexPath)) {
+  if (isToolchain && (await pathExistsAsync(indexPath))) {
     let legacyIndexLines = 0;
-    for (const line of readFileSync(indexPath, "utf8").split("\n").filter(Boolean)) {
+    for (const line of (await readTextAsync(indexPath)).split("\n").filter(Boolean)) {
       const entry = safeParse(line, null as { cwd?: string; workDir?: string } | null);
       const cwd = entry?.cwd || entry?.workDir || "";
       if (LEGACY_REPO_NAMES.some((l) => cwd.includes(l))) legacyIndexLines++;
@@ -539,7 +550,7 @@ export function removeStaleWrappers(staleWrappers: string[], binDir: string): nu
   let removed = 0;
   for (const name of staleWrappers) {
     const path = join(binDir, name);
-    if (existsSync(path)) {
+    if (pathExists(path)) {
       unlinkSync(path);
       removed++;
     }
@@ -548,13 +559,13 @@ export function removeStaleWrappers(staleWrappers: string[], binDir: string): nu
 }
 
 export async function removeOrphanedSnapshots(snapshotDir: string): Promise<number> {
-  if (!existsSync(snapshotDir)) return 0;
+  if (!(await pathExistsAsync(snapshotDir))) return 0;
   let removed = 0;
   const glob = new Bun.Glob("*.json");
   for (const file of glob.scanSync({ cwd: snapshotDir, absolute: true })) {
     let remove = false;
     const snap = safeParse(
-      readFileSync(file, "utf8"),
+      await readTextAsync(file),
       null as {
         id?: string;
         project?: string;
@@ -563,7 +574,7 @@ export async function removeOrphanedSnapshots(snapshotDir: string): Promise<numb
       } | null
     );
     if (!snap?.id || !snap?.project || !snap?.commit) remove = true;
-    else if (snap.projectPath && !existsSync(snap.projectPath)) remove = true;
+    else if (snap.projectPath && !(await pathExistsAsync(snap.projectPath))) remove = true;
     if (remove) {
       unlinkSync(file);
       removed++;
@@ -603,7 +614,7 @@ export async function fixWorkspaceHealth(
     report.checks.some((c) => c.name === "desktop-tools" && c.status === "error");
   if (needsSync) {
     const syncScript = join(options.projectRoot, "scripts", "sync-to-desktop.ts");
-    if (existsSync(syncScript)) {
+    if (await pathExistsAsync(syncScript)) {
       const proc = Bun.spawn(["bun", "run", syncScript], {
         cwd: options.projectRoot,
         stdout: "inherit",
@@ -617,7 +628,7 @@ export async function fixWorkspaceHealth(
   const needsWrappers = options.installWrappers ?? report.missingWrappers.length > 0;
   if (needsWrappers) {
     const wrapperScript = join(options.projectRoot, "scripts", "install-bin-wrappers.sh");
-    if (existsSync(wrapperScript)) {
+    if (await pathExistsAsync(wrapperScript)) {
       const proc = Bun.spawn(["bash", wrapperScript], {
         cwd: options.projectRoot,
         stdout: "inherit",
