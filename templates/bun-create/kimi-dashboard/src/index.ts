@@ -13,6 +13,8 @@ import * as health from "./handlers/health.ts";
 import * as inspect from "./handlers/inspect.ts";
 import * as env from "./handlers/env.ts";
 import * as crypto from "./handlers/crypto.ts";
+import * as cryptoSha3 from "./handlers/crypto-sha3.ts";
+import * as file from "./handlers/file.ts";
 
 const port = Number(Bun.env.PORT) || 5678;
 
@@ -24,6 +26,8 @@ const HANDLERS: Record<string, () => Promise<Response>> = {
   "/inspect": inspect.apiInspect,
   "/env": env.apiEnv,
   "/crypto": crypto.apiCrypto,
+  "/crypto/sha3": cryptoSha3.apiCryptoSha3,
+  "/file/range": file.apiFileRange,
 };
 
 // ── Server ──────────────────────────────────────────────────────────

@@ -3,6 +3,11 @@
 # Run `kimi-guardian check` to auto-populate
 trustedDependencies = []
 
+# Isolated linker: dramatically faster in peer-heavy monorepos.
+# Bun v1.3.13: ~20.5s → 2.4s improvement for --linker=isolated.
+# https://bun.com/blog/bun-v1.3.13#faster-bun-install-with-isolated-linker
+linker = "isolated"
+
 [install.cache]
 # Global cache directory (shared across projects)
 dir = "~/.bun/install/cache"
@@ -13,3 +18,10 @@ concurrentTestGlob = ["test/*.unit.test.ts"]
 coverageSkipTestFiles = true
 
 coverageThreshold = { lines = 0.35, functions = 0.25 }
+
+# Bun v1.3.13 test runner enhancements:
+# --isolate    : fresh global per file (drains microtasks, kills timers, closes sockets)
+# --parallel=N : distribute across N workers (default = CPU count)
+# --shard=M/N  : split across CI runners (deterministic round-robin)
+# --changed    : only run tests affected by git changes
+# https://bun.com/blog/bun-v1.3.13#bun-test---isolate-and-bun-test---parallel

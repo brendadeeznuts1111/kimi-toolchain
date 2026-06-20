@@ -35,7 +35,17 @@ Preload:               bunfig.toml [test].preload → test/setup.ts
 
 Tier runners pass explicit file paths from `test-gates.ts`, set `--timeout` per tier, and use `--isolate` (+ `--parallel` for unit). They **do not** pass CLI `--preload`; `bunfig.toml` handles preload.
 
-`--watch --changed` (see `test:changed:watch`) restarts the runner on any `.ts`/`.tsx` edit in the repo. For focused portal iteration, prefer `bun run test:portal-convergence:watch` or `bun test --watch ./test/portal-convergence.unit.test.ts -t serve-probe` (file-scoped, no `--changed`).
+### Watch mode: `--watch` vs `--watch --changed`
+
+| Script               | Equivalent command                                               | Behavior                                                                                                                                                             |
+| -------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test:changed:watch` | `bun test --changed --watch --isolate`                           | **Branch-scoped.** Re-filter on every restart — any local `.ts`/`.tsx` edit triggers a re-run via git import graph. **Stays alive** when no changed files are found. |
+| `test:watch`         | `bun test --watch --isolate`                                     | Watches the explicit file set (or discovery glob). No git overhead. Best for **dev-loop** iteration.                                                                 |
+| File-scoped watch    | `bun test --watch --isolate ./test/foo.unit.test.ts -t "myTest"` | The tightest loop: one file, one name filter. Use for portal or any single-module iteration instead of `--changed --watch`.                                          |
+
+**Guideline:** `--changed --watch` restarts on **any** `.ts`/`.tsx` edit in the repo, even files not imported by the selected tests. For single-file dev loops, prefer `bun test --watch --isolate ./test/<file>` — no git overhead, no false restarts.
+
+When no changed files are found: `--changed --watch` stays alive (waits for the next edit), while bare `bun test --changed` exits cleanly with code 0. This is by design — the watch variant keeps the process as a long-lived file watcher.
 
 ### Timeouts
 

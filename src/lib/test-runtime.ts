@@ -755,10 +755,16 @@ export function isBunTestHotMode(args: readonly string[]): boolean {
  * Bun builds the import graph of test files and runs only those that transitively depend
  * on a file git reports as changed. Composes with `--watch` and `--shard`.
  *
- * - Bare `--changed`        — uncommitted changes (unstaged + staged + untracked)
- * - `--changed=<ref>`       — changes since a commit, branch, or tag
+ * Graph analysis scans imports without entering `node_modules` and without linking or
+ * emitting code, so overhead is minimal.
+ *
+ * - Bare `--changed`        — uncommitted changes (unstaged + staged + untracked).
+ *                             Exits cleanly (0) if no changed files found.
+ * - `--changed=<ref>`       — changes since a commit, branch, or tag.
+ *                             Exits cleanly (0) if no changed files found.
  * - `--changed --watch`     — re-filter on every restart; editing any local source file
- *                             triggers a re-run even if not in the current filtered set
+ *                             triggers a re-run even if not in the current filtered set.
+ *                             **Stays alive** when no changed files are found (unlike bare).
  *
  * @see BUN_TEST_EXECUTION_STRATEGY
  */
@@ -770,6 +776,8 @@ export const BUN_TEST_CHANGED = {
   defaultScope: "working-tree-diff",
   /** `--changed --watch`: re-filter on every restart, tracks live working tree. */
   composeWatch: "re-filter-on-restart-live-working-tree",
+  /** No changed files: --watch keeps the process alive; bare --changed exits cleanly. */
+  noChangesBehavior: "with-watch-stays-alive-without-watch-exits-0",
 } as const;
 
 export const BUN_TEST_CHANGED_FLAGS = [
