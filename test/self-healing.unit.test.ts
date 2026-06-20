@@ -8,7 +8,11 @@ import {
   readDecisionLedger,
   recordDecision,
 } from "../src/lib/decision-ledger.ts";
-import { applyHealPlanEffect, buildHealPlanEffect, type HealPlan } from "../src/lib/self-healing.ts";
+import {
+  applyHealPlanEffect,
+  buildHealPlanEffect,
+  type HealPlan,
+} from "../src/lib/self-healing.ts";
 import { clusterFailureLedgerEffect } from "../src/lib/error-clustering.ts";
 import { writeFileSync } from "fs";
 
@@ -45,19 +49,21 @@ describe("self-healing", () => {
         })
       );
 
-      const plan = await Effect.runPromise(buildHealPlanEffect(dir, {
-        clusters,
-        capabilities: {
-          schemaVersion: 1,
-          generatedAt: new Date().toISOString(),
-          readiness: 100,
-          readinessScore: 100,
-          healthy: 0,
-          degraded: 0,
-          unavailable: 0,
-          checks: [],
-        },
-      });
+      const plan = await Effect.runPromise(
+        buildHealPlanEffect(dir, {
+          clusters,
+          capabilities: {
+            schemaVersion: 1,
+            generatedAt: new Date().toISOString(),
+            readiness: 100,
+            readinessScore: 100,
+            healthy: 0,
+            degraded: 0,
+            unavailable: 0,
+            checks: [],
+          },
+        })
+      );
       const clusterAction = plan.actions.find((action) => action.source === "cluster");
       expect(clusterAction).toBeTruthy();
       expect(clusterAction?.metadata?.clusterId).toBeTruthy();
@@ -108,19 +114,21 @@ describe("self-healing", () => {
           threshold: 0.35,
         })
       );
-      const plan = await Effect.runPromise(buildHealPlanEffect(dir, {
-        clusters,
-        capabilities: {
-          schemaVersion: 1,
-          generatedAt: new Date().toISOString(),
-          readiness: 100,
-          readinessScore: 100,
-          healthy: 0,
-          degraded: 0,
-          unavailable: 0,
-          checks: [],
-        },
-      });
+      const plan = await Effect.runPromise(
+        buildHealPlanEffect(dir, {
+          clusters,
+          capabilities: {
+            schemaVersion: 1,
+            generatedAt: new Date().toISOString(),
+            readiness: 100,
+            readinessScore: 100,
+            healthy: 0,
+            degraded: 0,
+            unavailable: 0,
+            checks: [],
+          },
+        })
+      );
       const formatAction = plan.actions.find(
         (action) => action.metadata?.taxonomyId === "format_check_failure"
       );
@@ -171,7 +179,9 @@ describe("self-healing", () => {
         summary: { total: 1, autoApplicable: 1, manual: 0, blocked: 0 },
       };
 
-      const report = await Effect.runPromise(applyHealPlanEffect(plan, { yes: true, projectRoot: dir }));
+      const report = await Effect.runPromise(
+        applyHealPlanEffect(plan, { yes: true, projectRoot: dir })
+      );
       const [applied] = report.applied;
       expect(applied?.status).toBe("applied");
       expect(applied?.decisionId).toBeTruthy();
@@ -228,7 +238,9 @@ describe("self-healing", () => {
         summary: { total: 1, autoApplicable: 1, manual: 0, blocked: 0 },
       };
 
-      const report = await Effect.runPromise(applyHealPlanEffect(plan, { yes: true, projectRoot: dir }));
+      const report = await Effect.runPromise(
+        applyHealPlanEffect(plan, { yes: true, projectRoot: dir })
+      );
       const [applied] = report.applied;
       expect(applied?.status).toBe("skipped");
       expect(applied?.reason).toContain("previous failed decision");
@@ -254,7 +266,9 @@ describe("self-healing", () => {
         summary: { total: 0, autoApplicable: 0, manual: 0, blocked: 0 },
       };
 
-      const report = await Effect.runPromise(applyHealPlanEffect(plan, { yes: true, actionIds: ["missing-action"] }));
+      const report = await Effect.runPromise(
+        applyHealPlanEffect(plan, { yes: true, actionIds: ["missing-action"] })
+      );
       expect(report.summary.failed).toBe(1);
       expect(report.applied[0]?.status).toBe("failed");
       expect(report.applied[0]?.reason).toContain("not found");

@@ -32,6 +32,7 @@ export const UNIT_TEST_FILES = [
   "test/bun-buffer-swap.unit.test.ts",
   "test/bun-ffi.unit.test.ts",
   "test/bun-shell.unit.test.ts",
+  "test/bun-timer-idle-start.unit.test.ts",
   "test/bun-build.unit.test.ts",
   "test/bun-json5-jsonl.unit.test.ts",
   "test/bun-pack-profiler.unit.test.ts",
