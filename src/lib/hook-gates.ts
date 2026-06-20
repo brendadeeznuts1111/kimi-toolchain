@@ -21,7 +21,7 @@ import {
 import { isQuietMode } from "./quiet-mode.ts";
 import { isKimiToolchainRepo } from "./workspace-health.ts";
 import { acquireTestGateLock } from "./test-run-guard.ts";
-import { readPackageJson, sha256File } from "./utils.ts";
+import { sha256File } from "./utils.ts";
 import { buildConstantRepairPlan } from "./constants-heal.ts";
 import { detectSyncDrift } from "./sync-hashes.ts";
 import { desktopRuntimeDepsOk } from "./desktop-runtime-deps.ts";
@@ -107,8 +107,25 @@ export function planPreCommitTestArgs(staged: string[]): PreCommitTestPlan {
 }
 
 async function packageHasScript(projectRoot: string, script: string): Promise<boolean> {
-  const pkg = await readPackageJson<{ scripts?: Record<string, string> }>(projectRoot);
-  return typeof pkg?.scripts?.[script] === "string";
+  const result = await pkgGet(projectRoot, `scripts.${script}`);
+  // bun pm pkg get returns "{}" for missing properties
+  return result !== null && result !== "{}" && result.length > 0;
+}
+
+/** Run `bun pm pkg get <property>` and return the raw value, or null on error. */
+async function pkgGet(projectRoot: string, property: string): Promise<string | null> {
+  try {
+    const proc = Bun.spawn(["bun", "pm", "pkg", "get", property], {
+      cwd: projectRoot,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const output = (await new Response(proc.stdout).text()).trim();
+    if ((await proc.exited) !== 0) return null;
+    return output || null;
+  } catch {
+    return null;
+  }
 }
 
 function gateOut(message: string): void {
@@ -257,9 +274,7 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
         return skippedGateResult("lint");
       }
       if (!shouldRunScopedLint(staged)) return skippedGateResult("lint");
-      const lintScript =
-        (await readPackageJson<{ scripts?: Record<string, string> }>(projectRoot))?.scripts?.lint ??
-        "";
+      const lintScript = (await pkgGet(projectRoot, "scripts.lint")) ?? "";
       const supportsScoped = lintScript.includes("scripts/lint.ts");
       return runGateVisible(
         projectRoot,
