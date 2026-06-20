@@ -2,12 +2,16 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { makeDir, removePath } from "../src/lib/bun-io.ts";
+import { testTempDir } from "./helpers.ts";
 import {
   allowsUnifiedShellMcp,
+  auditHookFiles,
   auditKimiConfig,
   mergeConfigTomlHooks,
   mergeConfigTomlPermissions,
   parseDefaultPermissionMode,
+  parseHookCommands,
   parsePermissionRules,
 } from "../src/lib/kimi-config-audit.ts";
 
@@ -127,6 +131,97 @@ pattern = "mcp__unified-shell__execute"
       const checks = await auditKimiConfig(home);
       const hookCheck = checks.find((c) => c.name === "failure-hook");
       expect(hookCheck?.status).toBe("ok");
+    });
+  });
+
+  describe("parseHookCommands", () => {
+    test("extracts bun run and bash hook commands", () => {
+      const text = `
+[[hooks]]
+event = "PostToolUseFailure"
+command = "bun run /home/user/.kimi-code/kimi-hooks/log-tool-failure.ts"
+timeout = 10
+
+[[hooks]]
+event = "SessionStart"
+command = "bash '/home/user/.kimi-code/hooks/herdr-agent-state.sh' session"
+`;
+      expect(parseHookCommands(text)).toEqual([
+        "bun run /home/user/.kimi-code/kimi-hooks/log-tool-failure.ts",
+        "bash '/home/user/.kimi-code/hooks/herdr-agent-state.sh' session",
+      ]);
+    });
+
+    test("returns empty array when no hooks", () => {
+      expect(parseHookCommands('default_permission_mode = "manual"')).toEqual([]);
+    });
+  });
+
+  describe("auditHookFiles", () => {
+    test("reports missing hook scripts", () => {
+      const text = `
+[[hooks]]
+event = "PostToolUseFailure"
+command = "bun run /missing/path/hook.ts"
+`;
+      const result = auditHookFiles(text);
+      expect(result.checked).toBe(1);
+      expect(result.missing).toEqual(["/missing/path/hook.ts"]);
+    });
+
+    test("returns empty missing list when inline bash script is used", () => {
+      const text = `
+[[hooks]]
+event = "PreToolUse"
+command = "bash -c 'echo hello'"
+`;
+      const result = auditHookFiles(text);
+      expect(result.checked).toBe(0);
+      expect(result.missing).toEqual([]);
+    });
+  });
+
+  describe("auditKimiConfig hook-files check", () => {
+    test("ok when configured hook files exist", async () => {
+      const home = testTempDir("kimi-config-audit-hook-files-ok");
+      makeDir(join(home, ".kimi-code", "hooks"), { recursive: true });
+      await Bun.write(join(home, ".kimi-code", "hooks", "state.sh"), "#!/bin/sh\n");
+      await Bun.write(
+        join(home, ".kimi-code", "config.toml"),
+        `
+default_permission_mode = "manual"
+
+[[hooks]]
+event = "SessionStart"
+command = "bash '${home}/.kimi-code/hooks/state.sh' session"
+timeout = 10
+`
+      );
+      const checks = await auditKimiConfig(home, { unifiedShellRegistered: false });
+      const hookFiles = checks.find((c) => c.name === "hook-files");
+      expect(hookFiles?.status).toBe("ok");
+      expect(hookFiles?.message).toContain("1 configured hook script(s) present");
+      removePath(home, { recursive: true, force: true });
+    });
+
+    test("warns when configured hook files are missing", async () => {
+      const home = testTempDir("kimi-config-audit-hook-files-missing");
+      await Bun.write(
+        join(home, ".kimi-code", "config.toml"),
+        `
+default_permission_mode = "manual"
+
+[[hooks]]
+event = "SessionStart"
+command = "bash '${home}/.kimi-code/hooks/missing.sh' session"
+timeout = 10
+`
+      );
+      const checks = await auditKimiConfig(home, { unifiedShellRegistered: false });
+      const hookFiles = checks.find((c) => c.name === "hook-files");
+      expect(hookFiles?.status).toBe("warn");
+      expect(hookFiles?.message).toContain("missing");
+      removePath(home, { recursive: true, force: true });
     });
   });
 });

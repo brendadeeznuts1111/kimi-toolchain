@@ -112,6 +112,7 @@
     "check:staged": "bun run scripts/check.ts --staged",
     "check:watch": "bun run scripts/check.ts --watch",
     "check:watch:tests": "bun run scripts/check.ts --watch-tests",
+    "config:status": "bun run scripts/config-status.ts",
     "ci:pipeline": "bun run scripts/ci-pipeline.ts",
     "ci:impact": "bun run scripts/ci-impact.ts",
     "docs:sync": "bun run scripts/readme-sync.ts --fix",

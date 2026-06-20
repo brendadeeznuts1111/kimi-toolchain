@@ -18,6 +18,8 @@ import {
   buildInstallPolicyReport,
   BUN_INSTALL_REQUIRED_KEYS,
   collectInstallPropertyReferences,
+  extractBunfigScopeRegistries,
+  findFrozenLockfileScopeRegistryFallbacks,
   formatInstallCliWorkflow,
   formatInstallPropertyReferenceTable,
   formatInstallPolicyReport,
@@ -414,6 +416,66 @@ describe("bun-install-config", () => {
     expect(byId.get("add-network-metadata-panic")?.regression).toContain(
       "Expected metadata to be set"
     );
+  });
+
+  test("frozen-lockfile scope registry fix documents empty lockfile registry fallback", async () => {
+    const dir = testTempDir("bun-install-scoped-registry-fix-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
+
+    const report = await buildInstallPolicyReport(dir);
+    const fix = report.runtimeCapabilities.packageManagerFixes.fixes.find(
+      (row) => row.id === "frozen-lockfile-scope-registry"
+    );
+
+    expect(fix).toMatchObject({
+      command: BUN_INSTALL_CLI.frozenInstall,
+      surface: "scope-specific bunfig registries",
+      diagnostic: "findFrozenLockfileScopeRegistryFallbacks",
+      lockfileRegistryUrl: '""',
+      registrySource: 'bunfig.toml [install.scopes] "@orgname"',
+      exampleScope: "@orgname",
+    });
+    expect(fix?.regression).toContain("empty registry URLs");
+    expect(fix?.regression).toContain("default npm registry");
+    expect(fix?.expected).toContain("bunfig.toml");
+  });
+
+  test("findFrozenLockfileScopeRegistryFallbacks maps empty scoped lockfile registry to bunfig", () => {
+    const bunfig = `[install.scopes]
+"@orgname" = { url = "https://npm.pkg.github.com/" }
+other = "https://registry.example.test/"
+`;
+    const bunLock = `{
+  "lockfileVersion": 1,
+  "packages": {
+    "@orgname/package": ["@orgname/package@1.2.3", "", {}, "sha512-demo"],
+    "@orgname/filled": ["@orgname/filled@1.2.3", "https://registry.npmjs.org/", {}, "sha512-demo"],
+    "@missing/package": ["@missing/package@1.2.3", "", {}, "sha512-demo"],
+    "@other/package": ["@other/package@1.2.3", "", {}, "sha512-demo"]
+  }
+}`;
+
+    expect(extractBunfigScopeRegistries(bunfig)).toEqual({
+      "@orgname": "https://npm.pkg.github.com/",
+      "@other": "https://registry.example.test/",
+    });
+    expect(findFrozenLockfileScopeRegistryFallbacks(bunLock, bunfig)).toEqual([
+      {
+        packageName: "@orgname/package",
+        scope: "@orgname",
+        lockfileRegistryUrl: "",
+        bunfigRegistryUrl: "https://npm.pkg.github.com/",
+        registrySource: 'bunfig.toml [install.scopes] "@orgname"',
+      },
+      {
+        packageName: "@other/package",
+        scope: "@other",
+        lockfileRegistryUrl: "",
+        bunfigRegistryUrl: "https://registry.example.test/",
+        registrySource: 'bunfig.toml [install.scopes] "@other"',
+      },
+    ]);
   });
 
   test("buildInstallPolicyReport documents Node-compatible timer _idleStart", async () => {

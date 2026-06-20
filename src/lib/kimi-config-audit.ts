@@ -6,6 +6,7 @@
 
 import { join } from "path";
 import { ensureDir } from "./utils.ts";
+import { pathExists } from "./bun-io.ts";
 import { UNIFIED_SHELL_TOOL } from "./mcp-config.ts";
 import { homeDir } from "./paths.ts";
 
@@ -64,6 +65,51 @@ export function parsePermissionRules(text: string): PermissionRule[] {
 
 export function parseDefaultPermissionMode(text: string): string {
   return text.match(/default_permission_mode\s*=\s*"([^"]+)"/)?.[1] ?? DEFAULT_PERMISSION_MODE;
+}
+
+export function parseHookCommands(text: string): string[] {
+  const commands: string[] = [];
+  const blocks = text.split(/\[\[hooks\]\]/);
+  for (const block of blocks.slice(1)) {
+    const command = block.match(/command\s*=\s*"([^"]+)")/s)?.[1];
+    if (command) commands.push(command);
+  }
+  return commands;
+}
+
+function unquote(arg: string): string {
+  if ((arg.startsWith('"') && arg.endsWith('"')) || (arg.startsWith("'") && arg.endsWith("'"))) {
+    return arg.slice(1, -1);
+  }
+  return arg;
+}
+
+function extractHookScriptPath(command: string): string | null {
+  const trimmed = command.trim();
+  if (trimmed.startsWith("bun run ")) {
+    const rest = trimmed.slice("bun run ".length).trim();
+    return unquote(rest.split(/\s+/)[0]!);
+  }
+  if (trimmed.startsWith("bash ") || trimmed.startsWith("sh ") || trimmed.startsWith("node ")) {
+    const rest = trimmed.slice(trimmed.indexOf(" ") + 1).trim();
+    if (rest.startsWith("-c")) return null; // inline script, no file to check
+    return unquote(rest.split(/\s+/)[0]!);
+  }
+  if (!trimmed.includes(" ")) return unquote(trimmed);
+  return null;
+}
+
+export function auditHookFiles(text: string): { checked: number; missing: string[] } {
+  const commands = parseHookCommands(text);
+  const missing: string[] = [];
+  let checked = 0;
+  for (const command of commands) {
+    const scriptPath = extractHookScriptPath(command);
+    if (!scriptPath) continue;
+    checked++;
+    if (!pathExists(scriptPath)) missing.push(scriptPath);
+  }
+  return { checked, missing };
 }
 
 export function allowsUnifiedShellMcp(rules: PermissionRule[]): boolean {
@@ -165,6 +211,23 @@ export async function auditKimiConfig(
       status: "warn",
       message: "PostToolUseFailure hook not configured — run kimi-doctor --fix",
       fixable: true,
+    });
+  }
+
+  const { checked: hooksChecked, missing: hooksMissing } = auditHookFiles(text);
+  if (hooksMissing.length > 0) {
+    checks.push({
+      name: "hook-files",
+      status: "warn",
+      message: `${hooksMissing.length}/${hooksChecked} configured hook script(s) missing: ${hooksMissing.join(", ")}`,
+      fixable: true,
+    });
+  } else if (hooksChecked > 0) {
+    checks.push({
+      name: "hook-files",
+      status: "ok",
+      message: `all ${hooksChecked} configured hook script(s) present`,
+      fixable: false,
     });
   }
 

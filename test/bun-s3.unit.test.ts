@@ -40,7 +40,7 @@ describe("bun-s3", () => {
         expiresIn: 60,
         contentDisposition: 'attachment; filename="report.pdf"',
         type: "application/octet-stream",
-      }),
+      })
     ).not.toThrow();
   });
 

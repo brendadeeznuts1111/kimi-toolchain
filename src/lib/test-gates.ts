@@ -11,7 +11,6 @@ export const UNIT_TEST_FILES = [
   "test/r-score.unit.test.ts",
   "test/sync.unit.test.ts",
   "test/desktop-sync.unit.test.ts",
-  "test/doctor-runs.db.test.ts",
   "test/test-gates.unit.test.ts",
   "test/test-runtime.unit.test.ts",
   "test/test-run-guard.unit.test.ts",
@@ -111,7 +110,6 @@ export const UNIT_TEST_FILES = [
   "test/herdr-dashboard-discovery-meta.unit.test.ts",
   "test/herdr-dashboard-meta-gate.unit.test.ts",
   "test/herdr-dashboard-events.unit.test.ts",
-  "test/herdr-dashboard-server.unit.test.ts",
   "test/herdr-dashboard-webview-store.unit.test.ts",
   "test/doc-links-lint.unit.test.ts",
   "test/testing-docs-lint.unit.test.ts",
@@ -161,7 +159,6 @@ export const UNIT_TEST_FILES = [
   "test/tool-registry.unit.test.ts",
   "test/provider-contract.unit.test.ts",
   "test/success-metrics.unit.test.ts",
-  "test/kimi-toolchain.router.test.ts",
   "test/unified-shell-bridge.unit.test.ts",
   "test/error-taxonomy.unit.test.ts",
   "test/health-check.unit.test.ts",
@@ -313,7 +310,8 @@ export const UNIT_TEST_FILES = [
   "test/scoped-test-cache.unit.test.ts",
   "test/self-healing.unit.test.ts",
   "test/toolchain-paths.unit.test.ts",
-  // mock.module SSH transport — must run in a single-file fast chunk (--isolate breaks multi-file mocks)
+  // IPC/cron + mock.module — single-file fast chunks (--isolate multi-file batches can hang)
+  "test/herdr-dashboard-server.unit.test.ts",
   "test/herdr-remote-host-probe.unit.test.ts",
 ] as const;
 

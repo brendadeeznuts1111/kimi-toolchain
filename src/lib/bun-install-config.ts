@@ -699,6 +699,15 @@ export interface BunfigInstallSection {
   globalStore?: boolean;
   cache?: { dir?: string };
   registry?: string | { url?: string };
+  scopes?: Record<string, string | { url?: string }>;
+}
+
+export interface FrozenLockfileScopeRegistryFallback {
+  packageName: string;
+  scope: string;
+  lockfileRegistryUrl: "";
+  bunfigRegistryUrl: string;
+  registrySource: string;
 }
 
 interface PackageJsonInstallMeta {
@@ -791,6 +800,10 @@ export interface BunInstallRuntimeCapabilities {
       surface: string;
       regression: string;
       expected: string;
+      diagnostic?: "findFrozenLockfileScopeRegistryFallbacks";
+      lockfileRegistryUrl?: string;
+      registrySource?: string;
+      exampleScope?: string;
     }[];
   };
   timerIdleStart: {
@@ -883,6 +896,74 @@ function formatDisplayValue(value: unknown): string {
   if (value == null) return "unset";
   if (Array.isArray(value)) return JSON.stringify(value);
   return String(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeNpmScope(scope: string): string {
+  return scope.startsWith("@") ? scope : `@${scope}`;
+}
+
+function scopeRegistryUrl(value: unknown): string | null {
+  if (typeof value === "string" && value.trim() !== "") return value;
+  if (isRecord(value) && typeof value.url === "string" && value.url.trim() !== "") {
+    return value.url;
+  }
+  return null;
+}
+
+export function extractBunfigScopeRegistries(bunfigText: string): Record<string, string> {
+  try {
+    const parsed = TOML.parse(bunfigText) as { install?: BunfigInstallSection };
+    const scopes = parsed.install?.scopes ?? {};
+    const registries: Record<string, string> = {};
+    for (const [scope, value] of Object.entries(scopes)) {
+      const url = scopeRegistryUrl(value);
+      if (url) registries[normalizeNpmScope(scope)] = url;
+    }
+    return registries;
+  } catch {
+    return {};
+  }
+}
+
+export function findScopedRegistryFallbacksInBunLock(
+  bunLockText: string,
+  scopeRegistries: Record<string, string>
+): FrozenLockfileScopeRegistryFallback[] {
+  const fallbacks: FrozenLockfileScopeRegistryFallback[] = [];
+  const packageRows = /^\s*"(@[^"\/]+\/[^"]+)":\s*\[\s*"[^"]+"\s*,\s*"([^"]*)"/gm;
+
+  for (const match of bunLockText.matchAll(packageRows)) {
+    const [, packageName, registryUrl] = match;
+    if (!packageName || registryUrl !== "") continue;
+
+    const scope = packageName.slice(0, packageName.indexOf("/"));
+    const bunfigRegistryUrl = scopeRegistries[scope];
+    if (!bunfigRegistryUrl) continue;
+
+    fallbacks.push({
+      packageName,
+      scope,
+      lockfileRegistryUrl: "",
+      bunfigRegistryUrl,
+      registrySource: `bunfig.toml [install.scopes] "${scope}"`,
+    });
+  }
+
+  return fallbacks;
+}
+
+export function findFrozenLockfileScopeRegistryFallbacks(
+  bunLockText: string,
+  bunfigText: string
+): FrozenLockfileScopeRegistryFallback[] {
+  return findScopedRegistryFallbacksInBunLock(
+    bunLockText,
+    extractBunfigScopeRegistries(bunfigText)
+  );
 }
 
 function defaultInstallBackend(): string {
@@ -1155,6 +1236,10 @@ function buildRuntimeCapabilities(
           regression:
             "empty registry URLs in the lockfile fell back to the default npm registry for scoped packages",
           expected: "frozen installs honor scope-specific registries from bunfig.toml",
+          diagnostic: "findFrozenLockfileScopeRegistryFallbacks",
+          lockfileRegistryUrl: '""',
+          registrySource: 'bunfig.toml [install.scopes] "@orgname"',
+          exampleScope: "@orgname",
         },
         {
           id: "file-path-stale-lockfile-error",

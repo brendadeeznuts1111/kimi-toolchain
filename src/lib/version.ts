@@ -24,8 +24,8 @@ export const MANIFEST_PATH = manifestPath();
 // Resolve version synchronously at module load to avoid top-level await TDZ
 // for consumers (e.g. test describe callbacks) and keep exports constants.
 const pkgPath = join(import.meta.dir, "..", "..", "package.json");
-let _version = DEFAULT_VERSION;
-let _name = DEFAULT_NAME;
+let _version: string = DEFAULT_VERSION;
+let _name: string = DEFAULT_NAME;
 try {
   const pkg = JSON.parse(readText(pkgPath)) as { version?: unknown; name?: unknown };
   if (typeof pkg.version === "string") _version = pkg.version;
