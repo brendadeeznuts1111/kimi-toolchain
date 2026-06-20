@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import {
+  BUN_TEST_GLOBAL_NAMES,
   TEST_TIER_ORDER,
   TEST_TIER_SPECS,
   TEST_ENV_FILE,
   buildTestRunnerEnv,
   bunTestArgsForTier,
   bunTestArgsForChanged,
+  installBuildConstantGlobals,
   mergeBunTestInvocationArgs,
   parseForwardedBunTestArgs,
   warnIfNodeEnvNotTest,
@@ -95,6 +97,73 @@ test("probe", () => {
     expect(args).toContain("--isolate");
     expect(args).toContain("--parallel");
     expect(args[0]).toBe("test");
+  });
+
+  describe("Bun global variables contract", () => {
+    // https://bun.com/docs/test/runtime-behavior#global-variables
+    test("documents bun:test globals Bun injects without import", () => {
+      expect(BUN_TEST_GLOBAL_NAMES).toEqual([
+        "test",
+        "it",
+        "describe",
+        "expect",
+        "beforeAll",
+        "beforeEach",
+        "afterAll",
+        "afterEach",
+        "jest",
+        "vi",
+      ]);
+    });
+
+    test("native bun test: bun:test globals work without import", async () => {
+      const dir = testTempDir("bun-globals-native-");
+      makeDir(dir, { recursive: true });
+      const testPath = join(dir, "globals.probe.test.ts");
+      writeText(
+        testPath,
+        `test("global test function", () => {
+  expect(true).toBe(true);
+});
+describe("global describe", () => {
+  it("global it function", () => {
+    expect(typeof jest.fn).toBe("function");
+    expect(typeof vi.fn).toBe("function");
+  });
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+
+      const proc = Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const code = await proc.exited;
+      expect(code).toBe(0);
+    }, 15_000);
+
+    test("installBuildConstantGlobals mirrors bunfig define onto globalThis", () => {
+      const dir = testTempDir("define-globals-");
+      const key = "KIMI_TEST_RUNTIME_PROBE";
+      makeDir(dir, { recursive: true });
+      writeText(join(dir, "bunfig.toml"), `[define]\n${key} = '"probe-value"'\n`);
+      const globals = globalThis as Record<string, unknown>;
+      const priorProbe = globals.KIMI_TUNING_SET_VERSION;
+      const priorTest = globals[key];
+      delete globals.KIMI_TUNING_SET_VERSION;
+      delete globals[key];
+      try {
+        installBuildConstantGlobals(dir);
+        expect(globals[key]).toBe("probe-value");
+      } finally {
+        if (priorProbe === undefined) delete globals.KIMI_TUNING_SET_VERSION;
+        else globals.KIMI_TUNING_SET_VERSION = priorProbe;
+        if (priorTest === undefined) delete globals[key];
+        else globals[key] = priorTest;
+      }
+    });
   });
 
   describe("Bun CLI flags integration", () => {

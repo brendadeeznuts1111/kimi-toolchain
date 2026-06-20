@@ -5,9 +5,10 @@
 import { mkdirSync } from "fs";
 import { join } from "path";
 import { artifactPath } from "../src/lib/artifacts.ts";
-import { readText } from "../src/lib/bun-io.ts";
-import { parseBunfigDefines } from "../src/lib/build-constants-registry.ts";
-import { warnIfNodeEnvNotTest } from "../src/lib/test-runtime.ts";
+import {
+  installBuildConstantGlobals,
+  warnIfNodeEnvNotTest,
+} from "../src/lib/test-runtime.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
@@ -21,21 +22,4 @@ if (!Bun.env.KIMI_TEST_HOME) {
   Bun.env.KIMI_TEST_HOME = dir;
 }
 
-/** bun test may not inject bunfig `[define]` into test files — mirror SSOT when missing. */
-function installBuildConstantGlobals(): void {
-  const probe = globalThis as { KIMI_TUNING_SET_VERSION?: string };
-  if (probe.KIMI_TUNING_SET_VERSION !== undefined) return;
-  const bunfigPath = join(REPO_ROOT, "bunfig.toml");
-  let text: string;
-  try {
-    text = readText(bunfigPath);
-  } catch {
-    return;
-  }
-  if (!text.includes("[define]")) return;
-  for (const entry of parseBunfigDefines(text)) {
-    (globalThis as Record<string, unknown>)[entry.key] = entry.value;
-  }
-}
-
-installBuildConstantGlobals();
+installBuildConstantGlobals(REPO_ROOT);

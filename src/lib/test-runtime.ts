@@ -2,11 +2,13 @@
  * Bun test runner env + tier grouping.
  * @see https://bun.com/docs/test/runtime-behavior#environment-variables
  * @see https://bun.com/docs/test/runtime-behavior#cli-flags-integration
+ * @see https://bun.com/docs/test/runtime-behavior#global-variables
  */
 
 import { existsSync } from "fs";
 import { join } from "path";
 import { readText } from "./bun-io.ts";
+import { parseBunfigDefines } from "./build-constants-registry.ts";
 import {
   CI_TEST_TIMEOUT_MS,
   DEFAULT_TEST_TIMEOUT_MS,
@@ -28,6 +30,20 @@ export interface TestTierSpec {
 
 /** Optional local test env (gitignored). Do not set NODE_ENV here — use buildTestRunnerEnv. */
 export const TEST_ENV_FILE = ".env.test";
+
+/** `bun:test` globals Bun injects without import (explicit imports still preferred in-repo). */
+export const BUN_TEST_GLOBAL_NAMES = [
+  "test",
+  "it",
+  "describe",
+  "expect",
+  "beforeAll",
+  "beforeEach",
+  "afterAll",
+  "afterEach",
+  "jest",
+  "vi",
+] as const;
 
 /** Bun test CLI flags we forward from scripts (see Bun CLI flags integration doc). */
 export const FORWARDABLE_BUN_TEST_FLAGS = [
@@ -68,6 +84,7 @@ export const TEST_TIER_SPECS: Record<TestTier, TestTierSpec> = {
 
 const NODE_ENV_DOC = "https://bun.com/docs/test/runtime-behavior#node_env";
 const CLI_FLAGS_DOC = "https://bun.com/docs/test/runtime-behavior#cli-flags-integration";
+const BUILD_CONSTANT_PROBE_KEY = "KIMI_TUNING_SET_VERSION";
 
 let nodeEnvWarned = false;
 let envFileNodeEnvWarned = false;
@@ -87,6 +104,28 @@ export function warnIfNodeEnvNotTest(source: string): void {
   console.warn(
     `⚠ [${source}] NODE_ENV was "${prior}" — forcing "test" (${NODE_ENV_DOC})`
   );
+}
+
+/**
+ * Mirror bunfig `[define]` onto globalThis when the probe key is absent.
+ * Compile-time defines do not populate globalThis; some workers need the runtime mirror.
+ */
+export function installBuildConstantGlobals(repoRoot: string): void {
+  const globals = globalThis as Record<string, unknown>;
+  if (globals[BUILD_CONSTANT_PROBE_KEY] !== undefined) return;
+
+  const bunfigPath = join(repoRoot, "bunfig.toml");
+  let text: string;
+  try {
+    text = readText(bunfigPath);
+  } catch {
+    return;
+  }
+  if (!text.includes("[define]")) return;
+
+  for (const entry of parseBunfigDefines(text)) {
+    globals[entry.key] = entry.value;
+  }
 }
 
 /** Warn if .env.test sets NODE_ENV — Bun would honor it over auto-test semantics. */
