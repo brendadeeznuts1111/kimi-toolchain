@@ -139,6 +139,7 @@
     "build:portal:local:json": "bun run scripts/build-portal.ts --local-only --json",
     "test:portal-convergence": "bun test test/portal-convergence.unit.test.ts",
     "test:portal-convergence:fast": "bun test test/portal-convergence.unit.test.ts -t serve-probe",
+    "test:portal-convergence:watch": "NODE_ENV=test bun test --watch --isolate ./test/portal-convergence.unit.test.ts -t serve-probe",
     "finish-work": "bun run scripts/finish-work.ts"
   },
   "dependencies": {

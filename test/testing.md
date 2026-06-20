@@ -35,6 +35,8 @@ Preload:               bunfig.toml [test].preload → test/setup.ts
 
 Tier runners pass explicit file paths from `test-gates.ts`, set `--timeout` per tier, and use `--isolate` (+ `--parallel` for unit). They **do not** pass CLI `--preload`; `bunfig.toml` handles preload.
 
+`--watch --changed` (see `test:changed:watch`) restarts the runner on any `.ts`/`.tsx` edit in the repo. For focused portal iteration, prefer `bun run test:portal-convergence:watch` or `bun test --watch ./test/portal-convergence.unit.test.ts -t serve-probe` (file-scoped, no `--changed`).
+
 ### Timeouts
 
 | Tier                          | Per-test timeout | Constant                      |
