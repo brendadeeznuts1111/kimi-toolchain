@@ -26,15 +26,10 @@ const baseOptions: CheckOptions = {
 };
 
 describe("check-pipeline", () => {
-  test("fast toolchain checks include canonical references drift check", async () => {
+  test("fast toolchain checks include references lint step", async () => {
     const steps = await buildSteps(REPO_ROOT, baseOptions, null);
-    const canonical = steps.find((step) => step.name === "canonical-references");
-    expect(canonical?.cmd).toEqual([
-      "bun",
-      "run",
-      "scripts/generate-canonical-references.ts",
-      "--check",
-    ]);
+    const referencesLint = steps.find((step) => step.name === "references:lint");
+    expect(referencesLint?.cmd).toEqual(["bun", "run", "references:lint"]);
   });
 
   test("check --dry-run does not create a test gate lock", async () => {

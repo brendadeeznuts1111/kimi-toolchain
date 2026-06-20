@@ -329,6 +329,11 @@ describe("canonical-references", () => {
     });
     const dxDocs = issues.find((i) => i.ecosystemId === "dx" && i.field === "docs");
     expect(dxDocs?.status).toBe("skipped");
+    const mcpHome = issues.find(
+      (i) => i.ecosystemId === "cloudflare-mcp" && i.field === "homepage"
+    );
+    expect(mcpHome?.status).toBe("skipped");
+    expect(mcpHome?.message).toContain("mcp RPC");
     const kimiFail = issues.find(
       (i) => i.ecosystemId === "kimi-code" && i.field === "homepage" && i.status === "fail"
     );

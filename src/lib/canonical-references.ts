@@ -1131,6 +1131,18 @@ export async function auditEcosystemReferenceUrlsOnline(
         continue;
       }
 
+      // MCP homepages are often authenticated RPC endpoints — not public HEAD targets.
+      if (ref.kind === "mcp" && field === "homepage") {
+        issues.push({
+          ecosystemId: ref.id,
+          field,
+          url,
+          status: "skipped",
+          message: "mcp RPC endpoint — skipped",
+        });
+        continue;
+      }
+
       const status = await checkEcosystemReferenceUrl(url, { fetchFn, timeoutMs });
       issues.push({
         ecosystemId: ref.id,
