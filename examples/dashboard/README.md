@@ -13,6 +13,8 @@ cd ~/kimi-toolchain && PORT=5678 bun run dashboard
 # Detached — survives agent/harness exit (pid + log under ~/.kimi-code/var/)
 cd ~/kimi-toolchain && bun run dashboard -- --daemon --port=5678
 kill "$(cat ~/.kimi-code/var/examples-dashboard.pid)"   # stop
+tail -f ~/.kimi-code/var/examples-dashboard-events.jsonl  # structured HTTP audit (route, status, probe)
+tail -f ~/.kimi-code/var/examples-dashboard.log           # daemon stdout only (startup lines)
 
 # Legacy direct (defaults to 5678 — Dashboard Contract v1.0)
 cd examples/dashboard && bun run src/index.ts

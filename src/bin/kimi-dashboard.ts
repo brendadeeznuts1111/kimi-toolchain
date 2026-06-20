@@ -16,13 +16,13 @@
  */
 
 import { join } from "path";
-import { makeDir } from "../lib/bun-io.ts";
+import { makeDir, movePath, pathExists } from "../lib/bun-io.ts";
 import {
   CANONICAL_DASHBOARD_PORT,
   resolveDashboardStartupPort,
 } from "../lib/dashboard-settings.ts";
 import { runExamplesDashboardWebView } from "../lib/examples-dashboard-webview.ts";
-import { varDir } from "../lib/paths.ts";
+import { examplesDashboardLogPath, examplesDashboardPidPath, varDir } from "../lib/paths.ts";
 import { withBunNoOrphans } from "../lib/tool-runner.ts";
 
 // Resolve the dashboard directory relative to the repo root
@@ -127,8 +127,13 @@ if (daemon) {
   const listenPort = env.PORT;
   const runtimeVar = varDir();
   makeDir(runtimeVar, { recursive: true });
-  const logPath = join(runtimeVar, "examples-dashboard.log");
-  const pidPath = join(runtimeVar, "examples-dashboard.pid");
+  const logPath = examplesDashboardLogPath();
+  const pidPath = examplesDashboardPidPath();
+  const rotatedLogPath = `${logPath}.1`;
+  if (pathExists(logPath)) {
+    if (pathExists(rotatedLogPath)) movePath(rotatedLogPath, `${logPath}.2`);
+    movePath(logPath, rotatedLogPath);
+  }
   // Direct script spawn — `bun run` wrapper does not survive detached unref on macOS.
   const proc = Bun.spawn(["sh", "-c", `exec bun "${dashboardScript}" >> "${logPath}" 2>&1`], {
     cwd: dashboardDir,

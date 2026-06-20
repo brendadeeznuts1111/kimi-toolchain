@@ -70,6 +70,21 @@ export function dashboardEventsDbPath(): string {
   return join(varDir(), "dashboard-events.db");
 }
 
+/** Return ~/.kimi-code/var/examples-dashboard-events.jsonl — structured HTTP audit (examples dashboard). */
+export function examplesDashboardEventsPath(): string {
+  return join(varDir(), "examples-dashboard-events.jsonl");
+}
+
+/** Return ~/.kimi-code/var/examples-dashboard.log — daemon stderr/stdout capture (startup only). */
+export function examplesDashboardLogPath(): string {
+  return join(varDir(), "examples-dashboard.log");
+}
+
+/** Return ~/.kimi-code/var/examples-dashboard.pid */
+export function examplesDashboardPidPath(): string {
+  return join(varDir(), "examples-dashboard.pid");
+}
+
 /** Return ~/.kimi-code/var/error-clusters.json */
 export function clusterMetadataPath(): string {
   return join(varDir(), "error-clusters.json");

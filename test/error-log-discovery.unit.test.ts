@@ -11,7 +11,7 @@ import {
   tailErrorLogFile,
 } from "../src/lib/error-log-discovery.ts";
 import { fetchDashboardDebugLogSinks } from "../src/lib/herdr-dashboard-data.ts";
-import { failureLedgerPath } from "../src/lib/paths.ts";
+import { examplesDashboardEventsPath, failureLedgerPath } from "../src/lib/paths.ts";
 import { REPO_ROOT, testTempDir } from "./helpers.ts";
 
 describe("error-log-discovery", () => {
@@ -49,8 +49,16 @@ describe("error-log-discovery", () => {
     expect(isDashboardCuratedLogSink("tool-failures")).toBe(true);
     expect(isDashboardCuratedLogSink("finish-work-gate-kimi-heal")).toBe(true);
     expect(isDashboardCuratedLogSink("orchestrator-events")).toBe(true);
+    expect(isDashboardCuratedLogSink("examples-dashboard-events")).toBe(true);
     expect(isDashboardCuratedLogSink("wire-session")).toBe(false);
     expect(isDashboardCuratedLogSink("trace-events")).toBe(false);
+  });
+
+  test("discoverErrorLogSinks includes examples dashboard HTTP JSONL", () => {
+    const report = discoverErrorLogSinks(REPO_ROOT);
+    const sink = resolveErrorLogSink(report, "examples-dashboard-events");
+    expect(sink?.path).toBe(examplesDashboardEventsPath());
+    expect(sink?.kind).toBe("jsonl");
   });
 
   test("discoverDashboardLogSinks excludes wire-session", () => {

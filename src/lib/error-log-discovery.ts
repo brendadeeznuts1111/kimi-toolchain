@@ -13,6 +13,7 @@ import {
   decisionLedgerPath,
   desktopRoot,
   effectGatesPath,
+  examplesDashboardEventsPath,
   failureLedgerPath,
   healthEventsPath,
   healthSnapshotsPath,
@@ -154,8 +155,18 @@ function baseGlobalSinks(projectRoot: string): ErrorLogSinkDescriptor[] {
       path: dashboardEventsDbPath(),
       kind: "sqlite",
       scope: "global",
-      purpose: "gate.failed, gate.cleared, scan, handoff events from live dashboard",
+      purpose: "gate.failed, gate.cleared, scan, handoff events from Herdr live dashboard",
       readCommand: `curl -s http://127.0.0.1:18412/api/events/export?format=markdown`,
+    },
+    {
+      id: "examples-dashboard-events",
+      label: "Examples dashboard HTTP",
+      path: examplesDashboardEventsPath(),
+      kind: "jsonl",
+      scope: "global",
+      purpose:
+        "Structured per-request audit from examples/dashboard (route, status, durationMs, probe flag)",
+      readCommand: `tail -n 40 ${examplesDashboardEventsPath()}`,
     },
     {
       id: "orchestrator-events",
@@ -255,7 +266,13 @@ export const DASHBOARD_LOG_TAIL_MAX = 200;
 
 /** Curated dashboard sinks — P1 + P2 only; excludes wire.jsonl and other noisy paths. */
 export function isDashboardCuratedLogSink(id: string): boolean {
-  if (id === "tool-failures" || id === "orchestrator-events") return true;
+  if (
+    id === "tool-failures" ||
+    id === "orchestrator-events" ||
+    id === "examples-dashboard-events"
+  ) {
+    return true;
+  }
   return id.startsWith("finish-work-gate-");
 }
 

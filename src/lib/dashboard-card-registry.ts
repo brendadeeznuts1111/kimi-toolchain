@@ -5,6 +5,7 @@
 import { join } from "path";
 import { LOCAL_DOC_REFERENCES } from "./canonical-references.ts";
 import { pathExists, readText } from "./bun-io.ts";
+import { DASHBOARD_PROBE_HEADER } from "./dashboard-logger.ts";
 import { buildCardShowcaseIndex } from "./examples-showcase.ts";
 
 export const DASHBOARD_HTML_REL = "examples/dashboard/src/dashboard.html";
@@ -282,7 +283,10 @@ async function fetchCardRoute(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(`${origin}${apiRoute}`, { signal: controller.signal });
+    const res = await fetch(`${origin}${apiRoute}`, {
+      signal: controller.signal,
+      headers: { [DASHBOARD_PROBE_HEADER]: "1" },
+    });
     const contentType = res.headers.get("content-type") ?? "";
     let body: unknown;
     if (contentType.includes("application/json")) {

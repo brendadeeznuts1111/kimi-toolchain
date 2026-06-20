@@ -10,6 +10,8 @@ describe("examples-dashboard-routes", () => {
     const source = await Bun.file(DASHBOARD_ENTRY).text();
     expect(source).toContain("handleArtifactsRequest(req)");
     expect(source).toContain("dispatchDashboardRoute(req)");
+    expect(source).toContain("logDashboardEvent");
+    expect(source).toContain("isDashboardProbeRequest");
     expect(source).not.toContain('case "/api/bundle"');
   });
 
