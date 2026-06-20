@@ -18,7 +18,7 @@ For agent-facing examples of the preferred patterns, see `../../CODE_REFERENCES.
 | **Governor**   | `governor-*.ts` (6 files)                                                                                         | Resource limits, parallelism, disk quota, diagnostic cache          |
 | **Memory**     | `memory-budget.ts`, `memory-sessions.ts`, `sessions-schema.ts`                                                    | System memory checks, session store, DB schema                      |
 | **Git**        | `git-helpers.ts`, `conventional-commits.ts`, `changelog.ts`                                                       | Git operations, conventional commit parsing, changelog generation   |
-| **Config**     | `mcp-config.ts`, `kimi-config-audit.ts`, `test-gates.ts`, `artifacts.ts`                                          | MCP configuration, Kimi config audit, test gate and artifact paths  |
+| **Config**     | `mcp-config.ts`, `kimi-config-audit.ts`, `test-gates.ts`, `test-runtime.ts`, `artifacts.ts`                       | MCP config, test file lists/timeouts, Bun test SSOT, artifact paths |
 | **Health**     | `workspace-health.ts`, `workspace-commands.ts`, `legacy-cleanup.ts`, `ecosystem-health.ts`                        | Workspace health, commands, legacy cleanup, ecosystem checks        |
 | **Process**    | `process-utils.ts`, `snapshot-core.ts`                                                                            | Orphan process detection, snapshot management                       |
 | **Doctor**     | `doctor-runs.ts`, `doctor-pipeline.ts`                                                                            | Doctor run persistence + parallel sub-doctor aggregation            |

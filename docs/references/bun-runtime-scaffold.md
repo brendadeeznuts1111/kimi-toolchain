@@ -48,37 +48,46 @@ dir = "~/.bun/install/cache"
 noOrphans = true
 
 [test]
-# Unit tests run concurrently; smoke/integration stay sequential
+preload = ["./test/setup.ts"]
 concurrentTestGlob = ["test/*.unit.test.ts"]
-# Fail fast in normal/CI runs
+coverageSkipTestFiles = true
+coveragePathIgnorePatterns = ["scripts/**", "src/bin/**"]
+coverageReporter = ["text", "lcov"]
+coverageDir = "./.kimi-artifacts/coverage"
+coverageThreshold = { lines = 0.70, functions = 0.85 }
+smol = false
+```
+
+**kimi-toolchain repo** uses the block above (`KIMI_BUNFIG_TEST_CONTRACT` in `src/lib/test-runtime.ts`). Tier scripts (`test:fast`, `test`) set per-tier `--timeout` via CLI and do not duplicate `--preload`.
+
+**Scaffolded projects** (`templates/scaffold/bunfig.toml`) ship a minimal `[test]` with `concurrentTestGlob` and lower coverage thresholds only.
+
+Optional hardened settings (not in the repo root `bunfig.toml` today; may be added per project):
+
+```toml
+[test]
 bail = 1
-# Randomize order with pinned seed for reproducible failures
 randomize = true
 seed = 42
-# Generous per-test ceiling; fast gate overrides via CLI
 timeout = 30000
-# Coverage is opt-in via --coverage or test:coverage scripts
-coverage = false
-coverageSkipTestFiles = true
-smol = false
 
 [test.reporter]
 dots = true
 ```
 
+Authoring rules: `test/testing.md`. Runtime SSOT: `src/lib/test-runtime.ts`.
+
 Key differences from Bun defaults:
 
-| Key                 | Bun default                           | kimi-toolchain | Why                                                  |
-| ------------------- | ------------------------------------- | -------------- | ---------------------------------------------------- |
-| `saveTextLockfile`  | `false`                               | `true`         | Human-readable diffs in code review                  |
-| `frozenLockfile`    | `false`                               | `true`         | Reproducible installs; CI fails on drift             |
-| `linker`            | `configVersion` / workspace dependent | `isolated`     | No phantom dependencies; cleaner `node_modules`      |
-| `concurrentScripts` | 16                                    | 8              | Avoid thrashing on memory-constrained hosts          |
-| `minimumReleaseAge` | 0                                     | 259200 (3d)    | Supply-chain safety — block brand-new packages       |
-| `bail`              | unset                                 | 1              | Fail fast; don't waste CI on broken suites           |
-| `randomize`         | unset                                 | true           | Catch order-dependent test bugs                      |
-| `seed`              | unset                                 | 42             | Reproducible randomized runs                         |
-| `noOrphans`         | false                                 | true           | Prevents zombie processes in Herdr panes, CI runners |
+| Key                 | Bun default                           | kimi-toolchain    | Why                                                  |
+| ------------------- | ------------------------------------- | ----------------- | ---------------------------------------------------- |
+| `saveTextLockfile`  | `false`                               | `true`            | Human-readable diffs in code review                  |
+| `frozenLockfile`    | `false`                               | `true`            | Reproducible installs; CI fails on drift             |
+| `linker`            | `configVersion` / workspace dependent | `isolated`        | No phantom dependencies; cleaner `node_modules`      |
+| `concurrentScripts` | 16                                    | 8                 | Avoid thrashing on memory-constrained hosts          |
+| `minimumReleaseAge` | 0                                     | 259200 (3d)       | Supply-chain safety — block brand-new packages       |
+| `preload`           | unset                                 | `./test/setup.ts` | HOME isolation + `NODE_ENV=test` via setup           |
+| `noOrphans`         | false                                 | true              | Prevents zombie processes in Herdr panes, CI runners |
 
 Bun searches for `bunfig.toml` in these paths (merged if both exist):
 

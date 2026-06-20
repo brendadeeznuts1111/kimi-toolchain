@@ -96,41 +96,41 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 ### Project Scripts
 
-| Command                      | Description                                         |
-| ---------------------------- | --------------------------------------------------- |
-| `bun run doctor`             | Run kimi-doctor from repo                           |
-| `bun run kimi`               | Run the local kimi-toolchain router from repo       |
-| `bun run fix`                | Run kimi-fix from repo                              |
-| `bun run new`                | Run kimi-new from repo                              |
-| `bun run governance`         | Run kimi-governance from repo                       |
-| `bun run test`               | Full test suite (unit + smoke; default 5s timeout)  |
-| `bun run test:fast`          | Unit tests only (`--parallel=4 --isolate`, 30s)     |
-| `bun run test:parallel`      | Full suite across all cores (`--parallel`)          |
-| `bun run test:parallel:4`    | Full suite across 4 workers (`--parallel=4`)        |
-| `bun run test:shard`         | CI sharding (`--parallel --shard <M/N>`)            |
-| `bun run test:changed`       | Only tests impacted by uncommitted changes          |
-| `bun run test:changed:watch` | Changed tests watcher                               |
-| `bun run test:coverage`      | Full suite with Bun coverage report                 |
-| `bun run test:coverage:fast` | Unit coverage at the fast timeout (R-Score gate)    |
-| `bun run test:coverage:ci`   | Full suite + coverage (60s timeout, lcov, `--bail`) |
-| `bun run check`              | format:check + lint + typecheck + test (CI/full)    |
-| `bun run check:fast`         | Same gates; unit tests (`--parallel=4 --isolate`)   |
-| `bun run check:dry-run`      | List check steps without running them               |
-| `bun run docs:sync`          | Patch README script table from package.json         |
-| `bun run typecheck`          | TypeScript type check (no emit)                     |
-| `bun run format`             | Format with oxfmt (write)                           |
-| `bun run format:check`       | Verify formatting (CI gate)                         |
-| `bun run format:check:ci`    | Format check with `--threads=4` (GitHub Actions)    |
-| `bun run lint`               | Lint with oxlint + banned-terms scan                |
-| `bun run lint:terms`         | Scan docs for banned internal branding tags         |
-| `bun run sync`               | Sync repo to `~/.kimi-code/`                        |
-| `bun run sync:manifest`      | Generate `~/.kimi-code/toolchain-manifest.json`     |
-| `bun run sync:verify`        | Verify sync manifest hashes and desktop drift       |
-| `bun run sync:daemon`        | Sync on cron (every 5 min)                          |
-| `bun run unify`              | Sync runtime, wrappers, validate                    |
-| `bun run install-wrappers`   | Install `~/.local/bin/kimi-*` wrappers              |
-| `bun run memory-check`       | Shell memory pressure snapshot                      |
-| `bun run memory-budget`      | Per-app RSS breakdown via kimi-doctor               |
+| Command                      | Description                                                          |
+| ---------------------------- | -------------------------------------------------------------------- |
+| `bun run doctor`             | Run kimi-doctor from repo                                            |
+| `bun run kimi`               | Run the local kimi-toolchain router from repo                        |
+| `bun run fix`                | Run kimi-fix from repo                                               |
+| `bun run new`                | Run kimi-new from repo                                               |
+| `bun run governance`         | Run kimi-governance from repo                                        |
+| `bun run test`               | Full suite: unit → integration → smoke (`test-run.ts`)               |
+| `bun run test:fast`          | Unit gate only (`UNIT_TEST_FILES`, 1500ms, `--parallel=4 --isolate`) |
+| `bun run test:parallel`      | Full suite across all cores (`--parallel`)                           |
+| `bun run test:parallel:4`    | Full suite across 4 workers (`--parallel=4`)                         |
+| `bun run test:shard`         | CI sharding (`--parallel --shard <M/N>`)                             |
+| `bun run test:changed`       | Only tests impacted by uncommitted changes                           |
+| `bun run test:changed:watch` | Changed tests watcher                                                |
+| `bun run test:coverage`      | Full suite with Bun coverage report                                  |
+| `bun run test:coverage:fast` | Unit coverage at the fast timeout (R-Score gate)                     |
+| `bun run test:coverage:ci`   | Full suite + coverage (60s timeout, lcov, `--bail`)                  |
+| `bun run check`              | format:check + lint + typecheck + test (CI/full)                     |
+| `bun run check:fast`         | Same gates; unit tests (`--parallel=4 --isolate`)                    |
+| `bun run check:dry-run`      | List check steps without running them                                |
+| `bun run docs:sync`          | Patch README script table from package.json                          |
+| `bun run typecheck`          | TypeScript type check (no emit)                                      |
+| `bun run format`             | Format with oxfmt (write)                                            |
+| `bun run format:check`       | Verify formatting (CI gate)                                          |
+| `bun run format:check:ci`    | Format check with `--threads=4` (GitHub Actions)                     |
+| `bun run lint`               | Lint with oxlint + banned-terms scan                                 |
+| `bun run lint:terms`         | Scan docs for banned internal branding tags                          |
+| `bun run sync`               | Sync repo to `~/.kimi-code/`                                         |
+| `bun run sync:manifest`      | Generate `~/.kimi-code/toolchain-manifest.json`                      |
+| `bun run sync:verify`        | Verify sync manifest hashes and desktop drift                        |
+| `bun run sync:daemon`        | Sync on cron (every 5 min)                                           |
+| `bun run unify`              | Sync runtime, wrappers, validate                                     |
+| `bun run install-wrappers`   | Install `~/.local/bin/kimi-*` wrappers                               |
+| `bun run memory-check`       | Shell memory pressure snapshot                                       |
+| `bun run memory-budget`      | Per-app RSS breakdown via kimi-doctor                                |
 
 ### Effect CI impact rules
 

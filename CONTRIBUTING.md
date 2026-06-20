@@ -24,6 +24,16 @@ Pre-commit hook runs format, lint, typecheck, and `test:fast`. Full `bun run che
 
 Config: `.oxfmtrc.json` (formatter), `.oxlintrc.json` (linter), `bunfig.toml` (test runner). See `AGENTS.md` and `TEMPLATES.md`.
 
+## Testing
+
+Read **`test/testing.md`** before adding or changing tests. Runtime contracts live in **`src/lib/test-runtime.ts`** (contract tests: `test/test-runtime.unit.test.ts`). File lists and timeouts: **`src/lib/test-gates.ts`**. Naming rules: **`scripts/lint-test-names.ts`**.
+
+External references:
+
+- [Bun writing tests](https://bun.com/docs/test/writing-tests)
+- [Bun run tests](https://bun.com/docs/test#run-tests)
+- [`bun:test` module reference](https://bun.com/reference/bun/test)
+
 ## Pull Request Process
 
 1. Run `kimi-doctor --fix` before committing

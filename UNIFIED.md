@@ -115,9 +115,10 @@ cd ~/kimi-toolchain
 #    src/bin/*.ts  src/lib/*.ts
 
 # 2. Test from repo (fastest)
-bun run check:fast          # unit tests @ 100ms (~1s total gate)
+bun run check:fast          # unit gate @ 1500ms per test (~3s total)
 bun run check:dry-run       # preview format/lint/typecheck/test steps
-bun test                    # full suite (unit + smoke)
+bun run test                # full suite: unit → integration → smoke
+bun run test:fast           # unit only (pre-commit default)
 bun run doctor --quick
 
 # 3. Push to live runtime

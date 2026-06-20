@@ -51,9 +51,9 @@ Required env vars. **Never commit `.env`**. Always provide `.env.example`:
 # Dev — auto-assigns port, prints URL
 bun run dev
 
-# Test — fail-fast (--bail), unit files concurrent via bunfig
-bun run test
-bun run test:fast           # unit only @ 100ms
+# Test — tier scripts (see test/testing.md); unit files concurrent via bunfig
+bun run test                # unit → integration → smoke
+bun run test:fast           # unit gate @ 1500ms per test
 bun run check:fast          # format + lint + typecheck + test:fast
 
 # Typecheck — no emit, strict
@@ -148,7 +148,7 @@ No ADRs yet. Create one: `bun run ~/.kimi-code/tools/kimi-governance.ts adr "<ti
 {
   "scripts": {
     "test": "bun run scripts/run-tests.ts",
-    "test:fast": "bun run scripts/run-tests.ts --fast",
+    "test:fast": "bun run scripts/test-fast.ts",
     "test:coverage": "bun run scripts/run-tests.ts --coverage",
     "test:coverage:ci": "bun run scripts/run-tests.ts --ci --coverage",
     "check": "bun run scripts/check.ts",

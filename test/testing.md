@@ -1,75 +1,94 @@
 # Testing Conventions — kimi-toolchain
 
-> Bun-native test discipline for the `kimi-toolchain` repo.
+> Bun-native test discipline for this repo. **SSOT for runtime contracts:** `src/lib/test-runtime.ts` (verified by `test/test-runtime.unit.test.ts`).
 
-## Stack
+## Architecture
 
-- **Runner**: `bun:test` (built into Bun)
-- **Entry**: `bun run test:fast` for the fast unit gate, `bun test` for full discovery
-- **Preload**: `test/setup.ts` runs before every test file; `scripts/run-tests.ts` injects it as an absolute `--preload` so isolate workers under concurrent load can resolve it
-- **Helpers**: `test/helpers.ts` for shared, Bun-native test utilities
+```
+package.json scripts
+  → scripts/test-fast.ts | test-run.ts | test-changed.ts | run-tests.ts
+  → src/lib/test-runtime.ts (env, tiers, CLI forwarding, Bun doc contracts)
+  → bun test
 
-## Golden rules
+File lists & timeouts: src/lib/test-gates.ts
+Naming & patterns:     scripts/lint-test-names.ts (runs in bun run lint)
+Preload:               bunfig.toml [test].preload → test/setup.ts
+```
 
-1. **Import test symbols from `"bun:test"`** (explicit imports preferred over Bun globals)
+| Layer            | Source                    | Role                                                                               |
+| ---------------- | ------------------------- | ---------------------------------------------------------------------------------- |
+| **Contracts**    | `src/lib/test-runtime.ts` | Bun behavior SSOT (`BUN_TEST_*`, `KIMI_*`); tier runners                           |
+| **Gate files**   | `src/lib/test-gates.ts`   | `UNIT_TEST_FILES`, `INTEGRATION_TEST_FILES`, `SMOKE_TEST_FILES`, timeout constants |
+| **Preload**      | `test/setup.ts`           | `NODE_ENV=test`, `TZ`, `KIMI_TEST_HOME`, define globals mirror                     |
+| **Config**       | `bunfig.toml` `[test]`    | Declarative preload, `concurrentTestGlob`, coverage defaults                       |
+| **Author guide** | This file                 | Naming, isolation, grouping, anti-patterns                                         |
 
-   ```ts
-   import {
-     test,
-     it,
-     describe,
-     expect,
-     beforeAll,
-     beforeEach,
-     afterAll,
-     afterEach,
-     jest,
-     vi,
-     mock,
-   } from "bun:test";
-   ```
+## Entry points
 
-2. **Prefer Bun APIs over Node APIs**
-   - `Bun.file(path).text()` / `.json()` instead of `readFileSync`
-   - `Bun.write(path, data)` instead of `writeFileSync`
-   - `Bun.spawn`, `Bun.spawnSync` instead of `child_process`
-   - Use `test/helpers.ts` wrappers for directory lifecycle.
+| Command                | Implementation                                 | When to use                                 |
+| ---------------------- | ---------------------------------------------- | ------------------------------------------- |
+| `bun run test:fast`    | `scripts/test-fast.ts` → `runTestTier("unit")` | Default iteration; pre-commit; `check:fast` |
+| `bun run test`         | `scripts/test-run.ts` → `runAllTestTiers`      | Full suite: unit → integration → smoke      |
+| `bun run test:changed` | `scripts/test-changed.ts`                      | Branch-scoped gate                          |
+| `bun test <file>`      | Bare Bun discovery                             | Single-file debug                           |
+| `bun test`             | Bare Bun discovery                             | Avoid in CI; use tier scripts               |
 
-3. **No direct `node:fs` / `node:os` / `node:path` imports in tests**
-   - Use `"path"`, `"os"` standard imports when no Bun equivalent exists.
-   - Use helpers from `test/helpers.ts` and `src/lib/bun-io.ts` for file I/O.
+Tier runners pass explicit file paths from `test-gates.ts`, set `--timeout` per tier, and use `--isolate` (+ `--parallel` for unit). They **do not** pass CLI `--preload`; `bunfig.toml` handles preload.
 
-4. **Isolate mutable state**
-   - Unit tests must not touch the real `~/.kimi-code/` or `~/.config/`.
-   - Use `withIsolatedHome()` or set `Bun.env.HOME` to `Bun.env.KIMI_TEST_HOME`.
-   - Restore environment in `afterEach` or `finally`.
+### Timeouts
 
-5. **Clean up temp resources**
-   - Use `withTempDir()` for automatic cleanup.
-   - If manual, delete in `afterEach` or `finally` using `cleanupPath()`.
+| Tier                          | Per-test timeout | Constant                      |
+| ----------------------------- | ---------------- | ----------------------------- |
+| Fast unit gate                | 1,500 ms         | `FAST_TEST_TIMEOUT_MS`        |
+| Integration / default         | 30 s             | `DEFAULT_TEST_TIMEOUT_MS`     |
+| Smoke                         | 60 s             | `SMOKE_TEST_TIMEOUT_MS`       |
+| Bun default (bare `bun test`) | 5 s              | `BUN_TEST_DEFAULT_TIMEOUT_MS` |
 
-6. **Use `mock` and `spy` for boundaries**
-   - Prefer `mock()` over monkey-patching globals.
-   - Use `spyOn` for partial mocks.
+CLI `--timeout` on tier runners **overrides** any `bunfig.toml` `[test].timeout`.
 
-7. **Test structure**
-   - Group related tests in `describe()` blocks.
-   - Name tests with explicit intent: `"does X when Y"`.
-   - Use `test.each` / `describe.each` for parameterized cases.
+## `bun:test` module
 
-8. **Async tests**
-   - Prefer `async/await` over callback chains.
-   - Return Promises from `test()` callbacks.
+- **Prefer explicit imports** from `"bun:test"` (see `BUN_TEST_EXPLICIT_IMPORT` in `test-runtime.ts`).
+- Add `mock` when testing boundaries (`KIMI_BUN_TEST_EXTENDED_IMPORT`).
+- Bun also injects globals without import; kimi tests should not rely on globals except in subprocess contract probes.
+- API reference: [bun.com/reference/bun/test](https://bun.com/reference/bun/test)
 
-9. **Smoke tests**
-   - Keep smoke tests in `test/smoke/`.
-   - Use `invokeTool()` or wrapper CLIs, not raw `Bun.spawn(["bun", "run", ...])`.
-   - Avoid `process.exit()` inside smoke tests.
+## File naming
 
-10. **Timing**
-    - Fast unit gate target: 1,500ms per test.
-    - Default timeout: 30s; smoke tests may use 60s.
-    - Set per-test timeout only when the operation genuinely needs it.
+Enforced by `scripts/lint-test-names.ts`:
+
+| Pattern                      | Purpose                                                |
+| ---------------------------- | ------------------------------------------------------ |
+| `{stem}.unit.test.ts`        | Fast gate; maps to a source module under `src/`        |
+| `{stem}.integration.test.ts` | Full suite only                                        |
+| `{stem}.smoke.test.ts`       | CLI smoke (`test/smoke/`)                              |
+| `{stem}.db.test.ts`          | Sequential DB tests (excluded from fast parallel glob) |
+
+Top-level `describe("…")` must use **kebab-case** and start with the file stem (or a documented alias in `lint-test-names.ts`). Legacy exemptions are listed in `LEGACY_DESCRIBE_EXEMPT` — do not add new ones.
+
+## Grouping & test names
+
+- Wrap related cases in `describe()` blocks (one top-level describe per file stem).
+- Test titles: **intent-first** — `"does X when Y"`, not `"works"` or `"test #1"`.
+- Use `test.each` / `describe.each` for parameterized tables.
+- Prefer `test` over `it`; both are valid aliases.
+
+## Isolation
+
+1. **HOME** — Preload sets `Bun.env.KIMI_TEST_HOME`; unit tests must not touch real `~/.kimi-code/` or `~/.config/`. Use `withIsolatedHome()` from `test/helpers.ts`.
+2. **Env** — Use `withEnv()` / `withClearedEnv()`; never assign `process.env.*` without restoration.
+3. **Files** — Tier runners pass `--isolate` so each file gets a clean module graph. Use `afterEach` + `jest.resetModules()` when tests mutate `globalThis` or `Bun.env`.
+4. **Temp dirs** — `testTempDir()` / `withTempDir()`; cleanup with `cleanupPath()` in `finally`.
+5. **Console** — `captureConsole`, `captureStderrWrite`; do not assign `console.log = …`.
+
+## Stack rules
+
+1. Import test symbols from `"bun:test"` (`BUN_TEST_EXPLICIT_IMPORT` in `test-runtime.ts`).
+2. Prefer Bun APIs (`Bun.file`, `Bun.write`, `Bun.spawn`) over Node sync I/O.
+3. No `node:fs` / `fs` sync imports in tests (`readFileSync`, `writeFileSync`, `mkdtempSync`).
+4. No raw `process.env` — use `Bun.env` or helpers.
+5. Smoke tests: `test/smoke/`; invoke via `invokeTool()` wrappers, not ad-hoc `Bun.spawn(["bun", "run", …])`.
+6. Async: prefer `async/await`; avoid `done` callbacks unless testing Bun's callback path.
 
 ## Helper API
 
@@ -82,34 +101,42 @@ import {
   withIsolatedHome,
   withEnv,
   withClearedEnv,
-  withTelemetryHome,
-  clearSessionEnv,
   captureConsole,
-  captureConsoleError,
-  captureStdout,
-  captureStderr,
   captureStderrWrite,
-  readJson,
-  writeJson,
-  ensureTestDir,
-  pathExists,
-  readText,
-  writeText,
 } from "./helpers.ts";
 ```
 
-Effect tests use `runWithLayer` from `test/effect-helpers.ts`:
+Effect tests: `runWithLayer` from `test/effect-helpers.ts`.
 
-```ts
-import { runWithLayer } from "../effect-helpers.ts";
-import { ConstantsRegistryLive } from "../../src/lib/constants-registry.ts";
+## Anti-patterns
 
-const result = await runWithLayer(program, ConstantsRegistryLive(dir));
-```
+| Do not                                          | Use instead                                              |
+| ----------------------------------------------- | -------------------------------------------------------- |
+| `import { readFileSync } from "node:fs"`        | `Bun.file(path).text()` or `readText()` from `bun-io.ts` |
+| `process.env.HOME = …` without restore          | `withIsolatedHome()` / `withEnv()`                       |
+| Hardcoded `/tmp/…`                              | `testTempDir()`                                          |
+| `console.log = …`                               | `captureConsole()`                                       |
+| Top-level tests with no `describe()`            | `describe("<file-stem>", () => { … })`                   |
+| `*.test.ts` (no tier suffix) in `test/`         | `*.unit.test.ts` etc.                                    |
+| Bare `bun test` in hooks/CI                     | `bun run test:fast` or tier scripts                      |
+| CLI `--preload ./test/setup.ts` in tier scripts | `bunfig.toml` `[test].preload`                           |
+
+## Bun documentation map
+
+Contracts in `test-runtime.ts` align with these Bun docs:
+
+| Topic                           | Bun doc                                                        |
+| ------------------------------- | -------------------------------------------------------------- |
+| Runtime env, globals, isolation | [runtime-behavior](https://bun.com/docs/test/runtime-behavior) |
+| Discovery                       | [discovery](https://bun.com/docs/test/discovery)               |
+| `bunfig.toml` `[test]`          | [configuration](https://bun.com/docs/test/configuration)       |
+| Writing tests                   | [writing-tests](https://bun.com/docs/test/writing-tests)       |
+| Running tests                   | [test#run-tests](https://bun.com/docs/test#run-tests)          |
+| `bun:test` API                  | [reference/bun/test](https://bun.com/reference/bun/test)       |
 
 ## Example patterns
 
-### Temp directory with automatic cleanup
+### Temp directory with cleanup
 
 ```ts
 test("writes project file", async () => {
@@ -124,7 +151,7 @@ test("writes project file", async () => {
 ### Isolated HOME
 
 ```ts
-test("uses ~/.kimi-code/tools", async () => {
+test("uses isolated kimi-code home", async () => {
   await withIsolatedHome(async (home) => {
     const toolsDir = join(home, ".kimi-code", "tools");
     ensureTestDir(toolsDir);
@@ -133,37 +160,20 @@ test("uses ~/.kimi-code/tools", async () => {
 });
 ```
 
-### Capture console output
-
-```ts
-test("logs greeting", async () => {
-  const lines = await captureConsole(() => greet("world"));
-  expect(lines).toContain("hello world");
-});
-```
-
-### Mock a dependency
+### Mock at boundary
 
 ```ts
 import { mock } from "bun:test";
 
 test("fetches data", async () => {
   const fetchMock = mock(() => Promise.resolve(new Response("ok")));
+  const prior = globalThis.fetch;
   globalThis.fetch = fetchMock;
   try {
     await fetchData();
     expect(fetchMock).toHaveBeenCalled();
   } finally {
-    globalThis.fetch = globalThis.fetch; // restore if needed
+    globalThis.fetch = prior;
   }
 });
 ```
-
-## Anti-patterns
-
-- `import { readFileSync } from "node:fs"` — use `Bun.file` or `readText`.
-- `Bun.spawnSync(["rm", "-rf", dir])` — use `cleanupPath(dir)`.
-- `process.env.HOME = ...` without restoration — use `withIsolatedHome` or `withEnv`.
-- Hardcoded `/tmp/...` paths — use `testTempDir`.
-- Compact herdr pane ids (`1-1`) in assertions — use stable handles or live ids.
-- `console.log = ...` monkey-patching — use `captureConsole`.

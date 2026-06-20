@@ -48,18 +48,18 @@ If Grep/Glob fail with a path under an old renamed clone, the editor opened the 
 
 Authoritative maps — do not duplicate stale trees here:
 
-| Need                                                                                  | Source                                                                                    |
-| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| CLI entry points (24 registered in `package.json` bin + 10 source-only in `src/bin/`) | `package.json` `bin` + `src/bin/*.ts`                                                     |
-| Tool routing                                                                          | [UNIFIED.md](UNIFIED.md)                                                                  |
-| Shared library                                                                        | `src/lib/` (flat by default; `src/lib/effect/` for Effect adapters)                       |
-| Library domain guide                                                                  | `src/lib/README.md`                                                                       |
-| Unit vs smoke vs integration tests                                                    | `src/lib/test-gates.ts` (`UNIT_TEST_FILES`, `SMOKE_TEST_FILES`, `INTEGRATION_TEST_FILES`) |
-| Coding exemplars                                                                      | [CODE_REFERENCES.md](CODE_REFERENCES.md)                                                  |
-| Canonical ecosystem links                                                             | `canonical-references.json` (`bun run references:generate`; cached at `~/.kimi-code/`)    |
-| Scaffolding templates                                                                 | [TEMPLATES.md](TEMPLATES.md)                                                              |
-| Failure taxonomy                                                                      | `error-taxonomy.yml` (synced to `~/.kimi-code/`)                                          |
-| Build-time constants                                                                  | `bunfig.toml` `[define]` + `types/build-constants.d.ts`                                   |
+| Need                                                                                  | Source                                                                                 |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| CLI entry points (24 registered in `package.json` bin + 10 source-only in `src/bin/`) | `package.json` `bin` + `src/bin/*.ts`                                                  |
+| Tool routing                                                                          | [UNIFIED.md](UNIFIED.md)                                                               |
+| Shared library                                                                        | `src/lib/` (flat by default; `src/lib/effect/` for Effect adapters)                    |
+| Library domain guide                                                                  | `src/lib/README.md`                                                                    |
+| Unit vs smoke vs integration tests                                                    | `src/lib/test-gates.ts` + `src/lib/test-runtime.ts`; author guide `test/testing.md`    |
+| Coding exemplars                                                                      | [CODE_REFERENCES.md](CODE_REFERENCES.md)                                               |
+| Canonical ecosystem links                                                             | `canonical-references.json` (`bun run references:generate`; cached at `~/.kimi-code/`) |
+| Scaffolding templates                                                                 | [TEMPLATES.md](TEMPLATES.md)                                                           |
+| Failure taxonomy                                                                      | `error-taxonomy.yml` (synced to `~/.kimi-code/`)                                       |
+| Build-time constants                                                                  | `bunfig.toml` `[define]` + `types/build-constants.d.ts`                                |
 
 Top-level dirs: `src/` (bins, lib, install-hooks, kimi-hooks), `test/`, `scripts/`, `skills/`, `docs/`, `bench/`, `templates/`.
 
@@ -115,6 +115,16 @@ cadence. Any metric threshold change must update the threshold metadata in
 | Shell           | Bun's `$` template literal (`import { $ } from "bun"`) |
 | Formatter       | `oxfmt` (config: `.oxfmtrc.json`)                      |
 | Linter          | `oxlint` (config: `.oxlintrc.json`)                    |
+
+- Bun runtime introspection: [Get the current Bun version and revision](https://bun.com/docs/guides/util/version)
+- Bun semver utilities: [Bun.semver.satisfies / order](https://bun.com/docs/runtime/semver#bun-semver-satisfies-version-string-range-string--boolean)
+- Executable path lookup: [Bun.which](https://bun.com/docs/guides/util/which-path-to-executable-bin)
+
+  ```ts
+  Bun.which("sh"); // => "/bin/sh"
+  Bun.which("notfound"); // => null
+  Bun.which("bun"); // => "/home/user/.bun/bin/bun"
+  ```
 
 ## Build, Test & Quality Gates
 
@@ -222,16 +232,19 @@ bun run finish-work --message "..." --push  # gates + commit + push close-loop
 
 ## Testing Strategy
 
-- **Test runner**: `bun:test` (built into Bun)
-- **Fast gate**: `UNIT_TEST_FILES` in `test-gates.ts`; 1,500ms timeout per test
-- **Smoke**: `test/smoke/` — full CLI invocations (`bun run test:smoke`)
-- **Integration**: `INTEGRATION_TEST_FILES` in `test-gates.ts` — full suite only
-- **Isolation**: Unit tests use a temporary `HOME` (`Bun.env.KIMI_TEST_HOME`, default `.tmp-kimi-test-home`) so they never touch the real `~/.kimi-code/`
-- **Shared setup**: `test/setup.ts` runs before every test file (via `bunfig.toml` `[test] preload`)
-- **Helpers**: `test/helpers.ts` — Bun-native temp dirs, HOME isolation, env mocks, console capture
-- **Conventions**: `test/testing.md` — golden rules and example patterns for all test files
-- **Timeout**: Default 30s per test; 60s for smoke tests; 1,500ms for fast unit gate
-- **Config**: `bunfig.toml` `[test]` sets preload, concurrent glob, bail, randomize seed, dots reporter, and coverage ignores
+- **SSOT**: `src/lib/test-runtime.ts` — Bun contracts (`BUN_TEST_*`, `KIMI_*`); tier runners; verified by `test/test-runtime.unit.test.ts`
+- **File lists**: `src/lib/test-gates.ts` — `UNIT_TEST_FILES`, `INTEGRATION_TEST_FILES`, `SMOKE_TEST_FILES`
+- **Author guide**: `test/testing.md` — naming, isolation, grouping, anti-patterns
+- **Naming lint**: `scripts/lint-test-names.ts` (part of `bun run lint`)
+- **Test runner**: `bun:test` via `bun run test:fast` (unit tier) or `bun run test` (all tiers)
+- **Fast gate**: 1,500ms per test (`FAST_TEST_TIMEOUT_MS`); `--parallel=4 --isolate`
+- **Smoke**: `test/smoke/` — `bun run test:smoke` (60s timeout)
+- **Integration**: full suite only — 30s default timeout
+- **Preload**: `bunfig.toml` `[test].preload = ["./test/setup.ts"]` — tier scripts omit CLI `--preload`
+- **Isolation**: `test/setup.ts` sets `KIMI_TEST_HOME`; use `withIsolatedHome()` / `withEnv()` in tests
+- **Helpers**: `test/helpers.ts` — temp dirs, HOME isolation, console/stderr capture
+- **Bun docs**: [writing-tests](https://bun.com/docs/test/writing-tests), [run-tests](https://bun.com/docs/test#run-tests), [`bun:test` reference](https://bun.com/reference/bun/test)
+- **Repo `bunfig.toml` `[test]`**: preload, `concurrentTestGlob`, coverage paths/thresholds (`KIMI_BUNFIG_TEST_CONTRACT` in `test-runtime.ts`)
 
 ## Code Organization
 
@@ -346,12 +359,12 @@ Three layers must stay separate:
 
 **During iteration (step-budget discipline):**
 
-| Instead of                                | Use                                                           |
-| ----------------------------------------- | ------------------------------------------------------------- |
-| `bun test` (full suite incl. smoke, ~15s) | `bun run test:fast` (`UNIT_TEST_FILES` in test-gates.ts, ~5s) |
-| `bun run check` (~30s)                    | `bun run check:fast` (~3s)                                    |
-| Re-running full suite after every edit    | `bun test <specific-file>`                                    |
-| `kimi-doctor` without `--quick`           | `kimi-doctor --quick`                                         |
+| Instead of                             | Use                                          |
+| -------------------------------------- | -------------------------------------------- |
+| `bun run test` (full suite, ~15s)      | `bun run test:fast` (`UNIT_TEST_FILES`, ~5s) |
+| `bun run check` (~30s)                 | `bun run check:fast` (~3s)                   |
+| Re-running full suite after every edit | `bun test <specific-file>`                   |
+| `kimi-doctor` without `--quick`        | `kimi-doctor --quick`                        |
 
 Batch edits (up to 5–8 files) → `bun run check:fast` → fix failures → repeat → `bun run check` before commit.
 

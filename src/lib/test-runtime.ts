@@ -18,6 +18,11 @@
  * @see https://bun.com/docs/test/runtime-behavior#unhandled-errors
  * @see https://bun.com/docs/test/runtime-behavior#test-timeouts
  * @see https://bun.com/docs/test/runtime-behavior#tz-timezone
+ * @see https://bun.com/docs/test/discovery#default-discovery-logic
+ * @see https://bun.com/docs/test/configuration#configuration-file
+ * @see https://bun.com/docs/test/writing-tests#basic-usage
+ * @see https://bun.com/docs/test#run-tests
+ * @see https://bun.com/reference/bun/test
  */
 
 import { existsSync } from "fs";
@@ -48,6 +53,51 @@ export interface TestTierSpec {
 /** Optional local test env (gitignored). Do not set NODE_ENV here — use buildTestRunnerEnv. */
 export const TEST_ENV_FILE = ".env.test";
 
+/** `bun:test` built-in module (@see bun.com/reference/bun/test). */
+export const BUN_TEST_MODULE = {
+  name: "bun:test",
+  referenceUrl: "https://bun.com/reference/bun/test",
+  jestCompatible: true,
+  features: [
+    "typescript-jsx",
+    "lifecycle-hooks",
+    "snapshot-testing",
+    "ui-dom-testing",
+    "watch-mode",
+    "script-preloading",
+  ],
+  constExports: ["test", "describe", "expect", "expectTypeOf", "mock", "vi", "xdescribe", "xtest"],
+  functionExports: [
+    "beforeAll",
+    "beforeEach",
+    "afterAll",
+    "afterEach",
+    "onTestFinished",
+    "setDefaultTimeout",
+    "setSystemTime",
+    "spyOn",
+  ],
+  namespaces: ["jest"],
+  skipAliases: {
+    xtest: "test.skip",
+    xdescribe: "describe.skip",
+  },
+} as const;
+
+/** How kimi-toolchain uses the bun:test module surface. */
+export const BUN_TEST_MODULE_STRATEGY = {
+  imports: "explicit-import-preferred-over-injected-globals",
+  coreSymbols: "BUN_TEST_IMPORT_NAMES-for-standard-unit-tests",
+  mocking: "mock-jest-vi-spyOn-at-boundaries-see-test-testing.md",
+  types: "expectTypeOf-is-typecheck-only-run-tsc-separately",
+  skipAliases: "prefer-test.skip-describe.skip-over-xtest-xdescribe",
+} as const;
+
+/** Build an explicit `bun:test` import line. */
+export function buildBunTestModuleImportLine(symbols: readonly string[]): string {
+  return `import { ${symbols.join(", ")} } from "${BUN_TEST_MODULE.name}";`;
+}
+
 /** `bun:test` globals Bun injects without import (explicit imports still preferred in-repo). */
 export const BUN_TEST_GLOBAL_NAMES = [
   "test",
@@ -66,8 +116,80 @@ export const BUN_TEST_GLOBAL_NAMES = [
 export const BUN_TEST_IMPORT_NAMES = BUN_TEST_GLOBAL_NAMES;
 
 /** Canonical explicit import line (matches Bun runtime-behavior docs). */
-export const BUN_TEST_EXPLICIT_IMPORT =
-  'import { test, it, describe, expect, beforeAll, beforeEach, afterAll, afterEach, jest, vi } from "bun:test";';
+export const BUN_TEST_EXPLICIT_IMPORT = buildBunTestModuleImportLine(BUN_TEST_IMPORT_NAMES);
+
+/** kimi extended import adds `mock` to the standard lifecycle/jest/vi set. */
+export const KIMI_BUN_TEST_EXTENDED_SYMBOLS = [...BUN_TEST_IMPORT_NAMES, "mock"] as const;
+
+export const KIMI_BUN_TEST_EXTENDED_IMPORT = buildBunTestModuleImportLine(
+  KIMI_BUN_TEST_EXTENDED_SYMBOLS
+);
+
+/** True when every kimi core import symbol maps to a documented `bun:test` export. */
+export function kimiCoreSymbolInBunTestModule(symbol: string): boolean {
+  if (symbol === "it") return BUN_TEST_MODULE.constExports.includes("test");
+  if (symbol === "jest") return BUN_TEST_MODULE.namespaces.includes("jest");
+  return (
+    (BUN_TEST_MODULE.constExports as readonly string[]).includes(symbol) ||
+    (BUN_TEST_MODULE.functionExports as readonly string[]).includes(symbol)
+  );
+}
+
+/** Bun writing-tests API (@see test/writing-tests#basic-usage). */
+export const BUN_TEST_WRITING = {
+  module: BUN_TEST_MODULE.name,
+  basicSymbols: ["expect", "test"] as const,
+  groupingSymbol: "describe",
+  asyncStyles: ["async-await", "done-callback"] as const,
+  aliases: ["test", "it"] as const,
+} as const;
+
+/** Canonical basic-usage examples from Bun writing-tests docs. */
+export const BUN_TEST_WRITING_EXAMPLES = {
+  basic: {
+    imports: ["expect", "test"],
+    name: "2 + 2",
+    matcher: "toBe",
+    expected: 4,
+  },
+  grouped: {
+    imports: ["expect", "test", "describe"],
+    suite: "arithmetic",
+    cases: [
+      { name: "2 + 2", expected: 4 },
+      { name: "2 * 2", expected: 4 },
+    ],
+  },
+  asyncAwait: {
+    imports: ["expect", "test"],
+    name: "2 * 2",
+    expected: 4,
+  },
+  asyncDone: {
+    imports: ["expect", "test"],
+    name: "2 * 2",
+    expected: 4,
+  },
+} as const;
+
+/** How kimi-toolchain authors tests per writing-tests guidance. */
+export const BUN_TEST_WRITING_STRATEGY = {
+  imports: "explicit-from-bun:test-see-test-testing.md",
+  grouping: "describe-blocks-for-related-cases",
+  async: "prefer-async-await-over-done-callback",
+  aliases: "test-preferred-it-accepted",
+} as const;
+
+/** Minimal import from Bun basic-usage doc. */
+export const BUN_TEST_WRITING_BASIC_IMPORT = 'import { expect, test } from "bun:test";';
+
+/** Grouped-suite import from Bun basic-usage doc. */
+export const BUN_TEST_WRITING_GROUPED_IMPORT = 'import { expect, test, describe } from "bun:test";';
+
+/** Build a `bun:test` import line for the given symbol names. */
+export function buildBunTestWritingImportLine(symbols: readonly string[]): string {
+  return buildBunTestModuleImportLine(symbols);
+}
 
 /** Bun `bun test` process exit codes (@see process-integration doc). */
 export const BUN_TEST_EXIT = {
@@ -76,15 +198,76 @@ export const BUN_TEST_EXIT = {
   failures: 1,
 } as const;
 
+/** Bun run-tests entry (@see test#run-tests). */
+export const BUN_TEST_RUN = {
+  command: "bun test",
+  argvToken: "test",
+  singleProcess: true,
+  exitsNonZeroOnFailure: true,
+  preloadOrder: "preload-scripts-then-tests",
+  defaultTimeoutMs: 5_000,
+} as const;
+
+/** Canonical run-tests examples from Bun test runner docs. */
+export const BUN_TEST_RUN_EXAMPLES = {
+  all: ["test"],
+  pathFilters: ["test", "foo", "bar"],
+  exactPath: ["test", "./test/specific-file.test.ts"],
+  namePattern: ["test", "--test-name-pattern", "baz"],
+} as const;
+
+/** How kimi-toolchain runs tests vs bare `bun test`. */
+export const BUN_TEST_RUN_STRATEGY = {
+  bare: "bun-test-recursive-discovery-single-process",
+  kimiFull: "package-test-scripts-test-run-runAllTestTiers",
+  kimiFast: "package-test-fast-scripts-test-fast-runTestTier-unit",
+  preload: "bunfig-[test].preload-before-tier-invocations",
+  failure: "non-zero-exit-abort-tier-chain-on-first-failure",
+  filters: "tier-explicit-files-or-bun-test---changed",
+} as const;
+
+/** package.json test script → implementation mapping (SSOT for agents). */
+export const KIMI_TEST_RUN_ENTRIES = {
+  all: {
+    packageScript: "test",
+    command: "bun run scripts/test-run.ts",
+    runner: "runAllTestTiers",
+  },
+  fast: {
+    packageScript: "test:fast",
+    command: "bun run scripts/test-fast.ts",
+    runner: "runTestTier",
+    tier: "unit",
+  },
+  unit: {
+    packageScript: "test:unit",
+    command: "bun run scripts/test-fast.ts",
+    runner: "runTestTier",
+    tier: "unit",
+  },
+  changed: {
+    packageScript: "test:changed",
+    command: "bun run scripts/test-changed.ts",
+    runner: "bunTestArgsForChanged",
+  },
+  watch: {
+    packageScript: "test:watch",
+    command: "NODE_ENV=test bun test --watch --isolate",
+    runner: "bare-bun-test",
+  },
+} as const;
+
+export function isTestRunFailure(exitCode: number): boolean {
+  return exitCode !== BUN_TEST_EXIT.ok;
+}
+
 /** TZ defaults for `bun test` (@see tz-timezone). */
 export const BUN_TEST_TZ = {
   defaultZone: "Etc/UTC",
   envKey: "TZ",
 } as const;
 
-export function defaultTestTimezone(
-  env: Record<string, string | undefined> = process.env
-): string {
+export function defaultTestTimezone(env: Record<string, string | undefined> = process.env): string {
   const tz = env[BUN_TEST_TZ.envKey];
   return tz && tz.length > 0 ? tz : BUN_TEST_TZ.defaultZone;
 }
@@ -105,12 +288,29 @@ export const BUN_TEST_TIMEOUTS = {
   bunDefaultMs: BUN_TEST_DEFAULT_TIMEOUT_MS,
   globalFlag: "--timeout",
   perTestParameterIndex: 2,
+  disableValues: [0, Infinity] as const,
   kimi: {
     fast: FAST_TEST_TIMEOUT_MS,
     default: DEFAULT_TEST_TIMEOUT_MS,
     ci: CI_TEST_TIMEOUT_MS,
     smoke: SMOKE_TEST_TIMEOUT_MS,
   },
+} as const;
+
+/** Canonical timeout examples from Bun test-timeouts docs. */
+export const BUN_TEST_TIMEOUT_EXAMPLES = {
+  global: ["test", "--timeout", "10000"],
+  perTestFast: { name: "fast test", timeoutMs: 1000 },
+  perTestSlow: { name: "slow test", timeoutMs: 10_000 },
+  infiniteZero: 0,
+  infiniteInfinity: Infinity,
+} as const;
+
+/** How kimi-toolchain applies each timeout mechanism. */
+export const BUN_TEST_TIMEOUT_STRATEGY = {
+  global: "tier-runners-via-bunTestArgsForTier",
+  perTest: "author-third-argument-overrides-global",
+  infinite: "per-test-0-or-Infinity-disables-limit",
 } as const;
 
 export function readTimeoutMsFromBunTestArgs(args: readonly string[]): number | undefined {
@@ -124,6 +324,241 @@ export function readTimeoutMsFromBunTestArgs(args: readonly string[]): number | 
 
 export function isDisabledTestTimeout(ms: number): boolean {
   return ms === 0 || ms === Infinity;
+}
+
+/** Bun default file discovery (@see test/discovery#default-discovery-logic). */
+export const BUN_TEST_DISCOVERY = {
+  patternDescriptions: [
+    "*.test.{js|jsx|ts|tsx}",
+    "*_test.{js|jsx|ts|tsx}",
+    "*.spec.{js|jsx|ts|tsx}",
+    "*_spec.{js|jsx|ts|tsx}",
+  ],
+  exclusions: ["node_modules", "hidden-directories", "non-js-like-extensions"] as const,
+  testNamePatternFlag: "--test-name-pattern",
+  testNamePatternShortFlag: "-t",
+  bunfigRootKey: "root",
+  executionOrder: ["files-sequential", "within-file-sequential"] as const,
+} as const;
+
+/** Canonical discovery examples from Bun finding-tests docs. */
+export const BUN_TEST_DISCOVERY_EXAMPLES = {
+  substringFilter: ["test", "utils"],
+  exactPath: ["test", "./test/specific-file.test.ts"],
+  testNamePattern: ["test", "--test-name-pattern", "addition"],
+  bunfigRoot: 'root = "src"',
+} as const;
+
+/** How kimi-toolchain applies Bun test discovery mechanisms. */
+export const BUN_TEST_DISCOVERY_STRATEGY = {
+  defaultPatterns: "bare-bun-test-recursive-from-cwd",
+  tierFiles: "explicit-paths-from-test-gates-UNIT_TEST_FILES",
+  substringFilter: "positional-args-after-test-command",
+  exactPath: "leading-./-or-/-disambiguates-filter",
+  testNamePattern: "forward-via-script-argv",
+  bunfigRoot: "optional-bunfig-[test].root",
+} as const;
+
+export const BUN_TEST_DISCOVERY_VALUE_FLAGS = [
+  BUN_TEST_DISCOVERY.testNamePatternFlag,
+  BUN_TEST_DISCOVERY.testNamePatternShortFlag,
+] as const;
+
+/** Bun `bunfig.toml` `[test]` configuration (@see test/configuration#configuration-file). */
+export const BUN_TEST_CONFIGURATION = {
+  section: "[test]",
+  reporterSection: "[test.reporter]",
+  cliOverrideRule: "cli-flags-override-bunfig-settings",
+  installInheritanceSection: "[install]",
+  envFileDocExample: ".env.test",
+  keys: [
+    "root",
+    "preload",
+    "pathIgnorePatterns",
+    "timeout",
+    "smol",
+    "concurrentTestGlob",
+    "randomize",
+    "seed",
+    "retry",
+    "rerunEach",
+    "coverage",
+    "coverageReporter",
+    "coverageDir",
+    "coverageThreshold",
+    "coverageSkipTestFiles",
+    "coveragePathIgnorePatterns",
+    "coverageIgnoreSourcemaps",
+  ],
+} as const;
+
+/** Canonical configuration examples from Bun test configuration docs. */
+export const BUN_TEST_CONFIGURATION_EXAMPLES = {
+  sectionHeader: "[test]",
+  preload: ["./test-setup.ts", "./global-mocks.ts"],
+  pathIgnorePatterns: ["vendor/**", "submodules/**"],
+  timeoutMs: 10_000,
+  smol: true,
+  concurrentTestGlob: "**/concurrent-*.test.ts",
+  coverageReporter: ["text", "lcov"],
+  coverageDir: "./coverage",
+  junitReporterPath: "./reports/junit.xml",
+  cliOverride: ["test", "--timeout", "10000", "--coverage"],
+} as const;
+
+/** How kimi-toolchain applies Bun test configuration. */
+export const BUN_TEST_CONFIGURATION_STRATEGY = {
+  bunfig: "declarative-SSOT-bunfig.toml-[test]",
+  preload: "bunfig-preload-tier-runners-omit-cli---preload",
+  timeout: "tier-runners-pass-cli---timeout-overrides-bunfig",
+  coverage: "enabled-via-script---coverage-not-bunfig-coverage-true",
+  smol: "bunfig-smol-false-forward---smol-via-scripts",
+  concurrentTestGlob: "bunfig-for-bare-bun-test-unit-globs",
+  envFile: "auto-merge-.env.test-in-mergeBunTestInvocationArgs",
+  install: "inherited-from-[install]-registry-exact-frozenLockfile",
+} as const;
+
+/** Typed `[test]` contract for kimi-toolchain bunfig.toml. */
+export interface KimiBunfigTestContract {
+  readonly preload: readonly string[];
+  readonly concurrentTestGlob: readonly string[];
+  readonly coverageSkipTestFiles: boolean;
+  readonly coveragePathIgnorePatterns: readonly string[];
+  readonly coverageReporter: readonly string[];
+  readonly coverageDir: string;
+  readonly coverageThreshold: { readonly lines: number; readonly functions: number };
+  readonly smol: boolean;
+}
+
+/** Expected kimi-toolchain `[test]` settings (mirrors bunfig.toml). */
+export const KIMI_BUNFIG_TEST_CONTRACT: KimiBunfigTestContract = {
+  preload: ["./test/setup.ts"],
+  concurrentTestGlob: ["test/*.unit.test.ts"],
+  coverageSkipTestFiles: true,
+  coveragePathIgnorePatterns: [
+    "scripts/**",
+    "src/bin/**",
+    "src/lib/version.ts",
+    "src/lib/memory-budget.ts",
+  ],
+  coverageReporter: ["text", "lcov"],
+  coverageDir: "./.kimi-artifacts/coverage",
+  coverageThreshold: { lines: 0.7, functions: 0.85 },
+  smol: false,
+} as const;
+
+const BUN_TEST_DISCOVERY_BASENAME_RE =
+  /\.(test|spec)\.(js|jsx|ts|tsx)$|_(test|spec)\.(js|jsx|ts|tsx)$/;
+
+/** True when a path basename matches Bun's default discovery filename patterns. */
+export function basenameMatchesBunTestDiscovery(basename: string): boolean {
+  return BUN_TEST_DISCOVERY_BASENAME_RE.test(basename);
+}
+
+/** Doc: `./` or `/` prefix distinguishes an exact file path from a substring filter. */
+export function isBunTestExactPathArg(arg: string): boolean {
+  return arg.startsWith("./") || arg.startsWith("/");
+}
+
+/** Parse the `[test]` table from bunfig.toml. */
+export function readBunfigTestConfig(repoRoot: string): Record<string, unknown> | undefined {
+  const bunfigPath = join(repoRoot, "bunfig.toml");
+  let text: string;
+  try {
+    text = readText(bunfigPath);
+  } catch {
+    return undefined;
+  }
+  try {
+    const parsed = Bun.TOML.parse(text) as { test?: Record<string, unknown> };
+    return parsed.test;
+  } catch {
+    return undefined;
+  }
+}
+
+function readStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.every((entry) => typeof entry === "string") ? (value as string[]) : undefined;
+}
+
+/** Parse kimi `[test]` contract fields from a bunfig `[test]` table. */
+export function parseKimiBunfigTestContract(
+  test: Record<string, unknown> | undefined
+): KimiBunfigTestContract | undefined {
+  if (!test) return undefined;
+  const preload = readStringArray(test.preload);
+  const concurrentTestGlob = readStringArray(test.concurrentTestGlob);
+  const coveragePathIgnorePatterns = readStringArray(test.coveragePathIgnorePatterns);
+  const coverageReporter = readStringArray(test.coverageReporter);
+  const coverageDir = test.coverageDir;
+  const coverageSkipTestFiles = test.coverageSkipTestFiles;
+  const smol = test.smol;
+  const threshold = test.coverageThreshold;
+  if (
+    !preload ||
+    !concurrentTestGlob ||
+    !coveragePathIgnorePatterns ||
+    !coverageReporter ||
+    typeof coverageDir !== "string" ||
+    typeof coverageSkipTestFiles !== "boolean" ||
+    typeof smol !== "boolean" ||
+    !threshold ||
+    typeof threshold !== "object"
+  ) {
+    return undefined;
+  }
+  const lines = (threshold as Record<string, unknown>).lines;
+  const functions = (threshold as Record<string, unknown>).functions;
+  if (typeof lines !== "number" || typeof functions !== "number") return undefined;
+  return {
+    preload,
+    concurrentTestGlob,
+    coverageSkipTestFiles,
+    coveragePathIgnorePatterns,
+    coverageReporter,
+    coverageDir,
+    coverageThreshold: { lines, functions },
+    smol,
+  };
+}
+
+export function readKimiBunfigTestContract(repoRoot: string): KimiBunfigTestContract | undefined {
+  return parseKimiBunfigTestContract(readBunfigTestConfig(repoRoot));
+}
+
+/** Read optional `[test].root` from bunfig.toml (discovery scan root). */
+export function readBunfigTestRoot(repoRoot: string): string | undefined {
+  const root = readBunfigTestConfig(repoRoot)?.root;
+  return typeof root === "string" ? root : undefined;
+}
+
+/** Read numeric `[test].timeout` default from bunfig.toml (milliseconds). */
+export function readBunfigTestTimeoutMs(repoRoot: string): number | undefined {
+  const timeout = readBunfigTestConfig(repoRoot)?.timeout;
+  return typeof timeout === "number" && Number.isFinite(timeout) ? timeout : undefined;
+}
+
+/** Extract `--test-name-pattern` / `-t` flags forwarded from script argv. */
+export function parseForwardedDiscoveryArgs(argv: readonly string[]): string[] {
+  const all = parseForwardedBunTestArgs(argv);
+  const out: string[] = [];
+  for (let i = 0; i < all.length; i++) {
+    const arg = all[i]!;
+    const flag = (BUN_TEST_DISCOVERY_VALUE_FLAGS as readonly string[]).find(
+      (entry) => arg === entry || arg.startsWith(`${entry}=`)
+    );
+    if (!flag) continue;
+    out.push(arg);
+    if (arg === flag) {
+      const next = all[i + 1];
+      if (next && !next.startsWith("-")) {
+        out.push(next);
+        i += 1;
+      }
+    }
+  }
+  return out;
 }
 
 /** Non-zero when tests failed or the runner reported errors. */
@@ -186,8 +621,7 @@ export function isRunnerErrorHandlingExit(code: number): boolean {
 /** Detect Bun runner output for module-level unhandled promise rejections. */
 export function isRunnerPromiseRejectionOutput(output: string): boolean {
   return (
-    output.includes(BUN_TEST_ERROR_HANDLING.runnerBanner) &&
-    /Unhandled rejection/i.test(output)
+    output.includes(BUN_TEST_ERROR_HANDLING.runnerBanner) && /Unhandled rejection/i.test(output)
   );
 }
 
@@ -254,8 +688,7 @@ export const BUN_TEST_ISOLATION = {
 } as const;
 
 /** Canonical afterEach cleanup pattern from Bun docs (explicit import preferred in-repo). */
-export const BUN_TEST_ISOLATION_AFTER_EACH_IMPORT =
-  'import { afterEach } from "bun:test";';
+export const BUN_TEST_ISOLATION_AFTER_EACH_IMPORT = 'import { afterEach } from "bun:test";';
 
 /** kimi posture vs Bun single-process defaults (@see performance-considerations). */
 export const BUN_TEST_PERFORMANCE = {
@@ -332,7 +765,9 @@ export const BUN_TEST_INSTALL_FLAGS = [
   BUN_TEST_INSTALL.frozenLockfileFlag,
 ] as const;
 
-export function isBunTestInstallFlag(flag: string): flag is (typeof BUN_TEST_INSTALL_FLAGS)[number] {
+export function isBunTestInstallFlag(
+  flag: string
+): flag is (typeof BUN_TEST_INSTALL_FLAGS)[number] {
   return (BUN_TEST_INSTALL_FLAGS as readonly string[]).includes(flag);
 }
 
@@ -386,6 +821,26 @@ export const BUN_TEST_MODULE_LOADING = {
   defineRegistry: "bunfig.toml [define]",
 } as const;
 
+/** Canonical `bun test` argv slices from Bun module-loading docs. */
+export const BUN_TEST_MODULE_LOADING_EXAMPLES = {
+  preload: ["test", "--preload", "./setup.ts"],
+  define: ["test", "--define", "process.env.API_URL='http://localhost:3000'"],
+  loader: ["test", "--loader", ".special:special-loader"],
+  tsconfigOverride: ["test", "--tsconfig-override", "./test-tsconfig.json"],
+  conditions: ["test", "--conditions", "development"],
+  envFile: ["test", "--env-file", TEST_ENV_FILE],
+} as const;
+
+/** How kimi-toolchain applies each module-loading mechanism. */
+export const BUN_TEST_MODULE_LOADING_STRATEGY = {
+  preload: "bunfig-[test].preload",
+  define: "bunfig-[define]-plus-installBuildConstantGlobals",
+  envFile: "auto-merge-.env.test",
+  loader: "forward-via-script-argv",
+  tsconfigOverride: "forward-via-script-argv",
+  conditions: "forward-via-script-argv",
+} as const;
+
 /** Module-loading flags that take a value (flag + token or --flag=value). */
 export const BUN_TEST_MODULE_LOADING_VALUE_FLAGS = [
   BUN_TEST_MODULE_LOADING.preloadFlag,
@@ -398,18 +853,34 @@ export const BUN_TEST_MODULE_LOADING_VALUE_FLAGS = [
 
 /** Read [test].preload paths from bunfig.toml (declarative preload SSOT). */
 export function readBunfigTestPreloadPaths(repoRoot: string): string[] {
-  const bunfigPath = join(repoRoot, "bunfig.toml");
-  let text: string;
-  try {
-    text = readText(bunfigPath);
-  } catch {
-    return [];
+  return readStringArray(readBunfigTestConfig(repoRoot)?.preload) ?? [];
+}
+
+export function resolveKimiTestPreloadPath(repoRoot: string): string {
+  const paths = readBunfigTestPreloadPaths(repoRoot);
+  return paths[0] ?? BUN_TEST_MODULE_LOADING.bunfigPreloadRelPath;
+}
+
+/** Extract module-loading flags (and values) forwarded from script argv. */
+export function parseForwardedModuleLoadingArgs(argv: readonly string[]): string[] {
+  const all = parseForwardedBunTestArgs(argv);
+  const out: string[] = [];
+  for (let i = 0; i < all.length; i++) {
+    const arg = all[i]!;
+    const flag = (BUN_TEST_MODULE_LOADING_VALUE_FLAGS as readonly string[]).find(
+      (entry) => arg === entry || arg.startsWith(`${entry}=`)
+    );
+    if (!flag) continue;
+    out.push(arg);
+    if (arg === flag) {
+      const next = all[i + 1];
+      if (next && !next.startsWith("--")) {
+        out.push(next);
+        i += 1;
+      }
+    }
   }
-  const section = text.match(/\[test\][\s\S]*?(?=\n\[|\n*$)/);
-  if (!section) return [];
-  const preload = section[0].match(/preload\s*=\s*\[([^\]]*)\]/);
-  if (!preload) return [];
-  return [...preload[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]!);
+  return out;
 }
 
 /** Bun test CLI flags we forward from scripts (see Bun CLI flags integration doc). */
@@ -466,8 +937,8 @@ export function warnIfNodeEnvNotTest(source: string): void {
   const prior = process.env.NODE_ENV;
   if (!prior || prior === "test") return;
   nodeEnvWarned = true;
-  console.warn(
-    `⚠ [${source}] NODE_ENV was "${prior}" — forcing "test" (${NODE_ENV_DOC})`
+  process.stderr.write(
+    `⚠ [${source}] NODE_ENV was "${prior}" — forcing "test" (${NODE_ENV_DOC})\n`
   );
 }
 
@@ -507,8 +978,8 @@ export function warnIfTestEnvFileSetsNodeEnv(repoRoot: string): void {
   const match = text.match(/^\s*NODE_ENV\s*=\s*(\S+)/m);
   if (!match || match[1] === "test") return;
   envFileNodeEnvWarned = true;
-  console.warn(
-    `⚠ [${TEST_ENV_FILE}] NODE_ENV=${match[1]} — remove it; kimi-toolchain forces test mode (${CLI_FLAGS_DOC})`
+  process.stderr.write(
+    `⚠ [${TEST_ENV_FILE}] NODE_ENV=${match[1]} — remove it; kimi-toolchain forces test mode (${CLI_FLAGS_DOC})\n`
   );
 }
 
@@ -521,10 +992,15 @@ function pushValueFlag(out: string[], flag: string, value: string | undefined): 
   if (value) out.push(flag, value);
 }
 
-function isModuleLoadingValueFlag(arg: string): boolean {
+const FORWARDABLE_BUN_TEST_VALUE_FLAGS = [
+  ...BUN_TEST_MODULE_LOADING_VALUE_FLAGS,
+  ...BUN_TEST_DISCOVERY_VALUE_FLAGS,
+] as const;
+
+function isForwardedValueFlag(arg: string): boolean {
   return (
-    (BUN_TEST_MODULE_LOADING_VALUE_FLAGS as readonly string[]).includes(arg) ||
-    (BUN_TEST_MODULE_LOADING_VALUE_FLAGS as readonly string[]).some((flag) =>
+    (FORWARDABLE_BUN_TEST_VALUE_FLAGS as readonly string[]).includes(arg) ||
+    (FORWARDABLE_BUN_TEST_VALUE_FLAGS as readonly string[]).some((flag) =>
       arg.startsWith(`${flag}=`)
     )
   );
@@ -541,8 +1017,8 @@ export function parseForwardedBunTestArgs(argv: readonly string[]): string[] {
       out.push(arg);
       continue;
     }
-    if (isModuleLoadingValueFlag(arg)) {
-      for (const flag of BUN_TEST_MODULE_LOADING_VALUE_FLAGS) {
+    if (isForwardedValueFlag(arg)) {
+      for (const flag of FORWARDABLE_BUN_TEST_VALUE_FLAGS) {
         if (arg === flag) {
           pushValueFlag(out, flag, argv[++i]);
           break;
@@ -557,10 +1033,7 @@ export function parseForwardedBunTestArgs(argv: readonly string[]): string[] {
   return out;
 }
 
-export function defaultTestEnvFileArgs(
-  repoRoot: string,
-  forwarded: readonly string[]
-): string[] {
+export function defaultTestEnvFileArgs(repoRoot: string, forwarded: readonly string[]): string[] {
   if (forwarded.some((arg) => arg === "--env-file" || arg.startsWith("--env-file="))) {
     return [];
   }
@@ -675,7 +1148,7 @@ export async function runAllTestTiers(
   const forwarded = options.forwarded ?? parseForwardedBunTestArgs(Bun.argv.slice(2));
   for (const tier of TEST_TIER_ORDER) {
     const code = await runTestTier(repoRoot, tier, { forwarded });
-    if (code !== 0) return code;
+    if (isTestRunFailure(code)) return code;
   }
   return 0;
 }

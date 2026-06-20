@@ -3,6 +3,23 @@ import {
   BUN_TEST_DETECTION_ENV_KEYS,
   BUN_TEST_EXIT,
   BUN_TEST_EXPLICIT_IMPORT,
+  BUN_TEST_WRITING,
+  BUN_TEST_WRITING_EXAMPLES,
+  BUN_TEST_WRITING_STRATEGY,
+  BUN_TEST_WRITING_BASIC_IMPORT,
+  BUN_TEST_WRITING_GROUPED_IMPORT,
+  buildBunTestWritingImportLine,
+  BUN_TEST_RUN,
+  BUN_TEST_RUN_EXAMPLES,
+  BUN_TEST_RUN_STRATEGY,
+  KIMI_TEST_RUN_ENTRIES,
+  isTestRunFailure,
+  BUN_TEST_MODULE,
+  BUN_TEST_MODULE_STRATEGY,
+  KIMI_BUN_TEST_EXTENDED_IMPORT,
+  KIMI_BUN_TEST_EXTENDED_SYMBOLS,
+  buildBunTestModuleImportLine,
+  kimiCoreSymbolInBunTestModule,
   BUN_TEST_GLOBAL_NAMES,
   BUN_TEST_IMPORT_NAMES,
   BUN_TEST_ISOLATION,
@@ -12,6 +29,22 @@ import {
   BUN_TEST_DEFAULT_TIMEOUT_MS,
   BUN_TEST_SIGNALS,
   BUN_TEST_TIMEOUTS,
+  BUN_TEST_TIMEOUT_EXAMPLES,
+  BUN_TEST_TIMEOUT_STRATEGY,
+  BUN_TEST_DISCOVERY,
+  BUN_TEST_DISCOVERY_EXAMPLES,
+  BUN_TEST_DISCOVERY_STRATEGY,
+  basenameMatchesBunTestDiscovery,
+  isBunTestExactPathArg,
+  readBunfigTestRoot,
+  readBunfigTestTimeoutMs,
+  readKimiBunfigTestContract,
+  parseKimiBunfigTestContract,
+  BUN_TEST_CONFIGURATION,
+  BUN_TEST_CONFIGURATION_EXAMPLES,
+  BUN_TEST_CONFIGURATION_STRATEGY,
+  KIMI_BUNFIG_TEST_CONTRACT,
+  parseForwardedDiscoveryArgs,
   BUN_TEST_TZ,
   applyDefaultTestTimezone,
   defaultTestTimezone,
@@ -22,8 +55,11 @@ import {
   BUN_TEST_DEBUG_FLAGS,
   BUN_TEST_INSTALL,
   BUN_TEST_INSTALL_FLAGS,
-  BUN_TEST_MODULE_LOADING,
+  BUN_TEST_MODULE_LOADING_EXAMPLES,
+  BUN_TEST_MODULE_LOADING_STRATEGY,
   BUN_TEST_MODULE_LOADING_VALUE_FLAGS,
+  parseForwardedModuleLoadingArgs,
+  resolveKimiTestPreloadPath,
   BUN_TEST_CUSTOM_ERROR_HANDLERS,
   BUN_TEST_ERROR_HANDLING,
   BUN_TEST_PROMISE_REJECTIONS,
@@ -62,9 +98,15 @@ import {
   warnIfNodeEnvNotTest,
   resetTestRuntimeWarningsForTests,
 } from "../src/lib/test-runtime.ts";
-import { REPO_ROOT, testTempDir, withClearedEnv, withEnv } from "./helpers.ts";
+import { REPO_ROOT, captureStderrWrite, testTempDir, withClearedEnv, withEnv } from "./helpers.ts";
 import { makeDir, writeText } from "../src/lib/bun-io.ts";
-import { join } from "path";
+import {
+  INTEGRATION_TEST_FILES,
+  SMOKE_TEST_FILES,
+  UNIT_TEST_FILES,
+} from "../src/lib/test-gates.ts";
+import { basename, join } from "path";
+import { existsSync } from "fs";
 
 describe("test-runtime", () => {
   describe("Bun NODE_ENV contract", () => {
@@ -109,20 +151,16 @@ test("probe", () => {
     resetTestRuntimeWarningsForTests();
     withClearedEnv(["NODE_ENV"], () => {
       withEnv({ NODE_ENV: "development" }, () => {
-        const lines: string[] = [];
-        const prior = console.warn;
-        console.warn = (message: string) => {
-          lines.push(message);
-        };
+        const capture = captureStderrWrite();
         try {
           warnIfNodeEnvNotTest("test");
           warnIfNodeEnvNotTest("test");
         } finally {
-          console.warn = prior;
+          capture.restore();
         }
-        expect(lines).toHaveLength(1);
-        expect(lines[0]).toContain('NODE_ENV was "development"');
-        expect(lines[0]).toContain("[test]");
+        expect(capture.lines).toHaveLength(1);
+        expect(capture.lines[0]).toContain('NODE_ENV was "development"');
+        expect(capture.lines[0]).toContain("[test]");
       });
     });
   });
@@ -228,6 +266,63 @@ test("timezone follows TZ env", () => {
     expect(args[0]).toBe("test");
   });
 
+  describe("Bun test module", () => {
+    // https://bun.com/reference/bun/test
+    test("documents bun:test module exports and kimi import strategy", () => {
+      expect(BUN_TEST_MODULE.name).toBe("bun:test");
+      expect(BUN_TEST_MODULE.jestCompatible).toBe(true);
+      expect(BUN_TEST_MODULE.constExports).toContain("test");
+      expect(BUN_TEST_MODULE.constExports).toContain("mock");
+      expect(BUN_TEST_MODULE.functionExports).toContain("beforeEach");
+      expect(BUN_TEST_MODULE.functionExports).toContain("spyOn");
+      expect(BUN_TEST_MODULE.namespaces).toEqual(["jest"]);
+      expect(BUN_TEST_MODULE.skipAliases.xtest).toBe("test.skip");
+      expect(BUN_TEST_MODULE_STRATEGY.imports).toBe(
+        "explicit-import-preferred-over-injected-globals"
+      );
+      expect(BUN_TEST_WRITING.module).toBe(BUN_TEST_MODULE.name);
+      expect(BUN_TEST_EXPLICIT_IMPORT).toBe(buildBunTestModuleImportLine(BUN_TEST_IMPORT_NAMES));
+      expect(KIMI_BUN_TEST_EXTENDED_SYMBOLS).toContain("mock");
+      expect(KIMI_BUN_TEST_EXTENDED_IMPORT).toContain("mock");
+      for (const symbol of BUN_TEST_IMPORT_NAMES) {
+        expect(kimiCoreSymbolInBunTestModule(symbol)).toBe(true);
+      }
+    });
+
+    test("native bun test: explicit bun:test imports for mock and lifecycle hooks", async () => {
+      const dir = testTempDir("bun-module-api-");
+      const testPath = join(dir, "module-api.probe.test.ts");
+      writeText(
+        testPath,
+        `import { test, expect, describe, beforeEach, afterEach, mock } from "bun:test";
+let counter = 0;
+beforeEach(() => {
+  counter = 0;
+});
+afterEach(() => {
+  counter = 0;
+});
+describe("bun:test api", () => {
+  test("mock()", () => {
+    const fn = mock(() => 1);
+    expect(fn()).toBe(1);
+    expect(fn).toHaveBeenCalled();
+    counter += 1;
+    expect(counter).toBe(1);
+  });
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+    }, 15_000);
+  });
+
   describe("Bun global variables contract", () => {
     // https://bun.com/docs/test/runtime-behavior#global-variables
     test("documents bun:test globals Bun injects without import", () => {
@@ -295,16 +390,226 @@ describe("global describe", () => {
     });
   });
 
-  describe("Bun process integration", () => {
-    // https://bun.com/docs/test/runtime-behavior#process-integration
-    test("documents bun:test explicit import line and import names", () => {
-      expect(BUN_TEST_IMPORT_NAMES).toEqual(BUN_TEST_GLOBAL_NAMES);
+  describe("Bun writing tests", () => {
+    // https://bun.com/docs/test/writing-tests#basic-usage
+    test("documents basic usage, grouping, and async examples from Bun docs", () => {
+      expect(BUN_TEST_WRITING.module).toBe("bun:test");
+      expect(BUN_TEST_WRITING.basicSymbols).toEqual(["expect", "test"]);
+      expect(BUN_TEST_WRITING.groupingSymbol).toBe("describe");
+      expect(BUN_TEST_WRITING_EXAMPLES.basic.name).toBe("2 + 2");
+      expect(BUN_TEST_WRITING_EXAMPLES.grouped.suite).toBe("arithmetic");
+      expect(BUN_TEST_WRITING_EXAMPLES.grouped.cases).toHaveLength(2);
+      expect(BUN_TEST_WRITING_STRATEGY.imports).toBe("explicit-from-bun:test-see-test-testing.md");
+      expect(BUN_TEST_WRITING_BASIC_IMPORT).toBe(buildBunTestWritingImportLine(["expect", "test"]));
+      expect(BUN_TEST_WRITING_GROUPED_IMPORT).toBe(
+        buildBunTestWritingImportLine(["expect", "test", "describe"])
+      );
       expect(BUN_TEST_EXPLICIT_IMPORT).toContain('from "bun:test"');
       for (const name of BUN_TEST_IMPORT_NAMES) {
         expect(BUN_TEST_EXPLICIT_IMPORT).toContain(name);
       }
+      expect(BUN_TEST_IMPORT_NAMES).toEqual(BUN_TEST_GLOBAL_NAMES);
     });
 
+    test("native bun test: basic sync test from writing-tests doc", async () => {
+      const dir = testTempDir("bun-writing-basic-");
+      const testPath = join(dir, "math.test.ts");
+      const ex = BUN_TEST_WRITING_EXAMPLES.basic;
+      writeText(
+        testPath,
+        `${BUN_TEST_WRITING_BASIC_IMPORT}
+test(${JSON.stringify(ex.name)}, () => {
+  expect(2 + 2).${ex.matcher}(${ex.expected});
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+    }, 15_000);
+
+    test("native bun test: describe grouping from writing-tests doc", async () => {
+      const dir = testTempDir("bun-writing-grouped-");
+      const testPath = join(dir, "math.test.ts");
+      const ex = BUN_TEST_WRITING_EXAMPLES.grouped;
+      const cases = ex.cases
+        .map(
+          (entry) => `  test(${JSON.stringify(entry.name)}, () => {
+    expect(${entry.name.includes("+") ? "2 + 2" : "2 * 2"}).toBe(${entry.expected});
+  });`
+        )
+        .join("\n\n");
+      writeText(
+        testPath,
+        `${BUN_TEST_WRITING_GROUPED_IMPORT}
+describe(${JSON.stringify(ex.suite)}, () => {
+${cases}
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+    }, 15_000);
+
+    test("native bun test: async await style from writing-tests doc", async () => {
+      const dir = testTempDir("bun-writing-async-");
+      const testPath = join(dir, "math.test.ts");
+      const ex = BUN_TEST_WRITING_EXAMPLES.asyncAwait;
+      writeText(
+        testPath,
+        `${BUN_TEST_WRITING_BASIC_IMPORT}
+test(${JSON.stringify(ex.name)}, async () => {
+  const result = await Promise.resolve(2 * 2);
+  expect(result).toEqual(${ex.expected});
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+    }, 15_000);
+
+    test("native bun test: done callback style from writing-tests doc", async () => {
+      const dir = testTempDir("bun-writing-done-");
+      const testPath = join(dir, "math.test.ts");
+      const ex = BUN_TEST_WRITING_EXAMPLES.asyncDone;
+      writeText(
+        testPath,
+        `${BUN_TEST_WRITING_BASIC_IMPORT}
+test(${JSON.stringify(ex.name)}, (done) => {
+  Promise.resolve(2 * 2).then((result) => {
+    expect(result).toEqual(${ex.expected});
+    done();
+  });
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+    }, 15_000);
+  });
+
+  describe("Bun run tests", () => {
+    // https://bun.com/docs/test#run-tests
+    test("documents bun test command, examples, and kimi entry points", () => {
+      expect(BUN_TEST_RUN.command).toBe("bun test");
+      expect(BUN_TEST_RUN.singleProcess).toBe(true);
+      expect(BUN_TEST_RUN.exitsNonZeroOnFailure).toBe(true);
+      expect(BUN_TEST_RUN.defaultTimeoutMs).toBe(BUN_TEST_DEFAULT_TIMEOUT_MS);
+      expect(BUN_TEST_RUN_EXAMPLES.all).toEqual(["test"]);
+      expect(BUN_TEST_RUN_EXAMPLES.pathFilters).toEqual(["test", "foo", "bar"]);
+      expect(BUN_TEST_RUN_EXAMPLES.exactPath[1]).toBe("./test/specific-file.test.ts");
+      expect(BUN_TEST_RUN_STRATEGY.kimiFull).toBe("package-test-scripts-test-run-runAllTestTiers");
+      expect(BUN_TEST_RUN_STRATEGY.kimiFast).toBe(
+        "package-test-fast-scripts-test-fast-runTestTier-unit"
+      );
+      expect(KIMI_TEST_RUN_ENTRIES.fast.tier).toBe("unit");
+      expect(KIMI_TEST_RUN_ENTRIES.all.runner).toBe("runAllTestTiers");
+      expect(isTestRunFailure(1)).toBe(true);
+      expect(isTestRunFailure(0)).toBe(false);
+    });
+
+    test("package.json test scripts match KIMI_TEST_RUN_ENTRIES", async () => {
+      const pkg = (await Bun.file(join(REPO_ROOT, "package.json")).json()) as {
+        scripts: Record<string, string>;
+      };
+      for (const entry of Object.values(KIMI_TEST_RUN_ENTRIES)) {
+        expect(pkg.scripts[entry.packageScript]).toBe(entry.command);
+      }
+    });
+
+    test("native bun test: bare command discovers and passes math.test.ts", async () => {
+      const dir = testTempDir("bun-run-all-");
+      writeText(
+        join(dir, "math.test.ts"),
+        `${BUN_TEST_WRITING_BASIC_IMPORT}
+test("2 + 2", () => {
+  expect(2 + 2).toBe(4);
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", ...BUN_TEST_RUN_EXAMPLES.all], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+    }, 15_000);
+
+    test("native bun test: exits non-zero when a test fails", async () => {
+      const dir = testTempDir("bun-run-fail-");
+      const testPath = join(dir, "fail.probe.test.ts");
+      writeText(
+        testPath,
+        `import { test, expect } from "bun:test";
+test("fails", () => {
+  expect(1).toBe(2);
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(isTestRunFailure(code)).toBe(true);
+      expect(code).toBe(BUN_TEST_EXIT.failures);
+    }, 15_000);
+
+    test("native bun test: --test-name-pattern filters by test name", async () => {
+      const dir = testTempDir("bun-run-name-pattern-");
+      const additionMarker = join(dir, "ran-addition");
+      const subtractionMarker = join(dir, "ran-subtraction");
+      writeText(
+        join(dir, "math.test.ts"),
+        `import { test, expect } from "bun:test";
+test("addition works", () => {
+  Bun.write(${JSON.stringify(additionMarker)}, "1");
+  expect(1 + 1).toBe(2);
+});
+test("subtraction works", () => {
+  Bun.write(${JSON.stringify(subtractionMarker)}, "1");
+  expect(2 - 1).toBe(1);
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(
+        ["bun", "test", "--test-name-pattern", "addition", "./math.test.ts"],
+        {
+          cwd: dir,
+          env: { ...process.env, NODE_ENV: "test" },
+          stdout: "pipe",
+          stderr: "pipe",
+        }
+      ).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+      expect(existsSync(additionMarker)).toBe(true);
+      expect(existsSync(subtractionMarker)).toBe(false);
+    }, 15_000);
+  });
+
+  describe("Bun process integration", () => {
+    // https://bun.com/docs/test/runtime-behavior#process-integration
     test("describeBunTestExitCode maps Bun exit codes", () => {
       expect(describeBunTestExitCode(0)).toBe("all passed");
       expect(describeBunTestExitCode(1)).toBe("failures or runner errors");
@@ -356,22 +661,39 @@ test("fails", () => {
       }).exited;
       expect(code).toBe(BUN_TEST_EXIT.failures);
     }, 15_000);
-
   });
 
   describe("Bun test timeouts", () => {
     // https://bun.com/docs/test/runtime-behavior#test-timeouts
-    test("documents Bun default and kimi tier timeouts", () => {
+    test("documents global, per-test, and infinite timeout examples from Bun docs", () => {
       expect(BUN_TEST_DEFAULT_TIMEOUT_MS).toBe(5000);
       expect(BUN_TEST_TIMEOUTS.bunDefaultMs).toBe(5000);
+      expect(BUN_TEST_TIMEOUTS.globalFlag).toBe("--timeout");
+      expect(BUN_TEST_TIMEOUTS.perTestParameterIndex).toBe(2);
       expect(BUN_TEST_TIMEOUTS.kimi.fast).toBe(1500);
       expect(BUN_TEST_TIMEOUTS.kimi.default).toBe(30_000);
       expect(BUN_TEST_TIMEOUTS.kimi.smoke).toBe(60_000);
       expect(TEST_TIER_SPECS.unit.timeoutMs).toBe(BUN_TEST_TIMEOUTS.kimi.fast);
       expect(TEST_TIER_SPECS.smoke.timeoutMs).toBe(BUN_TEST_TIMEOUTS.kimi.smoke);
-      expect(isDisabledTestTimeout(0)).toBe(true);
-      expect(isDisabledTestTimeout(Infinity)).toBe(true);
+      expect(BUN_TEST_TIMEOUT_EXAMPLES.global).toEqual(["test", "--timeout", "10000"]);
+      expect(BUN_TEST_TIMEOUT_EXAMPLES.perTestFast).toEqual({
+        name: "fast test",
+        timeoutMs: 1000,
+      });
+      expect(BUN_TEST_TIMEOUT_EXAMPLES.perTestSlow.timeoutMs).toBe(10_000);
+      expect(BUN_TEST_TIMEOUT_EXAMPLES.infiniteZero).toBe(0);
+      expect(BUN_TEST_TIMEOUT_EXAMPLES.infiniteInfinity).toBe(Infinity);
+      expect(BUN_TEST_TIMEOUT_STRATEGY.global).toBe("tier-runners-via-bunTestArgsForTier");
+      expect(BUN_TEST_TIMEOUT_STRATEGY.perTest).toBe("author-third-argument-overrides-global");
+      expect(BUN_TEST_TIMEOUT_STRATEGY.infinite).toBe("per-test-0-or-Infinity-disables-limit");
+      for (const value of BUN_TEST_TIMEOUTS.disableValues) {
+        expect(isDisabledTestTimeout(value)).toBe(true);
+      }
       expect(isDisabledTestTimeout(1500)).toBe(false);
+    });
+
+    test("readTimeoutMsFromBunTestArgs parses doc global --timeout 10000", () => {
+      expect(readTimeoutMsFromBunTestArgs(BUN_TEST_TIMEOUT_EXAMPLES.global)).toBe(10_000);
     });
 
     test("bunTestArgsForTier includes global --timeout flag", () => {
@@ -404,12 +726,13 @@ test("slow", async () => {
       const dir = testTempDir("bun-timeout-per-test-");
       makeDir(dir, { recursive: true });
       const testPath = join(dir, "timeout-per-test.probe.test.ts");
+      const slowMs = BUN_TEST_TIMEOUT_EXAMPLES.perTestSlow.timeoutMs;
       writeText(
         testPath,
         `import { test } from "bun:test";
-test("slow with per-test timeout", async () => {
+test("slow test", async () => {
   await new Promise((resolve) => setTimeout(resolve, 400));
-}, 2000);`
+}, ${slowMs});`
       );
       writeText(join(dir, "bunfig.toml"), "[test]\n");
       const code = await Bun.spawn(["bun", "test", "--timeout", "200", testPath], {
@@ -419,6 +742,269 @@ test("slow with per-test timeout", async () => {
         stderr: "pipe",
       }).exited;
       expect(code).toBe(BUN_TEST_EXIT.ok);
+    }, 15_000);
+
+    test("native bun test: per-test timeout 0 disables limit under global --timeout", async () => {
+      const dir = testTempDir("bun-timeout-infinite-");
+      makeDir(dir, { recursive: true });
+      const testPath = join(dir, "timeout-infinite.probe.test.ts");
+      writeText(
+        testPath,
+        `import { test } from "bun:test";
+test("test without timeout", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 400));
+}, ${BUN_TEST_TIMEOUT_EXAMPLES.infiniteZero});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", "--timeout", "200", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+    }, 15_000);
+  });
+
+  describe("Bun test discovery", () => {
+    // https://bun.com/docs/test/discovery#default-discovery-logic
+    test("documents default patterns, exclusions, and kimi strategy", () => {
+      expect(BUN_TEST_DISCOVERY.patternDescriptions).toEqual([
+        "*.test.{js|jsx|ts|tsx}",
+        "*_test.{js|jsx|ts|tsx}",
+        "*.spec.{js|jsx|ts|tsx}",
+        "*_spec.{js|jsx|ts|tsx}",
+      ]);
+      expect(BUN_TEST_DISCOVERY.exclusions).toContain("node_modules");
+      expect(BUN_TEST_DISCOVERY.exclusions).toContain("hidden-directories");
+      expect(BUN_TEST_DISCOVERY_EXAMPLES.substringFilter).toEqual(["test", "utils"]);
+      expect(BUN_TEST_DISCOVERY_EXAMPLES.exactPath[1]).toBe("./test/specific-file.test.ts");
+      expect(BUN_TEST_DISCOVERY_STRATEGY.tierFiles).toBe(
+        "explicit-paths-from-test-gates-UNIT_TEST_FILES"
+      );
+      expect(readBunfigTestRoot(REPO_ROOT)).toBeUndefined();
+    });
+
+    test("basenameMatchesBunTestDiscovery accepts all Bun default suffixes", () => {
+      expect(basenameMatchesBunTestDiscovery("string.test.ts")).toBe(true);
+      expect(basenameMatchesBunTestDiscovery("array_test.js")).toBe(true);
+      expect(basenameMatchesBunTestDiscovery("math.spec.tsx")).toBe(true);
+      expect(basenameMatchesBunTestDiscovery("probe_spec.ts")).toBe(true);
+      expect(basenameMatchesBunTestDiscovery("lib.unit.test.ts")).toBe(true);
+      expect(basenameMatchesBunTestDiscovery("readme.md")).toBe(false);
+    });
+
+    test("kimi tier file lists match Bun default discovery patterns", () => {
+      for (const file of [...UNIT_TEST_FILES, ...INTEGRATION_TEST_FILES, ...SMOKE_TEST_FILES]) {
+        expect(basenameMatchesBunTestDiscovery(basename(file))).toBe(true);
+      }
+    });
+
+    test("bunTestArgsForTier passes explicit gate file paths", () => {
+      const args = bunTestArgsForTier(TEST_TIER_SPECS.unit);
+      const paths = args.filter((arg) => (UNIT_TEST_FILES as readonly string[]).includes(arg));
+      expect(paths).toEqual([...UNIT_TEST_FILES]);
+    });
+
+    test("isBunTestExactPathArg distinguishes exact paths from substring filters", () => {
+      expect(isBunTestExactPathArg("./test/specific-file.test.ts")).toBe(true);
+      expect(isBunTestExactPathArg("/tmp/probe.test.ts")).toBe(true);
+      expect(isBunTestExactPathArg("utils")).toBe(false);
+    });
+
+    test("parseForwardedDiscoveryArgs forwards --test-name-pattern", () => {
+      expect(parseForwardedDiscoveryArgs(["--test-name-pattern", "addition", "--smol"])).toEqual([
+        "--test-name-pattern",
+        "addition",
+      ]);
+      expect(parseForwardedDiscoveryArgs(["-t", "Math"])).toEqual(["-t", "Math"]);
+    });
+
+    test("native bun test: substring filter matches path segments", async () => {
+      const dir = testTempDir("bun-discovery-filter-");
+      const utilsMarker = join(dir, "ran-utils");
+      const plainMarker = join(dir, "ran-plain");
+      makeDir(join(dir, "src/utils"), { recursive: true });
+      makeDir(join(dir, "lib"), { recursive: true });
+      writeText(
+        join(dir, "src/utils/string.test.ts"),
+        `import { test, expect } from "bun:test";
+test("utils probe", () => {
+  Bun.write(${JSON.stringify(utilsMarker)}, "1");
+  expect(1).toBe(1);
+});`
+      );
+      writeText(
+        join(dir, "lib/plain.test.ts"),
+        `import { test, expect } from "bun:test";
+test("plain probe", () => {
+  Bun.write(${JSON.stringify(plainMarker)}, "1");
+  expect(1).toBe(1);
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", "utils"], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+      expect(existsSync(utilsMarker)).toBe(true);
+      expect(existsSync(plainMarker)).toBe(false);
+    }, 15_000);
+
+    test("native bun test: ./ prefix runs an exact file path", async () => {
+      const dir = testTempDir("bun-discovery-exact-");
+      const specificMarker = join(dir, "ran-specific");
+      const otherMarker = join(dir, "ran-other");
+      writeText(
+        join(dir, "specific.test.ts"),
+        `import { test, expect } from "bun:test";
+test("specific probe", () => {
+  Bun.write(${JSON.stringify(specificMarker)}, "1");
+  expect(1).toBe(1);
+});`
+      );
+      writeText(
+        join(dir, "other.test.ts"),
+        `import { test, expect } from "bun:test";
+test("other probe", () => {
+  Bun.write(${JSON.stringify(otherMarker)}, "1");
+  expect(1).toBe(1);
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test", "./specific.test.ts"], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+      expect(existsSync(specificMarker)).toBe(true);
+      expect(existsSync(otherMarker)).toBe(false);
+    }, 15_000);
+
+    test("native bun test: skips hidden directories during default discovery", async () => {
+      const dir = testTempDir("bun-discovery-hidden-");
+      const hiddenMarker = join(dir, "ran-hidden");
+      const visibleMarker = join(dir, "ran-visible");
+      makeDir(join(dir, ".hidden"), { recursive: true });
+      makeDir(join(dir, "visible"), { recursive: true });
+      writeText(
+        join(dir, ".hidden/hidden.test.ts"),
+        `import { test, expect } from "bun:test";
+test("hidden probe", () => {
+  Bun.write(${JSON.stringify(hiddenMarker)}, "1");
+  expect(1).toBe(1);
+});`
+      );
+      writeText(
+        join(dir, "visible/visible.test.ts"),
+        `import { test, expect } from "bun:test";
+test("visible probe", () => {
+  Bun.write(${JSON.stringify(visibleMarker)}, "1");
+  expect(1).toBe(1);
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      const code = await Bun.spawn(["bun", "test"], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+      expect(existsSync(visibleMarker)).toBe(true);
+      expect(existsSync(hiddenMarker)).toBe(false);
+    }, 15_000);
+  });
+
+  describe("Bun test configuration", () => {
+    // https://bun.com/docs/test/configuration#configuration-file
+    test("documents bunfig [test] section, examples, and kimi strategy", () => {
+      expect(BUN_TEST_CONFIGURATION.section).toBe("[test]");
+      expect(BUN_TEST_CONFIGURATION.reporterSection).toBe("[test.reporter]");
+      expect(BUN_TEST_CONFIGURATION.keys).toContain("preload");
+      expect(BUN_TEST_CONFIGURATION.keys).toContain("timeout");
+      expect(BUN_TEST_CONFIGURATION.keys).toContain("coverageThreshold");
+      expect(BUN_TEST_CONFIGURATION_EXAMPLES.preload).toEqual([
+        "./test-setup.ts",
+        "./global-mocks.ts",
+      ]);
+      expect(BUN_TEST_CONFIGURATION_EXAMPLES.timeoutMs).toBe(10_000);
+      expect(BUN_TEST_CONFIGURATION_STRATEGY.bunfig).toBe("declarative-SSOT-bunfig.toml-[test]");
+      expect(BUN_TEST_CONFIGURATION_STRATEGY.timeout).toBe(
+        "tier-runners-pass-cli---timeout-overrides-bunfig"
+      );
+    });
+
+    test("readKimiBunfigTestContract matches repo bunfig.toml [test] contract", () => {
+      const contract = readKimiBunfigTestContract(REPO_ROOT);
+      expect(contract).toEqual(KIMI_BUNFIG_TEST_CONTRACT);
+      expect(readBunfigTestPreloadPaths(REPO_ROOT)).toEqual(KIMI_BUNFIG_TEST_CONTRACT.preload);
+      expect(readBunfigTestRoot(REPO_ROOT)).toBeUndefined();
+      expect(readBunfigTestTimeoutMs(REPO_ROOT)).toBeUndefined();
+    });
+
+    test("parseKimiBunfigTestContract rejects incomplete [test] tables", () => {
+      expect(parseKimiBunfigTestContract(undefined)).toBeUndefined();
+      expect(parseKimiBunfigTestContract({ preload: ["./setup.ts"] })).toBeUndefined();
+    });
+
+    test("tier runners pass CLI --timeout and omit bunfig preload flag", () => {
+      const args = bunTestArgsForTier(TEST_TIER_SPECS.unit, { repoRoot: REPO_ROOT });
+      expect(readTimeoutMsFromBunTestArgs(args)).toBe(TEST_TIER_SPECS.unit.timeoutMs);
+      expect(args).not.toContain("--preload");
+      expect(resolveKimiTestPreloadPath(REPO_ROOT)).toBe(KIMI_BUNFIG_TEST_CONTRACT.preload[0]);
+    });
+
+    test("native bun test: bunfig preload runs before tests", async () => {
+      const dir = testTempDir("bun-config-preload-");
+      const marker = join(dir, "preload-ran");
+      writeText(
+        join(dir, "preload.ts"),
+        `globalThis.__PRELOAD_RAN__ = true;
+Bun.write(${JSON.stringify(marker)}, "1");`
+      );
+      writeText(
+        join(dir, "probe.test.ts"),
+        `import { test, expect } from "bun:test";
+test("preload probe", () => {
+  expect(globalThis.__PRELOAD_RAN__).toBe(true);
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), `[test]\npreload = ["./preload.ts"]\n`);
+      const code = await Bun.spawn(["bun", "test", "./probe.test.ts"], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.ok);
+      expect(existsSync(marker)).toBe(true);
+    }, 15_000);
+
+    test("native bun test: CLI --timeout overrides bunfig timeout default", async () => {
+      const dir = testTempDir("bun-config-timeout-override-");
+      const testPath = join(dir, "timeout-override.probe.test.ts");
+      writeText(
+        testPath,
+        `import { test } from "bun:test";
+test("slow", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 400));
+});`
+      );
+      writeText(join(dir, "bunfig.toml"), "[test]\ntimeout = 5000\n");
+      const code = await Bun.spawn(["bun", "test", "--timeout", "200", testPath], {
+        cwd: dir,
+        env: { ...process.env, NODE_ENV: "test" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exited;
+      expect(code).toBe(BUN_TEST_EXIT.failures);
+      expect(readBunfigTestTimeoutMs(dir)).toBe(5000);
     }, 15_000);
   });
 
@@ -434,9 +1020,7 @@ test("slow with per-test timeout", async () => {
       ]);
       expect(BUN_TEST_CUSTOM_ERROR_HANDLERS).toHaveLength(2);
       expect(BUN_TEST_UNHANDLED_ERRORS.docPattern).toContain("setTimeout");
-      expect(BUN_TEST_PROMISE_REJECTIONS.runnerBanner).toBe(
-        BUN_TEST_ERROR_HANDLING.runnerBanner
-      );
+      expect(BUN_TEST_PROMISE_REJECTIONS.runnerBanner).toBe(BUN_TEST_ERROR_HANDLING.runnerBanner);
     });
 
     test("test/setup.ts does not install custom process error handlers", async () => {
@@ -472,10 +1056,9 @@ test("test 2", async () => {
       });
       const [code, combined] = await Promise.all([
         proc.exited,
-        Promise.all([
-          new Response(proc.stdout).text(),
-          new Response(proc.stderr).text(),
-        ]).then(([out, err]) => out + err),
+        Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]).then(
+          ([out, err]) => out + err
+        ),
       ]);
       expect(isRunnerErrorHandlingExit(code)).toBe(true);
       expect(isRunnerUnhandledErrorOutput(combined)).toBe(true);
@@ -485,9 +1068,7 @@ test("test 2", async () => {
     test("documents promise rejection runner contract", () => {
       expect(BUN_TEST_PROMISE_REJECTIONS.failsDespitePassingTests).toBe(true);
       expect(BUN_TEST_PROMISE_REJECTIONS.docPattern).toContain("Promise.reject");
-      expect(BUN_TEST_PROMISE_REJECTIONS.runnerBanner).toBe(
-        "Unhandled error between tests"
-      );
+      expect(BUN_TEST_PROMISE_REJECTIONS.runnerBanner).toBe("Unhandled error between tests");
     });
 
     test("isRunnerPromiseRejectionOutput detects Bun runner banner", () => {
@@ -518,10 +1099,7 @@ Promise.reject(new Error("Unhandled rejection"));`
         stdout: "pipe",
         stderr: "pipe",
       });
-      const [code, err] = await Promise.all([
-        proc.exited,
-        new Response(proc.stderr).text(),
-      ]);
+      const [code, err] = await Promise.all([proc.exited, new Response(proc.stderr).text()]);
       expect(isPromiseRejectionRunnerExit(code)).toBe(true);
       expect(isRunnerPromiseRejectionOutput(err)).toBe(true);
     }, 15_000);
@@ -596,11 +1174,7 @@ test("slow", async () => {
     test("mergeBunTestInvocationArgs forwards --smol to bun test", () => {
       const dir = testTempDir("test-smol-args-");
       makeDir(dir, { recursive: true });
-      const merged = mergeBunTestInvocationArgs(
-        ["test", "--isolate"],
-        dir,
-        ["--smol"]
-      );
+      const merged = mergeBunTestInvocationArgs(["test", "--isolate"], dir, ["--smol"]);
       expect(bunTestArgsIncludeFlag(merged, "--smol")).toBe(true);
     });
 
@@ -710,10 +1284,7 @@ test("global cleaned", () => {
         stdout: "pipe",
         stderr: "pipe",
       });
-      const [code, out] = await Promise.all([
-        proc.exited,
-        new Response(proc.stdout).text(),
-      ]);
+      const [code, out] = await Promise.all([proc.exited, new Response(proc.stdout).text()]);
       expect(code).toBe(0);
       expect(out).toContain("--watch");
       expect(out).toContain("--hot");
@@ -739,20 +1310,19 @@ test("global cleaned", () => {
     });
 
     test("parseForwardedInstallFlags extracts install flags from argv", () => {
-      expect(
-        parseForwardedInstallFlags(["--push", "--", "--prefer-offline", "--smol"])
-      ).toEqual(["--prefer-offline"]);
+      expect(parseForwardedInstallFlags(["--push", "--", "--prefer-offline", "--smol"])).toEqual([
+        "--prefer-offline",
+      ]);
       expect(parseForwardedInstallFlags(["--frozen-lockfile"])).toEqual(["--frozen-lockfile"]);
     });
 
     test("mergeBunTestInvocationArgs forwards install flags to bun test", () => {
       const dir = testTempDir("test-install-flags-");
       makeDir(dir, { recursive: true });
-      const merged = mergeBunTestInvocationArgs(
-        ["test", "--isolate"],
-        dir,
-        ["--prefer-offline", "--frozen-lockfile"]
-      );
+      const merged = mergeBunTestInvocationArgs(["test", "--isolate"], dir, [
+        "--prefer-offline",
+        "--frozen-lockfile",
+      ]);
       expect(bunTestArgsIncludeFlag(merged, "--prefer-offline")).toBe(true);
       expect(bunTestArgsIncludeFlag(merged, "--frozen-lockfile")).toBe(true);
     });
@@ -764,10 +1334,7 @@ test("global cleaned", () => {
 
     test("bun CLI advertises --prefer-offline", async () => {
       const proc = Bun.spawn(["bun", "--help"], { stdout: "pipe", stderr: "pipe" });
-      const [code, out] = await Promise.all([
-        proc.exited,
-        new Response(proc.stdout).text(),
-      ]);
+      const [code, out] = await Promise.all([proc.exited, new Response(proc.stdout).text()]);
       expect(code).toBe(0);
       expect(out).toContain("--prefer-offline");
     }, 15_000);
@@ -808,10 +1375,7 @@ test("global cleaned", () => {
 
     test("bun CLI advertises --inspect and --inspect-brk", async () => {
       const proc = Bun.spawn(["bun", "--help"], { stdout: "pipe", stderr: "pipe" });
-      const [code, out] = await Promise.all([
-        proc.exited,
-        new Response(proc.stdout).text(),
-      ]);
+      const [code, out] = await Promise.all([proc.exited, new Response(proc.stdout).text()]);
       expect(code).toBe(0);
       expect(out).toContain("--inspect");
       expect(out).toContain("--inspect-brk");
@@ -820,37 +1384,95 @@ test("global cleaned", () => {
 
   describe("Bun module loading", () => {
     // https://bun.com/docs/test/runtime-behavior#module-loading
-    test("documents module-loading flags and kimi SSOT paths", () => {
-      expect(BUN_TEST_MODULE_LOADING_VALUE_FLAGS).toContain("--preload");
-      expect(BUN_TEST_MODULE_LOADING_VALUE_FLAGS).toContain("--define");
-      expect(BUN_TEST_MODULE_LOADING_VALUE_FLAGS).toContain("--env-file");
-      expect(BUN_TEST_MODULE_LOADING.bunfigPreloadRelPath).toBe("./test/setup.ts");
-      expect(BUN_TEST_MODULE_LOADING.defaultEnvFile).toBe(TEST_ENV_FILE);
-      expect(BUN_TEST_MODULE_LOADING.defineRegistry).toBe("bunfig.toml [define]");
+    test("documents all six module-loading CLI examples from Bun docs", () => {
+      expect(BUN_TEST_MODULE_LOADING_VALUE_FLAGS).toEqual([
+        "--preload",
+        "--define",
+        "--loader",
+        "--tsconfig-override",
+        "--conditions",
+        "--env-file",
+      ]);
+      expect(BUN_TEST_MODULE_LOADING_EXAMPLES.preload).toEqual(["test", "--preload", "./setup.ts"]);
+      expect(BUN_TEST_MODULE_LOADING_EXAMPLES.define[1]).toBe("--define");
+      expect(BUN_TEST_MODULE_LOADING_EXAMPLES.loader).toEqual([
+        "test",
+        "--loader",
+        ".special:special-loader",
+      ]);
+      expect(BUN_TEST_MODULE_LOADING_EXAMPLES.tsconfigOverride).toEqual([
+        "test",
+        "--tsconfig-override",
+        "./test-tsconfig.json",
+      ]);
+      expect(BUN_TEST_MODULE_LOADING_EXAMPLES.conditions).toEqual([
+        "test",
+        "--conditions",
+        "development",
+      ]);
+      expect(BUN_TEST_MODULE_LOADING_EXAMPLES.envFile).toEqual([
+        "test",
+        "--env-file",
+        TEST_ENV_FILE,
+      ]);
+      expect(BUN_TEST_MODULE_LOADING_STRATEGY.preload).toBe("bunfig-[test].preload");
+      expect(BUN_TEST_MODULE_LOADING_STRATEGY.envFile).toBe("auto-merge-.env.test");
     });
 
-    test("readBunfigTestPreloadPaths reads declarative preload from bunfig", () => {
-      const paths = readBunfigTestPreloadPaths(REPO_ROOT);
-      expect(paths).toContain("./test/setup.ts");
+    test("resolveKimiTestPreloadPath reads bunfig declarative preload", () => {
+      expect(resolveKimiTestPreloadPath(REPO_ROOT)).toBe("./test/setup.ts");
+      expect(readBunfigTestPreloadPaths(REPO_ROOT)).toContain("./test/setup.ts");
     });
 
-    test("parseForwardedBunTestArgs forwards --preload and --define values", () => {
+    test("parseForwardedModuleLoadingArgs forwards all doc flags", () => {
       expect(
-        parseForwardedBunTestArgs([
+        parseForwardedModuleLoadingArgs([
           "--preload",
           "./extra-setup.ts",
           "--define",
           "KIMI_PROBE=1",
+          "--loader",
+          ".special:special-loader",
+          "--tsconfig-override",
+          "./test-tsconfig.json",
+          "--conditions",
+          "development",
         ])
-      ).toEqual(["--preload", "./extra-setup.ts", "--define", "KIMI_PROBE=1"]);
-      expect(parseForwardedBunTestArgs(["--conditions=development"])).toEqual([
+      ).toEqual([
+        "--preload",
+        "./extra-setup.ts",
+        "--define",
+        "KIMI_PROBE=1",
+        "--loader",
+        ".special:special-loader",
+        "--tsconfig-override",
+        "./test-tsconfig.json",
+        "--conditions",
+        "development",
+      ]);
+      expect(parseForwardedModuleLoadingArgs(["--conditions=development"])).toEqual([
         "--conditions=development",
       ]);
     });
 
+    test("mergeBunTestInvocationArgs auto-appends .env.test per doc example", () => {
+      const dir = testTempDir("module-loading-env-");
+      makeDir(dir, { recursive: true });
+      writeText(join(dir, TEST_ENV_FILE), "KIMI_MODULE_LOADING_PROBE=1\n");
+      const merged = mergeBunTestInvocationArgs(["test", "--isolate"], dir, []);
+      expect(merged).toContain("--env-file");
+      expect(merged).toContain(TEST_ENV_FILE);
+    });
+
+    test("tier runners omit CLI --preload when bunfig already declares preload", () => {
+      const args = bunTestArgsForTier(TEST_TIER_SPECS.unit, { repoRoot: REPO_ROOT });
+      expect(args).not.toContain("--preload");
+      expect(resolveKimiTestPreloadPath(REPO_ROOT)).toBe("./test/setup.ts");
+    });
+
     test("bunfig.toml declares [test].preload and [define] registry", async () => {
       const text = await Bun.file(join(REPO_ROOT, "bunfig.toml")).text();
-      expect(text).toContain('[test]');
+      expect(text).toContain("[test]");
       expect(text).toContain('preload = ["./test/setup.ts"]');
       expect(text).toContain("[define]");
     });
