@@ -369,7 +369,7 @@ const BUN_API_PAIRING = [
   ],
   ["Bun.write(path, bytes)", "Image terminal", "await img.write(path)", "alternative (not used)"],
   ["Bun.CryptoHasher(sha256)", "runtime/hashing", "thumbnailCacheKey()", "source + encode params"],
-  ["fetch + AbortSignal.timeout", "runtime/fetch", "probeDashboardThumbnail()", "automation gate"],
+  ["fetch + AbortSignal.timeout", "api/fetch", "probeDashboardThumbnail()", "automation gate"],
   ["Bun.sleep", "bun-apis#bun-sleep", "WebView settle", "before screenshot"],
   ["new Response(Uint8Array | Blob)", "—", "/api/thumbnail hit and miss", "post-terminal bytes"],
   ["TtlCache (project-local)", "src/lib/cache.ts", "terminal output", "TTL 2× sse_poll_ms"],
