@@ -19,6 +19,7 @@ categories:
     expected: true
     patterns:
       - regex: "was not run because the user rejected the approval request"
+      - regex: "AskUserQuestion is disabled while auto permission mode is active"
 
   - id: user_interrupt
     name: User interrupted
@@ -80,6 +81,17 @@ categories:
       - regex: "FAIL lint"
       - regex: "gate failed: lint"
 
+  - id: lint_relative_import
+    name: Broken relative import
+    description: Discovery or lint found relative import paths that violate repo import policy.
+    severity: warn
+    expected: false
+    suggestion: "Fix relative imports flagged by lint:discovery or align docs with actual import paths."
+    autoFix: "bun run lint"
+    patterns:
+      - regex: "Broken relative imports found:"
+      - regex: 'Relative import path ".+" not prefixed'
+
   - id: typecheck_failure
     name: TypeScript type check failed
     description: tsc --noEmit reported type errors.
@@ -129,6 +141,16 @@ categories:
     suggestion: "Re-read the file and retry the edit with current content."
     patterns:
       - regex: "old_string not found in .+, the file contents may be out of date"
+
+  - id: edit_ambiguous
+    name: Edit match ambiguous
+    description: The Edit tool found multiple matches or an identical no-op replacement.
+    severity: warn
+    expected: false
+    suggestion: "Add surrounding context, set replace_all=true, or re-read the file before editing."
+    patterns:
+      - regex: "old_string is not unique"
+      - regex: "No changes to make: old_string and new_string are exactly the same"
 
   - id: http_404
     name: HTTP 404 Not Found
@@ -333,6 +355,16 @@ categories:
       - regex: "herdr: protocol error.*os error 61"
       - regex: "herdr: protocol error.*Connection refused"
 
+  - id: herdr_session_dead
+    name: Herdr session not running
+    description: A handoff or orchestrator rule referenced a Herdr session that is not running.
+    severity: warn
+    expected: false
+    suggestion: "Start the referenced Herdr session or fix handoff rules in dx.config.toml."
+    patterns:
+      - regex: "from_session .* is not running"
+      - regex: "to_session .* is not running"
+
   - id: memory_limit
     name: Out of memory
     description: Process hit memory limits.
@@ -396,6 +428,30 @@ categories:
       - regex: "SIGKILL after"
       - regex: "Command failed with exit code:\\s*-1\\b"
       - regex: "Process exited with code -1"
+
+  - id: signal_kill
+    name: Process killed by signal
+    description: A subprocess was terminated by SIGTERM or SIGKILL (often OOM, agent timeout, or manual kill).
+    severity: warn
+    expected: false
+    suggestion: "Check memory pressure and orphan processes; retry with `kimi-orphan-kill --dry-run` and smaller gate scope."
+    autoFix: "kimi-orphan-kill --dry-run"
+    patterns:
+      - regex: "Command failed with exit code:\\s*137\\b"
+      - regex: "Command failed with exit code:\\s*143\\b"
+      - regex: "Killed: 9"
+      - regex: "terminated by signal SIGTERM"
+
+  - id: bash_truncated
+    name: Truncated bash output
+    description: Failure output was cut off at the ledger 2000-character cap before a concluding exit summary.
+    severity: info
+    expected: true
+    suggestion: "Historical row with incomplete output — re-run the command or inspect trace-events.jsonl for full stderr."
+    patterns:
+      - regex: "at <anonymous> \\(/Users/[^\\n]*$"
+      - regex: "maxPixels flows through without error on all formats\\s*$"
+      - regex: "✓ lib/predictive\\s*$"
 
   - id: mcp_config_missing
     name: MCP config missing
@@ -514,6 +570,19 @@ categories:
       - KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED
     patterns:
       - regex: "run-promise-boundary"
+
+  - id: effect_audit_fail
+    name: Effect discipline audit failed
+    description: kimi-heal effect audit or effect-gates reported discipline violations.
+    severity: warn
+    expected: false
+    suggestion: "Run kimi-doctor --effect-gates and kimi-heal effect audit --json; fix run-promise-boundary and direct-promise hits in src/lib."
+    autoFix: "kimi-doctor --effect-gates"
+    patterns:
+      - regex: "── Effect Audit ──"
+      - regex: "run-promise-boundary"
+      - regex: "direct-promise"
+      - regex: "\\d+ violation\\(s\\), \\d+ error\\(s\\)"
 
   - id: effect_gates_event_stream_violation
     name: Effect event stream violation
