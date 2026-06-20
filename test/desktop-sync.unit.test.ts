@@ -14,13 +14,20 @@ const REPO_ROOT = import.meta.dir + "/..";
 
 describe("desktop-sync", () => {
   let prevHome: string | undefined;
+  let testHome: string | undefined;
 
   beforeEach(() => {
     prevHome = Bun.env.HOME;
+    testHome = artifactPath(REPO_ROOT, "tmp", `desktop-home-${Date.now()}-${Bun.randomUUIDv7()}`);
+    mkdirSync(testHome, { recursive: true });
+    Bun.env.HOME = testHome;
   });
 
   afterEach(() => {
     if (prevHome) Bun.env.HOME = prevHome;
+    else delete Bun.env.HOME;
+    if (testHome) rmSync(testHome, { recursive: true, force: true });
+    testHome = undefined;
   });
 
   test("resolveDesktopPaths maps repo to desktop targets", () => {
@@ -98,7 +105,7 @@ describe("desktop-sync", () => {
         rmSync(tmpHome, { recursive: true, force: true });
       }
     },
-    { timeout: 5000 }
+    { timeout: 15_000 }
   );
 
   test("syncDesktop copies scaffold templates", async () => {

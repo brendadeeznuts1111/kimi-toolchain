@@ -242,6 +242,20 @@ Contracts in `test-runtime.ts` align with these Bun docs:
 | Updating snapshots              | [update-snapshots](https://bun.com/docs/guides/test/update-snapshots) |
 | `bun:test` API                  | [reference/bun/test](https://bun.com/reference/bun/test)              |
 
+### Recommended flag combinations
+
+| Use case | Command | Flags explained |
+|----------|---------|-----------------|
+| One file, fast debug | `bun test ./test/foo.unit.test.ts` | Bare `bun test` — no tier overhead |
+| File-scoped watch | `bun test --watch ./test/foo.unit.test.ts -t "myTest"` | `--watch` auto-isolates; file scope avoids `--changed` restart spam |
+| Branch-wide watch | `bun run test:changed:watch` | `--changed --watch` — re-filters on any `.ts` edit |
+| CI shard (job 2/3) | `bun test --shard=2/3` | Deterministic round-robin; `--bail` recommended |
+| Full tier, stop fast | `bun run test:fast -- --bail=1` | Bail after 1 failure; `--isolate --parallel=4` from tier runner |
+| Reproducible random | `bun test --seed 12345` | `--seed` implies `--randomize`; same seed = same order |
+| Coverage for CI | `bun test --coverage --coverage-reporter lcov` | Aggregate across `--parallel` workers |
+
+Code constant: `BUN_TEST_FLAG_INTERACTIONS` in `src/lib/test-runtime.ts` — 16 documented compositions.
+
 ## Example patterns
 
 ### Temp directory with cleanup

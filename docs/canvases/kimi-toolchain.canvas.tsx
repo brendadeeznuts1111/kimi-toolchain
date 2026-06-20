@@ -466,8 +466,8 @@ export default function KimiToolchainCanvas() {
             donut
           />
           <Text tone="tertiary" size="small">
-            Source: src/lib/test-gates.ts · fast gate = {UNIT_COUNT} files @ 30s · full suite
-            adds smoke + integration
+            Source: src/lib/test-gates.ts · fast gate = {UNIT_COUNT} files @ 30s · full suite adds
+            smoke + integration
           </Text>
         </Stack>
 

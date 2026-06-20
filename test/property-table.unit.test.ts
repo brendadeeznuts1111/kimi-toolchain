@@ -20,6 +20,7 @@ describe("property-table", () => {
       projectRoot: REPO_ROOT,
       filePath: FIXTURE,
       className: "DemoConfig",
+      includeLastModified: false,
     });
 
     expect(result.rows.length).toBe(4);
@@ -55,7 +56,7 @@ describe("property-table", () => {
 
     const legacy = result.rows.find((r) => r.Property === "legacyMode")!;
     expect(legacy.DeprecatedIn).toBe("2.0.0");
-  }, 30_000);
+  }, 10_000);
 
   test("formatPropertyTableMarkdown uses em dash for empty cells", () => {
     const md = formatPropertyTableMarkdown({

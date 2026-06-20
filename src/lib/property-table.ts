@@ -238,6 +238,7 @@ export async function buildPropertyTable(options: {
   filePath: string;
   className: string;
   tsConfigFilePath?: string;
+  includeLastModified?: boolean;
 }): Promise<PropertyTableResult> {
   const absoluteFile = resolve(options.projectRoot, options.filePath);
   if (!pathExists(absoluteFile)) {
@@ -258,7 +259,10 @@ export async function buildPropertyTable(options: {
     const base = emptyRow();
     const meta = parseJSDoc(member);
     const line = member.getStartLineNumber();
-    const lastModified = await gitLastModified(options.projectRoot, absoluteFile, line);
+    const lastModified =
+      options.includeLastModified === false
+        ? ""
+        : await gitLastModified(options.projectRoot, absoluteFile, line);
 
     base.Property = member.getName();
     base.Type = memberTypeText(member);

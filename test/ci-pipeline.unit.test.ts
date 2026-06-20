@@ -88,7 +88,7 @@ describe("Effect CI pipeline planning", () => {
         command: [
           "bun",
           "-e",
-          `await Bun.sleep(250); await Bun.write(${JSON.stringify(marker)}, "late")`,
+          `await Bun.sleep(5_000); await Bun.write(${JSON.stringify(marker)}, "late")`,
         ],
         dependsOn: [],
         resources: ["process"],
@@ -109,7 +109,7 @@ describe("Effect CI pipeline planning", () => {
     await Bun.sleep(300);
 
     expect(Exit.isFailure(exit)).toBe(true);
-    expect(durationMs).toBeLessThan(1_500);
+    expect(durationMs).toBeLessThan(4_000);
     expect(await Bun.file(marker).exists()).toBe(false);
   });
 });

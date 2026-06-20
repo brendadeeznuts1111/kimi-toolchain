@@ -597,7 +597,8 @@ export const BUN_TEST_FLAG_INTERACTIONS = {
   /** --changed --watch re-queries git on every restart; any .ts edit triggers re-run. */
   changedWatch: "--changed --watch re-filters on restart; broader trigger than file-scoped --watch",
   /** --parallel forwards transpiler/resolver flags to workers automatically. */
-  parallelTranspile: "--parallel inherits --define --loader --tsconfig-override --conditions --env-file",
+  parallelTranspile:
+    "--parallel inherits --define --loader --tsconfig-override --conditions --env-file",
   /** --parallel sets BUN_TEST_WORKER_ID (1-based) and JEST_WORKER_ID in each worker. */
   parallelWorkerEnv: "--parallel sets BUN_TEST_WORKER_ID and JEST_WORKER_ID in worker env",
   /** --bail exits the entire run after N failures across all workers. */
@@ -607,11 +608,18 @@ export const BUN_TEST_FLAG_INTERACTIONS = {
   /** Bare --changed exits 0 when no changed files; --changed --watch stays alive. */
   changedNoop: "bare --changed exits cleanly on no changes; --changed --watch keeps running",
   /** --isolate drains microtasks, closes sockets, kills subprocesses between files. */
-  isolateCleanup: "--isolate resets globals drains timers closes sockets kills children between files",
+  isolateCleanup:
+    "--isolate resets globals drains timers closes sockets kills children between files",
   /** --watch auto-isolates; explicit --isolate accepted but no-op. */
   watchIsolate: "--watch implicitly isolates; explicit --isolate is redundant",
   /** --seed implies --randomize; same seed produces identical order. */
   seedRandomize: "--seed N implies --randomize with reproducible order",
+  /** --preload scripts execute before each isolated file; isolation doesn't skip preload. */
+  isolatePreload: "--isolate with bunfig [test].preload works as expected; preloads fire per file",
+  /** Coverage aggregates across parallel workers into a single report. */
+  coverageParallel: "--coverage with --parallel merges profiles from all workers",
+  /** --retry N retries failed tests within each worker before reporting. */
+  retryParallel: "--retry N with --parallel retries per-worker before aggregation",
 } as const;
 
 /** Read optional `[test].root` from bunfig.toml (discovery scan root). */
