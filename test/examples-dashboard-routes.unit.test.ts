@@ -31,6 +31,8 @@ describe("examples-dashboard-routes", () => {
     expect(benchmarkHandler).toContain("runEffectBenchmarkCardLoop");
     expect(source).toContain('case "/api/canvases"');
     expect(source).toContain('case "/api/settings"');
+    expect(source).toContain('case "/api/terminal"');
+    expect(source).toContain("apiTerminal()");
   });
 
   test("artifacts handler wires URLPattern session routes from dashboard-route-patterns", async () => {
