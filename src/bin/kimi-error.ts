@@ -16,11 +16,12 @@ import {
 } from "../lib/error-clustering.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import { writeStdoutLine } from "../lib/cli-contract.ts";
 
 const logger = createLogger(Bun.argv, "kimi-error");
 
-function emitJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+async function emitJson(value: unknown): Promise<void> {
+  await writeStdoutLine(`${JSON.stringify(value, null, 2)}`);
 }
 
 function printHelp(): void {
@@ -79,7 +80,7 @@ async function main(): Promise<number> {
 
   if (command === "cluster") {
     const report = await clusterFailureLedger({ threshold: threshold() });
-    if (json) emitJson(report.summaries);
+    if (json) await emitJson(report.summaries);
     else printClusterTable(report.summaries);
     return 0;
   }
@@ -91,7 +92,7 @@ async function main(): Promise<number> {
     }
     const suggestion = await suggestForError(errorId, { threshold: threshold() });
     if (!suggestion) throw new CliError({ message: `Error not found: ${errorId}` });
-    if (json) emitJson(suggestion);
+    if (json) await emitJson(suggestion);
     else {
       logger.info(`cluster: ${suggestion.clusterId ?? "none"}`);
       logger.info(`confidence: ${Math.round(suggestion.confidence * 100)}%`);

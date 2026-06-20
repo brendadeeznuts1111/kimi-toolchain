@@ -4,7 +4,6 @@
  */
 
 import { Effect } from "effect";
-import { readFileSync } from "fs";
 import { join } from "path";
 import { createLogger } from "../lib/logger.ts";
 import { clusterFailureLedger, matchErrorToClusters } from "../lib/error-clustering.ts";
@@ -47,7 +46,7 @@ function scanFunctionBodies(text: string): Array<{ name: string; body: string }>
   return functions;
 }
 
-export function auditEffects(
+export async function auditEffects(
   _entryPath?: string,
   options: {
     checkPipeline?: boolean;
@@ -55,7 +54,7 @@ export function auditEffects(
     checkDomainPurity?: boolean;
     scanDir?: string;
   } = {}
-): AuditIssue[] {
+): Promise<AuditIssue[]> {
   const scanDir = options.scanDir ?? "src";
   const checkBare = options.checkBarePromises !== false;
   const checkPurity = options.checkDomainPurity !== false;
@@ -63,12 +62,14 @@ export function auditEffects(
   const issues: AuditIssue[] = [];
   const glob = new Bun.Glob("**/*.ts");
 
-  for (const file of glob.scanSync({ cwd: scanDir, absolute: false })) {
-    if (file.endsWith(".test.ts")) continue;
-    const fullPath = join(scanDir, file);
+  for (const relPath of glob.scanSync({ cwd: scanDir, absolute: false })) {
+    if (relPath.endsWith(".test.ts")) continue;
+    const fullPath = join(scanDir, relPath);
+    const source = Bun.file(fullPath);
+    if (!(await source.exists())) continue;
     let text: string;
     try {
-      text = readFileSync(fullPath, "utf8");
+      text = await source.text();
     } catch {
       continue;
     }

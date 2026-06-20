@@ -8,11 +8,12 @@ import { createLogger } from "../lib/logger.ts";
 import { buildTraceGraph, renderTraceTree } from "../lib/trace-ledger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import { writeStdoutLine } from "../lib/cli-contract.ts";
 
 const logger = createLogger(Bun.argv, "kimi-trace");
 
-function emitJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+async function emitJson(value: unknown): Promise<void> {
+  await writeStdoutLine(`${JSON.stringify(value, null, 2)}`);
 }
 
 function printHelp(): void {
@@ -35,7 +36,7 @@ async function main(): Promise<number> {
 
   const graph = await buildTraceGraph(traceId);
   if (json) {
-    emitJson(graph);
+    await emitJson(graph);
     return graph.found ? 0 : 1;
   }
 

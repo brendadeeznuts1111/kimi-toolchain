@@ -22,6 +22,7 @@ import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import { writeStdoutLine } from "../lib/cli-contract.ts";
 
 const logger = createLogger(Bun.argv, "kimi-cloudflare-access");
 import {
@@ -417,8 +418,8 @@ async function main(): Promise<number> {
   const args = rawArgs.filter((a) => a !== "--json");
   const command = args[0] || "tokens";
 
-  function jsonOut(data: unknown) {
-    process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
+  async function jsonOut(data: unknown): Promise<void> {
+    await writeStdoutLine(`${JSON.stringify(data, null, 2)}`);
   }
 
   if (!jsonMode) {
@@ -439,7 +440,7 @@ async function main(): Promise<number> {
       const errors = checks.filter((c) => c.status === "error").length;
       const warnings = checks.filter((c) => c.status === "warn").length;
       const fixable = checks.filter((c) => c.fixable).length;
-      jsonOut({
+      await jsonOut({
         checks,
         summary: { errors, warnings, fixable },
       });
@@ -455,7 +456,7 @@ async function main(): Promise<number> {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (jsonMode) {
-      jsonOut({ error: msg });
+      await jsonOut({ error: msg });
     } else {
       logger.error(msg);
     }
@@ -469,7 +470,7 @@ async function main(): Promise<number> {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (jsonMode) {
-        jsonOut({ error: msg });
+        await jsonOut({ error: msg });
       } else {
         logger.error(`Failed to list service tokens: ${msg}`);
       }
@@ -477,7 +478,7 @@ async function main(): Promise<number> {
     }
     const violations = checkTokenExpiry(tokens);
     if (jsonMode) {
-      jsonOut({ tokens, violations });
+      await jsonOut({ tokens, violations });
       return violations.some((v) => v.reason === "expired") ? 1 : 0;
     }
     logger.section("Service Token Expiry Sweep");
@@ -498,7 +499,7 @@ async function main(): Promise<number> {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (jsonMode) {
-        jsonOut({ error: msg });
+        await jsonOut({ error: msg });
       } else {
         logger.error(`Failed to fetch Access data: ${msg}`);
       }
@@ -510,7 +511,7 @@ async function main(): Promise<number> {
     const warnings = mappings.filter((m) => m.status === "warn").length;
     const unmapped = mappings.filter((m) => !m.localPath).length;
     if (jsonMode) {
-      jsonOut({
+      await jsonOut({
         mappings,
         orphaned,
         summary: {
@@ -554,7 +555,7 @@ async function main(): Promise<number> {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (jsonMode) {
-        jsonOut({ error: msg });
+        await jsonOut({ error: msg });
       } else {
         logger.error(`Failed to fetch Access data: ${msg}`);
       }
@@ -562,7 +563,7 @@ async function main(): Promise<number> {
     }
     const findings = auditApps(apps, tokens);
     if (jsonMode) {
-      jsonOut({ apps, tokens, findings });
+      await jsonOut({ apps, tokens, findings });
       return findings.some((f) => f.reason === "bypass") ? 1 : 0;
     }
     logger.section("Access Application Policy Audit");
@@ -579,7 +580,7 @@ async function main(): Promise<number> {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (jsonMode) {
-        jsonOut({ error: msg });
+        await jsonOut({ error: msg });
       } else {
         logger.error(`Failed to list service tokens: ${msg}`);
       }
@@ -592,7 +593,7 @@ async function main(): Promise<number> {
 
     if (rotatable.length === 0) {
       if (jsonMode) {
-        jsonOut({ rotated: [], failures: [] });
+        await jsonOut({ rotated: [], failures: [] });
       } else {
         logger.info("No expired or expiring tokens to rotate");
       }
@@ -626,7 +627,7 @@ async function main(): Promise<number> {
       }
     }
     if (jsonMode) {
-      jsonOut({ rotated, failures });
+      await jsonOut({ rotated, failures });
     }
     return failures.length > 0 ? 1 : 0;
   }
@@ -636,7 +637,7 @@ async function main(): Promise<number> {
     if (!config) {
       const msg = "No .cloudflare-access.yml found in current directory";
       if (jsonMode) {
-        jsonOut({ error: msg });
+        await jsonOut({ error: msg });
       } else {
         logger.error(msg);
       }
@@ -649,7 +650,7 @@ async function main(): Promise<number> {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (jsonMode) {
-        jsonOut({ error: msg });
+        await jsonOut({ error: msg });
       } else {
         logger.error(`Failed to fetch live state: ${msg}`);
       }
@@ -661,7 +662,7 @@ async function main(): Promise<number> {
 
     if (command === "plan") {
       if (jsonMode) {
-        jsonOut({ config, live, diff, hasChanges });
+        await jsonOut({ config, live, diff, hasChanges });
       } else {
         logger.section("Policy-as-Code Plan");
         if (!hasChanges) {
@@ -695,7 +696,7 @@ async function main(): Promise<number> {
       const dryRun = args.includes("--dry-run");
       if (!dryRun && !hasChanges) {
         if (jsonMode) {
-          jsonOut({ applied: false, reason: "no changes" });
+          await jsonOut({ applied: false, reason: "no changes" });
         } else {
           logger.info("No changes to apply");
         }
@@ -714,7 +715,7 @@ async function main(): Promise<number> {
 
       const result = await applyDiff(accountId, apiToken, diff, config, live, dryRun);
       if (jsonMode) {
-        jsonOut({ dryRun, ...result });
+        await jsonOut({ dryRun, ...result });
       } else {
         logger.section(dryRun ? "Apply (dry-run)" : "Apply");
         logger.info(
@@ -733,7 +734,7 @@ async function main(): Promise<number> {
     if (!config) {
       const msg = "No .cloudflare-access.yml found in current directory";
       if (jsonMode) {
-        jsonOut({ error: msg });
+        await jsonOut({ error: msg });
       } else {
         logger.error(msg);
       }
@@ -746,7 +747,7 @@ async function main(): Promise<number> {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (jsonMode) {
-        jsonOut({ error: msg });
+        await jsonOut({ error: msg });
       } else {
         logger.error(msg);
       }
@@ -827,7 +828,7 @@ async () => {
 }`;
 
     if (jsonMode) {
-      jsonOut({ policyUpdates, mcpScript });
+      await jsonOut({ policyUpdates, mcpScript });
     } else {
       logger.section("MCP Apply Script");
       logger.line("  Copy the script below and run via MCP cloudflare-api:");

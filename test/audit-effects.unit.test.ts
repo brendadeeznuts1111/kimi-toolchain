@@ -15,8 +15,8 @@ function normalizeIssues(issues: AuditIssue[]): AuditIssue[] {
 }
 
 describe("audit-effects", () => {
-  test("detects bare promises and direct effect imports", () => {
-    const issues = auditEffects(undefined, {
+  test("detects bare promises and direct effect imports", async () => {
+    const issues = await auditEffects(undefined, {
       checkPipeline: false,
       checkBarePromises: true,
       checkDomainPurity: true,
@@ -25,8 +25,8 @@ describe("audit-effects", () => {
     expect(normalizeIssues(issues)).toMatchSnapshot();
   });
 
-  test("clean domain produces no errors", () => {
-    const issues = auditEffects(undefined, {
+  test("clean domain produces no errors", async () => {
+    const issues = await auditEffects(undefined, {
       checkPipeline: false,
       checkBarePromises: true,
       checkDomainPurity: true,

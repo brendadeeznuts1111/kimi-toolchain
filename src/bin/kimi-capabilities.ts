@@ -13,11 +13,12 @@ import { createLogger } from "../lib/logger.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import { writeStdoutLine } from "../lib/cli-contract.ts";
 
 const logger = createLogger(Bun.argv, "kimi-capabilities");
 
-function emitJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+async function emitJson(value: unknown): Promise<void> {
+  await writeStdoutLine(`${JSON.stringify(value, null, 2)}`);
 }
 
 function printHelp(): void {
@@ -34,7 +35,7 @@ async function main(): Promise<number> {
 
   if (trend) {
     const report = await readCapabilityTrend();
-    if (json) emitJson(report);
+    if (json) await emitJson(report);
     else {
       logger.banner("Kimi Capabilities Trend");
       for (const snapshot of report.snapshots) {
@@ -49,7 +50,7 @@ async function main(): Promise<number> {
   const projectRoot = await resolveProjectRoot();
   const report = await capabilityReport(projectRoot);
   if (json) {
-    emitJson(report);
+    await emitJson(report);
     return report.unavailable > 0 ? 1 : 0;
   }
 

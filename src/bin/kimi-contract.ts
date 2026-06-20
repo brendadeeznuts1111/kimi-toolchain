@@ -17,11 +17,12 @@ import { recordDecision } from "../lib/decision-ledger.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import { writeStdoutLine } from "../lib/cli-contract.ts";
 
 const logger = createLogger(Bun.argv, "kimi-contract");
 
-function emitJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+async function emitJson(value: unknown): Promise<void> {
+  await writeStdoutLine(`${JSON.stringify(value, null, 2)}`);
 }
 
 function printHelp(): void {
@@ -87,7 +88,7 @@ async function main(): Promise<number> {
       },
     });
     const output = { contractPath, signaturePath: `${contractPath}.sig`, signature };
-    if (json) emitJson(output);
+    if (json) await emitJson(output);
     else logger.info(`signed ${contractPath} with key ${keyId}`);
     return 0;
   }
@@ -96,13 +97,13 @@ async function main(): Promise<number> {
     const contractPath = args[1] && args[1] !== "--all" ? resolve(args[1]) : null;
     if (contractPath) {
       const result = await validateContract(contractPath, projectRoot, { strict });
-      if (json) emitJson(result);
+      if (json) await emitJson(result);
       else printValidation(result);
       return result.status === "invalid" ? 1 : 0;
     }
 
     const audit = await auditContractTrust(projectRoot, { strict });
-    if (json) emitJson(audit);
+    if (json) await emitJson(audit);
     else {
       for (const result of audit.contracts) printValidation(result);
       logger.info(
@@ -114,7 +115,7 @@ async function main(): Promise<number> {
 
   if (command === "summary") {
     const audit = summarizeContractTrust([]);
-    if (json) emitJson(audit);
+    if (json) await emitJson(audit);
     else logger.info("no contracts loaded");
     return 0;
   }

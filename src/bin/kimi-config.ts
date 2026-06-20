@@ -22,6 +22,7 @@ import {
   validateConfigConstants,
   watchLifecycleProposal,
 } from "../lib/config-lifecycle.ts";
+import { writeStdoutLine } from "../lib/cli-contract.ts";
 
 const logger = createLogger(Bun.argv, "kimi-config");
 
@@ -35,8 +36,8 @@ function argValue(flag: string): string | undefined {
   return Bun.argv[index + 1];
 }
 
-function writeJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+async function writeJson(value: unknown): Promise<void> {
+  await writeStdoutLine(`${JSON.stringify(value, null, 2)}`);
 }
 
 function printHelp(): void {
@@ -62,7 +63,7 @@ async function main(): Promise<number> {
   if (command === "diff") {
     const report = await buildConfigDiffReport(projectRoot);
     if (jsonMode) {
-      writeJson(report);
+      await writeJson(report);
     } else {
       const count = report.diff.missingKeys.length + report.diff.invalidKeys.length;
       logger.section("Config Diff");
@@ -80,7 +81,7 @@ async function main(): Promise<number> {
   if (command === "validate") {
     const report = await validateConfigConstants(projectRoot);
     if (jsonMode) {
-      writeJson(report);
+      await writeJson(report);
     } else {
       logger.section("Config Validate");
       logger.info(
@@ -103,7 +104,7 @@ async function main(): Promise<number> {
     }
     const report = await buildConfigTimeline(projectRoot, constant);
     if (jsonMode) {
-      writeJson(report);
+      await writeJson(report);
     } else {
       logger.section("Config Timeline");
       logger.info(`${constant}: ${report.events.length} event(s)`);
@@ -141,7 +142,7 @@ async function main(): Promise<number> {
       })
     );
     if (jsonMode) {
-      writeJson(result);
+      await writeJson(result);
     } else {
       logger.section("Config Canary");
       logger.info(`${result.record.id}: ${result.record.status}`);
@@ -177,7 +178,7 @@ async function main(): Promise<number> {
       })
     );
     if (jsonMode) {
-      writeJson(result);
+      await writeJson(result);
     } else {
       logger.section("Config A/B");
       logger.info(`${result.record.id}: ${result.record.status}`);
@@ -204,7 +205,7 @@ async function main(): Promise<number> {
       allowDirtyBunfig: hasFlag("--allow-dirty-bunfig"),
     });
     if (jsonMode) {
-      writeJson({ schemaVersion: record.schemaVersion, record });
+      await writeJson({ schemaVersion: record.schemaVersion, record });
     } else {
       logger.section("Config Apply");
       logger.info(
@@ -227,7 +228,7 @@ async function main(): Promise<number> {
       allowDirtyBunfig: hasFlag("--allow-dirty-bunfig"),
     });
     if (jsonMode) {
-      writeJson({ schemaVersion: record.schemaVersion, record });
+      await writeJson({ schemaVersion: record.schemaVersion, record });
     } else {
       logger.section("Config Rollback");
       logger.info(`${record.constant}: restored ${String(record.values.restored)}`);
@@ -252,7 +253,7 @@ async function main(): Promise<number> {
       applyRollback: hasFlag("--yes"),
     });
     if (jsonMode) {
-      writeJson(report);
+      await writeJson(report);
     } else {
       logger.section("Config Watch");
       logger.info(`Status: ${report.status}`);

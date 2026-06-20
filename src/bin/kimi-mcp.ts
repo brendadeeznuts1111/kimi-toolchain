@@ -32,6 +32,7 @@ import { probeMcpServer } from "../lib/mcp-probe.ts";
 import { homeDir, toolsDir } from "../lib/paths.ts";
 import { ensureDir } from "../lib/utils.ts";
 import { join } from "path";
+import { writeStdoutLine } from "../lib/cli-contract.ts";
 
 const logger = createLogger(Bun.argv, "kimi-mcp");
 
@@ -55,8 +56,8 @@ function argValues(flag: string): string[] {
   return values;
 }
 
-function writeJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+async function writeJson(value: unknown): Promise<void> {
+  await writeStdoutLine(`${JSON.stringify(value, null, 2)}`);
 }
 
 function printHelp(): void {
@@ -101,7 +102,7 @@ async function listCommand(): Promise<number> {
     }));
 
   if (hasFlag("--json")) {
-    writeJson({ servers: [...servers, ...extra] });
+    await writeJson({ servers: [...servers, ...extra] });
   } else {
     logger.section("MCP Servers");
     for (const server of [...servers, ...extra]) {
@@ -143,7 +144,7 @@ async function probeCommand(): Promise<number> {
   }
 
   if (hasFlag("--json")) {
-    writeJson(results);
+    await writeJson(results);
   } else {
     logger.section("MCP Probes");
     for (const [name, result] of Object.entries(results)) {
@@ -185,7 +186,7 @@ async function addCommand(): Promise<number> {
   await writeMcpJson(path, config);
 
   if (hasFlag("--json")) {
-    writeJson({ added: name, path });
+    await writeJson({ added: name, path });
   } else {
     logger.info(`Added ${name} to ${path}`);
   }
@@ -214,7 +215,7 @@ async function profileCommand(): Promise<number> {
   await writeMcpJson(path, applied);
 
   if (hasFlag("--json")) {
-    writeJson({ profile: name, servers: applied.mcpServers });
+    await writeJson({ profile: name, servers: applied.mcpServers });
   } else {
     logger.info(`Applied profile ${name}`);
     for (const [server, entry] of Object.entries(applied.mcpServers)) {
@@ -254,7 +255,7 @@ async function scaffoldCommand(): Promise<number> {
   );
 
   if (hasFlag("--json")) {
-    writeJson({ scaffolded: path, kind });
+    await writeJson({ scaffolded: path, kind });
   } else {
     logger.info(`Scaffolded ${kind} bridge at ${path}`);
     logger.line(
@@ -271,7 +272,7 @@ async function doctorCommand(): Promise<number> {
   const warnings = report.checks.filter((c) => c.status === "warn").length;
 
   if (hasFlag("--json")) {
-    writeJson(report);
+    await writeJson(report);
   } else {
     logger.section("MCP Doctor");
     for (const check of report.checks) {
