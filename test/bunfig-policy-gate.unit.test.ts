@@ -161,7 +161,7 @@ describe("bunfig-policy-gate", () => {
   );
 
   test("warns when bunfig.toml missing via createTempProject", async () => {
-    const project = await createTempProject({});
+    const project = await createTempProject({}, { chdir: false });
     try {
       const result = await runBunfigPolicyGate({ projectRoot: project.dir });
       expect(result.status).toBe("fail");

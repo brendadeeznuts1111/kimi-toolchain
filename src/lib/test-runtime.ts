@@ -283,6 +283,33 @@ export function isUtcTimezoneOffset(offsetMinutes: number): boolean {
 /** Bun per-test default when not overridden (@see test-timeouts). */
 export const BUN_TEST_DEFAULT_TIMEOUT_MS = 5_000;
 
+/**
+ * Bun test flag defaults — what Bun uses when each flag is omitted.
+ * @see https://bun.com/docs/test#cli-usage
+ */
+export const BUN_TEST_DEFAULTS = {
+  /** Per-test timeout in ms. */
+  timeout: 5_000,
+  /** Number of failures before --bail exits (default 1 when --bail passed without value). */
+  bail: 1,
+  /** Maximum concurrent workers for --parallel (defaults to CPU count). */
+  parallelCpu: "cpu-count",
+  /** Maximum concurrent tests with --max-concurrency. */
+  maxConcurrency: 20,
+  /** --coverage-reporter format. */
+  coverageReporter: "text",
+  /** --coverage-dir output directory. */
+  coverageDir: "coverage",
+  /** --reporter output format. */
+  reporter: "console",
+  /** --retry count — no default (0 = disabled). */
+  retry: 0,
+  /** --rerun-each count — no default (0 = disabled). */
+  rerunEach: 0,
+  /** --seed — no default (random when --randomize used without --seed). */
+  seed: null,
+} as const;
+
 /** Timeout contract — global `--timeout`, per-test 3rd arg, `0`/`Infinity` disables. */
 export const BUN_TEST_TIMEOUTS = {
   bunDefaultMs: BUN_TEST_DEFAULT_TIMEOUT_MS,
@@ -1344,13 +1371,33 @@ export async function runBunTest(
   options: { quiet?: boolean; source?: string } = {}
 ): Promise<number> {
   const quiet = options.quiet ?? false;
-  const proc = Bun.spawn(["bun", ...args], {
+  const runnerConfigPath = await writeRunnerBunfig(repoRoot);
+  const bunArgs = insertBunTestConfig(args, runnerConfigPath);
+  const proc = Bun.spawn(["bun", ...bunArgs], {
     cwd: repoRoot,
     stdout: quiet ? "pipe" : "inherit",
     stderr: quiet ? "pipe" : "inherit",
     env: buildTestRunnerEnv({}, options.source ?? "runBunTest"),
   });
   return await proc.exited;
+}
+
+function insertBunTestConfig(args: string[], configPath: string): string[] {
+  if (args[0] !== "test" || args.includes("--config")) return args;
+  return ["test", "--config", configPath, ...args.slice(1)];
+}
+
+async function writeRunnerBunfig(repoRoot: string): Promise<string> {
+  const sourcePath = join(repoRoot, "bunfig.toml");
+  const configPath = join(repoRoot, ".kimi", "test-runner-bunfig.toml");
+  const source = await Bun.file(sourcePath).text();
+  const preloadPath = JSON.stringify(join(repoRoot, "test", "setup.ts"));
+  const next = source.replace(
+    /preload\s*=\s*\["\.\/test\/setup\.ts"\]/,
+    `preload = [${preloadPath}]`
+  );
+  await Bun.write(configPath, next);
+  return configPath;
 }
 
 export async function runTestTier(

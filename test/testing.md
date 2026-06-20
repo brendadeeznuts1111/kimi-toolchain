@@ -244,17 +244,20 @@ Contracts in `test-runtime.ts` align with these Bun docs:
 
 ### Recommended flag combinations
 
-| Use case | Command | Flags explained |
-|----------|---------|-----------------|
-| One file, fast debug | `bun test ./test/foo.unit.test.ts` | Bare `bun test` — no tier overhead |
-| File-scoped watch | `bun test --watch ./test/foo.unit.test.ts -t "myTest"` | `--watch` auto-isolates; file scope avoids `--changed` restart spam |
-| Branch-wide watch | `bun run test:changed:watch` | `--changed --watch` — re-filters on any `.ts` edit |
-| CI shard (job 2/3) | `bun test --shard=2/3` | Deterministic round-robin; `--bail` recommended |
-| Full tier, stop fast | `bun run test:fast -- --bail=1` | Bail after 1 failure; `--isolate --parallel=4` from tier runner |
-| Reproducible random | `bun test --seed 12345` | `--seed` implies `--randomize`; same seed = same order |
-| Coverage for CI | `bun test --coverage --coverage-reporter lcov` | Aggregate across `--parallel` workers |
+| Use case             | Command                                                                  | Key flags                           | Notes                                                       |
+| -------------------- | ------------------------------------------------------------------------ | ----------------------------------- | ----------------------------------------------------------- |
+| Fast smoke / gate    | `bun test -t serve-probe ./test/portal-convergence.unit.test.ts`         | `-t`, explicit file                 | Best for pre-push and quick checks; avoid `--changed`       |
+| Focused watch loop   | `bun test --watch ./test/portal-convergence.unit.test.ts -t serve-probe` | `--watch`, file, `-t`               | Avoid `--changed` for focused work; `--watch` auto-isolates |
+| Branch-wide watch    | `bun run test:changed:watch`                                             | `--changed`, `--watch`              | Re-filters on any `.ts` edit; stays alive when no changes   |
+| Parallel execution   | `bun test --parallel`                                                    | `--parallel`                        | Good default for most runs; implies `--isolate` per worker  |
+| CI shard (job 2/3)   | `bun test --shard=2/3 --parallel --bail`                                 | `--shard`, `--parallel`, `--bail`   | Deterministic round-robin; combine with `--changed` on PRs  |
+| Full tier, stop fast | `bun run test:fast -- --bail=1`                                          | `--bail`                            | Tier runner already adds `--isolate --parallel=4`           |
+| Reproducible random  | `bun test --seed 12345`                                                  | `--seed`                            | `--seed` implies `--randomize`; same seed = same order      |
+| Debug flaky tests    | `bun test --isolate --retry=3 --bail=1 ./test/flaky.test.ts`             | `--isolate`, `--retry`, `--bail`    | Avoid `--parallel` when debugging specific tests            |
+| Coverage for CI      | `bun test --coverage --coverage-reporter lcov --parallel`                | `--coverage`, `--coverage-reporter` | Aggregates across parallel workers                          |
+| Update snapshots     | `bun test -u ./test/component.test.ts`                                   | `-u` / `--update-snapshots`         | Only run on files you intend to update                      |
 
-Code constant: `BUN_TEST_FLAG_INTERACTIONS` in `src/lib/test-runtime.ts` — 16 documented compositions.
+Code constants: `BUN_TEST_FLAG_INTERACTIONS` (16 compositions) and `BUN_TEST_RECOMMENDED_COMBINATIONS` (7 workflows) in `src/lib/test-runtime.ts`.
 
 ## Example patterns
 

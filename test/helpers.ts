@@ -88,7 +88,12 @@ export async function createTempProject(
   return {
     dir,
     cleanup: async () => {
-      if (process.cwd() === dir) process.chdir(originalCwd);
+      try {
+        const cwd = process.cwd();
+        if (cwd === dir || cwd.startsWith(`${dir}/`)) process.chdir(originalCwd);
+      } catch {
+        process.chdir(originalCwd);
+      }
       cleanupPath(dir);
     },
   };

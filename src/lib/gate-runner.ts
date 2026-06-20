@@ -7,7 +7,6 @@ import { makeDir, pathExists } from "./bun-io.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { withBunNoOrphans } from "./tool-runner.ts";
 
-import { tmpdir } from "os";
 import { join } from "path";
 import { $ } from "bun";
 import { isHookSummaryMode, parseBunTestSummary } from "./quiet-mode.ts";
@@ -32,18 +31,18 @@ export function gateCachePath(projectRoot: string): string {
   return join(projectRoot, ".kimi", ".last-good-commit");
 }
 
-function ensureValidCwd(): void {
+function ensureValidCwd(fallbackDir: string): void {
   try {
     process.cwd();
   } catch {
     // If the current working directory was deleted by a test, reset to a safe path
     // so subsequent spawns (including git) do not fail with ENOENT getcwd.
-    process.chdir(tmpdir());
+    process.chdir(fallbackDir);
   }
 }
 
 export async function currentGitHead(projectRoot: string): Promise<string | null> {
-  ensureValidCwd();
+  ensureValidCwd(projectRoot);
   const proc = Bun.spawn(["git", "rev-parse", "HEAD"], {
     cwd: projectRoot,
     stdout: "pipe",
