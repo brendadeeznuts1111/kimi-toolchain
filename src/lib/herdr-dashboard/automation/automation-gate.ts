@@ -15,7 +15,8 @@ import {
   type DashboardAutomationSmokeResult,
 } from "./automation.ts";
 import { normalizeDashboardBaseUrl, resolveDashboardMetaUrl } from "../gates/meta-gate.ts";
-import { startHerdrDashboardServer, type HerdrDashboardServerHandle } from "../server/server.ts";
+import { startHerdrDashboardServer } from "../server/server.ts";
+import type { HerdrDashboardServerHandle } from "../types.ts";
 import { webViewSupported } from "../../webview-console.ts";
 import type { HealthCheck } from "../../health-check.ts";
 

@@ -13,11 +13,8 @@
 import { bunImageSupported, dashboardWebpThumbnail } from "../../bun-image.ts";
 
 import type { DashboardIpcCommand } from "../data/data.ts";
-import {
-  startHerdrDashboardServer,
-  type HerdrDashboardServerHandle,
-  type HerdrDashboardServerOptions,
-} from "../server/server.ts";
+import { startHerdrDashboardServer } from "../server/server.ts";
+import type { HerdrDashboardServerHandle, HerdrDashboardServerOptions } from "../types.ts";
 import { buildDashboardWebViewOptions } from "../webview/options.ts";
 import {
   chromeWebViewBackend,

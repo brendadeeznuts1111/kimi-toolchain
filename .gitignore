@@ -47,6 +47,8 @@ thresholds.json
 .bun-create
 .bun-native-baseline.json
 .cursor/
+.codex/
+.kimi-test-locks/
 test-define-tmp.ts
 
 # Local agent/IDE config (machine-specific, like .env)
