@@ -33,6 +33,11 @@ scripts/.fmt-*
 *.log
 *.bun-build
 
+# Compiled binaries (bun build --compile output)
+cli
+out.js
+*.executable
+
 # Machine-trained perf thresholds (portable baseline is thresholds.baseline.json)
 thresholds.json
 

@@ -42,6 +42,12 @@ describe("version", () => {
     expect(isVersionAtLeast("99.99.99")).toBe(false);
   });
 
+  test("version.ts avoids node:fs/promises for atomic manifest writes", async () => {
+    const text = await Bun.file(new URL("../src/lib/version.ts", import.meta.url)).text();
+    expect(text).not.toContain('from "node:fs/promises"');
+    expect(text).toContain("movePath");
+  });
+
   test("formatVersionTable returns string with headers", () => {
     const table = formatVersionTable({
       toolchain: "1.0.0",

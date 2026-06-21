@@ -8,9 +8,8 @@
  */
 
 import { dirname, join } from "path";
-import { rename } from "node:fs/promises";
 import { $ } from "bun";
-import { makeDir, pathExists, readText } from "./bun-io.ts";
+import { makeDir, movePath, pathExists, readText } from "./bun-io.ts";
 import { manifestPath } from "./paths.ts";
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -213,5 +212,5 @@ export async function writeManifest(manifest: ToolchainManifest): Promise<void> 
   const payload = JSON.stringify(manifest, null, 2) + "\n";
 
   await Bun.write(tmp, payload);
-  await rename(tmp, path);
+  movePath(tmp, path);
 }

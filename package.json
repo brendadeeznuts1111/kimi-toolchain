@@ -13,6 +13,7 @@
     "url": "https://github.com/brendadeeznuts1111/kimi-toolchain.git"
   },
   "bin": {
+    "kimi-bake": "src/bin/kimi-bake.ts",
     "kimi-capabilities": "src/bin/kimi-capabilities.ts",
     "kimi-cleanup-legacy": "src/bin/kimi-cleanup-legacy.ts",
     "kimi-cloudflare-access": "src/bin/kimi-cloudflare-access.ts",

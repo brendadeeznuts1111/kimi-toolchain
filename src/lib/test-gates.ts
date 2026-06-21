@@ -114,6 +114,7 @@ export const UNIT_TEST_FILES = [
   "test/herdr-dashboard-events.unit.test.ts",
   "test/herdr-dashboard-webview-store.unit.test.ts",
   "test/doc-links-lint.unit.test.ts",
+  "test/effect-docs.unit.test.ts",
   "test/testing-docs-lint.unit.test.ts",
   "test/markdown-dead-links.unit.test.ts",
   "test/dashboard-logger.unit.test.ts",
@@ -323,6 +324,7 @@ export const UNIT_TEST_FILES = [
   "test/herdr-dashboard-server.unit.test.ts",
   "test/herdr-remote-host-probe.unit.test.ts",
   "test/hook-gates.unit.test.ts",
+  "test/bun-release-compliance.unit.test.ts",
 ] as const;
 
 export const FAST_TEST_CHUNK_SIZE = 10;
@@ -343,6 +345,7 @@ export const INTEGRATION_TEST_FILES = [
   "test/kimi-docs-aligned.integration.test.ts",
   "test/kimi-fix.integration.test.ts",
   "test/kimi-fix-profiles.integration.test.ts",
+  "test/lint-references-examples.integration.test.ts",
   "test/sync-manifest.integration.test.ts",
   "test/trace-ledger.integration.test.ts",
   "test/unified-shell-bridge.integration.test.ts",

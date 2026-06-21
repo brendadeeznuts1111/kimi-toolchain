@@ -1,7 +1,12 @@
 /** Bun-native I/O helpers for scaffolded trading projects. */
 
 export function pathExists(path: string): boolean {
-  return Bun.file(path).size !== -1;
+  try {
+    const stat = Bun.file(path).statSync();
+    return stat.isFile() || stat.isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 export function listDir(path: string): string[];
@@ -10,6 +15,9 @@ export function listDir(
   path: string,
   options?: { withFileTypes?: boolean }
 ): string[] | import("node:fs").Dirent[] {
+  if (!pathExists(path)) {
+    return options?.withFileTypes ? [] : [];
+  }
   const glob = new Bun.Glob("*");
   if (options?.withFileTypes) {
     const entries: import("node:fs").Dirent[] = [];

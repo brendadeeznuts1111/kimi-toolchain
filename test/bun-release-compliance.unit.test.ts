@@ -630,14 +630,21 @@ describe("bun-release-compliance Effect doc URLs and scaffold patterns", () => {
     expect(text).toContain("effect.website");
   });
 
-  test("doc-links-lint.ts registers Effect doc URL constants", () => {
-    const text = readSrc("src/lib/doc-links-lint.ts");
+  test("effect-docs.ts defines Effect doc URL constants", () => {
+    const text = readSrc("src/lib/effect-docs.ts");
     expect(text).toContain("EFFECT_DOCS_URL");
     expect(text).toContain("EFFECT_GEN_DOC_URL");
     expect(text).toContain("EFFECT_TAGGED_ERROR_DOC_URL");
     expect(text).toContain("EFFECT_LAYER_DOC_URL");
     expect(text).toContain("EFFECT_RUNTIME_DOC_URL");
     expect(text).toContain("EFFECT_ENSUREING_DOC_URL");
+    expect(text).toContain("effect.website");
+  });
+
+  test("doc-links-lint.ts registers Effect doc URL constants from effect-docs.ts", () => {
+    const text = readSrc("src/lib/doc-links-lint.ts");
+    expect(text).toContain("EFFECT_DOCS_URL");
+    expect(text).toContain("src/lib/effect-docs.ts");
     expect(text).toContain("effect.website");
   });
 

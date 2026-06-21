@@ -92,6 +92,11 @@
       "package": "oxfmt",
       "usage": "Format (oxfmt) and lint (oxlint) gates — no ESLint/Prettier in this repo",
       "repoId": "oxc-upstream"
+    },
+    {
+      "id": "stale-trigger",
+      "name": "Stale",
+      "kind": "docs"
     }
   ],
   "localDocs": [
