@@ -146,6 +146,14 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run references:inspect` | (synced from package.json) |
 
+| `bun run references:inspect:watch` | (synced from package.json) |
+| `bun run references:lint` | (synced from package.json) |
+| `bun run references:lint:examples` | (synced from package.json) |
+| `bun run references:lint-online` | (synced from package.json) |
+| `bun run references:snapshot` | (synced from package.json) |
+| `bun run cron:health` | (synced from package.json) |
+| `bun run lint:dashboard-visual` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                           |

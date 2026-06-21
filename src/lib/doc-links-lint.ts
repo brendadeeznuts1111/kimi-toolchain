@@ -62,6 +62,11 @@ export const BUN_SH_DOCS_ALLOWLIST_FILES = new Set([
   "canonical-references.toml",
 ]);
 
+/** Generated ecosystem manifest — literal homepage/docs URLs are intentional SSOT. */
+export const DOC_CONSTANT_LITERAL_ALLOWLIST_FILES = new Set([
+  "src/lib/canonical-references-data.ts",
+]);
+
 /** Shared Bun doc constants — defining file may contain the literal URL once. */
 export const BUN_DOC_LINK_CONSTANTS = [
   {
@@ -81,11 +86,45 @@ export const BUN_DOC_LINK_CONSTANTS = [
     } satisfies BunDocLinkMatchSpec,
   },
   {
+    constant: "BUN_RELEASE_1_3_7_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/blog/bun-v1.3.7",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_RELEASE_1_3_13_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/blog/bun-v1.3.13",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_BUFFER_FROM_OPTIMIZATION_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/blog/bun-v1.3.7",
+      hash: "#faster-buffer-from-with-arrays",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
     constant: "BUN_RUNTIME_GLOBALS_DOC_URL",
     definingFile: "src/lib/bun-install-config.ts",
     match: {
       hostnames: ["bun.com"],
       pathname: "/docs/runtime/globals",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_HEX_DOC_URL",
+    definingFile: "src/lib/bun-utils.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/runtime/binary-data",
+      hashPrefix: "#uint8array-tohex",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -105,6 +144,22 @@ export const BUN_DOC_LINK_CONSTANTS = [
     } satisfies BunDocLinkMatchSpec,
   },
   {
+    constant: "BUN_API_REFERENCE_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/reference/bun",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_DOCS_RSS_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/rss.xml",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
     constant: "BUN_BENCHMARKING_DOC_URL",
     definingFile: "src/lib/bun-install-config.ts",
     match: {
@@ -118,6 +173,15 @@ export const BUN_DOC_LINK_CONSTANTS = [
     match: {
       hostnames: ["bun.com"],
       pathnamePrefix: "/docs/runtime/globals",
+      hashPrefix: "#navigator-hardwareconcurrency",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_RUNTIME_HTTP_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/runtime/http",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -126,6 +190,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     match: {
       hostnames: ["bun.com"],
       pathnamePrefix: "/docs/runtime/http",
+      hashPrefix: "#proxying",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -134,6 +199,169 @@ export const BUN_DOC_LINK_CONSTANTS = [
     match: {
       hostnames: ["bun.com"],
       pathnamePrefix: "/docs/runtime/http",
+      hashPrefix: "#bun-serve",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_CRON_IN_PROCESS_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathnamePrefix: "/docs/runtime/cron",
+      hashPrefix: "#bun-cronschedule-handler--in-process",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_CRON_OS_LEVEL_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathnamePrefix: "/docs/runtime/cron",
+      hashPrefix: "#bun-cronscript-schedule-title--os-level",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_SLICE_ANSI_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathnamePrefix: "/docs/runtime/utils",
+      hashPrefix: "#bun-sliceansi",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_MODULE_RESOLUTION_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/runtime/module-resolution",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_BINARY_DATA_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/runtime/binary-data",
+      hash: "",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_WORKSPACES_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/pm/workspaces",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_PM_FILTER_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/pm/filter",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_WORKSPACES_GUIDE_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/guides/install/workspaces",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_GLOB_PATTERNS_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/runtime/glob",
+      hashPrefix: "#supported-glob-patterns",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_CATALOGS_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/pm/catalogs",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_CATALOGS_OVERVIEW_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/pm/catalogs",
+      hashPrefix: "#overview",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_WORKSPACES_CATALOGS_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/pm/workspaces",
+      hashPrefix: "#share-versions-with-catalogs",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_WORKSPACES_GUIDE_MONOREPO_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/guides/install/workspaces",
+      hashPrefix: "#configuring-a-monorepo-using-workspaces",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_PM_FILTER_MATCHING_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/pm/filter",
+      hashPrefix: "#matching",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_LINK_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/pm/cli/link",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_PM_CLI_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/pm/cli/pm",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_PM_CLI_PKG_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/pm/cli/pm",
+      hashPrefix: "#pkg",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_PUBLISH_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/cli/publish",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_SERVE_HOSTNAME_DOC_URL",
+    definingFile: "src/lib/bun-utils.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathnamePrefix: "/docs/runtime/http/server",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -162,7 +390,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
   },
   {
     constant: "BUN_PM_UPDATE_DOC_URL",
-    definingFile: "src/lib/bun-utils.ts",
+    definingFile: "src/lib/bun-install-config.ts",
     match: {
       hostnames: ["bun.com"],
       pathnamePrefix: "/docs/pm/cli/update",
@@ -174,6 +402,22 @@ export const BUN_DOC_LINK_CONSTANTS = [
     match: {
       hostnames: ["bun.sh"],
       pathnamePrefix: "/reference/bun/randomUUIDv7",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_GZIP_DOC_URL",
+    definingFile: "src/lib/bun-utils.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/guides/util/gzip",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_PASSWORD_DOC_URL",
+    definingFile: "src/lib/bun-utils.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/guides/util/hash-a-password",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -268,6 +512,31 @@ export const BUN_DOC_LINK_CONSTANTS = [
     } satisfies BunDocLinkMatchSpec,
   },
   {
+    constant: "BUN_CTRL_C_DOC_URL",
+    definingFile: "src/lib/cli-contract.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/guides/process/ctrl-c",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_HTML_STATIC_KEYBOARD_DOC_URL",
+    definingFile: "src/lib/cli-contract.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/bundler/html-static",
+      hash: "#keyboard-shortcuts",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_HTML_REWRITER_EXTRACT_LINKS_DOC_URL",
+    definingFile: "src/lib/cli-contract.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/guides/html-rewriter/extract-links",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
     constant: "BUN_CHILD_PROCESS_DOC_URL",
     definingFile: "src/lib/cli-contract.ts",
     match: {
@@ -291,6 +560,64 @@ export const BUN_DOC_LINK_CONSTANTS = [
       hostnames: ["bun.com", "bun.sh"],
       pathnamePrefix: "/docs/runtime/file-io",
       hash: "#reference",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_STREAMS_REFERENCE_DOC_URL",
+    definingFile: "src/lib/cli-contract.ts",
+    match: {
+      hostnames: ["bun.com", "bun.sh"],
+      pathnamePrefix: "/docs/runtime/streams",
+      hash: "#reference",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "EFFECT_DOCS_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["effect.website"],
+      pathname: "/docs",
+      hash: "",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "EFFECT_GEN_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["effect.website"],
+      pathnamePrefix: "/docs/effect/gen",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "EFFECT_TAGGED_ERROR_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["effect.website"],
+      pathnamePrefix: "/docs/error-management/tagged-errors",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "EFFECT_LAYER_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["effect.website"],
+      pathnamePrefix: "/docs/layers",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "EFFECT_RUNTIME_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["effect.website"],
+      pathnamePrefix: "/docs/runtime",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "EFFECT_ENSUREING_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["effect.website"],
+      pathnamePrefix: "/docs/effect/ensuring",
     } satisfies BunDocLinkMatchSpec,
   },
 ] as const;
@@ -432,6 +759,8 @@ export function scanDocLinkFile(rel: string, text: string): DocLinkViolation[] {
     }
 
     if (isComment) continue;
+
+    if (DOC_CONSTANT_LITERAL_ALLOWLIST_FILES.has(rel)) continue;
 
     for (const { parts } of urls) {
       for (const entry of BUN_DOC_LINK_CONSTANTS) {

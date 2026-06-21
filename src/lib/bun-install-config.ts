@@ -14,27 +14,132 @@ import {
 } from "./bun-image.ts";
 import {
   BUN_DETECT_BUN_GUIDE_DOC_URL,
-  BUN_PM_UPDATE_DOC_URL,
   BUN_VERSION_GUIDE_DOC_URL,
   bunVersion,
   detectBunRuntime,
 } from "./bun-utils.ts";
+import { spawnBun } from "./tool-runner.ts";
 import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { TOML } from "bun";
 
 export const BUN_INSTALL_DOC_URL = "https://bun.com/docs/pm/cli/install";
+export const BUN_PM_CLI_DOC_URL = "https://bun.com/docs/pm/cli/pm";
+export const BUN_PM_CLI_PKG_DOC_URL = `${BUN_PM_CLI_DOC_URL}#pkg`;
+export const BUN_PM_UPDATE_DOC_URL = "https://bun.com/docs/pm/cli/update";
+
+export function bunPmCliSectionDocUrl(section: string): string {
+  return `${BUN_PM_CLI_DOC_URL}#${section}`;
+}
+
+/** Dot/bracket notation paths from `bun pm pkg` docs (#pkg). */
+export const BUN_PM_PKG_NOTATION_EXAMPLES = [
+  "scripts.build",
+  "contributors[0]",
+  "workspaces.0",
+  "scripts[test:watch]",
+] as const;
+
+export const BUN_PM_PKG_OPERATIONS = ["get", "set", "delete", "fix"] as const;
+
+export type BunPmPkgOperation = (typeof BUN_PM_PKG_OPERATIONS)[number];
+
+export interface BunPmCliSectionDef {
+  flags?: readonly string[];
+  aliases?: readonly string[];
+  subcommands?: readonly string[];
+  increments?: readonly string[];
+  operations?: readonly string[];
+  notes?: string;
+}
+
+/** Effect-TS documentation URLs (effect.website). */
+export const EFFECT_DOCS_URL = "https://effect.website/docs";
+export const EFFECT_GEN_DOC_URL = "https://effect.website/docs/effect/gen";
+export const EFFECT_TAGGED_ERROR_DOC_URL =
+  "https://effect.website/docs/error-management/tagged-errors";
+export const EFFECT_LAYER_DOC_URL = "https://effect.website/docs/layers";
+export const EFFECT_RUNTIME_DOC_URL = "https://effect.website/docs/runtime";
+export const EFFECT_ENSUREING_DOC_URL = "https://effect.website/docs/effect/ensuring";
+
+/** `bun pm` command sections — flags, aliases, and increments per pm.md. */
+export const BUN_PM_CLI_SECTIONS = {
+  pack: {
+    flags: [
+      "--dry-run",
+      "--destination",
+      "--filename",
+      "--ignore-scripts",
+      "--gzip-level",
+      "--quiet",
+    ],
+    notes: "--filename and --destination cannot be used together",
+  },
+  bin: {
+    flags: ["-g"],
+  },
+  ls: {
+    aliases: ["list"],
+    flags: ["--all", "--trusted"],
+  },
+  whoami: {},
+  hash: {
+    subcommands: ["hash", "hash-string", "hash-print"],
+  },
+  cache: {
+    subcommands: ["cache", "cache rm"],
+  },
+  migrate: {},
+  untrusted: {},
+  trust: {
+    flags: ["--all"],
+  },
+  "default-trusted": {},
+  version: {
+    increments: [
+      "patch",
+      "minor",
+      "major",
+      "premajor",
+      "preminor",
+      "prepatch",
+      "prerelease",
+      "from-git",
+    ],
+    flags: [
+      "--no-git-tag-version",
+      "--allow-same-version",
+      "--message",
+      "-m",
+      "--preid",
+      "--force",
+      "-f",
+    ],
+  },
+  pkg: {
+    operations: BUN_PM_PKG_OPERATIONS,
+  },
+} as const satisfies Record<string, BunPmCliSectionDef>;
+
+export type BunPmCliSectionId = keyof typeof BUN_PM_CLI_SECTIONS;
+
+export const BUN_PM_CLI_SECTION_DOC_URLS = Object.fromEntries(
+  (Object.keys(BUN_PM_CLI_SECTIONS) as BunPmCliSectionId[]).map((id) => [
+    id,
+    bunPmCliSectionDocUrl(id),
+  ])
+) as Record<BunPmCliSectionId, string>;
 export const BUN_RELEASE_1_3_13_URL = "https://bun.com/blog/bun-v1.3.13";
-export const BUN_RELEASE_1_3_13_SOURCE_MAPS_URL =
-  "https://bun.com/blog/bun-v1.3.13#source-maps-use-up-to-8x-less-memory";
+export const BUN_RELEASE_1_3_13_SOURCE_MAPS_URL = `${BUN_RELEASE_1_3_13_URL}#source-maps-use-up-to-8x-less-memory`;
+export const BUN_RELEASE_1_3_7_URL = "https://bun.com/blog/bun-v1.3.7";
 export const BUN_HTML_STATIC_CONSOLE_DOC_URL =
   "https://bun.com/docs/bundler/html-static#echo-console-logs-from-browser-to-terminal";
 export const BUN_MARKDOWN_RUN_DOC_URL = "https://bun.com/docs/runtime/markdown.md";
 export const BUN_WRAP_ANSI_DOC_URL = "https://bun.com/docs/runtime/utils#bun-wrapansi";
 export const BUN_JSON5_DOC_URL = "https://bun.com/docs/runtime/json5#conformance";
 export const BUN_JSONL_DOC_URL = "https://bun.com/docs/runtime/jsonl";
-export const BUN_WEBVIEW_DOC_URL = "https://bun.sh/docs/api/webview";
-export const BUN_CRON_IN_PROCESS_DOC_URL = "https://bun.sh/docs/api/cron#bun-cron-in-process";
+export const BUN_WEBVIEW_DOC_URL = "https://bun.com/docs/api/webview";
+export const BUN_CRON_IN_PROCESS_DOC_URL = "https://bun.com/docs/api/cron#bun-cron-in-process";
 export const BUN_BENCHMARKING_DOC_URL = "https://bun.com/docs/project/benchmarking";
 export const BUN_CPU_PROFILING_DOC_URL = `${BUN_BENCHMARKING_DOC_URL}#cpu-profiling`;
 export const BUN_CPU_PROF_MD_DOC_URL = `${BUN_BENCHMARKING_DOC_URL}#markdown-output`;
@@ -47,12 +152,12 @@ export const BUN_BENCH_REPO_URL = "https://github.com/oven-sh/bun/tree/main/benc
 export const BUN_RUNTIME_GLOBALS_DOC_URL = "https://bun.com/docs/runtime/globals";
 export const BUN_RUNTIME_BUN_APIS_DOC_URL = "https://bun.com/docs/runtime/bun-apis";
 export const BUN_RUNTIME_WEB_APIS_DOC_URL = "https://bun.com/docs/runtime/web-apis";
-export const BUN_HEAP_PROF_BLOG_URL =
-  "https://bun.com/blog/bun-v1.3.7#heap-profiling-with-heap-prof";
-export const BUN_CGROUP_PARALLELISM_DOC_URL =
-  "https://bun.com/docs/runtime/globals#navigator-hardwareconcurrency";
-export const BUN_HTTPS_PROXY_KEEPALIVE_DOC_URL = "https://bun.com/docs/runtime/http#proxying";
-export const BUN_TCP_DEFER_ACCEPT_DOC_URL = "https://bun.com/docs/runtime/http#bun-serve";
+export const BUN_HEAP_PROF_BLOG_URL = `${BUN_RELEASE_1_3_7_URL}#heap-profiling-with-heap-prof`;
+export const BUN_CGROUP_PARALLELISM_DOC_URL = `${BUN_RUNTIME_GLOBALS_DOC_URL}#navigator-hardwareconcurrency`;
+export const BUN_RUNTIME_HTTP_DOC_URL = "https://bun.com/docs/runtime/http";
+export const BUN_HTTPS_PROXY_KEEPALIVE_DOC_URL = `${BUN_RUNTIME_HTTP_DOC_URL}#proxying`;
+export const BUN_TCP_DEFER_ACCEPT_DOC_URL = `${BUN_RUNTIME_HTTP_DOC_URL}#bun-serve`;
+export const BUN_WORKSPACES_DOC_URL = "https://bun.com/docs/pm/workspaces";
 
 export function bunInstallDocAnchor(fragment: string): string {
   return `${BUN_INSTALL_DOC_URL}#${fragment}`;
@@ -113,10 +218,96 @@ export const BUN_INSTALL_CLI = {
   updateInteractive: "bun update -i",
   updateLatest: "bun update <pkg> --latest",
   guardianFix: "kimi-guardian fix",
-  pmTrust: "bun pm trust <pkg>",
   installFilter: "bun install --filter './examples/<name>'",
+  pmList: "bun pm ls",
   pmListAll: "bun pm ls --all",
+  pmListTrusted: "bun pm ls --trusted",
+  pmPack: "bun pm pack",
+  pmPackQuiet: "bun pm pack --quiet",
+  pmPackDryRun: "bun pm pack --dry-run",
+  pmCache: "bun pm cache",
+  pmCacheRm: "bun pm cache rm",
+  pmHash: "bun pm hash",
+  pmHashString: "bun pm hash-string",
+  pmHashPrint: "bun pm hash-print",
+  pmBin: "bun pm bin",
+  pmBinGlobal: "bun pm bin -g",
+  pmMigrate: "bun pm migrate",
+  pmUntrusted: "bun pm untrusted",
+  pmTrust: "bun pm trust <pkg>",
+  pmTrustAll: "bun pm trust --all",
+  pmDefaultTrusted: "bun pm default-trusted",
+  pmVersion: "bun pm version",
+  pmWhoami: "bun pm whoami",
+  pmPkgGet: "bun pm pkg get <path>",
+  pmPkgSet: "bun pm pkg set <key>=<value>",
+  pmPkgDelete: "bun pm pkg delete <path>",
+  pmPkgFix: "bun pm pkg fix",
 } as const;
+
+export const BUN_PM_CLI_SUBCOMMANDS = [
+  "pack",
+  "bin",
+  "ls",
+  "whoami",
+  "hash",
+  "hash-string",
+  "hash-print",
+  "cache",
+  "cache rm",
+  "migrate",
+  "untrusted",
+  "trust",
+  "default-trusted",
+  "version",
+  "pkg",
+] as const;
+
+/** Single SSOT for bun pm CLI capability metadata (interface + runtime builder). */
+export function buildBunPmCliCapability() {
+  return {
+    status: "available" as const,
+    sections: BUN_PM_CLI_SECTIONS,
+    sectionDocs: BUN_PM_CLI_SECTION_DOC_URLS,
+    pkgNotationExamples: BUN_PM_PKG_NOTATION_EXAMPLES,
+    pkgOperations: BUN_PM_PKG_OPERATIONS,
+    listAlias: "list" as const,
+    subcommands: BUN_PM_CLI_SUBCOMMANDS,
+    commands: {
+      pmList: BUN_INSTALL_CLI.pmList,
+      pmListAll: BUN_INSTALL_CLI.pmListAll,
+      pmListTrusted: BUN_INSTALL_CLI.pmListTrusted,
+      pmPack: BUN_INSTALL_CLI.pmPack,
+      pmPackQuiet: BUN_INSTALL_CLI.pmPackQuiet,
+      pmPackDryRun: BUN_INSTALL_CLI.pmPackDryRun,
+      pmCache: BUN_INSTALL_CLI.pmCache,
+      pmCacheRm: BUN_INSTALL_CLI.pmCacheRm,
+      pmHash: BUN_INSTALL_CLI.pmHash,
+      pmHashString: BUN_INSTALL_CLI.pmHashString,
+      pmHashPrint: BUN_INSTALL_CLI.pmHashPrint,
+      pmBin: BUN_INSTALL_CLI.pmBin,
+      pmBinGlobal: BUN_INSTALL_CLI.pmBinGlobal,
+      pmMigrate: BUN_INSTALL_CLI.pmMigrate,
+      pmUntrusted: BUN_INSTALL_CLI.pmUntrusted,
+      pmTrust: BUN_INSTALL_CLI.pmTrust,
+      pmTrustAll: BUN_INSTALL_CLI.pmTrustAll,
+      pmDefaultTrusted: BUN_INSTALL_CLI.pmDefaultTrusted,
+      pmVersion: BUN_INSTALL_CLI.pmVersion,
+      pmWhoami: BUN_INSTALL_CLI.pmWhoami,
+      pmPkgGet: BUN_INSTALL_CLI.pmPkgGet,
+      pmPkgSet: BUN_INSTALL_CLI.pmPkgSet,
+      pmPkgDelete: BUN_INSTALL_CLI.pmPkgDelete,
+      pmPkgFix: BUN_INSTALL_CLI.pmPkgFix,
+    },
+    docsUrl: BUN_PM_CLI_DOC_URL,
+    pkgDocsUrl: BUN_PM_CLI_PKG_DOC_URL,
+    description: "Package manager utilities — pack, list, hash, cache, trust, version, pkg",
+    notes:
+      "Mirror of bun.com/docs/pm/cli/pm — use bun pm ls --all for workspace lockfile trees and bun pm pkg for package.json mutations.",
+  };
+}
+
+export type BunPmCliCapability = ReturnType<typeof buildBunPmCliCapability>;
 
 /** Link root package from an `examples/*` workspace — `workspace:*` does not resolve root names. */
 export const BUN_WORKSPACE_ROOT_CONSUMER_LINK = "file:../..";
@@ -552,7 +743,7 @@ export const BUN_INSTALL_CLI_PROPERTY_REFS: readonly BunInstallPropertyRef[] = [
     description: "Bump existing dependency within semver range",
     versionAdded: "1.0",
     lastModified: BUN_INSTALL_POLICY_LAST_MODIFIED,
-    docsUrl: "https://bun.com/docs/pm/cli/update#cli-usage",
+    docsUrl: `${BUN_PM_UPDATE_DOC_URL}#cli-usage`,
   },
   {
     property: "cli.updateInteractive",
@@ -562,7 +753,7 @@ export const BUN_INSTALL_CLI_PROPERTY_REFS: readonly BunInstallPropertyRef[] = [
     description: "Interactive outdated-package picker",
     versionAdded: "1.1",
     lastModified: BUN_INSTALL_POLICY_LAST_MODIFIED,
-    docsUrl: "https://bun.com/docs/pm/cli/update#interactive",
+    docsUrl: `${BUN_PM_UPDATE_DOC_URL}#interactive`,
   },
   {
     property: "cli.addTrust",
@@ -592,7 +783,7 @@ export const BUN_INSTALL_CLI_PROPERTY_REFS: readonly BunInstallPropertyRef[] = [
     description: "Scoped install for one workspace member (name or path; ! prefix excludes)",
     versionAdded: "1.0",
     lastModified: BUN_INSTALL_POLICY_LAST_MODIFIED,
-    docsUrl: "https://bun.com/docs/pm/workspaces",
+    docsUrl: BUN_WORKSPACES_DOC_URL,
   },
   {
     property: "cli.pmListAll",
@@ -1047,6 +1238,7 @@ export interface BunInstallRuntimeCapabilities {
     };
     ciImplications: "lockfile stable across matrix jobs; install subset varies by runner";
   };
+  bunPmCli: BunPmCliCapability;
 }
 
 export interface BunInstallRuntimeEnvironment {
@@ -1699,6 +1891,7 @@ function buildRuntimeCapabilities(
       },
       ciImplications: "lockfile stable across matrix jobs; install subset varies by runner",
     },
+    bunPmCli: buildBunPmCliCapability(),
   };
 }
 
@@ -2069,18 +2262,20 @@ export const RUNTIME_CAPABILITY_INVENTORY_KEYS = [
   "cgroupAwareParallelism",
   "httpsProxyKeepAlive",
   "tcpDeferAccept",
+  "bunPmCli",
 ] as const;
 
 export const BUN_INSTALL_INSPECT_COMMAND = "bun run bun-install:status --json";
 export const BUN_INSTALL_SOURCE_MODULE = "src/lib/bun-install-config.ts";
 
-export type BunInstallProbeSuffix = "runtime-api-docs" | "capabilities" | "bun-image";
+export type BunInstallProbeSuffix = "runtime-api-docs" | "capabilities" | "bun-image" | "bun-pm";
 export type BunInstallProbeId = `bun-install:${BunInstallProbeSuffix}`;
 
 const BUN_INSTALL_PROBE_SUFFIXES: readonly BunInstallProbeSuffix[] = [
   "runtime-api-docs",
   "capabilities",
   "bun-image",
+  "bun-pm",
 ];
 
 export interface RuntimeCapabilitiesHealthCheck {
@@ -2112,6 +2307,132 @@ function isBunComDocsUrl(url: string, pathname: string): boolean {
   } catch {
     return false;
   }
+}
+
+function isBunPmCliDocsUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === "bun.com" && parsed.pathname === "/docs/pm/cli/pm";
+  } catch {
+    return false;
+  }
+}
+
+function parsePmPkgGetName(stdout: string): string {
+  const trimmed = stdout.trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (typeof parsed === "string") return parsed;
+  } catch {
+    // fall through — Bun may emit a bare package name
+  }
+  return trimmed.replace(/^["']|["']$/g, "");
+}
+
+export interface BunPmCliHealthReport {
+  applicable: boolean;
+  aligned: boolean;
+  checks: RuntimeCapabilitiesHealthCheck[];
+  fixPlan: string[];
+  bunPmCli: BunInstallRuntimeCapabilities["bunPmCli"] | null;
+  inspectCommand: typeof BUN_INSTALL_INSPECT_COMMAND;
+  sourceModule: typeof BUN_INSTALL_SOURCE_MODULE;
+  docsUrl: typeof BUN_PM_CLI_DOC_URL;
+}
+
+/** Probe `bun pm hash`, `bun pm bin`, and `bun pm pkg get name` (toolchain only). */
+export async function auditBunPmCliHealth(projectRoot: string): Promise<BunPmCliHealthReport> {
+  const base = {
+    inspectCommand: BUN_INSTALL_INSPECT_COMMAND,
+    sourceModule: BUN_INSTALL_SOURCE_MODULE,
+    docsUrl: BUN_PM_CLI_DOC_URL,
+  } as const;
+
+  const { packageMeta } = await readProjectInstallMeta(projectRoot);
+  if (packageMeta?.name !== "kimi-toolchain") {
+    return {
+      applicable: false,
+      aligned: true,
+      checks: [],
+      fixPlan: [],
+      bunPmCli: null,
+      ...base,
+    };
+  }
+
+  const report = await buildInstallPolicyReport(projectRoot);
+  const bunPmCli = report.runtimeCapabilities.bunPmCli;
+  const checks: RuntimeCapabilitiesHealthCheck[] = [];
+  const fixPlan: string[] = [];
+
+  if (isBunPmCliDocsUrl(bunPmCli.docsUrl)) {
+    checks.push({
+      name: "bun-pm:docs-url",
+      status: "ok",
+      message: bunPmCli.docsUrl,
+      fixable: false,
+    });
+  } else {
+    checks.push({
+      name: "bun-pm:docs-url",
+      status: "error",
+      message: `bunPmCli docsUrl invalid: ${bunPmCli.docsUrl}`,
+      fixable: true,
+    });
+    fixPlan.push(`fix bunPmCli.docsUrl in ${BUN_INSTALL_SOURCE_MODULE}`);
+  }
+
+  if (bunPmCli.status === "available") {
+    checks.push({
+      name: "bun-pm:capability",
+      status: "ok",
+      message: `bunPmCli ${bunPmCli.status}`,
+      fixable: false,
+    });
+  } else {
+    checks.push({
+      name: "bun-pm:capability",
+      status: "error",
+      message: `bunPmCli status=${bunPmCli.status}`,
+      fixable: true,
+    });
+    fixPlan.push(`restore bunPmCli status in buildRuntimeCapabilities()`);
+  }
+
+  const hash = await spawnBun(["pm", "hash"], { cwd: projectRoot });
+  const bin = await spawnBun(["pm", "bin"], { cwd: projectRoot });
+  const pkg = await spawnBun(["pm", "pkg", "get", "name"], { cwd: projectRoot });
+
+  const hashOk = !hash.isError && hash.exitCode === 0 && hash.stdout.trim().length > 0;
+  const binOk = !bin.isError && bin.exitCode === 0 && bin.stdout.trim().includes("node_modules");
+  const pkgName = parsePmPkgGetName(pkg.stdout);
+  const pkgOk = !pkg.isError && pkg.exitCode === 0 && pkgName === "kimi-toolchain";
+
+  const probesOk = hashOk && binOk && pkgOk;
+  checks.push({
+    name: "bun-pm:hash-bin-pkg",
+    status: probesOk ? "ok" : "error",
+    message: probesOk
+      ? "bun pm hash, bin, and pkg get name probes passed"
+      : `probe failures: hash=${hashOk} bin=${binOk} pkg=${pkgOk} (name=${pkgName || "empty"})`,
+    fixable: !probesOk,
+  });
+  if (!probesOk) {
+    fixPlan.push(
+      "verify bun pm hash/bin/pkg get name from repo root — lockfile and package.json must be intact"
+    );
+  }
+
+  const aligned = checks.every((check) => check.status === "ok");
+  return {
+    applicable: true,
+    aligned,
+    checks,
+    fixPlan: [...new Set(fixPlan)],
+    bunPmCli,
+    ...base,
+  };
 }
 
 /** Validate runtime capability inventory and `runtimeApiDocs` URLs (toolchain only). */
@@ -2205,7 +2526,7 @@ export async function auditRuntimeCapabilitiesHealth(
   if (
     bunImageEntry &&
     typeof bunImageEntry.docsUrl === "string" &&
-    bunImageEntry.docsUrl.startsWith("https://bun.com/docs/runtime/image")
+    bunImageEntry.docsUrl.startsWith(BUN_IMAGE_DOCS_URL)
   ) {
     checks.push({
       name: "bun-image:capability-docs",
@@ -2233,6 +2554,17 @@ export async function auditRuntimeCapabilitiesHealth(
     });
   }
   fixPlan.push(...bunImageHealth.fixPlan);
+
+  const bunPmHealth = await auditBunPmCliHealth(projectRoot);
+  for (const check of bunPmHealth.checks) {
+    checks.push({
+      name: check.name,
+      status: check.status,
+      message: check.message,
+      fixable: check.fixable,
+    });
+  }
+  fixPlan.push(...bunPmHealth.fixPlan);
 
   const aligned = checks.every((check) => check.status === "ok");
   return {
@@ -2265,7 +2597,9 @@ export async function evaluateBunInstallProbeHandoffCondition(
       ? "runtime-api-docs:"
       : suffix === "bun-image"
         ? "bun-image:"
-        : "capability:";
+        : suffix === "bun-pm"
+          ? "bun-pm:"
+          : "capability:";
   const relevant = report.checks.filter((check) => check.name.startsWith(prefix));
   const failed = relevant.filter((check) => check.status === "error");
 
@@ -2277,6 +2611,12 @@ export async function evaluateBunInstallProbeHandoffCondition(
       return {
         ok: true,
         message: "Bun.Image supported with metadata probe and docs URL aligned",
+      };
+    }
+    if (suffix === "bun-pm") {
+      return {
+        ok: true,
+        message: "bun pm hash, bin, and pkg get name probes aligned with docs mirror",
       };
     }
     return {

@@ -20,12 +20,12 @@ import {
   CI_WORKFLOW,
   TSCONFIG,
   BUN_GLOBALS,
-  DX_CONFIG,
   GITIGNORE,
   ENV_EXAMPLE,
   BUNFIG,
   KIMI_SKILLS_README,
   CODE_REFERENCES_TEMPLATE,
+  INDEX_TEMPLATE,
   generateReadme,
   generateContext,
 } from "../lib/scaffold-templates.ts";
@@ -37,6 +37,15 @@ import { aggregateChecks } from "../lib/health-check.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import {
+  detectProfileDrift,
+  filterScaffoldArgv,
+  renderDxConfig,
+  resolveScaffoldProfile,
+  scaffoldProfileScripts,
+  type ScaffoldProfile,
+} from "../lib/scaffold-profiles.ts";
+import { parseKimiModules, scaffoldKimiModules } from "../lib/scaffold-modules.ts";
 
 const logger = createLogger(Bun.argv, "kimi-fix");
 const TOOLCHAIN_ROOT = join(import.meta.dir, "..", "..");
@@ -132,9 +141,15 @@ async function runDoctor(projectDir: string): Promise<number> {
   return 0;
 }
 
-async function runFix(project: string, dryRun: boolean): Promise<void> {
+async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile): Promise<void> {
   logger.section(`Fixing ${basename(project)}`);
   logger.info(`Path: ${project}`);
+  logger.info(`Profile: ${profile}`);
+
+  const drift = detectProfileDrift(project, profile);
+  if (drift) {
+    logger.warn(`Profile drift: ${drift}`);
+  }
 
   if (!pathExists(join(project, ".git"))) {
     stepLog("git", "initializing repo...");
@@ -245,8 +260,9 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
   }
 
   if (!pathExists(join(project, "dx.config.toml"))) {
-    stepLog("dx", "creating dx.config.toml...");
-    await writeFile(join(project, "dx.config.toml"), DX_CONFIG, dryRun);
+    stepLog("dx", `creating dx.config.toml (${profile} profile)...`);
+    const dxContent = renderDxConfig(profile, await getProjectName(project));
+    await writeFile(join(project, "dx.config.toml"), dxContent, dryRun);
   }
 
   if (!pathExists(join(project, "tsconfig.json"))) {
@@ -259,6 +275,13 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
     stepLog("types", "creating src/bun-globals.d.ts...");
     if (!dryRun) makeDir(join(project, "src"), { recursive: true });
     await writeFile(globalsPath, BUN_GLOBALS, dryRun);
+  }
+
+  const indexPath = join(project, "src", "index.ts");
+  if (profile === "app" && !pathExists(indexPath)) {
+    stepLog("entry", "creating src/index.ts starter...");
+    if (!dryRun) makeDir(join(project, "src"), { recursive: true });
+    await writeFile(indexPath, INDEX_TEMPLATE, dryRun);
   }
 
   const scriptFiles: Array<{ name: string; content: () => Promise<string> }> = [
@@ -277,12 +300,32 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
     }
   }
 
-  await ensureQualityTooling(project, dryRun, stepLog);
+  await ensureQualityTooling(project, dryRun, stepLog, profile);
 
   if (!pathExists(join(project, ".github", "workflows", "ci.yml"))) {
     stepLog("ci", "creating CI template...");
     if (!dryRun) makeDir(join(project, ".github", "workflows"), { recursive: true });
     await writeFile(join(project, ".github", "workflows", "ci.yml"), CI_WORKFLOW, dryRun);
+  }
+
+  const profileScripts = await scaffoldProfileScripts(project, profile, dryRun);
+  if (profileScripts.copied.length > 0) {
+    stepLog("profile", `copied ${profileScripts.copied.length} toolchain script(s)`);
+  }
+  if (profileScripts.skipped.length > 0) {
+    stepLog("profile", `skipped ${profileScripts.skipped.length} existing toolchain script(s)`);
+  }
+
+  const modules = parseKimiModules();
+  const moduleResult = await scaffoldKimiModules(project, modules, dryRun);
+  if (moduleResult.filesWritten.length > 0) {
+    stepLog(
+      "modules",
+      `scaffolded ${moduleResult.modules.join(", ")} (${moduleResult.filesWritten.length} file(s))`
+    );
+  }
+  if (moduleResult.skipped.length > 0) {
+    stepLog("modules", `skipped ${moduleResult.skipped.length} existing module file(s)`);
   }
 
   logger.section("Next Steps");
@@ -302,31 +345,36 @@ async function runFix(project: string, dryRun: boolean): Promise<void> {
 
 function printHelp() {
   logger.line("Usage:");
-  logger.line("  kimi-fix <project-path> [--dry-run]");
-  logger.line("  kimi-fix fix <project-path> [--dry-run]");
+  logger.line("  kimi-fix <project-path> [--dry-run] [--profile app|toolchain]");
+  logger.line("  kimi-fix fix <project-path> [--dry-run] [--profile app|toolchain]");
   logger.line("  kimi-fix doctor [project-path]");
   logger.line("");
   logger.line("Fixes missing project scaffolding:");
   logger.line("  - git init, governance files, CONTEXT.md, guardian baseline, git hooks");
   logger.line("  - AGENTS.md, .env.example, .gitignore, bunfig.toml, quality scripts, CI");
+  logger.line("  - profile-specific dx.config.toml, finish-work scripts (toolchain)");
+  logger.line(
+    "  - KIMI_MODULES domain effects (doctor, image, clock, uuid, http, trading, db, terminal)"
+  );
 }
 
 async function main(): Promise<number> {
   scrubProcessGitEnv();
 
-  const args = Bun.argv.slice(2);
-  const dryRun = args.includes("--dry-run");
-  const filtered = args.filter((a) => a !== "--dry-run");
+  const rawArgs = Bun.argv.slice(2);
+  const profile = resolveScaffoldProfile(rawArgs);
+  const args = filterScaffoldArgv(rawArgs.filter((a) => a !== "--dry-run"));
+  const dryRun = rawArgs.includes("--dry-run");
 
-  if (filtered.length === 0 || filtered[0] === "--help" || filtered[0] === "-h") {
+  if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
     printHelp();
-    return filtered.length === 0 ? 1 : 0;
+    return args.length === 0 ? 1 : 0;
   }
 
-  const command = filtered[0];
+  const command = args[0];
 
   if (command === "doctor") {
-    const project = resolve(filtered[1] || Bun.cwd);
+    const project = resolve(args[1] || Bun.cwd);
     if (!pathExists(project)) {
       logger.error(`Directory does not exist: ${project}`);
       return 1;
@@ -334,8 +382,7 @@ async function main(): Promise<number> {
     return await runDoctor(project);
   }
 
-  const projectPath =
-    command === "fix" ? filtered[1] : command === "doctor" ? filtered[1] : filtered[0];
+  const projectPath = command === "fix" ? args[1] : command === "doctor" ? args[1] : args[0];
   if (!projectPath || projectPath === "fix") {
     printHelp();
     return 1;
@@ -347,7 +394,7 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  await runFix(project, dryRun);
+  await runFix(project, dryRun, profile);
   return 0;
 }
 

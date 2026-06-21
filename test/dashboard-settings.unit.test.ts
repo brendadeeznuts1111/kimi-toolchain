@@ -104,7 +104,7 @@ port = 7777
     expect(settings.schemaVersion).toBe(1);
     expect(settings.port).toBe(5678);
     expect(settings.dashboardUrl).toBe("http://127.0.0.1:5678/");
-    expect(settings.cardCount).toBe(69);
+    expect(settings.cardCount).toBe(70);
     expect(settings.canvasLinkedCount).toBe(27);
     expect(settings.canvasOrphanCount).toBe(42);
     expect(settings.canonicalPort).toBe(5678);

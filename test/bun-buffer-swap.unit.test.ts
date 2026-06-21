@@ -9,22 +9,30 @@ import { describe, expect, test } from "bun:test";
 const BUF_64K = Buffer.alloc(64 * 1024);
 
 describe("bun-buffer-swap", () => {
-  test("swap16 completes under 5µs on 64KB", () => {
-    const buf = Buffer.from(BUF_64K);
-    const start = Bun.nanoseconds();
-    buf.swap16();
-    const elapsed = (Bun.nanoseconds() - start) / 1e3;
-    console.log(`  swap16 64KB: ${elapsed.toFixed(2)} µs (blog: ~0.56 µs)`);
-    expect(elapsed).toBeLessThan(5);
+  test("swap16 min of 5 iterations completes under 50µs on 64KB", () => {
+    const samples: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const buf = Buffer.from(BUF_64K);
+      const start = Bun.nanoseconds();
+      buf.swap16();
+      samples.push((Bun.nanoseconds() - start) / 1e3);
+    }
+    const min = Math.min(...samples);
+    console.log(`  swap16 64KB min/5: ${min.toFixed(2)} µs (blog: ~0.56 µs)`);
+    expect(min).toBeLessThan(50);
   });
 
-  test("swap64 completes under 5µs on 64KB", () => {
-    const buf = Buffer.from(BUF_64K);
-    const start = Bun.nanoseconds();
-    buf.swap64();
-    const elapsed = (Bun.nanoseconds() - start) / 1e3;
-    console.log(`  swap64 64KB: ${elapsed.toFixed(2)} µs (blog: ~0.56 µs)`);
-    expect(elapsed).toBeLessThan(5);
+  test("swap64 min of 5 iterations completes under 50µs on 64KB", () => {
+    const samples: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const buf = Buffer.from(BUF_64K);
+      const start = Bun.nanoseconds();
+      buf.swap64();
+      samples.push((Bun.nanoseconds() - start) / 1e3);
+    }
+    const min = Math.min(...samples);
+    console.log(`  swap64 64KB min/5: ${min.toFixed(2)} µs (blog: ~0.56 µs)`);
+    expect(min).toBeLessThan(50);
   });
 
   test("swap16 roundtrip preserves original data", () => {

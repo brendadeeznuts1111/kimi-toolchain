@@ -21,37 +21,22 @@ kimi-doctor --perf-gates enforces the thresholds
 kimi-doctor --report generates perf-report.html
 ```
 
-## Complete File Map (9 consolidated files)
+## Complete File Map
 
-| #   | File                         | Contents                                  |
-| --- | ---------------------------- | ----------------------------------------- |
-| 1   | `kimi-toolchain-core.ts`     | Symbols, validation, gates                |
-| 2   | `kimi-toolchain-harness.ts`  | Transpiler scanner, HTML reporter         |
-| 3   | `kimi-toolchain-metrics.ts`  | Types, thresholds, monitor, CLI           |
-| 4   | `kimi-toolchain-trained.ts`  | Threshold loading, bunfig, `--train`      |
-| 5   | `kimi-toolchain-scaffold.ts` | Package.json generator, script wiring     |
-| 6   | `kimi-toolchain-final.ts`    | `Bun.TOML.parse`, `kimi-publish`          |
-| 7   | `kimi-toolchain-herdr.ts`    | Watch mode, heal, Herdr `dx.config.toml`  |
-| 8   | `kimi-toolchain-profile.ts`  | `kimi-fix --profile toolchain`, v5.3 spec |
-| 9   | `kimi-toolchain-card40.ts`   | `DEFAULT_MODULES`, Card #40, dashboard    |
+The toolchain profile is implemented directly in the repo tree; there is no consolidated archive to split.
 
-### Awk Splitter
-
-Split a consolidated archive back into the 9 individual files:
-
-```bash
-awk '
-/^\/\/ ={60,}$/ {
-    split($0, a, " ")
-    file = a[3]
-    if (file) print "Writing " file
-    next
-}
-file { print > file }
-' kimi-toolchain-v53-consolidated.ts
-```
-
-Each file begins with a 60-character `=` separator line followed by the filename.
+| #   | File                                                | Contents                                                  |
+| --- | --------------------------------------------------- | --------------------------------------------------------- |
+| 1   | `src/bin/kimi-fix.ts`                               | Scaffold CLI; `--profile app\|toolchain` + `KIMI_MODULES` |
+| 2   | `src/lib/scaffold-profiles.ts`                      | Profile resolution, `dx.config.*.toml` rendering          |
+| 3   | `src/lib/scaffold-modules.ts`                       | `KIMI_MODULES` copy tree + package script merging         |
+| 4   | `templates/scaffold/dx.config.toolchain.toml`       | Herdr + finish-work layout for toolchain projects         |
+| 5   | `templates/scaffold/scripts/finish-work.ts`         | Gate → commit/push close-loop runner                      |
+| 6   | `templates/scaffold/scripts/finish-work-herdr.ts`   | Herdr reviewer-pane escalation helpers                    |
+| 7   | `templates/scaffold/scripts/finish-work-config.ts`  | Per-project finish-work gate configuration                |
+| 8   | `templates/scaffold/scripts/reviewer-pane.ts`       | Cross-pane review helper                                  |
+| 9   | `examples/dashboard/src/harness/`                   | Perf harness + `perf-doctor.ts` (default `doctor` module) |
+| 10  | `templates/modules/*`                               | Domain effects: image, clock, uuid, http, db, terminal    |
 
 ## Profiles
 
@@ -297,10 +282,10 @@ Out of scope: live status for all 67 cards, combined Herdr+examples layout.
 | Topic                                  | Path                                                    |
 | -------------------------------------- | ------------------------------------------------------- |
 | Memory (canonical spec)                | `kimi-fix-profile-v53-spec`                             |
-| v5.3 README (9 files · awk · profiles) | `examples/dashboard/v53/README.md`                      |
+| v5.3 README                            | `examples/dashboard/v53/README.md`                      |
 | Doctor CLI + effects pipeline          | [kimi-doctor.md](./kimi-doctor.md)                      |
 | Template families                      | [template-matrix.md](./template-matrix.md)              |
 | Configuration layers                   | [configuration-layers.md](./configuration-layers.md)    |
 | Namespace boundaries                   | [namespace.md](./namespace.md)                          |
-| Image effect example                   | `skills/kimi-toolchain/examples/image-effect.md`        |
-| Platform absorption                    | `skills/kimi-toolchain/examples/platform-absorption.md` |
+| Image effect example                   | `examples/image-effect.md`                              |
+| Platform absorption                    | `examples/platform-absorption.md`                       |

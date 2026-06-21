@@ -36,6 +36,9 @@ export const BUNFIG = load("bunfig.toml");
 export const KIMI_SKILLS_README = load("skills-readme.md");
 export const ADR_TEMPLATE = load("adr-template.md");
 export const CODE_REFERENCES_TEMPLATE = load("code-references.md");
+export const README_TEMPLATE = load("README.md");
+export const LICENSE_MIT_TEMPLATE = load("LICENSE-MIT");
+export const INDEX_TEMPLATE = load("index.ts");
 
 export const REQUIRED_PACKAGE_SCRIPT_ENTRIES: Record<string, string> = {
   test: "bun run scripts/run-tests.ts",
@@ -80,7 +83,8 @@ export async function generateReadme(
   getProjectName: (dir: string) => Promise<string>
 ): Promise<string> {
   const filepath = join(projectDir, "README.md");
-  const content = `# ${await getProjectName(projectDir)}\n\n## Getting Started\n\n\`\`\`bash\nbun install\nbun run dev\n\`\`\`\n\n## Scripts\n\nSee \`package.json\` for available scripts.\n`;
+  const name = await getProjectName(projectDir);
+  const content = README_TEMPLATE.replaceAll("{{PROJECT_NAME}}", name);
   await Bun.write(filepath, content);
   return filepath;
 }
@@ -127,7 +131,7 @@ export async function generateLicense(projectDir: string, type: string): Promise
   const year = new Date().getFullYear();
   let content = "";
   if (type === "MIT") {
-    content = `MIT License\n\nCopyright (c) ${year}\n\nPermission is hereby granted...`;
+    content = LICENSE_MIT_TEMPLATE.replaceAll("{{YEAR}}", String(year));
   } else {
     content = `${type} License\n\nCopyright (c) ${year}\n`;
   }

@@ -815,6 +815,10 @@
         <h2>Bun Runtime</h2>
         <div class="loading">Loading…</div>
       </div>
+      <div class="card" id="card-bun-pm">
+        <h2>Bun pm</h2>
+        <div class="loading">Loading…</div>
+      </div>
       <div class="card" id="card-perf-auto-discover">
         <h2>Auto-Discover</h2>
         <div class="loading">Loading…</div>
@@ -2753,6 +2757,44 @@
           card("card-bun-runtime", h);
         } catch (e) {
           card("card-bun-runtime", `<p class="status err">${e.message}</p>`);
+        }
+      })();
+
+      // Bun pm — CLI mirror + live hash/bin/pkg probes
+      (async () => {
+        try {
+          const d = await fetchJson("/api/bun-pm");
+          if (!d.applicable) {
+            card(
+              "card-bun-pm",
+              '<p class="status warn">Not applicable outside kimi-toolchain</p>'
+            );
+            return;
+          }
+          const tone = d.aligned ? "ok" : "err";
+          const label = d.aligned ? "ALIGNED" : "MISALIGNED";
+          let h = `<div class="row"><span>Sections</span><strong>${Object.keys(d.bunPmCli?.sections ?? {}).length}</strong></div>`;
+          h += `<div class="row"><span>Status</span><span class="badge badge-${tone}">${label}</span></div>`;
+          if (d.bunPmCli?.docsUrl) {
+            h += `<div class="row"><span>Docs</span><a href="${d.bunPmCli.docsUrl}" style="font-size:9px">pm.md mirror</a></div>`;
+          }
+          if (d.pmHealth?.fixPlan?.length) {
+            h += `<ul style="margin:4px 0 0 16px;font-size:10px;color:var(--muted)">${d.pmHealth.fixPlan
+              .map((f) => `<li>${f}</li>`)
+              .join("")}</ul>`;
+          }
+          h +=
+            '<table class="tbl" style="margin-top:4px"><tr><th>Check</th><th>Status</th></tr>';
+          for (const c of d.pmHealth?.checks ?? []) {
+            const statusTone = c.status === "ok" ? "ok" : "err";
+            h += `<tr><td style="font-size:9px">${c.name}</td><td><span class="badge badge-${statusTone}">${c.status}</span></td></tr>`;
+          }
+          h += "</table>";
+          const fetched = d.fetchedAt ? new Date(d.fetchedAt).toLocaleString() : "—";
+          h += `<p class="status ok" style="margin-top:8px;font-size:10px">Fetched at ${fetched}</p>`;
+          card("card-bun-pm", h);
+        } catch (e) {
+          card("card-bun-pm", `<p class="status err">${e.message}</p>`);
         }
       })();
 

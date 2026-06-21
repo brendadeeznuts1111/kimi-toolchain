@@ -1,4 +1,4 @@
-import { pathExists, readText } from "./bun-io.ts";
+import { makeDir, pathExists, readText } from "./bun-io.ts";
 
 import { join, resolve } from "path";
 import { homeDir } from "./paths.ts";
@@ -163,3 +163,45 @@ export const TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES = [
   "finish-work.ts",
   "reviewer-pane.ts",
 ] as const;
+
+export interface ScaffoldProfileScriptsResult {
+  copied: string[];
+  skipped: string[];
+}
+
+/**
+ * Copy toolchain-profile scripts from `templates/scaffold/scripts/` into the project.
+ * Non-destructive: skips files that already exist.
+ */
+export async function scaffoldProfileScripts(
+  projectRoot: string,
+  profile: ScaffoldProfile,
+  dryRun: boolean
+): Promise<ScaffoldProfileScriptsResult> {
+  if (profile !== "toolchain") {
+    return { copied: [], skipped: [] };
+  }
+
+  const copied: string[] = [];
+  const skipped: string[] = [];
+
+  for (const rel of [...TOOLCHAIN_SCAFFOLD_LIB_NAMES, ...TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES]) {
+    const src = join(TEMPLATE_DIR, "scripts", rel);
+    const dest = join(projectRoot, "scripts", rel);
+    if (!pathExists(src)) {
+      skipped.push(`${rel} (source missing)`);
+      continue;
+    }
+    if (pathExists(dest)) {
+      skipped.push(rel);
+      continue;
+    }
+    if (!dryRun) {
+      makeDir(join(dest, ".."), { recursive: true });
+      await Bun.write(dest, Bun.file(src));
+    }
+    copied.push(dest);
+  }
+
+  return { copied, skipped };
+}

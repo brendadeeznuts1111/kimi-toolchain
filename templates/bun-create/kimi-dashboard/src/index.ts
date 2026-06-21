@@ -50,4 +50,4 @@ Bun.serve({
   },
 });
 
-console.log(`{{name}} running at http://localhost:${port}`);
+await Bun.stdout.write(`{{name}} running at http://localhost:${port}\n`);

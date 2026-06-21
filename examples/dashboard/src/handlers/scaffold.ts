@@ -6,22 +6,26 @@ export async function apiScaffold(): Promise<Response> {
   return jsonResponse({
     architecture: {
       scriptGenerator: {
-        file: "src/domain/scaffold-plan.ts",
-        exports: ["generatePackageScripts()", "generatePackageJson()"],
+        file: "src/lib/scaffold-modules.ts",
+        exports: ["scaffoldKimiModules()", "parseKimiModules()"],
       },
       fileMappings: {
-        file: "src/domain/scaffold-plan.ts",
-        role: "computeFileMappings() generates package.json + init.ts",
+        file: "src/lib/scaffold-templates.ts",
+        role: "loadTemplate() provides dx.config.toml, tsconfig.json, CI, etc.",
       },
-      cli: { file: "src/bin/kimi-scaffold.ts", role: "reads KIMI_MODULES, writes all files" },
+      profileRenderer: {
+        file: "src/lib/scaffold-profiles.ts",
+        role: "renderDxConfig() + scaffoldProfileScripts() for --profile toolchain",
+      },
+      cli: { file: "src/bin/kimi-fix.ts", role: "reads --profile and KIMI_MODULES, writes all files" },
     },
     example: {
-      command: "KIMI_MODULES=trace,image,perf bun create kimi my-api",
+      command: "KIMI_MODULES=trace,image,perf bun create kimi-toolchain my-app",
       output: [
-        "package.json with scripts: perf, perf:gates, perf:train, perf:report, perf:watch",
+        "package.json with scripts: check, check:fast, typecheck, format, lint, fix, finish-work",
         "src/init.ts with Symbol registrations for each module",
-        "src/harness/ — full performance monitoring suite",
-        "src/guardian/perf-gate.ts — CI gate logic",
+        "src/harness/ — full performance monitoring suite (doctor module)",
+        "src/effect/*/processor.ts — domain effect modules",
         "bunfig.toml — globalStore = true, [doctor.thresholds]",
       ],
     },

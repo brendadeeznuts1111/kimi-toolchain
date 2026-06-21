@@ -11,14 +11,14 @@ Use this file to map good local examples before future agents add code. Replace 
 
 ## Local Exemplars
 
-| Need                   | Local reference    | Notes                                                   |
-| ---------------------- | ------------------ | ------------------------------------------------------- |
-| App entrypoint         | `src/index.ts`     | Replace with the real entrypoint                        |
-| CLI or script boundary | `scripts/check.ts` | Replace with the real script pattern                    |
-| Config parsing         | `src/config.ts`    | Prefer narrow interfaces and parser checks              |
-| Logging/status output  | `src/logger.ts`    | Prefer existing logger/helper before raw console output |
-| External API client    | `src/api.ts`       | Keep retries/timeouts explicit                          |
-| Tests                  | `test/`            | Match local test style and fixtures                     |
+| Need                   | Local reference    | Notes                                                        |
+| ---------------------- | ------------------ | ------------------------------------------------------------ |
+| App entrypoint         | `src/index.ts`     | Effect-typed server lifecycle with `Effect.gen` + `ensuring` |
+| CLI or script boundary | `scripts/check.ts` | Replace with the real script pattern                         |
+| Config parsing         | `src/config.ts`    | Prefer narrow interfaces and parser checks                   |
+| Logging/status output  | `src/logger.ts`    | Prefer existing logger/helper before raw console output      |
+| External API client    | `src/api.ts`       | Keep retries/timeouts explicit                               |
+| Tests                  | `test/`            | Match local test style and fixtures                          |
 
 ## Effect and Schema Guidance
 
@@ -26,6 +26,16 @@ Use this file to map good local examples before future agents add code. Replace 
 - Keep pure helpers plain and easy to unit test.
 - Prefer TypeScript interfaces, type guards, parser checks, and focused tests before adding schema packages.
 - New dependencies require intentional approval, `dx package`, `kimi-guardian check`, and tests that show the dependency is needed.
+
+### Effect patterns (see `src/index.ts`)
+
+| Pattern                 | Where used                         | Docs                                                       |
+| ----------------------- | ---------------------------------- | ---------------------------------------------------------- |
+| `Data.TaggedError`      | `ServerStartError`, `RouteError`   | https://effect.website/docs/error-management/tagged-errors |
+| `Effect.gen`            | Server lifecycle control flow      | https://effect.website/docs/effect/gen                     |
+| `Effect.ensuring`       | Graceful server shutdown           | https://effect.website/docs/effect/ensuring                |
+| `Effect.runPromiseExit` | Structured exit code handling      | https://effect.website/docs/runtime                        |
+| `Effect.fail`           | Typed error propagation (no throw) | https://effect.website/docs/error-management/tagged-errors |
 
 ## Checklist
 

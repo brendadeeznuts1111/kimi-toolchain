@@ -2,6 +2,7 @@
  * Markdown dead-link lint — Bun.markdown.render extraction + Bun I/O / fetch.
  *
  * @see https://bun.com/docs/runtime/markdown
+ * @see https://bun.com/docs/guides/html-rewriter/extract-links
  */
 
 import { dirname, join, normalize } from "path";
@@ -61,11 +62,33 @@ function stripLinkSuffix(href: string): { path: string; fragment: string | undef
   return { path: href.slice(0, hash), fragment: href.slice(hash + 1) };
 }
 
+/** Extract href/src from raw HTML using HTMLRewriter (streaming, robust). */
+async function extractHtmlLinks(rawHtml: string, found: Set<string>): Promise<void> {
+  const response = new Response(rawHtml, {
+    headers: { "content-type": "text/html" },
+  });
+  const rewriter = new HTMLRewriter()
+    .on("a[href]", {
+      element(el) {
+        const href = el.getAttribute("href");
+        if (href) found.add(href);
+      },
+    })
+    .on("[src]", {
+      element(el) {
+        const src = el.getAttribute("src");
+        if (src) found.add(src);
+      },
+    });
+  await rewriter.transform(response).blob();
+}
+
 /** Extract unique link targets from markdown (Bun.markdown.render when available). */
-export function extractMarkdownLinks(text: string): string[] {
+export async function extractMarkdownLinks(text: string): Promise<string[]> {
   const found = new Set<string>();
 
   if (markdownRenderSupported()) {
+    const htmlBlocks: string[] = [];
     Bun.markdown.render(text, {
       link: (_children, meta) => {
         if (meta?.href) found.add(meta.href);
@@ -76,17 +99,13 @@ export function extractMarkdownLinks(text: string): string[] {
         return null;
       },
       html: (raw) => {
-        for (const m of raw.matchAll(/href=["']([^"']+)["']/gi)) {
-          const href = m[1];
-          if (href) found.add(href);
-        }
-        for (const m of raw.matchAll(/src=["']([^"']+)["']/gi)) {
-          const src = m[1];
-          if (src) found.add(src);
-        }
+        htmlBlocks.push(raw);
         return null;
       },
     });
+    for (const raw of htmlBlocks) {
+      await extractHtmlLinks(raw, found);
+    }
     return [...found];
   }
 
@@ -245,7 +264,7 @@ export async function auditMarkdownDeadLinks(
 
   for (const rel of paths) {
     const text = await readTextAsync(join(root, rel));
-    for (const href of extractMarkdownLinks(text)) {
+    for (const href of await extractMarkdownLinks(text)) {
       const line = lineForHref(text, href);
       const kind = classifyMarkdownHref(href);
       if (kind === "fragment" || kind === "mailto" || kind === "home_path") continue;

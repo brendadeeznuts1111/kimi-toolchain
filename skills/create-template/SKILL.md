@@ -91,7 +91,7 @@ export BUN_CREATE_DIR="$HOME/kimi-toolchain/templates/bun-create"
 templates/scaffold/
 ├── bunfig.toml          ← install/test policy
 ├── tsconfig.json        ← strict TypeScript config
-├── index.ts             ← entry point
+├── index.ts             ← app-profile entry point starter (Effect-typed Bun.serve)
 ├── README.md            ← project README ({{PROJECT_NAME}} placeholder)
 ├── oxfmtrc.json         ← formatter config
 ├── oxlintrc.json        ← linter config

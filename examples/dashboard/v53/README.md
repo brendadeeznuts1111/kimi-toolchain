@@ -24,37 +24,22 @@ kimi-doctor --report generates perf-report.html
 
 Threshold layers (lowest wins last): `DEFAULT_THRESHOLDS` → `thresholds.json` → `[doctor.thresholds]` in bunfig → `overrideThresholds()` API.
 
-## Nine consolidated files
+## v5.3 Source Map
 
-| #   | File                         | Contents                                  |
-| --- | ---------------------------- | ----------------------------------------- |
-| 1   | `kimi-toolchain-core.ts`     | Symbols, validation, gates                |
-| 2   | `kimi-toolchain-harness.ts`  | Transpiler scanner, HTML reporter         |
-| 3   | `kimi-toolchain-metrics.ts`  | Types, thresholds, monitor, CLI           |
-| 4   | `kimi-toolchain-trained.ts`  | Threshold loading, bunfig, `--train`      |
-| 5   | `kimi-toolchain-scaffold.ts` | Package.json generator, script wiring     |
-| 6   | `kimi-toolchain-final.ts`    | `Bun.TOML.parse`, `kimi-publish`          |
-| 7   | `kimi-toolchain-herdr.ts`    | Watch mode, heal, Herdr `dx.config.toml`  |
-| 8   | `kimi-toolchain-profile.ts`  | `kimi-fix --profile toolchain`, v5.3 spec |
-| 9   | `kimi-toolchain-card40.ts`   | `DEFAULT_MODULES`, Card #40, dashboard    |
+The toolchain profile is implemented directly in the repo tree; there is no consolidated archive to split.
 
-### Awk splitter
-
-Split a consolidated archive back into the nine files:
-
-```bash
-awk '
-/^\/\/ ={60,}$/ {
-    split($0, a, " ")
-    file = a[3]
-    if (file) print "Writing " file
-    next
-}
-file { print > file }
-' kimi-toolchain-v53-consolidated.ts
-```
-
-Each section begins with a 60-character `=` separator line followed by the filename.
+| #   | File                                                | Contents                                                  |
+| --- | --------------------------------------------------- | --------------------------------------------------------- |
+| 1   | `src/bin/kimi-fix.ts`                               | Scaffold CLI; `--profile app\|toolchain` + `KIMI_MODULES` |
+| 2   | `src/lib/scaffold-profiles.ts`                      | Profile resolution, `dx.config.*.toml` rendering          |
+| 3   | `src/lib/scaffold-modules.ts`                       | `KIMI_MODULES` copy tree + package script merging         |
+| 4   | `templates/scaffold/dx.config.toolchain.toml`       | Herdr + finish-work layout for toolchain projects         |
+| 5   | `templates/scaffold/scripts/finish-work.ts`         | Gate → commit/push close-loop runner                      |
+| 6   | `templates/scaffold/scripts/finish-work-herdr.ts`   | Herdr reviewer-pane escalation helpers                    |
+| 7   | `templates/scaffold/scripts/finish-work-config.ts`  | Per-project finish-work gate configuration                |
+| 8   | `templates/scaffold/scripts/reviewer-pane.ts`       | Cross-pane review helper                                  |
+| 9   | `examples/dashboard/src/harness/`                   | Perf harness + `perf-doctor.ts` (default `doctor` module) |
+| 10  | `templates/modules/*`                               | Domain effects: image, clock, uuid, http, db, terminal    |
 
 ## Profile registry
 

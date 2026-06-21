@@ -64,7 +64,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     name: "Cloudflare MCP",
     kind: "mcp",
     homepage: "https://mcp.cloudflare.com/mcp",
-    docs: "https://developers.cloudflare.com/agents/model-context-protocol/mcp-server/",
+    docs: "https://developers.cloudflare.com/agents/model-context-protocol/",
     usage:
       "Default user MCP `cloudflare-api`; optional docs/bindings/builds/observability endpoints",
     noRepo: true,

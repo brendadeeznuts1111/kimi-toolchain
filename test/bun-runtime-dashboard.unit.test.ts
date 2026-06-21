@@ -19,7 +19,7 @@ describe("bun-runtime-dashboard", () => {
     expect(body.applicable).toBe(true);
     expect(body.aligned).toBe(true);
     expect(body.ok).toBe(true);
-    expect(body.capabilityCount).toBe(12);
+    expect(body.capabilityCount).toBe(17);
     expect(body.runtimeApiDocs?.globalsUrl).toBe("https://bun.com/docs/runtime/globals");
   });
 

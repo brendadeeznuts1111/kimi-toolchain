@@ -126,4 +126,16 @@ describe("scaffold-quality", () => {
   test("handles missing package.json gracefully", async () => {
     await expect(ensureQualityTooling(tmpDir, false, log)).resolves.toBeUndefined();
   });
+
+  test("toolchain profile adds finish-work script", async () => {
+    writeFileSync(
+      join(tmpDir, "package.json"),
+      JSON.stringify({ name: "test-project", scripts: {}, devDependencies: {} }, null, 2)
+    );
+
+    await ensureQualityTooling(tmpDir, false, log, "toolchain");
+
+    const pkg = await Bun.file(join(tmpDir, "package.json")).json();
+    expect(pkg.scripts["finish-work"]).toBe("bun run scripts/finish-work.ts");
+  });
 });

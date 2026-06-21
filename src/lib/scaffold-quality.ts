@@ -5,7 +5,8 @@ import { $ } from "bun";
 export async function ensureQualityTooling(
   project: string,
   dryRun: boolean,
-  log: (step: string, msg: string) => void
+  log: (step: string, msg: string) => void,
+  profile?: string
 ) {
   const pkgPath = join(project, "package.json");
   if (!pathExists(pkgPath)) return;
@@ -32,6 +33,9 @@ export async function ensureQualityTooling(
     "lint:terms": "bun run scripts/lint-banned-terms.ts",
     fix: "kimi-fix .",
   };
+  if (profile === "toolchain") {
+    additions["finish-work"] = "bun run scripts/finish-work.ts";
+  }
   let scriptsChanged = false;
   for (const [key, value] of Object.entries(additions)) {
     if (!scripts[key]) {

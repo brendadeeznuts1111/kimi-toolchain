@@ -25,6 +25,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  references-online:
+    name: Canonical references URL audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      - name: references:lint-online
+        run: bun run references:lint-online --json
+
   effect-pipeline:
     name: Effect fail-fast pipeline
     runs-on: ubuntu-latest

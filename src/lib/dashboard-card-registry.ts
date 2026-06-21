@@ -148,6 +148,7 @@ function inferApiRoute(cardId: string): string | null {
     "card-effect-benchmark": "/api/effect-benchmark",
     "card-config-status": "/api/config-status",
     "card-bun-runtime": "/api/bun-runtime",
+    "card-bun-pm": "/api/bun-pm",
     "card-perf-auto-discover": "/api/perf-auto-discover",
     "card-threshold-overrides": "/api/threshold-overrides",
     "card-kimi-publish": "/api/kimi-publish",

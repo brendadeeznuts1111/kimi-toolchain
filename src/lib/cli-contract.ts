@@ -56,6 +56,17 @@ export const BUN_STDOUT_DOC_URL = "https://bun.com/docs/guides/process/stdout";
 /** @see https://bun.com/docs/guides/process/spawn-stderr */
 export const BUN_SPAWN_STDERR_DOC_URL = "https://bun.com/docs/guides/process/spawn-stderr";
 
+/** @see https://bun.com/docs/guides/process/ctrl-c */
+export const BUN_CTRL_C_DOC_URL = "https://bun.com/docs/guides/process/ctrl-c";
+
+/** @see https://bun.com/docs/bundler/html-static#keyboard-shortcuts */
+export const BUN_HTML_STATIC_KEYBOARD_DOC_URL =
+  "https://bun.com/docs/bundler/html-static#keyboard-shortcuts";
+
+/** @see https://bun.com/docs/guides/html-rewriter/extract-links */
+export const BUN_HTML_REWRITER_EXTRACT_LINKS_DOC_URL =
+  "https://bun.com/docs/guides/html-rewriter/extract-links";
+
 /** @see https://bun.com/docs/runtime/child-process */
 export const BUN_CHILD_PROCESS_DOC_URL = "https://bun.com/docs/runtime/child-process";
 

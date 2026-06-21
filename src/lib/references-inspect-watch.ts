@@ -7,14 +7,17 @@
  *   3. Poll fallback — non-TTY environments (CI, piped output).
  */
 
-import { watch, type FSWatcher } from "node:fs";
 import { join } from "path";
 import type { Subprocess } from "bun";
+import { watchPath } from "./bun-io.ts";
 import {
   formatCanonicalReferencesMarkdown,
   type CanonicalReferencesInspectSection,
 } from "./canonical-references.ts";
 import { markdownAnsiSupported, renderMarkdownAnsi } from "./bun-markdown.ts";
+import { withBunNoOrphans } from "./tool-runner.ts";
+
+const stdinDecoder = new TextDecoder();
 
 export const REFERENCES_INSPECT_CHILD_ENV = "KIMI_REFERENCES_INSPECT_CHILD";
 
@@ -114,8 +117,8 @@ function inspectChildArgs(inspectScript: string, section: ReferencesInspectWatch
   return [inspectScript, "--section", section];
 }
 
-function childEnv(): NodeJS.ProcessEnv {
-  return { ...process.env, [REFERENCES_INSPECT_CHILD_ENV]: "1" };
+function childEnv(): Record<string, string | undefined> {
+  return { ...Bun.env, [REFERENCES_INSPECT_CHILD_ENV]: "1" };
 }
 
 async function killSubprocess(proc: Subprocess | null): Promise<void> {
@@ -218,10 +221,10 @@ async function runReferencesInspectMarkdownWatch(
     void render();
   };
 
-  const watchers: FSWatcher[] = [];
+  const watchers: ReturnType<typeof watchPath>[] = [];
   for (const path of referencesInspectWatchPaths(repoRoot)) {
     try {
-      watchers.push(watch(path, () => scheduleRender()));
+      watchers.push(watchPath(path, () => scheduleRender()));
     } catch {
       // missing path — skip
     }
@@ -239,7 +242,7 @@ async function runReferencesInspectMarkdownWatch(
     await render();
     for await (const chunk of process.stdin) {
       const parsed = parseReferencesInspectWatchKey(
-        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString()
+        typeof chunk === "string" ? chunk : stdinDecoder.decode(chunk)
       );
       if (parsed.action === "quit") break;
       if (parsed.action === "refresh") forceRender();
@@ -288,12 +291,15 @@ async function runReferencesInspectPtyWatch(options: ReferencesInspectWatchOptio
       if (generation !== renderGeneration) return;
 
       process.stdout.write(CLEAR_SCREEN);
-      running = Bun.spawn([process.execPath, ...inspectChildArgs(inspectScript, currentSection)], {
-        terminal,
-        cwd: repoRoot,
-        env: childEnv(),
-        stderr: "inherit",
-      });
+      running = Bun.spawn(
+        withBunNoOrphans([process.execPath, ...inspectChildArgs(inspectScript, currentSection)]),
+        {
+          terminal,
+          cwd: repoRoot,
+          env: childEnv(),
+          stderr: "inherit",
+        }
+      );
 
       const code = await running.exited;
       if (generation !== renderGeneration) return;
@@ -323,10 +329,10 @@ async function runReferencesInspectPtyWatch(options: ReferencesInspectWatchOptio
     void runInspect();
   };
 
-  const watchers: FSWatcher[] = [];
+  const watchers: ReturnType<typeof watchPath>[] = [];
   for (const path of referencesInspectWatchPaths(repoRoot)) {
     try {
-      watchers.push(watch(path, () => scheduleRender()));
+      watchers.push(watchPath(path, () => scheduleRender()));
     } catch {
       // missing path — skip
     }
@@ -341,11 +347,20 @@ async function runReferencesInspectPtyWatch(options: ReferencesInspectWatchOptio
   process.stdin.setRawMode(true);
   process.stdin.resume();
 
+  let signalInterrupted = false;
+  const onSignal = () => {
+    signalInterrupted = true;
+    process.stdin.destroy();
+  };
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
+
   try {
     await runInspect();
     for await (const chunk of process.stdin) {
+      if (signalInterrupted) break;
       const parsed = parseReferencesInspectWatchKey(
-        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString()
+        typeof chunk === "string" ? chunk : stdinDecoder.decode(chunk)
       );
       if (parsed.action === "quit") break;
       if (parsed.action === "refresh") forceRender();
@@ -359,6 +374,8 @@ async function runReferencesInspectPtyWatch(options: ReferencesInspectWatchOptio
     if (debounceTimer) clearTimeout(debounceTimer);
     for (const watcher of watchers) watcher.close();
     process.stdout.off("resize", onResize);
+    process.off("SIGINT", onSignal);
+    process.off("SIGTERM", onSignal);
     await killSubprocess(running);
     if (process.stdin.isTTY) process.stdin.setRawMode(false);
   }
@@ -384,12 +401,15 @@ async function runReferencesInspectPollWatch(
   const runInspect = async (): Promise<void> => {
     await killSubprocess(running);
     process.stdout.write(CLEAR_SCREEN);
-    running = Bun.spawn([process.execPath, ...inspectChildArgs(inspectScript, currentSection)], {
-      cwd: repoRoot,
-      env: childEnv(),
-      stdout: "inherit",
-      stderr: "inherit",
-    });
+    running = Bun.spawn(
+      withBunNoOrphans([process.execPath, ...inspectChildArgs(inspectScript, currentSection)]),
+      {
+        cwd: repoRoot,
+        env: childEnv(),
+        stdout: "inherit",
+        stderr: "inherit",
+      }
+    );
     const code = await running.exited;
     running = null;
     process.stdout.write(`\n${HELP_LINE} · section=${currentSection} · exit=${code}\n`);
@@ -404,7 +424,7 @@ async function runReferencesInspectPollWatch(
     try {
       for await (const chunk of process.stdin) {
         const parsed = parseReferencesInspectWatchKey(
-          typeof chunk === "string" ? chunk : Buffer.from(chunk).toString()
+          typeof chunk === "string" ? chunk : stdinDecoder.decode(chunk)
         );
         if (parsed.action === "quit") break;
         if (parsed.action === "refresh") void runInspect();

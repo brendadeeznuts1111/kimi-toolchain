@@ -1,4 +1,4 @@
-import { hostname } from "os";
+import { hostname } from "node:os";
 import { join } from "path";
 import { listDir, makeDir, pathExists, removePath } from "./bun-io.ts";
 import { GATE_LEVEL_PRUNE_MS } from "../gates/types.ts";
@@ -239,7 +239,7 @@ export class ArtifactStore {
   private readonly artifactsRelativeDir: string;
 
   constructor(
-    private readonly projectRoot: string = process.cwd(),
+    private readonly projectRoot: string = import.meta.dir,
     options: ArtifactStoreOptions = {}
   ) {
     this.artifactsRelativeDir = resolveArtifactsRelativeDir(options.artifactsRelativeDir);

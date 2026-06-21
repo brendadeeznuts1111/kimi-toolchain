@@ -9,8 +9,8 @@ import {
 import { REPO_ROOT } from "./helpers.ts";
 
 describe("markdown-dead-links-lint", () => {
-  test("extractMarkdownLinks collects link and image targets", () => {
-    const links = extractMarkdownLinks(
+  test("extractMarkdownLinks collects link and image targets", async () => {
+    const links = await extractMarkdownLinks(
       "See [AGENTS](AGENTS.md) and ![x](./img.png).\n<https://bun.com/docs>\n"
     );
     expect(links).toContain("AGENTS.md");

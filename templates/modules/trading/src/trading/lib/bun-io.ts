@@ -1,28 +1,64 @@
-/** Minimal Bun/Node fs helpers for scaffolded trading projects. */
+/** Bun-native I/O helpers for scaffolded trading projects. */
 
-import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
-import type { Dirent, PathLike } from "node:fs";
-
-export function pathExists(path: PathLike): boolean {
-  return existsSync(path);
+export function pathExists(path: string): boolean {
+  return Bun.file(path).size !== -1;
 }
 
-export function listDir(path: PathLike): string[];
-export function listDir(path: PathLike, options: { withFileTypes: true }): Dirent[];
+export function listDir(path: string): string[];
+export function listDir(path: string, options: { withFileTypes: true }): import("node:fs").Dirent[];
 export function listDir(
-  path: PathLike,
+  path: string,
   options?: { withFileTypes?: boolean }
-): string[] | Dirent[] {
+): string[] | import("node:fs").Dirent[] {
+  const glob = new Bun.Glob("*");
   if (options?.withFileTypes) {
-    return readdirSync(path, { withFileTypes: true });
+    const entries: import("node:fs").Dirent[] = [];
+    for (const name of glob.scanSync({ cwd: path, onlyFiles: false })) {
+      const fullPath = `${path}/${name}`;
+      const isDir = Bun.file(fullPath).size === -1 && pathExists(fullPath);
+      entries.push({
+        name,
+        isDirectory: () => isDir,
+        isFile: () => !isDir,
+        isBlockDevice: () => false,
+        isCharacterDevice: () => false,
+        isFIFO: () => false,
+        isSocket: () => false,
+        isSymbolicLink: () => false,
+      } as import("node:fs").Dirent);
+    }
+    return entries;
   }
-  return readdirSync(path) as string[];
+  return [...glob.scanSync({ cwd: path, onlyFiles: false })] as string[];
 }
 
-export function makeDir(path: PathLike, options?: { recursive?: boolean }): void {
-  mkdirSync(path, options);
+async function mkdirBun(path: string, options?: { recursive?: boolean }): Promise<void> {
+  const args = options?.recursive ? ["-p", path] : [path];
+  const proc = await Bun.spawn(["mkdir", ...args], { stdout: "ignore", stderr: "ignore" });
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) throw new Error(`mkdir failed (exit ${exitCode}): ${path}`);
 }
 
-export function removePath(path: PathLike, options?: Parameters<typeof rmSync>[1]): void {
-  rmSync(path, options);
+async function rmBun(
+  path: string,
+  options?: { force?: boolean; recursive?: boolean }
+): Promise<void> {
+  const args: string[] = [];
+  if (options?.recursive) args.push("-r");
+  if (options?.force) args.push("-f");
+  args.push(path);
+  const proc = await Bun.spawn(["rm", ...args], { stdout: "ignore", stderr: "ignore" });
+  const exitCode = await proc.exited;
+  if (exitCode !== 0 && !options?.force) throw new Error(`rm failed (exit ${exitCode}): ${path}`);
+}
+
+export async function makeDir(path: string, options?: { recursive?: boolean }): Promise<void> {
+  await mkdirBun(path, options ?? { recursive: true });
+}
+
+export async function removePath(
+  path: string,
+  options?: { force?: boolean; recursive?: boolean }
+): Promise<void> {
+  await rmBun(path, options ?? { force: true });
 }

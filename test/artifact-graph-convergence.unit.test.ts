@@ -8,7 +8,7 @@ describe("artifact-graph-convergence", () => {
     expect(block.schemaVersion).toBe(1);
     expect(block.aligned).toBe(true);
     expect(block.bunRuntimeCapabilities).toMatchObject({
-      inventoryKeys: 16,
+      inventoryKeys: 17,
       aligned: true,
     });
     expect(block.bunImage).toMatchObject({

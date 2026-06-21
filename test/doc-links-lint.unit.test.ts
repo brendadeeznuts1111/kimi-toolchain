@@ -54,6 +54,14 @@ describe("doc-links-lint", () => {
     expect(violations).toHaveLength(0);
   });
 
+  test("allows ecosystem doc literals in canonical-references-data.ts", () => {
+    const violations = scanDocLinkFile(
+      "src/lib/canonical-references-data.ts",
+      '    docs: "https://effect.website/docs",\n'
+    );
+    expect(violations).toHaveLength(0);
+  });
+
   test("flags bun.sh/docs deep links outside allowlist", () => {
     const violations = scanDocLinkFile(
       "src/lib/example.ts",

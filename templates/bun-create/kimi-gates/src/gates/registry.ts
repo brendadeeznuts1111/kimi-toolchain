@@ -41,3 +41,75 @@ export function resolveGateClosure(name: string): { gates: Gate[]; missing: stri
   visit(name);
   return { gates: order, missing };
 }
+
+export interface AutoResolveGateDependenciesResult {
+  gates: Gate[];
+  missing: string[];
+  autoResolved: string[];
+}
+
+/**
+ * Expand seed gates with missing `dependsOn` targets from `lookup` (default `getGate`).
+ * Seed gate objects are preserved when names match registry entries.
+ */
+export function autoResolveGateDependencies(
+  seeds: Gate[],
+  lookup: (name: string) => Gate | undefined = getGate
+): AutoResolveGateDependenciesResult {
+  const byName = new Map<string, Gate>();
+  const seedNames = new Set(seeds.map((g) => g.name));
+  const missing: string[] = [];
+  const autoResolved: string[] = [];
+  const queue: string[] = [];
+
+  for (const gate of seeds) {
+    byName.set(gate.name, gate);
+    queue.push(gate.name);
+  }
+
+  while (queue.length > 0) {
+    const name = queue.shift()!;
+    const gate = byName.get(name);
+    if (!gate) continue;
+    for (const dep of gate.dependsOn ?? []) {
+      if (byName.has(dep)) continue;
+      const resolved = lookup(dep);
+      if (!resolved) {
+        if (!missing.includes(dep)) missing.push(dep);
+        continue;
+      }
+      byName.set(dep, resolved);
+      if (!seedNames.has(dep) && !autoResolved.includes(dep)) {
+        autoResolved.push(dep);
+      }
+      queue.push(dep);
+    }
+  }
+
+  const order: Gate[] = [];
+  const seen = new Set<string>();
+
+  function visit(gateName: string): void {
+    if (seen.has(gateName)) return;
+    const gate = byName.get(gateName);
+    if (!gate) return;
+    for (const dep of gate.dependsOn ?? []) {
+      if (byName.has(dep)) visit(dep);
+    }
+    seen.add(gateName);
+    order.push(gate);
+  }
+
+  for (const gate of seeds) {
+    visit(gate.name);
+  }
+  for (const gateName of byName.keys()) {
+    visit(gateName);
+  }
+
+  return {
+    gates: order,
+    missing,
+    autoResolved,
+  };
+}

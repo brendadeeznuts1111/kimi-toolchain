@@ -19,7 +19,7 @@ metadata:
   companionSkills: []
 ---
 
-# {{Skill Title}} (L1)
+# {{SKILL_TITLE}} (L1)
 
 Lean runbook — load on `trigger` above.
 

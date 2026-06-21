@@ -18,7 +18,9 @@ export type KimiModuleName =
   | "clock"
   | "uuid"
   | "http"
-  | "trading";
+  | "trading"
+  | "db"
+  | "terminal";
 
 export function parseKimiModules(
   env: Record<string, string | undefined> = Bun.env
@@ -61,6 +63,8 @@ const IMAGE_TEMPLATE = join("templates", "modules", "image", "src", "processor.t
 const CLOCK_TEMPLATE = join("templates", "modules", "clock", "src", "processor.ts");
 const UUID_TEMPLATE = join("templates", "modules", "uuid", "src", "processor.ts");
 const HTTP_TEMPLATE = join("templates", "modules", "http", "src", "processor.ts");
+const DB_TEMPLATE = join("templates", "modules", "db", "src", "processor.ts");
+const TERMINAL_TEMPLATE = join("templates", "modules", "terminal", "src", "processor.ts");
 
 const TRADING_TREE_PATH = {
   from: "templates/modules/trading/src/trading",
@@ -90,6 +94,15 @@ export interface ScaffoldModulesResult {
   skipped: string[];
 }
 
+async function isDirectory(path: string): Promise<boolean> {
+  try {
+    const stat = await Bun.file(path).stat();
+    return stat.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 async function copyTree(
   src: string,
   dest: string,
@@ -97,6 +110,16 @@ async function copyTree(
   written: string[]
 ): Promise<void> {
   if (!pathExists(src)) return;
+  if (!(await isDirectory(src))) {
+    // Single-file source: copy directly to dest path.
+    if (pathExists(dest)) return;
+    if (!dryRun) {
+      makeDir(join(dest, ".."), { recursive: true });
+      await Bun.write(dest, Bun.file(src));
+    }
+    written.push(dest);
+    return;
+  }
   const glob = new Bun.Glob("**/*");
   for await (const rel of glob.scan({ cwd: src, absolute: false, onlyFiles: true })) {
     const from = join(src, rel);
@@ -155,6 +178,16 @@ function initTsContent(modules: string[]): string {
   }
   if (modules.includes("trading")) {
     lines.push("// trading module: artifact loop in src/trading — run `bun run trading:gates`");
+    lines.push("");
+  }
+  if (modules.includes("db")) {
+    lines.push("import * as db from './effect/db/processor.ts';");
+    lines.push("globalThis[Symbol.for('kimi.effect.db')] = db;");
+    lines.push("");
+  }
+  if (modules.includes("terminal")) {
+    lines.push("import * as terminal from './effect/terminal/processor.ts';");
+    lines.push("globalThis[Symbol.for('kimi.effect.terminal')] = terminal;");
     lines.push("");
   }
   return lines.join("\n");
@@ -230,6 +263,34 @@ export async function scaffoldKimiModules(
       const dest = join(project, "src/effect/http/processor.ts");
       if (pathExists(dest)) {
         skipped.push("http:processor.ts");
+      } else if (pathExists(src)) {
+        if (!dryRun) {
+          makeDir(join(dest, ".."), { recursive: true });
+          await Bun.write(dest, Bun.file(src));
+        }
+        written.push(dest);
+      }
+    }
+
+    if (mod === "db") {
+      const src = join(root, DB_TEMPLATE);
+      const dest = join(project, "src/effect/db/processor.ts");
+      if (pathExists(dest)) {
+        skipped.push("db:processor.ts");
+      } else if (pathExists(src)) {
+        if (!dryRun) {
+          makeDir(join(dest, ".."), { recursive: true });
+          await Bun.write(dest, Bun.file(src));
+        }
+        written.push(dest);
+      }
+    }
+
+    if (mod === "terminal") {
+      const src = join(root, TERMINAL_TEMPLATE);
+      const dest = join(project, "src/effect/terminal/processor.ts");
+      if (pathExists(dest)) {
+        skipped.push("terminal:processor.ts");
       } else if (pathExists(src)) {
         if (!dryRun) {
           makeDir(join(dest, ".."), { recursive: true });

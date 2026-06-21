@@ -76,9 +76,9 @@ describe("scaffold-templates", () => {
 
       const content = await Bun.file(filepath).text();
       expect(content).toContain("# my-awesome-project");
-      expect(content).toContain("## Getting Started");
+      expect(content).toContain("## Quickstart");
       expect(content).toContain("bun install");
-      expect(content).toContain("bun run dev");
+      expect(content).toContain("bun run check:fast");
       expect(content).toContain("## Scripts");
     });
 
@@ -137,7 +137,7 @@ describe("scaffold-templates", () => {
       expect(filepath).toBe(join(tmpDir, "LICENSE"));
       expect(content).toContain("MIT License");
       expect(content).toContain(`Copyright (c) ${year}`);
-      expect(content).toContain("Permission is hereby granted...");
+      expect(content).toContain("Permission is hereby granted, free of charge");
     });
 
     test("returns correct generic content for Apache-2.0", async () => {

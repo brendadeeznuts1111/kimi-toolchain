@@ -14,7 +14,7 @@ Machine-readable manifest: \`canonical-references.json\` (synced to \`~/.kimi-co
 | Kimi Code | ✅ active | [docs](https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html) | [Kimi Code (Moonshot)](https://github.com/MoonshotAI/kimi-code) | Official agent CLI (\`kimi\`), config.toml, sessions, MCP — distinct from \`kimi-doctor\` |
 | Herdr | ✅ active | [docs](https://herdr.dev/docs/) | — | Terminal-native multiplexer; socket API for herdr-pane, herdr-latm, herdr-orchestrator |
 | Cloudflare Platform | ✅ active | [docs](https://developers.cloudflare.com/workers/) | — | Workers, Access, MCP; use kimi-cloudflare-access for API tokens (separate from Wrangler OAuth) |
-| Cloudflare MCP | ✅ active | [docs](https://developers.cloudflare.com/agents/model-context-protocol/mcp-server/) | — | Default user MCP \`cloudflare-api\`; optional docs/bindings/builds/observability endpoints |
+| Cloudflare MCP | ✅ active | [docs](https://developers.cloudflare.com/agents/model-context-protocol/) | — | Default user MCP \`cloudflare-api\`; optional docs/bindings/builds/observability endpoints |
 | DX | ✅ active | \`~/.config/dx/AGENTS.md\` | — | Global Bun dev platform — \`dx config\`, \`dx mcp-status\`, \`dx.config.toml\` herdr/finishWork |
 | js-yaml | ✅ active | [docs](https://github.com/nodeca/js-yaml#readme) | — | YAML parsing for error-taxonomy.yml and config files; minimal runtime dependency alongside effect |
 | Oxc (oxfmt / oxlint) | ✅ active | [docs](https://oxc.rs/docs/guide/usage/formatter.html) | [Oxc](https://github.com/oxc-project/oxc) | Format (oxfmt) and lint (oxlint) gates — no ESLint/Prettier in this repo |
@@ -198,7 +198,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     "name": "Cloudflare MCP",
     "kind": "mcp",
     "homepage": "https://mcp.cloudflare.com/mcp",
-    "docs": "https://developers.cloudflare.com/agents/model-context-protocol/mcp-server/",
+    "docs": "https://developers.cloudflare.com/agents/model-context-protocol/",
     "usage": "Default user MCP \`cloudflare-api\`; optional docs/bindings/builds/observability endpoints",
     "noRepo": true,
   },
@@ -567,7 +567,7 @@ export const REPO_REFERENCES: readonly RepoReference[] = [
 exports[`canonical-references generated JSON manifest matches snapshot 1`] = `
 "{
   "schemaVersion": 1,
-  "generatedAt": "2026-06-21T05:42:15.265Z",
+  "generatedAt": "2026-06-21T07:04:48.923Z",
   "toolchainVersion": "1.0.0",
   "ecosystem": [
     {
@@ -626,7 +626,7 @@ exports[`canonical-references generated JSON manifest matches snapshot 1`] = `
       "name": "Cloudflare MCP",
       "kind": "mcp",
       "homepage": "https://mcp.cloudflare.com/mcp",
-      "docs": "https://developers.cloudflare.com/agents/model-context-protocol/mcp-server/",
+      "docs": "https://developers.cloudflare.com/agents/model-context-protocol/",
       "usage": "Default user MCP \`cloudflare-api\`; optional docs/bindings/builds/observability endpoints",
       "noRepo": true
     },

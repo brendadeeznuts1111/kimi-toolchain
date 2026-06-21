@@ -22,7 +22,12 @@ import {
   findFrozenLockfileScopeRegistryFallbacks,
   formatInstallCliWorkflow,
   formatInstallPropertyReferenceTable,
+  auditBunPmCliHealth,
   auditRuntimeCapabilitiesHealth,
+  BUN_PM_CLI_DOC_URL,
+  BUN_PM_CLI_SECTIONS,
+  BUN_PM_PKG_NOTATION_EXAMPLES,
+  BUN_PM_PKG_OPERATIONS,
   evaluateBunInstallProbeHandoffCondition,
   formatInstallPolicyReport,
   RUNTIME_CAPABILITY_INVENTORY_KEYS,
@@ -900,7 +905,7 @@ other = "https://registry.example.test/"
       const health = await auditRuntimeCapabilitiesHealth(REPO_ROOT);
       expect(health.applicable).toBe(true);
       expect(health.aligned).toBe(true);
-      expect(health.capabilityCount).toBe(16);
+      expect(health.capabilityCount).toBe(17);
       expect(health.runtimeApiDocs?.globalsUrl).toBe("https://bun.com/docs/runtime/globals");
     });
 
@@ -927,6 +932,40 @@ other = "https://registry.example.test/"
         "bun-install:bun-image",
         REPO_ROOT
       );
+      expect(result.ok).toBe(true);
+    });
+
+    test("includes bunPmCli capability mirror", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(report.runtimeCapabilities.bunPmCli).toMatchObject({
+        status: "available",
+        docsUrl: BUN_PM_CLI_DOC_URL,
+        listAlias: "list",
+        pkgNotationExamples: BUN_PM_PKG_NOTATION_EXAMPLES,
+        pkgOperations: BUN_PM_PKG_OPERATIONS,
+      });
+      expect(Object.keys(report.runtimeCapabilities.bunPmCli.sections)).toEqual(
+        Object.keys(BUN_PM_CLI_SECTIONS)
+      );
+      expect(report.runtimeCapabilities.bunPmCli.commands.pmPkgGet).toBe("bun pm pkg get <path>");
+      expect(RUNTIME_CAPABILITY_INVENTORY_KEYS).toContain("bunPmCli");
+    });
+
+    test("buildBunPmCliCapability matches runtime report bunPmCli", async () => {
+      const { buildBunPmCliCapability } = await import("../src/lib/bun-install-config.ts");
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(buildBunPmCliCapability()).toEqual(report.runtimeCapabilities.bunPmCli);
+    });
+
+    test("auditBunPmCliHealth probes hash bin and pkg get name", async () => {
+      const health = await auditBunPmCliHealth(REPO_ROOT);
+      expect(health.applicable).toBe(true);
+      expect(health.aligned).toBe(true);
+      expect(health.checks.find((c) => c.name === "bun-pm:hash-bin-pkg")?.status).toBe("ok");
+    });
+
+    test("evaluateBunInstallProbeHandoffCondition accepts bun-pm probe", async () => {
+      const result = await evaluateBunInstallProbeHandoffCondition("bun-install:bun-pm", REPO_ROOT);
       expect(result.ok).toBe(true);
     });
 

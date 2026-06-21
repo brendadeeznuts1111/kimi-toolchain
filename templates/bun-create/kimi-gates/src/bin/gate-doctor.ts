@@ -10,7 +10,13 @@
  *   bun run src/bin/gate-doctor.ts --all --dry-run
  */
 
-import { getGate, listGates, resolveGateClosure } from "../gates/registry.ts";
+import {
+  getGate,
+  listGates,
+  resolveGateClosure,
+  autoResolveGateDependencies,
+} from "../gates/registry.ts";
+import type { Gate } from "../gates/types.ts";
 import { runGatesWithDependencies, generateGateGraph, formatGateResults } from "../gates/runner.ts";
 import { ArtifactStore } from "../lib/artifact-store.ts";
 import "../gates/init.ts";
@@ -59,13 +65,16 @@ if (status) {
 // ─-- Gate graph ────────────────────────────────────────────────────
 
 if (gateGraph) {
-  const gates = listGates();
-  if (gates.length === 0) {
+  const gateNames = listGates();
+  if (gateNames.length === 0) {
     console.error("No gates registered.");
     process.exit(1);
   }
-  const closure = resolveGateClosure(gates[0]);
-  const mermaid = generateGateGraph(closure.gates);
+  const seeds = all
+    ? gateNames.map(getGate).filter((g): g is Gate => g !== undefined)
+    : [getGate(gateName ?? gateNames[0])].filter((g): g is Gate => g !== undefined);
+  const resolved = autoResolveGateDependencies(seeds);
+  const mermaid = generateGateGraph(resolved.gates);
   if (json) {
     console.log(JSON.stringify({ mermaid }, null, 2));
   } else {
@@ -76,15 +85,23 @@ if (gateGraph) {
 
 // ── Run gates ───────────────────────────────────────────────────────
 
-const targetGate = gateName ?? (all ? listGates()[0] : undefined);
-if (!targetGate) {
-  console.error(
-    "Usage: gate-doctor --all | --gate <name> [--save-artifact] [--gate-graph] [--status] [--json] [--dry-run] [--fail-fast]"
-  );
-  process.exit(1);
+let closure: { gates: Gate[]; missing: string[] };
+if (all) {
+  const seeds = listGates()
+    .map(getGate)
+    .filter((g): g is Gate => g !== undefined);
+  const resolved = autoResolveGateDependencies(seeds);
+  closure = { gates: resolved.gates, missing: resolved.missing };
+} else {
+  const targetGate = gateName;
+  if (!targetGate) {
+    console.error(
+      "Usage: gate-doctor --all | --gate <name> [--save-artifact] [--gate-graph] [--status] [--json] [--dry-run] [--fail-fast]"
+    );
+    process.exit(1);
+  }
+  closure = resolveGateClosure(targetGate);
 }
-
-const closure = resolveGateClosure(targetGate);
 if (closure.missing.length > 0) {
   console.error(`Missing gates: ${closure.missing.join(", ")}`);
   process.exit(1);

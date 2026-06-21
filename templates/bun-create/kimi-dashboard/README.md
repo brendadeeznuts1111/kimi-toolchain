@@ -61,9 +61,8 @@ my-dashboard/
 | `/inspect`     | `Bun.inspect()` — default vs configured depth/sort/compact      |
 | `/env`         | Sample env vars + `Bun.TOML.parse()` of `./bunfig.toml`         |
 | `/crypto`      | `Bun.CryptoHasher` (sha256), `Bun.randomUUIDv7()`, nanoseconds  |
-| `/crypto/sha3` | SHA3-256 via WebCrypto + node:crypto (Bun 1.3.13+)              |
+| `/crypto-sha3` | SHA3-256 via WebCrypto + node:crypto (Bun 1.3.13+)              |
 | `/file`        | File-backed response with automatic Range support (Bun 1.3.13+) |
-| `/file/info`   | File metadata + Range request demo commands                     |
 
 All JSON routes return `content-type: application/json; charset=utf-8`.
 

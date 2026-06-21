@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-21T05:42:15.265Z",
+  "generatedAt": "2026-06-21T07:04:48.923Z",
   "toolchainVersion": "1.0.0",
   "ecosystem": [
     {
@@ -59,7 +59,7 @@
       "name": "Cloudflare MCP",
       "kind": "mcp",
       "homepage": "https://mcp.cloudflare.com/mcp",
-      "docs": "https://developers.cloudflare.com/agents/model-context-protocol/mcp-server/",
+      "docs": "https://developers.cloudflare.com/agents/model-context-protocol/",
       "usage": "Default user MCP `cloudflare-api`; optional docs/bindings/builds/observability endpoints",
       "noRepo": true
     },

@@ -433,7 +433,7 @@ describe("herdr-dashboard-server", () => {
           expect(meta.thumbnailPath).toBe("/api/thumbnail");
         }
         expect(meta.bunRuntimeCapabilities?.aligned).toBe(true);
-        expect(meta.bunRuntimeCapabilities?.capabilityCount).toBe(16);
+        expect(meta.bunRuntimeCapabilities?.capabilityCount).toBe(17);
         expect(meta.bunRuntimeCapabilities?.runtimeApiDocs?.globalsUrl).toBe(
           "https://bun.com/docs/runtime/globals"
         );

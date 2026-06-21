@@ -32,18 +32,18 @@
 
 | File                 | Purpose                                      | Profile   | Defining Module | Runtime Path                                        |
 | -------------------- | -------------------------------------------- | --------- | --------------- | --------------------------------------------------- |
-| `README.md`          | Project quickstart, badges, name             | Both      | `kimi-fix.ts`   | `./README.md`                                       |
+| `README.md`          | Project quickstart, scripts                  | Both      | `kimi-fix.ts`   | `./README.md`                                       |
 | `adr-template.md`    | Architecture Decision Record template        | Both      | `kimi-fix.ts`   | `./docs/adr/0001-*.md`                              |
 | `code-references.md` | Cross-ref conventions, `@see` ladder         | Both      | `kimi-fix.ts`   | `./docs/references/`                                |
 | `skills-readme.md`   | Agent skill loading guide + bundled catalog  | Toolchain | `kimi-fix.ts`   | `./.kimi-code/skills/README.md`                     |
-| `skill-template.md`  | Canonical SKILL.md YAML frontmatter scaffold | Toolchain | sync mirror     | `~/.kimi-code/templates/scaffold/skill-template.md` |
+| `skill-template.md`  | Canonical SKILL.md YAML frontmatter scaffold | Toolchain | `kimi-fix.ts`   | `~/.kimi-code/templates/scaffold/skill-template.md` |
 | `LICENSE-MIT`        | License stub                                 | Both      | `kimi-fix.ts`   | `./LICENSE`                                         |
 
 ### Source Layer (4 files)
 
 | File               | Purpose                                      | Profile | Defining Module | Entry Point?                               |
 | ------------------ | -------------------------------------------- | ------- | --------------- | ------------------------------------------ |
-| `index.ts`         | Minimal Bun HTTP server (port 0 auto-assign) | Both    | `kimi-fix.ts`   | **Yes** — `bun run start`                  |
+| `index.ts`         | Minimal Bun HTTP server (port 0 auto-assign) | App     | `kimi-fix.ts`   | **Yes** — `bun run start` (add manually)   |
 | `bun-globals.d.ts` | Global type augmentations                    | Both    | `kimi-fix.ts`   | No                                         |
 | `env.example`      | Environment variable template                | Both    | `kimi-fix.ts`   | No                                         |
 | `gitignore`        | Ignore patterns (node_modules, dist, .env)   | Both    | `kimi-fix.ts`   | **Yes** — `bun init` creates basic version |
@@ -158,7 +158,7 @@ Domain effect handlers are scaffolded per-module during `kimi-fix`. **`KIMI_MODU
 | `clock`                | `templates/modules/clock/src/processor.ts`          | `kimi.effect.clock`           | `Bun.nanoseconds()`                            |
 | `db`                   | `templates/modules/db/src/processor.ts`             | `kimi.effect.db`              | `bun:sqlite`                                   |
 | `uuid`                 | `templates/modules/uuid/src/processor.ts`           | `kimi.effect.uuid`            | `Bun.randomUUIDv7`                             |
-| `terminal`             | `templates/modules/terminal/src/processor.ts`       | `kimi.effect.terminal`        | `Bun.Terminal`                                 |
+| `terminal`             | `templates/modules/terminal/src/processor.ts`       | `kimi.effect.terminal`        | `Bun.stdin.isTTY()` / ANSI styling             |
 | `perf`                 | alias of doctor harness                             | `kimi.effect.perf`            | `Bun.nanoseconds()`                            |
 
 Registration (generated in the project init module when modules include `image`):
@@ -170,7 +170,7 @@ globalThis[Symbol.for("kimi.effect.image")] = image;
 
 The harness discovers handlers via `Object.getOwnPropertySymbols(globalThis)`, benchmarks each method with `Bun.nanoseconds()`, and feeds results into `--train` / `--perf-gates` / `--report`.
 
-See: `skills/kimi-toolchain/examples/image-effect.md`, `skills/kimi-toolchain/examples/platform-absorption.md`.
+See: `examples/image-effect.md`, `examples/platform-absorption.md`.
 
 ---
 

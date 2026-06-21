@@ -1,4 +1,4 @@
-import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
+import { makeDir, pathExists, readText, removePath, writeText } from "../src/lib/bun-io.ts";
 
 import { describe, expect, test } from "bun:test";
 import { testTempDir } from "./helpers.ts";
@@ -9,7 +9,9 @@ import {
   filterScaffoldArgv,
   dxAgentsPath,
   detectProfileDrift,
+  scaffoldProfileScripts,
   ScaffoldProfileError,
+  TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES,
 } from "../src/lib/scaffold-profiles.ts";
 import { join } from "path";
 import { DX_CONFIG_APP, DX_CONFIG_TOOLCHAIN } from "../src/lib/scaffold-templates.ts";
@@ -86,6 +88,45 @@ describe("scaffold-profiles", () => {
     writeText(join(root, "dx.config.toml"), "[kimi]\n");
     try {
       expect(detectProfileDrift(root, "toolchain")).toContain("scripts/finish-work.ts");
+    } finally {
+      removePath(root, { recursive: true, force: true });
+    }
+  });
+
+  test("scaffoldProfileScripts copies toolchain scripts for toolchain profile", async () => {
+    const root = testTempDir("scaffold-profile-scripts-");
+    makeDir(root, { recursive: true });
+    try {
+      const result = await scaffoldProfileScripts(root, "toolchain", false);
+      expect(result.copied.length).toBeGreaterThan(0);
+      expect(result.copied.some((p) => p.endsWith("scripts/finish-work.ts"))).toBe(true);
+      for (const rel of TOOLCHAIN_SCAFFOLD_SCRIPT_NAMES) {
+        expect(pathExists(join(root, "scripts", rel))).toBe(true);
+      }
+    } finally {
+      removePath(root, { recursive: true, force: true });
+    }
+  });
+
+  test("scaffoldProfileScripts no-ops for app profile", async () => {
+    const root = testTempDir("scaffold-profile-scripts-app-");
+    makeDir(root, { recursive: true });
+    try {
+      const result = await scaffoldProfileScripts(root, "app", false);
+      expect(result).toEqual({ copied: [], skipped: [] });
+    } finally {
+      removePath(root, { recursive: true, force: true });
+    }
+  });
+
+  test("scaffoldProfileScripts skips existing files", async () => {
+    const root = testTempDir("scaffold-profile-scripts-skip-");
+    makeDir(join(root, "scripts"), { recursive: true });
+    writeText(join(root, "scripts", "finish-work.ts"), "// existing\n");
+    try {
+      const result = await scaffoldProfileScripts(root, "toolchain", false);
+      expect(result.skipped).toContain("finish-work.ts");
+      expect(readText(join(root, "scripts", "finish-work.ts"))).toBe("// existing\n");
     } finally {
       removePath(root, { recursive: true, force: true });
     }

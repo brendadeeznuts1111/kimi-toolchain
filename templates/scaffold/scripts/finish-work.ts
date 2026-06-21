@@ -289,6 +289,9 @@ async function main(): Promise<number> {
     }
   }
 
+  const dirty = git.pushed ? await porcelainDirtyLines() : [];
+  const tree = { clean: dirty.length === 0, dirty };
+
   const followUpSummary = config.followUp
     ? await runFollowUpStep(config.followUp, {
         pushed: git.pushed,
@@ -314,9 +317,6 @@ async function main(): Promise<number> {
     }
     return 1;
   }
-
-  const dirty = git.pushed ? await porcelainDirtyLines() : [];
-  const tree = { clean: dirty.length === 0, dirty };
   let report: FinishWorkReport = {
     schemaVersion: 1,
     tool: "finish-work",

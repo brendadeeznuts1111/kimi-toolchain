@@ -36,6 +36,7 @@ import {
   apiEffectBenchmarkTrain,
 } from "./effect-benchmark.ts";
 import { apiBunRuntime } from "./bun-runtime.ts";
+import { apiBunPm } from "./bun-pm.ts";
 import { apiConfigStatus } from "./config-status.ts";
 import { readBenchmarkHealthCheck } from "../../../../src/lib/effect-benchmark-card.ts";
 import { resolveRoot } from "./shared.ts";
@@ -216,6 +217,11 @@ export async function dispatchDashboardRoute(req: Request): Promise<Response | n
         return new Response("Method Not Allowed", { status: 405 });
       }
       return apiBunRuntime();
+    case "/api/bun-pm":
+      if (req.method !== "GET") {
+        return new Response("Method Not Allowed", { status: 405 });
+      }
+      return apiBunPm();
     case "/api/global-store":
       return apiGlobalStore();
     case "/api/trace-verify":

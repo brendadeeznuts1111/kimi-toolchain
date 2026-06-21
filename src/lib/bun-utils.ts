@@ -356,9 +356,6 @@ export const BUN_VERSION_GUIDE_DOC_URL = "https://bun.com/docs/guides/util/versi
 /** @see https://bun.com/docs/guides/util/detect-bun */
 export const BUN_DETECT_BUN_GUIDE_DOC_URL = "https://bun.com/docs/guides/util/detect-bun";
 
-/** @see https://bun.com/docs/pm/cli/update */
-export const BUN_PM_UPDATE_DOC_URL = "https://bun.com/docs/pm/cli/update";
-
 export interface BunRuntimeDetection {
   /** True when `typeof Bun !== "undefined"` and `Bun.version` is a string. */
   detected: boolean;
