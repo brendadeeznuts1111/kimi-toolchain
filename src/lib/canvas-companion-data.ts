@@ -353,10 +353,10 @@ const CANVAS_ROUTING_WITH_OPTIONAL_META_RE =
   /\/\*\* @generated canvas-routing[\s\S]*?\*\/\nconst CANVAS_ROUTING = \[[\s\S]*?\] as const;\n+(?:\/\*\* @generated canvas-routing-meta[\s\S]*?\*\/\nconst CANVAS_ROUTING_COUNT = CANVAS_ROUTING\.length;\n+const (?:CANVAS_ROUTING_ROW_TONE|CANVAS_ROW_TONE) = \[[\s\S]*?\] as const;\n+)*/;
 
 export const MANIFEST_LOCAL_DOCS_BLOCK_RE =
-  /\/\*\* @generated manifest-local-docs[\s\S]*?\*\/\nconst MANIFEST_LOCAL_DOCS_ALL = \[[\s\S]*?\] as const;/;
+  /\/\*\* @generated manifest-local-docs[\s\S]*?\*\/\n(?:export )?const MANIFEST_LOCAL_DOCS_ALL = \[[\s\S]*?\] as const;/;
 
 export const MANIFEST_LOCAL_DOCS_LEGACY_RE =
-  /\/\*\* All LOCAL_DOC_REFERENCES[\s\S]*?\*\/\nconst MANIFEST_LOCAL_DOCS_ALL = \[[\s\S]*?\] as const;/;
+  /\/\*\* All LOCAL_DOC_REFERENCES[\s\S]*?\*\/\n(?:export )?const MANIFEST_LOCAL_DOCS_ALL = \[[\s\S]*?\] as const;/;
 
 export const HUB_STATS_BLOCK_RE =
   /\/\*\* @generated hub-toolchain-stats[\s\S]*?\*\/\nconst TOOL_CATEGORIES = \[[\s\S]*?\] as const;\n\nconst BIN_COUNT = \d+;\nconst LIB_COUNT = \d+;\nconst UNIT_COUNT = \d+;\nconst INTEGRATION_COUNT = \d+;\nconst SMOKE_COUNT = \d+;\n(?:const CURSOR_CANVAS_COUNT = \d+;\n)?/;

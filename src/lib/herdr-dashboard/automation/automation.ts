@@ -7,7 +7,7 @@
  *
  * @see https://bun.com/docs/runtime/webview#new-bun-webview-options
  * @see https://bun.com/docs/runtime/webview#screenshots — PNG input to Bun.Image pipeline
- * @see https://bun.com/docs/runtime/image#terminals — probe/CLI encode path
+ * @see {@link BUN_IMAGE_TERMINALS_URL} — probe/CLI encode path
  */
 
 import { bunImageSupported, dashboardWebpThumbnail } from "../../bun-image.ts";

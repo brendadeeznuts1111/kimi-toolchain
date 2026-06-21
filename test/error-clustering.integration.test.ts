@@ -1,22 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
 import { join } from "path";
-import { REPO_ROOT } from "./helpers.ts";
+import { makeDir, writeText } from "../src/lib/bun-io.ts";
+import { cleanupPath, REPO_ROOT, testTempDir } from "./helpers.ts";
+
 const ERROR_CLI = join(REPO_ROOT, "src/bin/kimi-error.ts");
 
-function tempHome(): string {
-  const dir = join(tmpdir(), `kimi-error-cli-${Bun.randomUUIDv7()}`);
-  mkdirSync(join(dir, ".kimi-code", "var"), { recursive: true });
-  return dir;
-}
-
-describe("kimi-error integration", () => {
+describe("error-clustering", () => {
   test("cluster --json returns non-empty summaries for seeded ledger", async () => {
-    const home = tempHome();
+    const home = testTempDir("kimi-error-cli-");
     try {
+      makeDir(join(home, ".kimi-code", "var"), { recursive: true });
       const failurePath = join(home, ".kimi-code", "var", "tool-failures.jsonl");
-      writeFileSync(
+      writeText(
         failurePath,
         [
           JSON.stringify({
@@ -60,7 +55,7 @@ describe("kimi-error integration", () => {
       expect(summaries[0]).toHaveProperty("representativeError");
       expect(summaries[0]).toHaveProperty("hasPlaybook");
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      cleanupPath(home);
     }
   });
 });
