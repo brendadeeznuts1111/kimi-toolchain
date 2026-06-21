@@ -503,9 +503,7 @@ function resolveTradingArtifactsDir(repoRoot: string): string {
   return join(projectRoot, "var/trading-artifacts");
 }
 
-/** Summarize saved trading artifacts without spawning trading-doctor. */
-export function probeTradingWorkspace(repoRoot: string): TradingWorkspaceProbe {
-  const artifactsDir = resolveTradingArtifactsDir(repoRoot);
+function probeGateArtifactsDir(artifactsDir: string): TradingWorkspaceProbe {
   if (!pathExists(artifactsDir)) {
     return { ok: false, artifactsDir, gateCount: 0, artifactCount: 0, cardCount: 0, gates: [] };
   }
@@ -543,6 +541,16 @@ export function probeTradingWorkspace(repoRoot: string): TradingWorkspaceProbe {
     gates,
     ...(lastRunId ? { lastRunId } : {}),
   };
+}
+
+/** Summarize saved trading artifacts without spawning trading-doctor. */
+export function probeTradingWorkspace(repoRoot: string): TradingWorkspaceProbe {
+  return probeGateArtifactsDir(resolveTradingArtifactsDir(repoRoot));
+}
+
+/** Summarize saved gate-tree artifacts for examples/gates without spawning gate-doctor. */
+export function probeGatesExample(repoRoot: string): TradingWorkspaceProbe {
+  return probeGateArtifactsDir(join(repoRoot, "examples/gates/var/artifacts"));
 }
 
 /** Summarize artifact-portal gate envelopes at repo root. */
@@ -632,6 +640,7 @@ function projectProbe(
 ): ShowcaseProjectProbe | undefined {
   if (entry.kind !== "project" || !entryStatus(repoRoot, entry).runnable) return undefined;
   if (entry.id === "trading-workspace") return probeTradingWorkspace(repoRoot);
+  if (entry.id === "gates") return probeGatesExample(repoRoot);
   if (entry.id === "portal") return probeArtifactPortal(repoRoot);
   if (entry.id === "dashboard") return probeDashboardProject(repoRoot, dashboardPort);
   return undefined;

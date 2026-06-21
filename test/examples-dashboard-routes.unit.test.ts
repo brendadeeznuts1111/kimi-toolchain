@@ -45,6 +45,8 @@ describe("examples-dashboard-routes", () => {
     ).text();
     expect(bunPmHandler).toContain("auditBunPmCliHealth");
     expect(bunPmHandler).toContain("buildInstallPolicyReport");
+    expect(source).toContain('case "/api/examples/gates"');
+    expect(source).toContain("apiExamplesGates()");
     expect(source).toContain('case "/api/canvases"');
     expect(source).toContain('case "/api/settings"');
     expect(source).toContain('case "/api/terminal"');

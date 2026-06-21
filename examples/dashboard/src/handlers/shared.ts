@@ -1,11 +1,9 @@
 /** Shared helpers for examples/dashboard API handlers (SSOT). */
 
+import { resolveDashboardProjectRoot } from "../../../../src/lib/dashboard-settings.ts";
+
 export function resolveRoot(): string {
-  const dir = import.meta.dir;
-  if (dir.includes("kimi-toolchain")) {
-    return dir.split("kimi-toolchain")[0] + "kimi-toolchain";
-  }
-  return process.cwd();
+  return resolveDashboardProjectRoot(import.meta.dir);
 }
 
 export function doctorBin(): string {

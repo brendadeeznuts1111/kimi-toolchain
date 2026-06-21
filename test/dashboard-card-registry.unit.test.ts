@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { join } from "path";
 import {
   buildDashboardCardRegistry,
   cardStatusFromProbe,
   fetchDashboardCardsPayload,
+  HUB_CARD_PROBE_IDS,
   influencesForManifest,
   lintCanvasInfluences,
   parseDashboardCardsFromHtml,
@@ -130,6 +132,17 @@ describe("dashboard-card-registry", () => {
     expect(payload.filter.manifestId).toBe("artifact-lineage");
   });
 
+  test("HUB_CARD_PROBE_IDS matches dashboard package.json showcase cards", async () => {
+    const pkg = (await Bun.file(
+      join(REPO_ROOT, "examples/dashboard/package.json")
+    ).json()) as {
+      kimi?: { showcase?: { cards?: string[] } };
+    };
+    expect([...HUB_CARD_PROBE_IDS].map(String)).toEqual(
+      (pkg.kimi?.showcase?.cards ?? []).map(String)
+    );
+  });
+
   test("cardStatusFromProbe maps hub card payloads", () => {
     expect(cardStatusFromProbe("card-gates", { summary: { ok: true } })).toBe("ok");
     expect(cardStatusFromProbe("card-gates", { summary: { ok: false } })).toBe("error");
@@ -143,6 +156,9 @@ describe("dashboard-card-registry", () => {
     expect(
       cardStatusFromProbe("card-symbols", { symbols: { domain: [{ key: "kimi.trace" }] } })
     ).toBe("ok");
+    expect(cardStatusFromProbe("card-artifacts", { ok: true, count: 3 })).toBe("ok");
+    expect(cardStatusFromProbe("card-artifacts", { ok: true, count: 0 })).toBe("warn");
+    expect(cardStatusFromProbe("card-artifacts", { ok: false })).toBe("error");
     expect(cardStatusFromProbe("card-gates", undefined)).toBe("unknown");
   });
 

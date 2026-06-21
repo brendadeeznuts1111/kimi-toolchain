@@ -18,9 +18,10 @@ export const HUB_CARD_PROBE_IDS = [
   "card-kimi-doctor",
   "card-scaffold",
   "card-perf-harness",
-  "card-symbols",
   "card-perf-registry",
   "card-effect-benchmark",
+  "card-symbols",
+  "card-artifacts",
 ] as const;
 
 export type HubCardProbeId = (typeof HUB_CARD_PROBE_IDS)[number];
@@ -370,6 +371,11 @@ export function cardStatusFromProbe(cardId: string, data: unknown): DashboardCar
     case "card-symbols": {
       const domain = (data as { symbols?: { domain?: unknown[] } }).symbols?.domain;
       return Array.isArray(domain) && domain.length > 0 ? "ok" : "warn";
+    }
+    case "card-artifacts": {
+      const row = data as { ok?: boolean; count?: number };
+      if (row.ok !== true) return "error";
+      return (row.count ?? 0) > 0 ? "ok" : "warn";
     }
     case "card-tls-compliance": {
       const status = (data as { status?: string }).status;

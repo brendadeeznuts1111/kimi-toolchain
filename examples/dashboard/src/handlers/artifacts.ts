@@ -184,6 +184,14 @@ async function fetchArtifacts(
   };
 }
 
+export async function apiArtifacts(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const root = resolveDashboardProjectRoot(import.meta.dir);
+  const filter = parseArtifactListQuery(url.searchParams);
+  const includeLineage = url.searchParams.get("includeLineage") === "1";
+  return jsonResponse(await fetchArtifacts(root, filter, { includeLineage }));
+}
+
 export async function handleArtifactsRequest(req: Request): Promise<Response | null> {
   const url = new URL(req.url);
   const path = url.pathname;
@@ -191,8 +199,7 @@ export async function handleArtifactsRequest(req: Request): Promise<Response | n
   const filter = parseArtifactListQuery(url.searchParams);
 
   if (path === "/api/artifacts" && req.method === "GET") {
-    const includeLineage = url.searchParams.get("includeLineage") === "1";
-    return jsonResponse(await fetchArtifacts(root, filter, { includeLineage }));
+    return apiArtifacts(req);
   }
 
   if (path === "/api/gates/graph" && req.method === "GET") {

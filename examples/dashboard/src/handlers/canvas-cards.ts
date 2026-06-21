@@ -7,6 +7,7 @@ import {
   probeAllRegistryRoutes,
   type HubCardProbeId,
 } from "../../../../src/lib/dashboard-card-registry.ts";
+import { apiArtifacts } from "./artifacts.ts";
 import { apiGates, jsonResponse } from "./api-handlers.ts";
 import { apiKimiDoctor } from "./kimi-doctor.ts";
 import { apiScaffold } from "./scaffold.ts";
@@ -25,6 +26,7 @@ const HUB_PROBE_HANDLERS: Record<HubCardProbeId, () => Promise<Response>> = {
   "card-perf-registry": apiPerfRegistry,
   "card-effect-benchmark": apiEffectBenchmark,
   "card-symbols": apiSymbols,
+  "card-artifacts": () => apiArtifacts(new Request("http://127.0.0.1/api/artifacts")),
 };
 
 async function probeHubCard(cardId: HubCardProbeId): Promise<unknown> {

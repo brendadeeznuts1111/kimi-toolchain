@@ -42,7 +42,7 @@ import { readBenchmarkHealthCheck } from "../../../../src/lib/effect-benchmark-c
 import { resolveRoot } from "./shared.ts";
 import { apiEffectImage } from "./effect-image.ts";
 import { apiDotenv } from "./env-env.ts";
-import { apiExamples, apiExamplesTrading } from "./examples-showcase.ts";
+import { apiExamples, apiExamplesGates, apiExamplesTrading } from "./examples-showcase.ts";
 import { apiExtractMethods } from "./extract-methods.ts";
 import { apiFileIO } from "./file-i-o.ts";
 import { apiFileSplit } from "./file-split.ts";
@@ -296,6 +296,8 @@ export async function dispatchDashboardRoute(req: Request): Promise<Response | n
       return apiExamples(req);
     case "/api/examples/trading":
       return apiExamplesTrading();
+    case "/api/examples/gates":
+      return apiExamplesGates();
     case "/api/settings":
       return apiDashboardSettings(req);
     case "/api/health": {

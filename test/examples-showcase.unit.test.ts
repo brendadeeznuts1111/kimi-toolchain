@@ -7,6 +7,7 @@ import {
   entriesForLane,
   getShowcaseEntry,
   lintShowcaseCardIds,
+  probeGatesExample,
   probeTradingWorkspace,
 } from "../src/lib/examples-showcase.ts";
 import { REPO_ROOT } from "./helpers.ts";
@@ -118,5 +119,21 @@ describe("examples-showcase", () => {
     expect(probe.ok).toBe(true);
     expect(probe.gateCount).toBeGreaterThan(0);
     expect(probe.artifactCount).toBeGreaterThan(0);
+  });
+
+  test("probeGatesExample reads examples/gates/var/artifacts when present", () => {
+    const probe = probeGatesExample(REPO_ROOT);
+    expect(probe.artifactsDir).toEndWith("examples/gates/var/artifacts");
+    expect(probe.gateCount).toBeGreaterThanOrEqual(0);
+    expect(probe.gates).toBeArray();
+  });
+
+  test("buildExamplesShowcasePayload attaches gates probe metadata", () => {
+    const payload = buildExamplesShowcasePayload(REPO_ROOT);
+    const gates = payload.entries.find((e) => e.id === "gates");
+    expect(gates?.probe).toBeDefined();
+    expect(gates?.probe && "artifactsDir" in gates.probe ? gates.probe.artifactsDir : "").toContain(
+      "examples/gates/var/artifacts"
+    );
   });
 });

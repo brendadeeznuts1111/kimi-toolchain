@@ -1,6 +1,7 @@
 import { join } from "path";
 import {
   buildExamplesShowcasePayload,
+  probeGatesExample,
   probeTradingWorkspace,
   type ExamplesShowcaseSettings,
 } from "../../../../src/lib/examples-showcase.ts";
@@ -41,6 +42,16 @@ export function apiExamplesTrading(): Response {
     schemaVersion: 1,
     project: "trading-workspace",
     ...probeTradingWorkspace(REPO_ROOT),
+    fetchedAt: new Date().toISOString(),
+  });
+}
+
+export function apiExamplesGates(): Response {
+  return jsonResponse({
+    ok: true,
+    schemaVersion: 1,
+    project: "gates",
+    ...probeGatesExample(REPO_ROOT),
     fetchedAt: new Date().toISOString(),
   });
 }

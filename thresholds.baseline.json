@@ -9,5 +9,7 @@
   "util.deepEquals": 0.01,
   "image.metadata": 0.01,
   "clock": 0.01,
-  "uuid": 0.01
+  "uuid": 0.01,
+  "examples.image.metadata": 0.1,
+  "examples.db.query": 1
 }

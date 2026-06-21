@@ -567,7 +567,7 @@ export const REPO_REFERENCES: readonly RepoReference[] = [
 exports[`canonical-references generated JSON manifest matches snapshot 1`] = `
 "{
   "schemaVersion": 1,
-  "generatedAt": "2026-06-21T08:31:11.585Z",
+  "generatedAt": "2026-06-21T07:41:03.366Z",
   "toolchainVersion": "1.0.0",
   "ecosystem": [
     {
