@@ -51,12 +51,12 @@ Artifact generation (perf-report.html with live table)
 
 The same architecture works for any domain effect:
 
-| Effect                 | Module                                    | Key Bun API                   |
-| ---------------------- | ----------------------------------------- | ----------------------------- |
-| `kimi.effect.image`    | `templates/modules/image/src/processor.ts`    | `Bun.Image`                   |
-| `kimi.effect.db`       | `templates/modules/db/src/processor.ts`       | `bun:sqlite`                  |
-| `kimi.effect.uuid`     | `templates/modules/uuid/src/processor.ts`     | `Bun.randomUUIDv7`            |
-| `kimi.effect.terminal` | `templates/modules/terminal/src/processor.ts` | `Bun.stdin.isTTY()`           |
-| `kimi.effect.http`     | `templates/modules/http/src/processor.ts`     | `fetch` with TLS pinning      |
+| Effect                 | Module                                        | Key Bun API              |
+| ---------------------- | --------------------------------------------- | ------------------------ |
+| `kimi.effect.image`    | `templates/modules/image/src/processor.ts`    | `Bun.Image`              |
+| `kimi.effect.db`       | `templates/modules/db/src/processor.ts`       | `bun:sqlite`             |
+| `kimi.effect.uuid`     | `templates/modules/uuid/src/processor.ts`     | `Bun.randomUUIDv7`       |
+| `kimi.effect.terminal` | `templates/modules/terminal/src/processor.ts` | `Bun.stdin.isTTY()`      |
+| `kimi.effect.http`     | `templates/modules/http/src/processor.ts`     | `fetch` with TLS pinning |
 
 Each new effect is a single file that exports the methods the interface requires, and the harness automatically pulls it into the performance culture.

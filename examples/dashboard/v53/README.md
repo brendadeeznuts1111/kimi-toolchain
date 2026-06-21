@@ -28,18 +28,18 @@ Threshold layers (lowest wins last): `DEFAULT_THRESHOLDS` → `thresholds.json` 
 
 The toolchain profile is implemented directly in the repo tree; there is no consolidated archive to split.
 
-| #   | File                                                | Contents                                                  |
-| --- | --------------------------------------------------- | --------------------------------------------------------- |
-| 1   | `src/bin/kimi-fix.ts`                               | Scaffold CLI; `--profile app\|toolchain` + `KIMI_MODULES` |
-| 2   | `src/lib/scaffold-profiles.ts`                      | Profile resolution, `dx.config.*.toml` rendering          |
-| 3   | `src/lib/scaffold-modules.ts`                       | `KIMI_MODULES` copy tree + package script merging         |
-| 4   | `templates/scaffold/dx.config.toolchain.toml`       | Herdr + finish-work layout for toolchain projects         |
-| 5   | `templates/scaffold/scripts/finish-work.ts`         | Gate → commit/push close-loop runner                      |
-| 6   | `templates/scaffold/scripts/finish-work-herdr.ts`   | Herdr reviewer-pane escalation helpers                    |
-| 7   | `templates/scaffold/scripts/finish-work-config.ts`  | Per-project finish-work gate configuration                |
-| 8   | `templates/scaffold/scripts/reviewer-pane.ts`       | Cross-pane review helper                                  |
-| 9   | `examples/dashboard/src/harness/`                   | Perf harness + `perf-doctor.ts` (default `doctor` module) |
-| 10  | `templates/modules/*`                               | Domain effects: image, clock, uuid, http, db, terminal    |
+| #   | File                                               | Contents                                                  |
+| --- | -------------------------------------------------- | --------------------------------------------------------- |
+| 1   | `src/bin/kimi-fix.ts`                              | Scaffold CLI; `--profile app\|toolchain` + `KIMI_MODULES` |
+| 2   | `src/lib/scaffold-profiles.ts`                     | Profile resolution, `dx.config.*.toml` rendering          |
+| 3   | `src/lib/scaffold-modules.ts`                      | `KIMI_MODULES` copy tree + package script merging         |
+| 4   | `templates/scaffold/dx.config.toolchain.toml`      | Herdr + finish-work layout for toolchain projects         |
+| 5   | `templates/scaffold/scripts/finish-work.ts`        | Gate → commit/push close-loop runner                      |
+| 6   | `templates/scaffold/scripts/finish-work-herdr.ts`  | Herdr reviewer-pane escalation helpers                    |
+| 7   | `templates/scaffold/scripts/finish-work-config.ts` | Per-project finish-work gate configuration                |
+| 8   | `templates/scaffold/scripts/reviewer-pane.ts`      | Cross-pane review helper                                  |
+| 9   | `examples/dashboard/src/harness/`                  | Perf harness + `perf-doctor.ts` (default `doctor` module) |
+| 10  | `templates/modules/*`                              | Domain effects: image, clock, uuid, http, db, terminal    |
 
 ## Profile registry
 

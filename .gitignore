@@ -49,6 +49,13 @@ thresholds.json
 .cursor/
 test-define-tmp.ts
 
+# Local agent/IDE config (machine-specific, like .env)
+reasonix.toml
+
+# Stray home-dir snapshots (accidentally created inside repo root)
+~/
+Users/
+
 # OS
 .DS_Store
 profiles/

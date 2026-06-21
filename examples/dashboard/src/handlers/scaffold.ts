@@ -17,7 +17,10 @@ export async function apiScaffold(): Promise<Response> {
         file: "src/lib/scaffold-profiles.ts",
         role: "renderDxConfig() + scaffoldProfileScripts() for --profile toolchain",
       },
-      cli: { file: "src/bin/kimi-fix.ts", role: "reads --profile and KIMI_MODULES, writes all files" },
+      cli: {
+        file: "src/bin/kimi-fix.ts",
+        role: "reads --profile and KIMI_MODULES, writes all files",
+      },
     },
     example: {
       command: "KIMI_MODULES=trace,image,perf bun create kimi-toolchain my-app",
