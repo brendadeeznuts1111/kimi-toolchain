@@ -383,6 +383,125 @@ export function thumbnailCacheKey(
   return hasher.digest("hex");
 }
 
+export const BUN_IMAGE_SOURCE_MODULE = "src/lib/bun-image.ts";
+export const BUN_IMAGE_INSPECT_COMMAND = "bun test test/bun-image.unit.test.ts";
+
+export interface BunImageHealthCheck {
+  name: string;
+  status: "ok" | "error";
+  message: string;
+  fixable: boolean;
+}
+
+export interface BunImageHealthReport {
+  applicable: boolean;
+  aligned: boolean;
+  supported: boolean;
+  metadataProbe: boolean;
+  docsUrl: typeof BUN_IMAGE_DOCS_URL;
+  checks: BunImageHealthCheck[];
+  fixPlan: string[];
+  inspectCommand: typeof BUN_IMAGE_INSPECT_COMMAND;
+  sourceModule: typeof BUN_IMAGE_SOURCE_MODULE;
+}
+
+function isBunImageDocsUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === "bun.com" && parsed.pathname === "/docs/runtime/image";
+  } catch {
+    return false;
+  }
+}
+
+/** Validate Bun.Image availability, metadata probe, and docs URL alignment. */
+export async function auditBunImageHealth(): Promise<BunImageHealthReport> {
+  const base = {
+    inspectCommand: BUN_IMAGE_INSPECT_COMMAND,
+    sourceModule: BUN_IMAGE_SOURCE_MODULE,
+    docsUrl: BUN_IMAGE_DOCS_URL,
+  } as const;
+
+  const supported = bunImageSupported();
+  let metadataProbe = false;
+  if (supported) {
+    const meta = await imageMetadata(TINY_PNG);
+    metadataProbe = meta !== null && meta.width > 0 && meta.height > 0;
+  }
+
+  const checks: BunImageHealthCheck[] = [];
+  const fixPlan: string[] = [];
+
+  if (isBunImageDocsUrl(BUN_IMAGE_DOCS_URL)) {
+    checks.push({
+      name: "bun-image:docs-url",
+      status: "ok",
+      message: BUN_IMAGE_DOCS_URL,
+      fixable: false,
+    });
+  } else {
+    checks.push({
+      name: "bun-image:docs-url",
+      status: "error",
+      message: `invalid docs URL: ${BUN_IMAGE_DOCS_URL}`,
+      fixable: true,
+    });
+    fixPlan.push(`fix BUN_IMAGE_DOCS_URL in ${BUN_IMAGE_SOURCE_MODULE}`);
+  }
+
+  if (supported) {
+    checks.push({
+      name: "bun-image:supported",
+      status: "ok",
+      message: "Bun.Image constructor available",
+      fixable: false,
+    });
+  } else {
+    checks.push({
+      name: "bun-image:supported",
+      status: "error",
+      message: "Bun.Image unavailable in this runtime",
+      fixable: false,
+    });
+    fixPlan.push("upgrade Bun to a build with Bun.Image (>= 1.3.14)");
+  }
+
+  if (metadataProbe) {
+    checks.push({
+      name: "bun-image:metadata-probe",
+      status: "ok",
+      message: "metadata() probe succeeded",
+      fixable: false,
+    });
+  } else if (supported) {
+    checks.push({
+      name: "bun-image:metadata-probe",
+      status: "error",
+      message: "metadata() probe failed on sample PNG",
+      fixable: true,
+    });
+    fixPlan.push("verify Bun.Image.metadata() on TINY_PNG sample");
+  } else {
+    checks.push({
+      name: "bun-image:metadata-probe",
+      status: "error",
+      message: "skipped — Bun.Image unavailable",
+      fixable: false,
+    });
+  }
+
+  const aligned = checks.every((check) => check.status === "ok");
+  return {
+    applicable: true,
+    aligned,
+    supported,
+    metadataProbe,
+    checks,
+    fixPlan: [...new Set(fixPlan)],
+    ...base,
+  };
+}
+
 /** MIME type for a thumbnail format. */
 export function thumbnailFormatMime(format: DashboardThumbnailFormat): string {
   switch (format) {

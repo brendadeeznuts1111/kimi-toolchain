@@ -211,7 +211,7 @@ const CANVAS_ROUTING_ROW_TONE = [
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
-  { id: "test", label: "bun run check:fast", sub: "308 unit gates" },
+  { id: "test", label: "bun run check:fast", sub: "311 unit gates" },
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -238,9 +238,9 @@ const TOOL_CATEGORIES = [
 ] as const;
 
 const BIN_COUNT = 26;
-const LIB_COUNT = 320;
-const UNIT_COUNT = 308;
-const INTEGRATION_COUNT = 16;
+const LIB_COUNT = 324;
+const UNIT_COUNT = 311;
+const INTEGRATION_COUNT = 17;
 const SMOKE_COUNT = 7;
 const CURSOR_CANVAS_COUNT = 13;
 

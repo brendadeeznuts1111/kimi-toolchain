@@ -5,7 +5,20 @@
  * @see https://bun.com/docs/pm/cli/install#platform-specific-dependencies
  */
 
-import { bunVersion } from "./bun-utils.ts";
+import {
+  auditBunImageHealth,
+  BUN_IMAGE_DOCS_URL,
+  BUN_IMAGE_SOURCE_MODULE,
+  BUN_IMAGE_TERMINALS_URL,
+  bunImageSupported,
+} from "./bun-image.ts";
+import {
+  BUN_DETECT_BUN_GUIDE_DOC_URL,
+  BUN_PM_UPDATE_DOC_URL,
+  BUN_VERSION_GUIDE_DOC_URL,
+  bunVersion,
+  detectBunRuntime,
+} from "./bun-utils.ts";
 import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { TOML } from "bun";
@@ -16,6 +29,30 @@ export const BUN_RELEASE_1_3_13_SOURCE_MAPS_URL =
   "https://bun.com/blog/bun-v1.3.13#source-maps-use-up-to-8x-less-memory";
 export const BUN_HTML_STATIC_CONSOLE_DOC_URL =
   "https://bun.com/docs/bundler/html-static#echo-console-logs-from-browser-to-terminal";
+export const BUN_MARKDOWN_RUN_DOC_URL = "https://bun.com/docs/runtime/markdown.md";
+export const BUN_WRAP_ANSI_DOC_URL = "https://bun.com/docs/runtime/utils#bun-wrapansi";
+export const BUN_JSON5_DOC_URL = "https://bun.com/docs/runtime/json5#conformance";
+export const BUN_JSONL_DOC_URL = "https://bun.com/docs/runtime/jsonl";
+export const BUN_WEBVIEW_DOC_URL = "https://bun.sh/docs/api/webview";
+export const BUN_CRON_IN_PROCESS_DOC_URL = "https://bun.sh/docs/api/cron#bun-cron-in-process";
+export const BUN_BENCHMARKING_DOC_URL = "https://bun.com/docs/project/benchmarking";
+export const BUN_CPU_PROFILING_DOC_URL = `${BUN_BENCHMARKING_DOC_URL}#cpu-profiling`;
+export const BUN_CPU_PROF_MD_DOC_URL = `${BUN_BENCHMARKING_DOC_URL}#markdown-output`;
+export const BUN_HEAP_PROFILING_DOC_URL = `${BUN_BENCHMARKING_DOC_URL}#heap-profiling`;
+export const BUN_HEAP_PROF_MD_DOC_URL = `${BUN_BENCHMARKING_DOC_URL}#markdown-output-2`;
+export const BUN_JSC_HEAP_STATS_DOC_URL = `${BUN_BENCHMARKING_DOC_URL}#javascript-heap-stats`;
+export const BUN_NATIVE_HEAP_STATS_DOC_URL = `${BUN_BENCHMARKING_DOC_URL}#native-heap-stats`;
+export const BUN_MEASURING_TIME_DOC_URL = `${BUN_BENCHMARKING_DOC_URL}#measuring-time`;
+export const BUN_BENCH_REPO_URL = "https://github.com/oven-sh/bun/tree/main/bench";
+export const BUN_RUNTIME_GLOBALS_DOC_URL = "https://bun.com/docs/runtime/globals";
+export const BUN_RUNTIME_BUN_APIS_DOC_URL = "https://bun.com/docs/runtime/bun-apis";
+export const BUN_RUNTIME_WEB_APIS_DOC_URL = "https://bun.com/docs/runtime/web-apis";
+export const BUN_HEAP_PROF_BLOG_URL =
+  "https://bun.com/blog/bun-v1.3.7#heap-profiling-with-heap-prof";
+export const BUN_CGROUP_PARALLELISM_DOC_URL =
+  "https://bun.com/docs/runtime/globals#navigator-hardwareconcurrency";
+export const BUN_HTTPS_PROXY_KEEPALIVE_DOC_URL = "https://bun.com/docs/runtime/http#proxying";
+export const BUN_TCP_DEFER_ACCEPT_DOC_URL = "https://bun.com/docs/runtime/http#bun-serve";
 
 export function bunInstallDocAnchor(fragment: string): string {
   return `${BUN_INSTALL_DOC_URL}#${fragment}`;
@@ -718,11 +755,29 @@ interface PackageJsonInstallMeta {
   workspaces?: string[];
 }
 
+/** Transparent runtime speedups — doctor human output only; not inventory-gated. */
+export interface BunInstallInternalOptimizations {
+  readonly informational: true;
+  /** Semver from live `Bun.version` (refreshed each report build). */
+  bunVersion: string;
+  /** Git revision from live `Bun.revision`. */
+  bunRevision: string;
+  /** Whether the report was built under a detected Bun runtime. */
+  runtimeDetected: boolean;
+  notes: readonly string[];
+  docs: {
+    versionGuide: typeof BUN_VERSION_GUIDE_DOC_URL;
+    detectBunGuide: typeof BUN_DETECT_BUN_GUIDE_DOC_URL;
+    updateCli: typeof BUN_PM_UPDATE_DOC_URL;
+  };
+}
+
 export interface BunInstallConfigAudit {
   schemaVersion: 1;
   docsUrl: string;
   versions: BunInstallVersionInfo;
   runtimeCapabilities: BunInstallRuntimeCapabilities;
+  internalOptimizations: BunInstallInternalOptimizations;
   runtimeEnvironment: BunInstallRuntimeEnvironment;
   runtimeEnvironmentAdvisories: string[];
   tables: Record<BunInstallPolicyGroup, BunInstallPolicyRow[]>;
@@ -831,6 +886,154 @@ export interface BunInstallRuntimeCapabilities {
     transport: "HMR WebSocket";
     docsUrl: typeof BUN_HTML_STATIC_CONSOLE_DOC_URL;
     agentUse: "browser logs visible in the terminal that started the dev server";
+  };
+  markdownTerminalRender: {
+    status: "available";
+    command: string;
+    description: string;
+    docsUrl: typeof BUN_MARKDOWN_RUN_DOC_URL;
+  };
+  wrapAnsi: {
+    status: "available";
+    command: string;
+    description: string;
+    docsUrl: typeof BUN_WRAP_ANSI_DOC_URL;
+  };
+  json5Native: {
+    status: "available";
+    command: string;
+    description: string;
+    docsUrl: typeof BUN_JSON5_DOC_URL;
+  };
+  jsonlStreaming: {
+    status: "available";
+    command: string;
+    description: string;
+    docsUrl: typeof BUN_JSONL_DOC_URL;
+  };
+  webView: {
+    status: "active";
+    command: string;
+    description: string;
+    docsUrl: typeof BUN_WEBVIEW_DOC_URL;
+    streams: readonly ["stdout"];
+    transport: "ws://localhost:9222/devtools/browser";
+    hmr: false;
+  };
+  inProcessCron: {
+    status: "active";
+    command: string;
+    description: string;
+    docsUrl: typeof BUN_CRON_IN_PROCESS_DOC_URL;
+    streams: readonly ["stdout"];
+    hmr: true;
+  };
+  cpuProfMarkdown: {
+    status: "active";
+    command: string;
+    combinedCommand: "bun --cpu-prof --cpu-prof-md script.js";
+    description: string;
+    docsUrl: typeof BUN_CPU_PROF_MD_DOC_URL;
+    markdownDocsUrl: typeof BUN_CPU_PROF_MD_DOC_URL;
+    profilingDocsUrl: typeof BUN_CPU_PROFILING_DOC_URL;
+    flags: readonly ["--cpu-prof-md", "--cpu-prof", "--cpu-prof-name", "--cpu-prof-dir"];
+    outputFormats: readonly ["cpuprofile", "markdown"];
+    bunOptionsEnv: 'BUN_OPTIONS="--cpu-prof-md"';
+    streams: readonly ["stdout"];
+    hmr: false;
+  };
+  heapProf: {
+    status: "active";
+    command: string;
+    markdownCommand: string;
+    description: string;
+    docsUrl: typeof BUN_HEAP_PROF_MD_DOC_URL;
+    markdownDocsUrl: typeof BUN_HEAP_PROF_MD_DOC_URL;
+    profilingDocsUrl: typeof BUN_HEAP_PROFILING_DOC_URL;
+    releaseUrl: typeof BUN_HEAP_PROF_BLOG_URL;
+    flags: readonly ["--heap-prof", "--heap-prof-md", "--heap-prof-name", "--heap-prof-dir"];
+    outputFormats: readonly ["heapsnapshot", "markdown"];
+    notes: string;
+    streams: readonly ["stdout"];
+    hmr: false;
+  };
+  jscHeapStats: {
+    status: "available";
+    command: string;
+    module: "bun:jsc";
+    methods: readonly ["heapStats"];
+    metrics: readonly [
+      "heapSize",
+      "heapCapacity",
+      "extraMemorySize",
+      "objectCount",
+      "protectedObjectCount",
+      "objectTypeCounts",
+      "protectedObjectTypeCounts",
+    ];
+    gc: "Bun.gc(true) synchronous; Bun.gc(false) asynchronous";
+    snapshot: "generateHeapSnapshot() from bun — import heap.json in Safari/WebKit GTK";
+    nativeHeapEnv: "MIMALLOC_SHOW_STATS=1";
+    nativeHeapCommand: "MIMALLOC_SHOW_STATS=1 bun script.js";
+    docsUrl: typeof BUN_JSC_HEAP_STATS_DOC_URL;
+    nativeHeapDocsUrl: typeof BUN_NATIVE_HEAP_STATS_DOC_URL;
+    notes: string;
+  };
+  measuringTime: {
+    status: "available";
+    command: string;
+    description: string;
+    docsUrl: typeof BUN_MEASURING_TIME_DOC_URL;
+    apis: readonly ["performance.now()", "Bun.nanoseconds()", "performance.timeOrigin"];
+    notes: string;
+  };
+  publicBenchmarks: {
+    status: "available";
+    repoUrl: typeof BUN_BENCH_REPO_URL;
+    path: "bench/";
+    description: string;
+    docsUrl: typeof BUN_BENCHMARKING_DOC_URL;
+  };
+  runtimeApiDocs: {
+    status: "available";
+    description: string;
+    globalsUrl: typeof BUN_RUNTIME_GLOBALS_DOC_URL;
+    bunApisUrl: typeof BUN_RUNTIME_BUN_APIS_DOC_URL;
+    webApisUrl: typeof BUN_RUNTIME_WEB_APIS_DOC_URL;
+  };
+  bunImage: {
+    status: "available" | "unavailable";
+    command: string;
+    description: string;
+    docsUrl: typeof BUN_IMAGE_DOCS_URL;
+    terminalsUrl: typeof BUN_IMAGE_TERMINALS_URL;
+    dashboardPaths: readonly ["/api/image", "/api/thumbnail", "/api/bun-mark"];
+    sourceModule: typeof BUN_IMAGE_SOURCE_MODULE;
+    notes: string;
+  };
+  cgroupAwareParallelism: {
+    status: "active";
+    command: string;
+    description: string;
+    docsUrl: typeof BUN_CGROUP_PARALLELISM_DOC_URL;
+    streams: readonly ["stdout"];
+    hmr: false;
+  };
+  httpsProxyKeepAlive: {
+    status: "active";
+    command: string;
+    description: string;
+    docsUrl: typeof BUN_HTTPS_PROXY_KEEPALIVE_DOC_URL;
+    streams: readonly ["stdout"];
+    hmr: false;
+  };
+  tcpDeferAccept: {
+    status: "active";
+    command: string;
+    description: string;
+    docsUrl: typeof BUN_TCP_DEFER_ACCEPT_DOC_URL;
+    streams: readonly ["stdout"];
+    hmr: false;
   };
   platformTargeting: {
     cpu: string;
@@ -1145,6 +1348,30 @@ function buildEnvRows(): BunInstallEnvRow[] {
   }));
 }
 
+/** Release-notes style perf wins without separate capability inventory keys. */
+export const BUN_INTERNAL_OPTIMIZATION_NOTES = [
+  "URLPattern matching ~2.9x faster (internal; no new API surface)",
+  "stripANSI SIMD path for large decorated strings (internal)",
+  "bun build parallel compile threading fix (internal)",
+  "Glob.scan directory traversal speedup (internal)",
+] as const;
+
+export function buildInternalOptimizations(): BunInstallInternalOptimizations {
+  const runtime = detectBunRuntime();
+  return {
+    informational: true,
+    bunVersion: runtime.version,
+    bunRevision: runtime.revision,
+    runtimeDetected: runtime.detected,
+    notes: BUN_INTERNAL_OPTIMIZATION_NOTES,
+    docs: {
+      versionGuide: BUN_VERSION_GUIDE_DOC_URL,
+      detectBunGuide: BUN_DETECT_BUN_GUIDE_DOC_URL,
+      updateCli: BUN_PM_UPDATE_DOC_URL,
+    },
+  };
+}
+
 function buildRuntimeCapabilities(
   install: BunfigInstallSection | null
 ): BunInstallRuntimeCapabilities {
@@ -1287,6 +1514,177 @@ function buildRuntimeCapabilities(
       docsUrl: BUN_HTML_STATIC_CONSOLE_DOC_URL,
       agentUse: "browser logs visible in the terminal that started the dev server",
     },
+    markdownTerminalRender: {
+      status: "available",
+      command: "bun ./README.md",
+      description: "Zero-VM-overhead Markdown rendering in the terminal",
+      docsUrl: BUN_MARKDOWN_RUN_DOC_URL,
+    },
+    wrapAnsi: {
+      status: "available",
+      command:
+        "bun -e 'console.log(Bun.wrapAnsi(\"\\x1b[31mThis is a long red text that needs wrapping\\x1b[0m\", 20))'",
+      description:
+        "Native wrap-ansi — preserves SGR colors, OSC 8 hyperlinks, Unicode widths; 33–88x faster than npm",
+      docsUrl: BUN_WRAP_ANSI_DOC_URL,
+    },
+    json5Native: {
+      status: "available",
+      command: "bun -e 'console.log(Bun.JSON5.parse(\"// config\\n{ key: 1 }\"))'",
+      description:
+        "Bun.JSON5.parse/stringify plus native .json5 imports (comments, trailing commas, unquoted keys)",
+      docsUrl: BUN_JSON5_DOC_URL,
+    },
+    jsonlStreaming: {
+      status: "available",
+      command:
+        'bun -e \'const res = Bun.JSONL.parseChunk("{\\"a\\":1}\\n{\\"b\\":2}\\n{\\"c\\""); console.log(res.values, res.read, res.done)\'',
+      description:
+        "Bun.JSONL.parse for complete inputs; parseChunk for incremental streams (values, read, done)",
+      docsUrl: BUN_JSONL_DOC_URL,
+    },
+    webView: {
+      status: "active",
+      command:
+        "bun -e 'await using view = new Bun.WebView({ width: 800, height: 600 }); await view.navigate(\"https://bun.sh\"); console.log(await view.title);'",
+      description:
+        "Headless browser automation (WebKit/Chrome) — Playwright-style actionability, OS-level events, CDP WebSocket transport",
+      docsUrl: BUN_WEBVIEW_DOC_URL,
+      streams: ["stdout"],
+      transport: "ws://localhost:9222/devtools/browser",
+      hmr: false,
+    },
+    inProcessCron: {
+      status: "active",
+      command:
+        'bun -e \'const job = Bun.cron("* * * * *", () => console.log("tick")); setTimeout(() => job.stop(), 1000);\'',
+      description:
+        "In-process UTC cron scheduler — no overlap, --hot safe, ref/unref; shares application state",
+      docsUrl: BUN_CRON_IN_PROCESS_DOC_URL,
+      streams: ["stdout"],
+      hmr: true,
+    },
+    cpuProfMarkdown: {
+      status: "active",
+      command: "bun --cpu-prof-md -e 'process.exit(0)'",
+      combinedCommand: "bun --cpu-prof --cpu-prof-md script.js",
+      description: "Markdown CPU profile output (--cpu-prof-md) for LLM-friendly analysis",
+      docsUrl: BUN_CPU_PROF_MD_DOC_URL,
+      markdownDocsUrl: BUN_CPU_PROF_MD_DOC_URL,
+      profilingDocsUrl: BUN_CPU_PROFILING_DOC_URL,
+      flags: ["--cpu-prof-md", "--cpu-prof", "--cpu-prof-name", "--cpu-prof-dir"],
+      outputFormats: ["cpuprofile", "markdown"],
+      bunOptionsEnv: 'BUN_OPTIONS="--cpu-prof-md"',
+      streams: ["stdout"],
+      hmr: false,
+    },
+    heapProf: {
+      status: "active",
+      command: "bun --heap-prof-md -e 'process.exit(0)'",
+      markdownCommand: "bun --heap-prof-md script.js",
+      description: "Heap profiling with markdown output (--heap-prof-md) for memory leak diagnosis",
+      docsUrl: BUN_HEAP_PROF_MD_DOC_URL,
+      markdownDocsUrl: BUN_HEAP_PROF_MD_DOC_URL,
+      profilingDocsUrl: BUN_HEAP_PROFILING_DOC_URL,
+      releaseUrl: BUN_HEAP_PROF_BLOG_URL,
+      flags: ["--heap-prof", "--heap-prof-md", "--heap-prof-name", "--heap-prof-dir"],
+      outputFormats: ["heapsnapshot", "markdown"],
+      notes:
+        "When both --heap-prof and --heap-prof-md are set, markdown output is used (not both formats).",
+      streams: ["stdout"],
+      hmr: false,
+    },
+    jscHeapStats: {
+      status: "available",
+      command: "bun -e 'import { heapStats } from \"bun:jsc\"; console.log(heapStats());'",
+      module: "bun:jsc",
+      methods: ["heapStats"],
+      metrics: [
+        "heapSize",
+        "heapCapacity",
+        "extraMemorySize",
+        "objectCount",
+        "protectedObjectCount",
+        "objectTypeCounts",
+        "protectedObjectTypeCounts",
+      ],
+      gc: "Bun.gc(true) synchronous; Bun.gc(false) asynchronous",
+      snapshot: "generateHeapSnapshot() from bun — import heap.json in Safari/WebKit GTK",
+      nativeHeapEnv: "MIMALLOC_SHOW_STATS=1",
+      nativeHeapCommand: "MIMALLOC_SHOW_STATS=1 bun script.js",
+      docsUrl: BUN_JSC_HEAP_STATS_DOC_URL,
+      nativeHeapDocsUrl: BUN_NATIVE_HEAP_STATS_DOC_URL,
+      notes:
+        "JavaScript is GC-collected; delayed frees are normal. Bun has separate JS and native (mimalloc) heaps.",
+    },
+    measuringTime: {
+      status: "available",
+      command:
+        "bun -e 'const t0 = Bun.nanoseconds(); const ms = performance.now(); console.log(Bun.nanoseconds() - t0, ms, performance.timeOrigin);'",
+      description:
+        "High-precision timing — performance.now() (web standard) and Bun.nanoseconds() since app start",
+      docsUrl: BUN_MEASURING_TIME_DOC_URL,
+      apis: ["performance.now()", "Bun.nanoseconds()", "performance.timeOrigin"],
+      notes:
+        "Use performance.timeOrigin with Bun.nanoseconds() to convert elapsed time to a Unix timestamp.",
+    },
+    publicBenchmarks: {
+      status: "available",
+      repoUrl: BUN_BENCH_REPO_URL,
+      path: "bench/",
+      description:
+        "Source for all of Bun's public benchmarks — hot paths are profiled and benchmarked in the oven-sh/bun repo",
+      docsUrl: BUN_BENCHMARKING_DOC_URL,
+    },
+    runtimeApiDocs: {
+      status: "available",
+      description:
+        "Canonical runtime API reference — globals, Bun-native APIs (Bun.*), and Web-standard APIs",
+      globalsUrl: BUN_RUNTIME_GLOBALS_DOC_URL,
+      bunApisUrl: BUN_RUNTIME_BUN_APIS_DOC_URL,
+      webApisUrl: BUN_RUNTIME_WEB_APIS_DOC_URL,
+    },
+    bunImage: {
+      status: bunImageSupported() ? "available" : "unavailable",
+      command:
+        "bun -e 'const png = Uint8Array.from(atob(\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\"), c => c.charCodeAt(0)); console.log(await new Bun.Image(png).metadata())'",
+      description:
+        "Native image pipeline — metadata(), resize/encode (WebP/AVIF/JPEG/PNG), placeholders, platform backends",
+      docsUrl: BUN_IMAGE_DOCS_URL,
+      terminalsUrl: BUN_IMAGE_TERMINALS_URL,
+      dashboardPaths: ["/api/image", "/api/thumbnail", "/api/bun-mark"],
+      sourceModule: BUN_IMAGE_SOURCE_MODULE,
+      notes:
+        "Herdr thumbnails await Bun.Image .blob() terminals; examples dashboard card-effect-image mirrors processor.ts",
+    },
+    cgroupAwareParallelism: {
+      status: "active",
+      command: "bun -e 'console.log(navigator.hardwareConcurrency)'",
+      description: "Cgroup-aware availableParallelism / hardwareConcurrency on Linux",
+      docsUrl: BUN_CGROUP_PARALLELISM_DOC_URL,
+      streams: ["stdout"],
+      hmr: false,
+    },
+    httpsProxyKeepAlive: {
+      status: "active",
+      command:
+        'bun -e \'fetch("https://example.com", {proxy: "http://user:pass@proxy.example.com:8080"}).then(()=>process.exit(0)).catch(()=>process.exit(0))\'',
+      description:
+        "HTTPS proxy CONNECT tunnel reuse (Keep-Alive) for fetch — reduces connection overhead",
+      docsUrl: BUN_HTTPS_PROXY_KEEPALIVE_DOC_URL,
+      streams: ["stdout"],
+      hmr: false,
+    },
+    tcpDeferAccept: {
+      status: "active",
+      command:
+        'bun -e \'const server = Bun.serve({fetch:()=>new Response("ok"),port:0});console.log("server started");setTimeout(()=>server.stop(),100)\'',
+      description:
+        "TCP_DEFER_ACCEPT for Bun.serve() on Linux — collapses accept+read into one epoll wakeup",
+      docsUrl: BUN_TCP_DEFER_ACCEPT_DOC_URL,
+      streams: ["stdout"],
+      hmr: false,
+    },
     platformTargeting: {
       cpu: process.arch,
       os: process.platform,
@@ -1426,6 +1824,7 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
   const platformRows = buildPolicyRows(BUN_INSTALL_PLATFORM_POLICY, install, cacheDir, packageMeta);
   const envRows = buildEnvRows();
   const runtimeCapabilities = buildRuntimeCapabilities(install);
+  const internalOptimizations = buildInternalOptimizations();
   const runtimeEnvironment = buildRuntimeEnvironment(install);
   const runtimeEnvironmentAdvisoryRows = runtimeEnvironmentAdvisories(runtimeEnvironment);
 
@@ -1481,6 +1880,7 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
     docsUrl: BUN_INSTALL_DOCS_URL,
     versions,
     runtimeCapabilities,
+    internalOptimizations,
     runtimeEnvironment,
     runtimeEnvironmentAdvisories: runtimeEnvironmentAdvisoryRows,
     tables,
@@ -1585,7 +1985,28 @@ export function formatInstallPolicyReport(report: BunInstallConfigAudit): string
     `  packageManagerFixes: ${report.runtimeCapabilities.packageManagerFixes.status} (${report.runtimeCapabilities.packageManagerFixes.fixes.length} fixes)`,
     `  timerIdleStart: ${report.runtimeCapabilities.timerIdleStart.status} (${report.runtimeCapabilities.timerIdleStart.property})`,
     `  parallelConsole: ${report.runtimeCapabilities.parallelConsole.status} (${report.runtimeCapabilities.parallelConsole.flush})`,
+    `  htmlStaticConsoleEcho: ${report.runtimeCapabilities.htmlStaticConsoleEcho.status} (${report.runtimeCapabilities.htmlStaticConsoleEcho.flag})`,
+    `  markdownTerminalRender: ${report.runtimeCapabilities.markdownTerminalRender.status}`,
+    `  wrapAnsi: ${report.runtimeCapabilities.wrapAnsi.status}`,
+    `  json5Native: ${report.runtimeCapabilities.json5Native.status}`,
+    `  jsonlStreaming: ${report.runtimeCapabilities.jsonlStreaming.status}`,
+    `  webView: ${report.runtimeCapabilities.webView.status}`,
+    `  inProcessCron: ${report.runtimeCapabilities.inProcessCron.status}`,
+    `  cpuProfMarkdown: ${report.runtimeCapabilities.cpuProfMarkdown.status} (--cpu-prof-md)`,
+    `  heapProf: ${report.runtimeCapabilities.heapProf.status} (--heap-prof / --heap-prof-md)`,
+    `  jscHeapStats: ${report.runtimeCapabilities.jscHeapStats.status} (${report.runtimeCapabilities.jscHeapStats.module})`,
+    `  measuringTime: ${report.runtimeCapabilities.measuringTime.status}`,
+    `  publicBenchmarks: ${report.runtimeCapabilities.publicBenchmarks.status} (${report.runtimeCapabilities.publicBenchmarks.path})`,
+    `  runtimeApiDocs: ${report.runtimeCapabilities.runtimeApiDocs.status} (globals · bun-apis · web-apis)`,
+    `  bunImage: ${report.runtimeCapabilities.bunImage.status} (${report.runtimeCapabilities.bunImage.dashboardPaths.join(", ")})`,
+    `  cgroupAwareParallelism: ${report.runtimeCapabilities.cgroupAwareParallelism.status}`,
+    `  httpsProxyKeepAlive: ${report.runtimeCapabilities.httpsProxyKeepAlive.status}`,
+    `  tcpDeferAccept: ${report.runtimeCapabilities.tcpDeferAccept.status}`,
     `  platformTargeting: ${report.runtimeCapabilities.platformTargeting.crossInstall.status} (${report.runtimeCapabilities.platformTargeting.cpu}/${report.runtimeCapabilities.platformTargeting.os})`,
+    "Internal optimizations (informational — not inventory-gated):",
+    `  bun ${report.internalOptimizations.bunVersion} (${report.internalOptimizations.bunRevision}) runtime=${report.internalOptimizations.runtimeDetected ? "detected" : "absent"}`,
+    ...report.internalOptimizations.notes.map((note) => `  - ${note}`),
+    `  docs: ${report.internalOptimizations.docs.versionGuide} · ${report.internalOptimizations.docs.updateCli}`,
     "Runtime environment:",
     `  noOrphans: ${report.runtimeEnvironment.noOrphans.status} (${report.runtimeEnvironment.noOrphans.env}=${report.runtimeEnvironment.noOrphans.value ?? "unset"})`,
     `  globalStore: ${report.runtimeEnvironment.globalStore.status} (${report.runtimeEnvironment.globalStore.env}=${report.runtimeEnvironment.globalStore.value ?? "unset"}; bunfig=${report.runtimeEnvironment.globalStore.bunfigValue ?? "unset"})`,
@@ -1628,6 +2049,246 @@ export function formatInstallPolicyReport(report: BunInstallConfigAudit): string
   lines.push("## Property reference");
   lines.push(...formatInstallPropertyReferenceTable());
   return lines;
+}
+
+/** Inventory keys agents expect in `runtimeCapabilities` (toolchain SSOT). */
+export const RUNTIME_CAPABILITY_INVENTORY_KEYS = [
+  "runtimeApiDocs",
+  "measuringTime",
+  "publicBenchmarks",
+  "cpuProfMarkdown",
+  "heapProf",
+  "jscHeapStats",
+  "markdownTerminalRender",
+  "wrapAnsi",
+  "json5Native",
+  "jsonlStreaming",
+  "webView",
+  "inProcessCron",
+  "bunImage",
+  "cgroupAwareParallelism",
+  "httpsProxyKeepAlive",
+  "tcpDeferAccept",
+] as const;
+
+export const BUN_INSTALL_INSPECT_COMMAND = "bun run bun-install:status --json";
+export const BUN_INSTALL_SOURCE_MODULE = "src/lib/bun-install-config.ts";
+
+export type BunInstallProbeSuffix = "runtime-api-docs" | "capabilities" | "bun-image";
+export type BunInstallProbeId = `bun-install:${BunInstallProbeSuffix}`;
+
+const BUN_INSTALL_PROBE_SUFFIXES: readonly BunInstallProbeSuffix[] = [
+  "runtime-api-docs",
+  "capabilities",
+  "bun-image",
+];
+
+export interface RuntimeCapabilitiesHealthCheck {
+  name: string;
+  status: "ok" | "error";
+  message: string;
+  fixable: boolean;
+}
+
+export interface RuntimeCapabilitiesHealthReport {
+  applicable: boolean;
+  aligned: boolean;
+  checks: RuntimeCapabilitiesHealthCheck[];
+  fixPlan: string[];
+  runtimeApiDocs: BunInstallRuntimeCapabilities["runtimeApiDocs"] | null;
+  capabilityCount: number;
+  inspectCommand: typeof BUN_INSTALL_INSPECT_COMMAND;
+  sourceModule: typeof BUN_INSTALL_SOURCE_MODULE;
+}
+
+export function isBunInstallProbeId(id: string): id is BunInstallProbeId {
+  return BUN_INSTALL_PROBE_SUFFIXES.some((suffix) => id === `bun-install:${suffix}`);
+}
+
+function isBunComDocsUrl(url: string, pathname: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === "bun.com" && parsed.pathname === pathname;
+  } catch {
+    return false;
+  }
+}
+
+/** Validate runtime capability inventory and `runtimeApiDocs` URLs (toolchain only). */
+export async function auditRuntimeCapabilitiesHealth(
+  projectRoot: string
+): Promise<RuntimeCapabilitiesHealthReport> {
+  const { packageMeta } = await readProjectInstallMeta(projectRoot);
+  const base = {
+    inspectCommand: BUN_INSTALL_INSPECT_COMMAND,
+    sourceModule: BUN_INSTALL_SOURCE_MODULE,
+  } as const;
+
+  if (packageMeta?.name !== "kimi-toolchain") {
+    return {
+      applicable: false,
+      aligned: true,
+      checks: [],
+      fixPlan: [],
+      runtimeApiDocs: null,
+      capabilityCount: 0,
+      ...base,
+    };
+  }
+
+  const report = await buildInstallPolicyReport(projectRoot);
+  const caps = report.runtimeCapabilities;
+  const checks: RuntimeCapabilitiesHealthCheck[] = [];
+  const fixPlan: string[] = [];
+
+  const apiDocFields: ReadonlyArray<{
+    field: keyof BunInstallRuntimeCapabilities["runtimeApiDocs"];
+    pathname: string;
+  }> = [
+    { field: "globalsUrl", pathname: "/docs/runtime/globals" },
+    { field: "bunApisUrl", pathname: "/docs/runtime/bun-apis" },
+    { field: "webApisUrl", pathname: "/docs/runtime/web-apis" },
+  ];
+
+  for (const { field, pathname } of apiDocFields) {
+    const url = caps.runtimeApiDocs[field];
+    if (isBunComDocsUrl(url, pathname)) {
+      checks.push({
+        name: `runtime-api-docs:${field}`,
+        status: "ok",
+        message: url,
+        fixable: false,
+      });
+    } else {
+      checks.push({
+        name: `runtime-api-docs:${field}`,
+        status: "error",
+        message: `${field} invalid: ${url}`,
+        fixable: true,
+      });
+      fixPlan.push(`fix runtimeApiDocs.${field} in ${BUN_INSTALL_SOURCE_MODULE}`);
+    }
+  }
+
+  for (const key of RUNTIME_CAPABILITY_INVENTORY_KEYS) {
+    const entry = caps[key as keyof BunInstallRuntimeCapabilities];
+    if (!entry || typeof entry !== "object" || !("status" in entry)) {
+      checks.push({
+        name: `capability:${key}`,
+        status: "error",
+        message: `missing capability: ${key}`,
+        fixable: true,
+      });
+      fixPlan.push(`add ${key} to buildRuntimeCapabilities()`);
+      continue;
+    }
+    const status = (entry as { status: string }).status;
+    if (status !== "available" && status !== "active") {
+      checks.push({
+        name: `capability:${key}`,
+        status: "error",
+        message: `${key} status=${status}`,
+        fixable: true,
+      });
+      fixPlan.push(`restore ${key} status in buildRuntimeCapabilities()`);
+    } else {
+      checks.push({
+        name: `capability:${key}`,
+        status: "ok",
+        message: `${key} ${status}`,
+        fixable: false,
+      });
+    }
+  }
+
+  const bunImageEntry = caps.bunImage;
+  if (
+    bunImageEntry &&
+    typeof bunImageEntry.docsUrl === "string" &&
+    bunImageEntry.docsUrl.startsWith("https://bun.com/docs/runtime/image")
+  ) {
+    checks.push({
+      name: "bun-image:capability-docs",
+      status: "ok",
+      message: bunImageEntry.docsUrl,
+      fixable: false,
+    });
+  } else {
+    checks.push({
+      name: "bun-image:capability-docs",
+      status: "error",
+      message: `bunImage docsUrl invalid: ${bunImageEntry?.docsUrl ?? "missing"}`,
+      fixable: true,
+    });
+    fixPlan.push(`fix bunImage.docsUrl in ${BUN_INSTALL_SOURCE_MODULE}`);
+  }
+
+  const bunImageHealth = await auditBunImageHealth();
+  for (const check of bunImageHealth.checks) {
+    checks.push({
+      name: check.name,
+      status: check.status,
+      message: check.message,
+      fixable: check.fixable,
+    });
+  }
+  fixPlan.push(...bunImageHealth.fixPlan);
+
+  const aligned = checks.every((check) => check.status === "ok");
+  return {
+    applicable: true,
+    aligned,
+    checks,
+    fixPlan: [...new Set(fixPlan)],
+    runtimeApiDocs: caps.runtimeApiDocs,
+    capabilityCount: RUNTIME_CAPABILITY_INVENTORY_KEYS.length,
+    ...base,
+  };
+}
+
+/** Evaluate a `probe:bun-install:*` handoff condition. */
+export async function evaluateBunInstallProbeHandoffCondition(
+  probeId: BunInstallProbeId,
+  projectRoot: string
+): Promise<{ ok: boolean; message: string }> {
+  const report = await auditRuntimeCapabilitiesHealth(projectRoot);
+  if (!report.applicable) {
+    return {
+      ok: false,
+      message: "bun-install runtime capabilities not applicable for this project",
+    };
+  }
+
+  const suffix = probeId.slice("bun-install:".length);
+  const prefix =
+    suffix === "runtime-api-docs"
+      ? "runtime-api-docs:"
+      : suffix === "bun-image"
+        ? "bun-image:"
+        : "capability:";
+  const relevant = report.checks.filter((check) => check.name.startsWith(prefix));
+  const failed = relevant.filter((check) => check.status === "error");
+
+  if (failed.length === 0) {
+    if (suffix === "runtime-api-docs") {
+      return { ok: true, message: "runtimeApiDocs URLs aligned with bun.com/runtime" };
+    }
+    if (suffix === "bun-image") {
+      return {
+        ok: true,
+        message: "Bun.Image supported with metadata probe and docs URL aligned",
+      };
+    }
+    return {
+      ok: true,
+      message: `all ${report.capabilityCount} inventory capabilities present`,
+    };
+  }
+
+  return {
+    ok: false,
+    message: `${failed[0]?.message ?? "check failed"} — ${report.fixPlan[0] ?? "fix required"}`,
+  };
 }
 
 /** Audit install policy: env overrides beat bunfig; flag drift from hardened defaults. */

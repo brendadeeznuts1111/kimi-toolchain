@@ -4,6 +4,9 @@
 
 import { pathExists } from "./bun-io.ts";
 import { join } from "path";
+import { auditArtifactGraphHealth } from "./artifact-graph-health.ts";
+import { auditBunImageHealth } from "./bun-image.ts";
+import { auditRuntimeCapabilitiesHealth } from "./bun-install-config.ts";
 import { auditCanonicalReferencesHealth } from "./canonical-references.ts";
 import { buildOptimizerDoctorMachineChecks } from "./constant-optimizer.ts";
 import { checkDxCloudflareConfig } from "./dx-cloudflare-config.ts";
@@ -200,6 +203,49 @@ export async function auditEcosystemHealth(
       }
       fixPlan.push(...refs.fixPlan);
     }
+
+    const runtimeCaps = await auditRuntimeCapabilitiesHealth(projectRoot);
+    if (runtimeCaps.applicable) {
+      checks.push({
+        name: "bun-install-runtime:inventory",
+        status: runtimeCaps.aligned ? "ok" : "error",
+        message: runtimeCaps.aligned
+          ? `${runtimeCaps.capabilityCount} runtime capabilities aligned`
+          : (runtimeCaps.checks.find((check) => check.status === "error")?.message ??
+            "runtime capability drift"),
+        source: "bun-install-config",
+        fixable: !runtimeCaps.aligned,
+      });
+      fixPlan.push(...runtimeCaps.fixPlan);
+    }
+
+    const artifactGraph = await auditArtifactGraphHealth(projectRoot);
+    if (artifactGraph.applicable) {
+      checks.push({
+        name: "artifact-graph:context",
+        status: artifactGraph.aligned ? "ok" : "error",
+        message: artifactGraph.aligned
+          ? `${artifactGraph.artifactCount} artifact nodes, ${artifactGraph.edgeCount} edges`
+          : (artifactGraph.checks.find((check) => check.status === "error")?.message ??
+            "artifact graph drift"),
+        source: "artifact-graph-health",
+        fixable: !artifactGraph.aligned,
+      });
+      fixPlan.push(...artifactGraph.fixPlan);
+    }
+
+    const bunImage = await auditBunImageHealth();
+    checks.push({
+      name: "bun-image:health",
+      status: bunImage.aligned ? "ok" : "error",
+      message: bunImage.aligned
+        ? "Bun.Image metadata probe aligned"
+        : (bunImage.checks.find((check) => check.status === "error")?.message ??
+          "Bun.Image health drift"),
+      source: "bun-image",
+      fixable: !bunImage.aligned,
+    });
+    fixPlan.push(...bunImage.fixPlan);
 
     const herdr = await auditHerdrToolHealth(projectRoot, home);
     checks.push(...herdr.checks);

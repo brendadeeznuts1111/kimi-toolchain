@@ -6,6 +6,7 @@
  */
 
 import {
+  BUN_IMAGE_DOCS_URL,
   bunImageSupported,
   dashboardThumbnailBytes,
   thumbnailFormatMime,
@@ -28,6 +29,8 @@ export interface HerdrDashboardEffectImageMeta {
   markPath: string;
   effectImagePath: string;
   source: "examples/dashboard/src/effect/image/processor.ts";
+  runtimeCapabilityKey: "bunImage";
+  docsUrl: typeof BUN_IMAGE_DOCS_URL;
   metadata?: ImageMetadata;
   placeholder?: string;
   error?: string;
@@ -80,6 +83,8 @@ export async function buildHerdrDashboardEffectImageMeta(): Promise<HerdrDashboa
     markPath: "/api/bun-mark",
     effectImagePath: "/api/effect-image",
     source: "examples/dashboard/src/effect/image/processor.ts",
+    runtimeCapabilityKey: "bunImage",
+    docsUrl: BUN_IMAGE_DOCS_URL,
   };
   if (!bunImageSupported()) {
     return { ...base, error: "Bun.Image unavailable" };

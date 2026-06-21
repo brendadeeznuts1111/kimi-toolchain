@@ -662,8 +662,7 @@ export default function NamespaceBoundariesCanvas() {
             ]}
           />
           <Text tone="tertiary" size="small">
-            SSOT: src/lib/canonical-references.ts → bun run references:generate → ~/.kimi-code/
-            after sync
+            SSOT: canonical-references.toml → bun run references:generate → ~/.kimi-code/ after sync
           </Text>
         </Stack>
       </Grid>
@@ -686,7 +685,7 @@ export default function NamespaceBoundariesCanvas() {
         <Table
           headers={["Step", "Command / path"]}
           rows={[
-            ["Edit manifest SSOT", "src/lib/canonical-references.ts"],
+            ["Edit manifest SSOT", "canonical-references.toml"],
             ["Regenerate JSON", "bun run references:generate"],
             ["Sync runtime", "bun run sync && bun run sync:verify"],
             ["Agent discovery", "kimi-doctor --probe → canonicalReferences"],

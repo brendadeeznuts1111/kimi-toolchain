@@ -35,7 +35,7 @@ describe("config-status CLI", () => {
     expect(report.schemaVersion).toBe(1);
     expect(report.tool).toBe("config-status");
     expect(report.aligned).toBe(true);
-    expect(report.gates).toHaveLength(3);
+    expect(report.gates).toHaveLength(4);
     for (const gate of report.gates) {
       expect(gate.status).toBe("pass");
     }

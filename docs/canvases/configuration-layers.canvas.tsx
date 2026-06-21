@@ -25,7 +25,7 @@ const NODE_W = 176;
 const NODE_H = 48;
 
 const FOUR_LAYERS = [
-  ["Discovery", "canonical-references.json", "src/lib/canonical-references.ts", "Yes", "Yes"],
+  ["Discovery", "canonical-references.json", "canonical-references.toml", "Yes", "Yes"],
   [
     "Define Registry",
     "constants-manifest.json",
@@ -99,7 +99,7 @@ const ENFORCEMENT_GATES = [
 const RELATED_PATHS = [
   ["Build-time constants naming", "CODE_REFERENCES.md § Build-time constants"],
   ["Ecosystem manifest + handoff probes", "docs/references/namespace.md"],
-  ["Ecosystem link SSOT", "src/lib/canonical-references.ts → canonical-references.json"],
+  ["Ecosystem link SSOT", "canonical-references.toml → data.ts + canonical-references.json"],
   [
     "Scaffold + bun create flags",
     "docs/references/bun-runtime-scaffold.md · docs/canvases/kimi-fix.canvas.tsx",

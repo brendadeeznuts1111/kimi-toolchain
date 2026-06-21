@@ -292,15 +292,16 @@ Canonical manifest id: `kimi-doctor` in `canonical-references.json`.
 
 ---
 
-## Boundary: `docs/references/` vs `src/lib/canonical-references.ts`
+## Boundary: `docs/references/` vs `canonical-references.toml`
 
-| Layer                             | Role                                                                                          | Example                                                     |
-| --------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `docs/references/*.md`            | Human-readable API docs, long-form explanations, flag tables                                  | `kimi-doctor.md`, `namespace.md`, `dashboard-thumbnails.md` |
-| `src/lib/canonical-references.ts` | Machine-readable registry: manifest rows, ecosystem repos, canvas routing, doc-link lint gate | `CANVAS_ROUTING`, `ECOSYSTEM_REPOS`, `DOC_REFERENCES`       |
-| `canonical-references.json`       | Generated manifest snapshot (cache at `~/.kimi-code/`)                                        | `bun run references:generate`                               |
+| Layer                             | Role                                                                                              | Example                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `docs/references/*.md`            | Human-readable API docs, long-form explanations, flag tables                                      | `kimi-doctor.md`, `namespace.md`, `dashboard-thumbnails.md`       |
+| `canonical-references.toml`       | Link-table SSOT: ecosystem, local docs, repos (generated → `canonical-references-data.ts` + JSON) | `ECOSYSTEM_REFERENCES`, `LOCAL_DOC_REFERENCES`, `REPO_REFERENCES` |
+| `src/lib/canonical-references.ts` | Types, validators, consumers, markdown formatters                                                 | `CANVAS_ROUTING`, health audit, doc-link lint gate                |
+| `canonical-references.json`       | Generated manifest snapshot (cache at `~/.kimi-code/`)                                            | `bun run references:generate`                                     |
 
-**Rule:** Add a `docs/references/*.md` doc → add a matching row in `canonical-references.ts` → run `bun run references:generate && bun run sync:verify`.
+**Rule:** Add a `docs/references/*.md` doc → add a matching `[[localDocs]]` row in `canonical-references.toml` → run `bun run references:generate && bun run sync:verify`.
 
 The `kimi-doctor --doc-links` lint gate enforces that every entry in `DOC_REFERENCES` has a corresponding `docs/references/*.md` file on disk and vice versa. This file (`kimi-doctor.md`) has its row in the `DOC_REFERENCES` array under the `kimi-doctor` namespace.
 

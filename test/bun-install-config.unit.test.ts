@@ -22,7 +22,10 @@ import {
   findFrozenLockfileScopeRegistryFallbacks,
   formatInstallCliWorkflow,
   formatInstallPropertyReferenceTable,
+  auditRuntimeCapabilitiesHealth,
+  evaluateBunInstallProbeHandoffCondition,
   formatInstallPolicyReport,
+  RUNTIME_CAPABILITY_INVENTORY_KEYS,
   policyRowToPropertyRef,
   SECURE_BUN_INSTALL_POLICY,
 } from "../src/lib/bun-install-config.ts";
@@ -236,6 +239,9 @@ describe("bun-install-config", () => {
         expect(lines.some((l) => l.includes("packageManagerFixes: tracked"))).toBe(true);
         expect(lines.some((l) => l.includes("timerIdleStart: node-compatible"))).toBe(true);
         expect(lines.some((l) => l.includes("parallelConsole: buffered"))).toBe(true);
+        expect(lines.some((l) => l.includes("runtimeApiDocs: available"))).toBe(true);
+        expect(lines.some((l) => l.includes("cpuProfMarkdown: active"))).toBe(true);
+        expect(lines.some((l) => l.includes("publicBenchmarks: available"))).toBe(true);
         expect(lines.some((l) => l.includes("Runtime environment"))).toBe(true);
         expect(lines.some((l) => l.includes("transpilerCache: snapshot-only"))).toBe(true);
         expect(lines.some((l) => l.includes("Platform-specific"))).toBe(true);
@@ -723,5 +729,215 @@ other = "https://registry.example.test/"
         expect(audit.versions.packageManager).toMatch(/^bun@/);
       }
     );
+  });
+
+  describe("runtimeCapabilities recent Bun additions", () => {
+    test("includes markdownTerminalRender", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(report.runtimeCapabilities.markdownTerminalRender).toMatchObject({
+        status: "available",
+        command: expect.stringContaining("bun ./README.md"),
+        docsUrl: expect.stringContaining("docs/runtime/markdown"),
+      });
+    });
+
+    test("includes wrapAnsi", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      const { wrapAnsi } = report.runtimeCapabilities;
+      expect(wrapAnsi).toMatchObject({
+        status: "available",
+        docsUrl: expect.stringContaining("docs/runtime/utils"),
+      });
+      expect(wrapAnsi.command).toContain("Bun.wrapAnsi");
+      expect(wrapAnsi.command).toContain("long red text that needs wrapping");
+    });
+
+    test("includes json5Native", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(report.runtimeCapabilities.json5Native).toMatchObject({
+        status: "available",
+        command: expect.stringContaining("Bun.JSON5.parse"),
+        docsUrl: expect.stringContaining("docs/runtime/json5"),
+      });
+    });
+
+    test("includes jsonlStreaming", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(report.runtimeCapabilities.jsonlStreaming).toMatchObject({
+        status: "available",
+        command: expect.stringContaining("Bun.JSONL.parseChunk"),
+        docsUrl: expect.stringContaining("docs/runtime/jsonl"),
+      });
+    });
+
+    test("includes webView headless browser automation", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(report.runtimeCapabilities.webView).toMatchObject({
+        status: "active",
+        command: expect.stringContaining("Bun.WebView"),
+        docsUrl: expect.stringContaining("docs/api/webview"),
+        transport: expect.stringMatching(/^ws:\/\//),
+        hmr: false,
+      });
+    });
+
+    test("includes inProcessCron scheduler", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(report.runtimeCapabilities.inProcessCron).toMatchObject({
+        status: "active",
+        command: expect.stringContaining("Bun.cron"),
+        docsUrl: expect.stringContaining("docs/api/cron"),
+        hmr: true,
+      });
+    });
+
+    test("includes cpuProfMarkdown profiling output", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      const cap = report.runtimeCapabilities.cpuProfMarkdown;
+      expect(cap.status).toBe("active");
+      expect(cap.command.includes("--cpu-prof-md")).toBe(true);
+      expect(cap.docsUrl).toBe("https://bun.com/docs/project/benchmarking#markdown-output");
+      expect(cap.streams).toEqual(["stdout"]);
+      expect(cap.hmr).toBe(false);
+    });
+
+    test("includes heapProf profiling output", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      const cap = report.runtimeCapabilities.heapProf;
+      expect(cap.status).toBe("active");
+      expect(cap.command.includes("--heap-prof-md")).toBe(true);
+      expect(cap.docsUrl).toBe("https://bun.com/docs/project/benchmarking#markdown-output-2");
+    });
+
+    test("includes cgroupAwareParallelism", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(
+        report.runtimeCapabilities.cgroupAwareParallelism.command.includes("hardwareConcurrency")
+      ).toBe(true);
+      expect(report.runtimeCapabilities.cgroupAwareParallelism.status).toBe("active");
+    });
+
+    test("includes httpsProxyKeepAlive", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(report.runtimeCapabilities.httpsProxyKeepAlive.command.includes("proxy:")).toBe(true);
+      expect(report.runtimeCapabilities.httpsProxyKeepAlive.status).toBe("active");
+    });
+
+    test("includes tcpDeferAccept", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(report.runtimeCapabilities.tcpDeferAccept.command.includes("Bun.serve")).toBe(true);
+      expect(report.runtimeCapabilities.tcpDeferAccept.status).toBe("active");
+    });
+
+    test("includes jscHeapStats", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(report.runtimeCapabilities.jscHeapStats).toMatchObject({
+        status: "available",
+        module: "bun:jsc",
+        methods: ["heapStats"],
+        command: expect.stringContaining("heapStats"),
+        metrics: expect.arrayContaining(["heapSize", "objectTypeCounts"]),
+        nativeHeapEnv: "MIMALLOC_SHOW_STATS=1",
+        nativeHeapCommand: "MIMALLOC_SHOW_STATS=1 bun script.js",
+        docsUrl: "https://bun.com/docs/project/benchmarking#javascript-heap-stats",
+        nativeHeapDocsUrl: "https://bun.com/docs/project/benchmarking#native-heap-stats",
+      });
+    });
+
+    test("includes measuringTime", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      const { measuringTime } = report.runtimeCapabilities;
+      expect(measuringTime).toMatchObject({
+        status: "available",
+        docsUrl: "https://bun.com/docs/project/benchmarking#measuring-time",
+        apis: ["performance.now()", "Bun.nanoseconds()", "performance.timeOrigin"],
+      });
+      expect(measuringTime.command.includes("Bun.nanoseconds")).toBe(true);
+      expect(measuringTime.command.includes("performance.now()")).toBe(true);
+    });
+
+    test("includes publicBenchmarks bench repo", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(report.runtimeCapabilities.publicBenchmarks).toMatchObject({
+        status: "available",
+        repoUrl: "https://github.com/oven-sh/bun/tree/main/bench",
+        path: "bench/",
+        docsUrl: "https://bun.com/docs/project/benchmarking",
+      });
+    });
+
+    test("internalOptimizations is informational and excluded from inventory", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(report.internalOptimizations.informational).toBe(true);
+      expect(report.internalOptimizations.runtimeDetected).toBe(true);
+      expect(report.internalOptimizations.bunVersion).toBe(Bun.version);
+      expect(report.internalOptimizations.bunRevision).toBe(Bun.revision);
+      expect(report.internalOptimizations.docs.versionGuide).toBe(
+        "https://bun.com/docs/guides/util/version"
+      );
+      expect(report.internalOptimizations.docs.detectBunGuide).toBe(
+        "https://bun.com/docs/guides/util/detect-bun"
+      );
+      expect(report.internalOptimizations.docs.updateCli).toBe(
+        "https://bun.com/docs/pm/cli/update"
+      );
+      expect(report.internalOptimizations.notes.length).toBeGreaterThan(0);
+      expect(RUNTIME_CAPABILITY_INVENTORY_KEYS).not.toContain("internalOptimizations");
+      const health = await auditRuntimeCapabilitiesHealth(REPO_ROOT);
+      expect(health.capabilityCount).toBe(RUNTIME_CAPABILITY_INVENTORY_KEYS.length);
+    });
+
+    test("formatInstallPolicyReport lists internal optimizations for doctor output", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      const lines = formatInstallPolicyReport(report);
+      expect(lines.some((line) => line.includes("Internal optimizations (informational"))).toBe(
+        true
+      );
+      expect(lines.some((line) => line.includes("URLPattern"))).toBe(true);
+    });
+
+    test("auditRuntimeCapabilitiesHealth passes for toolchain root", async () => {
+      const health = await auditRuntimeCapabilitiesHealth(REPO_ROOT);
+      expect(health.applicable).toBe(true);
+      expect(health.aligned).toBe(true);
+      expect(health.capabilityCount).toBe(16);
+      expect(health.runtimeApiDocs?.globalsUrl).toBe("https://bun.com/docs/runtime/globals");
+    });
+
+    test("evaluateBunInstallProbeHandoffCondition accepts inventory probe", async () => {
+      const result = await evaluateBunInstallProbeHandoffCondition(
+        "bun-install:capabilities",
+        REPO_ROOT
+      );
+      expect(result.ok).toBe(true);
+    });
+
+    test("includes bunImage capability", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(report.runtimeCapabilities.bunImage).toMatchObject({
+        status: "available",
+        docsUrl: "https://bun.com/docs/runtime/image",
+        sourceModule: "src/lib/bun-image.ts",
+        dashboardPaths: ["/api/image", "/api/thumbnail", "/api/bun-mark"],
+      });
+    });
+
+    test("evaluateBunInstallProbeHandoffCondition accepts bun-image probe", async () => {
+      const result = await evaluateBunInstallProbeHandoffCondition(
+        "bun-install:bun-image",
+        REPO_ROOT
+      );
+      expect(result.ok).toBe(true);
+    });
+
+    test("includes runtimeApiDocs", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      expect(report.runtimeCapabilities.runtimeApiDocs).toMatchObject({
+        status: "available",
+        globalsUrl: "https://bun.com/docs/runtime/globals",
+        bunApisUrl: "https://bun.com/docs/runtime/bun-apis",
+        webApisUrl: "https://bun.com/docs/runtime/web-apis",
+      });
+    });
   });
 });

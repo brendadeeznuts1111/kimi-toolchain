@@ -13,10 +13,11 @@ describe("config-status", () => {
     const report = await auditConfigLayersStatus(REPO_ROOT);
     expect(report.schemaVersion).toBe(1);
     expect(report.tool).toBe("config-status");
-    expect(report.gates).toHaveLength(3);
+    expect(report.gates).toHaveLength(4);
     for (const gate of report.gates) {
       expect(gate.status).toBe("pass");
     }
+    expect(report.gates.some((gate) => gate.id === "bun-install-runtime")).toBe(true);
     expect(report.aligned).toBe(true);
     expect(report.fixPlan).toHaveLength(0);
   }, 5_000);
@@ -27,6 +28,7 @@ describe("config-status", () => {
     expect(table).toContain("canonical-references");
     expect(table).toContain("constants-manifest");
     expect(table).toContain("constant-parity");
+    expect(table).toContain("bun-install-runtime");
     expect(table).toContain("✅");
     expect(table).toContain("Configuration layers status");
   }, 5_000);

@@ -160,7 +160,7 @@ const FILE_PATHS: Record<string, string> = {
 
 5. **Update `TEMPLATES.md`** — add a section documenting the template, its purpose, and any placeholders.
 
-6. **If it's a documentation template** (like `adr-template.md`), add it to `LOCAL_DOC_REFERENCES` in `src/lib/canonical-references.ts` and regenerate: `bun run references:generate`.
+6. **If it's a documentation template** (like `adr-template.md`), add a `[[localDocs]]` row in `canonical-references.toml` and regenerate: `bun run references:generate`.
 
 ### Profile differentiation
 

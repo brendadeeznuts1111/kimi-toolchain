@@ -1,7 +1,8 @@
 # Canonical references system
 
 > How `canonical-references.json` stays trustworthy: schema, generation, freshness, drift, lint layers, and consumers.
-> **Code SSOT:** `src/lib/canonical-references.ts` (`ECOSYSTEM_REFERENCES`, `LOCAL_DOC_REFERENCES`, `REPO_REFERENCES`).
+> **Link-table SSOT:** `canonical-references.toml` → `src/lib/canonical-references-data.ts` + `canonical-references.json`.
+> **Types & validators:** `src/lib/canonical-references.ts`, `canonical-references-manifest-lint.ts`, `canonical-references-toml.ts`.
 > **Layer context:** [configuration-layers.md](./configuration-layers.md) § Discovery layer.
 
 Agents and gates treat the manifest as the machine-readable index of ecosystem stacks, local docs, and upstream repos. This doc explains how that index is produced, validated, and kept aligned between the repo and `~/.kimi-code/`.
@@ -32,26 +33,36 @@ Agents and gates treat the manifest as the machine-readable index of ecosystem s
 | `localDocs`        | `LOCAL_DOC_REFERENCES`                | Repo/runtime doc paths, canvas metadata           |
 | `repos`            | `REPO_REFERENCES`                     | GitHub upstream pointers, clone paths, `provides` |
 
-Entry shapes are defined by `EcosystemReference`, `LocalDocReference`, and `RepoReference` at the top of `canonical-references.ts`. Runtime parsing via `isCanonicalReferencesManifest()` is **structural** (version + three arrays exist) — not per-field schema validation.
+Entry shapes are defined by `EcosystemReference`, `LocalDocReference`, and `RepoReference` in `canonical-references.ts`. Link-table rows live in `canonical-references.toml` and are emitted as `as const` arrays in `canonical-references-data.ts`.
+
+The canonical structural schema is the Bun-native validator, not a separate JSON/TOML schema file. `lintCanonicalReferencesLinkTables()` + `lintManifestBunNative()` (Bun-native: `new URL`, `Bun.semver.order`, pattern sets) enforce every field rule. `lintCanonicalReferencesToml()` wraps both for raw TOML input. Runtime parsing via `isCanonicalReferencesManifest()` is only structural (version + three arrays exist).
 
 ---
 
 ## Generation pipeline
 
-There is no separate compile step. Generation is a deterministic reflection of the TypeScript source arrays.
+There is no separate compile step. Generation is a deterministic reflection of the TOML link tables.
 
 ```
-src/lib/canonical-references.ts
-  ECOSYSTEM_REFERENCES / LOCAL_DOC_REFERENCES / REPO_REFERENCES
+canonical-references.toml          ← edit here (human SSOT)
         │
         ▼
-  buildCanonicalReferencesManifest()
+  Bun.TOML.parse() → parseCanonicalReferencesToml()
         │
         ▼
-  finalizeCanonicalReferencesManifest(generated, existing)   ← preserves generatedAt when content unchanged
+  lintManifestBunNative()          ← Bun-native structural validation
         │
-        ▼
-  stableStringify() → canonical-references.json (repo root)
+        ├──▶ generateCanonicalReferencesDataTs() → oxfmt → canonical-references-data.ts
+        │
+        ├──▶ buildCanonicalReferencesManifestFromTables()
+        │         │
+        │         ▼
+        │    finalizeCanonicalReferencesManifest(generated, existing)
+        │         │
+        │         ▼
+        │    stableStringify() → canonical-references.json (repo root)
+        │
+        └──▶ --check: compare data.ts + JSON against disk (exit 1 on drift)
         │
         ▼
   bun run sync → collectRootLocalDocSyncPaths() → ~/.kimi-code/
@@ -70,32 +81,34 @@ The self-referencing `canonical-references` row therefore controls distribution 
 
 `lintLocalDocSyncPaths()` enforces `runtimePath === ~/.kimi-code/<repoPath>` for every row. Duplicate `repoPath` aliases (canvas companions) must share the same `runtimePath`.
 
-### `buildCanonicalReferencesManifest()`
+### `buildCanonicalReferencesManifestFromTables()`
 
-Spreads the three source arrays and attaches metadata:
+Spreads parsed link tables and attaches metadata:
 
 ```typescript
 return {
   schemaVersion: CANONICAL_REFERENCES_SCHEMA_VERSION,
   generatedAt: new Date().toISOString(),
   toolchainVersion: TOOLCHAIN_VERSION,
-  ecosystem: [...ECOSYSTEM_REFERENCES],
-  localDocs: [...LOCAL_DOC_REFERENCES],
-  repos: [...REPO_REFERENCES],
+  ecosystem: [...tables.ecosystem],
+  localDocs: [...tables.localDocs],
+  repos: [...tables.repos],
 };
 ```
 
 ### `scripts/generate-canonical-references.ts`
 
-| Flag      | Behavior                                                                      |
-| --------- | ----------------------------------------------------------------------------- |
-| (default) | `lintRepoReferences()` → write manifest → `syncCanvasCompanions()`            |
-| `--check` | Fail if manifest stale, ecosystem↔repo incomplete, or canvas companions stale |
-| `--json`  | Print manifest to stdout only (no write)                                      |
+| Flag      | Behavior                                                                                                 |
+| --------- | -------------------------------------------------------------------------------------------------------- |
+| (default) | Validate TOML → write `canonical-references-data.ts` + JSON → `lintRepoReferences()` → canvas sync       |
+| `--check` | Fail if TOML invalid, `data.ts` stale, JSON stale, ecosystem↔repo incomplete, or canvas companions stale |
+| `--json`  | Print manifest to stdout only (no write)                                                                 |
 
 **Command:** `bun run references:generate`
 
-`bun run lint` includes `generate-canonical-references.ts --check` as the `canonical-references` gate — committed JSON must match source tables.
+`bun run lint` includes `generate-canonical-references.ts --check` as the `canonical-references` gate — committed `data.ts` and JSON must match TOML.
+
+`bun run references:lint` validates TOML + repo reference rules without regenerating artifacts.
 
 ---
 
@@ -103,7 +116,7 @@ return {
 
 Two independent alignment questions:
 
-1. **Repo fresh** — Does `canonical-references.json` match `src/lib/canonical-references.ts`?
+1. **Repo fresh** — Do `canonical-references-data.ts` and `canonical-references.json` match `canonical-references.toml`?
 2. **Runtime aligned** — Does `~/.kimi-code/canonical-references.json` match the repo file?
 
 ### Content equality (what actually matters)
@@ -121,26 +134,29 @@ It **ignores** `generatedAt` and `toolchainVersion`. A manifest can look "newer"
 
 ### `generatedAt` preservation
 
-`finalizeCanonicalReferencesManifest()` keeps the previous `generatedAt` when link-table content is unchanged. This avoids timestamp-only git churn and meaningless sync deltas when someone re-runs generate without editing source arrays.
+`finalizeCanonicalReferencesManifest()` keeps the previous `generatedAt` when link-table content is unchanged. This avoids timestamp-only git churn and meaningless sync deltas when someone re-runs generate without editing TOML.
 
 ### Typical drift scenarios
 
-| Symptom                          | Cause                                             | Fix                                       |
-| -------------------------------- | ------------------------------------------------- | ----------------------------------------- |
-| `repo-fresh` error               | Edited TS arrays, forgot generate                 | `bun run references:generate`             |
-| `runtime-aligned` error          | Repo manifest updated, runtime stale              | `bun run sync`                            |
-| `runtime-cache` error            | No file at `~/.kimi-code/`                        | `bun run sync` (after generate if needed) |
-| Lint `canonical-references` gate | Committed JSON behind source                      | `bun run references:generate`             |
-| `package-pointer` warn           | `package.json` → `kimi.canonicalReferences` wrong | Set to `canonical-references.json`        |
+| Symptom                          | Cause                                               | Fix                                       |
+| -------------------------------- | --------------------------------------------------- | ----------------------------------------- |
+| `repo-fresh` error               | Edited TOML, forgot generate                        | `bun run references:generate`             |
+| `data.ts stale` (check gate)     | TOML changed; `canonical-references-data.ts` behind | `bun run references:generate`             |
+| `runtime-aligned` error          | Repo manifest updated, runtime stale                | `bun run sync`                            |
+| `runtime-cache` error            | No file at `~/.kimi-code/`                          | `bun run sync` (after generate if needed) |
+| Lint `canonical-references` gate | Committed artifacts behind TOML                     | `bun run references:generate`             |
+| `package-pointer` warn           | `package.json` → `kimi.canonicalReferences` wrong   | Set to `canonical-references.json`        |
 
 ```mermaid
 flowchart LR
-  TS["canonical-references.ts"]
+  TOML["canonical-references.toml"]
+  DATA["canonical-references-data.ts"]
   JSON["canonical-references.json"]
   RT["~/.kimi-code/canonical-references.json"]
-  TS -->|references:generate| JSON
+  TOML -->|references:generate| DATA
+  TOML -->|references:generate| JSON
   JSON -->|bun run sync| RT
-  TS -.->|referencesContentEqual| JSON
+  TOML -.->|referencesContentEqual| JSON
   JSON -.->|referencesContentEqual| RT
 ```
 
@@ -153,7 +169,7 @@ Used by `kimi-doctor`, ecosystem probes, and herdr handoff rules (`probe:canonic
 | Check name        | Condition                                                  | Status if failing | Fix                           |
 | ----------------- | ---------------------------------------------------------- | ----------------- | ----------------------------- |
 | `repo-manifest`   | JSON missing or unparseable                                | `error`           | `bun run references:generate` |
-| `repo-fresh`      | Content stale vs source arrays                             | `error`           | `bun run references:generate` |
+| `repo-fresh`      | Content stale vs TOML-derived tables                       | `error`           | `bun run references:generate` |
 | `runtime-cache`   | No runtime copy                                            | `error`           | `bun run sync`                |
 | `runtime-aligned` | Runtime differs from repo                                  | `error`           | `bun run sync`                |
 | `package-pointer` | `kimi.canonicalReferences` not `canonical-references.json` | `warn`            | Fix `package.json`            |
@@ -180,8 +196,10 @@ Trust is enforced at multiple depths:
 
 | Layer                       | Command / function                                | What it checks                                                                               |
 | --------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **TOML structural lint**    | `lintManifestBunNative()` (on every generate)     | IDs, URLs, semver, repo links, canvas metadata — Bun-native validators                       |
 | **Repo reference lint**     | `lintRepoReferences()` (runs on every generate)   | GitHub URL shape, duplicate ids/urls, `provides` links, ecosystem↔repo pairing, clone paths  |
-| **Committed parity**        | `bun run lint` → `references:generate --check`    | JSON on disk matches source arrays                                                           |
+| **CI lint (no regen)**      | `bun run references:lint`                         | TOML parse + `lintManifestBunNative` + `lintRepoReferences`                                  |
+| **Committed parity**        | `bun run lint` → `references:generate --check`    | `data.ts` + JSON on disk match TOML                                                          |
 | **URL shape**               | `lintRepoUrls()`, `references:inspect --validate` | `https://github.com/:org/:repo` pattern only — not live HTTP                                 |
 | **Markdown links**          | `bun run lint:links` / `lint:links:online`        | Internal doc links; optional HEAD on external URLs in markdown                               |
 | **Ecosystem URLs (opt-in)** | `bun run references:lint-online`                  | Live HEAD/GET on ecosystem `homepage` and `docs` (skips non-http paths like `dx` local docs) |
@@ -193,39 +211,135 @@ Online ecosystem checks are **not** part of `bun run check` — use in scheduled
 
 ## Consumers
 
-| Consumer                            | Reads                                   | Purpose                                               |
-| ----------------------------------- | --------------------------------------- | ----------------------------------------------------- |
-| `~/.kimi-code/` agents              | Runtime copy after `sync`               | Stack links, doc index outside repo checkout          |
-| `kimi-doctor` / ecosystem health    | `auditCanonicalReferencesHealth`        | Freshness + runtime alignment in doctor reports       |
-| Herdr orchestrator                  | `probe:canonical-references:*`          | Handoff gates before workflows that need current refs |
-| `formatCanonicalReferencesMarkdown` | Source arrays                           | CONTEXT.md / README ecosystem tables                  |
-| `references:inspect`                | Source arrays                           | Terminal tables (`--plain`, `--json`)                 |
-| Canvas companion sync               | `LOCAL_DOC_REFERENCES` + `cursorCanvas` | Regenerates canvas companion files on generate        |
-| Doc-link lint                       | Ecosystem URLs in markdown              | Cross-check against manifest rows                     |
+| Consumer                            | Reads                                   | Purpose                                                                                                            |
+| ----------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `~/.kimi-code/` agents              | Runtime copy after `sync`               | Stack links, doc index outside repo checkout                                                                       |
+| `kimi-doctor` / ecosystem health    | `auditCanonicalReferencesHealth`        | Freshness + runtime alignment in doctor reports                                                                    |
+| Herdr orchestrator                  | `probe:canonical-references:*`          | Handoff gates before workflows that need current refs                                                              |
+| `formatCanonicalReferencesMarkdown` | `ECOSYSTEM_REFERENCES` etc. (from data) | CONTEXT.md / README ecosystem tables                                                                               |
+| `references:inspect`                | Generated arrays                        | Terminal tables (`--plain`, `--json`)                                                                              |
+| `references:inspect --watch`        | TOML + `data.ts` + JSON file watchers   | Live dashboard; `bun run references:inspect:watch` for HMR                                                         |
+| Canvas companion sync               | `LOCAL_DOC_REFERENCES` + `cursorCanvas` | Regenerates canvas companion files on generate                                                                     |
+| Doc-link lint                       | Ecosystem URLs in markdown              | Cross-check against manifest rows                                                                                  |
+| Dashboard thumbnails                | `src/lib/bun-image.ts`                  | WebView PNG → `Bun.Image.metadata()` → `/api/thumbnail` (see [dashboard-thumbnails.md](./dashboard-thumbnails.md)) |
 
 ---
 
 ## Commands
 
-| Task                        | Command                                                   |
-| --------------------------- | --------------------------------------------------------- |
-| Regenerate manifest         | `bun run references:generate`                             |
-| Verify committed JSON fresh | `bun run references:generate --check`                     |
-| Inspect tables              | `bun run references:inspect`                              |
-| Plain terminal output       | `bun run references:inspect --plain --section all`        |
-| JSON export                 | `bun run references:inspect --json`                       |
-| Live ecosystem URL check    | `bun run references:lint-online`                          |
-| Push to runtime             | `bun run sync && bun run sync:verify`                     |
-| Full health picture         | `auditCanonicalReferencesHealth` via doctor or unit tests |
+| Task                       | Command                                                   |
+| -------------------------- | --------------------------------------------------------- |
+| Regenerate artifacts       | `bun run references:generate`                             |
+| Verify committed artifacts | `bun run references:generate --check`                     |
+| Lint TOML without regen    | `bun run references:lint`                                 |
+| Inspect tables             | `bun run references:inspect`                              |
+| Live inspect dashboard     | `bun run references:inspect --watch`                      |
+| HMR-aware watch            | `bun run references:inspect:watch`                        |
+| Plain terminal output      | `bun run references:inspect --plain --section all`        |
+| JSON export                | `bun run references:inspect --json`                       |
+| Live ecosystem URL check   | `bun run references:lint-online`                          |
+| Push to runtime            | `bun run sync && bun run sync:verify`                     |
+| Full health picture        | `auditCanonicalReferencesHealth` via doctor or unit tests |
 
 ### Edit workflow
 
-1. Edit arrays in `src/lib/canonical-references.ts`.
-2. `bun run references:generate` (runs repo reference lint + writes JSON).
+1. Edit link tables in `canonical-references.toml`.
+2. `bun run references:generate` (validates TOML, writes `canonical-references-data.ts` + JSON, runs repo reference lint).
 3. `bun run sync && bun run sync:verify` when runtime agents need the update.
 4. `bun run check:fast` before commit.
 
-Adding a `docs/references/*.md` doc: add a `LOCAL_DOC_REFERENCES` row → generate → sync.
+Adding a `docs/references/*.md` doc: add a `[[localDocs]]` row in TOML → generate → sync.
+
+---
+
+## System architecture
+
+The canonical-references loop is one half of agent-facing discovery. **Ecosystem stacks, local docs, and repos** live in `canonical-references.toml`. **Bun runtime APIs, profiling, and benchmarking** live in `src/lib/bun-install-config.ts` (`runtimeCapabilities`, including `runtimeApiDocs`).
+
+```mermaid
+flowchart TB
+  subgraph ssot [SSOT layer]
+    TOML["canonical-references.toml"]
+    BIC["src/lib/bun-install-config.ts"]
+    VER["src/lib/version.ts → TOOLCHAIN_VERSION"]
+  end
+
+  subgraph gen [Generation layer]
+    PARSE["Bun.TOML.parse → parseCanonicalReferencesToml"]
+    LINT["lintCanonicalReferencesLinkTables / lintManifestBunNative"]
+    GENTS["generateCanonicalReferencesDataTs → oxfmt"]
+    BUILD["buildCanonicalReferencesManifestFromTables"]
+  end
+
+  subgraph dist [Distribution layer]
+    DATA["canonical-references-data.ts"]
+    JSON["canonical-references.json"]
+    RTJSON["~/.kimi-code/canonical-references.json"]
+    CAPS["runtimeCapabilities via buildInstallPolicyReport"]
+  end
+
+  subgraph consume [Consumption layer]
+    DASH["Dashboard · Bun.file(json).json()"]
+    HERDR["Herdr · auditCanonicalReferencesHealth · spawn_gates"]
+    DOC["Doctor / scaffold · TS constants · version checks"]
+    AGENT["Agents / CLIs · bun-install-status --json · runtimeApiDocs"]
+  end
+
+  TOML --> PARSE --> LINT
+  LINT --> GENTS --> DATA
+  LINT --> BUILD --> JSON
+  JSON --> RTJSON
+  BIC --> CAPS
+  VER --> BUILD
+
+  DATA --> DOC
+  JSON --> DASH
+  JSON --> HERDR
+  RTJSON --> AGENT
+  CAPS --> AGENT
+```
+
+### Validation gates (CI)
+
+| Gate              | Command / probe                          | Checks                                               |
+| ----------------- | ---------------------------------------- | ---------------------------------------------------- |
+| TOML + repo lint  | `bun run references:lint`                | Parse, link tables, repo pairing                     |
+| Artifact drift    | `bun run references:generate --check`    | `data.ts` + JSON match TOML                          |
+| Full lint bundle  | `bun run lint`                           | Includes `--check` above                             |
+| Health / handoff  | `probe:canonical-references:*`           | `repo-fresh`, `runtime-aligned`, `runtime-cache`     |
+| Unit tests        | `test/canonical-references.unit.test.ts` | 59 pass (includes `--plain` snapshot)                |
+| Watch CLI         | `bun run references:inspect:watch`       | `references-inspect-watch.ts` + 7 unit tests         |
+| Install policy    | `test/bun-install-config.unit.test.ts`   | 45+ pass (`runtimeApiDocs`, profiling, benchmarking) |
+| Runtime inventory | `auditRuntimeCapabilitiesHealth`         | `runtimeApiDocs` URLs + 12 capability keys           |
+| Config layers     | `bun run config:status`                  | `bun-install-runtime` gate (inline audit)            |
+| Doctor probe      | `kimi-doctor --probe`                    | `bunRuntimeCapabilities` embed                       |
+| Handoff           | `probe:bun-install:*`                    | `evaluateBunInstallProbeHandoffCondition`            |
+
+### Bun primitives in the pipeline
+
+| Primitive                             | Role                              |
+| ------------------------------------- | --------------------------------- |
+| `Bun.TOML.parse`                      | SSOT → typed tables               |
+| `new URL()` / `URLPattern`            | URL and GitHub shape validation   |
+| `Bun.semver.order`                    | `minVersion`, canvas semver       |
+| `Bun.file(...).text()` / `.json()`    | TOML read; runtime manifest load  |
+| `Bun.write(...)`                      | Generated artifact output         |
+| `Bun.inspect.table`                   | `references:inspect` tables       |
+| `Bun.stripANSI` / `Bun.markdown.ansi` | `--plain` and `--watch` rendering |
+
+No external dependencies in the generate/lint path — validators and generators use Bun built-ins only.
+
+### `runtimeApiDocs` (parallel discovery)
+
+`runtimeApiDocs` in `buildRuntimeCapabilities()` points agents at the three canonical runtime doc indexes:
+
+| Field        | URL                                     |
+| ------------ | --------------------------------------- |
+| `globalsUrl` | `https://bun.com/docs/runtime/globals`  |
+| `bunApisUrl` | `https://bun.com/docs/runtime/bun-apis` |
+| `webApisUrl` | `https://bun.com/docs/runtime/web-apis` |
+
+Inspect programmatically: `bun run scripts/bun-install-status.ts --json` → `runtimeCapabilities.runtimeApiDocs`.
 
 ---
 
@@ -234,4 +348,5 @@ Adding a `docs/references/*.md` doc: add a `LOCAL_DOC_REFERENCES` row → genera
 - [configuration-layers.md](./configuration-layers.md) — four-layer model; discovery vs define vs parity
 - [namespace.md](./namespace.md) — manifest row semantics vs `dx.config.toml` keys
 - [kimi-doctor.md](./kimi-doctor.md) — doctor integration and probe wiring
+- [dashboard-thumbnails.md](./dashboard-thumbnails.md) — `Bun.Image` thumbnail pipeline (`src/lib/bun-image.ts`)
 - `docs/handoff-rules.md` — herdr `probe:canonical-references:*` conditions

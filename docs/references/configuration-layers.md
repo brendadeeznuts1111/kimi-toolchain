@@ -10,7 +10,7 @@ This repository uses **four distinct configuration layers**. They are not interc
 
 | Layer                   | File                                  | Edit SSOT (Source of Truth)                                                         | Generated?                              | Synced to `~/.kimi-code/`?                                                                                                                                                                               |
 | :---------------------- | :------------------------------------ | :---------------------------------------------------------------------------------- | :-------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Discovery**           | `canonical-references.json`           | `src/lib/canonical-references.ts`                                                   | **Yes** (`bun run references:generate`) | **Yes** (agents read from the synced copy)                                                                                                                                                               |
+| **Discovery**           | `canonical-references.json`           | `canonical-references.toml` → `src/lib/canonical-references-data.ts` (generated)    | **Yes** (`bun run references:generate`) | **Yes** (agents read from the synced copy)                                                                                                                                                               |
 | **Define Registry**     | `constants-manifest.json`             | `bunfig.toml` (`[define]`) + `types/build-constants.d.ts`                           | **Yes** (`bun run manifest:generate`)   | **No** (repo-only)                                                                                                                                                                                       |
 | **Cross-Repo Contract** | `constants-parity.toml`               | Hand-edited TOML (maintained manually)                                              | **No**                                  | **No** (repo-only)                                                                                                                                                                                       |
 | **App Scaffold**        | `templates/scaffold/bunfig.toml`      | Template file (copied by `kimi-fix`)                                                | **No**                                  | N/A (installed per new project). For details on `bun create` flags and Bun install configuration (including the experimental global store), see [Bun runtime scaffold flags](./bun-runtime-scaffold.md). |
@@ -85,12 +85,12 @@ Manifest id: `configuration-layers` · repo: `docs/references/configuration-laye
 
 ## Related docs
 
-| Topic                                                    | Path                                                                  |
-| -------------------------------------------------------- | --------------------------------------------------------------------- |
-| Build-time constants naming (`defineDomain`, taxonomyId) | [CODE_REFERENCES.md](../../CODE_REFERENCES.md) § Build-time constants |
-| Ecosystem manifest and handoff probes                    | [namespace.md](./namespace.md)                                        |
-| Ecosystem link SSOT                                      | `src/lib/canonical-references.ts` → `canonical-references.json`       |
-| Define registry generator                                | `src/lib/build-constants-registry.ts` → `constants-manifest.json`     |
-| Cross-repo parity config                                 | `constants-parity.toml`                                               |
-| Bun runtime scaffold flags and install config            | [bun-runtime-scaffold.md](./bun-runtime-scaffold.md)                  |
-| Effects pipeline and thresholds                          | [kimi-doctor.md](./kimi-doctor.md) § Effects pipeline                 |
+| Topic                                                    | Path                                                                                       |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Build-time constants naming (`defineDomain`, taxonomyId) | [CODE_REFERENCES.md](../../CODE_REFERENCES.md) § Build-time constants                      |
+| Ecosystem manifest and handoff probes                    | [namespace.md](./namespace.md)                                                             |
+| Ecosystem link SSOT                                      | `canonical-references.toml` → `canonical-references-data.ts` + `canonical-references.json` |
+| Define registry generator                                | `src/lib/build-constants-registry.ts` → `constants-manifest.json`                          |
+| Cross-repo parity config                                 | `constants-parity.toml`                                                                    |
+| Bun runtime scaffold flags and install config            | [bun-runtime-scaffold.md](./bun-runtime-scaffold.md)                                       |
+| Effects pipeline and thresholds                          | [kimi-doctor.md](./kimi-doctor.md) § Effects pipeline                                      |

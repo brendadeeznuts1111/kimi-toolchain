@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+// describe.serial ensures these tests run sequentially — they mutate Bun.env.HOME
+// and must not race with other tests that read HOME concurrently.
 import { existsSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { artifactPath } from "../src/lib/artifacts.ts";
@@ -6,7 +8,7 @@ import { desktopRoot, syncDesktop } from "../src/lib/desktop-sync.ts";
 import { writeSyncManifest, verifySyncManifest } from "../src/lib/sync-manifest.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
-describe("sync-manifest", () => {
+describe.serial("sync-manifest", () => {
   let previousHome: string | undefined;
   let testHome: string;
 

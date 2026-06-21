@@ -1,7 +1,7 @@
 # Canvas companions (kimi-toolchain)
 
 **SSOT:** `docs/canvases/*.canvas.tsx` — registered via `cursorCanvas` in
-`src/lib/canonical-references.ts`. Lint: `bun run scripts/lint-cursor-canvas.ts`
+`canonical-references.toml` (`LOCAL_DOC_REFERENCES` → `cursorCanvas`). Lint: `bun run scripts/lint-cursor-canvas.ts`
 (step `cursor-canvas` in `bun run lint`).
 
 ## Locations
@@ -28,7 +28,7 @@ Global canvas skills are **not** updated from this repo. Repo conventions live h
 
 1. Topic body (cards, tables, DAG — topic-specific)
 2. Self-contained — one `.canvas.tsx` per companion, no shared imports
-3. Registered with a `cursorCanvas` pointer in `src/lib/canonical-references.ts`
+3. Registered with a `cursorCanvas` pointer in `canonical-references.toml` (`[[localDocs]]`)
 4. `CANVAS_ROUTING`, hub stats, and `TOOL_INVENTORY` in `kimi-toolchain.canvas.tsx` are **generated** — run
    `bun run canvas:generate` after manifest, bin, or test-gate changes (checked by
    `bun run scripts/lint-cursor-canvas.ts`; `references:generate --check` includes canvas freshness)

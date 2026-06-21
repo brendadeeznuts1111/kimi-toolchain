@@ -109,7 +109,7 @@ Authoritative link table for agents — **8 stacks** in `ecosystem`: `bun`, `eff
 
 - Repo: `canonical-references.json` (generate: `bun run references:generate`)
 - Runtime copy: `~/.kimi-code/canonical-references.json`
-- Source: `src/lib/canonical-references.ts`
+- Source: `canonical-references.toml` (types/consumers: `src/lib/canonical-references.ts`)
 - Probe embed: `kimi-doctor --probe` → `canonicalReferences`
 - **12 `localDocs`** ids (including this file) in the same manifest under `localDocs`
 - For all configuration layers (Discovery, Build, Parity, Scaffold), see [Configuration & Reference Layers](./configuration-layers.md)
@@ -215,7 +215,7 @@ Related commands: `bun run dx:table -u`, `bun run dx:table:contract`, `bun run r
 
 ### `docs/references/` index (11 `localDocs`)
 
-Agent-indexed reference docs in this directory — synced to `~/.kimi-code/docs/references/` after `bun run sync`. SSOT rows: `src/lib/canonical-references.ts` → `canonical-references.json`.
+Agent-indexed reference docs in this directory — synced to `~/.kimi-code/docs/references/` after `bun run sync`. SSOT rows: `canonical-references.toml` → `canonical-references-data.ts` + `canonical-references.json`.
 
 | Manifest id                        | File                                                                         | One-line                                                                                               |
 | ---------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -231,12 +231,12 @@ Agent-indexed reference docs in this directory — synced to `~/.kimi-code/docs/
 | `herdr-plugin-architecture`        | [herdr-plugin-architecture.md](./herdr-plugin-architecture.md)               | Herdr plugin boundaries and architecture                                                               |
 | `v53-architecture`                 | [v53-architecture.md](./v53-architecture.md)                                 | v5.3 consolidated reference: 9-file map, profiles, MODULE_REGISTRY, card dashboard                     |
 
-| Topic                                 | Path                                                           |
-| ------------------------------------- | -------------------------------------------------------------- |
-| Automation gate CLI + JSON            | [kimi-doctor.md](./kimi-doctor.md)                             |
-| Thumbnail encode + WebView consumer   | [dashboard-thumbnails.md](./dashboard-thumbnails.md)           |
-| Finish-work pipeline order            | `docs/finish-work-close-loop.md`                               |
-| Deprecated flags / legacy naming      | `docs/naming.md`                                               |
-| Kimi Code vs toolchain matrix         | `UNIFIED.md`                                                   |
-| Ecosystem link manifest               | `canonical-references.json`, `src/lib/canonical-references.ts` |
-| Config symlink chain + doctor plugins | `CODE_REFERENCES.md`                                           |
+| Topic                                 | Path                                                                                             |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Automation gate CLI + JSON            | [kimi-doctor.md](./kimi-doctor.md)                                                               |
+| Thumbnail encode + WebView consumer   | [dashboard-thumbnails.md](./dashboard-thumbnails.md)                                             |
+| Finish-work pipeline order            | `docs/finish-work-close-loop.md`                                                                 |
+| Deprecated flags / legacy naming      | `docs/naming.md`                                                                                 |
+| Kimi Code vs toolchain matrix         | `UNIFIED.md`                                                                                     |
+| Ecosystem link manifest               | `canonical-references.toml`, `canonical-references.json`, `src/lib/canonical-references-data.ts` |
+| Config symlink chain + doctor plugins | `CODE_REFERENCES.md`                                                                             |

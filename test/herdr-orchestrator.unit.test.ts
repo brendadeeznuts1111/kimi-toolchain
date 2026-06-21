@@ -18,7 +18,11 @@ import {
   HERDR_SSH_ENV_KEYS,
   type RemoteDefaults,
 } from "../src/lib/herdr-orchestrator-config.ts";
-import { evaluateCrossWorkspaceHandoffs, parseHostSession } from "../src/lib/herdr-orchestrator.ts";
+import {
+  evaluateCrossWorkspaceHandoffs,
+  evaluateSpawnGates,
+  parseHostSession,
+} from "../src/lib/herdr-orchestrator.ts";
 import { buildCanonicalReferencesManifest } from "../src/lib/canonical-references.ts";
 import { tmpdir } from "os";
 import type { HerdrProjectConfig } from "../src/lib/herdr-project-config.ts";
@@ -781,6 +785,7 @@ describe("handoff probe conditions", () => {
             toAgent: "codex",
           },
         ],
+        spawnGates: [],
         handoffFrom: "kimi",
         handoffTo: "codex",
         reviewerTab: "reviewer",
@@ -845,6 +850,7 @@ describe("handoff probe conditions", () => {
             toAgent: "codex",
           },
         ],
+        spawnGates: [],
         handoffFrom: "kimi",
         handoffTo: "codex",
         reviewerTab: "reviewer",
@@ -932,6 +938,7 @@ describe("handoff probe conditions", () => {
             toAgent: "codex-primary",
           },
         ],
+        spawnGates: [],
         handoffFrom: "kimi",
         handoffTo: "codex-primary",
         reviewerTab: "reviewer",
@@ -1001,6 +1008,7 @@ describe("handoff probe conditions", () => {
             targetStrategy: "least_busy",
           },
         ],
+        spawnGates: [],
         handoffFrom: "kimi",
         handoffTo: "codex",
         reviewerTab: "reviewer",
@@ -1102,6 +1110,7 @@ describe("handoff probe conditions", () => {
             toAgent: "codex-primary",
           },
         ],
+        spawnGates: [],
         handoffFrom: "kimi",
         handoffTo: "codex-primary",
         reviewerTab: "reviewer",
@@ -1205,6 +1214,7 @@ describe("handoff probe conditions", () => {
             toAgent: "codex-primary",
           },
         ],
+        spawnGates: [],
         handoffFrom: "kimi",
         handoffTo: "codex-primary",
         reviewerTab: "reviewer",
@@ -1235,5 +1245,218 @@ describe("handoff probe conditions", () => {
     expect(results[0]?.detail).toContain("[dry-run]");
     expect(results[0]?.durationMs).toBeGreaterThanOrEqual(0);
     removePath(root, { recursive: true, force: true });
+  });
+});
+
+describe("spawn gates", () => {
+  test("evaluateSpawnGates returns ok when no gates configured", async () => {
+    const result = await evaluateSpawnGates([], REPO_ROOT, homedir());
+    expect(result.ok).toBe(true);
+    expect(result.detail).toBe("no spawn gates configured");
+  });
+
+  test("evaluateSpawnGates requires project root", async () => {
+    const result = await evaluateSpawnGates(
+      ["probe:canonical-references:runtime-aligned"],
+      undefined,
+      homedir()
+    );
+    expect(result.ok).toBe(false);
+    expect(result.detail).toBe("spawn gates require project root");
+  });
+
+  test("evaluateSpawnGates passes when runtime cache is aligned", async () => {
+    const tmpHome = testTempDir("spawn-gate-pass-");
+    makeDir(join(tmpHome, ".kimi-code"), { recursive: true });
+    const repoManifestPath = join(REPO_ROOT, "canonical-references.json");
+    const runtimeManifestText = pathExists(repoManifestPath)
+      ? await Bun.file(repoManifestPath).text()
+      : JSON.stringify(buildCanonicalReferencesManifest(), null, 2);
+    writeText(join(tmpHome, ".kimi-code", "canonical-references.json"), runtimeManifestText);
+
+    const result = await evaluateSpawnGates(
+      ["probe:canonical-references:runtime-aligned"],
+      REPO_ROOT,
+      tmpHome
+    );
+    expect(result.ok).toBe(true);
+    expect(result.detail).toContain("spawn gates passed");
+    removePath(tmpHome, { recursive: true, force: true });
+  });
+
+  test("evaluateSpawnGates blocks when runtime cache is missing", async () => {
+    const tmpHome = testTempDir("spawn-gate-block-");
+    const result = await evaluateSpawnGates(
+      ["probe:canonical-references:runtime-aligned"],
+      REPO_ROOT,
+      tmpHome
+    );
+    expect(result.ok).toBe(false);
+    expect(result.detail).toContain(
+      "spawn gate probe:canonical-references:runtime-aligned blocked"
+    );
+    expect(result.detail).toContain("bun run sync");
+    removePath(tmpHome, { recursive: true, force: true });
+  });
+
+  test("parseHerdrOrchestratorSection reads spawn_gates", () => {
+    const parsed = parseHerdrOrchestratorSection({
+      orchestrator: {
+        spawn_gates: ["probe:canonical-references:runtime-aligned", "finish-work:clean"],
+      },
+    });
+    expect(parsed?.spawnGates).toEqual([
+      "probe:canonical-references:runtime-aligned",
+      "finish-work:clean",
+    ]);
+  });
+
+  test("resolveOrchestratorConfig preserves spawn_gates", () => {
+    const config = {
+      schemaVersion: 1 as const,
+      enabled: true,
+      workspaceLabel: "demo",
+      primaryAgent: null,
+      secondaryAgents: [],
+      shellPane: true,
+      shellSplit: "right" as const,
+      bootstrap: [],
+      session: "",
+      agentsTab: { label: "agents", panes: [] },
+      tabs: [],
+      sourcePath: null,
+    } satisfies HerdrProjectConfig;
+
+    const resolved = resolveOrchestratorConfig(config, {
+      herdr: {
+        orchestrator: {
+          spawn_gates: ["probe:canonical-references:runtime-aligned"],
+        },
+      },
+    });
+    expect(resolved.spawnGates).toEqual(["probe:canonical-references:runtime-aligned"]);
+  });
+
+  test("evaluateCrossWorkspaceHandoffs blocks spawn_if_missing when gate fails", async () => {
+    const tmpHome = testTempDir("spawn-gate-spawn-if-missing-");
+    const agents = [
+      {
+        paneId: "pane-kimi",
+        agent: "kimi",
+        status: "done" as const,
+        workspaceId: "wB",
+        tabId: "tab1",
+      },
+    ];
+
+    const results = await evaluateCrossWorkspaceHandoffs(
+      {
+        enabled: true,
+        handoffRules: [
+          {
+            fromWorkspace: "wB",
+            fromAgent: "kimi",
+            condition: "done",
+            toWorkspace: "wB",
+            toAgent: "codex",
+            spawnIfMissing: true,
+          },
+        ],
+        spawnGates: ["probe:canonical-references:runtime-aligned"],
+        handoffFrom: "kimi",
+        handoffTo: "codex",
+        reviewerTab: "reviewer",
+        doctorTab: "doctor",
+        contextOnIdle: false,
+        events: {
+          enabled: false,
+          debounceMs: 2000,
+          allowlist: [],
+          watchGit: false,
+          gitRefCooldownMs: 5000,
+        },
+        remoteHosts: {},
+        remoteDefaults: {},
+        notifications: {},
+        domains: {},
+        dashboard: parseOrchestratorDashboardSection(undefined),
+      },
+      agents,
+      new Map(),
+      "default",
+      undefined,
+      true,
+      { projectRoot: REPO_ROOT, home: tmpHome }
+    );
+
+    expect(results[0]?.ok).toBe(false);
+    expect(results[0]?.detail).toContain(
+      "spawn gate probe:canonical-references:runtime-aligned blocked"
+    );
+    removePath(tmpHome, { recursive: true, force: true });
+  });
+
+  test("evaluateCrossWorkspaceHandoffs blocks spawn_fallback when gate fails", async () => {
+    const tmpHome = testTempDir("spawn-gate-spawn-fallback-");
+    const agents = [
+      {
+        paneId: "pane-kimi",
+        agent: "kimi",
+        status: "done" as const,
+        workspaceId: "wB",
+        tabId: "tab1",
+      },
+    ];
+
+    const results = await evaluateCrossWorkspaceHandoffs(
+      {
+        enabled: true,
+        handoffRules: [
+          {
+            fromWorkspace: "wB",
+            fromAgent: "kimi",
+            condition: "done",
+            toWorkspace: "wB",
+            toAgent: "codex",
+            spawnFallback: {
+              host: "workbox",
+              agentCli: "kimi",
+            },
+          },
+        ],
+        spawnGates: ["probe:canonical-references:runtime-aligned"],
+        handoffFrom: "kimi",
+        handoffTo: "codex",
+        reviewerTab: "reviewer",
+        doctorTab: "doctor",
+        contextOnIdle: false,
+        events: {
+          enabled: false,
+          debounceMs: 2000,
+          allowlist: [],
+          watchGit: false,
+          gitRefCooldownMs: 5000,
+        },
+        remoteHosts: {
+          workbox: "workbox.local",
+        },
+        remoteDefaults: {},
+        notifications: {},
+        domains: {},
+        dashboard: parseOrchestratorDashboardSection(undefined),
+      },
+      agents,
+      new Map(),
+      "default",
+      undefined,
+      true,
+      { projectRoot: REPO_ROOT, home: tmpHome }
+    );
+
+    expect(results[0]?.ok).toBe(false);
+    expect(results[0]?.detail).toContain(
+      "spawn gate probe:canonical-references:runtime-aligned blocked"
+    );
+    removePath(tmpHome, { recursive: true, force: true });
   });
 });

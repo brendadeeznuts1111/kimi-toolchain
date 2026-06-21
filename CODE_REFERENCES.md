@@ -4,7 +4,7 @@ This file points future agents at local examples that define the code style for 
 
 ## Canonical ecosystem links
 
-**Source of truth:** `src/lib/canonical-references.ts` → `canonical-references.json` (cached at `~/.kimi-code/` after `bun run sync`). Regenerate: `bun run references:generate`. Package pointer: `package.json` → `kimi.canonicalReferences`.
+**Source of truth:** `canonical-references.toml` → `src/lib/canonical-references-data.ts` + `canonical-references.json` (cached at `~/.kimi-code/` after `bun run sync`). Regenerate: `bun run references:generate`. Types/consumers: `src/lib/canonical-references.ts`. Package pointer: `package.json` → `kimi.canonicalReferences`.
 
 | Stack          | Canonical docs                                                            | When to use                                                  |
 | -------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------ |
@@ -16,6 +16,20 @@ This file points future agents at local examples that define the code style for 
 | **DX**         | `~/.config/dx/AGENTS.md`                                                  | Global platform, `dx.config.toml` `[herdr]` / `[finishWork]` |
 
 Repos: [kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain) (`~/kimi-toolchain`), [Kimi Code](https://github.com/MoonshotAI/kimi-code), [Effect](https://github.com/Effect-TS/effect).
+
+**Architecture:** [docs/references/canonical-references-system.md](docs/references/canonical-references-system.md) § System architecture — TOML SSOT loop plus `runtimeCapabilities` in `bun-install-config.ts`.
+
+### Bun runtime API reference (programmatic)
+
+**Source of truth:** `src/lib/bun-install-config.ts` → `buildInstallPolicyReport().runtimeCapabilities` (not TOML — ecosystem links only).
+
+| Surface                  | Inspect                                        | Key entries                                                                        |
+| ------------------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Runtime doc indexes      | `bun run scripts/bun-install-status.ts --json` | `runtimeApiDocs` → globals, bun-apis, web-apis                                     |
+| Benchmarking / profiling | same JSON                                      | `measuringTime`, `cpuProfMarkdown`, `heapProf`, `jscHeapStats`, `publicBenchmarks` |
+| Recent Bun capabilities  | same JSON                                      | `wrapAnsi`, `json5Native`, `jsonlStreaming`, `webView`, `inProcessCron`, …         |
+
+Doc constants: `BUN_RUNTIME_GLOBALS_DOC_URL`, `BUN_RUNTIME_BUN_APIS_DOC_URL`, `BUN_RUNTIME_WEB_APIS_DOC_URL`, `BUN_BENCHMARKING_DOC_URL` in `bun-install-config.ts`. Full pipeline: [benchmarking](https://bun.com/docs/project/benchmarking).
 
 ## Core Defaults
 
@@ -45,7 +59,7 @@ Repos: [kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain) (`
 | Bun bundle analysis               | `src/lib/bundle-gate.ts`                                                                                                                                                                                       | `kimi-doctor --bundle` — `bun build --metafile-md` parsed into bloat rules (single-module, node-modules, bundle-size)                                                                 |
 | Bun compile capabilities          | `src/lib/compile-target.ts`                                                                                                                                                                                    | `kimi-doctor --compile-check` — `compileBinary()`, `probeCompileCapabilities()`, smoke-test ESM+bytecode, cpu-prof-md, heap-prof                                                      |
 | Config format loader              | `src/lib/config-loader.ts`                                                                                                                                                                                     | `detectConfigFormat()` + `loadConfig()` — delegates TOML/JSON5/JSON; `json5Supported()` probe; JSON5 path parked                                                                      |
-| Bun install policy audit          | `src/lib/bun-install-config.ts`                                                                                                                                                                                | `BUN_INSTALL_CLI` + `formatInstallPropertyReferenceTable()` + `kimi-guardian report`                                                                                                  |
+| Bun install policy audit          | `src/lib/bun-install-config.ts`                                                                                                                                                                                | `BUN_INSTALL_CLI`, `buildInstallPolicyReport()`, `runtimeCapabilities` (`runtimeApiDocs`, profiling, benchmarking); inspect: `bun run scripts/bun-install-status.ts --json`           |
 | Scaffold project defaults         | `templates/scaffold/bunfig.toml`, `src/lib/scaffold-templates.ts`, `src/lib/scaffold-quality.ts`                                                                                                               | Hardened [install], [run], [test]; `renderTemplate()` + `REQUIRED_PACKAGE_SCRIPT_ENTRIES`; `injectMissingScripts()`                                                                   |
 | Scaffold templates reference      | [TEMPLATES.md](TEMPLATES.md), `templates/scaffold/`, `templates/bun-create/kimi-toolchain/`                                                                                                                    | Full template catalog with inline code blocks; `bun create` flow; `kimi-fix --profile` profiles                                                                                       |
 | Bun defaults explainer            | [docs/references/bun-runtime-scaffold.md](docs/references/bun-runtime-scaffold.md)                                                                                                                             | Why each default deviates from Bun — comparison table; `[run] noOrphans`, `[test]` hardened settings                                                                                  |
@@ -305,6 +319,10 @@ Use this pattern when extending `kimi-doctor` with new agent-facing diagnostics.
 - `kimi-doctor --probe` emits `DoctorProbeManifest` from `src/lib/doctor-probe.ts`.
 - `canonicalReferences` embeds the full `canonical-references.json` manifest plus
   `runtimeSynced` — agents discover Bun/Effect/Kimi/Herdr links without reading help text.
+- `bunRuntimeCapabilities` embeds `runtimeApiDocs`, inventory keys, and `aligned` from
+  `auditRuntimeCapabilitiesHealth()` — parallel to TOML SSOT for Bun runtime APIs.
+- Handoff probes: `probe:bun-install:runtime-api-docs`, `probe:bun-install:capabilities` via
+  `src/lib/handoff-probes.ts`.
 - Bump `schemaVersion` only when the manifest shape changes; document the bump in
   `src/lib/doctor-probe.ts` and `CHANGELOG.md`.
 - The `checks` array must list every registered adapter, discovered plugin, and

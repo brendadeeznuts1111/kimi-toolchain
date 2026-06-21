@@ -234,6 +234,8 @@ Workflow: `examples/dependency-graphs-developer-workflow.md`. API tables: `docs/
 - **Hub doc**: `~/.kimi-code/docs/references/configuration-layers.md` (manifest id `configuration-layers`) — explains the four-layer model.
 - **Bun runtime scaffold**: `~/.kimi-code/docs/references/bun-runtime-scaffold.md` (manifest id `bun-runtime-scaffold`) — Bun install config, global virtual store, `process.execve()`, `Bun.Terminal` on Windows, `using`/`await using`.
 - **One-shot audit**: `bun run config:status` — checks freshness of `canonical-references.json`, `constants-manifest.json`, parity alignment, and scaffold integrity (step 0 in Project Health Check).
+- **Canonical references architecture**: `~/.kimi-code/docs/references/canonical-references-system.md` § System architecture — TOML SSOT loop; edit `canonical-references.toml` → `bun run references:generate` → `bun run sync`.
+- **Bun runtime capabilities**: `bun run bun-install:status --json` — `runtimeCapabilities.runtimeApiDocs` (globals, bun-apis, web-apis), profiling (`cpuProfMarkdown`, `heapProf`, `jscHeapStats`), benchmarking (`measuringTime`, `publicBenchmarks`); SSOT: `src/lib/bun-install-config.ts`. Dashboard: `GET /api/bun-runtime` (`card-bun-runtime`); Herdr `GET /api/meta` → `bunRuntimeCapabilities`.
 - **Canvas companions** (repo pointers via `cursorCanvas`; not synced to runtime):
   - Conventions: `docs/canvases/README.md`
   - `docs/canvases/kimi-toolchain.canvas.tsx` — project hub (manifest id `unified`)
@@ -248,7 +250,7 @@ Workflow: `examples/dependency-graphs-developer-workflow.md`. API tables: `docs/
   - `docs/canvases/dashboard-card-registry.canvas.tsx` — card registry · v5.4 wiring (manifest id `v53-architecture`)
   - `docs/canvases/artifact-lineage.canvas.tsx` — run manifests · lineage APIs (manifest id `artifact-lineage`)
 - **IDE pickup**: `~/.cursor/projects/Users-nolarose-kimi-toolchain/canvases/*.canvas.tsx` — open beside chat; sync with `bun run sync:cursor-canvases`
-- **Canvas generate**: `bun run canvas:generate` — regenerates `CANVAS_ROUTING` + hub stats/inventory from `canonical-references.ts` and `package.json` (also runs after `bun run references:generate`)
+- **Canvas generate**: `bun run canvas:generate` — regenerates `CANVAS_ROUTING` + hub stats/inventory from `canonical-references.toml` / `LOCAL_DOC_REFERENCES` and `package.json` (also runs after `bun run references:generate`)
 - **Canvas lint**: `bun run scripts/lint-cursor-canvas.ts` — manifest `cursorCanvas` pointers + generated blocks fresh (11 canvases)
 
 - Cached link manifest: `~/.kimi-code/canonical-references.json` (`bun run references:generate`)

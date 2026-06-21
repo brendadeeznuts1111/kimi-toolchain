@@ -52,6 +52,7 @@ import {
   fetchDashboardSessionsIndex,
   fetchDashboardArtifactLineage,
   fetchDashboardArtifactContext,
+  fetchDashboardArtifactGraph,
   fetchDashboardArtifactMetadata,
   fetchDashboardGateGraph,
   fetchDashboardProbeCards,
@@ -447,6 +448,19 @@ export function startHerdrDashboardServer(
             arch: process.arch,
             pid: process.pid,
           },
+          bunRuntimeCapabilities: await (async () => {
+            const { auditRuntimeCapabilitiesHealth } = await import("./bun-install-config.ts");
+            const health = await auditRuntimeCapabilitiesHealth(options.projectPath);
+            if (!health.applicable) return null;
+            return {
+              aligned: health.aligned,
+              capabilityCount: health.capabilityCount,
+              inspectCommand: health.inspectCommand,
+              sourceModule: health.sourceModule,
+              runtimeApiDocs: health.runtimeApiDocs,
+              fixPlan: health.fixPlan,
+            };
+          })(),
         };
         if (screenshotPng) {
           const placeholder = await dashboardScreenshotPlaceholder(screenshotPng);
@@ -827,6 +841,11 @@ export function startHerdrDashboardServer(
         const gate = url.searchParams.get("gate")?.trim() || undefined;
         const payload = await fetchDashboardGateGraph(gate);
         return jsonResponse(payload, payload.ok ? 200 : 404);
+      }
+
+      if (path === "/api/artifact-graph" && request.method === "GET") {
+        const payload = await fetchDashboardArtifactGraph(options.projectPath);
+        return jsonResponse(payload, payload.ok ? 200 : 500);
       }
 
       if (path === "/api/artifacts/context" && request.method === "GET") {

@@ -951,6 +951,8 @@ export interface HerdrOrchestratorConfig {
   events: HerdrOrchestratorEventsConfig;
   /** Cross-workspace handoff rules. */
   handoffRules: HandoffRule[];
+  /** Global probe IDs evaluated before any agent spawn (spawn_if_missing or spawn_fallback). */
+  spawnGates: string[];
   /** Remote host labels → SSH connection strings or per-host configs. Empty = remote discovery disabled. */
   remoteHosts: Record<string, string | RemoteHostConfig>;
   /** Global SSH defaults applied to all remote hosts. */
@@ -1033,6 +1035,15 @@ export function parseHerdrOrchestratorSection(
     for (const entry of rawRules) {
       const rule = parseHandoffRuleEntry(entry);
       if (rule) rules.push(rule);
+    }
+  }
+
+  // Global spawn gates — probe IDs evaluated before any orchestrated agent spawn.
+  const spawnGates: string[] = [];
+  const rawSpawnGates = nested.spawn_gates;
+  if (Array.isArray(rawSpawnGates)) {
+    for (const entry of rawSpawnGates) {
+      if (typeof entry === "string" && entry.trim().length > 0) spawnGates.push(entry.trim());
     }
   }
 
@@ -1176,6 +1187,7 @@ export function parseHerdrOrchestratorSection(
     doctorTab: typeof nested.doctorTab === "string" ? nested.doctorTab : "doctor",
     events: parseOrchestratorEventsSection(eventsNested),
     handoffRules: rules,
+    spawnGates,
     remoteHosts,
     remoteDefaults,
     notifications,
@@ -1248,6 +1260,7 @@ export function resolveOrchestratorConfig(
     doctorTab: fromDoc?.doctorTab ?? "doctor",
     events: fromDoc?.events ?? parseOrchestratorEventsSection(null),
     handoffRules: fromDoc?.handoffRules ?? [],
+    spawnGates: fromDoc?.spawnGates ?? [],
     remoteHosts: fromDoc?.remoteHosts ?? {},
     remoteDefaults:
       fromDoc?.remoteDefaults ??

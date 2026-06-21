@@ -49,7 +49,7 @@ const RULES_MATRIX = [
   [
     "prefer-bun-com-docs",
     "hostname === bun.sh && pathname starts with /docs",
-    "canonical-references.ts ecosystem root; bare bun.sh/docs prose in comments",
+    "canonical-references.toml / data.ts ecosystem root; bare bun.sh/docs prose in comments",
   ],
   [
     "use-doc-constant",
@@ -120,7 +120,7 @@ const DOC_LINKS_SEE = [
     "Absolute https://bun.sh/… still flags",
     "prefer-bun-com-docs — migrate to bun.com",
   ],
-  ["Ecosystem manifest root", 'docs: "https://bun.sh/docs"', "canonical-references.ts only"],
+  ["Ecosystem manifest root", 'docs: "https://bun.sh/docs"', "canonical-references.toml / data.ts"],
   [
     "Bun guides hub",
     "https://bun.com/docs/guides (bun.sh redirects)",
@@ -192,7 +192,7 @@ const TEST_LOCKIN = [
   ["parseDocLinkUrl decomposes URLPattern component fields", "8 URL fields from new URL()"],
   ["docLinkUrlMatchesSpec pathnamePrefix", "Component-wise match spec"],
   ["extractDocLinkUrls bare bun.sh/docs", "Code-line extraction without scheme"],
-  ["allows bun.sh/docs root in canonical-references.ts", "Ecosystem root allowlist"],
+  ["allows bun.sh/docs root in canonical-references-data.ts", "Ecosystem root allowlist"],
   ["flags bun.sh/docs deep links outside allowlist", "Absolute https://bun.sh in @see still flags"],
   ["allows bare bun.sh/docs prose in comments", "Self-lint safe · prose exemption"],
   ["allows constant definition in defining module", "BUN_WEBVIEW_DOCS_URL export line"],
@@ -680,7 +680,7 @@ export default function DocLinksAndSeeLadderCanvas() {
             ["CLI wrapper", "scripts/lint-doc-links.ts"],
             ["Full gate", "bun run lint:doc-links"],
             ["Scoped gate", "bun run lint --files src/…"],
-            ["Manifest SSOT", "src/lib/canonical-references.ts"],
+            ["Manifest SSOT", "canonical-references.toml"],
             ["Hub doc", "docs/references/namespace.md"],
             ["Endpoints schema", "schemas/endpoints-strict.schema.toml"],
             ["URL table decompose", "src/lib/url-decomposer.ts · dx:table -u"],

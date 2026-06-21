@@ -1024,9 +1024,7 @@ export default function HerdrDashboardThumbnails() {
                 <Text size="small">
                   2. desktop-sync.ts glob copies to ~/.kimi-code/docs/references/
                 </Text>
-                <Text size="small">
-                  3. Add id to LOCAL_DOC_REFERENCES in canonical-references.ts
-                </Text>
+                <Text size="small">3. Add id to [[localDocs]] in canonical-references.toml</Text>
                 <Text size="small">4. bun run references:generate then bun run sync</Text>
                 <Text size="small">5. Agent queries canonical-references.json by id</Text>
               </Stack>
@@ -1055,8 +1053,8 @@ export default function HerdrDashboardThumbnails() {
           striped
         />
         <Text tone="tertiary" size="small">
-          Source: src/lib/canonical-references.ts LOCAL_DOC_REFERENCES · blue rows =
-          docs/references/ subset
+          Source: canonical-references.toml LOCAL_DOC_REFERENCES · blue rows = docs/references/
+          subset
         </Text>
 
         <CollapsibleSection

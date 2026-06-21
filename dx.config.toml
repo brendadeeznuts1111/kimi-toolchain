@@ -137,6 +137,7 @@ contextOnIdle = true
 handoffFrom = "kimi"
 handoffTo = "codex"
 reviewerTab = "reviewer"
+spawn_gates = ["probe:canonical-references:runtime-aligned"]
 
 [herdr.orchestrator.dashboard]
 examplesUrl = "http://127.0.0.1:5678/"

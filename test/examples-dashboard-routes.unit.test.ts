@@ -24,6 +24,7 @@ describe("examples-dashboard-routes", () => {
     expect(source).toContain('case "/api/effect-benchmark/refresh"');
     expect(source).toContain('case "/api/effect-benchmark/train"');
     expect(source).toContain('case "/api/config-status"');
+    expect(source).toContain('case "/api/bun-runtime"');
     expect(source).toContain("readBenchmarkHealthCheck");
     const benchmarkHandler = await Bun.file(
       join(REPO_ROOT, "examples/dashboard/src/handlers/effect-benchmark.ts")
@@ -34,6 +35,10 @@ describe("examples-dashboard-routes", () => {
       join(REPO_ROOT, "examples/dashboard/src/handlers/config-status.ts")
     ).text();
     expect(configStatusHandler).toContain("auditConfigLayersStatus");
+    const bunRuntimeHandler = await Bun.file(
+      join(REPO_ROOT, "examples/dashboard/src/handlers/bun-runtime.ts")
+    ).text();
+    expect(bunRuntimeHandler).toContain("auditRuntimeCapabilitiesHealth");
     expect(source).toContain('case "/api/canvases"');
     expect(source).toContain('case "/api/settings"');
     expect(source).toContain('case "/api/terminal"');

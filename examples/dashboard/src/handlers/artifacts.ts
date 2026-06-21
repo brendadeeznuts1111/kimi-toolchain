@@ -21,6 +21,7 @@ import {
 } from "../../../../src/lib/dashboard-route-patterns.ts";
 import {
   fetchDashboardArtifactContext,
+  fetchDashboardArtifactGraph,
   fetchDashboardArtifactDiff,
   fetchDashboardArtifactFeed,
   fetchDashboardArtifactIndexStats,
@@ -288,6 +289,10 @@ export async function handleArtifactsRequest(req: Request): Promise<Response | n
   if (path === "/api/artifacts/metadata" && req.method === "GET") {
     const gate = url.searchParams.get("gate")?.trim() || undefined;
     return jsonResponse(await fetchDashboardArtifactMetadata(root, filter, { gate }));
+  }
+
+  if (path === "/api/artifact-graph" && req.method === "GET") {
+    return jsonResponse(await fetchDashboardArtifactGraph(root));
   }
 
   if (path === "/api/artifacts/context" && req.method === "GET") {

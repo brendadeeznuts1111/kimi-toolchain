@@ -45,7 +45,11 @@ export function formatWatchChildExitMessage(exitCode: number, section: string): 
   return `references:inspect --watch: child exited ${exitCode} (section=${section}) — edit source and retry, or press r`;
 }
 
-const WATCH_PATHS = ["src/lib/canonical-references.ts", "canonical-references.json"] as const;
+const WATCH_PATHS = [
+  "canonical-references.toml",
+  "src/lib/canonical-references-data.ts",
+  "canonical-references.json",
+] as const;
 
 const ESC = String.fromCharCode(0x1b);
 
@@ -132,8 +136,11 @@ async function loadCanonicalReferencesMarkdown(
   if (isHotReloadActive()) {
     return formatCanonicalReferencesMarkdown(false, section);
   }
-  const url = `${join(repoRoot, "src/lib/canonical-references.ts")}?t=${Date.now()}`;
-  const mod = (await import(url)) as {
+  const dataTs = join(repoRoot, "src/lib/canonical-references-data.ts");
+  await import(`${dataTs}?t=${Date.now()}`);
+  const mod = (await import(
+    `${join(repoRoot, "src/lib/canonical-references.ts")}?t=${Date.now()}`
+  )) as {
     formatCanonicalReferencesMarkdown: (
       compact?: boolean,
       section?: ReferencesInspectWatchSection

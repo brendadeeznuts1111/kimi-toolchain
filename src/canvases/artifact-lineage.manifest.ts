@@ -19,6 +19,8 @@ export const ARTIFACT_LINEAGE_CARD_IDS = [
   "card-trace-verify",
   "card-bunfig-policy",
   "card-url",
+  "card-bun-runtime",
+  "card-effect-image",
 ] as const;
 
 export type ArtifactLineageCardId = (typeof ARTIFACT_LINEAGE_CARD_IDS)[number];

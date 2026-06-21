@@ -811,6 +811,10 @@
         <h2>Config Status</h2>
         <div class="loading">Loading…</div>
       </div>
+      <div class="card" id="card-bun-runtime">
+        <h2>Bun Runtime</h2>
+        <div class="loading">Loading…</div>
+      </div>
       <div class="card" id="card-perf-auto-discover">
         <h2>Auto-Discover</h2>
         <div class="loading">Loading…</div>
@@ -1708,7 +1712,7 @@
                 .join("");
               h += `<details style="margin-top:10px"><summary style="font-size:11px;cursor:pointer;color:var(--blue)">Saved gate artifacts (${saved.length})</summary>
                 <table style="margin-top:6px"><thead><tr><th>Gate</th><th>Lineage</th><th>Count</th><th>Upstream</th></tr></thead><tbody>${rows}</tbody></table>
-                <p style="font-size:10px;color:var(--muted);margin-top:6px">Execution order: <code>GET /api/gates/graph</code> · provenance: <code>GET /api/artifacts/:gate/lineage</code></p>
+                <p style="font-size:10px;color:var(--muted);margin-top:6px">Execution order: <code>GET /api/gates/graph</code> · provenance: <code>GET /api/artifacts/:gate/lineage</code> · convergence: <code>GET /api/artifact-graph</code></p>
               </details>`;
             }
           } catch {
@@ -2707,6 +2711,48 @@
           card("card-config-status", h);
         } catch (e) {
           card("card-config-status", `<p class="status err">${e.message}</p>`);
+        }
+      })();
+
+      // Bun Runtime capabilities
+      (async () => {
+        try {
+          const d = await fetchJson("/api/bun-runtime");
+          if (!d.applicable) {
+            card(
+              "card-bun-runtime",
+              '<p class="status warn">Not applicable outside kimi-toolchain</p>'
+            );
+            return;
+          }
+          const tone = d.aligned ? "ok" : "err";
+          const label = d.aligned ? "ALIGNED" : "MISALIGNED";
+          let h = `<div class="row"><span>Inventory</span><strong>${d.capabilityCount} keys</strong></div>`;
+          h += `<div class="row"><span>Status</span><span class="badge badge-${tone}">${label}</span></div>`;
+          if (d.runtimeApiDocs) {
+            h +=
+              '<div class="row" style="flex-direction:column;align-items:flex-start;gap:2px"><span>runtimeApiDocs</span>';
+            h += `<a href="${d.runtimeApiDocs.globalsUrl}" style="font-size:9px">globals</a>`;
+            h += `<a href="${d.runtimeApiDocs.bunApisUrl}" style="font-size:9px">bun-apis</a>`;
+            h += `<a href="${d.runtimeApiDocs.webApisUrl}" style="font-size:9px">web-apis</a></div>`;
+          }
+          if (d.fixPlan?.length) {
+            h += `<ul style="margin:4px 0 0 16px;font-size:10px;color:var(--muted)">${d.fixPlan
+              .map((f) => `<li>${f}</li>`)
+              .join("")}</ul>`;
+          }
+          h +=
+            '<table class="tbl" style="margin-top:4px"><tr><th>Check</th><th>Status</th></tr>';
+          for (const c of d.checks ?? []) {
+            const statusTone = c.status === "ok" ? "ok" : "err";
+            h += `<tr><td style="font-size:9px">${c.name}</td><td><span class="badge badge-${statusTone}">${c.status}</span></td></tr>`;
+          }
+          h += "</table>";
+          const fetched = d.fetchedAt ? new Date(d.fetchedAt).toLocaleString() : "—";
+          h += `<p class="status ok" style="margin-top:8px;font-size:10px">Fetched at ${fetched}</p>`;
+          card("card-bun-runtime", h);
+        } catch (e) {
+          card("card-bun-runtime", `<p class="status err">${e.message}</p>`);
         }
       })();
 

@@ -673,6 +673,33 @@ export interface CrossWorkspaceHandoffResult {
   durationMs: number;
 }
 
+export interface SpawnGateResult {
+  ok: boolean;
+  detail: string;
+}
+
+/** Evaluate global spawn gates before any orchestrated agent spawn. */
+export async function evaluateSpawnGates(
+  spawnGates: string[],
+  projectRoot: string | undefined,
+  home: string | undefined
+): Promise<SpawnGateResult> {
+  if (spawnGates.length === 0) return { ok: true, detail: "no spawn gates configured" };
+  if (!projectRoot) {
+    return { ok: false, detail: "spawn gates require project root" };
+  }
+  for (const probeId of spawnGates) {
+    const normalizedProbeId = probeId.startsWith("probe:")
+      ? probeId.slice("probe:".length)
+      : probeId;
+    const probe = await evaluateHandoffProbeCondition(normalizedProbeId, projectRoot, home);
+    if (!probe.ok) {
+      return { ok: false, detail: `spawn gate ${probeId} blocked: ${probe.message}` };
+    }
+  }
+  return { ok: true, detail: `spawn gates passed: ${spawnGates.join(", ")}` };
+}
+
 export interface CrossWorkspaceHandoffOptions {
   projectRoot?: string;
   home?: string;
@@ -823,6 +850,11 @@ export async function evaluateCrossWorkspaceHandoffs(
 
     // If target agent not found and spawn_if_missing is enabled, spawn it
     if (!toAgent && rule.spawnIfMissing) {
+      const gate = await evaluateSpawnGates(config.spawnGates, options.projectRoot, options.home);
+      if (!gate.ok) {
+        pushResult({ rule, ok: false, detail: gate.detail });
+        continue;
+      }
       const toParsed = parseHostSession(rule.toSession || rule.fromSession || "");
       const remoteHosts = config.remoteHosts;
 
@@ -912,6 +944,11 @@ export async function evaluateCrossWorkspaceHandoffs(
 
     // Check spawn_fallback: auto-spawn a new agent when no candidates exist
     if (!toAgent && rule.spawnFallback) {
+      const gate = await evaluateSpawnGates(config.spawnGates, options.projectRoot, options.home);
+      if (!gate.ok) {
+        pushResult({ rule, ok: false, detail: gate.detail });
+        continue;
+      }
       const sf = rule.spawnFallback;
       const remoteHosts = config.remoteHosts;
 

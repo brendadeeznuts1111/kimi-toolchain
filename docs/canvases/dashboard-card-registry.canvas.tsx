@@ -392,7 +392,7 @@ function RelatedCanvasesTable() {
       />
       <Text tone="tertiary" size="small">
         Click Canvas file or Binding layer to open the SSOT · sorted by canvasReadOrder · source:
-        canonical-references.ts
+        canonical-references.toml
       </Text>
     </Stack>
   );

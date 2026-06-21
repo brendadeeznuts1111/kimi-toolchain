@@ -6,6 +6,7 @@ import { REPO_ROOT, testTempDir } from "./helpers.ts";
 import {
   CANONICAL_REFERENCES_FILENAME,
   CANONICAL_REFERENCES_SCHEMA_VERSION,
+  type CanonicalReferencesManifest,
   ECOSYSTEM_BY_ID,
   ECOSYSTEM_REFERENCES,
   LOCAL_DOC_BY_ID,
@@ -44,10 +45,22 @@ import {
   lintRepoProvidesLinks,
   lintRepoReferences,
   lintRepoUrls,
+  lintCanonicalReferencesLinkTables,
+  lintManifestBunNative,
+  buildCanonicalReferencesManifestFromTables,
+  finalizeCanonicalReferencesManifest,
   manifestNeedsRefresh,
   normalizeRepoUrl,
   referencesContentEqual,
 } from "../src/lib/canonical-references.ts";
+import {
+  generateCanonicalReferencesDataTs,
+  lintCanonicalReferencesToml,
+  parseCanonicalReferencesToml,
+  serializeCanonicalReferencesToml,
+  type CanonicalReferencesTomlSource,
+} from "../src/lib/canonical-references-toml.ts";
+import { stableStringify } from "../src/lib/build-constants-registry.ts";
 
 describe("canonical-references", () => {
   test("ecosystem includes bun, effect, kimi-code, herdr", () => {
@@ -329,11 +342,6 @@ describe("canonical-references", () => {
     });
     const dxDocs = issues.find((i) => i.ecosystemId === "dx" && i.field === "docs");
     expect(dxDocs?.status).toBe("skipped");
-    const mcpHome = issues.find(
-      (i) => i.ecosystemId === "cloudflare-mcp" && i.field === "homepage"
-    );
-    expect(mcpHome?.status).toBe("skipped");
-    expect(mcpHome?.message).toContain("mcp RPC");
     const kimiFail = issues.find(
       (i) => i.ecosystemId === "kimi-code" && i.field === "homepage" && i.status === "fail"
     );
@@ -481,5 +489,355 @@ describe("canonical-references", () => {
     expect(result.ok).toBe(true);
 
     removePath(tmpHome, { recursive: true, force: true });
+  });
+
+  test("lintManifestBunNative passes for current manifest", () => {
+    const violations = lintManifestBunNative(buildCanonicalReferencesManifest());
+    expect(violations).toEqual([]);
+  });
+
+  test("lintManifestBunNative detects invalid ecosystem URL", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const ecosystem = [...manifest.ecosystem];
+    ecosystem[0] = { ...ecosystem[0]!, homepage: "not-a-url" };
+    const violations = lintManifestBunNative({ ...manifest, ecosystem });
+    expect(violations.some((v) => v.includes("ecosystem.bun.homepage"))).toBe(true);
+  });
+
+  test("lintManifestBunNative allows local ecosystem docs paths", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const ecosystem = [...manifest.ecosystem];
+    const dx = ecosystem.find((ref) => ref.id === "dx");
+    expect(dx?.docs).toBe("~/.config/dx/AGENTS.md");
+    expect(lintManifestBunNative({ ...manifest, ecosystem })).toEqual([]);
+  });
+
+  test("lintManifestBunNative detects invalid repo url shape", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const repos = [...manifest.repos];
+    repos[0] = { ...repos[0]!, url: "http://example.com/foo" };
+    const violations = lintManifestBunNative({ ...manifest, repos });
+    expect(violations.some((v) => v.includes("repos.kimi-toolchain.url"))).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables detects invalid semver", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const ecosystem = [...manifest.ecosystem];
+    ecosystem[0] = { ...ecosystem[0]!, minVersion: "not-semver" };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem,
+      localDocs: manifest.localDocs,
+      repos: manifest.repos,
+    });
+    expect(violations.some((v) => v.includes("minVersion"))).toBe(true);
+  });
+
+  test("lintManifestBunNative detects schemaVersion mismatch", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const violations = lintManifestBunNative({ ...manifest, schemaVersion: 0 as unknown as 1 });
+    expect(violations.some((v) => v.includes("schemaVersion"))).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables detects invalid kind", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const ecosystem = [...manifest.ecosystem];
+    ecosystem[0] = { ...ecosystem[0]!, kind: "invalid-kind" as never };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem,
+      localDocs: manifest.localDocs,
+      repos: manifest.repos,
+    });
+    expect(violations.some((v) => v.includes(".kind"))).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables detects invalid status", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const ecosystem = [...manifest.ecosystem];
+    ecosystem[0] = { ...ecosystem[0]!, status: "gone" as never };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem,
+      localDocs: manifest.localDocs,
+      repos: manifest.repos,
+    });
+    expect(violations.some((v) => v.includes(".status"))).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables rejects noRepo !== true", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const ecosystem = [...manifest.ecosystem];
+    ecosystem[0] = { ...ecosystem[0]!, noRepo: false as never };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem,
+      localDocs: manifest.localDocs,
+      repos: manifest.repos,
+    });
+    expect(violations.some((v) => v.includes(".noRepo"))).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables detects unknown repoId cross-reference", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const ecosystem = [...manifest.ecosystem];
+    const effect = ecosystem.find((e) => e.id === "effect")!;
+    ecosystem[ecosystem.indexOf(effect)] = { ...effect, repoId: "nonexistent-repo" };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem,
+      localDocs: manifest.localDocs,
+      repos: manifest.repos,
+    });
+    expect(violations.some((v) => v.includes("repoId") && v.includes("nonexistent-repo"))).toBe(
+      true
+    );
+  });
+
+  test("lintCanonicalReferencesLinkTables detects unknown provides ecosystem id", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const repos = [...manifest.repos];
+    repos[0] = { ...repos[0]!, provides: ["nonexistent-eco"] };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem: manifest.ecosystem,
+      localDocs: manifest.localDocs,
+      repos,
+    });
+    expect(violations.some((v) => v.includes("provides") && v.includes("nonexistent-eco"))).toBe(
+      true
+    );
+  });
+
+  test("lintCanonicalReferencesLinkTables detects runtimePath not starting with ~/", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const localDocs = [...manifest.localDocs];
+    localDocs[0] = { ...localDocs[0]!, runtimePath: "/absolute/path" };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem: manifest.ecosystem,
+      localDocs,
+      repos: manifest.repos,
+    });
+    expect(violations.some((v) => v.includes("runtimePath"))).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables detects invalid cursorCanvas pattern", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const localDocs = [...manifest.localDocs];
+    localDocs[0] = { ...localDocs[0]!, cursorCanvas: "wrong/path/foo.tsx" };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem: manifest.ecosystem,
+      localDocs,
+      repos: manifest.repos,
+    });
+    expect(violations.some((v) => v.includes("cursorCanvas"))).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables detects invalid canvasInfluences card id", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const localDocs = [...manifest.localDocs];
+    localDocs[0] = { ...localDocs[0]!, canvasInfluences: ["not-a-card-id"] };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem: manifest.ecosystem,
+      localDocs,
+      repos: manifest.repos,
+    });
+    expect(violations.some((v) => v.includes("canvasInfluences"))).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables detects non-integer canvasReadOrder", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const localDocs = [...manifest.localDocs];
+    localDocs[0] = { ...localDocs[0]!, canvasReadOrder: -1 };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem: manifest.ecosystem,
+      localDocs,
+      repos: manifest.repos,
+    });
+    expect(violations.some((v) => v.includes("canvasReadOrder"))).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables rejects repo url ending in .git", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const repos = [...manifest.repos];
+    repos[0] = { ...repos[0]!, url: "https://github.com/brendadeeznuts1111/kimi-toolchain.git" };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem: manifest.ecosystem,
+      localDocs: manifest.localDocs,
+      repos,
+    });
+    expect(
+      violations.some((v) => v.includes("repos.kimi-toolchain.url") && v.includes(".git"))
+    ).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables rejects repo url with trailing slash", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const repos = [...manifest.repos];
+    repos[0] = { ...repos[0]!, url: "https://github.com/brendadeeznuts1111/kimi-toolchain/" };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem: manifest.ecosystem,
+      localDocs: manifest.localDocs,
+      repos,
+    });
+    expect(violations.some((v) => v.includes("repos.kimi-toolchain.url"))).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables detects clonePath not starting with ~/", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const repos = [...manifest.repos];
+    repos[0] = { ...repos[0]!, clonePath: "/bad/absolute/path" };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem: manifest.ecosystem,
+      localDocs: manifest.localDocs,
+      repos,
+    });
+    expect(violations.some((v) => v.includes("clonePath"))).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables detects invalid role", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const repos = [...manifest.repos];
+    repos[0] = { ...repos[0]!, role: "maintainer" as never };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem: manifest.ecosystem,
+      localDocs: manifest.localDocs,
+      repos,
+    });
+    expect(violations.some((v) => v.includes(".role"))).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables detects invalid language", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const repos = [...manifest.repos];
+    repos[0] = { ...repos[0]!, language: "cobol" as never };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem: manifest.ecosystem,
+      localDocs: manifest.localDocs,
+      repos,
+    });
+    expect(violations.some((v) => v.includes(".language"))).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables detects invalid framework", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const repos = [...manifest.repos];
+    repos[0] = { ...repos[0]!, frameworks: ["react" as never] };
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem: manifest.ecosystem,
+      localDocs: manifest.localDocs,
+      repos,
+    });
+    expect(violations.some((v) => v.includes(".frameworks"))).toBe(true);
+  });
+
+  test("lintCanonicalReferencesLinkTables detects duplicate ecosystem ids", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const ecosystem = [...manifest.ecosystem, { ...manifest.ecosystem[0]! }];
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem,
+      localDocs: manifest.localDocs,
+      repos: manifest.repos,
+    });
+    expect(violations.some((v) => v.includes("duplicate id") && v.includes("ecosystem"))).toBe(
+      true
+    );
+  });
+
+  test("toml round-trip preserves link tables", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const source: CanonicalReferencesTomlSource = {
+      manifest: { schemaVersion: CANONICAL_REFERENCES_SCHEMA_VERSION },
+      ecosystem: manifest.ecosystem,
+      localDocs: manifest.localDocs,
+      repos: manifest.repos,
+    };
+    const text = serializeCanonicalReferencesToml(source);
+    const parsed = parseCanonicalReferencesToml(text);
+    expect(parsed.ecosystem).toEqual(source.ecosystem);
+    expect(parsed.localDocs).toEqual(source.localDocs);
+    expect(parsed.repos).toEqual(source.repos);
+    expect(generateCanonicalReferencesDataTs(parsed).length).toBeGreaterThan(100);
+  });
+
+  test("generated TS arrays match snapshot", () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const source: CanonicalReferencesTomlSource = {
+      manifest: { schemaVersion: CANONICAL_REFERENCES_SCHEMA_VERSION },
+      ecosystem: manifest.ecosystem,
+      localDocs: manifest.localDocs,
+      repos: manifest.repos,
+    };
+    const tsSource = generateCanonicalReferencesDataTs(source);
+    expect(tsSource).toMatchSnapshot();
+  });
+
+  test("generated JSON manifest matches snapshot", async () => {
+    const manifest = buildCanonicalReferencesManifest();
+    const source: CanonicalReferencesTomlSource = {
+      manifest: { schemaVersion: CANONICAL_REFERENCES_SCHEMA_VERSION },
+      ecosystem: manifest.ecosystem,
+      localDocs: manifest.localDocs,
+      repos: manifest.repos,
+    };
+    const built = buildCanonicalReferencesManifestFromTables(source);
+    const jsonOnDisk = await Bun.file(join(REPO_ROOT, "canonical-references.json")).text();
+    const existing = JSON.parse(jsonOnDisk) as CanonicalReferencesManifest;
+    const finalized = finalizeCanonicalReferencesManifest(built, existing);
+    expect(stableStringify(finalized)).toMatchSnapshot();
+  });
+
+  test("generation round-trip: TOML → TS + JSON matches disk", async () => {
+    const tomlPath = join(REPO_ROOT, "canonical-references.toml");
+    const raw = await Bun.file(tomlPath).text();
+    const source = parseCanonicalReferencesToml(raw);
+
+    const violations = lintCanonicalReferencesLinkTables({
+      ecosystem: source.ecosystem,
+      localDocs: source.localDocs,
+      repos: source.repos,
+    });
+    expect(violations).toEqual([]);
+
+    const tsOnDisk = await Bun.file(join(REPO_ROOT, "src/lib/canonical-references-data.ts")).text();
+    const tsModule = await import("../src/lib/canonical-references-data.ts");
+    expect(tsModule.ECOSYSTEM_REFERENCES).toEqual(source.ecosystem);
+    expect(tsModule.LOCAL_DOC_REFERENCES).toEqual(source.localDocs);
+    expect(tsModule.REPO_REFERENCES).toEqual(source.repos);
+    expect(tsOnDisk).toContain("Auto-generated from canonical-references.toml");
+
+    const jsonOnDisk = await Bun.file(join(REPO_ROOT, "canonical-references.json")).text();
+    const existing = JSON.parse(jsonOnDisk) as CanonicalReferencesManifest;
+    const generated = buildCanonicalReferencesManifestFromTables(source);
+    const finalized = finalizeCanonicalReferencesManifest(generated, existing);
+    expect(stableStringify(finalized)).toBe(jsonOnDisk);
+  });
+
+  test("lintCanonicalReferencesToml passes for root TOML", async () => {
+    const tomlPath = join(REPO_ROOT, "canonical-references.toml");
+    const raw = await Bun.file(tomlPath).text();
+    expect(lintCanonicalReferencesToml(raw)).toEqual([]);
+  });
+
+  test("lintCanonicalReferencesToml detects invalid ecosystem URL", () => {
+    const invalid = `
+[manifest]
+schemaVersion = 1
+
+[[ecosystem]]
+id = "bad"
+name = "Bad"
+kind = "runtime"
+homepage = "not-a-url"
+docs = "https://example.com"
+usage = "Bad URL"
+
+[[localDocs]]
+id = "docs"
+repoPath = "docs/README.md"
+runtimePath = "~/.kimi-code/docs/README.md"
+purpose = "Docs"
+
+[[repos]]
+id = "kimi-toolchain"
+name = "kimi-toolchain"
+url = "https://github.com/brendadeeznuts1111/kimi-toolchain"
+`;
+    const violations = lintCanonicalReferencesToml(invalid);
+    expect(violations.some((v) => v.includes("bad.homepage"))).toBe(true);
   });
 });

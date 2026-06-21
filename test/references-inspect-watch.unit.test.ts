@@ -33,9 +33,10 @@ describe("references-inspect-watch", () => {
     expect(stripTerminalInput(`${String.fromCharCode(0x1b)}[Aq`)).toBe("q");
   });
 
-  test("referencesInspectWatchPaths includes SSOT and manifest", () => {
+  test("referencesInspectWatchPaths includes TOML SSOT and generated artifacts", () => {
     const paths = referencesInspectWatchPaths(REPO_ROOT);
-    expect(paths).toContain(join(REPO_ROOT, "src/lib/canonical-references.ts"));
+    expect(paths).toContain(join(REPO_ROOT, "canonical-references.toml"));
+    expect(paths).toContain(join(REPO_ROOT, "src/lib/canonical-references-data.ts"));
     expect(paths).toContain(join(REPO_ROOT, "canonical-references.json"));
   });
 

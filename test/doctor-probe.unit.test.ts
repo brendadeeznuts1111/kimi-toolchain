@@ -22,6 +22,16 @@ describe("doctor-probe", () => {
       expect(manifest.canonicalReferences?.ecosystemCount).toBeGreaterThan(0);
       expect(manifest.canonicalReferences?.runtimeSynced).toBe(true);
       expect(manifest.checks.some((c) => c.name === "canonical-references")).toBe(true);
+      expect(manifest.bunRuntimeCapabilities).not.toBeNull();
+      expect(manifest.bunRuntimeCapabilities?.aligned).toBe(true);
+      expect(manifest.bunRuntimeCapabilities?.runtimeApiDocs?.globalsUrl).toContain(
+        "docs/runtime/globals"
+      );
+      expect(manifest.bunRuntimeCapabilities?.inventoryKeys).toContain("runtimeApiDocs");
+      expect(manifest.checks.some((c) => c.name === "bun-install-runtime")).toBe(true);
+      expect(manifest.checks.some((c) => c.name === "artifact-graph")).toBe(true);
+      expect(manifest.checks.some((c) => c.name === "bun-image")).toBe(true);
+      expect(manifest.bunRuntimeCapabilities?.inventoryKeys).toContain("bunImage");
     } finally {
       Bun.env.HOME = prevHome;
       removePath(tmpHome, { recursive: true, force: true });

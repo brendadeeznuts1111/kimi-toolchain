@@ -56,7 +56,11 @@ export interface BunDocLinkMatchSpec {
 }
 
 /** Files that may keep the Bun ecosystem root on bun.sh. */
-export const BUN_SH_DOCS_ALLOWLIST_FILES = new Set(["src/lib/canonical-references.ts"]);
+export const BUN_SH_DOCS_ALLOWLIST_FILES = new Set([
+  "src/lib/canonical-references.ts",
+  "src/lib/canonical-references-data.ts",
+  "canonical-references.toml",
+]);
 
 /** Shared Bun doc constants — defining file may contain the literal URL once. */
 export const BUN_DOC_LINK_CONSTANTS = [
@@ -77,11 +81,91 @@ export const BUN_DOC_LINK_CONSTANTS = [
     } satisfies BunDocLinkMatchSpec,
   },
   {
+    constant: "BUN_RUNTIME_GLOBALS_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/runtime/globals",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_RUNTIME_BUN_APIS_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/runtime/bun-apis",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_RUNTIME_WEB_APIS_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/runtime/web-apis",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_BENCHMARKING_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/project/benchmarking",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_CGROUP_PARALLELISM_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathnamePrefix: "/docs/runtime/globals",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_HTTPS_PROXY_KEEPALIVE_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathnamePrefix: "/docs/runtime/http",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_TCP_DEFER_ACCEPT_DOC_URL",
+    definingFile: "src/lib/bun-install-config.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathnamePrefix: "/docs/runtime/http",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
     constant: "BUN_IMAGE_DOCS_URL",
     definingFile: "src/lib/bun-image.ts",
     match: {
       hostnames: ["bun.com"],
       pathnamePrefix: "/docs/runtime/image",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_VERSION_GUIDE_DOC_URL",
+    definingFile: "src/lib/bun-utils.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/guides/util/version",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_DETECT_BUN_GUIDE_DOC_URL",
+    definingFile: "src/lib/bun-utils.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/guides/util/detect-bun",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_PM_UPDATE_DOC_URL",
+    definingFile: "src/lib/bun-utils.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathnamePrefix: "/docs/pm/cli/update",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -272,7 +356,10 @@ function isLegacyBunShDocsUrl(parts: DocLinkUrlParts): boolean {
 function isAllowlistedBunShRoot(rel: string, line: string): boolean {
   if (!BUN_SH_DOCS_ALLOWLIST_FILES.has(rel)) return false;
   return (
-    /docs:\s*"https:\/\/bun\.sh\/docs"/.test(line) || /homepage:\s*"https:\/\/bun\.sh"/.test(line)
+    /docs:\s*"https:\/\/bun\.sh\/docs"/.test(line) ||
+    /homepage:\s*"https:\/\/bun\.sh"/.test(line) ||
+    /docs\s*=\s*"https:\/\/bun\.sh\/docs"/.test(line) ||
+    /homepage\s*=\s*"https:\/\/bun\.sh"/.test(line)
   );
 }
 
@@ -339,7 +426,7 @@ export function scanDocLinkFile(rel: string, text: string): DocLinkViolation[] {
         line: lineNo,
         rule: "prefer-bun-com-docs",
         message:
-          "legacy Bun docs host → prefer bun.com/docs for deep links (allowlist: canonical-references.ts ecosystem root)",
+          "legacy Bun docs host → prefer bun.com/docs for deep links (allowlist: canonical-references.toml / data.ts ecosystem root)",
         snippet: trimmed.slice(0, 120) || raw.slice(0, 120),
       });
     }

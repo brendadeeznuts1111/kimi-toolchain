@@ -402,6 +402,11 @@ describe("herdr-dashboard-server", () => {
           sse?: boolean;
           thumbnail?: boolean;
           thumbnailPath?: string;
+          bunRuntimeCapabilities?: {
+            aligned: boolean;
+            capabilityCount: number;
+            runtimeApiDocs: { globalsUrl: string };
+          };
         };
         expect(meta.ok).toBe(true);
         expect(meta.projectPath).toBe(REPO_ROOT);
@@ -427,6 +432,11 @@ describe("herdr-dashboard-server", () => {
           expect(meta.thumbnail).toBe(false);
           expect(meta.thumbnailPath).toBe("/api/thumbnail");
         }
+        expect(meta.bunRuntimeCapabilities?.aligned).toBe(true);
+        expect(meta.bunRuntimeCapabilities?.capabilityCount).toBe(16);
+        expect(meta.bunRuntimeCapabilities?.runtimeApiDocs?.globalsUrl).toBe(
+          "https://bun.com/docs/runtime/globals"
+        );
 
         const preflightRes = (await fetch(`${server.url}api/heartbeats`, {
           method: "OPTIONS",

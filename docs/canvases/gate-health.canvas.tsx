@@ -224,7 +224,7 @@ function RelatedCanvasesTable() {
       />
       <Text tone="tertiary" size="small">
         {CANVAS_ROUTING_COUNT} doc canvases · sorted by canvasReadOrder · source:
-        canonical-references.ts
+        canonical-references.toml
       </Text>
     </Stack>
   );

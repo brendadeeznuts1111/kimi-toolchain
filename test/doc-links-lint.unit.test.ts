@@ -46,9 +46,9 @@ describe("doc-links-lint", () => {
     expect(urls[0]?.parts.pathname).toBe("/docs/runtime/webview");
   });
 
-  test("allows bun.sh/docs root in canonical-references.ts", () => {
+  test("allows bun.sh/docs root in canonical-references-data.ts", () => {
     const violations = scanDocLinkFile(
-      "src/lib/canonical-references.ts",
+      "src/lib/canonical-references-data.ts",
       '    docs: "https://bun.sh/docs",\n'
     );
     expect(violations).toHaveLength(0);

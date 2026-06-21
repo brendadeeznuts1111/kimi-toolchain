@@ -27,21 +27,39 @@ to_agent = "codex-primary"
 when = { finishWorkReport.outcome = "clean", finishWorkReport.handoffCandidate.shouldHandoff = true }
 ```
 
+## Spawn gates
+
+Global probe IDs evaluated before **any** orchestrated agent spawn (`spawn_if_missing` or `spawn_fallback`). Use this to block agent creation until workspace-wide health checks pass.
+
+```toml
+[herdr.orchestrator]
+spawn_gates = ["probe:canonical-references:runtime-aligned"]
+```
+
+With this configured, the orchestrator runs `auditCanonicalReferencesHealth` before spawning a target agent. If the runtime cache at `~/.kimi-code/canonical-references.json` is missing or drifted, the spawn is blocked and the handoff rule reports the fix command (`bun run sync`).
+
 ## Condition syntax
 
-| Syntax                                            | Meaning                                                                                      |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `done`                                            | Agent is in "done" state                                                                     |
-| `blocked > Nm`                                    | Agent has been blocked for N+ minutes                                                        |
-| `idle > Nm`                                       | Agent has been idle for N+ minutes                                                           |
-| `probe:canonical-references:runtime-aligned`      | `~/.kimi-code/canonical-references.json` matches repo (fix: `bun run sync`)                  |
-| `probe:canonical-references:repo-fresh`           | Repo manifest matches `src/lib/canonical-references.ts` (fix: `bun run references:generate`) |
-| `probe:canonical-references:runtime-cache`        | Runtime cache file exists at `~/.kimi-code/`                                                 |
-| `probe:finish-work:ok` / `finish-work:ok`         | Report exists with `outcome: ok` and current `gitHead`                                       |
-| `finish-work:clean`                               | Gates passed, `outcome: ok`, clean tree (no push required)                                   |
-| `finish-work:pushed` / `probe:finish-work:pushed` | `ok` + `git.pushed` + clean tree                                                             |
-| `finish-work:committed`                           | `git.committed` after successful gates                                                       |
-| `finish-work:dirty`                               | Escalated or dirty post-push tree — reviewer handoff path                                    |
+| Syntax                                            | Meaning                                                                                 |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `done`                                            | Agent is in "done" state                                                                |
+| `blocked > Nm`                                    | Agent has been blocked for N+ minutes                                                   |
+| `idle > Nm`                                       | Agent has been idle for N+ minutes                                                      |
+| `probe:canonical-references:runtime-aligned`      | `~/.kimi-code/canonical-references.json` matches repo (fix: `bun run sync`)             |
+| `probe:canonical-references:repo-fresh`           | Repo manifest matches `canonical-references.toml` (fix: `bun run references:generate`)  |
+| `probe:canonical-references:runtime-cache`        | Runtime cache file exists at `~/.kimi-code/`                                            |
+| `probe:bun-install:runtime-api-docs`              | `runtimeApiDocs` URLs point at `bun.com/docs/runtime/*` (SSOT: `bun-install-config.ts`) |
+| `probe:bun-install:capabilities`                  | Inventory capabilities present in `buildRuntimeCapabilities()`                          |
+| `probe:bun-install:bun-image`                     | `Bun.Image` supported, metadata probe passes, docs URL aligned (`src/lib/bun-image.ts`) |
+| `probe:artifact-graph:context`                    | Artifact context graph + gate execution DAG build (`GET /api/artifact-graph`)           |
+
+**Convergence layer** (`GET /api/artifact-graph` → `convergence`): compares ecosystem manifest (`canonical-references.toml`), runtime inventory (`bun-install-config.ts` / `bunImage`), and artifact surfaces (`context.artifactStore`, `context.dag`) in one response. Gate orchestrator rules on `convergence.aligned` or per-pillar drift. SSOT: `src/lib/artifact-graph-convergence.ts`.
+
+| `probe:finish-work:ok` / `finish-work:ok`         | Report exists with `outcome: ok` and current `gitHead`                                  |
+| `finish-work:clean`                               | Gates passed, `outcome: ok`, clean tree (no push required)                              |
+| `finish-work:pushed` / `probe:finish-work:pushed` | `ok` + `git.pushed` + clean tree                                                        |
+| `finish-work:committed`                           | `git.committed` after successful gates                                                  |
+| `finish-work:dirty`                               | Escalated or dirty post-push tree — reviewer handoff path                               |
 
 ### Report `when` clauses (v1.1)
 

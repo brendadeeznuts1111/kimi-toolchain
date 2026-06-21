@@ -280,6 +280,41 @@ describe("examples-dashboard-artifacts", () => {
     }
   });
 
+  test("GET /api/artifact-graph returns context, gate DAG, and convergence", async () => {
+    const res = await handleArtifactsRequest(new Request("http://127.0.0.1/api/artifact-graph"));
+    expect(res?.status).toBe(200);
+    const body = (await res!.json()) as {
+      ok: boolean;
+      context: {
+        ok: boolean;
+        convergence?: {
+          bunRuntimeCapabilities?: { inventoryKeys: number };
+          context?: { artifactStore: string; dag: string };
+        };
+      };
+      gateGraph: { ok: boolean; gates: unknown[] };
+      convergence: {
+        schemaVersion: number;
+        aligned: boolean;
+        bunRuntimeCapabilities?: { inventoryKeys: number; aligned: boolean };
+        bunImage?: { available: boolean; metadataProbe: string };
+        context: { artifactStore: string; dag: string };
+      };
+      artifactGraph: { aligned: boolean };
+    };
+    expect(body.ok).toBe(true);
+    expect(body.context.ok).toBe(true);
+    expect(body.gateGraph.ok).toBe(true);
+    expect(body.gateGraph.gates.length).toBeGreaterThan(0);
+    expect(body.artifactGraph.aligned).toBe(true);
+    expect(body.convergence.aligned).toBe(true);
+    expect(body.convergence.schemaVersion).toBe(1);
+    expect(body.convergence.bunRuntimeCapabilities?.inventoryKeys).toBe(16);
+    expect(body.convergence.bunImage?.metadataProbe).toBe("ok");
+    expect(body.convergence.context.artifactStore).toBe("ok");
+    expect(body.convergence.context.dag).toBe("ok");
+  });
+
   test("GET /api/gates/graph returns execution DAG metadata", async () => {
     const res = await handleArtifactsRequest(new Request("http://127.0.0.1/api/gates/graph"));
     expect(res?.status).toBe(200);

@@ -7,7 +7,7 @@ import {
   stopHttpBenchServers,
 } from "../http-bench.ts";
 import { runEffectBenchmarks } from "../perf-monitor.ts";
-import { DEFAULT_THRESHOLDS } from "../module-registry.ts";
+import { loadThresholds } from "../thresholds.ts";
 
 afterEach(() => {
   stopHttpBenchServers();
@@ -43,7 +43,8 @@ describe("http registry workloads", () => {
     const h1 = metrics.find((m) => m.registryKey === "http.fetch-h1");
     expect(h1).toBeDefined();
     expect(h1!.pass).toBe(true);
-    expect(h1!.thresholdMs).toBe(DEFAULT_THRESHOLDS["kimi.effect.http.fetch-h1"]);
+    const thresholds = await loadThresholds();
+    expect(h1!.thresholdMs).toBe(thresholds["kimi.effect.http.fetch-h1"]);
   });
 
   test("http.fetch-h2 skips when client unavailable", async () => {

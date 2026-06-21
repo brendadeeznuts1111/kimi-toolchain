@@ -1,17 +1,17 @@
 #!/usr/bin/env bun
 /**
- * Generate canonical-references.json from src/lib/canonical-references.ts.
+ * Generate canonical-references-data.ts and canonical-references.json from canonical-references.toml.
  *
  * Usage:
- *   bun run scripts/generate-canonical-references.ts          # write manifest
+ *   bun run scripts/generate-canonical-references.ts          # write artifacts
  *   bun run scripts/generate-canonical-references.ts --check  # fail if stale
  *   bun run scripts/generate-canonical-references.ts --json   # stdout only
  */
 
 import { join } from "path";
-import { writeTextAsync } from "../src/lib/bun-io.ts";
+import { pathExists, readText, readTextAsync, writeTextAsync } from "../src/lib/bun-io.ts";
 import {
-  buildCanonicalReferencesManifest,
+  buildCanonicalReferencesManifestFromTables,
   finalizeCanonicalReferencesManifest,
   lintRepoReferences,
   lintEcosystemRepoCompleteness,
@@ -19,11 +19,53 @@ import {
   manifestNeedsRefresh,
   readCanonicalReferencesManifest,
 } from "../src/lib/canonical-references.ts";
+import {
+  generateCanonicalReferencesDataTs,
+  lintCanonicalReferencesToml,
+  parseCanonicalReferencesToml,
+  repoCanonicalReferencesTomlPath,
+  type CanonicalReferencesTomlSource,
+} from "../src/lib/canonical-references-toml.ts";
 import { stableStringify } from "../src/lib/build-constants-registry.ts";
 import { syncCanvasCompanions, canvasCompanionsStale } from "../src/lib/canvas-companion-sync.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const MANIFEST_PATH = repoCanonicalReferencesPath(ROOT);
+const TOML_PATH = repoCanonicalReferencesTomlPath(ROOT);
+const DATA_TS_PATH = join(ROOT, "src/lib/canonical-references-data.ts");
+
+async function oxfmtDataTs(source: string): Promise<string> {
+  const proc = Bun.spawn(["oxfmt", "--stdin-filepath", DATA_TS_PATH], {
+    stdin: new TextEncoder().encode(source),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const exit = await proc.exited;
+  const out = await Bun.readableStreamToText(proc.stdout);
+  if (exit !== 0) {
+    const err = await Bun.readableStreamToText(proc.stderr);
+    throw new Error(`oxfmt failed on canonical-references-data.ts: ${err.trim()}`);
+  }
+  return out;
+}
+
+async function loadTomlSource(): Promise<{ raw: string; source: CanonicalReferencesTomlSource }> {
+  const raw = pathExists(TOML_PATH) ? readText(TOML_PATH) : await readTextAsync(TOML_PATH);
+  return { raw, source: parseCanonicalReferencesToml(raw) };
+}
+
+function readExistingDataTs(): string | null {
+  if (!pathExists(DATA_TS_PATH)) return null;
+  return readText(DATA_TS_PATH);
+}
+
+function assertTomlLint(raw: string): void {
+  const violations = lintCanonicalReferencesToml(raw);
+  if (violations.length === 0) return;
+  console.error("canonical-references.toml validation failed:\n");
+  for (const line of violations) console.error(`  ${line}`);
+  process.exit(1);
+}
 
 function assertRepoReferenceLint(projectRoot: string): void {
   const violations = lintRepoReferences({ projectRoot });
@@ -36,17 +78,29 @@ function assertRepoReferenceLint(projectRoot: string): void {
 async function main(): Promise<void> {
   const check = Bun.argv.includes("--check");
   const jsonOnly = Bun.argv.includes("--json");
+  const { raw, source } = await loadTomlSource();
+  assertTomlLint(raw);
+
+  const generatedTs = await oxfmtDataTs(generateCanonicalReferencesDataTs(source));
+  const generated = buildCanonicalReferencesManifestFromTables(source);
+  const existingDataTs = readExistingDataTs();
   const existing = await readCanonicalReferencesManifest(ROOT);
-  const generated = buildCanonicalReferencesManifest();
 
   if (jsonOnly) {
     process.stdout.write(stableStringify(generated));
     return;
   }
 
-  assertRepoReferenceLint(ROOT);
-
   if (check) {
+    if (existingDataTs !== generatedTs) {
+      console.error(
+        "src/lib/canonical-references-data.ts is stale — run: bun run references:generate"
+      );
+      process.exit(1);
+    }
+
+    assertRepoReferenceLint(ROOT);
+
     if (manifestNeedsRefresh(generated, existing)) {
       console.error("canonical-references.json is stale — run: bun run references:generate");
       process.exit(1);
@@ -63,9 +117,18 @@ async function main(): Promise<void> {
       for (const line of canvasViolations) console.error(`  ${line}`);
       process.exit(1);
     }
-    console.log("canonical-references.json OK · ecosystem ↔ repo OK · canvas companions OK");
+    console.log(
+      "canonical-references.toml OK · canonical-references-data.ts OK · canonical-references.json OK · ecosystem ↔ repo OK · canvas companions OK"
+    );
     return;
   }
+
+  if (existingDataTs !== generatedTs) {
+    await writeTextAsync(DATA_TS_PATH, generatedTs);
+    console.log("wrote src/lib/canonical-references-data.ts");
+  }
+
+  assertRepoReferenceLint(ROOT);
 
   await writeTextAsync(
     MANIFEST_PATH,

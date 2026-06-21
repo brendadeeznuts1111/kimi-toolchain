@@ -1,0 +1,116 @@
+# Trading workspace example canonical references — subset of the root TOML SSOT.
+
+[manifest]
+schemaVersion = 1
+
+[[ecosystem]]
+id = "bun"
+name = "Bun"
+kind = "runtime"
+homepage = "https://bun.sh"
+docs = "https://bun.sh/docs"
+package = "bun"
+usage = "Runtime for the trading workspace"
+minVersion = "1.4.0"
+noRepo = true
+
+[[ecosystem]]
+id = "effect"
+name = "Effect"
+kind = "library"
+homepage = "https://effect.website"
+docs = "https://effect.website/docs"
+package = "effect"
+usage = "Typed pipelines in the trading workspace"
+minVersion = "3.21.3"
+repoId = "effect-upstream"
+
+[[ecosystem]]
+id = "kimi-code"
+name = "Kimi Code"
+kind = "product"
+homepage = "https://moonshotai.github.io/kimi-code/"
+docs = "https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html"
+usage = "Agent CLI driving the trading workspace"
+install = "https://code.kimi.com/kimi-code/install.sh"
+repoId = "kimi-code-upstream"
+
+[[ecosystem]]
+id = "dx"
+name = "DX"
+kind = "product"
+homepage = "https://github.com/brendadeeznuts1111/dx-config"
+docs = "~/.config/dx/AGENTS.md"
+usage = "Global Bun dev platform for the trading workspace"
+noRepo = true
+
+[[ecosystem]]
+id = "oxc"
+name = "Oxc (oxfmt / oxlint)"
+kind = "library"
+homepage = "https://oxc.rs"
+docs = "https://oxc.rs/docs/guide/usage/formatter.html"
+package = "oxfmt"
+usage = "Format and lint gates for the trading workspace"
+repoId = "oxc-upstream"
+
+[[localDocs]]
+id = "benchmark"
+repoPath = "docs/references/kimi-doctor.md"
+runtimePath = "~/.kimi-code/docs/references/kimi-doctor.md"
+purpose = "Benchmark envelope reference for trading gates"
+
+[[localDocs]]
+id = "namespace"
+repoPath = "docs/naming.md"
+runtimePath = "~/.kimi-code/docs/naming.md"
+purpose = "Naming and namespace reference for trading commands"
+
+[[repos]]
+id = "kimi-toolchain"
+name = "kimi-toolchain"
+url = "https://github.com/brendadeeznuts1111/kimi-toolchain"
+description = "Bun-native developer tooling: governance, diagnostics, security, and scaffolding"
+defaultBranch = "main"
+ciStatusUrl = "https://github.com/brendadeeznuts1111/kimi-toolchain/actions"
+clonePath = "~/kimi-toolchain"
+role = "tool"
+language = "typescript"
+frameworks = ["bun", "effect", "oxc"]
+expectedPackageName = "kimi-toolchain"
+
+[[repos]]
+id = "effect-upstream"
+name = "Effect"
+url = "https://github.com/Effect-TS/effect"
+description = "Typed functional effect system for TypeScript services and CLI pipelines"
+defaultBranch = "main"
+ciStatusUrl = "https://github.com/Effect-TS/effect/actions"
+provides = ["effect"]
+role = "upstream"
+language = "typescript"
+frameworks = ["effect", "node"]
+
+[[repos]]
+id = "kimi-code-upstream"
+name = "Kimi Code (Moonshot)"
+url = "https://github.com/MoonshotAI/kimi-code"
+description = "Official Kimi Code agent CLI, config.toml, sessions, and MCP integration"
+defaultBranch = "main"
+ciStatusUrl = "https://github.com/MoonshotAI/kimi-code/actions"
+provides = ["kimi-code"]
+role = "upstream"
+language = "typescript"
+frameworks = ["node"]
+
+[[repos]]
+id = "oxc-upstream"
+name = "Oxc"
+url = "https://github.com/oxc-project/oxc"
+description = "Rust-based JavaScript toolchain (oxfmt, oxlint) used in format and lint gates"
+defaultBranch = "main"
+ciStatusUrl = "https://github.com/oxc-project/oxc/actions"
+provides = ["oxc"]
+role = "upstream"
+language = "rust"
+frameworks = ["oxc"]

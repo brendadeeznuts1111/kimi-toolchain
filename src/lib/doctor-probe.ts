@@ -6,6 +6,12 @@
  */
 
 import {
+  auditRuntimeCapabilitiesHealth,
+  BUN_INSTALL_INSPECT_COMMAND,
+  BUN_INSTALL_SOURCE_MODULE,
+  RUNTIME_CAPABILITY_INVENTORY_KEYS,
+} from "./bun-install-config.ts";
+import {
   auditCanonicalReferencesHealth,
   CANONICAL_REFERENCES_FILENAME,
   type CanonicalReferencesManifest,
@@ -38,6 +44,19 @@ export interface DoctorProbeCanonicalReferences {
   manifest: CanonicalReferencesManifest | null;
 }
 
+export interface DoctorProbeBunRuntimeCapabilities {
+  sourceModule: typeof BUN_INSTALL_SOURCE_MODULE;
+  inspectCommand: typeof BUN_INSTALL_INSPECT_COMMAND;
+  capabilityCount: number;
+  inventoryKeys: readonly (typeof RUNTIME_CAPABILITY_INVENTORY_KEYS)[number][];
+  runtimeApiDocs: {
+    globalsUrl: string;
+    bunApisUrl: string;
+    webApisUrl: string;
+  } | null;
+  aligned: boolean;
+}
+
 export interface DoctorProbeManifest {
   schemaVersion: number;
   tool: "kimi-doctor";
@@ -46,6 +65,7 @@ export interface DoctorProbeManifest {
   flags: DoctorProbeFlag[];
   checks: DoctorProbeCheck[];
   canonicalReferences: DoctorProbeCanonicalReferences | null;
+  bunRuntimeCapabilities: DoctorProbeBunRuntimeCapabilities | null;
   supportsAutoFix: boolean;
   supportsJson: boolean;
   supportsPlugins: boolean;
@@ -104,8 +124,24 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
     name: "canonical-references",
     description: "Ecosystem link manifest freshness and ~/.kimi-code/ cache alignment",
   });
+  checks.push({
+    type: "builtin",
+    name: "bun-install-runtime",
+    description: "Bun runtime capability inventory and runtimeApiDocs URL alignment",
+  });
+  checks.push({
+    type: "builtin",
+    name: "artifact-graph",
+    description: "Artifact context graph and gate execution DAG surfaces",
+  });
+  checks.push({
+    type: "builtin",
+    name: "bun-image",
+    description: "Bun.Image metadata probe and docs URL alignment",
+  });
 
   const refsHealth = await auditCanonicalReferencesHealth(root, homeDir());
+  const runtimeHealth = await auditRuntimeCapabilitiesHealth(root);
   const manifest = refsHealth.repoManifest;
   const canonicalReferences: DoctorProbeCanonicalReferences | null = refsHealth.applicable
     ? {
@@ -121,6 +157,23 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
         reposCount: manifest?.repos.length ?? 0,
         runtimeSynced: refsHealth.runtimeSynced,
         manifest,
+      }
+    : null;
+
+  const bunRuntimeCapabilities: DoctorProbeBunRuntimeCapabilities | null = runtimeHealth.applicable
+    ? {
+        sourceModule: BUN_INSTALL_SOURCE_MODULE,
+        inspectCommand: BUN_INSTALL_INSPECT_COMMAND,
+        capabilityCount: runtimeHealth.capabilityCount,
+        inventoryKeys: RUNTIME_CAPABILITY_INVENTORY_KEYS,
+        runtimeApiDocs: runtimeHealth.runtimeApiDocs
+          ? {
+              globalsUrl: runtimeHealth.runtimeApiDocs.globalsUrl,
+              bunApisUrl: runtimeHealth.runtimeApiDocs.bunApisUrl,
+              webApisUrl: runtimeHealth.runtimeApiDocs.webApisUrl,
+            }
+          : null,
+        aligned: runtimeHealth.aligned,
       }
     : null;
 
@@ -362,6 +415,7 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
     ],
     checks,
     canonicalReferences,
+    bunRuntimeCapabilities,
     supportsAutoFix: true,
     supportsJson: true,
     supportsPlugins: true,

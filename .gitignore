@@ -24,6 +24,7 @@ dist/
 coverage/
 reports/
 .tmp-kimi-test-home/
+scripts/.fmt-*
 .tmp-drift-*/
 .tmp-test-*/
 .tmp-path-align-*/

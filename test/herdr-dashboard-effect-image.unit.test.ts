@@ -31,6 +31,8 @@ describe("herdr-dashboard-effect-image", () => {
     expect(meta.markPath).toBe("/api/bun-mark");
     expect(meta.effectImagePath).toBe("/api/effect-image");
     expect(meta.source).toContain("effect/image/processor.ts");
+    expect(meta.runtimeCapabilityKey).toBe("bunImage");
+    expect(meta.docsUrl).toBe("https://bun.com/docs/runtime/image");
     if (bunImageSupported()) {
       expect(meta.available).toBe(true);
       expect(meta.metadata?.width).toBe(2);

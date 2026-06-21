@@ -8,7 +8,7 @@
  * @see https://bun.com/blog/bun-v1.3.14
  */
 import { describe, expect, test } from "bun:test";
-import { bunImageSupported } from "../src/lib/bun-image.ts";
+import { auditBunImageHealth, bunImageSupported } from "../src/lib/bun-image.ts";
 
 /** 1×1 red PNG — minimal valid PNG for smoke testing. */
 const RED_PNG = Uint8Array.from([
@@ -55,6 +55,14 @@ describe("bun-image", () => {
       // Acceptable: small images may not have enough data for placeholder extraction
       expect(e).toBeDefined();
     }
+  });
+
+  test("auditBunImageHealth passes in this runtime", async () => {
+    const health = await auditBunImageHealth();
+    expect(health.aligned).toBe(true);
+    expect(health.supported).toBe(true);
+    expect(health.metadataProbe).toBe(true);
+    expect(health.docsUrl).toBe("https://bun.com/docs/runtime/image");
   });
 
   test("invalid data produces image with negative dimensions, does not crash", () => {

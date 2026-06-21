@@ -17,6 +17,10 @@ import {
   probeAllCards,
   summarizeCardStatuses,
 } from "./card-probe.ts";
+import {
+  auditRuntimeCapabilitiesHealth,
+  type RuntimeCapabilitiesHealthReport,
+} from "./bun-install-config.ts";
 import { auditConfigLayersStatus, type ConfigStatusReport } from "./config-status.ts";
 import {
   DASHBOARD_ARTIFACT_DIFF,
@@ -49,6 +53,7 @@ export const PROBE_SERVER_ROUTES = [
   { path: "/api/cards", methods: ["GET"] as const },
   { path: "/api/refresh", methods: ["GET", "POST"] as const },
   { path: "/api/config-status", methods: ["GET"] as const },
+  { path: "/api/bun-runtime", methods: ["GET"] as const },
   { path: "/api/artifacts", methods: ["GET"] as const },
   { path: "/api/artifacts/:gate", methods: ["GET"] as const },
   { path: "/api/artifacts/:gate/latest", methods: ["GET"] as const },
@@ -408,6 +413,17 @@ export async function startProbeServer(
           ok: Boolean(status),
           configStatus: status ?? null,
           fetchedAt: configStatusFetchedAt,
+        });
+      }
+
+      if (path === "/api/bun-runtime") {
+        if (method !== "GET") return methodNotAllowed(path, method, ["GET"]);
+        const report: RuntimeCapabilitiesHealthReport =
+          await auditRuntimeCapabilitiesHealth(projectRoot);
+        return jsonResponse({
+          ...report,
+          ok: report.aligned,
+          fetchedAt: new Date().toISOString(),
         });
       }
 

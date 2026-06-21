@@ -2,6 +2,7 @@
  * Configuration layers audit — one-shot check for discovery, define registry, and parity gates.
  */
 
+import { auditRuntimeCapabilitiesHealth } from "./bun-install-config.ts";
 import { checkScaffoldAligned } from "./scaffold-aligned.ts";
 import { writeStdoutLine } from "./cli-contract.ts";
 import { runGate } from "./gate-runner.ts";
@@ -79,6 +80,35 @@ async function runSubprocessGate(
   };
 }
 
+async function runBunInstallRuntimeGate(projectRoot: string): Promise<ConfigStatusGateResult> {
+  const start = Bun.nanoseconds();
+  const report = await auditRuntimeCapabilitiesHealth(projectRoot);
+  const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+
+  if (!report.applicable) {
+    return {
+      id: "bun-install-runtime",
+      layer: "Runtime policy",
+      status: "skip",
+      ms,
+      message: "not kimi-toolchain — runtime capability inventory gate skipped",
+    };
+  }
+
+  return {
+    id: "bun-install-runtime",
+    layer: "Runtime policy",
+    status: report.aligned ? "pass" : "fail",
+    ms,
+    message: report.aligned
+      ? undefined
+      : report.checks
+          .filter((check) => check.status === "error")
+          .map((check) => check.message)
+          .join("; "),
+  };
+}
+
 async function runScaffoldGate(projectRoot: string): Promise<ConfigStatusGateResult> {
   const start = Bun.nanoseconds();
   const report = await checkScaffoldAligned(projectRoot);
@@ -113,6 +143,7 @@ function buildFixPlan(gates: ConfigStatusGateResult[]): string[] {
     if (def) fixes.push(def.fix);
     if (gate.id === "scaffold")
       fixes.push("align AGENTS.md scaffold markers (see checkScaffoldAligned)");
+    if (gate.id === "bun-install-runtime") fixes.push("bun run bun-install:status --json");
   }
   return [...new Set(fixes)];
 }
@@ -121,11 +152,12 @@ export async function auditConfigLayersStatus(
   projectRoot: string,
   options: AuditConfigLayersOptions = {}
 ): Promise<ConfigStatusReport> {
-  const subprocessResults = await Promise.all(
-    CORE_GATES.map((def) => runSubprocessGate(projectRoot, def))
-  );
+  const [subprocessResults, bunInstallRuntime] = await Promise.all([
+    Promise.all(CORE_GATES.map((def) => runSubprocessGate(projectRoot, def))),
+    runBunInstallRuntimeGate(projectRoot),
+  ]);
 
-  const gates = [...subprocessResults];
+  const gates = [...subprocessResults, bunInstallRuntime];
   if (options.withScaffold) {
     gates.push(await runScaffoldGate(projectRoot));
   }
@@ -200,6 +232,7 @@ Runs the core configuration layer gates in parallel:
   - canonical-references  (bun run references:generate --check)
   - constants-manifest    (bun run manifest:generate --check)
   - constant-parity       (bun run lint:constant-parity)
+  - bun-install-runtime   (runtimeApiDocs + capability inventory in bun-install-config.ts)
 
 Usage:
   bun run config:status

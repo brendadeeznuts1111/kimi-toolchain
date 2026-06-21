@@ -350,14 +350,49 @@ export function escapeHtml(value: string | number | boolean | object): string {
   return Bun.escapeHTML(value);
 }
 
+/** @see https://bun.com/docs/guides/util/version */
+export const BUN_VERSION_GUIDE_DOC_URL = "https://bun.com/docs/guides/util/version";
+
+/** @see https://bun.com/docs/guides/util/detect-bun */
+export const BUN_DETECT_BUN_GUIDE_DOC_URL = "https://bun.com/docs/guides/util/detect-bun";
+
+/** @see https://bun.com/docs/pm/cli/update */
+export const BUN_PM_UPDATE_DOC_URL = "https://bun.com/docs/pm/cli/update";
+
+export interface BunRuntimeDetection {
+  /** True when `typeof Bun !== "undefined"` and `Bun.version` is a string. */
+  detected: boolean;
+  version: string;
+  revision: string;
+}
+
+/**
+ * Auto-detect the running Bun runtime (version + revision).
+ * Refreshed on every call — use for doctor output, not cached policy rows.
+ *
+ * @see {@link BUN_DETECT_BUN_GUIDE_DOC_URL}
+ * @see {@link BUN_VERSION_GUIDE_DOC_URL}
+ */
+export function detectBunRuntime(): BunRuntimeDetection {
+  const detected = typeof Bun !== "undefined" && typeof Bun.version === "string";
+  if (!detected) {
+    return { detected: false, version: "unknown", revision: "unknown" };
+  }
+  return {
+    detected: true,
+    version: Bun.version,
+    revision: typeof Bun.revision === "string" ? Bun.revision : "unknown",
+  };
+}
+
 /** Bun CLI semver string. */
 export function bunVersion(): string {
-  return Bun.version;
+  return detectBunRuntime().version;
 }
 
 /** Bun build git revision. */
 export function bunRevision(): string {
-  return Bun.revision;
+  return detectBunRuntime().revision;
 }
 
 /**

@@ -1343,6 +1343,11 @@ export interface DashboardArtifactContextNode extends DashboardArtifactMetadataF
   upstream: string[];
 }
 
+import type { ArtifactGraphConvergenceBlock } from "./artifact-graph-convergence.ts";
+
+export type DashboardArtifactGraphConvergence = ArtifactGraphConvergenceBlock;
+export type { ConvergenceProbeStatus } from "./artifact-graph-convergence.ts";
+
 export interface DashboardArtifactContextPayload {
   ok: boolean;
   projectPath: string;
@@ -1353,7 +1358,24 @@ export interface DashboardArtifactContextPayload {
   edges: Array<{ from: string; to: string }>;
   probeReachable: boolean;
   fetchedAt: string;
+  convergence?: DashboardArtifactGraphConvergence;
   error?: string;
+}
+
+export interface DashboardArtifactGraphPayload {
+  ok: boolean;
+  projectPath: string;
+  context: DashboardArtifactContextPayload;
+  gateGraph: DashboardGateGraphPayload;
+  convergence: DashboardArtifactGraphConvergence;
+  artifactGraph: {
+    aligned: boolean;
+    gateCount: number;
+    artifactCount: number;
+    edgeCount: number;
+    inspectCommand: string;
+  };
+  fetchedAt: string;
 }
 
 /** Build a Mermaid id that is safe for node/class names. */
@@ -1375,8 +1397,10 @@ function compactArtifactName(relativePath: string): string {
 
 /** Context graph: all saved artifacts as nodes with metadata and lineage edges. */
 export async function fetchDashboardArtifactContext(
-  projectPath: string
+  projectPath: string,
+  options: { includeConvergence?: boolean } = {}
 ): Promise<DashboardArtifactContextPayload> {
+  const includeConvergence = options.includeConvergence ?? true;
   const fetchedAt = new Date().toISOString();
   const { resolveProbeServerUrl } = await import("./doctor-probe-config.ts");
   const store = new ArtifactStore(projectPath);
@@ -1464,6 +1488,14 @@ export async function fetchDashboardArtifactContext(
   ].join("<br>");
   lines.push(`  ctx[["${contextLabel}"]]`);
 
+  const convergence = includeConvergence
+    ? await (async () => {
+        const { buildArtifactGraphConvergenceBlock } =
+          await import("./artifact-graph-convergence.ts");
+        return buildArtifactGraphConvergenceBlock(projectPath);
+      })()
+    : undefined;
+
   return {
     ok: true,
     projectPath,
@@ -1473,7 +1505,38 @@ export async function fetchDashboardArtifactContext(
     nodes,
     edges,
     probeReachable: probeHealth.ok,
+    ...(convergence ? { convergence } : {}),
     fetchedAt,
+  };
+}
+
+/** Combined artifact context + execution DAG + runtime/Bun.Image convergence. */
+export async function fetchDashboardArtifactGraph(
+  projectPath: string
+): Promise<DashboardArtifactGraphPayload> {
+  const { auditArtifactGraphHealth } = await import("./artifact-graph-health.ts");
+  const { buildArtifactGraphConvergenceBlock } = await import("./artifact-graph-convergence.ts");
+  const [context, gateGraph, graphHealth, convergence] = await Promise.all([
+    fetchDashboardArtifactContext(projectPath, { includeConvergence: false }),
+    fetchDashboardGateGraph(),
+    auditArtifactGraphHealth(projectPath),
+    buildArtifactGraphConvergenceBlock(projectPath),
+  ]);
+
+  return {
+    ok: context.ok && gateGraph.ok && convergence.aligned,
+    projectPath,
+    context,
+    gateGraph,
+    convergence,
+    artifactGraph: {
+      aligned: graphHealth.aligned,
+      gateCount: graphHealth.gateCount,
+      artifactCount: graphHealth.artifactCount,
+      edgeCount: graphHealth.edgeCount,
+      inspectCommand: graphHealth.inspectCommand,
+    },
+    fetchedAt: new Date().toISOString(),
   };
 }
 

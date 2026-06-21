@@ -60,7 +60,16 @@ const API_SURFACE = [
   ["/api/artifacts/filter-options", "GET", "Datalist values for identity filters"],
   ["/api/artifacts/list", "GET", "?gate=<name> — entry list with identity fields"],
   ["/api/artifacts/metadata", "GET", "?gate=<name>&limit=N — indexed metadata_json collection"],
-  ["/api/artifacts/context", "GET", "Artifact context graph · nodes include hostname/pid/lineage"],
+  [
+    "/api/artifacts/context",
+    "GET",
+    "Artifact context graph · nodes include hostname/pid/lineage · convergence block",
+  ],
+  [
+    "/api/artifact-graph",
+    "GET",
+    "Context + execution DAG + bunRuntimeCapabilities + Bun.Image convergence",
+  ],
   ["/api/runs", "GET", "Run manifest index · same identity query params"],
   ["/api/runs/:runId", "GET", "Single run manifest + per-gate artifact envelopes"],
   ["/api/artifacts/:gate/lineage", "GET", "Declarative dependsOn resolution for a gate"],
@@ -123,6 +132,18 @@ const INFLUENCED_CARDS = [
     "URL / Email i18n",
     "/api/url",
     "url-i18n + email-i18n probes · punycode domains · @ split octet limits",
+  ],
+  [
+    "card-bun-runtime",
+    "Bun Runtime",
+    "/api/bun-runtime",
+    "auditRuntimeCapabilitiesHealth · runtimeApiDocs + 13-key inventory incl. bunImage",
+  ],
+  [
+    "card-effect-image",
+    "Effect: Image",
+    "/api/image",
+    "Bun.Image metadata/placeholder · Herdr /api/thumbnail encode path",
   ],
 ] as const;
 
@@ -387,7 +408,7 @@ function RelatedCanvasesTable() {
       />
       <Text tone="tertiary" size="small">
         {CANVAS_ROUTING_COUNT} doc canvases · sorted by canvasReadOrder · source:
-        canonical-references.ts
+        canonical-references.toml
       </Text>
     </Stack>
   );

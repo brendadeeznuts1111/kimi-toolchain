@@ -234,7 +234,7 @@ no-tag-service    src/domain/order.ts     validate: domain imports effect direct
 
 **Current state (v5.3):**
 
-- **Canvases** — 9 manifest-backed companions in `docs/canvases/`, registered via `cursorCanvas` in `canonical-references.ts`. Served by `GET /api/canvases` on the Herdr orchestrator dashboard. Static design docs with `CANVAS_ROUTING` cross-links; clicking a row opens the canvas file in the IDE (`open-canvas` IPC), not a runtime filter.
+- **Canvases** — manifest-backed companions in `docs/canvases/`, registered via `cursorCanvas` in `canonical-references.toml` (`LOCAL_DOC_REFERENCES`). Served by `GET /api/canvases` on the Herdr orchestrator dashboard. Static design docs with `CANVAS_ROUTING` cross-links; clicking a row opens the canvas file in the IDE (`open-canvas` IPC), not a runtime filter.
 - **Cards** — ~64 independent `<div class="card" id="card-*">` panels in `examples/dashboard/src/dashboard.html`, each fetching its own `/api/*` route. No unified `/api/cards` endpoint, no single pass/fail status table, no manifest field mapping `canvasId` → `cardId`.
 - **Gates** — `kimi-doctor --effect-gates`, `perf-doctor --perf-gates`, etc. emit CLI/JSON separately from both layers.
 

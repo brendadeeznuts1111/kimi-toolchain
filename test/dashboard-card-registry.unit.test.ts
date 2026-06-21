@@ -55,7 +55,7 @@ describe("dashboard-card-registry", () => {
 
   test("loadDashboardCardRegistry matches dashboard.html card count", () => {
     const registry = buildDashboardCardRegistry(REPO_ROOT);
-    expect(registry.length).toBe(68);
+    expect(registry.length).toBe(69);
     expect(registry.some((c) => c.id === "card-kimi-doctor")).toBe(true);
     expect(registry.some((c) => c.id === "card-config-status")).toBe(true);
   });
@@ -96,12 +96,13 @@ describe("dashboard-card-registry", () => {
     expect(registry.find((c) => c.id === "card-config-status")?.apiRoute).toBe(
       "/api/config-status"
     );
+    expect(registry.find((c) => c.id === "card-bun-runtime")?.apiRoute).toBe("/api/bun-runtime");
   });
 
   test("fetchDashboardCardsPayload ignores unrecognized canvas query", async () => {
     const all = await fetchDashboardCardsPayload(REPO_ROOT, {});
     const unknown = await fetchDashboardCardsPayload(REPO_ROOT, { canvas: "nonexistent-canvas" });
-    expect(unknown.total).toBe(68);
+    expect(unknown.total).toBe(69);
     expect(unknown.filter.recognized).toBe(false);
     expect(unknown.filter.manifestId).toBeNull();
     expect(unknown.cards.map((c) => c.id).sort()).toEqual(all.cards.map((c) => c.id).sort());
