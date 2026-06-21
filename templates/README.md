@@ -1,246 +1,62 @@
-# Herdr dashboard templates
+# Templates
 
-This directory contains the static assets for the **Herdr orchestrator dashboard**
-(`src/lib/herdr-dashboard-server.ts`). The dashboard is a plain HTML/CSS/JS app
-served by a Bun HTTP server and rendered inside a herdr WebView pane.
+This directory is the source of truth for every template family that `kimi-toolchain` generates, copies, or serves.
 
-| File                   | Responsibility                                                                |
-| ---------------------- | ----------------------------------------------------------------------------- |
-| `herdr-dashboard.html` | Page shell, nav buttons, panels, and inline bootstrap for environment config. |
-| `herdr-dashboard.css`  | Theme, layout, responsive grid, and panel-specific components.                |
-| `herdr-dashboard.js`   | Panel registry, data fetching, rendering, polling, and IPC.                   |
+| Family              | Directory                               | Deployed by                    | Purpose                                                                           |
+| ------------------- | --------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------- |
+| **bun-create**      | [`bun-create/`](./bun-create)           | `bun create <name>`            | Standalone project starters. See [`templates.json`](./bun-create/templates.json). |
+| **scaffold**        | [`scaffold/`](./scaffold)               | `kimi-fix <path>`              | Hardened files injected into new or existing projects.                            |
+| **modules**         | [`modules/`](./modules)                 | `kimi-fix` with `KIMI_MODULES` | Optional domain-effect processors copied into a project.                          |
+| **desktop-runtime** | [`desktop-runtime/`](./desktop-runtime) | `bun run sync`                 | Runtime `package.json` for synced `~/.kimi-code/` tools.                          |
+| **artifact-portal** | [`artifact-portal/`](./artifact-portal) | `bun run sync`                 | Manifest re-export used by the Artifact Portal contract.                          |
+| **herdr-dashboard** | [`herdr-dashboard/`](./herdr-dashboard) | `bun run sync`                 | Static HTML/CSS/JS assets for the Herdr WebView dashboard.                        |
 
-The templates are deliberately dependency-free — no build step, no bundler, no
-framework. Edit the files directly and refresh the browser/WebView.
+See also:
 
-## Quick orientation
+- [`docs/references/template-matrix.md`](../docs/references/template-matrix.md) — full matrix of all template files, sync targets, and collision rules.
+- [`TEMPLATES.md`](../TEMPLATES.md) — copy-paste templates for new projects (README, CI, configs, snippets).
+- [`skills/create-template/SKILL.md`](../skills/create-template/SKILL.md) — runbook for authoring and registering templates.
+- [`examples/README.md`](../examples/README.md) — runnable showcase projects that many templates reference as `sourceExample`.
 
-1. The server generates `GET /` from `herdr-dashboard.html`.
-2. `/herdr-dashboard.css` and `/herdr-dashboard.js` are served as static assets.
-3. `/api/meta` exposes runtime config (`pollHintMs`, `examplesDashboardUrl`, etc.).
-4. `/api/*` routes return JSON consumed by the client.
+## bun-create templates
 
-## Client-side panel registry
+Registry: [`bun-create/templates.json`](./bun-create/templates.json).
 
-`herdr-dashboard.js` owns a declarative `PANELS` registry. Each entry maps a tab
-`id` (matching `data-tab="..."` and `id="..."`) to lifecycle hooks.
+| Template                      | Type      | Complexity | Example / specialization                                                                                                                                     |
+| ----------------------------- | --------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `kimi-toolchain`              | scaffold  | minimal    | Generic greenfield Bun project with governance, guardian, and quality gates.                                                                                 |
+| `kimi-dashboard`              | server    | minimal    | [`examples/dashboard/`](../examples/dashboard) — full API showcase; template scaffolds a starter subset.                                                     |
+| `kimi-gates`                  | cli       | medium     | [`examples/gates/`](../examples/gates) — generic gate-tree demo; [`examples/trading-workspace/`](../examples/trading-workspace) is a trading specialization. |
+| `artifact-portal-convergence` | workspace | minimal    | [`examples/portal/`](../examples/portal) — Canvas → Probe → Herdr → disk convergence.                                                                        |
 
-```js
-const PANELS = {
-  agents: {
-    label: "Agents",
-    activate() {
-      if (lastAgentsPayload) renderAgents(lastAgentsPayload);
-    },
-  },
-  logs: {
-    label: "Logs",
-    activate() {
-      lastDebugLogsJson = "";
-      void refreshDebugLogs();
-      scheduleDebugLogsPoll();
-    },
-    deactivate() {
-      if (debugLogsTabTimer) {
-        clearInterval(debugLogsTabTimer);
-        debugLogsTabTimer = null;
-      }
-    },
-  },
-  examples: {
-    label: "Examples",
-    activate() {
-      const frame = document.getElementById("examples-frame");
-      if (examplesDashboardUrl && frame && !frame.src.includes(examplesDashboardUrl)) {
-        loadExamplesDashboard(examplesDashboardUrl);
-      }
-    },
-  },
-};
-```
+> **Note:** `.bun-create/` at the repo root is a runtime mirror of `templates/bun-create/`. It is generated by `bun install -g` / `bun run sync` and is gitignored. Do not edit it by hand.
 
-`switchTab` calls `deactivate` on the outgoing panel and `activate` on the
-incoming panel. Keep timers, SSE fallback intervals, and heavy rendering inside
-these hooks so inactive tabs do not poll the server.
+## Domain effect modules
 
-### Adding a new client-side tab
+Modules are opt-in processors scaffolded when `KIMI_MODULES` is set. Each exposes a `Symbol.for("kimi.effect.<name>")` contract and is benchmarked by the perf harness.
 
-1. **Add the nav button** in `herdr-dashboard.html`:
+| Module     | Source                                                                     | Effect symbol          | Key Bun API                           |
+| ---------- | -------------------------------------------------------------------------- | ---------------------- | ------------------------------------- |
+| `clock`    | [`modules/clock/src/processor.ts`](./modules/clock/src/processor.ts)       | `kimi.effect.clock`    | `Bun.nanoseconds()`                   |
+| `db`       | [`modules/db/src/processor.ts`](./modules/db/src/processor.ts)             | `kimi.effect.db`       | `bun:sqlite`                          |
+| `http`     | [`modules/http/src/processor.ts`](./modules/http/src/processor.ts)         | `kimi.effect.http`     | `Bun.serve`                           |
+| `image`    | [`modules/image/src/processor.ts`](./modules/image/src/processor.ts)       | `kimi.effect.image`    | `Bun.Image`                           |
+| `terminal` | [`modules/terminal/src/processor.ts`](./modules/terminal/src/processor.ts) | `kimi.effect.terminal` | `Bun.stdin.isTTY()` / ANSI            |
+| `trading`  | [`modules/trading/src/`](./modules/trading/src)                            | `kimi.effect.trading`  | L1→L2 gate tree with artifact lineage |
+| `uuid`     | [`modules/uuid/src/processor.ts`](./modules/uuid/src/processor.ts)         | `kimi.effect.uuid`     | `Bun.randomUUIDv7`                    |
 
-   ```html
-   <button data-tab="tasks" type="button">Tasks</button>
-   ```
+The default module (`doctor`) is sourced from `examples/dashboard/src/harness/` rather than `templates/modules/`.
 
-2. **Add the panel section** in `<main>`:
+## Scaffold templates
 
-   ```html
-   <section id="tasks" class="panel">
-     <h2 class="panel-heading">Tasks</h2>
-     <div id="tasks-list" class="tasks-list"></div>
-   </section>
-   ```
+`templates/scaffold/` contains the hardened files that `kimi-fix` copies into projects. The full list and collision rules are documented in [`docs/references/template-matrix.md`](../docs/references/template-matrix.md).
 
-3. **Add styles** in `herdr-dashboard.css` if needed. Prefer existing utility
-   classes before writing new rules.
+## Runtime sync
 
-4. **Register the panel** in `herdr-dashboard.js`:
+`bun run sync` copies relevant template subsets to `~/.kimi-code/`:
 
-   ```js
-   registerPanel("tasks", {
-     label: "Tasks",
-     activate() {
-       lastTasksJson = "";
-       void refreshTasks();
-     },
-     deactivate() {
-       if (tasksPollTimer) {
-         clearInterval(tasksPollTimer);
-         tasksPollTimer = null;
-       }
-     },
-   });
-   ```
+- `templates/scaffold/` → `~/.kimi-code/templates/`
+- `templates/bun-create/` → `~/.bun-create/` (used by `bun create`)
+- `templates/desktop-runtime/package.json` → `~/.kimi-code/package.json`
 
-   `registerPanel(id, panel)` is exported at runtime and is safe to call from
-   console scripts or future plugin extensions.
-
-5. **Add the fetch + render functions** near the other panel-specific helpers:
-
-   ```js
-   async function refreshTasks() {
-     const payload = await apiGet("/api/tasks");
-     if (!payload) return;
-     const json = JSON.stringify(payload);
-     if (json === lastTasksJson) return;
-     lastTasksJson = json;
-     renderTasks(payload);
-   }
-
-   function renderTasks(payload) {
-     const el = document.getElementById("tasks-list");
-     if (!el) return;
-     el.innerHTML = ""; // or build DOM fragments
-     for (const task of payload.tasks || []) {
-       const row = document.createElement("div");
-       row.textContent = task.name;
-       el.appendChild(row);
-     }
-   }
-   ```
-
-6. Restart the herdr dashboard server (or the herdr orchestrator that hosts it).
-
-## Server-side extension guide
-
-Most dashboard data flows through three layers:
-
-1. **HTTP route** in `src/lib/herdr-dashboard-server.ts`
-2. **Data function** in `src/lib/herdr-dashboard-data.ts`
-3. **Type / interface** in `src/lib/herdr-dashboard-data.ts` or `src/lib/herdr-dashboard-contract.ts`
-
-### Add a new API endpoint
-
-1. **Define the payload shape** next to the existing payload types:
-
-   ```ts
-   // src/lib/herdr-dashboard-data.ts
-   export interface DashboardTasksPayload {
-     ok: boolean;
-     tasks: Array<{ id: string; name: string; status: string }>;
-     fetchedAt: string;
-   }
-   ```
-
-2. **Implement the data function**:
-
-   ```ts
-   export function fetchDashboardTasks(projectPath: string): DashboardTasksPayload {
-     return {
-       ok: true,
-       tasks: [], // populate from project state
-       fetchedAt: new Date().toISOString(),
-     };
-   }
-   ```
-
-3. **Wire the route** in `src/lib/herdr-dashboard-server.ts` inside the
-   `Bun.serve` `fetch` handler. Keep routes alphabetically grouped with the
-   existing `/api/*` blocks:
-
-   ```ts
-   if (path === "/api/tasks") {
-     return jsonResponse(fetchDashboardTasks(options.projectPath));
-   }
-   ```
-
-4. **Consume the endpoint** from the client panel registry as shown above.
-
-5. Run `bun run typecheck` and `bun run format` before committing.
-
-## Existing API routes (reference)
-
-| Route                              | Purpose                                                                                                                                      |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/meta`                    | Runtime config, discovery context, and WebView metadata.                                                                                     |
-| `GET /api/agents`                  | Current agent snapshot.                                                                                                                      |
-| `GET /api/agents/live`             | SSE live stream of agent updates.                                                                                                            |
-| `GET /api/health`                  | Lightweight subsystem health (agents, SSE, herdr socket, gates, **probe**, discovery). Schema: `schemas/herdr-dashboard-health.schema.json`. |
-| `GET /api/artifacts`               | Saved gate artifacts (disk) with `latestSize` / `latestResultSize` and serve-probe reachability hint.                                        |
-| `GET /api/gates/graph`             | Static gate execution DAG as Mermaid (`?gate=` optional closure filter).                                                                     |
-| `GET /api/artifacts/:gate/lineage` | Artifact lineage Mermaid — runtime `metadata.lineage` or declarative `dependsOn` (`?path=` optional).                                        |
-| `GET /api/probe/cards`             | Proxy to serve-probe `/api/cards` (live dashboard card snapshot).                                                                            |
-| `GET /api/handoffs`                | Handoff history.                                                                                                                             |
-| `GET /api/rules`                   | Handoff rules with last-fired metadata.                                                                                                      |
-| `GET /api/scan`                    | Upgrade scan findings.                                                                                                                       |
-| `GET /api/events`                  | Audit events query.                                                                                                                          |
-| `GET /api/canvases`                | Cursor canvas manifest.                                                                                                                      |
-| `GET /api/metrics`                 | Runtime metrics.                                                                                                                             |
-| `GET /api/debug/logs`              | Curated debug log tail.                                                                                                                      |
-| `GET /api/thumbnail`               | Dashboard screenshot thumbnail.                                                                                                              |
-
-## Environment variables
-
-The server reads these variables to configure the dashboard at runtime:
-
-| Variable                       | Default                  | Purpose                                   |
-| ------------------------------ | ------------------------ | ----------------------------------------- |
-| `HERDR_EXAMPLES_DASHBOARD_URL` | `http://localhost:5678/` | Base URL for the **Examples** tab iframe. |
-
-Other tuning values (`pollHintMs`, `ssePollMs`, `staleMs`, etc.) are passed from
-the server caller in `src/lib/herdr-dashboard-server.ts`.
-
-## Lineage tab (Mermaid)
-
-The **Lineage** tab loads Mermaid.js from jsDelivr (`mermaid@11`). When offline, graphs
-fall back to raw Mermaid source text in the panel. Gate execution DAG is static; artifact
-lineage prefers runtime `metadata.lineage`, then declarative `dependsOn`.
-
-## Styling conventions
-
-- Use `var(--...)` tokens defined at the top of `herdr-dashboard.css` for colors,
-  spacing, and typography.
-- Panel sections should use `class="panel"` and an `id` matching the tab name.
-- Tables use `class="data-table"`; code/pre blocks use `class="code-block"`.
-- Error banners use `class="error"`; loading states use `class="loading"`.
-- Status badges use `class="badge badge-{ok,warn,err,info}"`.
-- Summary cards use `class="summary-card"`; the client applies `live-ok`, `live-warn`, or `live-error` borders based on `/api/health`.
-- The examples iframe uses `class="examples-frame"` with `sandbox="allow-scripts allow-same-origin allow-forms"`.
-
-## Validation checklist
-
-After changing templates or server routes:
-
-1. `bun run typecheck` — TypeScript compiles.
-2. `bun run format` — oxfmt passes.
-3. `bun build templates/herdr-dashboard.js --target browser --outfile /tmp/herdr-bundle.js` — JS parses cleanly.
-4. Start the herdr orchestrator (or `bun run herdr` in the target project) and open the dashboard.
-5. Switch to the new tab, verify data loads, and confirm no errors in the WebView console.
-6. Switch away and back to confirm `activate` / `deactivate` hooks behave correctly.
-
-## Related files
-
-- `src/lib/herdr-dashboard-server.ts` — Bun HTTP server and route table
-- `src/lib/herdr-dashboard-data.ts` — data-fetch functions
-- `src/lib/herdr-dashboard-contract.ts` — shared interfaces
-- `src/lib/herdr-dashboard-hub.ts` — agent heartbeats and SSE live stream
-- `examples/dashboard/src/index.ts` — separate examples dashboard (embedded in the Examples tab)
+Verify after changing templates: `bun run sync && bun run sync:verify`.

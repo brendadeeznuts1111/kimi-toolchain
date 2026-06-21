@@ -183,6 +183,28 @@ export const SHOWCASE_ENTRIES: readonly ShowcaseEntry[] = [
     persona: "Alex — independent quant trader",
   },
   {
+    id: "gates",
+    kind: "project",
+    lane: "runtime",
+    order: 5,
+    title: "Generic Gate Tree",
+    tagline: "Minimal L1→L2 gate tree — the sourceExample for the kimi-gates bun-create template",
+    path: "examples/gates",
+    accent: "#3fb950",
+    cardIds: ["card-artifacts", "card-gates", "card-metrics-schema"],
+    relatedDocs: [
+      "examples/gates/README.md",
+      "examples/control-plane-layers.md",
+      "examples/artifact-dependency-graphs.md",
+    ],
+    commands: [
+      "cd examples/gates && bun run gate:all",
+      "cd examples/gates && bun run gate:graph",
+      "kimi-doctor --artifacts-list health-check",
+    ],
+    controlPlaneLevel: 1,
+  },
+  {
     id: "artifact-portal",
     kind: "guide",
     lane: "control-plane",

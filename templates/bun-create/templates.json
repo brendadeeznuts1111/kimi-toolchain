@@ -24,7 +24,7 @@
       "type": "cli",
       "complexity": "medium",
       "path": "kimi-gates",
-      "sourceExample": "examples/trading-workspace",
+      "sourceExample": "examples/gates",
       "cards": ["card-artifacts", "card-gates", "card-metrics-schema"]
     },
     {

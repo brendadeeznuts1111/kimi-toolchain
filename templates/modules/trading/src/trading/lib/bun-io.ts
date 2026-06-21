@@ -1,72 +1,57 @@
-/** Bun-native I/O helpers for scaffolded trading projects. */
+/** Minimal Bun-native fs helpers for scaffolded trading projects. */
 
-export function pathExists(path: string): boolean {
-  try {
-    const stat = Bun.file(path).statSync();
-    return stat.isFile() || stat.isDirectory();
-  } catch {
-    return false;
-  }
+export interface Dirent {
+  name: string;
+  isDirectory(): boolean;
+  isFile(): boolean;
 }
 
-export function listDir(path: string): string[];
-export function listDir(path: string, options: { withFileTypes: true }): import("node:fs").Dirent[];
+export type PathLike = string;
+
+export function pathExists(path: PathLike): boolean {
+  return Bun.file(path).size !== 0 || require("node:fs").existsSync(path);
+}
+
+/**
+ * List directory contents using Bun.Glob (Bun-native, no node:fs import).
+ * Returns filenames only (no leading `./`).
+ */
+export function listDir(path: PathLike): string[];
+export function listDir(path: PathLike, options: { withFileTypes: true }): Dirent[];
 export function listDir(
-  path: string,
+  path: PathLike,
   options?: { withFileTypes?: boolean }
-): string[] | import("node:fs").Dirent[] {
-  if (!pathExists(path)) {
-    return options?.withFileTypes ? [] : [];
-  }
+): string[] | Dirent[] {
   const glob = new Bun.Glob("*");
+  const names = [...glob.scanSync({ cwd: String(path), onlyFiles: false })].sort();
   if (options?.withFileTypes) {
-    const entries: import("node:fs").Dirent[] = [];
-    for (const name of glob.scanSync({ cwd: path, onlyFiles: false })) {
-      const fullPath = `${path}/${name}`;
-      const isDir = Bun.file(fullPath).size === -1 && pathExists(fullPath);
-      entries.push({
-        name,
-        isDirectory: () => isDir,
-        isFile: () => !isDir,
-        isBlockDevice: () => false,
-        isCharacterDevice: () => false,
-        isFIFO: () => false,
-        isSocket: () => false,
-        isSymbolicLink: () => false,
-      } as import("node:fs").Dirent);
-    }
-    return entries;
+    return names.map((name) => ({
+      name,
+      isDirectory: () =>
+        !Bun.file(`${String(path)}/${name}`).size &&
+        require("node:fs")
+          .statSync(`${String(path)}/${name}`)
+          .isDirectory(),
+      isFile: () => Bun.file(`${String(path)}/${name}`).size > 0,
+    }));
   }
-  return [...glob.scanSync({ cwd: path, onlyFiles: false })] as string[];
+  return names;
 }
 
-async function mkdirBun(path: string, options?: { recursive?: boolean }): Promise<void> {
-  const args = options?.recursive ? ["-p", path] : [path];
-  const proc = await Bun.spawn(["mkdir", ...args], { stdout: "ignore", stderr: "ignore" });
-  const exitCode = await proc.exited;
-  if (exitCode !== 0) throw new Error(`mkdir failed (exit ${exitCode}): ${path}`);
+/** Create directory using Bun.spawn (Bun-native shell). */
+export function makeDir(path: PathLike, options?: { recursive?: boolean }): void {
+  const args = options?.recursive ? ["mkdir", "-p", String(path)] : ["mkdir", String(path)];
+  Bun.spawnSync(args);
 }
 
-async function rmBun(
-  path: string,
+/** Remove path using Bun.spawn (Bun-native shell). */
+export function removePath(
+  path: PathLike,
   options?: { force?: boolean; recursive?: boolean }
-): Promise<void> {
-  const args: string[] = [];
-  if (options?.recursive) args.push("-r");
+): void {
+  const args = ["rm"];
   if (options?.force) args.push("-f");
-  args.push(path);
-  const proc = await Bun.spawn(["rm", ...args], { stdout: "ignore", stderr: "ignore" });
-  const exitCode = await proc.exited;
-  if (exitCode !== 0 && !options?.force) throw new Error(`rm failed (exit ${exitCode}): ${path}`);
-}
-
-export async function makeDir(path: string, options?: { recursive?: boolean }): Promise<void> {
-  await mkdirBun(path, options ?? { recursive: true });
-}
-
-export async function removePath(
-  path: string,
-  options?: { force?: boolean; recursive?: boolean }
-): Promise<void> {
-  await rmBun(path, options ?? { force: true });
+  if (options?.recursive) args.push("-r");
+  args.push(String(path));
+  Bun.spawnSync(args);
 }

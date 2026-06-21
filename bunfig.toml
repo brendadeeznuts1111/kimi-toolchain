@@ -1,3 +1,6 @@
+[console]
+depth = 6
+
 [install]
 optional = true
 dev = true

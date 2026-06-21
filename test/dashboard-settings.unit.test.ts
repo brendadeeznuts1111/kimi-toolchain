@@ -97,7 +97,7 @@ port = 7777
     }
   });
 
-  test("resolveDashboardSettings reports cardCount 69 for repo", async () => {
+  test("resolveDashboardSettings reports cardCount 70 for repo", async () => {
     const settings = await resolveDashboardSettings(REPO_ROOT, {
       requestUrl: new URL("http://127.0.0.1:5678/"),
     });
@@ -106,7 +106,7 @@ port = 7777
     expect(settings.dashboardUrl).toBe("http://127.0.0.1:5678/");
     expect(settings.cardCount).toBe(70);
     expect(settings.canvasLinkedCount).toBe(27);
-    expect(settings.canvasOrphanCount).toBe(42);
+    expect(settings.canvasOrphanCount).toBe(43);
     expect(settings.canonicalPort).toBe(5678);
     expect(settings.defaultCanvas).toBeNull();
     expect(settings.retentionMs["1"]).toBeGreaterThan(0);

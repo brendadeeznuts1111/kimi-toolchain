@@ -325,6 +325,13 @@ export const UNIT_TEST_FILES = [
   "test/herdr-remote-host-probe.unit.test.ts",
   "test/hook-gates.unit.test.ts",
   "test/bun-release-compliance.unit.test.ts",
+  "test/bun-compile-autoload.unit.test.ts",
+  "test/bun-console-j.unit.test.ts",
+  "test/bun-dns.unit.test.ts",
+  "test/bun-fake-timers.unit.test.ts",
+  "test/bun-http-agent-keepalive.unit.test.ts",
+  "test/bun-serve-protocol.unit.test.ts",
+  "test/bun-urlpattern.unit.test.ts",
 ] as const;
 
 export const FAST_TEST_CHUNK_SIZE = 10;

@@ -50,12 +50,39 @@ The template must be **maximally minimal**. Only `package.json` is required. Eve
 
 ```json
 {
-  "name": "<name>",
+  "name": "{{name}}",
+  "version": "0.0.1",
+  "description": "Greenfield Bun project pre-wired with kimi-toolchain governance, guardian, and quality gates.",
   "bun-create": {
-    "postinstall": ["bun install -g github:brendadeeznuts1111/kimi-toolchain", "kimi-fix ."]
+    "postinstall": [
+      "HOME=\"${KIMI_SCAFFOLD_HOME:-$HOME}\" bun install -g github:brendadeeznuts1111/kimi-toolchain",
+      "HOME=\"${KIMI_SCAFFOLD_HOME:-$HOME}\" PATH=\"${KIMI_SCAFFOLD_HOME:+$KIMI_SCAFFOLD_HOME/.bun/bin:}$PATH\" kimi-fix . ${KIMI_PROFILE:+--profile $KIMI_PROFILE}"
+    ],
+    "start": {
+      "dev": "bun run --watch src/index.ts",
+      "test": "bun test",
+      "check": "bun run scripts/check.ts --fast"
+    }
+  },
+  "kimi": {
+    "showcase": {
+      "id": "kimi-toolchain",
+      "lane": "runtime",
+      "accent": "#58a6ff",
+      "cards": ["card-kimi-doctor", "card-scaffold", "card-gates"]
+    }
   }
 }
 ```
+
+### Current bun-create templates
+
+| Template                      | Type      | Example / specialization                                                                    |
+| ----------------------------- | --------- | ------------------------------------------------------------------------------------------- |
+| `kimi-toolchain`              | scaffold  | Generic greenfield project                                                                  |
+| `kimi-dashboard`              | server    | [`examples/dashboard/`](../examples/dashboard)                                              |
+| `kimi-gates`                  | cli       | [`examples/trading-workspace/`](../examples/trading-workspace) is a concrete specialization |
+| `artifact-portal-convergence` | workspace | [`examples/portal/`](../examples/portal)                                                    |
 
 **Rules:**
 
@@ -67,8 +94,9 @@ The template must be **maximally minimal**. Only `package.json` is required. Eve
 
 1. Create the directory: `templates/bun-create/<name>/`
 2. Add `package.json` with `bun-create.postinstall`
-3. Document in `TEMPLATES.md` § bun create Template
-4. **Optional:** publish as `create-<name>` to npm for zero-install `bun create <name>`
+3. Register the template in `templates/bun-create/templates.json`
+4. Document the template in `templates/bun-create/README.md`
+5. **Optional:** publish as `create-<name>` to npm for zero-install `bun create <name>`
 
 ### Activation
 
@@ -206,7 +234,9 @@ After creating/modifying a template:
 ## Related
 
 - **Template matrix:** `docs/references/template-matrix.md` — full breakdown of all 28 template files
-- **TEMPLATES.md:** inline docs for each template
+- **Template directory index:** `templates/README.md` — all template families and sync targets
+- **bun-create index:** `templates/bun-create/README.md` — current bun-create templates and examples mapping
+- **TEMPLATES.md:** inline copy-paste templates for new projects
 - **scaffold-templates.ts:** `src/lib/scaffold-templates.ts` — SSOT for template loading
 - **kimi-fix.ts:** `src/bin/kimi-fix.ts` — template deployment
 - **scaffold-doctor.ts:** `src/lib/scaffold-doctor.ts` — completeness checks

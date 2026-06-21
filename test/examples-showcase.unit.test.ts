@@ -12,31 +12,39 @@ import {
 import { REPO_ROOT } from "./helpers.ts";
 
 describe("examples-showcase", () => {
-  test("registry has three runnable projects and eleven guides", () => {
+  test("registry has four runnable projects and eleven guides", () => {
     const projects = SHOWCASE_ENTRIES.filter((e) => e.kind === "project");
     const guides = SHOWCASE_ENTRIES.filter((e) => e.kind === "guide");
-    expect(projects.length).toBe(3);
+    expect(projects.length).toBe(4);
     expect(guides.length).toBe(11);
-    expect(projects.map((p) => p.id).sort()).toEqual(["dashboard", "portal", "trading-workspace"]);
+    expect(projects.map((p) => p.id).sort()).toEqual([
+      "dashboard",
+      "gates",
+      "portal",
+      "trading-workspace",
+    ]);
   });
 
   test("buildExamplesShowcasePayload marks projects present and runnable", () => {
     const payload = buildExamplesShowcasePayload(REPO_ROOT);
     expect(payload.ok).toBe(true);
     expect(payload.schemaVersion).toBe(1);
-    expect(payload.totals.projects).toBe(3);
+    expect(payload.totals.projects).toBe(4);
     expect(payload.totals.guides).toBe(11);
     expect(payload.totals.cardsMapped).toBeGreaterThan(10);
 
     const dashboard = payload.entries.find((e) => e.id === "dashboard");
     const portal = payload.entries.find((e) => e.id === "portal");
     const trading = payload.entries.find((e) => e.id === "trading-workspace");
+    const gates = payload.entries.find((e) => e.id === "gates");
     expect(dashboard?.status.present).toBe(true);
     expect(dashboard?.status.runnable).toBe(true);
     expect(portal?.status.present).toBe(true);
     expect(portal?.status.runnable).toBe(true);
     expect(trading?.status.present).toBe(true);
     expect(trading?.status.runnable).toBe(true);
+    expect(gates?.status.present).toBe(true);
+    expect(gates?.status.runnable).toBe(true);
   });
 
   test("lintShowcaseCardIds resolves every mapped card in dashboard.html", () => {
@@ -51,10 +59,11 @@ describe("examples-showcase", () => {
   });
 
   test("entriesForLane returns ordered runtime projects first", () => {
-    const runtime = entriesForLane("runtime");
+    const runtime = entriesForLane("runtime").filter((e) => e.kind === "project");
     expect(runtime[0]?.id).toBe("dashboard");
     expect(runtime[1]?.id).toBe("portal");
     expect(runtime[2]?.id).toBe("trading-workspace");
+    expect(runtime[3]?.id).toBe("gates");
   });
 
   test("getShowcaseEntry returns trading persona metadata", () => {
@@ -77,7 +86,7 @@ describe("examples-showcase", () => {
     expect(trading?.probe?.artifactCount).toBeGreaterThan(0);
     const dashboard = payload.entries.find((e) => e.id === "dashboard");
     expect(dashboard?.probe && "cardCount" in dashboard.probe ? dashboard.probe.cardCount : 0).toBe(
-      68
+      70
     );
   });
 

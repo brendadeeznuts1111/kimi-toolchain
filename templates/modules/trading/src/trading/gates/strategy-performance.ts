@@ -7,7 +7,11 @@
  * `examples/artifact-trading-loop.md`.
  */
 import type { Gate, GateResult, GateRunOptions } from "./types.ts";
-import { GATE_LEVEL_PRUNE_MS, type GateRetentionPolicy } from "./types.ts";
+import {
+  DEFAULT_GATE_ARTIFACT_LIMIT,
+  GATE_LEVEL_PRUNE_MS,
+  type GateRetentionPolicy,
+} from "./types.ts";
 
 const STRATEGY_RETENTION: GateRetentionPolicy = {
   maxAgeMs: 30 * 24 * 60 * 60 * 1000,
@@ -71,7 +75,10 @@ export async function runStrategyPerformanceGate(
 
   // Read L1 upstream: last 1 hour of data-freshness artifacts
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const dataFreshnessArtifacts = await getArtifacts("data-freshness", { since });
+  const dataFreshnessArtifacts = await getArtifacts("data-freshness", {
+    since,
+    limit: DEFAULT_GATE_ARTIFACT_LIMIT,
+  });
 
   // Read latest risk-limits artifact
   const riskLimitArtifact = await getArtifact("risk-limits");

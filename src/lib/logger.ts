@@ -16,6 +16,7 @@ import { appendText, makeDir } from "./bun-io.ts";
 import { inspectAgent } from "./inspect.ts";
 import { isAgentContext } from "./tool-runner.ts";
 import { getStepBudgetStatus } from "./step-budget.ts";
+import { nowNanos } from "./bun-utils.ts";
 
 function writeJsonLine(value: unknown): void {
   process.stdout.write(`${inspectAgent(value)}\n`);
@@ -43,6 +44,18 @@ export interface LogEntry {
   taxonomyId?: string;
   suggestion?: string;
   autoFix?: string;
+  /** Elapsed duration in milliseconds (set by time/timeEnd). */
+  durationMs?: number;
+  /** Error name (e.g. TypeError, SyntaxError). */
+  errorName?: string;
+  /** Error stack trace. */
+  errorStack?: string;
+  /** Arbitrary structured context fields attached to the entry. */
+  fields?: Record<string, unknown>;
+  /** Causal trace correlation id (links to TraceEvent in trace-ledger). */
+  traceId?: string;
+  /** Span id for sub-operation correlation within a trace. */
+  spanId?: string;
 }
 
 export interface LoggerOptions {
@@ -60,6 +73,12 @@ export interface LoggerOptions {
   sessionId?: string;
   /** When true, route human-readable lines to stderr instead of stdout. */
   humanStderr?: boolean;
+  /** Persistent context fields merged into every LogEntry produced by this logger. */
+  fields?: Record<string, unknown>;
+  /** Causal trace id propagated to every entry (e.g. from an active TraceEvent). */
+  traceId?: string;
+  /** Span id propagated to every entry. */
+  spanId?: string;
 }
 
 function resolveSessionId(): string | undefined {
@@ -75,6 +94,11 @@ export class Logger {
   private sessionId: string | undefined;
   private humanStderr: boolean;
   private logs: LogEntry[] = [];
+  private fields: Record<string, unknown> | undefined;
+  private traceId: string | undefined;
+  private spanId: string | undefined;
+  /** Active performance timers keyed by label. Stores nowNanos() (Bun.nanoseconds()) start values. */
+  private timers = new Map<string, number>();
 
   constructor(options: LoggerOptions = {}) {
     this.level = options.level ?? "info";
@@ -84,6 +108,31 @@ export class Logger {
     this.stepBudget = options.stepBudget ?? false;
     this.sessionId = options.sessionId ?? resolveSessionId();
     this.humanStderr = options.humanStderr ?? false;
+    this.fields = options.fields;
+    this.traceId = options.traceId;
+    this.spanId = options.spanId;
+  }
+
+  /**
+   * Return a child logger that inherits this logger's config and merges additional
+   * context fields / trace ids. Child logs are buffered independently but share
+   * the same output mode.
+   */
+  child(overrides: Partial<LoggerOptions> & { fields?: Record<string, unknown> }): Logger {
+    const { fields: overrideFields, ...rest } = overrides;
+    return new Logger({
+      level: this.level,
+      json: this.json,
+      quiet: this.quiet,
+      stepBudget: this.stepBudget,
+      humanStderr: this.humanStderr,
+      tool: this.tool,
+      sessionId: this.sessionId,
+      traceId: this.traceId,
+      spanId: this.spanId,
+      ...rest,
+      fields: { ...this.fields, ...overrideFields },
+    });
   }
 
   private shouldEmit(level: LogLevel): boolean {
@@ -138,6 +187,9 @@ export class Logger {
       message,
       timestamp: Date.now(),
       ...(this.sessionId ? { sessionId: this.sessionId } : {}),
+      ...(this.fields && Object.keys(this.fields).length > 0 ? { fields: { ...this.fields } } : {}),
+      ...(this.traceId ? { traceId: this.traceId } : {}),
+      ...(this.spanId ? { spanId: this.spanId } : {}),
     };
   }
 
@@ -165,6 +217,63 @@ export class Logger {
   }
   error(msg: string): void {
     this.emit("error", msg);
+  }
+
+  /**
+   * Log an Error object at "error" level, capturing name, message, and stack.
+   * Extra fields can be merged alongside the entry.
+   */
+  errorObj(err: unknown, extraFields?: Record<string, unknown>): void {
+    let message: string;
+    let errorName: string | undefined;
+    let errorStack: string | undefined;
+
+    if (err instanceof Error) {
+      message = err.message || String(err);
+      errorName = err.name;
+      errorStack = err.stack;
+    } else if (typeof err === "string") {
+      message = err;
+    } else {
+      message = Bun.inspect(err);
+    }
+
+    const entry: LogEntry = {
+      ...this.baseEntry("error", message),
+      ...(errorName ? { errorName } : {}),
+      ...(errorStack ? { errorStack } : {}),
+      ...(extraFields ? { fields: { ...this.fields, ...extraFields } } : {}),
+    };
+    this.emitEntry(entry);
+  }
+
+  /**
+   * Start a named performance timer using nowNanos() (Bun.nanoseconds()).
+   * Call timeEnd(label) to emit an entry with sub-millisecond durationMs.
+   */
+  time(label: string): void {
+    this.timers.set(label, nowNanos());
+  }
+
+  /**
+   * Stop a named performance timer and emit an entry with durationMs.
+   * Uses nowNanos() (Bun.nanoseconds()) for sub-millisecond precision (ns / 1_000_000 = ms).
+   * Returns the elapsed milliseconds, or -1 if the timer was never started.
+   */
+  timeEnd(label: string, level: LogLevel = "debug"): number {
+    const start = this.timers.get(label);
+    if (start === undefined) {
+      this.warn(`timeEnd called for unknown timer "${label}"`);
+      return -1;
+    }
+    this.timers.delete(label);
+    const durationMs = (nowNanos() - start) / 1_000_000;
+    const entry: LogEntry = {
+      ...this.baseEntry(level, `${label}: ${durationMs.toFixed(3)}ms`),
+      durationMs,
+    };
+    this.emitEntry(entry);
+    return durationMs;
   }
 
   /** Log a structured health check result. */
@@ -306,7 +415,7 @@ export class Logger {
     if (this.logs.length === 0) return;
     const { dirname } = await import("path");
     makeDir(dirname(path), { recursive: true });
-    const lines = this.logs.map((l) => JSON.stringify(l)).join("\n") + "\n";
+    const lines = this.logs.map((l) => inspectAgent(l)).join("\n") + "\n";
     appendText(path, lines);
   }
 }

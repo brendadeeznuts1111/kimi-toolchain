@@ -45,7 +45,10 @@ const TOOL_INVENTORY = [
     "Heal / Memory",
     "kimi-decision, kimi-error, kimi-heal, kimi-memory, kimi-resource-governor (health-listen), kimi-snapshot, kimi-why",
   ],
-  ["Scaffold / Release", "kimi-cleanup-legacy, kimi-context-gen, kimi-fix, kimi-new, kimi-release"],
+  [
+    "Scaffold / Release",
+    "kimi-bake, kimi-cleanup-legacy, kimi-context-gen, kimi-fix, kimi-new, kimi-release",
+  ],
   ["Herdr", ""],
   [
     "Infrastructure",
@@ -211,7 +214,7 @@ const CANVAS_ROUTING_ROW_TONE = [
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
-  { id: "test", label: "bun run check:fast", sub: "314 unit gates" },
+  { id: "test", label: "bun run check:fast", sub: "323 unit gates" },
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -232,15 +235,15 @@ const TOOL_CATEGORIES = [
   { id: "diag", label: "Diagnostics", count: 5 },
   { id: "gov", label: "Governance", count: 5 },
   { id: "heal", label: "Heal / Memory", count: 7 },
-  { id: "scaffold", label: "Scaffold", count: 5 },
+  { id: "scaffold", label: "Scaffold", count: 6 },
   { id: "herdr", label: "Herdr", count: 0 },
   { id: "infra", label: "Router / Bridge", count: 4 },
 ] as const;
 
-const BIN_COUNT = 26;
-const LIB_COUNT = 325;
-const UNIT_COUNT = 314;
-const INTEGRATION_COUNT = 17;
+const BIN_COUNT = 27;
+const LIB_COUNT = 357;
+const UNIT_COUNT = 323;
+const INTEGRATION_COUNT = 18;
 const SMOKE_COUNT = 7;
 const CURSOR_CANVAS_COUNT = 13;
 

@@ -108,7 +108,7 @@ describe("bun-release-compliance Bun.cron", () => {
   });
 
   test("herdr-dashboard-cron.ts uses 5-field cron (no seconds)", () => {
-    const text = readSrc("src/lib/herdr-dashboard-cron.ts");
+    const text = readSrc("src/lib/herdr-dashboard/cron.ts");
     expect(text).toContain("5 fields");
     expect(text).toContain("minute hour day month weekday");
   });

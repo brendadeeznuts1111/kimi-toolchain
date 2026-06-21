@@ -6,14 +6,18 @@ import {
   parseFrontmatterText,
 } from "../src/lib/frontmatter.ts";
 import {
+  BUN_WEBVIEW_AUTOMATION_CONTRACT,
   BUN_WEBVIEW_DOCS_URL,
   bunWebViewDocAnchor,
+  chromeWebViewBackend,
   createWebViewConsoleCollector,
+  spawnChromeBackend,
   webViewConsoleMirror,
   formatWebViewConsoleEvents,
   parseWebViewCliArgs,
   probeWebViewFrontmatter,
   unwrapWebViewConsoleArg,
+  waitForNavigation,
   webViewSupported,
 } from "../src/lib/webview-console.ts";
 import { REPO_ROOT } from "./helpers.ts";
@@ -105,12 +109,127 @@ meta:
     expect(webViewConsoleMirror()).toBe(globalThis.console);
   });
 
+  test("BUN_WEBVIEW_AUTOMATION_CONTRACT declares trusted input and actionability semantics", () => {
+    expect(BUN_WEBVIEW_AUTOMATION_CONTRACT.input).toEqual({
+      dispatch: "os-level-events",
+      trusted: true,
+      selectorActionability: ["attached", "visible", "stable", "unobscured"],
+    });
+  });
+
+  test("BUN_WEBVIEW_AUTOMATION_CONTRACT tracks WebView methods and state properties", () => {
+    expect(BUN_WEBVIEW_AUTOMATION_CONTRACT.methods).toEqual([
+      "navigate",
+      "evaluate",
+      "screenshot",
+      "click",
+      "type",
+      "press",
+      "scroll",
+      "scrollTo",
+      "goBack",
+      "goForward",
+      "reload",
+      "resize",
+      "cdp",
+    ]);
+    expect(BUN_WEBVIEW_AUTOMATION_CONTRACT.stateProperties).toEqual(["url", "title", "loading"]);
+  });
+
+  test("BUN_WEBVIEW_AUTOMATION_CONTRACT tracks constructor backends and CDP event shape", () => {
+    expect(BUN_WEBVIEW_AUTOMATION_CONTRACT.constructor.backends).toEqual(["webkit", "chrome"]);
+    expect(BUN_WEBVIEW_AUTOMATION_CONTRACT.constructor.options).toEqual([
+      "backend",
+      "console",
+      "dataStore",
+      "width",
+      "height",
+    ]);
+    expect(BUN_WEBVIEW_AUTOMATION_CONTRACT.constructor.browserProcess).toBe(
+      "shared-per-bun-process"
+    );
+    expect(BUN_WEBVIEW_AUTOMATION_CONTRACT.cdpEvents).toEqual({
+      backend: "chrome",
+      eventType: "cdp-method-name",
+      paramsLocation: "event.data",
+    });
+  });
+
+  test("spawnChromeBackend builds object backend that chromeWebViewBackend recognizes", () => {
+    const backend = spawnChromeBackend();
+    expect(backend).toEqual({
+      type: "chrome",
+      url: false,
+    });
+    expect(chromeWebViewBackend(backend)).toBe(true);
+  });
+
   test("bunWebViewDocAnchor builds bun.com deep links", () => {
     expect(bunWebViewDocAnchor()).toBe(BUN_WEBVIEW_DOCS_URL);
     expect(bunWebViewDocAnchor("console-capture")).toBe(`${BUN_WEBVIEW_DOCS_URL}#console-capture`);
     expect(bunWebViewDocAnchor("#persistent-storage")).toBe(
       `${BUN_WEBVIEW_DOCS_URL}#persistent-storage`
     );
+  });
+
+  describe("waitForNavigation()", () => {
+    function makeMockView(): {
+      view: Pick<Bun.WebView, "onNavigated" | "onNavigationFailed">;
+      triggerNavigated: (url: string, title: string) => void;
+      triggerFailed: (error: Error) => void;
+    } {
+      const view: Pick<Bun.WebView, "onNavigated" | "onNavigationFailed"> = {
+        onNavigated: null,
+        onNavigationFailed: null,
+      };
+      return {
+        view,
+        triggerNavigated: (url, title) =>
+          (view.onNavigated as ((url: string, title: string) => void) | null)?.(url, title),
+        triggerFailed: (error) =>
+          (view.onNavigationFailed as ((error: Error) => void) | null)?.(error),
+      };
+    }
+
+    test("resolves when onNavigated fires", async () => {
+      const { view, triggerNavigated } = makeMockView();
+      const nav = waitForNavigation(view as unknown as Bun.WebView, 2_000);
+      triggerNavigated("https://example.com", "Example");
+      const result = await nav;
+      expect(result.url).toBe("https://example.com");
+      expect(result.title).toBe("Example");
+    });
+
+    test("rejects when onNavigationFailed fires", async () => {
+      const { view, triggerFailed } = makeMockView();
+      const nav = waitForNavigation(view as unknown as Bun.WebView, 2_000);
+      triggerFailed(new Error("net::ERR_NAME_NOT_RESOLVED"));
+      await expect(nav).rejects.toThrow("net::ERR_NAME_NOT_RESOLVED");
+    });
+
+    test("rejects after timeout", async () => {
+      const { view } = makeMockView();
+      const nav = waitForNavigation(view as unknown as Bun.WebView, 20);
+      await expect(nav).rejects.toThrow("WebView navigation timeout after 20ms");
+    });
+
+    test("clears both callbacks after onNavigated", async () => {
+      const { view, triggerNavigated } = makeMockView();
+      const nav = waitForNavigation(view as unknown as Bun.WebView, 2_000);
+      triggerNavigated("https://a.com", "A");
+      await nav;
+      expect(view.onNavigated).toBeNull();
+      expect(view.onNavigationFailed).toBeNull();
+    });
+
+    test("clears both callbacks after onNavigationFailed", async () => {
+      const { view, triggerFailed } = makeMockView();
+      const nav = waitForNavigation(view as unknown as Bun.WebView, 2_000);
+      triggerFailed(new Error("fail"));
+      await nav.catch(() => {});
+      expect(view.onNavigated).toBeNull();
+      expect(view.onNavigationFailed).toBeNull();
+    });
   });
 
   test("probeWebViewFrontmatter captures page console on supported runtimes", async () => {

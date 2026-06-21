@@ -1,3 +1,12 @@
+/**
+ * Versioned gate artifacts under `.kimi/artifacts/<gate>/`.
+ *
+ * Supports declarative `dependsOn` queries at save time and runtime `lineage`
+ * from the gate runner. Prune retention is level-aware via `GATE_LEVEL_PRUNE_MS`.
+ *
+ * @see src/gates/runner.ts — `persistGateArtifact`, `buildGateContext`
+ * @see examples/artifact-trading-loop.md — L2 feedback loop demo
+ */
 import { hostname } from "node:os";
 import { join } from "path";
 import { listDir, makeDir, pathExists, removePath } from "./bun-io.ts";
@@ -35,7 +44,16 @@ export interface ArtifactRunLineage {
   upstreamArtifacts: string[];
 }
 
-export interface ArtifactSaveMeta {
+export interface ArtifactSessionContext {
+  /** Kimi Code or agent session (`KIMI_CODE_SESSION` / `KIMI_AGENT_SESSION`). */
+  sessionId?: string;
+  /** Herdr workspace (`HERDR_WORKSPACE_ID`). */
+  workspaceId?: string;
+  /** Agent or pane id (`KIMI_AGENT_ID` / `HERDR_PANE_ID`). */
+  agentId?: string;
+}
+
+export interface ArtifactSaveMeta extends ArtifactSessionContext {
   /** Control-plane level copied from gate definition (for prune/docs). */
   level?: 1 | 2 | 3;
   /** Artifact lineage declared at save time (not inferred). */
@@ -64,7 +82,7 @@ export interface ArtifactEnvelope {
   payload: unknown;
 }
 
-export interface ArtifactListEntry {
+export interface ArtifactListEntry extends ArtifactSessionContext {
   path: string;
   timestamp: string | null;
   size?: number;
@@ -75,7 +93,7 @@ export interface ArtifactListEntriesResult extends ArtifactListResult {
   entries: ArtifactListEntry[];
 }
 
-export interface ArtifactListOptions {
+export interface ArtifactListOptions extends ArtifactSessionContext {
   /** ISO-8601 lower bound (inclusive). */
   since?: string;
   /** Max entries to return (newest when list is chronological). */
@@ -214,6 +232,56 @@ export function parseArtifactDependencies(
   return out;
 }
 
+function readQueryString(searchParams: URLSearchParams, key: string): string | undefined {
+  const value = searchParams.get(key)?.trim();
+  return value && value.length > 0 ? value : undefined;
+}
+
+/** Resolve session/workspace/agent context from the current process environment. */
+export function resolveArtifactSessionContext(): ArtifactSessionContext {
+  const sessionId =
+    Bun.env.KIMI_CODE_SESSION?.trim() || Bun.env.KIMI_AGENT_SESSION?.trim() || undefined;
+  const workspaceId = Bun.env.HERDR_WORKSPACE_ID?.trim() || undefined;
+  const agentId = Bun.env.KIMI_AGENT_ID?.trim() || Bun.env.HERDR_PANE_ID?.trim() || undefined;
+  return {
+    ...(sessionId ? { sessionId } : {}),
+    ...(workspaceId ? { workspaceId } : {}),
+    ...(agentId ? { agentId } : {}),
+  };
+}
+
+function readArtifactSessionFields(metadata: ArtifactMetadata | undefined): ArtifactSessionContext {
+  if (!metadata) return {};
+  const sessionId =
+    typeof metadata.sessionId === "string" && metadata.sessionId.length > 0
+      ? metadata.sessionId
+      : undefined;
+  const workspaceId =
+    typeof metadata.workspaceId === "string" && metadata.workspaceId.length > 0
+      ? metadata.workspaceId
+      : undefined;
+  const agentId =
+    typeof metadata.agentId === "string" && metadata.agentId.length > 0
+      ? metadata.agentId
+      : undefined;
+  return {
+    ...(sessionId ? { sessionId } : {}),
+    ...(workspaceId ? { workspaceId } : {}),
+    ...(agentId ? { agentId } : {}),
+  };
+}
+
+/** True when artifact metadata matches optional session/workspace/agent filters. */
+export function matchesArtifactSessionContext(
+  metadata: ArtifactMetadata | undefined,
+  options: ArtifactSessionContext = {}
+): boolean {
+  if (options.sessionId && metadata?.sessionId !== options.sessionId) return false;
+  if (options.workspaceId && metadata?.workspaceId !== options.workspaceId) return false;
+  if (options.agentId && metadata?.agentId !== options.agentId) return false;
+  return true;
+}
+
 export function parseArtifactListQuery(searchParams: URLSearchParams): ArtifactListOptions {
   const options: ArtifactListOptions = {};
   const since = searchParams.get("since");
@@ -224,6 +292,13 @@ export function parseArtifactListQuery(searchParams: URLSearchParams): ArtifactL
     const limit = Number(limitRaw);
     if (Number.isFinite(limit) && limit > 0) options.limit = Math.floor(limit);
   }
+
+  const sessionId = readQueryString(searchParams, "sessionId");
+  if (sessionId) options.sessionId = sessionId;
+  const workspaceId = readQueryString(searchParams, "workspaceId");
+  if (workspaceId) options.workspaceId = workspaceId;
+  const agentId = readQueryString(searchParams, "agentId");
+  if (agentId) options.agentId = agentId;
 
   return options;
 }
@@ -279,9 +354,11 @@ export class ArtifactStore {
       lineageMermaid = generateArtifactLineageMermaid(relativePath, resolved);
     }
 
+    const sessionContext = resolveArtifactSessionContext();
     const metadata: ArtifactMetadata = {
       ...meta,
       ...(lineageMermaid ? { lineageMermaid } : {}),
+      ...sessionContext,
       hostname: hostname(),
       pid: process.pid,
       bunVersion: Bun.version,
@@ -355,16 +432,56 @@ export class ArtifactStore {
     gateName: string,
     options: ArtifactListOptions = {}
   ): Promise<ArtifactListEntriesResult> {
-    const filtered = await this.listFiltered(gateName, options);
-    const entries: ArtifactListEntry[] = [];
-    for (const filePath of filtered.files) {
-      entries.push({
+    const { sessionId, workspaceId, agentId, limit, ...pathOptions } = options;
+    const sessionFilter: ArtifactSessionContext = {
+      ...(sessionId ? { sessionId } : {}),
+      ...(workspaceId ? { workspaceId } : {}),
+      ...(agentId ? { agentId } : {}),
+    };
+    const hasSessionFilter = Object.keys(sessionFilter).length > 0;
+    const filtered = await this.listFiltered(gateName, hasSessionFilter ? pathOptions : options);
+
+    const buildEntry = async (filePath: string): Promise<ArtifactListEntry> => {
+      const envelope = await this.readEnvelope(filePath);
+      return {
         path: filePath,
         timestamp: extractArtifactTimestamp(filePath),
-        ...(await this.readEnvelopeSummary(filePath)),
-      });
+        ...readArtifactSessionFields(envelope?.metadata),
+        ...(envelope
+          ? {
+              size: typeof envelope.size === "number" ? envelope.size : undefined,
+              resultSize:
+                typeof envelope.metadata?.resultSize === "number"
+                  ? envelope.metadata.resultSize
+                  : undefined,
+            }
+          : await this.readEnvelopeSummary(filePath)),
+      };
+    };
+
+    if (!hasSessionFilter) {
+      const entries: ArtifactListEntry[] = [];
+      for (const filePath of filtered.files) {
+        entries.push(await buildEntry(filePath));
+      }
+      return { ...filtered, entries };
     }
-    return { ...filtered, entries };
+
+    const entries: ArtifactListEntry[] = [];
+    for (const filePath of filtered.files.toReversed()) {
+      const envelope = await this.readEnvelope(filePath);
+      if (!matchesArtifactSessionContext(envelope?.metadata, sessionFilter)) continue;
+      entries.unshift(await buildEntry(filePath));
+      if (limit !== undefined && entries.length >= limit) break;
+    }
+
+    return {
+      ...filtered,
+      files: entries.map((entry) => entry.path),
+      total: filtered.total,
+      entries,
+      ...(limit !== undefined ? { limit } : {}),
+    };
   }
 
   /** Read full envelope for a relative artifact path. */

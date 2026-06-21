@@ -2,6 +2,15 @@
 
 Elite-grade templates. No hardcoded ports. No brittle assumptions. Bun-native by default.
 
+## Template families
+
+This file contains copy-paste templates for new projects. For the authoritative directory layout, see:
+
+- [`templates/README.md`](templates/README.md) — all template families (`bun-create`, `scaffold`, `modules`, `desktop-runtime`, `artifact-portal`, `herdr-dashboard`)
+- [`templates/bun-create/README.md`](templates/bun-create/README.md) — current `bun create` templates and their example specializations
+- [`docs/references/template-matrix.md`](docs/references/template-matrix.md) — full file matrix, sync targets, and collision rules
+- [`skills/create-template/SKILL.md`](skills/create-template/SKILL.md) — runbook for authoring and registering templates
+
 ## CONTEXT.md Template
 
 ```markdown

@@ -13,6 +13,22 @@ import { hostname as osHostname } from "os";
 export { randomUUIDv7 } from "bun";
 
 /**
+ * Generate a time-sortable trace ID (UUIDv7, 32 hex chars, no dashes).
+ * Use for correlating log entries to a TraceEvent in trace-ledger.
+ */
+export function generateTraceId(): string {
+  return Bun.randomUUIDv7().replace(/-/g, "");
+}
+
+/**
+ * Generate a time-sortable span ID (first 16 hex chars of a stripped UUIDv7 — 64-bit).
+ * Shorter than a full trace ID; scopes a sub-operation within a trace.
+ */
+export function generateSpanId(): string {
+  return Bun.randomUUIDv7().replace(/-/g, "").slice(0, 16);
+}
+
+/**
  * Password hashing SSOT (`password` from `"bun"` ≡ `Bun.password`).
  *
  * Defaults: match bare `Bun.password.hash(plain)` — argon2id, `m=65536,t=2,p=1` (see hash-a-password guide).

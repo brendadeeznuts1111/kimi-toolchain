@@ -309,7 +309,7 @@ describe("examples-dashboard-artifacts", () => {
     expect(body.artifactGraph.aligned).toBe(true);
     expect(body.convergence.aligned).toBe(true);
     expect(body.convergence.schemaVersion).toBe(1);
-    expect(body.convergence.bunRuntimeCapabilities?.inventoryKeys).toBe(16);
+    expect(body.convergence.bunRuntimeCapabilities?.inventoryKeys).toBe(17);
     expect(body.convergence.bunImage?.metadataProbe).toBe("ok");
     expect(body.convergence.context.artifactStore).toBe("ok");
     expect(body.convergence.context.dag).toBe("ok");

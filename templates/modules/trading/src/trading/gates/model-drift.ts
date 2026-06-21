@@ -7,7 +7,11 @@
  * Part of the trading-domain example in `examples/artifact-trading-loop.md`.
  */
 import type { Gate, GateResult, GateRunOptions } from "./types.ts";
-import { GATE_LEVEL_PRUNE_MS, type GateRetentionPolicy } from "./types.ts";
+import {
+  DEFAULT_GATE_ARTIFACT_LIMIT,
+  GATE_LEVEL_PRUNE_MS,
+  type GateRetentionPolicy,
+} from "./types.ts";
 
 const DRIFT_RETENTION: GateRetentionPolicy = {
   maxAgeMs: 30 * 24 * 60 * 60 * 1000,
@@ -84,7 +88,10 @@ export async function runModelDriftGate(opts: GateRunOptions = {}): Promise<Mode
 
   // Read last 30 days of strategy-performance artifacts
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const perfArtifacts = await getArtifacts("strategy-performance", { since });
+  const perfArtifacts = await getArtifacts("strategy-performance", {
+    since,
+    limit: DEFAULT_GATE_ARTIFACT_LIMIT,
+  });
 
   const metrics = computeDriftMetrics(perfArtifacts.length);
 

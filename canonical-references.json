@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-21T07:04:48.923Z",
+  "generatedAt": "2026-06-21T08:54:09.625Z",
   "toolchainVersion": "1.0.0",
   "ecosystem": [
     {
@@ -92,11 +92,6 @@
       "package": "oxfmt",
       "usage": "Format (oxfmt) and lint (oxlint) gates — no ESLint/Prettier in this repo",
       "repoId": "oxc-upstream"
-    },
-    {
-      "id": "stale-trigger",
-      "name": "Stale",
-      "kind": "docs"
     }
   ],
   "localDocs": [

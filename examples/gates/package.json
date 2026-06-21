@@ -1,0 +1,34 @@
+{
+  "name": "kimi-gates-example",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Generic L1→L2 gate tree with artifact persistence and lineage — runnable example",
+  "type": "module",
+  "scripts": {
+    "gate:all": "bun run src/bin/gate-doctor.ts --all --save-artifact",
+    "gate:graph": "bun run src/bin/gate-doctor.ts --all --gate-graph",
+    "gate:status": "bun run src/bin/gate-doctor.ts --status --json",
+    "gate:plan": "bun run src/bin/gate-doctor.ts --all --dry-run",
+    "test": "bun test",
+    "test:changed": "bun test --changed",
+    "test:parallel": "bun test --parallel",
+    "test:smoke": "bun test --timeout 60000",
+    "dev": "bun run --watch src/bin/gate-doctor.ts --all",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "kimi-toolchain": "file:../.."
+  },
+  "kimi": {
+    "showcase": {
+      "id": "gates",
+      "lane": "runtime",
+      "accent": "#3fb950",
+      "cards": [
+        "card-artifacts",
+        "card-gates",
+        "card-metrics-schema"
+      ]
+    }
+  }
+}

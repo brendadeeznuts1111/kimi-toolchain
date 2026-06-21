@@ -26,6 +26,7 @@ const JSON_OUT = argv.includes("--json");
 const SAVE_ARTIFACT = argv.includes("--save-artifact");
 const GATE_GRAPH = argv.includes("--gate-graph") || argv.includes("--graph");
 const RUN_ALL = argv.includes("--all");
+const STATUS = argv.includes("--status");
 
 const PROJECT_ROOT = join(import.meta.dir, "../..");
 
@@ -44,6 +45,30 @@ function emitJson(payload: unknown): void {
 async function main(): Promise<number> {
   discoverGates();
   const gateName = parseGate();
+
+  if (STATUS) {
+    const repoRoot = PROJECT_ROOT.includes("kimi-toolchain")
+      ? PROJECT_ROOT.split("kimi-toolchain")[0] + "kimi-toolchain"
+      : PROJECT_ROOT;
+    const { probeTradingWorkspace } = await import("../../../../src/lib/examples-showcase.ts");
+    const probe = probeTradingWorkspace(repoRoot);
+    if (JSON_OUT) {
+      emitJson({
+        schemaVersion: 1,
+        tool: "trading-doctor",
+        mode: "status",
+        projectRoot: PROJECT_ROOT,
+        ...probe,
+      });
+    } else {
+      console.log(`trading-workspace: ${probe.gateCount} gates · ${probe.artifactCount} artifacts`);
+      for (const row of probe.gates) {
+        console.log(`  ${row.gate}: ${row.count}${row.latest ? ` (latest ${row.latest})` : ""}`);
+      }
+      if (probe.lastRunId) console.log(`  last run: ${probe.lastRunId}`);
+    }
+    return probe.ok ? 0 : 1;
+  }
 
   if (GATE_GRAPH) {
     const target = gateName ?? "model-drift";

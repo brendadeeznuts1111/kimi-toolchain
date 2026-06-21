@@ -20,8 +20,10 @@ import {
   chromeWebViewBackend,
   formatWebViewExperimentalNotice,
   tapChromeCdpEvents,
+  waitForNavigation,
   webViewSupported,
 } from "../../webview-console.ts";
+import type { Logger } from "../../logger.ts";
 
 export const DASHBOARD_TITLE_MARKER = "Herdr Orchestrator Dashboard";
 export const DASHBOARD_READY_EVAL = "Boolean(window.__HERDR_DASHBOARD_READY__)";
@@ -51,6 +53,8 @@ export interface HerdrDashboardAutomationOptions extends HerdrDashboardServerOpt
   /** CDP event names to subscribe (Chrome backend only). */
   cdpEvents?: readonly string[];
   onCdp?: (method: string, params: unknown) => void;
+  /** Optional logger — receives structured errorObj() entries on navigation failure. */
+  logger?: Logger;
 }
 
 export interface HerdrDashboardAutomationResult {
@@ -120,6 +124,26 @@ export async function waitForDashboardReady(
   }
 
   return false;
+}
+
+/**
+ * Wait for the initial navigation to complete, then immediately check the ready flag once.
+ * Skips the poll loop for the common case where the page loads quickly.
+ * Falls through to the full waitForDashboardView poll if the ready flag is not yet set.
+ * @see https://bun.com/docs/runtime/webview#navigation
+ */
+export async function waitForNavigationSettled(
+  view: Bun.WebView,
+  opts?: { timeoutMs?: number; pollMs?: number; settleMs?: number }
+): Promise<boolean> {
+  if (view.loading) {
+    try {
+      await waitForNavigation(view, opts?.timeoutMs ?? 10_000);
+    } catch {
+      // navigation failed / timed out — fall through to ready polling
+    }
+  }
+  return waitForDashboardView(view, opts);
 }
 
 /**
@@ -408,9 +432,18 @@ export async function runHerdrDashboardAutomation(
       detachCdp = tapChromeCdpEvents(view, options.cdpEvents, options.onCdp);
     }
 
-    const ready = await waitForDashboardView(view, {
+    view.onNavigationFailed = (error: Error) => {
+      options.logger?.errorObj(error, {
+        section: "webview-navigation",
+        url,
+        backend: String(backend ?? "default"),
+      });
+    };
+
+    const ready = await waitForNavigationSettled(view, {
       timeoutMs: options.readyTimeoutMs ?? 10_000,
     });
+    view.onNavigationFailed = null;
     const title = String(view.title || (await view.evaluate("document.title || ''")));
     const agentRows = Number(
       await view.evaluate(`document.querySelectorAll(${JSON.stringify(AGENT_ROW_SELECTOR)}).length`)

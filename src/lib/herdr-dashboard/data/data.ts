@@ -1404,7 +1404,23 @@ export async function fetchDashboardArtifactContext(
   const fetchedAt = new Date().toISOString();
   const { resolveProbeServerUrl } = await import("../../doctor-probe-config.ts");
   const store = new ArtifactStore(projectPath);
-  const probeServerUrl = await resolveProbeServerUrl(projectPath);
+  let probeServerUrl: string;
+  try {
+    probeServerUrl = await resolveProbeServerUrl(projectPath);
+  } catch (err) {
+    return {
+      ok: false,
+      projectPath,
+      mermaid: 'flowchart TD\n  cfg["probe config unavailable"]',
+      total: 0,
+      gates: 0,
+      nodes: [],
+      edges: [],
+      probeReachable: false,
+      fetchedAt,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
   const probeHealth = await fetchServeProbeJson(probeServerUrl, "/api/health");
 
   const gates = await store.listGates();

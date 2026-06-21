@@ -53,7 +53,10 @@ export interface WebViewConsoleCaptureOptions {
   url: string;
   mirror?: boolean;
   script?: string;
+  /** Post-load settle delay in ms (default 0). Use for pages that emit console output asynchronously after load. */
   waitMs?: number;
+  /** Timeout for onNavigated to fire before giving up (default 10_000ms). */
+  navTimeoutMs?: number;
   backend?: Bun.WebView.ConstructorOptions["backend"];
   depth?: number;
 }
@@ -77,6 +80,41 @@ export interface WebViewCliArgs {
 }
 
 const DEFAULT_WAIT_MS = 100;
+
+export const BUN_WEBVIEW_AUTOMATION_CONTRACT = {
+  input: {
+    dispatch: "os-level-events",
+    trusted: true,
+    selectorActionability: ["attached", "visible", "stable", "unobscured"],
+  },
+  methods: [
+    "navigate",
+    "evaluate",
+    "screenshot",
+    "click",
+    "type",
+    "press",
+    "scroll",
+    "scrollTo",
+    "goBack",
+    "goForward",
+    "reload",
+    "resize",
+    "cdp",
+  ],
+  stateProperties: ["url", "title", "loading"],
+  constructor: {
+    backends: ["webkit", "chrome"],
+    backendObjectType: "chrome",
+    options: ["backend", "console", "dataStore", "width", "height"],
+    browserProcess: "shared-per-bun-process",
+  },
+  cdpEvents: {
+    backend: "chrome",
+    eventType: "cdp-method-name",
+    paramsLocation: "event.data",
+  },
+} as const;
 
 /** True when Bun.WebView is available in this runtime. */
 export function webViewSupported(): boolean {
@@ -217,6 +255,41 @@ export function guardWebViewDataStore(options: {
 /** One-line experimental API notice for dashboard / automation startup. */
 export function formatWebViewExperimentalNotice(): string {
   return `[dashboard] Bun.WebView is experimental (${BUN_WEBVIEW_DOCS_URL})`;
+}
+
+/**
+ * Wait for `view.onNavigated` to fire, or reject on `view.onNavigationFailed`.
+ *
+ * Registers both callbacks before `navigate()` is called so no event is missed.
+ * After the promise settles both callbacks are cleared to avoid leaking handlers.
+ *
+ * @see https://bun.com/docs/runtime/webview#navigation
+ */
+export function waitForNavigation(
+  view: Bun.WebView,
+  timeoutMs = 10_000
+): Promise<{ url: string; title: string }> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      view.onNavigated = null;
+      view.onNavigationFailed = null;
+      reject(new Error(`WebView navigation timeout after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    view.onNavigated = (url: string, title: string) => {
+      clearTimeout(timer);
+      view.onNavigated = null;
+      view.onNavigationFailed = null;
+      resolve({ url, title });
+    };
+
+    view.onNavigationFailed = (error: Error) => {
+      clearTimeout(timer);
+      view.onNavigated = null;
+      view.onNavigationFailed = null;
+      reject(error);
+    };
+  });
 }
 
 function isCdpRemoteObject(value: Record<string, unknown>): boolean {
@@ -413,11 +486,17 @@ export async function runWebViewConsoleCapture(
     console: mirrored ? webViewConsoleMirror() : collector.handler,
   });
 
+  const navPromise = waitForNavigation(view, options.navTimeoutMs ?? 10_000);
   await view.navigate(options.url);
+  try {
+    await navPromise;
+  } catch {
+    // Navigation failed or timed out — still attempt evaluate/return partial results
+  }
   if (options.script) {
     await view.evaluate(options.script);
   }
-  const waitMs = options.waitMs ?? DEFAULT_WAIT_MS;
+  const waitMs = options.waitMs ?? 0;
   if (waitMs > 0) {
     await Bun.sleep(waitMs);
   }

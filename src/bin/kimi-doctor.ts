@@ -1,5 +1,11 @@
 #!/usr/bin/env bun
-import { bunRevision, bunVersion, isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
+import {
+  bunRevision,
+  bunVersion,
+  generateTraceId,
+  isDirectRun,
+  readableStreamToText,
+} from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
 import { spawnBun, withBunNoOrphans } from "../lib/tool-runner.ts";
 import { withNoOrphansEnv } from "../lib/bun-spawn-env.ts";
@@ -128,7 +134,11 @@ import {
 } from "../gates/registry.ts";
 
 const writer = createCli(Bun.argv, "kimi-doctor");
-const logger = writer.logger;
+const doctorTraceId = generateTraceId();
+const logger = writer.logger.child({
+  traceId: doctorTraceId,
+  fields: { runId: Bun.env.KIMI_RUN_ID },
+});
 
 const TOOLS_DIR = toolsDir();
 const FIX = Bun.argv.includes("--fix");
@@ -1818,7 +1828,7 @@ async function main(): Promise<number> {
     try {
       return await runPredictiveMode(projectRoot);
     } catch (error) {
-      logger.error(error instanceof Error ? error.message : String(error));
+      logger.errorObj(error, { section: "predictive" });
       return 1;
     }
   }
@@ -2080,6 +2090,7 @@ async function main(): Promise<number> {
   const home = homeDir();
 
   logger.section("System");
+  logger.time("section:system");
   const systemChecks = await runSystemChecks(logger, {
     softSystem: SOFT_SYSTEM,
     memoryBudgetOnly: false,
@@ -2090,8 +2101,10 @@ async function main(): Promise<number> {
     }
   }
   results.push(...systemChecks);
+  logger.timeEnd("section:system", "debug");
 
   logger.section("Kimi Products");
+  logger.time("section:products");
 
   const kimiPath = Bun.which("kimi");
   if (kimiPath) {
@@ -2107,7 +2120,10 @@ async function main(): Promise<number> {
     );
   }
 
+  logger.timeEnd("section:products", "debug");
+
   logger.section("Kimi Code Config");
+  logger.time("section:kimi-config");
   const officialKimiDoctorResult = await runOfficialKimiDoctor();
   if (!JSON_OUT) {
     logger.check({
@@ -2122,15 +2138,22 @@ async function main(): Promise<number> {
     logger.info("kimi doctor (official) ≠ kimi-doctor (toolchain)");
   }
 
+  logger.timeEnd("section:kimi-config", "debug");
+
   logger.section("Version Matrix");
+  logger.time("section:version-matrix");
   results.push(...(await versionMatrix()));
+  logger.timeEnd("section:version-matrix", "debug");
 
   logger.section("Runtime Sync");
+  logger.time("section:runtime-sync");
   const syncCheck = await checkDesktopSync(projectRoot);
   results.push(...syncCheck.results);
   syncReport = syncCheck.drift;
+  logger.timeEnd("section:runtime-sync", "debug");
 
   logger.section("MCP");
+  logger.time("section:mcp");
   const mcpReport = await validateMcpConfig(home, projectRoot);
   const unifiedShellRegistered = mcpReport.checks.some(
     (c) => c.name === "unified-shell" && c.status === "ok"
@@ -2141,7 +2164,10 @@ async function main(): Promise<number> {
     else results.push(error(check.name, check.message));
   }
 
+  logger.timeEnd("section:mcp", "debug");
+
   logger.section("Kimi Permissions");
+  logger.time("section:permissions");
   const configAudit = await auditKimiConfig(home, { unifiedShellRegistered });
   for (const check of configAudit) {
     if (check.status === "ok") results.push(ok(check.name, check.message));
@@ -2149,8 +2175,46 @@ async function main(): Promise<number> {
     else results.push(error(check.name, check.message));
   }
 
+  logger.timeEnd("section:permissions", "debug");
+
+  logger.section("Logging Config");
+  {
+    const bunfigPath = join(projectRoot, "bunfig.toml");
+    const hasBunfig = pathExists(bunfigPath);
+    if (hasBunfig) {
+      try {
+        const bunfigText = await Bun.file(bunfigPath).text();
+        const consoleSection = bunfigText.match(/\[console\]([\s\S]*?)(?=\n\[|$)/);
+        const depthMatch = consoleSection ? consoleSection[1].match(/depth\s*=\s*(\d+)/) : null;
+        const consoleDepth = depthMatch ? Number(depthMatch[1]) : 2;
+        if (consoleDepth >= 4) {
+          results.push(ok("console.depth", `${consoleDepth} (bunfig.toml [console])`));
+        } else {
+          results.push(
+            warn(
+              "console.depth",
+              `${consoleDepth} — default 2 may truncate nested LogEntry.fields; set [console] depth >= 4 in bunfig.toml`
+            )
+          );
+        }
+      } catch {
+        results.push(warn("console.depth", "could not read bunfig.toml"));
+      }
+    } else {
+      results.push(warn("bunfig.toml", "missing — console.depth defaults to 2"));
+    }
+    results.push(
+      ok("log-schema-version", `v${(await import("../lib/logger.ts")).LOG_SCHEMA_VERSION}`)
+    );
+    if (JSON_OUT) {
+      results.push(ok("json-mode", `active — traceId: ${doctorTraceId.slice(0, 8)}…`));
+    }
+  }
+
   logger.section("Code Quality");
+  logger.time("section:quality");
   results.push(...(await runQualityChecks(projectRoot)));
+  logger.timeEnd("section:quality", "debug");
   if (QUICK && !JSON_OUT) {
     logger.line("  ⚡ Quick mode — config checks only; run without --quick to execute gates.");
   }
