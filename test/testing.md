@@ -247,6 +247,28 @@ Contracts in `test-runtime.ts` align with these Bun docs:
 | Updating snapshots              | [update-snapshots](https://bun.com/docs/guides/test/update-snapshots) |
 | `bun:test` API                  | [reference/bun/test](https://bun.com/reference/bun/test)              |
 
+### Bun API compliance regression tests
+
+Per-release Bun API bugfix verification lives in `test/bun-release-compliance.unit.test.ts` (registered in `UNIT_TEST_FILES` in `test-gates.ts`).
+
+| Test file                                  | Covers                                                                                                                                                                                                                                                                                      | Blog post                                                |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `test/bun-release-compliance.unit.test.ts` | `Bun.file` async errors, non-ASCII paths, `Bun.JSONL.parseChunk` offsets, `Bun.stringWidth` DoS/grapheme, `Bun.sliceAnsi`, Bun shell `rm` exit codes, `ReadableStream` cancel, `Bun.serve` assets, `Bun.Transpiler` trim/decorators, `Bun.cron` schedule integration, codebase static audit | [bun-v1.3.11](https://bun.com/blog/bun-v1.3.11#bun-apis) |
+| `test/bun-cron.unit.test.ts`               | `Bun.cron` construction, `CronJob` handle (`stop`, `ref`, `unref`, `cron`, `Disposable`), `Bun.cron.parse`, `Bun.cron.remove`                                                                                                                                                               | [bun-v1.3.12](https://bun.com/blog/bun-v1.3.12)          |
+| `test/bun-json5-jsonl.unit.test.ts`        | `Bun.JSON5` parse/stringify, `Bun.JSONL.parse` / `parseChunk` partial input                                                                                                                                                                                                                 | [bun-v1.3.7](https://bun.com/blog/bun-v1.3.7)            |
+| `test/bun-transpiler.unit.test.ts`         | `Bun.Transpiler` TS/JSX transform, `replMode`, `scan()`                                                                                                                                                                                                                                     | [bun-v1.3.7](https://bun.com/blog/bun-v1.3.7)            |
+| `test/bun-terminal.unit.test.ts`           | `Bun.Terminal` + `AsyncLocalStorage` callback fix                                                                                                                                                                                                                                           | [bun-v1.3.7](https://bun.com/blog/bun-v1.3.7)            |
+| `test/bun-native-lint.unit.test.ts`        | `bun-native-lint` rule enforcement, baseline management, violation detection                                                                                                                                                                                                                | —                                                        |
+| `test/bun-string-width.unit.test.ts`       | `Bun.stringWidth` width calculation                                                                                                                                                                                                                                                         | —                                                        |
+| `test/bun-wrap-ansi.unit.test.ts`          | `Bun.wrapAnsi` ANSI-aware wrapping                                                                                                                                                                                                                                                          | —                                                        |
+
+**When Bun releases a new version with API bugfixes:**
+
+1. Read the release blog post under `#bun-apis`.
+2. Add test cases to `test/bun-release-compliance.unit.test.ts` for each bugfix.
+3. Add static audit checks verifying codebase usage patterns are safe.
+4. Run `bun test test/bun-release-compliance.unit.test.ts` to verify.
+
 ### Recommended flag combinations
 
 | Use case             | Command                                                                  | Key flags                           | Defaults / preset                           | Notes                                                      |

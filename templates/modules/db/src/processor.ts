@@ -1,5 +1,5 @@
 // templates/modules/db/src/processor.ts
-// Bun-native SQLite effect — registered under Symbol.for("kimi.effect.db")
+// Bun-native SQLite effect — registered via registerEffect("db") in init.ts
 
 import { Database } from "bun:sqlite";
 

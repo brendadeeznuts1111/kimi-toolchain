@@ -1,5 +1,12 @@
 // ── Transpiler Scan ────────────────────────────────────────────────
-import { jsonResponse } from "./shared.ts";
+import { join } from "path";
+import {
+  buildDashboardRouteInventory,
+  lintDashboardHandlerExports,
+  scanDashboardRouteHandlerRefs,
+  wiredDashboardRouteHandlers,
+} from "../../../../src/lib/dashboard-route-inventory.ts";
+import { jsonResponse, resolveRoot } from "./shared.ts";
 
 interface EffectMethod {
   file: string;
@@ -8,34 +15,54 @@ interface EffectMethod {
 }
 
 export async function apiTranspilerScan(): Promise<Response> {
-  // Scan dashboard's own source files
-  const files = ["src/index.ts", "src/lib/toolchain-paths.ts"];
+  const projectRoot = resolveRoot();
+  const routesPath = join(projectRoot, "examples/dashboard/src/handlers/routes.ts");
+  const routesSource = await Bun.file(routesPath).text();
+  const wiredHandlers = wiredDashboardRouteHandlers(routesSource);
+  const handlerExportIssues = lintDashboardHandlerExports(projectRoot, routesSource);
+  const importRefs = scanDashboardRouteHandlerRefs(routesSource);
+  const inventory = buildDashboardRouteInventory();
+
+  const files = [
+    "examples/dashboard/src/handlers/routes.ts",
+    "examples/dashboard/src/handlers/dispatch.ts",
+    "examples/dashboard/src/index.ts",
+  ];
   const transpiler = new Bun.Transpiler({ loader: "ts" });
   const results: EffectMethod[] = [];
 
-  for (const f of files) {
-    const path = `${import.meta.dir}/../${f}`;
+  for (const rel of files) {
+    const path = join(projectRoot, rel);
     try {
       const source = await Bun.file(path).text();
       const scan = transpiler.scan(source);
-      results.push({ file: f, exports: scan.exports, importCount: scan.imports.length });
+      results.push({ file: rel, exports: scan.exports, importCount: scan.imports.length });
     } catch {
-      results.push({ file: f, exports: [], importCount: 0 });
+      results.push({ file: rel, exports: [], importCount: 0 });
     }
   }
 
-  const totalExports = results.reduce((s, r) => s + r.exports.length, 0);
+  const totalExports = results.reduce((sum, row) => sum + row.exports.length, 0);
 
   return jsonResponse({
     results,
     totalExports,
+    routeInventory: {
+      total: inventory.total,
+      staticDispatch: inventory.staticDispatch,
+      artifactRoutes: inventory.artifactRoutes,
+      wiredHandlers: wiredHandlers.length,
+      importRefs: importRefs.length,
+      handlerExportOk: handlerExportIssues.length === 0,
+    },
+    wiredHandlers,
+    handlerExportIssues,
     pipeline: [
       "Bun.Transpiler({ loader: 'ts' })",
       ".scan(source) → { exports: string[], imports: [...] }",
-      "No execution — pure static analysis",
-      "~10ms for entire effect directory",
-      "Feeds into perf-monitor: know what to measure before calling",
+      "routes.ts handler refs cross-checked via scanDashboardRouteHandlerRefs()",
+      "lint: bun run scripts/lint-dashboard-routes.ts",
     ],
-    note: "Bun.Transpiler.scan() discovers exported names without executing code. Pure function, same source → same exports. Use for static manifests, auto-registration, CI gating.",
+    note: "Transpiler scan + route inventory lint keep dispatch table and handler exports aligned.",
   });
 }

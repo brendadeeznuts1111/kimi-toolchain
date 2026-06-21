@@ -1,3 +1,5 @@
+import { dns } from "bun";
+
 /**
  * http-client.ts — Bun-native HTTP client with configurable TLS floor and fetch perf helpers.
  *
@@ -105,7 +107,6 @@ export interface HttpClient {
  * @see https://bun.com/docs/runtime/networking/dns#dns.prefetch
  */
 export function prefetchDns(host: string, port?: number): void {
-  const { dns } = require("bun") as typeof import("bun");
   if (port !== undefined) {
     (dns.prefetch as (host: string, port: number) => void)(host, port);
   } else {
@@ -173,12 +174,16 @@ export function makeHttpClient(options: HttpClientOptions = {}): HttpClient {
         tls: { ...tls, minVersion: tlsMinVersionCode(minVersion) },
         ...((proxy ?? options.proxy) ? { proxy: proxy ?? options.proxy } : {}),
         ...((unix ?? options.unix) ? { unix: unix ?? options.unix } : {}),
-        ...((decompress ?? options.decompress !== undefined)
-          ? { decompress: decompress ?? options.decompress }
-          : {}),
-        ...((verbose ?? options.verbose !== undefined)
-          ? { verbose: verbose ?? options.verbose }
-          : {}),
+        ...(decompress !== undefined
+          ? { decompress }
+          : options.decompress !== undefined
+            ? { decompress: options.decompress }
+            : {}),
+        ...(verbose !== undefined
+          ? { verbose }
+          : options.verbose !== undefined
+            ? { verbose: options.verbose }
+            : {}),
       } as BunFetchRequestInit;
       return fetch(url, init);
     },

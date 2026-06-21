@@ -275,7 +275,7 @@ Hub probes: `card-gates`, `card-kimi-doctor`, `card-scaffold`, `card-perf-harnes
 
 Regression: `test/examples-dashboard-canvas-filter.unit.test.ts`, `test/dashboard-canvas-filter.unit.test.ts`, `test/herdr-dashboard-bridge.unit.test.ts`.
 
-Out of scope: live status for all 67 cards, combined Herdr+examples layout.
+Out of scope: live status for all 69 cards, combined Herdr+examples layout.
 
 ## Related
 

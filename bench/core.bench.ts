@@ -15,6 +15,7 @@ import {
   getAppRssGroups,
   clearProcessCache as clearMemCache,
 } from "../src/lib/memory-budget.ts";
+import { parseNdjsonText } from "../src/lib/ndjson.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 
@@ -174,6 +175,60 @@ async function main() {
     bench("getOrphanProcesses (cached)", () => {
       getOrphanProcesses();
     }, 50)
+  );
+
+  // ── JSONL / NDJSON hot paths ──────────────────────────────────────
+
+  // ASCII fast path — 1000 small records (zero-alloc StringView)
+  const asciiRecords =
+    Array.from({ length: 1000 }, (_, i) =>
+      JSON.stringify({ id: i, name: `item-${i}`, ts: Date.now() })
+    ).join("\n") + "\n";
+  results.push(
+    bench("parseNdjsonText (1k ASCII records)", () => {
+      parseNdjsonText(asciiRecords);
+    }, 5_000)
+  );
+
+  // Bun.JSONL.parse direct (baseline — no error recovery overhead)
+  results.push(
+    bench("Bun.JSONL.parse (1k ASCII, direct)", () => {
+      Bun.JSONL.parse(asciiRecords);
+    }, 5_000)
+  );
+
+  // Error recovery path — 1000 records with 10 invalid lines
+  const errorRecords =
+    Array.from({ length: 1000 }, (_, i) =>
+      i % 100 === 50 ? "{invalid}" : JSON.stringify({ id: i, name: `item-${i}` })
+    ).join("\n") + "\n";
+  results.push(
+    bench("parseNdjsonText (1k records, 10 errors)", () => {
+      parseNdjsonText(errorRecords);
+    }, 2_000)
+  );
+
+  // Non-ASCII / multi-byte (UTF-8 SIMD path)
+  const utf8Records =
+    Array.from({ length: 500 }, (_, i) =>
+      JSON.stringify({ id: i, name: `アイテム-${i}-🎉`, tag: "日本語" })
+    ).join("\n") + "\n";
+  results.push(
+    bench("parseNdjsonText (500 UTF-8 records)", () => {
+      parseNdjsonText(utf8Records);
+    }, 2_000)
+  );
+
+  // Single large record (100KB JSON object)
+  const largeRecord =
+    JSON.stringify({
+      data: "x".repeat(100_000),
+      meta: { ts: Date.now(), version: "1.0.0" },
+    }) + "\n";
+  results.push(
+    bench("parseNdjsonText (1x 100KB record)", () => {
+      parseNdjsonText(largeRecord);
+    }, 10_000)
   );
 
   console.log("");

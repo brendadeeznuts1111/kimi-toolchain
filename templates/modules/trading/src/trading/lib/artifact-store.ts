@@ -7,7 +7,7 @@
  * @see src/gates/runner.ts — `persistGateArtifact`, `buildGateContext`
  * @see examples/artifact-trading-loop.md — L2 feedback loop demo
  */
-import { hostname } from "node:os";
+import { hostname } from "os";
 import { join } from "path";
 import { listDir, makeDir, pathExists, removePath } from "./bun-io.ts";
 import { GATE_LEVEL_PRUNE_MS } from "../gates/types.ts";
@@ -314,7 +314,7 @@ export class ArtifactStore {
   private readonly artifactsRelativeDir: string;
 
   constructor(
-    private readonly projectRoot: string = import.meta.dir,
+    private readonly projectRoot: string = process.cwd(),
     options: ArtifactStoreOptions = {}
   ) {
     this.artifactsRelativeDir = resolveArtifactsRelativeDir(options.artifactsRelativeDir);

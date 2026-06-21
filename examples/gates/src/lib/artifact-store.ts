@@ -25,7 +25,7 @@ export class ArtifactStore {
   async save(gate: string, payload: unknown, level?: 1 | 2 | 3): Promise<string> {
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
     const dir = `${this.baseDir}/${gate}`;
-    await Bun.mkdir(dir, { recursive: true });
+    await Bun.spawn({ cmd: ["mkdir", "-p", dir] }).exited;
 
     const envelope: ArtifactEnvelope = {
       schemaVersion: 1,
@@ -48,8 +48,14 @@ export class ArtifactStore {
 
   async list(gate: string): Promise<string[]> {
     const dir = `${this.baseDir}/${gate}`;
-    const files = await Array.fromAsync(new Bun.Glob("*.json").scan({ cwd: dir, absolute: false }));
-    return files.sort();
+    try {
+      const files = await Array.fromAsync(
+        new Bun.Glob("*.json").scan({ cwd: dir, absolute: false })
+      );
+      return files.sort();
+    } catch {
+      return [];
+    }
   }
 
   async latest(gate: string): Promise<ArtifactEnvelope | null> {

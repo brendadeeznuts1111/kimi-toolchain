@@ -53,6 +53,8 @@ export interface DoctorProbeBunRuntimeCapabilities {
     globalsUrl: string;
     bunApisUrl: string;
     webApisUrl: string;
+    apiReferenceUrl: string;
+    docsRssUrl: string;
   } | null;
   aligned: boolean;
 }
@@ -171,6 +173,8 @@ export async function buildDoctorProbeManifest(projectRoot?: string): Promise<Do
               globalsUrl: runtimeHealth.runtimeApiDocs.globalsUrl,
               bunApisUrl: runtimeHealth.runtimeApiDocs.bunApisUrl,
               webApisUrl: runtimeHealth.runtimeApiDocs.webApisUrl,
+              apiReferenceUrl: runtimeHealth.runtimeApiDocs.apiReferenceUrl,
+              docsRssUrl: runtimeHealth.runtimeApiDocs.docsRssUrl,
             }
           : null,
         aligned: runtimeHealth.aligned,

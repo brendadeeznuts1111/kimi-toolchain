@@ -27,6 +27,12 @@ describe("doctor-probe", () => {
       expect(manifest.bunRuntimeCapabilities?.runtimeApiDocs?.globalsUrl).toContain(
         "docs/runtime/globals"
       );
+      expect(manifest.bunRuntimeCapabilities?.runtimeApiDocs?.apiReferenceUrl).toBe(
+        "https://bun.com/reference/bun"
+      );
+      expect(manifest.bunRuntimeCapabilities?.runtimeApiDocs?.docsRssUrl).toBe(
+        "https://bun.com/rss.xml"
+      );
       expect(manifest.bunRuntimeCapabilities?.inventoryKeys).toContain("runtimeApiDocs");
       expect(manifest.checks.some((c) => c.name === "bun-install-runtime")).toBe(true);
       expect(manifest.checks.some((c) => c.name === "artifact-graph")).toBe(true);

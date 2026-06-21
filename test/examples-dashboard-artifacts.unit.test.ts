@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { handleArtifactsRequest } from "../examples/dashboard/src/handlers/artifacts.ts";
 import { ArtifactStore } from "../src/lib/artifact-store.ts";
+import { RUNTIME_CAPABILITY_INVENTORY_KEYS } from "../src/lib/bun-install-config.ts";
 import { cleanupPath, testTempDir } from "./helpers.ts";
 
 describe("examples-dashboard-artifacts", () => {
@@ -296,8 +297,10 @@ describe("examples-dashboard-artifacts", () => {
       convergence: {
         schemaVersion: number;
         aligned: boolean;
+        fixPlan: string[];
         bunRuntimeCapabilities?: { inventoryKeys: number; aligned: boolean };
         bunImage?: { available: boolean; metadataProbe: string };
+        publish?: { dryRun: string };
         context: { artifactStore: string; dag: string };
       };
       artifactGraph: { aligned: boolean };
@@ -309,7 +312,12 @@ describe("examples-dashboard-artifacts", () => {
     expect(body.artifactGraph.aligned).toBe(true);
     expect(body.convergence.aligned).toBe(true);
     expect(body.convergence.schemaVersion).toBe(1);
-    expect(body.convergence.bunRuntimeCapabilities?.inventoryKeys).toBe(17);
+    expect(body.convergence.bunRuntimeCapabilities?.inventoryKeys).toBe(
+      RUNTIME_CAPABILITY_INVENTORY_KEYS.length
+    );
+    expect(Array.isArray(body.convergence.fixPlan)).toBe(true);
+    expect(body.convergence.fixPlan.length).toBe(0);
+    expect(body.convergence.publish?.dryRun).toBe("ok");
     expect(body.convergence.bunImage?.metadataProbe).toBe("ok");
     expect(body.convergence.context.artifactStore).toBe("ok");
     expect(body.convergence.context.dag).toBe("ok");

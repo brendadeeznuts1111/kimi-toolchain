@@ -18,10 +18,13 @@ describe("bun-serve-protocol property", () => {
       port: 0,
       fetch: () => new Response("ok"),
     });
-    expect(server).toHaveProperty("protocol");
-    expect(typeof server.protocol).toBe("string");
-    expect(server.protocol).toBe("http");
-    server.stop(true);
+    try {
+      expect(server).toHaveProperty("protocol");
+      expect(typeof server.protocol).toBe("string");
+      expect(server.protocol).toBe("http");
+    } finally {
+      server.stop(true);
+    }
   });
 
   test("server has protocol property (https when tls cert provided)", () => {
@@ -33,11 +36,14 @@ describe("bun-serve-protocol property", () => {
       tls: {},
       fetch: () => new Response("ok"),
     });
-    expect(server).toHaveProperty("protocol");
-    expect(typeof server.protocol).toBe("string");
-    // Empty tls config falls back to http in Bun without real certs
-    expect(server.protocol).toBe("http");
-    server.stop(true);
+    try {
+      expect(server).toHaveProperty("protocol");
+      expect(typeof server.protocol).toBe("string");
+      // Empty tls config falls back to http in Bun without real certs
+      expect(server.protocol).toBe("http");
+    } finally {
+      server.stop(true);
+    }
   });
 
   test("protocol is accessible without runtime error", () => {
@@ -45,8 +51,11 @@ describe("bun-serve-protocol property", () => {
       port: 0,
       fetch: () => new Response("ok"),
     });
-    expect(() => server.protocol).not.toThrow();
-    server.stop(true);
+    try {
+      expect(() => server.protocol).not.toThrow();
+    } finally {
+      server.stop(true);
+    }
   });
 });
 
@@ -59,9 +68,12 @@ describe("Bun.serve() server object shape", () => {
       hostname: "0.0.0.0",
       fetch: () => new Response("ok"),
     });
-    expect(server).toHaveProperty("hostname");
-    expect(server.hostname).toBe("0.0.0.0");
-    server.stop(true);
+    try {
+      expect(server).toHaveProperty("hostname");
+      expect(server.hostname).toBe("0.0.0.0");
+    } finally {
+      server.stop(true);
+    }
   });
 
   test("server has port property", () => {
@@ -69,10 +81,13 @@ describe("Bun.serve() server object shape", () => {
       port: 0,
       fetch: () => new Response("ok"),
     });
-    expect(server).toHaveProperty("port");
-    expect(typeof server.port).toBe("number");
-    expect(server.port).toBeGreaterThan(0);
-    server.stop(true);
+    try {
+      expect(server).toHaveProperty("port");
+      expect(typeof server.port).toBe("number");
+      expect(server.port).toBeGreaterThan(0);
+    } finally {
+      server.stop(true);
+    }
   });
 
   test("server has stop method", () => {
@@ -80,8 +95,11 @@ describe("Bun.serve() server object shape", () => {
       port: 0,
       fetch: () => new Response("ok"),
     });
-    expect(typeof server.stop).toBe("function");
-    server.stop(true);
+    try {
+      expect(typeof server.stop).toBe("function");
+    } finally {
+      server.stop(true);
+    }
   });
 
   test("server has reload method", () => {
@@ -89,8 +107,11 @@ describe("Bun.serve() server object shape", () => {
       port: 0,
       fetch: () => new Response("ok"),
     });
-    expect(typeof server.reload).toBe("function");
-    server.stop(true);
+    try {
+      expect(typeof server.reload).toBe("function");
+    } finally {
+      server.stop(true);
+    }
   });
 
   test("server has url property", () => {
@@ -98,9 +119,12 @@ describe("Bun.serve() server object shape", () => {
       port: 0,
       fetch: () => new Response("ok"),
     });
-    expect(server).toHaveProperty("url");
-    expect(server.url).toBeInstanceOf(URL);
-    server.stop(true);
+    try {
+      expect(server).toHaveProperty("url");
+      expect(server.url).toBeInstanceOf(URL);
+    } finally {
+      server.stop(true);
+    }
   });
 
   test("server.url includes protocol", () => {
@@ -108,8 +132,11 @@ describe("Bun.serve() server object shape", () => {
       port: 0,
       fetch: () => new Response("ok"),
     });
-    expect(server.url.protocol).toBe("http:");
-    server.stop(true);
+    try {
+      expect(server.url.protocol).toBe("http:");
+    } finally {
+      server.stop(true);
+    }
   });
 
   test("server.url for https falls back to http without real certs", () => {
@@ -118,9 +145,12 @@ describe("Bun.serve() server object shape", () => {
       tls: {},
       fetch: () => new Response("ok"),
     });
-    // Empty tls config falls back to http in Bun without real certs
-    expect(server.url.protocol).toBe("http:");
-    server.stop(true);
+    try {
+      // Empty tls config falls back to http in Bun without real certs
+      expect(server.url.protocol).toBe("http:");
+    } finally {
+      server.stop(true);
+    }
   });
 });
 

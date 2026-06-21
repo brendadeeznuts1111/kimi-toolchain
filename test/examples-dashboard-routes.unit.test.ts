@@ -4,6 +4,7 @@ import { REPO_ROOT } from "./helpers.ts";
 
 const DASHBOARD_ENTRY = join(REPO_ROOT, "examples/dashboard/src/index.ts");
 const DISPATCH = join(REPO_ROOT, "examples/dashboard/src/handlers/dispatch.ts");
+const ROUTES = join(REPO_ROOT, "examples/dashboard/src/handlers/routes.ts");
 
 describe("examples-dashboard-routes", () => {
   test("index.ts delegates to artifacts preflight and dispatch router", async () => {
@@ -15,18 +16,22 @@ describe("examples-dashboard-routes", () => {
     expect(source).not.toContain('case "/api/bundle"');
   });
 
-  test("dispatch.ts wires core card and contract routes", async () => {
-    const source = await Bun.file(DISPATCH).text();
-    expect(source).toContain('case "/api/health"');
-    expect(source).toContain('method === "HEAD"');
-    expect(source).toContain('case "/api/file-split"');
-    expect(source).toContain('case "/api/effect-benchmark"');
-    expect(source).toContain('case "/api/effect-benchmark/refresh"');
-    expect(source).toContain('case "/api/effect-benchmark/train"');
-    expect(source).toContain('case "/api/config-status"');
-    expect(source).toContain('case "/api/bun-runtime"');
-    expect(source).toContain('case "/api/bun-pm"');
-    expect(source).toContain("readBenchmarkHealthCheck");
+  test("dispatch.ts delegates to route table SSOT", async () => {
+    const dispatchSource = await Bun.file(DISPATCH).text();
+    const routesSource = await Bun.file(ROUTES).text();
+    expect(dispatchSource).toContain("ROUTE_BY_PATH");
+    expect(dispatchSource).toContain("methodNotAllowedJson");
+    expect(dispatchSource).not.toContain('case "/api/bundle"');
+    expect(routesSource).toContain('"/api/health"');
+    expect(routesSource).toContain("apiHealth");
+    expect(routesSource).toContain('"/api/file-split"');
+    expect(routesSource).toContain('"/api/effect-benchmark"');
+    expect(routesSource).toContain('"/api/effect-benchmark/refresh"');
+    expect(routesSource).toContain('"/api/effect-benchmark/train"');
+    expect(routesSource).toContain('"/api/config-status"');
+    expect(routesSource).toContain('"/api/bun-runtime"');
+    expect(routesSource).toContain('"/api/bun-pm"');
+    expect(routesSource).toContain("readBenchmarkHealthCheck");
     const benchmarkHandler = await Bun.file(
       join(REPO_ROOT, "examples/dashboard/src/handlers/effect-benchmark.ts")
     ).text();
@@ -45,12 +50,17 @@ describe("examples-dashboard-routes", () => {
     ).text();
     expect(bunPmHandler).toContain("auditBunPmCliHealth");
     expect(bunPmHandler).toContain("buildInstallPolicyReport");
-    expect(source).toContain('case "/api/examples/gates"');
-    expect(source).toContain("apiExamplesGates()");
-    expect(source).toContain('case "/api/canvases"');
-    expect(source).toContain('case "/api/settings"');
-    expect(source).toContain('case "/api/terminal"');
-    expect(source).toContain("apiTerminal()");
+    expect(routesSource).toContain('"/api/examples/gates"');
+    expect(routesSource).toContain("apiExamplesGates");
+    expect(routesSource).toContain('"/api/canvases"');
+    expect(routesSource).toContain('"/api/settings"');
+    expect(routesSource).toContain('"/api/terminal"');
+    expect(routesSource).toContain("apiTerminal");
+    expect(routesSource).toContain('"/api/artifact-graph-convergence/schema"');
+    expect(routesSource).toContain("apiArtifactGraphConvergenceSchema");
+    expect(routesSource).toContain('"/dashboard.css"');
+    expect(routesSource).toContain('"/dashboard.js"');
+    expect(routesSource).toContain("dashboardAssetResponse");
   });
 
   test("artifacts handler wires URLPattern session routes from dashboard-route-patterns", async () => {

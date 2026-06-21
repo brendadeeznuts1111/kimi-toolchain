@@ -1,5 +1,5 @@
 // templates/modules/http/src/processor.ts
-// Configurable TLS-floor HTTP client — registered under Symbol.for("kimi.effect.http")
+// Configurable TLS-floor HTTP client — registered via registerEffect("http") in init.ts
 
 export const TLS_VERSIONS = ["TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"] as const;
 export type TLSVersion = (typeof TLS_VERSIONS)[number];

@@ -33,8 +33,14 @@ export interface ArtifactGraphConvergenceBlock {
     artifactStore: ConvergenceProbeStatus;
     dag: ConvergenceProbeStatus;
   };
+  /** `bun publish --dry-run` release pre-flight (toolchain only). */
+  publish: {
+    dryRun: ConvergenceProbeStatus;
+  } | null;
   /** True when every applicable pillar is ok. */
   aligned: boolean;
+  /** Actionable repair hints collected from runtime + artifact-graph health when aligned=false. */
+  fixPlan: string[];
 }
 
 function checkStatus(
@@ -84,18 +90,30 @@ export async function buildArtifactGraphConvergenceBlock(
       : "skip",
   };
 
+  const publishDryRunCheck = runtimeHealth.checks.find((check) => check.name === "publish:dry-run");
+  const publish = runtimeHealth.applicable
+    ? {
+        dryRun: publishDryRunCheck?.status === "ok" ? ("ok" as const) : ("error" as const),
+      }
+    : null;
+
   const pillarAligned = [
     bunRuntimeCapabilities?.aligned ?? true,
     bunImage?.metadataProbe === "ok" || bunImage?.metadataProbe === "skip",
     context.artifactStore === "ok" || context.artifactStore === "skip",
     context.dag === "ok" || context.dag === "skip",
+    publish?.dryRun === "ok" || publish === null,
   ].every(Boolean);
+
+  const fixPlan = [...runtimeHealth.fixPlan, ...graphHealth.fixPlan, ...bunImageHealth.fixPlan];
 
   return {
     schemaVersion: ARTIFACT_GRAPH_CONVERGENCE_SCHEMA_VERSION,
     bunRuntimeCapabilities,
     bunImage,
     context,
+    publish,
     aligned: pillarAligned && graphHealth.aligned,
+    fixPlan: [...new Set(fixPlan)],
   };
 }

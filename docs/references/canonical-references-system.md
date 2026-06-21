@@ -50,7 +50,7 @@ canonical-references.toml          ← edit here (human SSOT)
   Bun.TOML.parse() → parseCanonicalReferencesToml()
         │
         ▼
-  lintManifestBunNative()          ← Bun-native structural validation
+  lintCanonicalReferencesToml()      ← Bun-native structural validation (the schema)
         │
         ├──▶ generateCanonicalReferencesDataTs() → oxfmt → canonical-references-data.ts
         │
@@ -109,6 +109,18 @@ return {
 `bun run lint` includes `generate-canonical-references.ts --check` as the `canonical-references` gate — committed `data.ts` and JSON must match TOML.
 
 `bun run references:lint` validates TOML + repo reference rules without regenerating artifacts.
+
+## Example-level canonical-references.toml
+
+Example projects can declare their own `canonical-references.toml` with the same shape as the root SSOT but scoped to the dependencies they actually use. The Bun-native validator treats each file identically, so the same rules apply everywhere.
+
+Example projects with a `canonical-references.toml`:
+
+- `examples/dashboard/canonical-references.toml` — Bun/Effect/Kimi Code/Herdr/Oxc ecosystem + dashboard local docs
+- `examples/portal/canonical-references.toml` — artifact portal ecosystem + portal local docs
+- `examples/trading-workspace/canonical-references.toml` — trading workspace ecosystem + benchmark namespace docs
+
+**Validation:** `bun run references:lint:examples` (or `bun run references:lint`, which includes it) walks `examples/*/canonical-references.toml` and runs `lintCanonicalReferencesToml()` on each. The root repo `references:lint` does not lint example files, but `quality:check:ci` runs `references:lint` which includes both root and example validation.
 
 ---
 
@@ -309,8 +321,8 @@ flowchart TB
 | Health / handoff  | `probe:canonical-references:*`           | `repo-fresh`, `runtime-aligned`, `runtime-cache`     |
 | Unit tests        | `test/canonical-references.unit.test.ts` | 59 pass (includes `--plain` snapshot)                |
 | Watch CLI         | `bun run references:inspect:watch`       | `references-inspect-watch.ts` + 7 unit tests         |
-| Install policy    | `test/bun-install-config.unit.test.ts`   | 45+ pass (`runtimeApiDocs`, profiling, benchmarking) |
-| Runtime inventory | `auditRuntimeCapabilitiesHealth`         | `runtimeApiDocs` URLs + 12 capability keys           |
+| Install policy    | `test/bun-install-config.unit.test.ts`   | 54+ pass (`runtimeApiDocs`, profiling, benchmarking) |
+| Runtime inventory | `auditRuntimeCapabilitiesHealth`         | `runtimeApiDocs` (5 URLs) + 17 capability keys       |
 | Config layers     | `bun run config:status`                  | `bun-install-runtime` gate (inline audit)            |
 | Doctor probe      | `kimi-doctor --probe`                    | `bunRuntimeCapabilities` embed                       |
 | Handoff           | `probe:bun-install:*`                    | `evaluateBunInstallProbeHandoffCondition`            |
@@ -331,13 +343,15 @@ No external dependencies in the generate/lint path — validators and generators
 
 ### `runtimeApiDocs` (parallel discovery)
 
-`runtimeApiDocs` in `buildRuntimeCapabilities()` points agents at the three canonical runtime doc indexes:
+`runtimeApiDocs` in `buildRuntimeCapabilities()` points agents at narrative runtime indexes plus typed reference and docs RSS:
 
-| Field        | URL                                     |
-| ------------ | --------------------------------------- |
-| `globalsUrl` | `https://bun.com/docs/runtime/globals`  |
-| `bunApisUrl` | `https://bun.com/docs/runtime/bun-apis` |
-| `webApisUrl` | `https://bun.com/docs/runtime/web-apis` |
+| Field             | URL                                     |
+| ----------------- | --------------------------------------- |
+| `globalsUrl`      | `https://bun.com/docs/runtime/globals`  |
+| `bunApisUrl`      | `https://bun.com/docs/runtime/bun-apis` |
+| `webApisUrl`      | `https://bun.com/docs/runtime/web-apis` |
+| `apiReferenceUrl` | `https://bun.com/reference/bun`         |
+| `docsRssUrl`      | `https://bun.com/rss.xml`               |
 
 Inspect programmatically: `bun run scripts/bun-install-status.ts --json` → `runtimeCapabilities.runtimeApiDocs`.
 

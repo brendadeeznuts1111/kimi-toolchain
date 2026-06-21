@@ -12,7 +12,7 @@ Related: [dashboard/README.md](dashboard/README.md), [serve-probe.md](../docs/re
 | **Dynamic routes**  | Module-scoped `URLPattern` in `src/lib/dashboard-route-patterns.ts` | `/api/artifacts/:gate/lineage`              |
 | **Cross-dashboard** | Explicit env base URL or port auto-discovery                        | `EXAMPLES_DASHBOARD_URL` → `GET /api/cards` |
 
-Static card routes in `examples/dashboard/src/index.ts` use a `switch (url.pathname)`; artifact, run, and session trees use URLPattern matchers shared with Herdr and serve-probe.
+Static card routes in `examples/dashboard/src/handlers/routes.ts` use a route table; artifact, run, and session trees use URLPattern matchers shared with Herdr and serve-probe.
 
 ### Browser base (`Bun.serve` + dashboard port chain)
 
@@ -172,7 +172,7 @@ bun test test/dashboard-route-patterns.unit.test.ts
 
 ## Static showcase & card routes
 
-Examples dashboard (`index.ts`) — **101** routes total (see [dashboard/README.md](dashboard/README.md)).
+Examples dashboard (`handlers/routes.ts` + `handlers/artifacts.ts`) — **115** routes total (see [dashboard/README.md](dashboard/README.md)).
 
 ### Contract, showcase & cards
 
@@ -227,30 +227,35 @@ Identity query params (artifacts + runs): `sessionId`, `workspaceId`, `paneId`, 
 | `GET`  | `/api/perf-threaded`       | Worker-thread comparison                  |
 | `GET`  | `/api/effect-benchmark`    | Symbol effect suite                       |
 
-### All static card API paths (`switch` in `index.ts`)
+<!-- dashboard-static-routes:AUTO -->
+### All static card API paths (`handlers/routes.ts`)
 
 `GET` unless noted. Grouped by prefix:
 
-| Path                   | Path                    | Path                  | Path                    |
-| ---------------------- | ----------------------- | --------------------- | ----------------------- |
-| `/api/bundle`          | `/api/compile`          | `/api/gates`          | `/api/kimi-doctor`      |
-| `/api/kimi-publish`    | `/api/toolchain/health` | `/api/toolchain/heal` | `/api/env`              |
-| `/api/deps`            | `/api/secrets`          | `/api/scaffold`       | `/api/file-split`       |
-| `/api/bunfig`          | `/api/build-info`       | `/api/runtime-info`   | `/api/build-compile`    |
-| `/api/dotenv`          | `/api/console`          | `/api/console-depth`  | `/api/inspect`          |
-| `/api/inspect-simple`  | `/api/inspect-config`   | `/api/inspect-table`  | `/api/inspect-defaults` |
-| `/api/string-utils`    | `/api/uuid`             | `/api/markdown/html`  | `/api/markdown/ansi`    |
-| `/api/semver`          | `/api/deep-equals`      | `/api/deep-match`     | `/api/nanoseconds`      |
-| `/api/sleep`           | `/api/color`            | `/api/peek`           | `/api/strip-ansi`       |
-| `/api/random-bytes`    | `/api/file-io`          | `/api/write-smart`    | `/api/stream-hash`      |
-| `/api/glob`            | `/api/glob-orphan`      | `/api/sqlite`         | `/api/password`         |
-| `/api/crypto-hash`     | `/api/image`            | `/api/effect-image`   | `/api/shell`            |
-| `/api/exec`            | `/api/spawn-sync`       | `/api/ipc`            | `/api/ipc-matrix`       |
-| `/api/cron`            | `/api/os`               | `/api/node-http`      | `/api/http2`            |
-| `/api/set-headers`     | `/api/util-types`       | `/api/tty`            | `/api/terminal`         |
-| `/api/vm-context`      | `/api/shadow-realm`     | `/api/transpiler`     | `/api/transpiler-scan`  |
-| `/api/extract-methods` | `/api/symbols`          | `/api/global-store`   | `/api/metrics-schema`   |
-| `/api/trace-verify`    | `/api/bun-test`         |                       |                         |
+| Path | Path | Path | Path |
+| --- | --- | --- | --- |
+| `/api/build-compile` | `/api/build-info` | `/api/bun-pm` | `/api/bun-runtime` |
+| `/api/bun-test` | `/api/bundle` | `/api/bunfig` | `/api/color` |
+| `/api/compile` | `/api/config-status` | `/api/console` | `/api/console-depth` |
+| `/api/cron` | `/api/crypto-hash` | `/api/deep-equals` | `/api/deep-match` |
+| `/api/deps` | `/api/dotenv` | `/api/effect-benchmark` | `/api/effect-image` |
+| `/api/env` | `/api/exec` | `/api/extract-methods` | `/api/file-io` |
+| `/api/file-split` | `/api/gates` | `/api/glob` | `/api/glob-orphan` |
+| `/api/global-store` | `/api/http2` | `/api/image` | `/api/inspect` |
+| `/api/inspect-config` | `/api/inspect-defaults` | `/api/inspect-simple` | `/api/inspect-table` |
+| `/api/ipc` | `/api/ipc-matrix` | `/api/kimi-doctor` | `/api/kimi-publish` |
+| `/api/markdown/ansi` | `/api/markdown/html` | `/api/metrics-schema` | `/api/nanoseconds` |
+| `/api/node-http` | `/api/os` | `/api/password` | `/api/peek` |
+| `/api/perf-auto-discover` | `/api/perf-harness` | `/api/perf-registry` | `/api/perf-report` |
+| `/api/perf-threaded` | `/api/perf-train` | `/api/random-bytes` | `/api/runtime-info` |
+| `/api/scaffold` | `/api/secrets` | `/api/semver` | `/api/set-headers` |
+| `/api/shadow-realm` | `/api/shell` | `/api/sleep` | `/api/spawn-sync` |
+| `/api/sqlite` | `/api/stream-hash` | `/api/string-utils` | `/api/strip-ansi` |
+| `/api/symbols` | `/api/terminal` | `/api/threshold-overrides` | `/api/toolchain/heal` |
+| `/api/toolchain/health` | `/api/trace-verify` | `/api/transpiler` | `/api/transpiler-scan` |
+| `/api/tty` | `/api/url` | `/api/url-node` | `/api/util-types` |
+| `/api/uuid` | `/api/vm-context` | `/api/write-smart` |  |
+<!-- /dashboard-static-routes:AUTO -->
 
 ## Browser query properties (dashboard UI)
 
@@ -287,7 +292,7 @@ url_pathname = /
 
 ## Decomposed endpoint inventory (examples stack)
 
-**101** examples-dashboard routes. Representative rows (full table in [dashboard/README.md](dashboard/README.md)):
+**115** examples-dashboard routes. Representative rows (full table in [dashboard/README.md](dashboard/README.md)):
 
 | name                      | url                                                       | url_protocol | url_hostname | url_port | url_pathname                         | url_search                    |
 | ------------------------- | --------------------------------------------------------- | ------------ | ------------ | -------- | ------------------------------------ | ----------------------------- |

@@ -9,43 +9,22 @@ import {
   readableStreamToText,
 } from "../../../../src/lib/bun-utils.ts";
 import { resolveBin, USER_TOOLCHAIN_BIN } from "../lib/toolchain-paths.ts";
-import { doctorBin, jsonResponse, resolveRoot } from "./shared.ts";
+import { jsonResponse, runDoctorJson } from "./shared.ts";
 
 export { jsonResponse } from "./shared.ts";
 
 // ── API handlers ────────────────────────────────────────────────────
 
 export async function apiBundle(): Promise<Response> {
-  const proc = Bun.spawn(["bun", "run", doctorBin(), "--bundle", "--json"], {
-    cwd: resolveRoot(),
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const stdout = await readableStreamToText(proc.stdout);
-  await proc.exited;
-  return jsonResponse(JSON.parse(stdout));
+  return runDoctorJson(["--bundle"]);
 }
 
 export async function apiCompile(): Promise<Response> {
-  const proc = Bun.spawn(["bun", "run", doctorBin(), "--compile-check", "--json"], {
-    cwd: resolveRoot(),
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const stdout = await readableStreamToText(proc.stdout);
-  await proc.exited;
-  return jsonResponse(JSON.parse(stdout));
+  return runDoctorJson(["--compile-check"]);
 }
 
 export async function apiGates(): Promise<Response> {
-  const proc = Bun.spawn(["bun", "run", doctorBin(), "--effect-gates", "--json"], {
-    cwd: resolveRoot(),
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const stdout = await readableStreamToText(proc.stdout);
-  await proc.exited;
-  return jsonResponse(JSON.parse(stdout));
+  return runDoctorJson(["--effect-gates"]);
 }
 
 export async function apiSecrets(): Promise<Response> {

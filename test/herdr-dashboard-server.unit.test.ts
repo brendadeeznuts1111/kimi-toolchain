@@ -28,6 +28,7 @@ import {
   resolveDashboardWebViewConsole,
 } from "../src/lib/herdr-webview-dashboard.ts";
 import { webViewConsoleMirror } from "../src/lib/webview-console.ts";
+import { RUNTIME_CAPABILITY_INVENTORY_KEYS } from "../src/lib/bun-install-config.ts";
 import type { DashboardIpcCommand } from "../src/lib/herdr-dashboard-data.ts";
 import { writeDashboardEvent } from "../src/lib/dashboard-audit-store.ts";
 import { failureLedgerPath } from "../src/lib/paths.ts";
@@ -433,7 +434,9 @@ describe("herdr-dashboard-server", () => {
           expect(meta.thumbnailPath).toBe("/api/thumbnail");
         }
         expect(meta.bunRuntimeCapabilities?.aligned).toBe(true);
-        expect(meta.bunRuntimeCapabilities?.capabilityCount).toBe(17);
+        expect(meta.bunRuntimeCapabilities?.capabilityCount).toBe(
+          RUNTIME_CAPABILITY_INVENTORY_KEYS.length
+        );
         expect(meta.bunRuntimeCapabilities?.runtimeApiDocs?.globalsUrl).toBe(
           "https://bun.com/docs/runtime/globals"
         );

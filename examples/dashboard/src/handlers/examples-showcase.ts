@@ -1,14 +1,16 @@
-import { join } from "path";
 import {
   buildExamplesShowcasePayload,
   probeGatesExample,
   probeTradingWorkspace,
   type ExamplesShowcaseSettings,
 } from "../../../../src/lib/examples-showcase.ts";
-import { resolveDashboardSettings } from "../../../../src/lib/dashboard-settings.ts";
+import {
+  resolveDashboardProjectRoot,
+  resolveDashboardSettings,
+} from "../../../../src/lib/dashboard-settings.ts";
 import { jsonResponse } from "./api-handlers.ts";
 
-const REPO_ROOT = join(import.meta.dir, "../../../..");
+const repoRoot = () => resolveDashboardProjectRoot(import.meta.dir);
 
 function toShowcaseSettings(
   settings: Awaited<ReturnType<typeof resolveDashboardSettings>>
@@ -25,11 +27,12 @@ function toShowcaseSettings(
 export async function apiExamples(request?: Request): Promise<Response> {
   const url = request ? new URL(request.url) : null;
   const id = url?.searchParams.get("id") ?? url?.searchParams.get("example");
-  const resolved = await resolveDashboardSettings(REPO_ROOT, {
+  const root = repoRoot();
+  const resolved = await resolveDashboardSettings(root, {
     requestUrl: url ?? undefined,
   });
   return jsonResponse(
-    buildExamplesShowcasePayload(REPO_ROOT, {
+    buildExamplesShowcasePayload(root, {
       id,
       settings: toShowcaseSettings(resolved),
     })
@@ -37,21 +40,23 @@ export async function apiExamples(request?: Request): Promise<Response> {
 }
 
 export function apiExamplesTrading(): Response {
+  const root = repoRoot();
   return jsonResponse({
     ok: true,
     schemaVersion: 1,
     project: "trading-workspace",
-    ...probeTradingWorkspace(REPO_ROOT),
+    ...probeTradingWorkspace(root),
     fetchedAt: new Date().toISOString(),
   });
 }
 
 export function apiExamplesGates(): Response {
+  const root = repoRoot();
   return jsonResponse({
     ok: true,
     schemaVersion: 1,
     project: "gates",
-    ...probeGatesExample(REPO_ROOT),
+    ...probeGatesExample(root),
     fetchedAt: new Date().toISOString(),
   });
 }

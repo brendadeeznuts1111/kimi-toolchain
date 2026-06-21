@@ -137,7 +137,7 @@ const INFLUENCED_CARDS = [
     "card-bun-runtime",
     "Bun Runtime",
     "/api/bun-runtime",
-    "auditRuntimeCapabilitiesHealth · runtimeApiDocs + 13-key inventory incl. bunImage",
+    "auditRuntimeCapabilitiesHealth · runtimeApiDocs (5 URLs) + 17-key inventory (bunPublish)",
   ],
   [
     "card-effect-image",

@@ -37,28 +37,61 @@ export function appendNdjsonRecordSync(path: string, record: unknown): void {
 
 /** Parse newline-delimited JSON text into validated records. */
 export function parseNdjsonText<T>(text: string, validator?: (value: unknown) => value is T): T[] {
-  const lines = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
   if (typeof Bun.JSONL?.parse === "function") {
     try {
       const parsed = Bun.JSONL.parse(text) as unknown[];
-      if (validator) return parsed.filter(validator);
-      return parsed as T[];
+      const expectedLines = text.split("\n").filter((l) => l.trim().length > 0).length;
+      if (parsed.length === expectedLines) {
+        if (validator) return parsed.filter(validator);
+        return parsed as T[];
+      }
+      // Bun.JSONL.parse returns partial results on error (doesn't throw).
+      // Fall through to parseChunkStringDrain for full error recovery.
     } catch {
-      // fall through to line-by-line parse
+      // fall through to parseChunk with string offsets (v1.3.11 fix)
     }
   }
 
+  if (typeof Bun.JSONL?.parseChunk === "function") {
+    return parseChunkStringDrain<T>(text, validator);
+  }
+
   const out: T[] = [];
-  for (const line of lines) {
+  for (const line of text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)) {
     const parsed = safeParse<unknown | null>(line, null);
     if (parsed === null) continue;
     if (validator && !validator(parsed)) continue;
     out.push(parsed as T);
   }
+  return out;
+}
+
+/** Drain complete values from a string using Bun.JSONL.parseChunk with start/end offsets. */
+function parseChunkStringDrain<T>(text: string, validator?: (value: unknown) => value is T): T[] {
+  const out: T[] = [];
+  let start = 0;
+
+  while (start < text.length) {
+    const result = Bun.JSONL.parseChunk(text, start);
+    out.push(...(result.values as T[]));
+    start += result.read;
+
+    if (result.done) break;
+
+    if (result.error !== null) {
+      const newlineIdx = text.indexOf("\n", start);
+      if (newlineIdx < 0) break;
+      start = newlineIdx + 1;
+      continue;
+    }
+
+    if (result.read === 0) break;
+  }
+
+  if (validator) return out.filter(validator);
   return out;
 }
 

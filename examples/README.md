@@ -35,7 +35,7 @@ cd examples/trading-workspace && bun run trading
 | **Bun API Dashboard**     | `dashboard/`         | gates, kimi-doctor, perf-harness, artifacts | `PORT=5678 bun run dashboard` from repo root |
 | **Trading Artifact Loop** | `trading-workspace/` | artifacts, gates, metrics-schema            | `bun run trading`                            |
 
-The dashboard is the primary showcase: **67** live API cards plus `#card-artifacts` identity panel. Canvas filter pills (`?canvas=artifact-lineage`) highlight cards influenced by each IDE companion manifest.
+The dashboard is the primary showcase: **69** live API cards plus `#card-artifacts` identity panel. Canvas filter pills (`?canvas=artifact-lineage`) highlight cards influenced by each IDE companion manifest.
 
 The trading workspace is a self-contained L1+L2 gate tree — data freshness and risk limits feed strategy performance, which feeds model drift. Artifacts land in `var/trading-artifacts/`.
 

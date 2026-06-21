@@ -426,6 +426,7 @@ export function createLogger(argv: string[], toolName?: string): Logger {
   const quiet = argv.includes("--quiet");
   const debug = argv.includes("--debug");
   const stepBudget = argv.includes("--step-budget");
+  const traceId = Bun.env.KIMI_TRACE_ID || undefined;
   return new Logger({
     level: debug ? "debug" : "info",
     json,
@@ -433,6 +434,7 @@ export function createLogger(argv: string[], toolName?: string): Logger {
     tool: toolName,
     stepBudget,
     sessionId: resolveSessionId(),
+    ...(traceId ? { traceId } : {}),
   });
 }
 

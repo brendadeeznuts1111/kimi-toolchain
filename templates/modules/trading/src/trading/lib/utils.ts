@@ -5,12 +5,3 @@ export function safeParse<T>(text: string, fallback: T): T {
     return fallback;
   }
 }
-
-/** Parse TOML using Bun.TOML.parse with fallback on error. */
-export function safeToml<T>(text: string, fallback: T): T {
-  try {
-    return Bun.TOML.parse(text) as T;
-  } catch {
-    return fallback;
-  }
-}

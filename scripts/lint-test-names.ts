@@ -76,6 +76,8 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "scaffold-trading": "src/lib/scaffold-modules.ts",
   "introspection-docs": "src/lib/scaffold-agents.ts",
   "examples-dashboard-routes": "examples/dashboard/src/index.ts",
+  "dashboard-route-inventory": "src/lib/dashboard-route-inventory.ts",
+  "dashboard-static-assets-lint": "src/lib/dashboard-static-assets-lint.ts",
   "examples-dashboard-artifacts": "examples/dashboard/src/handlers/artifacts.ts",
   "examples-dashboard-canvas-filter": "examples/dashboard/src/handlers/canvas-cards.ts",
   "bun-test-handler": "examples/dashboard/src/handlers/bun-test.ts",
@@ -136,6 +138,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "bun-s3": "src/lib/bun-utils.ts",
   "hook-error-ledger": "src/lib/hook-error-ledger.ts",
   "expect-type-of": "src/lib/bun-utils.ts",
+  "artifact-graph-convergence": "examples/dashboard/src/handlers/artifact-graph-convergence.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */

@@ -1,5 +1,5 @@
 // templates/modules/terminal/src/processor.ts
-// Bun Terminal effect — registered under Symbol.for("kimi.effect.terminal")
+// Bun Terminal effect — registered via registerEffect("terminal") in init.ts
 
 /** Detect whether stdin is a TTY. */
 export function isTTY(): boolean {

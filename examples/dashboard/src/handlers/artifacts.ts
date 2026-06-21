@@ -33,13 +33,7 @@ import {
   fetchDashboardSessionsIndex,
 } from "../../../../src/lib/herdr-dashboard-data.ts";
 import { resolveDashboardProjectRoot } from "../../../../src/lib/dashboard-settings.ts";
-
-function jsonResponse(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data, null, 2), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8" },
-  });
-}
+import { jsonResponse } from "./shared.ts";
 
 const ARTIFACT_READONLY_ERROR =
   "artifact API is read-only; run kimi-doctor --gate <name> --save-artifact to refresh gate artifacts";

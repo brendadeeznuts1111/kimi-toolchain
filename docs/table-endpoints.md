@@ -28,7 +28,7 @@ Source tables: `dx.config.toml`, `examples/dashboard/src/index.ts`, `examples/da
 | :----------------- | :----- | :---------------------- | :------------------------- | :----------------------------------- | :------------------- |
 | examples-showcase  | GET    | `/api/examples`         | `id`                       | Showcase lanes + entries + cardIndex | examples-showcase.ts |
 | examples-trading   | GET    | `/api/examples/trading` | —                          | Trading workspace gate probe         | examples-showcase.ts |
-| dashboard-cards    | GET    | `/api/cards`            | `canvas` `orphans` `probe` | 67 cards + route probes              | canvas-cards.ts      |
+| dashboard-cards    | GET    | `/api/cards`            | `canvas` `orphans` `probe` | 69 cards + route probes              | canvas-cards.ts      |
 | dashboard-canvases | GET    | `/api/canvases`         | —                          | Manifest companions                  | canvas-cards.ts      |
 | canvas-filter      | GET    | `/api/canvas-filter`    | `canvas` `diff` identity   | Deep-link filter actions             | canvas-cards.ts      |
 

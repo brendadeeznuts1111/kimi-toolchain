@@ -573,7 +573,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
   },
   {
     constant: "EFFECT_DOCS_URL",
-    definingFile: "src/lib/effect-docs.ts",
+    definingFile: "src/lib/bun-install-config.ts",
     match: {
       hostnames: ["effect.website"],
       pathname: "/docs",
@@ -582,7 +582,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
   },
   {
     constant: "EFFECT_GEN_DOC_URL",
-    definingFile: "src/lib/effect-docs.ts",
+    definingFile: "src/lib/bun-install-config.ts",
     match: {
       hostnames: ["effect.website"],
       pathnamePrefix: "/docs/effect/gen",
@@ -590,7 +590,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
   },
   {
     constant: "EFFECT_TAGGED_ERROR_DOC_URL",
-    definingFile: "src/lib/effect-docs.ts",
+    definingFile: "src/lib/bun-install-config.ts",
     match: {
       hostnames: ["effect.website"],
       pathnamePrefix: "/docs/error-management/tagged-errors",
@@ -598,7 +598,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
   },
   {
     constant: "EFFECT_LAYER_DOC_URL",
-    definingFile: "src/lib/effect-docs.ts",
+    definingFile: "src/lib/bun-install-config.ts",
     match: {
       hostnames: ["effect.website"],
       pathnamePrefix: "/docs/layers",
@@ -606,7 +606,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
   },
   {
     constant: "EFFECT_RUNTIME_DOC_URL",
-    definingFile: "src/lib/effect-docs.ts",
+    definingFile: "src/lib/bun-install-config.ts",
     match: {
       hostnames: ["effect.website"],
       pathnamePrefix: "/docs/runtime",
@@ -614,7 +614,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
   },
   {
     constant: "EFFECT_ENSUREING_DOC_URL",
-    definingFile: "src/lib/effect-docs.ts",
+    definingFile: "src/lib/bun-install-config.ts",
     match: {
       hostnames: ["effect.website"],
       pathnamePrefix: "/docs/effect/ensuring",

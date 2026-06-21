@@ -25,7 +25,7 @@ export class ArtifactStore {
   async save(gate: string, payload: unknown, level?: 1 | 2 | 3): Promise<string> {
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
     const dir = `${this.baseDir}/${gate}`;
-    await Bun.mkdir(dir, { recursive: true });
+    await Bun.spawn({ cmd: ["mkdir", "-p", dir] }).exited;
 
     const envelope: ArtifactEnvelope = {
       schemaVersion: 1,

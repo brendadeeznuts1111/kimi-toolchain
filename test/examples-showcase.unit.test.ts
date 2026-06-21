@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { loadDashboardCardIds } from "../src/lib/dashboard-card-registry.ts";
 import {
   SHOWCASE_ENTRIES,
   buildCardShowcaseIndex,
@@ -86,9 +87,10 @@ describe("examples-showcase", () => {
     const trading = payload.entries.find((e) => e.id === "trading-workspace");
     expect(trading?.probe?.artifactCount).toBeGreaterThan(0);
     const dashboard = payload.entries.find((e) => e.id === "dashboard");
-    expect(dashboard?.probe && "cardCount" in dashboard.probe ? dashboard.probe.cardCount : 0).toBe(
-      70
-    );
+    const expectedCards = loadDashboardCardIds(REPO_ROOT).length;
+    expect(
+      dashboard?.probe && "cardCount" in dashboard.probe ? dashboard.probe.cardCount : 0
+    ).toBe(expectedCards);
   });
 
   test("buildExamplesShowcasePayload rewrites open commands to settings port", () => {

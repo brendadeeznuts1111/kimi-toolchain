@@ -63,21 +63,24 @@ const APP_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
 ];
 
 export async function getFreeMemoryMB(): Promise<number> {
-  const vmstat = await $`vm_stat`.quiet();
+  const vmstat = await $`vm_stat`.quiet().nothrow();
+  if (vmstat.exitCode !== 0) return 0;
   const freeMatch = vmstat.stdout.toString().match(/Pages free:\s*(\d+)/);
   const freePages = parseInt(freeMatch?.[1] || "0", 10);
   return Math.round((freePages * 16384) / 1024 / 1024);
 }
 
 export async function getSwapUsedMB(): Promise<number> {
-  const out = await $`sysctl -n vm.swapusage`.quiet();
+  const out = await $`sysctl -n vm.swapusage`.quiet().nothrow();
+  if (out.exitCode !== 0) return 0;
   const match = out.stdout.toString().match(/used\s*=\s*([\d.]+)M/i);
   return match ? Math.round(parseFloat(match[1])) : 0;
 }
 
 export async function getMemoryPressureFreePct(): Promise<number | null> {
   try {
-    const out = await $`memory_pressure -Q`.quiet();
+    const out = await $`memory_pressure -Q`.quiet().nothrow();
+    if (out.exitCode !== 0) return null;
     const match = out.stdout.toString().match(/free percentage:\s*(\d+)%/i);
     return match ? parseInt(match[1], 10) : null;
   } catch {
@@ -86,7 +89,13 @@ export async function getMemoryPressureFreePct(): Promise<number | null> {
 }
 
 export async function getLoadPerCore(): Promise<{ load: number; cores: number; perCore: number }> {
-  const [uptime, ncpu] = await Promise.all([$`uptime`.quiet(), $`sysctl -n hw.ncpu`.quiet()]);
+  const [uptime, ncpu] = await Promise.all([
+    $`uptime`.quiet().nothrow(),
+    $`sysctl -n hw.ncpu`.quiet().nothrow(),
+  ]);
+  if (uptime.exitCode !== 0 || ncpu.exitCode !== 0) {
+    return { load: 0, cores: 1, perCore: 0 };
+  }
   const loadMatch = uptime.stdout.toString().match(/load averages?:\s*([\d.]+)/);
   const load = parseFloat(loadMatch?.[1] || "0");
   const cores = parseInt(ncpu.stdout.toString().trim() || "1", 10) || 1;

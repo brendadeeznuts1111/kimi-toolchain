@@ -77,6 +77,9 @@ export const BUN_FILE_IO_WRITE_DOC_URL =
 /** @see https://bun.com/docs/runtime/file-io#reference */
 export const BUN_FILE_IO_REFERENCE_DOC_URL = "https://bun.com/docs/runtime/file-io#reference";
 
+/** @see https://bun.com/docs/runtime/streams#reference */
+export const BUN_STREAMS_REFERENCE_DOC_URL = "https://bun.com/docs/runtime/streams#reference";
+
 /**
  * `Bun.write()` input per File I/O reference (`BUN_FILE_IO_REFERENCE_DOC_URL`).
  * `BunFile` is a `Blob` — pass `Bun.file(path)` without a separate union member.

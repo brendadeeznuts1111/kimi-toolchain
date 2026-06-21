@@ -214,7 +214,13 @@ const CANVAS_ROUTING_ROW_TONE = [
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
+<<<<<<< Updated upstream
   { id: "test", label: "bun run check:fast", sub: "316 unit gates" },
+||||||| Stash base
+  { id: "test", label: "bun run check:fast", sub: "311 unit gates" },
+=======
+  { id: "test", label: "bun run check:fast", sub: "314 unit gates" },
+>>>>>>> Stashed changes
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -240,10 +246,22 @@ const TOOL_CATEGORIES = [
   { id: "infra", label: "Router / Bridge", count: 4 },
 ] as const;
 
+<<<<<<< Updated upstream
 const BIN_COUNT = 27;
 const LIB_COUNT = 365;
 const UNIT_COUNT = 316;
 const INTEGRATION_COUNT = 18;
+||||||| Stash base
+const BIN_COUNT = 26;
+const LIB_COUNT = 324;
+const UNIT_COUNT = 311;
+const INTEGRATION_COUNT = 17;
+=======
+const BIN_COUNT = 26;
+const LIB_COUNT = 325;
+const UNIT_COUNT = 314;
+const INTEGRATION_COUNT = 18;
+>>>>>>> Stashed changes
 const SMOKE_COUNT = 7;
 const CURSOR_CANVAS_COUNT = 13;
 

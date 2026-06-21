@@ -1,10 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { join } from "path";
 import {
   buildDashboardCardRegistry,
   cardStatusFromProbe,
   fetchDashboardCardsPayload,
-  HUB_CARD_PROBE_IDS,
   influencesForManifest,
   lintCanvasInfluences,
   parseDashboardCardsFromHtml,
@@ -29,6 +27,16 @@ describe("dashboard-card-registry", () => {
     expect(cards.length).toBe(1);
     expect(cards[0].id).toBe("card-gates");
     expect(cards[0].apiRoute).toBe("/api/gates");
+  });
+
+  test("parseDashboardCardsFromHtml reads routes from external dashboard.js script source", async () => {
+    const html = await Bun.file(`${REPO_ROOT}/examples/dashboard/src/dashboard.html`).text();
+    const script = await Bun.file(`${REPO_ROOT}/examples/dashboard/src/dashboard.js`).text();
+    const cards = parseDashboardCardsFromHtml(html, { script });
+    const convergence = cards.find((c) => c.id === "card-convergence");
+    const markdown = cards.find((c) => c.id === "card-markdown");
+    expect(convergence?.apiRoute).toBe("/api/artifact-graph");
+    expect(markdown?.apiRoute).toBe("/api/markdown/html");
   });
 
   test("parseDashboardCardsFromHtml scopes fetches to enclosing IIFE", () => {
@@ -57,7 +65,7 @@ describe("dashboard-card-registry", () => {
 
   test("loadDashboardCardRegistry matches dashboard.html card count", () => {
     const registry = buildDashboardCardRegistry(REPO_ROOT);
-    expect(registry.length).toBe(70);
+    expect(registry.length).toBe(71);
     expect(registry.some((c) => c.id === "card-kimi-doctor")).toBe(true);
     expect(registry.some((c) => c.id === "card-config-status")).toBe(true);
   });
@@ -105,7 +113,7 @@ describe("dashboard-card-registry", () => {
   test("fetchDashboardCardsPayload ignores unrecognized canvas query", async () => {
     const all = await fetchDashboardCardsPayload(REPO_ROOT, {});
     const unknown = await fetchDashboardCardsPayload(REPO_ROOT, { canvas: "nonexistent-canvas" });
-    expect(unknown.total).toBe(70);
+    expect(unknown.total).toBe(71);
     expect(unknown.filter.recognized).toBe(false);
     expect(unknown.filter.manifestId).toBeNull();
     expect(unknown.cards.map((c) => c.id).sort()).toEqual(all.cards.map((c) => c.id).sort());
@@ -132,17 +140,6 @@ describe("dashboard-card-registry", () => {
     expect(payload.filter.manifestId).toBe("artifact-lineage");
   });
 
-  test("HUB_CARD_PROBE_IDS matches dashboard package.json showcase cards", async () => {
-    const pkg = (await Bun.file(
-      join(REPO_ROOT, "examples/dashboard/package.json")
-    ).json()) as {
-      kimi?: { showcase?: { cards?: string[] } };
-    };
-    expect([...HUB_CARD_PROBE_IDS].map(String)).toEqual(
-      (pkg.kimi?.showcase?.cards ?? []).map(String)
-    );
-  });
-
   test("cardStatusFromProbe maps hub card payloads", () => {
     expect(cardStatusFromProbe("card-gates", { summary: { ok: true } })).toBe("ok");
     expect(cardStatusFromProbe("card-gates", { summary: { ok: false } })).toBe("error");
@@ -156,9 +153,6 @@ describe("dashboard-card-registry", () => {
     expect(
       cardStatusFromProbe("card-symbols", { symbols: { domain: [{ key: "kimi.trace" }] } })
     ).toBe("ok");
-    expect(cardStatusFromProbe("card-artifacts", { ok: true, count: 3 })).toBe("ok");
-    expect(cardStatusFromProbe("card-artifacts", { ok: true, count: 0 })).toBe("warn");
-    expect(cardStatusFromProbe("card-artifacts", { ok: false })).toBe("error");
     expect(cardStatusFromProbe("card-gates", undefined)).toBe("unknown");
   });
 

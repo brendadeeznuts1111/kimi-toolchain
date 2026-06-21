@@ -2,13 +2,14 @@
 import {
   bunRevision,
   bunVersion,
-  generateTraceId,
   isDirectRun,
   readableStreamToText,
 } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
 import { spawnBun, withBunNoOrphans } from "../lib/tool-runner.ts";
 import { withNoOrphansEnv } from "../lib/bun-spawn-env.ts";
+import { ensureProcessTrace } from "../lib/effect/trace-context.ts";
+import { buildTraceEvent, recordTraceEvent } from "../lib/trace-ledger.ts";
 /**
  * kimi-doctor — Comprehensive diagnostics
  * Delegates to individual tool doctor commands + runs system checks
@@ -134,7 +135,8 @@ import {
 } from "../gates/registry.ts";
 
 const writer = createCli(Bun.argv, "kimi-doctor");
-const doctorTraceId = generateTraceId();
+const doctorTrace = ensureProcessTrace();
+const doctorTraceId = doctorTrace.traceId;
 const logger = writer.logger.child({
   traceId: doctorTraceId,
   fields: { runId: Bun.env.KIMI_RUN_ID },
@@ -236,6 +238,39 @@ function argValue(flag: string): string | undefined {
 /** Agent/programmatic JSON output (--json); bypasses Logger formatting. */
 function emitJson(data: unknown): void {
   writer.writeJson(data);
+}
+
+/** Track a doctor section's timing in both the logger and the trace ledger. */
+async function traceSection(label: string, fn: () => Promise<void>): Promise<void> {
+  const timerLabel = `section:${label}`;
+  const startedAt = new Date().toISOString();
+  const started = Date.now();
+  logger.time(timerLabel);
+  try {
+    await fn();
+  } finally {
+    const durationMs = Date.now() - started;
+    logger.timeEnd(timerLabel, "debug");
+    try {
+      await recordTraceEvent(
+        buildTraceEvent({
+          traceId: doctorTraceId,
+          parentTraceId: doctorTrace.parentTraceId,
+          eventType: "cli",
+          tool: "kimi-doctor",
+          command: ["section", label],
+          cwd: Bun.cwd,
+          status: "ok",
+          startedAt,
+          endedAt: new Date().toISOString(),
+          durationMs,
+          metadata: { section: label },
+        })
+      );
+    } catch {
+      // Trace collection is best-effort.
+    }
+  }
 }
 
 interface CheckResult {
@@ -2090,92 +2125,88 @@ async function main(): Promise<number> {
   const home = homeDir();
 
   logger.section("System");
-  logger.time("section:system");
-  const systemChecks = await runSystemChecks(logger, {
-    softSystem: SOFT_SYSTEM,
-    memoryBudgetOnly: false,
-  });
-  if (!JSON_OUT) {
-    for (const check of systemChecks) {
-      logger.check(check);
+  await traceSection("system", async () => {
+    const systemChecks = await runSystemChecks(logger, {
+      softSystem: SOFT_SYSTEM,
+      memoryBudgetOnly: false,
+    });
+    if (!JSON_OUT) {
+      for (const check of systemChecks) {
+        logger.check(check);
+      }
     }
-  }
-  results.push(...systemChecks);
-  logger.timeEnd("section:system", "debug");
+    results.push(...systemChecks);
+  });
 
   logger.section("Kimi Products");
-  logger.time("section:products");
-
-  const kimiPath = Bun.which("kimi");
-  if (kimiPath) {
-    try {
-      const version = await $`kimi --version`.quiet();
-      results.push(ok("kimi-code", `${version.stdout.toString().trim()} (${kimiPath})`));
-    } catch {
-      results.push(ok("kimi-code", `installed (${kimiPath})`));
+  await traceSection("products", async () => {
+    const kimiPath = Bun.which("kimi");
+    if (kimiPath) {
+      try {
+        const version = await $`kimi --version`.quiet();
+        results.push(ok("kimi-code", `${version.stdout.toString().trim()} (${kimiPath})`));
+      } catch {
+        results.push(ok("kimi-code", `installed (${kimiPath})`));
+      }
+    } else {
+      results.push(
+        error("kimi-code", "not found — curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash")
+      );
     }
-  } else {
-    results.push(
-      error("kimi-code", "not found — curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash")
-    );
-  }
-
-  logger.timeEnd("section:products", "debug");
+  });
 
   logger.section("Kimi Code Config");
-  logger.time("section:kimi-config");
-  const officialKimiDoctorResult = await runOfficialKimiDoctor();
-  if (!JSON_OUT) {
-    logger.check({
-      name: officialKimiDoctorResult.name,
-      status: officialKimiDoctorResult.status,
-      message: officialKimiDoctorResult.message,
-      fixable: false,
-    });
-  }
-  results.push(officialKimiDoctorResult);
-  if (!JSON_OUT) {
-    logger.info("kimi doctor (official) ≠ kimi-doctor (toolchain)");
-  }
-
-  logger.timeEnd("section:kimi-config", "debug");
+  await traceSection("kimi-config", async () => {
+    const officialKimiDoctorResult = await runOfficialKimiDoctor();
+    if (!JSON_OUT) {
+      logger.check({
+        name: officialKimiDoctorResult.name,
+        status: officialKimiDoctorResult.status,
+        message: officialKimiDoctorResult.message,
+        fixable: false,
+      });
+    }
+    results.push(officialKimiDoctorResult);
+    if (!JSON_OUT) {
+      logger.info("kimi doctor (official) ≠ kimi-doctor (toolchain)");
+    }
+  });
 
   logger.section("Version Matrix");
-  logger.time("section:version-matrix");
-  results.push(...(await versionMatrix()));
-  logger.timeEnd("section:version-matrix", "debug");
+  await traceSection("version-matrix", async () => {
+    results.push(...(await versionMatrix()));
+  });
 
   logger.section("Runtime Sync");
-  logger.time("section:runtime-sync");
-  const syncCheck = await checkDesktopSync(projectRoot);
-  results.push(...syncCheck.results);
-  syncReport = syncCheck.drift;
-  logger.timeEnd("section:runtime-sync", "debug");
+  await traceSection("runtime-sync", async () => {
+    const syncCheck = await checkDesktopSync(projectRoot);
+    results.push(...syncCheck.results);
+    syncReport = syncCheck.drift;
+  });
 
+  let unifiedShellRegistered = false;
   logger.section("MCP");
-  logger.time("section:mcp");
-  const mcpReport = await validateMcpConfig(home, projectRoot);
-  const unifiedShellRegistered = mcpReport.checks.some(
-    (c) => c.name === "unified-shell" && c.status === "ok"
-  );
-  for (const check of mcpReport.checks) {
-    if (check.status === "ok") results.push(ok(check.name, check.message));
-    else if (check.status === "warn") results.push(warn(check.name, check.message));
-    else results.push(error(check.name, check.message));
-  }
-
-  logger.timeEnd("section:mcp", "debug");
+  await traceSection("mcp", async () => {
+    const mcpReport = await validateMcpConfig(home, projectRoot);
+    unifiedShellRegistered = mcpReport.checks.some(
+      (c) => c.name === "unified-shell" && c.status === "ok"
+    );
+    for (const check of mcpReport.checks) {
+      if (check.status === "ok") results.push(ok(check.name, check.message));
+      else if (check.status === "warn") results.push(warn(check.name, check.message));
+      else results.push(error(check.name, check.message));
+    }
+  });
 
   logger.section("Kimi Permissions");
-  logger.time("section:permissions");
-  const configAudit = await auditKimiConfig(home, { unifiedShellRegistered });
-  for (const check of configAudit) {
-    if (check.status === "ok") results.push(ok(check.name, check.message));
-    else if (check.status === "warn") results.push(warn(check.name, check.message));
-    else results.push(error(check.name, check.message));
-  }
-
-  logger.timeEnd("section:permissions", "debug");
+  await traceSection("permissions", async () => {
+    const configAudit = await auditKimiConfig(home, { unifiedShellRegistered });
+    for (const check of configAudit) {
+      if (check.status === "ok") results.push(ok(check.name, check.message));
+      else if (check.status === "warn") results.push(warn(check.name, check.message));
+      else results.push(error(check.name, check.message));
+    }
+  });
 
   logger.section("Logging Config");
   {
@@ -2212,9 +2243,9 @@ async function main(): Promise<number> {
   }
 
   logger.section("Code Quality");
-  logger.time("section:quality");
-  results.push(...(await runQualityChecks(projectRoot)));
-  logger.timeEnd("section:quality", "debug");
+  await traceSection("quality", async () => {
+    results.push(...(await runQualityChecks(projectRoot)));
+  });
   if (QUICK && !JSON_OUT) {
     logger.line("  ⚡ Quick mode — config checks only; run without --quick to execute gates.");
   }
@@ -2449,6 +2480,7 @@ async function main(): Promise<number> {
   if (JSON_OUT) {
     emitJson({
       toolchainVersion: TOOLCHAIN_VERSION,
+      traceId: doctorTraceId,
       checks: results,
       sync: syncReport,
       decisions: {

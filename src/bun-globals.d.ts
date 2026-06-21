@@ -19,3 +19,13 @@ declare module "bun" {
 interface ReadableStream<R = any> {
   [Symbol.asyncIterator](): AsyncIterator<R>;
 }
+
+/** Bun fetch() extensions beyond standard RequestInit. */
+interface BunFetchRequestInit extends RequestInit {
+  keepalive?: boolean;
+  tls?: { minVersion?: number };
+  proxy?: string | { url: string; headers?: Record<string, string> };
+  unix?: string;
+  decompress?: boolean;
+  verbose?: boolean | "curl";
+}

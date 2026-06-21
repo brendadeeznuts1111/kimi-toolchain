@@ -25,13 +25,17 @@ cd examples/dashboard && bun run src/index.ts
 
 ## API Routes
 
-**Endpoint count:** **101** routes on the examples dashboard (`examples/dashboard/src/index.ts` + `handlers/artifacts.ts`).
+<!-- dashboard-route-inventory:AUTO -->
+**Endpoint count:** **115** routes on the examples dashboard (`examples/dashboard/src/index.ts` + `handlers/artifacts.ts`).
 
 - **3** page/health routes (`/`, `/health`, `/api/health`)
-- **86** static `switch` API paths
-- **12** URLPattern artifact/run routes (handled before the switch; not duplicated in `switch`)
+- **96** static dispatch API paths (`handlers/routes.ts`, includes `/dashboard.css` + `/dashboard-core.js` + `/dashboard.js`)
+- **16** artifact/run routes (`handlers/artifacts.ts` + URLPattern; not duplicated in route table)
+<!-- /dashboard-route-inventory:AUTO -->
 
-Routing order: `handleArtifactsRequest()` (URLPattern) → `dispatchDashboardRoute()` (`handlers/dispatch.ts`) → `404`. Handler implementations are SSOT in `src/handlers/*.ts` (shared helpers in `handlers/shared.ts`). Non-`GET`/`HEAD` on `/api/artifacts`, `/api/runs`, `/api/sessions` namespaces → **405** JSON.
+Routing order: `handleArtifactsRequest()` (URLPattern) → `dispatchDashboardRoute()` (`handlers/routes.ts` + `handlers/dispatch.ts`) → `404`. Handler implementations are SSOT in `src/handlers/*.ts` (shared helpers in `handlers/shared.ts`). Non-`GET`/`HEAD` on `/api/artifacts`, `/api/runs`, `/api/sessions` namespaces → **405** JSON.
+
+**Shell assets:** `src/dashboard.html` (panels + showcase hub), `src/dashboard.css`, `src/dashboard.js` — served at `/`, `/dashboard.css`, `/dashboard.js`. Card route discovery scans `dashboard.js` for `fetchJson`/`card()` probes (`src/lib/dashboard-card-registry.ts`).
 
 Full URL inventory: [dashboard-urls.md](../dashboard-urls.md). Pattern SSOT: `src/lib/dashboard-route-patterns.ts`.
 

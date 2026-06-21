@@ -237,10 +237,30 @@ export function lintCanonicalReferencesLinkTables(tables: CanonicalReferencesLin
     }
     if (repo.provides !== undefined) {
       for (const ecosystemId of repo.provides) {
-        if (!ecosystemById.has(ecosystemId)) {
+        const ecosystem = ecosystemById.get(ecosystemId);
+        if (!ecosystem) {
           violations.push(`${path}.provides: references unknown ecosystem "${ecosystemId}"`);
+          continue;
+        }
+        const expectedRepoId = ecosystem.repoId ?? `${ecosystemId}-upstream`;
+        if (expectedRepoId !== repo.id) {
+          violations.push(
+            `${path}.provides: ecosystem "${ecosystemId}" expects repo "${expectedRepoId}", not "${repo.id}"`
+          );
         }
       }
+    }
+  }
+
+  for (const ecosystem of tables.ecosystem) {
+    if (ecosystem.noRepo) continue;
+    const path = `ecosystem.${ecosystem.id}`;
+    const expectedRepoId = ecosystem.repoId ?? `${ecosystem.id}-upstream`;
+    const repo = repoById.get(expectedRepoId);
+    if (!repo) continue;
+    const provides = repo.provides ?? [];
+    if (!provides.includes(ecosystem.id)) {
+      violations.push(`${path}.repoId: repo "${repo.id}" does not provide "${ecosystem.id}"`);
     }
   }
 

@@ -515,6 +515,56 @@ describe("logger", () => {
     });
   });
 
+  describe("createLogger() traceId env-wiring", () => {
+    test("createLogger picks up KIMI_TRACE_ID from env", () => {
+      const prev = Bun.env.KIMI_TRACE_ID;
+      Bun.env.KIMI_TRACE_ID = "env-trace-123";
+      try {
+        const logger = createLogger(["--json"], "test-tool");
+        const lines = withStdoutCapture(() => {
+          logger.info("env-wired");
+        });
+        const parsed = JSON.parse(lines[0]);
+        expect(parsed.traceId).toBe("env-trace-123");
+      } finally {
+        if (prev === undefined) delete Bun.env.KIMI_TRACE_ID;
+        else Bun.env.KIMI_TRACE_ID = prev;
+      }
+    });
+
+    test("createLogger omits traceId when env is unset", () => {
+      const prev = Bun.env.KIMI_TRACE_ID;
+      delete Bun.env.KIMI_TRACE_ID;
+      try {
+        const logger = createLogger(["--json"], "test-tool");
+        const lines = withStdoutCapture(() => {
+          logger.info("no-trace");
+        });
+        const parsed = JSON.parse(lines[0]);
+        expect(parsed.traceId).toBeUndefined();
+      } finally {
+        if (prev === undefined) delete Bun.env.KIMI_TRACE_ID;
+        else Bun.env.KIMI_TRACE_ID = prev;
+      }
+    });
+
+    test("explicit traceId in Logger constructor takes precedence over env", () => {
+      const prev = Bun.env.KIMI_TRACE_ID;
+      Bun.env.KIMI_TRACE_ID = "env-trace";
+      try {
+        const logger = new Logger({ json: true, traceId: "explicit-trace" });
+        const lines = withStdoutCapture(() => {
+          logger.info("explicit");
+        });
+        const parsed = JSON.parse(lines[0]);
+        expect(parsed.traceId).toBe("explicit-trace");
+      } finally {
+        if (prev === undefined) delete Bun.env.KIMI_TRACE_ID;
+        else Bun.env.KIMI_TRACE_ID = prev;
+      }
+    });
+  });
+
   describe("generateTraceId() / generateSpanId()", () => {
     test("generateTraceId returns a 32-char hex string", () => {
       const id = generateTraceId();

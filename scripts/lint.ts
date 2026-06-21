@@ -125,6 +125,7 @@ async function runFullLint(namesOnly: boolean): Promise<void> {
     { cmd: ["bun", "run", "scripts/lint-cursor-canvas.ts"], label: "cursor-canvas" },
     { cmd: ["bun", "run", "scripts/lint-canvas-influences.ts"], label: "canvas-influences" },
     { cmd: ["bun", "run", "scripts/lint-examples-showcase.ts"], label: "examples-showcase" },
+    { cmd: ["bun", "run", "scripts/lint-dashboard-routes.ts", "--check"], label: "dashboard-routes" },
     { cmd: ["bun", "run", "scripts/lint-doc-links.ts"], label: "doc-links" },
     { cmd: ["bun", "run", "scripts/lint-testing-docs.ts"], label: "testing-docs" },
     { cmd: ["bun", "run", "scripts/lint-markdown-links.ts", "--full"], label: "markdown-links" },

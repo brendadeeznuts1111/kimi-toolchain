@@ -19,6 +19,8 @@ import { withBunNoOrphans } from "./tool-runner.ts";
 
 const stdinDecoder = new TextDecoder();
 
+type FileWatcher = ReturnType<typeof watchPath>;
+
 export const REFERENCES_INSPECT_CHILD_ENV = "KIMI_REFERENCES_INSPECT_CHILD";
 
 export type ReferencesInspectWatchSection = CanonicalReferencesInspectSection;
@@ -117,8 +119,8 @@ function inspectChildArgs(inspectScript: string, section: ReferencesInspectWatch
   return [inspectScript, "--section", section];
 }
 
-function childEnv(): Record<string, string | undefined> {
-  return { ...Bun.env, [REFERENCES_INSPECT_CHILD_ENV]: "1" };
+function childEnv(): Record<string, string> {
+  return { ...(Bun.env as Record<string, string>), [REFERENCES_INSPECT_CHILD_ENV]: "1" };
 }
 
 async function killSubprocess(proc: Subprocess | null): Promise<void> {
@@ -221,7 +223,7 @@ async function runReferencesInspectMarkdownWatch(
     void render();
   };
 
-  const watchers: ReturnType<typeof watchPath>[] = [];
+  const watchers: FileWatcher[] = [];
   for (const path of referencesInspectWatchPaths(repoRoot)) {
     try {
       watchers.push(watchPath(path, () => scheduleRender()));
@@ -329,7 +331,7 @@ async function runReferencesInspectPtyWatch(options: ReferencesInspectWatchOptio
     void runInspect();
   };
 
-  const watchers: ReturnType<typeof watchPath>[] = [];
+  const watchers: FileWatcher[] = [];
   for (const path of referencesInspectWatchPaths(repoRoot)) {
     try {
       watchers.push(watchPath(path, () => scheduleRender()));

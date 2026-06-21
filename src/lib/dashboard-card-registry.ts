@@ -77,8 +77,25 @@ export function repoRootFromLibDir(libDir: string): string {
   return join(libDir, "../..");
 }
 
+export const DASHBOARD_JS_REL = "examples/dashboard/src/dashboard.js";
+
 export function dashboardHtmlPath(repoRoot: string): string {
   return join(repoRoot, DASHBOARD_HTML_REL);
+}
+
+export function dashboardScriptPath(repoRoot: string): string {
+  return join(repoRoot, DASHBOARD_JS_REL);
+}
+
+function resolveDashboardScriptSource(repoRoot: string, html: string): string {
+  const corePath = join(repoRoot, "examples/dashboard/src/dashboard-core.js");
+  const jsPath = dashboardScriptPath(repoRoot);
+  const parts: string[] = [];
+  if (pathExists(corePath)) parts.push(readText(corePath));
+  if (pathExists(jsPath)) parts.push(readText(jsPath));
+  if (parts.length > 0) return parts.join("\n");
+  const scriptStart = html.indexOf("<script>");
+  return scriptStart >= 0 ? html.slice(scriptStart) : "";
 }
 
 /** Start index of the innermost `(async () => {` IIFE enclosing `cardIndex`. */
@@ -99,8 +116,11 @@ function primaryApiRouteInBlock(block: string): string | null {
   return matches[0]?.[1] ?? null;
 }
 
-/** Parse `id="card-*"` panels and primary `/api/*` route from dashboard.html script blocks. */
-export function parseDashboardCardsFromHtml(html: string): Array<{
+/** Parse `id="card-*"` panels and primary `/api/*` route from dashboard shell + script source. */
+export function parseDashboardCardsFromHtml(
+  html: string,
+  options: { script?: string } = {}
+): Array<{
   id: string;
   title: string;
   apiRoute: string | null;
@@ -116,7 +136,9 @@ export function parseDashboardCardsFromHtml(html: string): Array<{
   }
 
   const scriptStart = html.indexOf("<script>");
-  const script = scriptStart >= 0 ? html.slice(scriptStart) : html;
+  const script =
+    options.script ??
+    (scriptStart >= 0 ? html.slice(scriptStart) : "");
   const apiByCard = new Map<string, string>();
 
   for (const match of script.matchAll(/card\("(card-[^"]+)"/g)) {
@@ -126,6 +148,13 @@ export function parseDashboardCardsFromHtml(html: string): Array<{
     const block = script.slice(iifeStart, idx);
     const route = primaryApiRouteInBlock(block);
     if (route) apiByCard.set(cardId, route);
+  }
+
+  if (script.includes("loadEffectBenchmarkCard")) {
+    apiByCard.set("card-effect-benchmark", "/api/effect-benchmark");
+  }
+  if (script.includes("card-artifacts-body")) {
+    apiByCard.set("card-artifacts", "/api/artifacts");
   }
 
   return panels.map((panel) => ({
@@ -180,6 +209,8 @@ function inferApiRoute(cardId: string): string | null {
     "card-glob-orphan": "/api/glob-orphan",
     "card-random-bytes": "/api/random-bytes",
     "card-artifacts": "/api/artifacts",
+    "card-convergence": "/api/artifact-graph",
+    "card-markdown": "/api/markdown/html",
   };
   if (overrides[cardId]) return overrides[cardId];
   if (!cardId.startsWith("card-")) return null;
@@ -196,7 +227,8 @@ export function loadDashboardCards(
   if (cached) return cached;
   const path = dashboardHtmlPath(repoRoot);
   const html = readText(path);
-  const result = parseDashboardCardsFromHtml(html);
+  const script = resolveDashboardScriptSource(repoRoot, html);
+  const result = parseDashboardCardsFromHtml(html, { script });
   _cardCache.set(repoRoot, result);
   return result;
 }

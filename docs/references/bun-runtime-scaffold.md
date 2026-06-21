@@ -247,13 +247,14 @@ This improves runtime performance and avoids CommonJS wrapper bugs (e.g., `.cjs`
 
 ## Related
 
-| Topic                             | Path                                                 |
-| --------------------------------- | ---------------------------------------------------- |
-| Toolchain hardened install policy | `src/lib/bun-install-config.ts`                      |
-| Scaffold `bunfig.toml` template   | `templates/scaffold/bunfig.toml`                     |
-| Configuration layers model        | [configuration-layers.md](./configuration-layers.md) |
-| `bun create` template             | `templates/bun-create/kimi-toolchain/`               |
-| `kimi-fix` source                 | `src/bin/kimi-fix.ts`                                |
+| Topic                             | Path                                                                                                                                                          |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Toolchain hardened install policy | `src/lib/bun-install-config.ts`                                                                                                                               |
+| Scaffold `bunfig.toml` template   | `templates/scaffold/bunfig.toml`                                                                                                                              |
+| Configuration layers model        | [configuration-layers.md](./configuration-layers.md)                                                                                                          |
+| `bun create` template             | `templates/bun-create/kimi-toolchain/`                                                                                                                        |
+| `kimi-fix` source                 | `src/bin/kimi-fix.ts`                                                                                                                                         |
+| Bun module resolution             | [bun.com/docs/runtime/module-resolution](https://bun.com/docs/runtime/module-resolution) — CJS/ESM interop, `import.meta`, path re-mapping, custom conditions |
 
 ## `bun create` flow
 

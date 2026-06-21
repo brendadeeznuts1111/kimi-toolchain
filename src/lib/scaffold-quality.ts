@@ -60,7 +60,10 @@ export async function ensureQualityTooling(
   if (missingDeps.length > 0) {
     log("deps", `installing ${missingDeps.join(", ")}...`);
     if (!dryRun) {
-      await $`bun add -d ${missingDeps}`.cwd(project).quiet();
+      const result = await $`bun add -d ${missingDeps}`.cwd(project).quiet().nothrow();
+      if (result.exitCode !== 0) {
+        log("deps", `bun add failed (exit ${result.exitCode}): ${result.stderr.toString().trim()}`);
+      }
     }
   }
 }
