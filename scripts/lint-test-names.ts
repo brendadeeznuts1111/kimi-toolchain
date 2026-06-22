@@ -59,7 +59,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "canvas-metadata-integrity": "src/lib/canvas-metadata-integrity.gate.ts",
   "doctor-secret-audit": "src/doctor/secret-audit.ts",
   "doctor-secret-isolation": "src/doctor/secret-isolation.ts",
-  "hardcoded-secret-audit": "src/doctor/hardcoded-secret-audit.ts",
+  "hardcoded-secret-audit": "src/lib/hardcoded-secret-audit.ts",
   "doctor-network-audit": "src/lib/network-config.ts",
   "image-audit": "src/lib/image-audit.ts",
   "perf-gate": "src/guardian/perf-gate.ts",

@@ -11,7 +11,7 @@ import {
   type Violation,
 } from "./bun-native-lint.ts";
 import { readableStreamToText } from "./bun-utils.ts";
-import { auditHardcodedSecretsInGlob } from "../doctor/hardcoded-secret-audit.ts";
+import { auditHardcodedSecretsInGlob } from "./hardcoded-secret-audit.ts";
 import { auditSecretLeaksInGlob } from "../doctor/secret-audit.ts";
 import { TEMPLATE_MARKERS } from "./scaffold-templates.ts";
 

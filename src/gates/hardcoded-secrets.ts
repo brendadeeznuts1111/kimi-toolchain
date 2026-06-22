@@ -3,7 +3,7 @@
  *
  * CLI: kimi-doctor --gate hardcoded-secrets [--save-artifact]
  */
-import { auditHardcodedSecrets } from "../doctor/hardcoded-secret-audit.ts";
+import { auditHardcodedSecrets } from "../lib/hardcoded-secret-audit.ts";
 import type { Gate, GateResult, GateRunOptions, GateStatus } from "./types.ts";
 
 export interface HardcodedSecretsGateResult extends GateResult {

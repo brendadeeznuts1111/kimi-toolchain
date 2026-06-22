@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
-import { auditHardcodedSecrets } from "../src/doctor/hardcoded-secret-audit.ts";
+import { auditHardcodedSecrets } from "../src/lib/hardcoded-secret-audit.ts";
 import { cleanupPath, REPO_ROOT, testTempDir } from "./helpers.ts";
 
 describe("hardcoded-secret-audit", () => {
