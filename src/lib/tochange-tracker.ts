@@ -273,7 +273,7 @@ export const EFFECT_BOUNDARY_REGISTRY: TochangeRegistryEntry[] = [
   },
   {
     id: "doctor-mcp-effect",
-    file: "src/lib/doctor-mcp-server.ts",
+    file: "src/lib/effect/doctor-mcp-runtime.ts",
     tier: "tier1",
     status: "implemented",
     summary: "MCP runDoctor routes through invokeCommandEffect",

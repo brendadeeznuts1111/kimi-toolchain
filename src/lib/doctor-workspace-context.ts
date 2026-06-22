@@ -1,6 +1,6 @@
 import { writeText } from "./bun-io.ts";
 
-import { Exit } from "effect";
+
 import {
   gitBranch,
   gitLastCommitMessage,
@@ -12,7 +12,7 @@ import {
 import { readEffectGatesSnapshots, type EffectGatesReport } from "./effect-gates.ts";
 import { extractAgentsNextSteps, type AgentContext } from "./dx-config-agents.ts";
 import { runAgentContext } from "./effect/herdr-config-runtime.ts";
-import { summarizeDxConfigCause, type DxConfigErrorSummary } from "./effect/dx-config.ts";
+import { type DxConfigErrorSummary } from "./effect/dx-config.ts";
 import { getProjectName } from "./utils.ts";
 
 export interface WorkspaceContextOptions {
@@ -62,14 +62,7 @@ async function loadAgentContext(projectRoot: string): Promise<{
   agentContext: AgentContext;
   configErrors: DxConfigErrorSummary[];
 }> {
-  const exit = await runAgentContext(projectRoot);
-  if (Exit.isSuccess(exit)) {
-    return { agentContext: exit.value, configErrors: [] };
-  }
-  return {
-    agentContext: EMPTY_AGENT_CONTEXT,
-    configErrors: summarizeDxConfigCause(exit.cause),
-  };
+  return runAgentContext(projectRoot);
 }
 
 function parseRecentCommits(
