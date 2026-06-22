@@ -36,6 +36,37 @@ reminders. The `SecretsTest` layer makes migration painless.
 
 ---
 
+## Pre-Child-Process Secret Resolution
+
+CLI tools that spawn child processes (`bun install`, `bun outdated`, `bun publish`,
+`git clone`, etc.) must resolve dev secrets from `Bun.secrets` into `process.env`
+**before** spawning. This ensures child processes inherit auth tokens without
+each tool reimplementing keychain lookups.
+
+### Helpers (`src/lib/bun-utils.ts`)
+
+| Helper | Resolves | Populates |
+|---|---|---|
+| `resolveGithubEnv()` | `GITHUB_TOKEN`, `GITHUB_API_DOMAIN` | `process.env.GITHUB_TOKEN`, `GITHUB_API_DOMAIN` |
+| `resolveNpmEnv()` | `NPM_TOKEN` | `process.env.NPM_TOKEN`, `NPM_CONFIG_TOKEN` |
+| `resolveDevSecrets()` | Both GitHub + NPM (parallel) | All of the above |
+
+### Rules
+
+1. **Env wins over keychain** — existing `process.env` values are never overwritten.
+2. **Call early** — resolve before any `Bun.spawn` or `$` template call.
+3. **`--no-secrets` flag** — `kimi-new` supports `--no-secrets` to skip resolution when CI already sets env vars.
+4. **Never log resolved values** — the helpers return the resolved values for convenience, but they should not be printed.
+
+### CLIs that call `resolveDevSecrets()`
+
+- `kimi-new` — before `bun init` + `kimi-fix` (skippable with `--no-secrets`)
+- `kimi-doctor` — before `bun run sync` and other spawned tools
+- `kimi-governance` — before `bun install --ignore-scripts`
+- `kimi-guardian` — before `bun outdated`
+
+---
+
 ## Service Registry
 
 | Service Name | Constant | Purpose | Primary Consumers | Secret Names |

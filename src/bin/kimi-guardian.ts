@@ -11,7 +11,7 @@
 
 import { $, TOML } from "bun";
 import { Database } from "bun:sqlite";
-import { isDirectRun } from "../lib/bun-utils.ts";
+import { isDirectRun, resolveDevSecrets } from "../lib/bun-utils.ts";
 import { makeDir, pathExists } from "../lib/bun-io.ts";
 import { join } from "path";
 import {
@@ -542,6 +542,9 @@ async function main(): Promise<number> {
   const command = args[0] || "check";
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const projectName = await getProjectName(projectDir);
+
+  // Resolve dev secrets before any bun outdated / registry spawns
+  await resolveDevSecrets();
 
   logger.projectBanner(
     "Kimi Guardian — Supply Chain Security",

@@ -30,6 +30,7 @@ function printHelp() {
   logger.info("  --force       Overwrite existing files");
   logger.info("  --no-install  Skip installing node_modules & tasks");
   logger.info("  --no-git      Don't initialize a git repository");
+  logger.info("  --no-secrets  Skip Bun.secrets resolution (use when env already has tokens)");
   logger.info("  --open        Start & open in-browser after finish");
   logger.info("");
   logger.info("Env vars (resolved from Bun.secrets if absent):");
@@ -132,6 +133,7 @@ async function runScaffold(args: string[]): Promise<number> {
   const force = args.includes("--force");
   const noInstall = args.includes("--no-install");
   const noGit = args.includes("--no-git");
+  const noSecrets = args.includes("--no-secrets");
   const open = args.includes("--open");
   const filtered = args.filter(
     (a) => !a.startsWith("--")
@@ -162,8 +164,11 @@ async function runScaffold(args: string[]): Promise<number> {
     return 0;
   }
 
-  // Resolve dev secrets (GitHub + NPM) from Bun.secrets before spawning child processes
-  await resolveDevSecrets();
+  // Resolve dev secrets from Bun.secrets before spawning child processes
+  // Skip with --no-secrets when tokens are already in env (e.g. CI)
+  if (!noSecrets) {
+    await resolveDevSecrets();
+  }
 
   makeDir(projectDir, { recursive: true });
   const initArgs = ["init", "-y"]

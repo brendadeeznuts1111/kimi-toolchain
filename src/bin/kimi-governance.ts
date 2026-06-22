@@ -9,7 +9,7 @@
  */
 
 import { $ } from "bun";
-import { isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
+import { isDirectRun, readableStreamToText, resolveDevSecrets } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
@@ -402,6 +402,9 @@ async function main(): Promise<number> {
   const command = args[0] || "score";
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = await getProjectName(projectDir);
+
+  // Resolve dev secrets before any bun install / outdated spawns
+  await resolveDevSecrets();
 
   logger.projectBanner("Kimi Governance — Quality Gates", project);
 

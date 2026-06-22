@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { bunRevision, bunVersion, isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
+import { bunRevision, bunVersion, isDirectRun, readableStreamToText, resolveDevSecrets } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
 import { spawnBun, withBunNoOrphans } from "../lib/tool-runner.ts";
 import { withNoOrphansEnv } from "../lib/bun-spawn-env.ts";
@@ -1507,6 +1507,9 @@ function emitGateDryRun(
 }
 
 async function main(): Promise<number> {
+  // Resolve dev secrets before spawning any child processes (sync, etc.)
+  await resolveDevSecrets();
+
   if (SUBCOMMAND === "check") {
     const result = await spawnBun(["run", "scripts/check.ts", ...Bun.argv.slice(3)], {
       cwd: await resolveProjectRoot(Bun.cwd),
