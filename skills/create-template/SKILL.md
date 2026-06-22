@@ -214,11 +214,11 @@ Templates shared across both profiles just exist in `templates/scaffold/`. Toolc
 
 ### Secrets (bun create)
 
-| Template | Secrets layout | Bootstrap |
-| -------- | -------------- | --------- |
+| Template                 | Secrets layout                                   | Bootstrap                                                          |
+| ------------------------ | ------------------------------------------------ | ------------------------------------------------------------------ |
 | `herdr-service-template` | `src/lib/secrets/` stubs + postinstall generator | `Bun.secrets` → env fallback; `resolveDevSecrets()` in `legacy.ts` |
-| `kimi-toolchain` | Optional root `secrets/` via `--with-secrets` | Same contract when flag is set |
-| Others | `.env.example` only | Document `Bun.secrets` first; never commit `.env` |
+| `kimi-toolchain`         | Optional root `secrets/` via `--with-secrets`    | Same contract when flag is set                                     |
+| Others                   | `.env.example` only                              | Document `Bun.secrets` first; never commit `.env`                  |
 
 Postinstall scripts that `Bun.spawn` before a secrets registry exists must include a `template-bootstrap` header (see `auditTemplatePostinstallBootstrap()`). Gate: `bun run check:template-policy`.
 

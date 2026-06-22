@@ -198,12 +198,12 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 ### Core
 
-| Command                        | Description                           |
-| ------------------------------ | ------------------------------------- |
-| `kimi-doctor`                  | Full toolchain diagnostics            |
+| Command                        | Description                                    |
+| ------------------------------ | ---------------------------------------------- |
+| `kimi-doctor`                  | Full toolchain diagnostics                     |
 | `kimi-new <name> [--path dir]` | Create project (`bun init -m -y` + `kimi-fix`) |
-| `kimi-fix <path> [--dry-run]`  | Auto-repair project scaffolding       |
-| `kimi-fix doctor [path]`       | Check scaffold completeness           |
+| `kimi-fix <path> [--dry-run]`  | Auto-repair project scaffolding                |
+| `kimi-fix doctor [path]`       | Check scaffold completeness                    |
 
 ### Project Scripts
 

@@ -148,20 +148,20 @@
 
 ## Summary Table
 
-| #   | Finding                                                 | Severity    | File                                                                 | Fix                          |
-| --- | ------------------------------------------------------- | ----------- | -------------------------------------------------------------------- | ---------------------------- |
-| C1  | No repo origin verification in postinstall              | 🔴 CRITICAL | `src/install-hooks/postinstall.ts`                                   | Canonical repo guard         |
-| C2  | `kimi-guardian` checks `bunfig.toml` not `package.json` | 🔴 CRITICAL | `src/bin/kimi-guardian.ts`                                           | Read `package.json` first    |
-| C3  | `kimi-guardian fix` auto-trusts deps                    | 🔴 CRITICAL | `src/bin/kimi-guardian.ts`                                           | Require confirmation         |
-| C4  | `governance.ts` missing `--frozen-lockfile`             | 🔴 CRITICAL | `src/lib/governance.ts`                                              | Add flag, remove TOUCH       |
-| C5  | Preflight auto-runs `kimi-guardian fix`                 | 🔴 CRITICAL | `src/lib/governance-preflight.ts`                                    | Replace with `check`         |
-| H1  | Templates lack `trustedDependencies`                    | 🟠 HIGH     | `templates/bun-create/*/package.json`                                | Add field                    |
-| H2  | `check-templates.ts` misses `trustedDependencies`       | 🟠 HIGH     | `scripts/check-templates.ts`                                         | Add check                    |
-| H3  | `install-bin-wrappers.sh` unvalidated                   | 🟠 HIGH     | `scripts/install-bin-wrappers.sh`                                    | Hash check or inline         |
-| H4  | Sync copies files without integrity                     | 🟠 HIGH     | `scripts/sync-to-desktop.ts`                                         | Manifest verification        |
+| #   | Finding                                                 | Severity    | File                                                                 | Fix                            |
+| --- | ------------------------------------------------------- | ----------- | -------------------------------------------------------------------- | ------------------------------ |
+| C1  | No repo origin verification in postinstall              | 🔴 CRITICAL | `src/install-hooks/postinstall.ts`                                   | Canonical repo guard           |
+| C2  | `kimi-guardian` checks `bunfig.toml` not `package.json` | 🔴 CRITICAL | `src/bin/kimi-guardian.ts`                                           | Read `package.json` first      |
+| C3  | `kimi-guardian fix` auto-trusts deps                    | 🔴 CRITICAL | `src/bin/kimi-guardian.ts`                                           | Require confirmation           |
+| C4  | `governance.ts` missing `--frozen-lockfile`             | 🔴 CRITICAL | `src/lib/governance.ts`                                              | Add flag, remove TOUCH         |
+| C5  | Preflight auto-runs `kimi-guardian fix`                 | 🔴 CRITICAL | `src/lib/governance-preflight.ts`                                    | Replace with `check`           |
+| H1  | Templates lack `trustedDependencies`                    | 🟠 HIGH     | `templates/bun-create/*/package.json`                                | Add field                      |
+| H2  | `check-templates.ts` misses `trustedDependencies`       | 🟠 HIGH     | `scripts/check-templates.ts`                                         | Add check                      |
+| H3  | `install-bin-wrappers.sh` unvalidated                   | 🟠 HIGH     | `scripts/install-bin-wrappers.sh`                                    | Hash check or inline           |
+| H4  | Sync copies files without integrity                     | 🟠 HIGH     | `scripts/sync-to-desktop.ts`                                         | Manifest verification          |
 | M1  | ~~New checks only verify `bunfig.toml`~~ (resolved)     | ✅ FIXED    | `src/lib/doctor-trusted-deps.ts`, `src/lib/template-policy-audit.ts` | `package.json` + bunfig parity |
-| M2  | Signing key fallback weak                               | 🟡 MEDIUM   | `src/bin/kimi-guardian.ts`                                           | Derive key or use OS keyring |
-| M3  | Missing `--frozen-lockfile`                             | 🟡 MEDIUM   | `src/lib/governance.ts`, `scripts/install-herdr-plugin.sh`           | Add flag                     |
+| M2  | Signing key fallback weak                               | 🟡 MEDIUM   | `src/bin/kimi-guardian.ts`                                           | Derive key or use OS keyring   |
+| M3  | Missing `--frozen-lockfile`                             | 🟡 MEDIUM   | `src/lib/governance.ts`, `scripts/install-herdr-plugin.sh`           | Add flag                       |
 
 ---
 

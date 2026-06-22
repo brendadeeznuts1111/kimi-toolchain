@@ -195,13 +195,13 @@ kimi-doctor --scaffold    # All scaffold checks pass
 bun run sync:verify       # Runtime paths match repo paths
 ```
 
-| Check            | Expected                                    | Failure Mode                                                                       |
-| ---------------- | ------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `localDocsCount` | 15                                          | Missing `herdr-plugin-architecture` or `template-matrix` in `LOCAL_DOC_REFERENCES` |
-| `scaffoldFiles`  | 22                                          | `kimi-fix` skipped due to `pathExists`                                             |
-| `collisionRisk`  | 0                                           | `bun init` ran without `-m`                                                        |
-| `bunfig.toml`    | `linker = "isolated"`, `globalStore = true` | Template stale or overwritten                                                      |
-| `templatePolicy` | `bun run check:template-policy` exits 0    | Install/registry/scaffold/secrets/bootstrap/oxlint/typecheck/test drift on `templates/**` |
+| Check            | Expected                                    | Failure Mode                                                                              |
+| ---------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `localDocsCount` | 15                                          | Missing `herdr-plugin-architecture` or `template-matrix` in `LOCAL_DOC_REFERENCES`        |
+| `scaffoldFiles`  | 22                                          | `kimi-fix` skipped due to `pathExists`                                                    |
+| `collisionRisk`  | 0                                           | `bun init` ran without `-m`                                                               |
+| `bunfig.toml`    | `linker = "isolated"`, `globalStore = true` | Template stale or overwritten                                                             |
+| `templatePolicy` | `bun run check:template-policy` exits 0     | Install/registry/scaffold/secrets/bootstrap/oxlint/typecheck/test drift on `templates/**` |
 
 ### Template policy gate
 
@@ -239,8 +239,8 @@ Notable layers: `bootstrap-bridge` (`kimi-new` → `bun init -m -y`), `bun-init-
 | 2026-06-18 | `bun create kimi-toolchain` template                | No — new scaffold path                     |
 | 2026-06-18 | `scripts/scan.ts` upgrade advisor (scaffold family) | No — advisory Bun-native migration scanner |
 | 2026-06-17 | `bun init -m` bridge pattern documented             | No — template postinstall only             |
-| 2026-06-22 | `check:template-policy` gate (29 layers)          | No — CI + verify ritual                   |
-| 2026-06-22 | `kimi-new` enforces `bun init -m -y`                | No — greenfield bridge fix                |
+| 2026-06-22 | `check:template-policy` gate (29 layers)            | No — CI + verify ritual                    |
+| 2026-06-22 | `kimi-new` enforces `bun init -m -y`                | No — greenfield bridge fix                 |
 
 ---
 

@@ -253,7 +253,7 @@ This improves runtime performance and avoids CommonJS wrapper bugs (e.g., `.cjs`
 | Scaffold `bunfig.toml` template   | `templates/scaffold/bunfig.toml`                                                                                                                              |
 | Configuration layers model        | [configuration-layers.md](./configuration-layers.md)                                                                                                          |
 | `bun create` template             | `templates/bun-create/kimi-toolchain/`                                                                                                                        |
-| `kimi-new` greenfield bridge      | `src/bin/kimi-new.ts` — `bun init -m -y` then `kimi-fix` (avoids scaffold collision)                                                                         |
+| `kimi-new` greenfield bridge      | `src/bin/kimi-new.ts` — `bun init -m -y` then `kimi-fix` (avoids scaffold collision)                                                                          |
 | Template policy gate              | `src/lib/template-policy-audit.ts` — `bun run check:template-policy`                                                                                          |
 | `kimi-fix` source                 | `src/bin/kimi-fix.ts`                                                                                                                                         |
 | Bun module resolution             | [bun.com/docs/runtime/module-resolution](https://bun.com/docs/runtime/module-resolution) — CJS/ESM interop, `import.meta`, path re-mapping, custom conditions |

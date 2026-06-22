@@ -120,21 +120,21 @@
 
 ### `src/lib/` domains (summary)
 
-| Domain         | Representative files                                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **Core**       | `utils.ts`, `version.ts`, `paths.ts`, `tool-runner.ts`, `health-check.ts`, `logger.ts`                              |
-| **Effect**     | `effect/errors.ts`, `effect/cli-runtime.ts`, `effect/tool-runner-effect.ts`, `effect/cli-contract-effect.ts`        |
-| **Governance** | `r-score.ts`, `governance-check.ts`, `governance.ts`, `readme-sync.ts`                                              |
+| Domain         | Representative files                                                                                                   |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Core**       | `utils.ts`, `version.ts`, `paths.ts`, `tool-runner.ts`, `health-check.ts`, `logger.ts`                                 |
+| **Effect**     | `effect/errors.ts`, `effect/cli-runtime.ts`, `effect/tool-runner-effect.ts`, `effect/cli-contract-effect.ts`           |
+| **Governance** | `r-score.ts`, `governance-check.ts`, `governance.ts`, `readme-sync.ts`                                                 |
 | **Scaffold**   | `scaffold-templates.ts`, `template-policy-audit.ts`, `scaffold-agents.ts`, `scaffold-doctor.ts`, `scaffold-quality.ts` |
-| **Cloudflare** | `cloudflare-access.ts`, `cloudflare-access-policy.ts`                                                               |
-| **Governor**   | `governor-*.ts` (resource limits, parallelism, disk quota, diagnostic cache)                                        |
-| **Memory**     | `memory-budget.ts`, `memory-sessions.ts`, `sessions-schema.ts`                                                      |
-| **Git**        | `git-helpers.ts`, `conventional-commits.ts`, `changelog.ts`                                                         |
-| **Config**     | `mcp-config.ts`, `kimi-config-audit.ts`, `test-gates.ts`, `test-runtime.ts`, `testing-docs-lint.ts`, `artifacts.ts` |
-| **Health**     | `workspace-health.ts`, `workspace-commands.ts`, `legacy-cleanup.ts`, `ecosystem-health.ts`                          |
-| **Doctor**     | `doctor-runs.ts`, `doctor-pipeline.ts`, `doctor-adapters/`, `doctor-adapter-types.ts`                               |
-| **Sync**       | `desktop-sync.ts`, `sync-hashes.ts`, `sync-manifest.ts`                                                             |
-| **Taxonomy**   | `error-taxonomy.ts`                                                                                                 |
+| **Cloudflare** | `cloudflare-access.ts`, `cloudflare-access-policy.ts`                                                                  |
+| **Governor**   | `governor-*.ts` (resource limits, parallelism, disk quota, diagnostic cache)                                           |
+| **Memory**     | `memory-budget.ts`, `memory-sessions.ts`, `sessions-schema.ts`                                                         |
+| **Git**        | `git-helpers.ts`, `conventional-commits.ts`, `changelog.ts`                                                            |
+| **Config**     | `mcp-config.ts`, `kimi-config-audit.ts`, `test-gates.ts`, `test-runtime.ts`, `testing-docs-lint.ts`, `artifacts.ts`    |
+| **Health**     | `workspace-health.ts`, `workspace-commands.ts`, `legacy-cleanup.ts`, `ecosystem-health.ts`                             |
+| **Doctor**     | `doctor-runs.ts`, `doctor-pipeline.ts`, `doctor-adapters/`, `doctor-adapter-types.ts`                                  |
+| **Sync**       | `desktop-sync.ts`, `sync-hashes.ts`, `sync-manifest.ts`                                                                |
+| **Taxonomy**   | `error-taxonomy.ts`                                                                                                    |
 
 ### Three hook systems (do not conflate)
 
@@ -223,14 +223,14 @@ Use `--files <paths...>` for scoped lint (oxlint + banned-terms + patterns + tes
 
 ### Gate layers
 
-| Layer      | Command / hook                                                                                                               |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Local      | `bun run check` or `bun run unify`                                                                                           |
-| pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`)                                                          |
-| pre-push   | `check:fast` + guardian + effect-gates + constant-drift + R-Score (preflight auto-fix via `--hook`) + mandatory runtime sync |
-| Local CI   | `bun run ci:local` — format:check, lint, typecheck, test, coverage, effect-gates, governance                                 |
-| Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)                                                             |
-| Templates    | `bun run check:template-policy` (SSOT: `src/lib/template-policy-audit.ts`); also in `quality:check:ci` and `verify:bun-features:strict` (`templates.policy`) |
+| Layer      | Command / hook                                                                                                                                               |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Local      | `bun run check` or `bun run unify`                                                                                                                           |
+| pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`)                                                                                          |
+| pre-push   | `check:fast` + guardian + effect-gates + constant-drift + R-Score (preflight auto-fix via `--hook`) + mandatory runtime sync                                 |
+| Local CI   | `bun run ci:local` — format:check, lint, typecheck, test, coverage, effect-gates, governance                                                                 |
+| Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)                                                                                             |
+| Templates  | `bun run check:template-policy` (SSOT: `src/lib/template-policy-audit.ts`); also in `quality:check:ci` and `verify:bun-features:strict` (`templates.policy`) |
 
 **Escape hatches:** `KIMI_SKIP_EFFECT_GATES=1` bypasses the Effect-discipline gate; `KIMI_SKIP_GOVERNANCE_PREFLIGHT=1` skips lock/README/guardian auto-fix before R-Score. Use only in emergencies and document the bypass in the commit message.
 
@@ -483,7 +483,7 @@ bun run sync && bun run sync:verify   # if runtime assets changed
 | Closest code exemplar         | `CODE_REFERENCES.md`                                                                                |
 | Naming / ecosystem boundaries | `UNIFIED.md`                                                                                        |
 | Template catalog              | `TEMPLATES.md`                                                                                      |
-| Template authoring skill      | `skills/create-template/SKILL.md` — run `check:template-policy` after edits                       |
+| Template authoring skill      | `skills/create-template/SKILL.md` — run `check:template-policy` after edits                         |
 | Template matrix + policy gate | `docs/references/template-matrix.md`                                                                |
 | Skill ↔ code index            | `bun run skills:table` · contract map in `src/lib/skill-contract.ts`                                |
 | Effect discipline depth       | `DEEP-QUALITY.md`                                                                                   |

@@ -315,10 +315,7 @@ export const REPO_SKILL_CODE_COVERAGE: Record<
       "src/bin/kimi-fix.ts",
       "src/bin/kimi-new.ts",
     ],
-    testFiles: [
-      "test/scaffold-templates.unit.test.ts",
-      "test/template-policy-audit.unit.test.ts",
-    ],
+    testFiles: ["test/scaffold-templates.unit.test.ts", "test/template-policy-audit.unit.test.ts"],
   },
 };
 
