@@ -207,7 +207,7 @@ Skills and JSDoc may use **`@see namespace-boundaries`** when the task needs the
 
 **Canvas:** manifest id `namespace` · `cursorCanvas`: `docs/canvases/namespace-boundaries.canvas.tsx` (IDE-only; not synced).
 
-**Doc links in `src/**/_.ts`:** executable code must use registered `BUN\__\_DOC_URL` constants (`bun run lint:doc-links`). JSDoc `@see`with`bun.com`deep links is exempt from`use-doc-constant`; absolute `https://bun.sh/docs…` in comments still flags under `prefer-bun-com-docs` — migrate to `bun.com`.
+**Doc links in `src/**/\_.ts`:** executable code must use registered `BUN\_\_\_DOC_URL` constants (`bun run lint:doc-links`). JSDoc `@see`with`bun.com`deep links is exempt from`use-doc-constant`; absolute `https://bun.sh/docs…` in comments still flags under `prefer-bun-com-docs` — migrate to `bun.com`.
 
 Related commands: `bun run dx:table -u`, `bun run dx:table:contract`, `bun run references:generate`, `kimi-doctor --probe`.
 

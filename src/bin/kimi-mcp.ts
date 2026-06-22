@@ -442,9 +442,16 @@ async function fsCommand(): Promise<number> {
 
 async function catalogCommand(): Promise<number> {
   const rootArg = argValue(Bun.argv, "--root");
-  const projectRoot = rootArg
-    ? resolve(rootArg)
-    : await resolveProjectRoot(process.cwd()).catch(() => process.cwd());
+  let projectRoot: string;
+  if (rootArg) {
+    projectRoot = resolve(rootArg);
+  } else {
+    try {
+      projectRoot = await resolveProjectRoot(process.cwd());
+    } catch {
+      projectRoot = process.cwd();
+    }
+  }
   const report = await buildMcpCatalogReport(homeDir(), {
     probe: hasFlag(Bun.argv, "--probe"),
     projectRoot,
@@ -464,9 +471,16 @@ async function catalogCommand(): Promise<number> {
 
 async function versionPolicyCommand(): Promise<number> {
   const rootArg = argValue(Bun.argv, "--root");
-  const projectRoot = rootArg
-    ? resolve(rootArg)
-    : await resolveProjectRoot(process.cwd()).catch(() => process.cwd());
+  let projectRoot: string;
+  if (rootArg) {
+    projectRoot = resolve(rootArg);
+  } else {
+    try {
+      projectRoot = await resolveProjectRoot(process.cwd());
+    } catch {
+      projectRoot = process.cwd();
+    }
+  }
   const report = await buildMcpVersionPolicyReport(projectRoot);
   if (writer.flags.json) {
     writer.writeJson(report);
