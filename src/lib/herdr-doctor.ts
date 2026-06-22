@@ -231,8 +231,8 @@ function run(cmd: string, args: string[] = [], _timeoutMs = 20_000) {
       stderr: "pipe",
       env: withNoOrphansEnv({ ...Bun.env, PATH: resolveHerdrPanePath() }),
     });
-    // Bun.spawnSync doesn't support per-call timeout natively,
-    // but herdr commands are fast (<1s) so 20s is generous.
+    // Bun.spawnSync runs on an isolated event loop (Bun 1.2+),
+    // so timeouts are reliable. herdr commands are fast (<1s) so 20s is generous.
     const stdout = result.stdout ? new TextDecoder().decode(result.stdout).trim() : "";
     const stderr = result.stderr ? new TextDecoder().decode(result.stderr).trim() : "";
     if (result.exitCode === 0) {

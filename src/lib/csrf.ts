@@ -74,6 +74,7 @@ export function generateCsrfToken(secret: string, options: CsrfGenerateOptions):
     expiresIn: options.expiresIn ?? DEFAULT_TTL_MS,
     algorithm: options.algorithm ?? DEFAULT_ALGORITHM,
     encoding: options.encoding ?? DEFAULT_ENCODING,
+    sessionId: options.sessionId,
   } as Parameters<typeof Bun.CSRF.generate>[1]);
 }
 
@@ -97,6 +98,7 @@ export function verifyCsrfToken(
     maxAge: options.maxAge,
     algorithm: options.algorithm ?? DEFAULT_ALGORITHM,
     encoding: options.encoding ?? DEFAULT_ENCODING,
+    sessionId: options.sessionId,
   } as Parameters<typeof Bun.CSRF.verify>[1]);
 }
 
