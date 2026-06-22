@@ -3,48 +3,17 @@
  */
 
 import { Effect } from "effect";
-import type { DecisionEvidence, DecisionRationaleBlock } from "./decision-ledger.ts";
+import {
+  type CapabilityRationaleContext,
+  type ContractRationaleContext,
+  type DecisionEvidence,
+  type DecisionRationaleBlock,
+  type GenericRationaleContext,
+  type HealRationaleContext,
+  type RationaleBuildContext,
+} from "./decision-types.ts";
 
-export type RationaleKind = "heal" | "contract-sign" | "capability-degrade" | "generic";
-
-export interface HealRationaleContext {
-  kind: "heal";
-  playbookTitle: string;
-  clusterId: string;
-  clusterSize: number;
-  topTaxonomy: string;
-  traceId: string;
-  priorSuccessCount?: number;
-  priorDecisionIds?: string[];
-}
-
-export interface ContractRationaleContext {
-  kind: "contract-sign";
-  contractFile: string;
-  driftSummary?: string;
-  oldHash?: string;
-  newHash?: string;
-}
-
-export interface CapabilityRationaleContext {
-  kind: "capability-degrade";
-  capabilityItem: string;
-  reason: string;
-  impactSummary?: string;
-}
-
-export interface GenericRationaleContext {
-  kind: "generic";
-  summary: string;
-  fullReasoning?: string;
-  evidence?: DecisionEvidence[];
-}
-
-export type RationaleBuildContext =
-  | HealRationaleContext
-  | ContractRationaleContext
-  | CapabilityRationaleContext
-  | GenericRationaleContext;
+export { type RationaleBuildContext } from "./decision-types.ts";
 
 export function buildDecisionRationale(context: RationaleBuildContext): DecisionRationaleBlock {
   switch (context.kind) {

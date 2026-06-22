@@ -6,7 +6,7 @@ import { errorClustersPath, failureLedgerPath } from "./paths.ts";
 import { safeParse } from "./utils.ts";
 import { appendNdjsonRecord, writeNdjsonFile } from "./ndjson.ts";
 import { deriveErrorId, readFailureTraceRecords, type FailureTraceRecord } from "./trace-ledger.ts";
-import type { ClusterSummary } from "./error-clustering.ts";
+import type { ClusterSummary } from "./error-types.ts";
 
 export type { FailureTraceRecord };
 

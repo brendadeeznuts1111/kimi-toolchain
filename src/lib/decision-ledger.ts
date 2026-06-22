@@ -11,10 +11,20 @@ import { appendNdjsonRecord, readNdjsonFile, rewriteNdjsonFile } from "./ndjson.
 import {
   buildDecisionRationale,
   buildDecisionRationaleEffect,
-  type RationaleBuildContext,
 } from "./decision-rationale.ts";
+import {
+  type AlternativeFeasibility,
+  type DecisionEvidence,
+  type DecisionRationaleBlock,
+  type RationaleBuildContext,
+} from "./decision-types.ts";
 
-export type { RationaleBuildContext } from "./decision-rationale.ts";
+export {
+  type AlternativeFeasibility,
+  type DecisionEvidence,
+  type DecisionRationaleBlock,
+  type RationaleBuildContext,
+};
 export { buildDecisionRationale, buildDecisionRationaleEffect } from "./decision-rationale.ts";
 export { buildDecisionGraph } from "./decision-graph.ts";
 
@@ -26,27 +36,6 @@ export type RationaleContext = RationaleBuildContext;
 export type DecisionSchemaVersion = 1 | 2;
 export type DecisionActor = "kimi" | "user" | "ci" | (string & {});
 export type DecisionOutcome = "success" | "failure" | "unknown" | (string & {});
-export type AlternativeFeasibility = "low" | "medium" | "high";
-
-export interface DecisionEvidence {
-  type: "traceStep" | "error" | "contractDiff" | "cluster" | "playbook" | "capability";
-  traceId?: string;
-  stepIndex?: number;
-  errorId?: string;
-  oldHash?: string;
-  newHash?: string;
-  clusterId?: string;
-  playbookTitle?: string;
-  contractFile?: string;
-  capabilityItem?: string;
-  detail?: string;
-}
-
-export interface DecisionRationaleBlock {
-  summary: string;
-  fullReasoning: string;
-  evidence?: DecisionEvidence[];
-}
 
 export interface DecisionTriggerContext {
   summary?: string;

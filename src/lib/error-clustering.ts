@@ -58,20 +58,8 @@ export interface ErrorCluster {
   members: ClusterMember[];
 }
 
-export interface ClusterSummary {
-  clusterId: string;
-  count: number;
-  representativeError: {
-    summary: string;
-    traceId?: string;
-    errorId?: string;
-  };
-  topTaxonomy: string | null;
-  hasPlaybook: boolean;
-  confidence?: number;
-  suggestedFix?: string;
-  autoFix?: string;
-}
+import { type ClusterSummary } from "./error-types.ts";
+export { type ClusterSummary } from "./error-types.ts";
 
 export interface ErrorClusterReport {
   schemaVersion: 1;
