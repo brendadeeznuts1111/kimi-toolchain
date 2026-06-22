@@ -204,6 +204,31 @@ export function formatTable(rows: Record<string, unknown>[]): string {
   return `${header}\n${separator}\n${body}`;
 }
 
+// ── Bun.inspect.table Helper ─────────────────────────────────────────
+
+export interface InspectTableOptions {
+  columns?: string[];
+  maxRows?: number;
+  maxStringLength?: number;
+  compact?: boolean;
+}
+
+/**
+ * Wrapper around Bun.inspect.table with TTY-aware colors and sane defaults.
+ * Uses the same useColor() pattern as paint() — colors suppressed when not a TTY.
+ */
+export function inspectTable(data: Record<string, unknown>[], options: InspectTableOptions = {}): string {
+  if (data.length === 0) return "";
+  const colors = useColor();
+  return Bun.inspect.table(data, {
+    columns: options.columns,
+    maxArrayLength: options.maxRows ?? 50,
+    maxStringLength: options.maxStringLength ?? 80,
+    colors,
+    compact: options.compact ?? !colors,
+  } as { colors?: boolean });
+}
+
 // ── Bun.inspect.custom Attachers ─────────────────────────────────────
 
 const INSPECT_SYMBOL = Symbol.for("nodejs.util.inspect.custom");
