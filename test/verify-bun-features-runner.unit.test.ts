@@ -81,4 +81,14 @@ describe("verify-bun-features-runner", () => {
     expect(report.endpoints.probes.length).toBeGreaterThan(5);
     expect(report.checks.some((c) => c.id === "audit.bundle.dry-run")).toBe(true);
   }, 60_000);
+
+  test("runVerifyBunFeatures probes core Bun runtime APIs", async () => {
+    const report = await runVerifyBunFeatures();
+    for (const id of ["bun.secrets", "bun.gc", "bun.zstd", "bun.version-pin", "mimalloc.stats"]) {
+      const check = report.checks.find((c) => c.id === id);
+      expect(check).toBeDefined();
+      expect(check?.group).toBe("runtime");
+      expect(check?.ok).toBe(true);
+    }
+  }, 60_000);
 });

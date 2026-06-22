@@ -5,16 +5,16 @@
   "description": "Bun-native developer tooling: governance, diagnostics, security, and scaffolding",
   "keywords": [
     "bun",
-    "toolchain",
-    "governance",
+    "cli",
     "diagnostics",
+    "doctor",
+    "git-hooks",
+    "governance",
+    "mcp",
+    "scaffold",
     "security",
     "supply-chain",
-    "scaffold",
-    "git-hooks",
-    "mcp",
-    "doctor",
-    "cli"
+    "toolchain"
   ],
   "homepage": "https://github.com/brendadeeznuts1111/kimi-toolchain#readme",
   "bugs": {

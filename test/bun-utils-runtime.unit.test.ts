@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { join } from "path";
+import { cleanupPath, testTempDir } from "./helpers.ts";
 import {
   bunRuntimeReport,
+  checkBunVersionPin,
   detectBunRuntime,
   formatBunRuntimeSnapshot,
   inferBunRuntimeChannel,
@@ -10,6 +13,7 @@ import {
   inspectMemoryRuntime,
   inspectOsRuntime,
   isBunEvalMain,
+  readPinnedBunVersion,
 } from "../src/lib/bun-utils.ts";
 
 describe("bun-utils-runtime", () => {
@@ -56,6 +60,51 @@ describe("bun-utils-runtime", () => {
     expect(memory.usedBytes).toBeGreaterThan(0);
     expect(memory.usedPercent).toBeGreaterThan(0);
     expect(memory.usedPercent).toBeLessThanOrEqual(100);
+  });
+
+  test("inspectHostRuntime reports pid and user", () => {
+    const host = inspectHostRuntime();
+    expect(host.pid).toBe(process.pid);
+    expect(host.uptimeSeconds).toBeGreaterThanOrEqual(0);
+    expect(host.osUptimeSeconds).toBeGreaterThan(0);
+    expect(host.user.length).toBeGreaterThan(0);
+    expect(host.timezone.length).toBeGreaterThan(0);
+    expect(host.nodeVersion).toMatch(/^v\d+/);
+  });
+
+  test("readPinnedBunVersion returns null when no pin file exists", async () => {
+    const dir = testTempDir("bun-utils-version-pin-");
+    try {
+      expect(await readPinnedBunVersion(dir)).toBeNull();
+    } finally {
+      cleanupPath(dir);
+    }
+  });
+
+  test("checkBunVersionPin passes when runtime satisfies pinned version", async () => {
+    const dir = testTempDir("bun-utils-version-pin-");
+    try {
+      await Bun.write(join(dir, ".bun-version"), "1.0.0\n");
+      const result = await checkBunVersionPin(Bun.version, dir);
+      expect(result.ok).toBe(true);
+      expect(result.pinned).toBe("1.0.0");
+      expect(result.actual).toBe(Bun.version);
+    } finally {
+      cleanupPath(dir);
+    }
+  });
+
+  test("checkBunVersionPin fails when runtime is older than pinned version", async () => {
+    const dir = testTempDir("bun-utils-version-pin-");
+    try {
+      await Bun.write(join(dir, ".bun-version"), "99.0.0\n");
+      const result = await checkBunVersionPin(Bun.version, dir);
+      expect(result.ok).toBe(false);
+      expect(result.pinned).toBe("99.0.0");
+      expect(result.reason).toContain("older than pinned");
+    } finally {
+      cleanupPath(dir);
+    }
   });
 
   test("inspectBunRuntime includes os, cpu, memory, host, cwd, and revisionShort", () => {

@@ -6,6 +6,7 @@
  * For inspect output, equality, and ANSI helpers see src/lib/inspect.ts.
  */
 
+import { join } from "path";
 import { peek, password } from "bun";
 import { deserialize, estimateShallowMemoryUsageOf, serialize } from "bun:jsc";
 import {
@@ -18,6 +19,8 @@ import {
   uptime as osUptime,
   userInfo,
 } from "os";
+import { elapsedMs, nowNs } from "./timing.ts";
+import { safeToml } from "./utils.ts";
 
 /** Monotonic UUID v7 — prefer for session/db ids (see Bun.randomUUIDv7). */
 export { randomUUIDv7 } from "bun";
@@ -183,14 +186,14 @@ export function fileUrlFromPath(path: string): URL {
   return Bun.pathToFileURL(path);
 }
 
-/** High-resolution monotonic clock (Bun.nanoseconds). */
+/** High-resolution monotonic clock — delegates to {@link nowNs} in timing.ts. */
 export function nowNanos(): number {
-  return Bun.nanoseconds();
+  return nowNs();
 }
 
-/** Elapsed milliseconds since a Bun.nanoseconds() sample. */
+/** Elapsed ms since a {@link nowNanos} sample (rounded for logger/display). */
 export function elapsedMsSince(startNanos: number): number {
-  return Math.round((Bun.nanoseconds() - startNanos) / 1_000_000);
+  return Math.round(elapsedMs(startNanos));
 }
 
 /** SHA-256 hasher (Bun.CryptoHasher). */
@@ -357,6 +360,9 @@ export function sleepSync(ms: number): void {
   Bun.sleepSync(Math.max(0, ms));
 }
 
+/** @see https://bun.com/docs/runtime/utils */
+export const BUN_RUNTIME_UTILS_DOC_URL = "https://bun.com/docs/runtime/utils";
+
 /** @see https://bun.com/docs/runtime/utils#bun-main */
 export const BUN_MAIN_DOC_URL = "https://bun.com/docs/runtime/utils#bun-main";
 
@@ -391,6 +397,77 @@ export interface OpenInEditorOptions {
  */
 export function openFileInEditor(file: string | URL, options?: OpenInEditorOptions): void {
   Bun.openInEditor(file as string, options as Parameters<typeof Bun.openInEditor>[1]);
+}
+
+export interface EditorRuntimeSnapshot {
+  /** $VISUAL when set. */
+  visual?: string;
+  /** $EDITOR when set. */
+  editorEnv?: string;
+  /** `[debug].editor` from active bunfig.toml. */
+  bunfigEditor?: string;
+  /** Resolved bunfig path, if any. */
+  activeBunfig?: string;
+  /** Effective editor: bunfig > VISUAL > EDITOR. */
+  resolved?: string;
+}
+
+/** Resolve active bunfig.toml (project-local, then ~/.bunfig.toml). */
+export async function resolveActiveBunfigPath(cwd = process.cwd()): Promise<string | null> {
+  const local = join(cwd, "bunfig.toml");
+  if (await Bun.file(local).exists()) return local;
+  const home = Bun.env.HOME;
+  if (home) {
+    const globalPath = join(home, ".bunfig.toml");
+    if (await Bun.file(globalPath).exists()) return globalPath;
+  }
+  return null;
+}
+
+interface BunfigDebugSection {
+  debug?: { editor?: string };
+}
+
+/** Read `[debug].editor` from the active bunfig.toml, if set. */
+export async function readDebugEditorFromBunfig(cwd = process.cwd()): Promise<{
+  editor?: string;
+  bunfigPath?: string;
+}> {
+  const bunfigPath = await resolveActiveBunfigPath(cwd);
+  if (!bunfigPath) return {};
+  try {
+    const text = await Bun.file(bunfigPath).text();
+    const parsed = safeToml<BunfigDebugSection>(text, {});
+    const editor = parsed.debug?.editor?.trim();
+    return editor ? { editor, bunfigPath } : { bunfigPath };
+  } catch {
+    return { bunfigPath };
+  }
+}
+
+/** Editor detection aligned with Bun.openInEditor precedence. */
+export async function inspectEditorRuntime(cwd = process.cwd()): Promise<EditorRuntimeSnapshot> {
+  const visual = Bun.env.VISUAL?.trim();
+  const editorEnv = Bun.env.EDITOR?.trim();
+  const bunfig = await readDebugEditorFromBunfig(cwd);
+  const resolved = bunfig.editor ?? visual ?? editorEnv;
+  return {
+    visual,
+    editorEnv,
+    bunfigEditor: bunfig.editor,
+    activeBunfig: bunfig.bunfigPath,
+    resolved,
+  };
+}
+
+/** One-line editor summary for runtime:info. */
+export function formatEditorRuntimeSnapshot(snap: EditorRuntimeSnapshot): string {
+  const lines = [`editor:     ${snap.resolved ?? "unset (set $EDITOR or [debug].editor)"}`];
+  if (snap.bunfigEditor) lines.push(`  bunfig:     ${snap.bunfigEditor} (${snap.activeBunfig})`);
+  else if (snap.activeBunfig) lines.push(`  bunfig:     ${snap.activeBunfig} (no [debug].editor)`);
+  if (snap.visual) lines.push(`  VISUAL:     ${snap.visual}`);
+  if (snap.editorEnv) lines.push(`  EDITOR:     ${snap.editorEnv}`);
+  return lines.join("\n");
 }
 
 /** Read a settled promise synchronously; pending promises pass through. */
@@ -447,6 +524,46 @@ export const BUN_VERSION_GUIDE_DOC_URL = "https://bun.com/docs/guides/util/versi
 
 /** @see https://bun.com/docs/guides/util/detect-bun */
 export const BUN_DETECT_BUN_GUIDE_DOC_URL = "https://bun.com/docs/guides/util/detect-bun";
+
+/** Read the pinned Bun version from `.bun-version` if present. */
+export async function readPinnedBunVersion(projectRoot = process.cwd()): Promise<string | null> {
+  const file = Bun.file(join(projectRoot, ".bun-version"));
+  if (!(await file.exists())) return null;
+  const text = (await file.text()).trim();
+  return text || null;
+}
+
+export interface BunVersionPinResult {
+  ok: boolean;
+  pinned: string | null;
+  actual: string;
+  reason?: string;
+}
+
+/**
+ * Verify the running Bun runtime satisfies the pinned version in `.bun-version`.
+ * A missing pin is treated as ok (no gate). A missing Bun runtime is a hard fail.
+ */
+export async function checkBunVersionPin(
+  actualVersion: string = Bun.version,
+  projectRoot = process.cwd()
+): Promise<BunVersionPinResult> {
+  const pinned = await readPinnedBunVersion(projectRoot);
+  if (!pinned) {
+    return { ok: true, pinned: null, actual: actualVersion };
+  }
+  const { compareVersions } = await import("./version.ts");
+  const cmp = compareVersions(actualVersion, pinned);
+  if (cmp < 0) {
+    return {
+      ok: false,
+      pinned,
+      actual: actualVersion,
+      reason: `Bun ${actualVersion} is older than pinned ${pinned}`,
+    };
+  }
+  return { ok: true, pinned, actual: actualVersion };
+}
 
 export interface BunRuntimeDetection {
   /** True when `typeof Bun !== "undefined"` and `Bun.version` is a string. */

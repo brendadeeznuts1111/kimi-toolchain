@@ -883,6 +883,21 @@ describe("bun-release-compliance bunfig-runtime", () => {
     expect(text).toContain('installLogLevel = "error"');
     expect(text).toContain("noOrphans = true");
   });
+
+  test("bunfig.toml [install.cache] matches Bun global cache docs", () => {
+    const text = readSrc("bunfig.toml");
+    expect(text).toContain("[install.cache]");
+    expect(text).toContain("~/.bun/install/cache");
+    expect(text).toContain("disable = false");
+    expect(text).toContain("disableManifest = false");
+  });
+
+  test("bun-install-config.ts tracks all [install.cache] fields", () => {
+    const text = readSrc("src/lib/bun-install-config.ts");
+    expect(text).toContain("cacheDir");
+    expect(text).toContain("cacheDisable");
+    expect(text).toContain("cacheDisableManifest");
+  });
 });
 
 // ── console / Bun.Terminal regression guard ──────────────────────────

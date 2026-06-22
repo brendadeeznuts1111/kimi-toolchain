@@ -611,6 +611,30 @@ export const BUN_INSTALL_BUNFIG_POLICY: readonly BunInstallPolicyRowDef[] = [
     notes: "Global npm tarball cache",
     requireExplicit: true,
   },
+  {
+    group: "cache",
+    key: "cacheDisable",
+    type: "boolean",
+    officialDefault: false,
+    hardenedDefault: false,
+    bunfigKey: "[install.cache].disable",
+    sinceBun: "1.0",
+    docsAnchor: "cache",
+    notes: "When true, skip global cache; may still write to node_modules/.cache",
+    requireExplicit: false,
+  },
+  {
+    group: "cache",
+    key: "cacheDisableManifest",
+    type: "boolean",
+    officialDefault: false,
+    hardenedDefault: false,
+    bunfigKey: "[install.cache].disableManifest",
+    sinceBun: "1.0",
+    docsAnchor: "cache",
+    notes: "When true, always resolve latest versions from registry (skip manifest cache)",
+    requireExplicit: false,
+  },
 ] as const;
 
 /** CLI / runtime platform policy — not bunfig defaults. */

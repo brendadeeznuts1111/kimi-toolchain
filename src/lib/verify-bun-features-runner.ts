@@ -13,10 +13,16 @@ import {
   type AuditEndpointMeta,
 } from "./audit-endpoints-metadata.ts";
 import { BUN_COLOR_STRING_FORMATS, verifyColorFormat } from "./bun-color-formats.ts";
-import { readableStreamToText } from "./bun-utils.ts";
+import { checkBunVersionPin, readableStreamToText } from "./bun-utils.ts";
+import { captureMimallocStats, parseMimallocStats } from "./memory/governor.ts";
+import { elapsedMs, nowNs } from "./timing.ts";
 import type { ConfigStatusReport } from "./config-status.ts";
 import { tmpdir } from "os";
 import { join } from "path";
+
+function elapsedMsRoundedLocal(startNs: number): number {
+  return Math.round(elapsedMs(startNs));
+}
 
 export type VerifyCheckGroup = "runtime" | "audit" | "canvas" | "templates" | "color" | "profile";
 
@@ -117,7 +123,7 @@ function recordProbe(
 
 async function runScriptDryRun(script: string): Promise<{ ok: boolean; detail: string }> {
   const proc = Bun.spawn({
-    cmd: ["bun", "run", script, "--dry-run"],
+    cmd: [process.execPath, "run", script, "--dry-run"],
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -132,14 +138,14 @@ async function runScriptDryRun(script: string): Promise<{ ok: boolean; detail: s
 }
 
 async function checkSymbolDispose(): Promise<void> {
-  const start = Bun.nanoseconds();
+  const start = nowNs();
   const ok = typeof Symbol.dispose === "symbol";
-  const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+  const ms = elapsedMsRoundedLocal(start);
   record("symbol.dispose", "runtime", ok, ok ? "symbol" : String(Symbol.dispose), ms);
 }
 
 async function checkUsingStatement(): Promise<void> {
-  const start = Bun.nanoseconds();
+  const start = nowNs();
   try {
     class R {
       disposed = false;
@@ -150,23 +156,23 @@ async function checkUsingStatement(): Promise<void> {
     {
       using _r = new R();
     }
-    const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+    const ms = elapsedMsRoundedLocal(start);
     record("using", "runtime", true, "using block accepted and disposed", ms);
   } catch (error) {
-    const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+    const ms = elapsedMsRoundedLocal(start);
     record("using", "runtime", false, error instanceof Error ? error.message : String(error), ms);
   }
 }
 
 async function checkBunGlob(): Promise<void> {
-  const start = Bun.nanoseconds();
+  const start = nowNs();
   try {
     const glob = new Bun.Glob("package.json");
     const hits = [...glob.scanSync(".")];
-    const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+    const ms = elapsedMsRoundedLocal(start);
     record("bun.glob", "runtime", hits.length > 0, `${hits.length} package.json match(es)`, ms);
   } catch (error) {
-    const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+    const ms = elapsedMsRoundedLocal(start);
     record(
       "bun.glob",
       "runtime",
@@ -179,12 +185,12 @@ async function checkBunGlob(): Promise<void> {
 
 async function checkBunFileRoundTrip(): Promise<void> {
   const tmp = join(tmpdir(), `.verify-bun-features-${Date.now()}.tmp`);
-  const start = Bun.nanoseconds();
+  const start = nowNs();
   try {
     const text = "kimi-toolchain verify-bun-features";
     await Bun.write(tmp, text);
     const read = await Bun.file(tmp).text();
-    const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+    const ms = elapsedMsRoundedLocal(start);
     record(
       "bun.file-write",
       "runtime",
@@ -193,9 +199,160 @@ async function checkBunFileRoundTrip(): Promise<void> {
       ms
     );
   } catch (error) {
-    const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+    const ms = elapsedMsRoundedLocal(start);
     record(
       "bun.file-write",
+      "runtime",
+      false,
+      error instanceof Error ? error.message : String(error),
+      ms
+    );
+  } finally {
+    await Bun.file(tmp)
+      .delete()
+      .catch(() => {});
+  }
+}
+
+async function checkBunVersionPinMatch(): Promise<void> {
+  const start = nowNs();
+  try {
+    const result = await checkBunVersionPin(Bun.version, reportProjectRoot);
+    const ms = elapsedMsRoundedLocal(start);
+    if (result.pinned) {
+      record(
+        "bun.version-pin",
+        "runtime",
+        result.ok,
+        result.ok
+          ? `Bun ${result.actual} satisfies pinned ${result.pinned}`
+          : (result.reason ?? `Bun ${result.actual} does not satisfy pinned ${result.pinned}`),
+        ms
+      );
+    } else {
+      record("bun.version-pin", "runtime", true, "no .bun-version pin found", ms);
+    }
+  } catch (error) {
+    const ms = elapsedMsRoundedLocal(start);
+    record(
+      "bun.version-pin",
+      "runtime",
+      false,
+      error instanceof Error ? error.message : String(error),
+      ms
+    );
+  }
+}
+
+async function checkBunSecrets(): Promise<void> {
+  const start = nowNs();
+  try {
+    const secrets = Bun.secrets;
+    const methods: string[] = [];
+    if (typeof secrets === "object" && secrets !== null) {
+      if (typeof secrets.get === "function") methods.push("get");
+      if (typeof secrets.set === "function") methods.push("set");
+      if (typeof secrets.delete === "function") methods.push("delete");
+    }
+    const ok = methods.length === 3;
+    const ms = elapsedMsRoundedLocal(start);
+    record(
+      "bun.secrets",
+      "runtime",
+      ok,
+      ok ? "get/set/delete available" : `API incomplete (${methods.join(", ") || "none"})`,
+      ms
+    );
+  } catch (error) {
+    const ms = elapsedMsRoundedLocal(start);
+    record(
+      "bun.secrets",
+      "runtime",
+      false,
+      error instanceof Error ? error.message : String(error),
+      ms
+    );
+  }
+}
+
+async function checkBunGc(): Promise<void> {
+  const start = nowNs();
+  const bun = Bun as typeof Bun & { gc?: (sync: boolean) => void };
+  if (typeof bun.gc !== "function") {
+    const ms = elapsedMsRoundedLocal(start);
+    record("bun.gc", "runtime", true, "Bun.gc unavailable on this build", ms, true);
+    return;
+  }
+  try {
+    bun.gc(false);
+    const ms = elapsedMsRoundedLocal(start);
+    record("bun.gc", "runtime", true, "Bun.gc(false) accepted", ms);
+  } catch (error) {
+    const ms = elapsedMsRoundedLocal(start);
+    record("bun.gc", "runtime", false, error instanceof Error ? error.message : String(error), ms);
+  }
+}
+
+async function checkBunZstdRoundTrip(): Promise<void> {
+  const start = nowNs();
+  const sample = "kimi-toolchain verify-bun-features";
+  try {
+    const input = new TextEncoder().encode(sample);
+    const compressed = await Bun.zstdCompress(input);
+    const decompressed = await Bun.zstdDecompress(compressed);
+    const text = new TextDecoder().decode(decompressed);
+    const ok = text === sample;
+    const ms = elapsedMsRoundedLocal(start);
+    record(
+      "bun.zstd",
+      "runtime",
+      ok,
+      ok ? "compress/decompress round-trip ok" : "round-trip mismatch",
+      ms
+    );
+  } catch (error) {
+    const ms = elapsedMsRoundedLocal(start);
+    record(
+      "bun.zstd",
+      "runtime",
+      false,
+      error instanceof Error ? error.message : String(error),
+      ms
+    );
+  }
+}
+
+async function checkMimallocStats(): Promise<void> {
+  const tmp = join(tmpdir(), `.verify-mimalloc-${Date.now()}.ts`);
+  const start = nowNs();
+  try {
+    await Bun.write(tmp, "Bun.stdout.write('ok\\n');");
+    const stats = await captureMimallocStats(tmp, { timeout: 15_000 });
+    const ms = elapsedMsRoundedLocal(start);
+    const hasStats = stats.combined.includes("heap stats:");
+    if (hasStats) {
+      const parsed = parseMimallocStats(stats.combined);
+      record(
+        "mimalloc.stats",
+        "runtime",
+        stats.exitCode === 0 && parsed !== undefined,
+        parsed ? "heap stats captured and parsed" : "heap stats block present but unparsed",
+        ms
+      );
+      return;
+    }
+    record(
+      "mimalloc.stats",
+      "runtime",
+      stats.exitCode === 0,
+      "script ok; mimalloc stats unavailable on this build",
+      ms,
+      true
+    );
+  } catch (error) {
+    const ms = elapsedMsRoundedLocal(start);
+    record(
+      "mimalloc.stats",
       "runtime",
       false,
       error instanceof Error ? error.message : String(error),
@@ -218,9 +375,9 @@ async function checkAuditScriptsDryRun(): Promise<void> {
 
   await Promise.all(
     endpoints.map(async (endpoint) => {
-      const start = Bun.nanoseconds();
+      const start = nowNs();
       const { ok, detail } = await runScriptDryRun(endpoint.path);
-      const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+      const ms = elapsedMsRoundedLocal(start);
       const checkId = endpoint.verifyCheckId ?? `audit.${endpoint.path}`;
       record(checkId, "audit", ok, detail, ms, false, endpoint.id);
       recordProbe(endpoint, ok, detail, ms, "dry-run");
@@ -231,16 +388,16 @@ async function checkAuditScriptsDryRun(): Promise<void> {
 async function checkAuditDryRunBundle(): Promise<void> {
   const endpoint = AUDIT_CLI_ENDPOINTS.find((e) => e.path === "audit:dry-run");
   if (!endpoint) return;
-  const start = Bun.nanoseconds();
+  const start = nowNs();
   const proc = Bun.spawn({
-    cmd: ["bun", "run", "audit:dry-run"],
+    cmd: [process.execPath, "run", "audit:dry-run"],
     stdout: "pipe",
     stderr: "pipe",
   });
   const exit = await proc.exited;
   const out = await readableStreamToText(proc.stdout);
   const err = await readableStreamToText(proc.stderr);
-  const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+  const ms = elapsedMsRoundedLocal(start);
   const combined = `${out}\n${err}`;
   const ok = exit === 0 && combined.includes("audit:secrets");
   const detail =
@@ -253,18 +410,18 @@ async function checkAuditConfigGates(strict: boolean): Promise<void> {
   const endpoint =
     AUDIT_CLI_ENDPOINTS.find((e) => e.id === "config-status") ??
     AUDIT_CLI_ENDPOINTS.find((e) => e.path === "audit:config");
-  const start = Bun.nanoseconds();
+  const start = nowNs();
 
   if (strict) {
     const proc = Bun.spawn({
-      cmd: ["bun", "run", "audit:config"],
+      cmd: [process.execPath, "run", "audit:config"],
       stdout: "pipe",
       stderr: "pipe",
     });
     const exit = await proc.exited;
     const out = await readableStreamToText(proc.stdout);
     const err = await readableStreamToText(proc.stderr);
-    const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+    const ms = elapsedMsRoundedLocal(start);
     const summary = (out || err).split("\n").slice(0, 2).join("; ").trim();
     const ok = exit === 0;
     if (ok) {
@@ -286,13 +443,13 @@ async function checkAuditConfigGates(strict: boolean): Promise<void> {
   }
 
   const proc = Bun.spawn({
-    cmd: ["bun", "run", "scripts/config-status.ts", "--json"],
+    cmd: [process.execPath, "run", "scripts/config-status.ts", "--json"],
     stdout: "pipe",
     stderr: "pipe",
   });
   await proc.exited;
   const out = await readableStreamToText(proc.stdout);
-  const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+  const ms = elapsedMsRoundedLocal(start);
   try {
     const report = JSON.parse(out) as ConfigStatusReport;
     configReport = report;
@@ -313,10 +470,10 @@ async function checkAuditConfigGates(strict: boolean): Promise<void> {
 }
 
 async function checkParallelScripts(): Promise<void> {
-  const start = Bun.nanoseconds();
+  const start = nowNs();
   const proc = Bun.spawn({
     cmd: [
-      "bun",
+      process.execPath,
       "run",
       "--parallel",
       "bun run audit:secrets --dry-run",
@@ -330,7 +487,7 @@ async function checkParallelScripts(): Promise<void> {
   const exit = await proc.exited;
   const out = await readableStreamToText(proc.stdout);
   const err = await readableStreamToText(proc.stderr);
-  const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+  const ms = elapsedMsRoundedLocal(start);
   const combined = `${out}\n${err}`;
   const expected = ["audit:secrets", "config:status", "audit:images", "audit:network"];
   const missing = expected.filter((marker) => !combined.includes(marker));
@@ -357,16 +514,16 @@ async function checkParallelScripts(): Promise<void> {
 
 async function checkCanvasCompanions(): Promise<void> {
   const endpoint = AUDIT_CLI_ENDPOINTS.find((e) => e.id === "canvas-generate");
-  const start = Bun.nanoseconds();
+  const start = nowNs();
   const proc = Bun.spawn({
-    cmd: ["bun", "run", "canvas:generate", "--check"],
+    cmd: [process.execPath, "run", "canvas:generate", "--check"],
     stdout: "pipe",
     stderr: "pipe",
   });
   const exit = await proc.exited;
   const out = await readableStreamToText(proc.stdout);
   const err = await readableStreamToText(proc.stderr);
-  const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+  const ms = elapsedMsRoundedLocal(start);
   const line =
     (out || err)
       .trim()
@@ -392,16 +549,16 @@ async function runTemplateGate(
   fixHint: string
 ): Promise<void> {
   const endpoint = AUDIT_CLI_ENDPOINTS.find((e) => e.id === endpointId);
-  const start = Bun.nanoseconds();
+  const start = nowNs();
   const proc = Bun.spawn({
-    cmd: ["bun", "run", script],
+    cmd: [process.execPath, "run", script],
     stdout: "pipe",
     stderr: "pipe",
   });
   const exit = await proc.exited;
   const out = await readableStreamToText(proc.stdout);
   const err = await readableStreamToText(proc.stderr);
-  const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+  const ms = elapsedMsRoundedLocal(start);
   const line =
     (out || err)
       .trim()
@@ -436,34 +593,34 @@ async function checkTemplateGates(): Promise<void> {
 
 async function checkBunColorStringFormats(): Promise<void> {
   for (const format of BUN_COLOR_STRING_FORMATS) {
-    const start = Bun.nanoseconds();
+    const start = nowNs();
     const probe = verifyColorFormat("#ff0000", format);
-    const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+    const ms = elapsedMsRoundedLocal(start);
     record(`bun.color.${format}`, "color", probe.ok, probe.detail, ms);
   }
-  const start = Bun.nanoseconds();
+  const start = nowNs();
   try {
     Bun.color("#ff0000", "HSL" as "hsl");
-    const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+    const ms = elapsedMsRoundedLocal(start);
     record("bun.color.HSL-rejected", "color", false, "HSL should throw", ms);
   } catch {
-    const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+    const ms = elapsedMsRoundedLocal(start);
     record("bun.color.HSL-rejected", "color", true, "HSL alias rejected (use hsl)", ms);
   }
 }
 
 async function checkCpuProfCapture(): Promise<void> {
-  const start = Bun.nanoseconds();
+  const start = nowNs();
   const scriptPath = join(reportProjectRoot, "scripts", "verify-bun-features.ts");
   const proc = Bun.spawn({
-    cmd: ["bun", "--cpu-prof", "--cpu-prof-interval=500", "run", scriptPath],
+    cmd: [process.execPath, "--cpu-prof", "--cpu-prof-interval=500", "run", scriptPath],
     stdout: "pipe",
     stderr: "pipe",
     cwd: reportProjectRoot,
   });
   const exit = await proc.exited;
   const err = await readableStreamToText(proc.stderr);
-  const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+  const ms = elapsedMsRoundedLocal(start);
   if (exit !== 0) {
     record("cpu-prof.capture", "profile", false, `exit ${exit}: ${err.split("\n")[0]?.trim()}`, ms);
     return;
@@ -534,12 +691,17 @@ export async function runVerifyBunFeatures(options: VerifyRunOptions = {}): Prom
   endpointProbes.length = 0;
   configReport = null;
   reportProjectRoot = options.projectRoot ?? process.cwd();
-  const started = Bun.nanoseconds();
+  const started = nowNs();
 
   await checkSymbolDispose();
   await checkUsingStatement();
   await checkBunGlob();
   await checkBunFileRoundTrip();
+  await checkBunVersionPinMatch();
+  await checkBunSecrets();
+  await checkBunGc();
+  await checkBunZstdRoundTrip();
+  await checkMimallocStats();
   await checkAuditScriptsDryRun();
   await checkAuditDryRunBundle();
   await checkParallelScripts();
@@ -552,7 +714,7 @@ export async function runVerifyBunFeatures(options: VerifyRunOptions = {}): Prom
     await checkCpuProfCapture();
   }
 
-  const durationMs = Math.round((Bun.nanoseconds() - started) / 1_000_000);
+  const durationMs = elapsedMsRoundedLocal(started);
   return {
     checks: [...checks],
     configReport,
