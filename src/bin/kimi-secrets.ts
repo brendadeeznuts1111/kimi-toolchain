@@ -15,12 +15,13 @@
  * Usage:
  *   kimi-secrets check
  *   kimi-secrets list
- *   kimi-secrets get kimi-toolchain cloudflare-api-token
- *   kimi-secrets set kimi-toolchain cloudflare-api-token
- *   kimi-secrets rotate kimi-toolchain cloudflare-api-token
+ *   kimi-secrets get com.herdr.dashboard jwt-secret --consumer identity-service
+ *   kimi-secrets set com.herdr.cli github-token
+ *   kimi-secrets rotate com.herdr.dashboard csrf-secret --consumer identity-service
  *   kimi-secrets delete kimi-toolchain cloudflare-api-token
- *   kimi-secrets audit --service kimi-toolchain
+ *   kimi-secrets audit --service com.herdr.dashboard
  *   kimi-secrets init
+ *   kimi-secrets --version
  *
  * Flags:
  *   --json          Output structured JSON
@@ -339,20 +340,74 @@ async function cmdInit(args: ParsedArgs): Promise<number> {
 
   const template = `{
   $schema: "v1",
+
+  // Legacy — migrated from cloudflare-access.ts hardcoded constants
   "kimi-toolchain": {
     "cloudflare-account-id": {
-      allowedConsumers: ["kimi-cloudflare-access", "kimi-doctor", "bun-install"],
+      allowedConsumers: ["kimi-cloudflare-access", "kimi-doctor"],
       rotationDays: 365,
       lastRotated: null,
       version: 1,
     },
     "cloudflare-api-token": {
-      allowedConsumers: ["kimi-cloudflare-access", "kimi-doctor", "bun-install"],
+      allowedConsumers: ["kimi-cloudflare-access", "kimi-doctor"],
       rotationDays: 90,
       lastRotated: null,
       version: 1,
     },
   },
+
+  // CLI tool secrets
+  "com.herdr.cli": {
+    "github-token": {
+      allowedConsumers: ["kimi-fix", "kimi-doctor"],
+      rotationDays: 90,
+      lastRotated: null,
+      version: 1,
+    },
+    "github-api-domain": {
+      allowedConsumers: ["kimi-fix", "kimi-doctor"],
+      rotationDays: 365,
+      lastRotated: null,
+      version: 1,
+    },
+    "npm-token": {
+      allowedConsumers: ["kimi-fix", "kimi-doctor"],
+      rotationDays: 180,
+      lastRotated: null,
+      version: 1,
+    },
+    "bet365-api-key": {
+      allowedConsumers: ["kimi-fix", "kimi-doctor"],
+      rotationDays: 365,
+      lastRotated: null,
+      version: 1,
+    },
+  },
+
+  // Dashboard server secrets
+  "com.herdr.dashboard": {
+    "csrf-secret": {
+      allowedConsumers: ["herdr-server", "webhook:named", "identity-service"],
+      rotationDays: 30,
+      lastRotated: null,
+      version: 1,
+    },
+    "jwt-secret": {
+      allowedConsumers: ["herdr-server", "webhook:named", "identity-service"],
+      rotationDays: 30,
+      lastRotated: null,
+      version: 1,
+    },
+    "master-key": {
+      allowedConsumers: ["herdr-server", "webhook:named"],
+      rotationDays: 365,
+      lastRotated: null,
+      version: 1,
+    },
+  },
+
+  // Security scanner
   "com.herdr.security": {
     "scanner-api-key": {
       allowedConsumers: ["bun-install"],

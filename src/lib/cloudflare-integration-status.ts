@@ -8,6 +8,7 @@ import {
   type DxCloudflareContractReport,
 } from "./dx-cloudflare-config.ts";
 import { CREDENTIAL_SERVICE } from "./cloudflare-access.ts";
+import { SecretKeys } from "./secrets-constants.ts";
 import {
   CLOUDFLARE_API_SERVER,
   CLOUDFLARE_MCP_URL,
@@ -142,8 +143,8 @@ async function inspectCredentials(
   const accountIdEnvPresent = !!env.CLOUDFLARE_ACCOUNT_ID;
   const apiTokenEnvPresent = !!env.CLOUDFLARE_API_TOKEN;
   const [accountIdSecretPresent, apiTokenSecretPresent] = await Promise.all([
-    secretExists(secrets, "cloudflare-account-id"),
-    secretExists(secrets, "cloudflare-api-token"),
+    secretExists(secrets, SecretKeys.CLOUDFLARE_ACCOUNT_ID.name),
+    secretExists(secrets, SecretKeys.CLOUDFLARE_API_TOKEN.name),
   ]);
   const envUsable = accountIdEnvPresent && apiTokenEnvPresent;
   const secretsUsable = accountIdSecretPresent && apiTokenSecretPresent;
