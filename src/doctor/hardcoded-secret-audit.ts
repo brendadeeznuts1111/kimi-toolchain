@@ -14,7 +14,15 @@ import { repoRoot, scanSourceFilesSync } from "../lib/globs.ts";
 export interface HardcodedSecretFinding {
   file: string;
   line: number;
-  type: "named-secret-literal" | "dev-secret-literal" | "jwt-literal" | "private-key";
+  type:
+    | "named-secret-literal"
+    | "dev-secret-literal"
+    | "jwt-literal"
+    | "private-key"
+    | "known-secret-prefix"
+    | "url-credentials"
+    | "bearer-token"
+    | "high-entropy-token";
   snippet: string;
 }
 
@@ -33,6 +41,16 @@ const PRIVATE_KEY_RE = /-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----/g
 
 const DEV_SECRET_RE = /["']([^"']*?(?:dev-secret|dev-token|dev-key)[^"']*?)["']/gi;
 
+const KNOWN_SECRET_PREFIX_RE =
+  /["']((?:sk-|ghp_|glpat-|pat-|AKIA|ASIA|GOOG|AIza|xoxb-|xoxa-|xapp-|rp_|live_)[A-Za-z0-9_\-/+]{16,})["']/g;
+
+const URL_WITH_CREDENTIALS_RE = /["'](https?:\/\/[^"':\s]+:[^"'@\s]+@[^"'\s]+)["']/g;
+
+const BEARER_HEADER_RE =
+  /(?:Authorization\s*:\s*Bearer|Bearer\s+)["']?([A-Za-z0-9_\-.+/]{16,})["']?/gi;
+
+const HIGH_ENTROPY_CANDIDATE_RE = /["']([A-Za-z0-9+/=_\-]{32,})["']/g;
+
 const SAFE_LITERAL_RE =
   /^(https?:\/\/|file:\/\/|\/|\.*\.|.*\.(ts|js|md|json|toml|yaml|yml|html|css|svg|png|jpg|jpeg|webp|ico))$/i;
 
@@ -45,6 +63,28 @@ function isEnvVarName(value: string): boolean {
 }
 
 const CODE_LITERAL_CHARS = new Set(["(", ")", "[", "]", "{", "}"]);
+
+function shannonEntropy(bytes: Uint8Array): number {
+  const counts = new Uint32Array(256);
+  for (let i = 0; i < bytes.length; i++) counts[bytes[i]!]++;
+  let entropy = 0;
+  const n = bytes.length;
+  for (let i = 0; i < 256; i++) {
+    if (counts[i] === 0) continue;
+    const p = counts[i]! / n;
+    entropy -= p * Math.log2(p);
+  }
+  return entropy;
+}
+
+function isHighEntropyToken(value: string): boolean {
+  if (value.length < 32) return false;
+  if (!/[A-Z]/.test(value) || !/[a-z]/.test(value) || !/[0-9]/.test(value)) return false;
+  // Avoid hex-only hashes / ids
+  if (!/[+/=_\-]/.test(value)) return false;
+  const bytes = new TextEncoder().encode(value);
+  return shannonEntropy(bytes) > 4.5;
+}
 
 function looksLikeCodeLiteral(value: string): boolean {
   for (const ch of value) {
@@ -98,6 +138,29 @@ function scanText(path: string, text: string): HardcodedSecretFinding[] {
     for (const _match of line.matchAll(PRIVATE_KEY_RE)) {
       specificLines.add(lineNum);
       add(lineNum, "private-key", line.trim());
+    }
+
+    for (const _match of line.matchAll(URL_WITH_CREDENTIALS_RE)) {
+      specificLines.add(lineNum);
+      add(lineNum, "url-credentials", line.trim());
+    }
+
+    for (const _match of line.matchAll(BEARER_HEADER_RE)) {
+      specificLines.add(lineNum);
+      add(lineNum, "bearer-token", line.trim());
+    }
+
+    for (const _match of line.matchAll(KNOWN_SECRET_PREFIX_RE)) {
+      specificLines.add(lineNum);
+      add(lineNum, "known-secret-prefix", line.trim());
+    }
+
+    for (const match of line.matchAll(HIGH_ENTROPY_CANDIDATE_RE)) {
+      if (specificLines.has(lineNum)) continue;
+      const value = match[1]!;
+      if (!isHighEntropyToken(value)) continue;
+      specificLines.add(lineNum);
+      add(lineNum, "high-entropy-token", line.trim());
     }
 
     for (const match of line.matchAll(NAMED_SECRET_RE)) {

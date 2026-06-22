@@ -132,6 +132,39 @@ const ENV_EXAMPLE_REQUIRED_MARKERS = ["Never commit .env"] as const;
 const KIMI_NEW_ENTRY = "src/bin/kimi-new.ts";
 const POSTINSTALL_BOOTSTRAP_MARKER = "template-bootstrap";
 
+/** Named audit layers run by `auditTemplatePolicy` — SSOT for dry-run and docs. */
+export const TEMPLATE_POLICY_CHECK_IDS = [
+  "install",
+  "registry",
+  "registry-schema",
+  "readme-registry",
+  "bootstrap-docs",
+  "bootstrap-bridge",
+  "postinstall-bootstrap",
+  "bun-init-guard",
+  "secrets-slice",
+  "secrets-env-docs",
+  "secret-leaks",
+  "bunfig-runtime",
+  "tsconfig",
+  "scaffold-files",
+  "scaffold-toolchain",
+  "scaffold-markers",
+  "module-slice",
+  "shebang",
+  "env-hygiene",
+  "env-example",
+  "banned-terms",
+  "hardcoded-secrets",
+  "oxlint",
+  "oxfmt",
+  "bun-native",
+  "test-conventions",
+  "typecheck",
+  "modules-typecheck",
+  "bun-test",
+] as const;
+
 const TEMPLATE_TS_GLOBS = ["templates/**/*.ts", "templates/**/*.tsx"] as const;
 
 const TEMPLATE_BUN_NATIVE_EXEMPT = ["templates/scaffold/scripts/lib/bun-io.ts"] as const;
@@ -955,6 +988,37 @@ export async function auditTemplateOxlint(root: string): Promise<TemplatePolicyV
   ];
 }
 
+export async function auditTemplateOxfmt(root: string): Promise<TemplatePolicyViolation[]> {
+  const oxfmtrc = join(root, ".oxfmtrc.json");
+  if (!(await Bun.file(oxfmtrc).exists())) {
+    return [
+      {
+        file: ".oxfmtrc.json",
+        field: "oxfmt",
+        message: "Missing .oxfmtrc.json — required for template format gate",
+      },
+    ];
+  }
+  const proc = Bun.spawn({
+    cmd: ["bunx", "oxfmt", "--check", "-c", ".oxfmtrc.json", "templates/"],
+    cwd: root,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const exit = await proc.exited;
+  if (exit === 0) return [];
+  const out = await readableStreamToText(proc.stdout);
+  const err = await readableStreamToText(proc.stderr);
+  const detail = (err || out).trim().split("\n").slice(0, 6).join(" · ");
+  return [
+    {
+      file: "templates/",
+      field: "oxfmt",
+      message: detail || `oxfmt --check templates/ failed (exit ${exit})`,
+    },
+  ];
+}
+
 export async function auditTemplateBunInitGuard(root: string): Promise<TemplatePolicyViolation[]> {
   const violations: TemplatePolicyViolation[] = [];
   for (const path of new Bun.Glob(POSTINSTALL_SCRIPT_GLOB).scanSync({
@@ -1306,6 +1370,7 @@ export async function auditTemplatePolicy(root: string): Promise<TemplatePolicyA
     ...(await auditTemplateBannedTerms(root)),
     ...(await auditTemplateHardcodedSecrets(root)),
     ...(await auditTemplateOxlint(root)),
+    ...(await auditTemplateOxfmt(root)),
     ...(await auditTemplateBunNative(root)),
     ...(await auditTemplateTestConventions(root)),
     ...(await auditTemplateTypecheck(root)),

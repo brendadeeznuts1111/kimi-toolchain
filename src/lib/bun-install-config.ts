@@ -2379,7 +2379,7 @@ function buildRuntimeCapabilities(
     httpsProxyKeepAlive: {
       status: "active",
       command:
-        'bun -e \'fetch("https://example.com", {proxy: "http://user:pass@proxy.example.com:8080"}).then(()=>process.exit(0)).catch(()=>process.exit(0))\'',
+        'bun -e \'fetch("https://example.com", {proxy: "http://user:pass@proxy.example.com:8080"}).then(()=>process.exit(0)).catch(()=>process.exit(0))\'', // kimi-audit:ignore-hardcoded-secret (proxy example URL)
       description:
         "HTTPS proxy CONNECT tunnel reuse (Keep-Alive) for fetch — reduces connection overhead; install cache 304 revalidation no longer stalls ~300s per dependency",
       docsUrl: BUN_HTTPS_PROXY_KEEPALIVE_DOC_URL,

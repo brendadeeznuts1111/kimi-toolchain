@@ -5,15 +5,18 @@
  * Usage:
  *   bun run skills:table
  *   bun run skills:table --sort width
+ *   bun run skills:table --verbose
  *   bun run scripts/skills-table.ts --json
  */
 
 import { join } from "path";
 import { auditSkillCoverage } from "../src/lib/skill-contract.ts";
 import {
+  buildSkillCoverageDetails,
   buildSkillTableRows,
   formatSkillTable,
   SKILL_TABLE_COLUMNS,
+  SKILL_TABLE_VERBOSE_COLUMNS,
   SkillCatalog,
   sortSkillTableRows,
   type SkillTableSortMode,
@@ -22,6 +25,7 @@ import {
 const REPO_ROOT = join(import.meta.dir, "..");
 const json = Bun.argv.includes("--json");
 const useCustom = Bun.argv.includes("--custom");
+const verbose = Bun.argv.includes("--verbose");
 
 const SORT_MODES = new Set<SkillTableSortMode>(["name", "layer", "width"]);
 
@@ -42,18 +46,21 @@ async function main(): Promise<number> {
   }
 
   const report = await auditSkillCoverage(REPO_ROOT);
-  const built = await buildSkillTableRows(REPO_ROOT, report.rows);
+  const built = await buildSkillTableRows(REPO_ROOT, report.rows, { verbose });
   const rows = sortSkillTableRows(built, sort);
+  const details = buildSkillCoverageDetails(report.rows);
 
   if (json) {
     console.log(
       JSON.stringify({
-        schemaVersion: 1,
+        schemaVersion: 2,
         tool: "skills-table",
         ok: report.ok,
         sort,
-        columns: SKILL_TABLE_COLUMNS,
+        verbose,
+        columns: verbose ? SKILL_TABLE_VERBOSE_COLUMNS : SKILL_TABLE_COLUMNS,
         rows,
+        skills: details,
         coverage: {
           unmappedSkills: report.unmappedSkills,
           orchestrator: report.orchestrator,
@@ -68,7 +75,7 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  console.log(formatSkillTable(rows));
+  console.log(formatSkillTable(rows, verbose));
   return 0;
 }
 

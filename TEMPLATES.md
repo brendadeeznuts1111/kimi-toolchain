@@ -30,7 +30,7 @@ SSOT: `src/lib/template-policy-audit.ts`. Key policy groups:
 | Scaffold           | required `templates/scaffold/` files, toolchain profile, drift markers                                             |
 | Secrets            | `Bun.secrets` slice stubs, env.example docs, secret-leak scan, no committed `.env`                                 |
 | Bootstrap          | no `bun init` in postinstall; `kimi-new` uses `bun init -m -y`; `template-bootstrap` headers on spawn postinstalls |
-| Quality            | oxlint, bun-native, `tsc --noEmit`, `bun test` in template projects                                                |
+| Quality            | oxlint, `oxfmt --check templates/`, bun-native, `tsc --noEmit`, `bun test` in template projects                    |
 
 Authoring runbook: [`skills/create-template/SKILL.md`](skills/create-template/SKILL.md).
 

@@ -3,6 +3,7 @@ import { join } from "path";
 import { terminalWidth } from "../src/lib/bun-utils.ts";
 import { REPO_ROOT } from "./helpers.ts";
 import {
+  buildSkillCoverageDetails,
   buildSkillTableRows,
   countFrontmatterList,
   formatSkillTable,
@@ -97,6 +98,25 @@ describe("skill-table", () => {
     expect(table).toContain("skill");
     expect(table).toContain("effect-discipline");
     expect(table).toContain("herdr");
+  });
+
+  test("buildSkillCoverageDetails maps lib modules per skill", async () => {
+    const report = await auditSkillCoverage(REPO_ROOT);
+    const details = buildSkillCoverageDetails(report.rows);
+    const createTemplate = details.find((d) => d.skill === "create-template");
+    expect(createTemplate?.libModules.some((p) => p.includes("template-policy-audit.ts"))).toBe(
+      true
+    );
+    expect(
+      createTemplate?.testFiles.some((p) => p.includes("template-policy-audit.unit.test.ts"))
+    ).toBe(true);
+  });
+
+  test("buildSkillTableRows verbose adds modules column", async () => {
+    const report = await auditSkillCoverage(REPO_ROOT);
+    const rows = await buildSkillTableRows(REPO_ROOT, report.rows, { verbose: true });
+    const createTemplate = rows.find((r) => r.skill === "create-template");
+    expect(createTemplate?.modules).toContain("template-policy-audit.ts");
   });
 
   test("SkillCatalog uses Bun.inspect.custom for table output", async () => {

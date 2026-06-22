@@ -195,13 +195,13 @@ kimi-doctor --scaffold    # All scaffold checks pass
 bun run sync:verify       # Runtime paths match repo paths
 ```
 
-| Check            | Expected                                    | Failure Mode                                                                              |
-| ---------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `localDocsCount` | 15                                          | Missing `herdr-plugin-architecture` or `template-matrix` in `LOCAL_DOC_REFERENCES`        |
-| `scaffoldFiles`  | 22                                          | `kimi-fix` skipped due to `pathExists`                                                    |
-| `collisionRisk`  | 0                                           | `bun init` ran without `-m`                                                               |
-| `bunfig.toml`    | `linker = "isolated"`, `globalStore = true` | Template stale or overwritten                                                             |
-| `templatePolicy` | `bun run check:template-policy` exits 0     | Install/registry/scaffold/secrets/bootstrap/oxlint/typecheck/test drift on `templates/**` |
+| Check            | Expected                                    | Failure Mode                                                                                                                               |
+| ---------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `localDocsCount` | 15                                          | Missing `herdr-plugin-architecture` or `template-matrix` in `LOCAL_DOC_REFERENCES`                                                         |
+| `scaffoldFiles`  | 22                                          | `kimi-fix` skipped due to `pathExists`                                                                                                     |
+| `collisionRisk`  | 0                                           | `bun init` ran without `-m`                                                                                                                |
+| `bunfig.toml`    | `linker = "isolated"`, `globalStore = true` | Template stale or overwritten                                                                                                              |
+| `templatePolicy` | `bun run check:template-policy` exits 0     | `TEMPLATE_POLICY_CHECK_IDS` (29 layers): install/registry/scaffold/secrets/bootstrap, oxlint, oxfmt, typecheck, bun test on `templates/**` |
 
 ### Template policy gate
 

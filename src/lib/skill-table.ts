@@ -2,7 +2,7 @@
  * skill-table.ts — Human-readable skill catalog table (Bun.inspect.table).
  */
 
-import { join } from "path";
+import { basename, join } from "path";
 import { terminalWidth } from "./bun-utils.ts";
 import { customInspect, formatTable, sliceAnsi } from "./inspect.ts";
 import type { SkillCoverageRow } from "./skill-contract.ts";
@@ -51,6 +51,15 @@ export interface SkillTableRow {
   contract: string;
   lib: string;
   tests: string;
+  /** Comma-separated lib module basenames (verbose / JSON catalog). */
+  modules?: string;
+}
+
+export interface SkillCoverageDetail {
+  skill: string;
+  skillPath: string;
+  libModules: string[];
+  testFiles: string[];
 }
 
 export const SKILL_TABLE_COLUMNS: (keyof SkillTableRow)[] = [
@@ -65,6 +74,28 @@ export const SKILL_TABLE_COLUMNS: (keyof SkillTableRow)[] = [
   "lib",
   "tests",
 ];
+
+export const SKILL_TABLE_VERBOSE_COLUMNS: (keyof SkillTableRow)[] = [
+  ...SKILL_TABLE_COLUMNS,
+  "modules",
+];
+
+function libModuleBasenames(paths: Array<{ path: string; exists: boolean }>): string {
+  return paths
+    .filter((m) => m.exists)
+    .map((m) => basename(m.path))
+    .join(", ");
+}
+
+/** Per-skill lib/test paths for JSON catalog and verbose tables. */
+export function buildSkillCoverageDetails(rows: SkillCoverageRow[]): SkillCoverageDetail[] {
+  return rows.map((row) => ({
+    skill: skillShortName(row.skill),
+    skillPath: row.skill,
+    libModules: row.libModules.filter((m) => m.exists).map((m) => m.path),
+    testFiles: row.testFiles.filter((t) => t.exists).map((t) => t.path),
+  }));
+}
 
 /** Read a scalar frontmatter field from the YAML header block. */
 export function readFrontmatterScalar(head: string, key: string): string {
@@ -89,14 +120,15 @@ export function sliceSkillFrontmatter(text: string): string {
   return end > 0 ? text.slice(0, end) : text.slice(0, 1400);
 }
 
-function skillShortName(skillRel: string): string {
+export function skillShortName(skillRel: string): string {
   return skillRel.replace(/^skills\//, "").replace(/\/SKILL\.md$/, "");
 }
 
 /** Build table rows from a skill-coverage report plus on-disk SKILL.md headers. */
 export async function buildSkillTableRows(
   repoRoot: string,
-  rows: SkillCoverageRow[]
+  rows: SkillCoverageRow[],
+  options?: { verbose?: boolean }
 ): Promise<SkillTableRow[]> {
   const table: SkillTableRow[] = [];
 
@@ -106,7 +138,7 @@ export async function buildSkillTableRows(
     const libOk = row.libModules.filter((m) => m.exists).length;
     const loadedBy = readFrontmatterScalar(head, "loaded_by");
 
-    table.push({
+    const entry: SkillTableRow = {
       skill: skillShortName(row.skill),
       layer: readFrontmatterScalar(head, "layer"),
       lines: row.lines,
@@ -117,18 +149,20 @@ export async function buildSkillTableRows(
       contract: row.contractOk ? "✓" : "✗",
       lib: `${libOk}/${row.libModules.length}`,
       tests: row.testsOk ? "✓" : "✗",
-    });
+    };
+    if (options?.verbose) {
+      entry.modules = truncateDisplay(libModuleBasenames(row.libModules), 48);
+    }
+    table.push(entry);
   }
 
   return table;
 }
 
 /** Format rows with Bun.inspect.table (via formatTable). */
-export function formatSkillTable(rows: SkillTableRow[]): string {
-  return formatTable(
-    rows as unknown as Record<string, unknown>[],
-    SKILL_TABLE_COLUMNS as unknown as string[]
-  );
+export function formatSkillTable(rows: SkillTableRow[], verbose = false): string {
+  const columns = verbose ? SKILL_TABLE_VERBOSE_COLUMNS : SKILL_TABLE_COLUMNS;
+  return formatTable(rows as unknown as Record<string, unknown>[], columns as unknown as string[]);
 }
 
 /** Pass to Bun.inspect() to render a table via [customInspect]. */

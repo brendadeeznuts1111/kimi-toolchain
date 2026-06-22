@@ -15,6 +15,7 @@ trigger:
   - modify kimi-fix template injection
   - register a new template in scaffold-templates.ts
   - update TEMPLATES.md with new template docs
+  - run check:template-policy or verify:bun-features:strict after template gate changes
 dependencies:
   - kimi-toolchain
 loaded_by: System / On-demand
@@ -235,23 +236,24 @@ Postinstall scripts that `Bun.spawn` before a secrets registry exists must inclu
 After creating/modifying a template:
 
 ```
-1. bun run check:template-policy   ← SSOT gate (install, registry, scaffold, secrets, bootstrap, oxlint, tsc, bun test)
+1. bun run check:template-policy   ← SSOT gate (29 layers: install, registry, scaffold, secrets, bootstrap, oxlint, oxfmt, tsc, bun test)
 2. bun run check:template-policy --dry-run
-3. bun run typecheck
-4. bun run format
-5. bun test test/scaffold-* test/template-policy-audit.unit.test.ts
-6. kimi-fix .tmp-test && find .tmp-test -type f | sort  ← files land correctly
-7. rm -rf .tmp-test
-8. kimi-doctor --quick
-9. bun run verify:bun-features:strict  ← when touching verify ritual wiring
-10. git add + commit
+3. bun run skills:table --verbose  ← skill ↔ code index after contract edits
+4. bun run typecheck
+5. bun run format
+6. bun test test/scaffold-* test/template-policy-audit.unit.test.ts
+7. kimi-fix .tmp-test && find .tmp-test -type f | sort  ← files land correctly
+8. rm -rf .tmp-test
+9. kimi-doctor --quick
+10. bun run verify:bun-features:strict  ← when touching verify ritual wiring
+11. git add + commit
 ```
 
-Policy implementation: `src/lib/template-policy-audit.ts` · CLI: `scripts/check-template-policy.ts`.
+Policy implementation: `src/lib/template-policy-audit.ts` (`TEMPLATE_POLICY_CHECK_IDS`) · CLI: `scripts/check-template-policy.ts`.
 
 ## Related
 
-- **Template policy gate:** `src/lib/template-policy-audit.ts` — 29 audit layers (see `TEMPLATES.md` § Template policy gate)
+- **Template policy gate:** `src/lib/template-policy-audit.ts` — `TEMPLATE_POLICY_CHECK_IDS` (29 layers incl. oxfmt; see `TEMPLATES.md` § Template policy gate)
 - **Template matrix:** `docs/references/template-matrix.md` — full breakdown of all 28 template files
 - **Template directory index:** `templates/README.md` — all template families and sync targets
 - **bun-create index:** `templates/bun-create/README.md` — current bun-create templates and examples mapping

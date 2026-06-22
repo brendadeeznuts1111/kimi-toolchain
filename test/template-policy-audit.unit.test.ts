@@ -10,6 +10,8 @@ import {
   auditTemplateInstallPolicy,
   auditTemplateModuleSlice,
   auditTemplateOxlint,
+  auditTemplateOxfmt,
+  TEMPLATE_POLICY_CHECK_IDS,
   auditTemplatePolicy,
   auditTemplateReadmeRegistry,
   auditTemplateScaffoldFiles,
@@ -83,6 +85,16 @@ describe("template-policy-audit", () => {
   test("auditTemplateOxlint passes on repo templates", async () => {
     const violations = await auditTemplateOxlint(REPO_ROOT);
     expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateOxfmt passes on repo templates", async () => {
+    const violations = await auditTemplateOxfmt(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("TEMPLATE_POLICY_CHECK_IDS matches auditTemplatePolicy layer count", () => {
+    expect(TEMPLATE_POLICY_CHECK_IDS.length).toBe(29);
+    expect(TEMPLATE_POLICY_CHECK_IDS).toContain("oxfmt");
   });
 
   test("auditTemplateBunInitGuard passes on repo templates", async () => {

@@ -674,6 +674,26 @@ export function auditCreateTemplateSkillContract(
       rule: "create-template-kimi-toolchain-pointer",
       message: "must reference kimi-toolchain skill as companion dependency",
     },
+    {
+      re: /bun run skills:table/,
+      rule: "create-template-skills-table",
+      message: "must document bun run skills:table skill catalog",
+    },
+    {
+      re: /verify:bun-features:strict/,
+      rule: "create-template-verify-ritual",
+      message: "must document verify:bun-features:strict when touching verify wiring",
+    },
+    {
+      re: /docs\/references\/template-matrix\.md/,
+      rule: "create-template-matrix-doc",
+      message: "must reference docs/references/template-matrix.md",
+    },
+    {
+      re: /TEMPLATE_POLICY_CHECK_IDS|29 audit layers|30 audit layers|\d+ audit layers/i,
+      rule: "create-template-policy-layer-count",
+      message: "must reference template policy layer count or TEMPLATE_POLICY_CHECK_IDS",
+    },
   ];
 
   for (const { re, rule, message } of required) {

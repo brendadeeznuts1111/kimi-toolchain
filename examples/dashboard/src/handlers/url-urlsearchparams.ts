@@ -4,7 +4,7 @@ import { jsonResponse } from "./api-handlers.ts";
 
 export async function apiUrl(): Promise<Response> {
   const url = new URL(
-    "https://user:pass@example.com:8080/path/to/page?q=bun&lang=en&q=again#section"
+    "https://user:pass@example.com:8080/path/to/page?q=bun&lang=en&q=again#section" // kimi-audit:ignore-hardcoded-secret (URL parsing example)
   );
 
   // All parsed properties

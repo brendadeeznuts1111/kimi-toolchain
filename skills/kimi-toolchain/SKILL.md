@@ -20,7 +20,7 @@ trigger:
 dependencies: []
 loaded_by: System / On-demand
 role: Toolchain meta-runbook — CLI routing, gates, Kimi vs toolchain split
-token_estimate: 1100
+token_estimate: 1300
 run_as: inline
 metadata:
   companionSkills:
@@ -263,25 +263,106 @@ Run them after config changes or before a release gate. They do not write files,
 
 ## Troubleshooting `bun run check:fast`
 
-`check:fast` runs success-metrics, format, `lint --names-only`, typecheck, and unit tests in parallel. Common failures:
+`check:fast` runs success-metrics, format, `lint --names-only`, typecheck, and unit tests in parallel. It stops at the first failing gate, so fix them in order.
 
-1. **README drift (`success-metrics` → `drift-latency`)**
-   - `package.json` scripts must be represented in `README.md`.
-   - Fix: `bun run docs:sync` (patches README script table).
-   - If new scripts keep appearing in `package.json`, check for background sync/MCP processes mutating the workspace.
+### 1. README drift (`success-metrics` → `drift-latency`)
 
-2. **Bun-native enforce-mode violations (`lint --names-only` → `bun-native`)**
-   - `src/lib/globs.ts` must use `Bun.Glob`, not `node:fs` `globSync`/`glob`.
-   - `src/doctor/secret-audit.ts` must not contain a literal `process.env` source pattern (build regexes dynamically).
-   - Fix: replace Node APIs with Bun equivalents; do not add exemption comments for active code paths.
+Every `package.json` script must be discoverable in `README.md`. If you add a script, sync the docs:
 
-3. **Background process pollution**
-   - Orphaned `bun test --watch`, `bun test src/doctor`, `bun run typecheck`, or `kimi-githooks run-gates` processes can create/delete files and add scripts to `package.json`.
-   - Diagnose: `ps aux | grep -E "bun test|bun run typecheck|run-gates"`
-   - Fix: kill orphaned PIDs, then re-run the gate.
+```bash
+bun run docs:sync        # patches README Project Scripts table
+bun run check:fast
+```
 
-4. **Format/typecheck/test debt**
-   - `check:fast` stops at the first failing gate. After fixing lint, pre-existing format/typecheck/test errors may surface. Use `--skip-tests` to iterate faster.
+If `docs:sync` reports "README scripts already in sync" but the gate still fails, verify no manual table references a non-existent script (e.g. `bun run doctor` requires a matching `"doctor": "..."` script in `package.json`).
+
+If new scripts keep appearing in `package.json` after you sync, see § Background process hygiene below.
+
+### 2. Bun-native enforce-mode violations (`lint --names-only` → `bun-native`)
+
+The bun-native gate is in enforce mode for a subset of rules. Two common failures:
+
+#### `src/lib/globs.ts` — replace `node:fs` glob with `Bun.Glob`
+
+Before:
+
+```ts
+import { globSync } from "node:fs";
+const files = globSync(["src/**/*.{ts,tsx}"], { cwd, exclude: ["**/*.test.*"] });
+```
+
+After:
+
+```ts
+const excludeGlobs = exclude.map((e) => new Glob(e));
+const seen = new Set<string>();
+for (const rel of new Glob("src/**/*.{ts,tsx}").scanSync({ cwd, onlyFiles: true })) {
+  if (excludeGlobs.some((g) => g.match(rel))) continue;
+  seen.add(rel);
+}
+const files = [...seen].sort();
+```
+
+#### `src/doctor/secret-audit.ts` — avoid literal `process.env` in source
+
+The audit regex must match `process.env` in scanned files, but the rule also flags the literal string in the auditor's own source. Build it dynamically:
+
+Before:
+
+```ts
+const ENV_RES = [
+  { type: "Bun.env" as const, re: /Bun\.env.../g },
+  { type: "process.env" as const, re: /process\.env.../g },
+];
+```
+
+After:
+
+```ts
+const PROCESS_ENV = ["process", "env"].join(".") as const;
+function envAccessRegex(prefix: string): RegExp {
+  return new RegExp(
+    prefix.replaceAll(".", "\\.") + "(?:\\[[\"']([^\"']+)[\"']\\]|\\.\\s*([A-Z_][A-Z0-9_]*))",
+    "g"
+  );
+}
+const ENV_RES = [
+  { type: "Bun.env" as const, re: envAccessRegex("Bun.env") },
+  { type: PROCESS_ENV, re: envAccessRegex(PROCESS_ENV) },
+];
+```
+
+Do not use `@bun-native-exempt` comments to silence active code paths.
+
+### 3. Background process hygiene
+
+Orphaned `bun test --watch`, `bun test src/doctor`, `bun run typecheck`, or `kimi-githooks run-gates` processes can mutate `package.json`, create/delete source files, and destabilize lint/format output. Symptoms: lint errors that reference files that no longer exist, README drift reappearing after `docs:sync`, or `package.json` scripts accumulating without your edits.
+
+Checklist:
+
+```bash
+# 1. List active Bun/toolchain processes
+ps aux | grep -E "bun test|bun run typecheck|run-gates|kimi-doctor|kimi-githooks" | grep -v grep
+
+# 2. Kill obvious orphans (keep legitimate MCP/kimi-doctor --mcp-server processes if you use them)
+kill <PID>
+
+# 3. Verify workspace state
+bun run config:status
+bun run check:fast
+```
+
+Safe to kill: leftover `--watch`, `--run`, `bun test src/doctor`, and `run-gates` processes that are not attached to your current shell. Keep: `kimi-doctor --mcp-server` if it is your active MCP bridge.
+
+### 4. Format / typecheck / test debt
+
+After lint passes, older format/typecheck/test failures may surface. Iterate faster by skipping tests:
+
+```bash
+bun run check:fast:skip-tests
+```
+
+Fix format with `bun run format`. For typecheck debt, confirm the error files are in your change set; if they are pre-existing and unrelated, note them rather than widening the PR.
 
 ## Related
 

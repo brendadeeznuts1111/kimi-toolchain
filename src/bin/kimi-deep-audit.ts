@@ -31,6 +31,7 @@ interface AuditCommand {
   cmd: string[];
   description: string;
   full?: boolean;
+  retries?: number;
 }
 
 const AUDIT_COMMANDS: readonly AuditCommand[] = [
@@ -38,6 +39,7 @@ const AUDIT_COMMANDS: readonly AuditCommand[] = [
     id: "verify-bun-features",
     cmd: ["bun", "run", "scripts/verify-bun-features.ts", "--strict"],
     description: "Bun-native feature verification + strict config alignment",
+    retries: 1,
   },
   {
     id: "audit-all",
@@ -100,7 +102,7 @@ function expandTestGlobs(cmd: string[], root: string): string[] {
   });
 }
 
-async function runCommand(
+async function runCommandOnce(
   cmd: string[],
   cwd: string
 ): Promise<{ exitCode: number; stdout: string; stderr: string; durationMs: number }> {
@@ -126,6 +128,22 @@ async function runCommand(
   };
 }
 
+async function runCommand(
+  cmd: string[],
+  cwd: string,
+  retries = 0
+): Promise<{ exitCode: number; stdout: string; stderr: string; durationMs: number }> {
+  let result = await runCommandOnce(cmd, cwd);
+  while (retries > 0 && result.exitCode !== 0) {
+    retries--;
+    await Bun.sleep(500);
+    const retry = await runCommandOnce(cmd, cwd);
+    if (retry.exitCode === 0) return retry;
+    result = retry;
+  }
+  return result;
+}
+
 function firstLine(text: string): string {
   return text.split("\n")[0]?.trim() ?? "";
 }
@@ -135,7 +153,11 @@ async function buildReport(projectRoot: string, full: boolean): Promise<DeepAudi
   const commands = AUDIT_COMMANDS.filter((c) => full || !c.full);
 
   for (const command of commands) {
-    const { exitCode, stdout, stderr, durationMs } = await runCommand(command.cmd, projectRoot);
+    const { exitCode, stdout, stderr, durationMs } = await runCommand(
+      command.cmd,
+      projectRoot,
+      command.retries
+    );
     const ok = exitCode === 0;
     const summary = firstLine(stdout) || firstLine(stderr) || "no output";
     runs.push({

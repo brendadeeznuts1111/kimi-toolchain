@@ -11,6 +11,7 @@
 import {
   auditTemplatePolicy,
   defaultTemplatePolicyRoot,
+  TEMPLATE_POLICY_CHECK_IDS,
   templatePolicyDryRunSummary,
 } from "../src/lib/template-policy-audit.ts";
 
@@ -25,36 +26,8 @@ async function main(): Promise<number> {
       mode: "dry-run",
       projectRoot: ROOT,
       ...(await templatePolicyDryRunSummary(ROOT)),
-      checks: [
-        "install",
-        "registry",
-        "registry-schema",
-        "readme-registry",
-        "bootstrap-docs",
-        "bootstrap-bridge",
-        "postinstall-bootstrap",
-        "bun-init-guard",
-        "secrets-slice",
-        "secrets-env-docs",
-        "secret-leaks",
-        "bunfig-runtime",
-        "tsconfig",
-        "scaffold-files",
-        "scaffold-toolchain",
-        "scaffold-markers",
-        "module-slice",
-        "shebang",
-        "env-hygiene",
-        "env-example",
-        "banned-terms",
-        "hardcoded-secrets",
-        "oxlint",
-        "bun-native",
-        "test-conventions",
-        "typecheck",
-        "modules-typecheck",
-        "bun-test",
-      ],
+      checks: [...TEMPLATE_POLICY_CHECK_IDS],
+      checkCount: TEMPLATE_POLICY_CHECK_IDS.length,
     };
     if (JSON_MODE) {
       console.log(JSON.stringify(summary, null, 2));
