@@ -434,6 +434,44 @@ export const BUN_TEST_DISCOVERY_VALUE_FLAGS = [
   BUN_TEST_DISCOVERY.testNamePatternShortFlag,
 ] as const;
 
+/** Top-level `logLevel` in bunfig.toml (@see https://bun.com/docs/runtime/bunfig#loglevel). */
+export const BUN_BUNFIG_LOG_LEVEL_DOC_URL = "https://bun.com/docs/runtime/bunfig#loglevel";
+
+export type BunfigLogLevel = "debug" | "warn" | "error";
+
+/** kimi-toolchain default — warn + error only; bump to debug temporarily when investigating. */
+export const KIMI_BUNFIG_LOG_LEVEL: BunfigLogLevel = "warn";
+
+export const BUN_BUNFIG_INSTALL_LOG_LEVEL_DOC_URL =
+  "https://bun.com/docs/runtime/bunfig#installloglevel";
+
+/** `[install].logLevel` — suppress install warnings; errors still surface. */
+export const KIMI_BUNFIG_INSTALL_LOG_LEVEL: BunfigLogLevel = "error";
+
+export const BUN_BUNFIG_RUN_DOC_URL = "https://bun.com/docs/runtime/bunfig#bun-run";
+
+/** Top-level runtime + `[run]` contract (mirrors bunfig.toml). */
+export interface KimiBunfigRuntimeContract {
+  readonly logLevel: BunfigLogLevel;
+  readonly smol: boolean;
+  readonly consoleDepth: number;
+  readonly run: {
+    readonly shell: "bun" | "system";
+    readonly silent: boolean;
+    readonly bun: boolean;
+    readonly noOrphans: boolean;
+  };
+  readonly installLogLevel: BunfigLogLevel;
+}
+
+export const KIMI_BUNFIG_RUNTIME_CONTRACT: KimiBunfigRuntimeContract = {
+  logLevel: "warn",
+  smol: false,
+  consoleDepth: 6,
+  run: { shell: "bun", silent: true, bun: true, noOrphans: true },
+  installLogLevel: "error",
+} as const;
+
 /** Bun `bunfig.toml` `[test]` configuration (@see test/configuration#configuration-file). */
 export const BUN_TEST_CONFIGURATION = {
   section: "[test]",
@@ -530,8 +568,7 @@ export function isBunTestExactPathArg(arg: string): boolean {
   return arg.startsWith("./") || arg.startsWith("/");
 }
 
-/** Parse the `[test]` table from bunfig.toml. */
-export function readBunfigTestConfig(repoRoot: string): Record<string, unknown> | undefined {
+function readBunfigToml(repoRoot: string): Record<string, unknown> | undefined {
   const bunfigPath = join(repoRoot, "bunfig.toml");
   let text: string;
   try {
@@ -540,11 +577,69 @@ export function readBunfigTestConfig(repoRoot: string): Record<string, unknown> 
     return undefined;
   }
   try {
-    const parsed = Bun.TOML.parse(text) as { test?: Record<string, unknown> };
-    return parsed.test;
+    return Bun.TOML.parse(text) as Record<string, unknown>;
   } catch {
     return undefined;
   }
+}
+
+/** Read top-level `logLevel` from bunfig.toml. */
+export function readBunfigLogLevel(repoRoot: string): BunfigLogLevel | undefined {
+  const level = readBunfigToml(repoRoot)?.logLevel;
+  return level === "debug" || level === "warn" || level === "error" ? level : undefined;
+}
+
+/** Read kimi runtime bunfig contract fields. */
+export function readKimiBunfigRuntimeContract(
+  repoRoot: string
+): KimiBunfigRuntimeContract | undefined {
+  const parsed = readBunfigToml(repoRoot);
+  if (!parsed) return undefined;
+  const logLevel = readBunfigLogLevel(repoRoot);
+  const run = parsed.run;
+  const install = parsed.install;
+  const runRecord =
+    typeof run === "object" && run != null ? (run as Record<string, unknown>) : null;
+  const shell = runRecord?.shell;
+  if (
+    !logLevel ||
+    typeof parsed.smol !== "boolean" ||
+    typeof parsed.console !== "object" ||
+    parsed.console == null ||
+    typeof (parsed.console as Record<string, unknown>).depth !== "number" ||
+    !runRecord ||
+    (shell !== "bun" && shell !== "system") ||
+    typeof runRecord.silent !== "boolean" ||
+    typeof runRecord.bun !== "boolean" ||
+    typeof runRecord.noOrphans !== "boolean" ||
+    typeof install !== "object" ||
+    install == null
+  ) {
+    return undefined;
+  }
+  const installLevel = (install as Record<string, unknown>).logLevel;
+  if (installLevel !== "debug" && installLevel !== "warn" && installLevel !== "error") {
+    return undefined;
+  }
+  return {
+    logLevel,
+    smol: parsed.smol as boolean,
+    consoleDepth: (parsed.console as Record<string, unknown>).depth as number,
+    run: {
+      shell: shell as "bun" | "system",
+      silent: runRecord.silent as boolean,
+      bun: runRecord.bun as boolean,
+      noOrphans: runRecord.noOrphans as boolean,
+    },
+    installLogLevel: installLevel,
+  };
+}
+
+/** Parse the `[test]` table from bunfig.toml. */
+export function readBunfigTestConfig(repoRoot: string): Record<string, unknown> | undefined {
+  const parsed = readBunfigToml(repoRoot);
+  if (!parsed || typeof parsed.test !== "object" || parsed.test == null) return undefined;
+  return parsed.test as Record<string, unknown>;
 }
 
 function readStringArray(value: unknown): string[] | undefined {
