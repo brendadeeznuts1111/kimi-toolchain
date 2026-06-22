@@ -56,7 +56,6 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "taxonomy-coverage": "src/lib/taxonomy-coverage.ts",
   "herdr-socket-saturation": "src/lib/herdr-socket-client.ts",
   "herdr-socket-saturation-subscribe": "src/lib/herdr-socket-client.ts",
-  "canvas-metadata-integrity": "src/lib/canvas-metadata-integrity.gate.ts",
   "doctor-secret-audit": "src/doctor/secret-audit.ts",
   "doctor-secret-isolation": "src/doctor/secret-isolation.ts",
   "hardcoded-secret-audit": "src/lib/hardcoded-secret-audit.ts",

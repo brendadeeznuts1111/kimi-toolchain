@@ -855,8 +855,6 @@ describe("bun-release-compliance console-bun-terminal", () => {
     "src/lib/discover-cli.ts",
     "src/lib/discover-format.ts",
     "src/lib/identity-usage-example.ts",
-    "src/lib/ndjson.ts",
-    "src/lib/references-inspect-watch.ts",
     "src/lib/herdr-dashboard/webview/options.ts",
     "src/lib/test-runtime.ts",
     "src/lib/bun-install-config.ts",
