@@ -19,6 +19,7 @@ Registry SSOT: [`templates.json`](./templates.json).
 | `kimi-dashboard`              | server    | minimal    | [`examples/dashboard/`](../examples/dashboard) | Bun-native HTTP dashboard starter; full showcase is in `examples/dashboard/src/handlers/`.                        |
 | `kimi-gates`                  | cli       | medium     | [`examples/gates/`](../examples/gates)         | Generic L1→L2 gate tree with artifact persistence and lineage. `examples/trading-workspace/` is a specialization. |
 | `artifact-portal-convergence` | workspace | minimal    | [`examples/portal/`](../examples/portal)       | Artifact Portal convergence — Canvas + Dashboard + Herdr → disk.                                                  |
+| `herdr-service-template`      | server    | minimal    | none (self-contained)                          | herdr service with auto-generated secret resolvers from `--secrets` flag.                                        |
 
 ## Important naming note
 

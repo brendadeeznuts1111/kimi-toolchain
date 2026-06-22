@@ -1,0 +1,31 @@
+{
+  "name": "{{name}}",
+  "version": "0.0.1",
+  "description": "herdr service template with auto-generated secret resolvers",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "resolvers:generate": "bun run scripts/generate-resolvers.ts",
+    "resolvers:check": "bun run scripts/generate-resolvers.ts --check"
+  },
+  "bun-create": {
+    "postinstall": [
+      "bun run scripts/postinstall.ts"
+    ],
+    "start": {
+      "dev": "bun run --watch src/index.ts",
+      "start": "bun run src/index.ts"
+    }
+  },
+  "kimi": {
+    "showcase": {
+      "id": "herdr-service-template",
+      "lane": "runtime",
+      "accent": "#7ee787",
+      "cards": []
+    }
+  }
+}

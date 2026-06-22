@@ -35,6 +35,14 @@
       "path": "artifact-portal-convergence",
       "sourceExample": "examples/portal",
       "cards": ["card-effect-benchmark", "card-perf-harness", "card-kimi-doctor"]
+    },
+    {
+      "name": "herdr-service-template",
+      "description": "herdr service with auto-generated secret resolvers from --secrets flag",
+      "type": "server",
+      "complexity": "minimal",
+      "path": "herdr-service-template",
+      "cards": []
     }
   ]
 }

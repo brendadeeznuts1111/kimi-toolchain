@@ -22,6 +22,18 @@ priority: medium
 
 **Do not rename** `~/.kimi-code/` — it is the official Kimi Code data directory.
 
+## Secrets matrix
+
+Services registered in `secrets-constants.ts` and their managed secrets. The `herdr-service-template` postinstall appends new services here automatically.
+
+| Service | Secrets |
+| ------- | ------- |
+| `kimi-toolchain` | cloudflare-account-id, cloudflare-api-token |
+| `com.herdr.cli` | github-token, github-api-domain, npm-token, bet365-api-key, r2-access-key-id, r2-secret-access-key, discord-webhook-url, telegram-bot-token |
+| `com.herdr.dashboard` | csrf-secret, jwt-secret, master-key |
+| `com.herdr.security` | scanner-api-key |
+<!-- SECRETS-MATRIX -->
+
 ## Directory layout
 
 ```
