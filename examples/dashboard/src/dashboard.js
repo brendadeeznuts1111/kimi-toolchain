@@ -254,6 +254,12 @@ function renderSchema(container, schema) {
     h += `</table>`;
     h += `<p class="status ok" style="margin-top:4px">${d.note}</p>`;
     card("card-build", h);
+
+    // Footer summary
+    const footer = document.getElementById("build-info-footer");
+    if (footer && d.compileTime) {
+      footer.textContent = `${d.compileTime.BUILD_VERSION} · ${d.compileTime.GIT_COMMIT} · ${d.compileTime.BUILD_TIME}`;
+    }
   } catch (e) {
     card("card-build", `<p class="status err">${e.message}</p>`);
   }
