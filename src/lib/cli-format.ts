@@ -218,7 +218,10 @@ export interface InspectTableOptions {
 export function inspectTable(data: Record<string, unknown>[], options: InspectTableOptions = {}): string {
   if (data.length === 0) return "";
   const colors = options.colors ?? useColor();
-  return Bun.inspect.table(data, options.columns, { colors });
+  if (options.columns) {
+    return Bun.inspect.table(data, options.columns, { colors });
+  }
+  return Bun.inspect.table(data, { colors });
 }
 
 // ── Bun.inspect.custom Attachers ─────────────────────────────────────
