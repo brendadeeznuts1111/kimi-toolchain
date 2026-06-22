@@ -292,8 +292,11 @@ export function execArgvSync(cmd: string, args: string[], options: ExecArgvOptio
 }
 
 /** Resolve executable on PATH (Bun.which). */
-export function resolveExecutable(name: string, cwd?: string): string | null {
-  return Bun.which(name, cwd ? { cwd } : undefined);
+export function resolveExecutable(
+  name: string,
+  options?: { cwd?: string; PATH?: string }
+): string | null {
+  return Bun.which(name, options);
 }
 
 /** Blocking sleep — prefer await Bun.sleep() in async code. */
