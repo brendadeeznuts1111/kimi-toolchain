@@ -94,23 +94,7 @@ export function parseVersion(
   };
 }
 
-function versionGte(
-  version: string,
-  minMajor: number,
-  minMinor: number,
-  minPatch: number
-): boolean {
-  const parsed = parseVersion(version);
-  if (!parsed) return false;
-  if (parsed.major !== minMajor) return parsed.major > minMajor;
-  if (parsed.minor !== minMinor) return parsed.minor > minMinor;
-  return parsed.patch >= minPatch;
-}
-
 // ── Capability probe ───────────────────────────────────────────────
-
-/** Minimum Bun version for ESM + --bytecode support. */
-const ESM_BYTECODE_MIN = { major: 1, minor: 3, patch: 9 };
 
 let _capabilities: CompileCapabilities | null = null;
 
@@ -119,18 +103,14 @@ export async function probeCompileCapabilities(): Promise<CompileCapabilities> {
   if (_capabilities) return _capabilities;
 
   const { version, revision } = resolveBunVersion();
-  const hasCompile = true; // --compile exists since Bun 1.0
-  const hasBytecode = true; // --bytecode exists since Bun 1.1
-  const esmBytecode = versionGte(
-    version,
-    ESM_BYTECODE_MIN.major,
-    ESM_BYTECODE_MIN.minor,
-    ESM_BYTECODE_MIN.patch
-  );
-  const cpuProfInterval = versionGte(version, 1, 3, 7);
-  const cpuProfMd = versionGte(version, 1, 3, 7);
-  const heapProf = versionGte(version, 1, 2, 0);
-  const heapProfMd = versionGte(version, 1, 3, 7);
+  // Runtime floor is Bun >= 1.4.0 — all 1.x capabilities are guaranteed.
+  const hasCompile = true;
+  const hasBytecode = true;
+  const esmBytecode = true; // >= 1.3.9
+  const cpuProfInterval = true; // >= 1.3.7
+  const cpuProfMd = true; // >= 1.3.7
+  const heapProf = true; // >= 1.2.0
+  const heapProfMd = true; // >= 1.3.7
 
   _capabilities = {
     bunVersion: version,
@@ -138,7 +118,7 @@ export async function probeCompileCapabilities(): Promise<CompileCapabilities> {
     esmBytecode,
     compile: hasCompile,
     bytecode: hasBytecode,
-    recommendedFormat: esmBytecode ? "esm" : "cjs",
+    recommendedFormat: "esm", // Bun >= 1.3.9, floor is 1.4.0
     cpuProfInterval,
     cpuProfMd,
     heapProf,
@@ -152,9 +132,7 @@ export async function probeCompileCapabilities(): Promise<CompileCapabilities> {
 /**
  * Compile a TypeScript/JavaScript entry point to a standalone executable.
  *
- * Auto-selects format based on Bun version:
- * - Bun >= 1.3.9: --format=esm --bytecode (native ESM with bytecode)
- * - Bun < 1.3.9:  --format=cjs --bytecode (CJS fallback)
+ * Default format is ESM with bytecode (Bun >= 1.4.0 required).
  */
 export async function compileBinary(options: CompileOptions): Promise<CompileResult> {
   const start = Date.now();
