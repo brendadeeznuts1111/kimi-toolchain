@@ -294,7 +294,12 @@ export async function probeExamplesDashboardWebView(
     autoStart: true,
   });
 
-  const api = await fetchApiCardsProbe(companion.url, 30_000).catch(() => null);
+  let api: Awaited<ReturnType<typeof fetchApiCardsProbe>> | null = null;
+  try {
+    api = await fetchApiCardsProbe(companion.url, 30_000);
+  } catch {
+    api = null;
+  }
   const collector = createWebViewConsoleCollector();
   const { constructorOptions } = buildDashboardWebViewOptions(companion.url, {
     width: options.width ?? 1400,

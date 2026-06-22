@@ -78,9 +78,12 @@ export async function auditTrustedDeps(opts: TrustedDepsAuditOptions = {}): Prom
 
   // ─── Load bunfig.toml ──────────────────────────────────────────────────────
   const bunfigPath = `${root}/bunfig.toml`;
-  const bunfigExists = await Bun.file(bunfigPath)
-    .exists()
-    .catch(() => false);
+  let bunfigExists = false;
+  try {
+    bunfigExists = await Bun.file(bunfigPath).exists();
+  } catch {
+    bunfigExists = false;
+  }
   const bunfigText = bunfigExists ? await Bun.file(bunfigPath).text() : "";
   const hasIgnoreScriptsFalse = bunfigText.includes("ignoreScripts = false");
   const hasFrozenLockfile = bunfigText.includes("frozenLockfile = true");
@@ -136,12 +139,18 @@ export async function auditTrustedDeps(opts: TrustedDepsAuditOptions = {}): Prom
   );
 
   // ─── Lockfile freshness ────────────────────────────────────────────────────
-  const pkgStat = await Bun.file(pkgPath)
-    .stat()
-    .catch(() => null);
-  const lockStat = await Bun.file(`${root}/bun.lock`)
-    .stat()
-    .catch(() => null);
+  let pkgStat: Awaited<ReturnType<ReturnType<typeof Bun.file>["stat"]>> | null = null;
+  try {
+    pkgStat = await Bun.file(pkgPath).stat();
+  } catch {
+    pkgStat = null;
+  }
+  let lockStat: typeof pkgStat = null;
+  try {
+    lockStat = await Bun.file(`${root}/bun.lock`).stat();
+  } catch {
+    lockStat = null;
+  }
 
   if (!lockStat) {
     checks.push(

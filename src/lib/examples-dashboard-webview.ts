@@ -88,7 +88,12 @@ export async function runExamplesDashboardWebView(
     autoStart: true,
   });
   if (!companion.started) {
-    const health = await fetch(new URL("/health", baseUrl).toString()).catch(() => null);
+    let health: Response | null = null;
+    try {
+      health = await fetch(new URL("/health", baseUrl).toString());
+    } catch {
+      health = null;
+    }
     if (!health?.ok) {
       throw new Error(`examples dashboard not reachable at ${baseUrl}`);
     }
