@@ -315,8 +315,19 @@ test("uses isolated kimi-code home", async () => {
 ### Mock at boundary
 
 ```ts
-import { mock } from "bun:test";
+import { mock, spyOn } from "bun:test";
 
+// Bun ≥1.4.0: using auto-restores spyOn when it leaves scope
+test("spies with auto-cleanup", () => {
+  const obj = { method: () => "original" };
+  {
+    using spy = spyOn(obj, "method").mockReturnValue("mocked");
+    expect(obj.method()).toBe("mocked");
+  }
+  expect(obj.method()).toBe("original"); // auto-restored
+});
+
+// Replacing globals still needs try/finally
 test("fetches data", async () => {
   const fetchMock = mock(() => Promise.resolve(new Response("ok")));
   const prior = globalThis.fetch;

@@ -35,7 +35,7 @@
 - **License:** MIT
 - **Author:** nolarose
 - **Language:** TypeScript (ESNext, strict mode)
-- **Runtime:** Bun >= 1.3.14 (recommended >= 1.4.0)
+- **Runtime:** Bun >= 1.4.0
 - **Package manager:** `bun pm`
 - **Minimal runtime dependencies:** `effect`, `js-yaml`; everything else uses Bun built-ins (`bun:sqlite`, `Bun.file`, `Bun.spawn`, etc.)
 
@@ -57,7 +57,7 @@
 
 | File                         | Purpose                                                                                                                                                                                                           |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `package.json`               | Project metadata, `bin` map (27 registered CLI tools), npm scripts, dependencies (`effect`, `js-yaml`), `trustedDependencies` policy, devDependencies (`@types/bun`, `oxfmt`, `oxlint`, `ts-morph`, `typescript`) |
+| `package.json`               | Project metadata, `bin` map (28 registered CLI tools), npm scripts, dependencies (`effect`, `js-yaml`), `trustedDependencies` policy, devDependencies (`@types/bun`, `oxfmt`, `oxlint`, `ts-morph`, `typescript`) |
 | `bunfig.toml`                | Bun install policy (`[install]`), test defaults (`[test]`), and build-time define constants (`[define]`)                                                                                                          |
 | `tsconfig.json`              | TypeScript strict, ESNext, bundler resolution, `noEmit`, includes `src/`, `test/`, `scripts/`, `types/*.d.ts`                                                                                                     |
 | `dx.config.toml`             | Project DX policy: runtime (`containers = "none"`), quality gate script aliases, `[finishWork]` gates, `[herdr]` orchestration layout, `[cloudflare]` read-only mode, `[[endpoints]]` inventory                   |
@@ -85,13 +85,23 @@
 
 **Prefer Bun APIs over Node equivalents.** Always use `Bun.file`, `Bun.write`, `new Bun.CryptoHasher("sha256")`, `Bun.spawn`, `await Bun.sleep(ms)`, `new Bun.Glob(...)`, `Bun.TOML.parse(...)`, `Bun.readableStreamToText(...)`. Use `Uint8Array` instead of `Buffer`. See `CODE_REFERENCES.md` for the full Bun-native exemplar map.
 
+### Bun 1.4.0 features we use
+
+| Feature                                                                                                      | How we use it                                                                                              | Benefit                                           |
+| ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `Symbol.dispose` for `spyOn()` / `mock()`                                                                    | `using spy = spyOn(obj, "method")` in tests — auto-restores on scope exit                                  | No manual `mockRestore()` or `afterEach` cleanup  |
+| `NO_PROXY` respected for explicit `proxy` option                                                             | `src/lib/http-client.ts` passes `proxy:` to `fetch()` — Bun now checks `NO_PROXY` even with explicit proxy | Correct proxy bypass for localhost/internal hosts |
+| JSC RegExp SIMD, `String#startsWith`, `Set`/`Map` `.size`, `String#trim`, `Object.defineProperty` intrinsics | Transparent JIT gains across all string/map/set/regex operations                                           | 1.2x–5.7x faster on affected patterns             |
+| `Bun.stringWidth` Thai/Lao fix                                                                               | `คำ` now correctly returns width 2 instead of 1                                                            | Correct terminal width for Thai/Lao text          |
+| ARMv8.0 SIGILL fix                                                                                           | Toolchain runs on Raspberry Pi 4, AWS a1, Cortex-A53 without crashes                                       | Broader ARM64 hardware support                    |
+
 ## Architecture & code organization
 
 ### Top-level directories
 
 | Directory            | Contents                                                                                                                                                                                                                                                                                               |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/bin/`           | CLI entry points (27 registered bins) plus source-only tools (`kimi-doctor.ts`, `kimi-governance.ts`, `kimi-fix.ts`, `herdr-*.ts`, etc.). Registered tools are listed in `package.json` `bin`; several are source-only and must be run via `bun run src/bin/<tool>.ts` or the `kimi-toolchain` router. |
+| `src/bin/`           | CLI entry points (28 registered bins) plus source-only tools (`kimi-doctor.ts`, `kimi-governance.ts`, `kimi-fix.ts`, `herdr-*.ts`, etc.). Registered tools are listed in `package.json` `bin`; several are source-only and must be run via `bun run src/bin/<tool>.ts` or the `kimi-toolchain` router. |
 | `src/lib/`           | Shared library modules. Flat by default to avoid deep imports and circular dependencies. `src/lib/effect/` is the intentional exception for Effect adapters. See `src/lib/README.md` for the domain map.                                                                                               |
 | `src/install-hooks/` | `postinstall.ts` — Bun package hook that idempotently sets up `~/.kimi-code/`.                                                                                                                                                                                                                         |
 | `src/kimi-hooks/`    | Kimi Code lifecycle hooks (e.g., `log-tool-failure.ts`) that are declared in `~/.kimi-code/config.toml` `[[hooks]]`.                                                                                                                                                                                   |
