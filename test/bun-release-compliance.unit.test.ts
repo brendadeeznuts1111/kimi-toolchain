@@ -735,7 +735,8 @@ describe("bun-release-compliance bun-v1.4.0", () => {
   test("--cpu-prof-interval flag supported", async () => {
     const proc = Bun.spawn({
       cmd: ["bun", "--cpu-prof-interval", "500", "-e", "process.exit(0)"],
-      stdout: "pipe", stderr: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
     });
     const exit = await proc.exited;
     expect(exit).toBe(0);
@@ -750,6 +751,94 @@ describe("bun-release-compliance bun-v1.4.0", () => {
     const text = readSrc("package.json");
     expect(text).toContain("bun run --parallel");
     expect(text).toContain("bun run --sequential");
+  });
+});
+
+// ── console / Bun.Terminal regression guard ──────────────────────────
+
+describe("bun-release-compliance console-bun-terminal", () => {
+  // Modules where console.log/error/warn is intentional (logger, CLI help, etc.)
+  const CONSOLE_ALLOW_SRC = new Set([
+    "src/lib/logger.ts",
+    "src/lib/compile-target.ts",
+    "src/lib/mcp-bridge-scaffold.ts",
+    "src/lib/secrets-cli.ts",
+    "src/lib/discover-cli.ts",
+    "src/lib/discover-format.ts",
+    "src/lib/identity-usage-example.ts",
+    "src/lib/ndjson.ts",
+    "src/lib/references-inspect-watch.ts",
+    "src/lib/herdr-dashboard/webview/options.ts",
+    "src/lib/test-runtime.ts",
+    "src/lib/bun-install-config.ts",
+    "src/lib/error-taxonomy.ts",
+    "src/lib/secrets-manager.ts",
+  ]);
+
+  // src/bin/ entry points: console is the primary output mechanism — not linted here
+
+  test("src/lib/ uses createLogger not raw console.log/error/warn", async () => {
+    const { Glob } = await import("bun");
+    const glob = new Glob("src/lib/**/*.ts");
+    const violations: string[] = [];
+    for (const path of glob.scanSync(import.meta.dir + "/..")) {
+      if (CONSOLE_ALLOW_SRC.has(path)) continue;
+      const text = await Bun.file(path).text();
+      for (const [i, line] of text.split("\n").entries()) {
+        const stripped = line.trim();
+        if (
+          /console\.(log|error|warn)\(/.test(line) &&
+          !stripped.startsWith("//") &&
+          !stripped.startsWith("*")
+        ) {
+          violations.push(`${path}:${i + 1}: ${line.trim()}`);
+        }
+      }
+    }
+    if (violations.length > 0) {
+      throw new Error(
+        `${violations.length} raw console.* call(s) in src/lib/ — use createLogger():\n${violations.slice(0, 10).join("\n")}`
+      );
+    }
+    expect(violations).toHaveLength(0);
+  });
+
+  test("test files do not reassign console.log", () => {
+    const glob = new Bun.Glob("test/**/*.test.ts");
+    const violations: string[] = [];
+    for (const path of glob.scanSync(import.meta.dir + "/..")) {
+      const text = readSrc(path);
+      for (const [i, line] of text.split("\n").entries()) {
+        if (/console\.log\s*=/.test(line)) {
+          violations.push(`${path}:${i + 1}: ${line.trim()}  → use captureConsole()`);
+        }
+      }
+    }
+    if (violations.length > 0) {
+      throw new Error(
+        `${violations.length} console.log reassignment(s) — use captureConsole():\n${violations.slice(0, 5).join("\n")}`
+      );
+    }
+    expect(violations).toHaveLength(0);
+  });
+
+  test("Bun.Terminal is only used in references-inspect-watch", () => {
+    const glob = new Bun.Glob("src/**/*.ts");
+    const allowed = new Set(["src/lib/references-inspect-watch.ts"]);
+    const violations: string[] = [];
+    for (const path of glob.scanSync(import.meta.dir + "/..")) {
+      if (allowed.has(path)) continue;
+      const text = readSrc(path);
+      if (text.includes("Bun.Terminal")) {
+        violations.push(`${path}`);
+      }
+    }
+    if (violations.length > 0) {
+      throw new Error(
+        `Bun.Terminal used outside references-inspect-watch.ts:\n${violations.join("\n")}`
+      );
+    }
+    expect(violations).toHaveLength(0);
   });
 });
 
