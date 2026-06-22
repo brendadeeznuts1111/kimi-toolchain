@@ -8,7 +8,7 @@
 import { Database } from "bun:sqlite";
 import { join } from "path";
 import { listDir, makeDir, pathExists, removePath } from "./bun-io.ts";
-import type { ArtifactEnvelope, ArtifactSessionContext } from "./artifact-store.ts";
+import type { ArtifactEnvelope, ArtifactSessionContext } from "./artifact-types.ts";
 
 const SCHEMA_VERSION = 1;
 const DB_FILENAME = ".index.sqlite";
