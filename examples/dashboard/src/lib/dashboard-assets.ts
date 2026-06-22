@@ -4,7 +4,11 @@
 
 import { join } from "path";
 
-export const DASHBOARD_STATIC_ASSETS = ["dashboard.css", "dashboard-core.js", "dashboard.js"] as const;
+export const DASHBOARD_STATIC_ASSETS = [
+  "dashboard.css",
+  "dashboard-core.js",
+  "dashboard.js",
+] as const;
 
 export type DashboardStaticAsset = (typeof DASHBOARD_STATIC_ASSETS)[number];
 

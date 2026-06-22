@@ -81,9 +81,7 @@ function dispatchCanvasFilterEvent(canvasId, cardIds) {
 
 function recomputeCardHighlight(scrollToFirst = false) {
   if (filterCanvasIds && filterExampleIds) {
-    const intersection = new Set(
-      [...filterCanvasIds].filter((id) => filterExampleIds.has(id))
-    );
+    const intersection = new Set([...filterCanvasIds].filter((id) => filterExampleIds.has(id)));
     const active = intersection.size > 0;
     applyCanvasCardClasses(intersection, active);
     if (scrollToFirst && active) {
@@ -129,12 +127,12 @@ async function fetchAndApplyCanvasDeepLink() {
     return;
   }
   const hasCanvasDeepLink =
-    params.get("canvas") ||
-    params.get("runId") ||
-    params.get("sessionId") ||
-    params.get("diff");
+    params.get("canvas") || params.get("runId") || params.get("sessionId") || params.get("diff");
   if (!hasCanvasDeepLink) return;
-  if (!params.get("canvas") && (params.get("runId") || params.get("sessionId") || params.get("diff"))) {
+  if (
+    !params.get("canvas") &&
+    (params.get("runId") || params.get("sessionId") || params.get("diff"))
+  ) {
     params.set("canvas", ARTIFACT_LINEAGE_CANVAS);
   }
   try {
@@ -323,8 +321,7 @@ function clearShowcaseHighlight() {
       const h2 = el?.querySelector("h2");
       if (!h2 || h2.querySelector(".card-showcase-badge")) continue;
       const label = card.showcaseEntries.slice(0, 2).join(" · ");
-      const extra =
-        card.showcaseEntries.length > 2 ? ` +${card.showcaseEntries.length - 2}` : "";
+      const extra = card.showcaseEntries.length > 2 ? ` +${card.showcaseEntries.length - 2}` : "";
       const badge = document.createElement("span");
       badge.className = "card-showcase-badge";
       badge.title = `Examples: ${card.showcaseEntries.join(", ")}`;
@@ -419,7 +416,11 @@ function clearShowcaseHighlight() {
 (async () => {
   const REFRESH_MS = 30000;
   let settings = null;
-  try { settings = await fetchJson("/api/settings"); } catch { /* optional */ }
+  try {
+    settings = await fetchJson("/api/settings");
+  } catch {
+    /* optional */
+  }
 
   function resolveProbeBase() {
     const host = settings?.probeHost ?? "127.0.0.1";
@@ -439,7 +440,8 @@ function clearShowcaseHighlight() {
   function setStat(statId, value, label, sub, detail, valueColor) {
     const el = document.querySelector(`[data-stat="${statId}"]`);
     if (!el) return;
-    const color = valueColor || (typeof value === "number" && value > 0 ? "var(--green)" : "var(--text)");
+    const color =
+      valueColor || (typeof value === "number" && value > 0 ? "var(--green)" : "var(--text)");
     el.innerHTML = `<div class="value" style="color:${color}">${value}</div>
       <div class="label">${label}</div>${sub ? `<div class="sub">${sub}</div>` : ""}${detail ? `<div class="detail">${detail}</div>` : ""}`;
   }
@@ -463,7 +465,11 @@ function clearShowcaseHighlight() {
   // Refresher
   async function refreshLanding() {
     const now = new Date().toLocaleTimeString();
-    try { settings = await fetchJson("/api/settings"); } catch { /* keep prior */ }
+    try {
+      settings = await fetchJson("/api/settings");
+    } catch {
+      /* keep prior */
+    }
 
     const probeBase = resolveProbeBase();
     let probeCards = null;
@@ -472,12 +478,18 @@ function clearShowcaseHighlight() {
     // Probe server: cards + artifacts (fire-and-forget, best-effort)
     try {
       const [pc, pa] = await Promise.all([
-        fetch(`${probeBase}/api/cards`).then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch(`${probeBase}/api/artifacts`).then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch(`${probeBase}/api/cards`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
+        fetch(`${probeBase}/api/artifacts`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
       ]);
       probeCards = pc;
       probeArts = pa;
-    } catch { /* probe unreachable */ }
+    } catch {
+      /* probe unreachable */
+    }
 
     // Cards tile: dashboard + probe server
     try {
@@ -494,16 +506,31 @@ function clearShowcaseHighlight() {
           sub += ` (${probeFail} fail · ${probeSkip} skip)`;
         }
       }
-      setStat("cards", `${ok}/${total}`, "cards passing",
-        sub, `dashboard · refreshed ${now}`,
-        colorForRatio(ok, total));
-    } catch { setStat("cards", "—", "cards", "unavailable", `refreshed ${now}`); }
+      setStat(
+        "cards",
+        `${ok}/${total}`,
+        "cards passing",
+        sub,
+        `dashboard · refreshed ${now}`,
+        colorForRatio(ok, total)
+      );
+    } catch {
+      setStat("cards", "—", "cards", "unavailable", `refreshed ${now}`);
+    }
 
     // Runtime
     try {
       const rt = await fetchJson("/api/runtime-info");
-      setStat("runtime", rt.runtime, `${rt.version.split("-")[0]}`, rt.bunVersion, `refreshed ${now}`);
-    } catch { setStat("runtime", "—", "runtime", "unavailable", `refreshed ${now}`); }
+      setStat(
+        "runtime",
+        rt.runtime,
+        `${rt.version.split("-")[0]}`,
+        rt.bunVersion,
+        `refreshed ${now}`
+      );
+    } catch {
+      setStat("runtime", "—", "runtime", "unavailable", `refreshed ${now}`);
+    }
 
     // Artifact gates: dashboard + probe
     try {
@@ -514,8 +541,16 @@ function clearShowcaseHighlight() {
       if (probeArts?.gates) {
         sub += ` · probe ${probeArts.count} gates`;
       }
-      setStat("artifacts", withSaved.length, "artifact gates", sub || undefined, `refreshed ${now}`);
-    } catch { setStat("artifacts", "—", "artifacts", "unavailable", `refreshed ${now}`); }
+      setStat(
+        "artifacts",
+        withSaved.length,
+        "artifact gates",
+        sub || undefined,
+        `refreshed ${now}`
+      );
+    } catch {
+      setStat("artifacts", "—", "artifacts", "unavailable", `refreshed ${now}`);
+    }
 
     // Dual health
     try {
@@ -524,13 +559,23 @@ function clearShowcaseHighlight() {
       const probeOk = !!(probeCards || probeArts); // probe reachable if either endpoint responded
 
       const summary = dashOk && probeOk ? "✓ ✓" : dashOk ? "✓ ✗" : probeOk ? "✗ ✓" : "✗ ✗";
-      const sub = dashOk ? (probeOk ? "both healthy" : "dashboard up · probe unreachable")
-        : (probeOk ? "dashboard down · probe up" : "both down");
+      const sub = dashOk
+        ? probeOk
+          ? "both healthy"
+          : "dashboard up · probe unreachable"
+        : probeOk
+          ? "dashboard down · probe up"
+          : "both down";
       const dashLabel = settings ? `dashboard :${settings.port}` : "dashboard";
       const probeLabel = `${settings?.probeHost ?? "127.0.0.1"}:${settings?.probePort ?? settings?.port ?? CANONICAL_DASHBOARD_PORT}`;
-      setStat("probe", summary, sub,
-        `${dashLabel} · probe ${probeLabel}`, `refreshed ${now}`,
-        dashOk && probeOk ? "var(--green)" : dashOk || probeOk ? "var(--yellow)" : "var(--red)");
+      setStat(
+        "probe",
+        summary,
+        sub,
+        `${dashLabel} · probe ${probeLabel}`,
+        `refreshed ${now}`,
+        dashOk && probeOk ? "var(--green)" : dashOk || probeOk ? "var(--yellow)" : "var(--red)"
+      );
     } catch {
       setStat("probe", "✗ ✗", "both down", "unreachable", `refreshed ${now}`, "var(--red)");
     }
@@ -539,17 +584,17 @@ function clearShowcaseHighlight() {
   // Stale indicator — dim tiles when data is >90s old
   let staleTimer = null;
   function markStale() {
-    document.querySelectorAll(".landing-stat").forEach(el => el.classList.add("stale"));
+    document.querySelectorAll(".landing-stat").forEach((el) => el.classList.add("stale"));
   }
   function clearStale() {
-    document.querySelectorAll(".landing-stat").forEach(el => el.classList.remove("stale"));
+    document.querySelectorAll(".landing-stat").forEach((el) => el.classList.remove("stale"));
     clearTimeout(staleTimer);
     staleTimer = setTimeout(markStale, 90000);
   }
 
   // Pulse on update — brief blue glow when new data arrives
   function pulseLanding() {
-    document.querySelectorAll(".landing-stat").forEach(el => {
+    document.querySelectorAll(".landing-stat").forEach((el) => {
       el.classList.remove("refreshed");
       void el.offsetWidth; // force reflow to restart animation
       el.classList.add("refreshed");
@@ -560,10 +605,18 @@ function clearShowcaseHighlight() {
   const landingErrors = { cards: 0, runtime: 0, artifacts: 0, probe: 0 };
   function setStatErrored(statId) {
     landingErrors[statId] = (landingErrors[statId] || 0) + 1;
-    const warn = landingErrors[statId] >= 3 ? ' <span class="err-icon">⚠</span>' : '';
-    setStat(statId, "—", `unavailable${warn}`, `failures: ${landingErrors[statId]}`, `refreshed ${new Date().toLocaleTimeString()}`);
+    const warn = landingErrors[statId] >= 3 ? ' <span class="err-icon">⚠</span>' : "";
+    setStat(
+      statId,
+      "—",
+      `unavailable${warn}`,
+      `failures: ${landingErrors[statId]}`,
+      `refreshed ${new Date().toLocaleTimeString()}`
+    );
   }
-  function setStatOk(statId) { landingErrors[statId] = 0; }
+  function setStatOk(statId) {
+    landingErrors[statId] = 0;
+  }
 
   // Wrapper: tries fetch, resets error count on success, increments on failure
   async function refreshLandingSafe(statId, fetch, render) {
@@ -580,7 +633,11 @@ function clearShowcaseHighlight() {
   // Refresher (rewired with error tracking)
   async function refreshLanding() {
     const now = new Date().toLocaleTimeString();
-    try { settings = await fetchJson("/api/settings"); } catch { /* keep prior */ }
+    try {
+      settings = await fetchJson("/api/settings");
+    } catch {
+      /* keep prior */
+    }
 
     const probeBase = resolveProbeBase();
     let probeCards = null;
@@ -589,15 +646,22 @@ function clearShowcaseHighlight() {
     // Probe server: cards + artifacts (fire-and-forget, best-effort)
     try {
       const [pc, pa] = await Promise.all([
-        fetch(`${probeBase}/api/cards`).then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch(`${probeBase}/api/artifacts`).then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch(`${probeBase}/api/cards`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
+        fetch(`${probeBase}/api/artifacts`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
       ]);
       probeCards = pc;
       probeArts = pa;
-    } catch { /* probe unreachable */ }
+    } catch {
+      /* probe unreachable */
+    }
 
     // Cards tile
-    await refreshLandingSafe("cards",
+    await refreshLandingSafe(
+      "cards",
       () => fetchJson("/api/cards?probe=true"),
       async () => {
         const cards = await fetchJson("/api/cards?probe=true");
@@ -613,21 +677,36 @@ function clearShowcaseHighlight() {
             sub += ` (${probeFail} fail · ${probeSkip} skip)`;
           }
         }
-        setStat("cards", `${ok}/${total}`, "cards passing", sub, `dashboard · refreshed ${now}`, colorForRatio(ok, total));
+        setStat(
+          "cards",
+          `${ok}/${total}`,
+          "cards passing",
+          sub,
+          `dashboard · refreshed ${now}`,
+          colorForRatio(ok, total)
+        );
       }
     );
 
     // Runtime
-    await refreshLandingSafe("runtime",
+    await refreshLandingSafe(
+      "runtime",
       () => fetchJson("/api/runtime-info"),
       async () => {
         const rt = await fetchJson("/api/runtime-info");
-        setStat("runtime", rt.runtime, `${rt.version.split("-")[0]}`, rt.bunVersion, `refreshed ${now}`);
+        setStat(
+          "runtime",
+          rt.runtime,
+          `${rt.version.split("-")[0]}`,
+          rt.bunVersion,
+          `refreshed ${now}`
+        );
       }
     );
 
     // Artifact gates
-    await refreshLandingSafe("artifacts",
+    await refreshLandingSafe(
+      "artifacts",
       () => fetchJson("/api/artifacts"),
       async () => {
         const arts = await fetchJson("/api/artifacts");
@@ -635,33 +714,61 @@ function clearShowcaseHighlight() {
         const gateNames = withSaved.map((r) => r.gate).join(", ");
         let sub = gateNames.length > 40 ? `${gateNames.slice(0, 40)}…` : gateNames;
         if (probeArts?.gates) sub += ` · probe ${probeArts.count} gates`;
-        setStat("artifacts", withSaved.length, "artifact gates", sub || undefined, `refreshed ${now}`);
+        setStat(
+          "artifacts",
+          withSaved.length,
+          "artifact gates",
+          sub || undefined,
+          `refreshed ${now}`
+        );
       }
     );
 
     // Dual health
-    await refreshLandingSafe("probe",
+    await refreshLandingSafe(
+      "probe",
       () => fetch("/api/health", { method: "HEAD" }),
       async () => {
         const dashHealth = await fetch("/api/health", { method: "HEAD" });
         const dashOk = dashHealth.ok;
         const probeOk = !!(probeCards || probeArts);
         const summary = dashOk && probeOk ? "✓ ✓" : dashOk ? "✓ ✗" : probeOk ? "✗ ✓" : "✗ ✗";
-        const sub = dashOk ? (probeOk ? "both healthy" : "dashboard up · probe unreachable") : (probeOk ? "dashboard down · probe up" : "both down");
+        const sub = dashOk
+          ? probeOk
+            ? "both healthy"
+            : "dashboard up · probe unreachable"
+          : probeOk
+            ? "dashboard down · probe up"
+            : "both down";
         const dashLabel = settings ? `dashboard :${settings.port}` : "dashboard";
         const probeLabel = `${settings?.probeHost ?? "127.0.0.1"}:${settings?.probePort ?? settings?.port ?? CANONICAL_DASHBOARD_PORT}`;
-        setStat("probe", summary, sub, `${dashLabel} · probe ${probeLabel}`, `refreshed ${now}`, dashOk && probeOk ? "var(--green)" : dashOk || probeOk ? "var(--yellow)" : "var(--red)");
+        setStat(
+          "probe",
+          summary,
+          sub,
+          `${dashLabel} · probe ${probeLabel}`,
+          `refreshed ${now}`,
+          dashOk && probeOk ? "var(--green)" : dashOk || probeOk ? "var(--yellow)" : "var(--red)"
+        );
       }
     );
 
     // Convergence
-    await refreshLandingSafe("convergence",
+    await refreshLandingSafe(
+      "convergence",
       () => fetchJson("/api/artifact-graph"),
       async () => {
         const cg = await fetchJson("/api/artifact-graph");
         const aligned = cg.artifactGraph?.aligned ?? false;
         const count = cg.artifactGraph?.gateCount ?? 0;
-        setStat("convergence", aligned ? "✓" : "✗", aligned ? "aligned" : "drift", `${count} gates · ${cg.artifactGraph?.artifactCount ?? 0} nodes`, `refreshed ${now}`, aligned ? "var(--green)" : "var(--red)");
+        setStat(
+          "convergence",
+          aligned ? "✓" : "✗",
+          aligned ? "aligned" : "drift",
+          `${count} gates · ${cg.artifactGraph?.artifactCount ?? 0} nodes`,
+          `refreshed ${now}`,
+          aligned ? "var(--green)" : "var(--red)"
+        );
       }
     );
   }
@@ -672,7 +779,8 @@ function clearShowcaseHighlight() {
     const m = runManifest?.manifest || runManifest;
     if (m?.runId) {
       const gates = (m.gates || []).join(", ");
-      const statusColor = m.status === "pass" ? "var(--green)" : m.status === "fail" ? "var(--red)" : "var(--yellow)";
+      const statusColor =
+        m.status === "pass" ? "var(--green)" : m.status === "fail" ? "var(--red)" : "var(--yellow)";
       el.innerHTML = `Last run: <code style="color:var(--blue)">${m.runId.slice(0, 32)}…</code> · ${m.gates?.length || 0} gates: ${gates.slice(0, 50)} · <span style="color:${statusColor}">${m.status}</span> · probe: <code>${probeBase.replace("http://", "")}</code>`;
     } else {
       el.innerHTML = `No run manifests yet · Save one with <code style="color:var(--blue)">kimi-doctor --run-gates --save-artifact</code> · probe: <code>${probeBase.replace("http://", "")}</code>`;
@@ -685,13 +793,19 @@ function clearShowcaseHighlight() {
     if (!el) return;
     try {
       const probeBase = resolveProbeBase();
-      const runList = await fetch(`${probeBase}/api/runs`).then(r => r.ok ? r.json() : null).catch(() => null);
+      const runList = await fetch(`${probeBase}/api/runs`)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
       let manifest = null;
       if (runList?.runs?.length > 0) {
         const latestId = runList.runs[0].runId;
         try {
-          manifest = await fetch(`${probeBase}/api/runs/${encodeURIComponent(latestId)}`).then(r => r.ok ? r.json() : null).catch(() => null);
-        } catch { /* manifest not found */ }
+          manifest = await fetch(`${probeBase}/api/runs/${encodeURIComponent(latestId)}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null);
+        } catch {
+          /* manifest not found */
+        }
       }
       renderActivity(manifest, probeBase);
     } catch {
@@ -703,7 +817,10 @@ function clearShowcaseHighlight() {
   await refreshLanding();
   pulseLanding();
   clearStale();
-  setInterval(() => { refreshLanding().then(pulseLanding); clearStale(); }, REFRESH_MS);
+  setInterval(() => {
+    refreshLanding().then(pulseLanding);
+    clearStale();
+  }, REFRESH_MS);
 })();
 
 function card(id, body) {

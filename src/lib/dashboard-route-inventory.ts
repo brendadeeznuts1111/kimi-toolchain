@@ -129,7 +129,10 @@ export function formatDashboardRouteInventoryBlock(inventory: DashboardRouteInve
 <!-- /dashboard-route-inventory:AUTO -->`;
 }
 
-export function syncDashboardRouteDocs(repoRoot: string, options: { check?: boolean } = {}): string[] {
+export function syncDashboardRouteDocs(
+  repoRoot: string,
+  options: { check?: boolean } = {}
+): string[] {
   const inventory = buildDashboardRouteInventory();
   const block = formatDashboardRouteInventoryBlock(inventory);
   const violations: string[] = [];
@@ -143,7 +146,8 @@ export function syncDashboardRouteDocs(repoRoot: string, options: { check?: bool
     violations.push("examples/dashboard/README.md missing dashboard-route-inventory markers");
   } else if (options.check) {
     const match = readme.match(README_INVENTORY_BLOCK)?.[0];
-    if (match !== block) violations.push("examples/dashboard/README.md route inventory block is stale");
+    if (match !== block)
+      violations.push("examples/dashboard/README.md route inventory block is stale");
   } else {
     Bun.write(readmePath, readme.replace(README_INVENTORY_BLOCK, block));
   }
@@ -154,7 +158,8 @@ export function syncDashboardRouteDocs(repoRoot: string, options: { check?: bool
   if (!urlsPattern.test(urls)) {
     violations.push("examples/dashboard-urls.md missing route total summary line");
   } else if (options.check) {
-    if (!urls.includes(urlsLine)) violations.push("examples/dashboard-urls.md route total line is stale");
+    if (!urls.includes(urlsLine))
+      violations.push("examples/dashboard-urls.md route total line is stale");
   } else {
     const nextUrls = urls.replace(
       /Examples dashboard \(`handlers\/routes\.ts` \+ `handlers\/artifacts\.ts`\) — \*\*\d+\*\* routes total[^\n]*/,
@@ -198,7 +203,10 @@ export function syncDashboardRouteDocs(repoRoot: string, options: { check?: bool
         violations.push("examples/dashboard-urls.md decomposed route count is stale");
       }
     } else {
-      const refreshed = readText(urlsPath).replace(decomposedPattern, `**${inventory.total}** examples-dashboard routes.`);
+      const refreshed = readText(urlsPath).replace(
+        decomposedPattern,
+        `**${inventory.total}** examples-dashboard routes.`
+      );
       Bun.write(urlsPath, refreshed);
     }
   }
@@ -265,7 +273,10 @@ export function parseRoutesHandlerImports(routesSource: string): Map<string, str
   for (const match of routesSource.matchAll(importRe)) {
     const file = match[2]!;
     for (const chunk of match[1]!.split(",")) {
-      const symbol = chunk.trim().split(/\s+as\s+/)[0]?.trim();
+      const symbol = chunk
+        .trim()
+        .split(/\s+as\s+/)[0]
+        ?.trim();
       if (symbol) imports.set(symbol, file);
     }
   }

@@ -1,10 +1,5 @@
 #!/usr/bin/env bun
-import {
-  bunRevision,
-  bunVersion,
-  isDirectRun,
-  readableStreamToText,
-} from "../lib/bun-utils.ts";
+import { bunRevision, bunVersion, isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
 import { spawnBun, withBunNoOrphans } from "../lib/tool-runner.ts";
 import { withNoOrphansEnv } from "../lib/bun-spawn-env.ts";
@@ -2150,7 +2145,10 @@ async function main(): Promise<number> {
       }
     } else {
       results.push(
-        error("kimi-code", "not found — curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash")
+        error(
+          "kimi-code",
+          "not found — curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash"
+        )
       );
     }
   });

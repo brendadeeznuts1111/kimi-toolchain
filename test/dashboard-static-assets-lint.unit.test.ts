@@ -10,9 +10,7 @@ describe("dashboard-static-assets-lint", () => {
   });
 
   test("dashboard.html references every static asset", async () => {
-    const html = await Bun.file(
-      `${REPO_ROOT}/examples/dashboard/src/dashboard.html`
-    ).text();
+    const html = await Bun.file(`${REPO_ROOT}/examples/dashboard/src/dashboard.html`).text();
     for (const asset of DASHBOARD_STATIC_ASSETS) {
       expect(html).toContain(`/${asset}`);
     }

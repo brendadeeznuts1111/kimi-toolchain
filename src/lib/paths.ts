@@ -371,3 +371,13 @@ export function projectMappingsPath(): string {
 export function guardDir(): string {
   return join(desktopRoot(), "guard");
 }
+
+/** Return {projectRoot}/secrets-policy.json5 */
+export function secretsPolicyPath(projectRoot: string): string {
+  return join(projectRoot, "secrets-policy.json5");
+}
+
+/** Return ~/.kimi-code/var/secrets-audit.ndjson */
+export function secretsAuditPath(): string {
+  return join(varDir(), "secrets-audit.ndjson");
+}

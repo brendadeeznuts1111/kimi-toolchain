@@ -88,9 +88,9 @@ describe("examples-showcase", () => {
     expect(trading?.probe?.artifactCount).toBeGreaterThan(0);
     const dashboard = payload.entries.find((e) => e.id === "dashboard");
     const expectedCards = loadDashboardCardIds(REPO_ROOT).length;
-    expect(
-      dashboard?.probe && "cardCount" in dashboard.probe ? dashboard.probe.cardCount : 0
-    ).toBe(expectedCards);
+    expect(dashboard?.probe && "cardCount" in dashboard.probe ? dashboard.probe.cardCount : 0).toBe(
+      expectedCards
+    );
   });
 
   test("buildExamplesShowcasePayload rewrites open commands to settings port", () => {

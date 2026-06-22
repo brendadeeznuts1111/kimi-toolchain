@@ -93,10 +93,7 @@ import { apiUrl } from "./url-urlsearchparams.ts";
 import { apiUtilTypes } from "./util-types.ts";
 import { apiVmContext } from "./vm-context.ts";
 import { readBenchmarkHealthCheck } from "../../../../src/lib/effect-benchmark-card.ts";
-import {
-  dashboardAssetResponse,
-  type DashboardStaticAsset,
-} from "../lib/dashboard-assets.ts";
+import { dashboardAssetResponse, type DashboardStaticAsset } from "../lib/dashboard-assets.ts";
 import { resolveRoot, type DashboardHttpMethod } from "./shared.ts";
 
 export type DashboardRouteHandler = (req: Request) => Response | Promise<Response>;
@@ -148,7 +145,10 @@ async function apiHealth(req: Request): Promise<Response> {
 
 /** Static switch routes (URLPattern artifact routes are handled earlier in index.ts). */
 export const DASHBOARD_STATIC_ROUTES: readonly DashboardStaticRoute[] = [
-  route("/", () => new Response(Bun.file(import.meta.dir + "/../dashboard.html"), { headers: HTML_HEADERS })),
+  route(
+    "/",
+    () => new Response(Bun.file(import.meta.dir + "/../dashboard.html"), { headers: HTML_HEADERS })
+  ),
   route("/dashboard.css", () => serveDashboardAsset("dashboard.css")),
   route("/dashboard-core.js", () => serveDashboardAsset("dashboard-core.js")),
   route("/dashboard.js", () => serveDashboardAsset("dashboard.js")),

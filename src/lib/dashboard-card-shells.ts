@@ -36,7 +36,10 @@ export function renderCardShellBlock(cards: Array<{ id: string; title: string }>
   return `${DASHBOARD_CARD_SHELLS_BEGIN}\n${body}\n      ${DASHBOARD_CARD_SHELLS_END}`;
 }
 
-export function syncDashboardCardShells(repoRoot: string, options: { check?: boolean } = {}): string[] {
+export function syncDashboardCardShells(
+  repoRoot: string,
+  options: { check?: boolean } = {}
+): string[] {
   const violations: string[] = [];
   const missing = missingCardPanels(repoRoot);
   const htmlPath = dashboardHtmlPath(repoRoot);

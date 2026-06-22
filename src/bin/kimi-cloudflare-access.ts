@@ -38,13 +38,14 @@ import {
   auditApps,
   buildDashboard,
   checkTokenExpiry,
-  CREDENTIAL_SERVICE,
   discoverOrphanedResources,
-  getCredentials,
+  getCredentialsFromManager,
   listApplications,
   listServiceTokens,
   rotateServiceToken,
   ServiceToken,
+  storeCredentialsViaManager,
+  deleteCredentialsViaManager,
   verifyToken,
 } from "../lib/cloudflare-access.ts";
 
@@ -71,26 +72,20 @@ async function login(): Promise<number> {
   }
   logger.info("Token verified");
 
-  await Bun.secrets.set({
-    service: CREDENTIAL_SERVICE,
-    name: "cloudflare-account-id",
-    value: accountId,
-  });
-  await Bun.secrets.set({
-    service: CREDENTIAL_SERVICE,
-    name: "cloudflare-api-token",
-    value: apiToken,
-  });
+  await storeCredentialsViaManager(accountId, apiToken);
 
-  logger.info("Credentials saved to OS keychain.");
+  logger.info("Credentials saved to OS keychain (via SecretsManager).");
   logger.info("Run `kimi-cloudflare-access logout` to remove them.");
   return 0;
 }
 
 async function logout(): Promise<number> {
-  await Bun.secrets.delete({ service: CREDENTIAL_SERVICE, name: "cloudflare-account-id" });
-  await Bun.secrets.delete({ service: CREDENTIAL_SERVICE, name: "cloudflare-api-token" });
-  logger.info("Cloudflare credentials removed from OS keychain.");
+  const result = await deleteCredentialsViaManager();
+  if (result.accountIdDeleted || result.apiTokenDeleted) {
+    logger.info("Cloudflare credentials removed from OS keychain (via SecretsManager).");
+  } else {
+    logger.info("No Cloudflare credentials found in keychain.");
+  }
   return 0;
 }
 
@@ -175,7 +170,7 @@ async function doctor(): Promise<
   let apiToken: string;
 
   try {
-    const creds = await getCredentials();
+    const creds = await getCredentialsFromManager();
     accountId = creds.accountId;
     apiToken = creds.apiToken;
     checks.push({
@@ -453,7 +448,7 @@ async function main(): Promise<number> {
   let accountId: string;
   let apiToken: string;
   try {
-    ({ accountId, apiToken } = await getCredentials());
+    ({ accountId, apiToken } = await getCredentialsFromManager());
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (jsonMode) {
@@ -744,7 +739,7 @@ async function main(): Promise<number> {
 
     let mcpAccountId: string;
     try {
-      ({ accountId: mcpAccountId } = await getCredentials());
+      ({ accountId: mcpAccountId } = await getCredentialsFromManager());
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (jsonMode) {

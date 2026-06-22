@@ -11,6 +11,8 @@ import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { homeDir } from "./paths.ts";
 import { parsePolicyConfig } from "./cloudflare-access-policy.ts";
+import { Effect, Exit } from "effect";
+import { SecretsManager, type SecretsManagerOptions } from "./secrets-manager.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -155,6 +157,109 @@ export async function getCredentials(
       "Create a token with Account > Access: Read (and Access: Edit to rotate) at https://dash.cloudflare.com/profile/api-tokens\n" +
       "Note: Wrangler OAuth / Kimi Code MCP auth is separate and cannot be used by this CLI."
   );
+}
+
+// ── SecretsManager-based Credentials (v2) ────────────────────────────
+
+export const CLOUDFLARE_CONSUMER = "kimi-cloudflare-access";
+
+/**
+ * Load Cloudflare credentials via SecretsManager with policy enforcement
+ * and audit logging. Falls back to env vars if secrets are not found.
+ *
+ * Unlike the raw `getCredentials()`, this function:
+ * - Enforces `allowedConsumers` from the secrets policy
+ * - Records audit entries for every access
+ * - Returns null instead of throwing when credentials are missing
+ */
+export async function loadCredentialsFromManager(
+  manager: SecretsManager
+): Promise<{ accountId?: string; apiToken?: string }> {
+  const accountIdExit = await Effect.runPromiseExit(
+    manager.get({ service: CREDENTIAL_SERVICE, name: ACCOUNT_SECRET }, CLOUDFLARE_CONSUMER)
+  );
+  const apiTokenExit = await Effect.runPromiseExit(
+    manager.get({ service: CREDENTIAL_SERVICE, name: TOKEN_SECRET }, CLOUDFLARE_CONSUMER)
+  );
+
+  const accountId =
+    Exit.isSuccess(accountIdExit) && accountIdExit.value !== null ? accountIdExit.value : undefined;
+  const apiToken =
+    Exit.isSuccess(apiTokenExit) && apiTokenExit.value !== null ? apiTokenExit.value : undefined;
+
+  return { accountId, apiToken };
+}
+
+/**
+ * Get Cloudflare credentials via SecretsManager with full policy enforcement.
+ *
+ * Resolution order:
+ *   1. Environment variables (CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN)
+ *   2. SecretsManager (policy-enforced, audited)
+ *
+ * Throws if no credentials are found from any source.
+ */
+export async function getCredentialsFromManager(
+  managerOpts: SecretsManagerOptions = {}
+): Promise<{ accountId: string; apiToken: string }> {
+  const accountId = Bun.env.CLOUDFLARE_ACCOUNT_ID;
+  const apiToken = Bun.env.CLOUDFLARE_API_TOKEN;
+
+  if (accountId && apiToken) {
+    return { accountId, apiToken };
+  }
+
+  const manager = new SecretsManager(managerOpts);
+  const fromManager = await loadCredentialsFromManager(manager);
+  if (fromManager.accountId && fromManager.apiToken) {
+    return { accountId: fromManager.accountId, apiToken: fromManager.apiToken };
+  }
+
+  throw new Error(
+    "Missing Cloudflare credentials.\n" +
+      "Run: kimi-cloudflare-access login\n" +
+      "Or set env vars: CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN\n" +
+      "Create a token with Account > Access: Read (and Access: Edit to rotate) at https://dash.cloudflare.com/profile/api-tokens\n" +
+      "Note: Wrangler OAuth / Kimi Code MCP auth is separate and cannot be used by this CLI."
+  );
+}
+
+/**
+ * Store Cloudflare credentials via SecretsManager with policy enforcement
+ * and audit logging. Used by `kimi-cloudflare-access login`.
+ */
+export async function storeCredentialsViaManager(
+  accountId: string,
+  apiToken: string,
+  managerOpts: SecretsManagerOptions = {}
+): Promise<void> {
+  const manager = new SecretsManager(managerOpts);
+
+  await Effect.runPromise(
+    manager.set({ service: CREDENTIAL_SERVICE, name: ACCOUNT_SECRET }, accountId)
+  );
+  await Effect.runPromise(
+    manager.set({ service: CREDENTIAL_SERVICE, name: TOKEN_SECRET }, apiToken)
+  );
+}
+
+/**
+ * Delete Cloudflare credentials via SecretsManager with audit logging.
+ * Used by `kimi-cloudflare-access logout`.
+ */
+export async function deleteCredentialsViaManager(
+  managerOpts: SecretsManagerOptions = {}
+): Promise<{ accountIdDeleted: boolean; apiTokenDeleted: boolean }> {
+  const manager = new SecretsManager(managerOpts);
+
+  const accountIdDeleted = await Effect.runPromise(
+    manager.delete({ service: CREDENTIAL_SERVICE, name: ACCOUNT_SECRET })
+  );
+  const apiTokenDeleted = await Effect.runPromise(
+    manager.delete({ service: CREDENTIAL_SERVICE, name: TOKEN_SECRET })
+  );
+
+  return { accountIdDeleted, apiTokenDeleted };
 }
 
 export async function verifyToken(apiToken: string): Promise<{ valid: boolean; message?: string }> {

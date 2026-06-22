@@ -136,9 +136,7 @@ export function parseDashboardCardsFromHtml(
   }
 
   const scriptStart = html.indexOf("<script>");
-  const script =
-    options.script ??
-    (scriptStart >= 0 ? html.slice(scriptStart) : "");
+  const script = options.script ?? (scriptStart >= 0 ? html.slice(scriptStart) : "");
   const apiByCard = new Map<string, string>();
 
   for (const match of script.matchAll(/card\("(card-[^"]+)"/g)) {

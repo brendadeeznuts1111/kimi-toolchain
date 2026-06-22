@@ -30,9 +30,7 @@ describe("dashboard-route-inventory", () => {
   });
 
   test("scanDashboardRouteHandlerRefs finds wired api handlers", () => {
-    const source = Bun.file(
-      `${REPO_ROOT}/examples/dashboard/src/handlers/routes.ts`
-    ).text();
+    const source = Bun.file(`${REPO_ROOT}/examples/dashboard/src/handlers/routes.ts`).text();
     return source.then((text) => {
       const refs = scanDashboardRouteHandlerRefs(text);
       expect(refs).toContain("apiGates");

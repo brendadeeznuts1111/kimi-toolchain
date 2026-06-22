@@ -17,6 +17,7 @@ import { inspectAgent } from "./inspect.ts";
 import { isAgentContext } from "./tool-runner.ts";
 import { getStepBudgetStatus } from "./step-budget.ts";
 import { nowNanos } from "./bun-utils.ts";
+import { colorError, colorWarn, colorSuccess, colorInfo, colorDim } from "./cli-format.ts";
 
 function writeJsonLine(value: unknown): void {
   process.stdout.write(`${inspectAgent(value)}\n`);
@@ -100,6 +101,10 @@ export class Logger {
   /** Active performance timers keyed by label. Stores nowNanos() (Bun.nanoseconds()) start values. */
   private timers = new Map<string, number>();
 
+  private useColor(): boolean {
+    return !this.json && !this.quiet && !isAgentContext() && process.stdout.isTTY === true;
+  }
+
   constructor(options: LoggerOptions = {}) {
     this.level = options.level ?? "info";
     this.json = options.json ?? false;
@@ -174,7 +179,16 @@ export class Logger {
             ? "✓"
             : "◦";
     const prefix = entry.level === "error" ? "  ✗" : `  ${icon}`;
-    console.log(`${prefix} ${entry.message}`);
+    const coloredPrefix = this.useColor()
+      ? entry.level === "error"
+        ? colorError(prefix)
+        : entry.level === "warn"
+          ? colorWarn(prefix)
+          : entry.level === "info"
+            ? colorSuccess(prefix)
+            : colorDim(prefix)
+      : prefix;
+    console.log(`${coloredPrefix} ${entry.message}`);
 
     if (this.stepBudget) this.emitStepBudgetWarning();
   }
@@ -345,14 +359,27 @@ export class Logger {
   section(title: string): void {
     if (isAgentContext() || this.quiet || this.json) return;
     const width = 60;
+    const header = `── ${title} ${"─".repeat(Math.max(0, width - title.length))}`;
     console.log("");
-    console.log(`── ${title} ${"─".repeat(Math.max(0, width - title.length))}`);
+    console.log(this.useColor() ? colorInfo(header) : header);
   }
 
   /** Raw stdout line (help text, tables). Suppressed in agent/quiet/json modes. */
   line(msg: string): void {
     if (isAgentContext() || this.quiet || this.json) return;
     console.log(msg);
+  }
+
+  /** Print a table of data (suppressed in agent/quiet/json modes). */
+  table(data: Record<string, unknown>[]): void {
+    if (isAgentContext() || this.quiet || this.json) return;
+    console.table(data);
+  }
+
+  /** Inspect and print an object using Bun.inspect with TTY-aware colors. */
+  inspect(obj: unknown, depth: number = 4): void {
+    if (isAgentContext() || this.quiet || this.json) return;
+    console.log(Bun.inspect(obj, { colors: this.useColor(), depth }));
   }
 
   /** Print a full doctor/health report with section, checks, and summary counts. */
