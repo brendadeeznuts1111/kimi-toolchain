@@ -93,6 +93,8 @@
 | `NO_PROXY` respected for explicit `proxy` option                                                             | `src/lib/http-client.ts` passes `proxy:` to `fetch()` — Bun now checks `NO_PROXY` even with explicit proxy | Correct proxy bypass for localhost/internal hosts |
 | JSC RegExp SIMD, `String#startsWith`, `Set`/`Map` `.size`, `String#trim`, `Object.defineProperty` intrinsics | Transparent JIT gains across all string/map/set/regex operations                                           | 1.2x–5.7x faster on affected patterns             |
 | `Bun.stringWidth` Thai/Lao fix                                                                               | `คำ` now correctly returns width 2 instead of 1                                                            | Correct terminal width for Thai/Lao text          |
+| `Bun.Markdown` SIMD scanning & cached HTML tags                                                              | `src/lib/bun-markdown.ts` facade (html, ansi, render, react) — `Bun.markdown.html()` and `.react()`         | 3–15% faster HTML, 7–28% faster React, 40% fewer string allocs |
+| `AbortSignal.abort()` no-listener fast path                                                                  | 25+ `AbortController`/`AbortSignal.timeout()` sites across the codebase                                     | ~6% faster abort when no listeners registered     |
 | ARMv8.0 SIGILL fix                                                                                           | Toolchain runs on Raspberry Pi 4, AWS a1, Cortex-A53 without crashes                                       | Broader ARM64 hardware support                    |
 
 ## Architecture & code organization
