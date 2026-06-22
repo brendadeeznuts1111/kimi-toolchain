@@ -24,6 +24,8 @@ run_as: inline
 metadata:
   companionSkills:
     - kimi-toolchain
+tags: [skills]
+category: meta
 ---
 
 # Create Template (L2)

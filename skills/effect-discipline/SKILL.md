@@ -21,6 +21,8 @@ run_as: inline
 metadata:
   companionSkills:
     - effect-hardening
+tags: [skills]
+category: meta
 ---
 
 # Effect Discipline (L1+L2)

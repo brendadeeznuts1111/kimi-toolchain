@@ -1,3 +1,10 @@
+---
+title: "Bun File Streaming"
+tags: [references, reference, bun]
+category: core
+status: draft
+priority: medium
+---
 # Bun File Streaming Reference
 
 Decision rules for Bun-native file streaming in `kimi-toolchain`.
@@ -110,3 +117,6 @@ For helper or parser changes, add the targeted unit test first, then run:
 bun test test/ndjson.unit.test.ts
 bun run check:fast
 ```
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

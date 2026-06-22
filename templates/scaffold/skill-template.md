@@ -17,6 +17,8 @@ token_estimate: 400
 run_as: inline
 metadata:
   companionSkills: []
+tags: [templates]
+category: meta
 ---
 
 # {{SKILL_TITLE}} (L1)

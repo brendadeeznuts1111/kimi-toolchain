@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [canvases]
+category: meta
+status: draft
+priority: medium
+---
 # Canvas companions (kimi-toolchain)
 
 **SSOT:** `docs/canvases/*.canvas.tsx` — registered via `cursorCanvas` in
@@ -52,3 +59,6 @@ Global canvas skills are **not** updated from this repo. Repo conventions live h
 Manifest id matches the indexed doc (`DEEP-QUALITY.md`). The canvas filename
 uses the topic stem (`kimi-heal-doctor-scaffold`); dashboard `?canvas=` filters
 accept either `deep-quality` or `kimi-heal-doctor-scaffold`.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

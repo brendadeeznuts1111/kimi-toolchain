@@ -33,6 +33,8 @@ metadata:
   pinned: true
   companionSkills:
     - orchestrator
+tags: [skills]
+category: meta
 ---
 
 # Herdr (L1+L2)
@@ -340,3 +342,6 @@ Re-read pane ids after every split/close — ids compact when panes are removed.
 - `--no-focus` on split, tab create, and workspace create keeps your current terminal context focused.
 - if you are running inside herdr, the `HERDR_ENV` environment variable is set to `1`.
 - remote attach: `herdr --remote <ssh-host>` — see [how to work with Herdr](https://herdr.dev/docs/how-to-work/).
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

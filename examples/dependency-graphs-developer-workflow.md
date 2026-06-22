@@ -1,3 +1,10 @@
+---
+title: "Dependency Graphs Developer Workflow"
+tags: [examples]
+category: examples
+status: draft
+priority: medium
+---
 # Dependency Graphs — Developer Workflow
 
 Day-to-day experience working with **gate execution graphs** (orchestration) and
@@ -180,3 +187,6 @@ Built-in mapping: `card-probe` / `tls-compliance` → L1; `perf-gate`,
 - CLI: `src/bin/kimi-doctor.ts`
 - Dashboard: `src/lib/herdr-dashboard-data.ts`, `src/lib/herdr-dashboard-server.ts`
 - Read-only probe: `docs/adr/ADR-0004-serve-probe-readonly.md`
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

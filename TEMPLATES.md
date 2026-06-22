@@ -1,3 +1,10 @@
+---
+title: "TEMPLATES"
+tags: [root]
+category: root
+status: draft
+priority: medium
+---
 # Project Templates
 
 Elite-grade templates. No hardcoded ports. No brittle assumptions. Bun-native by default.
@@ -643,3 +650,6 @@ Scaffolded by `kimi-fix`. Only add stdio servers in trusted repos.
 ```
 
 Run `kimi login` in terminal before first IDE session.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

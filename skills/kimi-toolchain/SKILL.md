@@ -28,6 +28,8 @@ metadata:
     - effect-discipline
     - effect-hardening
     - herdr
+tags: [skills]
+category: meta
 ---
 
 # Kimi-Toolchain (L1)

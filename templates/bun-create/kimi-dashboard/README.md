@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [templates]
+category: meta
+status: draft
+priority: medium
+---
 # {{name}}
 
 Bun-native HTTP dashboard with a handler directory pattern, artifact awareness, and zero runtime dependencies. Scaffolded from [kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain).

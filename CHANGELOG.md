@@ -1,3 +1,10 @@
+---
+title: "CHANGELOG"
+tags: [root]
+category: root
+status: draft
+priority: medium
+---
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -131,3 +138,6 @@ One command publishes diagnostics + manifest to `.kimi/artifacts/artifact-portal
 ### Added
 
 - Initial setup
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

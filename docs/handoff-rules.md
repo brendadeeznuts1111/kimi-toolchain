@@ -1,3 +1,10 @@
+---
+title: "Handoff Rules"
+tags: [core]
+category: core
+status: draft
+priority: medium
+---
 # Herdr Orchestrator — Handoff Rules
 
 Cross-workspace, cross-session agent handoff for the kimi-toolchain orchestrator.
@@ -41,51 +48,52 @@ With this configured, the orchestrator runs `auditCanonicalReferencesHealth` bef
 ## Condition syntax
 
 <<<<<<< Updated upstream
-| Syntax                                       | Meaning                                                                                 |
+| Syntax | Meaning |
 | -------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `done`                                       | Agent is in "done" state                                                                |
-| `blocked > Nm`                               | Agent has been blocked for N+ minutes                                                   |
-| `idle > Nm`                                  | Agent has been idle for N+ minutes                                                      |
-| `probe:canonical-references:runtime-aligned` | `~/.kimi-code/canonical-references.json` matches repo (fix: `bun run sync`)             |
-| `probe:canonical-references:repo-fresh`      | Repo manifest matches `canonical-references.toml` (fix: `bun run references:generate`)  |
-| `probe:canonical-references:runtime-cache`   | Runtime cache file exists at `~/.kimi-code/`                                            |
-| `probe:bun-install:runtime-api-docs`         | `runtimeApiDocs` URLs point at `bun.com/docs/runtime/*` (SSOT: `bun-install-config.ts`) |
-| `probe:bun-install:capabilities`             | Inventory capabilities present in `buildRuntimeCapabilities()`                          |
-| `probe:bun-install:bun-image`                | `Bun.Image` supported, metadata probe passes, docs URL aligned (`src/lib/bun-image.ts`) |
-| `probe:artifact-graph:context`               | Artifact context graph + gate execution DAG build (`GET /api/artifact-graph`)           |
+| `done` | Agent is in "done" state |
+| `blocked > Nm` | Agent has been blocked for N+ minutes |
+| `idle > Nm` | Agent has been idle for N+ minutes |
+| `probe:canonical-references:runtime-aligned` | `~/.kimi-code/canonical-references.json` matches repo (fix: `bun run sync`) |
+| `probe:canonical-references:repo-fresh` | Repo manifest matches `canonical-references.toml` (fix: `bun run references:generate`) |
+| `probe:canonical-references:runtime-cache` | Runtime cache file exists at `~/.kimi-code/` |
+| `probe:bun-install:runtime-api-docs` | `runtimeApiDocs` URLs point at `bun.com/docs/runtime/*` (SSOT: `bun-install-config.ts`) |
+| `probe:bun-install:capabilities` | Inventory capabilities present in `buildRuntimeCapabilities()` |
+| `probe:bun-install:bun-image` | `Bun.Image` supported, metadata probe passes, docs URL aligned (`src/lib/bun-image.ts`) |
+| `probe:artifact-graph:context` | Artifact context graph + gate execution DAG build (`GET /api/artifact-graph`) |
 ||||||| Stash base
-| Syntax                                            | Meaning                                                                                 |
+| Syntax | Meaning |
 | ------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `done`                                            | Agent is in "done" state                                                                |
-| `blocked > Nm`                                    | Agent has been blocked for N+ minutes                                                   |
-| `idle > Nm`                                       | Agent has been idle for N+ minutes                                                      |
-| `probe:canonical-references:runtime-aligned`      | `~/.kimi-code/canonical-references.json` matches repo (fix: `bun run sync`)             |
-| `probe:canonical-references:repo-fresh`           | Repo manifest matches `canonical-references.toml` (fix: `bun run references:generate`)  |
-| `probe:canonical-references:runtime-cache`        | Runtime cache file exists at `~/.kimi-code/`                                            |
-| `probe:bun-install:runtime-api-docs`              | `runtimeApiDocs` URLs point at `bun.com/docs/runtime/*` (SSOT: `bun-install-config.ts`) |
-| `probe:bun-install:capabilities`                  | Inventory capabilities present in `buildRuntimeCapabilities()`                          |
-| `probe:bun-install:bun-image`                     | `Bun.Image` supported, metadata probe passes, docs URL aligned (`src/lib/bun-image.ts`) |
-| `probe:artifact-graph:context`                    | Artifact context graph + gate execution DAG build (`GET /api/artifact-graph`)           |
+| `done` | Agent is in "done" state |
+| `blocked > Nm` | Agent has been blocked for N+ minutes |
+| `idle > Nm` | Agent has been idle for N+ minutes |
+| `probe:canonical-references:runtime-aligned` | `~/.kimi-code/canonical-references.json` matches repo (fix: `bun run sync`) |
+| `probe:canonical-references:repo-fresh` | Repo manifest matches `canonical-references.toml` (fix: `bun run references:generate`) |
+| `probe:canonical-references:runtime-cache` | Runtime cache file exists at `~/.kimi-code/` |
+| `probe:bun-install:runtime-api-docs` | `runtimeApiDocs` URLs point at `bun.com/docs/runtime/*` (SSOT: `bun-install-config.ts`) |
+| `probe:bun-install:capabilities` | Inventory capabilities present in `buildRuntimeCapabilities()` |
+| `probe:bun-install:bun-image` | `Bun.Image` supported, metadata probe passes, docs URL aligned (`src/lib/bun-image.ts`) |
+| `probe:artifact-graph:context` | Artifact context graph + gate execution DAG build (`GET /api/artifact-graph`) |
 =======
-| Syntax                                       | Meaning                                                                                                    |
+| Syntax | Meaning |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `done`                                       | Agent is in "done" state                                                                                   |
-| `blocked > Nm`                               | Agent has been blocked for N+ minutes                                                                      |
-| `idle > Nm`                                  | Agent has been idle for N+ minutes                                                                         |
-| `probe:canonical-references:runtime-aligned` | `~/.kimi-code/canonical-references.json` matches repo (fix: `bun run sync`)                                |
-| `probe:canonical-references:repo-fresh`      | Repo manifest matches `canonical-references.toml` (fix: `bun run references:generate`)                     |
-| `probe:canonical-references:runtime-cache`   | Runtime cache file exists at `~/.kimi-code/`                                                               |
-| `probe:bun-install:runtime-api-docs`         | `runtimeApiDocs` — 5 URLs: `/docs/runtime/*`, `/reference/bun`, `/rss.xml` (SSOT: `bun-install-config.ts`) |
-| `probe:bun-install:capabilities`             | Inventory capabilities present in `buildRuntimeCapabilities()`                                             |
-| `probe:bun-install:bun-image`                | `Bun.Image` supported, metadata probe passes, docs URL aligned (`src/lib/bun-image.ts`)                    |
-| `probe:bun-install:bunPublish`               | `bunPublish` capability active in `buildRuntimeCapabilities()` inventory                                   |
-| `probe:bun-install:publish-dry-run`          | `bun publish --dry-run` exits 0 — release-orchestrator pre-flight (`src/lib/bun-install-config.ts`)        |
-| `probe:bun-install:workspace-filter`         | `workspaceFilter` inventory + `bun pm ls --all` lists `@workspace:examples/…` members                      |
-| `probe:bun-install:bun-pm`                   | `bunPmCli` inventory + `bun pm hash` / `bin` / `pkg get name` succeed (`/pm/cli/pm#pkg`)                   |
-| `probe:bun-install:workspace-catalogs`       | `workspaceCatalogs` inventory (`catalog:` protocol; `/pm/catalogs#overview`)                               |
-| `probe:bun-install:bun-link`                 | `bunLink` inventory + `bun link -h` succeeds (`/pm/cli/link`)                                              |
-| `probe:artifact-graph:context`               | Artifact context graph + gate execution DAG build (`GET /api/artifact-graph`)                              |
->>>>>>> Stashed changes
+| `done` | Agent is in "done" state |
+| `blocked > Nm` | Agent has been blocked for N+ minutes |
+| `idle > Nm` | Agent has been idle for N+ minutes |
+| `probe:canonical-references:runtime-aligned` | `~/.kimi-code/canonical-references.json` matches repo (fix: `bun run sync`) |
+| `probe:canonical-references:repo-fresh` | Repo manifest matches `canonical-references.toml` (fix: `bun run references:generate`) |
+| `probe:canonical-references:runtime-cache` | Runtime cache file exists at `~/.kimi-code/` |
+| `probe:bun-install:runtime-api-docs` | `runtimeApiDocs` — 5 URLs: `/docs/runtime/*`, `/reference/bun`, `/rss.xml` (SSOT: `bun-install-config.ts`) |
+| `probe:bun-install:capabilities` | Inventory capabilities present in `buildRuntimeCapabilities()` |
+| `probe:bun-install:bun-image` | `Bun.Image` supported, metadata probe passes, docs URL aligned (`src/lib/bun-image.ts`) |
+| `probe:bun-install:bunPublish` | `bunPublish` capability active in `buildRuntimeCapabilities()` inventory |
+| `probe:bun-install:publish-dry-run` | `bun publish --dry-run` exits 0 — release-orchestrator pre-flight (`src/lib/bun-install-config.ts`) |
+| `probe:bun-install:workspace-filter` | `workspaceFilter` inventory + `bun pm ls --all` lists `@workspace:examples/…` members |
+| `probe:bun-install:bun-pm` | `bunPmCli` inventory + `bun pm hash` / `bin` / `pkg get name` succeed (`/pm/cli/pm#pkg`) |
+| `probe:bun-install:workspace-catalogs` | `workspaceCatalogs` inventory (`catalog:` protocol; `/pm/catalogs#overview`) |
+| `probe:bun-install:bun-link` | `bunLink` inventory + `bun link -h` succeeds (`/pm/cli/link`) |
+| `probe:artifact-graph:context` | Artifact context graph + gate execution DAG build (`GET /api/artifact-graph`) |
+
+> > > > > > > Stashed changes
 
 **Convergence layer** (`GET /api/artifact-graph` → `convergence`): compares ecosystem manifest (`canonical-references.toml`), runtime inventory (`bun-install-config.ts` / `bunImage`), publish pre-flight (`publish.dryRun`), and artifact surfaces (`context.artifactStore`, `context.dag`) in one response. Gate orchestrator rules on `convergence.aligned` or per-pillar drift. SSOT: `src/lib/artifact-graph-convergence.ts`.
 
@@ -269,3 +277,6 @@ target_strategy = "least_busy"
 Handoffs fire after `bun run finish-work` persists `.kimi/finish-work-report.json` and `watch-events` runs context-sync + rule evaluation. Reviewer feedback is appended to the report and included in enriched handoff briefs on the next sync.
 
 Dry-run: `herdr-orchestrator react --all --dry-run` evaluates probe checks against the project root.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

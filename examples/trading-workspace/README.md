@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [examples]
+category: examples
+status: draft
+priority: medium
+---
 # Trading Artifact Loop
 
 Self-contained demo of the L1 → L2 control-plane feedback loop from [artifact-trading-loop.md](../artifact-trading-loop.md). Persona: **Alex**, an independent quant who runs frequent tactical gates and daily strategic analysis.

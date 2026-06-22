@@ -1,3 +1,10 @@
+---
+title: "Table Endpoints"
+tags: [core]
+category: core
+status: draft
+priority: medium
+---
 # endpoints
 
 Source tables: `dx.config.toml`, `examples/dashboard/src/index.ts`, `examples/dashboard/src/handlers/artifacts.ts`.
@@ -93,3 +100,6 @@ Session routes above are shared with the examples dashboard. Herdr adds orchestr
 | probe-gate    | GET    | `/api/artifacts/:gate`         | Single gate artifact         |
 | probe-latest  | GET    | `/api/artifacts/:gate/latest`  | Latest envelope              |
 | probe-refresh | POST   | `/api/artifacts/:gate/refresh` | **403** read-only (ADR-0004) |
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

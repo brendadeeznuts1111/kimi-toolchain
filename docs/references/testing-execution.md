@@ -1,3 +1,10 @@
+---
+title: "Testing Execution"
+tags: [references, reference]
+category: core
+status: draft
+priority: medium
+---
 # Test execution model
 
 > Convergence foundation for how kimi-toolchain selects, distributes, and runs tests.
@@ -170,3 +177,6 @@ Contract: `contracts/artifact-portal.json` (`companionRoutes.bunTest`, `influenc
 - [test/testing.md](../../test/testing.md) — naming, isolation, snapshots, watch modes
 - [configuration-layers.md](./configuration-layers.md) — define vs discovery vs scaffold layers
 - Bun docs: [test runner](https://bun.com/docs/test), [runtime behavior](https://bun.com/docs/test/runtime-behavior)
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

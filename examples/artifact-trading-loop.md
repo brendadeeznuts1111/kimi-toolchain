@@ -1,3 +1,10 @@
+---
+title: "Artifact Trading Loop"
+tags: [examples, artifacts]
+category: examples
+status: draft
+priority: medium
+---
 # Artifact Feedback Loop — Trading Domain Example
 
 How the `ArtifactStore` + gate system enables a self-improving monitoring
@@ -179,3 +186,6 @@ See [control-plane-layers.md](control-plane-layers.md) for level semantics.
 | Lineage graphs   | `src/lib/graph-to-mermaid.ts`                                   | Execution DAG + artifact lineage export                                    |
 | Probe server     | `src/lib/card-probe-server.ts`                                  | HTTP observation for dashboard cards                                       |
 | Doctor CLI       | `src/bin/kimi-doctor.ts`                                        | `--gate`, `--gate-graph`, `--artifacts-lineage`                            |
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

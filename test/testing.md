@@ -1,3 +1,10 @@
+---
+title: "Testing"
+tags: [test]
+category: core
+status: draft
+priority: medium
+---
 # Testing Conventions — kimi-toolchain
 
 > Bun-native test discipline for this repo. **SSOT for runtime contracts:** `src/lib/test-runtime.ts` (verified by `test/test-runtime.unit.test.ts`).
@@ -329,3 +336,6 @@ test("fetches data", async () => {
   }
 });
 ```
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

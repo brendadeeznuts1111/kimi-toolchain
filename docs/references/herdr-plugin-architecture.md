@@ -1,3 +1,10 @@
+---
+title: "Herdr Plugin Architecture"
+tags: [references, reference, herdr]
+category: core
+status: draft
+priority: medium
+---
 # Herdr unified plugin architecture (v0.5.0)
 
 Thin hub for the Herdr unified plugin plan — **orthogonal** to kimi-toolchain finish-work shell gates.

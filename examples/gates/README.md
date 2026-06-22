@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [examples]
+category: examples
+status: draft
+priority: medium
+---
 # Generic Gate Tree Example
 
 Runnable demo of an L1→L2 gate tree with artifact persistence, lineage, and a

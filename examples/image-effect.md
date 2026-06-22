@@ -1,3 +1,10 @@
+---
+title: "Image Effect"
+tags: [examples, effect]
+category: examples
+status: draft
+priority: medium
+---
 # Image Effect — First Concrete Domain Effect
 
 The image processor is the first real domain effect that proves the Kimi harness's full closed loop: **Symbol contract → scan → register → benchmark → train → artifact**.
@@ -60,3 +67,6 @@ The same architecture works for any domain effect:
 | `kimi.effect.http`     | `templates/modules/http/src/processor.ts`     | `fetch` with TLS pinning |
 
 Each new effect is a single file that exports the methods the interface requires, and the harness automatically pulls it into the performance culture.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

@@ -1,3 +1,10 @@
+---
+title: "Extend"
+tags: [examples]
+category: examples
+status: draft
+priority: medium
+---
 # Generic Gate Tree Example — Extending the Gate Tree
 
 ## Add a new gate

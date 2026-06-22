@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [src]
+category: core
+status: draft
+priority: medium
+---
 # src/lib/ — Domain Guide
 
 This directory contains shared modules used by CLI tools and tests.
@@ -38,3 +45,6 @@ For agent-facing examples of the preferred patterns, see `../../CODE_REFERENCES.
 2. Import from `core/` files as needed
 3. Export only what's needed by CLI tools or tests
 4. Add unit tests in `test/<name>.unit.test.ts`
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

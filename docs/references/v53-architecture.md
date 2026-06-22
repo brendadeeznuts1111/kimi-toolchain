@@ -1,3 +1,10 @@
+---
+title: "V53 Architecture"
+tags: [references, reference]
+category: core
+status: draft
+priority: medium
+---
 # v5.3 Architecture — Consolidated Reference
 
 > Locked spec: `kimi-fix --profile toolchain` (2026-06-19)

@@ -1,3 +1,10 @@
+---
+title: "UNIFIED"
+tags: [root]
+category: root
+status: draft
+priority: medium
+---
 # Unified naming, paths, and development
 
 > How **Kimi Code** (Moonshot agent), **kimi-toolchain** (this repo), **dx** (global Bun platform), and `~/.kimi-code/` fit together.
@@ -474,3 +481,6 @@ Cloudflare MCP SSO/OAuth, Wrangler OAuth, and `kimi-cloudflare-access` API token
 | Field              | Type      | Default | Description                                           |
 | ------------------ | --------- | ------- | ----------------------------------------------------- |
 | `micro_compaction` | `boolean` | `true`  | Trim older large tool results while preserving recent |
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

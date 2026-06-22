@@ -1,3 +1,10 @@
+---
+title: "Bun Shell Companions"
+tags: [references, reference, bun]
+category: core
+status: draft
+priority: medium
+---
 # Bun Shell Companion Reference
 
 Companion patterns for shell execution and related Bun-native APIs used across `kimi-toolchain`.
@@ -128,3 +135,6 @@ bun run bun-native:check                  # gate (report mode + baseline ratchet
 ```
 
 Baseline file: `.bun-native-baseline.json` (committed). Promote rules to `enforce` only after the baseline entry count for that rule reaches zero.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

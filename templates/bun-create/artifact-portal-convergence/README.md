@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [templates]
+category: meta
+status: draft
+priority: medium
+---
 # {{name}}
 
 Artifact Portal convergence workspace — one `BenchmarkApiEnvelope` across Canvas, Dashboard, and Herdr, persisted under `.kimi/artifacts/artifact-portal/`.
@@ -52,3 +59,6 @@ PORT=5678 bun run dashboard -- --daemon --port=5678
 bun run portal
 curl -s http://127.0.0.1:5678/api/effect-benchmark | jq '.runner, .metadata.convergence'
 ```
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [templates]
+category: meta
+status: draft
+priority: medium
+---
 # {{PROJECT_NAME}}
 
 > Replace this line with a one-line description of what this project does.
@@ -34,3 +41,6 @@ bun run check:fast
 
 Managed by [kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain).
 Run `kimi-governance score` to check project health.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

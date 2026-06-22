@@ -1,3 +1,10 @@
+---
+title: "Control Plane Layers"
+tags: [examples]
+category: examples
+status: draft
+priority: medium
+---
 # Control Plane Layers — Artifact Architecture
 
 How to think about gates and artifacts as a **multi-level control plane** instead
@@ -114,3 +121,6 @@ kimi-doctor --gate bunfig-policy --save-artifact
 - Store: `src/lib/artifact-store.ts`
 - Gates: `src/gates/types.ts`, `src/gates/runner.ts`
 - Serve-probe: `src/lib/card-probe-server.ts`
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

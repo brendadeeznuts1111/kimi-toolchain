@@ -1,3 +1,10 @@
+---
+title: "Project Health Check"
+tags: [examples]
+category: examples
+status: draft
+priority: medium
+---
 # Example: Project Health Check
 
 ## User
@@ -45,3 +52,6 @@ kimi-context-gen update
 ```
 
 This will refresh the architecture docs. Want me to run it?
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

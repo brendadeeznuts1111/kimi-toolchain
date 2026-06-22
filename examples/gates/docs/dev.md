@@ -1,3 +1,10 @@
+---
+title: "Dev"
+tags: [examples]
+category: examples
+status: draft
+priority: medium
+---
 # Development Guide — Generic Gate Tree
 
 This guide covers the local development loop for the gate tree example. It is

@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [examples]
+category: examples
+status: draft
+priority: medium
+---
 # Artifact Portal Example
 
 One-command synthesis demo for **Canvas → serve-probe → Herdr → ArtifactStore**. Every surface shares the same `BenchmarkApiEnvelope`; `bun run build:portal` persists diagnostics and a portal manifest under `.kimi/artifacts/artifact-portal/`.
@@ -88,3 +95,6 @@ Showcase hub: `GET /api/examples?id=portal`
 ## Herdr plugin
 
 When running inside a Herdr workspace, the `benchmark-portal` plugin action calls `pullBenchmarkEnvelopeAndRegister()` — same registration path as `build:portal`.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

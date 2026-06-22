@@ -1,3 +1,10 @@
+---
+title: "Kimi Doctor"
+tags: [references, reference]
+category: core
+status: draft
+priority: medium
+---
 # kimi-doctor dashboard-automation gate
 
 ## Not to be confused with

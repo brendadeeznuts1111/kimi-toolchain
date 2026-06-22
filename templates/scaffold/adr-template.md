@@ -4,6 +4,8 @@ date: "{{DATE}}"
 deciders: "{{DECIDERS}}"
 consulted: []
 informed: []
+tags: [templates]
+category: meta
 ---
 
 # {{TITLE}}
@@ -42,3 +44,6 @@ What becomes easier or more difficult to do because of this change?
 ## References
 
 -
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

@@ -1,3 +1,10 @@
+---
+title: "Guardian Failure"
+tags: [examples]
+category: examples
+status: draft
+priority: medium
+---
 # Example: Dependency Change Blocked
 
 ## User
@@ -47,3 +54,6 @@ If you **didn't** change deps, this could indicate:
 - A tool that auto-modified deps without your knowledge
 
 Want me to show the diff?
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

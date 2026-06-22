@@ -1,3 +1,10 @@
+---
+title: "Dashboard Urls"
+tags: [examples, dashboard]
+category: examples
+status: draft
+priority: medium
+---
 # Examples Dashboard — URLs, Ports, Protocols & Properties
 
 How the examples showcase wires **base URLs**, **URLPattern** routes, **TOML/env properties**, and **HTTP protocol** layers. Decomposition style matches `dx:table extract … -u --exact` (`url_protocol`, `url_hostname`, `url_port`, `url_pathname`, `url_search`).
@@ -228,33 +235,35 @@ Identity query params (artifacts + runs): `sessionId`, `workspaceId`, `paneId`, 
 | `GET`  | `/api/effect-benchmark`    | Symbol effect suite                       |
 
 <!-- dashboard-static-routes:AUTO -->
+
 ### All static card API paths (`handlers/routes.ts`)
 
 `GET` unless noted. Grouped by prefix:
 
-| Path | Path | Path | Path |
-| --- | --- | --- | --- |
-| `/api/build-compile` | `/api/build-info` | `/api/bun-pm` | `/api/bun-runtime` |
-| `/api/bun-test` | `/api/bundle` | `/api/bunfig` | `/api/color` |
-| `/api/compile` | `/api/config-status` | `/api/console` | `/api/console-depth` |
-| `/api/cron` | `/api/crypto-hash` | `/api/deep-equals` | `/api/deep-match` |
-| `/api/deps` | `/api/dotenv` | `/api/effect-benchmark` | `/api/effect-image` |
-| `/api/env` | `/api/exec` | `/api/extract-methods` | `/api/file-io` |
-| `/api/file-split` | `/api/gates` | `/api/glob` | `/api/glob-orphan` |
-| `/api/global-store` | `/api/http2` | `/api/image` | `/api/inspect` |
-| `/api/inspect-config` | `/api/inspect-defaults` | `/api/inspect-simple` | `/api/inspect-table` |
-| `/api/ipc` | `/api/ipc-matrix` | `/api/kimi-doctor` | `/api/kimi-publish` |
-| `/api/markdown/ansi` | `/api/markdown/html` | `/api/metrics-schema` | `/api/nanoseconds` |
-| `/api/node-http` | `/api/os` | `/api/password` | `/api/peek` |
-| `/api/perf-auto-discover` | `/api/perf-harness` | `/api/perf-registry` | `/api/perf-report` |
-| `/api/perf-threaded` | `/api/perf-train` | `/api/random-bytes` | `/api/runtime-info` |
-| `/api/scaffold` | `/api/secrets` | `/api/semver` | `/api/set-headers` |
-| `/api/shadow-realm` | `/api/shell` | `/api/sleep` | `/api/spawn-sync` |
-| `/api/sqlite` | `/api/stream-hash` | `/api/string-utils` | `/api/strip-ansi` |
-| `/api/symbols` | `/api/terminal` | `/api/threshold-overrides` | `/api/toolchain/heal` |
-| `/api/toolchain/health` | `/api/trace-verify` | `/api/transpiler` | `/api/transpiler-scan` |
-| `/api/tty` | `/api/url` | `/api/url-node` | `/api/util-types` |
-| `/api/uuid` | `/api/vm-context` | `/api/write-smart` |  |
+| Path                      | Path                    | Path                       | Path                   |
+| ------------------------- | ----------------------- | -------------------------- | ---------------------- |
+| `/api/build-compile`      | `/api/build-info`       | `/api/bun-pm`              | `/api/bun-runtime`     |
+| `/api/bun-test`           | `/api/bundle`           | `/api/bunfig`              | `/api/color`           |
+| `/api/compile`            | `/api/config-status`    | `/api/console`             | `/api/console-depth`   |
+| `/api/cron`               | `/api/crypto-hash`      | `/api/deep-equals`         | `/api/deep-match`      |
+| `/api/deps`               | `/api/dotenv`           | `/api/effect-benchmark`    | `/api/effect-image`    |
+| `/api/env`                | `/api/exec`             | `/api/extract-methods`     | `/api/file-io`         |
+| `/api/file-split`         | `/api/gates`            | `/api/glob`                | `/api/glob-orphan`     |
+| `/api/global-store`       | `/api/http2`            | `/api/image`               | `/api/inspect`         |
+| `/api/inspect-config`     | `/api/inspect-defaults` | `/api/inspect-simple`      | `/api/inspect-table`   |
+| `/api/ipc`                | `/api/ipc-matrix`       | `/api/kimi-doctor`         | `/api/kimi-publish`    |
+| `/api/markdown/ansi`      | `/api/markdown/html`    | `/api/metrics-schema`      | `/api/nanoseconds`     |
+| `/api/node-http`          | `/api/os`               | `/api/password`            | `/api/peek`            |
+| `/api/perf-auto-discover` | `/api/perf-harness`     | `/api/perf-registry`       | `/api/perf-report`     |
+| `/api/perf-threaded`      | `/api/perf-train`       | `/api/random-bytes`        | `/api/runtime-info`    |
+| `/api/scaffold`           | `/api/secrets`          | `/api/semver`              | `/api/set-headers`     |
+| `/api/shadow-realm`       | `/api/shell`            | `/api/sleep`               | `/api/spawn-sync`      |
+| `/api/sqlite`             | `/api/stream-hash`      | `/api/string-utils`        | `/api/strip-ansi`      |
+| `/api/symbols`            | `/api/terminal`         | `/api/threshold-overrides` | `/api/toolchain/heal`  |
+| `/api/toolchain/health`   | `/api/trace-verify`     | `/api/transpiler`          | `/api/transpiler-scan` |
+| `/api/tty`                | `/api/url`              | `/api/url-node`            | `/api/util-types`      |
+| `/api/uuid`               | `/api/vm-context`       | `/api/write-smart`         |                        |
+
 <!-- /dashboard-static-routes:AUTO -->
 
 ## Browser query properties (dashboard UI)
@@ -355,3 +364,6 @@ bun run doctor --probe-cards   # scans 5678, 3000, 8080
 # URLPattern unit tests
 bun test test/dashboard-route-patterns.unit.test.ts
 ```
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

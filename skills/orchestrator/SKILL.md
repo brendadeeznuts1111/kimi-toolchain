@@ -23,6 +23,8 @@ run_as: inline
 metadata:
   companionSkills:
     - herdr
+tags: [skills]
+category: meta
 ---
 
 # Orchestrator (L3)

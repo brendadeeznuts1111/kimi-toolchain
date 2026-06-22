@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [examples]
+category: examples
+status: draft
+priority: medium
+---
 # kimi-toolchain v5.3 — Consolidated Profile
 
 > Locked: `kimi-fix --profile toolchain` (2026-06-19)  
@@ -129,3 +136,6 @@ kimi-memory store kimi-fix-profile-v53-spec   # idempotent re-store
 kimi-memory recall kimi-toolchain 5
 # session id kimi-fix-profile-v53-spec → key decisions list v5.3 anchors
 ```
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

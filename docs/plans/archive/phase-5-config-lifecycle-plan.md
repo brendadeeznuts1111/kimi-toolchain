@@ -1,3 +1,10 @@
+---
+title: "Phase 5 Config Lifecycle Plan"
+tags: [plans]
+category: core
+status: draft
+priority: medium
+---
 # Phase 5 Config Lifecycle Plan
 
 Date: 2026-06-15
@@ -203,3 +210,6 @@ bun run sync && bun run sync:verify
 - Phase 3.1.x operator polish should land first so `constant-drift-accept`, repair dedupe, and impact preview are available on `main`.
 - Phase 4 predictive doctor should land before Slice 4, because `watch --auto-rollback` depends on `.kimi/var/health.ndjson`.
 - If either dependency is delayed, Slice 1 can still ship independently as read-only `diff`, `validate`, and `timeline`.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

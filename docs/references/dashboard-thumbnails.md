@@ -1,3 +1,10 @@
+---
+title: "Dashboard Thumbnails"
+tags: [references, reference, dashboard]
+category: core
+status: draft
+priority: medium
+---
 # Dashboard thumbnails and WebView profile
 
 How the Herdr orchestrator dashboard turns a live `Bun.WebView` screenshot into a compressed thumbnail served by the dashboard HTTP server, and how that relates to the WebView's persistent `dataStore` profile.

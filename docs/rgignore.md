@@ -1,3 +1,10 @@
+---
+title: "Rgignore"
+tags: [core]
+category: core
+status: draft
+priority: medium
+---
 # Search / AI Discovery Ignore Stack
 
 This repo uses a layered ripgrep ignore strategy so `rg`, the Grep tool, and editor
@@ -95,3 +102,6 @@ rg --files | rg -i '/Applications/' && echo "LEAK" || echo "clean"
 2. **System/user-wide cache** → `~/.rgignore`
 3. **Formatter-only noise** → `.oxfmtrc.json` `ignorePatterns`
 4. **Should not be committed** → `.gitignore`
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

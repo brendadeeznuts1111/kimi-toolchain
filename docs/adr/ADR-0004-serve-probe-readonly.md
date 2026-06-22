@@ -1,3 +1,10 @@
+---
+title: "ADR 0004 Serve Probe Readonly"
+tags: [adr]
+category: core
+status: draft
+priority: medium
+---
 # ADR 0004 — serve-probe Artifact API Is Read-Only
 
 ## Status
@@ -66,3 +73,6 @@ Until then, no gate execution endpoint is exposed.
 - Implementation: `src/lib/card-probe-server.ts`, `src/lib/artifact-store.ts`
 - Herdr dashboard (disk-backed artifacts tab): `src/lib/herdr-dashboard-data.ts`
 - Tests: `test/card-probe-server.unit.test.ts`, `test/artifact-store.unit.test.ts`
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

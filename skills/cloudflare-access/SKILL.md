@@ -25,6 +25,8 @@ allowed_tools:
   - run_command
   - web_fetch
 model: deepseek-v4-flash
+tags: [skills]
+category: meta
 ---
 
 # Cloudflare Access — Zero Trust Hygiene Skill
@@ -99,3 +101,6 @@ kimi-cloudflare-access logout
 kimi-cloudflare-access login
 kimi-cloudflare-access fix
 ```
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

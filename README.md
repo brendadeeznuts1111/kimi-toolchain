@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [root]
+category: root
+status: draft
+priority: medium
+---
 # kimi-toolchain
 
 > Bun-native developer tooling: governance, diagnostics, security, and scaffolding
@@ -529,3 +536,6 @@ Wrangler OAuth tokens and the Kimi Code Cloudflare MCP server authenticate throu
 
 - No secrets in source. Use `Bun.env` or `Bun.secrets`.
 - Validate all external input at system boundaries.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

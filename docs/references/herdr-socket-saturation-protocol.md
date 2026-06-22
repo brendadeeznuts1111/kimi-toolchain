@@ -1,3 +1,10 @@
+---
+title: "Herdr Socket Saturation Protocol"
+tags: [references, reference, herdr]
+category: core
+status: draft
+priority: medium
+---
 # Herdr Socket Saturation Protocol
 
 **Version:** 1.0.0  
@@ -237,3 +244,6 @@ Scoped but not implemented until `--live` is validated on a real EAGAIN recurren
 ---
 
 Sync taxonomy and docs to live runtime: `bun run sync && bun run sync:verify`.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

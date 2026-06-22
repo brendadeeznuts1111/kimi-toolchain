@@ -1,3 +1,10 @@
+---
+title: "Dx Homepage Dashboard Plan"
+tags: [plans, dashboard]
+category: core
+status: draft
+priority: medium
+---
 # DX Homepage Dashboard Product Plan
 
 Date: 2026-06-15
@@ -297,3 +304,6 @@ kimi-cloudflare-access dashboard --homepage --json
 4. MCP endpoint optional provisioning plan.
 5. Dashboard action ledger using the existing decision ledger.
 6. Cloudflare deploy workflow with explicit manual approval and sync verification.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

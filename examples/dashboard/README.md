@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [examples]
+category: examples
+status: draft
+priority: medium
+---
 # kimi-toolchain Dashboard
 
 Demo of Bun-native APIs and kimi-toolchain features in one page. The **Examples Showcase** hub at the top maps every `examples/` project and guide to live cards — registry at `src/lib/examples-showcase.ts`, index at [examples/README.md](../README.md).
@@ -26,6 +33,7 @@ cd examples/dashboard && bun run src/index.ts
 ## API Routes
 
 <!-- dashboard-route-inventory:AUTO -->
+
 **Endpoint count:** **115** routes on the examples dashboard (`examples/dashboard/src/index.ts` + `handlers/artifacts.ts`).
 
 - **3** page/health routes (`/`, `/health`, `/api/health`)
@@ -287,3 +295,6 @@ CLI: `src/bin/perf-doctor.ts` — `--perf-gates`, `--report`, `--train`, `--watc
 cp -r ~/kimi-toolchain/templates/bun-create/kimi-toolchain ~/.bun-create/
 bun create kimi-toolchain my-app
 ```
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

@@ -1,3 +1,10 @@
+---
+title: "Configuration Layers"
+tags: [references, reference]
+category: core
+status: draft
+priority: medium
+---
 # Configuration & Reference Layers: Discovery, Build, Parity, and Scaffold
 
 This repository uses **four distinct configuration layers**. They are not interchangeable. They serve different architectural purposes, have different SSOTs (Source of Truth), and live in different places.

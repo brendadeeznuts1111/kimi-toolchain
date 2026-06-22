@@ -1,3 +1,10 @@
+---
+title: "AGENTS"
+tags: [root]
+category: root
+status: draft
+priority: medium
+---
 # kimi-toolchain — Agent Guide
 
 > Bun-native developer tooling: governance, diagnostics, security, and scaffolding.
@@ -480,3 +487,6 @@ bun run sync && bun run sync:verify   # if runtime assets changed
 ---
 
 _Update when adding new tools, gates, or conventions._
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

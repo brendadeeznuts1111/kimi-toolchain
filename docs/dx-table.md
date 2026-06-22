@@ -1,3 +1,10 @@
+---
+title: "Dx Table"
+tags: [core]
+category: core
+status: draft
+priority: medium
+---
 # dx:table — TOML property tables
 
 Extract `dx.config.toml` sections (or TypeScript JSDoc classes) into aligned Markdown, CSV, or JSON.
@@ -148,3 +155,6 @@ bun run dx:table extract --file src/lib/foo.ts --class AppConfig --format table
 | Describe      | `docs/describe/table-<slug>.md`     |
 
 Override with `--out-dir` or `--output` (not with `--group-by`).
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

@@ -1,3 +1,10 @@
+---
+title: "Table Endpoints"
+tags: [sub-tables]
+category: core
+status: draft
+priority: medium
+---
 # endpoints
 
 Source: `dx.config.toml`
@@ -11,3 +18,6 @@ Source: `dx.config.toml`
 
 - **url**: `https://github.com/ogulcancelik/herdr/blob/d998753efe506a04c80306795efc72bff60bb0ec/SKILL.md`
 - **SourceFile**: `dx.config.toml`
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

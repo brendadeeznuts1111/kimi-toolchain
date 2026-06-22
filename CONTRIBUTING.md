@@ -1,3 +1,10 @@
+---
+title: "CONTRIBUTING"
+tags: [root]
+category: root
+status: draft
+priority: medium
+---
 # Contributing to kimi-toolchain
 
 ## Development Setup
@@ -73,3 +80,6 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 - Open an issue: https://github.com/brendadeeznuts1111/kimi-toolchain/issues
 - Contact the maintainers (see CODEOWNERS)
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

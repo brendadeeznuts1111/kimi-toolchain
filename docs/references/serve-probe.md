@@ -1,3 +1,10 @@
+---
+title: "Serve Probe"
+tags: [references, reference]
+category: core
+status: draft
+priority: medium
+---
 # kimi-doctor serve-probe — card cache + artifact inspection
 
 Lightweight HTTP server for **live dashboard card health** and **read-only inspection** of saved gate artifacts under `.kimi/artifacts/`.

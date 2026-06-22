@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [templates]
+category: meta
+status: draft
+priority: medium
+---
 # bun-create templates
 
 This directory contains the templates consumed by `bun create <name>`. They are minimal `package.json`-only starters whose postinstall hooks delegate the real scaffolding to `kimi-fix`.
@@ -43,3 +50,6 @@ bun create kimi-toolchain /tmp/my-app
 ## Adding a new bun-create template
 
 See [`skills/create-template/SKILL.md`](../skills/create-template/SKILL.md).
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

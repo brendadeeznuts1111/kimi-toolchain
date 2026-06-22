@@ -1,3 +1,10 @@
+---
+title: "Shell Spawn Choice"
+tags: [references, reference]
+category: core
+status: draft
+priority: medium
+---
 # Shell Spawn Choice Reference
 
 This document is the decision matrix for spawning subprocesses in `kimi-toolchain`. It applies to all `src/lib/` and `src/bin/` code.
@@ -30,3 +37,6 @@ This document is the decision matrix for spawning subprocesses in `kimi-toolchai
 - Respect `maxOutputBytes` to avoid unbounded memory growth on long-running commands.
 - Preserve `stdoutTruncated` / `stderrTruncated` markers in higher-level reports when relevant.
 - For live streaming UX, stream the returned output at the router boundary while keeping the tool-runner contract.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

@@ -1,3 +1,10 @@
+---
+title: "Bun Runtime Scaffold"
+tags: [references, reference, bun]
+category: core
+status: draft
+priority: medium
+---
 # Bun Runtime Scaffold Reference
 
 Flags, configuration, and behavior that affect `bun create`, `bun init`, and `kimi-fix` scaffold execution.

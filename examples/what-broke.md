@@ -1,3 +1,10 @@
+---
+title: "What Broke"
+tags: [examples]
+category: examples
+status: draft
+priority: medium
+---
 # Example: "What Broke?"
 
 ## User
@@ -47,3 +54,6 @@ Tests "breaking" may be:
 Next: `bun test` on the failing file, then `kimi-decision audit --json`
 if the failure repeats.
 ```
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

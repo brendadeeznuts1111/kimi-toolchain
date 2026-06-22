@@ -25,6 +25,8 @@ run_as: inline
 metadata:
   companionSkills:
     - orchestrator
+tags: [skills]
+category: meta
 ---
 
 # Finish-Work (L3)

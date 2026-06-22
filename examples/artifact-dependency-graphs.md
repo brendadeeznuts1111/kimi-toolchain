@@ -1,3 +1,10 @@
+---
+title: "Artifact Dependency Graphs"
+tags: [examples, artifacts]
+category: examples
+status: draft
+priority: medium
+---
 # Artifact Dependency Graphs
 
 Data lineage across saved artifacts — distinct from **gate dependency graphs**
@@ -131,3 +138,6 @@ Gate runs with `--save-artifact` embed `metadata.lineage` (upstream artifact pat
 - `src/lib/graph-to-mermaid.ts` — `generateArtifactLineageMermaid`
 - `src/gates/runner.ts` — `generateGateGraph` (gate execution DAG)
 - `test/graph-to-mermaid.unit.test.ts`, `test/artifact-store.unit.test.ts`
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

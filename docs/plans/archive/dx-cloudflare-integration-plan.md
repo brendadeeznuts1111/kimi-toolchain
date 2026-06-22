@@ -1,3 +1,10 @@
+---
+title: "Dx Cloudflare Integration Plan"
+tags: [plans]
+category: core
+status: draft
+priority: medium
+---
 # DX Cloudflare Integration Plan
 
 This plan covers the first bounded slice for making DX a Cloudflare-backed
@@ -142,3 +149,6 @@ When runtime-synced files change:
 ```sh
 bun run sync && bun run sync:verify
 ```
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

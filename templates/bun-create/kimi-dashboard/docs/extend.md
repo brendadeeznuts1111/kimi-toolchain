@@ -1,3 +1,10 @@
+---
+title: "Extend"
+tags: [templates]
+category: meta
+status: draft
+priority: medium
+---
 # {{name}} — Extending the Dashboard
 
 ## Handler Directory Pattern

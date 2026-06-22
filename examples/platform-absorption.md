@@ -1,3 +1,10 @@
+---
+title: "Platform Absorption"
+tags: [examples]
+category: examples
+status: draft
+priority: medium
+---
 # Platform Absorption — How Kimi Absorbs Bun Improvements
 
 When Bun improves (faster transpilation, better TLS, native `using`), the Kimi toolchain automatically tightens its performance thresholds without code changes.
@@ -50,3 +57,6 @@ The toolchain treats the runtime as a **substrate**, not a dependency. It measur
 | Nightly / release | `bun run perf:nightly`       | Full `MODULE_REGISTRY` + `--train` + `perf-report.html`                                  |
 
 Escape hatches: `KIMI_SKIP_PERF_GATES=1` (pre-push); `KIMI_PERF_INSTALL=1` (enable install benchmark on CI).
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

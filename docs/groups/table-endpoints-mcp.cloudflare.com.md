@@ -1,3 +1,10 @@
+---
+title: "Table Endpoints Mcp.Cloudflare.Com"
+tags: [sub-tables]
+category: core
+status: draft
+priority: medium
+---
 # endpoints (url_hostname=mcp.cloudflare.com)
 
 Source: `dx.config.toml`
@@ -12,3 +19,6 @@ Source: `dx.config.toml`
 | url_pathname | /mcp                           |
 | url_search   | —                              |
 | url_hash     | —                              |
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

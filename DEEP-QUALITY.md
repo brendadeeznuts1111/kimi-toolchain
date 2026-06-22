@@ -1,3 +1,10 @@
+---
+title: "DEEP QUALITY"
+tags: [root]
+category: root
+status: draft
+priority: medium
+---
 # Deep Quality Floor — Effect Discipline
 
 This document is the canonical reference for the Effect-discipline enforcement pipeline. It covers the build-time constants, scanner gates, CLI commands, JSON report shape, session-floor thresholds, and known implementation gaps.
@@ -287,3 +294,6 @@ There are two representations of the same CLI-contract failure:
 2. `src/lib/effect/errors.ts` — `EffectCliContractError`, a `Data.TaggedError("EffectCliContractError")` carried in Effect error channels. Fields: `message`, `toolName`, `taxonomyId`, `unknownFlag?`, `suggestions?`.
 
 `src/lib/effect/cli-contract-effect.ts` converts the sync error into the Effect error when bridging the two layers. They are intentionally not merged into a single class because a plain `Error` cannot serve as a `Data.TaggedError` and vice versa. Do not add a third variant.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

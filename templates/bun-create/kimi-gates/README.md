@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [templates]
+category: meta
+status: draft
+priority: medium
+---
 # {{name}}
 
 L1→L2 gate tree with artifact persistence and lineage. Scaffolded from [kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain).

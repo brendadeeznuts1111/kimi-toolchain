@@ -1,3 +1,10 @@
+---
+title: "Agent Api"
+tags: [core]
+category: core
+status: draft
+priority: medium
+---
 # Agent API
 
 Effect-native agents can call the introspection surface directly instead of
@@ -135,3 +142,6 @@ bun run kimi why <decision-id> --json
 Use the services when an Effect program needs to compose probes, traces,
 contract validation, and decision rationale without subprocess overhead or
 stringly typed JSON parsing.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

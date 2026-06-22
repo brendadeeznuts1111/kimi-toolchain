@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [schemas]
+category: meta
+status: draft
+priority: medium
+---
 # Table output schemas (`dx:table --schema`)
 
 Row/column contracts validated **after** `property-table-run` post-processing (`-u`, `--exact`, `--add-metadata`, `--columns`, etc.) and **before** emit.
@@ -55,3 +62,6 @@ bun run dx:table extract test/fixtures/dx-url-endpoints.toml endpoints -u --exac
 Add `--schema-warn` to log violations without failing.
 
 Docs: [docs/dx-table.md](../docs/dx-table.md)
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

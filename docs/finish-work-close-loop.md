@@ -1,3 +1,10 @@
+---
+title: "Finish Work Close Loop"
+tags: [core]
+category: core
+status: draft
+priority: medium
+---
 # Finish-work close-loop architecture
 
 **Status:** production-validated (2026-06-16)  

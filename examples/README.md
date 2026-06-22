@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [examples]
+category: examples
+status: draft
+priority: medium
+---
 # kimi-toolchain Examples Showcase
 
 Runnable projects and narrative guides that demonstrate how the toolchain works end to end. Each entry maps to live dashboard cards in `examples/dashboard` — open the showcase hub at [http://127.0.0.1:5678/](http://127.0.0.1:5678/) or `GET /api/examples`.
@@ -112,3 +119,6 @@ Herdr dashboard embeds the examples surface via `HERDR_EXAMPLES_DASHBOARD_URL` (
 | `image`            | `templates/modules/image`        | `KIMI_MODULES=image kimi-fix <path>`   |
 
 See [docs/references/template-matrix.md](../docs/references/template-matrix.md) and [dashboard/v53/README.md](dashboard/v53/README.md).
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

@@ -1,3 +1,10 @@
+---
+title: "Namespace"
+tags: [references, reference]
+category: core
+status: draft
+priority: medium
+---
 # Namespace boundary — toolchain vs Herdr plugins
 
 Agents often conflate names that share a word (`doctor`, `orchestrator`) but live in different namespaces: **shell gate strings**, **toolchain CLIs**, **Herdr plugin actions**, and **Herdr UI keybindings**. See [Global / ecosystem](#global--ecosystem) for dx, Kimi Code, and the doctor trinity.

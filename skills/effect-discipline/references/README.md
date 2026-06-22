@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [skills]
+category: meta
+status: draft
+priority: medium
+---
 # References (pointers only)
 
 Do not duplicate content here — read these at runtime after `bun run sync`:
@@ -9,3 +16,6 @@ Do not duplicate content here — read these at runtime after `bun run sync`:
 | Gate implementation                   | `src/lib/effect-gates.ts`                                               |
 | Pre-push enforcement                  | `kimi-doctor --effect-gates`                                            |
 | L3 scaffolds (services, streams)      | `skills/effect-hardening/SKILL.md` + `templates/`                       |
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

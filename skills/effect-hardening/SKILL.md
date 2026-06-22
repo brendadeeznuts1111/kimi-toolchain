@@ -24,6 +24,8 @@ metadata:
   companionSkills:
     - effect-discipline
   depthDoc: ~/.kimi-code/DEEP-QUALITY.md
+tags: [skills]
+category: meta
 ---
 
 # Effect Hardening (L3)

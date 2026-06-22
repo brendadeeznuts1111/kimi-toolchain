@@ -1,3 +1,10 @@
+---
+title: "Canonical References System"
+tags: [references, reference]
+category: core
+status: draft
+priority: medium
+---
 # Canonical references system
 
 > How `canonical-references.json` stays trustworthy: schema, generation, freshness, drift, lint layers, and consumers.

@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [templates]
+category: meta
+status: draft
+priority: medium
+---
 # Herdr dashboard templates
 
 The static assets for the **Herdr orchestrator dashboard** live in the parent

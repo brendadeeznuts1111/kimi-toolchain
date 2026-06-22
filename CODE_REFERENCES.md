@@ -1,3 +1,10 @@
+---
+title: "CODE REFERENCES"
+tags: [root]
+category: root
+status: draft
+priority: medium
+---
 # Code References for Agents
 
 This file points future agents at local examples that define the code style for this repo. Read the matching section before adding new code; prefer extending these patterns over inventing a parallel one.
@@ -396,3 +403,6 @@ Before writing a new module or CLI path:
 3. Keep parsing and mutation at boundaries; keep core logic pure where possible.
 4. Add focused unit tests first for new behavior or safety gates.
 5. Run `bun run check:fast` during iteration and `bun run check` before commit.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

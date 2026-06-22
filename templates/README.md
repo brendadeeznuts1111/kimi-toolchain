@@ -1,3 +1,10 @@
+---
+title: "README"
+tags: [templates]
+category: meta
+status: draft
+priority: medium
+---
 # Templates
 
 This directory is the source of truth for every template family that `kimi-toolchain` generates, copies, or serves.
@@ -60,3 +67,6 @@ The default module (`doctor`) is sourced from `examples/dashboard/src/harness/` 
 - `templates/desktop-runtime/package.json` → `~/.kimi-code/package.json`
 
 Verify after changing templates: `bun run sync && bun run sync:verify`.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

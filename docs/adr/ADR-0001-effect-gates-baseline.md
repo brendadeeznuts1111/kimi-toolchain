@@ -1,3 +1,10 @@
+---
+title: "ADR 0001 Effect Gates Baseline"
+tags: [adr, effect, gates]
+category: core
+status: draft
+priority: medium
+---
 # ADR 0001 — Effect Gates Baseline Register
 
 ## Status
@@ -96,3 +103,6 @@ Future work:
 1. Keep the gate green: every PR must run `kimi-doctor --effect-gates --json` and show `summary.ok: true`.
 2. Add a CI step that fails when the effect-gates count is non-zero.
 3. Periodically review `RUN_PROMISE_ALLOWED_FILES` in `src/lib/effect-gates.ts` to ensure only true entry scripts are whitelisted.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

@@ -1,3 +1,10 @@
+---
+title: "Artifact Portal"
+tags: [examples, portal, artifacts]
+category: examples
+status: draft
+priority: medium
+---
 # Artifact Portal — Canvas → Probe → Herdr → Artifact
 
 How benchmark diagnostics converge across IDE canvas companions, the examples dashboard, serve-probe, and Herdr into one persisted artifact gate.
@@ -183,3 +190,6 @@ bun run hooks:install   # pre-push guard
 The template delegates to repo-root scripts (`build-portal.ts`, `test/portal-convergence.unit.test.ts`) via thin `scripts/*.sh` wrappers. Set `KIMI_PROJECT_ROOT` when the git toplevel is not the canonical clone.
 
 Extend with additional diagnostic types by registering new `registerPortalArtifact()` entries — keep one envelope schema per diagnostic surface.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

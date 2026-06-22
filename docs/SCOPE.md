@@ -1,3 +1,10 @@
+---
+title: "SCOPE"
+tags: [core]
+category: core
+status: draft
+priority: medium
+---
 # Production validation — Herdr orchestration layer
 
 **Run type:** full production validation (single machine, single operator)  
@@ -242,3 +249,6 @@ herdr-doctor
 ---
 
 _End of scope document. Update this file when acceptance criteria or the runbook sequence changes._
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index

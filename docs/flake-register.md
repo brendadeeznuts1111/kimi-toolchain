@@ -1,3 +1,10 @@
+---
+title: "Flake Register"
+tags: [core]
+category: core
+status: draft
+priority: medium
+---
 # Flake Register
 
 This register tracks flaky tests detected by the flake-hunt and shuffle-hunt scripts.
@@ -30,3 +37,6 @@ failures that might only appear on attempt N.
 - **Shuffle hunt**: TBD.
 - **Normal run**: 608 pass, 0 fail.
 - **Fast gate**: 482 pass, 0 fail.
+## Related
+
+- [INDEX.md](../INDEX.md) — Documentation index
