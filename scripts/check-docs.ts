@@ -1,13 +1,21 @@
 #!/usr/bin/env bun
 /**
  * check-docs.ts — Verify .md files follow style guide conventions
- * Usage: bun scripts/check-docs.ts [directory] [--fix] [--json]
+ * Usage: bun scripts/check-docs.ts [directory] [--fix] [--json] [--open]
  * Exit code: number of errors (0 = clean)
  *
  * Modes:
  *   (default)  Print color-coded report with Bun.inspect.table
  *   --fix      Auto-add missing frontmatter and ## Related sections
  *   --json     Output machine-readable JSON for CI/dashboards
+ *   --open     Open files with errors in $EDITOR via Bun.openInEditor()
+ *
+ * Bun primitives used:
+ *   Bun.nanoseconds()    — execution timing (ms in final verdict)
+ *   Bun.openInEditor()   — open error files in editor (--open mode)
+ *   Bun.inspect.table()  — tabular output via inspectTable() helper
+ *   Bun.color()          — ANSI color output (TTY-aware)
+ *   Bun.Glob             — .md file discovery
  *
  * Color coding (HSL → HEX, via Bun.color()):
  *   ERROR  red     hsl(0,80%,55%)   #E63946
@@ -34,6 +42,7 @@ const positional = args.filter((a) => !a.startsWith("--"));
 const root = positional[0] ?? ".";
 const FIX_MODE = flags.has("--fix");
 const JSON_MODE = flags.has("--json");
+const OPEN_MODE = flags.has("--open");
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -319,6 +328,7 @@ async function fixFile(filePath: string, issues: Issue[]): Promise<number> {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
+  const startNs = Bun.nanoseconds();
   const glob = new Glob("**/*.md");
   const allFiles: string[] = [];
   for await (const path of glob.scan({ cwd: root, absolute: false })) {
@@ -568,10 +578,23 @@ async function main() {
 
   // ─── Final verdict ──────────────────────────────────────────────────────────
 
+  const elapsedMs = ((Bun.nanoseconds() - startNs) / 1e6).toFixed(1);
+
   if (totalErrors === 0) {
-    console.log(paintBold("✓ All docs pass quality checks", HEX.OK));
+    console.log(paintBold(`✓ All docs pass quality checks (${elapsedMs}ms)`, HEX.OK));
   } else {
-    console.log(paintBold(`✗ ${totalErrors} error(s) found — see above`, HEX.ERROR));
+    console.log(paintBold(`✗ ${totalErrors} error(s) found — see above (${elapsedMs}ms)`, HEX.ERROR));
+
+    if (OPEN_MODE) {
+      const errorFiles = [...new Set(allIssues.filter((i) => i.severity === "ERROR" && !i.fixed).map((i) => i.file))];
+      for (const f of errorFiles.slice(0, 5)) {
+        console.log(paint(`  Opening: ${f}`, HEX.DIM));
+        Bun.openInEditor(f);
+      }
+      if (errorFiles.length > 5) {
+        console.log(paint(`  ... and ${errorFiles.length - 5} more (open manually)`, HEX.DIM));
+      }
+    }
   }
 
   process.exit(totalErrors);

@@ -189,9 +189,10 @@ bun scripts/check-docs.ts           # check entire repo (default)
 bun scripts/check-docs.ts docs/     # check a specific directory
 bun scripts/check-docs.ts --fix     # auto-add missing frontmatter + ## Related
 bun scripts/check-docs.ts --json    # machine-readable JSON for CI/dashboards
+bun scripts/check-docs.ts --open    # open files with errors in $EDITOR
 ```
 
-The script uses `Bun.color()` with hex values (aligned with `src/lib/cli-format.ts`) and `Bun.inspect.table` for clean tabular output. Colors are suppressed when stdout is not a TTY. Add it to pre-commit hooks or CI to keep docs healthy.
+The script uses `Bun.color()` with hex values (aligned with `src/lib/cli-format.ts`) and `inspectTable()` (wrapping `Bun.inspect.table`) for clean tabular output. Timing is reported via `Bun.nanoseconds()`. Colors are suppressed when stdout is not a TTY. Add it to pre-commit hooks or CI to keep docs healthy.
 
 ## Keeping This Guide Current
 
