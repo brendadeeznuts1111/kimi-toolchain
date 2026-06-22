@@ -73,7 +73,9 @@ function renderReport(
       )
     );
   } else {
-    console.log(`audit:all${dryRun ? " dry-run" : ""} — ${violations} violation(s) in ${durationMs}ms`);
+    console.log(
+      `audit:all${dryRun ? " dry-run" : ""} — ${violations} violation(s) in ${durationMs}ms`
+    );
     console.log(`  secret leaks: ${leaks.count} (${leaks.scanned} files scanned)`);
     console.log(`  secret isolation: ${isolation.errorCount} error(s)`);
     console.log(`  hardcoded secrets: ${hardcoded.count} (${hardcoded.scanned} files scanned)`);

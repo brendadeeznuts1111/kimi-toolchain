@@ -3,7 +3,6 @@ import { join } from "path";
 import { makeDir, pathExists } from "../src/lib/bun-io.ts";
 import {
   ARTIFACT_SCHEMA_VERSION,
-  ArtifactRunManifest,
   ArtifactStore,
   artifactIdentityEnv,
   artifactScopeKey,
@@ -17,6 +16,7 @@ import {
   normalizeArtifactSessionContext,
   resolveArtifactSessionContext,
 } from "../src/lib/artifact-store.ts";
+import type { ArtifactRunManifest } from "../src/lib/artifact-store.ts";
 import { withTempDir } from "./helpers.ts";
 
 describe("artifact-store", () => {

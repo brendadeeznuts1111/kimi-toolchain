@@ -25,7 +25,9 @@ interface JsonRpcResponse {
   error?: { code: number; message: string };
 }
 
-async function sendRequests(reqs: JsonRpcRequest[]): Promise<JsonRpcResponse[]> {
+async function sendRequests(
+  reqs: JsonRpcRequest[]
+): Promise<[JsonRpcResponse, ...JsonRpcResponse[]]> {
   const proc = Bun.spawn(["bun", "run", BRIDGE], {
     stdin: "pipe",
     stdout: "pipe",
@@ -40,10 +42,11 @@ async function sendRequests(reqs: JsonRpcRequest[]): Promise<JsonRpcResponse[]> 
   const stdout = await Bun.readableStreamToText(proc.stdout);
   await proc.exited;
 
-  return stdout
+  const results = stdout
     .split("\n")
     .filter((line) => line.trim())
     .map((line) => JSON.parse(line) as JsonRpcResponse);
+  return results as [JsonRpcResponse, ...JsonRpcResponse[]];
 }
 
 describe("unified-shell-bridge", () => {

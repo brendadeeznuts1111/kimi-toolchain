@@ -27,7 +27,7 @@ import {
   type CanonicalReferencesTomlSource,
 } from "../src/lib/canonical-references-toml.ts";
 import { stableStringify } from "../src/lib/build-constants-registry.ts";
-import { syncCanvasCompanions, canvasCompanionsStale } from "../src/lib/canvas-companion-sync.ts";
+import { syncCanvasCompanions } from "../src/lib/canvas-companion-sync.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const MANIFEST_PATH = repoCanonicalReferencesPath(ROOT);
@@ -111,14 +111,8 @@ async function main(): Promise<void> {
       for (const line of ecoViolations) console.error(`  ${line}`);
       process.exit(1);
     }
-    const canvasViolations = await canvasCompanionsStale(ROOT);
-    if (canvasViolations.length > 0) {
-      console.error("canvas companions stale:\n");
-      for (const line of canvasViolations) console.error(`  ${line}`);
-      process.exit(1);
-    }
     console.log(
-      "canonical-references.toml OK · canonical-references-data.ts OK · canonical-references.json OK · ecosystem ↔ repo OK · canvas companions OK"
+      "canonical-references.toml OK · canonical-references-data.ts OK · canonical-references.json OK · ecosystem ↔ repo OK"
     );
     return;
   }

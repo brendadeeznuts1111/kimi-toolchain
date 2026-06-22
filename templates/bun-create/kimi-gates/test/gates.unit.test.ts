@@ -10,7 +10,7 @@ async function cleanupPath(path: string): Promise<void> {
   await Bun.spawn({ cmd: ["rm", "-rf", path] }).exited;
 }
 
-describe("gates-example", () => {
+describe("gates", () => {
   test("registers all three example gates", () => {
     expect(listGates().sort()).toEqual(["data-freshness", "health-check", "strategy-check"]);
   });

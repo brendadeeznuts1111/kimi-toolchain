@@ -125,11 +125,18 @@ async function runFullLint(namesOnly: boolean): Promise<void> {
     { cmd: ["bun", "run", "scripts/lint-cursor-canvas.ts"], label: "cursor-canvas" },
     { cmd: ["bun", "run", "scripts/lint-canvas-influences.ts"], label: "canvas-influences" },
     { cmd: ["bun", "run", "scripts/lint-examples-showcase.ts"], label: "examples-showcase" },
-    { cmd: ["bun", "run", "scripts/lint-dashboard-routes.ts", "--check"], label: "dashboard-routes" },
+    {
+      cmd: ["bun", "run", "scripts/lint-dashboard-routes.ts", "--check"],
+      label: "dashboard-routes",
+    },
     { cmd: ["bun", "run", "scripts/lint-doc-links.ts"], label: "doc-links" },
     { cmd: ["bun", "run", "scripts/lint-testing-docs.ts"], label: "testing-docs" },
     { cmd: ["bun", "run", "scripts/lint-markdown-links.ts", "--full"], label: "markdown-links" },
     { cmd: ["bun", "run", "scripts/lint-constant-parity.ts"], label: "constant-parity" },
+    { cmd: ["bun", "run", "scripts/lint-feature-flags.ts"], label: "feature-flags" },
+    { cmd: ["bun", "run", "scripts/lint-error-registry.ts"], label: "error-registry" },
+    { cmd: ["bun", "run", "scripts/lint-secrets-registry.ts"], label: "secrets-registry" },
+    { cmd: ["bun", "run", "scripts/check-templates.ts"], label: "templates" },
     ...(namesOnly
       ? []
       : [

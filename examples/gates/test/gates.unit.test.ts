@@ -6,8 +6,6 @@ const PROJECT_ROOT = join(import.meta.dir, "..");
 import { ArtifactStore } from "../src/lib/artifact-store.ts";
 import "../src/gates/init.ts";
 
-
-
 async function cleanupPath(path: string): Promise<void> {
   await Bun.spawn({ cmd: ["rm", "-rf", path] }).exited;
 }

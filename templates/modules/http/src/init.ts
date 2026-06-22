@@ -7,5 +7,4 @@ export const http = createHttpProcessor({
   minTLS: "TLSv1.2", // production floor
 });
 
-(globalThis as typeof globalThis & Record<symbol, unknown>)[Symbol.for("kimi.effect.http")] =
-  http;
+(globalThis as typeof globalThis & Record<symbol, unknown>)[Symbol.for("kimi.effect.http")] = http;

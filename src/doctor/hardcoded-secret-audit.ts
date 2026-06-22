@@ -119,6 +119,39 @@ function scanText(path: string, text: string): HardcodedSecretFinding[] {
   return findings;
 }
 
+async function collectGlobSourceFiles(
+  root: string,
+  globPatterns: readonly string[]
+): Promise<string[]> {
+  const cwd = repoRoot(root);
+  const seen = new Set<string>();
+  for (const pattern of globPatterns) {
+    for (const path of new Bun.Glob(pattern).scanSync({
+      cwd,
+      absolute: true,
+      onlyFiles: true,
+    })) {
+      if (!/\.(?:ts|tsx)$/.test(path)) continue;
+      seen.add(path);
+    }
+  }
+  return [...seen].sort();
+}
+
+export async function auditHardcodedSecretsInGlob(
+  root = ".",
+  globPatterns: readonly string[]
+): Promise<HardcodedSecretAuditResult> {
+  const cwd = repoRoot(root);
+  const files = await collectGlobSourceFiles(root, globPatterns);
+  const findings: HardcodedSecretFinding[] = [];
+  for (const fullPath of files) {
+    const text = await Bun.file(fullPath).text();
+    findings.push(...scanText(relative(cwd, fullPath), text));
+  }
+  return { findings, count: findings.length, scanned: files.length };
+}
+
 export async function auditHardcodedSecrets(
   root = ".",
   options: { includeScripts?: boolean; includeExamples?: boolean } = {}

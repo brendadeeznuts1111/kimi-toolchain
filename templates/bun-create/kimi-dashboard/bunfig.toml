@@ -13,6 +13,7 @@ minimumReleaseAge = 259200
 # Bun v1.3.13: ~20.5s → 2.4s improvement for --linker=isolated.
 # https://bun.com/blog/bun-v1.3.13#faster-bun-install-with-isolated-linker
 linker = "isolated"
+globalStore = true
 
 [run]
 noOrphans = true

@@ -71,6 +71,7 @@ import {
 } from "../lib/finish-work-herdr.ts";
 import { join } from "path";
 import { isDirectRun } from "../lib/bun-utils.ts";
+import { buildBanner } from "../lib/build-info.ts";
 
 function parseArgs(argv: string[]) {
   const args = [...argv];
@@ -124,6 +125,7 @@ function parseArgs(argv: string[]) {
     dryRun: args.includes("--dry-run"),
     sessions: args.includes("--sessions"),
     help: args.includes("--help") || args.includes("-h"),
+    version: args.includes("--version"),
     verbose: args.includes("--verbose") || args.includes("-v"),
     includeDoctor: args.includes("--include-doctor"),
     versions: args.includes("--versions"),
@@ -217,6 +219,7 @@ Commands:
                  jsonl: Bun.connect JSONL; websocket: ws+unix; auto: try ws then jsonl
 
 Flags:
+  --version           Print build banner and exit
   --json              JSON output
   --force-context     Run context sync even without idle transition
   --force-handoff     Send handoff even without idle transition
@@ -279,6 +282,7 @@ if (isDirectRun(import.meta.path)) {
     sessions: showSessions,
     verbose,
     help,
+    version,
     takeover,
     includeDoctor,
     versions,
@@ -303,6 +307,11 @@ if (isDirectRun(import.meta.path)) {
     command,
     path: rawPath,
   } = parseArgs(Bun.argv.slice(2));
+
+  if (version) {
+    await writeStdoutLine(buildBanner);
+    process.exit(0);
+  }
 
   if (help) {
     await printHelp();
@@ -1220,31 +1229,35 @@ if (isDirectRun(import.meta.path)) {
         await printHistoryEntries(queryHandoffHistory(query));
         await renderNew();
 
-        const followAbort = new AbortController();
-        let watcher: ReturnType<typeof watchPath> | null = null;
-        const stopFollow = () => {
-          followAbort.abort();
-          watcher?.close();
-          process.exit(0);
+        using followCtx = {
+          abort: new AbortController(),
+          watcher: null as ReturnType<typeof watchPath> | null,
+          _sigHandler: null as (() => void) | null,
+          [Symbol.dispose]() {
+            this.abort.abort();
+            this.watcher?.close();
+            if (this._sigHandler) process.off("SIGINT", this._sigHandler);
+          },
         };
 
         if (pathExists(logPath)) {
-          watcher = watchPath(logPath, () => void renderNew());
+          followCtx.watcher = watchPath(logPath, () => void renderNew());
         }
 
         void (async () => {
-          while (!followAbort.signal.aborted) {
+          while (!followCtx.abort.signal.aborted) {
             await Bun.sleep(1000);
-            if (followAbort.signal.aborted) break;
+            if (followCtx.abort.signal.aborted) break;
             if (!pathExists(logPath)) continue;
-            if (!watcher) {
-              watcher = watchPath(logPath, () => void renderNew());
+            if (!followCtx.watcher) {
+              followCtx.watcher = watchPath(logPath, () => void renderNew());
               await renderNew();
             }
           }
         })();
 
-        process.on("SIGINT", stopFollow);
+        followCtx._sigHandler = () => process.exit(0);
+        process.on("SIGINT", followCtx._sigHandler);
       } else {
         await printHistoryEntries(queryHandoffHistory(query));
         process.exit(0);
@@ -1491,7 +1504,7 @@ if (isDirectRun(import.meta.path)) {
       await writeOut("AGENT         RESTORE  DETAIL");
       await writeOut("────────────  ───────  ──────────────────────────────────────────────");
       for (const r of results) {
-        counts[r.restore]++;
+        counts[r.restore]!++;
         await writeOut(
           `${r.agent.padEnd(13)} ${colorR(r.restore)}${r.restore.padEnd(7)}${reset} ${r.detail}`
         );
@@ -1501,7 +1514,7 @@ if (isDirectRun(import.meta.path)) {
         `Summary: ${colorR("native")}${counts.native} native${reset}, ${colorR("replay")}${counts.replay} replay${reset}, ${counts.none} none`
       );
 
-      process.exit(counts.replay > 0 ? 2 : 0);
+      process.exit(counts.replay! > 0 ? 2 : 0);
     }
 
     if (command === "agent-info") {
@@ -1831,7 +1844,7 @@ if (isDirectRun(import.meta.path)) {
             const proc = Bun.spawn(
               withBunNoOrphans([
                 process.execPath,
-                Bun.argv[1],
+                Bun.argv[1]!,
                 "dashboard",
                 ...(showSessions ? ["--sessions"] : []),
                 ...(cliHost ? ["--host", cliHost] : []),
@@ -1899,23 +1912,26 @@ if (isDirectRun(import.meta.path)) {
     }
 
     if (command === "watch-events") {
-      const controller = new AbortController();
-      const onSignal = () => controller.abort();
+      using signalHandlers = {
+        controller: new AbortController(),
+        _listeners: [] as Array<[NodeJS.Signals, () => void]>,
+        [Symbol.dispose]() {
+          for (const [sig, fn] of this._listeners) process.off(sig, fn);
+        },
+      };
+      const onSignal = () => signalHandlers.controller.abort();
       process.on("SIGINT", onSignal);
       process.on("SIGTERM", onSignal);
-      try {
-        const result = await Effect.runPromise(
-          watchOrchestratorEventsEffect(projectPath, {
-            json,
-            signal: controller.signal,
-          }).pipe(Effect.provide(mergedHerdrConfigLayer()))
-        );
-        if (json) await writeJson(result);
-        process.exit(result.ok ? 0 : 2);
-      } finally {
-        process.off("SIGINT", onSignal);
-        process.off("SIGTERM", onSignal);
-      }
+      signalHandlers._listeners.push(["SIGINT", onSignal], ["SIGTERM", onSignal]);
+
+      const result = await Effect.runPromise(
+        watchOrchestratorEventsEffect(projectPath, {
+          json,
+          signal: signalHandlers.controller.signal,
+        }).pipe(Effect.provide(mergedHerdrConfigLayer()))
+      );
+      if (json) await writeJson(result);
+      process.exit(result.ok ? 0 : 2);
     }
 
     // ── agent subcommands (start / stop / attach) ─────────────────────
@@ -1986,12 +2002,12 @@ if (isDirectRun(import.meta.path)) {
             continue;
           }
           if (!foundAgent) continue;
-          if (skipNext.has(raw[i])) {
+          if (skipNext.has(raw[i]!)) {
             i++;
             continue;
           }
           if (raw[i] === "--") continue;
-          startFlags.push(raw[i]);
+          startFlags.push(raw[i]!);
         }
         const filteredFlags = startFlags;
         const hasWorkspace = filteredFlags.some(
@@ -2411,7 +2427,7 @@ if (isDirectRun(import.meta.path)) {
             "wait",
             agentTarget,
             "--status",
-            statusFlag,
+            statusFlag!,
             "--timeout",
             String(timeoutFlag),
           ]),
@@ -2856,7 +2872,7 @@ if (isDirectRun(import.meta.path)) {
           : ["herdr", "pane", "read", paneId, "--source", sourceFlag, "--lines", String(linesFlag)];
         if (ansiFlag) readArgs.push("--ansi");
 
-        const readResult = await sshExec(resolved, readArgs);
+        const readResult = await sshExec(resolved, readArgs as string[]);
         if (!readResult.ok) {
           if (json)
             await writeJson({ ok: false, error: friendlySshError(readResult.output, cliHost) });
@@ -2918,7 +2934,7 @@ if (isDirectRun(import.meta.path)) {
           ? ["herdr", "--session", sess, "pane", "get", paneId, ...(json ? ["--json"] : [])]
           : ["herdr", "pane", "get", paneId, ...(json ? ["--json"] : [])];
 
-        const getResult = await sshExec(resolved, getArgs);
+        const getResult = await sshExec(resolved, getArgs as string[]);
         if (!getResult.ok) {
           if (json)
             await writeJson({ ok: false, error: friendlySshError(getResult.output, cliHost) });
@@ -2951,7 +2967,7 @@ if (isDirectRun(import.meta.path)) {
             foundPane = true;
             continue;
           }
-          if (foundPane) flagArgs.push(raw[i]);
+          if (foundPane) flagArgs.push(raw[i]!);
         }
 
         const config = discoverHerdrProjectConfig(projectPath);
@@ -2993,7 +3009,7 @@ if (isDirectRun(import.meta.path)) {
           process.exit(0);
         }
 
-        const result = await sshExec(resolved, reportArgs);
+        const result = await sshExec(resolved, reportArgs as string[]);
         if (!result.ok) {
           if (json) await writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
           else await writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);
@@ -3118,7 +3134,7 @@ if (isDirectRun(import.meta.path)) {
             foundPane = true;
             continue;
           }
-          if (foundPane) flagArgs.push(raw[i]);
+          if (foundPane) flagArgs.push(raw[i]!);
         }
 
         const config = discoverHerdrProjectConfig(projectPath);
@@ -3162,7 +3178,7 @@ if (isDirectRun(import.meta.path)) {
         }
 
         if (!json) await writeOut(`Waiting on ${paneId}@${cliHost}...`);
-        const result = await sshExec(resolved, waitArgs);
+        const result = await sshExec(resolved, waitArgs as string[]);
         if (!result.ok) {
           if (json) await writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
           else await writeOut(`Wait failed: ${friendlySshError(result.output, cliHost)}`);
@@ -3299,7 +3315,7 @@ if (isDirectRun(import.meta.path)) {
               found = true;
               continue;
             }
-            if (found && raw[i] !== "--host" && raw[i] !== "--session") paneFlags.push(raw[i]);
+            if (found && raw[i]! !== "--host" && raw[i]! !== "--session") paneFlags.push(raw[i]!);
             if (found && (raw[i] === "--host" || raw[i] === "--session")) i++; // skip value
           }
           pluginCmd = ["plugin", "pane", "open", ...paneFlags];
@@ -3413,7 +3429,7 @@ if (isDirectRun(import.meta.path)) {
           process.exit(0);
         }
 
-        const result = await sshExec(resolved, sendArgs);
+        const result = await sshExec(resolved, sendArgs as string[]);
         if (!result.ok) {
           if (json) await writeJson({ ok: false, error: friendlySshError(result.output, cliHost) });
           else await writeOut(`Failed: ${friendlySshError(result.output, cliHost)}`);

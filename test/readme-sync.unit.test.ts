@@ -168,10 +168,9 @@ describe("readme-sync", () => {
     writeFileSync(join(tmpDir, "README.md"), "# Project\n");
     writeFileSync(join(tmpDir, "package.json"), "not-json");
 
-    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    using _errorSpy = spyOn(console, "error").mockImplementation(() => {});
     const result = await runReadmeSyncCli([tmpDir]);
     expect(result.exitCode).toBe(1);
     expect(result.message).toContain("Error:");
-    errorSpy.mockRestore();
   });
 });

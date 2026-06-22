@@ -28,10 +28,17 @@ async function main(): Promise<number> {
       checks: [
         "install",
         "registry",
+        "registry-schema",
         "bunfig-runtime",
         "tsconfig",
+        "scaffold-files",
+        "scaffold-markers",
         "shebang",
+        "env-hygiene",
+        "banned-terms",
+        "hardcoded-secrets",
         "bun-native",
+        "test-conventions",
         "typecheck",
         "modules-typecheck",
         "bun-test",
@@ -43,8 +50,9 @@ async function main(): Promise<number> {
       console.log(
         `check:template-policy dry-run — would verify ${summary.bunfigFiles} bunfig, ` +
           `${summary.templatePackages} packages, ${summary.registryEntries} registry entries, ` +
+          `${summary.scaffoldFiles} scaffold files, ${summary.envExampleFiles} .env.example, ` +
           `${summary.tsconfigProjects} tsconfig + modules, ${summary.testProjects} test project(s), ` +
-          `bun-native + tsc + bun test`
+          `scaffold markers + secrets + bun-native + tsc + bun test`
       );
     }
     return 0;
@@ -69,6 +77,7 @@ async function main(): Promise<number> {
   const s = result.summary;
   console.log(
     `✅ Template policy OK — ${s.bunfigFiles} bunfig, ${s.registryEntries} registry, ` +
+      `${s.scaffoldFiles} scaffold, ${s.envExampleFiles} env.example, ` +
       `${s.tsconfigProjects} tsconfig + modules (${s.moduleTsFiles} module TS), ` +
       `${s.testProjects} test project(s), ${s.templateTsFiles} TS bun-native clean`
   );

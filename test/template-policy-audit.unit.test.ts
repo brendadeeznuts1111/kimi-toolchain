@@ -2,8 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { REPO_ROOT } from "./helpers.ts";
 import {
   auditTemplateBunNative,
+  auditTemplateEnvHygiene,
   auditTemplateInstallPolicy,
   auditTemplatePolicy,
+  auditTemplateScaffoldFiles,
+  auditTemplateScaffoldMarkers,
+  auditTemplateTestConventions,
   auditTemplateTsconfigs,
   templateBunNativeConfig,
 } from "../src/lib/template-policy-audit.ts";
@@ -27,6 +31,26 @@ describe("template-policy-audit", () => {
 
   test("auditTemplateBunNative passes on repo templates", async () => {
     const violations = await auditTemplateBunNative(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateScaffoldFiles passes on repo templates", async () => {
+    const violations = await auditTemplateScaffoldFiles(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateScaffoldMarkers passes on repo templates", async () => {
+    const violations = await auditTemplateScaffoldMarkers(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateEnvHygiene passes on repo templates", async () => {
+    const violations = await auditTemplateEnvHygiene(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateTestConventions passes on repo templates", async () => {
+    const violations = await auditTemplateTestConventions(REPO_ROOT);
     expect(violations).toEqual([]);
   });
 

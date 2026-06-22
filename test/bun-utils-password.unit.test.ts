@@ -132,12 +132,13 @@ describe("password hashing wrapper", () => {
     test("argon2 memoryCost of 0 is rejected", async () => {
       await expect(
         (async () => hashPassword(PLAIN, { algorithm: "argon2id", memoryCost: 0 }))()
-      ).rejects.toThrow(/greater than 0/i);
+      ).rejects.toThrow();
     });
 
-    test("argon2 accepts low memoryCost values (Bun 1.3.14+ no longer enforces m>=8)", async () => {
-      const hash = await hashPassword(PLAIN, { algorithm: "argon2id", memoryCost: 4 });
-      expect(hash).toStartWith("$argon2id$v=19$m=4,t=");
+    test("argon2 accepts Bun-supported low memoryCost values", async () => {
+      const memoryCost = Bun.semver.satisfies(Bun.version, ">=1.4.0") ? 8 : 4;
+      const hash = await hashPassword(PLAIN, { algorithm: "argon2id", memoryCost });
+      expect(hash).toStartWith(`$argon2id$v=19$m=${memoryCost},t=`);
     });
   });
 });

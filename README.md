@@ -11,6 +11,11 @@
 ```bash
 # Global install (recommended)
 bun install -g github:brendadeeznuts1111/kimi-toolchain
+# ⚠️  Postinstall does NOT run automatically for GitHub sources.
+# Run manually after global install:
+kimi-toolchain setup
+# Or if setup is unavailable:
+bun run ~/.bun/install/global/node_modules/kimi-toolchain/src/install-hooks/postinstall.ts
 
 # Or clone and link
 git clone https://github.com/brendadeeznuts1111/kimi-toolchain.git ~/kimi-toolchain
@@ -153,6 +158,42 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run references:snapshot` | (synced from package.json) |
 | `bun run cron:health` | (synced from package.json) |
 | `bun run lint:dashboard-visual` | (synced from package.json) |
+
+| `bun run secrets:gate` | (synced from package.json) |
+
+| `bun run setup` | (synced from package.json) |
+| `bun run check:lockfile` | (synced from package.json) |
+
+| `bun run check:template-policy` | (synced from package.json) |
+| `bun run check:secret-resolution` | (synced from package.json) |
+| `bun run check:secret-leaks` | (synced from package.json) |
+| `bun run doctor:audit` | (synced from package.json) |
+| `bun run doctor:audit:changed` | (synced from package.json) |
+| `bun run doctor:audit:ci` | (synced from package.json) |
+| `bun run doctor:audit:shard` | (synced from package.json) |
+| `bun run doctor:audit:watch` | (synced from package.json) |
+| `bun run doctor:audit:watch:changed` | (synced from package.json) |
+| `bun run deep-audit` | (synced from package.json) |
+| `bun run deep-audit:json` | (synced from package.json) |
+| `bun run deep-audit:report` | (synced from package.json) |
+| `bun run check:secrets-registry` | (synced from package.json) |
+| `bun run check:secrets-storage-gate` | (synced from package.json) |
+
+| `bun run audit:all` | (synced from package.json) |
+
+| `bun run audit:secrets` | (synced from package.json) |
+| `bun run audit:config` | (synced from package.json) |
+| `bun run audit:images` | (synced from package.json) |
+| `bun run audit:network` | (synced from package.json) |
+| `bun run audit:perf` | (synced from package.json) |
+| `bun run audit` | (synced from package.json) |
+| `bun run audit:dry-run` | (synced from package.json) |
+| `bun run verify:bun-features` | (synced from package.json) |
+| `bun run verify:bun-features:strict` | (synced from package.json) |
+| `bun run autophagy:scan` | (synced from package.json) |
+| `bun run autophagy:scan:gate` | (synced from package.json) |
+
+| `bun run check:templates` | (synced from package.json) |
 
 ### Core
 

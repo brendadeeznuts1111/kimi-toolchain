@@ -238,12 +238,14 @@ Usage:
   bun run config:status
   bun run config:status --json
   bun run config:status --with-scaffold
+  bun run config:status --dry-run
   bun run config:status --project <path>
 
 Options:
   --help, -h          Show this help
   --json              Emit ConfigStatusReport JSON
   --with-scaffold     Include scaffold alignment gate (off by default)
+  --dry-run           Run gates read-only and report findings without applying fixes
   --project <path>    Project root (default: repo root)
 
 Future: --watch for continuous monitoring during development.

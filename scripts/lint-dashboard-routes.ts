@@ -9,7 +9,9 @@
  */
 
 import { join } from "path";
+import { syncDashboardCardLoaders } from "../src/lib/dashboard-card-loaders.ts";
 import { syncDashboardCardShells } from "../src/lib/dashboard-card-shells.ts";
+import { lintDashboardLoaderLanes } from "../src/lib/dashboard-loader-lanes-lint.ts";
 import { lintDashboardStaticAssets } from "../src/lib/dashboard-static-assets-lint.ts";
 import {
   buildDashboardRouteInventory,
@@ -30,7 +32,9 @@ async function main(): Promise<void> {
   const parityIssues = lintDashboardRouteParity(REPO_ROOT);
   const docIssues = syncDashboardRouteDocs(REPO_ROOT, { check });
   const shellIssues = syncDashboardCardShells(REPO_ROOT, { check: true });
+  const loaderIssues = syncDashboardCardLoaders(REPO_ROOT, { check: true });
   const assetIssues = lintDashboardStaticAssets(REPO_ROOT);
+  const laneIssues = lintDashboardLoaderLanes(REPO_ROOT);
 
   const routesSource = await Bun.file(
     join(REPO_ROOT, "examples/dashboard/src/handlers/routes.ts")
@@ -43,14 +47,17 @@ async function main(): Promise<void> {
     ...parityIssues.map((v) => v.message),
     ...docIssues,
     ...shellIssues,
+    ...loaderIssues,
     ...assetIssues,
+    ...laneIssues,
     ...handlerExportIssues,
   ];
 
   if (write) {
     syncDashboardRouteDocs(REPO_ROOT, { check: false });
     syncDashboardCardShells(REPO_ROOT, { check: false });
-    console.log(`dashboard-routes docs + shells refreshed (${inventory.total} routes)`);
+    syncDashboardCardLoaders(REPO_ROOT, { check: false });
+    console.log(`dashboard-routes docs + shells + loaders refreshed (${inventory.total} routes)`);
   }
 
   if (violations.length > 0) {

@@ -11,6 +11,7 @@ minimumReleaseAge = 259200
 
 # Isolated linker: dramatically faster in peer-heavy monorepos.
 linker = "isolated"
+globalStore = true
 
 [run]
 noOrphans = true

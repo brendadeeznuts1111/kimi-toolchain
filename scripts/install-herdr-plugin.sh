@@ -22,7 +22,7 @@ chmod +x "$PLUGIN_DIR/run.sh"
 # Build dependencies first if needed.
 if [[ -f "$PLUGIN_DIR/package.json" ]] && command -v bun >/dev/null 2>&1; then
   echo "[install-herdr-plugin] installing plugin dependencies"
-  (cd "$PLUGIN_DIR" && bun install)
+  (cd "$PLUGIN_DIR" && bun install --frozen-lockfile)
 fi
 
 # Link (or re-link) the plugin. Herdr persists linked plugins across restarts.

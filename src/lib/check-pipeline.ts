@@ -119,6 +119,26 @@ export async function buildSteps(
       cmd: ["bun", "run", "references:lint"],
       silentOnSuccess: quiet,
     });
+    steps.push({
+      name: "secrets-storage-gate",
+      cmd: ["bun", "run", "scripts/secrets-storage-gate.ts"],
+      silentOnSuccess: quiet,
+    });
+  }
+
+  if (options.fast && (await isKimiToolchainRepo(projectRoot))) {
+    steps.push({
+      name: "verify:bun-features",
+      cmd: ["bun", "scripts/verify-bun-features.ts"],
+      silentOnSuccess: quiet,
+    });
+    if (pathExists(join(projectRoot, "scripts", "autophagy-scan.ts"))) {
+      steps.push({
+        name: "autophagy:scan",
+        cmd: ["bun", "scripts/autophagy-scan.ts", "--brief"],
+        silentOnSuccess: false,
+      });
+    }
   }
 
   if (options.fast && pathExists(join(projectRoot, "scripts", "scan.ts"))) {

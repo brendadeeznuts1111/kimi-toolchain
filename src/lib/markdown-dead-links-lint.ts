@@ -8,7 +8,6 @@
 import { dirname, join, normalize } from "path";
 import { pathExists, readTextAsync } from "./bun-io.ts";
 import { markdownRenderSupported } from "./bun-markdown.ts";
-import { BUN_HTML_REWRITER_EXTRACT_LINKS_DOC_URL } from "./cli-contract.ts";
 
 /** Fast offline scope (aligned with testing-docs-lint agent set). */
 export const MARKDOWN_LINK_AGENT_DOCS = [

@@ -52,7 +52,7 @@ const TEMPLATE_BANNED_TERMS: Array<{ pattern: RegExp; label: string }> = [
 ];
 
 const TEMPLATE_TEST_FILENAME =
-  /^test\/[a-z0-9]+(?:-[a-z0-9]+)*\.(?:unit|integration|smoke)\.test\.ts$/;
+  /^[a-z0-9]+(?:-[a-z0-9]+)*\.(?:unit|integration|smoke)\.test\.ts$/;
 
 const KEBAB_CASE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
@@ -318,6 +318,8 @@ export async function auditTemplateBunNative(root: string): Promise<TemplatePoli
 interface TemplateRegistryEntry {
   name: string;
   path?: string;
+  type?: string;
+  purpose?: string;
 }
 
 interface TemplateRegistry {
@@ -580,18 +582,16 @@ export async function auditTemplateTestConventions(
     onlyFiles: true,
   })) {
     const relPath = rel(root, path);
-    if (!TEMPLATE_TEST_FILENAME.test(relPath.replace(/^templates\/[^/]+\//, "test/"))) {
-      const shortRel = relPath.split("/test/")[1] ?? relPath;
-      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*\.(?:unit|integration|smoke)\.test\.ts$/.test(shortRel)) {
-        violations.push({
-          file: relPath,
-          field: "test-filename",
-          message: `Test file must match {stem}.{unit|integration|smoke}.test.ts — got ${shortRel}`,
-        });
-        continue;
-      }
+    const fileName = basename(path);
+    if (!TEMPLATE_TEST_FILENAME.test(fileName)) {
+      violations.push({
+        file: relPath,
+        field: "test-filename",
+        message: `Test file must match {stem}.{unit|integration|smoke}.test.ts — got ${fileName}`,
+      });
+      continue;
     }
-    const stem = parseTestStem(basename(path));
+    const stem = parseTestStem(fileName);
     if (!stem) continue;
     const describe = firstTopLevelDescribe(await Bun.file(path).text());
     if (!describe) {
