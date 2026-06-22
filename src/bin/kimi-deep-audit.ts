@@ -74,7 +74,14 @@ const AUDIT_COMMANDS: readonly AuditCommand[] = [
   },
   {
     id: "secrets-identity-tests",
-    cmd: ["bun", "test", "--parallel", "--isolate", "test/secrets-*.test.ts", "test/identity-*.test.ts"],
+    cmd: [
+      "bun",
+      "test",
+      "--parallel",
+      "--isolate",
+      "test/secrets-*.test.ts",
+      "test/identity-*.test.ts",
+    ],
     description: "Secrets and identity unit tests",
     full: true,
   },
@@ -86,7 +93,10 @@ const AUDIT_COMMANDS: readonly AuditCommand[] = [
   },
 ];
 
-async function runCommand(cmd: string[], cwd: string): Promise<{ exitCode: number; stdout: string; stderr: string; durationMs: number }> {
+async function runCommand(
+  cmd: string[],
+  cwd: string
+): Promise<{ exitCode: number; stdout: string; stderr: string; durationMs: number }> {
   const start = Bun.nanoseconds();
   const proc = Bun.spawn({
     cmd,

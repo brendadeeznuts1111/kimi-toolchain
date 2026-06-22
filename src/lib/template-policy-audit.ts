@@ -952,9 +952,7 @@ export async function auditTemplateOxlint(root: string): Promise<TemplatePolicyV
   ];
 }
 
-export async function auditTemplateBunInitGuard(
-  root: string
-): Promise<TemplatePolicyViolation[]> {
+export async function auditTemplateBunInitGuard(root: string): Promise<TemplatePolicyViolation[]> {
   const violations: TemplatePolicyViolation[] = [];
   for (const path of new Bun.Glob(POSTINSTALL_SCRIPT_GLOB).scanSync({
     cwd: root,
@@ -975,9 +973,7 @@ export async function auditTemplateBunInitGuard(
   return violations;
 }
 
-export async function auditTemplateSecretsSlice(
-  root: string
-): Promise<TemplatePolicyViolation[]> {
+export async function auditTemplateSecretsSlice(root: string): Promise<TemplatePolicyViolation[]> {
   const violations: TemplatePolicyViolation[] = [];
   for (const name of HERDR_SECRETS_FILES) {
     const relPath = `${HERDR_SECRETS_DIR}/${name}`;
@@ -1047,21 +1043,26 @@ export async function auditTemplateSecretsSlice(
     }
   }
 
-  const toolchainPostinstall = join(root, "templates/bun-create/kimi-toolchain/scripts/postinstall.ts");
+  const toolchainPostinstall = join(
+    root,
+    "templates/bun-create/kimi-toolchain/scripts/postinstall.ts"
+  );
   if (await Bun.file(toolchainPostinstall).exists()) {
     const text = await Bun.file(toolchainPostinstall).text();
     if (!text.includes("--with-secrets")) {
       violations.push({
         file: "templates/bun-create/kimi-toolchain/scripts/postinstall.ts",
         field: "secrets-slice",
-        message: "kimi-toolchain postinstall must support --with-secrets for optional secrets/ registry",
+        message:
+          "kimi-toolchain postinstall must support --with-secrets for optional secrets/ registry",
       });
     }
     if (!text.includes("resolveDevSecrets")) {
       violations.push({
         file: "templates/bun-create/kimi-toolchain/scripts/postinstall.ts",
         field: "secrets-slice",
-        message: "kimi-toolchain postinstall must generate resolveDevSecrets() when --with-secrets is set",
+        message:
+          "kimi-toolchain postinstall must generate resolveDevSecrets() when --with-secrets is set",
       });
     }
   }
@@ -1105,9 +1106,7 @@ export async function auditTemplateSecretsEnvDocs(
   return violations;
 }
 
-export async function auditTemplateSecretLeaks(
-  root: string
-): Promise<TemplatePolicyViolation[]> {
+export async function auditTemplateSecretLeaks(root: string): Promise<TemplatePolicyViolation[]> {
   const result = await auditSecretLeaksInGlob(root, ["templates/**/*.ts", "templates/**/*.tsx"]);
   return result.findings.map((finding) => ({
     file: finding.file,
@@ -1116,9 +1115,7 @@ export async function auditTemplateSecretLeaks(
   }));
 }
 
-export async function auditTemplateBootstrapDocs(
-  root: string
-): Promise<TemplatePolicyViolation[]> {
+export async function auditTemplateBootstrapDocs(root: string): Promise<TemplatePolicyViolation[]> {
   const violations: TemplatePolicyViolation[] = [];
   const readmePath = join(root, BUN_CREATE_README);
   if (!(await Bun.file(readmePath).exists())) return violations;
