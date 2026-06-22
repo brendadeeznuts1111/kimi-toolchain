@@ -55,12 +55,26 @@ function processMemoryBreakdown(mem: typeof processMemory) {
   };
 }
 
+const { heapStats } = await import("bun:jsc");
+const jscHeap = heapStats();
+
 const payload = {
   ...report,
   processMemory: {
     ...processMemory,
     formatted: processMemoryFormatted,
     breakdown: processMemoryBreakdown(processMemory),
+  },
+  jscHeap: {
+    heapSize: jscHeap.heapSize,
+    heapCapacity: jscHeap.heapCapacity,
+    extraMemorySize: jscHeap.extraMemorySize,
+    objectCount: jscHeap.objectCount,
+    formatted: {
+      heapSize: formatMemoryBytes(jscHeap.heapSize),
+      heapCapacity: formatMemoryBytes(jscHeap.heapCapacity),
+      extraMemorySize: formatMemoryBytes(jscHeap.extraMemorySize),
+    },
   },
   systemMemory: {
     ...report.memory,

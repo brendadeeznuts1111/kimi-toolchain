@@ -7,27 +7,45 @@
  * reports very high "used" percentages while still being healthy.
  */
 
+import { heapStats } from "bun:jsc";
 import { formatMemoryBytes, inspectMemoryRuntime, processMemoryUsage } from "../bun-utils.ts";
 
 /** Memory pressure buckets. */
 export type MemoryPressure = "none" | "fair" | "serious" | "critical";
 
-/** Combined process + system memory snapshot. */
+/** Selected JavaScriptCore heap stats from `bun:jsc` `heapStats()`. */
+export interface JscHeapSnapshot {
+  heapSize: number;
+  heapCapacity: number;
+  extraMemorySize: number;
+  objectCount: number;
+}
+
+/** Combined process + system + JSC heap memory snapshot. */
 export interface MemoryGovernorSnapshot {
   /** `process.memoryUsage()` values. */
   process: ReturnType<typeof processMemoryUsage>;
+  /** JavaScriptCore heap stats (`bun:jsc` `heapStats()`). */
+  jscHeap: JscHeapSnapshot;
   /** System memory from `os.totalmem()` / `os.freemem()`. */
   system: ReturnType<typeof inspectMemoryRuntime>;
   /** System used memory percentage (0–100, one decimal). */
   usedPercent: number;
 }
 
-/** Read a combined process + system memory snapshot. */
+/** Read a combined process + system + JSC heap memory snapshot. */
 export function snapshot(): MemoryGovernorSnapshot {
   const processMem = processMemoryUsage();
   const system = inspectMemoryRuntime();
+  const stats = heapStats();
   return {
     process: processMem,
+    jscHeap: {
+      heapSize: stats.heapSize,
+      heapCapacity: stats.heapCapacity,
+      extraMemorySize: stats.extraMemorySize,
+      objectCount: stats.objectCount,
+    },
     system,
     usedPercent: system.usedPercent,
   };
@@ -118,14 +136,26 @@ export function preflightCheck(label: string): PreflightResult {
 }
 
 /**
+ * Force garbage collection synchronously.
+ *
+ * Prefers `Bun.gc(true)` when available; falls back to `globalThis.gc()`.
+ */
+export function forceGarbageCollection(): void {
+  const bun = Bun as typeof Bun & { gc?: (sync: boolean) => void };
+  if (typeof bun.gc === "function") {
+    bun.gc(true);
+  } else if (typeof globalThis.gc === "function") {
+    globalThis.gc();
+  }
+}
+
+/**
  * Attempt to relieve memory pressure. Forces GC if available and logs the
  * resulting pressure classification.
  */
 export function relievePressure(): MemoryGovernorSnapshot {
   const before = snapshot();
-  if (typeof globalThis.gc === "function") {
-    globalThis.gc();
-  }
+  forceGarbageCollection();
   const after = snapshot();
   const freed = before.process.rss - after.process.rss;
   console.log(
@@ -139,10 +169,14 @@ export function printMemoryTable(): void {
   const snap = snapshot();
   const rows = [
     { category: "RSS", value: formatMemoryBytes(snap.process.rss) },
-    { category: "Heap Used", value: formatMemoryBytes(snap.process.heapUsed) },
-    { category: "Heap Total", value: formatMemoryBytes(snap.process.heapTotal) },
+    { category: "Process Heap Used", value: formatMemoryBytes(snap.process.heapUsed) },
+    { category: "Process Heap Total", value: formatMemoryBytes(snap.process.heapTotal) },
     { category: "External", value: formatMemoryBytes(snap.process.external) },
     { category: "ArrayBuffers", value: formatMemoryBytes(snap.process.arrayBuffers) },
+    { category: "JSC Heap Size", value: formatMemoryBytes(snap.jscHeap.heapSize) },
+    { category: "JSC Heap Capacity", value: formatMemoryBytes(snap.jscHeap.heapCapacity) },
+    { category: "JSC Extra Memory", value: formatMemoryBytes(snap.jscHeap.extraMemorySize) },
+    { category: "JSC Object Count", value: snap.jscHeap.objectCount.toLocaleString() },
     { category: "System Used", value: formatMemoryBytes(snap.system.usedBytes) },
     { category: "System Total", value: formatMemoryBytes(snap.system.totalBytes) },
     { category: "Used %", value: `${snap.usedPercent}%` },
