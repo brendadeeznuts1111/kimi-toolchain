@@ -66,6 +66,7 @@ describe("kimi-mcp", () => {
       expect(exitCode).toBe(0);
       expect(stdout).toContain("kimi-mcp commands");
       expect(stdout).toContain("bun-docs");
+      expect(stdout).toContain("version-policy");
       expect(stdout).toContain("--top N");
     });
 

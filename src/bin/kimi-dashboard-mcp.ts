@@ -8,6 +8,7 @@
  *   - effect_gates           Latest effect-gates report
  *   - doctor_runs            Recent doctor run records
  *   - debug_logs             Tail of discovered debug/error logs
+ *   - version_policy         Bun pin + engines.bun semver policy snapshot
  *
  * Env:
  *   KIMI_PROJECT_ROOT        Project root (defaults to git top-level or cwd)
@@ -24,6 +25,7 @@ import {
   readErrorLogTail,
   type ErrorLogSinkStatus,
 } from "../lib/error-log-discovery.ts";
+import { buildMcpVersionPolicyReport } from "../lib/mcp-version-policy.ts";
 
 interface JsonRpcRequest {
   jsonrpc: "2.0";
@@ -76,6 +78,12 @@ const TOOLS: ToolDefinition[] = [
       },
     },
   },
+  {
+    name: "version_policy",
+    description:
+      "Bun packageManager pin and engines.bun semver policy (install audit + runtime satisfies)",
+    inputSchema: { type: "object", properties: {} },
+  },
 ];
 
 async function handleToolCall(name: string, args: Record<string, unknown>): Promise<unknown> {
@@ -116,6 +124,10 @@ async function handleToolCall(name: string, args: Record<string, unknown>): Prom
     const limit = typeof args.limit === "number" && args.limit > 0 ? args.limit : 10;
     const runs = getDoctorRunsByProject(projectName);
     return { project: projectName, count: runs.length, runs: runs.slice(0, limit) };
+  }
+
+  if (name === "version_policy") {
+    return buildMcpVersionPolicyReport(projectRoot);
   }
 
   if (name === "debug_logs") {

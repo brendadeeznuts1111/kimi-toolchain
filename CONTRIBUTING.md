@@ -34,7 +34,7 @@ kimi-doctor --quick    # toolchain health
 
 Preview gates without running: `bun run check:dry-run`
 
-Pre-commit hook runs format, lint, typecheck, and `test:fast`. Full `bun run check` runs on pre-push.
+Pre-commit hook runs format, lint, typecheck, and `test:changed` (falls back to staged/`test:fast`). Pre-push runs `check:fast:skip-tests` by default plus guardian, R-Score, and sync; set `KIMI_PRE_PUSH_FULL=1` for full `bun run check`.
 
 Config: `.oxfmtrc.json` (formatter), `.oxlintrc.json` (linter), `bunfig.toml` (test runner). See `AGENTS.md` and `TEMPLATES.md`.
 

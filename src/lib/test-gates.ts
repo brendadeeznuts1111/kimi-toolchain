@@ -172,6 +172,7 @@ export const UNIT_TEST_FILES = [
   "test/mcp-probe.unit.test.ts",
   "test/mcp-sse.unit.test.ts",
   "test/mcp-endpoints-metadata.unit.test.ts",
+  "test/mcp-version-policy.unit.test.ts",
   "test/bun-docs-mcp.unit.test.ts",
   "test/bun-runtime-utils-coverage.unit.test.ts",
   "test/workspace-runtime.unit.test.ts",

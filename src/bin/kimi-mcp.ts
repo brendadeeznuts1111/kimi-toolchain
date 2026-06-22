@@ -13,6 +13,7 @@
  *   query <text> [--tool ...] [--json] [--refresh]
  *   fs <command> [--top N] [--json] [--refresh]
  *   catalog [--probe] [--json]
+ *   version-policy [--json] [--root <path>]
  */
 
 import { isDirectRun } from "../lib/bun-utils.ts";
@@ -43,7 +44,9 @@ import {
 import { BUN_DOCS_MCP_TOOLS } from "../lib/mcp-registry.ts";
 import { homeDir, toolsDir } from "../lib/paths.ts";
 import { ensureDir } from "../lib/utils.ts";
-import { join } from "path";
+import { join, resolve } from "path";
+import { buildMcpVersionPolicyReport } from "../lib/mcp-version-policy.ts";
+import { resolveProjectRoot } from "../lib/utils.ts";
 
 const writer = createCli(Bun.argv, "kimi-mcp");
 const logger = writer.logger;
@@ -438,13 +441,50 @@ async function fsCommand(): Promise<number> {
 }
 
 async function catalogCommand(): Promise<number> {
-  const report = await buildMcpCatalogReport(homeDir(), { probe: hasFlag(Bun.argv, "--probe") });
+  const rootArg = argValue(Bun.argv, "--root");
+  const projectRoot = rootArg
+    ? resolve(rootArg)
+    : await resolveProjectRoot(process.cwd()).catch(() => process.cwd());
+  const report = await buildMcpCatalogReport(homeDir(), {
+    probe: hasFlag(Bun.argv, "--probe"),
+    projectRoot,
+  });
   if (writer.flags.json) {
     writer.writeJson(report);
   } else {
     for (const meta of report.catalog) logger.line(`  ${meta.serverName} [${meta.layer}]`);
+    if (report.versionPolicy) {
+      logger.line(
+        `  version: runtime ${report.versionPolicy.policy.runtimeBun} · engines ok=${report.versionPolicy.policy.runtimeSatisfiesEngines}`
+      );
+    }
   }
   return 0;
+}
+
+async function versionPolicyCommand(): Promise<number> {
+  const rootArg = argValue(Bun.argv, "--root");
+  const projectRoot = rootArg
+    ? resolve(rootArg)
+    : await resolveProjectRoot(process.cwd()).catch(() => process.cwd());
+  const report = await buildMcpVersionPolicyReport(projectRoot);
+  if (writer.flags.json) {
+    writer.writeJson(report);
+  } else {
+    logger.section("Bun version policy");
+    logger.line(`  runtime:     ${report.policy.runtimeBun}`);
+    logger.line(`  pin:         ${report.policy.packageManager ?? "unset"}`);
+    logger.line(`  engines.bun: ${report.policy.enginesBun ?? report.policy.enginesRangeHardened}`);
+    logger.line(`  satisfies:   engines=${report.policy.runtimeSatisfiesEngines}`);
+    logger.line(`  semver docs: ${report.semverDocUrl}`);
+    for (const row of report.packageJsonPolicy) {
+      logger.line(`  ${row.key}: ${row.status} (current=${row.current ?? "unset"})`);
+    }
+  }
+  return report.policy.runtimeSatisfiesEngines &&
+    report.packageJsonPolicy.every((row) => row.status === "ok")
+    ? 0
+    : 1;
 }
 
 const COMMANDS: Record<string, Subcommand> = {
@@ -507,8 +547,15 @@ const COMMANDS: Record<string, Subcommand> = {
   catalog: {
     name: "catalog",
     description: "List built-in MCP server metadata and optional probe results.",
-    usage: "catalog [--probe] [--json]",
+    usage: "catalog [--probe] [--json] [--root <path>]",
     run: catalogCommand,
+  },
+  "version-policy": {
+    name: "version-policy",
+    description:
+      "Report packageManager pin + engines.bun semver policy (Bun.semver.satisfies / order).",
+    usage: "version-policy [--json] [--root <path>]",
+    run: versionPolicyCommand,
   },
 };
 

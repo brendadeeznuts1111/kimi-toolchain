@@ -54,7 +54,7 @@ What problem does this project solve? Who uses it? What is the single source of 
 
 | Layer | Choice | Version | Rationale |
 |-------|--------|---------|-----------|
-| Runtime | Bun | `>=1.3.14` | Native APIs, fast test runner |
+| Runtime | Bun | `>=1.4.0` | Native APIs, fast test runner |
 | Formatter | oxfmt | latest | Bun-native, Prettier-compatible |
 | Linter | oxlint | latest | Fast correctness checks |
 | Framework | | | |
@@ -364,7 +364,7 @@ One-line description of what this does.
 
 ## Runtime
 
-- **Bun** `>=1.3.14` — check `bun --version`
+- **Bun** `>=1.4.0` — check `bun --version`
 - Prefer Bun-native APIs: `Bun.file`, `Bun.serve`, `Bun.hash`, `Bun.sleep`
 - No Node APIs unless Bun lacks equivalent (see `~/.kimi-code/AGENTS.md` for full table)
 
@@ -496,7 +496,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.14"
+          bun-version: "1.4.0"
 
       - name: Install dependencies
         run: bun install --frozen-lockfile

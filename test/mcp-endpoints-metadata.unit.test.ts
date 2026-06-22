@@ -27,6 +27,12 @@ describe("mcp-endpoints-metadata", () => {
     expect(bunDocs?.doctorCheckId).toBe("bun-docs-mcp");
     expect(expectedToolNames(bunDocs!)).toEqual(BUN_DOCS_TOOLS.map((t) => t.name));
     expect(BUN_DOCS_MCP_WORKFLOW.searchTool).toBe("search_bun");
+    expect(BUN_DOCS_MCP_WORKFLOW.semverDocPath).toBe("runtime/semver.mdx");
+  });
+
+  test("dashboard catalog includes version_policy tool", () => {
+    const dashboard = mcpEndpointForServer("kimi-dashboard", "/tmp");
+    expect(dashboard?.tools.some((tool) => tool.name === "version_policy")).toBe(true);
   });
 
   test("validateDiscoveredTools flags missing catalog tools", () => {

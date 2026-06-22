@@ -989,6 +989,71 @@ describe("bun-release-compliance console-bun-terminal", () => {
   });
 });
 
+// ── Bun buffer / aggregation API compliance ──────────────────────────
+
+describe("bun-release-compliance buffer-aggregation", () => {
+  test("Bun.allocUnsafe returns a Uint8Array of the requested size", () => {
+    const buf = Bun.allocUnsafe(64);
+    expect(buf).toBeInstanceOf(Uint8Array);
+    expect(buf.byteLength).toBe(64);
+  });
+
+  test("Bun.ArrayBufferSink builds an ArrayBuffer from chunks", () => {
+    const sink = new Bun.ArrayBufferSink();
+    sink.write("hello");
+    sink.write(new Uint8Array([32])); // space
+    sink.write("world");
+    const result = sink.end();
+    expect(result).toBeInstanceOf(ArrayBuffer);
+    expect(new TextDecoder().decode(result)).toBe("hello world");
+  });
+
+  test("Bun.ArrayBufferSink asUint8Array returns Uint8Array", () => {
+    const sink = new Bun.ArrayBufferSink();
+    sink.start({ asUint8Array: true });
+    sink.write("hello");
+    const result = sink.end();
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(new TextDecoder().decode(result)).toBe("hello");
+  });
+
+  test("Bun.ArrayBufferSink stream mode supports flush", () => {
+    const sink = new Bun.ArrayBufferSink();
+    sink.start({ stream: true });
+    sink.write("abc");
+    const flushed = sink.flush();
+    expect(flushed).toBeInstanceOf(ArrayBuffer);
+    if (!(flushed instanceof ArrayBuffer)) {
+      throw new Error("flush did not return ArrayBuffer");
+    }
+    expect(new TextDecoder().decode(flushed)).toBe("abc");
+    sink.write("def");
+    expect(new TextDecoder().decode(sink.end())).toBe("def");
+  });
+
+  test("Bun.concatArrayBuffers concatenates an array of ArrayBufferViews", () => {
+    const a = new TextEncoder().encode("hello");
+    const b = new TextEncoder().encode(" ");
+    const c = new TextEncoder().encode("world");
+    const result = Bun.concatArrayBuffers([a, b, c]);
+    expect(result).toBeInstanceOf(ArrayBuffer);
+    expect(new TextDecoder().decode(result)).toBe("hello world");
+  });
+
+  test("spreading arguments to Bun.concatArrayBuffers throws TypeError", () => {
+    const a = new TextEncoder().encode("a");
+    const b = new TextEncoder().encode("b");
+    // @ts-expect-error - intentional misuse to guard against API drift
+    expect(() => Bun.concatArrayBuffers(a, b)).toThrow(TypeError);
+  });
+
+  test("Buffer.concat remains the Node-compatible fallback", () => {
+    const result = Buffer.concat([Buffer.from("hello "), Buffer.from("world")]);
+    expect(Buffer.isBuffer(result)).toBe(true);
+    expect(result.toString()).toBe("hello world");
+  });
+});
+
 // ── Global raw URL lint sweep ─────────────────────────────────────────
 
 describe("bun-release-compliance global doc-links lint sweep", () => {

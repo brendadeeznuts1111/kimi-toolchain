@@ -24,6 +24,7 @@ import {
 } from "./mcp-endpoints-metadata.ts";
 import { probeMcpServerCached } from "./mcp-probe.ts";
 import { createHttpMcpClientFromServer, type HttpMcpClient } from "./mcp/sse.ts";
+import { buildMcpVersionPolicyReport } from "./mcp-version-policy.ts";
 
 export const UNIFIED_SHELL_SERVER = "unified-shell";
 export const UNIFIED_SHELL_TOOL = "mcp__unified-shell__execute";
@@ -559,7 +560,7 @@ export async function validateMcpConfig(
 
 export async function buildMcpCatalogReport(
   home: string = homeDir(),
-  options: { probe?: boolean } = {}
+  options: { probe?: boolean; projectRoot?: string } = {}
 ): Promise<McpCatalogReport> {
   const catalog = buildBuiltinMcpCatalog(home);
   const { data: userMcp } = await readMcpJson(userMcpPath());
@@ -621,11 +622,15 @@ export async function buildMcpCatalogReport(
     }
   }
 
-  return {
+  const report: McpCatalogReport = {
     metadata: mcpCatalogSummary(home),
     catalog,
     probes,
   };
+  if (options.projectRoot) {
+    report.versionPolicy = await buildMcpVersionPolicyReport(options.projectRoot);
+  }
+  return report;
 }
 
 export async function fixMcpConfig(

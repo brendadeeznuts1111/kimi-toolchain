@@ -389,7 +389,7 @@ Fix format with `bun run format`. For typecheck debt, confirm the error files ar
   - `docs/canvases/artifact-lineage.canvas.tsx` — run manifests · lineage APIs (manifest id `artifact-lineage`)
 - **IDE pickup**: `~/.cursor/projects/Users-nolarose-kimi-toolchain/canvases/*.canvas.tsx` — open beside chat; sync with `bun run sync:cursor-canvases`
 - **Canvas generate**: `bun run canvas:generate` — regenerates `CANVAS_ROUTING` + hub stats/inventory from `canonical-references.toml` / `LOCAL_DOC_REFERENCES` and `package.json` (also runs after `bun run references:generate`)
-- **Canvas lint**: `bun run scripts/lint-cursor-canvas.ts` — manifest `cursorCanvas` pointers + generated blocks fresh (11 canvases)
+- **Canvas lint**: `bun run scripts/lint-cursor-canvas.ts` — manifest `cursorCanvas` pointers + generated blocks fresh (13 canvases)
 
 - Cached link manifest: `~/.kimi-code/canonical-references.json` (`bun run references:generate`)
 - Repo: https://github.com/brendadeeznuts1111/kimi-toolchain

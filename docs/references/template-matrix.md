@@ -180,7 +180,7 @@ See: `examples/image-effect.md`, `examples/platform-absorption.md`.
 | -------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `bun init` without `-m`          | `tsconfig.json` is basic (`module: "Preserve"`), not hardened (`module: "ESNext"`) | `rm tsconfig.json && kimi-fix .`                                         |
 | `kimi-fix` after full `bun init` | `!pathExists()` skips `tsconfig.json`, `.gitignore`, `index.ts`, `README.md`       | `rm tsconfig.json .gitignore src/index.ts README.md && kimi-fix .`       |
-| Missing `bun run sync`           | `kimi-doctor --probe` shows 14 localDocs, not 15                                   | `bun run sync && bun run sync:verify`                                    |
+| Missing `bun run sync`           | `kimi-doctor --probe` shows stale `localDocsCount` vs repo manifest (28)           | `bun run sync && bun run sync:verify`                                    |
 | `bun create` template has deps   | npm client (pnpm/yarn) runs install, not Bun                                       | Remove `dependencies` from template `package.json`                       |
 | Canvases stale in IDE            | Routing tables point to missing files                                              | Repo SSOT: `docs/canvases/` · copy to `~/.cursor/projects/.../canvases/` |
 
@@ -197,7 +197,7 @@ bun run sync:verify       # Runtime paths match repo paths
 
 | Check            | Expected                                    | Failure Mode                                                                                                                               |
 | ---------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `localDocsCount` | 15                                          | Missing `herdr-plugin-architecture` or `template-matrix` in `LOCAL_DOC_REFERENCES`                                                         |
+| `localDocsCount` | 28                                          | Missing rows in `canonical-references.toml` or stale `~/.kimi-code/` copy                                                                  |
 | `scaffoldFiles`  | 22                                          | `kimi-fix` skipped due to `pathExists`                                                                                                     |
 | `collisionRisk`  | 0                                           | `bun init` ran without `-m`                                                                                                                |
 | `bunfig.toml`    | `linker = "isolated"`, `globalStore = true` | Template stale or overwritten                                                                                                              |

@@ -131,6 +131,28 @@ describe("kimi-dashboard-mcp", () => {
     expect(names).toContain("effect_gates");
     expect(names).toContain("doctor_runs");
     expect(names).toContain("debug_logs");
+    expect(names).toContain("version_policy");
+  });
+
+  test("version_policy returns semver policy snapshot", async () => {
+    await session.request(
+      "initialize",
+      {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: { name: "test", version: "0" },
+      },
+      1
+    );
+    await session.request("notifications/initialized");
+    const res = (await session.request(
+      "tools/call",
+      { name: "version_policy", arguments: {} },
+      2
+    )) as { result?: { content?: { text: string }[] } };
+    const text = res.result?.content?.[0]?.text ?? "";
+    expect(text).toContain("semverDocUrl");
+    expect(text).toContain("runtimeSatisfiesEngines");
   });
 
   test("project_status returns a status object", async () => {

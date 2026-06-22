@@ -49,7 +49,7 @@ We are **not** shipping new features in this run. We are validating wiring, docs
 - Live handoff across Herdr upgrades (disabled on Homebrew installs)
 - `pane_history` replay ([experimental] off on this machine)
 - Cloudflare / MCP / dashboard integration plans
-- CI/GitHub Actions (local validation only; billing-blocked server CI)
+- CI/GitHub Actions authoring (`.github/workflows/` exists; day-to-day enforcement is local hooks + `bun run check`)
 - Authoring or publishing a **worktree-bootstrap** Herdr plugin (optional in Step 4; not required for pass)
 - Changes to `kimi-toolchain` source unless a blocking defect is found and fixed in a follow-up commit
 
@@ -156,7 +156,7 @@ Execute in order. Times are indicative; do not skip preflight. Run `bun run scop
 | Step                  | Action                                                                                                                                                                            | Pass signal                                                            |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | **1. Preflight**      | `herdr-doctor`; `kimi-doctor --effect-gates --json`; `bun run sync && bun run sync:verify`; unit tests above                                                                      | All exit 0 / `summary.ok`                                              |
-| **2. Bootstrap**      | `herder ~/kimi-toolchain` (or `herdr-project bootstrap ~/kimi-toolchain --attach`); confirm tabs/panes and `watch-events` log                                                     | Workspace `kimi-toolchain` focused; orchestrator `status` enabled      |
+| **2. Bootstrap**      | `herdr-project bootstrap ~/kimi-toolchain --attach`; confirm tabs/panes and `watch-events` log                                                                                    | Workspace `kimi-toolchain` focused; orchestrator `status` enabled      |
 | **3. Reactive smoke** | Small commit or `herdr-orchestrator context-sync . --force-context`; confirm doctor tab running `kimi-doctor --watch`                                                             | Context files updated; log shows `context-sync` dispatch               |
 | **4. Worktree**       | Create branch worktree workspace (CLI or **optional** [worktree-bootstrap](https://herdr.dev/docs/plugins/) plugin if installed); verify path under `~/Projects/herdr-worktrees/` | Separate workspace id; git checkout isolated                           |
 | **5. Handoff**        | Complete a kimi task chunk → idle; optional `herdr-orchestrator react . --force-handoff`                                                                                          | Codex pane receives handoff brief                                      |

@@ -4,7 +4,7 @@
 >
 > `https://github.com/brendadeeznuts1111/kimi-toolchain`
 
-**Quality (local):** `bun run lint` (`scripts/lint.ts`) includes **testing-docs** and **markdown-links** (`--full`, offline). Standalone: `bun run lint:links`, `bun run lint:links:online`. GitHub Actions is disabled; enforcement is via pre-commit/pre-push hooks and `bun run check`.
+**Quality (local):** `bun run lint` (`scripts/lint.ts`) includes **testing-docs** and **markdown-links** (`--full`, offline). Standalone: `bun run lint:links`, `bun run lint:links:online`. Primary enforcement is pre-commit/pre-push hooks and `bun run check`; `.github/workflows/ci.yml` runs on push/PR/schedule as a secondary gate.
 
 ## Install
 
@@ -64,166 +64,175 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-doctor
 bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 ```
 
-> See [Bun documentation](https://bun.sh/docs/cli/bunx) for `bunx` usage.
+> See [Bun documentation](https://bun.com/docs/cli/bunx) for `bunx` usage.
 
 ## Commands
 
-| `bun run verify-workspace` | (synced from package.json) |
-| `bun run cleanup-legacy` | (synced from package.json) |
+Curated entry points in **Core** and **Project Scripts** below. Full inventory is auto-maintained by `bun run docs:sync`.
 
-| `bun run push` | (synced from package.json) |
+<!-- readme-sync:begin -->
 
-| `bun run bench` | (synced from package.json) |
+| Command                                 | Description                           |
+| --------------------------------------- | ------------------------------------- |
+| `bun run audit`                         | Audit script                          |
+| `bun run audit:all`                     | Audit script                          |
+| `bun run audit:config`                  | Audit script                          |
+| `bun run audit:dry-run`                 | Audit script                          |
+| `bun run audit:dry-run:parallel`        | Audit script                          |
+| `bun run audit:hardcoded`               | Audit script                          |
+| `bun run audit:images`                  | Audit script                          |
+| `bun run audit:network`                 | Audit script                          |
+| `bun run audit:parallel`                | Audit script                          |
+| `bun run audit:perf`                    | Audit script                          |
+| `bun run audit:secrets`                 | Audit script                          |
+| `bun run autophagy:scan`                | scripts/autophagy-scan.ts             |
+| `bun run autophagy:scan:gate`           | scripts/autophagy-scan.ts             |
+| `bun run bench`                         | See package.json scripts              |
+| `bun run build:portal`                  | Artifact Portal publish script        |
+| `bun run build:portal:dry-run`          | Artifact Portal publish script        |
+| `bun run build:portal:gate`             | Artifact Portal publish script        |
+| `bun run build:portal:json`             | Artifact Portal publish script        |
+| `bun run build:portal:local`            | Artifact Portal publish script        |
+| `bun run build:portal:local:json`       | Artifact Portal publish script        |
+| `bun run bun-install:status`            | scripts/bun-install-status.ts         |
+| `bun run canvas:generate`               | scripts/generate-canvas-companions.ts |
+| `bun run capabilities`                  | Run kimi-capabilities from repo       |
+| `bun run check`                         | scripts/check.ts                      |
+| `bun run check:dry-run`                 | Quality gate                          |
+| `bun run check:env-drift`               | Quality gate                          |
+| `bun run check:fast`                    | Quality gate                          |
+| `bun run check:fast:changed`            | Quality gate                          |
+| `bun run check:fast:skip-tests`         | Quality gate                          |
+| `bun run check:lockfile`                | Quality gate                          |
+| `bun run check:secret-leaks`            | Quality gate                          |
+| `bun run check:secret-resolution`       | Quality gate                          |
+| `bun run check:secrets-registry`        | Quality gate                          |
+| `bun run check:secrets-storage-gate`    | Quality gate                          |
+| `bun run check:staged`                  | Quality gate                          |
+| `bun run check:template-policy`         | Quality gate                          |
+| `bun run check:templates`               | Quality gate                          |
+| `bun run check:watch`                   | Quality gate                          |
+| `bun run check:watch:tests`             | Quality gate                          |
+| `bun run ci:fast`                       | See package.json scripts              |
+| `bun run ci:impact`                     | scripts/ci-impact.ts                  |
+| `bun run ci:pipeline`                   | scripts/ci-pipeline.ts                |
+| `bun run cleanup-legacy`                | Workspace / artifact cleanup          |
+| `bun run cleanup:artifacts`             | Workspace / artifact cleanup          |
+| `bun run cleanup:root`                  | Workspace / artifact cleanup          |
+| `bun run cleanup:root:dry-run`          | Workspace / artifact cleanup          |
+| `bun run cleanup:root:fix`              | Workspace / artifact cleanup          |
+| `bun run config:status`                 | scripts/config-status.ts              |
+| `bun run contract`                      | Run kimi-contract from repo           |
+| `bun run cron:health`                   | scripts/cron-health.ts                |
+| `bun run dashboard`                     | Run kimi-dashboard from repo          |
+| `bun run dashboard-mcp`                 | Run kimi-dashboard-mcp from repo      |
+| `bun run decision`                      | Run kimi-decision from repo           |
+| `bun run deep-audit`                    | Run kimi-deep-audit from repo         |
+| `bun run deep-audit:json`               | Run kimi-deep-audit from repo         |
+| `bun run deep-audit:report`             | Run kimi-deep-audit from repo         |
+| `bun run deep-audit:webview`            | Run kimi-deep-audit from repo         |
+| `bun run discover`                      | scripts/discover.ts                   |
+| `bun run discover:constants`            | scripts/discover.ts                   |
+| `bun run discover:dx`                   | scripts/discover.ts                   |
+| `bun run docs:sync`                     | scripts/readme-sync.ts                |
+| `bun run doctor`                        | Run kimi-doctor from repo             |
+| `bun run doctor:audit`                  | Doctor / deep-audit script            |
+| `bun run doctor:audit:changed`          | Doctor / deep-audit script            |
+| `bun run doctor:audit:ci`               | Doctor / deep-audit script            |
+| `bun run doctor:audit:shard`            | Doctor / deep-audit script            |
+| `bun run doctor:audit:watch`            | Doctor / deep-audit script            |
+| `bun run doctor:audit:watch:changed`    | Doctor / deep-audit script            |
+| `bun run dx:table`                      | scripts/dx-table.ts                   |
+| `bun run dx:table:contract`             | scripts/dx-table-contract.ts          |
+| `bun run error`                         | Run kimi-error from repo              |
+| `bun run finish-work`                   | scripts/finish-work.ts                |
+| `bun run fix`                           | Run kimi-fix from repo                |
+| `bun run fix:drift`                     | See package.json scripts              |
+| `bun run format`                        | See package.json scripts              |
+| `bun run format:check`                  | See package.json scripts              |
+| `bun run format:check:ci`               | See package.json scripts              |
+| `bun run governance`                    | Run kimi-governance from repo         |
+| `bun run heal`                          | Run kimi-heal from repo               |
+| `bun run install-wrappers`              | scripts/install-bin-wrappers.ts       |
+| `bun run kimi`                          | Run kimi-toolchain from repo          |
+| `bun run lint`                          | scripts/lint.ts                       |
+| `bun run lint:dashboard-visual`         | Lint script                           |
+| `bun run lint:links`                    | Lint script                           |
+| `bun run lint:links:full`               | Lint script                           |
+| `bun run lint:links:online`             | Lint script                           |
+| `bun run lint:parallel`                 | Lint script                           |
+| `bun run lint:terms`                    | Lint script                           |
+| `bun run mcp`                           | Run kimi-mcp from repo                |
+| `bun run memory-budget`                 | Run kimi-doctor from repo             |
+| `bun run memory-check`                  | scripts/memory-check.ts               |
+| `bun run new`                           | Run kimi-new from repo                |
+| `bun run pm:cache`                      | Bun package manager helper            |
+| `bun run pm:cache:rm`                   | Bun package manager helper            |
+| `bun run pm:hash`                       | Bun package manager helper            |
+| `bun run pm:hash:print`                 | Bun package manager helper            |
+| `bun run pm:hash:string`                | Bun package manager helper            |
+| `bun run pm:ls`                         | Bun package manager helper            |
+| `bun run pm:ls:all`                     | Bun package manager helper            |
+| `bun run pm:outdated`                   | Bun package manager helper            |
+| `bun run pm:outdated:json`              | Bun package manager helper            |
+| `bun run pm:why`                        | Bun package manager helper            |
+| `bun run postinstall`                   | Install hook — sets up ~/.kimi-code/  |
+| `bun run profile`                       | scripts/profile.ts                    |
+| `bun run push`                          | scripts/push.ts                       |
+| `bun run quality:check:ci`              | scripts/lint-patterns.ts              |
+| `bun run reclassify:failures`           | scripts/reclassify-failure-ledger.ts  |
+| `bun run references:generate`           | Canonical references script           |
+| `bun run references:inspect`            | Canonical references script           |
+| `bun run references:inspect:watch`      | Canonical references script           |
+| `bun run references:lint`               | Canonical references script           |
+| `bun run references:lint-online`        | Canonical references script           |
+| `bun run references:lint:examples`      | Canonical references script           |
+| `bun run references:snapshot`           | Canonical references script           |
+| `bun run runtime:deep`                  | scripts/runtime-info.ts               |
+| `bun run runtime:info`                  | scripts/runtime-info.ts               |
+| `bun run scope:run`                     | scripts/scope-run.ts                  |
+| `bun run secrets:gate`                  | scripts/secrets-storage-gate.ts       |
+| `bun run serve-probe`                   | Run kimi-doctor from repo             |
+| `bun run setup`                         | See package.json scripts              |
+| `bun run skills:table`                  | scripts/skills-table.ts               |
+| `bun run sync`                          | Runtime sync script                   |
+| `bun run sync:check`                    | Runtime sync script                   |
+| `bun run sync:cursor-canvases`          | Runtime sync script                   |
+| `bun run sync:daemon`                   | Runtime sync script                   |
+| `bun run sync:manifest`                 | Runtime sync script                   |
+| `bun run sync:verify`                   | Runtime sync script                   |
+| `bun run test`                          | scripts/test-run.ts                   |
+| `bun run test:changed`                  | Test tier script                      |
+| `bun run test:changed:push`             | Test tier script                      |
+| `bun run test:changed:shard`            | Test tier script                      |
+| `bun run test:changed:watch`            | Test tier script                      |
+| `bun run test:ci`                       | Test tier script                      |
+| `bun run test:coverage`                 | Test tier script                      |
+| `bun run test:coverage:ci`              | Test tier script                      |
+| `bun run test:coverage:fast`            | Test tier script                      |
+| `bun run test:debug`                    | Test tier script                      |
+| `bun run test:fast`                     | Test tier script                      |
+| `bun run test:gates`                    | Test tier script                      |
+| `bun run test:integration`              | Test tier script                      |
+| `bun run test:parallel`                 | Test tier script                      |
+| `bun run test:portal-convergence`       | Test tier script                      |
+| `bun run test:portal-convergence:fast`  | Test tier script                      |
+| `bun run test:portal-convergence:watch` | Test tier script                      |
+| `bun run test:shard`                    | Test tier script                      |
+| `bun run test:smoke`                    | Test tier script                      |
+| `bun run test:smol`                     | Test tier script                      |
+| `bun run test:unit`                     | Test tier script                      |
+| `bun run test:watch`                    | Test tier script                      |
+| `bun run toolchain`                     | Run kimi-toolchain from repo          |
+| `bun run trace`                         | Run kimi-trace from repo              |
+| `bun run typecheck`                     | See package.json scripts              |
+| `bun run unify`                         | scripts/unify.ts                      |
+| `bun run verify-workspace`              | scripts/verify-workspace.ts           |
+| `bun run verify:bun-features`           | scripts/verify-bun-features.ts        |
+| `bun run verify:bun-features:strict`    | scripts/verify-bun-features.ts        |
+| `bun run why`                           | Run kimi-why from repo                |
 
-| `bun run test:unit` | (synced from package.json) |
-| `bun run test:smoke` | (synced from package.json) |
-| `bun run check:staged` | (synced from package.json) |
-
-| `bun run test:integration` | (synced from package.json) |
-| `bun run ci:pipeline` | (synced from package.json) |
-| `bun run ci:impact` | (synced from package.json) |
-
-| `bun run quality:check:ci` | (synced from package.json) |
-
-| `bun run capabilities` | (synced from package.json) |
-| `bun run contract` | (synced from package.json) |
-| `bun run kimi` | (synced from package.json) |
-| `bun run trace` | (synced from package.json) |
-
-| `bun run heal` | (synced from package.json) |
-| `bun run why` | (synced from package.json) |
-
-| `bun run decision` | (synced from package.json) |
-
-| `bun run dashboard` | (synced from package.json) |
-| `bun run dashboard-mcp` | (synced from package.json) |
-| `bun run mcp` | (synced from package.json) |
-| `bun run dx:table` | (synced from package.json) |
-| `bun run dx:table:contract` | (synced from package.json) |
-| `bun run canvas:generate` | (synced from package.json) |
-| `bun run sync:cursor-canvases` | (synced from package.json) |
-
-| `bun run finish-work` | (synced from package.json) |
-
-| `bun run test:changed` | (synced from package.json) |
-| `bun run test:changed:watch` | (synced from package.json) |
-
-| `bun run test:watch` | (synced from package.json) |
-| `bun run test:changed:push` | (synced from package.json) |
-| `bun run test:debug` | (synced from package.json) |
-| `bun run test:smol` | (synced from package.json) |
-| `bun run test:ci` | (synced from package.json) |
-| `bun run check:fast:skip-tests` | (synced from package.json) |
-| `bun run fix:drift` | (synced from package.json) |
-| `bun run lint:links:full` | (synced from package.json) |
-| `bun run test:portal-convergence:fast` | (synced from package.json) |
-
-| `bun run sync:check` | (synced from package.json) |
-| `bun run cleanup:artifacts` | (synced from package.json) |
-| `bun run test:portal-convergence:watch` | (synced from package.json) |
-
-| `bun run reclassify:failures` | (synced from package.json) |
-
-| `bun run references:generate` | (synced from package.json) |
-
-| `bun run discover` | (synced from package.json) |
-| `bun run discover:constants` | (synced from package.json) |
-| `bun run discover:dx` | (synced from package.json) |
-| `bun run check:fast:changed` | (synced from package.json) |
-| `bun run check:watch` | (synced from package.json) |
-| `bun run check:watch:tests` | (synced from package.json) |
-
-| `bun run serve-probe` | (synced from package.json) |
-| `bun run build:portal:dry-run` | (synced from package.json) |
-| `bun run test:gates` | (synced from package.json) |
-| `bun run bun-install:status` | (synced from package.json) |
-
-| `bun run test:shard` | (synced from package.json) |
-| `bun run test:parallel` | (synced from package.json) |
-| `bun run test:changed:shard` | (synced from package.json) |
-
-| `bun run profile` | (synced from package.json) |
-| `bun run scope:run` | (synced from package.json) |
-
-| `bun run config:status` | (synced from package.json) |
-
-| `bun run build:portal:gate` | (synced from package.json) |
-
-| `bun run references:inspect` | (synced from package.json) |
-
-| `bun run references:inspect:watch` | (synced from package.json) |
-| `bun run references:lint` | (synced from package.json) |
-| `bun run references:lint:examples` | (synced from package.json) |
-| `bun run references:lint-online` | (synced from package.json) |
-| `bun run references:snapshot` | (synced from package.json) |
-| `bun run cron:health` | (synced from package.json) |
-| `bun run lint:dashboard-visual` | (synced from package.json) |
-
-| `bun run secrets:gate` | (synced from package.json) |
-
-| `bun run setup` | (synced from package.json) |
-| `bun run check:lockfile` | (synced from package.json) |
-
-| `bun run check:template-policy` | Template install/registry/scaffold/secrets gate (`templates/**`) |
-| `bun run skills:table` | Repo skill catalog (layer, contract, lib/test coverage); `--verbose` / `--json` for module paths |
-| `bun run check:secret-resolution` | (synced from package.json) |
-| `bun run check:secret-leaks` | (synced from package.json) |
-| `bun run doctor:audit` | (synced from package.json) |
-| `bun run doctor:audit:changed` | (synced from package.json) |
-| `bun run doctor:audit:ci` | (synced from package.json) |
-| `bun run doctor:audit:shard` | (synced from package.json) |
-| `bun run doctor:audit:watch` | (synced from package.json) |
-| `bun run doctor:audit:watch:changed` | (synced from package.json) |
-| `bun run deep-audit` | (synced from package.json) |
-| `bun run deep-audit:json` | (synced from package.json) |
-| `bun run deep-audit:report` | (synced from package.json) |
-| `bun run check:secrets-registry` | (synced from package.json) |
-| `bun run check:secrets-storage-gate` | (synced from package.json) |
-
-| `bun run audit:all` | (synced from package.json) |
-
-| `bun run audit:secrets` | (synced from package.json) |
-| `bun run audit:config` | (synced from package.json) |
-| `bun run audit:images` | (synced from package.json) |
-| `bun run audit:network` | (synced from package.json) |
-| `bun run audit:perf` | (synced from package.json) |
-| `bun run audit` | (synced from package.json) |
-| `bun run audit:dry-run` | (synced from package.json) |
-| `bun run verify:bun-features` | (synced from package.json) |
-| `bun run verify:bun-features:strict` | (synced from package.json) |
-| `bun run autophagy:scan` | (synced from package.json) |
-| `bun run autophagy:scan:gate` | (synced from package.json) |
-
-| `bun run check:templates` | bun-create registry alignment (slice of template policy) |
-
-| `bun run audit:hardcoded` | (synced from package.json) |
-
-| `bun run audit:parallel` | (synced from package.json) |
-| `bun run audit:dry-run:parallel` | (synced from package.json) |
-| `bun run deep-audit:webview` | (synced from package.json) |
-
-| `bun run check:env-drift` | (synced from package.json) |
-
-| `bun run runtime:info` | (synced from package.json) |
-| `bun run runtime:deep` | (synced from package.json) |
-
-| `bun run cleanup:root` | (synced from package.json) |
-| `bun run cleanup:root:dry-run` | (synced from package.json) |
-
-| `bun run cleanup:root:fix` | (synced from package.json) |
-
-| `bun run lint:parallel` | (synced from package.json) |
-| `bun run ci:fast` | (synced from package.json) |
-| `bun run pm:ls` | (synced from package.json) |
-| `bun run pm:ls:all` | (synced from package.json) |
-| `bun run pm:cache` | (synced from package.json) |
-| `bun run pm:cache:rm` | (synced from package.json) |
-| `bun run pm:hash` | (synced from package.json) |
-| `bun run pm:hash:print` | (synced from package.json) |
-| `bun run pm:hash:string` | (synced from package.json) |
-| `bun run pm:why` | (synced from package.json) |
-| `bun run pm:outdated` | (synced from package.json) |
-| `bun run pm:outdated:json` | (synced from package.json) |
+<!-- readme-sync:end -->
 
 ### Core
 
@@ -258,7 +267,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run check`                        | format:check + lint + typecheck + test (CI/full)                   |
 | `bun run check:fast`                   | Same gates; unit tests (`--parallel=4 --isolate`)                  |
 | `bun run check:dry-run`                | List check steps without running them                              |
-| `bun run docs:sync`                    | Patch README script table from package.json                        |
+| `bun run docs:sync`                    | Regenerate README script inventory from package.json               |
 | `bun run typecheck`                    | TypeScript type check (no emit)                                    |
 | `bun run format`                       | Format with oxfmt (write)                                          |
 | `bun run format:check`                 | Verify formatting (CI gate)                                        |

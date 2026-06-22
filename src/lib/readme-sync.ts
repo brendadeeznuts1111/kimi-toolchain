@@ -18,8 +18,49 @@ const SCRIPT_PATTERN = /(?:bun run |npm run |yarn )([\w:-]+)/g;
 const CODE_BLOCK_PATTERN = /```[\s\S]*?```/g;
 const NEXT_SECTION_PATTERN = /\n### /;
 
-const TABLE_ROW_TEMPLATE = (script: string) =>
-  `| \`bun run ${script}\` | (synced from package.json) |`;
+const SYNC_BEGIN = "<!-- readme-sync:begin -->";
+const SYNC_END = "<!-- readme-sync:end -->";
+
+/** Short human label for auto-patched README script rows. */
+export function describeScript(name: string, cmd: string): string {
+  const bin = cmd.match(/src\/bin\/([\w-]+)\.ts/);
+  if (bin) return `Run ${bin[1]} from repo`;
+  if (name === "postinstall") return "Install hook — sets up ~/.kimi-code/";
+  if (name.startsWith("test:")) return "Test tier script";
+  if (name.startsWith("check:")) return "Quality gate";
+  if (name.startsWith("lint:")) return "Lint script";
+  if (name.startsWith("audit:") || name === "audit") return "Audit script";
+  if (name.startsWith("doctor:") || name.startsWith("deep-audit"))
+    return "Doctor / deep-audit script";
+  if (name.startsWith("build:portal")) return "Artifact Portal publish script";
+  if (name.startsWith("references:")) return "Canonical references script";
+  if (name.startsWith("sync")) return "Runtime sync script";
+  if (name.startsWith("pm:")) return "Bun package manager helper";
+  if (name.startsWith("cleanup")) return "Workspace / artifact cleanup";
+  if (cmd.includes("scripts/")) {
+    const script = cmd.match(/scripts\/([\w-]+)/);
+    if (script) return `scripts/${script[1]}.ts`;
+  }
+  return "See package.json scripts";
+}
+
+const TABLE_ROW_TEMPLATE = (script: string, description: string) =>
+  `| \`bun run ${script}\` | ${description} |`;
+
+function buildScriptInventoryTable(scripts: Record<string, string>): string {
+  const rows = Object.keys(scripts)
+    .sort()
+    .map((name) => TABLE_ROW_TEMPLATE(name, describeScript(name, scripts[name] ?? "")));
+  return [
+    SYNC_BEGIN,
+    "",
+    "| Command | Description |",
+    "| ------- | ----------- |",
+    ...rows,
+    "",
+    SYNC_END,
+  ].join("\n");
+}
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -123,31 +164,72 @@ export async function checkDocDrift(projectDir: string): Promise<DocDrift | null
 // ── Side-effect operations ─────────────────────────────────────────────
 
 /** Build the patch rows for missing scripts (pure). */
-export function buildPatchRows(missingScripts: string[]): string {
-  return missingScripts.map(TABLE_ROW_TEMPLATE).join("\n");
+export function buildPatchRows(
+  missingScripts: string[],
+  scripts: Record<string, string> = {}
+): string {
+  return missingScripts
+    .map((name) => TABLE_ROW_TEMPLATE(name, describeScript(name, scripts[name] ?? "")))
+    .join("\n");
+}
+
+function replaceSyncBlock(readme: string, table: string): string {
+  const begin = readme.indexOf(SYNC_BEGIN);
+  const end = readme.indexOf(SYNC_END);
+  if (begin >= 0 && end > begin) {
+    return readme.slice(0, begin) + table + readme.slice(end + SYNC_END.length);
+  }
+  const sectionEnd = readme.search(NEXT_SECTION_PATTERN);
+  if (sectionEnd > 0) {
+    return readme.slice(0, sectionEnd) + "\n\n" + table + "\n" + readme.slice(sectionEnd);
+  }
+  return `${readme.trimEnd()}\n\n${table}\n`;
+}
+
+/** Rewrite the auto-sync script inventory block from package.json scripts. */
+export async function rewriteReadmeScriptInventory(projectDir: string): Promise<number> {
+  const pkgRaw = safeParse(await Bun.file(packagePath(projectDir)).text(), null, isPackageJson);
+  if (pkgRaw === null) return -1;
+
+  const scripts = pkgRaw.scripts || {};
+  const path = readmePath(projectDir);
+  const readme = await Bun.file(path).text();
+  const table = buildScriptInventoryTable(scripts);
+  if (readme.includes(SYNC_BEGIN) && readme.includes(table)) return 0;
+  const next = replaceSyncBlock(readme, table);
+  await Bun.write(path, next);
+  return Object.keys(scripts).length;
 }
 
 /** Append missing package.json scripts to the README Project Scripts table.
  *  Returns the number of scripts patched, or -1 on error.
  */
 export async function patchReadmeScripts(projectDir: string): Promise<number> {
+  const pkgRaw = safeParse(await Bun.file(packagePath(projectDir)).text(), null, isPackageJson);
+  if (pkgRaw === null) return -1;
+
+  const readmePath_ = readmePath(projectDir);
+  const readme = await Bun.file(readmePath_).text();
+  if (readme.includes(SYNC_BEGIN)) {
+    return rewriteReadmeScriptInventory(projectDir);
+  }
+
   const drift = await checkDocDrift(projectDir);
   if (drift === null) return -1;
   if (drift.missingFromReadme.length === 0) return 0;
 
-  const path = readmePath(projectDir);
-  let readme = await Bun.file(path).text();
+  const scripts = pkgRaw.scripts || {};
+  let next = readme;
+  const rows = buildPatchRows(drift.missingFromReadme, scripts);
 
-  const rows = buildPatchRows(drift.missingFromReadme);
-
-  const sectionEnd = readme.search(NEXT_SECTION_PATTERN);
+  const sectionEnd = next.search(NEXT_SECTION_PATTERN);
   if (sectionEnd > 0) {
-    readme = readme.slice(0, sectionEnd) + "\n" + rows + readme.slice(sectionEnd);
+    next = next.slice(0, sectionEnd) + "\n" + rows + next.slice(sectionEnd);
   } else {
-    readme += "\n" + rows + "\n";
+    next += "\n" + rows + "\n";
   }
 
-  await Bun.write(path, readme);
+  await Bun.write(readmePath_, next);
   return drift.missingFromReadme.length;
 }
 

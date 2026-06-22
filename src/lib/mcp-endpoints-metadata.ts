@@ -93,6 +93,12 @@ export const DASHBOARD_MCP_TOOLS: readonly McpToolMeta[] = [
   { name: "effect_gates", description: "Effect gate registry status", readOnly: true },
   { name: "doctor_runs", description: "Recent kimi-doctor run artifacts", readOnly: true },
   { name: "debug_logs", description: "Tail debug log excerpts", readOnly: true },
+  {
+    name: "version_policy",
+    description:
+      "Bun pin + engines.bun semver policy (packageManager exact, engines range, runtime satisfies)",
+    readOnly: true,
+  },
 ];
 
 function bridgePath(home: string): string {
@@ -228,6 +234,7 @@ export interface McpCatalogReport {
   metadata: ReturnType<typeof mcpCatalogSummary>;
   catalog: readonly McpEndpointMeta[];
   probes: McpProbeSnapshot[];
+  versionPolicy?: import("./mcp-version-policy.ts").McpVersionPolicyReport;
 }
 
 /** Merge registry definition with catalog metadata for doctor/list JSON. */
@@ -268,4 +275,6 @@ export const BUN_DOCS_MCP_WORKFLOW = {
   readPattern: "head -200 /path/from/search.mdx",
   searchWhen: "broad API/error/concept queries",
   readWhen: "exact keyword/regex or full page content",
+  semverDocPath: "runtime/semver.mdx",
+  semverSearchQueries: ["Bun.semver.satisfies version range", "Bun.semver.order compare versions"],
 } as const;

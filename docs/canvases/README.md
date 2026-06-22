@@ -33,7 +33,7 @@ Global canvas skills are **not** updated from this repo. Repo conventions live h
    `bun run canvas:generate` after manifest, bin, or test-gate changes (checked by
    `bun run scripts/lint-cursor-canvas.ts`; `references:generate --check` includes canvas freshness)
 
-## Canonical 11
+## Manifest canvases (13)
 
 | Manifest id                 | Canvas file                                    |
 | --------------------------- | ---------------------------------------------- |
@@ -48,6 +48,8 @@ Global canvas skills are **not** updated from this repo. Repo conventions live h
 | `deep-quality`              | `kimi-heal-doctor-scaffold.canvas.tsx`         |
 | `v53-architecture`          | `dashboard-card-registry.canvas.tsx`           |
 | `artifact-lineage`          | `artifact-lineage.canvas.tsx`                  |
+| `gate-health`               | `gate-health.canvas.tsx`                       |
+| `benchmark`                 | `benchmark.canvas.tsx`                         |
 
 Manifest id matches the indexed doc (`DEEP-QUALITY.md`). The canvas filename
 uses the topic stem (`kimi-heal-doctor-scaffold`); dashboard `?canvas=` filters

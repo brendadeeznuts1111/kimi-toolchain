@@ -105,13 +105,13 @@ Manifest id: `namespace` · repo: `docs/references/namespace.md` · runtime: `~/
 
 ### Ecosystem manifest
 
-Authoritative link table for agents — **8 stacks** in `ecosystem`: `bun`, `effect`, `kimi-code`, `herdr`, `cloudflare`, `cloudflare-mcp`, `dx`, `oxc`.
+Authoritative link table for agents — **9 stacks** in `ecosystem`: `bun`, `effect`, `kimi-code`, `herdr`, `cloudflare`, `cloudflare-mcp`, `dx`, `js-yaml`, `oxc`.
 
 - Repo: `canonical-references.json` (generate: `bun run references:generate`)
 - Runtime copy: `~/.kimi-code/canonical-references.json`
 - Source: `canonical-references.toml` (types/consumers: `src/lib/canonical-references.ts`)
 - Probe embed: `kimi-doctor --probe` → `canonicalReferences`
-- **12 `localDocs`** ids (including this file) in the same manifest under `localDocs`
+- **28 `localDocs`** ids in `canonical-references.toml` / `canonical-references.json` (includes root docs, `docs/references/`, and canvas companions)
 - For all configuration layers (Discovery, Build, Parity, Scaffold), see [Configuration & Reference Layers](./configuration-layers.md)
 
 ### Herdr config symlink chain
@@ -207,15 +207,15 @@ Skills and JSDoc may use **`@see namespace-boundaries`** when the task needs the
 
 **Canvas:** manifest id `namespace` · `cursorCanvas`: `docs/canvases/namespace-boundaries.canvas.tsx` (IDE-only; not synced).
 
-**Doc links in `src/**/\_.ts`:** executable code must use registered `BUN\_\_\_DOC_URL` constants (`bun run lint:doc-links`). JSDoc `@see`with`bun.com`deep links is exempt from`use-doc-constant`; absolute `https://bun.sh/docs…` in comments still flags under `prefer-bun-com-docs` — migrate to `bun.com`.
+**Doc links in `src/**/_.ts`:** executable code must use registered `BUN\__\_DOC_URL` constants (`bun run lint:doc-links`). JSDoc `@see`with`bun.com`deep links is exempt from`use-doc-constant`; absolute `https://bun.sh/docs…` in comments still flags under `prefer-bun-com-docs` — migrate to `bun.com`.
 
 Related commands: `bun run dx:table -u`, `bun run dx:table:contract`, `bun run references:generate`, `kimi-doctor --probe`.
 
 ## Related docs
 
-### `docs/references/` index (11 `localDocs`)
+### `docs/references/` index (17 `localDocs`)
 
-Agent-indexed reference docs in this directory — synced to `~/.kimi-code/docs/references/` after `bun run sync`. SSOT rows: `canonical-references.toml` → `canonical-references-data.ts` + `canonical-references.json`.
+Agent-indexed reference docs in this directory — synced to `~/.kimi-code/docs/references/` after `bun run sync`. SSOT rows: `canonical-references.toml` → `canonical-references-data.ts` + `canonical-references.json`. Full manifest (28 total `localDocs`): `bun run references:inspect --json`.
 
 | Manifest id                        | File                                                                         | One-line                                                                                               |
 | ---------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -230,6 +230,12 @@ Agent-indexed reference docs in this directory — synced to `~/.kimi-code/docs/
 | `herdr-socket-saturation-protocol` | [herdr-socket-saturation-protocol.md](./herdr-socket-saturation-protocol.md) | EAGAIN taxonomy, socket recovery protocol                                                              |
 | `herdr-plugin-architecture`        | [herdr-plugin-architecture.md](./herdr-plugin-architecture.md)               | Herdr plugin boundaries and architecture                                                               |
 | `v53-architecture`                 | [v53-architecture.md](./v53-architecture.md)                                 | v5.3 consolidated reference: 9-file map, profiles, MODULE_REGISTRY, card dashboard                     |
+| `canonical-references-system`      | [canonical-references-system.md](./canonical-references-system.md)           | Manifest schema, generate/lint/sync workflow                                                           |
+| `serve-probe`                      | [serve-probe.md](./serve-probe.md)                                           | Live dashboard probe routes and gate-health overlay                                                    |
+| `testing-execution`                | [testing-execution.md](./testing-execution.md)                               | Test tiers, changed runners, sharding, hook integration                                                |
+| `bun-file-streaming`               | [bun-file-streaming.md](./bun-file-streaming.md)                             | Bun file/stream I/O patterns for handlers and probes                                                   |
+| `gate-health`                      | [serve-probe.md](./serve-probe.md)                                           | Gate-health canvas companion (`cursorCanvas`: `gate-health.canvas.tsx`)                                |
+| `benchmark`                        | [kimi-doctor.md](./kimi-doctor.md)                                           | BenchmarkApiEnvelope SSOT (`cursorCanvas`: `benchmark.canvas.tsx`)                                     |
 
 | Topic                                 | Path                                                                                             |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------ |
