@@ -87,6 +87,8 @@
 
 ### Bun 1.4.0 features we use
 
+> Shipped in Bun ≥1.3.9+. Runtime floor is 1.4.0. See [bun v1.3.9 release notes](https://bun.com/blog/bun-v1.3.9).
+
 | Feature                                                                                                      | How we use it                                                                                              | Benefit                                                        |
 | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | `Symbol.dispose` for `spyOn()` / `mock()`                                                                    | `using spy = spyOn(obj, "method")` in tests — auto-restores on scope exit                                  | No manual `mockRestore()` or `afterEach` cleanup               |
