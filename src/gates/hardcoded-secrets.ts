@@ -8,6 +8,7 @@ import type { Gate, GateResult, GateRunOptions, GateStatus } from "./types.ts";
 
 export interface HardcodedSecretsGateResult extends GateResult {
   name: "hardcoded-secrets";
+  ok: boolean;
   scanned: number;
   count: number;
   findings: Array<{
@@ -31,6 +32,7 @@ export async function hardcodedSecretsGate(
   return {
     name: "hardcoded-secrets",
     status,
+    ok: status === "pass",
     reason: count > 0 ? `${count} hardcoded credential-like literal(s) found` : undefined,
     scanned,
     count,

@@ -19,6 +19,12 @@ export type {
 
 export { runPerfGate, perfGateDefinition, type PerfGateDoctorResult } from "./perf-gate.ts";
 export {
+  runHardcodedSecretsGate,
+  hardcodedSecretsGateDefinition,
+  type HardcodedSecretsGateResult,
+  formatHardcodedSecretsGate,
+} from "./hardcoded-secrets.ts";
+export {
   runTlsComplianceGate,
   tlsComplianceGateDefinition,
   type TlsComplianceDoctorResult,

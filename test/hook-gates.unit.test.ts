@@ -1,6 +1,7 @@
 import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
+import { $ } from "bun";
 import {
   planPreCommitTestArgs,
   prePushRunsInParallel,
@@ -15,37 +16,10 @@ import {
 } from "../src/lib/scoped-test-cache.ts";
 import { detectSyncDrift } from "../src/lib/sync-hashes.ts";
 import { writeConstantsGolden } from "../src/lib/constants-heal.ts";
-import { GIT_LOCAL_ENV_KEYS } from "../src/lib/tool-runner.ts";
-import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { testTempDir, withClearedEnv, withEnv, ensureTestDir } from "./helpers.ts";
 
 /** Git init + pre-commit gate subprocesses need headroom under parallel test:changed. */
 const PRE_COMMIT_GATE_TEST_MS = 30_000;
-const GIT_LOCAL_ENV_KEY_SET = new Set<string>(GIT_LOCAL_ENV_KEYS);
-
-function scrubbedGitFixtureEnv(): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(Bun.env).filter(
-      (entry): entry is [string, string] =>
-        entry[1] !== undefined && !GIT_LOCAL_ENV_KEY_SET.has(entry[0])
-    )
-  );
-}
-
-async function runFixtureGit(projectRoot: string, args: string[]): Promise<void> {
-  const proc = Bun.spawn(["git", ...args], {
-    cwd: projectRoot,
-    env: scrubbedGitFixtureEnv(),
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    readableStreamToText(proc.stdout),
-    readableStreamToText(proc.stderr),
-    proc.exited,
-  ]);
-  expect({ args, stdout, stderr, exitCode }).toMatchObject({ exitCode: 0 });
-}
 
 describe("hook-gates constant drift", () => {
   let projectDir: string;
@@ -221,9 +195,9 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
       async () => {
         await withClearedEnv(["KIMI_HOOK_SUMMARY"], async () => {
           const scopedDir = testTempDir("hook-scoped-pass-");
-          await runFixtureGit(scopedDir, ["init"]);
-          await runFixtureGit(scopedDir, ["config", "user.email", "test@example.com"]);
-          await runFixtureGit(scopedDir, ["config", "user.name", "Test"]);
+          await $`git init`.cwd(scopedDir).nothrow().quiet();
+          await $`git config user.email test@example.com`.cwd(scopedDir).nothrow().quiet();
+          await $`git config user.name Test`.cwd(scopedDir).nothrow().quiet();
           ensureTestDir(join(scopedDir, "src"));
           await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 1;\n");
           writeText(
@@ -238,12 +212,12 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
               },
             })
           );
-          await runFixtureGit(scopedDir, ["add", "-A"]);
-          await runFixtureGit(scopedDir, ["commit", "-m", "init"]);
+          await $`git add -A`.cwd(scopedDir).nothrow().quiet();
+          await $`git commit -m init`.cwd(scopedDir).nothrow().quiet();
 
           await writeScopedTestCache(scopedDir, ["src/foo.ts"], "main");
           await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 2;\n");
-          await runFixtureGit(scopedDir, ["add", "src/foo.ts"]);
+          await $`git add src/foo.ts`.cwd(scopedDir).nothrow().quiet();
 
           const staged = await listStagedPaths(scopedDir);
           expect(staged).toEqual(["src/foo.ts"]);
@@ -262,9 +236,9 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
       async () => {
         await withClearedEnv(["KIMI_HOOK_SUMMARY"], async () => {
           const scopedDir = testTempDir("hook-canonical-check-");
-          await runFixtureGit(scopedDir, ["init"]);
-          await runFixtureGit(scopedDir, ["config", "user.email", "test@example.com"]);
-          await runFixtureGit(scopedDir, ["config", "user.name", "Test"]);
+          await $`git init`.cwd(scopedDir).nothrow().quiet();
+          await $`git config user.email test@example.com`.cwd(scopedDir).nothrow().quiet();
+          await $`git config user.name Test`.cwd(scopedDir).nothrow().quiet();
           ensureTestDir(join(scopedDir, "src"));
           makeDir(join(scopedDir, "scripts"), { recursive: true });
           await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 1;\n");
@@ -284,10 +258,10 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
               },
             })
           );
-          await runFixtureGit(scopedDir, ["add", "-A"]);
-          await runFixtureGit(scopedDir, ["commit", "-m", "init"]);
+          await $`git add -A`.cwd(scopedDir).nothrow().quiet();
+          await $`git commit -m init`.cwd(scopedDir).nothrow().quiet();
           await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 2;\n");
-          await runFixtureGit(scopedDir, ["add", "src/foo.ts"]);
+          await $`git add src/foo.ts`.cwd(scopedDir).nothrow().quiet();
 
           const code = await runPreCommitGates(scopedDir);
 
@@ -304,9 +278,9 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
       async () => {
         await withClearedEnv(["KIMI_HOOK_SUMMARY"], async () => {
           const scopedDir = testTempDir("hook-scoped-fail-");
-          await runFixtureGit(scopedDir, ["init"]);
-          await runFixtureGit(scopedDir, ["config", "user.email", "test@example.com"]);
-          await runFixtureGit(scopedDir, ["config", "user.name", "Test"]);
+          await $`git init`.cwd(scopedDir).nothrow().quiet();
+          await $`git config user.email test@example.com`.cwd(scopedDir).nothrow().quiet();
+          await $`git config user.name Test`.cwd(scopedDir).nothrow().quiet();
           ensureTestDir(join(scopedDir, "src"));
           await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 1;\n");
           writeText(
@@ -321,12 +295,12 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
               },
             })
           );
-          await runFixtureGit(scopedDir, ["add", "-A"]);
-          await runFixtureGit(scopedDir, ["commit", "-m", "init"]);
+          await $`git add -A`.cwd(scopedDir).nothrow().quiet();
+          await $`git commit -m init`.cwd(scopedDir).nothrow().quiet();
 
           await writeScopedTestCache(scopedDir, ["src/foo.ts"], "main");
           await Bun.write(join(scopedDir, "src/other.ts"), "export const z = 3;\n");
-          await runFixtureGit(scopedDir, ["add", "src/other.ts"]);
+          await $`git add src/other.ts`.cwd(scopedDir).nothrow().quiet();
 
           // src/other.ts is not in scoped cache, so cache skip won't trigger.
           // bun test --changed=HEAD with 0 matching test files must skip (not fail).

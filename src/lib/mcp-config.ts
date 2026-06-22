@@ -22,7 +22,8 @@ import {
   type McpProbeSnapshot,
   validateDiscoveredTools,
 } from "./mcp-endpoints-metadata.ts";
-import { probeMcpServer } from "./mcp-probe.ts";
+import { probeMcpServerCached } from "./mcp-probe.ts";
+import { createHttpMcpClientFromServer, type HttpMcpClient } from "./mcp/sse.ts";
 
 export const UNIFIED_SHELL_SERVER = "unified-shell";
 export const UNIFIED_SHELL_TOOL = "mcp__unified-shell__execute";
@@ -357,7 +358,7 @@ export async function validateMcpConfig(
 
     if (options.probe && (entry.command || entry.url)) {
       const merged: McpServerDefinition = { ...(registered ?? { name }), ...entry };
-      const probe = await probeMcpServer(
+      const probe = await probeMcpServerCached(
         merged,
         entry.startupTimeoutMs ?? registered?.startupTimeoutMs
       );
@@ -563,11 +564,12 @@ export async function buildMcpCatalogReport(
   const catalog = buildBuiltinMcpCatalog(home);
   const { data: userMcp } = await readMcpJson(userMcpPath());
   const configured = userMcp?.mcpServers ?? {};
+  const registry = await loadMcpRegistry(home);
   const probes: McpProbeSnapshot[] = [];
 
   for (const meta of catalog) {
     const entry = configured[meta.serverName];
-    const def = (await loadMcpRegistry(home)).servers[meta.serverName];
+    const def = registry.servers[meta.serverName];
     const configuredFlag = !!entry;
     const enabled = entry ? entry.enabled !== false : meta.default;
     const envAvailable = def ? serverEnvAvailable(def) : true;
@@ -594,17 +596,21 @@ export async function buildMcpCatalogReport(
 
     const merged: McpServerDefinition = { ...(def ?? { name: meta.serverName }), ...entry };
     const started = Date.now();
-    const result = await probeMcpServer(merged, entry.startupTimeoutMs ?? def?.startupTimeoutMs);
+    const result = await probeMcpServerCached(
+      merged,
+      entry.startupTimeoutMs ?? def?.startupTimeoutMs
+    );
     const ms = Date.now() - started;
     probes.push({
       serverName: meta.serverName,
       ok: result.ok,
       ms,
       tools: result.tools ?? [],
-      error: result.error,
+      error: result.ok ? undefined : result.error,
       configured: true,
       enabled: true,
       envAvailable: true,
+      cached: result.cached,
     });
 
     if (result.ok && result.tools) {
@@ -685,4 +691,27 @@ export function applyMcpProfile(config: McpJson, profileName: string): McpJson {
     mcpServers[name] = { ...entry, enabled };
   }
   return { ...config, mcpServers };
+}
+
+/** Load an HTTP/SSE MCP client by merging registry + ~/.kimi-code/mcp.json. */
+export async function loadHttpMcpClientForServer(
+  serverName: string,
+  home: string = homeDir()
+): Promise<HttpMcpClient> {
+  const registry = await loadMcpRegistry(home);
+  const { data: userMcp } = await readMcpJson(userMcpPath());
+  const registered = registry.servers[serverName];
+  const configured = userMcp?.mcpServers?.[serverName];
+  if (!registered && !configured?.url && !configured?.command) {
+    throw new Error(`MCP server '${serverName}' not found in registry or ${userMcpPath()}`);
+  }
+  const merged: McpServerDefinition = {
+    ...(registered ?? { name: serverName }),
+    ...configured,
+    name: serverName,
+  };
+  if (!merged.url) {
+    throw new Error(`MCP server '${serverName}' is not an HTTP/SSE server (missing url)`);
+  }
+  return createHttpMcpClientFromServer(merged);
 }

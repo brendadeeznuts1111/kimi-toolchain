@@ -40,6 +40,7 @@ export interface McpRegistry {
 
 export const UNIFIED_SHELL_SERVER = "unified-shell";
 export const CLOUDFLARE_API_SERVER = "cloudflare-api";
+export const CLOUDFLARE_MCP_URL = "https://mcp.cloudflare.com/mcp";
 export const DASHBOARD_MCP_SERVER = "kimi-dashboard";
 export const BUN_DOCS_SERVER = "bun-docs";
 export const BUN_DOCS_MCP_URL = "https://bun.com/docs/mcp";
@@ -71,7 +72,7 @@ function builtinUnifiedShell(home: string): McpServerDefinition {
 function builtinCloudflareApi(): McpServerDefinition {
   return {
     name: CLOUDFLARE_API_SERVER,
-    url: "https://mcp.cloudflare.com/mcp",
+    url: CLOUDFLARE_MCP_URL,
     description: "Cloudflare API: search and execute against the full Cloudflare API via Code Mode",
     default: true,
     startupTimeoutMs: 30000,
