@@ -27,9 +27,9 @@ import {
   SessionNotFound,
   CsrfTokenInvalid,
   CsrfTokenExpired,
+  SecretPolicyViolation,
   type JwtError,
   type SessionError,
-  type CsrfError,
 } from "./errors.ts";
 import type {
   JwtPayload,
@@ -57,8 +57,11 @@ export interface IdentityService {
   readonly signToken: (
     claims: JwtPayload & { sub: string },
     config?: JwtConfig
-  ) => Effect.Effect<string, JwtMissingSecret>;
-  readonly verifyToken: (token: string, config?: JwtConfig) => Effect.Effect<VerifiedJwt, JwtError>;
+  ) => Effect.Effect<string, JwtMissingSecret | SecretPolicyViolation>;
+  readonly verifyToken: (
+    token: string,
+    config?: JwtConfig
+  ) => Effect.Effect<VerifiedJwt, JwtError | SecretPolicyViolation>;
   readonly decodeToken: (
     token: string
   ) => Effect.Effect<{ header: JwtHeader; claims: JwtClaims }, JwtInvalidFormat>;
@@ -82,11 +85,16 @@ export interface IdentityService {
   readonly clearSessionCookie: () => string;
 
   // ── CSRF ──
-  readonly generateCsrf: (sessionId: string) => Effect.Effect<string, JwtMissingSecret>;
+  readonly generateCsrf: (
+    sessionId: string
+  ) => Effect.Effect<string, JwtMissingSecret | SecretPolicyViolation>;
   readonly verifyCsrf: (
     token: string,
     sessionId: string
-  ) => Effect.Effect<void, JwtMissingSecret | CsrfTokenInvalid | CsrfTokenExpired>;
+  ) => Effect.Effect<
+    void,
+    JwtMissingSecret | SecretPolicyViolation | CsrfTokenInvalid | CsrfTokenExpired
+  >;
 
   // ── Password ──
   readonly hashPassword: (plain: string) => Effect.Effect<string>;
@@ -102,26 +110,40 @@ export class Identity extends Context.Tag("Identity")<Identity, IdentityService>
 function resolveJwtSecret(
   config: JwtConfig | undefined,
   secrets: SecretsService
-): Effect.Effect<string, JwtMissingSecret> {
+): Effect.Effect<string, JwtMissingSecret | SecretPolicyViolation> {
   if (config?.secret) return Effect.succeed(config.secret);
   return secrets.get(JWT_SECRET_KEY, IDENTITY_SERVICE_CONSUMER).pipe(
-    Effect.flatMap((val) =>
-      val === null
-        ? Effect.fail(new JwtMissingSecret({ service: IDENTITY_SERVICE_CONSUMER }))
-        : Effect.succeed(val)
+    Effect.flatMap(
+      (val): Effect.Effect<string, JwtMissingSecret> =>
+        val === null
+          ? Effect.fail(new JwtMissingSecret({ service: IDENTITY_SERVICE_CONSUMER }))
+          : Effect.succeed(val)
     ),
-    Effect.catchAll(() => Effect.fail(new JwtMissingSecret({ service: IDENTITY_SERVICE_CONSUMER })))
+    Effect.catchAll(
+      (err): Effect.Effect<never, JwtMissingSecret | SecretPolicyViolation> =>
+        err instanceof SecretPolicyViolation
+          ? Effect.fail(err)
+          : Effect.fail(new JwtMissingSecret({ service: IDENTITY_SERVICE_CONSUMER }))
+    )
   );
 }
 
-function resolveCsrfSecret(secrets: SecretsService): Effect.Effect<string, JwtMissingSecret> {
+function resolveCsrfSecret(
+  secrets: SecretsService
+): Effect.Effect<string, JwtMissingSecret | SecretPolicyViolation> {
   return secrets.get(CSRF_SECRET_KEY, IDENTITY_SERVICE_CONSUMER).pipe(
-    Effect.flatMap((val) =>
-      val === null
-        ? Effect.fail(new JwtMissingSecret({ service: IDENTITY_SERVICE_CONSUMER }))
-        : Effect.succeed(val)
+    Effect.flatMap(
+      (val): Effect.Effect<string, JwtMissingSecret> =>
+        val === null
+          ? Effect.fail(new JwtMissingSecret({ service: IDENTITY_SERVICE_CONSUMER }))
+          : Effect.succeed(val)
     ),
-    Effect.catchAll(() => Effect.fail(new JwtMissingSecret({ service: IDENTITY_SERVICE_CONSUMER })))
+    Effect.catchAll(
+      (err): Effect.Effect<never, JwtMissingSecret | SecretPolicyViolation> =>
+        err instanceof SecretPolicyViolation
+          ? Effect.fail(err)
+          : Effect.fail(new JwtMissingSecret({ service: IDENTITY_SERVICE_CONSUMER }))
+    )
   );
 }
 
@@ -153,7 +175,10 @@ export const IdentityLive = Layer.effect(
     const sessionStore = new SessionStore();
     let csrfManager: CsrfManager | null = null;
 
-    function getCsrfManager(): Effect.Effect<CsrfManager, JwtMissingSecret> {
+    function getCsrfManager(): Effect.Effect<
+      CsrfManager,
+      JwtMissingSecret | SecretPolicyViolation
+    > {
       if (csrfManager) return Effect.succeed(csrfManager);
       return resolveCsrfSecret(secrets).pipe(
         Effect.map((secret) => {

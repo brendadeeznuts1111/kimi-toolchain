@@ -11,7 +11,7 @@ import {
   SessionNotFound,
   SecretPolicyViolation,
 } from "../src/lib/effect/errors.ts";
-import { Secrets, SecretsTest } from "../src/lib/effect/secrets-service.ts";
+import { SecretsTest } from "../src/lib/effect/secrets-service.ts";
 import type { SecretsBackend } from "../src/lib/secrets-types.ts";
 import { removePath, testTempPath, writeText } from "./helpers.ts";
 
@@ -294,7 +294,9 @@ describe("identity-service > CSRF", () => {
       })
     );
     expect(Either.isLeft(result)).toBe(true);
-    expect((result as Either.Left<CsrfTokenInvalid, unknown>).left).toBeInstanceOf(CsrfTokenInvalid);
+    expect((result as Either.Left<CsrfTokenInvalid, unknown>).left).toBeInstanceOf(
+      CsrfTokenInvalid
+    );
   });
 
   test("verifyCsrf fails with garbage token", async () => {
@@ -305,7 +307,9 @@ describe("identity-service > CSRF", () => {
       })
     );
     expect(Either.isLeft(result)).toBe(true);
-    expect((result as Either.Left<CsrfTokenInvalid, unknown>).left).toBeInstanceOf(CsrfTokenInvalid);
+    expect((result as Either.Left<CsrfTokenInvalid, unknown>).left).toBeInstanceOf(
+      CsrfTokenInvalid
+    );
   });
 
   test("verifyCsrf fails with CsrfTokenExpired for expired token", async () => {
@@ -343,7 +347,9 @@ describe("identity-service > CSRF", () => {
       )
     );
     expect(Either.isLeft(result)).toBe(true);
-    expect((result as Either.Left<CsrfTokenExpired, unknown>).left).toBeInstanceOf(CsrfTokenExpired);
+    expect((result as Either.Left<CsrfTokenExpired, unknown>).left).toBeInstanceOf(
+      CsrfTokenExpired
+    );
   });
 });
 
@@ -378,27 +384,54 @@ const POLICY_PATH = new URL("../secrets-policy.json5", import.meta.url).pathname
 function makeBackend(store: Map<string, string>): SecretsBackend {
   return {
     get: async ({ service, name }) => store.get(`${service}:${name}`) ?? null,
-    set: async ({ service, name, value }) => { store.set(`${service}:${name}`, value); },
+    set: async ({ service, name, value }) => {
+      store.set(`${service}:${name}`, value);
+    },
     delete: async ({ service, name }) => store.delete(`${service}:${name}`),
   };
 }
 
 function runLive<A, E>(
   effect: Effect.Effect<A, E, Identity>,
-  backend: SecretsBackend
+  backend: SecretsBackend,
+  policyPath: string = POLICY_PATH
 ): Promise<A> {
-  const secretsLayer = SecretsTest(backend, { policyPath: POLICY_PATH });
+  const secretsLayer = SecretsTest(backend, { policyPath });
   const identityLayer = Layer.provide(IdentityLive, secretsLayer);
   return Effect.runPromise(Effect.provide(identityLayer)(effect));
 }
 
 function runLiveEither<A, E>(
   effect: Effect.Effect<A, E, Identity>,
-  backend: SecretsBackend
+  backend: SecretsBackend,
+  policyPath: string = POLICY_PATH
 ): Promise<Either.Either<A, E>> {
-  const secretsLayer = SecretsTest(backend, { policyPath: POLICY_PATH });
+  const secretsLayer = SecretsTest(backend, { policyPath });
   const identityLayer = Layer.provide(IdentityLive, secretsLayer);
   return Effect.runPromise(Effect.provide(identityLayer)(Effect.either(effect)));
+}
+
+function writeRestrictedPolicy(path: string): void {
+  writeText(
+    path,
+    JSON.stringify({
+      $schema: "v1",
+      "com.herdr.dashboard": {
+        "jwt-secret": {
+          allowedConsumers: ["herdr-server"],
+          rotationDays: 30,
+          lastRotated: null,
+          version: 1,
+        },
+        "csrf-secret": {
+          allowedConsumers: ["herdr-server"],
+          rotationDays: 30,
+          lastRotated: null,
+          version: 1,
+        },
+      },
+    })
+  );
 }
 
 describe("identity-service > IdentityLive integration", () => {
@@ -418,9 +451,7 @@ describe("identity-service > IdentityLive integration", () => {
   });
 
   test("signToken fails with JwtMissingSecret when jwt-secret is absent", async () => {
-    const store = new Map([
-      ["com.herdr.dashboard:csrf-secret", "live-csrf-secret"],
-    ]);
+    const store = new Map([["com.herdr.dashboard:csrf-secret", "live-csrf-secret"]]);
     const result = await runLiveEither(
       Effect.gen(function* () {
         const id = yield* Identity;
@@ -429,7 +460,9 @@ describe("identity-service > IdentityLive integration", () => {
       makeBackend(store)
     );
     expect(Either.isLeft(result)).toBe(true);
-    expect((result as Either.Left<JwtMissingSecret, unknown>).left).toBeInstanceOf(JwtMissingSecret);
+    expect((result as Either.Left<JwtMissingSecret, unknown>).left).toBeInstanceOf(
+      JwtMissingSecret
+    );
   });
 
   test("verifyToken round-trip through SecretsManager", async () => {
@@ -466,9 +499,7 @@ describe("identity-service > IdentityLive integration", () => {
   });
 
   test("generateCsrf fails with JwtMissingSecret when csrf-secret is absent", async () => {
-    const store = new Map([
-      ["com.herdr.dashboard:jwt-secret", "live-jwt-secret"],
-    ]);
+    const store = new Map([["com.herdr.dashboard:jwt-secret", "live-jwt-secret"]]);
     const result = await runLiveEither(
       Effect.gen(function* () {
         const id = yield* Identity;
@@ -477,7 +508,9 @@ describe("identity-service > IdentityLive integration", () => {
       makeBackend(store)
     );
     expect(Either.isLeft(result)).toBe(true);
-    expect((result as Either.Left<JwtMissingSecret, unknown>).left).toBeInstanceOf(JwtMissingSecret);
+    expect((result as Either.Left<JwtMissingSecret, unknown>).left).toBeInstanceOf(
+      JwtMissingSecret
+    );
   });
 
   test("verifyCsrf round-trip through SecretsManager", async () => {
@@ -509,6 +542,157 @@ describe("identity-service > IdentityLive integration", () => {
       makeBackend(store)
     );
     expect(Either.isLeft(result)).toBe(true);
-    expect((result as Either.Left<CsrfTokenInvalid, unknown>).left).toBeInstanceOf(CsrfTokenInvalid);
+    expect((result as Either.Left<CsrfTokenInvalid, unknown>).left).toBeInstanceOf(
+      CsrfTokenInvalid
+    );
+  });
+});
+
+// ── IdentityLive full auth flow tests ─────────────────────────────────
+
+describe("identity-service > IdentityLive full auth flow", () => {
+  const liveStore = new Map([
+    ["com.herdr.dashboard:jwt-secret", "live-jwt-secret"],
+    ["com.herdr.dashboard:csrf-secret", "live-csrf-secret"],
+  ]);
+
+  test("sign JWT → verify JWT → create session → generate CSRF → verify CSRF", async () => {
+    const result = await runLive(
+      Effect.gen(function* () {
+        const id = yield* Identity;
+        const token = yield* id.signToken({ sub: "user-42", role: "admin" });
+        const verified = yield* id.verifyToken(token);
+        const session = yield* id.createSession("user-42", { ip: "127.0.0.1" });
+        const csrf = yield* id.generateCsrf(session.id);
+        yield* id.verifyCsrf(csrf, session.id);
+        return { token, verified, session, csrf };
+      }),
+      makeBackend(liveStore)
+    );
+    expect(result.token.split(".")).toHaveLength(3);
+    expect(result.verified.claims.sub).toBe("user-42");
+    expect(result.verified.claims.role).toBe("admin");
+    expect(result.session.userId).toBe("user-42");
+    expect(result.session.metadata).toEqual({ ip: "127.0.0.1" });
+    expect(result.csrf.length).toBeGreaterThan(0);
+  });
+
+  test("session cookie round-trip via IdentityLive", async () => {
+    const result = await runLive(
+      Effect.gen(function* () {
+        const id = yield* Identity;
+        const session = yield* id.createSession("user-42");
+        const setCookie = id.sessionCookie(session.id);
+        const parsed = id.parseSessionCookie(setCookie);
+        return { setCookie, parsed };
+      }),
+      makeBackend(liveStore)
+    );
+    expect(result.setCookie).toContain("session=");
+    expect(result.setCookie).toContain("HttpOnly");
+    expect(result.parsed).toBe(result.setCookie.match(/session=([^;]+)/)?.[1] ?? null);
+  });
+
+  test("clear session cookie invalidates client cookie", async () => {
+    const cookie = await runLive(
+      Effect.gen(function* () {
+        const id = yield* Identity;
+        return id.clearSessionCookie();
+      }),
+      makeBackend(liveStore)
+    );
+    expect(cookie).toContain("Max-Age=0");
+    expect(cookie).toMatch(/session=;|session="";/);
+  });
+
+  test("CSRF verification survives session revocation", async () => {
+    const result = await runLiveEither(
+      Effect.gen(function* () {
+        const id = yield* Identity;
+        const session = yield* id.createSession("user-42");
+        const csrf = yield* id.generateCsrf(session.id);
+        yield* id.revokeSession(session.id);
+        // CSRF is stateless and bound only to sessionId; the session store is not consulted
+        // during verification. The token should still verify even after its session is revoked.
+        yield* id.verifyCsrf(csrf, session.id);
+      }),
+      makeBackend(liveStore)
+    );
+    // This assertion documents that CSRF verification is independent of the session store.
+    // A future coupling change that consults the session store during CSRF verify will be caught here.
+    expect(Either.isRight(result)).toBe(true);
+  });
+
+  test("max concurrent sessions evicts oldest sessions", async () => {
+    // Default maxSessionsPerUser is 5; creating 6 sessions should evict the first.
+    const result = await runLive(
+      Effect.gen(function* () {
+        const id = yield* Identity;
+        const sessions: string[] = [];
+        for (let i = 0; i < 6; i++) {
+          const session = yield* id.createSession("user-42");
+          sessions.push(session.id);
+        }
+        const oldest = sessions[0];
+        const retrieved = yield* id.getSession(oldest);
+        return { oldest, retrieved };
+      }),
+      makeBackend(liveStore)
+    );
+    expect(result.retrieved).toBeNull();
+  });
+});
+
+// ── IdentityLive policy violation tests ─────────────────────────────
+
+describe("identity-service > IdentityLive policy violations", () => {
+  test("signToken fails with SecretPolicyViolation when identity-service is denied for jwt-secret", async () => {
+    const policyPath = testTempPath("identity-secrets-policy");
+    writeRestrictedPolicy(policyPath);
+    try {
+      const store = new Map([
+        ["com.herdr.dashboard:jwt-secret", "live-jwt-secret"],
+        ["com.herdr.dashboard:csrf-secret", "live-csrf-secret"],
+      ]);
+      const result = await runLiveEither(
+        Effect.gen(function* () {
+          const id = yield* Identity;
+          return yield* id.signToken({ sub: "user-1" });
+        }),
+        makeBackend(store),
+        policyPath
+      );
+      expect(Either.isLeft(result)).toBe(true);
+      expect((result as Either.Left<SecretPolicyViolation, unknown>).left).toBeInstanceOf(
+        SecretPolicyViolation
+      );
+    } finally {
+      removePath(policyPath, { force: true });
+    }
+  });
+
+  test("generateCsrf fails with SecretPolicyViolation when identity-service is denied for csrf-secret", async () => {
+    const policyPath = testTempPath("identity-secrets-policy");
+    writeRestrictedPolicy(policyPath);
+    try {
+      const store = new Map([
+        ["com.herdr.dashboard:jwt-secret", "live-jwt-secret"],
+        ["com.herdr.dashboard:csrf-secret", "live-csrf-secret"],
+      ]);
+      const result = await runLiveEither(
+        Effect.gen(function* () {
+          const id = yield* Identity;
+          return yield* id.generateCsrf("session-1");
+        }),
+        makeBackend(store),
+        policyPath
+      );
+      expect(Either.isLeft(result)).toBe(true);
+      expect((result as Either.Left<SecretPolicyViolation, unknown>).left).toBeInstanceOf(
+        SecretPolicyViolation
+      );
+    } finally {
+      removePath(policyPath, { force: true });
+    }
   });
 });

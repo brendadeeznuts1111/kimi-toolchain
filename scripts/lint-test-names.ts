@@ -82,6 +82,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "examples-dashboard-canvas-filter": "examples/dashboard/src/handlers/canvas-cards.ts",
   "bun-test-handler": "examples/dashboard/src/handlers/bun-test.ts",
   "ci-pipeline": "src/lib/effect/ci-pipeline.ts",
+  "identity-service": "src/lib/effect/identity-service.ts",
   "ci-impact": "src/lib/ci-impact.ts",
   "agent-context-quality": "src/lib/agent-context-quality.ts",
   "kimi-dashboard-daemon": "src/bin/kimi-dashboard.ts",
