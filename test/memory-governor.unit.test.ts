@@ -1,6 +1,9 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import { join } from "path";
+import { cleanupPath, testTempDir } from "./helpers.ts";
 import {
   adaptiveCacheTTL,
+  captureMimallocStats,
   classifyPressure,
   forceGarbageCollection,
   isActuallyCritical,
@@ -87,5 +90,23 @@ describe("memory-governor", () => {
     expect(output).toContain("JSC Heap Size");
     expect(output).toContain("Pressure");
     expect(output).toContain("Actually Critical");
+  });
+
+  test("captureMimallocStats runs a script with MIMALLOC_SHOW_STATS=1", async () => {
+    const dir = testTempDir("memory-governor-mimalloc-");
+    const script = join(dir, "main.ts");
+    await Bun.write(script, "console.log('ok');");
+    try {
+      const { output, exitCode } = await captureMimallocStats(script, { timeout: 10_000 });
+      expect(exitCode).toBe(0);
+      // Mimalloc stats may not be available on all platforms/builds.
+      // When present, stderr contains the stats block; otherwise it is empty.
+      if (output.length > 0) {
+        expect(output).toContain("heap stats:");
+        expect(output).toContain("rss:");
+      }
+    } finally {
+      cleanupPath(dir);
+    }
   });
 });

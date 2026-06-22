@@ -8,7 +8,12 @@
  */
 
 import { heapStats } from "bun:jsc";
-import { formatMemoryBytes, inspectMemoryRuntime, processMemoryUsage } from "../bun-utils.ts";
+import {
+  formatMemoryBytes,
+  inspectMemoryRuntime,
+  processMemoryUsage,
+  readableStreamToText,
+} from "../bun-utils.ts";
 
 /** Memory pressure buckets. */
 export type MemoryPressure = "none" | "fair" | "serious" | "critical";
@@ -184,4 +189,45 @@ export function printMemoryTable(): void {
     { category: "Actually Critical", value: String(isActuallyCritical(snap)) },
   ];
   console.log(Bun.inspect.table(rows));
+}
+
+/** Options for {@link captureMimallocStats}. */
+export interface MimallocStatsOptions {
+  /** Extra arguments passed to the target script. */
+  args?: string[];
+  /** Working directory for the subprocess. */
+  cwd?: string;
+  /** Timeout in milliseconds. */
+  timeout?: number;
+}
+
+/**
+ * Run a Bun script with `MIMALLOC_SHOW_STATS=1` and return the mimalloc stats
+ * block printed to stderr on exit.
+ *
+ * @example
+ * const stats = await captureMimallocStats("scripts/runtime-info.ts");
+ * console.log(stats);
+ */
+export async function captureMimallocStats(
+  scriptPath: string,
+  options: MimallocStatsOptions = {}
+): Promise<{ output: string; exitCode: number | null }> {
+  const proc = Bun.spawn(["bun", scriptPath, ...(options.args ?? [])], {
+    env: { ...Bun.env, MIMALLOC_SHOW_STATS: "1" },
+    cwd: options.cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  if (options.timeout) {
+    setTimeout(() => proc.kill("SIGTERM"), options.timeout);
+  }
+
+  const [stderr, exitCode] = await Promise.all([
+    readableStreamToText(proc.stderr),
+    proc.exited.then((code) => code),
+  ]);
+
+  return { output: stderr, exitCode };
 }

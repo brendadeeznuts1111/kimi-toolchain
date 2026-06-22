@@ -23,9 +23,11 @@ registerEffectBenchmark({
   symbol: "kimi.effect.crypto",
   thresholdMs: 5,
   workload: () => {
-    Bun.SHA256.hash(BENCHMARK_PAYLOAD);
+    const hasher = new Bun.CryptoHasher("sha256");
+    hasher.update(BENCHMARK_PAYLOAD);
+    hasher.digest();
   },
-  sourceDescription: "Bun.SHA256.hash — one-liner",
+  sourceDescription: "Bun.CryptoHasher(sha256) — documented API",
 });
 
 for (const algo of ["sha3-224", "sha3-256", "sha3-384", "sha3-512"] as const) {

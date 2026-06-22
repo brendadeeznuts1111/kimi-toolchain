@@ -9,9 +9,20 @@ import {
   inspectBunRuntime,
   processMemoryUsage,
 } from "../src/lib/bun-utils.ts";
+import { captureMimallocStats } from "../src/lib/memory/governor.ts";
+
+function parseArg(name: string): string | undefined {
+  const prefix = `${name}=`;
+  const flagged = Bun.argv.find((a) => a.startsWith(prefix));
+  if (flagged) return flagged.slice(prefix.length);
+  const index = Bun.argv.indexOf(name);
+  if (index >= 0 && index + 1 < Bun.argv.length) return Bun.argv[index + 1];
+  return undefined;
+}
 
 const json = Bun.argv.includes("--json");
 const pretty = Bun.argv.includes("--pretty") || (!json && Bun.argv.length <= 2);
+const mimallocScript = parseArg("--mimalloc");
 
 interface PackageMeta {
   name?: string;
@@ -93,7 +104,20 @@ const payload = {
       }
     : undefined,
   packageManager: meta.packageManager,
+  mimalloc: undefined as
+    | { script: string; available: boolean; raw: string; exitCode: number | null }
+    | undefined,
 };
+
+if (mimallocScript) {
+  const stats = await captureMimallocStats(mimallocScript, { timeout: 30_000 });
+  payload.mimalloc = {
+    script: mimallocScript,
+    available: stats.output.length > 0,
+    raw: stats.output,
+    exitCode: stats.exitCode,
+  };
+}
 
 if (json) {
   console.log(JSON.stringify(payload, null, 2));
@@ -106,6 +130,16 @@ if (json) {
       processMemory,
     })
   );
+  if (payload.mimalloc) {
+    console.log("\n--- mimalloc stats ---");
+    if (payload.mimalloc.available) {
+      console.log(payload.mimalloc.raw);
+    } else {
+      console.log(
+        `(mimalloc stats unavailable for ${payload.mimalloc.script}; exitCode=${payload.mimalloc.exitCode})`
+      );
+    }
+  }
 } else {
   console.log(inspectBunRuntime());
 }
