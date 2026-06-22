@@ -18,6 +18,24 @@ allowed consumers, and secret names in this monorepo.
 
 ---
 
+## Scope: SecretsManager vs raw Bun.secrets
+
+`SecretsManager` builds on `Bun.secrets`, which is intended for local development
+tools and CLI applications. It adds policy enforcement, audit logging, and
+structured naming on top of the raw keychain API.
+
+| Use case | Use | Why |
+|---|---|---|
+| CLI tools, local dev scripts, one-off access | `Bun.secrets` directly | No policy overhead, simplest path |
+| Production services, anything with rotation requirements | `SecretsManager` | Policy enforcement, audit trail, consumer checks |
+| Effect-TS pipelines | `Secrets` context tag + `SecretsLive` layer | Dependency injection, testability |
+
+**Guideline:** Start with `Bun.secrets` for simple cases. Graduate to
+`SecretsManager` when you need audit trails, consumer restrictions, or rotation
+reminders. The `SecretsTest` layer makes migration painless.
+
+---
+
 ## Service Registry
 
 | Service Name | Constant | Purpose | Primary Consumers | Secret Names |
@@ -46,7 +64,7 @@ allowed consumers, and secret names in this monorepo.
 ## Naming Rules
 
 ### Service names
-- Format: `<top-level>.<org>.<component>[.<sub-component>]`
+- Format: `<top-level>.<org>.<component>[.<sub-component>]` (UTI / reverse-domain style, following [Bun's guidance](https://bun.com/docs/api/secrets) for `Bun.secrets` service naming)
 - Allowed top-levels: `com`, `org`, `io`, `net` — prefer `com`
 - **Never** include environment (`prod`, `dev`) or version (`v2`) in the service name
 - Use the `environments` field in `secrets-policy.json5` for per-env variations
