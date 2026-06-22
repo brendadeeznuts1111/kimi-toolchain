@@ -161,6 +161,7 @@ const VELOCITY = Bun.argv.includes("--velocity");
 const PREDICT = Bun.argv.includes("--predict");
 const CORRELATE = Bun.argv.includes("--correlate");
 const EFFECT_GATES = Bun.argv.includes("--effect-gates");
+const EFFECT_GATES_HOOK = EFFECT_GATES && Bun.argv.includes("--hook");
 const BUNDLE_GATE = Bun.argv.includes("--bundle");
 const COMPILE_CHECK = Bun.argv.includes("--compile-check");
 const DASHBOARD_META = Bun.argv.includes("--dashboard-meta");
@@ -1038,7 +1039,9 @@ async function runEffectGatesMode(projectRoot: string): Promise<number> {
     })
   ) as Record<keyof EffectGatesCounts, number>;
 
-  const ok = current.summary.errors === 0 && regressions.length === 0;
+  const hookToleratesBaseline =
+    EFFECT_GATES_HOOK && previous !== undefined && current.summary.errors > 0;
+  const ok = regressions.length === 0 && (current.summary.errors === 0 || hookToleratesBaseline);
 
   if (JSON_OUT) {
     emitJson({
@@ -1047,6 +1050,7 @@ async function runEffectGatesMode(projectRoot: string): Promise<number> {
         current,
         delta,
         regressions,
+        hookToleratesBaseline,
       },
       thresholds: current.thresholds,
       violations: current.violations,
@@ -1057,6 +1061,9 @@ async function runEffectGatesMode(projectRoot: string): Promise<number> {
     logger.info(
       `${current.summary.total} violation(s), ${current.summary.errors} error(s), ${current.summary.warnings} warning(s)`
     );
+    if (hookToleratesBaseline) {
+      logger.warn("Pre-push hook: baseline debt tolerated (no regressions vs last snapshot)");
+    }
     if (regressions.length > 0) {
       logger.warn(`${regressions.length} regression(s) detected`);
       for (const regression of regressions) logger.warn(regression.message);

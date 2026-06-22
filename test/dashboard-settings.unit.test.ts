@@ -97,34 +97,16 @@ port = 7777
     }
   });
 
-<<<<<<< HEAD
-  test("resolveDashboardSettings reports cardCount 78 for repo", async () => {
-||||||| parent of 89ff63f2 (fix(push): align tool registry, dashboard card counts, and format)
-  test("resolveDashboardSettings reports cardCount 77 for repo", async () => {
-=======
   test("resolveDashboardSettings reports cardCount 79 for repo", async () => {
->>>>>>> 89ff63f2 (fix(push): align tool registry, dashboard card counts, and format)
     const settings = await resolveDashboardSettings(REPO_ROOT, {
       requestUrl: new URL("http://127.0.0.1:5678/"),
     });
     expect(settings.schemaVersion).toBe(1);
     expect(settings.port).toBe(5678);
     expect(settings.dashboardUrl).toBe("http://127.0.0.1:5678/");
-<<<<<<< HEAD
-    expect(settings.cardCount).toBe(78);
-||||||| parent of 89ff63f2 (fix(push): align tool registry, dashboard card counts, and format)
-    expect(settings.cardCount).toBe(77);
-=======
     expect(settings.cardCount).toBe(79);
->>>>>>> 89ff63f2 (fix(push): align tool registry, dashboard card counts, and format)
     expect(settings.canvasLinkedCount).toBe(27);
-<<<<<<< HEAD
-    expect(settings.canvasOrphanCount).toBe(51);
-||||||| parent of 89ff63f2 (fix(push): align tool registry, dashboard card counts, and format)
-    expect(settings.canvasOrphanCount).toBe(50);
-=======
     expect(settings.canvasOrphanCount).toBe(52);
->>>>>>> 89ff63f2 (fix(push): align tool registry, dashboard card counts, and format)
     expect(settings.canonicalPort).toBe(5678);
     expect(settings.defaultCanvas).toBeNull();
     expect(settings.retentionMs["1"]).toBeGreaterThan(0);

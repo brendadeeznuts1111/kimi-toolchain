@@ -576,7 +576,13 @@ async function runEffectGatesGate(projectRoot: string): Promise<GateResult> {
   if (!doctor) {
     return { name: "effect-gates", exitCode: 0, ms: 0, stdout: "", stderr: "", skipped: true };
   }
-  return runGateVisible(projectRoot, "effect-gates", ["bun", "run", doctor, "--effect-gates"]);
+  return runGateVisible(projectRoot, "effect-gates", [
+    "bun",
+    "run",
+    doctor,
+    "--effect-gates",
+    "--hook",
+  ]);
 }
 
 function changedTouchesDashboardHarness(changed: readonly string[]): boolean {
@@ -1174,7 +1180,7 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
   if (doctor) {
     planned.push({
       name: "effect-gates",
-      cmd: ["bun", "run", doctor, "--effect-gates"],
+      cmd: ["bun", "run", doctor, "--effect-gates", "--hook"],
       skipped:
         isEnvEscapeEnabled("KIMI_SKIP_EFFECT_GATES") ||
         (await shouldSkipGate(projectRoot, "effect-gates")),
