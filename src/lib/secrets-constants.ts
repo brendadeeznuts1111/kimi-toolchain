@@ -61,6 +61,7 @@ export const SecretKeys = {
   CLOUDFLARE_ACCOUNT_ID: { service: Services.KIMI_TOOLCHAIN, name: "cloudflare-account-id" },
   CLOUDFLARE_API_TOKEN:  { service: Services.KIMI_TOOLCHAIN, name: "cloudflare-api-token" },
   GITHUB_TOKEN:          { service: Services.CLI,            name: "github-token" },
+  GITHUB_API_DOMAIN:     { service: Services.CLI,            name: "github-api-domain" },
   NPM_TOKEN:             { service: Services.CLI,            name: "npm-token" },
   BET365_API_KEY:        { service: Services.CLI,            name: "bet365-api-key" },
   CSRF_SECRET:           { service: Services.DASHBOARD,      name: "csrf-secret" },

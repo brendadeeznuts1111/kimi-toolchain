@@ -41,7 +41,7 @@ reminders. The `SecretsTest` layer makes migration painless.
 | Service Name | Constant | Purpose | Primary Consumers | Secret Names |
 |---|---|---|---|---|
 | `kimi-toolchain` | `Services.KIMI_TOOLCHAIN` | Cloudflare/infra credentials (legacy, pre-reverse-domain) | `kimi-cloudflare-access`, `kimi-doctor` | `cloudflare-account-id`, `cloudflare-api-token` |
-| `com.herdr.cli` | `Services.CLI` | CLI tools (`kimi-fix`, `kimi-doctor`, `kimi-guardian`, `kimi-secrets`) | `kimi-fix`, `kimi-doctor` | `github-token`, `npm-token`, `bet365-api-key` |
+| `com.herdr.cli` | `Services.CLI` | CLI tools (`kimi-fix`, `kimi-doctor`, `kimi-guardian`, `kimi-secrets`) | `kimi-fix`, `kimi-doctor` | `github-token`, `github-api-domain`, `npm-token`, `bet365-api-key` |
 | `com.herdr.dashboard` | `Services.DASHBOARD` | Main web dashboard, HTTP server, auth layer | `herdr-server`, `webhook:named`, `identity-service` | `csrf-secret`, `jwt-secret`, `master-key` |
 | `com.herdr.security` | `Services.SECURITY` | Security scanner and vulnerability pipeline | `bun-install` | `scanner-api-key` |
 

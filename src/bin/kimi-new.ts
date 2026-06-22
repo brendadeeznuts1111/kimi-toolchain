@@ -9,7 +9,7 @@ import { Effect } from "effect";
 import { makeDir, pathExists } from "../lib/bun-io.ts";
 import { join, resolve } from "path";
 import { $ } from "bun";
-import { bunVersion, isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
+import { bunVersion, isDirectRun, readableStreamToText, resolveGithubEnv } from "../lib/bun-utils.ts";
 import { toolsDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -25,6 +25,16 @@ function printHelp() {
   logger.info("");
   logger.info("Creates a new Bun project and runs kimi-fix:");
   logger.info("  mkdir <name> && bun init -y && kimi-fix .");
+  logger.info("");
+  logger.info("Flags:");
+  logger.info("  --force       Overwrite existing files");
+  logger.info("  --no-install  Skip installing node_modules & tasks");
+  logger.info("  --no-git      Don't initialize a git repository");
+  logger.info("  --open        Start & open in-browser after finish");
+  logger.info("");
+  logger.info("Env vars (resolved from Bun.secrets if absent):");
+  logger.info("  GITHUB_TOKEN         GitHub auth for private repos / rate limits");
+  logger.info("  GITHUB_API_DOMAIN    Custom GitHub enterprise / proxy domain");
 }
 
 function resolveParent(args: string[]): string {
@@ -118,7 +128,13 @@ async function runDoctor(parent: string): Promise<number> {
 
 async function runScaffold(args: string[]): Promise<number> {
   const dryRun = args.includes("--dry-run");
-  const filtered = args.filter((a) => a !== "--dry-run");
+  const force = args.includes("--force");
+  const noInstall = args.includes("--no-install");
+  const noGit = args.includes("--no-git");
+  const open = args.includes("--open");
+  const filtered = args.filter(
+    (a) => !a.startsWith("--")
+  );
 
   const name = filtered[0];
   if (!NAME_RE.test(name)) {
@@ -128,8 +144,8 @@ async function runScaffold(args: string[]): Promise<number> {
   const parent = resolveParent(filtered);
   const projectDir = join(parent, name);
 
-  if (pathExists(projectDir)) {
-    throw new CliError({ message: `Directory already exists: ${projectDir}` });
+  if (pathExists(projectDir) && !force) {
+    throw new CliError({ message: `Directory already exists: ${projectDir} (use --force to overwrite)` });
   }
 
   logger.section(`Creating ${name}`);
@@ -137,14 +153,21 @@ async function runScaffold(args: string[]): Promise<number> {
 
   if (dryRun) {
     logger.info(`  [dry-run] mkdir ${projectDir}`);
+    logger.info(`  [dry-run] resolveGithubEnv() — GITHUB_TOKEN from Bun.secrets`);
     logger.info(`  [dry-run] bun init -y (cwd=${projectDir})`);
     logger.info(`  [dry-run] kimi-fix ${projectDir}`);
+    if (open) logger.info(`  [dry-run] --open: would launch browser`);
     logger.info("Dry run complete. Remove --dry-run to create.");
     return 0;
   }
 
+  // Resolve GitHub credentials from Bun.secrets before spawning child processes
+  await resolveGithubEnv();
+
   makeDir(projectDir, { recursive: true });
-  await $`bun init -y`.cwd(projectDir).quiet();
+  const initArgs = ["init", "-y"]
+  if (noGit) initArgs.push("--no-git");
+  await $`bun ${initArgs}`.cwd(projectDir).quiet();
 
   const desktopFix = join(toolsDir(), "kimi-fix.ts");
   const fixScript = pathExists(desktopFix) ? desktopFix : join(import.meta.dir, "kimi-fix.ts");

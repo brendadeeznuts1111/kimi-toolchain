@@ -432,3 +432,41 @@ export const BUN_OS_HOSTNAME_DOC_URL = "https://bun.com/reference/node/os/hostna
 export function runtimeHostname(): string {
   return osHostname();
 }
+
+// ── GitHub env resolution from Bun.secrets ───────────────────────────
+
+/**
+ * Resolve `GITHUB_TOKEN` (and optional `GITHUB_API_DOMAIN`) from `Bun.secrets`
+ * and populate `process.env` so that `bun create` and other GitHub API calls
+ * can access private repos or avoid rate limits.
+ *
+ * - `GITHUB_TOKEN` is read from `com.herdr.cli/github-token`.
+ * - `GITHUB_API_DOMAIN` is read from `com.herdr.cli/github-api-domain` (optional).
+ * - Existing `process.env` values take precedence (env wins over keychain).
+ *
+ * @see https://bun.com/docs/guides/bun-create#environment-variables
+ */
+export async function resolveGithubEnv(): Promise<{
+  token: string | null;
+  apiDomain: string | null;
+}> {
+  const token =
+    process.env.GITHUB_TOKEN ??
+    process.env.GITHUB_ACCESS_TOKEN ??
+    (await Bun.secrets.get({ service: "com.herdr.cli", name: "github-token" })) ??
+    null;
+
+  const apiDomain =
+    process.env.GITHUB_API_DOMAIN ??
+    (await Bun.secrets.get({ service: "com.herdr.cli", name: "github-api-domain" })) ??
+    null;
+
+  if (token && !process.env.GITHUB_TOKEN) {
+    process.env.GITHUB_TOKEN = token;
+  }
+  if (apiDomain && !process.env.GITHUB_API_DOMAIN) {
+    process.env.GITHUB_API_DOMAIN = apiDomain;
+  }
+
+  return { token, apiDomain };
+}
