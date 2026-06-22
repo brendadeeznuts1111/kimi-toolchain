@@ -357,8 +357,11 @@ export async function dedupInflight<T>(
 }
 
 /** Terminal display width (Bun.stringWidth). */
-export function terminalWidth(text: string, countAnsi = false): number {
-  return Bun.stringWidth(text, countAnsi ? { countAnsiEscapeCodes: true } : undefined);
+export function terminalWidth(
+  text: string,
+  options: { countAnsiEscapeCodes?: boolean; ambiguousIsNarrow?: boolean } = {}
+): number {
+  return Bun.stringWidth(text, options);
 }
 
 /** HTML escape (Bun.escapeHTML). */

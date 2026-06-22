@@ -16,7 +16,7 @@ describe("effect-gates", () => {
   let tmpDir: string;
 
   beforeEach(async () => {
-    tmpDir = await Bun.fileURLToPath(
+    tmpDir = Bun.fileURLToPath(
       new URL(
         `./effect-gates-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         "file:///tmp/"
