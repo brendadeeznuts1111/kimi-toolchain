@@ -1677,6 +1677,7 @@ function comparePolicyStatus(
   current: string | null
 ): BunInstallPolicyStatus {
   if (current == null) {
+    if (!def.requireExplicit && def.officialDefault === def.hardenedDefault) return "ok";
     return def.requireExplicit ? "missing" : "weaker";
   }
   if (current === def.hardenedDefault) return "ok";
